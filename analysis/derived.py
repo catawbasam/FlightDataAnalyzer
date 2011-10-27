@@ -12,6 +12,9 @@ RATE_OF_TURN = ""
 SAT = "SAT"
 TAT = "TAT"
 
+# KPV Names
+MAX_MACH_CRUISE = "Max Mach Cruise"
+
 # KTI Names
 TOP_OF_CLIMB = "Top of Climb"
 TOP_OF_DESCENT = "Top of Descent"
@@ -20,8 +23,7 @@ TAKEOFF_END = ""
 LANDING_START = ""
 LANDING_END = ""
 
-### KPV Names
-##MAX_MACH_CRUISE = "Max Mach Cruise"
+
 
 # Aircraft States
 AIRBORNE = "Airborne"
@@ -158,39 +160,39 @@ class NewKPV(KeyPointValueNode):
     pass
     
     
-#-------------------------------------------------------------------------------
-# Derived Parameters
-# ==================
+###-------------------------------------------------------------------------------
+### Derived Parameters
+### ==================
 
 
         
-class Sat(DerivedParameterNode):
-    dependencies = [TAT, ALTITUDE_STD]
+##class Sat(DerivedParameterNode):
+    ##dependencies = [TAT, ALTITUDE_STD]
     
-    def derive(self, params):
-        return sum([params.TAT.value,])
+    ##def derive(self, params):
+        ##return sum([params.TAT.value,])
     
 
-class Mach(DerivedParameterNode):
-    dependencies = [AIRSPEED, SAT, TAT, ALTITUDE_STD]
+##class Mach(DerivedParameterNode):
+    ##dependencies = [AIRSPEED, SAT, TAT, ALTITUDE_STD]
     
-    def can_operate(self, available):
-        if AIRSPEED in available and (SAT in available or TAT in available):
-            return True
-        else:
-            return False
+    ##def can_operate(self, available):
+        ##if AIRSPEED in available and (SAT in available or TAT in available):
+            ##return True
+        ##else:
+            ##return False
         
-    def derive(self, params):
-        return 12
+    ##def derive(self, params):
+        ##return 12
         
-#-------------------------------------------------------------------------------
-# Key Point Values
-# ================
+###-------------------------------------------------------------------------------
+### Key Point Values
+### ================
     
-class MaxMachCruise(KeyPointValueNode):
-    dependencies = [MACH, ALTITUDE_STD]
+##class MaxMachCruise(KeyPointValueNode):
+    ##dependencies = [MACH, ALTITUDE_STD]
     
-    def derive(self, params):
-        return max(params[MACH][PHASE_CRUISE])
+    ##def derive(self, params):
+        ##return max(params[MACH][PHASE_CRUISE])
 
 
