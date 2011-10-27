@@ -1,12 +1,34 @@
+from collections import namedtuple
+from itertools import product
+
+KeyPointValue = namedtuple('KeyPointValue', 'index value name')
+
 # Parameter Names
-ALT = "Pressure Altitude"
-IAS = "Indicated Airspeed"
+ALTITUDE_STD = "Pressure Altitude"
+ALTITUDE_STD_SMOOTHED = "Pressure Altitude Smoothed"
+AIRSPEED = "Indicated Airspeed"
 MACH = "MACH"
+RATE_OF_TURN = ""
 SAT = "SAT"
 TAT = "TAT"
 
-# KPV Names
-MAX_MACH_CRUISE = "Max Mach Cruise"
+# KTI Names
+TOP_OF_CLIMB = "Top of Climb"
+TOP_OF_DESCENT = "Top of Descent"
+TAKEOFF_START = ""
+TAKEOFF_END = ""
+LANDING_START = ""
+LANDING_END = ""
+
+### KPV Names
+##MAX_MACH_CRUISE = "Max Mach Cruise"
+
+# Aircraft States
+AIRBORNE = "Airborne"
+TURNING = "Turning"
+LEVEL_FLIGHT = "Level Flight"
+CLIMBING = "Climbing"
+DESCENDING = "Descending"
 
 # Flight Phases
 PHASE_ENGINE_RUN_UP = slice(1)
@@ -20,11 +42,23 @@ PHASE_TAXI_IN = slice(1)
 #-------------------------------------------------------------------------------
 # Abstract Classes
 # ================
-class Derived(object):
+from abc import ABCMeta, abstractmethod
+import re
+
+# Ref: django/db/models/options.py:20
+# Calculate the verbose_name by converting from InitialCaps to "lowercase with spaces".
+get_verbose_name = lambda class_name: re.sub('(((?<=[a-z])[A-Z])|([A-Z](?![A-Z]|$)))', ' \\1', class_name).lower().strip()
+
+class Node(object):
+    __metaclass__ = ABCMeta
+    
     dependencies = []
-    def __init__(self, name):
-        self.name = name
+    returns = []  
         
+    @property
+    def name(self):
+        return get_verbose_name(self.__class__.__name__)
+    
     def can_operate(self, available):
         # default is a complete match
         if sorted(available) == sorted(self.dependencies):
@@ -32,24 +66,116 @@ class Derived(object):
         else:
             return False
         
+    @abstractmethod
     def derive(self, params):
+        """
+        returns namedtuple or list of namedtuples KeyPointValue,
+        KeyTimeInstance or numpy.ma masked_aray
+        """
         raise NotImplementedError("Abstract Method")
+    
+    
+class DerivedParameterNode(Node):
+    pass
+
+
+class FlightPhaseNode(Node):
+    pass
+    
+    
+class KeyPointValueNode(Node):
+    """
+    NAME_FORMAT example: 
+    
+    RETURN_OPTIONS example:
+    {'
+    """
+    NAME_FORMAT = ""
+    RETURN_OPTIONS = {}
+    
+    def kpv_names(self):
+        """        
+        :returns: The product of all RETURN_OPTIONS name combinations
+        :rtype: list
+        """
+        # cache option below disabled until required.
+        ##if hasattr(self, 'names'):
+            ##return self.names
+        names = []
+        for a in product(*self.RETURN_OPTIONS.values()): 
+            name = self.NAME_FORMAT % dict(zip(self.RETURN_OPTIONS.keys(), a))
+            names.append(name)
+        ##self.names = names  #cache
+        return names
+    
+    
+    def _validate_name(self, name):
+        """
+        Raises ValueError if replace_values are not allowed in RETURN_OPTIONS
+        permissive values.
+        
+        Q: Possibly should validate that the formatted value is in list of
+        formatted values as this will then allow for small differnces which
+        the formatting may disregard. e.g. 0.001 in %d == 0
+        """
+        if name in self.kpv_names():
+            return True
+        else:
+            raise ValueError("invalid KPV name '%s'" % name)
+        
+        ##for key, value in replace_values.iteritems():
+            ##allowed = self.RETURN_OPTIONS[key]
+            ##is_iterable = isinstance(allowed, (list, tuple))
+            ##if value == allowed or (is_iterable and value in allowed):
+                ##continue  # all good, check next option
+            ##else:
+                ##raise ValueError("invalid value '%s' for key %s" % (value, key))
+        ##return True
+
+    def create_kpv(self, index, value, replace_values={}, **kwargs):
+        """
+        Formats FORMAT_NAME with interpolation values and returns a KPV object
+        with index and value
+        
+        Notes:
+        Raises KeyError if required interpolation/replace value not provided.
+        Raises TypeError if interpolation value is of wrong type.
+        Interpolation values not in FORMAT_NAME are ignored.
+        """
+        rvals = replace_values.copy()  # avoid re-using static type
+        rvals.update(kwargs)
+        name = self.NAME_FORMAT % rvals
+        # validate name is allowed
+        self._validate_name(name)
+        return KeyPointValue(index, value, name)
+    
+    ##def get_extra_info(self):
+        ##return 'bonus_info_surrounding_event' #???
+
+
+
+class NewKPV(KeyPointValueNode):
+    pass
+    
     
 #-------------------------------------------------------------------------------
 # Derived Parameters
 # ==================
-class Sat(Derived):
-    dependencies = [TAT, ALT]
+
+
+        
+class Sat(DerivedParameterNode):
+    dependencies = [TAT, ALTITUDE_STD]
     
     def derive(self, params):
         return sum([params.TAT.value,])
     
 
-class Mach(Derived):
-    dependencies = [IAS, SAT, TAT, ALT]
+class Mach(DerivedParameterNode):
+    dependencies = [AIRSPEED, SAT, TAT, ALTITUDE_STD]
     
     def can_operate(self, available):
-        if IAS in available and (SAT in available or TAT in available):
+        if AIRSPEED in available and (SAT in available or TAT in available):
             return True
         else:
             return False
@@ -61,106 +187,10 @@ class Mach(Derived):
 # Key Point Values
 # ================
     
-class MaxMachCruise(Derived):
-    dependencies = [MACH]
+class MaxMachCruise(KeyPointValueNode):
+    dependencies = [MACH, ALTITUDE_STD]
     
     def derive(self, params):
         return max(params[MACH][PHASE_CRUISE])
 
-#-------------------------------------------------------------------------------
-# Dependency Tree
-# ===============
-def ordered_set(alist):
-    """
-    Creates an ordered set from a list of tuples or other hashable items
-    TODO: Move to library
-    """
-    mmap = {} # implements hashed lookup
-    oset = [] # storage for set
-    for item in alist:
-        #Save unique items in input order
-        if item not in mmap:
-            mmap[item] = 1
-            oset.append(item)
-    return oset
 
-def dependency_tree(nodes, app):
-    """ Returns a Graph Breadth First Search across a tree of dependencies
-    ref: http://en.wikipedia.org/wiki/Breadth-first_search
-    
-    @param nodes: [obj, obj]
-    @param app: []
-    """
-    node_list = []
-    def traverse_tree(app):
-        if isinstance(app, str):
-            # recorded raw parameter
-            return True #end of this branch
-        elif not app.dependencies:
-            # derived param without children. end of this branch
-            if app.recorded():
-                return True
-            else:
-                return False
-        #print [node['name'] for node in app['parents']]
-        for node_name in app.dependencies:
-            node_list.append(node_name)
-        dependencies_available = []
-        for node_name in app.dependencies:
-            try:
-                node = nodes[node_name]
-            except KeyError:
-                # node unavailable
-                continue
-            active = traverse_tree(node)
-            if active:
-                dependencies_available.append(node_name)
-            else:
-                continue
-        if app.can_operate(dependencies_available):
-            return True
-        else:
-            return False
-    traverse_tree(app)
-    return ordered_set(reversed(node_list)) #REVERSE?
-
-#-------------------------------------------------------------------------------
-
-
-
-# Instantiate
-# ===========    
-nodes = {
-    SAT : Sat(SAT),
-    MACH : Mach(MACH),
-    MAX_MACH_CRUISE : MaxMachCruise(MAX_MACH_CRUISE),
-    }
-
-# raw parameters recorded on this frame
-recorded_params = (TAT, IAS, ALT)
-for param_name in recorded_params:
-    nodes[param_name] = param_name ##type(param_name, (object,), {})
-    
-# what we need at the end
-app = Derived('TOP_NODE')
-app.dependencies = (MAX_MACH_CRUISE, )
-# result
-process_order = dependency_tree(nodes, app)
-
-assert len(process_order) == 6
-# assert dependencies are met
-assert process_order.index(TAT) < process_order.index(SAT)
-assert process_order.index(ALT) < process_order.index(SAT)
-assert process_order == [ALT, TAT, SAT, IAS, MACH, MAX_MACH_CRUISE]
-
-# check we can still process MACH without SAT (uses TAT only)
-##del nodes[SAT]
-##process_order = dependency_tree(nodes, app)
-##assert process_order == [ALT, IAS, TAT, MACH, MAX_MACH_CRUISE]
-
-# without IAS, nothing can work
-del nodes[IAS]
-process_order = dependency_tree(nodes, app)
-assert process_order == []
-
-print "finished tests!"
