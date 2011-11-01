@@ -3,9 +3,12 @@ try:
 except ImportError:
     import unittest
 
-from analysis.dependencies import (ordered_set, dependencies, dependencies2, 
+from analysis.derived import Node
+from analysis.dependencies import (ordered_set, dependencies, dependencies2, dependencies3,
                                    dependency_tree)
 
+# mock function
+f = lambda x: x
 
 @unittest.skip("Dependency is now superceeded by Dependency2!")
 class TestDependency(unittest.TestCase):
@@ -29,13 +32,8 @@ class TestDependency(unittest.TestCase):
 
 
 class TestDependency2(unittest.TestCase):
-    def setUp(self):
-        pass
-    
-    def tearDown(self):
-        pass
-    
-    def test_basic_dependency(self):
+
+    def test_basic_dependency_old(self):
         R1 = {'name':'Raw1', 'parents':[]}
         R2 = {'name':'Raw2', 'parents':[]}
         R3 = {'name':'Raw3', 'parents':[]}
@@ -110,8 +108,76 @@ class TestDependency2(unittest.TestCase):
         # Results from dependency:
         #new_dep2 = ['Indicated Airspeed', 'TAT', 'Raw1', 'P4', 'SAT', 'Pressure Altitude', 'True Airspeed', 'Heading', 'Latitude', 'Longitude', 'Smoothed Track', 'Longitudinal g', 'Lateral g', 'Normal g', 'Pitch', 'Roll', 'Vertical g', 'Radio Altimeter', 'Height above Ground', 'Moment of Takeoff', 'Vertical Speed', 'Horizontal g across track', 'Heading Rate', 'Horizontal g along track', 'Groundspeed', 'Smoothed Groundspeed', 'Slip on Runway', 'dj_example']
         #old_dep = ['Roll', 'Pitch', 'Normal g', 'Lateral g', 'Longitudinal g', 'Groundspeed', 'Horizontal g along track', 'Heading', 'Smoothed Groundspeed', 'Heading Rate', 'Horizontal g across track', 'Vertical g', 'Pressure Altitude', 'Radio Altimeter', 'Height above Ground', 'Raw2', 'Raw1', 'P4', 'Indicated Airspeed', 'TAT', 'SAT', 'Longitude', 'Latitude', 'True Airspeed', 'Slip on Runway', 'Vertical Speed', 'Moment of Takeoff', 'Smoothed Track']
+        
+        
+class TestDependency3(unittest.TestCase):
 
+    def test_raw_params_not_available_on_lfl(self):
+        self.assertTrue(False)
     
+    def test_basic_dependency(self):
+        ##R1 = type('Raw1', (Node,), {})
+        ##R2 = type('Raw2', (Node,), {})
+        ##R3 = type('Raw3', (Node,), {})
+        P4 = type('P4', (Node,), dict(derive=f, dependencies=['Raw1', 'Raw2']))
+        P5 = type('P5', (Node,), dict(derive=f, dependencies=['Raw3']))
+        P6 = type('P6', (Node,), dict(derive=f))
+        P7 = type('P7', (Node,), dict(derive=f, dependencies=[P4, P5, P6]))
+        
+        # don't instantiate them - it's not required until later!
+        app = type('SmallApp', (Node,), dict(derive=f, dependencies=[P7]))
+        lfl_param_names = ['Raw1', 'Raw2', 'Raw3']
+        
+        process_order = dependencies3(app, lfl_param_names)
+        self.assertEqual(process_order,
+                         ['Raw1', 'Raw2', 'P4', 'Raw3', 'P5', 'P6', 'P7', 'Small App'])
+                
+    def test_missing_dependency_breaks_tree(self):
+        """ Inactive param traverses up tree to root
+        """
+        P4 = type('P4', (Node,), dict(derive=f, dependencies=['Raw1', 'Raw2']))
+        app = type('BrokenApp', (Node,), dict(derive=f, dependencies=[P4]))
+        
+        lfl_params = ['Raw1']
+        self.assertEqual(dependencies3(app, lfl_params), [])
+
+    def test_missing_optional_accepted(self):
+        """ Inactive param is optional so doesn't break the tree
+        """
+        P4 = type('P4', (Node,), dict(derive=f, dependencies=['Raw1', 'Raw2']))
+        any_available = lambda s, avail: any([y in ['Raw1', 'Raw2'] for y in avail])
+        app = type('OptionalApp', (Node,), dict(derive=f, dependencies=[P4], 
+                                                can_operate=any_available))
+        # only one dep available
+        lfl_params = ['Raw1']
+        process_order = dependencies3(app, lfl_params)
+        self.assertEqual(process_order, ['Raw1', 'P4', 'Optional App'])
+        
+        
+        
+        
+
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
         
         
 # Parameter Names

@@ -1,55 +1,63 @@
+#TODO: Rename derived.py to something like base.py or abstract.py
+ 
+ 
+import re
+
+from abc import ABCMeta, abstractmethod
 from collections import namedtuple
 from itertools import product
 
+# Define named tuples for KPV and KTI and FlightPhase
 KeyPointValue = namedtuple('KeyPointValue', 'index value name')
-
-# Parameter Names
-ALTITUDE_STD = "Pressure Altitude"
-ALTITUDE_STD_SMOOTHED = "Pressure Altitude Smoothed"
-AIRSPEED = "Indicated Airspeed"
-MACH = "MACH"
-RATE_OF_TURN = ""
-SAT = "SAT"
-TAT = "TAT"
-
-# KPV Names
-MAX_MACH_CRUISE = "Max Mach Cruise"
-
-# KTI Names
-TOP_OF_CLIMB = "Top of Climb"
-TOP_OF_DESCENT = "Top of Descent"
-TAKEOFF_START = ""
-TAKEOFF_END = ""
-LANDING_START = ""
-LANDING_END = ""
-
-
-
-# Aircraft States
-AIRBORNE = "Airborne"
-TURNING = "Turning"
-LEVEL_FLIGHT = "Level Flight"
-CLIMBING = "Climbing"
-DESCENDING = "Descending"
-
-# Flight Phases
-PHASE_ENGINE_RUN_UP = slice(1)
-PHASE_TAXI_OUT = slice(1)
-PHASE_CLIMB = slice(1)
-PHASE_CRUISE = slice(1)
-PHASE_APPROACH = slice(1)
-PHASE_DESCENT = slice(1)
-PHASE_TAXI_IN = slice(1)
-
-#-------------------------------------------------------------------------------
-# Abstract Classes
-# ================
-from abc import ABCMeta, abstractmethod
-import re
+KeyTimeInstance = namedtuple('KeyTimeInstance', 'index state')
+FlightPhase = namedtuple('FlightPhase', 'mask') #Q: rename mask -> slice
 
 # Ref: django/db/models/options.py:20
 # Calculate the verbose_name by converting from InitialCaps to "lowercase with spaces".
 get_verbose_name = lambda class_name: re.sub('(((?<=[a-z])[A-Z])|([A-Z](?![A-Z]|$)))', ' \\1', class_name).lower().strip()
+
+
+### Parameter Names
+##ALTITUDE_STD = "Pressure Altitude"
+##ALTITUDE_STD_SMOOTHED = "Pressure Altitude Smoothed"
+##AIRSPEED = "Indicated Airspeed"
+##MACH = "MACH"
+##RATE_OF_TURN = ""
+##SAT = "SAT"
+##TAT = "TAT"
+
+### KPV Names
+##MAX_MACH_CRUISE = "Max Mach Cruise"
+
+### KTI Names
+##TOP_OF_CLIMB = "Top of Climb"
+##TOP_OF_DESCENT = "Top of Descent"
+##TAKEOFF_START = ""
+##TAKEOFF_END = ""
+##LANDING_START = ""
+##LANDING_END = ""
+
+
+
+### Aircraft States
+##AIRBORNE = "Airborne"
+##TURNING = "Turning"
+##LEVEL_FLIGHT = "Level Flight"
+##CLIMBING = "Climbing"
+##DESCENDING = "Descending"
+
+### Flight Phases
+##PHASE_ENGINE_RUN_UP = slice(1)
+##PHASE_TAXI_OUT = slice(1)
+##PHASE_CLIMB = slice(1)
+##PHASE_CRUISE = slice(1)
+##PHASE_APPROACH = slice(1)
+##PHASE_DESCENT = slice(1)
+##PHASE_TAXI_IN = slice(1)
+
+#-------------------------------------------------------------------------------
+# Abstract Classes
+# ================
 
 class Node(object):
     __metaclass__ = ABCMeta
@@ -57,13 +65,29 @@ class Node(object):
     dependencies = []
     returns = []  
         
-    @property
-    def name(self):
-        return get_verbose_name(self.__class__.__name__)
+    @classmethod ##@property
+    def name(cls):
+        """ class MyNode -> 'my node'
+        """
+        return get_verbose_name(cls.__name__) ##.title()
+    
+    @classmethod
+    def get_dependency_names(cls):
+        return [x if isinstance(x, str) else x.name() for x in cls.dependencies]
     
     def can_operate(self, available):
-        # default is a complete match
-        if sorted(available) == sorted(self.dependencies):
+        """
+        Compares the string names of all dependencies against those available.
+        
+        Returns true if dependencies is a subset of available. For more
+        specific operational requirements, override appropriately.
+        
+        
+        :param available: Available parameters from the dependency tree
+        :type available: list of strings
+        """
+        # ensure all names are strings
+        if all([x in available for x in self.get_dependency_names()]):
             return True
         else:
             return False
@@ -77,6 +101,7 @@ class Node(object):
         raise NotImplementedError("Abstract Method")
     
     
+    
 class DerivedParameterNode(Node):
     pass
 
@@ -88,9 +113,11 @@ class FlightPhaseNode(Node):
 class KeyPointValueNode(Node):
     """
     NAME_FORMAT example: 
-    
+    'Speed in %(phase)s at %(altitude)d ft'
+
     RETURN_OPTIONS example:
-    {'
+    {'phase'    : ['ascent', 'descent'],
+     'altitude' : [1000,1500],}
     """
     NAME_FORMAT = ""
     RETURN_OPTIONS = {}
@@ -137,7 +164,7 @@ class KeyPointValueNode(Node):
     def create_kpv(self, index, value, replace_values={}, **kwargs):
         """
         Formats FORMAT_NAME with interpolation values and returns a KPV object
-        with index and value
+        with index and value.
         
         Notes:
         Raises KeyError if required interpolation/replace value not provided.
@@ -151,48 +178,8 @@ class KeyPointValueNode(Node):
         self._validate_name(name)
         return KeyPointValue(index, value, name)
     
-    ##def get_extra_info(self):
-        ##return 'bonus_info_surrounding_event' #???
 
 
 
-class NewKPV(KeyPointValueNode):
-    pass
     
-    
-###-------------------------------------------------------------------------------
-### Derived Parameters
-### ==================
-
-
-        
-##class Sat(DerivedParameterNode):
-    ##dependencies = [TAT, ALTITUDE_STD]
-    
-    ##def derive(self, params):
-        ##return sum([params.TAT.value,])
-    
-
-##class Mach(DerivedParameterNode):
-    ##dependencies = [AIRSPEED, SAT, TAT, ALTITUDE_STD]
-    
-    ##def can_operate(self, available):
-        ##if AIRSPEED in available and (SAT in available or TAT in available):
-            ##return True
-        ##else:
-            ##return False
-        
-    ##def derive(self, params):
-        ##return 12
-        
-###-------------------------------------------------------------------------------
-### Key Point Values
-### ================
-    
-##class MaxMachCruise(KeyPointValueNode):
-    ##dependencies = [MACH, ALTITUDE_STD]
-    
-    ##def derive(self, params):
-        ##return max(params[MACH][PHASE_CRUISE])
-
-
+ 

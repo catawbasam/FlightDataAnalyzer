@@ -3,13 +3,68 @@ try:
 except ImportError:
     import unittest
 
-from analysis.derived import KeyPointValue, KeyPointValueNode
+from random import shuffle
+
+from analysis.derived import DerivedParameterNode, KeyPointValue, KeyPointValueNode, Node
 
 class TestAbstractNode(unittest.TestCase):
     
     def test_node(self):
         pass
     
+class TestNode(unittest.TestCase):
+    
+    def test_name(self):
+        """ Splits on CamelCase and title cases
+        """
+        NewNode = type('Camel4CaseName', (Node,), dict(derive=lambda x:x))
+        node = NewNode()
+        self.assertEqual(node.name(), 'camel4 case name')
+        
+    def test_get_dependency_names(self):
+        """ Check class names or strings return strings
+        """            
+        class RateOfClimb(DerivedParameterNode):
+            def derive(self):
+                pass
+        
+        class RateOfDescentHigh(KeyPointValueNode):
+            dependencies = ['rate of descent', RateOfClimb]
+            # Minimum period of a descent for testing against thresholds (reduces number of KPVs computed in turbulence)
+            DESCENT_MIN_DURATION = 10
+            
+            def derive(self):
+                pass
+            
+        rodh = RateOfDescentHigh()
+        self.assertEqual(rodh.get_dependency_names(), 
+                         ['rate of descent', 'rate of climb'])
+        
+    
+    
+        
+    def test_can_operate(self):
+        deps = ['a', 'b', 'c']
+        NewNode = type('NewNode', (Node,), dict(derive=lambda x:x, dependencies=deps))
+        node = NewNode()
+        self.assertTrue(node.can_operate(deps))
+        extra_deps = deps + ['d', 'e', 'f']
+        self.assertTrue(node.can_operate(extra_deps))
+        # shuffle them about
+        shuffle(extra_deps)
+        self.assertTrue(node.can_operate(extra_deps))
+        shuffle(extra_deps)
+        self.assertTrue(node.can_operate(extra_deps))
+        not_enough_deps = ['b', 'c']
+        self.assertFalse(node.can_operate(not_enough_deps))
+        
+    def test_can_operate_with_objects_and_string_dependencies(self):
+        Parent = type('Parent', (Node,), dict(derive=lambda x:x, dependencies=['a']))
+        parent = Parent()
+        NewNode = type('NewNode', (Node,), dict(derive=lambda x:x, dependencies=['b', Parent]))
+        node = NewNode()        
+        available = ['a', 'Parent', 'b']
+        self.assertTrue(node.can_operate(available))
 
 class TestKeyPointValueNode(unittest.TestCase):
     

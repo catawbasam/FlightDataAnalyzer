@@ -30,3 +30,8 @@ FLIGHT_WORTH_ANALYSING_SEC = 200 # planned to use 300 but 200 for test
 
 # Minimum airspeed for flight
 AIRSPEED_THRESHOLD = 80
+
+
+
+# HACK
+DESCENT_MIN_DURATION = 50

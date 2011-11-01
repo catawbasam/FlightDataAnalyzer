@@ -1,4 +1,10 @@
 import pygraphviz as pgv  # sudo apt-get install graphviz libgraphviz-dev
+from pygraph.classes.graph import graph # pip install python-graph-dot
+from pygraph.readwrite import dot
+
+
+
+
 
 #-------------------------------------------------------------------------------
 # Dependency Tree
@@ -109,8 +115,12 @@ def dependency_tree(nodes, app):
 
 
 def dependencies2(app):
-    """ Technique: return dependencies and self when at end of recursion branch
-    This works well as it's easier to invalidate a branch
+    "This is the theoretical version of dependencies3"
+    """ Technique: return dependencies and self when at end of recursion
+    branch This works well as it's easier to invalidate a branch when working
+    your way back up the tree from the end of the branches to the app.
+    
+    :param app: top level list of nodes. each node contains parents/dependencies
     
     TODO: Replace "optional" check with "can operate" check
     """
@@ -163,5 +173,89 @@ def dependencies2(app):
     G.layout(prog='dot')
     G.draw('graph_%s.png'%app['name'])
     return ordered_set(nodes)
+
+
+def dependencies3(app, lfl_param_names):
+    """ Technique: return dependencies and self when at end of recursion
+    branch This works well as it's easier to invalidate a branch when working
+    your way back up the tree from the end of the branches to the app.
+    
+    :param app: top level list of nodes. each node contains parents/dependencies
+    :param lfl_param_names: list of parameter names in LFL
+    
+    TODO: Don't bother passing around the first top level "app" as a Derived?
+    TODO: Establish when to instantiate the Nodes - this is important as it's hacked here AND in Node.can_operate()
+    TODO: Dependencies are String if end of branch (LFL) or objects if derived Node. Is this good? Can we make Raw params an object too so that they have a .name at least?!
+    TODO: Replace "optional" check with "can operate" check
+    TODO: Rename "app" with "node" and "node" with "child/parent/dependant"
+    """
+    
+    G = pgv.AGraph()
+    G.graph_attr['label']='Tree Traversal'
+    G.node_attr['shape']='circle'
+    G.edge_attr['color']='black'
+    
+    def traverse_tree(app):
+        print 'recursed to:', app if isinstance(app, str) else app.name
+        #TODO: Implement below (app.name in global available_list)
+        #if app.get('inactive'):
+            #n = G.get_node(app['name'])
+            #n.attr['color'] = 'red'
+            #return []
+        if isinstance(app, str):
+            # raw parameter
+            if app in lfl_param_names:
+                # param available, phew
+                n = G.get_node(app)
+                n.attr['color'] = 'green'
+                return [app]
+            else:
+                # raw param not available
+                return []
+        elif not app.dependencies:
+            # derived param has no dependencies
+            n = G.get_node(app.name)
+            n.attr['color'] = 'green'
+            return [app.name]
+        
+        # We have a derived parameter with dependencies
+        # ...so lets see which are available at this layer
+        layer = []
+        parent_names = [x if isinstance(x,str) else x().name for x in app.dependencies]
+        print 'traversing parents:', parent_names
+        for node in app.dependencies:
+            #------------------------
+            if not isinstance (node,str): node = node()  #FIXME: HORRIBLE HACK to instantiate - where to do this?!
+            #------------------------
+            G.add_edge(app.name, node if isinstance(node,str) else node.name)
+            branch = traverse_tree(node)
+            layer.extend(branch)  # if not branch, .extend([]) does nothing!
+
+            if not branch:
+                # replace edge color to show it's not there
+                e = G.get_edge(app.name, node if isinstance(node,str) else node.name)
+                e.attr['color'] = 'grey'
+
+        if not app.can_operate(layer):
+            n = G.get_node(app.name)
+            n.attr['color'] = 'grey'
+            return [] # cannot operate when some required params are missing
+        layer.append(app.name)
+        return layer
+    
+    print '-'*10 + ' Traversing tree with %d trunk(s) '%len(app.dependencies) + '-'*10
+    nodes = traverse_tree(app())
+    
+    G.layout(prog='dot')
+    G.draw('graph_%s.png'%app.name)
+    return ordered_set(nodes)
+
+
+
+
+
+
+
+
 
 

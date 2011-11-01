@@ -1,28 +1,10 @@
-import h5py
-import numpy as np
-
-from pprint import pprint
-
-def playing_about():
-    storage_frequency = flight["table"].attrs["frequency"] # max freq?
-    # 8.0
-            
-    print "Params:", hdf_flight['series'].keys()
-    param_series = hdf_flight['series'][parameter]
-    data = param_series['data']
-    
-    pprint(hdf.attrs.items())
-    [(u'tailmark', ''),
-     (u'from', ''),
-     (u'to', ''),
-     (u'timestamp', ''),
-     (u'starttime', 0),
-     (u'endtime', 16459000),
-     (u'version', 1)]
+import h5py #TODO: or pytables for masked array support?
              
  
-class hdf_file(object):    # rare case of lower case?! # rename to hdf_file
-    """ with hdf_file('path/file.hdf5') as hdf:
+class hdf_file(object):    # rare case of lower case?!
+    """ usage example:
+    with hdf_file('path/to/file.hdf5') as hdf:
+        print hdf['Altitude AAL'][:20]
     """
     def __init__(self, file_path):
         self.file_path = file_path
@@ -46,22 +28,30 @@ class hdf_file(object):    # rare case of lower case?! # rename to hdf_file
         """ param_name e.g. "Head Mag"
         """
         return self.hdf['series'][param_name]['data']
+        
+    def __getattr__(self, key):
+        return self.get_param_data(key)
+        
+    
+    def set_param_data(self, name, param_data):
+        """
+        reshape data as required and store.
+        """
+        raise NotImplementedError()
     
     ##def get_table_range(self):
         ##return self.hdf['table'][1:2]
         
         
-def main():
-    path = '/home/chris/src/nelson/Daves_Python_Spikes/resources/data/hdf5/flight_1626325.hdf5'
-    with hdf_file(path) as flight_data:
-            
-        heading = flight_data.get_param_data('Head Mag')
-        
-        straight_head = straight_headings(heading)
-    
-                
+def print_hdf_info(hdf):
+    # Glen to fill this gap!
+    pass
+
+
+
 if __name__ == '__main__':
-    #main()
-    test_straight_headings()
+    file_path = 'resources/data/hdf5/flight_1626325.hdf5'    
+    with hdf_file(file_path) as hdf:
+        print_hdf_info(hdf)
     
     

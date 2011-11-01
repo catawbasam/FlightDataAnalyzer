@@ -2,12 +2,24 @@ import numpy as np
 import datetime
 from collections import namedtuple
 
-from settings import DESCENT_MIN_DURATION
+from analysis.derived import  KeyPointValue, KeyPointValueNode
+from analysis.settings import DESCENT_MIN_DURATION
 
-KeyPointValue = namedtuple('KeyPointValue', 'index value name')
 # Find when the flap was last taken up and first put down
-      
-class RateOfDescentHigh(Derived):
+
+#TODO: Change to KeyPointValueNode and generate kpv using self.create_kpv()
+###-------------------------------------------------------------------------------
+### Key Point Values
+### ================
+    
+##class MaxMachCruise(KeyPointValueNode):
+    ##dependencies = [MACH, ALTITUDE_STD]
+    
+    ##def derive(self, params):
+        ##return max(params[MACH][PHASE_CRUISE])
+
+
+class RateOfDescentHigh(DerivedParameterNode):
     dependencies = [RATE_OF_CLIMB]
     # Minimum period of a descent for testing against thresholds (reduces number of KPVs computed in turbulence)
     DESCENT_MIN_DURATION = 10
@@ -26,7 +38,7 @@ class RateOfDescentHigh(Derived):
         return kpv_list
                 
                 
-class RateOfDescentMax(Derived):
+class RateOfDescentMax(DerivedParameterNode):
     dependencies = [RATE_OF_CLIMB]
     # Minimum period of a descent for testing against thresholds (reduces number of KPVs computed in turbulence)
     DESCENT_MIN_DURATION = 10
@@ -44,7 +56,7 @@ class RateOfDescentMax(Derived):
         return kpv_list
              
                 
-class AirspeedMax(Derived):
+class AirspeedMax(DerivedParameterNode):
     dependencies = [AIRSPEED]
     
     def derive(self, ph, params):
@@ -56,7 +68,7 @@ class AirspeedMax(Derived):
         return KeyPointValue(n, airspeed_max)
     
     
-class LevelFlightMaxAirspeed(Derived):
+class LevelFlightMaxAirspeed(DerivedParameterNode):
     dependencies = [AIRSPEED]
     LEVEL_FLIGHT_DURATION = 60
     
@@ -75,13 +87,14 @@ class LevelFlightMaxAirspeed(Derived):
                 logging.debug('Short duration %d of level flight ignored', duration)
         return kpv_list
     
-toc = altitude_std[kpt['TopOfClimb']] # Indexing n_toc into the reduced array [block]
-kpv['Altitude_TopOfClimb'] = [(kpt['TopOfClimb'], toc, altitude_std)]
-kpv['LandingTurnOffRunway'] = [(block.start+kpt['LandingEndEstimate'],(head_mag[kpt['LandingEndEstimate']] - head_landing), head_mag.param_name)]
-kpv['Head_Landing'] = [(block.start+kpt['LandingEndEstimate'], head_landing%360, head_mag.param_name)]  # Convert to normal compass heading for display
-tod = altitude_std[kpt['TopOfDescent']] # Indexing n_toc into the reduced array [block]
-kpv['Altitude_TopOfDescent'] = [(kpt['TopOfDescent'], tod, altitude_std)]
-kpv['Head_Takeoff'] = [(block.start+kpt['TakeoffStartEstimate'], head_takeoff%360, head_mag.param_name)] # Convert to normal compass heading for display
-kpv['TakeoffTurnOntoRunway'] = [(block.start+turn_onto_runway,head_takeoff - head_mag[turn_onto_runway],head_mag.param_name)]
+#TODO:
+#toc = altitude_std[kpt['TopOfClimb']] # Indexing n_toc into the reduced array [block]
+#kpv['Altitude_TopOfClimb'] = [(kpt['TopOfClimb'], toc, altitude_std)]
+#kpv['LandingTurnOffRunway'] = [(block.start+kpt['LandingEndEstimate'],(head_mag[kpt['LandingEndEstimate']] - head_landing), head_mag.param_name)]
+#kpv['Head_Landing'] = [(block.start+kpt['LandingEndEstimate'], head_landing%360, head_mag.param_name)]  # Convert to normal compass heading for display
+#tod = altitude_std[kpt['TopOfDescent']] # Indexing n_toc into the reduced array [block]
+#kpv['Altitude_TopOfDescent'] = [(kpt['TopOfDescent'], tod, altitude_std)]
+#kpv['Head_Takeoff'] = [(block.start+kpt['TakeoffStartEstimate'], head_takeoff%360, head_mag.param_name)] # Convert to normal compass heading for display
+#kpv['TakeoffTurnOntoRunway'] = [(block.start+turn_onto_runway,head_takeoff - head_mag[turn_onto_runway],head_mag.param_name)]
 
 
