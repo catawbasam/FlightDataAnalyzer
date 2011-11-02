@@ -5,7 +5,7 @@ except ImportError:
 
 from random import shuffle
 
-from analysis.derived import DerivedParameterNode, KeyPointValue, KeyPointValueNode, Node
+from analysis.node import DerivedParameterNode, KeyPointValue, KeyPointValueNode, Node
 
 class TestAbstractNode(unittest.TestCase):
     
@@ -19,8 +19,14 @@ class TestNode(unittest.TestCase):
         """
         NewNode = type('Camel4CaseName', (Node,), dict(derive=lambda x:x))
         node = NewNode()
-        self.assertEqual(node.name(), 'camel4 case name')
-        
+        self.assertEqual(node.get_name(), 'Camel4 Case Name')
+        NewNode = type('ThisIsANode', (Node,), dict(derive=lambda x:x))
+        self.assertEqual(NewNode.get_name(), 'This Is A Node')
+        NewNode = type('My2BNode', (Node,), dict(derive=lambda x:x))
+        self.assertEqual(NewNode.get_name(), 'My2B Node')
+        NewNode.name = 'MACH'
+        self.assertEqual(NewNode.get_name(), 'MACH')
+
     def test_get_dependency_names(self):
         """ Check class names or strings return strings
         """            

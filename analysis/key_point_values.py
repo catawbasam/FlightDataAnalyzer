@@ -2,7 +2,7 @@ import numpy as np
 import datetime
 from collections import namedtuple
 
-from analysis.derived import  KeyPointValue, KeyPointValueNode
+from analysis.node import  KeyPointValue, KeyPointValueNode
 from analysis.settings import DESCENT_MIN_DURATION
 
 # Find when the flap was last taken up and first put down
@@ -19,13 +19,13 @@ from analysis.settings import DESCENT_MIN_DURATION
         ##return max(params[MACH][PHASE_CRUISE])
 
 
-class RateOfDescentHigh(DerivedParameterNode):
-    dependencies = [RATE_OF_CLIMB]
+class RateOfDescentHigh(KeyPointValueNode):
+    dependencies = ['rate of climb']
     # Minimum period of a descent for testing against thresholds (reduces number of KPVs computed in turbulence)
     DESCENT_MIN_DURATION = 10
     
     def derive(self, ph, params):
-        rate_of_climb = params[RATE_OF_CLIMB]
+        rate_of_climb = params['rate of climb']
         #TODO: Merge with below RateOfDescentMax accepting a flightphase arg
         kpv_list = []
         for descent_period in np.ma.flatnotmasked_contiguous(ph['Descending']):
@@ -38,13 +38,13 @@ class RateOfDescentHigh(DerivedParameterNode):
         return kpv_list
                 
                 
-class RateOfDescentMax(DerivedParameterNode):
-    dependencies = [RATE_OF_CLIMB]
+class RateOfDescentMax(KeyPointValueNode):
+    dependencies = ['rate of climb']
     # Minimum period of a descent for testing against thresholds (reduces number of KPVs computed in turbulence)
     DESCENT_MIN_DURATION = 10
     
     def derive(self, ph, params):
-        rate_of_climb = params[RATE_OF_CLIMB]
+        rate_of_climb = params['rate of climb']
         kpv_list = []
         for descent_period in np.ma.flatnotmasked_contiguous(ph['Descent']):
             duration = descent_period.stop - descent_period.start
@@ -56,11 +56,11 @@ class RateOfDescentMax(DerivedParameterNode):
         return kpv_list
              
                 
-class AirspeedMax(DerivedParameterNode):
-    dependencies = [AIRSPEED]
+class AirspeedMax(KeyPointValueNode):
+    dependencies = ['airspeed']
     
     def derive(self, ph, params):
-        airspeed = params[AIRSPEED].data
+        airspeed = params['airspeed'].data
         # Use Numpy to locate the maximum airspeed, then go back and get the value.
         n = np.ma.argmax(airspeed)
         airspeed_max = airspeed[n]
@@ -68,12 +68,12 @@ class AirspeedMax(DerivedParameterNode):
         return KeyPointValue(n, airspeed_max)
     
     
-class LevelFlightMaxAirspeed(DerivedParameterNode):
-    dependencies = [AIRSPEED]
+class LevelFlightMaxAirspeed(KeyPointValueNode):
+    dependencies = ['airspeed']
     LEVEL_FLIGHT_DURATION = 60
     
     def derive(self, ph, params):
-        airspeed = params[AIRSPEED].data
+        airspeed = params['airspeed'].data
         kpv_list = []
         for level_flight_period in np.ma.flatnotmasked_contiguous(ph['LevelFlight']):
             #FIXME: Does this assume 1Hz input when comparing duration against period stop/start?

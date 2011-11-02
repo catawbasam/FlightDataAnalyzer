@@ -61,19 +61,29 @@ get_verbose_name = lambda class_name: re.sub('(((?<=[a-z])[A-Z])|([A-Z](?![A-Z]|
 
 class Node(object):
     __metaclass__ = ABCMeta
-    
+
+    name = '' # Optional
     dependencies = []
-    returns = []  
+    returns = [] # Move to DerivedParameterNode etc?
         
-    @classmethod ##@property
-    def name(cls):
-        """ class MyNode -> 'my node'
+    def __repr__(self):
+        return '%s' % self.get_name()
+        
+    @classmethod
+    def get_name(cls):
+        """ class My2BNode -> 'My2B Node'
         """
-        return get_verbose_name(cls.__name__) ##.title()
+        if cls.name:
+            return cls.name
+        else:
+            # Create name from Class if name not specified!
+            return get_verbose_name(cls.__name__).title()
     
     @classmethod
     def get_dependency_names(cls):
-        return [x if isinstance(x, str) else x.name() for x in cls.dependencies]
+        """ Returns list of dependency names
+        """
+        return [x if isinstance(x, str) else x.get_name() for x in cls.dependencies]
     
     def can_operate(self, available):
         """
@@ -107,6 +117,10 @@ class DerivedParameterNode(Node):
 
 
 class FlightPhaseNode(Node):
+    pass
+
+class KeyTimeInstanceNode(Node):
+    'TODO: Implement the helper functions like KPV Node below'
     pass
     
     

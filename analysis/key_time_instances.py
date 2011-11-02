@@ -1,7 +1,7 @@
 import logging
 import numpy as np
 
-from analysis.derived import KeyTimeInstance, KeyTimeInstanceNode
+from analysis.node import KeyTimeInstance, KeyTimeInstanceNode
 
 '''
 kpt['FlapDeployed'] = []
@@ -14,10 +14,10 @@ for flap_operated_period in np.ma.flatnotmasked_contiguous(np.ma.masked_equal(fp
 
 
 # KTI
-class TopOfClimbTopOfDescent(Derived):
+class TopOfClimbTopOfDescent(KeyTimeInstanceNode):
     name = "Top of Climb and Top of Descent"
-    dependencies = [PHASE_AIRBORNE, ALTITUDE_STD, ALTITUDE_STD_SMOOTHED]
-    returns = [TOP_OF_CLIMB, TOP_OF_DESCENT]
+    dependencies = ['phase_airborne', 'altitude_std', 'altitude_std_smoothed']
+    returns = ['top_of_climb', 'top_of_descent']
     
     def derive(airborne_phase, altitude_std, altitude_std_smoothed):
         """
@@ -54,11 +54,11 @@ class TopOfClimbTopOfDescent(Derived):
         return kti_list
         
         
-class FlapStateChanges(Derived):
-    dependencies = [FLAP]
+class FlapStateChanges(KeyTimeInstanceNode):
+    dependencies = ['flap']
     
     def derive(self, ph, params):
-        flap = params[FLAP].data        
+        flap = params['flap'].data        
         # Mark all flap changes, irrespective of the aircraft type :o)
         kti_list = []
         previous = None

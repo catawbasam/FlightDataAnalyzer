@@ -1,6 +1,6 @@
 import logging
 
-from analysis.derived import DerivedParameterNode
+from analysis.node import DerivedParameterNode
 
 ###-------------------------------------------------------------------------------
 ### Derived Parameters

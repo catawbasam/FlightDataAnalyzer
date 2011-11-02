@@ -3,7 +3,7 @@ try:
 except ImportError:
     import unittest
 
-from analysis.derived import Node
+from analysis.node import Node
 from analysis.dependencies import (ordered_set, dependencies, dependencies2, dependencies3,
                                    dependency_tree)
 

@@ -1,3 +1,11 @@
+"""
+
+
+MOVED : SEE dependency_graph.py
+
+
+""" 
+
 import pygraphviz as pgv  # sudo apt-get install graphviz libgraphviz-dev
 from pygraph.classes.graph import graph # pip install python-graph-dot
 from pygraph.readwrite import dot
