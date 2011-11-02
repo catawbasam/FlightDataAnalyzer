@@ -85,10 +85,10 @@ class TestDependencyGraph(unittest.TestCase):
         required_nodes = ['Smoothed Track', 'Moment Of Takeoff', 'Vertical Speed', 'Slip On Runway']
         lfl_params = ['Indicated Airspeed', 
               'Groundspeed', 
-              'Pressure Altitude', 
-              #'Radio Altimeter', 
+              'Pressure Altitude',
               'Heading', 'TAT', 
-              'Latitude', 'Longitude', 
+              'Latitude', 'Longitude',
+              ##'Inertial Latitude', #but no Inertial Logitude!
               'Longitudinal g', 'Lateral g', 'Normal g', 
               'Pitch', 'Roll', 
               ]
@@ -110,3 +110,20 @@ class TestDependencyGraph(unittest.TestCase):
         required_nodes = ['Smoothed Track', 'Moment of Takeoff'] #it's called Moment Of Takeoff
         self.assertRaises(ValueError, dependency_order, lfl_params, required_nodes, [module])
         
+        
+    def test_missing_optional_accepted(self):
+        """ Inactive param is optional so doesn't break the tree
+        """
+        # TEST taken from old dependency_test.py - only test not working so far
+        self.assertTrue(False)
+        
+        #P4 = type('P4', (Node,), dict(derive=f, dependencies=['Raw1', 'Raw2']))
+        #any_available = lambda s, avail: any([y in ['Raw1', 'Raw2'] for y in avail])
+        #app = type('OptionalApp', (Node,), dict(derive=f, dependencies=[P4], 
+                                                #can_operate=any_available))
+        ## only one dep available
+        #lfl_params = ['Raw1']
+        #process_order = dependencies3(app, lfl_params)
+        #self.assertEqual(process_order, ['Raw1', 'P4', 'Optional App'])
+        
+   

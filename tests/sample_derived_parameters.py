@@ -26,8 +26,21 @@ class TrueAirspeed(DerivedParameterNode):
     def derive(self): pass
     
 class SmoothedTrack(DerivedParameterNode):
-    dependencies = ['True Airspeed', 'Heading', 'Latitude', 'Longitude']
+    dependencies = ['True Airspeed', 'Heading', 'Latitude', 'Longitude', 'Inertial Latitude', 'Inertial Longitude']
     def derive(self): pass
+    
+    def can_operate(self, available):
+        # Requires matching LAT/LONG pairs to operate - True Airspeed and Heading are a bonus!
+        if 'Latitude' in available and 'Longitude' in available:
+            # preferred, so lets use this
+            #Q: store a flag now?
+            ##self.use_ineterial = False
+            return True
+        elif 'Inertial Latitude' in available and 'Inertial Longitude' in available:
+            ##self.use_ineterial = True
+            return True
+        else:
+            return False
     
 class VerticalG(DerivedParameterNode):
     name = 'Vertical g'
