@@ -15,6 +15,7 @@ class TestAbstractNode(unittest.TestCase):
     def test_node(self):
         pass
     
+
 class TestNode(unittest.TestCase):
     
     def test_name(self):
@@ -75,6 +76,41 @@ class TestNode(unittest.TestCase):
         available = ['a', 'Parent', 'b']
         self.assertTrue(node.can_operate(available))
         
+    def test_get_operational_combinations(self):
+        """ NOTE: This shows a REALLY neat way to test all combinations of a
+        derived Node class!
+        """
+        class Combo(Node):
+            dependencies = ['a', 'b', 'c']
+            def derive(self, params): 
+                # we require 'a' and 'b' and 'c' is a bonus
+                return params['a'], params['b'], params.get('c')
+            
+            @classmethod
+            def can_operate(cls, available):
+                if 'a' in available and 'b' in available:
+                    return True
+                else:
+                    return False
+        
+        options = Combo.get_operational_combinations()
+        self.assertEqual(options, [('a', 'b'), ('a', 'b', 'c')])
+        
+        # define sample data for all the dependencies
+        deps = {'a': 'aa',
+                'b': 'bb',
+                'c': 'cc', }
+        # get all operational options to test its derive method under
+        options = Combo.get_operational_combinations()
+        c = Combo()
+        for args in options:
+            # build params dict
+            params = {arg: deps[arg] for arg in args} #py2.7
+            # test derive method with this combination
+            res = c.derive(params)
+            self.assertEqual(res[:2], ('aa', 'bb'))
+                
+                        
 class TestNodeManager(unittest.TestCase):
     def test_operational(self):
         mock_node = mock.Mock()

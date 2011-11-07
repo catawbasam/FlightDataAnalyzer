@@ -7,7 +7,7 @@ import numpy as np
 from datetime import datetime
 
 from analysis.library import (calculate_timebase, create_phase_inside,
-                              create_phase_outside, rate_of_change,
+                              create_phase_outside, powerset, rate_of_change,
                               running_average, shift, slope,
                               straighten_headings)
 
@@ -27,6 +27,20 @@ class TestClock(unittest.TestCase):
         #datetime.datetime(2020, 12, 25, 0, 0, 50)
         self.assertEqual(start_dt, datetime(2020, 12, 25, 0, 0, 54))
             
+            
+class TestPowerset(unittest.TestCase):
+    def test_powerset(self):
+        deps = ['aaa',  'bbb', 'ccc']
+        res = list(powerset(deps))
+        expected = [(),
+                    ('aaa',),
+                    ('bbb',), 
+                    ('ccc',), 
+                    ('aaa', 'bbb'),
+                    ('aaa', 'ccc'),
+                    ('bbb', 'ccc'),
+                    ('aaa', 'bbb', 'ccc')]
+        self.assertEqual(res, expected)
 
 class TestPhaseMasking(unittest.TestCase):
     def test_phase_inside(self):

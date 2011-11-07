@@ -8,6 +8,8 @@ from abc import ABCMeta, abstractmethod
 from collections import namedtuple
 from itertools import product
 
+from analysis.library import powerset
+
 # Define named tuples for KPV and KTI and FlightPhase
 KeyPointValue = namedtuple('KeyPointValue', 'index value name')
 KeyTimeInstance = namedtuple('KeyTimeInstance', 'index state')
@@ -87,22 +89,36 @@ class Node(object):
         """
         return [x if isinstance(x, str) else x.get_name() for x in cls.dependencies]
     
-    def can_operate(self, available):
+    @classmethod
+    def can_operate(cls, available):
         """
         Compares the string names of all dependencies against those available.
         
         Returns true if dependencies is a subset of available. For more
         specific operational requirements, override appropriately.
         
+        Strictly this is a classmethod, so please remember to use the
+        @classmethod decorator! (if you forget, i don't `think` it will break)
         
         :param available: Available parameters from the dependency tree
         :type available: list of strings
         """
         # ensure all names are strings
-        if all([x in available for x in self.get_dependency_names()]):
+        if all([x in available for x in cls.get_dependency_names()]):
             return True
         else:
             return False
+        
+    @classmethod
+    def get_operational_combinations(cls):
+        """
+        Compute every operational combination of dependencies.
+        """
+        options = []
+        for args in powerset(cls.get_dependency_names()):
+            if cls.can_operate(args):
+                options.append(args)
+        return options
         
     @abstractmethod
     def derive(self, params):

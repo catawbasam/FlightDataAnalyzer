@@ -1,8 +1,6 @@
-##import pygraphviz as pgv  # sudo apt-get install graphviz libgraphviz-dev
-
 import inspect
 import logging 
-import networkx as nx
+import networkx as nx # pip install networkx or /opt/epd/bin/easy_install networkx
 
 from analysis.node import Node, NodeManager
 
@@ -70,12 +68,26 @@ def draw_graph(graph, name):
     """
     Draws a graph to file with label and filename taken from name argument.
     """
-    G = nx.to_agraph(graph)
+    file_path = 'graph_%s.png' % name.lower().replace(' ', '_')
+
+    # Trying to get matplotlib to install nicely
+    # Warning: pyplot does not render the graphs well!
+    ##import matplotlib.pyplot as plt
+    ##nx.draw(graph)
+    ##plt.show()
+    ##plt.savefig(file_path)
+    try:
+        ##import pygraphviz as pgv 
+        # sudo apt-get install graphviz libgraphviz-dev
+        # pip install pygraphviz
+        #Note: nx.to_agraph performs pygraphviz import
+        G = nx.to_agraph(graph)
+    except ImportError:
+        logging.exception("Unable to import pygraphviz to draw graph '%s'", name)
+        return
     G.layout(prog='dot')
     G.graph_attr['label'] = name
-    G.draw('graph_%s.png' % name.lower().replace(' ', '_'))
-
-
+    G.draw(file_path)
     
 def graph_nodes(node_mgr): ##lfl_params, required_params, derived_nodes):
     """

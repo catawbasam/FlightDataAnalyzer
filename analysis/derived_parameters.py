@@ -34,3 +34,4 @@ class StraightHeading(DerivedParameterNode):
     def derive(self, params):
         hdg = params['Heading']
         return straighten_headings(hdg)
+
