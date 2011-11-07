@@ -3,9 +3,12 @@ try:
 except ImportError:
     import unittest
 
+#import mock
+
 from random import shuffle
 
-from analysis.node import DerivedParameterNode, KeyPointValue, KeyPointValueNode, Node
+from analysis.node import (DerivedParameterNode, KeyPointValue, 
+                           KeyPointValueNode, Node, NodeManager)
 
 class TestAbstractNode(unittest.TestCase):
     
@@ -35,7 +38,7 @@ class TestNode(unittest.TestCase):
                 pass
         
         class RateOfDescentHigh(KeyPointValueNode):
-            dependencies = ['rate of descent', RateOfClimb]
+            dependencies = ['Rate Of Descent', RateOfClimb]
             # Minimum period of a descent for testing against thresholds (reduces number of KPVs computed in turbulence)
             DESCENT_MIN_DURATION = 10
             
@@ -44,7 +47,7 @@ class TestNode(unittest.TestCase):
             
         rodh = RateOfDescentHigh()
         self.assertEqual(rodh.get_dependency_names(), 
-                         ['rate of descent', 'rate of climb'])
+                         ['Rate Of Descent', 'Rate Of Climb'])
         
     
     
@@ -71,6 +74,22 @@ class TestNode(unittest.TestCase):
         node = NewNode()        
         available = ['a', 'Parent', 'b']
         self.assertTrue(node.can_operate(available))
+        
+class TestNodeManager(unittest.TestCase):
+    def test_operational(self):
+        mock_node = mock.Mock()
+        mock_node.returns = True
+        mock_inop = mock.Mock()
+        mock_inop.returns = False # inoperable node
+        mgr = NodeManager(['a', 'b', 'c'], ['a', 'x'], 
+                          {'x': mock_node, 'y': mock_node, 'z': mock_inop})
+        self.assertTrue(mgr.operational('a', []))
+        self.assertTrue(mgr.operational('b', []))
+        self.assertTrue(mgr.operational('c', []))
+        self.assertTrue(mgr.operational('x', []))
+        self.assertTrue(mgr.operational('y', ['a']))
+        self.assertFalse(mgr.operational('z', ['a', 'b']))
+        
 
 class TestKeyPointValueNode(unittest.TestCase):
     

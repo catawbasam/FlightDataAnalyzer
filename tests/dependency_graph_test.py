@@ -3,7 +3,7 @@ try:
 except ImportError:
     import unittest
 
-from analysis.node import Node
+from analysis.node import Node, NodeManager
 from analysis.dependency_graph import dependency_order, process_order, graph_nodes
 
 # mock function
@@ -53,20 +53,22 @@ class TestDependencyGraph(unittest.TestCase):
     def test_graph_nodes(self):
         """ Tests a few of the colours
         """
-        gr = graph_nodes([1, 2], [2], {})
+        gr = graph_nodes(NodeManager([1, 2], [2], {}))
         self.assertEqual(len(gr), 3)
         self.assertEqual(gr.node, 
                          {1: {'color': 'forestgreen'}, 2: {'color': 'forestgreen'}, 
                           'root': {'color': 'red'}})
         required_nodes = ['P7', 'P8']
-        gr = graph_nodes(self.lfl_params, required_nodes, self.derived_nodes)
+        mgr = NodeManager(self.lfl_params, required_nodes, self.derived_nodes)
+        gr = graph_nodes(mgr)
         self.assertEqual(len(gr), 11)
         
         
     def test_dependency(self):
         required_nodes = ['P7', 'P8']
-        gr = graph_nodes(self.lfl_params, required_nodes, self.derived_nodes)
-        gr_all, gr_st, order = process_order(gr, self.lfl_params, self.derived_nodes)
+        mgr = NodeManager(self.lfl_params, required_nodes, self.derived_nodes)
+        gr = graph_nodes(mgr)
+        gr_all, gr_st, order = process_order(gr, mgr)
         
         self.assertEqual(len(gr_st), 11)
         pos = order.index
@@ -79,7 +81,8 @@ class TestDependencyGraph(unittest.TestCase):
         self.assertFalse('root' in order) #don't include the root!
         
     def test_sample_parameter_module(self):
-        """tests get_derived_nodes too
+        """Tests many options:
+        can_operate on SmoothedTrack works with 
         """
         module = 'tests.sample_derived_parameters'
         required_nodes = ['Smoothed Track', 'Moment Of Takeoff', 'Vertical Speed', 'Slip On Runway']
@@ -88,11 +91,10 @@ class TestDependencyGraph(unittest.TestCase):
               'Pressure Altitude',
               'Heading', 'TAT', 
               'Latitude', 'Longitude',
-              ##'Inertial Latitude', #but no Inertial Logitude!
               'Longitudinal g', 'Lateral g', 'Normal g', 
               'Pitch', 'Roll', 
               ]
-        order = dependency_order(lfl_params, required_nodes, [module])
+        nodes, order = dependency_order(lfl_params, required_nodes, [module])
         pos = order.index
         #print nodes
         self.assertTrue(pos('Vertical Speed') > pos('Pressure Altitude'))
@@ -101,6 +103,9 @@ class TestDependencyGraph(unittest.TestCase):
         self.assertTrue(pos('Horizontal g Across Track') > pos('Roll'))
         self.assertFalse('MACH' in order) # MACH wasn't requested!
         self.assertFalse('Radio Altimeter' in order)
+        self.assertEqual(len(nodes.lfl), 12)
+        self.assertEqual(len(nodes.requested), 4)
+        self.assertEqual(len(nodes.derived_nodes), 13)
         # remove some lfl params to see inactive nodes
         
         
@@ -111,19 +116,12 @@ class TestDependencyGraph(unittest.TestCase):
         self.assertRaises(ValueError, dependency_order, lfl_params, required_nodes, [module])
         
         
-    def test_missing_optional_accepted(self):
-        """ Inactive param is optional so doesn't break the tree
-        """
-        # TEST taken from old dependency_test.py - only test not working so far
+    def test_kpv_dependency(self):
+        #TODO?: Handle dependencies on one of the returns values!!
+        
+        # This may not be necessary as a parameter can still depend on a KPV, so long as it knows which class creates it.
+        # But either way, adding some other types to the sample dependency tree can't do any harm!!
+        
+        #create a kpv
+        #create a param that depends on one of the kpv return types
         self.assertTrue(False)
-        
-        #P4 = type('P4', (Node,), dict(derive=f, dependencies=['Raw1', 'Raw2']))
-        #any_available = lambda s, avail: any([y in ['Raw1', 'Raw2'] for y in avail])
-        #app = type('OptionalApp', (Node,), dict(derive=f, dependencies=[P4], 
-                                                #can_operate=any_available))
-        ## only one dep available
-        #lfl_params = ['Raw1']
-        #process_order = dependencies3(app, lfl_params)
-        #self.assertEqual(process_order, ['Raw1', 'P4', 'Optional App'])
-        
-   

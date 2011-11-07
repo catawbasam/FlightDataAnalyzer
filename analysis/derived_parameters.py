@@ -1,6 +1,7 @@
 import logging
 
 from analysis.node import DerivedParameterNode
+from analysis.library import straighten_headings
 
 ###-------------------------------------------------------------------------------
 ### Derived Parameters
@@ -27,3 +28,9 @@ from analysis.node import DerivedParameterNode
     ##def derive(self, params):
         ##return 12
         
+        
+class StraightHeading(DerivedParameterNode):
+    dependencies = ['Heading']
+    def derive(self, params):
+        hdg = params['Heading']
+        return straighten_headings(hdg)

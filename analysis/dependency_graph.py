@@ -4,7 +4,7 @@ import inspect
 import logging 
 import networkx as nx
 
-from analysis.node import Node
+from analysis.node import Node, NodeManager
 
 
 def get_derived_nodes(module_names):
@@ -77,28 +77,20 @@ def draw_graph(graph, name):
 
 
     
-def graph_nodes(lfl_params, required_params, derived_nodes):
+def graph_nodes(node_mgr): ##lfl_params, required_params, derived_nodes):
     """
-    :param lfl_params: Raw parameter nodes from the Logical Frame Layout
-    :type lfl_params: List
-    :param required_params: Required for event detection, graphing and any other exports such as APM/EHM
-    :type required_params: list of node names
-    :param derived_nodes: Derived nodes from KPI / KTI
-    :type derived_nodes: Dict
+    
     """
     # gr_all will contain all nodes
     gr_all = nx.DiGraph()
     # create nodes without attributes now as you can only add attributes once
     # (limitation of add_node_attribute())
-    gr_all.add_nodes_from(lfl_params, color='forestgreen')
-    gr_all.add_nodes_from(derived_nodes.keys())
-    
-    # assert that all required_params are in derived or lfl
-    ##gr_all.add_nodes_from(required_params, color='blue')
+    gr_all.add_nodes_from(node_mgr.lfl, color='forestgreen')
+    gr_all.add_nodes_from(node_mgr.derived_nodes.keys())
     
     # build list of dependencies
     derived_deps = set()  # list of derived dependencies
-    for node_name, node_obj in derived_nodes.iteritems():
+    for node_name, node_obj in node_mgr.derived_nodes.iteritems():
         derived_deps.update(node_obj.get_dependency_names())
         # Create edges between node and its dependencies
         edges = [(node_name, dep) for dep in node_obj.get_dependency_names()]
@@ -106,7 +98,7 @@ def graph_nodes(lfl_params, required_params, derived_nodes):
             
     # add root - the top level application dependency structure based on required nodes
     gr_all.add_node('root', color='red')
-    root_edges = [('root', node_name) for node_name in required_params]
+    root_edges = [('root', node_name) for node_name in node_mgr.requested]
     gr_all.add_edges_from(root_edges, color='red')
     
     #TODO: Split this up into the following lists of nodes
@@ -119,9 +111,9 @@ def graph_nodes(lfl_params, required_params, derived_nodes):
     # Note: It's hard to tell whether a missing dependency is a mistyped
     # reference to another derived parameter or a parameter not available on
     # this LFL
-    available_nodes = set(derived_nodes).union(set(lfl_params))
+    available_nodes = set(node_mgr.derived_nodes.keys()).union(set(node_mgr.lfl))
     missing_derived_dep = list(derived_deps - available_nodes)
-    missing_required = list(set(required_params) - available_nodes)
+    missing_required = list(set(node_mgr.requested) - available_nodes)
     
     if missing_derived_dep:
         logging.warning("Dependencies referenced are not in LFL nor Node modules: %s",
@@ -133,25 +125,8 @@ def graph_nodes(lfl_params, required_params, derived_nodes):
     gr_all.add_nodes_from(missing_derived_dep)  #these should all be RAW parameters not in LFL unless something has gone wrong with the derived_nodes dict!    
     return gr_all
 
-
-
-def node_operational(name, available, derived_nodes, lfl_nodes):
-    """
-    Looks up the node and tells you whether it can operate.
     
-    :returns: Result of Operational test on parameter.
-    :rtype: Boolean
-    """
-    if name in derived_nodes:
-        return derived_nodes[name].can_operate(available)
-    elif name in lfl_nodes or name == 'root':
-        return True
-    else:  #elif name in unavailable_deps:
-        logging.warning("Confirm - node unavailable: %s", name)
-        return False  #TODO: TEST!!!
-    
-    
-def process_order(gr_all, lfl_params, derived_nodes):
+def process_order(gr_all, node_mgr): ##lfl_params, derived_nodes):
     """
     :param gr_all:
     :type gr_all: nx.DiGraph
@@ -172,8 +147,8 @@ def process_order(gr_all, lfl_params, derived_nodes):
     # Determine whether nodes are operational
     process_order = []
     for node in reversed(order):
-        if node_operational(node, process_order, derived_nodes, lfl_params): #TODO = make a class method
-            if node not in lfl_params + ['root']:
+        if node_mgr.operational(node, process_order):
+            if node not in node_mgr.lfl + ['root']:
                 gr_all.node[node]['color'] = 'blue'
             process_order.append(node)
         else:
@@ -208,28 +183,31 @@ def dependency_order(lfl_params, required_params, modules=MODULES, draw=True):
     """
     Main method for retrieving processing order of nodes.
     
-    :param lfl_params: Raw parameter names available within the LFL
+    :param lfl_params: Raw parameter names available within the Logical Frame Layout (LFL)
     :type lfl_params: list of strings
-    :param required_params: Derived node names required for Graphical representation or Event detection. Note that no LFL Params are "required" as they already stored in HDF file. List of names of any Node type (KPV, KTI, FlightPhase or DerivedParameters)
+    :param required_params: Derived node names required for Graphical representation, data exports or Event detection. Note that no LFL Params are "required" as they already stored in HDF file. List of names of any Node type (KPV, KTI, FlightPhase or DerivedParameters)
     :type required_params: list of strings
     :param modules: Modules to import Derived nodes from.
     :type modules: list of strings
     :param draw: Will draw the graph. Green nodes are available LFL params, Blue are operational derived, Black are not required derived, Red are active top level requested params, Grey are inactive params. Edges are labelled with processing order.
     :type draw: boolean
-    :returns: Processing order for nodes
-    :rtype: list of strings
-    """
+    :returns: Tuple of NodeManager and a list determining the order for processing the nodes.
+    :rtype: (NodeManager, list of strings)
+    """    
     # go through modules to get derived nodes
     derived_nodes = get_derived_nodes(modules)
-    _graph = graph_nodes(lfl_params, required_params, derived_nodes)
-    gr_all, gr_st, order = process_order(_graph, lfl_params, derived_nodes)
+    # keep track of all the node types
+    node_mgr = NodeManager(lfl_params, required_params, derived_nodes)
+    _graph = graph_nodes(node_mgr)
+    gr_all, gr_st, order = process_order(_graph, node_mgr)
     
     inoperable_required = list(set(required_params) - set(order))
     if inoperable_required:
         logging.warning("Required parameters are inoperable: %s", inoperable_required)
     if draw:
         draw_graph(gr_all, 'Dependency Tree')
-    return order
+        draw_graph(gr_st, 'Active Nodes in Spanning Tree')
+    return node_mgr, order
 
 '''
 Validate the derived parameters to ensure that all dependencies exist as

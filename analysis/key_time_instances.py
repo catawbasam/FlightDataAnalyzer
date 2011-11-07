@@ -70,3 +70,21 @@ class FlapStateChanges(KeyTimeInstanceNode):
                 kti = KeyTimeInstance(index, 'Flap %d' % value)
                 kti_list.append(kti)
         return kti_list
+    
+    
+    
+    
+##############################
+##             ADEM
+##############################
+class ADEMTakeoffDataAcquisition(KeyTimeInstanceNode):
+    """ ADEM Takeoff Data Acquisition - AKA TOTDRT
+    
+    NOT TESTED !
+    """
+    name = 'ADEM Takeoff Data Acquisition'
+    dependencies = ['Indicated Airspeed']
+    def derive(params):
+        ias = params['Indicated Airspeed']
+        return KeyTimeInstance(ias.first_val(120), 'Takeoff Data Acquisition')
+    

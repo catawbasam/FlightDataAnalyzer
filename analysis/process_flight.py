@@ -1,20 +1,113 @@
 
 #=============================
-from hdf_access import hdf_file
-from flight_phase import compute_flight_phases
-from derived import Derived, 
+from analysis.hdf_access import hdf_file
+from analysis.flight_phase import compute_flight_phases
+
+from analysis.dependency_graph import dependency_order
+from analysis.nodes import GeoKeyTimeInstance
+from analysis.validate import validate
+
+"""
+
+TODO:
+=====
+
+* Document and validate the return types from nodes. Could even add an
+accessor for getting always a list of example.
 
 
-def validate_and_derive_parameters(param_graph):
-    for order in param_graph:
-        if order.type == 'derived':
-            derived_params = calculate_derived_params(order.parameter)
-            hdf.append_table(derived_params, table='parameter')
-        elif order.type == 'correlation':
-            param_correlation_masks = validate_correlations(all_params) #Q: Before or after derived?
-            hdf.append_table(param_correlation_masks, table='parameter_validity')
+
+
+
+"""
+
+
+def get_required_params(aircraft):
+    """
+    """
+    param_list = []
+    return param_list
+
+
+def get_and_store_validity_limits(hdf, aircraft, params):
+    """
+    Fetch from storage (server or file)
+    Store in HDF as JSON
+    """
+    # Use REST to find the limits?
+    url = '/aircraft/%{aircraft}/limit/' #fetch them all or just the ones needed?
+    # filter out the ones we need?
+    
+    for name, value in parameter_limits:
+        hdf.set_param_limits(name, value)
+        
+def geo_locate(hdf, kti_list):
+    """ Translate KeyTimeInstance into GeoKeyTimeInstance namedtuples
+    """
+    lat_pos = hdf['Latitude Smoothed']
+    long_pos = hdf['Longitude Smoothed']
+    gkti_list = []
+    for kti in kti_list:
+        gkti = GeoKeyTimeInstance(kti.index, kti.state,
+                                  lat_pos[kti.index], long_pos[kti.index])
+        gkti_list.append(gkti)
+    return gkti_list
+
+
+def validate_and_derive_parameters(hdf, nodes, process_order):
+    """
+    Derives the parameter values and if limits are available, applies
+    parameter validation upon each param before storing the resulting masked
+    array back into the hdf file.
+    
+    :param hdf: Data file accessor used to get and save parameter data and attributes
+    :type hdf: hdf_file
+    :param nodes: Used to determine the type of node in the process_order
+    :type nodes: NodeManager
+    :param process_order: Parameter names in the required order to be processed
+    :type process_order: list of strings
+    """
+    for param_name in process_order:
+        if param_name in nodes.lfl:
+            param_ma = hdf.get_param_data(param_name)
+        elif param_name in nodes.derived:  
+            node = nodes.derived[param_name]
+            # retrieve dependencies what we have
+            deps = hdf.get_params(node.dependencies)
+            result = node.derive(deps)
+            
+            if isinstance(node, KeyPointValueNode):
+                # expect a single KPV or a list of KPVs
+                params['kpv'].extend(list(result))
+                continue # no further processing required
+            elif isinstance(node, KeyTimeInstanceNode):
+                # expect a single KTI or a list of KTIs
+                params['kti'].extend(list(result))
+                continue # no further processing required
+            elif isinstance(node, FlightPhaseNode):
+                # expect a slice
+                params['phase'].append(result)
+                continue # no further processing required
+            elif isinstance(node, DerivedParameterNode):
+                param_ma = result
+                pass # further processing required
+            else:
+                raise NotImplementedError("Unknown Type %s" % node.__class__)
         else:
-            raise ValueError, "type %s not implemented" % order.type
+            raise KeyError("Urr, Node does not exist as a known node!")
+            
+            
+        # test validity
+        limits = hdf.get_param_limits(param_name)
+        if limits:
+            vparam_ma = validate(param_ma, limits)
+            hdf.set_param_data(param_name, vparam_ma)
+        else:
+            hdf.set_param_data(param_name, param_ma)
+    #endfor
+        
+    ##if 'correlation':
+        ##validate_correlations(all_params) #Q: Before or after derived?
     
 
 """
@@ -33,22 +126,24 @@ KeyPoints() # return mixed types?
   dependancy
   kpv or kpt or kpv/t_list = calc_kpv(params)
 """
-def process_flight(hdf_path):
+def process_flight(hdf_path, aircraft):
     # open HDF for reading
     with hdf_file(hdf_path) as hdf:
-       
         # get list of KPV and standard parameters to be calculated
-        app = top_level_params(aircraft)
-        nodes = list_all_derived_params() + list_raw_params_in_hdf()
+        required_params = get_required_params(aircraft)
+        # assume that all params in HDF are from LFL(!)
+        lfl_params = hdf.get_param_list()
         # calculate dependency tree
-        process_order = dependency_tree(nodes, app)
+        nodes, process_order = dependency_order(lfl_params, required_params)
         # get limits for params to be processed
-        operating_limits = get_validity_limits(aircraft, process_order)
-        store_limits(hdf, operating_limits)
-        # establish timebase for start of data
+        get_and_store_validity_limits(hdf, aircraft, process_order)
+        #hdf.set_operating_limits(operating_limits)
+        
+        
+        # establish timebase for start of data -- Q: When will this be used? Can we do this later on?
         start_datetime = calculate_timebase(hdf.years, hdf.months, hdf.days, hdf.hours, hdf.mins, hdf.seconds)
         
-        params = validate_and_derive_parameters(process_order)
+        params = validate_and_derive_parameters(hdf, nodes, process_order)
         
         # go get bonus info at time of KPVs
         ##kpv_info = get_geo_location_etc_for_kpv(kpv_list)

@@ -1,6 +1,7 @@
 #TODO: Rename derived.py to something like base.py or abstract.py
  
  
+import logging
 import re
 
 from abc import ABCMeta, abstractmethod
@@ -10,6 +11,7 @@ from itertools import product
 # Define named tuples for KPV and KTI and FlightPhase
 KeyPointValue = namedtuple('KeyPointValue', 'index value name')
 KeyTimeInstance = namedtuple('KeyTimeInstance', 'index state')
+GeoKeyTimeInstance = namedtuple('GeoKeyTimeInstance', 'index state latitude longitude')
 FlightPhase = namedtuple('FlightPhase', 'mask') #Q: rename mask -> slice
 
 # Ref: django/db/models/options.py:20
@@ -64,7 +66,7 @@ class Node(object):
 
     name = '' # Optional
     dependencies = []
-    returns = [] # Move to DerivedParameterNode etc?
+    returns = [] # Move to DerivedParameterNode etc? TODO: Handle dependencies on one of the returns values!!
         
     def __repr__(self):
         return '%s' % self.get_name()
@@ -196,4 +198,33 @@ class KeyPointValueNode(Node):
 
 
     
- 
+class NodeManager(object):
+    def __repr__(self):
+        return 'NodeManager: lfl x%d, requested x%d, derived x%d' % (
+            len(self.lfl), len(self.requested), len(self.derived_nodes))
+    
+    def __init__(self, lfl, requested, derived_nodes):
+        """
+        :type lfl: list
+        :type requested: list
+        :type derived_nodes: dict
+        """
+        self.lfl = lfl
+        self.requested = requested
+        self.derived_nodes = derived_nodes
+
+        
+    def operational(self, name, available):
+        """
+        Looks up the node and tells you whether it can operate.
+        
+        :returns: Result of Operational test on parameter.
+        :rtype: Boolean
+        """
+        if name in self.derived_nodes:
+            return self.derived_nodes[name].can_operate(available)
+        elif name in self.lfl or name == 'root':
+            return True
+        else:  #elif name in unavailable_deps:
+            logging.warning("Confirm - node is unavailable: %s", name)
+            return False
