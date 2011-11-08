@@ -3,6 +3,17 @@ import h5py #TODO: or pytables for masked array support?
 import numpy as np
 import simplejson as json
 
+class Parameter(object):
+    def __init__(self, array, frequency, offset):
+        '''
+        :param array: Masked array of data for the parameter.
+        :type array: np.ma.masked_array
+        '''
+        self.array = array
+        self.frequency = frequency
+        self.offset = offset
+
+
 class hdf_file(object):    # rare case of lower case?!
     """ usage example:
     with hdf_file('path/to/file.hdf5') as hdf:
@@ -31,7 +42,7 @@ class hdf_file(object):    # rare case of lower case?!
                 
     def __enter__(self):
         '''
-        HDF file is opened by __init__.
+        HDF file is opened on __init__.
         '''
         pass
 
@@ -49,42 +60,14 @@ class hdf_file(object):    # rare case of lower case?!
         """
         return self.set_param_data(key, value)
     
-    def close(self):
-        self.hdf.flush() # Q: required?
-        self.hdf.close()
+    def __len__(self):
+        '''
+        Number of parameter groups within the series group.
         
-    def get_param_list(self):
+        :returns: Number of parameters.
+        :rtype: int
         '''
-        List of parameters stored in hdf file
-        '''
-        return self.hdf['series'].keys()
-    
-    def get_params(self, params=None):
-        '''
-        Returns params that are available, `ignores` those that aren't
-        '''
-        if not params:
-            params = self.get_param_list()
-        d = {}
-        for name in params:
-            try:
-                d[name] = self.get_param_data(name)
-            except KeyError:
-                pass # ignore parameters that aren't available
-        return d
-
-    def get_param_data(self, name):
-        """ name e.g. "Head Mag"
-        Returns a masked_array. If 'mask' is stored it will be the mask of the
-        returned masked_array, otherwise it will be False.
-        """
-        param = self.hdf['series'][name]
-        data = param['data']
-        mask = param.get('mask', False)
-        # Using np.ma.getmaskarray() to ensure the mask is fully fledged to the
-        # length of the data (opposite of shrink_mask()) should be unnecessary.
-        #mask = np.ma.getmaskarray(self.hdf['series'][name].get('mask', data).value)
-        return np.ma.array(data, mask=mask)
+        return len(self.hdf['series'])
     
     def keys(self):
         '''
@@ -94,67 +77,96 @@ class hdf_file(object):    # rare case of lower case?!
         :rtype: list of str
         '''
         return self.hdf['series'].keys()
+    get_param_list = keys
     
-    def __len__(self):
+    def close(self):
+        self.hdf.flush() # Q: required?
+        self.hdf.close()
+    
+    def get_params(self, param_names=None):
         '''
-        Number of parameter groups within the series group.
+        Returns params that are available, `ignores` those that aren't.
         
-        :returns: Number of parameters.
-        :rtype: int
+        :param param_names:
+        :type param_names: list of str or None
+        :returns:
+        :rtype: dict
         '''
-        return len(self.hdf['series'])
+        if not param_names:
+            param_names = self.keys()
+        param_name_to_obj = {}
+        for name in param_names:
+            try:
+                param_name_to_obj[name] = self[name]
+            except KeyError:
+                pass # ignore parameters that aren't available
+        return param_name_to_obj
+
+    def get_param_data(self, name):
+        '''
+        name e.g. "Head Mag"
+        Returns a masked_array. If 'mask' is stored it will be the mask of the
+        returned masked_array, otherwise it will be False.
+        
+        :param name: Name of parameter with 'series'.
+        :type name: str
+        :returns: Parameter object containing HDF data and attrs.
+        :rtype: Parameter
+        '''
+        param_group = self.hdf['series'][name]
+        data = param_group['data']
+        mask = param_group.get('mask', False)
+        array = np.ma.masked_array(data, mask=mask)
+        frequency = param_group.attrs['frequency']
+        # Differing terms: latency is known internally as frame offset.
+        offset = param_group.attrs['latency']
+        return Parameter(array, frequency, offset)
 
     def set_param_data(self, name, array):
-        """
+        '''
         reshape data as required and store.        
         
         :param name: Name of parameter. Forward slashes are not allowed within an HDF identifier as it supports filesystem-style indexing, e.g. '/series/CAS'.
         :type name: str
         :param array: Array containing data and potentially a mask for the data.
         :type array: np.array or np.ma.masked_array
-        """
+        '''
         # Allow both arrays and masked_arrays.
-        if hasattr(array, 'mask'):
-            data = array.data
-            # store the shrunk mask to save space #Q: How much does this really save?
-            mask = array.shrink_mask().mask
-        else:
-            data = array
-            mask = None
+        if not hasattr(array, 'mask'):
+            array = np.ma.masked_array(array, mask=False)
         # Either get or create parameter.
         series = self.hdf['series']
         if name in series:
-            param = series[name]
+            param_group = series[name]
             # Dataset must be deleted before recreation.
-            del param['data']
+            del param_group['data']
         else:
-            param = series.create_group(name)
-        dataset = param.create_dataset('data', data=array, 
-                                       **self.DATASET_KWARGS)
-        if 'mask' in param:
+            param_group = series.create_group(name)
+        dataset = param_group.create_dataset('data', data=array.data, 
+                                             **self.DATASET_KWARGS)
+        if 'mask' in param_group:
             # Existing mask will no longer reflect the new data.
-            del param['mask']
+            del param_group['mask']
         # Q: Should we create a mask of False by default?
-        if mask is not None: # Testing is None as shrunk mask may simply be False.
-            # Dataset compression options can only be provided for an
-            # array-like object and not a single value.
-            kwargs = {} if isinstance(mask, np.bool_) else self.DATASET_KWARGS
-            mask_dataset = param.create_dataset('mask', data=mask, **kwargs)
+        mask_dataset = param_group.create_dataset('mask', data=array.mask,
+                                                  **self.DATASET_KWARGS)
         #TODO: Possible to store validity percentage upon name.attrs
     
     def set_param_limits(self, name, limits):
-        """
-        Stores limits for a parameter in JSON format
+        '''
+        Stores limits for a parameter in JSON format.
+        
         :param name: Parameter name
         :type name: string
         :param limits: Operating limits storage
         :type limits: dict
-        """
+        '''
         self.hdf['series'][name].attrs['limits'] = json.dumps(limits)
         
     def get_param_limits(self, name):
-        """
-        """
+        '''
+        
+        '''
         limits = self.hdf['series'][name].attrs['limits']
         if limits:
             json.loads(limits)
