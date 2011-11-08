@@ -37,10 +37,11 @@ def get_and_store_validity_limits(hdf, aircraft, params):
     # Use REST to find the limits?
     url = '/aircraft/%{aircraft}/limit/' #fetch them all or just the ones needed?
     # filter out the ones we need?
-    
-    for name, value in parameter_limits:
+    from limits import parameter_limits
+
+    for name, value in parameter_limits.items():
         hdf.set_param_limits(name, value)
-        
+
 def geo_locate(hdf, kti_list):
     """ Translate KeyTimeInstance into GeoKeyTimeInstance namedtuples
     """
