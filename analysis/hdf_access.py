@@ -1,3 +1,4 @@
+import os
 import h5py
 import numpy as np
 import shutil
@@ -5,27 +6,6 @@ try:
     import json
 except ImportError:
     import simplejson as json
-    
-    
-#TODO: This is a DUPLICATE of the function in compass.hdf, move to own HDF Repo
-HDF_DEFAULTS = {'dataset': {'compression': 'gzip',
-                            'compression_opts': 3}}
-DEFAULT_MAX_SIZE = 8 * 10 * 24 * 60 * 60 # Ten days of an 8Hz parameter.
-def _write_to_dataset(hdf_group, array, dtype='f', max_size=DEFAULT_MAX_SIZE):
-    """Default max_size is very large to ensure that it is not reached during
-    processing. We would have to know more about the file before creating
-    datasets for parameters if we want to be more specific."""
-    # 1) Create dataset within group if it does not already exist.
-    if not 'data' in hdf_group:
-        return hdf_group.create_dataset("data", data=array,
-                                        maxshape=(max_size,),
-                                        **HDF_DEFAULTS['dataset'])
-    dataset = hdf_group['data']
-    start_index = len(dataset)
-    dataset.resize((start_index + len(array),))
-    # 2) Write array to dataset.
-    dataset[start_index:start_index+len(array)] = array
-    return dataset
 
 
 class hdf_file(object):    # rare case of lower case?!
@@ -39,46 +19,55 @@ class hdf_file(object):    # rare case of lower case?!
     hdf['series']['Altitude AAL']['mask'] (Bool list)
     hdf['series']['Altitude AAL'].attrs['limits'] (json)
     """
+    # HDF file settings should be consistent, therefore hardcoding defaults.
+    DATASET_KWARGS = {'compression': 'gzip', 'compression_opts': 3}
+    
     def __repr__(self):
-        # TODO: Glen to put a nice pretty representation of this object
-        return ''
+        '''
+        TODO: Glen to put a nice pretty representation of this object
+        Q: What else should be displayed?
+        '''
+        filename = os.path.dirname(self.hdf.filename)
+        return '%s (%d parameters)' % (filename, len(self))
     
     def __init__(self, file_path):
         self.file_path = file_path
-        self.hdf = None
+        self.hdf = h5py.File(self.file_path, 'r+')
                 
     def __enter__(self):
-        self.open()
-        return self.hdf
+        '''
+        HDF file is opened by __init__.
+        '''
+        pass
 
     def __exit__(self, a_type, value, traceback):
         self.close()
         
     def __getitem__(self, key):
-        """ Allows for: hdf['Altitude AAL'][:30]
-        """
+        '''
+        Allows for dictionary access: hdf['Altitude AAL'][:30]
+        '''
         return self.get_param_data(key)
         
     def __setitem__(self, key, value):
         """ Allows for: hdf['Altitude AAL'] = np.ma.array()
         """
         return self.set_param_data(key, value)
-        
-    def open(self):
-        self.hdf = h5py.File(self.file_path, 'r+')
     
     def close(self):
-        self.hdf.flush() # required?
+        self.hdf.flush() # Q: required?
         self.hdf.close()
         
     def get_param_list(self):
-        """ List of parameters stored in hdf file
-        """
+        '''
+        List of parameters stored in hdf file
+        '''
         return self.hdf['series'].keys()
     
     def get_params(self, params=None):
-        """ Returns params that are available, `ignores` those that aren't
-        """
+        '''
+        Returns params that are available, `ignores` those that aren't
+        '''
         if not params:
             params = self.get_param_list()
         d = {}
@@ -91,29 +80,72 @@ class hdf_file(object):    # rare case of lower case?!
 
     def get_param_data(self, name):
         """ name e.g. "Head Mag"
-        Returns masked array. If mask has been stored, returns it - otherwise returns False
-        
-        Uses np.ma.getmaskarray() to ensure the mask is fully fledged to the
-        length of the data (opposite of shrink_mask())
+        Returns a masked_array. If 'mask' is stored it will be the mask of the
+        returned masked_array, otherwise it will be False.
         """
-        ##return np.ma.array(self.hdf['series'][name]['data'], 
-                           ##mask=self.hdf['series'][name].get('mask', False))
-
-        data = self.hdf['series'][name]['data']
-        mask = np.ma.getmaskarray(self.hdf['series'][name].get('mask', data))
+        param = self.hdf['series'][name]
+        data = param['data']
+        mask = param.get('mask', False)
+        # Using np.ma.getmaskarray() to ensure the mask is fully fledged to the
+        # length of the data (opposite of shrink_mask()) should be unnecessary.
+        #mask = np.ma.getmaskarray(self.hdf['series'][name].get('mask', data).value)
         return np.ma.array(data, mask=mask)
+    
+    def keys(self):
+        '''
+        Parameter group names within the series group.
+        
+        :returns: List of parameter names.
+        :rtype: list of str
+        '''
+        return self.hdf['series'].keys()
+    
+    def __len__(self):
+        '''
+        Number of parameter groups within the series group.
+        
+        :returns: Number of parameters.
+        :rtype: int
+        '''
+        return len(self.hdf['series'])
 
     def set_param_data(self, name, array):
         """
-        reshape data as required and store.
-        """
-        self.hdf['series'][name]['data'] = array.data
-        if hasattr(array, 'mask'):
-            # store the shrunk array to save space    #TODO: How much does this really save?
-            self.hdf['series'][name]['mask'] = array.shrink_mask().mask
-            
-        #TODO: Possible to store validity percentage upon name.attrs
+        reshape data as required and store.        
         
+        :param name: Name of parameter. Forward slashes are not allowed within an HDF identifier as it supports filesystem-style indexing, e.g. '/series/CAS'.
+        :type name: str
+        :param array: Array containing data and potentially a mask for the data.
+        :type array: np.array or np.ma.masked_array
+        """
+        # Allow both arrays and masked_arrays.
+        if hasattr(array, 'mask'):
+            data = array.data
+            # store the shrunk mask to save space #Q: How much does this really save?
+            mask = array.shrink_mask().mask
+        else:
+            data = array
+            mask = None
+        # Either get or create parameter.
+        series = self.hdf['series']
+        if name in series:
+            param = series[name]
+            # Dataset must be deleted before recreation.
+            del param['data']
+        else:
+            param = series.create_group(name)
+        dataset = param.create_dataset('data', data=array, 
+                                       **self.DATASET_KWARGS)
+        if 'mask' in param:
+            # Existing mask will no longer reflect the new data.
+            del param['mask']
+        # Q: Should we create a mask of False by default?
+        if mask is not None: # Testing is None as shrunk mask may simply be False.
+            # Dataset compression options can only be provided for an
+            # array-like object and not a single value.
+            kwargs = {} if isinstance(mask, np.bool_) else self.DATASET_KWARGS
+            mask_dataset = param.create_dataset('mask', data=mask, **kwargs)
+        #TODO: Possible to store validity percentage upon name.attrs
     
     def set_param_limits(self, name, limits):
         """
@@ -171,8 +203,7 @@ def concat_hdf(hdf_paths, dest=None):
             concat_array = np.concatenate(array_list)
             param_group = dest_hdf_file['series'][param_name]
             del param_group['data']
-            dataset = _write_to_dataset(param_group, concat_array,
-                                        max_size=len(concat_array))
+            param_group.create_dataset("data", data=array, maxshape=(len(array),))
     return dest
 
     
@@ -204,17 +235,37 @@ def write_segment(hdf_path, segment, dest):
         for param_name, array in param_name_to_array.iteritems():
             param_group = hdf_file['series'][param_name]
             del param_group['data']
-            _write_to_dataset(param_group, array, max_size=len(array))
+            param_group.create_dataset("data", data=array, maxshape=(len(array),))
     return dest
 
 
-def print_hdf_info(hdf):
-    # Glen to fill this gap!
-    #pprint some interesting stuff
-    pass
+def print_hdf_info(hdf_file):
+    hdf_file = hdf_file.hdf
+    series = hdf_file['series']
+    # IOLA
+    # 8.0
+    if 'Time' in series:
+        print 'Tailmark:', hdf_file.attrs['tailmark']
+        print 'Start Time:', hdf_file.attrs['starttime']
+        print 'End Time:', hdf_file.attrs['endtime']
+    
+    for group_name, group in series.iteritems():
+        print '[%s]' % group_name
+        print 'Frequency:', group.attrs['frequency']
+        print group.attrs.items()
+        # IOLA's latency is our frame offset.
+        print 'Offset:', group.attrs['latency']
+        print 'External Data Type:', group.attrs['external_datatype']
+        print 'External Data Format:', group.attrs['external_dataformat']
+        print 'Number of recorded values:', len(group['data'])
+    #param_series = hdf_file['series'][parameter]
+    #data = param_series['data']
 
 
 if __name__ == '__main__':
+    import sys
+    print_hdf_info(hdf_file(sys.argv[1]))
+    sys.exit()
     file_path = 'AnalysisEngine/resources/data/hdf5/flight_1626325.hdf5'    
     with hdf_file(file_path) as hdf:
         print_hdf_info(hdf)

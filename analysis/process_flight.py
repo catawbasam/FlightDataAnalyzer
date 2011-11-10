@@ -16,7 +16,6 @@ def get_required_params(aircraft):
 
 
 
-        
 def geo_locate(hdf, kti_list):
     """ Translate KeyTimeInstance into GeoKeyTimeInstance namedtuples
     """
