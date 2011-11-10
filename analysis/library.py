@@ -303,5 +303,3 @@ def straighten_headings(heading_array):
         yield heading + offset
         
 
-
-

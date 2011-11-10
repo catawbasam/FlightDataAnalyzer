@@ -16,7 +16,8 @@ from analysis.settings import DESCENT_MIN_DURATION
     ##dependencies = [MACH, ALTITUDE_STD]
     
     ##def derive(self, params):
-        ##return max(params[MACH][PHASE_CRUISE])
+        ##cruise = params['Cruise Phase']
+        ##return params['MACH'][cruise].max()
 
 
 class RateOfDescentHigh(KeyPointValueNode):

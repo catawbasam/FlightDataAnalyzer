@@ -3,32 +3,35 @@ import logging
 from analysis.node import DerivedParameterNode
 from analysis.library import straighten_headings
 
-###-------------------------------------------------------------------------------
-### Derived Parameters
-### ==================
+#-------------------------------------------------------------------------------
+# Derived Parameters
 
 
-        
-##class Sat(DerivedParameterNode):
-    ##dependencies = [TAT, ALTITUDE_STD]
-    
-    ##def derive(self, params):
-        ##return sum([params.TAT.value,])
-    
+# Q: What do we do about accessing KTIs - params['a kti class name'] is a list of kti's
+#   - could have a helper - filter_for('kti_name', take_max=True) # and possibly take_first, take_min, take_last??
 
-##class Mach(DerivedParameterNode):
-    ##dependencies = [AIRSPEED, SAT, TAT, ALTITUDE_STD]
+class AltitudeQNH(DerivedParameterNode):
+    dependencies = ['BAROMB', 'Altitude Std']
+    def derive(self, params):
+        return NotImplemented
     
-    ##def can_operate(self, available):
-        ##if AIRSPEED in available and (SAT in available or TAT in available):
-            ##return True
-        ##else:
-            ##return False
+class TrueAirspeed(DerivedParameterNode):
+    dependencies = ['SAT', 'VMO', 'MMO', 'Indicated Airspeed', 'Altitude QNH']
+    def derive(self, params):
+        return NotImplemented
+    
+class MACH(DerivedParameterNode):
+    name = 'MACH'
+    dependencies = ['Indicated Airspeed', 'TAT', 'Altitude Std']
+    def derive(self, params):
+        return NotImplemented
         
-    ##def derive(self, params):
-        ##return 12
-        
-        
+    
+##class V1V2Vapp(DerivedParameterNode):
+    ### URRR?
+    ##pass
+
+
 class StraightHeading(DerivedParameterNode):
     dependencies = ['Heading']
     def derive(self, params):

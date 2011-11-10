@@ -221,29 +221,4 @@ def dependency_order(lfl_params, required_params, modules=MODULES, draw=True):
         draw_graph(gr_st, 'Active Nodes in Spanning Tree')
     return node_mgr, order
 
-'''
-Validate the derived parameters to ensure that all dependencies exist as
-classes OR are referenced in one of the LFL documents!
-
-
-# test validation for ALL algorithm dependencies across ALL LFLs
-from compass.dataframe_parser import get_all_parameter_names
-raw_param_list = get_all_parameter_names() # Don't restrict to any particular LFL unless requested 
-#build_dependencies(raw_param_list, all_kpv)
-
-# test validation for an aircraft's required algorithm dependencies across it's LFL
-
-
-# Should probably also assert that there are no duplicate Node names (copy and paste error!)
-
-raw_param_list = get_all_parameter_names(lfl_name)
-'determine whether some of the events required cannot be detected as the raw parameters does not exist in the LFL'
-
-class TestValidation(unittest.TestCase):
-    # continusouly test that the dependency structure works
-    
-    # 
-
-    pass
-'''
 

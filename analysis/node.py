@@ -1,6 +1,3 @@
-#TODO: Rename derived.py to something like base.py or abstract.py
- 
- 
 import logging
 import re
 
@@ -123,8 +120,20 @@ class Node(object):
     @abstractmethod
     def derive(self, params):
         """
+        Note: All params masked arrays can be manipulated as required within
+        the scope of this method without affecting any other Node classes.
+        This is because we write all results back to the hdf, therefore you
+        cannot damage the interim numpy masked arrays.
+        
+        If an implementation does not adhere to the mask of an array, ensure
+        that you document it in the docstring as follows:
+        WARNING: Does not adhere to the MASK.
+        
         returns namedtuple or list of namedtuples KeyPointValue,
         KeyTimeInstance or numpy.ma masked_aray
+        
+        :param params: 
+        :type params: dict key:string value: param or list of kpv/kti or phase
         """
         raise NotImplementedError("Abstract Method")
     
@@ -139,6 +148,8 @@ class FlightPhaseNode(Node):
 
 class KeyTimeInstanceNode(Node):
     'TODO: Implement the helper functions like KPV Node below'
+    
+    # :rtype: KeyTimeInstance or List of KeyTimeInstance or EmptyList
     pass
     
     
@@ -174,24 +185,11 @@ class KeyPointValueNode(Node):
         """
         Raises ValueError if replace_values are not allowed in RETURN_OPTIONS
         permissive values.
-        
-        Q: Possibly should validate that the formatted value is in list of
-        formatted values as this will then allow for small differnces which
-        the formatting may disregard. e.g. 0.001 in %d == 0
         """
         if name in self.kpv_names():
             return True
         else:
             raise ValueError("invalid KPV name '%s'" % name)
-        
-        ##for key, value in replace_values.iteritems():
-            ##allowed = self.RETURN_OPTIONS[key]
-            ##is_iterable = isinstance(allowed, (list, tuple))
-            ##if value == allowed or (is_iterable and value in allowed):
-                ##continue  # all good, check next option
-            ##else:
-                ##raise ValueError("invalid value '%s' for key %s" % (value, key))
-        ##return True
 
     def create_kpv(self, index, value, replace_values={}, **kwargs):
         """
