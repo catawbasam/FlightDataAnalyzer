@@ -1,8 +1,11 @@
+import sys
+
 from utilities.dict_helpers import dict_filter  #TODO: Mark utiltities as a dependency
 
 from analysis import settings
 from analysis.dependency_graph import dependency_order
 from analysis.hdf_access import hdf_file
+from analysis.library import calculate_timebase
 from analysis.node import (GeoKeyTimeInstance, KeyPointValue, KeyPointValueNode,
                            KeyTimeInstance, KeyTimeInstanceNode, FlightPhaseNode)
 
@@ -53,14 +56,14 @@ def derive_parameters(hdf, nodes, process_order):
             # perform any post_processing
             if settings.POST_LFL_PARAM_PROCESS:
                 result = settings.POST_LFL_PARAM_PROCESS(hdf, param_name, result)
-            hdf.set_param_data(param_name, result)
+                hdf.set_param_data(param_name, result)
             continue
         
-        node = nodes.derived[param_name]  # raises KeyError if Node is "unknown"
+        node = nodes.derived_nodes[param_name]  # raises KeyError if Node is "unknown"
         # retrieve dependencies which are available from hdf (LFL/Derived masked arrays)
-        deps = hdf.get_params(node.dependencies)
+        deps = hdf.get_params(node.get_dependency_names())
         # update with dependencies already derived (non-masked arrays)
-        deps.update( dict_filter(params, keep=node.dependencies) )
+        deps.update( dict_filter(params, keep=node.get_dependency_names()) )
         
         result = node.derive(deps)
         if isinstance(node, KeyPointValueNode):
@@ -101,7 +104,8 @@ def process_flight(hdf_path, aircraft):
         # assume that all params in HDF are from LFL(!)
         lfl_params = hdf.get_param_list()
         # calculate dependency tree
-        nodes, process_order = dependency_order(lfl_params, required_params, draw=False) # For Windows :-(
+        nodes, process_order = dependency_order(lfl_params, required_params, 
+                                                draw=sys.platform != 'win32') # False for Windows :-(
         
         # establish timebase for start of data -- Q: When will this be used? Can we do this later on?
         ##start_datetime = calculate_timebase(hdf.years, hdf.months, hdf.days, hdf.hours, hdf.mins, hdf.seconds)

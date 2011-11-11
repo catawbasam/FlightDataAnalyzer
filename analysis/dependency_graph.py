@@ -68,6 +68,10 @@ def breadth_first_search_all_nodes(di_graph, root):
 def draw_graph(graph, name):
     """
     Draws a graph to file with label and filename taken from name argument.
+    
+    Note: Graphviz binaries cannot be easily installed on Windows (you must
+    build it from source), therefore you shouldn't bother trying to
+    draw_graph unless you've done so!
     """
     file_path = 'graph_%s.png' % name.lower().replace(' ', '_')
 
