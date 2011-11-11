@@ -142,10 +142,31 @@ class Node(object):
     
     
 class DerivedParameterNode(Node):
+    frequency = None # Hz
+    offset = None # secs  -- established when analysing data
+    
+    ''' Sample desired usage of frequency (and offset):
+    #frequency = dependencies[0].frequency  # Used by default if none provided
+    frequency = 'Altitude AAL'  # Take from this param name
+    frequency = AltitudeAAL  # As above but from class
+    frequency = 8  # Hard coded for this algorithm - NOTE: use with care as you cannot hard code the frequency that the input params are provided in
+    def derive(self, params):
+        self.frequency = params['Altitude Std'].frequency  # can override at run time? not sure I like this option
+        self.frequency = 2
+        return result
+        
+    def _get_derived(self, params, flight_duration):
+        res = self.derive(params)
+        # Ensure that the frequency has been adhered to!
+        assert len(res) == flight_duration * self.frequency
+    '''
+
     pass
 
 
 class FlightPhaseNode(Node):
+    # 1Hz slices
+    # TODO: Allow for 8Hz for LiftOff and TouchDown example
     pass
 
 class KeyTimeInstanceNode(Node):

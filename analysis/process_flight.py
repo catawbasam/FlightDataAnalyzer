@@ -101,10 +101,10 @@ def process_flight(hdf_path, aircraft):
         # assume that all params in HDF are from LFL(!)
         lfl_params = hdf.get_param_list()
         # calculate dependency tree
-        nodes, process_order = dependency_order(lfl_params, required_params)
+        nodes, process_order = dependency_order(lfl_params, required_params, draw=False) # For Windows :-(
         
         # establish timebase for start of data -- Q: When will this be used? Can we do this later on?
-        start_datetime = calculate_timebase(hdf.years, hdf.months, hdf.days, hdf.hours, hdf.mins, hdf.seconds)
+        ##start_datetime = calculate_timebase(hdf.years, hdf.months, hdf.days, hdf.hours, hdf.mins, hdf.seconds)
         
         if settings.PRE_FLIGHT_ANALYSIS:
             settings.PRE_FLIGHT_ANALYSIS(hdf, aircraft, params)

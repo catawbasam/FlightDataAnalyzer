@@ -194,3 +194,20 @@ class TestKeyPointValueNode(unittest.TestCase):
         ###urr, this probably shouldn't be here!
         ##pass
     
+    
+    
+class TestDerivedParameterode(unittest.TestCase):
+    def test_frequency(self):
+        self.assertTrue(False)
+        # assert that Frequency MUST be set
+        
+        # assert that Derived masked array is of the correct length given the frequency
+        # given a sample set of data for 10 seconds, assert that a 2 Hz param has len 20
+        
+        
+        # Q: Have an aceessor on the DerivedParameter.get_result() which asserts the correct length of data returned.
+        
+    def test_offset(self):
+        self.assertTrue(False)
+        # assert that offset MUST be set
+        

@@ -24,6 +24,11 @@ class TakeoffAirport(KeyPointValueNode):
         ##KeyPointValue(n, '09L', 'Takeoff Runway')
         return NotImplemented
     
+class ApproachAirport(KeyPointValueNode):
+    dependencies = []
+    def derive(self, params):
+        return NotImplemented
+    
 class LandingAirport(KeyPointValueNode):
     dependencies = ['Touch Down']
     def derive(self, params):

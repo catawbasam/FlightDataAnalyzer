@@ -2,7 +2,7 @@ import logging
 import numpy as np
 
 from analysis.node import DerivedParameterNode
-from analysis.library import shift, straighten_headings
+from analysis.library import rate_of_change, shift, straighten_headings
 
 #-------------------------------------------------------------------------------
 # Derived Parameters
@@ -74,11 +74,13 @@ class LocaliserGap(DerivedParameterNode):
     dependencies = ['Localiser Deviation', 'Altitude AAL']
     def derive(self, params):
         return NotImplemented
+
     
 class GlideslopeGap(DerivedParameterNode):
     dependencies = ['Glideslope Deviation', 'Altitude AAL']
     def derive(self, params):
         return NotImplemented
+ 
     
 class ILSValLim(DerivedParameterNode):
     # Taken from diagram as: ILS VAL/LIM -- TODO: rename!
@@ -87,29 +89,28 @@ class ILSValLim(DerivedParameterNode):
         return NotImplemented
 
 
-
-
-
 class RateOfClimb(DerivedParameterNode):
     dependencies = ['Altitude Std', 'Radio Altitude']
+    
     def derive(self, params):
         alt_std = params['Altitude Std']
         alt_radio = params['Radio Altitude']
         
         # do magic in flight_analysis_algorithms.py
         return NotImplemented
-        
 
-class RateOfTurn(DerivedParameterNode):
-    dependencies = [StraightHeading]
-    def derive(self, params):
-        shdg = params[StraightHeading.name]
-        # WARNING - diff is one index shorter!
-        return np.diff(shdg)
-    
     
 class StraightHeading(DerivedParameterNode):
     dependencies = ['Heading']
     def derive(self, params):
         hdg = params['Heading']
         return straighten_headings(hdg)
+    
+
+class RateOfTurn(DerivedParameterNode):
+    dependencies = [StraightHeading]
+    ##frequency = StraightHeading.frequency
+    ##offset = StraightHeading.offset
+    def derive(self, params):
+        shdg = params[StraightHeading.get_name()]
+        return rate_of_change(shdg, half_width=1)

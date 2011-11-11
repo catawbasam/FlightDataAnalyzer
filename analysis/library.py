@@ -152,7 +152,7 @@ def rate_of_change(data, half_width=5):
     # Initialise 
     temp = []
     # Process the data array
-    temp = (data[2*half_width:] - data[:-2*half_width])/float((2 * half_width))
+    temp = (data[2*half_width:] - data[:-2*half_width])/float(2 * half_width)
     temp = np.ma.concatenate([pad[:half_width],temp[:],pad[:half_width]])
 
     #if period=='sec':
