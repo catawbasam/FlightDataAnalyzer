@@ -1,5 +1,7 @@
 import math
 import numpy as np
+# Scipy routines used for transfer functions
+import scipy.signal as signal
 
 from datetime import datetime, timedelta
 from itertools import izip
@@ -136,34 +138,29 @@ def powerset(iterable):
     s = list(iterable)
     return chain.from_iterable(combinations(s, r) for r in range(len(s)+1))
 
-
-def rate_of_change(data, half_width=5):
+def rate_of_change(to_diff, half_width):
     '''
     @param to_diff: Parameter object with .data attr (masked array)
     
     Differentiation using the xdot(n) = (x(n+hw) - x(n-hw))/w formula.
-    Width w=hw*2 and this approach provides smoothing over a w second period.
-    The default 10-second period is suitable for flight phase computations where
-    a high degree of smoothing minimises unnecessary phase changes.
+    Width w=hw*2 and this approach provides smoothing over a w second period,
+    without introducing a phase shift.
     '''
+    if half_width > 20:
+        raise ValueError
+    
+    if half_width < 1:
+        raise ValueError
+    
     # Set up an array of masked zeros for extending arrays.    
-    pad=np.ma.arange(20)
-    pad[:]=np.ma.masked
-    # Initialise 
-    temp = []
-    # Process the data array
-    temp = (data[2*half_width:] - data[:-2*half_width])/float(2 * half_width)
-    temp = np.ma.concatenate([pad[:half_width],temp[:],pad[:half_width]])
+    pad = np.ma.arange(20)
+    pad[:] = np.ma.masked
+    slope = (to_diff[2*half_width:] - to_diff[:-2*half_width]) / float((2 * half_width))
+    return np.ma.concatenate([pad[:half_width],slope[:],pad[:half_width]])
 
-    #if period=='sec':
-        #self.units = self.units+'/sec'
-    #elif period=='min':
-        #self.units = self.units+'/min'
-        #self.data *= 60
-    #else:
-        #print 'Error - invalid rate of change'
-
-    return temp
+'''
+Not used at this time, and superceded by hysteresis as a technique for removing
+unwanted state changes from noisy data.
 
 def running_average(data, half_width=5):
     ## avg.param_name = to_avg.param_name+'_averaged'
@@ -196,79 +193,82 @@ def running_average(data, half_width=5):
         temp [i] = np.ma.masked
         temp [-(i+1)] = np.ma.masked
     return temp
+'''
 
+def align(master, slave):
+    """
+    This function takes two parameters which will have been sampled at different
+    rates and with different offsets, and aligns the slave parameter's samples
+    to match the master parameter. In this way the two may be processed without 
+    timing errors.
+    
+    :type master, slave: Parameter objects with attributes:
+    :type master.data: masked array
+    :type masger.fdr_offset: float
+    :type master.hz: float
+    :type slave.data: masked array
+    :type slave.fdr_offset: float
+    :type slave.hz: float
+    
+    :returns masked array.
+    The offset and hz for the returned masked array will be those of the 
+    master parameter.
+    The values of the returned array will be those of the slave parameter, 
+    aligned to the master and adjusted by linear interpolation. The initial
+    or final values may be masked if they lie outside the timebase of the 
+    slave parameter (i.e. we do not extrapolate).    
+    """
+    # Here we create a masked array to hold the returned values that will have 
+    # the same sample rate and timing offset as the master
+    result = np.ma.empty_like(master.data)
+    ## result[:] = 0.0
+    ## Clearing the result array is unnecessary, but makes testing easier to follow.
 
-def shift(first, second):
-    """
-    TODO: This Docstring!
-    
-    TODO: need a more in-your-face name than shift, also
-    rename arguments to be more meaningful - first is the "source_param" ...
-    
-    :type first, second: Parameter objects with attributes:
-    :type first.data: masked array
-    :type first.fdr_offset: float
-    :type first.hz: int
-    
-    :returns
-    """
-    # Here we create a masked array to hold the second term of a function
-    # that has the same sample rate and timing offset as the first term,
-    # in preparation for later combination.
-    result = np.ma.empty_like(first.data)
     # Get the timing offsets, comprised of word location and possible latency.
-    tp = first.fdr_offset
-    ts = second.fdr_offset
-    # Get the sample rates for the two parameters
-    wp = first.hz
-    ws = second.hz
-    # Express the timing disparity in terms of the secondary paramter sample interval
-    delta = (tp-ts)*ws
-    # Compute the sample rate ratio (in range 10:1 to 1:10 for sample rates up to 10Hz)
-    R = wp/float(ws)
+    tp = master.fdr_offset
+    ts = slave.fdr_offset
 
-    # Each sample in the first (primary) parameter may need different combination parameters
+    # Get the sample rates for the two parameters
+    wp = master.hz
+    ws = slave.hz
+
+    # Express the timing disparity in terms of the slaveary paramter sample interval
+    delta = (tp-ts)*ws
+
+    # Compute the sample rate ratio (in range 10:1 to 1:10 for sample rates up to 10Hz)
+    r = wp/float(ws)
+
+    # Each sample in the master (primary) parameter may need different combination parameters
     for i in range(wp):
-        bracket=(i/R+delta)
-        # Interpolate between the hth and (h+1)th samples of the secondary
+        bracket=(i/r+delta)
+        # Interpolate between the hth and (h+1)th samples of the slaveary
         h=int(math.floor(bracket))
         h1 = h+1
         # Linear interpolation coefficients
         b = bracket-h
         a=1-b
-        ##for testing: print wp, ws, i, bracket, h, h1, a, b
 
         if h<0:
-            # We can't compute the inital values as the secondary parameters we need
+            # We can't compute the inital values as the slaveary parameters we need
             # are out of range, so not available. Mask the result and work on the
             # later seconds of data to the end.
+            result[i] = 0.0 
+            # Allows unassigned values to be tested as np.ma.empty_like does not write values to the array.
             result[i] = np.ma.masked
-            result[i+wp::wp]=a*second.data[h+ws:-ws:ws]+b*second.data[h1+ws::ws]
+            result[i+wp::wp]=a*slave.data[h+ws:-ws:ws]+b*slave.data[h1+ws::ws]
         elif h1>=ws:
             # We can't compute the final values as the secondary runs out of data.
             # Again, mask the final values and run from the beginning to almost the end
             # of the arrays.
-            result[i-R]=np.ma.masked
-            result[i:-wp:wp]=a*second.data[h:-ws:ws]+b*second.data[h1::ws]
+            result[i-wp] = 0.0
+            result[i-wp]=np.ma.masked
+            result[i:-wp:wp]=a*slave.data[h:-ws:ws]+b*slave.data[h1::ws]
         else:
             # Sheer bliss. We can compute results across the whole range of the data.
-            result[i::wp]=a*second.data[h::ws]+b*second.data[h1::ws]
-            ##self.path = filenameandpath -- CJ commented out - what's this here for?
+            result[i::wp]=a*slave.data[h::ws]+b*slave.data[h1::ws]
 
-    ##result.fdr_word_rate = first.word_rate -- CJ commented out - adding an attr to np.ma is bad practice
     return result
 
-
-def slope (parameter, half_width):
-    '''
-    Differentiation using the xdot(n) = x(n+1) - x(n-1) formula.
-    '''
-    # Set up an array of masked zeros for extending arrays.    
-    pad = np.ma.arange(20)
-    pad[:] = np.ma.masked
-    slope = (parameter[2*half_width:] - parameter[:-2*half_width]) / float((2 * half_width))
-    return np.ma.concatenate([pad[:half_width],slope[:],pad[:half_width]])
-    
 
 
 def straighten_headings(heading_array):
@@ -303,3 +303,81 @@ def straighten_headings(heading_array):
         yield heading + offset
         
 
+def hysteresis (array, hysteresis):
+    """
+    Hysteresis is a process used to prevent noisy data from triggering 
+    an unnecessary number of events or state changes when the parameter is 
+    close to a threshold.
+        
+    :param array: data values to process
+    :type array: masked array
+    :param hysteresis: hysteresis range to apply
+    :type hysteresis: float
+    :returns: masked array of values with hysteresis applied
+    """
+
+    # This routine accepts the usual masked array but only processes the
+    # data part of the array as the hysteresis process cannot make the
+    # values invalid.
+   
+    half_range = hysteresis / 2.0
+    result = np.ma.copy(array)
+
+    for i in xrange(len(result)-1):
+        if result.data[i+1] - result.data[i] > half_range:
+            result.data[i+1] = result.data[i+1] - half_range
+        elif result.data[i+1] - result.data[i] < -half_range:
+            result.data[i+1] = result.data[i+1] + half_range
+        else:
+            result.data[i+1] = result.data[i]
+
+    return result
+
+def first_order_lag (in_param, time_constant, hz, gain = 1.0, initial_value = None):
+    '''
+    Computes the transfer function
+            x.G
+    y = -----------
+         (1 + T.s)
+    where:
+    x is the input function
+    G is the gain
+    T is the timeconstant
+    s is the Laplace operator (think differentiation with time d/dt)
+    y is the output
+    
+    :param in_param: input data (x)
+    :type in_param: masked array
+    :param time_constant: time_constant for the lag function (T)(sec)
+    :type time_constant: float
+    :param hz: sample rate for the input data (sec-1)
+    :type hz: float
+    :param gain: gain of the transfer function (non-dimensional)
+    :type gain: float
+    :param initial_value: initial value of the transfer function at t=0
+    :type initial_value: float
+    :returns: masked array of values with first order lag applied
+    '''
+
+    result = np.copy(in_param.data)
+    if initial_value is not None:
+        result[0] = initial_value
+    
+    # Scale the time constant to allow for different data sample rates.
+    tc = time_constant / hz
+
+    x_term = []
+    x_term.append (gain * 2.0 * tc) #b[0]
+    x_term.append (-gain * 2.0 * tc) #b[1]
+    
+    y_term = []
+    y_term.append (1.0 + 2.0 * tc) #a[0]
+    y_term.append (1.0 - 2.0 * tc) #a[1]
+    
+    #TODO: Sort out what happens if the in_param array contains masked data.
+    # May be OK if we can be sure the masked values aren't silly.
+
+    result = signal.lfilter(x_term, y_term, result)
+    masked_result = np.ma.array(result)
+    masked_result.mask = in_param.mask
+    return masked_result

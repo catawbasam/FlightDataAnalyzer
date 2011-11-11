@@ -6,7 +6,6 @@ import numpy as np
 
 from analysis.derived_parameters import RateOfTurn
 
-
 class TestRateOfTurn(unittest.TestCase):
     def test_can_operate(self):
         expected = [('Straight Heading',)]

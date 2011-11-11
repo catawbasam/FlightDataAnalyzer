@@ -91,7 +91,9 @@ class ILSValLim(DerivedParameterNode):
 
 class RateOfClimb(DerivedParameterNode):
     dependencies = ['Altitude Std', 'Radio Altitude']
-    
+    ##frequency = dependencies[0].frequency
+    ##offset = dependencies[0].offset
+    ##units = 'ft/min'
     def derive(self, params):
         alt_std = params['Altitude Std']
         alt_radio = params['Radio Altitude']
@@ -111,6 +113,7 @@ class RateOfTurn(DerivedParameterNode):
     dependencies = [StraightHeading]
     ##frequency = StraightHeading.frequency
     ##offset = StraightHeading.offset
+    ##units = 'deg/sec'
     def derive(self, params):
         shdg = params[StraightHeading.get_name()]
         return rate_of_change(shdg, half_width=1)
