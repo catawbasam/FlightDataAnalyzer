@@ -16,12 +16,16 @@ MIN_FLIGHT_TO_ANALYSE = 300  # (sec)
 # Minimum period of a descent for testing against thresholds (reduces number of KPVs computed in turbulence)
 DESCENT_MIN_DURATION = 10  # (sec)
 
+# Level flight minimum duration
+LEVEL_FLIGHT_MIN_DURATION = 60  # (sec)
+
 # An airspeed below which you just can't possibly be flying.
 AIRSPEED_THRESHOLD = 80  # (kts)
 
+
+
 #TODO: DEFINE!
 RATE_OF_CLIMB_FOR_FLIGHT_PHASES = NotImplemented
-
 
 ##########################
 ## Data Analysis Hooks

@@ -84,6 +84,8 @@ class Node(object):
     def get_dependency_names(cls):
         """ Returns list of dependency names
         """
+        # TypeError:'ABCMeta' object is not iterable?
+        # this probably means dependencies for this class isn't a list!
         return [x if isinstance(x, str) else x.get_name() for x in cls.dependencies]
     
     @classmethod

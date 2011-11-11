@@ -38,7 +38,7 @@ class hdf_file(object):    # rare case of lower case?!
         '''
         HDF file is opened by __init__.
         '''
-        pass
+        return self
 
     def __exit__(self, a_type, value, traceback):
         self.close()

@@ -1,7 +1,8 @@
 import logging
+import numpy as np
 
 from analysis.node import DerivedParameterNode
-from analysis.library import straighten_headings
+from analysis.library import shift, straighten_headings
 
 #-------------------------------------------------------------------------------
 # Derived Parameters
@@ -10,13 +11,30 @@ from analysis.library import straighten_headings
 # Q: What do we do about accessing KTIs - params['a kti class name'] is a list of kti's
 #   - could have a helper - filter_for('kti_name', take_max=True) # and possibly take_first, take_min, take_last??
 
+# Q: Accessing information like ORIGIN / DESTINATION
+
+# Q: What about V2 Vref etc?
+
+class AltitudeAAL(DerivedParameterNode):
+    name = 'Altitude AAL'
+    dependencies = ['Altitude Std', 'Radio Altitude']
+    def derive(self, params):
+        return NotImplemented
+    
+    
 class AltitudeQNH(DerivedParameterNode):
-    dependencies = ['BAROMB', 'Altitude Std']
+    name = 'Altitude QNH'
+    dependencies = ['BAROMB', 'Altitude Std', 'Takeoff Altitude', 'Landing Altitude']
     def derive(self, params):
         return NotImplemented
     
 class TrueAirspeed(DerivedParameterNode):
     dependencies = ['SAT', 'VMO', 'MMO', 'Indicated Airspeed', 'Altitude QNH']
+    def derive(self, params):
+        return NotImplemented
+    
+class TrueHeading(DerivedParameterNode):
+    dependencies = ['Magnetic Heading', 'Magnetic Deviation']
     def derive(self, params):
         return NotImplemented
     
@@ -26,15 +44,72 @@ class MACH(DerivedParameterNode):
     def derive(self, params):
         return NotImplemented
         
+class SmoothedLatitude(DerivedParameterNode):
+    dependencies = ['Latitude', 'True Heading', 'Indicated Airspeed'] ##, 'Altitude Std']
+    def derive(self, params):
+        return NotImplemented
     
-##class V1V2Vapp(DerivedParameterNode):
-    ### URRR?
-    ##pass
+class SmoothedLongitude(DerivedParameterNode):
+    dependencies = ['Longitude', 'True Heading', 'Indicated Airspeed'] ##, 'Altitude Std']
+    def derive(self, params):
+        return NotImplemented
+    
+class DistanceToLanding(DerivedParameterNode):
+    dependencies = ['Altitude AAL', 'Ground Speed', 'Glideslope Deviation', 'LandingAirport']
+    def derive(self, params):
+        return NotImplemented
+    
+class FlapCorrected(DerivedParameterNode):
+    dependencies = ['Flap']
+    def derive(self, params):
+        return NotImplemented
+    
+class Relief(DerivedParameterNode):
+    # also known as Terrain
+    dependencies = ['Altitude AAL', 'Radio Altitude']
+    def derive(self, params):
+        return NotImplemented
+    
+class LocaliserGap(DerivedParameterNode):
+    dependencies = ['Localiser Deviation', 'Altitude AAL']
+    def derive(self, params):
+        return NotImplemented
+    
+class GlideslopeGap(DerivedParameterNode):
+    dependencies = ['Glideslope Deviation', 'Altitude AAL']
+    def derive(self, params):
+        return NotImplemented
+    
+class ILSValLim(DerivedParameterNode):
+    # Taken from diagram as: ILS VAL/LIM -- TODO: rename!
+    dependencies = [LocaliserGap, GlideslopeGap]
+    def derive(self, params):
+        return NotImplemented
 
 
+
+
+
+class RateOfClimb(DerivedParameterNode):
+    dependencies = ['Altitude Std', 'Radio Altitude']
+    def derive(self, params):
+        alt_std = params['Altitude Std']
+        alt_radio = params['Radio Altitude']
+        
+        # do magic in flight_analysis_algorithms.py
+        return NotImplemented
+        
+
+class RateOfTurn(DerivedParameterNode):
+    dependencies = [StraightHeading]
+    def derive(self, params):
+        shdg = params[StraightHeading.name]
+        # WARNING - diff is one index shorter!
+        return np.diff(shdg)
+    
+    
 class StraightHeading(DerivedParameterNode):
     dependencies = ['Heading']
     def derive(self, params):
         hdg = params['Heading']
         return straighten_headings(hdg)
-

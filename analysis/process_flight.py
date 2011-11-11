@@ -2,7 +2,6 @@ from utilities.dict_helpers import dict_filter  #TODO: Mark utiltities as a depe
 
 from analysis import settings
 from analysis.dependency_graph import dependency_order
-from analysis.flight_phase import compute_flight_phases
 from analysis.hdf_access import hdf_file
 from analysis.node import (GeoKeyTimeInstance, KeyPointValue, KeyPointValueNode,
                            KeyTimeInstance, KeyTimeInstanceNode, FlightPhaseNode)
@@ -11,7 +10,7 @@ from analysis.node import (GeoKeyTimeInstance, KeyPointValue, KeyPointValueNode,
 def get_required_params(aircraft):
     """
     """
-    param_list = []
+    param_list = [] ##['Rate Of Descent High', 'Top of Climb and Top of Descent']
     return param_list
 
 
@@ -177,8 +176,7 @@ def process_flight(hdf_path, aircraft):
 
     '''
 
-#================================
 if __name__ == '__main__':
-    ##file_path = os.path.join('.', 'file.hdf')
-    #open hdf
-    process_flight(hdf)
+    import sys
+    hdf_path = sys.argv[1]
+    process_flight(hdf_path, None)

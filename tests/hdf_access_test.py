@@ -34,12 +34,15 @@ class TestHdfFile(unittest.TestCase):
         self.hdf_file = hdf_file(self.hdf_path)
     
     def tearDown(self):
-        self.hdf_file.close()
+        if self.hdf_file.hdf.id:
+            self.hdf_file.close()
         os.remove(self.hdf_path)
     
     def test_open_and_close_and_full_masks(self):
-        with hdf_file('blah') as hdf:
-            self.assertFalse(hdf.id is None)
+        self.hdf_file.close()
+        with hdf_file(self.hdf_path) as hdf:
+            # check it's open
+            self.assertFalse(hdf.hdf.id is None)
             hdf['sample'] = np.array(range(10))
             self.assertEqual(list(hdf['sample'].data), range(10))
             self.assertTrue(hasattr(hdf['sample'], 'mask'))
@@ -47,8 +50,9 @@ class TestHdfFile(unittest.TestCase):
             hdf['masked sample'] = np.ma.array(range(10))
             self.assertEqual(list(hdf['masked sample'].data), range(10))
             # check masks are returned in full (not just a single False)
-            self.assertEqual(hdf['masked sample'].mask, [False]*10)
-        self.assertTrue(hdf.id is None)
+            self.assertEqual(list(hdf['masked sample'].mask), [False]*10)
+        # check it's closed
+        self.assertEqual(hdf.hdf.__repr__(), '<Closed HDF5 file>')
         
     def test_limit_storage(self):
         # test appending a limit (arinc first, then adding others)

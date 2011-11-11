@@ -21,9 +21,10 @@ def get_derived_nodes(module_names):
         # empty, loading class "A.B.C.D" actually only loads "A". If the last
         # parameter is defined, regardless of what its value is, we end up
         # loading "A.B.C"
+        ##abstract_nodes = ['Node', 'Derived Parameter Node', 'Key Point Value Node', 'Flight Phase Node'
         module = __import__(name, globals(), locals(), [''])
         for c in vars(module).values():
-            if isclassandsubclass(c, Node):
+            if isclassandsubclass(c, Node) and c.__module__ != 'analysis.node':
                 try:
                     nodes[c.get_name()] = c()
                 except TypeError:
@@ -156,18 +157,24 @@ def process_order(gr_all, node_mgr): ##lfl_params, derived_nodes):
     # gr_st will be a copy of gr_all which we'll delete inactive nodes from
     gr_st = gr_all.copy() 
     
-    # Determine whether nodes are operational
+    # Determine whether nodes are operational, this will repeatedly ask some 
+    # nodes as they may only become operational later on.
     process_order = []
     for node in reversed(order):
         if node_mgr.operational(node, process_order):
             if node not in node_mgr.lfl + ['root']:
                 gr_all.node[node]['color'] = 'blue'
+            # un-grey edges that were previously inactive
+            active_edges = gr_all.in_edges(node)
+            gr_all.add_edges_from(active_edges, color='black')
             process_order.append(node)
         else:
-            gr_st.remove_node(node)
             gr_all.node[node]['color'] = 'grey'
             inactive_edges = gr_all.in_edges(node)
             gr_all.add_edges_from(inactive_edges, color='grey')
+
+    # remove nodes from gr_st that aren't in the process order
+    gr_st.remove_nodes_from(set(gr_st.nodes()) - set(process_order))
     
     # Breadth First Search Spanning Tree
     #st, order = breadth_first_search(gr_st, root="root")
@@ -188,7 +195,8 @@ def process_order(gr_all, node_mgr): ##lfl_params, derived_nodes):
     return gr_all, gr_st, node_order 
 
      
-MODULES = ('analysis.key_point_values', 
+MODULES = ('analysis.derived_parameters',
+           'analysis.key_point_values', 
            'analysis.key_time_instances', 
            'analysis.flight_phase')
 def dependency_order(lfl_params, required_params, modules=MODULES, draw=True):
@@ -208,6 +216,10 @@ def dependency_order(lfl_params, required_params, modules=MODULES, draw=True):
     """    
     # go through modules to get derived nodes
     derived_nodes = get_derived_nodes(modules)
+    # if required_params isn't set, try using ALL derived_nodes!
+    if not required_params:
+        logging.warning("No required_params declared, using all derived nodes")
+        required_params = derived_nodes.keys()
     # keep track of all the node types
     node_mgr = NodeManager(lfl_params, required_params, derived_nodes)
     _graph = graph_nodes(node_mgr)
