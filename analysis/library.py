@@ -1,7 +1,7 @@
 import math
 import numpy as np
 # Scipy routines used for transfer functions
-import scipy.signal as signal
+from scipy.signal import iirfilter, lfilter, lfilter_zi
 
 from datetime import datetime, timedelta
 from itertools import izip
@@ -145,6 +145,9 @@ def rate_of_change(to_diff, half_width):
     Differentiation using the xdot(n) = (x(n+hw) - x(n-hw))/w formula.
     Width w=hw*2 and this approach provides smoothing over a w second period,
     without introducing a phase shift.
+    
+    Note: Could look at adapting the np.gradient function, however this does not
+    handle masked arrays.
     '''
     if half_width > 20:
         raise ValueError
@@ -199,8 +202,8 @@ def align(master, slave):
     """
     This function takes two parameters which will have been sampled at different
     rates and with different offsets, and aligns the slave parameter's samples
-    to match the master parameter. In this way the two may be processed without 
-    timing errors.
+    to match the master parameter. In this way the master and aligned slave data
+    may be processed without timing errors.
     
     :type master, slave: Parameter objects with attributes:
     :type master.data: masked array
@@ -229,17 +232,17 @@ def align(master, slave):
     ts = slave.fdr_offset
 
     # Get the sample rates for the two parameters
-    wp = master.hz
+    wm = master.hz
     ws = slave.hz
 
     # Express the timing disparity in terms of the slaveary paramter sample interval
     delta = (tp-ts)*ws
 
     # Compute the sample rate ratio (in range 10:1 to 1:10 for sample rates up to 10Hz)
-    r = wp/float(ws)
+    r = wm/float(ws)
 
-    # Each sample in the master (primary) parameter may need different combination parameters
-    for i in range(wp):
+    # Each sample in the master parameter may need different combination parameters
+    for i in range(wm):
         bracket=(i/r+delta)
         # Interpolate between the hth and (h+1)th samples of the slaveary
         h=int(math.floor(bracket))
@@ -249,23 +252,20 @@ def align(master, slave):
         a=1-b
 
         if h<0:
-            # We can't compute the inital values as the slaveary parameters we need
-            # are out of range, so not available. Mask the result and work on the
-            # later seconds of data to the end.
-            result[i] = 0.0 
-            # Allows unassigned values to be tested as np.ma.empty_like does not write values to the array.
-            result[i] = np.ma.masked
-            result[i+wp::wp]=a*slave.data[h+ws:-ws:ws]+b*slave.data[h1+ws::ws]
+            result[i+wm::wm]=a*slave.data[h+ws:-ws:ws]+b*slave.data[h1+ws::ws]
+            # We can't interpolate the inital values as we are outside the 
+            # range of the slave parameters. Take the first value and extend to 
+            # the end of the data.
+            result[i] = slave.data[0]
         elif h1>=ws:
-            # We can't compute the final values as the secondary runs out of data.
-            # Again, mask the final values and run from the beginning to almost the end
-            # of the arrays.
-            result[i-wp] = 0.0
-            result[i-wp]=np.ma.masked
-            result[i:-wp:wp]=a*slave.data[h:-ws:ws]+b*slave.data[h1::ws]
+            result[i:-wm:wm]=a*slave.data[h:-ws:ws]+b*slave.data[h1::ws]
+            # At the other end, we run out of slave parameter values so need to
+            # extend to the end of the array.
+            result[i-wm] = slave.data[-1]
         else:
-            # Sheer bliss. We can compute results across the whole range of the data.
-            result[i::wp]=a*slave.data[h::ws]+b*slave.data[h1::ws]
+            # Sheer bliss. We can compute results across the whole range of the 
+            # data without having to take special care at the ends of the array.
+            result[i::wm]=a*slave.data[h::ws]+b*slave.data[h1::ws]
 
     return result
 
@@ -303,6 +303,29 @@ def straighten_headings(heading_array):
         yield heading + offset
         
 
+
+def merge_alternate_sensors (array):
+    '''
+    This simple process merges the data from two sensors where they are sampled
+    alternately. Often pilot and co-pilot attitude and air data signals are
+    stored in alternate locations to provide the required sample rate while
+    allowing errors in either to be identified for investigation purposes.
+    
+    For FDM, only a single parameter is required, but mismatches in the two 
+    sensors can lead to, taking pitch attitude as an example, apparent "nodding"
+    of the aircraft and errors in the derived pitch rate.
+    
+    :param array: sampled data from an alternate signal source
+    :type array: masked array
+    :returns: masked array with merging algorithm applied.
+    '''
+    
+    result = np.ma.empty_like(array)
+    result[1:-1] = (array[:-2] + array[1:-1]*2.0 + array[2:]) / 4.0
+    result[0] = (array[0] + array[1]) / 2.0
+    result[-1] = (array[-2] + array[-1]) / 2.0
+    return result
+    
 def hysteresis (array, hysteresis):
     """
     Hysteresis is a process used to prevent noisy data from triggering 
@@ -333,7 +356,7 @@ def hysteresis (array, hysteresis):
 
     return result
 
-def first_order_lag (in_param, time_constant, hz, gain = 1.0, initial_value = None):
+def first_order_lag (in_param, time_constant, hz, gain = 1.0, initial_value = 0.0):
     '''
     Computes the transfer function
             x.G
@@ -343,7 +366,7 @@ def first_order_lag (in_param, time_constant, hz, gain = 1.0, initial_value = No
     x is the input function
     G is the gain
     T is the timeconstant
-    s is the Laplace operator (think differentiation with time d/dt)
+    s is the Laplace operator
     y is the output
     
     :param in_param: input data (x)
@@ -360,24 +383,81 @@ def first_order_lag (in_param, time_constant, hz, gain = 1.0, initial_value = No
     '''
 
     result = np.copy(in_param.data)
-    if initial_value is not None:
-        result[0] = initial_value
     
     # Scale the time constant to allow for different data sample rates.
     tc = time_constant / hz
-
+    
+    # Trap the condition for stability
+    if tc < 0.5:
+        raise ValueError, 'Lag timeconstant too small'
+    
     x_term = []
-    x_term.append (gain * 2.0 * tc) #b[0]
-    x_term.append (-gain * 2.0 * tc) #b[1]
+    x_term.append (gain / (1.0 + 2.0*tc)) #b[0]
+    x_term.append (gain / (1.0 + 2.0*tc)) #b[1]
+    x_term = np.array(x_term)
     
     y_term = []
-    y_term.append (1.0 + 2.0 * tc) #a[0]
-    y_term.append (1.0 - 2.0 * tc) #a[1]
+    y_term.append (1.0) #a[0] 
+    y_term.append ((1.0 - 2.0*tc)/(1.0 + 2.0*tc)) #a[1]
+    y_term = np.array(y_term)
     
-    #TODO: Sort out what happens if the in_param array contains masked data.
-    # May be OK if we can be sure the masked values aren't silly.
+    z_initial = lfilter_zi(x_term, y_term) # Prepare for non-zero initial state
+    answer, z_final = lfilter(x_term, y_term, result, zi=z_initial*initial_value)
+    masked_result = np.ma.array(answer)
+    # Note that we cheat by re=applying the mask and pretending that false values
+    # do not impact on the subsequent data. Mathematically unacceptable, but
+    # a pragmatic solution.
+    masked_result.mask = in_param.mask
+    return masked_result
 
-    result = signal.lfilter(x_term, y_term, result)
-    masked_result = np.ma.array(result)
+def first_order_washout (in_param, time_constant, hz, gain = 1.0, initial_value = 0.0):
+    '''
+    Computes the transfer function
+          x.G.s
+    y = -----------
+         (1 + T.s)
+    where:
+    x is the input function
+    G is the gain
+    T is the timeconstant
+    s is the Laplace operator
+    y is the output
+    
+    :param in_param: input data (x)
+    :type in_param: masked array
+    :param time_constant: time_constant for the lag function (T)(sec)
+    :type time_constant: float
+    :param hz: sample rate for the input data (sec-1)
+    :type hz: float
+    :param gain: gain of the transfer function (non-dimensional)
+    :type gain: float
+    :param initial_value: initial value of the transfer function at t=0
+    :type initial_value: float
+    :returns: masked array of values with first order lag applied
+    '''
+
+    result = np.copy(in_param.data)
+    
+    # Scale the time constant to allow for different data sample rates.
+    tc = time_constant / hz
+    
+    # Trap the condition for stability
+    if tc < 0.5:
+        raise ValueError, 'Lag timeconstant too small'
+    
+    x_term = []
+    x_term.append (gain*2.0*tc  / (1.0 + 2.0*tc)) #b[0]
+    x_term.append (-gain*2.0*tc / (1.0 + 2.0*tc)) #b[1]
+    x_term = np.array(x_term)
+    
+    y_term = []
+    y_term.append (1.0) #a[0] 
+    y_term.append ((1.0 - 2.0*tc)/(1.0 + 2.0*tc)) #a[1]
+    y_term = np.array(y_term)
+    
+    z_initial = lfilter_zi(x_term, y_term)
+    # For some reason the z_initial value is of the wrong sign in this case.
+    answer, z_final = lfilter(x_term, y_term, result, zi=-z_initial*initial_value)
+    masked_result = np.ma.array(answer)
     masked_result.mask = in_param.mask
     return masked_result
