@@ -3,6 +3,7 @@ try:
 except ImportError:
     import unittest
 import numpy as np
+import utilities.masked_array_testutils as ma_test
 
 from analysis.derived_parameters import RateOfTurn
 
@@ -16,15 +17,15 @@ class TestRateOfTurn(unittest.TestCase):
         params = {'Straight Heading':np.ma.array(range(10))}
         rot = RateOfTurn()
         res = rot.derive(params)
-        np.testing.assert_array_equal(res.filled(np.nan), np.ma.array([1]*10))
+        answer = np.ma.array(data=[1]*10, dtype=np.float,
+                             mask=False)
+        ma_test.assert_masked_array_approx_equal(res, answer)
         
     def test_rate_of_turn_phase_stability(self):
-        params = {'Straight Heading':np.ma.array([0,0,0,1,0,0,0])}
+        params = {'Straight Heading':np.ma.array([0,0,0,1,0,0,0], dtype=float)}
         rot = RateOfTurn()
         res = rot.derive(params)
         answer = np.ma.array([0,0,0.5,0,-0.5,0,0])
-        answer[0]=np.ma.masked
-        answer[-1] = np.ma.masked
-        np.testing.assert_array_equal(res.filled(np.nan), answer)
+        ma_test.assert_masked_array_approx_equal(res, answer)
         
         

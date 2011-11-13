@@ -14,7 +14,8 @@ from analysis.library import (align, calculate_timebase, create_phase_inside,
                               create_phase_outside, first_order_lag,
                                first_order_washout,
                               hysteresis, merge_alternate_sensors, powerset, 
-                              rate_of_change, straighten_headings)
+                              rate_of_change, seek, straighten_headings,
+                              value_at_time)
 
 
 class TestClock(unittest.TestCase):
@@ -67,7 +68,7 @@ class TestRunningAverage(unittest.TestCase):
 
     
 class TestAlign(unittest.TestCase):
-    def test_align(self):
+    def test_align_basic(self):
         class DumParam():
             def __init__(self):
                 self.fdr_offset = None
@@ -87,6 +88,21 @@ class TestAlign(unittest.TestCase):
         result = align(first, second)
         np.testing.assert_array_equal(result.data, [0, 0, 1, 2, 3, 4, 5, 6])
         np.testing.assert_array_equal(result.mask, False)
+                
+    def test_align_assert_array_lengths(self):
+        class DumParam():
+            def __init__(self):
+                self.fdr_offset = 0.0
+                self.hz = 1
+                self.data = []
+                
+        first = DumParam()
+        first.hz = 4
+        first.data = np.ma.array(range(8))
+        second = DumParam()
+        second.hz = 4
+        second.data = np.ma.array(range(7)) # Unmatched array length !
+        self.assertRaises (AssertionError, align, first, second)
                 
     def test_align_same_hz_delayed(self):
         # Both arrays at 1Hz, master behind slave in time
@@ -194,16 +210,6 @@ class TestAlign(unittest.TestCase):
         slave.hz = 2
         slave.fdr_offset = 0.15
         result = align(master, slave)
-        '''
-        np.testing.assert_array_almost_equal(result.data[0:5], 
-                                             [10.0,10.15,10.4,10.65,10.9])
-        np.testing.assert_array_almost_equal(result.data[13:16],
-                                             [13.0,13.0,13.0])
-        np.testing.assert_array_equal(result.mask, [False,False,False,False,
-                                                    False, True, True, True,
-                                                    True , True, True, True,
-                                                    True ,False,False,False])
-        '''
         answer = np.ma.array(data = [10.0,10.15,10.4,10.65,
                                      10.9,0,0,0,
                                      0,0,0,0,
@@ -213,13 +219,7 @@ class TestAlign(unittest.TestCase):
                                      True , True, True, True,
                                      True ,False,False,False])
         ma_test.assert_masked_array_approx_equal(result, answer)
-        
-        ## Checks run to ensure this function tests both the data and the mask.
-        ##answer.data[3] = 10.66        
-        ##ma_test.assert_array_approx_equal(result, answer, decimal=6, err_msg='oops2', verbose=True)
-        ##answer.mask[3] = 1 # !!! np.ma.masked did not work in this location !!!
-        ##ma_test.assert_array_approx_equal(result, answer, decimal=6, err_msg='oops3', verbose=True)
-                
+
     def test_align_increasing_hz_extreme(self):
         # Master at higher frequency than slave
         class DumParam():
@@ -245,6 +245,57 @@ class TestAlign(unittest.TestCase):
                                                           10.65,10.775,10.9,11.0  ])
         np.testing.assert_array_equal(result.mask, False)
         
+    def test_align_across_frame_increasing(self):
+        # Master at higher frequency than slave
+        class DumParam():
+            def __init__(self):
+                self.fdr_offset = None
+                self.hz = 1
+                self.data = []
+        master = DumParam()
+        master.data = np.ma.zeros(64, dtype=float)
+        # It is necessary to force the data type, as otherwise the array is cast
+        # as integer and the result comes out rounded down as well.
+        master.hz = 8
+        master.fdr_offset = 0.1
+        slave = DumParam()
+        slave.data = np.ma.array([10,11],dtype=float)
+        slave.hz = 0.25
+        slave.fdr_offset = 3.95
+        result = align(master, slave, interval='Frame')
+        # Build the correct answer...
+        answer=np.ma.ones(64)*10
+        answer[31] = answer[31] + 0.00625
+        for i in range(31):
+            answer [31+i+1] = answer[31+i] + 1/32.0
+        answer[-1] = 11.0
+        # ...and check the resulting array in one hit.
+        ma_test.assert_masked_array_approx_equal(result, answer)
+        
+
+    def test_align_across_frame_decreasing(self):
+        # Master at higher frequency than slave
+        class DumParam():
+            def __init__(self):
+                self.fdr_offset = None
+                self.hz = 1
+                self.data = []
+        master = DumParam()
+        master.data = np.ma.zeros(4, dtype=float)
+        # It is necessary to force the data type, as otherwise the array is cast
+        # as integer and the result comes out rounded down as well.
+        master.hz = 0.5
+        master.fdr_offset = 1.5
+        slave = DumParam()
+        # Fill a two-frame sample with linear data
+        slave.data = np.ma.arange(32,dtype=float)
+        slave.hz = 4
+        slave.fdr_offset = 0.1
+        result = align(master, slave, interval='Frame')
+        # Build the correct answer...
+        answer=np.ma.array([5.6,13.6,21.6,29.6])
+        ma_test.assert_masked_array_approx_equal(result, answer)
+        
 
 class TestMergeAlternateSensors(unittest.TestCase):
     def test_merge_alternage_sensors_basic(self):
@@ -265,35 +316,28 @@ class TestMergeAlternateSensors(unittest.TestCase):
 
 
 class TestRateOfChange(unittest.TestCase):
-    '''
-    must be a way to get the array defined once like this...
-    def setUp(self):
-        array = np.ma.array([0, 0, 0, 0, 1, 0, 0, 0, 0, 2])
-    ...but I can't get it to work
-    '''
-        
     def test_rate_of_change(self):
-        array = np.ma.array([0, 0, 0, 0, 1, 0, 0, 0, 0, 2])
-        sloped = rate_of_change(array, 2)
-        expected_results = np.ma.array(
-            data=[None, None, 0.25, 0.0, 0.0, 0.0, -0.25, 0.5, None, None],
-            mask=[True, True, False, False, False,
-                  False, False, False, True, True],
-            fill_value=1e+20)
-        np.testing.assert_array_equal(sloped.data[2:8], expected_results.data[2:8])
-        np.testing.assert_array_equal(sloped.mask, expected_results.mask)
+        array = np.ma.array([1, 0, -1, 2, 1, 3, 4, 6, 5, 7],dtype=float)
+        sloped = rate_of_change(array, 2, 1)
+        answer = np.ma.array(data=[-1.0,-1.0,0.0,0.75,1.25,1.0,1.0,1.0,-1.0,2.0],
+                             mask=False)
+        ma_test.assert_mask_eqivalent(sloped, answer)
         
-    def test_rate_of_change_half_width_too_big(self):
-        array = np.ma.array([0, 0, 0, 0, 1, 0, 0, 0, 0, 2])
-        self.assertRaises(ValueError, rate_of_change, array, 25)
+    def test_rate_of_change_transfer_mask(self):
+        array = np.ma.array(data = [1, 0, -1, 2, 1, 3, 4, 6, 5, 7],dtype=float,
+                            mask = [0, 1,  0, 0, 0, 1, 0, 0, 0, 1])
+        sloped = rate_of_change(array, 1, 2)
+        answer = np.ma.array(data = [0, -0.5, 0, 0.5, 0, 0.75, 0, 0.25, 0, 0],
+             mask = [True,False,True,False,True,False,True,False,True,True])
+        ma_test.assert_mask_eqivalent(sloped, answer)
         
     def test_rate_of_change_half_width_zero(self):
-        array = np.ma.array([0, 0, 0, 0, 1, 0, 0, 0, 0, 2])
-        self.assertRaises(ValueError, rate_of_change, array, 0)
+        array = np.ma.array([0, 1, 0])
+        self.assertRaises(ValueError, rate_of_change, array, 0, 1)
         
     def test_rate_of_change_half_width_negative(self):
-        array = np.ma.array([0, 0, 0, 0, 1, 0, 0, 0, 0, 2])
-        self.assertRaises(ValueError, rate_of_change, array, -2)
+        array = np.ma.array([0, 1, 0])
+        self.assertRaises(ValueError, rate_of_change, array, -2, 1)
         
         
 class TestStraightenHeadings(unittest.TestCase):
@@ -318,12 +362,14 @@ class TestStraightenHeadings(unittest.TestCase):
                     2.5,
                     8.1,
                     14.4]
-        for index, val in enumerate(straighten_headings(data)):
-            self.assertEqual(
-                '%.2f' % val,
-                '%.2f' % expected[index],
-                msg="Failed at %s == %s at %s" % (val, expected[index], index)
-            )
+        np.testing.assert_array_almost_equal(straighten_headings(data), expected)
+
+        #for index, val in enumerate(straighten_headings(data)):
+            #self.assertEqual(
+                #'%.2f' % val,
+                #'%.2f' % expected[index],
+                #msg="Failed at %s == %s at %s" % (val, expected[index], index)
+            #)
 
 
 class TestHysteresis(unittest.TestCase):
@@ -432,3 +478,99 @@ class TestFirstOrderWashout(unittest.TestCase):
         result = first_order_washout (array, 1.0, 1.0, initial_value = 1.0)
         ma_test.assert_mask_eqivalent(result.mask, [0,0,0,1,0], err_msg='Masks are not equal')
         
+        
+class TestValueAtTime(unittest.TestCase):
+
+    # Reminder: value_at_time (array, hz, fdr_offset, time_index)
+    
+    def test_value_at_time_basic(self):
+        array = np.ma.arange(4)
+        self.assertEquals (value_at_time(array, 1, 0.0, 2.5), 2.5)
+        
+    def test_value_at_time_right_at_start_of_data(self):
+        array = np.ma.arange(4) + 22.3
+        self.assertEquals (value_at_time(array, 1, 0.0, 0.0), 22.3)
+        
+    def test_value_at_time_right_at_end_of_data(self):
+        array = np.ma.arange(4) + 22.3
+        self.assertEquals (value_at_time(array, 4, 0.0, 0.75), 25.3)
+        
+    def test_value_at_time_assertion_below_range(self):
+        array = np.ma.arange(4)
+        self.assertRaises (ValueError, value_at_time, array, 1, 0.1, 0.0)
+        
+    def test_value_at_time_assertion_above_range(self):
+        array = np.ma.arange(4)
+        self.assertRaises (ValueError, value_at_time, array, 1, 0.0, 7.0)
+        
+    def test_value_at_time_with_lower_value_masked(self):
+        array = np.ma.arange(4) + 7.4
+        array[1] = np.ma.masked
+        self.assertEquals (value_at_time(array, 2.0, 0.2, 1.0), 9.4)
+        
+    def test_value_at_time_with_higher_value_masked(self):
+        array = np.ma.arange(4) + 7.4
+        array[2] = np.ma.masked
+        self.assertEquals (value_at_time(array, 2.0, 0.2, 1.0), 8.4)
+        
+    def test_value_at_time_with_neither_value_masked(self):
+        array = np.ma.arange(4) + 7.4
+        array[3] = np.ma.masked
+        self.assertEquals (value_at_time(array, 2.0, 0.2, 1.0), 9.0)
+        
+    def test_value_at_time_with_both_values_masked(self):
+        array = np.ma.arange(4) + 7.4
+        array[1] = np.ma.masked
+        array[2] = np.ma.masked
+        self.assertEquals (value_at_time(array, 2.0, 0.2, 1.0), None)
+
+
+class TestSeek(unittest.TestCase):
+    
+    # Reminder: seek (array, hz, fdr_offset, scan_start, scan_end, threshold):
+
+    def test_seek_basic(self):
+        array = np.ma.arange(4)
+        self.assertEquals (seek(array, 1, 0.0, 0, 3, 1.5), 1.5)
+        
+    def test_seek_backwards(self):
+        array = np.ma.arange(8)
+        self.assertEquals (seek(array, 1, 0.0, 6, 2, 2.5), 2.5)
+
+    def test_seek_right_at_start(self):
+        array = np.ma.arange(4)
+        self.assertEquals (seek(array, 1, 0.0, 1, 3, 1.0), 1.0)
+                           
+    def test_seek_right_at_end(self):
+        array = np.ma.arange(4)
+        self.assertEquals (seek(array, 1, 0.0, 1, 3, 3.0), 3.0)
+        
+    def test_seek_threshold_not_crossed(self):
+        array = np.ma.arange(4)
+        self.assertEquals (seek(array, 1, 0.0, 0, 3, 7.5), None)
+        
+    def test_seek_no_range_error(self):
+        array = np.ma.arange(4)
+        self.assertRaises(ValueError, seek, array, 1, 0.0, 2, 2, 7.5)
+        self.assertRaises(ValueError, seek, array, 1, 0.0, -1, 2, 7.5)
+        self.assertRaises(ValueError, seek, array, 1, 0.0, 2, 5, 7.5)
+        self.assertRaises(ValueError, seek, array, 1, 0.0, 5, 2, 7.5)
+        self.assertRaises(ValueError, seek, array, 1, 0.0, 2, -1, 7.5)
+        
+    def test_seek_masked(self):
+        array = np.ma.arange(4)
+        array[1] = np.ma.masked
+        self.assertEquals (seek(array, 1, 0.0, 0, 3, 1.5), None)
+        
+        
+'''
+ma_test.assert_masked_array_approx_equal(result, answer)
+
+self.assertAlmostEquals(result.data[-1], 10.0)
+
+    def test_firstorderlag_stability_check(self):
+        array = np.ma.ones(4)
+        # With a time constant of 1 and a frequency of 4, the simple algorithm
+        # becomes too inaccurate to be useful.
+        self.assertRaises(ValueError, first_order_lag, array, 1.0, 4.0)
+'''

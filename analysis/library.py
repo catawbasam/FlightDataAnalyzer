@@ -138,7 +138,7 @@ def powerset(iterable):
     s = list(iterable)
     return chain.from_iterable(combinations(s, r) for r in range(len(s)+1))
 
-def rate_of_change(to_diff, half_width):
+def rate_of_change(to_diff, half_width, hz):
     '''
     @param to_diff: Parameter object with .data attr (masked array)
     
@@ -146,20 +146,27 @@ def rate_of_change(to_diff, half_width):
     Width w=hw*2 and this approach provides smoothing over a w second period,
     without introducing a phase shift.
     
+    :param to_diff: input data
+    :type to_diff: masked array
+    :param half_width: half the differentiation time period (sec)
+    :type half_width: float
+    :param hz: sample rate for the input data (sec-1)
+    :type hz: float
+    :returns: masked array of values with differentiation applied
+    
     Note: Could look at adapting the np.gradient function, however this does not
     handle masked arrays.
     '''
-    if half_width > 20:
-        raise ValueError
-    
     if half_width < 1:
         raise ValueError
     
-    # Set up an array of masked zeros for extending arrays.    
-    pad = np.ma.arange(20)
-    pad[:] = np.ma.masked
-    slope = (to_diff[2*half_width:] - to_diff[:-2*half_width]) / float((2 * half_width))
-    return np.ma.concatenate([pad[:half_width],slope[:],pad[:half_width]])
+    # Set up an array of masked zeros for extending arrays.
+    slope = np.ma.copy(to_diff)
+    slope[half_width:-half_width] = (to_diff[2*half_width:] - to_diff[:-2*half_width])\
+                                     / float((2 * half_width * hz))
+    slope[:half_width] = (to_diff[1:half_width+1] - to_diff[0:half_width]) / hz
+    slope[-half_width:] = (to_diff[-half_width:] - to_diff[-half_width-1:-1]) / hz
+    return slope
 
 '''
 Not used at this time, and superceded by hysteresis as a technique for removing
@@ -198,7 +205,7 @@ def running_average(data, half_width=5):
     return temp
 '''
 
-def align(master, slave):
+def align(master, slave, interval='Subframe'):
     """
     This function takes two parameters which will have been sampled at different
     rates and with different offsets, and aligns the slave parameter's samples
@@ -212,20 +219,29 @@ def align(master, slave):
     :type slave.data: masked array
     :type slave.fdr_offset: float
     :type slave.hz: float
+    :type interval: String with possible values 'Subframe' or 'Frame'. 
+    The function raises an assertion error if the interval is neither 'Subframe' or 'Frame'
     
     :returns masked array.
+    
+    :error The function raises an assertion error if the arrays and sample rates do not
+    equate to the same overall data duration.
+    
     The offset and hz for the returned masked array will be those of the 
     master parameter.
     The values of the returned array will be those of the slave parameter, 
     aligned to the master and adjusted by linear interpolation. The initial
-    or final values may be masked if they lie outside the timebase of the 
-    slave parameter (i.e. we do not extrapolate).    
+    or final values will be extended from the first or last values if they lie 
+    outside the timebase of the slave parameter (i.e. we do not extrapolate).    
     """
+    # Check the interval is one of the two forms we recognise
+    assert interval in ['Subframe', 'Frame']
+    
     # Here we create a masked array to hold the returned values that will have 
     # the same sample rate and timing offset as the master
     result = np.ma.empty_like(master.data)
     ## result[:] = 0.0
-    ## Clearing the result array is unnecessary, but makes testing easier to follow.
+    ## Clearing the result array is unnecessary, but can make testing easier to follow.
 
     # Get the timing offsets, comprised of word location and possible latency.
     tp = master.fdr_offset
@@ -235,9 +251,18 @@ def align(master, slave):
     wm = master.hz
     ws = slave.hz
 
-    # Express the timing disparity in terms of the slaveary paramter sample interval
-    delta = (tp-ts)*ws
+    # Express the timing disparity in terms of the slave paramter sample interval
+    delta = (tp-ts)*slave.hz
 
+    # If we are working across a complete frame, the number of samples in each case
+    # is four times greater.
+    if interval == 'Frame':
+        wm = int(wm * 4)
+        ws = int(ws * 4)
+    assert wm in [1,2,4,8,16,32,64]
+    assert ws in [1,2,4,8,16,32,64]
+    assert len(master.data.data) * ws == len(slave.data.data) * wm
+           
     # Compute the sample rate ratio (in range 10:1 to 1:10 for sample rates up to 10Hz)
     r = wm/float(ws)
 
@@ -288,6 +313,10 @@ def straighten_headings(heading_array):
     """
     # Ref: flight_analysis_library.py
     
+    '''
+
+    Original version based on iterating through the data
+    
     head_prev = heading_array[0]
     yield head_prev
     offset = 0.0
@@ -301,8 +330,15 @@ def straighten_headings(heading_array):
             pass # no change to offset
         head_prev = heading
         yield heading + offset
-        
-
+    '''
+    
+    # Amended version using Numpy functions.
+    head_prev = heading_array[0]
+    diff = np.ediff1d(heading_array)
+    diff = diff - 360.0 * np.trunc(diff/180.0)
+    heading_array[1:] = np.cumsum(diff) + head_prev
+    return heading_array
+    
 
 def merge_alternate_sensors (array):
     '''
@@ -461,3 +497,102 @@ def first_order_washout (in_param, time_constant, hz, gain = 1.0, initial_value 
     masked_result = np.ma.array(answer)
     masked_result.mask = in_param.mask
     return masked_result
+
+def value_at_time (array, hz, fdr_offset, time_index):
+    '''
+    Finds the value of the data in array at the time given by the time_index.
+    
+    :param array: input data
+    :type array: masked array
+    :param hz: sample rate for the input data (sec-1)
+    :type hz: float
+    :param fdr_offset: fdr offset for the array (sec)
+    :type fdr_offset: float
+    :param time_index: time into the array where we want to find the array value.
+    :type time_index: float
+    :returns: interpolated value from the array
+    '''
+
+    time_into_array = time_index - fdr_offset
+    location_in_array = time_into_array * hz
+
+    if location_in_array < 0.0 or location_in_array > len(array):
+        raise ValueError, 'Seeking value outside data time range'
+    
+    low = int(location_in_array)
+    if (low==location_in_array):
+        # I happen to have arrived at exactly the right value by a fluke...
+        return array.data[low]
+    else:
+        high = low + 1
+        r = location_in_array - low
+        low_value = array.data[low]
+        high_value = array.data[high]
+        # Crude handling of masked values. Must be a better way !
+        if array.mask.any(): # An element is masked
+            if array.mask[low] == True:
+                if array.mask[high] == True:
+                    return None
+                else:
+                    return high_value
+            else:
+                if array.mask[high] == True:
+                    return low_value
+        # In the cases of no mask, or neither sample masked, interpolate.
+        return r*high_value + (1-r) * low_value
+
+def seek (array, hz, fdr_offset, scan_start, scan_end, threshold):
+    '''
+    Seeks the moment when the parameter in question first crosses a threshold.
+    For example, to find 50ft Rad Alt on the descent, use something like:
+       altitude_radio.seek(t_approach, t_landing, 50)
+    
+    :param array: input data
+    :type array: masked array
+    :param hz: sample rate for the input data (sec-1)
+    :type hz: float
+    :param fdr_offset: fdr offset for the array (sec)
+    :type fdr_offset: float
+    :param scan_start: time into the array where we want to start seeking the threshold transit.
+    :type scan_start: float
+    :param scan_end: time into the array where we want to stop seeking the threshold transit.
+    :type scan_end: float
+    :param threshold: the value that we expect the array to cross between scan_start and scan_end.
+    :type threshold: float
+    :returns: interpolated time when the array values crossed the threshold. (One value only).
+    :returns type: float
+    '''
+
+    if scan_start == scan_end:
+        raise ValueError, 'No range for seek function to scan across'
+    
+    begin = int((scan_start - fdr_offset) * hz)
+    cease = int((scan_end   - fdr_offset) * hz)
+    
+    step = 1
+    if cease > begin : # Normal increasing scan
+        cease = cease + 1
+    else:
+        # Allow for traversing the data backwards
+        step = -1
+        cease = cease - 1
+
+    if begin < 0 or begin > len(array) or cease < 0 or cease > len(array):
+        raise ValueError, 'Attempt to seek outside data range'
+        
+    # When the data being tested passes the value we are seeking, the 
+    # difference between the data and the value will change sign.
+    # Therefore a negative value indicates where value has been passed.
+    value_passing_array = (array[begin:cease-step:step]-threshold) * (array[begin+step:cease:step]-threshold)
+    test_array = np.ma.masked_greater(value_passing_array, 0.0)
+    
+    if np.ma.all(test_array.mask):
+        # The parameter does not pass through threshold in the period in question, so return empty-handed.
+        return None
+    else:
+        n,dummy=np.ma.flatnotmasked_edges(np.ma.masked_greater(value_passing_array, 0.0))
+        a = array[begin+step*n]
+        b = array[begin+step*(n+1)]
+        r = (threshold - a) / (b-a)
+        #TODO: Could test 0 < r < 1 for completeness
+    return (begin + step * (n + r)) / hz

@@ -2,7 +2,7 @@ import logging
 import numpy as np
 
 from analysis.node import DerivedParameterNode
-from analysis.library import rate_of_change, shift, straighten_headings
+from analysis.library import rate_of_change, align, straighten_headings
 
 #-------------------------------------------------------------------------------
 # Derived Parameters
@@ -116,4 +116,5 @@ class RateOfTurn(DerivedParameterNode):
     ##units = 'deg/sec'
     def derive(self, params):
         shdg = params[StraightHeading.get_name()]
-        return rate_of_change(shdg, half_width=1)
+        return rate_of_change(shdg, 1, 1.0)
+    #TODO: Pick up the sample rate and replace the hard-coded 1.0 Hz.

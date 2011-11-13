@@ -68,7 +68,7 @@ class hdf_file(object):    # rare case of lower case?!
         '''
         Returns params that are available, `ignores` those that aren't
         '''
-        if not params:
+        if params is None: # allow for empty list to be provided
             params = self.get_param_list()
         d = {}
         for name in params:
