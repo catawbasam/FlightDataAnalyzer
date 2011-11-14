@@ -22,14 +22,22 @@ class TestHdfFile(unittest.TestCase):
         hdf = h5py.File(self.hdf_path, 'w')
         series = hdf.create_group('series')
         self.param_name = 'TEST_PARAM10'
-        param = series.create_group(self.param_name)
+        param_group = series.create_group(self.param_name)
+        self.param_frequency = 2
+        self.param_latency = 1.5
+        param_group.attrs['frequency'] = self.param_frequency
+        param_group.attrs['latency'] = self.param_latency
         self.param_data = np.arange(100)
-        dataset = param.create_dataset('data', data=self.param_data)
+        dataset = param_group.create_dataset('data', data=self.param_data)
         self.masked_param_name = 'TEST_PARAM11'
-        masked_param = series.create_group(self.masked_param_name)
+        masked_param_group = series.create_group(self.masked_param_name)
+        self.masked_param_frequency = 4
+        self.masked_param_latency = 2.5
+        masked_param_group.attrs['frequency'] = self.masked_param_frequency
+        masked_param_group.attrs['latency'] = self.masked_param_latency
         self.param_mask = [bool(random.randint(0, 1)) for x in range(len(self.param_data))]
-        dataset = masked_param.create_dataset('data', data=self.param_data)
-        mask_dataset = masked_param.create_dataset('mask', data=self.param_mask)
+        dataset = masked_param_group.create_dataset('data', data=self.param_data)
+        mask_dataset = masked_param_group.create_dataset('mask', data=self.param_mask)
         hdf.close()
         self.hdf_file = hdf_file(self.hdf_path)
     
@@ -55,6 +63,28 @@ class TestHdfFile(unittest.TestCase):
         self.assertEqual(hdf.hdf.__repr__(), '<Closed HDF5 file>')
         
     def test_limit_storage(self):
+        self.assertTrue(False)
+    
+    def test_mask_storage(self):
+        self.assertTrue(False)
+    
+    def test_get_params(self):
+        hdf_file = self.hdf_file
+        # Test retrieving all parameters.
+        params = hdf_file.get_params()
+        self.assertTrue(len(params) == 2)
+        param = params['TEST_PARAM10']
+        self.assertEqual(param.frequency, self.param_frequency)
+        param = params['TEST_PARAM11']
+        self.assertEqual(param.offset, self.masked_param_latency)
+        # Test retrieving single specified parameter.
+        params = hdf_file.get_params(param_names=['TEST_PARAM10'])
+        self.assertTrue(len(params) == 1)
+        param = params['TEST_PARAM10']
+        self.assertEqual(param.frequency, self.param_frequency)
+        
+    
+    def test_get_attr(self):
         # test appending a limit (arinc first, then adding others)
         self.assertTrue(False)
     
@@ -77,16 +107,15 @@ class TestHdfFile(unittest.TestCase):
         self.assertTrue(np.all(hdf_file.hdf['series'][name1]['data'].value == array))
         # Create new parameter with np.ma.masked_array.
         name2 = 'TEST_PARAM2'
-        mask = False
+        mask = [False] * len(array)
         masked_array = np.ma.masked_array(data=array, mask=mask)
         set_param_data(name2, masked_array)
         self.assertTrue(np.all(hdf_file.hdf['series'][name2]['data'].value == array))
-        self.assertTrue(hdf_file.hdf['series'][name2]['mask'].value == mask)
+        self.assertTrue(np.all(hdf_file.hdf['series'][name2]['mask'].value == mask))
         # Set existing parameter's data with np.array.
         array = np.arange(200)
         set_param_data(name1, array)
         self.assertTrue(np.all(hdf_file.hdf['series'][name1]['data'].value == array))
-        self.assertFalse('mask' in hdf_file.hdf['series'][name1])
         # Set existing parameter's data with np.ma.masked_array.
         mask = [bool(random.randint(0, 1)) for x in range(len(array))]
         masked_array = np.ma.masked_array(data=array, mask=mask)
@@ -106,12 +135,16 @@ class TestHdfFile(unittest.TestCase):
         :type get_param_data: method
         '''
         # Create new parameter with np.array.
-        data = get_param_data(self.param_name)
-        self.assertTrue(np.all(self.param_data == data))
+        param = get_param_data(self.param_name)
+        self.assertTrue(np.all(self.param_data == param.array.data))
+        self.assertEqual(self.param_frequency, param.frequency)
+        self.assertEqual(self.param_latency, param.offset)
         # Create new parameter with np.array.
-        data = get_param_data(self.masked_param_name)
-        self.assertTrue(np.all(self.param_data == data.data))
-        self.assertTrue(np.all(self.param_mask == data.mask))
+        param = get_param_data(self.masked_param_name)
+        self.assertTrue(np.all(self.param_data == param.array.data))
+        self.assertTrue(np.all(self.param_mask == param.array.mask))
+        self.assertEqual(self.masked_param_frequency, param.frequency)
+        self.assertEqual(self.masked_param_latency, param.offset)
     
     def test_len(self):
         '''
