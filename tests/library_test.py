@@ -14,8 +14,8 @@ from analysis.library import (align, calculate_timebase, create_phase_inside,
                               create_phase_outside, first_order_lag,
                                first_order_washout,
                               hysteresis, merge_alternate_sensors, powerset, 
-                              rate_of_change, seek, straighten_headings,
-                              value_at_time)
+                              rate_of_change, straighten_headings,
+                              time_at_value, value_at_time)
 
 
 class TestClock(unittest.TestCase):
@@ -49,14 +49,61 @@ class TestPowerset(unittest.TestCase):
         self.assertEqual(res, expected)
 
 class TestPhaseMasking(unittest.TestCase):
-    def test_phase_inside(self):
-        #create_phase_inside()
-        self.assertTrue(False)
+    def test_phase_inside_basic(self):
+        # Reminder: create_phase_inside(reference, a, b)
+        array = np.ma.arange(8)
+        result = create_phase_inside(array, 1.0,0.0,2,5)
+        answer = np.ma.array(data = [0,1,2,3,4,5,6,7],
+                             mask = [1,1,0,0,0,0,1,1])
+        ma_test.assert_masked_array_approx_equal(result, answer)
         
-    def test_phase_outside(self):
-        #create_phase_outside()
-        self.assertTrue(False)
-      
+    def test_phase_inside_reversed(self):
+        # Reminder: create_phase_inside(reference, a, b)
+        array = np.ma.arange(8)
+        result = create_phase_inside(array, 1.0,0.1,5,2) # 2,5 > 5,2
+        answer = np.ma.array(data = [0,1,2,3,4,5,6,7],
+                             mask = [1,1,0,0,0,1,1,1])
+        ma_test.assert_masked_array_approx_equal(result, answer)
+        
+    def test_phase_inside_positive_offset(self):
+        # Reminder: create_phase_inside(reference, a, b)
+        array = np.ma.arange(8)
+        result = create_phase_inside(array, 1.0,0.1,2,5)
+        answer = np.ma.array(data = [0,1,2,3,4,5,6,7],
+                             mask = [1,1,0,0,0,1,1,1])
+        ma_test.assert_masked_array_approx_equal(result, answer)
+        
+    def test_phase_inside_negative_offset(self):
+        # Reminder: create_phase_inside(reference, a, b)
+        array = np.ma.arange(8)
+        result = create_phase_inside(array, 1.0,-0.1,2,5)
+        answer = np.ma.array(data = [0,1,2,3,4,5,6,7],
+                             mask = [1,1,1,0,0,0,1,1])
+        ma_test.assert_masked_array_approx_equal(result, answer)
+        
+    def test_phase_inside_low_rate(self):
+        # Reminder: create_phase_inside(reference, a, b)
+        array = np.ma.arange(8)*4
+        result = create_phase_inside(array, 0.25,0.0,12,25)
+        answer = np.ma.array(data = [0,4,8,12,16,20,24,28],
+                             mask = [1,1,1,0,0,0,0,1])
+        ma_test.assert_masked_array_approx_equal(result, answer)
+        
+    def test_phase_outside_low_rate(self):
+        # Reminder: create_phase_inside(reference, a, b)
+        array = np.ma.arange(8)*4
+        result = create_phase_outside(array, 0.25,0.0,7,21)
+        answer = np.ma.array(data = [0,4,8,12,16,20,24,28],
+                             mask = [0,0,1,1,1,1,0,0])
+        ma_test.assert_masked_array_approx_equal(result, answer)
+        
+    def test_phase_inside_errors(self):
+        # Reminder: create_phase_inside(reference, a, b)
+        array = np.ma.arange(8)
+        self.assertRaises(ValueError, create_phase_inside, array, 1,0, -1, 5)
+        self.assertRaises(ValueError, create_phase_inside, array, 1,0, 10, 5)
+        self.assertRaises(ValueError, create_phase_inside, array, 1,0, 2, -1)
+        self.assertRaises(ValueError, create_phase_inside, array, 1,0, 2, 11)
         
 '''
 Running average superceded, so test no longer required.
@@ -535,42 +582,42 @@ class TestValueAtTime(unittest.TestCase):
         self.assertEquals (value_at_time(array, 2.0, 0.2, 1.0), None)
 
 
-class TestSeek(unittest.TestCase):
+class TestTimeAtValue(unittest.TestCase):
     
-    # Reminder: seek (array, hz, fdr_offset, scan_start, scan_end, threshold):
+    # Reminder: time_at_value (array, hz, fdr_offset, scan_start, scan_end, threshold):
 
-    def test_seek_basic(self):
+    def test_time_at_value_basic(self):
         array = np.ma.arange(4)
-        self.assertEquals (seek(array, 1, 0.0, 0, 3, 1.5), 1.5)
+        self.assertEquals (time_at_value(array, 1, 0.0, 0, 3, 1.5), 1.5)
         
-    def test_seek_backwards(self):
+    def test_time_at_value_backwards(self):
         array = np.ma.arange(8)
-        self.assertEquals (seek(array, 1, 0.0, 6, 2, 2.5), 2.5)
+        self.assertEquals (time_at_value(array, 1, 0.0, 6, 2, 2.5), 2.5)
 
-    def test_seek_right_at_start(self):
+    def test_time_at_value_right_at_start(self):
         array = np.ma.arange(4)
-        self.assertEquals (seek(array, 1, 0.0, 1, 3, 1.0), 1.0)
+        self.assertEquals (time_at_value(array, 1, 0.0, 1, 3, 1.0), 1.0)
                            
-    def test_seek_right_at_end(self):
+    def test_time_at_value_right_at_end(self):
         array = np.ma.arange(4)
-        self.assertEquals (seek(array, 1, 0.0, 1, 3, 3.0), 3.0)
+        self.assertEquals (time_at_value(array, 1, 0.0, 1, 3, 3.0), 3.0)
         
-    def test_seek_threshold_not_crossed(self):
+    def test_time_at_value_threshold_not_crossed(self):
         array = np.ma.arange(4)
-        self.assertEquals (seek(array, 1, 0.0, 0, 3, 7.5), None)
+        self.assertEquals (time_at_value(array, 1, 0.0, 0, 3, 7.5), None)
         
-    def test_seek_errors(self):
+    def test_time_at_value_errors(self):
         array = np.ma.arange(4)
-        self.assertRaises(ValueError, seek, array, 1, 0.0, 2, 2, 7.5)
-        self.assertRaises(ValueError, seek, array, 1, 0.0, -1, 2, 7.5)
-        self.assertRaises(ValueError, seek, array, 1, 0.0, 2, 5, 7.5)
-        self.assertRaises(ValueError, seek, array, 1, 0.0, 5, 2, 7.5)
-        self.assertRaises(ValueError, seek, array, 1, 0.0, 2, -1, 7.5)
+        self.assertRaises(ValueError, time_at_value, array, 1, 0.0, 2, 2, 7.5)
+        self.assertRaises(ValueError, time_at_value, array, 1, 0.0, -1, 2, 7.5)
+        self.assertRaises(ValueError, time_at_value, array, 1, 0.0, 2, 5, 7.5)
+        self.assertRaises(ValueError, time_at_value, array, 1, 0.0, 5, 2, 7.5)
+        self.assertRaises(ValueError, time_at_value, array, 1, 0.0, 2, -1, 7.5)
         
-    def test_seek_masked(self):
+    def test_time_at_value_masked(self):
         array = np.ma.arange(4)
         array[1] = np.ma.masked
-        self.assertEquals (seek(array, 1, 0.0, 0, 3, 1.5), None)
+        self.assertEquals (time_at_value(array, 1, 0.0, 0, 3, 1.5), None)
         
         
 '''
