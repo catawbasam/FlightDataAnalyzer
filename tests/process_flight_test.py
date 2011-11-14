@@ -3,7 +3,7 @@ try:
 except ImportError:
     import unittest
 
-from analysis.process_flight import process_flight, validate_and_derive_parameters
+from analysis.process_flight import process_flight, derive_parameters
 
 class TestProcessFlight(unittest.TestCase):
     

@@ -1,7 +1,12 @@
 import os
-import h5py #TODO: or pytables for masked array support?
+import h5py
 import numpy as np
-import simplejson as json
+import shutil
+try:
+    import json
+except ImportError:
+    import simplejson as json
+
 
 class Parameter(object):
     def __init__(self, array, frequency, offset):
@@ -44,7 +49,7 @@ class hdf_file(object):    # rare case of lower case?!
         '''
         HDF file is opened on __init__.
         '''
-        pass
+        return self
 
     def __exit__(self, a_type, value, traceback):
         self.close()
@@ -86,13 +91,13 @@ class hdf_file(object):    # rare case of lower case?!
     def get_params(self, param_names=None):
         '''
         Returns params that are available, `ignores` those that aren't.
-        
+    
         :param param_names:
         :type param_names: list of str or None
         :returns:
         :rtype: dict
         '''
-        if not param_names:
+        if param_names is None:
             param_names = self.keys()
         param_name_to_obj = {}
         for name in param_names:
@@ -174,6 +179,78 @@ class hdf_file(object):    # rare case of lower case?!
             return None
 
 
+def concat_hdf(hdf_paths, dest=None):
+    '''
+    Takes in a list of HDF file paths and concatenates the parameter
+    datasets which match the path 'series/<Param Name>/data'. The first file
+    in the list of paths is the template for the output file, with only the
+    'series/<Param Name>/data' datasets being replaced with the concatenated
+    versions.
+    
+    :param hdf_paths: File paths.
+    :type hdf_paths: list of strings
+    :param dest: optional destination path, which will be the first path in
+                 'paths'
+    :type dest: dict
+    :return: path to concatenated hdf file.
+    :rtype: str
+    '''
+    param_name_to_arrays = {}
+    for hdf_path in hdf_paths:
+        with h5py.File(hdf_path, 'r') as hdf_file:
+            for param_name, param_group in hdf_file['series'].iteritems():
+                try:
+                    param_name_to_arrays[param_name].append(param_group['data'][:])
+                except KeyError:
+                    param_name_to_arrays[param_name] = [param_group['data'][:]]
+    if dest:
+        # Copy first file in hdf_paths so that the concatenated file includes
+        # non-series data. XXX: Is there a simple way to do this with h5py?
+        shutil.copy(hdf_paths[0], dest)
+        
+    else:
+        dest = hdf_paths[0]
+    with h5py.File(dest, 'r+') as dest_hdf_file:
+        for param_name, array_list in param_name_to_arrays.iteritems():
+            concat_array = np.concatenate(array_list)
+            param_group = dest_hdf_file['series'][param_name]
+            del param_group['data']
+            param_group.create_dataset("data", data=array, maxshape=(len(array),))
+    return dest
+
+    
+def write_segment(hdf_path, segment, dest):
+    '''
+    Writes a segment of the HDF file stored in hdf_path to dest defined by 
+    segments, a slice in seconds.
+    
+    :param hdf_path: file path of hdf file.
+    :type hdf_path: str
+    :param segment: segment of flight to write in seconds. step is disregarded.
+    :type segment: slice
+    :param dest: destination path for output file containing segment.
+    :type dest: str
+    :return: path to output hdf file containing specified segment.
+    :rtype: str
+    '''
+    # Q: Is there a better way to clone the contents of an hdf file?
+    shutil.copy(hdf_path, dest)
+    param_name_to_array = {}
+    with h5py.File(hdf_path, 'r') as hdf_file:
+        for param_name, param_group in hdf_file['series'].iteritems():
+            frequency = param_group.attrs['frequency']
+            start_index = segment.start * frequency if segment.start else None
+            stop_index = segment.stop * frequency if segment.stop else None
+            param_segment = param_group['data'][start_index:stop_index]
+            param_name_to_array[param_name] = param_segment
+    with h5py.File(dest, 'r+') as hdf_file:
+        for param_name, array in param_name_to_array.iteritems():
+            param_group = hdf_file['series'][param_name]
+            del param_group['data']
+            param_group.create_dataset("data", data=array, maxshape=(len(array),))
+    return dest
+
+
 def print_hdf_info(hdf_file):
     hdf_file = hdf_file.hdf
     series = hdf_file['series']
@@ -196,6 +273,7 @@ def print_hdf_info(hdf_file):
     #param_series = hdf_file['series'][parameter]
     #data = param_series['data']
 
+
 if __name__ == '__main__':
     import sys
     print_hdf_info(hdf_file(sys.argv[1]))
@@ -207,3 +285,4 @@ if __name__ == '__main__':
     hdf = h5py.File(
         'AnalysisEngine/resources/data/hdf5/flight_1626326.hdf5', 'w')
     hdf['series']['Altitude AAL'].attrs['limits'] = {'min':0,  'max':50000}
+    

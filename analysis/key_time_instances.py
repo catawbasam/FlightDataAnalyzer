@@ -12,14 +12,35 @@ for flap_operated_period in np.ma.flatnotmasked_contiguous(np.ma.masked_equal(fp
 '''
           
 
+class LiftOff(KeyTimeInstanceNode):
+    dependencies = ['Weight On Wheels', ]
+    def derive(self, params):
+        #fp.inertial_rate_of_climb.seek(block, kpt['TakeoffEnd'], kpt['TakeoffStartEstimate'], LIFTOFF_RATE_OF_CLIMB)
+        return NotImplemented
+                 
+                    
+                    
+class TouchDown(KeyTimeInstanceNode):
+    dependencies = ['Weight On Wheels', ]
+    def derive(self, params):
+        fp.inertial_rate_of_climb.seek(block, kpt['LandingEndEstimate'], kpt['LandingStart'], TOUCHDOWN_RATE_OF_DESCENT)
+        return NotImplemented
 
-# KTI
+
+
+class LandingGroundEffectStart(KeyTimeInstanceNode):
+    dependencies = []
+    def derive(self, params):
+        return NotImplemented
+
+    
+    
 class TopOfClimbTopOfDescent(KeyTimeInstanceNode):
     name = "Top of Climb and Top of Descent"
     dependencies = ['phase_airborne', 'altitude_std', 'altitude_std_smoothed']
     returns = ['top_of_climb', 'top_of_descent']
     
-    def derive(airborne_phase, altitude_std, altitude_std_smoothed):
+    def derive(self, airborne_phase, altitude_std, altitude_std_smoothed):
         """
         Threshold was based upon the idea of "Less than 600 fpm for 6 minutes"
         This was often OK, but one test data sample had a 4000ft climb 20 mins

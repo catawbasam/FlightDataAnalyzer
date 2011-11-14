@@ -3,15 +3,19 @@ import logging
 
 AIRSPEED_FOR_FLIGHT = 80
 
-def split_segments(dfc, airspeed, use_dfc=True):
+def split_segments(airspeed, dfc=None):
     """
-    Splits data looking for dfc jumps and airspeed changes.
+    Splits data looking for dfc jumps (if dfc provided) and changes in airspeed.
+    
+    :param airspeed: 1Hz airspeed data in Knots
+    :type airspeed: Numpy.array
+    :param dfc: 1Hz Data frame counter signal
+    :type dfc: Numpy.array
+    :returns: Segments of flight-like data
+    :rtype: list of slices
     
     TODO: Currently requires 1Hz Airspeed Data - make multi-hertz friendly
-    
-    Returns list of segments slices
-    
-    # Question - should we not split via DFC if Airspeed is still high?
+    Q: should we not perfrom a split using DFC if Airspeed is still high to avoid cutting mid-flight?
     """
     
     # mask fast sections
@@ -28,12 +32,12 @@ def split_segments(dfc, airspeed, use_dfc=True):
     # TODO: Don't split too eagerly - hysteresis
     
     
-    #TODO: by frame count is optional
-    if use_dfc:
+    # Split by frame count is optional
+    if dfc:
         # split hdf where frame counter is reset
-        data_slices = _split_by_frame_counter(dfc)       #TODO: Data or slices?
+        data_slices = _split_by_frame_counter(dfc)
     else:
-        data_slices = [slice(0, len(dfc))]
+        data_slices = [slice(0, len(airspeed))]
     
     segment_slices = []
     for data_slice in data_slices: ## or [slice(0,hdf.size)]: # whole data is a single segment
@@ -46,7 +50,7 @@ def split_segments(dfc, airspeed, use_dfc=True):
 
 def _split_by_frame_counter(dfc):
     """
-    Return chunks of data rather than slices
+    Q: Return chunks of data rather than slices
     """
     #TODO: Convert to Numpy array manipulation!
     dfc_slices = []
@@ -106,7 +110,14 @@ def _split_by_flight_data(airspeed, engine_list=None):
         
 
 def subslice(orig, new):
-    #TODO: Accept None values
+    """
+    a = slice(2,10,2)
+    b = slice(2,2)
+    c = subslice(a, b)
+    assert range(100)[c] == range(100)[a][b]
+    
+    See tests for capabilities.
+    """
     step = (orig.step or 1) * (new.step or 1)
     start = (orig.start or 0) + new.start * (orig.step or 1)
     stop = (orig.start or 0) + new.stop * (orig.step or 1)  ### or 0?

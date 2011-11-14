@@ -1,8 +1,6 @@
-##import pygraphviz as pgv  # sudo apt-get install graphviz libgraphviz-dev
-
 import inspect
 import logging 
-import networkx as nx
+import networkx as nx # pip install networkx or /opt/epd/bin/easy_install networkx
 
 from analysis.node import Node, NodeManager
 
@@ -23,9 +21,10 @@ def get_derived_nodes(module_names):
         # empty, loading class "A.B.C.D" actually only loads "A". If the last
         # parameter is defined, regardless of what its value is, we end up
         # loading "A.B.C"
+        ##abstract_nodes = ['Node', 'Derived Parameter Node', 'Key Point Value Node', 'Flight Phase Node'
         module = __import__(name, globals(), locals(), [''])
         for c in vars(module).values():
-            if isclassandsubclass(c, Node):
+            if isclassandsubclass(c, Node) and c.__module__ != 'analysis.node':
                 try:
                     nodes[c.get_name()] = c()
                 except TypeError:
@@ -69,13 +68,31 @@ def breadth_first_search_all_nodes(di_graph, root):
 def draw_graph(graph, name):
     """
     Draws a graph to file with label and filename taken from name argument.
+    
+    Note: Graphviz binaries cannot be easily installed on Windows (you must
+    build it from source), therefore you shouldn't bother trying to
+    draw_graph unless you've done so!
     """
-    G = nx.to_agraph(graph)
+    file_path = 'graph_%s.png' % name.lower().replace(' ', '_')
+
+    # Trying to get matplotlib to install nicely
+    # Warning: pyplot does not render the graphs well!
+    ##import matplotlib.pyplot as plt
+    ##nx.draw(graph)
+    ##plt.show()
+    ##plt.savefig(file_path)
+    try:
+        ##import pygraphviz as pgv 
+        # sudo apt-get install graphviz libgraphviz-dev
+        # pip install pygraphviz
+        #Note: nx.to_agraph performs pygraphviz import
+        G = nx.to_agraph(graph)
+    except ImportError:
+        logging.exception("Unable to import pygraphviz to draw graph '%s'", name)
+        return
     G.layout(prog='dot')
     G.graph_attr['label'] = name
-    G.draw('graph_%s.png' % name.lower().replace(' ', '_'))
-
-
+    G.draw(file_path)
     
 def graph_nodes(node_mgr): ##lfl_params, required_params, derived_nodes):
     """
@@ -144,18 +161,24 @@ def process_order(gr_all, node_mgr): ##lfl_params, derived_nodes):
     # gr_st will be a copy of gr_all which we'll delete inactive nodes from
     gr_st = gr_all.copy() 
     
-    # Determine whether nodes are operational
+    # Determine whether nodes are operational, this will repeatedly ask some 
+    # nodes as they may only become operational later on.
     process_order = []
     for node in reversed(order):
         if node_mgr.operational(node, process_order):
             if node not in node_mgr.lfl + ['root']:
                 gr_all.node[node]['color'] = 'blue'
+            # un-grey edges that were previously inactive
+            active_edges = gr_all.in_edges(node)
+            gr_all.add_edges_from(active_edges, color='black')
             process_order.append(node)
         else:
-            gr_st.remove_node(node)
             gr_all.node[node]['color'] = 'grey'
             inactive_edges = gr_all.in_edges(node)
             gr_all.add_edges_from(inactive_edges, color='grey')
+
+    # remove nodes from gr_st that aren't in the process order
+    gr_st.remove_nodes_from(set(gr_st.nodes()) - set(process_order))
     
     # Breadth First Search Spanning Tree
     #st, order = breadth_first_search(gr_st, root="root")
@@ -176,7 +199,8 @@ def process_order(gr_all, node_mgr): ##lfl_params, derived_nodes):
     return gr_all, gr_st, node_order 
 
      
-MODULES = ('analysis.key_point_values', 
+MODULES = ('analysis.derived_parameters',
+           'analysis.key_point_values', 
            'analysis.key_time_instances', 
            'analysis.flight_phase')
 def dependency_order(lfl_params, required_params, modules=MODULES, draw=True):
@@ -196,6 +220,10 @@ def dependency_order(lfl_params, required_params, modules=MODULES, draw=True):
     """    
     # go through modules to get derived nodes
     derived_nodes = get_derived_nodes(modules)
+    # if required_params isn't set, try using ALL derived_nodes!
+    if not required_params:
+        logging.warning("No required_params declared, using all derived nodes")
+        required_params = derived_nodes.keys()
     # keep track of all the node types
     node_mgr = NodeManager(lfl_params, required_params, derived_nodes)
     _graph = graph_nodes(node_mgr)
@@ -209,29 +237,4 @@ def dependency_order(lfl_params, required_params, modules=MODULES, draw=True):
         draw_graph(gr_st, 'Active Nodes in Spanning Tree')
     return node_mgr, order
 
-'''
-Validate the derived parameters to ensure that all dependencies exist as
-classes OR are referenced in one of the LFL documents!
-
-
-# test validation for ALL algorithm dependencies across ALL LFLs
-from compass.dataframe_parser import get_all_parameter_names
-raw_param_list = get_all_parameter_names() # Don't restrict to any particular LFL unless requested 
-#build_dependencies(raw_param_list, all_kpv)
-
-# test validation for an aircraft's required algorithm dependencies across it's LFL
-
-
-# Should probably also assert that there are no duplicate Node names (copy and paste error!)
-
-raw_param_list = get_all_parameter_names(lfl_name)
-'determine whether some of the events required cannot be detected as the raw parameters does not exist in the LFL'
-
-class TestValidation(unittest.TestCase):
-    # continusouly test that the dependency structure works
-    
-    # 
-
-    pass
-'''
 

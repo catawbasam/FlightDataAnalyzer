@@ -1,5 +1,7 @@
 import math
 import numpy as np
+# Scipy routines used for transfer functions
+from scipy.signal import iirfilter, lfilter, lfilter_zi
 
 from datetime import datetime, timedelta
 from itertools import izip
@@ -127,33 +129,49 @@ def create_phase_outside(reference, a, b):
     return np.ma.MaskedArray(reference, mask = m)
 
 
-def rate_of_change(data, half_width=5):
+def powerset(iterable):
+    """
+    Ref: http://docs.python.org/library/itertools.html#recipes
+    powerset([1,2,3]) --> () (1,) (2,) (3,) (1,2) (1,3) (2,3) (1,2,3)
+    """
+    from itertools import chain, combinations
+    s = list(iterable)
+    return chain.from_iterable(combinations(s, r) for r in range(len(s)+1))
+
+def rate_of_change(to_diff, half_width, hz):
     '''
     @param to_diff: Parameter object with .data attr (masked array)
     
     Differentiation using the xdot(n) = (x(n+hw) - x(n-hw))/w formula.
-    Width w=hw*2 and this approach provides smoothing over a w second period.
-    The default 10-second period is suitable for flight phase computations where
-    a high degree of smoothing minimises unnecessary phase changes.
+    Width w=hw*2 and this approach provides smoothing over a w second period,
+    without introducing a phase shift.
+    
+    :param to_diff: input data
+    :type to_diff: masked array
+    :param half_width: half the differentiation time period (sec)
+    :type half_width: float
+    :param hz: sample rate for the input data (sec-1)
+    :type hz: float
+    :returns: masked array of values with differentiation applied
+    
+    Note: Could look at adapting the np.gradient function, however this does not
+    handle masked arrays.
     '''
-    # Set up an array of masked zeros for extending arrays.    
-    pad=np.ma.arange(20)
-    pad[:]=np.ma.masked
-    # Initialise 
-    temp = []
-    # Process the data array
-    temp = (data[2*half_width:] - data[:-2*half_width])/float((2 * half_width))
-    temp = np.ma.concatenate([pad[:half_width],temp[:],pad[:half_width]])
+    hw = half_width * hz
+    if hw < 1:
+        raise ValueError
+    
+    # Set up an array of masked zeros for extending arrays.
+    slope = np.ma.copy(to_diff)
+    slope[hw:-hw] = (to_diff[2*hw:] - to_diff[:-2*hw])\
+                       / (2 * float(half_width))
+    slope[:hw] = (to_diff[1:hw+1] - to_diff[0:hw]) * hz
+    slope[-hw:] = (to_diff[-hw:] - to_diff[-hw-1:-1])* hz
+    return slope
 
-    #if period=='sec':
-        #self.units = self.units+'/sec'
-    #elif period=='min':
-        #self.units = self.units+'/min'
-        #self.data *= 60
-    #else:
-        #print 'Error - invalid rate of change'
-
-    return temp
+'''
+Not used at this time, and superceded by hysteresis as a technique for removing
+unwanted state changes from noisy data.
 
 def running_average(data, half_width=5):
     ## avg.param_name = to_avg.param_name+'_averaged'
@@ -186,79 +204,97 @@ def running_average(data, half_width=5):
         temp [i] = np.ma.masked
         temp [-(i+1)] = np.ma.masked
     return temp
+'''
 
+def align(master, slave, interval='Subframe'):
+    """
+    This function takes two parameters which will have been sampled at different
+    rates and with different offsets, and aligns the slave parameter's samples
+    to match the master parameter. In this way the master and aligned slave data
+    may be processed without timing errors.
+    
+    :type master, slave: Parameter objects with attributes:
+    :type master.data: masked array
+    :type masger.fdr_offset: float
+    :type master.hz: float
+    :type slave.data: masked array
+    :type slave.fdr_offset: float
+    :type slave.hz: float
+    :type interval: String with possible values 'Subframe' or 'Frame'. 
+    The function raises an assertion error if the interval is neither 'Subframe' or 'Frame'
+    
+    :returns masked array.
+    
+    :error The function raises an assertion error if the arrays and sample rates do not
+    equate to the same overall data duration.
+    
+    The offset and hz for the returned masked array will be those of the 
+    master parameter.
+    The values of the returned array will be those of the slave parameter, 
+    aligned to the master and adjusted by linear interpolation. The initial
+    or final values will be extended from the first or last values if they lie 
+    outside the timebase of the slave parameter (i.e. we do not extrapolate).    
+    """
+    # Check the interval is one of the two forms we recognise
+    assert interval in ['Subframe', 'Frame']
+    
+    # Here we create a masked array to hold the returned values that will have 
+    # the same sample rate and timing offset as the master
+    result = np.ma.empty_like(master.data)
+    ## result[:] = 0.0
+    ## Clearing the result array is unnecessary, but can make testing easier to follow.
 
-def shift(first, second):
-    """
-    TODO: This Docstring!
-    
-    TODO: need a more in-your-face name than shift, also
-    rename arguments to be more meaningful - first is the "source_param" ...
-    
-    :type first, second: Parameter objects with attributes:
-    :type first.data: masked array
-    :type first.fdr_offset: float
-    :type first.hz: int
-    
-    :returns
-    """
-    # Here we create a masked array to hold the second term of a function
-    # that has the same sample rate and timing offset as the first term,
-    # in preparation for later combination.
-    result = np.ma.empty_like(first.data)
     # Get the timing offsets, comprised of word location and possible latency.
-    tp = first.fdr_offset
-    ts = second.fdr_offset
-    # Get the sample rates for the two parameters
-    wp = first.hz
-    ws = second.hz
-    # Express the timing disparity in terms of the secondary paramter sample interval
-    delta = (tp-ts)*ws
-    # Compute the sample rate ratio (in range 10:1 to 1:10 for sample rates up to 10Hz)
-    R = wp/float(ws)
+    tp = master.fdr_offset
+    ts = slave.fdr_offset
 
-    # Each sample in the first (primary) parameter may need different combination parameters
-    for i in range(wp):
-        bracket=(i/R+delta)
-        # Interpolate between the hth and (h+1)th samples of the secondary
+    # Get the sample rates for the two parameters
+    wm = master.hz
+    ws = slave.hz
+
+    # Express the timing disparity in terms of the slave paramter sample interval
+    delta = (tp-ts)*slave.hz
+
+    # If we are working across a complete frame, the number of samples in each case
+    # is four times greater.
+    if interval == 'Frame':
+        wm = int(wm * 4)
+        ws = int(ws * 4)
+    assert wm in [1,2,4,8,16,32,64]
+    assert ws in [1,2,4,8,16,32,64]
+    assert len(master.data.data) * ws == len(slave.data.data) * wm
+           
+    # Compute the sample rate ratio (in range 10:1 to 1:10 for sample rates up to 10Hz)
+    r = wm/float(ws)
+
+    # Each sample in the master parameter may need different combination parameters
+    for i in range(wm):
+        bracket=(i/r+delta)
+        # Interpolate between the hth and (h+1)th samples of the slaveary
         h=int(math.floor(bracket))
         h1 = h+1
         # Linear interpolation coefficients
         b = bracket-h
         a=1-b
-        ##for testing: print wp, ws, i, bracket, h, h1, a, b
 
         if h<0:
-            # We can't compute the inital values as the secondary parameters we need
-            # are out of range, so not available. Mask the result and work on the
-            # later seconds of data to the end.
-            result[i] = np.ma.masked
-            result[i+wp::wp]=a*second.data[h+ws:-ws:ws]+b*second.data[h1+ws::ws]
+            result[i+wm::wm]=a*slave.data[h+ws:-ws:ws]+b*slave.data[h1+ws::ws]
+            # We can't interpolate the inital values as we are outside the 
+            # range of the slave parameters. Take the first value and extend to 
+            # the end of the data.
+            result[i] = slave.data[0]
         elif h1>=ws:
-            # We can't compute the final values as the secondary runs out of data.
-            # Again, mask the final values and run from the beginning to almost the end
-            # of the arrays.
-            result[i-R]=np.ma.masked
-            result[i:-wp:wp]=a*second.data[h:-ws:ws]+b*second.data[h1::ws]
+            result[i:-wm:wm]=a*slave.data[h:-ws:ws]+b*slave.data[h1::ws]
+            # At the other end, we run out of slave parameter values so need to
+            # extend to the end of the array.
+            result[i-wm] = slave.data[-1]
         else:
-            # Sheer bliss. We can compute results across the whole range of the data.
-            result[i::wp]=a*second.data[h::ws]+b*second.data[h1::ws]
-            ##self.path = filenameandpath -- CJ commented out - what's this here for?
+            # Sheer bliss. We can compute results across the whole range of the 
+            # data without having to take special care at the ends of the array.
+            result[i::wm]=a*slave.data[h::ws]+b*slave.data[h1::ws]
 
-    ##result.fdr_word_rate = first.word_rate -- CJ commented out - adding an attr to np.ma is bad practice
     return result
 
-
-def slope (parameter, half_width):
-    '''
-    Differentiation using the xdot(n) = x(n+1) - x(n-1) formula.
-    '''
-    # Set up an array of masked zeros for extending arrays.    
-    pad = np.ma.arange(20)
-    pad[:] = np.ma.masked
-    slope = (parameter[2*half_width:] - parameter[:-2*half_width]) / float((2 * half_width))
-    return np.ma.concatenate([pad[:half_width],slope[:],pad[:half_width]])
-    
 
 
 def straighten_headings(heading_array):
@@ -278,6 +314,10 @@ def straighten_headings(heading_array):
     """
     # Ref: flight_analysis_library.py
     
+    '''
+
+    Original version based on iterating through the data
+    
     head_prev = heading_array[0]
     yield head_prev
     offset = 0.0
@@ -291,7 +331,269 @@ def straighten_headings(heading_array):
             pass # no change to offset
         head_prev = heading
         yield heading + offset
+    '''
+    
+    # Amended version using Numpy functions.
+    head_prev = heading_array[0]
+    diff = np.ediff1d(heading_array)
+    diff = diff - 360.0 * np.trunc(diff/180.0)
+    heading_array[1:] = np.cumsum(diff) + head_prev
+    return heading_array
+    
+
+def merge_alternate_sensors (array):
+    '''
+    This simple process merges the data from two sensors where they are sampled
+    alternately. Often pilot and co-pilot attitude and air data signals are
+    stored in alternate locations to provide the required sample rate while
+    allowing errors in either to be identified for investigation purposes.
+    
+    For FDM, only a single parameter is required, but mismatches in the two 
+    sensors can lead to, taking pitch attitude as an example, apparent "nodding"
+    of the aircraft and errors in the derived pitch rate.
+    
+    :param array: sampled data from an alternate signal source
+    :type array: masked array
+    :returns: masked array with merging algorithm applied.
+    '''
+    
+    result = np.ma.empty_like(array)
+    result[1:-1] = (array[:-2] + array[1:-1]*2.0 + array[2:]) / 4.0
+    result[0] = (array[0] + array[1]) / 2.0
+    result[-1] = (array[-2] + array[-1]) / 2.0
+    return result
+    
+def hysteresis (array, hysteresis):
+    """
+    Hysteresis is a process used to prevent noisy data from triggering 
+    an unnecessary number of events or state changes when the parameter is 
+    close to a threshold.
         
+    :param array: data values to process
+    :type array: masked array
+    :param hysteresis: hysteresis range to apply
+    :type hysteresis: float
+    :returns: masked array of values with hysteresis applied
+    """
 
+    # This routine accepts the usual masked array but only processes the
+    # data part of the array as the hysteresis process cannot make the
+    # values invalid.
+   
+    half_range = hysteresis / 2.0
+    result = np.ma.copy(array)
 
+    for i in xrange(len(result)-1):
+        if result.data[i+1] - result.data[i] > half_range:
+            result.data[i+1] = result.data[i+1] - half_range
+        elif result.data[i+1] - result.data[i] < -half_range:
+            result.data[i+1] = result.data[i+1] + half_range
+        else:
+            result.data[i+1] = result.data[i]
 
+    return result
+
+def first_order_lag (in_param, time_constant, hz, gain = 1.0, initial_value = 0.0):
+    '''
+    Computes the transfer function
+            x.G
+    y = -----------
+         (1 + T.s)
+    where:
+    x is the input function
+    G is the gain
+    T is the timeconstant
+    s is the Laplace operator
+    y is the output
+    
+    :param in_param: input data (x)
+    :type in_param: masked array
+    :param time_constant: time_constant for the lag function (T)(sec)
+    :type time_constant: float
+    :param hz: sample rate for the input data (sec-1)
+    :type hz: float
+    :param gain: gain of the transfer function (non-dimensional)
+    :type gain: float
+    :param initial_value: initial value of the transfer function at t=0
+    :type initial_value: float
+    :returns: masked array of values with first order lag applied
+    '''
+
+    result = np.copy(in_param.data)
+    
+    # Scale the time constant to allow for different data sample rates.
+    tc = time_constant / hz
+    
+    # Trap the condition for stability
+    if tc < 0.5:
+        raise ValueError, 'Lag timeconstant too small'
+    
+    x_term = []
+    x_term.append (gain / (1.0 + 2.0*tc)) #b[0]
+    x_term.append (gain / (1.0 + 2.0*tc)) #b[1]
+    x_term = np.array(x_term)
+    
+    y_term = []
+    y_term.append (1.0) #a[0] 
+    y_term.append ((1.0 - 2.0*tc)/(1.0 + 2.0*tc)) #a[1]
+    y_term = np.array(y_term)
+    
+    z_initial = lfilter_zi(x_term, y_term) # Prepare for non-zero initial state
+    answer, z_final = lfilter(x_term, y_term, result, zi=z_initial*initial_value)
+    masked_result = np.ma.array(answer)
+    # Note that we cheat by re=applying the mask and pretending that false values
+    # do not impact on the subsequent data. Mathematically unacceptable, but
+    # a pragmatic solution.
+    masked_result.mask = in_param.mask
+    return masked_result
+
+def first_order_washout (in_param, time_constant, hz, gain = 1.0, initial_value = 0.0):
+    '''
+    Computes the transfer function
+          x.G.s
+    y = -----------
+         (1 + T.s)
+    where:
+    x is the input function
+    G is the gain
+    T is the timeconstant
+    s is the Laplace operator
+    y is the output
+    
+    :param in_param: input data (x)
+    :type in_param: masked array
+    :param time_constant: time_constant for the lag function (T)(sec)
+    :type time_constant: float
+    :param hz: sample rate for the input data (sec-1)
+    :type hz: float
+    :param gain: gain of the transfer function (non-dimensional)
+    :type gain: float
+    :param initial_value: initial value of the transfer function at t=0
+    :type initial_value: float
+    :returns: masked array of values with first order lag applied
+    '''
+
+    result = np.copy(in_param.data)
+    
+    # Scale the time constant to allow for different data sample rates.
+    tc = time_constant / hz
+    
+    # Trap the condition for stability
+    if tc < 0.5:
+        raise ValueError, 'Lag timeconstant too small'
+    
+    x_term = []
+    x_term.append (gain*2.0*tc  / (1.0 + 2.0*tc)) #b[0]
+    x_term.append (-gain*2.0*tc / (1.0 + 2.0*tc)) #b[1]
+    x_term = np.array(x_term)
+    
+    y_term = []
+    y_term.append (1.0) #a[0] 
+    y_term.append ((1.0 - 2.0*tc)/(1.0 + 2.0*tc)) #a[1]
+    y_term = np.array(y_term)
+    
+    z_initial = lfilter_zi(x_term, y_term)
+    # For some reason the z_initial value is of the wrong sign in this case.
+    answer, z_final = lfilter(x_term, y_term, result, zi=-z_initial*initial_value)
+    masked_result = np.ma.array(answer)
+    masked_result.mask = in_param.mask
+    return masked_result
+
+def value_at_time (array, hz, fdr_offset, time_index):
+    '''
+    Finds the value of the data in array at the time given by the time_index.
+    
+    :param array: input data
+    :type array: masked array
+    :param hz: sample rate for the input data (sec-1)
+    :type hz: float
+    :param fdr_offset: fdr offset for the array (sec)
+    :type fdr_offset: float
+    :param time_index: time into the array where we want to find the array value.
+    :type time_index: float
+    :returns: interpolated value from the array
+    '''
+
+    time_into_array = time_index - fdr_offset
+    location_in_array = time_into_array * hz
+
+    if location_in_array < 0.0 or location_in_array > len(array):
+        raise ValueError, 'Seeking value outside data time range'
+    
+    low = int(location_in_array)
+    if (low==location_in_array):
+        # I happen to have arrived at exactly the right value by a fluke...
+        return array.data[low]
+    else:
+        high = low + 1
+        r = location_in_array - low
+        low_value = array.data[low]
+        high_value = array.data[high]
+        # Crude handling of masked values. Must be a better way !
+        if array.mask.any(): # An element is masked
+            if array.mask[low] == True:
+                if array.mask[high] == True:
+                    return None
+                else:
+                    return high_value
+            else:
+                if array.mask[high] == True:
+                    return low_value
+        # In the cases of no mask, or neither sample masked, interpolate.
+        return r*high_value + (1-r) * low_value
+
+def seek (array, hz, fdr_offset, scan_start, scan_end, threshold):
+    '''
+    Seeks the moment when the parameter in question first crosses a threshold.
+    For example, to find 50ft Rad Alt on the descent, use something like:
+       altitude_radio.seek(t_approach, t_landing, 50)
+    
+    :param array: input data
+    :type array: masked array
+    :param hz: sample rate for the input data (sec-1)
+    :type hz: float
+    :param fdr_offset: fdr offset for the array (sec)
+    :type fdr_offset: float
+    :param scan_start: time into the array where we want to start seeking the threshold transit.
+    :type scan_start: float
+    :param scan_end: time into the array where we want to stop seeking the threshold transit.
+    :type scan_end: float
+    :param threshold: the value that we expect the array to cross between scan_start and scan_end.
+    :type threshold: float
+    :returns: interpolated time when the array values crossed the threshold. (One value only).
+    :returns type: float
+    '''
+
+    if scan_start == scan_end:
+        raise ValueError, 'No range for seek function to scan across'
+    
+    begin = int((scan_start - fdr_offset) * hz)
+    cease = int((scan_end   - fdr_offset) * hz)
+    
+    step = 1
+    if cease > begin : # Normal increasing scan
+        cease = cease + 1
+    else:
+        # Allow for traversing the data backwards
+        step = -1
+        cease = cease - 1
+
+    if begin < 0 or begin > len(array) or cease < 0 or cease > len(array):
+        raise ValueError, 'Attempt to seek outside data range'
+        
+    # When the data being tested passes the value we are seeking, the 
+    # difference between the data and the value will change sign.
+    # Therefore a negative value indicates where value has been passed.
+    value_passing_array = (array[begin:cease-step:step]-threshold) * (array[begin+step:cease:step]-threshold)
+    test_array = np.ma.masked_greater(value_passing_array, 0.0)
+    
+    if np.ma.all(test_array.mask):
+        # The parameter does not pass through threshold in the period in question, so return empty-handed.
+        return None
+    else:
+        n,dummy=np.ma.flatnotmasked_edges(np.ma.masked_greater(value_passing_array, 0.0))
+        a = array[begin+step*n]
+        b = array[begin+step*(n+1)]
+        r = (threshold - a) / (b-a)
+        #TODO: Could test 0 < r < 1 for completeness
+    return (begin + step * (n + r)) / hz

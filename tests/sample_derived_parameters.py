@@ -29,7 +29,8 @@ class SmoothedTrack(DerivedParameterNode):
     dependencies = ['True Airspeed', 'Heading', 'Latitude', 'Longitude', 'Inertial Latitude', 'Inertial Longitude']
     def derive(self): pass
     
-    def can_operate(self, available):
+    @classmethod
+    def can_operate(cls, available):
         # Requires matching LAT/LONG pairs to operate - True Airspeed and Heading are a bonus!
         if 'Latitude' in available and 'Longitude' in available:
             # preferred, so lets use this
