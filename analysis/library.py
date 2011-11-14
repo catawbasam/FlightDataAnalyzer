@@ -157,15 +157,16 @@ def rate_of_change(to_diff, half_width, hz):
     Note: Could look at adapting the np.gradient function, however this does not
     handle masked arrays.
     '''
-    if half_width < 1:
+    hw = half_width * hz
+    if hw < 1:
         raise ValueError
     
     # Set up an array of masked zeros for extending arrays.
     slope = np.ma.copy(to_diff)
-    slope[half_width:-half_width] = (to_diff[2*half_width:] - to_diff[:-2*half_width])\
-                                     / float((2 * half_width * hz))
-    slope[:half_width] = (to_diff[1:half_width+1] - to_diff[0:half_width]) / hz
-    slope[-half_width:] = (to_diff[-half_width:] - to_diff[-half_width-1:-1]) / hz
+    slope[hw:-hw] = (to_diff[2*hw:] - to_diff[:-2*hw])\
+                       / (2 * float(half_width))
+    slope[:hw] = (to_diff[1:hw+1] - to_diff[0:hw]) * hz
+    slope[-hw:] = (to_diff[-hw:] - to_diff[-hw-1:-1])* hz
     return slope
 
 '''

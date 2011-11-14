@@ -316,18 +316,28 @@ class TestMergeAlternateSensors(unittest.TestCase):
 
 
 class TestRateOfChange(unittest.TestCase):
-    def test_rate_of_change(self):
+    
+    # Reminder: rate_of_change(to_diff, half_width, hz) - half width in seconds.
+    
+    def test_rate_of_change_basic(self):
         array = np.ma.array([1, 0, -1, 2, 1, 3, 4, 6, 5, 7],dtype=float)
         sloped = rate_of_change(array, 2, 1)
         answer = np.ma.array(data=[-1.0,-1.0,0.0,0.75,1.25,1.0,1.0,1.0,-1.0,2.0],
                              mask=False)
         ma_test.assert_mask_eqivalent(sloped, answer)
         
+    def test_rate_of_change_increased_frequency(self):
+        array = np.ma.array([1, 0, -1, 2, 1, 3, 4, 6, 5, 7],dtype=float)
+        sloped = rate_of_change(array, 2, 2)
+        answer = np.ma.array(data=[-2.0,-2.0,6.0,-2.0,1.0,1.75,2.0,4.0,-2.0,4.0],
+                             mask=False)
+        ma_test.assert_mask_eqivalent(sloped, answer)
+        
     def test_rate_of_change_transfer_mask(self):
         array = np.ma.array(data = [1, 0, -1, 2, 1, 3, 4, 6, 5, 7],dtype=float,
                             mask = [0, 1,  0, 0, 0, 1, 0, 0, 0, 1])
-        sloped = rate_of_change(array, 1, 2)
-        answer = np.ma.array(data = [0, -0.5, 0, 0.5, 0, 0.75, 0, 0.25, 0, 0],
+        sloped = rate_of_change(array, 1, 1)
+        answer = np.ma.array(data = [0,-1.0,0,1.0,0,1.5,0,0.5,0,0],
              mask = [True,False,True,False,True,False,True,False,True,True])
         ma_test.assert_mask_eqivalent(sloped, answer)
         
@@ -549,7 +559,7 @@ class TestSeek(unittest.TestCase):
         array = np.ma.arange(4)
         self.assertEquals (seek(array, 1, 0.0, 0, 3, 7.5), None)
         
-    def test_seek_no_range_error(self):
+    def test_seek_errors(self):
         array = np.ma.arange(4)
         self.assertRaises(ValueError, seek, array, 1, 0.0, 2, 2, 7.5)
         self.assertRaises(ValueError, seek, array, 1, 0.0, -1, 2, 7.5)

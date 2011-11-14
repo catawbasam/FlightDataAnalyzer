@@ -132,7 +132,7 @@ class Node(object):
         WARNING: Does not adhere to the MASK.
         
         returns namedtuple or list of namedtuples KeyPointValue,
-        KeyTimeInstance or numpy.ma masked_aray
+        KeyTimeInstance or numpy.ma masked_array
         
         :param params: 
         :type params: dict key:string value: param or list of kpv/kti or phase
