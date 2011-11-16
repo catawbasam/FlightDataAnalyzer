@@ -106,7 +106,7 @@ class StraightHeading(DerivedParameterNode):
     dependencies = ['Heading']
     def derive(self, params):
         hdg = params['Heading']
-        return straighten_headings(hdg)
+        return straighten_headings(hdg.array)
     
 
 class RateOfTurn(DerivedParameterNode):
@@ -116,5 +116,54 @@ class RateOfTurn(DerivedParameterNode):
     ##units = 'deg/sec'
     def derive(self, params):
         shdg = params[StraightHeading.get_name()]
-        return rate_of_change(shdg, 1, 1.0)
+        return rate_of_change(shdg.array, 1, 1.0)
     #TODO: Pick up the sample rate and replace the hard-coded 1.0 Hz.
+
+'''
+# TECHNIQUE 4 - overide methods as required
+class MyDerived(DerivedParameterNode):
+    dependencies = [AltitudeAAL, 'Radio Altitude']
+    
+    def get_array(self, params):
+        array = params['Radio Altitude'] * 2
+        return array
+    
+    def get_frequency(self, params):
+        return params['Altitude AAL'].frequency
+    
+    #offset is not overriden, so takes offset of first dependency
+    def get_offset(self, params):
+        return params[self.dependencies[0]].offset
+
+
+
+# TECHNIQUE 3 - assign attributes to self
+class MyDerived(DerivedParameterNode):
+    dependencies = [AltitudeAAL, 'Radio Altitude']
+    
+    def derive(self, params):
+        self.array = params['Radio Altitude'] * 2
+        self.frequency = params['Altitude AAL'].frequency
+        
+        
+# TECHNIQUE 2 - return a new parameter object (but MyDerived is also a parameter! Will also have to pass ALL attributes)
+class MyDerived(DerivedParameterNode):
+    dependencies = [AltitudeAAL, 'Radio Altitude']
+    
+    def derive(self, params):
+        array = params['Altitude AAL'] * 2
+        return Parameter(array, frequency=params['Altitude AAL'].frequency, offset, units, )
+    
+
+
+# TECHNIQUE 1 - return array still as the main item
+class MyDerived(DerivedParameterNode):
+    dependencies = [AltitudeAAL, 'Radio Altitude']
+    ##frequency_source = 'Radio Altitude'
+    
+    def derive(self, params):
+        array = params['Altitude AAL'] * 2
+        self.frequency = params['Radio Altitude'].frequency
+        return array
+    
+'''

@@ -16,8 +16,8 @@ class TestDependencyGraph(unittest.TestCase):
         ##                SETUP TEST 
         ##########################################################
         class MockParam(Node):
-            self.dependencies = []
-            def __init__(self, dependencies=[], operational=True):
+            self.dependencies = ['a']
+            def __init__(self, dependencies=['a'], operational=True):
                 self.dependencies = dependencies
                 self.operational = operational
                 

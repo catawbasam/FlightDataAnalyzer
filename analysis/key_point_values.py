@@ -25,7 +25,7 @@ class TakeoffAirport(KeyPointValueNode):
         return NotImplemented
     
 class ApproachAirport(KeyPointValueNode):
-    dependencies = []
+    dependencies = ['Descent']
     def derive(self, params):
         return NotImplemented
     
@@ -222,11 +222,13 @@ class GrossWeightAtTouchDown(KeyPointValueNode):
     
 class EGTMax(KeyPointValueNode): # which engine? or all engines? # or all and each!?
     dependencies = ['Engine (1) EGT', 'Engine (2) EGT', 'Engine (3) EGT', 'Engine (4) EGT']
-    returns = "EGT Max"  # add which engine?
+    ##returns = "EGT Max"  # add which engine?
     NAME_FORMAT = 'EGT Max %{engine}'
     RETURN_OPTIONS = {'engine': dependencies + ['Engine (*) EGT']}
-    def can_operate(self, available):
-        if set(self.dependencies) - set(available):
+
+    @classmethod
+    def can_operate(cls, available):
+        if set(cls.dependencies).intersection(available):
             return True  # if ANY are available
         else:
             return False  # we have no EGT recorded on any engines
@@ -278,7 +280,7 @@ class MagneticHeadingAtTouchDown(KeyPointValue):
 # KPV from DJ Code
 
 class AccelerationNormalMax(KeyPointValueNode):
-    dependencies = []
+    dependencies = ['Normal Acceleration']
     def derive(self, params):
         # Use Numpy to locate the maximum g, then go back and get the value.
         n_acceleration_normal_max = np.ma.argmax(fp.acceleration_normal.data[block])
@@ -293,15 +295,15 @@ class RateOfDescentHigh(KeyPointValueNode):
     def derive(self, params):
         rate_of_climb = params['Rate Of Climb']
         #TODO: Merge with below RateOfDescentMax accepting a flightphase arg
-        kpv_list = []
+        ##kpv_list = []
         for descent_period in np.ma.flatnotmasked_contiguous(params['Descending']):
             duration = descent_period.stop - descent_period.start
             if duration > settings.DESCENT_MIN_DURATION:
                 when = np.ma.argmax(rate_of_climb[descent_period])
                 howfast = rate_of_climb[descent_period][when]
                 kpv = self.create_kpv(descent_period.start+when, howfast)
-                kpv_list.append(kpv)
-        return kpv_list
+                ##kpv_list.append(kpv)
+        ##return kpv_list
                 
                 
 class RateOfDescentMax(KeyPointValueNode):

@@ -7,17 +7,8 @@ try:
 except ImportError:
     import simplejson as json
 
-
-class Parameter(object):
-    def __init__(self, array, frequency, offset):
-        '''
-        :param array: Masked array of data for the parameter.
-        :type array: np.ma.masked_array
-        '''
-        self.array = array
-        self.frequency = frequency
-        self.offset = offset
-
+from analysis.node import Parameter
+from utilities.filesystem_tools import pretty_size
 
 class hdf_file(object):    # rare case of lower case?!
     """ usage example:
@@ -38,12 +29,16 @@ class hdf_file(object):    # rare case of lower case?!
         TODO: Glen to put a nice pretty representation of this object
         Q: What else should be displayed?
         '''
-        filename = os.path.dirname(self.hdf.filename)
-        return '%s (%d parameters)' % (filename, len(self))
+        size = pretty_size(os.path.getsize(self.hdf.filename))
+        return '%s %s (%d parameters)' % (self.hdf.filename, size, len(self))
+    
+    def __str__(self):
+        return self.__repr__()
     
     def __init__(self, file_path):
         self.file_path = file_path
         self.hdf = h5py.File(self.file_path, 'r+')
+        self.duration = self.hdf.attrs.get('duration')
                 
     def __enter__(self):
         '''
@@ -58,12 +53,17 @@ class hdf_file(object):    # rare case of lower case?!
         '''
         Allows for dictionary access: hdf['Altitude AAL'][:30]
         '''
-        return self.get_param_data(key)
+        return self.get_param(key)
         
-    def __setitem__(self, key, value):
+    def __setitem__(self, key, param):
         """ Allows for: hdf['Altitude AAL'] = np.ma.array()
         """
-        return self.set_param_data(key, value)
+        assert key == param.name
+        return self.set_param(param)
+    
+    def __contains__(self, key):
+        """check if the key exists"""
+        return key in self.keys()
     
     def __len__(self):
         '''
@@ -92,9 +92,9 @@ class hdf_file(object):    # rare case of lower case?!
         '''
         Returns params that are available, `ignores` those that aren't.
     
-        :param param_names:
+        :param param_names: Parameters to return, if None returns all parameters
         :type param_names: list of str or None
-        :returns:
+        :returns: Param name to Param object dict
         :rtype: dict
         '''
         if param_names is None:
@@ -107,7 +107,7 @@ class hdf_file(object):    # rare case of lower case?!
                 pass # ignore parameters that aren't available
         return param_name_to_obj
 
-    def get_param_data(self, name):
+    def get_param(self, name):
         '''
         name e.g. "Head Mag"
         Returns a masked_array. If 'mask' is stored it will be the mask of the
@@ -118,43 +118,62 @@ class hdf_file(object):    # rare case of lower case?!
         :returns: Parameter object containing HDF data and attrs.
         :rtype: Parameter
         '''
+        if name not in self:
+            # catch exception otherwise HDF will crash and close
+            raise KeyError("%s" % name)
         param_group = self.hdf['series'][name]
         data = param_group['data']
         mask = param_group.get('mask', False)
         array = np.ma.masked_array(data, mask=mask)
-        frequency = param_group.attrs['frequency']
+        frequency = param_group.attrs.get('frequency', 1) # default=1Hz for old CSV files #TODO: Remove .get
         # Differing terms: latency is known internally as frame offset.
-        offset = param_group.attrs['latency']
-        return Parameter(array, frequency, offset)
+        offset = param_group.attrs.get('latency', 0) # default=0sec for old CSV files #TODO: Remove .get
+        return Parameter(name, array, frequency, offset)
+    
+    def get_or_create(self, param_name):
+        # Either get or create parameter.
+        if param_name in self.hdf['series']:
+            param_group = self.hdf['series'][param_name]
+        else:
+            param_group = self.hdf['series'].create_group(param_name)
+        return param_group
 
-    def set_param_data(self, name, array):
+    def set_param(self, param):
         '''
-        reshape data as required and store.        
+        Store parameter and associated attributes on the HDF file.
         
-        :param name: Name of parameter. Forward slashes are not allowed within an HDF identifier as it supports filesystem-style indexing, e.g. '/series/CAS'.
+        Parameter.name canot contain forward slashes as they are used as an
+        HDF identifier which supports filesystem-style indexing, e.g.
+        '/series/CAS'.
+        
+        :param param: Parameter like object with attributes name (must not contain forward slashes), array. 
+        
         :type name: str
         :param array: Array containing data and potentially a mask for the data.
         :type array: np.array or np.ma.masked_array
         '''
         # Allow both arrays and masked_arrays.
-        if not hasattr(array, 'mask'):
-            array = np.ma.masked_array(array, mask=False)
-        # Either get or create parameter.
-        series = self.hdf['series']
-        if name in series:
-            param_group = series[name]
-            # Dataset must be deleted before recreation.
-            del param_group['data']
+        if hasattr(param.array, 'mask'):
+            array = param.array
         else:
-            param_group = series.create_group(name)
+            array = np.ma.masked_array(param.array, mask=False)
+            
+        param_group = self.get_or_create(param.name)
+        if 'data' in param_group:
+             # Dataset must be deleted before recreation.
+            del param_group['data']
         dataset = param_group.create_dataset('data', data=array.data, 
                                              **self.DATASET_KWARGS)
         if 'mask' in param_group:
             # Existing mask will no longer reflect the new data.
             del param_group['mask']
-        # Q: Should we create a mask of False by default?
-        mask_dataset = param_group.create_dataset('mask', data=array.mask,
+        mask = np.ma.getmaskarray(array)
+        mask_dataset = param_group.create_dataset('mask', data=mask,
                                                   **self.DATASET_KWARGS)
+        # Set parameter attributes
+        param_group.attrs['latency'] = param.offset
+        param_group.attrs['frequency'] = param.frequency
+        #TODO: param_group.attrs['available_dependencies'] = param.available_dependencies
         #TODO: Possible to store validity percentage upon name.attrs
     
     def set_param_limits(self, name, limits):
@@ -166,13 +185,16 @@ class hdf_file(object):    # rare case of lower case?!
         :param limits: Operating limits storage
         :type limits: dict
         '''
-        self.hdf['series'][name].attrs['limits'] = json.dumps(limits)
+        param_group = self.get_or_create(name)
+        param_group.attrs['limits'] = json.dumps(limits)
         
     def get_param_limits(self, name):
         '''
-        
         '''
-        limits = self.hdf['series'][name].attrs['limits']
+        if name not in self:
+            # catch exception otherwise HDF will crash and close
+            raise KeyError("%s" % name)
+        limits = self.hdf['series'][name].attrs.get('limits')
         if limits:
             json.loads(limits)
         else:
@@ -215,7 +237,7 @@ def concat_hdf(hdf_paths, dest=None):
             concat_array = np.concatenate(array_list)
             param_group = dest_hdf_file['series'][param_name]
             del param_group['data']
-            param_group.create_dataset("data", data=array, maxshape=(len(array),))
+            param_group.create_dataset("data", data=concat_array, maxshape=(len(concat_array),))
     return dest
 
     
@@ -232,6 +254,8 @@ def write_segment(hdf_path, segment, dest):
     :type dest: str
     :return: path to output hdf file containing specified segment.
     :rtype: str
+    
+    TODO: Support segmenting parameter masks
     '''
     # Q: Is there a better way to clone the contents of an hdf file?
     shutil.copy(hdf_path, dest)
@@ -243,11 +267,14 @@ def write_segment(hdf_path, segment, dest):
             stop_index = segment.stop * frequency if segment.stop else None
             param_segment = param_group['data'][start_index:stop_index]
             param_name_to_array[param_name] = param_segment
+        # duration taken from last parameter
+        duration = len(param_segment) / frequency
     with h5py.File(dest, 'r+') as hdf_file:
         for param_name, array in param_name_to_array.iteritems():
             param_group = hdf_file['series'][param_name]
             del param_group['data']
             param_group.create_dataset("data", data=array, maxshape=(len(array),))
+        hdf_file.attrs['duration'] = duration
     return dest
 
 

@@ -9,7 +9,7 @@ try:
 except ImportError:
     import unittest
 
-from analysis.hdf_access import concat_hdf, hdf_file, write_segment
+from analysis.hdf_access import concat_hdf, hdf_file, write_segment, Parameter
 
 TEST_DATA_DIR_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'test_data')
 TEMP_DIR_PATH = os.path.join(TEST_DATA_DIR_PATH, 'temp')
@@ -51,16 +51,17 @@ class TestHdfFile(unittest.TestCase):
         with hdf_file(self.hdf_path) as hdf:
             # check it's open
             self.assertFalse(hdf.hdf.id is None)
-            hdf['sample'] = np.array(range(10))
-            self.assertEqual(list(hdf['sample'].data), range(10))
-            self.assertTrue(hasattr(hdf['sample'], 'mask'))
+            hdf['sample'] = Parameter('sample', np.array(range(10)))
+            self.assertEqual(list(hdf['sample'].array.data), range(10))
+            self.assertTrue(hasattr(hdf['sample'].array, 'mask'))
             
-            hdf['masked sample'] = np.ma.array(range(10))
-            self.assertEqual(list(hdf['masked sample'].data), range(10))
+            hdf['masked sample'] = Parameter('masked sample', np.ma.array(range(10)))
+            self.assertEqual(list(hdf['masked sample'].array.data), range(10))
             # check masks are returned in full (not just a single False)
-            self.assertEqual(list(hdf['masked sample'].mask), [False]*10)
+            self.assertEqual(list(hdf['masked sample'].array.mask), [False]*10)
         # check it's closed
         self.assertEqual(hdf.hdf.__repr__(), '<Closed HDF5 file>')
+        self.assertEqual(hdf.duration, None)
         
     def test_limit_storage(self):
         self.assertTrue(False)
@@ -88,59 +89,59 @@ class TestHdfFile(unittest.TestCase):
         # test appending a limit (arinc first, then adding others)
         self.assertTrue(False)
     
-    def test_set_param_data(self):
-        self.__test_set_param_data(self.hdf_file.set_param_data)
+    ##def test_set_param_data(self):
+        ##self.__test_set_param_data(self.hdf_file.set_param)
     
+    ##def test___set_item__(self):
+        ##self.__test_set_param_data(self.hdf_file.__setitem__)
+            
     def test___set_item__(self):
-        self.__test_set_param_data(self.hdf_file.__setitem__)
-        
-    def __test_set_param_data(self, set_param_data):
         '''
-        :param set_param_data: Allows passing of either hdf_file.set_param_data or __getitem__.
-        :type set_param_data: method
+        set_item uses set_param
         '''
+        set_param_data = self.hdf_file.__setitem__
         hdf_file = self.hdf_file
         # Create new parameter with np.array.
         name1 = 'TEST_PARAM1'
         array = np.arange(100)
-        set_param_data(name1, array)
+        set_param_data(name1, Parameter(name1, array))
         self.assertTrue(np.all(hdf_file.hdf['series'][name1]['data'].value == array))
         # Create new parameter with np.ma.masked_array.
         name2 = 'TEST_PARAM2'
         mask = [False] * len(array)
         masked_array = np.ma.masked_array(data=array, mask=mask)
-        set_param_data(name2, masked_array)
+        set_param_data(name2, Parameter(name2, masked_array))
         self.assertTrue(np.all(hdf_file.hdf['series'][name2]['data'].value == array))
         self.assertTrue(np.all(hdf_file.hdf['series'][name2]['mask'].value == mask))
         # Set existing parameter's data with np.array.
         array = np.arange(200)
-        set_param_data(name1, array)
+        set_param_data(name1, Parameter(name1, array))
         self.assertTrue(np.all(hdf_file.hdf['series'][name1]['data'].value == array))
         # Set existing parameter's data with np.ma.masked_array.
         mask = [bool(random.randint(0, 1)) for x in range(len(array))]
         masked_array = np.ma.masked_array(data=array, mask=mask)
-        set_param_data(name1, masked_array)
+        set_param_data(name1, Parameter(name1, masked_array))
         self.assertTrue(np.all(hdf_file.hdf['series'][name1]['data'].value == array))
         self.assertTrue(np.all(hdf_file.hdf['series'][name1]['mask'].value == mask))
     
     def test_get_param_data(self):
-        self.__test_get_param_data(self.hdf_file.get_param_data)
+        self.__test_get_param_data(self.hdf_file.get_param)
     
     def test___get_item__(self):
         self.__test_get_param_data(self.hdf_file.__getitem__)
     
-    def __test_get_param_data(self, get_param_data):
+    def __test_get_param_data(self, get_param):
         '''
-        :param set_param_data: Allows passing of either hdf_file.get_param_data or __getitem__.
+        :param set_param_data: Allows passing of either hdf_file.get_param or __getitem__.
         :type get_param_data: method
         '''
         # Create new parameter with np.array.
-        param = get_param_data(self.param_name)
+        param = get_param(self.param_name)
         self.assertTrue(np.all(self.param_data == param.array.data))
         self.assertEqual(self.param_frequency, param.frequency)
         self.assertEqual(self.param_latency, param.offset)
         # Create new parameter with np.array.
-        param = get_param_data(self.masked_param_name)
+        param = get_param(self.masked_param_name)
         self.assertTrue(np.all(self.param_data == param.array.data))
         self.assertTrue(np.all(self.param_mask == param.array.mask))
         self.assertEqual(self.masked_param_frequency, param.frequency)
@@ -306,6 +307,7 @@ class TestWriteSegment(unittest.TestCase):
             dme_result = dme_group['data'][:]
             dme_expected_result = np.array([1, 2], dtype=np.dtype(np.float))
             self.assertTrue(all(dme_result == dme_expected_result))
+            self.assertEqual(hdf_file.attrs['duration'], 10)
     
     def test_write_segment__start_only(self):
         '''
@@ -345,6 +347,7 @@ class TestWriteSegment(unittest.TestCase):
             dme_result = dme_group['data'][:]
             dme_expected_result = np.arange(7, 15, dtype=np.dtype(np.float))
             self.assertTrue(all(dme_result == dme_expected_result))
+            self.assertEqual(hdf_file.attrs['duration'], 50)
         
     def test_write_segment__stop_only(self):
         '''
@@ -384,6 +387,7 @@ class TestWriteSegment(unittest.TestCase):
             dme_result = dme_group['data'][:]
             dme_expected_result = np.arange(0, 10, dtype=np.dtype(np.float))
             self.assertTrue(all(dme_result == dme_expected_result))
+            self.assertEqual(hdf_file.attrs['duration'], 70)
     
     def test_write_segment__all_data(self):
         '''
@@ -416,6 +420,7 @@ class TestWriteSegment(unittest.TestCase):
                              self.dme_frequency)
             dme_result = dme_group['data'][:]
             self.assertTrue(all(dme_result == self.dme_data))
+            self.assertEqual(hdf_file.attrs['duration'], 100)
     
     def tearDown(self):
         try:

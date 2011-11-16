@@ -6,6 +6,7 @@ import numpy as np
 import utilities.masked_array_testutils as ma_test
 
 from analysis.derived_parameters import RateOfTurn
+from analysis.node import Parameter
 
 class TestRateOfTurn(unittest.TestCase):
     def test_can_operate(self):
@@ -14,16 +15,17 @@ class TestRateOfTurn(unittest.TestCase):
         self.assertEqual(opts, expected)
         
     def test_rate_of_turn(self):
-        params = {'Straight Heading':np.ma.array(range(10))}
-        rot = RateOfTurn()
+        params = {'Straight Heading':Parameter('', np.ma.array(range(10)))}
+        rot = RateOfTurn(params)
         res = rot.derive(params)
         answer = np.ma.array(data=[1]*10, dtype=np.float,
                              mask=False)
         ma_test.assert_masked_array_approx_equal(res, answer)
         
     def test_rate_of_turn_phase_stability(self):
-        params = {'Straight Heading':np.ma.array([0,0,0,1,0,0,0], dtype=float)}
-        rot = RateOfTurn()
+        params = {'Straight Heading':Parameter('', np.ma.array([0,0,0,1,0,0,0], 
+                                                               dtype=float))}
+        rot = RateOfTurn(params)
         res = rot.derive(params)
         answer = np.ma.array([0,0,0.5,0,-0.5,0,0])
         ma_test.assert_masked_array_approx_equal(res, answer)

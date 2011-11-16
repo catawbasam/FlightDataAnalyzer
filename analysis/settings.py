@@ -53,9 +53,9 @@ POST_DERIVED_PARAM_PROCESS = None
 POST_LFL_PARAM_PROCESS = None
 """
 # create post processing function
-def fn(hdf, param_name, param):
-    # do something to param
-    return param
+def fn(hdf, param):
+    "Do something to param. Return Param if changes are to be saved, else None"
+    return f(param)
 # set as post process
 POST_DERIVED_PARAM_PROCESS = fn
 POST_LFL_PARAM_PROCESS = fn

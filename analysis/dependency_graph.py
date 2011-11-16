@@ -26,7 +26,7 @@ def get_derived_nodes(module_names):
         for c in vars(module).values():
             if isclassandsubclass(c, Node) and c.__module__ != 'analysis.node':
                 try:
-                    nodes[c.get_name()] = c()
+                    nodes[c.get_name()] = c
                 except TypeError:
                     #TODO: Handle the expected error of top level classes
                     # Can't instantiate abstract class DerivedParameterNode

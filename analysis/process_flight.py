@@ -6,8 +6,9 @@ from analysis import settings
 from analysis.dependency_graph import dependency_order
 from analysis.hdf_access import hdf_file
 from analysis.library import calculate_timebase
-from analysis.node import (GeoKeyTimeInstance, KeyPointValue, KeyPointValueNode,
-                           KeyTimeInstance, KeyTimeInstanceNode, FlightPhaseNode)
+from analysis.node import (
+    DerivedParameterNode, GeoKeyTimeInstance, KeyPointValue, KeyPointValueNode,
+    KeyTimeInstance, KeyTimeInstanceNode, FlightPhaseNode)
 
 
 def get_required_params(aircraft):
@@ -19,8 +20,15 @@ def get_required_params(aircraft):
 
 
 def geo_locate(hdf, kti_list):
-    """ Translate KeyTimeInstance into GeoKeyTimeInstance namedtuples
     """
+    Translate KeyTimeInstance into GeoKeyTimeInstance namedtuples
+    
+    TODO: Account for different frequency kti indexes.
+    """
+    if 'Latitude Smoothed' not in hdf \
+       or 'Longitude Smoothed' not in hdf:
+        return kti_list
+    
     lat_pos = hdf['Latitude Smoothed']
     long_pos = hdf['Longitude Smoothed']
     gkti_list = []
@@ -51,49 +59,60 @@ def derive_parameters(hdf, nodes, process_order):
     phase_list = []
     
     for param_name in process_order:
-        if param_name in nodes.lfl:
-            result = hdf.get_param_data(param_name)
-            # perform any post_processing
-            if settings.POST_LFL_PARAM_PROCESS:
-                result = settings.POST_LFL_PARAM_PROCESS(hdf, param_name, result)
-                hdf.set_param_data(param_name, result)
+        if param_name in nodes.lfl and settings.POST_LFL_PARAM_PROCESS:
+            # perform any post_processing on LFL params
+            param = hdf.get_param(param_name)
+            _param = settings.POST_LFL_PARAM_PROCESS(hdf, param)
+            if _param:
+                hdf.set_param(_param)
             continue
         
-        node = nodes.derived_nodes[param_name]  # raises KeyError if Node is "unknown"
+        node_class = nodes.derived_nodes[param_name]  # raises KeyError if Node is "unknown"
         # retrieve dependencies which are available from hdf (LFL/Derived masked arrays)
-        deps = hdf.get_params(node.get_dependency_names())
+        deps = hdf.get_params(node_class.get_dependency_names())
         # update with dependencies already derived (non-masked arrays)
-        deps.update( dict_filter(params, keep=node.get_dependency_names()) )
+        deps.update( dict_filter(params, keep=node_class.get_dependency_names()) )
+        if not deps:
+            raise RuntimeError("No dependencies available - Nodes cannot operate without ANY dependencies available! Node: %s" % node_class.__name__)
+        # initialise node
+        node = node_class(deps)
+        # Derive the resulting value
+        result = node.get_derived(deps)
         
-        result = node.derive(deps)
         if isinstance(node, KeyPointValueNode):
-            # expect a single KPV or a list of KPVs
+            ### expect a single KPV or a list of KPVs
+            #Q: track node instead of result here??
             params[param_name] = result  # keep track
-            if isinstance(result, KeyPointValue):
-                kpv_list.append(result)
-            else:
-                kpv_list.extend(result)
+            ##if isinstance(result, KeyPointValue):
+                ##kpv_list.append(result)
+            ##else:
+            kpv_list.extend(result)
         elif isinstance(node, KeyTimeInstanceNode):
-            # expect a single KTI or a list of KTIs
+            ### expect a single KTI or a list of KTIs
             params[param_name] = result  # keep track
-            if isinstance(result, KeyTimeInstance):
-                kti_list.append(result)
-            else:
-                kti_list.extend(result)
+            ##if isinstance(result, KeyTimeInstance):
+                ##kti_list.append(result)
+            ##else:
+            kti_list.extend(result)
         elif isinstance(node, FlightPhaseNode):
             # expect a single slice
             params[param_name] = result  # keep track
-            phase_list.append(result)
+            phase_list.extend(result)
         elif isinstance(node, DerivedParameterNode):
             # perform any post_processing
             if settings.POST_DERIVED_PARAM_PROCESS:
-                result = settings.POST_DERIVED_PARAM_PROCESS(hdf, param_name, result)
-            hdf.set_param_data(param_name, result)
+                process_result = settings.POST_DERIVED_PARAM_PROCESS(hdf, result)
+                if process_result:
+                    result = process_result
+            if hdf.duration:
+                # check that the right number of results were returned
+                assert len(result) == hdf.duration * result.frequency
+            hdf.set_param(result)
         else:
             raise NotImplementedError("Unknown Type %s" % node.__class__)
         continue
 
-    return ktv_list, kpv_list, phase_list
+    return kti_list, kpv_list, phase_list
 
 
 def process_flight(hdf_path, aircraft):
@@ -111,15 +130,15 @@ def process_flight(hdf_path, aircraft):
         ##start_datetime = calculate_timebase(hdf.years, hdf.months, hdf.days, hdf.hours, hdf.mins, hdf.seconds)
         
         if settings.PRE_FLIGHT_ANALYSIS:
-            settings.PRE_FLIGHT_ANALYSIS(hdf, aircraft, params)
+            settings.PRE_FLIGHT_ANALYSIS(hdf, aircraft, process_order)
             
-        params = derive_parameters(hdf, nodes, process_order)
+        kti_list, kpv_list, phase_list = derive_parameters(hdf, nodes, process_order)
         
         # go get bonus info at time of KPVs
         ##kpv_info = get_geo_location_etc_for_kpv(kpv_list)
         
         # go get bonus info at time of KPVs
-        kti_info = geo_locate(params['ktis'])
+        kti_info = geo_locate(kti_list)
         
         downsampled_params = downsample_for_graphs(graph_params_list)
         store_flight_information(flight_info, kti_info, params['kpvs'])  # in DB (not HDF)
