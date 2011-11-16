@@ -169,43 +169,6 @@ def rate_of_change(to_diff, half_width, hz):
     slope[-hw:] = (to_diff[-hw:] - to_diff[-hw-1:-1])* hz
     return slope
 
-'''
-Not used at this time, and superceded by hysteresis as a technique for removing
-unwanted state changes from noisy data.
-
-def running_average(data, half_width=5):
-    ## avg.param_name = to_avg.param_name+'_averaged'
-    # Set up a masked result array of the right size.
-    #   Ideally we'd like to use the command
-    #   avg.data = np.ma.zeros_like(to_avg.data)
-    #   but this isn't in the np library :-(
-
-    #   Using empty_like then subtracting from itself didn't work as we had
-    #   errors where non-numeric data was in the allocated memory. Here's what I tried:
-    #     avg.data = np.ma.empty_like(to_avg.data)
-    #     # Set the values to zero as we'll be summing into this array.
-    #     avg.data  -= avg.data 
-    
-    # So make a copy and fill it with zeros is the second plan:
-    temp = np.ma.copy(data)
-    temp.fill(0)
-
-    # The average is performed over an odd number of values 
-    # centred on the result point.
-    width = (2*half_width) + 1
-    length = len(data)
-    # This iteration is only for the number of points being averaged.
-    for i in range(width):
-        temp [half_width:-half_width] += data[i:length-width+i+1]
-    # Divide the result to form the average    
-    temp  = temp /float(width)
-    # Mark the ends as invalid.
-    for i in range(half_width):
-        temp [i] = np.ma.masked
-        temp [-(i+1)] = np.ma.masked
-    return temp
-'''
-
 def align(master, slave, interval='Subframe'):
     """
     This function takes two parameters which will have been sampled at different
@@ -542,9 +505,13 @@ def value_at_time (array, hz, fdr_offset, time_index):
         # In the cases of no mask, or neither sample masked, interpolate.
         return r*high_value + (1-r) * low_value
 
-def seek (array, hz, fdr_offset, scan_start, scan_end, threshold):
+def time_at_value (array, hz, fdr_offset, scan_start, scan_end, threshold):
     '''
-    Seeks the moment when the parameter in question first crosses a threshold.
+    This function seeks the moment when the parameter in question first crosses 
+    a threshold. It works both forwards and backwards in time. To scan backwards
+    just make the start point later than the end point. This is really useful
+    for finding things like the point of landing.
+    
     For example, to find 50ft Rad Alt on the descent, use something like:
        altitude_radio.seek(t_approach, t_landing, 50)
     
@@ -597,3 +564,75 @@ def seek (array, hz, fdr_offset, scan_start, scan_end, threshold):
         r = (threshold - a) / (b-a)
         #TODO: Could test 0 < r < 1 for completeness
     return (begin + step * (n + r)) / hz
+
+def create_phase_inside(array, hz, offset, phase_start, phase_end):
+    '''
+    This function masks all values of the reference array outside of the phase
+    range phase_start to phase_end, leaving the valid phase inside these times.
+    
+    :param array: input data
+    :type array: masked array
+    :param a: sample rate for the input data (sec-1)
+    :type hz: float
+    :param fdr_offset: fdr offset for the array (sec)
+    :type fdr_offset: float
+    :param phase_start: time into the array where we want to start seeking the threshold transit.
+    :type phase_start: float
+    :param phase_end: time into the array where we want to stop seeking the threshold transit.
+    :type phase_end: float
+    :returns: input array with samples outside phase_start and phase_end masked.
+    '''
+    return _create_phase_mask(array,  hz, offset, phase_start, phase_end, 'inside')
+
+def create_phase_outside(array, hz, offset, phase_start, phase_end):
+    '''
+    This function masks all values of the reference array inside of the phase
+    range phase_start to phase_end, leaving the valid phase outside these times.
+    
+    :param array: input data
+    :type array: masked array
+    :param a: sample rate for the input data (sec-1)
+    :type hz: float
+    :param fdr_offset: fdr offset for the array (sec)
+    :type fdr_offset: float
+    :param phase_start: time into the array where we want to start seeking the threshold transit.
+    :type phase_start: float
+    :param phase_end: time into the array where we want to stop seeking the threshold transit.
+    :type phase_end: float
+    :returns: input array with samples outside phase_start and phase_end masked.
+    '''
+    return _create_phase_mask(array, hz, offset, phase_start, phase_end, 'outside')
+
+def _create_phase_mask(array, hz, offset, a, b, which_side):
+    # Create Numpy array of same size as array data
+    length = len(array)
+    m = np.arange(length)
+    
+    if a > b:
+        a, b = b, a # Swap them over to make sure a is the smaller.
+    
+    # Convert times a,b to indices ia, ib and check they are within the array.
+    ia = int((a-offset)*hz)
+    if ia < (a-offset)*hz:
+        ia += 1
+    if ia < 0 or ia > length:
+        raise ValueError, 'Phase mask index out of range'
+            
+    ib = int((b-offset)*hz) + 1
+    if ib < 0 or ib > length:
+        raise ValueError, 'Phase mask index out of range'
+
+    # Populate the arrays to be False where the flight phase is valid.
+    # Adjustments ensure phase is intact and not overwritten by True data.
+    if which_side == 'inside':
+        m[:ia]  = True
+        m[ia:ib] = False
+        m[ib:]  = True
+    else:
+         m[:ia]  = False
+         m[ia:ib] = True
+         m[ib:]  = False
+         
+    # Return the masked array containing reference data and the created mask.
+    return np.ma.MaskedArray(array, mask = m)
+    
