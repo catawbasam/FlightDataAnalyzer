@@ -64,7 +64,24 @@ class TestHdfFile(unittest.TestCase):
         self.assertEqual(hdf.duration, None)
         
     def test_limit_storage(self):
-        self.assertTrue(False)
+        # test set and get param limits
+        parameter_limits = {
+            'TEST_PARAM10': { 
+                'arinc': None,
+                'rate_of_change_limit': None,
+                'max_limit': 41000,
+                'min_limit': -1000
+            }
+        }
+        
+        self.hdf_file.set_param_limits(self.param_name, 
+                                       parameter_limits.get('TEST_PARAM10'))
+        
+        stored_param_limits = self.hdf_file.get_param_limits(self.param_name)
+        self.assertEqual(parameter_limits.get('TEST_PARAM10'), 
+                         stored_param_limits)
+
+        #self.assertTrue(False)
     
     def test_mask_storage(self):
         self.assertTrue(False)
