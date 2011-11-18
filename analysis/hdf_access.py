@@ -196,7 +196,7 @@ class hdf_file(object):    # rare case of lower case?!
             raise KeyError("%s" % name)
         limits = self.hdf['series'][name].attrs.get('limits')
         if limits:
-            json.loads(limits)
+            return json.loads(limits)
         else:
             return None
 
