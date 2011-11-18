@@ -149,8 +149,8 @@ class Node(object):
         Returns true if dependencies is a subset of available. For more
         specific operational requirements, override appropriately.
         
-        Strictly this is a classmethod, so please remember to use the
-        @classmethod decorator! (if you forget, i don't `think` it will break)
+        This is a classmethod, so please remember to use the
+        @classmethod decorator! (if you forget - it will break)
         
         :param available: Available parameters from the dependency tree
         :type available: list of strings

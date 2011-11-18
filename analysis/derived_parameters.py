@@ -91,9 +91,6 @@ class ILSValLim(DerivedParameterNode):
 
 class RateOfClimb(DerivedParameterNode):
     dependencies = ['Altitude Std', 'Radio Altitude']
-    ##frequency = dependencies[0].frequency
-    ##offset = dependencies[0].offset
-    ##units = 'ft/min'
     def derive(self, params):
         alt_std = params['Altitude Std']
         alt_radio = params['Radio Altitude']
@@ -106,64 +103,12 @@ class StraightHeading(DerivedParameterNode):
     dependencies = ['Heading']
     def derive(self, params):
         hdg = params['Heading']
-        return straighten_headings(hdg.array)
+        self.array = straighten_headings(hdg.array)
     
 
 class RateOfTurn(DerivedParameterNode):
     dependencies = [StraightHeading]
-    ##frequency = StraightHeading.frequency
-    ##offset = StraightHeading.offset
-    ##units = 'deg/sec'
     def derive(self, params):
         shdg = params[StraightHeading.get_name()]
-        return rate_of_change(shdg.array, 1, 1.0)
-    #TODO: Pick up the sample rate and replace the hard-coded 1.0 Hz.
+        self.array = rate_of_change(shdg.array, 1, shdg.hz)
 
-'''
-# TECHNIQUE 4 - overide methods as required
-class MyDerived(DerivedParameterNode):
-    dependencies = [AltitudeAAL, 'Radio Altitude']
-    
-    def get_array(self, params):
-        array = params['Radio Altitude'] * 2
-        return array
-    
-    def get_frequency(self, params):
-        return params['Altitude AAL'].frequency
-    
-    #offset is not overriden, so takes offset of first dependency
-    def get_offset(self, params):
-        return params[self.dependencies[0]].offset
-
-
-
-# TECHNIQUE 3 - assign attributes to self
-class MyDerived(DerivedParameterNode):
-    dependencies = [AltitudeAAL, 'Radio Altitude']
-    
-    def derive(self, params):
-        self.array = params['Radio Altitude'] * 2
-        self.frequency = params['Altitude AAL'].frequency
-        
-        
-# TECHNIQUE 2 - return a new parameter object (but MyDerived is also a parameter! Will also have to pass ALL attributes)
-class MyDerived(DerivedParameterNode):
-    dependencies = [AltitudeAAL, 'Radio Altitude']
-    
-    def derive(self, params):
-        array = params['Altitude AAL'] * 2
-        return Parameter(array, frequency=params['Altitude AAL'].frequency, offset, units, )
-    
-
-
-# TECHNIQUE 1 - return array still as the main item
-class MyDerived(DerivedParameterNode):
-    dependencies = [AltitudeAAL, 'Radio Altitude']
-    ##frequency_source = 'Radio Altitude'
-    
-    def derive(self, params):
-        array = params['Altitude AAL'] * 2
-        self.frequency = params['Radio Altitude'].frequency
-        return array
-    
-'''
