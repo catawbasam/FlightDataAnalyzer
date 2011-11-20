@@ -22,7 +22,13 @@ LEVEL_FLIGHT_MIN_DURATION = 60  # (sec)
 # An airspeed below which you just can't possibly be flying.
 AIRSPEED_THRESHOLD = 80  # (kts)
 
+# Threshold for flight phase airspeed hysteresis.
+HYSTERESIS_FPIAS = 10 # (kts)
 
+# Threshold for flight phase rate of climb hysteresis.
+# We're going to ignore changes smaller than this to avoid repeatedly changing
+# phase if the aircraft is climbing/descending close to a threshold level.
+HYSTERESIS_FPROC = 100 # (fpm)
 
 #TODO: DEFINE!
 RATE_OF_CLIMB_FOR_FLIGHT_PHASES = NotImplemented

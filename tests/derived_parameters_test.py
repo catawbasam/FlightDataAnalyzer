@@ -7,7 +7,9 @@ import numpy as np
 import utilities.masked_array_testutils as ma_test
 #from utilities.parameter_test import parameter_test
 
-from analysis.derived_parameters import (AccelerationVertical,
+from analysis.derived_parameters import (AccelerationVertical, 
+                                         FlightPhaseRateOfClimb,
+                                         HeadContinuous,
                                          RateOfClimb, RateOfTurn)
 from analysis.node import Parameter
 
@@ -98,6 +100,41 @@ class TestAccelerationVertical(unittest.TestCase):
         self.assertEqual(result.hz, answer.hz)
         self.assertEqual(result.offset, answer.offset)
         ma_test.assert_masked_array_approx_equal(result.array, answer.array)
+        
+     
+class TestFlightPhaseRateOfClimb(unittest.TestCase):
+    def test_can_operate(self):
+        expected = [('Altitude STD',)]
+        opts = FlightPhaseRateOfClimb.get_operational_combinations()
+        self.assertEqual(opts, expected)
+        
+    def test_flight_phase_rate_of_climb(self):
+        params = {'Altitude STD':Parameter('', np.ma.array(range(10))+100)}
+        roc = FlightPhaseRateOfClimb(params)
+        roc.derive(params)
+        # !!! I dont know why this does not return a new parameter !!!
+        result = params['Flight Phase Rate Of Climb'].array
+        answer = np.ma.array(data=[1]*10, dtype=np.float,
+                             mask=False)
+        ma_test.assert_masked_array_approx_equal(result, answer)
+        
+        
+class TestHeadContinuous(unittest.TestCase):
+    def test_can_operate(self):
+        expected = [('Heading Magnetic',)]
+        opts = HeadContinuous.get_operational_combinations()
+        self.assertEqual(opts, expected)
+
+    def test_heading_continuous(self):
+        params = {'Heading Magnetic':Parameter('Heading Magnetic',
+                                               np.ma.remainder(
+                                                   np.ma.array(range(10))+355,360.0))}
+        f = HeadContinuous(params)
+        f.derive(params)
+        answer = np.ma.array(data=[355.0, 356.0, 357.0, 358.0, 359.0, 360.0, 
+                                   361.0, 362.0, 363.0, 364.0], dtype=np.float, mask=False)
+        #ma_test.assert_masked_array_approx_equal(res, answer)
+        np.testing.assert_array_equal(f.array.data, answer.data)
         
         
 class TestRateOfClimb(unittest.TestCase):

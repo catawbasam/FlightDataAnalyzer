@@ -2,7 +2,10 @@ import logging
 import numpy as np
 
 from analysis.node import DerivedParameterNode, Parameter
-from analysis.library import rate_of_change, align, straighten_headings
+from analysis.library import (align, hysteresis,
+                              rate_of_change, straighten_headings)
+
+from settings import HYSTERESIS_FPROC
 
 primary = lambda: params[self.get_dependency_names()[0]]
 #-------------------------------------------------------------------------------
@@ -15,6 +18,34 @@ primary = lambda: params[self.get_dependency_names()[0]]
 # Q: Accessing information like ORIGIN / DESTINATION
 
 # Q: What about V2 Vref etc?
+
+
+class AccelerationVertical(DerivedParameterNode):
+    dependencies = ['Acceleration Normal', 'Acceleration Lateral', 
+                    'Acceleration Longitudinal', 'Pitch', 'Roll']
+    def derive(self, params):
+        # Resolution of three accelerations to compute the vertical
+        # acceleration (perpendicular to the earth surface).
+
+        # The Acceleration Normal parameter is referenced many times, so use 
+        # this shorthand version:
+        az_p = params['Acceleration Normal']
+        
+        # Align the acceleration and attitude samples to the normal acceleration,
+        # ready for combining them.
+        # "align" returns an array of the first parameter aligned to the second.
+        ax = align(params['Acceleration Longitudinal'], az_p) 
+        pch = np.radians(align(params['Pitch'], az_p))
+        ay = align(params['Acceleration Lateral'], az_p) 
+        rol = np.radians(align(params['Roll'], az_p))
+        
+        # Simple Numpy algorithm working on masked arrays
+        resolved_in_pitch = ax * np.sin(pch) + az_p.array * np.cos(pch)
+        resolved_in_roll = resolved_in_pitch * np.cos(rol) - ay * np.sin(rol)
+        params['Acceleration Vertical'] = Parameter('Acceleration Vertical',
+                                                    resolved_in_roll,
+                                                    az_p.hz,
+                                                    az_p.offset)
 
 class AltitudeAAL(DerivedParameterNode):
     name = 'Altitude AAL'
@@ -65,6 +96,22 @@ class FlapCorrected(DerivedParameterNode):
     def derive(self, params):
         return NotImplemented
     
+
+class FlightPhaseAirspeed(DerivedParameterNode):
+    dependencies = ['Airspeed']
+    def derive(self, params):
+        prime_dep = self.get_first_param(params)
+        self.array = hysteresis(prime_dep.array, HYSTERESIS_FPIAS)
+
+
+class FlightPhaseRateOfClimb(DerivedParameterNode):
+    dependencies = ['Altitude STD']
+    def derive(self, params):
+        prime_dep = self.get_first_param(params)
+        self.array = hysteresis(rate_of_change(prime_dep.array, 4, prime_dep.hz),
+                                HYSTERESIS_FPROC)
+
+
 class Relief(DerivedParameterNode):
     # also known as Terrain
     dependencies = ['Altitude AAL', 'Radio Altitude']
@@ -93,48 +140,13 @@ class ILSValLim(DerivedParameterNode):
 class RateOfClimb(DerivedParameterNode):
     dependencies = ['Altitude STD', 'Altitude Radio']
     def derive(self, params):
-        prime_dep = self.get_first_param(params)
-        # alt_std = params['Altitude STD']
-        alt_radio = params['Altitude Radio']
-        
-        # do magic in flight_analysis_algorithms.py
-        #return roc = np.ma.ones((10))
-
-
-class AccelerationVertical(DerivedParameterNode):
-    dependencies = ['Acceleration Normal', 'Acceleration Lateral', 
-                    'Acceleration Longitudinal', 'Pitch', 'Roll']
-    def derive(self, params):
-        # Resolution of three accelerations to compute the vertical
-        # acceleration (perpendicular to the earth surface).
-
-        # The Acceleration Normal parameter is referenced many times, so use 
-        # this shorthand version:
-        az_p = params['Acceleration Normal']
-        
-        # Align the acceleration and attitude samples to the normal acceleration,
-        # ready for combining them.
-        # "align" returns an array of the first parameter aligned to the second.
-        ax = align(params['Acceleration Longitudinal'], az_p) 
-        pch = np.radians(align(params['Pitch'], az_p))
-        ay = align(params['Acceleration Lateral'], az_p) 
-        rol = np.radians(align(params['Roll'], az_p))
-        
-        # Simple Numpy algorithm working on masked arrays
-        resolved_in_pitch = ax * np.sin(pch) + az_p.array * np.cos(pch)
-        resolved_in_roll = resolved_in_pitch * np.cos(rol) - ay * np.sin(rol)
-        params['Acceleration Vertical'] = Parameter('Acceleration Vertical',
-                                                    resolved_in_roll,
-                                                    az_p.hz,
-                                                    az_p.offset)
+        self.array = rate_of_change(params['Altitude STD'], 1, params['Altitude STD'].hz)
 
     
 class HeadContinuous(DerivedParameterNode):
-    dependencies = ['Head Mag']
+    dependencies = ['Heading Magnetic']
     def derive(self, params):
-        # hdg = params['Head Mag']
-        hdg = params[self.get_dependency_names()[0]]
-        self.array = straighten_headings(hdg.array)
+        self.array = straighten_headings(params['Heading Magnetic'].array)
 
 
 class RateOfTurn(DerivedParameterNode):
