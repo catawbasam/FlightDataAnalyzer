@@ -106,6 +106,8 @@ class Node(object):
         
         self.name = self.get_name()        
         first_dep = self._get_first_available_dependency(params.keys())        
+        if not first_dep:
+            raise ValueError("First dependancy parameter not available when creating derived class object.")
         self._first_available_dependency = first_dep
         self.frequency = params[first_dep].frequency # Hz
         self.offset = params[first_dep].offset # secs
@@ -230,7 +232,9 @@ class DerivedParameterNode(Node):
         # create a simplistic parameter for writing to HDF
         #TODO: Parameter and hdf_access to use available=params.keys()
         return Parameter(self.get_name(), self.array, self.frequency, self.offset)
-
+    
+    def get_first_param (self, params):
+        return params[self.get_dependency_names()[0]]
 
 class FlightPhaseNode(Node):
     def __init__(self, *args, **kwargs):

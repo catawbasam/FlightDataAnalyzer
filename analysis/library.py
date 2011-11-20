@@ -73,7 +73,7 @@ from itertools import izip
         ##clock_variation[step] = 1
     ##return clock_variation
 
-def align(master, slave, interval='Subframe'):
+def align(slave, master, interval='Subframe'):
     """
     This function takes two parameters which will have been sampled at different
     rates and with different offsets, and aligns the slave parameter's samples
@@ -81,12 +81,12 @@ def align(master, slave, interval='Subframe'):
     may be processed without timing errors.
     
     :type master, slave: Parameter objects with attributes:
-    :type master.data: masked array
-    :type masger.fdr_offset: float
-    :type master.hz: float
-    :type slave.data: masked array
-    :type slave.fdr_offset: float
+    :type slave.array: masked array
+    :type slave.offset: float
     :type slave.hz: float
+    :type master.array: masked array
+    :type masger.offset: float
+    :type master.hz: float
     :type interval: String with possible values 'Subframe' or 'Frame'. 
     The function raises an assertion error if the interval is neither 'Subframe' or 'Frame'
     
@@ -107,13 +107,13 @@ def align(master, slave, interval='Subframe'):
     
     # Here we create a masked array to hold the returned values that will have 
     # the same sample rate and timing offset as the master
-    result = np.ma.empty_like(master.data)
+    result = np.ma.empty_like(master.array)
     ## result[:] = 0.0
     ## Clearing the result array is unnecessary, but can make testing easier to follow.
 
     # Get the timing offsets, comprised of word location and possible latency.
-    tp = master.fdr_offset
-    ts = slave.fdr_offset
+    tp = master.offset
+    ts = slave.offset
 
     # Get the sample rates for the two parameters
     wm = master.hz
@@ -129,7 +129,7 @@ def align(master, slave, interval='Subframe'):
         ws = int(ws * 4)
     assert wm in [1,2,4,8,16,32,64]
     assert ws in [1,2,4,8,16,32,64]
-    assert len(master.data.data) * ws == len(slave.data.data) * wm
+    assert len(master.array.data) * ws == len(slave.array.data) * wm
            
     # Compute the sample rate ratio (in range 10:1 to 1:10 for sample rates up to 10Hz)
     r = wm/float(ws)
@@ -145,20 +145,20 @@ def align(master, slave, interval='Subframe'):
         a=1-b
 
         if h<0:
-            result[i+wm::wm]=a*slave.data[h+ws:-ws:ws]+b*slave.data[h1+ws::ws]
+            result[i+wm::wm]=a*slave.array[h+ws:-ws:ws]+b*slave.array[h1+ws::ws]
             # We can't interpolate the inital values as we are outside the 
             # range of the slave parameters. Take the first value and extend to 
             # the end of the data.
-            result[i] = slave.data[0]
+            result[i] = slave.array[0]
         elif h1>=ws:
-            result[i:-wm:wm]=a*slave.data[h:-ws:ws]+b*slave.data[h1::ws]
+            result[i:-wm:wm]=a*slave.array[h:-ws:ws]+b*slave.array[h1::ws]
             # At the other end, we run out of slave parameter values so need to
             # extend to the end of the array.
-            result[i-wm] = slave.data[-1]
+            result[i-wm] = slave.array[-1]
         else:
             # Sheer bliss. We can compute results across the whole range of the 
             # data without having to take special care at the ends of the array.
-            result[i::wm]=a*slave.data[h::ws]+b*slave.data[h1::ws]
+            result[i::wm]=a*slave.array[h::ws]+b*slave.array[h1::ws]
 
     return result
 
@@ -201,8 +201,8 @@ def create_phase_inside(array, hz, offset, phase_start, phase_end):
     :type array: masked array
     :param a: sample rate for the input data (sec-1)
     :type hz: float
-    :param fdr_offset: fdr offset for the array (sec)
-    :type fdr_offset: float
+    :param offset: fdr offset for the array (sec)
+    :type offset: float
     :param phase_start: time into the array where we want to start seeking the threshold transit.
     :type phase_start: float
     :param phase_end: time into the array where we want to stop seeking the threshold transit.
@@ -220,8 +220,8 @@ def create_phase_outside(array, hz, offset, phase_start, phase_end):
     :type array: masked array
     :param a: sample rate for the input data (sec-1)
     :type hz: float
-    :param fdr_offset: fdr offset for the array (sec)
-    :type fdr_offset: float
+    :param offset: fdr offset for the array (sec)
+    :type offset: float
     :param phase_start: time into the array where we want to start seeking the threshold transit.
     :type phase_start: float
     :param phase_end: time into the array where we want to stop seeking the threshold transit.
@@ -568,7 +568,7 @@ def straighten_headings(heading_array):
     heading_array[1:] = np.cumsum(diff) + head_prev
     return heading_array
 
-def time_at_value (array, hz, fdr_offset, scan_start, scan_end, threshold):
+def time_at_value (array, hz, offset, scan_start, scan_end, threshold):
     '''
     This function seeks the moment when the parameter in question first crosses 
     a threshold. It works both forwards and backwards in time. To scan backwards
@@ -582,8 +582,8 @@ def time_at_value (array, hz, fdr_offset, scan_start, scan_end, threshold):
     :type array: masked array
     :param hz: sample rate for the input data (sec-1)
     :type hz: float
-    :param fdr_offset: fdr offset for the array (sec)
-    :type fdr_offset: float
+    :param offset: fdr offset for the array (sec)
+    :type offset: float
     :param scan_start: time into the array where we want to start seeking the threshold transit.
     :type scan_start: float
     :param scan_end: time into the array where we want to stop seeking the threshold transit.
@@ -597,8 +597,8 @@ def time_at_value (array, hz, fdr_offset, scan_start, scan_end, threshold):
     if scan_start == scan_end:
         raise ValueError, 'No range for seek function to scan across'
     
-    begin = int((scan_start - fdr_offset) * hz)
-    cease = int((scan_end   - fdr_offset) * hz)
+    begin = int((scan_start - offset) * hz)
+    cease = int((scan_end   - offset) * hz)
     
     step = 1
     if cease > begin : # Normal increasing scan
@@ -628,7 +628,7 @@ def time_at_value (array, hz, fdr_offset, scan_start, scan_end, threshold):
         #TODO: Could test 0 < r < 1 for completeness
     return (begin + step * (n + r)) / hz
 
-def value_at_time (array, hz, fdr_offset, time_index):
+def value_at_time (array, hz, offset, time_index):
     '''
     Finds the value of the data in array at the time given by the time_index.
     
@@ -636,14 +636,14 @@ def value_at_time (array, hz, fdr_offset, time_index):
     :type array: masked array
     :param hz: sample rate for the input data (sec-1)
     :type hz: float
-    :param fdr_offset: fdr offset for the array (sec)
-    :type fdr_offset: float
+    :param offset: fdr offset for the array (sec)
+    :type offset: float
     :param time_index: time into the array where we want to find the array value.
     :type time_index: float
     :returns: interpolated value from the array
     '''
 
-    time_into_array = time_index - fdr_offset
+    time_into_array = time_index - offset
     location_in_array = time_into_array * hz
 
     if location_in_array < 0.0 or location_in_array > len(array):
