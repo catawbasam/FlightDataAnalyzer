@@ -21,7 +21,6 @@ from settings import HYSTERESIS_FPIAS, HYSTERESIS_FPROC
 
 
 class AccelerationVertical(DerivedParameterNode):
-    
     def derive(self, acc_norm=P('Acceleration Normal'), 
                acc_lat=P('Acceleration Lateral'), 
                acc_long=P('Acceleration Longitudinal'), 
@@ -44,51 +43,69 @@ class AccelerationVertical(DerivedParameterNode):
         
 
 class AltitudeAAL(DerivedParameterNode):
-    name = 'Altitude AAL'
+    #name = 'Altitude AAL'
     def derive(self, alt_std=P('Altitude STD'), alt_rad=P('Radio Altitude')):
         return NotImplemented
+
     
+class AltitudeRadio(DerivedParameterNode):
+    # This function allows for the distance between the radio altimeter antenna
+    # and the main wheels of the undercarriage.
+
+    # The parameter raa_to_gear is measured in feet and is positive if the
+    # antenna is forward of the mainwheels.
     
+    def derive(self, alt_rad=P('Altitude Radio Sensor'),
+               pitch=P('Pitch'), raa_to_gear=None):
+        
+        if raa_to_gear:
+            # Align the pitch attitude samples to the Radio Altimeter samples,
+            # ready for combining them.
+            pch = np.radians(align(pitch, alt_rad))
+            # Make an array which is a copy of the sensor data
+            result = params['Altitude Radio Sensor'].array.copy()
+            # Now apply the offset if one has been provided
+            return result - np.sin(pch)*raa_to_gear
+        else:
+            return alt_rad # No difference except a change in name.
+
+        
 class AltitudeQNH(DerivedParameterNode):
     name = 'Altitude QNH'
     dependencies = ['BAROMB', 'Altitude STD', 'Takeoff Altitude', 'Landing Altitude']
     def derive(self, params):
         return NotImplemented
+
+
+class AltitudeTail(DerivedParameterNode):
+    # This function allows for the distance between the radio altimeter antenna
+    # and the point of the airframe closest to tailscrape.
     
-class TrueAirspeed(DerivedParameterNode):
-    dependencies = ['SAT', 'VMO', 'MMO', 'Indicated Airspeed', 'Altitude QNH']
-    def derive(self, params):
-        return NotImplemented
+    # The parameter gear_to_tail is measured in feet and is the distance from 
+    # the main gear to the point on the tail most likely to scrape the runway.
     
-class TrueHeading(DerivedParameterNode):
-    dependencies = ['Magnetic Heading', 'Magnetic Deviation']
-    def derive(self, params):
-        return NotImplemented
-    
-class MACH(DerivedParameterNode):
-    name = 'MACH'
-    dependencies = ['Indicated Airspeed', 'TAT', 'Altitude Std']
-    def derive(self, params):
-        return NotImplemented
+    dependencies = ['Altitude Radio','Pitch']
+    def derive(self, alt_rad = P('Altitude Radio'), 
+               pitch = P('Pitch'), gear_to_tail=None):
+        # Align the pitch attitude samples to the Radio Altimeter samples,
+        # ready for combining them.
+        pch = np.radians(align(pitch, alt_rad))
+        # Make an array which is a copy of the sensor data
+        result = alt_rad.array.copy()
+        # Now apply the offset
+        self.array = result - np.sin(pch)*gear_to_tail
         
-class SmoothedLatitude(DerivedParameterNode):
-    dependencies = ['Latitude', 'True Heading', 'Indicated Airspeed'] ##, 'Altitude Std']
-    def derive(self, params):
-        return NotImplemented
-    
-class SmoothedLongitude(DerivedParameterNode):
-    dependencies = ['Longitude', 'True Heading', 'Indicated Airspeed'] ##, 'Altitude Std']
-    def derive(self, params):
-        return NotImplemented
-    
+
 class DistanceToLanding(DerivedParameterNode):
-    dependencies = ['Altitude AAL', 'Ground Speed', 'Glideslope Deviation', 'LandingAirport']
-    def derive(self, params):
+    def derive(self, alt_aal = P('Altitude AAL'),
+               gspd = P('Ground Speed'),
+               ils_gs = P('Glideslope Deviation'),
+               ldg = P('LandingAirport')):
         return NotImplemented
     
+
 class FlapCorrected(DerivedParameterNode):
-    dependencies = ['Flap']
-    def derive(self, params):
+    def derive(self, flap=P('Flap')):
         return NotImplemented
     
 
@@ -98,119 +115,104 @@ class FlightPhaseAirspeed(DerivedParameterNode):  #Q: Rename to AirpseedHysteres
 
 
 class FlightPhaseRateOfClimb(DerivedParameterNode):
-    dependencies = ['Altitude STD']
-    def derive(self, params):
-        prime_dep = self.get_first_param(params)
-        self.array = hysteresis(rate_of_change(prime_dep.array, 4, prime_dep.hz),
-                                HYSTERESIS_FPROC)
+    def derive(self, alt = P('Altitude STD')):
+        self.array = rate_of_change(alt, 4)
+        
+        #self.array = hysteresis(rate_of_change(alt, 4),
+                                #HYSTERESIS_FPROC)
 
 
-class Relief(DerivedParameterNode):
-    # also known as Terrain
-    dependencies = ['Altitude AAL', 'Radio Altitude']
-    def derive(self, params):
+class HeadContinuous(DerivedParameterNode):
+    def derive(self, head_mag=P('Heading Magnetic')):
+        self.array = straighten_headings(head_mag.array)
+
+
+class ILSLocaliserGap(DerivedParameterNode):
+    def derive(self, ils_loc = P('Localiser Deviation'),
+               alt_aal = P('Altitude AAL')):
         return NotImplemented
-    
-class LocaliserGap(DerivedParameterNode):
-    dependencies = ['Localiser Deviation', 'Altitude AAL']
-    def derive(self, params):
-        return NotImplemented
 
     
-class GlideslopeGap(DerivedParameterNode):
-    dependencies = ['Glideslope Deviation', 'Altitude AAL']
-    def derive(self, params):
+class ILSGlideslopeGap(DerivedParameterNode):
+    def derive(self, ils_gs = P('Glideslope Deviation'),
+               alt_aal = P('Altitude AAL')):
         return NotImplemented
  
     
+'''
+
+This is ex-AGS and I don't know what it does or if we need/want this. DJ
+
 class ILSValLim(DerivedParameterNode):
     # Taken from diagram as: ILS VAL/LIM -- TODO: rename!
     dependencies = [LocaliserGap, GlideslopeGap]
     def derive(self, params):
         return NotImplemented
+'''
 
+class MACH(DerivedParameterNode):
+    def derive(self, ias = P('Airspeed'),
+               tat = P('TAT'), alt = P('Altitude Std')):
+        return NotImplemented
+        
 
 class RateOfClimb(DerivedParameterNode):
-    dependencies = ['Altitude STD', 'Altitude Radio']
-    def derive(self, params):
-        self.array = rate_of_change(params['Altitude STD'], 1, params['Altitude STD'].hz)
+    def derive(self, alt_std = P('Altitude STD'),
+               alt_rad = P('Altitude Radio')):
+        # Needs huge rewrite but this might work for starters. DJ
+        self.array = rate_of_change(alt_std, 1)
 
+class Relief(DerivedParameterNode):
+    # also known as Terrain
     
-class HeadContinuous(DerivedParameterNode):
-    dependencies = ['Heading Magnetic']
-    def derive(self, params):
-        self.array = straighten_headings(params['Heading Magnetic'].array)
+    # Quickly written without tests as I'm really editing out the old dependencies statements :-(
+    def derive(self, alt_aal = P('Altitude AAL'),
+               alt_rad = P('Radio Altitude')):
+        altitude = align(alt_aal, alt_rad)
+        self.array = altitude - alt_rad
 
+'''
+
+Better done together
+
+class SmoothedLatitude(DerivedParameterNode):
+    dependencies = ['Latitude', 'True Heading', 'Indicated Airspeed'] ##, 'Altitude Std']
+    def derive(self, params):
+        return NotImplemented
+    
+class SmoothedLongitude(DerivedParameterNode):
+    dependencies = ['Longitude', 'True Heading', 'Indicated Airspeed'] ##, 'Altitude Std']
+    def derive(self, params):
+        return NotImplemented
+'''
+
+class TrueAirspeed(DerivedParameterNode):
+    dependencies = ['SAT', 'VMO', 'MMO', 'Indicated Airspeed', 'Altitude QNH']
+    def derive(self, ias = P('Airspeed'),
+               alt_std = P('Altitude STD'),
+               sat = P('SAT')):
+        return NotImplemented
+    
+class TrueHeading(DerivedParameterNode):
+    # Requires the computation of a magnetic deviation parameter linearly 
+    # changing from the deviation at the origin to the destination.
+    def derive(self, head = P('Heading Continuous'),
+               dev = P('Magnetic Deviation')):
+        dev_array = align(dev, head)
+        self.array = head + dev_array
+    
 
 class RateOfTurn(DerivedParameterNode):
     dependencies = [HeadContinuous]
-    def derive(self, params):
-        prime_dep = self.get_first_param(params)
-        self.array = rate_of_change(prime_dep.array, 1, prime_dep.hz)
+    def derive(self, head = P('Head Continuous')):
+        self.array = rate_of_change(head, 1)
 
 class Pitch(DerivedParameterNode):
     dependencies = ['Pitch (1)', 'Pitch (2)']
-    def derive(self, params):
-        array = interleave (params, 'Pitch (1)', 'Pitch (2)', 'Pitch')
-        params['Pitch'] = Parameter('Pitch', array,
-                                    params['Pitch (1)'].hz*2,
-                                    min(params['Pitch (1)'].offset,
-                                        params['Pitch (2)'].offset))
-        
-class AltitudeRadio(DerivedParameterNode):
-    # This function allows for the distance between the radio altimeter antenna
-    # and the main wheels of the undercarriage.
-
-    # The parameter raa_to_gear is measured in feet and is positive if the
-    # antenna is forward of the mainwheels.
-    
-    dependencies = ['Altitude Radio Sensor','Pitch']
-    def derive(self, params, raa_to_gear):
-        # Align the pitch attitude samples to the Radio Altimeter samples,
-        # ready for combining them.
-        pch = np.radians(align(params['Pitch'], params['Altitude Radio Sensor']))
-        # Make an array which is a copy of the sensor data
-        result = params['Altitude Radio Sensor'].array.copy()
-        # Now apply the offset
-        result = result - np.sin(pch)*raa_to_gear
-        params['Altitude Radio'] = Parameter('Altitude Radio', 
-                                             result,
-                                             params['Altitude Radio Sensor'].hz,
-                                             params['Altitude Radio Sensor'].offset)
-        
-class AltitudeTail(DerivedParameterNode):
-    # This function allows for the distance between the radio altimeter antenna
-    # and the point of the airframe closest to tailscrape.
-    
-    # The parameter gear_to_tail is measured in feet and is the distance from 
-    # the main gear to the point on the tail most likely to scrape the runway.
-    
-    dependencies = ['Altitude Radio','Pitch']
-    def derive(self, params, gear_to_tail):
-        # Align the pitch attitude samples to the Radio Altimeter samples,
-        # ready for combining them.
-        pch = np.radians(align(params['Pitch'], params['Altitude Radio']))
-        # Make an array which is a copy of the sensor data
-        result = params['Altitude Radio'].array.copy()
-        # Now apply the offset
-        result = result - np.sin(pch)*gear_to_tail
-        params['Altitude Tail'] = Parameter('Altitude Tail', 
-                                             result,
-                                             params['Altitude Radio'].hz,
-                                             params['Altitude Radio'].offset)
+    def derive(self, capt = P('Pitch (1)'),
+               fo = P('Pitch (2)')):
+        self.frequency = capt.frequency * 2
+        self.offset = min(capt.offset, fo.offset)
+        self.array = interleave (capt,fo)
         
         
-'''
-class RateOfTurn(DerivedParameterNode):
-    dependencies = ['Head Continuous']
-    def derive(self, params):
-        p_dep = params[self.get_dependency_names()[0]]
-        self.array = rate_of_change(p_dep.array, 1, p_dep.hz)
-
-
-class RateOfTurn(DerivedParameterNode):
-    dependencies = [StraightHeading]
-    def derive(self, params):
-        shdg = params[StraightHeading.get_name()]
-        self.array = rate_of_change(shdg.array, 1, shdg.hz)
-'''

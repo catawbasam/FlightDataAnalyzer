@@ -14,23 +14,19 @@ from analysis.derived_parameters import (AccelerationVertical,
                                          HeadContinuous,
                                          Pitch,
                                          RateOfClimb, RateOfTurn)
-from analysis.node import Parameter
+from analysis.node import P, Parameter
 
 class TestAltitudeRadio(unittest.TestCase):
     def test_can_operate(self):
-        expected = [('Altitude Radio Sensor', 'Pitch')]
+        expected = [('Altitude Radio Sensor', 'Pitch', 0.0)]
         opts = AltitudeRadio.get_operational_combinations()
         self.assertEqual(opts, expected)
         
     def test_altitude_radio(self):
-        params = {'Pitch':
-                  Parameter('Pitch', (np.ma.array(range(10))-2)*5, 1,0.0),
-                  'Altitude Radio Sensor':
-                  Parameter('Altitude Radio Sensor', np.ma.ones(10)*10, 1,0.0)
-                  }
-        ralt = AltitudeRadio(params)
-        ralt.derive(params, 10.0)
-        result = params['Altitude Radio'].array
+        ralt = AltitudeRadio()
+        ralt.derive(P('Pitch',(np.ma.array(range(10))-2)*5, 1,),
+                    P('Altitude Radio Sensor',np.ma.ones(10)*10, 1,),
+                    10)
         answer = np.ma.array(data=[11.7364817767,
                                    10.8715574275,
                                    10.0,
@@ -42,7 +38,7 @@ class TestAltitudeRadio(unittest.TestCase):
                                    5.0,
                                    4.26423563649],
                              dtype=np.float, mask=False)
-        np.testing.assert_array_almost_equal(result.data, answer.data)
+        np.testing.assert_array_almost_equal(ralt.array, answer)
 
 class TestAltitudeTail(unittest.TestCase):
     def test_can_operate(self):
@@ -84,7 +80,7 @@ class TestAccelerationVertical(unittest.TestCase):
     def test_acceleration_vertical_level_on_gound(self):
         # Invoke the class object
         acc_vert = AccelerationVertical(frequency=8)
-        
+                        
         acc_vert.derive(
             acc_norm=Parameter('Acceleration Normal',np.ma.ones(8),8),
             acc_lat=Parameter('Acceleration Lateral',np.ma.zeros(4),4),
@@ -94,74 +90,30 @@ class TestAccelerationVertical(unittest.TestCase):
         
         ma_test.assert_masked_array_approx_equal(acc_vert.array, np.ma.array([1]*8))
         
-        ### Run the derive method
-        ##acc_vert.derive(params)
-        ### Compare the result to the expected answer
-        ##result = params['Acceleration Vertical']
-        ##answer = Parameter('Acceleration Vertical',
-                           ##np.ma.array(data=[1]*8, dtype=np.float,mask=False),
-                           ##8.0,0.0)
-        ### These four checks will be repeated so there may be a means to
-        ### reduce repetition here, but I think the unittest framework makes this tricky.
-        ##self.assertEqual(result.name, answer.name)
-        ##self.assertEqual(result.hz, answer.hz)
-        ##self.assertEqual(result.offset, answer.offset)
-        ##ma_test.assert_masked_array_approx_equal(result.array, answer.array)
-        
     def test_acceleration_vertical_pitch_up(self):
-        params = {'Acceleration Normal':Parameter('Acceleration Normal',
-                                                  np.ma.ones(8)*0.8660254,8,0.0),
-                  'Acceleration Lateral':Parameter('Acceleration Lateral',
-                                                  np.ma.zeros(4),4,0.0),
-                  'Acceleration Longitudinal':Parameter('Acceleration Longitudinal',
-                                                  np.ma.ones(4)*0.5,4,0.0),
-                  'Pitch':Parameter('Pitch',
-                                                  np.ma.ones(2)*30.0,2,0.0),
-                  'Roll':Parameter('Roll',
-                                                  np.ma.zeros(2),2,0.0)}
-        # Invoke the class object
-        acc_vert = AccelerationVertical(params)
-        # Run the derive method
-        acc_vert.derive(params)
-        # Compare the result to the expected answer
-        result = params['Acceleration Vertical']
-        answer = Parameter('Acceleration Vertical',
-                           np.ma.array(data=[1]*8, dtype=np.float,mask=False),
-                           8.0,0.0)
-        # These four checks will be repeated so there may be a means to
-        # reduce repetition here, but I think the unittest framework makes this tricky.
-        self.assertEqual(result.name, answer.name)
-        self.assertEqual(result.hz, answer.hz)
-        self.assertEqual(result.offset, answer.offset)
-        ma_test.assert_masked_array_approx_equal(result.array, answer.array)
+        acc_vert = AccelerationVertical(frequency=8)
+
+        acc_vert.derive(
+            P('Acceleration Normal',np.ma.ones(8)*0.8660254,8),
+            P('Acceleration Lateral',np.ma.zeros(4),4),
+            P('Acceleration Longitudinal',np.ma.ones(4)*0.5,4),
+            P('Pitch',np.ma.ones(2)*30.0,2),
+            P('Roll',np.ma.zeros(2),2))
+
+        ma_test.assert_masked_array_approx_equal(acc_vert.array, np.ma.array([1]*8))
 
     def test_acceleration_vertical_roll_right(self):
-        params = {'Acceleration Normal':Parameter('Acceleration Normal',
-                                                  np.ma.ones(8)*0.7071068,8,0.0),
-                  'Acceleration Lateral':Parameter('Acceleration Lateral',
-                                                  np.ma.ones(4)*(-0.7071068),4,0.0),
-                  'Acceleration Longitudinal':Parameter('Acceleration Longitudinal',
-                                                  np.ma.zeros(4),4,0.0),
-                  'Pitch':Parameter('Pitch',
-                                                  np.ma.zeros(2),2,0.0),
-                  'Roll':Parameter('Roll',
-                                                  np.ma.ones(2)*45.0,2,0.0)}
-        # Invoke the class object
-        acc_vert = AccelerationVertical(params)
-        # Run the derive method
-        acc_vert.derive(params)
-        # Compare the result to the expected answer
-        result = params['Acceleration Vertical']
-        answer = Parameter('Acceleration Vertical',
-                           np.ma.array(data=[1]*8, dtype=np.float,mask=False),
-                           8.0,0.0)
-        # These four checks will be repeated so there may be a means to
-        # reduce repetition here, but I think the unittest framework makes this tricky.
-        self.assertEqual(result.name, answer.name)
-        self.assertEqual(result.hz, answer.hz)
-        self.assertEqual(result.offset, answer.offset)
-        ma_test.assert_masked_array_approx_equal(result.array, answer.array)
-        
+        acc_vert = AccelerationVertical(frequency=8)
+
+        acc_vert.derive(
+            P('Acceleration Normal',np.ma.ones(8)*0.7071068,8),
+            P('Acceleration Lateral',np.ma.ones(4)*(-0.7071068),4),
+            P('Acceleration Longitudinal',np.ma.zeros(4),4),
+            P('Pitch',np.ma.zeros(2),2),
+            P('Roll',np.ma.ones(2)*45,2))
+
+        ma_test.assert_masked_array_approx_equal(acc_vert.array, np.ma.array([1]*8))
+
      
 class TestFlightPhaseRateOfClimb(unittest.TestCase):
     def test_can_operate(self):
@@ -171,13 +123,14 @@ class TestFlightPhaseRateOfClimb(unittest.TestCase):
         
     def test_flight_phase_rate_of_climb(self):
         params = {'Altitude STD':Parameter('', np.ma.array(range(10))+100)}
-        roc = FlightPhaseRateOfClimb(params)
-        roc.derive(params)
-        # !!! I dont know why this does not return a new parameter !!!
-        result = params['Flight Phase Rate Of Climb'].array
+        roc = FlightPhaseRateOfClimb()
+        roc.derive(P('Altitude STD', np.ma.array(range(10))+100))
         answer = np.ma.array(data=[1]*10, dtype=np.float,
                              mask=False)
-        ma_test.assert_masked_array_approx_equal(result, answer)
+        ma_test.assert_masked_array_approx_equal(roc.array, answer)
+
+    def test_flight_phase_rate_of_climb_check_hysteresis(self):
+        return NotImplemented
         
         
 class TestHeadContinuous(unittest.TestCase):
@@ -187,13 +140,14 @@ class TestHeadContinuous(unittest.TestCase):
         self.assertEqual(opts, expected)
 
     def test_heading_continuous(self):
-        params = {'Heading Magnetic':Parameter('Heading Magnetic',
-                                               np.ma.remainder(
-                                                   np.ma.array(range(10))+355,360.0))}
-        f = HeadContinuous(params)
-        f.derive(params)
+        f = HeadContinuous()
+        f.derive(P('Heading Magnetic',np.ma.remainder(
+            np.ma.array(range(10))+355,360.0)))
+        
         answer = np.ma.array(data=[355.0, 356.0, 357.0, 358.0, 359.0, 360.0, 
-                                   361.0, 362.0, 363.0, 364.0], dtype=np.float, mask=False)
+                                   361.0, 362.0, 363.0, 364.0],
+                             dtype=np.float, mask=False)
+
         #ma_test.assert_masked_array_approx_equal(res, answer)
         np.testing.assert_array_equal(f.array.data, answer.data)
         
@@ -205,53 +159,35 @@ class TestPitch(unittest.TestCase):
         self.assertEqual(opts, expected)
         
     def test_pitch_combination(self):
-        params = {'Pitch (1)':
-                  Parameter('Pitch (1)', np.ma.array(range(5)), 1,0.1),
-                  'Pitch (2)':
-                  Parameter('Pitch (2)', np.ma.array(range(5))+10, 1,0.6)
-                  }
-        pch = Pitch(params)
-        pch.derive(params)
-        result = params['Pitch'].array
+        pch = Pitch()
+        pch.derive(P('Pitch (1)', np.ma.array(range(5)), 1,0.1),
+                   P('Pitch (2)', np.ma.array(range(5))+10, 1,0.6)
+                  )
         answer = np.ma.array(data=[0,10,1,11,2,12,3,13,4,14],
                              dtype=np.float, mask=False)
-        #ma_test.assert_masked_array_approx_equal(res, answer)
-        np.testing.assert_array_equal(result.data, answer.data)
+        np.testing.assert_array_equal(pch.array, answer.data)
 
     def test_pitch_reverse_combination(self):
-        params = {'Pitch (1)':
-                  Parameter('Pitch (1)', np.ma.array(range(5))+1, 1,0.75),
-                  'Pitch (2)':
-                  Parameter('Pitch (2)', np.ma.array(range(5))+10, 1,0.25)
-                  }
-        pch = Pitch(params)
-        pch.derive(params)
-        result = params['Pitch'].array
+        pch = Pitch()
+        pch.derive(P('Pitch (1)', np.ma.array(range(5))+1, 1,0.75),
+                   P('Pitch (2)', np.ma.array(range(5))+10, 1,0.25)
+                  )
         answer = np.ma.array(data=[10,1,11,2,12,3,13,4,14,5],
                              dtype=np.float, mask=False)
-        #ma_test.assert_masked_array_approx_equal(res, answer)
-        np.testing.assert_array_equal(result.data, answer.data)
+        np.testing.assert_array_equal(pch.array, answer.data)
 
     def test_pitch_error_different_rates(self):
-        params = {'Pitch (1)':
-                  Parameter('Pitch (1)', np.ma.array(range(5)), 2,0.1),
-                  'Pitch (2)':
-                  Parameter('Pitch (2)', np.ma.array(range(10))+10, 4,0.6)
-                  }
-        pch = Pitch(params)
-        self.assertRaises(ValueError, pch.derive, params)
+        pch = Pitch()
+        self.assertRaises(ValueError, pch.derive,
+                          P('Pitch (1)', np.ma.array(range(5)), 2,0.1),
+                          P('Pitch (2)', np.ma.array(range(10))+10, 4,0.6))
         
-
     def test_pitch_error_different_offsets(self):
-        params = {'Pitch (1)':
-                  Parameter('Pitch (1)', np.ma.array(range(5)), 1,0.11),
-                  'Pitch (2)':
-                  Parameter('Pitch (2)', np.ma.array(range(5)), 1,0.6)
-                  }
-        pch = Pitch(params)
-        self.assertRaises(ValueError, pch.derive, params)
+        pch = Pitch()
+        self.assertRaises(ValueError, pch.derive,
+                          P('Pitch (1)', np.ma.array(range(5)), 1,0.11),
+                          P('Pitch (2)', np.ma.array(range(5)), 1,0.6))
         
-
 class TestRateOfClimb(unittest.TestCase):
     def test_can_operate(self):
         expected = [('Altitude STD', 'Altitude Radio')]
@@ -259,14 +195,12 @@ class TestRateOfClimb(unittest.TestCase):
         self.assertEqual(opts, expected)
         
     def test_rate_of_climb(self):
-        params = {'Altitude STD':Parameter('', np.ma.array(range(10))+100),
-                  'Altitude Radio':Parameter('', np.ma.array(range(10)))}
-        roc = RateOfClimb(params)
-        roc.derive(params)
+        roc = RateOfClimb()
+        roc.derive(P('Altitude STD', np.ma.array(range(10))+100),
+                   P('Altitude Radio', np.ma.array(range(10))))
         answer = np.ma.array(data=[1]*10, dtype=np.float,
                              mask=False)
-        #ma_test.assert_masked_array_approx_equal(res, answer)
-        np.testing.assert_array_equal(roc.array.data, answer.data)
+        np.testing.assert_array_equal(roc.array, answer)
         
 class TestRateOfTurn(unittest.TestCase):
    def test_can_operate(self):
@@ -275,18 +209,16 @@ class TestRateOfTurn(unittest.TestCase):
        self.assertEqual(opts, expected)
        
    def test_rate_of_turn(self):
-       params = {'Head Continuous':Parameter('', np.ma.array(range(10)))}
-       rot = RateOfTurn(params)
-       rot.derive(params)
-       answer = np.ma.array(data=[1]*10, dtype=np.float,
-                            mask=False)
-       #ma_test.assert_masked_array_approx_equal(res, answer)
-       np.testing.assert_array_equal(rot.array.data, answer.data)
+       rot = RateOfTurn()
+       rot.derive(P('Head Continuous', np.ma.array(range(10))))
+       answer = np.ma.array(data=[1]*10, dtype=np.float)
+       np.testing.assert_array_equal(rot.array, answer) # Tests data only; NOT mask
        
    def test_rate_of_turn_phase_stability(self):
         params = {'Head Continuous':Parameter('', np.ma.array([0,0,0,1,0,0,0], 
                                                                dtype=float))}
-        rot = RateOfTurn(params)
-        res = rot.derive(params)
+        rot = RateOfTurn()
+        rot.derive(P('Head Continuous', np.ma.array([0,0,0,1,0,0,0],
+                                                          dtype=float)))
         answer = np.ma.array([0,0,0.5,0,-0.5,0,0])
-        #ma_test.assert_masked_array_approx_equal(res, answer)
+        ma_test.assert_masked_array_approx_equal(rot.array, answer)

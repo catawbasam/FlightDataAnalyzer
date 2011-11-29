@@ -18,6 +18,8 @@ from analysis.library import (align, calculate_timebase, create_phase_inside,
                               rate_of_change, straighten_headings,
                               time_at_value, value_at_time)
 
+from analysis.node import P
+
 
 class TestAlign(unittest.TestCase):
     def test_align_basic(self):
@@ -528,34 +530,40 @@ class TestRateOfChange(unittest.TestCase):
     # Reminder: rate_of_change(to_diff, half_width, hz) - half width in seconds.
     
     def test_rate_of_change_basic(self):
-        array = np.ma.array([1, 0, -1, 2, 1, 3, 4, 6, 5, 7],dtype=float)
-        sloped = rate_of_change(array, 2, 1)
+        sloped = rate_of_change(P('Test', 
+                                  np.ma.array([1, 0, -1, 2, 1, 3, 4, 6, 5, 7],
+                                              dtype=float), 1), 2)
         answer = np.ma.array(data=[-1.0,-1.0,0.0,0.75,1.25,1.0,1.0,1.0,-1.0,2.0],
                              mask=False)
         ma_test.assert_mask_eqivalent(sloped, answer)
         
     def test_rate_of_change_increased_frequency(self):
-        array = np.ma.array([1, 0, -1, 2, 1, 3, 4, 6, 5, 7],dtype=float)
-        sloped = rate_of_change(array, 2, 2)
+        sloped = rate_of_change(P('Test', 
+                                  np.ma.array([1, 0, -1, 2, 1, 3, 4, 6, 5, 7],
+                                              dtype=float), 2), 2)
         answer = np.ma.array(data=[-2.0,-2.0,6.0,-2.0,1.0,1.75,2.0,4.0,-2.0,4.0],
                              mask=False)
         ma_test.assert_mask_eqivalent(sloped, answer)
         
     def test_rate_of_change_transfer_mask(self):
-        array = np.ma.array(data = [1, 0, -1, 2, 1, 3, 4, 6, 5, 7],dtype=float,
-                            mask = [0, 1,  0, 0, 0, 1, 0, 0, 0, 1])
-        sloped = rate_of_change(array, 1, 1)
+        sloped = rate_of_change(P('Test', 
+                                  np.ma.array(data = [1, 0, -1, 2, 1, 3, 4, 6, 5, 7],dtype=float,
+                            mask = [0, 1,  0, 0, 0, 1, 0, 0, 0, 1]), 1), 1)
         answer = np.ma.array(data = [0,-1.0,0,1.0,0,1.5,0,0.5,0,0],
              mask = [True,False,True,False,True,False,True,False,True,True])
         ma_test.assert_mask_eqivalent(sloped, answer)
         
     def test_rate_of_change_half_width_zero(self):
         array = np.ma.array([0, 1, 0])
-        self.assertRaises(ValueError, rate_of_change, array, 0, 1)
+        self.assertRaises(ValueError, 
+                          rate_of_change, 
+                          P('Test',np.ma.array([0, 1, 0]), 1), 0)
         
     def test_rate_of_change_half_width_negative(self):
         array = np.ma.array([0, 1, 0])
-        self.assertRaises(ValueError, rate_of_change, array, -2, 1)
+        self.assertRaises(ValueError, 
+                          rate_of_change, 
+                          P('Test',np.ma.array([0, 1, 0]), 1), -2)
         
         
 class TestStraightenHeadings(unittest.TestCase):

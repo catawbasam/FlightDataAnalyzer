@@ -465,36 +465,23 @@ def hysteresis (array, hysteresis):
 
     return result
 
-def interleave (params, param_1_name, param_2_name, merged_name):
+def interleave (param_1, param_2):
     # Check the conditions for merging are met
-    p1_hz = params[param_1_name].hz
-    p2_hz = params[param_2_name].hz
-    p1_off = params[param_1_name].offset
-    p2_off = params[param_2_name].offset
-    
-    if p1_hz != p2_hz:
+    if param_1.hz != param_2.hz:
         raise ValueError, 'Attempt to interleave parameters at differing sample rates'
-    dt = p2_off - p1_off
-    if 2*abs(dt) != 1/p1_hz:
+
+    dt = param_2.offset - param_1.offset
+    if 2*abs(dt) != 1/param_1.hz:
         raise ValueError, 'Attempt to interleave parameters that are not correctly aligned'
     
+    merged_array = np.ma.zeros((2, len(param_1.array)))
+
     if dt > 0:
-        first_name = param_1_name
-        second_name = param_2_name
-        merged_offset = p1_off
+        merged_array = np.ma.column_stack((param_1.array,param_2.array))
     else:
-        first_name = param_2_name
-        second_name = param_1_name
-        merged_offset = p2_off
+        merged_array = np.ma.column_stack((param_2.array,param_1.array))
         
-    merged_array = np.ma.zeros((2, len(params[param_1_name].array)))
-    merged_array = np.ma.column_stack((params[first_name].array,
-                                    params[second_name].array
-                                    ))
-    
     return np.ma.ravel(merged_array)
-    #x = Parameter(merged_array, p1_hz*2, merged_offset)
-    #params[merged_name] = Parameter(merged_array, p1_hz*2, merged_offset)
             
 def merge_alternate_sensors (array):
     '''
@@ -527,25 +514,29 @@ def powerset(iterable):
     s = list(iterable)
     return chain.from_iterable(combinations(s, r) for r in range(len(s)+1))
 
-def rate_of_change(to_diff, half_width, hz):
+def rate_of_change(diff_param, half_width):
     '''
-    @param to_diff: Parameter object with .data attr (masked array)
+    @param to_diff: Parameter object with .array attr (masked array)
     
     Differentiation using the xdot(n) = (x(n+hw) - x(n-hw))/w formula.
     Width w=hw*2 and this approach provides smoothing over a w second period,
     without introducing a phase shift.
     
-    :param to_diff: input data
-    :type to_diff: masked array
+    :param diff_param: input Parameter
+    :type diff_param: Parameter object
+    :type diff_param.array : masked array
+    :param diff_param.hz : sample rate for the input data (sec-1)
+    :type diff_param.hz: float
     :param half_width: half the differentiation time period (sec)
     :type half_width: float
-    :param hz: sample rate for the input data (sec-1)
-    :type hz: float
     :returns: masked array of values with differentiation applied
     
     Note: Could look at adapting the np.gradient function, however this does not
     handle masked arrays.
     '''
+    hz = diff_param.hz
+    to_diff = diff_param.array
+    
     hw = half_width * hz
     if hw < 1:
         raise ValueError
