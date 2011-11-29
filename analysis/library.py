@@ -6,6 +6,8 @@ from scipy.signal import iirfilter, lfilter, lfilter_zi
 from datetime import datetime, timedelta
 from itertools import izip
 
+from analysis.node import Parameter
+
 #Q: Not sure that there's any point in these? Very easy to define later
 #----------------------------------------------------------------------
 #def offset(data, offset):
@@ -463,6 +465,37 @@ def hysteresis (array, hysteresis):
 
     return result
 
+def interleave (params, param_1_name, param_2_name, merged_name):
+    # Check the conditions for merging are met
+    p1_hz = params[param_1_name].hz
+    p2_hz = params[param_2_name].hz
+    p1_off = params[param_1_name].offset
+    p2_off = params[param_2_name].offset
+    
+    if p1_hz != p2_hz:
+        raise ValueError, 'Attempt to interleave parameters at differing sample rates'
+    dt = p2_off - p1_off
+    if 2*abs(dt) != 1/p1_hz:
+        raise ValueError, 'Attempt to interleave parameters that are not correctly aligned'
+    
+    if dt > 0:
+        first_name = param_1_name
+        second_name = param_2_name
+        merged_offset = p1_off
+    else:
+        first_name = param_2_name
+        second_name = param_1_name
+        merged_offset = p2_off
+        
+    merged_array = np.ma.zeros((2, len(params[param_1_name].array)))
+    merged_array = np.ma.column_stack((params[first_name].array,
+                                    params[second_name].array
+                                    ))
+    
+    return np.ma.ravel(merged_array)
+    #x = Parameter(merged_array, p1_hz*2, merged_offset)
+    #params[merged_name] = Parameter(merged_array, p1_hz*2, merged_offset)
+            
 def merge_alternate_sensors (array):
     '''
     This simple process merges the data from two sensors where they are sampled
