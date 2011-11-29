@@ -5,9 +5,8 @@ from analysis.node import DerivedParameterNode, Parameter
 from analysis.library import (align, hysteresis,
                               rate_of_change, straighten_headings)
 
-from settings import HYSTERESIS_FPROC
+from settings import HYSTERESIS_FPIAS, HYSTERESIS_FPROC
 
-primary = lambda: params[self.get_dependency_names()[0]]
 #-------------------------------------------------------------------------------
 # Derived Parameters
 

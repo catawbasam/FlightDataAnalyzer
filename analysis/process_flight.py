@@ -40,7 +40,7 @@ def geo_locate(hdf, kti_list):
 
 
         
-def derive_parameters(hdf, nodes, process_order):
+def derive_parameters(hdf, node_mgr, process_order):
     """
     Derives the parameter values and if limits are available, applies
     parameter validation upon each param before storing the resulting masked
@@ -48,8 +48,8 @@ def derive_parameters(hdf, nodes, process_order):
     
     :param hdf: Data file accessor used to get and save parameter data and attributes
     :type hdf: hdf_file
-    :param nodes: Used to determine the type of node in the process_order
-    :type nodes: NodeManager
+    :param node_mgr: Used to determine the type of node in the process_order
+    :type node_mgr: NodeManager
     :param process_order: Parameter / Node class names in the required order to be processed
     :type process_order: list of strings
     """
@@ -59,23 +59,37 @@ def derive_parameters(hdf, nodes, process_order):
     phase_list = []
     
     for param_name in process_order:
-        if param_name in nodes.lfl and settings.POST_LFL_PARAM_PROCESS:
-            # perform any post_processing on LFL params
-            param = hdf.get_param(param_name)
-            _param = settings.POST_LFL_PARAM_PROCESS(hdf, param)
-            if _param:
-                hdf.set_param(_param)
+        if param_name in node_mgr.lfl:
+            if settings.POST_LFL_PARAM_PROCESS:
+                # perform any post_processing on LFL params
+                param = hdf.get_param(param_name)
+                _param = settings.POST_LFL_PARAM_PROCESS(hdf, param)
+                if _param:
+                    hdf.set_param(_param)
             continue
         
-        node_class = nodes.derived_nodes[param_name]  # raises KeyError if Node is "unknown"
-        # retrieve dependencies which are available from hdf (LFL/Derived masked arrays)
-        deps = hdf.get_params(node_class.get_dependency_names())
-        # update with dependencies already derived (non-masked arrays)
-        deps.update( dict_filter(params, keep=node_class.get_dependency_names()) )
-        if not deps:
+        node_class = node_mgr.derived_nodes[param_name]  # raises KeyError if Node is "unknown"
+        
+        ### retrieve dependencies which are available from hdf (LFL/Derived masked arrays)
+        ##deps = hdf.get_params(node_class.get_dependency_names())
+        ### update with dependencies already derived (non-masked arrays)
+        ##deps.update( dict_filter(params, keep=node_class.get_dependency_names()) )
+        
+        # build ordered dependencies
+        deps = []
+        for param in node_class.get_dependency_names():
+            if param in params:  # already calculated KPV/KTI/Phase
+                deps.append(params[param])
+            elif param in hdf:  # LFL/Derived parameter
+                deps.append(hdf[param])
+            else:  # dependency not available
+                deps.append(None)
+        if not any(deps):
             raise RuntimeError("No dependencies available - Nodes cannot operate without ANY dependencies available! Node: %s" % node_class.__name__)
+        # find first not-None dependency to use at the base param
+        first_dep = next(x for x in deps if x is not None)
         # initialise node
-        node = node_class(deps)
+        node = node_class(frequency=first_dep.frequency, offset=first_dep.offset)
         # Derive the resulting value
         result = node.get_derived(deps)
         
@@ -106,7 +120,7 @@ def derive_parameters(hdf, nodes, process_order):
                     result = process_result
             if hdf.duration:
                 # check that the right number of results were returned
-                assert len(result) == hdf.duration * result.frequency
+                assert len(result.array) == hdf.duration * result.frequency
             hdf.set_param(result)
         else:
             raise NotImplementedError("Unknown Type %s" % node.__class__)
@@ -115,89 +129,46 @@ def derive_parameters(hdf, nodes, process_order):
     return kti_list, kpv_list, phase_list
 
 
-def process_flight(hdf_path, aircraft):
+def process_flight(hdf_path, aircraft, draw=False):
     # open HDF for reading
     with hdf_file(hdf_path) as hdf:
         # get list of KPV and standard parameters to be calculated
         required_params = get_required_params(aircraft)
         # assume that all params in HDF are from LFL(!)
-        lfl_params = hdf.get_param_list()
+        lfl_params = hdf.keys()
         # calculate dependency tree
-        nodes, process_order = dependency_order(lfl_params, required_params, 
-                                                draw=sys.platform != 'win32') # False for Windows :-(
-        
-        # establish timebase for start of data -- Q: When will this be used? Can we do this later on?
-        ##start_datetime = calculate_timebase(hdf.years, hdf.months, hdf.days, hdf.hours, hdf.mins, hdf.seconds)
+        node_mgr, process_order = dependency_order(
+            lfl_params, required_params, draw=sys.platform != 'win32') # False for Windows :-(
         
         if settings.PRE_FLIGHT_ANALYSIS:
             settings.PRE_FLIGHT_ANALYSIS(hdf, aircraft, process_order)
             
-        kti_list, kpv_list, phase_list = derive_parameters(hdf, nodes, process_order)
+        kti_list, kpv_list, phase_list = derive_parameters(hdf, node_mgr, process_order)
+
+        #Q: Confirm aircraft tail here?
+        ##validate_aircraft(aircraft, hdf['aircraft_ident'])
         
+        # establish timebase for start of data
+        #Q: Move to a Key Time Instance so that dependencies can be met appropriately?
+        ##data_start_datetime = calculate_timebase(hdf.years, hdf.months, hdf.days, hdf.hours, hdf.mins, hdf.seconds)
+                
         # go get bonus info at time of KPVs
-        ##kpv_info = get_geo_location_etc_for_kpv(kpv_list)
-        
-        # go get bonus info at time of KPVs
-        kti_info = geo_locate(kti_list)
-        
-        downsampled_params = downsample_for_graphs(graph_params_list)
-        store_flight_information(flight_info, kti_info, params['kpvs'])  # in DB (not HDF)
-    '''
-    
-    ##if not force_analysis:
-            ### ensure the aircraft's the same one as we're told it is
-            ##aircraft_found = validate_aircraft(aircraft, segment['aircraft_ident']) # raises error? or just returns aircraft?
-            ##segment['aircraft'] = aircraft #TODO: DO SOMETHING CLEVER!!!
+        kti_info = geo_locate(hdf, kti_list)
             
-    # no longer exists:    
-    ##flight_phase_map1 = flight_phases_basic(altitude, airspeed, heading) # inc. runway turn on / off KPTs
-    ##hdf.append_table(flight_phase_map1, table='flight_phase') # add to HDF    
-    
-    
-    ##flight_phase_map2 = compute_flight_phases()
-    ##hdf.append_table(flight_phase_map2, table='flight_phase') # add to HDF
-    
-    # establish Airports and lookup to DB for further information
-    ## Takeoff, Approach(s), Landing
-    ##if lat_long_available:
-        ##airport_meta_data = establish_airports(hdf)
-        ##hdf.store_meta(airports=airport_meta_data)
-    
-    # calculate more derived parameters from the params above once confirmed valid
-    
-    
-    #TODO: put into derived params?
-    # calculate timebase file or each entire dfc
-    
-    segment['data_start_time'] = data_seg_start_datetime + timedelta(seconds=segment_slice.start)
-    # not required for analysis, used for partial flight matching.
-    segment['data_end_time'] = data_seg_start_datetime + timedelta(seconds=segment_slice.stop)
+            
+    if draw:
+        from analysis.plot_flight import plot_flight
+        plot_flight(kti_list, kpv_list, phase_list)
+        
+    flight_info = {'takeoff_airport':None,
+                   'takeoff_runway':'',
+                   'landing_airport':None,
+                   'landing_runway':'',
+                   # etc...
+                   }
+    return flight_info, kti_info, params['kpvs']
 
-    # generic technique for algorithms (derived params, validity, correlations, etc.
-    for algorithm in dependency_ordered(algorithms):
-        data = algorithm.function(hdf[algorithm['parents']])
-        hdf.append_table(algorithm['type'], data)
-    
-    
-    
-    #TODO: Review the order of below - should KPT / KPV be moved up and into
-    #derivations?
-    
-    downsampled_params = downsample_for_graphs(graph_params_list)
-    hdf.append_table(downsampled_params, table='table')
-    
-    kpts = calculate_key_point_times() # KPT -> KTI (Key Time Instances)
-    kpv_list = get_required_kpv(aircraft_info)
-    kpvs = calculate_key_point_values(hdf, kpv_list)
-    store_flight_information(flight_info, kpts, kpvs) # in DB (not HDF)
-    
-    
-    #=============================
-    
-    # Request to the Database
-    request_event_detection(flight)  # uses Nile/web/thresholds.py
 
-    '''
 
 if __name__ == '__main__':
     import sys

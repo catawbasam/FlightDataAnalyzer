@@ -1,6 +1,7 @@
-import os
 import h5py
+import math
 import numpy as np
+import os
 import shutil
 try:
     import json
@@ -39,6 +40,8 @@ class hdf_file(object):    # rare case of lower case?!
         self.file_path = file_path
         self.hdf = h5py.File(self.file_path, 'r+')
         self.duration = self.hdf.attrs.get('duration')
+        rfc = self.hdf.attrs.get('reliable_frame_counter', 0)
+        self.reliable_frame_counter = rfc == 1
                 
     def __enter__(self):
         '''
@@ -87,6 +90,13 @@ class hdf_file(object):    # rare case of lower case?!
     def close(self):
         self.hdf.flush() # Q: required?
         self.hdf.close()
+        
+    def search(self, term):
+        '''
+        Searches for partial matches of term within keys.
+        '''
+        return sorted(filter(lambda x: term.upper() in x.upper(), self.keys()))
+        
     
     def get_params(self, param_names=None):
         '''
@@ -246,6 +256,8 @@ def write_segment(hdf_path, segment, dest):
     Writes a segment of the HDF file stored in hdf_path to dest defined by 
     segments, a slice in seconds.
     
+    Assumes "data" and "mask" are present.
+    
     :param hdf_path: file path of hdf file.
     :type hdf_path: str
     :param segment: segment of flight to write in seconds. step is disregarded.
@@ -263,17 +275,23 @@ def write_segment(hdf_path, segment, dest):
     with h5py.File(hdf_path, 'r') as hdf_file:
         for param_name, param_group in hdf_file['series'].iteritems():
             frequency = param_group.attrs['frequency']
-            start_index = segment.start * frequency if segment.start else None
-            stop_index = segment.stop * frequency if segment.stop else None
-            param_segment = param_group['data'][start_index:stop_index]
-            param_name_to_array[param_name] = param_segment
+            # for params lower than 1hz, floor the start and round the top to take more than the required values
+            start_index = math.floor(segment.start * frequency) if segment.start else 0
+            #TODO: Determine whether round or math.ceil is preferred option here:
+            stop_index = round(segment.stop * frequency) if segment.stop else len(param_group['data']) 
+            seg_data = param_group['data'][int(start_index):int(stop_index)]
+            seg_mask = param_group['mask'][int(start_index):int(stop_index)]
+            param_name_to_array[param_name] = (seg_data, seg_mask)
         # duration taken from last parameter
-        duration = len(param_segment) / frequency
+        #TODO: Change to a 1Hz param to avoid issues with less than 1Hz params setting incorrect duration due to rounding
+        duration = len(seg_data) / frequency
     with h5py.File(dest, 'r+') as hdf_file:
         for param_name, array in param_name_to_array.iteritems():
             param_group = hdf_file['series'][param_name]
             del param_group['data']
-            param_group.create_dataset("data", data=array, maxshape=(len(array),))
+            param_group.create_dataset("data", data=array[0], maxshape=(len(array[0]),))
+            del param_group['mask']
+            param_group.create_dataset("mask", data=array[1], maxshape=(len(array[1]),))
         hdf_file.attrs['duration'] = duration
     return dest
 

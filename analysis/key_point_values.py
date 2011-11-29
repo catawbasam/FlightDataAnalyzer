@@ -223,7 +223,7 @@ class GrossWeightAtTouchDown(KeyPointValueNode):
 class EGTMax(KeyPointValueNode): # which engine? or all engines? # or all and each!?
     dependencies = ['Engine (1) EGT', 'Engine (2) EGT', 'Engine (3) EGT', 'Engine (4) EGT']
     ##returns = "EGT Max"  # add which engine?
-    NAME_FORMAT = 'EGT Max %{engine}'
+    NAME_FORMAT = 'EGT Max %(engine)s'
     RETURN_OPTIONS = {'engine': dependencies + ['Engine (*) EGT']}
 
     @classmethod
@@ -240,14 +240,14 @@ class EGTMax(KeyPointValueNode): # which engine? or all engines? # or all and ea
         ##egt4 = params['Engine (4) EGT']
         
         kmax = vmax = imax = None
-        for k, v in params.iteritems():
-            _imax = v.argmax()
-            _vmax = v[_imax]
+        for k, p in params.iteritems():
+            _imax = p.array.argmax()
+            _vmax = p.array[_imax]
             if _vmax > vmax:
                 imax = _imax # index of max
                 vmax = _vmax # max value
                 kmax = k # param name of max eng
-        return self.create_kpv(imax, vmax, engine=kmax) # include engine using kmax?
+        self.create_kpv(imax, vmax, engine=kmax) # include engine using kmax?
     
     
 class MagneticHeadingAtLiftOff(KeyPointValue):

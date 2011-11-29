@@ -80,11 +80,7 @@ class TestHdfFile(unittest.TestCase):
         stored_param_limits = self.hdf_file.get_param_limits(self.param_name)
         self.assertEqual(parameter_limits.get('TEST_PARAM10'), 
                          stored_param_limits)
-
-        #self.assertTrue(False)
-    
-    def test_mask_storage(self):
-        self.assertTrue(False)
+        
     
     def test_get_params(self):
         hdf_file = self.hdf_file
@@ -101,16 +97,6 @@ class TestHdfFile(unittest.TestCase):
         param = params['TEST_PARAM10']
         self.assertEqual(param.frequency, self.param_frequency)
         
-    
-    def test_get_attr(self):
-        # test appending a limit (arinc first, then adding others)
-        self.assertTrue(False)
-    
-    ##def test_set_param_data(self):
-        ##self.__test_set_param_data(self.hdf_file.set_param)
-    
-    ##def test___set_item__(self):
-        ##self.__test_set_param_data(self.hdf_file.__setitem__)
             
     def test___set_item__(self):
         '''
@@ -396,14 +382,14 @@ class TestWriteSegment(unittest.TestCase):
             wow_expected_result = np.arange(0,
                                             segment.stop * self.wow_frequency,
                                             dtype=np.dtype(np.float))
-            self.assertTrue(all(wow_result == wow_expected_result))
+            self.assertTrue(list(wow_result), list(wow_expected_result))
             # 'DME' - 0.15Hz parameter.
             dme_group = hdf_file['series']['DME']
             self.assertEqual(dme_group.attrs['frequency'],
                              self.dme_frequency)
             dme_result = dme_group['data'][:]
-            dme_expected_result = np.arange(0, 10, dtype=np.dtype(np.float))
-            self.assertTrue(all(dme_result == dme_expected_result))
+            dme_expected_result = np.arange(0, 11, dtype=np.dtype(np.float))
+            self.assertEqual(list(dme_result), list(dme_expected_result))
             self.assertEqual(hdf_file.attrs['duration'], 70)
     
     def test_write_segment__all_data(self):

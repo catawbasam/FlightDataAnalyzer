@@ -3,13 +3,13 @@ try:
 except ImportError:
     import unittest
 
-#import mock
+import mock
 
 from random import shuffle
 
 from analysis.node import (DerivedParameterNode, KeyPointValue, 
                            KeyPointValueNode, KeyTimeInstance, KeyTimeInstanceNode,
-                           Node, NodeManager, Parameter)
+                           Node, NodeManager, P, Parameter)
 
 class TestAbstractNode(unittest.TestCase):
     
@@ -39,11 +39,7 @@ class TestNode(unittest.TestCase):
                 pass
         
         class RateOfDescentHigh(KeyPointValueNode):
-            dependencies = ['Rate Of Descent', RateOfClimb]
-            # Minimum period of a descent for testing against thresholds (reduces number of KPVs computed in turbulence)
-            DESCENT_MIN_DURATION = 10
-            
-            def derive(self):
+            def derive(self, rod=P('Rate Of Descent'), roc=RateOfClimb):
                 pass
             
         self.assertEqual(RateOfDescentHigh.get_dependency_names(), 
@@ -51,9 +47,11 @@ class TestNode(unittest.TestCase):
         
     def test_can_operate(self):
         deps = ['a', 'b', 'c']
-        NewNode = type('NewNode', (Node,), dict(derive=lambda x:x,
-                                                get_derived=lambda x:x,
-                                                dependencies=deps))
+        class NewNode(Node):
+            def derive(self, aa=P('a'), bb=P('b'), cc=P('c')):
+                pass
+            def get_derived(self, deps):
+                pass
         self.assertTrue(NewNode.can_operate(deps))
         extra_deps = deps + ['d', 'e', 'f']
         self.assertTrue(NewNode.can_operate(extra_deps))
@@ -66,12 +64,14 @@ class TestNode(unittest.TestCase):
         self.assertFalse(NewNode.can_operate(not_enough_deps))
         
     def test_can_operate_with_objects_and_string_dependencies(self):
-        Parent = type('Parent', (Node,), dict(derive=lambda x:x, 
-                                              get_derived=lambda x:x,
-                                              dependencies=['a']))
-        NewNode = type('NewNode', (Node,), dict(derive=lambda x:x,
-                                                get_derived=lambda x:x,
-                                                dependencies=['b', Parent]))
+        def deriveparent(self, one=P('a')):
+            pass
+        Parent = type('Parent', (Node,), dict(derive=deriveparent, 
+                                              get_derived=lambda x:x))
+        def derivenew(self, one=P('b'), two=Parent):
+            pass
+        NewNode = type('NewNode', (Node,), dict(derive=derivenew,
+                                                get_derived=lambda x:x))
         
         available = ['a', 'Parent', 'b']
         self.assertTrue(NewNode.can_operate(available))
@@ -81,10 +81,11 @@ class TestNode(unittest.TestCase):
         derived Node class!
         """
         class Combo(Node):
-            dependencies = ['a', 'b', 'c']
-            def derive(self, params): 
+            def derive(self, aa=P('a'), bb=P('b'), cc=P('c')): 
                 # we require 'a' and 'b' and 'c' is a bonus
-                return params['a'], params['b'], params.get('c')
+                assert aa == 'A'
+                assert bb == 'B'
+                return aa, bb, cc
 
             def get_derived(self, params):
                 pass
@@ -99,42 +100,30 @@ class TestNode(unittest.TestCase):
         options = Combo.get_operational_combinations()
         self.assertEqual(options, [('a', 'b'), ('a', 'b', 'c')])
         
-        # define sample data for all the dependencies
-        deps = {'a': 'aa',
-                'b': 'bb',
-                'c': 'cc', }
         # get all operational options to test its derive method under
         options = Combo.get_operational_combinations()
-        
-        for args in options:
-            # build params dict
-            params = {arg: deps[arg] for arg in args} #py2.7
-            c = Combo(params)
-            # test derive method with this combination
-            res = c.derive(params)
-            self.assertEqual(res[:2], ('aa', 'bb'))
+        c = Combo()
             
-    def test_get_first_available_dependency(self):
-        class ANode(Node):
-            dependencies = ['a', 'b', 'c']
-            def derive(self, params): 
-                pass
-            def get_derived(self, params):
-                pass
-                
-        params = {'b': Parameter('b',[]), 
-                  'c': Parameter('c',[])}
-        node = ANode(params)
-        first = node._get_first_available_dependency(params.keys())
-        self.assertEqual(first, 'b')
+        for args in options:
+            # build ordered dependencies
+            deps = []
+            for param in c.get_dependency_names():
+                if param in args:  # in expected combo
+                    deps.append(param.upper())
+                else:  # dependency not available
+                    deps.append(None)
+            # test derive method with this combination
+            res = c.derive(*deps)
+            self.assertEqual(res[:2], ('A', 'B'))
+            
         
                         
 class TestNodeManager(unittest.TestCase):
     def test_operational(self):
-        mock_node = mock.Mock()
-        mock_node.returns = True
-        mock_inop = mock.Mock()
-        mock_inop.returns = False # inoperable node
+        mock_node = mock.Mock('can_operate') # operable node
+        mock_node.can_operate = mock.Mock(return_value=True)
+        mock_inop = mock.Mock('can_operate') # inoperable node
+        mock_inop.can_operate = mock.Mock(return_value=False)
         mgr = NodeManager(['a', 'b', 'c'], ['a', 'x'], 
                           {'x': mock_node, 'y': mock_node, 'z': mock_inop})
         self.assertTrue(mgr.operational('a', []))
@@ -151,7 +140,7 @@ class TestKeyPointValueNode(unittest.TestCase):
         self.params = {'a':Parameter('a',[], 2, 0.4)}
         KPV = type('kpv', (KeyPointValueNode,), dict(derive=lambda x:x,
                                                      dependencies=['a']))
-        self.knode = KPV(self.params)
+        self.knode = KPV(frequency=2, offset=0.4)
 
     def test_create_kpv(self):
         """ Tests name format substitution and return type
@@ -220,7 +209,7 @@ class TestKeyTimeInstanceNode(unittest.TestCase):
         KTI = type('MyKti', (KeyTimeInstanceNode,), dict(derive=lambda x:x,
                                                        dependencies=['a']))
         params = {'a':Parameter('a',[], 2, 0.4)}
-        kti = KTI(params)
+        kti = KTI(frequency=2, offset=0.4)
         kti.create_kti(12, 'fast')
         self.assertEqual(kti._kti_list, [(12, 'fast')])
     
