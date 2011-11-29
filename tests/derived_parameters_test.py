@@ -82,31 +82,31 @@ class TestAccelerationVertical(unittest.TestCase):
         self.assertEqual(opts, expected)
         
     def test_acceleration_vertical_level_on_gound(self):
-        params = {'Acceleration Normal':Parameter('Acceleration Normal',
-                                                  np.ma.ones(8),8,0.0),
-                  'Acceleration Lateral':Parameter('Acceleration Lateral',
-                                                  np.ma.zeros(4),4,0.0),
-                  'Acceleration Longitudinal':Parameter('Acceleration Longitudinal',
-                                                  np.ma.zeros(4),4,0.0),
-                  'Pitch':Parameter('Pitch',
-                                                  np.ma.zeros(2),2,0.0),
-                  'Roll':Parameter('Roll',
-                                                  np.ma.zeros(2),2,0.0)}
         # Invoke the class object
-        acc_vert = AccelerationVertical(params)
-        # Run the derive method
-        acc_vert.derive(params)
-        # Compare the result to the expected answer
-        result = params['Acceleration Vertical']
-        answer = Parameter('Acceleration Vertical',
-                           np.ma.array(data=[1]*8, dtype=np.float,mask=False),
-                           8.0,0.0)
-        # These four checks will be repeated so there may be a means to
-        # reduce repetition here, but I think the unittest framework makes this tricky.
-        self.assertEqual(result.name, answer.name)
-        self.assertEqual(result.hz, answer.hz)
-        self.assertEqual(result.offset, answer.offset)
-        ma_test.assert_masked_array_approx_equal(result.array, answer.array)
+        acc_vert = AccelerationVertical(frequency=8)
+        
+        acc_vert.derive(
+            acc_norm=Parameter('Acceleration Normal',np.ma.ones(8),8),
+            acc_lat=Parameter('Acceleration Lateral',np.ma.zeros(4),4),
+            acc_long=Parameter('Acceleration Longitudinal',np.ma.zeros(4),4),
+            pitch=Parameter('Pitch',np.ma.zeros(2),2),
+            roll=Parameter('Roll',np.ma.zeros(2),2))
+        
+        ma_test.assert_masked_array_approx_equal(acc_vert.array, np.ma.array([1]*8))
+        
+        ### Run the derive method
+        ##acc_vert.derive(params)
+        ### Compare the result to the expected answer
+        ##result = params['Acceleration Vertical']
+        ##answer = Parameter('Acceleration Vertical',
+                           ##np.ma.array(data=[1]*8, dtype=np.float,mask=False),
+                           ##8.0,0.0)
+        ### These four checks will be repeated so there may be a means to
+        ### reduce repetition here, but I think the unittest framework makes this tricky.
+        ##self.assertEqual(result.name, answer.name)
+        ##self.assertEqual(result.hz, answer.hz)
+        ##self.assertEqual(result.offset, answer.offset)
+        ##ma_test.assert_masked_array_approx_equal(result.array, answer.array)
         
     def test_acceleration_vertical_pitch_up(self):
         params = {'Acceleration Normal':Parameter('Acceleration Normal',
