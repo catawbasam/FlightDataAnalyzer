@@ -29,7 +29,7 @@ class TouchDown(KeyTimeInstanceNode):
 
 
 class LandingGroundEffectStart(KeyTimeInstanceNode):
-    dependencies = []
+    dependencies = ['Radio Altitude']
     def derive(self, params):
         return NotImplemented
 
@@ -94,18 +94,4 @@ class FlapStateChanges(KeyTimeInstanceNode):
     
     
     
-    
-##############################
-##             ADEM
-##############################
-class ADEMTakeoffDataAcquisition(KeyTimeInstanceNode):
-    """ ADEM Takeoff Data Acquisition - AKA TOTDRT
-    
-    NOT TESTED !
-    """
-    name = 'ADEM Takeoff Data Acquisition'
-    dependencies = ['Indicated Airspeed']
-    def derive(params):
-        ias = params['Indicated Airspeed']
-        return KeyTimeInstance(ias.first_val(120), 'Takeoff Data Acquisition')
     

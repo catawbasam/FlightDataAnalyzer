@@ -78,7 +78,7 @@ class Descending(FlightPhaseNode):
         return FlightPhase(descending)
 
 class Descent(FlightPhaseNode):
-    dependencies = []
+    dependencies = [Descending, 'Rate Of Climb']
     def derive(self, params):
         return NotImplemented
     

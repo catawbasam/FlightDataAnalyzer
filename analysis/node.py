@@ -1,17 +1,22 @@
+import inspect
 import logging
+import numpy as np
 import re
 
 from abc import ABCMeta, abstractmethod
 from collections import namedtuple
 from itertools import product
 
+from hdfaccess.parameter import Parameter
+
+from analysis.recordtype import recordtype
 from analysis.library import powerset
 
 # Define named tuples for KPV and KTI and FlightPhase
 KeyPointValue = namedtuple('KeyPointValue', 'index value name')
 KeyTimeInstance = namedtuple('KeyTimeInstance', 'index state')
 GeoKeyTimeInstance = namedtuple('GeoKeyTimeInstance', 'index state latitude longitude')
-FlightPhase = namedtuple('FlightPhase', 'mask') #Q: rename mask -> slice
+FlightPhase = namedtuple('FlightPhase', 'name mask') #Q: rename mask -> slice/section
 
 # Ref: django/db/models/options.py:20
 # Calculate the verbose_name by converting from InitialCaps to "lowercase with spaces".
@@ -56,6 +61,16 @@ get_verbose_name = lambda class_name: re.sub('(((?<=[a-z])[A-Z])|([A-Z](?![A-Z]|
 ##PHASE_DESCENT = slice(1)
 ##PHASE_TAXI_IN = slice(1)
 
+def get_param_kwarg_names(derive_method):
+    args, varargs, varkw, defaults = inspect.getargspec(derive_method)
+    if args[:-len(defaults)] != ['self'] or varargs:
+        raise ValueError("Only kwargs accepted, cannot accept args: %s %s" % (args[1:], varargs))
+    if varkw:
+        raise NotImplementedError("One day, could insert all available params as kwargs - but cannot guarentee requirements will work")
+    #return dict(zip(defaults, args[-len(defaults):]))
+    return defaults
+
+
 #-------------------------------------------------------------------------------
 # Abstract Classes
 # ================
@@ -64,8 +79,28 @@ class Node(object):
     __metaclass__ = ABCMeta
 
     name = '' # Optional
-    dependencies = []
     returns = [] # Move to DerivedParameterNode etc? TODO: Handle dependencies on one of the returns values!!
+        
+    def __init__(self, name='', frequency=1, offset=0):
+        """
+        Abstract Node. frequency and offset arguments are populated from the
+        first available dependency parameter object.
+        
+        :param name: Name of parameter
+        :type params: str
+        :param frequency: Sample Rate / Frequency / Hz
+        :type frequency: Int
+        :param offset: Offset in Frame.
+        :type offset: Float
+        """
+        if not self.get_dependency_names():
+            raise ValueError("Every Node must have a dependency. Node '%s'" % self.__class__.__name__)
+        if name:
+            self.name = name + '' # for ease of testing, checks name is string ;-)
+        else:
+            self.name = self.get_name() # usual option
+        self.frequency = self.sample_rate = self.hz = frequency # Hz
+        self.offset = offset # secs
         
     def __repr__(self):
         return '%s' % self.get_name()
@@ -86,7 +121,9 @@ class Node(object):
         """
         # TypeError:'ABCMeta' object is not iterable?
         # this probably means dependencies for this class isn't a list!
-        return [x if isinstance(x, str) else x.get_name() for x in cls.dependencies]
+        ##return [x if isinstance(x, str) else x.get_name() for x in cls.dependencies]
+        params = get_param_kwarg_names(cls.derive)
+        return [d.name or d.get_name() for d in params]
     
     @classmethod
     def can_operate(cls, available):
@@ -96,8 +133,8 @@ class Node(object):
         Returns true if dependencies is a subset of available. For more
         specific operational requirements, override appropriately.
         
-        Strictly this is a classmethod, so please remember to use the
-        @classmethod decorator! (if you forget, i don't `think` it will break)
+        This is a classmethod, so please remember to use the
+        @classmethod decorator! (if you forget - it will break)
         
         :param available: Available parameters from the dependency tree
         :type available: list of strings
@@ -118,10 +155,42 @@ class Node(object):
             if cls.can_operate(args):
                 options.append(args)
         return options
+    
+    @abstractmethod
+    def get_derived(self, args):
+        """
+        Accessor for derive method's results. Each Node type shall return the
+        class attributes appropriate for the Node type.
+        
+        :param params: Collection of available Parameter objects
+        :type params: dict
+        """
+        raise NotImplementedError("Abstract Method")
         
     @abstractmethod
-    def derive(self, params):
+    def derive(self, **kwargs):
         """
+        Accepts keyword arguments where the default determines the derive
+        dependencies. Each keyword default must be a Parameter like object
+        with attribute name or method get_name() returning a string
+        representation of the Parameter.
+        
+        e.g. def derive(self, first_dep=P('not_available'), first_available=P('available'), another=MyDerivedNode:
+                 pass
+        
+        Note: Although keywords are required to determine the derive method's 
+        dependencies, Implementation actually provides the keywords using 
+        positional arguments, providing None where the dependency is not 
+        available.
+        
+        e.g. deps = [None, param_obj]
+             node.derive(*deps)
+             
+        Results of derive are saved onto the object's attributes. See each
+        implementation of Node.
+        
+        e.g. self.array = []
+        
         Note: All params masked arrays can be manipulated as required within
         the scope of this method without affecting any other Node classes.
         This is because we write all results back to the hdf, therefore you
@@ -131,49 +200,88 @@ class Node(object):
         that you document it in the docstring as follows:
         WARNING: Does not adhere to the MASK.
         
-        returns namedtuple or list of namedtuples KeyPointValue,
-        KeyTimeInstance or numpy.ma masked_array
-        
-        :param params: 
-        :type params: dict key:string value: param or list of kpv/kti or phase
+        :param kwargs: Keyword arguments where default is a Parameter object or Node class
+        :type kwargs: dict
+        :returns: No returns! Save to object attributes.
+        :rtype: None
         """
         raise NotImplementedError("Abstract Method")
     
     
     
 class DerivedParameterNode(Node):
-    frequency = None # Hz
-    offset = None # secs  -- established when analysing data
+    """
+    """
+    def __init__(self, *args, **kwargs):
+        # create array results placeholder
+        self.array = None # np.ma.array derive result goes here!
+        super(DerivedParameterNode, self).__init__(*args, **kwargs)
     
-    ''' Sample desired usage of frequency (and offset):
-    #frequency = dependencies[0].frequency  # Used by default if none provided
-    frequency = 'Altitude AAL'  # Take from this param name
-    frequency = AltitudeAAL  # As above but from class
-    frequency = 8  # Hard coded for this algorithm - NOTE: use with care as you cannot hard code the frequency that the input params are provided in
-    def derive(self, params):
-        self.frequency = params['Altitude Std'].frequency  # can override at run time? not sure I like this option
-        self.frequency = 2
-        return result
-        
-    def _get_derived(self, params, flight_duration):
-        res = self.derive(params)
-        # Ensure that the frequency has been adhered to!
-        assert len(res) == flight_duration * self.frequency
-    '''
-
-    pass
-
+                
+    def get_derived(self, args):
+        # get results
+        res = self.derive(*args)
+        if res == NotImplemented:
+            ##raise NotImplementedError("Cannot proceed (need self.array)")
+            logging.warning("FAKING DATA FOR NotImplemented '%s' - used for test purposes!" % self)
+            self.array = np.ma.array(range(10)) #
+            pass #TODO: raise error and remove pass
+        if self.array is None and res:
+            logging.warning("Depreciation Warning: array attribute not set but values returned")
+            self.array = res
+        ### Ensure that the frequency has been adhered to!
+        ##assert len(res) == flight_duration * self.frequency
+        # create a simplistic parameter for writing to HDF
+        #TODO: Parameter and hdf_access to use available=params.keys()
+        return Parameter(self.get_name(), self.array, self.frequency, self.offset)
+    
+    ##def get_first_param (self, params):
+        ##return params[self.get_dependency_names()[0]]
 
 class FlightPhaseNode(Node):
+    def __init__(self, *args, **kwargs):
+        # place holder
+        self._flight_phases = []
+        super(FlightPhaseNode, self).__init__(*args, **kwargs)
+
+
+    def create_phase(self, mask):
+        phase = FlightPhase(mask)
+        self._flight_phases.append(phase)
+        return phase
+    
     # 1Hz slices
     # TODO: Allow for 8Hz for LiftOff and TouchDown example
-    pass
+    def get_derived(self, args):
+        res = self.derive(*args)
+        if res == NotImplemented:
+            raise NotImplementedError("Cannot proceed")
+        #TODO: Return slice at correct frequency?
+        return self.flight_phase
+        
+    
+    #TODO: Accessor for 1Hz slice, 8Hz slice etc.
 
 class KeyTimeInstanceNode(Node):
-    'TODO: Implement the helper functions like KPV Node below'
-    
+    """
+    TODO: Support 1Hz / 8Hz KTI index locations via accessor on class and
+    determine what is required for get_derived to be stored in database
+    """
     # :rtype: KeyTimeInstance or List of KeyTimeInstance or EmptyList
-    pass
+    def __init__(self, *args, **kwargs):
+        # place holder
+        self._kti_list = []
+        super(KeyTimeInstanceNode, self).__init__(*args, **kwargs)
+        
+    def create_kti(self, index, state):
+        kti = KeyTimeInstance(index, state)
+        self._kti_list.append(kti)
+        return kti 
+    
+    def get_derived(self, args):
+        #TODO: Support 1Hz / 8Hz KTI index locations
+        self.derive(*args)
+        return self._kti_list
     
     
 class KeyPointValueNode(Node):
@@ -188,6 +296,10 @@ class KeyPointValueNode(Node):
     NAME_FORMAT = ""
     RETURN_OPTIONS = {}
     
+    def __init__(self, *args, **kwargs):
+        self._kpv_list = []
+        super(KeyPointValueNode, self).__init__(*args, **kwargs)
+        
     def kpv_names(self):
         """        
         :returns: The product of all RETURN_OPTIONS name combinations
@@ -226,13 +338,25 @@ class KeyPointValueNode(Node):
         """
         rvals = replace_values.copy()  # avoid re-using static type
         rvals.update(kwargs)
-        name = self.NAME_FORMAT % rvals
+        name = self.NAME_FORMAT % rvals  # common error is to use { inplace of (
         # validate name is allowed
         self._validate_name(name)
-        return KeyPointValue(index, value, name)
+        kpv = KeyPointValue(index, value, name)
+        self._kpv_list.append(kpv)
+        return kpv # return as a confirmation it was successful
     
+    def get_derived(self, args):
+        res = self.derive(*args)
+        if res == NotImplemented:
+            #raise NotImplementedError("Cannot proceed")
+            pass #TODO: raise error and remove pass
+        elif res:
+            #Q: store in self._kpv_list to be backward compatible?
+            raise RuntimeError("Cannot return from a derive method. Returned '%s'" % res)
+        return self._kpv_list
 
 
+    #TODO: Accessors for first kpv, primary kpv etc.
 
     
 class NodeManager(object):
@@ -249,6 +373,11 @@ class NodeManager(object):
         self.lfl = lfl
         self.requested = requested
         self.derived_nodes = derived_nodes
+        
+    def keys(self):
+        """
+        """
+        return self.lfl + self.derived_nodes.keys()
 
         
     def operational(self, name, available):
@@ -259,6 +388,7 @@ class NodeManager(object):
         :rtype: Boolean
         """
         if name in self.derived_nodes:
+            #NOTE: Raises "Unbound method" here due to can_operate being overridden without wrapping with @classmethod decorator
             return self.derived_nodes[name].can_operate(available)
         elif name in self.lfl or name == 'root':
             return True
