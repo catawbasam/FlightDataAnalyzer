@@ -3,8 +3,10 @@ try:
 except ImportError:
     import unittest
 import numpy as np
+import mock
 
 import utilities.masked_array_testutils as ma_test
+from utilities.struct import Struct
 #from utilities.parameter_test import parameter_test
 from hdfaccess.parameter import P, Parameter
 
@@ -19,19 +21,17 @@ from analysis.derived_parameters import (AccelerationVertical,
 
 class TestAltitudeRadio(unittest.TestCase):
     def test_can_operate(self):
-        expected = [('Altitude Radio Sensor', 'Pitch', 0.0)]
+        expected = [('Altitude Radio Sensor', 'Pitch')]
         opts = AltitudeRadio.get_operational_combinations()
         self.assertEqual(opts, expected)
         
     def test_altitude_radio(self):
-        params = {
-            'Pitch': Parameter('Pitch', (np.ma.array(range(10))-2)*5, 1,0.0),
-            'Altitude Radio Sensor': Parameter('Altitude Radio Sensor', 
-                                               np.ma.ones(10)*10, 1,0.0)
-        }
-        ralt = AltitudeRadio(params)
-        ralt.derive(params, 10.0)
-        result = params['Altitude Radio'].array
+        alt_rad = AltitudeRadio()
+        alt_rad.aircraft = Struct({'model':{'geometry':{'main_gear_to_rad_alt':10.0}}})
+        alt_rad.derive(Parameter('Pitch', (np.ma.array(range(10))-2)*5, 1,0.0),
+                    Parameter('Altitude Radio Sensor', 
+                              np.ma.ones(10)*10, 1,0.0))
+        result = alt_rad.array
 
         #ralt = AltitudeRadio()
         #ralt.derive(P('Pitch',(np.ma.array(range(10))-2)*5, 1,),
@@ -49,7 +49,7 @@ class TestAltitudeRadio(unittest.TestCase):
                                    5.0,
                                    4.26423563649],
                              dtype=np.float, mask=False)
-        np.testing.assert_array_almost_equal(ralt.array, answer)
+        np.testing.assert_array_almost_equal(alt_rad.array, answer)
 
 class TestAltitudeTail(unittest.TestCase):
     def test_can_operate(self):
@@ -58,14 +58,16 @@ class TestAltitudeTail(unittest.TestCase):
         self.assertEqual(opts, expected)
         
     def test_altitude_tail(self):
-        params = {'Pitch':
-                  Parameter('Pitch', np.ma.array(range(10))*2, 1,0.0),
-                  'Altitude Radio':
-                  Parameter('Altitude Radio', np.ma.ones(10)*10, 1,0.0)
-                  }
-        talt = AltitudeTail(params)
-        talt.derive(params, 35.0)
-        result = params['Altitude Tail'].array
+        ##params = {'Pitch':
+                  ##Parameter('Pitch', np.ma.array(range(10))*2, 1,0.0),
+                  ##'Altitude Radio':
+                  ##Parameter('Altitude Radio', np.ma.ones(10)*10, 1,0.0)
+                  ##}
+        talt = AltitudeTail()
+        talt.aircraft = Struct({'model':{'dist_gear_to_tail': 35.0}})
+        talt.derive(Parameter('Pitch', np.ma.array(range(10))*2, 1,0.0),
+                    Parameter('Altitude Radio', np.ma.ones(10)*10, 1,0.0))
+        result = talt.array
         # At 35ft and 18deg nose up, the tail just scrapes the runway with 10ft
         # clearance at the mainwheels...
         answer = np.ma.array(data=[10.0,
@@ -201,14 +203,14 @@ class TestPitch(unittest.TestCase):
         
 class TestRateOfClimb(unittest.TestCase):
     def test_can_operate(self):
-        expected = [('Altitude STD', 'Altitude Radio')]
+        expected = [('Altitude STD',)] #'Altitude Radio')]
         opts = RateOfClimb.get_operational_combinations()
         self.assertEqual(opts, expected)
         
     def test_rate_of_climb(self):
         roc = RateOfClimb()
-        roc.derive(P('Altitude STD', np.ma.array(range(10))+100),
-                   P('Altitude Radio', np.ma.array(range(10))))
+        roc.derive(P('Altitude STD', np.ma.array(range(10))+100))
+                   #P('Altitude Radio', np.ma.array(range(10))))
         answer = np.ma.array(data=[1]*10, dtype=np.float,
                              mask=False)
         np.testing.assert_array_equal(roc.array, answer)
