@@ -96,7 +96,7 @@ def _split_by_flight_data(airspeed, offset, engine_list=None):
     if engine_list:
         raise NotImplementedError("Splitting with Engines is not implemented")
 
-    speedy_slices = np.ma.flatnotmasked_contiguous(airspeed)
+    speedy_slices = np.ma.notmasked_contiguous(airspeed)
     if not speedy_slices or isinstance(speedy_slices, slice) or len(speedy_slices) <= 1 or speedy_slices == (len(airspeed), [0, -1]):
         # nothing to split (no fast bits) or only one slice returned not in a list or only one flight or no mask on array due to mask being "False"
         # NOTE: flatnotmasked_contiguous returns (a.size, [0, -1]) if no mask!

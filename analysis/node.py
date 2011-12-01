@@ -10,76 +10,60 @@ from itertools import product
 #from hdfaccess.parameter import Parameter
 
 from analysis.recordtype import recordtype
-from analysis.library import powerset
+from hdfaccess.parameter import Parameter, P
 
 # Define named tuples for KPV and KTI and FlightPhase
 KeyPointValue = namedtuple('KeyPointValue', 'index value name')
 KeyTimeInstance = namedtuple('KeyTimeInstance', 'index state')
 GeoKeyTimeInstance = namedtuple('GeoKeyTimeInstance', 'index state latitude longitude')
-FlightPhase = namedtuple('FlightPhase', 'name mask') #Q: rename mask -> slice/section
+Section = namedtuple('Section', 'name slice') #Q: rename mask -> slice/section
 
 # Ref: django/db/models/options.py:20
 # Calculate the verbose_name by converting from InitialCaps to "lowercase with spaces".
 get_verbose_name = lambda class_name: re.sub('(((?<=[a-z])[A-Z])|([A-Z](?![A-Z]|$)))', ' \\1', class_name).lower().strip()
 
 
-### Parameter Names
-##ALTITUDE_STD = "Pressure Altitude"
-##ALTITUDE_STD_SMOOTHED = "Pressure Altitude Smoothed"
-##AIRSPEED = "Indicated Airspeed"
-##MACH = "MACH"
-##RATE_OF_TURN = ""
-##SAT = "SAT"
-##TAT = "TAT"
-
-### KPV Names
-##MAX_MACH_CRUISE = "Max Mach Cruise"
-
-### KTI Names
-##TOP_OF_CLIMB = "Top of Climb"
-##TOP_OF_DESCENT = "Top of Descent"
-##TAKEOFF_START = ""
-##TAKEOFF_END = ""
-##LANDING_START = ""
-##LANDING_END = ""
+def powerset(iterable):
+    """
+    Ref: http://docs.python.org/library/itertools.html#recipes
+    powerset([1,2,3]) --> () (1,) (2,) (3,) (1,2) (1,3) (2,3) (1,2,3)
+    """
+    from itertools import chain, combinations
+    s = list(iterable)
+    return chain.from_iterable(combinations(s, r) for r in range(len(s)+1))
 
 
-
-### Aircraft States
-##AIRBORNE = "Airborne"
-##TURNING = "Turning"
-##LEVEL_FLIGHT = "Level Flight"
-##CLIMBING = "Climbing"
-##DESCENDING = "Descending"
-
-### Flight Phases
-##PHASE_ENGINE_RUN_UP = slice(1)
-##PHASE_TAXI_OUT = slice(1)
-##PHASE_CLIMB = slice(1)
-##PHASE_CRUISE = slice(1)
-##PHASE_APPROACH = slice(1)
-##PHASE_DESCENT = slice(1)
-##PHASE_TAXI_IN = slice(1)
-
-def get_param_kwarg_names(derive_method):
-    args, varargs, varkw, defaults = inspect.getargspec(derive_method)
-    if args[:-len(defaults)] != ['self'] or varargs:
-        raise ValueError("Only kwargs accepted, cannot accept args: %s %s" % (args[1:], varargs))
+def get_param_kwarg_names(method):
+    """
+    Inspects a method's arguments and returns the defaults values of keyword
+    arguments defined in the method.
+    
+    Raises ValueError if there are any args defined other than "self".
+    
+    :param method: Method to be inspected
+    :type method: method
+    :returns: Ordered list of default values of keyword arguments
+    :rtype: list
+    """
+    args, varargs, varkw, defaults = inspect.getargspec(method)
+    if not defaults or args[:-len(defaults)] != ['self'] or varargs:
+        raise ValueError("Only kwargs accepted, cannot accept args: %s %s" % (
+            args[1:], varargs))
     if varkw:
-        raise NotImplementedError("One day, could insert all available params as kwargs - but cannot guarentee requirements will work")
-    #return dict(zip(defaults, args[-len(defaults):]))
+        # One day, could insert all available params as kwargs - but cannot
+        # guarentee requirements will work
+        raise NotImplementedError("Cannot define **kwargs")
+    # alternative: return dict(zip(defaults, args[-len(defaults):]))
     return defaults
 
 
-#-------------------------------------------------------------------------------
-# Abstract Classes
-# ================
-
+#------------------------------------------------------------------------------
+# Abstract Node Classes
+# =====================
 class Node(object):
     __metaclass__ = ABCMeta
 
-    name = '' # Optional
-    returns = [] # Move to DerivedParameterNode etc? TODO: Handle dependencies on one of the returns values!!
+    name = '' # Optional, default taken from ClassName
         
     def __init__(self, name='', frequency=1, offset=0):
         """
@@ -121,7 +105,6 @@ class Node(object):
         """
         # TypeError:'ABCMeta' object is not iterable?
         # this probably means dependencies for this class isn't a list!
-        ##return [x if isinstance(x, str) else x.get_name() for x in cls.dependencies]
         params = get_param_kwarg_names(cls.derive)
         return [d.name or d.get_name() for d in params]
     
@@ -234,33 +217,56 @@ class DerivedParameterNode(Node):
         # create a simplistic parameter for writing to HDF
         #TODO: Parameter and hdf_access to use available=params.keys()
         return Parameter(self.get_name(), self.array, self.frequency, self.offset)
-    
-    ##def get_first_param (self, params):
-        ##return params[self.get_dependency_names()[0]]
 
-class FlightPhaseNode(Node):
+
+class SectionNode(Node):
     def __init__(self, *args, **kwargs):
+        """ List of slices where this phase is active. Has a frequency and offset.
+        """
         # place holder
-        self._flight_phases = []
-        super(FlightPhaseNode, self).__init__(*args, **kwargs)
+        self._sections = [] # list of named section slices
+        super(SectionNode, self).__init__(*args, **kwargs)
 
-
-    def create_phase(self, mask):
-        phase = FlightPhase(mask)
-        self._flight_phases.append(phase)
-        return phase
+    def create_section(self, section_slice, name=''):
+        section = Section(name or self.get_name(), section_slice)
+        self._sections.append(section)
+        ##return section
+        
+    def create_sections(self, section_slices, name=''):
+        for sect in section_slices:
+            self.create_section(sect, name=name)
     
-    # 1Hz slices
-    # TODO: Allow for 8Hz for LiftOff and TouchDown example
+    # TODO: Add tests for 8Hz LiftOff and TouchDown examples
     def get_derived(self, args):
         res = self.derive(*args)
         if res == NotImplemented:
             raise NotImplementedError("Cannot proceed")
         #TODO: Return slice at correct frequency?
-        return self.flight_phase
+        return self._sections
         
-    
     #TODO: Accessor for 1Hz slice, 8Hz slice etc.
+    ##def get_section(self, frequency=None):
+        ##if frequency:
+            ##pass
+        ##return self._sections
+
+    
+class FlightPhaseNode(SectionNode):
+    """ Is a Section, but called "phase" for user-friendlyness!
+    """
+    def create_phase(self, phase_slice):
+        """
+        Creates a Flight Phase using a slice at specific frequency, using the
+        classes name.
+        
+        It's a shortcut to using create_section.
+        """
+        self.create_section(phase_slice)
+        
+    def create_phases(self, phase_slices):
+        for phase in phase_slices:
+            self.create_phase(phase)
+
 
 class KeyTimeInstanceNode(Node):
     """
@@ -331,10 +337,10 @@ class KeyPointValueNode(Node):
         Formats FORMAT_NAME with interpolation values and returns a KPV object
         with index and value.
         
-        Notes:
-        Raises KeyError if required interpolation/replace value not provided.
-        Raises TypeError if interpolation value is of wrong type.
-        Interpolation values not in FORMAT_NAME are ignored.
+        Interpolation values not in FORMAT_NAME are ignored.        
+        
+        :raises KeyError: if required interpolation/replace value not provided.
+        :raises TypeError: if interpolation value is of wrong type.
         """
         rvals = replace_values.copy()  # avoid re-using static type
         rvals.update(kwargs)
@@ -366,6 +372,8 @@ class NodeManager(object):
     
     def __init__(self, lfl, requested, derived_nodes):
         """
+        Storage of parameter keys and access to derived nodes.
+        
         :type lfl: list
         :type requested: list
         :type derived_nodes: dict

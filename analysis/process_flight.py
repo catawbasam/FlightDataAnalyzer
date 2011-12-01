@@ -2,7 +2,7 @@ import sys
 
 from utilities.dict_helpers import dict_filter  #TODO: Mark utiltities as a dependency
 
-from hdf_access.access import hdf_file
+from hdfaccess.file import hdf_file
 
 from analysis import settings
 from analysis.dependency_graph import dependency_order
@@ -71,11 +71,6 @@ def derive_parameters(hdf, node_mgr, process_order):
         
         node_class = node_mgr.derived_nodes[param_name]  # raises KeyError if Node is "unknown"
         
-        ### retrieve dependencies which are available from hdf (LFL/Derived masked arrays)
-        ##deps = hdf.get_params(node_class.get_dependency_names())
-        ### update with dependencies already derived (non-masked arrays)
-        ##deps.update( dict_filter(params, keep=node_class.get_dependency_names()) )
-        
         # build ordered dependencies
         deps = []
         for param in node_class.get_dependency_names():
@@ -95,19 +90,11 @@ def derive_parameters(hdf, node_mgr, process_order):
         result = node.get_derived(deps)
         
         if isinstance(node, KeyPointValueNode):
-            ### expect a single KPV or a list of KPVs
             #Q: track node instead of result here??
             params[param_name] = result  # keep track
-            ##if isinstance(result, KeyPointValue):
-                ##kpv_list.append(result)
-            ##else:
             kpv_list.extend(result)
         elif isinstance(node, KeyTimeInstanceNode):
-            ### expect a single KTI or a list of KTIs
             params[param_name] = result  # keep track
-            ##if isinstance(result, KeyTimeInstance):
-                ##kti_list.append(result)
-            ##else:
             kti_list.extend(result)
         elif isinstance(node, FlightPhaseNode):
             # expect a single slice
@@ -130,7 +117,26 @@ def derive_parameters(hdf, node_mgr, process_order):
     return kti_list, kpv_list, phase_list
 
 
-def process_flight(hdf_path, aircraft, draw=False):
+def process_flight(hdf_path, aircraft, achieved_flight_record=None, draw=False):
+    """
+    aircraft API:
+    {
+        'Tail Number':  # Aircraft Registration
+        'Identifier':  # Aircraft Ident
+        'Manufacturer': 
+        'Manufacturer  aircraft.manufacturer_serial_number, #MSN
+        'Model': 
+        'Frame': 
+        'Main Gear To Altitude Radio': ,
+        'Wing Span': 
+    }
+    :param hdf_path: Path to HDF File
+    :type hdf_pat: String
+    
+    :param aircraft: Aircraft specific attributes
+    :type aircraft: dict
+    
+    """
     # open HDF for reading
     with hdf_file(hdf_path) as hdf:
         # get list of KPV and standard parameters to be calculated
@@ -147,7 +153,7 @@ def process_flight(hdf_path, aircraft, draw=False):
         kti_list, kpv_list, phase_list = derive_parameters(hdf, node_mgr, process_order)
 
         #Q: Confirm aircraft tail here?
-        ##validate_aircraft(aircraft, hdf['aircraft_ident'])
+        ##validate_aircraft(aircraft['Identifier'], hdf['aircraft_ident'])
         
         # establish timebase for start of data
         #Q: Move to a Key Time Instance so that dependencies can be met appropriately?

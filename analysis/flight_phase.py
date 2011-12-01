@@ -1,85 +1,70 @@
 import logging
 import numpy as np
 
-from analysis.node import FlightPhase, FlightPhaseNode
+from analysis.node import FlightPhase, FlightPhaseNode, P
 from analysis.settings import RATE_OF_CLIMB_FOR_FLIGHT_PHASES
-
-# requirements:
-'''
-altitude_std_smoothed
-airspeed
-altitude_std
-altitude_aal_takeoff
-altitude_aal_landing
-rate_of_turn
-rate_of_climb_for_flight_phases
-head_mag
-altitude_radio
-'''
-
 
 
 class Airborne(FlightPhaseNode):
     dependencies = ['altitude_std_smoothed', 'takeoff_end', 'landing_start']
     returns = ['Airborne']
     
-    def derive(altitude_std_smoothed, takeoff_end, landing_start):
+    def derive(self, altitude_std_smoothed, takeoff_end, landing_start): # TODO: New argument format, what are the Parameter names?
         # Create a simple "Airborne" mask that covers the period between the takeoff and landing phases.
         # We assign it to altitude_std as this makes it easy to plot and check, although it is the mask that is really useful.
         ##airborne_phase = create_phase_inside(altitude_std_smoothed, kpt['TakeoffEndEstimate'], kpt['LandingStartEstimate'])
         airborne_phase = create_phase_inside(altitude_std_smoothed, takeoff_end, landing_start)
-        return FlightPhase(airborne_phase)
+        self.create_phase(airborne_phase)
     
 class OnGround(FlightPhaseNode):
-    dependencies = [Airborne]
     
-    def derive(self, params):
+    def derive(self, airborne=Airborne):
         # inverse of Airborne?!
-        return FlightPhase(~params['Airborne'])
+        # TODO: Change to be the opposite of slices.
+        return FlightPhase(~airborne.array)
     
 class Turning(FlightPhaseNode):
-    dependencies = ['Rate Of Turn']
-    returns = ['Turning']
-
-    def derive(rate_of_turn):
-        turning = np.ma.masked_inside(rate_of_turn,-1.5,1.5)
-        return FlightPhase(turning)
+    """
+    Rate of Turn is greater than 1.5 degrees per second
+    """
+    def derive(self, rate_of_turn=P('Rate Of Turn')):
+        turning = np.ma.masked_inside(rate_of_turn.array, -1.5, 1.5)
+        turn_slices = np.ma.clump_unmasked(turning)
+        self.create_phases(turn_slices)
+        
 
 class LevelFlight(FlightPhaseNode):
-    dependencies = ['Indicated Airspeed', 'Altitude Std']
-    ##returns = ['LevelFlight']
-    
-    def derive(self, params):
-        airspeed = params['Indicated Airspeed']
-        altitude_std = params['Altitude Std']
+    def derive(self, airspeed=P('Indicated Airspeed'),
+               alt_std=P('Altitude Std')):
         # Rate of climb and descent limits of 800fpm gives good distinction with level flight.
         level_flight = np.ma.masked_where(
             np.ma.logical_or(np.ma.abs(RATE_OF_CLIMB_FOR_FLIGHT_PHASES) > 300.0, airspeed < 100.0), altitude_std)
-        return FlightPhase(level_flight)        
+        level_slices = np.ma.clump_unmasked(level_flight)
+        self.create_phases(level_slices)
         
 class Climbing(FlightPhaseNode):
-    dependencies = ['Altitude Std']
     ##returns = ['Climbing']
-    
-    def derive(self, params):
+    def derive(self, alt_std=P('Altitude Std')):
         # Rate of climb and descent limits of 800fpm gives good distinction with level flight.
         climbing = np.ma.masked_where(RATE_OF_CLIMB_FOR_FLIGHT_PHASES < 800,
-                                      params['Altitude Std'])
-        return FlightPhase(climbing)
+                                      params['Altitude STD'])
+        climbing_slices = np.ma.clump_unmasked(climbing)
+        self.create_phases(climbing_slices)
     
+
 class Descending(FlightPhaseNode):
-    dependencies = ['Altitude Std']
-    ##returns = ['Descending']
-    
-    def derive(self, params):
-        # Rate of climb and descent limits of 800fpm gives good distinction with level flight.
-        descending = np.ma.masked_where(RATE_OF_CLIMB_FOR_FLIGHT_PHASES > -800, 
-                                        params['Altitude Std'])
-        return FlightPhase(descending)
+    """ Descending faster than 800fpm towards the ground
+    """
+    def derive(self, roc=P('Rate Of Climb')):
+        # Rate of climb and descent limits of 800fpm gives good distinction
+        # with level flight.
+        descending = np.ma.masked_greater(roc.array, -RATE_OF_CLIMB_FOR_FLIGHT_PHASES)
+        desc_slices = np.ma.clump_unmasked(descending)
+        self.create_phases(desc_slices)
+
 
 class Descent(FlightPhaseNode):
-    dependencies = [Descending, 'Rate Of Climb']
-    def derive(self, params):
+    def derive(self, descending=Descending, roc=P('Rate Of Climb')):
         return NotImplemented
     
     

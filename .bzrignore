@@ -1,0 +1,14 @@
+analysis/local_settings.py
+*.tmp
+*.wpu
+*.pyc
+*.pyo
+*.egg
+*.egg-info
+*~
+dist
+build
+.coverage
+.*/
+test_data/temp/*
+graph*.png

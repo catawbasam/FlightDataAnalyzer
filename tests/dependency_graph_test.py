@@ -5,6 +5,7 @@ except ImportError:
 
 from analysis.node import Node, NodeManager
 from analysis.dependency_graph import dependency_order, process_order, graph_nodes
+from hdfaccess.parameter import P
 
 # mock function
 f = lambda x: x
@@ -12,11 +13,7 @@ f = lambda x: x
 class TestDependencyGraph(unittest.TestCase):
 
     def setUp(self):
-        ##########################################################
-        ##                SETUP TEST 
-        ##########################################################
         class MockParam(Node):
-            self.dependencies = ['a']
             def __init__(self, dependencies=['a'], operational=True):
                 self.dependencies = dependencies
                 self.operational = operational
@@ -24,8 +21,14 @@ class TestDependencyGraph(unittest.TestCase):
             def can_operate(self, avail):
                 return self.operational
             
-            def derive(self):
+            def derive(self, a=P('a')):
                 pass
+            
+            def get_derived(self, args):
+                pass
+            
+            def get_dependency_names(self):
+                return self.dependencies
             
         # nodes found on this aircraft's LFL
         self.lfl_params = [
@@ -39,11 +42,11 @@ class TestDependencyGraph(unittest.TestCase):
         # nodes found from all the derived params code (top level, not their dependencies)
         #NOTE: For picturing it, it should show ALL raw params required.
         self.derived_nodes = {
-            'P4' : type('P4', (Node,), dict(derive=f, dependencies=['Raw1', 'Raw2']))(), 
-            'P5' : type('P5', (Node,), dict(derive=f, dependencies=['Raw3', 'Raw4']))(), 
-            'P6' : type('P6', (Node,), dict(derive=f, dependencies=['Raw3']))(),
-            'P7' : type('P7', (Node,), dict(derive=f, dependencies=['P4', 'P5', 'P6']))(),
-            'P8' : type('P8', (Node,), dict(derive=f, dependencies=['Raw5']))(),
+            'P4' : MockParam(dependencies=['Raw1', 'Raw2']), 
+            'P5' : MockParam(dependencies=['Raw3', 'Raw4']),
+            'P6' : MockParam(dependencies=['Raw3']),
+            'P7' : MockParam(dependencies=['P4', 'P5', 'P6']),
+            'P8' : MockParam(dependencies=['Raw5']),
         }
         ##########################################################
     

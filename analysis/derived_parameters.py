@@ -43,11 +43,18 @@ class AccelerationVertical(DerivedParameterNode):
         self.array = resolved_in_pitch * np.cos(rol) - ay * np.sin(rol)
         
 
-class AltitudeAAL(DerivedParameterNode):
-    #name = 'Altitude AAL'
-    def derive(self, alt_std=P('Altitude STD'), alt_rad=P('Radio Altitude')):
-        return NotImplemented
+class AirspeedMinusVref(DerivedParameterNode):
+    
+    def derive(self, airspeed=P('Airspeed'), vref=P('Vref')):
+        vref_aligned = align(vref, airspeed)
+        self.array = airspeed.array - vref_aligned
 
+
+class AltitudeAAL(DerivedParameterNode):
+    name = 'Altitude AAL'
+    def derive(self, alt_std=P('Altitude STD'), alt_rad=P('Altitude Radio')):
+        return NotImplemented
+    
     
 class AltitudeRadio(DerivedParameterNode):
     # This function allows for the distance between the radio altimeter antenna
@@ -55,26 +62,18 @@ class AltitudeRadio(DerivedParameterNode):
 
     # The parameter raa_to_gear is measured in feet and is positive if the
     # antenna is forward of the mainwheels.
-    
-    def derive(self, alt_rad=P('Altitude Radio Sensor'),
-               pitch=P('Pitch'), raa_to_gear=None):
-        
-        if raa_to_gear:
-            # Align the pitch attitude samples to the Radio Altimeter samples,
-            # ready for combining them.
-            pch = np.radians(align(pitch, alt_rad))
-            # Make an array which is a copy of the sensor data
-            result = params['Altitude Radio Sensor'].array.copy()
-            # Now apply the offset if one has been provided
-            return result - np.sin(pch)*raa_to_gear
-        else:
-            return alt_rad # No difference except a change in name.
+    def derive(self, alt_rad=P('Altitude Radio Sensor'), pitch=P('Pitch'),
+               main_gear_to_alt_rad=None):#A('Main Gear To Altitude Radio')): TODO: Fix once A (aircraft) has been defined.
+        # Align the pitch attitude samples to the Radio Altimeter samples,
+        # ready for combining them.
+        pitch_aligned = np.radians(align(pitch, alt_rad))
+        # Now apply the offset if one has been provided
+        self.array = alt_rad.array - np.sin(pitch_aligned) * main_gear_to_rad_alt
 
         
 class AltitudeQNH(DerivedParameterNode):
     name = 'Altitude QNH'
-    dependencies = ['BAROMB', 'Altitude STD', 'Takeoff Altitude', 'Landing Altitude']
-    def derive(self, params):
+    def derive(self):
         return NotImplemented
 
 
@@ -84,17 +83,14 @@ class AltitudeTail(DerivedParameterNode):
     
     # The parameter gear_to_tail is measured in feet and is the distance from 
     # the main gear to the point on the tail most likely to scrape the runway.
-    
-    dependencies = ['Altitude Radio','Pitch']
     def derive(self, alt_rad = P('Altitude Radio'), 
-               pitch = P('Pitch'), gear_to_tail=None):
+               pitch = P('Pitch'),
+               dist_gear_to_tail=None):#A('Dist Gear To Tail')): # TODO: Is this name correct?
         # Align the pitch attitude samples to the Radio Altimeter samples,
         # ready for combining them.
-        pch = np.radians(align(pitch, alt_rad))
-        # Make an array which is a copy of the sensor data
-        result = alt_rad.array.copy()
+        pitch_aligned = np.radians(align(pitch, alt_rad))
         # Now apply the offset
-        self.array = result - np.sin(pch)*gear_to_tail
+        self.array = alt_rad.array - np.sin(pitch_aligned) * dist_gear_to_tail
         
 
 class DistanceToLanding(DerivedParameterNode):
@@ -158,9 +154,9 @@ class MACH(DerivedParameterNode):
         
 
 class RateOfClimb(DerivedParameterNode):
-    def derive(self, alt_std = P('Altitude STD'),
-               alt_rad = P('Altitude Radio')):
-        # Needs huge rewrite but this might work for starters. DJ
+    def derive(self, alt_std=P('Altitude STD'),):
+               ##alt_rad = P('Altitude Radio')):
+        #TODO: Needs huge rewrite but this might work for starters. DJ
         self.array = rate_of_change(alt_std, 1)
 
 class Relief(DerivedParameterNode):
@@ -208,12 +204,9 @@ class RateOfTurn(DerivedParameterNode):
     def derive(self, head = P('Head Continuous')):
         self.array = rate_of_change(head, 1)
 
+
 class Pitch(DerivedParameterNode):
-    dependencies = ['Pitch (1)', 'Pitch (2)']
-    def derive(self, capt = P('Pitch (1)'),
-               fo = P('Pitch (2)')):
-        self.frequency = capt.frequency * 2
-        self.offset = min(capt.offset, fo.offset)
-        self.array = interleave (capt,fo)
-        
-        
+    def derive(self, p1=P('Pitch (1)'), p2=P('Pitch (2)')):
+        self.hz = p1.hz * 2
+        self.offset = min(p1.offset, p2.offset)
+        self.array = interleave (p1, p2)

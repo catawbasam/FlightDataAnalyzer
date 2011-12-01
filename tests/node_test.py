@@ -9,9 +9,9 @@ from random import shuffle
 
 from hdfaccess.parameter import P, Parameter
 
-from analysis.node import (DerivedParameterNode, KeyPointValue, 
-                           KeyPointValueNode, KeyTimeInstance, KeyTimeInstanceNode,
-                           Node, NodeManager)
+from analysis.node import (
+    DerivedParameterNode, KeyPointValue, KeyPointValueNode, KeyTimeInstance,
+    KeyTimeInstanceNode, Node, NodeManager, powerset)
 
 
 class TestAbstractNode(unittest.TestCase):
@@ -136,13 +136,28 @@ class TestNodeManager(unittest.TestCase):
         self.assertTrue(mgr.operational('y', ['a']))
         self.assertFalse(mgr.operational('z', ['a', 'b']))
         
+        
+class TestPowerset(unittest.TestCase):
+    def test_powerset(self):
+        deps = ['aaa',  'bbb', 'ccc']
+        res = list(powerset(deps))
+        expected = [(),
+                    ('aaa',),
+                    ('bbb',), 
+                    ('ccc',), 
+                    ('aaa', 'bbb'),
+                    ('aaa', 'ccc'),
+                    ('bbb', 'ccc'),
+                    ('aaa', 'bbb', 'ccc')]
+        self.assertEqual(res, expected)
+
 
 class TestKeyPointValueNode(unittest.TestCase):
     
     def setUp(self):
-        self.params = {'a':Parameter('a',[], 2, 0.4)}
-        KPV = type('kpv', (KeyPointValueNode,), dict(derive=lambda x:x,
-                                                     dependencies=['a']))
+        class KPV(KeyPointValueNode):
+            def derive(self, a=P('a',[], 2, 0.4)):
+                pass
         self.knode = KPV(frequency=2, offset=0.4)
 
     def test_create_kpv(self):
