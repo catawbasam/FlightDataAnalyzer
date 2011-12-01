@@ -18,32 +18,28 @@ TODO:
 # KPV about the flight
 
 class TakeoffAirport(KeyPointValueNode):
-    dependencies = ['Lift Off']
-    def derive(self, params):
+    def derive(self, lift_off=P('Lift Off')):
         ##KeyPointValue(n, 'ICAO', 'Takeoff Airport')
         ##KeyPointValue(n, '09L', 'Takeoff Runway')
         return NotImplemented
     
 class ApproachAirport(KeyPointValueNode):
-    dependencies = ['Descent']
-    def derive(self, params):
+    def derive(self, descent=P('Descent')):
         return NotImplemented
     
 class LandingAirport(KeyPointValueNode):
-    dependencies = ['Touch Down']
-    def derive(self, params):
+    def derive(self, touch_down=P('Touch Down')):
         ##KeyPointValue(n, 'ICAO', 'Takeoff Airport')
         ##KeyPointValue(n, '09L', 'Takeoff Runway')
         return NotImplemented
     
 class TakeoffAltitude(KeyPointValueNode):
-    dependencies = ['Lift Off', TakeoffAirport]
-    def derive(self, params):
+    def derive(self, lift_off=P('Lift Off'), takeoff_airport=TakeoffAirport):
         return NotImplemented
     
 class LandingAltitude(KeyPointValueNode):
-    dependencies = ['Touch Down', LandingAirport]
-    def derive(self, params):
+    def derive(self, touch_down=P('Touch Down'),
+               landing_airport=LandingAirport):
         return NotImplemented
 
 
@@ -54,174 +50,151 @@ class LandingAltitude(KeyPointValueNode):
 
 
 class IndicatedAirspeedAtLiftOff(KeyPointValueNode):
-    dependencies = ['Lift Off', 'Indicated Airspeed']
-    def derive(self, params):
+    def derive(self, lift_off=P('Lift Off'),
+               indicated_airspeed=P('Indicated Airspeed')):
         return NotImplemented
     
 class PitchAtLiftOff(KeyPointValueNode):
-    dependencies = ['Lift Off', 'Pitch']
-    def derive(self, params):
+    def derive(self, lift_off=P('Lift Off'), pitch=P('Pitch')):
         return NotImplemented
    
    
 class FlapAtLiftOff(KeyPointValueNode):
-    dependencies = ['Lift Off', 'Flap']
-    def derive(self, params):
+    def derive(self, lift_off=P('Lift Off'), flap=P('Flap')):
         return NotImplemented
 
 class IndicatedAirspeedAt35Feet(KeyPointValueNode):
-    """ Based on Radio Altitude
+    """ Based on Altitude Radio
     """
-    dependencies = ['Indicated Airspeed', 'Radio Altitude']
-    def derive(self, params):
+    def derive(self, indicated_airspeed=P('Indicated Airspeed'),
+               alt_rad=P('Altitude Radio')):
         return NotImplemented
     
 class NormalgLiftOffTo35FeetMax(KeyPointValueNode):
-    dependencies = ['Normal g', 'Radio Altitude']
-    def derive(self, params):
+    def derive(self, norm_g=P('Normal g'), alt_rad=P('Altitude Radio')):
         return NotImplemented
     
 class NormalgMaxDeviation(KeyPointValueNode):
     """ For discussion - why have Max and Min Normal g when it's just the max 
     distance from 0.98 that's interesting?
     """
-    dependencies = ['Normal g', 'Airborne']
-    def derive(self, params):
+    def derive(self, norm_g=P('Normal g'), airborne=P('Airborne')):
         STANDARD_GRAVITY = 9.80665
-        normg_in_air = params['Normal g'].data[params['Airborne']]
-        gdiff = np.ma.absolute(normg_in_air - STANDARD_GRAVITY)
-        max_index = gdiff.argmax()
-        return self.create_kpv(max_index, gdiff[max_index])    
+        for airborne_slice in airborne:
+            normg_in_air = norm_g.array.data[airborne_slice]
+            gdiff = np.ma.absolute(normg_in_air - STANDARD_GRAVITY)
+            max_index = gdiff.argmax()
+            self.create_kpv(max_index, gdiff[max_index])    
     
 class Pitch35To400FeetMax(KeyPointValueNode):
-    dependencies = ['Pitch', 'Radio Altitude']
-    def derive(self, params):
+    def derive(self, pitch=P('Pitch'), alt_rad=P('Altitude Radio')):
         return NotImplemented
     
 class Pitch1000To100FeetMax(KeyPointValueNode):
-    dependencies = ['Pitch', 'Altitude AAL']
-    def derive(self, params):
+    def derive(self, pitch=P('Pitch'), alt_aal=P('Altitude AAL')):
         return NotImplemented
     
 class Pitch5FeetToTouchDownMax(KeyPointValueNode):
-    dependencies = ['Pitch', 'Radio Altitude', 'Touch Down']
-    def derive(self, params):
+    def derive(self, pitch=P('Pitch'), alt_rad=P('Altitude Radio'),
+               touch_down=P('Touch Down')):
         return NotImplemented
     
     
 class PitchCycles(KeyPointValueNode):
     """ Count
     """
-    dependencies = ['Pitch']
-    def derive(self, params):
+    def derive(self, pitch=P('Pitch')):
         return NotImplemented
     
 class Pitch35To400FeetMin(KeyPointValueNode):
-    dependencies = ['Pitch', 'Radio Altitude']
-    def derive(self, params):
+    def derive(self, pitch=P('Pitch'), alt_rad=P('Altitude Radio')):
         return NotImplemented
     
 class Pitch1000To100FeetMin(KeyPointValueNode):
-    dependencies = ['Pitch', 'Altitude AAL']
-    def derive(self, params):
+    def derive(self, pitch=P('Pitch'), alt_aal=P('Altitude AAL')):
         return NotImplemented
     
 class Pitch20FeetToTouchDownMin(KeyPointValueNode):
     """ Q: This is 20 feet, the max uses 5 feet
     """
-    dependencies = ['Pitch', 'Radio Altitude', 'Touch Down']
-    def derive(self, params):
+    def derive(self, pitch=P('Pitch'), alt_rad=P('Altitude Radio'),
+               touch_down=P('Touch Down')):
         return NotImplemented
     
 class PitchRateLiftOffTo35FeetMax(KeyPointValueNode):
-    dependencies = ['Pitch Rate', 'Lift Off', 'Radio Altitude']
-    def derive(self, params):
+    def derive(self, pitch_rate=P('Pitch Rate'), lift_off=P('Lift Off'),
+               alt_rad=P('Altitude Radio')):
         return NotImplemented
     
 class PitchRate35To1500FeetMax(KeyPointValueNode):
-    dependencies = ['Pitch Rate', 'Altitude AAL']
-    def derive(self, params):
+    def derive(self, pitch_rate=P('Pitch Rate'), alt_aal=P('Altitude AAL')):
         return NotImplemented
     
     
 class RollBelow20FeetMax(KeyPointValueNode): # absolute max?
-    dependencies = ['Roll', 'Radio Altitude']
-    def derive(self, params):
+    def derive(self, roll=P('Roll'), alt_rad=P('Altitude Radio')):
         return NotImplemented
    
 class RollBetween100And500FeetMax(KeyPointValueNode): # absolute max?
-    dependencies = ['Roll', 'Altitude AAL']
-    def derive(self, params):
+    def derive(self, roll=P('Roll'), alt_aal=P('Altitude AAL')):
         return NotImplemented
     
 class RollBetween500And1500FeetMax(KeyPointValueNode):  # absolue max?
-    dependencies = ['Roll', 'Altitude AAL']
-    def derive(self, params):
+    def derive(self, roll=P('Roll'), alt_aal=P('Altitude AAL')):
         return NotImplemented   
     
 class RollAbove1500FeetMax(KeyPointValueNode):
-    dependencies = ['Roll', 'Altitude AAL']
-    def derive(self, params):
+    def derive(self, roll=P('Roll'), alt_aal=P('Altitude AAL')):
         return NotImplemented
     
 class RollCycles1000FeetToTouchDown(KeyPointValueNode):
-    dependencies = ['Roll', 'Altitude AAL', 'Touch Down']
-    def derive(self, params):
+    def derive(self, roll=P('Roll'), alt_aal=P('Altitude AAL'),
+               touch_down=P('Touch Down')):
         return NotImplemented
     
-class MaxAltitudeWithFlaps(KeyPointValueNode):
+class AltitudeWithFlapsMax(KeyPointValueNode):
     """ It's max Altitude not Max Flaps
     """
-    dependencies = ['Flap', 'Altitude Std']
-    def derive(self, params):
+    def derive(self, flap=P('Flap'), alt_std=P('Altitude Std')):
         return NotImplemented
     
 class AltitudeStdMax(KeyPointValueNode):
-    dependencies = ['Atitude Std']
-    def derive(self, params):
-        alt = params['Altitude Std']
-        max_index = alt.argmax()
-        return self.create_kpv(max_index, alt[max_index])
+    def derive(self, alt_std=P('Altitude Std')):
+        max_index = alt_std.array.argmax()
+        self.create_kpv(max_index, alt_std[max_index])
         
 class IndicatedAirspeedMax(KeyPointValueNode):
-    dependencies = ['Indicated Airspeed']
-    
-    def derive(self, params):
-        airspeed = params['Indicated Airspeed']
-        # Use Numpy to locate the maximum airspeed, then go back and get the value.
-        index = np.ma.argmax(airspeed)
-        airspeed_max = airspeed[index]
-        return self.create_kpv(index, airspeed_max)
+    def derive(self, airspeed=P('Indicated Airspeed')):
+        # Use Numpy to locate the maximum airspeed, then get the value.
+        index = airspeed.array.argmax()
+        airspeed_max = airspeed.array[index]
+        self.create_kpv(index, airspeed_max)
     
 class MACHMax(KeyPointValueNode):
     name = 'MACH Max'
-    dependencies = ['MACH']
-    def derive(self, params):
+    def derive(self, mach=P('MACH')):
         return NotImplemented
     
 
 class IndicatedAirspeedAtTouchDown(KeyPointValueNode):
-    dependencies = ['IndicatedAirspeed', 'Touch Down']
-    def derive(self, params):
+    def derive(self, airspeed=P('Indicated Airspeed'),
+               touch_down=P('Touch Down')):
         return NotImplemented
     
 class GroundSpeedOnGroundMax(KeyPointValueNode):
-    dependencies = ['Ground Speed', 'On Ground']
-    def derive(self, params):
+    def derive(self, ground_speed=P('Ground Speed'), on_ground=P('On Ground')):
         return NotImplemented
 
 class FlapAtTouchDown(KeyPointValueNode):
-    dependencies = ['Flap', 'Touch Down']
-    def derive(self, params):
+    def derive(self, flap=P('Flap'), touch_down=P('Touch Down')):
         return NotImplemented
     
 class GrossWeightAtTouchDown(KeyPointValueNode):
-    dependencies = ['Gross Weight', 'Touch Down']
-    def derive(self, params):
+    def derive(self, gross_weight=P('Gross Weight'), 
+               touch_down=P('Touch Down')):
         return NotImplemented
     
 class EGTMax(KeyPointValueNode): # which engine? or all engines? # or all and each!?
-    dependencies = ['Engine (1) EGT', 'Engine (2) EGT', 'Engine (3) EGT', 'Engine (4) EGT']
     ##returns = "EGT Max"  # add which engine?
     NAME_FORMAT = 'EGT Max %(engine)s'
     RETURN_OPTIONS = {'engine': dependencies + ['Engine (*) EGT']}
@@ -233,35 +206,29 @@ class EGTMax(KeyPointValueNode): # which engine? or all engines? # or all and ea
         else:
             return False  # we have no EGT recorded on any engines
         
-    def derive(self, params):
-        ##egt1 = params['Engine (1) EGT']
-        ##egt2 = params['Engine (2) EGT'] 
-        ##egt3 = params['Engine (3) EGT'] 
-        ##egt4 = params['Engine (4) EGT']
-        
+    def derive(self, egt1=P('Engine (1) EGT'), egt2=P('Engine (2) EGT'),
+               egt3=P('Engine (3) EGT'), egt4=P('Engine (4) EGT')):
         kmax = vmax = imax = None
-        for k, p in params.iteritems():
+        for p in (egt1, egt2, egt3, egt4):
             _imax = p.array.argmax()
             _vmax = p.array[_imax]
             if _vmax > vmax:
                 imax = _imax # index of max
                 vmax = _vmax # max value
-                kmax = k # param name of max eng
+                kmax = p.name # param name of max eng
         self.create_kpv(imax, vmax, engine=kmax) # include engine using kmax?
     
     
 class MagneticHeadingAtLiftOff(KeyPointValue):
     """ Shouldn't this be difference between aircraft heading and runway heading???
     """
-    dependencies = ['Magnetic Heading', 'Lift Off']
-    def derive(self, params):
+    def derive(self, heading=P('Magnetic Heading'), lift_off=P('Lift Off')):
         return NotImplemented
     
 class MagneticHeadingAtTouchDown(KeyPointValue):
     """ Shouldn't this be difference between aircraft heading and runway heading???
     """
-    dependencies = ['Magnetic Heading', 'Touch Down']
-    def derive(self, params):
+    def derive(self, heading=P('Magnetic Heading'), touch_down=P('Touch Down')):
         return NotImplemented
     
 # TODO: Trouble with naming these
@@ -280,69 +247,58 @@ class MagneticHeadingAtTouchDown(KeyPointValue):
 # KPV from DJ Code
 
 class AccelerationNormalMax(KeyPointValueNode):
-    dependencies = ['Normal Acceleration']
-    def derive(self, params):
+    def derive(self, normal_acceleration=P('Normal Acceleration'),
+               airspeed=P('Airspeed')):
         # Use Numpy to locate the maximum g, then go back and get the value.
-        n_acceleration_normal_max = np.ma.argmax(fp.acceleration_normal.data[block])
-        acceleration_normal_max = fp.acceleration_normal.data[block][n_acceleration_normal_max]
-        # Create a key point value for this.
-        kpv['AccelerationNormalMax']=[(block.start+n_acceleration_normal_max,acceleration_normal_max,fp.airspeed.param_name)]
+        n_acceleration_normal_max = np.ma.argmax(normal_acceleration.array.data[block])
+        acceleration_normal_max = normal_acceleration.array.data[block][n_acceleration_normal_max]
+        # Create a key point value for this. TODO: Change to self.create_kpv()?
+        self.create_kpv(block.start+n_acceleration_normal_max,
+                        acceleration_normal_max)
     
     
 class RateOfDescentHigh(KeyPointValueNode):
-    dependencies = ['Rate Of Climb', 'Descending']
     
-    def derive(self, params):
-        rate_of_climb = params['Rate Of Climb']
+    def derive(self, rate_of_climb=P('Rate Of Climb'),
+               descending=P('Descending')):
         #TODO: Merge with below RateOfDescentMax accepting a flightphase arg
-        ##kpv_list = []
-        for descent_period in np.ma.flatnotmasked_contiguous(params['Descending']):
-            duration = descent_period.stop - descent_period.start
+        for descent_slice in descending:
+            duration = descent_slice.stop - descent_slice.start
             if duration > settings.DESCENT_MIN_DURATION:
-                when = np.ma.argmax(rate_of_climb[descent_period])
-                howfast = rate_of_climb[descent_period][when]
-                kpv = self.create_kpv(descent_period.start+when, howfast)
-                ##kpv_list.append(kpv)
-        ##return kpv_list
+                when = np.ma.argmax(rate_of_climb.array[descent_slice])
+                howfast = rate_of_climb.array[descent_slice][when]
+                self.create_kpv(descent_slice.start+when, howfast)
                 
                 
 class RateOfDescentMax(KeyPointValueNode):
-    dependencies = ['Rate Of Climb', 'Descent']
     # Minimum period of a descent for testing against thresholds (reduces number of KPVs computed in turbulence)
     DESCENT_MIN_DURATION = 10
     
-    def derive(self, ph, params):
-        rate_of_climb = params['Rate Of Climb']
-        kpv_list = []
-        for descent_period in np.ma.flatnotmasked_contiguous(params['Descent']):
-            duration = descent_period.stop - descent_period.start
+    def derive(self, rate_of_climb=P('Rate Of Climb'), descent=P('Descent')):
+        for descent_slice in descent:
+            duration = descent_slice.stop - descent_slice.start
             if duration > self.DESCENT_MIN_DURATION:
-                when = np.ma.argmax(rate_of_climb[descent_period])
-                howfast = rate_of_climb[descent_period][when]
-                kpv = self.create_kpv(descent_period.start+when, howfast)
-                kpv_list.append(kpv)
-        return kpv_list
+                when = np.ma.argmax(rate_of_climb.array[descent_slice])
+                howfast = rate_of_climb.array[descent_slice][when]
+                self.create_kpv(descent_slice.start+when, howfast)
              
                 
 
     
     
 class MaxIndicatedAirspeedLevelFlight(KeyPointValueNode):
-    dependencies = ['Indicated Airspeed', 'Level Flight']
-    def derive(self, airspeed, level_flight):
-        airspeed = params['Indicated Airspeed']
-        kpv_list = []
-        for level_slice in np.ma.flatnotmasked_contiguous(params['Level Flight']):
+    def derive(self, airspeed=P('Indicated Airspeed'),
+               level_flight=P('Level Flight')):
+        for level_slice in level_flight:
             duration = level_slice.stop - level_slice.start
             if duration > settings.LEVEL_FLIGHT_MIN_DURATION:
                 # stable for long enough
-                when = np.ma.argmax(airspeed[level_slice])
-                howfast = airspeed[level_slice][when]
-                kpv = self.create_kpv(level_slice.start+when, howfast)
-                kpv_list.apend(kpv)
+                when = np.ma.argmax(airspeed.array[level_slice])
+                howfast = airspeed.array[level_slice][when]
+                self.create_kpv(level_slice.start+when, howfast)
             else:
-                logging.debug('Short duration %d of level flight ignored', duration)
-        return kpv_list
+                logging.debug('Short duration %d of level flight ignored',
+                              duration)
             
     
     

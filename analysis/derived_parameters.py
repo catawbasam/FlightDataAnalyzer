@@ -63,16 +63,13 @@ class AltitudeRadio(DerivedParameterNode):
     # The parameter raa_to_gear is measured in feet and is positive if the
     # antenna is forward of the mainwheels.
     
-    def derive(self, alt_rad=P('Altitude Radio Sensor'), pitch=P('Pitch')):
-        main_gear_to_rad_alt = self.aircraft.model.geometry.main_gear_to_rad_alt
-        if main_gear_to_rad_alt:
-            # Align the pitch attitude samples to the Radio Altimeter samples,
-            # ready for combining them.
-            pitch_aligned = np.radians(align(pitch, alt_rad))
-            # Now apply the offset if one has been provided
-            self.array = alt_rad.array - np.sin(pitch_aligned) * main_gear_to_rad_alt
-        else:
-            self.array = alt_rad # No difference except a change in name.
+    def derive(self, alt_rad=P('Altitude Radio Sensor'), pitch=P('Pitch'),
+               main_gear_to_alt_rad=A('Main Gear To Altitude Radio')):
+        # Align the pitch attitude samples to the Radio Altimeter samples,
+        # ready for combining them.
+        pitch_aligned = np.radians(align(pitch, alt_rad))
+        # Now apply the offset if one has been provided
+        self.array = alt_rad.array - np.sin(pitch_aligned) * main_gear_to_rad_alt
 
         
 class AltitudeQNH(DerivedParameterNode):
@@ -88,12 +85,12 @@ class AltitudeTail(DerivedParameterNode):
     # The parameter gear_to_tail is measured in feet and is the distance from 
     # the main gear to the point on the tail most likely to scrape the runway.
     def derive(self, alt_rad = P('Altitude Radio'), 
-               pitch = P('Pitch')):
+               pitch = P('Pitch'),
+               dist_gear_to_tail=A('Dist Gear To Tail')): # TODO: Is this name correct?
         # Align the pitch attitude samples to the Radio Altimeter samples,
         # ready for combining them.
         pitch_aligned = np.radians(align(pitch, alt_rad))
         # Now apply the offset
-        dist_gear_to_tail = self.aircraft.model.dist_gear_to_tail
         self.array = alt_rad.array - np.sin(pitch_aligned) * dist_gear_to_tail
         
 
