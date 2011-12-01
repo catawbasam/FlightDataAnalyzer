@@ -52,7 +52,6 @@ class TestSplitSegments(unittest.TestCase):
         
         #TODO: test mixed = [4094, 4095, 4096, 1, 2, 3, 3, 3, 400] #??
         
-        
     def test_split_by_flight_data(self):
         #Two offset: 2  3   4   5  6  7   8   9 10 11 12  13  14  15 16
         airspeed = [10,10,200,200,10,10,200,200,10,10,10,200,200,200,10]

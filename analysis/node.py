@@ -7,10 +7,9 @@ from abc import ABCMeta, abstractmethod
 from collections import namedtuple
 from itertools import product
 
-from hdfaccess.parameter import Parameter
+from hdfaccess.parameter import Parameter, P
 
 from analysis.recordtype import recordtype
-from analysis.library import powerset
 
 # Define named tuples for KPV and KTI and FlightPhase
 KeyPointValue = namedtuple('KeyPointValue', 'index value name')
@@ -61,6 +60,16 @@ get_verbose_name = lambda class_name: re.sub('(((?<=[a-z])[A-Z])|([A-Z](?![A-Z]|
 ##PHASE_DESCENT = slice(1)
 ##PHASE_TAXI_IN = slice(1)
 
+def powerset(iterable):
+    """
+    Ref: http://docs.python.org/library/itertools.html#recipes
+    powerset([1,2,3]) --> () (1,) (2,) (3,) (1,2) (1,3) (2,3) (1,2,3)
+    """
+    from itertools import chain, combinations
+    s = list(iterable)
+    return chain.from_iterable(combinations(s, r) for r in range(len(s)+1))
+
+
 def get_param_kwarg_names(derive_method):
     args, varargs, varkw, defaults = inspect.getargspec(derive_method)
     if args[:-len(defaults)] != ['self'] or varargs:
@@ -69,6 +78,7 @@ def get_param_kwarg_names(derive_method):
         raise NotImplementedError("One day, could insert all available params as kwargs - but cannot guarentee requirements will work")
     #return dict(zip(defaults, args[-len(defaults):]))
     return defaults
+
 
 
 #-------------------------------------------------------------------------------

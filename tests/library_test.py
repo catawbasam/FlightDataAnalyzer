@@ -14,7 +14,7 @@ from datetime import datetime
 from analysis.library import (align, calculate_timebase, create_phase_inside,
                               create_phase_outside, duration, 
                               first_order_lag, first_order_washout,
-                              hysteresis, merge_alternate_sensors, powerset, 
+                              hysteresis, merge_alternate_sensors, 
                               rate_of_change, straighten_headings,
                               time_at_value, value_at_time)
 
@@ -511,19 +511,6 @@ class TestPhaseMasking(unittest.TestCase):
         self.assertRaises(ValueError, create_phase_inside, array, 1,0, 2, -1)
         self.assertRaises(ValueError, create_phase_inside, array, 1,0, 2, 11)
     
-class TestPowerset(unittest.TestCase):
-    def test_powerset(self):
-        deps = ['aaa',  'bbb', 'ccc']
-        res = list(powerset(deps))
-        expected = [(),
-                    ('aaa',),
-                    ('bbb',), 
-                    ('ccc',), 
-                    ('aaa', 'bbb'),
-                    ('aaa', 'ccc'),
-                    ('bbb', 'ccc'),
-                    ('aaa', 'bbb', 'ccc')]
-        self.assertEqual(res, expected)
 
 class TestRateOfChange(unittest.TestCase):
     

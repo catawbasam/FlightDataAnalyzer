@@ -136,6 +136,21 @@ class TestNodeManager(unittest.TestCase):
         self.assertTrue(mgr.operational('y', ['a']))
         self.assertFalse(mgr.operational('z', ['a', 'b']))
         
+        
+class TestPowerset(unittest.TestCase):
+    def test_powerset(self):
+        deps = ['aaa',  'bbb', 'ccc']
+        res = list(powerset(deps))
+        expected = [(),
+                    ('aaa',),
+                    ('bbb',), 
+                    ('ccc',), 
+                    ('aaa', 'bbb'),
+                    ('aaa', 'ccc'),
+                    ('bbb', 'ccc'),
+                    ('aaa', 'bbb', 'ccc')]
+        self.assertEqual(res, expected)
+
 
 class TestKeyPointValueNode(unittest.TestCase):
     

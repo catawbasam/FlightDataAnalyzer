@@ -2,7 +2,7 @@ import sys
 
 from utilities.dict_helpers import dict_filter  #TODO: Mark utiltities as a dependency
 
-from hdf_access.access import hdf_file
+from hdfaccess.file import hdf_file
 
 from analysis import settings
 from analysis.dependency_graph import dependency_order

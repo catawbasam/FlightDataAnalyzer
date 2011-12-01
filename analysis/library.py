@@ -505,15 +505,6 @@ def merge_alternate_sensors (array):
     result[-1] = (array[-2] + array[-1]) / 2.0
     return result
 
-def powerset(iterable):
-    """
-    Ref: http://docs.python.org/library/itertools.html#recipes
-    powerset([1,2,3]) --> () (1,) (2,) (3,) (1,2) (1,3) (2,3) (1,2,3)
-    """
-    from itertools import chain, combinations
-    s = list(iterable)
-    return chain.from_iterable(combinations(s, r) for r in range(len(s)+1))
-
 def rate_of_change(diff_param, half_width):
     '''
     @param to_diff: Parameter object with .array attr (masked array)

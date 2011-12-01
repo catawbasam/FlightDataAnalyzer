@@ -24,10 +24,20 @@ class TestAltitudeRadio(unittest.TestCase):
         self.assertEqual(opts, expected)
         
     def test_altitude_radio(self):
-        ralt = AltitudeRadio()
-        ralt.derive(P('Pitch',(np.ma.array(range(10))-2)*5, 1,),
-                    P('Altitude Radio Sensor',np.ma.ones(10)*10, 1,),
-                    10)
+        params = {
+            'Pitch': Parameter('Pitch', (np.ma.array(range(10))-2)*5, 1,0.0),
+            'Altitude Radio Sensor': Parameter('Altitude Radio Sensor', 
+                                               np.ma.ones(10)*10, 1,0.0)
+        }
+        ralt = AltitudeRadio(params)
+        ralt.derive(params, 10.0)
+        result = params['Altitude Radio'].array
+
+        #ralt = AltitudeRadio()
+        #ralt.derive(P('Pitch',(np.ma.array(range(10))-2)*5, 1,),
+        #            P('Altitude Radio Sensor',np.ma.ones(10)*10, 1,),
+        #            10)
+
         answer = np.ma.array(data=[11.7364817767,
                                    10.8715574275,
                                    10.0,
