@@ -7,9 +7,8 @@ from abc import ABCMeta, abstractmethod
 from collections import namedtuple
 from itertools import product
 
-from hdfaccess.parameter import Parameter, P
-
 from analysis.recordtype import recordtype
+from hdfaccess.parameter import Parameter, P
 
 # Define named tuples for KPV and KTI and FlightPhase
 KeyPointValue = namedtuple('KeyPointValue', 'index value name')
@@ -45,7 +44,7 @@ def get_param_kwarg_names(method):
     :rtype: list
     """
     args, varargs, varkw, defaults = inspect.getargspec(method)
-    if args[:-len(defaults)] != ['self'] or varargs:
+    if not defaults or args[:-len(defaults)] != ['self'] or varargs:
         raise ValueError("Only kwargs accepted, cannot accept args: %s %s" % (
             args[1:], varargs))
     if varkw:
