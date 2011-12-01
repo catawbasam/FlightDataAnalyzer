@@ -52,7 +52,7 @@ class AirspeedMinusVref(DerivedParameterNode):
 
 class AltitudeAAL(DerivedParameterNode):
     name = 'Altitude AAL'
-    def derive(self, alt_std=P('Altitude STD'), alt_rad=P('Radio Altitude')):
+    def derive(self, alt_std=P('Altitude STD'), alt_rad=P('Altitude Radio')):
         return NotImplemented
 
     
@@ -63,19 +63,16 @@ class AltitudeRadio(DerivedParameterNode):
     # The parameter raa_to_gear is measured in feet and is positive if the
     # antenna is forward of the mainwheels.
     
-    def derive(self, alt_rad=P('Altitude Radio Sensor'),
-               pitch=P('Pitch'), raa_to_gear=None):
-        
-        if raa_to_gear:
+    def derive(self, alt_rad=P('Altitude Radio Sensor'), pitch=P('Pitch')):
+        main_gear_to_rad_alt = self.aircraft.model.geometry.main_gear_to_rad_alt
+        if main_gear_to_rad_alt:
             # Align the pitch attitude samples to the Radio Altimeter samples,
             # ready for combining them.
-            pch = np.radians(align(pitch, alt_rad))
-            # Make an array which is a copy of the sensor data
-            result = params['Altitude Radio Sensor'].array.copy()
+            pitch_aligned = np.radians(align(pitch, alt_rad))
             # Now apply the offset if one has been provided
-            return result - np.sin(pch)*raa_to_gear
+            self.array = alt_rad.array - np.sin(pitch_aligned) * main_gear_to_rad_alt
         else:
-            return alt_rad # No difference except a change in name.
+            self.array = alt_rad # No difference except a change in name.
 
         
 class AltitudeQNH(DerivedParameterNode):
@@ -94,11 +91,10 @@ class AltitudeTail(DerivedParameterNode):
                pitch = P('Pitch')):
         # Align the pitch attitude samples to the Radio Altimeter samples,
         # ready for combining them.
-        pch = np.radians(align(pitch, alt_rad))
-        # Make an array which is a copy of the sensor data
-        result = alt_rad.array.copy()
+        pitch_aligned = np.radians(align(pitch, alt_rad))
         # Now apply the offset
-        self.array = result - np.sin(pch)*self.aircraft.model.dist_gear_to_tail
+        dist_gear_to_tail = self.aircraft.model.dist_gear_to_tail
+        self.array = alt_rad.array - np.sin(pitch_aligned) * dist_gear_to_tail
         
 
 class DistanceToLanding(DerivedParameterNode):
@@ -162,7 +158,7 @@ class MACH(DerivedParameterNode):
         
 
 class RateOfClimb(DerivedParameterNode):
-    def derive(self, alt_std = P('Altitude STD'),):
+    def derive(self, alt_std=P('Altitude STD'),):
                ##alt_rad = P('Altitude Radio')):
         #TODO: Needs huge rewrite but this might work for starters. DJ
         self.array = rate_of_change(alt_std, 1)
@@ -218,35 +214,3 @@ class Pitch(DerivedParameterNode):
         self.hz = p1.hz * 2
         self.offset = min(p1.offset, p2.offset)
         self.array = interleave (p1, p2)
-
-                
-class AltitudeRadio(DerivedParameterNode):
-    # This function allows for the distance between the radio altimeter antenna
-    # and the main wheels of the undercarriage.
-
-    # The parameter raa_to_gear is measured in feet and is positive if the
-    # antenna is forward of the mainwheels.
-    
-    dependencies = ['Altitude Radio Sensor','Pitch']
-    def derive(self, params, raa_to_gear):
-        # Align the pitch attitude samples to the Radio Altimeter samples,
-        # ready for combining them.
-        pch = np.radians(align(params['Pitch'], params['Altitude Radio Sensor']))
-        # Now apply the offset
-        self.array = params['Altitude Radio Sensor'].array - np.sin(pch)*raa_to_gear
-        
-        
-class AltitudeTail(DerivedParameterNode):
-    # This function allows for the distance between the radio altimeter antenna
-    # and the point of the airframe closest to tailscrape.
-    
-    # The parameter gear_to_tail is measured in feet and is the distance from 
-    # the main gear to the point on the tail most likely to scrape the runway.
-    
-    dependencies = ['Altitude Radio','Pitch']
-    def derive(self, params, gear_to_tail):
-        # Align the pitch attitude samples to the Radio Altimeter samples,
-        # ready for combining them.
-        pch = np.radians(align(params['Pitch'], params['Altitude Radio']))
-        # Now apply the offset
-        self.array = params['Altitude Radio'].array - np.sin(pch)*gear_to_tail
