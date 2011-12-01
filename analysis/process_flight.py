@@ -117,7 +117,26 @@ def derive_parameters(hdf, node_mgr, process_order):
     return kti_list, kpv_list, phase_list
 
 
-def process_flight(hdf_path, aircraft, draw=False):
+def process_flight(hdf_path, aircraft, achieved_flight_record=None, draw=False):
+    """
+    aircraft API:
+    {
+        'Tail Number':  # Aircraft Registration
+        'Identifier':  # Aircraft Ident
+        'Manufacturer': 
+        'Manufacturer  aircraft.manufacturer_serial_number, #MSN
+        'Model': 
+        'Frame': 
+        'Main Gear To Altitude Radio': ,
+        'Wing Span': 
+    }
+    :param hdf_path: Path to HDF File
+    :type hdf_pat: String
+    
+    :param aircraft: Aircraft specific attributes
+    :type aircraft: dict
+    
+    """
     # open HDF for reading
     with hdf_file(hdf_path) as hdf:
         # get list of KPV and standard parameters to be calculated
@@ -134,7 +153,7 @@ def process_flight(hdf_path, aircraft, draw=False):
         kti_list, kpv_list, phase_list = derive_parameters(hdf, node_mgr, process_order)
 
         #Q: Confirm aircraft tail here?
-        ##validate_aircraft(aircraft, hdf['aircraft_ident'])
+        ##validate_aircraft(aircraft['Identifier'], hdf['aircraft_ident'])
         
         # establish timebase for start of data
         #Q: Move to a Key Time Instance so that dependencies can be met appropriately?

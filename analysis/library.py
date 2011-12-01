@@ -105,6 +105,10 @@ def align(slave, master, interval='Subframe'):
     # Check the interval is one of the two forms we recognise
     assert interval in ['Subframe', 'Frame']
     
+    slave_array = slave.array # Optimised access to attribute.
+    if len(slave_array) == 0:
+        return slave_array # Otherwise would raise in loop.
+    
     # Here we create a masked array to hold the returned values that will have 
     # the same sample rate and timing offset as the master
     slave_aligned = np.ma.empty_like(master.array)
@@ -129,7 +133,7 @@ def align(slave, master, interval='Subframe'):
         ws = int(ws * 4)
     assert wm in [1,2,4,8,16,32,64]
     assert ws in [1,2,4,8,16,32,64]
-    assert len(master.array.data) * ws == len(slave.array.data) * wm
+    assert len(master.array.data) * ws == len(slave_array.data) * wm
            
     # Compute the sample rate ratio (in range 10:1 to 1:10 for sample rates up to 10Hz)
     r = wm/float(ws)
@@ -145,21 +149,21 @@ def align(slave, master, interval='Subframe'):
         a=1-b
 
         if h<0:
-            slave_aligned[i+wm::wm]=a*slave.array[h+ws:-ws:ws]+b*slave.array[h1+ws::ws]
+            slave_aligned[i+wm::wm]=a*slave_array[h+ws:-ws:ws]+b*slave_array[h1+ws::ws]
             # We can't interpolate the inital values as we are outside the 
             # range of the slave parameters. Take the first value and extend to 
             # the end of the data.
-            slave_aligned[i] = slave.array[0]
+            slave_aligned[i] = slave_array[0]
         elif h1>=ws:
-            slave_aligned[i:-wm:wm]=a*slave.array[h:-ws:ws]+b*slave.array[h1::ws]
+            slave_aligned[i:-wm:wm]=a*slave_array[h:-ws:ws]+b*slave_array[h1::ws]
             # At the other end, we run out of slave parameter values so need to
             # extend to the end of the array.
-            slave_aligned[i-wm] = slave.array[-1]
+            slave_aligned[i-wm] = slave_array[-1]
         else:
             # Sheer bliss. We can compute slave_aligned across the whole
             # range of the data without having to take special care at the
             # ends of the array.
-            slave_aligned[i::wm]=a*slave.array[h::ws]+b*slave.array[h1::ws]
+            slave_aligned[i::wm]=a*slave_array[h::ws]+b*slave_array[h1::ws]
 
     return slave_aligned
 

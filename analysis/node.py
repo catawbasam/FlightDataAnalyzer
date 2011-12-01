@@ -335,10 +335,10 @@ class KeyPointValueNode(Node):
         Formats FORMAT_NAME with interpolation values and returns a KPV object
         with index and value.
         
-        Notes:
-        Raises KeyError if required interpolation/replace value not provided.
-        Raises TypeError if interpolation value is of wrong type.
-        Interpolation values not in FORMAT_NAME are ignored.
+        Interpolation values not in FORMAT_NAME are ignored.        
+        
+        :raises KeyError: if required interpolation/replace value not provided.
+        :raises TypeError: if interpolation value is of wrong type.
         """
         rvals = replace_values.copy()  # avoid re-using static type
         rvals.update(kwargs)
