@@ -14,12 +14,12 @@ from datetime import datetime
 from analysis.library import (align, calculate_timebase, create_phase_inside,
                               create_phase_outside, duration, 
                               first_order_lag, first_order_washout,
-                              hysteresis, merge_alternate_sensors, powerset, 
+                              hysteresis, interleave, merge_alternate_sensors, 
+                              powerset, 
                               rate_of_change, straighten_headings,
                               time_at_value, value_at_time)
 
 from analysis.node import P
-
 
 class TestAlign(unittest.TestCase):
     def test_align_basic(self):
@@ -436,6 +436,30 @@ class TestHysteresis(unittest.TestCase):
         result = hysteresis(data,1)
         np.testing.assert_array_equal(result.data,[0,0.5,1.5,1.5,0.5,-0.5,4.5,5.5,6.5,0.5])
         
+
+class TestInterleave(unittest.TestCase):
+    def test_interleave(self):
+        param1 = P('A1',np.ma.array(range(4),dtype=float),1,0.2)
+        param2 = P('A2',np.ma.array(range(4)+10,dtype=float),1,0.7)
+        result = interleave(param1, param2)
+        np.testing.assert_array_equal(result.data,[0,10,1,11,2,12,3,13])
+        np.testing.assert_array_equal(result.mask, False)
+
+    def test_merge_alternage_sensors_mask(self):
+        param1 = P('A1',np.ma.array(range(4),dtype=float),1,0.2)
+        param2 = P('A2',np.ma.array(range(4)+10,dtype=float),1,0.7)
+        param1.array[1] = np.ma.masked
+        param2.array[2] = np.ma.masked
+        result = interleave(param1, param2)
+        result = merge_alternate_sensors (array)
+        np.testing.assert_array_equal(result.data[0:2], [0,10])
+        np.testing.assert_array_equal(result.data[3:5], [11,2])
+        np.testing.assert_array_equal(result.data[6:], [3,13])
+        np.testing.assert_array_equal(result.mask, [False,False,True,
+                                                    False,False,True,
+                                                    False,False])
+
+
 class TestMergeAlternateSensors(unittest.TestCase):
     def test_merge_alternage_sensors_basic(self):
         array = np.ma.array([0, 5, 0, 5, 1, 6, 1, 6],dtype=float)

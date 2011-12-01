@@ -6,7 +6,7 @@ from scipy.signal import iirfilter, lfilter, lfilter_zi
 from datetime import datetime, timedelta
 from itertools import izip
 
-#from analysis.node import Parameter
+#from hdfaccess.parameter import Parameter
 
 #Q: Not sure that there's any point in these? Very easy to define later
 #----------------------------------------------------------------------
@@ -482,6 +482,65 @@ def interleave (param_1, param_2):
         merged_array = np.ma.column_stack((param_2.array,param_1.array))
         
     return np.ma.ravel(merged_array)
+            
+def interleave_uneven_spacing (param_1, param_2):
+    '''
+    This interleaves samples that are not quote equi-spaced.
+       |--------dt---------|
+       |   x             y |
+       |          m        |
+       |   |------a------| |
+       |     o         o   |
+       |   |b|         |b| |
+       
+    Over a period dt two samples x & y will be merged to an equi-spaced new
+    parameter "o". x & y are a apart, while samples o are displaced by b from
+    their original positions.
+    
+    There is a second case where the samples are close together and the
+    interpolation takes place not between x > y, but across the y > x interval.
+    Hence two sections of code. Also, we don't know at the start whether x is
+    parameter 1 or 2, so there are two options for the basic interleaving stage.
+    '''
+    
+    # Check the conditions for merging are met
+    if param_1.hz != param_2.hz:
+        raise ValueError, 'Attempt to interleave parameters at differing sample rates'
+
+    mean_offset = (param_2.offset + param_1.offset) / 2.0
+    result_offset = mean_offset - 1.0/(2.0 * param_1.hz)
+    dt = 1.0/param_1.hz
+    
+    merged_array = np.ma.zeros((2, len(param_1.array)))
+
+    if mean_offset - dt > 0:
+        # The larger gap is between the two first samples
+        merged_array = np.ma.column_stack((param_1.array,param_2.array))
+        offset_0 = param_1.offset
+        offset_1 = param_2.offset
+        a = offset_1 - offset_0
+    else:
+        # The larger gap is between the second and third samples
+        merged_array = np.ma.column_stack((param_2.array,param_1.array))
+        offset_0 = param_2.offset
+        offset_1 = param_1.offset
+        a = dt - (offset_1 - offset_0)
+    b = (dt - a)/2.0
+        
+    straight_array = np.ma.ravel(merged_array)
+    if a < dt:
+        straight_array[0] = straight_array[1] # Extrapolate a little at start
+        x = straight_array[1::2]
+        y = straight_array[2::2]
+    else:
+        x = straight_array[0::2]
+        y = straight_array[1::2]
+    # THIS WON'T WORK !!!
+    x = (y - x)*(b/a) + x
+    y = (y-x) * (1.0 - b) / a + x
+    
+    return straight_array
+        
             
 def merge_alternate_sensors (array):
     '''

@@ -7,9 +7,12 @@ import mock
 
 from random import shuffle
 
+from hdfaccess.parameter import P, Parameter
+
 from analysis.node import (DerivedParameterNode, KeyPointValue, 
                            KeyPointValueNode, KeyTimeInstance, KeyTimeInstanceNode,
-                           Node, NodeManager, P, Parameter)
+                           Node, NodeManager)
+
 
 class TestAbstractNode(unittest.TestCase):
     

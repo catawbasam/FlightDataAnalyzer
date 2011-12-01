@@ -2,9 +2,10 @@ import sys
 
 from utilities.dict_helpers import dict_filter  #TODO: Mark utiltities as a dependency
 
+from hdf_access.access import hdf_file
+
 from analysis import settings
 from analysis.dependency_graph import dependency_order
-from analysis.hdf_access import hdf_file
 from analysis.library import calculate_timebase
 from analysis.node import (
     DerivedParameterNode, GeoKeyTimeInstance, KeyPointValue, KeyPointValueNode,

@@ -6,6 +6,7 @@ import numpy as np
 
 import utilities.masked_array_testutils as ma_test
 #from utilities.parameter_test import parameter_test
+from hdfaccess.parameter import P, Parameter
 
 from analysis.derived_parameters import (AccelerationVertical,
                                          AltitudeRadio,
@@ -14,7 +15,7 @@ from analysis.derived_parameters import (AccelerationVertical,
                                          HeadContinuous,
                                          Pitch,
                                          RateOfClimb, RateOfTurn)
-from analysis.node import P, Parameter
+
 
 class TestAltitudeRadio(unittest.TestCase):
     def test_can_operate(self):

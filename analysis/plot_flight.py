@@ -1,7 +1,7 @@
 import os
 import matplotlib.pyplot as plt
 
-from analysis.hdf_access import hdf_file
+from hdfaccess.file import hdf_file
 
 
 def plot_parameter(array, show=True):
