@@ -33,14 +33,25 @@ AIRSPEED_THRESHOLD = 80  # (kts)
 # Threshold for flight phase airspeed hysteresis.
 HYSTERESIS_FPIAS = 10 # (kts)
 
+# Threshold for flight phase altitude hysteresis.
+HYSTERESIS_FPALT = 200 # (ft)
+
 # Threshold for flight phase rate of climb hysteresis.
 # We're going to ignore changes smaller than this to avoid repeatedly changing
 # phase if the aircraft is climbing/descending close to a threshold level.
 HYSTERESIS_FPROC = 100 # (fpm)
 
 # Rate of climb and descent limits of 800fpm gives good distinction with
-# level flight.
-RATE_OF_CLIMB_FOR_FLIGHT_PHASES = 800 # (fpm) rate per second
+# level flight. Separately defined to allow for future adjustment.
+RATE_OF_CLIMB_FOR_CLIMB_PHASE = 800 # (fpm)
+RATE_OF_CLIMB_FOR_DESCENT_PHASE = -800 # (fpm)
+
+# Rate of climb and descent limits of 300 fpm to identify airborne after takeoff
+# and end of descent, when relying solely upon pressure altitude data.
+RATE_OF_CLIMB_FOR_LEVEL_FLIGHT = 300 # (fpm)
+
+# Rate of turn limits of +/- 90 deg/minute work well in flight and on ground.
+RATE_OF_TURN_FOR_FLIGHT_PHASES = 1.5 # deg per second
 
 ##########################
 ## Data Analysis Hooks

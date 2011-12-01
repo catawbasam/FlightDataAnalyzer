@@ -11,6 +11,7 @@ from utilities.struct import Struct
 from hdfaccess.parameter import P, Parameter
 
 from analysis.derived_parameters import (AccelerationVertical,
+                                         AltitudeForPhases,
                                          AltitudeRadio,
                                          AltitudeTail,
                                          FlightPhaseRateOfClimb,
@@ -50,6 +51,38 @@ class TestAltitudeRadio(unittest.TestCase):
                                    4.26423563649],
                              dtype=np.float, mask=False)
         np.testing.assert_array_almost_equal(alt_rad.array, answer)
+
+class TestAltitudeForPhases(unittest.TestCase):
+    def test_can_operate(self):
+        expected = [('Altitude STD',)]
+        opts = AltitudeForPhases.get_operational_combinations()
+        self.assertEqual(opts, expected)
+        
+    def test_altitude_for_phases(self):
+        alt_4_ph = AltitudeForPhases()
+        testwave = np.sin(np.arange(0,6,0.1))*200
+        alt_4_ph.derive(Parameter('Altitude STD', np.ma.array(testwave), 1,0.0))
+
+        answer = np.ma.array(data = [0.,0.,0.,0.,0.,0.,12.92849468,28.84353745,
+                                     43.47121818,56.66538193,68.29419696,
+                                     78.24147201,86.40781719,92.71163708,
+                                     97.089946,99.49899732,99.91472061,
+                                     99.91472061,99.91472061,99.91472061,
+                                     99.91472061,99.91472061,99.91472061,
+                                     99.91472061,99.91472061,99.91472061,
+                                     99.91472061,99.91472061,99.91472061,
+                                     99.91472061,99.91472061,99.91472061,
+                                     88.32517131,68.45086117,48.89177959,
+                                     29.84335446,11.49591134,-5.96722818,
+                                     -22.37157819,-37.55323184,-51.36049906,
+                                     -63.65542221,-74.31515448,-83.23318735,
+                                     -90.32041478,-95.50602353,-98.73820073,
+                                     -99.98465151,-99.98465151,-99.98465151,
+                                     -99.98465151,-99.98465151,-99.98465151,
+                                     -99.98465151,-99.98465151,-99.98465151,
+                                     -99.98465151,-99.98465151,-99.98465151,
+                                     -99.98465151],mask = False)
+        np.testing.assert_array_almost_equal(alt_4_ph.array, answer)
 
 class TestAltitudeTail(unittest.TestCase):
     def test_can_operate(self):

@@ -7,7 +7,10 @@ from analysis.node import DerivedParameterNode
 from analysis.library import (align, hysteresis, interleave,
                               rate_of_change, straighten_headings)
 
-from settings import HYSTERESIS_FPIAS, HYSTERESIS_FPROC
+from settings import (HYSTERESIS_FPALT,
+                      HYSTERESIS_FPIAS, 
+                      HYSTERESIS_FPROC
+                      )
 
 #-------------------------------------------------------------------------------
 # Derived Parameters
@@ -54,6 +57,12 @@ class AltitudeAAL(DerivedParameterNode):
     name = 'Altitude AAL'
     def derive(self, alt_std=P('Altitude STD'), alt_rad=P('Altitude Radio')):
         return NotImplemented
+    
+    
+class AltitudeForPhases(DerivedParameterNode):
+    name = 'Altitude For Phases'
+    def derive(self, alt_std=P('Altitude STD')):
+        self.array = hysteresis ( alt_std.array, HYSTERESIS_FPALT)
     
     
 class AltitudeRadio(DerivedParameterNode):
