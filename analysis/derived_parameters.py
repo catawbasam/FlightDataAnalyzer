@@ -54,7 +54,7 @@ class AltitudeAAL(DerivedParameterNode):
     name = 'Altitude AAL'
     def derive(self, alt_std=P('Altitude STD'), alt_rad=P('Radio Altitude')):
         return NotImplemented
-
+    
     
 class AltitudeRadio(DerivedParameterNode):
     # This function allows for the distance between the radio altimeter antenna
@@ -64,7 +64,7 @@ class AltitudeRadio(DerivedParameterNode):
     # antenna is forward of the mainwheels.
     
     def derive(self, alt_rad=P('Altitude Radio Sensor'),
-               pitch=P('Pitch'), raa_to_gear=None):
+               pitch=P('Pitch'), raa_to_gear=P('Main Gear To Altitude Radio'):
         
         if raa_to_gear:
             # Align the pitch attitude samples to the Radio Altimeter samples,
