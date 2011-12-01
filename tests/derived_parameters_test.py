@@ -3,6 +3,7 @@ try:
 except ImportError:
     import unittest
 import numpy as np
+import mock
 
 import utilities.masked_array_testutils as ma_test
 #from utilities.parameter_test import parameter_test
@@ -24,10 +25,20 @@ class TestAltitudeRadio(unittest.TestCase):
         self.assertEqual(opts, expected)
         
     def test_altitude_radio(self):
-        ralt = AltitudeRadio()
-        ralt.derive(P('Pitch',(np.ma.array(range(10))-2)*5, 1,),
-                    P('Altitude Radio Sensor',np.ma.ones(10)*10, 1,),
-                    10)
+        params = {
+            'Pitch': Parameter('Pitch', (np.ma.array(range(10))-2)*5, 1,0.0),
+            'Altitude Radio Sensor': Parameter('Altitude Radio Sensor', 
+                                               np.ma.ones(10)*10, 1,0.0)
+        }
+        ralt = AltitudeRadio(params)
+        ralt.derive(params, 10.0)
+        result = params['Altitude Radio'].array
+
+        #ralt = AltitudeRadio()
+        #ralt.derive(P('Pitch',(np.ma.array(range(10))-2)*5, 1,),
+        #            P('Altitude Radio Sensor',np.ma.ones(10)*10, 1,),
+        #            10)
+
         answer = np.ma.array(data=[11.7364817767,
                                    10.8715574275,
                                    10.0,
@@ -54,6 +65,7 @@ class TestAltitudeTail(unittest.TestCase):
                   Parameter('Altitude Radio', np.ma.ones(10)*10, 1,0.0)
                   }
         talt = AltitudeTail(params)
+        
         talt.derive(params, 35.0)
         result = params['Altitude Tail'].array
         # At 35ft and 18deg nose up, the tail just scrapes the runway with 10ft

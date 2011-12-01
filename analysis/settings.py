@@ -30,8 +30,9 @@ HYSTERESIS_FPIAS = 10 # (kts)
 # phase if the aircraft is climbing/descending close to a threshold level.
 HYSTERESIS_FPROC = 100 # (fpm)
 
-#TODO: DEFINE!
-RATE_OF_CLIMB_FOR_FLIGHT_PHASES = NotImplemented
+# Rate of climb and descent limits of 800fpm gives good distinction with
+# level flight.
+RATE_OF_CLIMB_FOR_FLIGHT_PHASES = 800 # (fpm) rate per second
 
 ##########################
 ## Data Analysis Hooks

@@ -2,7 +2,7 @@ import numpy as np
 import datetime
 from collections import namedtuple
 
-from analysis.node import  KeyPointValue, KeyPointValueNode
+from analysis.node import  KeyPointValue, KeyPointValueNode, P
 from analysis import settings
 
 """
@@ -329,7 +329,7 @@ class RateOfDescentMax(KeyPointValueNode):
     
 class MaxIndicatedAirspeedLevelFlight(KeyPointValueNode):
     dependencies = ['Indicated Airspeed', 'Level Flight']
-    def derive(self, params):
+    def derive(self, airspeed, level_flight):
         airspeed = params['Indicated Airspeed']
         kpv_list = []
         for level_slice in np.ma.flatnotmasked_contiguous(params['Level Flight']):
@@ -345,6 +345,33 @@ class MaxIndicatedAirspeedLevelFlight(KeyPointValueNode):
         return kpv_list
             
     
+    
+    
+    
+class AirspeedMinusVref500ftTo0ftMax(KeyPointValueNode):
+    NAME_FORMAT = 'Airspeed Minus Vref 500ft to 0ft Max' #TODO: auto replace with name?!
+    
+    def derive(self, airspeed_minus_vref=P('AirspeedMinusVref'), 
+               _500ft_to_0ft=P('500ft To 0ft')):  #Q: Label this as the list of kpv sections?
+
+        for sect in _500ft_to_0ft:
+            ##max_spd = airspeed_minus_vref.array[sect].max()
+            ##when = np.ma.where(airspeed_minus_vref.array[sect] == max_spd)[0][0] + sect.start
+            
+            when = np.ma.argmax(airspeed_minus_vref.array[sect]) + sect.start
+            max_spd = airspeed_minus_vref.array[when]
+            self.create_kpv(when, max_spd)
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
 #TODO:
 #toc = altitude_std[kpt['TopOfClimb']] # Indexing n_toc into the reduced array [block]
 #kpv['Altitude_TopOfClimb'] = [(kpt['TopOfClimb'], toc, altitude_std)]
@@ -354,5 +381,9 @@ class MaxIndicatedAirspeedLevelFlight(KeyPointValueNode):
 #kpv['Altitude_TopOfDescent'] = [(kpt['TopOfDescent'], tod, altitude_std)]
 #kpv['Head_Takeoff'] = [(block.start+kpt['TakeoffStartEstimate'], head_takeoff%360, head_mag.param_name)] # Convert to normal compass heading for display
 #kpv['TakeoffTurnOntoRunway'] = [(block.start+turn_onto_runway,head_takeoff - head_mag[turn_onto_runway],head_mag.param_name)]
+
+
+
+
 
 

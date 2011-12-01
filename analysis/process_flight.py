@@ -2,7 +2,7 @@ import sys
 
 from utilities.dict_helpers import dict_filter  #TODO: Mark utiltities as a dependency
 
-from hdf_access.access import hdf_file
+from hdfaccess.file import hdf_file
 
 from analysis import settings
 from analysis.dependency_graph import dependency_order
@@ -71,11 +71,6 @@ def derive_parameters(hdf, node_mgr, process_order):
         
         node_class = node_mgr.derived_nodes[param_name]  # raises KeyError if Node is "unknown"
         
-        ### retrieve dependencies which are available from hdf (LFL/Derived masked arrays)
-        ##deps = hdf.get_params(node_class.get_dependency_names())
-        ### update with dependencies already derived (non-masked arrays)
-        ##deps.update( dict_filter(params, keep=node_class.get_dependency_names()) )
-        
         # build ordered dependencies
         deps = []
         for param in node_class.get_dependency_names():
@@ -95,19 +90,11 @@ def derive_parameters(hdf, node_mgr, process_order):
         result = node.get_derived(deps)
         
         if isinstance(node, KeyPointValueNode):
-            ### expect a single KPV or a list of KPVs
             #Q: track node instead of result here??
             params[param_name] = result  # keep track
-            ##if isinstance(result, KeyPointValue):
-                ##kpv_list.append(result)
-            ##else:
             kpv_list.extend(result)
         elif isinstance(node, KeyTimeInstanceNode):
-            ### expect a single KTI or a list of KTIs
             params[param_name] = result  # keep track
-            ##if isinstance(result, KeyTimeInstance):
-                ##kti_list.append(result)
-            ##else:
             kti_list.extend(result)
         elif isinstance(node, FlightPhaseNode):
             # expect a single slice
