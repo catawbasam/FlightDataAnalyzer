@@ -208,15 +208,14 @@ class RateOfTurn(DerivedParameterNode):
     def derive(self, head = P('Head Continuous')):
         self.array = rate_of_change(head, 1)
 
+
 class Pitch(DerivedParameterNode):
-    dependencies = ['Pitch (1)', 'Pitch (2)']
-    def derive(self, params):
-        array = interleave (params, 'Pitch (1)', 'Pitch (2)', 'Pitch')
-        params['Pitch'] = Parameter('Pitch', array,
-                                    params['Pitch (1)'].hz*2,
-                                    min(params['Pitch (1)'].offset,
-                                        params['Pitch (2)'].offset))
-        
+    def derive(self, p1=P('Pitch (1)'), p2=P('Pitch (2)')):
+        self.hz = p1.hz * 2
+        self.offset = min(p1.offset, p2.offset)
+        self.array = interleave (p1, p2)
+
+                
 class AltitudeRadio(DerivedParameterNode):
     # This function allows for the distance between the radio altimeter antenna
     # and the main wheels of the undercarriage.
