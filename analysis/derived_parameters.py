@@ -64,7 +64,7 @@ class AltitudeRadio(DerivedParameterNode):
     # antenna is forward of the mainwheels.
     
     def derive(self, alt_rad=P('Altitude Radio Sensor'), pitch=P('Pitch'),
-               main_gear_to_alt_rad=A('Main Gear To Altitude Radio')):
+               main_gear_to_alt_rad=None):#A('Main Gear To Altitude Radio')): TODO: Fix once A (aircraft) has been defined.
         # Align the pitch attitude samples to the Radio Altimeter samples,
         # ready for combining them.
         pitch_aligned = np.radians(align(pitch, alt_rad))
@@ -86,7 +86,7 @@ class AltitudeTail(DerivedParameterNode):
     # the main gear to the point on the tail most likely to scrape the runway.
     def derive(self, alt_rad = P('Altitude Radio'), 
                pitch = P('Pitch'),
-               dist_gear_to_tail=A('Dist Gear To Tail')): # TODO: Is this name correct?
+               dist_gear_to_tail=None):#A('Dist Gear To Tail')): # TODO: Is this name correct?
         # Align the pitch attitude samples to the Radio Altimeter samples,
         # ready for combining them.
         pitch_aligned = np.radians(align(pitch, alt_rad))
