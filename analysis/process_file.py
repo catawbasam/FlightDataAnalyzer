@@ -3,8 +3,10 @@ import logging
 import numpy as np
 import time
 
+from hdfaccess.file import hdf_file
+from hdfaccess.utils import concat_hdf, write_segment
+
 from analysis import settings
-from analysis.hdf_access import concat_hdf, hdf_file, write_segment
 from analysis.plot_flight import plot_essential
 from analysis.split_segments import split_segments
 

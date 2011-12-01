@@ -6,7 +6,7 @@ from scipy.signal import iirfilter, lfilter, lfilter_zi
 from datetime import datetime, timedelta
 from itertools import izip
 
-#from analysis.node import Parameter
+#from hdfaccess.parameter import Parameter
 
 #Q: Not sure that there's any point in these? Very easy to define later
 #----------------------------------------------------------------------

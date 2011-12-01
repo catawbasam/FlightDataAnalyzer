@@ -7,27 +7,19 @@ import mock
 
 from random import shuffle
 
-from analysis.node import (DerivedParameterNode, KeyPointValue, 
-                           KeyPointValueNode, KeyTimeInstance, KeyTimeInstanceNode,
-                           Node, NodeManager, powerset, P, Parameter)
+from hdfaccess.parameter import P, Parameter
+
+from analysis.node import (
+    DerivedParameterNode, KeyPointValue, KeyPointValueNode, KeyTimeInstance,
+    KeyTimeInstanceNode, Node, NodeManager, powerset)
+
+
+class TestAbstractNode(unittest.TestCase):
     
+    def test_node(self):
+        pass
     
-class TestPowerset(unittest.TestCase):
-    
-    def test_powerset(self):
-        deps = ['aaa',  'bbb', 'ccc']
-        res = list(powerset(deps))
-        expected = [(),
-                    ('aaa',),
-                    ('bbb',), 
-                    ('ccc',), 
-                    ('aaa', 'bbb'),
-                    ('aaa', 'ccc'),
-                    ('bbb', 'ccc'),
-                    ('aaa', 'bbb', 'ccc')]
-        self.assertEqual(res, expected)
-        
-        
+
 class TestNode(unittest.TestCase):
     
     def test_name(self):
@@ -144,6 +136,21 @@ class TestNodeManager(unittest.TestCase):
         self.assertTrue(mgr.operational('y', ['a']))
         self.assertFalse(mgr.operational('z', ['a', 'b']))
         
+        
+class TestPowerset(unittest.TestCase):
+    def test_powerset(self):
+        deps = ['aaa',  'bbb', 'ccc']
+        res = list(powerset(deps))
+        expected = [(),
+                    ('aaa',),
+                    ('bbb',), 
+                    ('ccc',), 
+                    ('aaa', 'bbb'),
+                    ('aaa', 'ccc'),
+                    ('bbb', 'ccc'),
+                    ('aaa', 'bbb', 'ccc')]
+        self.assertEqual(res, expected)
+
 
 class TestKeyPointValueNode(unittest.TestCase):
     

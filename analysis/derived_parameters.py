@@ -1,8 +1,9 @@
 import logging
 import numpy as np
 
-from analysis.node import DerivedParameterNode, P, Parameter
+from hdfaccess.parameter import P, Parameter
 
+from analysis.node import DerivedParameterNode
 from analysis.library import (align, hysteresis, interleave,
                               rate_of_change, straighten_headings)
 
@@ -214,12 +215,41 @@ class RateOfTurn(DerivedParameterNode):
     def derive(self, head = P('Head Continuous')):
         self.array = rate_of_change(head, 1)
 
+
 class Pitch(DerivedParameterNode):
-    dependencies = ['Pitch (1)', 'Pitch (2)']
-    def derive(self, capt = P('Pitch (1)'),
-               fo = P('Pitch (2)')):
-        self.frequency = capt.frequency * 2
-        self.offset = min(capt.offset, fo.offset)
-        self.array = interleave (capt,fo)
+    def derive(self, p1=P('Pitch (1)'), p2=P('Pitch (2)')):
+        self.hz = p1.hz * 2
+        self.offset = min(p1.offset, p2.offset)
+        self.array = interleave (p1, p2)
+
+                
+class AltitudeRadio(DerivedParameterNode):
+    # This function allows for the distance between the radio altimeter antenna
+    # and the main wheels of the undercarriage.
+
+    # The parameter raa_to_gear is measured in feet and is positive if the
+    # antenna is forward of the mainwheels.
+    
+    dependencies = ['Altitude Radio Sensor','Pitch']
+    def derive(self, params, raa_to_gear):
+        # Align the pitch attitude samples to the Radio Altimeter samples,
+        # ready for combining them.
+        pch = np.radians(align(params['Pitch'], params['Altitude Radio Sensor']))
+        # Now apply the offset
+        self.array = params['Altitude Radio Sensor'].array - np.sin(pch)*raa_to_gear
         
         
+class AltitudeTail(DerivedParameterNode):
+    # This function allows for the distance between the radio altimeter antenna
+    # and the point of the airframe closest to tailscrape.
+    
+    # The parameter gear_to_tail is measured in feet and is the distance from 
+    # the main gear to the point on the tail most likely to scrape the runway.
+    
+    dependencies = ['Altitude Radio','Pitch']
+    def derive(self, params, gear_to_tail):
+        # Align the pitch attitude samples to the Radio Altimeter samples,
+        # ready for combining them.
+        pch = np.radians(align(params['Pitch'], params['Altitude Radio']))
+        # Now apply the offset
+        self.array = params['Altitude Radio'].array - np.sin(pch)*gear_to_tail

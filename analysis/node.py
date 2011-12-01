@@ -7,6 +7,8 @@ from abc import ABCMeta, abstractmethod
 from collections import namedtuple
 from itertools import product
 
+from hdfaccess.parameter import Parameter, P
+
 from analysis.recordtype import recordtype
 
 # Define named tuples for KPV and KTI and FlightPhase
@@ -20,29 +22,14 @@ Section = namedtuple('Section', 'name slice') #Q: rename mask -> slice/section
 get_verbose_name = lambda class_name: re.sub('(((?<=[a-z])[A-Z])|([A-Z](?![A-Z]|$)))', ' \\1', class_name).lower().strip()
 
 
-#-------------------------------------------------------------------------------
-# Parameter container Class
-# =========================
-class Parameter(object):
-    def __init__(self, name, array=[], frequency=1, offset=0):
-        '''
-        :param name: Parameter name
-        :type name: String
-        :param array: Masked array of data for the parameter.
-        :type array: np.ma.masked_array
-        :param frequency: Sample Rate / Frequency / Hz
-        :type frequency: Int
-        :param offset: Offset in Frame.
-        :type offset: Float
-        '''
-        self.name = name
-        self.array = array
-        self.frequency = self.sample_rate = self.hz = frequency
-        self.offset = offset
-        
-    def __repr__(self):
-        return "%s %sHz %.2fsecs" % (self.name, self.frequency, self.offset)
-P = Parameter # shorthand
+def powerset(iterable):
+    """
+    Ref: http://docs.python.org/library/itertools.html#recipes
+    powerset([1,2,3]) --> () (1,) (2,) (3,) (1,2) (1,3) (2,3) (1,2,3)
+    """
+    from itertools import chain, combinations
+    s = list(iterable)
+    return chain.from_iterable(combinations(s, r) for r in range(len(s)+1))
 
 
 def get_param_kwarg_names(method):
@@ -68,15 +55,6 @@ def get_param_kwarg_names(method):
     # alternative: return dict(zip(defaults, args[-len(defaults):]))
     return defaults
 
-
-def powerset(iterable):
-    """
-    Ref: http://docs.python.org/library/itertools.html#recipes
-    powerset([1,2,3]) --> () (1,) (2,) (3,) (1,2) (1,3) (2,3) (1,2,3)
-    """
-    from itertools import chain, combinations
-    s = list(iterable)
-    return chain.from_iterable(combinations(s, r) for r in range(len(s)+1))
 
 #------------------------------------------------------------------------------
 # Abstract Node Classes
