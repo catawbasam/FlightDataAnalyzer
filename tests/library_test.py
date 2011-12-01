@@ -14,11 +14,11 @@ from datetime import datetime
 from analysis.library import (align, calculate_timebase, create_phase_inside,
                               create_phase_outside, duration, 
                               first_order_lag, first_order_washout,
-                              hysteresis, merge_alternate_sensors, powerset, 
+                              hysteresis, interleave, merge_alternate_sensors,
                               rate_of_change, straighten_headings,
                               time_at_value, value_at_time)
 
-from analysis.node import P
+from analysis.node import P, Parameter
 
 
 class TestAlign(unittest.TestCase):
@@ -436,6 +436,20 @@ class TestHysteresis(unittest.TestCase):
         result = hysteresis(data,1)
         np.testing.assert_array_equal(result.data,[0,0.5,1.5,1.5,0.5,-0.5,4.5,5.5,6.5,0.5])
         
+        
+class TestInterleave(unittest.TestCase):
+    def test_interleave(self):
+        one = Parameter('one', array=np.ma.array([1]*10, mask=[1] + [0]*9))
+        two = Parameter('two', array=np.ma.array([2]*10, mask=[0,0,0,0,0,1,1,1,1,1]))
+
+        self.assertRaises(ValueError, interleave, one, two)
+        two.offset = 0.5 # align the two
+        res = interleave(one, two)
+        self.assertEqual(list(res.data), zip([1]*10, [2]*10))
+        self.assertEqual(list(res.mask), [True, False, False, False, False, 
+                                          True, True, True, True, True])
+        
+        
 class TestMergeAlternateSensors(unittest.TestCase):
     def test_merge_alternage_sensors_basic(self):
         array = np.ma.array([0, 5, 0, 5, 1, 6, 1, 6],dtype=float)
@@ -511,19 +525,6 @@ class TestPhaseMasking(unittest.TestCase):
         self.assertRaises(ValueError, create_phase_inside, array, 1,0, 2, -1)
         self.assertRaises(ValueError, create_phase_inside, array, 1,0, 2, 11)
     
-class TestPowerset(unittest.TestCase):
-    def test_powerset(self):
-        deps = ['aaa',  'bbb', 'ccc']
-        res = list(powerset(deps))
-        expected = [(),
-                    ('aaa',),
-                    ('bbb',), 
-                    ('ccc',), 
-                    ('aaa', 'bbb'),
-                    ('aaa', 'ccc'),
-                    ('bbb', 'ccc'),
-                    ('aaa', 'bbb', 'ccc')]
-        self.assertEqual(res, expected)
 
 class TestRateOfChange(unittest.TestCase):
     

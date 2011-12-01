@@ -42,8 +42,15 @@ class AccelerationVertical(DerivedParameterNode):
         self.array = resolved_in_pitch * np.cos(rol) - ay * np.sin(rol)
         
 
+class AirspeedMinusVref(DerivedParameterNode):
+    
+    def derive(self, airspeed=P('Airspeed'), vref=P('Vref')):
+        vref_aligned = align(vref, airspeed)
+        self.array = airspeed.array - vref_aligned
+
+
 class AltitudeAAL(DerivedParameterNode):
-    #name = 'Altitude AAL'
+    name = 'Altitude AAL'
     def derive(self, alt_std=P('Altitude STD'), alt_rad=P('Radio Altitude')):
         return NotImplemented
 
@@ -157,9 +164,9 @@ class MACH(DerivedParameterNode):
         
 
 class RateOfClimb(DerivedParameterNode):
-    def derive(self, alt_std = P('Altitude STD'),
-               alt_rad = P('Altitude Radio')):
-        # Needs huge rewrite but this might work for starters. DJ
+    def derive(self, alt_std = P('Altitude STD'),):
+               ##alt_rad = P('Altitude Radio')):
+        #TODO: Needs huge rewrite but this might work for starters. DJ
         self.array = rate_of_change(alt_std, 1)
 
 class Relief(DerivedParameterNode):

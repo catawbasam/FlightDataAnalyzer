@@ -9,14 +9,25 @@ from random import shuffle
 
 from analysis.node import (DerivedParameterNode, KeyPointValue, 
                            KeyPointValueNode, KeyTimeInstance, KeyTimeInstanceNode,
-                           Node, NodeManager, P, Parameter)
-
-class TestAbstractNode(unittest.TestCase):
+                           Node, NodeManager, powerset, P, Parameter)
     
-    def test_node(self):
-        pass
     
-
+class TestPowerset(unittest.TestCase):
+    
+    def test_powerset(self):
+        deps = ['aaa',  'bbb', 'ccc']
+        res = list(powerset(deps))
+        expected = [(),
+                    ('aaa',),
+                    ('bbb',), 
+                    ('ccc',), 
+                    ('aaa', 'bbb'),
+                    ('aaa', 'ccc'),
+                    ('bbb', 'ccc'),
+                    ('aaa', 'bbb', 'ccc')]
+        self.assertEqual(res, expected)
+        
+        
 class TestNode(unittest.TestCase):
     
     def test_name(self):

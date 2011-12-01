@@ -82,36 +82,34 @@ def align(slave, master, interval='Subframe'):
     to match the master parameter. In this way the master and aligned slave data
     may be processed without timing errors.
     
-    :type master, slave: Parameter objects with attributes:
-    :type slave.array: masked array
-    :type slave.offset: float
-    :type slave.hz: float
-    :type master.array: masked array
-    :type masger.offset: float
-    :type master.hz: float
-    :type interval: String with possible values 'Subframe' or 'Frame'. 
-    The function raises an assertion error if the interval is neither 'Subframe' or 'Frame'
-    
-    :returns masked array.
-    
-    :error The function raises an assertion error if the arrays and sample rates do not
-    equate to the same overall data duration.
-    
-    The offset and hz for the returned masked array will be those of the 
-    master parameter.
-    The values of the returned array will be those of the slave parameter, 
-    aligned to the master and adjusted by linear interpolation. The initial
+    The values of the returned array will be those of the slave 
+    parameter, aligned to the master and adjusted by linear interpolation. The initial
     or final values will be extended from the first or last values if they lie 
-    outside the timebase of the slave parameter (i.e. we do not extrapolate).    
+    outside the timebase of the slave parameter (i.e. we do not extrapolate).
+    The offset and hz for the returned masked array will be those of the 
+    master parameter.    
+    
+    :param slave: The parameter to be aligned to the master
+    :type slave: Parameter objects
+    :param master: The master parameter
+    :type master: Parameter objects    
+    :param interval: Has possible values 'Subframe' or 'Frame'.  #TODO: explain this!
+    :type interval: String
+    
+    :raises AssertionError: If the interval is neither 'Subframe' or 'Frame'
+    :raises AssertionError: If the arrays and sample rates do not equate to the same overall data duration.
+    
+    :returns: Slave array aligned to master.
+    :rtype: np.ma.array
     """
     # Check the interval is one of the two forms we recognise
     assert interval in ['Subframe', 'Frame']
     
     # Here we create a masked array to hold the returned values that will have 
     # the same sample rate and timing offset as the master
-    result = np.ma.empty_like(master.array)
-    ## result[:] = 0.0
-    ## Clearing the result array is unnecessary, but can make testing easier to follow.
+    slave_aligned = np.ma.empty_like(master.array)
+    ## slave_aligned[:] = 0.0
+    ## Clearing the slave_aligned array is unnecessary, but can make testing easier to follow.
 
     # Get the timing offsets, comprised of word location and possible latency.
     tp = master.offset
@@ -147,22 +145,23 @@ def align(slave, master, interval='Subframe'):
         a=1-b
 
         if h<0:
-            result[i+wm::wm]=a*slave.array[h+ws:-ws:ws]+b*slave.array[h1+ws::ws]
+            slave_aligned[i+wm::wm]=a*slave.array[h+ws:-ws:ws]+b*slave.array[h1+ws::ws]
             # We can't interpolate the inital values as we are outside the 
             # range of the slave parameters. Take the first value and extend to 
             # the end of the data.
-            result[i] = slave.array[0]
+            slave_aligned[i] = slave.array[0]
         elif h1>=ws:
-            result[i:-wm:wm]=a*slave.array[h:-ws:ws]+b*slave.array[h1::ws]
+            slave_aligned[i:-wm:wm]=a*slave.array[h:-ws:ws]+b*slave.array[h1::ws]
             # At the other end, we run out of slave parameter values so need to
             # extend to the end of the array.
-            result[i-wm] = slave.array[-1]
+            slave_aligned[i-wm] = slave.array[-1]
         else:
-            # Sheer bliss. We can compute results across the whole range of the 
-            # data without having to take special care at the ends of the array.
-            result[i::wm]=a*slave.array[h::ws]+b*slave.array[h1::ws]
+            # Sheer bliss. We can compute slave_aligned across the whole
+            # range of the data without having to take special care at the
+            # ends of the array.
+            slave_aligned[i::wm]=a*slave.array[h::ws]+b*slave.array[h1::ws]
 
-    return result
+    return slave_aligned
 
 def calculate_timebase(years, months, days, hours, mins, secs):
     """
@@ -466,6 +465,16 @@ def hysteresis (array, hysteresis):
     return result
 
 def interleave (param_1, param_2):
+    """
+    Interleaves two parameters (usually from different sources) into one
+    masked array. Maintains the mask of each parameter.
+    
+    :param param_1:
+    :type param_1: Parameter
+    :param param_2:
+    :type param_2: Parameter
+    
+    """
     # Check the conditions for merging are met
     if param_1.hz != param_2.hz:
         raise ValueError, 'Attempt to interleave parameters at differing sample rates'
@@ -475,7 +484,6 @@ def interleave (param_1, param_2):
         raise ValueError, 'Attempt to interleave parameters that are not correctly aligned'
     
     merged_array = np.ma.zeros((2, len(param_1.array)))
-
     if dt > 0:
         merged_array = np.ma.column_stack((param_1.array,param_2.array))
     else:
@@ -505,14 +513,6 @@ def merge_alternate_sensors (array):
     result[-1] = (array[-2] + array[-1]) / 2.0
     return result
 
-def powerset(iterable):
-    """
-    Ref: http://docs.python.org/library/itertools.html#recipes
-    powerset([1,2,3]) --> () (1,) (2,) (3,) (1,2) (1,3) (2,3) (1,2,3)
-    """
-    from itertools import chain, combinations
-    s = list(iterable)
-    return chain.from_iterable(combinations(s, r) for r in range(len(s)+1))
 
 def rate_of_change(diff_param, half_width):
     '''
