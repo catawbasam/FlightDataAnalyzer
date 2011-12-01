@@ -1,5 +1,13 @@
 # use local_settings.py to override settings for your local environment.
 
+# Modules to import all derived Nodes from. Additional modules can be
+# appended to this list in local_settings.py
+MODULES = ['analysis.derived_parameters',
+           'analysis.key_point_values', 
+           'analysis.key_time_instances',
+           'analysis.sections',
+           'analysis.flight_phase']
+
 ##########################
 ## Parameter Analysis
 ##########################

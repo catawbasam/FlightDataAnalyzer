@@ -155,9 +155,9 @@ class TestPowerset(unittest.TestCase):
 class TestKeyPointValueNode(unittest.TestCase):
     
     def setUp(self):
-        self.params = {'a':Parameter('a',[], 2, 0.4)}
-        KPV = type('kpv', (KeyPointValueNode,), dict(derive=lambda x:x,
-                                                     dependencies=['a']))
+        class KPV(KeyPointValueNode):
+            def derive(self, a=P('a',[], 2, 0.4)):
+                pass
         self.knode = KPV(frequency=2, offset=0.4)
 
     def test_create_kpv(self):

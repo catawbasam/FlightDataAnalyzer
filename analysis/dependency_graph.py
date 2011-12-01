@@ -2,6 +2,7 @@ import inspect
 import logging 
 import networkx as nx # pip install networkx or /opt/epd/bin/easy_install networkx
 
+from analysis import settings
 from analysis.node import Node, NodeManager
 
 
@@ -199,11 +200,7 @@ def process_order(gr_all, node_mgr): ##lfl_params, derived_nodes):
     return gr_all, gr_st, node_order 
 
      
-MODULES = ('analysis.derived_parameters',
-           'analysis.key_point_values', 
-           'analysis.key_time_instances', 
-           'analysis.flight_phase')
-def dependency_order(lfl_params, required_params, modules=MODULES, draw=True):
+def dependency_order(lfl_params, required_params, modules=settings.NODE_MODULES, draw=True):
     """
     Main method for retrieving processing order of nodes.
     
