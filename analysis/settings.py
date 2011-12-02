@@ -12,6 +12,11 @@ NODE_MODULES = ['analysis.derived_parameters',
 ## Parameter Analysis
 ##########################
 
+# Altitude to break flights into separate climb/cruise/descent segments.
+# This is applied to altitude with hysteresis, so break does not exactly 
+# happen at this altitude.
+ALTITUDE_FOR_CLB_CRU_DSC = 10000
+
 # Minimum duration for a flight to analyse
 MIN_FLIGHT_TO_ANALYSE = 300  # (sec)
 
@@ -49,6 +54,14 @@ RATE_OF_CLIMB_FOR_DESCENT_PHASE = -800 # (fpm)
 # Rate of climb and descent limits of 300 fpm to identify airborne after takeoff
 # and end of descent, when relying solely upon pressure altitude data.
 RATE_OF_CLIMB_FOR_LEVEL_FLIGHT = 300 # (fpm)
+
+"""  Top of Climb / Top of Descent Threshold.
+This threshold was based upon the idea of "Less than 600 fpm for 6 minutes"
+This was often OK, but one test data sample had a 4000ft climb 20 mins
+after level off. This led to reducing the threshold to 600 fpm in 3
+minutes which has been found to give good qualitative segregation
+between climb, cruise and descent phases."""
+SLOPE_FOR_TOC_TOD = (600/float(180))
 
 # Rate of turn limits of +/- 90 deg/minute work well in flight and on ground.
 RATE_OF_TURN_FOR_FLIGHT_PHASES = 1.5 # deg per second

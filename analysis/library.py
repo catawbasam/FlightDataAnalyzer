@@ -553,8 +553,8 @@ def interleave_uneven_spacing (param_1, param_2):
     x = (y - x)*(b/a) + x
     y = (y-x) * (1.0 - b) / a + x
     
-    return straight_array
-        
+    #return straight_array
+    return None # to force a test error until this is fixed to prevent extrapolation
             
 def merge_alternate_sensors (array):
     '''

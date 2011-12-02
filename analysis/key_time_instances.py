@@ -1,7 +1,11 @@
 import logging
 import numpy as np
 
+from analysis.node import FlightPhaseNode, P
+
 from analysis.node import KeyTimeInstance, KeyTimeInstanceNode
+
+from settings import SLOPE_FOR_TOC_TOD
 
 '''
 kpt['FlapDeployed'] = []
@@ -31,40 +35,33 @@ class LandingGroundEffectStart(KeyTimeInstanceNode):
         return NotImplemented
 
     
-    
 class TopOfClimbTopOfDescent(KeyTimeInstanceNode):
-    name = "Top of Climb and Top of Descent"
-    dependencies = ['phase_airborne', 'altitude_std', 'altitude_std_smoothed'] #
-    returns = ['top_of_climb', 'top_of_descent']
-    
-    def derive(self, airborne=P('Airborne'), alt_std=P('Altitude STD')): #altitude_std_smoothed): # TODO: Change to new parameter names.
-        """
-        Threshold was based upon the idea of "Less than 600 fpm for 6 minutes"
-        This was often OK, but one test data sample had a 4000ft climb 20 mins
-        after level off. This led to increasing the threshold to 600 fpm in 3
-        minutes which has been found to give good qualitative segregation
-        between climb, cruise and descent phases.
-        """
-        # Updated 8/10/11 to allow for multiple cruise phases
-        cruise_slices = np.ma.clump_unmasked(np.ma.masked_less(altitude_std_smoothed,10000))
-        logging.info('This block has %d cruise phase.' % len(cruise_list))
-        for cruise_slice in cruise_slices:
+    def derive(self, alt_std=P('Altitude STD'), 
+               ccd=P('Climb Cruise Descent')):
+        # This checks for the top of climb and descent in each 
+        # Climb/Cruise/Descent period of the flight.
+        for ccd_slice in ccd:
             # First establish a simple monotonic timebase
-            timebase = np.arange(len(airspeed[cruise_slice]))
-            # Then subtract (or for the descent, add) this slope to the altitude data
-            slope = timebase * (600/float(180))
-            # For airborne data only, compute a climb graph on a slope
-            y = np.ma.masked_where(np.ma.getmask(airborne_phase[cruise_slice]), alt_std.array[cruise_slice] - slope)
+            length = len(alt_std.array[ccd_slice])
+            timebase = np.arange(len(alt_std.array[ccd_slice]))
+            # Then scale this to the required altitude data slope
+            slope = timebase * SLOPE_FOR_TOC_TOD
+            # For airborne data only, subtract the slope from the climb...
+            y = alt_std.array[ccd_slice] - slope
             # and the peak is the top of climb.
             n_toc = np.ma.argmax(y)
-            
-            # Record the moment (with respect to this cruise)
-            kti_list.append(KeyTimeInstance(cruise_slice.start + n_toc, 'TopOfClimb'))
-            
-            # Let's find the top of descent.
-            y = np.ma.masked_where(np.ma.getmask(airborne_phase[cruise_slice]), alt_std.array[cruise_slice] + slope)
+            # if this is the first point in the slice, it's come from
+            # data that is already in the cruise, so we'll ignore this
+            if n_toc>0:
+                # Record the moment (with respect to this section of data)
+                self.create_kti(ccd_slice.start + n_toc, 'Top Of Climb')
+
+            # Then do the same for the descent
+            y = alt_std.array[ccd_slice] + slope
             n_tod = np.ma.argmax(y)
-            self.create_kti(cruise_slice.start + n_tod, 'TopOfDescent')
+            if n_tod<length-1:
+                self.create_kti(ccd_slice.start + n_tod,'Top Of Descent')
+
         
         
 class FlapStateChanges(KeyTimeInstanceNode):
