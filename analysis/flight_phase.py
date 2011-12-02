@@ -9,6 +9,7 @@ from analysis.settings import (AIRSPEED_THRESHOLD,
                                RATE_OF_TURN_FOR_FLIGHT_PHASES
                                )
 
+'''
 class Airborne(FlightPhaseNode):
     dependencies = ['altitude_std_smoothed', 'takeoff_end', 'landing_start']
     returns = ['Airborne']
@@ -19,8 +20,19 @@ class Airborne(FlightPhaseNode):
         ##airborne_phase = create_phase_inside(altitude_std_smoothed, kpt['TakeoffEndEstimate'], kpt['LandingStartEstimate'])
         airborne_phase = create_phase_inside(altitude_std_smoothed, takeoff_end, landing_start)
         self.create_phase(airborne_phase)
-    
-       
+'''
+
+class Airborne(FlightPhaseNode):
+    def derive(self, roc=P('Rate Of Climb')):
+        # Rate of climb limit set to identify both level flight and 
+        # end of takeoff / start of landing.
+        level_flight = np.ma.masked_inside(roc.array, 
+                                            -RATE_OF_CLIMB_FOR_LEVEL_FLIGHT,
+                                            RATE_OF_CLIMB_FOR_LEVEL_FLIGHT)
+        a,b = np.ma.flatnotmasked_edges(level_flight)
+        self.create_phases([slice(a, b, None)])
+        
+        
 class Climbing(FlightPhaseNode):
     ##returns = ['Climbing']
     def derive(self, alt_std=P('Altitude Std')):
@@ -78,10 +90,11 @@ class LevelFlight(FlightPhaseNode):
 '''        
 
 class OnGround(FlightPhaseNode):
-    def derive(self, airborne=Airborne):
-        # inverse of Airborne?!
-        # TODO: Change to be the opposite of slices.
-        return FlightPhase(~airborne.array)
+    def derive(self, airspeed=P('Airspeed')):
+        # Did the aircraft go fast enough to possibly become airborne?
+        fast_where = np.ma.masked_less(airspeed.array, AIRSPEED_THRESHOLD)
+        a,b = np.ma.flatnotmasked_edges(fast_where)
+        self.create_phases([slice(a, b, None)])
     
 '''
 RTO is like this :o)
@@ -92,9 +105,13 @@ class RejectedTakeoff(FlightPhaseNode):
             # so must be a rejected takeoff.
             self.create_phases(somehow the same as the Fast slice !)
 '''
-            
-                
 
+
+'''
+class TopOfClimbTopOfDescent(FlightPhaseNode):
+    def derive(self, rate_of_turn=P('Rate Of Turn')):
+'''    
+    
 class Turning(FlightPhaseNode):
     """
     Rate of Turn is greater than +/- RATE_OF_TURN_FOR_FLIGHT_PHASES

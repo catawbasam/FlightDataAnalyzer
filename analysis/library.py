@@ -484,8 +484,10 @@ def interleave (param_1, param_2):
         raise ValueError, 'Attempt to interleave parameters at differing sample rates'
 
     dt = param_2.offset - param_1.offset
-    if 2*abs(dt) != 1/param_1.hz:
-        raise ValueError, 'Attempt to interleave parameters that are not correctly aligned'
+    # Note that dt may suffer from rounding errors, 
+    # hence rounding the value before comparison.
+    if 2*abs(round(dt,6)) != 1/param_1.hz: 
+                raise ValueError, 'Attempt to interleave parameters that are not correctly aligned'
     
     merged_array = np.ma.zeros((2, len(param_1.array)))
     if dt > 0:
