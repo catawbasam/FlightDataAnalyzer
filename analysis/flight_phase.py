@@ -1,14 +1,16 @@
 import logging
 import numpy as np
 
-from analysis.node import FlightPhaseNode, P # ,FlightPhase 
+from analysis.node import FlightPhaseNode, P
 from analysis.settings import (AIRSPEED_THRESHOLD,
+                               ALTITUDE_FOR_CLB_CRU_DSC,
                                RATE_OF_CLIMB_FOR_CLIMB_PHASE,
                                RATE_OF_CLIMB_FOR_DESCENT_PHASE,
                                RATE_OF_CLIMB_FOR_LEVEL_FLIGHT,
                                RATE_OF_TURN_FOR_FLIGHT_PHASES
                                )
 
+'''
 class Airborne(FlightPhaseNode):
     dependencies = ['altitude_std_smoothed', 'takeoff_end', 'landing_start']
     returns = ['Airborne']
@@ -19,16 +21,42 @@ class Airborne(FlightPhaseNode):
         ##airborne_phase = create_phase_inside(altitude_std_smoothed, kpt['TakeoffEndEstimate'], kpt['LandingStartEstimate'])
         airborne_phase = create_phase_inside(altitude_std_smoothed, takeoff_end, landing_start)
         self.create_phase(airborne_phase)
-    
-       
+'''
+
+class Airborne(FlightPhaseNode):
+    def derive(self, roc=P('Rate Of Climb')):
+        # Rate of climb limit set to identify both level flight and 
+        # end of takeoff / start of landing.
+        level_flight = np.ma.masked_inside(roc.array, 
+                                           -RATE_OF_CLIMB_FOR_LEVEL_FLIGHT,
+                                           RATE_OF_CLIMB_FOR_LEVEL_FLIGHT)
+        try:
+            a,b = np.ma.flatnotmasked_edges(level_flight)
+            self.create_phases([slice(a,b,None)])
+        except:
+            pass # Just don't create a phase if none exists.
+        
+
+class ClimbCruiseDescent(FlightPhaseNode):
+    def derive(self, alt=P('Altitude For Phases')):
+        ccd = np.ma.masked_less(alt.array, ALTITUDE_FOR_CLB_CRU_DSC)
+        self.create_phases(np.ma.clump_unmasked(ccd))
+
+        
 class Climbing(FlightPhaseNode):
-    ##returns = ['Climbing']
-    def derive(self, alt_std=P('Altitude Std')):
-        # Rate of climb and descent limits of 800fpm gives good distinction with level flight.
-        climbing = np.ma.masked_where(RATE_OF_CLIMB_FOR_CLIMB_PHASE < 800,
-                                      params['Altitude STD'])
+    def derive(self, roc=P('Rate Of Climb')):
+        # Climbing is used for data validity checks and to reinforce regimes.
+        climbing = np.ma.masked_less(roc.array, RATE_OF_CLIMB_FOR_CLIMB_PHASE)
         climbing_slices = np.ma.clump_unmasked(climbing)
         self.create_phases(climbing_slices)
+        
+
+class Cruise(FlightPhaseNode):
+    def derive(self, toc=P('Top Of Climb'), tod=P('Top Of Descent')):
+        for this_segment in range(max(len(toc),len(tod))):
+            if tod(this_segment)>toc(this_segment):
+                cruise_slice = slice(tod(this_segment),toc(this_segment))
+                self.create_phase(cruise_slice)
         
 
 class Descending(FlightPhaseNode):
@@ -78,10 +106,11 @@ class LevelFlight(FlightPhaseNode):
 '''        
 
 class OnGround(FlightPhaseNode):
-    def derive(self, airborne=Airborne):
-        # inverse of Airborne?!
-        # TODO: Change to be the opposite of slices.
-        return FlightPhase(~airborne.array)
+    def derive(self, airspeed=P('Airspeed')):
+        # Did the aircraft go fast enough to possibly become airborne?
+        fast_where = np.ma.masked_less(airspeed.array, AIRSPEED_THRESHOLD)
+        a,b = np.ma.flatnotmasked_edges(fast_where)
+        self.create_phases([slice(a, b, None)])
     
 '''
 RTO is like this :o)
@@ -92,9 +121,10 @@ class RejectedTakeoff(FlightPhaseNode):
             # so must be a rejected takeoff.
             self.create_phases(somehow the same as the Fast slice !)
 '''
-            
-                
 
+
+
+    
 class Turning(FlightPhaseNode):
     """
     Rate of Turn is greater than +/- RATE_OF_TURN_FOR_FLIGHT_PHASES
