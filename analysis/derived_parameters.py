@@ -7,9 +7,11 @@ from analysis.node import DerivedParameterNode
 from analysis.library import (align, hysteresis, interleave,
                               rate_of_change, straighten_headings)
 
-from settings import (HYSTERESIS_FPALT,
+from settings import (AZ_WASHOUT_TC,
+                      HYSTERESIS_FPALT,
                       HYSTERESIS_FPIAS, 
-                      HYSTERESIS_FPROC
+                      HYSTERESIS_FPROC,
+                      RATE_OF_CLIMB_LAG_TC
                       )
 
 #-------------------------------------------------------------------------------
@@ -163,10 +165,32 @@ class MACH(DerivedParameterNode):
         
 
 class RateOfClimb(DerivedParameterNode):
-    def derive(self, alt_std=P('Altitude STD'),):
-               ##alt_rad = P('Altitude Radio')):
-        #TODO: Needs huge rewrite but this might work for starters. DJ
-        self.array = rate_of_change(alt_std, 1)
+    def derive(self, 
+               az = P('Acceleration Vertical'),
+               alt_std = P('Altitude STD'),
+               alt_rad = P('Altitude_Radio'),
+               ige = P('InGroundEfrfect')
+               ):
+        roc = rate_of_change(align(alt_std, az), 2)
+        roc_rad = rate_of_change(align(alt_rad, az), 1)
+        
+        # Use pressure altitude rate outside ground effect and 
+        # radio altitude data inside ground effect.
+        for this_ige in ige._sections:
+            a = this_ige.slice.start
+            b = this_ige.slice.stop
+            roc[a:b] = roc_rad[a:b]
+        
+        # Lag this rate of climb
+        lagged_roc = first_order_lag (roc.array, RATE_OF_CLIMB_LAG_TC, roc.hz)
+        az_washout = first_order_washout (az.array, AZ_WASHOUT_TC, az.hz, initial_value = 1.0)
+        inertial_roc = first_order_lag (az_washout.array, RATE_OF_CLIMB_LAG_TC, az.hz, gain=GRAVITY*RATE_OF_CLIMB_LAG_TC*60.0, initial_value = 1.0)
+        return lagged_roc + inertial_roc
+                
+        
+        
+        
+        
 
 class Relief(DerivedParameterNode):
     # also known as Terrain

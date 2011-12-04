@@ -12,13 +12,19 @@ NODE_MODULES = ['analysis.derived_parameters',
 ## Parameter Analysis
 ##########################
 
+
+# An airspeed below which you just can't possibly be flying.
+AIRSPEED_THRESHOLD = 80  # (kts)
+
 # Altitude to break flights into separate climb/cruise/descent segments.
 # This is applied to altitude with hysteresis, so break does not exactly 
 # happen at this altitude.
 ALTITUDE_FOR_CLB_CRU_DSC = 10000
 
-# Minimum duration for a flight to analyse
-MIN_FLIGHT_TO_ANALYSE = 300  # (sec)
+# Resolved vertical acceleration washout time constant.
+# This long period function removes any standing offset to the resolved 
+# acceleration signal and is essential in the vertical velocity complementary filter.
+AZ_WASHOUT_TC = 30.0
 
 # Less than 5 mins you can't do a circuit, so we'll presume this is a data snippet
 ##FLIGHT_WORTH_ANALYSING_SEC = 300
@@ -26,14 +32,11 @@ MIN_FLIGHT_TO_ANALYSE = 300  # (sec)
 # Minimum duration of flight in seconds
 ##DURATION_THRESHOLD = 60  # (sec)
 
+# Threshold for start of climb phase
+CLIMB_THRESHOLD = 1000 # ft AAL
+
 # Minimum period of a descent for testing against thresholds (reduces number of KPVs computed in turbulence)
 DESCENT_MIN_DURATION = 10  # (sec)
-
-# Level flight minimum duration
-LEVEL_FLIGHT_MIN_DURATION = 60  # (sec)
-
-# An airspeed below which you just can't possibly be flying.
-AIRSPEED_THRESHOLD = 80  # (kts)
 
 # Threshold for flight phase airspeed hysteresis.
 HYSTERESIS_FPIAS = 10 # (kts)
@@ -46,6 +49,13 @@ HYSTERESIS_FPALT = 200 # (ft)
 # phase if the aircraft is climbing/descending close to a threshold level.
 HYSTERESIS_FPROC = 100 # (fpm)
 
+# Threshold for start of initial climb phase
+INITIAL_CLIMB_THRESHOLD = 35 # ft (Radio, where available)
+
+# Level flight minimum duration
+LEVEL_FLIGHT_MIN_DURATION = 60  # (sec)
+
+
 # Rate of climb and descent limits of 800fpm gives good distinction with
 # level flight. Separately defined to allow for future adjustment.
 RATE_OF_CLIMB_FOR_CLIMB_PHASE = 800 # (fpm)
@@ -55,6 +65,17 @@ RATE_OF_CLIMB_FOR_DESCENT_PHASE = -800 # (fpm)
 # and end of descent, when relying solely upon pressure altitude data.
 RATE_OF_CLIMB_FOR_LEVEL_FLIGHT = 300 # (fpm)
 
+# Rate of turn limits of +/- 90 deg/minute work well in flight and on ground.
+RATE_OF_TURN_FOR_FLIGHT_PHASES = 1.5 # deg per second
+
+# Duration of masked data to repair by interpolation for flight phase analysis
+REPAIR_DURATION = 10 # seconds 
+
+# Rate of Climb complementary filter timeconstant
+RATE_OF_CLIMB_LAG_TC = 10.0 # sec
+
+
+
 """  Top of Climb / Top of Descent Threshold.
 This threshold was based upon the idea of "Less than 600 fpm for 6 minutes"
 This was often OK, but one test data sample had a 4000ft climb 20 mins
@@ -63,8 +84,7 @@ minutes which has been found to give good qualitative segregation
 between climb, cruise and descent phases."""
 SLOPE_FOR_TOC_TOD = (600/float(180))
 
-# Rate of turn limits of +/- 90 deg/minute work well in flight and on ground.
-RATE_OF_TURN_FOR_FLIGHT_PHASES = 1.5 # deg per second
+WING_SPAN = 77 # TODO: Replace with aircraft parameter
 
 ##########################
 ## Data Analysis Hooks

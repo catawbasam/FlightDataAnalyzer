@@ -1,12 +1,23 @@
 import unittest
 import numpy as np
 
-from hdfaccess.parameter import Parameter
-from analysis.node import Section
+from hdfaccess.parameter import P, Parameter
+from analysis.node import Section, KeyTimeInstance
+
+from analysis.key_time_instances import (BottomOfDescent,
+                                         TopOfClimb, 
+                                         TopOfDescent
+                                         )
+
 from analysis.flight_phase import (Airborne,
                                    ClimbCruiseDescent,
+                                   ClimbFromBottomOfDescent,
                                    Climbing,
+                                   Cruise,
+                                   DescentLowClimb,
+                                   DescentToBottomOfDescent,
                                    Fast,
+                                   InGroundEffect,
                                    LevelFlight,
                                    OnGround,
                                    Turning
@@ -47,13 +58,46 @@ class TestClimbCruiseDescent(unittest.TestCase):
         opts = ClimbCruiseDescent.get_operational_combinations()
         self.assertEqual(opts, expected)
 
-    def test_climbing_basic(self):
+    def test_climb_cruise_descent_basic(self):
         # This test will find out if we can separate the two humps on this camel
         camel = ClimbCruiseDescent()
         testwave = np.cos(np.arange(0,12.6,0.1))*(-2000)+10000
         camel.derive(Parameter('Altitude For Phases', np.ma.array(testwave)))
         self.assertEqual(len(camel._sections), 2)
 
+
+class TestClimbFromBottomOfDescent(unittest.TestCase):
+    def test_can_operate(self):
+        expected = [('Top Of Climb', 'Climb Start', 'Bottom Of Descent')]
+        opts = ClimbFromBottomOfDescent.get_operational_combinations()
+        self.assertEqual(opts, expected)
+
+    def test_descent_to_bottom_of_descent_basic(self):
+        testwave = np.cos(np.arange(0,12.6,0.1))*(-2000)+10000
+        alt_data = np.ma.array(testwave)
+
+        #===========================================================
+        # This block of code replicates normal opeartion and ensures
+        # that the cruise/climb/descent, top of climb and top of 
+        # descent data matches the cruise phase under test.
+        #===========================================================
+        # Use the same test data for flight phases and measured altitude.
+        alt = Parameter('Altitude STD', alt_data)
+        
+        ccd = ClimbCruiseDescent()
+        ccd.derive(Parameter('Altitude For Phases', alt_data))
+        toc = TopOfClimb()
+        toc.derive(alt, ccd)
+        dlc = DescentLowClimb()
+        dlc.derive(alt)
+        bod = BottomOfDescent()
+        bod.derive(dlc, alt)
+                
+        descent_phase = ClimbFromBottomOfDescent()
+        descent_phase.derive(toc, [], bod) # TODO: include start of climb instance
+        expected = [Section(name='Climb From Bottom Of Descent',slice=slice(63, 94, None))]
+        self.assertEqual(descent_phase._sections, expected)
+                
 
 class TestClimbing(unittest.TestCase):
     def test_can_operate(self):
@@ -71,6 +115,128 @@ class TestClimbing(unittest.TestCase):
         expected = [Section(name='Climbing', slice=slice(3, 10, None))]
         self.assertEqual(up._sections, expected)
 
+
+class TestCruise(unittest.TestCase):
+    def test_can_operate(self):
+        expected = [('Climb Cruise Descent',
+                     'Top Of Climb', 'Top Of Descent')]
+        opts = Cruise.get_operational_combinations()
+        self.assertEqual(opts, expected)
+
+    def test_cruise_phase_basic(self):
+        testwave = np.cos(np.arange(0,12.6,0.1))*(-2000)+10000
+        alt_data = np.ma.array(testwave)
+
+        #===========================================================
+        # This block of code replicates normal opeartion and ensures
+        # that the cruise/climb/descent, top of climb and top of 
+        # descent data matches the cruise phase under test.
+        #===========================================================
+        # Use the same test data for flight phases and measured altitude.
+        alt = Parameter('Altitude STD', alt_data)
+        
+        ccd = ClimbCruiseDescent()
+        ccd.derive(Parameter('Altitude For Phases', alt_data))
+        toc = TopOfClimb()
+        toc.derive(alt, ccd)
+        tod = TopOfDescent()
+        tod.derive(alt, ccd)
+
+        test_phase = Cruise()
+        test_phase.derive(ccd, toc, tod)
+        #===========================================================
+        
+        # With this test waveform, the peak at 31:32 is just flat enough
+        # for the climb and descent to be a second apart, whereas the peak
+        # at 94 genuinely has no interval with a level cruise.
+        expected = [Section(name='Cruise', slice=slice(31, 32, None)),
+                    Section(name='Cruise', slice=slice(94, 94, None))]
+        self.assertEqual(test_phase._sections, expected)
+
+    def test_cruise_truncated_start(self):
+        alt_data = np.ma.array([15000]*5+range(15000,12000,-1000))
+        #===========================================================
+        alt = Parameter('Altitude STD', alt_data)
+        ccd = ClimbCruiseDescent()
+        ccd.derive(Parameter('Altitude For Phases', alt_data))
+        toc = TopOfClimb()
+        toc.derive(alt, ccd)
+        tod = TopOfDescent()
+        tod.derive(alt, ccd)
+        test_phase = Cruise()
+        test_phase.derive(ccd, toc, tod)
+        #===========================================================
+        expected = [Section(name='Cruise', slice=slice(0, 5, None))]
+        self.assertEqual(test_phase._sections, expected)
+        self.assertEqual(len(toc._kti_list), 0)
+        self.assertEqual(len(tod._kti_list), 1)
+
+    def test_cruise_truncated_end(self):
+        alt_data = np.ma.array(range(35000,36000,100)+[36000]*4)
+        #===========================================================
+        alt = Parameter('Altitude STD', alt_data)
+        ccd = ClimbCruiseDescent()
+        ccd.derive(Parameter('Altitude For Phases', alt_data))
+        toc = TopOfClimb()
+        toc.derive(alt, ccd)
+        tod = TopOfDescent()
+        tod.derive(alt, ccd)
+        test_phase = Cruise()
+        test_phase.derive(ccd, toc, tod)
+        #===========================================================
+        expected = [Section(name='Cruise', slice=slice(10, 14, None))]
+        self.assertEqual(test_phase._sections, expected)
+        self.assertEqual(len(toc._kti_list), 1)
+        self.assertEqual(len(tod._kti_list), 0)
+
+
+class TestDescentLowClimb(unittest.TestCase):
+    def test_can_operate(self):
+        expected = [('Altitude For Phases',)]
+        opts = DescentLowClimb.get_operational_combinations()
+        self.assertEqual(opts, expected)
+
+    def test_descent_low_climb_basic(self):
+        # This test will find out if we can separate the two humps on this camel
+        dlc = DescentLowClimb()
+        testwave = np.cos(np.arange(0,12.6,0.1))*(-2000)+10000
+        alt = Parameter('Altitude For Phases', np.ma.array(testwave))
+        dlc.derive(alt)
+        self.assertEqual(len(dlc._sections), 1)
+
+
+class TestDescentToBottomOfDescent(unittest.TestCase):
+    def test_can_operate(self):
+        expected = [('Top Of Descent', 'Bottom Of Descent')]
+        opts = DescentToBottomOfDescent.get_operational_combinations()
+        self.assertEqual(opts, expected)
+
+    def test_descent_to_bottom_of_descent_basic(self):
+        testwave = np.cos(np.arange(0,12.6,0.1))*(-2000)+10000
+        alt_data = np.ma.array(testwave)
+
+        #===========================================================
+        # This block of code replicates normal opeartion and ensures
+        # that the cruise/climb/descent, top of climb and top of 
+        # descent data matches the cruise phase under test.
+        #===========================================================
+        # Use the same test data for flight phases and measured altitude.
+        alt = Parameter('Altitude STD', alt_data)
+        
+        ccd = ClimbCruiseDescent()
+        ccd.derive(Parameter('Altitude For Phases', alt_data))
+        tod = TopOfDescent()
+        tod.derive(alt, ccd)
+        dlc = DescentLowClimb()
+        dlc.derive(alt)
+        bod = BottomOfDescent()
+        bod.derive(dlc, alt)
+                
+        descent_phase = DescentToBottomOfDescent()
+        descent_phase.derive(tod, bod)
+        expected = [Section(name='Descent To Bottom Of Descent',slice=slice(32,63,None))]
+        self.assertEqual(descent_phase._sections, expected)
+                
 
 class TestFast(unittest.TestCase):
     def test_can_operate(self):
@@ -96,6 +262,22 @@ class TestFast(unittest.TestCase):
         expected = [Section(name='Fast',slice=slice(2,5,None)),
                   Section(name='Fast',slice=slice(8,11,None))]
         self.assertEqual(phase_fast._sections, expected)
+
+class TestInGroundEffect(unittest.TestCase):
+    def test_can_operate(self):
+        expected = [('Altitude Radio',)]
+        opts = InGroundEffect.get_operational_combinations()
+        self.assertEqual(opts, expected)
+
+    def test_onground_basic(self):
+        alt_rad = Parameter('Altitude Radio', np.ma.array([range(0,200,10)+
+                                                           range(200,0,-10)]))
+        ige = InGroundEffect()
+        ige.derive(alt_rad)
+        expected = [Section(name='In Ground Effect',slice=slice(0,8,None)),
+                    Section(name='In Ground Effect',slice=slice(33,40,None))]
+        self.assertEqual(ige._sections, expected)
+ 
 
 class TestOnGround(unittest.TestCase):
     # Based simply on moving too slowly to be airborne.
@@ -159,9 +341,8 @@ class TestLevelFlight(unittest.TestCase):
         self.assertEqual(opts, expected)
 
     def test_level_flight_phase_basic(self):
-        rate_of_climb_data = np.ma.concatenate([np.ma.arange(0,400,50),
-                                                np.ma.arange(400,-450,-50),
-                                                np.ma.arange(-450,50,50)])
+        rate_of_climb_data = np.ma.array(range(0,400,50)+range(400,-450,-50)+
+                                         range(-450,50,50))
         rate_of_climb = Parameter('Rate Of Climb', np.ma.array(rate_of_climb_data))
         level = LevelFlight()
         level.derive(rate_of_climb)

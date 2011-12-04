@@ -16,7 +16,7 @@ from analysis.library import (align, calculate_timebase, create_phase_inside,
                               first_order_lag, first_order_washout,
                               hysteresis, interleave, merge_alternate_sensors, 
 #                              powerset, 
-                              rate_of_change, straighten_headings,
+                              rate_of_change, repair_mask, straighten_headings,
                               time_at_value, value_at_time)
 
 from analysis.node import P, Parameter
@@ -573,6 +573,36 @@ class TestRateOfChange(unittest.TestCase):
         self.assertRaises(ValueError, 
                           rate_of_change, 
                           P('Test',np.ma.array([0, 1, 0]), 1), -2)
+        
+        
+class TestRepairMask(unittest.TestCase):
+    def test_repair_mask_basic(self):
+        array = np.ma.arange(10)
+        array[3] = np.ma.masked
+        array[6:8] = np.ma.masked
+        repair_mask(array)
+        np.testing.assert_array_equal(array.data,range(10))
+        
+    def test_repair_mask_too_much_invalid(self):
+        array = np.ma.arange(20)
+        array[4:15] = np.ma.masked
+        unchanged = array
+        repair_mask(array)
+        ma_test.assert_masked_array_approx_equal(array, unchanged)
+        
+    def test_repair_mask_not_at_start(self):
+        array = np.ma.arange(10)
+        array[0] = np.ma.masked
+        unchanged = array
+        repair_mask(array)
+        ma_test.assert_masked_array_approx_equal(array, unchanged)
+        
+    def test_repair_mask_not_at_end(self):
+        array = np.ma.arange(10)
+        array[9] = np.ma.masked
+        unchanged = array
+        repair_mask(array)
+        ma_test.assert_masked_array_approx_equal(array, unchanged)
         
         
 class TestStraightenHeadings(unittest.TestCase):

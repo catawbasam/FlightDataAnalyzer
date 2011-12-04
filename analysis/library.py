@@ -6,6 +6,8 @@ from scipy.signal import iirfilter, lfilter, lfilter_zi
 from datetime import datetime, timedelta
 from itertools import izip
 
+from settings import REPAIR_DURATION
+
 #from hdfaccess.parameter import Parameter
 
 #Q: Not sure that there's any point in these? Very easy to define later
@@ -614,49 +616,47 @@ def rate_of_change(diff_param, half_width):
     slope[-hw:] = (to_diff[-hw:] - to_diff[-hw-1:-1])* hz
     return slope
 
+def repair_mask(array):
+    '''
+    This repairs short sections of data ready for use by flight phase algorithms
+    It is not intended to be used for key point computations, where invalid data
+    should remain masked.
+    '''
+    masked_sections = np.ma.clump_masked(array)
+    for section in masked_sections:
+        length = section.stop - section.start
+        if (length) > REPAIR_DURATION:  # TODO: include frequency as length is in samples and REPAIR_DURATION is in seconds
+            break # Too long to repair
+        elif section.start == 0:
+            break # Can't interpolate if we don't know the first sample
+        elif section.stop == len(array):
+            break # Can't interpolate if we don't know the last sample
+        else:
+            array[section] =np.interp(np.arange(length)+1,[0,length+1],[array.data[section.start - 1],array.data[section.stop]])
+    return array            
+            
 def straighten_headings(heading_array):
-    """
+    '''
     We always straighten heading data before checking for spikes. 
     It's easier to process heading data in this format.
-    
-    If the spike is over 180 diff, that will count as a jump, but it will then
-    jump back again on the next sample.
-    
-    TODO: could return a new numpy array?
     
     :param heading_array: array/list of numeric heading values
     :type heading_array: iterable
     :returns: Straightened headings
     :rtype: Generator of type Float
-    """
-    # Ref: flight_analysis_library.py
-    
-    '''
-
-    Original version based on iterating through the data
-    
-    head_prev = heading_array[0]
-    yield head_prev
-    offset = 0.0
-    for heading in heading_array[1:]:
-        diff = heading - head_prev
-        if diff > 180:
-            offset -= 360
-        elif diff < -180:
-            offset += 360
-        else:
-            pass # no change to offset
-        head_prev = heading
-        yield heading + offset
     '''
     
-    # Amended version using Numpy functions.
     head_prev = heading_array[0]
     diff = np.ediff1d(heading_array)
     diff = diff - 360.0 * np.trunc(diff/180.0)
     heading_array[1:] = np.cumsum(diff) + head_prev
     return heading_array
 
+def time_at_value_wrapped(parameter, block, value):
+    data = parameter.array[block.slice]
+    return time_at_value (repair_mask(data) , parameter.hz, 
+                          parameter.offset, 0, len(data)-1, value)
+            
 def time_at_value (array, hz, offset, scan_start, scan_end, threshold):
     '''
     This function seeks the moment when the parameter in question first crosses 
@@ -713,7 +713,8 @@ def time_at_value (array, hz, offset, scan_start, scan_end, threshold):
         n,dummy=np.ma.flatnotmasked_edges(np.ma.masked_greater(value_passing_array, 0.0))
         a = array[begin+step*n]
         b = array[begin+step*(n+1)]
-        r = (threshold - a) / (b-a)
+        # Force threshold to float as often passed as an integer.
+        r = (float(threshold) - a) / (b-a) 
         #TODO: Could test 0 < r < 1 for completeness
     return (begin + step * (n + r)) / hz
 
