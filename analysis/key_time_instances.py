@@ -25,7 +25,7 @@ class BottomOfDescent(KeyTimeInstanceNode):
                alt_std=P('Altitude STD')):
         # In the case of descents without landing, this finds the minimum
         # point of the dip.
-        for this_dlc in dlc._sections:
+        for this_dlc in dlc:
             kti = np.ma.argmin(alt_std.array[this_dlc.slice])
             self.create_kti(kti + this_dlc.slice.start, 'Bottom Of Descent')
         
@@ -69,7 +69,7 @@ class TopOfClimb(KeyTimeInstanceNode):
                ccd=P('Climb Cruise Descent')):
         # This checks for the top of climb in each 
         # Climb/Cruise/Descent period of the flight.
-        for ccd_phase in ccd._sections:
+        for ccd_phase in ccd:
             ccd_slice = ccd_phase.slice
             try:
                 n_toc = find_toc_tod(alt_std.array, ccd_slice, 'Climb')
@@ -89,7 +89,7 @@ class TopOfDescent(KeyTimeInstanceNode):
                ccd=P('Climb Cruise Descent')):
         # This checks for the top of descent in each 
         # Climb/Cruise/Descent period of the flight.
-        for ccd_phase in ccd._sections:
+        for ccd_phase in ccd:
             ccd_slice = ccd_phase.slice
             try:
                 n_tod = find_toc_tod(alt_std.array, ccd_slice, 'Descent')

@@ -40,7 +40,7 @@ class TestAirborne(unittest.TestCase):
         air = Airborne()
         air.derive(rate_of_climb)
         expected = [Section(name='Airborne', slice=slice(7, 27, None))]
-        self.assertEqual(air._sections, expected)
+        self.assertEqual(air, expected)
 
 
     def test_airborne_phase_not_airborne(self):
@@ -49,7 +49,7 @@ class TestAirborne(unittest.TestCase):
         air = Airborne()
         air.derive(rate_of_climb)
         expected = [Section(name='Airborne', slice=slice(7, 27, None))]
-        self.assertEqual(air._sections, [])
+        self.assertEqual(air, [])
 
 
 class TestClimbCruiseDescent(unittest.TestCase):
@@ -63,7 +63,7 @@ class TestClimbCruiseDescent(unittest.TestCase):
         camel = ClimbCruiseDescent()
         testwave = np.cos(np.arange(0,12.6,0.1))*(-2000)+10000
         camel.derive(Parameter('Altitude For Phases', np.ma.array(testwave)))
-        self.assertEqual(len(camel._sections), 2)
+        self.assertEqual(len(camel), 2)
 
 
 class TestClimbFromBottomOfDescent(unittest.TestCase):
@@ -96,7 +96,7 @@ class TestClimbFromBottomOfDescent(unittest.TestCase):
         descent_phase = ClimbFromBottomOfDescent()
         descent_phase.derive(toc, [], bod) # TODO: include start of climb instance
         expected = [Section(name='Climb From Bottom Of Descent',slice=slice(63, 94, None))]
-        self.assertEqual(descent_phase._sections, expected)
+        self.assertEqual(descent_phase, expected)
                 
 
 class TestClimbing(unittest.TestCase):
@@ -113,7 +113,7 @@ class TestClimbing(unittest.TestCase):
         up = Climbing()
         up.derive(rate_of_climb)
         expected = [Section(name='Climbing', slice=slice(3, 10, None))]
-        self.assertEqual(up._sections, expected)
+        self.assertEqual(up, expected)
 
 
 class TestCruise(unittest.TestCase):
@@ -151,7 +151,7 @@ class TestCruise(unittest.TestCase):
         # at 94 genuinely has no interval with a level cruise.
         expected = [Section(name='Cruise', slice=slice(31, 32, None)),
                     Section(name='Cruise', slice=slice(94, 94, None))]
-        self.assertEqual(test_phase._sections, expected)
+        self.assertEqual(test_phase, expected)
 
     def test_cruise_truncated_start(self):
         alt_data = np.ma.array([15000]*5+range(15000,12000,-1000))
@@ -167,9 +167,9 @@ class TestCruise(unittest.TestCase):
         test_phase.derive(ccd, toc, tod)
         #===========================================================
         expected = [Section(name='Cruise', slice=slice(0, 5, None))]
-        self.assertEqual(test_phase._sections, expected)
-        self.assertEqual(len(toc._kti_list), 0)
-        self.assertEqual(len(tod._kti_list), 1)
+        self.assertEqual(test_phase, expected)
+        self.assertEqual(len(toc), 0)
+        self.assertEqual(len(tod), 1)
 
     def test_cruise_truncated_end(self):
         alt_data = np.ma.array(range(35000,36000,100)+[36000]*4)
@@ -185,9 +185,9 @@ class TestCruise(unittest.TestCase):
         test_phase.derive(ccd, toc, tod)
         #===========================================================
         expected = [Section(name='Cruise', slice=slice(10, 14, None))]
-        self.assertEqual(test_phase._sections, expected)
-        self.assertEqual(len(toc._kti_list), 1)
-        self.assertEqual(len(tod._kti_list), 0)
+        self.assertEqual(test_phase, expected)
+        self.assertEqual(len(toc), 1)
+        self.assertEqual(len(tod), 0)
 
 
 class TestDescentLowClimb(unittest.TestCase):
@@ -202,7 +202,7 @@ class TestDescentLowClimb(unittest.TestCase):
         testwave = np.cos(np.arange(0,12.6,0.1))*(-2000)+10000
         alt = Parameter('Altitude For Phases', np.ma.array(testwave))
         dlc.derive(alt)
-        self.assertEqual(len(dlc._sections), 1)
+        self.assertEqual(len(dlc), 1)
 
 
 class TestDescentToBottomOfDescent(unittest.TestCase):
@@ -235,7 +235,7 @@ class TestDescentToBottomOfDescent(unittest.TestCase):
         descent_phase = DescentToBottomOfDescent()
         descent_phase.derive(tod, bod)
         expected = [Section(name='Descent To Bottom Of Descent',slice=slice(32,63,None))]
-        self.assertEqual(descent_phase._sections, expected)
+        self.assertEqual(descent_phase, expected)
                 
 
 class TestFast(unittest.TestCase):
@@ -250,7 +250,7 @@ class TestFast(unittest.TestCase):
         phase_fast = Fast()
         phase_fast.derive(ias)
         expected = [Section(name='Fast',slice=slice(2,11,None))]
-        self.assertEqual(phase_fast._sections, expected)
+        self.assertEqual(phase_fast, expected)
         
     def test_fast_phase_with_mask(self):
         slow_and_fast_data = np.ma.concatenate([np.ma.arange(60,120,10),
@@ -261,7 +261,7 @@ class TestFast(unittest.TestCase):
         phase_fast.derive(ias)
         expected = [Section(name='Fast',slice=slice(2,5,None)),
                   Section(name='Fast',slice=slice(8,11,None))]
-        self.assertEqual(phase_fast._sections, expected)
+        self.assertEqual(phase_fast, expected)
 
 class TestInGroundEffect(unittest.TestCase):
     def test_can_operate(self):
@@ -276,7 +276,7 @@ class TestInGroundEffect(unittest.TestCase):
         ige.derive(alt_rad)
         expected = [Section(name='In Ground Effect',slice=slice(0,8,None)),
                     Section(name='In Ground Effect',slice=slice(33,40,None))]
-        self.assertEqual(ige._sections, expected)
+        self.assertEqual(ige, expected)
  
 
 class TestOnGround(unittest.TestCase):
@@ -294,7 +294,7 @@ class TestOnGround(unittest.TestCase):
         phase_onground = OnGround()
         phase_onground.derive(ias)
         expected = [Section(name='On Ground',slice=slice(2,10,None))]
-        self.assertEqual(phase_onground._sections, expected)
+        self.assertEqual(phase_onground, expected)
  
         
 class TestTurning(unittest.TestCase):
@@ -310,7 +310,7 @@ class TestTurning(unittest.TestCase):
         turning.derive(rate_of_turn)
         expected = [Section(name='Turning', slice=slice(0, 3, None)),
                   Section(name='Turning', slice=slice(18, 21, None))]
-        self.assertEqual(turning._sections, expected)
+        self.assertEqual(turning, expected)
         
     def test_turning_phase_basic_masked_not_turning(self):
         rate_of_turn_data = np.ma.arange(-2, 2.2, 0.2)
@@ -320,7 +320,7 @@ class TestTurning(unittest.TestCase):
         turning.derive(rate_of_turn)
         expected = [Section(name='Turning', slice=slice(0, 3, None)),
                   Section(name='Turning', slice=slice(18, 21, None))]
-        self.assertEqual(turning._sections, expected)
+        self.assertEqual(turning, expected)
         
     def test_turning_phase_basic_masked_while_turning(self):
         rate_of_turn_data = np.ma.arange(-2, 2.2, 0.2)
@@ -332,7 +332,7 @@ class TestTurning(unittest.TestCase):
                   Section(name='Turning', slice=slice(2, 3, None)),
                   Section(name='Turning', slice=slice(18, 21, None))]
 
-        self.assertEqual(turning._sections, expected)
+        self.assertEqual(turning, expected)
         
 class TestLevelFlight(unittest.TestCase):
     def test_can_operate(self):
@@ -349,7 +349,7 @@ class TestLevelFlight(unittest.TestCase):
         expected = [Section(name='Level Flight', slice=slice(0, 7, None)),
                   Section(name='Level Flight', slice=slice(10, 23, None)), 
                   Section(name='Level Flight', slice=slice(28, 35, None))]
-        self.assertEqual(level._sections, expected)
+        self.assertEqual(level, expected)
         
     def test_turning_phase_basic_masked_not_turning(self):
         rate_of_turn_data = np.ma.arange(-2, 2.2, 0.2)
@@ -359,5 +359,5 @@ class TestLevelFlight(unittest.TestCase):
         turning.derive(rate_of_turn)
         expected = [Section(name='Turning', slice=slice(0, 3, None)),
                   Section(name='Turning', slice=slice(18, 21, None))]
-        self.assertEqual(turning._sections, expected)
+        self.assertEqual(turning, expected)
         

@@ -51,11 +51,11 @@ class ClimbFromBottomOfDescent(FlightPhaseNode):
                bod = P('Bottom Of Descent')):
         # First we extract the kti index values into simple lists.
         toc_list = []
-        for this_toc in toc._kti_list:
+        for this_toc in toc:
             toc_list.append(this_toc.index)
             
         # Now see which follows a takeoff
-        for this_eot in eot._kti_list:
+        for this_eot in eot:
             eot = this_eot.index
             # Scan the TOCs
             closest_toc = None
@@ -71,7 +71,7 @@ class ClimbFromBottomOfDescent(FlightPhaseNode):
         
 
         # Now see which follows this minimum
-        for this_bod in bod._kti_list:
+        for this_bod in bod:
             bod = this_bod.index
             # Scan the TODs
             closest_toc = None
@@ -106,14 +106,14 @@ class Cruise(FlightPhaseNode):
         
         # First we extract the kti index values into simple lists.
         toc_list = []
-        for this_toc in toc._kti_list:
+        for this_toc in toc:
             toc_list.append(this_toc.index)
         tod_list = []
-        for this_tod in tod._kti_list:
+        for this_tod in tod:
             tod_list.append(this_tod.index)
 
         # Now see which fit which Cruise/Climb/Descent phases
-        for ccd_phase in ccd._sections:
+        for ccd_phase in ccd:
 
             # Scan the TOCs
             found_toc = None
@@ -169,11 +169,11 @@ class DescentToBottomOfDescent(FlightPhaseNode):
                bod = P('Bottom Of Descent')):
         # First we extract the kti index values into simple lists.
         tod_list = []
-        for this_tod in tod._kti_list:
+        for this_tod in tod:
             tod_list.append(this_tod.index)
 
         # Now see which preceded this minimum
-        for this_bod in bod._kti_list:
+        for this_bod in bod:
             bod = this_bod.index
             # Scan the TODs
             closest_tod = None
