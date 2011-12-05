@@ -19,7 +19,7 @@ from analysis.library import (align, calculate_timebase, create_phase_inside,
                               rate_of_change, repair_mask, straighten_headings,
                               time_at_value, value_at_time)
 
-from analysis.node import P, Parameter
+from analysis.parameter import P, Parameter
 
 class TestAlign(unittest.TestCase):
     def test_align_basic(self):
