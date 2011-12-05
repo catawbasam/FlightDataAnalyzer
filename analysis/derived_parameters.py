@@ -1,8 +1,7 @@
 import logging
 import numpy as np
 
-from hdfaccess.parameter import P, Parameter
-
+from analysis.parameter import P, Parameter
 from analysis.node import DerivedParameterNode
 from analysis.library import (align, hysteresis, interleave,
                               rate_of_change, straighten_headings)
@@ -81,12 +80,12 @@ class AltitudeRadio(DerivedParameterNode):
     # The parameter raa_to_gear is measured in feet and is positive if the
     # antenna is forward of the mainwheels.
     def derive(self, alt_rad=P('Altitude Radio Sensor'), pitch=P('Pitch'),
-               main_gear_to_alt_rad=None):#A('Main Gear To Altitude Radio')): TODO: Fix once A (aircraft) has been defined.
+               main_gear_to_alt_rad=P('Main Gear To Altitude Radio')): # TODO: Fix once A (aircraft) has been defined.
         # Align the pitch attitude samples to the Radio Altimeter samples,
         # ready for combining them.
         pitch_aligned = np.radians(align(pitch, alt_rad))
         # Now apply the offset if one has been provided
-        self.array = alt_rad.array - np.sin(pitch_aligned) * main_gear_to_rad_alt
+        self.array = alt_rad.array - np.sin(pitch_aligned) * main_gear_to_alt_rad
 
         
 class AltitudeQNH(DerivedParameterNode):
@@ -193,11 +192,7 @@ class RateOfClimb(DerivedParameterNode):
         az_washout = first_order_washout (az.array, AZ_WASHOUT_TC, az.hz, initial_value = 1.0)
         inertial_roc = first_order_lag (az_washout.array, RATE_OF_CLIMB_LAG_TC, az.hz, gain=GRAVITY*RATE_OF_CLIMB_LAG_TC*60.0, initial_value = 1.0)
         return lagged_roc + inertial_roc
-                
-        
-        
-        
-        
+
 
 class Relief(DerivedParameterNode):
     # also known as Terrain

@@ -8,7 +8,7 @@ from itertools import izip
 
 from settings import REPAIR_DURATION
 
-#from hdfaccess.parameter import Parameter
+#from analysis.parameter import P, Parameter
 
 #Q: Not sure that there's any point in these? Very easy to define later
 #----------------------------------------------------------------------

@@ -8,7 +8,7 @@ import mock
 import utilities.masked_array_testutils as ma_test
 from utilities.struct import Struct
 #from utilities.parameter_test import parameter_test
-from hdfaccess.parameter import P, Parameter
+from analysis.parameter import P, Parameter
 from analysis.flight_phase import InGroundEffect
 from analysis.derived_parameters import (AccelerationVertical,
                                          AltitudeForPhases,

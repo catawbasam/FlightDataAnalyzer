@@ -8,7 +8,7 @@ from abc import ABCMeta, abstractmethod
 from collections import namedtuple
 from itertools import product
 
-from hdfaccess.parameter import Parameter, P
+from analysis.parameter import P, Parameter
 from analysis.library import align
 
 from analysis.recordtype import recordtype
@@ -56,7 +56,6 @@ def get_param_kwarg_names(method):
         raise NotImplementedError("Cannot define **kwargs")
     # alternative: return dict(zip(defaults, args[-len(defaults):]))
     return defaults
-
 
 #------------------------------------------------------------------------------
 # Abstract Node Classes
@@ -211,13 +210,9 @@ class DerivedParameterNode(Node):
     
     def get_derived(self, args):
         super(DerivedParameterNode, self).get_derived(args)
-        return Parameter(self.get_name(), self.array, self.frequency,
-                         self.offset)
-    
-    def get_aligned(self, param):
-        aligned_array = align(self, param)
-        return Parameter(aligned_array, frequency=param.frequency,
-                         offset=param.offset)
+        first_param = next((a for a in args))
+        return Parameter(self.get_name(), self.array, first_param.frequency,
+                                 first_param.offset)
 
 
 class SectionNode(Node, list):

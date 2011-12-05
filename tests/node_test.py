@@ -7,7 +7,7 @@ import mock
 
 from random import shuffle
 
-from hdfaccess.parameter import P, Parameter
+from analysis.parameter import P, Parameter
 
 from analysis.node import (
     DerivedParameterNode, KeyPointValue, KeyPointValueNode, KeyTimeInstance,
@@ -352,19 +352,6 @@ class TestDerivedParameterNode(unittest.TestCase):
         self.assertTrue(False)
         # assert that offset MUST be set
     
-    @mock.patch('analysis.node.align')
-    def test_get_aligned(self, align):
-        '''
-        TODO: Test offset alignment.
-        '''
-        derived_param = self.derived_class(frequency=2, offset=1)
-        param = Parameter('p', frequency=1, offset=0)
-        aligned_param = derived_param.get_aligned(param)
-        self.assertEqual(align.call_args[0],
-                         (derived_param, param))
-        self.assertEqual(aligned_param.frequency, param.frequency)
-        self.assertEqual(aligned_param.offset, param.offset)
-    
     def test_get_derived(self):
         '''
         Tests get_derived returns a Parameter object rather than a
@@ -376,6 +363,6 @@ class TestDerivedParameterNode(unittest.TestCase):
         param2 = Parameter('Pitch', frequency=0.5, offset=1)
         result = derive_param.get_derived([param1, param2])
         self.assertIsInstance(result, Parameter)
-        self.assertEqual(result.frequency, param.frequency)
-        self.assertEqual(result.offset, param.offset)
+        self.assertEqual(result.frequency, param1.frequency)
+        self.assertEqual(result.offset, param1.offset)
         
