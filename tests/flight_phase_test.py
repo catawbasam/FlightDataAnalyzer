@@ -54,7 +54,7 @@ class TestAirborne(unittest.TestCase):
 
 class TestClimbCruiseDescent(unittest.TestCase):
     def test_can_operate(self):
-        expected = [('Altitude For Phases',)]
+        expected = [('Altitude For Climb Cruise Descent',)]
         opts = ClimbCruiseDescent.get_operational_combinations()
         self.assertEqual(opts, expected)
 
@@ -62,7 +62,7 @@ class TestClimbCruiseDescent(unittest.TestCase):
         # This test will find out if we can separate the two humps on this camel
         camel = ClimbCruiseDescent()
         testwave = np.cos(np.arange(0,12.6,0.1))*(-2000)+10000
-        camel.derive(Parameter('Altitude For Phases', np.ma.array(testwave)))
+        camel.derive(Parameter('Altitude For Climb Cruise Descent', np.ma.array(testwave)))
         self.assertEqual(len(camel._sections), 2)
 
 

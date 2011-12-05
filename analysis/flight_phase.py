@@ -39,7 +39,7 @@ class Airborne(FlightPhaseNode):
         
 
 class ClimbCruiseDescent(FlightPhaseNode):
-    def derive(self, alt=P('Altitude For Phases')):
+    def derive(self, alt=P('Altitude For Climb Cruise Descent')):
         ccd = np.ma.masked_less(alt.array, ALTITUDE_FOR_CLB_CRU_DSC)
         self.create_phases(np.ma.clump_unmasked(ccd))
 
@@ -94,7 +94,38 @@ class Climbing(FlightPhaseNode):
         climbing_slices = np.ma.clump_unmasked(climbing)
         self.create_phases(climbing_slices)
         
-
+class Cruise(FlightPhaseNode):
+   
+    def derive(self,
+               ccds = P('Climb Cruise Descent'),
+               tocs = P('Top Of Climb'),
+               tods = P('Top Of Descent')):
+        # We may have many phases, tops of climb and tops of descent at this time.
+        # The problem is that they need not be in tidy order as the lists may
+        # not be of equal lengths.
+        for ccd in ccds:
+            # Scan the TOCs.
+            for toc in tocs:
+                if ccd.slice.start <= toc <= ccd.slice.stop:
+                    break
+            else:
+                toc = None
+            # Scan the TODs.
+            for tod in tods:
+                if ccd.slice.start <= tod <= ccd.slice.stop:
+                    break
+            else:
+                tod = None
+            # Build the slice from what we have found.
+            if toc and tod:
+                self.create_phase(slice(toc, tod))
+            elif toc:
+                self.create_phase(slice(toc, ccd.slice.stop))
+            elif tod:
+                self.create_phase(slice(ccd.slice.start, tod))
+            else:
+                pass
+'''
 class Cruise(FlightPhaseNode):
     def derive(self, 
                ccd = P('Climb Cruise Descent'),
@@ -140,7 +171,7 @@ class Cruise(FlightPhaseNode):
                 self.create_phase(slice(found_toc, ccd_phase.slice.stop))
             if found_toc != None and found_tod != None:
                 self.create_phase(slice(found_toc, found_tod))
-                    
+'''                    
 
 class Descending(FlightPhaseNode):
     """ Descending faster than 800fpm towards the ground
