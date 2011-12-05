@@ -38,6 +38,9 @@ CLIMB_THRESHOLD = 1000 # ft AAL
 # Minimum period of a descent for testing against thresholds (reduces number of KPVs computed in turbulence)
 DESCENT_MIN_DURATION = 10  # (sec)
 
+# Acceleration due to gravity
+GRAVITY = 32.2 # (ft/sec^2)
+
 # Threshold for flight phase airspeed hysteresis.
 HYSTERESIS_FPIAS = 10 # (kts)
 

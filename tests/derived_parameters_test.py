@@ -277,7 +277,7 @@ class TestRateOfClimb(unittest.TestCase):
         opts = RateOfClimb.get_operational_combinations()
         self.assertEqual(opts, expected)
         
-    def test_rate_of_climb(self):
+    def test_rate_of_climb_basic(self):
         az = P('Acceleration Vertical', np.ma.array([1]*10))
         alt_std = P('Altitude STD', np.ma.array([100]*10))
         alt_rad = P('Altitude Radio', np.ma.array([0]*10))
@@ -289,7 +289,26 @@ class TestRateOfClimb(unittest.TestCase):
 
         expected = np.ma.array(data=[0]*10, dtype=np.float,
                              mask=False)
-        np.testing.assert_array_equal(roc.array, expected)
+        ma_test.assert_masked_array_approx_equal(roc.array, expected)
+
+    def test_rate_of_climb_bump(self):
+        az = P('Acceleration Vertical', np.ma.array([1]*10,dtype=float))
+        az.array[2:4] = 1.1
+        # (Low acceleration for this test as the sample rate is only 1Hz).
+        alt_std = P('Altitude STD', np.ma.array([100]*10))
+        alt_rad = P('Altitude Radio', np.ma.array([0]*10))
+        ige = InGroundEffect()
+        ige.derive(alt_rad)
+        
+        roc = RateOfClimb()
+        roc.derive(az, alt_std, alt_rad, ige)
+        # For a 0.1g acceleration over two seconds, the rate of climb would be
+        # 386.4 ft/min. The lower values reflect the washout in the computation.
+        expected = np.ma.array(data=[0, 0, 90.491803, 259.890198, 316.826998,
+                                     275.171138, 237.858958, 204.464431,
+                                     174.602508, 147.925205], mask=False)
+        ma_test.assert_masked_array_approx_equal(roc.array, expected)
+
 
 class TestRateOfClimbForFlightPhases(unittest.TestCase):
     def test_can_operate(self):
