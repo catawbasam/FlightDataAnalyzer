@@ -89,9 +89,9 @@ def derive_parameters(hdf, node_mgr, process_order):
                 dep = dep.get_aligned(first_dep)
             deps.append(dep)
         if not any(deps):
-            raise RuntimeError("No dependencies available - Nodes cannot operate without ANY dependencies available! Node: %s" % node_class.__name__)
-        ## find first not-None dependency to use at the base param
-        #first_dep = next(x for x in deps if x is not None)
+            raise RuntimeError("No dependencies available - Nodes cannot "
+                               "operate without ANY dependencies available! "
+                               "Node: %s" % node_class.__name__)
         # initialise node
         node = node_class(frequency=first_dep.frequency, offset=first_dep.offset)
         # Derive the resulting value
