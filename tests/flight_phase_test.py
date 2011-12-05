@@ -1,7 +1,7 @@
 import unittest
 import numpy as np
 
-from analysis.parameter import P, Parameter
+from hdfaccess.parameter import P, Parameter
 from analysis.node import Section, KeyTimeInstance
 
 from analysis.key_time_instances import (BottomOfDescent,

@@ -1,7 +1,7 @@
 import logging
 import numpy as np
 
-from analysis.parameter import P, Parameter
+from hdfaccess.parameter import P, Parameter
 from analysis.node import DerivedParameterNode
 from analysis.library import (align, hysteresis, interleave,
                               rate_of_change, repair_mask,
