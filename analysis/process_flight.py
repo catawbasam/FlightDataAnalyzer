@@ -8,8 +8,9 @@ from analysis import settings
 from analysis.dependency_graph import dependency_order
 from analysis.library import calculate_timebase
 from analysis.node import (
-    DerivedParameterNode, GeoKeyTimeInstance, KeyPointValue, KeyPointValueNode,
-    KeyTimeInstance, KeyTimeInstanceNode, FlightPhaseNode)
+    DerivedParameterNode, FlightPhaseNode, GeoKeyTimeInstance, KeyPointValue,
+    KeyPointValueNode, KeyTimeInstance, KeyTimeInstanceNode,  SectionList,
+    SectionNode)
 
 
 def get_required_params(aircraft):
@@ -57,7 +58,7 @@ def derive_parameters(hdf, node_mgr, process_order):
     params = {} # store all derived params that aren't masked arrays
     kpv_list = [] # duplicate storage, but maintaining types
     kti_list = []
-    phase_list = []
+    phase_list = []  # 'Node Name' : node()  pass in node.get_accessor()
     
     for param_name in process_order:
         if param_name in node_mgr.lfl:
@@ -73,17 +74,24 @@ def derive_parameters(hdf, node_mgr, process_order):
         
         # build ordered dependencies
         deps = []
-        for param in node_class.get_dependency_names():
-            if param in params:  # already calculated KPV/KTI/Phase
-                deps.append(params[param])
+        first_dep = None
+        for dep_name in node_class.get_dependency_names():
+            if dep_name in params:  # already calculated KPV/KTI/Phase
+                dep = params[param]
             elif param in hdf:  # LFL/Derived parameter
-                deps.append(hdf[param])
+                dep = hdf[param]
             else:  # dependency not available
                 deps.append(None)
+                continue
+            if not first_dep:
+                first_dep = dep
+            else:
+                dep = dep.get_aligned(first_dep)
+            deps.append(dep)
         if not any(deps):
             raise RuntimeError("No dependencies available - Nodes cannot operate without ANY dependencies available! Node: %s" % node_class.__name__)
-        # find first not-None dependency to use at the base param
-        first_dep = next(x for x in deps if x is not None)
+        ## find first not-None dependency to use at the base param
+        #first_dep = next(x for x in deps if x is not None)
         # initialise node
         node = node_class(frequency=first_dep.frequency, offset=first_dep.offset)
         # Derive the resulting value
@@ -117,19 +125,25 @@ def derive_parameters(hdf, node_mgr, process_order):
     return kti_list, kpv_list, phase_list
 
 
-def process_flight(hdf_path, aircraft, achieved_flight_record=None, draw=False):
+def process_flight(hdf_path, aircraft_info, achieved_flight_record=None, draw=False):
     """
-    aircraft API:
+    aircraft_info API:
     {
         'Tail Number':  # Aircraft Registration
         'Identifier':  # Aircraft Ident
-        'Manufacturer': 
-        'Manufacturer  aircraft.manufacturer_serial_number, #MSN
-        'Model': 
-        'Frame': 
-        'Main Gear To Altitude Radio': ,
-        'Wing Span': 
+        'Manufacturer': # e.g. Boeing
+        'Manufacturer Serial Number': #MSN
+        'Model': # e.g. 737-800
+        'Frame': # e.g. 737-3C
+        'Main Gear To Altitude Radio': # Distance in metres
+        'Wing Span': # Distance in metres
     }
+    
+    achieved_flight_record API:
+    {
+        # TODO!
+    }
+    
     :param hdf_path: Path to HDF File
     :type hdf_pat: String
     

@@ -11,7 +11,8 @@ from hdfaccess.parameter import P, Parameter
 
 from analysis.node import (
     DerivedParameterNode, KeyPointValue, KeyPointValueNode, KeyTimeInstance,
-    KeyTimeInstanceNode, Node, NodeManager, powerset)
+    KeyTimeInstanceNode, FormattedNameNode, Node, NodeManager, powerset,
+    Section, SectionNode)
 
 
 class TestAbstractNode(unittest.TestCase):
@@ -151,6 +152,70 @@ class TestPowerset(unittest.TestCase):
                     ('aaa', 'bbb', 'ccc')]
         self.assertEqual(res, expected)
 
+class TestSectionNode(unittest.TestCase):
+    def setUp(self):
+        class ExampleSectionNode(SectionNode):
+            def derive(self, a=P('a',[], 2, 0.4)):
+                pass
+            def get_derived(self):
+                pass
+        self.section_node_class = ExampleSectionNode
+    
+    def test_get_aligned(self):
+        '''
+        TODO: Test offset alignment.
+        '''
+        section_node = self.section_node_class(frequency=1, offset=0.5)
+        section_node.create_section(slice(2,4))
+        section_node.create_section(slice(5,7))
+        param = Parameter('p', frequency=0.5, offset=0.1)
+        aligned_node = section_node.get_aligned(param)
+        self.assertEqual(aligned_node.frequency, param.frequency)
+        self.assertEqual(aligned_node.offset, param.offset)
+        self.assertEqual(list(aligned_node),
+                         [Section(name='Example Section Node',
+                                   slice=slice(1.0, 2.0, None)),
+                           Section(name='Example Section Node',
+                                   slice=slice(2.5, 3.5, None))])
+
+class TestFormattedNameNode(unittest.TestCase):
+    def setUp(self):
+        class ExampleNameFormatNode(FormattedNameNode):
+            def derive(self, a=P('a',[], 2, 0.4)):
+                pass
+            def get_derived(self):
+                pass
+        self.formatted_name_node = ExampleNameFormatNode()
+    
+    def test_names(self):
+        """ Using all RETURNS options, apply NAME_FORMAT to obtain a complete
+        list of KPV names this class will create.
+        """
+        formatted_name_node = self.formatted_name_node
+        formatted_name_node.NAME_FORMAT = 'Speed in %(phase)s at %(altitude)d ft'
+        formatted_name_node.RETURN_OPTIONS = {'altitude' : range(100, 701, 300),'phase' : ['ascent', 'descent']}
+        names = formatted_name_node.names()
+        
+        self.assertEqual(names, ['Speed in ascent at 100 ft',
+                                 'Speed in ascent at 400 ft',
+                                 'Speed in ascent at 700 ft',
+                                 'Speed in descent at 100 ft',
+                                 'Speed in descent at 400 ft',
+                                 'Speed in descent at 700 ft',
+                                 ])
+    
+    def test__validate_name(self):
+        """ Ensures that created names have a validated option
+        """
+        formatted_name_node = self.formatted_name_node
+        formatted_name_node.NAME_FORMAT = 'Speed in %(phase)s at %(altitude)d ft'
+        formatted_name_node.RETURN_OPTIONS = {'altitude' : range(100,1000,100),
+                                'phase' : ['ascent', 'descent']}
+        self.assertTrue(formatted_name_node._validate_name('Speed in ascent at 500 ft'))
+        self.assertTrue(formatted_name_node._validate_name('Speed in descent at 900 ft'))
+        self.assertTrue(formatted_name_node._validate_name('Speed in descent at 100 ft'))
+        self.assertRaises(ValueError, formatted_name_node._validate_name, 'Speed in ascent at -10 ft')
+
 
 class TestKeyPointValueNode(unittest.TestCase):
     
@@ -159,6 +224,7 @@ class TestKeyPointValueNode(unittest.TestCase):
             def derive(self, a=P('a',[], 2, 0.4)):
                 pass
         self.knode = KPV(frequency=2, offset=0.4)
+
 
     def test_create_kpv(self):
         """ Tests name format substitution and return type
@@ -190,49 +256,63 @@ class TestKeyPointValueNode(unittest.TestCase):
         # wrong type raises TypeError
         self.assertRaises(TypeError, knode.create_kpv, 2, '3', 
                           phase='', altitude='')
-        
     
-    def test_generate_kpv_name_list(self):
-        """ Using all RETURNS options, apply NAME_FORMAT to obtain a complete
-        list of KPV names this class will create.
-        """
+    def test_get_aligned(self):
+        '''
+        TODO: Test offset alignment.
+        '''
         knode = self.knode
-        knode.NAME_FORMAT = 'Speed in %(phase)s at %(altitude)d ft'
-        knode.RETURN_OPTIONS = {'altitude' : range(100, 701, 300),'phase' : ['ascent', 'descent']}
-        kpv_names = knode.kpv_names()
-        
-        self.assertEqual(kpv_names, ['Speed in ascent at 100 ft',
-                                     'Speed in ascent at 400 ft',
-                                     'Speed in ascent at 700 ft',
-                                     'Speed in descent at 100 ft',
-                                     'Speed in descent at 400 ft',
-                                     'Speed in descent at 700 ft',
-                                     ])
-        
-    def test_validate_name(self):
-        """ Ensures that created names have a validated option
-        """
-        knode = self.knode
-        knode.NAME_FORMAT = 'Speed in %(phase)s at %(altitude)d ft'
-        knode.RETURN_OPTIONS = {'altitude' : range(100,1000,100),
-                                'phase' : ['ascent', 'descent']}
-        self.assertTrue(knode._validate_name('Speed in ascent at 500 ft'))
-        self.assertTrue(knode._validate_name('Speed in descent at 900 ft'))
-        self.assertTrue(knode._validate_name('Speed in descent at 100 ft'))
-        self.assertRaises(ValueError, knode._validate_name, 'Speed in ascent at -10 ft')
+        knode.NAME_FORMAT = 'Speed at %(altitude)dft'
+        knode.RETURN_OPTIONS = {'altitude':[1000,1500]}
+        param = Parameter('p', frequency=0.5, offset=1.5)
+        knode.create_kpv(10, 12.5, altitude=1000.0)
+        knode.create_kpv(24, 12.5, altitude=1000.0)
+        aligned_node = self.knode.get_aligned(param)
+        self.assertEqual(aligned_node._kpv_list,
+                         [KeyPointValue(index=2.5, value=12.5, name='Speed at 1000ft'),
+                          KeyPointValue(index=6.0, value=12.5, name='Speed at 1000ft')])
     
     
 class TestKeyTimeInstanceNode(unittest.TestCase):
+    def setUp(self):
+        class KTI(KeyTimeInstanceNode):
+            def derive(self, a=P('a')):
+                pass
+        self.kti = KTI(frequency=2, offset=0.4)
+    
     def test_create_kti(self):
-        KTI = type('MyKti', (KeyTimeInstanceNode,), dict(derive=lambda x:x,
-                                                       dependencies=['a']))
-        params = {'a':Parameter('a',[], 2, 0.4)}
-        kti = KTI(frequency=2, offset=0.4)
+        kti = self.kti
+        #KTI = type('MyKti', (KeyTimeInstanceNode,), dict(derive=lambda x:x,
+                                                         #dependencies=['a']))
+        #params = {'a':Parameter('a',[], 2, 0.4)}
+        #kti = KTI(frequency=2, offset=0.4)
         kti.create_kti(12, 'fast')
         self.assertEqual(kti._kti_list, [(12, 'fast')])
     
+    def test_get_aligned(self):
+        '''
+        TODO: Test offset alignment.
+        '''
+        kti = self.kti
+        #KTI = type('MyKti', (KeyTimeInstanceNode,), dict(derive=lambda x:x,
+                                                         #dependencies=['a']))
+        #params = {'a':Parameter('a',[], 2, 0.4)}
+        #kti = KTI(frequency=2, offset=0.4)
+        kti.create_kti(16, 'fast')
+        kti.create_kti(18, 'fast')
+        param = Parameter('p', frequency=0.25)
+        aligned_kti = kti.get_aligned(param)
+        self.assertEqual(aligned_kti._kti_list,
+                         [KeyTimeInstance(index=2.0, state='fast'),
+                          KeyTimeInstance(index=2.25, state='fast')])
     
 class TestDerivedParameterNode(unittest.TestCase):
+    def setUp(self):
+        class ExampleDerivedParameterNode(DerivedParameterNode):
+            def derive(self, alt_std=P('Altitude STD')):
+                pass
+        self.derived_class = ExampleDerivedParameterNode
+    
     def test_frequency(self):
         self.assertTrue(False)
         # assert that Frequency MUST be set
@@ -246,4 +326,17 @@ class TestDerivedParameterNode(unittest.TestCase):
     def test_offset(self):
         self.assertTrue(False)
         # assert that offset MUST be set
+    
+    @mock.patch('analysis.node.align')
+    def test_get_aligned(self, align):
+        '''
+        TODO: Test offset alignment.
+        '''
+        derived_param = self.derived_class(frequency=2, offset=1)
+        param = Parameter('p', frequency=1, offset=0)
+        aligned_param = derived_param.get_aligned(param)
+        self.assertEqual(align.call_args[0],
+                         (derived_param, param))
+        self.assertEqual(aligned_param.frequency, param.frequency)
+        self.assertEqual(aligned_param.offset, param.offset)
         

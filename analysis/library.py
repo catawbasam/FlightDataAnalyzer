@@ -476,9 +476,9 @@ def interleave (param_1, param_2):
     masked array. Maintains the mask of each parameter.
     
     :param param_1:
-    :type param_1: Parameter
+    :type param_1: Parameter object
     :param param_2:
-    :type param_2: Parameter
+    :type param_2: Parameter object
     
     """
     # Check the conditions for merging are met
