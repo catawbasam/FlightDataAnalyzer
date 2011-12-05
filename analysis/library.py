@@ -6,6 +6,8 @@ from scipy.signal import iirfilter, lfilter, lfilter_zi
 from datetime import datetime, timedelta
 from itertools import izip
 
+from settings import REPAIR_DURATION
+
 #from hdfaccess.parameter import Parameter
 
 #Q: Not sure that there's any point in these? Very easy to define later
@@ -484,8 +486,10 @@ def interleave (param_1, param_2):
         raise ValueError, 'Attempt to interleave parameters at differing sample rates'
 
     dt = param_2.offset - param_1.offset
-    if 2*abs(dt) != 1/param_1.hz:
-        raise ValueError, 'Attempt to interleave parameters that are not correctly aligned'
+    # Note that dt may suffer from rounding errors, 
+    # hence rounding the value before comparison.
+    if 2*abs(round(dt,6)) != 1/param_1.hz: 
+                raise ValueError, 'Attempt to interleave parameters that are not correctly aligned'
     
     merged_array = np.ma.zeros((2, len(param_1.array)))
     if dt > 0:
@@ -494,6 +498,65 @@ def interleave (param_1, param_2):
         merged_array = np.ma.column_stack((param_2.array,param_1.array))
         
     return np.ma.ravel(merged_array)
+            
+def interleave_uneven_spacing (param_1, param_2):
+    '''
+    This interleaves samples that are not quote equi-spaced.
+       |--------dt---------|
+       |   x             y |
+       |          m        |
+       |   |------a------| |
+       |     o         o   |
+       |   |b|         |b| |
+       
+    Over a period dt two samples x & y will be merged to an equi-spaced new
+    parameter "o". x & y are a apart, while samples o are displaced by b from
+    their original positions.
+    
+    There is a second case where the samples are close together and the
+    interpolation takes place not between x > y, but across the y > x interval.
+    Hence two sections of code. Also, we don't know at the start whether x is
+    parameter 1 or 2, so there are two options for the basic interleaving stage.
+    '''
+    
+    # Check the conditions for merging are met
+    if param_1.hz != param_2.hz:
+        raise ValueError, 'Attempt to interleave parameters at differing sample rates'
+
+    mean_offset = (param_2.offset + param_1.offset) / 2.0
+    result_offset = mean_offset - 1.0/(2.0 * param_1.hz)
+    dt = 1.0/param_1.hz
+    
+    merged_array = np.ma.zeros((2, len(param_1.array)))
+
+    if mean_offset - dt > 0:
+        # The larger gap is between the two first samples
+        merged_array = np.ma.column_stack((param_1.array,param_2.array))
+        offset_0 = param_1.offset
+        offset_1 = param_2.offset
+        a = offset_1 - offset_0
+    else:
+        # The larger gap is between the second and third samples
+        merged_array = np.ma.column_stack((param_2.array,param_1.array))
+        offset_0 = param_2.offset
+        offset_1 = param_1.offset
+        a = dt - (offset_1 - offset_0)
+    b = (dt - a)/2.0
+        
+    straight_array = np.ma.ravel(merged_array)
+    if a < dt:
+        straight_array[0] = straight_array[1] # Extrapolate a little at start
+        x = straight_array[1::2]
+        y = straight_array[2::2]
+    else:
+        x = straight_array[0::2]
+        y = straight_array[1::2]
+    # THIS WON'T WORK !!!
+    x = (y - x)*(b/a) + x
+    y = (y-x) * (1.0 - b) / a + x
+    
+    #return straight_array
+    return None # to force a test error until this is fixed to prevent extrapolation
             
 def merge_alternate_sensors (array):
     '''
@@ -553,49 +616,47 @@ def rate_of_change(diff_param, half_width):
     slope[-hw:] = (to_diff[-hw:] - to_diff[-hw-1:-1])* hz
     return slope
 
+def repair_mask(array):
+    '''
+    This repairs short sections of data ready for use by flight phase algorithms
+    It is not intended to be used for key point computations, where invalid data
+    should remain masked.
+    '''
+    masked_sections = np.ma.clump_masked(array)
+    for section in masked_sections:
+        length = section.stop - section.start
+        if (length) > REPAIR_DURATION:  # TODO: include frequency as length is in samples and REPAIR_DURATION is in seconds
+            break # Too long to repair
+        elif section.start == 0:
+            break # Can't interpolate if we don't know the first sample
+        elif section.stop == len(array):
+            break # Can't interpolate if we don't know the last sample
+        else:
+            array[section] =np.interp(np.arange(length)+1,[0,length+1],[array.data[section.start - 1],array.data[section.stop]])
+    return array            
+            
 def straighten_headings(heading_array):
-    """
+    '''
     We always straighten heading data before checking for spikes. 
     It's easier to process heading data in this format.
-    
-    If the spike is over 180 diff, that will count as a jump, but it will then
-    jump back again on the next sample.
-    
-    TODO: could return a new numpy array?
     
     :param heading_array: array/list of numeric heading values
     :type heading_array: iterable
     :returns: Straightened headings
     :rtype: Generator of type Float
-    """
-    # Ref: flight_analysis_library.py
-    
-    '''
-
-    Original version based on iterating through the data
-    
-    head_prev = heading_array[0]
-    yield head_prev
-    offset = 0.0
-    for heading in heading_array[1:]:
-        diff = heading - head_prev
-        if diff > 180:
-            offset -= 360
-        elif diff < -180:
-            offset += 360
-        else:
-            pass # no change to offset
-        head_prev = heading
-        yield heading + offset
     '''
     
-    # Amended version using Numpy functions.
     head_prev = heading_array[0]
     diff = np.ediff1d(heading_array)
     diff = diff - 360.0 * np.trunc(diff/180.0)
     heading_array[1:] = np.cumsum(diff) + head_prev
     return heading_array
 
+def time_at_value_wrapped(parameter, block, value):
+    data = parameter.array[block.slice]
+    return time_at_value (repair_mask(data) , parameter.hz, 
+                          parameter.offset, 0, len(data)-1, value)
+            
 def time_at_value (array, hz, offset, scan_start, scan_end, threshold):
     '''
     This function seeks the moment when the parameter in question first crosses 
@@ -652,7 +713,8 @@ def time_at_value (array, hz, offset, scan_start, scan_end, threshold):
         n,dummy=np.ma.flatnotmasked_edges(np.ma.masked_greater(value_passing_array, 0.0))
         a = array[begin+step*n]
         b = array[begin+step*(n+1)]
-        r = (threshold - a) / (b-a)
+        # Force threshold to float as often passed as an integer.
+        r = (float(threshold) - a) / (b-a) 
         #TODO: Could test 0 < r < 1 for completeness
     return (begin + step * (n + r)) / hz
 

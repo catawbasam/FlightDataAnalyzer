@@ -9,8 +9,9 @@ import utilities.masked_array_testutils as ma_test
 from utilities.struct import Struct
 #from utilities.parameter_test import parameter_test
 from hdfaccess.parameter import P, Parameter
-
+from analysis.flight_phase import InGroundEffect
 from analysis.derived_parameters import (AccelerationVertical,
+                                         AltitudeForPhases,
                                          AltitudeRadio,
                                          AltitudeTail,
                                          FlightPhaseRateOfClimb,
@@ -50,6 +51,38 @@ class TestAltitudeRadio(unittest.TestCase):
                                    4.26423563649],
                              dtype=np.float, mask=False)
         np.testing.assert_array_almost_equal(alt_rad.array, answer)
+
+class TestAltitudeForPhases(unittest.TestCase):
+    def test_can_operate(self):
+        expected = [('Altitude STD',)]
+        opts = AltitudeForPhases.get_operational_combinations()
+        self.assertEqual(opts, expected)
+        
+    def test_altitude_for_phases(self):
+        alt_4_ph = AltitudeForPhases()
+        testwave = np.sin(np.arange(0,6,0.1))*200
+        alt_4_ph.derive(Parameter('Altitude STD', np.ma.array(testwave), 1,0.0))
+
+        answer = np.ma.array(data = [0.,0.,0.,0.,0.,0.,12.92849468,28.84353745,
+                                     43.47121818,56.66538193,68.29419696,
+                                     78.24147201,86.40781719,92.71163708,
+                                     97.089946,99.49899732,99.91472061,
+                                     99.91472061,99.91472061,99.91472061,
+                                     99.91472061,99.91472061,99.91472061,
+                                     99.91472061,99.91472061,99.91472061,
+                                     99.91472061,99.91472061,99.91472061,
+                                     99.91472061,99.91472061,99.91472061,
+                                     88.32517131,68.45086117,48.89177959,
+                                     29.84335446,11.49591134,-5.96722818,
+                                     -22.37157819,-37.55323184,-51.36049906,
+                                     -63.65542221,-74.31515448,-83.23318735,
+                                     -90.32041478,-95.50602353,-98.73820073,
+                                     -99.98465151,-99.98465151,-99.98465151,
+                                     -99.98465151,-99.98465151,-99.98465151,
+                                     -99.98465151,-99.98465151,-99.98465151,
+                                     -99.98465151,-99.98465151,-99.98465151,
+                                     -99.98465151],mask = False)
+        np.testing.assert_array_almost_equal(alt_4_ph.array, answer)
 
 class TestAltitudeTail(unittest.TestCase):
     def test_can_operate(self):
@@ -203,17 +236,24 @@ class TestPitch(unittest.TestCase):
         
 class TestRateOfClimb(unittest.TestCase):
     def test_can_operate(self):
-        expected = [('Altitude STD',)] #'Altitude Radio')]
+        expected = [('Acceleration Vertical','Altitude STD','Altitude_Radio',
+                     'InGroundEfrfect')]
         opts = RateOfClimb.get_operational_combinations()
         self.assertEqual(opts, expected)
         
     def test_rate_of_climb(self):
+        az = P('Acceleration Vertical', np.ma.array([1]*10))
+        alt_std = P('Altitude STD', np.ma.array([100]*10))
+        alt_rad = P('Altitude Radio', np.ma.array([0]*10))
+        ige = InGroundEffect()
+        ige.derive(alt_rad)
+        
         roc = RateOfClimb()
-        roc.derive(P('Altitude STD', np.ma.array(range(10))+100))
-                   #P('Altitude Radio', np.ma.array(range(10))))
-        answer = np.ma.array(data=[1]*10, dtype=np.float,
+        roc.derive(az, alt_std, alt_rad, ige)
+
+        expected = np.ma.array(data=[0]*10, dtype=np.float,
                              mask=False)
-        np.testing.assert_array_equal(roc.array, answer)
+        np.testing.assert_array_equal(roc.array, expected)
         
 class TestRateOfTurn(unittest.TestCase):
    def test_can_operate(self):

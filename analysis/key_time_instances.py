@@ -1,7 +1,16 @@
 import logging
 import numpy as np
 
+from analysis.library import time_at_value_wrapped
+
+from analysis.node import FlightPhaseNode, P
+
 from analysis.node import KeyTimeInstance, KeyTimeInstanceNode
+
+from settings import (CLIMB_THRESHOLD,
+                      INITIAL_CLIMB_THRESHOLD,
+                      SLOPE_FOR_TOC_TOD
+                      )
 
 '''
 kpt['FlapDeployed'] = []
@@ -10,63 +19,91 @@ for flap_operated_period in np.ma.flatnotmasked_contiguous(np.ma.masked_equal(fp
     kpt['FlapDeployed'].append(first+flap_operated_period.start)
     kpt['FlapRetracted'].append(first+flap_operated_period.stop)
 '''
-          
 
-class LiftOff(KeyTimeInstanceNode):
-    def derive(self, wow=P('Weight On Wheels')):
-        #fp.inertial_rate_of_climb.seek(block, kpt['TakeoffEnd'], kpt['TakeoffStartEstimate'], LIFTOFF_RATE_OF_CLIMB)
-        return NotImplemented
-                 
-                    
-                    
-class TouchDown(KeyTimeInstanceNode):
-    def derive(self, wow=P('Weight On Wheels')):
-        fp.inertial_rate_of_climb.seek(block, kpt['LandingEndEstimate'], kpt['LandingStart'], TOUCHDOWN_RATE_OF_DESCENT)
-        return NotImplemented
+class BottomOfDescent(KeyTimeInstanceNode):
+    def derive(self, dlc=P('Descent Low Climb'),
+               alt_std=P('Altitude STD')):
+        # In the case of descents without landing, this finds the minimum
+        # point of the dip.
+        for this_dlc in dlc._sections:
+            kti = np.ma.argmin(alt_std.array[this_dlc.slice])
+            self.create_kti(kti + this_dlc.slice.start, 'Bottom Of Descent')
+        
+           
+
+class ClimbStart(KeyTimeInstanceNode):
+    def derive(self, alt_aal=P('Altitude AAL'), climbing=P('Climbing')):
+        for climb in climbing._sections:
+            initial_climb_index = time_at_value_wrapped(alt_aal, climb, CLIMB_THRESHOLD)
+            self.create_kti(initial_climb_index, 'Climb Start')
 
 
+class Liftoff(KeyTimeInstanceNode):
+    def derive(self, air=P('Airborne')):
+        # Basic version to operate with minimal valid data
+        for each_section in air._sections:
+            self.create_kti(each_section.slice.start, 'Liftoff')
+            
+
+class Touchdown(KeyTimeInstanceNode):
+    def derive(self, air=P('Airborne')):
+        # Basic version to operate with minimal valid data
+        for each_section in air._sections:
+            self.create_kti(each_section.slice.stop, 'Touchdown')
+
+
+class InitialClimbStart(KeyTimeInstanceNode):
+    def derive(self, alt_radio=P('Altitude Radio'), climbing=P('Climbing')):
+        for climb in climbing._sections:
+            initial_climb_index = time_at_value_wrapped(alt_radio, climb, 
+                                                        INITIAL_CLIMB_THRESHOLD)
+            self.create_kti(initial_climb_index, 'Initial Climb Start')
 
 class LandingGroundEffectStart(KeyTimeInstanceNode):
     def derive(self, alt_rad=P('Altitude Radio')):
         return NotImplemented
 
     
-    
-class TopOfClimbTopOfDescent(KeyTimeInstanceNode):
-    name = "Top of Climb and Top of Descent"
-    dependencies = ['phase_airborne', 'altitude_std', 'altitude_std_smoothed'] #
-    returns = ['top_of_climb', 'top_of_descent']
-    
-    def derive(self, airborne=P('Airborne'), alt_std=P('Altitude STD')): #altitude_std_smoothed): # TODO: Change to new parameter names.
-        """
-        Threshold was based upon the idea of "Less than 600 fpm for 6 minutes"
-        This was often OK, but one test data sample had a 4000ft climb 20 mins
-        after level off. This led to increasing the threshold to 600 fpm in 3
-        minutes which has been found to give good qualitative segregation
-        between climb, cruise and descent phases.
-        """
-        # Updated 8/10/11 to allow for multiple cruise phases
-        cruise_slices = np.ma.clump_unmasked(np.ma.masked_less(altitude_std_smoothed,10000))
-        logging.info('This block has %d cruise phase.' % len(cruise_list))
-        for cruise_slice in cruise_slices:
-            # First establish a simple monotonic timebase
-            timebase = np.arange(len(airspeed[cruise_slice]))
-            # Then subtract (or for the descent, add) this slope to the altitude data
-            slope = timebase * (600/float(180))
-            # For airborne data only, compute a climb graph on a slope
-            y = np.ma.masked_where(np.ma.getmask(airborne_phase[cruise_slice]), alt_std.array[cruise_slice] - slope)
-            # and the peak is the top of climb.
-            n_toc = np.ma.argmax(y)
-            
-            # Record the moment (with respect to this cruise)
-            kti_list.append(KeyTimeInstance(cruise_slice.start + n_toc, 'TopOfClimb'))
-            
-            # Let's find the top of descent.
-            y = np.ma.masked_where(np.ma.getmask(airborne_phase[cruise_slice]), alt_std.array[cruise_slice] + slope)
-            n_tod = np.ma.argmax(y)
-            self.create_kti(cruise_slice.start + n_tod, 'TopOfDescent')
-        
-        
+class TopOfClimb(KeyTimeInstanceNode):
+    def derive(self, alt_std=P('Altitude STD'), 
+               ccd=P('Climb Cruise Descent')):
+        # This checks for the top of climb in each 
+        # Climb/Cruise/Descent period of the flight.
+        for ccd_phase in ccd._sections:
+            ccd_slice = ccd_phase.slice
+            try:
+                n_toc = find_toc_tod(alt_std.array, ccd_slice, 'Climb')
+            except:
+                # altitude data does not have an increasing section, so quit.
+                break
+            # if this is the first point in the slice, it's come from
+            # data that is already in the cruise, so we'll ignore this as well
+            if n_toc==0:
+                break
+            # Record the moment (with respect to this section of data)
+            self.create_kti(n_toc, 'Top Of Climb')
+
+
+class TopOfDescent(KeyTimeInstanceNode):
+    def derive(self, alt_std=P('Altitude STD'), 
+               ccd=P('Climb Cruise Descent')):
+        # This checks for the top of descent in each 
+        # Climb/Cruise/Descent period of the flight.
+        for ccd_phase in ccd._sections:
+            ccd_slice = ccd_phase.slice
+            try:
+                n_tod = find_toc_tod(alt_std.array, ccd_slice, 'Descent')
+            except:
+                # altitude data does not have a decreasing section, so quit.
+                break
+            # if this is the last point in the slice, it's come from
+            # data that ends in the cruise, so we'll ignore this too.
+            if n_tod==ccd_slice.stop - 1:
+                break
+            # Record the moment (with respect to this section of data)
+            self.create_kti(n_tod, 'Top Of Descent')
+
+
 class FlapStateChanges(KeyTimeInstanceNode):
     
     def derive(self, flap=P('flap')):
@@ -81,4 +118,31 @@ class FlapStateChanges(KeyTimeInstanceNode):
     
     
     
+def find_toc_tod(alt_data, ccd_slice, mode):
+    '''
+    :alt_data : numpy masked array of pressure altitude data
+    : ccd_slice : slice of a climb/cruise/descent phase above FL100
+    : mode : Either 'Climb' or 'Descent' to define which to select.
+    '''
     
+    # Find the maximum altitude in this slice to reduce the effort later
+    peak_index = np.ma.argmax(alt_data[ccd_slice])
+    
+    if mode == 'Climb':
+        section = slice(ccd_slice.start, ccd_slice.start+peak_index+1, None)
+        slope = SLOPE_FOR_TOC_TOD
+    else:
+        section = slice(ccd_slice.start+peak_index, ccd_slice.stop, None)
+        slope = -SLOPE_FOR_TOC_TOD
+        
+    # Quit if there is nothing to do here.
+    if section.start == section.stop:
+        raise ValueError, 'No range of data for top of climb or descent check'
+        
+    # Establish a simple monotonic timebase
+    timebase = np.arange(len(alt_data[section]))
+    # Then scale this to the required altitude data slope
+    ramp = timebase * slope
+    # For airborne data only, subtract the slope from the climb, then
+    # the peak is at the top of climb or descent.
+    return np.ma.argmax(alt_data[section] - ramp) + section.start

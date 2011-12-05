@@ -14,12 +14,12 @@ from datetime import datetime
 from analysis.library import (align, calculate_timebase, create_phase_inside,
                               create_phase_outside, duration, 
                               first_order_lag, first_order_washout,
-                              hysteresis, interleave, merge_alternate_sensors,
-                              rate_of_change, straighten_headings,
+                              hysteresis, interleave, merge_alternate_sensors, 
+#                              powerset, 
+                              rate_of_change, repair_mask, straighten_headings,
                               time_at_value, value_at_time)
 
 from analysis.node import P, Parameter
-
 
 class TestAlign(unittest.TestCase):
     def test_align_basic(self):
@@ -436,18 +436,26 @@ class TestHysteresis(unittest.TestCase):
         result = hysteresis(data,1)
         np.testing.assert_array_equal(result.data,[0,0.5,1.5,1.5,0.5,-0.5,4.5,5.5,6.5,0.5])
         
-        
 class TestInterleave(unittest.TestCase):
     def test_interleave(self):
-        one = Parameter('one', array=np.ma.array([1]*10, mask=[1] + [0]*9))
-        two = Parameter('two', array=np.ma.array([2]*10, mask=[0,0,0,0,0,1,1,1,1,1]))
+        param1 = P('A1',np.ma.array(range(4),dtype=float),1,0.2)
+        param2 = P('A2',np.ma.array(range(4),dtype=float)+10,1,0.7)
+        result = interleave(param1, param2)
+        np.testing.assert_array_equal(result.data,[0,10,1,11,2,12,3,13])
+        np.testing.assert_array_equal(result.mask, False)
 
-        self.assertRaises(ValueError, interleave, one, two)
-        two.offset = 0.5 # align the two
-        res = interleave(one, two)
-        self.assertEqual(list(res.data), zip([1]*10, [2]*10))
-        self.assertEqual(list(res.mask), [True, False, False, False, False, 
-                                          True, True, True, True, True])
+    def test_merge_alternage_sensors_mask(self):
+        param1 = P('A1',np.ma.array(range(4),dtype=float),1,0.2)
+        param2 = P('A2',np.ma.array(range(4),dtype=float)+10,1,0.7)
+        param1.array[1] = np.ma.masked
+        param2.array[2] = np.ma.masked
+        result = interleave(param1, param2)
+        np.testing.assert_array_equal(result.data[0:2], [0,10])
+        np.testing.assert_array_equal(result.data[3:5], [11,2])
+        np.testing.assert_array_equal(result.data[6:], [3,13])
+        np.testing.assert_array_equal(result.mask, [False,False,True,
+                                                    False,False,True,
+                                                    False,False])
         
         
 class TestMergeAlternateSensors(unittest.TestCase):
@@ -565,6 +573,36 @@ class TestRateOfChange(unittest.TestCase):
         self.assertRaises(ValueError, 
                           rate_of_change, 
                           P('Test',np.ma.array([0, 1, 0]), 1), -2)
+        
+        
+class TestRepairMask(unittest.TestCase):
+    def test_repair_mask_basic(self):
+        array = np.ma.arange(10)
+        array[3] = np.ma.masked
+        array[6:8] = np.ma.masked
+        repair_mask(array)
+        np.testing.assert_array_equal(array.data,range(10))
+        
+    def test_repair_mask_too_much_invalid(self):
+        array = np.ma.arange(20)
+        array[4:15] = np.ma.masked
+        unchanged = array
+        repair_mask(array)
+        ma_test.assert_masked_array_approx_equal(array, unchanged)
+        
+    def test_repair_mask_not_at_start(self):
+        array = np.ma.arange(10)
+        array[0] = np.ma.masked
+        unchanged = array
+        repair_mask(array)
+        ma_test.assert_masked_array_approx_equal(array, unchanged)
+        
+    def test_repair_mask_not_at_end(self):
+        array = np.ma.arange(10)
+        array[9] = np.ma.masked
+        unchanged = array
+        repair_mask(array)
+        ma_test.assert_masked_array_approx_equal(array, unchanged)
         
         
 class TestStraightenHeadings(unittest.TestCase):
