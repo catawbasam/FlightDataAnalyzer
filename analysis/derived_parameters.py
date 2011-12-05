@@ -9,6 +9,7 @@ from analysis.library import (align, hysteresis, interleave,
 
 from settings import (AZ_WASHOUT_TC,
                       HYSTERESIS_FPALT,
+                      HYSTERESIS_FPALT_CCD,
                       HYSTERESIS_FPIAS, 
                       HYSTERESIS_FPROC,
                       RATE_OF_CLIMB_LAG_TC
@@ -59,6 +60,12 @@ class AltitudeAAL(DerivedParameterNode):
     name = 'Altitude AAL'
     def derive(self, alt_std=P('Altitude STD'), alt_rad=P('Altitude Radio')):
         return NotImplemented
+    
+    
+class AltitudeForClimbCruiseDescent(DerivedParameterNode):
+    name = 'Altitude For Climb Cruise Descent'
+    def derive(self, alt_std=P('Altitude STD')):
+        self.array = hysteresis ( alt_std.array, HYSTERESIS_FPALT_CCD)
     
     
 class AltitudeForPhases(DerivedParameterNode):

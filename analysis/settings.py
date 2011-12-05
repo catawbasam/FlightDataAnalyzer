@@ -44,6 +44,10 @@ HYSTERESIS_FPIAS = 10 # (kts)
 # Threshold for flight phase altitude hysteresis.
 HYSTERESIS_FPALT = 200 # (ft)
 
+# Threshold for flight phase altitude hysteresis specifically for deparating 
+# Climb Cruise Descent phases.
+HYSTERESIS_FPALT_CCD = 2500 # (ft)
+
 # Threshold for flight phase rate of climb hysteresis.
 # We're going to ignore changes smaller than this to avoid repeatedly changing
 # phase if the aircraft is climbing/descending close to a threshold level.
