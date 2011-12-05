@@ -243,7 +243,6 @@ class SectionNode(Node, list):
         """ List of slices where this phase is active. Has a frequency and offset.
         """
         # place holder
-        self._sections = [] # list of named section slices
         super(SectionNode, self).__init__(*args, **kwargs)
 
     def create_section(self, section_slice, name=''):
@@ -356,7 +355,7 @@ class FormattedNameNode(Node):
         self._validate_name(name)
         return name # return as a confirmation it was successful
 
-class KeyTimeInstanceNode(FormattedNameNode):
+class KeyTimeInstanceNode(FormattedNameNode, list):
     """
     TODO: Support 1Hz / 8Hz KTI index locations via accessor on class and
     determine what is required for get_derived to be stored in database
@@ -364,12 +363,11 @@ class KeyTimeInstanceNode(FormattedNameNode):
     # :rtype: KeyTimeInstance or List of KeyTimeInstance or EmptyList
     def __init__(self, *args, **kwargs):
         # place holder
-        self._kti_list = []
         super(KeyTimeInstanceNode, self).__init__(*args, **kwargs)
         
     def create_kti(self, index, state):
         kti = KeyTimeInstance(index, state)
-        self._kti_list.append(kti)
+        self.append(kti)
         return kti
     
     def get_derived(self, args):
@@ -381,16 +379,15 @@ class KeyTimeInstanceNode(FormattedNameNode):
         multiplier = param.frequency / self.frequency
         aligned_node = self.__class__(self.name, param.frequency,
                                       param.offset) 
-        for kti in self._kti_list:
+        for kti in self:
             index_aligned = kti.index * multiplier
             aligned_node.create_kti(index_aligned, kti.state)
         return aligned_node
             
     
-class KeyPointValueNode(FormattedNameNode):
+class KeyPointValueNode(FormattedNameNode, list):
     
     def __init__(self, *args, **kwargs):
-        self._kpv_list = []
         super(KeyPointValueNode, self).__init__(*args, **kwargs)
 
     def create_kpv(self, index, value, replace_values={}, **kwargs):
@@ -405,7 +402,7 @@ class KeyPointValueNode(FormattedNameNode):
         """
         name = self.format_name(replace_values, **kwargs)
         kpv = KeyPointValue(index, value, name)
-        self._kpv_list.append(kpv)
+        self.append(kpv)
         return kpv # return as a confirmation it was successful
     
     def get_derived(self, args):
@@ -421,10 +418,10 @@ class KeyPointValueNode(FormattedNameNode):
     def get_aligned(self, param):
         multiplier = param.frequency / self.frequency
         aligned_node = self.__class__(self.name, param.frequency, param.offset)
-        for kpv in self._kpv_list:
+        for kpv in self:
             aligned_kpv = copy.copy(kpv)
             aligned_kpv.index *= multiplier
-            aligned_node._kpv_list.append(aligned_kpv)
+            aligned_node.append(aligned_kpv)
         return aligned_node
     #TODO: Accessors for first kpv, primary kpv etc.
 

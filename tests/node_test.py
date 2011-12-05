@@ -239,7 +239,7 @@ class TestKeyPointValueNode(unittest.TestCase):
         self.assertEqual(knode.offset, 0.4)
         # use keyword arguments
         spd_kpv = knode.create_kpv(10, 12.5, phase='descent', altitude=1000.0)
-        self.assertTrue(isinstance(knode._kpv_list[0], KeyPointValue))
+        self.assertTrue(isinstance(knode[0], KeyPointValue))
         self.assertTrue(isinstance(spd_kpv, KeyPointValue))
         self.assertEqual(spd_kpv.index, 10)
         self.assertEqual(spd_kpv.value, 12.5)
@@ -268,7 +268,7 @@ class TestKeyPointValueNode(unittest.TestCase):
         knode.create_kpv(10, 12.5, altitude=1000.0)
         knode.create_kpv(24, 12.5, altitude=1000.0)
         aligned_node = self.knode.get_aligned(param)
-        self.assertEqual(aligned_node._kpv_list,
+        self.assertEqual(aligned_node,
                          [KeyPointValue(index=2.5, value=12.5, name='Speed at 1000ft'),
                           KeyPointValue(index=6.0, value=12.5, name='Speed at 1000ft')])
     
@@ -287,7 +287,7 @@ class TestKeyTimeInstanceNode(unittest.TestCase):
         #params = {'a':Parameter('a',[], 2, 0.4)}
         #kti = KTI(frequency=2, offset=0.4)
         kti.create_kti(12, 'fast')
-        self.assertEqual(kti._kti_list, [(12, 'fast')])
+        self.assertEqual(kti, [KeyTimeInstance(index=12, state='fast')])
     
     def test_get_aligned(self):
         '''
@@ -302,7 +302,7 @@ class TestKeyTimeInstanceNode(unittest.TestCase):
         kti.create_kti(18, 'fast')
         param = Parameter('p', frequency=0.25)
         aligned_kti = kti.get_aligned(param)
-        self.assertEqual(aligned_kti._kti_list,
+        self.assertEqual(aligned_kti,
                          [KeyTimeInstance(index=2.0, state='fast'),
                           KeyTimeInstance(index=2.25, state='fast')])
     
