@@ -2,17 +2,19 @@ import inspect
 import logging
 import numpy as np
 import re
+import copy
 
 from abc import ABCMeta, abstractmethod
 from collections import namedtuple
 from itertools import product
 
-from analysis.recordtype import recordtype
 from hdfaccess.parameter import Parameter, P
+from analysis.library import align
+from analysis.recordtype import recordtype
 
 # Define named tuples for KPV and KTI and FlightPhase
-KeyPointValue = namedtuple('KeyPointValue', 'index value name')
-KeyTimeInstance = namedtuple('KeyTimeInstance', 'index state')
+KeyPointValue = recordtype('KeyPointValue', 'index value name')
+KeyTimeInstance = recordtype('KeyTimeInstance', 'index state')
 GeoKeyTimeInstance = namedtuple('GeoKeyTimeInstance', 'index state latitude longitude')
 Section = namedtuple('Section', 'name slice') #Q: rename mask -> slice/section
 
@@ -215,9 +217,27 @@ class DerivedParameterNode(Node):
         # create a simplistic parameter for writing to HDF
         #TODO: Parameter and hdf_access to use available=params.keys()
         return Parameter(self.get_name(), self.array, self.frequency, self.offset)
+    
+    def get_aligned(self, param):
+        aligned_array = align(self, param)
+        return Parameter(aligned_array, frequency=param.frequency,
+                         offset=param.offset)
 
 
-class SectionNode(Node):
+
+class SectionList(list):
+    def __init__(self, slices, frequency=1, offset=0):
+        '''TODO: how do we apply offset?'''
+        
+        self.frequency = frequency
+        self.offset = offset
+        super(SectionList, self).__init__(slices)
+    
+
+class SectionNode(Node, list):
+    '''
+    Derives from list to implement iteration and list methods.
+    '''
     def __init__(self, *args, **kwargs):
         """ List of slices where this phase is active. Has a frequency and offset.
         """
@@ -227,7 +247,7 @@ class SectionNode(Node):
 
     def create_section(self, section_slice, name=''):
         section = Section(name or self.get_name(), section_slice)
-        self._sections.append(section)
+        self.append(section)
         ##return section
         
     def create_sections(self, section_slices, name=''):
@@ -240,13 +260,28 @@ class SectionNode(Node):
         if res == NotImplemented:
             raise NotImplementedError("Cannot proceed")
         #TODO: Return slice at correct frequency?
-        return self._sections
+        return self
         
     #TODO: Accessor for 1Hz slice, 8Hz slice etc.
-    ##def get_section(self, frequency=None):
-        ##if frequency:
-            ##pass
-        ##return self._sections
+    def get_aligned(self, param):
+        '''
+        Aligns section slices to the frequency and offset of param.
+        
+        :param section:
+        :type section: SectionNode object
+        :param param:
+        :type param: Parameter object
+        '''
+        aligned_node = self.__class__(frequency=param.frequency,
+                                      offset=param.offset)
+        multiplier = param.frequency / self.frequency
+        for section in self:
+            converted_start = section.slice.start * multiplier
+            converted_stop = section.slice.stop * multiplier
+            converted_slice = slice(converted_start, converted_stop)
+            aligned_node.create_section(converted_slice,
+                                        section.name)
+        return aligned_node
 
     
 class FlightPhaseNode(SectionNode):
@@ -266,29 +301,7 @@ class FlightPhaseNode(SectionNode):
             self.create_phase(phase)
 
 
-class KeyTimeInstanceNode(Node):
-    """
-    TODO: Support 1Hz / 8Hz KTI index locations via accessor on class and
-    determine what is required for get_derived to be stored in database
-    """
-    # :rtype: KeyTimeInstance or List of KeyTimeInstance or EmptyList
-    def __init__(self, *args, **kwargs):
-        # place holder
-        self._kti_list = []
-        super(KeyTimeInstanceNode, self).__init__(*args, **kwargs)
-        
-    def create_kti(self, index, state):
-        kti = KeyTimeInstance(index, state)
-        self._kti_list.append(kti)
-        return kti 
-    
-    def get_derived(self, args):
-        #TODO: Support 1Hz / 8Hz KTI index locations
-        self.derive(*args)
-        return self._kti_list
-    
-    
-class KeyPointValueNode(Node):
+class FormattedNameNode(Node):
     """
     NAME_FORMAT example: 
     'Speed in %(phase)s at %(altitude)d ft'
@@ -298,13 +311,9 @@ class KeyPointValueNode(Node):
      'altitude' : [1000,1500],}
     """
     NAME_FORMAT = ""
-    RETURN_OPTIONS = {}
+    NAME_VALUES = {}
     
-    def __init__(self, *args, **kwargs):
-        self._kpv_list = []
-        super(KeyPointValueNode, self).__init__(*args, **kwargs)
-        
-    def kpv_names(self):
+    def names(self):
         """        
         :returns: The product of all RETURN_OPTIONS name combinations
         :rtype: list
@@ -319,20 +328,19 @@ class KeyPointValueNode(Node):
         ##self.names = names  #cache
         return names
     
-    
     def _validate_name(self, name):
         """
         Raises ValueError if replace_values are not allowed in RETURN_OPTIONS
         permissive values.
         """
-        if name in self.kpv_names():
+        if name in self.names():
             return True
         else:
-            raise ValueError("invalid KPV name '%s'" % name)
-
-    def create_kpv(self, index, value, replace_values={}, **kwargs):
+            raise ValueError("invalid name '%s'" % name)
+    
+    def format_name(self, replace_values={}, **kwargs):
         """
-        Formats FORMAT_NAME with interpolation values and returns a KPV object
+        Formats NAME_FORMAT with interpolation values and returns a KPV object
         with index and value.
         
         Interpolation values not in FORMAT_NAME are ignored.        
@@ -345,6 +353,56 @@ class KeyPointValueNode(Node):
         name = self.NAME_FORMAT % rvals  # common error is to use { inplace of (
         # validate name is allowed
         self._validate_name(name)
+        return name # return as a confirmation it was successful
+
+class KeyTimeInstanceNode(FormattedNameNode):
+    """
+    TODO: Support 1Hz / 8Hz KTI index locations via accessor on class and
+    determine what is required for get_derived to be stored in database
+    """
+    # :rtype: KeyTimeInstance or List of KeyTimeInstance or EmptyList
+    def __init__(self, *args, **kwargs):
+        # place holder
+        self._kti_list = []
+        super(KeyTimeInstanceNode, self).__init__(*args, **kwargs)
+        
+    def create_kti(self, index, state):
+        kti = KeyTimeInstance(index, state)
+        self._kti_list.append(kti)
+        return kti
+    
+    def get_derived(self, args):
+        #TODO: Support 1Hz / 8Hz KTI index locations
+        self.derive(*args)
+        return self._kti_list
+    
+    def get_aligned(self, param):
+        multiplier = param.frequency / self.frequency
+        aligned_node = self.__class__(self.name, param.frequency,
+                                      param.offset) 
+        for kti in self._kti_list:
+            index_aligned = kti.index * multiplier
+            aligned_node.create_kti(index_aligned, kti.state)
+        return aligned_node
+            
+    
+class KeyPointValueNode(FormattedNameNode):
+    
+    def __init__(self, *args, **kwargs):
+        self._kpv_list = []
+        super(KeyPointValueNode, self).__init__(*args, **kwargs)
+
+    def create_kpv(self, index, value, replace_values={}, **kwargs):
+        """
+        Formats FORMAT_NAME with interpolation values and returns a KPV object
+        with index and value.
+        
+        Interpolation values not in FORMAT_NAME are ignored.        
+        
+        :raises KeyError: if required interpolation/replace value not provided.
+        :raises TypeError: if interpolation value is of wrong type.
+        """
+        name = self.format_name(replace_values, **kwargs)
         kpv = KeyPointValue(index, value, name)
         self._kpv_list.append(kpv)
         return kpv # return as a confirmation it was successful
@@ -358,8 +416,15 @@ class KeyPointValueNode(Node):
             #Q: store in self._kpv_list to be backward compatible?
             raise RuntimeError("Cannot return from a derive method. Returned '%s'" % res)
         return self._kpv_list
-
-
+    
+    def get_aligned(self, param):
+        multiplier = param.frequency / self.frequency
+        aligned_node = self.__class__(self.name, param.frequency, param.offset)
+        for kpv in self._kpv_list:
+            aligned_kpv = copy.copy(kpv)
+            aligned_kpv.index *= multiplier
+            aligned_node._kpv_list.append(aligned_kpv)
+        return aligned_node
     #TODO: Accessors for first kpv, primary kpv etc.
 
     

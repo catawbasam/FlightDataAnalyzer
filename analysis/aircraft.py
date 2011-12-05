@@ -11,7 +11,7 @@ def populate_aircraft_params(aircraft):
     :rtype: Dict
     """
     # Struct does not raise when value is not there, but returns an empty struct
-    aircraft_params = {
+    aircraft_info = {
         'Tail Number': aircraft.tail_number, # Aircraft Registration
         'Identifier': aircraft.identifier, # Aircraft Ident
         'Manufacturer': aircraft.manufacturer,
@@ -24,4 +24,4 @@ def populate_aircraft_params(aircraft):
     
     
     # filter out empty structs
-    return filter_empty_values(aircraft_params)
+    return filter_empty_values(aircraft_info)
