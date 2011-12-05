@@ -34,8 +34,30 @@ class BottomOfDescent(KeyTimeInstanceNode):
 class ClimbStart(KeyTimeInstanceNode):
     def derive(self, alt_aal=P('Altitude AAL'), climbing=P('Climbing')):
         for climb in climbing:
-            initial_climb_index = time_at_value_wrapped(alt_aal, climb, CLIMB_THRESHOLD)
+            initial_climb_index = time_at_value_wrapped(alt_aal, climb,
+                                                        CLIMB_THRESHOLD)
             self.create_kti(initial_climb_index, 'Climb Start')
+
+
+class GoAround(KeyTimeInstanceNode):
+    def derive(self, alt_AAL=P('Altitude AAL For Phases'),
+               alt_rad=P('Altitude Radio'),
+               climb=P('Rate Of Climb For Flight Phases')):
+        app = np.ma.masked_where(np.ma.logical_or
+                                 (np.ma.minimum(alt_AAL.array,alt_rad.array)>3000,
+                                 climb.array>500), alt_AAL.array)
+        phases = np.ma.clump_unmasked(app)
+        for phase in phases:
+            begin = phase.start
+            end = phase.stop
+            # Pit is the location of the pressure altitude minimum.
+            pit = np.ma.argmin(app[phase])
+            # If this is at the start of the data, we are climbing 
+            # through this height band. If it is at the end we may have
+            # truncated data and we're only really interested in cases
+            # where the data follows on from the go-around.
+            if 0 != pit != end-begin-1:
+                self.create_kti(begin+pit, 'Go Around')
 
 
 class Liftoff(KeyTimeInstanceNode):

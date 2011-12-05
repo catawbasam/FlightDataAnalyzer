@@ -2,6 +2,7 @@ import unittest
 import numpy as np
 
 from hdfaccess.parameter import P, Parameter
+from analysis.library import rate_of_change
 from analysis.node import Section, KeyTimeInstance
 from analysis.flight_phase import (Airborne,
                                    ClimbCruiseDescent,
@@ -10,6 +11,7 @@ from analysis.flight_phase import (Airborne,
                                    )
 from analysis.key_time_instances import (BottomOfDescent,
                                          ClimbStart,
+                                         GoAround,
                                          InitialClimbStart,
                                          Liftoff,
                                          TopOfClimb,
@@ -51,6 +53,40 @@ class TestClimbStart(unittest.TestCase):
         # These values give an result with an index of 4.5454 recurring.
         expected = [KeyTimeInstance(index=5/1.1, state='Climb Start')]
         self.assertEqual(kpi, expected)
+
+
+class TestGoAround(unittest.TestCase):
+    def test_can_operate(self):
+        expected = [('Altitude AAL For Phases','Altitude Radio',
+                     'Rate Of Climb For Flight Phases')]
+        opts = GoAround.get_operational_combinations()
+        self.assertEqual(opts, expected)
+
+    def test_go_around_basic(self):
+        alt = np.ma.array(range(0,4000,500)+range(4000,0,-500)+range(0,1000,500))
+        roc = np.ma.array([-500]*18)
+        goa = GoAround()
+        # Pretend we are flying over flat ground, so the altitudes are equal.
+        goa.derive(Parameter('Altitude AAL For Phases',alt),
+                   Parameter('Altitude Radio',alt),
+                   Parameter('Rate Of Climb For Flight Phases',roc))
+        expected = [KeyTimeInstance(index=16, state='Go Around')]
+        self.assertEqual(goa, expected)
+
+    def test_multiple_go_arounds(self):
+        alt = np.ma.array(np.cos(np.arange(0,20,0.02))*(1000)+1500)
+        # rate_of_change takes a complete parameter, but only returns the 
+        # differentiated array.
+        roc = rate_of_change(Parameter('Rate Of Climb For Flight Phases',
+                                       alt,1,0),1)*60
+        goa = GoAround()
+        goa.derive(Parameter('Altitude AAL For Phases',alt),
+                   Parameter('Altitude Radio',alt),
+                   Parameter('Rate Of Climb For Flight Phases',roc))
+        expected = [KeyTimeInstance(index=157, state='Go Around'), 
+                    KeyTimeInstance(index=471, state='Go Around'), 
+                    KeyTimeInstance(index=785, state='Go Around')]
+        self.assertEqual(goa, expected)
 
 
 class TestInitialClimbStart(unittest.TestCase):
