@@ -176,7 +176,7 @@ class RateOfClimb(DerivedParameterNode):
         
         # Use pressure altitude rate outside ground effect and 
         # radio altitude data inside ground effect.
-        for this_ige in ige._sections:
+        for this_ige in ige:
             a = this_ige.slice.start
             b = this_ige.slice.stop
             roc[a:b] = roc_rad[a:b]

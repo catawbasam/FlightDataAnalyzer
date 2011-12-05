@@ -31,9 +31,8 @@ class TestBottomOfDescent(unittest.TestCase):
         dlc.derive(alt_ph)
         bod = BottomOfDescent()
         bod.derive(dlc, alt_std)    
-        bod._kti_list
         expected = [KeyTimeInstance(index=63, state='Bottom Of Descent')]        
-        self.assertEqual(bod._kti_list, expected)
+        self.assertEqual(bod, expected)
         
         
 class TestClimbStart(unittest.TestCase):
@@ -51,7 +50,7 @@ class TestClimbStart(unittest.TestCase):
         kpi.derive(alt, climb)
         # These values give an result with an index of 4.5454 recurring.
         expected = [KeyTimeInstance(index=5/1.1, state='Climb Start')]
-        self.assertEqual(kpi._kti_list, expected)
+        self.assertEqual(kpi, expected)
 
 
 class TestInitialClimbStart(unittest.TestCase):
@@ -68,7 +67,7 @@ class TestInitialClimbStart(unittest.TestCase):
         instance = InitialClimbStart()
         instance.derive(alt, climb)
         expected = [KeyTimeInstance(index=3.5, state='Initial Climb Start')]
-        self.assertEqual(instance._kti_list, expected)
+        self.assertEqual(instance, expected)
 
     def test_initial_climb_start_masked_at_threshold(self):
         # This shows that the low level routine repair_mask is working
@@ -83,7 +82,7 @@ class TestInitialClimbStart(unittest.TestCase):
         kti = InitialClimbStart()
         kti.derive(alt, climb)
         expected = [KeyTimeInstance(index=3.5, state='Initial Climb Start')]
-        self.assertEqual(kti._kti_list, expected)
+        self.assertEqual(kti, expected)
 
 class TestLiftoff(unittest.TestCase):
     def test_can_operate(self):
@@ -102,10 +101,10 @@ class TestLiftoff(unittest.TestCase):
         lift.derive(air)
         # Confirm we tested it with the right phase
         expected = [Section(name='Airborne', slice=slice(7, 27, None))]
-        self.assertEqual(air._sections, expected)
+        self.assertEqual(air, expected)
         # and the real answer is this KTI
         expected = [KeyTimeInstance(index=7, state='Liftoff')]
-        self.assertEqual(lift._kti_list, expected)
+        self.assertEqual(lift, expected)
     
     
 class TestTopOfClimb(unittest.TestCase):
@@ -121,35 +120,35 @@ class TestTopOfClimb(unittest.TestCase):
         alt = Parameter('Altitude STD', np.ma.array(alt_data))
         phase = TopOfClimb()
         in_air = ClimbCruiseDescent()
-        in_air._sections = [Section(name='Climb Cruise Descent',
-                                    slice=slice(0,len(alt.array)))]
+        in_air.append(Section(name='Climb Cruise Descent',
+                              slice=slice(0,len(alt.array))))
         phase.derive(alt, in_air)
         expected = [KeyTimeInstance(index=8, state='Top Of Climb')]
-        self.assertEqual(phase._kti_list, expected)
+        self.assertEqual(phase, expected)
 
     def test_top_of_climb_truncated_start(self):
         alt_data = np.ma.array([400]*5+range(400,0,-50))
         alt = Parameter('Altitude STD', np.ma.array(alt_data))
         phase = TopOfClimb()
         in_air = ClimbCruiseDescent()
-        in_air._sections = [Section(name='Climb Cruise Descent',
-                                    slice=slice(0,len(alt.array)))]
+        in_air.append(Section(name='Climb Cruise Descent',
+                              slice=slice(0,len(alt.array))))
         phase.derive(alt, in_air)
         expected = []
-        self.assertEqual(phase._kti_list, expected)
-        self.assertEqual(len(phase._kti_list),0)
+        self.assertEqual(phase, expected)
+        self.assertEqual(len(phase),0)
 
     def test_top_of_climb_truncated_end(self):
         alt_data = np.ma.array(range(0,400,50)+[400]*5)
         alt = Parameter('Altitude STD', np.ma.array(alt_data))
         phase = TopOfClimb()
         in_air = ClimbCruiseDescent()
-        in_air._sections = [Section(name='Climb Cruise Descent',
-                                    slice=slice(0,len(alt.array)))]
+        in_air.append(Section(name='Climb Cruise Descent',
+                              slice=slice(0,len(alt.array))))
         phase.derive(alt, in_air)
         expected = [KeyTimeInstance(index=8, state='Top Of Climb')]
-        self.assertEqual(phase._kti_list, expected)
-        self.assertEqual(len(phase._kti_list),1)
+        self.assertEqual(phase, expected)
+        self.assertEqual(len(phase),1)
 
 
 class TestTopOfDescent(unittest.TestCase):
@@ -165,35 +164,35 @@ class TestTopOfDescent(unittest.TestCase):
         alt = Parameter('Altitude STD', np.ma.array(alt_data))
         phase = TopOfDescent()
         in_air = ClimbCruiseDescent()
-        in_air._sections = [Section(name='Climb Cruise Descent',
-                                    slice=slice(0,len(alt.array)))]
+        in_air.append(Section(name='Climb Cruise Descent',
+                              slice=slice(0,len(alt.array))))
         phase.derive(alt, in_air)
         expected = [KeyTimeInstance(index=13, state='Top Of Descent')]
-        self.assertEqual(phase._kti_list, expected)
+        self.assertEqual(phase, expected)
 
     def test_top_of_descent_truncated_start(self):
         alt_data = np.ma.array([400]*5+range(400,0,-50))
         alt = Parameter('Altitude STD', np.ma.array(alt_data))
         phase = TopOfDescent()
         in_air = ClimbCruiseDescent()
-        in_air._sections = [Section(name='Climb Cruise Descent',
-                                    slice=slice(0,len(alt.array)))]
+        in_air.append(Section(name='Climb Cruise Descent',
+                              slice=slice(0,len(alt.array))))
         phase.derive(alt, in_air)
         expected = [KeyTimeInstance(index=5, state='Top Of Descent')]
-        self.assertEqual(phase._kti_list, expected)
-        self.assertEqual(len(phase._kti_list),1)
+        self.assertEqual(phase, expected)
+        self.assertEqual(len(phase),1)
 
     def test_top_of_descent_truncated_end(self):
         alt_data = np.ma.array(range(0,400,50)+[400]*5)
         alt = Parameter('Altitude STD', np.ma.array(alt_data))
         phase = TopOfDescent()
         in_air = ClimbCruiseDescent()
-        in_air._sections = [Section(name='Climb Cruise Descent',
-                                    slice=slice(0,len(alt.array)))]
+        in_air.append(Section(name='Climb Cruise Descent',
+                              slice=slice(0,len(alt.array))))
         phase.derive(alt, in_air)
         expected = []
-        self.assertEqual(phase._kti_list, expected)
-        self.assertEqual(len(phase._kti_list),0)
+        self.assertEqual(phase, expected)
+        self.assertEqual(len(phase),0)
     
         
 class TestTouchdown(unittest.TestCase):
@@ -213,9 +212,9 @@ class TestTouchdown(unittest.TestCase):
         down.derive(air)
         # Confirm we tested it with the right phase
         expected = [Section(name='Airborne', slice=slice(7, 27, None))]
-        self.assertEqual(air._sections, expected)
+        self.assertEqual(air, expected)
         # and the real answer is this KTI
         expected = [KeyTimeInstance(index=27, state='Touchdown')]
-        self.assertEqual(down._kti_list, expected)
+        self.assertEqual(down, expected)
     
     

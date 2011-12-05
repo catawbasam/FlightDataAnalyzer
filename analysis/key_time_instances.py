@@ -33,7 +33,7 @@ class BottomOfDescent(KeyTimeInstanceNode):
 
 class ClimbStart(KeyTimeInstanceNode):
     def derive(self, alt_aal=P('Altitude AAL'), climbing=P('Climbing')):
-        for climb in climbing._sections:
+        for climb in climbing:
             initial_climb_index = time_at_value_wrapped(alt_aal, climb, CLIMB_THRESHOLD)
             self.create_kti(initial_climb_index, 'Climb Start')
 
@@ -41,20 +41,20 @@ class ClimbStart(KeyTimeInstanceNode):
 class Liftoff(KeyTimeInstanceNode):
     def derive(self, air=P('Airborne')):
         # Basic version to operate with minimal valid data
-        for each_section in air._sections:
+        for each_section in air:
             self.create_kti(each_section.slice.start, 'Liftoff')
             
 
 class Touchdown(KeyTimeInstanceNode):
     def derive(self, air=P('Airborne')):
         # Basic version to operate with minimal valid data
-        for each_section in air._sections:
+        for each_section in air:
             self.create_kti(each_section.slice.stop, 'Touchdown')
 
 
 class InitialClimbStart(KeyTimeInstanceNode):
     def derive(self, alt_radio=P('Altitude Radio'), climbing=P('Climbing')):
-        for climb in climbing._sections:
+        for climb in climbing:
             initial_climb_index = time_at_value_wrapped(alt_radio, climb, 
                                                         INITIAL_CLIMB_THRESHOLD)
             self.create_kti(initial_climb_index, 'Initial Climb Start')
