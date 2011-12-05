@@ -120,6 +120,28 @@ class TestNode(unittest.TestCase):
             res = c.derive(*deps)
             self.assertEqual(res[:2], ('A', 'B'))
             
+    def test_get_derived(self):
+        param1 = mock.Mock()
+        param1.name = 'PARAM1'
+        param1.frequency = 2
+        param1.offset = 0.5
+        param2 = mock.Mock()
+        param2.name = 'PARAM2'
+        param2.frequency = 0.5
+        param2.offset = 1
+        class TestNode(Node):
+            def derive(self, kwarg1=param1, kwarg2=param2):
+                pass
+        node = TestNode()
+        node.get_derived([param1, param2])
+        self.assertEqual(param1.method_calls, [])
+        self.assertEqual(param2.method_calls, [('get_aligned', (param1,), {})])
+        class NotImplementedNode(Node):
+            def derive(self, kwarg1=param1, kwarg2=param2):
+                return NotImplemented
+        not_implemented_node = NotImplementedNode()
+        self.assertRaises(NotImplementedError, not_implemented_node.get_derived,
+                          [param1, param2])
         
                         
 class TestNodeManager(unittest.TestCase):
@@ -174,9 +196,9 @@ class TestSectionNode(unittest.TestCase):
         self.assertEqual(aligned_node.offset, param.offset)
         self.assertEqual(list(aligned_node),
                          [Section(name='Example Section Node',
-                                   slice=slice(1.0, 2.0, None)),
+                                   slice=slice(1.2, 2.2, None)),
                            Section(name='Example Section Node',
-                                   slice=slice(2.5, 3.5, None))])
+                                   slice=slice(2.7, 3.7, None))])
 
 class TestFormattedNameNode(unittest.TestCase):
     def setUp(self):
@@ -268,9 +290,11 @@ class TestKeyPointValueNode(unittest.TestCase):
         knode.create_kpv(10, 12.5, altitude=1000.0)
         knode.create_kpv(24, 12.5, altitude=1000.0)
         aligned_node = self.knode.get_aligned(param)
+        self.assertEqual(aligned_node.frequency, param.frequency)
+        self.assertEqual(aligned_node.offset, param.offset)
         self.assertEqual(aligned_node,
-                         [KeyPointValue(index=2.5, value=12.5, name='Speed at 1000ft'),
-                          KeyPointValue(index=6.0, value=12.5, name='Speed at 1000ft')])
+                         [KeyPointValue(index=1.95, value=12.5, name='Speed at 1000ft'),
+                          KeyPointValue(index=5.45, value=12.5, name='Speed at 1000ft')])
     
     
 class TestKeyTimeInstanceNode(unittest.TestCase):
@@ -300,16 +324,17 @@ class TestKeyTimeInstanceNode(unittest.TestCase):
         #kti = KTI(frequency=2, offset=0.4)
         kti.create_kti(16, 'fast')
         kti.create_kti(18, 'fast')
-        param = Parameter('p', frequency=0.25)
+        param = Parameter('p', frequency=0.25, offset=2)
         aligned_kti = kti.get_aligned(param)
         self.assertEqual(aligned_kti,
-                         [KeyTimeInstance(index=2.0, state='fast'),
-                          KeyTimeInstance(index=2.25, state='fast')])
+                         [KeyTimeInstance(index=1.6, state='fast'),
+                          KeyTimeInstance(index=1.85, state='fast')])
     
 class TestDerivedParameterNode(unittest.TestCase):
     def setUp(self):
         class ExampleDerivedParameterNode(DerivedParameterNode):
-            def derive(self, alt_std=P('Altitude STD')):
+            def derive(self, alt_std=P('Altitude STD'),
+                       pitch=P('Pitch')):
                 pass
         self.derived_class = ExampleDerivedParameterNode
     
@@ -339,4 +364,18 @@ class TestDerivedParameterNode(unittest.TestCase):
                          (derived_param, param))
         self.assertEqual(aligned_param.frequency, param.frequency)
         self.assertEqual(aligned_param.offset, param.offset)
+    
+    def test_get_derived(self):
+        '''
+        Tests get_derived returns a Parameter object rather than a
+        DerivedParameterNode aligned to the frequency and offset of the first
+        parameter passed to get_derived()
+        '''
+        derive_param = self.derived_class(frequency=2, offset=1)
+        param1 = Parameter('Altitude STD', frequency=1, offset=0)
+        param2 = Parameter('Pitch', frequency=0.5, offset=1)
+        result = derive_param.get_derived([param1, param2])
+        self.assertIsInstance(result, Parameter)
+        self.assertEqual(result.frequency, param.frequency)
+        self.assertEqual(result.offset, param.offset)
         
