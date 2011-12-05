@@ -373,7 +373,7 @@ class KeyTimeInstanceNode(FormattedNameNode, list):
     def get_derived(self, args):
         #TODO: Support 1Hz / 8Hz KTI index locations
         self.derive(*args)
-        return self._kti_list
+        return self
     
     def get_aligned(self, param):
         multiplier = param.frequency / self.frequency
@@ -411,9 +411,9 @@ class KeyPointValueNode(FormattedNameNode, list):
             #raise NotImplementedError("Cannot proceed")
             pass #TODO: raise error and remove pass
         elif res:
-            #Q: store in self._kpv_list to be backward compatible?
+            #Q: store in self._kpv_list to be backward compatible? Probably not?
             raise RuntimeError("Cannot return from a derive method. Returned '%s'" % res)
-        return self._kpv_list
+        return self
     
     def get_aligned(self, param):
         multiplier = param.frequency / self.frequency
