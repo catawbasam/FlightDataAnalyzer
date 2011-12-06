@@ -58,7 +58,8 @@ class TestAltitudeAALForPhases(unittest.TestCase):
 
 class TestAltitudeRadio(unittest.TestCase):
     def test_can_operate(self):
-        expected = [('Altitude Radio Sensor', 'Pitch')]
+        expected = [('Altitude Radio Sensor', 'Pitch',
+                     'Main Gear To Altitude Radio')]
         opts = AltitudeRadio.get_operational_combinations()
         self.assertEqual(opts, expected)
         

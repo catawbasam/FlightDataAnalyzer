@@ -8,7 +8,7 @@ from abc import ABCMeta, abstractmethod
 from collections import namedtuple
 from itertools import product
 
-from hdfaccess.parameter import P, Parameter
+from analysis.parameter import P, Parameter
 from analysis.library import align
 
 from analysis.recordtype import recordtype
@@ -424,3 +424,12 @@ class NodeManager(object):
         else:  #elif name in unavailable_deps:
             logging.warning("Confirm - node is unavailable: %s", name)
             return False
+
+# The following acronyms are intended to be used as placeholder values
+# for kwargs in Node derive methods. Cannot instantiate Node subclass without 
+# implementing derive.
+#S = SectionNode
+#KPV = KeyPointValueNode
+#KTI = KeyTimeInstanceNode
+# TODO: Have different classes for each placeholder to differentiate?
+S = KPV = KTI = P
