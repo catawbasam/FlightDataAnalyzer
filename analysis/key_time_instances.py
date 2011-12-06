@@ -3,7 +3,7 @@ import numpy as np
 
 from analysis.library import time_at_value_wrapped
 
-from analysis.node import FlightPhaseNode, P
+from analysis.node import FlightPhaseNode, P, S
 
 from analysis.node import KeyTimeInstance, KeyTimeInstanceNode
 
@@ -21,7 +21,7 @@ for flap_operated_period in np.ma.flatnotmasked_contiguous(np.ma.masked_equal(fp
 '''
 
 class BottomOfDescent(KeyTimeInstanceNode):
-    def derive(self, dlc=P('Descent Low Climb'),
+    def derive(self, dlc=S('Descent Low Climb'),
                alt_std=P('Altitude STD')):
         # In the case of descents without landing, this finds the minimum
         # point of the dip.
@@ -32,7 +32,7 @@ class BottomOfDescent(KeyTimeInstanceNode):
            
 
 class ClimbStart(KeyTimeInstanceNode):
-    def derive(self, alt_aal=P('Altitude AAL'), climbing=P('Climbing')):
+    def derive(self, alt_aal=P('Altitude AAL'), climbing=S('Climbing')):
         for climb in climbing:
             initial_climb_index = time_at_value_wrapped(alt_aal, climb,
                                                         CLIMB_THRESHOLD)
@@ -61,21 +61,21 @@ class GoAround(KeyTimeInstanceNode):
 
 
 class Liftoff(KeyTimeInstanceNode):
-    def derive(self, air=P('Airborne')):
+    def derive(self, air=S('Airborne')):
         # Basic version to operate with minimal valid data
         for each_section in air:
             self.create_kti(each_section.slice.start, 'Liftoff')
             
 
 class Touchdown(KeyTimeInstanceNode):
-    def derive(self, air=P('Airborne')):
+    def derive(self, air=S('Airborne')):
         # Basic version to operate with minimal valid data
         for each_section in air:
             self.create_kti(each_section.slice.stop, 'Touchdown')
 
 
 class InitialClimbStart(KeyTimeInstanceNode):
-    def derive(self, alt_radio=P('Altitude Radio'), climbing=P('Climbing')):
+    def derive(self, alt_radio=P('Altitude Radio'), climbing=S('Climbing')):
         for climb in climbing:
             initial_climb_index = time_at_value_wrapped(alt_radio, climb, 
                                                         INITIAL_CLIMB_THRESHOLD)
@@ -88,7 +88,7 @@ class LandingGroundEffectStart(KeyTimeInstanceNode):
     
 class TopOfClimb(KeyTimeInstanceNode):
     def derive(self, alt_std=P('Altitude STD'), 
-               ccd=P('Climb Cruise Descent')):
+               ccd=S('Climb Cruise Descent')):
         # This checks for the top of climb in each 
         # Climb/Cruise/Descent period of the flight.
         for ccd_phase in ccd:
@@ -108,7 +108,7 @@ class TopOfClimb(KeyTimeInstanceNode):
 
 class TopOfDescent(KeyTimeInstanceNode):
     def derive(self, alt_std=P('Altitude STD'), 
-               ccd=P('Climb Cruise Descent')):
+               ccd=S('Climb Cruise Descent')):
         # This checks for the top of descent in each 
         # Climb/Cruise/Descent period of the flight.
         for ccd_phase in ccd:
@@ -128,7 +128,7 @@ class TopOfDescent(KeyTimeInstanceNode):
 
 class FlapStateChanges(KeyTimeInstanceNode):
     
-    def derive(self, flap=P('flap')):
+    def derive(self, flap=P('Flap')):
         # Mark all flap changes, irrespective of the aircraft type :o)
         previous = None
         for index, value in enumerate(flap.array):

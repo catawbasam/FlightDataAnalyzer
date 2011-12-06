@@ -192,7 +192,7 @@ class DescentLowClimb(FlightPhaseNode):
         for this_dlc in dlc_list:
             if this_dlc.start == 0:
                 dlc_list.remove(this_dlc)
-            if this_dlc.stop == len(alt.array):
+            elif this_dlc.stop == len(alt.array):
                 dlc_list.remove(this_dlc)
         self.create_phases(dlc_list)
 

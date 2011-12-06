@@ -1,8 +1,7 @@
 import logging
 import numpy as np
 
-from hdfaccess.parameter import P, Parameter
-from analysis.node import DerivedParameterNode
+from analysis.node import DerivedParameterNode, KPV, KTI, P, S
 
 from analysis.library import (align, 
                               first_order_lag,

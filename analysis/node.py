@@ -8,7 +8,7 @@ from abc import ABCMeta, abstractmethod
 from collections import namedtuple
 from itertools import product
 
-from hdfaccess.parameter import P, Parameter
+from analysis.parameter import Parameter
 from analysis.library import align
 
 from analysis.recordtype import recordtype
@@ -159,7 +159,8 @@ class Node(object):
                                       self.__class__.__name__)
         return self
         
-    @abstractmethod
+    # removed abstract wrapper to allow initialisation within def derive(KTI('a'))
+    ##@abstractmethod #TODO: Review removal.
     def derive(self, **kwargs):
         """
         Accepts keyword arguments where the default determines the derive
@@ -445,3 +446,11 @@ class NodeManager(object):
         else:  #elif name in unavailable_deps:
             logging.warning("Confirm - node is unavailable: %s", name)
             return False
+
+# The following acronyms are intended to be used as placeholder values
+# for kwargs in Node derive methods. Cannot instantiate Node subclass without 
+# implementing derive.
+P = Parameter
+S = SectionNode
+KPV = KeyPointValueNode
+KTI = KeyTimeInstanceNode

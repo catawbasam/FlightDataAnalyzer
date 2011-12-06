@@ -7,9 +7,8 @@ import mock
 
 import utilities.masked_array_testutils as ma_test
 from utilities.struct import Struct
-#from utilities.parameter_test import parameter_test
 
-from hdfaccess.parameter import P, Parameter
+from analysis.node import KPV, KTI, Parameter, P, Section, S
 from analysis.flight_phase import Fast, InGroundEffect
 
 from analysis.derived_parameters import (AccelerationVertical,
@@ -58,7 +57,8 @@ class TestAltitudeAALForPhases(unittest.TestCase):
 
 class TestAltitudeRadio(unittest.TestCase):
     def test_can_operate(self):
-        expected = [('Altitude Radio Sensor', 'Pitch')]
+        expected = [('Altitude Radio Sensor', 'Pitch',
+                     'Main Gear To Altitude Radio')]
         opts = AltitudeRadio.get_operational_combinations()
         self.assertEqual(opts, expected)
         

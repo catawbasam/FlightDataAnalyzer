@@ -1,10 +1,8 @@
 import unittest
 import numpy as np
 
-from hdfaccess.parameter import P, Parameter
 from analysis.library import rate_of_change
-
-from analysis.node import Section, KeyTimeInstance
+from analysis.node import KPV, KeyTimeInstance, KTI, Parameter, P, Section, S
 from analysis.flight_phase import (Airborne,
                                    ClimbCruiseDescent,
                                    Climbing,
