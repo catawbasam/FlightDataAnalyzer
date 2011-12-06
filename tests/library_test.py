@@ -14,12 +14,11 @@ from datetime import datetime
 from analysis.library import (align, calculate_timebase, create_phase_inside,
                               create_phase_outside, duration, 
                               first_order_lag, first_order_washout,
-                              hysteresis, interleave, merge_alternate_sensors, 
-#                              powerset, 
+                              hysteresis, interleave, merge_alternate_sensors,
                               rate_of_change, repair_mask, straighten_headings,
                               time_at_value, value_at_time)
 
-from analysis.node import KPV, KTI, Parameter, P, S
+from analysis.node import A, KPV, KTI, Parameter, P, S
 
 class TestAlign(unittest.TestCase):
     def test_align_basic(self):

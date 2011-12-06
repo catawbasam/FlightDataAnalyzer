@@ -8,7 +8,7 @@ import mock
 import utilities.masked_array_testutils as ma_test
 from utilities.struct import Struct
 
-from analysis.node import KPV, KTI, Parameter, P, Section, S
+from analysis.node import Attribute, A, KPV, KTI, Parameter, P, Section, S
 from analysis.flight_phase import Fast, InGroundEffect
 
 from analysis.derived_parameters import (AccelerationVertical,
@@ -65,10 +65,11 @@ class TestAltitudeRadio(unittest.TestCase):
         
     def test_altitude_radio(self):
         alt_rad = AltitudeRadio()
-        alt_rad.aircraft = Struct({'model':{'geometry':{'main_gear_to_rad_alt':10.0}}})
-        alt_rad.derive(Parameter('Pitch', (np.ma.array(range(10))-2)*5, 1,0.0),
-                    Parameter('Altitude Radio Sensor', 
-                              np.ma.ones(10)*10, 1,0.0))
+        alt_rad.derive(
+            Parameter('Pitch', (np.ma.array(range(10))-2)*5, 1,0.0),
+            Parameter('Altitude Radio Sensor', np.ma.ones(10)*10, 1,0.0),
+            Attribute('Main Gear To Altitude Radio', 10.0)
+        )
         result = alt_rad.array
         answer = np.ma.array(data=[11.7364817767,
                                    10.8715574275,

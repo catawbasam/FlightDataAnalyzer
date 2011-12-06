@@ -2,9 +2,8 @@ import unittest
 import numpy as np
 
 from analysis.library import rate_of_change
-
 from analysis.plot_flight import plot_parameter
-from analysis.node import KPV, KeyTimeInstance, KTI, Parameter, P, Section, S
+from analysis.node import A, KPV, KeyTimeInstance, KTI, Parameter, P, Section, S
 from analysis.flight_phase import (Airborne,
                                    ClimbCruiseDescent,
                                    Climbing,

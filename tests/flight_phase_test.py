@@ -1,7 +1,7 @@
 import unittest
 import numpy as np
 
-from analysis.node import KPV, KTI, Parameter, P, Section, S
+from analysis.node import A, KPV, KTI, Parameter, P, Section, S
 
 from analysis.key_time_instances import (BottomOfDescent,
                                          TopOfClimb, 

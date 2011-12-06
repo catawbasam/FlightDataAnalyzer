@@ -7,12 +7,10 @@ import mock
 
 from random import shuffle
 
-from analysis.parameter import Parameter
-
 from analysis.node import (
     DerivedParameterNode, KeyPointValue, KeyPointValueNode, KeyTimeInstance,
-    KeyTimeInstanceNode, FormattedNameNode, Node, NodeManager, powerset,
-    Section, SectionNode)
+    KeyTimeInstanceNode, FormattedNameNode, Node, NodeManager, P, Parameter,
+    powerset, Section, SectionNode)
 
 
 class TestAbstractNode(unittest.TestCase):
