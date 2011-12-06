@@ -62,9 +62,9 @@ class ClimbCruiseDescent(FlightPhaseNode):
 
 class ClimbFromBottomOfDescent(FlightPhaseNode):
     def derive(self, 
-               toc = P('Top Of Climb'),
-               eot = P('Climb Start'), # AKA End Of Takeoff
-               bod = P('Bottom Of Descent')):
+               toc=P('Top Of Climb'),
+               eot=P('Climb Start'), # AKA End Of Takeoff
+               bod=P('Bottom Of Descent')):
         # First we extract the kti index values into simple lists.
         toc_list = []
         for this_toc in toc:
@@ -113,9 +113,9 @@ class Climbing(FlightPhaseNode):
       
 class Cruise(FlightPhaseNode):
     def derive(self,
-               ccds = P('Climb Cruise Descent'),
-               tocs = P('Top Of Climb'),
-               tods = P('Top Of Descent')):
+               ccds=P('Climb Cruise Descent'),
+               tocs=P('Top Of Climb'),
+               tods=P('Top Of Descent')):
         # We may have many phases, tops of climb and tops of descent at this time.
         # The problem is that they need not be in tidy order as the lists may
         # not be of equal lengths.
@@ -166,8 +166,8 @@ class DescentToLanding(FlightPhaseNode):
 
 class DescentToBottomOfDescent(FlightPhaseNode):
     def derive(self, 
-               tod = P('Top Of Descent'), 
-               bod = P('Bottom Of Descent')):
+               tod=P('Top Of Descent'), 
+               bod=P('Bottom Of Descent')):
         # First we extract the kti index values into simple lists.
         tod_list = []
         for this_tod in tod:
@@ -195,7 +195,7 @@ class DescentLowClimb(FlightPhaseNode):
         for this_dlc in dlc_list:
             if this_dlc.start == 0:
                 dlc_list.remove(this_dlc)
-            if this_dlc.stop == len(alt.array):
+            elif this_dlc.stop == len(alt.array):
                 dlc_list.remove(this_dlc)
         self.create_phases(dlc_list)
 

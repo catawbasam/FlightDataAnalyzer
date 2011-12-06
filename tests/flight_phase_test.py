@@ -1,8 +1,7 @@
 import unittest
 import numpy as np
 
-from hdfaccess.parameter import P, Parameter
-from analysis.node import Section, KeyTimeInstance
+from analysis.node import KPV, KTI, Parameter, P, Section, S
 
 from analysis.key_time_instances import (BottomOfDescent,
                                          TopOfClimb, 

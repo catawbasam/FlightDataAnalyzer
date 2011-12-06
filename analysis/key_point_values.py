@@ -2,7 +2,7 @@ import numpy as np
 import datetime
 from collections import namedtuple
 
-from analysis.node import  KeyPointValue, KeyPointValueNode, P
+from analysis.node import  KeyPointValue, KeyPointValueNode, KTI, P, S
 from analysis import settings
 
 """
@@ -18,27 +18,27 @@ TODO:
 # KPV about the flight
 
 class TakeoffAirport(KeyPointValueNode):
-    def derive(self, lift_off=P('Lift Off')):
+    def derive(self, lift_off=KTI('Lift Off')):
         ##KeyPointValue(n, 'ICAO', 'Takeoff Airport')
         ##KeyPointValue(n, '09L', 'Takeoff Runway')
         return NotImplemented
     
 class ApproachAirport(KeyPointValueNode):
-    def derive(self, descent=P('Descent')):
+    def derive(self, descent=S('Descent')):
         return NotImplemented
     
 class LandingAirport(KeyPointValueNode):
-    def derive(self, touch_down=P('Touch Down')):
+    def derive(self, touch_down=KTI('Touch Down')):
         ##KeyPointValue(n, 'ICAO', 'Takeoff Airport')
         ##KeyPointValue(n, '09L', 'Takeoff Runway')
         return NotImplemented
     
 class TakeoffAltitude(KeyPointValueNode):
-    def derive(self, lift_off=P('Lift Off'), takeoff_airport=TakeoffAirport):
+    def derive(self, lift_off=KTI('Lift Off'), takeoff_airport=TakeoffAirport):
         return NotImplemented
     
 class LandingAltitude(KeyPointValueNode):
-    def derive(self, touch_down=P('Touch Down'),
+    def derive(self, touch_down=KTI('Touch Down'),
                landing_airport=LandingAirport):
         return NotImplemented
 
@@ -50,17 +50,17 @@ class LandingAltitude(KeyPointValueNode):
 
 
 class IndicatedAirspeedAtLiftOff(KeyPointValueNode):
-    def derive(self, lift_off=P('Lift Off'),
+    def derive(self, lift_off=KTI('Lift Off'),
                indicated_airspeed=P('Indicated Airspeed')):
         return NotImplemented
     
 class PitchAtLiftOff(KeyPointValueNode):
-    def derive(self, lift_off=P('Lift Off'), pitch=P('Pitch')):
+    def derive(self, lift_off=KTI('Lift Off'), pitch=P('Pitch')):
         return NotImplemented
    
    
 class FlapAtLiftOff(KeyPointValueNode):
-    def derive(self, lift_off=P('Lift Off'), flap=P('Flap')):
+    def derive(self, lift_off=KTI('Lift Off'), flap=P('Flap')):
         return NotImplemented
 
 class IndicatedAirspeedAt35Feet(KeyPointValueNode):
@@ -78,7 +78,7 @@ class NormalgMaxDeviation(KeyPointValueNode):
     """ For discussion - why have Max and Min Normal g when it's just the max 
     distance from 0.98 that's interesting?
     """
-    def derive(self, norm_g=P('Normal g'), airborne=P('Airborne')):
+    def derive(self, norm_g=P('Normal g'), airborne=S('Airborne')):
         STANDARD_GRAVITY = 9.80665
         for airborne_slice in airborne:
             normg_in_air = norm_g.array.data[airborne_slice]
@@ -96,7 +96,7 @@ class Pitch1000To100FeetMax(KeyPointValueNode):
     
 class Pitch5FeetToTouchDownMax(KeyPointValueNode):
     def derive(self, pitch=P('Pitch'), alt_rad=P('Altitude Radio'),
-               touch_down=P('Touch Down')):
+               touch_down=KTI('Touch Down')):
         return NotImplemented
     
     
@@ -118,11 +118,11 @@ class Pitch20FeetToTouchDownMin(KeyPointValueNode):
     """ Q: This is 20 feet, the max uses 5 feet
     """
     def derive(self, pitch=P('Pitch'), alt_rad=P('Altitude Radio'),
-               touch_down=P('Touch Down')):
+               touch_down=KTI('Touch Down')):
         return NotImplemented
     
 class PitchRateLiftOffTo35FeetMax(KeyPointValueNode):
-    def derive(self, pitch_rate=P('Pitch Rate'), lift_off=P('Lift Off'),
+    def derive(self, pitch_rate=P('Pitch Rate'), lift_off=KTI('Lift Off'),
                alt_rad=P('Altitude Radio')):
         return NotImplemented
     
@@ -149,7 +149,7 @@ class RollAbove1500FeetMax(KeyPointValueNode):
     
 class RollCycles1000FeetToTouchDown(KeyPointValueNode):
     def derive(self, roll=P('Roll'), alt_aal=P('Altitude AAL'),
-               touch_down=P('Touch Down')):
+               touch_down=KTI('Touch Down')):
         return NotImplemented
     
 class AltitudeWithFlapsMax(KeyPointValueNode):
@@ -178,7 +178,7 @@ class MACHMax(KeyPointValueNode):
 
 class IndicatedAirspeedAtTouchDown(KeyPointValueNode):
     def derive(self, airspeed=P('Indicated Airspeed'),
-               touch_down=P('Touch Down')):
+               touch_down=KTI('Touch Down')):
         return NotImplemented
     
 class GroundSpeedOnGroundMax(KeyPointValueNode):
@@ -186,12 +186,12 @@ class GroundSpeedOnGroundMax(KeyPointValueNode):
         return NotImplemented
 
 class FlapAtTouchDown(KeyPointValueNode):
-    def derive(self, flap=P('Flap'), touch_down=P('Touch Down')):
+    def derive(self, flap=P('Flap'), touch_down=KTI('Touch Down')):
         return NotImplemented
     
 class GrossWeightAtTouchDown(KeyPointValueNode):
     def derive(self, gross_weight=P('Gross Weight'), 
-               touch_down=P('Touch Down')):
+               touch_down=KTI('Touch Down')):
         return NotImplemented
     
 class EGTMax(KeyPointValueNode): # which engine? or all engines? # or all and each!?
@@ -222,13 +222,13 @@ class EGTMax(KeyPointValueNode): # which engine? or all engines? # or all and ea
 class MagneticHeadingAtLiftOff(KeyPointValue):
     """ Shouldn't this be difference between aircraft heading and runway heading???
     """
-    def derive(self, heading=P('Magnetic Heading'), lift_off=P('Lift Off')):
+    def derive(self, heading=P('Magnetic Heading'), lift_off=KTI('Lift Off')):
         return NotImplemented
     
 class MagneticHeadingAtTouchDown(KeyPointValue):
     """ Shouldn't this be difference between aircraft heading and runway heading???
     """
-    def derive(self, heading=P('Magnetic Heading'), touch_down=P('Touch Down')):
+    def derive(self, heading=P('Magnetic Heading'), touch_down=KTI('Touch Down')):
         return NotImplemented
     
 # TODO: Trouble with naming these
@@ -260,7 +260,7 @@ class AccelerationNormalMax(KeyPointValueNode):
 class RateOfDescentHigh(KeyPointValueNode):
     
     def derive(self, rate_of_climb=P('Rate Of Climb'),
-               descending=P('Descending')):
+               descending=S('Descending')):
         #TODO: Merge with below RateOfDescentMax accepting a flightphase arg
         for descent_slice in descending:
             duration = descent_slice.stop - descent_slice.start
@@ -274,7 +274,7 @@ class RateOfDescentMax(KeyPointValueNode):
     # Minimum period of a descent for testing against thresholds (reduces number of KPVs computed in turbulence)
     DESCENT_MIN_DURATION = 10
     
-    def derive(self, rate_of_climb=P('Rate Of Climb'), descent=P('Descent')):
+    def derive(self, rate_of_climb=P('Rate Of Climb'), descent=S('Descent')):
         for descent_slice in descent:
             duration = descent_slice.stop - descent_slice.start
             if duration > self.DESCENT_MIN_DURATION:
@@ -288,7 +288,7 @@ class RateOfDescentMax(KeyPointValueNode):
     
 class MaxIndicatedAirspeedLevelFlight(KeyPointValueNode):
     def derive(self, airspeed=P('Indicated Airspeed'),
-               level_flight=P('Level Flight')):
+               level_flight=S('Level Flight')):
         for level_slice in level_flight:
             duration = level_slice.stop - level_slice.start
             if duration > settings.LEVEL_FLIGHT_MIN_DURATION:
@@ -308,7 +308,7 @@ class AirspeedMinusVref500ftTo0ftMax(KeyPointValueNode):
     NAME_FORMAT = 'Airspeed Minus Vref 500ft to 0ft Max' #TODO: auto replace with name?!
     
     def derive(self, airspeed_minus_vref=P('AirspeedMinusVref'), 
-               _500ft_to_0ft=P('500ft To 0ft')):  #Q: Label this as the list of kpv sections?
+               _500ft_to_0ft=S('500ft To 0ft')):  #Q: Label this as the list of kpv sections?
 
         for sect in _500ft_to_0ft:
             ##max_spd = airspeed_minus_vref.array[sect].max()

@@ -8,7 +8,7 @@ from abc import ABCMeta, abstractmethod
 from collections import namedtuple
 from itertools import product
 
-from hdfaccess.parameter import P, Parameter
+from analysis.parameter import Parameter
 from analysis.library import align
 
 from analysis.recordtype import recordtype
@@ -155,11 +155,12 @@ class Node(object):
             aligned_params.append(param)
         res = self.derive(*args)
         if res is NotImplemented:
-            raise NotImplementedError("Class '%s' does not implement derive()." % \
+            raise NotImplementedError("Class '%s' derive method is not implemented." % \
                                       self.__class__.__name__)
         return self
         
-    @abstractmethod
+    # removed abstract wrapper to allow initialisation within def derive(KTI('a'))
+    ##@abstractmethod #TODO: Review removal.
     def derive(self, **kwargs):
         """
         Accepts keyword arguments where the default determines the derive
@@ -385,6 +386,27 @@ class KeyPointValueNode(FormattedNameNode, list):
             aligned_node.append(aligned_kpv)
         return aligned_node
     #TODO: Accessors for first kpv, primary kpv etc.
+    
+    
+class FlightAttributeNode(Node):
+    def __init__(self, *args, **kwargs):
+        self._flight_info = {}
+        self._allowed_attributes = (
+            '',
+            '',
+            ''
+            )
+        super(FlightAttributeNode, self).__init__(*args, **kwargs)
+    
+    def set_flight_attribute(self, attr_name, value):
+        if attr_name in self._allowed_attributes:
+            self._flight_info[attr_name] = value
+        else:
+            raise ValueError("Attribute '%s' is not permitted" % attr_name)
+    set_flight_attr = set_flight_attribute
+    
+    def another_method(self):
+        return self._aircraft_info
 
 
 class NodeManager(object):
@@ -424,3 +446,11 @@ class NodeManager(object):
         else:  #elif name in unavailable_deps:
             logging.warning("Confirm - node is unavailable: %s", name)
             return False
+
+# The following acronyms are intended to be used as placeholder values
+# for kwargs in Node derive methods. Cannot instantiate Node subclass without 
+# implementing derive.
+P = Parameter
+S = SectionNode
+KPV = KeyPointValueNode
+KTI = KeyTimeInstanceNode

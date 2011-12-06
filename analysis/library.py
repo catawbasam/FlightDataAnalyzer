@@ -1,14 +1,12 @@
 import math
 import numpy as np
-# Scipy routines used for transfer functions
-from scipy.signal import iirfilter, lfilter, lfilter_zi, filtfilt
 
 from datetime import datetime, timedelta
 from itertools import izip
+from scipy.signal import iirfilter, lfilter, lfilter_zi, filtfilt
 
 from settings import REPAIR_DURATION
 
-#from analysis.parameter import P, Parameter
 
 #Q: Not sure that there's any point in these? Very easy to define later
 #----------------------------------------------------------------------
@@ -30,52 +28,6 @@ from settings import REPAIR_DURATION
     #return self.data * shift(self, to_multiply)
 #----------------------------------------------------------------------
 
-
-#2011-10-20 CJ: Redundant - replaced by calculate_timebase
-##class ClockWatcher():
-    ##def __init__(self):
-        ##self.old_datetime = None
-
-    ##def checktime(self, line):
-        ### year = try_int(line['Year'], year) - missing from this test file
-        ##year = 2010        
-        ##month = try_int(line['Month'])
-        ##day = try_int(line['Day'])
-        ##hr = try_int(line['Hour'])
-
-        #### The data now has minsec as a single parameter
-        ####x = try_int(line['MinSec'])
-        ####mn = int(x/60)    
-        ####sc = x%60
-        ### may need this format if time stored in two parameters
-        ##mn = try_int(line['Minute'])
-        #### sc = try_int(line['Second'])
-        ##sc = 0 # Not recorded on ATRs
-        
-        ##try:
-            ##new_datetime = datetime.datetime(year,month,day,hr,mn,sc)
-        ##except ValueError:
-            ### Trap for missing data from CSV and the 32/1/2011 and 1/13/2012 types of date.
-            ##return None
-        
-        ##if new_datetime == self.old_datetime:
-            ### no change
-            ##return None
-        ##else: #self.old_datetime == None or different
-            ##self.old_datetime = new_datetime
-            ##return new_datetime
-
-#2011-10-20 CJ: Redundant - replaced by calculate_timebase
-##def clock_reading(clock_variation, step):
-    ### d = (i - base - count)%4096
-    ### Have we seen this value before?
-    ##if step in clock_variation:
-        ### Yes, so increment our counter.
-        ##clock_variation[step] += 1
-    ##else:
-        ### No, so create a new dictionary entry and start counting from one.
-        ##clock_variation[step] = 1
-    ##return clock_variation
 
 def align(slave, master, interval='Subframe'):
     """

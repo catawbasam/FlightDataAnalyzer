@@ -7,7 +7,7 @@ import mock
 
 from random import shuffle
 
-from analysis.parameter import P, Parameter
+from analysis.parameter import Parameter
 
 from analysis.node import (
     DerivedParameterNode, KeyPointValue, KeyPointValueNode, KeyTimeInstance,
