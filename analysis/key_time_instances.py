@@ -41,8 +41,8 @@ class ClimbStart(KeyTimeInstanceNode):
 
 class GoAround(KeyTimeInstanceNode):
     def derive(self, alt_AAL=P('Altitude AAL For Phases'),
-               alt_rad=P('Altitude Radio'),
-               climb=P('Rate Of Climb For Flight Phases')):
+               alt_rad=P('Altitude Radio For Phases'),
+               climb=P('Climb For Flight Phases')):
         app = np.ma.masked_where(np.ma.logical_or
                                  (np.ma.minimum(alt_AAL.array,alt_rad.array)>3000,
                                  climb.array>500), alt_AAL.array)
@@ -56,7 +56,7 @@ class GoAround(KeyTimeInstanceNode):
             # through this height band. If it is at the end we may have
             # truncated data and we're only really interested in cases
             # where the data follows on from the go-around.
-            if 0 != pit != end-begin-1:
+            if (0 != pit != end-begin-1):
                 self.create_kti(begin+pit, 'Go Around')
 
 
