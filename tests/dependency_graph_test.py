@@ -3,9 +3,8 @@ try:
 except ImportError:
     import unittest
 
-from analysis.node import Node, NodeManager
 from analysis.dependency_graph import dependency_order, process_order, graph_nodes
-from hdfaccess.parameter import P
+from analysis.node import A, KPV, KTI, Node, NodeManager, Parameter, P, Section, S
 
 # mock function
 f = lambda x: x

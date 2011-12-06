@@ -77,8 +77,9 @@ class Node(object):
         :param offset: Offset in Frame.
         :type offset: Float
         """
-        if not self.get_dependency_names():
-            raise ValueError("Every Node must have a dependency. Node '%s'" % self.__class__.__name__)
+        #NB: removed check for dependencies to allow initialisation in def derive()
+        ##if not self.get_dependency_names():
+            ##raise ValueError("Every Node must have a dependency. Node '%s'" % self.__class__.__name__)
         if name:
             self.name = name + '' # for ease of testing, checks name is string ;-)
         else:
@@ -450,6 +451,12 @@ class NodeManager(object):
 # The following acronyms are intended to be used as placeholder values
 # for kwargs in Node derive methods. Cannot instantiate Node subclass without 
 # implementing derive.
+class Attribute(object):
+    def __init__(self, name, value=None):
+        self.name = name
+        self.value = value
+    
+A = Attribute
 P = Parameter
 S = SectionNode
 KPV = KeyPointValueNode
