@@ -237,7 +237,7 @@ class TestPitch(unittest.TestCase):
 class TestRateOfClimb(unittest.TestCase):
     def test_can_operate(self):
         expected = [('Acceleration Vertical','Altitude STD','Altitude_Radio',
-                     'InGroundEfrfect')]
+                     'In Ground Effect')]
         opts = RateOfClimb.get_operational_combinations()
         self.assertEqual(opts, expected)
         
@@ -245,29 +245,29 @@ class TestRateOfClimb(unittest.TestCase):
         az = P('Acceleration Vertical', np.ma.array([1]*10))
         alt_std = P('Altitude STD', np.ma.array([100]*10))
         alt_rad = P('Altitude Radio', np.ma.array([0]*10))
-        ige = InGroundEffect()
-        ige.derive(alt_rad)
+        ige_node = InGroundEffect()
+        ige = ige_node.get_derived(alt_rad)
         
-        roc = RateOfClimb()
-        roc.derive(az, alt_std, alt_rad, ige)
+        roc_node = RateOfClimb()
+        roc = roc_node.get_derived(az, alt_std, alt_rad, ige)
 
         expected = np.ma.array(data=[0]*10, dtype=np.float,
                              mask=False)
         np.testing.assert_array_equal(roc.array, expected)
         
 class TestRateOfTurn(unittest.TestCase):
-   def test_can_operate(self):
-       expected = [('Head Continuous',)]
-       opts = RateOfTurn.get_operational_combinations()
-       self.assertEqual(opts, expected)
+    def test_can_operate(self):
+        expected = [('Head Continuous',)]
+        opts = RateOfTurn.get_operational_combinations()
+        self.assertEqual(opts, expected)
        
-   def test_rate_of_turn(self):
-       rot = RateOfTurn()
-       rot.derive(P('Head Continuous', np.ma.array(range(10))))
-       answer = np.ma.array(data=[1]*10, dtype=np.float)
-       np.testing.assert_array_equal(rot.array, answer) # Tests data only; NOT mask
+    def test_rate_of_turn(self):
+        rot = RateOfTurn()
+        rot.derive(P('Head Continuous', np.ma.array(range(10))))
+        answer = np.ma.array(data=[1]*10, dtype=np.float)
+        np.testing.assert_array_equal(rot.array, answer) # Tests data only; NOT mask
        
-   def test_rate_of_turn_phase_stability(self):
+    def test_rate_of_turn_phase_stability(self):
         params = {'Head Continuous':Parameter('', np.ma.array([0,0,0,1,0,0,0], 
                                                                dtype=float))}
         rot = RateOfTurn()

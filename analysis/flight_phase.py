@@ -46,9 +46,9 @@ class ClimbCruiseDescent(FlightPhaseNode):
 
 class ClimbFromBottomOfDescent(FlightPhaseNode):
     def derive(self, 
-               toc = P('Top Of Climb'),
-               eot = P('Climb Start'), # AKA End Of Takeoff
-               bod = P('Bottom Of Descent')):
+               toc=P('Top Of Climb'),
+               eot=P('Climb Start'), # AKA End Of Takeoff
+               bod=P('Bottom Of Descent')):
         # First we extract the kti index values into simple lists.
         toc_list = []
         for this_toc in toc._kti_list:
@@ -97,9 +97,9 @@ class Climbing(FlightPhaseNode):
 
 class Cruise(FlightPhaseNode):
     def derive(self, 
-               ccd = P('Climb Cruise Descent'),
-               toc = P('Top Of Climb'),
-               tod = P('Top Of Descent')):
+               ccd=P('Climb Cruise Descent'),
+               toc=P('Top Of Climb'),
+               tod=P('Top Of Descent')):
         # We may have many phases, tops of climb and tops of descent 
         # at this time. The problem is that they need not be in tidy 
         # order as the lists may not be of equal lengths.
@@ -165,8 +165,8 @@ class DescentToLanding(FlightPhaseNode):
 
 class DescentToBottomOfDescent(FlightPhaseNode):
     def derive(self, 
-               tod = P('Top Of Descent'), 
-               bod = P('Bottom Of Descent')):
+               tod=P('Top Of Descent'), 
+               bod=P('Bottom Of Descent')):
         # First we extract the kti index values into simple lists.
         tod_list = []
         for this_tod in tod._kti_list:

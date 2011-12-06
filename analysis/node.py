@@ -427,6 +427,27 @@ class KeyPointValueNode(FormattedNameNode):
             aligned_node._kpv_list.append(aligned_kpv)
         return aligned_node
     #TODO: Accessors for first kpv, primary kpv etc.
+    
+    
+class FlightAttributeNode(Node):
+    def __init__(self, *args, **kwargs):
+        self._flight_info = {}
+        self._allowed_attributes = (
+            '',
+            '',
+            ''
+            )
+        super(FlightAttributeNode, self).__init__(*args, **kwargs)
+    
+    def set_flight_attribute(self, attr_name, value):
+        if attr_name in self._allowed_attributes:
+            self._flight_info[attr_name] = value
+        else:
+            raise ValueError("Attribute '%s' is not permitted" % attr_name)
+    set_flight_attr = set_flight_attribute
+    
+    def another_method(self):
+        return self._aircraft_info
 
     
 class NodeManager(object):

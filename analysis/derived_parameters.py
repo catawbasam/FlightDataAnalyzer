@@ -4,7 +4,8 @@ import numpy as np
 from hdfaccess.parameter import P, Parameter
 
 from analysis.node import DerivedParameterNode
-from analysis.library import (align, hysteresis, interleave,
+from analysis.library import (align, first_order_lag, first_order_washout,
+                              hysteresis, interleave,
                               rate_of_change, straighten_headings)
 
 from settings import (AZ_WASHOUT_TC,
@@ -16,10 +17,6 @@ from settings import (AZ_WASHOUT_TC,
 
 #-------------------------------------------------------------------------------
 # Derived Parameters
-
-
-# Q: What do we do about accessing KTIs - params['a kti class name'] is a list of kti's
-#   - could have a helper - filter_for('kti_name', take_max=True) # and possibly take_first, take_min, take_last??
 
 # Q: Accessing information like ORIGIN / DESTINATION
 
@@ -94,8 +91,8 @@ class AltitudeTail(DerivedParameterNode):
     
     # The parameter gear_to_tail is measured in feet and is the distance from 
     # the main gear to the point on the tail most likely to scrape the runway.
-    def derive(self, alt_rad = P('Altitude Radio'), 
-               pitch = P('Pitch'),
+    def derive(self, alt_rad=P('Altitude Radio'), 
+               pitch=P('Pitch'),
                dist_gear_to_tail=None):#A('Dist Gear To Tail')): # TODO: Is this name correct?
         # Align the pitch attitude samples to the Radio Altimeter samples,
         # ready for combining them.
@@ -105,10 +102,10 @@ class AltitudeTail(DerivedParameterNode):
         
 
 class DistanceToLanding(DerivedParameterNode):
-    def derive(self, alt_aal = P('Altitude AAL'),
-               gspd = P('Ground Speed'),
-               ils_gs = P('Glideslope Deviation'),
-               ldg = P('LandingAirport')):
+    def derive(self, alt_aal=P('Altitude AAL'),
+               gspd=P('Ground Speed'),
+               ils_gs=P('Glideslope Deviation'),
+               ldg=P('LandingAirport')):
         return NotImplemented
     
 
@@ -123,7 +120,7 @@ class FlightPhaseAirspeed(DerivedParameterNode):  #Q: Rename to AirpseedHysteres
 
 
 class FlightPhaseRateOfClimb(DerivedParameterNode):
-    def derive(self, alt = P('Altitude STD')):
+    def derive(self, alt=P('Altitude STD')):
         self.array = rate_of_change(alt, 4)
         
         #self.array = hysteresis(rate_of_change(alt, 4),
@@ -136,20 +133,20 @@ class HeadContinuous(DerivedParameterNode):
 
 
 class ILSLocaliserGap(DerivedParameterNode):
-    def derive(self, ils_loc = P('Localiser Deviation'),
-               alt_aal = P('Altitude AAL')):
+    def derive(self, ils_loc=P('Localiser Deviation'),
+               alt_aal=P('Altitude AAL')):
         return NotImplemented
 
     
 class ILSGlideslopeGap(DerivedParameterNode):
-    def derive(self, ils_gs = P('Glideslope Deviation'),
-               alt_aal = P('Altitude AAL')):
+    def derive(self, ils_gs=P('Glideslope Deviation'),
+               alt_aal=P('Altitude AAL')):
         return NotImplemented
  
     
 '''
 
-This is ex-AGS and I don't know what it does or if we need/want this. DJ
+This is old and I don't know what it does or if we need/want this. DJ
 
 class ILSValLim(DerivedParameterNode):
     # Taken from diagram as: ILS VAL/LIM -- TODO: rename!
@@ -159,47 +156,47 @@ class ILSValLim(DerivedParameterNode):
 '''
 
 class MACH(DerivedParameterNode):
-    def derive(self, ias = P('Airspeed'),
-               tat = P('TAT'), alt = P('Altitude Std')):
+    name = 'MACH'
+    def derive(self, ias=P('Airspeed'),
+               tat=P('TAT'), alt=P('Altitude Std')):
         return NotImplemented
         
 
 class RateOfClimb(DerivedParameterNode):
     def derive(self, 
-               az = P('Acceleration Vertical'),
-               alt_std = P('Altitude STD'),
-               alt_rad = P('Altitude_Radio'),
-               ige = P('InGroundEfrfect')
+               az=P('Acceleration Vertical'),
+               alt_std=P('Altitude STD'),
+               alt_rad=P('Altitude_Radio'),
+               ige = S('In Ground Effect')
                ):
-        roc = rate_of_change(align(alt_std, az), 2)
-        roc_rad = rate_of_change(align(alt_rad, az), 1)
+        roc = rate_of_change(alt_std, 2)
+        roc_rad = rate_of_change(alt_rad, 1)
         
         # Use pressure altitude rate outside ground effect and 
         # radio altitude data inside ground effect.
-        for this_ige in ige._sections:
-            a = this_ige.slice.start
-            b = this_ige.slice.stop
-            roc[a:b] = roc_rad[a:b]
+        for ige_sect in ige:
+            roc[ige_sect.slice] = roc_rad[ige_sect.slice]
         
         # Lag this rate of climb
-        lagged_roc = first_order_lag (roc.array, RATE_OF_CLIMB_LAG_TC, roc.hz)
-        az_washout = first_order_washout (az.array, AZ_WASHOUT_TC, az.hz, initial_value = 1.0)
-        inertial_roc = first_order_lag (az_washout.array, RATE_OF_CLIMB_LAG_TC, az.hz, gain=GRAVITY*RATE_OF_CLIMB_LAG_TC*60.0, initial_value = 1.0)
-        return lagged_roc + inertial_roc
+        lagged_roc = first_order_lag(roc, RATE_OF_CLIMB_LAG_TC, self.hz)  # Q: was roc.hz, but changed to self.hz which will be 8Hz?
+        az_washout = first_order_washout(az.array, AZ_WASHOUT_TC, az.hz,
+                                         initial_value=1.0)
+        inertial_roc = first_order_lag(az_washout, RATE_OF_CLIMB_LAG_TC, az.hz,
+                                       gain=GRAVITY*RATE_OF_CLIMB_LAG_TC*60.0, 
+                                       initial_value = 1.0)
+        self.array = lagged_roc + inertial_roc
                 
-        
-        
-        
         
 
 class Relief(DerivedParameterNode):
     # also known as Terrain
     
     # Quickly written without tests as I'm really editing out the old dependencies statements :-(
-    def derive(self, alt_aal = P('Altitude AAL'),
-               alt_rad = P('Radio Altitude')):
-        altitude = align(alt_aal, alt_rad)
-        self.array = altitude - alt_rad
+    def derive(self, alt_aal=P('Altitude AAL'),
+               alt_rad=P('Radio Altitude')):
+        #WARNING: align is done before hand, but in the reverse order as depicted below:
+        ##altitude = align(alt_aal, alt_rad)
+        self.array = alt_aal.array - alt_rad.array
 
 '''
 
@@ -218,23 +215,27 @@ class SmoothedLongitude(DerivedParameterNode):
 
 class TrueAirspeed(DerivedParameterNode):
     dependencies = ['SAT', 'VMO', 'MMO', 'Indicated Airspeed', 'Altitude QNH']
-    def derive(self, ias = P('Airspeed'),
-               alt_std = P('Altitude STD'),
-               sat = P('SAT')):
+    def derive(self, ias=P('Airspeed'),
+               alt_std=P('Altitude STD'),
+               sat=P('SAT')):
         return NotImplemented
+    
+    
+class MagneticDeviation(DerivedParameterNode):
+    def derive(self):
+        return NotImplemented
+    
     
 class TrueHeading(DerivedParameterNode):
     # Requires the computation of a magnetic deviation parameter linearly 
     # changing from the deviation at the origin to the destination.
-    def derive(self, head = P('Heading Continuous'),
-               dev = P('Magnetic Deviation')):
-        dev_array = align(dev, head)
-        self.array = head + dev_array
+    def derive(self, head=P('Heading Continuous'),
+               mag_dev=P('Magnetic Deviation')):
+        self.array = head.array + mag_dev.array
     
 
 class RateOfTurn(DerivedParameterNode):
-    dependencies = [HeadContinuous]
-    def derive(self, head = P('Head Continuous')):
+    def derive(self, head=P('Head Continuous')):
         self.array = rate_of_change(head, 1)
 
 
@@ -242,4 +243,4 @@ class Pitch(DerivedParameterNode):
     def derive(self, p1=P('Pitch (1)'), p2=P('Pitch (2)')):
         self.hz = p1.hz * 2
         self.offset = min(p1.offset, p2.offset)
-        self.array = interleave (p1, p2)
+        self.array = interleave(p1, p2)
