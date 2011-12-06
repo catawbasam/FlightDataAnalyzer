@@ -63,18 +63,24 @@ class TestClimbStart(unittest.TestCase):
 
 class TestGoAround(unittest.TestCase):
     def test_can_operate(self):
-        expected = [('Altitude AAL For Phases','Altitude Radio',
-                     'Climb For Flight Phases')]
+        expected = [('Altitude AAL For Phases','Altitude Radio For Phases',
+                     'Fast','Climb For Flight Phases')]
         opts = GoAround.get_operational_combinations()
         self.assertEqual(opts, expected)
 
     def test_go_around_basic(self):
         alt = np.ma.array(range(0,4000,500)+range(4000,0,-500)+range(0,1000,501))
         roc = np.ma.array([-500]*18)
+
+        ias = Parameter('Airspeed', np.ma.ones(len(alt))*100)
+        phase_fast = Fast()
+        phase_fast.derive(ias)
+
         goa = GoAround()
         # Pretend we are flying over flat ground, so the altitudes are equal.
         goa.derive(Parameter('Altitude AAL For Phases',alt),
                    Parameter('Altitude Radio',alt),
+                   phase_fast,
                    Parameter('Rate Of Climb For Flight Phases',roc))
         expected = [KeyTimeInstance(index=16, state='Go Around')]
         self.assertEqual(goa, expected)
@@ -93,6 +99,7 @@ class TestGoAround(unittest.TestCase):
         goa = GoAround()
         goa.derive(Parameter('Altitude AAL For Phases',alt),
                    Parameter('Altitude Radio For Phases',alt),
+                   phase_fast,
                    Parameter('Climb For Flight Phases',climb.array))
                    
         expected = [KeyTimeInstance(index=157, state='Go Around'), 
