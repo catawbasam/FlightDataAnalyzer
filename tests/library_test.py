@@ -42,6 +42,27 @@ class TestAlign(unittest.TestCase):
         np.testing.assert_array_equal(result.data, [0, 0, 1, 2, 3, 4, 5, 6])
         np.testing.assert_array_equal(result.mask, False)
                 
+    def test_align_discrete(self):
+        class DumParam():
+            def __init__(self):
+                self.offset = None
+                self.hz = None
+                self.array = []
+                
+        first = DumParam()
+        first.hz = 1
+        first.offset = 0.0
+        first.array = np.ma.array([0,0,1,1,0,1,0,1],dtype=float)
+        
+        second = DumParam()
+        second.hz = 1
+        second.offset = 0.7
+        second.array = np.ma.array([0,0,1,1,0,1,0,1],dtype=float)
+        
+        result = align(second, first, mode='Discrete') #  sounds more natural so order reversed 20/11/11
+        np.testing.assert_array_equal(result.data, [0,0,0,1,1,0,1,0])
+        np.testing.assert_array_equal(result.mask, False)
+                        
     def test_align_assert_array_lengths(self):
         class DumParam():
             def __init__(self):

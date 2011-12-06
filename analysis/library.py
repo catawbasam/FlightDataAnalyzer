@@ -29,7 +29,7 @@ from settings import REPAIR_DURATION
 #----------------------------------------------------------------------
 
 
-def align(slave, master, interval='Subframe'):
+def align(slave, master, interval='Subframe', mode='Analogue'):
     """
     This function takes two parameters which will have been sampled at different
     rates and with different offsets, and aligns the slave parameter's samples
@@ -48,6 +48,11 @@ def align(slave, master, interval='Subframe'):
     :param master: The master parameter
     :type master: Parameter objects    
     :param interval: Has possible values 'Subframe' or 'Frame'.  #TODO: explain this!
+    :type interval: String
+    :param mode: Has possible values 'Analogue' or 'Discrete'
+    :mode = Analogue results in interpolation of the data across each sample period
+    :mode = Discrete results in shifting to the closest data sample, without interpolation.
+    :Note: Multistate is a type of discrete in this case.
     :type interval: String
     
     :raises AssertionError: If the interval is neither 'Subframe' or 'Frame'
@@ -100,7 +105,10 @@ def align(slave, master, interval='Subframe'):
         h1 = h+1
         # Linear interpolation coefficients
         b = bracket-h
+        if mode == 'Discrete':
+            b = round(b)
         a=1-b
+        
 
         if h<0:
             slave_aligned[i+wm::wm]=a*slave_array[h+ws:-ws:ws]+b*slave_array[h1+ws::ws]
