@@ -17,9 +17,9 @@ NODE_MODULES = ['analysis.derived_parameters',
 AIRSPEED_THRESHOLD = 80  # (kts)
 
 # Altitude to break flights into separate climb/cruise/descent segments.
-# This is applied to altitude with hysteresis, so break does not exactly 
-# happen at this altitude.
-ALTITUDE_FOR_CLB_CRU_DSC = 10000
+# This is applied to altitude with hysteresis, so break will happen when
+# climbing above 15000 ft and below 10000 ft.
+ALTITUDE_FOR_CLB_CRU_DSC = 12500
 
 # Resolved vertical acceleration washout time constant.
 # This long period function removes any standing offset to the resolved 
@@ -38,11 +38,18 @@ CLIMB_THRESHOLD = 1000 # ft AAL
 # Minimum period of a descent for testing against thresholds (reduces number of KPVs computed in turbulence)
 DESCENT_MIN_DURATION = 10  # (sec)
 
+# Acceleration due to gravity
+GRAVITY = 32.2 # (ft/sec^2)
+
 # Threshold for flight phase airspeed hysteresis.
 HYSTERESIS_FPIAS = 10 # (kts)
 
 # Threshold for flight phase altitude hysteresis.
 HYSTERESIS_FPALT = 200 # (ft)
+
+# Threshold for flight phase altitude hysteresis specifically for deparating 
+# Climb Cruise Descent phases.
+HYSTERESIS_FPALT_CCD = 2500 # (ft)
 
 # Threshold for flight phase rate of climb hysteresis.
 # We're going to ignore changes smaller than this to avoid repeatedly changing

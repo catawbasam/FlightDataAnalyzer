@@ -1,6 +1,6 @@
 import logging
 import numpy as np
-
+from analysis.library import repair_mask
 from analysis.node import FlightPhaseNode, KeyTimeInstance, P
 from analysis.settings import (AIRSPEED_THRESHOLD,
                                ALTITUDE_FOR_CLB_CRU_DSC,
@@ -38,8 +38,21 @@ class Airborne(FlightPhaseNode):
             pass # Just don't create a phase if none exists.
         
 
+class Approach(FlightPhaseNode):
+    def derive(self, alt_AAL=P('Altitude AAL For Phases'), alt_rad=P('Altitude Radio')):
+        app = np.ma.masked_where(np.ma.logical_or
+                                 (np.ma.minimum(alt_AAL.array,alt_rad.array)>3000,
+                                  alt_AAL.array<1000),alt_AAL.array)
+        phases = np.ma.clump_unmasked(app)
+        for phase in phases:
+            begin = phase.start
+            pit = np.ma.argmin(app[phase])
+            if pit != 0 :
+                self.create_phase(slice(begin, begin+pit))
+
+
 class ClimbCruiseDescent(FlightPhaseNode):
-    def derive(self, alt=P('Altitude For Phases')):
+    def derive(self, alt=P('Altitude For Climb Cruise Descent')):
         ccd = np.ma.masked_less(alt.array, ALTITUDE_FOR_CLB_CRU_DSC)
         self.create_phases(np.ma.clump_unmasked(ccd))
 
@@ -51,11 +64,11 @@ class ClimbFromBottomOfDescent(FlightPhaseNode):
                bod=P('Bottom Of Descent')):
         # First we extract the kti index values into simple lists.
         toc_list = []
-        for this_toc in toc._kti_list:
+        for this_toc in toc:
             toc_list.append(this_toc.index)
             
         # Now see which follows a takeoff
-        for this_eot in eot._kti_list:
+        for this_eot in eot:
             eot = this_eot.index
             # Scan the TOCs
             closest_toc = None
@@ -71,7 +84,7 @@ class ClimbFromBottomOfDescent(FlightPhaseNode):
         
 
         # Now see which follows this minimum
-        for this_bod in bod._kti_list:
+        for this_bod in bod:
             bod = this_bod.index
             # Scan the TODs
             closest_toc = None
@@ -93,54 +106,39 @@ class Climbing(FlightPhaseNode):
         climbing = np.ma.masked_less(roc.array, RATE_OF_CLIMB_FOR_CLIMB_PHASE)
         climbing_slices = np.ma.clump_unmasked(climbing)
         self.create_phases(climbing_slices)
-        
 
+      
 class Cruise(FlightPhaseNode):
-    def derive(self, 
-               ccd=P('Climb Cruise Descent'),
-               toc=P('Top Of Climb'),
-               tod=P('Top Of Descent')):
-        # We may have many phases, tops of climb and tops of descent 
-        # at this time. The problem is that they need not be in tidy 
-        # order as the lists may not be of equal lengths.
-        
-        # First we extract the kti index values into simple lists.
-        toc_list = []
-        for this_toc in toc._kti_list:
-            toc_list.append(this_toc.index)
-        tod_list = []
-        for this_tod in tod._kti_list:
-            tod_list.append(this_tod.index)
-
-        # Now see which fit which Cruise/Climb/Descent phases
-        for ccd_phase in ccd._sections:
-
-            # Scan the TOCs
-            found_toc = None
-            for each_toc in toc_list:
-                if (ccd_phase.slice.start <= each_toc and
-                    each_toc <= ccd_phase.slice.stop):
-                    found_toc = each_toc
+    def derive(self,
+               ccds=P('Climb Cruise Descent'),
+               tocs=P('Top Of Climb'),
+               tods=P('Top Of Descent')):
+        # We may have many phases, tops of climb and tops of descent at this time.
+        # The problem is that they need not be in tidy order as the lists may
+        # not be of equal lengths.
+        for ccd in ccds:
+            # Scan the TOCs.
+            for toc in tocs:
+                if ccd.slice.start <= toc.index <= ccd.slice.stop:
                     break
-
-            # Scan the TODs
-            found_tod = None
-            for each_tod in tod_list:
-                if (ccd_phase.slice.start <= each_tod and
-                    each_tod <= ccd_phase.slice.stop):
-                    found_tod = each_tod
+            else:
+                toc = None
+            # Scan the TODs.
+            for tod in tods:
+                if ccd.slice.start <= tod.index <= ccd.slice.stop:
                     break
-
+            else:
+                tod = None
             # Build the slice from what we have found.
-            if found_toc == None and found_tod == None:
+            if toc and tod:
+                self.create_phase(slice(toc.index, tod.index))
+            elif toc:
+                self.create_phase(slice(toc.index, ccd.slice.stop))
+            elif tod:
+                self.create_phase(slice(ccd.slice.start, tod.index))
+            else:
                 pass
-            if found_toc == None and found_tod != None:
-                self.create_phase(slice(ccd_phase.slice.start, found_tod))
-            if found_toc != None and found_tod == None:
-                self.create_phase(slice(found_toc, ccd_phase.slice.stop))
-            if found_toc != None and found_tod != None:
-                self.create_phase(slice(found_toc, found_tod))
-                    
+
 
 class Descending(FlightPhaseNode):
     """ Descending faster than 800fpm towards the ground
@@ -169,11 +167,11 @@ class DescentToBottomOfDescent(FlightPhaseNode):
                bod=P('Bottom Of Descent')):
         # First we extract the kti index values into simple lists.
         tod_list = []
-        for this_tod in tod._kti_list:
+        for this_tod in tod:
             tod_list.append(this_tod.index)
 
         # Now see which preceded this minimum
-        for this_bod in bod._kti_list:
+        for this_bod in bod:
             bod = this_bod.index
             # Scan the TODs
             closest_tod = None
@@ -206,6 +204,20 @@ class Fast(FlightPhaseNode):
         fast_slices = np.ma.clump_unmasked(fast_where)
         self.create_phases(fast_slices)
  
+
+class FinalApproach(FlightPhaseNode):
+    def derive(self, alt_AAL=P('Altitude AAL For Phases'), alt_rad=P('Altitude Radio')):
+        repair_mask(alt_rad.array) # Remove small sections of corrupt data
+        app = np.ma.masked_where(np.ma.logical_or
+                                 (alt_AAL.array>1000,alt_rad.array<50),alt_AAL.array)
+        phases = np.ma.clump_unmasked(app)
+        for phase in phases:
+            begin = phase.start
+            pit = np.ma.argmin(app[phase])
+            if pit != 0 :
+                self.create_phase(slice(begin, begin+pit))
+
+
 class InGroundEffect(FlightPhaseNode):
     def derive(self, alt_rad=P('Altitude Radio')):
         low_where = np.ma.masked_greater(alt_rad.array, WING_SPAN)

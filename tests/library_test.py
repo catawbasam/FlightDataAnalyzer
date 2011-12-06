@@ -19,7 +19,7 @@ from analysis.library import (align, calculate_timebase, create_phase_inside,
                               rate_of_change, repair_mask, straighten_headings,
                               time_at_value, value_at_time)
 
-from analysis.node import P, Parameter
+from hdfaccess.parameter import P, Parameter
 
 class TestAlign(unittest.TestCase):
     def test_align_basic(self):
@@ -394,8 +394,18 @@ class TestFirstOrderWashout(unittest.TestCase):
     def test_firstorderwashout_sample_rate_chage(self):
         # Note: Also tests initialisation.
         array = np.ma.zeros(10)
-        # The result of processing this data is...
-        result = first_order_washout (array, 2.0, 2.0, initial_value = 1.0)
+        '''
+        OK. Tricky test that needs some explanation.
+        
+        The initial value is the steady state input condition prior to the data 
+        we supply. This filter is a washout (high pass) filter, so the steady 
+        state output will always be zero.
+        
+        The initial condition is set to -1.0, then when the data arrives, 
+        array[0]=0.0 gives a +1.0 step change to the input and we get a positive 
+        kick on the output.
+        '''
+        result = first_order_washout (array, 2.0, 2.0, initial_value = -1.0)
         # The correct answer is...
         answer = np.ma.array(data=[6.66666667e-01,2.22222222e-01,7.40740741e-02,
                                    2.46913580e-02,8.23045267e-03,2.74348422e-03,

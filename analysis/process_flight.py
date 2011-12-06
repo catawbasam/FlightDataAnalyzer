@@ -9,8 +9,7 @@ from analysis.dependency_graph import dependency_order
 from analysis.library import calculate_timebase
 from analysis.node import (
     DerivedParameterNode, FlightPhaseNode, GeoKeyTimeInstance, KeyPointValue,
-    KeyPointValueNode, KeyTimeInstance, KeyTimeInstanceNode,  SectionList,
-    SectionNode)
+    KeyPointValueNode, KeyTimeInstance, KeyTimeInstanceNode, SectionNode)
 
 
 def get_required_params(aircraft):
@@ -18,7 +17,6 @@ def get_required_params(aircraft):
     """
     param_list = [] ##['Rate Of Descent High', 'Top of Climb and Top of Descent']
     return param_list
-
 
 
 def geo_locate(hdf, kti_list):
@@ -41,7 +39,6 @@ def geo_locate(hdf, kti_list):
     return gkti_list
 
 
-        
 def derive_parameters(hdf, node_mgr, process_order):
     """
     Derives the parameter values and if limits are available, applies
@@ -74,26 +71,21 @@ def derive_parameters(hdf, node_mgr, process_order):
         
         # build ordered dependencies
         deps = []
-        first_dep = None
         for dep_name in node_class.get_dependency_names():
             if dep_name in params:  # already calculated KPV/KTI/Phase
-                dep = params[param]
+                deps.append(params[param])
             elif param in hdf:  # LFL/Derived parameter
-                dep = hdf[param]
+                deps.append(hdf[param])
             else:  # dependency not available
                 deps.append(None)
-                continue
-            if not first_dep:
-                first_dep = dep
-            else:
-                dep = dep.get_aligned(first_dep)
-            deps.append(dep)
         if not any(deps):
-            raise RuntimeError("No dependencies available - Nodes cannot operate without ANY dependencies available! Node: %s" % node_class.__name__)
-        ## find first not-None dependency to use at the base param
-        #first_dep = next(x for x in deps if x is not None)
+            raise RuntimeError("No dependencies available - Nodes cannot "
+                               "operate without ANY dependencies available! "
+                               "Node: %s" % node_class.__name__)
+        first_dep = next((d for d in deps if d is not None))
         # initialise node
-        node = node_class(frequency=first_dep.frequency, offset=first_dep.offset)
+        node = node_class(frequency=first_dep.frequency,
+                          offset=first_dep.offset)
         # Derive the resulting value
         result = node.get_derived(deps)
         

@@ -8,7 +8,7 @@ from abc import ABCMeta, abstractmethod
 from collections import namedtuple
 from itertools import product
 
-from hdfaccess.parameter import Parameter, P
+from hdfaccess.parameter import P, Parameter
 from analysis.library import align
 
 from analysis.recordtype import recordtype
@@ -56,7 +56,6 @@ def get_param_kwarg_names(method):
         raise NotImplementedError("Cannot define **kwargs")
     # alternative: return dict(zip(defaults, args[-len(defaults):]))
     return defaults
-
 
 #------------------------------------------------------------------------------
 # Abstract Node Classes
@@ -140,16 +139,25 @@ class Node(object):
                 options.append(args)
         return options
     
-    @abstractmethod
     def get_derived(self, args):
         """
-        Accessor for derive method's results. Each Node type shall return the
-        class attributes appropriate for the Node type.
+        Accessor for derive method which first aligns all parameters to the
+        first to ensure parameter data and indices are consistent.
         
-        :param params: Collection of available Parameter objects
-        :type params: dict
+        :param args: List of available Parameter objects
+        :type args: list
         """
-        raise NotImplementedError("Abstract Method")
+        first_param = next((a for a in args if a is not None))
+        aligned_params = []
+        for param in args[args.index(first_param) + 1:]:
+            if param:
+                param = param.get_aligned(first_param)
+            aligned_params.append(param)
+        res = self.derive(*args)
+        if res is NotImplemented:
+            raise NotImplementedError("Class '%s' derive method is not implemented." % \
+                                      self.__class__.__name__)
+        return self
         
     @abstractmethod
     def derive(self, **kwargs):
@@ -190,9 +198,8 @@ class Node(object):
         :rtype: None
         """
         raise NotImplementedError("Abstract Method")
-    
-    
-    
+
+
 class DerivedParameterNode(Node):
     """
     """
@@ -201,39 +208,12 @@ class DerivedParameterNode(Node):
         self.array = None # np.ma.array derive result goes here!
         super(DerivedParameterNode, self).__init__(*args, **kwargs)
     
-                
     def get_derived(self, args):
-        # get results
-        res = self.derive(*args)
-        if res == NotImplemented:
-            ##raise NotImplementedError("Cannot proceed (need self.array)")
-            logging.warning("FAKING DATA FOR NotImplemented '%s' - used for test purposes!" % self)
-            self.array = np.ma.array(range(10)) #
-            pass #TODO: raise error and remove pass
-        if self.array is None and res:
-            logging.warning("Depreciation Warning: array attribute not set but values returned")
-            self.array = res
-        ### Ensure that the frequency has been adhered to!
-        ##assert len(res) == flight_duration * self.frequency
-        # create a simplistic parameter for writing to HDF
-        #TODO: Parameter and hdf_access to use available=params.keys()
-        return Parameter(self.get_name(), self.array, self.frequency, self.offset)
-    
-    def get_aligned(self, param):
-        aligned_array = align(self, param)
-        return Parameter(aligned_array, frequency=param.frequency,
-                         offset=param.offset)
+        super(DerivedParameterNode, self).get_derived(args)
+        first_param = next((a for a in args))
+        return Parameter(self.get_name(), self.array, first_param.frequency,
+                                 first_param.offset)
 
-
-
-class SectionList(list):
-    def __init__(self, slices, frequency=1, offset=0):
-        '''TODO: how do we apply offset?'''
-        
-        self.frequency = frequency
-        self.offset = offset
-        super(SectionList, self).__init__(slices)
-    
 
 class SectionNode(Node, list):
     '''
@@ -243,7 +223,6 @@ class SectionNode(Node, list):
         """ List of slices where this phase is active. Has a frequency and offset.
         """
         # place holder
-        self._sections = [] # list of named section slices
         super(SectionNode, self).__init__(*args, **kwargs)
 
     def create_section(self, section_slice, name=''):
@@ -254,14 +233,6 @@ class SectionNode(Node, list):
     def create_sections(self, section_slices, name=''):
         for sect in section_slices:
             self.create_section(sect, name=name)
-    
-    # TODO: Add tests for 8Hz LiftOff and TouchDown examples
-    def get_derived(self, args):
-        res = self.derive(*args)
-        if res == NotImplemented:
-            raise NotImplementedError("Cannot proceed")
-        #TODO: Return slice at correct frequency?
-        return self
         
     #TODO: Accessor for 1Hz slice, 8Hz slice etc.
     def get_aligned(self, param):
@@ -276,15 +247,16 @@ class SectionNode(Node, list):
         aligned_node = self.__class__(frequency=param.frequency,
                                       offset=param.offset)
         multiplier = param.frequency / self.frequency
+        offset = (self.offset - param.offset) * param.frequency
         for section in self:
-            converted_start = section.slice.start * multiplier
-            converted_stop = section.slice.stop * multiplier
+            converted_start = (section.slice.start * multiplier) + offset
+            converted_stop = (section.slice.stop * multiplier) + offset
             converted_slice = slice(converted_start, converted_stop)
             aligned_node.create_section(converted_slice,
                                         section.name)
         return aligned_node
 
-    
+
 class FlightPhaseNode(SectionNode):
     """ Is a Section, but called "phase" for user-friendlyness!
     """
@@ -356,7 +328,8 @@ class FormattedNameNode(Node):
         self._validate_name(name)
         return name # return as a confirmation it was successful
 
-class KeyTimeInstanceNode(FormattedNameNode):
+
+class KeyTimeInstanceNode(FormattedNameNode, list):
     """
     TODO: Support 1Hz / 8Hz KTI index locations via accessor on class and
     determine what is required for get_derived to be stored in database
@@ -364,33 +337,27 @@ class KeyTimeInstanceNode(FormattedNameNode):
     # :rtype: KeyTimeInstance or List of KeyTimeInstance or EmptyList
     def __init__(self, *args, **kwargs):
         # place holder
-        self._kti_list = []
         super(KeyTimeInstanceNode, self).__init__(*args, **kwargs)
         
     def create_kti(self, index, state):
         kti = KeyTimeInstance(index, state)
-        self._kti_list.append(kti)
+        self.append(kti)
         return kti
-    
-    def get_derived(self, args):
-        #TODO: Support 1Hz / 8Hz KTI index locations
-        self.derive(*args)
-        return self._kti_list
     
     def get_aligned(self, param):
         multiplier = param.frequency / self.frequency
+        offset = (self.offset - param.offset) * param.frequency
         aligned_node = self.__class__(self.name, param.frequency,
                                       param.offset) 
-        for kti in self._kti_list:
-            index_aligned = kti.index * multiplier
+        for kti in self:
+            index_aligned = (kti.index * multiplier) + offset
             aligned_node.create_kti(index_aligned, kti.state)
         return aligned_node
-            
-    
-class KeyPointValueNode(FormattedNameNode):
+
+
+class KeyPointValueNode(FormattedNameNode, list):
     
     def __init__(self, *args, **kwargs):
-        self._kpv_list = []
         super(KeyPointValueNode, self).__init__(*args, **kwargs)
 
     def create_kpv(self, index, value, replace_values={}, **kwargs):
@@ -405,26 +372,17 @@ class KeyPointValueNode(FormattedNameNode):
         """
         name = self.format_name(replace_values, **kwargs)
         kpv = KeyPointValue(index, value, name)
-        self._kpv_list.append(kpv)
+        self.append(kpv)
         return kpv # return as a confirmation it was successful
-    
-    def get_derived(self, args):
-        res = self.derive(*args)
-        if res == NotImplemented:
-            #raise NotImplementedError("Cannot proceed")
-            pass #TODO: raise error and remove pass
-        elif res:
-            #Q: store in self._kpv_list to be backward compatible?
-            raise RuntimeError("Cannot return from a derive method. Returned '%s'" % res)
-        return self._kpv_list
     
     def get_aligned(self, param):
         multiplier = param.frequency / self.frequency
+        offset = (self.offset - param.offset) * param.frequency
         aligned_node = self.__class__(self.name, param.frequency, param.offset)
-        for kpv in self._kpv_list:
+        for kpv in self:
             aligned_kpv = copy.copy(kpv)
-            aligned_kpv.index *= multiplier
-            aligned_node._kpv_list.append(aligned_kpv)
+            aligned_kpv.index = (aligned_kpv.index * multiplier) + offset
+            aligned_node.append(aligned_kpv)
         return aligned_node
     #TODO: Accessors for first kpv, primary kpv etc.
     
@@ -449,7 +407,7 @@ class FlightAttributeNode(Node):
     def another_method(self):
         return self._aircraft_info
 
-    
+
 class NodeManager(object):
     def __repr__(self):
         return 'NodeManager: lfl x%d, requested x%d, derived x%d' % (
@@ -471,8 +429,7 @@ class NodeManager(object):
         """
         """
         return self.lfl + self.derived_nodes.keys()
-
-        
+    
     def operational(self, name, available):
         """
         Looks up the node and tells you whether it can operate.

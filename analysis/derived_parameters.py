@@ -2,16 +2,23 @@ import logging
 import numpy as np
 
 from hdfaccess.parameter import P, Parameter
-
 from analysis.node import DerivedParameterNode
-from analysis.library import (align, first_order_lag, first_order_washout,
-                              hysteresis, interleave,
-                              rate_of_change, straighten_headings)
+
+from analysis.library import (align, 
+                              first_order_lag,
+                              first_order_washout,
+                              hysteresis, 
+                              interleave,
+                              rate_of_change, 
+                              repair_mask,
+                              straighten_headings)
 
 from settings import (AZ_WASHOUT_TC,
                       HYSTERESIS_FPALT,
+                      HYSTERESIS_FPALT_CCD,
                       HYSTERESIS_FPIAS, 
                       HYSTERESIS_FPROC,
+                      GRAVITY,
                       RATE_OF_CLIMB_LAG_TC
                       )
 
@@ -57,6 +64,31 @@ class AltitudeAAL(DerivedParameterNode):
     def derive(self, alt_std=P('Altitude STD'), alt_rad=P('Altitude Radio')):
         return NotImplemented
     
+class AltitudeAALForPhases(DerivedParameterNode):
+    name = 'Altitude AAL For Phases'
+    # This crude parameter is used for flight phase determination of the 
+    # Approach phase, and only uses pressure altitude for robustness.
+    def derive(self, alt_std=P('Altitude STD'), airs=P('Fast')):
+        
+        # Initialise the array to zero, so that the altitude above the airfield
+        # will be 0ft when the aircraft cannot be airborne.
+        self.array = np.ma.zeros(len(alt_std.array))
+        
+        repair_mask(alt_std.array) # Remove small sections of corrupt data
+
+        for air in airs:
+            begin = air.slice.start
+            end = air.slice.stop
+            peak = np.ma.argmax(alt_std.array[air.slice])
+            self.array[begin:begin+peak] = alt_std.array[begin:begin+peak] - alt_std.array[begin]
+            self.array[begin+peak:end] = alt_std.array[begin+peak:end] - alt_std.array[end]
+    
+    
+class AltitudeForClimbCruiseDescent(DerivedParameterNode):
+    name = 'Altitude For Climb Cruise Descent'
+    def derive(self, alt_std=P('Altitude STD')):
+        self.array = hysteresis ( alt_std.array, HYSTERESIS_FPALT_CCD)
+    
     
 class AltitudeForPhases(DerivedParameterNode):
     name = 'Altitude For Phases'
@@ -71,12 +103,12 @@ class AltitudeRadio(DerivedParameterNode):
     # The parameter raa_to_gear is measured in feet and is positive if the
     # antenna is forward of the mainwheels.
     def derive(self, alt_rad=P('Altitude Radio Sensor'), pitch=P('Pitch'),
-               main_gear_to_alt_rad=None):#A('Main Gear To Altitude Radio')): TODO: Fix once A (aircraft) has been defined.
+               main_gear_to_alt_rad=P('Main Gear To Altitude Radio')): # TODO: Fix once A (aircraft) has been defined.
         # Align the pitch attitude samples to the Radio Altimeter samples,
         # ready for combining them.
         pitch_aligned = np.radians(align(pitch, alt_rad))
         # Now apply the offset if one has been provided
-        self.array = alt_rad.array - np.sin(pitch_aligned) * main_gear_to_rad_alt
+        self.array = alt_rad.array - np.sin(pitch_aligned) * main_gear_to_alt_rad
 
         
 class AltitudeQNH(DerivedParameterNode):
@@ -170,23 +202,27 @@ class RateOfClimb(DerivedParameterNode):
                ige = S('In Ground Effect')
                ):
         roc = rate_of_change(alt_std, 2)
-        roc_rad = rate_of_change(alt_rad, 1)
+        roc_rad_ma = rate_of_change(alt_rad, 1)
         
         # Use pressure altitude rate outside ground effect and 
         # radio altitude data inside ground effect.
         for ige_sect in ige:
-            roc[ige_sect.slice] = roc_rad[ige_sect.slice]
+            roc[ige_sect.slice] = roc_rad_ma[ige_sect.slice]
         
         # Lag this rate of climb
-        lagged_roc = first_order_lag(roc, RATE_OF_CLIMB_LAG_TC, self.hz)  # Q: was roc.hz, but changed to self.hz which will be 8Hz?
+        lagged_roc = first_order_lag(roc, RATE_OF_CLIMB_LAG_TC, self.hz)
         az_washout = first_order_washout(az.array, AZ_WASHOUT_TC, az.hz,
-                                         initial_value=1.0)
+                                         initial_value=az.array[0])
         inertial_roc = first_order_lag(az_washout, RATE_OF_CLIMB_LAG_TC, az.hz,
-                                       gain=GRAVITY*RATE_OF_CLIMB_LAG_TC*60.0, 
-                                       initial_value = 1.0)
+                                       gain=GRAVITY*RATE_OF_CLIMB_LAG_TC*60.0)
         self.array = lagged_roc + inertial_roc
-                
-        
+
+
+
+class RateOfClimbForFlightPhases(DerivedParameterNode):
+    def derive(self, alt_std = P('Altitude STD')):
+        self.array = rate_of_change(repair_mask(alt_std),2)*60
+
 
 class Relief(DerivedParameterNode):
     # also known as Terrain
@@ -200,7 +236,13 @@ class Relief(DerivedParameterNode):
 
 '''
 
-Better done together
+Q: Better done together - How?
+
+A: Create a top level class which performs the manipulation using it's own
+method or move the method to a library function. Then create two classes to
+return each of the individual parameters. It's more important to write the
+code once than to do the calculation twice!
+
 
 class SmoothedLatitude(DerivedParameterNode):
     dependencies = ['Latitude', 'True Heading', 'Indicated Airspeed'] ##, 'Altitude Std']
