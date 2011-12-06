@@ -8,7 +8,7 @@ from abc import ABCMeta, abstractmethod
 from collections import namedtuple
 from itertools import product
 
-from analysis.parameter import P, Parameter
+from hdfaccess.parameter import P, Parameter
 from analysis.library import align
 
 from analysis.recordtype import recordtype

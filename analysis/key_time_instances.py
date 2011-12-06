@@ -3,7 +3,7 @@ import numpy as np
 
 from analysis.library import time_at_value_wrapped
 
-from analysis.node import FlightPhaseNode, P
+from analysis.node import FlightPhaseNode, P, S
 
 from analysis.node import KeyTimeInstance, KeyTimeInstanceNode
 
@@ -21,7 +21,7 @@ for flap_operated_period in np.ma.flatnotmasked_contiguous(np.ma.masked_equal(fp
 '''
 
 class BottomOfDescent(KeyTimeInstanceNode):
-    def derive(self, dlc=P('Descent Low Climb'),
+    def derive(self, dlc=S('Descent Low Climb'),
                alt_std=P('Altitude STD')):
         # In the case of descents without landing, this finds the minimum
         # point of the dip.
@@ -32,28 +32,50 @@ class BottomOfDescent(KeyTimeInstanceNode):
            
 
 class ClimbStart(KeyTimeInstanceNode):
-    def derive(self, alt_aal=P('Altitude AAL'), climbing=P('Climbing')):
+    def derive(self, alt_aal=P('Altitude AAL'), climbing=S('Climbing')):
         for climb in climbing:
-            initial_climb_index = time_at_value_wrapped(alt_aal, climb, CLIMB_THRESHOLD)
+            initial_climb_index = time_at_value_wrapped(alt_aal, climb,
+                                                        CLIMB_THRESHOLD)
             self.create_kti(initial_climb_index, 'Climb Start')
 
 
+class GoAround(KeyTimeInstanceNode):
+    def derive(self, alt_AAL=P('Altitude AAL For Phases'),
+               alt_rad=P('Altitude Radio'),
+               climb=P('Rate Of Climb For Flight Phases')):
+        app = np.ma.masked_where(np.ma.logical_or
+                                 (np.ma.minimum(alt_AAL.array,alt_rad.array)>3000,
+                                 climb.array>500), alt_AAL.array)
+        phases = np.ma.clump_unmasked(app)
+        for phase in phases:
+            begin = phase.start
+            end = phase.stop
+            # Pit is the location of the pressure altitude minimum.
+            pit = np.ma.argmin(app[phase])
+            # If this is at the start of the data, we are climbing 
+            # through this height band. If it is at the end we may have
+            # truncated data and we're only really interested in cases
+            # where the data follows on from the go-around.
+            if 0 != pit != end-begin-1:
+                self.create_kti(begin+pit, 'Go Around')
+
+
 class Liftoff(KeyTimeInstanceNode):
-    def derive(self, air=P('Airborne')):
+    def derive(self, air=S('Airborne')):
         # Basic version to operate with minimal valid data
         for each_section in air:
             self.create_kti(each_section.slice.start, 'Liftoff')
             
 
 class Touchdown(KeyTimeInstanceNode):
-    def derive(self, air=P('Airborne')):
+    def derive(self, air=S('Airborne')):
         # Basic version to operate with minimal valid data
         for each_section in air:
             self.create_kti(each_section.slice.stop, 'Touchdown')
 
 
 class InitialClimbStart(KeyTimeInstanceNode):
-    def derive(self, alt_radio=P('Altitude Radio'), climbing=P('Climbing')):
+    def derive(self, alt_radio=P('Altitude Radio'), climbing=S('Climbing')):
         for climb in climbing:
             initial_climb_index = time_at_value_wrapped(alt_radio, climb, 
                                                         INITIAL_CLIMB_THRESHOLD)
@@ -66,7 +88,7 @@ class LandingGroundEffectStart(KeyTimeInstanceNode):
     
 class TopOfClimb(KeyTimeInstanceNode):
     def derive(self, alt_std=P('Altitude STD'), 
-               ccd=P('Climb Cruise Descent')):
+               ccd=S('Climb Cruise Descent')):
         # This checks for the top of climb in each 
         # Climb/Cruise/Descent period of the flight.
         for ccd_phase in ccd:
@@ -86,7 +108,7 @@ class TopOfClimb(KeyTimeInstanceNode):
 
 class TopOfDescent(KeyTimeInstanceNode):
     def derive(self, alt_std=P('Altitude STD'), 
-               ccd=P('Climb Cruise Descent')):
+               ccd=S('Climb Cruise Descent')):
         # This checks for the top of descent in each 
         # Climb/Cruise/Descent period of the flight.
         for ccd_phase in ccd:
@@ -106,7 +128,7 @@ class TopOfDescent(KeyTimeInstanceNode):
 
 class FlapStateChanges(KeyTimeInstanceNode):
     
-    def derive(self, flap=P('flap')):
+    def derive(self, flap=P('Flap')):
         # Mark all flap changes, irrespective of the aircraft type :o)
         previous = None
         for index, value in enumerate(flap.array):

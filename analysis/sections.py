@@ -1,7 +1,7 @@
 import logging
 import numpy as np
 
-from analysis.node import SectionNode, P
+from analysis.node import SectionNode, P, S
 
 
 #Q: What about using a different letter than "P" for non-parameters
@@ -13,7 +13,7 @@ from analysis.node import SectionNode, P
 class _500ftTo0ft(SectionNode):
     name = "500ft To 0ft"
     
-    def derive(self, alt=P('Altitude AAL'), desc=P('Descending')):
+    def derive(self, alt=P('Altitude AAL'), desc=S('Descending')):
         """
         Creates slices for each time we're descending between the specified 
         altitudes.
