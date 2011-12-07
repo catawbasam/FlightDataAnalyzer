@@ -13,13 +13,12 @@ from datetime import datetime
 
 from analysis.library import (align, calculate_timebase, create_phase_inside,
                               create_phase_outside, duration, 
-                              first_order_lag, first_order_washout,
-                              hysteresis, interleave, merge_alternate_sensors, 
-#                              powerset, 
+                              first_order_lag, first_order_washout, hash_array,
+                              hysteresis, interleave, merge_alternate_sensors,
                               rate_of_change, repair_mask, straighten_headings,
                               time_at_value, value_at_time)
 
-from hdfaccess.parameter import P, Parameter
+from analysis.node import A, KPV, KTI, Parameter, P, S
 
 class TestAlign(unittest.TestCase):
     def test_align_basic(self):
@@ -432,7 +431,26 @@ class TestFirstOrderWashout(unittest.TestCase):
         result = first_order_washout (array, 1.0, 1.0, initial_value = 1.0)
         ma_test.assert_mask_eqivalent(result.mask, [0,0,0,1,0], err_msg='Masks are not equal')
         
+
+class TestHashArray(unittest.TestCase):
+    def test_hash_array(self):
+        '''
         
+        '''
+        self.assertEqual(hash_array(np.ma.arange(10)),
+                         hash_array(np.ma.arange(10)))
+        self.assertNotEqual(hash_array(np.ma.arange(10)),
+                            hash_array(np.ma.arange(1,11)))
+        # Tests that mask contents affect the generated hash.
+        ma1 = np.ma.array(np.ma.arange(100,200), mask=[False] * 100)
+        ma2 = np.ma.array(np.ma.arange(100,200),
+                          mask=[False] * 50 + [True] + 49 * [False])
+        self.assertNotEqual(hash_array(ma1), hash_array(ma2))
+        self.assertEqual(hash_array(ma2), hash_array(ma2))
+        self.assertEqual(hash_array(np.ma.arange(10, dtype=np.float_)),
+            'c29605eb4e50fbb653a19f1a28c4f0955721419f989f1ffd8cb2ed6f4914bbea')
+
+
 class TestHysteresis(unittest.TestCase):
     def test_hysteresis(self):
         data = np.ma.array([0,1,2,1,0,-1,5,6,7,0],dtype=float)
@@ -445,7 +463,8 @@ class TestHysteresis(unittest.TestCase):
         data = np.ma.array([0,1,2,1,0,-1,5,6,7,0],dtype=float)
         result = hysteresis(data,1)
         np.testing.assert_array_equal(result.data,[0,0.5,1.5,1.5,0.5,-0.5,4.5,5.5,6.5,0.5])
-        
+
+
 class TestInterleave(unittest.TestCase):
     def test_interleave(self):
         param1 = P('A1',np.ma.array(range(4),dtype=float),1,0.2)

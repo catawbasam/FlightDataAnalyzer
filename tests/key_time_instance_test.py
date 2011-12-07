@@ -1,15 +1,17 @@
 import unittest
 import numpy as np
 
-from hdfaccess.parameter import P, Parameter
 from analysis.library import rate_of_change
-
-from analysis.node import Section, KeyTimeInstance
+from analysis.plot_flight import plot_parameter
+from analysis.node import A, KPV, KeyTimeInstance, KTI, Parameter, P, Section, S
 from analysis.flight_phase import (Airborne,
                                    ClimbCruiseDescent,
                                    Climbing,
-                                   DescentLowClimb
+                                   DescentLowClimb,
+                                   Fast
                                    )
+from analysis.derived_parameters import (ClimbForPhases,
+                                         )
 from analysis.key_time_instances import (BottomOfDescent,
                                          ClimbStart,
                                          GoAround,
@@ -19,6 +21,9 @@ from analysis.key_time_instances import (BottomOfDescent,
                                          TopOfDescent,
                                          Touchdown
                                          )
+
+import sys
+debug = sys.gettrace() is not None
 
 class TestBottomOfDescent(unittest.TestCase):
     def test_can_operate(self):
@@ -58,35 +63,64 @@ class TestClimbStart(unittest.TestCase):
 
 class TestGoAround(unittest.TestCase):
     def test_can_operate(self):
-        expected = [('Altitude AAL For Phases','Altitude Radio',
-                     'Rate Of Climb For Flight Phases')]
+        expected = [('Altitude AAL For Phases','Altitude Radio For Phases',
+                     'Fast','Climb For Flight Phases')]
         opts = GoAround.get_operational_combinations()
         self.assertEqual(opts, expected)
 
     def test_go_around_basic(self):
-        alt = np.ma.array(range(0,4000,500)+range(4000,0,-500)+range(0,1000,500))
+        alt = np.ma.array(range(0,4000,500)+range(4000,0,-500)+range(0,1000,501))
         roc = np.ma.array([-500]*18)
+
+        ias = Parameter('Airspeed', np.ma.ones(len(alt))*100)
+        phase_fast = Fast()
+        phase_fast.derive(ias)
+
         goa = GoAround()
         # Pretend we are flying over flat ground, so the altitudes are equal.
         goa.derive(Parameter('Altitude AAL For Phases',alt),
                    Parameter('Altitude Radio',alt),
+                   phase_fast,
                    Parameter('Rate Of Climb For Flight Phases',roc))
         expected = [KeyTimeInstance(index=16, state='Go Around')]
         self.assertEqual(goa, expected)
 
     def test_multiple_go_arounds(self):
         alt = np.ma.array(np.cos(np.arange(0,20,0.02))*(1000)+1500)
+        if debug:
+            plot_parameter(alt)
         # rate_of_change takes a complete parameter, but only returns the 
         # differentiated array.
-        roc = rate_of_change(Parameter('Rate Of Climb For Flight Phases',
-                                       alt,1,0),1)*60
+        phase_fast = Fast()
+        phase_fast.derive(P('Airspeed', np.ma.ones(len(alt))*100))
+        climb = ClimbForPhases()
+        climb.derive(Parameter('Altitude STD', alt), phase_fast)
+        
         goa = GoAround()
         goa.derive(Parameter('Altitude AAL For Phases',alt),
-                   Parameter('Altitude Radio',alt),
-                   Parameter('Rate Of Climb For Flight Phases',roc))
+                   Parameter('Altitude Radio For Phases',alt),
+                   phase_fast,
+                   Parameter('Climb For Flight Phases',climb.array))
+                   
         expected = [KeyTimeInstance(index=157, state='Go Around'), 
                     KeyTimeInstance(index=471, state='Go Around'), 
                     KeyTimeInstance(index=785, state='Go Around')]
+        self.assertEqual(goa, expected)
+
+    def test_go_around_insufficient_climb(self):
+        # 500 ft climb is not enough to trigger the go-around. 
+        # Compare to 501 ft for the "basic" test.
+        alt = np.ma.array(range(0,4000,500)+range(4000,0,-500)+range(0,1000,500))
+        phase_fast = Fast()
+        phase_fast.derive(P('Airspeed', np.ma.ones(len(alt))*100))
+        climb = ClimbForPhases()
+        climb.derive(Parameter('Altitude STD', alt), phase_fast)
+        goa = GoAround()
+        # Pretend we are flying over flat ground, so the altitudes are equal.
+        goa.derive(Parameter('Altitude AAL For Phases',alt),
+                   Parameter('Altitude Radio',alt),
+                   Parameter('Climb For Flight Phases',climb.array))
+        expected = []
         self.assertEqual(goa, expected)
 
 

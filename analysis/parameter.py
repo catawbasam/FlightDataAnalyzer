@@ -10,5 +10,3 @@ class Parameter(Parameter):
         aligned_array = align(self, param)
         return self.__class__(aligned_array, frequency=param.frequency,
                               offset=param.offset)
-
-P = Parameter

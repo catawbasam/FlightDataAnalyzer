@@ -4,6 +4,8 @@ from analysis.library import repair_mask
 from analysis.node import FlightPhaseNode, KeyTimeInstance, P
 from analysis.settings import (AIRSPEED_THRESHOLD,
                                ALTITUDE_FOR_CLB_CRU_DSC,
+                               HYSTERESIS_FP_RAD_ALT,
+                               LANDING_THRESHOLD_HEIGHT,
                                RATE_OF_CLIMB_FOR_CLIMB_PHASE,
                                RATE_OF_CLIMB_FOR_DESCENT_PHASE,
                                RATE_OF_CLIMB_FOR_LEVEL_FLIGHT,
@@ -39,7 +41,8 @@ class Airborne(FlightPhaseNode):
         
 
 class Approach(FlightPhaseNode):
-    def derive(self, alt_AAL=P('Altitude AAL For Phases'), alt_rad=P('Altitude Radio')):
+    def derive(self, alt_AAL=P('Altitude AAL For Phases'),
+               alt_rad=P('Altitude Radio For Phases')):
         app = np.ma.masked_where(np.ma.logical_or
                                  (np.ma.minimum(alt_AAL.array,alt_rad.array)>3000,
                                   alt_AAL.array<1000),alt_AAL.array)
@@ -59,9 +62,9 @@ class ClimbCruiseDescent(FlightPhaseNode):
 
 class ClimbFromBottomOfDescent(FlightPhaseNode):
     def derive(self, 
-               toc = P('Top Of Climb'),
-               eot = P('Climb Start'), # AKA End Of Takeoff
-               bod = P('Bottom Of Descent')):
+               toc=P('Top Of Climb'),
+               eot=P('Climb Start'), # AKA End Of Takeoff
+               bod=P('Bottom Of Descent')):
         # First we extract the kti index values into simple lists.
         toc_list = []
         for this_toc in toc:
@@ -110,9 +113,9 @@ class Climbing(FlightPhaseNode):
       
 class Cruise(FlightPhaseNode):
     def derive(self,
-               ccds = P('Climb Cruise Descent'),
-               tocs = P('Top Of Climb'),
-               tods = P('Top Of Descent')):
+               ccds=P('Climb Cruise Descent'),
+               tocs=P('Top Of Climb'),
+               tods=P('Top Of Descent')):
         # We may have many phases, tops of climb and tops of descent at this time.
         # The problem is that they need not be in tidy order as the lists may
         # not be of equal lengths.
@@ -163,8 +166,8 @@ class DescentToLanding(FlightPhaseNode):
 
 class DescentToBottomOfDescent(FlightPhaseNode):
     def derive(self, 
-               tod = P('Top Of Descent'), 
-               bod = P('Bottom Of Descent')):
+               tod=P('Top Of Descent'), 
+               bod=P('Bottom Of Descent')):
         # First we extract the kti index values into simple lists.
         tod_list = []
         for this_tod in tod:
@@ -206,10 +209,13 @@ class Fast(FlightPhaseNode):
  
 
 class FinalApproach(FlightPhaseNode):
-    def derive(self, alt_AAL=P('Altitude AAL For Phases'), alt_rad=P('Altitude Radio')):
-        repair_mask(alt_rad.array) # Remove small sections of corrupt data
+    def derive(self, alt_AAL=P('Altitude AAL For Phases'), alt_rad=P('Altitude Radio For Phases')):
+        # Allow for the hysteresis applied to the radio altimeter signal 
+        # for phase computations
+        thold = LANDING_THRESHOLD_HEIGHT+HYSTERESIS_FP_RAD_ALT
         app = np.ma.masked_where(np.ma.logical_or
-                                 (alt_AAL.array>1000,alt_rad.array<50),alt_AAL.array)
+                                 (alt_AAL.array>1000,alt_rad.array<thold),
+                                 alt_AAL.array)
         phases = np.ma.clump_unmasked(app)
         for phase in phases:
             begin = phase.start
@@ -219,7 +225,7 @@ class FinalApproach(FlightPhaseNode):
 
 
 class InGroundEffect(FlightPhaseNode):
-    def derive(self, alt_rad=P('Altitude Radio')):
+    def derive(self, alt_rad=P('Altitude Radio For Phases')):
         low_where = np.ma.masked_greater(alt_rad.array, WING_SPAN)
         low_slices = np.ma.clump_unmasked(low_where)
         self.create_phases(low_slices)

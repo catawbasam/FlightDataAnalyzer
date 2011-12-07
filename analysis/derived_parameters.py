@@ -1,8 +1,8 @@
 import logging
 import numpy as np
 
-from hdfaccess.parameter import P, Parameter
-from analysis.node import DerivedParameterNode
+from analysis.node import A, DerivedParameterNode, KPV, KTI, P, S
+
 from analysis.library import (align, 
                               first_order_lag,
                               first_order_washout,
@@ -15,6 +15,7 @@ from analysis.library import (align,
 from settings import (AZ_WASHOUT_TC,
                       HYSTERESIS_FPALT,
                       HYSTERESIS_FPALT_CCD,
+                      HYSTERESIS_FP_RAD_ALT,
                       HYSTERESIS_FPIAS, 
                       HYSTERESIS_FPROC,
                       GRAVITY,
@@ -56,7 +57,6 @@ class AccelerationVertical(DerivedParameterNode):
         
 
 class AirspeedMinusVref(DerivedParameterNode):
-    
     def derive(self, airspeed=P('Airspeed'), vref=P('Vref')):
         vref_aligned = align(vref, airspeed)
         self.array = airspeed.array - vref_aligned
@@ -96,7 +96,7 @@ class AltitudeForClimbCruiseDescent(DerivedParameterNode):
 class AltitudeForPhases(DerivedParameterNode):
     name = 'Altitude For Phases'
     def derive(self, alt_std=P('Altitude STD')):
-        self.array = hysteresis ( alt_std.array, HYSTERESIS_FPALT)
+        self.array = hysteresis (repair_mask(alt_std.array), HYSTERESIS_FPALT)
     
     
 class AltitudeRadio(DerivedParameterNode):
@@ -106,14 +106,19 @@ class AltitudeRadio(DerivedParameterNode):
     # The parameter raa_to_gear is measured in feet and is positive if the
     # antenna is forward of the mainwheels.
     def derive(self, alt_rad=P('Altitude Radio Sensor'), pitch=P('Pitch'),
-               main_gear_to_alt_rad=P('Main Gear To Altitude Radio')): # TODO: Fix once A (aircraft) has been defined.
+               main_gear_to_alt_rad=A('Main Gear To Altitude Radio')): # TODO: Fix once A (aircraft) has been defined.
         # Align the pitch attitude samples to the Radio Altimeter samples,
         # ready for combining them.
         pitch_aligned = np.radians(align(pitch, alt_rad))
         # Now apply the offset if one has been provided
-        self.array = alt_rad.array - np.sin(pitch_aligned) * main_gear_to_alt_rad
+        self.array = alt_rad.array - np.sin(pitch_aligned) * main_gear_to_alt_rad.value
 
-        
+
+class AltitudeRadioForPhases(DerivedParameterNode):
+    def derive(self, alt_rad=P('Altitude Radio')):
+        self.array = hysteresis (repair_mask(alt_rad.array), HYSTERESIS_FP_RAD_ALT)
+
+
 class AltitudeQNH(DerivedParameterNode):
     name = 'Altitude QNH'
     def derive(self):
@@ -136,6 +141,25 @@ class AltitudeTail(DerivedParameterNode):
         self.array = alt_rad.array - np.sin(pitch_aligned) * dist_gear_to_tail
         
 
+class ClimbForPhases(DerivedParameterNode):
+    name = 'Climb For Phases'
+    def derive(self, alt_std=P('Altitude STD'), airs=P('Fast')):
+        self.array = np.ma.zeros(len(alt_std.array))
+        repair_mask(alt_std.array) # Remove small sections of corrupt data
+        for air in airs:
+            ax = air.slice
+            # Initialise the tracking altitude value
+            curr_alt = alt_std.array[ax][0]
+            self.array[ax][0] = 0.0
+            for count in range(1, ax.stop - ax.start):
+                if alt_std.array[ax][count] < alt_std.array[ax][count-1]:
+                    # Going down, keep track of current altitude
+                    curr_alt = alt_std.array[ax][count]
+                    self.array[ax][count] = 0.0
+                else:
+                    self.array[ax][count] = alt_std.array[ax][count] - curr_alt
+    
+
 class DistanceToLanding(DerivedParameterNode):
     def derive(self, alt_aal = P('Altitude AAL'),
                gspd = P('Ground Speed'),
@@ -148,7 +172,7 @@ class FlapCorrected(DerivedParameterNode):
     def derive(self, flap=P('Flap')):
         return NotImplemented
     
-
+'''
 class FlightPhaseAirspeed(DerivedParameterNode):  #Q: Rename to AirpseedHysteresis ?
     def derive(self, airspeed=P('Airspeed')):
         self.array = hysteresis(airspeed.array, HYSTERESIS_FPIAS)
@@ -160,7 +184,7 @@ class FlightPhaseRateOfClimb(DerivedParameterNode):
         
         #self.array = hysteresis(rate_of_change(alt, 4),
                                 #HYSTERESIS_FPROC)
-
+'''
 
 class HeadContinuous(DerivedParameterNode):
     def derive(self, head_mag=P('Heading Magnetic')):
@@ -220,7 +244,7 @@ class RateOfClimb(DerivedParameterNode):
         self.array = lagged_roc + inertial_roc
 
 
-class RateOfClimbForFlightPhases(DerivedParameterNode):
+class RateOfClimbForPhases(DerivedParameterNode):
     def derive(self, alt_std = P('Altitude STD')):
         self.array = rate_of_change(repair_mask(alt_std),2)*60
 

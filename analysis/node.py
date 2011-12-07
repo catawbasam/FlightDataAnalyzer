@@ -8,7 +8,7 @@ from abc import ABCMeta, abstractmethod
 from collections import namedtuple
 from itertools import product
 
-from analysis.parameter import P, Parameter
+from analysis.parameter import Parameter
 from analysis.library import align
 
 from analysis.recordtype import recordtype
@@ -77,8 +77,9 @@ class Node(object):
         :param offset: Offset in Frame.
         :type offset: Float
         """
-        if not self.get_dependency_names():
-            raise ValueError("Every Node must have a dependency. Node '%s'" % self.__class__.__name__)
+        #NB: removed check for dependencies to allow initialisation in def derive()
+        ##if not self.get_dependency_names():
+            ##raise ValueError("Every Node must have a dependency. Node '%s'" % self.__class__.__name__)
         if name:
             self.name = name + '' # for ease of testing, checks name is string ;-)
         else:
@@ -155,11 +156,12 @@ class Node(object):
             aligned_params.append(param)
         res = self.derive(*args)
         if res is NotImplemented:
-            raise NotImplementedError("Class '%s' does not implement derive()." % \
+            raise NotImplementedError("Class '%s' derive method is not implemented." % \
                                       self.__class__.__name__)
         return self
         
-    @abstractmethod
+    # removed abstract wrapper to allow initialisation within def derive(KTI('a'))
+    ##@abstractmethod #TODO: Review removal.
     def derive(self, **kwargs):
         """
         Accepts keyword arguments where the default determines the derive
@@ -385,6 +387,27 @@ class KeyPointValueNode(FormattedNameNode, list):
             aligned_node.append(aligned_kpv)
         return aligned_node
     #TODO: Accessors for first kpv, primary kpv etc.
+    
+    
+class FlightAttributeNode(Node):
+    def __init__(self, *args, **kwargs):
+        self._flight_info = {}
+        self._allowed_attributes = (
+            '',
+            '',
+            ''
+            )
+        super(FlightAttributeNode, self).__init__(*args, **kwargs)
+    
+    def set_flight_attribute(self, attr_name, value):
+        if attr_name in self._allowed_attributes:
+            self._flight_info[attr_name] = value
+        else:
+            raise ValueError("Attribute '%s' is not permitted" % attr_name)
+    set_flight_attr = set_flight_attribute
+    
+    def another_method(self):
+        return self._aircraft_info
 
 
 class NodeManager(object):
@@ -428,8 +451,13 @@ class NodeManager(object):
 # The following acronyms are intended to be used as placeholder values
 # for kwargs in Node derive methods. Cannot instantiate Node subclass without 
 # implementing derive.
-#S = SectionNode
-#KPV = KeyPointValueNode
-#KTI = KeyTimeInstanceNode
-# TODO: Have different classes for each placeholder to differentiate?
-S = KPV = KTI = P
+class Attribute(object):
+    def __init__(self, name, value=None):
+        self.name = name
+        self.value = value
+    
+A = Attribute
+P = Parameter
+S = SectionNode
+KPV = KeyPointValueNode
+KTI = KeyTimeInstanceNode

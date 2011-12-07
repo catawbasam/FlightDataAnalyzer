@@ -1,14 +1,13 @@
 import unittest
 import numpy as np
 
-from hdfaccess.parameter import P, Parameter
-from analysis.node import Section, KeyTimeInstance
+from analysis.node import A, KPV, KTI, Parameter, P, Section, S
 
 from analysis.key_time_instances import (BottomOfDescent,
                                          TopOfClimb, 
                                          TopOfDescent
                                          )
-
+from analysis.plot_flight import plot_parameter
 from analysis.flight_phase import (Airborne,
                                    Approach,
                                    ClimbCruiseDescent,
@@ -56,7 +55,7 @@ class TestAirborne(unittest.TestCase):
 
 class TestApproach(unittest.TestCase):
     def test_can_operate(self):
-        expected = [('Altitude AAL For Phases','Altitude Radio')]
+        expected = [('Altitude AAL For Phases','Altitude Radio For Phases')]
         opts = Approach.get_operational_combinations()
         self.assertEqual(opts, expected)
 
@@ -65,7 +64,7 @@ class TestApproach(unittest.TestCase):
         app = Approach()
         # Pretend we are flying over flat ground, so the altitudes are equal.
         app.derive(Parameter('Altitude AAL For Phases',alt),
-                   Parameter('Altitude Radio',alt))
+                   Parameter('Altitude Radio For Phases',alt))
         expected = [Section(name='Approach', slice=slice(10, 14, None))]
         self.assertEqual(app, expected)
 
@@ -75,7 +74,7 @@ class TestApproach(unittest.TestCase):
         alt_rad = alt_aal - 600
         app = Approach()
         app.derive(Parameter('Altitude AAL For Phases',alt_aal),
-                   Parameter('Altitude Radio',alt_rad))
+                   Parameter('Altitude Radio For Phases',alt_rad))
         expected = [Section(name='Approach', slice=slice(9, 14, None))]
         self.assertEqual(app, expected)
 
@@ -84,7 +83,7 @@ class TestApproach(unittest.TestCase):
         app = Approach()
         # Pretend we are flying over flat ground, so the altitudes are equal.
         app.derive(Parameter('Altitude AAL For Phases',alt),
-                   Parameter('Altitude Radio',alt))
+                   Parameter('Altitude Radio For Phases',alt))
         expected = [Section(name='Approach', slice=slice(2, 4, None))]
         self.assertEqual(app, expected)
 
@@ -100,6 +99,7 @@ class TestClimbCruiseDescent(unittest.TestCase):
         camel = ClimbCruiseDescent()
         # Needs to get above 15000ft and below 10000ft to create this phase.
         testwave = np.cos(np.arange(0,12.6,0.1))*(-3000)+12500
+        # plot_parameter (testwave)
         camel.derive(Parameter('Altitude For Climb Cruise Descent', np.ma.array(testwave)))
         self.assertEqual(len(camel), 2)
 
@@ -304,7 +304,7 @@ class TestFast(unittest.TestCase):
 
 class TestFinalApproach(unittest.TestCase):
     def test_can_operate(self):
-        expected = [('Altitude AAL For Phases','Altitude Radio')]
+        expected = [('Altitude AAL For Phases','Altitude Radio For Phases')]
         opts = FinalApproach.get_operational_combinations()
         self.assertEqual(opts, expected)
 
@@ -313,7 +313,7 @@ class TestFinalApproach(unittest.TestCase):
         app = FinalApproach()
         # Pretend we are flying over flat ground, so the altitudes are equal.
         app.derive(Parameter('Altitude AAL For Phases',alt),
-                   Parameter('Altitude Radio',alt))
+                   Parameter('Altitude Radio For Phases',alt))
         expected = [Section(name='Final Approach', slice=slice(17, 30, None))]
         self.assertEqual(app, expected)
 
@@ -322,19 +322,19 @@ class TestFinalApproach(unittest.TestCase):
         app = FinalApproach()
         # Pretend we are flying over flat ground, so the altitudes are equal.
         app.derive(Parameter('Altitude AAL For Phases',alt),
-                   Parameter('Altitude Radio',alt))
+                   Parameter('Altitude Radio For Phases',alt))
         expected = [Section(name='Final Approach', slice=slice(0, 2, None))]
         self.assertEqual(app, expected)
 
 
 class TestInGroundEffect(unittest.TestCase):
     def test_can_operate(self):
-        expected = [('Altitude Radio',)]
+        expected = [('Altitude Radio For Phases',)]
         opts = InGroundEffect.get_operational_combinations()
         self.assertEqual(opts, expected)
 
     def test_onground_basic(self):
-        alt_rad = Parameter('Altitude Radio', np.ma.array([range(0,200,10)+
+        alt_rad = Parameter('Altitude Radio For Phases', np.ma.array([range(0,200,10)+
                                                            range(200,0,-10)]))
         ige = InGroundEffect()
         ige.derive(alt_rad)

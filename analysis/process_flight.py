@@ -1,6 +1,6 @@
 import sys
 
-from utilities.dict_helpers import dict_filter  #TODO: Mark utiltities as a dependency
+from utilities.dict_helpers import dict_filter
 
 from hdfaccess.file import hdf_file
 
