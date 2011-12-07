@@ -3,13 +3,16 @@ try:
 except ImportError:
     import unittest
 
-from analysis.process_file import split_hdf_to_segments, split_segments, store_segment, deidentify_file, join_files
+from analysis.split_hdf_file_into_segments import (deidentify_file, join_files,
+                                                   split_hdf_file_into_segments,
+                                                   split_segments,
+                                                   store_segment)
 
 
-class TestProcessFile(unittest.TestCase):
+class TestSplitHDFToSegments(unittest.TestCase):
     def test_split_hdf_to_segments(self):
         hdf_path = ''
-        split_hdf_to_segments(hdf_path, draw=False)
+        split_hdf_file_into_segments(hdf_path, draw=False)
         self.assertTrue(False)
         
     def test_split_segments(self):
