@@ -12,6 +12,7 @@ from analysis.node import Attribute, A, KPV, KTI, Parameter, P, Section, S
 from analysis.flight_phase import Fast, InGroundEffect
 
 from analysis.derived_parameters import (AccelerationVertical,
+                                         AirspeedForPhases,
                                          AltitudeAALForPhases,
                                          AltitudeForPhases,
                                          AltitudeRadio,
@@ -23,6 +24,69 @@ from analysis.derived_parameters import (AccelerationVertical,
                                          RateOfClimb,
                                          RateOfClimbForPhases,
                                          RateOfTurn)
+
+
+
+class TestAccelerationVertical(unittest.TestCase):
+    def test_can_operate(self):
+        expected = [('Acceleration Normal', 'Acceleration Lateral', 
+                    'Acceleration Longitudinal', 'Pitch', 'Roll')]
+        opts = AccelerationVertical.get_operational_combinations()
+        self.assertEqual(opts, expected)
+        
+    def test_acceleration_vertical_level_on_gound(self):
+        # Invoke the class object
+        acc_vert = AccelerationVertical(frequency=8)
+                        
+        acc_vert.derive(
+            acc_norm=Parameter('Acceleration Normal',np.ma.ones(8),8),
+            acc_lat=Parameter('Acceleration Lateral',np.ma.zeros(4),4),
+            acc_long=Parameter('Acceleration Longitudinal',np.ma.zeros(4),4),
+            pitch=Parameter('Pitch',np.ma.zeros(2),2),
+            roll=Parameter('Roll',np.ma.zeros(2),2))
+        
+        ma_test.assert_masked_array_approx_equal(acc_vert.array, np.ma.array([1]*8))
+        
+    def test_acceleration_vertical_pitch_up(self):
+        acc_vert = AccelerationVertical(frequency=8)
+
+        acc_vert.derive(
+            P('Acceleration Normal',np.ma.ones(8)*0.8660254,8),
+            P('Acceleration Lateral',np.ma.zeros(4),4),
+            P('Acceleration Longitudinal',np.ma.ones(4)*0.5,4),
+            P('Pitch',np.ma.ones(2)*30.0,2),
+            P('Roll',np.ma.zeros(2),2))
+
+        ma_test.assert_masked_array_approx_equal(acc_vert.array, np.ma.array([1]*8))
+
+    def test_acceleration_vertical_roll_right(self):
+        acc_vert = AccelerationVertical(frequency=8)
+
+        acc_vert.derive(
+            P('Acceleration Normal',np.ma.ones(8)*0.7071068,8),
+            P('Acceleration Lateral',np.ma.ones(4)*(-0.7071068),4),
+            P('Acceleration Longitudinal',np.ma.zeros(4),4),
+            P('Pitch',np.ma.zeros(2),2),
+            P('Roll',np.ma.ones(2)*45,2))
+
+        ma_test.assert_masked_array_approx_equal(acc_vert.array, np.ma.array([1]*8))
+
+
+class TestAirspeedForPhases(unittest.TestCase):
+    def test_can_operate(self):
+        expected = [('Airspeed',)]
+        opts = AirspeedForPhases.get_operational_combinations()
+        self.assertEqual(opts, expected)
+        
+    def test_airspeed_for_phases_basic(self):
+        fast_and_slow = np.ma.array([40,200,190,180,170])
+        speed = AirspeedForPhases()
+        speed.derive(Parameter('Airspeed', fast_and_slow))
+        expected = np.ma.array([40,195,195,185,175])
+        ma_test.assert_masked_array_approx_equal(speed.array, expected)
+
+   
+
 
 
 class TestAltitudeAALForPhases(unittest.TestCase):
@@ -66,8 +130,8 @@ class TestAltitudeRadio(unittest.TestCase):
     def test_altitude_radio(self):
         alt_rad = AltitudeRadio()
         alt_rad.derive(
-            Parameter('Pitch', (np.ma.array(range(10))-2)*5, 1,0.0),
             Parameter('Altitude Radio Sensor', np.ma.ones(10)*10, 1,0.0),
+            Parameter('Pitch', (np.ma.array(range(10))-2)*5, 1,0.0),
             Attribute('Main Gear To Altitude Radio', 10.0)
         )
         result = alt_rad.array
@@ -142,20 +206,16 @@ class TestAltitudeRadioForPhases(unittest.TestCase):
 
 class TestAltitudeTail(unittest.TestCase):
     def test_can_operate(self):
-        expected = [('Altitude Radio', 'Pitch')]
+        expected = [('Altitude Radio', 'Pitch','Dist Gear To Tail')]
         opts = AltitudeTail.get_operational_combinations()
         self.assertEqual(opts, expected)
         
     def test_altitude_tail(self):
-        ##params = {'Pitch':
-                  ##Parameter('Pitch', np.ma.array(range(10))*2, 1,0.0),
-                  ##'Altitude Radio':
-                  ##Parameter('Altitude Radio', np.ma.ones(10)*10, 1,0.0)
-                  ##}
         talt = AltitudeTail()
-        talt.aircraft = Struct({'model':{'dist_gear_to_tail': 35.0}})
-        talt.derive(Parameter('Pitch', np.ma.array(range(10))*2, 1,0.0),
-                    Parameter('Altitude Radio', np.ma.ones(10)*10, 1,0.0))
+        talt.derive(Parameter('Altitude Radio', np.ma.ones(10)*10, 1,0.0),
+                    Parameter('Pitch', np.ma.array(range(10))*2, 1,0.0),
+                    Attribute('Dist Gear To Tail', 35.0)
+                    )
         result = talt.array
         # At 35ft and 18deg nose up, the tail just scrapes the runway with 10ft
         # clearance at the mainwheels...
@@ -171,50 +231,6 @@ class TestAltitudeTail(unittest.TestCase):
                                    -0.815594803123],
                              dtype=np.float, mask=False)
         np.testing.assert_array_almost_equal(result.data, answer.data)
-
-class TestAccelerationVertical(unittest.TestCase):
-    def test_can_operate(self):
-        expected = [('Acceleration Normal', 'Acceleration Lateral', 
-                    'Acceleration Longitudinal', 'Pitch', 'Roll')]
-        opts = AccelerationVertical.get_operational_combinations()
-        self.assertEqual(opts, expected)
-        
-    def test_acceleration_vertical_level_on_gound(self):
-        # Invoke the class object
-        acc_vert = AccelerationVertical(frequency=8)
-                        
-        acc_vert.derive(
-            acc_norm=Parameter('Acceleration Normal',np.ma.ones(8),8),
-            acc_lat=Parameter('Acceleration Lateral',np.ma.zeros(4),4),
-            acc_long=Parameter('Acceleration Longitudinal',np.ma.zeros(4),4),
-            pitch=Parameter('Pitch',np.ma.zeros(2),2),
-            roll=Parameter('Roll',np.ma.zeros(2),2))
-        
-        ma_test.assert_masked_array_approx_equal(acc_vert.array, np.ma.array([1]*8))
-        
-    def test_acceleration_vertical_pitch_up(self):
-        acc_vert = AccelerationVertical(frequency=8)
-
-        acc_vert.derive(
-            P('Acceleration Normal',np.ma.ones(8)*0.8660254,8),
-            P('Acceleration Lateral',np.ma.zeros(4),4),
-            P('Acceleration Longitudinal',np.ma.ones(4)*0.5,4),
-            P('Pitch',np.ma.ones(2)*30.0,2),
-            P('Roll',np.ma.zeros(2),2))
-
-        ma_test.assert_masked_array_approx_equal(acc_vert.array, np.ma.array([1]*8))
-
-    def test_acceleration_vertical_roll_right(self):
-        acc_vert = AccelerationVertical(frequency=8)
-
-        acc_vert.derive(
-            P('Acceleration Normal',np.ma.ones(8)*0.7071068,8),
-            P('Acceleration Lateral',np.ma.ones(4)*(-0.7071068),4),
-            P('Acceleration Longitudinal',np.ma.zeros(4),4),
-            P('Pitch',np.ma.zeros(2),2),
-            P('Roll',np.ma.ones(2)*45,2))
-
-        ma_test.assert_masked_array_approx_equal(acc_vert.array, np.ma.array([1]*8))
 
 
 class TestClimbForPhases(unittest.TestCase):

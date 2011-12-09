@@ -47,7 +47,7 @@ def store_segment(hdf_path, segment):
 
 
 
-def split_hdf_to_segments(hdf_path, draw=False): #aircraft):
+def split_hdf_file_into_segments(hdf_path, draw=False): #aircraft):
     logging.info("Processing file: %s", hdf_path)
     if draw:
         plot_essential(hdf_path)
@@ -104,7 +104,7 @@ if __name__ == '__main__':
     import sys
     import pprint
     hdf_path = sys.argv[1]
-    segs = split_hdf_to_segments(hdf_path, draw=True)    
+    segs = split_hdf_file_into_segments(hdf_path, draw=True)    
     pprint.pprint(segs)
     ##os.remove(file_path) # delete original raw data file?
     ##os.remove(hdf_path) # delete original hdf file?

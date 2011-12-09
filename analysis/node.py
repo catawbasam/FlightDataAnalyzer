@@ -21,7 +21,13 @@ Section = namedtuple('Section', 'name slice') #Q: rename mask -> slice/section
 
 # Ref: django/db/models/options.py:20
 # Calculate the verbose_name by converting from InitialCaps to "lowercase with spaces".
-get_verbose_name = lambda class_name: re.sub('(((?<=[a-z])[A-Z])|([A-Z](?![A-Z]|$)))', ' \\1', class_name).lower().strip()
+def get_verbose_name(class_name):
+    if class_name.startswith('_'):
+        # Remove initial underscore to allow class names starting with numbers
+        # e.g. '_1000FtInClimb' will become '1000 Ft In Climb'
+        class_name = class_name[1:]
+    return re.sub('(((?<=[a-z])[A-Z])|([A-Z](?![A-Z]|$)))', ' \\1',
+                  class_name).lower().strip()
 
 
 def powerset(iterable):

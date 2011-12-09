@@ -2,6 +2,7 @@ import math
 import numpy as np
 
 from datetime import datetime, timedelta
+from hashlib import sha256
 from itertools import izip
 from scipy.signal import iirfilter, lfilter, lfilter_zi, filtfilt
 
@@ -29,7 +30,7 @@ from settings import REPAIR_DURATION
 #----------------------------------------------------------------------
 
 
-def align(slave, master, interval='Subframe', mode='Analogue'):
+def align(slave, master, interval='Subframe', signaltype='Analogue'):
     """
     This function takes two parameters which will have been sampled at different
     rates and with different offsets, and aligns the slave parameter's samples
@@ -49,9 +50,9 @@ def align(slave, master, interval='Subframe', mode='Analogue'):
     :type master: Parameter objects    
     :param interval: Has possible values 'Subframe' or 'Frame'.  #TODO: explain this!
     :type interval: String
-    :param mode: Has possible values 'Analogue' or 'Discrete'
-    :mode = Analogue results in interpolation of the data across each sample period
-    :mode = Discrete results in shifting to the closest data sample, without interpolation.
+    :param mode: Has possible values 'Analogue' or 'Discrete'. TODO: 'Multistate' mode as those parameters should be shifted similar to Discrete (or use Multistate for discrete)
+    :signaltype = Analogue results in interpolation of the data across each sample period
+    :signaltype = Discrete or Multi-State results in shifting to the closest data sample, without interpolation.
     :Note: Multistate is a type of discrete in this case.
     :type interval: String
     
@@ -64,9 +65,15 @@ def align(slave, master, interval='Subframe', mode='Analogue'):
     # Check the interval is one of the two forms we recognise
     assert interval in ['Subframe', 'Frame']
     
+    # Check the type of signal is one of those we recognise
+    assert signaltype in ['Analogue', 'Discrete', 'Multi-State']
+    
     slave_array = slave.array # Optimised access to attribute.
     if len(slave_array) == 0:
         return slave_array # Otherwise would raise in loop.
+    if master.hz == slave.hz and master.offset == slave.offset:
+        # No alignment is required, return the slave's array unchanged.
+        return slave.array
     
     # Here we create a masked array to hold the returned values that will have 
     # the same sample rate and timing offset as the master
@@ -100,13 +107,20 @@ def align(slave, master, interval='Subframe', mode='Analogue'):
     # Each sample in the master parameter may need different combination parameters
     for i in range(wm):
         bracket=(i/r+delta)
-        # Interpolate between the hth and (h+1)th samples of the slaveary
+        # Interpolate between the hth and (h+1)th samples of the slave array
         h=int(math.floor(bracket))
         h1 = h+1
-        # Linear interpolation coefficients
+
+        # Compute the linear interpolation coefficients, b & a
         b = bracket-h
-        if mode == 'Discrete':
+        
+        # Cunningly, if we are working with discrete or multi-state parameters, 
+        # by reverting to 1,0 or 0,1 coefficients we gather the closest value
+        # in time to the master parameter.
+        if signaltype != 'Analogue':
             b = round(b)
+            
+        # Either way, a is the residual part.    
         a=1-b
         
 
@@ -407,6 +421,15 @@ def first_order_washout (in_param, time_constant, hz, gain = 1.0, initial_value 
     # mask.
     masked_result.mask = in_param.mask
     return masked_result
+
+
+def hash_array(array):
+    '''
+    Creates a sha256 hash from the array's tostring() method.
+    '''
+    checksum = sha256()
+    checksum.update(array.tostring())
+    return checksum.hexdigest()
 
     
 def hysteresis (array, hysteresis):
@@ -729,5 +752,3 @@ def value_at_time (array, hz, offset, time_index):
                     return low_value
         # In the cases of no mask, or neither sample masked, interpolate.
         return r*high_value + (1-r) * low_value
-
-

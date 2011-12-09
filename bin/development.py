@@ -1,9 +1,10 @@
-from analysis.process_file import process_file
+from analysis.split_hdf_file_into_segments import split_hdf_file_into_segments
 from analysis.process_flight import process_flight
 
 def main():
     file_path = os.path.join('.', 'file.csv')
-    segments = process_file(file_path, param_group='FFD',split=False)
+    segments = split_hdf_file_into_segments(file_path, param_group='FFD',
+                                            split=False)
     # process one?
     
     process_flight(segments[0])
