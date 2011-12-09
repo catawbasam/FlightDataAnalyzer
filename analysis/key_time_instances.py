@@ -140,8 +140,113 @@ class FlapStateChanges(KeyTimeInstanceNode):
             else:
                 # Flap moved from previous setting, so record this change:
                 self.create_kti(index, 'Flap %d' % value)
-    
-    
+
+
+class _1000FtInApproach(KeyTimeInstanceNode):
+    def derive(self): # Q: Args?
+        return NotImplemented
+
+
+class _1500FtInApproach(KeyTimeInstanceNode):
+    def derive(self): # Q: Args?
+        return NotImplemented
+
+
+class _3000FtInApproach(KeyTimeInstanceNode):
+    def derive(self): # Q: Args?
+        return NotImplemented
+
+
+# Q: Is final approach distinction correct?
+class _100FtInFinalApproach(KeyTimeInstanceNode):
+    def derive(self): # Q: Args?
+        return NotImplemented
+
+
+class _150FtInFinalApproach(KeyTimeInstanceNode):
+    def derive(self): # Q: Args?
+        return NotImplemented
+                
+
+class _500FtInFinalApproach(KeyTimeInstanceNode):
+    def derive(self): # Q: Args?
+        return NotImplemented
+
+
+class _1000FtInFinalApproach(KeyTimeInstanceNode):
+    def derive(self): # Q: Args?
+        return NotImplemented
+
+
+class _2000FtInFinalApproach(KeyTimeInstanceNode):
+    def derive(self): # Q: Args?
+        return NotImplemented
+
+
+class _50FtInInitialClimb(KeyTimeInstanceNode):
+    def derive(self): # Q: Args?
+        return NotImplemented
+
+
+class _100FtInInitialClimb(KeyTimeInstanceNode):
+    def derive(self): # Q: Args?
+        return NotImplemented
+
+
+class _400FtInInitialClimb(KeyTimeInstanceNode):
+    def derive(self): # Q: Args?
+        return NotImplemented
+
+
+class _500FtInInitialClimb(KeyTimeInstanceNode):
+    def derive(self): # Q: Args?
+        return NotImplemented
+
+
+class _1000FtInClimb(KeyTimeInstanceNode):
+    def derive(self): # Q: Args?
+        return NotImplemented
+
+
+class _1500FtInClimb(KeyTimeInstanceNode):
+    def derive(self): # Q: Args?
+        return NotImplemented
+
+
+class _2000FtInClimb(KeyTimeInstanceNode):
+    def derive(self): # Q: Args?
+        return NotImplemented
+
+
+class _3500FtInClimb(KeyTimeInstanceNode):
+    def derive(self): # Q: Args?
+        return NotImplemented
+
+
+class _1MinToLanding(KeyTimeInstanceNode):
+    def derive(self, touchdown=KTI('Touchdown')): # Q: Args?
+        return NotImplemented
+
+
+class _2MinToLanding(KeyTimeInstanceNode):
+    def derive(self, touchdown=KTI('Touchdown')): # Q: Args?
+        return NotImplemented
+
+
+class _25FtInLanding(KeyTimeInstanceNode):
+    def derive(self, touchdown=KTI('Touchdown')): # Q: Args?
+        return NotImplemented
+
+
+class _50FtInLanding(KeyTimeInstanceNode):
+    def derive(self, touchdown=KTI('Touchdown')): # Q: Args?
+        return NotImplemented
+
+
+class _35FtInTakeoff(KeyTimeInstanceNode):
+    def derive(self): # Q: Args?
+        return NotImplemented
+
     
 def find_toc_tod(alt_data, ccd_slice, mode):
     '''

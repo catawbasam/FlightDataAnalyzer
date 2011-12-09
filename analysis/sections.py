@@ -28,4 +28,36 @@ class _500ftTo0ft(SectionNode):
         
         alt_slices = np.ma.clump_unmasked(alt_500_0)
         self.create_sections(alt_slices)
-        
+
+
+class BouncedLanding(SectionNode):
+    '''
+    Q: Is this a valid Section?
+    '''
+    def derive(self): # TODO: What should the arguments be?
+        pass
+
+
+class TaxiOut(SectionNode):
+    def derive(self): # TODO: What should the arguments be?
+        pass
+
+
+class TaxiIn(SectionNode):
+    def derive(self): # TODO: What should the arguments be?
+        pass
+
+
+class LevelBust(SectionNode):
+    def derive(self): # TODO: What should the arguments be?
+        pass
+
+
+class OnGround(SectionNode):
+    def derive(self): # TODO: What should the arguments be?
+        pass
+
+
+class GearSelectedUp(SectionNode):
+    def derive(self): # TODO: What should the arguments be?
+        pass
