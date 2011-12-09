@@ -50,7 +50,7 @@ def align(slave, master, interval='Subframe', mode='Analogue'):
     :type master: Parameter objects    
     :param interval: Has possible values 'Subframe' or 'Frame'.  #TODO: explain this!
     :type interval: String
-    :param mode: Has possible values 'Analogue' or 'Discrete'
+    :param mode: Has possible values 'Analogue' or 'Discrete'. TODO: 'Multistate' mode as those parameters should be shifted similar to Discrete (or use Multistate for discrete)
     :mode = Analogue results in interpolation of the data across each sample period
     :mode = Discrete results in shifting to the closest data sample, without interpolation.
     :Note: Multistate is a type of discrete in this case.
@@ -68,6 +68,9 @@ def align(slave, master, interval='Subframe', mode='Analogue'):
     slave_array = slave.array # Optimised access to attribute.
     if len(slave_array) == 0:
         return slave_array # Otherwise would raise in loop.
+    if master.frequency == slave.frequency and master.offset == slave.offset:
+        # No alignment is required, return the slave's array unchanged.
+        return slave.array
     
     # Here we create a masked array to hold the returned values that will have 
     # the same sample rate and timing offset as the master

@@ -300,3 +300,162 @@ class Pitch(DerivedParameterNode):
         self.hz = p1.hz * 2
         self.offset = min(p1.offset, p2.offset)
         self.array = interleave (p1, p2)
+
+
+class AccelerationLateral(DerivedParameterNode):
+    def derive(self): # Q: Args?
+        return NotImplemented
+
+
+class DontSinkWarning(DerivedParameterNode):
+    def derive(self): # Q: Args?
+        return NotImplemented
+
+
+class EngineNEGT(DerivedParameterNode):
+    name = "Engine (N) EGT"
+    def derive(self): # Q: Args?
+        return NotImplemented
+
+
+class EngineNN1(DerivedParameterNode):
+    name = "Engine (N) N1"
+    def derive(self): # Q: Args?
+        return NotImplemented
+
+
+class EngineNN2(DerivedParameterNode):
+    name = "Engine (N) N2"
+    def derive(self): # Q: Args?
+        return NotImplemented
+
+
+class EngineNOilPress(DerivedParameterNode):
+    name = "Engine (N) Oil Press"
+    def derive(self): # Q: Args?
+        return NotImplemented
+
+
+class Engine1OilTemp(DerivedParameterNode):
+    name = "Engine (1) Oil Temp"
+    def derive(self): # Q: Args?
+        return NotImplemented
+
+
+class EngineNOilPressLow(DerivedParameterNode):
+    name = 'Engine (N) Oil Press Low'
+    def derive(self): # Q: Args?
+        return NotImplemented
+
+
+class GPWSSinkRate(DerivedParameterNode):
+    name = "GPWS Sink Rate"
+    def derive(self): # Q: Args?
+        return NotImplemented
+
+
+class GPWSGlideslope(DerivedParameterNode):
+    name = "GPWS Glideslope"
+    def derive(self): # Q: Args?
+        return NotImplemented
+
+
+class GPWSWindshear(DerivedParameterNode):
+    name = "GPWS Windshear"
+    def derive(self): # Q: Args?
+        return NotImplemented
+
+
+class GPWSTooLowFlap(DerivedParameterNode):
+    name = 'GPWS Too Low Flap'
+    def derive(self): # Q: Args?
+        return NotImplemented
+
+
+class GPWSTooLowGear(DerivedParameterNode):
+    name = 'GPWS Too Low Gear'
+    def derive(self): # Q: Args?
+        return NotImplemented
+
+
+# Are the following the same?
+class GPWSTooLowTerrain(DerivedParameterNode):
+    name = 'GPWS Too Low Terrain'
+    def derive(self): # Q: Args?
+        return NotImplemented
+
+
+class GPWSTerrainPullUp(DerivedParameterNode):
+    name = 'GPWS Terrain Pull Up'
+    def derive(self): # Q: Args?
+        return NotImplemented
+
+
+class GPWSTerrain(DerivedParameterNode):
+    name = 'GPWS Terrain'
+    def derive(self): # Q: Args?
+        return NotImplemented
+    
+
+class ILSLocaliser(DerivedParameterNode):
+    name = "ILS Localiser"
+    def derive(self): # Q: Args?
+        return NotImplemented
+
+
+class GoAround(DerivedParameterNode): # Q: is this a parameter?
+    def derive(self): # Q: Args?
+        return NotImplemented
+
+
+class GearSelectedDown(DerivedParameterNode): # Q: is this a parameter?
+    def derive(self): # Q: Args?
+        return NotImplemented
+
+
+class GearSelectedUp(DerivedParameterNode):
+    def derive(self): # TODO: What should the arguments be?
+        pass
+
+
+# Q: Should these be KPVs?
+class EngineN1Average(DerivedParameterNode): # Q: is this a parameter?
+    def derive(self): # Q: Args?
+        return NotImplemented
+
+
+class EngineNAverage(DerivedParameterNode):
+    name = 'Engine (N) Average'
+    def derive(self): # Q: Args?
+        return NotImplemented
+
+
+class EngineN1Minimum(DerivedParameterNode): # Q: is this a parameter?
+    def derive(self): # Q: Args?
+        return NotImplemented
+
+
+class EngineNAverage(DerivedParameterNode): # Q: is this a parameter?
+    def derive(self): # Q: Args?
+        return NotImplemented
+
+
+class GrossWeight(DerivedParameterNode):
+    def derive(self): # Q: Args?
+        return NotImplemented
+
+
+class ThrustLeverN(DerivedParameterNode):
+    name = 'Thrust Lever (N)'
+    def derive(self): # Q: Args?
+        return NotImplemented
+
+
+class Speedbrake(DerivedParameterNode):
+    def derive(self): # Q: Args?
+        return NotImplemented
+
+
+class RudderReversal(DerivedParameterNode):
+    def derive(self): # Q: Args?
+        return NotImplemented
