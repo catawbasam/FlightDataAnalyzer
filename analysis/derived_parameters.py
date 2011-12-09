@@ -459,3 +459,9 @@ class Speedbrake(DerivedParameterNode):
 class RudderReversal(DerivedParameterNode):
     def derive(self): # Q: Args?
         return NotImplemented
+
+
+class EngineNVibN2(DerivedParameterNode):
+    name = 'Engine (N) Vib N2'
+    def derive(self): # Q: Args?
+        return NotImplemented

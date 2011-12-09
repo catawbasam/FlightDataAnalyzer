@@ -228,6 +228,11 @@ class _1MinToLanding(KeyTimeInstanceNode):
         return NotImplemented
 
 
+class _90SecToLanding(KeyTimeInstanceNode):
+    def derive(self, touchdown=KTI('Touchdown')): # Q: Args?
+        return NotImplemented
+
+
 class _2MinToLanding(KeyTimeInstanceNode):
     def derive(self, touchdown=KTI('Touchdown')): # Q: Args?
         return NotImplemented

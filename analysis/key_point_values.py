@@ -364,7 +364,7 @@ class FlapAtTouchdown(KeyPointValueNode):
         return NotImplemented
 
 
-# FIXME: Bounced Landing name duplicated!
+# FIXME: Bounced Landing name duplicated between KPV and Section!
 class BouncedLanding(KeyPointValueNode):
     def derive(self, bounced_landing=S('Bounced Landing')):
         return NotImplemented
@@ -373,7 +373,7 @@ class BouncedLanding(KeyPointValueNode):
 class ROD500ToTouchdownMax(KeyPointValueNode):
     name = 'ROD 500 To Touchdown Max'
     def derive(self, roc=P('Rate Of Climb'),
-               _500_ft_in_final_approach=KTI('_500 Ft In Final Approach'),
+               _500_ft_in_final_approach=KTI('500 Ft In Final Approach'),
                touchdown=KTI('Touchdown')):
         return NotImplemented
     
@@ -381,16 +381,16 @@ class ROD500ToTouchdownMax(KeyPointValueNode):
 class ROD1000To500FeetMax(KeyPointValueNode):
     name = 'ROD 1000 To 500 Feet Max'
     def derive(self, roc=P('Rate Of Climb'),
-               _1000_ft_in_approach=KTI('_1000 Ft In Approach'),
-               _500_ft_in_final_approach=KTI('_500 Ft In Final Approach')):
+               _1000_ft_in_approach=KTI('1000 Ft In Approach'),
+               _500_ft_in_final_approach=KTI('500 Ft In Final Approach')):
         return NotImplemented
 
 
 class ROD2000To1000FeetMax(KeyPointValueNode):
     name = 'ROD 2000 To 1000 Feet Max'
     def derive(self, roc=P('Rate Of Climb'),
-               _2000_ft_in_approach=KTI('_2000 Ft In Approach'),
-               _1000_ft_in_approach=KTI('_1000 Ft In Approach')):
+               _2000_ft_in_approach=KTI('2000 Ft In Approach'),
+               _1000_ft_in_approach=KTI('1000 Ft In Approach')):
         return NotImplemented
 
 
@@ -402,7 +402,7 @@ class DontSinkWarning(KeyPointValueNode):
 class HeightAtConfigChangeLiftOffTo3500FeetMin(KeyPointValueNode):
     def derive(self, flap=P('Flap'), alt_aal=P('Altitude AAL'),
                liftoff=KTI('Liftoff'),
-               _3500_ft_in_climb=KTI('_3500 Ft In Climb')):
+               _3500_ft_in_climb=KTI('3500 Ft In Climb')):
         return NotImplemented
 
 
@@ -430,15 +430,15 @@ class GlideslopeWarning(KeyPointValueNode):
 
 class GlideslopeDeviation1000To150FeetMax(KeyPointValueNode):
     def derive(self, ils_glideslope=P('ILS Glideslope'),
-               _1000_ft_in_approach=KTI('_1000 Ft In Approach'),
-               _150_ft_in_final_approach=KTI('_150 Ft In Final Approach')):
+               _1000_ft_in_approach=KTI('1000 Ft In Approach'),
+               _150_ft_in_final_approach=KTI('150 Ft In Final Approach')):
         return NotImplemented
 
 
 class GlideslopeDeviation1500To1000FeetMax(KeyPointValueNode):
     def derive(self, ils_glideslope=P('ILS Glideslope'),
-               _1500_ft_in_approach=KTI('_1500 Ft In Approach'),
-               _1000_ft_in_approach=KTI('_1000 Ft In Approach')):
+               _1500_ft_in_approach=KTI('1500 Ft In Approach'),
+               _1000_ft_in_approach=KTI('1000 Ft In Approach')):
         return NotImplemented
 
 
@@ -466,39 +466,39 @@ class HeadingDeviation100KtsToLiftOffMax(KeyPointValueNode):
 
 class Height1MinuteToTouchdown(KeyPointValueNode):
     def derive(self, altitude_aal=P('Altitude AAL'),
-               _1_min_to_landing=KTI('_1 Min To Landing')):
+               _1_min_to_landing=KTI('1 Min To Landing')):
         return NotImplemented
 
 
 class Height2MinutesToTouchdown(KeyPointValueNode):
     def derive(self, altitude_aal=P('Altitude AAL'),
-               _2_min_to_landing=KTI('_2 Min To Landing')):
+               _2_min_to_landing=KTI('2 Min To Landing')):
         return NotImplemented
 
 
 class HeightLost1000To2000FeetMax(KeyPointValueNode):
     def derive(self, altitude_std=P('Altitude STD'),
-               _1000_ft_in_climb=KTI('_1000 Ft In Climb'),
-               _2000_ft_in_climb=KTI('_2000 Ft In Climb')):
+               _1000_ft_in_climb=KTI('1000 Ft In Climb'),
+               _2000_ft_in_climb=KTI('2000 Ft In Climb')):
         return NotImplemented
 
 
 class HeightLost50To1000Max(KeyPointValueNode):
     def derive(self, altitude_std=P('Altitude STD'),
                _50_ft_in_initial_climb=KTI('_50 Ft In Initial Climb'),
-               _1000_ft_in_climb=KTI('_1000 Ft In Climb')):
+               _1000_ft_in_climb=KTI('1000 Ft In Climb')):
         return NotImplemented
 
 
 class Height1MinuteToTouchdown(KeyPointValueNode):
     def derive(self, altitude_aal=P('Altitude AAL'),
-               _1_min_to_landing=KTI('_1 Min To Landing')):
+               _1_min_to_landing=KTI('1 Min To Landing')):
         return NotImplemented
 
 
 class Height2MinutesToTouchdown(KeyPointValueNode):
     def derive(self, altitude_aal=P('Altitude AAL'),
-               _2_min_to_landing=KTI('_2 Min To Landing')):
+               _2_min_to_landing=KTI('2 Min To Landing')):
         return NotImplemented
 
 
@@ -511,7 +511,7 @@ class LateralGOnGroundDurationAboveLimit(KeyPointValueNode):
 class N13000FeetToTouchdownMax(KeyPointValueNode):
     name = 'N1 3000 Feet To Touchdown Max'
     def derive(self, eng_n1_avg=P('Engine N1 Average'),
-               _3000_ft_in_approach=KTI('_3000 Ft In Approach'),
+               _3000_ft_in_approach=KTI('3000 Ft In Approach'),
                touchdown=KTI('Touchdown')):
         return NotImplemented
 
@@ -529,14 +529,14 @@ class FlapAtGearSelectedDown(KeyPointValueNode):
 
 class HeightAtConfigChange1500FeetToTouchdownMin(KeyPointValueNode):
     def derive(self, flap=P('Flap'),
-               _1500_ft_in_approach=KTI('_1500 Ft In Approach'),
+               _1500_ft_in_approach=KTI('1500 Ft In Approach'),
                touchdown=KTI('Touchdown')):
         return NotImplemented
 
 
 class HeightAtConfigChange1500FeetToTouchdownMin(KeyPointValueNode):
     def derive(self, flap=P('Flap'),
-               _1500_ft_in_approach=KTI('_1500 Ft In Approach'),
+               _1500_ft_in_approach=KTI('1500 Ft In Approach'),
                touchdown=KTI('Touchdown')):
         return NotImplemented
 
@@ -548,15 +548,15 @@ class SuspectedLevelBust(KeyPointValueNode):
 
 class LocaliserDeviation1000To150FeetMax(KeyPointValueNode):
     def derive(self, ils_loc=P('ILS Localizer'),
-               _1000_ft_in_approach=KTI('_1000 Ft In Approach'),
-               _150_ft_in_final_approach=KTI('_150 Ft In Final Approach')):
+               _1000_ft_in_approach=KTI('1000 Ft In Approach'),
+               _150_ft_in_final_approach=KTI('150 Ft In Final Approach')):
         return NotImplemented
 
 
 class LocaliserDeviation1500To1000FeetMax(KeyPointValueNode):
     def derive(self, ils_loc=P('ILS Localizer'),
-               _1500_ft_in_approach=KTI('_1500 Ft In Approach'),
-               _1000_ft_in_approach=KTI('_1000 Ft In Approach')):
+               _1500_ft_in_approach=KTI('1500 Ft In Approach'),
+               _1000_ft_in_approach=KTI('1000 Ft In Approach')):
         return NotImplemented
 
 
@@ -569,7 +569,7 @@ class RadAlt20FeetToTouchdownDurationOverLimit(KeyPointValueNode):
 
 class LowPowerLessthan500Ft10Sec(KeyPointValueNode):
     def derive(self, eng_n1_min=P('Engine N1 Minimum'),
-               _500_ft_in_final_approach=KTI('_500 Ft In Final Approach')):
+               _500_ft_in_final_approach=KTI('500 Ft In Final Approach')):
         return NotImplemented
 
 
@@ -588,7 +588,7 @@ class N1Max(KeyPointValueNode):
 
 class N2CyclesMax(KeyPointValueNode):
     name = 'N2 Cycles Max'
-    def derive(self, engine_(n)_n2=P('Engine (N) N2')):
+    def derive(self, eng_n_n2=P('Engine (N) N2')):
         return NotImplemented
 
 
@@ -617,7 +617,8 @@ class OITMax(KeyPointValueNode):
 
 
 class GrossWeightAtTouchdown(KeyPointValueNode):
-    def derive(self, gross_weight=P('Gross Weight'), touchdown=KTI('Touchdown')):
+    def derive(self, gross_weight=P('Gross Weight'),
+               touchdown=KTI('Touchdown')):
         return NotImplemented
 
 
@@ -633,14 +634,14 @@ class PitchCyclesMax(KeyPointValueNode):
 
 class Pitch35To400FeetMax(KeyPointValueNode):
     def derive(self, pitch=P('Pitch'),
-               _35_ft_in_takeoff=KTI('_35 Ft In Takeoff'),
-               _400_ft_in_initial_climb=KTI('_400 Ft In Initial_Climb')):
+               _35_ft_in_takeoff=KTI('35 Ft In Takeoff'),
+               _400_ft_in_initial_climb=KTI('400 Ft In Initial_Climb')):
         return NotImplemented
 
 
 class Pitch1000To100FeetMax(KeyPointValueNode):
-    def derive(self, pitch=P('Pitch'), _1000_ft_in_approach=KTI('_1000 Ft In Approach'),
-               _100_ft_in_final_approach=KTI('_100 Ft In Final Approach')):
+    def derive(self, pitch=P('Pitch'), _1000_ft_in_approach=KTI('1000 Ft In Approach'),
+               _100_ft_in_final_approach=KTI('100 Ft In Final Approach')):
         return NotImplemented
 
 
@@ -656,21 +657,21 @@ class Pitch5FeetToGroundMax(KeyPointValueNode):
 
 class Pitch35To400FeetMin(KeyPointValueNode):
     def derive(self, pitch=P('Pitch'),
-               _35_ft_in_takeoff=KTI('_35 Ft In Takeoff'),
-               _400_ft_in_initial_climb=KTI('_400 Ft In Initial_Climb')):
+               _35_ft_in_takeoff=KTI('35 Ft In Takeoff'),
+               _400_ft_in_initial_climb=KTI('400 Ft In Initial_Climb')):
         return NotImplemented
 
 
 class Pitch1000To100FeetMin(KeyPointValueNode):
     def derive(self, pitch=P('Pitch'),
-               _1000_ft_in_approach=KTI('_1000 Ft In Approach'),
-               _100_ft_in_final_approach=KTI('_100 Ft In Final Approach')):
+               _1000_ft_in_approach=KTI('1000 Ft In Approach'),
+               _100_ft_in_final_approach=KTI('100 Ft In Final Approach')):
         return NotImplemented
 
 
 class Pitch20FeetToTouchdownMin(KeyPointValueNode):
     def derive(self, pitch=P('Pitch'),
-               _25_ft_in_landing=KTI('_25 Ft In Landing'),
+               _25_ft_in_landing=KTI('25 Ft In Landing'),
                touchdown=KTI('Touchdown')):
         return NotImplemented
 
@@ -682,14 +683,14 @@ class PitchRateDuringTakeOffMax(KeyPointValueNode):
 
 class PitchRate35To1500FeetMax(KeyPointValueNode):
     def derive(self, pitch_rate=P('Pitch Rate'),
-               _35_ft_in_takeoff=KTI('_35 Ft In Takeoff'),
-               _1500_ft_in_climb=KTI('_1500 Ft In Climb')):
+               _35_ft_in_takeoff=KTI('35 Ft In Takeoff'),
+               _1500_ft_in_climb=KTI('1500 Ft In Climb')):
         return NotImplemented
 
 
 class PitchRate(From2DegreesOfPitch?)To35FeetMin(KeyPointValueNode):
     def derive(self, pitch_rate=P('Pitch Rate'), liftoff=KTI('Liftoff'),
-               _35_ft_in_takeoff=KTI('_35 Ft In Takeoff')):
+               _35_ft_in_takeoff=KTI('35 Ft In Takeoff')):
         return NotImplemented
 
 
@@ -712,28 +713,28 @@ class GroundspeedRTOMax(KeyPointValueNode):
 
 class RollCycles1000FtToTouchdownMax(KeyPointValueNode):
     def derive(self, roll=P('Roll'),
-               _1000_ft_in_approach=KTI('_1000 Ft In Approach'),
+               _1000_ft_in_approach=KTI('1000 Ft In Approach'),
                touchdown=KTI('Touchdown')):
         return NotImplemented
 
 
 class RollBetween100And500FeetMax(KeyPointValueNode):
     def derive(self, roll=P('Roll'),
-               _100_ft_in_initial_climb=KTI('_100 Ft In Initial_Climb'),
-               _500_ft_in_initial_climb=KTI('_500 Ft In Initial_Climb')):
+               _100_ft_in_initial_climb=KTI('100 Ft In Initial_Climb'),
+               _500_ft_in_initial_climb=KTI('500 Ft In Initial_Climb')):
         return NotImplemented
 
 
 class RollBetween500And1500FeetMax(KeyPointValueNode):
     def derive(self, roll=P('Roll'),
-               _500_ft_in_initial_climb=KTI('_500 Ft In Initial_Climb'),
-               _1500_ft_in_climb=KTI('_1500 Ft In Climb')):
+               _500_ft_in_initial_climb=KTI('500 Ft In Initial_Climb'),
+               _1500_ft_in_climb=KTI('1500 Ft In Climb')):
         return NotImplemented
 
 
 class RollBelow20FeetMax(KeyPointValueNode):
     def derive(self, roll=P('Roll'),
-               _25_ft_in_landing=KTI('_25 Ft In Landing'),
+               _25_ft_in_landing=KTI('25 Ft In Landing'),
                touchdown=KTI('Touchdown')):
         return NotImplemented
 
@@ -749,12 +750,14 @@ class RudderReversalAbove50Feet(KeyPointValueNode):
 
 
 class AirspeedWithGearSelectedDownMax(KeyPointValueNode):
-    def derive(self, airspeed=P('Airspeed'), gear_sel_down=P('Gear Selected Down')):
+    def derive(self, airspeed=P('Airspeed'),
+               gear_sel_down=P('Gear Selected Down')):
         return NotImplemented
 
 
 class AirspeedAtGearSelectedDown(KeyPointValueNode):
-    def derive(self, airspeed=P('Airspeed'), gear_sel_down=P('Gear Selected Down')):
+    def derive(self, airspeed=P('Airspeed'),
+               gear_sel_down=P('Gear Selected Down')):
         return NotImplemented
 
 
@@ -851,21 +854,25 @@ class AirspeedV2AtLiftOff(KeyPointValueNode):
 
 
 class AirspeedBetween90SToTouchdownAndTouchdownMax(KeyPointValueNode):
-    def derive(self, airspeed=P('Airspeed'), _1.5_min_to_landing=KTI('_1.5 Min To Landing'), touchdown=KTI('Touchdown')):
+    def derive(self, airspeed=P('Airspeed'),
+               _90_sec_to_landing=KTI('90 Sec To Landing'),
+               touchdown=KTI('Touchdown')):
         return NotImplemented
 
 
 class AirspeedV235To400FeetMin(KeyPointValueNode):
     name = 'Airspeed V2 35 To 400 Feet Min'
-    def derive(self, airspeed=P('Airspeed'), _35_ft_in_takeoff=KTI('_35 Ft In Takeoff'), _400_ft_in_initial_climb=KTI('_400 Ft In Initial_Climb')):
+    def derive(self, airspeed=P('Airspeed'),
+               _35_ft_in_takeoff=KTI('35 Ft In Takeoff'),
+               _400_ft_in_initial_climb=KTI('400 Ft In Initial_Climb')):
         return NotImplemented
 
 
 class AirspeedV2400To1500FeetMin(KeyPointValueNode):
     name = 'Airspeed V2 400 To 1500 Feet Min'
     def derive(self, airspeed=P('Airspeed'),
-               _400_ft_in_initial_climb=KTI('_400 Ft In Initial_Climb'),
-               _1500_ft_in_climb=KTI('_1500 Ft In Climb')):
+               _400_ft_in_initial_climb=KTI('400 Ft In Initial_Climb'),
+               _1500_ft_in_climb=KTI('1500 Ft In Climb')):
         return NotImplemented
 
 
@@ -877,15 +884,15 @@ class AirspeedV2AtLiftOff(KeyPointValueNode):
 
 class AirspeedVrefLast2MinutesToTouchdownMin(KeyPointValueNode):
     def derive(self, airspeed=P('Airspeed'),
-               _2_min_to_landing=KTI('_2 Min To Landing'),
+               _2_min_to_landing=KTI('2 Min To Landing'),
                touchdown=KTI('Touchdown')):
         return NotImplemented
 
 
 class SpeedbrakesDeployed1000To30Feet(KeyPointValueNode):
     def derive(self, speedbrake=P('Speedbrake'),
-               _1000_ft_in_approach=KTI('_1000 Ft In Approach'),
-               _25_ft_in_landing=KTI('_25 Ft In Landing')):
+               _1000_ft_in_approach=KTI('1000 Ft In Approach'),
+               _25_ft_in_landing=KTI('25 Ft In Landing')):
         return NotImplemented
 
 
@@ -936,13 +943,15 @@ class NormalGAirborneMin(KeyPointValueNode):
 
 class VibrationN1GreaterThanLimitDurationGreaterThanLimit(KeyPointValueNode):
     name = 'Vibration N1 Greater Than Limit Duration Greater Than Limit'
-    def derive(self, engine_(n)_vib_n1=P('Engine (N) Vib N1'), airborne=S('Airborne')):
+    def derive(self, eng_n_vib_n1=P('Engine (N) Vib N1'),
+               airborne=S('Airborne')):
         return NotImplemented
 
 
 class VibrationN2GreaterThanLimitDurationGreaterThanLimit(KeyPointValueNode):
     name = 'Vibration N2 Greater Than Limit Duration Greater Than Limit'
-    def derive(self, engine_(n)_vib_n2=P('Engine (N) Vib N2'), airborne=S('Airborne')):
+    def derive(self, eng_n_vib_n2=P('Engine (N) Vib N2'),
+               airborne=S('Airborne')):
         return NotImplemented
 
 
@@ -964,8 +973,8 @@ class TaxiSpeedTurning(KeyPointValueNode):
 
 class LowPowerInFinalApproach10Sec(KeyPointValueNode):
     def derive(self, eng_n_avg=P('Engine (N) Average'),
-               _1000_ft_in_approach=KTI('_1000 Ft In Approach'),
-               _50_ft_in_landing=KTI('_50 Ft In Landing')):
+               _1000_ft_in_approach=KTI('1000 Ft In Approach'),
+               _50_ft_in_landing=KTI('50 Ft In Landing')):
         return NotImplemented
 
 
