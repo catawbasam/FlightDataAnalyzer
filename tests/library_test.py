@@ -435,7 +435,7 @@ class TestFirstOrderWashout(unittest.TestCase):
 
     def test_firstorderwashout_gain(self):
         array = np.ma.ones(20)
-        result = first_order_washout (array, 1.0, 1.0, gain = 10.0)
+        result = first_order_washout (array, 1.0, 1.0, gain = 10.0, initial_value = 0.0)
         # With a short time constant and more samples, the end result will
         # reach the input level (1.0) multiplied by the gain.
         self.assertAlmostEquals(result.data[0], 6.6666667)

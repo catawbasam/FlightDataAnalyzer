@@ -293,7 +293,7 @@ def duration(a, period, hz=1.0):
     
     return a
 
-def first_order_lag (in_param, time_constant, hz, gain = 1.0, initial_value = 0.0):
+def first_order_lag (in_param, time_constant, hz, gain = 1.0, initial_value = None):
     '''
     Computes the transfer function
             x.G
@@ -319,7 +319,7 @@ def first_order_lag (in_param, time_constant, hz, gain = 1.0, initial_value = 0.
     :returns: masked array of values with first order lag applied
     '''
 
-    result = np.copy(in_param.data)
+    input_data = np.copy(in_param.data)
     
     # Scale the time constant to allow for different data sample rates.
     tc = time_constant / hz
@@ -339,7 +339,11 @@ def first_order_lag (in_param, time_constant, hz, gain = 1.0, initial_value = 0.
     y_term = np.array(y_term)
     
     z_initial = lfilter_zi(x_term, y_term) # Prepare for non-zero initial state
-    answer, z_final = lfilter(x_term, y_term, result, zi=z_initial*initial_value)
+    # The initial value may be set as a command line argument, mainly for testing
+    # otherwise we set it to the first data value.
+    if initial_value == None:
+        initial_value = input_data[0]
+    answer, z_final = lfilter(x_term, y_term, input_data, zi=z_initial*initial_value)
     masked_result = np.ma.array(answer)
     # The mask should last indefinitely following any single corrupt data point
     # but this is impractical for our use, so we just copy forward the original
@@ -347,7 +351,7 @@ def first_order_lag (in_param, time_constant, hz, gain = 1.0, initial_value = 0.
     masked_result.mask = in_param.mask
     return masked_result
 
-def first_order_washout (in_param, time_constant, hz, gain = 1.0, initial_value = 0.0):
+def first_order_washout (in_param, time_constant, hz, gain = 1.0, initial_value = None):
     '''
     Computes the transfer function
           x.G.s
@@ -393,11 +397,8 @@ def first_order_washout (in_param, time_constant, hz, gain = 1.0, initial_value 
     y_term = np.array(y_term)
     
     z_initial = lfilter_zi(x_term, y_term)
-    '''
-    I'd like to move to this phase-neutral implementation...
-    
-    answer = filtfilt(x_term, y_term, input_data)
-    '''
+    if initial_value == None:
+        initial_value = input_data[0]
     # Tested version here...
     answer, z_final = lfilter(x_term, y_term, input_data, zi=z_initial*initial_value)
     masked_result = np.ma.array(answer)

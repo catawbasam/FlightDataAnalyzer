@@ -1,7 +1,7 @@
 import logging
 import numpy as np
 
-from analysis.node import A, DerivedParameterNode, KPV, KTI, P, S
+from analysis.node import A, DerivedParameterNode, KPV, KTI, P, S, Parameter
 
 from analysis.library import (align, 
                               first_order_lag,
@@ -224,24 +224,24 @@ class RateOfClimb(DerivedParameterNode):
     def derive(self, 
                az = P('Acceleration Vertical'),
                alt_std = P('Altitude STD'),
-               alt_rad = P('Altitude_Radio'),
-               ige = P('InGroundEfrfect')
+               alt_rad = P('Altitude Radio For Phases'),
+               ige = P('In Ground Effect')
                ):
-        roc = Parameter('roc',rate_of_change(Parameter('temp',align(alt_std, az),alt_std.hz), 2),alt_std.hz,alt_std.offset)
-        roc_rad_ma = rate_of_change(Parameter('temp',align(alt_rad, az),alt_rad.hz), 1)
-        
+        alt_std_array = align(alt_std, az)
+        ##alt_rad_array = align(alt_rad, az)
+                
         # Use pressure altitude rate outside ground effect and 
         # radio altitude data inside ground effect.
-        for this_ige in ige:
-            a = this_ige.slice.start
-            b = this_ige.slice.stop
-            roc.array[a:b] = roc_rad_ma[a:b]
+        ##for this_ige in ige:
+            ##a = this_ige.slice.start
+            ##b = this_ige.slice.stop
+            ##roc.array[a:b] = roc_rad_ma[a:b]
+        roc_altitude = first_order_washout(alt_std_array, RATE_OF_CLIMB_LAG_TC, az.hz)
         
         # Lag this rate of climb
-        lagged_roc = first_order_lag (roc.array, RATE_OF_CLIMB_LAG_TC, roc.hz)
         az_washout = first_order_washout (az.array, AZ_WASHOUT_TC, az.hz, initial_value = az.array[0])
         inertial_roc = first_order_lag (az_washout, RATE_OF_CLIMB_LAG_TC, az.hz, gain=GRAVITY*RATE_OF_CLIMB_LAG_TC*60.0)
-        self.array = lagged_roc + inertial_roc
+        self.array = roc_altitude + inertial_roc
 
 
 class RateOfClimbForPhases(DerivedParameterNode):
