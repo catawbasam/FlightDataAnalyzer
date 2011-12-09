@@ -30,34 +30,34 @@ class _500ftTo0ft(SectionNode):
         self.create_sections(alt_slices)
 
 
-class BouncedLanding(SectionNode):
-    '''
-    Q: Is this a valid Section?
-    '''
-    def derive(self): # TODO: What should the arguments be?
-        pass
+#class BouncedLanding(SectionNode):
+    #'''
+    #Q: Is this a valid Section?
+    #'''
+    #def derive(self, param=P('Flap')): # TODO: What should the arguments be?
+        #pass
 
 
-class TaxiOut(SectionNode):
-    def derive(self): # TODO: What should the arguments be?
-        pass
+#class TaxiOut(SectionNode):
+    #def derive(self, param=P('Flap')): # TODO: What should the arguments be?
+        #pass
 
 
-class TaxiIn(SectionNode):
-    def derive(self): # TODO: What should the arguments be?
-        pass
+#class TaxiIn(SectionNode):
+    #def derive(self, param=P('Flap')): # TODO: What should the arguments be?
+        #pass
 
 
-class LevelBust(SectionNode):
-    def derive(self): # TODO: What should the arguments be?
-        pass
+#class LevelBust(SectionNode):
+    #def derive(self, param=P('Flap')): # TODO: What should the arguments be?
+        #pass
 
 
-class OnGround(SectionNode):
-    def derive(self): # TODO: What should the arguments be?
-        pass
+#class OnGround(SectionNode):
+    #def derive(self, param=P('Flap')): # TODO: What should the arguments be?
+        #pass
 
 
-class GearSelectedUp(SectionNode):
-    def derive(self): # TODO: What should the arguments be?
-        pass
+#class GearSelectedUp(SectionNode):
+    #def derive(self, param=P('Flap')): # TODO: What should the arguments be?
+        #pass

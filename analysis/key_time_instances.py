@@ -3,7 +3,7 @@ import numpy as np
 
 from analysis.library import time_at_value_wrapped
 
-from analysis.node import FlightPhaseNode, P, S
+from analysis.node import FlightPhaseNode, P, S, KTI
 
 from analysis.node import KeyTimeInstance, KeyTimeInstanceNode
 
@@ -143,83 +143,83 @@ class FlapStateChanges(KeyTimeInstanceNode):
 
 
 class _1000FtInApproach(KeyTimeInstanceNode):
-    def derive(self): # Q: Args?
+    def derive(self, alt_std=P('Altitude STD')): # Q: Args?
         return NotImplemented
 
 
 class _1500FtInApproach(KeyTimeInstanceNode):
-    def derive(self): # Q: Args?
+    def derive(self, alt_std=P('Altitude STD')): # Q: Args?
         return NotImplemented
 
 
 class _3000FtInApproach(KeyTimeInstanceNode):
-    def derive(self): # Q: Args?
+    def derive(self, alt_std=P('Altitude STD')): # Q: Args?
         return NotImplemented
 
 
 # Q: Is final approach distinction correct?
 class _100FtInFinalApproach(KeyTimeInstanceNode):
-    def derive(self): # Q: Args?
+    def derive(self, alt_std=P('Altitude STD')): # Q: Args?
         return NotImplemented
 
 
 class _150FtInFinalApproach(KeyTimeInstanceNode):
-    def derive(self): # Q: Args?
+    def derive(self, alt_std=P('Altitude STD')): # Q: Args?
         return NotImplemented
                 
 
 class _500FtInFinalApproach(KeyTimeInstanceNode):
-    def derive(self): # Q: Args?
+    def derive(self, alt_std=P('Altitude STD')): # Q: Args?
         return NotImplemented
 
 
 class _1000FtInFinalApproach(KeyTimeInstanceNode):
-    def derive(self): # Q: Args?
+    def derive(self, alt_std=P('Altitude STD')): # Q: Args?
         return NotImplemented
 
 
 class _2000FtInFinalApproach(KeyTimeInstanceNode):
-    def derive(self): # Q: Args?
+    def derive(self, alt_std=P('Altitude STD')): # Q: Args?
         return NotImplemented
 
 
 class _50FtInInitialClimb(KeyTimeInstanceNode):
-    def derive(self): # Q: Args?
+    def derive(self, alt_std=P('Altitude STD')): # Q: Args?
         return NotImplemented
 
 
 class _100FtInInitialClimb(KeyTimeInstanceNode):
-    def derive(self): # Q: Args?
+    def derive(self, alt_std=P('Altitude STD')): # Q: Args?
         return NotImplemented
 
 
 class _400FtInInitialClimb(KeyTimeInstanceNode):
-    def derive(self): # Q: Args?
+    def derive(self, alt_std=P('Altitude STD')): # Q: Args?
         return NotImplemented
 
 
 class _500FtInInitialClimb(KeyTimeInstanceNode):
-    def derive(self): # Q: Args?
+    def derive(self, alt_std=P('Altitude STD')): # Q: Args?
         return NotImplemented
 
 
 class _1000FtInClimb(KeyTimeInstanceNode):
-    def derive(self): # Q: Args?
+    def derive(self, alt_std=P('Altitude STD')): # Q: Args?
         return NotImplemented
 
 
 class _1500FtInClimb(KeyTimeInstanceNode):
-    def derive(self): # Q: Args?
+    def derive(self, alt_std=P('Altitude STD')): # Q: Args?
         return NotImplemented
 
 
 class _2000FtInClimb(KeyTimeInstanceNode):
-    def derive(self): # Q: Args?
+    def derive(self, alt_std=P('Altitude STD')): # Q: Args?
         return NotImplemented
 
 
 class _3500FtInClimb(KeyTimeInstanceNode):
-    def derive(self): # Q: Args?
+    def derive(self, alt_std=P('Altitude STD')): # Q: Args?
         return NotImplemented
 
 
@@ -249,7 +249,7 @@ class _50FtInLanding(KeyTimeInstanceNode):
 
 
 class _35FtInTakeoff(KeyTimeInstanceNode):
-    def derive(self): # Q: Args?
+    def derive(self, alt_std=P('Altitude STD')): # Q: Args?
         return NotImplemented
 
     

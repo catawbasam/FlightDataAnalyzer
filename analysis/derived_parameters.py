@@ -121,7 +121,7 @@ class AltitudeRadioForPhases(DerivedParameterNode):
 
 class AltitudeQNH(DerivedParameterNode):
     name = 'Altitude QNH'
-    def derive(self):
+    def derive(self, param=P('Flap')):
         return NotImplemented
 
 
@@ -133,7 +133,7 @@ class AltitudeTail(DerivedParameterNode):
     # the main gear to the point on the tail most likely to scrape the runway.
     def derive(self, alt_rad = P('Altitude Radio'), 
                pitch = P('Pitch'),
-               dist_gear_to_tail=None):#A('Dist Gear To Tail')): # TODO: Is this name correct?
+               dist_gear_to_tail=P('Dist Gear To Tail')):#A('Dist Gear To Tail')): # TODO: Is this name correct?
         # Align the pitch attitude samples to the Radio Altimeter samples,
         # ready for combining them.
         pitch_aligned = np.radians(align(pitch, alt_rad))
@@ -303,165 +303,165 @@ class Pitch(DerivedParameterNode):
 
 
 class AccelerationLateral(DerivedParameterNode):
-    def derive(self): # Q: Args?
+    def derive(self, param=P('Flap')): # Q: Args?
         return NotImplemented
 
 
 class DontSinkWarning(DerivedParameterNode):
-    def derive(self): # Q: Args?
+    def derive(self, param=P('Flap')): # Q: Args?
         return NotImplemented
 
 
 class EngineNEGT(DerivedParameterNode):
     name = "Engine (N) EGT"
-    def derive(self): # Q: Args?
+    def derive(self, param=P('Flap')): # Q: Args?
         return NotImplemented
 
 
 class EngineNN1(DerivedParameterNode):
     name = "Engine (N) N1"
-    def derive(self): # Q: Args?
+    def derive(self, param=P('Flap')): # Q: Args?
         return NotImplemented
 
 
 class EngineNN2(DerivedParameterNode):
     name = "Engine (N) N2"
-    def derive(self): # Q: Args?
+    def derive(self, param=P('Flap')): # Q: Args?
         return NotImplemented
 
 
 class EngineNOilPress(DerivedParameterNode):
     name = "Engine (N) Oil Press"
-    def derive(self): # Q: Args?
+    def derive(self, param=P('Flap')): # Q: Args?
         return NotImplemented
 
 
 class Engine1OilTemp(DerivedParameterNode):
     name = "Engine (1) Oil Temp"
-    def derive(self): # Q: Args?
+    def derive(self, param=P('Flap')): # Q: Args?
         return NotImplemented
 
 
 class EngineNOilPressLow(DerivedParameterNode):
     name = 'Engine (N) Oil Press Low'
-    def derive(self): # Q: Args?
+    def derive(self, param=P('Flap')): # Q: Args?
         return NotImplemented
 
 
 class GPWSSinkRate(DerivedParameterNode):
     name = "GPWS Sink Rate"
-    def derive(self): # Q: Args?
+    def derive(self, param=P('Flap')): # Q: Args?
         return NotImplemented
 
 
 class GPWSGlideslope(DerivedParameterNode):
     name = "GPWS Glideslope"
-    def derive(self): # Q: Args?
+    def derive(self, param=P('Flap')): # Q: Args?
         return NotImplemented
 
 
 class GPWSWindshear(DerivedParameterNode):
     name = "GPWS Windshear"
-    def derive(self): # Q: Args?
+    def derive(self, param=P('Flap')): # Q: Args?
         return NotImplemented
 
 
 class GPWSTooLowFlap(DerivedParameterNode):
     name = 'GPWS Too Low Flap'
-    def derive(self): # Q: Args?
+    def derive(self, param=P('Flap')): # Q: Args?
         return NotImplemented
 
 
 class GPWSTooLowGear(DerivedParameterNode):
     name = 'GPWS Too Low Gear'
-    def derive(self): # Q: Args?
+    def derive(self, param=P('Flap')): # Q: Args?
         return NotImplemented
 
 
 # Are the following the same?
 class GPWSTooLowTerrain(DerivedParameterNode):
     name = 'GPWS Too Low Terrain'
-    def derive(self): # Q: Args?
+    def derive(self, param=P('Flap')): # Q: Args?
         return NotImplemented
 
 
 class GPWSTerrainPullUp(DerivedParameterNode):
     name = 'GPWS Terrain Pull Up'
-    def derive(self): # Q: Args?
+    def derive(self, param=P('Flap')): # Q: Args?
         return NotImplemented
 
 
 class GPWSTerrain(DerivedParameterNode):
     name = 'GPWS Terrain'
-    def derive(self): # Q: Args?
+    def derive(self, param=P('Flap')): # Q: Args?
         return NotImplemented
     
 
 class ILSLocaliser(DerivedParameterNode):
     name = "ILS Localiser"
-    def derive(self): # Q: Args?
+    def derive(self, param=P('Flap')): # Q: Args?
         return NotImplemented
 
 
 class GoAround(DerivedParameterNode): # Q: is this a parameter?
-    def derive(self): # Q: Args?
+    def derive(self, param=P('Flap')): # Q: Args?
         return NotImplemented
 
 
 class GearSelectedDown(DerivedParameterNode): # Q: is this a parameter?
-    def derive(self): # Q: Args?
+    def derive(self, param=P('Flap')): # Q: Args?
         return NotImplemented
 
 
 class GearSelectedUp(DerivedParameterNode):
-    def derive(self): # TODO: What should the arguments be?
+    def derive(self, param=P('Flap')): # TODO: What should the arguments be?
         pass
 
 
 # Q: Should these be KPVs?
 class EngineN1Average(DerivedParameterNode): # Q: is this a parameter?
-    def derive(self): # Q: Args?
+    def derive(self, param=P('Flap')): # Q: Args?
         return NotImplemented
 
 
 class EngineNAverage(DerivedParameterNode):
     name = 'Engine (N) Average'
-    def derive(self): # Q: Args?
+    def derive(self, param=P('Flap')): # Q: Args?
         return NotImplemented
 
 
 class EngineN1Minimum(DerivedParameterNode): # Q: is this a parameter?
-    def derive(self): # Q: Args?
+    def derive(self, param=P('Flap')): # Q: Args?
         return NotImplemented
 
 
 class EngineNAverage(DerivedParameterNode): # Q: is this a parameter?
-    def derive(self): # Q: Args?
+    def derive(self, param=P('Flap')): # Q: Args?
         return NotImplemented
 
 
 class GrossWeight(DerivedParameterNode):
-    def derive(self): # Q: Args?
+    def derive(self, param=P('Flap')): # Q: Args?
         return NotImplemented
 
 
 class ThrustLeverN(DerivedParameterNode):
     name = 'Thrust Lever (N)'
-    def derive(self): # Q: Args?
+    def derive(self, param=P('Flap')): # Q: Args?
         return NotImplemented
 
 
 class Speedbrake(DerivedParameterNode):
-    def derive(self): # Q: Args?
+    def derive(self, param=P('Flap')): # Q: Args?
         return NotImplemented
 
 
 class RudderReversal(DerivedParameterNode):
-    def derive(self): # Q: Args?
+    def derive(self, param=P('Flap')): # Q: Args?
         return NotImplemented
 
 
 class EngineNVibN2(DerivedParameterNode):
     name = 'Engine (N) Vib N2'
-    def derive(self): # Q: Args?
+    def derive(self, param=P('Flap')): # Q: Args?
         return NotImplemented

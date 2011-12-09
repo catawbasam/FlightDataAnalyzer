@@ -197,7 +197,9 @@ class GrossWeightAtTouchDown(KeyPointValueNode):
 class EGTMax(KeyPointValueNode): # which engine? or all engines? # or all and each!?
     ##returns = "EGT Max"  # add which engine?
     NAME_FORMAT = 'EGT Max %(engine)s'
-    RETURN_OPTIONS = {'engine': dependencies + ['Engine (*) EGT']}
+    # FIXME: In the following line, dependencies is not defined when the file
+    # is parsed.
+    #RETURN_OPTIONS = {'engine': dependencies + ['Engine (*) EGT']}
 
     @classmethod
     def can_operate(cls, available):
@@ -623,7 +625,8 @@ class GrossWeightAtTouchdown(KeyPointValueNode):
 
 
 class GrossWeightAtTouchdown(KeyPointValueNode):
-    def derive(self):
+    def derive(self, gross_weight=P('Gross Weight'),
+               touchdown=KTI('Touchdown')):
         return NotImplemented
 
 
@@ -688,7 +691,7 @@ class PitchRate35To1500FeetMax(KeyPointValueNode):
         return NotImplemented
 
 
-class PitchRate(From2DegreesOfPitch?)To35FeetMin(KeyPointValueNode):
+class PitchRateFrom2DegreesOfPitchTo35FeetMin(KeyPointValueNode):
     def derive(self, pitch_rate=P('Pitch Rate'), liftoff=KTI('Liftoff'),
                _35_ft_in_takeoff=KTI('35 Ft In Takeoff')):
         return NotImplemented
@@ -702,12 +705,6 @@ class PowerOnWithSpeedbrakesDeployedDurationGreaterThanLimit(KeyPointValueNode):
 
 class PullUpWarning(KeyPointValueNode):
     def derive(self, gpws_pull_up=P('GPWS Pull Up')):
-        return NotImplemented
-
-
-class GroundspeedRTOMax(KeyPointValueNode):
-    name = 'Groundspeed RTO Max'
-    def derive(self, ):
         return NotImplemented
 
 
@@ -878,7 +875,7 @@ class AirspeedV2400To1500FeetMin(KeyPointValueNode):
 
 class AirspeedV2AtLiftOff(KeyPointValueNode):
     name = 'Airspeed V2 At Lift Off'
-    def derive(self):
+    def derive(self, airspeed=P('Airspeed')):
         return NotImplemented
 
 
