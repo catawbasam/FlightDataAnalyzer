@@ -26,7 +26,8 @@ def get_verbose_name(class_name):
         # Remove initial underscore to allow class names starting with numbers
         # e.g. '_1000FtInClimb' will become '1000 Ft In Climb'
         class_name = class_name[1:]
-    return re.sub('(((?<=[a-z])[A-Z])|([A-Z](?![A-Z]|$)))', ' \\1',
+    # TODO: Add exclusions for N1 and V2 to avoid a space being entered.
+    return re.sub('(((?<=[a-z])[A-Z0-9])|([A-Z0-9](?![A-Z0-9]|$)))', ' \\1',
                   class_name).lower().strip()
 
 

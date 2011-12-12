@@ -203,7 +203,7 @@ class EGTMax(KeyPointValueNode): # which engine? or all engines? # or all and ea
 
     @classmethod
     def can_operate(cls, available):
-        if set(cls.dependencies).intersection(available):
+        if set(cls.get_dependency_names()).intersection(available):
             return True  # if ANY are available
         else:
             return False  # we have no EGT recorded on any engines
@@ -316,17 +316,8 @@ class AirspeedMinusVref500ftTo0ftMax(KeyPointValueNode):
             when = np.ma.argmax(airspeed_minus_vref.array[sect]) + sect.start
             max_spd = airspeed_minus_vref.array[when]
             self.create_kpv(when, max_spd)
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
+
+
 #TODO:
 #toc = altitude_std[kpt['TopOfClimb']] # Indexing n_toc into the reduced array [block]
 #kpv['Altitude_TopOfClimb'] = [(kpt['TopOfClimb'], toc, altitude_std)]

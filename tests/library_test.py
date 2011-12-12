@@ -59,8 +59,30 @@ class TestAlign(unittest.TestCase):
         second.offset = 0.7
         second.array = np.ma.array([0,0,1,1,0,1,0,1],dtype=float)
         
-        result = align(second, first, mode='Discrete') #  sounds more natural so order reversed 20/11/11
+        result = align(second, first, signaltype='Discrete') #  sounds more natural so order reversed 20/11/11
         np.testing.assert_array_equal(result.data, [0,0,0,1,1,0,1,0])
+        np.testing.assert_array_equal(result.mask, False)
+                        
+                        
+    def test_align_multi_state(self):
+        class DumParam():
+            def __init__(self):
+                self.offset = None
+                self.hz = None
+                self.array = []
+                
+        first = DumParam()
+        first.hz = 1
+        first.offset = 0.6
+        first.array = np.ma.array([11,12,13,14,15],dtype=float)
+        
+        second = DumParam()
+        second.hz = 1
+        second.offset = 0.0
+        second.array = np.ma.array([0,1,2,3,4],dtype=float)
+        
+        result = align(second, first, signaltype='Discrete') #  sounds more natural so order reversed 20/11/11
+        np.testing.assert_array_equal(result.data, [1,2,3,4,4])
         np.testing.assert_array_equal(result.mask, False)
                         
     def test_align_assert_array_lengths(self):
@@ -74,7 +96,7 @@ class TestAlign(unittest.TestCase):
         first.hz = 4
         first.array = np.ma.array(range(8))
         second = DumParam()
-        second.hz = 4
+        second.hz = 2
         second.array = np.ma.array(range(7)) # Unmatched array length !
         self.assertRaises (AssertionError, align, first, second)
                 
@@ -435,7 +457,7 @@ class TestFirstOrderWashout(unittest.TestCase):
 
     def test_firstorderwashout_gain(self):
         array = np.ma.ones(20)
-        result = first_order_washout (array, 1.0, 1.0, gain = 10.0)
+        result = first_order_washout (array, 1.0, 1.0, gain = 10.0, initial_value = 0.0)
         # With a short time constant and more samples, the end result will
         # reach the input level (1.0) multiplied by the gain.
         self.assertAlmostEquals(result.data[0], 6.6666667)
