@@ -146,7 +146,7 @@ def process_flight(hdf_path, aircraft_info, achieved_flight_record=None, draw=Fa
     # open HDF for reading
     with hdf_file(hdf_path) as hdf:
         # get list of KPV and standard parameters to be calculated
-        required_params = get_required_params(aircraft)
+        required_params = get_required_params(aircraft_info)
         # assume that all params in HDF are from LFL(!)
         lfl_params = hdf.keys()
         # calculate dependency tree
@@ -184,6 +184,11 @@ def process_flight(hdf_path, aircraft_info, achieved_flight_record=None, draw=Fa
 
 
 if __name__ == '__main__':
-    import sys
-    hdf_path = sys.argv[1]
-    process_flight(hdf_path, None)
+    import argparse
+    parser = argparse.ArgumentParser(description="Process a flight.")
+    parser.add_argument('file', type=str,
+                        help='Path of file to process.')
+    parser.add_argument('-p', dest='plot', action='store_true',
+                        default=False, help='Plot flight onto a graph.')
+    args = parser.parse_args()
+    process_flight(args.file, None, draw=args.plot)
