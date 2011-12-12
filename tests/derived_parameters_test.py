@@ -310,7 +310,7 @@ class TestPitch(unittest.TestCase):
         
 class TestRateOfClimb(unittest.TestCase):
     def test_can_operate(self):
-        expected = [('Acceleration Vertical','Altitude STD','Altitude_Radio',
+        expected = [('Acceleration Vertical','Altitude STD','Altitude Radio',
                      'In Ground Effect')]
         opts = RateOfClimb.get_operational_combinations()
         self.assertEqual(opts, expected)

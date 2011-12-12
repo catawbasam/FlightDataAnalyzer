@@ -224,8 +224,8 @@ class RateOfClimb(DerivedParameterNode):
     def derive(self, 
                az = P('Acceleration Vertical'),
                alt_std = P('Altitude STD'),
-               alt_rad = P('Altitude_Radio'),
-               ige = P('InGroundEfrfect')
+               alt_rad = P('Altitude Radio'),
+               ige = P('In Ground Effect')
                ):
         roc = Parameter('roc',rate_of_change(Parameter('temp',align(alt_std, az),alt_std.hz), 2),alt_std.hz,alt_std.offset)
         roc_rad_ma = rate_of_change(Parameter('temp',align(alt_rad, az),alt_rad.hz), 1)
