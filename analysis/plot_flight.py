@@ -133,3 +133,7 @@ def plot_flight (hdf_path, kti_list, kpv_list, phase_list):
                         rotation='vertical'
                         )
     show()
+
+if __name__ == '__main__':
+    
+    plot_flight()

@@ -3,8 +3,12 @@ try:
 except ImportError:
     import unittest
 
-from analysis.dependency_graph import dependency_order, process_order, graph_nodes
-from analysis.node import A, KPV, KTI, Node, NodeManager, Parameter, P, Section, S
+import networkx as nx
+
+from analysis.dependency_graph import (breadth_first_search_all_nodes,
+    dependency_order, graph_nodes, process_order)
+from analysis.node import (A, KPV, KTI, Node, NodeManager, Parameter, P, 
+                           Section, S)
 
 # mock function
 f = lambda x: x
@@ -127,3 +131,11 @@ class TestDependencyGraph(unittest.TestCase):
         #create a kpv
         #create a param that depends on one of the kpv return types
         self.assertTrue(False)
+    
+    def test_breadth_first_search_all_nodes_recursive(self):
+        digraph = nx.DiGraph()
+        digraph.add_node('root')
+        digraph.add_edges_from([('Bounced Landing', 'Bounced Landing'),
+                                ('root', 'Bounced Landing')])
+        self.assertRaises(ValueError,
+                          breadth_first_search_all_nodes, digraph, 'root')

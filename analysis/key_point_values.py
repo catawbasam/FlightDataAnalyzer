@@ -368,7 +368,7 @@ class FlapAtTouchdown(KeyPointValueNode):
 
 # FIXME: Bounced Landing name duplicated between KPV and Section!
 class BouncedLanding(KeyPointValueNode):
-    def derive(self, bounced_landing=S('Bounced Landing')):
+    def derive(self, bounced_landing=S('Bounced Landing Section')):
         return NotImplemented
 
 
@@ -411,12 +411,6 @@ class HeightAtConfigChangeLiftOffTo3500FeetMin(KeyPointValueNode):
 class EGTTakeoffMax(KeyPointValueNode):
     name = 'EGT Takeoff Max'
     def derive(self, eng_n_egt=P('Engine (N) EGT'), liftoff=KTI('Liftoff')):
-        return NotImplemented
-
-
-class EGTMax(KeyPointValueNode):
-    name = 'EGT Max'
-    def derive(self, eng_n_egt=P('Engine (N) EGT')):
         return NotImplemented
 
 

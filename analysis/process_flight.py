@@ -14,6 +14,7 @@ from analysis.node import (
 
 def get_required_params(aircraft):
     """
+    TODO: Implement.
     """
     param_list = [] ##['Rate Of Descent High', 'Top of Climb and Top of Descent']
     return param_list
@@ -157,7 +158,7 @@ def process_flight(hdf_path, aircraft_info, achieved_flight_record=None, draw=Fa
             settings.PRE_FLIGHT_ANALYSIS(hdf, aircraft, process_order)
             
         kti_list, kpv_list, phase_list = derive_parameters(hdf, node_mgr, process_order)
-
+        
         #Q: Confirm aircraft tail here?
         ##validate_aircraft(aircraft['Identifier'], hdf['aircraft_ident'])
         
