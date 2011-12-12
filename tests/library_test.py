@@ -16,7 +16,7 @@ from analysis.library import (align, calculate_timebase, create_phase_inside,
                               first_order_lag, first_order_washout, hash_array,
                               hysteresis, interleave, merge_alternate_sensors,
                               rate_of_change, repair_mask, straighten_headings,
-                              time_at_value, value_at_time)
+                              time_at_value, time_at_value_wrapped, value_at_time)
 
 from analysis.node import A, KPV, KTI, Parameter, P, S
 
@@ -746,6 +746,14 @@ class TestTimeAtValue(unittest.TestCase):
         array[1] = np.ma.masked
         self.assertEquals (time_at_value(array, 1, 0.0, 0, 3, 1.5), None)
         
+class TestTimeAtValueWrapped(unittest.TestCase):
+    # Reminder: time_at_value_wrapped(parameter, block, value):
+  
+    def test_time_at_value_wrapped_basic(self):
+        test_param = P('TAVW_param',np.ma.array(range(4),dtype=float),1,0.2)
+        test_section = S('TAVW_section',slice(0,4))
+        self.assertEquals (time_at_value_wrapped(test_param,test_section,2.5),2.5)
+
         
 class TestValueAtTime(unittest.TestCase):
 
