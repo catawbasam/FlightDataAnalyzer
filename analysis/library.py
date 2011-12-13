@@ -62,6 +62,9 @@ def align(slave, master, interval='Subframe', signaltype='Analogue'):
     :returns: Slave array aligned to master.
     :rtype: np.ma.array
     """
+    if slave.frequency == master.frequency and slave.offset == master.offset:
+        return slave.array
+    
     # Check the interval is one of the two forms we recognise
     assert interval in ['Subframe', 'Frame']
     
@@ -71,7 +74,7 @@ def align(slave, master, interval='Subframe', signaltype='Analogue'):
     slave_array = slave.array # Optimised access to attribute.
     if len(slave_array) == 0:
         return slave_array # Otherwise would raise in loop.
-    if master.hz == slave.hz and master.offset == slave.offset:
+    if master.frequency == slave.frequency and master.offset == slave.offset:
         # No alignment is required, return the slave's array unchanged.
         return slave.array
     
@@ -86,11 +89,11 @@ def align(slave, master, interval='Subframe', signaltype='Analogue'):
     ts = slave.offset
 
     # Get the sample rates for the two parameters
-    wm = master.hz
-    ws = slave.hz
+    wm = master.frequency
+    ws = slave.frequency
 
     # Express the timing disparity in terms of the slave paramter sample interval
-    delta = (tp-ts)*slave.hz
+    delta = (tp-ts)*slave.frequency
 
     # If we are working across a complete frame, the number of samples in each case
     # is four times greater.
@@ -474,13 +477,13 @@ def interleave (param_1, param_2):
     
     """
     # Check the conditions for merging are met
-    if param_1.hz != param_2.hz:
+    if param_1.frequency != param_2.frequency:
         raise ValueError, 'Attempt to interleave parameters at differing sample rates'
 
     dt = param_2.offset - param_1.offset
     # Note that dt may suffer from rounding errors, 
     # hence rounding the value before comparison.
-    if 2*abs(round(dt,6)) != 1/param_1.hz: 
+    if 2*abs(round(dt,6)) != 1/param_1.frequency: 
                 raise ValueError, 'Attempt to interleave parameters that are not correctly aligned'
     
     merged_array = np.ma.zeros((2, len(param_1.array)))
@@ -512,12 +515,12 @@ def interleave_uneven_spacing (param_1, param_2):
     '''
     
     # Check the conditions for merging are met
-    if param_1.hz != param_2.hz:
+    if param_1.frequency != param_2.frequency:
         raise ValueError, 'Attempt to interleave parameters at differing sample rates'
 
     mean_offset = (param_2.offset + param_1.offset) / 2.0
-    result_offset = mean_offset - 1.0/(2.0 * param_1.hz)
-    dt = 1.0/param_1.hz
+    result_offset = mean_offset - 1.0/(2.0 * param_1.frequency)
+    dt = 1.0/param_1.frequency
     
     merged_array = np.ma.zeros((2, len(param_1.array)))
 
@@ -584,8 +587,8 @@ def rate_of_change(diff_param, half_width):
     :param diff_param: input Parameter
     :type diff_param: Parameter object
     :type diff_param.array : masked array
-    :param diff_param.hz : sample rate for the input data (sec-1)
-    :type diff_param.hz: float
+    :param diff_param.frequency : sample rate for the input data (sec-1)
+    :type diff_param.frequency: float
     :param half_width: half the differentiation time period (sec)
     :type half_width: float
     :returns: masked array of values with differentiation applied
@@ -593,7 +596,7 @@ def rate_of_change(diff_param, half_width):
     Note: Could look at adapting the np.gradient function, however this does not
     handle masked arrays.
     '''
-    hz = diff_param.hz
+    hz = diff_param.frequency
     to_diff = diff_param.array
     
     hw = half_width * hz
@@ -657,7 +660,7 @@ def time_at_value_wrapped(parameter, section, value):
     :type value: float
     '''
     data = parameter.array[section.slice]
-    return time_at_value (repair_mask(data) , parameter.hz, 
+    return time_at_value (repair_mask(data) , parameter.frequency, 
                           parameter.offset, 0, len(data)-1, value)
             
 def time_at_value (array, hz, offset, scan_start, scan_end, threshold):

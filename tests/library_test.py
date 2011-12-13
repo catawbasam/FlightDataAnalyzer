@@ -21,20 +21,27 @@ from analysis.library import (align, calculate_timebase, create_phase_inside,
 from analysis.node import A, KPV, KTI, Parameter, P, S, Section
 
 class TestAlign(unittest.TestCase):
+    
+    def test_align_returns_same_array_if_aligned(self):
+        slave = P('slave', np.ma.array(range(10)))
+        master = P('master', np.ma.array(range(30)))
+        aligned = align(slave, master)
+        self.assertEqual(id(slave.array), id(aligned))
+        
     def test_align_basic(self):
         class DumParam():
             def __init__(self):
                 self.offset = None
-                self.hz = None
+                self.frequency = None
                 self.array = []
                 
         first = DumParam()
-        first.hz = 4
+        first.frequency = 4
         first.offset = 0.1
         first.array = np.ma.array(range(8))
         
         second = DumParam()
-        second.hz = 4
+        second.frequency = 4
         second.offset = 0.2
         second.array = np.ma.array(range(8))
         
@@ -46,16 +53,16 @@ class TestAlign(unittest.TestCase):
         class DumParam():
             def __init__(self):
                 self.offset = None
-                self.hz = None
+                self.frequency = None
                 self.array = []
                 
         first = DumParam()
-        first.hz = 1
+        first.frequency = 1
         first.offset = 0.0
         first.array = np.ma.array([0,0,1,1,0,1,0,1],dtype=float)
         
         second = DumParam()
-        second.hz = 1
+        second.frequency = 1
         second.offset = 0.7
         second.array = np.ma.array([0,0,1,1,0,1,0,1],dtype=float)
         
@@ -68,16 +75,16 @@ class TestAlign(unittest.TestCase):
         class DumParam():
             def __init__(self):
                 self.offset = None
-                self.hz = None
+                self.frequency = None
                 self.array = []
                 
         first = DumParam()
-        first.hz = 1
+        first.frequency = 1
         first.offset = 0.6
         first.array = np.ma.array([11,12,13,14,15],dtype=float)
         
         second = DumParam()
-        second.hz = 1
+        second.frequency = 1
         second.offset = 0.0
         second.array = np.ma.array([0,1,2,3,4],dtype=float)
         
@@ -89,14 +96,14 @@ class TestAlign(unittest.TestCase):
         class DumParam():
             def __init__(self):
                 self.offset = 0.0
-                self.hz = 1
+                self.frequency = 1
                 self.array = []
                 
         first = DumParam()
-        first.hz = 4
+        first.frequency = 4
         first.array = np.ma.array(range(8))
         second = DumParam()
-        second.hz = 2
+        second.frequency = 2
         second.array = np.ma.array(range(7)) # Unmatched array length !
         self.assertRaises (AssertionError, align, first, second)
                 
@@ -105,17 +112,17 @@ class TestAlign(unittest.TestCase):
         class DumParam():
             def __init__(self):
                 self.offset = None
-                self.hz = 1
+                self.frequency = 1
                 self.array = []
         master = DumParam()
         master.array = np.ma.array([0,1,2,3],dtype=float)
         # It is necessary to force the data type, as otherwise the array is cast
         # as integer and the result comes out rounded down as well.
-        master.hz = 1
+        master.frequency = 1
         master.offset = 0.5
         slave = DumParam()
         slave.array = np.ma.array([10,11,12,13],dtype=float)
-        slave.hz = 1
+        slave.frequency = 1
         slave.offset = 0.2
         result = align(slave, master)
         np.testing.assert_array_almost_equal(result.data, [10.3,11.3,12.3,13.0])
@@ -126,15 +133,15 @@ class TestAlign(unittest.TestCase):
         class DumParam():
             def __init__(self):
                 self.offset = None
-                self.hz = 1
+                self.frequency = 1
                 self.array = []
         master = DumParam()
         master.array = np.ma.array([0,1,2,3],dtype=float)
-        master.hz = 1
+        master.frequency = 1
         master.offset = 0.2
         slave = DumParam()
         slave.array = np.ma.array([10,11,12,13],dtype=float)
-        slave.hz = 1
+        slave.frequency = 1
         slave.offset = 0.5
         result = align(slave, master)
         np.testing.assert_array_almost_equal(result.data, [10.0,10.7,11.7,12.7])
@@ -145,17 +152,17 @@ class TestAlign(unittest.TestCase):
         class DumParam():
             def __init__(self):
                 self.offset = None
-                self.hz = 1
+                self.frequency = 1
                 self.array = []
         master = DumParam()
         master.array = np.ma.array([0,1,2,3,4,6,6,7],dtype=float)
         # It is necessary to force the data type, as otherwise the array is cast
         # as integer and the result comes out rounded down as well.
-        master.hz = 4
+        master.frequency = 4
         master.offset = 0.15
         slave = DumParam()
         slave.array = np.ma.array([10,11,12,13],dtype=float)
-        slave.hz = 2
+        slave.frequency = 2
         slave.offset = 0.1
         result = align(slave, master)
         np.testing.assert_array_almost_equal(result.data, [10.1,10.6,11.1,11.6,
@@ -167,18 +174,18 @@ class TestAlign(unittest.TestCase):
         class DumParam():
             def __init__(self):
                 self.offset = None
-                self.hz = 1
+                self.frequency = 1
                 self.array = []
         master = DumParam()
         master.array = np.ma.array([0,1,2,3,4,6,6,7,
                                    0,1,2,3,4,6,6,7],dtype=float)
         # It is necessary to force the data type, as otherwise the array is cast
         # as integer and the result comes out rounded down as well.
-        master.hz = 8
+        master.frequency = 8
         master.offset = 0.1
         slave = DumParam()
         slave.array = np.ma.array([10,11,12,13],dtype=float)
-        slave.hz = 2
+        slave.frequency = 2
         slave.offset = 0.15
         result = align(slave, master)
         np.testing.assert_array_almost_equal(result.data, [10.0,10.15,10.4,10.65,
@@ -191,19 +198,19 @@ class TestAlign(unittest.TestCase):
         class DumParam():
             def __init__(self):
                 self.offset = None
-                self.hz = 1
+                self.frequency = 1
                 self.array = []
         master = DumParam()
         master.array = np.ma.array([0,1,2,3,4,6,6,7,
                                    0,1,2,3,4,6,6,7],dtype=float)
         # It is necessary to force the data type, as otherwise the array is cast
         # as integer and the result comes out rounded down as well.
-        master.hz = 8
+        master.frequency = 8
         master.offset = 0.1
         slave = DumParam()
         slave.array = np.ma.array([10,11,12,13],dtype=float)
         slave.array[2] = np.ma.masked
-        slave.hz = 2
+        slave.frequency = 2
         slave.offset = 0.15
         result = align(slave, master)
         answer = np.ma.array(data = [10.0,10.15,10.4,10.65,
@@ -221,18 +228,18 @@ class TestAlign(unittest.TestCase):
         class DumParam():
             def __init__(self):
                 self.offset = None
-                self.hz = 1
+                self.frequency = 1
                 self.array = []
         master = DumParam()
         master.array = np.ma.array([0,1,2,3,4,6,6,7,
                                    0,1,2,3,4,6,6,7],dtype=float)
         # It is necessary to force the data type, as otherwise the array is cast
         # as integer and the result comes out rounded down as well.
-        master.hz = 8
+        master.frequency = 8
         master.offset = 0.1
         slave = DumParam()
         slave.array = np.ma.array([10,11],dtype=float)
-        slave.hz = 1
+        slave.frequency = 1
         slave.offset = 0.95
         result = align(slave, master)
         np.testing.assert_array_almost_equal(result.data,[10.0 ,10.0  ,10.0,10.0  ,
@@ -246,17 +253,17 @@ class TestAlign(unittest.TestCase):
         class DumParam():
             def __init__(self):
                 self.offset = None
-                self.hz = 1
+                self.frequency = 1
                 self.array = []
         master = DumParam()
         master.array = np.ma.zeros(64, dtype=float)
         # It is necessary to force the data type, as otherwise the array is cast
         # as integer and the result comes out rounded down as well.
-        master.hz = 8
+        master.frequency = 8
         master.offset = 0.1
         slave = DumParam()
         slave.array = np.ma.array([10,11],dtype=float)
-        slave.hz = 0.25
+        slave.frequency = 0.25
         slave.offset = 3.95
         result = align(slave, master, interval='Frame')
         # Build the correct answer...
@@ -274,18 +281,18 @@ class TestAlign(unittest.TestCase):
         class DumParam():
             def __init__(self):
                 self.offset = None
-                self.hz = 1
+                self.frequency = 1
                 self.array = []
         master = DumParam()
         master.array = np.ma.zeros(4, dtype=float)
         # It is necessary to force the data type, as otherwise the array is cast
         # as integer and the result comes out rounded down as well.
-        master.hz = 0.5
+        master.frequency = 0.5
         master.offset = 1.5
         slave = DumParam()
         # Fill a two-frame sample with linear data
         slave.array = np.ma.arange(32,dtype=float)
-        slave.hz = 4
+        slave.frequency = 4
         slave.offset = 0.1
         result = align(slave, master, interval='Frame')
         # Build the correct answer...

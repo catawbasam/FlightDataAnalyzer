@@ -54,8 +54,8 @@ def get_param_kwarg_names(method):
     """
     args, varargs, varkw, defaults = inspect.getargspec(method)
     if not defaults or args[:-len(defaults)] != ['self'] or varargs:
-        raise ValueError("Only kwargs accepted, cannot accept args: %s %s" % (
-            args[1:], varargs))
+        raise ValueError("Node '%s' must have kwargs, cannot accept no kwargs or any args other than 'self'. args:'%s' *args:'%s'" % (
+            method.im_class.get_name(), args[1:], varargs))
     if varkw:
         # One day, could insert all available params as kwargs - but cannot
         # guarentee requirements will work
@@ -147,6 +147,14 @@ class Node(object):
                 options.append(args)
         return options
     
+    # removed abstract wrapper to allow initialisation within def derive(KTI('a'))
+    ##@abstractmethod #TODO: Review removal.
+    def get_aligned(self, align_to_param):
+        """
+        Return a version of self which is aligned to the incoming argument.
+        """
+        raise NotImplementedError("Abstract Method")
+    
     def get_derived(self, args):
         """
         Accessor for derive method which first aligns all parameters to the
@@ -218,17 +226,16 @@ class DerivedParameterNode(Node):
         # create array results placeholder
         self.array = None # np.ma.array derive result goes here!
         super(DerivedParameterNode, self).__init__(*args, **kwargs)
-    
-    def get_derived(self, args):
-        super(DerivedParameterNode, self).get_derived(args)
-        if self.align_to_first_dependency:
-            first_param = next((a for a in args))
-            frequency = first_param.frequency
-            offset = first_param.offset
-        else:
-            frequency = self.frequency
-            offset = self.offset
-        return Parameter(self.get_name(), self.array, frequency, offset)
+        
+    def get_aligned(self, param):
+        """
+        Aligns itself to the input parameter and creates a copy
+        """
+        aligned_array = align(self, param)
+        aligned_param = DerivedParameterNode(frequency=param.frequency,
+                                             offset=param.offset)
+        aligned_param.array = aligned_array
+        return aligned_param
 
 
 class SectionNode(Node, list):
@@ -409,47 +416,75 @@ class KeyPointValueNode(FormattedNameNode, list):
     
     
 class FlightAttributeNode(Node):
+    """
+    Can only store a single value per Node, however the value can be any
+    object (dict, list, integer etc.)
+    """
     def __init__(self, *args, **kwargs):
-        self._flight_info = {}
-        self._allowed_attributes = (
-            '',
-            '',
-            ''
-            )
+        self._value = None
         super(FlightAttributeNode, self).__init__(*args, **kwargs)
     
-    def set_flight_attribute(self, attr_name, value):
-        if attr_name in self._allowed_attributes:
-            self._flight_info[attr_name] = value
-        else:
-            raise ValueError("Attribute '%s' is not permitted" % attr_name)
+    def set_flight_attribute(self, value):
+        self._value = value
     set_flight_attr = set_flight_attribute
     
-    def another_method(self):
-        return self._aircraft_info
+    def get_aligned(self, deps):
+        """
+        Cannot align a flight attribute.
+        """
+        return self
 
 
 class NodeManager(object):
     def __repr__(self):
-        return 'NodeManager: lfl x%d, requested x%d, derived x%d' % (
-            len(self.lfl), len(self.requested), len(self.derived_nodes))
+        return 'NodeManager: x%d nodes in total' % (
+            len(self.lfl) + len(self.requested) + len(self.derived_nodes) + 
+            len(self.aircraft_info) + len(self.achieved_flight_record))
     
-    def __init__(self, lfl, requested, derived_nodes):
+    def __init__(self, lfl, requested, derived_nodes, aircraft_info, achieved_flight_record):
         """
         Storage of parameter keys and access to derived nodes.
         
         :type lfl: list
         :type requested: list
         :type derived_nodes: dict
+        :type aircraft_info: dict
+        :type achieved_flight_record: dict
         """
         self.lfl = lfl
         self.requested = requested
         self.derived_nodes = derived_nodes
+        # Attributes:
+        self.aircraft_info = aircraft_info
+        self.achieved_flight_record = achieved_flight_record
         
     def keys(self):
         """
+        Ordered list of all Node names stored within the manager.
         """
-        return self.lfl + self.derived_nodes.keys()
+        return sorted(self.lfl \
+                      + self.derived_nodes.keys() \
+                      + self.aircraft_info.keys() \
+                      + self.achieved_flight_record.keys())
+    
+
+    def get_attribute(self, name):
+        """
+        Get an attribute value from aircraft_info or achieved_flight_record
+        dictionaries. If key is None, returns None. If key is present,
+        returns an Attribute.
+        
+        :param name: Attribute name.
+        :type name: String
+        :returns: Attribute if available.
+        :rtype: Attribute object or None
+        """
+        if self.aircraft_info.get(name):
+            return Attribute(name, value=self.aircraft_info[name])
+        elif self.achieved_flight_record.get(name):
+            return Attribute(name, value=self.achieved_flight_record[name])
+        else:
+            return None
     
     def operational(self, name, available):
         """
@@ -461,7 +496,10 @@ class NodeManager(object):
         if name in self.derived_nodes:
             #NOTE: Raises "Unbound method" here due to can_operate being overridden without wrapping with @classmethod decorator
             return self.derived_nodes[name].can_operate(available)
-        elif name in self.lfl or name == 'root':
+        elif name in self.lfl \
+             or self.aircraft_info.get(name) is not None \
+             or self.achieved_flight_record.get(name) is not None \
+             or name == 'root':
             return True
         else:  #elif name in unavailable_deps:
             logging.warning("Confirm - node is unavailable: %s", name)
@@ -471,6 +509,9 @@ class NodeManager(object):
 # for kwargs in Node derive methods. Cannot instantiate Node subclass without 
 # implementing derive.
 class Attribute(object):
+    def __repr__(self):
+        return "Attribute '%s' : %s" % (self.name, self.value)
+    
     def __init__(self, name, value=None):
         self.name = name
         self.value = value

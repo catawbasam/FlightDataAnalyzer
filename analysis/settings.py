@@ -6,12 +6,12 @@ NODE_MODULES = ['analysis.derived_parameters',
                 'analysis.key_point_values', 
                 'analysis.key_time_instances',
                 'analysis.sections',
-                'analysis.flight_phase']
+                'analysis.flight_phase',
+                'analysis.flight_attribute']
 
 ##########################
 ## Parameter Analysis
 ##########################
-
 
 # An airspeed below which you just can't possibly be flying.
 AIRSPEED_THRESHOLD = 80  # (kts)

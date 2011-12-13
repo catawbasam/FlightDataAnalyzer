@@ -216,13 +216,8 @@ class GrossWeightAtTouchdown(KeyPointValueNode):
         return NotImplemented
 
 
-class EngEGTMax(KeyPointValueNode): # which engine? or all engines? # or all and each!?
+class EngEGTMax(KeyPointValueNode):
     name = 'Eng EGT Max'
-    ##returns = "EGT Max"  # add which engine?
-    NAME_FORMAT = 'EGT Max %(engine)s'
-    # FIXME: In the following line, dependencies is not defined when the file
-    # is parsed.
-    #RETURN_OPTIONS = {'engine': dependencies + ['Eng (*) EGT']}
 
     @classmethod
     def can_operate(cls, available):
@@ -241,10 +236,10 @@ class EngEGTMax(KeyPointValueNode): # which engine? or all engines? # or all and
                 imax = _imax # index of max
                 vmax = _vmax # max value
                 kmax = p.name # param name of max eng
-        self.create_kpv(imax, vmax, engine=kmax) # include engine using kmax?
-
-
-class MagneticHeadingAtFt(KeyPointValue):
+        self.create_kpv(imax, vmax)
+    
+    
+class MagneticHeadingAtLiftOff(KeyPointValue):
     """ Shouldn't this be difference between aircraft heading and runway heading???
     """
     def derive(self, heading=P('Magnetic Heading'), liftoff=KTI('Liftoff')):

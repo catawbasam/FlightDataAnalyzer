@@ -214,7 +214,8 @@ def remove_nodes_without_edges(graph):
             graph.remove_node(node)
     return graph
      
-def dependency_order(lfl_params, required_params, modules=settings.NODE_MODULES, draw=True):
+def dependency_order(lfl_params, required_params, aircraft_info, 
+                     achieved_flight_record, modules=settings.NODE_MODULES, draw=True):
     """
     Main method for retrieving processing order of nodes.
     
@@ -235,15 +236,17 @@ def dependency_order(lfl_params, required_params, modules=settings.NODE_MODULES,
     if not required_params:
         logging.warning("No required_params declared, using all derived nodes")
         required_params = derived_nodes.keys()
+        
+    #TODO: Review whether adding all Flight Attributes as required params here is a sensible location
+    required_params += get_derived_nodes(['analysis.flight_attribute']).keys()
+    
     # keep track of all the node types
-    lfl_params = []# TODO: Remove line.
-    node_mgr = NodeManager(lfl_params, required_params, derived_nodes)
+    node_mgr = NodeManager(lfl_params, required_params, derived_nodes,
+                           aircraft_info, achieved_flight_record)
     _graph = graph_nodes(node_mgr)
-    _graph = remove_nodes_without_edges(_graph)
+    
+    ##_graph = remove_nodes_without_edges(_graph)
     ##draw_graph(_graph, 'Dependency Tree')
-    ### TODO: Remove following lines.
-    ##import sys
-    ##sys.exit(1)
     gr_all, gr_st, order = process_order(_graph, node_mgr)
     
     inoperable_required = list(set(required_params) - set(order))
