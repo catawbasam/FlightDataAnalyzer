@@ -644,8 +644,19 @@ def straighten_headings(heading_array):
     heading_array[1:] = np.cumsum(diff) + head_prev
     return heading_array
 
-def time_at_value_wrapped(parameter, block, value):
-    data = parameter.array[block.slice]
+def time_at_value_wrapped(parameter, section, value):
+    '''
+    This function makes it easier to access the time_at_value function 
+    when using POLARIS parameter and section components.
+
+    :param parameter: input data
+    :type parameter: parameter object
+    :param section: the section to be used for finding the value
+    :type section: section object
+    :param value: the threshold being sought
+    :type value: float
+    '''
+    data = parameter.array[section.slice]
     return time_at_value (repair_mask(data) , parameter.hz, 
                           parameter.offset, 0, len(data)-1, value)
             
