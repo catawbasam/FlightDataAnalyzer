@@ -77,17 +77,27 @@ class NormalGFtTo35FtMax(KeyPointValueNode): # Q: Name?
         return NotImplemented
 
 
-class NormalGMaxDeviation(KeyPointValueNode):
+class NormalGMaxAirborne(KeyPointValueNode):
     """ For discussion - why have Max and Min Normal g when it's just the max 
     distance from 0.98 that's interesting?
+    Because it's the structural loading that's interesting, and the wing is not
+    symmetrical. Also, high positive loads are comfortable for passengers and
+    fluids in the aircraft while the opposite negative g causes injury and 
+    sends fluids to the top of their containers.
     """
     def derive(self, norm_g=P('Normal g'), airborne=S('Airborne')):
-        STANDARD_GRAVITY = 9.80665
         for airborne_slice in airborne:
-            normg_in_air = norm_g.array.data[airborne_slice]
-            gdiff = np.ma.absolute(normg_in_air - STANDARD_GRAVITY)
-            max_index = gdiff.argmax()
-            self.create_kpv(max_index, gdiff[max_index])    
+            normg_in_air_max_index = np.ma.argmax(norm_g.array[airborne_slice])
+            normg_in_air_max_value = norm_g.array.data[normg_in_air_max_index]
+            self.create_kpv(normg_in_air_max_index, normg_in_air_max_value)    
+
+
+class NormalGMinAirborne(KeyPointValueNode):
+    def derive(self, norm_g=P('Normal g'), airborne=S('Airborne')):
+        for airborne_slice in airborne:
+            normg_in_air_min_index = np.ma.argmin(norm_g.array[airborne_slice])
+            normg_in_air_min_value = norm_g.array.data[normg_in_air_max_index]
+            self.create_kpv(normg_in_air_min_index, normg_in_air_min_value)    
 
 
 class Pitch35To400FtMax(KeyPointValueNode):
