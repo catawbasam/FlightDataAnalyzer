@@ -217,6 +217,7 @@ class _50FtInInitialClimb(KeyTimeInstanceNode):
                                           climb, 50)
             self.create_kti(index, '50 Ft In Initial Climb')
 
+
 class _100FtInInitialClimb(KeyTimeInstanceNode):
     def derive(self, alt_aal=P('Altitude AAL')):
         return NotImplemented
@@ -257,9 +258,11 @@ class _3000FtInApproach(KeyTimeInstanceNode):
     def derive(self, alt_aal=P('Altitude AAL')):
         return NotImplemented
 
+
 class _1500FtInApproach(KeyTimeInstanceNode):
     def derive(self, alt_aal=P('Altitude AAL')):
         return NotImplemented
+
 
 class _1000FtInApproach(KeyTimeInstanceNode):
     def derive(self, alt_aal=P('Altitude AAL')):
@@ -270,52 +273,54 @@ class _2000FtInFinalApproach(KeyTimeInstanceNode):
     def derive(self, alt_aal=P('Altitude AAL')):
         return NotImplemented
 
+
 class _1000FtInFinalApproach(KeyTimeInstanceNode):
     def derive(self, alt_aal=P('Altitude AAL')):
         return NotImplemented
+
 
 class _500FtInFinalApproach(KeyTimeInstanceNode):
     def derive(self, alt_aal=P('Altitude AAL')):
         return NotImplemented
 
+
 class _150FtInFinalApproach(KeyTimeInstanceNode):
     def derive(self, alt_aal=P('Altitude AAL')):
         return NotImplemented
-                
+
+
 class _100FtInFinalApproach(KeyTimeInstanceNode):
     def derive(self, alt_aal=P('Altitude AAL')):
         return NotImplemented
 
 
-
-class _1MinToLanding(KeyTimeInstanceNode):
+class _1MinToTouchdown(KeyTimeInstanceNode):
     def derive(self, touchdown=KTI('Touchdown')): # Q: Args?
         return NotImplemented
 
 
-class _90SecToLanding(KeyTimeInstanceNode):
+class _90SecToTouchdown(KeyTimeInstanceNode):
     def derive(self, touchdown=KTI('Touchdown')): # Q: Args?
         return NotImplemented
 
 
-class _2MinToLanding(KeyTimeInstanceNode):
+class _2MinToTouchdown(KeyTimeInstanceNode):
     def derive(self, touchdown=KTI('Touchdown')): # Q: Args?
         return NotImplemented
 
 
-class _25FtInLanding(KeyTimeInstanceNode):
+class _25FtToTouchdown(KeyTimeInstanceNode):
     def derive(self, touchdown=KTI('Touchdown')): # Q: Args?
         return NotImplemented
 
 
-class _50FtInLanding(KeyTimeInstanceNode):
+class _50FtToTouchdown(KeyTimeInstanceNode):
     def derive(self, touchdown=KTI('Touchdown')): # Q: Args?
         return NotImplemented
 
 
 class _35FtInTakeoff(KeyTimeInstanceNode):
     def derive(self, alt_aal=P('Altitude AAL')):
-        
         return NotImplemented
 
     

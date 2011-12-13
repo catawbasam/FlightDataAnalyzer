@@ -22,11 +22,10 @@ Section = namedtuple('Section', 'name slice') #Q: rename mask -> slice/section
 # Ref: django/db/models/options.py:20
 # Calculate the verbose_name by converting from InitialCaps to "lowercase with spaces".
 def get_verbose_name(class_name):
-    if class_name.startswith('_'):
+    if re.match('^_\d.*$', class_name):
         # Remove initial underscore to allow class names starting with numbers
         # e.g. '_1000FtInClimb' will become '1000 Ft In Climb'
         class_name = class_name[1:]
-    # TODO: Add exclusions for N1 and V2 to avoid a space being entered.
     return re.sub('(((?<=[a-z])[A-Z0-9])|([A-Z0-9](?![A-Z0-9]|$)))', ' \\1',
                   class_name).lower().strip()
 
@@ -71,6 +70,7 @@ class Node(object):
     __metaclass__ = ABCMeta
 
     name = '' # Optional, default taken from ClassName
+    align_to_first_dependency = True
         
     def __init__(self, name='', frequency=1, offset=0):
         """
@@ -155,12 +155,14 @@ class Node(object):
         :param args: List of available Parameter objects
         :type args: list
         """
-        first_param = next((a for a in args if a is not None))
-        aligned_params = []
-        for param in args[args.index(first_param) + 1:]:
-            if param:
-                param = param.get_aligned(first_param)
-            aligned_params.append(param)
+        if self.align_to_first_dependency:
+            first_param = next((a for a in args if a is not None))
+            aligned_params = []
+            for param in args[args.index(first_param) + 1:]:
+                if param:
+                    param = param.get_aligned(first_param)
+                aligned_params.append(param)
+            args = aligned_params
         res = self.derive(*args)
         if res is NotImplemented:
             raise NotImplementedError("Class '%s' derive method is not implemented." % \
@@ -219,9 +221,14 @@ class DerivedParameterNode(Node):
     
     def get_derived(self, args):
         super(DerivedParameterNode, self).get_derived(args)
-        first_param = next((a for a in args))
-        return Parameter(self.get_name(), self.array, first_param.frequency,
-                                 first_param.offset)
+        if self.align_to_first_dependency:
+            first_param = next((a for a in args))
+            frequency = first_param.frequency
+            offset = first_param.offset
+        else:
+            frequency = self.frequency
+            offset = self.offset
+        return Parameter(self.get_name(), self.array, frequency, offset)
 
 
 class SectionNode(Node, list):

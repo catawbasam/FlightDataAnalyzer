@@ -56,7 +56,7 @@ class AccelerationVertical(DerivedParameterNode):
         self.array = resolved_in_pitch * np.cos(rol) - ay * np.sin(rol)
 
 
-class AirspeedForPhases(DerivedParameterNode):
+class AirspeedForFlightPhases(DerivedParameterNode):
     def derive(self, airspeed=P('Airspeed')):
         self.array = hysteresis(airspeed.array, HYSTERESIS_FPIAS)
 
@@ -81,8 +81,8 @@ class AltitudeAAL(DerivedParameterNode):
         return NotImplemented
 
     
-class AltitudeAALForPhases(DerivedParameterNode):
-    name = 'Altitude AAL For Phases'
+class AltitudeAALForFlightPhases(DerivedParameterNode):
+    name = 'Altitude AAL For Flight Phases'
     # This crude parameter is used for flight phase determination of the 
     # Approach phase, and only uses pressure altitude for robustness.
     def derive(self, alt_std=P('Altitude STD'), airs=P('Fast')):
@@ -107,7 +107,7 @@ class AltitudeForClimbCruiseDescent(DerivedParameterNode):
         self.array = hysteresis ( alt_std.array, HYSTERESIS_FPALT_CCD)
     
     
-class AltitudeForPhases(DerivedParameterNode):
+class AltitudeForFlightPhases(DerivedParameterNode):
     name = 'Altitude For Phases'
     def derive(self, alt_std=P('Altitude STD')):
         self.array = hysteresis (repair_mask(alt_std.array), HYSTERESIS_FPALT)
@@ -128,7 +128,7 @@ class AltitudeRadio(DerivedParameterNode):
         self.array = alt_rad.array - np.sin(pitch_aligned) * main_gear_to_alt_rad.value
 
 
-class AltitudeRadioForPhases(DerivedParameterNode):
+class AltitudeRadioForFlightPhases(DerivedParameterNode):
     def derive(self, alt_rad=P('Altitude Radio')):
         self.array = hysteresis (repair_mask(alt_rad.array), HYSTERESIS_FP_RAD_ALT)
 
@@ -156,8 +156,7 @@ class AltitudeTail(DerivedParameterNode):
         self.array = alt_rad.array - np.sin(pitch_aligned) * dist_gear_to_tail.value
         
 
-class ClimbForPhases(DerivedParameterNode):
-    name = 'Climb For Phases'
+class ClimbForFlightPhases(DerivedParameterNode):
     def derive(self, alt_std=P('Altitude STD'), airs=P('Fast')):
         self.array = np.ma.zeros(len(alt_std.array))
         repair_mask(alt_std.array) # Remove small sections of corrupt data
@@ -183,30 +182,30 @@ class DistanceToLanding(DerivedParameterNode):
         return NotImplemented
     
 
-class EngineN1Average(DerivedParameterNode):
+class EngN1Average(DerivedParameterNode):
     def derive(self, 
-               param1 = P('Engine (1) N1'),
-               param2 = P('Engine (2) N1'),
-               param3 = P('Engine (3) N1'),
-               param4 = P('Engine (4) N1')):
+               param1 = P('Eng (1) N1'),
+               param2 = P('Eng (2) N1'),
+               param3 = P('Eng (3) N1'),
+               param4 = P('Eng (4) N1')):
         self.array = np.ma.average(param1, param2, param3, param4)
 
 
-class EngineN1Minimum(DerivedParameterNode): # Q: is this a parameter?
+class EngN1Minimum(DerivedParameterNode): # Q: is this a parameter?
     def derive(self, 
-               param1 = P('Engine (1) N1'),
-               param2 = P('Engine (2) N1'),
-               param3 = P('Engine (3) N1'),
-               param4 = P('Engine (4) N1')):
+               param1 = P('Eng (1) N1'),
+               param2 = P('Eng (2) N1'),
+               param3 = P('Eng (3) N1'),
+               param4 = P('Eng (4) N1')):
         self.array = np.ma.minimum(param1, param2, param3, param4)
 
 
-class EngineN2Average(DerivedParameterNode):
+class EngN2Average(DerivedParameterNode):
     def derive(self, 
-               param1 = P('Engine (1) N2'),
-               param2 = P('Engine (2) N2'),
-               param3 = P('Engine (3) N2'),
-               param4 = P('Engine (4) N2')):
+               param1 = P('Eng (1) N2'),
+               param2 = P('Eng (2) N2'),
+               param3 = P('Eng (3) N2'),
+               param4 = P('Eng (4) N2')):
         self.array = np.ma.average(param1, param2, param3, param4)
 
 
@@ -288,7 +287,7 @@ class RateOfClimb(DerivedParameterNode):
         self.array = roc_altitude + inertial_roc
 
 
-class RateOfClimbForPhases(DerivedParameterNode):
+class RateOfClimbForFlightPhases(DerivedParameterNode):
     def derive(self, alt_std = P('Altitude STD')):
         self.array = rate_of_change(repair_mask(alt_std),2)*60
 
@@ -352,69 +351,67 @@ class Pitch(DerivedParameterNode):
 ================  TODO: NEED TO WORK OUT how to handle multiple engines.  ================
 '''
 
-class EngineNEGT(DerivedParameterNode):
-    name = "Engine (N) EGT"
+class EngEGT(DerivedParameterNode):
+    name = "Eng EGT"
     def derive(self, 
-               param1=P('Engine (1) EGT'),
-               param2=P('Engine (2) EGT'),
-               param3=P('Engine (3) EGT'),
-               param4=P('Engine (4) EGT')):
+               param1=P('Eng (1) EGT'),
+               param2=P('Eng (2) EGT'),
+               param3=P('Eng (3) EGT'),
+               param4=P('Eng (4) EGT')):
         return NotImplemented
 
 
-class EngineNN1(DerivedParameterNode):
-    name = "Engine (N) N1"
+class EngN1(DerivedParameterNode):
     def derive(self, 
-               param1=P('Engine (1) N1'),
-               param2=P('Engine (2) N1'),
-               param3=P('Engine (3) N1'),
-               param4=P('Engine (4) N1')):
+               param1=P('Eng (1) N1'),
+               param2=P('Eng (2) N1'),
+               param3=P('Eng (3) N1'),
+               param4=P('Eng (4) N1')):
         return NotImplemented
 
 
-class EngineNN2(DerivedParameterNode):
-    name = "Engine (N) N2"
+class EngN2(DerivedParameterNode):
     def derive(self, 
-               param1=P('Engine (1) N2'),
-               param2=P('Engine (2) N2'),
-               param3=P('Engine (3) N2'),
-               param4=P('Engine (4) N2')):
+               param1=P('Eng (1) N2'),
+               param2=P('Eng (2) N2'),
+               param3=P('Eng (3) N2'),
+               param4=P('Eng (4) N2')):
         return NotImplemented
 
 
-class EngineNOilPress(DerivedParameterNode):
-    name = "Engine (N) Oil Press"
+class EngOilPress(DerivedParameterNode):
+    name = "Eng Oil Press"
     def derive(self, 
-               param1=P('Engine (1) Oil Press'),
-               param2=P('Engine (2) Oil Press'),
-               param3=P('Engine (3) Oil Press'),
-               param4=P('Engine (4) Oil Press')):
+               param1=P('Eng (1) Oil Press'),
+               param2=P('Eng (2) Oil Press'),
+               param3=P('Eng (3) Oil Press'),
+               param4=P('Eng (4) Oil Press')):
         return NotImplemented
 
 
-class EngineNOilPressLow(DerivedParameterNode):
-    name = 'Engine (N) Oil Press Low'
+class EngOilPressLow(DerivedParameterNode):
+    name = 'Eng Oil Press Low'
     def derive(self, 
-               param1=P('Engine (1) Oil Press Low'),
-               param2=P('Engine (2) Oil Press Low'),
-               param3=P('Engine (3) Oil Press Low'),
-               param4=P('Engine (4) Oil Press Low')):
+               param1=P('Eng (1) Oil Press Low'),
+               param2=P('Eng (2) Oil Press Low'),
+               param3=P('Eng (3) Oil Press Low'),
+               param4=P('Eng (4) Oil Press Low')):
         return NotImplemented
 
 
-class EngineNAverage(DerivedParameterNode): # Q: is this a parameter?
+class EngAverage(DerivedParameterNode): # Q: is this a parameter?
     def derive(self, param=P('Flap')): # Q: Args?
         return NotImplemented
 
 
-class ThrustLeverN(DerivedParameterNode):
-    name = 'Thrust Lever (N)'
+class ThrustLever(DerivedParameterNode):
+    name = 'Thrust Lever'
     def derive(self, param=P('Flap')): # Q: Args?
         return NotImplemented
 
 
-class EngineNVibN2(DerivedParameterNode):
-    name = 'Engine (N) Vib N2'
+class EngVibN2(DerivedParameterNode):
+    name = 'Eng Vib N2'
     def derive(self, param=P('Flap')): # Q: Args?
         return NotImplemented
 
@@ -447,9 +444,9 @@ class DontSinkWarning(DerivedParameterNode):
     def derive(self, param=P('GPWS Dont Sink Warning')):
     
     
-class Engine1OilTemp(DerivedParameterNode):
-    name = 'Engine (1) Oil Temp'
-    def derive(self, param=P('Engine (1) Oil Temp')):
+class Eng1OilTemp(DerivedParameterNode):
+    name = 'Eng (1) Oil Temp'
+    def derive(self, param=P('Eng (1) Oil Temp')):
         return NotImplemented
 
 

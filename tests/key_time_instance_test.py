@@ -10,7 +10,7 @@ from analysis.flight_phase import (Airborne,
                                    DescentLowClimb,
                                    Fast
                                    )
-from analysis.derived_parameters import (ClimbForPhases,
+from analysis.derived_parameters import (ClimbForFlightPhases,
                                          )
 from analysis.key_time_instances import (BottomOfDescent,
                                          ClimbStart,
@@ -73,7 +73,7 @@ class TestGoAround(unittest.TestCase):
         ias = Parameter('Airspeed', np.ma.ones(len(alt))*100)
         phase_fast = Fast()
         phase_fast.derive(ias)
-        climb = ClimbForPhases()
+        climb = ClimbForFlightPhases()
         climb.derive(Parameter('Altitude STD', alt), phase_fast)
 
         goa = GoAround()
@@ -92,7 +92,7 @@ class TestGoAround(unittest.TestCase):
         # differentiated array.
         phase_fast = Fast()
         phase_fast.derive(P('Airspeed', np.ma.ones(len(alt))*100))
-        climb = ClimbForPhases()
+        climb = ClimbForFlightPhases()
         climb.derive(Parameter('Altitude STD', alt), phase_fast)
         
         goa = GoAround()
@@ -111,7 +111,7 @@ class TestGoAround(unittest.TestCase):
         alt = np.ma.array(range(0,4000,500)+range(4000,0,-500)+range(0,700,499))
         phase_fast = Fast()
         phase_fast.derive(P('Airspeed', np.ma.ones(len(alt))*100))
-        climb = ClimbForPhases()
+        climb = ClimbForFlightPhases()
         climb.derive(Parameter('Altitude STD', alt), phase_fast)
         goa = GoAround()
         # Pretend we are flying over flat ground, so the altitudes are equal.

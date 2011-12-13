@@ -8,9 +8,9 @@ import mock
 from random import shuffle
 
 from analysis.node import (
-    DerivedParameterNode, KeyPointValue, KeyPointValueNode, KeyTimeInstance,
-    KeyTimeInstanceNode, FormattedNameNode, Node, NodeManager, P, Parameter,
-    powerset, Section, SectionNode)
+    DerivedParameterNode, get_verbose_name, KeyPointValue, KeyPointValueNode,
+    KeyTimeInstance, KeyTimeInstanceNode, FormattedNameNode, Node, NodeManager,
+    P, Parameter, powerset, Section, SectionNode)
 
 
 class TestAbstractNode(unittest.TestCase):
@@ -25,11 +25,15 @@ class TestNode(unittest.TestCase):
         """ Splits on CamelCase and title cases
         """
         NewNode = type('Camel4CaseName', (Node,), dict(derive=lambda x:x))
-        self.assertEqual(NewNode.get_name(), 'Camel4 Case Name')
+        self.assertEqual(NewNode.get_name(), 'Camel 4 Case Name')
         NewNode = type('ThisIsANode', (Node,), dict(derive=lambda x:x))
         self.assertEqual(NewNode.get_name(), 'This Is A Node')
         NewNode = type('My2BNode', (Node,), dict(derive=lambda x:x))
-        self.assertEqual(NewNode.get_name(), 'My2B Node')
+        self.assertEqual(NewNode.get_name(), 'My 2B Node')
+        NewNode = type('_1000Ft', (Node,), dict(derive=lambda x:x))
+        self.assertEqual(NewNode.get_name(), '1000 Ft')
+        NewNode = type('TouchdownV2Max', (Node,), dict(derive=lambda x:x))
+        self.assertEqual(NewNode.get_name(), 'Touchdown V2 Max')
         NewNode.name = 'MACH'
         self.assertEqual(NewNode.get_name(), 'MACH')
 
@@ -119,14 +123,17 @@ class TestNode(unittest.TestCase):
             self.assertEqual(res[:2], ('A', 'B'))
             
     def test_get_derived(self):
-        param1 = mock.Mock()
-        param1.name = 'PARAM1'
-        param1.frequency = 2
-        param1.offset = 0.5
-        param2 = mock.Mock()
-        param2.name = 'PARAM2'
-        param2.frequency = 0.5
-        param2.offset = 1
+        def get_mock_params():
+            param1 = mock.Mock()
+            param1.name = 'PARAM1'
+            param1.frequency = 2
+            param1.offset = 0.5
+            param2 = mock.Mock()
+            param2.name = 'PARAM2'
+            param2.frequency = 0.5
+            param2.offset = 1
+            return param1, param2
+        param1, param2 = get_mock_params()
         class TestNode(Node):
             def derive(self, kwarg1=param1, kwarg2=param2):
                 pass
@@ -140,6 +147,15 @@ class TestNode(unittest.TestCase):
         not_implemented_node = NotImplementedNode()
         self.assertRaises(NotImplementedError, not_implemented_node.get_derived,
                           [param1, param2])
+        class UnalignedNode(Node):
+            align_to_first_dependency = False
+            def derive(self, kwarg1=param1, kwarg2=param2):
+                pass
+        node = UnalignedNode()
+        param1, param2 = get_mock_params()
+        node.get_derived([param1, param2])
+        self.assertEqual(param1.method_calls, [])
+        self.assertEqual(param2.method_calls, [])
         
                         
 class TestNodeManager(unittest.TestCase):
@@ -334,7 +350,13 @@ class TestDerivedParameterNode(unittest.TestCase):
             def derive(self, alt_std=P('Altitude STD'),
                        pitch=P('Pitch')):
                 pass
+        class UnalignedDerivedParameterNode(DerivedParameterNode):
+            align_to_first_dependency = False
+            def derive(self, alt_std=P('Altitude STD'),
+                       pitch=P('Pitch')):
+                pass
         self.derived_class = ExampleDerivedParameterNode
+        self.unaligned_class = UnalignedDerivedParameterNode
     
     def test_frequency(self):
         self.assertTrue(False)
@@ -363,4 +385,10 @@ class TestDerivedParameterNode(unittest.TestCase):
         self.assertIsInstance(result, Parameter)
         self.assertEqual(result.frequency, param1.frequency)
         self.assertEqual(result.offset, param1.offset)
-        
+        unaligned_param = self.unaligned_class(frequency=2, offset=1)
+        param1 = Parameter('Altitude STD', frequency=1, offset=0)
+        param2 = Parameter('Pitch', frequency=0.5, offset=1)
+        result = unaligned_param.get_derived([param1, param2])
+        self.assertIsInstance(result, Parameter)
+        self.assertEqual(result.frequency, unaligned_param.frequency)
+        self.assertEqual(result.offset, unaligned_param.offset)

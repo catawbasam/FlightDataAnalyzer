@@ -49,28 +49,28 @@ class LandingAltitude(KeyPointValueNode):
 # KPV from A6RKA_KPVvalues.xls
 
 
-class IndicatedAirspeedAtLiftOff(KeyPointValueNode):
+class IndicatedAirspeedAtFt(KeyPointValueNode):
     def derive(self, liftoff=KTI('Liftoff'),
                indicated_airspeed=P('Indicated Airspeed')):
         return NotImplemented
     
-class PitchAtLiftOff(KeyPointValueNode):
+class PitchAtFt(KeyPointValueNode):
     def derive(self, liftoff=KTI('Liftoff'), pitch=P('Pitch')):
         return NotImplemented
    
    
-class FlapAtLiftOff(KeyPointValueNode):
+class FlapAtFt(KeyPointValueNode):
     def derive(self, liftoff=KTI('Liftoff'), flap=P('Flap')):
         return NotImplemented
 
-class IndicatedAirspeedAt35Feet(KeyPointValueNode):
+class IndicatedAirspeedAt35Ft(KeyPointValueNode):
     """ Based on Altitude Radio
     """
     def derive(self, airspeed=P('Indicated Airspeed'),
                alt_rad=P('Altitude Radio')):
         return NotImplemented
     
-class NormalgLiftOffTo35FeetMax(KeyPointValueNode):
+class NormalgFtTo35FtMax(KeyPointValueNode):
     def derive(self, norm_g=P('Normal g'), alt_rad=P('Altitude Radio')):
         return NotImplemented
     
@@ -86,15 +86,15 @@ class NormalgMaxDeviation(KeyPointValueNode):
             max_index = gdiff.argmax()
             self.create_kpv(max_index, gdiff[max_index])    
     
-class Pitch35To400FeetMax(KeyPointValueNode):
+class Pitch35To400FtMax(KeyPointValueNode):
     def derive(self, pitch=P('Pitch'), alt_rad=P('Altitude Radio')):
         return NotImplemented
     
-class Pitch1000To100FeetMax(KeyPointValueNode):
+class Pitch1000To100FtMax(KeyPointValueNode):
     def derive(self, pitch=P('Pitch'), alt_aal=P('Altitude AAL')):
         return NotImplemented
     
-class Pitch5FeetToTouchDownMax(KeyPointValueNode):
+class Pitch5FtToToFtownMax(KeyPointValueNode):
     def derive(self, pitch=P('Pitch'), alt_rad=P('Altitude Radio'),
                touchdown=KTI('Touchdown')):
         return NotImplemented
@@ -106,48 +106,48 @@ class PitchCycles(KeyPointValueNode):
     def derive(self, pitch=P('Pitch')):
         return NotImplemented
     
-class Pitch35To400FeetMin(KeyPointValueNode):
+class Pitch35To400FtMin(KeyPointValueNode):
     def derive(self, pitch=P('Pitch'), alt_rad=P('Altitude Radio')):
         return NotImplemented
     
-class Pitch1000To100FeetMin(KeyPointValueNode):
+class Pitch1000To100FtMin(KeyPointValueNode):
     def derive(self, pitch=P('Pitch'), alt_aal=P('Altitude AAL')):
         return NotImplemented
     
-class Pitch20FeetToTouchDownMin(KeyPointValueNode):
+class Pitch20FtToTouchdownMin(KeyPointValueNode):
     """ Q: This is 20 feet, the max uses 5 feet
     """
     def derive(self, pitch=P('Pitch'), alt_rad=P('Altitude Radio'),
                touchdown=KTI('Touchdown')):
         return NotImplemented
     
-class PitchRateLiftOffTo35FeetMax(KeyPointValueNode):
+class PitchRateFtTo35FtMax(KeyPointValueNode):
     def derive(self, pitch_rate=P('Pitch Rate'), liftoff=KTI('Liftoff'),
                alt_rad=P('Altitude Radio')):
         return NotImplemented
     
-class PitchRate35To1500FeetMax(KeyPointValueNode):
+class PitchRate35To1500FtMax(KeyPointValueNode):
     def derive(self, pitch_rate=P('Pitch Rate'), alt_aal=P('Altitude AAL')):
         return NotImplemented
     
     
-class RollBelow20FeetMax(KeyPointValueNode): # absolute max?
+class RollBelow20FtMax(KeyPointValueNode): # absolute max?
     def derive(self, roll=P('Roll'), alt_rad=P('Altitude Radio')):
         return NotImplemented
    
-class RollBetween100And500FeetMax(KeyPointValueNode): # absolute max?
+class RollBetween100And500FtMax(KeyPointValueNode): # absolute max?
     def derive(self, roll=P('Roll'), alt_aal=P('Altitude AAL')):
         return NotImplemented
     
-class RollBetween500And1500FeetMax(KeyPointValueNode):  # absolue max?
+class RollBetween500And1500FtMax(KeyPointValueNode):  # absolue max?
     def derive(self, roll=P('Roll'), alt_aal=P('Altitude AAL')):
         return NotImplemented   
     
-class RollAbove1500FeetMax(KeyPointValueNode):
+class RollAbove1500FtMax(KeyPointValueNode):
     def derive(self, roll=P('Roll'), alt_aal=P('Altitude AAL')):
         return NotImplemented
     
-class RollCycles1000FeetToTouchDown(KeyPointValueNode):
+class RollCycles1000FtToTouchdown(KeyPointValueNode):
     def derive(self, roll=P('Roll'), alt_aal=P('Altitude AAL'),
                touchdown=KTI('Touchdown')):
         return NotImplemented
@@ -176,7 +176,7 @@ class MACHMax(KeyPointValueNode):
         return NotImplemented
     
 
-class IndicatedAirspeedAtTouchDown(KeyPointValueNode):
+class IndicatedAirspeedAtTouchdown(KeyPointValueNode):
     def derive(self, airspeed=P('Indicated Airspeed'),
                touchdown=KTI('Touchdown')):
         return NotImplemented
@@ -185,11 +185,11 @@ class GroundSpeedOnGroundMax(KeyPointValueNode):
     def derive(self, ground_speed=P('Ground Speed'), on_ground=P('On Ground')):
         return NotImplemented
 
-class FlapAtTouchDown(KeyPointValueNode):
+class FlapAtTouchdown(KeyPointValueNode):
     def derive(self, flap=P('Flap'), touchdown=KTI('Touchdown')):
         return NotImplemented
     
-class GrossWeightAtTouchDown(KeyPointValueNode):
+class GrossWeightAtTouchdown(KeyPointValueNode):
     def derive(self, gross_weight=P('Gross Weight'), 
                touchdown=KTI('Touchdown')):
         return NotImplemented
@@ -199,7 +199,7 @@ class EGTMax(KeyPointValueNode): # which engine? or all engines? # or all and ea
     NAME_FORMAT = 'EGT Max %(engine)s'
     # FIXME: In the following line, dependencies is not defined when the file
     # is parsed.
-    #RETURN_OPTIONS = {'engine': dependencies + ['Engine (*) EGT']}
+    #RETURN_OPTIONS = {'engine': dependencies + ['Eng (*) EGT']}
 
     @classmethod
     def can_operate(cls, available):
@@ -208,8 +208,8 @@ class EGTMax(KeyPointValueNode): # which engine? or all engines? # or all and ea
         else:
             return False  # we have no EGT recorded on any engines
         
-    def derive(self, egt1=P('Engine (1) EGT'), egt2=P('Engine (2) EGT'),
-               egt3=P('Engine (3) EGT'), egt4=P('Engine (4) EGT')):
+    def derive(self, egt1=P('Eng (1) EGT'), egt2=P('Eng (2) EGT'),
+               egt3=P('Eng (3) EGT'), egt4=P('Eng (4) EGT')):
         kmax = vmax = imax = None
         for p in (egt1, egt2, egt3, egt4):
             _imax = p.array.argmax()
@@ -221,13 +221,13 @@ class EGTMax(KeyPointValueNode): # which engine? or all engines? # or all and ea
         self.create_kpv(imax, vmax, engine=kmax) # include engine using kmax?
     
     
-class MagneticHeadingAtLiftOff(KeyPointValue):
+class MagneticHeadingAtFt(KeyPointValue):
     """ Shouldn't this be difference between aircraft heading and runway heading???
     """
     def derive(self, heading=P('Magnetic Heading'), liftoff=KTI('Liftoff')):
         return NotImplemented
     
-class MagneticHeadingAtTouchDown(KeyPointValue):
+class MagneticHeadingAtTouchdown(KeyPointValue):
     """ Shouldn't this be difference between aircraft heading and runway heading???
     """
     def derive(self, heading=P('Magnetic Heading'), touchdown=KTI('Touchdown')):
@@ -303,11 +303,10 @@ class MaxIndicatedAirspeedLevelFlight(KeyPointValueNode):
                               duration)
 
 
-class AirspeedMinusVref500ftTo0ftMax(KeyPointValueNode):
-    NAME_FORMAT = 'Airspeed Minus Vref 500ft to 0ft Max' #TODO: auto replace with name?!
+class AirspeedMinusVref500FtTo0FtMax(KeyPointValueNode):
     
     def derive(self, airspeed_minus_vref=P('AirspeedMinusVref'), 
-               _500ft_to_0ft=S('500ft To 0ft')):  #Q: Label this as the list of kpv sections?
+               _500ft_to_0ft=S('500 Ft To 0 Ft')):  #Q: Label this as the list of kpv sections?
 
         for sect in _500ft_to_0ft:
             ##max_spd = airspeed_minus_vref.array[sect].max()
@@ -335,7 +334,7 @@ class NormalGAirborneMax(KeyPointValueNode):
         return NotImplemented
 
 
-class NormalGDuringTakeOffMax(KeyPointValueNode):
+class NormalGDuringTakeoffMax(KeyPointValueNode):
     def derive(self, acceleration_normal=P('Acceleration Normal'),
                liftoff=KTI('Liftoff')):
         return NotImplemented
@@ -363,24 +362,21 @@ class BouncedLanding(KeyPointValueNode):
         return NotImplemented
 
 
-class ROD500ToTouchdownMax(KeyPointValueNode):
-    name = 'ROD 500 To Touchdown Max'
+class RateOfDescent500ToTouchdownMax(KeyPointValueNode):
     def derive(self, roc=P('Rate Of Climb'),
                _500_ft_in_final_approach=KTI('500 Ft In Final Approach'),
                touchdown=KTI('Touchdown')):
         return NotImplemented
     
 
-class ROD1000To500FeetMax(KeyPointValueNode):
-    name = 'ROD 1000 To 500 Feet Max'
+class RateOfDescent1000To500FtMax(KeyPointValueNode):
     def derive(self, roc=P('Rate Of Climb'),
                _1000_ft_in_approach=KTI('1000 Ft In Approach'),
                _500_ft_in_final_approach=KTI('500 Ft In Final Approach')):
         return NotImplemented
 
 
-class ROD2000To1000FeetMax(KeyPointValueNode):
-    name = 'ROD 2000 To 1000 Feet Max'
+class RateOfDescent2000To1000FtMax(KeyPointValueNode):
     def derive(self, roc=P('Rate Of Climb'),
                _2000_ft_in_approach=KTI('2000 Ft In Approach'),
                _1000_ft_in_approach=KTI('1000 Ft In Approach')):
@@ -392,7 +388,7 @@ class DontSinkWarning(KeyPointValueNode):
         return NotImplemented
 
 
-class HeightAtConfigChangeLiftOffTo3500FeetMin(KeyPointValueNode):
+class HeightAtConfigChangeFtTo3500FtMin(KeyPointValueNode):
     def derive(self, flap=P('Flap'), alt_aal=P('Altitude AAL'),
                liftoff=KTI('Liftoff'),
                _3500_ft_in_climb=KTI('3500 Ft In Climb')):
@@ -401,7 +397,7 @@ class HeightAtConfigChangeLiftOffTo3500FeetMin(KeyPointValueNode):
 
 class EGTTakeoffMax(KeyPointValueNode):
     name = 'EGT Takeoff Max'
-    def derive(self, eng_n_egt=P('Engine (N) EGT'), liftoff=KTI('Liftoff')):
+    def derive(self, eng_n_egt=P('Eng EGT'), liftoff=KTI('Liftoff')):
         return NotImplemented
 
 
@@ -415,14 +411,14 @@ class GlideslopeWarning(KeyPointValueNode):
         return NotImplemented
 
 
-class GlideslopeDeviation1000To150FeetMax(KeyPointValueNode):
+class GlideslopeDeviation1000To150FtMax(KeyPointValueNode):
     def derive(self, ils_glideslope=P('ILS Glideslope'),
                _1000_ft_in_approach=KTI('1000 Ft In Approach'),
                _150_ft_in_final_approach=KTI('150 Ft In Final Approach')):
         return NotImplemented
 
 
-class GlideslopeDeviation1500To1000FeetMax(KeyPointValueNode):
+class GlideslopeDeviation1500To1000FtMax(KeyPointValueNode):
     def derive(self, ils_glideslope=P('ILS Glideslope'),
                _1500_ft_in_approach=KTI('1500 Ft In Approach'),
                _1000_ft_in_approach=KTI('1000 Ft In Approach')):
@@ -440,30 +436,30 @@ class SinkRateWarning(KeyPointValueNode):
         return NotImplemented
 
 
-class Normalg20FeetToGroundMax(KeyPointValueNode):
+class Normalg20FtToGroundMax(KeyPointValueNode):
     def derive(self, acceleration_normal=P('Acceleration Normal')):
         return NotImplemented
 
 
-class HeadingDeviation100KtsToLiftOffMax(KeyPointValueNode):
+class HeadingDeviation100KtsToFtMax(KeyPointValueNode):
     def derive(self, head_mag=P('Heading Magnetic'), airspeed=P('Airspeed'),
                liftoff=KTI('Liftoff')):
         return NotImplemented
 
 
-class Height1MinuteToTouchdown(KeyPointValueNode):
+class Height1MinToTouchdown(KeyPointValueNode):
     def derive(self, altitude_aal=P('Altitude AAL'),
-               _1_min_to_landing=KTI('1 Min To Landing')):
+               _1_min_to_touchdown=KTI('1 Min To Touchdown')):
         return NotImplemented
 
 
-class Height2MinutesToTouchdown(KeyPointValueNode):
+class Height2MinToTouchdown(KeyPointValueNode):
     def derive(self, altitude_aal=P('Altitude AAL'),
-               _2_min_to_landing=KTI('2 Min To Landing')):
+               _2_min_to_touchdown=KTI('2 Min To Touchdown')):
         return NotImplemented
 
 
-class HeightLost1000To2000FeetMax(KeyPointValueNode):
+class HeightLost1000To2000FtMax(KeyPointValueNode):
     def derive(self, altitude_std=P('Altitude STD'),
                _1000_ft_in_climb=KTI('1000 Ft In Climb'),
                _2000_ft_in_climb=KTI('2000 Ft In Climb')):
@@ -477,35 +473,23 @@ class HeightLost50To1000Max(KeyPointValueNode):
         return NotImplemented
 
 
-class Height1MinuteToTouchdown(KeyPointValueNode):
-    def derive(self, altitude_aal=P('Altitude AAL'),
-               _1_min_to_landing=KTI('1 Min To Landing')):
-        return NotImplemented
-
-
-class Height2MinutesToTouchdown(KeyPointValueNode):
-    def derive(self, altitude_aal=P('Altitude AAL'),
-               _2_min_to_landing=KTI('2 Min To Landing')):
-        return NotImplemented
-
-
-class LateralGOnGroundDurationAboveLimit(KeyPointValueNode):
+class LateralGOnGround(KeyPointValueNode):
     def derive(self, acc_lat=P('Acceleration Lateral'),
                taxi_out=S('Taxi Out'), taxi_in=S('Taxi In')):
         return NotImplemented
 
 
-class N13000FeetToTouchdownMax(KeyPointValueNode):
-    name = 'N1 3000 Feet To Touchdown Max'
-    def derive(self, eng_n1_avg=P('Engine N1 Average'),
+class EngN13000FtToTouchdownMax(KeyPointValueNode):
+    name = 'Eng N1 3000 Ft To Touchdown Max'
+    def derive(self, eng_n1_avg=P('Eng N1 Average'),
                _3000_ft_in_approach=KTI('3000 Ft In Approach'),
                touchdown=KTI('Touchdown')):
         return NotImplemented
 
 
-class N1TakeoffMax(KeyPointValueNode):
-    name = 'N1 Takeoff Max'
-    def derive(self, eng_n1_max=P('Engine N1 Maximum'), liftoff=KTI('Liftoff')):
+class EngN1TakeoffMax(KeyPointValueNode):
+    name = 'Eng N1 Takeoff Max'
+    def derive(self, eng_n1_max=P('Eng N1 Max'), liftoff=KTI('Liftoff')):
         return NotImplemented
 
 
@@ -514,14 +498,14 @@ class FlapAtGearSelectedDown(KeyPointValueNode):
         return NotImplemented
 
 
-class HeightAtConfigChange1500FeetToTouchdownMin(KeyPointValueNode):
+class HeightAtConfigChange1500FtToTouchdownMin(KeyPointValueNode):
     def derive(self, flap=P('Flap'),
                _1500_ft_in_approach=KTI('1500 Ft In Approach'),
                touchdown=KTI('Touchdown')):
         return NotImplemented
 
 
-class HeightAtConfigChange1500FeetToTouchdownMin(KeyPointValueNode):
+class HeightAtConfigChange1500FtToTouchdownMin(KeyPointValueNode):
     def derive(self, flap=P('Flap'),
                _1500_ft_in_approach=KTI('1500 Ft In Approach'),
                touchdown=KTI('Touchdown')):
@@ -533,29 +517,29 @@ class SuspectedLevelBust(KeyPointValueNode):
         return NotImplemented
 
 
-class LocaliserDeviation1000To150FeetMax(KeyPointValueNode):
+class LocaliserDeviation1000To150FtMax(KeyPointValueNode):
     def derive(self, ils_loc=P('ILS Localizer'),
                _1000_ft_in_approach=KTI('1000 Ft In Approach'),
                _150_ft_in_final_approach=KTI('150 Ft In Final Approach')):
         return NotImplemented
 
 
-class LocaliserDeviation1500To1000FeetMax(KeyPointValueNode):
+class LocaliserDeviation1500To1000FtMax(KeyPointValueNode):
     def derive(self, ils_loc=P('ILS Localizer'),
                _1500_ft_in_approach=KTI('1500 Ft In Approach'),
                _1000_ft_in_approach=KTI('1000 Ft In Approach')):
         return NotImplemented
 
 
-class RadAlt20FeetToTouchdownDurationOverLimit(KeyPointValueNode):
+class Flare20FtToTouchdown(KeyPointValueNode):
     def derive(self, alt_rad=P('Altitude Radio'),
-               _25_ft_in_landing=KTI('_25 Ft In Landing'),
+               _25_ft_to_touchdown=KTI('25 Ft To Touchdown'),
                touchdown=KTI('Touchdown')):
         return NotImplemented
 
 
-class LowPowerLessthan500Ft10Sec(KeyPointValueNode):
-    def derive(self, eng_n1_min=P('Engine N1 Minimum'),
+class LowPowerLessThan500Ft10Sec(KeyPointValueNode):
+    def derive(self, eng_n1_min=P('Eng N1 Minimum'),
                _500_ft_in_final_approach=KTI('500 Ft In Final Approach')):
         return NotImplemented
 
@@ -567,39 +551,36 @@ class GroundspeedRTOMax(KeyPointValueNode):
         return NotImplemented
 
 
-class N1Max(KeyPointValueNode):
-    name = 'NI Max'
-    def derive(self, eng_n_n1=P('Engine (N) N1')):
+class EngN1Max(KeyPointValueNode):
+    def derive(self, eng_n1=P('Eng N1')):
         return NotImplemented
 
 
-class N2CyclesMax(KeyPointValueNode):
-    name = 'N2 Cycles Max'
-    def derive(self, eng_n_n2=P('Engine (N) N2')):
+class EngN2CyclesMax(KeyPointValueNode):
+    def derive(self, eng_n2=P('Eng N2')):
         return NotImplemented
 
 
-class N2Max(KeyPointValueNode):
-    name = 'N2 Max'
-    def derive(self, eng_n_n2=P('Engine (N) N2')):
+class EngN2Max(KeyPointValueNode):
+    def derive(self, eng_n2=P('Eng N2')):
         return NotImplemented
 
 
-class OIPMax(KeyPointValueNode):
-    name = 'OIP Max'
-    def derive(self, eng_n_oil_press=P('Engine (N) Oil Press')):
+class EngOIPMax(KeyPointValueNode):
+    name = 'Eng OIP Max'
+    def derive(self, eng_oil_press=P('Eng Oil Press')):
         return NotImplemented
 
 
-class OIPMin(KeyPointValueNode):
-    name = 'OIP Min'
-    def derive(self, eng_n_oil_press_low=P('Engine (N) Oil Press Low')):
+class EngOIPMin(KeyPointValueNode):
+    name = 'Eng OIP Min'
+    def derive(self, eng_oil_press_low=P('Eng Oil Press Low')):
         return NotImplemented
 
 
-class OITMax(KeyPointValueNode):
-    name = 'OIT Max'
-    def derive(self, eng_n_oil_temp=P('Engine (1) Oil Temp')):
+class EngOITMax(KeyPointValueNode):
+    name = 'Eng OIT Max'
+    def derive(self, eng_oil_temp=P('Eng (1) Oil Temp')):
         return NotImplemented
 
 
@@ -620,70 +601,70 @@ class PitchCyclesMax(KeyPointValueNode):
         return NotImplemented
 
 
-class Pitch35To400FeetMax(KeyPointValueNode):
+class Pitch35To400FtMax(KeyPointValueNode):
     def derive(self, pitch=P('Pitch'),
                _35_ft_in_takeoff=KTI('35 Ft In Takeoff'),
                _400_ft_in_initial_climb=KTI('400 Ft In Initial_Climb')):
         return NotImplemented
 
 
-class Pitch1000To100FeetMax(KeyPointValueNode):
+class Pitch1000To100FtMax(KeyPointValueNode):
     def derive(self, pitch=P('Pitch'), _1000_ft_in_approach=KTI('1000 Ft In Approach'),
                _100_ft_in_final_approach=KTI('100 Ft In Final Approach')):
         return NotImplemented
 
 
-class PitchAtLiftOff(KeyPointValueNode):
+class PitchAtFt(KeyPointValueNode):
     def derive(self, pitch=P('Pitch'), liftoff=KTI('Liftoff')):
         return NotImplemented
 
 
-class Pitch5FeetToGroundMax(KeyPointValueNode):
+class Pitch5FtToGroundMax(KeyPointValueNode):
     def derive(self, pitch=P('Pitch'), landing=S('Landing')):
         return NotImplemented
 
 
-class Pitch35To400FeetMin(KeyPointValueNode):
+class Pitch35To400FtMin(KeyPointValueNode):
     def derive(self, pitch=P('Pitch'),
                _35_ft_in_takeoff=KTI('35 Ft In Takeoff'),
                _400_ft_in_initial_climb=KTI('400 Ft In Initial_Climb')):
         return NotImplemented
 
 
-class Pitch1000To100FeetMin(KeyPointValueNode):
+class Pitch1000To100FtMin(KeyPointValueNode):
     def derive(self, pitch=P('Pitch'),
                _1000_ft_in_approach=KTI('1000 Ft In Approach'),
                _100_ft_in_final_approach=KTI('100 Ft In Final Approach')):
         return NotImplemented
 
 
-class Pitch20FeetToTouchdownMin(KeyPointValueNode):
+class Pitch20FtToTouchdownMin(KeyPointValueNode):
     def derive(self, pitch=P('Pitch'),
-               _25_ft_in_landing=KTI('25 Ft In Landing'),
+               _25_ft_to_touchdown=KTI('25 Ft To Touchdown'),
                touchdown=KTI('Touchdown')):
         return NotImplemented
 
 
-class PitchRateDuringTakeOffMax(KeyPointValueNode):
+class PitchRateDuringTakeoffMax(KeyPointValueNode):
     def derive(self, pitch_rate=P('Pitch Rate'), liftoff=KTI('Liftoff')):
         return NotImplemented
 
 
-class PitchRate35To1500FeetMax(KeyPointValueNode):
+class PitchRate35To1500FtMax(KeyPointValueNode):
     def derive(self, pitch_rate=P('Pitch Rate'),
                _35_ft_in_takeoff=KTI('35 Ft In Takeoff'),
                _1500_ft_in_climb=KTI('1500 Ft In Climb')):
         return NotImplemented
 
 
-class PitchRateFrom2DegreesOfPitchTo35FeetMin(KeyPointValueNode):
+class PitchRateFrom2DegreesOfPitchTo35FtMin(KeyPointValueNode):
     def derive(self, pitch_rate=P('Pitch Rate'), liftoff=KTI('Liftoff'),
                _35_ft_in_takeoff=KTI('35 Ft In Takeoff')):
         return NotImplemented
 
 
 class PowerOnWithSpeedbrakesDeployedDurationGreaterThanLimit(KeyPointValueNode):
-    def derive(self, engine_n1_average=P('Engine N1 Average'),
+    def derive(self, eng_n1_average=P('Eng N1 Average'),
                speedbrake=P('Speedbrake')):
         return NotImplemented
 
@@ -700,33 +681,33 @@ class RollCycles1000FtToTouchdownMax(KeyPointValueNode):
         return NotImplemented
 
 
-class RollBetween100And500FeetMax(KeyPointValueNode):
+class RollBetween100And500FtMax(KeyPointValueNode):
     def derive(self, roll=P('Roll'),
                _100_ft_in_initial_climb=KTI('100 Ft In Initial_Climb'),
                _500_ft_in_initial_climb=KTI('500 Ft In Initial_Climb')):
         return NotImplemented
 
 
-class RollBetween500And1500FeetMax(KeyPointValueNode):
+class RollBetween500And1500FtMax(KeyPointValueNode):
     def derive(self, roll=P('Roll'),
                _500_ft_in_initial_climb=KTI('500 Ft In Initial_Climb'),
                _1500_ft_in_climb=KTI('1500 Ft In Climb')):
         return NotImplemented
 
 
-class RollBelow20FeetMax(KeyPointValueNode):
+class RollBelow20FtMax(KeyPointValueNode):
     def derive(self, roll=P('Roll'),
-               _25_ft_in_landing=KTI('25 Ft In Landing'),
+               _25_ft_to_touchdown=KTI('25 Ft To Touchdown'),
                touchdown=KTI('Touchdown')):
         return NotImplemented
 
 
-class RollAbove1500FeetMax(KeyPointValueNode):
+class RollAbove1500FtMax(KeyPointValueNode):
     def derive(self, roll=P('Roll'), alt_rad=P('Altitude Radio')):
         return NotImplemented
 
 
-class RudderReversalAbove50Feet(KeyPointValueNode):
+class RudderReversalAbove50Ft(KeyPointValueNode):
     def derive(self, rudder_reversal=S('Rudder Reversal')):
         return NotImplemented
 
@@ -748,7 +729,7 @@ class AirspeedAtGearSelectedUp(KeyPointValueNode):
         return NotImplemented
 
 
-class GroundspeedOnGroundMax(KeyPointValueNode):
+class TaxiSpeedTurningMax(KeyPointValueNode):
     def derive(self, groundspeed=P('Groundspeed'), on_ground=S('On Ground')):
         return NotImplemented
 
@@ -764,12 +745,12 @@ class AirspeedMax(KeyPointValueNode):
         return NotImplemented
 
 
-class AirspeedVref500FeetToTouchdownMax(KeyPointValueNode):
+class AirspeedVref500FtToTouchdownMax(KeyPointValueNode):
     def derive(self, airspeed=P('Airspeed')):
         return NotImplemented
 
 
-class Airspeed1000To500FeetMax(KeyPointValueNode):
+class Airspeed1000To500FtMax(KeyPointValueNode):
     def derive(self, airspeed=P('Airspeed')):
         return NotImplemented
 
@@ -819,7 +800,7 @@ class AirspeedVrefAtTouchdown(KeyPointValueNode):
         return NotImplemented
 
 
-class AirspeedBelow3000FeetMax(KeyPointValueNode):
+class AirspeedBelow3000FtMax(KeyPointValueNode):
     def derive(self, airspeed=P('Airspeed')):
         return NotImplemented
 
@@ -829,52 +810,46 @@ class GroundspeedOnGroundWithRateOfChangeOfHeadingGreaterThanLimitMax(KeyPointVa
         return NotImplemented
 
 
-class AirspeedV2AtLiftOff(KeyPointValueNode):
-    name = 'Airspeed V2 At Lift Off'
+class AirspeedV2AtLiftoff(KeyPointValueNode):
+    name = 'Airspeed V2 At Liftoff'
     def derive(self, airspeed=P('Airspeed'), liftoff=KTI('Liftoff')):
         return NotImplemented
 
 
-class AirspeedBetween90SToTouchdownAndTouchdownMax(KeyPointValueNode):
+class AirspeedBetween90SecToTouchdownAndTouchdownMax(KeyPointValueNode):
     def derive(self, airspeed=P('Airspeed'),
-               _90_sec_to_landing=KTI('90 Sec To Landing'),
+               _90_sec_to_touchdown=KTI('90 Sec To Landing'),
                touchdown=KTI('Touchdown')):
         return NotImplemented
 
 
-class AirspeedV235To400FeetMin(KeyPointValueNode):
-    name = 'Airspeed V2 35 To 400 Feet Min'
+class AirspeedV235To400FtMin(KeyPointValueNode):
+    name = 'Airspeed V2 35 To 400 Ft Min'
     def derive(self, airspeed=P('Airspeed'),
                _35_ft_in_takeoff=KTI('35 Ft In Takeoff'),
                _400_ft_in_initial_climb=KTI('400 Ft In Initial_Climb')):
         return NotImplemented
 
 
-class AirspeedV2400To1500FeetMin(KeyPointValueNode):
-    name = 'Airspeed V2 400 To 1500 Feet Min'
+class AirspeedV2400To1500FtMin(KeyPointValueNode):
+    name = 'Airspeed V2 400 To 1500 Ft Min'
     def derive(self, airspeed=P('Airspeed'),
                _400_ft_in_initial_climb=KTI('400 Ft In Initial_Climb'),
                _1500_ft_in_climb=KTI('1500 Ft In Climb')):
         return NotImplemented
 
 
-class AirspeedV2AtLiftOff(KeyPointValueNode):
-    name = 'Airspeed V2 At Lift Off'
-    def derive(self, airspeed=P('Airspeed')):
-        return NotImplemented
-
-
 class AirspeedVrefLast2MinutesToTouchdownMin(KeyPointValueNode):
     def derive(self, airspeed=P('Airspeed'),
-               _2_min_to_landing=KTI('2 Min To Landing'),
+               _2_min_to_touchdown=KTI('2 Min To Touchdown'),
                touchdown=KTI('Touchdown')):
         return NotImplemented
 
 
-class SpeedbrakesDeployed1000To30Feet(KeyPointValueNode):
+class SpeedbrakesDeployed1000To25Ft(KeyPointValueNode):
     def derive(self, speedbrake=P('Speedbrake'),
                _1000_ft_in_approach=KTI('1000 Ft In Approach'),
-               _25_ft_in_landing=KTI('25 Ft In Landing')):
+               _25_ft_to_touchdown=KTI('25 Ft To Touchdown')):
         return NotImplemented
 
 
@@ -888,18 +863,20 @@ class StickShakerActivated(KeyPointValueNode):
         return NotImplemented
 
 
-class TerrainWarning(KeyPointValueNode):
+class GPWSTerrainWarning(KeyPointValueNode):
+    name = 'GPWS Terrain Warning'
     def derive(self, gpws_terrain=P('GPWS Terrain')):
         return NotImplemented
 
 
-class TerrainPullUpWarning(KeyPointValueNode):
+class GPWSTerrainPullUpWarning(KeyPointValueNode):
+    name = 'GPWS Terrain Pull Up Warning'
     def derive(self, gpws_terrain_pull_up=P('GPWS Terrain Pull Up')):
         return NotImplemented
 
 
-class ThrottleCycles1000FeetToTouchdownMax(KeyPointValueNode):
-    def derive(self, thrust_lever_n=P('Thrust Lever (N)')):
+class ThrottleCycles1000FtToTouchdownMax(KeyPointValueNode):
+    def derive(self, thrust_lever_n=P('Thrust Lever')):
         return NotImplemented
 
 
@@ -913,7 +890,8 @@ class TooLowGearWarning(KeyPointValueNode):
         return NotImplemented
 
 
-class TooLowTerrainWarning(KeyPointValueNode):
+class GPWSTooLowTerrainWarning(KeyPointValueNode):
+    name = 'GPWS Too Low Terrain Warning'
     def derive(self, gpws_too_low_terrain=P('GPWS Too Low Terrain')):
         return NotImplemented
 
@@ -925,19 +903,19 @@ class NormalGAirborneMin(KeyPointValueNode):
 
 class VibrationN1GreaterThanLimitDurationGreaterThanLimit(KeyPointValueNode):
     name = 'Vibration N1 Greater Than Limit Duration Greater Than Limit'
-    def derive(self, eng_n_vib_n1=P('Engine (N) Vib N1'),
+    def derive(self, eng_n_vib_n1=P('Eng Vib N1'),
                airborne=S('Airborne')):
         return NotImplemented
 
 
 class VibrationN2GreaterThanLimitDurationGreaterThanLimit(KeyPointValueNode):
     name = 'Vibration N2 Greater Than Limit Duration Greater Than Limit'
-    def derive(self, eng_n_vib_n2=P('Engine (N) Vib N2'),
+    def derive(self, eng_vib_n2=P('Eng Vib N2'),
                airborne=S('Airborne')):
         return NotImplemented
 
 
-class WindshearWarningBelow1500Feet(KeyPointValueNode):
+class WindshearWarningBelow1500Ft(KeyPointValueNode):
     def derive(self, gpws_windshear=P('GPWS Windshear'),
                alt_aal=P('Altitude AAL')):
         return NotImplemented
@@ -954,9 +932,9 @@ class TaxiSpeedTurning(KeyPointValueNode):
 
 
 class LowPowerInFinalApproach10Sec(KeyPointValueNode):
-    def derive(self, eng_n_avg=P('Engine (N) Average'),
+    def derive(self, eng_avg=P('Eng Average'),
                _1000_ft_in_approach=KTI('1000 Ft In Approach'),
-               _50_ft_in_landing=KTI('50 Ft In Landing')):
+               _50_ft_to_touchdown=KTI('50 Ft To Touchdown')):
         return NotImplemented
 
 
