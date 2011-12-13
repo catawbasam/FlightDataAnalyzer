@@ -265,27 +265,47 @@ class MACH(DerivedParameterNode):
         
 
 class RateOfClimb(DerivedParameterNode):
+    '''
+    This routine derives the rate of climb from the vertical acceleration, the
+    Pressure altitude and the Radio altitude. We restrict the use of radio 
+    altitude data to below the wingspan (i.e. in ground effect) where the 
+    pressure altitude information is affected by the flow field around the
+    aircraft.
+    
+    Complementary first order filters are used to combine the acceleration
+    data and the height data. A high pass filter on the altitude data and a
+    low pass filter on the acceleration data combine to form a consolidated
+    signal.
+    
+    Long term errors in the accelerometers are removed by washing out the 
+    acceleration term with a longer time constant filter before use.    
+    '''
     def derive(self, 
                az = P('Acceleration Vertical'),
                alt_std = P('Altitude STD'),
-               alt_rad = P('Altitude Radio For Phases'),
+               alt_rad = P('Altitude Radio'),
                ige = P('In Ground Effect')
                ):
         alt_std_array = align(alt_std, az)
-        ##alt_rad_array = align(alt_rad, az)
+        alt_rad_array = align(alt_rad, az)
+
+        roc_alt_std = first_order_washout(alt_std_array, RATE_OF_CLIMB_LAG_TC, az.hz)
+        roc_alt_rad = first_order_washout(alt_rad_array, RATE_OF_CLIMB_LAG_TC, az.hz)
                 
         # Use pressure altitude rate outside ground effect and 
         # radio altitude data inside ground effect.
-        ##for this_ige in ige:
-            ##a = this_ige.slice.start
-            ##b = this_ige.slice.stop
-            ##roc.array[a:b] = roc_rad_ma[a:b]
-        roc_altitude = first_order_washout(alt_std_array, RATE_OF_CLIMB_LAG_TC, az.hz)
+        roc_altitude = roc_alt_std
+        for this_ige in ige:
+            a = this_ige.slice.start
+            b = this_ige.slice.stop
+            roc_altitude[a:b] = roc_alt_rad[a:b]
+            
+        roc_altitude /= RATE_OF_CLIMB_LAG_TC # Remove washout gain  
         
         # Lag this rate of climb
         az_washout = first_order_washout (az.array, AZ_WASHOUT_TC, az.hz, initial_value = az.array[0])
-        inertial_roc = first_order_lag (az_washout, RATE_OF_CLIMB_LAG_TC, az.hz, gain=GRAVITY*RATE_OF_CLIMB_LAG_TC*60.0)
-        self.array = roc_altitude + inertial_roc
+        inertial_roc = first_order_lag (az_washout, RATE_OF_CLIMB_LAG_TC, az.hz, gain=GRAVITY*RATE_OF_CLIMB_LAG_TC)
+        self.array = (roc_altitude + inertial_roc) * 60.0
 
 
 class RateOfClimbForPhases(DerivedParameterNode):
