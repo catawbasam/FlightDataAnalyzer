@@ -63,8 +63,8 @@ class ClimbStart(KeyTimeInstanceNode):
 
 
 class GoAround(KeyTimeInstanceNode):
-    def derive(self, alt_AAL=P('Altitude AAL For Phases'),
-               alt_rad=P('Altitude Radio For Phases'),
+    def derive(self, alt_AAL=P('Altitude AAL For Flight Phases'),
+               alt_rad=P('Altitude Radio For Flight Phases'),
                fast=S('Fast'),
                climb=P('Climb For Flight Phases')):
         for sect in fast:

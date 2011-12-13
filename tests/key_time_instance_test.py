@@ -33,7 +33,7 @@ class TestBottomOfDescent(unittest.TestCase):
         
     def test_bottom_of_descent_basic(self):
         testwave = np.cos(np.arange(0,12.6,0.1))*(-2000)+10000
-        alt_ph = Parameter('Altitude For Phases', np.ma.array(testwave))
+        alt_ph = Parameter('Altitude For Flight Phases', np.ma.array(testwave))
         alt_std = Parameter('Altitude STD', np.ma.array(testwave))
         dlc = DescentLowClimb()
         dlc.derive(alt_ph)
@@ -63,7 +63,8 @@ class TestClimbStart(unittest.TestCase):
 
 class TestGoAround(unittest.TestCase):
     def test_can_operate(self):
-        expected = [('Altitude AAL For Phases','Altitude Radio For Phases',
+        expected = [('Altitude AAL For Flight Phases',
+                     'Altitude Radio For Flight Phases',
                      'Fast','Climb For Flight Phases')]
         opts = GoAround.get_operational_combinations()
         self.assertEqual(opts, expected)
@@ -78,7 +79,7 @@ class TestGoAround(unittest.TestCase):
 
         goa = GoAround()
         # Pretend we are flying over flat ground, so the altitudes are equal.
-        goa.derive(Parameter('Altitude AAL For Phases',alt),
+        goa.derive(Parameter('Altitude AAL For Flight Phases',alt),
                    Parameter('Altitude Radio',alt),
                    phase_fast, climb)
         expected = [KeyTimeInstance(index=16, state='Go Around')]
@@ -96,8 +97,8 @@ class TestGoAround(unittest.TestCase):
         climb.derive(Parameter('Altitude STD', alt), phase_fast)
         
         goa = GoAround()
-        goa.derive(Parameter('Altitude AAL For Phases',alt),
-                   Parameter('Altitude Radio For Phases',alt),
+        goa.derive(Parameter('Altitude AAL For Flight Phases',alt),
+                   Parameter('Altitude Radio For Flight Phases',alt),
                    phase_fast, climb)
                    
         expected = [KeyTimeInstance(index=157, state='Go Around'), 
@@ -115,7 +116,7 @@ class TestGoAround(unittest.TestCase):
         climb.derive(Parameter('Altitude STD', alt), phase_fast)
         goa = GoAround()
         # Pretend we are flying over flat ground, so the altitudes are equal.
-        goa.derive(Parameter('Altitude AAL For Phases',alt),
+        goa.derive(Parameter('Altitude AAL For Flight Phases',alt),
                    Parameter('Altitude Radio',alt),
                    phase_fast, climb)
         expected = []

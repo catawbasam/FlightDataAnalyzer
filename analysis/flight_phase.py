@@ -41,8 +41,8 @@ class Airborne(FlightPhaseNode):
         
 
 class Approach(FlightPhaseNode):
-    def derive(self, alt_AAL=P('Altitude AAL For Phases'),
-               alt_rad=P('Altitude Radio For Phases')):
+    def derive(self, alt_AAL=P('Altitude AAL For Flight Phases'),
+               alt_rad=P('Altitude Radio For Flight Phases')):
         app = np.ma.masked_where(np.ma.logical_or
                                  (np.ma.minimum(alt_AAL.array,alt_rad.array)>3000,
                                   alt_AAL.array<1000),alt_AAL.array)
@@ -189,7 +189,7 @@ class DescentToBottomOfDescent(FlightPhaseNode):
 
 
 class DescentLowClimb(FlightPhaseNode):
-    def derive(self, alt=P('Altitude For Phases')):
+    def derive(self, alt=P('Altitude For Flight Phases')):
         dlc = np.ma.masked_greater(alt.array, ALTITUDE_FOR_CLB_CRU_DSC)
         dlc_list = np.ma.clump_unmasked(dlc)
         for this_dlc in dlc_list:
@@ -209,7 +209,8 @@ class Fast(FlightPhaseNode):
  
 
 class FinalApproach(FlightPhaseNode):
-    def derive(self, alt_AAL=P('Altitude AAL For Phases'), alt_rad=P('Altitude Radio For Phases')):
+    def derive(self, alt_AAL=P('Altitude AAL For Flight Phases'),
+               alt_rad=P('Altitude Radio For Flight Phases')):
         # Allow for the hysteresis applied to the radio altimeter signal 
         # for phase computations
         thold = LANDING_THRESHOLD_HEIGHT+HYSTERESIS_FP_RAD_ALT
@@ -225,7 +226,7 @@ class FinalApproach(FlightPhaseNode):
 
 
 class InGroundEffect(FlightPhaseNode):
-    def derive(self, alt_rad=P('Altitude Radio For Phases')):
+    def derive(self, alt_rad=P('Altitude Radio For Flight Phases')):
         low_where = np.ma.masked_greater(alt_rad.array, WING_SPAN)
         low_slices = np.ma.clump_unmasked(low_where)
         self.create_phases(low_slices)

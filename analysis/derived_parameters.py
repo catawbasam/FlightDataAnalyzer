@@ -108,7 +108,6 @@ class AltitudeForClimbCruiseDescent(DerivedParameterNode):
     
     
 class AltitudeForFlightPhases(DerivedParameterNode):
-    name = 'Altitude For Phases'
     def derive(self, alt_std=P('Altitude STD')):
         self.array = hysteresis (repair_mask(alt_std.array), HYSTERESIS_FPALT)
     

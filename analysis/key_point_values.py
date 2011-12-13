@@ -72,12 +72,12 @@ class IndicatedAirspeedAt35Ft(KeyPointValueNode):
         return NotImplemented
 
 
-class NormalgFtTo35FtMax(KeyPointValueNode):
+class NormalGFtTo35FtMax(KeyPointValueNode): # Q: Name?
     def derive(self, norm_g=P('Normal g'), alt_rad=P('Altitude Radio')):
         return NotImplemented
 
 
-class NormalgMaxDeviation(KeyPointValueNode):
+class NormalGMaxDeviation(KeyPointValueNode):
     """ For discussion - why have Max and Min Normal g when it's just the max 
     distance from 0.98 that's interesting?
     """
@@ -216,7 +216,8 @@ class GrossWeightAtTouchdown(KeyPointValueNode):
         return NotImplemented
 
 
-class EGTMax(KeyPointValueNode): # which engine? or all engines? # or all and each!?
+class EngEGTMax(KeyPointValueNode): # which engine? or all engines? # or all and each!?
+    name = 'Eng EGT Max'
     ##returns = "EGT Max"  # add which engine?
     NAME_FORMAT = 'EGT Max %(engine)s'
     # FIXME: In the following line, dependencies is not defined when the file
@@ -459,7 +460,8 @@ class SinkRateWarning(KeyPointValueNode):
         return NotImplemented
 
 
-class Normalg20FtToGroundMax(KeyPointValueNode):
+class NormalG20FtToGroundMax(KeyPointValueNode):
+    name = 'Normal G 20 Ft To Ground Max'
     def derive(self, acceleration_normal=P('Acceleration Normal')):
         return NotImplemented
 
@@ -627,7 +629,7 @@ class PitchCyclesMax(KeyPointValueNode):
 class Pitch35To400FtMax(KeyPointValueNode):
     def derive(self, pitch=P('Pitch'),
                _35_ft_in_takeoff=KTI('35 Ft In Takeoff'),
-               _400_ft_in_initial_climb=KTI('400 Ft In Initial_Climb')):
+               _400_ft_in_initial_climb=KTI('400 Ft In Initial Climb')):
         return NotImplemented
 
 
@@ -650,7 +652,7 @@ class Pitch5FtToGroundMax(KeyPointValueNode):
 class Pitch35To400FtMin(KeyPointValueNode):
     def derive(self, pitch=P('Pitch'),
                _35_ft_in_takeoff=KTI('35 Ft In Takeoff'),
-               _400_ft_in_initial_climb=KTI('400 Ft In Initial_Climb')):
+               _400_ft_in_initial_climb=KTI('400 Ft In Initial Climb')):
         return NotImplemented
 
 
@@ -706,14 +708,14 @@ class RollCycles1000FtToTouchdownMax(KeyPointValueNode):
 
 class RollBetween100And500FtMax(KeyPointValueNode):
     def derive(self, roll=P('Roll'),
-               _100_ft_in_initial_climb=KTI('100 Ft In Initial_Climb'),
-               _500_ft_in_initial_climb=KTI('500 Ft In Initial_Climb')):
+               _100_ft_in_initial_climb=KTI('100 Ft In Initial Climb'),
+               _500_ft_in_initial_climb=KTI('500 Ft In Initial Climb')):
         return NotImplemented
 
 
 class RollBetween500And1500FtMax(KeyPointValueNode):
     def derive(self, roll=P('Roll'),
-               _500_ft_in_initial_climb=KTI('500 Ft In Initial_Climb'),
+               _500_ft_in_initial_climb=KTI('500 Ft In Initial Climb'),
                _1500_ft_in_climb=KTI('1500 Ft In Climb')):
         return NotImplemented
 
@@ -841,7 +843,7 @@ class AirspeedV2AtLiftoff(KeyPointValueNode):
 
 class AirspeedBetween90SecToTouchdownAndTouchdownMax(KeyPointValueNode):
     def derive(self, airspeed=P('Airspeed'),
-               _90_sec_to_touchdown=KTI('90 Sec To Landing'),
+               _90_sec_to_touchdown=KTI('90 Sec To Touchdown'),
                touchdown=KTI('Touchdown')):
         return NotImplemented
 
@@ -850,14 +852,14 @@ class AirspeedV235To400FtMin(KeyPointValueNode):
     name = 'Airspeed V2 35 To 400 Ft Min'
     def derive(self, airspeed=P('Airspeed'),
                _35_ft_in_takeoff=KTI('35 Ft In Takeoff'),
-               _400_ft_in_initial_climb=KTI('400 Ft In Initial_Climb')):
+               _400_ft_in_initial_climb=KTI('400 Ft In Initial Climb')):
         return NotImplemented
 
 
 class AirspeedV2400To1500FtMin(KeyPointValueNode):
     name = 'Airspeed V2 400 To 1500 Ft Min'
     def derive(self, airspeed=P('Airspeed'),
-               _400_ft_in_initial_climb=KTI('400 Ft In Initial_Climb'),
+               _400_ft_in_initial_climb=KTI('400 Ft In Initial Climb'),
                _1500_ft_in_climb=KTI('1500 Ft In Climb')):
         return NotImplemented
 
