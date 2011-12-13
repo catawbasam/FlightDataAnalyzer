@@ -2,6 +2,7 @@ import math
 import numpy as np
 
 from datetime import datetime, timedelta
+from hashlib import sha256
 from itertools import izip
 from scipy.signal import iirfilter, lfilter, lfilter_zi, filtfilt
 
@@ -29,7 +30,7 @@ from settings import REPAIR_DURATION
 #----------------------------------------------------------------------
 
 
-def align(slave, master, interval='Subframe'):
+def align(slave, master, interval='Subframe', signaltype='Analogue'):
     """
     This function takes two parameters which will have been sampled at different
     rates and with different offsets, and aligns the slave parameter's samples
@@ -49,6 +50,11 @@ def align(slave, master, interval='Subframe'):
     :type master: Parameter objects    
     :param interval: Has possible values 'Subframe' or 'Frame'.  #TODO: explain this!
     :type interval: String
+    :param mode: Has possible values 'Analogue' or 'Discrete'. TODO: 'Multistate' mode as those parameters should be shifted similar to Discrete (or use Multistate for discrete)
+    :signaltype = Analogue results in interpolation of the data across each sample period
+    :signaltype = Discrete or Multi-State results in shifting to the closest data sample, without interpolation.
+    :Note: Multistate is a type of discrete in this case.
+    :type interval: String
     
     :raises AssertionError: If the interval is neither 'Subframe' or 'Frame'
     :raises AssertionError: If the arrays and sample rates do not equate to the same overall data duration.
@@ -59,9 +65,15 @@ def align(slave, master, interval='Subframe'):
     # Check the interval is one of the two forms we recognise
     assert interval in ['Subframe', 'Frame']
     
+    # Check the type of signal is one of those we recognise
+    assert signaltype in ['Analogue', 'Discrete', 'Multi-State']
+    
     slave_array = slave.array # Optimised access to attribute.
     if len(slave_array) == 0:
         return slave_array # Otherwise would raise in loop.
+    if master.hz == slave.hz and master.offset == slave.offset:
+        # No alignment is required, return the slave's array unchanged.
+        return slave.array
     
     # Here we create a masked array to hold the returned values that will have 
     # the same sample rate and timing offset as the master
@@ -95,12 +107,22 @@ def align(slave, master, interval='Subframe'):
     # Each sample in the master parameter may need different combination parameters
     for i in range(wm):
         bracket=(i/r+delta)
-        # Interpolate between the hth and (h+1)th samples of the slaveary
+        # Interpolate between the hth and (h+1)th samples of the slave array
         h=int(math.floor(bracket))
         h1 = h+1
-        # Linear interpolation coefficients
+
+        # Compute the linear interpolation coefficients, b & a
         b = bracket-h
+        
+        # Cunningly, if we are working with discrete or multi-state parameters, 
+        # by reverting to 1,0 or 0,1 coefficients we gather the closest value
+        # in time to the master parameter.
+        if signaltype != 'Analogue':
+            b = round(b)
+            
+        # Either way, a is the residual part.    
         a=1-b
+        
 
         if h<0:
             slave_aligned[i+wm::wm]=a*slave_array[h+ws:-ws:ws]+b*slave_array[h1+ws::ws]
@@ -285,7 +307,7 @@ def duration(a, period, hz=1.0):
     
     return a
 
-def first_order_lag (in_param, time_constant, hz, gain = 1.0, initial_value = 0.0):
+def first_order_lag (in_param, time_constant, hz, gain = 1.0, initial_value = None):
     '''
     Computes the transfer function
             x.G
@@ -311,7 +333,7 @@ def first_order_lag (in_param, time_constant, hz, gain = 1.0, initial_value = 0.
     :returns: masked array of values with first order lag applied
     '''
 
-    result = np.copy(in_param.data)
+    input_data = np.copy(in_param.data)
     
     # Scale the time constant to allow for different data sample rates.
     tc = time_constant / hz
@@ -331,7 +353,11 @@ def first_order_lag (in_param, time_constant, hz, gain = 1.0, initial_value = 0.
     y_term = np.array(y_term)
     
     z_initial = lfilter_zi(x_term, y_term) # Prepare for non-zero initial state
-    answer, z_final = lfilter(x_term, y_term, result, zi=z_initial*initial_value)
+    # The initial value may be set as a command line argument, mainly for testing
+    # otherwise we set it to the first data value.
+    if initial_value == None:
+        initial_value = input_data[0]
+    answer, z_final = lfilter(x_term, y_term, input_data, zi=z_initial*initial_value)
     masked_result = np.ma.array(answer)
     # The mask should last indefinitely following any single corrupt data point
     # but this is impractical for our use, so we just copy forward the original
@@ -339,7 +365,7 @@ def first_order_lag (in_param, time_constant, hz, gain = 1.0, initial_value = 0.
     masked_result.mask = in_param.mask
     return masked_result
 
-def first_order_washout (in_param, time_constant, hz, gain = 1.0, initial_value = 0.0):
+def first_order_washout (in_param, time_constant, hz, gain = 1.0, initial_value = None):
     '''
     Computes the transfer function
           x.G.s
@@ -385,11 +411,8 @@ def first_order_washout (in_param, time_constant, hz, gain = 1.0, initial_value 
     y_term = np.array(y_term)
     
     z_initial = lfilter_zi(x_term, y_term)
-    '''
-    I'd like to move to this phase-neutral implementation...
-    
-    answer = filtfilt(x_term, y_term, input_data)
-    '''
+    if initial_value == None:
+        initial_value = input_data[0]
     # Tested version here...
     answer, z_final = lfilter(x_term, y_term, input_data, zi=z_initial*initial_value)
     masked_result = np.ma.array(answer)
@@ -398,6 +421,15 @@ def first_order_washout (in_param, time_constant, hz, gain = 1.0, initial_value 
     # mask.
     masked_result.mask = in_param.mask
     return masked_result
+
+
+def hash_array(array):
+    '''
+    Creates a sha256 hash from the array's tostring() method.
+    '''
+    checksum = sha256()
+    checksum.update(array.tostring())
+    return checksum.hexdigest()
 
     
 def hysteresis (array, hysteresis):
@@ -612,8 +644,19 @@ def straighten_headings(heading_array):
     heading_array[1:] = np.cumsum(diff) + head_prev
     return heading_array
 
-def time_at_value_wrapped(parameter, block, value):
-    data = parameter.array[block.slice]
+def time_at_value_wrapped(parameter, section, value):
+    '''
+    This function makes it easier to access the time_at_value function 
+    when using POLARIS parameter and section components.
+
+    :param parameter: input data
+    :type parameter: parameter object
+    :param section: the section to be used for finding the value
+    :type section: section object
+    :param value: the threshold being sought
+    :type value: float
+    '''
+    data = parameter.array[section.slice]
     return time_at_value (repair_mask(data) , parameter.hz, 
                           parameter.offset, 0, len(data)-1, value)
             
@@ -720,5 +763,3 @@ def value_at_time (array, hz, offset, time_index):
                     return low_value
         # In the cases of no mask, or neither sample masked, interpolate.
         return r*high_value + (1-r) * low_value
-
-

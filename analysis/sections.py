@@ -6,12 +6,11 @@ from analysis.node import SectionNode, P, S
 
 #Q: What about using a different letter than "P" for non-parameters
 
-##class _500ftToTouchdown(SectionNode):
+##class _500FtToTouchdown(SectionNode):
     ##def derive(self, alt=P('Altitude STD'), tdwn=P('Touchdown')):
         
         
-class _500ftTo0ft(SectionNode):
-    name = "500ft To 0ft"
+class _500FtTo0Ft(SectionNode):
     
     def derive(self, alt=P('Altitude AAL'), desc=S('Descending')):
         """
@@ -28,4 +27,36 @@ class _500ftTo0ft(SectionNode):
         
         alt_slices = np.ma.clump_unmasked(alt_500_0)
         self.create_sections(alt_slices)
-        
+
+
+class BouncedLandingSection(SectionNode):
+    '''
+    Q: Is this a valid Section?
+    '''
+    def derive(self, param=P('Flap')): # TODO: What should the arguments be?
+        pass
+
+
+class TaxiOut(SectionNode):
+    def derive(self, param=P('Flap')): # TODO: What should the arguments be?
+        pass
+
+
+class TaxiIn(SectionNode):
+    def derive(self, param=P('Flap')): # TODO: What should the arguments be?
+        pass
+
+
+class LevelBust(SectionNode):
+    def derive(self, param=P('Flap')): # TODO: What should the arguments be?
+        pass
+
+
+class OnGround(SectionNode):
+    def derive(self, param=P('Flap')): # TODO: What should the arguments be?
+        pass
+
+
+class GearSelectedUp(SectionNode):
+    def derive(self, param=P('Flap')): # TODO: What should the arguments be?
+        pass

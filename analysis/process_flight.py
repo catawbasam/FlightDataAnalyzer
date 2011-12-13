@@ -166,7 +166,7 @@ def process_flight(hdf_path, aircraft_info, achieved_flight_record=None,
         
         if settings.PRE_FLIGHT_ANALYSIS:
             settings.PRE_FLIGHT_ANALYSIS(hdf, aircraft, process_order)
-            
+        
         # derive parameters
         derived_results = derive_parameters(hdf, node_mgr, process_order)
         kti_list, kpv_list, phase_list, flight_attrs = derived_results
@@ -192,6 +192,11 @@ def process_flight(hdf_path, aircraft_info, achieved_flight_record=None,
 
 
 if __name__ == '__main__':
-    import sys
-    hdf_path = sys.argv[1]
-    process_flight(hdf_path, {'Tail Number': 'G-ABCD'}, {}, [], draw=False)
+    import argparse
+    parser = argparse.ArgumentParser(description="Process a flight.")
+    parser.add_argument('file', type=str,
+                        help='Path of file to process.')
+    parser.add_argument('-p', dest='plot', action='store_true',
+                        default=False, help='Plot flight onto a graph.')
+    args = parser.parse_args()
+    process_flight(args.file, {'Tail Number': 'G-ABCD'}, {}, [], draw=args.plot)

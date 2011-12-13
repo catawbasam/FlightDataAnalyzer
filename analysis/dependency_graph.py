@@ -35,9 +35,6 @@ def get_derived_nodes(module_names):
                     logging.exception('Failed to import class: %s' % c.get_name())
     return nodes
 
-
-
-
 def breadth_first_search_all_nodes(di_graph, root):
     """
     only useful for us with a di_graph
@@ -57,7 +54,11 @@ def breadth_first_search_all_nodes(di_graph, root):
                 queue.append(other)
                 ordering.append(other)
                 spanning_tree[other] = node
-    
+    if filter(lambda e: e[0] == e[1], di_graph.edges()):
+        # If there is a recursive loop, raise an exception rather than looping
+        # until a MemoryError is eventually raised.
+        raise ValueError("Traversal with fail with recursive dependencies in "
+                         "the digraph.")
     queue = [root]            # Visiting queue
     spanning_tree = dict(root=None)    # Spanning tree
     ordering = [root]
@@ -129,8 +130,11 @@ def graph_nodes(node_mgr): ##lfl_params, required_params, derived_nodes):
     # Note: It's hard to tell whether a missing dependency is a mistyped
     # reference to another derived parameter or a parameter not available on
     # this LFL
+    # Set of all derived and LFL Nodes.
     available_nodes = set(node_mgr.derived_nodes.keys()).union(set(node_mgr.lfl))
+    # Missing dependencies.
     missing_derived_dep = list(derived_deps - available_nodes)
+    # Missing dependencies which are required.
     missing_required = list(set(node_mgr.requested) - available_nodes)
     
     if missing_derived_dep:
@@ -139,8 +143,10 @@ def graph_nodes(node_mgr): ##lfl_params, required_params, derived_nodes):
     if missing_required:
         raise ValueError("Missing required parameters: %s" % missing_required)
 
-    # add nodes to graph so it shows everything
-    gr_all.add_nodes_from(missing_derived_dep)  #these should all be RAW parameters not in LFL unless something has gone wrong with the derived_nodes dict!    
+    # Add missing nodes to graph so it shows everything. These should all be
+    # RAW parameters missing from the LFL unless something has gone wrong with
+    # the derived_nodes dict!    
+    gr_all.add_nodes_from(missing_derived_dep)  
     return gr_all
 
     
@@ -199,6 +205,14 @@ def process_order(gr_all, node_mgr): ##lfl_params, derived_nodes):
         
     return gr_all, gr_st, node_order 
 
+
+def remove_nodes_without_edges(graph):
+    nodes = list(graph)
+    for node in nodes:
+        if not graph.edges(node):
+            print node
+            graph.remove_node(node)
+    return graph
      
 def dependency_order(lfl_params, required_params, aircraft_info, 
                      achieved_flight_record, modules=settings.NODE_MODULES, draw=True):
@@ -230,6 +244,9 @@ def dependency_order(lfl_params, required_params, aircraft_info,
     node_mgr = NodeManager(lfl_params, required_params, derived_nodes,
                            aircraft_info, achieved_flight_record)
     _graph = graph_nodes(node_mgr)
+    
+    ##_graph = remove_nodes_without_edges(_graph)
+    ##draw_graph(_graph, 'Dependency Tree')
     gr_all, gr_st, order = process_order(_graph, node_mgr)
     
     inoperable_required = list(set(required_params) - set(order))

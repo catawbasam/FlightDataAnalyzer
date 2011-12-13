@@ -48,20 +48,21 @@ def plot_essential(hdf_path):
         ax4.plot(hdf['Head True'].array, 'b-')    
    
    
-def plot_flight (hdf_path, kti_list, kpv_list, phase_list):
+def plot_flight(hdf_path, kti_list, kpv_list, phase_list):
     """
     """
-    ax2.annotate(point, xy=(event[0]-first,
-            fp.altitude_std.data[event[0]]),
-            xytext=(-5, 100), 
-            textcoords='offset points',
-            #arrowprops=dict(arrowstyle="->"),
-            rotation='vertical'
-            )
+    # ax1 and ax2 are not defined.
+    #ax2.annotate(point, xy=(event[0]-first,
+            #fp.altitude_std.data[event[0]]),
+            #xytext=(-5, 100), 
+            #textcoords='offset points',
+            ##arrowprops=dict(arrowstyle="->"),
+            #rotation='vertical'
+            #)
     
-    ax1.plot(ph['Takeoff'], 'r-', ph['Landing'], 'g-',
-    ph['Air'], 'b-',
-    ph['Ground'], 'k-')
+    #ax1.plot(ph['Takeoff'], 'r-', ph['Landing'], 'g-',
+    #ph['Air'], 'b-',
+    #ph['Ground'], 'k-')
                 
     ##first, last, fp, kpt, kpv, ph, rejected_takeoff=False):
     """
@@ -69,6 +70,10 @@ def plot_flight (hdf_path, kti_list, kpv_list, phase_list):
     """
 
     ##first, last = block.start, block.stop
+    # Convert to dictionaries for easy access by Node name.
+    ph = dict([(n.name, n) for n in phase_list])
+    
+    # kpv = dict if required...
     
     fig = figure(figsize=(10,8))
     
@@ -87,8 +92,8 @@ def plot_flight (hdf_path, kti_list, kpv_list, phase_list):
         ax1.autoscale(enable=False, axis='x')
         ax1.set_xbound(first, last)
         ax1.plot(ph['Takeoff'], 'r-', ph['Landing'], 'g-',
-                ph['Air'], 'b-',
-                ph['Ground'], 'k-')
+                 ph['Air'], 'b-',
+                 ph['Ground'], 'k-')
         ax1.grid(True)
         
         ax2 = fig.add_subplot(4,1,2, sharex=ax1)
@@ -133,3 +138,7 @@ def plot_flight (hdf_path, kti_list, kpv_list, phase_list):
                         rotation='vertical'
                         )
     show()
+
+if __name__ == '__main__':
+    
+    plot_flight()

@@ -46,7 +46,6 @@ def store_segment(hdf_path, segment):
     return
 
 
-
 def split_hdf_to_segments(hdf_path, output_dir=None, draw=False): #aircraft):
     """
     Main method - analyses an HDF file for flight segments and splits each
@@ -119,7 +118,7 @@ if __name__ == '__main__':
     import sys
     import pprint
     hdf_path = sys.argv[1]
-    segs = split_hdf_to_segments(hdf_path, draw=True)    
+    segs = split_hdf_file_into_segments(hdf_path, draw=True)    
     pprint.pprint(segs)
     ##os.remove(file_path) # delete original raw data file?
     ##os.remove(hdf_path) # delete original hdf file?

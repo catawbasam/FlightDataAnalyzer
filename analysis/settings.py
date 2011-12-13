@@ -47,6 +47,9 @@ HYSTERESIS_FPIAS = 10 # (kts)
 # Threshold for flight phase altitude hysteresis.
 HYSTERESIS_FPALT = 200 # (ft)
 
+# Threshold for flight phase radio altitude hysteresis.
+HYSTERESIS_FP_RAD_ALT = 5 # (ft)
+
 # Threshold for flight phase altitude hysteresis specifically for deparating 
 # Climb Cruise Descent phases.
 HYSTERESIS_FPALT_CCD = 2500 # (ft)
@@ -58,6 +61,9 @@ HYSTERESIS_FPROC = 100 # (fpm)
 
 # Threshold for start of initial climb phase
 INITIAL_CLIMB_THRESHOLD = 35 # ft (Radio, where available)
+
+# Threshold for start of landing phase
+LANDING_THRESHOLD_HEIGHT = 50 # (Radio, where available)
 
 # Level flight minimum duration
 LEVEL_FLIGHT_MIN_DURATION = 60  # (sec)
@@ -91,7 +97,7 @@ minutes which has been found to give good qualitative segregation
 between climb, cruise and descent phases."""
 SLOPE_FOR_TOC_TOD = (600/float(180))
 
-WING_SPAN = 77 # TODO: Replace with aircraft parameter
+WING_SPAN = 14 # TODO: Replace with aircraft parameter
 
 ##########################
 ## Data Analysis Hooks
