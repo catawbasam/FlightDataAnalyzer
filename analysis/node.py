@@ -54,8 +54,8 @@ def get_param_kwarg_names(method):
     """
     args, varargs, varkw, defaults = inspect.getargspec(method)
     if not defaults or args[:-len(defaults)] != ['self'] or varargs:
-        raise ValueError("Only kwargs accepted, cannot accept args: %s %s" % (
-            args[1:], varargs))
+        raise ValueError("Node '%s' must have kwargs, cannot accept no kwargs or any args other than 'self'. args:'%s' *args:'%s'" % (
+            method.im_class.get_name(), args[1:], varargs))
     if varkw:
         # One day, could insert all available params as kwargs - but cannot
         # guarentee requirements will work
@@ -147,6 +147,14 @@ class Node(object):
                 options.append(args)
         return options
     
+    # removed abstract wrapper to allow initialisation within def derive(KTI('a'))
+    ##@abstractmethod #TODO: Review removal.
+    def get_aligned(self, align_to_param):
+        """
+        Return a version of self which is aligned to the incoming argument.
+        """
+        raise NotImplementedError("Abstract Method")
+    
     def get_derived(self, args):
         """
         Accessor for derive method which first aligns all parameters to the
@@ -218,17 +226,16 @@ class DerivedParameterNode(Node):
         # create array results placeholder
         self.array = None # np.ma.array derive result goes here!
         super(DerivedParameterNode, self).__init__(*args, **kwargs)
-    
-    def get_derived(self, args):
-        super(DerivedParameterNode, self).get_derived(args)
-        if self.align_to_first_dependency:
-            first_param = next((a for a in args))
-            frequency = first_param.frequency
-            offset = first_param.offset
-        else:
-            frequency = self.frequency
-            offset = self.offset
-        return Parameter(self.get_name(), self.array, frequency, offset)
+        
+    def get_aligned(self, param):
+        """
+        Aligns itself to the input parameter and creates a copy
+        """
+        aligned_array = align(self, param)
+        aligned_param = DerivedParameterNode(frequency=param.frequency,
+                                             offset=param.offset)
+        aligned_param.array = aligned_array
+        return aligned_param
 
 
 class SectionNode(Node, list):
@@ -412,33 +419,15 @@ class FlightAttributeNode(Node):
         self._value = None
         super(FlightAttributeNode, self).__init__(*args, **kwargs)
     
-    ##def set_flight_attribute(self, attr_name, value):
-        ##if attr_name in self._allowed_attributes:
-            ##self._flight_info[attr_name] = value
-        ##else:
-            ##raise ValueError("Attribute '%s' is not permitted" % attr_name)
     def set_flight_attribute(self, value):
         self._value = value
     set_flight_attr = set_flight_attribute
     
-    ##def get_attributes(self):
-        ##return [Attribute(k,v) for k, v in self._flight_info.iteritems()]
-    
-    def get_derived(self, deps):
+    def get_aligned(self, deps):
         """
-        Returns an Attribute. Value may be None if not stored.
+        Cannot align a flight attribute.
         """
-        res = self.derive(*deps)
-        
-        
-        #!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-        # TODO: Complete this after merge of Glen's changes!
-        #!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-        
-        
-        
-        return Attribute(self.name, self._value)
-        
+        return self
 
 
 class NodeManager(object):

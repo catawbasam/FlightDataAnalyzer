@@ -72,9 +72,9 @@ def derive_parameters(hdf, node_mgr, process_order):
         deps = []
         for dep_name in node_class.get_dependency_names():
             if dep_name in params:  # already calculated KPV/KTI/Phase
-                deps.append(params[param])
-            elif param in hdf:  # LFL/Derived parameter
-                deps.append(hdf[param])
+                deps.append(params[dep_name])
+            elif dep_name in hdf:  # LFL/Derived parameter
+                deps.append(hdf[dep_name])
             else:  # dependency not available
                 deps.append(None)
         if not any(deps):
@@ -97,7 +97,7 @@ def derive_parameters(hdf, node_mgr, process_order):
             kti_list.extend(result)
         elif isinstance(node, FlightAttributeNode):
             params[param_name] = result
-            flight_attrs.append(result) # only has one Attribute result
+            flight_attrs.append(Attribute(result.name, result.value)) # only has one Attribute result
         elif isinstance(node, FlightPhaseNode):
             # expect a single slice
             params[param_name] = result
@@ -165,14 +165,14 @@ def process_flight(hdf_path, aircraft_info, achieved_flight_record=None,
             ) 
         
         if settings.PRE_FLIGHT_ANALYSIS:
-            settings.PRE_FLIGHT_ANALYSIS(hdf, aircraft, process_order)
+            settings.PRE_FLIGHT_ANALYSIS(hdf, aircraft_info, process_order)
         
         # derive parameters
         derived_results = derive_parameters(hdf, node_mgr, process_order)
         kti_list, kpv_list, phase_list, flight_attrs = derived_results
 
         #Q: Confirm aircraft tail here?
-        ##validate_aircraft(aircraft['Identifier'], hdf['aircraft_ident'])
+        ##validate_aircraft(aircraft_info['Identifier'], hdf['aircraft_ident'])
         
         # establish timebase for start of data
         #Q: Move to a Key Time Instance so that dependencies can be met appropriately?

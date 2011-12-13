@@ -31,9 +31,9 @@ class TakeoffRunway(FlightAttributeNode):
         self.set_flight_attr(runway)
         
                       
-class Approaches(FlightAttributeNode):
-    def derive(self):
-        ##self.set_flight_attr(list(approaches))
-        return NotImplemented
+##class Approaches(FlightAttributeNode):
+    ##def derive(self):
+        ####self.set_flight_attr(list(approaches))
+        ##return NotImplemented
         
             
