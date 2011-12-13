@@ -444,9 +444,35 @@ class GlideslopeDeviation1000To150FtMax(KeyPointValueNode):
 
 class GlideslopeDeviation1500To1000FtMax(KeyPointValueNode):
     def derive(self, ils_glideslope=P('ILS Glideslope'),
-               _1500_ft_in_approach=KTI('1500 Ft In Approach'),
-               _1000_ft_in_approach=KTI('1000 Ft In Approach')):
-        return NotImplemented
+               alt_aal = P('Altitude AAL For Flight Phases')):
+        
+        # Slice through the height at the top and bottom of the band of interest
+        band = np.ma.masked_outside(alt_aal.array, 1500, 1000)
+        
+        # Group the result into slices - note that 'Altitude AAL For Flight 
+        # Phases' already has small masked sections repaired, so no allowance
+        # is needed here for minor data corruptions.
+        in_band_periods = np.ma.clump_unmasked(band)
+        
+        # Now scan each period...
+        for this_period in in_band_periods:
+            begin = this_period.start
+            end = this_period.stop
+            
+            # We are only interested in descending periods...
+            if alt_aal.array[begin] > alt_aal.array[end]:
+                
+                # Find where the maximum (absolute) deviation occured
+                index = np.ma.argmax(np.ma.abs(ils_glideslope.array[begin:end]))
+                when = begin + index
+                
+                # Store the actual value. We can do abs on the statistics to
+                # normalise this, but retaining the sign will make it possible
+                # to look for direction of errors at specific airports.
+                value = ils_glideslope.array[when]
+
+                # and create the KPV.
+                self.create_kpv(when, value)
 
 
 class HeightAtGoAroundMin(KeyPointValueNode):

@@ -222,6 +222,15 @@ class TestFormattedNameNode(unittest.TestCase):
             def get_derived(self):
                 pass
         self.formatted_name_node = ExampleNameFormatNode()
+        
+        
+    def test_no_name_uses_node_name(self):
+        names = self.formatted_name_node.names()
+        self.assertEqual(names, ["Example Name Format Node"])
+        #Q: Should this include name of node?
+        name = self.formatted_name_node.format_name()
+        self.assertEqual(name, "Example Name Format Node")
+        
     
     def test_names(self):
         """ Using all RETURNS options, apply NAME_FORMAT to obtain a complete
