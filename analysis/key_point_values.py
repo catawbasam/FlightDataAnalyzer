@@ -830,7 +830,7 @@ class AirspeedBelow3000FtMax(KeyPointValueNode):
         return NotImplemented
 
 
-class GroundspeedOnGroundWithRateOfChangeOfHeadingGreaterThanLimitMax(KeyPointValueNode):
+class TaxiSpeedTurningMax(KeyPointValueNode):
     def derive(self, groundspeed=P('Groundspeed')):
         return NotImplemented
 

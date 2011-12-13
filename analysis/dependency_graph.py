@@ -94,6 +94,7 @@ def draw_graph(graph, name):
         return
     G.layout(prog='dot')
     G.graph_attr['label'] = name
+    G.graph_attr.update(landscape=True)
     G.draw(file_path)
     
 def graph_nodes(node_mgr): ##lfl_params, required_params, derived_nodes):
@@ -240,10 +241,10 @@ def dependency_order(lfl_params, required_params, modules=settings.NODE_MODULES,
     node_mgr = NodeManager(lfl_params, required_params, derived_nodes)
     _graph = graph_nodes(node_mgr)
     _graph = remove_nodes_without_edges(_graph)
-    ##draw_graph(_graph, 'Dependency Tree')
+    draw_graph(_graph, 'Dependency Tree')
     ### TODO: Remove following lines.
-    ##import sys
-    ##sys.exit(1)
+    import sys
+    sys.exit(1)
     gr_all, gr_st, order = process_order(_graph, node_mgr)
     
     inoperable_required = list(set(required_params) - set(order))
