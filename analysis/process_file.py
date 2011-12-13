@@ -47,7 +47,18 @@ def store_segment(hdf_path, segment):
 
 
 
-def split_hdf_to_segments(hdf_path, draw=False): #aircraft):
+def split_hdf_to_segments(hdf_path, output_dir=None, draw=False): #aircraft):
+    """
+    Main method - analyses an HDF file for flight segments and splits each
+    flight into a new segment appropriately.
+    
+    :param hdf_path: path to HDF file
+    :type hdf_path: string
+    :param draw: Whether to use matplotlib to plot the flight
+    :type draw: Boolean
+    :returns: List of Segments
+    :rtype: List of Segment recordtypes ('slice type part duration path hash')
+    """
     logging.info("Processing file: %s", hdf_path)
     if draw:
         plot_essential(hdf_path)
@@ -84,7 +95,11 @@ def split_hdf_to_segments(hdf_path, draw=False): #aircraft):
     # process each segment (into a new file) having closed original hdf_path
     for segment in segments:
         # write segment to new split file (.001)
-        dest_path = hdf_path.rstrip('.hdf5') + '.%03d' % segment.part + '.hdf5'
+        if output_dir:
+            path = os.path.join(output_dir, os.path.basename(hdf_path))
+        else:
+            path = hdf_path
+        dest_path = path.rstrip('.hdf5') + '.%03d' % segment.part + '.hdf5'
         logging.debug("Writing segment %d (%s): %s", segment.part, segment.duration, dest_path)
         segment.path = write_segment(hdf_path, segment.slice, dest_path)
         # store in DB for decision whether to process for flights or flight join

@@ -194,20 +194,21 @@ class GrossWeightAtTouchDown(KeyPointValueNode):
                touch_down=KTI('Touch Down')):
         return NotImplemented
     
-class EGTMax(KeyPointValueNode): # which engine? or all engines? # or all and each!?
-    ##returns = "EGT Max"  # add which engine?
-    NAME_FORMAT = 'EGT Max %(engine)s'
-    RETURN_OPTIONS = {'engine': dependencies + ['Engine (*) EGT']}
+class EngEGTMax(KeyPointValueNode):
+    name = 'Eng EGT Max'
+    ##NAME_FORMAT = 'Eng EGT Max %(engine)s'
+    ##NAME_FORMAT = 'Eng EGT Max'
+    ##RETURN_OPTIONS = {'engine': ['Eng (%d) EGT' % n for n in range(1,5)]}
 
     @classmethod
     def can_operate(cls, available):
-        if set(cls.dependencies).intersection(available):
+        if set(cls.get_dependency_names()).intersection(available):
             return True  # if ANY are available
         else:
             return False  # we have no EGT recorded on any engines
         
-    def derive(self, egt1=P('Engine (1) EGT'), egt2=P('Engine (2) EGT'),
-               egt3=P('Engine (3) EGT'), egt4=P('Engine (4) EGT')):
+    def derive(self, egt1=P('Eng (1) EGT'), egt2=P('Eng (2) EGT'),
+               egt3=P('Eng (3) EGT'), egt4=P('Eng (4) EGT')):
         kmax = vmax = imax = None
         for p in (egt1, egt2, egt3, egt4):
             _imax = p.array.argmax()
@@ -216,7 +217,7 @@ class EGTMax(KeyPointValueNode): # which engine? or all engines? # or all and ea
                 imax = _imax # index of max
                 vmax = _vmax # max value
                 kmax = p.name # param name of max eng
-        self.create_kpv(imax, vmax, engine=kmax) # include engine using kmax?
+        self.create_kpv(imax, vmax)
     
     
 class MagneticHeadingAtLiftOff(KeyPointValue):

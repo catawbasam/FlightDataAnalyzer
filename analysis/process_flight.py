@@ -7,16 +7,9 @@ from hdfaccess.file import hdf_file
 from analysis import settings
 from analysis.dependency_graph import dependency_order
 from analysis.library import calculate_timebase
-from analysis.node import (
-    DerivedParameterNode, FlightPhaseNode, GeoKeyTimeInstance, KeyPointValue,
+from analysis.node import (DerivedParameterNode, 
+    FlightAttributeNode, FlightPhaseNode, GeoKeyTimeInstance, KeyPointValue,
     KeyPointValueNode, KeyTimeInstance, KeyTimeInstanceNode, SectionNode)
-
-
-def get_required_params(aircraft):
-    """
-    """
-    param_list = [] ##['Rate Of Descent High', 'Top of Climb and Top of Descent']
-    return param_list
 
 
 def geo_locate(hdf, kti_list):
@@ -56,6 +49,7 @@ def derive_parameters(hdf, node_mgr, process_order):
     kpv_list = [] # duplicate storage, but maintaining types
     kti_list = []
     phase_list = []  # 'Node Name' : node()  pass in node.get_accessor()
+    flight_attrs = []
     
     for param_name in process_order:
         if param_name in node_mgr.lfl:
@@ -67,7 +61,12 @@ def derive_parameters(hdf, node_mgr, process_order):
                     hdf.set_param(_param)
             continue
         
-        node_class = node_mgr.derived_nodes[param_name]  # raises KeyError if Node is "unknown"
+        elif node_mgr.get_attribute(param_name):
+            # add attribute to dictionary of available params
+            params[param_name] = node_mgr.get_attribute(param_name) #TODO: optimise with only one call to get_attribute
+            continue
+        
+        node_class = node_mgr.derived_nodes[param_name]  #NB raises KeyError if Node is "unknown"
         
         # build ordered dependencies
         deps = []
@@ -91,14 +90,17 @@ def derive_parameters(hdf, node_mgr, process_order):
         
         if isinstance(node, KeyPointValueNode):
             #Q: track node instead of result here??
-            params[param_name] = result  # keep track
+            params[param_name] = result
             kpv_list.extend(result)
         elif isinstance(node, KeyTimeInstanceNode):
-            params[param_name] = result  # keep track
+            params[param_name] = result
             kti_list.extend(result)
+        elif isinstance(node, FlightAttributeNode):
+            params[param_name] = result
+            flight_attrs.append(result) # only has one Attribute result
         elif isinstance(node, FlightPhaseNode):
             # expect a single slice
-            params[param_name] = result  # keep track
+            params[param_name] = result
             phase_list.extend(result)
         elif isinstance(node, DerivedParameterNode):
             # perform any post_processing
@@ -117,7 +119,8 @@ def derive_parameters(hdf, node_mgr, process_order):
     return kti_list, kpv_list, phase_list
 
 
-def process_flight(hdf_path, aircraft_info, achieved_flight_record=None, draw=False):
+def process_flight(hdf_path, aircraft_info, achieved_flight_record=None,
+                   required_params=[], draw=False):
     """
     aircraft_info API:
     {
@@ -142,21 +145,31 @@ def process_flight(hdf_path, aircraft_info, achieved_flight_record=None, draw=Fa
     :param aircraft: Aircraft specific attributes
     :type aircraft: dict
     
+    :returns: See below:
+    :rtype: Dict
+    {
+        'flight':[Attribute('name value')]  # sample: [Attirubte('Takeoff Airport', {'id':1234, 'name':'Int. Airport'}, Attribute('Approaches', [4567,7890]), ...], 
+        'kti':[GeoKeyTimeInstance('index state latitude longitude')] if lat/long available else [KeyTimeInstance('index state')]
+        'kpv':[KeyPointValue('index value name slice')]
+    }
+    
     """
     # open HDF for reading
     with hdf_file(hdf_path) as hdf:
-        # get list of KPV and standard parameters to be calculated
-        required_params = get_required_params(aircraft)
         # assume that all params in HDF are from LFL(!)
         lfl_params = hdf.keys()
         # calculate dependency tree
         node_mgr, process_order = dependency_order(
-            lfl_params, required_params, draw=sys.platform != 'win32') # False for Windows :-(
+            lfl_params, required_params, aircraft_info, achieved_flight_record, 
+            draw=sys.platform != 'win32' # False for Windows :-(
+            ) 
         
         if settings.PRE_FLIGHT_ANALYSIS:
             settings.PRE_FLIGHT_ANALYSIS(hdf, aircraft, process_order)
             
-        kti_list, kpv_list, phase_list = derive_parameters(hdf, node_mgr, process_order)
+        # derive parameters
+        derived_results = derive_parameters(hdf, node_mgr, process_order)
+        kti_list, kpv_list, phase_list, flight_attrs = derived_results
 
         #Q: Confirm aircraft tail here?
         ##validate_aircraft(aircraft['Identifier'], hdf['aircraft_ident'])
@@ -166,24 +179,19 @@ def process_flight(hdf_path, aircraft_info, achieved_flight_record=None, draw=Fa
         ##data_start_datetime = calculate_timebase(hdf.years, hdf.months, hdf.days, hdf.hours, hdf.mins, hdf.seconds)
                 
         # go get bonus info at time of KPVs
-        kti_info = geo_locate(hdf, kti_list)
+        geo_kti_list = geo_locate(hdf, kti_list)
             
             
     if draw:
         from analysis.plot_flight import plot_flight
         plot_flight(kti_list, kpv_list, phase_list)
         
-    flight_info = {'takeoff_airport':None,
-                   'takeoff_runway':'',
-                   'landing_airport':None,
-                   'landing_runway':'',
-                   # etc...
-                   }
-    return flight_info, kti_info, params['kpvs']
-
+    return {'flight' : flight_attrs, 
+            'kti' : geo_kti_list, 
+            'kpv' : kpv_list}
 
 
 if __name__ == '__main__':
     import sys
     hdf_path = sys.argv[1]
-    process_flight(hdf_path, None)
+    process_flight(hdf_path, {'Tail Number': 'G-ABCD'}, {}, [], draw=False)

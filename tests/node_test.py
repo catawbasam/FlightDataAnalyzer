@@ -7,7 +7,7 @@ import mock
 
 from random import shuffle
 
-from analysis.node import (
+from analysis.node import ( Attribute,
     DerivedParameterNode, KeyPointValue, KeyPointValueNode, KeyTimeInstance,
     KeyTimeInstanceNode, FormattedNameNode, Node, NodeManager, P, Parameter,
     powerset, Section, SectionNode)
@@ -148,14 +148,40 @@ class TestNodeManager(unittest.TestCase):
         mock_node.can_operate = mock.Mock(return_value=True)
         mock_inop = mock.Mock('can_operate') # inoperable node
         mock_inop.can_operate = mock.Mock(return_value=False)
+        aci = {'n':1, 'o':2, 'p':3}
+        afr = {'l':4, 'm':5}
         mgr = NodeManager(['a', 'b', 'c'], ['a', 'x'], 
-                          {'x': mock_node, 'y': mock_node, 'z': mock_inop})
+                          {'x': mock_node, 'y': mock_node, 'z': mock_inop},
+                          aci, afr)
         self.assertTrue(mgr.operational('a', []))
         self.assertTrue(mgr.operational('b', []))
         self.assertTrue(mgr.operational('c', []))
         self.assertTrue(mgr.operational('x', []))
         self.assertTrue(mgr.operational('y', ['a']))
+        self.assertTrue(mgr.operational('n', ['a'])) # achieved flight record
+        self.assertTrue(mgr.operational('p', ['a'])) # aircraft info
         self.assertFalse(mgr.operational('z', ['a', 'b']))
+        self.assertEqual(mgr.keys(), list('abclmnopxyz'))
+        
+    def test_get_attribute(self):
+        aci = {'a':'a_value', 'b':None}
+        afr = {'x':'x_value', 'y':None}
+        mgr = NodeManager([],[],{},aci, afr)
+        # test aircraft info
+        a = mgr.get_attribute('a')
+        self.assertEqual(a.__repr__(), Attribute('a', 'a_value').__repr__())
+        b = mgr.get_attribute('b')
+        self.assertEqual(b, None)
+        c = mgr.get_attribute('c')
+        self.assertEqual(c, None)
+        # test afr
+        x = mgr.get_attribute('x')
+        self.assertEqual(x.__repr__(), Attribute('x', 'x_value').__repr__())
+        y = mgr.get_attribute('y')
+        self.assertEqual(y, None)
+        z = mgr.get_attribute('z')
+        self.assertEqual(z, None)
+        
         
         
 class TestPowerset(unittest.TestCase):

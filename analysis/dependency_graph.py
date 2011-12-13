@@ -200,7 +200,8 @@ def process_order(gr_all, node_mgr): ##lfl_params, derived_nodes):
     return gr_all, gr_st, node_order 
 
      
-def dependency_order(lfl_params, required_params, modules=settings.NODE_MODULES, draw=True):
+def dependency_order(lfl_params, required_params, aircraft_info, 
+                     achieved_flight_record, modules=settings.NODE_MODULES, draw=True):
     """
     Main method for retrieving processing order of nodes.
     
@@ -221,8 +222,13 @@ def dependency_order(lfl_params, required_params, modules=settings.NODE_MODULES,
     if not required_params:
         logging.warning("No required_params declared, using all derived nodes")
         required_params = derived_nodes.keys()
+        
+    #TODO: Review whether adding all Flight Attributes as required params here is a sensible location
+    required_params += get_derived_nodes(['analysis.flight_attribute']).keys()
+    
     # keep track of all the node types
-    node_mgr = NodeManager(lfl_params, required_params, derived_nodes)
+    node_mgr = NodeManager(lfl_params, required_params, derived_nodes,
+                           aircraft_info, achieved_flight_record)
     _graph = graph_nodes(node_mgr)
     gr_all, gr_st, order = process_order(_graph, node_mgr)
     
