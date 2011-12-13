@@ -97,7 +97,7 @@ minutes which has been found to give good qualitative segregation
 between climb, cruise and descent phases."""
 SLOPE_FOR_TOC_TOD = (600/float(180))
 
-WING_SPAN = 77 # TODO: Replace with aircraft parameter
+WING_SPAN = 14 # TODO: Replace with aircraft parameter
 
 ##########################
 ## Data Analysis Hooks

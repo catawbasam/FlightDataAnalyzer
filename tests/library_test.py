@@ -745,12 +745,13 @@ class TestTimeAtValue(unittest.TestCase):
         array = np.ma.arange(4)
         array[1] = np.ma.masked
         self.assertEquals (time_at_value(array, 1, 0.0, 0, 3, 1.5), None)
+      
         
 class TestTimeAtValueWrapped(unittest.TestCase):
     # Reminder: time_at_value_wrapped(parameter, block, value):
   
     def test_time_at_value_wrapped_basic(self):
-        test_param = P('TAVW_param',np.ma.array(range(4),dtype=float),1,0.2)
+        test_param = P('TAVW_param',np.ma.array(range(4),dtype=float),1,0.0)
         test_section = Section('TAVW_section',slice(0,4))
         self.assertEquals(time_at_value_wrapped(test_param,test_section,2.5),2.5)
 

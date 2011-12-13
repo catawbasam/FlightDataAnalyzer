@@ -7,7 +7,7 @@ import mock
 
 import utilities.masked_array_testutils as ma_test
 from utilities.struct import Struct
-
+from settings import GRAVITY
 from analysis.node import Attribute, A, KPV, KTI, Parameter, P, Section, S
 from analysis.flight_phase import Fast, InGroundEffect
 
@@ -326,7 +326,7 @@ class TestRateOfClimb(unittest.TestCase):
     def test_can_operate(self):
         expected = [('Acceleration Vertical',
                      'Altitude STD',
-                     'Altitude Radio For Phases',
+                     'Altitude Radio',
                      'In Ground Effect')]
         opts = RateOfClimb.get_operational_combinations()
         self.assertEqual(opts, expected)
@@ -334,7 +334,7 @@ class TestRateOfClimb(unittest.TestCase):
     def test_rate_of_climb_basic(self):
         az = P('Acceleration Vertical', np.ma.array([1]*10))
         alt_std = P('Altitude STD', np.ma.array([100]*10))
-        alt_rad = P('Altitude Radio For Phases', np.ma.array([0]*10))
+        alt_rad = P('Altitude Radio', np.ma.array([0]*10))
         ige = InGroundEffect()
         ige.derive(alt_rad)
         
@@ -350,35 +350,72 @@ class TestRateOfClimb(unittest.TestCase):
         az.array[2:4] = 1.1
         # (Low acceleration for this test as the sample rate is only 1Hz).
         alt_std = P('Altitude STD', np.ma.array([100]*10))
-        alt_rad = P('Altitude Radio For Phases', np.ma.array([0]*10))
+        alt_rad = P('Altitude Radio', np.ma.array([0]*10))
         ige = InGroundEffect()
         ige.derive(alt_rad)
         
         roc = RateOfClimb()
         roc.derive(az, alt_std, alt_rad, ige)
-        # For a 0.1g acceleration over two seconds, the rate of climb would be
-        # 386.4 ft/min. The lower values reflect the washout in the computation.
         expected = np.ma.array(data=[0, 0, 90.491803, 259.890198, 316.826998,
                                      275.171138, 237.858958, 204.464431,
                                      174.602508, 147.925205], mask=False)
         ma_test.assert_masked_array_approx_equal(roc.array, expected)
 
 
-    def test_rate_of_climb_step(self):
-        az = P('Acceleration Vertical', np.ma.array([1]*30,dtype=float))
-        alt_std = P('Altitude STD', np.ma.array([100]*30))
-        alt_std.array[5:-1] = 120
-        alt_rad = P('Altitude Radio For Phases', np.ma.array([0]*30))
+    def test_rate_of_climb_step_oge(self):
+        az = P('Acceleration Vertical', np.ma.array([1]*20,dtype=float))
+        alt_std = P('Altitude STD', np.ma.array([100]*20))
+        alt_std.array[5:] = 120
+        alt_rad = P('Altitude Radio', np.ma.array([100]*20))
+        ige = InGroundEffect()
+        ige.derive(alt_rad)
+        roc = RateOfClimb()
+        roc.derive(az, alt_std, alt_rad, ige)
+        expected = np.ma.array(data=[0, 0, 0, 0, 0, 1.14285714e+02, 1.03401361e+02,
+                                     9.35536119e+01, 8.46437441e+01, 7.65824352e+01,
+                                     6.92888699e+01, 6.26899299e+01, 5.67194604e+01,
+                                     5.13176070e+01, 4.64302159e+01, 4.20082906e+01,
+                                     3.80075010e+01, 3.43877390e+01, 3.11127162e+01,
+                                     2.81496004e+01], mask=False)
+        ma_test.assert_masked_array_approx_equal(roc.array, expected)
+
+
+    def test_rate_of_climb_step_ige(self):
+        az = P('Acceleration Vertical', np.ma.array([1]*10,dtype=float))
+        alt_std = P('Altitude STD', np.ma.array([100]*10))
+        alt_rad = P('Altitude Radio', np.ma.array([0]*10))
+        alt_rad.array[3:] = 10
+        # With an altitude of 0-20ft the aircraft is always in ground effect.        
         ige = InGroundEffect()
         ige.derive(alt_rad)
         
         roc = RateOfClimb()
         roc.derive(az, alt_std, alt_rad, ige)
-        # For a 0.1g acceleration over two seconds, the rate of climb would be
-        # 386.4 ft/min. The lower values reflect the washout in the computation.
-        expected = np.ma.array(data=[0, 0, 90.491803, 259.890198, 316.826998,
-                                     275.171138, 237.858958, 204.464431,
-                                     174.602508, 147.925205], mask=False)
+        expected = np.ma.array(data=[0., 0., 0., 5.71428571e+01, 5.17006803e+01,
+                                     4.67768060e+01, 4.23218721e+01, 3.82912176e+01,
+                                     3.46444350e+01, 3.13449650e+01], mask=False)
+        ma_test.assert_masked_array_approx_equal(roc.array, expected)
+
+
+    def test_rate_of_climb_combined_signals(self):
+        az = P('Acceleration Vertical', np.ma.array([1]*10,dtype=float))
+        az.array[2:] += 1/GRAVITY
+        slope = (np.cumsum(np.arange(0.0,8.0,1)))
+        alt_std = P('Altitude STD', np.ma.array([100]*10,dtype=float))
+        alt_std.array[2:] += slope 
+        alt_rad = P('Altitude Radio', np.ma.array([0]*10,dtype=float))
+        slope *= 1.01 # Just enough to make the values different.
+        alt_rad.array[2:] += slope 
+        # With an altitude of 0-20ft the aircraft is always in ground effect.        
+        ige = InGroundEffect()
+        ige.derive(alt_rad)
+        
+        roc = RateOfClimb()
+        roc.derive(az, alt_std, alt_rad, ige)
+        expected = np.ma.array(data=[0, 0, 2.81467506e+01, 8.66081933e+01,
+                                     1.43457877e+02, 1.98908824e+02, 2.53151819e+02,
+                                     3.05601806e+02, 3.57652112e+02, 4.08922826e+02],
+                               mask=False)
         ma_test.assert_masked_array_approx_equal(roc.array, expected)
 
 
