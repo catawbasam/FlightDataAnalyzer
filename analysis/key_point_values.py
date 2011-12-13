@@ -408,7 +408,7 @@ class RateOfDescent2000To1000FtMax(KeyPointValueNode):
 
 
 class DontSinkWarning(KeyPointValueNode):
-    def derive(self, gpws_dont_sink=P('GPWS Dont Sink')):
+    def derive(self, gpws_dont_sink=P("GPWS Don't Sink")):
         return NotImplemented
 
 
@@ -493,7 +493,7 @@ class HeightLost1000To2000FtMax(KeyPointValueNode):
 
 class HeightLost50To1000Max(KeyPointValueNode):
     def derive(self, altitude_std=P('Altitude STD'),
-               _50_ft_in_initial_climb=KTI('_50 Ft In Initial Climb'),
+               _50_ft_in_initial_climb=KTI('50 Ft In Initial Climb'),
                _1000_ft_in_climb=KTI('1000 Ft In Climb')):
         return NotImplemented
 

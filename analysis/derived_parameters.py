@@ -459,7 +459,8 @@ class AccelerationLateral(DerivedParameterNode):
         return NotImplemented
 
 
-class DontSinkWarning(DerivedParameterNode):
+class GPWSDontSink(DerivedParameterNode):
+    name = 'GPWS Don't Sink'
     def derive(self, param=P('GPWS Dont Sink Warning')):
     
     

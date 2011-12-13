@@ -269,7 +269,7 @@ class _1000FtInApproach(KeyTimeInstanceNode):
         return NotImplemented
 
 
-class _2000FtInFinalApproach(KeyTimeInstanceNode):
+class _2000FtInApproach(KeyTimeInstanceNode):
     def derive(self, alt_aal=P('Altitude AAL')):
         return NotImplemented
 
