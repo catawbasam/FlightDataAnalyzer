@@ -62,6 +62,7 @@ class PitchAtFt(KeyPointValueNode):
 class FlapAtFt(KeyPointValueNode):
     def derive(self, liftoff=KTI('Liftoff'), flap=P('Flap')):
         return NotImplemented
+    
 
 class IndicatedAirspeedAt35Ft(KeyPointValueNode):
     """ Based on Altitude Radio
@@ -69,11 +70,13 @@ class IndicatedAirspeedAt35Ft(KeyPointValueNode):
     def derive(self, airspeed=P('Indicated Airspeed'),
                alt_rad=P('Altitude Radio')):
         return NotImplemented
-    
+
+
 class NormalgFtTo35FtMax(KeyPointValueNode):
     def derive(self, norm_g=P('Normal g'), alt_rad=P('Altitude Radio')):
         return NotImplemented
-    
+
+
 class NormalgMaxDeviation(KeyPointValueNode):
     """ For discussion - why have Max and Min Normal g when it's just the max 
     distance from 0.98 that's interesting?
@@ -85,15 +88,18 @@ class NormalgMaxDeviation(KeyPointValueNode):
             gdiff = np.ma.absolute(normg_in_air - STANDARD_GRAVITY)
             max_index = gdiff.argmax()
             self.create_kpv(max_index, gdiff[max_index])    
-    
+
+
 class Pitch35To400FtMax(KeyPointValueNode):
     def derive(self, pitch=P('Pitch'), alt_rad=P('Altitude Radio')):
         return NotImplemented
-    
+
+
 class Pitch1000To100FtMax(KeyPointValueNode):
     def derive(self, pitch=P('Pitch'), alt_aal=P('Altitude AAL')):
         return NotImplemented
-    
+
+
 class Pitch5FtToToFtownMax(KeyPointValueNode):
     def derive(self, pitch=P('Pitch'), alt_rad=P('Altitude Radio'),
                touchdown=KTI('Touchdown')):
@@ -105,48 +111,57 @@ class PitchCycles(KeyPointValueNode):
     """
     def derive(self, pitch=P('Pitch')):
         return NotImplemented
-    
+
+
 class Pitch35To400FtMin(KeyPointValueNode):
     def derive(self, pitch=P('Pitch'), alt_rad=P('Altitude Radio')):
         return NotImplemented
-    
+
+
 class Pitch1000To100FtMin(KeyPointValueNode):
     def derive(self, pitch=P('Pitch'), alt_aal=P('Altitude AAL')):
         return NotImplemented
-    
+
+
 class Pitch20FtToTouchdownMin(KeyPointValueNode):
     """ Q: This is 20 feet, the max uses 5 feet
     """
     def derive(self, pitch=P('Pitch'), alt_rad=P('Altitude Radio'),
                touchdown=KTI('Touchdown')):
         return NotImplemented
-    
+
+
 class PitchRateFtTo35FtMax(KeyPointValueNode):
     def derive(self, pitch_rate=P('Pitch Rate'), liftoff=KTI('Liftoff'),
                alt_rad=P('Altitude Radio')):
         return NotImplemented
-    
+
+
 class PitchRate35To1500FtMax(KeyPointValueNode):
     def derive(self, pitch_rate=P('Pitch Rate'), alt_aal=P('Altitude AAL')):
         return NotImplemented
-    
+
     
 class RollBelow20FtMax(KeyPointValueNode): # absolute max?
     def derive(self, roll=P('Roll'), alt_rad=P('Altitude Radio')):
         return NotImplemented
-   
+
+
 class RollBetween100And500FtMax(KeyPointValueNode): # absolute max?
     def derive(self, roll=P('Roll'), alt_aal=P('Altitude AAL')):
         return NotImplemented
-    
+
+
 class RollBetween500And1500FtMax(KeyPointValueNode):  # absolue max?
     def derive(self, roll=P('Roll'), alt_aal=P('Altitude AAL')):
         return NotImplemented   
-    
+
+
 class RollAbove1500FtMax(KeyPointValueNode):
     def derive(self, roll=P('Roll'), alt_aal=P('Altitude AAL')):
         return NotImplemented
-    
+
+
 class RollCycles1000FtToTouchdown(KeyPointValueNode):
     def derive(self, roll=P('Roll'), alt_aal=P('Altitude AAL'),
                touchdown=KTI('Touchdown')):
@@ -157,43 +172,50 @@ class AltitudeWithFlapsMax(KeyPointValueNode):
     """
     def derive(self, flap=P('Flap'), alt_std=P('Altitude Std')):
         return NotImplemented
-    
+
+
 class AltitudeStdMax(KeyPointValueNode):
     def derive(self, alt_std=P('Altitude Std')):
         max_index = alt_std.array.argmax()
         self.create_kpv(max_index, alt_std[max_index])
-        
+
+
 class IndicatedAirspeedMax(KeyPointValueNode):
     def derive(self, airspeed=P('Indicated Airspeed')):
         # Use Numpy to locate the maximum airspeed, then get the value.
         index = airspeed.array.argmax()
         airspeed_max = airspeed.array[index]
         self.create_kpv(index, airspeed_max)
-    
+
+
 class MACHMax(KeyPointValueNode):
     name = 'MACH Max'
     def derive(self, mach=P('MACH')):
         return NotImplemented
-    
+
 
 class IndicatedAirspeedAtTouchdown(KeyPointValueNode):
     def derive(self, airspeed=P('Indicated Airspeed'),
                touchdown=KTI('Touchdown')):
         return NotImplemented
-    
+
+
 class GroundSpeedOnGroundMax(KeyPointValueNode):
     def derive(self, ground_speed=P('Ground Speed'), on_ground=P('On Ground')):
         return NotImplemented
 
+
 class FlapAtTouchdown(KeyPointValueNode):
     def derive(self, flap=P('Flap'), touchdown=KTI('Touchdown')):
         return NotImplemented
-    
+
+
 class GrossWeightAtTouchdown(KeyPointValueNode):
     def derive(self, gross_weight=P('Gross Weight'), 
                touchdown=KTI('Touchdown')):
         return NotImplemented
-    
+
+
 class EGTMax(KeyPointValueNode): # which engine? or all engines? # or all and each!?
     ##returns = "EGT Max"  # add which engine?
     NAME_FORMAT = 'EGT Max %(engine)s'
@@ -219,14 +241,15 @@ class EGTMax(KeyPointValueNode): # which engine? or all engines? # or all and ea
                 vmax = _vmax # max value
                 kmax = p.name # param name of max eng
         self.create_kpv(imax, vmax, engine=kmax) # include engine using kmax?
-    
-    
+
+
 class MagneticHeadingAtFt(KeyPointValue):
     """ Shouldn't this be difference between aircraft heading and runway heading???
     """
     def derive(self, heading=P('Magnetic Heading'), liftoff=KTI('Liftoff')):
         return NotImplemented
-    
+
+
 class MagneticHeadingAtTouchdown(KeyPointValue):
     """ Shouldn't this be difference between aircraft heading and runway heading???
     """
