@@ -204,7 +204,6 @@ class Duration(FlightAttributeNode):
     def derive(self, takeoff_dt=A('Takeoff Datetime'), landing_dt=A('Landing Datetime')):
         duration = landing_dt - takeoff_dt
         self.set_flight_attr(duration.total_seconds()) # py2.7
-        return NotImplemented
 
                 
 class AnalysisDatetime(FlightAttributeNode):

@@ -302,7 +302,7 @@ class FormattedNameNode(Node):
     NAME_FORMAT example: 
     'Speed in %(phase)s at %(altitude)d ft'
 
-    RETURN_OPTIONS example:
+    NAME_VALUES example:
     {'phase'    : ['ascent', 'descent'],
      'altitude' : [1000,1500],}
     """
@@ -311,22 +311,24 @@ class FormattedNameNode(Node):
     
     def names(self):
         """        
-        :returns: The product of all RETURN_OPTIONS name combinations
+        :returns: The product of all NAME_VALUES name combinations
         :rtype: list
         """
         # cache option below disabled until required.
         ##if hasattr(self, 'names'):
             ##return self.names
+        if not self.NAME_FORMAT and not self.NAME_VALUES:
+            return [self.get_name()]
         names = []
-        for a in product(*self.RETURN_OPTIONS.values()): 
-            name = self.NAME_FORMAT % dict(zip(self.RETURN_OPTIONS.keys(), a))
+        for a in product(*self.NAME_VALUES.values()): 
+            name = self.NAME_FORMAT % dict(zip(self.NAME_VALUES.keys(), a))
             names.append(name)
         ##self.names = names  #cache
         return names
     
     def _validate_name(self, name):
         """
-        Raises ValueError if replace_values are not allowed in RETURN_OPTIONS
+        Raises ValueError if replace_values are not allowed in NAME_VALUES
         permissive values.
         """
         if name in self.names():
@@ -344,6 +346,9 @@ class FormattedNameNode(Node):
         :raises KeyError: if required interpolation/replace value not provided.
         :raises TypeError: if interpolation value is of wrong type.
         """
+        if not replace_values and not kwargs and not self.NAME_FORMAT:
+            # have not defined name format to use, so create using name of node
+            return self.get_name()
         rvals = replace_values.copy()  # avoid re-using static type
         rvals.update(kwargs)
         name = self.NAME_FORMAT % rvals  # common error is to use { inplace of (
