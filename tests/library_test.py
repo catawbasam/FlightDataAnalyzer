@@ -762,6 +762,11 @@ class TestTimeAtValueWrapped(unittest.TestCase):
         test_section = Section('TAVW_section',slice(0,4))
         self.assertEquals(time_at_value_wrapped(test_param,test_section,2.5),2.5)
 
+    def test_time_at_value_wrapped_backwards(self):
+        test_param = P('TAVW_param',np.ma.array([0,4,0,4]),1,0.0)
+        test_section = Section('TAVW_section',slice(0,4))
+        self.assertEquals(time_at_value_wrapped(test_param,test_section,2,'Backwards'),2.5)
+
         
 class TestValueAtTime(unittest.TestCase):
 

@@ -41,6 +41,8 @@ DESCENT_MIN_DURATION = 10  # (sec)
 # Acceleration due to gravity
 GRAVITY = 32.2 # (ft/sec^2)
 
+# Threshold for turn onto runway at start of takeoff.
+HEADING_TURN_ONTO_RUNWAY = 15.0 # (deg)
 # Threshold for flight phase airspeed hysteresis.
 HYSTERESIS_FPIAS = 10 # (kts)
 

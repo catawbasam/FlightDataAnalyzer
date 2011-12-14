@@ -647,7 +647,7 @@ def straighten_headings(heading_array):
     heading_array[1:] = np.cumsum(diff) + head_prev
     return heading_array
 
-def time_at_value_wrapped(parameter, section, value):
+def time_at_value_wrapped(parameter, section, value, direction='Forwards'):
     '''
     This function makes it easier to access the time_at_value function 
     when using POLARIS parameter and section components.
@@ -658,10 +658,17 @@ def time_at_value_wrapped(parameter, section, value):
     :type section: section object
     :param value: the threshold being sought
     :type value: float
+    :param direction : the direction of travel for the search.
+    :type value: text. Permitted values 'Forwards' (the default) or 'Backwards'
     '''
     data = parameter.array[section.slice]
-    return time_at_value (repair_mask(data) , parameter.frequency, 
-                          parameter.offset, 0, len(data)-1, value)
+    if direction == 'Forwards':
+        result = time_at_value (repair_mask(data) , parameter.frequency, 
+                                parameter.offset, 0, len(data)-1, value)
+    else:
+        result = time_at_value (repair_mask(data) , parameter.frequency, 
+                                parameter.offset, len(data)-1, 0, value)
+    return result
             
 def time_at_value (array, hz, offset, scan_start, scan_end, threshold):
     '''
@@ -701,7 +708,7 @@ def time_at_value (array, hz, offset, scan_start, scan_end, threshold):
     else:
         # Allow for traversing the data backwards
         step = -1
-        cease = cease - 1
+        cease = max(cease-1, 0)
 
     if begin < 0 or begin > len(array) or cease < 0 or cease > len(array):
         raise ValueError, 'Attempt to seek outside data range'
