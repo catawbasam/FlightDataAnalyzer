@@ -5,7 +5,7 @@ from analysis import settings
 from analysis.library import hysteresis
 from analysis.recordtype import recordtype
 
-Segment = recordtype('Segment', 'slice type part duration path', default=None)
+Segment = recordtype('Segment', 'slice type part duration path hash', default=None)
 
 def split_segments(airspeed, dfc=None):
     """
@@ -45,12 +45,30 @@ def split_segments(airspeed, dfc=None):
         # removing all invalid data (ARINC etc)
         segment_type = _identify_segment_type(airspeed[segment_slice])
         duration = segment_slice.stop - segment_slice.start
-        segment = Segment(segment_slice, segment_type, part + 1, duration)
+
+
+        # TODO: Establish whether more params should be used as you may not have any airpseed values for a non-flight segment.
+        # how about DFC too in combo?
+
+        # Identification of raw data airspeed hash (including all spikes etc)
+        AIRSPEED_FOR_HASH = 80 # (kts)        
+        airspeed_hash = hash_array(airspeed.array[airspeed.array > AIRSPEED_FOR_HASH])
+        
+
+
+        
+        segment = Segment(segment_slice, segment_type, part + 1, duration, airspeed_hash)
         segments.append(segment)
         
     return segments
 
 
+##from analysis.library import hash_array
+##class AirspeedHash(FlightAttributeNode):
+    ##def derive(self, airspeed=P('Airspeed')):
+        ##checksum = hash_array(airspeed.array[airspeed.array > 80])
+        ##self.set_flight_attr('Airspeed Hash', checksum)
+        
 def _split_by_frame_counter(dfc):
     """
     Q: Return chunks of data rather than slices
