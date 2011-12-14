@@ -47,7 +47,7 @@ class TakeoffRunway(FlightAttributeNode):
         """
         Expects Airport to store a dictionary of airport attributes
         """
-        ils_freq = airport.value.get('Localiser Frequency')
+        ils_freq = airport.value.get('Localizer Frequency')
         airport_id = airport.value['id'], 
         precision = True #TODO: precision == using GPS
         runway = get_runway(airport=airport_id, latitude=lat, longitude=lon,

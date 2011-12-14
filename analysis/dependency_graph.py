@@ -94,6 +94,7 @@ def draw_graph(graph, name):
         return
     G.layout(prog='dot')
     G.graph_attr['label'] = name
+    G.graph_attr.update(landscape=True)
     G.draw(file_path)
     
 def graph_nodes(node_mgr): ##lfl_params, required_params, derived_nodes):
@@ -209,8 +210,7 @@ def process_order(gr_all, node_mgr): ##lfl_params, derived_nodes):
 def remove_nodes_without_edges(graph):
     nodes = list(graph)
     for node in nodes:
-        if not graph.edges(node):
-            print node
+        if not graph.edges(node) and not graph.neighbors(node):
             graph.remove_node(node)
     return graph
      
@@ -244,7 +244,7 @@ def dependency_order(lfl_params, required_params, aircraft_info,
     node_mgr = NodeManager(lfl_params, required_params, derived_nodes,
                            aircraft_info, achieved_flight_record)
     _graph = graph_nodes(node_mgr)
-    
+    # TODO: Remove the two following lines. 
     ##_graph = remove_nodes_without_edges(_graph)
     ##draw_graph(_graph, 'Dependency Tree')
     gr_all, gr_st, order = process_order(_graph, node_mgr)

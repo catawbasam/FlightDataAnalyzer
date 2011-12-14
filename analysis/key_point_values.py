@@ -54,12 +54,12 @@ class IndicatedAirspeedAtFt(KeyPointValueNode):
                indicated_airspeed=P('Indicated Airspeed')):
         return NotImplemented
     
-class PitchAtFt(KeyPointValueNode):
+class PitchAtLiftoff(KeyPointValueNode):
     def derive(self, liftoff=KTI('Liftoff'), pitch=P('Pitch')):
         return NotImplemented
    
    
-class FlapAtFt(KeyPointValueNode):
+class FlapAtLiftoff(KeyPointValueNode):
     def derive(self, liftoff=KTI('Liftoff'), flap=P('Flap')):
         return NotImplemented
     
@@ -110,7 +110,7 @@ class Pitch1000To100FtMax(KeyPointValueNode):
         return NotImplemented
 
 
-class Pitch5FtToToFtownMax(KeyPointValueNode):
+class Pitch5FtToTouchdownMax(KeyPointValueNode):
     def derive(self, pitch=P('Pitch'), alt_rad=P('Altitude Radio'),
                touchdown=KTI('Touchdown')):
         return NotImplemented
@@ -706,7 +706,7 @@ class Pitch1000To100FtMax(KeyPointValueNode):
         return NotImplemented
 
 
-class PitchAtFt(KeyPointValueNode):
+class PitchAtLiftoff(KeyPointValueNode):
     def derive(self, pitch=P('Pitch'), liftoff=KTI('Liftoff')):
         return NotImplemented
 
@@ -897,7 +897,7 @@ class AirspeedBelow3000FtMax(KeyPointValueNode):
         return NotImplemented
 
 
-class GroundspeedOnGroundWithRateOfChangeOfHeadingGreaterThanLimitMax(KeyPointValueNode):
+class TaxiSpeedTurningMax(KeyPointValueNode):
     def derive(self, groundspeed=P('Groundspeed')):
         return NotImplemented
 

@@ -244,8 +244,8 @@ class GearSelectedUp(DerivedParameterNode):
 
 
 
-class ILSLocaliserGap(DerivedParameterNode):
-    def derive(self, ils_loc = P('Localiser Deviation'),
+class ILSLocalizerGap(DerivedParameterNode):
+    def derive(self, ils_loc = P('Localizer Deviation'),
                alt_aal = P('Altitude AAL')):
         return NotImplemented
 
@@ -519,8 +519,8 @@ class GPWSTerrain(DerivedParameterNode):
         return NotImplemented
     
 
-class ILSLocaliser(DerivedParameterNode):
-    name = "ILS Localiser"
+class ILSLocalizer(DerivedParameterNode):
+    name = "ILS Localizer"
     def derive(self, param=P('Flap')):
         return NotImplemented
 
