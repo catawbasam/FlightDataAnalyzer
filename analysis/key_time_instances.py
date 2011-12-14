@@ -210,7 +210,25 @@ class InitialClimbStart(KeyTimeInstanceNode):
 
 #<<<< This style for all climbing events >>>>>
 
+class _25FtInTakeoff(KeyTimeInstanceNode):
+    def derive(self, alt_aal=P('Altitude AAL')):
+        return NotImplemented
+
+    
+class 35FtInTakeoff(KeyTimeInstanceNode):
+    def derive(self, alt_aal=P('Altitude AAL')):
+        return NotImplemented
+
+    
 class _50FtInInitialClimb(KeyTimeInstanceNode):
+    def derive(self, alt_aal=P('Altitude AAL')):
+        for climb in climbing:
+            index = time_at_value_wrapped(alt_aal,
+                                          climb, 50)
+            self.create_kti(index, '50 Ft In Initial Climb')
+
+
+class _75FtInInitialClimb(KeyTimeInstanceNode):
     def derive(self, alt_aal=P('Altitude AAL')):
         for climb in climbing:
             index = time_at_value_wrapped(alt_aal,
@@ -223,12 +241,32 @@ class _100FtInInitialClimb(KeyTimeInstanceNode):
         return NotImplemented
 
 
+class _150FtInInitialClimb(KeyTimeInstanceNode):
+    def derive(self, alt_aal=P('Altitude AAL')):
+        return NotImplemented
+
+
+class _200FtInInitialClimb(KeyTimeInstanceNode):
+    def derive(self, alt_aal=P('Altitude AAL')):
+        return NotImplemented
+
+
+class _300FtInInitialClimb(KeyTimeInstanceNode):
+    def derive(self, alt_aal=P('Altitude AAL')):
+        return NotImplemented
+
+
 class _400FtInInitialClimb(KeyTimeInstanceNode):
     def derive(self, alt_aal=P('Altitude AAL')):
         return NotImplemented
 
 
 class _500FtInInitialClimb(KeyTimeInstanceNode):
+    def derive(self, alt_aal=P('Altitude AAL')):
+        return NotImplemented
+
+
+class _750FtInInitialClimb(KeyTimeInstanceNode):
     def derive(self, alt_aal=P('Altitude AAL')):
         return NotImplemented
 
@@ -248,23 +286,100 @@ class _2000FtInClimb(KeyTimeInstanceNode):
         return NotImplemented
 
 
+class _2500FtInClimb(KeyTimeInstanceNode):
+    def derive(self, alt_aal=P('Altitude AAL')):
+        return NotImplemented
+
+
+class _3000FtInClimb(KeyTimeInstanceNode):
+    def derive(self, alt_aal=P('Altitude AAL')):
+        return NotImplemented
+
+
 class _3500FtInClimb(KeyTimeInstanceNode):
     def derive(self, alt_aal=P('Altitude AAL')):
         return NotImplemented
+
+
+class _4000FtInClimb(KeyTimeInstanceNode):
+    def derive(self, alt_aal=P('Altitude AAL')):
+        return NotImplemented
+
+
+class _5000FtInClimb(KeyTimeInstanceNode):
+    def derive(self, alt_aal=P('Altitude AAL')):
+        return NotImplemented
+
+
+class _6000FtInClimb(KeyTimeInstanceNode):
+    def derive(self, alt_aal=P('Altitude AAL')):
+        return NotImplemented
+
+
+class _7000FtInClimb(KeyTimeInstanceNode):
+    def derive(self, alt_aal=P('Altitude AAL')):
+        return NotImplemented
+
+
+class _8000FtInClimb(KeyTimeInstanceNode):
+    def derive(self, alt_aal=P('Altitude AAL')):
+        return NotImplemented
+
+
+class _9000FtInClimb(KeyTimeInstanceNode):
+    def derive(self, alt_aal=P('Altitude AAL')):
+        return NotImplemented
+
+
+class _10000FtInClimb(KeyTimeInstanceNode):
+    def derive(self, alt_aal=P('Altitude AAL')):
+        return NotImplemented
+
+
 '''
 ________Approach and Landing______________________________
 '''
+class _10000FtInDescent(KeyTimeInstanceNode):
+    def derive(self, alt_aal=P('Altitude AAL')):
+        return NotImplemented
+
+
+class _9000FtInDescent(KeyTimeInstanceNode):
+    def derive(self, alt_aal=P('Altitude AAL')):
+        return NotImplemented
+
+
+class _8000FtInDescent(KeyTimeInstanceNode):
+    def derive(self, alt_aal=P('Altitude AAL')):
+        return NotImplemented
+
+
+class _7000FtInDescent(KeyTimeInstanceNode):
+    def derive(self, alt_aal=P('Altitude AAL')):
+        return NotImplemented
+
+
+class _6000FtInDescent(KeyTimeInstanceNode):
+    def derive(self, alt_aal=P('Altitude AAL')):
+        return NotImplemented
+
+
+class _5000FtInDescent(KeyTimeInstanceNode):
+    def derive(self, alt_aal=P('Altitude AAL')):
+        return NotImplemented
+
+
+class _4000FtInDescent(KeyTimeInstanceNode):
+    def derive(self, alt_aal=P('Altitude AAL')):
+        return NotImplemented
+
+
+class _3500FtInApproach(KeyTimeInstanceNode):
+    def derive(self, alt_aal=P('Altitude AAL')):
+        return NotImplemented
+
+
 class _3000FtInApproach(KeyTimeInstanceNode):
-    def derive(self, alt_aal=P('Altitude AAL')):
-        return NotImplemented
-
-
-class _1500FtInApproach(KeyTimeInstanceNode):
-    def derive(self, alt_aal=P('Altitude AAL')):
-        return NotImplemented
-
-
-class _1000FtInApproach(KeyTimeInstanceNode):
     def derive(self, alt_aal=P('Altitude AAL')):
         return NotImplemented
 
@@ -274,12 +389,37 @@ class _2000FtInApproach(KeyTimeInstanceNode):
         return NotImplemented
 
 
+class _1500FtInApproach(KeyTimeInstanceNode):
+    def derive(self, alt_aal=P('Altitude AAL')):
+        return NotImplemented
+
+
 class _1000FtInFinalApproach(KeyTimeInstanceNode):
     def derive(self, alt_aal=P('Altitude AAL')):
         return NotImplemented
 
 
+class _750FtInFinalApproach(KeyTimeInstanceNode):
+    def derive(self, alt_aal=P('Altitude AAL')):
+        return NotImplemented
+
+
 class _500FtInFinalApproach(KeyTimeInstanceNode):
+    def derive(self, alt_aal=P('Altitude AAL')):
+        return NotImplemented
+
+
+class _400FtInFinalApproach(KeyTimeInstanceNode):
+    def derive(self, alt_aal=P('Altitude AAL')):
+        return NotImplemented
+
+
+class _300FtInFinalApproach(KeyTimeInstanceNode):
+    def derive(self, alt_aal=P('Altitude AAL')):
+        return NotImplemented
+
+
+class _200FtInFinalApproach(KeyTimeInstanceNode):
     def derive(self, alt_aal=P('Altitude AAL')):
         return NotImplemented
 
@@ -294,17 +434,17 @@ class _100FtInFinalApproach(KeyTimeInstanceNode):
         return NotImplemented
 
 
-class _1MinToTouchdown(KeyTimeInstanceNode):
+class _75FtInFinalApproach(KeyTimeInstanceNode):
+    def derive(self, alt_aal=P('Altitude AAL')):
+        return NotImplemented
+
+
+class _50FtToTouchdown(KeyTimeInstanceNode):
     def derive(self, touchdown=KTI('Touchdown')): # Q: Args?
         return NotImplemented
 
 
-class _90SecToTouchdown(KeyTimeInstanceNode):
-    def derive(self, touchdown=KTI('Touchdown')): # Q: Args?
-        return NotImplemented
-
-
-class _2MinToTouchdown(KeyTimeInstanceNode):
+class _35FtToTouchdown(KeyTimeInstanceNode):
     def derive(self, touchdown=KTI('Touchdown')): # Q: Args?
         return NotImplemented
 
@@ -314,13 +454,33 @@ class _25FtToTouchdown(KeyTimeInstanceNode):
         return NotImplemented
 
 
-class _50FtToTouchdown(KeyTimeInstanceNode):
+class _5MinToTouchdown(KeyTimeInstanceNode):
     def derive(self, touchdown=KTI('Touchdown')): # Q: Args?
         return NotImplemented
 
 
-class _35FtInTakeoff(KeyTimeInstanceNode):
-    def derive(self, alt_aal=P('Altitude AAL')):
+class _4MinToTouchdown(KeyTimeInstanceNode):
+    def derive(self, touchdown=KTI('Touchdown')): # Q: Args?
         return NotImplemented
 
-    
+
+class _3MinToTouchdown(KeyTimeInstanceNode):
+    def derive(self, touchdown=KTI('Touchdown')): # Q: Args?
+        return NotImplemented
+
+
+class _2MinToTouchdown(KeyTimeInstanceNode):
+    def derive(self, touchdown=KTI('Touchdown')): # Q: Args?
+        return NotImplemented
+
+
+class _90SecToTouchdown(KeyTimeInstanceNode):
+    def derive(self, touchdown=KTI('Touchdown')): # Q: Args?
+        return NotImplemented
+
+
+class _1MinToTouchdown(KeyTimeInstanceNode):
+    def derive(self, touchdown=KTI('Touchdown')): # Q: Args?
+        return NotImplemented
+
+

@@ -4,6 +4,7 @@ from analysis.library import repair_mask
 from analysis.node import FlightPhaseNode, KeyTimeInstance, P
 from analysis.settings import (AIRSPEED_THRESHOLD,
                                ALTITUDE_FOR_CLB_CRU_DSC,
+                               HEADING_TURN_ONTO_RUNWAY,
                                HYSTERESIS_FP_RAD_ALT,
                                LANDING_THRESHOLD_HEIGHT,
                                RATE_OF_CLIMB_FOR_CLIMB_PHASE,
@@ -271,7 +272,6 @@ class RejectedTakeoff(FlightPhaseNode):
 '''
 
 
-
     
 class Turning(FlightPhaseNode):
     """
@@ -290,10 +290,42 @@ class Turning(FlightPhaseNode):
     
 #TODO: Move below into "Derived" structure!
 def takeoff_and_landing(block, fp, ph, kpt, kpv):
+
+
     
-    #==========================================================================
-    # TAKEOFF 
-    #==========================================================================
+#==========================================================================
+# TAKEOFF 
+#==========================================================================
+class Takeoff(FlightPhaseNode):
+    def derive(self, fast=S('Fast'),
+               head=P('Heading Magnetic'),
+               end_toff=KTI('35 Ft In Takeoff')):
+        for speedy in fast:
+            # The aircraft is part way down it's takeoff run at this point.
+            toff_run = speedy.slice.start
+            # Find the start from the turn onto the runway.
+            datum = head.array(toff_run)
+            # Track back to the turnoff
+            tor_index = time_at_value_wrapped(np.ma.abs(head.array), 
+                                              slice(0,toff_run),
+                                              HEADING_TURN_ONTO_RUNWAY, 
+                                              direction='Backwards')
+
+&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&            
+
+            # Now find when we go through 35 ft in climbout.
+            for any_toff in end_toff:
+                if end_toff.index this is horrible, trying to find the takeoff we are looking for.
+                
+                Alternatively I compute exactly the same thing as in the KTI again.
+                
+                Either way this is ugly.
+                
+                            
+&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&            
+        
+        
+        
 
     # Record the heading at airspeed_threshold, part way down the runway:
     head_takeoff = head_mag[kpt['TakeoffStartEstimate']]
