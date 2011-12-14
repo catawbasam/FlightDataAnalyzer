@@ -290,7 +290,7 @@ class Turning(FlightPhaseNode):
     
 #TODO: Move below into "Derived" structure!
 def takeoff_and_landing(block, fp, ph, kpt, kpv):
-
+    pass # added to remove syntax error, CJ
 
     
 #==========================================================================
@@ -311,7 +311,8 @@ class Takeoff(FlightPhaseNode):
                                               HEADING_TURN_ONTO_RUNWAY, 
                                               direction='Backwards')
 
-&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&            
+            """ Commented out to remove syntax error! CJ
+&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&
 
             # Now find when we go through 35 ft in climbout.
             for any_toff in end_toff:
@@ -322,7 +323,8 @@ class Takeoff(FlightPhaseNode):
                 Either way this is ugly.
                 
                             
-&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&            
+&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&
+            
         
         
         
@@ -455,3 +457,4 @@ class Takeoff(FlightPhaseNode):
     ph['Ground'] = create_phase_outside(altitude_std, kpt['TakeoffTurnOntoRunway'], kpt['LandingTurnOffRunway'])
         
 
+"""

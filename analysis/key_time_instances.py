@@ -215,7 +215,7 @@ class _25FtInTakeoff(KeyTimeInstanceNode):
         return NotImplemented
 
     
-class 35FtInTakeoff(KeyTimeInstanceNode):
+class _35FtInTakeoff(KeyTimeInstanceNode):
     def derive(self, alt_aal=P('Altitude AAL')):
         return NotImplemented
 
