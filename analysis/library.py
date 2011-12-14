@@ -701,17 +701,18 @@ def time_at_value (array, hz, offset, scan_start, scan_end, threshold):
     
     begin = int((scan_start - offset) * hz)
     cease = int((scan_end   - offset) * hz)
-    
-    step = 1
+
+    # Trim the end points to the array boundaries and allow for the 
+    # alternative scan directions.
     if cease > begin : # Normal increasing scan
-        cease = cease + 1
+        step = 1
+        cease = min(cease + 1, len(array))
+        begin = max(begin, 0)
     else:
         # Allow for traversing the data backwards
         step = -1
         cease = max(cease-1, 0)
-
-    if begin < 0 or begin > len(array) or cease < 0 or cease > len(array):
-        raise ValueError, 'Attempt to seek outside data range'
+        begin = min(begin, len(array))
         
     # When the data being tested passes the value we are seeking, the 
     # difference between the data and the value will change sign.

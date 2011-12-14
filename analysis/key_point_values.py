@@ -23,15 +23,17 @@ class TakeoffAirport(KeyPointValueNode):
         ##KeyPointValue(n, '09L', 'Takeoff Runway')
         return NotImplemented
     
-class ApproachAirport(KeyPointValueNode):
-    def derive(self, descent=S('Descent')):
-        return NotImplemented
-    
-class LandingAirport(KeyPointValueNode):
-    def derive(self, touchdown=KTI('Touchdown')):
-        ##KeyPointValue(n, 'ICAO', 'Takeoff Airport')
-        ##KeyPointValue(n, '09L', 'Takeoff Runway')
-        return NotImplemented
+class TakeoffHeading(KeyPointValueNode):
+    '''
+    The takeoff has been found already, including a little of the turn onto
+    the runway and a little of the flight post takeoff.
+    '''
+    def derive(self, toffs=S('Takeoff'), head=P('Heading Continuous')):
+        for toff in toffs:
+            midpoint = (toff.slice.start + toff.slice.stop)/2.0
+            toff_head = np.ma.median(head[toff[1]])
+            self.create_kpv(midpoint, toff_head%360.0)
+            
     
 class TakeoffAltitude(KeyPointValueNode):
     def derive(self, liftoff=KTI('Liftoff'), takeoff_airport=TakeoffAirport):
@@ -54,12 +56,12 @@ class IndicatedAirspeedAtFt(KeyPointValueNode):
                indicated_airspeed=P('Indicated Airspeed')):
         return NotImplemented
     
-class PitchAtFt(KeyPointValueNode):
+class PitchAtLiftoff(KeyPointValueNode):
     def derive(self, liftoff=KTI('Liftoff'), pitch=P('Pitch')):
         return NotImplemented
    
    
-class FlapAtFt(KeyPointValueNode):
+class FlapAtLiftoff(KeyPointValueNode):
     def derive(self, liftoff=KTI('Liftoff'), flap=P('Flap')):
         return NotImplemented
     
@@ -110,7 +112,7 @@ class Pitch1000To100FtMax(KeyPointValueNode):
         return NotImplemented
 
 
-class Pitch5FtToToFtownMax(KeyPointValueNode):
+class Pitch5FtToTouchdownMax(KeyPointValueNode):
     def derive(self, pitch=P('Pitch'), alt_rad=P('Altitude Radio'),
                touchdown=KTI('Touchdown')):
         return NotImplemented
@@ -224,6 +226,7 @@ class GrossWeightAtTouchdown(KeyPointValueNode):
     def derive(self, gross_weight=P('Gross Weight'), 
                touchdown=KTI('Touchdown')):
         return NotImplemented
+
 
 
 class EngEGTMax(KeyPointValueNode):
@@ -706,7 +709,7 @@ class Pitch1000To100FtMax(KeyPointValueNode):
         return NotImplemented
 
 
-class PitchAtFt(KeyPointValueNode):
+class PitchAtLiftoff(KeyPointValueNode):
     def derive(self, pitch=P('Pitch'), liftoff=KTI('Liftoff')):
         return NotImplemented
 
@@ -897,7 +900,7 @@ class AirspeedBelow3000FtMax(KeyPointValueNode):
         return NotImplemented
 
 
-class GroundspeedOnGroundWithRateOfChangeOfHeadingGreaterThanLimitMax(KeyPointValueNode):
+class TaxiSpeedTurningMax(KeyPointValueNode):
     def derive(self, groundspeed=P('Groundspeed')):
         return NotImplemented
 

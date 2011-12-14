@@ -9,6 +9,7 @@ from analysis.node import KeyTimeInstance, KeyTimeInstanceNode
 
 from settings import (CLIMB_THRESHOLD,
                       INITIAL_CLIMB_THRESHOLD,
+                      RATE_OF_CLIMB_FOR_LIFTOFF,
                       SLOPE_FOR_TOC_TOD
                       )
 
@@ -122,7 +123,7 @@ class LandingGroundEffectStart(KeyTimeInstanceNode):
     def derive(self, alt_rad=P('Altitude Radio')):
         return NotImplemented
 
-    
+
 class TopOfClimb(KeyTimeInstanceNode):
     def derive(self, alt_std=P('Altitude STD'), 
                ccd=S('Climb Cruise Descent')):
@@ -182,30 +183,28 @@ class FlapStateChanges(KeyTimeInstanceNode):
 ________Takeoff and Climb______________________________
 '''
 
-class Liftoff(KeyTimeInstanceNode):
-    def derive(self, air=S('Airborne')):
-        # Basic version to operate with minimal valid data
-        for each_section in air:
-            self.create_kti(each_section.slice.start, 'Liftoff')
-            
-class InitialClimbStart(KeyTimeInstanceNode):
-    def derive(self, alt_radio=P('Altitude Radio'),
-               alt_aal=P('Altitude AAL'),
-               climbing=S('Climbing')):
-        for climb in climbing:
-            if alt_radio == None:
-                # Without a radio altimeter, we have to use pressure altitude data
-                initial_climb_index = time_at_value_wrapped(alt_aal,
-                                                            climb,
-                                                            INITIAL_CLIMB_THRESHOLD)
-            else:
-                # It is preferable to use the radio altimeter data at this height.
-                initial_climb_index = time_at_value_wrapped(alt_rad,
-                                                            climb,
-                                                            INITIAL_CLIMB_THRESHOLD)
-                
-            self.create_kti(initial_climb_index, 'Initial Climb Start')
+class TakeoffTurnOntoRunway(KeyTimeInstanceNode):
+    # The Takeoff flight phase is computed to start when the aircraft turns
+    # onto the runway, so this KTI is just at the start of that phase.
+    def derive(self, toff=S('Takeoff')):
+        for each_section in toff:
+            self.create_kti(each_section.slice.start, 'Takeoff Turn Onto Runway')
 
+
+class Liftoff(KeyTimeInstanceNode):
+    def derive(self, toff=S('Takeoff'), roc=P('Rate Of Climb')):
+        for each_section in toff:
+            lift_time = time_at_value_wrapped(roc, each_section, 
+                                              RATE_OF_CLIMB_FOR_LIFTOFF)
+            self.create_kti(lift_time, 'Liftoff')
+            
+
+class InitialClimbStart(KeyTimeInstanceNode):
+    # The Takeoff flight phase is computed to run up to the start of the
+    # initial climb, so this KTI is just at the end of that phase.
+    def derive(self, toff=S('Takeoff')):
+        for each_section in toff:
+            self.create_kti(each_section.slice.stop, 'Initial Climb Start')
 
 
 #<<<< This style for all climbing events >>>>>
@@ -215,7 +214,7 @@ class _25FtInTakeoff(KeyTimeInstanceNode):
         return NotImplemented
 
     
-class 35FtInTakeoff(KeyTimeInstanceNode):
+class _35FtInTakeoff(KeyTimeInstanceNode):
     def derive(self, alt_aal=P('Altitude AAL')):
         return NotImplemented
 

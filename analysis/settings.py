@@ -80,6 +80,10 @@ RATE_OF_CLIMB_FOR_DESCENT_PHASE = -800 # (fpm)
 # and end of descent, when relying solely upon pressure altitude data.
 RATE_OF_CLIMB_FOR_LEVEL_FLIGHT = 300 # (fpm)
 
+# Rate of climb for liftoff. This builds upon the intertially smoothed rate of
+# climb computation to identify accurately the point of liftoff.
+RATE_OF_CLIMB_FOR_LIFTOFF = 5 # (fpm)
+
 # Rate of turn limits of +/- 90 deg/minute work well in flight and on ground.
 RATE_OF_TURN_FOR_FLIGHT_PHASES = 1.5 # deg per second
 
@@ -98,8 +102,6 @@ after level off. This led to reducing the threshold to 600 fpm in 3
 minutes which has been found to give good qualitative segregation
 between climb, cruise and descent phases."""
 SLOPE_FOR_TOC_TOD = (600/float(180))
-
-WING_SPAN = 14 # TODO: Replace with aircraft parameter
 
 ##########################
 ## Data Analysis Hooks
