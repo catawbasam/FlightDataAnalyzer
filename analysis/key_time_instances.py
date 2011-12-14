@@ -122,7 +122,7 @@ class LandingGroundEffectStart(KeyTimeInstanceNode):
     def derive(self, alt_rad=P('Altitude Radio')):
         return NotImplemented
 
-    
+
 class TopOfClimb(KeyTimeInstanceNode):
     def derive(self, alt_std=P('Altitude STD'), 
                ccd=S('Climb Cruise Descent')):
@@ -183,7 +183,7 @@ ________Takeoff and Climb______________________________
 '''
 
 class Liftoff(KeyTimeInstanceNode):
-    def derive(self, air=S('Airborne')):
+    def derive(self, air=S('Takeoff')):
         # Basic version to operate with minimal valid data
         for each_section in air:
             self.create_kti(each_section.slice.start, 'Liftoff')
@@ -193,14 +193,14 @@ class InitialClimbStart(KeyTimeInstanceNode):
                alt_aal=P('Altitude AAL'),
                climbing=S('Climbing')):
         for climb in climbing:
-            if alt_radio == None:
-                # Without a radio altimeter, we have to use pressure altitude data
-                initial_climb_index = time_at_value_wrapped(alt_aal,
+            if alt_radio:
+                # It is preferable to use the radio altimeter data at this height.
+                initial_climb_index = time_at_value_wrapped(alt_rad,
                                                             climb,
                                                             INITIAL_CLIMB_THRESHOLD)
             else:
-                # It is preferable to use the radio altimeter data at this height.
-                initial_climb_index = time_at_value_wrapped(alt_rad,
+                # Without a radio altimeter, we have to use pressure altitude data
+                initial_climb_index = time_at_value_wrapped(alt_aal,
                                                             climb,
                                                             INITIAL_CLIMB_THRESHOLD)
                 

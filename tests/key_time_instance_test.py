@@ -32,7 +32,7 @@ class TestBottomOfDescent(unittest.TestCase):
         self.assertEqual(opts, expected) 
         
     def test_bottom_of_descent_basic(self):
-        testwave = np.cos(np.arange(0,12.6,0.1))*(-2000)+10000
+        testwave = np.cos(np.arange(0,12.6,0.1))*(-2500)+12500
         alt_ph = Parameter('Altitude For Flight Phases', np.ma.array(testwave))
         alt_std = Parameter('Altitude STD', np.ma.array(testwave))
         dlc = DescentLowClimb()
@@ -176,6 +176,22 @@ class TestLiftoff(unittest.TestCase):
         expected = [KeyTimeInstance(index=7, state='Liftoff')]
         self.assertEqual(lift, expected)
     
+
+class TestTakeoffTurnOntoRunway(unittest.TestCase):
+    def test_can_operate(self):
+        expected = [('Fast','Heading Continuous')]
+        opts = LevelFlight.get_operational_combinations()
+        self.assertEqual(opts, expected)
+
+    def test_takeoff_turn_onto_runway_basic(self):
+        head = np.ma.array([ 0,10,20,20,20,20,20])
+        ias  = np.ma.array([10,10,10,10,40,70,100])
+        phase_fast = Fast()
+        phase_fast.derive(ias)
+        ttor = TakeoffTurnOntoRunway(P('Heading Continuous',head),phase_fast)
+        expected = [kti]
+        self.assertEqual(level, expected)
+
     
 class TestTopOfClimb(unittest.TestCase):
     # Based closely on the level flight condition, but taking only the

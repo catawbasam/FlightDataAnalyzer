@@ -1,17 +1,17 @@
 import logging
 import numpy as np
-from analysis.library import repair_mask
-from analysis.node import FlightPhaseNode, KeyTimeInstance, P
+from analysis.library import repair_mask, time_at_value
+from analysis.node import A, Attribute, FlightPhaseNode, KeyTimeInstance, P, S, KTI
 from analysis.settings import (AIRSPEED_THRESHOLD,
                                ALTITUDE_FOR_CLB_CRU_DSC,
                                HEADING_TURN_ONTO_RUNWAY,
                                HYSTERESIS_FP_RAD_ALT,
+                               INITIAL_CLIMB_THRESHOLD,
                                LANDING_THRESHOLD_HEIGHT,
                                RATE_OF_CLIMB_FOR_CLIMB_PHASE,
                                RATE_OF_CLIMB_FOR_DESCENT_PHASE,
                                RATE_OF_CLIMB_FOR_LEVEL_FLIGHT,
                                RATE_OF_TURN_FOR_FLIGHT_PHASES,
-                               WING_SPAN
                                )
 
 '''
@@ -204,7 +204,8 @@ class DescentLowClimb(FlightPhaseNode):
 class Fast(FlightPhaseNode):
     def derive(self, airspeed=P('Airspeed')):
         # Did the aircraft go fast enough to possibly become airborne?
-        fast_where = np.ma.masked_less(airspeed.array, AIRSPEED_THRESHOLD)
+        fast_where = np.ma.masked_less(repair_mask(airspeed.array),
+                                       AIRSPEED_THRESHOLD)
         fast_slices = np.ma.clump_unmasked(fast_where)
         self.create_phases(fast_slices)
  
@@ -227,8 +228,8 @@ class FinalApproach(FlightPhaseNode):
 
 
 class InGroundEffect(FlightPhaseNode):
-    def derive(self, alt_rad=P('Altitude Radio For Flight Phases')):
-        low_where = np.ma.masked_greater(alt_rad.array, WING_SPAN)
+    def derive(self, alt_rad=P('Altitude Radio For Flight Phases'), wing_span=A('Wing Span')):
+        low_where = np.ma.masked_greater(alt_rad.array, wing_span)
         low_slices = np.ma.clump_unmasked(low_where)
         self.create_phases(low_slices)
  
@@ -296,21 +297,48 @@ def takeoff_and_landing(block, fp, ph, kpt, kpv):
 #==========================================================================
 # TAKEOFF 
 #==========================================================================
+
+
 class Takeoff(FlightPhaseNode):
     def derive(self, fast=S('Fast'),
-               head=P('Heading Magnetic'),
-               end_toff=KTI('35 Ft In Takeoff')):
+               head=P('Heading Continuous'),
+               alt_aal=P('Altitude AAL For Phases')
+               ):
         for speedy in fast:
-            # The aircraft is part way down it's takeoff run at this point.
-            toff_run = speedy.slice.start
-            # Find the start from the turn onto the runway.
-            datum = head.array(toff_run)
-            # Track back to the turnoff
-            tor_index = time_at_value_wrapped(np.ma.abs(head.array), 
-                                              slice(0,toff_run),
-                                              HEADING_TURN_ONTO_RUNWAY, 
-                                              direction='Backwards')
+            # This basic flight phase cuts data into fast and slow sections.
+            # We know a takeoff comes at the start of the phase.
+            
+            # The aircraft is part way down it's takeoff run at the start of 
+            # the section.
+            takeoff_run = speedy.slice.start
 
+            #----------------------------------------------------------------
+            # Find the start of the takeoff phase from the turn onto the runway.
+
+            # The heading at the start of the slice is taken as a datum.
+            datum = head.array[takeoff_run]
+            # Track back to the turn
+            takeoff_begin = time_at_value(np.ma.abs(head.array-datum),
+                                          head.frequency, head.offset,
+                                          0, takeoff_run,
+                                          HEADING_TURN_ONTO_RUNWAY)
+
+            #----------------------------------------------------------------
+            # Find the end of the takeoff phase as we climb through 35ft.
+            # If it takes more than 5 minutes, he's certainly not doing a normal
+            # takeoff !
+            last = takeoff_run + 300 * head.frequency
+            takeoff_end = time_at_value(alt_aal.array,
+                                        head.frequency, head.offset,
+                                        takeoff_run, last,
+                                        INITIAL_CLIMB_THRESHOLD)
+ 
+            #----------------------------------------------------------------
+            # Create a phase for this takeoff
+            self.create_phases([slice(takeoff_begin, takeoff_end)])
+            
+            
+            
             """ Commented out to remove syntax error! CJ
 &&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&
 
@@ -456,5 +484,32 @@ class Takeoff(FlightPhaseNode):
     ph['Landing'] = create_phase_inside(altitude_std, kpt['LandingStart'], kpt['LandingTurnOffRunway'])
     ph['Ground'] = create_phase_outside(altitude_std, kpt['TakeoffTurnOntoRunway'], kpt['LandingTurnOffRunway'])
         
+
+
+
+Reminder about how to load test data.....
+
+
+from hdfaccess.file import hdf_file
+hdf = hdf_file('C:\POLARIS Development\Data files\HDF5 example/4_3377853_146-301.hdf5')
+hdf.search('airspeed')
+[u'Airspeed', u'INDICATED AIRSPEED FAULT']
+
+# Get a chunk of data - in this case the whole airspeed array.
+airspeed = hdf['Airspeed']
+
+import numpy as np
+# Save to the *.npy file this chunk of data, then close the hdf file.
+np.save('AnalysisEngine/tests/test_data/4_3377853_146-301_airspeed.npy', airspeed.array.data)
+hdf.close()
+
+
+# For the test routing, load the npy array...
+ias = np.load('AnalysisEngine/tests/test_data/4_3377853_146-301_airspeed.npy')
+ias[100:110]
+array([ 55.26800949,  55.26800949,  55.42561622,  55.11040358,
+        55.26800949,  55.26800949,  55.26800949,  55.26800949,
+        55.42561622,  55.42561622])
+
 
 """

@@ -21,6 +21,7 @@ from analysis.flight_phase import (Airborne,
                                    InGroundEffect,
                                    LevelFlight,
                                    OnGround,
+                                   Takeoff,
                                    Turning
                                    )
 
@@ -331,7 +332,7 @@ class TestFinalApproach(unittest.TestCase):
 
 class TestInGroundEffect(unittest.TestCase):
     def test_can_operate(self):
-        expected = [('Altitude Radio For Flight Phases',)]
+        expected = [('Altitude Radio For Flight Phases', 'Wing Span')]
         opts = InGroundEffect.get_operational_combinations()
         self.assertEqual(opts, expected)
 
@@ -339,10 +340,38 @@ class TestInGroundEffect(unittest.TestCase):
         alt_rad = Parameter('Altitude Radio For Flight Phases',
                             np.ma.array([range(0,200,10)+range(200,0,-10)]))
         ige = InGroundEffect()
-        ige.derive(alt_rad)
+        ige.derive(alt_rad, wing_span=77)
         expected = [Section(name='In Ground Effect',slice=slice(0,8,None)),
                     Section(name='In Ground Effect',slice=slice(33,40,None))]
         self.assertEqual(ige, expected)
+ 
+
+class TestLevelFlight(unittest.TestCase):
+    def test_can_operate(self):
+        expected = [('Rate Of Climb',)]
+        opts = LevelFlight.get_operational_combinations()
+        self.assertEqual(opts, expected)
+
+    def test_level_flight_phase_basic(self):
+        rate_of_climb_data = np.ma.array(range(0,400,50)+range(400,-450,-50)+
+                                         range(-450,50,50))
+        rate_of_climb = Parameter('Rate Of Climb', np.ma.array(rate_of_climb_data))
+        level = LevelFlight()
+        level.derive(rate_of_climb)
+        expected = [Section(name='Level Flight', slice=slice(0, 7, None)),
+                  Section(name='Level Flight', slice=slice(10, 23, None)), 
+                  Section(name='Level Flight', slice=slice(28, 35, None))]
+        self.assertEqual(level, expected)
+        
+    def test_turning_phase_basic_masked_not_turning(self):
+        rate_of_turn_data = np.ma.arange(-2, 2.2, 0.2)
+        rate_of_turn_data[10] = np.ma.masked
+        rate_of_turn = Parameter('Rate Of Turn', rate_of_turn_data)
+        turning = Turning()
+        turning.derive(rate_of_turn)
+        expected = [Section(name='Turning', slice=slice(0, 3, None)),
+                  Section(name='Turning', slice=slice(18, 21, None))]
+        self.assertEqual(turning, expected)
  
 
 class TestOnGround(unittest.TestCase):
@@ -362,7 +391,27 @@ class TestOnGround(unittest.TestCase):
         expected = [Section(name='On Ground',slice=slice(2,10,None))]
         self.assertEqual(phase_onground, expected)
  
+
+class TestTakeoff(unittest.TestCase):
+    def test_can_operate(self):
+        expected = [('Fast','Heading Continuous', 'Altitude AAL For Phases')]
+        opts = Takeoff.get_operational_combinations()
+        self.assertEqual(opts, expected)
+
+    def test_takeoff_basic(self):
+        head = np.ma.array([ 0,10,20,20,20,20,20,20,20,20])
+        ias  = np.ma.array([10,10,10,10,40,70,100,105,110,110])
+        alt_aal = np.ma.array([0,0,0,0,0,0,0,10,30,70])
+        phase_fast = Fast()
+        phase_fast.derive(P('Airspeed',ias))
+        takeoff = Takeoff()
+        takeoff.derive(phase_fast, P('Heading Continuous',head),
+                       P('Altitude AAL For Phases',alt_aal))
+        expected = Section(name='Takeoff', slice=slice(0.5, 8.125, None))
+        self.assertEqual(takeoff[0], expected)
         
+        x = np.load('test_data/4_3377853_146-301_test_DJ_tryout.npy')
+
 class TestTurning(unittest.TestCase):
     def test_can_operate(self):
         expected = [('Rate Of Turn',)]
@@ -399,31 +448,3 @@ class TestTurning(unittest.TestCase):
                   Section(name='Turning', slice=slice(18, 21, None))]
 
         self.assertEqual(turning, expected)
-        
-class TestLevelFlight(unittest.TestCase):
-    def test_can_operate(self):
-        expected = [('Rate Of Climb',)]
-        opts = LevelFlight.get_operational_combinations()
-        self.assertEqual(opts, expected)
-
-    def test_level_flight_phase_basic(self):
-        rate_of_climb_data = np.ma.array(range(0,400,50)+range(400,-450,-50)+
-                                         range(-450,50,50))
-        rate_of_climb = Parameter('Rate Of Climb', np.ma.array(rate_of_climb_data))
-        level = LevelFlight()
-        level.derive(rate_of_climb)
-        expected = [Section(name='Level Flight', slice=slice(0, 7, None)),
-                  Section(name='Level Flight', slice=slice(10, 23, None)), 
-                  Section(name='Level Flight', slice=slice(28, 35, None))]
-        self.assertEqual(level, expected)
-        
-    def test_turning_phase_basic_masked_not_turning(self):
-        rate_of_turn_data = np.ma.arange(-2, 2.2, 0.2)
-        rate_of_turn_data[10] = np.ma.masked
-        rate_of_turn = Parameter('Rate Of Turn', rate_of_turn_data)
-        turning = Turning()
-        turning.derive(rate_of_turn)
-        expected = [Section(name='Turning', slice=slice(0, 3, None)),
-                  Section(name='Turning', slice=slice(18, 21, None))]
-        self.assertEqual(turning, expected)
-        

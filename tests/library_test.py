@@ -740,14 +740,6 @@ class TestTimeAtValue(unittest.TestCase):
         array = np.ma.arange(4)
         self.assertEquals (time_at_value(array, 1, 0.0, 0, 3, 7.5), None)
         
-    def test_time_at_value_errors(self):
-        array = np.ma.arange(4)
-        self.assertRaises(ValueError, time_at_value, array, 1, 0.0, 2, 2, 7.5)
-        self.assertRaises(ValueError, time_at_value, array, 1, 0.0, -1, 2, 7.5)
-        self.assertRaises(ValueError, time_at_value, array, 1, 0.0, 2, 5, 7.5)
-        self.assertRaises(ValueError, time_at_value, array, 1, 0.0, 5, 2, 7.5)
-        self.assertRaises(ValueError, time_at_value, array, 1, 0.0, 2, -1, 7.5)
-        
     def test_time_at_value_masked(self):
         array = np.ma.arange(4)
         array[1] = np.ma.masked
