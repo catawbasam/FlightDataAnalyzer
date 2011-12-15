@@ -70,6 +70,9 @@ HYSTERESIS_FPROC = 100 # fpm
 # Threshold for start of initial climb phase
 INITIAL_CLIMB_THRESHOLD = 35 # ft (Radio, where available)
 
+# Threshold for start of braking / reverse thrust on landing.
+LANDING_ACCELERATION_THRESHOLD = -0.2 # g
+
 # Threshold for start of landing phase
 LANDING_THRESHOLD_HEIGHT = 50 # (Radio, where available)
 

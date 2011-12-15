@@ -49,7 +49,7 @@ class InitialApproach(FlightPhaseNode):
             # We already know this section is below the start of the initial
             # approach phase so we only need to stop at the transition to the
             # final approach phase.
-            ini_app = np.ma.masked_where(alt_AAL.array[app_land.slice]<1000),alt_AAL.array)
+            ini_app = np.ma.masked_where(alt_AAL.array[app_land.slice]<1000,alt_AAL.array)
             phases = np.ma.clump_unmasked(ini_app)
             for phase in phases:
                 begin = phase.start
@@ -269,7 +269,8 @@ class InitialApproach(FlightPhaseNode):
             # We already know this section is below the start of the initial
             # approach phase so we only need to stop at the transition to the
             # final approach phase.
-            ini_app = np.ma.masked_where(alt_AAL.array[app_land.slice]<1000),alt_AAL.array)
+            ini_app = np.ma.masked_where(alt_AAL.array[app_land.slice]<1000,
+                                         alt_AAL.array[app_land.slice])
             phases = np.ma.clump_unmasked(ini_app)
             for phase in phases:
                 begin = phase.start

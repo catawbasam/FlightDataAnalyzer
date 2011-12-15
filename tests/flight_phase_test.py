@@ -9,7 +9,7 @@ from analysis.key_time_instances import (BottomOfDescent,
                                          )
 from analysis.plot_flight import plot_parameter
 from analysis.flight_phase import (Airborne,
-                                   Approach,
+                                   ApproachAndLanding,
                                    ClimbCruiseDescent,
                                    ClimbFromBottomOfDescent,
                                    Climbing,
@@ -18,6 +18,7 @@ from analysis.flight_phase import (Airborne,
                                    DescentToBottomOfDescent,
                                    Fast,
                                    FinalApproach,
+                                   InitialApproach,
                                    Landing,
                                    LevelFlight,
                                    OnGround,
@@ -54,39 +55,76 @@ class TestAirborne(unittest.TestCase):
         self.assertEqual(air, [])
 
 
-class TestApproach(unittest.TestCase):
+class TestApproachAndLanding(unittest.TestCase):
     def test_can_operate(self):
         expected = [('Altitude AAL For Flight Phases',
                      'Altitude Radio For Flight Phases')]
-        opts = Approach.get_operational_combinations()
+        opts = ApproachAndLanding.get_operational_combinations()
         self.assertEqual(opts, expected)
 
-    def test_approach_phase_basic(self):
-        alt = np.ma.array(range(0,4000,500)+range(4000,0,-500))
-        app = Approach()
+    def test_approach_and_landing_phase_basic(self):
+        alt = np.ma.array(range(5000,500,-500)+range(500,3000,500))
+        app = ApproachAndLanding()
         # Pretend we are flying over flat ground, so the altitudes are equal.
         app.derive(Parameter('Altitude AAL For Flight Phases',alt),
                    Parameter('Altitude Radio For Flight Phases',alt))
-        expected = [Section(name='Approach', slice=slice(10, 14, None))]
+        expected = [Section(name='Approach And Landing', slice=slice(4, 9, None))]
         self.assertEqual(app, expected)
 
-    def test_approach_phase_over_high_ground(self):
+    def test_initial_approach_phase_over_high_ground(self):
         alt_aal = np.ma.array(range(0,4000,500)+range(4000,0,-500))
         # Raising the ground makes the radio altitude trigger one sample sooner.
         alt_rad = alt_aal - 600
-        app = Approach()
+        app = ApproachAndLanding()
         app.derive(Parameter('Altitude AAL For Flight Phases',alt_aal),
                    Parameter('Altitude Radio For Flight Phases',alt_rad))
-        expected = [Section(name='Approach', slice=slice(9, 14, None))]
+        expected = [Section(name='Approach And Landing', slice=slice(9, 15, None))]
         self.assertEqual(app, expected)
 
-    def test_approach_phase_with_go_around(self):
+    def test_initial_approach_phase_with_go_around(self):
         alt = np.ma.array(range(4000,2000,-500)+range(2000,4000,500))
-        app = Approach()
+        app = ApproachAndLanding()
         # Pretend we are flying over flat ground, so the altitudes are equal.
         app.derive(Parameter('Altitude AAL For Flight Phases',alt),
                    Parameter('Altitude Radio For Flight Phases',alt))
-        expected = [Section(name='Approach', slice=slice(2, 4, None))]
+        expected = [Section(name='Approach And Landing', slice=slice(2, 4, None))]
+        self.assertEqual(app, expected)
+
+
+class TestInitialApproach(unittest.TestCase):
+    def test_can_operate(self):
+        expected = [('Altitude AAL For Flight Phases',
+                     'Approach And Landing')]
+        opts = InitialApproach.get_operational_combinations()
+        self.assertEqual(opts, expected)
+
+    def test_initial_approach_phase_basic(self):
+        alt = np.ma.array(range(4000,0,-500)+range(0,4000,500))
+        app = InitialApproach()
+        # Pretend we are flying over flat ground, so the altitudes are equal.
+        app.derive(Parameter('Altitude AAL For Flight Phases',alt),
+                   [Section('Approach And Landing', slice(2, 6, None))]
+                   )
+        expected = [Section(name='Initial Approach', slice=slice(2, 6, None))]
+        self.assertEqual(app, expected)
+
+    def test_initial_approach_phase_over_high_ground(self):
+        alt_aal = np.ma.array(range(0,4000,500)+range(4000,0,-500))
+        # Raising the ground makes the radio altitude trigger one sample sooner.
+        alt_rad = alt_aal - 600
+        app = InitialApproach()
+        app.derive(Parameter('Altitude AAL For Flight Phases',alt_aal),
+                   [Section('Approach And Landing', slice(0, 3, None))])
+        expected = [Section(name='Initial Approach', slice=slice(9, 14, None))]
+        self.assertEqual(app, expected)
+
+    def test_initial_approach_phase_with_go_around(self):
+        alt = np.ma.array(range(4000,2000,-500)+range(2000,4000,500))
+        app = InitialApproach()
+        # Pretend we are flying over flat ground, so the altitudes are equal.
+        app.derive(Parameter('Altitude AAL For Flight Phases',alt),
+                   Parameter('Altitude Radio For Flight Phases',alt))
+        expected = [Section(name='Initial Approach', slice=slice(2, 4, None))]
         self.assertEqual(app, expected)
 
 
@@ -317,7 +355,8 @@ class TestFast(unittest.TestCase):
 class TestFinalApproach(unittest.TestCase):
     def test_can_operate(self):
         expected = [('Altitude AAL For Flight Phases',
-                     'Altitude Radio For Flight Phases')]
+                     'Altitude Radio For Flight Phases',
+                     'Approach And Landing')]
         opts = FinalApproach.get_operational_combinations()
         self.assertEqual(opts, expected)
 
@@ -326,8 +365,9 @@ class TestFinalApproach(unittest.TestCase):
         app = FinalApproach()
         # Pretend we are flying over flat ground, so the altitudes are equal.
         app.derive(Parameter('Altitude AAL For Flight Phases',alt),
-                   Parameter('Altitude Radio For Flight Phases',alt))
-        expected = [Section(name='Final Approach', slice=slice(17, 30, None))]
+                   Parameter('Altitude Radio For Flight Phases',alt),
+                   [Section('Approach And Landing', slice(0, -1, None))])
+        expected = [Section('Final Approach', slice(17, 30, None))]
         self.assertEqual(app, expected)
 
     def test_approach_phase_starting_inside_phase_and_with_go_around(self):
@@ -335,7 +375,8 @@ class TestFinalApproach(unittest.TestCase):
         app = FinalApproach()
         # Pretend we are flying over flat ground, so the altitudes are equal.
         app.derive(Parameter('Altitude AAL For Flight Phases',alt),
-                   Parameter('Altitude Radio For Flight Phases',alt))
+                   Parameter('Altitude Radio For Flight Phases',alt),
+                   [Section('Approach And Landing', slice(0, 3, None))])
         expected = [Section(name='Final Approach', slice=slice(0, 2, None))]
         self.assertEqual(app, expected)
 

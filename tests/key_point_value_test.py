@@ -8,6 +8,7 @@ from analysis.node import A, KPV, KeyTimeInstance, KTI, KeyPointValue, Parameter
 
 from analysis.key_point_values import (GlideslopeDeviation1500To1000FtMax,
                                        GlideslopeDeviation1000To150FtMax,
+                                       ILSFrequencyInApproach,
                                        LandingHeading,
                                        LocalizerDeviation1500To1000FtMax,
                                        LocalizerDeviation1000To150FtMax,
@@ -55,6 +56,47 @@ class TestGlideslopeDeviation1000To150FtMax(unittest.TestCase):
         self.assertEqual(kpv[0].index, 57)
         self.assertEqual(kpv[1].index, 120)
         
+class TestILSFrequencyInApproach(unittest.TestCase):
+    def test_can_operate(self):
+        expected = [('Approach', 'ILS Frequency')]
+        opts = ILSFrequencyInApproach.get_operational_combinations()
+        self.assertEqual(opts, expected) 
+        
+    def test_ILS_frequency_in_approach_basic(self):
+        # Let's give this a really hard time with alternate samples invalid and
+        # the final signal only tuned just at the end of the data.
+        frq = P('ILS Frequency',np.ma.array([108.5]*6+[114.05]*4))
+        frq.array[0:10:2] = np.ma.masked
+        app = [Section('Approach And Landing',slice(2,10,None))]
+        kpv = ILSFrequencyInApproach()
+        kpv.derive(app,frq)
+        expected = [KeyPointValue(index=9, value=114.05, 
+                                  name='Ils Frequency In Approach')]
+        self.assertEqual(kpv, expected)
+
+
+class TestLandingHeading(unittest.TestCase):
+    def test_can_operate(self):
+        expected = [('Landing','Heading Continuous')]
+        opts = LandingHeading.get_operational_combinations()
+        self.assertEqual(opts, expected) 
+        
+    def test_landing_heading_basic(self):
+        head = P('Heading Continuous',np.ma.array([0,2,4,7,9,8,6,3]))
+        toff_ph = [Section('Landing',slice(2,5,None))]
+        kpv = LandingHeading()
+        kpv.derive(toff_ph, head)
+        expected = [KeyPointValue(index=3, value=7.0, name='Landing Heading')]
+        self.assertEqual(kpv, expected)
+        
+    def test_landing_heading_modulus(self):
+        head = P('Heading Continuous',np.ma.array([-1,-2,-4,-7,-9,-8,-6,-3]))
+        toff_ph = [Section('Landing',slice(2,6,None))]
+        kpv = LandingHeading()
+        kpv.derive(toff_ph, head)
+        expected = [KeyPointValue(index=4, value=352.5, name='Landing Heading')]
+        self.assertEqual(kpv, expected)
+
         
 class TestLocalizerDeviation1500To1000FtMax(unittest.TestCase):
     def test_can_operate(self):
@@ -135,24 +177,3 @@ class TestTakeoffHeading(unittest.TestCase):
         expected = [KeyPointValue(index=4, value=352.5, name='Takeoff Heading')]
         self.assertEqual(kpv, expected)
 
-class TestLandingHeading(unittest.TestCase):
-    def test_can_operate(self):
-        expected = [('Landing','Heading Continuous')]
-        opts = LandingHeading.get_operational_combinations()
-        self.assertEqual(opts, expected) 
-        
-    def test_landing_heading_basic(self):
-        head = P('Heading Continuous',np.ma.array([0,2,4,7,9,8,6,3]))
-        toff_ph = [Section('Landing',slice(2,5,None))]
-        kpv = LandingHeading()
-        kpv.derive(toff_ph, head)
-        expected = [KeyPointValue(index=3, value=7.0, name='Landing Heading')]
-        self.assertEqual(kpv, expected)
-        
-    def test_landing_heading_modulus(self):
-        head = P('Heading Continuous',np.ma.array([-1,-2,-4,-7,-9,-8,-6,-3]))
-        toff_ph = [Section('Landing',slice(2,6,None))]
-        kpv = LandingHeading()
-        kpv.derive(toff_ph, head)
-        expected = [KeyPointValue(index=4, value=352.5, name='Landing Heading')]
-        self.assertEqual(kpv, expected)
