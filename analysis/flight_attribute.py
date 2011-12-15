@@ -2,7 +2,7 @@ from datetime import datetime
 
 from analysis import ___version___
 from analysis.node import A, KTI, KPV, FlightAttributeNode, P
-
+from api_handler import get_api_handler
 
 class FlightID(FlightAttributeNode):
     "Flight ID if provided via a known input attribute"
@@ -28,8 +28,19 @@ class Type(FlightAttributeNode):
 class TakeoffAirport(FlightAttributeNode):
     "Takeoff Airport including ID and Name"
     def derive(self, lat=KPV('Latitude At Liftoff'), lon=KPV('Longitude At Liftoff')):
+        """
+        Airport information is in the following format:
+        {'code': {'iata': 'LHR', 'icao': 'EGLL'},
+        'distance': 1.512545797147365,
+        'id': 2383,
+        'latitude': 51.4775,
+        'location': {'city': 'London', 'country': 'United Kingdom'},
+        'longitude': -0.461389,
+        'magnetic_variation': 'W002241 0106', # Format subject to change.
+        'name': 'London Heathrow'}"""
         # get_airport API
-        airport = get_airport(lat, lon)
+        api_handler = get_api_handler()
+        airport = api_handler.get_nearest_airport(lat, lon)
         self.set_flight_attr(airport)
         #self.set_flight_attr({'id':1234, 'name': 'Int. Airport'})
         return NotImplemented
@@ -45,13 +56,46 @@ class TakeoffRunway(FlightAttributeNode):
     def derive(self, lat=KPV('Latitude At Liftoff'), lon=KPV('Longitude At Liftoff'), 
                hdg=P('Heading Magnetic At Liftoff'), airport=A('Takeoff Airport')):
         """
-        Expects Airport to store a dictionary of airport attributes
+        Expects Airport to store a dictionary of airport attributes.
+        
+        Runway information is in the following format:
+        {'id': 1234,
+         'identifier': '29L',
+         'magnetic_heading': 290,
+         'start': {
+             'latitude': 14.1,
+             'longitude': 7.1,
+         },
+         'end': {
+             'latitude': 14.2,
+             'longitude': 7.2,
+         },
+             'glideslope': {
+                  'angle': 120, # Q: Sensible example value?
+                  'frequency': 330, # Q: Sensible example value?
+                  'latitude': 14.3,
+                  'longitude': 7.3,
+                  'threshold_distance': 20,
+              },
+              'localiser': {
+                  'beam_width': 14, # Q: Sensible example value?
+                  'frequency': 335, # Q: Sensible example value?
+                  'heading': 291,
+                  'latitude': 14.4,
+                  'longitude': 7.4,
+              },
+         'strip': {
+             'length': 150,
+             'surface': 'ASPHALT',
+             'width': 30,
+        }}
         """
         ils_freq = airport.value.get('Localizer Frequency')
         airport_id = airport.value['id'], 
         precision = True #TODO: precision == using GPS
-        runway = get_runway(airport=airport_id, latitude=lat, longitude=lon,
-                            heading=hdg, ils_freq=ils_freq, precision=precision)
+        api_handler = get_api_handler()
+        runway = api_handler.get_runway(airport_id, hdg, latitude=lat, longitude=lon,
+                                        precision=precision, ils_freq=ils_freq)
         self.set_flight_attr(runway)
         return NotImplemented
     

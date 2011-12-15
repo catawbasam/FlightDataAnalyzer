@@ -1,0 +1,151 @@
+import urllib
+import socket
+import httplib
+import time
+import httplib2
+import simplejson
+
+from analysis.api_handler import (APIError, APIHandler, InvalidAPIInputError,
+                                  NotFoundError, UnknownAPIError)
+from analysis.settings import BASE_URL
+
+TIMEOUT = 60
+
+socket.setdefaulttimeout(TIMEOUT)
+
+
+class APIHandlerHTTP(APIHandler):
+    
+    def __init__(self, attempts=3, delay=2):
+        '''
+        :param attempts: Attempts to retry the same request before raising an exception.
+        :type attempts: int
+        '''
+        if attempts >= 1:
+            self.attempts = attempts
+        else:
+            raise ValueError('Must attempt requests at least once.')
+        self.delay = delay
+    
+    def _request(self, uri, method='GET', body='', timeout=TIMEOUT):
+        '''
+        '''
+        if method == 'GET':
+            # Encode body as GET parameters.
+            body = urllib.urlencode(body)
+        http = httplib2.Http(timeout=timeout)
+        try:
+            resp, content = http.request(uri, method, body)
+        except (httplib2.ServerNotFoundError, socket.error): # DNS..
+            raise UnknownAPIError(uri, method, body) # Q: Right exception?
+        print resp, content
+        status = int(resp['status'])
+        try:
+            decoded_content = simplejson.loads(content)
+        except simplejson.decoder.JSONDecodeError:
+            decoded_content = None
+        # Test HTTP Status.
+        if status != 200:
+            if decoded_content:
+                # Try to get 'error' message from JSON which may not be
+                # available.
+                error_msg = decoded_content['error']
+            else:
+                error_msg = ''
+            if status == httplib.BAD_REQUEST: # 400
+                raise InvalidAPIInputError(error_msg, uri, method, body)
+            elif status == httplib.UNAUTHORIZED: # 401
+                raise UnknownAPIError(error_msg, uri, method, body)
+            elif status == httplib.NOT_FOUND: # 404
+                raise NotFoundError(error_msg, uri, method, body)
+            elif status == httplib.INTERNAL_SERVER_ERROR: # 500
+                raise UnknownAPIError(error_msg, uri, method, body)
+            else:
+                pass # TODO
+        
+        if decoded_content is None:
+            raise UnknownAPIError('JSON response could not be decoded.',
+                                  uri, method, body)
+        return decoded_content
+    
+    def _attempt_request(self, *args, **kwargs):
+        '''
+        Attempt the request the number of times specified by self.attempts.
+        If the specified number of attempts have failed, raise the exception
+        last raised.
+        
+        :param args: Arguments passed into self._request.
+        :type args: list
+        :param kwargs: Keyword arguments passed into self._request.
+        :type kwargs: dict
+        :raises Exception: 
+        '''
+        for attempt in range(self.attempts):
+            try:
+                return self._request(*args, **kwargs)
+            except Exception as error:
+                time.sleep(self.delay)
+        raise error
+    
+    
+    
+    def get_nearest_airport(self, latitude, longitude):
+        '''
+        Either returns the nearest airport to the specified latitude and
+        longitude, or raises an exception if one cannot be found.
+        
+        :param latitude: Latitude in decimal degrees.
+        :type latitude: float
+        :param longitude: Longitude in decimal degrees.
+        :type longitude: float
+        :raises NotFoundError: If airport cannot be found.
+        :raises InvalidAPIInputError: If latitude or longitude are out of bounds.
+        :returns: Airport information.
+        :rtype: dict
+        '''
+        url = '%(base_url)s/api/airport/nearest.json?ll=%(ll)s' % \
+            {'base_url': BASE_URL, 'll': '%f,%f' % (latitude, longitude)}
+        return self._attempt_request(url)['airport']
+    
+    def get_nearest_runway(self, airport, heading, latitude=None,
+                           longitude=None, precision=False, ilsfreq=None):
+        '''
+        Returns the nearest runway from the specified airport using latitude,
+        longitude, precision and ilsfreq.
+        
+        :param airport: Either ICAO code, IATA code or database ID of airport.
+        :type airport: int or str
+        :param heading: Magnetic heading.
+        :type heading: int # Q: could it be float?
+        :param latitude: Latitude in decimal degrees.
+        :type latitude: float
+        :param longitude: Longitude in decimal degrees.
+        :type longitude: float
+        :param precision: Whether or not latitude and longitude are precise and can be trusted.
+        :type precision: bool
+        :param ilsfreq: ILS frequency of runway # Q: Glideslope or Localizer frequency?
+        :type ilsfreq: float # Q: could/should it be int?
+        :raises NotFoundError: If runway cannot be found.
+        :raises InvalidAPIInputError: If latitude, longitude or heading are out of bounds.
+        :returns: Runway info in the format {'ident': '27*', 'items': [{# ...}, {# ...},]}, 'ident' is either specific ('09L') or generalised ('09*'). 'items' is a list of matching runways.
+        :rtype: dict
+        '''
+        url = '%(base_url)s/api/airport/%(airport)s/runway/nearest.json' % \
+            {'base_url': BASE_URL, 'airport': airport}
+        
+        params = {'heading': heading}
+        if latitude and longitude:
+            params['ll'] = '%s,%s' % (latitude, longitude)
+        if precision:
+            params['precision'] = precision
+        if ilsfreq:
+            params['ilsfreq'] = ilsfreq
+        get_params = urllib.urlencode(params)
+        url += '?' + get_params
+        return self._attempt_request(url)['runway']
+        
+    def get_vspeed_limit(self, *args, **kwargs):
+        '''
+        
+        '''
+        pass
