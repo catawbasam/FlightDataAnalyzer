@@ -213,7 +213,7 @@ class FlapCorrected(DerivedParameterNode):
         return NotImplemented
     
 
-class HeadContinuous(DerivedParameterNode):
+class HeadingContinuous(DerivedParameterNode):
     def derive(self, head_mag=P('Heading Magnetic')):
         self.array = straighten_headings(head_mag.array)
 
@@ -263,40 +263,54 @@ class MACH(DerivedParameterNode):
         
 
 class RateOfClimb(DerivedParameterNode):
-    '''
+    """
     This routine derives the rate of climb from the vertical acceleration, the
-    Pressure altitude and the Radio altitude. We restrict the use of radio 
-    altitude data to below the wingspan (i.e. in ground effect) where the 
+    Pressure altitude and the Radio altitude.
+    
+    We use pressure altitude rate above 100ft and radio altitude rate below
+    50ft, with a progressive changeover across that range. Below 100ft the
     pressure altitude information is affected by the flow field around the
-    aircraft.
+    aircraft, while above 50ft there is an increasing risk of changes in
+    ground profile affecting the radio altimeter signal.
     
     Complementary first order filters are used to combine the acceleration
     data and the height data. A high pass filter on the altitude data and a
     low pass filter on the acceleration data combine to form a consolidated
     signal.
     
-    Long term errors in the accelerometers are removed by washing out the 
-    acceleration term with a longer time constant filter before use.    
-    '''
+    By merging the altitude rate signals, we avoid problems of altimeter
+    datums affecting the transition as these will have been washed out by the
+    filter stage first.
+    
+    Long term errors in the accelerometers are removed by washing out the
+    acceleration term with a longer time constant filter before use. The
+    consequence of this is that long period movements with continued
+    acceleration will be underscaled slightly. As an example the test case
+    with a 1ft/sec^2 acceleration results in an increasing rate of climb of
+    55 fpm/sec, not 60 as would be theoretically predicted.
+    """
     def derive(self, 
                az = P('Acceleration Vertical'),
                alt_std = P('Altitude STD'),
-               alt_rad = P('Altitude Radio'),
-               ige = P('In Ground Effect')
-               ):
+               alt_rad = P('Altitude Radio')):
+        #TODO: Remove this caveat and two alignment statements.
+        # This alignment should be redundant with az as first parameter
         alt_std_array = align(alt_std, az)
         alt_rad_array = align(alt_rad, az)
 
-        roc_alt_std = first_order_washout(alt_std_array, RATE_OF_CLIMB_LAG_TC, az.hz)
-        roc_alt_rad = first_order_washout(alt_rad_array, RATE_OF_CLIMB_LAG_TC, az.hz)
+        roc_alt_std = first_order_washout(alt_std_array,
+                                          RATE_OF_CLIMB_LAG_TC, az.hz)
+        roc_alt_rad = first_order_washout(alt_rad_array,
+                                          RATE_OF_CLIMB_LAG_TC, az.hz)
                 
-        # Use pressure altitude rate outside ground effect and 
-        # radio altitude data inside ground effect.
-        roc_altitude = roc_alt_std
-        for this_ige in ige:
-            a = this_ige.slice.start
-            b = this_ige.slice.stop
-            roc_altitude[a:b] = roc_alt_rad[a:b]
+        # Use pressure altitude rate above 100ft and radio altitude rate
+        # below 50ft with progressive changeover across that range.
+        # up to 50 ft radio 0 < std_rad_ratio < 1 over 100ft radio
+        std_rad_ratio = np.maximum(np.minimum(
+            (alt_rad_array.data-50.0)/50.0,
+            1),0)
+        roc_altitude = roc_alt_std*std_rad_ratio +\
+            roc_alt_rad*(1.0-std_rad_ratio)
             
         roc_altitude /= RATE_OF_CLIMB_LAG_TC # Remove washout gain  
         
@@ -353,8 +367,8 @@ class HeadingTrue(DerivedParameterNode):
     
 
 class RateOfTurn(DerivedParameterNode):
-    dependencies = [HeadContinuous]
-    def derive(self, head = P('Head Continuous')):
+    dependencies = [HeadingContinuous]
+    def derive(self, head = P('Heading Continuous')):
         self.array = rate_of_change(head, 1)
 
 

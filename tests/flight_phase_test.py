@@ -18,7 +18,7 @@ from analysis.flight_phase import (Airborne,
                                    DescentToBottomOfDescent,
                                    Fast,
                                    FinalApproach,
-                                   InGroundEffect,
+                                   Landing,
                                    LevelFlight,
                                    OnGround,
                                    Takeoff,
@@ -292,15 +292,25 @@ class TestFast(unittest.TestCase):
         expected = [Section(name='Fast',slice=slice(2,11,None))]
         self.assertEqual(phase_fast, expected)
         
-    def test_fast_phase_with_mask(self):
+    def test_fast_phase_with_small_mask(self):
         slow_and_fast_data = np.ma.concatenate([np.ma.arange(60,120,10),
                                                 np.ma.arange(120,50,-10)])
         slow_and_fast_data[5:8] = np.ma.masked
         ias = Parameter('Airspeed', slow_and_fast_data,1,0)
         phase_fast = Fast()
         phase_fast.derive(ias)
+        expected = [Section(name='Fast',slice=slice(2,11,None))]
+        self.assertEqual(phase_fast, expected)
+
+
+    def test_fast_phase_with_large_mask(self):
+        slow_and_fast_data = np.ma.array(range(60,120,10)+[120]*8+range(120,50,-10))
+        slow_and_fast_data[5:17] = np.ma.masked
+        ias = Parameter('Airspeed', slow_and_fast_data,1,0)
+        phase_fast = Fast()
+        phase_fast.derive(ias)
         expected = [Section(name='Fast',slice=slice(2,5,None)),
-                  Section(name='Fast',slice=slice(8,11,None))]
+                  Section(name='Fast',slice=slice(17,19,None))]
         self.assertEqual(phase_fast, expected)
 
 
@@ -330,21 +340,24 @@ class TestFinalApproach(unittest.TestCase):
         self.assertEqual(app, expected)
 
 
-class TestInGroundEffect(unittest.TestCase):
+class TestLanding(unittest.TestCase):
     def test_can_operate(self):
-        expected = [('Altitude Radio For Flight Phases', 'Wing Span')]
-        opts = InGroundEffect.get_operational_combinations()
+        expected = [('Fast','Heading Continuous', 'Altitude AAL For Phases')]
+        opts = Landing.get_operational_combinations()
         self.assertEqual(opts, expected)
 
-    def test_onground_basic(self):
-        alt_rad = Parameter('Altitude Radio For Flight Phases',
-                            np.ma.array([range(0,200,10)+range(200,0,-10)]))
-        ige = InGroundEffect()
-        ige.derive(alt_rad, wing_span=77)
-        expected = [Section(name='In Ground Effect',slice=slice(0,8,None)),
-                    Section(name='In Ground Effect',slice=slice(33,40,None))]
-        self.assertEqual(ige, expected)
- 
+    def test_landing_basic(self):
+        head = np.ma.array([ 20,20,20,20,20,20,20,20,10,0])
+        ias  = np.ma.array([110,110,110,110,80,50,30,20,10,10])
+        alt_aal = np.ma.array([80,40,20,5,0,0,0,0,0,0])
+        phase_fast = Fast()
+        phase_fast.derive(P('Airspeed',ias))
+        landing = Landing()
+        landing.derive(phase_fast, P('Heading Continuous',head),
+                       P('Altitude AAL For Phases',alt_aal))
+        expected = [Section(name='Landing', slice=slice(0.75, 8.5, None))]
+        self.assertEqual(landing, expected)
+        
 
 class TestLevelFlight(unittest.TestCase):
     def test_can_operate(self):

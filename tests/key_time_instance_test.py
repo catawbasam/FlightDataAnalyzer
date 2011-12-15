@@ -17,6 +17,7 @@ from analysis.key_time_instances import (BottomOfDescent,
                                          GoAround,
                                          InitialClimbStart,
                                          Liftoff,
+                                         TakeoffStartAcceleration,
                                          TakeoffTurnOntoRunway,
                                          TopOfClimb,
                                          TopOfDescent,
@@ -171,6 +172,22 @@ class TestTakeoffTurnOntoRunway(unittest.TestCase):
         self.assertEqual(instance, expected)
 
 
+class TestTakeoffStartAcceleration(unittest.TestCase):
+    def test_can_operate(self):
+        expected = [('Takeoff','Acceleration Longitudinal')]
+        opts = TakeoffStartAcceleration.get_operational_combinations()
+        self.assertEqual(opts, expected)
+
+    def test_takeoff_start_acceleration(self):
+        instance = TakeoffStartAcceleration()
+        # This just needs the takeoff slice startpoint, so trivial to test
+        takeoff = [Section('Takeoff',slice(1,5,None))]
+        accel = P('AccelerationLongitudinal',np.ma.array([0,0,0,0.2,0.3,0.3,0.3]))
+        instance.derive(takeoff,accel)
+        expected = [KeyTimeInstance(index=2.5, state='Takeoff Start Acceleration')]
+        self.assertEqual(instance, expected)
+
+
     
 class TestTopOfClimb(unittest.TestCase):
     # Based closely on the level flight condition, but taking only the
@@ -262,24 +279,17 @@ class TestTopOfDescent(unittest.TestCase):
         
 class TestTouchdown(unittest.TestCase):
     def test_can_operate(self):
-        expected = [('Airborne',)]
+        expected = [('Landing','Rate Of Climb')]
         opts = Touchdown.get_operational_combinations()
         self.assertEqual(opts, expected)
 
-    def test_liftoff_basic(self):
-        rate_of_climb_data = np.ma.array(range(0,400,50)+
-                                         range(400,-450,-50)+
-                                         range(-450,50,50))
-        rate_of_climb = Parameter('Rate Of Climb', np.ma.array(rate_of_climb_data))
-        air = Airborne()
-        air.derive(rate_of_climb)
-        down = Touchdown()
-        down.derive(air)
-        # Confirm we tested it with the right phase
-        expected = [Section(name='Airborne', slice=slice(7, 27, None))]
-        self.assertEqual(air, expected)
+    def test_touchdown_basic(self):
+        rate_of_climb = Parameter('Rate Of Climb', np.ma.array([-30,-20,-11,-1,0,0,0]))
+        land = [Section('Landing',slice(1,5))]                        
+        tdown = Touchdown()
+        tdown.derive(land, rate_of_climb)
         # and the real answer is this KTI
-        expected = [KeyTimeInstance(index=27, state='Touchdown')]
-        self.assertEqual(down, expected)
+        expected = [KeyTimeInstance(index=2.1, state='Touchdown')]
+        self.assertEqual(tdown, expected)
     
     
