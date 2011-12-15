@@ -42,12 +42,41 @@ class Airborne(FlightPhaseNode):
             pass # Just don't create a phase if none exists.
         
 
-class Approach(FlightPhaseNode):
+class InitialApproach(FlightPhaseNode):
+    def derive(self, alt_AAL=P('Altitude AAL For Flight Phases'),
+               app_lands=S('Approach And Landing')):
+        for app_land in app_lands:
+            # We already know this section is below the start of the initial
+            # approach phase so we only need to stop at the transition to the
+            # final approach phase.
+            ini_app = np.ma.masked_where(alt_AAL.array[app_land.slice]<1000),alt_AAL.array)
+            phases = np.ma.clump_unmasked(ini_app)
+            for phase in phases:
+                begin = phase.start
+                pit = np.ma.argmin(ini_app[phase])
+                if pit != 0 :
+                    self.create_phase(slice(begin, begin+pit))
+
+
+class ApproachAndLanding(FlightPhaseNode):
+    """
+    This phase is used to identify an approach which may or may not include
+    in a landing. It includes go-arounds, touch-and-go's and of course
+    successful landings.
+    
+    Each Approach And Landing is associated with an airfield and a runway
+    where possible. These are identified using:
+    
+    1. the heading on the runway (only if the aircraft lands)
+    
+    2. the ILS frequency (only if the ILS is tuned and localizer data is valid)
+    
+    3. the aircraft position at the lowest point of approach
+    """
     def derive(self, alt_AAL=P('Altitude AAL For Flight Phases'),
                alt_rad=P('Altitude Radio For Flight Phases')):
-        app = np.ma.masked_where(np.ma.logical_or
-                                 (np.ma.minimum(alt_AAL.array,alt_rad.array)>3000,
-                                  alt_AAL.array<1000),alt_AAL.array)
+        app = np.ma.masked_where(np.ma.minimum(alt_AAL.array,alt_rad.array)
+                                 >3000,alt_AAL.array)
         phases = np.ma.clump_unmasked(app)
         for phase in phases:
             begin = phase.start
@@ -213,20 +242,40 @@ class Fast(FlightPhaseNode):
 
 class FinalApproach(FlightPhaseNode):
     def derive(self, alt_AAL=P('Altitude AAL For Flight Phases'),
-               alt_rad=P('Altitude Radio For Flight Phases')):
-        # Allow for the hysteresis applied to the radio altimeter signal 
-        # for phase computations
-        thold = LANDING_THRESHOLD_HEIGHT+HYSTERESIS_FP_RAD_ALT
-        app = np.ma.masked_where(np.ma.logical_or(
-            alt_AAL.array>1000,
-            alt_rad.array<thold), alt_AAL.array)
-        phases = np.ma.clump_unmasked(app)
-        for phase in phases:
-            begin = phase.start
-            pit = np.ma.argmin(app[phase])
-            if pit != 0 :
-                self.create_phase(slice(begin, begin+pit))
-
+               alt_rad=P('Altitude Radio For Flight Phases'),
+               app_lands=S('Approach And Landing')):
+        for app_land in app_lands:
+            
+            # Allow for the hysteresis applied to the radio altimeter signal 
+            # for phase computations
+            thold = LANDING_THRESHOLD_HEIGHT+HYSTERESIS_FP_RAD_ALT
+            app = np.ma.masked_where(np.ma.logical_or(
+                alt_AAL.array[app_land.slice]>1000,
+                alt_rad.array[app_land.slice]<thold), 
+                                     alt_AAL.array[app_land.slice])
+            phases = np.ma.clump_unmasked(app)
+            for phase in phases:
+                begin = app_land.slice.start + phase.start
+                pit = np.ma.argmin(app[phase])
+                if pit != 0 :
+                    end = app_land.slice.start + begin + pit
+                    self.create_phase(slice(begin, end))
+    
+    
+class InitialApproach(FlightPhaseNode):
+    def derive(self, alt_AAL=P('Altitude AAL For Flight Phases'),
+               app_lands=S('Approach And Landing')):
+        for app_land in app_lands:
+            # We already know this section is below the start of the initial
+            # approach phase so we only need to stop at the transition to the
+            # final approach phase.
+            ini_app = np.ma.masked_where(alt_AAL.array[app_land.slice]<1000),alt_AAL.array)
+            phases = np.ma.clump_unmasked(ini_app)
+            for phase in phases:
+                begin = phase.start
+                pit = np.ma.argmin(ini_app[phase])
+                if pit != 0 :
+                    self.create_phase(slice(begin, begin+pit))
 
 
 class LevelFlight(FlightPhaseNode):

@@ -30,23 +30,48 @@ class TakeoffHeading(KeyPointValueNode):
     '''
     def derive(self, toffs=S('Takeoff'), head=P('Heading Continuous')):
         for toff in toffs:
-            midpoint = (toff.slice.start + toff.slice.stop)/2.0
-            toff_head = np.ma.median(head[toff[1]])
+            # Integer arithmetic is fine for the midpoint locator.
+            midpoint = (toff.slice.start + toff.slice.stop)/2
+            toff_head = np.ma.median(head.array[toff.slice]) 
             self.create_kpv(midpoint, toff_head%360.0)
             
+#=============================
+#Approach And Landing Lowest point > stuff to do here !!!!!!!!!!!!!!!!!!   
+#=============================    
     
 class TakeoffAltitude(KeyPointValueNode):
     def derive(self, liftoff=KTI('Liftoff'), takeoff_airport=TakeoffAirport):
         return NotImplemented
     
+'''
 class LandingAltitude(KeyPointValueNode):
     def derive(self, touchdown=KTI('Touchdown'),
-               landing_airport=LandingAirport):
+               landing_airport=A('LandingAirport'):
         return NotImplemented
+'''
+
+class LandingHeading(KeyPointValueNode):
+    """
+    The landing has been found already, including and the flare and a little
+    of the turn off the runway.
+    """
+    def derive(self, landings=S('Landing'), head=P('Heading Continuous')):
+        for landing in landings:
+            midpoint = (landing.slice.start + landing.slice.stop)/2
+            landing_head = np.ma.median(head.array[landing.slice])
+            self.create_kpv(midpoint, landing_head%360.0)
+
+class ILSFrequencyInApproach(KeyPointValueNode):
+    """
+    The landing has been found already, including and the flare and a little
+    of the turn off the runway.
+    """
+    def derive(self, approaches=S('Approach'), ils_frq=P('ILS Frequency')):
+        for approach in approaches:
+            freq = np.ma.median(ils_frq.array[approach.slice])
+            self.create_kpv(midpoint, freq)
 
 
-                
-                
 ##########################################
 # KPV from A6RKA_KPVvalues.xls
 

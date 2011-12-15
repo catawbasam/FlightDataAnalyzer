@@ -56,6 +56,15 @@ class BottomOfDescent(KeyTimeInstanceNode):
             self.create_kti(kti + this_dlc.slice.start, 'Bottom Of Descent')
         
            
+class ApproachAndLandingLowest(KeyTimeInstanceNode):
+    def derive(self, app_lands=S('Approach And Landing'),
+               alt_std=P('Altitude STD')):
+        # In the case of descents without landing, this finds the minimum
+        # point of the dip.
+        for app_land in app_lands:
+            kti = np.ma.argmin(alt_std.array[app_land.slice])
+            self.create_kti(kti + app_land.slice.start, 'Approach And Landing Lowest')
+    
 
 class ClimbStart(KeyTimeInstanceNode):
     def derive(self, alt_aal=P('Altitude AAL'), climbing=S('Climbing')):
@@ -228,11 +237,11 @@ class Touchdown(KeyTimeInstanceNode):
             self.create_kti(landing.slice.start+land_time, 'Touchdown')
 
 
-class LandinTurnOfRunway(KeyTimeInstanceNode):
+class LandingTurnOffRunway(KeyTimeInstanceNode):
     # The Landing phase is computed to end when the aircraft turns off the
     # runway, so this KTI is just at the start of that phase.
     def derive(self, landings=S('Landing')):
-        for landing in toff:
+        for landing in landings:
             self.create_kti(landing.slice.stop, 'Landing Turn Off Runway')
 
 
@@ -241,9 +250,7 @@ class LandingStartDeceleration(KeyTimeInstanceNode):
         for landing in landings:
             start_accel = time_at_value_wrapped(fwd_acc, landing, 
                                                 LANDING_ACCELERATION_THRESHOLD)
-            self.create_kti(landing.slice.start+start_accel, 'Takeoff Start Deceleration')
-
-
+            self.create_kti(landing.slice.start+start_accel, 'Landing Start Deceleration')
 
 
 #<<<< This style for all climbing events >>>>>
