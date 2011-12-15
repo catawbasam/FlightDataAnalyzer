@@ -1,5 +1,5 @@
-- e http://vindictive.flightdataservices.com/Bazaar/Utilities
-- e http://vindictive.flightdataservices.com/Bazaar/HDFAccess
+- e bzr+http://vindictive.flightdataservices.com/Bazaar/Utilities
+- e bzr+http://vindictive.flightdataservices.com/Bazaar/HDFAccess
 matplotlib
 networkx
 numpy
