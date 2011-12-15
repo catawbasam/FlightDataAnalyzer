@@ -107,7 +107,8 @@ class OffBlocksDatetime(FlightAttributeNode):
     
                 
 class TakeoffDatetime(FlightAttributeNode):
-    """ Datetime at takeoff (first liftoff) or as close to this as possible.
+    """
+    Datetime at takeoff (first liftoff) or as close to this as possible.
     If no takeoff (incomplete flight / ground run) the start of data will is
     to be used.
     """

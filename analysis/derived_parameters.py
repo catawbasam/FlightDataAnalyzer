@@ -83,9 +83,9 @@ class AltitudeAAL(DerivedParameterNode):
     
 class AltitudeAALForFlightPhases(DerivedParameterNode):
     name = 'Altitude AAL For Flight Phases'
-    # This crude parameter is used for flight phase determination of the 
-    # Approach phase, and only uses pressure altitude for robustness.
-    def derive(self, alt_std=P('Altitude STD'), airs=P('Fast')):
+    # This crude parameter is used for flight phase determination,
+    # and only uses airspeed and pressure altitude for robustness.
+    def derive(self, alt_std=P('Altitude STD'), fast=P('Fast')):
         
         # Initialise the array to zero, so that the altitude above the airfield
         # will be 0ft when the aircraft cannot be airborne.
@@ -93,10 +93,10 @@ class AltitudeAALForFlightPhases(DerivedParameterNode):
         
         repair_mask(alt_std.array) # Remove small sections of corrupt data
 
-        for air in airs:
-            begin = air.slice.start
-            end = air.slice.stop
-            peak = np.ma.argmax(alt_std.array[air.slice])
+        for speedy in fast:
+            begin = speedy.slice.start
+            end = speedy.slice.stop
+            peak = np.ma.argmax(alt_std.array[speedy.slice])
             self.array[begin:begin+peak] = alt_std.array[begin:begin+peak] - alt_std.array[begin]
             self.array[begin+peak:end] = alt_std.array[begin+peak:end] - alt_std.array[end]
     
