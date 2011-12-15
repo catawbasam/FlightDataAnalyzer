@@ -4,6 +4,7 @@ from analysis.library import repair_mask, time_at_value
 from analysis.node import A, Attribute, FlightPhaseNode, KeyTimeInstance, P, S, KTI
 from analysis.settings import (AIRSPEED_THRESHOLD,
                                ALTITUDE_FOR_CLB_CRU_DSC,
+                               HEADING_TURN_OFF_RUNWAY,
                                HEADING_TURN_ONTO_RUNWAY,
                                HYSTERESIS_FP_RAD_ALT,
                                INITIAL_CLIMB_THRESHOLD,
@@ -227,12 +228,6 @@ class FinalApproach(FlightPhaseNode):
                 self.create_phase(slice(begin, begin+pit))
 
 
-class InGroundEffect(FlightPhaseNode):
-    def derive(self, alt_rad=P('Altitude Radio For Flight Phases'), wing_span=A('Wing Span')):
-        low_where = np.ma.masked_greater(alt_rad.array, wing_span)
-        low_slices = np.ma.clump_unmasked(low_where)
-        self.create_phases(low_slices)
- 
 
 class LevelFlight(FlightPhaseNode):
     def derive(self, roc=P('Rate Of Climb')):
@@ -295,9 +290,14 @@ def takeoff_and_landing(block, fp, ph, kpt, kpv):
 
     
 #===============================================================================
-# TAKEOFF 
+#         TAKEOFF 
 #===============================================================================
 class Takeoff(FlightPhaseNode):
+    """
+    This flight phase starts as the aircraft turns onto the runway and ends
+    as it climbs through 35ft. Subsequent KTIs and KPV computations identify
+    the specific moments and values of interest within this phase.
+    """
     def derive(self, fast=S('Fast'),
                head=P('Heading Continuous'),
                alt_aal=P('Altitude AAL For Phases')
@@ -317,11 +317,11 @@ class Takeoff(FlightPhaseNode):
             #-------------------------------------------------------------------
             # Find the start of the takeoff phase from the turn onto the runway.
 
-            # The heading at the start of the slice is taken as a datum.
+            # The heading at the start of the slice is taken as a datum for now.
             datum = head.array[takeoff_run]
             
             # Track back to the turn
-            # If he took more than 5 minutes on the runway we're not interested.
+            # If he took more than 5 minutes on the runway we're not interested!
             first = takeoff_run - 300*head.frequency
             takeoff_begin = time_at_value(np.ma.abs(head.array-datum),
                                           head.frequency, head.offset,
@@ -342,6 +342,39 @@ class Takeoff(FlightPhaseNode):
             #-------------------------------------------------------------------
             # Create a phase for this takeoff
             self.create_phases([slice(takeoff_begin, takeoff_end)])
+            
+#===============================================================================
+#         LANDING 
+#===============================================================================
+class Landing(FlightPhaseNode):
+    """
+    This flight phase starts at 50 ft in the approach and ends as the
+    aircraft turns off the runway. Subsequent KTIs and KPV computations
+    identify the specific moments and values of interest within this phase.
+    """
+    def derive(self, fast=S('Fast'),
+               head=P('Heading Continuous'),
+               alt_aal=P('Altitude AAL For Phases')
+               ):
+        for speedy in fast:
+            # See takeoff phase for comments on how the algorithm works.
+
+            landing_run = speedy.slice.stop
+            datum = head.array[landing_run]
+            
+            first = landing_run - 300*head.frequency
+            landing_begin = time_at_value(alt_aal.array,
+                                        head.frequency, head.offset,
+                                        first, landing_run,
+                                        LANDING_THRESHOLD_HEIGHT)
+ 
+            last = landing_run + 300*head.frequency
+            landing_end = time_at_value(np.ma.abs(head.array-datum),
+                                          head.frequency, head.offset,
+                                          landing_run, last,
+                                          HEADING_TURN_OFF_RUNWAY)
+
+            self.create_phases([slice(landing_begin, landing_end)])
 #===============================================================================
             
             

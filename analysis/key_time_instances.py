@@ -10,7 +10,9 @@ from analysis.node import KeyTimeInstance, KeyTimeInstanceNode
 from settings import (CLIMB_THRESHOLD,
                       INITIAL_CLIMB_THRESHOLD,
                       RATE_OF_CLIMB_FOR_LIFTOFF,
-                      SLOPE_FOR_TOC_TOD
+                      RATE_OF_CLIMB_FOR_TOUCHDOWN,
+                      SLOPE_FOR_TOC_TOD,
+                      TAKEOFF_ACCELERATION_THRESHOLD
                       )
 
 
@@ -112,18 +114,6 @@ class GoAround(KeyTimeInstanceNode):
                     self.create_kti(flt.start+begin+pit_index, 'Go Around')
 
 
-class Touchdown(KeyTimeInstanceNode):
-    def derive(self, air=S('Airborne')):
-        # Basic version to operate with minimal valid data
-        for each_section in air:
-            self.create_kti(each_section.slice.stop, 'Touchdown')
-
-
-class LandingGroundEffectStart(KeyTimeInstanceNode):
-    def derive(self, alt_rad=P('Altitude Radio')):
-        return NotImplemented
-
-
 class TopOfClimb(KeyTimeInstanceNode):
     def derive(self, alt_std=P('Altitude STD'), 
                ccd=S('Climb Cruise Descent')):
@@ -179,32 +169,81 @@ class FlapStateChanges(KeyTimeInstanceNode):
 
 # ===============================================================
 
-'''
-________Takeoff and Climb______________________________
-'''
+"""
+Takeoff KTIs are derived from the Takeoff Phase
+"""
 
 class TakeoffTurnOntoRunway(KeyTimeInstanceNode):
     # The Takeoff flight phase is computed to start when the aircraft turns
     # onto the runway, so this KTI is just at the start of that phase.
-    def derive(self, toff=S('Takeoff')):
-        for each_section in toff:
-            self.create_kti(each_section.slice.start, 'Takeoff Turn Onto Runway')
+    def derive(self, toffs=S('Takeoff')):
+        for toff in toffs:
+            self.create_kti(toff.slice.start, 'Takeoff Turn Onto Runway')
 
 
+class TakeoffStartAcceleration(KeyTimeInstanceNode):
+    def derive(self, toffs=S('Takeoff'), fwd_acc=P('Acceleration Longitudinal')):
+        for toff in toffs:
+            start_accel = time_at_value_wrapped(fwd_acc, toff, 
+                                                TAKEOFF_ACCELERATION_THRESHOLD)
+            self.create_kti(toff.slice.start + start_accel, 'Takeoff Start Acceleration')
+
+            
 class Liftoff(KeyTimeInstanceNode):
-    def derive(self, toff=S('Takeoff'), roc=P('Rate Of Climb')):
-        for each_section in toff:
-            lift_time = time_at_value_wrapped(roc, each_section, 
+    def derive(self, toffs=S('Takeoff'), roc=P('Rate Of Climb')):
+        for toff in toffs:
+            lift_time = time_at_value_wrapped(roc, toff, 
                                               RATE_OF_CLIMB_FOR_LIFTOFF)
-            self.create_kti(lift_time, 'Liftoff')
+            self.create_kti(toff.slice.start+lift_time, 'Liftoff')
             
 
 class InitialClimbStart(KeyTimeInstanceNode):
     # The Takeoff flight phase is computed to run up to the start of the
     # initial climb, so this KTI is just at the end of that phase.
-    def derive(self, toff=S('Takeoff')):
-        for each_section in toff:
-            self.create_kti(each_section.slice.stop, 'Initial Climb Start')
+    def derive(self, toffs=S('Takeoff')):
+        for toff in toffs:
+            self.create_kti(toff.slice.stop, 'Initial Climb Start')
+
+
+"""
+Landing KTIs are derived from the Landing Phase
+"""
+
+class LandingStart(KeyTimeInstanceNode):
+    # The Landing flight phase is computed to start passing through 50ft
+    # (nominally), so this KTI is just at the end of that phase.
+    def derive(self, landings=S('Landing')):
+        for landing in landings:
+            self.create_kti(landing.slice.start, 'Landing Start')
+
+
+class Touchdown(KeyTimeInstanceNode):
+    # TODO: Establish whether this works satisfactorily. If there are
+    # problems with this algorithm we could compute the rate of descent
+    # backwards from the runway for greater accuracy.
+    def derive(self, landings=S('Landing'), roc=P('Rate Of Climb')):
+        for landing in landings:
+            land_time = time_at_value_wrapped(roc, landing, 
+                                              RATE_OF_CLIMB_FOR_TOUCHDOWN)
+            self.create_kti(landing.slice.start+land_time, 'Touchdown')
+
+
+class LandinTurnOfRunway(KeyTimeInstanceNode):
+    # The Landing phase is computed to end when the aircraft turns off the
+    # runway, so this KTI is just at the start of that phase.
+    def derive(self, landings=S('Landing')):
+        for landing in toff:
+            self.create_kti(landing.slice.stop, 'Landing Turn Off Runway')
+
+
+class LandingStartDeceleration(KeyTimeInstanceNode):
+    def derive(self, landings=S('Landing'), fwd_acc=P('Acceleration Longitudinal')):
+        for landing in landings:
+            start_accel = time_at_value_wrapped(fwd_acc, landing, 
+                                                LANDING_ACCELERATION_THRESHOLD)
+            self.create_kti(landing.slice.start+start_accel, 'Takeoff Start Deceleration')
+
+
 
 
 #<<<< This style for all climbing events >>>>>
