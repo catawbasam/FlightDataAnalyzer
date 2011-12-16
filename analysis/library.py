@@ -174,7 +174,6 @@ def calculate_timebase(years, months, days, hours, mins, secs):
     else:
         # No valid datestamps found
         return None #Q: Invent base datetime, such as taking 1000 years off?!?
-
     
 def create_phase_inside(array, hz, offset, phase_start, phase_end):
     '''
@@ -425,7 +424,6 @@ def first_order_washout (in_param, time_constant, hz, gain = 1.0, initial_value 
     masked_result.mask = in_param.mask
     return masked_result
 
-
 def hash_array(array):
     '''
     Creates a sha256 hash from the array's tostring() method.
@@ -433,7 +431,6 @@ def hash_array(array):
     checksum = sha256()
     checksum.update(array.tostring())
     return checksum.hexdigest()
-
     
 def hysteresis (array, hysteresis):
     """
@@ -552,6 +549,20 @@ def interleave_uneven_spacing (param_1, param_2):
     
     #return straight_array
     return None # to force a test error until this is fixed to prevent extrapolation
+
+def is_index_within_slice(index, slice_):
+    return slice_.start <= index <= slice_.stop
+
+def is_slice_within_slice(inner_slice, outer_slice):
+    '''
+    Tests whether inner_slice is within the outer slice.
+    
+    :type inner_slice: slice
+    :type outer_slice: slice
+    '''
+    start_within = outer_slice.start <= inner_slice.start <= outer_slice.stop
+    stop_within = outer_slice.start <= inner_slice.stop <= outer_slice.stop
+    return start_within and stop_within
             
 def merge_alternate_sensors (array):
     '''

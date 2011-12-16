@@ -44,7 +44,7 @@ class TestBottomOfDescent(unittest.TestCase):
         dlc.derive(alt_ph)
         bod = BottomOfDescent()
         bod.derive(dlc, alt_std)    
-        expected = [KeyTimeInstance(index=63, state='Bottom Of Descent')]        
+        expected = [KeyTimeInstance(index=63, name='Bottom Of Descent')]        
         self.assertEqual(bod, expected)
         
         
@@ -62,7 +62,7 @@ class TestClimbStart(unittest.TestCase):
         kpi = ClimbStart()
         kpi.derive(alt, climb)
         # These values give an result with an index of 4.5454 recurring.
-        expected = [KeyTimeInstance(index=5/1.1, state='Climb Start')]
+        expected = [KeyTimeInstance(index=5/1.1, name='Climb Start')]
         self.assertEqual(kpi, expected)
 
 
@@ -127,9 +127,9 @@ class TestGoAround(unittest.TestCase):
                    Parameter('Altitude Radio For Flight Phases',alt),
                    phase_fast, climb)
                    
-        expected = [KeyTimeInstance(index=157, state='Go Around'), 
-                    KeyTimeInstance(index=471, state='Go Around'), 
-                    KeyTimeInstance(index=785, state='Go Around')]
+        expected = [KeyTimeInstance(index=157, name='Go Around'), 
+                    KeyTimeInstance(index=471, name='Go Around'), 
+                    KeyTimeInstance(index=785, name='Go Around')]
         self.assertEqual(goa, expected)
 
     def test_go_around_insufficient_climb(self):
@@ -159,7 +159,7 @@ class TestInitialClimbStart(unittest.TestCase):
         instance = InitialClimbStart()
         # This just needs the takeoff slice endpoint, so trivial to test
         instance.derive([Section('Takeoff',slice(0,3.5,None))])
-        expected = [KeyTimeInstance(index=3.5, state='Initial Climb Start')]
+        expected = [KeyTimeInstance(index=3.5, name='Initial Climb Start')]
         self.assertEqual(instance, expected)
 
 
@@ -177,7 +177,7 @@ class TestLiftoff(unittest.TestCase):
         takeoff = [Section('Takeoff',slice(0,9,None))]
         lift = Liftoff()
         lift.derive(takeoff, rate_of_climb)
-        expected = [KeyTimeInstance(index=5.5, state='Liftoff')]
+        expected = [KeyTimeInstance(index=5.5, name='Liftoff')]
         self.assertEqual(lift, expected)
     
 
@@ -192,7 +192,7 @@ class TestTakeoffTurnOntoRunway(unittest.TestCase):
         # This just needs the takeoff slice startpoint, so trivial to test
         takeoff = [Section('Takeoff',slice(1.7,3.5,None))]
         instance.derive(takeoff)
-        expected = [KeyTimeInstance(index=1.7, state='Takeoff Turn Onto Runway')]
+        expected = [KeyTimeInstance(index=1.7, name='Takeoff Turn Onto Runway')]
         self.assertEqual(instance, expected)
 
 
@@ -208,7 +208,7 @@ class TestTakeoffStartAcceleration(unittest.TestCase):
         takeoff = [Section('Takeoff',slice(1,5,None))]
         accel = P('AccelerationLongitudinal',np.ma.array([0,0,0,0.2,0.3,0.3,0.3]))
         instance.derive(takeoff,accel)
-        expected = [KeyTimeInstance(index=2.5, state='Takeoff Start Acceleration')]
+        expected = [KeyTimeInstance(index=2.5, name='Takeoff Start Acceleration')]
         self.assertEqual(instance, expected)
 
     
@@ -228,7 +228,7 @@ class TestTopOfClimb(unittest.TestCase):
         in_air.append(Section(name='Climb Cruise Descent',
                               slice=slice(0,len(alt.array))))
         phase.derive(alt, in_air)
-        expected = [KeyTimeInstance(index=8, state='Top Of Climb')]
+        expected = [KeyTimeInstance(index=8, name='Top Of Climb')]
         self.assertEqual(phase, expected)
 
     def test_top_of_climb_truncated_start(self):
@@ -251,7 +251,7 @@ class TestTopOfClimb(unittest.TestCase):
         in_air.append(Section(name='Climb Cruise Descent',
                               slice=slice(0,len(alt.array))))
         phase.derive(alt, in_air)
-        expected = [KeyTimeInstance(index=8, state='Top Of Climb')]
+        expected = [KeyTimeInstance(index=8, name='Top Of Climb')]
         self.assertEqual(phase, expected)
         self.assertEqual(len(phase),1)
 
@@ -272,7 +272,7 @@ class TestTopOfDescent(unittest.TestCase):
         in_air.append(Section(name='Climb Cruise Descent',
                               slice=slice(0,len(alt.array))))
         phase.derive(alt, in_air)
-        expected = [KeyTimeInstance(index=13, state='Top Of Descent')]
+        expected = [KeyTimeInstance(index=13, name='Top Of Descent')]
         self.assertEqual(phase, expected)
 
     def test_top_of_descent_truncated_start(self):
@@ -283,7 +283,7 @@ class TestTopOfDescent(unittest.TestCase):
         in_air.append(Section(name='Climb Cruise Descent',
                               slice=slice(0,len(alt.array))))
         phase.derive(alt, in_air)
-        expected = [KeyTimeInstance(index=5, state='Top Of Descent')]
+        expected = [KeyTimeInstance(index=5, name='Top Of Descent')]
         self.assertEqual(phase, expected)
         self.assertEqual(len(phase),1)
 
@@ -312,7 +312,7 @@ class TestTouchdown(unittest.TestCase):
         tdown = Touchdown()
         tdown.derive(land, rate_of_climb)
         # and the real answer is this KTI
-        expected = [KeyTimeInstance(index=2.1, state='Touchdown')]
+        expected = [KeyTimeInstance(index=2.1, name='Touchdown')]
         self.assertEqual(tdown, expected)
     
     
@@ -326,7 +326,7 @@ class TestLandingStart(unittest.TestCase):
         instance = LandingStart()
         # This just needs the takeoff slice endpoint, so trivial to test
         instance.derive([Section('Landing',slice(66,77,None))])
-        expected = [KeyTimeInstance(index=66, state='Landing Start')]
+        expected = [KeyTimeInstance(index=66, name='Landing Start')]
         self.assertEqual(instance, expected)
 
 
@@ -340,7 +340,7 @@ class TestLandingTurnOffRunway(unittest.TestCase):
         instance = LandingTurnOffRunway()
         # This just needs the takeoff slice endpoint, so trivial to test
         instance.derive([Section('Landing',slice(66,77,None))])
-        expected = [KeyTimeInstance(index=77, state='Landing Turn Off Runway')]
+        expected = [KeyTimeInstance(index=77, name='Landing Turn Off Runway')]
         self.assertEqual(instance, expected)
 
 
@@ -355,5 +355,5 @@ class TestLandingStartDeceleration(unittest.TestCase):
         accel = P('AccelerationLongitudinal',np.ma.array([0,0,0,0,-0.1,-0.3,-0.3]))
         kpv = LandingStartDeceleration()
         kpv.derive(takeoff,accel)
-        expected = [KeyTimeInstance(index=4.5, state='Landing Start Deceleration')]
+        expected = [KeyTimeInstance(index=4.5, name='Landing Start Deceleration')]
         self.assertEqual(kpv, expected)

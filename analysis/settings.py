@@ -9,6 +9,9 @@ NODE_MODULES = ['analysis.derived_parameters',
                 'analysis.flight_phase',
                 'analysis.flight_attribute']
 
+# Handler
+HANDLER = 'analysis.api_handler_http.APIHandlerHTTP'
+
 ##########################
 ## Parameter Analysis
 ##########################

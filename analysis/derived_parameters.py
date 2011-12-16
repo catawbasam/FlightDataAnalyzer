@@ -78,7 +78,8 @@ class AirspeedMinusVref(DerivedParameterNode):
 
 
 class AirspeedTrue(DerivedParameterNode):
-    dependencies = ['SAT', 'VMO', 'MMO', 'Indicated Airspeed', 'Altitude QNH']
+    #dependencies = ['SAT', 'VMO', 'MMO', 'Indicated Airspeed', 'Altitude QNH']
+    # TODO: Move required dependencies from old format above to derive kwargs.
     def derive(self, ias = P('Airspeed'),
                alt_std = P('Altitude STD'),
                sat = P('SAT')):
@@ -267,8 +268,8 @@ class ILSGlideslopeGap(DerivedParameterNode):
  
     
 class MACH(DerivedParameterNode):
-    def derive(self, ias = P('Airspeed'),
-               tat = P('TAT'), alt = P('Altitude Std')):
+    def derive(self, ias = P('Airspeed'), tat = P('TAT'),
+               alt = P('Altitude Std')):
         return NotImplemented
         
 
@@ -356,12 +357,12 @@ class Speedbrake(DerivedParameterNode):
 
 Better done together
 
-class SmoothedLatitude(DerivedParameterNode):
+class SmoothedLatitude(DerivedParameterNode): # TODO: Old dependency format.
     dependencies = ['Latitude', 'True Heading', 'Indicated Airspeed'] ##, 'Altitude Std']
     def derive(self, params):
         return NotImplemented
     
-class SmoothedLongitude(DerivedParameterNode):
+class SmoothedLongitude(DerivedParameterNode): # TODO: Old dependency format.
     dependencies = ['Longitude', 'True Heading', 'Indicated Airspeed'] ##, 'Altitude Std']
     def derive(self, params):
         return NotImplemented
@@ -377,7 +378,6 @@ class HeadingTrue(DerivedParameterNode):
     
 
 class RateOfTurn(DerivedParameterNode):
-    dependencies = [HeadingContinuous]
     def derive(self, head = P('Heading Continuous')):
         self.array = rate_of_change(head, 1)
 
@@ -391,7 +391,7 @@ class Pitch(DerivedParameterNode):
 
 
 '''
-================  TODO: NEED TO WORK OUT how to handle multiple engines.  ================
+############  TODO: NEED TO WORK OUT how to handle multiple engines. ###########
 '''
 
 class EngEGT(DerivedParameterNode):
@@ -461,7 +461,7 @@ class EngVibN2(DerivedParameterNode):
 
 
 '''
-================  FLIGHT PHASES ================
+########## FLIGHT PHASES ###########
 
 class GoAround(DerivedParameterNode): # Q: is this a parameter?
     def derive(self, param=P('Flap')): # Q: Args?
@@ -475,7 +475,7 @@ class RudderReversal(DerivedParameterNode):
 '''
 
 '''
-================  RECORDED  ================
+########## RECORDED ###########
 
 
 class AccelerationLateral(DerivedParameterNode):
