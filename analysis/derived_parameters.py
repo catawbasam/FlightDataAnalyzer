@@ -68,7 +68,8 @@ class AirspeedMinusVref(DerivedParameterNode):
 
 
 class AirspeedTrue(DerivedParameterNode):
-    dependencies = ['SAT', 'VMO', 'MMO', 'Indicated Airspeed', 'Altitude QNH']
+    #dependencies = ['SAT', 'VMO', 'MMO', 'Indicated Airspeed', 'Altitude QNH']
+    # TODO: Move required dependencies from old format above to derive kwargs.
     def derive(self, ias = P('Airspeed'),
                alt_std = P('Altitude STD'),
                sat = P('SAT')):
@@ -257,8 +258,8 @@ class ILSGlideslopeGap(DerivedParameterNode):
  
     
 class MACH(DerivedParameterNode):
-    def derive(self, ias = P('Airspeed'),
-               tat = P('TAT'), alt = P('Altitude Std')):
+    def derive(self, ias = P('Airspeed'), tat = P('TAT'),
+               alt = P('Altitude Std')):
         return NotImplemented
         
 
@@ -332,12 +333,12 @@ class Speedbrake(DerivedParameterNode):
 
 Better done together
 
-class SmoothedLatitude(DerivedParameterNode):
+class SmoothedLatitude(DerivedParameterNode): # TODO: Old dependency format.
     dependencies = ['Latitude', 'True Heading', 'Indicated Airspeed'] ##, 'Altitude Std']
     def derive(self, params):
         return NotImplemented
     
-class SmoothedLongitude(DerivedParameterNode):
+class SmoothedLongitude(DerivedParameterNode): # TODO: Old dependency format.
     dependencies = ['Longitude', 'True Heading', 'Indicated Airspeed'] ##, 'Altitude Std']
     def derive(self, params):
         return NotImplemented
@@ -353,7 +354,6 @@ class HeadingTrue(DerivedParameterNode):
     
 
 class RateOfTurn(DerivedParameterNode):
-    dependencies = [HeadContinuous]
     def derive(self, head = P('Head Continuous')):
         self.array = rate_of_change(head, 1)
 

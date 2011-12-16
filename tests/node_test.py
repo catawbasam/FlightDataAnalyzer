@@ -8,9 +8,9 @@ import mock
 from random import shuffle
 
 from analysis.node import (
-    Attribute, DerivedParameterNode, get_verbose_name, KeyPointValue, KeyPointValueNode,
-    KeyTimeInstance, KeyTimeInstanceNode, FormattedNameNode, Node, NodeManager,
-    P, Parameter, powerset, Section, SectionNode)
+    Attribute, DerivedParameterNode, get_verbose_name, KeyPointValue,
+    KeyPointValueNode, KeyTimeInstance, KeyTimeInstanceNode, FormattedNameNode,
+    Node, NodeManager, P, Parameter, powerset, Section, SectionNode)
 
 
 class TestAbstractNode(unittest.TestCase):
@@ -236,9 +236,9 @@ class TestSectionNode(unittest.TestCase):
         self.assertEqual(aligned_node.offset, param.offset)
         self.assertEqual(list(aligned_node),
                          [Section(name='Example Section Node',
-                                   slice=slice(1.2, 2.2, None)),
-                           Section(name='Example Section Node',
-                                   slice=slice(2.7, 3.7, None))])
+                                  slice=slice(1.2, 2.2, None)),
+                          Section(name='Example Section Node',
+                                  slice=slice(2.7, 3.7, None))])
 
 class TestFormattedNameNode(unittest.TestCase):
     def setUp(self):

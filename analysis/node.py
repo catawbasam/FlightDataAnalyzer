@@ -418,7 +418,8 @@ class KeyPointValueNode(FormattedNameNode, list):
 class FlightAttributeNode(Node):
     """
     Can only store a single value per Node, however the value can be any
-    object (dict, list, integer etc.)
+    object (dict, list, integer etc). The class name serves as the name of the
+    attribute.
     """
     def __init__(self, *args, **kwargs):
         self._value = None

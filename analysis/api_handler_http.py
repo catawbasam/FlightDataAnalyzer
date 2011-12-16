@@ -135,9 +135,7 @@ class APIHandlerHTTP(APIHandler):
         
         params = {'heading': heading}
         if latitude and longitude:
-            params['ll'] = '%s,%s' % (latitude, longitude)
-        if precision:
-            params['precision'] = precision
+            params['ll'] = '%f,%f' % (latitude, longitude)
         if ilsfreq:
             params['ilsfreq'] = ilsfreq
         get_params = urllib.urlencode(params)
