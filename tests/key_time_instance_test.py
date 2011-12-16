@@ -16,7 +16,11 @@ from analysis.key_time_instances import (BottomOfDescent,
                                          ClimbStart,
                                          GoAround,
                                          InitialClimbStart,
+                                         LandingStart,
+                                         LandingStartDeceleration,
+                                         LandingTurnOffRunway,
                                          Liftoff,
+                                         TakeoffStartAcceleration,
                                          TakeoffTurnOntoRunway,
                                          TopOfClimb,
                                          TopOfDescent,
@@ -171,6 +175,21 @@ class TestTakeoffTurnOntoRunway(unittest.TestCase):
         self.assertEqual(instance, expected)
 
 
+class TestTakeoffStartAcceleration(unittest.TestCase):
+    def test_can_operate(self):
+        expected = [('Takeoff','Acceleration Longitudinal')]
+        opts = TakeoffStartAcceleration.get_operational_combinations()
+        self.assertEqual(opts, expected)
+
+    def test_takeoff_start_acceleration(self):
+        instance = TakeoffStartAcceleration()
+        # This just needs the takeoff slice startpoint, so trivial to test
+        takeoff = [Section('Takeoff',slice(1,5,None))]
+        accel = P('AccelerationLongitudinal',np.ma.array([0,0,0,0.2,0.3,0.3,0.3]))
+        instance.derive(takeoff,accel)
+        expected = [KeyTimeInstance(index=2.5, state='Takeoff Start Acceleration')]
+        self.assertEqual(instance, expected)
+
     
 class TestTopOfClimb(unittest.TestCase):
     # Based closely on the level flight condition, but taking only the
@@ -262,24 +281,58 @@ class TestTopOfDescent(unittest.TestCase):
         
 class TestTouchdown(unittest.TestCase):
     def test_can_operate(self):
-        expected = [('Airborne',)]
+        expected = [('Landing','Rate Of Climb')]
         opts = Touchdown.get_operational_combinations()
         self.assertEqual(opts, expected)
 
-    def test_liftoff_basic(self):
-        rate_of_climb_data = np.ma.array(range(0,400,50)+
-                                         range(400,-450,-50)+
-                                         range(-450,50,50))
-        rate_of_climb = Parameter('Rate Of Climb', np.ma.array(rate_of_climb_data))
-        air = Airborne()
-        air.derive(rate_of_climb)
-        down = Touchdown()
-        down.derive(air)
-        # Confirm we tested it with the right phase
-        expected = [Section(name='Airborne', slice=slice(7, 27, None))]
-        self.assertEqual(air, expected)
+    def test_touchdown_basic(self):
+        rate_of_climb = Parameter('Rate Of Climb', np.ma.array([-30,-20,-11,-1,0,0,0]))
+        land = [Section('Landing',slice(1,5))]                        
+        tdown = Touchdown()
+        tdown.derive(land, rate_of_climb)
         # and the real answer is this KTI
-        expected = [KeyTimeInstance(index=27, state='Touchdown')]
-        self.assertEqual(down, expected)
+        expected = [KeyTimeInstance(index=2.1, state='Touchdown')]
+        self.assertEqual(tdown, expected)
     
     
+class TestLandingStart(unittest.TestCase):
+    def test_can_operate(self):
+        expected = [('Landing',)]
+        opts = LandingStart.get_operational_combinations()
+        self.assertEqual(opts, expected)        
+
+    def test_initial_landing_start_basic(self):
+        instance = LandingStart()
+        # This just needs the takeoff slice endpoint, so trivial to test
+        instance.derive([Section('Landing',slice(66,77,None))])
+        expected = [KeyTimeInstance(index=66, state='Landing Start')]
+        self.assertEqual(instance, expected)
+
+
+class TestLandingTurnOffRunway(unittest.TestCase):
+    def test_can_operate(self):
+        expected = [('Landing',)]
+        opts = LandingTurnOffRunway.get_operational_combinations()
+        self.assertEqual(opts, expected)        
+
+    def test_initial_landing_turn_off_runway_basic(self):
+        instance = LandingTurnOffRunway()
+        # This just needs the takeoff slice endpoint, so trivial to test
+        instance.derive([Section('Landing',slice(66,77,None))])
+        expected = [KeyTimeInstance(index=77, state='Landing Turn Off Runway')]
+        self.assertEqual(instance, expected)
+
+
+class TestLandingStartDeceleration(unittest.TestCase):
+    def test_can_operate(self):
+        expected = [('Landing','Acceleration Longitudinal')]
+        opts = LandingStartDeceleration.get_operational_combinations()
+        self.assertEqual(opts, expected)
+
+    def test_takeoff_start_acceleration(self):
+        takeoff = [Section('Landing',slice(2,6,None))]
+        accel = P('AccelerationLongitudinal',np.ma.array([0,0,0,0,-0.1,-0.3,-0.3]))
+        kpv = LandingStartDeceleration()
+        kpv.derive(takeoff,accel)
+        expected = [KeyTimeInstance(index=4.5, state='Landing Start Deceleration')]
+        self.assertEqual(kpv, expected)

@@ -4,6 +4,7 @@ from analysis.library import repair_mask, time_at_value
 from analysis.node import A, Attribute, FlightPhaseNode, KeyTimeInstance, P, S, KTI
 from analysis.settings import (AIRSPEED_THRESHOLD,
                                ALTITUDE_FOR_CLB_CRU_DSC,
+                               HEADING_TURN_OFF_RUNWAY,
                                HEADING_TURN_ONTO_RUNWAY,
                                HYSTERESIS_FP_RAD_ALT,
                                INITIAL_CLIMB_THRESHOLD,
@@ -41,12 +42,41 @@ class Airborne(FlightPhaseNode):
             pass # Just don't create a phase if none exists.
         
 
-class Approach(FlightPhaseNode):
+class InitialApproach(FlightPhaseNode):
+    def derive(self, alt_AAL=P('Altitude AAL For Flight Phases'),
+               app_lands=S('Approach And Landing')):
+        for app_land in app_lands:
+            # We already know this section is below the start of the initial
+            # approach phase so we only need to stop at the transition to the
+            # final approach phase.
+            ini_app = np.ma.masked_where(alt_AAL.array[app_land.slice]<1000,alt_AAL.array)
+            phases = np.ma.clump_unmasked(ini_app)
+            for phase in phases:
+                begin = phase.start
+                pit = np.ma.argmin(ini_app[phase])
+                if pit != 0 :
+                    self.create_phase(slice(begin, begin+pit))
+
+
+class ApproachAndLanding(FlightPhaseNode):
+    """
+    This phase is used to identify an approach which may or may not include
+    in a landing. It includes go-arounds, touch-and-go's and of course
+    successful landings.
+    
+    Each Approach And Landing is associated with an airfield and a runway
+    where possible. These are identified using:
+    
+    1. the heading on the runway (only if the aircraft lands)
+    
+    2. the ILS frequency (only if the ILS is tuned and localizer data is valid)
+    
+    3. the aircraft position at the lowest point of approach
+    """
     def derive(self, alt_AAL=P('Altitude AAL For Flight Phases'),
                alt_rad=P('Altitude Radio For Flight Phases')):
-        app = np.ma.masked_where(np.ma.logical_or
-                                 (np.ma.minimum(alt_AAL.array,alt_rad.array)>3000,
-                                  alt_AAL.array<1000),alt_AAL.array)
+        app = np.ma.masked_where(np.ma.minimum(alt_AAL.array,alt_rad.array)
+                                 >3000,alt_AAL.array)
         phases = np.ma.clump_unmasked(app)
         for phase in phases:
             begin = phase.start
@@ -212,27 +242,42 @@ class Fast(FlightPhaseNode):
 
 class FinalApproach(FlightPhaseNode):
     def derive(self, alt_AAL=P('Altitude AAL For Flight Phases'),
-               alt_rad=P('Altitude Radio For Flight Phases')):
-        # Allow for the hysteresis applied to the radio altimeter signal 
-        # for phase computations
-        thold = LANDING_THRESHOLD_HEIGHT+HYSTERESIS_FP_RAD_ALT
-        app = np.ma.masked_where(np.ma.logical_or(
-            alt_AAL.array>1000,
-            alt_rad.array<thold), alt_AAL.array)
-        phases = np.ma.clump_unmasked(app)
-        for phase in phases:
-            begin = phase.start
-            pit = np.ma.argmin(app[phase])
-            if pit != 0 :
-                self.create_phase(slice(begin, begin+pit))
+               alt_rad=P('Altitude Radio For Flight Phases'),
+               app_lands=S('Approach And Landing')):
+        for app_land in app_lands:
+            
+            # Allow for the hysteresis applied to the radio altimeter signal 
+            # for phase computations
+            thold = LANDING_THRESHOLD_HEIGHT+HYSTERESIS_FP_RAD_ALT
+            app = np.ma.masked_where(np.ma.logical_or(
+                alt_AAL.array[app_land.slice]>1000,
+                alt_rad.array[app_land.slice]<thold), 
+                                     alt_AAL.array[app_land.slice])
+            phases = np.ma.clump_unmasked(app)
+            for phase in phases:
+                begin = app_land.slice.start + phase.start
+                pit = np.ma.argmin(app[phase])
+                if pit != 0 :
+                    end = app_land.slice.start + begin + pit
+                    self.create_phase(slice(begin, end))
+    
+    
+class InitialApproach(FlightPhaseNode):
+    def derive(self, alt_AAL=P('Altitude AAL For Flight Phases'),
+               app_lands=S('Approach And Landing')):
+        for app_land in app_lands:
+            # We already know this section is below the start of the initial
+            # approach phase so we only need to stop at the transition to the
+            # final approach phase.
+            ini_app = np.ma.masked_where(alt_AAL.array[app_land.slice]<1000,
+                                         alt_AAL.array[app_land.slice])
+            phases = np.ma.clump_unmasked(ini_app)
+            for phase in phases:
+                begin = phase.start
+                pit = np.ma.argmin(ini_app[phase])
+                if pit != 0 :
+                    self.create_phase(slice(begin, begin+pit))
 
-
-class InGroundEffect(FlightPhaseNode):
-    def derive(self, alt_rad=P('Altitude Radio For Flight Phases'), wing_span=A('Wing Span')):
-        low_where = np.ma.masked_greater(alt_rad.array, wing_span)
-        low_slices = np.ma.clump_unmasked(low_where)
-        self.create_phases(low_slices)
- 
 
 class LevelFlight(FlightPhaseNode):
     def derive(self, roc=P('Rate Of Climb')):
@@ -295,9 +340,14 @@ def takeoff_and_landing(block, fp, ph, kpt, kpv):
 
     
 #===============================================================================
-# TAKEOFF 
+#         TAKEOFF 
 #===============================================================================
 class Takeoff(FlightPhaseNode):
+    """
+    This flight phase starts as the aircraft turns onto the runway and ends
+    as it climbs through 35ft. Subsequent KTIs and KPV computations identify
+    the specific moments and values of interest within this phase.
+    """
     def derive(self, fast=S('Fast'),
                head=P('Heading Continuous'),
                alt_aal=P('Altitude AAL For Phases')
@@ -317,11 +367,11 @@ class Takeoff(FlightPhaseNode):
             #-------------------------------------------------------------------
             # Find the start of the takeoff phase from the turn onto the runway.
 
-            # The heading at the start of the slice is taken as a datum.
+            # The heading at the start of the slice is taken as a datum for now.
             datum = head.array[takeoff_run]
             
             # Track back to the turn
-            # If he took more than 5 minutes on the runway we're not interested.
+            # If he took more than 5 minutes on the runway we're not interested!
             first = takeoff_run - 300*head.frequency
             takeoff_begin = time_at_value(np.ma.abs(head.array-datum),
                                           head.frequency, head.offset,
@@ -342,6 +392,39 @@ class Takeoff(FlightPhaseNode):
             #-------------------------------------------------------------------
             # Create a phase for this takeoff
             self.create_phases([slice(takeoff_begin, takeoff_end)])
+            
+#===============================================================================
+#         LANDING 
+#===============================================================================
+class Landing(FlightPhaseNode):
+    """
+    This flight phase starts at 50 ft in the approach and ends as the
+    aircraft turns off the runway. Subsequent KTIs and KPV computations
+    identify the specific moments and values of interest within this phase.
+    """
+    def derive(self, fast=S('Fast'),
+               head=P('Heading Continuous'),
+               alt_aal=P('Altitude AAL For Phases')
+               ):
+        for speedy in fast:
+            # See takeoff phase for comments on how the algorithm works.
+
+            landing_run = speedy.slice.stop
+            datum = head.array[landing_run]
+            
+            first = landing_run - 300*head.frequency
+            landing_begin = time_at_value(alt_aal.array,
+                                        head.frequency, head.offset,
+                                        first, landing_run,
+                                        LANDING_THRESHOLD_HEIGHT)
+ 
+            last = landing_run + 300*head.frequency
+            landing_end = time_at_value(np.ma.abs(head.array-datum),
+                                          head.frequency, head.offset,
+                                          landing_run, last,
+                                          HEADING_TURN_OFF_RUNWAY)
+
+            self.create_phases([slice(landing_begin, landing_end)])
 #===============================================================================
             
             

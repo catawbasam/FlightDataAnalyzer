@@ -19,7 +19,7 @@ from analysis.derived_parameters import (AccelerationVertical,
                                          AltitudeRadioForFlightPhases,
                                          AltitudeTail,
                                          ClimbForFlightPhases,
-                                         HeadContinuous,
+                                         HeadingContinuous,
                                          Pitch,
                                          RateOfClimb,
                                          RateOfClimbForFlightPhases,
@@ -270,12 +270,12 @@ class TestFlightPhaseRateOfClimb(unittest.TestCase):
 class TestHeadContinuous(unittest.TestCase):
     def test_can_operate(self):
         expected = [('Heading Magnetic',)]
-        opts = HeadContinuous.get_operational_combinations()
+        opts = HeadingContinuous.get_operational_combinations()
         self.assertEqual(opts, expected)
 
     def test_heading_continuous(self):
-        f = HeadContinuous()
-        f.derive(P('Heading Magnetic',np.ma.remainder(
+        head = HeadingContinuous()
+        head.derive(P('Heading Magnetic',np.ma.remainder(
             np.ma.array(range(10))+355,360.0)))
         
         answer = np.ma.array(data=[355.0, 356.0, 357.0, 358.0, 359.0, 360.0, 
@@ -283,7 +283,7 @@ class TestHeadContinuous(unittest.TestCase):
                              dtype=np.float, mask=False)
 
         #ma_test.assert_masked_array_approx_equal(res, answer)
-        np.testing.assert_array_equal(f.array.data, answer.data)
+        np.testing.assert_array_equal(head.array.data, answer.data)
         
         
 class TestPitch(unittest.TestCase):
@@ -326,8 +326,7 @@ class TestRateOfClimb(unittest.TestCase):
     def test_can_operate(self):
         expected = [('Acceleration Vertical',
                      'Altitude STD',
-                     'Altitude Radio',
-                     'In Ground Effect')]
+                     'Altitude Radio')]
         opts = RateOfClimb.get_operational_combinations()
         self.assertEqual(opts, expected)
         
@@ -335,12 +334,8 @@ class TestRateOfClimb(unittest.TestCase):
         az = P('Acceleration Vertical', np.ma.array([1]*10))
         alt_std = P('Altitude STD', np.ma.array([100]*10))
         alt_rad = P('Altitude Radio', np.ma.array([0]*10))
-        ige = InGroundEffect()
-        ige.derive(alt_rad)
-        
         roc = RateOfClimb()
-        roc.derive(az, alt_std, alt_rad, ige)
-
+        roc.derive(az, alt_std, alt_rad)
         expected = np.ma.array(data=[0]*10, dtype=np.float,
                              mask=False)
         ma_test.assert_masked_array_approx_equal(roc.array, expected)
@@ -351,71 +346,71 @@ class TestRateOfClimb(unittest.TestCase):
         # (Low acceleration for this test as the sample rate is only 1Hz).
         alt_std = P('Altitude STD', np.ma.array([100]*10))
         alt_rad = P('Altitude Radio', np.ma.array([0]*10))
-        ige = InGroundEffect()
-        ige.derive(alt_rad)
-        
         roc = RateOfClimb()
-        roc.derive(az, alt_std, alt_rad, ige)
-        expected = np.ma.array(data=[0, 0, 90.491803, 259.890198, 316.826998,
-                                     275.171138, 237.858958, 204.464431,
-                                     174.602508, 147.925205], mask=False)
+        roc.derive(az, alt_std, alt_rad)
+        expected = np.ma.array(data=[0, 0, 88.432295, 250.230226, 295.804651,
+                                     244.545721, 201.267830, 164.741556, 
+                                     133.926642, 107.942898],
+                               mask=False)
         ma_test.assert_masked_array_approx_equal(roc.array, expected)
-
-
-    def test_rate_of_climb_step_oge(self):
-        az = P('Acceleration Vertical', np.ma.array([1]*20,dtype=float))
-        alt_std = P('Altitude STD', np.ma.array([100]*20))
-        alt_std.array[5:] = 120
-        alt_rad = P('Altitude Radio', np.ma.array([100]*20))
-        ige = InGroundEffect()
-        ige.derive(alt_rad)
-        roc = RateOfClimb()
-        roc.derive(az, alt_std, alt_rad, ige)
-        expected = np.ma.array(data=[0, 0, 0, 0, 0, 1.14285714e+02, 1.03401361e+02,
-                                     9.35536119e+01, 8.46437441e+01, 7.65824352e+01,
-                                     6.92888699e+01, 6.26899299e+01, 5.67194604e+01,
-                                     5.13176070e+01, 4.64302159e+01, 4.20082906e+01,
-                                     3.80075010e+01, 3.43877390e+01, 3.11127162e+01,
-                                     2.81496004e+01], mask=False)
-        ma_test.assert_masked_array_approx_equal(roc.array, expected)
-
-
-    def test_rate_of_climb_step_ige(self):
-        az = P('Acceleration Vertical', np.ma.array([1]*10,dtype=float))
-        alt_std = P('Altitude STD', np.ma.array([100]*10))
-        alt_rad = P('Altitude Radio', np.ma.array([0]*10))
-        alt_rad.array[3:] = 10
-        # With an altitude of 0-20ft the aircraft is always in ground effect.        
-        ige = InGroundEffect()
-        ige.derive(alt_rad)
-        
-        roc = RateOfClimb()
-        roc.derive(az, alt_std, alt_rad, ige)
-        expected = np.ma.array(data=[0., 0., 0., 5.71428571e+01, 5.17006803e+01,
-                                     4.67768060e+01, 4.23218721e+01, 3.82912176e+01,
-                                     3.46444350e+01, 3.13449650e+01], mask=False)
-        ma_test.assert_masked_array_approx_equal(roc.array, expected)
-
 
     def test_rate_of_climb_combined_signals(self):
-        az = P('Acceleration Vertical', np.ma.array([1]*10,dtype=float))
+        # ======================================================================
+        # NOTE: The results of this test are dependent upon the settings
+        # parameters GRAVITY = 32.2, RATE_OF_CLIMB_LAG_TC = 6.0,
+        # AZ_WASHOUT_TC = 60.0. Changes in any of these will result in a test
+        # failure and recomputation of the result array will be necessary.
+        # ======================================================================
+        
+        # Initialise to 1g
+        az = P('Acceleration Vertical', np.ma.array([1]*30,dtype=float))
+        # After 2 seconds, increment by 1 ft/s^2
         az.array[2:] += 1/GRAVITY
-        slope = (np.cumsum(np.arange(0.0,8.0,1)))
-        alt_std = P('Altitude STD', np.ma.array([100]*10,dtype=float))
-        alt_std.array[2:] += slope 
-        alt_rad = P('Altitude Radio', np.ma.array([0]*10,dtype=float))
-        slope *= 1.01 # Just enough to make the values different.
-        alt_rad.array[2:] += slope 
-        # With an altitude of 0-20ft the aircraft is always in ground effect.        
-        ige = InGroundEffect()
-        ige.derive(alt_rad)
+        
+        # This will give a linearly increasing rate of climb 0>28 ft/sec...
+        # which integrated (cumcum) gives a parabolic theoretical solution.
+        parabola = (np.cumsum(np.arange(0.0,28.0,1)))
+
+        # The pressure altitude datum could be anything. Set 99ft for fun.
+        alt_std = P('Altitude STD', np.ma.array([99]*30,dtype=float))
+        # and add the increasing parabola 
+        alt_std.array[2:] += parabola 
+        alt_rad = P('Altitude Radio', np.ma.array([0]*30,dtype=float))
+        # parabola *= 1.1 # Allows you to make the values different for debug.
+        alt_rad.array[2:] += parabola
         
         roc = RateOfClimb()
-        roc.derive(az, alt_std, alt_rad, ige)
-        expected = np.ma.array(data=[0, 0, 2.81467506e+01, 8.66081933e+01,
-                                     1.43457877e+02, 1.98908824e+02, 2.53151819e+02,
-                                     3.05601806e+02, 3.57652112e+02, 4.08922826e+02],
-                               mask=False)
+        roc.derive(az, alt_std, alt_rad)
+        expected = np.ma.array(data=[-3.47482E-11,
+                                     -3.47482E-11,
+                                     27.5061571,
+                                     87.0628767,
+                                     145.786014,
+                                     203.818717,
+                                     261.281866,
+                                     318.277502,
+                                     374.891728,
+                                     431.197166,
+                                     487.255037,
+                                     543.116913,
+                                     598.826213,
+                                     654.419455,
+                                     709.927322,
+                                     765.375567,
+                                     820.785771,
+                                     876.175989,
+                                     931.561299,
+                                     986.954258,
+                                     1042.3653,
+                                     1097.80305,
+                                     1153.27464,
+                                     1208.7859,
+                                     1264.34159,
+                                     1319.94555,
+                                     1375.60086,
+                                     1431.30995,
+                                     1487.0747,
+                                     1542.89655], mask=False)
         ma_test.assert_masked_array_approx_equal(roc.array, expected)
 
 
@@ -442,21 +437,21 @@ class TestRateOfClimbForFlightPhases(unittest.TestCase):
         
 class TestRateOfTurn(unittest.TestCase):
     def test_can_operate(self):
-        expected = [('Head Continuous',)]
+        expected = [('Heading Continuous',)]
         opts = RateOfTurn.get_operational_combinations()
         self.assertEqual(opts, expected)
        
     def test_rate_of_turn(self):
         rot = RateOfTurn()
-        rot.derive(P('Head Continuous', np.ma.array(range(10))))
+        rot.derive(P('Heading Continuous', np.ma.array(range(10))))
         answer = np.ma.array(data=[1]*10, dtype=np.float)
         np.testing.assert_array_equal(rot.array, answer) # Tests data only; NOT mask
        
     def test_rate_of_turn_phase_stability(self):
-        params = {'Head Continuous':Parameter('', np.ma.array([0,0,0,1,0,0,0], 
+        params = {'Heading Continuous':Parameter('', np.ma.array([0,0,0,1,0,0,0], 
                                                                dtype=float))}
         rot = RateOfTurn()
-        rot.derive(P('Head Continuous', np.ma.array([0,0,0,1,0,0,0],
+        rot.derive(P('Heading Continuous', np.ma.array([0,0,0,1,0,0,0],
                                                           dtype=float)))
         answer = np.ma.array([0,0,0.5,0,-0.5,0,0])
         ma_test.assert_masked_array_approx_equal(rot.array, answer)
