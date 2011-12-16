@@ -76,52 +76,25 @@ class ClimbStart(KeyTimeInstanceNode):
 
 
 class GoAround(KeyTimeInstanceNode):
+    '''
+    @classmethod
+    def can_operate(cls, available):
+        if all([x in available for x in cls.get_dependency_names()]):
+            return True
+        else:
+            return False
+        a = set(available)
+        b = set(cls.get_dependency_names())
+    '''    
     def derive(self, alt_AAL=P('Altitude AAL For Flight Phases'),
                alt_rad=P('Altitude Radio For Flight Phases'),
-               fast=S('Fast'),
+               approaches=S('Approach And Landing'),
                climb=P('Climb For Flight Phases')):
-        for sect in fast:
-            flt = sect.slice
-            '''
-            app = np.ma.masked_where(np.ma.logical_or
-                                     (np.ma.minimum(alt_AAL.array[flt],alt_rad.array[flt])>3000,
-                                     climb.array[flt]>500), alt_AAL.array[flt])
-            phases = np.ma.clump_unmasked(app[flt])
-            for phase in phases:
-                begin = phase.start
-                end = phase.stop
-                # Pit is the location of the pressure altitude minimum.
-                pit = np.ma.argmin(app[flt][phase])
-                # If this is at the start of the data, we are climbing 
-                # through this height band. If it is at the end we may have
-                # truncated data and we're only really interested in cases
-                # where the data follows on from the go-around.
-                if (0 != pit != end-begin-1):
-                    self.create_kti(flt.start+begin+pit, 'Go Around')
-                    '''
-            app = np.ma.masked_where(np.ma.minimum(alt_AAL.array[flt],alt_rad.array[flt])>3000,
-                                     alt_AAL.array[flt])
-            phases = np.ma.clump_unmasked(app[flt])
-            for phase in phases:
-                begin = phase.start
-                end = phase.stop
-                # Pit is the location of the pressure altitude minimum.
-                pit_index = np.ma.argmin(app[flt][phase])
-                # If this is at the start of the data, we are climbing 
-                # through this height band.
-                if pit_index == 0:
-                    continue
-                # If it is at the end the data is probably truncated, or we 
-                # may have landed.
-                if pit_index == end-begin-1:
-                    continue
-                # Quick check that the pit was at the bottom of a descent.
-                check_height = climb.array[flt][phase][pit_index]
-                # OK. We were descending, and we have gone up after the pit was
-                # reached. How far did we climb?
-                peak = np.ma.maximum(climb.array[flt][phase][pit_index:])
-                if peak>500:
-                    self.create_kti(flt.start+begin+pit_index, 'Go Around')
+        for app in approaches:
+            if np.ma.maximum(climb.array[app.slice]) > 500:
+                # We must have been in an approach phase, then climbed at least 500ft. Mark the lowest point.
+                pit_index = np.ma.argmin(alt_rad.array[app.slice])
+                self.create_kti(app.slice.start+pit_index, 'Go Around')
 
 
 class TopOfClimb(KeyTimeInstanceNode):

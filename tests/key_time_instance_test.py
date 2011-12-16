@@ -57,7 +57,7 @@ class TestClimbStart(unittest.TestCase):
     def test_climb_start_basic(self):
         roc = Parameter('Rate Of Climb', np.ma.array([1200]*8))
         climb = Climbing()
-        climb.derive(roc)
+        climb.derive(roc, [Section('Fast',slice(0,8,None))])
         alt = Parameter('Altitude AAL', np.ma.array(range(0,1600,220)))
         kpi = ClimbStart()
         kpi.derive(alt, climb)
@@ -66,27 +66,48 @@ class TestClimbStart(unittest.TestCase):
         self.assertEqual(kpi, expected)
 
 
+    def test_climb_start_cant_climb_when_slow(self):
+        roc = Parameter('Rate Of Climb', np.ma.array([1200]*8))
+        climb = Climbing()
+        climb.derive(roc, []) #  No Fast phase found in this data
+        alt = Parameter('Altitude AAL', np.ma.array(range(0,1600,220)))
+        kpi = ClimbStart()
+        kpi.derive(alt, climb)
+        expected = [] #  Even though the altitude climbed, the a/c can't have
+        self.assertEqual(kpi, expected)
+
+
 class TestGoAround(unittest.TestCase):
     def test_can_operate(self):
+        '''
         expected = [('Altitude AAL For Flight Phases',
                      'Altitude Radio For Flight Phases',
-                     'Fast','Climb For Flight Phases')]
+                     'Fast',
+                     'Climb For Flight Phases'),
+                    ('Altitude AAL For Flight Phases',
+                     'Fast',
+                     'Climb For Flight Phases')
+                    ]
+        '''
+        expected = [('Altitude AAL For Flight Phases',
+                     'Altitude Radio For Flight Phases',
+                     'Approach And Landing',
+                     'Climb For Flight Phases'),
+                    ]
         opts = GoAround.get_operational_combinations()
         self.assertEqual(opts, expected)
 
     def test_go_around_basic(self):
         alt = np.ma.array(range(0,4000,500)+range(4000,0,-500)+range(0,1000,501))
         ias = Parameter('Airspeed', np.ma.ones(len(alt))*100)
-        phase_fast = Fast()
-        phase_fast.derive(ias)
+        aal = [Section('Approach And Landing',slice(10,18))]
         climb = ClimbForFlightPhases()
-        climb.derive(Parameter('Altitude STD', alt), phase_fast)
-
+        climb.derive(Parameter('Altitude STD', alt), aal)
         goa = GoAround()
         # Pretend we are flying over flat ground, so the altitudes are equal.
         goa.derive(Parameter('Altitude AAL For Flight Phases',alt),
                    Parameter('Altitude Radio',alt),
-                   phase_fast, climb)
+                   aal, climb)
         expected = [KeyTimeInstance(index=16, state='Go Around')]
         self.assertEqual(goa, expected)
 

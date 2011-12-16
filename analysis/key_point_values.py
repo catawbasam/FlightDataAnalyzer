@@ -11,17 +11,17 @@ class TakeoffAirport(KeyPointValueNode):
         ##KeyPointValue(n, 'ICAO', 'Takeoff Airport')
         ##KeyPointValue(n, '09L', 'Takeoff Runway')
         return NotImplemented
+
     
 class TakeoffHeading(KeyPointValueNode):
     '''
     The takeoff has been found already, including a little of the turn onto
     the runway and a little of the flight post takeoff.
     '''
-    def derive(self, toffs=S('Takeoff'), head=P('Heading Continuous')):
-        for toff in toffs:
-            # Integer arithmetic is fine for the midpoint locator.
-            midpoint = (toff.slice.start + toff.slice.stop)/2
-            toff_head = np.ma.median(head.array[toff.slice]) 
+    def derive(self, speedies=S('Fast'), head=P('Heading Continuous')):
+        for speedy in speedies:
+            midpoint = toff.slice.start #  The aircraft is accelerating on the runway
+            toff_head = head.array[midpoint]
             self.create_kpv(midpoint, toff_head%360.0)
 
             
@@ -32,28 +32,24 @@ class TakeoffAltitude(KeyPointValueNode):
     def derive(self, lifts=KTI('Liftoff'), alt_std=P('Altitude Std')):
         for lift in lifts:
             self.create_kpv(lift.index, alt_std[lift.index])
+
     
 class LandingAltitude(KeyPointValueNode):
     def derive(self, lands=KTI('Touchdown'), alt_std=P('Altitude Std')):
         for land in lands:
             self.create_kpv(land.index, alt_std[land.index])
-'''
-class LandingAltitude(KeyPointValueNode):
-    def derive(self, touchdown=KTI('Touchdown'),
-               landing_airport=A('LandingAirport'):
-        return NotImplemented
-'''
+
 
 class LandingHeading(KeyPointValueNode):
     """
     The landing has been found already, including and the flare and a little
     of the turn off the runway.
     """
-    def derive(self, landings=S('Landing'), head=P('Heading Continuous')):
-        for landing in landings:
-            midpoint = (landing.slice.start + landing.slice.stop)/2
-            landing_head = np.ma.median(head.array[landing.slice])
-            self.create_kpv(midpoint, landing_head%360.0)
+    def derive(self, speedies=S('Fast'), head=P('Heading Continuous')):
+        for speedy in speedies:
+            midpoint = toff.slice.stop #  The aircraft is decelerating on the runway
+            toff_head = head.array[midpoint]
+            self.create_kpv(midpoint, toff_head%360.0)
             
 
 class ILSFrequencyInApproach(KeyPointValueNode):

@@ -15,48 +15,39 @@ from analysis.settings import (AIRSPEED_THRESHOLD,
                                RATE_OF_TURN_FOR_FLIGHT_PHASES,
                                )
 
-'''
-class Airborne(FlightPhaseNode):
-    dependencies = ['altitude_std_smoothed', 'takeoff_end', 'landing_start']
-    returns = ['Airborne']
-    
-    def derive(self, altitude_std_smoothed, takeoff_end, landing_start): # TODO: New argument format, what are the Parameter names?
-        # Create a simple "Airborne" mask that covers the period between the takeoff and landing phases.
-        # We assign it to altitude_std as this makes it easy to plot and check, although it is the mask that is really useful.
-        ##airborne_phase = create_phase_inside(altitude_std_smoothed, kpt['TakeoffEndEstimate'], kpt['LandingStartEstimate'])
-        airborne_phase = create_phase_inside(altitude_std_smoothed, takeoff_end, landing_start)
-        self.create_phase(airborne_phase)
-'''
 
+def shift_slices(slicelist,offset):
+    """
+    This function shifts a list of slices by offset. The need for this arises
+    when a phase condition has been used to limit the scope of another phase
+    calculation.
+    """
+    newlist = []
+    for each_slice in slicelist:
+        a = each_slice.start + offset
+        b = each_slice.stop + offset
+        newlist.append(slice(a,b))
+    return newlist
+    
+    
 class Airborne(FlightPhaseNode):
-    def derive(self, roc=P('Rate Of Climb')):
+    def derive(self, roc=P('Rate Of Climb'), airs=P('Fast')):
         # Rate of climb limit set to identify both level flight and 
         # end of takeoff / start of landing.
-        level_flight = np.ma.masked_inside(roc.array, 
-                                           -RATE_OF_CLIMB_FOR_LEVEL_FLIGHT,
-                                           RATE_OF_CLIMB_FOR_LEVEL_FLIGHT)
-        try:
-            a,b = np.ma.flatnotmasked_edges(level_flight)
-            self.create_phases([slice(a,b,None)])
-        except:
-            pass # Just don't create a phase if none exists.
+        for air in airs:
+            not_level_flight = np.ma.masked_inside(roc.array[air.slice], 
+                                               -RATE_OF_CLIMB_FOR_LEVEL_FLIGHT,
+                                               RATE_OF_CLIMB_FOR_LEVEL_FLIGHT)
+            in_air = np.ma.flatnotmasked_edges(not_level_flight)
+            in_air_slice = [slice(in_air[0],in_air[1])]
+            self.create_phases(shift_slices(in_air_slice, air.slice.start))
+            
+            #try:
+                #a,b = np.ma.flatnotmasked_edges(shift_slices(level_flight, air.slice.start))
+                #self.create_phases([slice(a,b,None)])
+            #except:
+                #pass # Just don't create a phase if none exists.
         
-
-class InitialApproach(FlightPhaseNode):
-    def derive(self, alt_AAL=P('Altitude AAL For Flight Phases'),
-               app_lands=S('Approach And Landing')):
-        for app_land in app_lands:
-            # We already know this section is below the start of the initial
-            # approach phase so we only need to stop at the transition to the
-            # final approach phase.
-            ini_app = np.ma.masked_where(alt_AAL.array[app_land.slice]<1000,alt_AAL.array)
-            phases = np.ma.clump_unmasked(ini_app)
-            for phase in phases:
-                begin = phase.start
-                pit = np.ma.argmin(ini_app[phase])
-                if pit != 0 :
-                    self.create_phase(slice(begin, begin+pit))
-
 
 class ApproachAndLanding(FlightPhaseNode):
     """
@@ -80,9 +71,9 @@ class ApproachAndLanding(FlightPhaseNode):
         phases = np.ma.clump_unmasked(app)
         for phase in phases:
             begin = phase.start
-            pit = np.ma.argmin(app[phase])
-            if pit != 0 :
-                self.create_phase(slice(begin, begin+pit))
+            pit = np.ma.argmin(app[phase]) + begin
+            if app[pit] < app[begin] :
+                self.create_phase(slice(begin, pit))
 
 
 class ClimbCruiseDescent(FlightPhaseNode):
@@ -135,11 +126,13 @@ class ClimbFromBottomOfDescent(FlightPhaseNode):
 
         
 class Climbing(FlightPhaseNode):
-    def derive(self, roc=P('Rate Of Climb')):
+    def derive(self, roc=P('Rate Of Climb'), airs=S('Fast')):
         # Climbing is used for data validity checks and to reinforce regimes.
-        climbing = np.ma.masked_less(roc.array, RATE_OF_CLIMB_FOR_CLIMB_PHASE)
-        climbing_slices = np.ma.clump_unmasked(climbing)
-        self.create_phases(climbing_slices)
+        for air in airs:
+            climbing = np.ma.masked_less(roc.array[air.slice],
+                                         RATE_OF_CLIMB_FOR_CLIMB_PHASE)
+            climbing_slices = np.ma.clump_unmasked(climbing)
+            self.create_phases(shift_slices(climbing_slices, air.slice.start))
 
       
 class Cruise(FlightPhaseNode):
@@ -177,23 +170,20 @@ class Cruise(FlightPhaseNode):
 class Descending(FlightPhaseNode):
     """ Descending faster than 800fpm towards the ground
     """
-    def derive(self, roc=P('Rate Of Climb')):
+    def derive(self, roc=P('Rate Of Climb'), airs=P('Fast')):
         # Rate of climb and descent limits of 800fpm gives good distinction
         # with level flight.
-        descending = np.ma.masked_greater(roc.array,
-                                          RATE_OF_CLIMB_FOR_DESCENT_PHASE)
-        desc_slices = np.ma.clump_unmasked(descending)
-        self.create_phases(desc_slices)
+        for air in airs:
+            descending = np.ma.masked_greater(roc.array[air.slice],
+                                              RATE_OF_CLIMB_FOR_DESCENT_PHASE)
+            desc_slices = np.ma.clump_unmasked(descending)
+            self.create_phases(shift_slices(desc_slices, air.slice.start))
 
 
 class Descent(FlightPhaseNode):
     def derive(self, descending=Descending, roc=P('Rate Of Climb')):
         return NotImplemented
 
-
-'''
-class DescentToLanding(FlightPhaseNode):
-'''
 
 class DescentToBottomOfDescent(FlightPhaseNode):
     def derive(self, 
@@ -256,10 +246,9 @@ class FinalApproach(FlightPhaseNode):
             phases = np.ma.clump_unmasked(app)
             for phase in phases:
                 begin = app_land.slice.start + phase.start
-                pit = np.ma.argmin(app[phase])
-                if pit != 0 :
-                    end = app_land.slice.start + begin + pit
-                    self.create_phase(slice(begin, end))
+                pit = np.ma.argmin(app[phase]) + begin
+                if app[pit] < app[begin] :
+                    self.create_phase(slice(begin, pit))
     
     
 class InitialApproach(FlightPhaseNode):
@@ -274,31 +263,23 @@ class InitialApproach(FlightPhaseNode):
             phases = np.ma.clump_unmasked(ini_app)
             for phase in phases:
                 begin = phase.start
-                pit = np.ma.argmin(ini_app[phase])
-                if pit != 0 :
-                    self.create_phase(slice(begin, begin+pit))
+                pit = np.ma.argmin(ini_app[phase]) + begin
+                if ini_app[pit] < ini_app[begin] :
+                    self.create_phases(shift_slices([slice(begin, pit)],
+                                                   app_land.slice.start))
 
 
 class LevelFlight(FlightPhaseNode):
-    def derive(self, roc=P('Rate Of Climb')):
+    def derive(self, roc=P('Rate Of Climb'),airs=S('Airborne')):
         # Rate of climb limit set to identify both level flight and 
         # end of takeoff / start of landing.
-        level_flight = np.ma.masked_outside(roc.array, 
-                                            -RATE_OF_CLIMB_FOR_LEVEL_FLIGHT,
-                                            RATE_OF_CLIMB_FOR_LEVEL_FLIGHT)
-        level_slices = np.ma.clump_unmasked(level_flight)
-        self.create_phases(level_slices)
-        
-'''
-class LevelFlight(FlightPhaseNode):
-    def derive(self, airspeed=P('Airspeed'),
-               alt_std=P('Altitude Std')):
-        # Rate of climb and descent limits of 800fpm gives good distinction with level flight.
-        level_flight = np.ma.masked_where(
-            np.ma.logical_or(np.ma.abs(RATE_OF_CLIMB_FOR_FLIGHT_PHASES) > 300.0, airspeed < 100.0), altitude_std)
-        level_slices = np.ma.clump_unmasked(level_flight)
-        self.create_phases(level_slices)
-'''        
+        for air in airs:
+            level_flight = np.ma.masked_outside(roc.array[air.slice], 
+                                                -RATE_OF_CLIMB_FOR_LEVEL_FLIGHT,
+                                                RATE_OF_CLIMB_FOR_LEVEL_FLIGHT)
+            level_slices = np.ma.clump_unmasked(level_flight)
+            self.create_phases(shift_slices(level_slices, air.slice.start))
+
 
 class OnGround(FlightPhaseNode):
     def derive(self, airspeed=P('Airspeed')):

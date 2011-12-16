@@ -58,7 +58,7 @@ HYSTERESIS_FPALT = 200 # ft
 # Threshold for flight phase radio altitude hysteresis.
 HYSTERESIS_FP_RAD_ALT = 5 # ft
 
-# Threshold for flight phase altitude hysteresis specifically for deparating 
+# Threshold for flight phase altitude hysteresis specifically for separating 
 # Climb Cruise Descent phases.
 HYSTERESIS_FPALT_CCD = 2500 # ft
 

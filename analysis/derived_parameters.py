@@ -61,6 +61,16 @@ class AirspeedForFlightPhases(DerivedParameterNode):
         self.array = hysteresis(airspeed.array, HYSTERESIS_FPIAS)
 
 
+class AccelerationFromAirspeed(DerivedParameterNode):
+    """
+    This paraeter is included for the few aircraft that do not have a
+    longitudinal accelerometer installed, so we can identify acceleration or
+    deceleration on the runway.
+    """
+    def derive(self, airspeed=P('Airspeed')):
+        self.array = rate_of_change(airspeed.array, 1)
+
+
 class AirspeedMinusVref(DerivedParameterNode):
     def derive(self, airspeed=P('Airspeed'), vref=P('Vref')):
         vref_aligned = align(vref, airspeed)
