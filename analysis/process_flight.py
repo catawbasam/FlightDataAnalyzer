@@ -26,7 +26,7 @@ def geo_locate(hdf, kti_list):
     long_pos = hdf['Longitude Smoothed']
     gkti_list = []
     for kti in kti_list:
-        gkti = GeoKeyTimeInstance(kti.index, kti.state,
+        gkti = GeoKeyTimeInstance(kti.index, kti.name,
                                   lat_pos[kti.index], long_pos[kti.index])
         gkti_list.append(gkti)
     return gkti_list
@@ -149,7 +149,7 @@ def process_flight(hdf_path, aircraft_info, achieved_flight_record=None,
     :rtype: Dict
     {
         'flight':[Attribute('name value')]  # sample: [Attirubte('Takeoff Airport', {'id':1234, 'name':'Int. Airport'}, Attribute('Approaches', [4567,7890]), ...], 
-        'kti':[GeoKeyTimeInstance('index state latitude longitude')] if lat/long available else [KeyTimeInstance('index state')]
+        'kti':[GeoKeyTimeInstance('index name latitude longitude')] if lat/long available else [KeyTimeInstance('index name')]
         'kpv':[KeyPointValue('index value name slice')]
     }
     

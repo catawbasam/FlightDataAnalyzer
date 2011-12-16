@@ -127,19 +127,34 @@ class TestTakeoffRunway(unittest.TestCase):
         
 
 
-class TestLandingAirport(unittest.TestCase):
-    def test_can_operate(self):
-        self.assertTrue(False)
+#class TestLandingAirport(unittest.TestCase):
+    #def test_can_operate(self):
+        #self.assertTrue(False)
     
-    def test_derive(self):
-        self.assertTrue(False)
+    #def test_derive(self):
+        #self.assertTrue(False)
 
 
-class TestLandingRunway(unittest.TestCase):
-    def test_can_operate(self):
-        self.assertTrue(False)
+#class TestLandingRunway(unittest.TestCase):
+    #def test_can_operate(self):
+        #self.assertTrue(False)
     
-    def test_derive(self):
-        self.assertTrue(False)
+    #def test_derive(self):
+        #self.assertTrue(False)
+
+#class TestLandingAirport(unittest.TestCase):
+    #def test_can_operate(self):
+        #self.assertTrue(False)
+    
+    #def test_derive(self):
+        #self.assertTrue(False)
+
+
+#class TestLandingRunway(unittest.TestCase):
+    #def test_can_operate(self):
+        #self.assertTrue(False)
+    
+    #def test_derive(self):
+        #self.assertTrue(False)
 
 

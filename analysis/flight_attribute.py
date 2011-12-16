@@ -164,7 +164,8 @@ class TakeoffFuel(FlightAttributeNode):
                     
 class Approaches(FlightAttributeNode):
     "All airports which were approached, including the final landing airport"
-    def derive(self):
+    def derive(self, approaches=S('Approach'),
+               final_approaches=S('Final Approaches')):
         # approaches need runway, 'TOUCH_AND_GO' or 'APPROACH', and datetime
         approach = {
             'runway' : '15R',  # or None
@@ -174,7 +175,10 @@ class Approaches(FlightAttributeNode):
         ##self.set_flight_attr(list(approaches))
         return NotImplemented
         
-    
+
+
+
+
 class LandingAirport(FlightAttributeNode):
     "Landing Airport including ID and Name"
     def derive(self, approaches=S('Approach'), latitude=P('Latitude'),
@@ -186,7 +190,7 @@ class LandingAirport(FlightAttributeNode):
             end_of_approach = approach.slice.stop
             approach_latitude = latitude.array[end_of_approach]
             approach_longitude = longitude.array[end_of_approach]
-            airport = get_airport(approach_latitude, approach_longitude)
+            airport = get_nearest_airport(approach_latitude, approach_longitude)
             # TODO: Multiple LandingAirport attributes?
             self.set_flight_attr(airport)
                 
