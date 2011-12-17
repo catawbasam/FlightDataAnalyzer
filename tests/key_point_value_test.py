@@ -77,24 +77,26 @@ class TestILSFrequencyInApproach(unittest.TestCase):
 
 class TestLandingHeading(unittest.TestCase):
     def test_can_operate(self):
-        expected = [('Landing','Heading Continuous')]
+        expected = [('Landing','Heading Continuous', 'Acceleration Forwards For Flight Phases')]
         opts = LandingHeading.get_operational_combinations()
         self.assertEqual(opts, expected) 
         
     def test_landing_heading_basic(self):
         head = P('Heading Continuous',np.ma.array([0,2,4,7,9,8,6,3]))
-        toff_ph = [Section('Landing',slice(2,5,None))]
+        acc = P('Acceleration Forwards For Flight Phases',np.ma.array([0,0,-.1,-.1,-.2,-.1,0,0]))
+        landing = [Section('Landing',slice(2,5,None))]
         kpv = LandingHeading()
-        kpv.derive(toff_ph, head)
-        expected = [KeyPointValue(index=3, value=7.0, name='Landing Heading')]
+        kpv.derive(landing, head, acc)
+        expected = [KeyPointValue(index=4, value=9.0, name='Landing Heading')]
         self.assertEqual(kpv, expected)
         
     def test_landing_heading_modulus(self):
-        head = P('Heading Continuous',np.ma.array([-1,-2,-4,-7,-9,-8,-6,-3]))
-        toff_ph = [Section('Landing',slice(2,6,None))]
+        head = P('Heading Continuous',np.ma.array([0,-2,-4,-7,-9,-8,-6,-3]))
+        acc = P('Acceleration Forwards For Flight Phases',np.ma.array([0,0,-.1,-.2,-.2,-.1,0,0]))
+        landing = [Section('Landing',slice(2,5,None))]
         kpv = LandingHeading()
-        kpv.derive(toff_ph, head)
-        expected = [KeyPointValue(index=4, value=352.5, name='Landing Heading')]
+        kpv.derive(landing, head, acc)
+        expected = [KeyPointValue(index=3, value=353, name='Landing Heading')]
         self.assertEqual(kpv, expected)
 
         
@@ -157,23 +159,24 @@ class TestPitch35To400FtMax(unittest.TestCase):
         
 class TestTakeoffHeading(unittest.TestCase):
     def test_can_operate(self):
-        expected = [('Takeoff','Heading Continuous')]
+        expected = [('Takeoff','Heading Continuous', 'Acceleration Forwards For Flight Phases')]
         opts = TakeoffHeading.get_operational_combinations()
         self.assertEqual(opts, expected) 
         
     def test_takeoff_heading_basic(self):
         head = P('Heading Continuous',np.ma.array([0,2,4,7,9,8,6,3]))
+        acc = P('Acceleration Forwards For Flight Phases',np.ma.array([0,0,.2,.3,.2,.1,0,0]))
         toff_ph = [Section('Takeoff',slice(2,5,None))]
         kpv = TakeoffHeading()
-        kpv.derive(toff_ph, head)
+        kpv.derive(toff_ph, head, acc)
         expected = [KeyPointValue(index=3, value=7.0, name='Takeoff Heading')]
         self.assertEqual(kpv, expected)
         
     def test_takeoff_heading_modulus(self):
         head = P('Heading Continuous',np.ma.array([-1,-2,-4,-7,-9,-8,-6,-3]))
+        acc = P('Acceleration Forwards For Flight Phases',np.ma.array([0,0,.1,.2,.35,.2,.1,0]))
         toff_ph = [Section('Takeoff',slice(2,6,None))]
         kpv = TakeoffHeading()
-        kpv.derive(toff_ph, head)
-        expected = [KeyPointValue(index=4, value=352.5, name='Takeoff Heading')]
+        kpv.derive(toff_ph, head, acc)
+        expected = [KeyPointValue(index=4, value=351, name='Takeoff Heading')]
         self.assertEqual(kpv, expected)
-

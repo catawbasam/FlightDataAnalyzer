@@ -7,9 +7,9 @@ import mock
 
 import utilities.masked_array_testutils as ma_test
 from utilities.struct import Struct
-from settings import GRAVITY
+from analysis.settings import GRAVITY
 from analysis.node import Attribute, A, KPV, KTI, Parameter, P, Section, S
-from analysis.flight_phase import Fast, InGroundEffect
+from analysis.flight_phase import Fast
 
 from analysis.derived_parameters import (AccelerationVertical,
                                          AirspeedForFlightPhases,
@@ -72,6 +72,28 @@ class TestAccelerationVertical(unittest.TestCase):
         ma_test.assert_masked_array_approx_equal(acc_vert.array, np.ma.array([1]*8))
 
 
+class TestAccelerationForwardsForFlightPhases(unittest.TestCase):
+    def test_can_operate(self):
+        expected = [('Acceleration Longitudinal', 'Airspeed')]
+        opts = AirspeedForFlightPhases.get_operational_combinations()
+        self.assertEqual(opts, expected)
+        
+    def test_accelearation_forwards_for_phases_basic(self):
+        # If acceleration data is available, this is used without change.
+        acc = np.ma.array(range(0,0.5,0.1))
+        accel_fwd = AccelerationForwardsForFlightPhases()
+        accel_fwd.derive(Parameter('Airspeed', fast_and_slow))
+        ma_test.assert_masked_array_approx_equal(accel_fwd.array, acc)
+
+    def test_accelearation_forwards_for_phases_mask_repair(self):
+        # Show that the mask is repaired in case of minor corruption.
+        acc = np.ma.array(range(0,0.5,0.1))
+        acc[1:4] = np.ma.masked
+        accel_fwd = AccelerationForwardsForFlightPhases()
+        accel_fwd.derive(Parameter('Airspeed', fast_and_slow))
+        ma_test.assert_masked_array_approx_equal(accel_fwd.array, acc)
+
+    
 class TestAirspeedForFlightPhases(unittest.TestCase):
     def test_can_operate(self):
         expected = [('Airspeed',)]

@@ -56,6 +56,20 @@ class AccelerationVertical(DerivedParameterNode):
         self.array = resolved_in_pitch * np.cos(rol) - ay * np.sin(rol)
 
 
+class AccelerationForwardsForFlightPhases(DerivedParameterNode):
+    def derive(self, acc_long=P('Acceleration Longitudinal'), 
+               airspeed=P('Airspeed')):
+        """
+        Acceleration or deceleration on the runway is used to identify the
+        runway heading. For the Hercules aircraft there is no longitudinal
+        accelerometer, so rate of change of airspeed is used instead.
+        """
+        if True: #  TODO: set the alternative use case.
+            self.array = repair_mask(acc_long)
+        else:
+            self.array = rate_of_change(repair_mask(airspeed), 1)
+        
+
 class AirspeedForFlightPhases(DerivedParameterNode):
     def derive(self, airspeed=P('Airspeed')):
         self.array = hysteresis(airspeed.array, HYSTERESIS_FPIAS)

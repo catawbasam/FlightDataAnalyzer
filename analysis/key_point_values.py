@@ -17,12 +17,22 @@ class TakeoffHeading(KeyPointValueNode):
     '''
     The takeoff has been found already, including a little of the turn onto
     the runway and a little of the flight post takeoff.
-    '''
+    
     def derive(self, speedies=S('Fast'), head=P('Heading Continuous')):
         for speedy in speedies:
             midpoint = toff.slice.start #  The aircraft is accelerating on the runway
             toff_head = head.array[midpoint]
             self.create_kpv(midpoint, toff_head%360.0)
+    '''
+
+    def derive(self, takeoffs=S('Takeoff'), head=P('Heading Continuous'), 
+               accel=P('Acceleration Forwards For Flight Phases')):
+        for toff in takeoffs:
+            peak_accel_index = np.ma.argmax(accel.array[toff.slice])
+            peak_accel_index += toff.slice.start
+            toff_head = head.array.data[peak_accel_index]
+            self.create_kpv(peak_accel_index, toff_head%360.0)
+
 
             
 class TakeoffAltitude(KeyPointValueNode):
@@ -43,13 +53,18 @@ class LandingAltitude(KeyPointValueNode):
 class LandingHeading(KeyPointValueNode):
     """
     The landing has been found already, including and the flare and a little
-    of the turn off the runway.
+    of the turn off the runway. We take the heading at the point of maximum
+    deceleration, as this should lie between the touchdown when the aircraft
+    may be drifting and the turnoff which could be at high speed, but should
+    be at a gentler deceleration.
     """
-    def derive(self, speedies=S('Fast'), head=P('Heading Continuous')):
-        for speedy in speedies:
-            midpoint = toff.slice.stop #  The aircraft is decelerating on the runway
-            toff_head = head.array[midpoint]
-            self.create_kpv(midpoint, toff_head%360.0)
+    def derive(self, landings=S('Landing'), head=P('Heading Continuous'), 
+               accel=P('Acceleration Forwards For Flight Phases')):
+        for land in landings:
+            peak_decel_index = np.ma.argmin(accel.array[land.slice])
+            peak_decel_index += land.slice.start
+            toff_head = head.array.data[peak_decel_index]
+            self.create_kpv(peak_decel_index, toff_head%360.0)
             
 
 class ILSFrequencyInApproach(KeyPointValueNode):

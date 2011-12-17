@@ -64,16 +64,32 @@ class ApproachAndLanding(FlightPhaseNode):
     
     3. the aircraft position at the lowest point of approach
     """
+
+    # List the minimum acceptable parameters here
+    @classmethod
+    def can_operate(cls, available):
+        if 'Altitude AAL For Flight Phases' in available:
+            return True
+        else:
+            return False
+        
+    # List the optimal parameter set here
     def derive(self, alt_AAL=P('Altitude AAL For Flight Phases'),
                alt_rad=P('Altitude Radio For Flight Phases')):
-        app = np.ma.masked_where(np.ma.minimum(alt_AAL.array,alt_rad.array)
+        if len(alt_rad.array)>0: #  Test "if alt_rad" doesn't work - it's not None. TODO ??
+            # Start the phase if we pass over high ground, so the radio
+            # altitude falls below 3000ft before the pressure altitude
+            app = np.ma.masked_where(np.ma.minimum(alt_AAL.array,alt_rad.array)
                                  >3000,alt_AAL.array)
+        else:
+            # Just use airfield elevation clearance
+            app = np.ma.masked_where(alt_AAL.array>3000,alt_AAL.array)
         phases = np.ma.clump_unmasked(app)
         for phase in phases:
             begin = phase.start
             pit = np.ma.argmin(app[phase]) + begin
             if app[pit] < app[begin] :
-                self.create_phase(slice(begin, pit))
+                self.create_phase(phase)
 
 
 class ClimbCruiseDescent(FlightPhaseNode):
@@ -297,7 +313,6 @@ class RejectedTakeoff(FlightPhaseNode):
             # so must be a rejected takeoff.
             self.create_phases(somehow the same as the Fast slice !)
 '''
-
 
     
 class Turning(FlightPhaseNode):

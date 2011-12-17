@@ -76,24 +76,39 @@ class ClimbStart(KeyTimeInstanceNode):
 
 
 class GoAround(KeyTimeInstanceNode):
-    '''
+    """
+    In POLARIS we define a Go-Around as any descent below 3000ft followed by
+    an increase of 500ft. This wide definition will identify more events than
+    a tighter definition, however experience tells us that it is worth
+    checking all these cases. For example, we have identified attemnpts to
+    land on roads or at the wrong airport, EGPWS database errors etc from
+    checking these cases.
+    """
+    
+    # List the minimum acceptable parameters here
     @classmethod
     def can_operate(cls, available):
-        if all([x in available for x in cls.get_dependency_names()]):
+        if 'Altitude AAL For Flight Phases' in available \
+           and 'Approach And Landing' in available \
+           and 'Climb For Flight Phases' in available:
             return True
         else:
             return False
-        a = set(available)
-        b = set(cls.get_dependency_names())
-    '''    
+        
+    # List the optimal parameter set here
     def derive(self, alt_AAL=P('Altitude AAL For Flight Phases'),
                alt_rad=P('Altitude Radio For Flight Phases'),
                approaches=S('Approach And Landing'),
                climb=P('Climb For Flight Phases')):
         for app in approaches:
             if np.ma.maximum(climb.array[app.slice]) > 500:
-                # We must have been in an approach phase, then climbed at least 500ft. Mark the lowest point.
-                pit_index = np.ma.argmin(alt_rad.array[app.slice])
+                # We must have been in an approach phase, then climbed at
+                # least 500ft. Mark the lowest point.
+                if len(alt_rad.array)>0:
+                    pit_index = np.ma.argmin(alt_rad.array[app.slice])
+                else:
+                    # In case this aircraft has no rad alt fitted
+                    pit_index = np.ma.argmin(alt_AAL.array[app.slice])
                 self.create_kti(app.slice.start+pit_index, 'Go Around')
 
 
