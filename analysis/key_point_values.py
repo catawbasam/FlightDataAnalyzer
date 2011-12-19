@@ -6,14 +6,14 @@ from analysis.node import  KeyPointValue, KeyPointValueNode, KTI, P, S
 from analysis import settings
 
 
-class TakeoffAirport(KeyPointValueNode):
+class AirportAtTakeoff(KeyPointValueNode):
     def derive(self, liftoff=KTI('Liftoff')):
         ##KeyPointValue(n, 'ICAO', 'Takeoff Airport')
         ##KeyPointValue(n, '09L', 'Takeoff Runway')
         return NotImplemented
 
     
-class TakeoffHeading(KeyPointValueNode):
+class HeadingAtTakeoff(KeyPointValueNode):
     '''
     The takeoff has been found already, including a little of the turn onto
     the runway and a little of the flight post takeoff.
@@ -33,9 +33,8 @@ class TakeoffHeading(KeyPointValueNode):
             toff_head = head.array.data[peak_accel_index]
             self.create_kpv(peak_accel_index, toff_head%360.0)
 
-
             
-class TakeoffAltitude(KeyPointValueNode):
+class AltitudeAtTakeoff(KeyPointValueNode):
     # Taken at the point of liftoff although there will be pressure errors at
     # this point. The reason for computing this is unclear as we calculate
     # Altitude AAL based upon the 35ft phase transition altitude.
@@ -44,13 +43,13 @@ class TakeoffAltitude(KeyPointValueNode):
             self.create_kpv(lift.index, alt_std[lift.index])
 
     
-class LandingAltitude(KeyPointValueNode):
+class AltitudeAtLanding(KeyPointValueNode):
     def derive(self, lands=KTI('Touchdown'), alt_std=P('Altitude Std')):
         for land in lands:
             self.create_kpv(land.index, alt_std[land.index])
 
 
-class LandingHeading(KeyPointValueNode):
+class HeadingAtLanding(KeyPointValueNode):
     """
     The landing has been found already, including and the flare and a little
     of the turn off the runway. We take the heading at the point of maximum
@@ -58,21 +57,33 @@ class LandingHeading(KeyPointValueNode):
     may be drifting and the turnoff which could be at high speed, but should
     be at a gentler deceleration.
     """
-    def derive(self, landings=S('Landing'), head=P('Heading Continuous'), 
-               accel=P('Acceleration Forwards For Flight Phases')):
-        for land in landings:
-            peak_decel_index = np.ma.argmin(accel.array[land.slice])
-            peak_decel_index += land.slice.start
-            toff_head = head.array.data[peak_decel_index]
-            self.create_kpv(peak_decel_index, toff_head%360.0)
+    def derive(self, lands=KTI('Landing Peak Deceleration'), 
+               head=P('Heading Continuous')):
+        for land in lands:
+            self.create_kpv(land.index, head.array[land.index]%360.0)
             
 
-class ILSFrequencyInApproach(KeyPointValueNode):
+class LatitudeAtLanding(KeyPointValueNode):
+    def derive(self, lands=KTI('Landing Peak Deceleration'), 
+               lat=P('Latitude')):
+        for land in lands:
+            self.create_kpv(land.index, lat.array[land.index])
+            
+
+class LongitudeAtLanding(KeyPointValueNode):
+    def derive(self, lands=KTI('Landing Peak Deceleration'), 
+               lon=P('Longitude')):
+        for land in lands:
+            self.create_kpv(land.index, lon.array[land.index])
+            
+
+class ILSFrequencyOnApproach(KeyPointValueNode):
     """
     The landing has been found already, including and the flare and a little
     of the turn off the runway.
     """
-    def derive(self, approaches=S('Approach'), ils_frq=P('ILS Frequency')):
+    name='ILS Frequency On Approach' #  Set here to ensure "ILS" in uppercase.
+    def derive(self, approaches=S('Approach And Landing'), ils_frq=P('ILS Frequency')):
         for approach in approaches:
             # If the ILS frequencies have been masked outside the valid
             # range, selecting the second element in the array
@@ -92,6 +103,34 @@ class ILSFrequencyInApproach(KeyPointValueNode):
             
             # Make the KPV
             self.create_kpv(approach.slice.start+last_tuned_index, freq)
+
+
+class HeadingAtLowPointOnApproach(KeyPointValueNode):
+    """
+    The approach phase has been found already. Here we take the heading at
+    the lowest point reached in the approach. This may not be a go-around, if
+    the aircraft did not climb 500ft before the next approach to landing.
+    """
+    def derive(self, lands=KTI('Approach And Landing Lowest'), 
+               head=P('Heading Continuous')):
+        for land in lands:
+            self.create_kpv(land.index, head.array[land.index]%360.0)
+            
+
+class LatitudeAtLowPointOnApproach(KeyPointValueNode):
+    def derive(self, lands=KTI('Approach And Landing Lowest'), 
+               lat=P('Latitude')):
+        for land in lands:
+            self.create_kpv(land.index, lat.array[land.index])
+            
+
+class LongitudeAtLowPointOnApproach(KeyPointValueNode):
+    def derive(self, lands=KTI('Approach And Landing Lowest'), 
+               lon=P('Longitude')):
+        for land in lands:
+            self.create_kpv(land.index, lon.array[land.index])
+
+
 
 
 ##########################################

@@ -56,13 +56,43 @@ class ApproachAndLanding(FlightPhaseNode):
     successful landings.
     
     Each Approach And Landing is associated with an airfield and a runway
-    where possible. These are identified using:
+    where possible. 
     
-    1. the heading on the runway (only if the aircraft lands)
-    
-    2. the ILS frequency (only if the ILS is tuned and localizer data is valid)
-    
-    3. the aircraft position at the lowest point of approach
+    The airfield is identified thus:
+
+    if the aircraft lands:
+        the airfield closest to the position recorded at maximum deceleration on
+        the runway (i.e. LandingLatitude, LandingLongitude KPVs)
+    else:
+        the airfield closest to the aircraft position at the lowest point of 
+        approach (i.e. ApproachMinimumLongitude, ApproachMinimumLatitude KPVs)
+
+    The runway is identified thus:
+
+    if the aircraft lands:
+        identify using the runway bearing recorded at maximum deceleration
+        (i.e. the LandingHeading KPV)
+        
+        if there are parallel runways:
+            if the ILS is tuned and localizer data is valid:
+                use the ApproachILSFrequency KPV to identify the runway
+
+            elseif accurate position data is available:
+                use the position (LandingLatitude, LandingLongitude)
+                recorded at maximum deceleration to identify the runway
+
+            else:
+                use "*" to declare the runway not identified.
+                
+    else if the aircraft reaches the final approach phase:
+        identify the runway bearing from the heading at lowest point of the 
+        approach (ApproachMinimumHeading)
+
+        if there are parallel runways:
+            if the ILS is tuned and localizer data is valid:
+                use ApproachILSFrequency to identify the runway
+            else:
+                use "*" to declare the runway not identified.
     """
 
     # List the minimum acceptable parameters here
@@ -76,7 +106,7 @@ class ApproachAndLanding(FlightPhaseNode):
     # List the optimal parameter set here
     def derive(self, alt_AAL=P('Altitude AAL For Flight Phases'),
                alt_rad=P('Altitude Radio For Flight Phases')):
-        if len(alt_rad.array)>0: #  Test "if alt_rad" doesn't work - it's not None. TODO ??
+        if alt_rad:
             # Start the phase if we pass over high ground, so the radio
             # altitude falls below 3000ft before the pressure altitude
             app = np.ma.masked_where(np.ma.minimum(alt_AAL.array,alt_rad.array)

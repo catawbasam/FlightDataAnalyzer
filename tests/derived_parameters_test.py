@@ -11,7 +11,8 @@ from analysis.settings import GRAVITY
 from analysis.node import Attribute, A, KPV, KTI, Parameter, P, Section, S
 from analysis.flight_phase import Fast
 
-from analysis.derived_parameters import (AccelerationVertical,
+from analysis.derived_parameters import (AccelerationForwardsForFlightPhases,
+                                         AccelerationVertical,
                                          AirspeedForFlightPhases,
                                          AltitudeAALForFlightPhases,
                                          AltitudeForFlightPhases,
@@ -73,24 +74,40 @@ class TestAccelerationVertical(unittest.TestCase):
 
 
 class TestAccelerationForwardsForFlightPhases(unittest.TestCase):
-    def test_can_operate(self):
-        expected = [('Acceleration Longitudinal', 'Airspeed')]
+    def test_can_operate_only_airspeed(self):
+        expected = [('Airspeed',)]
         opts = AirspeedForFlightPhases.get_operational_combinations()
         self.assertEqual(opts, expected)
         
-    def test_accelearation_forwards_for_phases_basic(self):
+    def test_can_operate_only_acceleration(self):
+        expected = [('Airspeed',),
+                    ('Acceleration Longitudinal',),
+                    ('Acceleration Longitudinal','Airspeed')]
+        opts = AirspeedForFlightPhases.get_operational_combinations()
+        self.assertEqual(opts, expected)
+        
+    def test_accelearation_forwards_for_phases_using_acceleration(self):
         # If acceleration data is available, this is used without change.
-        acc = np.ma.array(range(0,0.5,0.1))
+        acc = np.ma.arange(0,0.5,0.1)
         accel_fwd = AccelerationForwardsForFlightPhases()
-        accel_fwd.derive(Parameter('Airspeed', fast_and_slow))
+        accel_fwd.derive(Parameter('Acceleration Longitudinal', acc), None)
         ma_test.assert_masked_array_approx_equal(accel_fwd.array, acc)
+
+    def test_accelearation_forwards_for_phases_using_airspeed(self):
+        # If only airspeed data is available, it needs differentiating.
+        speed = np.ma.arange(0,150,10)
+        speed[3:5] = np.ma.masked
+        accel_fwd = AccelerationForwardsForFlightPhases()
+        accel_fwd.derive(None, Parameter('Airspeed', speed))
+        expected = np.ma.array([0.5241646]*15)
+        ma_test.assert_masked_array_approx_equal(accel_fwd.array, expected)
 
     def test_accelearation_forwards_for_phases_mask_repair(self):
         # Show that the mask is repaired in case of minor corruption.
-        acc = np.ma.array(range(0,0.5,0.1))
+        acc = np.ma.arange(0,0.5,0.1)
         acc[1:4] = np.ma.masked
         accel_fwd = AccelerationForwardsForFlightPhases()
-        accel_fwd.derive(Parameter('Airspeed', fast_and_slow))
+        accel_fwd.derive(Parameter('Acceleration Longitudinal', acc), None)
         ma_test.assert_masked_array_approx_equal(accel_fwd.array, acc)
 
     

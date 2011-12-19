@@ -17,6 +17,7 @@ from analysis.key_time_instances import (BottomOfDescent,
                                          ClimbStart,
                                          GoAround,
                                          InitialClimbStart,
+                                         LandingPeakDeceleration,
                                          LandingStart,
                                          LandingStartDeceleration,
                                          LandingTurnOffRunway,
@@ -157,16 +158,21 @@ class TestGoAround(unittest.TestCase):
         alt = np.ma.array(range(0,4000,500)+range(4000,0,-500)+range(0,1000,501))
         ias = Parameter('Airspeed', np.ma.ones(len(alt))*100)
         aal = ApproachAndLanding()
-        aal.derive(Parameter('Altitude AAL For Flight Phases',alt))
+
+        # Call derive method. Note: "None" required to replace rad alt argument.
+        aal.derive(Parameter('Altitude AAL For Flight Phases',alt),None) 
         climb = ClimbForFlightPhases()
         climb.derive(Parameter('Altitude STD', alt), aal)
         goa = GoAround()
         # Pretend we are flying over flat ground, so the altitudes are equal.
         alt_aal=Parameter('Altitude AAL For Flight Phases',alt)
-        goa.derive(alt_AAL=alt_aal,
-                   approaches=aal, climb=climb)
+        
+        # !!! None is positional argument in place of alt_rad !!!
+        goa.derive(alt_aal, None, aal, climb)
+        
         expected = [KeyTimeInstance(index=16, name='Go Around')]
         self.assertEqual(goa, expected)
+
 
 
 class TestInitialClimbStart(unittest.TestCase):
@@ -181,6 +187,24 @@ class TestInitialClimbStart(unittest.TestCase):
         instance.derive([Section('Takeoff',slice(0,3.5,None))])
         expected = [KeyTimeInstance(index=3.5, name='Initial Climb Start')]
         self.assertEqual(instance, expected)
+
+
+class TestLandingPeakDeceleration(unittest.TestCase):
+    def test_can_operate(self):
+        expected = [('Landing','Heading Continuous', 
+                     'Acceleration Forwards For Flight Phases')]
+        opts = LandingPeakDeceleration.get_operational_combinations()
+        self.assertEqual(opts, expected) 
+        
+    def test_landing_peak_deceleration_basic(self):
+        head = P('Heading Continuous',np.ma.array([0,2,4,7,9,8,6,3]))
+        acc = P('Acceleration Forwards For Flight Phases',
+                np.ma.array([0,0,-.1,-.1,-.2,-.1,0,0]))
+        landing = [Section('Landing',slice(2,5,None))]
+        kti = LandingPeakDeceleration()
+        kti.derive(landing, head, acc)
+        expected = [KeyTimeInstance(index=4, name='Landing Peak Deceleration')]
+        self.assertEqual(kti, expected)
 
 
 class TestLiftoff(unittest.TestCase):

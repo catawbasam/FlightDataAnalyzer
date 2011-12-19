@@ -73,6 +73,9 @@ HYSTERESIS_FPROC = 100 # fpm
 # Threshold for start of initial climb phase
 INITIAL_CLIMB_THRESHOLD = 35 # ft (Radio, where available)
 
+# Conversion from knots to ft/sec (used in airspeed rate of change)
+KTS_TO_FPS = 1.68781 # ft/sec
+
 # Threshold for start of braking / reverse thrust on landing.
 LANDING_ACCELERATION_THRESHOLD = -0.2 # g
 

@@ -19,6 +19,7 @@ from settings import (AZ_WASHOUT_TC,
                       HYSTERESIS_FPIAS, 
                       HYSTERESIS_FPROC,
                       GRAVITY,
+                      KTS_TO_FPS,
                       RATE_OF_CLIMB_LAG_TC
                       )
 
@@ -57,18 +58,31 @@ class AccelerationVertical(DerivedParameterNode):
 
 
 class AccelerationForwardsForFlightPhases(DerivedParameterNode):
-    def derive(self, acc_long=P('Acceleration Longitudinal'), 
+    # List the minimum acceptable parameters here
+    @classmethod
+    def can_operate(cls, available):
+        if 'Airspeed' in available:
+            return True
+        elif 'Acceleration Longitudinal' in available:
+            return True
+        else:
+            return False
+        
+    # List the optimal parameter set here
+    def derive(self, acc_long=P('Acceleration Longitudinal'),
                airspeed=P('Airspeed')):
         """
         Acceleration or deceleration on the runway is used to identify the
         runway heading. For the Hercules aircraft there is no longitudinal
         accelerometer, so rate of change of airspeed is used instead.
         """
-        if True: #  TODO: set the alternative use case.
-            self.array = repair_mask(acc_long)
+        if acc_long:
+            self.array = repair_mask(acc_long.array)
         else:
-            self.array = rate_of_change(repair_mask(airspeed), 1)
-        
+            aspd = P('Aspd',array=repair_mask(airspeed.array))
+            roc_aspd = rate_of_change(aspd, 1) * KTS_TO_FPS/GRAVITY
+            self.array =  roc_aspd 
+
 
 class AirspeedForFlightPhases(DerivedParameterNode):
     def derive(self, airspeed=P('Airspeed')):
