@@ -70,6 +70,9 @@ HYSTERESIS_FPALT_CCD = 2500 # ft
 # phase if the aircraft is climbing/descending close to a threshold level.
 HYSTERESIS_FPROC = 100 # fpm
 
+# Full scale reading on the ILS
+ILS_MAX_SCALE = 2.5 # dots
+
 # Threshold for start of initial climb phase
 INITIAL_CLIMB_THRESHOLD = 35 # ft (Radio, where available)
 

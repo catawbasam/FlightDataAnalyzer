@@ -1,7 +1,7 @@
 import unittest
 import numpy as np
 
-from analysis.node import A, KPV, KTI, Parameter, P, Section, S
+from analysis.node import A, KPV, KTI, KeyTimeInstance, Parameter, P, Section, S
 
 from analysis.key_time_instances import (BottomOfDescent,
                                          TopOfClimb, 
@@ -19,6 +19,7 @@ from analysis.flight_phase import (Airborne,
                                    DescentToBottomOfDescent,
                                    Fast,
                                    FinalApproach,
+                                   ILSLocalizerEstablished,
                                    InitialApproach,
                                    Landing,
                                    LevelFlight,
@@ -100,6 +101,24 @@ class TestApproachAndLanding(unittest.TestCase):
                    Parameter('Altitude Radio For Flight Phases',alt))
         expected = [Section(name='Approach And Landing', slice=slice(2, 7, None))]
         self.assertEqual(app, expected)
+
+
+class TestILSLocalizerEstablished(unittest.TestCase):
+    def test_can_operate(self):
+        expected = [('Approach And Landing',
+                     'Approach And Landing Lowest Point',
+                     'ILS Localizer')]
+        opts = ILSLocalizerEstablished.get_operational_combinations()
+        self.assertEqual(opts, expected)
+
+    def test_ils_localizer_established_basic(self):
+        aal = [Section('Approach And Landing', slice(2, 8, None))]
+        low = [KeyTimeInstance(index=8, state='Approach And Landing Lowest Point')]
+        ils = P('ILS Localizer',np.ma.arange(-3,0,0.3))
+        establish = ILSLocalizerEstablished()
+        establish.derive(aal, low, ils)
+        expected = [Section('ILS Localizer Established', slice(2, 10, None))]
+        self.assertEqual(establish, expected)
 
 
 class TestInitialApproach(unittest.TestCase):

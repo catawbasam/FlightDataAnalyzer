@@ -85,8 +85,8 @@ class TestHeadingAtLanding(unittest.TestCase):
         
     def test_landing_heading_basic(self):
         head = P('Heading Continuous',np.ma.array([0,2,4,7,0,-3,-7,-93]))
-        landing = [KeyTimeInstance(index=2, name='Landing Peak Deceleration'),
-                   KeyTimeInstance(index=6, name='Landing Peak Deceleration')]
+        landing = [KeyTimeInstance(index=2, state='Landing Peak Deceleration'),
+                   KeyTimeInstance(index=6, state='Landing Peak Deceleration')]
         kpv = HeadingAtLanding()
         kpv.derive(landing, head)
         expected = [KeyPointValue(index=2, value=4.0, name='Heading At Landing'),
