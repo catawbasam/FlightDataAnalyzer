@@ -74,7 +74,9 @@ def append_segment_info(hdf_segment_path, segment_slice, part):
         # establish timebase for start of data
         try:
             #TODO: use hdf.get('Year', [])[segment.slice] to provide empty slices.
-            start_datetime = calculate_timebase(hdf['Year'], hdf['Month'], hdf['Day'], hdf['Hour'], hdf['Minute'], hdf['Second'])
+            start_datetime = calculate_timebase(
+                hdf['Year'].array, hdf['Month'].array, hdf['Day'].array,
+                hdf['Hour'].array, hdf['Minute'].array, hdf['Second'].array)
         except (KeyError, ValueError):
             logging.exception("Unable to calculate timebase, using epoch 1.1.1970!")
             start_datetime = datetime.fromtimestamp(0)

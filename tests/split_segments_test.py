@@ -7,6 +7,7 @@ import numpy as np
 from datetime import datetime
 
 from analysis import settings
+from analysis.node import P
 from analysis.plot_flight import plot_parameter
 from analysis.split_segments import (append_segment_info, split_segments, 
                                      subslice, _identify_segment_type, 
@@ -217,16 +218,16 @@ class TestSubslice(unittest.TestCase):
 class TestIdentifySegment(unittest.TestCase):
     def test_ground_only(self):
         # test all slow
-        slow = np.ma.array(range(0,75) + range(75,0))
-        self.assertEqual(_identify_segment(slow), 'GROUND_ONLY')
+        slow = np.ma.array(range(0,75) + range(75,0,-1))
+        self.assertEqual(_identify_segment_type(slow), 'GROUND_ONLY')
 
         # test with all invalid data
-        invalid_airspeed = np.ma.array(range(50,100) + range(100,50), mask=[True]*100)
-        self.assertEqual(_identify_segment(invalid_airspeed), 'GROUND_ONLY')
+        invalid_airspeed = np.ma.array(range(50,100) + range(100,50,-1), mask=[True]*100)
+        self.assertEqual(_identify_segment_type(invalid_airspeed), 'GROUND_ONLY')
 
         # test mid-flight
-        mid_flight = np.ma.array(range(100,200) + range(200,100))
-        self.assertEqual(_identify_segment(mid_flight), 'MID_FLIGHT')
+        mid_flight = np.ma.array(range(100,200) + range(200,100,-1))
+        self.assertEqual(_identify_segment_type(mid_flight), 'MID_FLIGHT')
 
         # test stop only
         # test start only
@@ -234,7 +235,7 @@ class TestIdentifySegment(unittest.TestCase):
         airspeed_data = np.load('test_data/airspeed_sample.npy')
         airspeed = np.ma.array(airspeed_data)
         segs = split_segments(airspeed, dfc=None)        
-        self.assertEqual([_identify_segment(airspeed[s]) for s in segs], 
+        self.assertEqual([_identify_segment_type(airspeed[s]) for s in segs], 
                          ['START_AND_STOP']*7)
         
         
@@ -260,26 +261,28 @@ class TestSegmentInfo(unittest.TestCase):
             
             def __getitem__(self, key):
                 if key == 'Airspeed':
-                    return self.airspeed
+                    data = self.airspeed
                 
                 if self.path == 'invalid timestamps':
                     if key == 'Year':
-                        return np.ma.array([0] * 60)
+                        data = np.ma.array([0] * 60)
                     elif key == 'Month':
-                        return np.ma.array([13] * 60)
+                        data = np.ma.array([13] * 60)
                     elif key == 'Day':
-                        return np.ma.array([31] * 60)
+                        data = np.ma.array([31] * 60)
                     else:
-                        return np.ma.array(range(1,59))
+                        data = np.ma.array(range(1,59))
                 else:
                     if key == 'Year':
-                        return np.ma.array([2020] * 60)
+                        data = np.ma.array([2020] * 60)
                     elif key == 'Month':
-                        return np.ma.array([12] * 60)
+                        data = np.ma.array([12] * 60)
                     elif key == 'Day':
-                        return np.ma.array([25] * 60)
+                        data = np.ma.array([25] * 60)
                     else:
-                        return np.ma.array(range(1,59))
+                        data = np.ma.array(range(1,59))
+                return P(key, array=data)
+            
         splitseg.hdf_file = mocked_hdf
         splitseg.sha_hash_file = mock.Mock()
         splitseg.sha_hash_file.return_value = 'ABCDEFG'
