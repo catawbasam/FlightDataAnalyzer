@@ -7,7 +7,7 @@ import mock
 
 import utilities.masked_array_testutils as ma_test
 from utilities.struct import Struct
-from settings import GRAVITY
+from analysis.settings import GRAVITY
 from analysis.node import Attribute, A, KPV, KTI, Parameter, P, Section, S
 from analysis.flight_phase import Fast, InGroundEffect
 

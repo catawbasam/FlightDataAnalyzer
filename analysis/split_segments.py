@@ -1,11 +1,24 @@
 import numpy as np
 import logging
+from datetime import datetime, timedelta
 
 from analysis import settings
-from analysis.library import hysteresis
+from analysis.library import calculate_timebase, hash_array, hysteresis
 from analysis.recordtype import recordtype
+from hdfaccess.file import hdf_file
+from utilities.filesystem_tools import sha_hash_file
 
-Segment = recordtype('Segment', 'slice type part duration path hash', default=None)
+Segment = recordtype('Segment', 'slice type part path hash start_dt go_fast_dt stop_dt', default=None)
+
+
+def mask_slow_airspeed(airspeed):
+    """
+    :param airspeed: 
+    :type airspeed: np.ma.array
+    """
+    # mask where airspeed drops below min airspeed, using hysteresis
+    hysteresisless_spd = hysteresis(airspeed, settings.HYSTERESIS_FPIAS)
+    return np.ma.masked_less(hysteresisless_spd, settings.AIRSPEED_THRESHOLD)
 
 def split_segments(airspeed, dfc=None):
     """
@@ -13,7 +26,7 @@ def split_segments(airspeed, dfc=None):
     
     :param airspeed: 1Hz airspeed data in Knots
     :type airspeed: np.ma.array
-    :param dfc: 1Hz Data frame counter signal
+    :param dfc: 0.25Hz Data frame counter signal
     :type dfc: Numpy.array
     :returns: Segments of flight-like data
     :rtype: list of slices
@@ -28,50 +41,79 @@ def split_segments(airspeed, dfc=None):
     else:
         data_slices = [slice(0, len(airspeed))]
 
-    # mask where airspeed drops below min airspeed, using hysteresis
-    hysteresisless_spd = hysteresis(airspeed, settings.HYSTERESIS_FPIAS)
-    hyst_mask_below_min_airspeed = np.ma.masked_less(hysteresisless_spd, settings.AIRSPEED_THRESHOLD)
-
+    hyst_mask_below_min_airspeed = mask_slow_airspeed(airspeed)    
     segment_slices = []
     for data_slice in data_slices: ## or [slice(0,hdf.size)]: # whole data is a single segment
         # split based on airspeed for fixed wing / rotorspeed for heli
         data_seg_slices = _split_by_flight_data(hyst_mask_below_min_airspeed[data_slice], data_slice.start)
         segment_slices.extend(data_seg_slices)
+    return segment_slices
         
-    segments = []
-    # build information about each slice
-    for part, segment_slice in enumerate(segment_slices):
-        # identify subsection of airspeed, using original array with mask
-        # removing all invalid data (ARINC etc)
-        segment_type = _identify_segment_type(airspeed[segment_slice])
-        duration = segment_slice.stop - segment_slice.start
+def append_segment_info(hdf_segment_path, segment_slice, part):
+    """
+    Get information about a segment such as type, hash, etc. and return a
+    named tuple.
+    
+    If a valid timestamp can't be found, it creates start_dt as epoch(0)
+    i.e. datetime(1970,1,1,1,0). Go-fast dt and Stop dt are relative to this
+    point in time.
+    
+    :param hdf_segment_path: path to HDF segment to analyse
+    :type hdf_segment_path: string
+    :param segment_slice: Slice of this segment relative to original file.
+    :type segment_slice: slice
+    :param part: Numeric part this segment was in the original data file (1 indexed)
+    :type part: Integer
+    :returns: Segment named tuple
+    :rtype: Segment
+    """
+    # build information about a slice
+    with hdf_file(hdf_segment_path) as hdf:
+        airspeed = hdf['Airspeed'].array
+        duration = hdf.duration
+        # establish timebase for start of data
+        try:
+            #TODO: use hdf.get('Year', [])[segment.slice] to provide empty slices.
+            start_datetime = calculate_timebase(hdf['Year'], hdf['Month'], hdf['Day'], hdf['Hour'], hdf['Minute'], hdf['Second'])
+        except (KeyError, ValueError):
+            logging.exception("Unable to calculate timebase, using epoch 1.1.1970!")
+            start_datetime = datetime.fromtimestamp(0)
+        stop_datetime = start_datetime + timedelta(seconds=duration)
+            
+    #end with
 
-
-        # TODO: Establish whether more params should be used as you may not have any airpseed values for a non-flight segment.
-        # how about DFC too in combo?
-
+    # identify subsection of airspeed, using original array with mask
+    # removing all invalid data (ARINC etc)
+    segment_type = _identify_segment_type(airspeed)
+    logging.info("Segment type: %s", segment_type)
+    
+    if segment_type != 'GROUND_ONLY':
+        # we went fast, so get the index
+        spd_above_threshold = np.ma.where(airspeed > settings.AIRSPEED_THRESHOLD)
+        go_fast_index = spd_above_threshold[0][0]
+        go_fast_datetime = start_datetime + timedelta(seconds=int(go_fast_index))
         # Identification of raw data airspeed hash (including all spikes etc)
-        AIRSPEED_FOR_HASH = 80 # (kts)        
-        airspeed_hash = hash_array(airspeed.array[airspeed.array > AIRSPEED_FOR_HASH])
+        airspeed_hash = hash_array(airspeed.data[airspeed.data > settings.AIRSPEED_THRESHOLD])
+    else:
+        go_fast_index = None
+        go_fast_datetime = None
+        # if not go_fast, create hash from entire file
+        airspeed_hash = sha_hash_file(hdf_segment_path)
         
+    #                ('slice         type          part  path              hash           start_dt        go_fast_dt        stop_dt')
+    segment = Segment(segment_slice, segment_type, part, hdf_segment_path, airspeed_hash, start_datetime, go_fast_datetime, stop_datetime)
+    return segment
 
-
-        
-        segment = Segment(segment_slice, segment_type, part + 1, duration, airspeed_hash)
-        segments.append(segment)
-        
-    return segments
-
-
-##from analysis.library import hash_array
-##class AirspeedHash(FlightAttributeNode):
-    ##def derive(self, airspeed=P('Airspeed')):
-        ##checksum = hash_array(airspeed.array[airspeed.array > 80])
-        ##self.set_flight_attr('Airspeed Hash', checksum)
         
 def _split_by_frame_counter(dfc):
     """
-    Q: Return chunks of data rather than slices
+    Creates 1Hz slices by creating slices at 4 times the stop and start
+    indexes of the 0.25Hz DFC.
+    
+    :param dfc: 0.25Hz frame counter
+    :type dfc: np.ma.array
+    :returns: Slices where a jump occurs
+    :rtype: list of slices
     """
     #TODO: Convert to Numpy array manipulation!
     dfc_slices = []
@@ -91,11 +133,11 @@ def _split_by_frame_counter(dfc):
             continue
         else:
             # store
-            dfc_slices.append(slice(start_index, index))
+            dfc_slices.append(slice(start_index*4, index*4))
             start_index = index  #TODO: test case for avoiding overlaps...
     else:
         # append the final slice
-        dfc_slices.append(slice(start_index, len(dfc)))
+        dfc_slices.append(slice(start_index*4, len(dfc)*4))
     return dfc_slices
 
 
@@ -114,6 +156,7 @@ def _split_by_flight_data(airspeed, offset, engine_list=None):
     if engine_list:
         raise NotImplementedError("Splitting with Engines is not implemented")
 
+    #TODO: replace notmasked_contiguous with clump_unmasked as its return type is more consistent
     speedy_slices = np.ma.notmasked_contiguous(airspeed)
     if not speedy_slices or isinstance(speedy_slices, slice) or len(speedy_slices) <= 1 or speedy_slices == (len(airspeed), [0, -1]):
         # nothing to split (no fast bits) or only one slice returned not in a list or only one flight or no mask on array due to mask being "False"
@@ -136,43 +179,43 @@ def _split_by_flight_data(airspeed, offset, engine_list=None):
         
 def _identify_segment_type(airspeed):
     """
-    As this is run after _split_by_flight_data, we know that the data has 
-    exceeded the minium AIRSPEED_FOR_FLIGHT
+    Identify the type of segment based on airspeed trace.
+    
+    :param airspeed: Airspeed after invalid data has been masked
+    :type airspeed: np.ma.array
     """
-
-    #WARNING: This incorrectly currently assumes that the airspeed went fast!
-    
-    
-    
     # Find the first and last valid airspeed samples
     try:
         start, stop = np.ma.flatnotmasked_edges(airspeed)
     except TypeError:
-        # NoneType object is not iterable as no valid airspeed above 80kts
-        return 'GROUND-RUN'
+        # NoneType object is not iterable as no valid airspeed
+        return 'GROUND_ONLY'
 
     # and if these are both lower than airspeed_threshold, we must have a sensible start and end;
     # the alternative being that we start (or end) in mid-flight.
     first_airspeed = airspeed[start]
     last_airspeed = airspeed[stop]
     
-    if first_airspeed > settings.AIRSPEED_THRESHOLD \
+    if len(np.ma.where(airspeed > settings.AIRSPEED_THRESHOLD)[0]) < 30:
+        # failed to go fast or go fast for any length of time
+        return 'GROUND_ONLY'
+    elif first_airspeed > settings.AIRSPEED_THRESHOLD \
        and last_airspeed > settings.AIRSPEED_THRESHOLD:
         # snippet of MID-FLIGHT data
-        return 'MID-FLIGHT'
+        return 'MID_FLIGHT'
     elif first_airspeed > settings.AIRSPEED_THRESHOLD:
         # starts too fast
-        logging.warning('STOP-ONLY. Airspeed initial: %s final: %s.', 
+        logging.warning('STOP_ONLY. Airspeed initial: %s final: %s.', 
                         first_airspeed, last_airspeed)
-        return 'STOP-ONLY'
+        return 'STOP_ONLY'
     elif last_airspeed > settings.AIRSPEED_THRESHOLD:
         # ends too fast
-        logging.warning('START-ONLY. Airspeed initial: %s final: %s.', 
+        logging.warning('START_ONLY. Airspeed initial: %s final: %s.', 
                         first_airspeed, last_airspeed)
-        return 'START-ONLY'
+        return 'START_ONLY'
     else:
         # starts and ends at reasonable speeds and went fast between!
-        return 'START-AND-STOP'
+        return 'START_AND_STOP'
     
     
 def subslice(orig, new):

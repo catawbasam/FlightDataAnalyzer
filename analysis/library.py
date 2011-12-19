@@ -1,6 +1,7 @@
 import math
 import numpy as np
 
+from collections import OrderedDict
 from datetime import datetime, timedelta
 from hashlib import sha256
 from itertools import izip
@@ -8,6 +9,8 @@ from scipy.signal import iirfilter, lfilter, lfilter_zi, filtfilt
 
 from settings import REPAIR_DURATION
 
+class InvalidDatetime(ValueError):
+    pass
 
 #Q: Not sure that there's any point in these? Very easy to define later
 #----------------------------------------------------------------------
@@ -148,10 +151,23 @@ def align(slave, master, interval='Subframe', signaltype='Analogue'):
 
 def calculate_timebase(years, months, days, hours, mins, secs):
     """
-    :type years, months, days, hours, mins, secs: iterable
+    Calculates the timestamp most common in the array of timestamps. Returns
+    timestamp calculated for start of array by applying the offset of the
+    most common timestamp.
+    
+    Accepts arrays and numpy arrays at 1Hz.
+    
+    Note: if uneven arrays are passed in, they are assumed by izip that the
+    start is valid and the uneven ends are invalid and skipped over.
+    
+    :param years, months, days, hours, mins, secs: Appropriate 1Hz time elements
+    :type years, months, days, hours, mins, secs: iterable of numeric type
+    :returns: best calculated datetime at start of array
+    :rtype: datetime
+    :raises: InvalidDatetime if no valid timestamps provided
     """
     base_dt = None
-    clock_variation = {}
+    clock_variation = OrderedDict() # so if all values are the same, take the first
     for step, (yr, mth, day, hr, mn, sc) in enumerate(izip(years, months, days, hours, mins, secs)):
         try:
             dt = datetime(yr, mth, day, hr, mn, sc)
@@ -173,8 +189,8 @@ def calculate_timebase(years, months, days, hours, mins, secs):
         return base_dt + clock_delta
     else:
         # No valid datestamps found
-        return None #Q: Invent base datetime, such as taking 1000 years off?!?
-
+        raise InvalidDatetime("No valid datestamps found")
+    
     
 def create_phase_inside(array, hz, offset, phase_start, phase_end):
     '''

@@ -1,7 +1,7 @@
 import logging
 import numpy as np
 from analysis.library import repair_mask
-from analysis.node import FlightPhaseNode, KeyTimeInstance, P
+from analysis.node import FlightPhaseNode, KTI, KeyTimeInstance, P, S
 from analysis.settings import (AIRSPEED_THRESHOLD,
                                ALTITUDE_FOR_CLB_CRU_DSC,
                                HEADING_TURN_ONTO_RUNWAY,

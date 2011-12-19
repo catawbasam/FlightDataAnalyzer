@@ -1,39 +1,9 @@
-import inspect
 import logging 
 import networkx as nx # pip install networkx or /opt/epd/bin/easy_install networkx
 
 from analysis import settings
-from analysis.node import Node, NodeManager
+from utilities.dict_helpers import dict_filter
 
-
-def get_derived_nodes(module_names):
-    """ Get all nodes into a dictionary
-    """
-    def isclassandsubclass(value, classinfo):
-        return inspect.isclass(value) and issubclass(value, classinfo)
-
-    nodes = {}
-    for name in module_names:
-        #Ref:
-        #http://code.activestate.com/recipes/223972-import-package-modules-at-runtime/
-        # You may notice something odd about the call to __import__(): why is
-        # the last parameter a list whose only member is an empty string? This
-        # hack stems from a quirk about __import__(): if the last parameter is
-        # empty, loading class "A.B.C.D" actually only loads "A". If the last
-        # parameter is defined, regardless of what its value is, we end up
-        # loading "A.B.C"
-        ##abstract_nodes = ['Node', 'Derived Parameter Node', 'Key Point Value Node', 'Flight Phase Node'
-        module = __import__(name, globals(), locals(), [''])
-        for c in vars(module).values():
-            if isclassandsubclass(c, Node) and c.__module__ != 'analysis.node':
-                try:
-                    nodes[c.get_name()] = c
-                except TypeError:
-                    #TODO: Handle the expected error of top level classes
-                    # Can't instantiate abstract class DerivedParameterNode
-                    # - but don't know how to detect if we're at that level without resorting to 'if c.get_name() in 'derived parameter node',..
-                    logging.exception('Failed to import class: %s' % c.get_name())
-    return nodes
 
 def breadth_first_search_all_nodes(di_graph, root):
     """
@@ -66,8 +36,9 @@ def breadth_first_search_all_nodes(di_graph, root):
     ##return spanning_tree, ordering
     return ordering
 
+
 # Display entire dependency graph, not taking into account which are active for a frame
-def draw_graph(graph, name):
+def draw_graph(graph, name, horizontal=True):
     """
     Draws a graph to file with label and filename taken from name argument.
     
@@ -88,37 +59,44 @@ def draw_graph(graph, name):
         # sudo apt-get install graphviz libgraphviz-dev
         # pip install pygraphviz
         #Note: nx.to_agraph performs pygraphviz import
+        if horizontal:
+            # set layout left to right before converting all nodes to new format
+            graph.graph['graph'] = {'rankdir' : 'LR'}
         G = nx.to_agraph(graph)
     except ImportError:
         logging.exception("Unable to import pygraphviz to draw graph '%s'", name)
         return
     G.layout(prog='dot')
     G.graph_attr['label'] = name
-    G.graph_attr.update(landscape=True)
     G.draw(file_path)
     
-def graph_nodes(node_mgr): ##lfl_params, required_params, derived_nodes):
-    """
     
+def graph_nodes(node_mgr):
+    """
+    :param node_mgr:
+    :type node_mgr: NodeManager
     """
     # gr_all will contain all nodes
     gr_all = nx.DiGraph()
     # create nodes without attributes now as you can only add attributes once
     # (limitation of add_node_attribute())
     gr_all.add_nodes_from(node_mgr.lfl, color='forestgreen')
-    gr_all.add_nodes_from(node_mgr.derived_nodes.keys())
+    derived_minus_lfl = dict_filter(node_mgr.derived_nodes, remove=node_mgr.lfl)
+    gr_all.add_nodes_from(derived_minus_lfl.keys())
     
     # build list of dependencies
     derived_deps = set()  # list of derived dependencies
-    for node_name, node_obj in node_mgr.derived_nodes.iteritems():
+    for node_name, node_obj in derived_minus_lfl.iteritems():
         derived_deps.update(node_obj.get_dependency_names())
         # Create edges between node and its dependencies
         edges = [(node_name, dep) for dep in node_obj.get_dependency_names()]
         gr_all.add_edges_from(edges)
             
     # add root - the top level application dependency structure based on required nodes
+    # filter only nodes which are at the top of the tree (no predecessors)
     gr_all.add_node('root', color='red')
-    root_edges = [('root', node_name) for node_name in node_mgr.requested]
+    root_edges = [('root', node_name) for node_name in node_mgr.requested \
+                  if not gr_all.predecessors(node_name)] 
     gr_all.add_edges_from(root_edges, color='red')
     
     #TODO: Split this up into the following lists of nodes
@@ -132,7 +110,8 @@ def graph_nodes(node_mgr): ##lfl_params, required_params, derived_nodes):
     # reference to another derived parameter or a parameter not available on
     # this LFL
     # Set of all derived and LFL Nodes.
-    available_nodes = set(node_mgr.derived_nodes.keys()).union(set(node_mgr.lfl))
+    ##available_nodes = set(node_mgr.derived_nodes.keys()).union(set(node_mgr.lfl))
+    available_nodes = set(node_mgr.keys())
     # Missing dependencies.
     missing_derived_dep = list(derived_deps - available_nodes)
     # Missing dependencies which are required.
@@ -201,60 +180,47 @@ def process_order(gr_all, node_mgr): ##lfl_params, derived_nodes):
     for n, edge in enumerate(reversed(order)):
         node_order.append(edge[1]) #Q: is there a neater way to get the nodes?
         gr_all.edge[edge[0]][edge[1]]['label'] = n
+        gr_st.edge[edge[0]][edge[1]]['label'] = n
     
     logging.debug("Node processing order: %s", node_order)
         
     return gr_all, gr_st, node_order 
 
 
-def remove_nodes_without_edges(graph):
+def remove_floating_nodes(graph):
+    """
+    Remove all nodes which aren't referenced within the dependency tree
+    """
     nodes = list(graph)
     for node in nodes:
-        if not graph.edges(node) and not graph.neighbors(node):
+        if not graph.predecessors(node) and not graph.successors(node):
             graph.remove_node(node)
     return graph
      
-def dependency_order(lfl_params, required_params, aircraft_info, 
-                     achieved_flight_record, modules=settings.NODE_MODULES, draw=True):
+     
+def dependency_order(node_mgr, draw=True):
     """
     Main method for retrieving processing order of nodes.
     
-    :param lfl_params: Raw parameter names available within the Logical Frame Layout (LFL)
-    :type lfl_params: list of strings
-    :param required_params: Derived node names required for Graphical representation, data exports or Event detection. Note that no LFL Params are "required" as they already stored in HDF file. List of names of any Node type (KPV, KTI, FlightPhase or DerivedParameters)
-    :type required_params: list of strings
-    :param modules: Modules to import Derived nodes from.
-    :type modules: list of strings
+    :param node_mgr: 
+    :type node_mgr: NodeManager
     :param draw: Will draw the graph. Green nodes are available LFL params, Blue are operational derived, Black are not required derived, Red are active top level requested params, Grey are inactive params. Edges are labelled with processing order.
     :type draw: boolean
-    :returns: Tuple of NodeManager and a list determining the order for processing the nodes.
-    :rtype: (NodeManager, list of strings)
-    """    
-    # go through modules to get derived nodes
-    derived_nodes = get_derived_nodes(modules)
-    # if required_params isn't set, try using ALL derived_nodes!
-    if not required_params:
-        logging.warning("No required_params declared, using all derived nodes")
-        required_params = derived_nodes.keys()
-        
-    #TODO: Review whether adding all Flight Attributes as required params here is a sensible location
-    required_params += get_derived_nodes(['analysis.flight_attribute']).keys()
-    
-    # keep track of all the node types
-    node_mgr = NodeManager(lfl_params, required_params, derived_nodes,
-                           aircraft_info, achieved_flight_record)
+    :returns: List of Nodes determining the order for processing.
+    :rtype: list of strings
+    """
     _graph = graph_nodes(node_mgr)
     # TODO: Remove the two following lines. 
-    ##_graph = remove_nodes_without_edges(_graph)
+    ##_graph = remove_floating_nodes(_graph)
     ##draw_graph(_graph, 'Dependency Tree')
     gr_all, gr_st, order = process_order(_graph, node_mgr)
     
-    inoperable_required = list(set(required_params) - set(order))
+    inoperable_required = list(set(node_mgr.requested) - set(order))
     if inoperable_required:
         logging.warning("Required parameters are inoperable: %s", inoperable_required)
     if draw:
-        draw_graph(gr_all, 'Dependency Tree')
         draw_graph(gr_st, 'Active Nodes in Spanning Tree')
-    return node_mgr, order
+        draw_graph(gr_all, 'Dependency Tree')
+    return order
 
 
