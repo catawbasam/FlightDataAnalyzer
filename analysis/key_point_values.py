@@ -5,46 +5,95 @@ from collections import namedtuple
 from analysis.node import  KeyPointValue, KeyPointValueNode, KTI, P, S
 from analysis import settings
 
-"""
-TODO:
-=====
-
-* Generate kpv using self.create_kpv()
-
-* Move Max to start rather than end?
-"""
-
-##########################################
-# KPV about the flight
 
 class TakeoffAirport(KeyPointValueNode):
     def derive(self, liftoff=KTI('Liftoff')):
         ##KeyPointValue(n, 'ICAO', 'Takeoff Airport')
         ##KeyPointValue(n, '09L', 'Takeoff Runway')
         return NotImplemented
+
     
-class ApproachAirport(KeyPointValueNode):
-    def derive(self, descent=S('Descent')):
-        return NotImplemented
+class TakeoffHeading(KeyPointValueNode):
+    '''
+    The takeoff has been found already, including a little of the turn onto
+    the runway and a little of the flight post takeoff.
     
-class LandingAirport(KeyPointValueNode):
-    def derive(self, touchdown=KTI('Touchdown')):
-        ##KeyPointValue(n, 'ICAO', 'Takeoff Airport')
-        ##KeyPointValue(n, '09L', 'Takeoff Runway')
-        return NotImplemented
-    
+    def derive(self, speedies=S('Fast'), head=P('Heading Continuous')):
+        for speedy in speedies:
+            midpoint = toff.slice.start #  The aircraft is accelerating on the runway
+            toff_head = head.array[midpoint]
+            self.create_kpv(midpoint, toff_head%360.0)
+    '''
+
+    def derive(self, takeoffs=S('Takeoff'), head=P('Heading Continuous'), 
+               accel=P('Acceleration Forwards For Flight Phases')):
+        for toff in takeoffs:
+            peak_accel_index = np.ma.argmax(accel.array[toff.slice])
+            peak_accel_index += toff.slice.start
+            toff_head = head.array.data[peak_accel_index]
+            self.create_kpv(peak_accel_index, toff_head%360.0)
+
+
+            
 class TakeoffAltitude(KeyPointValueNode):
-    def derive(self, liftoff=KTI('Liftoff'), takeoff_airport=TakeoffAirport):
-        return NotImplemented
+    # Taken at the point of liftoff although there will be pressure errors at
+    # this point. The reason for computing this is unclear as we calculate
+    # Altitude AAL based upon the 35ft phase transition altitude.
+    def derive(self, lifts=KTI('Liftoff'), alt_std=P('Altitude Std')):
+        for lift in lifts:
+            self.create_kpv(lift.index, alt_std[lift.index])
+
     
 class LandingAltitude(KeyPointValueNode):
-    def derive(self, touchdown=KTI('Touchdown'),
-               landing_airport=LandingAirport):
-        return NotImplemented
+    def derive(self, lands=KTI('Touchdown'), alt_std=P('Altitude Std')):
+        for land in lands:
+            self.create_kpv(land.index, alt_std[land.index])
 
 
-                
-                
+class LandingHeading(KeyPointValueNode):
+    """
+    The landing has been found already, including and the flare and a little
+    of the turn off the runway. We take the heading at the point of maximum
+    deceleration, as this should lie between the touchdown when the aircraft
+    may be drifting and the turnoff which could be at high speed, but should
+    be at a gentler deceleration.
+    """
+    def derive(self, landings=S('Landing'), head=P('Heading Continuous'), 
+               accel=P('Acceleration Forwards For Flight Phases')):
+        for land in landings:
+            peak_decel_index = np.ma.argmin(accel.array[land.slice])
+            peak_decel_index += land.slice.start
+            toff_head = head.array.data[peak_decel_index]
+            self.create_kpv(peak_decel_index, toff_head%360.0)
+            
+
+class ILSFrequencyInApproach(KeyPointValueNode):
+    """
+    The landing has been found already, including and the flare and a little
+    of the turn off the runway.
+    """
+    def derive(self, approaches=S('Approach'), ils_frq=P('ILS Frequency')):
+        for approach in approaches:
+            # If the ILS frequencies have been masked outside the valid
+            # range, selecting the second element in the array
+            # flatnotmasked_edges picks the frequency used at the lowest
+            # altitude on the approach.
+            
+            # Shorthand for the ILS frequencies we want to scan
+            ilsf = ils_frq.array[approach.slice]
+            
+            #  Flatnotmasked edges finds the indices to the first [0] and
+            #  last [1] unmasked values. We only want the last one used on
+            #  this approach.
+            last_tuned_index = np.ma.flatnotmasked_edges(ilsf)[1]
+
+            # What was the frequency?
+            freq = ilsf[last_tuned_index]
+            
+            # Make the KPV
+            self.create_kpv(approach.slice.start+last_tuned_index, freq)
+
+
 ##########################################
 # KPV from A6RKA_KPVvalues.xls
 
@@ -72,28 +121,21 @@ class IndicatedAirspeedAt35Ft(KeyPointValueNode):
         return NotImplemented
 
 
-class NormalGFtTo35FtMax(KeyPointValueNode): # Q: Name?
-    def derive(self, norm_g=P('Normal g'), alt_rad=P('Altitude Radio')):
+class AccelerationNormalFtTo35FtMax(KeyPointValueNode): # Q: Name?
+    def derive(self, norm_g=P('Acceleration Normal'), alt_rad=P('Altitude Radio')):
         return NotImplemented
 
 
-class NormalGMaxAirborne(KeyPointValueNode):
-    """ For discussion - why have Max and Min Normal g when it's just the max 
-    distance from 0.98 that's interesting?
-    Because it's the structural loading that's interesting, and the wing is not
-    symmetrical. Also, high positive loads are comfortable for passengers and
-    fluids in the aircraft while the opposite negative g causes injury and 
-    sends fluids to the top of their containers.
-    """
-    def derive(self, norm_g=P('Normal g'), airborne=S('Airborne')):
+class AccelerationNormalMaxAirborne(KeyPointValueNode):
+    def derive(self, norm_g=P('Acceleration Normal'), airborne=S('Airborne')):
         for airborne_slice in airborne:
             normg_in_air_max_index = np.ma.argmax(norm_g.array[airborne_slice])
             normg_in_air_max_value = norm_g.array.data[normg_in_air_max_index]
             self.create_kpv(normg_in_air_max_index, normg_in_air_max_value)    
 
 
-class NormalGMinAirborne(KeyPointValueNode):
-    def derive(self, norm_g=P('Normal g'), airborne=S('Airborne')):
+class AccelerationNormalMinAirborne(KeyPointValueNode):
+    def derive(self, norm_g=P('Acceleration Normal'), airborne=S('Airborne')):
         for airborne_slice in airborne:
             normg_in_air_min_index = np.ma.argmin(norm_g.array[airborne_slice])
             normg_in_air_min_value = norm_g.array.data[normg_in_air_max_index]
@@ -224,6 +266,7 @@ class GrossWeightAtTouchdown(KeyPointValueNode):
     def derive(self, gross_weight=P('Gross Weight'), 
                touchdown=KTI('Touchdown')):
         return NotImplemented
+
 
 
 class EngEGTMax(KeyPointValueNode):
@@ -357,13 +400,13 @@ class AirspeedMinusVref500FtTo0FtMax(KeyPointValueNode):
 #kpv['TakeoffTurnOntoRunway'] = [(block.start+turn_onto_runway,head_takeoff - head_mag[turn_onto_runway],head_mag.param_name)]
 
 
-class NormalGAirborneMax(KeyPointValueNode):
+class AccelerationNormalAirborneMax(KeyPointValueNode):
     def derive(self, acceleration_normal=P('Acceleration Normal'),
                airborne=S('Airborne')):
         return NotImplemented
 
 
-class NormalGDuringTakeoffMax(KeyPointValueNode):
+class AccelerationNormalDuringTakeoffMax(KeyPointValueNode):
     def derive(self, acceleration_normal=P('Acceleration Normal'),
                liftoff=KTI('Liftoff')):
         return NotImplemented
@@ -500,8 +543,8 @@ class SinkRateWarning(KeyPointValueNode):
         return NotImplemented
 
 
-class NormalG20FtToGroundMax(KeyPointValueNode):
-    name = 'Normal G 20 Ft To Ground Max'
+class AccelerationNormal20FtToGroundMax(KeyPointValueNode):
+    name = 'Acceleration Normal 20 Ft To Ground Max'
     def derive(self, acceleration_normal=P('Acceleration Normal')):
         return NotImplemented
 
@@ -988,7 +1031,7 @@ class GPWSTooLowTerrainWarning(KeyPointValueNode):
         return NotImplemented
 
 
-class NormalGAirborneMin(KeyPointValueNode):
+class AccelerationNormalAirborneMin(KeyPointValueNode):
     def derive(self, acc_norm=P('Acceleration Normal'), airborne=S('Airborne')):
         return NotImplemented
 

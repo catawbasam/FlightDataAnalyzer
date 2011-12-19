@@ -13,21 +13,27 @@ from analysis.node import DerivedParameterNode
 
 class SAT(DerivedParameterNode):
     name = 'SAT' # overide default name to enforce CAPS
-    dependencies = ['TAT', 'Indicated Airspeed', 'Pressure Altitude']
-    def derive(self): pass
+    def derive(self, tat=P('TAT'), airspeed=P('Indicated Airspeed'),
+               press_alt=P('Pressure Altitude')):
+        return NotImplemented
     
 class MACH(DerivedParameterNode):
-    name = 'MACH'
-    dependencies = ['Indicated Airspeed', SAT] # SAT as object reference
-    def derive(self): pass
+    def derive(self, ias = P('Airspeed'), tat = P('TAT'),
+               alt = P('Altitude Std')):
+        return NotImplemented
 
 class TrueAirspeed(DerivedParameterNode):
     dependencies = ['Indicated Airspeed', 'Pressure Altitude', 'SAT'] # SAT as string
-    def derive(self): pass
+    def derive(self, airspeed=P('Indicated Airspeed'), 
+               press_alt=P('Pressure Altitude'), sat=P('SAT')):
+        return NotImplemented
     
 class SmoothedTrack(DerivedParameterNode):
-    dependencies = ['True Airspeed', 'Heading', 'Latitude', 'Longitude', 'Inertial Latitude', 'Inertial Longitude']
-    def derive(self): pass
+    def derive(self, airspeed=P('True Airspeed'), hdg=P('Heading'),
+               lat=P('Latitude'), lng=P('Longitude'),
+               inertial_lat=P('Inertial Latitude'),
+               inertial_lng=P('Inertial Longitude')):
+        return NotImplemented
     
     @classmethod
     def can_operate(cls, available):
@@ -45,42 +51,47 @@ class SmoothedTrack(DerivedParameterNode):
     
 class VerticalG(DerivedParameterNode):
     name = 'Vertical g'
-    dependencies = ['Longitudinal g', 'Lateral g', 'Normal g', 'Pitch', 'Roll']
-    def derive(self): pass
+    def derive(self, lng=P('Longitudinal g'), lat=P('Lateral g'),
+               pitch=P('Pitch'), roll=P('Roll')):
+        return NotImplemented
     
 class HorizontalGAlongTrack(DerivedParameterNode):
     name = 'Horizontal g Along Track'
-    dependencies = ['Longitudinal g', 'Lateral g', 'Normal g', 'Pitch', 'Roll']
-    def derive(self): pass
+    def derive(self, lng=P('Longitudinal g'), lat=P('Lateral g'),
+               norm_g=P('Normal g'), pitch=P('Pitch'), roll=P('Roll')):
+        return NotImplemented
 
 class HorizontalGAcrossTrack(DerivedParameterNode):
     name = 'Horizontal g Across Track'
-    dependencies = ['Longitudinal g', 'Lateral g', 'Normal g', 'Pitch', 'Roll']
-    def derive(self): pass
+    def derive(self, lng=P('Longitudinal g'), lat=P('Lateral g'),
+               norm_g=P('Normal g'), pitch=P('Pitch'), roll=P('Roll')):
+        return NotImplemented
     
 class HeadingRate(DerivedParameterNode):
-    dependencies = ['Heading']
-    def derive(self): pass
+    def derive(self, hdg=P('Heading')):
+        return NotImplemented
     
 class HeightAboveGround(DerivedParameterNode):
-    dependencies = [VerticalG, 'Radio Altimeter']
-    def derive(self): pass
+    def derive(self, vert_g=P('Vertical g'), rad_alt=P('Radio Altimeter')):
+        return NotImplemented
     
 class MomentOfTakeoff(DerivedParameterNode):
-    dependencies = [HeightAboveGround]
-    def derive(self): pass
+    def derive(self, height=P('Height Above Ground')):
+        return NotImplemented
     
 class SmoothedGroundspeed(DerivedParameterNode):
-    dependencies = [HorizontalGAcrossTrack, 'Groundspeed']
-    def derive(self): pass
+    def derive(self, horiz_g=P('Horizontal g Across Track'),
+               groundspeed=P('Groundspeed')):
+        return NotImplemented
     
 class SlipOnRunway(DerivedParameterNode):
-    dependencies = [HorizontalGAcrossTrack, 'Heading Rate', 'Smoothed Groundspeed']
-    def derive(self): pass
+    def derive(self, horiz_g=P('Horizontal g Across Track'),
+               hdg_rate=P('Heading Rate'), groundspeed=P('Smoothed Groundspeed')):
+        return NotImplemented
     
 class VerticalSpeed(DerivedParameterNode):
-    dependencies = ['Pressure Altitude', 'Vertical g']
-    def derive(self): pass
+    def derive(self, press_alt=P('Pressure Altitude'), vert_g=P('Vertical g')):
+        return NotImplemented
 
     
 

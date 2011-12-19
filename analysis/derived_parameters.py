@@ -56,9 +56,33 @@ class AccelerationVertical(DerivedParameterNode):
         self.array = resolved_in_pitch * np.cos(rol) - ay * np.sin(rol)
 
 
+class AccelerationForwardsForFlightPhases(DerivedParameterNode):
+    def derive(self, acc_long=P('Acceleration Longitudinal'), 
+               airspeed=P('Airspeed')):
+        """
+        Acceleration or deceleration on the runway is used to identify the
+        runway heading. For the Hercules aircraft there is no longitudinal
+        accelerometer, so rate of change of airspeed is used instead.
+        """
+        if True: #  TODO: set the alternative use case.
+            self.array = repair_mask(acc_long)
+        else:
+            self.array = rate_of_change(repair_mask(airspeed), 1)
+        
+
 class AirspeedForFlightPhases(DerivedParameterNode):
     def derive(self, airspeed=P('Airspeed')):
         self.array = hysteresis(airspeed.array, HYSTERESIS_FPIAS)
+
+
+class AccelerationFromAirspeed(DerivedParameterNode):
+    """
+    This paraeter is included for the few aircraft that do not have a
+    longitudinal accelerometer installed, so we can identify acceleration or
+    deceleration on the runway.
+    """
+    def derive(self, airspeed=P('Airspeed')):
+        self.array = rate_of_change(airspeed.array, 1)
 
 
 class AirspeedMinusVref(DerivedParameterNode):
@@ -68,7 +92,8 @@ class AirspeedMinusVref(DerivedParameterNode):
 
 
 class AirspeedTrue(DerivedParameterNode):
-    dependencies = ['SAT', 'VMO', 'MMO', 'Indicated Airspeed', 'Altitude QNH']
+    #dependencies = ['SAT', 'VMO', 'MMO', 'Indicated Airspeed', 'Altitude QNH']
+    # TODO: Move required dependencies from old format above to derive kwargs.
     def derive(self, ias = P('Airspeed'),
                alt_std = P('Altitude STD'),
                sat = P('SAT')):
@@ -83,9 +108,9 @@ class AltitudeAAL(DerivedParameterNode):
     
 class AltitudeAALForFlightPhases(DerivedParameterNode):
     name = 'Altitude AAL For Flight Phases'
-    # This crude parameter is used for flight phase determination of the 
-    # Approach phase, and only uses pressure altitude for robustness.
-    def derive(self, alt_std=P('Altitude STD'), airs=P('Fast')):
+    # This crude parameter is used for flight phase determination,
+    # and only uses airspeed and pressure altitude for robustness.
+    def derive(self, alt_std=P('Altitude STD'), fast=P('Fast')):
         
         # Initialise the array to zero, so that the altitude above the airfield
         # will be 0ft when the aircraft cannot be airborne.
@@ -93,10 +118,10 @@ class AltitudeAALForFlightPhases(DerivedParameterNode):
         
         repair_mask(alt_std.array) # Remove small sections of corrupt data
 
-        for air in airs:
-            begin = air.slice.start
-            end = air.slice.stop
-            peak = np.ma.argmax(alt_std.array[air.slice])
+        for speedy in fast:
+            begin = speedy.slice.start
+            end = speedy.slice.stop
+            peak = np.ma.argmax(alt_std.array[speedy.slice])
             self.array[begin:begin+peak] = alt_std.array[begin:begin+peak] - alt_std.array[begin]
             self.array[begin+peak:end] = alt_std.array[begin+peak:end] - alt_std.array[end]
     
@@ -213,7 +238,7 @@ class FlapCorrected(DerivedParameterNode):
         return NotImplemented
     
 
-class HeadContinuous(DerivedParameterNode):
+class HeadingContinuous(DerivedParameterNode):
     def derive(self, head_mag=P('Heading Magnetic')):
         self.array = straighten_headings(head_mag.array)
 
@@ -257,46 +282,60 @@ class ILSGlideslopeGap(DerivedParameterNode):
  
     
 class MACH(DerivedParameterNode):
-    def derive(self, ias = P('Airspeed'),
-               tat = P('TAT'), alt = P('Altitude Std')):
+    def derive(self, ias = P('Airspeed'), tat = P('TAT'),
+               alt = P('Altitude Std')):
         return NotImplemented
         
 
 class RateOfClimb(DerivedParameterNode):
-    '''
+    """
     This routine derives the rate of climb from the vertical acceleration, the
-    Pressure altitude and the Radio altitude. We restrict the use of radio 
-    altitude data to below the wingspan (i.e. in ground effect) where the 
+    Pressure altitude and the Radio altitude.
+    
+    We use pressure altitude rate above 100ft and radio altitude rate below
+    50ft, with a progressive changeover across that range. Below 100ft the
     pressure altitude information is affected by the flow field around the
-    aircraft.
+    aircraft, while above 50ft there is an increasing risk of changes in
+    ground profile affecting the radio altimeter signal.
     
     Complementary first order filters are used to combine the acceleration
     data and the height data. A high pass filter on the altitude data and a
     low pass filter on the acceleration data combine to form a consolidated
     signal.
     
-    Long term errors in the accelerometers are removed by washing out the 
-    acceleration term with a longer time constant filter before use.    
-    '''
+    By merging the altitude rate signals, we avoid problems of altimeter
+    datums affecting the transition as these will have been washed out by the
+    filter stage first.
+    
+    Long term errors in the accelerometers are removed by washing out the
+    acceleration term with a longer time constant filter before use. The
+    consequence of this is that long period movements with continued
+    acceleration will be underscaled slightly. As an example the test case
+    with a 1ft/sec^2 acceleration results in an increasing rate of climb of
+    55 fpm/sec, not 60 as would be theoretically predicted.
+    """
     def derive(self, 
                az = P('Acceleration Vertical'),
                alt_std = P('Altitude STD'),
-               alt_rad = P('Altitude Radio'),
-               ige = P('In Ground Effect')
-               ):
+               alt_rad = P('Altitude Radio')):
+        #TODO: Remove this caveat and two alignment statements.
+        # This alignment should be redundant with az as first parameter
         alt_std_array = align(alt_std, az)
         alt_rad_array = align(alt_rad, az)
 
-        roc_alt_std = first_order_washout(alt_std_array, RATE_OF_CLIMB_LAG_TC, az.hz)
-        roc_alt_rad = first_order_washout(alt_rad_array, RATE_OF_CLIMB_LAG_TC, az.hz)
+        roc_alt_std = first_order_washout(alt_std_array,
+                                          RATE_OF_CLIMB_LAG_TC, az.hz)
+        roc_alt_rad = first_order_washout(alt_rad_array,
+                                          RATE_OF_CLIMB_LAG_TC, az.hz)
                 
-        # Use pressure altitude rate outside ground effect and 
-        # radio altitude data inside ground effect.
-        roc_altitude = roc_alt_std
-        for this_ige in ige:
-            a = this_ige.slice.start
-            b = this_ige.slice.stop
-            roc_altitude[a:b] = roc_alt_rad[a:b]
+        # Use pressure altitude rate above 100ft and radio altitude rate
+        # below 50ft with progressive changeover across that range.
+        # up to 50 ft radio 0 < std_rad_ratio < 1 over 100ft radio
+        std_rad_ratio = np.maximum(np.minimum(
+            (alt_rad_array.data-50.0)/50.0,
+            1),0)
+        roc_altitude = roc_alt_std*std_rad_ratio +\
+            roc_alt_rad*(1.0-std_rad_ratio)
             
         roc_altitude /= RATE_OF_CLIMB_LAG_TC # Remove washout gain  
         
@@ -332,12 +371,12 @@ class Speedbrake(DerivedParameterNode):
 
 Better done together
 
-class SmoothedLatitude(DerivedParameterNode):
+class SmoothedLatitude(DerivedParameterNode): # TODO: Old dependency format.
     dependencies = ['Latitude', 'True Heading', 'Indicated Airspeed'] ##, 'Altitude Std']
     def derive(self, params):
         return NotImplemented
     
-class SmoothedLongitude(DerivedParameterNode):
+class SmoothedLongitude(DerivedParameterNode): # TODO: Old dependency format.
     dependencies = ['Longitude', 'True Heading', 'Indicated Airspeed'] ##, 'Altitude Std']
     def derive(self, params):
         return NotImplemented
@@ -353,8 +392,7 @@ class HeadingTrue(DerivedParameterNode):
     
 
 class RateOfTurn(DerivedParameterNode):
-    dependencies = [HeadContinuous]
-    def derive(self, head = P('Head Continuous')):
+    def derive(self, head = P('Heading Continuous')):
         self.array = rate_of_change(head, 1)
 
 
@@ -367,7 +405,7 @@ class Pitch(DerivedParameterNode):
 
 
 '''
-================  TODO: NEED TO WORK OUT how to handle multiple engines.  ================
+############  TODO: NEED TO WORK OUT how to handle multiple engines. ###########
 '''
 
 class EngEGT(DerivedParameterNode):
@@ -437,7 +475,7 @@ class EngVibN2(DerivedParameterNode):
 
 
 '''
-================  FLIGHT PHASES ================
+########## FLIGHT PHASES ###########
 
 class GoAround(DerivedParameterNode): # Q: is this a parameter?
     def derive(self, param=P('Flap')): # Q: Args?
@@ -451,7 +489,7 @@ class RudderReversal(DerivedParameterNode):
 '''
 
 '''
-================  RECORDED  ================
+########## RECORDED ###########
 
 
 class AccelerationLateral(DerivedParameterNode):

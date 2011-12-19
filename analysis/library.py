@@ -190,7 +190,7 @@ def calculate_timebase(years, months, days, hours, mins, secs):
     else:
         # No valid datestamps found
         raise InvalidDatetime("No valid datestamps found")
-    
+
     
 def create_phase_inside(array, hz, offset, phase_start, phase_end):
     '''
@@ -441,7 +441,6 @@ def first_order_washout (in_param, time_constant, hz, gain = 1.0, initial_value 
     masked_result.mask = in_param.mask
     return masked_result
 
-
 def hash_array(array):
     '''
     Creates a sha256 hash from the array's tostring() method.
@@ -449,7 +448,6 @@ def hash_array(array):
     checksum = sha256()
     checksum.update(array.tostring())
     return checksum.hexdigest()
-
     
 def hysteresis (array, hysteresis):
     """
@@ -568,6 +566,20 @@ def interleave_uneven_spacing (param_1, param_2):
     
     #return straight_array
     return None # to force a test error until this is fixed to prevent extrapolation
+
+def is_index_within_slice(index, slice_):
+    return slice_.start <= index <= slice_.stop
+
+def is_slice_within_slice(inner_slice, outer_slice):
+    '''
+    Tests whether inner_slice is within the outer slice.
+    
+    :type inner_slice: slice
+    :type outer_slice: slice
+    '''
+    start_within = outer_slice.start <= inner_slice.start <= outer_slice.stop
+    stop_within = outer_slice.start <= inner_slice.stop <= outer_slice.stop
+    return start_within and stop_within
             
 def merge_alternate_sensors (array):
     '''
@@ -717,17 +729,18 @@ def time_at_value (array, hz, offset, scan_start, scan_end, threshold):
     
     begin = int((scan_start - offset) * hz)
     cease = int((scan_end   - offset) * hz)
-    
-    step = 1
+
+    # Trim the end points to the array boundaries and allow for the 
+    # alternative scan directions.
     if cease > begin : # Normal increasing scan
-        cease = cease + 1
+        step = 1
+        cease = min(cease + 1, len(array))
+        begin = max(begin, 0)
     else:
         # Allow for traversing the data backwards
         step = -1
         cease = max(cease-1, 0)
-
-    if begin < 0 or begin > len(array) or cease < 0 or cease > len(array):
-        raise ValueError, 'Attempt to seek outside data range'
+        begin = min(begin, len(array))
         
     # When the data being tested passes the value we are seeking, the 
     # difference between the data and the value will change sign.
