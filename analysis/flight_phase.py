@@ -1,5 +1,6 @@
 import logging
 import numpy as np
+
 from analysis.library import repair_mask, time_at_value
 from analysis.node import A, Attribute, FlightPhaseNode, KeyTimeInstance, P, S, KTI
 from analysis.settings import (AIRSPEED_THRESHOLD,
