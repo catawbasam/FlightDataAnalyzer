@@ -111,7 +111,7 @@ def align(slave, master, interval='Subframe', signaltype='Analogue'):
     r = wm/float(ws)
 
     # Each sample in the master parameter may need different combination parameters
-    for i in range(wm):
+    for i in range(int(wm)):
         bracket=(i/r+delta)
         # Interpolate between the hth and (h+1)th samples of the slave array
         h=int(math.floor(bracket))
@@ -262,6 +262,24 @@ def _create_phase_mask(array, hz, offset, a, b, which_side):
          
     # Return the masked array containing reference data and the created mask.
     return np.ma.MaskedArray(array, mask = m)
+
+def datetime_of_index(start_datetime, index, frequency=1):
+    '''
+    Returns the datetime of an index within the flight at a particular
+    frequency.
+    
+    :param start_datetime: Start datetime of the flight available as the 'Start Datetime' attribute.
+    :type start_datetime: datetime
+    :param index: Index within the flight.
+    :type index: int
+    :param frequency: Frequency of the index.
+    :type frequency: int or float
+    :returns: Datetime at index.
+    :rtype: datetime
+    '''
+    index_in_seconds = index * frequency
+    offset = timedelta(seconds=index_in_seconds)
+    return start_datetime + offset
     
 def duration(a, period, hz=1.0):
     '''
@@ -568,7 +586,14 @@ def interleave_uneven_spacing (param_1, param_2):
     return None # to force a test error until this is fixed to prevent extrapolation
 
 def is_index_within_slice(index, slice_):
-    return slice_.start <= index <= slice_.stop
+    '''
+    Tests whether index is within the slice.
+    
+    :type index: int or float
+    :type slice_: slice
+    :rtype: bool
+    '''
+    return slice_.start <= index < slice_.stop
 
 def is_slice_within_slice(inner_slice, outer_slice):
     '''
@@ -576,6 +601,7 @@ def is_slice_within_slice(inner_slice, outer_slice):
     
     :type inner_slice: slice
     :type outer_slice: slice
+    :rtype: bool
     '''
     start_within = outer_slice.start <= inner_slice.start <= outer_slice.stop
     stop_within = outer_slice.start <= inner_slice.stop <= outer_slice.stop
@@ -595,6 +621,7 @@ def merge_alternate_sensors (array):
     :param array: sampled data from an alternate signal source
     :type array: masked array
     :returns: masked array with merging algorithm applied.
+    :rtype: masked array
     '''
     
     result = np.ma.empty_like(array)
@@ -802,3 +829,16 @@ def value_at_time (array, hz, offset, time_index):
                     return low_value
         # In the cases of no mask, or neither sample masked, interpolate.
         return r*high_value + (1-r) * low_value
+
+
+def vstack_params(*params):
+    """
+    Create a multi-dimensional masked array with a dimension per param.
+    
+    :param params: Parameter arguments as required. Allows some None values.
+    :type params: np.ma.array or Parameter object or None
+    :returns: Each parameter stacked onto a new dimension
+    :rtype: np.ma.array
+    :raises: ValueError if all params are None (concatenation of zero-length sequences is impossible)
+    """
+    return np.ma.vstack([getattr(p, 'array', p) for p in params if p is not None])

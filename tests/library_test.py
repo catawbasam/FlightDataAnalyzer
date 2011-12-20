@@ -14,9 +14,11 @@ from datetime import datetime
 from analysis.library import (align, calculate_timebase, create_phase_inside,
                               create_phase_outside, duration, 
                               first_order_lag, first_order_washout, hash_array,
-                              hysteresis, interleave, merge_alternate_sensors,
+                              hysteresis, interleave, is_index_within_slice,
+                              is_slice_within_slice, merge_alternate_sensors,
                               rate_of_change, repair_mask, straighten_headings,
                               time_at_value, time_at_value_wrapped, value_at_time,
+                              vstack_params, 
                               InvalidDatetime)
 
 from analysis.node import A, KPV, KTI, Parameter, P, S, Section
@@ -574,7 +576,24 @@ class TestInterleave(unittest.TestCase):
         np.testing.assert_array_equal(result.mask, [False,False,True,
                                                     False,False,True,
                                                     False,False])
-        
+
+
+class TestIsIndexWithinSlice(unittest.TestCase):
+    def test_is_index_within_slice(self):
+        self.assertTrue(is_index_within_slice(1, slice(0,2)))
+        self.assertTrue(is_index_within_slice(5, slice(5,7)))
+        # Slice is not inclusive of last index.
+        self.assertFalse(is_index_within_slice(7, slice(5,7)))
+
+
+class TestIsSliceWithinSlice(unittest.TestCase):
+    def test_is_slice_within_slice(self):
+        self.assertTrue(is_slice_within_slice(slice(5,6), slice(4,7)))
+        self.assertTrue(is_slice_within_slice(slice(4,6), slice(4,7)))
+        self.assertTrue(is_slice_within_slice(slice(4,7), slice(4,7)))
+        self.assertFalse(is_slice_within_slice(slice(4,8), slice(4,7)))
+        self.assertFalse(is_slice_within_slice(slice(3,7), slice(4,7)))
+
         
 class TestMergeAlternateSensors(unittest.TestCase):
     def test_merge_alternage_sensors_basic(self):
@@ -856,3 +875,25 @@ self.assertAlmostEquals(result.data[-1], 10.0)
         # becomes too inaccurate to be useful.
         self.assertRaises(ValueError, first_order_lag, array, 1.0, 4.0)
 '''
+
+
+class TestVstackParams(unittest.TestCase):
+    def test_vstack_params(self):
+        a = P('a', array=np.ma.array(range(0, 10)))
+        b = np.ma.array(range(10,20))
+        a.array[0] = np.ma.masked
+        b[0] = np.ma.masked
+        b[-1] = np.ma.masked
+        c = None
+        ma_test.assert_array_equal(
+            np.ma.filled(vstack_params(a), 99), 
+            np.array([[99, 1, 2, 3, 4, 5, 6, 7, 8, 9]])
+        )
+        # test mixed types (Parameter, Masked Array, None)
+        ma_test.assert_array_equal(
+            np.ma.filled(vstack_params(None, a, b, c), 99),
+            np.array([[99,  1,  2,  3,  4,  5,  6,  7,  8,  9],
+                      [99, 11, 12, 13, 14, 15, 16, 17, 18, 99]])
+        )
+        self.assertRaises(ValueError, vstack_params, None, None, None)
+                              

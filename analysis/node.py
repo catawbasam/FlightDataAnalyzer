@@ -9,14 +9,16 @@ from collections import namedtuple
 from itertools import product
 from operator import attrgetter
 
-from analysis.parameter import Parameter
-from analysis.library import align, is_index_within_slice
+from hdfaccess.parameter import P, Parameter
+from analysis.library import align, is_index_within_slice, is_slice_within_slice
 
 from analysis.recordtype import recordtype
 
 # Define named tuples for KPV and KTI and FlightPhase
-KeyPointValue = recordtype('KeyPointValue', 'index value name slice datetime', default=None)
-KeyTimeInstance = recordtype('KeyTimeInstance', 'index state datetime latitude longitude', default=None)
+KeyPointValue = recordtype('KeyPointValue', 'index value name slice datetime', 
+                           field_defaults={'slice':slice(None)}, default=None)
+KeyTimeInstance = recordtype('KeyTimeInstance', 'index name datetime latitude longitude', 
+                             default=None)
 Section = namedtuple('Section', 'name slice') #Q: rename mask -> slice/section
 
 # Ref: django/db/models/options.py:20
@@ -245,12 +247,15 @@ class SectionNode(Node, list):
     Derives from list to implement iteration and list methods.
     '''
     def __init__(self, *args, **kwargs):
-        """ List of slices where this phase is active. Has a frequency and offset.
-        """
+        '''
+        List of slices where this phase is active. Has a frequency and offset.
+        
+        :param items: Optional keyword argument of initial items to be contained within self.
+        :type items: list
+        '''
         if 'items' in kwargs:
             self.extend(kwargs['items'])
             del kwargs['items']
-        # place holder
         super(SectionNode, self).__init__(*args, **kwargs)
 
     def create_section(self, section_slice, name=''):
@@ -283,6 +288,47 @@ class SectionNode(Node, list):
             aligned_node.create_section(converted_slice,
                                         section.name)
         return aligned_node
+    
+    def _get_condition(self, within_slice=None, name=None):
+        '''
+        Returns a condition function which checks if the element is within
+        a slice or has a specified name if they are provided.
+        
+        :param within_slice: Only return elements within this slice.
+        :type within_slice: slice
+        :param name: Only return elements with this name.
+        :type name: str
+        '''
+        if within_slice and name:
+            return lambda e: is_slice_within_slice(e.slice, within_slice) and \
+                   e.name == name
+        elif within_slice:
+            return lambda e: is_slice_within_slice(e.slice, within_slice)
+        elif name:
+            return lambda e: e.name == name
+        else:
+            return None
+    
+    def get(self, within_slice=None, name=None):
+        '''
+        Gets elements either within_slice or with name. Duplicated from
+        FormattedNameNode. TODO: Share implementation.
+        '''
+        condition = self._get_condition(within_slice=within_slice, name=name)
+        return filter(condition, self) if condition else self
+    
+    def get_first(self, within_slice=None, name=None):
+        matching = self.get(within_slice=within_slice, name=name)
+        return min(matching, key=attrgetter('slice.start'))
+    
+    def get_last(self, within_slice=None, name=None):
+        matching = self.get(within_slice=within_slice, name=name)
+        return max(matching, key=attrgetter('slice.stop'))
+    
+    def get_ordered_by_index(self, within_slice=None, name=None):
+        matching = self.get(within_slice=within_slice, name=name)
+        return sorted(matching, key=attrgetter('slice.start'))
+    
 
 
 class FlightPhaseNode(SectionNode):
@@ -391,6 +437,13 @@ class FormattedNameNode(Node, list):
         else:
             return None
     
+    def get(self, within_slice=None, name=None):
+        '''
+        Gets elements either within_slice or with name.
+        '''
+        condition = self._get_condition(within_slice=within_slice, name=name)
+        return filter(condition, self) if condition else self
+    
     def get_ordered_by_index(self, within_slice=None, name=None):
         '''
         Gets elements ordered by index (ascending) optionally filter 
@@ -403,8 +456,7 @@ class FormattedNameNode(Node, list):
         :returns: An object of the same type as self containing elements ordered by index.
         :rtype: self.__class__
         '''
-        condition = self._get_condition(within_slice=within_slice, name=name)
-        matching = filter(condition, self) if condition else self
+        matching = self.get(within_slice=within_slice, name=name)
         ordered_by_index = sorted(matching, key=attrgetter('index'))
         return self.__class__(name=self.name, frequency=self.frequency,
                               offset=self.offset, items=ordered_by_index)
@@ -419,8 +471,7 @@ class FormattedNameNode(Node, list):
         :param name: Only return elements with this name.
         :type name: str
         '''
-        condition = self._get_condition(within_slice=within_slice, name=name)
-        matching = filter(condition, self) if condition else self
+        matching = self.get(within_slice=within_slice, name=name)
         return min(matching, key=attrgetter('index')) if matching else None
     
     def get_last(self, within_slice=None, name=None):
@@ -433,8 +484,7 @@ class FormattedNameNode(Node, list):
         :param name: Only return elements with this name.
         :type name: str
         '''
-        condition = self._get_condition(within_slice=within_slice, name=name)
-        matching = filter(condition, self) if condition else self
+        matching = self.get(within_slice=within_slice, name=name)
         return max(matching, key=attrgetter('index')) if matching else None
     
     def get_named(self, name, within_slice=None):
@@ -448,8 +498,7 @@ class FormattedNameNode(Node, list):
         :returns: An object of the same type as self containing the filtered elements.
         :rtype: self.__class__
         '''
-        condition = self._get_condition(within_slice=within_slice, name=name)
-        matching = filter(condition, self)
+        matching = self.get(within_slice=within_slice, name=name)
         return self.__class__(name=self.name, frequency=self.frequency,
                               offset=self.offset, items=matching)
 
@@ -521,8 +570,7 @@ class KeyPointValueNode(FormattedNameNode):
         :param name: Only return elements with this name.
         :type name: str
         '''
-        condition = self._get_condition(within_slice=within_slice, name=name)
-        matching = filter(condition, self) if condition else self
+        matching = self.get(within_slice=within_slice, name=name)
         return max(matching, key=attrgetter('value')) if matching else None
     
     def get_min(self, within_slice=None, name=None):
@@ -535,8 +583,7 @@ class KeyPointValueNode(FormattedNameNode):
         :param name: Only return elements with this name.
         :type name: str
         '''
-        condition = self._get_condition(within_slice=within_slice, name=name)
-        matching = filter(condition, self) if condition else self
+        matching = self.get(within_slice=within_slice, name=name)
         return min(matching, key=attrgetter('value')) if matching else None
     
     def get_ordered_by_value(self, within_slice=None, name=None):
@@ -549,8 +596,7 @@ class KeyPointValueNode(FormattedNameNode):
         :param name: Only return elements with this name.
         :type name: str
         '''
-        condition = self._get_condition(within_slice=within_slice, name=name)
-        matching = filter(condition, self) if condition else self
+        matching = self.get(within_slice=within_slice, name=name)
         ordered_by_value = sorted(matching, key=attrgetter('value'))
         return KeyPointValueNode(name=self.name, frequency=self.frequency,
                                  offset=self.offset, items=ordered_by_value)
@@ -558,10 +604,8 @@ class KeyPointValueNode(FormattedNameNode):
         
 
     # ordered by time (ascending), ordered by value (ascending), 
-    
-    
-    
-    
+
+
 class FlightAttributeNode(Node):
     """
     Can only store a single value per Node, however the value can be any

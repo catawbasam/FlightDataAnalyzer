@@ -7,8 +7,8 @@ import socket
 import httplib2
 from mock import Mock, patch
 
-from analysis.api_handler import (InvalidAPIInputError, NotFoundError,
-                                  UnknownAPIError)
+from analysis.api_handler import (APIConnectionError, InvalidAPIInputError,
+                                  NotFoundError, UnknownAPIError)
 from analysis.api_handler_http import APIHandlerHTTP
 
 
@@ -34,16 +34,16 @@ class APIHandlerHTTPTest(unittest.TestCase):
         resp['status'] = 400 # Bad Request
         self.assertRaises(InvalidAPIInputError, handler._request, url)
         resp['status'] = 401 # Unauthorised
-        self.assertRaises(UnknownAPIError, handler._request, url)
+        self.assertRaises(APIConnectionError, handler._request, url)
         resp['status'] = 404 # Not Found
         self.assertRaises(NotFoundError, handler._request, url)
         resp['status'] = 500 # Internal Server Error
         self.assertRaises(UnknownAPIError, handler._request, url)
         resp['status'] = 200
         http_request_patched.side_effect = socket.error()
-        self.assertRaises(UnknownAPIError, handler._request, url)
+        self.assertRaises(APIConnectionError, handler._request, url)
         http_request_patched.side_effect = httplib2.ServerNotFoundError()
-        self.assertRaises(UnknownAPIError, handler._request, url)
+        self.assertRaises(APIConnectionError, handler._request, url)
     
     def test__attempt_request(self):
         handler = APIHandlerHTTP(attempts=3)
