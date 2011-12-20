@@ -212,46 +212,46 @@ class Approaches(FlightAttributeNode):
                           'Longitude At Landing' in available
         return required and (approach_lat_lon or landing_lat_lon)
     
-    def _get_approach_type(self, landing_hdg_kpvs, touch_and_gos, go_arounds):
+    def _get_approach_type(self, approach_slice, landing_hdg_kpvs,
+                           touch_and_gos, go_arounds):
         if landing_hdg_kpvs:
-            hdg_kpvs = landing_hdg_kpvs.get(within_slice=approach.slice)
+            hdg_kpvs = landing_hdg_kpvs.get(within_slice=approach_slice)
             if len(hdg_kpvs) == 1:
                 return 'LANDING'
         if touch_and_gos:
             approach_touch_and_gos = touch_and_gos.get(within_slice=
-                                                       approach.slice)
+                                                       approach_slice)
             if len(approach_touch_and_gos) == 1:
                 return 'TOUCH_AND_GO'
         if go_arounds:
-            approach_go_arounds = go_arounds.get(within_slice=
-                                                     approach.slice)
+            approach_go_arounds = go_arounds.get(within_slice=approach_slice)
             if len(approach_go_arounds) == 1:
                 return 'GO_AROUND'
         return None
     
-    def _get_lat_lon(self, landing_lat_kpvs, landing_lon_kpvs,
+    def _get_lat_lon(self, approach_slice, landing_lat_kpvs, landing_lon_kpvs,
                      approach_lat_kpvs, approach_lon_kpvs):
         if landing_lat_kpvs and landing_lon_kpvs:
-            lat_kpvs = landing_lat_kpvs.get(within_slice=approach.slice)
-            lon_kpvs = landing_lon_kpvs.get(within_slice=approach.slice)
+            lat_kpvs = landing_lat_kpvs.get(within_slice=approach_slice)
+            lon_kpvs = landing_lon_kpvs.get(within_slice=approach_slice)
             if len(lat_kpvs) == 1 and len(lon_kpvs) == 1:
                 return (lat_kpvs[0].value, lon_kpvs[0].value)
         if approach_lat_kpvs and approach_lon_kpvs:
             # Try approach KPVs.
-            lat_kpvs = approach_lat_kpvs.get(within_slice=approach.slice)
-            lon_kpvs = approach_lon_kpvs.get(within_slice=approach.slice)
+            lat_kpvs = approach_lat_kpvs.get(within_slice=approach_slice)
+            lon_kpvs = approach_lon_kpvs.get(within_slice=approach_slice)
             if len(lat_kpvs) == 1 and len(lon_kpvs) == 1:
                 return (lat_kpvs[0].value, lon_kpvs[0].value)
         return (None, None)
     
-    def _get_hdg(self, landing_hdg_kpvs, appraoch_hdg_kpvs):
+    def _get_hdg(self, approach_slice, landing_hdg_kpvs, approach_hdg_kpvs):
         if landing_hdg_kpvs:
-            hdg_kpvs = landing_hdg_kpvs.get(within_slice=approach.slice)
+            hdg_kpvs = landing_hdg_kpvs.get(within_slice=approach_slice)
             if len(hdg_kpvs) == 1:
                 return hdg_kpvs[0].value
-        if not hdg and approach_hdg_kpvs:
+        if approach_hdg_kpvs:
             # Try approach KPV.
-            hdg_kpvs = approach_hdg_kpvs.get(within_slice=approach.slice)
+            hdg_kpvs = approach_hdg_kpvs.get(within_slice=approach_slice)
             if len(hdg_kpvs) == 1:
                 return hdg_kpvs[0].value
         return None
@@ -273,7 +273,7 @@ class Approaches(FlightAttributeNode):
                                                   approach.slice.stop, # Q: Should it be start of approach?
                                                   frequency=approach_and_landing.frequency)
             # Type.
-            approach_type = self._get_approach_type(landing_hdg_kpvs,
+            approach_type = self._get_approach_type(approach, landing_hdg_kpvs,
                                                     touch_and_gos, go_arounds)
             if not approach_type:
                 logging.warning("No instance of 'Touch And Go', 'Go Around' or "
@@ -283,8 +283,9 @@ class Approaches(FlightAttributeNode):
                 continue
             # Latitude and Longitude (required for airport query).
             # Try landing KPVs if aircraft landed.
-            lat, lon = self._get_lat_lon(landing_lat_kpvs, landing_lon_kpvs,
-                                         appraoch_lat_kpvs, approach_lon_kpvs)
+            lat, lon = self._get_lat_lon(appraoch, landing_lat_kpvs,
+                                         landing_lon_kpvs, appraoch_lat_kpvs,
+                                         approach_lon_kpvs)
             if not lat or not lon:
                 logging.warning("Latitude and/or Longitude KPVs not found "
                                 "within 'Approach and Landing' phase between "
@@ -300,7 +301,7 @@ class Approaches(FlightAttributeNode):
                 continue
             airport_id = airport['id']
             # Heading. Try landing KPV if aircraft landed.
-            hdg = self._get_hdg(landing_hdg_kpvs, appraoch_hdg_kpvs)
+            hdg = self._get_hdg(appraoach, landing_hdg_kpvs, appraoch_hdg_kpvs)
             if not hdg:
                 logging.info("Heading not available for appraoch between "
                              "indices '%d' and '%d'.", approach.slice.start,

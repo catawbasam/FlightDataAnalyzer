@@ -172,37 +172,146 @@ class TestApproaches(unittest.TestCase):
              'Longitude At Landing']))
     
     def test__get_lat_lon(self):
+        # Landing KPVs.
         approaches = Approaches()
+        approach_slice = slice(3,10)
         landing_lat_kpvs = KPV('Latitude At Landing',
-                               items=[KeyPointValue(5, 10, 'b')])
-        landing_lng_kpvs = KPV('Longitude At Landing',
-                               items=[KeyPointValue(5, -2, 'b')])
-        lat, lon = appraoches._get_lat_lon(landing_lat_kpvs, landing_lng_kpvs,
-                                           None, None)
+                               items=[KeyPointValue(1, 13, 'b'),
+                                      KeyPointValue(5, 10, 'b'),
+                                      KeyPointValue(17, 14, 'b')])
+        landing_lon_kpvs = KPV('Longitude At Landing',
+                               items=[KeyPointValue(1, -1, 'b'),
+                                      KeyPointValue(5, -2, 'b'),
+                                      KeyPointValue(17, 2, 'b')])
+        lat, lon = approaches._get_lat_lon(approach_slice, landing_lat_kpvs,
+                                           landing_lon_kpvs, None, None)
         self.assertEqual(lat, 10)
         self.assertEqual(lon, -2)
-        
-        
+        # Approach KPVs.
+        approach_slice = slice(10,15)
+        approach_lat_kpvs = KPV('Latitude At Low Point On Approach',
+                                items=[KeyPointValue(12, 4, 'b')])
+        approach_lon_kpvs = KPV('Longitude At Low Point On Approach',
+                                items=[KeyPointValue(12, 3, 'b')])
+        lat, lon = approaches._get_lat_lon(approach_slice, None, None,
+                                           approach_lat_kpvs, approach_lon_kpvs)
+        self.assertEqual(lat, 4)
+        self.assertEqual(lon, 3)
+        # Landing and Approach KPVs, Landing KPVs preferred.
+        approach_slice = slice(4, 15)
+        lat, lon = approaches._get_lat_lon(approach_slice, landing_lat_kpvs,
+                                           landing_lon_kpvs, approach_lat_kpvs,
+                                           approach_lon_kpvs)
+        self.assertEqual(lat, 10)
+        self.assertEqual(lon, -2)
+        approach_slice = slice(20,40)
+        lat, lon = approaches._get_lat_lon(approach_slice, landing_lat_kpvs,
+                                           landing_lon_kpvs, approach_lat_kpvs,
+                                           approach_lon_kpvs)
+        self.assertEqual(lat, None)
+        self.assertEqual(lon, None)
     
     def test__get_hdg(self):
-        self.assertTrue(False)
+        approaches = Approaches()
+        # Landing KPV
+        approach_slice = slice(1,10)
+        landing_hdg_kpvs = KPV('Heading At Landing',
+                               items=[KeyPointValue(2, 30, 'a'),
+                                      KeyPointValue(14, 40, 'b')])
+        hdg = approaches._get_hdg(approach_slice, landing_hdg_kpvs, None)
+        self.assertEqual(hdg, 30)
+        # Approach KPV
+        approach_hdg_kpvs = KPV('Heading At Landing',
+                                items=[KeyPointValue(4, 15, 'a'),
+                                       KeyPointValue(23, 30, 'b')])
+        hdg = approaches._get_hdg(approach_slice, None, approach_hdg_kpvs)
+        self.assertEqual(hdg, 15)
+        # Landing and Approach KPV, Landing preferred
+        hdg = approaches._get_hdg(approach_slice, landing_hdg_kpvs,
+                                  approach_hdg_kpvs)
+        self.assertEqual(hdg, 30)
+        # No KPVs in slice.
+        approach_slice = slice(30,60)
+        hdg = approaches._get_hdg(approach_slice, landing_hdg_kpvs,
+                                  approach_hdg_kpvs)
+        self.assertEqual(hdg, None)
+    
+    def test__get_approach_type(self):
+        approaches = Approaches()
+        # Heading At Landing KPVs.
+        landing_hdg_kpvs = KPV('Heading At Landing',
+                               items=[KeyPointValue(9, 21, 'a')])
+        approach_slice = slice(7, 10)
+        approach_type = approaches._get_approach_type(approach_slice,
+                                                      landing_hdg_kpvs, None,
+                                                      None)
+        self.assertEqual(approach_type, 'LANDING')
+        # Touch and Go KTIs.
+        touch_and_gos = KTI('Touch And Go', items=[KeyTimeInstance(12, 'a'),
+                                                   KeyTimeInstance(16, 'a')])
+        approach_slice = slice(8,14)
+        approach_type = approaches._get_approach_type(approach_slice, None,
+                                                      touch_and_gos, None)
+        self.assertEqual(approach_type, 'TOUCH_AND_GO')
+        # Go Around KTIs.
+        go_arounds = KTI('Go Arounds', items=[KeyTimeInstance(12, 'a'),
+                                              KeyTimeInstance(16, 'a')])
+        approach_type = approaches._get_approach_type(approach_slice, None,
+                                                      None, go_arounds)
+        self.assertEqual(approach_type, 'GO_AROUND')
+        # Heading At Landing and Touch And Gos, Heading preferred.
+        approach_type = approaches._get_approach_type(approach_slice,
+                                                      landing_hdg_kpvs,
+                                                      touch_and_gos, None)
+        self.assertEqual(approach_type, 'LANDING')
+        # Heading At Landing and Go Arounds. Heading preferred.
+        approach_type = approaches._get_approach_type(approach_slice,
+                                                      landing_hdg_kpvs,
+                                                      None, go_arounds)
+        self.assertEqual(approach_type, 'LANDING')
+        # Touch And Gos and Go Arounds. Touch And Gos preferred.
+        approach_type = approaches._get_approach_type(approach_slice,
+                                                      None, touch_and_gos,
+                                                      go_arounds)
+        self.assertEqual(approach_type, 'TOUCH_AND_GO')
+        # All 3, Heading preferred.
+        approach_type = approaches._get_approach_type(approach_slice,
+                                                      landing_hdg_kpvs,
+                                                      touch_and_gos, go_arounds)
+        self.assertEqual(approach_type, 'LANDING')
+        # No KPVs/KTIs within slice.
+        approach_slice = slice(100, 200)
+        approach_type = approaches._get_approach_type(approach_slice,
+                                                      landing_hdg_kpvs,
+                                                      touch_and_gos, go_arounds)
+        self.assertEqual(approach_type, None)
+        
     
     @patch('analysis.api_handler_http.APIHandlerHTTP.get_nearest_airport')
     @patch('analysis.api_handler_http.APIHandlerHTTP.get_nearest_runway')
     def test_derive(self, get_nearest_runway, get_nearest_airport):
         approaches = Approaches()
         approaches.set_flight_attr = Mock()
-        get_nearest_airport.return_value = {'id': 1}
+        approaches._get_approach_type = Mock()
+        approaches._get_hdg = Mock()
+        approaches._get_lat_lon = Mock()
         start_datetime = A('Start Datetime', value=datetime.now())
+        # No approach type.
+        approaches._get_approach_type.return_value = None
+        approaches.derive(start_datetime, latitude_lat_kpvs, )
+        approaches._get_approach_type.return_value = 'TOUCH_AND_GO'
+        #approaches._get_hdg.return_value = 40
+        get_nearest_airport.return_value = {'id': 1}
+        
         approach_and_landing = S('Approach and Landing',
                                  items=[Section('a', slice(0,10))])
         landing_lat_kpvs = KPV('Latitude At Landing',
                                items=[KeyPointValue(5, 10, 'b')])
-        landing_lng_kpvs = KPV('Longitude At Landing',
+        landing_lon_kpvs = KPV('Longitude At Landing',
                                items=[KeyPointValue(5, -2, 'b')])
         go_arounds = KTI('Go Around', items=[KeyTimeInstance(5, 'Go Around')])
         approaches.derive(start_datetime, approach_and_landing, None,
-                          go_arounds, landing_lat_kpvs, landing_lng_kpvs, None,
+                          go_arounds, landing_lat_kpvs, landing_lon_kpvs, None,
                           None, None, None)
         self.assertEqual(get_nearest_airport.call_args, ((10, -2), {}))
         self.assertEqual(get_nearest_runway.call_args_list, [])
