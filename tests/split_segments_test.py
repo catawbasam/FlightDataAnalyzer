@@ -38,23 +38,23 @@ class TestSplitSegments(unittest.TestCase):
     def test_split_flights_by_frame_counter(self):
         normal_range = range(0,400) # creates values in list 0 to 399
         res = _split_by_frame_counter(normal_range)
-        self.assertEqual(res, [slice(0,400)])
+        self.assertEqual(res, [slice(0,1600)])
         
         normal_wrap = [4094, 4095, 4096, 1, 2, 3]
         res = _split_by_frame_counter(normal_wrap)
-        self.assertEqual(res, [slice(0,6)])
+        self.assertEqual(res, [slice(0,24)])
                          
         flat_line = [100, 101, 101, 101, 102]
         res = _split_by_frame_counter(flat_line)
-        self.assertEqual(res, [slice(0,5)])
+        self.assertEqual(res, [slice(0,20)])
         
         jump_fwd = [100,101,2000,2001]
         res = _split_by_frame_counter(jump_fwd)
-        self.assertEqual(res, [slice(0,2), slice(2,4)])
+        self.assertEqual(res, [slice(0,8), slice(8,16)])
         
         jump_back = [2000,2001,100,101]
         res = _split_by_frame_counter(jump_back)        
-        self.assertEqual(res, [slice(0,2), slice(2,4)])
+        self.assertEqual(res, [slice(0,8), slice(8,16)])
         
         #TODO: test mixed = [4094, 4095, 4096, 1, 2, 3, 3, 3, 400] #??
         
@@ -117,11 +117,19 @@ class TestSplitSegments(unittest.TestCase):
         # test 7 complete flights returned
         
         # Note: These slices are due to DFC jumping - test case to be updated with correct values!!
-        exp = [slice(0, 100), slice(100, 542), slice(542, 798), 
-               slice(798, 2335), slice(2335, 3829), slice(3829, 3988),
-               slice(3988, 5531), slice(5531, 6863), slice(6863, 6947),
-               slice(6947, 7100), slice(7100, 8468), slice(8468, 8691), 
-               slice(8691, 10349)]
+        exp = [slice(0, 400, None),
+               slice(400, 2168, None),
+               slice(2168, 3192, None),
+               slice(3192, 9340, None),
+               slice(9340, 15316, None),
+               slice(15316, 15952, None),
+               slice(15952, 22124, None),
+               slice(22124, 27452, None),
+               slice(27452, 27788, None),
+               slice(27788, 28400, None),
+               slice(28400, 33872, None),
+               slice(33872, 34764, None),
+               slice(34764, 41396, None)]
         self.assertEqual(segs, exp)
         
         
@@ -211,7 +219,7 @@ class TestSubslice(unittest.TestCase):
         two_hundred = range(5)
         self.assertEqual(two_hundred[orig][new], two_hundred[sub])
         self.assertEqual(two_hundred[sub], [2,4])
-        self.assertEqual(sub, slice(2, 10, 2))
+        self.assertEqual(sub, slice(2, 20, 2))
                     
         #TODO: test negative start, stop and step
         

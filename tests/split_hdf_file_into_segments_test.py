@@ -2,12 +2,15 @@ try:
     import unittest2 as unittest  # py2.6
 except ImportError:
     import unittest
+import os.path
 
 from analysis.split_hdf_file_into_segments import (split_hdf_to_segments,
                                                    )
 
 
 class TestSplitHDFToSegments(unittest.TestCase):
+    @unittest.skipIf(not os.path.isfile("test_data/4_3377853_146-301.hdf5"), 
+                     'Test file not present')
     def test_146_301(self):
         hdf_path = "test_data/4_3377853_146-301.hdf5"
         segs = split_hdf_to_segments(hdf_path, draw=False)

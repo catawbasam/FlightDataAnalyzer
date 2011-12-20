@@ -9,14 +9,16 @@ from collections import namedtuple
 from itertools import product
 from operator import attrgetter
 
-from analysis.parameter import Parameter
+from hdfaccess.parameter import P, Parameter
 from analysis.library import align, is_index_within_slice, is_slice_within_slice
 
 from analysis.recordtype import recordtype
 
 # Define named tuples for KPV and KTI and FlightPhase
-KeyPointValue = recordtype('KeyPointValue', 'index value name datetime', default=None) # TODO: Ask if slice between name and datetime?
-KeyTimeInstance = recordtype('KeyTimeInstance', 'index name latitude longitude', default=None)
+KeyPointValue = recordtype('KeyPointValue', 'index value name slice datetime', 
+                           field_defaults={'slice':slice(None)}, default=None)
+KeyTimeInstance = recordtype('KeyTimeInstance', 'index name datetime latitude longitude', 
+                             default=None)
 Section = namedtuple('Section', 'name slice') #Q: rename mask -> slice/section
 
 # Ref: django/db/models/options.py:20

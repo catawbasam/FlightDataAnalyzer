@@ -1,39 +1,82 @@
+import sys
 import logging 
 import networkx as nx # pip install networkx or /opt/epd/bin/easy_install networkx
 
 from analysis import settings
 from utilities.dict_helpers import dict_filter
 
+not_windows = sys.platform not in ('win32', 'win64') # False for Windows :-(
 
-def breadth_first_search_all_nodes(di_graph, root):
-    """
-    only useful for us with a di_graph
+"""
+TODO:
+=====
+* Colour nodes by derived parameter type
+* reverse digraph to get arrows poitning towards the root - use pre's rather than successors in tree traversal
+
+
+"""
+
+
+##def breadth_first_search_all_nodes(di_graph, root):
+    ##"""
+    ##only useful for us with a di_graph
     
-    Returns all nodes traversed, not just new ones.
+    ##Returns all nodes traversed, not just new ones.
     
-    Removed filter (as not required) 
-    """
-    def bfs():
-        """
-        Breadth-first search subfunction.
-        """
-        while (queue != []):
-            node = queue.pop(0)
-            for other in di_graph[node]:
-                #if other not in spanning_tree:
-                queue.append(other)
-                ordering.append(other)
-                spanning_tree[other] = node
-    if filter(lambda e: e[0] == e[1], di_graph.edges()):
-        # If there is a recursive loop, raise an exception rather than looping
-        # until a MemoryError is eventually raised.
-        raise ValueError("Traversal with fail with recursive dependencies in "
-                         "the digraph.")
-    queue = [root]            # Visiting queue
-    spanning_tree = dict(root=None)    # Spanning tree
-    ordering = [root]
-    bfs()
-    ##return spanning_tree, ordering
+    ##Removed filter (as not required) 
+    ##"""
+    ##def bfs():
+        ##"""
+        ##Breadth-first search subfunction.
+        ##"""
+        ##while (queue != []):
+            ##node = queue.pop(0)
+            ##for other in di_graph[node]:
+                ###if other not in spanning_tree:
+                ##queue.append(other)
+                ##ordering.append(other)
+                ##spanning_tree[other] = node
+    ##if filter(lambda e: e[0] == e[1], di_graph.edges()):
+        ### If there is a recursive loop, raise an exception rather than looping
+        ### until a MemoryError is eventually raised.
+        ##raise ValueError("Traversal with fail with recursive dependencies in "
+                         ##"the digraph.")
+    ##queue = [root]            # Visiting queue
+    ##spanning_tree = dict(root=None)    # Spanning tree
+    ##ordering = [root]
+    ##bfs()
+    ####return spanning_tree, ordering
+    ##return ordering
+
+
+def dependencies3(di_graph, root, node_mgr):
+    
+    def traverse_tree(node):
+        layer = []
+        for dependency in di_graph.successors(node):
+            # traverse again
+            if traverse_tree(dependency):
+                layer.append(dependency)
+            
+        if node in active_nodes:
+            # node already discovered operational
+            return True
+        elif node_mgr.operational(node, layer):
+            # node will work at this level
+            if layer:
+                new_nodes = [n for n in layer if n not in active_nodes]
+                if new_nodes:
+                    active_nodes.update(new_nodes)
+                    ordering.extend(new_nodes) # add the new nodes
+            return True # layer below works
+        else:
+            # node does not work
+            return False
+        
+    ordering = [] # reverse
+    active_nodes = set() # operational nodes visited for fast lookup
+    if traverse_tree(root): # start recursion
+        ordering.append(root)
     return ordering
 
 
@@ -142,49 +185,55 @@ def process_order(gr_all, node_mgr): ##lfl_params, derived_nodes):
     :rtype: 
     """
     # Then, draw the breadth first search spanning tree rooted at top of application
-    order = breadth_first_search_all_nodes(gr_all, root="root")
+    ##order = breadth_first_search_all_nodes(gr_all, root="root")
+    process_order = dependencies3(gr_all, 'root', node_mgr)
+    logging.info("Processing order of %d nodes is: %s", len(process_order), process_order)
     
-    #Q: Should we delete nodes or make the edges weak?
-    # gr_st will be a copy of gr_all which we'll delete inactive nodes from
-    gr_st = gr_all.copy() 
+
     
-    # Determine whether nodes are operational, this will repeatedly ask some 
-    # nodes as they may only become operational later on.
-    process_order = []
-    for node in reversed(order):
-        if node_mgr.operational(node, process_order):
-            if node not in node_mgr.lfl + ['root']:
-                gr_all.node[node]['color'] = 'blue'
-            # un-grey edges that were previously inactive
-            active_edges = gr_all.in_edges(node)
-            gr_all.add_edges_from(active_edges, color='black')
-            process_order.append(node)
-        else:
-            gr_all.node[node]['color'] = 'grey'
-            inactive_edges = gr_all.in_edges(node)
-            gr_all.add_edges_from(inactive_edges, color='grey')
+    ### Determine whether nodes are operational, this will repeatedly ask some 
+    ### nodes as they may only become operational later on.
+    ##process_order = []
+    ##for node in reversed(order):
+        ##if node_mgr.operational(node, process_order):
+            ##if node not in node_mgr.lfl + ['root']:
+                ##gr_all.node[node]['color'] = 'blue'
+            ### un-grey edges that were previously inactive
+            ##active_edges = gr_all.in_edges(node)
+            ##gr_all.add_edges_from(active_edges, color='black')
+            ##process_order.append(node)
+        ##else:
+            ##gr_all.node[node]['color'] = 'grey'
+            ##inactive_edges = gr_all.in_edges(node)
+            ##gr_all.add_edges_from(inactive_edges, color='grey')
 
     # remove nodes from gr_st that aren't in the process order
+    ##gr_st.remove_nodes_from(set(gr_st.nodes()) - set(process_order))
+    
+    ### Breadth First Search Spanning Tree
+    ###st, order = breadth_first_search(gr_st, root="root")
+    ##order = list(nx.breadth_first_search.bfs_edges(gr_st, 'root')) #Q: Is there a method like in pygraph for retrieving the order of nodes traversed?
+    ##if not order:
+        ##raise ValueError("No relationship between any nodes - no process order can be defined!")
+    
+    ### reduce edges to node list and assign process order labels to the edges
+    ### Note: this will skip last node (as it doesn't have an edge), which should 
+    ### always be 'root' - this is desirable!
+    ##node_order = []
+    ##for n, edge in enumerate(reversed(order)):
+        ##node_order.append(edge[1]) #Q: is there a neater way to get the nodes?
+        ##gr_all.edge[edge[0]][edge[1]]['label'] = n
+        ##gr_st.edge[edge[0]][edge[1]]['label'] = n
+    for n, node in enumerate(process_order):
+        gr_all.node[node]['label'] = n
+        
+    gr_st = gr_all.copy() 
     gr_st.remove_nodes_from(set(gr_st.nodes()) - set(process_order))
     
-    # Breadth First Search Spanning Tree
-    #st, order = breadth_first_search(gr_st, root="root")
-    order = list(nx.breadth_first_search.bfs_edges(gr_st, 'root')) #Q: Is there a method like in pygraph for retrieving the order of nodes traversed?
-    if not order:
-        raise ValueError("No relationship between any nodes - no process order can be defined!")
-    
-    # reduce edges to node list and assign process order labels to the edges
-    # Note: this will skip last node (as it doesn't have an edge), which should 
-    # always be 'root' - this is desirable!
-    node_order = []
-    for n, edge in enumerate(reversed(order)):
-        node_order.append(edge[1]) #Q: is there a neater way to get the nodes?
-        gr_all.edge[edge[0]][edge[1]]['label'] = n
-        gr_st.edge[edge[0]][edge[1]]['label'] = n
-    
-    logging.debug("Node processing order: %s", node_order)
+    ##logging.debug("Node processing order: %s", node_order)
         
-    return gr_all, gr_st, node_order 
+    ##return gr_all, gr_st, node_order 
+    return gr_all, gr_st, process_order[:-1] # exclude 'root'
 
 
 def remove_floating_nodes(graph):
@@ -198,7 +247,7 @@ def remove_floating_nodes(graph):
     return graph
      
      
-def dependency_order(node_mgr, draw=True):
+def dependency_order(node_mgr, draw=not_windows):
     """
     Main method for retrieving processing order of nodes.
     

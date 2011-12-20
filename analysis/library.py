@@ -111,7 +111,7 @@ def align(slave, master, interval='Subframe', signaltype='Analogue'):
     r = wm/float(ws)
 
     # Each sample in the master parameter may need different combination parameters
-    for i in range(wm):
+    for i in range(int(wm)):
         bracket=(i/r+delta)
         # Interpolate between the hth and (h+1)th samples of the slave array
         h=int(math.floor(bracket))
@@ -829,3 +829,16 @@ def value_at_time (array, hz, offset, time_index):
                     return low_value
         # In the cases of no mask, or neither sample masked, interpolate.
         return r*high_value + (1-r) * low_value
+
+
+def vstack_params(*params):
+    """
+    Create a multi-dimensional masked array with a dimension per param.
+    
+    :param params: Parameter arguments as required. Allows some None values.
+    :type params: np.ma.array or Parameter object or None
+    :returns: Each parameter stacked onto a new dimension
+    :rtype: np.ma.array
+    :raises: ValueError if all params are None (concatenation of zero-length sequences is impossible)
+    """
+    return np.ma.vstack([getattr(p, 'array', p) for p in params if p is not None])
