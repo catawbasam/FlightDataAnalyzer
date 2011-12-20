@@ -561,10 +561,8 @@ class KeyPointValueNode(FormattedNameNode):
         
 
     # ordered by time (ascending), ordered by value (ascending), 
-    
-    
-    
-    
+
+
 class FlightAttributeNode(Node):
     """
     Can only store a single value per Node, however the value can be any
