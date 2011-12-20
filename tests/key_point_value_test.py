@@ -60,7 +60,8 @@ class TestGlideslopeDeviation1000To150FtMax(unittest.TestCase):
         
 class TestILSFrequencyOnApproach(unittest.TestCase):
     def test_can_operate(self):
-        expected = [('Approach And Landing', 'ILS Frequency')]
+        expected = [('ILS Localizer Established', 
+                     'Approach And Landing Lowest Point', 'ILS Frequency')]
         opts = ILSFrequencyOnApproach.get_operational_combinations()
         self.assertEqual(opts, expected) 
         
@@ -69,10 +70,13 @@ class TestILSFrequencyOnApproach(unittest.TestCase):
         # the final signal only tuned just at the end of the data.
         frq = P('ILS Frequency',np.ma.array([108.5]*6+[114.05]*4))
         frq.array[0:10:2] = np.ma.masked
-        app = [Section('Approach And Landing',slice(2,10,None))]
+        ils = S('ILS Localizer Established', items=[Section('ILS Localizer Established', slice(2, 9, None))])
+        low = KTI('Approach And Landing Lowest Point', 
+                  items=[KeyTimeInstance(index=8, 
+                                         state='Approach And Landing Lowest Point')])
         kpv = ILSFrequencyOnApproach()
-        kpv.derive(app,frq)
-        expected = [KeyPointValue(index=9, value=114.05, 
+        kpv.derive(ils, low, frq)
+        expected = [KeyPointValue(index=2, value=108.5, 
                                   name='ILS Frequency On Approach')]
         self.assertEqual(kpv, expected)
 

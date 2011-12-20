@@ -112,12 +112,30 @@ class TestILSLocalizerEstablished(unittest.TestCase):
         self.assertEqual(opts, expected)
 
     def test_ils_localizer_established_basic(self):
-        aal = [Section('Approach And Landing', slice(2, 8, None))]
-        low = [KeyTimeInstance(index=8, state='Approach And Landing Lowest Point')]
+        aal = S('Approach And Landing', items=[Section('Approach And Landing', slice(2, 9, None))])
+        low = KTI('Approach And Landing Lowest Point', items=[KeyTimeInstance(index=8, state='Approach And Landing Lowest Point')])
         ils = P('ILS Localizer',np.ma.arange(-3,0,0.3))
         establish = ILSLocalizerEstablished()
         establish.derive(aal, low, ils)
         expected = [Section('ILS Localizer Established', slice(2, 10, None))]
+        self.assertEqual(establish, expected)
+
+    def test_ils_localizer_established_not_on_loc_at_minimum(self):
+        aal = S('Approach And Landing', items=[Section('Approach And Landing', slice(2, 9, None))])
+        low = KTI('Approach And Landing Lowest Point', items=[KeyTimeInstance(index=8, state='Approach And Landing Lowest Point')])
+        ils = P('ILS Localizer',np.ma.array([3]*10))
+        establish = ILSLocalizerEstablished()
+        establish.derive(aal, low, ils)
+        expected = []
+        self.assertEqual(establish, expected)
+
+    def test_ils_localizer_established_only_last_segment(self):
+        aal = S('Approach And Landing', items=[Section('Approach And Landing', slice(2, 9, None))])
+        low = KTI('Approach And Landing Lowest Point', items=[KeyTimeInstance(index=8, state='Approach And Landing Lowest Point')])
+        ils = P('ILS Localizer',np.ma.array([0,0,0,1,3,3,2,1,0,0]))
+        establish = ILSLocalizerEstablished()
+        establish.derive(aal, low, ils)
+        expected = [Section('ILS Localizer Established', slice(6, 10, None))]
         self.assertEqual(establish, expected)
 
 

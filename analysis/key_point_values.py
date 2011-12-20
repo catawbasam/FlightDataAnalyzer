@@ -79,30 +79,24 @@ class LongitudeAtLanding(KeyPointValueNode):
 
 class ILSFrequencyOnApproach(KeyPointValueNode):
     """
-    The landing has been found already, including and the flare and a little
-    of the turn off the runway.
+    The period when the aircraft was continuously established on the ILS and
+    descending to the minimum point on the approach is already defined as a
+    flight phase. This KPV just picks up the frequency tuned at that point.
     """
     name='ILS Frequency On Approach' #  Set here to ensure "ILS" in uppercase.
-    def derive(self, approaches=S('Approach And Landing'), ils_frq=P('ILS Frequency')):
-        for approach in approaches:
-            # If the ILS frequencies have been masked outside the valid
-            # range, selecting the second element in the array
-            # flatnotmasked_edges picks the frequency used at the lowest
-            # altitude on the approach.
-            
-            # Shorthand for the ILS frequencies we want to scan
-            ilsf = ils_frq.array[approach.slice]
-            
-            #  Flatnotmasked edges finds the indices to the first [0] and
-            #  last [1] unmasked values. We only want the last one used on
-            #  this approach.
-            last_tuned_index = np.ma.flatnotmasked_edges(ilsf)[1]
+    def derive(self, establishes=S('ILS Localizer Established'),
+              lowest=KTI('Approach And Landing Lowest Point'),
+              ils_frq=P('ILS Frequency')):
+        
+        for established in establishes:
+            # For the final period of operation of the ILS during this
+            # approach, the ILS frequency was:
+            freq=np.ma.median(ils_frq.array[established.slice])
+            # Note median picks the value most commonly recorded, so allows
+            # for some masked values and perhaps one or two rogue values.
 
-            # What was the frequency?
-            freq = ilsf[last_tuned_index]
-            
-            # Make the KPV
-            self.create_kpv(approach.slice.start+last_tuned_index, freq)
+            # Identify the KPV as relating to the start of this ILS approach
+            self.create_kpv(established.slice.start, freq)
 
 
 class HeadingAtLowPointOnApproach(KeyPointValueNode):

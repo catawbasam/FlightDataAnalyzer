@@ -247,6 +247,9 @@ class SectionNode(Node, list):
     def __init__(self, *args, **kwargs):
         """ List of slices where this phase is active. Has a frequency and offset.
         """
+        if 'items' in kwargs:
+            self.extend(kwargs['items'])
+            del kwargs['items']
         # place holder
         super(SectionNode, self).__init__(*args, **kwargs)
 
