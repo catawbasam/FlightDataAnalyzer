@@ -10,21 +10,30 @@ from analysis.node import A, KTI, KPV, FlightAttributeNode, P, S
 class FlightID(FlightAttributeNode):
     "Flight ID if provided via a known input attribute"
     name = 'Flight ID'
-    def derive(self, flight_id=A('Flight ID')):
+    def derive(self, flight_id=A('AFR Flight ID')):
         return flight_id
     
         
 class FlightNumber(FlightAttributeNode):
     "Airline route flight number"
-    def derive(self):
+    def derive(self, num=P('Flight Number??????????')): # must be a different name!
         # e.g. 'DEM23'
         return NotImplemented
     
     
 class Type(FlightAttributeNode):
     "Type of flight flown"
-    def derive(self):
-        'TEST'
+    def derive(self, unknown_dep=P('UNKNOWN')):
+        # options are:
+        COMMERCIAL = 'COMMERCIAL'
+        INCOMPLETE = 'INCOMPLETE'
+        ENGINE_RUN_UP = 'ENGINE_RUN_UP'
+        REJECTED_TAKEOFF = 'REJECTED_TAKEOFF'
+        TEST = 'TEST'
+        TRAINING = 'TRAINING'
+        FERRY = 'FERRY'
+        POSITIONING = 'POSITIONING'
+        LINE_TRAINING = 'LINE_TRAINING'
         return NotImplemented
          
          
@@ -126,7 +135,7 @@ class TakeoffRunway(FlightAttributeNode):
     
 class OffBlocksDatetime(FlightAttributeNode):
     "Datetime when moving away from Gate/Blocks"
-    def derive(self):
+    def derive(self, unknown_dep=P('UNKNOWN')):
         return NotImplemented
     
                 
@@ -136,13 +145,15 @@ class TakeoffDatetime(FlightAttributeNode):
     If no takeoff (incomplete flight / ground run) the start of data will is
     to be used.
     """
-    def derive(self):
+    def derive(self, liftoff=KTI('Liftoff'), start_dt=A('Start Datetime')):
+        takeoff_dt = start_dt + timedelta(seconds=liftoff[0].slice.start)
+        self.set_flight_attr(takeoff_dt)
         return NotImplemented
     
                 
 class TakeoffPilot(FlightAttributeNode):
     "Pilot flying at takeoff, Captain, First Officer or None"
-    def derive(self):
+    def derive(self, unknown_dep=P('UNKNOWN')):
         pilot = None
         assert pilot in ("FIRST_OFFICER", "CAPTAIN", None)
         return NotImplemented
@@ -150,13 +161,13 @@ class TakeoffPilot(FlightAttributeNode):
                 
 class TakeoffGrossWeight(FlightAttributeNode):
     "Aircraft Gross Weight in KG at point of Takeoff"
-    def derive(self):
+    def derive(self, unknown_dep=P('UNKNOWN')):
         return NotImplemented
          
          
 class TakeoffFuel(FlightAttributeNode):
     "Weight of Fuel in KG at point of Takeoff"
-    def derive(self):
+    def derive(self, unknown_dep=P('UNKNOWN')):
         return NotImplemented
 
 
@@ -467,7 +478,7 @@ class LandingRunway(FlightAttributeNode):
     
 class OnBlocksDatetime(FlightAttributeNode):
     "Datetime when moving away from Gate/Blocks"
-    def derive(self):
+    def derive(self, unknown_dep=P('UNKNOWN')):
         return NotImplemented
     
                 
@@ -475,13 +486,13 @@ class LandingDatetime(FlightAttributeNode):
     """ Datetime at landing (final touchdown) or as close to this as possible.
     If no landing (incomplete flight / ground run) store None.
     """
-    def derive(self):
+    def derive(self, unknown_dep=P('UNKNOWN')):
         return NotImplemented
     
                 
 class LandingPilot(FlightAttributeNode):
     "Pilot flying at landing, Captain, First Officer or None"
-    def derive(self):
+    def derive(self, unknown_dep=P('UNKNOWN')):
         pilot = None
         assert pilot in ("FIRST_OFFICER", "CAPTAIN", None)
         return NotImplemented
@@ -489,34 +500,34 @@ class LandingPilot(FlightAttributeNode):
                 
 class LandingGrossWeight(FlightAttributeNode):
     "Aircraft Gross Weight in KG at point of Landing"
-    def derive(self):
+    def derive(self, unknown_dep=P('UNKNOWN')):
         return NotImplemented
          
          
 class LandingFuel(FlightAttributeNode):
     "Weight of Fuel in KG at point of Landing"
-    def derive(self):
+    def derive(self, unknown_dep=P('UNKNOWN')):
         return NotImplemented
     
         
 class V2(FlightAttributeNode):
-    def derive(self):
+    def derive(self, unknown_dep=P('UNKNOWN')):
         return NotImplemented
          
          
 class Vapp(FlightAttributeNode):
-    def derive(self):
+    def derive(self, unknown_dep=P('UNKNOWN')):
         return NotImplemented
          
          
 class Vref(FlightAttributeNode):
-    def derive(self):
+    def derive(self, unknown_dep=P('UNKNOWN')):
         return NotImplemented
          
             
 class Version(FlightAttributeNode):
     "Version of code used for analysis"
-    def derive(self):
+    def derive(self, unknown_dep=P('UNKNOWN')):
         self.set_flight_attr(___version___)
         return NotImplemented
 
@@ -530,7 +541,7 @@ class Duration(FlightAttributeNode):
                 
 class AnalysisDatetime(FlightAttributeNode):
     "Datetime flight was analysed (local datetime)"
-    def derive(self):
+    def derive(self, unknown_dep=P('UNKNOWN')):
         self.set_flight_attr(datetime.now())
         
     

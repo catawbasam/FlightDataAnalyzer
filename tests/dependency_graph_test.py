@@ -4,10 +4,12 @@ except ImportError:
     import unittest
 
 import networkx as nx
+from datetime import datetime
+from analysis.process_flight import get_derived_nodes
 
 from analysis.dependency_graph import (breadth_first_search_all_nodes,
     dependency_order, graph_nodes, process_order)
-from analysis.node import (A, KPV, KTI, Node, NodeManager, Parameter, P, 
+from analysis.node import (A, DerivedParameterNode, KPV, KTI, Node, NodeManager, Parameter, P, 
                            Section, S)
 
 # mock function
@@ -56,23 +58,44 @@ class TestDependencyGraph(unittest.TestCase):
     def tearDown(self):
         pass
     
-    def test_graph_nodes(self):
-        """ Tests a few of the colours
-        """
-        gr = graph_nodes(NodeManager([1, 2], [2], {}))
-        self.assertEqual(len(gr), 3)
-        self.assertEqual(gr.node, 
-                         {1: {'color': 'forestgreen'}, 2: {'color': 'forestgreen'}, 
-                          'root': {'color': 'red'}})
+    def test_graph_nodes_using_sample_tree(self): 
         required_nodes = ['P7', 'P8']
-        mgr = NodeManager(self.lfl_params, required_nodes, self.derived_nodes)
-        gr = graph_nodes(mgr)
+        mgr2 = NodeManager(datetime.now(), self.lfl_params, required_nodes, 
+                           self.derived_nodes, {}, {})
+        gr = graph_nodes(mgr2)
         self.assertEqual(len(gr), 11)
-        
+    
+    def test_graph_nodes_with_duplicate_key_in_lfl_and_derived(self):
+        """ Test that LFL nodes are used in place of Derived where available.
+        Tests a few of the colours
+        """
+        class One(DerivedParameterNode):
+            def derive(self, dep=P('DepOne')):
+                pass
+        class Four(DerivedParameterNode):
+            def derive(self, dep=P('DepFour')):
+                pass
+        one = One('overridden')
+        four = Four('used')
+        mgr1 = NodeManager(datetime.now(), [1, 2], [2, 4], {1:one, 4:four},{}, {})
+        gr = graph_nodes(mgr1)
+        self.assertEqual(len(gr), 5)
+        # LFL
+        self.assertEqual(gr.edges(1), []) # as it's in LFL, it shouldn't have any edges
+        self.assertEqual(gr.node[1], {'color': 'forestgreen'})
+        # Derived
+        self.assertEqual(gr.edges(4), [(4,'DepFour')])
+        self.assertEqual(gr.node[4], {}) # same as {'color': 'black'}!
+        # Root
+        from analysis.dependency_graph import draw_graph
+        draw_graph(gr, 'test_graph_nodes_with_duplicate_key_in_lfl_and_derived')
+        self.assertEqual(gr.successors('root'), [2,4]) # only the two requested are linked
+        self.assertEqual(gr.node['root'], {'color': 'red'})
         
     def test_dependency(self):
         required_nodes = ['P7', 'P8']
-        mgr = NodeManager(self.lfl_params, required_nodes, self.derived_nodes)
+        mgr = NodeManager(datetime.now(), self.lfl_params, required_nodes, 
+                          self.derived_nodes, {}, {})
         gr = graph_nodes(mgr)
         gr_all, gr_st, order = process_order(gr, mgr)
         
@@ -82,15 +105,66 @@ class TestDependencyGraph(unittest.TestCase):
         self.assertTrue(pos('P7') > pos('P4'))
         self.assertTrue(pos('P7') > pos('P5'))
         self.assertTrue(pos('P7') > pos('P6'))
-        self.assertTrue(pos('P5') > pos('Raw3'))
         self.assertTrue(pos('P6') > pos('Raw3'))
+        self.assertTrue(pos('P5') > pos('Raw3'))
+        self.assertTrue(pos('P5') > pos('Raw4'))
+        self.assertTrue(pos('P4') > pos('Raw1'))
+        self.assertTrue(pos('P4') > pos('Raw2'))
         self.assertFalse('root' in order) #don't include the root!
         
+        """
+# Sample demonstrating which nodes have predecessors, successors and so on:
+for node in node_mgr.keys():
+    print 'Node: %s \tPre: %s \tSucc: %s \tNeighbors: %s \tEdges: %s' % (node, gr_all.predecessors(node), gr_all.successors(node), gr_all.neighbors(node), gr_all.edges(node))
+
+Node: P4 	Pre: ['P7'] 	Succ: ['Raw2', 'Raw1'] 	Neighbors: ['Raw2', 'Raw1'] 	Edges: [('P4', 'Raw2'), ('P4', 'Raw1')]
+Node: P5 	Pre: ['P7'] 	Succ: ['Raw3', 'Raw4'] 	Neighbors: ['Raw3', 'Raw4'] 	Edges: [('P5', 'Raw3'), ('P5', 'Raw4')]
+Node: P6 	Pre: ['P7'] 	Succ: ['Raw3'] 	Neighbors: ['Raw3'] 	Edges: [('P6', 'Raw3')]
+Node: P7 	Pre: [] 	Succ: ['P6', 'P4', 'P5'] 	Neighbors: ['P6', 'P4', 'P5'] 	Edges: [('P7', 'P6'), ('P7', 'P4'), ('P7', 'P5')]
+Node: P8 	Pre: [] 	Succ: ['Raw5'] 	Neighbors: ['Raw5'] 	Edges: [('P8', 'Raw5')]
+Node: Raw1 	Pre: ['P4'] 	Succ: [] 	Neighbors: [] 	Edges: []
+Node: Raw2 	Pre: ['P4'] 	Succ: [] 	Neighbors: [] 	Edges: []
+Node: Raw3 	Pre: ['P6', 'P5'] 	Succ: [] 	Neighbors: [] 	Edges: []
+Node: Raw4 	Pre: ['P5'] 	Succ: [] 	Neighbors: [] 	Edges: []
+Node: Raw5 	Pre: ['P8'] 	Succ: [] 	Neighbors: [] 	Edges: []
+Node: Start Datetime 	Pre: [] 	Succ: [] 	Neighbors: [] 	Edges: []
+"""
+
+        
+    def test_dependency_with_lowlevel_dependencies_requested(self):
+        """ Simulate requesting a Raw Parameter as a dependency. This requires
+        the requested node to be removed when it is not at the top of the
+        dependency tree.
+        """
+        required_nodes = ['P7', 'P8', # top level nodes
+                          'P4', 'P5', 'P6', # middle level node
+                          'Raw3', # bottom level node
+                          ]
+        mgr = NodeManager(datetime.now(), self.lfl_params + ['Floating'], required_nodes, 
+                          self.derived_nodes, {}, {})
+        gr = graph_nodes(mgr)
+        gr_all, gr_st, order = process_order(gr, mgr)
+        
+        self.assertEqual(len(gr_st), 11)
+        pos = order.index
+        self.assertTrue(pos('P8') > pos('Raw5'))
+        self.assertTrue(pos('P7') > pos('P4'))
+        self.assertTrue(pos('P7') > pos('P5'))
+        self.assertTrue(pos('P7') > pos('P6'))
+        self.assertTrue(pos('P6') > pos('Raw3'))
+        self.assertTrue(pos('P5') > pos('Raw3'))
+        self.assertTrue(pos('P5') > pos('Raw4'))
+        self.assertTrue(pos('P4') > pos('Raw1'))
+        self.assertTrue(pos('P4') > pos('Raw2'))
+        self.assertFalse('Floating' in order)
+        self.assertFalse('root' in order) #don't include the root!
+
+
     def test_sample_parameter_module(self):
         """Tests many options:
         can_operate on SmoothedTrack works with 
         """
-        module = 'tests.sample_derived_parameters'
+        
         required_nodes = ['Smoothed Track', 'Moment Of Takeoff', 'Vertical Speed', 'Slip On Runway']
         lfl_params = ['Indicated Airspeed', 
               'Groundspeed', 
@@ -100,7 +174,10 @@ class TestDependencyGraph(unittest.TestCase):
               'Longitudinal g', 'Lateral g', 'Normal g', 
               'Pitch', 'Roll', 
               ]
-        nodes, order = dependency_order(lfl_params, required_nodes, [module])
+        
+        derived = get_derived_nodes(['sample_derived_parameters'])
+        nodes = NodeManager(datetime.now(), lfl_params, required_nodes, derived, {}, {})
+        order = dependency_order(nodes)
         pos = order.index
         #print nodes
         self.assertTrue(pos('Vertical Speed') > pos('Pressure Altitude'))
@@ -116,12 +193,15 @@ class TestDependencyGraph(unittest.TestCase):
         
         
     def test_invalid_requirement_raises(self):
-        module = 'tests.sample_derived_parameters'
         lfl_params = []
         required_nodes = ['Smoothed Track', 'Moment of Takeoff'] #it's called Moment Of Takeoff
-        self.assertRaises(ValueError, dependency_order, lfl_params, required_nodes, [module])
+        derived_nodes = get_derived_nodes(['sample_derived_parameters'])
+        mgr = NodeManager(datetime.now(), lfl_params, required_nodes, 
+                    derived_nodes, {}, {})
+        self.assertRaises(ValueError, dependency_order, mgr, draw=False)
         
         
+    @unittest.skip('Not required')
     def test_kpv_dependency(self):
         #TODO?: Handle dependencies on one of the returns values!!
         

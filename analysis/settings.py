@@ -61,7 +61,7 @@ HYSTERESIS_FPALT = 200 # ft
 # Threshold for flight phase radio altitude hysteresis.
 HYSTERESIS_FP_RAD_ALT = 5 # ft
 
-# Threshold for flight phase altitude hysteresis specifically for deparating 
+# Threshold for flight phase altitude hysteresis specifically for separating 
 # Climb Cruise Descent phases.
 HYSTERESIS_FPALT_CCD = 2500 # ft
 
@@ -70,8 +70,14 @@ HYSTERESIS_FPALT_CCD = 2500 # ft
 # phase if the aircraft is climbing/descending close to a threshold level.
 HYSTERESIS_FPROC = 100 # fpm
 
+# Full scale reading on the ILS
+ILS_MAX_SCALE = 2.5 # dots
+
 # Threshold for start of initial climb phase
 INITIAL_CLIMB_THRESHOLD = 35 # ft (Radio, where available)
+
+# Conversion from knots to ft/sec (used in airspeed rate of change)
+KTS_TO_FPS = 1.68781 # ft/sec
 
 # Threshold for start of braking / reverse thrust on landing.
 LANDING_ACCELERATION_THRESHOLD = -0.2 # g

@@ -57,14 +57,14 @@ class BottomOfDescent(KeyTimeInstanceNode):
             self.create_kti(kti + this_dlc.slice.start, 'Bottom Of Descent')
         
            
-class ApproachAndLandingLowest(KeyTimeInstanceNode):
+class ApproachAndLandingLowestPoint(KeyTimeInstanceNode):
     def derive(self, app_lands=S('Approach And Landing'),
                alt_std=P('Altitude STD')):
         # In the case of descents without landing, this finds the minimum
         # point of the dip.
         for app_land in app_lands:
             kti = np.ma.argmin(alt_std.array[app_land.slice])
-            self.create_kti(kti + app_land.slice.start, 'Approach And Landing Lowest')
+            self.create_kti(kti + app_land.slice.start, 'Approach And Landing Lowest Point')
     
 
 class ClimbStart(KeyTimeInstanceNode):
@@ -76,52 +76,62 @@ class ClimbStart(KeyTimeInstanceNode):
 
 
 class GoAround(KeyTimeInstanceNode):
+    """
+    In POLARIS we define a Go-Around as any descent below 3000ft followed by
+    an increase of 500ft. This wide definition will identify more events than
+    a tighter definition, however experience tells us that it is worth
+    checking all these cases. For example, we have identified attemnpts to
+    land on roads or at the wrong airport, EGPWS database errors etc from
+    checking these cases.
+    """
+    
+    # List the minimum acceptable parameters here
+    @classmethod
+    def can_operate(cls, available):
+        # List the minimum required parameters. If 'Altitude Radio For Flight
+        # Phases' is available, that's a bonus and we will use it, but it is
+        # not required.
+        if 'Altitude AAL For Flight Phases' in available \
+           and 'Approach And Landing' in available \
+           and 'Climb For Flight Phases' in available:
+            return True
+        else:
+            return False
+        
+    # List the optimal parameter set here
     def derive(self, alt_AAL=P('Altitude AAL For Flight Phases'),
                alt_rad=P('Altitude Radio For Flight Phases'),
-               fast=S('Fast'),
+               approaches=S('Approach And Landing'),
                climb=P('Climb For Flight Phases')):
-        for sect in fast:
-            flt = sect.slice
-            '''
-            app = np.ma.masked_where(np.ma.logical_or
-                                     (np.ma.minimum(alt_AAL.array[flt],alt_rad.array[flt])>3000,
-                                     climb.array[flt]>500), alt_AAL.array[flt])
-            phases = np.ma.clump_unmasked(app[flt])
-            for phase in phases:
-                begin = phase.start
-                end = phase.stop
-                # Pit is the location of the pressure altitude minimum.
-                pit = np.ma.argmin(app[flt][phase])
-                # If this is at the start of the data, we are climbing 
-                # through this height band. If it is at the end we may have
-                # truncated data and we're only really interested in cases
-                # where the data follows on from the go-around.
-                if (0 != pit != end-begin-1):
-                    self.create_kti(flt.start+begin+pit, 'Go Around')
-                    '''
-            app = np.ma.masked_where(np.ma.minimum(alt_AAL.array[flt],alt_rad.array[flt])>3000,
-                                     alt_AAL.array[flt])
-            phases = np.ma.clump_unmasked(app[flt])
-            for phase in phases:
-                begin = phase.start
-                end = phase.stop
-                # Pit is the location of the pressure altitude minimum.
-                pit_index = np.ma.argmin(app[flt][phase])
-                # If this is at the start of the data, we are climbing 
-                # through this height band.
-                if pit_index == 0:
-                    continue
-                # If it is at the end the data is probably truncated, or we 
-                # may have landed.
-                if pit_index == end-begin-1:
-                    continue
-                # Quick check that the pit was at the bottom of a descent.
-                check_height = climb.array[flt][phase][pit_index]
-                # OK. We were descending, and we have gone up after the pit was
-                # reached. How far did we climb?
-                peak = np.ma.maximum(climb.array[flt][phase][pit_index:])
-                if peak>500:
-                    self.create_kti(flt.start+begin+pit_index, 'Go Around')
+        for app in approaches:
+            if np.ma.maximum(climb.array[app.slice]) > 500:
+                # We must have been in an approach phase, then climbed at
+                # least 500ft. Mark the lowest point.
+                if alt_rad:
+                    pit_index = np.ma.argmin(alt_rad.array[app.slice])
+                else:
+                    # In case this aircraft has no rad alt fitted
+                    pit_index = np.ma.argmin(alt_AAL.array[app.slice])
+                self.create_kti(app.slice.start+pit_index, 'Go Around')
+
+
+class LandingPeakDeceleration(KeyTimeInstanceNode):
+    """
+    The landing has been found already, including and the flare and a little
+    of the turn off the runway. Here we find the point of maximum
+    deceleration, as this should lie between the touchdown when the aircraft
+    may be drifting and the turnoff which could be at high speed, but should
+    be at a gentler deceleration. This is used to identify the heading and
+    location of the landing, as these will be more stable at peak
+    deceleration than at the actual point of touchdown where the aircraft may
+    still be have drift on.
+    """
+    def derive(self, landings=S('Landing'), head=P('Heading Continuous'), 
+               accel=P('Acceleration Forwards For Flight Phases')):
+        for land in landings:
+            peak_decel_index = np.ma.argmin(accel.array[land.slice])
+            peak_decel_index += land.slice.start
+            self.create_kti(peak_decel_index, 'Landing Peak Deceleration')
 
 
 class TopOfClimb(KeyTimeInstanceNode):

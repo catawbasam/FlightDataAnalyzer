@@ -17,7 +17,8 @@ from analysis.library import (align, calculate_timebase, create_phase_inside,
                               hysteresis, interleave, is_index_within_slice,
                               is_slice_within_slice, merge_alternate_sensors,
                               rate_of_change, repair_mask, straighten_headings,
-                              time_at_value, time_at_value_wrapped, value_at_time)
+                              time_at_value, time_at_value_wrapped, value_at_time,
+                              InvalidDatetime)
 
 from analysis.node import A, KPV, KTI, Parameter, P, S, Section
 
@@ -301,7 +302,7 @@ class TestAlign(unittest.TestCase):
         ma_test.assert_masked_array_approx_equal(result, answer)
         
 
-class TestClock(unittest.TestCase):
+class TestCalculateTimebase(unittest.TestCase):
     def test_calculate_timebase(self):
         # 6th second is the first valid datetime(2020,12,25,23,59,0)
         years = [None] * 6 + [2020] * 19  # 6 sec offset
@@ -315,7 +316,45 @@ class TestClock(unittest.TestCase):
         #>>> datetime(2020,12,25,00,01,19) - timedelta(seconds=25)
         #datetime.datetime(2020, 12, 25, 0, 0, 50)
         self.assertEqual(start_dt, datetime(2020, 12, 25, 0, 0, 54))
-            
+        
+    def test_no_valid_datetimes_raises_valueerror(self):
+        years = [None] * 20
+        months = [None] * 20
+        days = [None] * 4 + [24] * 5 + [25] * 16
+        hours = [None] * 3 + [23] * 7 + [00] * 15
+        mins = [None] * 2 + [59] * 10 + [01] * 13
+        secs = [None] * 1 + range(55, 60) + range(19)  # 6th second in next hr
+        self.assertRaises(InvalidDatetime, calculate_timebase, years, months, days, hours, mins, secs)
+        
+        
+    def test_uneven_length_arrays(self):
+        "Tests that the uneven drabs at the end are ignored"
+        # You should always pass in complete arrays at the moment!
+        years = [None] * 1 + [2020] * 10  # uneven
+        months = [None] * 5 + [12] * 20
+        days = [None] * 4 + [24] * 5 + [25] * 16
+        hours = [None] * 3 + [23] * 7 + [00] * 1 # uneven
+        mins = [None] * 2 + [59] * 10 + [01] * 13
+        secs = [None] * 1 + range(55, 60) + range(19)
+        start_dt = calculate_timebase(years, months, days, hours, mins, secs)
+        self.assertEqual(start_dt, datetime(2020,12,24,23,58,54))
+        
+    def test_no_change_in_dt_picks_it_as_start(self):
+        # also tests using numpy masked arrays
+        years = np.ma.array([2020] * 20)  # 6 sec offset
+        months = np.ma.array([12] * 20)
+        days = np.ma.array([25] * 20)
+        hours = np.ma.array([23] * 20)
+        mins = np.ma.array([0] * 20)
+        secs = np.ma.array([0] * 20) # 6th second in next hr
+        start_dt = calculate_timebase(years, months, days, hours, mins, secs)
+        self.assertEqual(start_dt, datetime(2020,12,25,23,0,0))
+        
+    @unittest.skip("Implement if this is a requirement")
+    def test_using_offset_for_seconds(self):
+        # check offset milliseconds are applied to the timestamps
+        self.assertFalse(True)
+        
 
 class TestDuration(unittest.TestCase):
     def setUp(self):

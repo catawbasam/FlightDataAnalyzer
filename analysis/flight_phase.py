@@ -1,5 +1,6 @@
 import logging
 import numpy as np
+
 from analysis.library import repair_mask, time_at_value
 from analysis.node import A, Attribute, FlightPhaseNode, KeyTimeInstance, P, S, KTI
 from analysis.settings import (AIRSPEED_THRESHOLD,
@@ -7,6 +8,7 @@ from analysis.settings import (AIRSPEED_THRESHOLD,
                                HEADING_TURN_OFF_RUNWAY,
                                HEADING_TURN_ONTO_RUNWAY,
                                HYSTERESIS_FP_RAD_ALT,
+                               ILS_MAX_SCALE,
                                INITIAL_CLIMB_THRESHOLD,
                                LANDING_THRESHOLD_HEIGHT,
                                RATE_OF_CLIMB_FOR_CLIMB_PHASE,
@@ -15,48 +17,39 @@ from analysis.settings import (AIRSPEED_THRESHOLD,
                                RATE_OF_TURN_FOR_FLIGHT_PHASES,
                                )
 
-'''
-class Airborne(FlightPhaseNode):
-    dependencies = ['altitude_std_smoothed', 'takeoff_end', 'landing_start']
-    returns = ['Airborne']
-    
-    def derive(self, altitude_std_smoothed, takeoff_end, landing_start): # TODO: New argument format, what are the Parameter names?
-        # Create a simple "Airborne" mask that covers the period between the takeoff and landing phases.
-        # We assign it to altitude_std as this makes it easy to plot and check, although it is the mask that is really useful.
-        ##airborne_phase = create_phase_inside(altitude_std_smoothed, kpt['TakeoffEndEstimate'], kpt['LandingStartEstimate'])
-        airborne_phase = create_phase_inside(altitude_std_smoothed, takeoff_end, landing_start)
-        self.create_phase(airborne_phase)
-'''
 
+def shift_slices(slicelist,offset):
+    """
+    This function shifts a list of slices by offset. The need for this arises
+    when a phase condition has been used to limit the scope of another phase
+    calculation.
+    """
+    newlist = []
+    for each_slice in slicelist:
+        a = each_slice.start + offset
+        b = each_slice.stop + offset
+        newlist.append(slice(a,b))
+    return newlist
+    
+    
 class Airborne(FlightPhaseNode):
-    def derive(self, roc=P('Rate Of Climb')):
+    def derive(self, roc=P('Rate Of Climb'), airs=P('Fast')):
         # Rate of climb limit set to identify both level flight and 
         # end of takeoff / start of landing.
-        level_flight = np.ma.masked_inside(roc.array, 
-                                           -RATE_OF_CLIMB_FOR_LEVEL_FLIGHT,
-                                           RATE_OF_CLIMB_FOR_LEVEL_FLIGHT)
-        try:
-            a,b = np.ma.flatnotmasked_edges(level_flight)
-            self.create_phases([slice(a,b,None)])
-        except:
-            pass # Just don't create a phase if none exists.
+        for air in airs:
+            not_level_flight = np.ma.masked_inside(roc.array[air.slice], 
+                                               -RATE_OF_CLIMB_FOR_LEVEL_FLIGHT,
+                                               RATE_OF_CLIMB_FOR_LEVEL_FLIGHT)
+            in_air = np.ma.flatnotmasked_edges(not_level_flight)
+            in_air_slice = [slice(in_air[0],in_air[1])]
+            self.create_phases(shift_slices(in_air_slice, air.slice.start))
+            
+            #try:
+                #a,b = np.ma.flatnotmasked_edges(shift_slices(level_flight, air.slice.start))
+                #self.create_phases([slice(a,b,None)])
+            #except:
+                #pass # Just don't create a phase if none exists.
         
-
-class InitialApproach(FlightPhaseNode):
-    def derive(self, alt_AAL=P('Altitude AAL For Flight Phases'),
-               app_lands=S('Approach And Landing')):
-        for app_land in app_lands:
-            # We already know this section is below the start of the initial
-            # approach phase so we only need to stop at the transition to the
-            # final approach phase.
-            ini_app = np.ma.masked_where(alt_AAL.array[app_land.slice]<1000,alt_AAL.array)
-            phases = np.ma.clump_unmasked(ini_app)
-            for phase in phases:
-                begin = phase.start
-                pit = np.ma.argmin(ini_app[phase])
-                if pit != 0 :
-                    self.create_phase(slice(begin, begin+pit))
-
 
 class ApproachAndLanding(FlightPhaseNode):
     """
@@ -65,24 +58,70 @@ class ApproachAndLanding(FlightPhaseNode):
     successful landings.
     
     Each Approach And Landing is associated with an airfield and a runway
-    where possible. These are identified using:
+    where possible. 
     
-    1. the heading on the runway (only if the aircraft lands)
-    
-    2. the ILS frequency (only if the ILS is tuned and localizer data is valid)
-    
-    3. the aircraft position at the lowest point of approach
+    The airfield is identified thus:
+
+    if the aircraft lands:
+        the airfield closest to the position recorded at maximum deceleration on
+        the runway (i.e. LandingLatitude, LandingLongitude KPVs)
+    else:
+        the airfield closest to the aircraft position at the lowest point of 
+        approach (i.e. ApproachMinimumLongitude, ApproachMinimumLatitude KPVs)
+
+    The runway is identified thus:
+
+    if the aircraft lands:
+        identify using the runway bearing recorded at maximum deceleration
+        (i.e. the LandingHeading KPV)
+        
+        if there are parallel runways:
+            if the ILS is tuned and localizer data is valid:
+                use the ApproachILSFrequency KPV to identify the runway
+
+            elseif accurate position data is available:
+                use the position (LandingLatitude, LandingLongitude)
+                recorded at maximum deceleration to identify the runway
+
+            else:
+                use "*" to declare the runway not identified.
+                
+    else if the aircraft reaches the final approach phase:
+        identify the runway bearing from the heading at lowest point of the 
+        approach (ApproachMinimumHeading)
+
+        if there are parallel runways:
+            if the ILS is tuned and localizer data is valid:
+                use ApproachILSFrequency to identify the runway
+            else:
+                use "*" to declare the runway not identified.
     """
+
+    # List the minimum acceptable parameters here
+    @classmethod
+    def can_operate(cls, available):
+        if 'Altitude AAL For Flight Phases' in available:
+            return True
+        else:
+            return False
+        
+    # List the optimal parameter set here
     def derive(self, alt_AAL=P('Altitude AAL For Flight Phases'),
                alt_rad=P('Altitude Radio For Flight Phases')):
-        app = np.ma.masked_where(np.ma.minimum(alt_AAL.array,alt_rad.array)
+        if alt_rad:
+            # Start the phase if we pass over high ground, so the radio
+            # altitude falls below 3000ft before the pressure altitude
+            app = np.ma.masked_where(np.ma.minimum(alt_AAL.array,alt_rad.array)
                                  >3000,alt_AAL.array)
+        else:
+            # Just use airfield elevation clearance
+            app = np.ma.masked_where(alt_AAL.array>3000,alt_AAL.array)
         phases = np.ma.clump_unmasked(app)
         for phase in phases:
             begin = phase.start
-            pit = np.ma.argmin(app[phase])
-            if pit != 0 :
-                self.create_phase(slice(begin, begin+pit))
+            pit = np.ma.argmin(app[phase]) + begin
+            if app[pit] < app[begin] :
+                self.create_phase(phase)
 
 
 class ClimbCruiseDescent(FlightPhaseNode):
@@ -135,11 +174,13 @@ class ClimbFromBottomOfDescent(FlightPhaseNode):
 
         
 class Climbing(FlightPhaseNode):
-    def derive(self, roc=P('Rate Of Climb')):
+    def derive(self, roc=P('Rate Of Climb'), airs=S('Fast')):
         # Climbing is used for data validity checks and to reinforce regimes.
-        climbing = np.ma.masked_less(roc.array, RATE_OF_CLIMB_FOR_CLIMB_PHASE)
-        climbing_slices = np.ma.clump_unmasked(climbing)
-        self.create_phases(climbing_slices)
+        for air in airs:
+            climbing = np.ma.masked_less(roc.array[air.slice],
+                                         RATE_OF_CLIMB_FOR_CLIMB_PHASE)
+            climbing_slices = np.ma.clump_unmasked(climbing)
+            self.create_phases(shift_slices(climbing_slices, air.slice.start))
 
       
 class Cruise(FlightPhaseNode):
@@ -177,23 +218,20 @@ class Cruise(FlightPhaseNode):
 class Descending(FlightPhaseNode):
     """ Descending faster than 800fpm towards the ground
     """
-    def derive(self, roc=P('Rate Of Climb')):
+    def derive(self, roc=P('Rate Of Climb'), airs=P('Fast')):
         # Rate of climb and descent limits of 800fpm gives good distinction
         # with level flight.
-        descending = np.ma.masked_greater(roc.array,
-                                          RATE_OF_CLIMB_FOR_DESCENT_PHASE)
-        desc_slices = np.ma.clump_unmasked(descending)
-        self.create_phases(desc_slices)
+        for air in airs:
+            descending = np.ma.masked_greater(roc.array[air.slice],
+                                              RATE_OF_CLIMB_FOR_DESCENT_PHASE)
+            desc_slices = np.ma.clump_unmasked(descending)
+            self.create_phases(shift_slices(desc_slices, air.slice.start))
 
 
 class Descent(FlightPhaseNode):
     def derive(self, descending=Descending, roc=P('Rate Of Climb')):
         return NotImplemented
 
-
-'''
-class DescentToLanding(FlightPhaseNode):
-'''
 
 class DescentToBottomOfDescent(FlightPhaseNode):
     def derive(self, 
@@ -256,12 +294,47 @@ class FinalApproach(FlightPhaseNode):
             phases = np.ma.clump_unmasked(app)
             for phase in phases:
                 begin = app_land.slice.start + phase.start
-                pit = np.ma.argmin(app[phase])
-                if pit != 0 :
-                    end = app_land.slice.start + begin + pit
-                    self.create_phase(slice(begin, end))
+                pit = np.ma.argmin(app[phase]) + begin
+                if app[pit] < app[begin] :
+                    self.create_phase(slice(begin, pit))
     
-    
+class ILSLocalizerEstablished(FlightPhaseNode):
+    name = 'ILS Localizer Established'
+    """
+    The aircraft is said to be established on the ILS when the pilot has
+    intercepted the localizer. There are various interpretations of
+    "established" in this sense, but we will work backwards from the lowest
+    point to find out the point after which the ILS localizer was
+    continuously displayed. Reminder: 'Approach And Landing' phase is
+    computed fromt he parameter 'Altitude AAL For Flight Phases' which in
+    turn is a subset of the 'Fast' phase which requires the aircraft to be
+    travelling at high speed. Therefore the lowest point is either the bottom
+    of a go-around, touch-and-go or landing.
+    """
+    def derive(self, aals=S('Approach And Landing'),
+               lowest=KTI('Approach And Landing Lowest Point'),
+               ils_loc=P('ILS Localizer')):
+        for aal in aals:
+            # Recover the (already established) minimum point.
+            
+            '''
+            I was expecting to do something like this...
+            
+            low_index=lowest.get_last(within_slice=aal)
+            
+            TODO: replace the following line with something posher.
+            '''
+
+            low_index = lowest[-1].index #  To get the last value in the list.
+
+            # Check the ILS was valid at this point.
+            
+            amplitude = np.ma.abs(ils_loc.array)
+            in_range = np.ma.masked_outside(amplitude,-ILS_MAX_SCALE,ILS_MAX_SCALE)
+            phases = np.ma.clump_unmasked(in_range)
+            self.create_phase(phases[-1])
+
+
 class InitialApproach(FlightPhaseNode):
     def derive(self, alt_AAL=P('Altitude AAL For Flight Phases'),
                app_lands=S('Approach And Landing')):
@@ -274,31 +347,23 @@ class InitialApproach(FlightPhaseNode):
             phases = np.ma.clump_unmasked(ini_app)
             for phase in phases:
                 begin = phase.start
-                pit = np.ma.argmin(ini_app[phase])
-                if pit != 0 :
-                    self.create_phase(slice(begin, begin+pit))
+                pit = np.ma.argmin(ini_app[phase]) + begin
+                if ini_app[pit] < ini_app[begin] :
+                    self.create_phases(shift_slices([slice(begin, pit)],
+                                                   app_land.slice.start))
 
 
 class LevelFlight(FlightPhaseNode):
-    def derive(self, roc=P('Rate Of Climb')):
+    def derive(self, roc=P('Rate Of Climb'),airs=S('Airborne')):
         # Rate of climb limit set to identify both level flight and 
         # end of takeoff / start of landing.
-        level_flight = np.ma.masked_outside(roc.array, 
-                                            -RATE_OF_CLIMB_FOR_LEVEL_FLIGHT,
-                                            RATE_OF_CLIMB_FOR_LEVEL_FLIGHT)
-        level_slices = np.ma.clump_unmasked(level_flight)
-        self.create_phases(level_slices)
-        
-'''
-class LevelFlight(FlightPhaseNode):
-    def derive(self, airspeed=P('Airspeed'),
-               alt_std=P('Altitude Std')):
-        # Rate of climb and descent limits of 800fpm gives good distinction with level flight.
-        level_flight = np.ma.masked_where(
-            np.ma.logical_or(np.ma.abs(RATE_OF_CLIMB_FOR_FLIGHT_PHASES) > 300.0, airspeed < 100.0), altitude_std)
-        level_slices = np.ma.clump_unmasked(level_flight)
-        self.create_phases(level_slices)
-'''        
+        for air in airs:
+            level_flight = np.ma.masked_outside(roc.array[air.slice], 
+                                                -RATE_OF_CLIMB_FOR_LEVEL_FLIGHT,
+                                                RATE_OF_CLIMB_FOR_LEVEL_FLIGHT)
+            level_slices = np.ma.clump_unmasked(level_flight)
+            self.create_phases(shift_slices(level_slices, air.slice.start))
+
 
 class OnGround(FlightPhaseNode):
     def derive(self, airspeed=P('Airspeed')):
@@ -316,7 +381,6 @@ class RejectedTakeoff(FlightPhaseNode):
             # so must be a rejected takeoff.
             self.create_phases(somehow the same as the Fast slice !)
 '''
-
 
     
 class Turning(FlightPhaseNode):
@@ -428,155 +492,7 @@ class Landing(FlightPhaseNode):
 #===============================================================================
             
             
-            
-            """ Commented out to remove syntax error! CJ
-&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&
-
-            # Now find when we go through 35 ft in climbout.
-            for any_toff in end_toff:
-                if end_toff.index this is horrible, trying to find the takeoff we are looking for.
-                
-                Alternatively I compute exactly the same thing as in the KTI again.
-                
-                Either way this is ugly.
-                
-                            
-&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&
-            
-        
-        
-        
-
-    # Record the heading at airspeed_threshold, part way down the runway:
-    head_takeoff = head_mag[kpt['TakeoffStartEstimate']]
-    
-    # Track back to find where the aircraft turned onto the runway
-    '''
-    # Version 1 using Numpy - fails when there is no suitable data to trigger a mask edge.
-    countback,dummy = np.ma.flatnotmasked_edges(
-                      np.ma.masked_where(
-                          np.ma.abs(head_takeoff - head_mag[start_toff:0:-1]) < 15.0,
-                          head_mag[start_toff:0:-1] ))
-    '''
-    
-    # Version 2 using loop - preferred as it deals with lack of turn data.
-    turn_onto_runway = kpt['TakeoffStartEstimate']
-    
-    while abs(head_takeoff - head_mag[turn_onto_runway]) < 15.0:
-        turn_onto_runway -= 1
-        if turn_onto_runway == 0:
-            logging.info ('\Data did not contain turn onto runway')
-            break
-
-    if turn_onto_runway < kpt['TakeoffStartEstimate']: # Only record the runway turnoff if it was recorded.
-        kpt['TakeoffTurnOntoRunway'] = turn_onto_runway # A better indication of the start of the takeoff
-        
-    '''    
-    # Version 3 using new Seek method:
-    seek (self, start, end, value):
-    Not used as it would mean computing a new parameter (abs(heading change)) for little benefit.
-    '''    
-        
-    # Over the takeoff phase, average the stable altimeter readings to get the airport altitude
-    '''
-    First version:
-    altitude_of_takeoff_airfield_a = np.ma.mean(np.ma.masked_where
-                                                (np.ma.abs(rate_of_climb[kpt['TakeoffStartEstimate']:kpt['TakeoffEndEstimate']]) > 100,
-                                                 altitude_std[kpt['TakeoffStartEstimate']:kpt['TakeoffEndEstimate']]))
-    '''
-    
-    '''
-    Second version:
-    #Simpler (and better) computation:
-    takeoff_level_begin = max(kpt['TakeoffStartEstimate']-30,0) # Trap for running out of data
-    takeoff_level_end = kpt['TakeoffStartEstimate']
-    takeoff_level_midpoint = (takeoff_level_begin + takeoff_level_end)/2.0
-    altitude_of_takeoff_airfield = np.ma.mean(altitude_std[takeoff_level_begin:takeoff_level_end])
-    
-    kpv['AltitudeTakeoff'] = [( block.start+takeoff_level_midpoint, 
-                              altitude_of_takeoff_airfield,
-                              altitude_std.param_name)]
-    
-    altitude_aal_takeoff = DerivedParameter('Altitude_AAL_Takeoff', altitude_std)
-    altitude_aal_takeoff.data -= altitude_of_takeoff_airfield
-    '''
-    '''
-    Third version:
-    #TODO:
-    #Overwrite altitude_aal_takeoff.data with radio altitudes below one span rad alt.
-    #Compute smoothed takeoff data and hence point of liftoff
-    '''
-    
-    # Find where we pass through 35ft in climb.
-    kpt['TakeoffEnd'] = altitude_radio.seek(block, kpt['TakeoffStartEstimate'], kpt['TakeoffEndEstimate']+30, TAKEOFF_END_HEIGHT)
-    kpt['TakeoffGroundEffectEnds'] = altitude_radio.seek(block, kpt['TakeoffStartEstimate'], kpt['TakeoffEndEstimate']+30, WINGSPAN)
-    #kpt['InitialClimbEnd'] = altitude_aal_takeoff.seek(block, kpt['TakeoffEnd'], kpt['TopOfClimb'], INITIAL_CLIMB_END_HEIGHT)
-    
-    # Create a Takeoff phase
-    #ph['Takeoff'] = create_phase_inside(altitude_std, kpt['TakeoffTurnOntoRunway'], kpt['TakeoffEnd'])
-    #ph['Initial_Climb'] = create_phase_inside(altitude_std, kpt['TakeoffEnd'], kpt['InitialClimbEnd'])
-    #ph['Climb'] = create_phase_inside(altitude_std, kpt['InitialClimbEnd'], kpt['TopOfClimb'])
-
-    #===========================================================================
-    # LANDING 
-    #===========================================================================
-
-    # Find where we descend through 50ft.
-    kpt['LandingStart'] = altitude_radio.seek(block, kpt['LandingEndEstimate'], kpt['LandingEndEstimate']-30, LANDING_START_HEIGHT)
-    
-    # Record the heading on the runway
-    head_landing = head_mag[kpt['LandingEndEstimate']]
-    
-    
-    # Track on to find where the aircraft turned off the runway
-    turn_off_runway = kpt['LandingEndEstimate']
-    while abs(head_mag[turn_off_runway] - head_landing) < 15.0:
-        turn_off_runway += 1
-        if turn_off_runway == block.stop - block.start:
-            logging.info ('\Data did not contain turn off of runway')
-            break
-        
-    if block.start + turn_off_runway < block.stop: # Only record the runway turnoff if it was recorded.
-        kpt['LandingTurnOffRunway'] = turn_off_runway # A better indication of the end of the landing process.
-        
-    '''
-    # Compute the landing runway altitude:
-    landing_level_begin = kpt['LandingEndEstimate'] # Retain the estimate, as this is passing through 80kts
-    landing_level_end = min(kpt['LandingEndEstimate']+30, len(altitude_std.data)) # Trap for running out of data
-    landing_level_midpoint = (landing_level_begin + landing_level_end)/2.0
-    altitude_of_landing_airfield = np.ma.mean(altitude_std[landing_level_begin:landing_level_end])
-    
-    kpv['AltitudeLanding'] = [( block.start+landing_level_midpoint, 
-                              altitude_of_landing_airfield,
-                              altitude_std.param_name)]
-    
-    altitude_aal_landing = DerivedParameter('Altitude_AAL_Landing', altitude_std)
-    altitude_aal_landing.data -= altitude_of_landing_airfield
-    
-    #TODO:
-    #Overwrite altitude_aal_takeoff.data with radio altitudes below one span rad alt.
-    #Compute smoothed takeoff data and hence point of liftoff
-    '''
-
-    
-    # Calculate the approach phase transition points
-    # Computed backwards from landing to make sure we get the latter moments in case of unstable approaches.
-    #kpt['ApproachStart'] = altitude_aal_landing.seek(block, kpt['LandingStart'], kpt['TopOfDescent'], APPROACH_START_HEIGHT)
-    #kpt['FinalApproachStart'] = altitude_aal_landing.seek(block, kpt['LandingStart'], kpt['ApproachStart'], FINAL_APPROACH_START_HEIGHT)
-    #kpt['LandingGroundEffectBegins'] = altitude_radio.seek(block, kpt['LandingEndEstimate'], kpt['FinalApproachStart'], WINGSPAN)
-    kpt['LandingGroundEffectBegins'] = altitude_radio.seek(block, kpt['LandingEndEstimate'], kpt['LandingEndEstimate']-60, WINGSPAN)
-    
-    #ph['Descent'] = create_phase_inside(altitude_std, kpt['TopOfDescent'], kpt['ApproachStart'])
-    #ph['Approach'] = create_phase_inside(altitude_std, kpt['ApproachStart'], kpt['FinalApproachStart'])
-    #ph['FinalApproach'] = create_phase_inside(altitude_std, kpt['FinalApproachStart'], kpt['LandingStart'])
-
-    # Create the Landing phase, and Ground (outside takeoff and landing scopes)
-    ph['Landing'] = create_phase_inside(altitude_std, kpt['LandingStart'], kpt['LandingTurnOffRunway'])
-    ph['Ground'] = create_phase_outside(altitude_std, kpt['TakeoffTurnOntoRunway'], kpt['LandingTurnOffRunway'])
-        
-
-
-
+"""
 Reminder about how to load test data.....
 
 
@@ -600,6 +516,5 @@ ias[100:110]
 array([ 55.26800949,  55.26800949,  55.42561622,  55.11040358,
         55.26800949,  55.26800949,  55.26800949,  55.26800949,
         55.42561622,  55.42561622])
-
 
 """

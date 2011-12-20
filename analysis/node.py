@@ -15,9 +15,8 @@ from analysis.library import align, is_index_within_slice
 from analysis.recordtype import recordtype
 
 # Define named tuples for KPV and KTI and FlightPhase
-KeyPointValue = recordtype('KeyPointValue', 'index value name')
-KeyTimeInstance = recordtype('KeyTimeInstance', 'index name')
-GeoKeyTimeInstance = namedtuple('GeoKeyTimeInstance', 'index name latitude longitude')
+KeyPointValue = recordtype('KeyPointValue', 'index value name datetime', default=None)
+KeyTimeInstance = recordtype('KeyTimeInstance', 'index state latitude longitude', default=None)
 Section = namedtuple('Section', 'name slice') #Q: rename mask -> slice/section
 
 # Ref: django/db/models/options.py:20
@@ -165,17 +164,19 @@ class Node(object):
         :type args: list
         """
         if self.align_to_first_dependency:
-            first_param = next((a for a in args if a is not None))
-            aligned_params = []
-            for param in args[args.index(first_param) + 1:]:
-                if param:
-                    param = param.get_aligned(first_param)
-                aligned_params.append(param)
-            args = aligned_params
+            i, first_param = next(((n, a) for n, a in enumerate(args) if a is not None))
+            for n, param in enumerate(args):
+                # if param is set and it's after the first dependency
+                if param and n > i:
+                    # override argument in list in-place
+                    args[n] = param.get_aligned(first_param)
         res = self.derive(*args)
         if res is NotImplemented:
             raise NotImplementedError("Class '%s' derive method is not implemented." % \
                                       self.__class__.__name__)
+        elif res:
+            raise UserWarning("Class '%s' should not have returned anything. Got: %s" % (
+                self.__class__.__name__, res))
         return self
         
     # removed abstract wrapper to allow initialisation within def derive(KTI('a'))
@@ -591,16 +592,19 @@ class NodeManager(object):
             len(self.lfl) + len(self.requested) + len(self.derived_nodes) + 
             len(self.aircraft_info) + len(self.achieved_flight_record))
     
-    def __init__(self, lfl, requested, derived_nodes, aircraft_info, achieved_flight_record):
+    def __init__(self, start_datetime, lfl, requested, derived_nodes, aircraft_info, achieved_flight_record):
         """
         Storage of parameter keys and access to derived nodes.
         
+        :param start_datetime: datetime of start of data file
+        :type start_datetime: datetime
         :type lfl: list
         :type requested: list
         :type derived_nodes: dict
         :type aircraft_info: dict
         :type achieved_flight_record: dict
         """
+        self.start_datetime = start_datetime
         self.lfl = lfl
         self.requested = requested
         self.derived_nodes = derived_nodes
@@ -612,7 +616,8 @@ class NodeManager(object):
         """
         Ordered list of all Node names stored within the manager.
         """
-        return sorted(self.lfl \
+        return sorted(['Start Datetime'] \
+                      + self.lfl \
                       + self.derived_nodes.keys() \
                       + self.aircraft_info.keys() \
                       + self.achieved_flight_record.keys())
@@ -629,6 +634,8 @@ class NodeManager(object):
         :returns: Attribute if available.
         :rtype: Attribute object or None
         """
+        if name == 'Start Datetime':
+            return Attribute(name, value=self.start_datetime)
         if self.aircraft_info.get(name):
             return Attribute(name, value=self.aircraft_info[name])
         elif self.achieved_flight_record.get(name):
