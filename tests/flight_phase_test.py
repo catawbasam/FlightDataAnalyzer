@@ -1,7 +1,7 @@
 import unittest
 import numpy as np
 
-from analysis.node import A, KPV, KTI, Parameter, P, Section, S
+from analysis.node import A, KPV, KTI, KeyTimeInstance, Parameter, P, Section, S
 
 from analysis.key_time_instances import (BottomOfDescent,
                                          TopOfClimb, 
@@ -19,6 +19,7 @@ from analysis.flight_phase import (Airborne,
                                    DescentToBottomOfDescent,
                                    Fast,
                                    FinalApproach,
+                                   ILSLocalizerEstablished,
                                    InitialApproach,
                                    Landing,
                                    LevelFlight,
@@ -58,7 +59,8 @@ class TestAirborne(unittest.TestCase):
 
 class TestApproachAndLanding(unittest.TestCase):
     def test_can_operate(self):
-        expected = [('Altitude AAL For Flight Phases',
+        expected = [('Altitude AAL For Flight Phases',),
+                    ('Altitude AAL For Flight Phases',
                      'Altitude Radio For Flight Phases')]
         opts = ApproachAndLanding.get_operational_combinations()
         self.assertEqual(opts, expected)
@@ -69,7 +71,16 @@ class TestApproachAndLanding(unittest.TestCase):
         # Pretend we are flying over flat ground, so the altitudes are equal.
         app.derive(Parameter('Altitude AAL For Flight Phases',alt),
                    Parameter('Altitude Radio For Flight Phases',alt))
-        expected = [Section(name='Approach And Landing', slice=slice(4, 9, None))]
+        expected = [Section(name='Approach And Landing', slice=slice(4, 14, None))]
+        self.assertEqual(app, expected)
+
+    def test_approach_and_landing_phase_no_ralt(self):
+        alt = np.ma.array(range(5000,500,-500)+range(500,3000,500))
+        alt_param = Parameter('Altitude AAL For Flight Phases',alt)
+        app = ApproachAndLanding()
+        # Pretend we are flying over flat ground, so the altitudes are equal.
+        app.derive(alt_param, None)
+        expected = [Section(name='Approach And Landing', slice=slice(4, 14, None))]
         self.assertEqual(app, expected)
 
     def test_initial_approach_phase_over_high_ground(self):
@@ -79,7 +90,7 @@ class TestApproachAndLanding(unittest.TestCase):
         app = ApproachAndLanding()
         app.derive(Parameter('Altitude AAL For Flight Phases',alt_aal),
                    Parameter('Altitude Radio For Flight Phases',alt_rad))
-        expected = [Section(name='Approach And Landing', slice=slice(9, 15, None))]
+        expected = [Section(name='Approach And Landing', slice=slice(9, 16, None))]
         self.assertEqual(app, expected)
 
     def test_initial_approach_phase_with_go_around(self):
@@ -88,8 +99,26 @@ class TestApproachAndLanding(unittest.TestCase):
         # Pretend we are flying over flat ground, so the altitudes are equal.
         app.derive(Parameter('Altitude AAL For Flight Phases',alt),
                    Parameter('Altitude Radio For Flight Phases',alt))
-        expected = [Section(name='Approach And Landing', slice=slice(2, 4, None))]
+        expected = [Section(name='Approach And Landing', slice=slice(2, 7, None))]
         self.assertEqual(app, expected)
+
+
+class TestILSLocalizerEstablished(unittest.TestCase):
+    def test_can_operate(self):
+        expected = [('Approach And Landing',
+                     'Approach And Landing Lowest Point',
+                     'ILS Localizer')]
+        opts = ILSLocalizerEstablished.get_operational_combinations()
+        self.assertEqual(opts, expected)
+
+    def test_ils_localizer_established_basic(self):
+        aal = [Section('Approach And Landing', slice(2, 8, None))]
+        low = [KeyTimeInstance(index=8, state='Approach And Landing Lowest Point')]
+        ils = P('ILS Localizer',np.ma.arange(-3,0,0.3))
+        establish = ILSLocalizerEstablished()
+        establish.derive(aal, low, ils)
+        expected = [Section('ILS Localizer Established', slice(2, 10, None))]
+        self.assertEqual(establish, expected)
 
 
 class TestInitialApproach(unittest.TestCase):

@@ -9,7 +9,7 @@ from collections import namedtuple
 from itertools import product
 from operator import attrgetter
 
-from analysis.parameter import Parameter
+from hdfaccess.parameter import P, Parameter
 from analysis.library import align, is_index_within_slice
 
 from analysis.recordtype import recordtype

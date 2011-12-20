@@ -1,4 +1,4 @@
-from analysis.node import DerivedParameterNode
+from analysis.node import DerivedParameterNode, P
 
 
 #lfl_params = ['Indicated Airspeed', 

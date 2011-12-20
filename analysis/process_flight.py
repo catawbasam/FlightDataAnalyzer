@@ -1,6 +1,5 @@
 import inspect
 import logging
-import sys
 
 from datetime import datetime, timedelta
 
@@ -13,6 +12,9 @@ from analysis.node import (DerivedParameterNode,
 from hdfaccess.file import hdf_file
 from utilities.dict_helpers import dict_filter
 
+
+logger = logging.getLogger()
+logger.setLevel(logging.INFO)
 
 
 def geo_locate(hdf, kti_list):
@@ -33,12 +35,18 @@ def geo_locate(hdf, kti_list):
     return kti_list
 
 
-def timestamp_kpvs(start_datetime, kpv_list):
+def _timestamp(start_datetime, item_list):
     """
+    Adds item.datetime (from timedelta of item.index + start_datetime)
+    
+    :param start_datetime: Origin timestamp used as a base to the index
+    :type start_datetime: datetime
+    :param item_list: list of objects with a .index attribute
+    :type item_list: list
     """
-    for kpv in kpv_list:
-        kpv.datetime = start_datetime + timedelta(seconds=kpv.index)
-    return kpv_list
+    for item in item_list:
+        item.datetime = start_datetime + timedelta(seconds=float(item.index))
+    return item_list
 
 
 def derive_parameters(hdf, node_mgr, process_order):
@@ -59,6 +67,8 @@ def derive_parameters(hdf, node_mgr, process_order):
     kti_list = []
     phase_list = []  # 'Node Name' : node()  pass in node.get_accessor()
     flight_attrs = []
+    
+    nodes_not_implemented = []
     
     for param_name in process_order:
         if param_name in node_mgr.lfl:
@@ -94,8 +104,16 @@ def derive_parameters(hdf, node_mgr, process_order):
         # initialise node
         node = node_class(frequency=first_dep.frequency,
                           offset=first_dep.offset)
+        logging.info("Processing parameter %s", param_name)
         # Derive the resulting value
-        result = node.get_derived(deps)
+        try:
+            result = node.get_derived(deps)
+        except NotImplementedError:
+            ##logging.error("Node %s not implemented", node_class.__name__)
+            #TODO: remove hack below!!!
+            params[param_name] = node # HACK!
+            nodes_not_implemented.append(node_class.__name__)
+            continue
         
         if isinstance(node, KeyPointValueNode):
             #Q: track node instead of result here??
@@ -125,8 +143,9 @@ def derive_parameters(hdf, node_mgr, process_order):
         else:
             raise NotImplementedError("Unknown Type %s" % node.__class__)
         continue
-
-    return kti_list, kpv_list, phase_list
+    if nodes_not_implemented:
+        logging.error("Nodes not implemented: %s", nodes_not_implemented)
+    return kti_list, kpv_list, phase_list, flight_attrs
 
 
 def get_derived_nodes(module_names):
@@ -211,9 +230,7 @@ def process_flight(hdf_path, aircraft_info, start_datetime=datetime.now(), achie
                                derived_nodes, aircraft_info, achieved_flight_record)
         
         # calculate dependency tree
-        process_order = dependency_order(node_mgr, 
-            draw=sys.platform not in ('win32', 'win64') # False for Windows :-(
-        ) 
+        process_order = dependency_order(node_mgr, draw=draw) 
         
         if settings.PRE_FLIGHT_ANALYSIS:
             settings.PRE_FLIGHT_ANALYSIS(hdf, aircraft_info, process_order)
@@ -224,9 +241,10 @@ def process_flight(hdf_path, aircraft_info, start_datetime=datetime.now(), achie
              
         # geo locate KTIs
         kti_list = geo_locate(hdf, kti_list)
+        kti_list = _timestamp(start_datetime, kti_list)
 
         # timestamp KPVs
-        kpv_list = timestamp_kpvs(start_datetime, kpv_list)
+        kpv_list = _timestamp(start_datetime, kpv_list)
         
             
             
@@ -235,7 +253,7 @@ def process_flight(hdf_path, aircraft_info, start_datetime=datetime.now(), achie
         plot_flight(kti_list, kpv_list, phase_list)
         
     return {'flight' : flight_attrs, 
-            'kti' : geo_kti_list, 
+            'kti' : kti_list, 
             'kpv' : kpv_list}
 
 

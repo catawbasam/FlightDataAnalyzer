@@ -10,7 +10,8 @@ from analysis.library import (align,
                               interleave,
                               rate_of_change, 
                               repair_mask,
-                              straighten_headings)
+                              straighten_headings,
+                              vstack_params)
 
 from settings import (AZ_WASHOUT_TC,
                       HYSTERESIS_FPALT,
@@ -19,6 +20,7 @@ from settings import (AZ_WASHOUT_TC,
                       HYSTERESIS_FPIAS, 
                       HYSTERESIS_FPROC,
                       GRAVITY,
+                      KTS_TO_FPS,
                       RATE_OF_CLIMB_LAG_TC
                       )
 
@@ -57,18 +59,31 @@ class AccelerationVertical(DerivedParameterNode):
 
 
 class AccelerationForwardsForFlightPhases(DerivedParameterNode):
-    def derive(self, acc_long=P('Acceleration Longitudinal'), 
+    # List the minimum acceptable parameters here
+    @classmethod
+    def can_operate(cls, available):
+        if 'Airspeed' in available:
+            return True
+        elif 'Acceleration Longitudinal' in available:
+            return True
+        else:
+            return False
+        
+    # List the optimal parameter set here
+    def derive(self, acc_long=P('Acceleration Longitudinal'),
                airspeed=P('Airspeed')):
         """
         Acceleration or deceleration on the runway is used to identify the
         runway heading. For the Hercules aircraft there is no longitudinal
         accelerometer, so rate of change of airspeed is used instead.
         """
-        if True: #  TODO: set the alternative use case.
-            self.array = repair_mask(acc_long)
+        if acc_long:
+            self.array = repair_mask(acc_long.array)
         else:
-            self.array = rate_of_change(repair_mask(airspeed), 1)
-        
+            aspd = P('Aspd',array=repair_mask(airspeed.array))
+            roc_aspd = rate_of_change(aspd, 1) * KTS_TO_FPS/GRAVITY
+            self.array =  roc_aspd 
+
 
 class AirspeedForFlightPhases(DerivedParameterNode):
     def derive(self, airspeed=P('Airspeed')):
@@ -82,7 +97,7 @@ class AccelerationFromAirspeed(DerivedParameterNode):
     deceleration on the runway.
     """
     def derive(self, airspeed=P('Airspeed')):
-        self.array = rate_of_change(airspeed.array, 1)
+        self.array = rate_of_change(airspeed, 1)
 
 
 class AirspeedMinusVref(DerivedParameterNode):
@@ -207,30 +222,51 @@ class DistanceToLanding(DerivedParameterNode):
     
 
 class EngN1Average(DerivedParameterNode):
+    @classmethod
+    def can_operate(cls, available):
+        # works with any combination of params available
+        if any([d in available for d in cls.get_dependency_names()]):
+            return True
+    
     def derive(self, 
-               param1 = P('Eng (1) N1'),
-               param2 = P('Eng (2) N1'),
-               param3 = P('Eng (3) N1'),
-               param4 = P('Eng (4) N1')):
-        self.array = np.ma.average(param1, param2, param3, param4)
+               eng1=P('Eng (1) N1'),
+               eng2=P('Eng (2) N1'),
+               eng3=P('Eng (3) N1'),
+               eng4=P('Eng (4) N1')):
+        engines = vstack_params(eng1, eng2, eng3, eng4)
+        self.array = np.ma.average(engines, axis=0)
 
 
-class EngN1Minimum(DerivedParameterNode): # Q: is this a parameter?
+class EngN1Minimum(DerivedParameterNode):
+    @classmethod
+    def can_operate(cls, available):
+        # works with any combination of params available
+        if any([d in available for d in cls.get_dependency_names()]):
+            return True
+    
     def derive(self, 
-               param1 = P('Eng (1) N1'),
-               param2 = P('Eng (2) N1'),
-               param3 = P('Eng (3) N1'),
-               param4 = P('Eng (4) N1')):
-        self.array = np.ma.minimum(param1, param2, param3, param4)
+               eng1=P('Eng (1) N1'),
+               eng2=P('Eng (2) N1'),
+               eng3=P('Eng (3) N1'),
+               eng4=P('Eng (4) N1')):
+        engines = vstack_params(eng1, eng2, eng3, eng4)
+        self.array = np.ma.min(engines, axis=0)
 
 
 class EngN2Average(DerivedParameterNode):
+    @classmethod
+    def can_operate(cls, available):
+        # works with any combination of params available
+        if any([d in available for d in cls.get_dependency_names()]):
+            return True
+        
     def derive(self, 
-               param1 = P('Eng (1) N2'),
-               param2 = P('Eng (2) N2'),
-               param3 = P('Eng (3) N2'),
-               param4 = P('Eng (4) N2')):
-        self.array = np.ma.average(param1, param2, param3, param4)
+               eng1=P('Eng (1) N2'),
+               eng2=P('Eng (2) N2'),
+               eng3=P('Eng (3) N2'),
+               eng4=P('Eng (4) N2')):
+        engines = vstack_params(eng1, eng2, eng3, eng4)
+        self.array = np.ma.average(engines, axis=0)
 
 
 class FlapCorrected(DerivedParameterNode):

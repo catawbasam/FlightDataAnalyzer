@@ -8,12 +8,14 @@ from analysis.node import A, KPV, KeyTimeInstance, KTI, KeyPointValue, Parameter
 
 from analysis.key_point_values import (GlideslopeDeviation1500To1000FtMax,
                                        GlideslopeDeviation1000To150FtMax,
-                                       ILSFrequencyInApproach,
-                                       LandingHeading,
+                                       ILSFrequencyOnApproach,
+                                       HeadingAtLanding,
+                                       LatitudeAtLanding,
+                                       LongitudeAtLanding,
                                        LocalizerDeviation1500To1000FtMax,
                                        LocalizerDeviation1000To150FtMax,
                                        Pitch35To400FtMax,
-                                       TakeoffHeading
+                                       HeadingAtTakeoff
                                          )
 
 import sys
@@ -56,50 +58,72 @@ class TestGlideslopeDeviation1000To150FtMax(unittest.TestCase):
         self.assertEqual(kpv[0].index, 57)
         self.assertEqual(kpv[1].index, 120)
         
-class TestILSFrequencyInApproach(unittest.TestCase):
+class TestILSFrequencyOnApproach(unittest.TestCase):
     def test_can_operate(self):
-        expected = [('Approach', 'ILS Frequency')]
-        opts = ILSFrequencyInApproach.get_operational_combinations()
+        expected = [('Approach And Landing', 'ILS Frequency')]
+        opts = ILSFrequencyOnApproach.get_operational_combinations()
         self.assertEqual(opts, expected) 
         
-    def test_ILS_frequency_in_approach_basic(self):
+    def test_ILS_frequency_on_approach_basic(self):
         # Let's give this a really hard time with alternate samples invalid and
         # the final signal only tuned just at the end of the data.
         frq = P('ILS Frequency',np.ma.array([108.5]*6+[114.05]*4))
         frq.array[0:10:2] = np.ma.masked
         app = [Section('Approach And Landing',slice(2,10,None))]
-        kpv = ILSFrequencyInApproach()
+        kpv = ILSFrequencyOnApproach()
         kpv.derive(app,frq)
         expected = [KeyPointValue(index=9, value=114.05, 
-                                  name='Ils Frequency In Approach')]
+                                  name='ILS Frequency On Approach')]
         self.assertEqual(kpv, expected)
 
 
-class TestLandingHeading(unittest.TestCase):
+class TestHeadingAtLanding(unittest.TestCase):
     def test_can_operate(self):
-        expected = [('Landing','Heading Continuous', 'Acceleration Forwards For Flight Phases')]
-        opts = LandingHeading.get_operational_combinations()
+        expected = [('Landing Peak Deceleration','Heading Continuous')]
+        opts = HeadingAtLanding.get_operational_combinations()
         self.assertEqual(opts, expected) 
         
     def test_landing_heading_basic(self):
-        head = P('Heading Continuous',np.ma.array([0,2,4,7,9,8,6,3]))
-        acc = P('Acceleration Forwards For Flight Phases',np.ma.array([0,0,-.1,-.1,-.2,-.1,0,0]))
-        landing = [Section('Landing',slice(2,5,None))]
-        kpv = LandingHeading()
-        kpv.derive(landing, head, acc)
-        expected = [KeyPointValue(index=4, value=9.0, name='Landing Heading')]
-        self.assertEqual(kpv, expected)
-        
-    def test_landing_heading_modulus(self):
-        head = P('Heading Continuous',np.ma.array([0,-2,-4,-7,-9,-8,-6,-3]))
-        acc = P('Acceleration Forwards For Flight Phases',np.ma.array([0,0,-.1,-.2,-.2,-.1,0,0]))
-        landing = [Section('Landing',slice(2,5,None))]
-        kpv = LandingHeading()
-        kpv.derive(landing, head, acc)
-        expected = [KeyPointValue(index=3, value=353, name='Landing Heading')]
+        head = P('Heading Continuous',np.ma.array([0,2,4,7,0,-3,-7,-93]))
+        landing = [KeyTimeInstance(index=2, state='Landing Peak Deceleration'),
+                   KeyTimeInstance(index=6, state='Landing Peak Deceleration')]
+        kpv = HeadingAtLanding()
+        kpv.derive(landing, head)
+        expected = [KeyPointValue(index=2, value=4.0, name='Heading At Landing'),
+                    KeyPointValue(index=6, value=353.0, name='Heading At Landing')]
         self.assertEqual(kpv, expected)
 
         
+class TestLatitudeAtLanding(unittest.TestCase):
+    def test_can_operate(self):
+        expected = [('Landing Peak Deceleration','Latitude')]
+        opts = LatitudeAtLanding.get_operational_combinations()
+        self.assertEqual(opts, expected) 
+        
+    def test_landing_heading_basic(self):
+        data = P('Longitude',np.ma.array([0,66,99]))
+        landing = [KeyTimeInstance(1, 'Landing Peak Deceleration')]
+        kpv = LatitudeAtLanding()
+        kpv.derive(landing, data)
+        expected = [KeyPointValue(1, 66.0, 'Latitude At Landing')]
+        self.assertEqual(kpv, expected)
+
+
+class TestLongitudeAtLanding(unittest.TestCase):
+    def test_can_operate(self):
+        expected = [('Landing Peak Deceleration','Longitude')]
+        opts = LongitudeAtLanding.get_operational_combinations()
+        self.assertEqual(opts, expected) 
+        
+    def test_landing_heading_basic(self):
+        data = P('Longitude',np.ma.array([0,66,77]))
+        landing = [KeyTimeInstance(2, 'Landing Peak Deceleration')]
+        kpv = LongitudeAtLanding()
+        kpv.derive(landing, data)
+        expected = [KeyPointValue(2, 77.0, 'Longitude At Landing')]
+        self.assertEqual(kpv, expected)
+
+
 class TestLocalizerDeviation1500To1000FtMax(unittest.TestCase):
     def test_can_operate(self):
         expected = [('ILS Localizer','Altitude AAL For Flight Phases')]
@@ -157,26 +181,26 @@ class TestPitch35To400FtMax(unittest.TestCase):
         self.assertEqual(kpv[0].value, 7)
         
         
-class TestTakeoffHeading(unittest.TestCase):
+class TestHeadingAtTakeoff(unittest.TestCase):
     def test_can_operate(self):
         expected = [('Takeoff','Heading Continuous', 'Acceleration Forwards For Flight Phases')]
-        opts = TakeoffHeading.get_operational_combinations()
+        opts = HeadingAtTakeoff.get_operational_combinations()
         self.assertEqual(opts, expected) 
         
     def test_takeoff_heading_basic(self):
         head = P('Heading Continuous',np.ma.array([0,2,4,7,9,8,6,3]))
         acc = P('Acceleration Forwards For Flight Phases',np.ma.array([0,0,.2,.3,.2,.1,0,0]))
         toff_ph = [Section('Takeoff',slice(2,5,None))]
-        kpv = TakeoffHeading()
+        kpv = HeadingAtTakeoff()
         kpv.derive(toff_ph, head, acc)
-        expected = [KeyPointValue(index=3, value=7.0, name='Takeoff Heading')]
+        expected = [KeyPointValue(index=3, value=7.0, name='Heading At Takeoff')]
         self.assertEqual(kpv, expected)
         
     def test_takeoff_heading_modulus(self):
         head = P('Heading Continuous',np.ma.array([-1,-2,-4,-7,-9,-8,-6,-3]))
         acc = P('Acceleration Forwards For Flight Phases',np.ma.array([0,0,.1,.2,.35,.2,.1,0]))
         toff_ph = [Section('Takeoff',slice(2,6,None))]
-        kpv = TakeoffHeading()
+        kpv = HeadingAtTakeoff()
         kpv.derive(toff_ph, head, acc)
-        expected = [KeyPointValue(index=4, value=351, name='Takeoff Heading')]
+        expected = [KeyPointValue(index=4, value=351, name='Heading At Takeoff')]
         self.assertEqual(kpv, expected)

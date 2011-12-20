@@ -11,7 +11,8 @@ from analysis.settings import GRAVITY
 from analysis.node import Attribute, A, KPV, KTI, Parameter, P, Section, S
 from analysis.flight_phase import Fast
 
-from analysis.derived_parameters import (AccelerationVertical,
+from analysis.derived_parameters import (AccelerationForwardsForFlightPhases,
+                                         AccelerationVertical,
                                          AirspeedForFlightPhases,
                                          AltitudeAALForFlightPhases,
                                          AltitudeForFlightPhases,
@@ -19,6 +20,9 @@ from analysis.derived_parameters import (AccelerationVertical,
                                          AltitudeRadioForFlightPhases,
                                          AltitudeTail,
                                          ClimbForFlightPhases,
+                                         EngN1Average,
+                                         EngN1Minimum,
+                                         EngN2Average,
                                          HeadingContinuous,
                                          Pitch,
                                          RateOfClimb,
@@ -73,24 +77,40 @@ class TestAccelerationVertical(unittest.TestCase):
 
 
 class TestAccelerationForwardsForFlightPhases(unittest.TestCase):
-    def test_can_operate(self):
-        expected = [('Acceleration Longitudinal', 'Airspeed')]
+    def test_can_operate_only_airspeed(self):
+        expected = [('Airspeed',)]
         opts = AirspeedForFlightPhases.get_operational_combinations()
         self.assertEqual(opts, expected)
         
-    def test_accelearation_forwards_for_phases_basic(self):
+    def test_can_operate_only_acceleration(self):
+        expected = [('Airspeed',),
+                    ('Acceleration Longitudinal',),
+                    ('Acceleration Longitudinal','Airspeed')]
+        opts = AirspeedForFlightPhases.get_operational_combinations()
+        self.assertEqual(opts, expected)
+        
+    def test_accelearation_forwards_for_phases_using_acceleration(self):
         # If acceleration data is available, this is used without change.
-        acc = np.ma.array(range(0,0.5,0.1))
+        acc = np.ma.arange(0,0.5,0.1)
         accel_fwd = AccelerationForwardsForFlightPhases()
-        accel_fwd.derive(Parameter('Airspeed', fast_and_slow))
+        accel_fwd.derive(Parameter('Acceleration Longitudinal', acc), None)
         ma_test.assert_masked_array_approx_equal(accel_fwd.array, acc)
+
+    def test_accelearation_forwards_for_phases_using_airspeed(self):
+        # If only airspeed data is available, it needs differentiating.
+        speed = np.ma.arange(0,150,10)
+        speed[3:5] = np.ma.masked
+        accel_fwd = AccelerationForwardsForFlightPhases()
+        accel_fwd.derive(None, Parameter('Airspeed', speed))
+        expected = np.ma.array([0.5241646]*15)
+        ma_test.assert_masked_array_approx_equal(accel_fwd.array, expected)
 
     def test_accelearation_forwards_for_phases_mask_repair(self):
         # Show that the mask is repaired in case of minor corruption.
-        acc = np.ma.array(range(0,0.5,0.1))
+        acc = np.ma.arange(0,0.5,0.1)
         acc[1:4] = np.ma.masked
         accel_fwd = AccelerationForwardsForFlightPhases()
-        accel_fwd.derive(Parameter('Airspeed', fast_and_slow))
+        accel_fwd.derive(Parameter('Acceleration Longitudinal', acc), None)
         ma_test.assert_masked_array_approx_equal(accel_fwd.array, acc)
 
     
@@ -288,6 +308,81 @@ class TestFlightPhaseRateOfClimb(unittest.TestCase):
         return NotImplemented
 '''
 
+class TestEngN1Average(unittest.TestCase):
+    def test_can_operate(self):
+        opts = EngN1Average.get_operational_combinations()
+        self.assertEqual(opts[0], ('Eng (1) N1',))
+        self.assertEqual(opts[-1], ('Eng (1) N1', 'Eng (2) N1', 'Eng (3) N1', 'Eng (4) N1'))
+        self.assertEqual(len(opts), 15) # 15 combinations accepted!
+        
+    
+    def test_derive_two_engines(self):
+        # this tests that average is performed on incomplete dependencies and 
+        # more than one dependency provided.
+        a = np.ma.array(range(0, 10))
+        b = np.ma.array(range(10,20))
+        a[0] = np.ma.masked
+        b[0] = np.ma.masked
+        b[-1] = np.ma.masked
+        eng_avg = EngN1Average()
+        eng_avg.derive(P('a',a), P('b',b), None, None)
+        ma_test.assert_array_equal(
+            np.ma.filled(eng_avg.array, fill_value=999),
+            np.array([999, # both masked, so filled with 999
+                      6,7,8,9,10,11,12,13, # unmasked avg of two engines
+                      9]) # only second engine value masked
+        )
+        
+class TestEngN1Minimum(unittest.TestCase):
+    def test_can_operate(self):
+        opts = EngN1Minimum.get_operational_combinations()
+        self.assertEqual(opts[0], ('Eng (1) N1',))
+        self.assertEqual(opts[-1], ('Eng (1) N1', 'Eng (2) N1', 'Eng (3) N1', 'Eng (4) N1'))
+        self.assertEqual(len(opts), 15) # 15 combinations accepted!
+        
+    
+    def test_derive_two_engines(self):
+        # this tests that average is performed on incomplete dependencies and 
+        # more than one dependency provided.
+        a = np.ma.array(range(0, 10))
+        b = np.ma.array(range(10,20))
+        a[0] = np.ma.masked
+        b[0] = np.ma.masked
+        b[-1] = np.ma.masked
+        eng = EngN1Minimum()
+        eng.derive(P('a',a), P('b',b), None, None)
+        ma_test.assert_array_equal(
+            np.ma.filled(eng.array, fill_value=999),
+            np.array([999, # both masked, so filled with 999
+                      1,2,3,4,5,6,7,8,9])
+        )
+        
+        
+class TestEngN2Average(unittest.TestCase):
+    def test_can_operate(self):
+        opts = EngN2Average.get_operational_combinations()
+        self.assertEqual(opts[0], ('Eng (1) N2',))
+        self.assertEqual(opts[-1], ('Eng (1) N2', 'Eng (2) N2', 'Eng (3) N2', 'Eng (4) N2'))
+        self.assertEqual(len(opts), 15) # 15 combinations accepted!
+        
+    
+    def test_derive_two_engines(self):
+        # this tests that average is performed on incomplete dependencies and 
+        # more than one dependency provided.
+        a = np.ma.array(range(0, 10))
+        b = np.ma.array(range(10,20))
+        a[0] = np.ma.masked
+        b[0] = np.ma.masked
+        b[-1] = np.ma.masked
+        eng_avg = EngN2Average()
+        eng_avg.derive(P('a',a), P('b',b), None, None)
+        ma_test.assert_array_equal(
+            np.ma.filled(eng_avg.array, fill_value=999),
+            np.array([999, # both masked, so filled with 999
+                      6,7,8,9,10,11,12,13, # unmasked avg of two engines
+                      9]) # only second engine value masked
+        )
+                         
         
 class TestHeadContinuous(unittest.TestCase):
     def test_can_operate(self):

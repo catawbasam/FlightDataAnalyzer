@@ -1,8 +1,11 @@
+import sys
 import logging 
 import networkx as nx # pip install networkx or /opt/epd/bin/easy_install networkx
 
 from analysis import settings
 from utilities.dict_helpers import dict_filter
+
+not_windows = sys.platform not in ('win32', 'win64') # False for Windows :-(
 
 """
 TODO:
@@ -55,18 +58,23 @@ def dependencies3(di_graph, root, node_mgr):
             if traverse_tree(dependency):
                 layer.append(dependency)
             
-        if node in ordering:
+        if node in active_nodes:
             # node already discovered operational
             return True
         elif node_mgr.operational(node, layer):
             # node will work at this level
-            ordering.extend(layer) # layer below works
-            return True
+            if layer:
+                new_nodes = [n for n in layer if n not in active_nodes]
+                if new_nodes:
+                    active_nodes.update(new_nodes)
+                    ordering.extend(new_nodes) # add the new nodes
+            return True # layer below works
         else:
             # node does not work
             return False
         
     ordering = [] # reverse
+    active_nodes = set() # operational nodes visited for fast lookup
     if traverse_tree(root): # start recursion
         ordering.append(root)
     return ordering
@@ -181,9 +189,7 @@ def process_order(gr_all, node_mgr): ##lfl_params, derived_nodes):
     process_order = dependencies3(gr_all, 'root', node_mgr)
     logging.info("Processing order of %d nodes is: %s", len(process_order), process_order)
     
-    #Q: Should we delete nodes or make the edges weak?
-    # gr_st will be a copy of gr_all which we'll delete inactive nodes from
-    gr_st = gr_all.copy() 
+
     
     ### Determine whether nodes are operational, this will repeatedly ask some 
     ### nodes as they may only become operational later on.
@@ -221,12 +227,13 @@ def process_order(gr_all, node_mgr): ##lfl_params, derived_nodes):
     for n, node in enumerate(process_order):
         gr_all.node[node]['label'] = n
         
+    gr_st = gr_all.copy() 
     gr_st.remove_nodes_from(set(gr_st.nodes()) - set(process_order))
     
     ##logging.debug("Node processing order: %s", node_order)
         
     ##return gr_all, gr_st, node_order 
-    return gr_all, gr_st, process_order 
+    return gr_all, gr_st, process_order[:-1] # exclude 'root'
 
 
 def remove_floating_nodes(graph):
@@ -240,7 +247,7 @@ def remove_floating_nodes(graph):
     return graph
      
      
-def dependency_order(node_mgr, draw=True):
+def dependency_order(node_mgr, draw=not_windows):
     """
     Main method for retrieving processing order of nodes.
     

@@ -17,6 +17,7 @@ from analysis.library import (align, calculate_timebase, create_phase_inside,
                               hysteresis, interleave, merge_alternate_sensors,
                               rate_of_change, repair_mask, straighten_headings,
                               time_at_value, time_at_value_wrapped, value_at_time,
+                              vstack_params, 
                               InvalidDatetime)
 
 from analysis.node import A, KPV, KTI, Parameter, P, S, Section
@@ -856,3 +857,25 @@ self.assertAlmostEquals(result.data[-1], 10.0)
         # becomes too inaccurate to be useful.
         self.assertRaises(ValueError, first_order_lag, array, 1.0, 4.0)
 '''
+
+
+class TestVstackParams(unittest.TestCase):
+    def test_vstack_params(self):
+        a = P('a', array=np.ma.array(range(0, 10)))
+        b = np.ma.array(range(10,20))
+        a.array[0] = np.ma.masked
+        b[0] = np.ma.masked
+        b[-1] = np.ma.masked
+        c = None
+        ma_test.assert_array_equal(
+            np.ma.filled(vstack_params(a), 99), 
+            np.array([[99, 1, 2, 3, 4, 5, 6, 7, 8, 9]])
+        )
+        # test mixed types (Parameter, Masked Array, None)
+        ma_test.assert_array_equal(
+            np.ma.filled(vstack_params(None, a, b, c), 99),
+            np.array([[99,  1,  2,  3,  4,  5,  6,  7,  8,  9],
+                      [99, 11, 12, 13, 14, 15, 16, 17, 18, 99]])
+        )
+        self.assertRaises(ValueError, vstack_params, None, None, None)
+                              

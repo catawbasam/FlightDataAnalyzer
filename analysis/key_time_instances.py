@@ -57,14 +57,14 @@ class BottomOfDescent(KeyTimeInstanceNode):
             self.create_kti(kti + this_dlc.slice.start, 'Bottom Of Descent')
         
            
-class ApproachAndLandingLowest(KeyTimeInstanceNode):
+class ApproachAndLandingLowestPoint(KeyTimeInstanceNode):
     def derive(self, app_lands=S('Approach And Landing'),
                alt_std=P('Altitude STD')):
         # In the case of descents without landing, this finds the minimum
         # point of the dip.
         for app_land in app_lands:
             kti = np.ma.argmin(alt_std.array[app_land.slice])
-            self.create_kti(kti + app_land.slice.start, 'Approach And Landing Lowest')
+            self.create_kti(kti + app_land.slice.start, 'Approach And Landing Lowest Point')
     
 
 class ClimbStart(KeyTimeInstanceNode):
@@ -88,6 +88,9 @@ class GoAround(KeyTimeInstanceNode):
     # List the minimum acceptable parameters here
     @classmethod
     def can_operate(cls, available):
+        # List the minimum required parameters. If 'Altitude Radio For Flight
+        # Phases' is available, that's a bonus and we will use it, but it is
+        # not required.
         if 'Altitude AAL For Flight Phases' in available \
            and 'Approach And Landing' in available \
            and 'Climb For Flight Phases' in available:
@@ -104,12 +107,31 @@ class GoAround(KeyTimeInstanceNode):
             if np.ma.maximum(climb.array[app.slice]) > 500:
                 # We must have been in an approach phase, then climbed at
                 # least 500ft. Mark the lowest point.
-                if len(alt_rad.array)>0:
+                if alt_rad:
                     pit_index = np.ma.argmin(alt_rad.array[app.slice])
                 else:
                     # In case this aircraft has no rad alt fitted
                     pit_index = np.ma.argmin(alt_AAL.array[app.slice])
                 self.create_kti(app.slice.start+pit_index, 'Go Around')
+
+
+class LandingPeakDeceleration(KeyTimeInstanceNode):
+    """
+    The landing has been found already, including and the flare and a little
+    of the turn off the runway. Here we find the point of maximum
+    deceleration, as this should lie between the touchdown when the aircraft
+    may be drifting and the turnoff which could be at high speed, but should
+    be at a gentler deceleration. This is used to identify the heading and
+    location of the landing, as these will be more stable at peak
+    deceleration than at the actual point of touchdown where the aircraft may
+    still be have drift on.
+    """
+    def derive(self, landings=S('Landing'), head=P('Heading Continuous'), 
+               accel=P('Acceleration Forwards For Flight Phases')):
+        for land in landings:
+            peak_decel_index = np.ma.argmin(accel.array[land.slice])
+            peak_decel_index += land.slice.start
+            self.create_kti(peak_decel_index, 'Landing Peak Deceleration')
 
 
 class TopOfClimb(KeyTimeInstanceNode):

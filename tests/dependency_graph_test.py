@@ -7,10 +7,10 @@ import networkx as nx
 from datetime import datetime
 from analysis.process_flight import get_derived_nodes
 
-from analysis.dependency_graph import (breadth_first_search_all_nodes,
+from analysis.dependency_graph import (
     dependency_order, graph_nodes, process_order)
-from analysis.node import (A, DerivedParameterNode, KPV, KTI, Node, NodeManager, Parameter, P, 
-                           Section, S)
+from analysis.node import (A, DerivedParameterNode, KPV, KTI, Node, NodeManager,
+                           P, Parameter, Section, S)
 
 # mock function
 f = lambda x: x
@@ -198,24 +198,5 @@ Node: Start Datetime 	Pre: [] 	Succ: [] 	Neighbors: [] 	Edges: []
         derived_nodes = get_derived_nodes(['sample_derived_parameters'])
         mgr = NodeManager(datetime.now(), lfl_params, required_nodes, 
                     derived_nodes, {}, {})
-        self.assertRaises(ValueError, dependency_order, mgr, draw=False)
+        self.assertRaises(nx.NetworkXError, dependency_order, mgr, draw=False)
         
-        
-    @unittest.skip('Not required')
-    def test_kpv_dependency(self):
-        #TODO?: Handle dependencies on one of the returns values!!
-        
-        # This may not be necessary as a parameter can still depend on a KPV, so long as it knows which class creates it.
-        # But either way, adding some other types to the sample dependency tree can't do any harm!!
-        
-        #create a kpv
-        #create a param that depends on one of the kpv return types
-        self.assertTrue(False)
-    
-    def test_breadth_first_search_all_nodes_recursive(self):
-        digraph = nx.DiGraph()
-        digraph.add_node('root')
-        digraph.add_edges_from([('Bounced Landing', 'Bounced Landing'),
-                                ('root', 'Bounced Landing')])
-        self.assertRaises(ValueError,
-                          breadth_first_search_all_nodes, digraph, 'root')
