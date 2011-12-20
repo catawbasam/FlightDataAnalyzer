@@ -39,8 +39,10 @@ class TestAirspeed1000To500FtMax(unittest.TestCase):
         kpv = Airspeed1000To500FtMax()
         kpv.derive(spd, alt_ph)
         self.assertEqual(len(kpv), 2)
-        self.assertEqual(kpv[0].index, 57)
-        self.assertEqual(kpv[1].index, 120)
+        self.assertEqual(kpv[0].index, 48)
+        self.assertEqual(kpv[0].value, 91.250101656055278)
+        self.assertEqual(kpv[1].index, 110)
+        self.assertEqual(kpv[1].value, 99.557430201194919)
         
 
 
@@ -97,7 +99,7 @@ class TestILSFrequencyOnApproach(unittest.TestCase):
         ils = S('ILS Localizer Established', items=[Section('ILS Localizer Established', slice(2, 9, None))])
         low = KTI('Approach And Landing Lowest Point', 
                   items=[KeyTimeInstance(index=8, 
-                                         state='Approach And Landing Lowest Point')])
+                                         name='Approach And Landing Lowest Point')])
         kpv = ILSFrequencyOnApproach()
         kpv.derive(ils, low, frq)
         expected = [KeyPointValue(index=2, value=108.5, 

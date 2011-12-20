@@ -23,6 +23,7 @@ class Airspeed1000To500FtMax(KeyPointValueNode):
             begin = this_period.start
             end = this_period.stop
             if alt_aal.array[begin] > alt_aal.array[end-1]:
+                # Descending through this band.
                 index = np.ma.argmax(np.ma.abs(speed.array[begin:end]))
                 when = begin + index
                 value = speed.array[when]
@@ -937,10 +938,12 @@ class AirspeedVref500FtToTouchdownMax(KeyPointValueNode):
         return NotImplemented
 
 
+"""
+Implemented above
 class Airspeed1000To500FtMax(KeyPointValueNode):
     def derive(self, airspeed=P('Airspeed')):
         return NotImplemented
-
+"""
 
 class AirspeedWithFlap1Max(KeyPointValueNode):
     def derive(self, airspeed=P('Airspeed')):
