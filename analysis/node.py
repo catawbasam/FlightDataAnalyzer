@@ -10,7 +10,7 @@ from itertools import product
 from operator import attrgetter
 
 from analysis.parameter import Parameter
-from analysis.library import align, is_index_within_slice
+from analysis.library import align, is_index_within_slice, is_slice_within_slice
 
 from analysis.recordtype import recordtype
 
@@ -286,6 +286,47 @@ class SectionNode(Node, list):
             aligned_node.create_section(converted_slice,
                                         section.name)
         return aligned_node
+    
+    def _get_condition(self, within_slice=None, name=None):
+        '''
+        Returns a condition function which checks if the element is within
+        a slice or has a specified name if they are provided.
+        
+        :param within_slice: Only return elements within this slice.
+        :type within_slice: slice
+        :param name: Only return elements with this name.
+        :type name: str
+        '''
+        if within_slice and name:
+            return lambda e: is_slice_within_slice(e.slice, within_slice) and \
+                   e.name == name
+        elif within_slice:
+            return lambda e: is_slice_within_slice(e.slice, within_slice)
+        elif name:
+            return lambda e: e.name == name
+        else:
+            return None
+    
+    def get(self, within_slice=None, name=None):
+        '''
+        Gets elements either within_slice or with name. Duplicated from
+        FormattedNameNode. TODO: Share implementation.
+        '''
+        condition = self._get_condition(within_slice=within_slice, name=name)
+        return filter(condition, self) if condition else self
+    
+    def get_first(self, within_slice=None, name=None):
+        matching = self.get(within_slice=within_slice, name=name)
+        return min(matching, key=attrgetter('slice.start'))
+    
+    def get_last(self, within_slice=None, name=None):
+        matching = self.get(within_slice=within_slice, name=name)
+        return max(matching, key=attrgetter('slice.stop'))
+    
+    def get_ordered_by_index(self, within_slice=None, name=None):
+        matching = self.get(within_slice=within_slice, name=name)
+        return sorted(matching, key=attrgetter('slice.start'))
+    
 
 
 class FlightPhaseNode(SectionNode):

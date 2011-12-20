@@ -428,19 +428,9 @@ class LandingRunway(FlightAttributeNode):
                landing_longitude=P('Longitude At Landing'),
                approach_ilsfreq=KPV('ILS Frequency On Approach'),
                precision=A('Precise Positioning')):
-               #final_approaches=S('Final Approach'),
-               #hdg=P('Landing Heading'), touchdown=KTI('Touchdown'),
-               #latitude=P('Latitude'), longitude=P('Longitude'),
-               #ilsfreq=KPV('Landing ILS Freq'), airport=A('Landing Airport'),
-               #precision=A('Precise Positioning')):
         '''
         See TakeoffRunway for runway information.
         '''
-        if not airport:
-            logging.warning("'Landing Airport' not available in '%s', "
-                            "therefore runway cannot be queried for.",
-                            self.__class__.__name__)
-            return
         airport_id = airport.value['id']
         landing = approach_and_landing.get_last()
         if not landing:

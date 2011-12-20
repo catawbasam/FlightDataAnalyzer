@@ -519,6 +519,68 @@ class TestLandingAirport(unittest.TestCase):
                          ((airport_info,), {}))
 
 
+class TestLandingRunway(unittest.TestCase):
+    def test_can_operate(self):
+        '''
+        There may be a neater way to test this, but at least it's verbose.
+        '''
+        combinations = LandingRunway.get_operational_combinations()
+        self.assertEqual(len(combinations), 16)
+        self.assertEqual(combinations[0], ('Approach And Landing',
+                                           'Heading At Landing',
+                                           'Landing Airport'))
+        self.assertEqual(combinations[-1], ('Approach And Landing',
+                                            'Heading At Landing',
+                                            'Landing Airport',
+                                            'Latitude At Landing',
+                                            'Longitude At Landing',
+                                            'ILS Frequency On Approach',
+                                            'Precise Positioning'))
+    
+    @patch('analysis.api_handler_http.APIHandlerHTTP.get_nearest_runway')
+    def test_derive(self, get_nearest_runway):
+        runway_info = {'ident': '27L', 'runways': [{'length': 20}]}
+        get_nearest_runway.return_value = runway_info
+        landing_runway = LandingRunway()
+        landing_runway.set_flight_attr = Mock()
+        # Airport and Takeoff Heading arguments.
+        airport = A('Takeoff Airport')
+        airport.value = {'id':25}
+        landing_hdg = KPV('Heading At Landing',
+                              items=[KeyPointValue(15, 20.0, 'a')])
+        approach_and_landing = S('Approach and Landing',
+                                 items=[Section('b', slice(14, 20))])
+        
+        landing_runway.derive(approach_and_landing, landing_hdg, airport)
+        self.assertEqual(get_nearest_runway.call_args, ((25, 20.0), {}))
+        self.assertEqual(takeoff_runway.set_flight_attr.call_args,
+                         ((runway_info,), {}))
+        ## Airport, Takeoff Heading, Liftoff, Latitude, Longitude and Precision
+        ## arguments. Latitude and Longitude are only passed with all these
+        ## parameters available and Precise Positioning is True.
+        #liftoff = KTI('Liftoff')
+        #liftoff.create_kti(1, 'STATE')
+        #latitude = P('Latitude', array=np.ma.masked_array([2.0,4.0,6.0]))
+        #longitude = P('Longitude', array=np.ma.masked_array([1.0,3.0,5.0]))
+        #precision = A('Precision')
+        #precision.value = True
+        #takeoff_runway.derive(airport, takeoff_heading, liftoff, latitude,
+                              #longitude, precision)
+        #self.assertEqual(get_nearest_runway.call_args, ((25, 20.0),
+                                                        #{'latitude': 4.0,
+                                                         #'longitude': 3.0}))
+        #self.assertEqual(takeoff_runway.set_flight_attr.call_args,
+                         #((runway_info,), {}))
+        ## When Precise Positioning's value is False, Latitude and Longitude
+        ## are not used.
+        #precision.value = False
+        #takeoff_runway.derive(airport, takeoff_heading, liftoff, latitude,
+                              #longitude, precision)
+        #self.assertEqual(get_nearest_runway.call_args, ((25, 20.0), {}))
+        #self.assertEqual(takeoff_runway.set_flight_attr.call_args,
+                         #((runway_info,), {}))
+
+
 #class TestLandingRunway(unittest.TestCase):
     #def test_can_operate(self):
         #self.assertTrue(False)
