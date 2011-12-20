@@ -105,7 +105,7 @@ class TestAccelerationForwardsForFlightPhases(unittest.TestCase):
         expected = np.ma.array([0.5241646]*15)
         ma_test.assert_masked_array_approx_equal(accel_fwd.array, expected)
 
-    def test_accelearation_forwards_for_phases_mask_repair(self):
+    def test_acceleration_forwards_for_phases_mask_repair(self):
         # Show that the mask is repaired in case of minor corruption.
         acc = np.ma.arange(0,0.5,0.1)
         acc[1:4] = np.ma.masked
@@ -493,41 +493,22 @@ class TestRateOfClimb(unittest.TestCase):
         # and add the increasing parabola 
         alt_std.array[2:] += parabola 
         alt_rad = P('Altitude Radio', np.ma.array([0]*30,dtype=float))
-        # parabola *= 1.1 # Allows you to make the values different for debug.
+        parabola *= 1.0 #  Allows you to make the values different for debug.
         alt_rad.array[2:] += parabola
         
         roc = RateOfClimb()
         roc.derive(az, alt_std, alt_rad)
-        expected = np.ma.array(data=[-3.47482E-11,
-                                     -3.47482E-11,
-                                     27.5061571,
-                                     87.0628767,
-                                     145.786014,
-                                     203.818717,
-                                     261.281866,
-                                     318.277502,
-                                     374.891728,
-                                     431.197166,
-                                     487.255037,
-                                     543.116913,
-                                     598.826213,
-                                     654.419455,
-                                     709.927322,
-                                     765.375567,
-                                     820.785771,
-                                     876.175989,
-                                     931.561299,
-                                     986.954258,
-                                     1042.3653,
-                                     1097.80305,
-                                     1153.27464,
-                                     1208.7859,
-                                     1264.34159,
-                                     1319.94555,
-                                     1375.60086,
-                                     1431.30995,
-                                     1487.0747,
-                                     1542.89655], mask=False)
+        expected = np.ma.array(data=[-3.47482043e-11, -3.47482043e-11, 
+                                2.74634456e+01, 8.69420194e+01, 1.45600433e+02,
+                                2.03579748e+02, 2.60999077e+02, 3.17958965e+02, 
+                                3.74544254e+02, 4.30826495e+02, 4.86866004e+02,
+                                5.42713590e+02, 5.98412024e+02, 6.53997276e+02,
+                                7.09499568e+02, 7.64944261e+02, 8.20352606e+02, 
+                                8.75742379e+02, 9.31128421e+02, 9.86523090e+02, 
+                                1.04193665e+03, 1.09737759e+03, 1.15285292e+03, 
+                                1.20836836e+03, 1.26392858e+03, 1.31953737e+03,
+                                1.37519774e+03, 1.43091206e+03, 1.48668218e+03, 
+                                1.54250948e+03], mask=False)
         ma_test.assert_masked_array_approx_equal(roc.array, expected)
 
 

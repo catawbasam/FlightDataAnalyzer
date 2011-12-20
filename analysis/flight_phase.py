@@ -306,7 +306,7 @@ class ILSLocalizerEstablished(FlightPhaseNode):
     "established" in this sense, but we will work backwards from the lowest
     point to find out the point after which the ILS localizer was
     continuously displayed. Reminder: 'Approach And Landing' phase is
-    computed fromt he parameter 'Altitude AAL For Flight Phases' which in
+    computed fromt the parameter 'Altitude AAL For Flight Phases' which in
     turn is a subset of the 'Fast' phase which requires the aircraft to be
     travelling at high speed. Therefore the lowest point is either the bottom
     of a go-around, touch-and-go or landing.
@@ -315,20 +315,10 @@ class ILSLocalizerEstablished(FlightPhaseNode):
                lowest=KTI('Approach And Landing Lowest Point'),
                ils_loc=P('ILS Localizer')):
         for aal in aals:
-            # Recover the (already established) minimum point.
-            
-            '''
-            I was expecting to do something like this...
-            
-            low_index=lowest.get_last(within_slice=aal)
-            
-            TODO: replace the following line with something posher.
-            '''
-
-            low_index = lowest[-1].index #  To get the last value in the list.
-
-            # Check the ILS was valid at this point.
-            
+            low_index=lowest.get_last(within_slice=aal.slice).index
+            if np.ma.abs(ils_loc.array[low_index]) > ILS_MAX_SCALE:
+                # Not on ILS localizer at lowest point, so not established.
+                break
             amplitude = np.ma.abs(ils_loc.array)
             in_range = np.ma.masked_outside(amplitude,-ILS_MAX_SCALE,ILS_MAX_SCALE)
             phases = np.ma.clump_unmasked(in_range)

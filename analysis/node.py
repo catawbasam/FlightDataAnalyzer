@@ -15,8 +15,8 @@ from analysis.library import align, is_index_within_slice
 from analysis.recordtype import recordtype
 
 # Define named tuples for KPV and KTI and FlightPhase
-KeyPointValue = recordtype('KeyPointValue', 'index value name datetime', default=None)
-KeyTimeInstance = recordtype('KeyTimeInstance', 'index state latitude longitude', default=None)
+KeyPointValue = recordtype('KeyPointValue', 'index value name slice datetime', default=None)
+KeyTimeInstance = recordtype('KeyTimeInstance', 'index state datetime latitude longitude', default=None)
 Section = namedtuple('Section', 'name slice') #Q: rename mask -> slice/section
 
 # Ref: django/db/models/options.py:20
@@ -247,6 +247,9 @@ class SectionNode(Node, list):
     def __init__(self, *args, **kwargs):
         """ List of slices where this phase is active. Has a frequency and offset.
         """
+        if 'items' in kwargs:
+            self.extend(kwargs['items'])
+            del kwargs['items']
         # place holder
         super(SectionNode, self).__init__(*args, **kwargs)
 
