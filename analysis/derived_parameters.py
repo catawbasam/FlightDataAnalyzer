@@ -252,21 +252,6 @@ class FlapCorrected(DerivedParameterNode):
         return NotImplemented
     
 
-class HeadingContinuous(DerivedParameterNode):
-    def derive(self, head_mag=P('Heading Magnetic')):
-        self.array = straighten_headings(head_mag.array)
-
-
-class HeadingTrue(DerivedParameterNode):
-    # Requires the computation of a magnetic deviation parameter linearly 
-    # changing from the deviation at the origin to the destination.
-    def derive(self, head = P('Heading Continuous'),
-               dev = P('Magnetic Deviation')):
-        dev_array = align(dev, head)
-        self.array = head + dev_array
-    
-
-
 class GearSelectedDown(DerivedParameterNode):
     # And here is where the nightmare starts.
     # Sometimes recorded
@@ -282,6 +267,24 @@ class GearSelectedUp(DerivedParameterNode):
         pass
 
 
+class HeadingContinuous(DerivedParameterNode):
+    """
+    For all internal computing purposes we use this parameter which does not
+    jump as it passes through North. To recover the compass display, modulus
+    ("%360" in Python) returns the value to display to the user.
+    """
+    def derive(self, head_mag=P('Heading Magnetic')):
+        self.array = repair_mask(straighten_headings(head_mag.array))
+
+
+class HeadingTrue(DerivedParameterNode):
+    # Requires the computation of a magnetic deviation parameter linearly 
+    # changing from the deviation at the origin to the destination.
+    def derive(self, head = P('Heading Continuous'),
+               dev = P('Magnetic Deviation')):
+        dev_array = align(dev, head)
+        self.array = head + dev_array
+    
 
 class ILSLocalizerGap(DerivedParameterNode):
     def derive(self, ils_loc = P('Localizer Deviation'),
@@ -328,35 +331,46 @@ class RateOfClimb(DerivedParameterNode):
     with a 1ft/sec^2 acceleration results in an increasing rate of climb of
     55 fpm/sec, not 60 as would be theoretically predicted.
     """
+    # List the minimum acceptable parameters here
+    @classmethod
+    def can_operate(cls, available):
+        # List the minimum required parameters. If 'Altitude Radio For Flight
+        # Phases' is available, that's a bonus and we will use it, but it is
+        # not required.
+        if 'Altitude STD' in available:
+            return True
+        else:
+            return False
+    
     def derive(self, 
                az = P('Acceleration Vertical'),
                alt_std = P('Altitude STD'),
                alt_rad = P('Altitude Radio')):
-        #TODO: Remove this caveat and two alignment statements.
-        # This alignment should be redundant with az as first parameter
-        alt_std_array = align(alt_std, az)
-        alt_rad_array = align(alt_rad, az)
+        if az and alt_rad:
+            # Use the complementary smoothing approach
 
-        roc_alt_std = first_order_washout(alt_std_array,
-                                          RATE_OF_CLIMB_LAG_TC, az.hz)
-        roc_alt_rad = first_order_washout(alt_rad_array,
-                                          RATE_OF_CLIMB_LAG_TC, az.hz)
+            roc_alt_std = first_order_washout(alt_std.array,
+                                              RATE_OF_CLIMB_LAG_TC, az.hz)
+            roc_alt_rad = first_order_washout(alt_rad.array,
+                                              RATE_OF_CLIMB_LAG_TC, az.hz)
+                    
+            # Use pressure altitude rate above 100ft and radio altitude rate
+            # below 50ft with progressive changeover across that range.
+            # up to 50 ft radio 0 < std_rad_ratio < 1 over 100ft radio
+            std_rad_ratio = np.maximum(np.minimum(
+                (alt_rad.array.data-50.0)/50.0,
+                1),0)
+            roc_altitude = roc_alt_std*std_rad_ratio +\
+                roc_alt_rad*(1.0-std_rad_ratio)
                 
-        # Use pressure altitude rate above 100ft and radio altitude rate
-        # below 50ft with progressive changeover across that range.
-        # up to 50 ft radio 0 < std_rad_ratio < 1 over 100ft radio
-        std_rad_ratio = np.maximum(np.minimum(
-            (alt_rad_array.data-50.0)/50.0,
-            1),0)
-        roc_altitude = roc_alt_std*std_rad_ratio +\
-            roc_alt_rad*(1.0-std_rad_ratio)
+            roc_altitude /= RATE_OF_CLIMB_LAG_TC # Remove washout gain  
             
-        roc_altitude /= RATE_OF_CLIMB_LAG_TC # Remove washout gain  
-        
-        # Lag this rate of climb
-        az_washout = first_order_washout (az.array, AZ_WASHOUT_TC, az.hz, initial_value = az.array[0])
-        inertial_roc = first_order_lag (az_washout, RATE_OF_CLIMB_LAG_TC, az.hz, gain=GRAVITY*RATE_OF_CLIMB_LAG_TC)
-        self.array = (roc_altitude + inertial_roc) * 60.0
+            # Lag this rate of climb
+            az_washout = first_order_washout (az.array, AZ_WASHOUT_TC, az.hz, initial_value = az.array[0])
+            inertial_roc = first_order_lag (az_washout, RATE_OF_CLIMB_LAG_TC, az.hz, gain=GRAVITY*RATE_OF_CLIMB_LAG_TC)
+            self.array = (roc_altitude + inertial_roc) * 60.0
+        else:
+            self.array = rate_of_change(alt_std,2)*60
 
 
 class RateOfClimbForFlightPhases(DerivedParameterNode):
@@ -396,14 +410,6 @@ class SmoothedLongitude(DerivedParameterNode): # TODO: Old dependency format.
         return NotImplemented
 '''
 
-class HeadingTrue(DerivedParameterNode):
-    # Requires the computation of a magnetic deviation parameter linearly 
-    # changing from the deviation at the origin to the destination.
-    def derive(self, head = P('Heading Continuous'),
-               dev = P('Magnetic Deviation')):
-        dev_array = align(dev, head)
-        self.array = head + dev_array
-    
 
 class RateOfTurn(DerivedParameterNode):
     def derive(self, head = P('Heading Continuous')):

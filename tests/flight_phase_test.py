@@ -9,6 +9,7 @@ from analysis.key_time_instances import (BottomOfDescent,
                                          )
 from analysis.plot_flight import plot_parameter
 from analysis.flight_phase import (Airborne,
+                                   Approach,
                                    ApproachAndLanding,
                                    ClimbCruiseDescent,
                                    ClimbFromBottomOfDescent,
@@ -55,6 +56,23 @@ class TestAirborne(unittest.TestCase):
         air = Airborne()
         air.derive(rate_of_climb, fast)
         self.assertEqual(air, [])
+
+
+class TestApproach(unittest.TestCase):
+    def test_can_operate(self):
+        expected = [('Altitude AAL For Flight Phases',
+                     'Approach And Landing')]
+        opts = Approach.get_operational_combinations()
+        self.assertEqual(opts, expected)
+
+    def test_approach_phase_basic(self):
+        alt = np.ma.array(range(5000,500,-500)+range(500,3000,500))
+        aal = S('Approach And Landing', items=[Section('Approach And Landing', slice(4, 14, None))])
+        # Pretend we are flying over flat ground, so the altitudes are equal.
+        app = Approach()
+        app.derive(Parameter('Altitude AAL For Flight Phases',alt), aal)
+        expected = [Section(name='Approach', slice=slice(4, 9, None))]
+        self.assertEqual(app, expected)
 
 
 class TestApproachAndLanding(unittest.TestCase):
@@ -459,8 +477,23 @@ class TestLanding(unittest.TestCase):
         phase_fast.derive(P('Airspeed',ias))
         landing = Landing()
         landing.derive(phase_fast, P('Heading Continuous',head),
-                       P('Altitude AAL For Phases',alt_aal))
+                       P('Altitude AAL For Phases',alt_aal),
+                       None)
         expected = [Section(name='Landing', slice=slice(0.75, 8.5, None))]
+        self.assertEqual(landing, expected)
+        
+    def test_landing_with_rad_alt(self):
+        head = np.ma.array([ 20,20,20,20,20,20,20,20,10,0])
+        ias  = np.ma.array([110,110,110,110,80,50,30,20,10,10])
+        alt_aal = np.ma.array([80,40,20,5,0,0,0,0,0,0])
+        alt_rad = alt_aal - 4
+        phase_fast = Fast()
+        phase_fast.derive(P('Airspeed',ias))
+        landing = Landing()
+        landing.derive(phase_fast, P('Heading Continuous',head),
+                       P('Altitude AAL For Phases',alt_aal),
+                       P('Altitude Radio For Phases',alt_rad))
+        expected = [Section(name='Landing', slice=slice(0.65, 8.5, None))]
         self.assertEqual(landing, expected)
         
 
@@ -514,7 +547,8 @@ class TestOnGround(unittest.TestCase):
 
 class TestTakeoff(unittest.TestCase):
     def test_can_operate(self):
-        expected = [('Fast','Heading Continuous', 'Altitude AAL For Phases')]
+        expected = [('Fast','Heading Continuous', 
+                     'Altitude AAL For Phases','Altitude Radio')]
         opts = Takeoff.get_operational_combinations()
         self.assertEqual(opts, expected)
 
@@ -526,8 +560,23 @@ class TestTakeoff(unittest.TestCase):
         phase_fast.derive(P('Airspeed',ias))
         takeoff = Takeoff()
         takeoff.derive(phase_fast, P('Heading Continuous',head),
-                       P('Altitude AAL For Phases',alt_aal))
+                       P('Altitude AAL For Phases',alt_aal),
+                       None) #  No Rad Alt in this basic case
         expected = Section(name='Takeoff', slice=slice(0.5, 8.125, None))
+        self.assertEqual(takeoff[0], expected)
+        
+    def test_takeoff_with_rad_alt(self):
+        head = np.ma.array([ 0,10,20,20,20,20,20,20,20,20])
+        ias  = np.ma.array([10,10,10,10,40,70,100,105,110,110])
+        alt_aal = np.ma.array([0,0,0,0,0,0,0,10,30,70])
+        alt_rad = alt_aal - 5
+        phase_fast = Fast()
+        phase_fast.derive(P('Airspeed',ias))
+        takeoff = Takeoff()
+        takeoff.derive(phase_fast, P('Heading Continuous',head),
+                       P('Altitude AAL For Phases',alt_aal),
+                       P('Altitude Radio',alt_rad))
+        expected = Section(name='Takeoff', slice=slice(0.5, 8.25, None))
         self.assertEqual(takeoff[0], expected)
         
 class TestTurning(unittest.TestCase):
