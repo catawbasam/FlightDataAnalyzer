@@ -246,8 +246,6 @@ def process_flight(hdf_path, aircraft_info, start_datetime=datetime.now(), achie
         # timestamp KPVs
         kpv_list = _timestamp(start_datetime, kpv_list)
         
-            
-            
     if draw:
         from analysis.plot_flight import plot_flight
         plot_flight(kti_list, kpv_list, phase_list)

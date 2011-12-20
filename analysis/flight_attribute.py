@@ -447,8 +447,6 @@ class LandingRunway(FlightAttributeNode):
         kwargs = {}
         ilsfreq_kpv = approach_ilsfreq.get_last(within_slice=landing.slice)
         kwargs['ilsfreq'] = ilsfreq_kpv.value if ilsfreq_kpv else None
-        if approach_ilsfreq.get_value:
-            kwargs['ilsfreq'] = ilsfreq[0].value
         if precision and precision.value and landing_latitude and \
            landing_longitude:
             last_latitude = landing_latitude.get_last(within_slice=

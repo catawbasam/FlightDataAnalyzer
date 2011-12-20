@@ -513,9 +513,9 @@ class TestLandingAirport(unittest.TestCase):
         landing_airport.derive(latitude, longitude)
         get_nearest_airport.return_value = airport_info
         landing_airport.set_flight_attr = Mock()
-        landing_airport.derive(liftoff, latitude, longitude)
+        landing_airport.derive(latitude, longitude)
         self.assertEqual(get_nearest_airport.call_args, ((0.9, 8.4), {}))
-        self.assertEqual(takeoff_airport.set_flight_attr.call_args,
+        self.assertEqual(landing_airport.set_flight_attr.call_args,
                          ((airport_info,), {}))
 
 
@@ -547,53 +547,43 @@ class TestLandingRunway(unittest.TestCase):
         airport = A('Takeoff Airport')
         airport.value = {'id':25}
         landing_hdg = KPV('Heading At Landing',
-                              items=[KeyPointValue(15, 20.0, 'a')])
+                          items=[KeyPointValue(15, 20.0, 'a')])
         approach_and_landing = S('Approach and Landing',
                                  items=[Section('b', slice(14, 20))])
         
         landing_runway.derive(approach_and_landing, landing_hdg, airport)
-        self.assertEqual(get_nearest_runway.call_args, ((25, 20.0), {}))
-        self.assertEqual(takeoff_runway.set_flight_attr.call_args,
+        self.assertEqual(get_nearest_runway.call_args, ((25, 20.0),
+                                                        {'ilsfreq': None}))
+        self.assertEqual(landing_runway.set_flight_attr.call_args,
                          ((runway_info,), {}))
-        ## Airport, Takeoff Heading, Liftoff, Latitude, Longitude and Precision
-        ## arguments. Latitude and Longitude are only passed with all these
-        ## parameters available and Precise Positioning is True.
-        #liftoff = KTI('Liftoff')
-        #liftoff.create_kti(1, 'STATE')
-        #latitude = P('Latitude', array=np.ma.masked_array([2.0,4.0,6.0]))
-        #longitude = P('Longitude', array=np.ma.masked_array([1.0,3.0,5.0]))
-        #precision = A('Precision')
-        #precision.value = True
-        #takeoff_runway.derive(airport, takeoff_heading, liftoff, latitude,
-                              #longitude, precision)
-        #self.assertEqual(get_nearest_runway.call_args, ((25, 20.0),
-                                                        #{'latitude': 4.0,
-                                                         #'longitude': 3.0}))
-        #self.assertEqual(takeoff_runway.set_flight_attr.call_args,
-                         #((runway_info,), {}))
-        ## When Precise Positioning's value is False, Latitude and Longitude
-        ## are not used.
-        #precision.value = False
-        #takeoff_runway.derive(airport, takeoff_heading, liftoff, latitude,
-                              #longitude, precision)
-        #self.assertEqual(get_nearest_runway.call_args, ((25, 20.0), {}))
-        #self.assertEqual(takeoff_runway.set_flight_attr.call_args,
-                         #((runway_info,), {}))
-
-
-#class TestLandingRunway(unittest.TestCase):
-    #def test_can_operate(self):
-        #self.assertTrue(False)
-    
-    #def test_derive(self):
-        #self.assertTrue(False)
-
-
-#class TestLandingRunway(unittest.TestCase):
-    #def test_can_operate(self):
-        #self.assertTrue(False)
-    
-    #def test_derive(self):
-        #self.assertTrue(False)
-
-
+        approach_ilsfreq = KPV('ILS Frequency On Approach',
+                               items=[KeyPointValue(15, 330150, 'a')])
+        landing_runway.derive(approach_and_landing, landing_hdg, airport,
+                              None, None, approach_ilsfreq, None)
+        self.assertEqual(get_nearest_runway.call_args, ((25, 20.0),
+                                                        {'ilsfreq': 330150}))
+        self.assertEqual(landing_runway.set_flight_attr.call_args,
+                         ((runway_info,), {}))
+        
+        # Airport, Landing Heading, Latitude, Longitude and Precision
+        # arguments. Latitude and Longitude are only passed with all these
+        # parameters available and Precise Positioning is True.
+        latitude = KPV('Latitude At Landing',
+                       items=[KeyPointValue(15, 1.2, 'DATA')])
+        longitude = KPV('Latitude At Landing',
+                        items=[KeyPointValue(15, 3.2, 'DATA')])
+        precision = A('Precision')
+        precision.value = False
+        landing_runway.derive(approach_and_landing, landing_hdg, airport, latitude,
+                              longitude, approach_ilsfreq, precision)
+        self.assertEqual(get_nearest_runway.call_args, ((25, 20.0),
+                                                        {'ilsfreq': 330150}))
+        self.assertEqual(landing_runway.set_flight_attr.call_args,
+                         ((runway_info,), {}))
+        precision.value = True
+        landing_runway.derive(approach_and_landing, landing_hdg, airport, latitude,
+                              longitude, approach_ilsfreq, precision)
+        self.assertEqual(get_nearest_runway.call_args, ((25, 20.0),
+                                                        {'ilsfreq': 330150,
+                                                         'latitude': 1.2,
+                                                         'longitude': 3.2}))
