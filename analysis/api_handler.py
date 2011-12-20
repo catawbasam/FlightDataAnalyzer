@@ -11,6 +11,10 @@ class APIError(Exception):
         self.body = body
 
 
+class APIConnectionError(APIError):
+    pass
+
+
 class InvalidAPIInputError(APIError):
     pass
 
@@ -24,6 +28,9 @@ class UnknownAPIError(APIError): # Q: Name?
 
 
 class APIHandler(object):
+    '''
+    Abstract base class for API handler classes.
+    '''
     __metaclass__ = ABCMeta
     @abstractmethod
     def get_nearest_airport(self, latitude, longitude):
@@ -37,12 +44,14 @@ class APIHandler(object):
         :type longitude: float
         :raises NotFoundError: If airport cannot be found.
         :raises InvalidAPIInputError: If latitude or longitude are out of bounds.
+        :returns: Airport info dictionary or None if the airport cannot be found.
+        :rtype: dict or None
         '''
         raise NotImplementedError
     
     @abstractmethod
     def get_nearest_runway(self, airport, heading, latitude=None, 
-                           longitude=None, precision=None, ilsfreq=None):
+                           longitude=None, ilsfreq=None):
         '''
         Will return the nearest runway from the specified airport using
         latitude, longitude, precision and ilsfreq.
@@ -55,12 +64,12 @@ class APIHandler(object):
         :type latitude: float
         :param longitude: Longitude in decimal degrees.
         :type longitude: float
-        :param precision: Whether or not latitude and longitude are precise and can be trusted.
-        :type precision: bool
         :param ilsfreq: ILS frequency of runway # Q: Glideslope or Localizer frequency?
         :type ilsfreq: float # Q: could/should it be int?
         :raises NotFoundError: If runway cannot be found.
         :raises InvalidAPIInputError: If latitude, longitude or heading are out of bounds.
+        :returns: Runway info dictionary or None if the runway cannot be found.
+        :rtype: dict or None
         '''
         raise NotImplementedError
     

@@ -244,9 +244,15 @@ class SectionNode(Node, list):
     Derives from list to implement iteration and list methods.
     '''
     def __init__(self, *args, **kwargs):
-        """ List of slices where this phase is active. Has a frequency and offset.
-        """
-        # place holder
+        '''
+        List of slices where this phase is active. Has a frequency and offset.
+        
+        :param items: Optional keyword argument of initial items to be contained within self.
+        :type items: list
+        '''
+        if 'items' in kwargs:
+            self.extend(kwargs['items'])
+            del kwargs['items']
         super(SectionNode, self).__init__(*args, **kwargs)
 
     def create_section(self, section_slice, name=''):
@@ -387,6 +393,13 @@ class FormattedNameNode(Node, list):
         else:
             return None
     
+    def get(self, within_slice=None, name=None):
+        '''
+        Gets elements either within_slice or with name.
+        '''
+        condition = self._get_condition(within_slice=within_slice, name=name)
+        return filter(condition, self) if condition else self
+    
     def get_ordered_by_index(self, within_slice=None, name=None):
         '''
         Gets elements ordered by index (ascending) optionally filter 
@@ -399,8 +412,7 @@ class FormattedNameNode(Node, list):
         :returns: An object of the same type as self containing elements ordered by index.
         :rtype: self.__class__
         '''
-        condition = self._get_condition(within_slice=within_slice, name=name)
-        matching = filter(condition, self) if condition else self
+        matching = self.get(within_slice=within_slice, name=name)
         ordered_by_index = sorted(matching, key=attrgetter('index'))
         return self.__class__(name=self.name, frequency=self.frequency,
                               offset=self.offset, items=ordered_by_index)
@@ -415,8 +427,7 @@ class FormattedNameNode(Node, list):
         :param name: Only return elements with this name.
         :type name: str
         '''
-        condition = self._get_condition(within_slice=within_slice, name=name)
-        matching = filter(condition, self) if condition else self
+        matching = self.get(within_slice=within_slice, name=name)
         return min(matching, key=attrgetter('index')) if matching else None
     
     def get_last(self, within_slice=None, name=None):
@@ -429,8 +440,7 @@ class FormattedNameNode(Node, list):
         :param name: Only return elements with this name.
         :type name: str
         '''
-        condition = self._get_condition(within_slice=within_slice, name=name)
-        matching = filter(condition, self) if condition else self
+        matching = self.get(within_slice=within_slice, name=name)
         return max(matching, key=attrgetter('index')) if matching else None
     
     def get_named(self, name, within_slice=None):
@@ -444,8 +454,7 @@ class FormattedNameNode(Node, list):
         :returns: An object of the same type as self containing the filtered elements.
         :rtype: self.__class__
         '''
-        condition = self._get_condition(within_slice=within_slice, name=name)
-        matching = filter(condition, self)
+        matching = self.get(within_slice=within_slice, name=name)
         return self.__class__(name=self.name, frequency=self.frequency,
                               offset=self.offset, items=matching)
 
@@ -517,8 +526,7 @@ class KeyPointValueNode(FormattedNameNode):
         :param name: Only return elements with this name.
         :type name: str
         '''
-        condition = self._get_condition(within_slice=within_slice, name=name)
-        matching = filter(condition, self) if condition else self
+        matching = self.get(within_slice=within_slice, name=name)
         return max(matching, key=attrgetter('value')) if matching else None
     
     def get_min(self, within_slice=None, name=None):
@@ -531,8 +539,7 @@ class KeyPointValueNode(FormattedNameNode):
         :param name: Only return elements with this name.
         :type name: str
         '''
-        condition = self._get_condition(within_slice=within_slice, name=name)
-        matching = filter(condition, self) if condition else self
+        matching = self.get(within_slice=within_slice, name=name)
         return min(matching, key=attrgetter('value')) if matching else None
     
     def get_ordered_by_value(self, within_slice=None, name=None):
@@ -545,8 +552,7 @@ class KeyPointValueNode(FormattedNameNode):
         :param name: Only return elements with this name.
         :type name: str
         '''
-        condition = self._get_condition(within_slice=within_slice, name=name)
-        matching = filter(condition, self) if condition else self
+        matching = self.get(within_slice=within_slice, name=name)
         ordered_by_value = sorted(matching, key=attrgetter('value'))
         return KeyPointValueNode(name=self.name, frequency=self.frequency,
                                  offset=self.offset, items=ordered_by_value)

@@ -1,11 +1,13 @@
 import unittest
 
+from datetime import datetime
 from mock import Mock, patch
 
 import numpy as np
 
 from analysis.api_handler import NotFoundError
-from analysis.node import A, KPV, KTI, P
+from analysis.node import (A, KeyPointValue, KeyTimeInstance, KPV, KTI, P, S,
+                           Section)
 from analysis.flight_attribute import (
     TakeoffAirport, TakeoffRunway, Approaches
     )
@@ -124,6 +126,89 @@ class TestTakeoffRunway(unittest.TestCase):
         self.assertEqual(get_nearest_runway.call_args, ((25, 20.0), {}))
         self.assertEqual(takeoff_runway.set_flight_attr.call_args,
                          ((runway_info,), {}))
+        
+
+class TestApproaches(unittest.TestCase):
+    def test_can_operate(self):
+        # Can operate with approach lat lng.
+        self.assertTrue(Approaches.can_operate(\
+            ['Start Datetime',
+             'Approach and Landing',
+             'Latitude At Low Point On Approach',
+             'Longitude At Low Point On Approach']))
+        # Can operate with landing lat lng.
+        self.assertTrue(Approaches.can_operate(\
+            ['Start Datetime',
+             'Approach and Landing',
+             'Latitude At Landing',
+             'Longitude At Landing']))
+        # Can operate with everything.
+        self.assertTrue(Approaches.can_operate(\
+            ['Start Datetime',
+             'Approach and Landing',
+             'Heading At Landing',
+             'Latitude At Low Point On Approach',
+             'Longitude At Low Point On Approach',
+             'Heading At Low Point On Approach',
+             'Latitude At Landing',
+             'Longitude At Landing',
+             'Touch And Go',
+             'Go Around']))
+        # Cannot operate missing latitude.
+        self.assertFalse(Approaches.can_operate(\
+            ['Start Datetime',
+             'Approach and Landing',
+             'Longitude At Low Point On Approach']))
+        # Cannot operate missing Approach and Landing.
+        self.assertFalse(Approaches.can_operate(\
+            ['Start Datetime',
+             'Latitude At Low Point On Approach',
+             'Longitude At Low Point On Approach']))
+        # Cannot operate with differing sources of lat lng.
+        self.assertFalse(Approaches.can_operate(\
+            ['Start Datetime',
+             'Approach and Landing',
+             'Latitude At Low Point On Approach',
+             'Longitude At Landing']))
+    
+    def test__get_lat_lon(self):
+        approaches = Approaches()
+        landing_lat_kpvs = KPV('Latitude At Landing',
+                               items=[KeyPointValue(5, 10, 'b')])
+        landing_lng_kpvs = KPV('Longitude At Landing',
+                               items=[KeyPointValue(5, -2, 'b')])
+        lat, lon = appraoches._get_lat_lon(landing_lat_kpvs, landing_lng_kpvs,
+                                           None, None)
+        self.assertEqual(lat, 10)
+        self.assertEqual(lon, -2)
+        
+        
+    
+    def test__get_hdg(self):
+        self.assertTrue(False)
+    
+    @patch('analysis.api_handler_http.APIHandlerHTTP.get_nearest_airport')
+    @patch('analysis.api_handler_http.APIHandlerHTTP.get_nearest_runway')
+    def test_derive(self, get_nearest_runway, get_nearest_airport):
+        approaches = Approaches()
+        approaches.set_flight_attr = Mock()
+        get_nearest_airport.return_value = {'id': 1}
+        start_datetime = A('Start Datetime', value=datetime.now())
+        approach_and_landing = S('Approach and Landing',
+                                 items=[Section('a', slice(0,10))])
+        landing_lat_kpvs = KPV('Latitude At Landing',
+                               items=[KeyPointValue(5, 10, 'b')])
+        landing_lng_kpvs = KPV('Longitude At Landing',
+                               items=[KeyPointValue(5, -2, 'b')])
+        go_arounds = KTI('Go Around', items=[KeyTimeInstance(5, 'Go Around')])
+        approaches.derive(start_datetime, approach_and_landing, None,
+                          go_arounds, landing_lat_kpvs, landing_lng_kpvs, None,
+                          None, None, None)
+        self.assertEqual(get_nearest_airport.call_args, ((10, -2), {}))
+        self.assertEqual(get_nearest_runway.call_args_list, [])
+        self.assertEqual(approaches.set_flight_attr.call_args,
+                         (([{'airport':1,},]), {}))
+        
         
 
 

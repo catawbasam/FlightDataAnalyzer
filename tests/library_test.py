@@ -14,7 +14,8 @@ from datetime import datetime
 from analysis.library import (align, calculate_timebase, create_phase_inside,
                               create_phase_outside, duration, 
                               first_order_lag, first_order_washout, hash_array,
-                              hysteresis, interleave, merge_alternate_sensors,
+                              hysteresis, interleave, is_index_within_slice,
+                              is_slice_within_slice, merge_alternate_sensors,
                               rate_of_change, repair_mask, straighten_headings,
                               time_at_value, time_at_value_wrapped, value_at_time)
 
@@ -535,7 +536,24 @@ class TestInterleave(unittest.TestCase):
         np.testing.assert_array_equal(result.mask, [False,False,True,
                                                     False,False,True,
                                                     False,False])
-        
+
+
+class TestIsIndexWithinSlice(unittest.TestCase):
+    def test_is_index_within_slice(self):
+        self.assertTrue(is_index_within_slice(1, slice(0,2)))
+        self.assertTrue(is_index_within_slice(5, slice(5,7)))
+        # Slice is not inclusive of last index.
+        self.assertFalse(is_index_within_slice(7, slice(5,7)))
+
+
+class TestIsSliceWithinSlice(unittest.TestCase):
+    def test_is_slice_within_slice(self):
+        self.assertTrue(is_slice_within_slice(slice(5,6), slice(4,7)))
+        self.assertTrue(is_slice_within_slice(slice(4,6), slice(4,7)))
+        self.assertTrue(is_slice_within_slice(slice(4,7), slice(4,7)))
+        self.assertFalse(is_slice_within_slice(slice(4,8), slice(4,7)))
+        self.assertFalse(is_slice_within_slice(slice(3,7), slice(4,7)))
+
         
 class TestMergeAlternateSensors(unittest.TestCase):
     def test_merge_alternage_sensors_basic(self):
