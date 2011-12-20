@@ -16,7 +16,7 @@ from analysis.recordtype import recordtype
 
 # Define named tuples for KPV and KTI and FlightPhase
 KeyPointValue = recordtype('KeyPointValue', 'index value name datetime', default=None)
-KeyTimeInstance = recordtype('KeyTimeInstance', 'index state latitude longitude', default=None)
+KeyTimeInstance = recordtype('KeyTimeInstance', 'index name latitude longitude', default=None)
 Section = namedtuple('Section', 'name slice') #Q: rename mask -> slice/section
 
 # Ref: django/db/models/options.py:20

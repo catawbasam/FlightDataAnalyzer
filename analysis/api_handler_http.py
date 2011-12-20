@@ -56,7 +56,7 @@ class APIHandlerHTTP(APIHandler):
         try:
             resp, content = http.request(uri, method, body)
         except (httplib2.ServerNotFoundError, socket.error): # DNS..
-            raise APIConnectionError(uri, method, body) # Q: Right exception?
+            raise APIConnectionError(uri, method, body)
         print resp, content
         status = int(resp['status'])
         try:

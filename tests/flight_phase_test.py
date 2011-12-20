@@ -113,7 +113,7 @@ class TestILSLocalizerEstablished(unittest.TestCase):
 
     def test_ils_localizer_established_basic(self):
         aal = [Section('Approach And Landing', slice(2, 8, None))]
-        low = [KeyTimeInstance(index=8, state='Approach And Landing Lowest Point')]
+        low = [KeyTimeInstance(index=8, name='Approach And Landing Lowest Point')]
         ils = P('ILS Localizer',np.ma.arange(-3,0,0.3))
         establish = ILSLocalizerEstablished()
         establish.derive(aal, low, ils)
