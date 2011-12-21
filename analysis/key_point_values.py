@@ -178,17 +178,15 @@ class AccelerationNormalFtTo35FtMax(KeyPointValueNode): # Q: Name?
 class AccelerationNormalMaxAirborne(KeyPointValueNode):
     def derive(self, norm_g=P('Acceleration Normal'), airborne=S('Airborne')):
         for in_air in airborne:
-            normg_in_air_max_index = np.ma.argmax(norm_g.array[in_air.slice])
-            normg_in_air_max_value = norm_g.array.data[normg_in_air_max_index]
-            self.create_kpv(normg_in_air_max_index, normg_in_air_max_value)    
+            index = np.ma.argmax(norm_g.array[in_air.slice])
+            self.create_kpv(index, norm_g.array[index])   
 
 
 class AccelerationNormalMinAirborne(KeyPointValueNode):
     def derive(self, norm_g=P('Acceleration Normal'), airborne=S('Airborne')):
         for in_air in airborne:
-            normg_in_air_min_index = np.ma.argmin(norm_g.array[in_air.slice])
-            normg_in_air_min_value = norm_g.array.data[normg_in_air_max_index]
-            self.create_kpv(normg_in_air_min_index, normg_in_air_min_value)    
+            index = np.ma.argmin(norm_g.array[in_air.slice])
+            self.create_kpv(index, norm_g.array[index])
 
 
 class Pitch35To400FtMax(KeyPointValueNode):

@@ -540,8 +540,6 @@ class Type(FlightAttributeNode):
             else:
                 flight_type = 'ENGINE_RUN_UP'
         
-        else:
-            flight_type = 'ENGINE_RUN_UP'
             
         #elif go_fast and not left ground:
             #REJECTED_TAKEOFF
