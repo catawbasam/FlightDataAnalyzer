@@ -125,7 +125,7 @@ class AltitudeAALForFlightPhases(DerivedParameterNode):
     name = 'Altitude AAL For Flight Phases'
     # This crude parameter is used for flight phase determination,
     # and only uses airspeed and pressure altitude for robustness.
-    def derive(self, alt_std=P('Altitude STD'), fast=P('Fast')):
+    def derive(self, alt_std=P('Altitude STD'), fast=S('Fast')):
         
         # Initialise the array to zero, so that the altitude above the airfield
         # will be 0ft when the aircraft cannot be airborne.
@@ -196,7 +196,7 @@ class AltitudeTail(DerivedParameterNode):
         
 
 class ClimbForFlightPhases(DerivedParameterNode):
-    def derive(self, alt_std=P('Altitude STD'), airs=P('Fast')):
+    def derive(self, alt_std=P('Altitude STD'), airs=S('Fast')):
         self.array = np.ma.zeros(len(alt_std.array))
         repair_mask(alt_std.array) # Remove small sections of corrupt data
         for air in airs:
@@ -515,6 +515,26 @@ class EngVibN2(DerivedParameterNode):
         return NotImplemented
 
 
+class FuelQty(DerivedParameterNode):
+    '''
+    May be replaced by an LFL parameter of the same name if available.
+    '''
+    @classmethod
+    def can_operate(self, available):
+        fuel_qty1 = 'Fuel Qty (1)' in available
+        fuel_qty2 = 'Fuel Qty (2)' in available
+        fuel_qty3 = 'Fuel Qty (3)' in available
+        return fuel_qty1 or fuel_qty2 or fuel_qty3
+    
+    def derive(self, fuel_qty1=P('Fuel Qty (1)'), fuel_qty2=P('Fuel Qty (2)'),
+               fuel_qty3=P('Fuel Qty (3)')):
+        # Repair array masks to ensure that the summed values are not too small
+        # because they do not include masked values.
+        for param in filter(bool, [fuel_qty1, fuel_qty2, fuel_qty3]):
+            param.array = repair_mask(param.array)
+        stacked_params = vstack_params(fuel_qty1, fuel_qty2, fuel_qty3)
+        self.array = np.ma.sum(stacked_params, axis=0)
+
 
 '''
 ########## FLIGHT PHASES ###########
@@ -527,7 +547,6 @@ class GoAround(DerivedParameterNode): # Q: is this a parameter?
 class RudderReversal(DerivedParameterNode):
     def derive(self, param=P('Flap')): # Q: Args?
         return NotImplemented
-
 '''
 
 '''

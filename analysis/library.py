@@ -632,7 +632,6 @@ def merge_alternate_sensors (array):
     result[-1] = (array[-2] + array[-1]) / 2.0
     return result
 
-
 def rate_of_change(diff_param, half_width):
     '''
     @param to_diff: Parameter object with .array attr (masked array)
@@ -684,8 +683,11 @@ def repair_mask(array):
         elif section.stop == len(array):
             break # Can't interpolate if we don't know the last sample
         else:
-            array[section] =np.interp(np.arange(length)+1,[0,length+1],[array.data[section.start - 1],array.data[section.stop]])
-    return array            
+            array[section] = np.interp(np.arange(length) + 1,
+                                       [0, length + 1],
+                                       [array.data[section.start - 1],
+                                        array.data[section.stop]])
+    return array
             
 def straighten_headings(heading_array):
     '''
@@ -697,7 +699,6 @@ def straighten_headings(heading_array):
     :returns: Straightened headings
     :rtype: Generator of type Float
     '''
-    
     head_prev = heading_array[0]
     diff = np.ediff1d(heading_array)
     diff = diff - 360.0 * np.trunc(diff/180.0)
@@ -834,7 +835,7 @@ def value_at_time (array, hz, offset, time_index):
 
 
 def vstack_params(*params):
-    """
+    '''
     Create a multi-dimensional masked array with a dimension per param.
     
     :param params: Parameter arguments as required. Allows some None values.
@@ -842,5 +843,5 @@ def vstack_params(*params):
     :returns: Each parameter stacked onto a new dimension
     :rtype: np.ma.array
     :raises: ValueError if all params are None (concatenation of zero-length sequences is impossible)
-    """
+    '''
     return np.ma.vstack([getattr(p, 'array', p) for p in params if p is not None])

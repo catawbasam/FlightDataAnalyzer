@@ -33,7 +33,7 @@ def shift_slices(slicelist,offset):
     
     
 class Airborne(FlightPhaseNode):
-    def derive(self, roc=P('Rate Of Climb'), airs=P('Fast')):
+    def derive(self, roc=P('Rate Of Climb'), airs=S('Fast')):
         # Rate of climb limit set to identify both level flight and 
         # end of takeoff / start of landing.
         for air in airs:
@@ -119,16 +119,16 @@ class ApproachAndLanding(FlightPhaseNode):
             return False
         
     # List the optimal parameter set here
-    def derive(self, alt_AAL=P('Altitude AAL For Flight Phases'),
+    def derive(self, alt_aal=P('Altitude AAL For Flight Phases'),
                alt_rad=P('Altitude Radio For Flight Phases')):
         if alt_rad:
             # Start the phase if we pass over high ground, so the radio
             # altitude falls below 3000ft before the pressure altitude
-            app = np.ma.masked_where(np.ma.minimum(alt_AAL.array,alt_rad.array)
-                                 >3000,alt_AAL.array)
+            app = np.ma.masked_where(np.ma.minimum(alt_aal.array,alt_rad.array)
+                                 >3000,alt_aal.array)
         else:
             # Just use airfield elevation clearance
-            app = np.ma.masked_where(alt_AAL.array>3000,alt_AAL.array)
+            app = np.ma.masked_where(alt_aal.array>3000,alt_aal.array)
         phases = np.ma.clump_unmasked(app)
         for phase in phases:
             # Check that the aircraft descended in this section of data, as
@@ -226,7 +226,7 @@ class Cruise(FlightPhaseNode):
 class Descending(FlightPhaseNode):
     """ Descending faster than 800fpm towards the ground
     """
-    def derive(self, roc=P('Rate Of Climb'), airs=P('Fast')):
+    def derive(self, roc=P('Rate Of Climb'), airs=S('Fast')):
         # Rate of climb and descent limits of 800fpm gives good distinction
         # with level flight.
         for air in airs:
@@ -305,7 +305,8 @@ class FinalApproach(FlightPhaseNode):
                 pit = np.ma.argmin(app[phase]) + begin
                 if app[pit] < app[begin] :
                     self.create_phase(slice(begin, pit))
-    
+
+
 class ILSLocalizerEstablished(FlightPhaseNode):
     name = 'ILS Localizer Established'
     """

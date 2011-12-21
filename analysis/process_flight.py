@@ -100,7 +100,13 @@ def derive_parameters(hdf, node_mgr, process_order):
             raise RuntimeError("No dependencies available - Nodes cannot "
                                "operate without ANY dependencies available! "
                                "Node: %s" % node_class.__name__)
-        first_dep = next((d for d in deps if d is not None))
+        try:
+            first_dep = next((d for d in deps if d is not None and d.frequency))
+            frequency = first_dep.frequency
+            offset = first_dep.offset
+        except StopIteration:
+            frequency = None
+            offset = None
         # initialise node
         node = node_class(frequency=first_dep.frequency,
                           offset=first_dep.offset)

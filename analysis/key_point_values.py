@@ -303,13 +303,6 @@ class FlapAtTouchdown(KeyPointValueNode):
         return NotImplemented
 
 
-class GrossWeightAtTouchdown(KeyPointValueNode):
-    def derive(self, gross_weight=P('Gross Weight'), 
-               touchdown=KTI('Touchdown')):
-        return NotImplemented
-
-
-
 class EngEGTMax(KeyPointValueNode):
     name = 'Eng EGT Max'
 
@@ -758,16 +751,32 @@ class EngOITMax(KeyPointValueNode):
         return NotImplemented
 
 
-class GrossWeightAtTouchdown(KeyPointValueNode):
-    def derive(self, gross_weight=P('Gross Weight'),
-               touchdown=KTI('Touchdown')):
-        return NotImplemented
+class FuelQtyAtLiftoff(KeyPointValueNode):
+    def derive(self, fuel_qty=P('Fuel Qty'), liftoffs=KTI('Liftoff')):
+        for liftoff in liftoffs:
+            self.create_kpv(liftoff.index,
+                            fuel_qty.array[liftoff.index])
+
+
+class FuelQtyAtTouchdown(KeyPointValueNode):
+    def derive(self, fuel_qty=P('Fuel Qty'), touchdowns=KTI('Touchdown')):
+        for touchdown in touchdowns:
+            self.create_kpv(touchdown.index,
+                            fuel_qty.array[touchdown.index])
+
+
+class GrossWeightAtLiftoff(KeyPointValueNode):
+    def derive(self, gross_weight=P('Gross Weight'), liftoffs=KTI('Liftoff')):
+        for liftoff in liftoffs:
+            self.create_kpv(liftoff.index, gross_weight.array[liftoff.index])
 
 
 class GrossWeightAtTouchdown(KeyPointValueNode):
     def derive(self, gross_weight=P('Gross Weight'),
-               touchdown=KTI('Touchdown')):
-        return NotImplemented
+               touchdowns=KTI('Touchdown')):
+        for touchdown in touchdowns:
+            self.create_kpv(touchdown.index,
+                            gross_weight.array[touchdown.index])
 
 
 class PitchCyclesMax(KeyPointValueNode):
