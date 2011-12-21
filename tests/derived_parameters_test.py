@@ -44,13 +44,14 @@ class TestAccelerationVertical(unittest.TestCase):
         acc_vert = AccelerationVertical(frequency=8)
                         
         acc_vert.derive(
-            acc_norm=Parameter('Acceleration Normal',np.ma.ones(8),8),
-            acc_lat=Parameter('Acceleration Lateral',np.ma.zeros(4),4),
-            acc_long=Parameter('Acceleration Longitudinal',np.ma.zeros(4),4),
-            pitch=Parameter('Pitch',np.ma.zeros(2),2),
-            roll=Parameter('Roll',np.ma.zeros(2),2))
+            acc_norm=Parameter('Acceleration Normal', np.ma.ones(8),8),
+            acc_lat=Parameter('Acceleration Lateral', np.ma.zeros(4),4),
+            acc_long=Parameter('Acceleration Longitudinal', np.ma.zeros(4),4),
+            pitch=Parameter('Pitch', np.ma.zeros(2),2),
+            roll=Parameter('Roll', np.ma.zeros(2),2))
         
-        ma_test.assert_masked_array_approx_equal(acc_vert.array, np.ma.array([1]*8))
+        ma_test.assert_masked_array_approx_equal(acc_vert.array,
+                                                 np.ma.array([1]*8))
         
     def test_acceleration_vertical_pitch_up(self):
         acc_vert = AccelerationVertical(frequency=8)
@@ -62,7 +63,8 @@ class TestAccelerationVertical(unittest.TestCase):
             P('Pitch',np.ma.ones(2)*30.0,2),
             P('Roll',np.ma.zeros(2),2))
 
-        ma_test.assert_masked_array_approx_equal(acc_vert.array, np.ma.array([1]*8))
+        ma_test.assert_masked_array_approx_equal(acc_vert.array,
+                                                 np.ma.array([1]*8))
 
     def test_acceleration_vertical_roll_right(self):
         acc_vert = AccelerationVertical(frequency=8)
@@ -74,7 +76,8 @@ class TestAccelerationVertical(unittest.TestCase):
             P('Pitch',np.ma.zeros(2),2),
             P('Roll',np.ma.ones(2)*45,2))
 
-        ma_test.assert_masked_array_approx_equal(acc_vert.array, np.ma.array([1]*8))
+        ma_test.assert_masked_array_approx_equal(acc_vert.array,
+                                                 np.ma.array([1]*8))
 
 
 class TestAccelerationForwardsForFlightPhases(unittest.TestCase):
@@ -398,13 +401,17 @@ class TestFuelQty(unittest.TestCase):
                       array=np.ma.array([1,2,3], mask=[False, False, False]))
         fuel_qty2 = P('Fuel Qty (2)', 
                       array=np.ma.array([2,4,6], mask=[False, False, False]))
+        # Mask will be interpolated by repair_mask.
         fuel_qty3 = P('Fuel Qty (3)',
-                      array=np.ma.array([3,6,9], mask=[False, False, True]))
+                      array=np.ma.array([3,6,9], mask=[False, True, False]))
         fuel_qty_node = FuelQty()
         fuel_qty_node.derive(fuel_qty1, fuel_qty2, fuel_qty3)
-        print fuel_qty_node.array
         np.testing.assert_array_equal(fuel_qty_node.array,
                                       np.ma.array([6, 12, 18]))
+        # Works without all parameters.
+        fuel_qty_node.derive(fuel_qty1, None, None)
+        np.testing.assert_array_equal(fuel_qty_node.array,
+                                      np.ma.array([1, 2, 3]))
                          
         
 class TestHeadContinuous(unittest.TestCase):

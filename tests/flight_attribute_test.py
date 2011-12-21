@@ -9,10 +9,10 @@ from analysis.api_handler import NotFoundError
 from analysis.node import (A, KeyPointValue, KeyTimeInstance, KPV, KTI, P, S,
                            Section)
 from analysis.flight_attribute import (
-    Approaches, FlightNumber, LandingAirport, LandingDatetime,
-    LandingGrossWeight, LandingRunway, TakeoffAirport, TakeoffDatetime, 
-    TakeoffGrossWeight, TakeoffRunway
-    )
+    Approaches, Duration, FlightID, FlightNumber, LandingAirport, 
+    LandingDatetime, LandingFuel, LandingGrossWeight, LandingRunway,
+    TakeoffAirport, TakeoffDatetime, TakeoffFuel, TakeoffGrossWeight,
+    TakeoffRunway)
 
 
 class TestApproaches(unittest.TestCase):
@@ -360,6 +360,34 @@ class TestApproaches(unittest.TestCase):
         self.assertEqual(approaches.set_flight_attr.call_args, (([],), {}))
 
 
+class TestDuration(unittest.TestCase):
+    def test_can_operate(self):
+        self.assertEqual(Duration.get_operational_combinations(),
+                         [('Takeoff Datetime', 'Landing Datetime')])
+    
+    def test_derive(self):
+        duration = Duration()
+        duration.set_flight_attr = Mock()
+        takeoff_dt = A('Takeoff Datetime', value=datetime(1970, 1, 1, 0, 1, 0))
+        landing_dt = A('Landing Datetime', value=datetime(1970, 1, 1, 0, 2, 30))
+        duration.derive(takeoff_dt, landing_dt)
+        self.assertEqual(duration.set_flight_attr.call_args, ((90,), {}))
+
+
+class TestFlightID(unittest.TestCase):
+    def test_can_operate(self):
+        self.assertEqual(FlightID.get_operational_combinations(),
+                         [('AFR Flight ID',)])
+    
+    def test_derive(self):
+        afr_flight_id = A('AFR Flight ID', value=10245)
+        flight_id = FlightID()
+        flight_id.set_flight_attr = Mock()
+        flight_id.derive(afr_flight_id)
+        self.assertEqual(flight_id.set_flight_attr.call_args,
+                         ((10245,), {}))
+
+
 class TestFlightNumber(unittest.TestCase):
     def test_can_operate(self):
         self.assertEqual(FlightNumber.get_operational_combinations(),
@@ -442,6 +470,33 @@ class TestLandingDatetime(unittest.TestCase):
         landing_datetime.derive(start_datetime, touchdown)
         self.assertEqual(landing_datetime.set_flight_attr.call_args,
                          ((None,), {}))
+
+
+class TestLandingFuel(unittest.TestCase):
+    def test_can_operate(self):
+        self.assertEqual(LandingFuel.get_operational_combinations(),
+                         [('AFR Landing Fuel',), ('Fuel Qty At Touchdown',),
+                          ('AFR Landing Fuel', 'Fuel Qty At Touchdown')])
+    
+    def test_derive(self):
+        landing_fuel = LandingFuel()
+        landing_fuel.set_flight_attr = Mock()
+        # Only 'AFR Takeoff Fuel' dependency.
+        afr_landing_fuel = A('AFR Landing Fuel', value=100)
+        landing_fuel.derive(afr_landing_fuel, None)
+        self.assertEqual(landing_fuel.set_flight_attr.call_args,
+                         ((100,), {}))
+        # Only 'Fuel Qty At Liftoff' dependency.
+        fuel_qty_at_touchdown = KPV('Fuel Qty At Touchdown',
+                                    items=[KeyPointValue(87, 160),
+                                           KeyPointValue(132, 200)])
+        landing_fuel.derive(None, fuel_qty_at_touchdown)
+        self.assertEqual(landing_fuel.set_flight_attr.call_args,
+                         ((200,), {}))
+        # Both, 'AFR Takeoff Fuel' used.
+        landing_fuel.derive(afr_landing_fuel, fuel_qty_at_touchdown)
+        self.assertEqual(landing_fuel.set_flight_attr.call_args,
+                         ((100,), {}))
 
 
 class TestLandingGrossWeight(unittest.TestCase):
@@ -588,6 +643,32 @@ class TestTakeoffDatetime(unittest.TestCase):
         liftoff = KTI('Liftoff', frequency=0.25, items=[])
         takeoff_dt.set_flight_attr = Mock()
         self.assertFalse(takeoff_dt.set_flight_attr.called)
+
+
+class TestTakeoffFuel(unittest.TestCase):
+    def test_can_operate(self):
+        self.assertEqual(TakeoffFuel.get_operational_combinations(),
+                         [('AFR Takeoff Fuel',), ('Fuel Qty At Liftoff',),
+                          ('AFR Takeoff Fuel', 'Fuel Qty At Liftoff')])
+    
+    def test_derive(self):
+        takeoff_fuel = TakeoffFuel()
+        takeoff_fuel.set_flight_attr = Mock()
+        # Only 'AFR Takeoff Fuel' dependency.
+        afr_takeoff_fuel = A('AFR Takeoff Fuel', value=100)
+        takeoff_fuel.derive(afr_takeoff_fuel, None)
+        self.assertEqual(takeoff_fuel.set_flight_attr.call_args,
+                         ((100,), {}))
+        # Only 'Fuel Qty At Liftoff' dependency.
+        fuel_qty_at_liftoff = KPV('Fuel Qty At Liftoff',
+                                  items=[KeyPointValue(132, 200)])
+        takeoff_fuel.derive(None, fuel_qty_at_liftoff)
+        self.assertEqual(takeoff_fuel.set_flight_attr.call_args,
+                         ((200,), {}))
+        # Both, 'AFR Takeoff Fuel' used.
+        takeoff_fuel.derive(afr_takeoff_fuel, fuel_qty_at_liftoff)
+        self.assertEqual(takeoff_fuel.set_flight_attr.call_args,
+                         ((100,), {}))
 
 
 class TestTakeoffGrossWeight(unittest.TestCase):

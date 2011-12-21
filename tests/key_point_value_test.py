@@ -6,6 +6,8 @@ from analysis.plot_flight import plot_parameter
 from analysis.node import A, KPV, KeyTimeInstance, KTI, KeyPointValue, Parameter, P, Section, S
 from analysis.key_point_values import (Airspeed1000To500FtMax,
                                        HeadingAtTakeoff,
+                                       FuelQtyAtLiftoff,
+                                       FuelQtyAtTouchdown,
                                        GlideslopeDeviation1500To1000FtMax,
                                        GlideslopeDeviation1000To150FtMax,
                                        GrossWeightAtLiftoff,
@@ -122,6 +124,33 @@ class TestGlideslopeDeviation1000To150FtMax(unittest.TestCase):
         self.assertEqual(len(kpv), 2)
         self.assertEqual(kpv[0].index, 57)
         self.assertEqual(kpv[1].index, 120)
+
+
+class TestFuelQtyAtLiftoff(unittest.TestCase):
+    def test_can_operate(self):
+        self.assertEqual(FuelQtyAtLiftoff.get_operational_combinations(),
+                         [('Fuel Qty', 'Liftoff')])
+    
+    def test_derive(self):
+        node = FuelQtyAtLiftoff()
+        fuel_qty = P('Fuel Qty', array=np.ma.masked_array([2,4,6]))
+        liftoff = KTI('Liftoff', items=[KeyTimeInstance(1, 'a')])
+        node.derive(fuel_qty, liftoff)
+        self.assertEqual(node, [KeyPointValue(1, 4, 'Fuel Qty At Liftoff')])
+
+
+class TestFuelQtyAtTouchdown(unittest.TestCase):
+    def test_can_operate(self):
+        self.assertEqual(FuelQtyAtTouchdown.get_operational_combinations(),
+                         [('Fuel Qty', 'Touchdown')])
+    
+    def test_derive(self):
+        node = FuelQtyAtTouchdown()
+        fuel_qty = P('Fuel Qty', array=np.ma.masked_array([2,4,6]))
+        liftoff = KTI('Touchdown', items=[KeyTimeInstance(1, 'a')])
+        node.derive(fuel_qty, liftoff)
+        self.assertEqual(node,
+                         [KeyPointValue(1, 4, 'Fuel Qty At Touchdown')])
 
 
 class TestGrossWeightAtLiftoff(unittest.TestCase):

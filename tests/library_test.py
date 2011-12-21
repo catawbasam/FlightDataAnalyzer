@@ -594,7 +594,7 @@ class TestIsSliceWithinSlice(unittest.TestCase):
         self.assertFalse(is_slice_within_slice(slice(4,8), slice(4,7)))
         self.assertFalse(is_slice_within_slice(slice(3,7), slice(4,7)))
 
-        
+
 class TestMergeAlternateSensors(unittest.TestCase):
     def test_merge_alternage_sensors_basic(self):
         array = np.ma.array([0, 5, 0, 5, 1, 6, 1, 6],dtype=float)

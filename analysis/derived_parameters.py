@@ -528,11 +528,12 @@ class FuelQty(DerivedParameterNode):
     
     def derive(self, fuel_qty1=P('Fuel Qty (1)'), fuel_qty2=P('Fuel Qty (2)'),
                fuel_qty3=P('Fuel Qty (3)')):
-        available_params = filter(bool, [fuel_qty1, fuel_qty2, fuel_qty3])
-        stacked_params = vstack_params(*available_params)
-        self.array = np.ma.sum(stacked_params, axis=0) # Q: Sum behaviour?
-        
-
+        # Repair array masks to ensure that the summed values are not too small
+        # because they do not include masked values.
+        for param in filter(bool, [fuel_qty1, fuel_qty2, fuel_qty3]):
+            param.array = repair_mask(param.array)
+        stacked_params = vstack_params(fuel_qty1, fuel_qty2, fuel_qty3)
+        self.array = np.ma.sum(stacked_params, axis=0)
 
 
 '''
@@ -546,7 +547,6 @@ class GoAround(DerivedParameterNode): # Q: is this a parameter?
 class RudderReversal(DerivedParameterNode):
     def derive(self, param=P('Flap')): # Q: Args?
         return NotImplemented
-
 '''
 
 '''

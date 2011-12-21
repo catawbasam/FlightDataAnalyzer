@@ -218,7 +218,7 @@ class Duration(FlightAttributeNode):
     "Duration of the flight (between takeoff and landing) in seconds"
     name = 'FDR Duration'
     def derive(self, takeoff_dt=A('Takeoff Datetime'), landing_dt=A('Landing Datetime')):
-        duration = landing_dt - takeoff_dt
+        duration = landing_dt.value - takeoff_dt.value
         self.set_flight_attr(duration.total_seconds()) # py2.7
 
 
@@ -226,7 +226,7 @@ class FlightID(FlightAttributeNode):
     "Flight ID if provided via a known input attribute"
     name = 'FDR Flight ID'
     def derive(self, flight_id=A('AFR Flight ID')):
-        return flight_id
+        self.set_flight_attr(flight_id.value)
     
         
 class FlightNumber(FlightAttributeNode):
@@ -236,6 +236,7 @@ class FlightNumber(FlightAttributeNode):
         # Q: Should we validate the flight number or source from a different
         # index?
         self.set_flight_attr(num.array[len(num.array) / 2])
+
 
 class LandingAirport(FlightAttributeNode):
     "Landing Airport including ID and Name"
@@ -394,22 +395,22 @@ class TakeoffDatetime(FlightAttributeNode):
         self.set_flight_attr(takeoff_dt)
 
 
-# TODO
-#class TakeoffFuel(FlightAttributeNode):
-    #"Weight of Fuel in KG at point of Takeoff"
-    #name = 'FDR Takeoff Fuel'
-    #def derive(self, unknown_dep=P('UNKNOWN')):
-        
-        #AFR takeoff fuel
-        #else
-        #'Fuel Qty' param at liftoff
-        
-        
-        #fuel_qty = sum('Fuel Qty (1)' 'Fuel Qty (2)' 'Fuel Qty (3)') # add a TODO: improve using AFR Takeoff Fuel values and Fuel Flow        from library import vstack_params
-        #ftot = vstack_params(f1, f2, f3)
-        #self.array = np.ma.sum(ftot, 0)
-        
-        #return NotImplemented
+class TakeoffFuel(FlightAttributeNode):
+    "Weight of Fuel in KG at point of Takeoff"
+    name = 'FDR Takeoff Fuel'
+    @classmethod
+    def can_operate(self, available):
+        return 'AFR Takeoff Fuel' in available or \
+               'Fuel Qty At Liftoff' in available
+    
+    def derive(self, afr_takeoff_fuel=A('AFR Takeoff Fuel'),
+               liftoff_fuel_qty=KPV('Fuel Qty At Liftoff')):
+        if afr_takeoff_fuel and afr_takeoff_fuel.value:
+            self.set_flight_attr(afr_takeoff_fuel.value)
+        else:
+            fuel_qty_kpv = liftoff_fuel_qty.get_first()
+            if fuel_qty_kpv:
+                self.set_flight_attr(fuel_qty_kpv.value)
 
 
 class TakeoffGrossWeight(FlightAttributeNode):
@@ -498,11 +499,16 @@ class TakeoffRunway(FlightAttributeNode):
             self.set_flight_attr(runway)
 
 
-# TODO
-#class Type(FlightAttributeNode):
-    #"Type of flight flown"
-    #name = 'FDR Type'
-    #def derive(self, unknown_dep=P('UNKNOWN')):
+class Type(FlightAttributeNode):
+    "Type of flight flown"
+    name = 'FDR Type'
+    
+    @classmethod
+    def can_operate(self, available):
+        'Fastavailable
+    
+    def derive(self, afr_type=A('AFR Type'), fast=S('Fast'),
+               liftoffs=KTI('Liftoff'), touchdowns=KTI('Touchdown')):
         ## options are:
         #COMMERCIAL = 'COMMERCIAL'
         #INCOMPLETE = 'INCOMPLETE'
@@ -513,9 +519,29 @@ class TakeoffRunway(FlightAttributeNode):
         #FERRY = 'FERRY'
         #POSITIONING = 'POSITIONING'
         #LINE_TRAINING = 'LINE_TRAINING'
-        
         #if go_fast and left ground:
-            #AFR_TYPE if in (TEST, TRAINING, FERRY, POSITIONING, LINE_TRAINING) or COMMERCIAL
+        
+        
+        # TODO: ON_GROUND.
+        afr_type = afr_type.value if afr_type else None
+        if fast and liftoff:
+            self.set_flight_attr(afr_type if afr_type in ['TEST', 'TRAINING', 'FERRY', 'POSITIONING', 'LINE_TRAINING'] else 'COMMERCIAL')
+        elif fast and not liftoff:
+            flight_type = 'REJECTED_TAKEOFF'
+        else:
+            # Ensure there was a liftoff before the first touchdown.
+            first_touchdown = touchdowns.get_first()
+            first_liftoff = liftoffs.get_first()
+            if not first_liftoff or not first_touchdown:
+                flight_type = 'INCOMPLETE'
+            elif  first_touchdown.index < first_liftoff.index:
+                # Touchdown before having lifted off..
+                flight_type = 'INCOMPLETE'
+            else:
+                flight_type = 'ENGINE_RUN_UP'
+        
+        else:
+            flight_type = 'ENGINE_RUN_UP'
             
         #elif go_fast and not left ground:
             #REJECTED_TAKEOFF
@@ -558,10 +584,21 @@ class LandingDatetime(FlightAttributeNode):
 
          
 class LandingFuel(FlightAttributeNode):
-    "Weight of Fuel in KG at point of Landing"
+    "Weight of Fuel in KG at point of Touchdown"
     name = 'FDR Landing Fuel'
-    def derive(self, unknown_dep=P('UNKNOWN')):
-        return NotImplemented
+    @classmethod
+    def can_operate(self, available):
+        return 'AFR Landing Fuel' in available or \
+               'Fuel Qty At Touchdown' in available
+    
+    def derive(self, afr_landing_fuel=A('AFR Landing Fuel'),
+               touchdown_fuel_qty=KPV('Fuel Qty At Touchdown')):
+        if afr_landing_fuel and afr_landing_fuel.value:
+            self.set_flight_attr(afr_landing_fuel.value)
+        else:
+            fuel_qty_kpv = touchdown_fuel_qty.get_last()
+            if fuel_qty_kpv:
+                self.set_flight_attr(fuel_qty_kpv.value)
 
 
 class LandingGrossWeight(FlightAttributeNode):

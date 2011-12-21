@@ -166,13 +166,17 @@ class Node(object):
         :type args: list
         """
         if self.align_to_first_dependency:
-            i, first_param = next(((n, a) for n, a in enumerate(args) if \
-                                   a is not None and hasattr(a, 'frequency')))
-            for n, param in enumerate(args):
-                # if param is set and it's after the first dependency
-                if param and n > i:
-                    # override argument in list in-place
-                    args[n] = param.get_aligned(first_param)
+            try:
+                i, first_param = next(((n, a) for n, a in enumerate(args) if \
+                                       a is not None and a.frequency))
+            except StopIteration:
+                pass
+            else:
+                for n, param in enumerate(args):
+                    # if param is set and it's after the first dependency
+                    if param and n > i:
+                        # override argument in list in-place
+                        args[n] = param.get_aligned(first_param)
         res = self.derive(*args)
         if res is NotImplemented:
             raise NotImplementedError("Class '%s' derive method is not implemented." % \
@@ -618,8 +622,8 @@ class FlightAttributeNode(Node):
         super(FlightAttributeNode, self).__init__(*args, **kwargs)
         # FlightAttributeNodes inherit frequency and offset attributes from Node,
         # yet these are not relevant to them. TODO: Change inheritance.
-        del self.frequency
-        del self.offset
+        self.frequency = None
+        self.offset = None
     
     def set_flight_attribute(self, value):
         self.value = value

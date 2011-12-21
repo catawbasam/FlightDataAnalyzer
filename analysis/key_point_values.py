@@ -756,12 +756,24 @@ class EngOITMax(KeyPointValueNode):
         return NotImplemented
 
 
-class GrossWeightAtLiftoff(KeyPointValueNode):
-    def derive(self, gross_weight=P('Gross Weight'),
-               liftoffs=KTI('Liftoff')):
+class FuelQtyAtLiftoff(KeyPointValueNode):
+    def derive(self, fuel_qty=P('Fuel Qty'), liftoffs=KTI('Liftoff')):
         for liftoff in liftoffs:
             self.create_kpv(liftoff.index,
-                            gross_weight.array[liftoff.index])
+                            fuel_qty.array[liftoff.index])
+
+
+class FuelQtyAtTouchdown(KeyPointValueNode):
+    def derive(self, fuel_qty=P('Fuel Qty'), touchdowns=KTI('Touchdown')):
+        for touchdown in touchdowns:
+            self.create_kpv(touchdown.index,
+                            fuel_qty.array[touchdown.index])
+
+
+class GrossWeightAtLiftoff(KeyPointValueNode):
+    def derive(self, gross_weight=P('Gross Weight'), liftoffs=KTI('Liftoff')):
+        for liftoff in liftoffs:
+            self.create_kpv(liftoff.index, gross_weight.array[liftoff.index])
 
 
 class GrossWeightAtTouchdown(KeyPointValueNode):
