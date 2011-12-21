@@ -208,7 +208,7 @@ def process_flight(hdf_path, aircraft_info, start_datetime=datetime.now(), achie
     :rtype: Dict
     {
         'flight':[Attribute('name value')]  # sample: [Attribute('Takeoff Airport', {'id':1234, 'name':'Int. Airport'}, Attribute('Approaches', [4567,7890]), ...], 
-        'kti':[GeoKeyTimeInstance('index state latitude longitude')] if lat/long available else [KeyTimeInstance('index state')]
+        'kti':[GeoKeyTimeInstance('index name latitude longitude')] if lat/long available else [KeyTimeInstance('index name')]
         'kpv':[KeyPointValue('index value name slice')]
     }
     
@@ -246,8 +246,6 @@ def process_flight(hdf_path, aircraft_info, start_datetime=datetime.now(), achie
         # timestamp KPVs
         kpv_list = _timestamp(start_datetime, kpv_list)
         
-            
-            
     if draw:
         from analysis.plot_flight import plot_flight
         plot_flight(hdf_path, kti_list, kpv_list, phase_list)

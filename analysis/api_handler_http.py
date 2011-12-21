@@ -5,8 +5,9 @@ import time
 import httplib2
 import simplejson
 
-from analysis.api_handler import (APIError, APIHandler, InvalidAPIInputError,
-                                  NotFoundError, UnknownAPIError)
+from analysis.api_handler import (APIConnectionError, APIHandler,
+                                  InvalidAPIInputError, NotFoundError,
+                                  UnknownAPIError)
 from analysis.settings import BASE_URL
 
 TIMEOUT = 60
@@ -15,29 +16,47 @@ socket.setdefaulttimeout(TIMEOUT)
 
 
 class APIHandlerHTTP(APIHandler):
-    
+    '''
+    Restful HTTP API Handler.
+    '''
     def __init__(self, attempts=3, delay=2):
         '''
         :param attempts: Attempts to retry the same request before raising an exception.
         :type attempts: int
+        :param delay: Time to sleep between API requests.
+        :type delay: int or float
         '''
         if attempts >= 1:
             self.attempts = attempts
         else:
-            raise ValueError('Must attempt requests at least once.')
+            raise ValueError('APIHandlerHTTP must attempt requests at least once.')
         self.delay = delay
     
     def _request(self, uri, method='GET', body='', timeout=TIMEOUT):
         '''
+        Makes a request to a URL and attempts to return the decoded content.
+        
+        :param uri: URI to request.
+        :type uri: str
+        :param method: Method of request.
+        :type method: str
+        :param timeout: Request timeout in seconds.
+        :type timeout: int
+        :param body: Body to be encoded.
+        :type body: str, dict or tuple
+        :raises InvalidAPIInputError: If server returns 400.
+        :raises NotFoundError: If server returns 404.
+        :raises APIConnectionError: If the server does not respond or returns 401.
+        :raises UnknownAPIError: If the server returns 500 or an unexpected status code.
         '''
-        if method == 'GET':
-            # Encode body as GET parameters.
-            body = urllib.urlencode(body)
+        ##if method == 'GET':
+        # Encode body as GET parameters.
+        body = urllib.urlencode(body)
         http = httplib2.Http(timeout=timeout)
         try:
             resp, content = http.request(uri, method, body)
         except (httplib2.ServerNotFoundError, socket.error): # DNS..
-            raise UnknownAPIError(uri, method, body) # Q: Right exception?
+            raise APIConnectionError(uri, method, body)
         print resp, content
         status = int(resp['status'])
         try:
@@ -55,13 +74,13 @@ class APIHandlerHTTP(APIHandler):
             if status == httplib.BAD_REQUEST: # 400
                 raise InvalidAPIInputError(error_msg, uri, method, body)
             elif status == httplib.UNAUTHORIZED: # 401
-                raise UnknownAPIError(error_msg, uri, method, body)
+                raise APIConnectionError(error_msg, uri, method, body)
             elif status == httplib.NOT_FOUND: # 404
                 raise NotFoundError(error_msg, uri, method, body)
             elif status == httplib.INTERNAL_SERVER_ERROR: # 500
                 raise UnknownAPIError(error_msg, uri, method, body)
             else:
-                pass # TODO
+                raise UnknownAPIError(error_msg, uri, method, body)
         
         if decoded_content is None:
             raise UnknownAPIError('JSON response could not be decoded.',
@@ -78,7 +97,9 @@ class APIHandlerHTTP(APIHandler):
         :type args: list
         :param kwargs: Keyword arguments passed into self._request.
         :type kwargs: dict
-        :raises Exception: 
+        :raises Exception: If self._request() does so in all attempts.
+        :returns: Decoded JSON object if successful.
+        :rtype: dict
         '''
         for attempt in range(self.attempts):
             try:
@@ -86,8 +107,6 @@ class APIHandlerHTTP(APIHandler):
             except Exception as error:
                 time.sleep(self.delay)
         raise error
-    
-    
     
     def get_nearest_airport(self, latitude, longitude):
         '''
@@ -108,7 +127,7 @@ class APIHandlerHTTP(APIHandler):
         return self._attempt_request(url)['airport']
     
     def get_nearest_runway(self, airport, heading, latitude=None,
-                           longitude=None, precision=False, ilsfreq=None):
+                           longitude=None, ilsfreq=None):
         '''
         Returns the nearest runway from the specified airport using latitude,
         longitude, precision and ilsfreq.
@@ -121,8 +140,6 @@ class APIHandlerHTTP(APIHandler):
         :type latitude: float
         :param longitude: Longitude in decimal degrees.
         :type longitude: float
-        :param precision: Whether or not latitude and longitude are precise and can be trusted.
-        :type precision: bool
         :param ilsfreq: ILS frequency of runway # Q: Glideslope or Localizer frequency?
         :type ilsfreq: float # Q: could/should it be int?
         :raises NotFoundError: If runway cannot be found.

@@ -12,6 +12,24 @@ class AirportAtTakeoff(KeyPointValueNode):
         ##KeyPointValue(n, '09L', 'Takeoff Runway')
         return NotImplemented
 
+
+class Airspeed1000To500FtMax(KeyPointValueNode):
+    def derive(self, speed=P('Airspeed'),
+               alt_aal=P('Altitude AAL For Flight Phases')):
+        # For commented version, see GlideslopeDeviation1500To1000FtMax
+        band = np.ma.masked_outside(alt_aal.array, 1000, 500)
+        in_band_periods = np.ma.clump_unmasked(band)
+        for this_period in in_band_periods:
+            begin = this_period.start
+            end = this_period.stop
+            if alt_aal.array[begin] > alt_aal.array[end-1]:
+                # Descending through this band.
+                index = np.ma.argmax(np.ma.abs(speed.array[begin:end]))
+                when = begin + index
+                value = speed.array[when]
+                self.create_kpv(when, value)
+
+
     
 class HeadingAtTakeoff(KeyPointValueNode):
     '''
@@ -392,7 +410,9 @@ class RateOfDescentMax(KeyPointValueNode):
                 
 
     
-    
+'''
+Wrong naming format, wrong parameter. Defunct.
+
 class MaxIndicatedAirspeedLevelFlight(KeyPointValueNode):
     def derive(self, airspeed=P('Indicated Airspeed'),
                level_flight=S('Level Flight')):
@@ -406,7 +426,7 @@ class MaxIndicatedAirspeedLevelFlight(KeyPointValueNode):
             else:
                 logging.debug('Short duration %d of level flight ignored',
                               duration)
-
+'''
 
 class AirspeedMinusVref500FtTo0FtMax(KeyPointValueNode):
     
@@ -918,10 +938,12 @@ class AirspeedVref500FtToTouchdownMax(KeyPointValueNode):
         return NotImplemented
 
 
+"""
+Implemented above
 class Airspeed1000To500FtMax(KeyPointValueNode):
     def derive(self, airspeed=P('Airspeed')):
         return NotImplemented
-
+"""
 
 class AirspeedWithFlap1Max(KeyPointValueNode):
     def derive(self, airspeed=P('Airspeed')):
