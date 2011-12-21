@@ -4,9 +4,8 @@ import numpy as np
 from analysis.library import rate_of_change
 from analysis.plot_flight import plot_parameter
 from analysis.node import A, KPV, KeyTimeInstance, KTI, KeyPointValue, Parameter, P, Section, S
-#from analysis.flight_phase import ()
-
-from analysis.key_point_values import (HeadingAtTakeoff,
+from analysis.key_point_values import (Airspeed1000To500FtMax,
+                                       HeadingAtTakeoff,
                                        GlideslopeDeviation1500To1000FtMax,
                                        GlideslopeDeviation1000To150FtMax,
                                        GrossWeightAtLiftoff,
@@ -63,6 +62,28 @@ class TestHeadingAtLanding(unittest.TestCase):
         expected = [KeyPointValue(index=2, value=4.0, name='Heading At Landing'),
                     KeyPointValue(index=6, value=353.0, name='Heading At Landing')]
         self.assertEqual(kpv, expected)
+
+
+class TestAirspeed1000To500FtMax(unittest.TestCase):
+    def test_can_operate(self):
+        expected = [('Airspeed','Altitude AAL For Flight Phases',
+                     'Final Approach')]
+        opts = Airspeed1000To500FtMax.get_operational_combinations()
+        self.assertEqual(opts, expected) 
+        
+    def test_airspeed_1000_150_basic(self):
+        testline = np.arange(0,12.6,0.1)
+        testwave = (np.cos(testline)*(-100))+100
+        spd = Parameter('Airspeed', np.ma.array(testwave))
+        alt_ph = Parameter('Altitude AAL For Flight Phases', 
+                           np.ma.array(testwave)*10)
+        kpv = Airspeed1000To500FtMax()
+        kpv.derive(spd, alt_ph)
+        self.assertEqual(len(kpv), 2)
+        self.assertEqual(kpv[0].index, 48)
+        self.assertEqual(kpv[0].value, 91.250101656055278)
+        self.assertEqual(kpv[1].index, 110)
+        self.assertEqual(kpv[1].value, 99.557430201194919)
 
 
 class TestGlideslopeDeviation1500To1000FtMax(unittest.TestCase):
@@ -123,7 +144,7 @@ class TestILSFrequencyOnApproach(unittest.TestCase):
         ils = S('ILS Localizer Established', items=[Section('ILS Localizer Established', slice(2, 9, None))])
         low = KTI('Approach And Landing Lowest Point', 
                   items=[KeyTimeInstance(index=8, 
-                                         state='Approach And Landing Lowest Point')])
+                                         name='Approach And Landing Lowest Point')])
         kpv = ILSFrequencyOnApproach()
         kpv.derive(ils, low, frq)
         expected = [KeyPointValue(index=2, value=108.5, 

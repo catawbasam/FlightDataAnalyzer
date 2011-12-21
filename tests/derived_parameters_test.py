@@ -443,7 +443,8 @@ class TestRateOfClimb(unittest.TestCase):
     def test_can_operate(self):
         expected = [('Acceleration Vertical',
                      'Altitude STD',
-                     'Altitude Radio')]
+                     'Altitude Radio'),
+                    ('Acceleration STD',)]
         opts = RateOfClimb.get_operational_combinations()
         self.assertEqual(opts, expected)
         
@@ -455,6 +456,16 @@ class TestRateOfClimb(unittest.TestCase):
         roc.derive(az, alt_std, alt_rad)
         expected = np.ma.array(data=[0]*10, dtype=np.float,
                              mask=False)
+        ma_test.assert_masked_array_approx_equal(roc.array, expected)
+
+    def test_rate_of_climb_alt_std_only(self):
+        az = None
+        alt_std = P('Altitude STD', np.ma.arange(100,200,10))
+        alt_rad = None
+        roc = RateOfClimb()
+        roc.derive(az, alt_std, alt_rad)
+        expected = np.ma.array(data=[600]*10, dtype=np.float,
+                             mask=False) #  10 ft/sec = 600 fpm
         ma_test.assert_masked_array_approx_equal(roc.array, expected)
 
     def test_rate_of_climb_bump(self):

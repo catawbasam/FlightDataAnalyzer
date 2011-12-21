@@ -51,6 +51,19 @@ class Airborne(FlightPhaseNode):
                 #pass # Just don't create a phase if none exists.
         
 
+class Approach(FlightPhaseNode):
+    """
+    The 'Approach And Landing' phase descends but may also include a climb
+    after a go-around. Approach is truncated to just the descent section.
+    """
+    # List the optimal parameter set here
+    def derive(self, alt_AAL=P('Altitude AAL For Flight Phases'),
+               apps=S('Approach And Landing')):
+        for app in apps:
+            begin = app.slice.start
+            pit = np.ma.argmin(alt_AAL.array[app.slice]) + begin
+            self.create_phase(slice(begin,pit,None))
+
 class ApproachAndLanding(FlightPhaseNode):
     """
     This phase is used to identify an approach which may or may not include
@@ -118,9 +131,11 @@ class ApproachAndLanding(FlightPhaseNode):
             app = np.ma.masked_where(alt_AAL.array>3000,alt_AAL.array)
         phases = np.ma.clump_unmasked(app)
         for phase in phases:
+            # Check that the aircraft descended in this section of data, as
+            # the same altitude range tests can also detect climbing flight.
             begin = phase.start
             pit = np.ma.argmin(app[phase]) + begin
-            if app[pit] < app[begin] :
+            if app[pit] < app[begin]: #  OK - we went downwards!
                 self.create_phase(phase)
 
 
@@ -192,27 +207,20 @@ class Cruise(FlightPhaseNode):
         # The problem is that they need not be in tidy order as the lists may
         # not be of equal lengths.
         for ccd in ccds:
-            # Scan the TOCs.
-            for toc in tocs:
-                if ccd.slice.start <= toc.index <= ccd.slice.stop:
-                    break
+
+            toc = tocs.get_first(within_slice=ccd.slice)
+            if toc:
+                begin = toc.index
             else:
-                toc = None
-            # Scan the TODs.
-            for tod in tods:
-                if ccd.slice.start <= tod.index <= ccd.slice.stop:
-                    break
+                begin = ccd.slice.start
+
+            tod = tods.get_last(within_slice=ccd.slice)
+            if tod:
+                end = tod.index
             else:
-                tod = None
-            # Build the slice from what we have found.
-            if toc and tod:
-                self.create_phase(slice(toc.index, tod.index))
-            elif toc:
-                self.create_phase(slice(toc.index, ccd.slice.stop))
-            elif tod:
-                self.create_phase(slice(ccd.slice.start, tod.index))
-            else:
-                pass
+                end = ccd.slice.stop
+                
+            self.create_phase(slice(begin,end))
 
 
 class Descending(FlightPhaseNode):
@@ -402,9 +410,20 @@ class Takeoff(FlightPhaseNode):
     as it climbs through 35ft. Subsequent KTIs and KPV computations identify
     the specific moments and values of interest within this phase.
     """
+    # List the minimum acceptable parameters here
+    @classmethod
+    def can_operate(cls, available):
+        if 'Fast' in available and \
+           'Heading Continuous' in available and \
+           'Altitude AAL For Phases' in available:
+            return True
+        else:
+            return False
+    
     def derive(self, fast=S('Fast'),
                head=P('Heading Continuous'),
-               alt_aal=P('Altitude AAL For Phases')
+               alt_aal=P('Altitude AAL For Phases'),
+               alt_rad=P('Altitude Radio For Phases')
                ):
         for speedy in fast:
             # This basic flight phase cuts data into fast and slow sections.
@@ -437,11 +456,18 @@ class Takeoff(FlightPhaseNode):
             
             # If it takes more than 5 minutes, he's certainly not doing a normal
             # takeoff !
-            last = takeoff_run + 300*head.frequency
-            takeoff_end = time_at_value(alt_aal.array,
-                                        head.frequency, head.offset,
-                                        takeoff_run, last,
-                                        INITIAL_CLIMB_THRESHOLD)
+            if alt_rad:
+                last = takeoff_run + 300*alt_rad.frequency
+                takeoff_end = time_at_value(alt_rad.array,
+                                            alt_rad.frequency, alt_rad.offset,
+                                            takeoff_run, last,
+                                            INITIAL_CLIMB_THRESHOLD)
+            else:
+                last = takeoff_run + 300*alt_aal.frequency
+                takeoff_end = time_at_value(alt_aal.array,
+                                            alt_aal.frequency, alt_aal.offset,
+                                            takeoff_run, last,
+                                            INITIAL_CLIMB_THRESHOLD)
  
             #-------------------------------------------------------------------
             # Create a phase for this takeoff
@@ -456,9 +482,20 @@ class Landing(FlightPhaseNode):
     aircraft turns off the runway. Subsequent KTIs and KPV computations
     identify the specific moments and values of interest within this phase.
     """
+    # List the minimum acceptable parameters here
+    @classmethod
+    def can_operate(cls, available):
+        if 'Fast' in available and \
+           'Heading Continuous' in available and \
+           'Altitude AAL For Phases' in available:
+            return True
+        else:
+            return False
+    
     def derive(self, fast=S('Fast'),
                head=P('Heading Continuous'),
-               alt_aal=P('Altitude AAL For Phases')
+               alt_aal=P('Altitude AAL For Phases'),
+               alt_rad=P('Altitude Radio For Phases')
                ):
         for speedy in fast:
             # See takeoff phase for comments on how the algorithm works.
@@ -466,11 +503,18 @@ class Landing(FlightPhaseNode):
             landing_run = speedy.slice.stop
             datum = head.array[landing_run]
             
-            first = landing_run - 300*head.frequency
-            landing_begin = time_at_value(alt_aal.array,
-                                        head.frequency, head.offset,
-                                        first, landing_run,
-                                        LANDING_THRESHOLD_HEIGHT)
+            if alt_rad:
+                first = landing_run - 300*alt_rad.frequency
+                landing_begin = time_at_value(alt_rad.array,
+                                            alt_rad.frequency, alt_rad.offset,
+                                            first, landing_run,
+                                            LANDING_THRESHOLD_HEIGHT)
+            else:
+                first = landing_run - 300*alt_aal.frequency
+                landing_begin = time_at_value(alt_aal.array,
+                                            alt_aal.frequency, alt_aal.offset,
+                                            first, landing_run,
+                                            LANDING_THRESHOLD_HEIGHT)
  
             last = landing_run + 300*head.frequency
             landing_end = time_at_value(np.ma.abs(head.array-datum),
