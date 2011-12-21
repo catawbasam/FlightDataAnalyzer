@@ -9,8 +9,65 @@ from analysis.api_handler import NotFoundError
 from analysis.node import (A, KeyPointValue, KeyTimeInstance, KPV, KTI, P, S,
                            Section)
 from analysis.flight_attribute import (
-    Approaches, LandingAirport, LandingRunway, TakeoffAirport, TakeoffRunway
+    Approaches, FlightNumber, LandingAirport, LandingDatetime,
+    LandingGrossWeight, LandingRunway, TakeoffAirport, TakeoffDatetime,
+    TakeoffRunway
     )
+
+class TestFlightNumber(unittest.TestCase):
+    def test_can_operate(self):
+        self.assertEqual(FlightNumber.get_operational_combinations(),
+                         [('Flight Number',)])
+    
+    def test_derive(self):
+        flight_number_param = P('Flight Number',
+                                array=np.ma.masked_array(['10 2H', '102H',
+                                                          '102H']))
+        flight_number = FlightNumber()
+        flight_number.set_flight_attr = Mock()
+        flight_number.derive(flight_number_param)
+        self.assertEqual(flight_number.set_flight_attr.call_args,
+                         (('102H',), {}))
+        
+
+
+class TestLandingDatetime(unittest.TestCase):
+    def test_can_operate(self):
+        self.assertEqual(LandingDatetime.get_operational_combinations(),
+                         [('Start Datetime', 'Touchdown')])
+    
+    def test_derive(self):
+        landing_datetime = LandingDatetime()
+        landing_datetime.set_flight_attr = Mock()
+        start_datetime = datetime(1970, 1, 1)
+        touchdown = KTI('Touchdown', items=[KeyTimeInstance(12, 'a'),
+                                            KeyTimeInstance(30, 'b')])
+        touchdown.frequency = 0.5
+        landing_datetime.derive(start_datetime, touchdown)
+        expected_datetime = datetime(1970, 1, 1, 0, 0, 15)
+        self.assertEqual(landing_datetime.set_flight_attr.call_args,
+                         ((expected_datetime,), {}))
+        touchdown = KTI('Touchdown')
+        landing_datetime.derive(start_datetime, touchdown)
+        self.assertEqual(landing_datetime.set_flight_attr.call_args,
+                         ((None,), {}))
+
+
+class TestLandingGrossWeight(unittest.TestCase):
+    def test_can_operate(self):
+        self.assertEqual(LandingGrossWeight.get_operational_combinations(),
+                         [('Gross Weight At Touchdown',)])
+    
+    def test_derive(self):
+        landing_gross_weight = LandingGrossWeight()
+        landing_gross_weight.set_flight_attr = Mock()
+        touchdown_gross_weight = KPV('Gross Weight At Touchdown',
+                                     items=[KeyPointValue(5, 15, 'a'),
+                                            KeyPointValue(12, 120, 'b')])
+        landing_gross_weight.derive(touchdown_gross_weight)
+        self.assertEqual(landing_gross_weight.set_flight_attr.call_args,
+                         ((120,), {}))
+    
 
 class TestTakeoffAirport(unittest.TestCase):
     def test_can_operate(self):
@@ -52,6 +109,24 @@ class TestTakeoffAirport(unittest.TestCase):
                          ((4.0, 3.0), {}))
         self.assertEqual(takeoff_airport.set_flight_attr.call_args,
                          ((airport_info,), {}))
+
+class TestTakeoffDatetime(unittest.TestCase):
+    def test_can_operate(self):
+        self.assertEqual(TakeoffDatetime.get_operational_combinations(),
+                         [('Liftoff', 'Start Datetime')])
+    
+    def test_derive(self):
+        takeoff_dt = TakeoffDatetime()
+        takeoff_dt.set_flight_attr = Mock()
+        start_dt = A('Start Datetime', value=datetime(1970, 1, 1))
+        liftoff = KTI('Liftoff', frequency=0.25,
+                      items=[KeyTimeInstance(100, 'a')])
+        takeoff_dt.derive(liftoff, start_dt)
+        self.assertEqual(takeoff_dt.set_flight_attr.call_args,
+                         ((datetime(1970, 1, 1, 0, 0, 25),), {}))
+        liftoff = KTI('Liftoff', frequency=0.25, items=[])
+        takeoff_dt.set_flight_attr = Mock()
+        self.assertFalse(takeoff_dt.set_flight_attr.called)
 
 
 class TestTakeoffRunway(unittest.TestCase):

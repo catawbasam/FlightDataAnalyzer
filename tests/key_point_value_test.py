@@ -6,20 +6,64 @@ from analysis.plot_flight import plot_parameter
 from analysis.node import A, KPV, KeyTimeInstance, KTI, KeyPointValue, Parameter, P, Section, S
 #from analysis.flight_phase import ()
 
-from analysis.key_point_values import (GlideslopeDeviation1500To1000FtMax,
+from analysis.key_point_values import (HeadingAtTakeoff,
+                                       GlideslopeDeviation1500To1000FtMax,
                                        GlideslopeDeviation1000To150FtMax,
+                                       GrossWeightAtLiftoff,
+                                       GrossWeightAtTouchdown,
                                        ILSFrequencyOnApproach,
                                        HeadingAtLanding,
                                        LatitudeAtLanding,
                                        LongitudeAtLanding,
                                        LocalizerDeviation1500To1000FtMax,
                                        LocalizerDeviation1000To150FtMax,
-                                       Pitch35To400FtMax,
-                                       HeadingAtTakeoff
-                                         )
+                                       Pitch35To400FtMax)
 
 import sys
 debug = sys.gettrace() is not None
+
+
+class TestHeadingAtTakeoff(unittest.TestCase):
+    def test_can_operate(self):
+        expected = [('Takeoff','Heading Continuous', 'Acceleration Forwards For Flight Phases')]
+        opts = HeadingAtTakeoff.get_operational_combinations()
+        self.assertEqual(opts, expected) 
+        
+    def test_takeoff_heading_basic(self):
+        head = P('Heading Continuous',np.ma.array([0,2,4,7,9,8,6,3]))
+        acc = P('Acceleration Forwards For Flight Phases',np.ma.array([0,0,.2,.3,.2,.1,0,0]))
+        toff_ph = [Section('Takeoff',slice(2,5,None))]
+        kpv = HeadingAtTakeoff()
+        kpv.derive(toff_ph, head, acc)
+        expected = [KeyPointValue(index=3, value=7.0, name='Heading At Takeoff')]
+        self.assertEqual(kpv, expected)
+        
+    def test_takeoff_heading_modulus(self):
+        head = P('Heading Continuous',np.ma.array([-1,-2,-4,-7,-9,-8,-6,-3]))
+        acc = P('Acceleration Forwards For Flight Phases',np.ma.array([0,0,.1,.2,.35,.2,.1,0]))
+        toff_ph = [Section('Takeoff',slice(2,6,None))]
+        kpv = HeadingAtTakeoff()
+        kpv.derive(toff_ph, head, acc)
+        expected = [KeyPointValue(index=4, value=351, name='Heading At Takeoff')]
+        self.assertEqual(kpv, expected)
+
+
+class TestHeadingAtLanding(unittest.TestCase):
+    def test_can_operate(self):
+        expected = [('Landing Peak Deceleration','Heading Continuous')]
+        opts = HeadingAtLanding.get_operational_combinations()
+        self.assertEqual(opts, expected) 
+        
+    def test_landing_heading_basic(self):
+        head = P('Heading Continuous',np.ma.array([0,2,4,7,0,-3,-7,-93]))
+        landing = [KeyTimeInstance(index=2, name='Landing Peak Deceleration'),
+                   KeyTimeInstance(index=6, name='Landing Peak Deceleration')]
+        kpv = HeadingAtLanding()
+        kpv.derive(landing, head)
+        expected = [KeyPointValue(index=2, value=4.0, name='Heading At Landing'),
+                    KeyPointValue(index=6, value=353.0, name='Heading At Landing')]
+        self.assertEqual(kpv, expected)
+
 
 class TestGlideslopeDeviation1500To1000FtMax(unittest.TestCase):
     def test_can_operate(self):
@@ -57,6 +101,12 @@ class TestGlideslopeDeviation1000To150FtMax(unittest.TestCase):
         self.assertEqual(len(kpv), 2)
         self.assertEqual(kpv[0].index, 57)
         self.assertEqual(kpv[1].index, 120)
+
+
+class TestGrossWeightAtLiftoff(unittest.TestCase):
+    def test_can_operate(self):
+        self.assertEqual(GrossWe
+
         
 class TestILSFrequencyOnApproach(unittest.TestCase):
     def test_can_operate(self):
@@ -78,23 +128,6 @@ class TestILSFrequencyOnApproach(unittest.TestCase):
         kpv.derive(ils, low, frq)
         expected = [KeyPointValue(index=2, value=108.5, 
                                   name='ILS Frequency On Approach')]
-        self.assertEqual(kpv, expected)
-
-
-class TestHeadingAtLanding(unittest.TestCase):
-    def test_can_operate(self):
-        expected = [('Landing Peak Deceleration','Heading Continuous')]
-        opts = HeadingAtLanding.get_operational_combinations()
-        self.assertEqual(opts, expected) 
-        
-    def test_landing_heading_basic(self):
-        head = P('Heading Continuous',np.ma.array([0,2,4,7,0,-3,-7,-93]))
-        landing = [KeyTimeInstance(index=2, name='Landing Peak Deceleration'),
-                   KeyTimeInstance(index=6, name='Landing Peak Deceleration')]
-        kpv = HeadingAtLanding()
-        kpv.derive(landing, head)
-        expected = [KeyPointValue(index=2, value=4.0, name='Heading At Landing'),
-                    KeyPointValue(index=6, value=353.0, name='Heading At Landing')]
         self.assertEqual(kpv, expected)
 
         
@@ -184,27 +217,3 @@ class TestPitch35To400FtMax(unittest.TestCase):
         self.assertEqual(kpv[0].index, 3)
         self.assertEqual(kpv[0].value, 7)
         
-        
-class TestHeadingAtTakeoff(unittest.TestCase):
-    def test_can_operate(self):
-        expected = [('Takeoff','Heading Continuous', 'Acceleration Forwards For Flight Phases')]
-        opts = HeadingAtTakeoff.get_operational_combinations()
-        self.assertEqual(opts, expected) 
-        
-    def test_takeoff_heading_basic(self):
-        head = P('Heading Continuous',np.ma.array([0,2,4,7,9,8,6,3]))
-        acc = P('Acceleration Forwards For Flight Phases',np.ma.array([0,0,.2,.3,.2,.1,0,0]))
-        toff_ph = [Section('Takeoff',slice(2,5,None))]
-        kpv = HeadingAtTakeoff()
-        kpv.derive(toff_ph, head, acc)
-        expected = [KeyPointValue(index=3, value=7.0, name='Heading At Takeoff')]
-        self.assertEqual(kpv, expected)
-        
-    def test_takeoff_heading_modulus(self):
-        head = P('Heading Continuous',np.ma.array([-1,-2,-4,-7,-9,-8,-6,-3]))
-        acc = P('Acceleration Forwards For Flight Phases',np.ma.array([0,0,.1,.2,.35,.2,.1,0]))
-        toff_ph = [Section('Takeoff',slice(2,6,None))]
-        kpv = HeadingAtTakeoff()
-        kpv.derive(toff_ph, head, acc)
-        expected = [KeyPointValue(index=4, value=351, name='Heading At Takeoff')]
-        self.assertEqual(kpv, expected)

@@ -8,8 +8,9 @@ from datetime import datetime
 
 from analysis.node import (
     Attribute, DerivedParameterNode, get_verbose_name, KeyPointValue,
-    KeyPointValueNode, KeyTimeInstance, KeyTimeInstanceNode, FormattedNameNode,
-    Node, NodeManager, P, Parameter, powerset, Section, SectionNode)
+    KeyPointValueNode, KeyTimeInstance, KeyTimeInstanceNode, 
+    FlightAttributeNode,FormattedNameNode, Node, NodeManager, P, Parameter,
+    powerset, Section, SectionNode)
 
 
 class TestAbstractNode(unittest.TestCase):
@@ -144,11 +145,15 @@ class TestNode(unittest.TestCase):
         node.derive = mock.Mock()
         node.derive.return_value = None
         node.get_derived([param1, param2])
-        self.assertEqual(param1.method_calls, [])
-        self.assertEqual(param2.method_calls, [('get_aligned', (param1,), {})])
+        self.assertEqual(param1.get_aligned.call_args, None)
+        self.assertEqual(param2.get_aligned.call_args,
+                         ((param1,), {}))
         # check param1 is returned unchanged and param2 get_aligned is called (returns '2')
         self.assertEqual(node.derive.call_args, ((param1, 2), {}))
-        
+        param1, param2 = get_mock_params()
+        param3 = FlightAttributeNode('Attr')
+        node.get_derived([param3, param2])
+        self.assertEqual(node.derive.call_args, ((param3, param2), {}))
         class NotImplementedNode(Node):
             def derive(self, kwarg1=param1, kwarg2=param2):
                 return NotImplemented
@@ -164,6 +169,8 @@ class TestNode(unittest.TestCase):
         node.get_derived([param1, param2])
         self.assertEqual(param1.method_calls, [])
         self.assertEqual(param2.method_calls, [])
+        
+        
         
                         
 class TestNodeManager(unittest.TestCase):
