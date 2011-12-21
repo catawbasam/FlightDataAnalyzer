@@ -177,16 +177,16 @@ class AccelerationNormalFtTo35FtMax(KeyPointValueNode): # Q: Name?
 
 class AccelerationNormalMaxAirborne(KeyPointValueNode):
     def derive(self, norm_g=P('Acceleration Normal'), airborne=S('Airborne')):
-        for airborne_slice in airborne:
-            normg_in_air_max_index = np.ma.argmax(norm_g.array[airborne_slice])
+        for in_air in airborne:
+            normg_in_air_max_index = np.ma.argmax(norm_g.array[in_air.slice])
             normg_in_air_max_value = norm_g.array.data[normg_in_air_max_index]
             self.create_kpv(normg_in_air_max_index, normg_in_air_max_value)    
 
 
 class AccelerationNormalMinAirborne(KeyPointValueNode):
     def derive(self, norm_g=P('Acceleration Normal'), airborne=S('Airborne')):
-        for airborne_slice in airborne:
-            normg_in_air_min_index = np.ma.argmin(norm_g.array[airborne_slice])
+        for in_air in airborne:
+            normg_in_air_min_index = np.ma.argmin(norm_g.array[in_air.slice])
             normg_in_air_min_value = norm_g.array.data[normg_in_air_max_index]
             self.create_kpv(normg_in_air_min_index, normg_in_air_min_value)    
 
@@ -303,13 +303,6 @@ class FlapAtTouchdown(KeyPointValueNode):
         return NotImplemented
 
 
-class GrossWeightAtTouchdown(KeyPointValueNode):
-    def derive(self, gross_weight=P('Gross Weight'), 
-               touchdown=KTI('Touchdown')):
-        return NotImplemented
-
-
-
 class EngEGTMax(KeyPointValueNode):
     name = 'Eng EGT Max'
 
@@ -373,29 +366,34 @@ class AccelerationNormalMax(KeyPointValueNode):
     
     
 class RateOfDescentHigh(KeyPointValueNode):
-    
+    '''
+    .. TODO:: testcases
+    '''
     def derive(self, rate_of_climb=P('Rate Of Climb'),
                descending=S('Descending')):
         #TODO: Merge with below RateOfDescentMax accepting a flightphase arg
-        for descent_slice in descending:
-            duration = descent_slice.stop - descent_slice.start
+        for descent in descending:
+            duration = descent.slice.stop - descent.slice.start
             if duration > settings.DESCENT_MIN_DURATION:
-                when = np.ma.argmax(rate_of_climb.array[descent_slice])
-                howfast = rate_of_climb.array[descent_slice][when]
-                self.create_kpv(descent_slice.start+when, howfast)
+                when = np.ma.argmax(rate_of_climb.array[descent.slice])
+                howfast = rate_of_climb.array[descent.slice][when]
+                self.create_kpv(descent.slice.start+when, howfast)
                 
                 
 class RateOfDescentMax(KeyPointValueNode):
+    '''
+    .. TODO:: testcases
+    '''
     # Minimum period of a descent for testing against thresholds (reduces number of KPVs computed in turbulence)
     DESCENT_MIN_DURATION = 10
     
-    def derive(self, rate_of_climb=P('Rate Of Climb'), descent=S('Descent')):
-        for descent_slice in descent:
-            duration = descent_slice.stop - descent_slice.start
+    def derive(self, rate_of_climb=P('Rate Of Climb'), descents=S('Descent')):
+        for descent in descents:
+            duration = descent.slice.stop - descent.slice.start
             if duration > self.DESCENT_MIN_DURATION:
-                when = np.ma.argmax(rate_of_climb.array[descent_slice])
-                howfast = rate_of_climb.array[descent_slice][when]
-                self.create_kpv(descent_slice.start+when, howfast)
+                when = np.ma.argmax(rate_of_climb.array[descent.slice])
+                howfast = rate_of_climb.array[descent.slice][when]
+                self.create_kpv(descent.slice.start+when, howfast)
              
                 
 
@@ -427,7 +425,7 @@ class AirspeedMinusVref500FtTo0FtMax(KeyPointValueNode):
             ##max_spd = airspeed_minus_vref.array[sect].max()
             ##when = np.ma.where(airspeed_minus_vref.array[sect] == max_spd)[0][0] + sect.start
             
-            when = np.ma.argmax(airspeed_minus_vref.array[sect]) + sect.start
+            when = np.ma.argmax(airspeed_minus_vref.array[sect.slice]) + sect.start
             max_spd = airspeed_minus_vref.array[when]
             self.create_kpv(when, max_spd)
 
@@ -753,16 +751,32 @@ class EngOITMax(KeyPointValueNode):
         return NotImplemented
 
 
-class GrossWeightAtTouchdown(KeyPointValueNode):
-    def derive(self, gross_weight=P('Gross Weight'),
-               touchdown=KTI('Touchdown')):
-        return NotImplemented
+class FuelQtyAtLiftoff(KeyPointValueNode):
+    def derive(self, fuel_qty=P('Fuel Qty'), liftoffs=KTI('Liftoff')):
+        for liftoff in liftoffs:
+            self.create_kpv(liftoff.index,
+                            fuel_qty.array[liftoff.index])
+
+
+class FuelQtyAtTouchdown(KeyPointValueNode):
+    def derive(self, fuel_qty=P('Fuel Qty'), touchdowns=KTI('Touchdown')):
+        for touchdown in touchdowns:
+            self.create_kpv(touchdown.index,
+                            fuel_qty.array[touchdown.index])
+
+
+class GrossWeightAtLiftoff(KeyPointValueNode):
+    def derive(self, gross_weight=P('Gross Weight'), liftoffs=KTI('Liftoff')):
+        for liftoff in liftoffs:
+            self.create_kpv(liftoff.index, gross_weight.array[liftoff.index])
 
 
 class GrossWeightAtTouchdown(KeyPointValueNode):
     def derive(self, gross_weight=P('Gross Weight'),
-               touchdown=KTI('Touchdown')):
-        return NotImplemented
+               touchdowns=KTI('Touchdown')):
+        for touchdown in touchdowns:
+            self.create_kpv(touchdown.index,
+                            gross_weight.array[touchdown.index])
 
 
 class PitchCyclesMax(KeyPointValueNode):

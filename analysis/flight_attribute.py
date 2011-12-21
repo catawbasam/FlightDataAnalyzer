@@ -7,183 +7,18 @@ from analysis.library import datetime_of_index, is_slice_within_slice
 from analysis.node import A, KTI, KPV, FlightAttributeNode, P, S
 
 
-class FlightID(FlightAttributeNode):
-    "Flight ID if provided via a known input attribute"
-    name = 'Flight ID'
-    def derive(self, flight_id=A('AFR Flight ID')):
-        return flight_id
-    
-        
-class FlightNumber(FlightAttributeNode):
-    "Airline route flight number"
-    def derive(self, num=P('Flight Number??????????')): # must be a different name!
-        # e.g. 'DEM23'
-        return NotImplemented
-    
-    
-class Type(FlightAttributeNode):
-    "Type of flight flown"
-    def derive(self, unknown_dep=P('UNKNOWN')):
-        # options are:
-        COMMERCIAL = 'COMMERCIAL'
-        INCOMPLETE = 'INCOMPLETE'
-        ENGINE_RUN_UP = 'ENGINE_RUN_UP'
-        REJECTED_TAKEOFF = 'REJECTED_TAKEOFF'
-        TEST = 'TEST'
-        TRAINING = 'TRAINING'
-        FERRY = 'FERRY'
-        POSITIONING = 'POSITIONING'
-        LINE_TRAINING = 'LINE_TRAINING'
-        return NotImplemented
-         
-         
-class TakeoffAirport(FlightAttributeNode):
-    "Takeoff Airport including ID and Name"
-    def derive(self, liftoff=KTI('Liftoff'), latitude=P('Latitude'),
-               longitude=P('Longitude')):
-        '''
-        Requests the nearest airport to the latitude and longitude at liftoff
-        from the API and sets it as an attribute.
-        
-        Airport information is in the following format:
-        {'code': {'iata': 'LHR', 'icao': 'EGLL'},
-         'distance': 1.512545797147365,
-         'id': 2383,
-         'latitude': 51.4775,
-         'longitude': -0.461389,
-         'location': {'city': 'London', 'country': 'United Kingdom'},
-         'magnetic_variation': 'W002241 0106', # Format subject to change.
-         'name': 'London Heathrow'}
-        '''
-        liftoff_index = liftoff[0].index
-        latitude_at_liftoff = latitude.array[liftoff_index]
-        longitude_at_liftoff = longitude.array[liftoff_index]
-        api_handler = get_api_handler()
-        try:
-            airport = api_handler.get_nearest_airport(latitude_at_liftoff,
-                                                      longitude_at_liftoff)
-        except NotFoundError:
-            logging.warning("Takeoff Airport could not be found with latitude "
-                            "'%f' and longitude '%f'.", latitude_at_liftoff,
-                            longitude_at_liftoff)
-        else:
-            self.set_flight_attr(airport)
-                
-                
-class TakeoffRunway(FlightAttributeNode):
-    "Runway identifier name"
-    @classmethod
-    def can_operate(self, available):
-        return 'Takeoff Airport' in available and 'Takeoff Heading' in available
-
-    def derive(self, airport=A('Takeoff Airport'), hdg=KPV('Takeoff Heading'),
-               liftoff=KTI('Liftoff'), latitude=P('Latitude'),
-               longitude=P('Longitude'), precision=A('Precise Positioning')):
-        '''
-        Runway information is in the following format:
-        {'id': 1234,
-         'identifier': '29L',
-         'magnetic_heading': 290,
-         'start': {
-             'latitude': 14.1,
-             'longitude': 7.1,
-         },
-         'end': {
-             'latitude': 14.2,
-             'longitude': 7.2,
-         },
-             'glideslope': {
-                  'angle': 120, # Q: Sensible example value?
-                  'frequency': 330, # Q: Sensible example value?
-                  'latitude': 14.3,
-                  'longitude': 7.3,
-                  'threshold_distance': 20,
-              },
-              'localiser': {
-                  'beam_width': 14, # Q: Sensible example value?
-                  'frequency': 335, # Q: Sensible example value?
-                  'heading': 291,
-                  'latitude': 14.4,
-                  'longitude': 7.4,
-              },
-         'strip': {
-             'length': 150,
-             'surface': 'ASPHALT',
-             'width': 30,
-        }}
-        '''
-        kwargs = {}
-        if precision and precision.value and liftoff and latitude and longitude:
-            liftoff_index = liftoff[0].index
-            latitude_at_liftoff = latitude.array[liftoff_index]
-            longitude_at_liftoff = longitude.array[liftoff_index]
-            kwargs.update(latitude=latitude_at_liftoff,
-                          longitude=longitude_at_liftoff)
-        airport_id = airport.value['id']
-        hdg_value = hdg[0].value
-        api_handler = get_api_handler()
-        try:
-            runway = api_handler.get_nearest_runway(airport_id, hdg_value,
-                                                    **kwargs)
-        except NotFoundError:
-            logging.warning("Runway not found for airport id '%d', heading "
-                            "'%f' and kwargs '%s'.", airport_id, hdg_value,
-                            kwargs)
-        else:
-            self.set_flight_attr(runway)
-    
-    
-class OffBlocksDatetime(FlightAttributeNode):
-    "Datetime when moving away from Gate/Blocks"
-    def derive(self, unknown_dep=P('UNKNOWN')):
-        return NotImplemented
-    
-                
-class TakeoffDatetime(FlightAttributeNode):
-    """
-    Datetime at takeoff (first liftoff) or as close to this as possible.
-    If no takeoff (incomplete flight / ground run) the start of data will is
-    to be used.
-    """
-    def derive(self, liftoff=KTI('Liftoff'), start_dt=A('Start Datetime')):
-        takeoff_dt = start_dt + timedelta(seconds=liftoff[0].slice.start)
-        self.set_flight_attr(takeoff_dt)
-        return NotImplemented
-    
-                
-class TakeoffPilot(FlightAttributeNode):
-    "Pilot flying at takeoff, Captain, First Officer or None"
-    def derive(self, unknown_dep=P('UNKNOWN')):
-        pilot = None
-        assert pilot in ("FIRST_OFFICER", "CAPTAIN", None)
-        return NotImplemented
-        
-                
-class TakeoffGrossWeight(FlightAttributeNode):
-    "Aircraft Gross Weight in KG at point of Takeoff"
-    def derive(self, unknown_dep=P('UNKNOWN')):
-        return NotImplemented
-         
-         
-class TakeoffFuel(FlightAttributeNode):
-    "Weight of Fuel in KG at point of Takeoff"
-    def derive(self, unknown_dep=P('UNKNOWN')):
-        return NotImplemented
+class AnalysisDatetime(FlightAttributeNode):
+    "Datetime flight was analysed (local datetime)"
+    name = 'FDR Analysis Duration'
+    def derive(self, unknown_dep=P('UNKNOWN')): # TODO: Remove dependency if possible?
+        self.set_flight_attr(datetime.now())
 
 
-#Q: Not sure if we can identify Destination from the data?
-##class DestinationAirport(FlightAttributeNode):
-    ##""
-    ##def derive(self):
-        ##return NotImplemented
-                    ##{'id':9456, 'name':'City. Airport'}
-                    
-                    
 class Approaches(FlightAttributeNode):
     '''
     All airports which were approached, including the final landing airport.
     '''
-    
+    name = 'FDR Approaches'
     @classmethod
     def can_operate(self, available):
         required = all([n in available for n in ['Start Datetime',
@@ -379,8 +214,33 @@ class Approaches(FlightAttributeNode):
         self.set_flight_attr(approaches)
 
 
+class Duration(FlightAttributeNode):
+    "Duration of the flight (between takeoff and landing) in seconds"
+    name = 'FDR Duration'
+    def derive(self, takeoff_dt=A('Takeoff Datetime'), landing_dt=A('Landing Datetime')):
+        duration = landing_dt.value - takeoff_dt.value
+        self.set_flight_attr(duration.total_seconds()) # py2.7
+
+
+class FlightID(FlightAttributeNode):
+    "Flight ID if provided via a known input attribute"
+    name = 'FDR Flight ID'
+    def derive(self, flight_id=A('AFR Flight ID')):
+        self.set_flight_attr(flight_id.value)
+    
+        
+class FlightNumber(FlightAttributeNode):
+    "Airline route flight number"
+    name = 'FDR Flight Number'
+    def derive(self, num=P('Flight Number')):
+        # Q: Should we validate the flight number or source from a different
+        # index?
+        self.set_flight_attr(num.array[len(num.array) / 2])
+
+
 class LandingAirport(FlightAttributeNode):
     "Landing Airport including ID and Name"
+    name = 'FDR Landing Airport'
     def derive(self, landing_latitude=KPV('Latitude At Landing'),
                landing_longitude=KPV('Longitude At Landing')):
         '''
@@ -412,6 +272,7 @@ class LandingAirport(FlightAttributeNode):
 
 class LandingRunway(FlightAttributeNode):
     "Runway identifier name"
+    name = 'FDR Landing Runway'
     @classmethod
     def can_operate(self, available):
         '''
@@ -469,72 +330,319 @@ class LandingRunway(FlightAttributeNode):
             self.set_flight_attr(runway)
 
 
-class OnBlocksDatetime(FlightAttributeNode):
+class OffBlocksDatetime(FlightAttributeNode):
     "Datetime when moving away from Gate/Blocks"
+    name = 'FDR Off Blocks Datetime'
     def derive(self, unknown_dep=P('UNKNOWN')):
         return NotImplemented
+
+
+class OnBlocksDatetime(FlightAttributeNode):
+    "Datetime when moving away from Gate/Blocks"
+    name = 'FDR On Blocks Datetime'
+    def derive(self, unknown_dep=P('UNKNOWN')):
+        return NotImplemented
+
+   
+class TakeoffAirport(FlightAttributeNode):
+    "Takeoff Airport including ID and Name"
+    name = 'FDR Takeoff Airport'
+    def derive(self, liftoff=KTI('Liftoff'), latitude=P('Latitude'),
+               longitude=P('Longitude')):
+        '''
+        Requests the nearest airport to the latitude and longitude at liftoff
+        from the API and sets it as an attribute.
+        
+        Airport information is in the following format:
+        {'code': {'iata': 'LHR', 'icao': 'EGLL'},
+         'distance': 1.512545797147365,
+         'id': 2383,
+         'latitude': 51.4775,
+         'longitude': -0.461389,
+         'location': {'city': 'London', 'country': 'United Kingdom'},
+         'magnetic_variation': 'W002241 0106', # Format subject to change.
+         'name': 'London Heathrow'}
+        '''
+        liftoff_index = liftoff[0].index
+        latitude_at_liftoff = latitude.array[liftoff_index]
+        longitude_at_liftoff = longitude.array[liftoff_index]
+        api_handler = get_api_handler()
+        try:
+            airport = api_handler.get_nearest_airport(latitude_at_liftoff,
+                                                      longitude_at_liftoff)
+        except NotFoundError:
+            logging.warning("Takeoff Airport could not be found with latitude "
+                            "'%f' and longitude '%f'.", latitude_at_liftoff,
+                            longitude_at_liftoff)
+        else:
+            self.set_flight_attr(airport)
+
+
+class TakeoffDatetime(FlightAttributeNode):
+    '''
+    Datetime at takeoff (first liftoff) or as close to this as possible.
+    If no takeoff (incomplete flight / ground run) the start of data will is
+    to be used.
+    '''
+    name = 'FDR Takeoff Datetime'
+    def derive(self, liftoff=KTI('Liftoff'), start_dt=A('Start Datetime')):
+        first_liftoff = liftoff.get_first()
+        if not first_liftoff:
+            return
+        liftoff_index = first_liftoff.index
+        takeoff_dt = datetime_of_index(start_dt.value, liftoff_index,
+                                       frequency=liftoff.frequency)
+        self.set_flight_attr(takeoff_dt)
+
+
+class TakeoffFuel(FlightAttributeNode):
+    "Weight of Fuel in KG at point of Takeoff"
+    name = 'FDR Takeoff Fuel'
+    @classmethod
+    def can_operate(self, available):
+        return 'AFR Takeoff Fuel' in available or \
+               'Fuel Qty At Liftoff' in available
     
-                
+    def derive(self, afr_takeoff_fuel=A('AFR Takeoff Fuel'),
+               liftoff_fuel_qty=KPV('Fuel Qty At Liftoff')):
+        if afr_takeoff_fuel and afr_takeoff_fuel.value:
+            self.set_flight_attr(afr_takeoff_fuel.value)
+        else:
+            fuel_qty_kpv = liftoff_fuel_qty.get_first()
+            if fuel_qty_kpv:
+                self.set_flight_attr(fuel_qty_kpv.value)
+
+
+class TakeoffGrossWeight(FlightAttributeNode):
+    "Aircraft Gross Weight in KG at point of Takeoff"
+    name = 'FDR Takeoff Gross Weight'
+    def derive(self, liftoff_gross_weight=P('Gross Weight At Liftoff')):
+        first_gross_weight = liftoff_gross_weight.get_first()
+        if not first_gross_weight:
+            return
+        self.set_flight_attr(first_gross_weight.value)
+
+    
+# TODO: Implement.
+#class TakeoffPilot(FlightAttributeNode):
+    #"Pilot flying at takeoff, Captain, First Officer or None"
+    #name = 'FDR Takeoff Pilot'
+    #def derive(self, unknown_dep=P('UNKNOWN')):
+        #pilot = None
+        #assert pilot in ("FIRST_OFFICER", "CAPTAIN", None)
+        
+        #control_input (1) Control Input (2) / contro wheeel / control column
+        #return NotImplemented
+
+
+class TakeoffRunway(FlightAttributeNode):
+    "Runway identifier name"
+    name = 'FDR Takeoff Runway'
+    @classmethod
+    def can_operate(self, available):
+        return 'Takeoff Airport' in available and 'Takeoff Heading' in available
+
+    def derive(self, airport=A('Takeoff Airport'), hdg=KPV('Takeoff Heading'),
+               liftoff=KTI('Liftoff'), latitude=P('Latitude'),
+               longitude=P('Longitude'), precision=A('Precise Positioning')):
+        '''
+        Runway information is in the following format:
+        {'id': 1234,
+         'identifier': '29L',
+         'magnetic_heading': 290,
+         'start': {
+             'latitude': 14.1,
+             'longitude': 7.1,
+         },
+         'end': {
+             'latitude': 14.2,
+             'longitude': 7.2,
+         },
+             'glideslope': {
+                  'angle': 120, # Q: Sensible example value?
+                  'frequency': 330, # Q: Sensible example value?
+                  'latitude': 14.3,
+                  'longitude': 7.3,
+                  'threshold_distance': 20,
+              },
+              'localiser': {
+                  'beam_width': 14, # Q: Sensible example value?
+                  'frequency': 335, # Q: Sensible example value?
+                  'heading': 291,
+                  'latitude': 14.4,
+                  'longitude': 7.4,
+              },
+         'strip': {
+             'length': 150,
+             'surface': 'ASPHALT',
+             'width': 30,
+        }}
+        '''
+        kwargs = {}
+        if precision and precision.value and liftoff and latitude and longitude:
+            liftoff_index = liftoff[0].index
+            latitude_at_liftoff = latitude.array[liftoff_index]
+            longitude_at_liftoff = longitude.array[liftoff_index]
+            kwargs.update(latitude=latitude_at_liftoff,
+                          longitude=longitude_at_liftoff)
+        airport_id = airport.value['id']
+        hdg_value = hdg[0].value
+        api_handler = get_api_handler()
+        try:
+            runway = api_handler.get_nearest_runway(airport_id, hdg_value,
+                                                    **kwargs)
+        except NotFoundError:
+            logging.warning("Runway not found for airport id '%d', heading "
+                            "'%f' and kwargs '%s'.", airport_id, hdg_value,
+                            kwargs)
+        else:
+            self.set_flight_attr(runway)
+
+
+class Type(FlightAttributeNode):
+    "Type of flight flown"
+    name = 'FDR Type'
+    
+    @classmethod
+    def can_operate(self, available):
+        'Fast' in available or 'Fast'
+    
+    def derive(self, afr_type=A('AFR Type'), fast=S('Fast'),
+               liftoffs=KTI('Liftoff'), touchdowns=KTI('Touchdown')):
+        ## options are:
+        #COMMERCIAL = 'COMMERCIAL'
+        #INCOMPLETE = 'INCOMPLETE'
+        #ENGINE_RUN_UP = 'ENGINE_RUN_UP'
+        #REJECTED_TAKEOFF = 'REJECTED_TAKEOFF'
+        #TEST = 'TEST'
+        #TRAINING = 'TRAINING'
+        #FERRY = 'FERRY'
+        #POSITIONING = 'POSITIONING'
+        #LINE_TRAINING = 'LINE_TRAINING'
+        #if go_fast and left ground:
+        
+        
+        # TODO: ON_GROUND.
+        afr_type = afr_type.value if afr_type else None
+        if fast and liftoff:
+            self.set_flight_attr(afr_type if afr_type in ['TEST', 'TRAINING', 'FERRY', 'POSITIONING', 'LINE_TRAINING'] else 'COMMERCIAL')
+        elif fast and not liftoff:
+            flight_type = 'REJECTED_TAKEOFF'
+        else:
+            # Ensure there was a liftoff before the first touchdown.
+            first_touchdown = touchdowns.get_first()
+            first_liftoff = liftoffs.get_first()
+            if not first_liftoff or not first_touchdown:
+                flight_type = 'INCOMPLETE'
+            elif  first_touchdown.index < first_liftoff.index:
+                # Touchdown before having lifted off..
+                flight_type = 'INCOMPLETE'
+            else:
+                flight_type = 'ENGINE_RUN_UP'
+        
+        else:
+            flight_type = 'ENGINE_RUN_UP'
+            
+        #elif go_fast and not left ground:
+            #REJECTED_TAKEOFF
+        
+        #elif start_in_air or stop in air:
+            #INCOMPLETE
+        
+        #elif on_ground and moved_around:
+            #GROUND_RUN -- add new type and find out how to determine one vs. other
+            
+        #else:
+            ## all on ground and didn't go fast
+            #ENGINE_RUN_UP # and didn't move?
+        #return NotImplemented
+
+
+#Q: Not sure if we can identify Destination from the data?
+##class DestinationAirport(FlightAttributeNode):
+    ##""
+    ##def derive(self):
+        ##return NotImplemented
+                    ##{'id':9456, 'name':'City. Airport'}
+
+
 class LandingDatetime(FlightAttributeNode):
     """ Datetime at landing (final touchdown) or as close to this as possible.
     If no landing (incomplete flight / ground run) store None.
     """
-    def derive(self, unknown_dep=P('UNKNOWN')):
-        return NotImplemented
+    name = 'FDR Landing Datetime'
+    def derive(self, start_datetime=A('Start Datetime'),
+               touchdown=KTI('Touchdown')):
+        last_touchdown = touchdown.get_last()
+        if not last_touchdown:
+            self.set_flight_attr(None)
+            return
+        landing_datetime = datetime_of_index(start_datetime,
+                                             last_touchdown.index,
+                                             frequency=touchdown.frequency) 
+        self.set_flight_attr(landing_datetime)
+
+         
+class LandingFuel(FlightAttributeNode):
+    "Weight of Fuel in KG at point of Touchdown"
+    name = 'FDR Landing Fuel'
+    @classmethod
+    def can_operate(self, available):
+        return 'AFR Landing Fuel' in available or \
+               'Fuel Qty At Touchdown' in available
     
-                
+    def derive(self, afr_landing_fuel=A('AFR Landing Fuel'),
+               touchdown_fuel_qty=KPV('Fuel Qty At Touchdown')):
+        if afr_landing_fuel and afr_landing_fuel.value:
+            self.set_flight_attr(afr_landing_fuel.value)
+        else:
+            fuel_qty_kpv = touchdown_fuel_qty.get_last()
+            if fuel_qty_kpv:
+                self.set_flight_attr(fuel_qty_kpv.value)
+
+
+class LandingGrossWeight(FlightAttributeNode):
+    "Aircraft Gross Weight in KG at point of Landing"
+    name = 'FDR Landing Gross Weight'
+    def derive(self, touchdown_gross_weight=KPV('Gross Weight At Touchdown')):
+        last_gross_weight = touchdown_gross_weight.get_last()
+        if last_gross_weight:
+            self.set_flight_attr(last_gross_weight.value)
+
+
 class LandingPilot(FlightAttributeNode):
     "Pilot flying at landing, Captain, First Officer or None"
+    name = 'FDR Landing Pilot'
     def derive(self, unknown_dep=P('UNKNOWN')):
         pilot = None
         assert pilot in ("FIRST_OFFICER", "CAPTAIN", None)
         return NotImplemented
-        
-                
-class LandingGrossWeight(FlightAttributeNode):
-    "Aircraft Gross Weight in KG at point of Landing"
-    def derive(self, unknown_dep=P('UNKNOWN')):
-        return NotImplemented
-         
-         
-class LandingFuel(FlightAttributeNode):
-    "Weight of Fuel in KG at point of Landing"
-    def derive(self, unknown_dep=P('UNKNOWN')):
-        return NotImplemented
     
         
 class V2(FlightAttributeNode):
+    name = 'FDR V2'
     def derive(self, unknown_dep=P('UNKNOWN')):
         return NotImplemented
          
          
 class Vapp(FlightAttributeNode):
+    name = 'FDR Vapp'
     def derive(self, unknown_dep=P('UNKNOWN')):
+        return NotImplemented
+
+
+class Version(FlightAttributeNode):
+    "Version of code used for analysis"
+    name = 'FDR Version'
+    def derive(self, unknown_dep=P('UNKNOWN')):
+        self.set_flight_attr(___version___)
         return NotImplemented
          
          
 class Vref(FlightAttributeNode):
+    name = 'FDR Vref'
     def derive(self, unknown_dep=P('UNKNOWN')):
         return NotImplemented
-         
-            
-class Version(FlightAttributeNode):
-    "Version of code used for analysis"
-    def derive(self, unknown_dep=P('UNKNOWN')):
-        self.set_flight_attr(___version___)
-        return NotImplemented
-
-
-class Duration(FlightAttributeNode):
-    "Duration of the flight (between takeoff and landing) in seconds"
-    def derive(self, takeoff_dt=A('Takeoff Datetime'), landing_dt=A('Landing Datetime')):
-        duration = landing_dt - takeoff_dt
-        self.set_flight_attr(duration.total_seconds()) # py2.7
-
                 
-class AnalysisDatetime(FlightAttributeNode):
-    "Datetime flight was analysed (local datetime)"
-    def derive(self, unknown_dep=P('UNKNOWN')):
-        self.set_flight_attr(datetime.now())
         
     
