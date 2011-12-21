@@ -505,7 +505,7 @@ class Type(FlightAttributeNode):
     
     @classmethod
     def can_operate(self, available):
-        'Fastavailable
+        'Fast' in available or 'Fast'
     
     def derive(self, afr_type=A('AFR Type'), fast=S('Fast'),
                liftoffs=KTI('Liftoff'), touchdowns=KTI('Touchdown')):

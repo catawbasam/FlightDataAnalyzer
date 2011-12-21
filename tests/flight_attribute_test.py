@@ -760,3 +760,6 @@ class TestTakeoffRunway(unittest.TestCase):
         self.assertEqual(takeoff_runway.set_flight_attr.call_args,
                          ((runway_info,), {}))
 
+
+##class TestType(unittest.TestCase):
+    ##def test_

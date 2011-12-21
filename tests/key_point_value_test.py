@@ -5,6 +5,7 @@ from analysis.library import rate_of_change
 from analysis.plot_flight import plot_parameter
 from analysis.node import A, KPV, KeyTimeInstance, KTI, KeyPointValue, Parameter, P, Section, S
 from analysis.key_point_values import (Airspeed1000To500FtMax,
+                                       AirspeedMax,
                                        HeadingAtTakeoff,
                                        FuelQtyAtLiftoff,
                                        FuelQtyAtTouchdown,
@@ -23,11 +24,38 @@ from analysis.key_point_values import (Airspeed1000To500FtMax,
 import sys
 debug = sys.gettrace() is not None
 
+class TestAirspeedMax(unittest.TestCase):
+    def test_can_operate(self):
+        expected = [('Airspeed','Airborne')]
+        opts = AirspeedMax.get_operational_combinations()
+        self.assertEqual(opts, expected) 
+        
+    def test_airspeed_max_basic(self):
+        testline = np.arange(0,12.6,0.1)
+        testwave = (np.cos(testline)*(-100))+100
+        spd = Parameter('Airspeed', np.ma.array(testwave))
+        waves=np.ma.clump_unmasked(np.ma.masked_less(testwave,80))
+        airs=[]
+        for wave in waves:
+            airs.append(Section('Airborne',wave))
+        ##from analysis.node import FlightPhaseNode
+        ##wave_phases = FlightPhaseNode(items=airs)
+        
+        kpv = AirspeedMax()
+        kpv.derive(spd, airs)
+        self.assertEqual(len(kpv), 2)
+        self.assertEqual(kpv[0].index, 31)
+        self.assertGreater(kpv[0].value, 199.9)
+        self.assertLess(kpv[0].value, 200)
+        self.assertEqual(kpv[1].index, 94)
+        self.assertGreater(kpv[1].value, 199.9)
+        self.assertLess(kpv[1].value, 200)
+        
+
 
 class TestAirspeed1000To500FtMax(unittest.TestCase):
     def test_can_operate(self):
-        expected = [('Airspeed','Altitude AAL For Flight Phases',
-                     'Final Approach')]
+        expected = [('Airspeed','Altitude AAL For Flight Phases')]
         opts = Airspeed1000To500FtMax.get_operational_combinations()
         self.assertEqual(opts, expected) 
         

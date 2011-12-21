@@ -30,7 +30,17 @@ class Airspeed1000To500FtMax(KeyPointValueNode):
                 self.create_kpv(when, value)
 
 
-    
+class AirspeedMax(KeyPointValueNode):
+    def derive(self, speed=P('Airspeed'),
+               airs=S('Airborne')):
+        # For commented version, see GlideslopeDeviation1500To1000FtMax
+        for air in airs:
+            index = np.ma.argmax(speed.array[air.slice])
+            when = air.slice.start + index
+            value = speed.array[when]
+            self.create_kpv(when, value)
+
+
 class HeadingAtTakeoff(KeyPointValueNode):
     '''
     The takeoff has been found already, including a little of the turn onto
@@ -147,13 +157,9 @@ class LongitudeAtLowPointOnApproach(KeyPointValueNode):
 
 ##########################################
 # KPV from A6RKA_KPVvalues.xls
+##########################################
 
 
-class IndicatedAirspeedAtFt(KeyPointValueNode):
-    def derive(self, liftoff=KTI('Liftoff'),
-               indicated_airspeed=P('Indicated Airspeed')):
-        return NotImplemented
-    
 class PitchAtLiftoff(KeyPointValueNode):
     def derive(self, liftoff=KTI('Liftoff'), pitch=P('Pitch')):
         return NotImplemented
@@ -163,14 +169,6 @@ class FlapAtLiftoff(KeyPointValueNode):
     def derive(self, liftoff=KTI('Liftoff'), flap=P('Flap')):
         return NotImplemented
     
-
-class IndicatedAirspeedAt35Ft(KeyPointValueNode):
-    """ Based on Altitude Radio
-    """
-    def derive(self, airspeed=P('Indicated Airspeed'),
-               alt_rad=P('Altitude Radio')):
-        return NotImplemented
-
 
 class AccelerationNormalFtTo35FtMax(KeyPointValueNode): # Q: Name?
     def derive(self, norm_g=P('Acceleration Normal'), alt_rad=P('Altitude Radio')):
@@ -283,22 +281,14 @@ class AltitudeStdMax(KeyPointValueNode):
         self.create_kpv(max_index, alt_std[max_index])
 
 
-class IndicatedAirspeedMax(KeyPointValueNode):
-    def derive(self, airspeed=P('Indicated Airspeed')):
-        # Use Numpy to locate the maximum airspeed, then get the value.
-        index = airspeed.array.argmax()
-        airspeed_max = airspeed.array[index]
-        self.create_kpv(index, airspeed_max)
-
-
 class MACHMax(KeyPointValueNode):
     name = 'MACH Max'
     def derive(self, mach=P('MACH')):
         return NotImplemented
 
 
-class IndicatedAirspeedAtTouchdown(KeyPointValueNode):
-    def derive(self, airspeed=P('Indicated Airspeed'),
+class AirspeedAtTouchdown(KeyPointValueNode):
+    def derive(self, airspeed=P('Airspeed'),
                touchdown=KTI('Touchdown')):
         return NotImplemented
 
@@ -937,11 +927,6 @@ class MACHMMOMax(KeyPointValueNode):
         return NotImplemented
 
 
-class AirspeedMax(KeyPointValueNode):
-    def derive(self, airspeed=P('Airspeed')):
-        return NotImplemented
-
-
 class AirspeedVref500FtToTouchdownMax(KeyPointValueNode):
     def derive(self, airspeed=P('Airspeed')):
         return NotImplemented
@@ -955,52 +940,52 @@ class Airspeed1000To500FtMax(KeyPointValueNode):
 """
 
 class AirspeedWithFlap1Max(KeyPointValueNode):
-    def derive(self, airspeed=P('Airspeed')):
+    def derive(self, airspeed=P('Airspeed'), flap=P('Flap')):
         return NotImplemented
 
 
 class AirspeedWithFlap2Max(KeyPointValueNode):
-    def derive(self, airspeed=P('Airspeed')):
+    def derive(self, airspeed=P('Airspeed'), flap=P('Flap')):
         return NotImplemented
 
 
 class AirspeedWithFlap5Max(KeyPointValueNode):
-    def derive(self, airspeed=P('Airspeed')):
+    def derive(self, airspeed=P('Airspeed'), flap=P('Flap')):
         return NotImplemented
 
 
 class AirspeedWithFlap15Max(KeyPointValueNode):
-    def derive(self, airspeed=P('Airspeed')):
+    def derive(self, airspeed=P('Airspeed'), flap=P('Flap')):
         return NotImplemented
 
 
 class AirspeedWithFlap25Max(KeyPointValueNode):
-    def derive(self, airspeed=P('Airspeed')):
+    def derive(self, airspeed=P('Airspeed'), flap=P('Flap')):
         return NotImplemented
 
 
 class AirspeedWithFlap40Max(KeyPointValueNode):
-    def derive(self, airspeed=P('Airspeed')):
+    def derive(self, airspeed=P('Airspeed'), flap=P('Flap')):
         return NotImplemented
 
 
 class AirspeedWithFlap30Max(KeyPointValueNode):
-    def derive(self, airspeed=P('Airspeed')):
+    def derive(self, airspeed=P('Airspeed'), flap=P('Flap')):
         return NotImplemented
 
 
 class AirspeedWithFlap10Max(KeyPointValueNode):
-    def derive(self, airspeed=P('Airspeed')):
+    def derive(self, airspeed=P('Airspeed'), flap=P('Flap')):
         return NotImplemented
 
 
 class AirspeedVrefAtTouchdown(KeyPointValueNode):
-    def derive(self, airspeed=P('Airspeed')):
+    def derive(self, airspeed=P('Airspeed'), vref=P('Vref')):
         return NotImplemented
 
 
 class AirspeedBelow3000FtMax(KeyPointValueNode):
-    def derive(self, airspeed=P('Airspeed')):
+    def derive(self, airspeed=P('Airspeed'), alt_aal=P('Altitude AAL For Flight Phases')):
         return NotImplemented
 
 
@@ -1080,7 +1065,7 @@ class ThrottleCycles1000FtToTouchdownMax(KeyPointValueNode):
 
 
 class TooLowFlapWarning(KeyPointValueNode):
-    def derive(self, gpws_too_low_flap=P('GPWS Too Low Flap')):
+    def derive(self, gpws_too_low_flap=P('GPWS Too Low Flap'), flap=P('Flap')):
         return NotImplemented
 
 

@@ -181,12 +181,16 @@ class TestNodeManager(unittest.TestCase):
         mock_inop.can_operate = mock.Mock(return_value=False)
         aci = {'n':1, 'o':2, 'p':3}
         afr = {'l':4, 'm':5}
-        mgr = NodeManager(None, ['a', 'b', 'c'], ['a', 'x'], 
-                          {'x': mock_node, 'y': mock_node, 'z': mock_inop},
+        mgr = NodeManager(None, ['a', 'b', 'c', 'x'], ['a', 'x'], 
+                          {'x': mock_inop, # note: derived node is not operational, but is already available in LFL - so this should return true!
+                           'y': mock_node, 'z': mock_inop},
                           aci, afr)
         self.assertTrue(mgr.operational('a', []))
         self.assertTrue(mgr.operational('b', []))
         self.assertTrue(mgr.operational('c', []))
+        # to ensure that if an lfl param is available, it's can_operate
+        # returns True rather than calling the Derived node which may not
+        # have all it's dependencies set. 'x' should return from the LFL!
         self.assertTrue(mgr.operational('x', []))
         self.assertTrue(mgr.operational('y', ['a']))
         self.assertTrue(mgr.operational('n', ['a'])) # achieved flight record
@@ -220,7 +224,7 @@ class TestNodeManager(unittest.TestCase):
         start_dt = mgr.get_attribute('Start Datetime')
         self.assertEqual(start_dt.name, 'Start Datetime')
         self.assertEqual(start_dt.value, dt)
-        
+                
         
 class TestPowerset(unittest.TestCase):
     def test_powerset(self):

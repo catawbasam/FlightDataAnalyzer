@@ -51,94 +51,72 @@ def plot_essential(hdf_path):
 def plot_flight(hdf_path, kti_list, kpv_list, phase_list):
     """
     """
-    # ax1 and ax2 are not defined.
-    #ax2.annotate(point, xy=(event[0]-first,
-            #fp.altitude_std.data[event[0]]),
-            #xytext=(-5, 100), 
-            #textcoords='offset points',
-            ##arrowprops=dict(arrowstyle="->"),
-            #rotation='vertical'
-            #)
+    fig = plt.figure() ##figsize=(10,8))
+    plt.title(os.path.basename(hdf_path))
     
-    #ax1.plot(ph['Takeoff'], 'r-', ph['Landing'], 'g-',
-    #ph['Air'], 'b-',
-    #ph['Ground'], 'k-')
-                
-    ##first, last, fp, kpt, kpv, ph, rejected_takeoff=False):
-    """
-    @param rejected_takeoff: Boolean
-    """
-
-    ##first, last = block.start, block.stop
-    # Convert to dictionaries for easy access by Node name.
-    ph = dict([(n.name, n) for n in phase_list])
-    
-    # kpv = dict if required...
-    
-    fig = figure(figsize=(10,8))
-    
-    if rejected_takeoff:
-        ax1 = fig.add_subplot(2,1,1)
-        ax1.autoscale(enable=False, axis='x')
-        ax1.set_xbound(first, last)
-        ax1.plot(fp.airspeed.data[first:last], 'r-')
-        ax1.grid(True)
-        
-        ax2 = fig.add_subplot(2,1,2, sharex=ax1)
-        ax2.plot(fp.altitude_std.data[first:last], 'b-')
-        ax2.grid(True) 
-    else: #normal flight
+    with hdf_file(hdf_path) as hdf:
+        #---------- Axis 1 ----------
         ax1 = fig.add_subplot(4,1,1)
-        ax1.autoscale(enable=False, axis='x')
-        ax1.set_xbound(first, last)
-        ax1.plot(ph['Takeoff'], 'r-', ph['Landing'], 'g-',
-                 ph['Air'], 'b-',
-                 ph['Ground'], 'k-')
-        ax1.grid(True)
+        alt = hdf['Altitude STD'].array
         
-        ax2 = fig.add_subplot(4,1,2, sharex=ax1)
-        # ax2.set_ybound(-1000,45000)
-        ax2.plot(
-                 # fp.altitude_std.data, 'y-',
-                 # fp.altitude_aal_takeoff.data, 'r-',
-                 ph['Climbing'], 'g-', 
-                 ph['LevelFlight'], 'b-',
-                 ph['Descending'], 'r-')
-        ax2.grid(True)
+        sections = []
+        for phase in filter(lambda p: p.name in (
+            'Takeoff', 'Landing', 'Airborne', 'On Ground'), phase_list):
+            sections.append(alt[phase.slice])
+            if phase.name == 'Takeoff':
+                sections.append('r-')
+            elif phase.name == 'Landing':
+                sections.append('g-')
+            elif phase.name == 'Airborne':
+                sections.append('b-')
+            elif phase.name == 'On Ground':
+                sections.append('k-')
+        ax1.plot(*sections)
         
-        ax3 = fig.add_subplot(4,1,3, sharex=ax1)
-        ax3.plot(fp.rate_of_climb_smooth.data[first:last], 'k-')
-        ax3.grid(True)
-            
-        ax4 = fig.add_subplot(4,1,4, sharex=ax1)
-        ax4.plot(ph['Initial_Climb'], 'r-',
-                 ph['Climb'], 'g-',
-                 ph['Cruise'], 'b-',
-                 ph['Descent'], 'g-',
-                 ph['Approach'], 'r-',
-                 ph['Ground'], 'k-')    
-        ax4.grid(True)
-
+        #---------- Axis 2 ----------
+        ax2 = fig.add_subplot(4,1,2)
+        roc = hdf.get('Rate Of Climb', hdf['Altitude STD']).array
+        sections = []
+        for phase in filter(lambda p: p.name in (
+            'Climbing', 'Level Flight', 'Descending'), phase_list):
+            sections.append(roc[phase.slice])
+            if phase.name == 'Climbing':
+                sections.append('g-')
+            elif phase.name == 'Level Flight':
+                sections.append('b-')
+            elif phase.name == 'Descending':
+                sections.append('4-')
+        ax2.plot(*sections)
         
-    for point in kpv:
-        for event in kpv[point]:
-            ax2.annotate(point, xy=(event[0]-first,
-                        fp.altitude_std.data[event[0]]),
-                        xytext=(-5, 100), 
-                        textcoords='offset points',
-                        #arrowprops=dict(arrowstyle="->"),
-                        rotation='vertical'
-                        )
-    for moment in kpt:
-        for special_moment in kpt[moment]:
-            ax1.annotate(moment, xy=(special_moment-first,1.0),
-                        xytext=(-5, 100),
-                        textcoords='offset points',
-                        #arrowprops=dict(arrowstyle="->"),
-                        rotation='vertical'
-                        )
-    show()
+        #---------- Axis 3 ----------
+        ax3 = fig.add_subplot(4,1,3,sharex=ax2)
+        ax3.plot(hdf['Airspeed'].array, 'r-')
+        
+        #---------- Axis 4 ----------
+        if 'Heading' in hdf:
+            ax4 = fig.add_subplot(4,1,4,sharex=ax2)
+            ax4.plot(hdf['Heading'].array, 'b-')  
+    
+    for kpv in kpv_list:
+        label = '%s %s' % (kpv.name, kpv.value)
+        ax1.annotate(label, xy=(kpv.index, alt[kpv.index]),
+                     xytext=(-5, 100), 
+                     textcoords='offset points',
+                     #arrowprops=dict(arrowstyle="->"),
+                     rotation='vertical'
+                     )
+    for kti in kti_list:
+        label = '%s' % (kti.name)
+        ax1.annotate(label, xy=(kti.index, alt[kti.index]),
+                     xytext=(-5, 100), 
+                     textcoords='offset points',
+                     #arrowprops=dict(arrowstyle="->"),
+                     rotation='vertical'
+                     )
+    plt.show()
+    return
 
 if __name__ == '__main__':
-    
-    plot_flight()
+    import sys
+    hdf_path = sys.argv[1]
+    plot_flight(hdf_path, [], [], [])

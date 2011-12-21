@@ -100,7 +100,13 @@ def derive_parameters(hdf, node_mgr, process_order):
             raise RuntimeError("No dependencies available - Nodes cannot "
                                "operate without ANY dependencies available! "
                                "Node: %s" % node_class.__name__)
-        first_dep = next((d for d in deps if d is not None))
+        try:
+            first_dep = next((d for d in deps if d is not None and d.frequency))
+            frequency = first_dep.frequency
+            offset = first_dep.offset
+        except StopIteration:
+            frequency = None
+            offset = None
         # initialise node
         node = node_class(frequency=first_dep.frequency,
                           offset=first_dep.offset)
@@ -230,7 +236,7 @@ def process_flight(hdf_path, aircraft_info, start_datetime=datetime.now(), achie
                                derived_nodes, aircraft_info, achieved_flight_record)
         
         # calculate dependency tree
-        process_order = dependency_order(node_mgr, draw=draw) 
+        process_order = dependency_order(node_mgr, draw=True) 
         
         if settings.PRE_FLIGHT_ANALYSIS:
             settings.PRE_FLIGHT_ANALYSIS(hdf, aircraft_info, process_order)
@@ -248,7 +254,7 @@ def process_flight(hdf_path, aircraft_info, start_datetime=datetime.now(), achie
         
     if draw:
         from analysis.plot_flight import plot_flight
-        plot_flight(kti_list, kpv_list, phase_list)
+        plot_flight(hdf_path, kti_list, kpv_list, phase_list)
         
     return {'flight' : flight_attrs, 
             'kti' : kti_list, 

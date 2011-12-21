@@ -666,11 +666,11 @@ class NodeManager(object):
         """
         Ordered list of all Node names stored within the manager.
         """
-        return sorted(['Start Datetime'] \
-                      + self.lfl \
-                      + self.derived_nodes.keys() \
-                      + self.aircraft_info.keys() \
-                      + self.achieved_flight_record.keys())
+        return sorted(list(set(['Start Datetime'] \
+                               + self.lfl \
+                               + self.derived_nodes.keys() \
+                               + self.aircraft_info.keys() \
+                               + self.achieved_flight_record.keys())))
     
 
     def get_attribute(self, name):
@@ -700,14 +700,14 @@ class NodeManager(object):
         :returns: Result of Operational test on parameter.
         :rtype: Boolean
         """
-        if name in self.derived_nodes:
-            #NOTE: Raises "Unbound method" here due to can_operate being overridden without wrapping with @classmethod decorator
-            return self.derived_nodes[name].can_operate(available)
-        elif name in self.lfl \
+        if name in self.lfl \
              or self.aircraft_info.get(name) is not None \
              or self.achieved_flight_record.get(name) is not None \
              or name == 'root':
             return True
+        elif name in self.derived_nodes:
+            #NOTE: Raises "Unbound method" here due to can_operate being overridden without wrapping with @classmethod decorator
+            return self.derived_nodes[name].can_operate(available)
         else:  #elif name in unavailable_deps:
             logging.warning("Confirm - node is unavailable: %s", name)
             return False

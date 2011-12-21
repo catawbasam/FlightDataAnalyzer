@@ -204,7 +204,7 @@ class ClimbForFlightPhases(DerivedParameterNode):
             # Initialise the tracking altitude value
             curr_alt = alt_std.array[ax][0]
             self.array[ax][0] = 0.0
-            for count in range(1, ax.stop - ax.start):
+            for count in xrange(1, int(ax.stop - ax.start)):
                 if alt_std.array[ax][count] < alt_std.array[ax][count-1]:
                     # Going down, keep track of current altitude
                     curr_alt = alt_std.array[ax][count]

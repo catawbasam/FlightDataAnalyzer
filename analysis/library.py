@@ -160,6 +160,8 @@ def calculate_timebase(years, months, days, hours, mins, secs):
     Note: if uneven arrays are passed in, they are assumed by izip that the
     start is valid and the uneven ends are invalid and skipped over.
     
+    TODO: Support year as a 2 digits - e.g. "11" is "2011"
+    
     :param years, months, days, hours, mins, secs: Appropriate 1Hz time elements
     :type years, months, days, hours, mins, secs: iterable of numeric type
     :returns: best calculated datetime at start of array
