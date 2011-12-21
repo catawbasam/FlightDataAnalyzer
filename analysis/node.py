@@ -250,6 +250,8 @@ class DerivedParameterNode(Node):
 class SectionNode(Node, list):
     '''
     Derives from list to implement iteration and list methods.
+    
+    Is a list of Section namedtuples, each with attributes .name and .slice
     '''
     def __init__(self, *args, **kwargs):
         '''

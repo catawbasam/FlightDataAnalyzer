@@ -236,7 +236,7 @@ def process_flight(hdf_path, aircraft_info, start_datetime=datetime.now(), achie
                                derived_nodes, aircraft_info, achieved_flight_record)
         
         # calculate dependency tree
-        process_order = dependency_order(node_mgr, draw=True) 
+        process_order = dependency_order(node_mgr, draw=draw) 
         
         if settings.PRE_FLIGHT_ANALYSIS:
             settings.PRE_FLIGHT_ANALYSIS(hdf, aircraft_info, process_order)
