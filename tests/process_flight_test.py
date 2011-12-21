@@ -39,7 +39,7 @@ class TestProcessFlight(unittest.TestCase):
                'AFR Vapp': 135,
                'AFR Vref': 120
               }
-        res = process_flight(hdf_path, ac_info, achieved_flight_record=afr, draw=True)
+        res = process_flight(hdf_path, ac_info, achieved_flight_record={}, draw=False)
         self.assertEqual(len(res), 3)
     
     
