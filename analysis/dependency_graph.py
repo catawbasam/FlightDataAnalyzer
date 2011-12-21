@@ -1,3 +1,4 @@
+import os
 import sys
 import logging 
 import networkx as nx # pip install networkx or /opt/epd/bin/easy_install networkx
@@ -112,6 +113,7 @@ def draw_graph(graph, name, horizontal=True):
     G.layout(prog='dot')
     G.graph_attr['label'] = name
     G.draw(file_path)
+    logging.info("Dependency tree drawn: %s", os.path.abspath(file_path))
     
     
 def graph_nodes(node_mgr):
@@ -188,8 +190,14 @@ def process_order(gr_all, node_mgr):
     for n, node in enumerate(process_order):
         gr_all.node[node]['label'] = '%d: %s' % (n, node)
         
-    gr_st = gr_all.copy() 
-    gr_st.remove_nodes_from(set(gr_st.nodes()) - set(process_order))
+    inactive_nodes = set(gr_all.nodes()) - set(process_order)
+    gr_st = gr_all.copy()
+    gr_st.remove_nodes_from(inactive_nodes)
+    
+    for node in inactive_nodes:
+        gr_all.node[node]['color'] = 'grey'
+        inactive_edges = gr_all.in_edges(node)
+        gr_all.add_edges_from(inactive_edges, color='grey')
     
     return gr_all, gr_st, process_order[:-1] # exclude 'root'
 

@@ -129,7 +129,7 @@ def _split_by_frame_counter(dfc_data, dfc_freq=0.25):
         index += 1 # for missing first item
         step = value - previous_dfc
         previous_dfc = value
-        if step == 1 or step == -4094:
+        if step == 1 or step == -4094: #TODO: This won't work for Hercules jumps which are much larger (24bits)
             # expected increment
             continue
         elif step == 0:
