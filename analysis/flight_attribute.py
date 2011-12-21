@@ -342,7 +342,7 @@ class OnBlocksDatetime(FlightAttributeNode):
     def derive(self, unknown_dep=P('UNKNOWN')):
         return NotImplemented
 
-         
+   
 class TakeoffAirport(FlightAttributeNode):
     "Takeoff Airport including ID and Name"
     name = 'FDR Takeoff Airport'
@@ -394,27 +394,44 @@ class TakeoffDatetime(FlightAttributeNode):
         self.set_flight_attr(takeoff_dt)
 
 
-class TakeoffFuel(FlightAttributeNode):
-    "Weight of Fuel in KG at point of Takeoff"
-    name = 'FDR Takeoff Fuel'
-    def derive(self, unknown_dep=P('UNKNOWN')):
-        return NotImplemented
+# TODO
+#class TakeoffFuel(FlightAttributeNode):
+    #"Weight of Fuel in KG at point of Takeoff"
+    #name = 'FDR Takeoff Fuel'
+    #def derive(self, unknown_dep=P('UNKNOWN')):
+        
+        #AFR takeoff fuel
+        #else
+        #'Fuel Qty' param at liftoff
+        
+        
+        #fuel_qty = sum('Fuel Qty (1)' 'Fuel Qty (2)' 'Fuel Qty (3)') # add a TODO: improve using AFR Takeoff Fuel values and Fuel Flow        from library import vstack_params
+        #ftot = vstack_params(f1, f2, f3)
+        #self.array = np.ma.sum(ftot, 0)
+        
+        #return NotImplemented
 
 
 class TakeoffGrossWeight(FlightAttributeNode):
     "Aircraft Gross Weight in KG at point of Takeoff"
     name = 'FDR Takeoff Gross Weight'
-    def derive(self, unknown_dep=P('UNKNOWN')):
-        return NotImplemented
+    def derive(self, liftoff_gross_weight=P('Gross Weight At Liftoff')):
+        first_gross_weight = liftoff_gross_weight.get_first()
+        if not first_gross_weight:
+            return
+        self.set_flight_attr(first_gross_weight.value)
 
     
-class TakeoffPilot(FlightAttributeNode):
-    "Pilot flying at takeoff, Captain, First Officer or None"
-    name = 'FDR Takeoff Pilot'
-    def derive(self, unknown_dep=P('UNKNOWN')):
-        pilot = None
-        assert pilot in ("FIRST_OFFICER", "CAPTAIN", None)
-        return NotImplemented
+# TODO: Implement.
+#class TakeoffPilot(FlightAttributeNode):
+    #"Pilot flying at takeoff, Captain, First Officer or None"
+    #name = 'FDR Takeoff Pilot'
+    #def derive(self, unknown_dep=P('UNKNOWN')):
+        #pilot = None
+        #assert pilot in ("FIRST_OFFICER", "CAPTAIN", None)
+        
+        #control_input (1) Control Input (2) / contro wheeel / control column
+        #return NotImplemented
 
 
 class TakeoffRunway(FlightAttributeNode):
@@ -479,23 +496,40 @@ class TakeoffRunway(FlightAttributeNode):
                             kwargs)
         else:
             self.set_flight_attr(runway)
+
+
+# TODO
+#class Type(FlightAttributeNode):
+    #"Type of flight flown"
+    #name = 'FDR Type'
+    #def derive(self, unknown_dep=P('UNKNOWN')):
+        ## options are:
+        #COMMERCIAL = 'COMMERCIAL'
+        #INCOMPLETE = 'INCOMPLETE'
+        #ENGINE_RUN_UP = 'ENGINE_RUN_UP'
+        #REJECTED_TAKEOFF = 'REJECTED_TAKEOFF'
+        #TEST = 'TEST'
+        #TRAINING = 'TRAINING'
+        #FERRY = 'FERRY'
+        #POSITIONING = 'POSITIONING'
+        #LINE_TRAINING = 'LINE_TRAINING'
         
-                
-class Type(FlightAttributeNode):
-    "Type of flight flown"
-    name = 'FDR Type'
-    def derive(self, unknown_dep=P('UNKNOWN')):
-        # options are:
-        COMMERCIAL = 'COMMERCIAL'
-        INCOMPLETE = 'INCOMPLETE'
-        ENGINE_RUN_UP = 'ENGINE_RUN_UP'
-        REJECTED_TAKEOFF = 'REJECTED_TAKEOFF'
-        TEST = 'TEST'
-        TRAINING = 'TRAINING'
-        FERRY = 'FERRY'
-        POSITIONING = 'POSITIONING'
-        LINE_TRAINING = 'LINE_TRAINING'
-        return NotImplemented
+        #if go_fast and left ground:
+            #AFR_TYPE if in (TEST, TRAINING, FERRY, POSITIONING, LINE_TRAINING) or COMMERCIAL
+            
+        #elif go_fast and not left ground:
+            #REJECTED_TAKEOFF
+        
+        #elif start_in_air or stop in air:
+            #INCOMPLETE
+        
+        #elif on_ground and moved_around:
+            #GROUND_RUN -- add new type and find out how to determine one vs. other
+            
+        #else:
+            ## all on ground and didn't go fast
+            #ENGINE_RUN_UP # and didn't move?
+        #return NotImplemented
 
 
 #Q: Not sure if we can identify Destination from the data?

@@ -22,6 +22,28 @@ import sys
 debug = sys.gettrace() is not None
 
 
+class TestAirspeed1000To500FtMax(unittest.TestCase):
+    def test_can_operate(self):
+        expected = [('Airspeed','Altitude AAL For Flight Phases',
+                     'Final Approach')]
+        opts = Airspeed1000To500FtMax.get_operational_combinations()
+        self.assertEqual(opts, expected) 
+        
+    def test_airspeed_1000_150_basic(self):
+        testline = np.arange(0,12.6,0.1)
+        testwave = (np.cos(testline)*(-100))+100
+        spd = Parameter('Airspeed', np.ma.array(testwave))
+        alt_ph = Parameter('Altitude AAL For Flight Phases', 
+                           np.ma.array(testwave)*10)
+        kpv = Airspeed1000To500FtMax()
+        kpv.derive(spd, alt_ph)
+        self.assertEqual(len(kpv), 2)
+        self.assertEqual(kpv[0].index, 48)
+        self.assertEqual(kpv[0].value, 91.250101656055278)
+        self.assertEqual(kpv[1].index, 110)
+        self.assertEqual(kpv[1].value, 99.557430201194919)
+
+
 class TestHeadingAtTakeoff(unittest.TestCase):
     def test_can_operate(self):
         expected = [('Takeoff','Heading Continuous', 'Acceleration Forwards For Flight Phases')]
@@ -64,28 +86,6 @@ class TestHeadingAtLanding(unittest.TestCase):
         self.assertEqual(kpv, expected)
 
 
-class TestAirspeed1000To500FtMax(unittest.TestCase):
-    def test_can_operate(self):
-        expected = [('Airspeed','Altitude AAL For Flight Phases',
-                     'Final Approach')]
-        opts = Airspeed1000To500FtMax.get_operational_combinations()
-        self.assertEqual(opts, expected) 
-        
-    def test_airspeed_1000_150_basic(self):
-        testline = np.arange(0,12.6,0.1)
-        testwave = (np.cos(testline)*(-100))+100
-        spd = Parameter('Airspeed', np.ma.array(testwave))
-        alt_ph = Parameter('Altitude AAL For Flight Phases', 
-                           np.ma.array(testwave)*10)
-        kpv = Airspeed1000To500FtMax()
-        kpv.derive(spd, alt_ph)
-        self.assertEqual(len(kpv), 2)
-        self.assertEqual(kpv[0].index, 48)
-        self.assertEqual(kpv[0].value, 91.250101656055278)
-        self.assertEqual(kpv[1].index, 110)
-        self.assertEqual(kpv[1].value, 99.557430201194919)
-
-
 class TestGlideslopeDeviation1500To1000FtMax(unittest.TestCase):
     def test_can_operate(self):
         expected = [('ILS Glideslope','Altitude AAL For Flight Phases')]
@@ -126,7 +126,29 @@ class TestGlideslopeDeviation1000To150FtMax(unittest.TestCase):
 
 class TestGrossWeightAtLiftoff(unittest.TestCase):
     def test_can_operate(self):
-        self.assertEqual(GrossWe
+        self.assertEqual(GrossWeightAtLiftoff.get_operational_combinations(),
+                         [('Gross Weight', 'Liftoff')])
+    
+    def test_derive(self):
+        node = GrossWeightAtLiftoff()
+        gross_weight = P('Gross Weight', array=np.ma.masked_array([2,4,6]))
+        liftoff = KTI('Liftoff', items=[KeyTimeInstance(1, 'a')])
+        node.derive(gross_weight, liftoff)
+        self.assertEqual(node, [KeyPointValue(1, 4, 'Gross Weight At Liftoff')])
+
+
+class TestGrossWeightAtTouchdown(unittest.TestCase):
+    def test_can_operate(self):
+        self.assertEqual(GrossWeightAtTouchdown.get_operational_combinations(),
+                         [('Gross Weight', 'Touchdown')])
+    
+    def test_derive(self):
+        node = GrossWeightAtTouchdown()
+        gross_weight = P('Gross Weight', array=np.ma.masked_array([2,4,6]))
+        liftoff = KTI('Touchdown', items=[KeyTimeInstance(1, 'a')])
+        node.derive(gross_weight, liftoff)
+        self.assertEqual(node,
+                         [KeyPointValue(1, 4, 'Gross Weight At Touchdown')])
 
         
 class TestILSFrequencyOnApproach(unittest.TestCase):
@@ -167,21 +189,6 @@ class TestLatitudeAtLanding(unittest.TestCase):
         self.assertEqual(kpv, expected)
 
 
-class TestLongitudeAtLanding(unittest.TestCase):
-    def test_can_operate(self):
-        expected = [('Landing Peak Deceleration','Longitude')]
-        opts = LongitudeAtLanding.get_operational_combinations()
-        self.assertEqual(opts, expected) 
-        
-    def test_landing_heading_basic(self):
-        data = P('Longitude',np.ma.array([0,66,77]))
-        landing = [KeyTimeInstance(2, 'Landing Peak Deceleration')]
-        kpv = LongitudeAtLanding()
-        kpv.derive(landing, data)
-        expected = [KeyPointValue(2, 77.0, 'Longitude At Landing')]
-        self.assertEqual(kpv, expected)
-
-
 class TestLocalizerDeviation1500To1000FtMax(unittest.TestCase):
     def test_can_operate(self):
         expected = [('ILS Localizer','Altitude AAL For Flight Phases')]
@@ -201,7 +208,7 @@ class TestLocalizerDeviation1500To1000FtMax(unittest.TestCase):
         self.assertEqual(kpv[1].index, 109)
         
         
-class TestLocaliserDeviation1000To150FtMax(unittest.TestCase):
+class TestLocalizerDeviation1000To150FtMax(unittest.TestCase):
     def test_can_operate(self):
         expected = [('ILS Localizer','Altitude AAL For Flight Phases')]
         opts = LocalizerDeviation1000To150FtMax.get_operational_combinations()
@@ -218,6 +225,21 @@ class TestLocaliserDeviation1000To150FtMax(unittest.TestCase):
         self.assertEqual(len(kpv), 2)
         self.assertEqual(kpv[0].index, 57)
         self.assertEqual(kpv[1].index, 120)
+
+
+class TestLongitudeAtLanding(unittest.TestCase):
+    def test_can_operate(self):
+        expected = [('Landing Peak Deceleration','Longitude')]
+        opts = LongitudeAtLanding.get_operational_combinations()
+        self.assertEqual(opts, expected) 
+        
+    def test_landing_heading_basic(self):
+        data = P('Longitude',np.ma.array([0,66,77]))
+        landing = [KeyTimeInstance(2, 'Landing Peak Deceleration')]
+        kpv = LongitudeAtLanding()
+        kpv.derive(landing, data)
+        expected = [KeyPointValue(2, 77.0, 'Longitude At Landing')]
+        self.assertEqual(kpv, expected)
         
         
 class TestPitch35To400FtMax(unittest.TestCase):

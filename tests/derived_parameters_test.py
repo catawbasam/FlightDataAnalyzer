@@ -23,6 +23,7 @@ from analysis.derived_parameters import (AccelerationForwardsForFlightPhases,
                                          EngN1Average,
                                          EngN1Minimum,
                                          EngN2Average,
+                                         FuelQty,
                                          HeadingContinuous,
                                          Pitch,
                                          RateOfClimb,
@@ -382,6 +383,28 @@ class TestEngN2Average(unittest.TestCase):
                       6,7,8,9,10,11,12,13, # unmasked avg of two engines
                       9]) # only second engine value masked
         )
+
+
+class TestFuelQty(unittest.TestCase):
+    def test_can_operate(self):
+        self.assertEqual(FuelQty.get_operational_combinations(),
+          [('Fuel Qty (1)',), ('Fuel Qty (2)',), ('Fuel Qty (3)',),
+           ('Fuel Qty (1)', 'Fuel Qty (2)'), ('Fuel Qty (1)', 'Fuel Qty (3)'),
+           ('Fuel Qty (2)', 'Fuel Qty (3)'), ('Fuel Qty (1)', 'Fuel Qty (2)',
+                                              'Fuel Qty (3)')])
+    
+    def test_derive(self):
+        fuel_qty1 = P('Fuel Qty (1)', 
+                      array=np.ma.array([1,2,3], mask=[False, False, False]))
+        fuel_qty2 = P('Fuel Qty (2)', 
+                      array=np.ma.array([2,4,6], mask=[False, False, False]))
+        fuel_qty3 = P('Fuel Qty (3)',
+                      array=np.ma.array([3,6,9], mask=[False, False, True]))
+        fuel_qty_node = FuelQty()
+        fuel_qty_node.derive(fuel_qty1, fuel_qty2, fuel_qty3)
+        print fuel_qty_node.array
+        np.testing.assert_array_equal(fuel_qty_node.array,
+                                      np.ma.array([6, 12, 18]))
                          
         
 class TestHeadContinuous(unittest.TestCase):
