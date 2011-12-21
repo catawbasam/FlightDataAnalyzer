@@ -405,7 +405,9 @@ class TakeoffFuel(FlightAttributeNode):
     
     def derive(self, afr_takeoff_fuel=A('AFR Takeoff Fuel'),
                liftoff_fuel_qty=KPV('Fuel Qty At Liftoff')):
-        if afr_takeoff_fuel and afr_takeoff_fuel.value:
+        if afr_takeoff_fuel:
+            #TODO: Validate that the AFR record is more accurate than the
+            #flight data if available.
             self.set_flight_attr(afr_takeoff_fuel.value)
         else:
             fuel_qty_kpv = liftoff_fuel_qty.get_first()
@@ -591,7 +593,7 @@ class LandingFuel(FlightAttributeNode):
     
     def derive(self, afr_landing_fuel=A('AFR Landing Fuel'),
                touchdown_fuel_qty=KPV('Fuel Qty At Touchdown')):
-        if afr_landing_fuel and afr_landing_fuel.value:
+        if afr_landing_fuel:
             self.set_flight_attr(afr_landing_fuel.value)
         else:
             fuel_qty_kpv = touchdown_fuel_qty.get_last()

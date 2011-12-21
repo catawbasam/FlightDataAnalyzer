@@ -5,7 +5,7 @@ from datetime import datetime, timedelta
 
 from analysis import settings
 from analysis.dependency_graph import dependency_order
-from analysis.node import (DerivedParameterNode, 
+from analysis.node import (Attribute, DerivedParameterNode, 
     FlightAttributeNode, FlightPhaseNode, KeyPointValue,
     KeyPointValueNode, KeyTimeInstance, KeyTimeInstanceNode, 
     Node, NodeManager, SectionNode)
@@ -89,7 +89,8 @@ def derive_parameters(hdf, node_mgr, process_order):
         
         # build ordered dependencies
         deps = []
-        for dep_name in node_class.get_dependency_names():
+        node_deps = node_class.get_dependency_names()
+        for dep_name in node_deps:
             if dep_name in params:  # already calculated KPV/KTI/Phase
                 deps.append(params[dep_name])
             elif dep_name in hdf:  # LFL/Derived parameter

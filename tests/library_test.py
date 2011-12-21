@@ -15,7 +15,8 @@ from analysis.library import (align, calculate_timebase, create_phase_inside,
                               create_phase_outside, duration, 
                               first_order_lag, first_order_washout, hash_array,
                               hysteresis, interleave, is_index_within_slice,
-                              is_slice_within_slice, merge_alternate_sensors,
+                              is_slice_within_slice, min_value, max_value, 
+                              max_abs_value, merge_alternate_sensors,
                               rate_of_change, repair_mask, straighten_headings,
                               time_at_value, time_at_value_wrapped, value_at_time,
                               vstack_params, 
@@ -593,8 +594,46 @@ class TestIsSliceWithinSlice(unittest.TestCase):
         self.assertTrue(is_slice_within_slice(slice(4,7), slice(4,7)))
         self.assertFalse(is_slice_within_slice(slice(4,8), slice(4,7)))
         self.assertFalse(is_slice_within_slice(slice(3,7), slice(4,7)))
+        
+        
+class TestMaxValue(unittest.TestCase):
+    def test_max_value(self):
+        array = np.ma.array(range(50,100) + range(100,50,-1))
+        i, v = max_value(array)
+        self.assertEqual(i, 50)
+        self.assertEqual(v, 100)
+        
+        subslice = slice(80, 90)
+        res = max_value(array, subslice)
+        self.assertEqual(res.index, 80)
+        self.assertEqual(res.value, 70)
+        
+        neg_step = slice(100,65,-10)
+        self.assertRaises(ValueError, max_value, array, neg_step)
+        ##self.assertEqual(res, (69, 81)) # you can get this if you use slice.stop!
+        
+class TestMaxAbsValue(unittest.TestCase):
+    def test_max_abs_value(self):
+        array = np.ma.array(range(-20,30) + range(10,-41, -1) + range(10))
+        self.assertEqual(max_abs_value(array), (100, -40))
 
 
+class TestMinValue(unittest.TestCase):
+    def test_min_value(self):
+        array = np.ma.array(range(50,100) + range(100,50,-1))
+        i, v = min_value(array)
+        self.assertEqual(i, 0)
+        self.assertEqual(v, 50)
+        
+        subslice = slice(80, 90)
+        res = min_value(array, subslice)
+        self.assertEqual(res.index, 89)
+        self.assertEqual(res.value, 61)
+        
+        neg_step = slice(100,65,-10)
+        self.assertRaises(ValueError, min_value, array, neg_step)
+        ##self.assertEqual(res, (69, 81)) # you can get this if you use slice.stop!
+        
 class TestMergeAlternateSensors(unittest.TestCase):
     def test_merge_alternage_sensors_basic(self):
         array = np.ma.array([0, 5, 0, 5, 1, 6, 1, 6],dtype=float)

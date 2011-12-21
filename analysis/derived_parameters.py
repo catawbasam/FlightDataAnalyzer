@@ -450,14 +450,15 @@ class Pitch(DerivedParameterNode):
 ############  TODO: NEED TO WORK OUT how to handle multiple engines. ###########
 '''
 
-class EngEGT(DerivedParameterNode):
-    name = "Eng EGT"
+class Eng_star_EGTMax(DerivedParameterNode):
+    name = "Eng (*) EGT Max"
     def derive(self, 
                param1=P('Eng (1) EGT'),
                param2=P('Eng (2) EGT'),
                param3=P('Eng (3) EGT'),
                param4=P('Eng (4) EGT')):
-        return NotImplemented
+        egt = vstack_params(egt1, egt2, egt3, egt4)
+        self.array = egt.max(axis=0)
 
 
 class EngN1(DerivedParameterNode):

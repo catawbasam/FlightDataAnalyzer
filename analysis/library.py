@@ -1,13 +1,15 @@
 import math
 import numpy as np
 
-from collections import OrderedDict
+from collections import OrderedDict, namedtuple
 from datetime import datetime, timedelta
 from hashlib import sha256
 from itertools import izip
 from scipy.signal import iirfilter, lfilter, lfilter_zi, filtfilt
 
 from settings import REPAIR_DURATION
+
+Value = namedtuple('Value', 'index value')
 
 class InvalidDatetime(ValueError):
     pass
@@ -608,6 +610,50 @@ def is_slice_within_slice(inner_slice, outer_slice):
     start_within = outer_slice.start <= inner_slice.start <= outer_slice.stop
     stop_within = outer_slice.start <= inner_slice.stop <= outer_slice.stop
     return start_within and stop_within
+
+def _value(array, _slice, operator):
+    """
+    Applies logic of min_value and max_value
+    """
+    if _slice.step and _slice.step < 0:
+        raise ValueError("Negative step not supported")
+    index = operator(array[_slice]) + (_slice.start or 0) * (_slice.step or 1)
+    return Value(index, array[index])
+
+def max_abs_value(array, _slice=slice(None)):
+    """
+    Get the value of the maximum absolute value in the array. 
+    Return value is not the absolute value (i.e. may be negative)
+    
+    :param array: masked array
+    :type array: np.ma.array
+    :param _slice: Slice to apply to the array and return max value relative to
+    :type _slice: slice
+    """
+    index, value = max_value(np.ma.abs(array), _slice)
+    return Value(index, array[index])
+    
+def max_value(array, _slice=slice(None)):
+    """
+    Get the maximum value in the array and its index.
+    
+    :param array: masked array
+    :type array: np.ma.array
+    :param _slice: Slice to apply to the array and return max value relative to
+    :type _slice: slice
+    """
+    return _value(array, _slice, np.ma.argmax)
+
+def min_value(array, _slice=slice(None)):
+    """
+    Get the minimum value in the array and its index.
+    
+    :param array: masked array
+    :type array: np.ma.array
+    :param _slice: Slice to apply to the array and return max value relative to
+    :type _slice: slice
+    """
+    return _value(array, _slice, np.ma.argmin)
             
 def merge_alternate_sensors (array):
     '''
