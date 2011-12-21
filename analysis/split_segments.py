@@ -24,10 +24,10 @@ def split_segments(airspeed, dfc=None):
     """
     Splits data looking for dfc jumps (if dfc provided) and changes in airspeed.
     
-    :param airspeed: 1Hz airspeed data in Knots
-    :type airspeed: np.ma.array
-    :param dfc: 0.25Hz Data frame counter signal
-    :type dfc: Numpy.array
+    :param airspeed: Airspeed data in Knots
+    :type airspeed: Parameter
+    :param dfc: Data frame counter signal
+    :type dfc: Parameter
     :returns: Segments of flight-like data
     :rtype: list of slices
     
@@ -37,11 +37,11 @@ def split_segments(airspeed, dfc=None):
     # Split by frame count is optional
     if dfc is not None:
         # split hdf where frame counter is reset
-        data_slices = _split_by_frame_counter(dfc)
+        data_slices = _split_by_frame_counter(dfc.array, dfc.frequency)
     else:
-        data_slices = [slice(0, len(airspeed))]
+        data_slices = [slice(0, len(airspeed.array))]
 
-    hyst_mask_below_min_airspeed = mask_slow_airspeed(airspeed)    
+    hyst_mask_below_min_airspeed = mask_slow_airspeed(airspeed.array)
     segment_slices = []
     for data_slice in data_slices: ## or [slice(0,hdf.size)]: # whole data is a single segment
         # split based on airspeed for fixed wing / rotorspeed for heli
@@ -107,26 +107,29 @@ def append_segment_info(hdf_segment_path, segment_slice, part):
     return segment
 
         
-def _split_by_frame_counter(dfc):
+def _split_by_frame_counter(dfc_data, dfc_freq=0.25):
     """
     Creates 1Hz slices by creating slices at 4 times the stop and start
     indexes of the 0.25Hz DFC.
     
-    :param dfc: 0.25Hz frame counter
-    :type dfc: np.ma.array
-    :returns: Slices where a jump occurs
+    :param dfc_data: Frame Counter
+    :type dfc_data: np.ma.array
+    :param dfc_freq: Frequency of the frame counter, default is 1/4Hz
+    :type dfc_freq: Float
+    :returns: 1Hz Slices where a jump occurs
     :rtype: list of slices
     """
+    rate = 1.0 / dfc_freq
     #TODO: Convert to Numpy array manipulation!
     dfc_slices = []
     # Now read each line in turn
-    previous_dfc = dfc[0]
+    previous_dfc = dfc_data[0]
     start_index = 0
-    for index, value in enumerate(dfc[1:]):
+    for index, value in enumerate(dfc_data[1:]):
         index += 1 # for missing first item
         step = value - previous_dfc
         previous_dfc = value
-        if step == 1 or step == -4095:
+        if step == 1 or step == -4094:
             # expected increment
             continue
         elif step == 0:
@@ -135,11 +138,11 @@ def _split_by_frame_counter(dfc):
             continue
         else:
             # store
-            dfc_slices.append(slice(start_index*4, index*4))
+            dfc_slices.append(slice(start_index*rate, index*rate))
             start_index = index  #TODO: test case for avoiding overlaps...
     else:
         # append the final slice
-        dfc_slices.append(slice(start_index*4, len(dfc)*4))
+        dfc_slices.append(slice(start_index*rate, len(dfc_data)*rate))
     return dfc_slices
 
 

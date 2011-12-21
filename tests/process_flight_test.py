@@ -14,7 +14,7 @@ class TestProcessFlight(unittest.TestCase):
                    'Manufacturer': 'Boeing',
                    'Tail Number': 'G-ABCD',
                    }
-        res = process_flight(hdf_path, ac_info, draw=False)
+        res = process_flight(hdf_path, ac_info, draw=True)
         self.assertEqual(len(res), 3)
     
     @unittest.skip('Not Implemented')

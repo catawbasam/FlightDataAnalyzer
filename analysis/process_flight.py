@@ -250,7 +250,7 @@ def process_flight(hdf_path, aircraft_info, start_datetime=datetime.now(), achie
             
     if draw:
         from analysis.plot_flight import plot_flight
-        plot_flight(kti_list, kpv_list, phase_list)
+        plot_flight(hdf_path, kti_list, kpv_list, phase_list)
         
     return {'flight' : flight_attrs, 
             'kti' : kti_list, 

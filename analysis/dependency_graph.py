@@ -173,66 +173,24 @@ def graph_nodes(node_mgr):
     return gr_all
 
     
-def process_order(gr_all, node_mgr): ##lfl_params, derived_nodes):
+def process_order(gr_all, node_mgr):
     """
     :param gr_all:
     :type gr_all: nx.DiGraph
-    :param derived_nodes: 
-    :type derived_nodes: dict
-    :param lfl_params:
-    :type lfl_nodes: list of strings
+    :param node_mgr: 
+    :type node_mgr: NodeManager
     :returns:
     :rtype: 
     """
-    # Then, draw the breadth first search spanning tree rooted at top of application
-    ##order = breadth_first_search_all_nodes(gr_all, root="root")
     process_order = dependencies3(gr_all, 'root', node_mgr)
     logging.info("Processing order of %d nodes is: %s", len(process_order), process_order)
     
-
-    
-    ### Determine whether nodes are operational, this will repeatedly ask some 
-    ### nodes as they may only become operational later on.
-    ##process_order = []
-    ##for node in reversed(order):
-        ##if node_mgr.operational(node, process_order):
-            ##if node not in node_mgr.lfl + ['root']:
-                ##gr_all.node[node]['color'] = 'blue'
-            ### un-grey edges that were previously inactive
-            ##active_edges = gr_all.in_edges(node)
-            ##gr_all.add_edges_from(active_edges, color='black')
-            ##process_order.append(node)
-        ##else:
-            ##gr_all.node[node]['color'] = 'grey'
-            ##inactive_edges = gr_all.in_edges(node)
-            ##gr_all.add_edges_from(inactive_edges, color='grey')
-
-    # remove nodes from gr_st that aren't in the process order
-    ##gr_st.remove_nodes_from(set(gr_st.nodes()) - set(process_order))
-    
-    ### Breadth First Search Spanning Tree
-    ###st, order = breadth_first_search(gr_st, root="root")
-    ##order = list(nx.breadth_first_search.bfs_edges(gr_st, 'root')) #Q: Is there a method like in pygraph for retrieving the order of nodes traversed?
-    ##if not order:
-        ##raise ValueError("No relationship between any nodes - no process order can be defined!")
-    
-    ### reduce edges to node list and assign process order labels to the edges
-    ### Note: this will skip last node (as it doesn't have an edge), which should 
-    ### always be 'root' - this is desirable!
-    ##node_order = []
-    ##for n, edge in enumerate(reversed(order)):
-        ##node_order.append(edge[1]) #Q: is there a neater way to get the nodes?
-        ##gr_all.edge[edge[0]][edge[1]]['label'] = n
-        ##gr_st.edge[edge[0]][edge[1]]['label'] = n
     for n, node in enumerate(process_order):
-        gr_all.node[node]['label'] = n
+        gr_all.node[node]['label'] = '%d: %s' % (n, node)
         
     gr_st = gr_all.copy() 
     gr_st.remove_nodes_from(set(gr_st.nodes()) - set(process_order))
     
-    ##logging.debug("Node processing order: %s", node_order)
-        
-    ##return gr_all, gr_st, node_order 
     return gr_all, gr_st, process_order[:-1] # exclude 'root'
 
 
@@ -269,6 +227,8 @@ def dependency_order(node_mgr, draw=not_windows):
         logging.warning("Required parameters are inoperable: %s", inoperable_required)
     if draw:
         draw_graph(gr_st, 'Active Nodes in Spanning Tree')
+        # reduce number of nodes by removing floating ones
+        gr_all = remove_floating_nodes(gr_all)
         draw_graph(gr_all, 'Dependency Tree')
     return order
 

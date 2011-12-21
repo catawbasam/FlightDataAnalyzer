@@ -34,6 +34,16 @@ def validate_aircraft(aircraft_ident, hdf):
     else:
         raise AircraftMismatch("Tail does not match identification %s" % \
                                aircraft_ident['Tail Number'])
+    
+def post_lfl_param_process(hdf, param):
+    if settings.POST_LFL_PARAM_PROCESS:
+        # perform post lfl retrieval steps
+        _param = settings.POST_LFL_PARAM_PROCESS(hdf, param)
+        if _param:
+            # store any updates to param to hdf file
+            hdf.set_param(_param)
+            return _param
+    return param
 
 
 def split_hdf_to_segments(hdf_path, aircraft_ident={}, output_dir=None, draw=False):
@@ -69,30 +79,15 @@ def split_hdf_to_segments(hdf_path, aircraft_ident={}, output_dir=None, draw=Fal
             logging.info("Not validating aircraft is correct")
         
         # uses flight phases and DFC if aircraft determines to do so
-        airspeed = hdf['Airspeed']
-        
-        if settings.POST_LFL_PARAM_PROCESS:
-            # perform post lfl retrieval steps
-            _airspeed = settings.POST_LFL_PARAM_PROCESS(hdf, airspeed)            
-            if _airspeed:
-                hdf.set_param(_airspeed)
-                airspeed = _airspeed
+        airspeed = post_lfl_param_process(hdf, hdf['Airspeed'])
                 
         # split large dataset into segments
         logging.debug("Splitting segments. Data length: %s", len(airspeed.array))
         if hdf.reliable_frame_counter:
-            dfc = hdf['Frame Counter']
-            #dfc = hdf['Frame counter (RECORDED)'] # for 146-301
-            if settings.POST_LFL_PARAM_PROCESS:
-                # perform post lfl retrieval steps
-                _dfc = settings.POST_LFL_PARAM_PROCESS(hdf, dfc)
-                if _dfc:
-                    hdf.set_param(_dfc)
-                    dfc = _dfc
-            dfc_array = dfc.array
+            dfc = post_lfl_param_process(hdf, hdf['Frame Counter'])
         else:
-            dfc_array = None
-        segment_slices = split_segments(airspeed.array, dfc=dfc_array)
+            dfc = None
+        segment_slices = split_segments(airspeed, dfc=dfc)
             
     # process each segment (into a new file) having closed original hdf_path
     segments = []
@@ -125,7 +120,7 @@ if __name__ == '__main__':
     import sys
     import pprint
     hdf_path = sys.argv[1]
-    segs = split_hdf_to_segments(hdf_path, draw=True)    
+    segs = split_hdf_to_segments(hdf_path, draw=False)    
     pprint.pprint(segs)
     ##os.remove(file_path) # delete original raw data file?
     ##os.remove(hdf_path) # delete original hdf file?

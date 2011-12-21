@@ -24,7 +24,8 @@ class TestSplitSegments(unittest.TestCase):
         
         # 1000 samples of dfc
         dfc = range(100,390) + range(2010,2600)
-        segs = split_segments(np.ma.array(airspeed), dfc=np.ma.array(dfc))
+        segs = split_segments(P('Airspeed', np.ma.array(airspeed)), 
+                              dfc=P('Frame Counter', np.ma.array(dfc), 0.25))
         self.assertEqual(len(segs), 5)  # Fails with 6 as splits on DFC also!
         exp = [slice(0, 200),
                slice(200, 390), #200,290
@@ -40,7 +41,7 @@ class TestSplitSegments(unittest.TestCase):
         res = _split_by_frame_counter(normal_range)
         self.assertEqual(res, [slice(0,1600)])
         
-        normal_wrap = [4094, 4095, 4096, 1, 2, 3]
+        normal_wrap = [4093, 4094, 4095, 1, 2, 3]
         res = _split_by_frame_counter(normal_wrap)
         self.assertEqual(res, [slice(0,24)])
                          
@@ -90,7 +91,7 @@ class TestSplitSegments(unittest.TestCase):
         
     def test_split_segments_no_dfc(self):
         airspeed_data = np.load('test_data/airspeed_sample.npy')
-        airspeed = np.ma.array(airspeed_data)
+        airspeed = P('Airspeed', np.ma.array(airspeed_data))
         
         segs = split_segments(airspeed, dfc=None)
         # test 7 complete flights returned
@@ -109,9 +110,9 @@ class TestSplitSegments(unittest.TestCase):
     def test_split_segments_with_dodgy_dfc(self):
         # Question: Is this a valid test? In real-life you'd use the test above (ignoring the DFC)
         airspeed_data = np.load('test_data/airspeed_sample.npy')
-        airspeed = np.ma.array(airspeed_data)
+        airspeed = P('Airspeed', np.ma.array(airspeed_data))
         dfc_data = np.load('test_data/dfc_sample.npy')
-        dfc = np.ma.array(dfc_data)
+        dfc = P('Frame Counter', np.ma.array(dfc_data), 0.25)
         
         segs = split_segments(airspeed, dfc=dfc)
         # test 7 complete flights returned
@@ -131,6 +132,14 @@ class TestSplitSegments(unittest.TestCase):
                slice(33872, 34764, None),
                slice(34764, 41396, None)]
         self.assertEqual(segs, exp)
+        
+    def test_split_segments_1hz_dfc(self):
+        airspeed_data = np.load('test_data/airspeed_1hz_3_L382-Hercules.npy')
+        airspeed = P('Airspeed', np.ma.array(airspeed_data), frequency=1, offset=0.31)
+        dfc_data = np.load('test_data/dfc_1hz_3_L382-Hercules.npy')
+        dfc = P('Frame Counter', np.ma.array(dfc_data), frequency=1, offset=0.20)
+        segs = split_segments(airspeed, dfc=dfc)
+        self.assertEqual(len(segs), 1)
         
         
 class TestSubslice(unittest.TestCase):
@@ -241,9 +250,9 @@ class TestIdentifySegment(unittest.TestCase):
         # test start only
         # test stop and start
         airspeed_data = np.load('test_data/airspeed_sample.npy')
-        airspeed = np.ma.array(airspeed_data)
+        airspeed = P('Airspeed', np.ma.array(airspeed_data))
         segs = split_segments(airspeed, dfc=None)        
-        self.assertEqual([_identify_segment_type(airspeed[s]) for s in segs], 
+        self.assertEqual([_identify_segment_type(airspeed.array[s]) for s in segs], 
                          ['START_AND_STOP']*7)
         
         
