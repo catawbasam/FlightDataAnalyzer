@@ -6,6 +6,8 @@ from analysis.plot_flight import plot_parameter
 from analysis.node import A, KPV, KeyTimeInstance, KTI, KeyPointValue, Parameter, P, Section, S
 from analysis.key_point_values import (Airspeed1000To500FtMax,
                                        AirspeedMax,
+                                       AltitudeAtLiftoff,
+                                       AltitudeAtTouchdown,
                                        AutopilotEngaged1AtLiftoff,
                                        AutopilotEngaged1AtTouchdown,
                                        AutopilotEngaged2AtLiftoff,
@@ -23,7 +25,8 @@ from analysis.key_point_values import (Airspeed1000To500FtMax,
                                        LongitudeAtLanding,
                                        LocalizerDeviation1500To1000FtMax,
                                        LocalizerDeviation1000To150FtMax,
-                                       Pitch35To400FtMax)
+                                       Pitch35To400FtMax,
+                                       PitchAtLiftoff)
 
 import sys
 debug = sys.gettrace() is not None
@@ -76,6 +79,34 @@ class TestAirspeed1000To500FtMax(unittest.TestCase):
         self.assertEqual(kpv[0].value, 91.250101656055278)
         self.assertEqual(kpv[1].index, 110)
         self.assertEqual(kpv[1].value, 99.557430201194919)
+
+
+class TestAltitudeAtLiftoff(unittest.TestCase):
+    def test_can_operate(self):
+        self.assertEqual(AltitudeAtLiftoff.get_operational_combinations(),
+                         [('Liftoff', 'Altitude STD')])
+    
+    def test_derive(self):
+        node = AltitudeAtLiftoff()
+        altitude_std = P('Altitude STD', array=np.ma.masked_array([2,4,6]))
+        liftoff = KTI('Liftoff', items=[KeyTimeInstance(1, 'a')])
+        node.derive(liftoff, altitude_std)
+        self.assertEqual(node,
+                         [KeyPointValue(1, 4, 'Altitude At Liftoff')])
+
+
+class TestAltitudeAtTouchdown(unittest.TestCase):
+    def test_can_operate(self):
+        self.assertEqual(AltitudeAtTouchdown.get_operational_combinations(),
+                         [('Touchdown', 'Altitude STD')])
+    
+    def test_derive(self):
+        node = AltitudeAtTouchdown()
+        altitude_std = P('Altitude STD', array=np.ma.masked_array([2,4,6]))
+        touchdown = KTI('Touchdown', items=[KeyTimeInstance(1, 'a')])
+        node.derive(touchdown, altitude_std)
+        self.assertEqual(node,
+                         [KeyPointValue(1, 4, 'Altitude At Touchdown')])
 
 
 class TestAutopilotEngaged1AtLiftoff(unittest.TestCase):
@@ -235,8 +266,8 @@ class TestFuelQtyAtTouchdown(unittest.TestCase):
     def test_derive(self):
         node = FuelQtyAtTouchdown()
         fuel_qty = P('Fuel Qty', array=np.ma.masked_array([2,4,6]))
-        liftoff = KTI('Touchdown', items=[KeyTimeInstance(1, 'a')])
-        node.derive(fuel_qty, liftoff)
+        touchdown = KTI('Touchdown', items=[KeyTimeInstance(1, 'a')])
+        node.derive(fuel_qty, touchdown)
         self.assertEqual(node,
                          [KeyPointValue(1, 4, 'Fuel Qty At Touchdown')])
 
@@ -262,8 +293,8 @@ class TestGrossWeightAtTouchdown(unittest.TestCase):
     def test_derive(self):
         node = GrossWeightAtTouchdown()
         gross_weight = P('Gross Weight', array=np.ma.masked_array([2,4,6]))
-        liftoff = KTI('Touchdown', items=[KeyTimeInstance(1, 'a')])
-        node.derive(gross_weight, liftoff)
+        touchdown = KTI('Touchdown', items=[KeyTimeInstance(1, 'a')])
+        node.derive(gross_weight, touchdown)
         self.assertEqual(node,
                          [KeyPointValue(1, 4, 'Gross Weight At Touchdown')])
 
@@ -376,4 +407,20 @@ class TestPitch35To400FtMax(unittest.TestCase):
         self.assertEqual(len(kpv), 1)
         self.assertEqual(kpv[0].index, 3)
         self.assertEqual(kpv[0].value, 7)
+
+
+class TestPitchAtLiftoff(unittest.TestCase):
+    def test_can_operate(self):
+        self.assertEqual(PitchAtLiftoff.get_operational_combinations(),
+                         [('Liftoff', 'Pitch')])
         
+    def test_pitch_35_400_basic(self):
+        liftoffs = KTI('Liftoff', items=[KeyTimeInstance(2, 'a'),
+                                         KeyTimeInstance(4, 'a')])
+        pitch = P('Autopilot Engaged 2', array=np.ma.array([0,2,4,6,8]))
+        node = PitchAtLiftoff()
+        node.derive(pitch, liftoffs)
+        self.assertEqual(node,
+                         [KeyPointValue(2, 4, 'Pitch At Liftoff'),
+                          KeyPointValue(4, 8, 'Pitch At Liftoff')])
+

@@ -5,14 +5,6 @@ from analysis.library import min_value, max_value, max_abs_value, vstack_params
 from analysis.node import  KeyPointValue, KeyPointValueNode, KTI, P, S
 
 
-
-class AirportAtTakeoff(KeyPointValueNode):
-    def derive(self, liftoff=KTI('Liftoff')):
-        ##KeyPointValue(n, 'ICAO', 'Takeoff Airport')
-        ##KeyPointValue(n, '09L', 'Takeoff Runway')
-        return NotImplemented
-
-
 class Airspeed1000To500FtMax(KeyPointValueNode):
     def derive(self, speed=P('Airspeed'),
                alt_aal=P('Altitude AAL For Flight Phases')):
@@ -60,19 +52,19 @@ class HeadingAtTakeoff(KeyPointValueNode):
             self.create_kpv(peak_accel_index, toff_head%360.0)
 
             
-class AltitudeAtTakeoff(KeyPointValueNode):
+class AltitudeAtLiftoff(KeyPointValueNode):
     # Taken at the point of liftoff although there will be pressure errors at
     # this point. The reason for computing this is unclear as we calculate
     # Altitude AAL based upon the 35ft phase transition altitude.
-    def derive(self, lifts=KTI('Liftoff'), alt_std=P('Altitude Std')):
+    def derive(self, lifts=KTI('Liftoff'), alt_std=P('Altitude STD')):
         for lift in lifts:
-            self.create_kpv(lift.index, alt_std[lift.index])
+            self.create_kpv(lift.index, alt_std.array[lift.index])
 
     
-class AltitudeAtLanding(KeyPointValueNode):
-    def derive(self, lands=KTI('Touchdown'), alt_std=P('Altitude Std')):
+class AltitudeAtTouchdown(KeyPointValueNode):
+    def derive(self, lands=KTI('Touchdown'), alt_std=P('Altitude STD')):
         for land in lands:
-            self.create_kpv(land.index, alt_std[land.index])
+            self.create_kpv(land.index, alt_std.array[land.index])
 
 
 class AutopilotEngaged1AtLiftoff(KeyPointValueNode):
@@ -191,13 +183,15 @@ class LongitudeAtLowPointOnApproach(KeyPointValueNode):
 
 
 class PitchAtLiftoff(KeyPointValueNode):
-    def derive(self, liftoff=KTI('Liftoff'), pitch=P('Pitch')):
-        return NotImplemented
+    def derive(self, liftoffs=KTI('Liftoff'), pitch=P('Pitch')):
+        for liftoff in liftoffs:
+            self.create_kpv(liftoff.index, pitch.array[liftoff.index])
    
    
 class FlapAtLiftoff(KeyPointValueNode):
-    def derive(self, liftoff=KTI('Liftoff'), flap=P('Flap')):
-        return NotImplemented
+    def derive(self, liftoffs=KTI('Liftoff'), flap=P('Flap')):
+        for liftoff in liftoffs:
+            self.create_kpv(liftoff.index, flap.array[liftoff.index])
     
 
 class AccelerationNormalFtTo35FtMax(KeyPointValueNode): # Q: Name?
@@ -822,8 +816,9 @@ class Pitch1000To100FtMax(KeyPointValueNode):
 
 
 class PitchAtLiftoff(KeyPointValueNode):
-    def derive(self, pitch=P('Pitch'), liftoff=KTI('Liftoff')):
-        return NotImplemented
+    def derive(self, pitch=P('Pitch'), liftoffs=KTI('Liftoff')):
+        for liftoff in liftoffs:
+            self.create_kpv(liftoff.index, pitch.array[liftoff.index])
 
 
 class Pitch5FtToGroundMax(KeyPointValueNode):
