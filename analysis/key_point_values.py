@@ -1,9 +1,9 @@
 import numpy as np
-import datetime
-from collections import namedtuple
 
-from analysis.node import  KeyPointValue, KeyPointValueNode, KTI, P, S
 from analysis import settings
+from analysis.library import min_value, max_value, max_abs_value, vstack_params
+from analysis.node import  KeyPointValue, KeyPointValueNode, KTI, P, S
+
 
 
 class AirportAtTakeoff(KeyPointValueNode):
@@ -35,10 +35,9 @@ class AirspeedMax(KeyPointValueNode):
                airs=S('Airborne')):
         # For commented version, see GlideslopeDeviation1500To1000FtMax
         for air in airs:
-            index = np.ma.argmax(speed.array[air.slice])
-            when = air.slice.start + index
-            value = speed.array[when]
-            self.create_kpv(when, value)
+            index, value = max_value(speed.array, air.slice)
+            self.create_kpv(index, value)
+            
 
 
 class HeadingAtTakeoff(KeyPointValueNode):
@@ -56,9 +55,8 @@ class HeadingAtTakeoff(KeyPointValueNode):
     def derive(self, takeoffs=S('Takeoff'), head=P('Heading Continuous'), 
                accel=P('Acceleration Forwards For Flight Phases')):
         for toff in takeoffs:
-            peak_accel_index = np.ma.argmax(accel.array[toff.slice])
-            peak_accel_index += toff.slice.start
-            toff_head = head.array.data[peak_accel_index]
+            peak_accel_index, value = max_value(accel.array, toff.slice)
+            toff_head = head.array.data[peak_accel_index] #TODO: What if data is masked on this value, use nearest valid by repairing mask?
             self.create_kpv(peak_accel_index, toff_head%360.0)
 
             
@@ -207,18 +205,18 @@ class AccelerationNormalFtTo35FtMax(KeyPointValueNode): # Q: Name?
         return NotImplemented
 
 
-class AccelerationNormalMaxAirborne(KeyPointValueNode):
+class AccelerationNormalAirborneMax(KeyPointValueNode):
     def derive(self, norm_g=P('Acceleration Normal'), airborne=S('Airborne')):
         for in_air in airborne:
-            index = np.ma.argmax(norm_g.array[in_air.slice])
-            self.create_kpv(index, norm_g.array[index])   
+            index, value = max_value(norm_g.array, in_air.slice)
+            self.create_kpv(index, value)
 
 
-class AccelerationNormalMinAirborne(KeyPointValueNode):
+class AccelerationNormalAirborneMin(KeyPointValueNode):
     def derive(self, norm_g=P('Acceleration Normal'), airborne=S('Airborne')):
         for in_air in airborne:
-            index = np.ma.argmin(norm_g.array[in_air.slice])
-            self.create_kpv(index, norm_g.array[index])
+            index, value = min_value(norm_g.array, in_air.slice)
+            self.create_kpv(index, value)
 
 
 class Pitch35To400FtMax(KeyPointValueNode):
@@ -298,17 +296,12 @@ class RollCycles1000FtToTouchdown(KeyPointValueNode):
                touchdown=KTI('Touchdown')):
         return NotImplemented
     
+    
 class AltitudeWithFlapsMax(KeyPointValueNode):
     """ It's max Altitude not Max Flaps
     """
     def derive(self, flap=P('Flap'), alt_std=P('Altitude Std')):
         return NotImplemented
-
-
-class AltitudeStdMax(KeyPointValueNode):
-    def derive(self, alt_std=P('Altitude Std')):
-        max_index = alt_std.array.argmax()
-        self.create_kpv(max_index, alt_std[max_index])
 
 
 class MACHMax(KeyPointValueNode):
@@ -343,17 +336,19 @@ class EngEGTMax(KeyPointValueNode):
         else:
             return False  # we have no EGT recorded on any engines
         
-    def derive(self, egt1=P('Eng (1) EGT'), egt2=P('Eng (2) EGT'),
-               egt3=P('Eng (3) EGT'), egt4=P('Eng (4) EGT')):
-        kmax = vmax = imax = None
-        for p in (egt1, egt2, egt3, egt4):
-            _imax = p.array.argmax()
-            _vmax = p.array[_imax]
-            if _vmax > vmax:
-                imax = _imax # index of max
-                vmax = _vmax # max value
-                kmax = p.name # param name of max eng
-        self.create_kpv(imax, vmax)
+    def derive(self, egt_max=P('Eng (*) EGT Max')):
+        index, value = max_value(egt_max)
+        self.create_kpv(index, value)
+        
+        ##kmax = vmax = imax = None
+        ##for p in (egt1, egt2, egt3, egt4):
+            ##_imax = p.array.argmax()
+            ##_vmax = p.array[_imax]
+            ##if _vmax > vmax:
+                ##imax = _imax # index of max
+                ##vmax = _vmax # max value
+                ##kmax = p.name # param name of max eng
+        ##self.create_kpv(imax, vmax)
     
     
 class MagneticHeadingAtLiftOff(KeyPointValue):
@@ -385,14 +380,17 @@ class MagneticHeadingAtTouchdown(KeyPointValue):
 # KPV from DJ Code
 
 class AccelerationNormalMax(KeyPointValueNode):
-    def derive(self, normal_acceleration=P('Normal Acceleration'),
-               airspeed=P('Airspeed')):
-        # Use Numpy to locate the maximum g, then go back and get the value.
-        n_acceleration_normal_max = np.ma.argmax(normal_acceleration.array.data[block])
-        acceleration_normal_max = normal_acceleration.array.data[block][n_acceleration_normal_max]
-        # Create a key point value for this. TODO: Change to self.create_kpv()?
-        self.create_kpv(block.start+n_acceleration_normal_max,
-                        acceleration_normal_max)
+    def derive(self, normal_acceleration=P('Normal Acceleration')):
+               ##airspeed=P('Airspeed')):
+        index, value = max_value(normal_acceleration.array)
+        self.create_kpv(index, value)
+        
+        ### Use Numpy to locate the maximum g, then go back and get the value.
+        ##n_acceleration_normal_max = np.ma.argmax(normal_acceleration.array.data[block])
+        ##acceleration_normal_max = normal_acceleration.array.data[block][n_acceleration_normal_max]
+        ### Create a key point value for this. TODO: Change to self.create_kpv()?
+        ##self.create_kpv(block.start+n_acceleration_normal_max,
+                        ##acceleration_normal_max)
     
     
 class RateOfDescentHigh(KeyPointValueNode):
@@ -405,9 +403,8 @@ class RateOfDescentHigh(KeyPointValueNode):
         for descent in descending:
             duration = descent.slice.stop - descent.slice.start
             if duration > settings.DESCENT_MIN_DURATION:
-                when = np.ma.argmax(rate_of_climb.array[descent.slice])
-                howfast = rate_of_climb.array[descent.slice][when]
-                self.create_kpv(descent.slice.start+when, howfast)
+                index, value = max_value(rate_of_climb.array, descent.slice)
+                self.create_kpv(index, value)
                 
                 
 class RateOfDescentMax(KeyPointValueNode):
@@ -421,12 +418,9 @@ class RateOfDescentMax(KeyPointValueNode):
         for descent in descents:
             duration = descent.slice.stop - descent.slice.start
             if duration > self.DESCENT_MIN_DURATION:
-                when = np.ma.argmax(rate_of_climb.array[descent.slice])
-                howfast = rate_of_climb.array[descent.slice][when]
-                self.create_kpv(descent.slice.start+when, howfast)
+                index, value = max_value(rate_of_climb.array, descent.slice)
+                self.create_kpv(index, value)
              
-                
-
     
 '''
 Wrong naming format, wrong parameter. Defunct.
@@ -450,14 +444,10 @@ class AirspeedMinusVref500FtTo0FtMax(KeyPointValueNode):
     
     def derive(self, airspeed_minus_vref=P('AirspeedMinusVref'), 
                _500ft_to_0ft=S('500 Ft To 0 Ft')):  #Q: Label this as the list of kpv sections?
-
         for sect in _500ft_to_0ft:
-            ##max_spd = airspeed_minus_vref.array[sect].max()
-            ##when = np.ma.where(airspeed_minus_vref.array[sect] == max_spd)[0][0] + sect.start
+            index, value = max_value(airspeed_minus_vref.array, sect.slice)
+            self.create_kpv(index, value)
             
-            when = np.ma.argmax(airspeed_minus_vref.array[sect.slice]) + sect.start
-            max_spd = airspeed_minus_vref.array[when]
-            self.create_kpv(when, max_spd)
 
 
 #TODO:
@@ -471,10 +461,6 @@ class AirspeedMinusVref500FtTo0FtMax(KeyPointValueNode):
 #kpv['TakeoffTurnOntoRunway'] = [(block.start+turn_onto_runway,head_takeoff - head_mag[turn_onto_runway],head_mag.param_name)]
 
 
-class AccelerationNormalAirborneMax(KeyPointValueNode):
-    def derive(self, acceleration_normal=P('Acceleration Normal'),
-               airborne=S('Airborne')):
-        return NotImplemented
 
 
 class AccelerationNormalDuringTakeoffMax(KeyPointValueNode):
@@ -484,8 +470,9 @@ class AccelerationNormalDuringTakeoffMax(KeyPointValueNode):
 
 
 class AltitudeMax(KeyPointValueNode):
-    def derive(self, alt_std=P('Altitude STD'), airborne=S('Airborne')):
-        return NotImplemented
+    def derive(self, alt_std=P('Altitude STD')): ##, airborne=S('Airborne')):
+        max_index = alt_std.array.argmax()
+        self.create_kpv(max_index, alt_std[max_index])
 
 
 class AltitudeWithFlapsMax(KeyPointValueNode):
@@ -560,14 +547,12 @@ class GlideslopeDeviation1000To150FtMax(KeyPointValueNode):
         # For commented version, see GlideslopeDeviation1500To1000FtMax
         band = np.ma.masked_outside(alt_aal.array, 1000, 150)
         in_band_periods = np.ma.clump_unmasked(band)
-        for this_period in in_band_periods:
-            begin = this_period.start
-            end = this_period.stop
+        for this_slice in in_band_periods:
+            begin = this_slice.start
+            end = this_slice.stop
             if alt_aal.array[begin] > alt_aal.array[end-1]:
-                index = np.ma.argmax(np.ma.abs(ils_glideslope.array[begin:end]))
-                when = begin + index
-                value = ils_glideslope.array[when]
-                self.create_kpv(when, value)
+                index, value = max_abs_value(ils_glideslope.array, this_slice)
+                self.create_kpv(index, value)
 
 
 class GlideslopeDeviation1500To1000FtMax(KeyPointValueNode):
@@ -1112,11 +1097,6 @@ class TooLowGearWarning(KeyPointValueNode):
 class GPWSTooLowTerrainWarning(KeyPointValueNode):
     name = 'GPWS Too Low Terrain Warning'
     def derive(self, gpws_too_low_terrain=P('GPWS Too Low Terrain')):
-        return NotImplemented
-
-
-class AccelerationNormalAirborneMin(KeyPointValueNode):
-    def derive(self, acc_norm=P('Acceleration Normal'), airborne=S('Airborne')):
         return NotImplemented
 
 

@@ -624,7 +624,7 @@ class FlightAttributeNode(Node):
         super(FlightAttributeNode, self).__init__(*args, **kwargs)
         # FlightAttributeNodes inherit frequency and offset attributes from Node,
         # yet these are not relevant to them. TODO: Change inheritance.
-        self.frequency = None
+        self.frequency = self.hz = self.sample_rate = None
         self.offset = None
     
     def set_flight_attribute(self, value):
@@ -688,9 +688,9 @@ class NodeManager(object):
         """
         if name == 'Start Datetime':
             return Attribute(name, value=self.start_datetime)
-        if self.aircraft_info.get(name):
+        if self.aircraft_info.get(name) is not None:
             return Attribute(name, value=self.aircraft_info[name])
-        elif self.achieved_flight_record.get(name):
+        elif self.achieved_flight_record.get(name) is not None:
             return Attribute(name, value=self.achieved_flight_record[name])
         else:
             return None
@@ -724,6 +724,8 @@ class Attribute(object):
     def __init__(self, name, value=None):
         self.name = name
         self.value = value
+        self.frequency = self.hz = self.sample_rate = None
+        self.offset = None
     
 A = Attribute
 P = Parameter
