@@ -50,7 +50,6 @@ class TestAirspeedMax(unittest.TestCase):
         self.assertEqual(kpv[1].index, 94)
         self.assertGreater(kpv[1].value, 199.9)
         self.assertLess(kpv[1].value, 200)
-        
 
 
 class TestAirspeed1000To500FtMax(unittest.TestCase):
