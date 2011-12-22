@@ -405,7 +405,7 @@ class TakeoffFuel(FlightAttributeNode):
     
     def derive(self, afr_takeoff_fuel=A('AFR Takeoff Fuel'),
                liftoff_fuel_qty=KPV('Fuel Qty At Liftoff')):
-        if afr_takeoff_fuel and afr_takeoff_fuel.value:
+        if afr_takeoff_fuel:
             self.set_flight_attr(afr_takeoff_fuel.value)
         else:
             fuel_qty_kpv = liftoff_fuel_qty.get_first()
@@ -423,16 +423,29 @@ class TakeoffGrossWeight(FlightAttributeNode):
         self.set_flight_attr(first_gross_weight.value)
 
     
-# TODO: Implement.
-#class TakeoffPilot(FlightAttributeNode):
-    #"Pilot flying at takeoff, Captain, First Officer or None"
-    #name = 'FDR Takeoff Pilot'
-    #def derive(self, unknown_dep=P('UNKNOWN')):
+class TakeoffPilot(FlightAttributeNode):
+    "Pilot flying at takeoff, Captain, First Officer or None"
+    name = 'FDR Takeoff Pilot'
+    # TODO: Dependency name mappings.
+    def derive(self, liftoff_autopilot1=KPV('Autopilot Engaged 1 At Liftoff'),
+               liftoff_autopilot2=KPV('Autopilot Engaged 2 At Liftoff'),
+               pitch_captain=P('Pitch (Capt)'), roll_captain=P('Roll (Capt)'),
+               pitch_fo=P('Pitch (FO)'), roll_fo=P('Roll (FO)')):
+        
+        # TODO: Use Flight Director parameters if possible.
         #pilot = None
         #assert pilot in ("FIRST_OFFICER", "CAPTAIN", None)
+        if liftoff_autopilot1 and liftoff_autopilot2:
+            if liftoff_autopilot1.value and not liftoff_autopilot2.value:
+                self.set_flight_attr('Captain')
+                return
+            elif not liftoff_autopilot1.value and liftoff_autopilot2.value:
+                self.set_flight_attr('First Officer')
+                return
         
         #control_input (1) Control Input (2) / contro wheeel / control column
-        #return NotImplemented
+        # Cannot determine Takeoff Pilot.
+        self.set_flight_attr(None)
 
 
 class TakeoffRunway(FlightAttributeNode):
@@ -522,9 +535,7 @@ class Type(FlightAttributeNode):
         #LINE_TRAINING = 'LINE_TRAINING'
         #if go_fast and left ground:
         
-        
         # TODO: ON_GROUND.
-        
         
         afr_type = afr_type.value if afr_type else None
         
@@ -570,18 +581,18 @@ class Type(FlightAttributeNode):
         else:
             self.set_flight_attr('ENGINE_RUN_UP')
             
-        elif fast and not liftoff:
-            flight_type = 'REJECTED_TAKEOFF'
-        else:
-            # Ensure there was a liftoff before the first touchdown.
-            first_touchdown = touchdowns.get_first()
-            first_liftoff = liftoffs.get_first()
-            if not first_liftoff or not first_touchdown:
-                flight_type = 'INCOMPLETE'
-            elif  first_touchdown.index < first_liftoff.index:
+        #elif fast and not liftoff:
+            #flight_type = 'REJECTED_TAKEOFF'
+        #else:
+            ## Ensure there was a liftoff before the first touchdown.
+            #first_touchdown = touchdowns.get_first()
+            #first_liftoff = liftoffs.get_first()
+            #if not first_liftoff or not first_touchdown:
+                #flight_type = 'INCOMPLETE'
+            #elif  first_touchdown.index < first_liftoff.index:
                 
-            else:
-                flight_type = 'ENGINE_RUN_UP'
+            #else:
+                #flight_type = 'ENGINE_RUN_UP'
             
         #elif go_fast and not left ground:
             #REJECTED_TAKEOFF
@@ -633,7 +644,7 @@ class LandingFuel(FlightAttributeNode):
     
     def derive(self, afr_landing_fuel=A('AFR Landing Fuel'),
                touchdown_fuel_qty=KPV('Fuel Qty At Touchdown')):
-        if afr_landing_fuel and afr_landing_fuel.value:
+        if afr_landing_fuel:
             self.set_flight_attr(afr_landing_fuel.value)
         else:
             fuel_qty_kpv = touchdown_fuel_qty.get_last()

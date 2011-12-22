@@ -77,6 +77,38 @@ class AltitudeAtLanding(KeyPointValueNode):
             self.create_kpv(land.index, alt_std[land.index])
 
 
+class AutopilotEngaged1AtLiftoff(KeyPointValueNode):
+    name = 'Autopilot Engaged 1 At Liftoff'
+    def derive(self, autopilot=KTI('Autopilot Engaged 1'),
+               liftoffs=P('Liftoff')):
+        for liftoff in liftoffs:
+            self.create_kpv(liftoff.index, autopilot.array[liftoff.index])
+
+
+class AutopilotEngaged2AtLiftoff(KeyPointValueNode):
+    name = 'Autopilot Engaged 2 At Liftoff'
+    def derive(self, autopilot=KTI('Autopilot Engaged 2'),
+               liftoffs=P('Liftoff')):
+        for liftoff in liftoffs:
+            self.create_kpv(liftoff.index, autopilot.array[liftoff.index])
+
+
+class AutopilotEngaged1AtTouchdown(KeyPointValueNode):
+    name = 'Autopilot Engaged 1 At Touchdown'
+    def derive(self, autopilot=KTI('Autopilot Engaged 1'),
+               touchdowns=P('Touchdown')):
+        for touchdown in touchdowns:
+            self.create_kpv(touchdown.index, autopilot.array[touchdown.index])
+
+
+class AutopilotEngaged2AtTouchdown(KeyPointValueNode):
+    name = 'Autopilot Engaged 2 At Touchdown'
+    def derive(self, autopilot=KTI('Autopilot Engaged 2'),
+               touchdowns=P('Touchdown')):
+        for touchdown in touchdowns:
+            self.create_kpv(touchdown.index, autopilot.array[touchdown.index])
+
+
 class HeadingAtLanding(KeyPointValueNode):
     """
     The landing has been found already, including and the flare and a little

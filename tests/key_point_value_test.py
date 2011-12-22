@@ -6,6 +6,10 @@ from analysis.plot_flight import plot_parameter
 from analysis.node import A, KPV, KeyTimeInstance, KTI, KeyPointValue, Parameter, P, Section, S
 from analysis.key_point_values import (Airspeed1000To500FtMax,
                                        AirspeedMax,
+                                       AutopilotEngaged1AtLiftoff,
+                                       AutopilotEngaged1AtTouchdown,
+                                       AutopilotEngaged2AtLiftoff,
+                                       AutopilotEngaged2AtTouchdown,
                                        HeadingAtTakeoff,
                                        FuelQtyAtLiftoff,
                                        FuelQtyAtTouchdown,
@@ -72,6 +76,62 @@ class TestAirspeed1000To500FtMax(unittest.TestCase):
         self.assertEqual(kpv[0].value, 91.250101656055278)
         self.assertEqual(kpv[1].index, 110)
         self.assertEqual(kpv[1].value, 99.557430201194919)
+
+
+class TestAutopilotEngaged1AtLiftoff(unittest.TestCase):
+    def test_can_operate(self):
+        self.assertEqual(AutopilotEngaged1AtLiftoff.get_operational_combinations(),
+                         [('Autopilot Engaged 1', 'Liftoff')])
+    
+    def test_derive(self):
+        liftoff = KTI('Liftoff', items=[KeyTimeInstance(2, 'a')])
+        autopilot = P('Autopilot Engaged 1', array=np.ma.array([0,2,4,6,8]))
+        autopilot_at_liftoff = AutopilotEngaged1AtLiftoff()
+        autopilot_at_liftoff.derive(autopilot, liftoff)
+        self.assertEqual(autopilot_at_liftoff,
+                         [KeyPointValue(2, 4, 'Autopilot Engaged 1 At Liftoff')])
+
+
+class TestAutopilotEngaged2AtLiftoff(unittest.TestCase):
+    def test_can_operate(self):
+        self.assertEqual(AutopilotEngaged2AtLiftoff.get_operational_combinations(),
+                         [('Autopilot Engaged 2', 'Liftoff')])
+    
+    def test_derive(self):
+        liftoff = KTI('Liftoff', items=[KeyTimeInstance(2, 'a')])
+        autopilot = P('Autopilot Engaged 2', array=np.ma.array([0,2,4,6,8]))
+        autopilot_at_liftoff = AutopilotEngaged2AtLiftoff()
+        autopilot_at_liftoff.derive(autopilot, liftoff)
+        self.assertEqual(autopilot_at_liftoff,
+                         [KeyPointValue(2, 4, 'Autopilot Engaged 2 At Liftoff')])
+
+
+class TestAutopilotEngaged1AtTouchdown(unittest.TestCase):
+    def test_can_operate(self):
+        self.assertEqual(AutopilotEngaged1AtTouchdown.get_operational_combinations(),
+                         [('Autopilot Engaged 1', 'Touchdown')])
+    
+    def test_derive(self):
+        touchdown = KTI('Touchdown', items=[KeyTimeInstance(2, 'a')])
+        autopilot = P('Autopilot Engaged 1', array=np.ma.array([0,2,4,6,8]))
+        autopilot_at_touchdown = AutopilotEngaged1AtTouchdown()
+        autopilot_at_touchdown.derive(autopilot, touchdown)
+        self.assertEqual(autopilot_at_touchdown,
+                         [KeyPointValue(2, 4, 'Autopilot Engaged 1 At Touchdown')])
+
+
+class TestAutopilotEngaged2AtTouchdown(unittest.TestCase):
+    def test_can_operate(self):
+        self.assertEqual(AutopilotEngaged2AtTouchdown.get_operational_combinations(),
+                         [('Autopilot Engaged 2', 'Touchdown')])
+    
+    def test_derive(self):
+        touchdown = KTI('Touchdown', items=[KeyTimeInstance(2, 'a')])
+        autopilot = P('Autopilot Engaged 2', array=np.ma.array([0,2,4,6,8]))
+        autopilot_at_touchdown = AutopilotEngaged2AtTouchdown()
+        autopilot_at_touchdown.derive(autopilot, touchdown)
+        self.assertEqual(autopilot_at_touchdown,
+                         [KeyPointValue(2, 4, 'Autopilot Engaged 2 At Touchdown')])
 
 
 class TestHeadingAtTakeoff(unittest.TestCase):
