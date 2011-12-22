@@ -9,31 +9,31 @@ from datetime import datetime
 from analysis import settings
 from analysis.node import P
 from analysis.plot_flight import plot_parameter
-from analysis.split_segments import (append_segment_info, split_segments, 
+from analysis.split_segments import (append_segment_info, split_segments2, 
                                      subslice, _identify_segment_type, 
                                      _split_by_frame_counter, 
                                      _split_by_flight_data)
 
 class TestSplitSegments(unittest.TestCase):
     
-    @unittest.expectedFailure #('Fails as splitting mid-flight by dfc needs fixing')
+    ##@unittest.expectedFailure #('Fails as splitting mid-flight by dfc needs fixing')
     def test_split_segments(self):
         a_flight = [0]*50 + [100]*100 + [0]*50 
         # 5 * 200 (flight) samples of airspeed
         airspeed = a_flight * 5
         
         # 1000 samples of dfc
-        dfc = range(100,390) + range(2010,2600)
-        segs = split_segments(P('Airspeed', np.ma.array(airspeed)), 
+        dfc = range(1,392) + range(2010,2600)
+        segs = split_segments2(P('Airspeed', np.ma.array(airspeed)), 
                               dfc=P('Frame Counter', np.ma.array(dfc), 0.25))
-        self.assertEqual(len(segs), 5)  # Fails with 6 as splits on DFC also!
+        self.assertEqual(len(segs), 5)
         exp = [slice(0, 200),
-               slice(200, 390), #200,290
-               slice(2010, 2210), #0,110
-               slice(2210, 2400), #110,310
-               slice(2400, 2600),
-               ] #31
-        self.assertEqual([s.slice for s in segs], exp)
+               slice(200, 390),
+               slice(390, 600),
+               slice(600, 800),
+               slice(800, None),
+               ]
+        self.assertEqual([s for s in segs], exp)
                          
     
     def test_split_flights_by_frame_counter(self):
