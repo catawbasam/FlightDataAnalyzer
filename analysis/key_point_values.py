@@ -442,7 +442,6 @@ class AirspeedMinusVref500FtTo0FtMax(KeyPointValueNode):
 
 
 
-
 class AccelerationNormalDuringTakeoffMax(KeyPointValueNode):
     def derive(self, acceleration_normal=P('Acceleration Normal'),
                liftoff=KTI('Liftoff')):
@@ -452,7 +451,7 @@ class AccelerationNormalDuringTakeoffMax(KeyPointValueNode):
 class AltitudeMax(KeyPointValueNode):
     def derive(self, alt_std=P('Altitude STD')): ##, airborne=S('Airborne')):
         max_index = alt_std.array.argmax()
-        self.create_kpv(max_index, alt_std[max_index])
+        self.create_kpv(max_index, alt_std.array[max_index])
 
 
 class AltitudeWithFlapsMax(KeyPointValueNode):

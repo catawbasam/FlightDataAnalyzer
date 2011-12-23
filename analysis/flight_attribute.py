@@ -524,7 +524,7 @@ class Type(FlightAttributeNode):
     
     def derive(self, afr_type=A('AFR Type'), fast=S('Fast'),
                liftoffs=KTI('Liftoff'), touchdowns=KTI('Touchdown'),
-               touch_and_gos=S('Touch And Go')):
+               touch_and_gos=S('Touch And Go'), ground_speed=P('Ground Speed')):
         ## options are:
         #COMMERCIAL = 'COMMERCIAL'
         #INCOMPLETE = 'INCOMPLETE'
@@ -545,13 +545,13 @@ class Type(FlightAttributeNode):
             # In the air without having touched down.
             logging.warning("'Liftoff' KTI exists without 'Touchdown'. '%s' "
                             "will be 'INCOMPLETE'.", self.name)
-            self.set_flight_attr('INCOMPLETE')
+            self.set_flight_attr('LIFTOFF_ONLY')
             return
-        if not liftoffs and touchdowns:
+        elif not liftoffs and touchdowns:
             # In the air without having lifted off.
             logging.warning("'Touchdown' KTI exists without 'Liftoff'. '%s' "
                             "will be 'INCOMPLETE'.", self.name)
-            self.set_flight_attr('INCOMPLETE')
+            self.set_flight_attr('TOUCHDOWN_ONLY')
             return
         
         if liftoffs and touchdowns:
@@ -561,25 +561,27 @@ class Type(FlightAttributeNode):
                 # Touchdown before having lifted off, data must be INCOMPLETE.
                 logging.warning("'Touchdown' KTI index before 'Liftoff'. '%s' "
                                 "will be 'INCOMPLETE'.", self.name)
-                self.set_flight_attr('INCOMPLETE')
+                self.set_flight_attr('TOUCHDOWN_BEFORE_LIFTOFF')
                 return
             last_touchdown = touchdowns.get_last()
             last_touch_and_go = touch_and_gos.get_last()
-            if last_touchdown.index < last_touch_and_go.index:
+            if last_touchdown.index <= last_touch_and_go.index:
                 logging.warning("A 'Touch And Go' KTI exists after the last "
                                 "'Touchdown'. '%s' will be 'INCOMPLETE'.",
                                 self.name)
-                self.set_flight_attr('INCOMPLETE')
+                self.set_flight_attr('LIFTOFF_ONLY')
                 return
             
             if afr_type in ['FERRY', 'LINE_TRAINING', 'POSITIONING' 'TEST',
                             'TRAINING']:
                 flight_type = afr_type
             else:
-                flight_type = 'COMMERCIAL'
+                flight_type = 'COMPLETE'
             self.set_flight_attr(flight_type)
         elif fast:
             self.set_flight_attr('REJECTED_TAKEOFF')
+        elif ground_speed and ground_speed.array.ptp() > 10:
+            self.set_flight_attr('GROUND_RUN')
         else:
             self.set_flight_attr('ENGINE_RUN_UP')
             
