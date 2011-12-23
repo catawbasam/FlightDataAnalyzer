@@ -264,9 +264,9 @@ class TestHeadingAtLanding(unittest.TestCase):
 
 class TestHeadingAtLowPointOnApproach(unittest.TestCase, TestCreateKPVsAtKTIs):
     def setUp(self):
-        self.node_class = GrossWeightAtTouchdown
+        self.node_class = HeadingAtLowPointOnApproach
         self.operational_combinations = [('Heading Continuous',
-                                          'Low Point On Approach')]
+                                          'Approach And Landing Lowest')]
 
         
 class TestILSFrequencyOnApproach(unittest.TestCase):
