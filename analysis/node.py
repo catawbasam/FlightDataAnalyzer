@@ -608,7 +608,12 @@ class KeyPointValueNode(FormattedNameNode):
         return KeyPointValueNode(name=self.name, frequency=self.frequency,
                                  offset=self.offset, items=ordered_by_value)
     
-        
+    def create_kpvs_at_ktis(self, array, ktis):
+        '''
+        Creates KPVs by sourcing the array at each KTI index.
+        '''
+        for kti in ktis:
+            self.create_kpv(kti.index, array[kti.index])
 
     # ordered by time (ascending), ordered by value (ascending), 
 

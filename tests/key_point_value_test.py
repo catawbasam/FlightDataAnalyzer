@@ -1,10 +1,12 @@
 import unittest
+from mock import Mock
 import numpy as np
 
 from analysis.library import rate_of_change
 from analysis.plot_flight import plot_parameter
 from analysis.node import A, KPV, KeyTimeInstance, KTI, KeyPointValue, Parameter, P, Section, S
 from analysis.key_point_values import (Airspeed1000To500FtMax,
+                                       AirspeedAtTouchdown,
                                        AirspeedMax,
                                        AltitudeAtLiftoff,
                                        AltitudeAtTouchdown,
@@ -30,6 +32,57 @@ from analysis.key_point_values import (Airspeed1000To500FtMax,
 
 import sys
 debug = sys.gettrace() is not None
+
+
+class TestCreateKPVsAtKTIs(object):
+    '''
+    Example of subclass inheriting tests:
+    
+class TestAltitudeAtLiftoff(unittest.TestCase, TestKPV):
+    def setUp(self):
+        self.node_class = AltitudeAtLiftoff
+        self.operational_combinations = [('Altitude STD', 'Liftoff')]
+    '''
+    def test_can_operate(self):
+        self.assertEqual(self.node_class.get_operational_combinations(),
+                         self.operational_combinations)
+    
+    def test_derive(self):
+        mock1, mock2 = Mock(), Mock()
+        mock1.array = Mock()
+        node = self.node_class()
+        node.create_kpvs_at_ktis = Mock()
+        node.derive(mock1, mock2)
+        self.assertEqual(node.create_kpvs_at_ktis.call_args,
+                         ((mock1.array, mock2), {}))
+
+
+class TestAirspeedAtTouchdown(unittest.TestCase, TestCreateKPVsAtKTIs):
+    def setUp(self):
+        self.node_class = AirspeedAtTouchdown
+        self.operational_combinations = [('Airspeed', 'Touchdown')]
+
+
+class TestAirspeed1000To500FtMax(unittest.TestCase):
+    def test_can_operate(self):
+        expected = [('Airspeed','Altitude AAL For Flight Phases')]
+        opts = Airspeed1000To500FtMax.get_operational_combinations()
+        self.assertEqual(opts, expected) 
+        
+    def test_airspeed_1000_150_basic(self):
+        testline = np.arange(0,12.6,0.1)
+        testwave = (np.cos(testline)*(-100))+100
+        spd = Parameter('Airspeed', np.ma.array(testwave))
+        alt_ph = Parameter('Altitude AAL For Flight Phases', 
+                           np.ma.array(testwave)*10)
+        kpv = Airspeed1000To500FtMax()
+        kpv.derive(spd, alt_ph)
+        self.assertEqual(len(kpv), 2)
+        self.assertEqual(kpv[0].index, 48)
+        self.assertEqual(kpv[0].value, 91.250101656055278)
+        self.assertEqual(kpv[1].index, 110)
+        self.assertEqual(kpv[1].value, 99.557430201194919)
+
 
 class TestAirspeedMax(unittest.TestCase):
     def test_can_operate(self):
@@ -57,112 +110,42 @@ class TestAirspeedMax(unittest.TestCase):
         self.assertEqual(kpv[1].index, 94)
         self.assertGreater(kpv[1].value, 199.9)
         self.assertLess(kpv[1].value, 200)
-        
 
 
-class TestAirspeed1000To500FtMax(unittest.TestCase):
-    def test_can_operate(self):
-        expected = [('Airspeed','Altitude AAL For Flight Phases')]
-        opts = Airspeed1000To500FtMax.get_operational_combinations()
-        self.assertEqual(opts, expected) 
-        
-    def test_airspeed_1000_150_basic(self):
-        testline = np.arange(0,12.6,0.1)
-        testwave = (np.cos(testline)*(-100))+100
-        spd = Parameter('Airspeed', np.ma.array(testwave))
-        alt_ph = Parameter('Altitude AAL For Flight Phases', 
-                           np.ma.array(testwave)*10)
-        kpv = Airspeed1000To500FtMax()
-        kpv.derive(spd, alt_ph)
-        self.assertEqual(len(kpv), 2)
-        self.assertEqual(kpv[0].index, 48)
-        self.assertEqual(kpv[0].value, 91.250101656055278)
-        self.assertEqual(kpv[1].index, 110)
-        self.assertEqual(kpv[1].value, 99.557430201194919)
+class TestAltitudeAtLiftoff(unittest.TestCase, TestCreateKPVsAtKTIs):
+    def setUp(self):
+        self.node_class = AltitudeAtLiftoff
+        self.operational_combinations = [('Altitude STD', 'Liftoff')]
 
 
-class TestAltitudeAtLiftoff(unittest.TestCase):
-    def test_can_operate(self):
-        self.assertEqual(AltitudeAtLiftoff.get_operational_combinations(),
-                         [('Liftoff', 'Altitude STD')])
-    
-    def test_derive(self):
-        node = AltitudeAtLiftoff()
-        altitude_std = P('Altitude STD', array=np.ma.masked_array([2,4,6]))
-        liftoff = KTI('Liftoff', items=[KeyTimeInstance(1, 'a')])
-        node.derive(liftoff, altitude_std)
-        self.assertEqual(node,
-                         [KeyPointValue(1, 4, 'Altitude At Liftoff')])
-
-
-class TestAltitudeAtTouchdown(unittest.TestCase):
-    def test_can_operate(self):
-        self.assertEqual(AltitudeAtTouchdown.get_operational_combinations(),
-                         [('Touchdown', 'Altitude STD')])
-    
-    def test_derive(self):
-        node = AltitudeAtTouchdown()
-        altitude_std = P('Altitude STD', array=np.ma.masked_array([2,4,6]))
-        touchdown = KTI('Touchdown', items=[KeyTimeInstance(1, 'a')])
-        node.derive(touchdown, altitude_std)
-        self.assertEqual(node,
-                         [KeyPointValue(1, 4, 'Altitude At Touchdown')])
+class TestAltitudeAtTouchdown(unittest.TestCase, TestCreateKPVsAtKTIs):
+    def setUp(self):
+        self.node_class = AltitudeAtTouchdown
+        self.operational_combinations = [('Altitude STD', 'Touchdown')]
 
 
 class TestAutopilotEngaged1AtLiftoff(unittest.TestCase):
-    def test_can_operate(self):
-        self.assertEqual(AutopilotEngaged1AtLiftoff.get_operational_combinations(),
-                         [('Autopilot Engaged 1', 'Liftoff')])
-    
-    def test_derive(self):
-        liftoff = KTI('Liftoff', items=[KeyTimeInstance(2, 'a')])
-        autopilot = P('Autopilot Engaged 1', array=np.ma.array([0,2,4,6,8]))
-        autopilot_at_liftoff = AutopilotEngaged1AtLiftoff()
-        autopilot_at_liftoff.derive(autopilot, liftoff)
-        self.assertEqual(autopilot_at_liftoff,
-                         [KeyPointValue(2, 4, 'Autopilot Engaged 1 At Liftoff')])
-
-
-class TestAutopilotEngaged2AtLiftoff(unittest.TestCase):
-    def test_can_operate(self):
-        self.assertEqual(AutopilotEngaged2AtLiftoff.get_operational_combinations(),
-                         [('Autopilot Engaged 2', 'Liftoff')])
-    
-    def test_derive(self):
-        liftoff = KTI('Liftoff', items=[KeyTimeInstance(2, 'a')])
-        autopilot = P('Autopilot Engaged 2', array=np.ma.array([0,2,4,6,8]))
-        autopilot_at_liftoff = AutopilotEngaged2AtLiftoff()
-        autopilot_at_liftoff.derive(autopilot, liftoff)
-        self.assertEqual(autopilot_at_liftoff,
-                         [KeyPointValue(2, 4, 'Autopilot Engaged 2 At Liftoff')])
+    def setUp(self):
+        self.node_class = AutopilotEngaged1AtLiftoff
+        self.operational_combinations = [('Autopilot Engaged 1', 'Liftoff')]
 
 
 class TestAutopilotEngaged1AtTouchdown(unittest.TestCase):
-    def test_can_operate(self):
-        self.assertEqual(AutopilotEngaged1AtTouchdown.get_operational_combinations(),
-                         [('Autopilot Engaged 1', 'Touchdown')])
-    
-    def test_derive(self):
-        touchdown = KTI('Touchdown', items=[KeyTimeInstance(2, 'a')])
-        autopilot = P('Autopilot Engaged 1', array=np.ma.array([0,2,4,6,8]))
-        autopilot_at_touchdown = AutopilotEngaged1AtTouchdown()
-        autopilot_at_touchdown.derive(autopilot, touchdown)
-        self.assertEqual(autopilot_at_touchdown,
-                         [KeyPointValue(2, 4, 'Autopilot Engaged 1 At Touchdown')])
+    def setUp(self):
+        self.node_class = AutopilotEngaged1AtLiftoff
+        self.operational_combinations = [('Autopilot Engaged 1', 'Touchdown')]
+
+
+class TestAutopilotEngaged2AtLiftoff(unittest.TestCase, TestCreateKPVsAtKTIs):
+    def setUp(self):
+        self.node_class = AutopilotEngaged2AtLiftoff
+        self.operational_combinations = [('Autopilot Engaged 2', 'Liftoff')]
 
 
 class TestAutopilotEngaged2AtTouchdown(unittest.TestCase):
-    def test_can_operate(self):
-        self.assertEqual(AutopilotEngaged2AtTouchdown.get_operational_combinations(),
-                         [('Autopilot Engaged 2', 'Touchdown')])
-    
-    def test_derive(self):
-        touchdown = KTI('Touchdown', items=[KeyTimeInstance(2, 'a')])
-        autopilot = P('Autopilot Engaged 2', array=np.ma.array([0,2,4,6,8]))
-        autopilot_at_touchdown = AutopilotEngaged2AtTouchdown()
-        autopilot_at_touchdown.derive(autopilot, touchdown)
-        self.assertEqual(autopilot_at_touchdown,
-                         [KeyPointValue(2, 4, 'Autopilot Engaged 2 At Touchdown')])
+    def setUp(self):
+        self.node_class = AutopilotEngaged2AtTouchdown
+        self.operational_combinations = [('Autopilot Engaged 2', 'Touchdown')]
 
 
 class TestHeadingAtTakeoff(unittest.TestCase):
@@ -245,58 +228,28 @@ class TestGlideslopeDeviation1000To150FtMax(unittest.TestCase):
         self.assertEqual(kpv[1].index, 120)
 
 
-class TestFuelQtyAtLiftoff(unittest.TestCase):
-    def test_can_operate(self):
-        self.assertEqual(FuelQtyAtLiftoff.get_operational_combinations(),
-                         [('Fuel Qty', 'Liftoff')])
-    
-    def test_derive(self):
-        node = FuelQtyAtLiftoff()
-        fuel_qty = P('Fuel Qty', array=np.ma.masked_array([2,4,6]))
-        liftoff = KTI('Liftoff', items=[KeyTimeInstance(1, 'a')])
-        node.derive(fuel_qty, liftoff)
-        self.assertEqual(node, [KeyPointValue(1, 4, 'Fuel Qty At Liftoff')])
+class TestFuelQtyAtLiftoff(unittest.TestCase, TestCreateKPVsAtKTIs):
+    def setUp(self):
+        self.node_class = FuelQtyAtLiftoff
+        self.operational_combinations = [('Fuel Qty', 'Liftoff')]
+        
+
+class TestFuelQtyAtTouchdown(unittest.TestCase, TestCreateKPVsAtKTIs):
+    def setUp(self):
+        self.node_class = FuelQtyAtTouchdown
+        self.operational_combinations = [('Fuel Qty', 'Touchdown')]
 
 
-class TestFuelQtyAtTouchdown(unittest.TestCase):
-    def test_can_operate(self):
-        self.assertEqual(FuelQtyAtTouchdown.get_operational_combinations(),
-                         [('Fuel Qty', 'Touchdown')])
-    
-    def test_derive(self):
-        node = FuelQtyAtTouchdown()
-        fuel_qty = P('Fuel Qty', array=np.ma.masked_array([2,4,6]))
-        touchdown = KTI('Touchdown', items=[KeyTimeInstance(1, 'a')])
-        node.derive(fuel_qty, touchdown)
-        self.assertEqual(node,
-                         [KeyPointValue(1, 4, 'Fuel Qty At Touchdown')])
+class TestGrossWeightAtLiftoff(unittest.TestCase, TestCreateKPVsAtKTIs):
+    def setUp(self):
+        self.node_class = GrossWeightAtLiftoff
+        self.operational_combinations = [('Gross Weight', 'Liftoff')]
 
 
-class TestGrossWeightAtLiftoff(unittest.TestCase):
-    def test_can_operate(self):
-        self.assertEqual(GrossWeightAtLiftoff.get_operational_combinations(),
-                         [('Gross Weight', 'Liftoff')])
-    
-    def test_derive(self):
-        node = GrossWeightAtLiftoff()
-        gross_weight = P('Gross Weight', array=np.ma.masked_array([2,4,6]))
-        liftoff = KTI('Liftoff', items=[KeyTimeInstance(1, 'a')])
-        node.derive(gross_weight, liftoff)
-        self.assertEqual(node, [KeyPointValue(1, 4, 'Gross Weight At Liftoff')])
-
-
-class TestGrossWeightAtTouchdown(unittest.TestCase):
-    def test_can_operate(self):
-        self.assertEqual(GrossWeightAtTouchdown.get_operational_combinations(),
-                         [('Gross Weight', 'Touchdown')])
-    
-    def test_derive(self):
-        node = GrossWeightAtTouchdown()
-        gross_weight = P('Gross Weight', array=np.ma.masked_array([2,4,6]))
-        touchdown = KTI('Touchdown', items=[KeyTimeInstance(1, 'a')])
-        node.derive(gross_weight, touchdown)
-        self.assertEqual(node,
-                         [KeyPointValue(1, 4, 'Gross Weight At Touchdown')])
+class TestGrossWeightAtTouchdown(unittest.TestCase, TestCreateKPVsAtKTIs):
+    def setUp(self):
+        self.node_class = GrossWeightAtTouchdown
+        self.operational_combinations = [('Gross Weight', 'Touchdown')]
 
         
 class TestILSFrequencyOnApproach(unittest.TestCase):
@@ -322,19 +275,17 @@ class TestILSFrequencyOnApproach(unittest.TestCase):
         self.assertEqual(kpv, expected)
 
         
-class TestLatitudeAtLanding(unittest.TestCase):
-    def test_can_operate(self):
-        expected = [('Landing Peak Deceleration','Latitude')]
-        opts = LatitudeAtLanding.get_operational_combinations()
-        self.assertEqual(opts, expected) 
-        
-    def test_landing_heading_basic(self):
-        data = P('Longitude',np.ma.array([0,66,99]))
-        landing = [KeyTimeInstance(1, 'Landing Peak Deceleration')]
-        kpv = LatitudeAtLanding()
-        kpv.derive(landing, data)
-        expected = [KeyPointValue(1, 66.0, 'Latitude At Landing')]
-        self.assertEqual(kpv, expected)
+class TestLatitudeAtLanding(unittest.TestCase, TestCreateKPVsAtKTIs):
+    def setUp(self):
+        self.node_class = LatitudeAtLanding
+        self.operational_combinations = [('Latitude',
+                                          'Landing Peak Deceleration')]
+
+class TestLongitudeAtLanding(unittest.TestCase, TestCreateKPVsAtKTIs):
+    def setUp(self):
+        self.node_class = LongitudeAtLanding
+        self.operational_combinations = [('Longitude',
+                                          'Landing Peak Deceleration')]
 
 
 class TestLocalizerDeviation1500To1000FtMax(unittest.TestCase):
@@ -373,21 +324,6 @@ class TestLocalizerDeviation1000To150FtMax(unittest.TestCase):
         self.assertEqual(len(kpv), 2)
         self.assertEqual(kpv[0].index, 57)
         self.assertEqual(kpv[1].index, 120)
-
-
-class TestLongitudeAtLanding(unittest.TestCase):
-    def test_can_operate(self):
-        expected = [('Landing Peak Deceleration','Longitude')]
-        opts = LongitudeAtLanding.get_operational_combinations()
-        self.assertEqual(opts, expected) 
-        
-    def test_landing_heading_basic(self):
-        data = P('Longitude',np.ma.array([0,66,77]))
-        landing = [KeyTimeInstance(2, 'Landing Peak Deceleration')]
-        kpv = LongitudeAtLanding()
-        kpv.derive(landing, data)
-        expected = [KeyPointValue(2, 77.0, 'Longitude At Landing')]
-        self.assertEqual(kpv, expected)
         
         
 class TestPitch35To400FtMax(unittest.TestCase):
@@ -409,18 +345,8 @@ class TestPitch35To400FtMax(unittest.TestCase):
         self.assertEqual(kpv[0].value, 7)
 
 
-class TestPitchAtLiftoff(unittest.TestCase):
-    def test_can_operate(self):
-        self.assertEqual(PitchAtLiftoff.get_operational_combinations(),
-                         [('Liftoff', 'Pitch')])
-        
-    def test_pitch_35_400_basic(self):
-        liftoffs = KTI('Liftoff', items=[KeyTimeInstance(2, 'a'),
-                                         KeyTimeInstance(4, 'a')])
-        pitch = P('Autopilot Engaged 2', array=np.ma.array([0,2,4,6,8]))
-        node = PitchAtLiftoff()
-        node.derive(pitch, liftoffs)
-        self.assertEqual(node,
-                         [KeyPointValue(2, 4, 'Pitch At Liftoff'),
-                          KeyPointValue(4, 8, 'Pitch At Liftoff')])
+class TestPitchAtLiftoff(unittest.TestCase, TestCreateKPVsAtKTIs):
+    def setUp(self):
+        self.node_class = PitchAtLiftoff
+        self.operational_combinations = [('Pitch', 'Liftoff')]
 
