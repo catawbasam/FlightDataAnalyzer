@@ -373,7 +373,6 @@ def first_order_lag (in_param, time_constant, hz, gain = 1.0, initial_value = No
     :type initial_value: float
     :returns: masked array of values with first order lag applied
     '''
-
     input_data = np.copy(in_param.data)
     
     # Scale the time constant to allow for different data sample rates.
@@ -431,7 +430,6 @@ def first_order_washout (in_param, time_constant, hz, gain = 1.0, initial_value 
     :type initial_value: float
     :returns: masked array of values with first order lag applied
     '''
-
     input_data = np.copy(in_param.data)
     
     # Scale the time constant to allow for different data sample rates.
@@ -472,7 +470,7 @@ def hash_array(array):
     return checksum.hexdigest()
     
 def hysteresis (array, hysteresis):
-    """
+    '''
     Hysteresis is a process used to prevent noisy data from triggering 
     an unnecessary number of events or state changes when the parameter is 
     close to a threshold.
@@ -482,7 +480,7 @@ def hysteresis (array, hysteresis):
     :param hysteresis: hysteresis range to apply
     :type hysteresis: float
     :returns: masked array of values with hysteresis applied
-    """
+    '''
 
     # This routine accepts the usual masked array but only processes the
     # data part of the array as the hysteresis process cannot make the
@@ -549,7 +547,6 @@ def interleave_uneven_spacing (param_1, param_2):
     Hence two sections of code. Also, we don't know at the start whether x is
     parameter 1 or 2, so there are two options for the basic interleaving stage.
     '''
-    
     # Check the conditions for merging are met
     if param_1.frequency != param_2.frequency:
         raise ValueError, 'Attempt to interleave parameters at differing sample rates'
@@ -620,6 +617,38 @@ def _value(array, _slice, operator):
     index = operator(array[_slice]) + (_slice.start or 0) * (_slice.step or 1)
     return Value(index, array[index])
 
+def mask_inside_slices(array, slices):
+    '''
+    Mask slices within array.
+    
+    :param array: Masked array to mask.
+    :type array: np.ma.masked_array
+    :param slices: Slices to mask.
+    :type slices: list of slice
+    :returns: Array with masks applied.
+    :rtype: np.ma.masked_array
+    '''
+    mask = np.zeros(len(array), dtype=np.bool_) # Create a mask of False.
+    for slice_ in slices:
+        mask[slice_] = True
+    return np.ma.array(array, mask=np.ma.mask_or(mask, array.mask))
+
+def mask_outside_slices(array, slices):
+    '''
+    Mask areas outside of slices within array.
+    
+    :param array: Masked array to mask.
+    :type array: np.ma.masked_array
+    :param slices: The areas outside these slices will be masked..
+    :type slices: list of slice
+    :returns: Array with masks applied.
+    :rtype: np.ma.masked_array
+    '''
+    mask = np.ones(len(array), dtype=np.bool_) # Create a mask of True.
+    for slice_ in slices:
+        mask[slice_] = False
+    return np.ma.array(array, mask=np.ma.mask_or(mask, array.mask))
+
 def max_abs_value(array, _slice=slice(None)):
     """
     Get the value of the maximum absolute value in the array. 
@@ -671,7 +700,6 @@ def merge_alternate_sensors (array):
     :returns: masked array with merging algorithm applied.
     :rtype: masked array
     '''
-    
     result = np.ma.empty_like(array)
     result[1:-1] = (array[:-2] + array[1:-1]*2.0 + array[2:]) / 4.0
     result[0] = (array[0] + array[1]) / 2.0

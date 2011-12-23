@@ -425,16 +425,29 @@ class TakeoffGrossWeight(FlightAttributeNode):
         self.set_flight_attr(first_gross_weight.value)
 
     
-# TODO: Implement.
-#class TakeoffPilot(FlightAttributeNode):
-    #"Pilot flying at takeoff, Captain, First Officer or None"
-    #name = 'FDR Takeoff Pilot'
-    #def derive(self, unknown_dep=P('UNKNOWN')):
+class TakeoffPilot(FlightAttributeNode):
+    "Pilot flying at takeoff, Captain, First Officer or None"
+    name = 'FDR Takeoff Pilot'
+    # TODO: Dependency name mappings.
+    def derive(self, liftoff_autopilot1=KPV('Autopilot Engaged 1 At Liftoff'),
+               liftoff_autopilot2=KPV('Autopilot Engaged 2 At Liftoff'),
+               pitch_captain=P('Pitch (Capt)'), roll_captain=P('Roll (Capt)'),
+               pitch_fo=P('Pitch (FO)'), roll_fo=P('Roll (FO)')):
+        
+        # TODO: Use Flight Director parameters if possible.
         #pilot = None
         #assert pilot in ("FIRST_OFFICER", "CAPTAIN", None)
+        if liftoff_autopilot1 and liftoff_autopilot2:
+            if liftoff_autopilot1.value and not liftoff_autopilot2.value:
+                self.set_flight_attr('Captain')
+                return
+            elif not liftoff_autopilot1.value and liftoff_autopilot2.value:
+                self.set_flight_attr('First Officer')
+                return
         
         #control_input (1) Control Input (2) / contro wheeel / control column
-        #return NotImplemented
+        # Cannot determine Takeoff Pilot.
+        self.set_flight_attr(None)
 
 
 class TakeoffRunway(FlightAttributeNode):
@@ -507,10 +520,11 @@ class Type(FlightAttributeNode):
     
     @classmethod
     def can_operate(self, available):
-        'Fast' in available or 'Fast'
+        return all([n in available for n in ['Fast', 'Liftoff', 'Touchdown']])
     
     def derive(self, afr_type=A('AFR Type'), fast=S('Fast'),
-               liftoffs=KTI('Liftoff'), touchdowns=KTI('Touchdown')):
+               liftoffs=KTI('Liftoff'), touchdowns=KTI('Touchdown'),
+               touch_and_gos=S('Touch And Go'), ground_speed=P('Ground Speed')):
         ## options are:
         #COMMERCIAL = 'COMMERCIAL'
         #INCOMPLETE = 'INCOMPLETE'
@@ -523,25 +537,66 @@ class Type(FlightAttributeNode):
         #LINE_TRAINING = 'LINE_TRAINING'
         #if go_fast and left ground:
         
-        
         # TODO: ON_GROUND.
+        
         afr_type = afr_type.value if afr_type else None
-        if fast and liftoff:
-            self.set_flight_attr(afr_type if afr_type in ['TEST', 'TRAINING', 'FERRY', 'POSITIONING', 'LINE_TRAINING'] else 'COMMERCIAL')
-        elif fast and not liftoff:
-            flight_type = 'REJECTED_TAKEOFF'
-        else:
-            # Ensure there was a liftoff before the first touchdown.
+        
+        if liftoffs and not touchdowns:
+            # In the air without having touched down.
+            logging.warning("'Liftoff' KTI exists without 'Touchdown'. '%s' "
+                            "will be 'INCOMPLETE'.", self.name)
+            self.set_flight_attr('LIFTOFF_ONLY')
+            return
+        elif not liftoffs and touchdowns:
+            # In the air without having lifted off.
+            logging.warning("'Touchdown' KTI exists without 'Liftoff'. '%s' "
+                            "will be 'INCOMPLETE'.", self.name)
+            self.set_flight_attr('TOUCHDOWN_ONLY')
+            return
+        
+        if liftoffs and touchdowns:
             first_touchdown = touchdowns.get_first()
             first_liftoff = liftoffs.get_first()
-            if not first_liftoff or not first_touchdown:
-                flight_type = 'INCOMPLETE'
-            elif  first_touchdown.index < first_liftoff.index:
-                # Touchdown before having lifted off..
-                flight_type = 'INCOMPLETE'
+            if first_touchdown.index < first_liftoff.index:
+                # Touchdown before having lifted off, data must be INCOMPLETE.
+                logging.warning("'Touchdown' KTI index before 'Liftoff'. '%s' "
+                                "will be 'INCOMPLETE'.", self.name)
+                self.set_flight_attr('TOUCHDOWN_BEFORE_LIFTOFF')
+                return
+            last_touchdown = touchdowns.get_last()
+            last_touch_and_go = touch_and_gos.get_last()
+            if last_touchdown.index <= last_touch_and_go.index:
+                logging.warning("A 'Touch And Go' KTI exists after the last "
+                                "'Touchdown'. '%s' will be 'INCOMPLETE'.",
+                                self.name)
+                self.set_flight_attr('LIFTOFF_ONLY')
+                return
+            
+            if afr_type in ['FERRY', 'LINE_TRAINING', 'POSITIONING' 'TEST',
+                            'TRAINING']:
+                flight_type = afr_type
             else:
-                flight_type = 'ENGINE_RUN_UP'
-        
+                flight_type = 'COMPLETE'
+            self.set_flight_attr(flight_type)
+        elif fast:
+            self.set_flight_attr('REJECTED_TAKEOFF')
+        elif ground_speed and ground_speed.array.ptp() > 10:
+            self.set_flight_attr('GROUND_RUN')
+        else:
+            self.set_flight_attr('ENGINE_RUN_UP')
+            
+        #elif fast and not liftoff:
+            #flight_type = 'REJECTED_TAKEOFF'
+        #else:
+            ## Ensure there was a liftoff before the first touchdown.
+            #first_touchdown = touchdowns.get_first()
+            #first_liftoff = liftoffs.get_first()
+            #if not first_liftoff or not first_touchdown:
+                #flight_type = 'INCOMPLETE'
+            #elif  first_touchdown.index < first_liftoff.index:
+                
+            #else:
+                #flight_type = 'ENGINE_RUN_UP'
             
         #elif go_fast and not left ground:
             #REJECTED_TAKEOFF

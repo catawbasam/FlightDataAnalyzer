@@ -14,14 +14,13 @@ from datetime import datetime
 from analysis.library import (align, calculate_timebase, create_phase_inside,
                               create_phase_outside, duration, 
                               first_order_lag, first_order_washout, hash_array,
-                              hysteresis, index_at_value,
-                              interleave, is_index_within_slice,
-                              is_slice_within_slice, min_value, max_value, 
-                              max_abs_value, merge_alternate_sensors,
+                              hysteresis, index_at_value, interleave, is_index_within_slice,
+                              is_slice_within_slice, min_value, 
+                              mask_inside_slices, mask_outside_slices,
+                              max_value, max_abs_value, merge_alternate_sensors,
                               rate_of_change, repair_mask, straighten_headings,
-                              time_at_value, time_at_value_wrapped, value_at_time,
-                              vstack_params, 
-                              InvalidDatetime)
+                              time_at_value, time_at_value_wrapped,
+                              value_at_time, vstack_params, InvalidDatetime)
 
 from analysis.node import A, KPV, KTI, Parameter, P, S, Section
 
@@ -632,6 +631,28 @@ class TestIsSliceWithinSlice(unittest.TestCase):
         self.assertTrue(is_slice_within_slice(slice(4,7), slice(4,7)))
         self.assertFalse(is_slice_within_slice(slice(4,8), slice(4,7)))
         self.assertFalse(is_slice_within_slice(slice(3,7), slice(4,7)))
+        
+
+class TestMaskInsideSlices(unittest.TestCase):
+    def test_mask_inside_slices(self):
+        slices = [slice(10, 20), slice(30, 40)]
+        array = np.ma.arange(50)
+        array.mask = np.array([True] * 5 + [False] * 45)
+        expected_result = np.ma.arange(50)
+        expected_result.mask = np.array([True] * 5 + [False] * 5 + [True] *  10 + [False] * 10 + [True] * 10)
+        ma_test.assert_equal(mask_inside_slices(array, slices),
+                             expected_result)
+
+
+class TestMaskOutsideSlices(unittest.TestCase):
+    def test_mask_outside_slices(self):
+        slices = [slice(10, 20), slice(30, 40)]
+        array = np.ma.arange(50)
+        array.mask = np.array([False] * 10 + [True] * 5 + [False] * 35)
+        expected_result = np.ma.arange(50)
+        expected_result.mask = np.array([True] * 15 + [False] * 5 + [True] * 10 + [False] * 10 + [True] * 10)
+        ma_test.assert_equal(mask_outside_slices(array, slices),
+                             expected_result)
         
         
 class TestMaxValue(unittest.TestCase):

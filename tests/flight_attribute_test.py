@@ -12,7 +12,7 @@ from analysis.flight_attribute import (
     Approaches, Duration, FlightID, FlightNumber, LandingAirport, 
     LandingDatetime, LandingFuel, LandingGrossWeight, LandingRunway,
     TakeoffAirport, TakeoffDatetime, TakeoffFuel, TakeoffGrossWeight,
-    TakeoffRunway)
+    TakeoffRunway, Type)
 
 
 class TestApproaches(unittest.TestCase):
@@ -761,5 +761,19 @@ class TestTakeoffRunway(unittest.TestCase):
                          ((runway_info,), {}))
 
 
-##class TestType(unittest.TestCase):
-    ##def test_
+class TestType(unittest.TestCase):
+    def test_can_operate(self):
+        self.assertEqual(Type.get_operational_combinations(),
+                         [('Fast', 'Liftoff', 'Touchdown'),
+                          ('AFR Type', 'Fast', 'Liftoff', 'Touchdown')])
+    
+    def test_derive(self):
+        type_node = Type()
+        type_node.set_flight_attr = Mock()
+        # Liftoff, 
+        fast = S('Fast', items=[slice(5,10)])
+        liftoffs = KTI('Liftoff', items=[KeyTimeInstance(5, 'a')])
+        touchdowns = KTI('Touchdown', items=[KeyTimeInstance(10, 'x')])
+        type_node.derive(None, fast, liftoffs, touchdowns)
+        self.assertEqual(type_node.set_flight_attr.call_args,
+                         (('COMMERCIAL',), {}))

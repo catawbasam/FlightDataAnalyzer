@@ -608,7 +608,20 @@ class KeyPointValueNode(FormattedNameNode):
         return KeyPointValueNode(name=self.name, frequency=self.frequency,
                                  offset=self.offset, items=ordered_by_value)
     
+    def create_kpvs_at_ktis(self, array, ktis):
+        '''
+        Creates KPVs by sourcing the array at each KTI index. Will not create
+        KeyPointValues for masked values in the array.
         
+        :param array: Array to source values from.
+        :type array: np.ma.masked_array
+        :param ktis: KTIs with indices to source values within the array from.
+        :type ktis: KeyTimeInstanceNode
+        '''
+        for kti in ktis:
+            value = array[kti.index]
+            if value is not np.ma.masked:
+                self.create_kpv(kti.index, value)
 
     # ordered by time (ascending), ordered by value (ascending), 
 

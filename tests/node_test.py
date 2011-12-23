@@ -5,10 +5,11 @@ except ImportError:
 import mock
 from random import shuffle
 from datetime import datetime
+import numpy as np
 
 from analysis.node import (
     Attribute, DerivedParameterNode, get_verbose_name, KeyPointValue,
-    KeyPointValueNode, KeyTimeInstance, KeyTimeInstanceNode, 
+    KeyPointValueNode, KeyTimeInstance, KTI, KeyTimeInstanceNode, 
     FlightAttributeNode,FormattedNameNode, Node, NodeManager, P, Parameter,
     powerset, Section, SectionNode)
 
@@ -531,8 +532,7 @@ class TestKeyPointValueNode(unittest.TestCase):
         knode = self.knode
         knode.NAME_FORMAT = 'Speed in %(phase)s at %(altitude)dft'
         knode.NAME_VALUES = {'phase':['ascent', 'descent'],
-                                'altitude':[1000,1500],
-                                }
+                             'altitude':[1000,1500],}
         
         self.assertEqual(knode.frequency, 2)
         self.assertEqual(knode.offset, 0.4)
@@ -555,6 +555,17 @@ class TestKeyPointValueNode(unittest.TestCase):
         # wrong type raises TypeError
         self.assertRaises(TypeError, knode.create_kpv, 2, '3', 
                           phase='', altitude='')
+        
+    def test_create_kpvs_at_ktis(self):
+        knode = self.knode
+        array = np.ma.arange(10)
+        array[3:7] = np.ma.masked
+        ktis = KTI('KTI', items=[KeyTimeInstance(i, 'a') for i in range(0,10,2)])
+        knode.create_kpvs_at_ktis(array, ktis)
+        self.assertEqual(knode,
+                         [KeyPointValue(index=0, value=0, name='Kpv'),
+                          KeyPointValue(index=2, value=2, name='Kpv'),
+                          KeyPointValue(index=8, value=8, name='Kpv')])
     
     def test_get_aligned(self):
         '''
@@ -698,7 +709,8 @@ class TestKeyTimeInstanceNode(unittest.TestCase):
         self.assertEqual(aligned_kti,
                          [KeyTimeInstance(index=1.6, name='fast'),
                           KeyTimeInstance(index=1.85, name='fast')])
-    
+
+
 class TestDerivedParameterNode(unittest.TestCase):
     def setUp(self):
         class ExampleDerivedParameterNode(DerivedParameterNode):

@@ -364,6 +364,9 @@ class LevelFlight(FlightPhaseNode):
 
 
 class OnGround(FlightPhaseNode):
+    '''
+    Includes before Liftoff and after Touchdown.
+    '''
     def derive(self, airspeed=P('Airspeed')):
         # Did the aircraft go fast enough to possibly become airborne?
         fast_where = np.ma.masked_less(airspeed.array, AIRSPEED_THRESHOLD)
