@@ -15,6 +15,7 @@ from analysis.key_point_values import (Airspeed1000To500FtMax,
                                        AutopilotEngaged2AtLiftoff,
                                        AutopilotEngaged2AtTouchdown,
                                        HeadingAtTakeoff,
+                                       FlapAtLiftoff,
                                        FuelQtyAtLiftoff,
                                        FuelQtyAtTouchdown,
                                        GlideslopeDeviation1500To1000FtMax,
@@ -23,8 +24,11 @@ from analysis.key_point_values import (Airspeed1000To500FtMax,
                                        GrossWeightAtTouchdown,
                                        ILSFrequencyOnApproach,
                                        HeadingAtLanding,
+                                       HeadingAtLowPointOnApproach,
                                        LatitudeAtLanding,
+                                       LatitudeAtLowPointOnApproach,
                                        LongitudeAtLanding,
+                                       LongitudeAtLowPointOnApproach,
                                        LocalizerDeviation1500To1000FtMax,
                                        LocalizerDeviation1000To150FtMax,
                                        Pitch35To400FtMax,
@@ -148,6 +152,74 @@ class TestAutopilotEngaged2AtTouchdown(unittest.TestCase):
         self.operational_combinations = [('Autopilot Engaged 2', 'Touchdown')]
 
 
+class TestFlapAtLiftoff(unittest.TestCase, TestCreateKPVsAtKTIs):
+    def setUp(self):
+        self.node_class = FlapAtLiftoff
+        self.operational_combinations = [('Flap', 'Liftoff')]
+
+
+class TestFuelQtyAtLiftoff(unittest.TestCase, TestCreateKPVsAtKTIs):
+    def setUp(self):
+        self.node_class = FuelQtyAtLiftoff
+        self.operational_combinations = [('Fuel Qty', 'Liftoff')]
+        
+
+class TestFuelQtyAtTouchdown(unittest.TestCase, TestCreateKPVsAtKTIs):
+    def setUp(self):
+        self.node_class = FuelQtyAtTouchdown
+        self.operational_combinations = [('Fuel Qty', 'Touchdown')]
+
+
+class TestGlideslopeDeviation1500To1000FtMax(unittest.TestCase):
+    def test_can_operate(self):
+        expected = [('ILS Glideslope','Altitude AAL For Flight Phases')]
+        opts = GlideslopeDeviation1500To1000FtMax.get_operational_combinations()
+        self.assertEqual(opts, expected) 
+        
+    def test_ils_glide_1500_1000_basic(self):
+        testline = np.arange(0,12.6,0.1)
+        testwave = (np.cos(testline)*(-1000))+1000
+        alt_ph = Parameter('Altitude AAL For Flight Phases', np.ma.array(testwave))
+        ils_gs = Parameter('ILS Glideslope', np.ma.array(testline))
+        kpv = GlideslopeDeviation1500To1000FtMax()
+        kpv.derive(ils_gs, alt_ph)
+        # 'KeyPointValue', 'index value name'
+        self.assertEqual(len(kpv), 2)
+        self.assertEqual(kpv[0].index, 47)
+        self.assertEqual(kpv[1].index, 109)
+        
+        
+class TestGlideslopeDeviation1000To150FtMax(unittest.TestCase):
+    def test_can_operate(self):
+        expected = [('ILS Glideslope','Altitude AAL For Flight Phases')]
+        opts = GlideslopeDeviation1000To150FtMax.get_operational_combinations()
+        self.assertEqual(opts, expected) 
+        
+    def test_ils_glide_1000_150_basic(self):
+        testline = np.arange(0,12.6,0.1)
+        testwave = (np.cos(testline)*(-1000))+1000
+        alt_ph = Parameter('Altitude AAL For Flight Phases', np.ma.array(testwave))
+        ils_gs = Parameter('ILS Glideslope', np.ma.array(testline))
+        kpv = GlideslopeDeviation1000To150FtMax()
+        kpv.derive(ils_gs, alt_ph)
+        # 'KeyPointValue', 'index value name'
+        self.assertEqual(len(kpv), 2)
+        self.assertEqual(kpv[0].index, 57)
+        self.assertEqual(kpv[1].index, 120)
+
+
+class TestGrossWeightAtLiftoff(unittest.TestCase, TestCreateKPVsAtKTIs):
+    def setUp(self):
+        self.node_class = GrossWeightAtLiftoff
+        self.operational_combinations = [('Gross Weight', 'Liftoff')]
+
+
+class TestGrossWeightAtTouchdown(unittest.TestCase, TestCreateKPVsAtKTIs):
+    def setUp(self):
+        self.node_class = GrossWeightAtTouchdown
+        self.operational_combinations = [('Gross Weight', 'Touchdown')]
+
+
 class TestHeadingAtTakeoff(unittest.TestCase):
     def test_can_operate(self):
         expected = [('Takeoff','Heading Continuous', 'Acceleration Forwards For Flight Phases')]
@@ -190,66 +262,11 @@ class TestHeadingAtLanding(unittest.TestCase):
         self.assertEqual(kpv, expected)
 
 
-class TestGlideslopeDeviation1500To1000FtMax(unittest.TestCase):
-    def test_can_operate(self):
-        expected = [('ILS Glideslope','Altitude AAL For Flight Phases')]
-        opts = GlideslopeDeviation1500To1000FtMax.get_operational_combinations()
-        self.assertEqual(opts, expected) 
-        
-    def test_ils_glide_1500_1000_basic(self):
-        testline = np.arange(0,12.6,0.1)
-        testwave = (np.cos(testline)*(-1000))+1000
-        alt_ph = Parameter('Altitude AAL For Flight Phases', np.ma.array(testwave))
-        ils_gs = Parameter('ILS Glideslope', np.ma.array(testline))
-        kpv = GlideslopeDeviation1500To1000FtMax()
-        kpv.derive(ils_gs, alt_ph)
-        # 'KeyPointValue', 'index value name'
-        self.assertEqual(len(kpv), 2)
-        self.assertEqual(kpv[0].index, 47)
-        self.assertEqual(kpv[1].index, 109)
-        
-        
-class TestGlideslopeDeviation1000To150FtMax(unittest.TestCase):
-    def test_can_operate(self):
-        expected = [('ILS Glideslope','Altitude AAL For Flight Phases')]
-        opts = GlideslopeDeviation1000To150FtMax.get_operational_combinations()
-        self.assertEqual(opts, expected) 
-        
-    def test_ils_glide_1000_150_basic(self):
-        testline = np.arange(0,12.6,0.1)
-        testwave = (np.cos(testline)*(-1000))+1000
-        alt_ph = Parameter('Altitude AAL For Flight Phases', np.ma.array(testwave))
-        ils_gs = Parameter('ILS Glideslope', np.ma.array(testline))
-        kpv = GlideslopeDeviation1000To150FtMax()
-        kpv.derive(ils_gs, alt_ph)
-        # 'KeyPointValue', 'index value name'
-        self.assertEqual(len(kpv), 2)
-        self.assertEqual(kpv[0].index, 57)
-        self.assertEqual(kpv[1].index, 120)
-
-
-class TestFuelQtyAtLiftoff(unittest.TestCase, TestCreateKPVsAtKTIs):
-    def setUp(self):
-        self.node_class = FuelQtyAtLiftoff
-        self.operational_combinations = [('Fuel Qty', 'Liftoff')]
-        
-
-class TestFuelQtyAtTouchdown(unittest.TestCase, TestCreateKPVsAtKTIs):
-    def setUp(self):
-        self.node_class = FuelQtyAtTouchdown
-        self.operational_combinations = [('Fuel Qty', 'Touchdown')]
-
-
-class TestGrossWeightAtLiftoff(unittest.TestCase, TestCreateKPVsAtKTIs):
-    def setUp(self):
-        self.node_class = GrossWeightAtLiftoff
-        self.operational_combinations = [('Gross Weight', 'Liftoff')]
-
-
-class TestGrossWeightAtTouchdown(unittest.TestCase, TestCreateKPVsAtKTIs):
+class TestHeadingAtLowPointOnApproach(unittest.TestCase, TestCreateKPVsAtKTIs):
     def setUp(self):
         self.node_class = GrossWeightAtTouchdown
-        self.operational_combinations = [('Gross Weight', 'Touchdown')]
+        self.operational_combinations = [('Heading Continuous',
+                                          'Low Point On Approach')]
 
         
 class TestILSFrequencyOnApproach(unittest.TestCase):
@@ -286,6 +303,20 @@ class TestLongitudeAtLanding(unittest.TestCase, TestCreateKPVsAtKTIs):
         self.node_class = LongitudeAtLanding
         self.operational_combinations = [('Longitude',
                                           'Landing Peak Deceleration')]
+
+
+class TestLatitudeAtLowPointOnApproach(unittest.TestCase, TestCreateKPVsAtKTIs):
+    def setUp(self):
+        self.node_class = LatitudeAtLowPointOnApproach
+        self.operational_combinations = [('Latitude',
+                                          'Approach And Landing Lowest')]
+
+
+class TestLongitudeAtLowPointOnApproach(unittest.TestCase, TestCreateKPVsAtKTIs):
+    def setUp(self):
+        self.node_class = LongitudeAtLowPointOnApproach
+        self.operational_combinations = [('Longitude',
+                                          'Approach And Landing Lowest')]
 
 
 class TestLocalizerDeviation1500To1000FtMax(unittest.TestCase):
