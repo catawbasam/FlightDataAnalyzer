@@ -392,7 +392,14 @@ class RateOfClimb(DerivedParameterNode):
             inertial_roc = first_order_lag (az_washout, RATE_OF_CLIMB_LAG_TC, az.hz, gain=GRAVITY*RATE_OF_CLIMB_LAG_TC)
             self.array = (roc_altitude + inertial_roc) * 60.0
         else:
-            self.array = rate_of_change(alt_std,2)*60
+            # The period for averaging altitude only data has been chosen
+            # from careful inspection of Hercules data, where the pressure
+            # altitude signal resolution is of the order of 9 ft/bit.
+            # Extension to wider timebases, or averaging with more samples,
+            # smooths the data more but equally more samples are affected by
+            # corrupt source data. So, change the "3" only after careful
+            # consideration.
+            self.array = rate_of_change(alt_std,2)*60 # @@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
 
 
 class RateOfClimbForFlightPhases(DerivedParameterNode):

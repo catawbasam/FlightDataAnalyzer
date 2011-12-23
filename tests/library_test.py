@@ -14,7 +14,8 @@ from datetime import datetime
 from analysis.library import (align, calculate_timebase, create_phase_inside,
                               create_phase_outside, duration, 
                               first_order_lag, first_order_washout, hash_array,
-                              hysteresis, interleave, is_index_within_slice,
+                              hysteresis, index_at_value,
+                              interleave, is_index_within_slice,
                               is_slice_within_slice, min_value, max_value, 
                               max_abs_value, merge_alternate_sensors,
                               rate_of_change, repair_mask, straighten_headings,
@@ -556,7 +557,44 @@ class TestHysteresis(unittest.TestCase):
         result = hysteresis(data,1)
         np.testing.assert_array_equal(result.data,[0,0.5,1.5,1.5,0.5,-0.5,4.5,5.5,6.5,0.5])
 
+class TestIndexAtValue(unittest.TestCase):
+    
+    # Reminder: index_at_value (array, section, threshold):
 
+    def test_index_at_value_basic(self):
+        array = np.ma.arange(4)
+        self.assertEquals (index_at_value(array, slice(0, 3), 1.5), 1.5)
+        
+    def test_index_at_value_backwards(self):
+        array = np.ma.arange(8)
+        self.assertEquals (index_at_value(array, slice(6, 2, -1), 3.2), 3.2)
+
+    def test_index_at_value_backwards_with_negative_values_a(self):
+        array = np.ma.arange(8)*(-1.0)
+        self.assertEquals (index_at_value(array, slice(6, 2, -1), -3.2), 3.2)
+        
+    def test_index_at_value_backwards_with_negative_values_b(self):
+        array = np.ma.arange(8)-10
+        self.assertEquals (index_at_value(array, slice(6, 2, -1), -5.2), 4.8)
+
+    def test_index_at_value_right_at_start(self):
+        array = np.ma.arange(4)
+        self.assertEquals (index_at_value(array, slice(1, 3), 1.0), 1.0)
+                           
+    def test_index_at_value_right_at_end(self):
+        array = np.ma.arange(4)
+        self.assertEquals (index_at_value(array, slice(1, 4), 3.0), 3.0)
+        
+    def test_index_at_value_threshold_not_crossed(self):
+        array = np.ma.arange(4)
+        self.assertEquals (index_at_value(array, slice(0, 3), 7.5), None)
+        
+    def test_index_at_value_masked(self):
+        array = np.ma.arange(4)
+        array[1] = np.ma.masked
+        self.assertEquals (index_at_value(array, slice(0, 3), 1.5), None)
+      
+ 
 class TestInterleave(unittest.TestCase):
     def test_interleave(self):
         param1 = P('A1',np.ma.array(range(4),dtype=float),1,0.2)
