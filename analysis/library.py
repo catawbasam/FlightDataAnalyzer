@@ -260,9 +260,9 @@ def _create_phase_mask(array, hz, offset, a, b, which_side):
         m[ia:ib] = False
         m[ib:]  = True
     else:
-         m[:ia]  = False
-         m[ia:ib] = True
-         m[ib:]  = False
+        m[:ia]  = False
+        m[ia:ib] = True
+        m[ib:]  = False
          
     # Return the masked array containing reference data and the created mask.
     return np.ma.MaskedArray(array, mask = m)
@@ -348,7 +348,7 @@ def duration(a, period, hz=1.0):
     
     return a
 
-def first_order_lag (in_param, time_constant, hz, gain = 1.0, initial_value = None):
+def first_order_lag (array, time_constant, hz, gain = 1.0, initial_value = None):
     '''
     Computes the transfer function
             x.G
@@ -361,8 +361,12 @@ def first_order_lag (in_param, time_constant, hz, gain = 1.0, initial_value = No
     s is the Laplace operator
     y is the output
     
-    :param in_param: input data (x)
-    :type in_param: masked array
+    Basic example:
+    first_order_lag(param, time_constant=5) is equivalent to
+    array[index] = array[index-1] * 0.8 + array[index] * 0.2.
+    
+    :param array: input data (x)
+    :type array: masked array
     :param time_constant: time_constant for the lag function (T)(sec)
     :type time_constant: float
     :param hz: sample rate for the input data (sec-1)
@@ -373,7 +377,7 @@ def first_order_lag (in_param, time_constant, hz, gain = 1.0, initial_value = No
     :type initial_value: float
     :returns: masked array of values with first order lag applied
     '''
-    input_data = np.copy(in_param.data)
+    input_data = np.copy(array.data)
     
     # Scale the time constant to allow for different data sample rates.
     tc = time_constant / hz
@@ -402,7 +406,7 @@ def first_order_lag (in_param, time_constant, hz, gain = 1.0, initial_value = No
     # The mask should last indefinitely following any single corrupt data point
     # but this is impractical for our use, so we just copy forward the original
     # mask.
-    masked_result.mask = in_param.mask
+    masked_result.mask = array.mask
     return masked_result
 
 def first_order_washout (in_param, time_constant, hz, gain = 1.0, initial_value = None):

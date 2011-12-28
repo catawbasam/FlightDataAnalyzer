@@ -565,7 +565,6 @@ class KeyPointValueNode(FormattedNameNode):
             aligned_kpv.index = (aligned_kpv.index * multiplier) + offset
             aligned_node.append(aligned_kpv)
         return aligned_node
-    #TODO: Accessors for first kpv, primary kpv etc.
     
     def get_max(self, within_slice=None, name=None):
         '''
