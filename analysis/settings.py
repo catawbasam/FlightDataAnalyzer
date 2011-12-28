@@ -69,7 +69,13 @@ HYSTERESIS_FPALT_CCD = 2500 # ft
 # Threshold for flight phase rate of climb hysteresis.
 # We're going to ignore changes smaller than this to avoid repeatedly changing
 # phase if the aircraft is climbing/descending close to a threshold level.
-HYSTERESIS_FPROC = 100 # fpm
+HYSTERESIS_FPROC = 400 # fpm
+# The 400 fpm value has been selected from inspection of Hercules test data
+# which is notoriously noisy. This may need to be revised to suit a wider
+# range of aircraft.
+
+# Threshold for rate of turn hysteresis.
+HYSTERESIS_FPROT = 2 # deg/sec
 
 # Full scale reading on the ILS
 ILS_MAX_SCALE = 2.5 # dots

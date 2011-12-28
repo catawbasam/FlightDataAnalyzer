@@ -1,13 +1,14 @@
 import logging
 import numpy as np
 
-from analysis.library import index_at_value, repair_mask
+from analysis.library import hysteresis, index_at_value, repair_mask
 from analysis.node import A, Attribute, FlightPhaseNode, KeyTimeInstance, P, S, KTI
 from analysis.settings import (AIRSPEED_THRESHOLD,
                                ALTITUDE_FOR_CLB_CRU_DSC,
                                HEADING_TURN_OFF_RUNWAY,
                                HEADING_TURN_ONTO_RUNWAY,
                                HYSTERESIS_FP_RAD_ALT,
+                               HYSTERESIS_FPROT,
                                ILS_MAX_SCALE,
                                INITIAL_CLIMB_THRESHOLD,
                                LANDING_THRESHOLD_HEIGHT,
@@ -33,7 +34,7 @@ def shift_slices(slicelist,offset):
     
     
 class Airborne(FlightPhaseNode):
-    def derive(self, roc=P('Rate Of Climb'), fast=S('Fast')):
+    def derive(self, roc=P('Rate Of Climb For Flight Phases'), fast=S('Fast')):
         # Rate of climb limit set to identify both level flight and 
         # end of takeoff / start of landing.
         for speedy in fast:
@@ -187,7 +188,7 @@ class ClimbFromBottomOfDescent(FlightPhaseNode):
 
         
 class Climbing(FlightPhaseNode):
-    def derive(self, roc=P('Rate Of Climb'), airs=S('Fast')):
+    def derive(self, roc=P('Rate Of Climb For Flight Phases'), airs=S('Fast')):
         # Climbing is used for data validity checks and to reinforce regimes.
         for air in airs:
             climbing = np.ma.masked_less(roc.array[air.slice],
@@ -224,7 +225,7 @@ class Cruise(FlightPhaseNode):
 class Descending(FlightPhaseNode):
     """ Descending faster than 800fpm towards the ground
     """
-    def derive(self, roc=P('Rate Of Climb'), airs=S('Fast')):
+    def derive(self, roc=P('Rate Of Climb For Flight Phases'), airs=S('Fast')):
         # Rate of climb and descent limits of 800fpm gives good distinction
         # with level flight.
         for air in airs:
@@ -233,12 +234,6 @@ class Descending(FlightPhaseNode):
             desc_slices = np.ma.clump_unmasked(descending)
             self.create_phases(shift_slices(desc_slices, air.slice.start))
 
-"""
-Why? DJ
-class Descent(FlightPhaseNode):
-    def derive(self, descending=Descending, roc=P('Rate Of Climb')):
-        return NotImplemented
-"""
 
 class DescentToBottomOfDescent(FlightPhaseNode):
     def derive(self, 
@@ -352,7 +347,7 @@ class InitialApproach(FlightPhaseNode):
 
 
 class LevelFlight(FlightPhaseNode):
-    def derive(self, roc=P('Rate Of Climb'),airs=S('Airborne')):
+    def derive(self, roc=P('Rate Of Climb For Flight Phases'),airs=S('Airborne')):
         # Rate of climb limit set to identify both level flight and 
         # end of takeoff / start of landing.
         for air in airs:
@@ -389,7 +384,7 @@ class Turning(FlightPhaseNode):
     Rate of Turn is greater than +/- RATE_OF_TURN_FOR_FLIGHT_PHASES
     """
     def derive(self, rate_of_turn=P('Rate Of Turn')):
-        turning = np.ma.masked_inside(rate_of_turn.array,
+        turning = np.ma.masked_inside(hysteresis(rate_of_turn.array,HYSTERESIS_FPROT),
                                       RATE_OF_TURN_FOR_FLIGHT_PHASES * (-1.0),
                                       RATE_OF_TURN_FOR_FLIGHT_PHASES)
         

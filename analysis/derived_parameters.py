@@ -137,8 +137,12 @@ class AltitudeAALForFlightPhases(DerivedParameterNode):
             begin = speedy.slice.start
             end = speedy.slice.stop
             peak = np.ma.argmax(alt_std.array[speedy.slice])
-            self.array[begin:begin+peak] = alt_std.array[begin:begin+peak] - alt_std.array[begin]
-            self.array[begin+peak:end] = alt_std.array[begin+peak:end] - alt_std.array[end]
+            # We override any negative altitude variations that occur at
+            # takeoff or landing rotations. This parameter is only used for
+            # flight phase determination so it is important that it behaves
+            # in a predictable manner.
+            self.array[begin:begin+peak] = np.ma.maximum(0.0,alt_std.array[begin:begin+peak]-alt_std.array[begin])
+            self.array[begin+peak:end] = np.ma.maximum(0.0,alt_std.array[begin+peak:end]-alt_std.array[end])
     
     
 class AltitudeForClimbCruiseDescent(DerivedParameterNode):
@@ -399,12 +403,13 @@ class RateOfClimb(DerivedParameterNode):
             # smooths the data more but equally more samples are affected by
             # corrupt source data. So, change the "3" only after careful
             # consideration.
-            self.array = rate_of_change(alt_std,2)*60 # @@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
+            self.array = rate_of_change(alt_std,3)*60
 
 
 class RateOfClimbForFlightPhases(DerivedParameterNode):
     def derive(self, alt_std = P('Altitude STD')):
-        self.array = rate_of_change(repair_mask(alt_std),2)*60
+        self.array = hysteresis(rate_of_change(repair_mask(alt_std),5)*60,
+                                HYSTERESIS_FPROC)
 
 
 class Relief(DerivedParameterNode):
