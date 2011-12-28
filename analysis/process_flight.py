@@ -8,7 +8,7 @@ from analysis.dependency_graph import dependency_order
 from analysis.node import (Attribute, DerivedParameterNode, 
     FlightAttributeNode, FlightPhaseNode, KeyPointValue,
     KeyPointValueNode, KeyTimeInstance, KeyTimeInstanceNode, 
-    Node, NodeManager, SectionNode)
+    Node, NodeManager, P, SectionNode)
 from hdfaccess.file import hdf_file
 from utilities.dict_helpers import dict_filter
 
@@ -125,17 +125,17 @@ def derive_parameters(hdf, node_mgr, process_order):
         if isinstance(node, KeyPointValueNode):
             #Q: track node instead of result here??
             params[param_name] = result
-            kpv_list.extend(result)
+            kpv_list.extend(result.get_aligned(P('for_aligned_storage',[],1,0)))
         elif isinstance(node, KeyTimeInstanceNode):
             params[param_name] = result
-            kti_list.extend(result)
+            kti_list.extend(result.get_aligned(P('for_aligned_storage',[],1,0)))
         elif isinstance(node, FlightAttributeNode):
             params[param_name] = result
             flight_attrs.append(Attribute(result.name, result.value)) # only has one Attribute result
         elif isinstance(node, FlightPhaseNode):
             # expect a single slice
             params[param_name] = result
-            phase_list.extend(result)
+            phase_list.extend(result.get_aligned(P('for_aligned_storage',[],1,0)))
         elif isinstance(node, DerivedParameterNode):
             # perform any post_processing
             if settings.POST_DERIVED_PARAM_PROCESS:
@@ -259,7 +259,8 @@ def process_flight(hdf_path, aircraft_info, start_datetime=datetime.now(), achie
         
     return {'flight' : flight_attrs, 
             'kti' : kti_list, 
-            'kpv' : kpv_list}
+            'kpv' : kpv_list,
+            'phases' : phase_list}
 
 
 if __name__ == '__main__':
