@@ -46,7 +46,7 @@ class TestAirborne(unittest.TestCase):
         fast = [Section('Fast',slice(2,25,None))]
         air = Airborne()
         air.derive(rate_of_climb, fast)
-        expected = [Section(name='Airborne', slice=slice(7, 24, None))]
+        expected = [Section(name='Airborne', slice=slice(6, 22, None))]
         self.assertEqual(air, expected)
 
     def test_airborne_phase_not_airborne(self):

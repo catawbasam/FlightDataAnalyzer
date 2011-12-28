@@ -116,6 +116,27 @@ class TestAirspeedMax(unittest.TestCase):
         self.assertLess(kpv[1].value, 200)
 
 
+class TestAirspeed1000To500FtMax(unittest.TestCase):
+    def test_can_operate(self):
+        expected = [('Airspeed','Altitude AAL For Flight Phases')]
+        opts = Airspeed1000To500FtMax.get_operational_combinations()
+        self.assertEqual(opts, expected) 
+        
+    def test_airspeed_1000_150_basic(self):
+        testline = np.arange(0,12.6,0.1)
+        testwave = (np.cos(testline)*(-100))+100
+        spd = Parameter('Airspeed', np.ma.array(testwave))
+        alt_ph = Parameter('Altitude AAL For Flight Phases', 
+                           np.ma.array(testwave)*10)
+        kpv = Airspeed1000To500FtMax()
+        kpv.derive(spd, alt_ph)
+        self.assertEqual(len(kpv), 2)
+        self.assertEqual(kpv[0].index, 48)
+        self.assertEqual(kpv[0].value, 91.250101656055278)
+        self.assertEqual(kpv[1].index, 110)
+        self.assertEqual(kpv[1].value, 99.557430201194919)
+
+
 class TestAltitudeAtLiftoff(unittest.TestCase, TestCreateKPVsAtKTIs):
     def setUp(self):
         self.node_class = AltitudeAtLiftoff
@@ -222,18 +243,23 @@ class TestGrossWeightAtTouchdown(unittest.TestCase, TestCreateKPVsAtKTIs):
 
 class TestHeadingAtTakeoff(unittest.TestCase):
     def test_can_operate(self):
-        expected = [('Takeoff','Heading Continuous', 'Acceleration Forwards For Flight Phases')]
+        expected = [('Takeoff Peak Acceleration','Heading Continuous')]
         opts = HeadingAtTakeoff.get_operational_combinations()
         self.assertEqual(opts, expected) 
         
     def test_takeoff_heading_basic(self):
         head = P('Heading Continuous',np.ma.array([0,2,4,7,9,8,6,3]))
-        acc = P('Acceleration Forwards For Flight Phases',np.ma.array([0,0,.2,.3,.2,.1,0,0]))
-        toff_ph = [Section('Takeoff',slice(2,5,None))]
+        acc = KTI('Takeoff Peak Acceleration',
+                 items=[KeyTimeInstance(index=3,
+                                        name='Takeoff Peak Acceleration')])        
         kpv = HeadingAtTakeoff()
-        kpv.derive(toff_ph, head, acc)
+        kpv.derive(acc, head)
         expected = [KeyPointValue(index=3, value=7.0, name='Heading At Takeoff')]
         self.assertEqual(kpv, expected)
+        #############################################
+        ## I KNOWW THIS FAILS
+        ## TODO: write a version for takeoff and landing that is more robust
+        #############################################
         
     def test_takeoff_heading_modulus(self):
         head = P('Heading Continuous',np.ma.array([-1,-2,-4,-7,-9,-8,-6,-3]))
@@ -252,13 +278,14 @@ class TestHeadingAtLanding(unittest.TestCase):
         self.assertEqual(opts, expected) 
         
     def test_landing_heading_basic(self):
-        head = P('Heading Continuous',np.ma.array([0,2,4,7,0,-3,-7,-93]))
-        landing = [KeyTimeInstance(index=2, name='Landing Peak Deceleration'),
-                   KeyTimeInstance(index=6, name='Landing Peak Deceleration')]
+        head = P('Heading Continuous',np.ma.array([0,1,2,3,4,5,6,7,8,9,10,-1,-1,7,-1,-1,-1,-1,-1,-1,-1,-10]))
+        landing = [KeyTimeInstance(index=5, name='Landing Peak Deceleration'),
+                   KeyTimeInstance(index=16, name='Landing Peak Deceleration')]
+        head.array[13] = np.ma.masked
         kpv = HeadingAtLanding()
         kpv.derive(landing, head)
-        expected = [KeyPointValue(index=2, value=4.0, name='Heading At Landing'),
-                    KeyPointValue(index=6, value=353.0, name='Heading At Landing')]
+        expected = [KeyPointValue(index=5, value=4.5, name='Heading At Landing'),
+                    KeyPointValue(index=16, value=359.0, name='Heading At Landing')]
         self.assertEqual(kpv, expected)
 
 

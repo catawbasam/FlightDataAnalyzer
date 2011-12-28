@@ -14,12 +14,10 @@ class Airspeed1000To500FtMax(KeyPointValueNode):
         for this_period in in_band_periods:
             begin = this_period.start
             end = this_period.stop
+            # Are we descending through this band?
             if alt_aal.array[begin] > alt_aal.array[end-1]:
-                # Descending through this band.
-                index = np.ma.argmax(np.ma.abs(speed.array[begin:end]))
-                when = begin + index
-                value = speed.array[when]
-                self.create_kpv(when, value)
+                index, value = max_value(speed.array, this_period)
+                self.create_kpv(index, value)
 
 
 class AirspeedAtTouchdown(KeyPointValueNode):
@@ -48,6 +46,20 @@ class HeadingAtTakeoff(KeyPointValueNode):
             self.create_kpv(midpoint, toff_head%360.0)
     '''
 
+    def derive(self, toffs=KTI('Takeoff Peak Acceleration'), 
+               head=P('Heading Continuous')):
+        for toff in toffs:
+            toff_head = np.ma.median(
+                head.array[toff.index-5:toff.index+5])
+            # Scanning 10 seconds around this point allows for short periods of
+            # corrupt data during the takeoff run.
+            self.create_kpv(toff.index, toff_head%360.0)
+
+"""
+
+:TODO Can we omit this ?!?
+
+class AltitudeAtTakeoff(KeyPointValueNode):
     def derive(self, takeoffs=S('Takeoff'), head=P('Heading Continuous'), 
                accel=P('Acceleration Forwards For Flight Phases')):
         for toff in takeoffs:
@@ -64,6 +76,11 @@ class AltitudeAtLiftoff(KeyPointValueNode):
         self.create_kpvs_at_ktis(alt_std.array, liftoffs)
 
     
+class AltitudeAtLanding(KeyPointValueNode):
+    def derive(self, lands=KTI('Touchdown'), alt_std=P('Altitude Std')):
+        for land in lands:
+            self.create_kpv(land.index, alt_std[land.index])
+"""
 class AltitudeAtTouchdown(KeyPointValueNode):
     def derive(self, alt_std=P('Altitude STD'), touchdowns=KTI('Touchdown')):
         self.create_kpvs_at_ktis(alt_std.array, touchdowns)
@@ -96,7 +113,6 @@ class AutopilotEngaged2AtTouchdown(KeyPointValueNode):
                touchdowns=P('Touchdown')):
         self.create_kpvs_at_ktis(autopilot.array, touchdowns)
 
-
 class HeadingAtLanding(KeyPointValueNode):
     """
     The landing has been found already, including and the flare and a little
@@ -108,6 +124,11 @@ class HeadingAtLanding(KeyPointValueNode):
     def derive(self, lands=KTI('Landing Peak Deceleration'), 
                head=P('Heading Continuous')):
         for land in lands:
+            land_head = np.ma.median(
+                head.array[land.index-5:land.index+5])
+            # Scanning 10 seconds around this point allows for short periods of
+            # corrupt data during the takeoff run.
+            self.create_kpv(land.index, land_head%360.0)
             self.create_kpv(land.index, head.array[land.index]%360.0)
 
 
@@ -120,7 +141,7 @@ class HeadingAtLowPointOnApproach(KeyPointValueNode):
     def derive(self, head=P('Heading Continuous'),
                lands=KTI('Approach And Landing Lowest')):
         self.create_kpvs_at_ktis(head.array, lands)
-            
+
 
 class LatitudeAtLanding(KeyPointValueNode):
     def derive(self, lat=P('Latitude'), lands=KTI('Landing Peak Deceleration')):
@@ -447,12 +468,21 @@ class AccelerationNormalDuringTakeoffMax(KeyPointValueNode):
                liftoff=KTI('Liftoff')):
         return NotImplemented
 
-
+        
 class AltitudeMax(KeyPointValueNode):
+    def derive(self, alt_std=P('Altitude STD'),
+               airs=S('Airborne')):
+        # For commented version, see GlideslopeDeviation1500To1000FtMax
+        for air in airs:
+            index, value = max_value(alt_std.array, air.slice)
+            self.create_kpv(index, value)
+    """
+    I think this version is not needed - DJ 23/12/11
     def derive(self, alt_std=P('Altitude STD')): ##, airborne=S('Airborne')):
         max_index = alt_std.array.argmax()
         self.create_kpv(max_index, alt_std.array[max_index])
-
+    """
+        
 
 class AltitudeWithFlapsMax(KeyPointValueNode):
     def derive(self, alt_std=P('Altitude STD'), flap=P('Flap'),
@@ -554,17 +584,15 @@ class GlideslopeDeviation1500To1000FtMax(KeyPointValueNode):
             # We are only interested in descending periods...
             if alt_aal.array[begin] > alt_aal.array[end-1]:
                 
-                # Find where the maximum (absolute) deviation occured
-                index = np.ma.argmax(np.ma.abs(ils_glideslope.array[begin:end]))
-                when = begin + index
-                
-                # Store the actual value. We can do abs on the statistics to
-                # normalise this, but retaining the sign will make it possible
-                # to look for direction of errors at specific airports.
-                value = ils_glideslope.array[when]
+                # Find where the maximum (absolute) deviation occured and
+                # store the actual value. We can do abs on the statistics to
+                # normalise this, but retaining the sign will make it
+                # possible to look for direction of errors at specific
+                # airports.
+                index, value = max_abs_value(ils_glideslope.array, this_period)
 
                 # and create the KPV.
-                self.create_kpv(when, value)
+                self.create_kpv(index, value)
 
 
 class HeightAtGoAroundMin(KeyPointValueNode):

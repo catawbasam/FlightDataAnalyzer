@@ -100,7 +100,7 @@ class TestAccelerationForwardsForFlightPhases(unittest.TestCase):
         accel_fwd.derive(Parameter('Acceleration Longitudinal', acc), None)
         ma_test.assert_masked_array_approx_equal(accel_fwd.array, acc)
 
-    def test_accelearation_forwards_for_phases_using_airspeed(self):
+    def test_acceleration_forwards_for_phases_using_airspeed(self):
         # If only airspeed data is available, it needs differentiating.
         speed = np.ma.arange(0,150,10)
         speed[3:5] = np.ma.masked
@@ -136,6 +136,14 @@ class TestAirspeedForFlightPhases(unittest.TestCase):
 
 
 class TestAltitudeAALForFlightPhases(unittest.TestCase):
+    """
+    THIS TEST FAILS IF THE AIRSPEED_THRESHOLD = 70  # kts IS SET
+    THIS LOW VALUE WAS USED FOR HERCULES TESTING BUT SHOULD BE RESET TO 80 KTS
+    WHEN WE GET THINGS WORKING
+   
+    DON'T PANIC !!!   
+    
+    """
     def test_can_operate(self):
         expected = [('Altitude STD','Fast')]
         opts = AltitudeAALForFlightPhases.get_operational_combinations()
