@@ -525,20 +525,6 @@ class Type(FlightAttributeNode):
     def derive(self, afr_type=A('AFR Type'), fast=S('Fast'),
                liftoffs=KTI('Liftoff'), touchdowns=KTI('Touchdown'),
                touch_and_gos=S('Touch And Go'), ground_speed=P('Ground Speed')):
-        ## options are:
-        #COMMERCIAL = 'COMMERCIAL'
-        #INCOMPLETE = 'INCOMPLETE'
-        #ENGINE_RUN_UP = 'ENGINE_RUN_UP'
-        #REJECTED_TAKEOFF = 'REJECTED_TAKEOFF'
-        #TEST = 'TEST'
-        #TRAINING = 'TRAINING'
-        #FERRY = 'FERRY'
-        #POSITIONING = 'POSITIONING'
-        #LINE_TRAINING = 'LINE_TRAINING'
-        #if go_fast and left ground:
-        
-        # TODO: ON_GROUND.
-        
         afr_type = afr_type.value if afr_type else None
         
         if liftoffs and not touchdowns:
@@ -563,14 +549,15 @@ class Type(FlightAttributeNode):
                                 "will be 'INCOMPLETE'.", self.name)
                 self.set_flight_attr('TOUCHDOWN_BEFORE_LIFTOFF')
                 return
-            last_touchdown = touchdowns.get_last()
-            last_touch_and_go = touch_and_gos.get_last()
-            if last_touchdown.index <= last_touch_and_go.index:
-                logging.warning("A 'Touch And Go' KTI exists after the last "
-                                "'Touchdown'. '%s' will be 'INCOMPLETE'.",
-                                self.name)
-                self.set_flight_attr('LIFTOFF_ONLY')
-                return
+            if touch_and_gos:
+                last_touchdown = touchdowns.get_last()
+                last_touch_and_go = touch_and_gos.get_last()
+                if last_touchdown.index <= last_touch_and_go.index:
+                    logging.warning("A 'Touch And Go' KTI exists after the last "
+                                    "'Touchdown'. '%s' will be 'INCOMPLETE'.",
+                                    self.name)
+                    self.set_flight_attr('LIFTOFF_ONLY')
+                    return
             
             if afr_type in ['FERRY', 'LINE_TRAINING', 'POSITIONING' 'TEST',
                             'TRAINING']:
@@ -581,36 +568,10 @@ class Type(FlightAttributeNode):
         elif fast:
             self.set_flight_attr('REJECTED_TAKEOFF')
         elif ground_speed and ground_speed.array.ptp() > 10:
+            # The aircraft moved on the ground.
             self.set_flight_attr('GROUND_RUN')
         else:
             self.set_flight_attr('ENGINE_RUN_UP')
-            
-        #elif fast and not liftoff:
-            #flight_type = 'REJECTED_TAKEOFF'
-        #else:
-            ## Ensure there was a liftoff before the first touchdown.
-            #first_touchdown = touchdowns.get_first()
-            #first_liftoff = liftoffs.get_first()
-            #if not first_liftoff or not first_touchdown:
-                #flight_type = 'INCOMPLETE'
-            #elif  first_touchdown.index < first_liftoff.index:
-                
-            #else:
-                #flight_type = 'ENGINE_RUN_UP'
-            
-        #elif go_fast and not left ground:
-            #REJECTED_TAKEOFF
-        
-        #elif start_in_air or stop in air:
-            #INCOMPLETE
-        
-        #elif on_ground and moved_around:
-            #GROUND_RUN -- add new type and find out how to determine one vs. other
-            
-        #else:
-            ## all on ground and didn't go fast
-            #ENGINE_RUN_UP # and didn't move?
-        #return NotImplemented
 
 
 #Q: Not sure if we can identify Destination from the data?

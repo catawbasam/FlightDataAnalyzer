@@ -764,16 +764,82 @@ class TestTakeoffRunway(unittest.TestCase):
 class TestType(unittest.TestCase):
     def test_can_operate(self):
         self.assertEqual(Type.get_operational_combinations(),
-                         [('Fast', 'Liftoff', 'Touchdown'),
-                          ('AFR Type', 'Fast', 'Liftoff', 'Touchdown')])
+          [('Fast', 'Liftoff', 'Touchdown'),
+           ('AFR Type', 'Fast', 'Liftoff', 'Touchdown'),
+           ('Fast', 'Liftoff', 'Touchdown', 'Touch And Go'),
+           ('Fast', 'Liftoff', 'Touchdown', 'Ground Speed'),
+           ('AFR Type', 'Fast', 'Liftoff', 'Touchdown', 'Touch And Go'),
+           ('AFR Type', 'Fast', 'Liftoff', 'Touchdown', 'Ground Speed'),
+           ('Fast', 'Liftoff', 'Touchdown', 'Touch And Go', 'Ground Speed'),
+           ('AFR Type', 'Fast', 'Liftoff', 'Touchdown', 'Touch And Go', 
+            'Ground Speed')])
     
     def test_derive(self):
         type_node = Type()
         type_node.set_flight_attr = Mock()
-        # Liftoff, 
+        # Liftoff and Touchdown.
         fast = S('Fast', items=[slice(5,10)])
         liftoffs = KTI('Liftoff', items=[KeyTimeInstance(5, 'a')])
         touchdowns = KTI('Touchdown', items=[KeyTimeInstance(10, 'x')])
-        type_node.derive(None, fast, liftoffs, touchdowns)
+        type_node.derive(None, fast, liftoffs, touchdowns, None, None)
         self.assertEqual(type_node.set_flight_attr.call_args,
-                         (('COMMERCIAL',), {}))
+                         (('COMPLETE',), {}))
+        # Would be 'COMPLETE', but 'AFR Type' overrides it.
+        afr_type = A('AFR Type', value='FERRY')
+        type_node.derive(afr_type, fast, liftoffs, touchdowns, None, None)
+        self.assertEqual(type_node.set_flight_attr.call_args,
+                         (('FERRY',), {}))
+        # Liftoff missing.
+        empty_liftoffs = KTI('Liftoff')
+        type_node.derive(None, fast, empty_liftoffs, touchdowns, None, None)
+        self.assertEqual(type_node.set_flight_attr.call_args,
+                         (('TOUCHDOWN_ONLY',), {}))
+        # Touchdown missing.
+        empty_touchdowns = KTI('Touchdown')
+        type_node.derive(None, fast, liftoffs, empty_touchdowns, None, None)
+        self.assertEqual(type_node.set_flight_attr.call_args,
+                         (('LIFTOFF_ONLY',), {}))
+        # Liftoff and Touchdown missing, only Fast.
+        type_node.derive(None, fast, empty_liftoffs, empty_touchdowns, None,
+                         None)
+        self.assertEqual(type_node.set_flight_attr.call_args,
+                         (('REJECTED_TAKEOFF',), {}))
+        # Liftoff, Touchdown and Fast missing.
+        empty_fast = fast = S('Fast')
+        type_node.derive(None, empty_fast, empty_liftoffs, empty_touchdowns,
+                         None, None)
+        self.assertEqual(type_node.set_flight_attr.call_args,
+                         (('ENGINE_RUN_UP',), {}))
+        # Liftoff, Touchdown and Fast missing, Ground Speed changes.
+        ground_speed = P('Ground Speed', np.ma.arange(20))
+        type_node.derive(None, empty_fast, empty_liftoffs, empty_touchdowns,
+                         None, ground_speed)
+        self.assertEqual(type_node.set_flight_attr.call_args,
+                         (('GROUND_RUN',), {}))
+        # Liftoff, Touchdown and Fast missing, Ground Speed stays the same.
+        ground_speed = P('Ground Speed', np.ma.masked_array([0] * 20))
+        type_node.derive(None, empty_fast, empty_liftoffs, empty_touchdowns,
+                         None, ground_speed)
+        self.assertEqual(type_node.set_flight_attr.call_args,
+                         (('ENGINE_RUN_UP',), {}))
+        # Liftoff after Touchdown.
+        late_liftoffs = KTI('Liftoff', items=[KeyTimeInstance(20, 'a')])
+        type_node.derive(None, fast, late_liftoffs, touchdowns, None, None)
+        self.assertEqual(type_node.set_flight_attr.call_args,
+                         (('TOUCHDOWN_BEFORE_LIFTOFF',), {}))
+        # Touch and Go before Touchdown.
+        afr_type = A('AFR Type', value='TRAINING')
+        touch_and_gos = KTI('Touch and Gos', items=[KeyTimeInstance(7, 'a')])
+        type_node.derive(afr_type, fast, liftoffs, touchdowns, touch_and_gos,
+                         None)
+        self.assertEqual(type_node.set_flight_attr.call_args,
+                         (('TRAINING',), {}))
+        # Touch and Go after Touchdown.
+        afr_type = A('AFR Type', value='TRAINING')
+        touch_and_gos = KTI('Touch and Gos', items=[KeyTimeInstance(15, 'a')])
+        type_node.derive(afr_type, fast, liftoffs, touchdowns, touch_and_gos,
+                         None)
+        self.assertEqual(type_node.set_flight_attr.call_args,
+                         (('LIFTOFF_ONLY',), {}))
+        
+        

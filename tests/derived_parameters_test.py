@@ -259,8 +259,17 @@ class TestAltitudeRadioForFlightPhases(unittest.TestCase):
 
 class TestAltitudeSTD(unittest.TestCase):
     def test_can_operate(self):
-        self.assertEqual(AltitudeSTD.get_operational_combinations,
-                         []) # TODO
+        self.assertEqual(AltitudeSTD.get_operational_combinations(),
+          [('Altitude STD High', 'Altitude STD Low'),
+           ('Altitude STD Rough', 'Inertial Vertical Speed'),
+           ('Altitude STD High', 'Altitude STD Low', 'Altitude STD Rough'),
+           ('Altitude STD High', 'Altitude STD Low', 'Inertial Vertical Speed'),
+           ('Altitude STD High', 'Altitude STD Rough',
+            'Inertial Vertical Speed'),
+           ('Altitude STD Low', 'Altitude STD Rough',
+            'Inertial Vertical Speed'),
+           ('Altitude STD High', 'Altitude STD Low', 'Altitude STD Rough',
+            'Inertial Vertical Speed')])
     
     def test__high_and_low(self):
         high_values = np.ma.array([15000, 16000, 17000, 18000, 19000, 20000,
