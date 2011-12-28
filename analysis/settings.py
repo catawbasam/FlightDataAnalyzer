@@ -40,9 +40,9 @@ FLIGHT_WORTH_ANALYSING_SEC = 300
 # Threshold for start of climb phase
 CLIMB_THRESHOLD = 1000 # ft AAL
 
-# Minimum period of a descent for testing against thresholds (reduces number
+# Minimum period of a climb or descent for testing against thresholds (reduces number
 # of KPVs computed in turbulence)
-DESCENT_MIN_DURATION = 10  # sec
+CLIMB_OR_DESCENT_MIN_DURATION = 10  # sec
 
 # Acceleration due to gravity
 GRAVITY = 32.2 # ft/sec^2

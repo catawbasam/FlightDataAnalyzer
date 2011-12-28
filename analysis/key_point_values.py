@@ -222,10 +222,11 @@ class AccelerationNormalAirborneMin(KeyPointValueNode):
             self.create_kpv(index, value)
 
 
+'''
 class Pitch35To400FtMax(KeyPointValueNode):
     def derive(self, pitch=P('Pitch'), alt_rad=P('Altitude Radio')):
         return NotImplemented
-
+'''
 
 class Pitch1000To100FtMax(KeyPointValueNode):
     def derive(self, pitch=P('Pitch'), alt_aal=P('Altitude AAL')):
@@ -393,6 +394,21 @@ class AccelerationNormalMax(KeyPointValueNode):
         ##self.create_kpv(block.start+n_acceleration_normal_max,
                         ##acceleration_normal_max)
     
+
+class RateOfClimbHigh(KeyPointValueNode):
+    '''
+    .. TODO:: testcases
+    '''
+    def derive(self, rate_of_climb=P('Rate Of Climb'),
+               climbing=S('Climbing')):
+        #TODO: Merge with below RateOfDescentMax accepting a flightphase arg
+        for climb in climbing:
+            duration = climb.slice.stop - climb.slice.start
+            if duration > settings.CLIMB_OR_DESCENT_MIN_DURATION:
+                index, value = max_value(rate_of_climb.array, climb.slice)
+                self.create_kpv(index, value)
+                
+                
     
 class RateOfDescentHigh(KeyPointValueNode):
     '''
@@ -403,8 +419,8 @@ class RateOfDescentHigh(KeyPointValueNode):
         #TODO: Merge with below RateOfDescentMax accepting a flightphase arg
         for descent in descending:
             duration = descent.slice.stop - descent.slice.start
-            if duration > settings.DESCENT_MIN_DURATION:
-                index, value = max_value(rate_of_climb.array, descent.slice)
+            if duration > settings.CLIMB_OR_DESCENT_MIN_DURATION:
+                index, value = min_value(rate_of_climb.array, descent.slice)
                 self.create_kpv(index, value)
                 
                 
@@ -419,7 +435,7 @@ class RateOfDescentMax(KeyPointValueNode):
         for descent in descents:
             duration = descent.slice.stop - descent.slice.start
             if duration > self.DESCENT_MIN_DURATION:
-                index, value = max_value(rate_of_climb.array, descent.slice)
+                index, value = min_value(rate_of_climb.array, descent.slice)
                 self.create_kpv(index, value)
              
     

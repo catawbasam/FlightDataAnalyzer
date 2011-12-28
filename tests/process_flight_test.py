@@ -1,14 +1,23 @@
-try:
-    import unittest2 as unittest  # py2.6
-except ImportError:
-    import unittest
+import unittest
+
+import os
+import shutil
 
 from datetime import datetime
+        
 from analysis.process_flight import process_flight, derive_parameters, get_derived_nodes
 
 class TestProcessFlight(unittest.TestCase):
+    
+    def setUp(self):
+        pass
+    
     def test_l382_herc(self):
-        hdf_path = "test_data/2_6748957_L382-Hercules.hdf5"
+        hdf_orig = "test_data/2_6748957_L382-Hercules.hdf5"
+        hdf_path = "test_data/2_6748957_L382-Hercules_copy.hdf5"
+        if os.path.isfile(hdf_path):
+            os.remove(hdf_path)
+        shutil.copy(hdf_orig, hdf_path)
         ac_info = {'Frame': u'L382-Hercules',
                    'Identifier': u'',
                    'Manufacturer': u'Lockheed',
