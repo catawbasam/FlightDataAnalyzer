@@ -1,7 +1,7 @@
 import logging
 import numpy as np
 
-from analysis.library import time_at_value_wrapped
+from analysis.library import index_at_value
 
 from analysis.node import FlightPhaseNode, P, S, KTI
 
@@ -70,7 +70,7 @@ class ApproachAndLandingLowestPoint(KeyTimeInstanceNode):
 class ClimbStart(KeyTimeInstanceNode):
     def derive(self, alt_aal=P('Altitude AAL'), climbing=S('Climbing')):
         for climb in climbing:
-            initial_climb_index = time_at_value_wrapped(alt_aal, climb,
+            initial_climb_index = index_at_value(alt_aal.array, climb.slice,
                                                         CLIMB_THRESHOLD)
             self.create_kti(initial_climb_index, 'Climb Start')
 
@@ -204,9 +204,11 @@ class TakeoffTurnOntoRunway(KeyTimeInstanceNode):
 class TakeoffStartAcceleration(KeyTimeInstanceNode):
     def derive(self, fwd_acc=P('Acceleration Forwards For Flight Phases'), toffs=S('Takeoff')):
         for toff in toffs:
-            start_accel = time_at_value_wrapped(fwd_acc, toff, 
+            #start_accel = time_at_value_wrapped(fwd_acc, toff, 
+                                                #TAKEOFF_ACCELERATION_THRESHOLD)
+            start_accel = index_at_value(fwd_acc.array, toff.slice, 
                                                 TAKEOFF_ACCELERATION_THRESHOLD)
-            self.create_kti(toff.slice.start + start_accel, 'Takeoff Start Acceleration')
+            self.create_kti(start_accel, 'Takeoff Start Acceleration')
 
             
 class Liftoff(KeyTimeInstanceNode):
@@ -215,9 +217,9 @@ class Liftoff(KeyTimeInstanceNode):
     def derive(self, roc=P('Rate Of Climb For Flight Phases'),
               toffs=S('Takeoff')):
         for toff in toffs:
-            lift_time = time_at_value_wrapped(roc, toff, 
+            lift_index = index_at_value(roc.array, toff.slice, 
                                               RATE_OF_CLIMB_FOR_LIFTOFF)
-            self.create_kti(toff.slice.start+lift_time, 'Liftoff')
+            self.create_kti(lift_index, 'Liftoff')
             
 
 class InitialClimbStart(KeyTimeInstanceNode):
@@ -262,9 +264,9 @@ class Touchdown(KeyTimeInstanceNode):
     # backwards from the runway for greater accuracy.
     def derive(self, roc=P('Rate Of Climb'), landings=S('Landing')):
         for landing in landings:
-            land_time = time_at_value_wrapped(roc, landing, 
-                                              RATE_OF_CLIMB_FOR_TOUCHDOWN)
-            self.create_kti(landing.slice.start+land_time, 'Touchdown')
+            land_index = index_at_value(roc.array, landing.slice, 
+                                        RATE_OF_CLIMB_FOR_TOUCHDOWN)
+            self.create_kti(land_index, 'Touchdown')
 
 
 class LandingTurnOffRunway(KeyTimeInstanceNode):
@@ -278,9 +280,9 @@ class LandingTurnOffRunway(KeyTimeInstanceNode):
 class LandingStartDeceleration(KeyTimeInstanceNode):
     def derive(self, fwd_acc=P('Acceleration Forwards For Flight Phases'), landings=S('Landing')):
         for landing in landings:
-            start_accel = time_at_value_wrapped(fwd_acc, landing, 
+            start_decel_index = index_at_value(fwd_acc.array, landing.slice, 
                                                 LANDING_ACCELERATION_THRESHOLD)
-            self.create_kti(landing.slice.start+start_accel, 'Landing Start Deceleration')
+            self.create_kti(start_decel_index, 'Landing Start Deceleration')
 
 
 #<<<< This style for all climbing events >>>>>
@@ -303,16 +305,16 @@ class _35FtClimbing(KeyTimeInstanceNode):
 class _50FtClimbing(KeyTimeInstanceNode):
     def derive(self, alt_aal=P('Altitude AAL')):
         for climb in climbing:
-            index = time_at_value_wrapped(alt_aal,
-                                          climb, 50)
+            index = start_decel_index(alt_aal.array,
+                                          climb.index, 50)
             self.create_kti(index, '50 Ft In Initial Climb')
 
 
 class _75FtClimbing(KeyTimeInstanceNode):
     def derive(self, alt_aal=P('Altitude AAL')):
         for climb in climbing:
-            index = time_at_value_wrapped(alt_aal,
-                                          climb, 50)
+            index = start_decel_index(alt_aal.array,
+                                          climb.slice, 50)
             self.create_kti(index, '50 Ft In Initial Climb')
 
 

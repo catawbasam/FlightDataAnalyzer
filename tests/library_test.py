@@ -19,7 +19,7 @@ from analysis.library import (align, calculate_timebase, create_phase_inside,
                               mask_inside_slices, mask_outside_slices,
                               max_value, max_abs_value, merge_alternate_sensors,
                               rate_of_change, repair_mask, straighten_headings,
-                              time_at_value, time_at_value_wrapped,
+                              #time_at_value, time_at_value_wrapped,
                               value_at_time, vstack_params, InvalidDatetime)
 
 from analysis.node import A, KPV, KTI, Parameter, P, S, Section
@@ -876,6 +876,10 @@ class TestStraightenHeadings(unittest.TestCase):
                 #msg="Failed at %s == %s at %s" % (val, expected[index], index)
             #)
 
+"""
+============================================================
+Time functions replaced by index operations for consistency.
+============================================================
 
 class TestTimeAtValue(unittest.TestCase):
     
@@ -919,7 +923,10 @@ class TestTimeAtValueWrapped(unittest.TestCase):
         test_param = P('TAVW_param',np.ma.array([0,4,0,4]),1,0.0)
         test_section = Section('TAVW_section',slice(0,4))
         self.assertEquals(time_at_value_wrapped(test_param,test_section,2,'Backwards'),2.5)
-
+============================================================
+Time functions replaced by index operations for consistency.
+============================================================
+"""
         
 class TestValueAtTime(unittest.TestCase):
 

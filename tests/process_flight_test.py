@@ -10,6 +10,7 @@ from analysis.process_flight import process_flight, derive_parameters, get_deriv
 from analysis.node import KeyPointValueNode, P, KeyTimeInstanceNode, S
 from analysis.library import value_at_time
 from analysis.key_time_instances import TriggerPassiveNodes
+from analysis.plot_flight import plot_flight
 
 import itertools
 def sort_by_index_or_slice(x):
@@ -100,15 +101,12 @@ class TestProcessFlight(unittest.TestCase):
                'AFR Vapp': 135,
                'AFR Vref': 120
               }
-        #res = process_flight(args, kwargs)
-        clouseau = TriggerPassiveNodes()
-        clouseau.derive()
-        res = process_flight(hdf_path, ac_info, achieved_flight_record=afr, draw=False)
-        output_phase_kti_kpv_for_development(res)
-        
-        #index_sorted_res = sorted(itertools.chain(*res.values()), key=sort_by_index_or_slice)
+        res = process_flight(hdf_path, ac_info, achieved_flight_record=afr, 
+                             draw=False)
         self.assertEqual(len(res), 4)
-    
+        from analysis.plot_flight import csv_flight_details
+        csv_flight_details(hdf_path, res['kti'], res['kpv'], res['phases'])
+        plot_flight(hdf_path, res['kti'], res['kpv'], res['phases'])
     
     def test_146_301(self):
         hdf_path = "test_data/4_3377853_146-301.005.hdf5"

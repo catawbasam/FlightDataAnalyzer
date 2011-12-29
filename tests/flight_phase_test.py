@@ -476,9 +476,9 @@ class TestLanding(unittest.TestCase):
         phase_fast = Fast()
         phase_fast.derive(P('Airspeed',ias))
         landing = Landing()
-        landing.derive(phase_fast, P('Heading Continuous',head),
+        landing.derive(P('Heading Continuous',head),
                        P('Altitude AAL For Flight Phases',alt_aal),
-                       None)
+                       phase_fast, None)
         expected = [Section(name='Landing', slice=slice(0.75, 8.5, None))]
         self.assertEqual(landing, expected)
         

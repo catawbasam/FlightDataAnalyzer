@@ -783,6 +783,11 @@ def straighten_headings(heading_array):
     heading_array[1:] = np.cumsum(diff) + head_prev
     return heading_array
 
+"""
+============================================================
+Time functions replaced by index operations for consistency.
+============================================================
+
 def time_at_value_wrapped(parameter, section, value, direction='Forwards'):
     '''
     This function makes it easier to access the time_at_value function 
@@ -868,6 +873,11 @@ def time_at_value (array, hz, offset, scan_start, scan_end, threshold):
         r = (float(threshold) - a) / (b-a) 
         #TODO: Could test 0 < r < 1 for completeness
     return (begin + step * (n + r)) / hz
+============================================================
+Time functions replaced by index operations for consistency.
+============================================================
+"""
+
 
 def index_at_value (array, section, threshold):
     '''
@@ -892,7 +902,17 @@ def index_at_value (array, section, threshold):
 
     if begin == end:
         raise ValueError, 'No range for seek function to scan across'
-    
+
+    # A "let's get the logic right and tidy it up afterwards" bit of code...
+    if begin > len(array):
+        begin = len(array)
+    if begin < 0:
+        begin = 0
+    if end > len(array):
+        end = len(array)
+    if end < 0:
+        end = 0
+        
     if step == None:
         step = 1
         

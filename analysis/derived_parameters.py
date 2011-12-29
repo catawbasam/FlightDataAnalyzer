@@ -86,7 +86,7 @@ class AccelerationForwardsForFlightPhases(DerivedParameterNode):
             acceleration or deceleration on the runway.
             """
             # TODO: Remove float from line below
-            aspd = P('Aspd',array=repair_mask(airspeed.array),frequency=airspeed.frequency)
+            aspd = P('Aspd',array=repair_mask(np.ma.array(airspeed.array.data, dtype='float')),frequency=airspeed.frequency)
             # Tacky smoothing to see how it works. TODO fix !
             roc_aspd = rate_of_change(aspd,1.5) * KTS_TO_FPS/GRAVITY
             self.array =  roc_aspd 
