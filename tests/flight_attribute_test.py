@@ -597,7 +597,7 @@ class TestTakeoffAirport(unittest.TestCase):
         '''
         get_nearest_airport.side_effect = NotFoundError('Not Found.')
         liftoff = KTI('Liftoff')
-        liftoff.create_kti(1, 'STATE')
+        liftoff.create_kti(1)
         latitude = P('Latitude', array=np.ma.masked_array([2.0,4.0,6.0]))
         longitude = P('Longitude', array=np.ma.masked_array([1.0,3.0,5.0]))
         takeoff_airport = TakeoffAirport()
@@ -614,7 +614,7 @@ class TestTakeoffAirport(unittest.TestCase):
         airport_info = {'id': 123}
         get_nearest_airport.return_value = airport_info
         liftoff = KTI('Liftoff')
-        liftoff.create_kti(1, 'STATE')
+        liftoff.create_kti(1)
         latitude = P('Latitude', array=np.ma.masked_array([2.0,4.0,6.0]))
         longitude = P('Longitude', array=np.ma.masked_array([1.0,3.0,5.0]))
         takeoff_airport = TakeoffAirport()
@@ -739,7 +739,7 @@ class TestTakeoffRunway(unittest.TestCase):
         # arguments. Latitude and Longitude are only passed with all these
         # parameters available and Precise Positioning is True.
         liftoff = KTI('Liftoff')
-        liftoff.create_kti(1, 'STATE')
+        liftoff.create_kti(1)
         latitude = P('Latitude', array=np.ma.masked_array([2.0,4.0,6.0]))
         longitude = P('Longitude', array=np.ma.masked_array([1.0,3.0,5.0]))
         precision = A('Precision')
@@ -775,6 +775,9 @@ class TestType(unittest.TestCase):
             'Ground Speed')])
     
     def test_derive(self):
+        '''
+        Tests every flow, but does not test every conceivable set of arguments.
+        '''
         type_node = Type()
         type_node.set_flight_attr = Mock()
         # Liftoff and Touchdown.

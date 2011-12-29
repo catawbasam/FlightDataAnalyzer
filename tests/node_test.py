@@ -690,8 +690,17 @@ class TestKeyTimeInstanceNode(unittest.TestCase):
                                                          #dependencies=['a']))
         #params = {'a':Parameter('a',[], 2, 0.4)}
         #kti = KTI(frequency=2, offset=0.4)
-        kti.create_kti(12, 'fast')
-        self.assertEqual(kti, [KeyTimeInstance(index=12, name='fast')])
+        kti.create_kti(12)
+        self.assertEqual(list(kti), [KeyTimeInstance(index=12, name='Kti')])
+        
+        # NAME_FORMAT
+        kti = KTI()
+        kti.NAME_FORMAT = 'Flap %(setting)d'
+        kti.NAME_VALUES = {'setting': [10, 25, 35]}
+        kti.create_kti(24, setting=10)
+        kti.create_kti(35, {'setting':25})
+        self.assertEqual(list(kti), [KeyTimeInstance(index=24, name='Flap 10'),
+                                     KeyTimeInstance(index=35, name='Flap 25'),])
     
     def test_get_aligned(self):
         '''
@@ -702,13 +711,13 @@ class TestKeyTimeInstanceNode(unittest.TestCase):
                                                          #dependencies=['a']))
         #params = {'a':Parameter('a',[], 2, 0.4)}
         #kti = KTI(frequency=2, offset=0.4)
-        kti.create_kti(16, 'fast')
-        kti.create_kti(18, 'fast')
+        kti.create_kti(16)
+        kti.create_kti(18)
         param = Parameter('p', frequency=0.25, offset=2)
         aligned_kti = kti.get_aligned(param)
         self.assertEqual(aligned_kti,
-                         [KeyTimeInstance(index=1.6, name='fast'),
-                          KeyTimeInstance(index=1.85, name='fast')])
+                         [KeyTimeInstance(index=1.6, name='Kti'),
+                          KeyTimeInstance(index=1.85, name='Kti')])
 
 
 class TestDerivedParameterNode(unittest.TestCase):

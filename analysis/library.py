@@ -67,8 +67,13 @@ def align(slave, master, interval='Subframe', signaltype='Analogue'):
     :returns: Slave array aligned to master.
     :rtype: np.ma.array
     """
+    slave_array = slave.array # Optimised access to attribute.
+    if len(slave_array) == 0:
+        # No elements to align, avoids exception being raised in the loop below.
+        return slave_array
     if slave.frequency == master.frequency and slave.offset == master.offset:
-        return slave.array
+        # No alignment is required, return the slave's array unchanged.
+        return slave_array
     
     # Check the interval is one of the two forms we recognise
     assert interval in ['Subframe', 'Frame']
@@ -76,16 +81,6 @@ def align(slave, master, interval='Subframe', signaltype='Analogue'):
     # Check the type of signal is one of those we recognise
     assert signaltype in ['Analogue', 'Discrete', 'Multi-State']
     
-    slave_array = slave.array # Optimised access to attribute.
-    if len(slave_array) == 0:
-        return slave_array # Otherwise would raise in loop.
-    if master.frequency == slave.frequency and master.offset == slave.offset:
-        # No alignment is required, return the slave's array unchanged.
-        return slave.array
-    
-    # Here we create a masked array to hold the returned values that will have 
-    # the same sample rate and timing offset as the master
-    slave_aligned = np.ma.empty_like(master.array)
     ## slave_aligned[:] = 0.0
     ## Clearing the slave_aligned array is unnecessary, but can make testing easier to follow.
 
@@ -107,10 +102,14 @@ def align(slave, master, interval='Subframe', signaltype='Analogue'):
         ws = int(ws * 4)
     assert wm in [1,2,4,8,16,32,64]
     assert ws in [1,2,4,8,16,32,64]
-    assert len(master.array.data) * ws == len(slave_array.data) * wm
+    ##assert len(master.array.data) * ws == len(slave_array.data) * wm
            
     # Compute the sample rate ratio (in range 10:1 to 1:10 for sample rates up to 10Hz)
     r = wm/float(ws)
+    
+    # Here we create a masked array to hold the returned values that will have 
+    # the same sample rate and timing offset as the master
+    slave_aligned = np.ma.empty(len(slave_array) * r)
 
     # Each sample in the master parameter may need different combination parameters
     for i in range(int(wm)):
@@ -131,7 +130,6 @@ def align(slave, master, interval='Subframe', signaltype='Analogue'):
         # Either way, a is the residual part.    
         a=1-b
         
-
         if h<0:
             slave_aligned[i+wm::wm]=a*slave_array[h+ws:-ws:ws]+b*slave_array[h1+ws::ws]
             # We can't interpolate the inital values as we are outside the 
