@@ -45,7 +45,41 @@ def post_lfl_param_process(hdf, param):
             return _param
     return param
 
+def split_segments2(airspeed, dfc):
+    speedy_slices = np.ma.notmasked_contiguous(mask_slow_airspeed(airspeed.array))
+    # be clever about splitting between speedy slices
+    if len(speedy_slices) <= 1:
+        return [slice(0, len(airspeed))]
+    # more than one speedy section
+    dfc_diff = np.ma.diff(dfc.array)
+    dfc_mask_one = np.ma.masked_equal(dfc_diff, 1)
+    dfc_mask_4094 = np.ma.masked_equal(dfc_mask_one, -4094)
+    
+    segment_slices = []
+    origin = 0
+    start = speedy_slices[0].stop
+    for speedy_slice in speedy_slices[1:]:
+        stop = speedy_slice.start
+        # find DFC split within speedy sections
 
+        # take the biggest jump (not that it means anything, but only one jump is enough!
+        index, value = max_abs_value(dfc_mask_4094, slice(start, stop))
+        if np.ma.is_masked(value) or index == start:
+            # no jump, take half way between values
+            index = (start + stop) / 2.0
+        segment_slices.append(slice(origin, index))
+        print slice(origin, index)
+        # keep track of slices
+        origin = index
+        start = speedy_slice.stop
+    else:
+        # end slice
+        segment_slices.append(slice(origin, None))
+        print segment_slices[-1]
+            
+    return segment_slices
+
+"""
 def split_hdf_to_segments(hdf_path, aircraft_ident={}, output_dir=None, draw=False):
     """
     Main method - analyses an HDF file for flight segments and splits each
@@ -114,7 +148,7 @@ def split_hdf_to_segments(hdf_path, aircraft_ident={}, output_dir=None, draw=Fal
         #close('all') # closes all figures
          
     return segments
-            
+"""            
       
 if __name__ == '__main__':
     import sys

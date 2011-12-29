@@ -137,8 +137,12 @@ class AltitudeAALForFlightPhases(DerivedParameterNode):
             begin = speedy.slice.start
             end = speedy.slice.stop
             peak = np.ma.argmax(alt_std.array[speedy.slice])
-            self.array[begin:begin+peak] = alt_std.array[begin:begin+peak] - alt_std.array[begin]
-            self.array[begin+peak:end] = alt_std.array[begin+peak:end] - alt_std.array[end]
+            # We override any negative altitude variations that occur at
+            # takeoff or landing rotations. This parameter is only used for
+            # flight phase determination so it is important that it behaves
+            # in a predictable manner.
+            self.array[begin:begin+peak] = np.ma.maximum(0.0,alt_std.array[begin:begin+peak]-alt_std.array[begin])
+            self.array[begin+peak:end] = np.ma.maximum(0.0,alt_std.array[begin+peak:end]-alt_std.array[end])
     
     
 class AltitudeForClimbCruiseDescent(DerivedParameterNode):
@@ -176,6 +180,94 @@ class AltitudeQNH(DerivedParameterNode):
     name = 'Altitude QNH'
     def derive(self, param=P('Flap')):
         return NotImplemented
+
+
+class AltitudeSTD(DerivedParameterNode):
+    name = 'Altitude STD'
+    @classmethod
+    def can_operate(cls, available):
+        high_and_low = 'Altitude STD High' in available and \
+            'Altitude STD Low' in available
+        rough_and_ivv = 'Altitude STD Rough' in available and \
+            'Inertial Vertical Speed' in available
+        return high_and_low or rough_and_ivv
+    
+    def _high_and_low(self, alt_std_high, alt_std_low, top=18000, bottom=17000):
+        # Create empty array to write to.
+        alt_std = np.ma.empty(len(alt_std_high.array))
+        alt_std.mask = np.ma.mask_or(alt_std_high.array.mask,
+                                     alt_std_low.array.mask)
+        difference = top - bottom
+        # Create average of high and low. Where average is above crossover,
+        # source value from alt_std_high. Where average is below crossover,
+        # source value from alt_std_low.
+        average = (alt_std_high.array + alt_std_low.array) / 2
+        source_from_high = average > top
+        alt_std[source_from_high] = alt_std_high.array[source_from_high]
+        source_from_low = average < bottom
+        alt_std[source_from_low] = alt_std_low.array[source_from_low]
+        source_from_high_or_low = np.ma.logical_or(source_from_high,
+                                                   source_from_low)
+        crossover = np.ma.logical_not(source_from_high_or_low)
+        crossover_indices = np.ma.where(crossover)[0]
+        high_values = alt_std_high.array[crossover]
+        low_values = alt_std_low.array[crossover]
+        for index, high_value, low_value in zip(crossover_indices,
+                                                high_values,
+                                                low_values):
+            average_value = average[index]
+            high_multiplier = (average_value - bottom) / float(difference)
+            low_multiplier = abs(1 - high_multiplier)
+            crossover_value = (high_value * high_multiplier) + \
+                (low_value * low_multiplier)
+            alt_std[index] = crossover_value
+        return alt_std
+    
+    def _rough_and_ivv(self, alt_std_rough, ivv):
+        alt_std_with_lag = first_order_lag(alt_std_rough.array, 10,
+                                           alt_std_rough.hz)
+        mask = np.ma.mask_or(alt_std_with_lag.mask, ivv.array.mask)
+        return np.ma.masked_array(alt_std_with_lag + (ivv.array / 60.0),
+                                  mask=mask)
+    
+    def derive(self, alt_std_high=P('Altitude STD High'),
+               alt_std_low=P('Altitude STD Low'),
+               alt_std_rough=P('Altitude STD Rough'),
+               ivv=P('Inertial Vertical Speed')): # Q: Is IVV name correct?
+        if alt_std_high and alt_std_low:
+            self.array = self._high_and_low(alt_std_high, alt_std_low)
+            ##crossover = np.ma.logical_and(average > 17000, average < 18000)
+            ##crossover_indices = np.ma.where(crossover)
+            ##for crossover_index in crossover_indices:
+                
+            ##top = 18000
+            ##bottom = 17000
+            ##av = (alt_std_high + alt_std_low) / 2
+            ##ratio = (top - av) / (top - bottom)
+            ##if ratio > 1.0:
+                ##ratio = 1.0
+            ##elif ratio < 0.0:
+                ##ratio = 0.0
+            ##alt = alt_std_low * ratio + alt_std_high * (1.0 - ratio)
+            ##alt_std  = alt_std * 0.8 + alt * 0.2
+            #146-300_945003_01.add-2!// Set the thresholds for changeover from low to high scales.
+#146-300_945003_01.add-2!top = 18000
+#146-300_945003_01.add-2!bottom = 17000
+#146-300_945003_01.add-2!
+#146-300_945003_01.add-2!av = (ALT_STD_HIGH + ALT_STD_LOW) /2
+#146-300_945003_01.add-2!ratio = (top - av) / (top - bottom)
+#146-300_945003_01.add-2!
+#146-300_945003_01.add-2!IF (ratio > 1.0) THEN ratio = 1.0 ENDIF
+#146-300_945003_01.add-2!IF (ratio < 0.0) THEN ratio = 0.0 ENDIF
+#146-300_945003_01.add-2!
+#146-300_945003_01.add-2!alt = ALT_STD_LOW * ratio + ALT_STD_HIGH * (1.0 - ratio)
+#146-300_945003_01.add-2!
+#146-300_945003_01.add-2!// Smoothing to reduce unsightly noise in the signal. DJ
+#146-300_945003_01.add-2!ALT_STDC = ALT_STDC * 0.8 + alt * 0.2
+        elif alt_std_rough and ivv:
+            self.array = self._rough_and_ivv(alt_std_rough, ivv)
+            #ALT_STDC = (last_alt_std * 0.9) + (ALT_STD * 0.1) + (IVVR / 60.0)
+            
 
 
 class AltitudeTail(DerivedParameterNode):
@@ -392,12 +484,20 @@ class RateOfClimb(DerivedParameterNode):
             inertial_roc = first_order_lag (az_washout, RATE_OF_CLIMB_LAG_TC, az.hz, gain=GRAVITY*RATE_OF_CLIMB_LAG_TC)
             self.array = (roc_altitude + inertial_roc) * 60.0
         else:
-            self.array = rate_of_change(alt_std,2)*60
+            # The period for averaging altitude only data has been chosen
+            # from careful inspection of Hercules data, where the pressure
+            # altitude signal resolution is of the order of 9 ft/bit.
+            # Extension to wider timebases, or averaging with more samples,
+            # smooths the data more but equally more samples are affected by
+            # corrupt source data. So, change the "3" only after careful
+            # consideration.
+            self.array = rate_of_change(alt_std,3)*60
 
 
 class RateOfClimbForFlightPhases(DerivedParameterNode):
     def derive(self, alt_std = P('Altitude STD')):
-        self.array = rate_of_change(repair_mask(alt_std),2)*60
+        self.array = hysteresis(rate_of_change(repair_mask(alt_std),5)*60,
+                                HYSTERESIS_FPROC)
 
 
 class Relief(DerivedParameterNode):

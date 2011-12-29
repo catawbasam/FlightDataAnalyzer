@@ -260,9 +260,9 @@ def _create_phase_mask(array, hz, offset, a, b, which_side):
         m[ia:ib] = False
         m[ib:]  = True
     else:
-         m[:ia]  = False
-         m[ia:ib] = True
-         m[ib:]  = False
+        m[:ia]  = False
+        m[ia:ib] = True
+        m[ib:]  = False
          
     # Return the masked array containing reference data and the created mask.
     return np.ma.MaskedArray(array, mask = m)
@@ -348,7 +348,7 @@ def duration(a, period, hz=1.0):
     
     return a
 
-def first_order_lag (in_param, time_constant, hz, gain = 1.0, initial_value = None):
+def first_order_lag (array, time_constant, hz, gain = 1.0, initial_value = None):
     '''
     Computes the transfer function
             x.G
@@ -361,8 +361,12 @@ def first_order_lag (in_param, time_constant, hz, gain = 1.0, initial_value = No
     s is the Laplace operator
     y is the output
     
-    :param in_param: input data (x)
-    :type in_param: masked array
+    Basic example:
+    first_order_lag(param, time_constant=5) is equivalent to
+    array[index] = array[index-1] * 0.8 + array[index] * 0.2.
+    
+    :param array: input data (x)
+    :type array: masked array
     :param time_constant: time_constant for the lag function (T)(sec)
     :type time_constant: float
     :param hz: sample rate for the input data (sec-1)
@@ -373,8 +377,7 @@ def first_order_lag (in_param, time_constant, hz, gain = 1.0, initial_value = No
     :type initial_value: float
     :returns: masked array of values with first order lag applied
     '''
-
-    input_data = np.copy(in_param.data)
+    input_data = np.copy(array.data)
     
     # Scale the time constant to allow for different data sample rates.
     tc = time_constant / hz
@@ -403,7 +406,7 @@ def first_order_lag (in_param, time_constant, hz, gain = 1.0, initial_value = No
     # The mask should last indefinitely following any single corrupt data point
     # but this is impractical for our use, so we just copy forward the original
     # mask.
-    masked_result.mask = in_param.mask
+    masked_result.mask = array.mask
     return masked_result
 
 def first_order_washout (in_param, time_constant, hz, gain = 1.0, initial_value = None):
@@ -431,7 +434,6 @@ def first_order_washout (in_param, time_constant, hz, gain = 1.0, initial_value 
     :type initial_value: float
     :returns: masked array of values with first order lag applied
     '''
-
     input_data = np.copy(in_param.data)
     
     # Scale the time constant to allow for different data sample rates.
@@ -472,7 +474,7 @@ def hash_array(array):
     return checksum.hexdigest()
     
 def hysteresis (array, hysteresis):
-    """
+    '''
     Hysteresis is a process used to prevent noisy data from triggering 
     an unnecessary number of events or state changes when the parameter is 
     close to a threshold.
@@ -482,7 +484,7 @@ def hysteresis (array, hysteresis):
     :param hysteresis: hysteresis range to apply
     :type hysteresis: float
     :returns: masked array of values with hysteresis applied
-    """
+    '''
 
     # This routine accepts the usual masked array but only processes the
     # data part of the array as the hysteresis process cannot make the
@@ -549,7 +551,6 @@ def interleave_uneven_spacing (param_1, param_2):
     Hence two sections of code. Also, we don't know at the start whether x is
     parameter 1 or 2, so there are two options for the basic interleaving stage.
     '''
-    
     # Check the conditions for merging are met
     if param_1.frequency != param_2.frequency:
         raise ValueError, 'Attempt to interleave parameters at differing sample rates'
@@ -620,6 +621,38 @@ def _value(array, _slice, operator):
     index = operator(array[_slice]) + (_slice.start or 0) * (_slice.step or 1)
     return Value(index, array[index])
 
+def mask_inside_slices(array, slices):
+    '''
+    Mask slices within array.
+    
+    :param array: Masked array to mask.
+    :type array: np.ma.masked_array
+    :param slices: Slices to mask.
+    :type slices: list of slice
+    :returns: Array with masks applied.
+    :rtype: np.ma.masked_array
+    '''
+    mask = np.zeros(len(array), dtype=np.bool_) # Create a mask of False.
+    for slice_ in slices:
+        mask[slice_] = True
+    return np.ma.array(array, mask=np.ma.mask_or(mask, array.mask))
+
+def mask_outside_slices(array, slices):
+    '''
+    Mask areas outside of slices within array.
+    
+    :param array: Masked array to mask.
+    :type array: np.ma.masked_array
+    :param slices: The areas outside these slices will be masked..
+    :type slices: list of slice
+    :returns: Array with masks applied.
+    :rtype: np.ma.masked_array
+    '''
+    mask = np.ones(len(array), dtype=np.bool_) # Create a mask of True.
+    for slice_ in slices:
+        mask[slice_] = False
+    return np.ma.array(array, mask=np.ma.mask_or(mask, array.mask))
+
 def max_abs_value(array, _slice=slice(None)):
     """
     Get the value of the maximum absolute value in the array. 
@@ -671,7 +704,6 @@ def merge_alternate_sensors (array):
     :returns: masked array with merging algorithm applied.
     :rtype: masked array
     '''
-    
     result = np.ma.empty_like(array)
     result[1:-1] = (array[:-2] + array[1:-1]*2.0 + array[2:]) / 4.0
     result[0] = (array[0] + array[1]) / 2.0
@@ -773,7 +805,8 @@ def time_at_value_wrapped(parameter, section, value, direction='Forwards'):
         result = time_at_value (repair_mask(data) , parameter.frequency, 
                                 parameter.offset, len(data)-1, 0, value)
     return result
-            
+
+
 def time_at_value (array, hz, offset, scan_start, scan_end, threshold):
     '''
     This function seeks the moment when the parameter in question first crosses 
@@ -835,6 +868,58 @@ def time_at_value (array, hz, offset, scan_start, scan_end, threshold):
         r = (float(threshold) - a) / (b-a) 
         #TODO: Could test 0 < r < 1 for completeness
     return (begin + step * (n + r)) / hz
+
+def index_at_value (array, section, threshold):
+    '''
+    This function seeks the moment when the parameter in question first crosses 
+    a threshold. It works both forwards and backwards in time. To scan backwards
+    just make the start point later than the end point. This is really useful
+    for finding things like the point of landing.
+    
+    For example, to find 50ft Rad Alt on the descent, use something like:
+       altitude_radio.seek(t_approach, t_landing, 50)
+    
+    :param array: input data
+    :type array: masked array
+    :param section: slice where we want to seek the threshold transit.
+    :type section: slice
+    :param threshold: the value that we expect the array to cross between scan_start and scan_end.
+    :type threshold: float
+    :returns: interpolated time when the array values crossed the threshold. (One value only).
+    :returns type: float
+    '''
+    begin, end, step = int(round(section.start)), int(round(section.stop)), section.step
+
+    if begin == end:
+        raise ValueError, 'No range for seek function to scan across'
+    
+    if step == None:
+        step = 1
+        
+    if step == 1:
+        left, right = slice(begin,end-1,step), slice(begin+1,end,step)
+    elif step == -1:
+        left, right = slice(begin,end+1,step), slice(begin-1,end,step)
+    else:
+        raise ValueError, 'Step length not 1 in index_at_value'
+        
+    # When the data being tested passes the value we are seeking, the 
+    # difference between the data and the value will change sign.
+    # Therefore a negative value indicates where value has been passed.
+    value_passing_array = (array[left]-threshold) * (array[right]-threshold)
+    test_array = np.ma.masked_greater(value_passing_array, 0.0)
+    
+    if np.ma.all(test_array.mask):
+        # The parameter does not pass through threshold in the period in question, so return empty-handed.
+        return None
+    else:
+        n,dummy=np.ma.flatnotmasked_edges(np.ma.masked_greater(value_passing_array, 0.0))
+        a = array[begin+step*n]
+        b = array[begin+step*(n+1)]
+        # Force threshold to float as often passed as an integer.
+        r = (float(threshold) - a) / (b-a) 
+        #TODO: Could test 0 < r < 1 for completeness
+    return (begin + step * (n+r))
 
 def value_at_time (array, hz, offset, time_index):
     '''

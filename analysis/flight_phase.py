@@ -1,13 +1,14 @@
 import logging
 import numpy as np
 
-from analysis.library import repair_mask, time_at_value
+from analysis.library import hysteresis, index_at_value, repair_mask
 from analysis.node import A, Attribute, FlightPhaseNode, KeyTimeInstance, P, S, KTI
 from analysis.settings import (AIRSPEED_THRESHOLD,
                                ALTITUDE_FOR_CLB_CRU_DSC,
                                HEADING_TURN_OFF_RUNWAY,
                                HEADING_TURN_ONTO_RUNWAY,
                                HYSTERESIS_FP_RAD_ALT,
+                               HYSTERESIS_FPROT,
                                ILS_MAX_SCALE,
                                INITIAL_CLIMB_THRESHOLD,
                                LANDING_THRESHOLD_HEIGHT,
@@ -33,23 +34,21 @@ def shift_slices(slicelist,offset):
     
     
 class Airborne(FlightPhaseNode):
-    def derive(self, roc=P('Rate Of Climb'), airs=S('Fast')):
+    def derive(self, roc=P('Rate Of Climb For Flight Phases'), fast=S('Fast')):
         # Rate of climb limit set to identify both level flight and 
         # end of takeoff / start of landing.
-        for air in airs:
-            not_level_flight = np.ma.masked_inside(roc.array[air.slice], 
-                                               -RATE_OF_CLIMB_FOR_LEVEL_FLIGHT,
-                                               RATE_OF_CLIMB_FOR_LEVEL_FLIGHT)
-            in_air = np.ma.flatnotmasked_edges(not_level_flight)
-            in_air_slice = [slice(in_air[0],in_air[1])]
-            self.create_phases(shift_slices(in_air_slice, air.slice.start))
-            
-            #try:
-                #a,b = np.ma.flatnotmasked_edges(shift_slices(level_flight, air.slice.start))
-                #self.create_phases([slice(a,b,None)])
-            #except:
-                #pass # Just don't create a phase if none exists.
-        
+        for speedy in fast:
+            midpoint = (speedy.slice.start + speedy.slice.stop) / 2
+            # Scan through the first half to find where the aircraft first
+            # flies upwards
+            up = index_at_value(roc.array, slice(speedy.slice.start,midpoint),
+                                RATE_OF_CLIMB_FOR_LEVEL_FLIGHT)
+            # Scan backwards through the latter half to find where the
+            # aircraft last descends.
+            down = index_at_value(roc.array, slice(speedy.slice.stop,midpoint,-1), 
+                                  -RATE_OF_CLIMB_FOR_LEVEL_FLIGHT)
+            self.create_phase(slice(up,down))
+
 
 class Approach(FlightPhaseNode):
     """
@@ -189,7 +188,7 @@ class ClimbFromBottomOfDescent(FlightPhaseNode):
 
         
 class Climbing(FlightPhaseNode):
-    def derive(self, roc=P('Rate Of Climb'), airs=S('Fast')):
+    def derive(self, roc=P('Rate Of Climb For Flight Phases'), airs=S('Fast')):
         # Climbing is used for data validity checks and to reinforce regimes.
         for air in airs:
             climbing = np.ma.masked_less(roc.array[air.slice],
@@ -226,7 +225,7 @@ class Cruise(FlightPhaseNode):
 class Descending(FlightPhaseNode):
     """ Descending faster than 800fpm towards the ground
     """
-    def derive(self, roc=P('Rate Of Climb'), airs=S('Fast')):
+    def derive(self, roc=P('Rate Of Climb For Flight Phases'), airs=S('Fast')):
         # Rate of climb and descent limits of 800fpm gives good distinction
         # with level flight.
         for air in airs:
@@ -234,11 +233,6 @@ class Descending(FlightPhaseNode):
                                               RATE_OF_CLIMB_FOR_DESCENT_PHASE)
             desc_slices = np.ma.clump_unmasked(descending)
             self.create_phases(shift_slices(desc_slices, air.slice.start))
-
-
-class Descent(FlightPhaseNode):
-    def derive(self, descending=Descending, roc=P('Rate Of Climb')):
-        return NotImplemented
 
 
 class DescentToBottomOfDescent(FlightPhaseNode):
@@ -353,7 +347,7 @@ class InitialApproach(FlightPhaseNode):
 
 
 class LevelFlight(FlightPhaseNode):
-    def derive(self, roc=P('Rate Of Climb'),airs=S('Airborne')):
+    def derive(self, roc=P('Rate Of Climb For Flight Phases'),airs=S('Airborne')):
         # Rate of climb limit set to identify both level flight and 
         # end of takeoff / start of landing.
         for air in airs:
@@ -365,6 +359,9 @@ class LevelFlight(FlightPhaseNode):
 
 
 class OnGround(FlightPhaseNode):
+    '''
+    Includes before Liftoff and after Touchdown.
+    '''
     def derive(self, airspeed=P('Airspeed')):
         # Did the aircraft go fast enough to possibly become airborne?
         fast_where = np.ma.masked_less(airspeed.array, AIRSPEED_THRESHOLD)
@@ -387,7 +384,7 @@ class Turning(FlightPhaseNode):
     Rate of Turn is greater than +/- RATE_OF_TURN_FOR_FLIGHT_PHASES
     """
     def derive(self, rate_of_turn=P('Rate Of Turn')):
-        turning = np.ma.masked_inside(rate_of_turn.array,
+        turning = np.ma.masked_inside(hysteresis(rate_of_turn.array,HYSTERESIS_FPROT),
                                       RATE_OF_TURN_FOR_FLIGHT_PHASES * (-1.0),
                                       RATE_OF_TURN_FOR_FLIGHT_PHASES)
         

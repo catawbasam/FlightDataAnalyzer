@@ -18,6 +18,7 @@ from analysis.derived_parameters import (AccelerationForwardsForFlightPhases,
                                          AltitudeForFlightPhases,
                                          AltitudeRadio,
                                          AltitudeRadioForFlightPhases,
+                                         AltitudeSTD,
                                          AltitudeTail,
                                          ClimbForFlightPhases,
                                          EngN1Average,
@@ -100,7 +101,7 @@ class TestAccelerationForwardsForFlightPhases(unittest.TestCase):
         accel_fwd.derive(Parameter('Acceleration Longitudinal', acc), None)
         ma_test.assert_masked_array_approx_equal(accel_fwd.array, acc)
 
-    def test_accelearation_forwards_for_phases_using_airspeed(self):
+    def test_acceleration_forwards_for_phases_using_airspeed(self):
         # If only airspeed data is available, it needs differentiating.
         speed = np.ma.arange(0,150,10)
         speed[3:5] = np.ma.masked
@@ -136,6 +137,14 @@ class TestAirspeedForFlightPhases(unittest.TestCase):
 
 
 class TestAltitudeAALForFlightPhases(unittest.TestCase):
+    """
+    THIS TEST FAILS IF THE AIRSPEED_THRESHOLD = 70  # kts IS SET
+    THIS LOW VALUE WAS USED FOR HERCULES TESTING BUT SHOULD BE RESET TO 80 KTS
+    WHEN WE GET THINGS WORKING
+   
+    DON'T PANIC !!!   
+    
+    """
     def test_can_operate(self):
         expected = [('Altitude STD','Fast')]
         opts = AltitudeAALForFlightPhases.get_operational_combinations()
@@ -246,6 +255,78 @@ class TestAltitudeRadioForFlightPhases(unittest.TestCase):
         alt_4_ph.derive(Parameter('Altitude Radio', raw_data, 1,0.0))
         expected = np.ma.array([0,0,0],mask=False)
         np.testing.assert_array_equal(alt_4_ph.array, expected)
+
+
+class TestAltitudeSTD(unittest.TestCase):
+    def test_can_operate(self):
+        self.assertEqual(AltitudeSTD.get_operational_combinations(),
+          [('Altitude STD High', 'Altitude STD Low'),
+           ('Altitude STD Rough', 'Inertial Vertical Speed'),
+           ('Altitude STD High', 'Altitude STD Low', 'Altitude STD Rough'),
+           ('Altitude STD High', 'Altitude STD Low', 'Inertial Vertical Speed'),
+           ('Altitude STD High', 'Altitude STD Rough',
+            'Inertial Vertical Speed'),
+           ('Altitude STD Low', 'Altitude STD Rough',
+            'Inertial Vertical Speed'),
+           ('Altitude STD High', 'Altitude STD Low', 'Altitude STD Rough',
+            'Inertial Vertical Speed')])
+    
+    def test__high_and_low(self):
+        high_values = np.ma.array([15000, 16000, 17000, 18000, 19000, 20000,
+                                   19000, 18000, 17000, 16000],
+                                  mask=[False] * 9 + [True])
+        low_values = np.ma.array([15500, 16500, 17500, 17800, 17800, 17800,
+                                  17800, 17800, 17500, 16500],
+                                 mask=[False] * 8 + [True] + [False])
+        alt_std_high = Parameter('Altitude STD High', high_values)
+        alt_std_low = Parameter('Altitude STD Low', low_values)
+        alt_std = AltitudeSTD()
+        result = alt_std._high_and_low(alt_std_high, alt_std_low)
+        ma_test.assert_equal(result,
+                             np.ma.masked_array([15500, 16500, 17375, 17980, 19000,
+                                                 20000, 19000, 17980, 17375, 16500],
+                                                mask=[False] * 8 + 2 * [True]))
+    
+    @mock.patch('analysis.derived_parameters.first_order_lag')
+    def test__rough_and_ivv(self, first_order_lag):
+        alt_std = AltitudeSTD()
+        alt_std_rough = Parameter('Altitude STD Rough',
+                                  np.ma.array([60, 61, 62, 63, 64, 65],
+                                              mask=[False] * 5 + [True]))
+        first_order_lag.side_effect = lambda arg1, arg2, arg3: arg1
+        ivv = Parameter('Inertial Vertical Speed',
+                        np.ma.array([60, 120, 180, 240, 300, 360],
+                                    mask=[False] * 4 + [True] + [False]))
+        result = alt_std._rough_and_ivv(alt_std_rough, ivv)
+        ma_test.assert_equal(result,
+                             np.ma.masked_array([61, 63, 65, 67, 0, 0],
+                                                mask=[False] * 4 + [True] * 2))
+    
+    def test_derive(self):
+        alt_std = AltitudeSTD()
+        # alt_std_high and alt_std_low passed in.
+        alt_std._high_and_low = mock.Mock()
+        high_and_low_array = 3
+        alt_std._high_and_low.return_value = high_and_low_array
+        alt_std_high = 1
+        alt_std_low = 2
+        alt_std.derive(alt_std_high, alt_std_low, None, None)
+        self.assertEqual(alt_std._high_and_low.call_args, ((alt_std_high, 
+                                                            alt_std_low), {}))
+        self.assertEqual(alt_std.array, high_and_low_array)
+        # alt_std_rough and ivv passed in.
+        rough_and_ivv_array = 6
+        alt_std._rough_and_ivv = mock.Mock()
+        alt_std._rough_and_ivv.return_value = rough_and_ivv_array
+        alt_std_rough = 4        
+        ivv = 5
+        alt_std.derive(None, None, alt_std_rough, ivv)
+        self.assertEqual(alt_std._rough_and_ivv.call_args,
+                         ((alt_std_rough, ivv), {}))
+        self.assertEqual(alt_std.array, rough_and_ivv_array)
+        # All parameters passed in (improbable).
+        alt_std.derive(alt_std_high, alt_std_low, alt_std_rough, ivv)
+        self.assertEqual(alt_std.array, high_and_low_array)
 
 
 class TestAltitudeTail(unittest.TestCase):
