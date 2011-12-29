@@ -339,11 +339,13 @@ class AltitudeInFinalApproach(KeyTimeInstanceNode):
     Creates KTIs at certain heights when the aircraft is in the final approach.
     '''
     NAME_FORMAT = '%(altitude)d Ft In Final Approach'
-    ALTITUDES = [100, 1500, 2000, 3000]
+    ALTITUDES = [100, 500]
     NAME_VALUES = {'altitude': ALTITUDES}
     
     def derive(self, approaches=S('Approach And Landing'),
                alt_aal=P('Altitude AAL')):
+        # Attempt to smooth to avoid fluctuations triggering KTIs.
+        # Q: Is this required?
         alt_array = hysteresis(alt_aal.array, 10)
         for approach in approaches:
             for alt_threshold in self.ALTITUDES:

@@ -605,6 +605,17 @@ class TestIndexAtValue(unittest.TestCase):
         array = np.ma.arange(4)
         array[1] = np.ma.masked
         self.assertEquals (index_at_value(array, slice(0, 3), 1.5), None)
+    
+    def test_index_at_value_slice_too_small(self):
+        '''
+        Returns None when there is only one value in the array since it cannot
+        cross a threshold.
+        '''
+        array = np.ma.arange(50)
+        self.assertEqual(index_at_value(array, slice(25,26), 25),
+                         None)
+        
+        
       
  
 class TestInterleave(unittest.TestCase):

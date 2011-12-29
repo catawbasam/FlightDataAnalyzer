@@ -887,6 +887,10 @@ def index_at_value (array, section, threshold):
     :returns type: float
     '''
     begin, end, step = int(round(section.start)), int(round(section.stop)), section.step
+    if abs(begin - end) < 2:
+        # Requires at least two values to find if the array crosses a
+        # threshold.
+        return None
 
     if begin == end:
         raise ValueError, 'No range for seek function to scan across'
