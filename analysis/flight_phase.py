@@ -1,8 +1,8 @@
-import logging
 import numpy as np
 
-from analysis.library import hysteresis, index_at_value, repair_mask
-from analysis.node import A, Attribute, FlightPhaseNode, KeyTimeInstance, P, S, KTI
+from analysis.library import (hysteresis, index_at_value, repair_mask,
+                              time_at_value)
+from analysis.node import FlightPhaseNode, P, S, KTI
 from analysis.settings import (AIRSPEED_THRESHOLD,
                                ALTITUDE_FOR_CLB_CRU_DSC,
                                HEADING_TURN_OFF_RUNWAY,

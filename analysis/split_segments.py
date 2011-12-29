@@ -3,7 +3,7 @@ import logging
 from datetime import datetime, timedelta
 
 from analysis import settings
-from analysis.library import calculate_timebase, hash_array, hysteresis
+from analysis.library import calculate_timebase, hash_array, hysteresis, max_abs_value
 from analysis.recordtype import recordtype
 from hdfaccess.file import hdf_file
 from utilities.filesystem_tools import sha_hash_file
@@ -20,6 +20,64 @@ def mask_slow_airspeed(airspeed):
     hysteresisless_spd = hysteresis(airspeed, settings.HYSTERESIS_FPIAS)
     return np.ma.masked_less(hysteresisless_spd, settings.AIRSPEED_THRESHOLD)
 
+
+
+def split_segments2(airspeed, dfc):
+    speedy_slices = np.ma.notmasked_contiguous(mask_slow_airspeed(airspeed.array))
+    # be clever about splitting between speedy slices
+    if len(speedy_slices) <= 1:
+        return [slice(0, len(airspeed))]
+    # more than one speedy section
+    dfc_diff = np.ma.diff(dfc.array)
+    dfc_mask_one = np.ma.masked_equal(dfc_diff, 1)
+    dfc_mask_4094 = np.ma.masked_equal(dfc_mask_one, -4094)
+    rate = 1.0 / dfc.frequency
+    segment_slices = []
+    origin = 0
+    start = speedy_slices[0].stop
+    for speedy_slice in speedy_slices[1:]:
+        stop = speedy_slice.start
+        # find DFC split within speedy sections
+
+        # take the biggest jump (not that it means anything, but only one jump is enough!
+        index, value = max_abs_value(dfc_mask_4094, slice(start*dfc.frequency,
+                                                          stop*dfc.frequency))
+        cut_index = index * (1.0/dfc.frequency) # align index again
+        if np.ma.is_masked(value) or cut_index == start:
+
+            #TODO: implement and test below:
+            '''
+            from analysis.library import vstack_params, min_value
+            #TODO: Improve by ensuring we were sat still for the longest period
+            #TODO: ensure all at same freq or align!
+            engine_params = vstack_params(
+                hdf.get('Eng (1) N1'), hdf.get('Eng (1) Oil Temp'),
+                hdf.get('Eng (2) N1'), hdf.get('Eng (2) Oil Temp'),
+                hdf.get('Eng (3) N1'), hdf.get('Eng (3) Oil Temp'),
+                hdf.get('Eng (4) N1'), hdf.get('Eng (4) Oil Temp'), 
+                #TODO: Add "Turning" to ensure we're staying still
+            )
+            cut_index, value = min_value(engine_params, slice(start, stop)) 
+            
+            #Q: Use a threshold for value? if not met, then cut halfway
+            # between the two. To improve effectiveness of threshold, you
+            # could mask the Engine values when they are above a "turning off"
+            # state so that you're sure the minimum is when they were nearly
+            # off, otherwise you'll have a masked value and you can use that
+            # to cut upon.
+            '''
+            # no jump, take half way between values
+            cut_index = (start + stop) / 2.0
+            
+        segment_slices.append(slice(origin, cut_index))
+        # keep track of slices
+        origin = cut_index
+        start = speedy_slice.stop
+    else:
+        # end slice
+        segment_slices.append(slice(origin, None))    
+    return segment_slices
+        
 def split_segments(airspeed, dfc=None):
     """
     Splits data looking for dfc jumps (if dfc provided) and changes in airspeed.
@@ -105,6 +163,9 @@ def append_segment_info(hdf_segment_path, segment_slice, part):
     #                ('slice         type          part  path              hash           start_dt        go_fast_dt        stop_dt')
     segment = Segment(segment_slice, segment_type, part, hdf_segment_path, airspeed_hash, start_datetime, go_fast_datetime, stop_datetime)
     return segment
+
+
+
 
         
 def _split_by_frame_counter(dfc_data, dfc_freq=0.25):

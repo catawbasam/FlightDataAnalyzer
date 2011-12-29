@@ -2,9 +2,7 @@ import unittest
 from mock import Mock
 import numpy as np
 
-from analysis.library import rate_of_change
-from analysis.plot_flight import plot_parameter
-from analysis.node import A, KPV, KeyTimeInstance, KTI, KeyPointValue, Parameter, P, Section, S
+from analysis.node import KeyTimeInstance, KTI, KeyPointValue, Parameter, P, Section, S
 from analysis.key_point_values import (Airspeed1000To500FtMax,
                                        AirspeedAtTouchdown,
                                        AirspeedMax,
@@ -157,7 +155,7 @@ class TestAutopilotEngaged1AtLiftoff(unittest.TestCase):
 
 class TestAutopilotEngaged1AtTouchdown(unittest.TestCase):
     def setUp(self):
-        self.node_class = AutopilotEngaged1AtLiftoff
+        self.node_class = AutopilotEngaged1AtTouchdown
         self.operational_combinations = [('Autopilot Engaged 1', 'Touchdown')]
 
 

@@ -1,14 +1,10 @@
-import logging
 import numpy as np
 
 from analysis.library import hysteresis, index_at_value, time_at_value_wrapped
 
-from analysis.node import FlightPhaseNode, P, S, KTI
-
-from analysis.node import KeyTimeInstance, KeyTimeInstanceNode
+from analysis.node import KeyTimeInstanceNode, KTI, P, S
 
 from settings import (CLIMB_THRESHOLD,
-                      INITIAL_CLIMB_THRESHOLD,
                       LANDING_ACCELERATION_THRESHOLD,
                       RATE_OF_CLIMB_FOR_LIFTOFF,
                       RATE_OF_CLIMB_FOR_TOUCHDOWN,
@@ -393,18 +389,20 @@ class _35FtClimbing(KeyTimeInstanceNode):
     
 class _50FtClimbing(KeyTimeInstanceNode):
     def derive(self, alt_aal=P('Altitude AAL')):
-        for climb in climbing:
-            index = time_at_value_wrapped(alt_aal,
-                                          climb, 50)
-            self.create_kti(index)
+        ##for climb in climbing:
+            ##index = time_at_value_wrapped(alt_aal,
+                                          ##climb, 50)
+            ##self.create_kti(index)
+        return NotImplemented
 
 
 class _75FtClimbing(KeyTimeInstanceNode):
     def derive(self, alt_aal=P('Altitude AAL')):
-        for climb in climbing:
-            index = time_at_value_wrapped(alt_aal,
-                                          climb, 75)
-            self.create_kti(index)
+        ##for climb in climbing:
+            ##index = time_at_value_wrapped(alt_aal,
+                                          ##climb, 75)
+            ##self.create_kti(index)
+        return NotImplemented
 
 
 class _100FtClimbing(KeyTimeInstanceNode):

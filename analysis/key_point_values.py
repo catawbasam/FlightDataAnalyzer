@@ -1,7 +1,7 @@
 import numpy as np
 
 from analysis import settings
-from analysis.library import min_value, max_value, max_abs_value, vstack_params
+from analysis.library import min_value, max_value, max_abs_value
 from analysis.node import  KeyPointValue, KeyPointValueNode, KTI, P, S
 
 
@@ -319,8 +319,8 @@ class MACHMax(KeyPointValueNode):
 
 class GroundSpeedOnGroundMax(KeyPointValueNode):
     def derive(self, ground_speed=P('Ground Speed'), on_grounds=S('On Ground')):
-        
-        max_value(ground_speed[on_ground]) # TODO: Fix.
+        #max_value(ground_speed[on_ground]) # TODO: Fix.
+        return NotImplemented
 
 
 class FlapAtTouchdown(KeyPointValueNode):

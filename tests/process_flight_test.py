@@ -48,8 +48,12 @@ class TestProcessFlight(unittest.TestCase):
                'AFR Vapp': 135,
                'AFR Vref': 120
               }
-        res = process_flight(hdf_path, ac_info, achieved_flight_record=afr, draw=False)
-        self.assertEqual(len(res), 3)
+        res = process_flight(hdf_path, ac_info, achieved_flight_record=afr, 
+                             draw=False)
+        self.assertEqual(len(res), 4)
+        
+        from analysis.plot_flight import csv_flight_details
+        csv_flight_details(hdf_path, res['kti'], res['kpv'], res['phases'])
     
     
     def test_146_301(self):

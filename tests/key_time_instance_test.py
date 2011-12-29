@@ -1,15 +1,12 @@
 import unittest
 import numpy as np
 
-from analysis.library import rate_of_change
 from analysis.plot_flight import plot_parameter
-from analysis.node import A, KPV, KeyTimeInstance, KTI, Parameter, P, Section, S
-from analysis.flight_phase import (Airborne,
-                                   ApproachAndLanding,
+from analysis.node import KeyTimeInstance, Parameter, P, Section, S
+from analysis.flight_phase import (ApproachAndLanding,
                                    ClimbCruiseDescent,
                                    Climbing,
                                    DescentLowClimb,
-                                   Fast
                                    )
 from analysis.derived_parameters import (ClimbForFlightPhases,
                                          )
@@ -99,7 +96,6 @@ class TestGoAround(unittest.TestCase):
 
     def test_go_around_basic(self):
         alt = np.ma.array(range(0,4000,500)+range(4000,0,-500)+range(0,1000,501))
-        ias = Parameter('Airspeed', np.ma.ones(len(alt))*100)
         aal = [Section('Approach And Landing',slice(10,18))]
         climb = ClimbForFlightPhases()
         climb.derive(Parameter('Altitude STD', alt), aal)
@@ -160,7 +156,6 @@ class TestGoAround(unittest.TestCase):
     def test_go_around_no_rad_alt(self):
         # This tests that the go-around works without a radio altimeter.
         alt = np.ma.array(range(0,4000,500)+range(4000,0,-500)+range(0,1000,501))
-        ias = Parameter('Airspeed', np.ma.ones(len(alt))*100)
         aal = ApproachAndLanding()
 
         # Call derive method. Note: "None" required to replace rad alt argument.
