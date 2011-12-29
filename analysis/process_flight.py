@@ -231,7 +231,7 @@ def process_flight(hdf_path, aircraft_info, start_datetime=datetime.now(), achie
     required_params += get_derived_nodes(['analysis.flight_attribute']).keys()
         
     # open HDF for reading
-    with hdf_file(hdf_path) as hdf:        
+    with hdf_file(hdf_path) as hdf:
         # Track nodes. Assume that all params in HDF are from LFL(!)
         node_mgr = NodeManager(start_datetime, hdf.keys(), required_params, 
                                derived_nodes, aircraft_info, achieved_flight_record)

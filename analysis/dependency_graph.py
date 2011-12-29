@@ -90,8 +90,9 @@ def draw_graph(graph, name, horizontal=True):
     build it from source), therefore you shouldn't bother trying to
     draw_graph unless you've done so!
     """
-    file_path = 'graph_%s.png' % name.lower().replace(' ', '_')
-
+    # hint: change filename extension to change type (.png .pdf .ps)
+    file_path = 'graph_%s.ps' % name.lower().replace(' ', '_')
+    # TODO: Set the number of pages #page="8.5,11";
     # Trying to get matplotlib to install nicely
     # Warning: pyplot does not render the graphs well!
     ##import matplotlib.pyplot as plt
@@ -115,7 +116,18 @@ def draw_graph(graph, name, horizontal=True):
     G.draw(file_path)
     logging.info("Dependency tree drawn: %s", os.path.abspath(file_path))
     
-    
+def graph_adjacencies(G):
+    data = []
+    for n,nbrdict in G.adjacency_iter():
+        # build the dict for this node
+        d = dict(id=n, name=G.node[n].get('label', n), data=G.node[n])
+        adj = []
+        for nbr, nbrd in nbrdict.items():
+            adj.append(dict(nodeTo=nbr, data=nbrd))
+        d['adjacencies'] = adj
+        data.append(d)
+    return data
+
 def graph_nodes(node_mgr):
     """
     :param node_mgr:
@@ -191,6 +203,7 @@ def process_order(gr_all, node_mgr):
         gr_all.node[node]['label'] = '%d: %s' % (n, node)
         
     inactive_nodes = set(gr_all.nodes()) - set(process_order)
+    logging.info("Inactive nodes: %s", list(sorted(inactive_nodes)))
     gr_st = gr_all.copy()
     gr_st.remove_nodes_from(inactive_nodes)
     
@@ -225,11 +238,11 @@ def dependency_order(node_mgr, draw=not_windows):
     :rtype: list of strings
     """
     _graph = graph_nodes(node_mgr)
-    # TODO: Remove the two following lines. 
-    ##_graph = remove_floating_nodes(_graph)
-    ##draw_graph(_graph, 'Dependency Tree')
     gr_all, gr_st, order = process_order(_graph, node_mgr)
     
+    if draw:
+        from json import dumps
+        logging.info("JSON Graph Representation:\n%s", dumps( graph_adjacencies(gr_st), indent=2))
     inoperable_required = list(set(node_mgr.requested) - set(order))
     if inoperable_required:
         logging.warning("Required parameters are inoperable: %s", inoperable_required)

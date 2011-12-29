@@ -709,9 +709,13 @@ class NodeManager(object):
             return True
         elif name in self.derived_nodes:
             #NOTE: Raises "Unbound method" here due to can_operate being overridden without wrapping with @classmethod decorator
-            return self.derived_nodes[name].can_operate(available)
+            res = self.derived_nodes[name].can_operate(available)
+            if not res:
+                logging.debug("Derived Node %s cannot operate with available nodes: %s",
+                              name, available)
+            return res
         else:  #elif name in unavailable_deps:
-            logging.warning("Confirm - node is unavailable: %s", name)
+            logging.debug("Node '%s' is unavailable", name)
             return False
 
 # The following acronyms are intended to be used as placeholder values

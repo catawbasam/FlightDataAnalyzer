@@ -8,7 +8,7 @@ from datetime import datetime
 from analysis.process_flight import get_derived_nodes
 
 from analysis.dependency_graph import (
-    dependency_order, graph_nodes, process_order)
+    dependency_order, graph_nodes, graph_adjacencies, process_order)
 from analysis.node import (A, DerivedParameterNode, KPV, KTI, Node, NodeManager,
                            P, Parameter, Section, S)
 
@@ -200,3 +200,89 @@ Node: Start Datetime 	Pre: [] 	Succ: [] 	Neighbors: [] 	Edges: []
                     derived_nodes, {}, {})
         self.assertRaises(nx.NetworkXError, dependency_order, mgr, draw=False)
         
+
+class TestGraphAdjacencies(unittest.TestCase):
+    def test_graph_adjacencies(self):
+        g = nx.DiGraph()
+        g.add_node('a', color='blue', label='a1')
+        g.add_nodes_from(['b', 'c', 'd'])
+        g.add_node('root', color='red')
+        g.add_edge('root', 'a')
+        g.add_edge('root', 'd')
+        g.add_edge('a', 'b')
+        g.add_edge('a', 'c')
+        g.add_edge('d', 'c')
+        res = graph_adjacencies(g)
+        exp = [
+        {
+            'id': 'root',
+            'name': 'root',
+            'data': {
+                'color': 'red',
+                },
+            'adjacencies': [
+                {
+                    'nodeTo': 'a',
+                    'data': {},
+                    },
+                {
+                    'nodeTo': 'd',
+                    'data': {},
+                    },
+                ],
+            },
+        {
+            'id': 'a',
+            'name': 'a1',
+            'data': {
+                'color': 'blue',
+                },
+            'adjacencies': [
+                {
+                    'nodeTo': 'b',
+                    'data': {},
+                    },
+                {
+                    'nodeTo': 'c',
+                    'data': {},
+                    },
+                ],
+            },
+        {
+            'id': 'b',
+            'name': 'b',
+            'data': {},
+            'adjacencies': [
+                ],
+            },
+        {
+            'id': 'c',
+            'name': 'c',
+            'data': {},
+            'adjacencies': [
+                ],
+            },
+        {
+            'id': 'd',
+            'name': 'd',
+            'data': {},
+            'adjacencies': [
+                {
+                    'nodeTo': 'c',
+                    'data': {},
+                    }
+                ],
+            },
+        ]
+        self.assertEqual(list(flatten(exp)), list(flatten(res)))
+
+            
+        
+import collections    
+def flatten(l):
+    for el in l:
+        if isinstance(el, collections.Iterable) and not isinstance(el, basestring):
+            for sub in sorted(flatten(el)):
+                yield sub
+        else:
+            yield el
