@@ -1,5 +1,9 @@
+import csv
 import os
+import itertools
 import matplotlib.pyplot as plt
+
+from utilities.print_table import indent
 
 from hdfaccess.file import hdf_file
 
@@ -115,6 +119,61 @@ def plot_flight(hdf_path, kti_list, kpv_list, phase_list):
                      )
     plt.show()
     return
+
+
+def _index_or_slice(x):
+    try:
+        return float(x.index)
+    except (TypeError, AttributeError):
+        return x.slice.start
+
+def csv_flight_details(hdf_path, kti_list, kpv_list, phase_list, dest_path=None):
+    """
+    Currently writes to csv and prints to a table.
+    
+    :param dest_path: If None, writes to hdf_path.csv
+    """
+    ##iterable = itertools.chain(kti_list, kpv_list, phase_list)
+    ##index_sorted_keys = sorted(iterable, key=_index_or_slice)
+
+    rows = []
+    params = ['Airspeed', 'Altitude STD', 'Pitch', 'Roll']
+    attrs = ['value', 'slice', 'datetime'] # 'latitude', 'longitude'] 
+    header = ['Type', 'Name', 'Index'] + attrs + params
+
+    def vals_for_iterable(iter_type, iterable):
+        for value in iterable:
+            # add required attributes
+            index = _index_or_slice(value)
+            vals = [iter_type, value.name, index]
+            # add optional attributes
+            [vals.append(getattr(value, attr, None)) for attr in attrs]
+            # add associated parameter information
+            for param in params:
+                try:
+                    vals.append( hdf[param].at(index) )
+                except (KeyError, ValueError, IndexError):
+                    vals.append(None)
+            rows.append( vals )
+            
+    with hdf_file(hdf_path) as hdf:
+        vals_for_iterable('Key Time Instance', kti_list)
+        vals_for_iterable('Key Point Value', kpv_list)
+        vals_for_iterable('Phase', phase_list)
+
+    # sort rows
+    rows = sorted(rows, key=lambda x: x[header.index('Index')])
+    # print to CSV
+    if not dest_path:
+        dest_path = os.path.splitext(hdf_path)[0] + '_values_at_indexes.csv'
+    with open(dest_path, 'wb') as dest:
+        writer = csv.writer(dest)
+        writer.writerow(header)
+        writer.writerows(rows)
+    
+    # print to Debug I/O
+    print indent([header] + rows, hasHeader=True, wrapfunc=lambda x:str(x))
+
 
 if __name__ == '__main__':
     import sys
