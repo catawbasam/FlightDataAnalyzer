@@ -514,9 +514,9 @@ class TakeoffRunway(FlightAttributeNode):
             self.set_flight_attr(runway)
 
 
-class Type(FlightAttributeNode):
+class FlightType(FlightAttributeNode):
     "Type of flight flown"
-    name = 'FDR Type'
+    name = 'Flight Type'
     
     @classmethod
     def can_operate(self, available):
@@ -565,12 +565,15 @@ class Type(FlightAttributeNode):
                 return
             last_touchdown = touchdowns.get_last()
             last_touch_and_go = touch_and_gos.get_last()
-            if last_touchdown.index <= last_touch_and_go.index:
-                logging.warning("A 'Touch And Go' KTI exists after the last "
-                                "'Touchdown'. '%s' will be 'INCOMPLETE'.",
-                                self.name)
-                self.set_flight_attr('LIFTOFF_ONLY')
-                return
+            # Touch and go's are rare, so most often this will be None. Only
+            # check for this incomplete case if a touch and go exists:
+            if last_touch_and_go:
+                if last_touchdown.index <= last_touch_and_go.index:
+                    logging.warning("A 'Touch And Go' KTI exists after the last "
+                                    "'Touchdown'. '%s' will be 'INCOMPLETE'.",
+                                    self.name)
+                    self.set_flight_attr('LIFTOFF_ONLY')
+                    return
             
             if afr_type in ['FERRY', 'LINE_TRAINING', 'POSITIONING' 'TEST',
                             'TRAINING']:

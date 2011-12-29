@@ -809,6 +809,11 @@ class TestRateOfChange(unittest.TestCase):
                           rate_of_change, 
                           P('Test',np.ma.array([0, 1, 0]), 1), -2)
         
+    def test_rate_of_change_small_values(self):
+        sloped = rate_of_change(P('Test',np.ma.arange(10)/100.0, 1), 2)
+        answer = np.ma.array(data=[0.01]*10,mask=False)
+        ma_test.assert_masked_array_approx_equal(sloped, answer)
+        
         
 class TestRepairMask(unittest.TestCase):
     def test_repair_mask_basic(self):

@@ -34,7 +34,7 @@ class TestAirborne(unittest.TestCase):
     # Based closely on the level flight condition, but taking only the
     # outside edges of the envelope.
     def test_can_operate(self):
-        expected = [('Rate Of Climb', 'Fast')]
+        expected = [('Rate Of Climb For Flight Phases', 'Fast')]
         opts = Airborne.get_operational_combinations()
         self.assertEqual(opts, expected)
 
@@ -42,7 +42,7 @@ class TestAirborne(unittest.TestCase):
         rate_of_climb_data = np.ma.array(range(0,400,50)+
                                          range(400,-450,-50)+
                                          range(-450,50,50))
-        rate_of_climb = Parameter('Rate Of Climb', np.ma.array(rate_of_climb_data))
+        rate_of_climb = Parameter('Rate Of Climb For Flight Phases', np.ma.array(rate_of_climb_data))
         fast = [Section('Fast',slice(2,25,None))]
         air = Airborne()
         air.derive(rate_of_climb, fast)
@@ -51,7 +51,7 @@ class TestAirborne(unittest.TestCase):
 
     def test_airborne_phase_not_airborne(self):
         rate_of_climb_data = np.ma.array(range(0,10))
-        rate_of_climb = Parameter('Rate Of Climb', np.ma.array(rate_of_climb_data))
+        rate_of_climb = Parameter('Rate Of Climb For Flight Phases', np.ma.array(rate_of_climb_data))
         fast = []
         air = Airborne()
         air.derive(rate_of_climb, fast)
@@ -235,7 +235,7 @@ class TestClimbFromBottomOfDescent(unittest.TestCase):
         dlc = DescentLowClimb()
         dlc.derive(alt)
         bod = BottomOfDescent()
-        bod.derive(dlc, alt)
+        bod.derive(alt, dlc)
                 
         descent_phase = ClimbFromBottomOfDescent()
         descent_phase.derive(toc, [], bod) # TODO: include start of climb instance
@@ -245,7 +245,7 @@ class TestClimbFromBottomOfDescent(unittest.TestCase):
 
 class TestClimbing(unittest.TestCase):
     def test_can_operate(self):
-        expected = [('Rate Of Climb', 'Fast')]
+        expected = [('Rate Of Climb For Flight Phases', 'Fast')]
         opts = Climbing.get_operational_combinations()
         self.assertEqual(opts, expected)
 
@@ -253,7 +253,7 @@ class TestClimbing(unittest.TestCase):
         rate_of_climb_data = np.ma.array(range(500,1200,100)+
                                          range(1200,-1200,-200)+
                                          range(-1200,500,100))
-        rate_of_climb = Parameter('Rate Of Climb', np.ma.array(rate_of_climb_data))
+        rate_of_climb = Parameter('Rate Of Climb For Flight Phases', np.ma.array(rate_of_climb_data))
         fast = [Section('Fast',slice(2,8,None))]
         up = Climbing()
         up.derive(rate_of_climb, fast)
@@ -352,12 +352,12 @@ class TestDescentLowClimb(unittest.TestCase):
 
 class TestDescending(unittest.TestCase):
     def test_can_operate(self):
-        expected = [('Rate Of Climb', 'Fast')]
+        expected = [('Rate Of Climb For Flight Phases', 'Fast')]
         opts = Descending.get_operational_combinations()
         self.assertEqual(opts, expected)
 
     def test_descending_basic(self):
-        roc = Parameter('Rate Of Climb',np.ma.array([0,1000,-2000,0]))
+        roc = Parameter('Rate Of Climb For Flight Phases',np.ma.array([0,1000,-2000,0]))
         fast = [Section('Fast',slice(1,4,None))]
         phase = Descending()
         phase.derive(roc,fast)
@@ -390,7 +390,7 @@ class TestDescentToBottomOfDescent(unittest.TestCase):
         dlc = DescentLowClimb()
         dlc.derive(alt)
         bod = BottomOfDescent()
-        bod.derive(dlc, alt)
+        bod.derive(alt, dlc)
                 
         descent_phase = DescentToBottomOfDescent()
         descent_phase.derive(tod, bod)
@@ -465,7 +465,7 @@ class TestFinalApproach(unittest.TestCase):
 
 class TestLanding(unittest.TestCase):
     def test_can_operate(self):
-        expected = [('Fast','Heading Continuous', 'Altitude AAL For Phases')]
+        expected = [('Fast','Heading Continuous', 'Altitude AAL For Flight Phases')]
         opts = Landing.get_operational_combinations()
         self.assertEqual(opts, expected)
 
@@ -477,7 +477,7 @@ class TestLanding(unittest.TestCase):
         phase_fast.derive(P('Airspeed',ias))
         landing = Landing()
         landing.derive(phase_fast, P('Heading Continuous',head),
-                       P('Altitude AAL For Phases',alt_aal),
+                       P('Altitude AAL For Flight Phases',alt_aal),
                        None)
         expected = [Section(name='Landing', slice=slice(0.75, 8.5, None))]
         self.assertEqual(landing, expected)
@@ -491,7 +491,7 @@ class TestLanding(unittest.TestCase):
         phase_fast.derive(P('Airspeed',ias))
         landing = Landing()
         landing.derive(phase_fast, P('Heading Continuous',head),
-                       P('Altitude AAL For Phases',alt_aal),
+                       P('Altitude AAL For Flight Phases',alt_aal),
                        P('Altitude Radio For Phases',alt_rad))
         expected = [Section(name='Landing', slice=slice(0.65, 8.5, None))]
         self.assertEqual(landing, expected)
@@ -499,14 +499,14 @@ class TestLanding(unittest.TestCase):
 
 class TestLevelFlight(unittest.TestCase):
     def test_can_operate(self):
-        expected = [('Rate Of Climb','Airborne')]
+        expected = [('Rate Of Climb For Flight Phases','Airborne')]
         opts = LevelFlight.get_operational_combinations()
         self.assertEqual(opts, expected)
 
     def test_level_flight_phase_basic(self):
         rate_of_climb_data = np.ma.array(range(0,400,50)+range(400,-450,-50)+
                                          range(-450,50,50))
-        rate_of_climb = Parameter('Rate Of Climb', np.ma.array(rate_of_climb_data))
+        rate_of_climb = Parameter('Rate Of Climb For Flight Phases', np.ma.array(rate_of_climb_data))
         airborne = [Section('Airborne',slice(0,36,None))]
         level = LevelFlight()
         level.derive(rate_of_climb, airborne)
@@ -518,7 +518,7 @@ class TestLevelFlight(unittest.TestCase):
     def test_level_flight_phase_not_airborne_basic(self):
         rate_of_climb_data = np.ma.array(range(0,400,50)+range(400,-450,-50)+
                                          range(-450,50,50))
-        rate_of_climb = Parameter('Rate Of Climb', np.ma.array(rate_of_climb_data))
+        rate_of_climb = Parameter('Rate Of Climb For Flight Phases', np.ma.array(rate_of_climb_data))
         airborne = [Section('Airborne',slice(8,30,None))]
         level = LevelFlight()
         level.derive(rate_of_climb, airborne)
@@ -548,7 +548,7 @@ class TestOnGround(unittest.TestCase):
 class TestTakeoff(unittest.TestCase):
     def test_can_operate(self):
         expected = [('Fast','Heading Continuous', 
-                     'Altitude AAL For Phases','Altitude Radio')]
+                     'Altitude AAL For Flight Phases')]
         opts = Takeoff.get_operational_combinations()
         self.assertEqual(opts, expected)
 
@@ -560,7 +560,7 @@ class TestTakeoff(unittest.TestCase):
         phase_fast.derive(P('Airspeed',ias))
         takeoff = Takeoff()
         takeoff.derive(phase_fast, P('Heading Continuous',head),
-                       P('Altitude AAL For Phases',alt_aal),
+                       P('Altitude AAL For Flight Phases',alt_aal),
                        None) #  No Rad Alt in this basic case
         expected = Section(name='Takeoff', slice=slice(0.5, 8.125, None))
         self.assertEqual(takeoff[0], expected)
@@ -574,7 +574,7 @@ class TestTakeoff(unittest.TestCase):
         phase_fast.derive(P('Airspeed',ias))
         takeoff = Takeoff()
         takeoff.derive(phase_fast, P('Heading Continuous',head),
-                       P('Altitude AAL For Phases',alt_aal),
+                       P('Altitude AAL For Flight Phases',alt_aal),
                        P('Altitude Radio',alt_rad))
         expected = Section(name='Takeoff', slice=slice(0.5, 8.25, None))
         self.assertEqual(takeoff[0], expected)

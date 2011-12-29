@@ -48,8 +48,8 @@ def find_toc_tod(alt_data, ccd_slice, mode):
 
 
 class BottomOfDescent(KeyTimeInstanceNode):
-    def derive(self, dlc=S('Descent Low Climb'),
-               alt_std=P('Altitude STD')):
+    def derive(self, alt_std=P('Altitude STD'),
+               dlc=S('Descent Low Climb')):
         # In the case of descents without landing, this finds the minimum
         # point of the dip.
         for this_dlc in dlc:
@@ -126,7 +126,7 @@ class LandingPeakDeceleration(KeyTimeInstanceNode):
     deceleration than at the actual point of touchdown where the aircraft may
     still be have drift on.
     """
-    def derive(self, landings=S('Landing'), head=P('Heading Continuous'), 
+    def derive(self, head=P('Heading Continuous'), landings=S('Landing'),  
                accel=P('Acceleration Forwards For Flight Phases')):
         for land in landings:
             peak_decel_index = np.ma.argmin(accel.array[land.slice])
@@ -202,7 +202,7 @@ class TakeoffTurnOntoRunway(KeyTimeInstanceNode):
 
 
 class TakeoffStartAcceleration(KeyTimeInstanceNode):
-    def derive(self, toffs=S('Takeoff'), fwd_acc=P('Acceleration Longitudinal')):
+    def derive(self, fwd_acc=P('Acceleration Forwards For Flight Phases'), toffs=S('Takeoff')):
         for toff in toffs:
             start_accel = time_at_value_wrapped(fwd_acc, toff, 
                                                 TAKEOFF_ACCELERATION_THRESHOLD)
@@ -210,7 +210,10 @@ class TakeoffStartAcceleration(KeyTimeInstanceNode):
 
             
 class Liftoff(KeyTimeInstanceNode):
-    def derive(self, toffs=S('Takeoff'), roc=P('Rate Of Climb')):
+    # TODO: This should use the real rate of climb, but for the Hercules (and
+    # old 146s) the data isn't good enough so need to use this parameter.
+    def derive(self, roc=P('Rate Of Climb For Flight Phases'),
+              toffs=S('Takeoff')):
         for toff in toffs:
             lift_time = time_at_value_wrapped(roc, toff, 
                                               RATE_OF_CLIMB_FOR_LIFTOFF)
@@ -237,11 +240,27 @@ class LandingStart(KeyTimeInstanceNode):
             self.create_kti(landing.slice.start, 'Landing Start')
 
 
+class TouchAndGo(KeyTimeInstanceNode):
+    """
+    In POLARIS we define a Touch and Go as a Go-Around that contacted the ground.
+    """
+    '''
+    TODO: Write a proper version when we have a better landing condition.
+    Written without tests, just to provide a node to get things going. 29/12/11 DJ
+    '''
+
+    def derive(self, alt_AAL=P('Altitude AAL For Flight Phases'),
+               gas=S('Go Around')):
+        for ga in gas:
+            if np.ma.minimum(alt_AAL.array[ga.slice]) == 0.0:
+                self.create_kti(ga.slice.start, 'Touch And Go')
+
+
 class Touchdown(KeyTimeInstanceNode):
     # TODO: Establish whether this works satisfactorily. If there are
     # problems with this algorithm we could compute the rate of descent
     # backwards from the runway for greater accuracy.
-    def derive(self, landings=S('Landing'), roc=P('Rate Of Climb')):
+    def derive(self, roc=P('Rate Of Climb'), landings=S('Landing')):
         for landing in landings:
             land_time = time_at_value_wrapped(roc, landing, 
                                               RATE_OF_CLIMB_FOR_TOUCHDOWN)
@@ -257,7 +276,7 @@ class LandingTurnOffRunway(KeyTimeInstanceNode):
 
 
 class LandingStartDeceleration(KeyTimeInstanceNode):
-    def derive(self, landings=S('Landing'), fwd_acc=P('Acceleration Longitudinal')):
+    def derive(self, fwd_acc=P('Acceleration Forwards For Flight Phases'), landings=S('Landing')):
         for landing in landings:
             start_accel = time_at_value_wrapped(fwd_acc, landing, 
                                                 LANDING_ACCELERATION_THRESHOLD)
@@ -550,3 +569,21 @@ class _1MinToTouchdown(KeyTimeInstanceNode):
         return NotImplemented
 
 
+
+
+class TriggerPassiveNodes(KeyTimeInstanceNode):
+    # This class just lists nodes that have no dependencies and so would
+    # otherwise remain inactive.
+    def derive(self, ccbod=S('Climb From Bottom Of Descent'),
+               cfbod=S('Climb From Bottom Of Descent'),
+               fa=S('Final Approach'),
+               ile=S('ILS Localizer Established'),
+               og=S('On Ground'),
+               hat=S('Heading At Takeoff'),
+               hal=S('Heading At Landing'),
+               halpoa=S('Heading At Low Point On Approach'),
+               rodm=S('RateOfDescentMax'),
+               f2ftt=S('Flare20FtToTouchdown'),
+               ):
+        pass
+            

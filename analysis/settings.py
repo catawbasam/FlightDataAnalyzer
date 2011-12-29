@@ -87,7 +87,8 @@ INITIAL_CLIMB_THRESHOLD = 35 # ft (Radio, where available)
 KTS_TO_FPS = 1.68781 # ft/sec
 
 # Threshold for start of braking / reverse thrust on landing.
-LANDING_ACCELERATION_THRESHOLD = -0.2 # g
+LANDING_ACCELERATION_THRESHOLD = -0.1 # g
+# TODO: Was -0.2g set to -0.1 for Herc testing - revert or not???
 
 # Threshold for start of landing phase
 LANDING_THRESHOLD_HEIGHT = 50 # (Radio, where available)

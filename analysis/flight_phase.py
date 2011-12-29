@@ -1,7 +1,8 @@
 import logging
 import numpy as np
 
-from analysis.library import hysteresis, index_at_value, repair_mask
+from analysis.library import (hysteresis, index_at_value,
+                              time_at_value, repair_mask)
 from analysis.node import A, Attribute, FlightPhaseNode, KeyTimeInstance, P, S, KTI
 from analysis.settings import (AIRSPEED_THRESHOLD,
                                ALTITUDE_FOR_CLB_CRU_DSC,
@@ -411,16 +412,16 @@ class Takeoff(FlightPhaseNode):
     # List the minimum acceptable parameters here
     @classmethod
     def can_operate(cls, available):
-        if 'Fast' in available and \
-           'Heading Continuous' in available and \
-           'Altitude AAL For Phases' in available:
+        if 'Heading Continuous' in available and \
+           'Altitude AAL For Flight Phases' in available and\
+           'Fast' in available:
             return True
         else:
             return False
     
-    def derive(self, fast=S('Fast'),
-               head=P('Heading Continuous'),
-               alt_aal=P('Altitude AAL For Phases'),
+    def derive(self, head=P('Heading Continuous'),
+               alt_aal=P('Altitude AAL For Flight Phases'),
+               fast=S('Fast'),
                alt_rad=P('Altitude Radio For Phases')
                ):
         for speedy in fast:
@@ -483,16 +484,16 @@ class Landing(FlightPhaseNode):
     # List the minimum acceptable parameters here
     @classmethod
     def can_operate(cls, available):
-        if 'Fast' in available and \
-           'Heading Continuous' in available and \
-           'Altitude AAL For Phases' in available:
+        if 'Heading Continuous' in available and \
+           'Altitude AAL For Flight Phases' in available and \
+           'Fast' in available:
             return True
         else:
             return False
     
-    def derive(self, fast=S('Fast'),
-               head=P('Heading Continuous'),
-               alt_aal=P('Altitude AAL For Phases'),
+    def derive(self, head=P('Heading Continuous'),
+               alt_aal=P('Altitude AAL For Flight Phases'),
+               fast=S('Fast'),
                alt_rad=P('Altitude Radio For Phases')
                ):
         for speedy in fast:

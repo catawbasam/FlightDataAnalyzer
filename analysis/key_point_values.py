@@ -1,7 +1,9 @@
 import numpy as np
 
 from analysis import settings
-from analysis.library import min_value, max_value, max_abs_value, vstack_params
+from analysis.library import (min_value, max_value, max_abs_value, 
+                              value_at_time, vstack_params)
+
 from analysis.node import  KeyPointValue, KeyPointValueNode, KTI, P, S
 
 
@@ -20,9 +22,24 @@ class Airspeed1000To500FtMax(KeyPointValueNode):
                 self.create_kpv(index, value)
 
 
+'''
 class AirspeedAtTouchdown(KeyPointValueNode):
     def derive(self, airspeed=P('Airspeed'), touchdowns=KTI('Touchdown')):
         self.create_kpvs_at_ktis(airspeed.array, touchdowns)
+'''
+
+class AirspeedAtLiftoff(KeyPointValueNode):
+    def derive(self, airspeed=P('Airspeed'), liftoffs=KTI('Liftoff')):
+        for liftoff in liftoffs:
+            value = value_at_time(airspeed.array,airspeed.hz,airspeed.offset,liftoff.index)
+            self.create_kpv(liftoff.index, value)
+
+
+class AirspeedAtTouchdown(KeyPointValueNode):
+    def derive(self, airspeed=P('Airspeed'), touchdowns=KTI('Touchdown')):
+        for touch in touchdowns:
+            value = value_at_time(airspeed.array,airspeed.hz,airspeed.offset, touch.index)
+            self.create_kpv(touch.index, value)
 
 
 class AirspeedMax(KeyPointValueNode):
@@ -426,7 +443,7 @@ class RateOfDescentHigh(KeyPointValueNode):
                 
 class RateOfDescentMax(KeyPointValueNode):
     '''
-    .. TODO:: testcases
+    .. TODO:: testcases ??? Do we need this if we have high and keep many highs - max must be one of these... DJ
     '''
     # Minimum period of a descent for testing against thresholds (reduces number of KPVs computed in turbulence)
     DESCENT_MIN_DURATION = 10
@@ -740,7 +757,7 @@ class Flare20FtToTouchdown(KeyPointValueNode):
     def derive(self, alt_rad=P('Altitude Radio'),
                _25_ft_to_touchdown=KTI('25 Ft To Touchdown'),
                touchdown=KTI('Touchdown')):
-        return NotImplemented
+        return
 
 
 class LowPowerLessThan500Ft10Sec(KeyPointValueNode):

@@ -175,7 +175,7 @@ class Node(object):
                 for n, param in enumerate(args):
                     # if param is set and it's after the first dependency
                     if param and n > i:
-                        # override argument in list in-place
+                         # override argument in list in-place
                         args[n] = param.get_aligned(first_param)
         res = self.derive(*args)
         if res is NotImplemented:

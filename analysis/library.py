@@ -740,7 +740,7 @@ def rate_of_change(diff_param, half_width):
     # Set up an array of masked zeros for extending arrays.
     slope = np.ma.copy(to_diff)
     slope[hw:-hw] = (to_diff[2*hw:] - to_diff[:-2*hw])\
-                       / (2 * float(half_width))
+                       / (2.0 * float(half_width))
     slope[:hw] = (to_diff[1:hw+1] - to_diff[0:hw]) * hz
     slope[-hw:] = (to_diff[-hw:] - to_diff[-hw-1:-1])* hz
     return slope

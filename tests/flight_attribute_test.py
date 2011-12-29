@@ -9,10 +9,10 @@ from analysis.api_handler import NotFoundError
 from analysis.node import (A, KeyPointValue, KeyTimeInstance, KPV, KTI, P, S,
                            Section)
 from analysis.flight_attribute import (
-    Approaches, Duration, FlightID, FlightNumber, LandingAirport, 
+    Approaches, Duration, FlightID, FlightNumber, FlightType, LandingAirport, 
     LandingDatetime, LandingFuel, LandingGrossWeight, LandingRunway,
     TakeoffAirport, TakeoffDatetime, TakeoffFuel, TakeoffGrossWeight,
-    TakeoffRunway, Type)
+    TakeoffRunway)
 
 
 class TestApproaches(unittest.TestCase):
@@ -761,14 +761,14 @@ class TestTakeoffRunway(unittest.TestCase):
                          ((runway_info,), {}))
 
 
-class TestType(unittest.TestCase):
+class TestFlightType(unittest.TestCase):
     def test_can_operate(self):
-        self.assertEqual(Type.get_operational_combinations(),
+        self.assertEqual(FlightType.get_operational_combinations(),
                          [('Fast', 'Liftoff', 'Touchdown'),
                           ('AFR Type', 'Fast', 'Liftoff', 'Touchdown')])
     
     def test_derive(self):
-        type_node = Type()
+        type_node = FlightType()
         type_node.set_flight_attr = Mock()
         # Liftoff, 
         fast = S('Fast', items=[slice(5,10)])

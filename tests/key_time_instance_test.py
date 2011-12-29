@@ -45,7 +45,7 @@ class TestBottomOfDescent(unittest.TestCase):
         dlc = DescentLowClimb()
         dlc.derive(alt_ph)
         bod = BottomOfDescent()
-        bod.derive(dlc, alt_std)    
+        bod.derive(alt_std, dlc)    
         expected = [KeyTimeInstance(index=63, name='Bottom Of Descent')]        
         self.assertEqual(bod, expected)
         

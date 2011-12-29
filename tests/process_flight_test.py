@@ -1,5 +1,5 @@
 import unittest
-
+import csv
 import os
 import shutil
 
@@ -7,6 +7,58 @@ from datetime import datetime
         
 from analysis.process_flight import process_flight, derive_parameters, get_derived_nodes
 
+from analysis.node import KeyPointValueNode, P, KeyTimeInstanceNode, S
+from analysis.library import value_at_time
+from analysis.key_time_instances import TriggerPassiveNodes
+
+import itertools
+def sort_by_index_or_slice(x):
+    try:
+        return float(x.index)
+    except:
+        try:
+            return x.slice.start
+        except:
+            pass
+      
+    #except (TypeError, AttributeError):
+        #return x.slice.start
+
+def extend_output(output):
+    get = GetParamsForDevelopmentOutput()
+    index = output[-1][2]
+    output.extend([get.airspeed(index), get.alt_aal(index)])
+    return output
+
+def output_phase_kti_kpv_for_development(result):
+    output=[]
+    file_for_indexed_output = open('C:/temp/try.csv', 'wb')
+    to_csv = csv.writer(file_for_indexed_output)
+    for phase in result['phases']:
+        output.append(['Phase Start', phase.name, phase.slice.start])
+        #output = extend_output(output)
+        output.append(['Phase Stop' , None, phase.slice.stop,  phase.name])
+    for kti in result['kti']:
+        output.append(['KTI', None, kti.index, None, kti.name])
+    for kpv in result['kpv']:
+        output.append(['KPV', None, kpv.index, None, kpv.name, kpv.value])
+    for row in sorted(output,key=lambda index:index[2]):
+        to_csv.writerow(row)
+    return
+           
+class GetParamsForDevelopmentOutput(KeyPointValueNode):
+    def derive(self, speed=P('Airspeed'),
+               alt_aal=P('Altitude AAL For Flight Phases')):
+        return
+
+    def airspeed(self,index, speed=P('Airspeed')):
+        return value_at_time (speed.array, speed.hz, speed.offset, index)
+        
+    def alt_aal(self,index, alt_aal=P('Altitude AAL For Flight Phases')):
+        return value_at_time (alt_aal.array, alt_aal.hz, alt_aal.offset, index)
+                                         
+
+    
 class TestProcessFlight(unittest.TestCase):
     
     def setUp(self):
@@ -48,8 +100,14 @@ class TestProcessFlight(unittest.TestCase):
                'AFR Vapp': 135,
                'AFR Vref': 120
               }
+        #res = process_flight(args, kwargs)
+        clouseau = TriggerPassiveNodes()
+        clouseau.derive()
         res = process_flight(hdf_path, ac_info, achieved_flight_record=afr, draw=False)
-        self.assertEqual(len(res), 3)
+        output_phase_kti_kpv_for_development(res)
+        
+        #index_sorted_res = sorted(itertools.chain(*res.values()), key=sort_by_index_or_slice)
+        self.assertEqual(len(res), 4)
     
     
     def test_146_301(self):
