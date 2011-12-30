@@ -120,9 +120,10 @@ class AirspeedTrue(DerivedParameterNode):
     
 
 class AltitudeAAL(DerivedParameterNode):
+    # Dummy for testing DJ TODO: Replace with one that takes radio altitude and local minima into account.
     name = 'Altitude AAL'
-    def derive(self, alt_std=P('Altitude STD'), alt_rad=P('Altitude Radio')):
-        return NotImplemented
+    def derive(self, alt_std=P('Altitude AAL For Flight Phases')):
+        self.array = alt_std.array
 
     
 class AltitudeAALForFlightPhases(DerivedParameterNode):
