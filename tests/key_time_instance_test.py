@@ -294,12 +294,12 @@ class TestAltitudeWhenDescending(unittest.TestCase):
                            latitude=None, longitude=None),
            KeyTimeInstance(index=18.5, name='20 Ft Descending', datetime=None,
                            latitude=None, longitude=None),
-           KeyTimeInstance(index=17.0, name='35 Ft Descending', datetime=None,
+           KeyTimeInstance(index=17.0, name='35 Ft Descending', datetime=None, 
+                           latitude=None, longitude=None),
+           KeyTimeInstance(index=15.5, name='50 Ft Descending', datetime=None,
                            latitude=None, longitude=None),
            KeyTimeInstance(index=13.0, name='75 Ft Descending', datetime=None,
                            latitude=None, longitude=None)])
-
-
 
 
 class TestInitialClimbStart(unittest.TestCase):
