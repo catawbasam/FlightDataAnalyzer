@@ -1,14 +1,10 @@
-import logging
 import numpy as np
 
-from analysis.library import time_at_value_wrapped
-
+from analysis.library import hysteresis, index_at_value, peak_curvature
 from analysis.node import FlightPhaseNode, P, S, KTI
-
 from analysis.node import KeyTimeInstance, KeyTimeInstanceNode
 
 from settings import (CLIMB_THRESHOLD,
-                      INITIAL_CLIMB_THRESHOLD,
                       LANDING_ACCELERATION_THRESHOLD,
                       RATE_OF_CLIMB_FOR_LIFTOFF,
                       RATE_OF_CLIMB_FOR_TOUCHDOWN,
@@ -48,13 +44,13 @@ def find_toc_tod(alt_data, ccd_slice, mode):
 
 
 class BottomOfDescent(KeyTimeInstanceNode):
-    def derive(self, dlc=S('Descent Low Climb'),
-               alt_std=P('Altitude STD')):
+    def derive(self, alt_std=P('Altitude STD'),
+               dlc=S('Descent Low Climb')):
         # In the case of descents without landing, this finds the minimum
         # point of the dip.
         for this_dlc in dlc:
             kti = np.ma.argmin(alt_std.array[this_dlc.slice])
-            self.create_kti(kti + this_dlc.slice.start, 'Bottom Of Descent')
+            self.create_kti(kti + this_dlc.slice.start)
         
            
 class ApproachAndLandingLowestPoint(KeyTimeInstanceNode):
@@ -64,15 +60,15 @@ class ApproachAndLandingLowestPoint(KeyTimeInstanceNode):
         # point of the dip.
         for app_land in app_lands:
             kti = np.ma.argmin(alt_std.array[app_land.slice])
-            self.create_kti(kti + app_land.slice.start, 'Approach And Landing Lowest Point')
+            self.create_kti(kti + app_land.slice.start)
     
 
 class ClimbStart(KeyTimeInstanceNode):
     def derive(self, alt_aal=P('Altitude AAL'), climbing=S('Climbing')):
         for climb in climbing:
-            initial_climb_index = time_at_value_wrapped(alt_aal, climb,
+            initial_climb_index = index_at_value(alt_aal.array, climb.slice,
                                                         CLIMB_THRESHOLD)
-            self.create_kti(initial_climb_index, 'Climb Start')
+            self.create_kti(initial_climb_index)
 
 
 class GoAround(KeyTimeInstanceNode):
@@ -112,7 +108,7 @@ class GoAround(KeyTimeInstanceNode):
                 else:
                     # In case this aircraft has no rad alt fitted
                     pit_index = np.ma.argmin(alt_AAL.array[app.slice])
-                self.create_kti(app.slice.start+pit_index, 'Go Around')
+                self.create_kti(app.slice.start+pit_index)
 
 
 class LandingPeakDeceleration(KeyTimeInstanceNode):
@@ -126,12 +122,12 @@ class LandingPeakDeceleration(KeyTimeInstanceNode):
     deceleration than at the actual point of touchdown where the aircraft may
     still be have drift on.
     """
-    def derive(self, landings=S('Landing'), head=P('Heading Continuous'), 
-               accel=P('Acceleration Forwards For Flight Phases')):
+    def derive(self, head=P('Heading Continuous'), landings=S('Landing'),  
+               accel=P('Acceleration Longitudinal')):
         for land in landings:
             peak_decel_index = np.ma.argmin(accel.array[land.slice])
             peak_decel_index += land.slice.start
-            self.create_kti(peak_decel_index, 'Landing Peak Deceleration')
+            self.create_kti(peak_decel_index)
 
 
 class TopOfClimb(KeyTimeInstanceNode):
@@ -151,7 +147,7 @@ class TopOfClimb(KeyTimeInstanceNode):
             if n_toc==0:
                 break
             # Record the moment (with respect to this section of data)
-            self.create_kti(n_toc, 'Top Of Climb')
+            self.create_kti(n_toc)
 
 
 class TopOfDescent(KeyTimeInstanceNode):
@@ -171,10 +167,11 @@ class TopOfDescent(KeyTimeInstanceNode):
             if n_tod==ccd_slice.stop - 1:
                 break
             # Record the moment (with respect to this section of data)
-            self.create_kti(n_tod, 'Top Of Descent')
+            self.create_kti(n_tod)
 
 
 class FlapStateChanges(KeyTimeInstanceNode):
+    NAME_FORMAT = 'Flap %(setting)d'
     
     def derive(self, flap=P('Flap')):
         # Mark all flap changes, irrespective of the aircraft type :o)
@@ -184,7 +181,7 @@ class FlapStateChanges(KeyTimeInstanceNode):
                 continue
             else:
                 # Flap moved from previous setting, so record this change:
-                self.create_kti(index, 'Flap %d' % value)
+                self.create_kti(index, setting=value)
 
 
 # ===============================================================
@@ -198,23 +195,25 @@ class TakeoffTurnOntoRunway(KeyTimeInstanceNode):
     # onto the runway, so this KTI is just at the start of that phase.
     def derive(self, toffs=S('Takeoff')):
         for toff in toffs:
-            self.create_kti(toff.slice.start, 'Takeoff Turn Onto Runway')
+            self.create_kti(toff.slice.start)
 
 
-class TakeoffStartAcceleration(KeyTimeInstanceNode):
-    def derive(self, toffs=S('Takeoff'), fwd_acc=P('Acceleration Longitudinal')):
-        for toff in toffs:
-            start_accel = time_at_value_wrapped(fwd_acc, toff, 
-                                                TAKEOFF_ACCELERATION_THRESHOLD)
-            self.create_kti(toff.slice.start + start_accel, 'Takeoff Start Acceleration')
+class TakeoffAccelerationStart(KeyTimeInstanceNode):
+    def derive(self, speed=P('Airspeed'), takeoffs=S('Takeoff')):
+        for takeoff in takeoffs:
+            start_accel = peak_curvature(speed.array[takeoff.slice])
+            self.create_kti(start_accel+takeoff.slice.start)
 
-            
+
 class Liftoff(KeyTimeInstanceNode):
-    def derive(self, toffs=S('Takeoff'), roc=P('Rate Of Climb')):
+    # TODO: This should use the real rate of climb, but for the Hercules (and
+    # old 146s) the data isn't good enough so need to use this parameter.
+    def derive(self, roc=P('Rate Of Climb For Flight Phases'),
+              toffs=S('Takeoff')):
         for toff in toffs:
-            lift_time = time_at_value_wrapped(roc, toff, 
+            lift_index = index_at_value(roc.array, toff.slice, 
                                               RATE_OF_CLIMB_FOR_LIFTOFF)
-            self.create_kti(toff.slice.start+lift_time, 'Liftoff')
+            self.create_kti(lift_index)
             
 
 class InitialClimbStart(KeyTimeInstanceNode):
@@ -222,7 +221,7 @@ class InitialClimbStart(KeyTimeInstanceNode):
     # initial climb, so this KTI is just at the end of that phase.
     def derive(self, toffs=S('Takeoff')):
         for toff in toffs:
-            self.create_kti(toff.slice.stop, 'Initial Climb Start')
+            self.create_kti(toff.slice.stop)
 
 
 """
@@ -234,18 +233,34 @@ class LandingStart(KeyTimeInstanceNode):
     # (nominally), so this KTI is just at the end of that phase.
     def derive(self, landings=S('Landing')):
         for landing in landings:
-            self.create_kti(landing.slice.start, 'Landing Start')
+            self.create_kti(landing.slice.start)
+
+
+class TouchAndGo(KeyTimeInstanceNode):
+    """
+    In POLARIS we define a Touch and Go as a Go-Around that contacted the ground.
+    """
+    '''
+    TODO: Write a proper version when we have a better landing condition.
+    Written without tests, just to provide a node to get things going. 29/12/11 DJ
+    '''
+
+    def derive(self, alt_AAL=P('Altitude AAL For Flight Phases'),
+               gas=S('Go Around')):
+        for ga in gas:
+            if np.ma.minimum(alt_AAL.array[ga.slice]) == 0.0:
+                self.create_kti(ga.slice.start, 'Touch And Go')
 
 
 class Touchdown(KeyTimeInstanceNode):
     # TODO: Establish whether this works satisfactorily. If there are
     # problems with this algorithm we could compute the rate of descent
     # backwards from the runway for greater accuracy.
-    def derive(self, landings=S('Landing'), roc=P('Rate Of Climb')):
+    def derive(self, roc=P('Rate Of Climb For Flight Phases'), landings=S('Landing')):
         for landing in landings:
-            land_time = time_at_value_wrapped(roc, landing, 
-                                              RATE_OF_CLIMB_FOR_TOUCHDOWN)
-            self.create_kti(landing.slice.start+land_time, 'Touchdown')
+            land_index = index_at_value(roc.array, landing.slice, 
+                                        RATE_OF_CLIMB_FOR_TOUCHDOWN)
+            self.create_kti(land_index)
 
 
 class LandingTurnOffRunway(KeyTimeInstanceNode):
@@ -253,18 +268,123 @@ class LandingTurnOffRunway(KeyTimeInstanceNode):
     # runway, so this KTI is just at the start of that phase.
     def derive(self, landings=S('Landing')):
         for landing in landings:
-            self.create_kti(landing.slice.stop, 'Landing Turn Off Runway')
+            self.create_kti(landing.slice.stop)
 
 
-class LandingStartDeceleration(KeyTimeInstanceNode):
-    def derive(self, landings=S('Landing'), fwd_acc=P('Acceleration Longitudinal')):
+class LandingDecelerationEnd(KeyTimeInstanceNode):
+    def derive(self, speed=P('Airspeed'), landings=S('Landing')):
         for landing in landings:
-            start_accel = time_at_value_wrapped(fwd_acc, landing, 
-                                                LANDING_ACCELERATION_THRESHOLD)
-            self.create_kti(landing.slice.start+start_accel, 'Landing Start Deceleration')
-
+            end_decel = peak_curvature(speed.array[landing.slice])
+            self.create_kti(end_decel+landing.slice.start)
 
 #<<<< This style for all climbing events >>>>>
+
+
+class AltitudeWhenClimbing(KeyTimeInstanceNode):
+    '''
+    Creates KTIs at certain altitudes when the aircraft is climbing.
+    '''
+    NAME_FORMAT = '%(altitude)d Ft Climbing'
+    ALTITUDES = [10, 20, 35, 50, 75, 100, 150, 200, 300, 400, 500, 750, 1000,
+                 1500, 2000, 2500, 3000, 3500, 4000, 5000, 6000, 7000, 8000, 
+                 9000, 10000]
+    NAME_VALUES = {'altitude': ALTITUDES}
+    
+    def derive(self, climbing=S('Climbing'), alt_aal=P('Altitude AAL')):
+        alt_array = hysteresis(alt_aal.array, 10)
+        for climb in climbing:
+            for alt_threshold in self.ALTITUDES:
+                # Will trigger a single KTI per height (if threshold is crossed)
+                # per climbing phase.
+                index = index_at_value(alt_array, climb.slice, alt_threshold)
+                if index:
+                    self.create_kti(index, altitude=alt_threshold)
+
+
+class AltitudeWhenDescending(KeyTimeInstanceNode):
+    '''
+    Creates KTIs at certain heights when the aircraft is descending.
+    '''
+    NAME_FORMAT = '%(altitude)d Ft Descending'
+    ALTITUDES = [10, 20, 35, 50, 75, 100, 150, 200, 300, 400, 500, 750, 1000,
+                 1500, 2000, 3000, 3500, 4000, 5000, 6000, 7000, 8000, 9000,
+                 10000]
+    NAME_VALUES = {'altitude': ALTITUDES}
+    
+    def derive(self, descending=S('Descending'), alt_aal=P('Altitude AAL')):
+        alt_array = hysteresis(alt_aal.array, 10)
+        for descend in descending:
+            for alt_threshold in self.ALTITUDES:
+                # Will trigger a single KTI per height (if threshold is crossed)
+                # per climbing phase.
+                # Q: This will get the first index where the threshold is
+                # crossed. Should we be getting the last?
+                index = index_at_value(alt_array, descend.slice, alt_threshold)
+                if index:
+                    self.create_kti(index, altitude=alt_threshold)
+
+
+class AltitudeInApproach(KeyTimeInstanceNode):
+    '''
+    Creates KTIs at certain altitudes when the aircraft is in the approach phase.
+    '''
+    NAME_FORMAT = '%(altitude)d Ft In Approach'
+    ALTITUDES = [1000, 1500, 2000, 3000]
+    NAME_VALUES = {'altitude': ALTITUDES}
+    
+    def derive(self, approaches=S('Approach And Landing'),
+               alt_aal=P('Altitude AAL')):
+        alt_array = hysteresis(alt_aal.array, 10)
+        for approach in approaches:
+            for alt_threshold in self.ALTITUDES:
+                # Will trigger a single KTI per height (if threshold is crossed)
+                # per climbing phase.
+                index = index_at_value(alt_array, approach.slice, alt_threshold)
+                if index:
+                    self.create_kti(index, altitude=alt_threshold)
+
+
+class AltitudeInFinalApproach(KeyTimeInstanceNode):
+    '''
+    Creates KTIs at certain heights when the aircraft is in the final approach.
+    '''
+    NAME_FORMAT = '%(altitude)d Ft In Final Approach'
+    ALTITUDES = [100, 500]
+    NAME_VALUES = {'altitude': ALTITUDES}
+    
+    def derive(self, approaches=S('Approach And Landing'),
+               alt_aal=P('Altitude AAL')):
+        # Attempt to smooth to avoid fluctuations triggering KTIs.
+        # Q: Is this required?
+        alt_array = hysteresis(alt_aal.array, 10)
+        for approach in approaches:
+            for alt_threshold in self.ALTITUDES:
+                # Will trigger a single KTI per height (if threshold is crossed)
+                # per climbing phase.
+                index = index_at_value(alt_array, approach.slice, alt_threshold)
+                if index:
+                    self.create_kti(index, altitude=alt_threshold)
+
+
+# Climb KTI does not yet exist.
+#class AltitudeInClimb(KeyTimeInstanceNode):
+    #'''
+    #Creates KTIs at certain heights when the aircraft is in the climb phase.
+    #'''
+    #NAME_FORMAT = '%(height)d Ft In Approach'
+    #HEIGHTS = [1000, 1500, 2000, 3500]
+    #NAME_VALUES = {'height': HEIGHTS}
+    
+    #def derive(self, climbs=S('Climb'), alt_aal=P('Altitude AAL')):
+        #alt = hysteresis(alt_aal.array, 10)
+        #for climb in climbs:
+            #for height in self.HEIGHTS:
+                ## Will trigger a single KTI per height (if threshold is crossed)
+                ## per climbing phase.
+                #index = index_at_value(alt, descend.slice, height)
+                #if index:
+                    #self.create_kti(index, height=height)
+
 
 class _10FtClimbing(KeyTimeInstanceNode):
     def derive(self, alt_aal=P('Altitude AAL')):
@@ -282,18 +402,18 @@ class _35FtClimbing(KeyTimeInstanceNode):
 
     
 class _50FtClimbing(KeyTimeInstanceNode):
-    def derive(self, alt_aal=P('Altitude AAL')):
+    def derive(self, climbing=S('Climbing'), alt_aal=P('Altitude AAL')):
         for climb in climbing:
-            index = time_at_value_wrapped(alt_aal,
-                                          climb, 50)
+            index = start_decel_index(alt_aal.array,
+                                      climb.index, 50)
             self.create_kti(index, '50 Ft In Initial Climb')
 
 
 class _75FtClimbing(KeyTimeInstanceNode):
-    def derive(self, alt_aal=P('Altitude AAL')):
+    def derive(self, climbing=S('Climbing'), alt_aal=P('Altitude AAL')):
         for climb in climbing:
-            index = time_at_value_wrapped(alt_aal,
-                                          climb, 50)
+            index = start_decel_index(alt_aal.array,
+                                          climb.slice, 50)
             self.create_kti(index, '50 Ft In Initial Climb')
 
 
@@ -550,3 +670,21 @@ class _1MinToTouchdown(KeyTimeInstanceNode):
         return NotImplemented
 
 
+
+
+class TriggerPassiveNodes(KeyTimeInstanceNode):
+    # This class just lists nodes that have no dependencies and so would
+    # otherwise remain inactive.
+    def derive(self, ccbod=S('Climb From Bottom Of Descent'),
+               cfbod=S('Climb From Bottom Of Descent'),
+               fa=S('Final Approach'),
+               ile=S('ILS Localizer Established'),
+               og=S('On Ground'),
+               hat=S('Heading At Takeoff'),
+               hal=S('Heading At Landing'),
+               halpoa=S('Heading At Low Point On Approach'),
+               rodm=S('RateOfDescentMax'),
+               f2ftt=S('Flare20FtToTouchdown'),
+               ):
+        pass
+            

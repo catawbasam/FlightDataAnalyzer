@@ -7,7 +7,7 @@ from hashlib import sha256
 from itertools import izip
 from scipy.signal import iirfilter, lfilter, lfilter_zi, filtfilt
 
-from settings import REPAIR_DURATION
+from settings import REPAIR_DURATION, TRUCK_OR_TRAILER_INTERVAL, TRUCK_OR_TRAILER_PERIOD
 
 Value = namedtuple('Value', 'index value')
 
@@ -67,8 +67,13 @@ def align(slave, master, interval='Subframe', signaltype='Analogue'):
     :returns: Slave array aligned to master.
     :rtype: np.ma.array
     """
+    slave_array = slave.array # Optimised access to attribute.
+    if len(slave_array) == 0:
+        # No elements to align, avoids exception being raised in the loop below.
+        return slave_array
     if slave.frequency == master.frequency and slave.offset == master.offset:
-        return slave.array
+        # No alignment is required, return the slave's array unchanged.
+        return slave_array
     
     # Check the interval is one of the two forms we recognise
     assert interval in ['Subframe', 'Frame']
@@ -76,16 +81,6 @@ def align(slave, master, interval='Subframe', signaltype='Analogue'):
     # Check the type of signal is one of those we recognise
     assert signaltype in ['Analogue', 'Discrete', 'Multi-State']
     
-    slave_array = slave.array # Optimised access to attribute.
-    if len(slave_array) == 0:
-        return slave_array # Otherwise would raise in loop.
-    if master.frequency == slave.frequency and master.offset == slave.offset:
-        # No alignment is required, return the slave's array unchanged.
-        return slave.array
-    
-    # Here we create a masked array to hold the returned values that will have 
-    # the same sample rate and timing offset as the master
-    slave_aligned = np.ma.empty_like(master.array)
     ## slave_aligned[:] = 0.0
     ## Clearing the slave_aligned array is unnecessary, but can make testing easier to follow.
 
@@ -107,10 +102,14 @@ def align(slave, master, interval='Subframe', signaltype='Analogue'):
         ws = int(ws * 4)
     assert wm in [1,2,4,8,16,32,64]
     assert ws in [1,2,4,8,16,32,64]
-    assert len(master.array.data) * ws == len(slave_array.data) * wm
+    ##assert len(master.array.data) * ws == len(slave_array.data) * wm
            
     # Compute the sample rate ratio (in range 10:1 to 1:10 for sample rates up to 10Hz)
     r = wm/float(ws)
+    
+    # Here we create a masked array to hold the returned values that will have 
+    # the same sample rate and timing offset as the master
+    slave_aligned = np.ma.empty(len(slave_array) * r)
 
     # Each sample in the master parameter may need different combination parameters
     for i in range(int(wm)):
@@ -131,7 +130,6 @@ def align(slave, master, interval='Subframe', signaltype='Analogue'):
         # Either way, a is the residual part.    
         a=1-b
         
-
         if h<0:
             slave_aligned[i+wm::wm]=a*slave_array[h+ws:-ws:ws]+b*slave_array[h1+ws::ws]
             # We can't interpolate the inital values as we are outside the 
@@ -710,6 +708,39 @@ def merge_alternate_sensors (array):
     result[-1] = (array[-2] + array[-1]) / 2.0
     return result
 
+def peak_curvature(array, frequency=1):
+    """
+    This routine uses a "Truck and Trailer" algorithm to find where a
+    parameter changes slope. In the case of FDM, we are looking for the point
+    where the airspeed starts to increase (or stops decreasing) on the
+    takeoff and landing phases. This is more robust than looking at
+    longitudinal acceleration and complies with the POLARIS philosophy that
+    we should provide analysis with only airspeed, altitude and heading data
+    available.
+    """
+    gap = TRUCK_OR_TRAILER_INTERVAL * frequency
+    if gap%2-1:
+      gap-=1  #  Ensure gap is odd
+    ttp = TRUCK_OR_TRAILER_PERIOD * frequency
+    overall = 2*ttp + gap 
+    # check the array is long enough.
+    if len(array) < overall:
+        raise ValueError, 'Peak curvature called with too short a sample'
+    
+    steps = len(array)-overall+1
+    A = np.vstack([np.arange(ttp), np.ones(ttp)*frequency]).T
+
+    # Keep the answers in an array of measurements
+    measures = np.zeros(steps)
+    
+    for step in range(steps):
+        m1, c1 = np.linalg.lstsq(A, array[step:step+ttp])[0]
+        m2, c2 = np.linalg.lstsq(A, array[step+ttp+gap:step+ttp+gap+ttp])[0]
+        measures[step] = m2-m1
+        
+    return np.argmax(measures)+overall/2
+    
+    
 def rate_of_change(diff_param, half_width):
     '''
     @param to_diff: Parameter object with .array attr (masked array)
@@ -740,7 +771,7 @@ def rate_of_change(diff_param, half_width):
     # Set up an array of masked zeros for extending arrays.
     slope = np.ma.copy(to_diff)
     slope[hw:-hw] = (to_diff[2*hw:] - to_diff[:-2*hw])\
-                       / (2 * float(half_width))
+                       / (2.0 * float(half_width))
     slope[:hw] = (to_diff[1:hw+1] - to_diff[0:hw]) * hz
     slope[-hw:] = (to_diff[-hw:] - to_diff[-hw-1:-1])* hz
     return slope
@@ -782,6 +813,11 @@ def straighten_headings(heading_array):
     diff = diff - 360.0 * np.trunc(diff/180.0)
     heading_array[1:] = np.cumsum(diff) + head_prev
     return heading_array
+
+"""
+============================================================
+Time functions replaced by index operations for consistency.
+============================================================
 
 def time_at_value_wrapped(parameter, section, value, direction='Forwards'):
     '''
@@ -868,6 +904,11 @@ def time_at_value (array, hz, offset, scan_start, scan_end, threshold):
         r = (float(threshold) - a) / (b-a) 
         #TODO: Could test 0 < r < 1 for completeness
     return (begin + step * (n + r)) / hz
+============================================================
+Time functions replaced by index operations for consistency.
+============================================================
+"""
+
 
 def index_at_value (array, section, threshold):
     '''
@@ -889,10 +930,24 @@ def index_at_value (array, section, threshold):
     :returns type: float
     '''
     begin, end, step = int(round(section.start)), int(round(section.stop)), section.step
+    if abs(begin - end) < 2:
+        # Requires at least two values to find if the array crosses a
+        # threshold.
+        return None
 
     if begin == end:
         raise ValueError, 'No range for seek function to scan across'
-    
+
+    # A "let's get the logic right and tidy it up afterwards" bit of code...
+    if begin > len(array):
+        begin = len(array)
+    if begin < 0:
+        begin = 0
+    if end > len(array):
+        end = len(array)
+    if end < 0:
+        end = 0
+        
     if step == None:
         step = 1
         

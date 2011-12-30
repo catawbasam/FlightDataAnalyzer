@@ -1,7 +1,9 @@
 import numpy as np
 
 from analysis import settings
-from analysis.library import min_value, max_value, max_abs_value, vstack_params
+
+from analysis.library import (min_value, max_value, max_abs_value, 
+                              value_at_time)
 from analysis.node import  KeyPointValue, KPV, KeyPointValueNode, KTI, P, S
 
 
@@ -19,10 +21,24 @@ class Airspeed1000To500FtMax(KeyPointValueNode):
                 index, value = max_value(speed.array, this_period)
                 self.create_kpv(index, value)
 
-
+'''
 class AirspeedAtTouchdown(KeyPointValueNode):
     def derive(self, airspeed=P('Airspeed'), touchdowns=KTI('Touchdown')):
         self.create_kpvs_at_ktis(airspeed.array, touchdowns)
+'''
+
+class AirspeedAtLiftoff(KeyPointValueNode):
+    def derive(self, airspeed=P('Airspeed'), liftoffs=KTI('Liftoff')):
+        for liftoff in liftoffs:
+            value = value_at_time(airspeed.array,airspeed.hz,airspeed.offset,liftoff.index)
+            self.create_kpv(liftoff.index, value)
+
+
+class AirspeedAtTouchdown(KeyPointValueNode):
+    def derive(self, airspeed=P('Airspeed'), touchdowns=KTI('Touchdown')):
+        for touch in touchdowns:
+            value = value_at_time(airspeed.array,airspeed.hz,airspeed.offset, touch.index)
+            self.create_kpv(touch.index, value)
 
 
 class AirspeedMax(KeyPointValueNode):
@@ -57,7 +73,7 @@ class HeadingAtTakeoff(KeyPointValueNode):
 
 """
 
-:TODO Can we omit this ?!?
+TODO: Can we omit this ?!?
 
 class AltitudeAtTakeoff(KeyPointValueNode):
     def derive(self, takeoffs=S('Takeoff'), head=P('Heading Continuous'), 
@@ -302,7 +318,8 @@ class RollCycles1000FtToTouchdown(KeyPointValueNode):
     
     
 class AltitudeWithFlapsMax(KeyPointValueNode):
-    """ It's max Altitude not Max Flaps
+    """
+    FIXME: It's max Altitude not Max Flaps
     """
     def derive(self, flap=P('Flap'), alt_std=P('Altitude Std')):
         return NotImplemented
@@ -327,9 +344,9 @@ class AltitudeAtMACHMax(KeyPointValueNode):
 
 
 class GroundSpeedOnGroundMax(KeyPointValueNode):
-    def derive(self, ground_speed=P('Ground Speed'), on_grounds=S('On Ground')):
-        
-        max_value(ground_speed[on_ground]) # TODO: Fix.
+    def derive(self, groundspeed=P('Groundspeed'), on_grounds=S('On Ground')):
+        #max_value(groundspeed[on_ground]) # TODO: Fix.
+        return NotImplemented
 
 
 class FlapAtTouchdown(KeyPointValueNode):
@@ -435,7 +452,7 @@ class RateOfDescentHigh(KeyPointValueNode):
                 
 class RateOfDescentMax(KeyPointValueNode):
     '''
-    .. TODO:: testcases
+    .. TODO:: testcases ??? Do we need this if we have high and keep many highs - max must be one of these... DJ
     '''
     # Minimum period of a descent for testing against thresholds (reduces number of KPVs computed in turbulence)
     DESCENT_MIN_DURATION = 10
@@ -749,7 +766,7 @@ class Flare20FtToTouchdown(KeyPointValueNode):
     def derive(self, alt_rad=P('Altitude Radio'),
                _25_ft_to_touchdown=KTI('25 Ft To Touchdown'),
                touchdown=KTI('Touchdown')):
-        return NotImplemented
+        return
 
 
 class LowPowerLessThan500Ft10Sec(KeyPointValueNode):

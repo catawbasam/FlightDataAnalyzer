@@ -11,6 +11,7 @@ NODE_MODULES = ['analysis.derived_parameters',
 
 # Handler
 HANDLER = 'analysis.api_handler_http.APIHandlerHTTP'
+BASE_URL = 'http://127.0.0.1'
 
 ##########################
 ## Parameter Analysis
@@ -87,7 +88,8 @@ INITIAL_CLIMB_THRESHOLD = 35 # ft (Radio, where available)
 KTS_TO_FPS = 1.68781 # ft/sec
 
 # Threshold for start of braking / reverse thrust on landing.
-LANDING_ACCELERATION_THRESHOLD = -0.2 # g
+LANDING_ACCELERATION_THRESHOLD = -0.1 # g
+# TODO: Was -0.2g set to -0.1 for Herc testing - revert or not???
 
 # Threshold for start of landing phase
 LANDING_THRESHOLD_HEIGHT = 50 # (Radio, where available)
@@ -122,6 +124,12 @@ RATE_OF_CLIMB_LAG_TC = 6.0 # sec
 
 # Acceleration forwards at the start of the takeoff roll.
 TAKEOFF_ACCELERATION_THRESHOLD = 0.1 # g
+
+# The takeoff and landing acceleration algorithm linear estimation period
+TRUCK_OR_TRAILER_INTERVAL = 5 # sec: should be odd.
+
+# The takeoff and landing acceleration algorithm linear estimation period
+TRUCK_OR_TRAILER_PERIOD = 10 # sec
 
 
 """  Top of Climb / Top of Descent Threshold.

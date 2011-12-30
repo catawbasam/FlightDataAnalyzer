@@ -18,8 +18,9 @@ from analysis.library import (align, calculate_timebase, create_phase_inside,
                               is_slice_within_slice, min_value, 
                               mask_inside_slices, mask_outside_slices,
                               max_value, max_abs_value, merge_alternate_sensors,
+                              peak_curvature,
                               rate_of_change, repair_mask, straighten_headings,
-                              time_at_value, time_at_value_wrapped,
+                              #time_at_value, time_at_value_wrapped,
                               value_at_time, vstack_params, InvalidDatetime)
 
 from analysis.node import A, KPV, KTI, Parameter, P, S, Section
@@ -31,6 +32,16 @@ class TestAlign(unittest.TestCase):
         master = P('master', np.ma.array(range(30)))
         aligned = align(slave, master)
         self.assertEqual(id(slave.array), id(aligned))
+    
+    def test_align_section_param(self):
+        alt_aal = P('Altitude AAL', np.ma.arange(0, 5), frequency=1, offset=1)
+        fast = S('Fast', frequency=4, offset=0.5)
+        aligned = align(alt_aal, fast)
+        self.assertEqual(len(aligned), 20)
+        np.testing.assert_array_equal(aligned,
+                                      [0, 0, 0, 0.25, 0.5, 0.75, 1, 1.25,
+                                       1.5, 1.75, 2, 2.25, 2.5, 2.75, 3,
+                                       3.25, 3.5, 3.75, 4, 4])
         
     def test_align_basic(self):
         class DumParam():
@@ -50,7 +61,9 @@ class TestAlign(unittest.TestCase):
         second.array = np.ma.array(range(8))
         
         result = align(second, first) #  sounds more natural so order reversed 20/11/11
-        np.testing.assert_array_equal(result.data, [0, 0, 1, 2, 3, 4, 5, 6])
+        np.testing.assert_array_equal(result.data,
+                                      [0.0, 0.6, 1.6, 2.6, 3.6,
+                                       4.6, 5.6, 6.6000000000000005])
         np.testing.assert_array_equal(result.mask, False)
                 
     def test_align_discrete(self):
@@ -95,21 +108,22 @@ class TestAlign(unittest.TestCase):
         result = align(second, first, signaltype='Discrete') #  sounds more natural so order reversed 20/11/11
         np.testing.assert_array_equal(result.data, [1,2,3,4,4])
         np.testing.assert_array_equal(result.mask, False)
-                        
-    def test_align_assert_array_lengths(self):
-        class DumParam():
-            def __init__(self):
-                self.offset = 0.0
-                self.frequency = 1
-                self.array = []
+    
+    # No longer asserting equal array length as only Parameter's have arrays.                    
+    #def test_align_assert_array_lengths(self):
+        #class DumParam():
+            #def __init__(self):
+                #self.offset = 0.0
+                #self.frequency = 1
+                #self.array = []
                 
-        first = DumParam()
-        first.frequency = 4
-        first.array = np.ma.array(range(8))
-        second = DumParam()
-        second.frequency = 2
-        second.array = np.ma.array(range(7)) # Unmatched array length !
-        self.assertRaises (AssertionError, align, first, second)
+        #first = DumParam()
+        #first.frequency = 4
+        #first.array = np.ma.array(range(8))
+        #second = DumParam()
+        #second.frequency = 2
+        #second.array = np.ma.array(range(7)) # Unmatched array length !
+        #self.assertRaises (AssertionError, align, first, second)
                 
     def test_align_same_hz_delayed(self):
         # Both arrays at 1Hz, master behind slave in time
@@ -592,6 +606,17 @@ class TestIndexAtValue(unittest.TestCase):
         array = np.ma.arange(4)
         array[1] = np.ma.masked
         self.assertEquals (index_at_value(array, slice(0, 3), 1.5), None)
+    
+    def test_index_at_value_slice_too_small(self):
+        '''
+        Returns None when there is only one value in the array since it cannot
+        cross a threshold.
+        '''
+        array = np.ma.arange(50)
+        self.assertEqual(index_at_value(array, slice(25,26), 25),
+                         None)
+        
+        
       
  
 class TestInterleave(unittest.TestCase):
@@ -710,6 +735,33 @@ class TestMergeAlternateSensors(unittest.TestCase):
                                                     True,True,True,
                                                     False,False])
 
+class TestPeakCurvature(unittest.TestCase):
+    # Note: The results from the first two tests are in a range format as the
+    # artificial data results in multiple maxima.
+
+    def test_peak_curvature_basic(self):
+        array = np.ma.array([0]*20+range(20))
+        pc = peak_curvature(array)
+        self.assertGreaterEqual(pc,17)
+        self.assertLessEqual(pc,23)
+
+    def test_peak_curvature_2Hz(self):
+        array = np.ma.array([0]*40+range(40))
+        pc = peak_curvature(array, frequency=2)
+        self.assertGreaterEqual(pc,35)
+        self.assertLessEqual(pc,45)
+
+    def test_peak_curvature_failure(self):
+        array = np.ma.array([0]*2+range(2))
+        self.assertRaises(ValueError, peak_curvature, array)
+       
+    def test_peak_curvature_real_data(self):
+        array = np.ma.array([37.9,37.9,37.9,37.9,37.9,38.2,38.2,38.2,38.2,38.8,
+                             38.2,38.8,39.1,39.7,40.6,41.5,42.7,43.6,44.5,46,
+                             47.5,49.6,52,53.2,54.7,57.4,60.7,61.9,64.3,66.1,
+                             69.4,70.6,74.2,74.8])
+        pc = peak_curvature(array)
+        self.assertEqual(pc,16)
 
 class TestPhaseMasking(unittest.TestCase):
     def test_phase_inside_basic(self):
@@ -809,6 +861,11 @@ class TestRateOfChange(unittest.TestCase):
                           rate_of_change, 
                           P('Test',np.ma.array([0, 1, 0]), 1), -2)
         
+    def test_rate_of_change_small_values(self):
+        sloped = rate_of_change(P('Test',np.ma.arange(10)/100.0, 1), 2)
+        answer = np.ma.array(data=[0.01]*10,mask=False)
+        ma_test.assert_masked_array_approx_equal(sloped, answer)
+        
         
 class TestRepairMask(unittest.TestCase):
     def test_repair_mask_basic(self):
@@ -871,6 +928,10 @@ class TestStraightenHeadings(unittest.TestCase):
                 #msg="Failed at %s == %s at %s" % (val, expected[index], index)
             #)
 
+"""
+============================================================
+Time functions replaced by index operations for consistency.
+============================================================
 
 class TestTimeAtValue(unittest.TestCase):
     
@@ -914,7 +975,10 @@ class TestTimeAtValueWrapped(unittest.TestCase):
         test_param = P('TAVW_param',np.ma.array([0,4,0,4]),1,0.0)
         test_section = Section('TAVW_section',slice(0,4))
         self.assertEquals(time_at_value_wrapped(test_param,test_section,2,'Backwards'),2.5)
-
+============================================================
+Time functions replaced by index operations for consistency.
+============================================================
+"""
         
 class TestValueAtTime(unittest.TestCase):
 

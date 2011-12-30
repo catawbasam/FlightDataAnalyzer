@@ -1,7 +1,10 @@
+-e bzr+http://vindictive.flightdataservices.com/Bazaar/FilterPype#egg=FilterPype
 -e bzr+http://vindictive.flightdataservices.com/Bazaar/Utilities#egg=Utilities
 -e bzr+http://vindictive.flightdataservices.com/Bazaar/HDFAccess#egg=HDFAccess
 numpy
-matplotlib
-networkx
-pygraphviz
 scipy
+networkx
+httplib2
+pygraphviz
+matplotlib
+mock

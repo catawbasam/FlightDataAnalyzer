@@ -175,7 +175,7 @@ class Node(object):
                 for n, param in enumerate(args):
                     # if param is set and it's after the first dependency
                     if param and n > i:
-                        # override argument in list in-place
+                         # override argument in list in-place
                         args[n] = param.get_aligned(first_param)
         res = self.derive(*args)
         if res is NotImplemented:
@@ -536,12 +536,12 @@ class KeyTimeInstanceNode(FormattedNameNode):
     TODO: Support 1Hz / 8Hz KTI index locations via accessor on class and
     determine what is required for get_derived to be stored in database
     """
-    # :rtype: KeyTimeInstance or List of KeyTimeInstance or EmptyList
     def __init__(self, *args, **kwargs):
         # place holder
         super(KeyTimeInstanceNode, self).__init__(*args, **kwargs)
         
-    def create_kti(self, index, name):
+    def create_kti(self, index, replace_values={}, **kwargs):
+        name = self.format_name(replace_values, **kwargs)
         kti = KeyTimeInstance(index, name)
         self.append(kti)
         return kti
@@ -552,8 +552,10 @@ class KeyTimeInstanceNode(FormattedNameNode):
         aligned_node = self.__class__(self.name, param.frequency,
                                       param.offset) 
         for kti in self:
+            aligned_kti = copy.copy(kti)
             index_aligned = (kti.index * multiplier) + offset
-            aligned_node.create_kti(index_aligned, kti.name)
+            aligned_kti.index = index_aligned
+            aligned_node.append(aligned_kti)
         return aligned_node
 
 

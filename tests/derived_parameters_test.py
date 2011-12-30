@@ -11,8 +11,7 @@ from analysis.settings import GRAVITY
 from analysis.node import Attribute, A, KPV, KTI, Parameter, P, Section, S
 from analysis.flight_phase import Fast
 
-from analysis.derived_parameters import (AccelerationForwardsForFlightPhases,
-                                         AccelerationVertical,
+from analysis.derived_parameters import (AccelerationVertical,
                                          AirspeedForFlightPhases,
                                          AltitudeAALForFlightPhases,
                                          AltitudeForFlightPhases,
@@ -80,6 +79,10 @@ class TestAccelerationVertical(unittest.TestCase):
         ma_test.assert_masked_array_approx_equal(acc_vert.array,
                                                  np.ma.array([1]*8))
 
+"""
+===============================================================================
+Superceded by Truck and Trailer analysis of airspeed during takeoff and landing
+===============================================================================
 
 class TestAccelerationForwardsForFlightPhases(unittest.TestCase):
     def test_can_operate_only_airspeed(self):
@@ -117,8 +120,11 @@ class TestAccelerationForwardsForFlightPhases(unittest.TestCase):
         accel_fwd = AccelerationForwardsForFlightPhases()
         accel_fwd.derive(Parameter('Acceleration Longitudinal', acc), None)
         ma_test.assert_masked_array_approx_equal(accel_fwd.array, acc)
+===============================================================================
+Superceded by Truck and Trailer analysis of airspeed during takeoff and landing
+===============================================================================
+"""
 
-    
 class TestAirspeedForFlightPhases(unittest.TestCase):
     def test_can_operate(self):
         expected = [('Airspeed',)]
@@ -131,9 +137,6 @@ class TestAirspeedForFlightPhases(unittest.TestCase):
         speed.derive(Parameter('Airspeed', fast_and_slow))
         expected = np.ma.array([40,195,195,185,175])
         ma_test.assert_masked_array_approx_equal(speed.array, expected)
-
-   
-
 
 
 class TestAltitudeAALForFlightPhases(unittest.TestCase):
@@ -161,6 +164,16 @@ class TestAltitudeAALForFlightPhases(unittest.TestCase):
                                 500, 400, 300, 200, 100, 0, 0])
         ma_test.assert_masked_array_approx_equal(alt_4_ph.array, expected)
 
+    def test_altitude_AAL_for_flight_phases_to_ends_of_array(self):
+        slow_and_fast_data = np.ma.array(range(90,160,10)+range(160,90,-10))
+        up_and_down_data = slow_and_fast_data * 10
+        phase_fast = Fast()
+        phase_fast.derive(Parameter('Airspeed', slow_and_fast_data))
+        alt_4_ph = AltitudeAALForFlightPhases()
+        alt_4_ph.derive(Parameter('Altitude STD', up_and_down_data), phase_fast)
+        expected = slow_and_fast_data #  Result unchanged, and running to the ends of the array.
+        ma_test.assert_masked_array_approx_equal(alt_4_ph.array, expected)
+
     def test_altitude_AAL_for_flight_phases_masked_at_lift(self):
         slow_and_fast_data = np.ma.array(range(60,120,10)+range(120,50,-10))
         up_and_down_data = slow_and_fast_data * 10
@@ -173,33 +186,6 @@ class TestAltitudeAALForFlightPhases(unittest.TestCase):
                                 500, 400, 300, 200, 100, 0, 0])
         ma_test.assert_masked_array_approx_equal(alt_4_ph.array, expected)
 
-class TestAltitudeRadio(unittest.TestCase):
-    def test_can_operate(self):
-        expected = [('Altitude Radio Sensor', 'Pitch',
-                     'Main Gear To Altitude Radio')]
-        opts = AltitudeRadio.get_operational_combinations()
-        self.assertEqual(opts, expected)
-        
-    def test_altitude_radio(self):
-        alt_rad = AltitudeRadio()
-        alt_rad.derive(
-            Parameter('Altitude Radio Sensor', np.ma.ones(10)*10, 1,0.0),
-            Parameter('Pitch', (np.ma.array(range(10))-2)*5, 1,0.0),
-            Attribute('Main Gear To Altitude Radio', 10.0)
-        )
-        result = alt_rad.array
-        answer = np.ma.array(data=[11.7364817767,
-                                   10.8715574275,
-                                   10.0,
-                                   9.12844257252,
-                                   8.26351822333,
-                                   7.41180954897,
-                                   6.57979856674,
-                                   5.77381738259,
-                                   5.0,
-                                   4.26423563649],
-                             dtype=np.float, mask=False)
-        np.testing.assert_array_almost_equal(alt_rad.array, answer)
 
 class TestAltitudeForFlightPhases(unittest.TestCase):
     def test_can_operate(self):
@@ -240,6 +226,35 @@ class TestAltitudeForFlightPhases(unittest.TestCase):
                                      -99.98465151,-99.98465151,-99.98465151,
                                      -99.98465151],mask = False)
         np.testing.assert_array_almost_equal(alt_4_ph.array, answer)
+
+
+class TestAltitudeRadio(unittest.TestCase):
+    def test_can_operate(self):
+        expected = [('Altitude Radio Sensor', 'Pitch',
+                     'Main Gear To Altitude Radio')]
+        opts = AltitudeRadio.get_operational_combinations()
+        self.assertEqual(opts, expected)
+        
+    def test_altitude_radio(self):
+        alt_rad = AltitudeRadio()
+        alt_rad.derive(
+            Parameter('Altitude Radio Sensor', np.ma.ones(10)*10, 1,0.0),
+            Parameter('Pitch', (np.ma.array(range(10))-2)*5, 1,0.0),
+            Attribute('Main Gear To Altitude Radio', 10.0)
+        )
+        result = alt_rad.array
+        answer = np.ma.array(data=[11.7364817767,
+                                   10.8715574275,
+                                   10.0,
+                                   9.12844257252,
+                                   8.26351822333,
+                                   7.41180954897,
+                                   6.57979856674,
+                                   5.77381738259,
+                                   5.0,
+                                   4.26423563649],
+                             dtype=np.float, mask=False)
+        np.testing.assert_array_almost_equal(alt_rad.array, answer)
 
 
 class TestAltitudeRadioForFlightPhases(unittest.TestCase):
@@ -372,26 +387,7 @@ class TestClimbForFlightPhases(unittest.TestCase):
         climb.derive(Parameter('Altitude STD', up_and_down_data), phase_fast)
         expected = np.ma.array([0,2,5,0,0,3,4,6])
         ma_test.assert_masked_array_approx_equal(climb.array, expected)
-
    
-'''
-class TestFlightPhaseRateOfClimb(unittest.TestCase):
-    def test_can_operate(self):
-        expected = [('Altitude STD',)]
-        opts = FlightPhaseRateOfClimb.get_operational_combinations()
-        self.assertEqual(opts, expected)
-        
-    def test_flight_phase_rate_of_climb(self):
-        params = {'Altitude STD':Parameter('', np.ma.array(range(10))+100)}
-        roc = FlightPhaseRateOfClimb()
-        roc.derive(P('Altitude STD', np.ma.array(range(10))+100))
-        answer = np.ma.array(data=[1]*10, dtype=np.float,
-                             mask=False)
-        ma_test.assert_masked_array_approx_equal(roc.array, answer)
-
-    def test_flight_phase_rate_of_climb_check_hysteresis(self):
-        return NotImplemented
-'''
 
 class TestEngN1Average(unittest.TestCase):
     def test_can_operate(self):
@@ -417,6 +413,7 @@ class TestEngN1Average(unittest.TestCase):
                       6,7,8,9,10,11,12,13, # unmasked avg of two engines
                       9]) # only second engine value masked
         )
+
         
 class TestEngN1Minimum(unittest.TestCase):
     def test_can_operate(self):
@@ -424,8 +421,7 @@ class TestEngN1Minimum(unittest.TestCase):
         self.assertEqual(opts[0], ('Eng (1) N1',))
         self.assertEqual(opts[-1], ('Eng (1) N1', 'Eng (2) N1', 'Eng (3) N1', 'Eng (4) N1'))
         self.assertEqual(len(opts), 15) # 15 combinations accepted!
-        
-    
+  
     def test_derive_two_engines(self):
         # this tests that average is performed on incomplete dependencies and 
         # more than one dependency provided.
@@ -550,12 +546,14 @@ class TestPitch(unittest.TestCase):
                           P('Pitch (1)', np.ma.array(range(5)), 1,0.11),
                           P('Pitch (2)', np.ma.array(range(5)), 1,0.6))
         
+
 class TestRateOfClimb(unittest.TestCase):
     def test_can_operate(self):
-        expected = [('Acceleration Vertical',
+        expected = [('Altitude STD',),
+                    ('Acceleration Vertical',
                      'Altitude STD',
-                     'Altitude Radio'),
-                    ('Acceleration STD',)]
+                     'Altitude Radio')
+                    ]
         opts = RateOfClimb.get_operational_combinations()
         self.assertEqual(opts, expected)
         

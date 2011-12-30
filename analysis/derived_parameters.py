@@ -57,7 +57,10 @@ class AccelerationVertical(DerivedParameterNode):
         resolved_in_pitch = ax * np.sin(pch) + acc_norm.array * np.cos(pch)
         self.array = resolved_in_pitch * np.cos(rol) - ay * np.sin(rol)
 
-
+"""
+===============================================================================
+Superceded by Truck and Trailer analysis of airspeed during takeoff and landing
+===============================================================================
 class AccelerationForwardsForFlightPhases(DerivedParameterNode):
     # List the minimum acceptable parameters here
     @classmethod
@@ -72,32 +75,33 @@ class AccelerationForwardsForFlightPhases(DerivedParameterNode):
     # List the optimal parameter set here
     def derive(self, acc_long=P('Acceleration Longitudinal'),
                airspeed=P('Airspeed')):
-        """
+        '''
         Acceleration or deceleration on the runway is used to identify the
         runway heading. For the Hercules aircraft there is no longitudinal
         accelerometer, so rate of change of airspeed is used instead.
-        """
-        if acc_long:
+        '''
+        if not acc_long: #  TODO: remove this inversion. Herc testing only.
             self.array = repair_mask(acc_long.array)
         else:
-            aspd = P('Aspd',array=repair_mask(airspeed.array))
-            roc_aspd = rate_of_change(aspd, 1) * KTS_TO_FPS/GRAVITY
+            '''
+            This calculation is included for the few aircraft that do not
+            have a longitudinal accelerometer installed, so we can identify
+            acceleration or deceleration on the runway.
+            '''
+            # TODO: Remove float from line below
+            aspd = P('Aspd',array=repair_mask(np.ma.array(airspeed.array.data, dtype='float')),frequency=airspeed.frequency)
+            # Tacky smoothing to see how it works. TODO fix !
+            roc_aspd = rate_of_change(aspd,1.5) * KTS_TO_FPS/GRAVITY
             self.array =  roc_aspd 
-
+===============================================================================
+Superceded by Truck and Trailer analysis of airspeed during takeoff and landing
+===============================================================================
+"""
+            
 
 class AirspeedForFlightPhases(DerivedParameterNode):
     def derive(self, airspeed=P('Airspeed')):
         self.array = hysteresis(airspeed.array, HYSTERESIS_FPIAS)
-
-
-class AccelerationFromAirspeed(DerivedParameterNode):
-    """
-    This paraeter is included for the few aircraft that do not have a
-    longitudinal accelerometer installed, so we can identify acceleration or
-    deceleration on the runway.
-    """
-    def derive(self, airspeed=P('Airspeed')):
-        self.array = rate_of_change(airspeed, 1)
 
 
 class AirspeedMinusVref(DerivedParameterNode):
@@ -132,7 +136,7 @@ class AltitudeAALForFlightPhases(DerivedParameterNode):
         self.array = np.ma.zeros(len(alt_std.array))
         
         repair_mask(alt_std.array) # Remove small sections of corrupt data
-
+        ##print 'fast, len(alt_std)', fast, len(alt_std.array)
         for speedy in fast:
             begin = speedy.slice.start
             end = speedy.slice.stop
@@ -141,8 +145,9 @@ class AltitudeAALForFlightPhases(DerivedParameterNode):
             # takeoff or landing rotations. This parameter is only used for
             # flight phase determination so it is important that it behaves
             # in a predictable manner.
+            ##print end
             self.array[begin:begin+peak] = np.ma.maximum(0.0,alt_std.array[begin:begin+peak]-alt_std.array[begin])
-            self.array[begin+peak:end] = np.ma.maximum(0.0,alt_std.array[begin+peak:end]-alt_std.array[end])
+            self.array[begin+peak:end] = np.ma.maximum(0.0,alt_std.array[begin+peak:end]-alt_std.array[end-1])
     
     
 class AltitudeForClimbCruiseDescent(DerivedParameterNode):
@@ -307,7 +312,7 @@ class ClimbForFlightPhases(DerivedParameterNode):
 
 class DistanceToLanding(DerivedParameterNode):
     def derive(self, alt_aal = P('Altitude AAL'),
-               gspd = P('Ground Speed'),
+               gspd = P('Groundspeed'),
                ils_gs = P('Glideslope Deviation'),
                ldg = P('LandingAirport')):
         return NotImplemented
