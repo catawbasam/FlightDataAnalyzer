@@ -114,8 +114,10 @@ class AirspeedTrue(DerivedParameterNode):
 
 class AltitudeAAL(DerivedParameterNode):
     name = 'Altitude AAL'
-    def derive(self, alt_std=P('Altitude STD'), alt_rad=P('Altitude Radio')):
-        return NotImplemented
+    def derive(self, alt_aal=P('Altitude AAL For Flight Phases')):# alt_std=P('Altitude STD'), alt_rad=P('Altitude Radio')):
+        # TODO: This is a hack! Implement separate derive method for Altitude
+        # AAL.
+        return alt_aal.array
 
     
 class AltitudeAALForFlightPhases(DerivedParameterNode):
@@ -129,7 +131,7 @@ class AltitudeAALForFlightPhases(DerivedParameterNode):
         self.array = np.ma.zeros(len(alt_std.array))
         
         repair_mask(alt_std.array) # Remove small sections of corrupt data
-        ##print 'fast, len(alt_std)', fast, len(alt_std.array)
+        ##print 'fast, len(alt_std), alt_std.offset', fast, len(alt_std.array), alt_std.offset
         for speedy in fast:
             begin = speedy.slice.start
             end = speedy.slice.stop

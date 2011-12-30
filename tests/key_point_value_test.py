@@ -6,7 +6,7 @@ from analysis.node import KeyTimeInstance, KTI, KeyPointValue, Parameter, P, Sec
 from analysis.key_point_values import (Airspeed1000To500FtMax,
                                        AirspeedAtTouchdown,
                                        AirspeedMax,
-                                       AltitudeAtLiftoff,
+                                       AirspeedWithGearSelectedDownMax,
                                        AltitudeAtTouchdown,
                                        AutopilotEngaged1AtLiftoff,
                                        AutopilotEngaged1AtTouchdown,
@@ -135,16 +135,30 @@ class TestAirspeed1000To500FtMax(unittest.TestCase):
         self.assertEqual(kpv[1].value, 99.557430201194919)
 
 
-class TestAltitudeAtLiftoff(unittest.TestCase, TestCreateKPVsAtKTIs):
-    def setUp(self):
-        self.node_class = AltitudeAtLiftoff
-        self.operational_combinations = [('Altitude STD', 'Liftoff')]
-
-
 class TestAltitudeAtTouchdown(unittest.TestCase, TestCreateKPVsAtKTIs):
     def setUp(self):
         self.node_class = AltitudeAtTouchdown
         self.operational_combinations = [('Altitude STD', 'Touchdown')]
+
+
+class TestAirspeedWithGearSelectedDownMax(unittest.TestCase):
+    def test_can_operate(self):
+        self.assertEqual(\
+            AirspeedWithGearSelectedDownMax.get_operational_combinations(),
+            [('Airspeed', 'Gear Selected Down')])
+    
+    def test_derive(self):
+        airspeed = P('Airspeed', np.ma.masked_array(np.ma.arange(0,10),
+                                   mask=[False] * 4 + [True] * 1 + [False] * 5))
+        gear_sel_down = P('Gear Selected Down',
+                          np.ma.masked_array([0,1,1,1,1,0,0,0,0,0],
+                                   mask=[False] * 3 + [True] * 1 + [False] * 6))
+        airspeed_with_gear_max = AirspeedWithGearSelectedDownMax()
+        airspeed_with_gear_max.derive(airspeed, gear_sel_down)
+        self.assertEqual(airspeed_with_gear_max,
+          [KeyPointValue(index=2, value=2,
+                         name='Airspeed With Gear Selected Down Max',
+                         slice=slice(None, None, None), datetime=None)])
 
 
 class TestAutopilotEngaged1AtLiftoff(unittest.TestCase):

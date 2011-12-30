@@ -28,16 +28,12 @@ class AirspeedAtTouchdown(KeyPointValueNode):
 
 class AirspeedAtLiftoff(KeyPointValueNode):
     def derive(self, airspeed=P('Airspeed'), liftoffs=KTI('Liftoff')):
-        for liftoff in liftoffs:
-            value = value_at_time(airspeed.array,airspeed.hz,airspeed.offset,liftoff.index)
-            self.create_kpv(liftoff.index, value)
+        self.create_kpvs_at_ktis(autopilot.array, liftoffs)
 
 
 class AirspeedAtTouchdown(KeyPointValueNode):
     def derive(self, airspeed=P('Airspeed'), touchdowns=KTI('Touchdown')):
-        for touch in touchdowns:
-            value = value_at_time(airspeed.array,airspeed.hz,airspeed.offset, touch.index)
-            self.create_kpv(touch.index, value)
+        self.create_kpvs_at_ktis(autopilot.array, liftoffs)
 
 
 class AirspeedMax(KeyPointValueNode):
@@ -932,10 +928,44 @@ class RollBetween500And1500FtMax(KeyPointValueNode):
 
 
 class RollBelow20FtMax(KeyPointValueNode):
+    # 
     def derive(self, roll=P('Roll'),
-               _25_ft_to_touchdown=KTI('25 Ft To Touchdown'),
-               touchdown=KTI('Touchdown')):
-        return NotImplemented
+               alt_aal=P('Altitude AAL'),
+               alt_when_desc=KTI('Altitude When Descending'),
+               alt_when_climb=KTI('Altitude When Climbing')):
+        '''
+        Finding the Max Roll when below 20 Ft max could be achieved by
+        comparing the KTIs '20 Ft When Descending' and 'Touchdown', but the case
+        of multiple 20 Ft.
+        '''
+        
+        #for desc_20ft in alt_when_desc.get_ordered_by_index(name='20 Ft Descending'):
+            
+        alt_when_climb.get_ordered_by_index(name='20 Ft Climbing')
+        # Mask 'Roll' below 20 Ft.
+        roll.array[alt_aal.array < 20] = np.ma.masked
+        max_value(roll.array)
+        for index, alt_kti in enumerate(alt_when_desc.get_ordered_by_index(name='20 Ft Descending')):
+            try:
+                next_alt_kti = alt_kti[index+1]
+                next_alt_kti_index = next_alt_kti.index
+            except IndexError:
+                next_alt_kti_index = len(roll.array)
+            between_20ft_ktis = slice(alt_kti.index, next_alt_kti_index)
+            touchdown = [t for t in touchdowns if is_index_within_slice(t.index, between_20ft_ktis)]
+            if len(touchdown) > 1:
+                raise ValueError('')
+            elif len(touchdown) == 1:
+                alt_kti
+            elif len(touchdown) == 0:
+                continu
+            
+        for alt_kti in alt_when_desc.get(name='20 Ft Descending'):
+            for touchdown in touchdowns.get_ordered_by_index():
+                
+            roll.array[alt_kti.index
+            
+        
 
 
 class RollAbove1500FtMax(KeyPointValueNode):
@@ -951,16 +981,26 @@ class RudderReversalAbove50Ft(KeyPointValueNode):
 class AirspeedWithGearSelectedDownMax(KeyPointValueNode):
     def derive(self, airspeed=P('Airspeed'),
                gear_sel_down=P('Gear Selected Down')):
-        return NotImplemented
+        '''
+        Expects 'Gear Selected Down' to be a discrete parameter.
+        '''
+        # Mask values where gear_sel_down != 1.
+        airspeed.array[gear_sel_down.array != 1] = np.ma.masked
+        value, index = max_value(airspeed.array)
+        self.create_kpv(index, value)
 
 
 class AirspeedAtGearSelectedDown(KeyPointValueNode):
+    # Q: Does this mean a KPV will be created on switching the discrete from 0
+    # to 1?
     def derive(self, airspeed=P('Airspeed'),
                gear_sel_down=P('Gear Selected Down')):
         return NotImplemented
 
 
 class AirspeedAtGearSelectedUp(KeyPointValueNode):
+    # Q: Does this mean a KPV will be created on switching the discrete from 0
+    # to 1?
     def derive(self, airspeed=P('Airspeed'), gear_sel_up=P('Gear Selected Up')):
         return NotImplemented
 

@@ -10,7 +10,8 @@ from itertools import product
 from operator import attrgetter
 
 from hdfaccess.parameter import P, Parameter
-from analysis.library import align, is_index_within_slice, is_slice_within_slice
+from analysis.library import (align, is_index_within_slice,
+                              is_slice_within_slice, value_at_time)
 
 from analysis.recordtype import recordtype
 
@@ -337,7 +338,6 @@ class SectionNode(Node, list):
         return sorted(matching, key=attrgetter('slice.start'))
     
 
-
 class FlightPhaseNode(SectionNode):
     """ Is a Section, but called "phase" for user-friendlyness!
     """
@@ -544,7 +544,7 @@ class KeyPointValueNode(FormattedNameNode):
         super(KeyPointValueNode, self).__init__(*args, **kwargs)
 
     def create_kpv(self, index, value, replace_values={}, **kwargs):
-        """
+        '''
         Formats FORMAT_NAME with interpolation values and returns a KPV object
         with index and value.
         
@@ -552,7 +552,7 @@ class KeyPointValueNode(FormattedNameNode):
         
         :raises KeyError: if required interpolation/replace value not provided.
         :raises TypeError: if interpolation value is of wrong type.
-        """
+        '''
         name = self.format_name(replace_values, **kwargs)
         kpv = KeyPointValue(index, value, name)
         self.append(kpv)
@@ -609,10 +609,9 @@ class KeyPointValueNode(FormattedNameNode):
         return KeyPointValueNode(name=self.name, frequency=self.frequency,
                                  offset=self.offset, items=ordered_by_value)
     
-    def create_kpvs_at_ktis(self, array, ktis):
+    def create_kpvs_at_ktis(self, param, ktis):
         '''
-        Creates KPVs by sourcing the array at each KTI index. Will not create
-        KeyPointValues for masked values in the array.
+        Creates KPVs by sourcing the array at each KTI index.
         
         :param array: Array to source values from.
         :type array: np.ma.masked_array
@@ -620,11 +619,9 @@ class KeyPointValueNode(FormattedNameNode):
         :type ktis: KeyTimeInstanceNode
         '''
         for kti in ktis:
-            value = array[kti.index]
-            if value is not np.ma.masked:
-                self.create_kpv(kti.index, value)
-
-    # ordered by time (ascending), ordered by value (ascending), 
+            value = value_at_time(param.array, param.hz, param.offset,
+                                  kti.index)
+            self.create_kpv(kti.index, value)
 
 
 class FlightAttributeNode(Node):

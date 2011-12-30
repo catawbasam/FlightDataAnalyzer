@@ -596,6 +596,12 @@ def is_index_within_slice(index, slice_):
     :type slice_: slice
     :rtype: bool
     '''
+    if slice_.start is None and slice_.stop is None:
+        return True
+    elif slice_.start is None:
+        return index < slice_.stop
+    elif slice_.stop is None:
+        return index >= slice
     return slice_.start <= index < slice_.stop
 
 def is_slice_within_slice(inner_slice, outer_slice):
@@ -606,9 +612,21 @@ def is_slice_within_slice(inner_slice, outer_slice):
     :type outer_slice: slice
     :rtype: bool
     '''
-    start_within = outer_slice.start <= inner_slice.start <= outer_slice.stop
-    stop_within = outer_slice.start <= inner_slice.stop <= outer_slice.stop
-    return start_within and stop_within
+    ##if inner_slice.start is None:
+        ##if outer_slice.start is not None:
+            ##return False
+    ##if outer_slice.
+    #if inner_slice.start is None and outer_slice.start is not None:
+        #return False
+    
+    ##if (inner_slice.start is None and inner_slice.stop is None and outer_slice.start is None and outer_slice.stop is None:
+        ##return True
+    
+    #if inner_slice.start is None and inner_slice.stop is None and outer_slice
+    #start_within = outer_slice.start <= inner_slice.start <= outer_slice.stop
+    #stop_within = outer_slice.start <= inner_slice.stop <= outer_slice.stop
+    #return start_within and stop_within
+    return 1
 
 def _value(array, _slice, operator):
     """
