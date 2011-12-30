@@ -290,11 +290,9 @@ class AltitudeWhenDescending(KeyTimeInstanceNode):
     Creates KTIs at certain heights when the aircraft is descending.
     '''
     NAME_FORMAT = '%(altitude)d Ft Descending'
-    ALTITUDES = [10, 20, 35, 75, 100, 150, 200, 300, 400, 500, 750, 1000, 1500,
-                 2000, 3000, 3500, 4000, 5000, 6000, 7000, 8000, 9000, 10000]
-    ##HEIGHTS = [10, 20, 35, 50, 75, 100, 150, 200, 300, 400, 500, 750, 1000,
-               ##1500, 2000, 2500, 3000, 3500, 4000, 5000, 6000, 7000, 8000, 9000,
-               ##10000]
+    ALTITUDES = [10, 20, 35, 50, 75, 100, 150, 200, 300, 400, 500, 750, 1000,
+                 1500, 2000, 3000, 3500, 4000, 5000, 6000, 7000, 8000, 9000,
+                 10000]
     NAME_VALUES = {'altitude': ALTITUDES}
     
     def derive(self, descending=S('Descending'), alt_aal=P('Altitude AAL')):

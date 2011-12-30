@@ -57,7 +57,7 @@ class HeadingAtTakeoff(KeyPointValueNode):
 
 """
 
-:TODO Can we omit this ?!?
+TODO: Can we omit this ?!?
 
 class AltitudeAtTakeoff(KeyPointValueNode):
     def derive(self, takeoffs=S('Takeoff'), head=P('Heading Continuous'), 
@@ -302,7 +302,8 @@ class RollCycles1000FtToTouchdown(KeyPointValueNode):
     
     
 class AltitudeWithFlapsMax(KeyPointValueNode):
-    """ It's max Altitude not Max Flaps
+    """
+    FIXME: It's max Altitude not Max Flaps
     """
     def derive(self, flap=P('Flap'), alt_std=P('Altitude Std')):
         return NotImplemented
@@ -314,12 +315,9 @@ class MACHMax(KeyPointValueNode):
         return NotImplemented
 
 
-
-
-
 class GroundSpeedOnGroundMax(KeyPointValueNode):
-    def derive(self, ground_speed=P('Ground Speed'), on_grounds=S('On Ground')):
-        #max_value(ground_speed[on_ground]) # TODO: Fix.
+    def derive(self, groundspeed=P('Groundspeed'), on_grounds=S('On Ground')):
+        #max_value(groundspeed[on_ground]) # TODO: Fix.
         return NotImplemented
 
 

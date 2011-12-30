@@ -524,7 +524,7 @@ class Type(FlightAttributeNode):
     
     def derive(self, afr_type=A('AFR Type'), fast=S('Fast'),
                liftoffs=KTI('Liftoff'), touchdowns=KTI('Touchdown'),
-               touch_and_gos=S('Touch And Go'), ground_speed=P('Ground Speed')):
+               touch_and_gos=S('Touch And Go'), groundspeed=P('Groundspeed')):
         afr_type = afr_type.value if afr_type else None
         
         if liftoffs and not touchdowns:
@@ -567,7 +567,7 @@ class Type(FlightAttributeNode):
             self.set_flight_attr(flight_type)
         elif fast:
             self.set_flight_attr('REJECTED_TAKEOFF')
-        elif ground_speed and ground_speed.array.ptp() > 10:
+        elif groundspeed and groundspeed.array.ptp() > 10:
             # The aircraft moved on the ground.
             self.set_flight_attr('GROUND_RUN')
         else:

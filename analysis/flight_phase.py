@@ -277,6 +277,7 @@ class Fast(FlightPhaseNode):
         fast_where = np.ma.masked_less(repair_mask(airspeed.array),
                                        AIRSPEED_THRESHOLD)
         fast_slices = np.ma.clump_unmasked(fast_where)
+        ##print fast_slices
         self.create_phases(fast_slices)
  
 
@@ -285,7 +286,6 @@ class FinalApproach(FlightPhaseNode):
                alt_rad=P('Altitude Radio For Flight Phases'),
                app_lands=S('Approach And Landing')):
         for app_land in app_lands:
-            
             # Allow for the hysteresis applied to the radio altimeter signal 
             # for phase computations
             thold = LANDING_THRESHOLD_HEIGHT+HYSTERESIS_FP_RAD_ALT

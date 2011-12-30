@@ -767,12 +767,12 @@ class TestType(unittest.TestCase):
           [('Fast', 'Liftoff', 'Touchdown'),
            ('AFR Type', 'Fast', 'Liftoff', 'Touchdown'),
            ('Fast', 'Liftoff', 'Touchdown', 'Touch And Go'),
-           ('Fast', 'Liftoff', 'Touchdown', 'Ground Speed'),
+           ('Fast', 'Liftoff', 'Touchdown', 'Groundspeed'),
            ('AFR Type', 'Fast', 'Liftoff', 'Touchdown', 'Touch And Go'),
-           ('AFR Type', 'Fast', 'Liftoff', 'Touchdown', 'Ground Speed'),
-           ('Fast', 'Liftoff', 'Touchdown', 'Touch And Go', 'Ground Speed'),
+           ('AFR Type', 'Fast', 'Liftoff', 'Touchdown', 'Groundspeed'),
+           ('Fast', 'Liftoff', 'Touchdown', 'Touch And Go', 'Groundspeed'),
            ('AFR Type', 'Fast', 'Liftoff', 'Touchdown', 'Touch And Go', 
-            'Ground Speed')])
+            'Groundspeed')])
     
     def test_derive(self):
         '''
@@ -813,16 +813,16 @@ class TestType(unittest.TestCase):
                          None, None)
         self.assertEqual(type_node.set_flight_attr.call_args,
                          (('ENGINE_RUN_UP',), {}))
-        # Liftoff, Touchdown and Fast missing, Ground Speed changes.
-        ground_speed = P('Ground Speed', np.ma.arange(20))
+        # Liftoff, Touchdown and Fast missing, Groundspeed changes.
+        groundspeed = P('Groundspeed', np.ma.arange(20))
         type_node.derive(None, empty_fast, empty_liftoffs, empty_touchdowns,
-                         None, ground_speed)
+                         None, groundspeed)
         self.assertEqual(type_node.set_flight_attr.call_args,
                          (('GROUND_RUN',), {}))
-        # Liftoff, Touchdown and Fast missing, Ground Speed stays the same.
-        ground_speed = P('Ground Speed', np.ma.masked_array([0] * 20))
+        # Liftoff, Touchdown and Fast missing, Groundspeed stays the same.
+        groundspeed = P('Groundspeed', np.ma.masked_array([0] * 20))
         type_node.derive(None, empty_fast, empty_liftoffs, empty_touchdowns,
-                         None, ground_speed)
+                         None, groundspeed)
         self.assertEqual(type_node.set_flight_attr.call_args,
                          (('ENGINE_RUN_UP',), {}))
         # Liftoff after Touchdown.
