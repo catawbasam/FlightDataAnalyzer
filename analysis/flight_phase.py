@@ -1,7 +1,6 @@
 import numpy as np
 
-from analysis.library import (hysteresis, index_at_value, repair_mask,
-                              time_at_value)
+from analysis.library import (hysteresis, index_at_value, repair_mask)
 from analysis.node import FlightPhaseNode, P, S, KTI
 from analysis.settings import (AIRSPEED_THRESHOLD,
                                ALTITUDE_FOR_CLB_CRU_DSC,
@@ -411,16 +410,16 @@ class Takeoff(FlightPhaseNode):
     # List the minimum acceptable parameters here
     @classmethod
     def can_operate(cls, available):
-        if 'Fast' in available and \
-           'Heading Continuous' in available and \
-           'Altitude AAL For Phases' in available:
+        if 'Heading Continuous' in available and \
+           'Altitude AAL For Flight Phases' in available and\
+           'Fast' in available:
             return True
         else:
             return False
     
-    def derive(self, fast=S('Fast'),
-               head=P('Heading Continuous'),
-               alt_aal=P('Altitude AAL For Phases'),
+    def derive(self, head=P('Heading Continuous'),
+               alt_aal=P('Altitude AAL For Flight Phases'),
+               fast=S('Fast'),
                alt_rad=P('Altitude Radio For Phases')
                ):
         for speedy in fast:
@@ -444,9 +443,8 @@ class Takeoff(FlightPhaseNode):
             # Track back to the turn
             # If he took more than 5 minutes on the runway we're not interested!
             first = takeoff_run - 300*head.frequency
-            takeoff_begin = time_at_value(np.ma.abs(head.array-datum),
-                                          head.frequency, head.offset,
-                                          first, takeoff_run,
+            takeoff_begin = index_at_value(np.ma.abs(head.array-datum),
+                                          slice(first, takeoff_run, None),
                                           HEADING_TURN_ONTO_RUNWAY)
 
             #-------------------------------------------------------------------
@@ -456,16 +454,14 @@ class Takeoff(FlightPhaseNode):
             # takeoff !
             if alt_rad:
                 last = takeoff_run + 300*alt_rad.frequency
-                takeoff_end = time_at_value(alt_rad.array,
-                                            alt_rad.frequency, alt_rad.offset,
-                                            takeoff_run, last,
-                                            INITIAL_CLIMB_THRESHOLD)
+                takeoff_end = index_at_value(alt_rad.array,
+                                             slice(takeoff_run, last, None),
+                                             INITIAL_CLIMB_THRESHOLD)
             else:
                 last = takeoff_run + 300*alt_aal.frequency
-                takeoff_end = time_at_value(alt_aal.array,
-                                            alt_aal.frequency, alt_aal.offset,
-                                            takeoff_run, last,
-                                            INITIAL_CLIMB_THRESHOLD)
+                takeoff_end = index_at_value(alt_aal.array,
+                                             slice(takeoff_run, last, None),
+                                             INITIAL_CLIMB_THRESHOLD)
  
             #-------------------------------------------------------------------
             # Create a phase for this takeoff
@@ -483,16 +479,16 @@ class Landing(FlightPhaseNode):
     # List the minimum acceptable parameters here
     @classmethod
     def can_operate(cls, available):
-        if 'Fast' in available and \
-           'Heading Continuous' in available and \
-           'Altitude AAL For Phases' in available:
+        if 'Heading Continuous' in available and \
+           'Altitude AAL For Flight Phases' in available and \
+           'Fast' in available:
             return True
         else:
             return False
     
-    def derive(self, fast=S('Fast'),
-               head=P('Heading Continuous'),
-               alt_aal=P('Altitude AAL For Phases'),
+    def derive(self, head=P('Heading Continuous'),
+               alt_aal=P('Altitude AAL For Flight Phases'),
+               fast=S('Fast'),
                alt_rad=P('Altitude Radio For Phases')
                ):
         for speedy in fast:
@@ -503,22 +499,19 @@ class Landing(FlightPhaseNode):
             
             if alt_rad:
                 first = landing_run - 300*alt_rad.frequency
-                landing_begin = time_at_value(alt_rad.array,
-                                            alt_rad.frequency, alt_rad.offset,
-                                            first, landing_run,
+                landing_begin = index_at_value(alt_rad.array,
+                                            slice(first, landing_run, None),
                                             LANDING_THRESHOLD_HEIGHT)
             else:
                 first = landing_run - 300*alt_aal.frequency
-                landing_begin = time_at_value(alt_aal.array,
-                                            alt_aal.frequency, alt_aal.offset,
-                                            first, landing_run,
-                                            LANDING_THRESHOLD_HEIGHT)
+                landing_begin = index_at_value(alt_aal.array,
+                                              slice(first, landing_run, None),
+                                              LANDING_THRESHOLD_HEIGHT)
  
             last = landing_run + 300*head.frequency
-            landing_end = time_at_value(np.ma.abs(head.array-datum),
-                                          head.frequency, head.offset,
-                                          landing_run, last,
-                                          HEADING_TURN_OFF_RUNWAY)
+            landing_end = index_at_value(np.ma.abs(head.array-datum),
+                                         slice(landing_run, last, None),
+                                         HEADING_TURN_OFF_RUNWAY)
 
             self.create_phases([slice(landing_begin, landing_end)])
 #===============================================================================

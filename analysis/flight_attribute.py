@@ -514,9 +514,9 @@ class TakeoffRunway(FlightAttributeNode):
             self.set_flight_attr(runway)
 
 
-class Type(FlightAttributeNode):
+class FlightType(FlightAttributeNode):
     "Type of flight flown"
-    name = 'FDR Type'
+    name = 'Flight Type'
     
     @classmethod
     def can_operate(self, available):
@@ -549,6 +549,7 @@ class Type(FlightAttributeNode):
                                 "will be 'INCOMPLETE'.", self.name)
                 self.set_flight_attr('TOUCHDOWN_BEFORE_LIFTOFF')
                 return
+            last_touchdown = touchdowns.get_last()
             if touch_and_gos:
                 last_touchdown = touchdowns.get_last()
                 last_touch_and_go = touch_and_gos.get_last()

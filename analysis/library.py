@@ -738,7 +738,7 @@ def rate_of_change(diff_param, half_width):
     # Set up an array of masked zeros for extending arrays.
     slope = np.ma.copy(to_diff)
     slope[hw:-hw] = (to_diff[2*hw:] - to_diff[:-2*hw])\
-                       / (2 * float(half_width))
+                       / (2.0 * float(half_width))
     slope[:hw] = (to_diff[1:hw+1] - to_diff[0:hw]) * hz
     slope[-hw:] = (to_diff[-hw:] - to_diff[-hw-1:-1])* hz
     return slope
@@ -780,6 +780,11 @@ def straighten_headings(heading_array):
     diff = diff - 360.0 * np.trunc(diff/180.0)
     heading_array[1:] = np.cumsum(diff) + head_prev
     return heading_array
+
+"""
+============================================================
+Time functions replaced by index operations for consistency.
+============================================================
 
 def time_at_value_wrapped(parameter, section, value, direction='Forwards'):
     '''
@@ -866,6 +871,11 @@ def time_at_value (array, hz, offset, scan_start, scan_end, threshold):
         r = (float(threshold) - a) / (b-a) 
         #TODO: Could test 0 < r < 1 for completeness
     return (begin + step * (n + r)) / hz
+============================================================
+Time functions replaced by index operations for consistency.
+============================================================
+"""
+
 
 def index_at_value (array, section, threshold):
     '''
@@ -894,7 +904,17 @@ def index_at_value (array, section, threshold):
 
     if begin == end:
         raise ValueError, 'No range for seek function to scan across'
-    
+
+    # A "let's get the logic right and tidy it up afterwards" bit of code...
+    if begin > len(array):
+        begin = len(array)
+    if begin < 0:
+        begin = 0
+    if end > len(array):
+        end = len(array)
+    if end < 0:
+        end = 0
+        
     if step == None:
         step = 1
         

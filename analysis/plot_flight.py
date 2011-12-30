@@ -61,11 +61,18 @@ def plot_flight(hdf_path, kti_list, kpv_list, phase_list):
     with hdf_file(hdf_path) as hdf:
         #---------- Axis 1 ----------
         ax1 = fig.add_subplot(4,1,1)
-        alt = hdf['Altitude STD'].array
+        alt_data = hdf['Altitude STD'].array
+        alt = hdf.get('Altitude AAL For Flight Phases',hdf['Altitude STD']).array
+        #frame = hdf['Frame Counter'].array
+        frame = hdf.get('Frame Counter',hdf['Altitude STD']).array
         
         sections = []
+        sections.append(alt_data)
+        sections.append('k-')
         for phase in filter(lambda p: p.name in (
             'Takeoff', 'Landing', 'Airborne', 'On Ground'), phase_list):
+            # Declare the x-axis parameter first...
+            sections.append(frame[phase.slice])
             sections.append(alt[phase.slice])
             if phase.name == 'Takeoff':
                 sections.append('r-')
@@ -78,28 +85,45 @@ def plot_flight(hdf_path, kti_list, kpv_list, phase_list):
         ax1.plot(*sections)
         
         #---------- Axis 2 ----------
-        ax2 = fig.add_subplot(4,1,2)
-        roc = hdf.get('Rate Of Climb', hdf['Altitude STD']).array
+        ax2 = fig.add_subplot(4,1,2,sharex=ax1)
+        roc = hdf.get('Rate Of Climb For Flight Phases', hdf['Altitude STD']).array
+        roc_data = hdf.get('Rate Of Climb', hdf['Altitude STD']).array
         sections = []
+        sections.append(roc_data)
+        sections.append('k-')
         for phase in filter(lambda p: p.name in (
             'Climbing', 'Level Flight', 'Descending'), phase_list):
+            # Declare the x-axis parameter first...
+            sections.append(frame[phase.slice])
             sections.append(roc[phase.slice])
             if phase.name == 'Climbing':
                 sections.append('g-')
             elif phase.name == 'Level Flight':
                 sections.append('b-')
             elif phase.name == 'Descending':
-                sections.append('4-')
+                sections.append('c-')
         ax2.plot(*sections)
         
         #---------- Axis 3 ----------
-        ax3 = fig.add_subplot(4,1,3,sharex=ax2)
-        ax3.plot(hdf['Airspeed'].array, 'r-')
+        ax3 = fig.add_subplot(4,1,3,sharex=ax1)
+        airspeed = hdf.get('Airspeed',hdf['Altitude STD']).array
+        sections = []
+        sections.append(airspeed)
+        sections.append('k-')
+        for phase in filter(lambda p: p.name in (
+            'Fast'), phase_list):
+            # Declare the x-axis parameter first...
+            sections.append(frame[phase.slice])
+            sections.append(airspeed[phase.slice])
+            if phase.name == 'Fast':
+                sections.append('r-')
+        
+        ax3.plot(*sections)
         
         #---------- Axis 4 ----------
-        if 'Heading' in hdf:
-            ax4 = fig.add_subplot(4,1,4,sharex=ax2)
-            ax4.plot(hdf['Heading'].array, 'b-')  
+        if 'Heading Continuous' in hdf:
+            ax4 = fig.add_subplot(4,1,4,sharex=ax1)
+            ax4.plot(hdf['Heading Continuous'].array, 'b-')  
     
     for kpv in kpv_list:
         label = '%s %s' % (kpv.name, kpv.value)
@@ -139,13 +163,17 @@ def csv_flight_details(hdf_path, kti_list, kpv_list, phase_list, dest_path=None)
     rows = []
     params = ['Airspeed', 'Altitude STD', 'Pitch', 'Roll']
     attrs = ['value', 'slice', 'datetime'] # 'latitude', 'longitude'] 
-    header = ['Type', 'Name', 'Index'] + attrs + params
+    header = ['Type', 'Phase Start', 'Index', 'Phase End', 'Name'] + attrs + params
 
     def vals_for_iterable(iter_type, iterable):
         for value in iterable:
             # add required attributes
             index = _index_or_slice(value)
-            vals = [iter_type, value.name, index]
+            if iter_type == 'Phase':
+                vals = [iter_type, value.name, index, None, None]
+            else:
+                vals = [iter_type, None, index, None, value.name]
+                
             # add optional attributes
             [vals.append(getattr(value, attr, None)) for attr in attrs]
             # add associated parameter information
@@ -155,6 +183,21 @@ def csv_flight_details(hdf_path, kti_list, kpv_list, phase_list, dest_path=None)
                 except (KeyError, ValueError, IndexError):
                     vals.append(None)
             rows.append( vals )
+
+            if iter_type == 'Phase':
+                # Append the stop time for this phase.
+                vals = [iter_type, None, value.slice.stop, value.name, None]
+                # add optional attributes
+                [vals.append(getattr(value, attr, None)) for attr in attrs]
+                # add associated parameter information
+                for param in params:
+                    try:
+                        vals.append( hdf[param].at(index) )
+                    except (KeyError, ValueError, IndexError):
+                        vals.append(None)
+                rows.append( vals )
+
+
             
     with hdf_file(hdf_path) as hdf:
         vals_for_iterable('Key Time Instance', kti_list)

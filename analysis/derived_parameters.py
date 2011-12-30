@@ -77,27 +77,24 @@ class AccelerationForwardsForFlightPhases(DerivedParameterNode):
         runway heading. For the Hercules aircraft there is no longitudinal
         accelerometer, so rate of change of airspeed is used instead.
         """
-        if acc_long:
+        if not acc_long: #  TODO: remove this inversion. Herc testing only.
             self.array = repair_mask(acc_long.array)
         else:
-            aspd = P('Aspd',array=repair_mask(airspeed.array))
-            roc_aspd = rate_of_change(aspd, 1) * KTS_TO_FPS/GRAVITY
+            """
+            This calculation is included for the few aircraft that do not
+            have a longitudinal accelerometer installed, so we can identify
+            acceleration or deceleration on the runway.
+            """
+            # TODO: Remove float from line below
+            aspd = P('Aspd',array=repair_mask(np.ma.array(airspeed.array.data, dtype='float')),frequency=airspeed.frequency)
+            # Tacky smoothing to see how it works. TODO fix !
+            roc_aspd = rate_of_change(aspd,1.5) * KTS_TO_FPS/GRAVITY
             self.array =  roc_aspd 
 
 
 class AirspeedForFlightPhases(DerivedParameterNode):
     def derive(self, airspeed=P('Airspeed')):
         self.array = hysteresis(airspeed.array, HYSTERESIS_FPIAS)
-
-
-class AccelerationFromAirspeed(DerivedParameterNode):
-    """
-    This paraeter is included for the few aircraft that do not have a
-    longitudinal accelerometer installed, so we can identify acceleration or
-    deceleration on the runway.
-    """
-    def derive(self, airspeed=P('Airspeed')):
-        self.array = rate_of_change(airspeed, 1)
 
 
 class AirspeedMinusVref(DerivedParameterNode):
