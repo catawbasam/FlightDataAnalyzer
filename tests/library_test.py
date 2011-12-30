@@ -32,6 +32,16 @@ class TestAlign(unittest.TestCase):
         master = P('master', np.ma.array(range(30)))
         aligned = align(slave, master)
         self.assertEqual(id(slave.array), id(aligned))
+    
+    def test_align_section_param(self):
+        alt_aal = P('Altitude AAL', np.ma.arange(0, 5), frequency=1, offset=1)
+        fast = S('Fast', frequency=4, offset=0.5)
+        aligned = align(alt_aal, fast)
+        self.assertEqual(len(aligned), 20)
+        np.testing.assert_array_equal(aligned,
+                                      [0, 0, 0, 0.25, 0.5, 0.75, 1, 1.25,
+                                       1.5, 1.75, 2, 2.25, 2.5, 2.75, 3,
+                                       3.25, 3.5, 3.75, 4, 4])
         
     def test_align_basic(self):
         class DumParam():
@@ -51,7 +61,9 @@ class TestAlign(unittest.TestCase):
         second.array = np.ma.array(range(8))
         
         result = align(second, first) #  sounds more natural so order reversed 20/11/11
-        np.testing.assert_array_equal(result.data, [0, 0, 1, 2, 3, 4, 5, 6])
+        np.testing.assert_array_equal(result.data,
+                                      [0.0, 0.6, 1.6, 2.6, 3.6,
+                                       4.6, 5.6, 6.6000000000000005])
         np.testing.assert_array_equal(result.mask, False)
                 
     def test_align_discrete(self):
@@ -96,21 +108,22 @@ class TestAlign(unittest.TestCase):
         result = align(second, first, signaltype='Discrete') #  sounds more natural so order reversed 20/11/11
         np.testing.assert_array_equal(result.data, [1,2,3,4,4])
         np.testing.assert_array_equal(result.mask, False)
-                        
-    def test_align_assert_array_lengths(self):
-        class DumParam():
-            def __init__(self):
-                self.offset = 0.0
-                self.frequency = 1
-                self.array = []
+    
+    # No longer asserting equal array length as only Parameter's have arrays.                    
+    #def test_align_assert_array_lengths(self):
+        #class DumParam():
+            #def __init__(self):
+                #self.offset = 0.0
+                #self.frequency = 1
+                #self.array = []
                 
-        first = DumParam()
-        first.frequency = 4
-        first.array = np.ma.array(range(8))
-        second = DumParam()
-        second.frequency = 2
-        second.array = np.ma.array(range(7)) # Unmatched array length !
-        self.assertRaises (AssertionError, align, first, second)
+        #first = DumParam()
+        #first.frequency = 4
+        #first.array = np.ma.array(range(8))
+        #second = DumParam()
+        #second.frequency = 2
+        #second.array = np.ma.array(range(7)) # Unmatched array length !
+        #self.assertRaises (AssertionError, align, first, second)
                 
     def test_align_same_hz_delayed(self):
         # Both arrays at 1Hz, master behind slave in time
@@ -593,6 +606,17 @@ class TestIndexAtValue(unittest.TestCase):
         array = np.ma.arange(4)
         array[1] = np.ma.masked
         self.assertEquals (index_at_value(array, slice(0, 3), 1.5), None)
+    
+    def test_index_at_value_slice_too_small(self):
+        '''
+        Returns None when there is only one value in the array since it cannot
+        cross a threshold.
+        '''
+        array = np.ma.arange(50)
+        self.assertEqual(index_at_value(array, slice(25,26), 25),
+                         None)
+        
+        
       
  
 class TestInterleave(unittest.TestCase):

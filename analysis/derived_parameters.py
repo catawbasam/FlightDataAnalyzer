@@ -136,7 +136,7 @@ class AltitudeAALForFlightPhases(DerivedParameterNode):
         self.array = np.ma.zeros(len(alt_std.array))
         
         repair_mask(alt_std.array) # Remove small sections of corrupt data
-
+        ##print 'fast, len(alt_std)', fast, len(alt_std.array)
         for speedy in fast:
             begin = speedy.slice.start
             end = speedy.slice.stop
@@ -145,6 +145,7 @@ class AltitudeAALForFlightPhases(DerivedParameterNode):
             # takeoff or landing rotations. This parameter is only used for
             # flight phase determination so it is important that it behaves
             # in a predictable manner.
+            ##print end
             self.array[begin:begin+peak] = np.ma.maximum(0.0,alt_std.array[begin:begin+peak]-alt_std.array[begin])
             self.array[begin+peak:end] = np.ma.maximum(0.0,alt_std.array[begin+peak:end]-alt_std.array[end-1])
     
@@ -311,7 +312,7 @@ class ClimbForFlightPhases(DerivedParameterNode):
 
 class DistanceToLanding(DerivedParameterNode):
     def derive(self, alt_aal = P('Altitude AAL'),
-               gspd = P('Ground Speed'),
+               gspd = P('Groundspeed'),
                ils_gs = P('Glideslope Deviation'),
                ldg = P('LandingAirport')):
         return NotImplemented

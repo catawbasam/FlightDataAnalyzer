@@ -597,7 +597,7 @@ class TestTakeoffAirport(unittest.TestCase):
         '''
         get_nearest_airport.side_effect = NotFoundError('Not Found.')
         liftoff = KTI('Liftoff')
-        liftoff.create_kti(1, 'STATE')
+        liftoff.create_kti(1)
         latitude = P('Latitude', array=np.ma.masked_array([2.0,4.0,6.0]))
         longitude = P('Longitude', array=np.ma.masked_array([1.0,3.0,5.0]))
         takeoff_airport = TakeoffAirport()
@@ -614,7 +614,7 @@ class TestTakeoffAirport(unittest.TestCase):
         airport_info = {'id': 123}
         get_nearest_airport.return_value = airport_info
         liftoff = KTI('Liftoff')
-        liftoff.create_kti(1, 'STATE')
+        liftoff.create_kti(1)
         latitude = P('Latitude', array=np.ma.masked_array([2.0,4.0,6.0]))
         longitude = P('Longitude', array=np.ma.masked_array([1.0,3.0,5.0]))
         takeoff_airport = TakeoffAirport()
@@ -739,7 +739,7 @@ class TestTakeoffRunway(unittest.TestCase):
         # arguments. Latitude and Longitude are only passed with all these
         # parameters available and Precise Positioning is True.
         liftoff = KTI('Liftoff')
-        liftoff.create_kti(1, 'STATE')
+        liftoff.create_kti(1)
         latitude = P('Latitude', array=np.ma.masked_array([2.0,4.0,6.0]))
         longitude = P('Longitude', array=np.ma.masked_array([1.0,3.0,5.0]))
         precision = A('Precision')
@@ -772,15 +772,17 @@ class TestFlightType(unittest.TestCase):
           [('Fast', 'Liftoff', 'Touchdown'),
            ('AFR Type', 'Fast', 'Liftoff', 'Touchdown'),
            ('Fast', 'Liftoff', 'Touchdown', 'Touch And Go'),
-           ('Fast', 'Liftoff', 'Touchdown', 'Ground Speed'),
+           ('Fast', 'Liftoff', 'Touchdown', 'Groundspeed'),
            ('AFR Type', 'Fast', 'Liftoff', 'Touchdown', 'Touch And Go'),
-           ('AFR Type', 'Fast', 'Liftoff', 'Touchdown', 'Ground Speed'),
-           ('Fast', 'Liftoff', 'Touchdown', 'Touch And Go', 'Ground Speed'),
+           ('AFR Type', 'Fast', 'Liftoff', 'Touchdown', 'Groundspeed'),
+           ('Fast', 'Liftoff', 'Touchdown', 'Touch And Go', 'Groundspeed'),
            ('AFR Type', 'Fast', 'Liftoff', 'Touchdown', 'Touch And Go', 
-            'Ground Speed')])
-
+            'Groundspeed')])
     
     def test_derive(self):
+        '''
+        Tests every flow, but does not test every conceivable set of arguments.
+        '''
         type_node = FlightType()
         type_node.set_flight_attr = Mock()
         # Liftoff and Touchdown.
@@ -816,16 +818,16 @@ class TestFlightType(unittest.TestCase):
                          None, None)
         self.assertEqual(type_node.set_flight_attr.call_args,
                          (('ENGINE_RUN_UP',), {}))
-        # Liftoff, Touchdown and Fast missing, Ground Speed changes.
-        ground_speed = P('Ground Speed', np.ma.arange(20))
+        # Liftoff, Touchdown and Fast missing, Groundspeed changes.
+        groundspeed = P('Groundspeed', np.ma.arange(20))
         type_node.derive(None, empty_fast, empty_liftoffs, empty_touchdowns,
-                         None, ground_speed)
+                         None, groundspeed)
         self.assertEqual(type_node.set_flight_attr.call_args,
                          (('GROUND_RUN',), {}))
-        # Liftoff, Touchdown and Fast missing, Ground Speed stays the same.
-        ground_speed = P('Ground Speed', np.ma.masked_array([0] * 20))
+        # Liftoff, Touchdown and Fast missing, Groundspeed stays the same.
+        groundspeed = P('Groundspeed', np.ma.masked_array([0] * 20))
         type_node.derive(None, empty_fast, empty_liftoffs, empty_touchdowns,
-                         None, ground_speed)
+                         None, groundspeed)
         self.assertEqual(type_node.set_flight_attr.call_args,
                          (('ENGINE_RUN_UP',), {}))
         # Liftoff after Touchdown.

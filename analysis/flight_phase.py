@@ -1,9 +1,7 @@
-import logging
 import numpy as np
 
-from analysis.library import (hysteresis, index_at_value,
-                              repair_mask)
-from analysis.node import A, Attribute, FlightPhaseNode, KeyTimeInstance, P, S, KTI
+from analysis.library import (hysteresis, index_at_value, repair_mask)
+from analysis.node import FlightPhaseNode, P, S, KTI
 from analysis.settings import (AIRSPEED_THRESHOLD,
                                ALTITUDE_FOR_CLB_CRU_DSC,
                                HEADING_TURN_OFF_RUNWAY,
@@ -278,6 +276,7 @@ class Fast(FlightPhaseNode):
         fast_where = np.ma.masked_less(repair_mask(airspeed.array),
                                        AIRSPEED_THRESHOLD)
         fast_slices = np.ma.clump_unmasked(fast_where)
+        ##print fast_slices
         self.create_phases(fast_slices)
  
 
@@ -286,7 +285,6 @@ class FinalApproach(FlightPhaseNode):
                alt_rad=P('Altitude Radio For Flight Phases'),
                app_lands=S('Approach And Landing')):
         for app_land in app_lands:
-            
             # Allow for the hysteresis applied to the radio altimeter signal 
             # for phase computations
             thold = LANDING_THRESHOLD_HEIGHT+HYSTERESIS_FP_RAD_ALT
