@@ -18,6 +18,7 @@ from analysis.library import (align, calculate_timebase, create_phase_inside,
                               is_slice_within_slice, min_value, 
                               mask_inside_slices, mask_outside_slices,
                               max_value, max_abs_value, merge_alternate_sensors,
+                              peak_curvature,
                               rate_of_change, repair_mask, straighten_headings,
                               #time_at_value, time_at_value_wrapped,
                               value_at_time, vstack_params, InvalidDatetime)
@@ -734,6 +735,33 @@ class TestMergeAlternateSensors(unittest.TestCase):
                                                     True,True,True,
                                                     False,False])
 
+class TestPeakCurvature(unittest.TestCase):
+    # Note: The results from the first two tests are in a range format as the
+    # artificial data results in multiple maxima.
+
+    def test_peak_curvature_basic(self):
+        array = np.ma.array([0]*20+range(20))
+        pc = peak_curvature(array)
+        self.assertGreaterEqual(pc,17)
+        self.assertLessEqual(pc,23)
+
+    def test_peak_curvature_2Hz(self):
+        array = np.ma.array([0]*40+range(40))
+        pc = peak_curvature(array, frequency=2)
+        self.assertGreaterEqual(pc,35)
+        self.assertLessEqual(pc,45)
+
+    def test_peak_curvature_failure(self):
+        array = np.ma.array([0]*2+range(2))
+        self.assertRaises(ValueError, peak_curvature, array)
+       
+    def test_peak_curvature_real_data(self):
+        array = np.ma.array([37.9,37.9,37.9,37.9,37.9,38.2,38.2,38.2,38.2,38.8,
+                             38.2,38.8,39.1,39.7,40.6,41.5,42.7,43.6,44.5,46,
+                             47.5,49.6,52,53.2,54.7,57.4,60.7,61.9,64.3,66.1,
+                             69.4,70.6,74.2,74.8])
+        pc = peak_curvature(array)
+        self.assertEqual(pc,16)
 
 class TestPhaseMasking(unittest.TestCase):
     def test_phase_inside_basic(self):

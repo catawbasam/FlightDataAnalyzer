@@ -7,7 +7,7 @@ from hashlib import sha256
 from itertools import izip
 from scipy.signal import iirfilter, lfilter, lfilter_zi, filtfilt
 
-from settings import REPAIR_DURATION
+from settings import REPAIR_DURATION, TRUCK_OR_TRAILER_INTERVAL, TRUCK_OR_TRAILER_PERIOD
 
 Value = namedtuple('Value', 'index value')
 
@@ -726,6 +726,39 @@ def merge_alternate_sensors (array):
     result[-1] = (array[-2] + array[-1]) / 2.0
     return result
 
+def peak_curvature(array, frequency=1):
+    """
+    This routine uses a "Truck and Trailer" algorithm to find where a
+    parameter changes slope. In the case of FDM, we are looking for the point
+    where the airspeed starts to increase (or stops decreasing) on the
+    takeoff and landing phases. This is more robust than looking at
+    longitudinal acceleration and complies with the POLARIS philosophy that
+    we should provide analysis with only airspeed, altitude and heading data
+    available.
+    """
+    gap = TRUCK_OR_TRAILER_INTERVAL * frequency
+    if gap%2-1:
+      gap-=1  #  Ensure gap is odd
+    ttp = TRUCK_OR_TRAILER_PERIOD * frequency
+    overall = 2*ttp + gap 
+    # check the array is long enough.
+    if len(array) < overall:
+        raise ValueError, 'Peak curvature called with too short a sample'
+    
+    steps = len(array)-overall+1
+    A = np.vstack([np.arange(ttp), np.ones(ttp)*frequency]).T
+
+    # Keep the answers in an array of measurements
+    measures = np.zeros(steps)
+    
+    for step in range(steps):
+        m1, c1 = np.linalg.lstsq(A, array[step:step+ttp])[0]
+        m2, c2 = np.linalg.lstsq(A, array[step+ttp+gap:step+ttp+gap+ttp])[0]
+        measures[step] = m2-m1
+        
+    return np.argmax(measures)+overall/2
+    
+    
 def rate_of_change(diff_param, half_width):
     '''
     @param to_diff: Parameter object with .array attr (masked array)
