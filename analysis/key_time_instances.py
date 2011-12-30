@@ -202,7 +202,7 @@ class TakeoffAccelerationStart(KeyTimeInstanceNode):
     def derive(self, speed=P('Airspeed'), takeoffs=S('Takeoff')):
         for takeoff in takeoffs:
             start_accel = peak_curvature(speed.array[takeoff.slice])
-            self.create_kti(start_accel+takeoff.slice.start, 'Takeoff Acceleration Start')
+            self.create_kti(start_accel+takeoff.slice.start)
 
 
 class Liftoff(KeyTimeInstanceNode):
@@ -275,7 +275,7 @@ class LandingDecelerationEnd(KeyTimeInstanceNode):
     def derive(self, speed=P('Airspeed'), landings=S('Landing')):
         for landing in landings:
             end_decel = peak_curvature(speed.array[landing.slice])
-            self.create_kti(end_decel+landing.slice.start, 'Landing Deceleration End')
+            self.create_kti(end_decel+landing.slice.start)
 
 #<<<< This style for all climbing events >>>>>
 
