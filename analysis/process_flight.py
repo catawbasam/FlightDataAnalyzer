@@ -94,7 +94,12 @@ def derive_parameters(hdf, node_mgr, process_order):
             if dep_name in params:  # already calculated KPV/KTI/Phase
                 deps.append(params[dep_name])
             elif dep_name in hdf:  # LFL/Derived parameter
-                deps.append(hdf[dep_name])
+                # all parameters (LFL or other) need get_aligned which is
+                # available on DerivedParameterNode
+                p = hdf[dep_name]
+                dp = DerivedParameterNode(name=p.name, frequency=p.frequency, offset=p.offset)
+                dp.array = p.array # remember to add the array
+                deps.append(dp)
             else:  # dependency not available
                 deps.append(None)
         if not any(deps):
@@ -125,17 +130,17 @@ def derive_parameters(hdf, node_mgr, process_order):
         if isinstance(node, KeyPointValueNode):
             #Q: track node instead of result here??
             params[param_name] = result
-            kpv_list.extend(result.get_aligned(P('for_aligned_storage',[],1,0)))
+            kpv_list.extend(result.get_aligned(P('for_aligned_storage',1,0)))
         elif isinstance(node, KeyTimeInstanceNode):
             params[param_name] = result
-            kti_list.extend(result.get_aligned(P('for_aligned_storage',[],1,0)))
+            kti_list.extend(result.get_aligned(P('for_aligned_storage',1,0)))
         elif isinstance(node, FlightAttributeNode):
             params[param_name] = result
             flight_attrs.append(Attribute(result.name, result.value)) # only has one Attribute result
         elif isinstance(node, FlightPhaseNode):
             # expect a single slice
             params[param_name] = result
-            phase_list.extend(result.get_aligned(P('for_aligned_storage',[],1,0)))
+            phase_list.extend(result.get_aligned(P('for_aligned_storage',1,0)))
         elif isinstance(node, DerivedParameterNode):
             # perform any post_processing
             if settings.POST_DERIVED_PARAM_PROCESS:
@@ -227,8 +232,9 @@ def process_flight(hdf_path, aircraft_info, start_datetime=datetime.now(), achie
         logging.warning("No required_params declared, using all derived nodes")
         required_params = derived_nodes.keys()
     
-    # include all flight attributes as required
-    required_params += get_derived_nodes(['analysis.flight_attribute']).keys()
+    # include all flight attributes as required and remove duplicate entries
+    required_params = list(set(
+        required_params + get_derived_nodes(['analysis.flight_attribute']).keys()))
         
     # open HDF for reading
     with hdf_file(hdf_path) as hdf:
