@@ -68,7 +68,10 @@ class ClimbStart(KeyTimeInstanceNode):
         for climb in climbing:
             initial_climb_index = index_at_value(alt_aal.array, climb.slice,
                                                         CLIMB_THRESHOLD)
-            self.create_kti(initial_climb_index)
+            # The aircraft may be climbing, but starting from an altitude
+            # above CLIMB_THRESHOLD. In this case no kti is created.
+            if initial_climb_index:
+                self.create_kti(initial_climb_index)
 
 
 class GoAround(KeyTimeInstanceNode):
@@ -385,7 +388,7 @@ class AltitudeInFinalApproach(KeyTimeInstanceNode):
                 #if index:
                     #self.create_kti(index, height=height)
 
-
+"""
 class _10FtClimbing(KeyTimeInstanceNode):
     def derive(self, alt_aal=P('Altitude AAL')):
         return NotImplemented
@@ -638,7 +641,7 @@ class _20FtDescending(KeyTimeInstanceNode):
 class _10FtDescending(KeyTimeInstanceNode):
     def derive(self, touchdown=KTI('Touchdown')): # Q: Args?
         return NotImplemented
-
+"""
 
 class _5MinToTouchdown(KeyTimeInstanceNode):
     def derive(self, touchdown=KTI('Touchdown')): # Q: Args?
