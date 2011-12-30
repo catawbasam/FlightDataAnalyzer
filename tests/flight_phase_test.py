@@ -29,6 +29,7 @@ from analysis.flight_phase import (Airborne,
                                    Turning
                                    )
 
+from analysis.settings import AIRSPEED_THRESHOLD
 
 class TestAirborne(unittest.TestCase):
     # Based closely on the level flight condition, but taking only the
@@ -409,7 +410,10 @@ class TestFast(unittest.TestCase):
         ias = Parameter('Airspeed', slow_and_fast_data,1,0)
         phase_fast = Fast()
         phase_fast.derive(ias)
-        expected = [Section(name='Fast',slice=slice(2,11,None))]
+        if AIRSPEED_THRESHOLD == 80:
+            expected = [Section(name='Fast',slice=slice(2,11,None))]
+        if AIRSPEED_THRESHOLD == 70:
+            expected = [Section(name='Fast', slice=slice(1, 12, None))]
         self.assertEqual(phase_fast, expected)
         
     def test_fast_phase_with_small_mask(self):
@@ -419,7 +423,10 @@ class TestFast(unittest.TestCase):
         ias = Parameter('Airspeed', slow_and_fast_data,1,0)
         phase_fast = Fast()
         phase_fast.derive(ias)
-        expected = [Section(name='Fast',slice=slice(2,11,None))]
+        if AIRSPEED_THRESHOLD == 80:
+            expected = [Section(name='Fast',slice=slice(2,11,None))]
+        if AIRSPEED_THRESHOLD == 70:
+            expected = [Section(name='Fast', slice=slice(1, 12, None))]
         self.assertEqual(phase_fast, expected)
 
 
@@ -429,8 +436,12 @@ class TestFast(unittest.TestCase):
         ias = Parameter('Airspeed', slow_and_fast_data,1,0)
         phase_fast = Fast()
         phase_fast.derive(ias)
-        expected = [Section(name='Fast',slice=slice(2,5,None)),
-                  Section(name='Fast',slice=slice(17,19,None))]
+        if AIRSPEED_THRESHOLD == 80:
+            expected = [Section(name='Fast',slice=slice(2,5,None)),
+                      Section(name='Fast',slice=slice(17,19,None))]
+        if AIRSPEED_THRESHOLD == 70:
+            expected = [Section(name='Fast', slice=slice(1, 5, None)), 
+                        Section(name='Fast', slice=slice(17, 20, None))]
         self.assertEqual(phase_fast, expected)
 
 
@@ -465,7 +476,7 @@ class TestFinalApproach(unittest.TestCase):
 
 class TestLanding(unittest.TestCase):
     def test_can_operate(self):
-        expected = [('Fast','Heading Continuous', 'Altitude AAL For Flight Phases')]
+        expected = [('Heading Continuous','Altitude AAL For Flight Phases', 'Fast')]
         opts = Landing.get_operational_combinations()
         self.assertEqual(opts, expected)
 
@@ -490,8 +501,9 @@ class TestLanding(unittest.TestCase):
         phase_fast = Fast()
         phase_fast.derive(P('Airspeed',ias))
         landing = Landing()
-        landing.derive(phase_fast, P('Heading Continuous',head),
+        landing.derive(P('Heading Continuous',head),
                        P('Altitude AAL For Flight Phases',alt_aal),
+                       phase_fast,
                        P('Altitude Radio For Phases',alt_rad))
         expected = [Section(name='Landing', slice=slice(0.65, 8.5, None))]
         self.assertEqual(landing, expected)
@@ -541,7 +553,10 @@ class TestOnGround(unittest.TestCase):
         ias = Parameter('Airspeed', slow_and_fast_data,1,0)
         phase_onground = OnGround()
         phase_onground.derive(ias)
-        expected = [Section(name='On Ground',slice=slice(2,10,None))]
+        if AIRSPEED_THRESHOLD == 80:
+            expected = [Section(name='On Ground',slice=slice(2,10,None))]
+        if AIRSPEED_THRESHOLD == 70:
+            expected = [Section(name='On Ground',slice=slice(1,11,None))]
         self.assertEqual(phase_onground, expected)
  
 
@@ -559,9 +574,9 @@ class TestTakeoff(unittest.TestCase):
         phase_fast = Fast()
         phase_fast.derive(P('Airspeed',ias))
         takeoff = Takeoff()
-        takeoff.derive(phase_fast, P('Heading Continuous',head),
+        takeoff.derive(P('Heading Continuous',head),
                        P('Altitude AAL For Flight Phases',alt_aal),
-                       None) #  No Rad Alt in this basic case
+                       phase_fast, None) #  No Rad Alt in this basic case
         expected = Section(name='Takeoff', slice=slice(0.5, 8.125, None))
         self.assertEqual(takeoff[0], expected)
         
@@ -573,8 +588,8 @@ class TestTakeoff(unittest.TestCase):
         phase_fast = Fast()
         phase_fast.derive(P('Airspeed',ias))
         takeoff = Takeoff()
-        takeoff.derive(phase_fast, P('Heading Continuous',head),
-                       P('Altitude AAL For Flight Phases',alt_aal),
+        takeoff.derive(P('Heading Continuous',head),
+                       P('Altitude AAL For Flight Phases',alt_aal), phase_fast, 
                        P('Altitude Radio',alt_rad))
         expected = Section(name='Takeoff', slice=slice(0.5, 8.25, None))
         self.assertEqual(takeoff[0], expected)

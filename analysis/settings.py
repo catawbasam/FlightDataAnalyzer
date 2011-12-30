@@ -124,6 +124,12 @@ RATE_OF_CLIMB_LAG_TC = 6.0 # sec
 # Acceleration forwards at the start of the takeoff roll.
 TAKEOFF_ACCELERATION_THRESHOLD = 0.1 # g
 
+# The takeoff and landing acceleration algorithm linear estimation period
+TRUCK_OR_TRAILER_INTERVAL = 5 # sec: should be odd.
+
+# The takeoff and landing acceleration algorithm linear estimation period
+TRUCK_OR_TRAILER_PERIOD = 10 # sec
+
 
 """  Top of Climb / Top of Descent Threshold.
 This threshold was based upon the idea of "Less than 600 fpm for 6 minutes"

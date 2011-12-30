@@ -1,7 +1,7 @@
 import logging
 import numpy as np
 
-from analysis.library import index_at_value
+from analysis.library import index_at_value, peak_curvature
 
 from analysis.node import FlightPhaseNode, P, S, KTI
 
@@ -127,7 +127,7 @@ class LandingPeakDeceleration(KeyTimeInstanceNode):
     still be have drift on.
     """
     def derive(self, head=P('Heading Continuous'), landings=S('Landing'),  
-               accel=P('Acceleration Forwards For Flight Phases')):
+               accel=P('Acceleration Longitudinal')):
         for land in landings:
             peak_decel_index = np.ma.argmin(accel.array[land.slice])
             peak_decel_index += land.slice.start
@@ -201,6 +201,7 @@ class TakeoffTurnOntoRunway(KeyTimeInstanceNode):
             self.create_kti(toff.slice.start, 'Takeoff Turn Onto Runway')
 
 
+'''
 class TakeoffStartAcceleration(KeyTimeInstanceNode):
     def derive(self, fwd_acc=P('Acceleration Forwards For Flight Phases'), toffs=S('Takeoff')):
         for toff in toffs:
@@ -209,8 +210,15 @@ class TakeoffStartAcceleration(KeyTimeInstanceNode):
             start_accel = index_at_value(fwd_acc.array, toff.slice, 
                                                 TAKEOFF_ACCELERATION_THRESHOLD)
             self.create_kti(start_accel, 'Takeoff Start Acceleration')
+'''
 
-            
+class TakeoffAccelerationStart(KeyTimeInstanceNode):
+    def derive(self, speed=P('Airspeed'), takeoffs=S('Takeoff')):
+        for takeoff in takeoffs:
+            start_accel = peak_curvature(speed.array[takeoff.slice])
+            self.create_kti(start_accel+takeoff.slice.start, 'Takeoff Acceleration Start')
+
+
 class Liftoff(KeyTimeInstanceNode):
     # TODO: This should use the real rate of climb, but for the Hercules (and
     # old 146s) the data isn't good enough so need to use this parameter.
@@ -262,7 +270,7 @@ class Touchdown(KeyTimeInstanceNode):
     # TODO: Establish whether this works satisfactorily. If there are
     # problems with this algorithm we could compute the rate of descent
     # backwards from the runway for greater accuracy.
-    def derive(self, roc=P('Rate Of Climb'), landings=S('Landing')):
+    def derive(self, roc=P('Rate Of Climb For Flight Phases'), landings=S('Landing')):
         for landing in landings:
             land_index = index_at_value(roc.array, landing.slice, 
                                         RATE_OF_CLIMB_FOR_TOUCHDOWN)
@@ -277,13 +285,11 @@ class LandingTurnOffRunway(KeyTimeInstanceNode):
             self.create_kti(landing.slice.stop, 'Landing Turn Off Runway')
 
 
-class LandingStartDeceleration(KeyTimeInstanceNode):
-    def derive(self, fwd_acc=P('Acceleration Forwards For Flight Phases'), landings=S('Landing')):
+class LandingDecelerationEnd(KeyTimeInstanceNode):
+    def derive(self, speed=P('Airspeed'), landings=S('Landing')):
         for landing in landings:
-            start_decel_index = index_at_value(fwd_acc.array, landing.slice, 
-                                                LANDING_ACCELERATION_THRESHOLD)
-            self.create_kti(start_decel_index, 'Landing Start Deceleration')
-
+            end_decel = peak_curvature(speed.array[landing.slice])
+            self.create_kti(end_decel+landing.slice.start, 'Landing Deceleration End')
 
 #<<<< This style for all climbing events >>>>>
 
