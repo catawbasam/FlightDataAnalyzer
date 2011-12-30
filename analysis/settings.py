@@ -11,6 +11,7 @@ NODE_MODULES = ['analysis.derived_parameters',
 
 # Handler
 HANDLER = 'analysis.api_handler_http.APIHandlerHTTP'
+BASE_URL = 'http://127.0.0.1'
 
 ##########################
 ## Parameter Analysis
