@@ -12,6 +12,8 @@ from analysis.node import Attribute, A, KPV, KTI, Parameter, P, Section, S
 from analysis.flight_phase import Fast
 
 from analysis.derived_parameters import (AccelerationVertical,
+                                         AccelerationForward,
+                                         AccelerationLateral,
                                          AirspeedForFlightPhases,
                                          AltitudeAALForFlightPhases,
                                          AltitudeForFlightPhases,
@@ -79,10 +81,89 @@ class TestAccelerationVertical(unittest.TestCase):
         ma_test.assert_masked_array_approx_equal(acc_vert.array,
                                                  np.ma.array([1]*8))
 
+
+class TestAccelerationForward(unittest.TestCase):
+    def test_can_operate(self):
+        expected = [('Acceleration Normal',
+                    'Acceleration Longitudinal', 'Pitch')]
+        opts = AccelerationForward.get_operational_combinations()
+        self.assertEqual(opts, expected)
+        
+    def test_acceleration_forward_level_on_gound(self):
+        # Invoke the class object
+        acc_fwd = AccelerationForward(frequency=4)
+                        
+        acc_fwd.derive(
+            acc_norm=Parameter('Acceleration Normal', np.ma.ones(8),8),
+            acc_long=Parameter('Acceleration Longitudinal', np.ma.ones(4)*0.1,4),
+            pitch=Parameter('Pitch', np.ma.zeros(2),2))
+        
+        ma_test.assert_masked_array_approx_equal(acc_fwd.array,
+                                                 np.ma.array([0.1]*8))
+        
+    def test_acceleration_forward_pitch_up(self):
+        acc_fwd = AccelerationForward(frequency=4)
+
+        acc_fwd.derive(
+            P('Acceleration Normal',np.ma.ones(8)*0.8660254,8),
+            P('Acceleration Longitudinal',np.ma.ones(4)*0.5,4),
+            P('Pitch',np.ma.ones(2)*30.0,2))
+
+        ma_test.assert_masked_array_approx_equal(acc_fwd.array,
+                                                 np.ma.array([0]*8))
+
+
+class TestAccelerationLateral(unittest.TestCase):
+    def test_can_operate(self):
+        expected = [('Acceleration Normal', 'Acceleration Lateral', 
+                    'Acceleration Longitudinal', 'Pitch', 'Roll')]
+        opts = AccelerationLateral.get_operational_combinations()
+        self.assertEqual(opts, expected)
+        
+    def test_acceleration_lateral_level_on_gound(self):
+        # Invoke the class object
+        acc_lat = AccelerationLateral(frequency=8)
+                        
+        acc_lat.derive(
+            acc_norm=Parameter('Acceleration Normal', np.ma.ones(8),8),
+            acc_lat=Parameter('Acceleration Lateral', np.ma.ones(4)*0.05,4),
+            acc_long=Parameter('Acceleration Longitudinal', np.ma.zeros(4),4),
+            pitch=Parameter('Pitch', np.ma.zeros(2),2),
+            roll=Parameter('Roll', np.ma.zeros(2),2))
+        
+        ma_test.assert_masked_array_approx_equal(acc_lat.array,
+                                                 np.ma.array([0.05]*8))
+        
+    def test_acceleration_lateral_pitch_up(self):
+        acc_lat = AccelerationLateral(frequency=8)
+
+        acc_lat.derive(
+            P('Acceleration Normal',np.ma.ones(8)*0.8660254,8),
+            P('Acceleration Lateral',np.ma.zeros(4),4),
+            P('Acceleration Longitudinal',np.ma.ones(4)*0.5,4),
+            P('Pitch',np.ma.ones(2)*30.0,2),
+            P('Roll',np.ma.zeros(2),2))
+
+        ma_test.assert_masked_array_approx_equal(acc_lat.array,
+                                                 np.ma.array([0]*8))
+
+    def test_acceleration_lateral_roll_right(self):
+        acc_lat = AccelerationLateral(frequency=8)
+
+        acc_lat.derive(
+            P('Acceleration Normal',np.ma.ones(8)*0.7071068,8),
+            P('Acceleration Lateral',np.ma.ones(4)*(-0.7071068),4),
+            P('Acceleration Longitudinal',np.ma.zeros(4),4),
+            P('Pitch',np.ma.zeros(2),2),
+            P('Roll',np.ma.ones(2)*45,2))
+
+        ma_test.assert_masked_array_approx_equal(acc_lat.array,
+                                                 np.ma.array([0]*8))
+
 """
-===============================================================================
+-------------------------------------------------------------------------------
 Superceded by Truck and Trailer analysis of airspeed during takeoff and landing
-===============================================================================
+-------------------------------------------------------------------------------
 
 class TestAccelerationForwardsForFlightPhases(unittest.TestCase):
     def test_can_operate_only_airspeed(self):
@@ -120,9 +201,9 @@ class TestAccelerationForwardsForFlightPhases(unittest.TestCase):
         accel_fwd = AccelerationForwardsForFlightPhases()
         accel_fwd.derive(Parameter('Acceleration Longitudinal', acc), None)
         ma_test.assert_masked_array_approx_equal(accel_fwd.array, acc)
-===============================================================================
+-------------------------------------------------------------------------------
 Superceded by Truck and Trailer analysis of airspeed during takeoff and landing
-===============================================================================
+-------------------------------------------------------------------------------
 """
 
 class TestAirspeedForFlightPhases(unittest.TestCase):
@@ -615,12 +696,12 @@ class TestRateOfClimb(unittest.TestCase):
         ma_test.assert_masked_array_approx_equal(roc.array, expected)
 
     def test_rate_of_climb_combined_signals(self):
-        # ======================================================================
+        # ----------------------------------------------------------------------
         # NOTE: The results of this test are dependent upon the settings
         # parameters GRAVITY = 32.2, RATE_OF_CLIMB_LAG_TC = 6.0,
         # AZ_WASHOUT_TC = 60.0. Changes in any of these will result in a test
         # failure and recomputation of the result array will be necessary.
-        # ======================================================================
+        # ----------------------------------------------------------------------
         
         # Initialise to 1g
         az = P('Acceleration Vertical', np.ma.array([1]*30,dtype=float))
