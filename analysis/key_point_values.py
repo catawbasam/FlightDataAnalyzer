@@ -1,9 +1,10 @@
 import numpy as np
 
 from analysis import settings
+
 from analysis.library import (min_value, max_value, max_abs_value, 
                               value_at_time)
-from analysis.node import  KeyPointValue, KeyPointValueNode, KTI, P, S
+from analysis.node import  KeyPointValue, KPV, KeyPointValueNode, KTI, P, S
 
 
 class Airspeed1000To500FtMax(KeyPointValueNode):
@@ -325,9 +326,21 @@ class AltitudeWithFlapsMax(KeyPointValueNode):
 
 
 class MACHMax(KeyPointValueNode):
+    #TODO: Test
     name = 'MACH Max'
-    def derive(self, mach=P('MACH')):
-        return NotImplemented
+    def derive(self, mach=P('MACH'), fast=S('Fast')):
+        for sect in fast:
+            index, value = max_value(mach.array, sect.slice)
+            self.create_kpv(index, value)
+
+
+class AltitudeAtMACHMax(KeyPointValueNode):
+    #TODO: Test
+    name = 'Altitude At MACH Max'
+    def derive(self, max_mach=KPV('MACHMax'), alt_std=P('Altitude STD')):
+        # Aligns Altitude to MACH to ensure we have the most accurate
+        # altitude reading at the point of Maximum MACH
+        self.create_kpvs_at_kpvs(alt_std, max_mach)
 
 
 class GroundSpeedOnGroundMax(KeyPointValueNode):
@@ -969,11 +982,11 @@ class TaxiSpeedTurningMax(KeyPointValueNode):
     def derive(self, groundspeed=P('Groundspeed'), on_ground=S('On Ground')):
         return NotImplemented
 
-
-class MACHMMOMax(KeyPointValueNode):
-    name = 'MACH MMO Max'
-    def derive(self, mach=P('MACH')):
-        return NotImplemented
+# Dupe of MACH Max?
+##class MACHMMOMax(KeyPointValueNode):
+    ##name = 'MACH MMO Max'
+    ##def derive(self, mach=P('MACH')):
+        ##return NotImplemented
 
 
 class AirspeedVref500FtToTouchdownMax(KeyPointValueNode):
