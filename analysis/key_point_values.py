@@ -354,30 +354,70 @@ class FlapAtTouchdown(KeyPointValueNode):
         return NotImplemented
 
 
-class EngEGTMax(KeyPointValueNode):
-    name = 'Eng EGT Max'
+#################
+# TODO: Review whether Engine measurements should be overall or for sections 
+# in flight (e.g. split by airborne / on ground?)
 
-    @classmethod
-    def can_operate(cls, available):
-        if set(cls.get_dependency_names()).intersection(available):
-            return True  # if ANY are available
-        else:
-            return False  # we have no EGT recorded on any engines
-        
-    def derive(self, egt_max=P('Eng (*) EGT Max')):
-        index, value = max_value(egt_max)
+class EngEGTMax(KeyPointValueNode):
+    #TODO: TEST
+    name = 'Eng EGT Max'
+    def derive(self, eng=P('Eng (*) EGT Max')):
+        index, value = max_value(eng.array)
         self.create_kpv(index, value)
         
-        ##kmax = vmax = imax = None
-        ##for p in (egt1, egt2, egt3, egt4):
-            ##_imax = p.array.argmax()
-            ##_vmax = p.array[_imax]
-            ##if _vmax > vmax:
-                ##imax = _imax # index of max
-                ##vmax = _vmax # max value
-                ##kmax = p.name # param name of max eng
-        ##self.create_kpv(imax, vmax)
-    
+class EngN1Max(KeyPointValueNode):
+    #TODO: TEST
+    name = 'Eng N1 Max'
+    def derive(self, eng=P('Eng (*) N1 Max')):
+        index, value = max_value(eng.array)
+        self.create_kpv(index, value)
+
+class EngN1Max(KeyPointValueNode):
+    #TODO: TEST
+    name = 'Eng N2 Max'
+    def derive(self, eng=P('Eng (*) N2 Max')):
+        index, value = max_value(eng.array)
+        self.create_kpv(index, value)
+
+class EngOilTempMax(KeyPointValueNode):
+    #TODO: TEST
+    name = 'Eng Oil Temp Max'
+    def derive(self, eng=P('Eng (*) Oil Temp Max')):
+        index, value = max_value(eng.array)
+        self.create_kpv(index, value)
+            
+class EngVibN1Max(KeyPointValueNode):
+    #TODO: TEST
+    name = 'Eng Vib N1 Max'
+    ##def derive(self, eng=P('Eng (*) Vib N1 Max'), fast=S('Fast')):
+        ##for sect in fast:
+            ##index, value = max_value(eng.array, sect.slice)
+            ##self.create_kpv(index, value)
+            
+    def derive(self, eng=P('Eng (*) Vib N1 Max')):
+        index, value = max_value(eng.array)
+        self.create_kpv(index, value)
+            
+            
+class EngVibN2Max(KeyPointValueNode):
+    #TODO: TEST
+    name = 'Eng Vib N2 Max'
+    ##def derive(self, eng=P('Eng (*) Vib N2 Max'), fast=S('Fast')):
+        ##for sect in fast:
+            ##index, value = max_value(eng.array, sect.slice)
+            ##self.create_kpv(index, value)
+            
+    def derive(self, eng=P('Eng (*) Vib N2 Max')):
+        index, value = max_value(eng.array)
+        self.create_kpv(index, value)
+            
+            
+class FuelQtyMinAirborne(KeyPointValueNode):
+    #TODO: TEST
+    def derive(self, fuel=P('Fuel Qty'), airborne=S('Airborne')):
+        for sect in airborne:
+            index, value = min_value(fuel.array, sect.slice)
+            self.create_kpv(index, value)
     
 class MagneticHeadingAtLiftOff(KeyPointValue):
     """ Shouldn't this be difference between aircraft heading and runway heading???
@@ -694,7 +734,7 @@ class LateralGOnGround(KeyPointValueNode):
 
 class EngN13000FtToTouchdownMax(KeyPointValueNode):
     name = 'Eng N1 3000 Ft To Touchdown Max'
-    def derive(self, eng_n1_avg=P('Eng N1 Average'),
+    def derive(self, eng_n1_avg=P('Eng N1 Avg'),
                _3000_ft_in_approach=KTI('3000 Ft In Approach'),
                touchdown=KTI('Touchdown')):
         return NotImplemented
@@ -913,7 +953,7 @@ class PitchRateFrom2DegreesOfPitchTo35FtMin(KeyPointValueNode):
 
 
 class PowerOnWithSpeedbrakesDeployedDurationGreaterThanLimit(KeyPointValueNode):
-    def derive(self, eng_n1_average=P('Eng N1 Average'),
+    def derive(self, eng_n1_average=P('Eng N1 Avg'),
                speedbrake=P('Speedbrake')):
         return NotImplemented
 
@@ -1173,7 +1213,7 @@ class TaxiSpeedTurning(KeyPointValueNode):
 
 
 class LowPowerInFinalApproach10Sec(KeyPointValueNode):
-    def derive(self, eng_avg=P('Eng Average'),
+    def derive(self, eng_avg=P('Eng N1 Average'),
                _1000_ft_in_approach=KTI('1000 Ft In Approach'),
                _50_ft_to_touchdown=KTI('50 Ft To Touchdown')):
         return NotImplemented
