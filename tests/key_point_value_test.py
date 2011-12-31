@@ -6,7 +6,7 @@ from analysis.node import KeyTimeInstance, KTI, KeyPointValue, Parameter, P, Sec
 from analysis.key_point_values import (Airspeed1000To500FtMax,
                                        AirspeedAtTouchdown,
                                        AirspeedMax,
-                                       AltitudeAtLiftoff,
+                                       ##AltitudeAtLiftoff,
                                        AltitudeAtTouchdown,
                                        AutopilotEngaged1AtLiftoff,
                                        AutopilotEngaged1AtTouchdown,
@@ -135,10 +135,10 @@ class TestAirspeed1000To500FtMax(unittest.TestCase):
         self.assertEqual(kpv[1].value, 99.557430201194919)
 
 
-class TestAltitudeAtLiftoff(unittest.TestCase, TestCreateKPVsAtKTIs):
-    def setUp(self):
-        self.node_class = AltitudeAtLiftoff
-        self.operational_combinations = [('Altitude STD', 'Liftoff')]
+##class TestAltitudeAtLiftoff(unittest.TestCase, TestCreateKPVsAtKTIs):
+    ##def setUp(self):
+        ##self.node_class = AltitudeAtLiftoff
+        ##self.operational_combinations = [('Altitude STD', 'Liftoff')]
 
 
 class TestAltitudeAtTouchdown(unittest.TestCase, TestCreateKPVsAtKTIs):

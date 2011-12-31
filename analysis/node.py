@@ -131,6 +131,23 @@ class Node(object):
         
         :param available: Available parameters from the dependency tree
         :type available: list of strings
+        
+        Sample overrides for "Any deps available":
+@classmethod
+def can_operate(cls, available):
+    # works with any combination of params available
+    if any([d in available for d in cls.get_dependency_names()]):
+        return True
+    else:
+        return False
+
+@classmethod
+def can_operate(cls, available):
+    if set(cls.get_dependency_names()).intersection(available):
+        return True  # if ANY are available
+    else:
+        return False  # we have none available
+            
         """
         # ensure all names are strings
         if all([x in available for x in cls.get_dependency_names()]):
@@ -231,10 +248,12 @@ class Node(object):
 class DerivedParameterNode(Node):
     """
     """
-    def __init__(self, *args, **kwargs):
+    def __init__(self, name='', array=np.ma.array([]), frequency=1, offset=0, *args, **kwargs):
         # create array results placeholder
-        self.array = None # np.ma.array derive result goes here!
-        super(DerivedParameterNode, self).__init__(*args, **kwargs)
+        self.array = array # np.ma.array derive result goes here!
+        super(DerivedParameterNode, self).__init__(name=name, frequency=frequency, 
+                                                   offset=offset, 
+                                                   *args, **kwargs)
         
     def get_aligned(self, param):
         """

@@ -22,9 +22,9 @@ from analysis.derived_parameters import (AccelerationVertical,
                                          AltitudeSTD,
                                          AltitudeTail,
                                          ClimbForFlightPhases,
-                                         EngN1Average,
-                                         EngN1Minimum,
-                                         EngN2Average,
+                                         Eng_N1Avg,
+                                         Eng_N1Min,
+                                         Eng_N2Avg,
                                          FuelQty,
                                          HeadingContinuous,
                                          Pitch,
@@ -470,9 +470,9 @@ class TestClimbForFlightPhases(unittest.TestCase):
         ma_test.assert_masked_array_approx_equal(climb.array, expected)
    
 
-class TestEngN1Average(unittest.TestCase):
+class TestEng_N1Avg(unittest.TestCase):
     def test_can_operate(self):
-        opts = EngN1Average.get_operational_combinations()
+        opts = Eng_N1Avg.get_operational_combinations()
         self.assertEqual(opts[0], ('Eng (1) N1',))
         self.assertEqual(opts[-1], ('Eng (1) N1', 'Eng (2) N1', 'Eng (3) N1', 'Eng (4) N1'))
         self.assertEqual(len(opts), 15) # 15 combinations accepted!
@@ -486,7 +486,7 @@ class TestEngN1Average(unittest.TestCase):
         a[0] = np.ma.masked
         b[0] = np.ma.masked
         b[-1] = np.ma.masked
-        eng_avg = EngN1Average()
+        eng_avg = Eng_N1Avg()
         eng_avg.derive(P('a',a), P('b',b), None, None)
         ma_test.assert_array_equal(
             np.ma.filled(eng_avg.array, fill_value=999),
@@ -495,10 +495,9 @@ class TestEngN1Average(unittest.TestCase):
                       9]) # only second engine value masked
         )
 
-        
-class TestEngN1Minimum(unittest.TestCase):
+class TestEng_N1Max(unittest.TestCase):
     def test_can_operate(self):
-        opts = EngN1Minimum.get_operational_combinations()
+        opts = Eng_N1Max.get_operational_combinations()
         self.assertEqual(opts[0], ('Eng (1) N1',))
         self.assertEqual(opts[-1], ('Eng (1) N1', 'Eng (2) N1', 'Eng (3) N1', 'Eng (4) N1'))
         self.assertEqual(len(opts), 15) # 15 combinations accepted!
@@ -511,7 +510,31 @@ class TestEngN1Minimum(unittest.TestCase):
         a[0] = np.ma.masked
         b[0] = np.ma.masked
         b[-1] = np.ma.masked
-        eng = EngN1Minimum()
+        eng = Eng_N1Max()
+        eng.derive(P('a',a), P('b',b), None, None)
+        ma_test.assert_array_equal(
+            np.ma.filled(eng.array, fill_value=999),
+            np.array([999, # both masked, so filled with 999
+                      11,12,13,14,15,16,17,18,10])
+        )
+        
+        
+class TestEng_N1Min(unittest.TestCase):
+    def test_can_operate(self):
+        opts = Eng_N1Min.get_operational_combinations()
+        self.assertEqual(opts[0], ('Eng (1) N1',))
+        self.assertEqual(opts[-1], ('Eng (1) N1', 'Eng (2) N1', 'Eng (3) N1', 'Eng (4) N1'))
+        self.assertEqual(len(opts), 15) # 15 combinations accepted!
+  
+    def test_derive_two_engines(self):
+        # this tests that average is performed on incomplete dependencies and 
+        # more than one dependency provided.
+        a = np.ma.array(range(0, 10))
+        b = np.ma.array(range(10,20))
+        a[0] = np.ma.masked
+        b[0] = np.ma.masked
+        b[-1] = np.ma.masked
+        eng = Eng_N1Min()
         eng.derive(P('a',a), P('b',b), None, None)
         ma_test.assert_array_equal(
             np.ma.filled(eng.array, fill_value=999),
@@ -520,9 +543,9 @@ class TestEngN1Minimum(unittest.TestCase):
         )
         
         
-class TestEngN2Average(unittest.TestCase):
+class TestEng_N2Avg(unittest.TestCase):
     def test_can_operate(self):
-        opts = EngN2Average.get_operational_combinations()
+        opts = Eng_N2Avg.get_operational_combinations()
         self.assertEqual(opts[0], ('Eng (1) N2',))
         self.assertEqual(opts[-1], ('Eng (1) N2', 'Eng (2) N2', 'Eng (3) N2', 'Eng (4) N2'))
         self.assertEqual(len(opts), 15) # 15 combinations accepted!
@@ -536,7 +559,7 @@ class TestEngN2Average(unittest.TestCase):
         a[0] = np.ma.masked
         b[0] = np.ma.masked
         b[-1] = np.ma.masked
-        eng_avg = EngN2Average()
+        eng_avg = Eng_N2Avg()
         eng_avg.derive(P('a',a), P('b',b), None, None)
         ma_test.assert_array_equal(
             np.ma.filled(eng_avg.array, fill_value=999),
