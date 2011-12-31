@@ -6,7 +6,6 @@ import matplotlib.pyplot as plt
 from utilities.print_table import indent
 
 from hdfaccess.file import hdf_file
-from analysis.node import DerivedParameterNode
 
 
 def plot_parameter(array, show=True):
@@ -180,11 +179,7 @@ def csv_flight_details(hdf_path, kti_list, kpv_list, phase_list, dest_path=None)
             # add associated parameter information
             for param in params:
                 try:
-                    # Create DerivedParameterNode to utilise the .at() method
-                    p = hdf[param]
-                    dp = DerivedParameterNode(p.name, p.frequency, p.offset)
-                    dp.array = p.array
-                    vals.append( dp.at(index) )
+                    vals.append( hdf[param].at(index) )
                 except (KeyError, ValueError, IndexError):
                     vals.append(None)
             rows.append( vals )

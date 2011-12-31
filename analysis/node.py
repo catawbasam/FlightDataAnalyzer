@@ -9,8 +9,8 @@ from collections import namedtuple
 from itertools import product
 from operator import attrgetter
 
-from analysis.library import (align, is_index_within_slice, 
-                              is_slice_within_slice, value_at_time)
+from hdfaccess.parameter import P, Parameter
+from analysis.library import align, is_index_within_slice, is_slice_within_slice
 
 from analysis.recordtype import recordtype
 
@@ -97,8 +97,8 @@ class Node(object):
         self.offset = offset # secs
         
     def __repr__(self):
-        return "%s %sHz %.2fsecs" % (self.get_name(), self.frequency, self.offset)
-         
+        return '%s' % self.get_name()
+        
     @classmethod
     def get_name(cls):
         """ class My2BNode -> 'My2B Node'
@@ -230,43 +230,22 @@ class Node(object):
 
 class DerivedParameterNode(Node):
     """
-    Base class for DerivedParameters which overide def derive() method.
-    
-    Also used during processing when creating parameters from HDF files as
-    dependencies for other Nodes.
     """
     def __init__(self, *args, **kwargs):
         # create array results placeholder
-        self.array = np.ma.array([]) # np.ma.array derive result goes here!
+        self.array = None # np.ma.array derive result goes here!
         super(DerivedParameterNode, self).__init__(*args, **kwargs)
-        
-    def at(self, secs):
-        """
-        Interpolates to retrieve the most accurate value.
-        
-        :param secs: time delta from start of data in seconds
-        :type secs: float or timedelta
-        """
-        try:
-            # get seconds from timedelta
-            secs = float(secs.total_seconds)
-        except AttributeError:
-            # secs is a float
-            secs = float(secs)
-        return value_at_time(self.array, self.frequency, self.offset, secs)
         
     def get_aligned(self, param):
         """
         Aligns itself to the input parameter and creates a copy
         """
         aligned_array = align(self, param)
-        aligned_param = DerivedParameterNode(name=self.name,
-                                             frequency=param.frequency,
+        aligned_param = DerivedParameterNode(frequency=param.frequency,
                                              offset=param.offset)
         aligned_param.array = aligned_array
         return aligned_param
-    
-P = Parameter = DerivedParameterNode # shorthand
+
 
 class SectionNode(Node, list):
     '''
@@ -310,6 +289,7 @@ class SectionNode(Node, list):
         multiplier = param.frequency / self.frequency
         offset = (self.offset - param.offset) * param.frequency
         for section in self:
+            # TODO: Consider a trap for sections with either start or end = None ?? DJ
             converted_start = (section.slice.start * multiplier) + offset
             converted_stop = (section.slice.stop * multiplier) + offset
             converted_slice = slice(converted_start, converted_stop)
@@ -644,7 +624,6 @@ class KeyPointValueNode(FormattedNameNode):
             value = array[kti.index]
             if value is not np.ma.masked:
                 self.create_kpv(kti.index, value)
-    create_kpvs_at_kpvs = create_kpvs_at_ktis # both will work the same!
 
     # ordered by time (ascending), ordered by value (ascending), 
 
