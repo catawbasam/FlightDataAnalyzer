@@ -43,7 +43,7 @@ class AccelerationVertical(DerivedParameterNode):
                pitch=P('Pitch'), roll=P('Roll')):
         """
         Resolution of three accelerations to compute the vertical
-        acceleration (perpendicular to the earth surface).
+        acceleration (perpendicular to the earth surface). Upwards = +ve
         """
         # Align the acceleration and attitude samples to the normal acceleration,
         # ready for combining them.
@@ -56,6 +56,43 @@ class AccelerationVertical(DerivedParameterNode):
         # Simple Numpy algorithm working on masked arrays
         resolved_in_pitch = ax * np.sin(pch) + acc_norm.array * np.cos(pch)
         self.array = resolved_in_pitch * np.cos(rol) - ay * np.sin(rol)
+
+class AccelerationForward(DerivedParameterNode):
+    def derive(self, acc_norm=P('Acceleration Normal'), 
+               acc_long=P('Acceleration Longitudinal'), 
+               pitch=P('Pitch')):
+        """
+        Resolution of three body axis accelerations to compute the forward
+        acceleration, that is, in the direction of the aircraft centreline
+        when projected onto the earth's surface. Forwards = +ve
+        """
+        ax = align(acc_long, acc_norm) 
+        pch = np.radians(align(pitch, acc_norm))
+        
+        # Simple Numpy algorithm working on masked arrays
+        self.array = ax * np.cos(pch) - acc_norm.array * np.sin(pch)
+
+
+class AccelerationLateral(DerivedParameterNode):
+    def derive(self, acc_norm=P('Acceleration Normal'), 
+               acc_lat=P('Acceleration Lateral'), 
+               acc_long=P('Acceleration Longitudinal'), 
+               pitch=P('Pitch'), roll=P('Roll')):
+        """
+        Resolution of three body axis accelerations to compute the lateral
+        acceleration, that is, in the direction perpendicular to the aircraft centreline
+        when projected onto the earth's surface. Right = +ve.
+        """
+        ax = align(acc_long, acc_norm)
+        pch = np.radians(align(pitch, acc_norm))
+        ay = align(acc_lat, acc_norm)
+        rol = np.radians(align(roll, acc_norm))
+        
+        # Simple Numpy algorithm working on masked arrays
+        resolved_in_pitch = ax * np.sin(pch) + acc_norm.array * np.cos(pch)
+        self.array = resolved_in_pitch * np.sin(rol) + ay * np.cos(rol)
+
+
 
 """
 ===============================================================================

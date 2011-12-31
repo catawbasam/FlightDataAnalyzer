@@ -19,7 +19,7 @@ BASE_URL = 'http://127.0.0.1'
 
 # An airspeed below which you just can't possibly be flying.
 # 70kts taken from Hercules test data file when decelerating before landing
-AIRSPEED_THRESHOLD = 70  # kts
+AIRSPEED_THRESHOLD = 80  # kts
 
 # Altitude to break flights into separate climb/cruise/descent segments.
 # This is applied to altitude with hysteresis, so break will happen when
