@@ -75,7 +75,7 @@ class AccelerationForward(DerivedParameterNode):
 
 class AccelerationLateral(DerivedParameterNode):
     def derive(self, acc_norm=P('Acceleration Normal'), 
-               acc_lat=P('Acceleration Lateral'), 
+               ##acc_lat=P('Acceleration Lateral'),  #TODO: Change name - avoid recursion
                acc_long=P('Acceleration Longitudinal'), 
                pitch=P('Pitch'), roll=P('Roll')):
         """
@@ -898,10 +898,6 @@ class RudderReversal(DerivedParameterNode):
 '''
 ########## RECORDED ###########
 
-
-class AccelerationLateral(DerivedParameterNode):
-    def derive(self, param=P('Acceleration Lateral')):
-        return NotImplemented
 
 
 class GPWSDontSink(DerivedParameterNode):
