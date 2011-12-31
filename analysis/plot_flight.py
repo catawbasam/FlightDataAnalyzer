@@ -182,8 +182,8 @@ def csv_flight_details(hdf_path, kti_list, kpv_list, phase_list, dest_path=None)
                 try:
                     # Create DerivedParameterNode to utilise the .at() method
                     p = hdf[param]
-                    dp = DerivedParameterNode(p.name, p.frequency, p.offset)
-                    dp.array = p.array
+                    dp = DerivedParameterNode(name=p.name, array=p.array, 
+                                        frequency=p.frequency, offset=p.offset)
                     vals.append( dp.at(index) )
                 except (KeyError, ValueError, IndexError):
                     vals.append(None)

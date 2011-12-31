@@ -97,8 +97,8 @@ def derive_parameters(hdf, node_mgr, process_order):
                 # all parameters (LFL or other) need get_aligned which is
                 # available on DerivedParameterNode
                 p = hdf[dep_name]
-                dp = DerivedParameterNode(name=p.name, frequency=p.frequency, offset=p.offset)
-                dp.array = p.array # remember to add the array
+                dp = DerivedParameterNode(name=p.name, array=p.array, 
+                                          frequency=p.frequency, offset=p.offset)
                 deps.append(dp)
             else:  # dependency not available
                 deps.append(None)
