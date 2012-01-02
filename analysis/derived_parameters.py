@@ -55,7 +55,7 @@ class AccelerationVertical(DerivedParameterNode):
         
         # Simple Numpy algorithm working on masked arrays
         resolved_in_pitch = ax * np.sin(pch) + acc_norm.array * np.cos(pch)
-        self.array = resolved_in_pitch * np.cos(rol) - ay * np.sin(rol)
+        self.array = (resolved_in_pitch * np.cos(rol) - ay * np.sin(rol)) * GRAVITY
 
 class AccelerationForwards(DerivedParameterNode):
     def derive(self, acc_norm=P('Acceleration Normal'), 
@@ -822,7 +822,7 @@ class RateOfClimb(DerivedParameterNode):
 
 class RateOfClimbForFlightPhases(DerivedParameterNode):
     def derive(self, alt_std = P('Altitude STD')):
-        self.array = hysteresis(rate_of_change(repair_mask(alt_std),5)*60,
+        self.array = hysteresis(rate_of_change(repair_mask(alt_std),3)*60,
                                 HYSTERESIS_FPROC)
 
 
