@@ -11,17 +11,17 @@ from analysis.node import SectionNode, P, S
         
         
 class _500FtTo0Ft(SectionNode):
-    
+    #TODO: TESTS
     def derive(self, alt=P('Altitude AAL'), desc=S('Descending')):
         """
         Creates slices for each time we're descending between the specified 
         altitudes.
         """
-        alt_500_0 = np.ma.masked_outside(alt, 500, 0)
+        alt_500_0 = np.ma.masked_outside(alt.array, 500, 0)
         # mask where the slices are active
         mask = np.ones(len(alt_500_0))
-        for d_slice in desc:
-            mask[d_slice] = 0
+        for d in desc:
+            mask[d.slice] = 0
         mask_indices = np.where(mask == 1)
         alt_500_0[mask_indices] = np.ma.masked
         

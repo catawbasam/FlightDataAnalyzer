@@ -187,8 +187,6 @@ class FlapStateChanges(KeyTimeInstanceNode):
                 self.create_kti(index, setting=value)
 
 
-# ===============================================================
-
 """
 Takeoff KTIs are derived from the Takeoff Phase
 """
@@ -240,19 +238,17 @@ class LandingStart(KeyTimeInstanceNode):
 
 
 class TouchAndGo(KeyTimeInstanceNode):
+    #TODO: TESTS
     """
     In POLARIS we define a Touch and Go as a Go-Around that contacted the ground.
-    """
-    '''
+    
     TODO: Write a proper version when we have a better landing condition.
-    Written without tests, just to provide a node to get things going. 29/12/11 DJ
-    '''
-
-    def derive(self, alt_AAL=P('Altitude AAL For Flight Phases'),
-               gas=S('Go Around')):
-        for ga in gas:
-            if np.ma.minimum(alt_AAL.array[ga.slice]) == 0.0:
-                self.create_kti(ga.slice.start, 'Touch And Go')
+    """
+    def derive(self, alt_AAL=P('Altitude AAL'), go_arounds=KTI('Go Around')):
+        for ga in go_arounds:
+            if alt_AAL.array[ga.index] == 0.0:
+                # wheels on ground
+                self.create_kti(ga.index)
 
 
 class Touchdown(KeyTimeInstanceNode):
@@ -279,8 +275,6 @@ class LandingDecelerationEnd(KeyTimeInstanceNode):
         for landing in landings:
             end_decel = peak_curvature(speed.array[landing.slice])
             self.create_kti(end_decel+landing.slice.start)
-
-#<<<< This style for all climbing events >>>>>
 
 
 class AltitudeWhenClimbing(KeyTimeInstanceNode):
@@ -369,325 +363,27 @@ class AltitudeInFinalApproach(KeyTimeInstanceNode):
                     self.create_kti(index, altitude=alt_threshold)
 
 
-# Climb KTI does not yet exist.
-#class AltitudeInClimb(KeyTimeInstanceNode):
-    #'''
-    #Creates KTIs at certain heights when the aircraft is in the climb phase.
-    #'''
-    #NAME_FORMAT = '%(height)d Ft In Approach'
-    #HEIGHTS = [1000, 1500, 2000, 3500]
-    #NAME_VALUES = {'height': HEIGHTS}
+class MinsToTouchdown(KeyTimeInstanceNode):
+    #TODO: TESTS
+    NAME_FORMAT = "%(time)d Mins To Touchdown"
+    NAME_VALUES = {'time': [5,4,3,2,1]}
     
-    #def derive(self, climbs=S('Climb'), alt_aal=P('Altitude AAL')):
-        #alt = hysteresis(alt_aal.array, 10)
-        #for climb in climbs:
-            #for height in self.HEIGHTS:
-                ## Will trigger a single KTI per height (if threshold is crossed)
-                ## per climbing phase.
-                #index = index_at_value(alt, descend.slice, height)
-                #if index:
-                    #self.create_kti(index, height=height)
+    def derive(self, touchdowns=KTI('Touchdown')):
+        #Q: is it sensible to create KTIs that overlap with a previous touchdown?
+        for touchdown in touchdowns:
+            for t in self.NAME_VALUES['time']:
+                index = touchdown.index - (t * 60 * self.frequency)
+                self.create_kti(index, time=t)
 
-"""
-class _10FtClimbing(KeyTimeInstanceNode):
-    def derive(self, alt_aal=P('Altitude AAL')):
-        return NotImplemented
 
+class SecsToTouchdown(KeyTimeInstanceNode):
+    #TODO: TESTS
+    NAME_FORMAT = "%(time)d Secs To Touchdown"
+    NAME_VALUES = {'time': [90,30]}
     
-class _20FtClimbing(KeyTimeInstanceNode):
-    def derive(self, alt_aal=P('Altitude AAL')):
-        return NotImplemented
-
-    
-class _35FtClimbing(KeyTimeInstanceNode):
-    def derive(self, alt_aal=P('Altitude AAL')):
-        return NotImplemented
-
-    
-class _50FtClimbing(KeyTimeInstanceNode):
-    def derive(self, climbing=S('Climbing'), alt_aal=P('Altitude AAL')):
-        for climb in climbing:
-            index = start_decel_index(alt_aal.array,
-                                      climb.index, 50)
-            self.create_kti(index, '50 Ft In Initial Climb')
-
-
-class _75FtClimbing(KeyTimeInstanceNode):
-    def derive(self, climbing=S('Climbing'), alt_aal=P('Altitude AAL')):
-        for climb in climbing:
-            index = start_decel_index(alt_aal.array,
-                                          climb.slice, 50)
-            self.create_kti(index, '50 Ft In Initial Climb')
-
-
-class _100FtClimbing(KeyTimeInstanceNode):
-    def derive(self, alt_aal=P('Altitude AAL')):
-        return NotImplemented
-
-
-class _150FtClimbing(KeyTimeInstanceNode):
-    def derive(self, alt_aal=P('Altitude AAL')):
-        return NotImplemented
-
-
-class _200FtClimbing(KeyTimeInstanceNode):
-    def derive(self, alt_aal=P('Altitude AAL')):
-        return NotImplemented
-
-
-class _300FtClimbing(KeyTimeInstanceNode):
-    def derive(self, alt_aal=P('Altitude AAL')):
-        return NotImplemented
-
-
-class _400FtClimbing(KeyTimeInstanceNode):
-    def derive(self, alt_aal=P('Altitude AAL')):
-        return NotImplemented
-
-
-class _500FtClimbing(KeyTimeInstanceNode):
-    def derive(self, alt_aal=P('Altitude AAL')):
-        return NotImplemented
-
-
-class _750FtClimbing(KeyTimeInstanceNode):
-    def derive(self, alt_aal=P('Altitude AAL')):
-        return NotImplemented
-
-
-class _1000FtClimbing(KeyTimeInstanceNode):
-    def derive(self, alt_aal=P('Altitude AAL')):
-        return NotImplemented
-
-
-class _1500FtClimbing(KeyTimeInstanceNode):
-    def derive(self, alt_aal=P('Altitude AAL')):
-        return NotImplemented
-
-
-class _2000FtClimbing(KeyTimeInstanceNode):
-    def derive(self, alt_aal=P('Altitude AAL')):
-        return NotImplemented
-
-
-class _2500FtClimbing(KeyTimeInstanceNode):
-    def derive(self, alt_aal=P('Altitude AAL')):
-        return NotImplemented
-
-
-class _3000FtClimbing(KeyTimeInstanceNode):
-    def derive(self, alt_aal=P('Altitude AAL')):
-        return NotImplemented
-
-
-class _3500FtClimbing(KeyTimeInstanceNode):
-    def derive(self, alt_aal=P('Altitude AAL')):
-        return NotImplemented
-
-
-class _4000FtClimbing(KeyTimeInstanceNode):
-    def derive(self, alt_aal=P('Altitude AAL')):
-        return NotImplemented
-
-
-class _5000FtClimbing(KeyTimeInstanceNode):
-    def derive(self, alt_aal=P('Altitude AAL')):
-        return NotImplemented
-
-
-class _6000FtClimbing(KeyTimeInstanceNode):
-    def derive(self, alt_aal=P('Altitude AAL')):
-        return NotImplemented
-
-
-class _7000FtClimbing(KeyTimeInstanceNode):
-    def derive(self, alt_aal=P('Altitude AAL')):
-        return NotImplemented
-
-
-class _8000FtClimbing(KeyTimeInstanceNode):
-    def derive(self, alt_aal=P('Altitude AAL')):
-        return NotImplemented
-
-
-class _9000FtClimbing(KeyTimeInstanceNode):
-    def derive(self, alt_aal=P('Altitude AAL')):
-        return NotImplemented
-
-
-class _10000FtClimbing(KeyTimeInstanceNode):
-    def derive(self, alt_aal=P('Altitude AAL')):
-        return NotImplemented
-
-
-'''
-________Approach and Landing______________________________
-'''
-class _10000FtDescending(KeyTimeInstanceNode):
-    def derive(self, alt_aal=P('Altitude AAL')):
-        return NotImplemented
-
-
-class _9000FtDescending(KeyTimeInstanceNode):
-    def derive(self, alt_aal=P('Altitude AAL')):
-        return NotImplemented
-
-
-class _8000FtDescending(KeyTimeInstanceNode):
-    def derive(self, alt_aal=P('Altitude AAL')):
-        return NotImplemented
-
-
-class _7000FtDescending(KeyTimeInstanceNode):
-    def derive(self, alt_aal=P('Altitude AAL')):
-        return NotImplemented
-
-
-class _6000FtDescending(KeyTimeInstanceNode):
-    def derive(self, alt_aal=P('Altitude AAL')):
-        return NotImplemented
-
-
-class _5000FtDescending(KeyTimeInstanceNode):
-    def derive(self, alt_aal=P('Altitude AAL')):
-        return NotImplemented
-
-
-class _4000FtDescending(KeyTimeInstanceNode):
-    def derive(self, alt_aal=P('Altitude AAL')):
-        return NotImplemented
-
-
-class _3500FtDescending(KeyTimeInstanceNode):
-    def derive(self, alt_aal=P('Altitude AAL')):
-        return NotImplemented
-
-
-class _3000FtDescending(KeyTimeInstanceNode):
-    def derive(self, alt_aal=P('Altitude AAL')):
-        return NotImplemented
-
-
-class _2000FtDescending(KeyTimeInstanceNode):
-    def derive(self, alt_aal=P('Altitude AAL')):
-        return NotImplemented
-
-
-class _1500FtDescending(KeyTimeInstanceNode):
-    def derive(self, alt_aal=P('Altitude AAL')):
-        return NotImplemented
-
-
-class _1000FtDescending(KeyTimeInstanceNode):
-    def derive(self, alt_aal=P('Altitude AAL')):
-        return NotImplemented
-
-
-class _750FtDescending(KeyTimeInstanceNode):
-    def derive(self, alt_aal=P('Altitude AAL')):
-        return NotImplemented
-
-
-class _500FtDescending(KeyTimeInstanceNode):
-    def derive(self, alt_aal=P('Altitude AAL')):
-        return NotImplemented
-
-
-class _400FtDescending(KeyTimeInstanceNode):
-    def derive(self, alt_aal=P('Altitude AAL')):
-        return NotImplemented
-
-
-class _300FtDescending(KeyTimeInstanceNode):
-    def derive(self, alt_aal=P('Altitude AAL')):
-        return NotImplemented
-
-
-class _200FtDescending(KeyTimeInstanceNode):
-    def derive(self, alt_aal=P('Altitude AAL')):
-        return NotImplemented
-
-
-class _150FtDescending(KeyTimeInstanceNode):
-    def derive(self, alt_aal=P('Altitude AAL')):
-        return NotImplemented
-
-
-class _100FtDescending(KeyTimeInstanceNode):
-    def derive(self, alt_aal=P('Altitude AAL')):
-        return NotImplemented
-
-
-class _75FtDescending(KeyTimeInstanceNode):
-    def derive(self, alt_aal=P('Altitude AAL')):
-        return NotImplemented
-
-
-class _50FtToTouchdown(KeyTimeInstanceNode):
-    def derive(self, touchdown=KTI('Touchdown')): # Q: Args?
-        return NotImplemented
-
-
-class _35FtDescending(KeyTimeInstanceNode):
-    def derive(self, touchdown=KTI('Touchdown')): # Q: Args?
-        return NotImplemented
-
-
-class _20FtDescending(KeyTimeInstanceNode):
-    def derive(self, touchdown=KTI('Touchdown')): # Q: Args?
-        return NotImplemented
-
-
-class _10FtDescending(KeyTimeInstanceNode):
-    def derive(self, touchdown=KTI('Touchdown')): # Q: Args?
-        return NotImplemented
-"""
-
-class _5MinToTouchdown(KeyTimeInstanceNode):
-    def derive(self, touchdown=KTI('Touchdown')): # Q: Args?
-        return NotImplemented
-
-
-class _4MinToTouchdown(KeyTimeInstanceNode):
-    def derive(self, touchdown=KTI('Touchdown')): # Q: Args?
-        return NotImplemented
-
-
-class _3MinToTouchdown(KeyTimeInstanceNode):
-    def derive(self, touchdown=KTI('Touchdown')): # Q: Args?
-        return NotImplemented
-
-
-class _2MinToTouchdown(KeyTimeInstanceNode):
-    def derive(self, touchdown=KTI('Touchdown')): # Q: Args?
-        return NotImplemented
-
-
-class _90SecToTouchdown(KeyTimeInstanceNode):
-    def derive(self, touchdown=KTI('Touchdown')): # Q: Args?
-        return NotImplemented
-
-
-class _1MinToTouchdown(KeyTimeInstanceNode):
-    def derive(self, touchdown=KTI('Touchdown')): # Q: Args?
-        return NotImplemented
-
-
-
-
-class TriggerPassiveNodes(KeyTimeInstanceNode):
-    # This class just lists nodes that have no dependencies and so would
-    # otherwise remain inactive.
-    def derive(self, ccbod=S('Climb From Bottom Of Descent'),
-               cfbod=S('Climb From Bottom Of Descent'),
-               fa=S('Final Approach'),
-               ile=S('ILS Localizer Established'),
-               og=S('On Ground'),
-               hat=S('Heading At Takeoff'),
-               hal=S('Heading At Landing'),
-               halpoa=S('Heading At Low Point On Approach'),
-               rodm=S('RateOfDescentMax'),
-               f2ftt=S('Flare20FtToTouchdown'),
-               ):
-        pass
-            
+    def derive(self, touchdowns=KTI('Touchdown')):
+        #Q: is it sensible to create KTIs that overlap with a previous touchdown?
+        for touchdown in touchdowns:
+            for t in self.NAME_VALUES['time']:
+                index = touchdown.index - (t * self.frequency)
+                self.create_kti(index, time=t)

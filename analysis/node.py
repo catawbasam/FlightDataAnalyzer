@@ -330,12 +330,16 @@ class SectionNode(Node, list):
         multiplier = param.frequency / self.frequency
         offset = (self.offset - param.offset) * param.frequency
         for section in self:
-            # TODO: Consider a trap for sections with either start or end = None ?? DJ
-            converted_start = (section.slice.start * multiplier) + offset
-            converted_stop = (section.slice.stop * multiplier) + offset
+            if section.slice.start is None:
+                converted_start = None
+            else:
+                converted_start = (section.slice.start * multiplier) + offset
+            if section.slice.stop is None:
+                converted_stop = None
+            else:
+                converted_stop = (section.slice.stop * multiplier) + offset
             converted_slice = slice(converted_start, converted_stop)
-            aligned_node.create_section(converted_slice,
-                                        section.name)
+            aligned_node.create_section(converted_slice, section.name)
         return aligned_node
     
     def _get_condition(self, within_slice=None, name=None):
@@ -418,6 +422,9 @@ class FormattedNameNode(Node, list):
             self.extend(kwargs['items'])
             del kwargs['items']
         super(FormattedNameNode, self).__init__(*args, **kwargs)
+        
+    def __repr__(self):
+        return '%s' % list(self)
     
     def names(self):
         """        

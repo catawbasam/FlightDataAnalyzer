@@ -266,6 +266,18 @@ class TestSectionNode(unittest.TestCase):
                                   slice=slice(1.2, 2.2, None)),
                           Section(name='Example Section Node',
                                   slice=slice(2.7, 3.7, None))])
+        
+    def test_get_aligned_with_slice_start_as_none(self):
+        section_node = self.section_node_class(frequency=1, offset=0.5)
+        section_node.create_section(slice(None,4))
+        section_node.create_section(slice(5,None))
+        param = Parameter('p', frequency=0.5, offset=0.1)
+        aligned_node = section_node.get_aligned(param)
+        self.assertEqual(list(aligned_node),
+                         [Section(name='Example Section Node',
+                                  slice=slice(None, 2.2, None)),
+                          Section(name='Example Section Node',
+                                  slice=slice(2.7, None, None))])
     
     def test_items(self):
         items = [Section('a', slice(0,10))]
