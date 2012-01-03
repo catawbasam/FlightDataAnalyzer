@@ -647,7 +647,9 @@ class TestIsIndexWithinSlice(unittest.TestCase):
         self.assertTrue(is_index_within_slice(5, slice(5,7)))
         # Slice is not inclusive of last index.
         self.assertFalse(is_index_within_slice(7, slice(5,7)))
-
+        self.assertTrue(is_index_within_slice(10, slice(8,None)))
+        self.assertTrue(is_index_within_slice(10, slice(None, 12)))
+        
 
 class TestIsSliceWithinSlice(unittest.TestCase):
     def test_is_slice_within_slice(self):
@@ -656,6 +658,17 @@ class TestIsSliceWithinSlice(unittest.TestCase):
         self.assertTrue(is_slice_within_slice(slice(4,7), slice(4,7)))
         self.assertFalse(is_slice_within_slice(slice(4,8), slice(4,7)))
         self.assertFalse(is_slice_within_slice(slice(3,7), slice(4,7)))
+        self.assertTrue(is_slice_within_slice(slice(None, None),
+                                              slice(None, None)))
+        self.assertFalse(is_slice_within_slice(slice(None, None),
+                                               slice(None, 20)))
+        self.assertFalse(is_slice_within_slice(slice(None, 15), slice(4, None)))
+        self.assertTrue(is_slice_within_slice(slice(-1000, 15),
+                                              slice(None, None)))
+        self.assertTrue(is_slice_within_slice(slice(-1000, None),
+                                              slice(None, None)))
+        self.assertTrue(is_slice_within_slice(slice(None, 15),
+                                              slice(None, None)))
         
 
 class TestMaskInsideSlices(unittest.TestCase):

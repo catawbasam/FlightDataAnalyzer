@@ -927,50 +927,36 @@ class RollBetween500And1500FtMax(KeyPointValueNode):
         return NotImplemented
 
 
-class RollBelow20FtMax(KeyPointValueNode):
-    # 
-    def derive(self, roll=P('Roll'),
-               alt_aal=P('Altitude AAL'),
-               alt_when_desc=KTI('Altitude When Descending'),
-               alt_when_climb=KTI('Altitude When Climbing')):
-        '''
-        Finding the Max Roll when below 20 Ft max could be achieved by
-        comparing the KTIs '20 Ft When Descending' and 'Touchdown', but the case
-        of multiple 20 Ft.
-        '''
-        
-        #for desc_20ft in alt_when_desc.get_ordered_by_index(name='20 Ft Descending'):
-            
-        alt_when_climb.get_ordered_by_index(name='20 Ft Climbing')
-        # Mask 'Roll' below 20 Ft.
-        roll.array[alt_aal.array < 20] = np.ma.masked
-        max_value(roll.array)
-        for index, alt_kti in enumerate(alt_when_desc.get_ordered_by_index(name='20 Ft Descending')):
-            try:
-                next_alt_kti = alt_kti[index+1]
-                next_alt_kti_index = next_alt_kti.index
-            except IndexError:
-                next_alt_kti_index = len(roll.array)
-            between_20ft_ktis = slice(alt_kti.index, next_alt_kti_index)
-            touchdown = [t for t in touchdowns if is_index_within_slice(t.index, between_20ft_ktis)]
-            if len(touchdown) > 1:
-                raise ValueError('')
-            elif len(touchdown) == 1:
-                alt_kti
-            elif len(touchdown) == 0:
-                continu
-            
-        for alt_kti in alt_when_desc.get(name='20 Ft Descending'):
-            for touchdown in touchdowns.get_ordered_by_index():
-                
-            roll.array[alt_kti.index
-            
-        
-
-
 class RollAbove1500FtMax(KeyPointValueNode):
     def derive(self, roll=P('Roll'), alt_rad=P('Altitude Radio')):
         return NotImplemented
+
+
+class RollBelow20FtMax(KeyPointValueNode):
+    def derive(self, roll=P('Roll'),
+               desc_alts=KTI('Altitude When Descending'),
+               climb_alts=KTI('Altitude When Climbing')):
+        '''
+        Below 20 Ft is currently defined as the period between '20 Ft 
+        Descending' and either '20 Ft Climbing' or end of flight.
+        '''
+        desc_20ft_ordered = desc_alts.ordered_by_index(name='20 Ft Descending')
+        below_20ft_slices = []
+        for index, desc_20ft in enumerate(desc_20ft_ordered):
+            climb_20ft = climb_alts.get_first(within_slice=slice(desc_20ft.index,
+                                                                 None),
+                                              name='20 Ft Climbing')
+            if climb_20ft:
+                below_20ft_slices.append(slice(desc_20ft.index,
+                                               climb_20ft.index))
+            else:
+                # Aircraft did not climb again.
+                below_20ft_slices.append(slice(desc_20ft.index, None))
+                break
+            
+        for below_20ft_slice in below_20ft_slices:
+            index, value = max_value(roll.array, _slice=below_20ft_slice)
+            self.create_kpv(index, value)
 
 
 class RudderReversalAbove50Ft(KeyPointValueNode):

@@ -601,32 +601,32 @@ def is_index_within_slice(index, slice_):
     elif slice_.start is None:
         return index < slice_.stop
     elif slice_.stop is None:
-        return index >= slice
+        return index >= slice_.start
     return slice_.start <= index < slice_.stop
 
 def is_slice_within_slice(inner_slice, outer_slice):
     '''
-    Tests whether inner_slice is within the outer slice.
+    Tests whether inner_slice is within the outer_slice. inner_slice is
+    considered to not be within outer slice if its start or stop is None.
     
     :type inner_slice: slice
     :type outer_slice: slice
     :rtype: bool
     '''
-    ##if inner_slice.start is None:
-        ##if outer_slice.start is not None:
-            ##return False
-    ##if outer_slice.
-    #if inner_slice.start is None and outer_slice.start is not None:
-        #return False
-    
-    ##if (inner_slice.start is None and inner_slice.stop is None and outer_slice.start is None and outer_slice.stop is None:
-        ##return True
-    
-    #if inner_slice.start is None and inner_slice.stop is None and outer_slice
-    #start_within = outer_slice.start <= inner_slice.start <= outer_slice.stop
-    #stop_within = outer_slice.start <= inner_slice.stop <= outer_slice.stop
-    #return start_within and stop_within
-    return 1
+    if outer_slice.start is None and outer_slice.stop is None:
+        return True
+    elif inner_slice.start is None and outer_slice.start is not None:
+        return False
+    elif inner_slice.stop is None and outer_slice.stop is not None:
+        return False
+    elif inner_slice.start is None and outer_slice.start is None:
+        return inner_slice.stop < outer_slice.stop
+    elif outer_slice.stop is None and outer_slice.stop is None:
+        return inner_slice.start >= outer_slice.start
+    else:
+        start_within = outer_slice.start <= inner_slice.start <= outer_slice.stop
+        stop_within = outer_slice.start <= inner_slice.stop <= outer_slice.stop
+        return start_within and stop_within
 
 def _value(array, _slice, operator):
     """
@@ -684,12 +684,14 @@ def max_abs_value(array, _slice=slice(None)):
     
 def max_value(array, _slice=slice(None)):
     """
-    Get the maximum value in the array and its index.
+    Get the maximum value in the array and its index relative to the array and
+    not the _slice argument.
     
     :param array: masked array
     :type array: np.ma.array
     :param _slice: Slice to apply to the array and return max value relative to
     :type _slice: slice
+    :rtype: int, array.dtype
     """
     return _value(array, _slice, np.ma.argmax)
 
@@ -738,7 +740,7 @@ def peak_curvature(array, frequency=1):
     """
     gap = TRUCK_OR_TRAILER_INTERVAL * frequency
     if gap%2-1:
-      gap-=1  #  Ensure gap is odd
+        gap-=1  #  Ensure gap is odd
     ttp = TRUCK_OR_TRAILER_PERIOD * frequency
     overall = 2*ttp + gap 
     # check the array is long enough.

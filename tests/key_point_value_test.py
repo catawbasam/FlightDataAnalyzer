@@ -30,7 +30,8 @@ from analysis.key_point_values import (Airspeed1000To500FtMax,
                                        LocalizerDeviation1500To1000FtMax,
                                        LocalizerDeviation1000To150FtMax,
                                        Pitch35To400FtMax,
-                                       PitchAtLiftoff)
+                                       PitchAtLiftoff,
+                                       RollBelow20FtMax)
 
 import sys
 debug = sys.gettrace() is not None
@@ -420,3 +421,13 @@ class TestPitchAtLiftoff(unittest.TestCase, TestCreateKPVsAtKTIs):
         self.node_class = PitchAtLiftoff
         self.operational_combinations = [('Pitch', 'Liftoff')]
 
+
+class TestRollBelow20FtMax(unittest.TestCase):
+    def test_can_operate(self):
+        self.assertEqual(RollBelow20FtMax.get_operational_combinations(),
+                         [])
+    
+    def test_derive(self):
+        roll = P('Roll', array=np.ma.arange(20))
+        desc_alts = KTI('Altitude When Descending', items=2000)
+        climb_alts

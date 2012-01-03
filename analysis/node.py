@@ -684,7 +684,6 @@ class NodeManager(object):
                                + self.derived_nodes.keys() \
                                + self.aircraft_info.keys() \
                                + self.achieved_flight_record.keys())))
-    
 
     def get_attribute(self, name):
         """
@@ -728,6 +727,7 @@ class NodeManager(object):
         else:  #elif name in unavailable_deps:
             logging.debug("Node '%s' is unavailable", name)
             return False
+
 
 # The following acronyms are intended to be used as placeholder values
 # for kwargs in Node derive methods. Cannot instantiate Node subclass without 

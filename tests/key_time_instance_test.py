@@ -82,7 +82,6 @@ class TestClimbStart(unittest.TestCase):
 
 class TestGoAround(unittest.TestCase):
     def test_can_operate(self):
-        
         expected = [('Altitude AAL For Flight Phases',
                      'Approach And Landing',
                      'Climb For Flight Phases'),
