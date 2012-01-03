@@ -63,7 +63,7 @@ def dependencies3(di_graph, root, node_mgr):
             # traverse again
             if traverse_tree(dependency):
                 layer.append(dependency)
-        
+            
         if node_mgr.operational(node, layer):
             # node will work at this level
             active_nodes.add(node)

@@ -488,17 +488,25 @@ def hysteresis (array, hysteresis):
     # data part of the array as the hysteresis process cannot make the
     # values invalid.
    
-    half_range = hysteresis / 2.0
+    quarter_range = hysteresis / 4.0
     result = np.ma.copy(array)
 
-    for i in xrange(len(result)-1):
-        if result.data[i+1] - result.data[i] > half_range:
-            result.data[i+1] = result.data[i+1] - half_range
-        elif result.data[i+1] - result.data[i] < -half_range:
-            result.data[i+1] = result.data[i+1] + half_range
+    for i in xrange(0, len(result)-1, 1):
+        if result.data[i+1] - result.data[i] > quarter_range:
+            result.data[i+1] = result.data[i+1] - quarter_range
+        elif result.data[i+1] - result.data[i] < -quarter_range:
+            result.data[i+1] = result.data[i+1] + quarter_range
         else:
             result.data[i+1] = result.data[i]
 
+    for i in xrange(len(result)-1, 0, -1):
+        if result.data[i-1] - result.data[i] > quarter_range:
+            result.data[i-1] = result.data[i-1] - quarter_range
+        elif result.data[i-1] - result.data[i] < -quarter_range:
+            result.data[i-1] = result.data[i-1] + quarter_range
+        else:
+            result.data[i-1] = result.data[i]
+        
     return result
 
 def interleave (param_1, param_2):

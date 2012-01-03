@@ -2,11 +2,11 @@ import csv
 import os
 import itertools
 import matplotlib.pyplot as plt
+from analysis.node import DerivedParameterNode
 
 from utilities.print_table import indent
 
 from hdfaccess.file import hdf_file
-from analysis.node import DerivedParameterNode
 
 
 def plot_parameter(array, show=True):
@@ -95,7 +95,7 @@ def plot_flight(hdf_path, kti_list, kpv_list, phase_list):
         for phase in filter(lambda p: p.name in (
             'Climbing', 'Level Flight', 'Descending'), phase_list):
             # Declare the x-axis parameter first...
-            sections.append(frame[phase.slice])
+            sections.append(frame[phase.slice]-frame[0])
             sections.append(roc[phase.slice])
             if phase.name == 'Climbing':
                 sections.append('g-')
@@ -114,7 +114,7 @@ def plot_flight(hdf_path, kti_list, kpv_list, phase_list):
         for phase in filter(lambda p: p.name in (
             'Fast'), phase_list):
             # Declare the x-axis parameter first...
-            sections.append(frame[phase.slice])
+            sections.append(frame[phase.slice]-frame[0])
             sections.append(airspeed[phase.slice])
             if phase.name == 'Fast':
                 sections.append('r-')
@@ -177,6 +177,10 @@ def csv_flight_details(hdf_path, kti_list, kpv_list, phase_list, dest_path=None)
                 
             # add optional attributes
             [vals.append(getattr(value, attr, None)) for attr in attrs]
+            
+            """
+            Fails: AttributeError: 'DerivedParameterNode' object has no attribute 'at'
+            
             # add associated parameter information
             for param in params:
                 try:
@@ -201,6 +205,8 @@ def csv_flight_details(hdf_path, kti_list, kpv_list, phase_list, dest_path=None)
                     except (KeyError, ValueError, IndexError):
                         vals.append(None)
                 rows.append( vals )
+            """
+            rows.append( vals )
 
 
             

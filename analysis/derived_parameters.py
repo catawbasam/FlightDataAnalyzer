@@ -57,7 +57,7 @@ class AccelerationVertical(DerivedParameterNode):
         resolved_in_pitch = ax * np.sin(pch) + acc_norm.array * np.cos(pch)
         self.array = resolved_in_pitch * np.cos(rol) - ay * np.sin(rol)
 
-class AccelerationForward(DerivedParameterNode):
+class AccelerationForwards(DerivedParameterNode):
     def derive(self, acc_norm=P('Acceleration Normal'), 
                acc_long=P('Acceleration Longitudinal'), 
                pitch=P('Pitch')):
@@ -73,9 +73,9 @@ class AccelerationForward(DerivedParameterNode):
         self.array = ax * np.cos(pch) - acc_norm.array * np.sin(pch)
 
 
-class AccelerationLateral(DerivedParameterNode):
+class AccelerationSideways(DerivedParameterNode):
     def derive(self, acc_norm=P('Acceleration Normal'), 
-               ##acc_lat=P('Acceleration Lateral'),  #TODO: Change name - avoid recursion
+               acc_lat=P('Acceleration Lateral'),
                acc_long=P('Acceleration Longitudinal'), 
                pitch=P('Pitch'), roll=P('Roll')):
         """
@@ -822,7 +822,7 @@ class RateOfClimb(DerivedParameterNode):
 
 class RateOfClimbForFlightPhases(DerivedParameterNode):
     def derive(self, alt_std = P('Altitude STD')):
-        self.array = hysteresis(rate_of_change(repair_mask(alt_std),5)*60,
+        self.array = hysteresis(rate_of_change(repair_mask(alt_std),3)*60,
                                 HYSTERESIS_FPROC)
 
 

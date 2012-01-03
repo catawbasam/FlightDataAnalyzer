@@ -12,8 +12,8 @@ from analysis.node import Attribute, A, KPV, KTI, Parameter, P, Section, S
 from analysis.flight_phase import Fast
 
 from analysis.derived_parameters import (AccelerationVertical,
-                                         AccelerationForward,
-                                         AccelerationLateral,
+                                         AccelerationForwards,
+                                         AccelerationSideways,
                                          AirspeedForFlightPhases,
                                          AltitudeAALForFlightPhases,
                                          AltitudeForFlightPhases,
@@ -82,16 +82,16 @@ class TestAccelerationVertical(unittest.TestCase):
                                                  np.ma.array([1]*8))
 
 
-class TestAccelerationForward(unittest.TestCase):
+class TestAccelerationForwards(unittest.TestCase):
     def test_can_operate(self):
         expected = [('Acceleration Normal',
                     'Acceleration Longitudinal', 'Pitch')]
-        opts = AccelerationForward.get_operational_combinations()
+        opts = AccelerationForwards.get_operational_combinations()
         self.assertEqual(opts, expected)
         
     def test_acceleration_forward_level_on_gound(self):
         # Invoke the class object
-        acc_fwd = AccelerationForward(frequency=4)
+        acc_fwd = AccelerationForwards(frequency=4)
                         
         acc_fwd.derive(
             acc_norm=Parameter('Acceleration Normal', np.ma.ones(8),8),
@@ -102,7 +102,7 @@ class TestAccelerationForward(unittest.TestCase):
                                                  np.ma.array([0.1]*8))
         
     def test_acceleration_forward_pitch_up(self):
-        acc_fwd = AccelerationForward(frequency=4)
+        acc_fwd = AccelerationForwards(frequency=4)
 
         acc_fwd.derive(
             P('Acceleration Normal',np.ma.ones(8)*0.8660254,8),
@@ -113,16 +113,16 @@ class TestAccelerationForward(unittest.TestCase):
                                                  np.ma.array([0]*8))
 
 
-class TestAccelerationLateral(unittest.TestCase):
+class TestAccelerationSideways(unittest.TestCase):
     def test_can_operate(self):
         expected = [('Acceleration Normal', 'Acceleration Lateral', 
                     'Acceleration Longitudinal', 'Pitch', 'Roll')]
-        opts = AccelerationLateral.get_operational_combinations()
+        opts = AccelerationSideways.get_operational_combinations()
         self.assertEqual(opts, expected)
         
-    def test_acceleration_lateral_level_on_gound(self):
+    def test_acceleration_sideways_level_on_gound(self):
         # Invoke the class object
-        acc_lat = AccelerationLateral(frequency=8)
+        acc_lat = AccelerationSideways(frequency=8)
                         
         acc_lat.derive(
             acc_norm=Parameter('Acceleration Normal', np.ma.ones(8),8),
@@ -134,8 +134,8 @@ class TestAccelerationLateral(unittest.TestCase):
         ma_test.assert_masked_array_approx_equal(acc_lat.array,
                                                  np.ma.array([0.05]*8))
         
-    def test_acceleration_lateral_pitch_up(self):
-        acc_lat = AccelerationLateral(frequency=8)
+    def test_acceleration_sideways_pitch_up(self):
+        acc_lat = AccelerationSideways(frequency=8)
 
         acc_lat.derive(
             P('Acceleration Normal',np.ma.ones(8)*0.8660254,8),
@@ -147,8 +147,8 @@ class TestAccelerationLateral(unittest.TestCase):
         ma_test.assert_masked_array_approx_equal(acc_lat.array,
                                                  np.ma.array([0]*8))
 
-    def test_acceleration_lateral_roll_right(self):
-        acc_lat = AccelerationLateral(frequency=8)
+    def test_acceleration_sideways_roll_right(self):
+        acc_lat = AccelerationSideways(frequency=8)
 
         acc_lat.derive(
             P('Acceleration Normal',np.ma.ones(8)*0.7071068,8),

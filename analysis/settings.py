@@ -19,7 +19,7 @@ BASE_URL = 'http://127.0.0.1'
 
 # An airspeed below which you just can't possibly be flying.
 # 70kts taken from Hercules test data file when decelerating before landing
-AIRSPEED_THRESHOLD = 80  # kts
+AIRSPEED_THRESHOLD = 70  # kts
 
 # Altitude to break flights into separate climb/cruise/descent segments.
 # This is applied to altitude with hysteresis, so break will happen when
@@ -46,7 +46,10 @@ CLIMB_THRESHOLD = 1000 # ft AAL
 CLIMB_OR_DESCENT_MIN_DURATION = 10  # sec
 
 # Acceleration due to gravity
-GRAVITY = 32.2 # ft/sec^2
+GRAVITY = 32.2 # ft/sec^2 - used for combining acceleration and height terms
+
+# Acceleration due to gravity
+GRAVITY_METRIC = 9.81 # m/sec^2 - used for comibining acceleration and groundspeed terms
 
 # Threshold for turn onto runway at start of takeoff.
 HEADING_TURN_ONTO_RUNWAY = 15.0 # deg
@@ -85,7 +88,10 @@ ILS_MAX_SCALE = 2.5 # dots
 INITIAL_CLIMB_THRESHOLD = 35 # ft (Radio, where available)
 
 # Conversion from knots to ft/sec (used in airspeed rate of change)
-KTS_TO_FPS = 1.68781 # ft/sec
+KTS_TO_FPS = 1.68781 #  ft/sec
+
+# Conversion from knots to m/sec (used in groundspeed computation)
+KTS_TO_MPS = 0.514444 #  m/sec
 
 # Threshold for start of braking / reverse thrust on landing.
 LANDING_ACCELERATION_THRESHOLD = -0.1 # g
@@ -96,6 +102,11 @@ LANDING_THRESHOLD_HEIGHT = 50 # (Radio, where available)
 
 # Level flight minimum duration
 LEVEL_FLIGHT_MIN_DURATION = 60  # sec
+
+# Conversion from degrees of latitude to metres. I know it's approximate, but
+# good enough for the uses we have here. To convert deg longitude, allow for
+# the cos(latitude) reduction in distance as we get away from the equator.
+METRES_PER_DEG_LATITUDE = 111120 # metres/deg
 
 # Rate of climb and descent limits of 800fpm gives good distinction with
 # level flight. Separately defined to allow for future adjustment.

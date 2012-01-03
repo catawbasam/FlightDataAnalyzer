@@ -41,12 +41,24 @@ class Airborne(FlightPhaseNode):
             # Scan through the first half to find where the aircraft first
             # flies upwards
             up = index_at_value(roc.array, slice(speedy.slice.start,midpoint),
-                                RATE_OF_CLIMB_FOR_LEVEL_FLIGHT)
+                                +RATE_OF_CLIMB_FOR_LEVEL_FLIGHT)
+            if not up:
+                # The aircraft can have been airborne at the start of this
+                # segment. If it goes down during this half of the data we
+                # can assume it was airborne at the start of the segment.
+                if index_at_value(roc.array, slice(speedy.slice.start,midpoint), 
+                                  -RATE_OF_CLIMB_FOR_LEVEL_FLIGHT):
+                    up = speedy.slice.start
             # Scan backwards through the latter half to find where the
             # aircraft last descends.
             down = index_at_value(roc.array, slice(speedy.slice.stop,midpoint,-1), 
                                   -RATE_OF_CLIMB_FOR_LEVEL_FLIGHT)
-            self.create_phase(slice(up,down))
+            if not down:
+                if index_at_value(roc.array, slice(speedy.slice.stop,midpoint,-1), 
+                                  +RATE_OF_CLIMB_FOR_LEVEL_FLIGHT):
+                    down = speedy.slice.stop
+            if up and down:
+                self.create_phase(slice(up,down))
 
 
 class Approach(FlightPhaseNode):

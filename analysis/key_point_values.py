@@ -2,7 +2,6 @@ import logging
 import numpy as np
 
 from analysis import settings
-
 from analysis.library import (max_abs_value, max_continuous_unmasked, 
                               max_value, min_value, repair_mask, value_at_time)
 from analysis.node import  KeyPointValue, KPV, KeyPointValueNode, KTI, P, S
@@ -1083,12 +1082,6 @@ class AirspeedAtGearSelectedUp(KeyPointValueNode):
 class TaxiSpeedTurningMax(KeyPointValueNode):
     def derive(self, groundspeed=P('Groundspeed'), on_ground=S('On Ground')):
         return NotImplemented
-
-# Dupe of MACH Max?
-##class MACHMMOMax(KeyPointValueNode):
-    ##name = 'MACH MMO Max'
-    ##def derive(self, mach=P('MACH')):
-        ##return NotImplemented
 
 
 class AirspeedVref500FtToTouchdownMax(KeyPointValueNode):
