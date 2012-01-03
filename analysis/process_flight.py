@@ -94,7 +94,12 @@ def derive_parameters(hdf, node_mgr, process_order):
             if dep_name in params:  # already calculated KPV/KTI/Phase
                 deps.append(params[dep_name])
             elif dep_name in hdf:  # LFL/Derived parameter
-                deps.append(hdf[dep_name])
+                # all parameters (LFL or other) need get_aligned which is
+                # available on DerivedParameterNode
+                p = hdf[dep_name]
+                dp = DerivedParameterNode(name=p.name, array=p.array, 
+                                          frequency=p.frequency, offset=p.offset)
+                deps.append(dp)
             else:  # dependency not available
                 deps.append(None)
         if not any(deps):

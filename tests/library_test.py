@@ -562,14 +562,25 @@ class TestHysteresis(unittest.TestCase):
         data = np.ma.array([0,1,2,1,0,-1,5,6,7,0],dtype=float)
         data[4] = np.ma.masked
         result = hysteresis(data,2)
-        np.testing.assert_array_equal(result.data,[0,0,1,1,1,0,4,5,6,1])
+        np.testing.assert_array_equal(result.data,[0.5,1,1,1,0,0,5,6,6,0.5])
         np.testing.assert_array_equal(result.mask,[0,0,0,0,1,0,0,0,0,0])
 
     def test_hysteresis_change_of_threshold(self):
         data = np.ma.array([0,1,2,1,0,-1,5,6,7,0],dtype=float)
         result = hysteresis(data,1)
-        np.testing.assert_array_equal(result.data,[0,0.5,1.5,1.5,0.5,-0.5,4.5,5.5,6.5,0.5])
+        np.testing.assert_array_equal(result.data,[0.25,1.,1.5,1.,0.,
+                                                   -0.5,5.,6.,6.5,0.25])
 
+    def test_hysteresis_phase_stability(self):
+        data = np.ma.array([0,1,2,3,4,5,5,4,3,2,1,0],dtype=float)
+        result = hysteresis(data,2)
+        # Hysteresis range of 2 = +/- 1.0, so top 1 gets "choppeed off".
+        # Slopes remain unaltered, and endpoints are amended by half the
+        # hysteresis, being affected only on one pass of this two-pass
+        # process.
+        np.testing.assert_array_equal(result.data,[0.5,1,2,3,4,4,4,4,3,2,1,0.5])
+        
+        
 class TestIndexAtValue(unittest.TestCase):
     
     # Reminder: index_at_value (array, section, threshold):

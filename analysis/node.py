@@ -9,7 +9,6 @@ from collections import namedtuple
 from itertools import product
 from operator import attrgetter
 
-from hdfaccess.parameter import P, Parameter
 from analysis.library import (align, is_index_within_slice,
                               is_slice_within_slice, value_at_time)
 
@@ -132,6 +131,23 @@ class Node(object):
         
         :param available: Available parameters from the dependency tree
         :type available: list of strings
+        
+        Sample overrides for "Any deps available":
+@classmethod
+def can_operate(cls, available):
+    # works with any combination of params available
+    if any([d in available for d in cls.get_dependency_names()]):
+        return True
+    else:
+        return False
+
+@classmethod
+def can_operate(cls, available):
+    if set(cls.get_dependency_names()).intersection(available):
+        return True  # if ANY are available
+    else:
+        return False  # we have none available
+            
         """
         # ensure all names are strings
         if all([x in available for x in cls.get_dependency_names()]):
@@ -232,10 +248,12 @@ class Node(object):
 class DerivedParameterNode(Node):
     """
     """
-    def __init__(self, *args, **kwargs):
+    def __init__(self, name='', array=np.ma.array([]), frequency=1, offset=0, *args, **kwargs):
         # create array results placeholder
-        self.array = None # np.ma.array derive result goes here!
-        super(DerivedParameterNode, self).__init__(*args, **kwargs)
+        self.array = array # np.ma.array derive result goes here!
+        super(DerivedParameterNode, self).__init__(name=name, frequency=frequency, 
+                                                   offset=offset, 
+                                                   *args, **kwargs)
         
     def get_aligned(self, param):
         """
@@ -278,18 +296,20 @@ class SectionNode(Node, list):
     #TODO: Accessor for 1Hz slice, 8Hz slice etc.
     def get_aligned(self, param):
         '''
-        Aligns section slices to the frequency and offset of param.
+        Creates a copy with section slices aligned to the frequency and offset
+        of param.
         
-        :param section:
-        :type section: SectionNode object
-        :param param:
+        :param param: Parameter to align the copy of self to.
         :type param: Parameter object
+        :returns: An object of the same type as self containing matching elements.
+        :rtype: self.__class__
         '''
         aligned_node = self.__class__(frequency=param.frequency,
                                       offset=param.offset)
         multiplier = param.frequency / self.frequency
         offset = (self.offset - param.offset) * param.frequency
         for section in self:
+            # TODO: Consider a trap for sections with either start or end = None ?? DJ
             converted_start = (section.slice.start * multiplier) + offset
             converted_stop = (section.slice.stop * multiplier) + offset
             converted_slice = slice(converted_start, converted_stop)
@@ -306,6 +326,8 @@ class SectionNode(Node, list):
         :type within_slice: slice
         :param name: Only return elements with this name.
         :type name: str
+        :returns: Either a condition function or None.
+        :rtype: func or None
         '''
         if within_slice and name:
             return lambda e: is_slice_within_slice(e.slice, within_slice) and \
@@ -320,22 +342,54 @@ class SectionNode(Node, list):
     def get(self, within_slice=None, name=None):
         '''
         Gets elements either within_slice or with name. Duplicated from
-        FormattedNameNode. TODO: Share implementation.
+        FormattedNameNode. TODO: Share implementation with NameFormattedNode,
+        slight differences between types.
+        
+        :param within_slice: Only return elements within this slice.
+        :type within_slice: slice
+        :param name: Only return elements with this name.
+        :type name: str
+        :returns: An object of the same type as self containing matching elements.
+        :rtype: self.__class__
         '''
         condition = self._get_condition(within_slice=within_slice, name=name)
-        return filter(condition, self) if condition else self
+        matching = filter(condition, self) if condition else self
+        return self.__class__(name=self.name, frequency=self.frequency,
+                              offset=self.offset, items=matching)
     
     def get_first(self, within_slice=None, name=None):
+        '''
+        :param within_slice: Only return elements within this slice.
+        :type within_slice: slice
+        :param name: Only return elements with this name.
+        :type name: str
+        '''
         matching = self.get(within_slice=within_slice, name=name)
         return min(matching, key=attrgetter('slice.start'))
     
     def get_last(self, within_slice=None, name=None):
+        '''
+        :param within_slice: Only return elements within this slice.
+        :type within_slice: slice
+        :param name: Only return elements with this name.
+        :type name: str
+        '''
         matching = self.get(within_slice=within_slice, name=name)
         return max(matching, key=attrgetter('slice.stop'))
     
     def get_ordered_by_index(self, within_slice=None, name=None):
+        '''
+        :param within_slice: Only return elements within this slice.
+        :type within_slice: slice
+        :param name: Only return elements with this name.
+        :type name: str
+        :returns: An object of the same type as self containing elements ordered by index.
+        :rtype: self.__class__
+        '''
         matching = self.get(within_slice=within_slice, name=name)
-        return sorted(matching, key=attrgetter('slice.start'))
+        ordered_by_start = sorted(matching, key=attrgetter('slice.start'))
+        return self.__class__(name=self.name, frequency=self.frequency,
+                              offset=self.offset, items=ordered_by_start)
     
 
 class FlightPhaseNode(SectionNode):
@@ -396,8 +450,7 @@ class FormattedNameNode(Node, list):
     
     def _validate_name(self, name):
         """
-        Raises ValueError if replace_values are not allowed in NAME_VALUES
-        permissive values.
+        :raises ValueError: If name is not a combination of self.NAME_FORMAT and self.NAME_VALUES.
         """
         if name in self.names():
             return True
@@ -447,9 +500,14 @@ class FormattedNameNode(Node, list):
     def get(self, within_slice=None, name=None):
         '''
         Gets elements either within_slice or with name.
+        
+        :param within_slice: Only return elements within this slice.
+        :type within_slice: slice
+        :param name: Only return elements with this name.
+        :type name: str
         '''
         condition = self._get_condition(within_slice=within_slice, name=name)
-        return filter(condition, self) if condition else self
+        return filter(condition, self) if condition else self # Q: Should this return self.__class__?
     
     def get_ordered_by_index(self, within_slice=None, name=None):
         '''
@@ -512,20 +570,42 @@ class FormattedNameNode(Node, list):
 
 class KeyTimeInstanceNode(FormattedNameNode):
     """
-    TODO: Support 1Hz / 8Hz KTI index locations via accessor on class and
-    determine what is required for get_derived to be stored in database
+    TODO: determine what is required for get_derived to be stored in database
     """
     def __init__(self, *args, **kwargs):
         # place holder
         super(KeyTimeInstanceNode, self).__init__(*args, **kwargs)
         
     def create_kti(self, index, replace_values={}, **kwargs):
+        '''
+        Creates a KeyTimeInstance with the supplied index and creates a name
+        from applying a combination of replace_values and kwargs as string
+        formatting arguments to self.NAME_FORMAT. The KeyTimeInstance is
+        appended to self.
+        
+        :param index: Index of the KeyTimeInstance within the data relative to self.frequency.
+        :type index: int or float # Q: is float correct?
+        :param replace_values: Dictionary of string formatting arguments to be applied to self.NAME_FORMAT.
+        :type replace_values: dict
+        :param kwargs: Keyword arguments will be applied as string formatting arguments to self.NAME_FORMAT.
+        :type kwargs: dict
+        :returns: The created KeyTimeInstance which is now appended to self.
+        :rtype: KeyTimeInstance named tuple
+        :raises KeyError: If a required string formatting key is not provided.
+        :raises TypeError: If a string formatting argument is of the wrong type.
+        '''
         name = self.format_name(replace_values, **kwargs)
         kti = KeyTimeInstance(index, name)
         self.append(kti)
         return kti
     
     def get_aligned(self, param):
+        '''
+        :param param: Node to align this KeyTimeInstanceNode to.
+        :type param: Node subclass
+        :returns: An copy of the KeyTimeInstanceNode with its contents aligned to the frequency and offset of param.
+        :rtype: KeyTimeInstanceNode
+        '''
         multiplier = param.frequency / self.frequency
         offset = (self.offset - param.offset) * param.frequency
         aligned_node = self.__class__(self.name, param.frequency,
@@ -545,20 +625,36 @@ class KeyPointValueNode(FormattedNameNode):
 
     def create_kpv(self, index, value, replace_values={}, **kwargs):
         '''
-        Formats FORMAT_NAME with interpolation values and returns a KPV object
-        with index and value.
+        Creates a KeyPointValue with the supplied index and value, and creates
+        a name from applying a combination of replace_values and kwargs as 
+        string formatting arguments to self.NAME_FORMAT. The KeyPointValue is
+        appended to self.
         
-        Interpolation values not in FORMAT_NAME are ignored.        
-        
-        :raises KeyError: if required interpolation/replace value not provided.
-        :raises TypeError: if interpolation value is of wrong type.
+        :param index: Index of the KeyTimeInstance within the data relative to self.frequency.
+        :type index: int or float # Q: Is float correct?
+        :param value: Value sourced at the index.
+        :type value: float
+        :param replace_values: Dictionary of string formatting arguments to be applied to self.NAME_FORMAT.
+        :type replace_values: dict
+        :param kwargs: Keyword arguments will be applied as string formatting arguments to self.NAME_FORMAT.
+        :type kwargs: dict
+        :returns: The created KeyPointValue which is now appended to self.
+        :rtype: KeyTimeInstance named tuple
+        :raises KeyError: If a required string formatting key is not provided.
+        :raises TypeError: If a string formatting argument is of the wrong type.
         '''
         name = self.format_name(replace_values, **kwargs)
         kpv = KeyPointValue(index, value, name)
         self.append(kpv)
-        return kpv # return as a confirmation it was successful
+        return kpv
     
     def get_aligned(self, param):
+        '''
+        :param param: Node to align this KeyPointValueNode to.
+        :type param: Node subclass
+        :returns: An copy of the KeyPointValueNode with its contents aligned to the frequency and offset of param.
+        :rtype: KeyPointValueNode
+        '''
         multiplier = param.frequency / self.frequency
         offset = (self.offset - param.offset) * param.frequency
         aligned_node = self.__class__(self.name, param.frequency, param.offset)
@@ -577,6 +673,7 @@ class KeyPointValueNode(FormattedNameNode):
         :type within_slice: slice
         :param name: Only return elements with this name.
         :type name: str
+        :rtype: KeyPointValue
         '''
         matching = self.get(within_slice=within_slice, name=name)
         return max(matching, key=attrgetter('value')) if matching else None
@@ -590,6 +687,7 @@ class KeyPointValueNode(FormattedNameNode):
         :type within_slice: slice
         :param name: Only return elements with this name.
         :type name: str
+        :rtype: KeyPointValue
         '''
         matching = self.get(within_slice=within_slice, name=name)
         return min(matching, key=attrgetter('value')) if matching else None
@@ -603,6 +701,7 @@ class KeyPointValueNode(FormattedNameNode):
         :type within_slice: slice
         :param name: Only return elements with this name.
         :type name: str
+        :rtype: KeyPointValueNode
         '''
         matching = self.get(within_slice=within_slice, name=name)
         ordered_by_value = sorted(matching, key=attrgetter('value'))
@@ -625,11 +724,11 @@ class KeyPointValueNode(FormattedNameNode):
 
 
 class FlightAttributeNode(Node):
-    """
+    '''
     Can only store a single value per Node, however the value can be any
     object (dict, list, integer etc). The class name serves as the name of the
     attribute.
-    """
+    '''
     def __init__(self, *args, **kwargs):
         self._value = None
         super(FlightAttributeNode, self).__init__(*args, **kwargs)
@@ -655,7 +754,8 @@ class NodeManager(object):
             len(self.lfl) + len(self.requested) + len(self.derived_nodes) + 
             len(self.aircraft_info) + len(self.achieved_flight_record))
     
-    def __init__(self, start_datetime, lfl, requested, derived_nodes, aircraft_info, achieved_flight_record):
+    def __init__(self, start_datetime, lfl, requested, derived_nodes,
+                 aircraft_info, achieved_flight_record):
         """
         Storage of parameter keys and access to derived nodes.
         
@@ -677,7 +777,8 @@ class NodeManager(object):
         
     def keys(self):
         """
-        Ordered list of all Node names stored within the manager.
+        :returns: Ordered list of all Node names stored within the manager.
+        :rtype: list of str
         """
         return sorted(list(set(['Start Datetime'] \
                                + self.lfl \
@@ -692,7 +793,7 @@ class NodeManager(object):
         returns an Attribute.
         
         :param name: Attribute name.
-        :type name: String
+        :type name: str
         :returns: Attribute if available.
         :rtype: Attribute object or None
         """
@@ -707,10 +808,11 @@ class NodeManager(object):
     
     def operational(self, name, available):
         """
-        Looks up the node and tells you whether it can operate.
+        Looks up the node by name and returns whether it can operate with the
+        available dependencies.
         
         :returns: Result of Operational test on parameter.
-        :rtype: Boolean
+        :rtype: bool
         """
         if name in self.lfl \
              or self.aircraft_info.get(name) is not None \
@@ -741,7 +843,8 @@ class Attribute(object):
         self.value = value
         self.frequency = self.hz = self.sample_rate = None
         self.offset = None
-    
+
+
 A = Attribute
 P = Parameter
 S = SectionNode

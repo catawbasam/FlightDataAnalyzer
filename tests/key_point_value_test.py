@@ -2,7 +2,8 @@ import unittest
 from mock import Mock
 import numpy as np
 
-from analysis.node import KeyTimeInstance, KTI, KeyPointValue, Parameter, P, Section, S
+from analysis.node import (KeyTimeInstance, KTI, KeyPointValue, Parameter, P,
+                           Section, S)
 from analysis.key_point_values import (Airspeed1000To500FtMax,
                                        AirspeedAtTouchdown,
                                        AirspeedMax,
@@ -425,9 +426,15 @@ class TestPitchAtLiftoff(unittest.TestCase, TestCreateKPVsAtKTIs):
 class TestRollBelow20FtMax(unittest.TestCase):
     def test_can_operate(self):
         self.assertEqual(RollBelow20FtMax.get_operational_combinations(),
-                         [])
+                         []) # TODO
     
     def test_derive(self):
         roll = P('Roll', array=np.ma.arange(20))
-        desc_alts = KTI('Altitude When Descending', items=2000)
-        climb_alts
+        desc_alts = KTI('Altitude When Descending',
+                        items=[KeyTimeInstance(5, '20 Ft Descending')])
+        climb_alts = KTI('Altitude When Climbing',
+                         items=[KeyTimeInstance(8, '20 Ft Climbing')])
+        roll_below_20ft_max = RollBelow20FtMax()
+        roll_below_20ft_max.derive(roll, desc_alts, climb_alts)
+        print list(roll_below_20ft_max) # TODO
+        self.assertEqual(roll_below_20ft_max, False)
