@@ -1,9 +1,10 @@
+import logging
 import numpy as np
 
 from analysis import settings
 
-from analysis.library import (min_value, max_value, max_abs_value, 
-                              value_at_time)
+from analysis.library import (max_abs_value, max_continuous_unmasked, 
+                              max_value, min_value, repair_mask, value_at_time)
 from analysis.node import  KeyPointValue, KPV, KeyPointValueNode, KTI, P, S
 
 
@@ -365,6 +366,67 @@ class EngEGTMax(KeyPointValueNode):
         index, value = max_value(eng.array)
         self.create_kpv(index, value)
         
+
+class Eng_N1MaxDurationUnder60PercentAfterTouchdown(KeyPointValueNode): ##was named: EngN1CooldownDuration
+    """
+    Max duration N1 below 60% after Touchdown for engine cooldown. Using 60%
+    allows for cooldown after use of Reverse Thrust.
+    
+    Evaluated for each engine to account for single engine taxi-in.
+    
+    Note: Assumes that all Engines are recorded at the same frequency.
+    
+    TODO: Eng_Stop KTI
+    TODO: Similar KPV for duration between engine under 60 percent and engine shutdown
+    """
+    NAME_FORMAT = "Eng (%(eng_num)d) N1 Max Duration Under 60 Percent After Touchdown"
+    NAME_VALUES = {'eng_num': [1,2,3,4]}
+    
+    @classmethod
+    def can_operate(cls, available):
+        ##if 'On Ground' in available and\
+        if 'Touchdown' in available\
+           and 'Eng (*) Stop' in available\
+           and ('Eng (1) N1' in available\
+                or 'Eng (2) N1' in available\
+                or 'Eng (3) N1' in available\
+                or 'Eng (4) N1' in available):
+            return True
+        else:
+            return False
+    
+    def derive(self, 
+               eng1=P('Eng (1) N1'),
+               eng2=P('Eng (2) N1'),
+               eng3=P('Eng (3) N1'),
+               eng4=P('Eng (4) N1'),
+               ##gnd=S('On Ground'), -- TODO: future improvement, ensure we're on the ground!
+               tdwn=KTI('Touchdown'), 
+               engines_stop=KTI('Eng (*) Stop')):
+                
+        for eng_num, eng in enumerate((eng1,eng2,eng3,eng4), start=1):
+            if eng is None:
+                continue # engine not available on this aircraft
+            eng_stop = engines_stop.get(name='Eng (%d) Stop' % eng_num)
+            if not eng_stop:
+                #Q: Should we measure until the end of the flight anyway? (probably not)
+                logging.debug("Engine %d did not stop on this flight, cannot measure KPV", eng_num)
+                continue
+            
+            eng_array = repair_mask(eng.array)
+            eng_below_60 = np.ma.masked_greater(eng_array, 60)
+            # measure duration between final touchdown and engine stop
+            duration_slice = max_continuous_unmasked(
+                eng_below_60, slice(tdwn[-1].index, eng_stop[0].index))
+            if duration_slice:
+                #TODO future storage of slice: self.slice = duration_slice
+                duration = (duration_slice.stop - duration_slice.start) / self.hz
+                self.create_kpv(duration_slice.start, duration, eng_num=eng_num)
+            else:
+                # create KPV of 0 seconds
+                self.create_kpv(eng_stop[0].index, 0.0, eng_num=eng_num)
+        
+        
 class EngN1Max(KeyPointValueNode):
     #TODO: TEST
     name = 'Eng N1 Max'
@@ -372,7 +434,7 @@ class EngN1Max(KeyPointValueNode):
         index, value = max_value(eng.array)
         self.create_kpv(index, value)
 
-class EngN1Max(KeyPointValueNode):
+class EngN2Max(KeyPointValueNode):
     #TODO: TEST
     name = 'Eng N2 Max'
     def derive(self, eng=P('Eng (*) N2 Max')):
