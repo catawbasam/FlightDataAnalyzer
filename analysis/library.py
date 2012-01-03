@@ -282,7 +282,18 @@ def datetime_of_index(start_datetime, index, frequency=1):
     index_in_seconds = index * frequency
     offset = timedelta(seconds=index_in_seconds)
     return start_datetime + offset
+
+##def descending_slices_between(array, from_, to):
+    ##'''
+    ##Only includes slices where the value in the array at start is greater than stop,
+    ##therefore the slice is assumed to be descending. Q: An ascent followed
+    ##by a smaller descent between from_ and to_ will all be included, not only
+    ##the ascent.
+    ##'''
+    ##rep_array, slices = slices_between(array, from_, to)
+    ##return [s for s in slices if rep_array[s.start] > rep_array[s.stop-1]]
     
+
 def duration(a, period, hz=1.0):
     '''
     This function clips the maxima and minima of a data array such that the 
@@ -508,6 +519,72 @@ def hysteresis (array, hysteresis):
             result.data[i-1] = result.data[i]
         
     return result
+
+def index_at_value (array, section, threshold):
+    '''
+    This function seeks the moment when the parameter in question first crosses 
+    a threshold. It works both forwards and backwards in time. To scan backwards
+    just make the start point later than the end point. This is really useful
+    for finding things like the point of landing.
+    
+    For example, to find 50ft Rad Alt on the descent, use something like:
+       altitude_radio.seek(t_approach, t_landing, 50)
+    
+    :param array: input data
+    :type array: masked array
+    :param section: slice where we want to seek the threshold transit.
+    :type section: slice
+    :param threshold: the value that we expect the array to cross between scan_start and scan_end.
+    :type threshold: float
+    :returns: interpolated time when the array values crossed the threshold. (One value only).
+    :returns type: float
+    '''
+    begin, end, step = int(round(section.start)), int(round(section.stop)), section.step
+    if abs(begin - end) < 2:
+        # Requires at least two values to find if the array crosses a
+        # threshold.
+        return None
+
+    if begin == end:
+        raise ValueError, 'No range for seek function to scan across'
+
+    # A "let's get the logic right and tidy it up afterwards" bit of code...
+    if begin > len(array):
+        begin = len(array)
+    if begin < 0:
+        begin = 0
+    if end > len(array):
+        end = len(array)
+    if end < 0:
+        end = 0
+        
+    if step == None:
+        step = 1
+        
+    if step == 1:
+        left, right = slice(begin,end-1,step), slice(begin+1,end,step)
+    elif step == -1:
+        left, right = slice(begin,end+1,step), slice(begin-1,end,step)
+    else:
+        raise ValueError, 'Step length not 1 in index_at_value'
+        
+    # When the data being tested passes the value we are seeking, the 
+    # difference between the data and the value will change sign.
+    # Therefore a negative value indicates where value has been passed.
+    value_passing_array = (array[left]-threshold) * (array[right]-threshold)
+    test_array = np.ma.masked_greater(value_passing_array, 0.0)
+    
+    if np.ma.all(test_array.mask):
+        # The parameter does not pass through threshold in the period in question, so return empty-handed.
+        return None
+    else:
+        n,dummy=np.ma.flatnotmasked_edges(np.ma.masked_greater(value_passing_array, 0.0))
+        a = array[begin+step*n]
+        b = array[begin+step*(n+1)]
+        # Force threshold to float as often passed as an integer.
+        r = (float(threshold) - a) / (b-a) 
+        #TODO: Could test 0 < r < 1 for completeness
+    return (begin + step * (n+r))
 
 def interleave (param_1, param_2):
     """
@@ -825,7 +902,77 @@ def repair_mask(array):
                                        [array.data[section.start - 1],
                                         array.data[section.stop]])
     return array
-            
+
+def slices_above(array, value):
+    '''
+    Repairs the mask to avoid a large number of slices being created.
+    
+    :param array:
+    :type array: np.ma.masked_array
+    :param value: Value to create slices above.
+    :type value: float or int
+    :returns: Slices where the array is above a certain value.
+    :rtype: list of slice
+    '''
+    repaired_array = repair_mask(array)
+    band = np.ma.masked_less_than(repaired_array, value)
+    slices = np.ma.clump_unmasked(band)
+    return slices
+
+def slices_below(array, value):
+    '''
+    Repairs the mask to avoid a large number of slices being created.
+    
+    :param array:
+    :type array: np.ma.masked_array
+    :param value: Value to create slices below.
+    :type value: float or int
+    :returns: Slices where the array is below a certain value.
+    :rtype: list of slice
+    '''
+    repaired_array = repair_mask(array)
+    band = np.ma.masked_greater(repaired_array, value)
+    slices = np.ma.clump_unmasked(band)
+    return slices
+
+def slices_between(array, min_, max_):
+    '''
+    Repairs the mask to avoid a large number of slices being created.
+    
+    :param array:
+    :type array: np.ma.masked_array
+    :param min_: Minimum value within slices.
+    :type min_: float or int
+    :param max_: Maximum value within slices.
+    :type max_: float or int
+    :returns: Slices where the array is above a certain value.
+    :rtype: list of slice
+    '''
+    repaired_array = repair_mask(array)
+    # Slice through the array at the top and bottom of the band of interest
+    band = np.ma.masked_outside(repaired_array, min_, max_)
+    # Group the result into slices - note that the array is repaired and
+    # therefore already has small masked sections repaired, so no allowance
+    # is needed here for minor data corruptions.
+    slices = np.ma.clump_unmasked(band)
+    return repaired_array, slices
+
+def slices_from_to(array, from_, to):
+    '''
+    Only includes slices where the value in the array at start is less than stop,
+    therefore the slice is assumed to be ascending. Q: An ascent followed
+    by a smaller descent between from_ and to_ will all be included, not only
+    the ascent.
+    '''
+    rep_array, slices = slices_between(array, from_, to)
+    if from_ > to:
+        condition = lambda s: rep_array[s.start] < rep_array[s.stop-1]
+    elif from_ < to:
+        condition = lambda s: rep_array[s.start] < rep_array[s.stop-1]
+    else:
+        raise ValueError('From and to values should not be equal.')
+    return [s for s in slices if condition(s)]
+
 def straighten_headings(heading_array):
     '''
     We always straighten heading data before checking for spikes. 
@@ -936,73 +1083,6 @@ def time_at_value (array, hz, offset, scan_start, scan_end, threshold):
 Time functions replaced by index operations for consistency.
 ============================================================
 """
-
-
-def index_at_value (array, section, threshold):
-    '''
-    This function seeks the moment when the parameter in question first crosses 
-    a threshold. It works both forwards and backwards in time. To scan backwards
-    just make the start point later than the end point. This is really useful
-    for finding things like the point of landing.
-    
-    For example, to find 50ft Rad Alt on the descent, use something like:
-       altitude_radio.seek(t_approach, t_landing, 50)
-    
-    :param array: input data
-    :type array: masked array
-    :param section: slice where we want to seek the threshold transit.
-    :type section: slice
-    :param threshold: the value that we expect the array to cross between scan_start and scan_end.
-    :type threshold: float
-    :returns: interpolated time when the array values crossed the threshold. (One value only).
-    :returns type: float
-    '''
-    begin, end, step = int(round(section.start)), int(round(section.stop)), section.step
-    if abs(begin - end) < 2:
-        # Requires at least two values to find if the array crosses a
-        # threshold.
-        return None
-
-    if begin == end:
-        raise ValueError, 'No range for seek function to scan across'
-
-    # A "let's get the logic right and tidy it up afterwards" bit of code...
-    if begin > len(array):
-        begin = len(array)
-    if begin < 0:
-        begin = 0
-    if end > len(array):
-        end = len(array)
-    if end < 0:
-        end = 0
-        
-    if step == None:
-        step = 1
-        
-    if step == 1:
-        left, right = slice(begin,end-1,step), slice(begin+1,end,step)
-    elif step == -1:
-        left, right = slice(begin,end+1,step), slice(begin-1,end,step)
-    else:
-        raise ValueError, 'Step length not 1 in index_at_value'
-        
-    # When the data being tested passes the value we are seeking, the 
-    # difference between the data and the value will change sign.
-    # Therefore a negative value indicates where value has been passed.
-    value_passing_array = (array[left]-threshold) * (array[right]-threshold)
-    test_array = np.ma.masked_greater(value_passing_array, 0.0)
-    
-    if np.ma.all(test_array.mask):
-        # The parameter does not pass through threshold in the period in question, so return empty-handed.
-        return None
-    else:
-        n,dummy=np.ma.flatnotmasked_edges(np.ma.masked_greater(value_passing_array, 0.0))
-        a = array[begin+step*n]
-        b = array[begin+step*(n+1)]
-        # Force threshold to float as often passed as an integer.
-        r = (float(threshold) - a) / (b-a) 
-        #TODO: Could test 0 < r < 1 for completeness
-    return (begin + step * (n+r))
 
 def value_at_time (array, hz, offset, time_index):
     '''

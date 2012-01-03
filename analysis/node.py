@@ -4,13 +4,15 @@ import numpy as np
 import re
 import copy
 
-from abc import ABCMeta, abstractmethod
+from abc import ABCMeta
 from collections import namedtuple
 from itertools import product
 from operator import attrgetter
 
 from analysis.library import (align, is_index_within_slice,
-                              is_slice_within_slice, value_at_time)
+                              is_slice_within_slice, slices_above,
+                              slices_below, slices_between, slices_from_to,
+                              value_at_time)
 
 from analysis.recordtype import recordtype
 
@@ -239,7 +241,7 @@ def can_operate(cls, available):
         
         :param kwargs: Keyword arguments where default is a Parameter object or Node class
         :type kwargs: dict
-        :returns: No returns! Save to object attributes.
+        :returns: No returns! Sets attributes on self to be accessed after calling derive.
         :rtype: None
         """
         raise NotImplementedError("Abstract Method")
@@ -256,14 +258,39 @@ class DerivedParameterNode(Node):
                                                    *args, **kwargs)
         
     def get_aligned(self, param):
-        """
-        Aligns itself to the input parameter and creates a copy
-        """
+        '''
+        :param param: Node to align copy to.
+        :type param: Node subclass
+        :returns: A copy of self aligned to the input parameter.
+        :rtype: DerivedParameterNode
+        '''
         aligned_array = align(self, param)
         aligned_param = DerivedParameterNode(frequency=param.frequency,
                                              offset=param.offset)
         aligned_param.array = aligned_array
-        return aligned_param
+        return aligned_param 
+    
+    def slices_above(self, value):
+        return slices_above(self.array, value)
+    
+    def slices_below(self, value):
+        '''
+        Repairs the mask to avoid a large number of slices being created.
+        
+        :param array:
+        :type array: np.ma.masked_array
+        :param value: Value to create slices below.
+        :type value: float or int
+        :returns: Slices where the array is above a certain value.
+        :rtype: list of slice
+        '''
+        return slices_below(self.array, value)
+    
+    def slices_between(self, min_, max_):
+        return slices_between(self.array, min_, max_)
+    
+    def slices_from_to(self, from_, to):
+        return slices_from_to(self.array, from_, to)
 
 
 class SectionNode(Node, list):
@@ -343,7 +370,7 @@ class SectionNode(Node, list):
         '''
         Gets elements either within_slice or with name. Duplicated from
         FormattedNameNode. TODO: Share implementation with NameFormattedNode,
-        slight differences between types.
+        slight differences between types make it difficult.
         
         :param within_slice: Only return elements within this slice.
         :type within_slice: slice
@@ -363,6 +390,8 @@ class SectionNode(Node, list):
         :type within_slice: slice
         :param name: Only return elements with this name.
         :type name: str
+        :returns: First Section matching conditions.
+        :rtype: Section
         '''
         matching = self.get(within_slice=within_slice, name=name)
         return min(matching, key=attrgetter('slice.start'))
@@ -373,6 +402,8 @@ class SectionNode(Node, list):
         :type within_slice: slice
         :param name: Only return elements with this name.
         :type name: str
+        :returns: Last Section matching conditions.
+        :rtype: Section
         '''
         matching = self.get(within_slice=within_slice, name=name)
         return max(matching, key=attrgetter('slice.stop'))
@@ -395,18 +426,10 @@ class SectionNode(Node, list):
 class FlightPhaseNode(SectionNode):
     """ Is a Section, but called "phase" for user-friendlyness!
     """
-    def create_phase(self, phase_slice):
-        """
-        Creates a Flight Phase using a slice at specific frequency, using the
-        classes name.
-        
-        It's a shortcut to using create_section.
-        """
-        self.create_section(phase_slice)
-        
-    def create_phases(self, phase_slices):
-        for phase in phase_slices:
-            self.create_phase(phase)
+    # create_phase and create_phases are shortcuts for create_section and 
+    # create_sections.
+    create_phase = SectionNode.create_section
+    create_phases = SectionNode.create_sections
 
 
 class FormattedNameNode(Node, list):
@@ -486,6 +509,8 @@ class FormattedNameNode(Node, list):
         :type within_slice: slice
         :param name: Only return elements with this name.
         :type name: str
+        :returns: Either a condition function or None.
+        :rtype: func or None
         '''
         if within_slice and name:
             return lambda e: is_index_within_slice(e.index, within_slice) and \
@@ -505,9 +530,13 @@ class FormattedNameNode(Node, list):
         :type within_slice: slice
         :param name: Only return elements with this name.
         :type name: str
+        :returns: An object of the same type as self containing elements ordered by index.
+        :rtype: self.__class__
         '''
         condition = self._get_condition(within_slice=within_slice, name=name)
-        return filter(condition, self) if condition else self # Q: Should this return self.__class__?
+        matching = filter(condition, self) if condition else self # Q: Should this return self.__class__?
+        return self.__class__(name=self.name, frequency=self.frequency,
+                              offset=self.offset, items=matching)
     
     def get_ordered_by_index(self, within_slice=None, name=None):
         '''
@@ -535,6 +564,8 @@ class FormattedNameNode(Node, list):
         :type within_slice: slice
         :param name: Only return elements with this name.
         :type name: str
+        :returns: First element matching conditions.
+        :rtype: self
         '''
         matching = self.get(within_slice=within_slice, name=name)
         return min(matching, key=attrgetter('index')) if matching else None
@@ -716,6 +747,8 @@ class KeyPointValueNode(FormattedNameNode):
         :type array: np.ma.masked_array
         :param ktis: KTIs with indices to source values within the array from.
         :type ktis: KeyTimeInstanceNode
+        :returns None:
+        :rtype: None
         '''
         for kti in ktis:
             value = value_at_time(param.array, param.hz, param.offset,
@@ -741,7 +774,7 @@ class FlightAttributeNode(Node):
         self.value = value
     set_flight_attr = set_flight_attribute
     
-    def get_aligned(self, deps):
+    def get_aligned(self, param):
         """
         Cannot align a flight attribute.
         """
@@ -811,6 +844,10 @@ class NodeManager(object):
         Looks up the node by name and returns whether it can operate with the
         available dependencies.
         
+        :param name: Name of Node.
+        :type name: str
+        :param available: Available dependencies to be passed into the derive method of the Node instance.
+        :type available: list of str
         :returns: Result of Operational test on parameter.
         :rtype: bool
         """

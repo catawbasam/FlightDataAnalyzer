@@ -14,13 +14,14 @@ from datetime import datetime
 from analysis.library import (align, calculate_timebase, create_phase_inside,
                               create_phase_outside, duration, 
                               first_order_lag, first_order_washout, hash_array,
-                              hysteresis, index_at_value, interleave, is_index_within_slice,
-                              is_slice_within_slice, min_value, 
-                              mask_inside_slices, mask_outside_slices,
-                              max_value, max_abs_value, merge_alternate_sensors,
-                              peak_curvature,
-                              rate_of_change, repair_mask, straighten_headings,
-                              #time_at_value, time_at_value_wrapped,
+                              hysteresis, index_at_value, interleave,
+                              is_index_within_slice, is_slice_within_slice,
+                              min_value, mask_inside_slices,
+                              mask_outside_slices, max_value, max_abs_value,
+                              merge_alternate_sensors, peak_curvature,
+                              rate_of_change, repair_mask, slices_above,
+                              slices_below, slices_between, slices_from_to,
+                              straighten_headings, #time_at_value, time_at_value_wrapped,
                               value_at_time, vstack_params, InvalidDatetime)
 
 from analysis.node import A, KPV, KTI, Parameter, P, S, Section
@@ -919,8 +920,44 @@ class TestRepairMask(unittest.TestCase):
         unchanged = array
         repair_mask(array)
         ma_test.assert_masked_array_approx_equal(array, unchanged)
-        
-        
+
+
+class TestSlicesAbove(unittest.TestCase):
+    def test_slices_above(self):
+        array = np.ma.concatenate(np.ma.arange(10), np.ma.arange(10))
+        array.mask = [False] * 18 + [True] * 2
+        slices = slices_above(array, 5)
+        self.assertEqual(slices, []) # TODO!
+
+
+class TestSlicesBelow(unittest.TestCase):
+    def test_slices_below(self):
+        array = np.ma.concatenate(np.ma.arange(10), np.ma.arange(10))
+        array.mask = [True] * 2 + [False] * 18
+        slices = slices_below(array, 5)
+        self.assertEqual(slices, []) # TODO!
+
+
+class TestSlicesBetween(unittest.TestCase):
+    def test_slices_between(self):
+        array = np.ma.arange(20)
+        array.mask = [True] * 10 + [False] * 10
+        slices = slices_between(array, 5, 15)
+        self.assertEqual(slices, []) # TODO!
+
+
+class TestSlicesFromTo(unittest.TestCase):
+    def test_slices_from_to(self):
+        array = np.ma.arange(20)
+        array.mask = [True] * 10 + [False] * 10
+        # Ascending.
+        slices = slices_between(array, 5, 15)
+        self.assertEqual(slices, []) # TODO!
+        # Descending.
+        slices = slices_between(array, 15, 5)
+        self.assertEqual(slices, []) # TODO!
+
+
 class TestStraightenHeadings(unittest.TestCase):
     def test_straight_headings(self):
         data = [35.5,

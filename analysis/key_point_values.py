@@ -1,7 +1,7 @@
 import numpy as np
 
 from analysis import settings
-from analysis.library import (min_value, max_value, max_abs_value, 
+from analysis.library import (min_value, max_value, max_abs_value,
                               value_at_time)
 from analysis.node import  KeyPointValue, KeyPointValueNode, KTI, P, S
 
@@ -10,15 +10,10 @@ class Airspeed1000To500FtMax(KeyPointValueNode):
     def derive(self, speed=P('Airspeed'),
                alt_aal=P('Altitude AAL For Flight Phases')):
         # For commented version, see GlideslopeDeviation1500To1000FtMax
-        band = np.ma.masked_outside(alt_aal.array, 1000, 500)
-        in_band_periods = np.ma.clump_unmasked(band)
+        in_band_periods = alt_aal.slices_from_to(1000, 500)
         for this_period in in_band_periods:
-            begin = this_period.start
-            end = this_period.stop
-            # Are we descending through this band?
-            if alt_aal.array[begin] > alt_aal.array[end-1]:
-                index, value = max_value(speed.array, this_period)
-                self.create_kpv(index, value)
+            index, value = max_value(speed.array, this_period)
+            self.create_kpv(index, value)
 
 '''
 class AirspeedAtTouchdown(KeyPointValueNode):
@@ -28,12 +23,12 @@ class AirspeedAtTouchdown(KeyPointValueNode):
 
 class AirspeedAtLiftoff(KeyPointValueNode):
     def derive(self, airspeed=P('Airspeed'), liftoffs=KTI('Liftoff')):
-        self.create_kpvs_at_ktis(autopilot.array, liftoffs)
+        self.create_kpvs_at_ktis(airspeed.array, liftoffs)
 
 
 class AirspeedAtTouchdown(KeyPointValueNode):
     def derive(self, airspeed=P('Airspeed'), touchdowns=KTI('Touchdown')):
-        self.create_kpvs_at_ktis(autopilot.array, liftoffs)
+        self.create_kpvs_at_ktis(airspeed.array, touchdowns)
 
 
 class AirspeedMax(KeyPointValueNode):
@@ -240,8 +235,10 @@ class Pitch35To400FtMax(KeyPointValueNode):
 '''
 
 class Pitch1000To100FtMax(KeyPointValueNode):
-    def derive(self, pitch=P('Pitch'), alt_aal=P('Altitude AAL')):
-        return NotImplemented
+    def derive(self, pitch=P('Pitch'),
+               desc_alts=KTI('Altitude When Descending')):        
+        desc_1000fts = desc_alts.get_ordered_by_index(name='1000 Ft Descending')
+        desc_100fts = desc_alts.get_ordered_by_index(name='10 Ft Descending')
 
 
 class Pitch5FtToTouchdownMax(KeyPointValueNode):
@@ -619,45 +616,23 @@ class GlideslopeDeviation1000To150FtMax(KeyPointValueNode):
     def derive(self, ils_glideslope=P('ILS Glideslope'),
                alt_aal = P('Altitude AAL For Flight Phases')):
         # For commented version, see GlideslopeDeviation1500To1000FtMax
-        band = np.ma.masked_outside(alt_aal.array, 1000, 150)
-        in_band_periods = np.ma.clump_unmasked(band)
-        for this_slice in in_band_periods:
-            begin = this_slice.start
-            end = this_slice.stop
-            if alt_aal.array[begin] > alt_aal.array[end-1]:
-                index, value = max_abs_value(ils_glideslope.array, this_slice)
-                self.create_kpv(index, value)
+        for this_slice in alt_aal.slices_from_to(1000, 150):
+            index, value = max_abs_value(ils_glideslope.array, this_slice)
+            self.create_kpv(index, value)
 
 
 class GlideslopeDeviation1500To1000FtMax(KeyPointValueNode):
     def derive(self, ils_glideslope=P('ILS Glideslope'),
                alt_aal = P('Altitude AAL For Flight Phases')):
-        
-        # Slice through the height at the top and bottom of the band of interest
-        band = np.ma.masked_outside(alt_aal.array, 1500, 1000)
-        
-        # Group the result into slices - note that 'Altitude AAL For Flight 
-        # Phases' already has small masked sections repaired, so no allowance
-        # is needed here for minor data corruptions.
-        in_band_periods = np.ma.clump_unmasked(band)
-        
-        # Now scan each period...
-        for this_period in in_band_periods:
-            begin = this_period.start
-            end = this_period.stop
-            
-            # We are only interested in descending periods...
-            if alt_aal.array[begin] > alt_aal.array[end-1]:
-                
-                # Find where the maximum (absolute) deviation occured and
-                # store the actual value. We can do abs on the statistics to
-                # normalise this, but retaining the sign will make it
-                # possible to look for direction of errors at specific
-                # airports.
-                index, value = max_abs_value(ils_glideslope.array, this_period)
-
-                # and create the KPV.
-                self.create_kpv(index, value)
+        for this_slice in alt_aal.slices_from_to(1500, 1000):
+            # Find where the maximum (absolute) deviation occured and
+            # store the actual value. We can do abs on the statistics to
+            # normalise this, but retaining the sign will make it
+            # possible to look for direction of errors at specific
+            # airports.
+            index, value = max_abs_value(ils_glideslope.array, this_slice)
+            # and create the KPV.
+            self.create_kpv(index, value)
 
 
 class HeightAtGoAroundMin(KeyPointValueNode):
@@ -757,25 +732,20 @@ class LocalizerDeviation1000To150FtMax(KeyPointValueNode):
     def derive(self, ils_loc=P('ILS Localizer'),
                alt_aal = P('Altitude AAL For Flight Phases')):
         # For commented version, see GlideslopeDeviation1500To1000FtMax
-        band = np.ma.masked_outside(alt_aal.array, 1000, 150)
-        in_band_periods = np.ma.clump_unmasked(band)
-        for this_period in in_band_periods:
+        for this_period in alt_aal.slices_from_to(1000, 150):
             begin = this_period.start
             end = this_period.stop
-            if alt_aal.array[begin] > alt_aal.array[end-1]:
-                index = np.ma.argmax(np.ma.abs(ils_loc.array[begin:end]))
-                when = begin + index
-                value = ils_loc.array[when]
-                self.create_kpv(when, value)
+            index = np.ma.argmax(np.ma.abs(ils_loc.array[begin:end]))
+            when = begin + index
+            value = ils_loc.array[when]
+            self.create_kpv(when, value)
 
 
 class LocalizerDeviation1500To1000FtMax(KeyPointValueNode):
     def derive(self, ils_loc=P('ILS Localizer'),
                alt_aal = P('Altitude AAL For Flight Phases')):
         # For commented version, see GlideslopeDeviation1500To1000FtMax
-        band = np.ma.masked_outside(alt_aal.array, 1500, 1000)
-        in_band_periods = np.ma.clump_unmasked(band)
-        for this_period in in_band_periods:
+        for this_period in alt_aal.slices_from_to(1500, 1000):
             begin = this_period.start
             end = this_period.stop
             if alt_aal.array[begin] > alt_aal.array[end-1]:
@@ -868,16 +838,11 @@ class Pitch35To400FtMax(KeyPointValueNode):
     def derive(self, pitch=P('Pitch'),
                alt_aal = P('Altitude AAL For Flight Phases')):
         # For commented version, see GlideslopeDeviation1500To1000FtMax
-        band = np.ma.masked_outside(alt_aal.array, 35, 400)
-        in_band_periods = np.ma.clump_unmasked(band)
-        for this_period in in_band_periods:
-            begin = this_period.start
-            end = this_period.stop
-            if alt_aal.array[begin] < alt_aal.array[end-1]:  # Climbing, so check
-                index = np.ma.argmax(pitch.array[begin:end])
-                when = begin + index
-                value = pitch.array[when]
-                self.create_kpv(when, value)
+        for this_period in alt_aal.slices_from_to(35, 400):
+            index = np.ma.argmax(pitch.array[begin:end])
+            when = begin + index
+            value = pitch.array[when]
+            self.create_kpv(when, value)
 
 
 class Pitch1000To100FtMax(KeyPointValueNode):
@@ -969,38 +934,23 @@ class RollBetween500And1500FtMax(KeyPointValueNode):
 
 class RollAbove1500FtMax(KeyPointValueNode):
     def derive(self, roll=P('Roll'), alt_rad=P('Altitude Radio')):
-        return NotImplemented
+        for above_1500ft_slice in alt_aal.slices_above(1500):
+            index, value = max_value(roll.array, _slice=above_1500ft_slice)
+            self.create_kpv(index, value)
 
 
 class RollBelow20FtMax(KeyPointValueNode):
     def derive(self, roll=P('Roll'),
-               desc_alts=KTI('Altitude When Descending'),
-               climb_alts=KTI('Altitude When Climbing')):
-        '''
-        Below 20 Ft is currently defined as the period between '20 Ft 
-        Descending' and either '20 Ft Climbing' or end of flight.
-        '''
-        desc_20ft_ordered = desc_alts.ordered_by_index(name='20 Ft Descending')
-        below_20ft_slices = []
-        for index, desc_20ft in enumerate(desc_20ft_ordered):
-            climb_20ft = climb_alts.get_first(within_slice=slice(desc_20ft.index,
-                                                                 None),
-                                              name='20 Ft Climbing')
-            if climb_20ft:
-                below_20ft_slices.append(slice(desc_20ft.index,
-                                               climb_20ft.index))
-            else:
-                # Aircraft did not climb again.
-                below_20ft_slices.append(slice(desc_20ft.index, None))
-                break
-            
-        for below_20ft_slice in below_20ft_slices:
+               alt_aal = P('Altitude AAL For Flight Phases')):
+        for below_20ft_slice in alt_aal.slices_below(20):
             index, value = max_value(roll.array, _slice=below_20ft_slice)
             self.create_kpv(index, value)
 
 
 class RudderReversalAbove50Ft(KeyPointValueNode):
-    def derive(self, rudder_reversal=S('Rudder Reversal')):
+    def derive(self, rudder_reversal=S('Rudder Reversal'),
+               alt_aal=P('Altitude AAL For Flight Phases')):
+        # Q: Should this be Max or Min?
         return NotImplemented
 
 
@@ -1100,8 +1050,11 @@ class AirspeedVrefAtTouchdown(KeyPointValueNode):
 
 
 class AirspeedBelow3000FtMax(KeyPointValueNode):
-    def derive(self, airspeed=P('Airspeed'), alt_aal=P('Altitude AAL For Flight Phases')):
-        return NotImplemented
+    def derive(self, airspeed=P('Airspeed'),
+               alt_aal=P('Altitude AAL For Flight Phases')):
+        for this_slice in alt_aal.slices_below(3000):
+            index, value = max_value(alt_aal.array, _slice=this_slice)
+            self.create_kpv(index, value)
 
 
 class TaxiSpeedTurningMax(KeyPointValueNode):
@@ -1133,8 +1086,7 @@ class AirspeedV235To400FtMin(KeyPointValueNode):
 class AirspeedV2400To1500FtMin(KeyPointValueNode):
     name = 'Airspeed V2 400 To 1500 Ft Min'
     def derive(self, airspeed=P('Airspeed'),
-               _400_ft_in_initial_climb=KTI('400 Ft In Initial Climb'),
-               _1500_ft_in_climb=KTI('1500 Ft In Climb')):
+               alt_aal=P('Altitude AAL For Flight Phases')):
         return NotImplemented
 
 
@@ -1211,7 +1163,7 @@ class VibrationN2GreaterThanLimitDurationGreaterThanLimit(KeyPointValueNode):
 
 class WindshearWarningBelow1500Ft(KeyPointValueNode):
     def derive(self, gpws_windshear=P('GPWS Windshear'),
-               alt_aal=P('Altitude AAL')):
+               alt_aal=P('Altitude AAL For Flight Phases')):
         return NotImplemented
 
 

@@ -13,6 +13,7 @@ from analysis.key_point_values import (Airspeed1000To500FtMax,
                                        AutopilotEngaged1AtTouchdown,
                                        AutopilotEngaged2AtLiftoff,
                                        AutopilotEngaged2AtTouchdown,
+                                       EngVibN2Max,
                                        HeadingAtTakeoff,
                                        FlapAtLiftoff,
                                        FuelQtyAtLiftoff,
@@ -59,6 +60,21 @@ class TestAltitudeAtLiftoff(unittest.TestCase, TestKPV):
         node.derive(mock1, mock2)
         self.assertEqual(node.create_kpvs_at_ktis.call_args,
                          ((mock1.array, mock2), {}))
+
+
+class TestEngVibN2Max(KeyPointValueNode):
+    def test_can_operate(self, eng=P()):
+        self.assertEqual(EngVibN2Max.get_operational_combinations(),
+                         [('Eng (*) Vib N2 Max',)])
+    
+    @mock.patch('analysis.library.max_value')
+    def test_derive(self, max_value):
+        eng_vib_n2_max = EngVibN2Max
+        index, value = 10, 30
+        max_value.return_value = index, value
+        param = Mock()
+        eng_vib_n2_max.derive(param)
+        self.assertEqual(eng_vib_n2_max, []) # TODO!
 
 
 class TestAirspeedAtTouchdown(unittest.TestCase, TestCreateKPVsAtKTIs):
