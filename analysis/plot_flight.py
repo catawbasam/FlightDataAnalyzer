@@ -171,7 +171,13 @@ def csv_flight_details(hdf_path, kti_list, kpv_list, phase_list, dest_path=None)
             # add required attributes
             index = _index_or_slice(value)
             if iter_type == 'Phase':
-                vals = [iter_type, value.name, index, None, None]
+                
+                # TACKY FIX FOR PHASE START AND STOP
+                vals = [iter_type, value.name, value.slice.start, None, None]
+                rows.append( vals )
+                # EMBARRASING BUT WAITING FOR "at" METHOD ON DERIVED NODE
+                
+                vals = [iter_type, None, value.slice.stop, value.name, None]
             else:
                 vals = [iter_type, None, index, None, value.name]
                 

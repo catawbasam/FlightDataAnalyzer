@@ -252,7 +252,7 @@ class TestHeadingAtTakeoff(unittest.TestCase):
                                         name='Takeoff Peak Acceleration')])        
         kpv = HeadingAtTakeoff()
         kpv.derive(acc, head)
-        expected = [KeyPointValue(index=3, value=7.0, name='Heading At Takeoff')]
+        expected = [KeyPointValue(index=3, value=4.5, name='Heading At Takeoff')]
         self.assertEqual(kpv, expected)
         #############################################
         ## I KNOWW THIS FAILS
@@ -261,11 +261,12 @@ class TestHeadingAtTakeoff(unittest.TestCase):
         
     def test_takeoff_heading_modulus(self):
         head = P('Heading Continuous',np.ma.array([-1,-2,-4,-7,-9,-8,-6,-3]))
-        acc = P('Acceleration Forwards For Flight Phases',np.ma.array([0,0,.1,.2,.35,.2,.1,0]))
-        toff_ph = [Section('Takeoff',slice(2,6,None))]
+        acc = KTI('Takeoff Peak Acceleration',
+                 items=[KeyTimeInstance(index=4,
+                                        name='Takeoff Peak Acceleration')])        
         kpv = HeadingAtTakeoff()
-        kpv.derive(toff_ph, head, acc)
-        expected = [KeyPointValue(index=4, value=351, name='Heading At Takeoff')]
+        kpv.derive(acc, head)
+        expected = [KeyPointValue(index=4, value=357, name='Heading At Takeoff')]
         self.assertEqual(kpv, expected)
 
 

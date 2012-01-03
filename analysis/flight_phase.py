@@ -1,6 +1,6 @@
 import numpy as np
 
-from analysis.library import (hysteresis, index_at_value, repair_mask)
+from analysis.library import (hysteresis, index_at_value, peak_curvature, repair_mask)
 from analysis.node import FlightPhaseNode, P, S, KTI
 from analysis.settings import (AIRSPEED_THRESHOLD,
                                ALTITUDE_FOR_CLB_CRU_DSC,
@@ -454,10 +454,12 @@ class Takeoff(FlightPhaseNode):
             
             # Track back to the turn
             # If he took more than 5 minutes on the runway we're not interested!
-            first = takeoff_run - 300*head.frequency
+            first = max(0, takeoff_run - 300*head.frequency)
             takeoff_begin = index_at_value(np.ma.abs(head.array-datum),
                                           slice(first, takeoff_run, None),
                                           HEADING_TURN_ONTO_RUNWAY)
+            
+            takeoff_begin = peak_curvature(head.array[first:takeoff_run])
 
             #-------------------------------------------------------------------
             # Find the end of the takeoff phase as we climb through 35ft.

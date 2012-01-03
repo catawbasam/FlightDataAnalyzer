@@ -740,7 +740,8 @@ def peak_curvature(array, frequency=1):
 
     # Keep the answers in an array of measurements
     measures = np.zeros(steps)
-    
+    results = np.zeros((steps,4))
+           
     for step in range(steps):
         m1, c1 = np.linalg.lstsq(A, array[step:step+ttp])[0]
         m2, c2 = np.linalg.lstsq(A, array[step+ttp+gap:step+ttp+gap+ttp])[0]
