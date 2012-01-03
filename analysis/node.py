@@ -9,9 +9,8 @@ from collections import namedtuple
 from itertools import product
 from operator import attrgetter
 
-from hdfaccess.parameter import P, Parameter
-from analysis.library import align, is_index_within_slice, is_slice_within_slice
-
+from analysis.library import (align, is_index_within_slice, 
+                              is_slice_within_slice, value_at_time)
 from analysis.recordtype import recordtype
 
 # Define named tuples for KPV and KTI and FlightPhase
@@ -97,7 +96,8 @@ class Node(object):
         self.offset = offset # secs
         
     def __repr__(self):
-        return '%s' % self.get_name()
+        #TODO: Add __class__.__name__?
+        return "%s %sHz %.2fsecs" % (self.get_name(), self.frequency, self.offset)
         
     @classmethod
     def get_name(cls):
@@ -247,6 +247,10 @@ def can_operate(cls, available):
 
 class DerivedParameterNode(Node):
     """
+    Base class for DerivedParameters which overide def derive() method.
+    
+    Also used during processing when creating parameters from HDF files as
+    dependencies for other Nodes.
     """
     def __init__(self, name='', array=np.ma.array([]), frequency=1, offset=0, *args, **kwargs):
         # create array results placeholder
@@ -255,15 +259,33 @@ class DerivedParameterNode(Node):
                                                    offset=offset, 
                                                    *args, **kwargs)
         
+    def at(self, secs):
+        """
+        Interpolates to retrieve the most accurate value.
+        
+        :param secs: time delta from start of data in seconds
+        :type secs: float or timedelta
+        """
+        try:
+            # get seconds from timedelta
+            secs = float(secs.total_seconds)
+        except AttributeError:
+            # secs is a float
+            secs = float(secs)
+        return value_at_time(self.array, self.frequency, self.offset, secs)
+        
     def get_aligned(self, param):
         """
         Aligns itself to the input parameter and creates a copy
         """
         aligned_array = align(self, param)
-        aligned_param = DerivedParameterNode(frequency=param.frequency,
+        aligned_param = DerivedParameterNode(name=self.name,
+                                             frequency=param.frequency,
                                              offset=param.offset)
         aligned_param.array = aligned_array
         return aligned_param
+
+P = Parameter = DerivedParameterNode # shorthand
 
 
 class SectionNode(Node, list):
@@ -308,12 +330,16 @@ class SectionNode(Node, list):
         multiplier = param.frequency / self.frequency
         offset = (self.offset - param.offset) * param.frequency
         for section in self:
-            # TODO: Consider a trap for sections with either start or end = None ?? DJ
-            converted_start = (section.slice.start * multiplier) + offset
-            converted_stop = (section.slice.stop * multiplier) + offset
+            if section.slice.start is None:
+                converted_start = None
+            else:
+                converted_start = (section.slice.start * multiplier) + offset
+            if section.slice.stop is None:
+                converted_stop = None
+            else:
+                converted_stop = (section.slice.stop * multiplier) + offset
             converted_slice = slice(converted_start, converted_stop)
-            aligned_node.create_section(converted_slice,
-                                        section.name)
+            aligned_node.create_section(converted_slice, section.name)
         return aligned_node
     
     def _get_condition(self, within_slice=None, name=None):
@@ -396,6 +422,9 @@ class FormattedNameNode(Node, list):
             self.extend(kwargs['items'])
             del kwargs['items']
         super(FormattedNameNode, self).__init__(*args, **kwargs)
+        
+    def __repr__(self):
+        return '%s' % list(self)
     
     def names(self):
         """        
@@ -643,9 +672,8 @@ class KeyPointValueNode(FormattedNameNode):
             value = array[kti.index]
             if value is not np.ma.masked:
                 self.create_kpv(kti.index, value)
-
-    # ordered by time (ascending), ordered by value (ascending), 
-
+    create_kpvs_at_kpvs = create_kpvs_at_ktis # both will work the same!
+    
 
 class FlightAttributeNode(Node):
     """

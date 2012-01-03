@@ -659,6 +659,24 @@ def mask_outside_slices(array, slices):
         mask[slice_] = False
     return np.ma.array(array, mask=np.ma.mask_or(mask, array.mask))
 
+def max_continuous_unmasked(array, _slice=slice(None)):
+    """
+    Returns the max_slice
+    """
+    if _slice.step and _slice.step != 1:
+        raise ValueError("Step not supported")
+    clumps = np.ma.clump_unmasked(array[_slice])
+    if not clumps or clumps == [slice(0,0,None)]:
+        return None
+    
+    _max = None
+    for clump in clumps:
+        dur = clump.stop - clump.start
+        if not _max or _max.stop-_max.start < dur:
+            _max = clump
+    offset = _slice.start or 0
+    return slice(_max.start + offset, _max.stop + offset)
+
 def max_abs_value(array, _slice=slice(None)):
     """
     Get the value of the maximum absolute value in the array. 

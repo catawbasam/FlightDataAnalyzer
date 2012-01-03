@@ -55,7 +55,7 @@ class AccelerationVertical(DerivedParameterNode):
         
         # Simple Numpy algorithm working on masked arrays
         resolved_in_pitch = ax * np.sin(pch) + acc_norm.array * np.cos(pch)
-        self.array = (resolved_in_pitch * np.cos(rol) - ay * np.sin(rol)) * GRAVITY
+        self.array = resolved_in_pitch * np.cos(rol) - ay * np.sin(rol)
 
 class AccelerationForwards(DerivedParameterNode):
     def derive(self, acc_norm=P('Acceleration Normal'), 
@@ -371,8 +371,8 @@ class Eng_EGTAvg(DerivedParameterNode):
                eng2=P('Eng (2) EGT'),
                eng3=P('Eng (3) EGT'),
                eng4=P('Eng (4) EGT')):
-        eng = vstack_params(eng1, eng2, eng3, eng4)
-        self.array = eng.average(axis=0)
+        engines = vstack_params(eng1, eng2, eng3, eng4)
+        self.array = np.ma.average(engines, axis=0)
         
 class Eng_EGTMax(DerivedParameterNode):
     #TODO: TEST
@@ -528,8 +528,8 @@ class Eng_OilTempAvg(DerivedParameterNode):
                eng2=P('Eng (2) Oil Temp'),
                eng3=P('Eng (3) Oil Temp'),
                eng4=P('Eng (4) Oil Temp')):
-        eng = vstack_params(eng1, eng2, eng3, eng4)
-        self.array = eng.average(axis=0)
+        engines = vstack_params(eng1, eng2, eng3, eng4)
+        self.array = np.ma.average(engines, axis=0)
         
 
 class Eng_OilTempMin(DerivedParameterNode):
@@ -582,8 +582,8 @@ class Eng_OilPressAvg(DerivedParameterNode):
                eng2=P('Eng (2) Oil Press'),
                eng3=P('Eng (3) Oil Press'),
                eng4=P('Eng (4) Oil Press')):
-        eng = vstack_params(eng1, eng2, eng3, eng4)
-        self.array = eng.average(axis=0)
+        engines = vstack_params(eng1, eng2, eng3, eng4)
+        self.array = np.ma.average(engines, axis=0)
         
         
 class Eng_OilPressMax(DerivedParameterNode):

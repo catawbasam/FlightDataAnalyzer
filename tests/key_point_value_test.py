@@ -13,6 +13,7 @@ from analysis.key_point_values import (Airspeed1000To500FtMax,
                                        AutopilotEngaged2AtLiftoff,
                                        AutopilotEngaged2AtTouchdown,
                                        HeadingAtTakeoff,
+                                       Eng_N1MaxDurationUnder60PercentAfterTouchdown,
                                        FlapAtLiftoff,
                                        FuelQtyAtLiftoff,
                                        FuelQtyAtTouchdown,
@@ -147,13 +148,13 @@ class TestAltitudeAtTouchdown(unittest.TestCase, TestCreateKPVsAtKTIs):
         self.operational_combinations = [('Altitude STD', 'Touchdown')]
 
 
-class TestAutopilotEngaged1AtLiftoff(unittest.TestCase):
+class TestAutopilotEngaged1AtLiftoff(unittest.TestCase, TestCreateKPVsAtKTIs):
     def setUp(self):
         self.node_class = AutopilotEngaged1AtLiftoff
         self.operational_combinations = [('Autopilot Engaged 1', 'Liftoff')]
 
 
-class TestAutopilotEngaged1AtTouchdown(unittest.TestCase):
+class TestAutopilotEngaged1AtTouchdown(unittest.TestCase, TestCreateKPVsAtKTIs):
     def setUp(self):
         self.node_class = AutopilotEngaged1AtTouchdown
         self.operational_combinations = [('Autopilot Engaged 1', 'Touchdown')]
@@ -165,11 +166,44 @@ class TestAutopilotEngaged2AtLiftoff(unittest.TestCase, TestCreateKPVsAtKTIs):
         self.operational_combinations = [('Autopilot Engaged 2', 'Liftoff')]
 
 
-class TestAutopilotEngaged2AtTouchdown(unittest.TestCase):
+class TestAutopilotEngaged2AtTouchdown(unittest.TestCase, TestCreateKPVsAtKTIs):
     def setUp(self):
         self.node_class = AutopilotEngaged2AtTouchdown
         self.operational_combinations = [('Autopilot Engaged 2', 'Touchdown')]
 
+
+class TestEng_N1MaxDurationUnder60PercentAfterTouchdown(unittest.TestCase):
+    def test_can_operate(self):
+        opts = Eng_N1MaxDurationUnder60PercentAfterTouchdown.get_operational_combinations()
+        self.assertEqual(
+            ('Eng (1) N1', 'Touchdown', 'Eng (*) Stop'), opts[0]) 
+        self.assertEqual(
+            ('Eng (2) N1', 'Touchdown', 'Eng (*) Stop'), opts[1]) 
+        self.assertEqual(
+            ('Eng (3) N1', 'Touchdown', 'Eng (*) Stop'),  opts[2])
+        self.assertEqual(
+            ('Eng (4) N1', 'Touchdown', 'Eng (*) Stop'), opts[3])
+        self.assertTrue(
+            ('Eng (1) N1', 'Eng (2) N1', 'Touchdown', 'Eng (*) Stop') in opts) 
+        self.assertTrue(all(['Touchdown' in avail for avail in opts]))
+        self.assertTrue(all(['Eng (*) Stop' in avail for avail in opts]))
+        
+    def test_eng_n1_cooldown(self):
+        #TODO: Add later if required
+        #gnd = S(items=[Section('', slice(10,100))]) 
+        
+        eng = P(array=np.ma.array([100]*60 + [40]*40)) # idle for 40        
+        tdwn = KTI(items=[KeyTimeInstance(30),KeyTimeInstance(50)])
+        eng_stop = KTI(items=[KeyTimeInstance(90, 'Eng (1) Stop'),])
+        max_dur = Eng_N1MaxDurationUnder60PercentAfterTouchdown()
+        max_dur.derive(eng, eng, None, None, tdwn, eng_stop)
+        self.assertEqual(max_dur[0].index, 60) # starts at drop below 60
+        self.assertEqual(max_dur[0].value, 30) # stops at 90
+        self.assertTrue('Eng (1)' in max_dur[0].name)
+        # Eng (2) should not be in the results as it did not have an Eng Stop KTI
+        ##self.assertTrue('Eng (2)' in max_dur[1].name)
+        self.assertEqual(len(max_dur), 1)
+        
 
 class TestFlapAtLiftoff(unittest.TestCase, TestCreateKPVsAtKTIs):
     def setUp(self):
