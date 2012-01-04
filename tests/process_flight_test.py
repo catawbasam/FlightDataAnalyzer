@@ -4,7 +4,7 @@ import os
 import shutil
 import sys
 
-from datetime import datetime
+from datetime import datetime, timedelta
         
 from analysis.library import value_at_time
 from analysis.node import KeyPointValueNode, P, KeyTimeInstanceNode, S
@@ -101,8 +101,14 @@ class TestProcessFlight(unittest.TestCase):
             from analysis.plot_flight import csv_flight_details
             csv_flight_details(hdf_path, res['kti'], res['kpv'], res['phases'])
             plot_flight(hdf_path, res['kti'], res['kpv'], res['phases'])
-        #TODO: Further assertions on the results!
+        tdwn = res['kti'].get(name='Touchdown')[0]
+        tdwn_minus_1 = res['kti'].get(name='1 Mins To Touchdown')[0]
         
+        self.assertAlmostEqual(tdwn.index, 4967.0, places=0)
+        self.assertAlmostEqual(tdwn_minus_1.index, 4907.0, places=0)
+        self.assertEqual(tdwn.datetime - tdwn_minus_1.datetime, timedelta(minutes=1))
+        #TODO: Further assertions on the results!
+
         
     @unittest.skipIf(not os.path.isfile("test_data/3_6748984_L382-Hercules.hdf5"), "Test file not present")
     def test_l382_herc_3(self):
