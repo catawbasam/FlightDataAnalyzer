@@ -567,6 +567,8 @@ class TestKeyPointValueNode(unittest.TestCase):
         # wrong type raises TypeError
         self.assertRaises(TypeError, knode.create_kpv, 2, '3', 
                           phase='', altitude='')
+        # None index
+        self.assertRaises(ValueError, knode.create_kpv, None, 'b')
         
     def test_create_kpvs_at_ktis(self):
         knode = self.knode
@@ -716,6 +718,8 @@ class TestKeyTimeInstanceNode(unittest.TestCase):
         kti.create_kti(35, {'setting':25})
         self.assertEqual(list(kti), [KeyTimeInstance(index=24, name='Flap 10'),
                                      KeyTimeInstance(index=35, name='Flap 25'),])
+        # None index
+        self.assertRaises(ValueError, kti.create_kti, None)
     
     def test_get_aligned(self):
         '''
@@ -793,7 +797,21 @@ class TestDerivedParameterNode(unittest.TestCase):
         self.assertIsInstance(result, DerivedParameterNode)
         self.assertEqual(result.frequency, unaligned_param.frequency)
         self.assertEqual(result.offset, unaligned_param.offset)
-    
+        
+    def test_parameter_at(self):
+        # using a plain range as the parameter array, the results are equal to 
+        # the index used to get the value (cool)
+        spd = Parameter('Airspeed', np.ma.array(range(20)), 2, 0.75)
+        self.assertEqual(spd.at(0.75), 0) # min val possible to return
+        self.assertEqual(spd.at(1.75), 1*2) # one second in (*2Hz)
+        self.assertEqual(spd.at(2.5), 1.75*2) # interpolates
+        self.assertEqual(spd.at(9.75), 9*2) # max val possible to return
+        
+        #Q: Is this the desired behaivour to give an IndexError at second 0?
+        # ... it would be misleading to use interpolation.
+        self.assertRaises(ValueError, spd.at, 0)
+        self.assertRaises(ValueError, spd.at, 11)
+        
     @mock.patch('analysis.node.slices_above')
     def test_slices_above(self, slices_above):
         '''

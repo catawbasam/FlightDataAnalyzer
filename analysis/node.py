@@ -334,6 +334,16 @@ class SectionNode(Node, list):
         super(SectionNode, self).__init__(*args, **kwargs)
 
     def create_section(self, section_slice, name=''):
+        """
+        Create a slice of the data.
+        
+        NOTE: Sections with slice start/ends of None can cause errors later
+        when creating KPV/KTIs from a slice. However, they are valid for
+        slicing data arrays from.
+        """
+        if section_slice.start is None or section_slice.stop is None:
+            logging.debug("Section %s created %s with None start or stop.", 
+                          self.get_name(), section_slice)
         section = Section(name or self.get_name(), section_slice)
         self.append(section)
         ##return section
@@ -450,7 +460,7 @@ class SectionNode(Node, list):
     
 
 class FlightPhaseNode(SectionNode):
-    """ Is a Section, but called "phase" for user-friendlyness!
+    """ Is a Section, but called "phase" for user-friendliness!
     """
     # create_phase and create_phases are shortcuts for create_section and 
     # create_sections.
@@ -654,6 +664,8 @@ class KeyTimeInstanceNode(FormattedNameNode):
         :raises KeyError: If a required string formatting key is not provided.
         :raises TypeError: If a string formatting argument is of the wrong type.
         '''
+        if index is None:
+            raise ValueError("Cannot create at index None")
         name = self.format_name(replace_values, **kwargs)
         kti = KeyTimeInstance(index, name)
         self.append(kti)
@@ -703,6 +715,8 @@ class KeyPointValueNode(FormattedNameNode):
         :raises KeyError: If a required string formatting key is not provided.
         :raises TypeError: If a string formatting argument is of the wrong type.
         '''
+        if index is None:
+            raise ValueError("Cannot create at index None")
         name = self.format_name(replace_values, **kwargs)
         kpv = KeyPointValue(index, value, name)
         self.append(kpv)
