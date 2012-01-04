@@ -819,7 +819,13 @@ class TestPeakCurvature(unittest.TestCase):
                              69.4,70.6,74.2,74.8])
         pc = peak_curvature(array)
         self.assertEqual(pc,15)
+        
+    def test_peak_curvature_with_slice(self):
+        array = np.ma.array([0]*100)
+        pc = peak_curvature(array, slice(10, 50))
+        self.assertEqual(pc, 10)
 
+        
 class TestPhaseMasking(unittest.TestCase):
     def test_phase_inside_basic(self):
         # Reminder: create_phase_inside(reference, a, b)

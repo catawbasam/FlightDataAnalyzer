@@ -513,7 +513,7 @@ class Landing(FlightPhaseNode):
             # Where possible use the point of peak curvature.
             try:
                 landing_end = min(landing_end, 
-                                  peak_curvature(head.array[landing_run:last]))
+                                  peak_curvature(head.array, slice(landing_run, last)))
             except ValueError:
                 logging.debug("Lack of data for peak curvature of heading in landing")
                 pass

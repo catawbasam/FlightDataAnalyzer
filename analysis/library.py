@@ -497,15 +497,15 @@ def hysteresis (array, hysteresis):
     quarter_range = hysteresis / 4.0
     # Length is going to be used often, so prepare here:
     length = len(array)
-    half_done = np.ma.empty(length)
-    result = np.ma.empty(length)
+    half_done = np.empty(length)
+    result = np.empty(length)
     length = length-1 #  To be used for array indexing next
 
     # The starting point for the computation is the first sample.
     old = array[0]
 
     # Index through the data storing the answer in reverse order
-    for index, new in enumerate(array.flat):
+    for index, new in enumerate(array.data):
         if new - old > quarter_range:
             old = new  - quarter_range
         elif new - old < -quarter_range:
@@ -520,8 +520,7 @@ def hysteresis (array, hysteresis):
             old = new + quarter_range
         result[length-index] = old
 
-    result.mask = array.mask
-    return result
+    return np.ma.array(result, mask=array.mask)
 
 
 def interleave (param_1, param_2):
@@ -749,7 +748,7 @@ def merge_alternate_sensors (array):
     result[-1] = (array[-2] + array[-1]) / 2.0
     return result
 
-def peak_curvature(array, frequency=1):
+def peak_curvature(array, _slice=slice(None), frequency=1):
     """
     This routine uses a "Truck and Trailer" algorithm to find where a
     parameter changes slope. In the case of FDM, we are looking for the point
@@ -759,27 +758,29 @@ def peak_curvature(array, frequency=1):
     we should provide analysis with only airspeed, altitude and heading data
     available.
     """
+    data = array[_slice].data
     gap = TRUCK_OR_TRAILER_INTERVAL * frequency
     if gap%2-1:
         gap-=1  #  Ensure gap is odd
     ttp = TRUCK_OR_TRAILER_PERIOD * frequency
     overall = 2*ttp + gap 
     # check the array is long enough.
-    if len(array) < overall:
+    if len(data) < overall:
         raise ValueError, 'Peak curvature called with too short a sample'
     
-    steps = len(array)-overall+1
+    steps = len(data)-overall+1
     A = np.vstack([np.arange(ttp), np.ones(ttp)*frequency]).T
 
     # Keep the answers in an array of measurements
     measures = np.zeros(steps)
            
     for step in xrange(steps):
-        m1, c1 = np.linalg.lstsq(A, array[step:step+ttp])[0]
-        m2, c2 = np.linalg.lstsq(A, array[step+ttp+gap:step+ttp+gap+ttp])[0]
+        m1, c1 = np.linalg.lstsq(A, data[step:step+ttp])[0]
+        m2, c2 = np.linalg.lstsq(A, data[step+ttp+gap:step+ttp+gap+ttp])[0]
         measures[step] = abs(m2 - m1)
-        
-    return np.argmax(measures)+overall/2
+    
+    index = np.ma.argmax(measures) + overall/2
+    return index + (_slice.start or 0)
     
     
 def rate_of_change(diff_param, half_width):
