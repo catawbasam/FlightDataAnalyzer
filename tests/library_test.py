@@ -563,7 +563,7 @@ class TestHysteresis(unittest.TestCase):
         data = np.ma.array([0,1,2,1,0,-1,5,6,7,0],dtype=float)
         data[4] = np.ma.masked
         result = hysteresis(data,2)
-        np.testing.assert_array_equal(result.data,[0.5,1,1,1,0,0,5,6,6,0.5])
+        np.testing.assert_array_equal(result.data,[0.5,1,1,1,1,0,5,6,6,0.5])
         np.testing.assert_array_equal(result.mask,[0,0,0,0,1,0,0,0,0,0])
 
     def test_hysteresis_change_of_threshold(self):
@@ -818,7 +818,7 @@ class TestPeakCurvature(unittest.TestCase):
                              47.5,49.6,52,53.2,54.7,57.4,60.7,61.9,64.3,66.1,
                              69.4,70.6,74.2,74.8])
         pc = peak_curvature(array)
-        self.assertEqual(pc,16)
+        self.assertEqual(pc,15)
 
 class TestPhaseMasking(unittest.TestCase):
     def test_phase_inside_basic(self):
