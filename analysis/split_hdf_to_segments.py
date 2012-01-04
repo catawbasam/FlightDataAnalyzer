@@ -79,7 +79,6 @@ def split_segments2(airspeed, dfc):
             
     return segment_slices
 
-"""
 def split_hdf_to_segments(hdf_path, aircraft_ident={}, output_dir=None, draw=False):
     """
     Main method - analyses an HDF file for flight segments and splits each
@@ -148,7 +147,7 @@ def split_hdf_to_segments(hdf_path, aircraft_ident={}, output_dir=None, draw=Fal
         #close('all') # closes all figures
          
     return segments
-"""            
+
       
 if __name__ == '__main__':
     import sys

@@ -481,7 +481,10 @@ def hash_array(array):
     checksum = sha256()
     checksum.update(array.tostring())
     return checksum.hexdigest()
-    
+
+"""
+OLD CODE
+
 def hysteresis (array, hysteresis):
     '''
     Hysteresis is a process used to prevent noisy data from triggering 
@@ -519,6 +522,38 @@ def hysteresis (array, hysteresis):
             result.data[i-1] = result.data[i]
         
     return result
+"""
+def hysteresis (array, hysteresis):
+
+    quarter_range = hysteresis / 4.0
+    # Length is going to be used often, so prepare here:
+    length = len(array)
+    half_done = np.ma.empty(length)
+    result = np.ma.empty(length)
+    length = length-1 #  To be used for array indexing next
+
+    # The starting point for the computation is the first sample.
+    old = array[0]
+
+    # Index through the data storing the answer in reverse order
+    for index, new in enumerate(array.flat):
+        if new - old > quarter_range:
+            old = new  - quarter_range
+        elif new - old < -quarter_range:
+            old = new + quarter_range
+        half_done[length-index] = old
+
+    # Repeat the process in the "backwards" sense to remove phase effects.
+    for index, new in enumerate(half_done):
+        if new - old > quarter_range:
+            old = new  - quarter_range
+        elif new - old < -quarter_range:
+            old = new + quarter_range
+        result[length-index] = old
+
+    result.mask = array.mask
+    return result
+
 
 def index_at_value (array, section, threshold):
     '''
@@ -855,7 +890,8 @@ def peak_curvature(array, frequency=1):
 
     # Keep the answers in an array of measurements
     measures = np.zeros(steps)
-    
+    results = np.zeros((steps,4))
+           
     for step in range(steps):
         m1, c1 = np.linalg.lstsq(A, array[step:step+ttp])[0]
         m2, c2 = np.linalg.lstsq(A, array[step+ttp+gap:step+ttp+gap+ttp])[0]

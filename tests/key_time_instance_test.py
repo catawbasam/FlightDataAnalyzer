@@ -238,11 +238,11 @@ class TestAltitudeInApproach(unittest.TestCase):
         altitude_in_approach = AltitudeInApproach()
         altitude_in_approach.derive(approaches, alt_aal)
         self.assertEqual(list(altitude_in_approach),
-          [KeyTimeInstance(index=4.7750000000000004, name='1000 Ft In Approach',
+          [KeyTimeInstance(index=4.75, name='1000 Ft In Approach',
                            datetime=None, latitude=None, longitude=None),
-           KeyTimeInstance(index=14.775, name='1000 Ft In Approach',
+           KeyTimeInstance(index=14.75, name='1000 Ft In Approach',
                            datetime=None, latitude=None, longitude=None),
-           KeyTimeInstance(index=12.275, name='1500 Ft In Approach',
+           KeyTimeInstance(index=12.25, name='1500 Ft In Approach',
                            datetime=None, latitude=None, longitude=None)])
 
 
@@ -253,8 +253,9 @@ class TestAltitudeInFinalApproach(unittest.TestCase):
                          [('Approach And Landing', 'Altitude AAL')])
     
     def test_derive(self):
-        approaches = S('Approach And Landing', items=[Section('a', slice(2, 7)),
-                                                      Section('b', slice(10, 20))])
+        approaches = S('Approach And Landing',
+                       items=[Section('a', slice(2, 7)),
+                              Section('b', slice(10, 20))])
         alt_aal = P('Altitude AAL',
                     np.ma.masked_array(range(950, 0, -100) + \
                                        range(950, 0, -100)))
@@ -262,13 +263,13 @@ class TestAltitudeInFinalApproach(unittest.TestCase):
         altitude_in_approach.derive(approaches, alt_aal)
         
         self.assertEqual(list(altitude_in_approach),
-          [KeyTimeInstance(index=4.5499999999999998,
+          [KeyTimeInstance(index=4.5,
                            name='500 Ft In Final Approach', datetime=None,
                            latitude=None, longitude=None),
-           KeyTimeInstance(index=18.550000000000001,
+           KeyTimeInstance(index=18.512820512820511,
                            name='100 Ft In Final Approach',
                            datetime=None, latitude=None, longitude=None),
-           KeyTimeInstance(index=14.550000000000001,
+           KeyTimeInstance(index=14.5,
                            name='500 Ft In Final Approach', datetime=None,
                            latitude=None, longitude=None)])
 
