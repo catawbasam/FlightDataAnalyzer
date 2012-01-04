@@ -779,10 +779,7 @@ class RateOfClimb(DerivedParameterNode):
         # List the minimum required parameters. If 'Altitude Radio For Flight
         # Phases' is available, that's a bonus and we will use it, but it is
         # not required.
-        if 'Altitude STD' in available:
-            return True
-        else:
-            return False
+        return 'Altitude STD' in available
     
     def derive(self, 
                az = P('Acceleration Vertical'),

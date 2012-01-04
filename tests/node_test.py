@@ -794,50 +794,50 @@ class TestDerivedParameterNode(unittest.TestCase):
         self.assertEqual(result.frequency, unaligned_param.frequency)
         self.assertEqual(result.offset, unaligned_param.offset)
     
-    @mock.patch('analysis.library.slices_above')
+    @mock.patch('analysis.node.slices_above')
     def test_slices_above(self, slices_above):
         '''
         Ensure slices_above is called with the expected arguments.
         '''
-        slices_above.return_value = [slice(0,10)]
         array = np.ma.arange(10)
+        slices_above.return_value = (array, [slice(0,10)])
         param = DerivedParameterNode('Param', array=array)
         slices = param.slices_above(5)
         self.assertEqual(slices_above.call_args, ((array, 5), {}))
-        self.assertEqual(slices, slices_above.return_value)
+        self.assertEqual(slices, slices_above.return_value[1])
         
-    @mock.patch('analysis.library.slices_below')
+    @mock.patch('analysis.node.slices_below')
     def test_slices_below(self, slices_below):
         '''
         Ensure slices_below is called with the expected arguments.
         '''
-        slices_below.return_value = [slice(0,10)]
         array = np.ma.arange(10)
+        slices_below.return_value = (array, [slice(0,10)])
         param = DerivedParameterNode('Param', array=array)
         slices = param.slices_below(5)
         self.assertEqual(slices_below.call_args, ((array, 5), {}))
-        self.assertEqual(slices, slices_below.return_value) 
+        self.assertEqual(slices, slices_below.return_value[1]) 
     
-    @mock.patch('analysis.library.slices_between')
+    @mock.patch('analysis.node.slices_between')
     def test_slices_between(self, slices_between):
         '''
         Ensure slices_between is called with the expected arguments.
         '''
-        slices_between.return_value = [slice(0,10)]
         array = np.ma.arange(10)
+        slices_between.return_value = (array, [slice(0, 10)])
         param = DerivedParameterNode('Param', array=array)
         slices = param.slices_between(5, 15)
         self.assertEqual(slices_between.call_args, ((array, 5, 15), {}))
-        self.assertEqual(slices, slices_between.return_value)
+        self.assertEqual(slices, slices_between.return_value[1])
     
-    @mock.patch('analysis.library.slices_from_to')
+    @mock.patch('analysis.node.slices_from_to')
     def test_slices_from_to(self, slices_from_to):
         '''
         Ensure slices_from_to is called with the expected arguments.
         '''
-        slices_from_to.return_value = [slice(0,10)]
         array = np.ma.arange(10)
+        slices_from_to.return_value = (array, [slice(0, 10)])
         param = DerivedParameterNode('Param', array=array)
         slices = param.slices_from_to(5, 15)
         self.assertEqual(slices_from_to.call_args, ((array, 5, 15), {}))
-        self.assertEqual(slices, slices_from_to.return_value)
+        self.assertEqual(slices, slices_from_to.return_value[1])

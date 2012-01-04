@@ -291,7 +291,7 @@ class DerivedParameterNode(Node):
         return aligned_param 
     
     def slices_above(self, value):
-        return slices_above(self.array, value)
+        return slices_above(self.array, value)[1]
     
     def slices_below(self, value):
         '''
@@ -304,13 +304,13 @@ class DerivedParameterNode(Node):
         :returns: Slices where the array is above a certain value.
         :rtype: list of slice
         '''
-        return slices_below(self.array, value)
+        return slices_below(self.array, value)[1]
     
     def slices_between(self, min_, max_):
-        return slices_between(self.array, min_, max_)
+        return slices_between(self.array, min_, max_)[1]
     
     def slices_from_to(self, from_, to):
-        return slices_from_to(self.array, from_, to)
+        return slices_from_to(self.array, from_, to)[1]
 
 P = Parameter = DerivedParameterNode # shorthand
 

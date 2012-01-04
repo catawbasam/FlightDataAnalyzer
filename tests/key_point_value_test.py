@@ -74,7 +74,7 @@ class TestAccelerationNormalMax(unittest.TestCase):
         self.assertEqual(AccelerationNormalMax.get_operational_combinations(),
                          [('Normal Acceleration',)])
     
-    @patch('analysis.library.max_value')
+    @patch('analysis.key_point_values.max_value')
     def test_derive(self, max_value):
         acc_norm_max = AccelerationNormalMax()
         index, value = 10, 30
@@ -82,9 +82,10 @@ class TestAccelerationNormalMax(unittest.TestCase):
         param = Mock()
         param.array = Mock()
         acc_norm_max.derive(param)
-        self.assertEqual(acc_norm_max.call_args, ((param.array,), {}))
+        self.assertEqual(max_value.call_args, ((param.array,), {}))
         self.assertEqual(acc_norm_max,
-                         [KeyPointValue(index=index, value=value)])
+                         [KeyPointValue(index=index, value=value,
+                                        name=acc_norm_max.name)])
 
 
 class TestAirspeedAtTouchdown(unittest.TestCase, TestCreateKPVsAtKTIs):
@@ -99,7 +100,7 @@ class TestAirspeed1000To500FtMax(unittest.TestCase):
         opts = Airspeed1000To500FtMax.get_operational_combinations()
         self.assertEqual(opts, expected) 
         
-    def test_airspeed_1000_150_basic(self):
+    def test_airspeed_1000_500_basic(self):
         testline = np.arange(0,12.6,0.1)
         testwave = (np.cos(testline)*(-100))+100
         spd = Parameter('Airspeed', np.ma.array(testwave))
@@ -148,7 +149,7 @@ class TestAirspeed1000To500FtMax(unittest.TestCase):
         opts = Airspeed1000To500FtMax.get_operational_combinations()
         self.assertEqual(opts, expected) 
         
-    def test_airspeed_1000_150_basic(self):
+    def test_airspeed_1000_500_basic(self):
         testline = np.arange(0,12.6,0.1)
         testwave = (np.cos(testline)*(-100))+100
         spd = Parameter('Airspeed', np.ma.array(testwave))
@@ -218,17 +219,18 @@ class TestEngEGTMax(unittest.TestCase):
         self.assertEqual(EngEGTMax.get_operational_combinations(),
                          [('Eng (*) EGT Max',)])
     
-    @patch('analysis.library.max_value')
+    @patch('analysis.key_point_values.max_value')
     def test_derive(self, max_value):
-        eng_egt_max = EngEGTMax
+        eng_egt_max = EngEGTMax()
         index, value = 10, 30
         max_value.return_value = index, value
         param = Mock()
         param.array = Mock()
         eng_egt_max.derive(param)
-        self.assertEqual(eng_egt_max.call_args, ((param.array,), {}))
+        self.assertEqual(max_value.call_args, ((param.array,), {}))
         self.assertEqual(eng_egt_max,
-                         [KeyPointValue(index=index, value=value)])
+                         [KeyPointValue(index=index, value=value,
+                                        name=eng_egt_max.name)])
 
 
 class TestEngN1Max(unittest.TestCase):
@@ -236,17 +238,18 @@ class TestEngN1Max(unittest.TestCase):
         self.assertEqual(EngN1Max.get_operational_combinations(),
                          [('Eng (*) N1 Max',)])
     
-    @patch('analysis.library.max_value')
+    @patch('analysis.key_point_values.max_value')
     def test_derive(self, max_value):
-        eng_n1_max = EngN1Max
+        eng_n1_max = EngN1Max()
         index, value = 10, 30
         max_value.return_value = index, value
         param = Mock()
         param.array = Mock()
         eng_n1_max.derive(param)
-        self.assertEqual(eng_n1_max.call_args, ((param.array,), {}))
+        self.assertEqual(max_value.call_args, ((param.array,), {}))
         self.assertEqual(eng_n1_max,
-                         [KeyPointValue(index=index, value=value)])
+                         [KeyPointValue(index=index, value=value,
+                                        name=eng_n1_max.name)])
 
 
 class TestEngN2Max(unittest.TestCase):
@@ -254,17 +257,18 @@ class TestEngN2Max(unittest.TestCase):
         self.assertEqual(EngN2Max.get_operational_combinations(),
                          [('Eng (*) N2 Max',)])
     
-    @patch('analysis.library.max_value')
+    @patch('analysis.key_point_values.max_value')
     def test_derive(self, max_value):
-        eng_n2_max = EngN2Max
+        eng_n2_max = EngN2Max()
         index, value = 10, 30
         max_value.return_value = index, value
         param = Mock()
         param.array = Mock()
         eng_n2_max.derive(param)
-        self.assertEqual(eng_n2_max.call_args, ((param.array,), {}))
+        self.assertEqual(max_value.call_args, ((param.array,), {}))
         self.assertEqual(eng_n2_max,
-                         [KeyPointValue(index=index, value=value)])
+                         [KeyPointValue(index=index, value=value,
+                                        name=eng_n2_max.name)])
 
 
 class TestEngOilTempMax(unittest.TestCase):
@@ -272,17 +276,18 @@ class TestEngOilTempMax(unittest.TestCase):
         self.assertEqual(EngOilTempMax.get_operational_combinations(),
                          [('Eng (*) Oil Temp Max',)])
     
-    @patch('analysis.library.max_value')
+    @patch('analysis.key_point_values.max_value')
     def test_derive(self, max_value):
-        eng_oil_temp_max = EngOilTempMax
+        eng_oil_temp_max = EngOilTempMax()
         index, value = 10, 30
         max_value.return_value = index, value
         param = Mock()
         param.array = Mock()
         eng_oil_temp_max.derive(param)
-        self.assertEqual(eng_oil_temp_max.call_args, ((param.array,), {}))
+        self.assertEqual(max_value.call_args, ((param.array,), {}))
         self.assertEqual(eng_oil_temp_max,
-                         [KeyPointValue(index=index, value=value)])
+                         [KeyPointValue(index=index, value=value,
+                                        name=eng_oil_temp_max.name)])
 
 
 class TestEngVibN1Max(unittest.TestCase):
@@ -290,17 +295,18 @@ class TestEngVibN1Max(unittest.TestCase):
         self.assertEqual(EngVibN1Max.get_operational_combinations(),
                          [('Eng (*) Vib N1 Max',)])
     
-    @patch('analysis.library.max_value')
+    @patch('analysis.key_point_values.max_value')
     def test_derive(self, max_value):
-        eng_vib_n1_max = EngVibN1Max
+        eng_vib_n1_max = EngVibN1Max()
         index, value = 10, 30
         max_value.return_value = index, value
         param = Mock()
         param.array = Mock()
         eng_vib_n1_max.derive(param)
-        self.assertEqual(eng_vib_n1_max.call_args, ((param.array,), {}))
+        self.assertEqual(max_value.call_args, ((param.array,), {}))
         self.assertEqual(eng_vib_n1_max,
-                         [KeyPointValue(index=index, value=value)])
+                         [KeyPointValue(index=index, value=value,
+                                        name=eng_vib_n1_max.name)])
 
 
 class TestEngVibN2Max(unittest.TestCase):
@@ -308,17 +314,18 @@ class TestEngVibN2Max(unittest.TestCase):
         self.assertEqual(EngVibN2Max.get_operational_combinations(),
                          [('Eng (*) Vib N2 Max',)])
     
-    @patch('analysis.library.max_value')
+    @patch('analysis.key_point_values.max_value')
     def test_derive(self, max_value):
-        eng_vib_n2_max = EngVibN2Max
+        eng_vib_n2_max = EngVibN2Max()
         index, value = 10, 30
         max_value.return_value = index, value
         param = Mock()
         param.array = Mock()
         eng_vib_n2_max.derive(param)
-        self.assertEqual(eng_vib_n2_max.call_args, ((param.array,), {}))
+        self.assertEqual(max_value.call_args, ((param.array,), {}))
         self.assertEqual(eng_vib_n2_max,
-                         [KeyPointValue(index=index, value=value)])
+                         [KeyPointValue(index=index, value=value,
+                                        name=eng_vib_n2_max.name)])
 
 
 class TestEng_N1MaxDurationUnder60PercentAfterTouchdown(unittest.TestCase):
@@ -591,17 +598,24 @@ class TestPitchAtLiftoff(unittest.TestCase, TestCreateKPVsAtKTIs):
 
 
 class TestRollBelow20FtMax(unittest.TestCase):
-    def test_can_operate(self):
+    def test_can_operate(self, eng=P()):
         self.assertEqual(RollBelow20FtMax.get_operational_combinations(),
-                         []) # TODO
+                         [('Roll', 'Altitude AAL For Flight Phases')])
     
-    def test_derive(self):
-        roll = P('Roll', array=np.ma.arange(20))
-        desc_alts = KTI('Altitude When Descending',
-                        items=[KeyTimeInstance(5, '20 Ft Descending')])
-        climb_alts = KTI('Altitude When Climbing',
-                         items=[KeyTimeInstance(8, '20 Ft Climbing')])
+    @patch('analysis.key_point_values.max_value')
+    def test_derive(self, max_value):
         roll_below_20ft_max = RollBelow20FtMax()
-        roll_below_20ft_max.derive(roll, desc_alts, climb_alts)
-        print list(roll_below_20ft_max) # TODO
-        self.assertEqual(roll_below_20ft_max, False)
+        index, value = 10, 30
+        max_value.return_value = index, value
+        param1 = Mock()
+        param1.array = Mock()
+        param2 = Mock()
+        param2.array = Mock()
+        param2.slices_below = Mock()
+        param2.slices_below.return_value = [slice(0, 10)]
+        roll_below_20ft_max.derive(param1, param2)
+        self.assertEqual(max_value.call_args, ((param1.array,),
+                                               {'_slice':slice(0,10)}))
+        self.assertEqual(roll_below_20ft_max,
+                         [KeyPointValue(index=index, value=value,
+                                        name=roll_below_20ft_max.name)])

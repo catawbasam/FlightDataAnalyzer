@@ -7,7 +7,7 @@ import mock
 
 import utilities.masked_array_testutils as ma_test
 from utilities.struct import Struct
-from analysis.settings import GRAVITY
+from analysis.settings import GRAVITY, HYSTERESIS_FPIAS
 from analysis.node import Attribute, A, KPV, KTI, Parameter, P, Section, S
 from analysis.flight_phase import Fast
 
@@ -211,13 +211,18 @@ class TestAirspeedForFlightPhases(unittest.TestCase):
         expected = [('Airspeed',)]
         opts = AirspeedForFlightPhases.get_operational_combinations()
         self.assertEqual(opts, expected)
-        
-    def test_airspeed_for_phases_basic(self):
-        fast_and_slow = np.ma.array([40,200,190,180,170])
+    
+    @mock.patch('analysis.derived_parameters.hysteresis')
+    def test_airspeed_for_phases_basic(self, hysteresis):
+        # Avoiding testing hysteresis.
+        param = mock.Mock()
+        param.array = mock.Mock()
+        hysteresis.return_value = mock.Mock()
         speed = AirspeedForFlightPhases()
-        speed.derive(Parameter('Airspeed', fast_and_slow))
-        expected = np.ma.array([40,195,195,185,175])
-        ma_test.assert_masked_array_approx_equal(speed.array, expected)
+        speed.derive(param)
+        self.assertEqual(hysteresis.call_args,
+                         ((param.array, HYSTERESIS_FPIAS), {}))
+        self.assertEqual(speed.array, hysteresis.return_value)
 
 
 class TestAltitudeAALForFlightPhases(unittest.TestCase):
@@ -653,13 +658,12 @@ class TestPitch(unittest.TestCase):
 
 class TestRateOfClimb(unittest.TestCase):
     def test_can_operate(self):
-        expected = [('Altitude STD',),
-                    ('Acceleration Vertical',
-                     'Altitude STD',
-                     'Altitude Radio')
-                    ]
-        opts = RateOfClimb.get_operational_combinations()
-        self.assertEqual(opts, expected)
+        self.assertEqual(RateOfClimb.get_operational_combinations(),
+                         [('Altitude STD',),
+                          ('Acceleration Vertical', 'Altitude STD'),
+                          ('Altitude STD', 'Altitude Radio'),
+                          ('Acceleration Vertical', 'Altitude STD',
+                           'Altitude Radio')])
         
     def test_rate_of_climb_basic(self):
         az = P('Acceleration Vertical', np.ma.array([1]*10))

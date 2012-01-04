@@ -967,26 +967,26 @@ class TestRepairMask(unittest.TestCase):
 
 class TestSlicesAbove(unittest.TestCase):
     def test_slices_above(self):
-        array = np.ma.concatenate(np.ma.arange(10), np.ma.arange(10))
+        array = np.ma.concatenate([np.ma.arange(10), np.ma.arange(10)])
         array.mask = [False] * 18 + [True] * 2
-        slices = slices_above(array, 5)
-        self.assertEqual(slices, []) # TODO!
+        repaired_array, slices = slices_above(array, 5)
+        self.assertEqual(slices, [slice(5, 10, None), slice(15, 18, None)])
 
 
 class TestSlicesBelow(unittest.TestCase):
     def test_slices_below(self):
-        array = np.ma.concatenate(np.ma.arange(10), np.ma.arange(10))
+        array = np.ma.concatenate([np.ma.arange(10), np.ma.arange(10)])
         array.mask = [True] * 2 + [False] * 18
-        slices = slices_below(array, 5)
-        self.assertEqual(slices, []) # TODO!
+        repaired_array, slices = slices_below(array, 5)
+        self.assertEqual(slices, [slice(2, 6, None), slice(10, 16, None)])
 
 
 class TestSlicesBetween(unittest.TestCase):
     def test_slices_between(self):
         array = np.ma.arange(20)
         array.mask = [True] * 10 + [False] * 10
-        slices = slices_between(array, 5, 15)
-        self.assertEqual(slices, []) # TODO!
+        repaired_array, slices = slices_between(array, 5, 15)
+        self.assertEqual(slices, [slice(10, 16)])
 
 
 class TestSlicesFromTo(unittest.TestCase):
@@ -994,11 +994,15 @@ class TestSlicesFromTo(unittest.TestCase):
         array = np.ma.arange(20)
         array.mask = [True] * 10 + [False] * 10
         # Ascending.
-        slices = slices_between(array, 5, 15)
-        self.assertEqual(slices, []) # TODO!
+        repaired_array, slices = slices_from_to(array, 5, 15)
+        self.assertEqual(slices, [slice(10, 16)])
         # Descending.
-        slices = slices_between(array, 15, 5)
-        self.assertEqual(slices, []) # TODO!
+        repaired_array, slices = slices_from_to(array, 18, 3)
+        self.assertEqual(slices, [])
+        array = np.ma.arange(20, 0, -1)
+        array.mask = [True] * 10 + [False] * 10
+        repaired_array, slices = slices_from_to(array, 18, 3)
+        self.assertEqual(slices, [slice(10, 18)])
 
 
 class TestStraightenHeadings(unittest.TestCase):

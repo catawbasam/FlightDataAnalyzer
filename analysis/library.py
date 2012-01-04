@@ -932,10 +932,12 @@ def slices_above(array, value):
     :returns: Slices where the array is above a certain value.
     :rtype: list of slice
     '''
+    if len(array) == 0:
+        return array, []
     repaired_array = repair_mask(array)
-    band = np.ma.masked_less_than(repaired_array, value)
+    band = np.ma.masked_less(repaired_array, value)
     slices = np.ma.clump_unmasked(band)
-    return slices
+    return repaired_array, slices
 
 def slices_below(array, value):
     '''
@@ -948,10 +950,12 @@ def slices_below(array, value):
     :returns: Slices where the array is below a certain value.
     :rtype: list of slice
     '''
+    if len(array) == 0:
+        return array, []
     repaired_array = repair_mask(array)
     band = np.ma.masked_greater(repaired_array, value)
     slices = np.ma.clump_unmasked(band)
-    return slices
+    return repaired_array, slices
 
 def slices_between(array, min_, max_):
     '''
@@ -966,6 +970,8 @@ def slices_between(array, min_, max_):
     :returns: Slices where the array is above a certain value.
     :rtype: list of slice
     '''
+    if len(array) == 0:
+        return array, []
     repaired_array = repair_mask(array)
     # Slice through the array at the top and bottom of the band of interest
     band = np.ma.masked_outside(repaired_array, min_, max_)
@@ -982,14 +988,17 @@ def slices_from_to(array, from_, to):
     by a smaller descent between from_ and to_ will all be included, not only
     the ascent.
     '''
+    if len(array) == 0:
+        return array, []
     rep_array, slices = slices_between(array, from_, to)
     if from_ > to:
-        condition = lambda s: rep_array[s.start] < rep_array[s.stop-1]
+        condition = lambda s: rep_array[s.start] > rep_array[s.stop-1]
     elif from_ < to:
         condition = lambda s: rep_array[s.start] < rep_array[s.stop-1]
     else:
         raise ValueError('From and to values should not be equal.')
-    return [s for s in slices if condition(s)]
+    filtered_slices = filter(condition, slices)
+    return rep_array, filtered_slices
 
 def straighten_headings(heading_array):
     '''

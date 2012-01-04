@@ -476,9 +476,10 @@ class TestFinalApproach(unittest.TestCase):
 
 class TestLanding(unittest.TestCase):
     def test_can_operate(self):
-        expected = [('Heading Continuous','Altitude AAL For Flight Phases', 'Fast')]
-        opts = Landing.get_operational_combinations()
-        self.assertEqual(opts, expected)
+        self.assertEqual(Landing.get_operational_combinations(),
+            [('Heading Continuous', 'Altitude AAL For Flight Phases', 'Fast'),
+             ('Heading Continuous', 'Altitude AAL For Flight Phases', 'Fast',
+              'Altitude Radio For Phases')])
 
     def test_landing_basic(self):
         head = np.ma.array([ 20,20,20,20,20,20,20,20,10,0])
@@ -562,10 +563,10 @@ class TestOnGround(unittest.TestCase):
 
 class TestTakeoff(unittest.TestCase):
     def test_can_operate(self):
-        expected = [('Fast','Heading Continuous', 
-                     'Altitude AAL For Flight Phases')]
-        opts = Takeoff.get_operational_combinations()
-        self.assertEqual(opts, expected)
+        self.assertEqual(Takeoff.get_operational_combinations(),
+            [('Heading Continuous', 'Altitude AAL For Flight Phases', 'Fast'),
+             ('Heading Continuous', 'Altitude AAL For Flight Phases', 'Fast',
+              'Altitude Radio For Phases')])
 
     def test_takeoff_basic(self):
         head = np.ma.array([ 0,10,20,20,20,20,20,20,20,20])

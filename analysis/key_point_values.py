@@ -14,7 +14,7 @@ class Airspeed1000To500FtMax(KeyPointValueNode):
         # For commented version, see GlideslopeDeviation1500To1000FtMax
         in_band_periods = alt_aal.slices_from_to(1000, 500)
         for this_period in in_band_periods:
-            index, value = max_value(speed.array, this_period)
+            index, value = max_value(speed.array, _slice=this_period)
             self.create_kpv(index, value)
 
 '''
@@ -844,17 +844,7 @@ class GroundspeedRTOMax(KeyPointValueNode):
         return NotImplemented
 
 
-class EngN1Max(KeyPointValueNode):
-    def derive(self, eng_n1=P('Eng N1')):
-        return NotImplemented
-
-
 class EngN2CyclesMax(KeyPointValueNode):
-    def derive(self, eng_n2=P('Eng N2')):
-        return NotImplemented
-
-
-class EngN2Max(KeyPointValueNode):
     def derive(self, eng_n2=P('Eng N2')):
         return NotImplemented
 
@@ -907,9 +897,9 @@ class Pitch35To400FtMax(KeyPointValueNode):
     def derive(self, pitch=P('Pitch'),
                alt_aal = P('Altitude AAL For Flight Phases')):
         # For commented version, see GlideslopeDeviation1500To1000FtMax
-        for this_period in alt_aal.slices_from_to(35, 400):
-            index = np.ma.argmax(pitch.array[begin:end])
-            when = begin + index
+        for this_slice in alt_aal.slices_from_to(35, 400):
+            index = np.ma.argmax(pitch.array[this_slice.start:this_slice.stop])
+            when = this_slice.start + index
             value = pitch.array[when]
             self.create_kpv(when, value)
 
