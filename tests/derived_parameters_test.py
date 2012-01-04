@@ -4,6 +4,8 @@ except ImportError:
     import unittest
 import numpy as np
 import mock
+import sys
+debug = sys.gettrace() is not None
 
 import utilities.masked_array_testutils as ma_test
 from utilities.struct import Struct
