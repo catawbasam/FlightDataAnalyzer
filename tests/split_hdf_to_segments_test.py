@@ -4,8 +4,7 @@ except ImportError:
     import unittest
 import os.path
 
-from analysis.split_hdf_file_into_segments import (split_hdf_to_segments,
-                                                   )
+from analysis.split_hdf_to_segments import split_hdf_to_segments
 
 
 class TestSplitHDFToSegments(unittest.TestCase):

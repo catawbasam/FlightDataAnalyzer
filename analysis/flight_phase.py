@@ -395,7 +395,8 @@ class Turning(FlightPhaseNode):
     Rate of Turn is greater than +/- RATE_OF_TURN_FOR_FLIGHT_PHASES
     """
     def derive(self, rate_of_turn=P('Rate Of Turn')):
-        turning = np.ma.masked_inside(hysteresis(rate_of_turn.array,HYSTERESIS_FPROT),
+        turning = np.ma.masked_inside(hysteresis(repair_mask(rate_of_turn.array),
+                                                 HYSTERESIS_FPROT),
                                       RATE_OF_TURN_FOR_FLIGHT_PHASES * (-1.0),
                                       RATE_OF_TURN_FOR_FLIGHT_PHASES)
         
@@ -458,9 +459,20 @@ class Takeoff(FlightPhaseNode):
             takeoff_begin = index_at_value(np.ma.abs(head.array-datum),
                                           slice(first, takeoff_run, None),
                                           HEADING_TURN_ONTO_RUNWAY)
-            
-            takeoff_begin = peak_curvature(head.array[first:takeoff_run])
 
+            # Where the data starts in line with the runway, default to the
+            # start of the data
+            if takeoff_begin == None:
+                takeoff_begin = 0
+            
+            # Where possible use the point of peak curvature.
+            try:
+                takeoff_begin = max(takeoff_begin, 
+                                  peak_curvature(head.array[first:takeoff_run]))
+            except:
+                # This can fail for lack of data in some cases
+                pass
+            
             #-------------------------------------------------------------------
             # Find the end of the takeoff phase as we climb through 35ft.
             
@@ -522,12 +534,28 @@ class Landing(FlightPhaseNode):
                                               slice(first, landing_run, None),
                                               LANDING_THRESHOLD_HEIGHT)
  
+            # The turn off the runway must lie within five minutes of the landing.
             last = landing_run + 300*head.frequency
+            
+            # A crude estimate is given by the angle of turn
             landing_end = index_at_value(np.ma.abs(head.array-datum),
                                          slice(landing_run, last, None),
                                          HEADING_TURN_OFF_RUNWAY)
+            
+            # If the data stops before this value is reached, substitute the
+            # end of the data
+            if landing_end == None:
+                landing_end = len(head.array)
+            
+            # Where possible use the point of peak curvature.
+            try:
+                landing_end = min(landing_end, 
+                                  peak_curvature(head.array[landing_run:last]))
+            except:
+                pass
 
             self.create_phases([slice(landing_begin, landing_end)])
+            
 #===============================================================================
             
             
