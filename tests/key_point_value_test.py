@@ -13,6 +13,11 @@ from analysis.key_point_values import (Airspeed1000To500FtMax,
                                        AutopilotEngaged1AtTouchdown,
                                        AutopilotEngaged2AtLiftoff,
                                        AutopilotEngaged2AtTouchdown,
+                                       EngEGTMax,
+                                       EngN1Max,
+                                       EngN2Max,
+                                       EngOilTempMax,
+                                       EngVibN1Max,
                                        EngVibN2Max,
                                        HeadingAtTakeoff,
                                        FlapAtLiftoff,
@@ -31,6 +36,7 @@ from analysis.key_point_values import (Airspeed1000To500FtMax,
                                        LongitudeAtLowPointOnApproach,
                                        LocalizerDeviation1500To1000FtMax,
                                        LocalizerDeviation1000To150FtMax,
+                                       NormalAcceleration,
                                        Pitch35To400FtMax,
                                        PitchAtLiftoff,
                                        RollBelow20FtMax)
@@ -62,19 +68,22 @@ class TestAltitudeAtLiftoff(unittest.TestCase, TestKPV):
                          ((mock1.array, mock2), {}))
 
 
-class TestEngVibN2Max(KeyPointValueNode):
+class TestAccelerationNormalMax(KeyPointValueNode): # TODO
     def test_can_operate(self, eng=P()):
-        self.assertEqual(EngVibN2Max.get_operational_combinations(),
-                         [('Eng (*) Vib N2 Max',)])
+        self.assertEqual(AccelerationNormalMax.get_operational_combinations(),
+                         [('Normal Acceleration',)])
     
     @mock.patch('analysis.library.max_value')
     def test_derive(self, max_value):
-        eng_vib_n2_max = EngVibN2Max
+        acc_norm_max = AccelerationNormalMax()
         index, value = 10, 30
         max_value.return_value = index, value
         param = Mock()
-        eng_vib_n2_max.derive(param)
-        self.assertEqual(eng_vib_n2_max, []) # TODO!
+        param.array = Mock()
+        acc_norm_max.derive(param)
+        self.assertEqual(acc_norm_max.call_args, ((param.array,), {}))
+        self.assertEqual(acc_norm_max,
+                         [KeyPointValue(index=index, value=value)])
 
 
 class TestAirspeedAtTouchdown(unittest.TestCase, TestCreateKPVsAtKTIs):
@@ -201,6 +210,114 @@ class TestAutopilotEngaged2AtTouchdown(unittest.TestCase):
     def setUp(self):
         self.node_class = AutopilotEngaged2AtTouchdown
         self.operational_combinations = [('Autopilot Engaged 2', 'Touchdown')]
+
+
+class TestEngEGTMax(KeyPointValueNode):
+    def test_can_operate(self, eng=P()):
+        self.assertEqual(EngEGTMax.get_operational_combinations(),
+                         [('Eng (*) EGT Max',)])
+    
+    @mock.patch('analysis.library.max_value')
+    def test_derive(self, max_value):
+        eng_egt_max = EngEGTMax
+        index, value = 10, 30
+        max_value.return_value = index, value
+        param = Mock()
+        param.array = Mock()
+        eng_egt_max.derive(param)
+        self.assertEqual(eng_egt_max.call_args, ((param.array,), {}))
+        self.assertEqual(eng_egt_max,
+                         [KeyPointValue(index=index, value=value)])
+
+
+class TestEngN1Max(KeyPointValueNode):
+    def test_can_operate(self, eng=P()):
+        self.assertEqual(EngN1Max.get_operational_combinations(),
+                         [('Eng (*) N1 Max',)])
+    
+    @mock.patch('analysis.library.max_value')
+    def test_derive(self, max_value):
+        eng_n1_max = EngN1Max
+        index, value = 10, 30
+        max_value.return_value = index, value
+        param = Mock()
+        param.array = Mock()
+        eng_n1_max.derive(param)
+        self.assertEqual(eng_n1_max.call_args, ((param.array,), {}))
+        self.assertEqual(eng_n1_max,
+                         [KeyPointValue(index=index, value=value)])
+
+
+class TestEngN2Max(KeyPointValueNode):
+    def test_can_operate(self, eng=P()):
+        self.assertEqual(EngN2Max.get_operational_combinations(),
+                         [('Eng (*) N2 Max',)])
+    
+    @mock.patch('analysis.library.max_value')
+    def test_derive(self, max_value):
+        eng_n2_max = EngN2Max
+        index, value = 10, 30
+        max_value.return_value = index, value
+        param = Mock()
+        param.array = Mock()
+        eng_n2_max.derive(param)
+        self.assertEqual(eng_n2_max.call_args, ((param.array,), {}))
+        self.assertEqual(eng_n2_max,
+                         [KeyPointValue(index=index, value=value)])
+
+
+class TestEngOilTempMax(KeyPointValueNode):
+    def test_can_operate(self, eng=P()):
+        self.assertEqual(EngOilTempMax.get_operational_combinations(),
+                         [('Eng (*) Oil Temp Max',)])
+    
+    @mock.patch('analysis.library.max_value')
+    def test_derive(self, max_value):
+        eng_oil_temp_max = EngOilTempMax
+        index, value = 10, 30
+        max_value.return_value = index, value
+        param = Mock()
+        param.array = Mock()
+        eng_oil_temp_max.derive(param)
+        self.assertEqual(eng_oil_temp_max.call_args, ((param.array,), {}))
+        self.assertEqual(eng_oil_temp_max,
+                         [KeyPointValue(index=index, value=value)])
+
+
+class TestEngVibN1Max(KeyPointValueNode):
+    def test_can_operate(self, eng=P()):
+        self.assertEqual(EngVibN1Max.get_operational_combinations(),
+                         [('Eng (*) Vib N1 Max',)])
+    
+    @mock.patch('analysis.library.max_value')
+    def test_derive(self, max_value):
+        eng_vib_n1_max = EngVibN1Max
+        index, value = 10, 30
+        max_value.return_value = index, value
+        param = Mock()
+        param.array = Mock()
+        eng_vib_n1_max.derive(param)
+        self.assertEqual(eng_vib_n1_max.call_args, ((param.array,), {}))
+        self.assertEqual(eng_vib_n1_max,
+                         [KeyPointValue(index=index, value=value)])
+
+
+class TestEngVibN2Max(KeyPointValueNode):
+    def test_can_operate(self, eng=P()):
+        self.assertEqual(EngVibN2Max.get_operational_combinations(),
+                         [('Eng (*) Vib N2 Max',)])
+    
+    @mock.patch('analysis.library.max_value')
+    def test_derive(self, max_value):
+        eng_vib_n2_max = EngVibN2Max
+        index, value = 10, 30
+        max_value.return_value = index, value
+        param = Mock()
+        param.array = Mock()
+        eng_vib_n2_max.derive(param)
+        self.assertEqual(eng_vib_n2_max.call_args, ((param.array,), {}))
+        self.assertEqual(eng_vib_n2_max,
+                         [KeyPointValue(index=index, value=value)])
 
 
 class TestFlapAtLiftoff(unittest.TestCase, TestCreateKPVsAtKTIs):

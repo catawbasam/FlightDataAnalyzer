@@ -339,35 +339,31 @@ class FlapAtTouchdown(KeyPointValueNode):
 # in flight (e.g. split by airborne / on ground?)
 
 class EngEGTMax(KeyPointValueNode):
-    #TODO: TEST
     name = 'Eng EGT Max'
     def derive(self, eng=P('Eng (*) EGT Max')):
         index, value = max_value(eng.array)
         self.create_kpv(index, value)
         
 class EngN1Max(KeyPointValueNode):
-    #TODO: TEST
     name = 'Eng N1 Max'
     def derive(self, eng=P('Eng (*) N1 Max')):
         index, value = max_value(eng.array)
         self.create_kpv(index, value)
 
-class EngN1Max(KeyPointValueNode):
-    #TODO: TEST
+class EngN2Max(KeyPointValueNode):
     name = 'Eng N2 Max'
     def derive(self, eng=P('Eng (*) N2 Max')):
         index, value = max_value(eng.array)
         self.create_kpv(index, value)
 
 class EngOilTempMax(KeyPointValueNode):
-    #TODO: TEST
     name = 'Eng Oil Temp Max'
     def derive(self, eng=P('Eng (*) Oil Temp Max')):
         index, value = max_value(eng.array)
         self.create_kpv(index, value)
-            
+
+
 class EngVibN1Max(KeyPointValueNode):
-    #TODO: TEST
     name = 'Eng Vib N1 Max'
     ##def derive(self, eng=P('Eng (*) Vib N1 Max'), fast=S('Fast')):
         ##for sect in fast:
@@ -380,7 +376,6 @@ class EngVibN1Max(KeyPointValueNode):
             
             
 class EngVibN2Max(KeyPointValueNode):
-    #TODO: TEST
     name = 'Eng Vib N2 Max'
     ##def derive(self, eng=P('Eng (*) Vib N2 Max'), fast=S('Fast')):
         ##for sect in fast:
@@ -398,7 +393,8 @@ class FuelQtyMinAirborne(KeyPointValueNode):
         for sect in airborne:
             index, value = min_value(fuel.array, sect.slice)
             self.create_kpv(index, value)
-    
+
+
 class MagneticHeadingAtLiftOff(KeyPointValue):
     """ Shouldn't this be difference between aircraft heading and runway heading???
     """
@@ -429,7 +425,6 @@ class MagneticHeadingAtTouchdown(KeyPointValue):
 
 class AccelerationNormalMax(KeyPointValueNode):
     def derive(self, normal_acceleration=P('Normal Acceleration')):
-               ##airspeed=P('Airspeed')):
         index, value = max_value(normal_acceleration.array)
         self.create_kpv(index, value)
         
