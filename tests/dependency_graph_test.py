@@ -84,7 +84,7 @@ class TestDependencyGraph(unittest.TestCase):
         self.assertEqual(gr.edges(1), []) # as it's in LFL, it shouldn't have any edges
         self.assertEqual(gr.node[1], {'color': 'forestgreen'})
         # Derived
-        self.assertEqual(gr.edges(4), [(4,'DepFour')])
+        self.assertEqual(gr.edges(4), [(4,'Derived Parameter Node')])
         self.assertEqual(gr.node[4], {}) # same as {'color': 'black'}!
         # Root
         from analysis.dependency_graph import draw_graph
@@ -180,6 +180,7 @@ Node: Start Datetime 	Pre: [] 	Succ: [] 	Neighbors: [] 	Edges: []
         order = dependency_order(nodes)
         pos = order.index
         #print nodes
+        self.assertTrue(len(order))
         self.assertTrue(pos('Vertical Speed') > pos('Pressure Altitude'))
         self.assertTrue(pos('Slip On Runway') > pos('Groundspeed'))
         self.assertTrue(pos('Slip On Runway') > pos('Horizontal g Across Track'))
