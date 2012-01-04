@@ -767,7 +767,26 @@ def merge_alternate_sensors (array):
     result[-1] = (array[-2] + array[-1]) / 2.0
     return result
 
-def peak_curvature(array, _slice=slice(None), frequency=1):
+def peak_index(a):
+    # Scans an array and returns the peak, where possible computing the local
+    # maximum assuming a quadratic curve over the top three samples.
+    if len(a) == 0:
+        raise ValueError, 'No data to scan for peak'
+    elif len(a) == 1:
+        return a[0]
+    elif len(a) == 2:
+        return max(a)
+    else:
+        loc=np.argmax(a)
+        if loc == 0:
+            return a[0]
+        elif loc == len(a)-1:
+            return a[-1]
+        else:
+            pk=(a[loc-1]-a[loc+1])/(2.0*a[loc-1]-4.0*a[loc]+2.0*a[loc+1])
+            return loc-1+peak
+
+def peak_curvature(array, _slice=slice(None)):
     """
     This routine uses a "Truck and Trailer" algorithm to find where a
     parameter changes slope. In the case of FDM, we are looking for the point
@@ -778,15 +797,16 @@ def peak_curvature(array, _slice=slice(None), frequency=1):
     available.
     """
     data = array[_slice].data
-    gap = TRUCK_OR_TRAILER_INTERVAL * frequency
+    gap = TRUCK_OR_TRAILER_INTERVAL
     if gap%2-1:
         gap-=1  #  Ensure gap is odd
-    ttp = TRUCK_OR_TRAILER_PERIOD * frequency
+    ttp = TRUCK_OR_TRAILER_PERIOD
+    trailer = ttp+gap
     overall = 2*ttp + gap 
     # check the array is long enough.
     if len(data) < overall:
         raise ValueError, 'Peak curvature called with too short a sample'
-    
+    '''
     steps = len(data)-overall+1
     A = np.vstack([np.arange(ttp), np.ones(ttp)*frequency]).T
 
@@ -799,6 +819,46 @@ def peak_curvature(array, _slice=slice(None), frequency=1):
         measures[step] = abs(m2 - m1)
     
     index = np.ma.argmax(measures) + overall/2
+    '''
+    # Set up working arrays
+    x = np.arange(ttp) + 1 #  The x-axis is always short and constant
+    sx = np.sum(x)
+    r = sx/float(x[-1]) #  
+    trucks = len(data) - ttp#  How many trucks fit this array length?
+
+    sy = np.empty(trucks+1) #  Sigma y
+    sy[0]=np.sum(data[0:ttp])
+
+    sxy = np.empty(trucks+1) #  Sigma x.y
+    sxy[0]=np.sum(data[0:ttp]*x[0:ttp])
+    
+    m = np.empty(trucks) # Resulting least squares slope (best fit y=mx+c)
+
+    #  How many places can the truck and trailer fit into this data set?
+    places=len(data)-overall 
+    #  The angle between the truck and trailer at each place it can fit
+    angle=np.empty(places) 
+    
+    for back in range(trucks):
+        # We compute the parts of the least squares formula, using the
+        # numerator only (the denominator is constant and we're not really
+        # interested in the answer).
+        
+        # As we move the back of the truck forward, the trailer front is a
+        # little way ahead...
+        front = back + ttp
+        sy[back+1] = sy[back] - data [back] + data[front]
+        sxy[back+1] = sxy[back] - sy[back] + ttp*data[front]
+        m[back] = sxy[back] - r*sy[back]
+        # Perhaps we have gone far enough to hook up the trailer as well?
+        if back >= trailer:
+            angle[back-trailer]=abs(m[back] - m[back-trailer])
+    # Normalise array and prepare for masking operations
+    angle=np.ma.array(angle/np.max(np.abs(angle)))
+    # Find peak
+    peak_slice=np.ma.clump_unmasked(np.ma.masked_outside(angle,-0.5,0.5))
+    index = peak_index(angle.data[peak_slice[0]])
+    
     return index + (_slice.start or 0)
     
     
