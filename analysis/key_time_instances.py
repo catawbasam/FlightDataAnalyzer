@@ -66,8 +66,8 @@ class ApproachAndLandingLowestPoint(KeyTimeInstanceNode):
 class ClimbStart(KeyTimeInstanceNode):
     def derive(self, alt_aal=P('Altitude AAL'), climbing=S('Climbing')):
         for climb in climbing:
-            initial_climb_index = index_at_value(alt_aal.array, climb.slice,
-                                                        CLIMB_THRESHOLD)
+            initial_climb_index = index_at_value(alt_aal.array,
+                                                 CLIMB_THRESHOLD, climb.slice)
             # The aircraft may be climbing, but starting from an altitude
             # above CLIMB_THRESHOLD. In this case no kti is created.
             if initial_climb_index:
@@ -212,8 +212,8 @@ class Liftoff(KeyTimeInstanceNode):
     def derive(self, roc=P('Rate Of Climb For Flight Phases'),
               toffs=S('Takeoff')):
         for toff in toffs:
-            lift_index = index_at_value(roc.array, toff.slice, 
-                                              RATE_OF_CLIMB_FOR_LIFTOFF)
+            lift_index = index_at_value(roc.array,
+                                        RATE_OF_CLIMB_FOR_LIFTOFF, toff.slice)
             self.create_kti(lift_index)
             
 
@@ -257,8 +257,8 @@ class Touchdown(KeyTimeInstanceNode):
     # backwards from the runway for greater accuracy.
     def derive(self, roc=P('Rate Of Climb For Flight Phases'), landings=S('Landing')):
         for landing in landings:
-            land_index = index_at_value(roc.array, landing.slice, 
-                                        RATE_OF_CLIMB_FOR_TOUCHDOWN)
+            land_index = index_at_value(roc.array, RATE_OF_CLIMB_FOR_TOUCHDOWN,
+                                        landing.slice)
             self.create_kti(land_index)
 
 
@@ -267,7 +267,8 @@ class LandingTurnOffRunway(KeyTimeInstanceNode):
     # runway, so this KTI is just at the start of that phase.
     def derive(self, landings=S('Landing')):
         for landing in landings:
-            self.create_kti(landing.slice.stop)
+            if landing.slice.stop:
+                self.create_kti(landing.slice.stop)
 
 
 class LandingDecelerationEnd(KeyTimeInstanceNode):
@@ -293,7 +294,7 @@ class AltitudeWhenClimbing(KeyTimeInstanceNode):
             for alt_threshold in self.ALTITUDES:
                 # Will trigger a single KTI per height (if threshold is crossed)
                 # per climbing phase.
-                index = index_at_value(alt_array, climb.slice, alt_threshold)
+                index = index_at_value(alt_array, alt_threshold, climb.slice)
                 if index:
                     self.create_kti(index, altitude=alt_threshold)
 
@@ -316,7 +317,7 @@ class AltitudeWhenDescending(KeyTimeInstanceNode):
                 # per climbing phase.
                 # Q: This will get the first index where the threshold is
                 # crossed. Should we be getting the last?
-                index = index_at_value(alt_array, descend.slice, alt_threshold)
+                index = index_at_value(alt_array, alt_threshold, descend.slice)
                 if index:
                     self.create_kti(index, altitude=alt_threshold)
 
@@ -336,7 +337,7 @@ class AltitudeInApproach(KeyTimeInstanceNode):
             for alt_threshold in self.ALTITUDES:
                 # Will trigger a single KTI per height (if threshold is crossed)
                 # per climbing phase.
-                index = index_at_value(alt_array, approach.slice, alt_threshold)
+                index = index_at_value(alt_array, alt_threshold, approach.slice)
                 if index:
                     self.create_kti(index, altitude=alt_threshold)
 
@@ -358,7 +359,7 @@ class AltitudeInFinalApproach(KeyTimeInstanceNode):
             for alt_threshold in self.ALTITUDES:
                 # Will trigger a single KTI per height (if threshold is crossed)
                 # per climbing phase.
-                index = index_at_value(alt_array, approach.slice, alt_threshold)
+                index = index_at_value(alt_array, alt_threshold, approach.slice)
                 if index:
                     self.create_kti(index, altitude=alt_threshold)
 

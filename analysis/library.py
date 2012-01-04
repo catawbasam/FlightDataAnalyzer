@@ -1,10 +1,10 @@
-import math
 import numpy as np
 
 from collections import OrderedDict, namedtuple
 from datetime import datetime, timedelta
 from hashlib import sha256
 from itertools import izip
+from math import floor
 from scipy.signal import iirfilter, lfilter, lfilter_zi, filtfilt
 
 from settings import REPAIR_DURATION, TRUCK_OR_TRAILER_INTERVAL, TRUCK_OR_TRAILER_PERIOD
@@ -13,26 +13,6 @@ Value = namedtuple('Value', 'index value')
 
 class InvalidDatetime(ValueError):
     pass
-
-#Q: Not sure that there's any point in these? Very easy to define later
-#----------------------------------------------------------------------
-#def offset(data, offset):
-    #return data + offset
-    
-#def plus(self, offset):
-    #self.data = self.data + offset
-    #return self
-
-#def minus(self, offset):
-    #self.data = self.data - offset
-    #return self
-    
-#def plus (self, to_add):
-    #return self.data + shift(self, to_add)
-
-#def times (self, to_multiply):
-    #return self.data * shift(self, to_multiply)
-#----------------------------------------------------------------------
 
 
 def align(slave, master, interval='Subframe', signaltype='Analogue'):
@@ -115,7 +95,7 @@ def align(slave, master, interval='Subframe', signaltype='Analogue'):
     for i in range(int(wm)):
         bracket=(i/r+delta)
         # Interpolate between the hth and (h+1)th samples of the slave array
-        h=int(math.floor(bracket))
+        h=int(floor(bracket))
         h1 = h+1
 
         # Compute the linear interpolation coefficients, b & a
@@ -596,7 +576,7 @@ def interleave_uneven_spacing (param_1, param_2):
     #return straight_array
     return None # to force a test error until this is fixed to prevent extrapolation
 
-def is_index_within_slice(index, slice_):
+def is_index_within_slice(index, _slice):
     '''
     Tests whether index is within the slice.
     
@@ -604,7 +584,7 @@ def is_index_within_slice(index, slice_):
     :type slice_: slice
     :rtype: bool
     '''
-    return slice_.start <= index < slice_.stop
+    return _slice.start <= index < _slice.stop
 
 def is_slice_within_slice(inner_slice, outer_slice):
     '''
@@ -936,7 +916,7 @@ Time functions replaced by index operations for consistency.
 """
 
 
-def index_at_value (array, section, threshold):
+def index_at_value (array, threshold, _slice=slice(None)):
     '''
     This function seeks the moment when the parameter in question first crosses 
     a threshold. It works both forwards and backwards in time. To scan backwards
@@ -948,14 +928,16 @@ def index_at_value (array, section, threshold):
     
     :param array: input data
     :type array: masked array
-    :param section: slice where we want to seek the threshold transit.
-    :type section: slice
+    :param _slice: slice where we want to seek the threshold transit.
+    :type _slice: slice
     :param threshold: the value that we expect the array to cross between scan_start and scan_end.
     :type threshold: float
     :returns: interpolated time when the array values crossed the threshold. (One value only).
     :returns type: float
     '''
-    begin, end, step = int(round(section.start)), int(round(section.stop)), section.step
+    begin = int(round(_slice.start or 0))
+    end = int(round(_slice.stop or len(array)))
+    step = _slice.step or 1
     if abs(begin - end) < 2:
         # Requires at least two values to find if the array crosses a
         # threshold.

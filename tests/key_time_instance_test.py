@@ -204,27 +204,6 @@ class TestAltitudeWhenClimbing(unittest.TestCase):
         )
 
 
-##class AltitudeInApproach(KeyTimeInstanceNode):
-    ##'''
-    ##Creates KTIs at certain altitudes when the aircraft is in the approach phase.
-    ##'''
-    ##NAME_FORMAT = '%(altitude)d Ft In Approach'
-    ##ALTITUDES = [1000, 1500, 2000, 3000]
-    ##NAME_VALUES = {'altitude': ALTITUDES}
-    
-    ##def derive(self, approaches=S('Approach And Landing'),
-               ##alt_aal=P('Altitude AAL')):
-        ##alt_array = hysteresis(alt_aal.array, 10)
-        ##for approach in approaches:
-            ##for alt_threshold in self.ALTITUDES:
-                ### Will trigger a single KTI per height (if threshold is crossed)
-                ### per climbing phase.
-                ##index = index_at_value(alt_array, approach.slice, alt_threshold)
-                ##if index:
-                    ##self.create_kti(index, altitude=alt_threshold)
-
-
-
 class TestAltitudeInApproach(unittest.TestCase):
     def test_can_operate(self):
         self.assertEqual(AltitudeInApproach.get_operational_combinations(),

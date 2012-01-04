@@ -588,36 +588,41 @@ class TestIndexAtValue(unittest.TestCase):
 
     def test_index_at_value_basic(self):
         array = np.ma.arange(4)
-        self.assertEquals (index_at_value(array, slice(0, 3), 1.5), 1.5)
+        self.assertEquals (index_at_value(array, 1.5, slice(0, 3)), 1.5)
+        
+    def test_index_at_value_no_slice(self):
+        array = np.ma.arange(4)
+        self.assertEquals (index_at_value(array, 1.5), 1.5)
+        self.assertEquals (index_at_value(array, 1.5, slice(None, None, None)), 1.5)
         
     def test_index_at_value_backwards(self):
         array = np.ma.arange(8)
-        self.assertEquals (index_at_value(array, slice(6, 2, -1), 3.2), 3.2)
+        self.assertEquals (index_at_value(array, 3.2, slice(6, 2, -1)), 3.2)
 
     def test_index_at_value_backwards_with_negative_values_a(self):
         array = np.ma.arange(8)*(-1.0)
-        self.assertEquals (index_at_value(array, slice(6, 2, -1), -3.2), 3.2)
+        self.assertEquals (index_at_value(array, -3.2, slice(6, 2, -1)), 3.2)
         
     def test_index_at_value_backwards_with_negative_values_b(self):
         array = np.ma.arange(8)-10
-        self.assertEquals (index_at_value(array, slice(6, 2, -1), -5.2), 4.8)
+        self.assertEquals (index_at_value(array, -5.2, slice(6, 2, -1)), 4.8)
 
     def test_index_at_value_right_at_start(self):
         array = np.ma.arange(4)
-        self.assertEquals (index_at_value(array, slice(1, 3), 1.0), 1.0)
+        self.assertEquals (index_at_value(array, 1.0, slice(1, 3)), 1.0)
                            
     def test_index_at_value_right_at_end(self):
         array = np.ma.arange(4)
-        self.assertEquals (index_at_value(array, slice(1, 4), 3.0), 3.0)
+        self.assertEquals (index_at_value(array, 3.0, slice(1, 4)), 3.0)
         
     def test_index_at_value_threshold_not_crossed(self):
         array = np.ma.arange(4)
-        self.assertEquals (index_at_value(array, slice(0, 3), 7.5), None)
+        self.assertEquals (index_at_value(array, 7.5, slice(0, 3)), None)
         
     def test_index_at_value_masked(self):
         array = np.ma.arange(4)
         array[1] = np.ma.masked
-        self.assertEquals (index_at_value(array, slice(0, 3), 1.5), None)
+        self.assertEquals (index_at_value(array, 1.5, slice(0, 3)), None)
     
     def test_index_at_value_slice_too_small(self):
         '''
@@ -625,10 +630,7 @@ class TestIndexAtValue(unittest.TestCase):
         cross a threshold.
         '''
         array = np.ma.arange(50)
-        self.assertEqual(index_at_value(array, slice(25,26), 25),
-                         None)
-        
-        
+        self.assertEqual(index_at_value(array, 25, slice(25,26)), None)
       
  
 class TestInterleave(unittest.TestCase):

@@ -1,7 +1,7 @@
-import inspect
 import logging
 
 from datetime import datetime, timedelta
+from inspect import isclass
 
 from analysis import settings
 from analysis.dependency_graph import dependency_order
@@ -63,9 +63,9 @@ def derive_parameters(hdf, node_mgr, process_order):
     :type process_order: list of strings
     """
     params = {} # store all derived params that aren't masked arrays
-    kpv_list = [] # duplicate storage, but maintaining types
-    kti_list = []
-    section_list = []  # 'Node Name' : node()  pass in node.get_accessor()
+    kpv_list = KeyPointValueNode() # duplicate storage, but maintaining types
+    kti_list = KeyTimeInstanceNode()
+    section_list = SectionNode()  # 'Node Name' : node()  pass in node.get_accessor()
     flight_attrs = []
     
     nodes_not_implemented = []
@@ -164,7 +164,7 @@ def get_derived_nodes(module_names):
     """ Get all nodes into a dictionary
     """
     def isclassandsubclass(value, classinfo):
-        return inspect.isclass(value) and issubclass(value, classinfo)
+        return isclass(value) and issubclass(value, classinfo)
 
     nodes = {}
     for name in module_names:
@@ -260,6 +260,7 @@ def process_flight(hdf_path, aircraft_info, start_datetime=datetime.now(), achie
         kpv_list = _timestamp(start_datetime, kpv_list)
         
     if draw:
+        # only import if required
         from analysis.plot_flight import plot_flight
         plot_flight(hdf_path, kti_list, kpv_list, section_list)
         

@@ -40,22 +40,22 @@ class Airborne(FlightPhaseNode):
             midpoint = (speedy.slice.start + speedy.slice.stop) / 2
             # Scan through the first half to find where the aircraft first
             # flies upwards
-            up = index_at_value(roc.array, slice(speedy.slice.start,midpoint),
-                                +RATE_OF_CLIMB_FOR_LEVEL_FLIGHT)
+            up = index_at_value(roc.array, +RATE_OF_CLIMB_FOR_LEVEL_FLIGHT,
+                                slice(speedy.slice.start,midpoint))
             if not up:
                 # The aircraft can have been airborne at the start of this
                 # segment. If it goes down during this half of the data we
                 # can assume it was airborne at the start of the segment.
-                if index_at_value(roc.array, slice(speedy.slice.start,midpoint), 
-                                  -RATE_OF_CLIMB_FOR_LEVEL_FLIGHT):
+                if index_at_value(roc.array, -RATE_OF_CLIMB_FOR_LEVEL_FLIGHT,
+                                  slice(speedy.slice.start,midpoint)):
                     up = speedy.slice.start
             # Scan backwards through the latter half to find where the
             # aircraft last descends.
-            down = index_at_value(roc.array, slice(speedy.slice.stop,midpoint,-1), 
-                                  -RATE_OF_CLIMB_FOR_LEVEL_FLIGHT)
+            down = index_at_value(roc.array, -RATE_OF_CLIMB_FOR_LEVEL_FLIGHT,
+                                  slice(speedy.slice.stop,midpoint,-1))
             if not down:
-                if index_at_value(roc.array, slice(speedy.slice.stop,midpoint,-1), 
-                                  +RATE_OF_CLIMB_FOR_LEVEL_FLIGHT):
+                if index_at_value(roc.array, +RATE_OF_CLIMB_FOR_LEVEL_FLIGHT,
+                                  slice(speedy.slice.stop,midpoint,-1)):
                     down = speedy.slice.stop
             if up and down:
                 self.create_phase(slice(up,down))
@@ -456,8 +456,8 @@ class Takeoff(FlightPhaseNode):
             # If he took more than 5 minutes on the runway we're not interested!
             first = takeoff_run - 300*head.frequency
             takeoff_begin = index_at_value(np.ma.abs(head.array-datum),
-                                          slice(first, takeoff_run, None),
-                                          HEADING_TURN_ONTO_RUNWAY)
+                                          HEADING_TURN_ONTO_RUNWAY,
+                                          slice(first, takeoff_run))
 
             #-------------------------------------------------------------------
             # Find the end of the takeoff phase as we climb through 35ft.
@@ -467,13 +467,13 @@ class Takeoff(FlightPhaseNode):
             if alt_rad:
                 last = takeoff_run + 300*alt_rad.frequency
                 takeoff_end = index_at_value(alt_rad.array,
-                                             slice(takeoff_run, last, None),
-                                             INITIAL_CLIMB_THRESHOLD)
+                                             INITIAL_CLIMB_THRESHOLD,
+                                             slice(takeoff_run, last))
             else:
                 last = takeoff_run + 300*alt_aal.frequency
                 takeoff_end = index_at_value(alt_aal.array,
-                                             slice(takeoff_run, last, None),
-                                             INITIAL_CLIMB_THRESHOLD)
+                                             INITIAL_CLIMB_THRESHOLD,
+                                             slice(takeoff_run, last))
  
             #-------------------------------------------------------------------
             # Create a phase for this takeoff
@@ -512,18 +512,18 @@ class Landing(FlightPhaseNode):
             if alt_rad:
                 first = landing_run - 300*alt_rad.frequency
                 landing_begin = index_at_value(alt_rad.array,
-                                            slice(first, landing_run, None),
-                                            LANDING_THRESHOLD_HEIGHT)
+                                            LANDING_THRESHOLD_HEIGHT,
+                                            slice(first, landing_run))
             else:
                 first = landing_run - 300*alt_aal.frequency
                 landing_begin = index_at_value(alt_aal.array,
-                                              slice(first, landing_run, None),
-                                              LANDING_THRESHOLD_HEIGHT)
+                                              LANDING_THRESHOLD_HEIGHT,
+                                              slice(first, landing_run))
  
             last = landing_run + 300*head.frequency
             landing_end = index_at_value(np.ma.abs(head.array-datum),
-                                         slice(landing_run, last, None),
-                                         HEADING_TURN_OFF_RUNWAY)
+                                         HEADING_TURN_OFF_RUNWAY,
+                                         slice(landing_run, last))
 
             self.create_phases([slice(landing_begin, landing_end)])
 #===============================================================================

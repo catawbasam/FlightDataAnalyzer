@@ -383,7 +383,6 @@ class Eng_N1MaxDurationUnder60PercentAfterTouchdown(KeyPointValueNode): ##was na
     
     @classmethod
     def can_operate(cls, available):
-        ##if 'On Ground' in available and\
         if 'Touchdown' in available\
            and 'Eng (*) Stop' in available\
            and ('Eng (1) N1' in available\
@@ -399,9 +398,7 @@ class Eng_N1MaxDurationUnder60PercentAfterTouchdown(KeyPointValueNode): ##was na
                eng2=P('Eng (2) N1'),
                eng3=P('Eng (3) N1'),
                eng4=P('Eng (4) N1'),
-               ##gnd=S('On Ground'), -- TODO: future improvement, ensure we're on the ground!
-               tdwn=KTI('Touchdown'), 
-               engines_stop=KTI('Eng (*) Stop')):
+               tdwn=KTI('Touchdown'), engines_stop=KTI('Eng (*) Stop')):
                 
         for eng_num, eng in enumerate((eng1,eng2,eng3,eng4), start=1):
             if eng is None:
