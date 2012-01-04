@@ -763,12 +763,7 @@ class TestTakeoffRunway(unittest.TestCase):
 
 class TestFlightType(unittest.TestCase):
     def test_can_operate(self):
-
         self.assertEqual(FlightType.get_operational_combinations(),
-                         [('Fast', 'Liftoff', 'Touchdown'),
-                          ('AFR Type', 'Fast', 'Liftoff', 'Touchdown')])
-
-        self.assertEqual(Type.get_operational_combinations(),
           [('Fast', 'Liftoff', 'Touchdown'),
            ('AFR Type', 'Fast', 'Liftoff', 'Touchdown'),
            ('Fast', 'Liftoff', 'Touchdown', 'Touch And Go'),

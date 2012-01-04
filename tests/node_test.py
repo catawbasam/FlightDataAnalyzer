@@ -572,13 +572,16 @@ class TestKeyPointValueNode(unittest.TestCase):
         
     def test_create_kpvs_at_ktis(self):
         knode = self.knode
-        array = np.ma.arange(10)
-        array[3:7] = np.ma.masked
+        param = P('Param', np.ma.arange(10))
+        # value_at_time will interpolate masked values.
+        param.array[3:7] = np.ma.masked
         ktis = KTI('KTI', items=[KeyTimeInstance(i, 'a') for i in range(0,10,2)])
-        knode.create_kpvs_at_ktis(array, ktis)
-        self.assertEqual(knode,
+        knode.create_kpvs_at_ktis(param, ktis)
+        self.assertEqual(list(knode),
                          [KeyPointValue(index=0, value=0, name='Kpv'),
                           KeyPointValue(index=2, value=2, name='Kpv'),
+                          KeyPointValue(index=4, value=4, name='Kpv'),
+                          KeyPointValue(index=6, value=6, name='Kpv'),
                           KeyPointValue(index=8, value=8, name='Kpv')])
     
     def test_get_aligned(self):
@@ -808,3 +811,51 @@ class TestDerivedParameterNode(unittest.TestCase):
         # ... it would be misleading to use interpolation.
         self.assertRaises(ValueError, spd.at, 0)
         self.assertRaises(ValueError, spd.at, 11)
+        
+    @mock.patch('analysis.node.slices_above')
+    def test_slices_above(self, slices_above):
+        '''
+        Ensure slices_above is called with the expected arguments.
+        '''
+        array = np.ma.arange(10)
+        slices_above.return_value = (array, [slice(0,10)])
+        param = DerivedParameterNode('Param', array=array)
+        slices = param.slices_above(5)
+        self.assertEqual(slices_above.call_args, ((array, 5), {}))
+        self.assertEqual(slices, slices_above.return_value[1])
+        
+    @mock.patch('analysis.node.slices_below')
+    def test_slices_below(self, slices_below):
+        '''
+        Ensure slices_below is called with the expected arguments.
+        '''
+        array = np.ma.arange(10)
+        slices_below.return_value = (array, [slice(0,10)])
+        param = DerivedParameterNode('Param', array=array)
+        slices = param.slices_below(5)
+        self.assertEqual(slices_below.call_args, ((array, 5), {}))
+        self.assertEqual(slices, slices_below.return_value[1]) 
+    
+    @mock.patch('analysis.node.slices_between')
+    def test_slices_between(self, slices_between):
+        '''
+        Ensure slices_between is called with the expected arguments.
+        '''
+        array = np.ma.arange(10)
+        slices_between.return_value = (array, [slice(0, 10)])
+        param = DerivedParameterNode('Param', array=array)
+        slices = param.slices_between(5, 15)
+        self.assertEqual(slices_between.call_args, ((array, 5, 15), {}))
+        self.assertEqual(slices, slices_between.return_value[1])
+    
+    @mock.patch('analysis.node.slices_from_to')
+    def test_slices_from_to(self, slices_from_to):
+        '''
+        Ensure slices_from_to is called with the expected arguments.
+        '''
+        array = np.ma.arange(10)
+        slices_from_to.return_value = (array, [slice(0, 10)])
+        param = DerivedParameterNode('Param', array=array)
+        slices = param.slices_from_to(5, 15)
+        self.assertEqual(slices_from_to.call_args, ((array, 5, 15), {}))
+        self.assertEqual(slices, slices_from_to.return_value[1])

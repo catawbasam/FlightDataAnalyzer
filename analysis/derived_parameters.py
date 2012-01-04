@@ -95,9 +95,9 @@ class AccelerationSideways(DerivedParameterNode):
 
 
 """
-===============================================================================
+-------------------------------------------------------------------------------
 Superceded by Truck and Trailer analysis of airspeed during takeoff and landing
-===============================================================================
+-------------------------------------------------------------------------------
 class AccelerationForwardsForFlightPhases(DerivedParameterNode):
     # List the minimum acceptable parameters here
     @classmethod
@@ -130,9 +130,9 @@ class AccelerationForwardsForFlightPhases(DerivedParameterNode):
             # Tacky smoothing to see how it works. TODO fix !
             roc_aspd = rate_of_change(aspd,1.5) * KTS_TO_FPS/GRAVITY
             self.array =  roc_aspd 
-===============================================================================
+-------------------------------------------------------------------------------
 Superceded by Truck and Trailer analysis of airspeed during takeoff and landing
-===============================================================================
+-------------------------------------------------------------------------------
 """
             
 
@@ -159,8 +159,10 @@ class AirspeedTrue(DerivedParameterNode):
 class AltitudeAAL(DerivedParameterNode):
     # Dummy for testing DJ TODO: Replace with one that takes radio altitude and local minima into account.
     name = 'Altitude AAL'
-    def derive(self, alt_std=P('Altitude AAL For Flight Phases')):
-        self.array = alt_std.array
+    def derive(self, alt_aal=P('Altitude AAL For Flight Phases')):# alt_std=P('Altitude STD'), alt_rad=P('Altitude Radio')):
+        # TODO: This is a hack! Implement separate derive method for Altitude
+        # AAL.
+        self.array = alt_aal.array
 
     
 class AltitudeAALForFlightPhases(DerivedParameterNode):
@@ -174,7 +176,7 @@ class AltitudeAALForFlightPhases(DerivedParameterNode):
         self.array = np.ma.zeros(len(alt_std.array))
         
         repair_mask(alt_std.array) # Remove small sections of corrupt data
-        ##print 'fast, len(alt_std)', fast, len(alt_std.array)
+        ##print 'fast, len(alt_std), alt_std.offset', fast, len(alt_std.array), alt_std.offset
         for speedy in fast:
             begin = speedy.slice.start
             end = speedy.slice.stop
@@ -777,10 +779,7 @@ class RateOfClimb(DerivedParameterNode):
         # List the minimum required parameters. If 'Altitude Radio For Flight
         # Phases' is available, that's a bonus and we will use it, but it is
         # not required.
-        if 'Altitude STD' in available:
-            return True
-        else:
-            return False
+        return 'Altitude STD' in available
     
     def derive(self, 
                az = P('Acceleration Vertical'),
