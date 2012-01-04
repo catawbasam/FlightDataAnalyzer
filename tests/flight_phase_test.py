@@ -476,14 +476,16 @@ class TestFinalApproach(unittest.TestCase):
 
 class TestLanding(unittest.TestCase):
     def test_can_operate(self):
-        expected = [('Heading Continuous','Altitude AAL For Flight Phases', 'Fast')]
+        expected = [('Heading Continuous','Altitude AAL For Flight Phases', 'Fast'), 
+                    ('Heading Continuous','Altitude AAL For Flight Phases', 
+                     'Fast', 'Altitude Radio For Phases')]
         opts = Landing.get_operational_combinations()
         self.assertEqual(opts, expected)
 
     def test_landing_basic(self):
-        head = np.ma.array([ 20,20,20,20,20,20,20,20,10,0])
-        ias  = np.ma.array([110,110,110,110,80,50,30,20,10,10])
-        alt_aal = np.ma.array([80,40,20,5,0,0,0,0,0,0])
+        head = np.ma.array([20]*8+[10,0])
+        ias  = np.ma.array([110]*4+[80,50,30,20,10,10])
+        alt_aal = np.ma.array([80,40,20,5]+[0]*6)
         phase_fast = Fast()
         phase_fast.derive(P('Airspeed',ias))
         landing = Landing()
@@ -494,9 +496,9 @@ class TestLanding(unittest.TestCase):
         self.assertEqual(landing, expected)
         
     def test_landing_with_rad_alt(self):
-        head = np.ma.array([ 20,20,20,20,20,20,20,20,10,0])
-        ias  = np.ma.array([110,110,110,110,80,50,30,20,10,10])
-        alt_aal = np.ma.array([80,40,20,5,0,0,0,0,0,0])
+        head = np.ma.array([20]*8+[10,0])
+        ias  = np.ma.array([110]*4+[80,50,30,20,10,10])
+        alt_aal = np.ma.array([80,40,20,5]+[0]*6)
         alt_rad = alt_aal - 4
         phase_fast = Fast()
         phase_fast.derive(P('Airspeed',ias))
@@ -508,7 +510,33 @@ class TestLanding(unittest.TestCase):
         expected = [Section(name='Landing', slice=slice(0.65, 8.5, None))]
         self.assertEqual(landing, expected)
         
-
+    def test_landing_turnoff(self):
+        head = np.ma.array([20]*15+[10]*13)
+        ias  = np.ma.array([110]*4+[80,50,40,30,20]+[10]*21)
+        alt_aal = np.ma.array([80,40,20,5]+[0]*26)
+        phase_fast = Fast()
+        phase_fast.derive(P('Airspeed',ias))
+        landing = Landing()
+        landing.derive(P('Heading Continuous',head),
+                       P('Altitude AAL For Flight Phases',alt_aal),
+                       phase_fast, None)
+        expected = [Section(name='Landing', slice=slice(0.75, 14, None))]
+        self.assertEqual(list(landing), expected)
+        
+    def test_landing_turnoff_left(self):
+        head = np.ma.array([4]*15+[-5]*13)
+        ias  = np.ma.array([110]*4+[80,50,40,30,20]+[10]*21)
+        alt_aal = np.ma.array([80,40,20,5]+[0]*26)
+        phase_fast = Fast()
+        phase_fast.derive(P('Airspeed',ias))
+        landing = Landing()
+        landing.derive(P('Heading Continuous',head),
+                       P('Altitude AAL For Flight Phases',alt_aal),
+                       phase_fast, None)
+        expected = [Section(name='Landing', slice=slice(0.75, 14, None))]
+        self.assertEqual(list(landing), expected)
+        
+        
 class TestLevelFlight(unittest.TestCase):
     def test_can_operate(self):
         expected = [('Rate Of Climb For Flight Phases','Airborne')]
@@ -562,10 +590,14 @@ class TestOnGround(unittest.TestCase):
 
 class TestTakeoff(unittest.TestCase):
     def test_can_operate(self):
-        expected = [('Fast','Heading Continuous', 
-                     'Altitude AAL For Flight Phases')]
+        expected = [('Heading Continuous', 
+                     'Altitude AAL For Flight Phases','Fast'),
+                    ('Heading Continuous',
+                     'Altitude AAL For Flight Phases','Fast',
+                     'Altitude Radio For Phases')
+                    ]
         opts = Takeoff.get_operational_combinations()
-        self.assertEqual(opts, expected)
+        self.assertEqual(list(opts), expected)
 
     def test_takeoff_basic(self):
         head = np.ma.array([ 0,10,20,20,20,20,20,20,20,20])
@@ -601,31 +633,30 @@ class TestTurning(unittest.TestCase):
         self.assertEqual(opts, expected)
 
     def test_turning_phase_basic(self):
-        rate_of_turn_data = np.arange(-2, 2.2, 0.2)
+        rate_of_turn_data = np.arange(-4, 4.4, 0.4)
         rate_of_turn = Parameter('Rate Of Turn', np.ma.array(rate_of_turn_data))
         turning = Turning()
         turning.derive(rate_of_turn)
-        expected = [Section(name='Turning', slice=slice(0, 3, None)),
-                  Section(name='Turning', slice=slice(18, 21, None))]
+        expected = [Section(name='Turning', slice=slice(0, 7, None)),
+                  Section(name='Turning', slice=slice(14, 21, None))]
         self.assertEqual(turning, expected)
         
     def test_turning_phase_basic_masked_not_turning(self):
-        rate_of_turn_data = np.ma.arange(-2, 2.2, 0.2)
+        rate_of_turn_data = np.ma.arange(-4, 4.4, 0.4)
         rate_of_turn_data[10] = np.ma.masked
         rate_of_turn = Parameter('Rate Of Turn', rate_of_turn_data)
         turning = Turning()
         turning.derive(rate_of_turn)
-        expected = [Section(name='Turning', slice=slice(0, 3, None)),
-                  Section(name='Turning', slice=slice(18, 21, None))]
+        expected = [Section(name='Turning', slice=slice(0, 7, None)),
+                  Section(name='Turning', slice=slice(14, 21, None))]
         self.assertEqual(turning, expected)
         
     def test_turning_phase_basic_masked_while_turning(self):
-        rate_of_turn_data = np.ma.arange(-2, 2.2, 0.2)
+        rate_of_turn_data = np.ma.arange(-4, 4.4, 0.4)
         rate_of_turn_data[1] = np.ma.masked
         rate_of_turn = Parameter('Rate Of Turn', rate_of_turn_data)
         turning = Turning()
         turning.derive(rate_of_turn)
-        expected = [Section(name='Turning', slice=slice(0, 1, None)),
-                  Section(name='Turning', slice=slice(2, 3, None)),
-                  Section(name='Turning', slice=slice(18, 21, None))]
+        expected = [Section(name='Turning', slice=slice(0, 7, None)),
+                  Section(name='Turning', slice=slice(14, 21, None))]
         self.assertEqual(turning, expected)

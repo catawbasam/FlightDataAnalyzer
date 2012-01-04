@@ -726,7 +726,7 @@ def peak_curvature(array, frequency=1):
     """
     gap = TRUCK_OR_TRAILER_INTERVAL * frequency
     if gap%2-1:
-      gap-=1  #  Ensure gap is odd
+        gap-=1  #  Ensure gap is odd
     ttp = TRUCK_OR_TRAILER_PERIOD * frequency
     overall = 2*ttp + gap 
     # check the array is long enough.
@@ -738,11 +738,11 @@ def peak_curvature(array, frequency=1):
 
     # Keep the answers in an array of measurements
     measures = np.zeros(steps)
-    
-    for step in range(steps):
+           
+    for step in xrange(steps):
         m1, c1 = np.linalg.lstsq(A, array[step:step+ttp])[0]
         m2, c2 = np.linalg.lstsq(A, array[step+ttp+gap:step+ttp+gap+ttp])[0]
-        measures[step] = m2-m1
+        measures[step] = abs(m2 - m1)
         
     return np.argmax(measures)+overall/2
     
@@ -803,6 +803,21 @@ def repair_mask(array):
                                        [array.data[section.start - 1],
                                         array.data[section.stop]])
     return array
+   
+
+def shift_slices(slicelist, offset):
+    """
+    This function shifts a list of slices by offset. The need for this arises
+    when a phase condition has been used to limit the scope of another phase
+    calculation.
+    """
+    newlist = []
+    for each_slice in slicelist:
+        a = each_slice.start + offset
+        b = each_slice.stop + offset
+        newlist.append(slice(a,b))
+    return newlist
+
             
 def straighten_headings(heading_array):
     '''

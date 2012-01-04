@@ -51,17 +51,6 @@ class AirspeedMax(KeyPointValueNode):
             
 
 class HeadingAtTakeoff(KeyPointValueNode):
-    '''
-    The takeoff has been found already, including a little of the turn onto
-    the runway and a little of the flight post takeoff.
-    
-    def derive(self, speedies=S('Fast'), head=P('Heading Continuous')):
-        for speedy in speedies:
-            midpoint = toff.slice.start #  The aircraft is accelerating on the runway
-            toff_head = head.array[midpoint]
-            self.create_kpv(midpoint, toff_head%360.0)
-    '''
-
     def derive(self, toffs=KTI('Takeoff Peak Acceleration'), 
                head=P('Heading Continuous')):
         for toff in toffs:
@@ -145,9 +134,7 @@ class HeadingAtLanding(KeyPointValueNode):
             # Scanning 10 seconds around this point allows for short periods of
             # corrupt data during the takeoff run.
             self.create_kpv(land.index, land_head%360.0)
-            self.create_kpv(land.index, head.array[land.index]%360.0)
-
-
+            
 class HeadingAtLowPointOnApproach(KeyPointValueNode):
     """
     The approach phase has been found already. Here we take the heading at
