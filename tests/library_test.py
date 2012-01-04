@@ -947,30 +947,35 @@ class TestRepairMask(unittest.TestCase):
     def test_repair_mask_basic(self):
         array = np.ma.arange(10)
         array[3] = np.ma.masked
+        self.assertTrue(np.ma.is_masked(array[3]))
         array[6:8] = np.ma.masked
-        repair_mask(array)
-        np.testing.assert_array_equal(array.data,range(10))
+        res = repair_mask(array)
+        np.testing.assert_array_equal(res.data,range(10))
+        # test mask is now unmasked
+        self.assertFalse(np.ma.is_masked(res[3]))
+        self.assertFalse(np.ma.is_masked(res[4]))
+        self.assertFalse(np.ma.is_masked(res[5]))
+        self.assertFalse(np.ma.is_masked(res[6]))
+        self.assertFalse(np.ma.is_masked(res[7]))
+        self.assertFalse(np.ma.is_masked(res[8]))
         
     def test_repair_mask_too_much_invalid(self):
         array = np.ma.arange(20)
         array[4:15] = np.ma.masked
-        unchanged = array
-        repair_mask(array)
-        ma_test.assert_masked_array_approx_equal(array, unchanged)
+        res = repair_mask(array)
+        ma_test.assert_masked_array_approx_equal(res, array)
         
     def test_repair_mask_not_at_start(self):
         array = np.ma.arange(10)
         array[0] = np.ma.masked
-        unchanged = array
-        repair_mask(array)
-        ma_test.assert_masked_array_approx_equal(array, unchanged)
+        res = repair_mask(array)
+        ma_test.assert_masked_array_approx_equal(res, array)
         
     def test_repair_mask_not_at_end(self):
         array = np.ma.arange(10)
         array[9] = np.ma.masked
-        unchanged = array
-        repair_mask(array)
-        ma_test.assert_masked_array_approx_equal(array, unchanged)
+        res = repair_mask(array)
+        ma_test.assert_masked_array_approx_equal(res, array)
 
 
 class TestSlicesAbove(unittest.TestCase):

@@ -109,7 +109,8 @@ class Node(object):
             return cls.name
         else:
             # Create name from Class if name not specified!
-            return get_verbose_name(cls.__name__).title()
+            cls.name = get_verbose_name(cls.__name__).title()
+            return cls.name
     
     @classmethod
     def get_dependency_names(cls):
@@ -118,7 +119,7 @@ class Node(object):
         # TypeError:'ABCMeta' object is not iterable?
         # this probably means dependencies for this class isn't a list!
         params = get_param_kwarg_names(cls.derive)
-        return [d.name or d.get_name() for d in params]
+        return [d.get_name() for d in params]
     
     @classmethod
     def can_operate(cls, available):

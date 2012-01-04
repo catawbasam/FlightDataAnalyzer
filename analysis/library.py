@@ -615,22 +615,40 @@ def is_index_within_slice(index, _slice):
     Tests whether index is within the slice.
     
     :type index: int or float
-    :type slice_: slice
+    :type _slice: slice
     :rtype: bool
     '''
+    if _slice.start is None and _slice.stop is None:
+        return True
+    elif _slice.start is None:
+        return index < _slice.stop
+    elif _slice.stop is None:
+        return index >= _slice.start
     return _slice.start <= index < _slice.stop
 
 def is_slice_within_slice(inner_slice, outer_slice):
     '''
-    Tests whether inner_slice is within the outer slice.
+    Tests whether inner_slice is within the outer_slice. inner_slice is
+    considered to not be within outer slice if its start or stop is None.
     
     :type inner_slice: slice
     :type outer_slice: slice
     :rtype: bool
     '''
-    start_within = outer_slice.start <= inner_slice.start <= outer_slice.stop
-    stop_within = outer_slice.start <= inner_slice.stop <= outer_slice.stop
-    return start_within and stop_within
+    if outer_slice.start is None and outer_slice.stop is None:
+        return True
+    elif inner_slice.start is None and outer_slice.start is not None:
+        return False
+    elif inner_slice.stop is None and outer_slice.stop is not None:
+        return False
+    elif inner_slice.start is None and outer_slice.start is None:
+        return inner_slice.stop < outer_slice.stop
+    elif outer_slice.stop is None and outer_slice.stop is None:
+        return inner_slice.start >= outer_slice.start
+    else:
+        start_within = outer_slice.start <= inner_slice.start <= outer_slice.stop
+        stop_within = outer_slice.start <= inner_slice.stop <= outer_slice.stop
+        return start_within and stop_within
 
 def _value(array, _slice, operator):
     """
@@ -706,7 +724,8 @@ def max_abs_value(array, _slice=slice(None)):
     
 def max_value(array, _slice=slice(None)):
     """
-    Get the maximum value in the array and its index.
+    Get the maximum value in the array and its index relative to the array and
+    not the _slice argument.
     
     :param array: masked array
     :type array: np.ma.array
@@ -853,6 +872,86 @@ def shift_slices(slicelist, offset):
         b = each_slice.stop + offset
         newlist.append(slice(a,b))
     return newlist
+
+
+def slices_above(array, value):
+    '''
+    Repairs the mask to avoid a large number of slices being created.
+    
+    :param array:
+    :type array: np.ma.masked_array
+    :param value: Value to create slices above.
+    :type value: float or int
+    :returns: Slices where the array is above a certain value.
+    :rtype: list of slice
+    '''
+    if len(array) == 0:
+        return array, []
+    repaired_array = repair_mask(array)
+    band = np.ma.masked_less(repaired_array, value)
+    slices = np.ma.clump_unmasked(band)
+    return repaired_array, slices
+
+def slices_below(array, value):
+    '''
+    Repairs the mask to avoid a large number of slices being created.
+    
+    :param array:
+    :type array: np.ma.masked_array
+    :param value: Value to create slices below.
+    :type value: float or int
+    :returns: Slices where the array is below a certain value.
+    :rtype: list of slice
+    '''
+    if len(array) == 0:
+        return array, []
+    repaired_array = repair_mask(array)
+    band = np.ma.masked_greater(repaired_array, value)
+    slices = np.ma.clump_unmasked(band)
+    return repaired_array, slices
+
+def slices_between(array, min_, max_):
+    '''
+    Repairs the mask to avoid a large number of slices being created.
+    
+    :param array:
+    :type array: np.ma.masked_array
+    :param min_: Minimum value within slices.
+    :type min_: float or int
+    :param max_: Maximum value within slices.
+    :type max_: float or int
+    :returns: Slices where the array is above a certain value.
+    :rtype: list of slice
+    '''
+    if len(array) == 0:
+        return array, []
+    repaired_array = repair_mask(array)
+    # Slice through the array at the top and bottom of the band of interest
+    band = np.ma.masked_outside(repaired_array, min_, max_)
+    # Group the result into slices - note that the array is repaired and
+    # therefore already has small masked sections repaired, so no allowance
+    # is needed here for minor data corruptions.
+    slices = np.ma.clump_unmasked(band)
+    return repaired_array, slices
+
+def slices_from_to(array, from_, to):
+    '''
+    Only includes slices where the value in the array at start is less than stop,
+    therefore the slice is assumed to be ascending. Q: An ascent followed
+    by a smaller descent between from_ and to_ will all be included, not only
+    the ascent.
+    '''
+    if len(array) == 0:
+        return array, []
+    rep_array, slices = slices_between(array, from_, to)
+    if from_ > to:
+        condition = lambda s: rep_array[s.start] > rep_array[s.stop-1]
+    elif from_ < to:
+        condition = lambda s: rep_array[s.start] < rep_array[s.stop-1]
+    else:
+        raise ValueError('From and to values should not be equal.')
+    filtered_slices = filter(condition, slices)
+    return rep_array, filtered_slices
 
             
 def straighten_headings(heading_array):
