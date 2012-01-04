@@ -9,7 +9,6 @@ from analysis.process_flight import process_flight, derive_parameters, get_deriv
 
 from analysis.node import KeyPointValueNode, P, KeyTimeInstanceNode, S
 from analysis.library import value_at_time
-from analysis.key_time_instances import TriggerPassiveNodes
 from analysis.plot_flight import plot_flight
 
 import itertools
@@ -107,6 +106,7 @@ class TestProcessFlight(unittest.TestCase):
         from analysis.plot_flight import csv_flight_details
         csv_flight_details(hdf_path, res['kti'], res['kpv'], res['phases'])
         plot_flight(hdf_path, res['kti'], res['kpv'], res['phases'])
+        #TODO: Further assertions on the results!
     
     def test_146_301(self):
         hdf_path = "test_data/4_3377853_146-301.005.hdf5"
@@ -117,7 +117,8 @@ class TestProcessFlight(unittest.TestCase):
                    'Tail Number': 'G-ABCD',
                    }
         res = process_flight(hdf_path, ac_info, draw=True)
-        self.assertEqual(len(res), 3)
+        self.assertEqual(len(res), 4)
+        #TODO: Further assertions on the results!
     
     @unittest.skip('Not Implemented')
     def test_get_required_params(self):

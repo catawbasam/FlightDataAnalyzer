@@ -178,9 +178,6 @@ def csv_flight_details(hdf_path, kti_list, kpv_list, phase_list, dest_path=None)
             # add optional attributes
             [vals.append(getattr(value, attr, None)) for attr in attrs]
             
-            """
-            Fails: AttributeError: 'DerivedParameterNode' object has no attribute 'at'
-            
             # add associated parameter information
             for param in params:
                 try:
@@ -201,13 +198,14 @@ def csv_flight_details(hdf_path, kti_list, kpv_list, phase_list, dest_path=None)
                 # add associated parameter information
                 for param in params:
                     try:
-                        vals.append( hdf[param].at(index) )
+                        p = hdf[param]
+                        dp = DerivedParameterNode(name=p.name, array=p.array, 
+                                        frequency=p.frequency, offset=p.offset)
+                        vals.append( dp.at(index) )
                     except (KeyError, ValueError, IndexError):
                         vals.append(None)
                 rows.append( vals )
-            """
-            rows.append( vals )
-
+            #endif
 
             
     with hdf_file(hdf_path) as hdf:

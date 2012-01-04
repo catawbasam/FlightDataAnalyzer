@@ -1,10 +1,11 @@
 import unittest
-from mock import Mock
+from mock import Mock, patch
 import numpy as np
 
 from analysis.node import (KeyTimeInstance, KTI, KeyPointValue, Parameter, P,
                            Section, S)
-from analysis.key_point_values import (Airspeed1000To500FtMax,
+from analysis.key_point_values import (AccelerationNormalMax,
+                                       Airspeed1000To500FtMax,
                                        AirspeedAtTouchdown,
                                        AirspeedMax,
                                        AirspeedWithGearSelectedDownMax,
@@ -20,6 +21,7 @@ from analysis.key_point_values import (Airspeed1000To500FtMax,
                                        EngVibN1Max,
                                        EngVibN2Max,
                                        HeadingAtTakeoff,
+                                       Eng_N1MaxDurationUnder60PercentAfterTouchdown,
                                        FlapAtLiftoff,
                                        FuelQtyAtLiftoff,
                                        FuelQtyAtTouchdown,
@@ -36,7 +38,6 @@ from analysis.key_point_values import (Airspeed1000To500FtMax,
                                        LongitudeAtLowPointOnApproach,
                                        LocalizerDeviation1500To1000FtMax,
                                        LocalizerDeviation1000To150FtMax,
-                                       NormalAcceleration,
                                        Pitch35To400FtMax,
                                        PitchAtLiftoff,
                                        RollBelow20FtMax)
@@ -68,12 +69,12 @@ class TestAltitudeAtLiftoff(unittest.TestCase, TestKPV):
                          ((mock1.array, mock2), {}))
 
 
-class TestAccelerationNormalMax(KeyPointValueNode): # TODO
+class TestAccelerationNormalMax(unittest.TestCase):
     def test_can_operate(self, eng=P()):
         self.assertEqual(AccelerationNormalMax.get_operational_combinations(),
                          [('Normal Acceleration',)])
     
-    @mock.patch('analysis.library.max_value')
+    @patch('analysis.library.max_value')
     def test_derive(self, max_value):
         acc_norm_max = AccelerationNormalMax()
         index, value = 10, 30
@@ -188,13 +189,13 @@ class TestAirspeedWithGearSelectedDownMax(unittest.TestCase):
                          slice=slice(None, None, None), datetime=None)])
 
 
-class TestAutopilotEngaged1AtLiftoff(unittest.TestCase):
+class TestAutopilotEngaged1AtLiftoff(unittest.TestCase, TestCreateKPVsAtKTIs):
     def setUp(self):
         self.node_class = AutopilotEngaged1AtLiftoff
         self.operational_combinations = [('Autopilot Engaged 1', 'Liftoff')]
 
 
-class TestAutopilotEngaged1AtTouchdown(unittest.TestCase):
+class TestAutopilotEngaged1AtTouchdown(unittest.TestCase, TestCreateKPVsAtKTIs):
     def setUp(self):
         self.node_class = AutopilotEngaged1AtTouchdown
         self.operational_combinations = [('Autopilot Engaged 1', 'Touchdown')]
@@ -206,18 +207,18 @@ class TestAutopilotEngaged2AtLiftoff(unittest.TestCase, TestCreateKPVsAtKTIs):
         self.operational_combinations = [('Autopilot Engaged 2', 'Liftoff')]
 
 
-class TestAutopilotEngaged2AtTouchdown(unittest.TestCase):
+class TestAutopilotEngaged2AtTouchdown(unittest.TestCase, TestCreateKPVsAtKTIs):
     def setUp(self):
         self.node_class = AutopilotEngaged2AtTouchdown
         self.operational_combinations = [('Autopilot Engaged 2', 'Touchdown')]
 
 
-class TestEngEGTMax(KeyPointValueNode):
+class TestEngEGTMax(unittest.TestCase):
     def test_can_operate(self, eng=P()):
         self.assertEqual(EngEGTMax.get_operational_combinations(),
                          [('Eng (*) EGT Max',)])
     
-    @mock.patch('analysis.library.max_value')
+    @patch('analysis.library.max_value')
     def test_derive(self, max_value):
         eng_egt_max = EngEGTMax
         index, value = 10, 30
@@ -230,12 +231,12 @@ class TestEngEGTMax(KeyPointValueNode):
                          [KeyPointValue(index=index, value=value)])
 
 
-class TestEngN1Max(KeyPointValueNode):
+class TestEngN1Max(unittest.TestCase):
     def test_can_operate(self, eng=P()):
         self.assertEqual(EngN1Max.get_operational_combinations(),
                          [('Eng (*) N1 Max',)])
     
-    @mock.patch('analysis.library.max_value')
+    @patch('analysis.library.max_value')
     def test_derive(self, max_value):
         eng_n1_max = EngN1Max
         index, value = 10, 30
@@ -248,12 +249,12 @@ class TestEngN1Max(KeyPointValueNode):
                          [KeyPointValue(index=index, value=value)])
 
 
-class TestEngN2Max(KeyPointValueNode):
+class TestEngN2Max(unittest.TestCase):
     def test_can_operate(self, eng=P()):
         self.assertEqual(EngN2Max.get_operational_combinations(),
                          [('Eng (*) N2 Max',)])
     
-    @mock.patch('analysis.library.max_value')
+    @patch('analysis.library.max_value')
     def test_derive(self, max_value):
         eng_n2_max = EngN2Max
         index, value = 10, 30
@@ -266,12 +267,12 @@ class TestEngN2Max(KeyPointValueNode):
                          [KeyPointValue(index=index, value=value)])
 
 
-class TestEngOilTempMax(KeyPointValueNode):
+class TestEngOilTempMax(unittest.TestCase):
     def test_can_operate(self, eng=P()):
         self.assertEqual(EngOilTempMax.get_operational_combinations(),
                          [('Eng (*) Oil Temp Max',)])
     
-    @mock.patch('analysis.library.max_value')
+    @patch('analysis.library.max_value')
     def test_derive(self, max_value):
         eng_oil_temp_max = EngOilTempMax
         index, value = 10, 30
@@ -284,12 +285,12 @@ class TestEngOilTempMax(KeyPointValueNode):
                          [KeyPointValue(index=index, value=value)])
 
 
-class TestEngVibN1Max(KeyPointValueNode):
+class TestEngVibN1Max(unittest.TestCase):
     def test_can_operate(self, eng=P()):
         self.assertEqual(EngVibN1Max.get_operational_combinations(),
                          [('Eng (*) Vib N1 Max',)])
     
-    @mock.patch('analysis.library.max_value')
+    @patch('analysis.library.max_value')
     def test_derive(self, max_value):
         eng_vib_n1_max = EngVibN1Max
         index, value = 10, 30
@@ -302,12 +303,12 @@ class TestEngVibN1Max(KeyPointValueNode):
                          [KeyPointValue(index=index, value=value)])
 
 
-class TestEngVibN2Max(KeyPointValueNode):
+class TestEngVibN2Max(unittest.TestCase):
     def test_can_operate(self, eng=P()):
         self.assertEqual(EngVibN2Max.get_operational_combinations(),
                          [('Eng (*) Vib N2 Max',)])
     
-    @mock.patch('analysis.library.max_value')
+    @patch('analysis.library.max_value')
     def test_derive(self, max_value):
         eng_vib_n2_max = EngVibN2Max
         index, value = 10, 30
@@ -318,6 +319,39 @@ class TestEngVibN2Max(KeyPointValueNode):
         self.assertEqual(eng_vib_n2_max.call_args, ((param.array,), {}))
         self.assertEqual(eng_vib_n2_max,
                          [KeyPointValue(index=index, value=value)])
+
+
+class TestEng_N1MaxDurationUnder60PercentAfterTouchdown(unittest.TestCase):
+    def test_can_operate(self):
+        opts = Eng_N1MaxDurationUnder60PercentAfterTouchdown.get_operational_combinations()
+        self.assertEqual(
+            ('Eng (1) N1', 'Touchdown', 'Eng (*) Stop'), opts[0]) 
+        self.assertEqual(
+            ('Eng (2) N1', 'Touchdown', 'Eng (*) Stop'), opts[1]) 
+        self.assertEqual(
+            ('Eng (3) N1', 'Touchdown', 'Eng (*) Stop'),  opts[2])
+        self.assertEqual(
+            ('Eng (4) N1', 'Touchdown', 'Eng (*) Stop'), opts[3])
+        self.assertTrue(
+            ('Eng (1) N1', 'Eng (2) N1', 'Touchdown', 'Eng (*) Stop') in opts) 
+        self.assertTrue(all(['Touchdown' in avail for avail in opts]))
+        self.assertTrue(all(['Eng (*) Stop' in avail for avail in opts]))
+        
+    def test_eng_n1_cooldown(self):
+        #TODO: Add later if required
+        #gnd = S(items=[Section('', slice(10,100))]) 
+        
+        eng = P(array=np.ma.array([100]*60 + [40]*40)) # idle for 40        
+        tdwn = KTI(items=[KeyTimeInstance(30),KeyTimeInstance(50)])
+        eng_stop = KTI(items=[KeyTimeInstance(90, 'Eng (1) Stop'),])
+        max_dur = Eng_N1MaxDurationUnder60PercentAfterTouchdown()
+        max_dur.derive(eng, eng, None, None, tdwn, eng_stop)
+        self.assertEqual(max_dur[0].index, 60) # starts at drop below 60
+        self.assertEqual(max_dur[0].value, 30) # stops at 90
+        self.assertTrue('Eng (1)' in max_dur[0].name)
+        # Eng (2) should not be in the results as it did not have an Eng Stop KTI
+        ##self.assertTrue('Eng (2)' in max_dur[1].name)
+        self.assertEqual(len(max_dur), 1)
 
 
 class TestFlapAtLiftoff(unittest.TestCase, TestCreateKPVsAtKTIs):
@@ -404,7 +438,7 @@ class TestHeadingAtTakeoff(unittest.TestCase):
         expected = [KeyPointValue(index=3, value=7.0, name='Heading At Takeoff')]
         self.assertEqual(kpv, expected)
         #############################################
-        ## I KNOWW THIS FAILS
+        ## I KNOW THIS FAILS
         ## TODO: write a version for takeoff and landing that is more robust
         #############################################
         

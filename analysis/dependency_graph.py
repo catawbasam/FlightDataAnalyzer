@@ -53,22 +53,21 @@ TODO:
 def dependencies3(di_graph, root, node_mgr):
     
     def traverse_tree(node):
+        # check this first to improve performance
+        if node in active_nodes:
+            # node already discovered operational
+            return True
+        
         layer = []
         for dependency in di_graph.successors(node):
             # traverse again
             if traverse_tree(dependency):
                 layer.append(dependency)
             
-        if node in active_nodes:
-            # node already discovered operational
-            return True
-        elif node_mgr.operational(node, layer):
+        if node_mgr.operational(node, layer):
             # node will work at this level
-            if layer:
-                new_nodes = [n for n in layer if n not in active_nodes]
-                if new_nodes:
-                    active_nodes.update(new_nodes)
-                    ordering.extend(new_nodes) # add the new nodes
+            active_nodes.add(node)
+            ordering.append(node)
             return True # layer below works
         else:
             # node does not work
@@ -76,8 +75,7 @@ def dependencies3(di_graph, root, node_mgr):
         
     ordering = [] # reverse
     active_nodes = set() # operational nodes visited for fast lookup
-    if traverse_tree(root): # start recursion
-        ordering.append(root)
+    traverse_tree(root) # start recursion
     return ordering
 
 

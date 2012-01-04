@@ -187,7 +187,7 @@ class TestAltitudeWhenClimbing(unittest.TestCase):
                                             [False] * 11))
         altitude_when_climbing = AltitudeWhenClimbing()
         altitude_when_climbing.derive(climbing, alt_aal)
-        self.assertEqual(altitude_when_climbing,
+        self.assertEqual(list(altitude_when_climbing),
           [KeyTimeInstance(index=4.0, name='75 Ft Climbing', datetime=None,
                            latitude=None, longitude=None),
            KeyTimeInstance(index=12.0, name='35 Ft Climbing', datetime=None,
@@ -237,7 +237,7 @@ class TestAltitudeInApproach(unittest.TestCase):
                                        range(1950, 0, -200)))
         altitude_in_approach = AltitudeInApproach()
         altitude_in_approach.derive(approaches, alt_aal)
-        self.assertEqual(altitude_in_approach,
+        self.assertEqual(list(altitude_in_approach),
           [KeyTimeInstance(index=4.7750000000000004, name='1000 Ft In Approach',
                            datetime=None, latitude=None, longitude=None),
            KeyTimeInstance(index=14.775, name='1000 Ft In Approach',
@@ -261,7 +261,7 @@ class TestAltitudeInFinalApproach(unittest.TestCase):
         altitude_in_approach = AltitudeInFinalApproach()
         altitude_in_approach.derive(approaches, alt_aal)
         
-        self.assertEqual(altitude_in_approach,
+        self.assertEqual(list(altitude_in_approach),
           [KeyTimeInstance(index=4.5499999999999998,
                            name='500 Ft In Final Approach', datetime=None,
                            latitude=None, longitude=None),
@@ -288,7 +288,7 @@ class TestAltitudeWhenDescending(unittest.TestCase):
                                             [False] * 11))
         altitude_when_descending = AltitudeWhenDescending()
         altitude_when_descending.derive(descending, alt_aal)
-        self.assertEqual(altitude_when_descending,
+        self.assertEqual(list(altitude_when_descending),
           [KeyTimeInstance(index=3.0, name='75 Ft Descending', datetime=None,
                            latitude=None, longitude=None),
            KeyTimeInstance(index=18.5, name='20 Ft Descending', datetime=None,

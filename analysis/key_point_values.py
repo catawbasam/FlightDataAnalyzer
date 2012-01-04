@@ -1,9 +1,11 @@
+import logging
 import numpy as np
 
 from analysis import settings
-from analysis.library import (min_value, max_value, max_abs_value,
-                              value_at_time)
 from analysis.node import  KeyPointValue, KeyPointValueNode, KTI, P, S
+from analysis.library import (max_abs_value, max_continuous_unmasked, 
+                              max_value, min_value, repair_mask, value_at_time)
+from analysis.node import  KeyPointValue, KPV, KeyPointValueNode, KTI, P, S
 
 
 class Airspeed1000To500FtMax(KeyPointValueNode):
@@ -318,9 +320,21 @@ class AltitudeWithFlapsMax(KeyPointValueNode):
 
 
 class MACHMax(KeyPointValueNode):
+    #TODO: Test
     name = 'MACH Max'
-    def derive(self, mach=P('MACH')):
-        return NotImplemented
+    def derive(self, mach=P('MACH'), fast=S('Fast')):
+        for sect in fast:
+            index, value = max_value(mach.array, sect.slice)
+            self.create_kpv(index, value)
+
+
+class AltitudeAtMACHMax(KeyPointValueNode):
+    #TODO: Test
+    name = 'Altitude At MACH Max'
+    def derive(self, max_mach=KPV('MACHMax'), alt_std=P('Altitude STD')):
+        # Aligns Altitude to MACH to ensure we have the most accurate
+        # altitude reading at the point of Maximum MACH
+        self.create_kpvs_at_kpvs(alt_std, max_mach)
 
 
 class GroundSpeedOnGroundMax(KeyPointValueNode):
@@ -343,6 +357,67 @@ class EngEGTMax(KeyPointValueNode):
     def derive(self, eng=P('Eng (*) EGT Max')):
         index, value = max_value(eng.array)
         self.create_kpv(index, value)
+        
+
+class Eng_N1MaxDurationUnder60PercentAfterTouchdown(KeyPointValueNode): ##was named: EngN1CooldownDuration
+    """
+    Max duration N1 below 60% after Touchdown for engine cooldown. Using 60%
+    allows for cooldown after use of Reverse Thrust.
+    
+    Evaluated for each engine to account for single engine taxi-in.
+    
+    Note: Assumes that all Engines are recorded at the same frequency.
+    
+    TODO: Eng_Stop KTI
+    TODO: Similar KPV for duration between engine under 60 percent and engine shutdown
+    """
+    NAME_FORMAT = "Eng (%(eng_num)d) N1 Max Duration Under 60 Percent After Touchdown"
+    NAME_VALUES = {'eng_num': [1,2,3,4]}
+    
+    @classmethod
+    def can_operate(cls, available):
+        ##if 'On Ground' in available and\
+        if 'Touchdown' in available\
+           and 'Eng (*) Stop' in available\
+           and ('Eng (1) N1' in available\
+                or 'Eng (2) N1' in available\
+                or 'Eng (3) N1' in available\
+                or 'Eng (4) N1' in available):
+            return True
+        else:
+            return False
+    
+    def derive(self, 
+               eng1=P('Eng (1) N1'),
+               eng2=P('Eng (2) N1'),
+               eng3=P('Eng (3) N1'),
+               eng4=P('Eng (4) N1'),
+               ##gnd=S('On Ground'), -- TODO: future improvement, ensure we're on the ground!
+               tdwn=KTI('Touchdown'), 
+               engines_stop=KTI('Eng (*) Stop')):
+                
+        for eng_num, eng in enumerate((eng1,eng2,eng3,eng4), start=1):
+            if eng is None:
+                continue # engine not available on this aircraft
+            eng_stop = engines_stop.get(name='Eng (%d) Stop' % eng_num)
+            if not eng_stop:
+                #Q: Should we measure until the end of the flight anyway? (probably not)
+                logging.debug("Engine %d did not stop on this flight, cannot measure KPV", eng_num)
+                continue
+            
+            eng_array = repair_mask(eng.array)
+            eng_below_60 = np.ma.masked_greater(eng_array, 60)
+            # measure duration between final touchdown and engine stop
+            duration_slice = max_continuous_unmasked(
+                eng_below_60, slice(tdwn[-1].index, eng_stop[0].index))
+            if duration_slice:
+                #TODO future storage of slice: self.slice = duration_slice
+                duration = (duration_slice.stop - duration_slice.start) / self.hz
+                self.create_kpv(duration_slice.start, duration, eng_num=eng_num)
+            else:
+                # create KPV of 0 seconds
+                self.create_kpv(eng_stop[0].index, 0.0, eng_num=eng_num)
+        
         
 class EngN1Max(KeyPointValueNode):
     name = 'Eng N1 Max'
@@ -421,7 +496,7 @@ class MagneticHeadingAtTouchdown(KeyPointValue):
 '''
 
 ##########################################
-# KPV from DJ Code
+# KPV from DJ's Code
 
 class AccelerationNormalMax(KeyPointValueNode):
     def derive(self, normal_acceleration=P('Normal Acceleration')):
@@ -434,7 +509,7 @@ class AccelerationNormalMax(KeyPointValueNode):
         ### Create a key point value for this. TODO: Change to self.create_kpv()?
         ##self.create_kpv(block.start+n_acceleration_normal_max,
                         ##acceleration_normal_max)
-    
+
 
 class RateOfClimbHigh(KeyPointValueNode):
     '''
@@ -448,9 +523,8 @@ class RateOfClimbHigh(KeyPointValueNode):
             if duration > settings.CLIMB_OR_DESCENT_MIN_DURATION:
                 index, value = max_value(rate_of_climb.array, climb.slice)
                 self.create_kpv(index, value)
-                
-                
-    
+
+
 class RateOfDescentHigh(KeyPointValueNode):
     '''
     .. TODO:: testcases
@@ -463,8 +537,8 @@ class RateOfDescentHigh(KeyPointValueNode):
             if duration > settings.CLIMB_OR_DESCENT_MIN_DURATION:
                 index, value = min_value(rate_of_climb.array, descent.slice)
                 self.create_kpv(index, value)
-                
-                
+
+
 class RateOfDescentMax(KeyPointValueNode):
     '''
     .. TODO:: testcases ??? Do we need this if we have high and keep many highs - max must be one of these... DJ
@@ -978,12 +1052,6 @@ class AirspeedAtGearSelectedUp(KeyPointValueNode):
 
 class TaxiSpeedTurningMax(KeyPointValueNode):
     def derive(self, groundspeed=P('Groundspeed'), on_ground=S('On Ground')):
-        return NotImplemented
-
-
-class MACHMMOMax(KeyPointValueNode):
-    name = 'MACH MMO Max'
-    def derive(self, mach=P('MACH')):
         return NotImplemented
 
 

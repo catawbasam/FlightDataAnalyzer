@@ -17,13 +17,13 @@ from analysis.library import (align, calculate_timebase, create_phase_inside,
                               hysteresis, index_at_value, interleave,
                               is_index_within_slice, is_slice_within_slice,
                               min_value, mask_inside_slices,
-                              mask_outside_slices, max_value, max_abs_value,
-                              merge_alternate_sensors, peak_curvature,
-                              rate_of_change, repair_mask, slices_above,
-                              slices_below, slices_between, slices_from_to,
-                              straighten_headings, #time_at_value, time_at_value_wrapped,
+                              mask_outside_slices, max_continuous_unmasked,
+                              max_value, max_abs_value, merge_alternate_sensors,
+                              peak_curvature, rate_of_change, repair_mask, 
+                              slices_above, slices_below, slices_between, 
+                              slices_from_to, straighten_headings,
+                              #time_at_value, time_at_value_wrapped,
                               value_at_time, vstack_params, InvalidDatetime)
-
 from analysis.node import A, KPV, KTI, Parameter, P, S, Section
 
 class TestAlign(unittest.TestCase):
@@ -694,6 +694,49 @@ class TestMaskInsideSlices(unittest.TestCase):
                              expected_result)
 
 
+class TestMaxContinuousUnmasked(unittest.TestCase):
+    def test_max_continuous_unmasked(self):
+        data = np.ma.array(range(20),
+                           mask=[1,0,1,1,1,0,0,0,0,1,
+                                 0,0,0,0,0,0,0,1,1,1])
+        _max = max_continuous_unmasked(data)
+        # test duration
+        self.assertEqual(_max.stop-_max.start, 7)
+        self.assertEqual(_max.start, 10)
+        self.assertEqual(_max.stop, 17)
+        self.assertFalse(np.any(data[_max].mask)) # none should be masked
+    
+    def test_max_continuous_unmasked_no_mask(self):
+        # no mask
+        data = np.ma.array(range(20), mask=False)
+        _max = max_continuous_unmasked(data)
+        self.assertEqual(_max.stop-_max.start, 20)
+        self.assertEqual(_max.start, 0)
+        self.assertEqual(_max.stop, 20)
+        
+        # all masked
+        data = np.ma.array(range(5), mask=[1,1,1,1,1])
+        _max = max_continuous_unmasked(data)
+        self.assertEqual(_max, None)
+        
+        # no data
+        data = np.ma.array([])
+        _max = max_continuous_unmasked(data, slice(110,120))
+        self.assertEqual(_max, None)
+        
+    def test_max_continuous_unmasked_with_slice(self):
+        data = np.ma.array(range(30),
+                           mask=[0,1,0,0,0,1,1,1,1,0,
+                                 1,1,1,1,1,1,1,0,0,0,
+                                 1,1,1,1,1,0,0,1,1,1,])
+        _max = max_continuous_unmasked(data, slice(20,30))
+        # test duration
+        self.assertEqual(_max.stop-_max.start, 2)
+        self.assertEqual(_max.start, 25)
+        self.assertEqual(_max.stop, 27)
+                
+
+
 class TestMaskOutsideSlices(unittest.TestCase):
     def test_mask_outside_slices(self):
         slices = [slice(10, 20), slice(30, 40)]
@@ -990,9 +1033,9 @@ class TestStraightenHeadings(unittest.TestCase):
             #)
 
 """
-============================================================
+------------------------------------------------------------
 Time functions replaced by index operations for consistency.
-============================================================
+------------------------------------------------------------
 
 class TestTimeAtValue(unittest.TestCase):
     
@@ -1036,9 +1079,9 @@ class TestTimeAtValueWrapped(unittest.TestCase):
         test_param = P('TAVW_param',np.ma.array([0,4,0,4]),1,0.0)
         test_section = Section('TAVW_section',slice(0,4))
         self.assertEquals(time_at_value_wrapped(test_param,test_section,2,'Backwards'),2.5)
-============================================================
+------------------------------------------------------------
 Time functions replaced by index operations for consistency.
-============================================================
+------------------------------------------------------------
 """
         
 class TestValueAtTime(unittest.TestCase):
