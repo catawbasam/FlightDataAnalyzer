@@ -1,50 +1,51 @@
-import unittest
-from mock import Mock, patch
 import numpy as np
 import sys
-debug = sys.gettrace() is not None
+import unittest
+
+from mock import Mock, patch
 
 from analysis.node import (KeyTimeInstance, KTI, KeyPointValue, Parameter, P,
                            Section, S)
-from analysis.key_point_values import (AccelerationNormalMax,
-                                       Airspeed1000To500FtMax,
-                                       AirspeedAtTouchdown,
-                                       AirspeedMax,
-                                       AirspeedWithGearSelectedDownMax,
-                                       AltitudeAtTouchdown,
-                                       AutopilotEngaged1AtLiftoff,
-                                       AutopilotEngaged1AtTouchdown,
-                                       AutopilotEngaged2AtLiftoff,
-                                       AutopilotEngaged2AtTouchdown,
-                                       EngEGTMax,
-                                       EngN1Max,
-                                       EngN2Max,
-                                       EngOilTempMax,
-                                       EngVibN1Max,
-                                       EngVibN2Max,
-                                       HeadingAtTakeoff,
-                                       Eng_N1MaxDurationUnder60PercentAfterTouchdown,
-                                       FlapAtLiftoff,
-                                       FuelQtyAtLiftoff,
-                                       FuelQtyAtTouchdown,
-                                       GlideslopeDeviation1500To1000FtMax,
-                                       GlideslopeDeviation1000To150FtMax,
-                                       GrossWeightAtLiftoff,
-                                       GrossWeightAtTouchdown,
-                                       ILSFrequencyOnApproach,
-                                       HeadingAtLanding,
-                                       HeadingAtLowPointOnApproach,
-                                       LatitudeAtLanding,
-                                       LatitudeAtLowPointOnApproach,
-                                       LongitudeAtLanding,
-                                       LongitudeAtLowPointOnApproach,
-                                       LocalizerDeviation1500To1000FtMax,
-                                       LocalizerDeviation1000To150FtMax,
-                                       Pitch35To400FtMax,
-                                       PitchAtLiftoff,
-                                       RollBelow20FtMax)
+from analysis.key_point_values import (
+    AccelerationNormalMax,
+    Airspeed1000To500FtMax,
+    AirspeedAtTouchdown,
+    AirspeedMax,
+    AirspeedWithGearSelectedDownMax,
+    AltitudeAtTouchdown,
+    AutopilotEngaged1AtLiftoff,
+    AutopilotEngaged1AtTouchdown,
+    AutopilotEngaged2AtLiftoff,
+    AutopilotEngaged2AtTouchdown,
+    EngEGTMax,
+    EngN1Max,
+    EngN2Max,
+    EngOilTempMax,
+    EngVibN1Max,
+    EngVibN2Max,
+    HeadingAtTakeoff,
+    Eng_N1MaxDurationUnder60PercentAfterTouchdown,
+    FlapAtLiftoff,
+    FuelQtyAtLiftoff,
+    FuelQtyAtTouchdown,
+    GlideslopeDeviation1500To1000FtMax,
+    GlideslopeDeviation1000To150FtMax,
+    GrossWeightAtLiftoff,
+    GrossWeightAtTouchdown,
+    ILSFrequencyOnApproach,
+    HeadingAtLanding,
+    HeadingAtLowPointOnApproach,
+    LatitudeAtLanding,
+    LatitudeAtLowPointOnApproach,
+    LongitudeAtLanding,
+    LongitudeAtLowPointOnApproach,
+    LocalizerDeviation1500To1000FtMax,
+    LocalizerDeviation1000To150FtMax,
+    Pitch35To400FtMax,
+    PitchAtLiftoff,
+    RollBelow20FtMax,
+)
 
-import sys
 debug = sys.gettrace() is not None
 
 
@@ -62,14 +63,13 @@ class TestAltitudeAtLiftoff(unittest.TestCase, TestKPV):
                          self.operational_combinations)
     
     def test_derive(self):
-        if debug:
-            mock1, mock2 = Mock(), Mock()
-            mock1.array = Mock()
-            node = self.node_class()
-            node.create_kpvs_at_ktis = Mock()
-            node.derive(mock1, mock2)
-            self.assertEqual(node.create_kpvs_at_ktis.call_args,
-                         ((mock1.array, mock2), {}))
+        mock1, mock2 = Mock(), Mock()
+        mock1.array = Mock()
+        node = self.node_class()
+        node.create_kpvs_at_ktis = Mock()
+        node.derive(mock1, mock2)
+        self.assertEqual(node.create_kpvs_at_ktis.call_args,
+                     ((mock1.array, mock2), {}))
 
 
 class TestAccelerationNormalMax(unittest.TestCase):

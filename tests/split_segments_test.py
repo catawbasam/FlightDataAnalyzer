@@ -1,14 +1,11 @@
-try:
-    import unittest2 as unittest  # py2.6
-except ImportError:
-    import unittest
 import mock
 import numpy as np
+import unittest
+
 from datetime import datetime
 
-from analysis import settings
 from analysis.node import P
-from analysis.plot_flight import plot_parameter
+from analysis.settings import AIRSPEED_THRESHOLD
 from analysis.split_segments import (append_segment_info, split_segments2, 
                                      subslice, _identify_segment_type, 
                                      _split_by_frame_counter, 
@@ -16,7 +13,6 @@ from analysis.split_segments import (append_segment_info, split_segments2,
 
 class TestSplitSegments(unittest.TestCase):
     
-    ##@unittest.expectedFailure #('Fails as splitting mid-flight by dfc needs fixing')
     def test_split_segments(self):
         a_flight = [0]*50 + [100]*100 + [0]*50 
         # 5 * 200 (flight) samples of airspeed
@@ -62,7 +58,7 @@ class TestSplitSegments(unittest.TestCase):
     def test_split_by_flight_data(self):
         #Two offset: 2  3   4   5  6  7   8   9 10 11 12  13  14  15 16
         airspeed = [10,10,200,200,10,10,200,200,10,10,10,200,200,200,10]
-        mask_below_min_aispeed = np.ma.masked_less(airspeed, settings.AIRSPEED_THRESHOLD)
+        mask_below_min_aispeed = np.ma.masked_less(airspeed, AIRSPEED_THRESHOLD)
         res = _split_by_flight_data(mask_below_min_aispeed, 2)
         self.assertEqual(len(res), 3)
         self.assertEqual(res[0], slice(2,7))

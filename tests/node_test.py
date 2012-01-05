@@ -1,17 +1,23 @@
-try:
-    import unittest2 as unittest  # py2.6
-except ImportError:
-    import unittest
 import mock
+import numpy as np
+import unittest
+
 from random import shuffle
 from datetime import datetime
-import numpy as np
 
 from analysis.node import (
-    Attribute, DerivedParameterNode, get_verbose_name, KeyPointValue,
-    KeyPointValueNode, KeyTimeInstance, KTI, KeyTimeInstanceNode, 
-    FlightAttributeNode,FormattedNameNode, Node, NodeManager, P, Parameter,
-    powerset, Section, SectionNode)
+    Attribute, 
+    DerivedParameterNode,
+    get_verbose_name,
+    KeyPointValueNode, KeyPointValue, 
+    KeyTimeInstanceNode, KeyTimeInstance, KTI,
+    FlightAttributeNode,
+    FormattedNameNode, 
+    Node, NodeManager, 
+    Parameter, P,
+    powerset,
+    SectionNode, Section,
+)
 
 
 class TestAbstractNode(unittest.TestCase):
@@ -35,8 +41,6 @@ class TestNode(unittest.TestCase):
         self.assertEqual(NewNode.get_name(), '1000 Ft')
         NewNode = type('TouchdownV2Max', (Node,), dict(derive=lambda x:x))
         self.assertEqual(NewNode.get_name(), 'Touchdown V2 Max')
-        NewNode.name = 'MACH'
-        self.assertEqual(NewNode.get_name(), 'MACH')
 
     def test_get_dependency_names(self):
         """ Check class names or strings return strings
