@@ -1,19 +1,27 @@
-try:
-    import unittest2 as unittest  # py2.6
-except ImportError:
-    import unittest
-
+import collections
+import unittest
 import networkx as nx
+
 from datetime import datetime
+
+from analysis.node import (A, DerivedParameterNode, KPV, KTI, Node,
+                           NodeManager, P, Parameter, Section, S)
 from analysis.process_flight import get_derived_nodes
-
 from analysis.dependency_graph import (
-    dependency_order, graph_nodes, graph_adjacencies, process_order)
-from analysis.node import (A, DerivedParameterNode, KPV, KTI, Node, NodeManager,
-                           P, Parameter, Section, S)
-
-# mock function
-f = lambda x: x
+    dependency_order, 
+    graph_nodes, 
+    graph_adjacencies, 
+    process_order,
+)
+  
+def flatten(l):
+    "Flatten an iterable of many levels of depth (generator)"
+    for el in l:
+        if isinstance(el, collections.Iterable) and not isinstance(el, basestring):
+            for sub in sorted(flatten(el)):
+                yield sub
+        else:
+            yield el
 
 class TestDependencyGraph(unittest.TestCase):
 
@@ -84,7 +92,7 @@ class TestDependencyGraph(unittest.TestCase):
         self.assertEqual(gr.edges(1), []) # as it's in LFL, it shouldn't have any edges
         self.assertEqual(gr.node[1], {'color': 'forestgreen'})
         # Derived
-        self.assertEqual(gr.edges(4), [(4,'DepFour')])
+        self.assertEqual(gr.edges(4), [(4,'Derived Parameter Node')])
         self.assertEqual(gr.node[4], {}) # same as {'color': 'black'}!
         # Root
         from analysis.dependency_graph import draw_graph
@@ -180,6 +188,7 @@ Node: Start Datetime 	Pre: [] 	Succ: [] 	Neighbors: [] 	Edges: []
         order = dependency_order(nodes)
         pos = order.index
         #print nodes
+        self.assertTrue(len(order))
         self.assertTrue(pos('Vertical Speed') > pos('Pressure Altitude'))
         self.assertTrue(pos('Slip On Runway') > pos('Groundspeed'))
         self.assertTrue(pos('Slip On Runway') > pos('Horizontal g Across Track'))
@@ -275,14 +284,3 @@ class TestGraphAdjacencies(unittest.TestCase):
             },
         ]
         self.assertEqual(list(flatten(exp)), list(flatten(res)))
-
-            
-        
-import collections    
-def flatten(l):
-    for el in l:
-        if isinstance(el, collections.Iterable) and not isinstance(el, basestring):
-            for sub in sorted(flatten(el)):
-                yield sub
-        else:
-            yield el

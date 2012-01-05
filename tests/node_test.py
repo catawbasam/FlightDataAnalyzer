@@ -1,17 +1,23 @@
-try:
-    import unittest2 as unittest  # py2.6
-except ImportError:
-    import unittest
 import mock
+import numpy as np
+import unittest
+
 from random import shuffle
 from datetime import datetime
-import numpy as np
 
 from analysis.node import (
-    Attribute, DerivedParameterNode, get_verbose_name, KeyPointValue,
-    KeyPointValueNode, KeyTimeInstance, KTI, KeyTimeInstanceNode, 
-    FlightAttributeNode,FormattedNameNode, Node, NodeManager, P, Parameter,
-    powerset, Section, SectionNode)
+    Attribute, 
+    DerivedParameterNode,
+    get_verbose_name,
+    KeyPointValueNode, KeyPointValue, 
+    KeyTimeInstanceNode, KeyTimeInstance, KTI,
+    FlightAttributeNode,
+    FormattedNameNode, 
+    Node, NodeManager, 
+    Parameter, P,
+    powerset,
+    SectionNode, Section,
+)
 
 
 class TestAbstractNode(unittest.TestCase):
@@ -99,10 +105,7 @@ class TestNode(unittest.TestCase):
             
             @classmethod
             def can_operate(cls, available):
-                if 'a' in available and 'b' in available:
-                    return True
-                else:
-                    return False
+                return 'a' in available and 'b' in available
         
         options = Combo.get_operational_combinations()
         self.assertEqual(options, [('a', 'b'), ('a', 'b', 'c')])

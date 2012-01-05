@@ -1,10 +1,6 @@
-try:
-    import unittest2 as unittest  # py2.6
-except ImportError:
-    import unittest
+import unittest
     
 from utilities.struct import Struct
-
 
 from analysis.aircraft import populate_aircraft_params
 

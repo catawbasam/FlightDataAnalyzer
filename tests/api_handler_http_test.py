@@ -1,10 +1,7 @@
-try:
-    import unittest2 as unittest  # py2.6
-except ImportError:
-    import unittest
-
-import socket
 import httplib2
+import unittest
+import socket
+
 from mock import Mock, patch
 
 from analysis.api_handler import (APIConnectionError, InvalidAPIInputError,
