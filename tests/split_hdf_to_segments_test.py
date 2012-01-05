@@ -1,10 +1,7 @@
-try:
-    import unittest2 as unittest  # py2.6
-except ImportError:
-    import unittest
 import os.path
+import unittest
 
-from analysis.split_hdf_to_segments import split_hdf_to_segments
+from analysis.split_hdf_to_segments import validate_aircraft, split_hdf_to_segments
 
 
 class TestSplitHDFToSegments(unittest.TestCase):
@@ -19,7 +16,7 @@ class TestSplitHDFToSegments(unittest.TestCase):
         
     @unittest.skip('not implemented')
     def test_invalid_aircraft_ident(self):
-        pass 
+        validate_aircraft() 
     
     @unittest.skip('not implemented')
     def test_split_hdf_to_segments(self):

@@ -1,30 +1,15 @@
-try:
-    import unittest2 as unittest  # py2.6
-except ImportError:
-    import unittest
-import numpy as np
 import csv
+import unittest
+import numpy as np
+
+from datetime import datetime
 
 # A set of masked array test utilities from Pierre GF Gerard-Marchant
 # http://www.java2s.com/Open-Source/Python/Math/Numerical-Python/numpy/numpy/ma/testutils.py.htm
 import utilities.masked_array_testutils as ma_test
 
-from datetime import datetime
-
-from analysis.library import (align, calculate_timebase, create_phase_inside,
-                              create_phase_outside, duration, 
-                              first_order_lag, first_order_washout, hash_array,
-                              hysteresis, index_at_value, interleave,
-                              is_index_within_slice, is_slice_within_slice,
-                              min_value, mask_inside_slices,
-                              mask_outside_slices, max_continuous_unmasked,
-                              max_value, max_abs_value, merge_alternate_sensors,
-                              peak_curvature, rate_of_change, repair_mask, 
-                              slices_above, slices_below, slices_between, 
-                              slices_from_to, straighten_headings,
-                              #time_at_value, time_at_value_wrapped,
-                              value_at_time, vstack_params, InvalidDatetime)
 from analysis.node import A, KPV, KTI, Parameter, P, S, Section
+from analysis.library import *
 
 class TestAlign(unittest.TestCase):
     

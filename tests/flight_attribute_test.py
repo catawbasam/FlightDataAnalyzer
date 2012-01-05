@@ -1,20 +1,29 @@
+import numpy as np
 import unittest
 
 from datetime import datetime
 from mock import Mock, patch
 
-import numpy as np
-import sys
-debug = sys.gettrace() is not None
-
 from analysis.api_handler import NotFoundError
 from analysis.node import (A, KeyPointValue, KeyTimeInstance, KPV, KTI, P, S,
                            Section)
 from analysis.flight_attribute import (
-    Approaches, Duration, FlightID, FlightNumber, FlightType, LandingAirport, 
-    LandingDatetime, LandingFuel, LandingGrossWeight, LandingRunway,
-    TakeoffAirport, TakeoffDatetime, TakeoffFuel, TakeoffGrossWeight,
-    TakeoffRunway)
+    Approaches, 
+    Duration, 
+    FlightID, 
+    FlightNumber,
+    FlightType, 
+    LandingAirport, 
+    LandingDatetime, 
+    LandingFuel, 
+    LandingGrossWeight,
+    LandingRunway,
+    TakeoffAirport,
+    TakeoffDatetime, 
+    TakeoffFuel,
+    TakeoffGrossWeight,
+    TakeoffRunway,
+)
 
 
 class TestApproaches(unittest.TestCase):

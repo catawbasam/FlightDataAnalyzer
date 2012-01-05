@@ -1,36 +1,35 @@
 import unittest
 import numpy as np
+import sys
 
-from analysis.plot_flight import plot_parameter
+from analysis.derived_parameters import ClimbForFlightPhases
 from analysis.node import KeyTimeInstance, Parameter, P, Section, S
 from analysis.flight_phase import (ApproachAndLanding,
                                    ClimbCruiseDescent,
                                    Climbing,
                                    DescentLowClimb,
                                    )
-from analysis.derived_parameters import (ClimbForFlightPhases,
-                                         )
-from analysis.key_time_instances import (BottomOfDescent,
-                                         ClimbStart,
-                                         GoAround,
-                                         AltitudeInApproach,
-                                         AltitudeInFinalApproach,
-                                         AltitudeWhenClimbing,
-                                         AltitudeWhenDescending,
-                                         InitialClimbStart,
-                                         LandingPeakDeceleration,
-                                         LandingStart,
-                                         LandingDecelerationEnd,
-                                         LandingTurnOffRunway,
-                                         Liftoff,
-                                         TakeoffAccelerationStart,
-                                         TakeoffTurnOntoRunway,
-                                         TopOfClimb,
-                                         TopOfDescent,
-                                         Touchdown
-                                         )
+from analysis.key_time_instances import (
+    AltitudeInApproach,
+    AltitudeInFinalApproach,
+    AltitudeWhenClimbing,
+    AltitudeWhenDescending,
+    BottomOfDescent,
+    ClimbStart,
+    GoAround,
+    InitialClimbStart,
+    LandingDecelerationEnd,
+    LandingPeakDeceleration,
+    LandingStart,
+    LandingTurnOffRunway,
+    Liftoff,
+    TakeoffAccelerationStart,
+    TakeoffTurnOntoRunway,
+    TopOfClimb,
+    TopOfDescent,
+    Touchdown,
+)
 
-import sys
 debug = sys.gettrace() is not None
 
 class TestBottomOfDescent(unittest.TestCase):
@@ -112,6 +111,7 @@ class TestGoAround(unittest.TestCase):
         alt = np.ma.array(np.cos(np.arange(0,21,0.02))*(1000)+2500)
 
         if debug:
+            from analysis.plot_flight import plot_parameter
             plot_parameter(alt)
             
         aal = ApproachAndLanding()

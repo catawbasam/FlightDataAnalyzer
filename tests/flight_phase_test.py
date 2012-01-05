@@ -1,7 +1,5 @@
 import unittest
 import numpy as np
-import sys
-debug = sys.gettrace() is not None
 
 from analysis.node import A, KPV, KTI, KeyTimeInstance, Parameter, P, Section, S
 
@@ -10,26 +8,27 @@ from analysis.key_time_instances import (BottomOfDescent,
                                          TopOfDescent
                                          )
 from analysis.plot_flight import plot_parameter
-from analysis.flight_phase import (Airborne,
-                                   Approach,
-                                   ApproachAndLanding,
-                                   ClimbCruiseDescent,
-                                   ClimbFromBottomOfDescent,
-                                   Climbing,
-                                   Cruise,
-                                   Descending,
-                                   DescentLowClimb,
-                                   DescentToBottomOfDescent,
-                                   Fast,
-                                   FinalApproach,
-                                   ILSLocalizerEstablished,
-                                   InitialApproach,
-                                   Landing,
-                                   LevelFlight,
-                                   OnGround,
-                                   Takeoff,
-                                   Turning
-                                   )
+from analysis.flight_phase import (
+    Airborne,
+    Approach,
+    ApproachAndLanding,
+    ClimbCruiseDescent,
+    ClimbFromBottomOfDescent,
+    Climbing,
+    Cruise,
+    Descending,
+    DescentLowClimb,
+    DescentToBottomOfDescent,
+    Fast,
+    FinalApproach,
+    ILSLocalizerEstablished,
+    InitialApproach,
+    Landing,
+    LevelFlight,
+    OnGround,
+    Takeoff,
+    Turning
+    )
 
 from analysis.settings import AIRSPEED_THRESHOLD
 
