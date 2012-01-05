@@ -451,47 +451,6 @@ def hash_array(array):
     checksum.update(array.tostring())
     return checksum.hexdigest()
 
-"""
-OLD CODE
-
-def hysteresis (array, hysteresis):
-    '''
-    Hysteresis is a process used to prevent noisy data from triggering 
-    an unnecessary number of events or state changes when the parameter is 
-    close to a threshold.
-        
-    :param array: data values to process
-    :type array: masked array
-    :param hysteresis: hysteresis range to apply
-    :type hysteresis: float
-    :returns: masked array of values with hysteresis applied
-    '''
-
-    # This routine accepts the usual masked array but only processes the
-    # data part of the array as the hysteresis process cannot make the
-    # values invalid.
-   
-    quarter_range = hysteresis / 4.0
-    result = np.ma.copy(array)
-
-    for i in xrange(0, len(result)-1, 1):
-        if result.data[i+1] - result.data[i] > quarter_range:
-            result.data[i+1] = result.data[i+1] - quarter_range
-        elif result.data[i+1] - result.data[i] < -quarter_range:
-            result.data[i+1] = result.data[i+1] + quarter_range
-        else:
-            result.data[i+1] = result.data[i]
-
-    for i in xrange(len(result)-1, 0, -1):
-        if result.data[i-1] - result.data[i] > quarter_range:
-            result.data[i-1] = result.data[i-1] - quarter_range
-        elif result.data[i-1] - result.data[i] < -quarter_range:
-            result.data[i-1] = result.data[i-1] + quarter_range
-        else:
-            result.data[i-1] = result.data[i]
-        
-    return result
-"""
 def hysteresis (array, hysteresis):
 
     quarter_range = hysteresis / 4.0
@@ -767,24 +726,6 @@ def merge_alternate_sensors (array):
     result[-1] = (array[-2] + array[-1]) / 2.0
     return result
 
-def peak_index(a):
-    # Scans an array and returns the peak, where possible computing the local
-    # maximum assuming a quadratic curve over the top three samples.
-    if len(a) == 0:
-        raise ValueError, 'No data to scan for peak'
-    elif len(a) == 1:
-        return a[0]
-    elif len(a) == 2:
-        return max(a)
-    else:
-        loc=np.argmax(a)
-        if loc == 0:
-            return a[0]
-        elif loc == len(a)-1:
-            return a[-1]
-        else:
-            pk=(a[loc-1]-a[loc+1])/(2.0*a[loc-1]-4.0*a[loc]+2.0*a[loc+1])
-            return loc-1+peak
 
 def peak_curvature(array, _slice=slice(None)):
     """
@@ -855,12 +796,46 @@ def peak_curvature(array, _slice=slice(None)):
             angle[back-trailer]=abs(m[back] - m[back-trailer])
     # Normalise array and prepare for masking operations
     angle=np.ma.array(angle/np.max(np.abs(angle)))
-    # Find peak
-    peak_slice=np.ma.clump_unmasked(np.ma.masked_outside(angle,-0.5,0.5))
-    index = peak_index(angle.data[peak_slice[0]])
+
+    # Find peak - using values over 50% of the highest allows us to operate
+    # without knowing the data characteristics.
+    peak_slice=np.ma.clump_unmasked(np.ma.masked_inside(angle,-0.5,0.5))
+
+    index = peak_index(angle.data[peak_slice[0]])+ peak_slice[0].start+trailer- 0.5
+    #index = peak_index(angle.data[peak_slice[0]])\ #  The local peak
+        #+ peak_slice[0].start\ #  Offset from the first range of data to test
+        #+ trailer \ #  Our curvature is with respect to the centre of the t&t
+        #- 0.5
     
     return index + (_slice.start or 0)
     
+def peak_index(a):
+    '''
+    Scans an array and returns the peak, where possible computing the local maximum assuming a quadratic curve over the top three samples.
+    
+    :param a: array
+    :type a: list of floats
+    
+    '''
+    if len(a) == 0:
+        raise ValueError, 'No data to scan for peak'
+    elif len(a) == 1:
+        return 0
+    elif len(a) == 2:
+        return np.argmax(a)
+    else:
+        loc=np.argmax(a)
+        if loc == 0:
+            return 0
+        elif loc == len(a)-1:
+            return len(a)-1
+        else:
+            denominator = (2.0*a[loc-1]-4.0*a[loc]+2.0*a[loc+1])
+            if abs(denominator) < 0.001:
+                return loc
+            else:
+                peak=(a[loc-1]-a[loc+1])/denominator
+                return loc+peak
     
 def rate_of_change(diff_param, half_width):
     '''

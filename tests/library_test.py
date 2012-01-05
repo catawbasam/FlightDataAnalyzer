@@ -19,7 +19,7 @@ from analysis.library import (align, calculate_timebase, create_phase_inside,
                               min_value, mask_inside_slices,
                               mask_outside_slices, max_continuous_unmasked,
                               max_value, max_abs_value, merge_alternate_sensors,
-                              peak_curvature, rate_of_change, repair_mask, 
+                              peak_curvature, peak_index, rate_of_change, repair_mask, 
                               slices_above, slices_below, slices_between, 
                               slices_from_to, straighten_headings,
                               #time_at_value, time_at_value_wrapped,
@@ -563,8 +563,8 @@ class TestHysteresis(unittest.TestCase):
         data = np.ma.array([0,1,2,1,0,-1,5,6,7,0],dtype=float)
         data[4] = np.ma.masked
         result = hysteresis(data,2)
-        np.testing.assert_array_equal(result.data,[0.5,1,1,1,1,0,5,6,6,0.5])
-        np.testing.assert_array_equal(result.mask,[0,0,0,0,1,0,0,0,0,0])
+        np.testing.assert_array_equal(result.filled(999),
+                                      [0.5,1,1,1,999,0,5,6,6,0.5])
 
     def test_hysteresis_change_of_threshold(self):
         data = np.ma.array([0,1,2,1,0,-1,5,6,7,0],dtype=float)
@@ -812,12 +812,11 @@ class TestPeakCurvature(unittest.TestCase):
     def test_peak_curvature_basic(self):
         array = np.ma.array([0]*20+range(20))
         pc = peak_curvature(array)
-        self.assertGreaterEqual(pc,17)
-        self.assertLessEqual(pc,23)
+        self.assertEqual(pc,20)
 
-    def test_peak_curvature_2Hz(self):
+    def test_peak_curvature(self):
         array = np.ma.array([0]*40+range(40))
-        pc = peak_curvature(array, frequency=2)
+        pc = peak_curvature(array)
         self.assertGreaterEqual(pc,35)
         self.assertLessEqual(pc,45)
 
@@ -831,13 +830,42 @@ class TestPeakCurvature(unittest.TestCase):
                              47.5,49.6,52,53.2,54.7,57.4,60.7,61.9,64.3,66.1,
                              69.4,70.6,74.2,74.8])
         pc = peak_curvature(array)
-        self.assertEqual(pc,15)
+        self.assertGreaterEqual(pc,16.5)
+        self.assertLessEqual(pc,16.6)
         
     def test_peak_curvature_with_slice(self):
         array = np.ma.array([0]*100)
         pc = peak_curvature(array, slice(10, 50))
         self.assertEqual(pc, 10)
 
+class TestPeakIndex(unittest.TestCase):
+    def test_peak_index_no_data(self):
+        self.assertRaises(ValueError, peak_index, [])
+        
+    def test_peak_index_one_sample(self):
+        self.assertEqual(peak_index([4]),0)
+        
+    def test_peak_index_two_samples_rising(self):
+        self.assertEqual(peak_index([2,4]),1)
+        
+    def test_peak_index_two_samples_falling(self):
+        self.assertEqual(peak_index([4,2]),0)
+        
+    def test_peak_index_three_samples_falling(self):
+        self.assertEqual(peak_index([6,4,2]),0)
+        
+    def test_peak_index_three_samples_rising(self):
+        self.assertEqual(peak_index([1,2,3]),2)
+        
+    def test_peak_index_three_samples_with_peak(self):
+        self.assertEqual(peak_index([1,2,1]),1)
+        
+    def test_peak_index_three_samples_trap_linear(self):
+        self.assertEqual(peak_index([0,0.0000001,0]),1)
+        
+    def test_peak_index_real_peak(self):
+        peak=np.sin(np.arange(10)/3.)
+        self.assertEqual(peak_index(peak),4.7141807866121832)
         
 class TestPhaseMasking(unittest.TestCase):
     def test_phase_inside_basic(self):
