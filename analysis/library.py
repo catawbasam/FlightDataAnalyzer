@@ -615,31 +615,41 @@ def is_index_within_slice(index, _slice):
     Tests whether index is within the slice.
     
     :type index: int or float
-    :type slice_: slice
+    :type _slice: slice
     :rtype: bool
     '''
+    if _slice.start is None and _slice.stop is None:
+        return True
+    elif _slice.start is None:
+        return index < _slice.stop
+    elif _slice.stop is None:
+        return index >= _slice.start
     return _slice.start <= index < _slice.stop
 
 def is_slice_within_slice(inner_slice, outer_slice):
     '''
-    Tests whether inner_slice is within the outer slice.
+    inner_slice is considered to not be within outer slice if its start or 
+    stop is None.
     
     :type inner_slice: slice
     :type outer_slice: slice
+    :returns: Whether inner_slice is within the outer_slice.
     :rtype: bool
     '''
-    start_within = outer_slice.start <= inner_slice.start <= outer_slice.stop
-    stop_within = outer_slice.start <= inner_slice.stop <= outer_slice.stop
-    return start_within and stop_within
-
-def _value(array, _slice, operator):
-    """
-    Applies logic of min_value and max_value
-    """
-    if _slice.step and _slice.step < 0:
-        raise ValueError("Negative step not supported")
-    index = operator(array[_slice]) + (_slice.start or 0) * (_slice.step or 1)
-    return Value(index, array[index])
+    if outer_slice.start is None and outer_slice.stop is None:
+        return True
+    elif inner_slice.start is None and outer_slice.start is not None:
+        return False
+    elif inner_slice.stop is None and outer_slice.stop is not None:
+        return False
+    elif inner_slice.start is None and outer_slice.start is None:
+        return inner_slice.stop < outer_slice.stop
+    elif outer_slice.stop is None and outer_slice.stop is None:
+        return inner_slice.start >= outer_slice.start
+    else:
+        start_within = outer_slice.start <= inner_slice.start <= outer_slice.stop
+        stop_within = outer_slice.start <= inner_slice.stop <= outer_slice.stop
+        return start_within and stop_within
 
 def mask_inside_slices(array, slices):
     '''
@@ -706,7 +716,8 @@ def max_abs_value(array, _slice=slice(None)):
     
 def max_value(array, _slice=slice(None)):
     """
-    Get the maximum value in the array and its index.
+    Get the maximum value in the array and its index relative to the array and
+    not the _slice argument.
     
     :param array: masked array
     :type array: np.ma.array
@@ -748,7 +759,26 @@ def merge_alternate_sensors (array):
     result[-1] = (array[-2] + array[-1]) / 2.0
     return result
 
-def peak_curvature(array, _slice=slice(None), frequency=1):
+def peak_index(a):
+    # Scans an array and returns the peak, where possible computing the local
+    # maximum assuming a quadratic curve over the top three samples.
+    if len(a) == 0:
+        raise ValueError, 'No data to scan for peak'
+    elif len(a) == 1:
+        return a[0]
+    elif len(a) == 2:
+        return max(a)
+    else:
+        loc=np.argmax(a)
+        if loc == 0:
+            return a[0]
+        elif loc == len(a)-1:
+            return a[-1]
+        else:
+            pk=(a[loc-1]-a[loc+1])/(2.0*a[loc-1]-4.0*a[loc]+2.0*a[loc+1])
+            return loc-1+peak
+
+def peak_curvature(array, _slice=slice(None)):
     """
     This routine uses a "Truck and Trailer" algorithm to find where a
     parameter changes slope. In the case of FDM, we are looking for the point
@@ -759,15 +789,16 @@ def peak_curvature(array, _slice=slice(None), frequency=1):
     available.
     """
     data = array[_slice].data
-    gap = TRUCK_OR_TRAILER_INTERVAL * frequency
+    gap = TRUCK_OR_TRAILER_INTERVAL
     if gap%2-1:
         gap-=1  #  Ensure gap is odd
-    ttp = TRUCK_OR_TRAILER_PERIOD * frequency
+    ttp = TRUCK_OR_TRAILER_PERIOD
+    trailer = ttp+gap
     overall = 2*ttp + gap 
     # check the array is long enough.
     if len(data) < overall:
         raise ValueError, 'Peak curvature called with too short a sample'
-    
+    '''
     steps = len(data)-overall+1
     A = np.vstack([np.arange(ttp), np.ones(ttp)*frequency]).T
 
@@ -780,6 +811,46 @@ def peak_curvature(array, _slice=slice(None), frequency=1):
         measures[step] = abs(m2 - m1)
     
     index = np.ma.argmax(measures) + overall/2
+    '''
+    # Set up working arrays
+    x = np.arange(ttp) + 1 #  The x-axis is always short and constant
+    sx = np.sum(x)
+    r = sx/float(x[-1]) #  
+    trucks = len(data) - ttp#  How many trucks fit this array length?
+
+    sy = np.empty(trucks+1) #  Sigma y
+    sy[0]=np.sum(data[0:ttp])
+
+    sxy = np.empty(trucks+1) #  Sigma x.y
+    sxy[0]=np.sum(data[0:ttp]*x[0:ttp])
+    
+    m = np.empty(trucks) # Resulting least squares slope (best fit y=mx+c)
+
+    #  How many places can the truck and trailer fit into this data set?
+    places=len(data)-overall 
+    #  The angle between the truck and trailer at each place it can fit
+    angle=np.empty(places) 
+    
+    for back in range(trucks):
+        # We compute the parts of the least squares formula, using the
+        # numerator only (the denominator is constant and we're not really
+        # interested in the answer).
+        
+        # As we move the back of the truck forward, the trailer front is a
+        # little way ahead...
+        front = back + ttp
+        sy[back+1] = sy[back] - data [back] + data[front]
+        sxy[back+1] = sxy[back] - sy[back] + ttp*data[front]
+        m[back] = sxy[back] - r*sy[back]
+        # Perhaps we have gone far enough to hook up the trailer as well?
+        if back >= trailer:
+            angle[back-trailer]=abs(m[back] - m[back-trailer])
+    # Normalise array and prepare for masking operations
+    angle=np.ma.array(angle/np.max(np.abs(angle)))
+    # Find peak
+    peak_slice=np.ma.clump_unmasked(np.ma.masked_outside(angle,-0.5,0.5))
+    index = peak_index(angle.data[peak_slice[0]])
+    
     return index + (_slice.start or 0)
     
     
@@ -853,6 +924,101 @@ def shift_slices(slicelist, offset):
         b = each_slice.stop + offset
         newlist.append(slice(a,b))
     return newlist
+
+
+def slices_above(array, value):
+    '''
+    Get slices where the array is above value. Repairs the mask to avoid a 
+    large number of slices being created.
+    
+    :param array:
+    :type array: np.ma.masked_array
+    :param value: Value to create slices above.
+    :type value: float or int
+    :returns: Slices where the array is above a certain value.
+    :rtype: list of slice
+    '''
+    if len(array) == 0:
+        return array, []
+    repaired_array = repair_mask(array)
+    band = np.ma.masked_less(repaired_array, value)
+    slices = np.ma.clump_unmasked(band)
+    return repaired_array, slices
+
+def slices_below(array, value):
+    '''
+    Get slices where the array is below value. Repairs the mask to avoid a 
+    large number of slices being created.
+    
+    :param array:
+    :type array: np.ma.masked_array
+    :param value: Value to create slices below.
+    :type value: float or int
+    :returns: Slices where the array is below a certain value.
+    :rtype: list of slice
+    '''
+    if len(array) == 0:
+        return array, []
+    repaired_array = repair_mask(array)
+    band = np.ma.masked_greater(repaired_array, value)
+    slices = np.ma.clump_unmasked(band)
+    return repaired_array, slices
+
+def slices_between(array, min_, max_):
+    '''
+    Get slices where the array's values are between min_ and max_. Repairs 
+    the mask to avoid a large number of slices being created.
+    
+    :param array:
+    :type array: np.ma.masked_array
+    :param min_: Minimum value within slices.
+    :type min_: float or int
+    :param max_: Maximum value within slices.
+    :type max_: float or int
+    :returns: Slices where the array is above a certain value.
+    :rtype: list of slice
+    '''
+    if len(array) == 0:
+        return array, []
+    repaired_array = repair_mask(array)
+    # Slice through the array at the top and bottom of the band of interest
+    band = np.ma.masked_outside(repaired_array, min_, max_)
+    # Group the result into slices - note that the array is repaired and
+    # therefore already has small masked sections repaired, so no allowance
+    # is needed here for minor data corruptions.
+    slices = np.ma.clump_unmasked(band)
+    return repaired_array, slices
+
+def slices_from_to(array, from_, to):
+    '''
+    Get slices of the array where values are between from_ and to, and either
+    ascending or descending depending on whether from_ is greater than or less
+    than to. For instance, slices_from_to(array, 1000, 1500) is ascending and
+    requires will only return slices where values are between 1000 and 1500 if
+    the value in the array at the start of the slice is less than the value at
+    the stop. The opposite condition would be applied if the arguments are
+    descending, e.g. slices_from_to(array, 1500, 1000).
+    
+    :param array:
+    :type array: np.ma.masked_array
+    :param from_: Value from.
+    :type from_: float or int
+    :param to: Value to.
+    :type to: float or int
+    :returns: Slices of the array where values are between from_ and to and either ascending or descending depending on comparing from_ and to.
+    :rtype: list of slice
+    '''
+    if len(array) == 0:
+        return array, []
+    rep_array, slices = slices_between(array, from_, to)
+    if from_ > to:
+        condition = lambda s: rep_array[s.start] > rep_array[s.stop-1]
+    elif from_ < to:
+        condition = lambda s: rep_array[s.start] < rep_array[s.stop-1]
+    else:
+        raise ValueError('From and to values should not be equal.')
+    filtered_slices = filter(condition, slices)
+    return rep_array, filtered_slices
 
             
 def straighten_headings(heading_array):
@@ -938,6 +1104,15 @@ def index_at_value (array, threshold, _slice=slice(None)):
         r = (float(threshold) - a) / (b-a) 
         #TODO: Could test 0 < r < 1 for completeness
     return (begin + step * (n+r))
+
+def _value(array, _slice, operator):
+    """
+    Applies logic of min_value and max_value
+    """
+    if _slice.step and _slice.step < 0:
+        raise ValueError("Negative step not supported")
+    index = operator(array[_slice]) + (_slice.start or 0) * (_slice.step or 1)
+    return Value(index, array[index])
 
 def value_at_time (array, hz, offset, time_index):
     '''

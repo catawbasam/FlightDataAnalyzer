@@ -1,5 +1,7 @@
 import unittest
 import numpy as np
+import sys
+debug = sys.gettrace() is not None
 
 from analysis.node import A, KPV, KTI, KeyTimeInstance, Parameter, P, Section, S
 
