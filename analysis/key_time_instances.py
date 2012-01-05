@@ -287,9 +287,10 @@ class AltitudeWhenClimbing(KeyTimeInstanceNode):
                  1500, 2000, 2500, 3000, 3500, 4000, 5000, 6000, 7000, 8000, 
                  9000, 10000]
     NAME_VALUES = {'altitude': ALTITUDES}
+    HYSTERESIS = 10 # Q: Better as setting?
     
     def derive(self, climbing=S('Climbing'), alt_aal=P('Altitude AAL')):
-        alt_array = hysteresis(alt_aal.array, 10)
+        alt_array = hysteresis(alt_aal.array, self.HYSTERESIS)
         for climb in climbing:
             for alt_threshold in self.ALTITUDES:
                 # Will trigger a single KTI per height (if threshold is crossed)
@@ -308,9 +309,10 @@ class AltitudeWhenDescending(KeyTimeInstanceNode):
                  1500, 2000, 3000, 3500, 4000, 5000, 6000, 7000, 8000, 9000,
                  10000]
     NAME_VALUES = {'altitude': ALTITUDES}
+    HYSTERESIS = 10 # Q: Better as setting?
     
     def derive(self, descending=S('Descending'), alt_aal=P('Altitude AAL')):
-        alt_array = hysteresis(alt_aal.array, 10)
+        alt_array = hysteresis(alt_aal.array, self.HYSTERESIS)
         for descend in descending:
             for alt_threshold in self.ALTITUDES:
                 # Will trigger a single KTI per height (if threshold is crossed)
@@ -329,10 +331,11 @@ class AltitudeInApproach(KeyTimeInstanceNode):
     NAME_FORMAT = '%(altitude)d Ft In Approach'
     ALTITUDES = [1000, 1500, 2000, 3000]
     NAME_VALUES = {'altitude': ALTITUDES}
+    HYSTERESIS = 10 # Q: Better as setting?
     
     def derive(self, approaches=S('Approach And Landing'),
                alt_aal=P('Altitude AAL')):
-        alt_array = hysteresis(alt_aal.array, 10)
+        alt_array = hysteresis(alt_aal.array, self.HYSTERESIS)
         for approach in approaches:
             for alt_threshold in self.ALTITUDES:
                 # Will trigger a single KTI per height (if threshold is crossed)
@@ -349,12 +352,13 @@ class AltitudeInFinalApproach(KeyTimeInstanceNode):
     NAME_FORMAT = '%(altitude)d Ft In Final Approach'
     ALTITUDES = [100, 500]
     NAME_VALUES = {'altitude': ALTITUDES}
+    HYSTERESIS = 10 # Q: Better as setting?
     
     def derive(self, approaches=S('Approach And Landing'),
                alt_aal=P('Altitude AAL')):
         # Attempt to smooth to avoid fluctuations triggering KTIs.
         # Q: Is this required?
-        alt_array = hysteresis(alt_aal.array, 10)
+        alt_array = hysteresis(alt_aal.array, self.HYSTERESIS)
         for approach in approaches:
             for alt_threshold in self.ALTITUDES:
                 # Will trigger a single KTI per height (if threshold is crossed)

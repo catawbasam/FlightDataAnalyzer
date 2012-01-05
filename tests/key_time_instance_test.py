@@ -1,6 +1,7 @@
-import unittest
+import mock
 import numpy as np
 import sys
+import unittest
 
 from analysis.derived_parameters import ClimbForFlightPhases
 from analysis.node import KeyTimeInstance, Parameter, P, Section, S
@@ -172,37 +173,6 @@ class TestGoAround(unittest.TestCase):
         self.assertEqual(goa, expected)
 
 
-class TestAltitudeWhenClimbing(unittest.TestCase):
-    def test_can_operate(self):
-        self.assertEqual(AltitudeWhenClimbing.get_operational_combinations(),
-                         [('Climbing', 'Altitude AAL')])
-    
-    def test_derive(self):
-        climbing = S('Climbing', items=[Section('a', slice(4, 10)),
-                                        Section('b', slice(12, 20))])
-        alt_aal = P('Altitude AAL',
-                    np.ma.masked_array(range(0, 200, 20) + \
-                                       range(0, 200, 20),
-                                       mask=[False] * 6 + [True] * 3 + \
-                                            [False] * 11))
-        altitude_when_climbing = AltitudeWhenClimbing()
-        altitude_when_climbing.derive(climbing, alt_aal)
-        self.assertEqual(list(altitude_when_climbing),
-          [KeyTimeInstance(index=4.0, name='75 Ft Climbing', datetime=None,
-                           latitude=None, longitude=None),
-           KeyTimeInstance(index=12.0, name='35 Ft Climbing', datetime=None,
-                           latitude=None, longitude=None),
-           KeyTimeInstance(index=12.75, name='50 Ft Climbing', datetime=None,
-                           latitude=None, longitude=None),
-           KeyTimeInstance(index=14.0, name='75 Ft Climbing', datetime=None,
-                           latitude=None, longitude=None),
-           KeyTimeInstance(index=15.25, name='100 Ft Climbing', datetime=None,
-                           latitude=None, longitude=None),
-           KeyTimeInstance(index=17.75, name='150 Ft Climbing', datetime=None,
-                           latitude=None, longitude=None)]
-        )
-
-
 class TestAltitudeInApproach(unittest.TestCase):
     def test_can_operate(self):
         self.assertEqual(AltitudeInApproach.get_operational_combinations(),
@@ -223,7 +193,6 @@ class TestAltitudeInApproach(unittest.TestCase):
                            datetime=None, latitude=None, longitude=None),
            KeyTimeInstance(index=12.25, name='1500 Ft In Approach',
                            datetime=None, latitude=None, longitude=None)])
-
 
 
 class TestAltitudeInFinalApproach(unittest.TestCase):
@@ -253,12 +222,41 @@ class TestAltitudeInFinalApproach(unittest.TestCase):
                            latitude=None, longitude=None)])
 
 
+class TestAltitudeWhenClimbing(unittest.TestCase):
+    def test_can_operate(self):
+        self.assertEqual(AltitudeWhenClimbing.get_operational_combinations(),
+                         [('Climbing', 'Altitude AAL')])
+    
+    @mock.patch('analysis.key_time_instances.hysteresis')
+    def test_derive(self, hysteresis):
+        climbing = S('Climbing', items=[Section('a', slice(4, 10)),
+                                        Section('b', slice(12, 20))])
+        alt_aal = P('Altitude AAL',
+                    np.ma.masked_array(range(0, 200, 20) + \
+                                       range(0, 200, 20),
+                                       mask=[False] * 6 + [True] * 3 + \
+                                            [False] * 11))
+        # Do not apply hysteresis to simplify testing.
+        hysteresis.return_value = alt_aal.array
+        altitude_when_climbing = AltitudeWhenClimbing()
+        altitude_when_climbing.derive(climbing, alt_aal)
+        self.assertEqual(hysteresis.call_args,
+            ((alt_aal.array, altitude_when_climbing.HYSTERESIS), {}))
+        self.assertEqual(list(altitude_when_climbing),
+          [KeyTimeInstance(index=5.0, name='100 Ft Climbing'),
+           KeyTimeInstance(index=12.5, name='50 Ft Climbing'),
+           KeyTimeInstance(index=13.75, name='75 Ft Climbing'),
+           KeyTimeInstance(index=15.0, name='100 Ft Climbing'),
+           KeyTimeInstance(index=17.5, name='150 Ft Climbing')])
+
+
 class TestAltitudeWhenDescending(unittest.TestCase):
     def test_can_operate(self):
         self.assertEqual(AltitudeWhenDescending.get_operational_combinations(),
                          [('Descending', 'Altitude AAL')])
     
-    def test_derive(self):
+    @mock.patch('analysis.key_time_instances.hysteresis')
+    def test_derive(self, hysteresis):
         descending = S('Descending', items=[Section('a', slice(0, 10)),
                                             Section('b', slice(12, 20))])
         alt_aal = P('Altitude AAL',
@@ -266,19 +264,20 @@ class TestAltitudeWhenDescending(unittest.TestCase):
                                        range(100, 0, -10),
                                        mask=[False] * 6 + [True] * 3 + \
                                             [False] * 11))
+        # Do not apply hysteresis to simplify testing.
+        hysteresis.return_value = alt_aal.array
         altitude_when_descending = AltitudeWhenDescending()
         altitude_when_descending.derive(descending, alt_aal)
+        self.assertEqual(hysteresis.call_args,
+            ((alt_aal.array, altitude_when_descending.HYSTERESIS), {}))
         self.assertEqual(list(altitude_when_descending),
-          [KeyTimeInstance(index=3.0, name='75 Ft Descending', datetime=None,
-                           latitude=None, longitude=None),
-           KeyTimeInstance(index=18.5, name='20 Ft Descending', datetime=None,
-                           latitude=None, longitude=None),
-           KeyTimeInstance(index=17.0, name='35 Ft Descending', datetime=None, 
-                           latitude=None, longitude=None),
-           KeyTimeInstance(index=15.5, name='50 Ft Descending', datetime=None,
-                           latitude=None, longitude=None),
-           KeyTimeInstance(index=13.0, name='75 Ft Descending', datetime=None,
-                           latitude=None, longitude=None)])
+          [KeyTimeInstance(index=5.0, name='50 Ft Descending'),
+           KeyTimeInstance(index=2.5, name='75 Ft Descending'), 
+           KeyTimeInstance(index=19.0, name='10 Ft Descending'),
+           KeyTimeInstance(index=18.0, name='20 Ft Descending'),
+           KeyTimeInstance(index=16.5, name='35 Ft Descending'),
+           KeyTimeInstance(index=15.0, name='50 Ft Descending'),
+           KeyTimeInstance(index=12.5, name='75 Ft Descending')])
 
 
 class TestInitialClimbStart(unittest.TestCase):

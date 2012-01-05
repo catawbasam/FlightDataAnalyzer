@@ -158,11 +158,8 @@ def can_operate(cls, available):
         """
         Compute every operational combination of dependencies.
         """
-        options = []
-        for args in powerset(cls.get_dependency_names()):
-            if cls.can_operate(args):
-                options.append(args)
-        return options
+        dependencies_powerset = powerset(cls.get_dependency_names())
+        return [args for args in dependencies_powerset if cls.can_operate(args)]
     
     # removed abstract wrapper to allow initialisation within def derive(KTI('a'))
     ##@abstractmethod #TODO: Review removal.
@@ -259,10 +256,13 @@ class DerivedParameterNode(Node):
         
     def at(self, secs):
         """
-        Interpolates to retrieve the most accurate value.
+        Gets the value within the array at time secs. Interpolates to retrieve
+        the most accurate value.
         
         :param secs: time delta from start of data in seconds
         :type secs: float or timedelta
+        :returns: The interpolated value of the array at time secs.
+        :rtype: float
         """
         try:
             # get seconds from timedelta
@@ -287,25 +287,59 @@ class DerivedParameterNode(Node):
         return aligned_param 
     
     def slices_above(self, value):
+        '''
+        Get slices where the parameter's array is above value.
+        
+        :param value: Value to create slices above.
+        :type value: float or int
+        :returns: Slices where the array is above a certain value.
+        :rtype: list of slice
+        '''
         return slices_above(self.array, value)[1]
     
     def slices_below(self, value):
         '''
-        Repairs the mask to avoid a large number of slices being created.
+        Get slices where the parameter's array is below value.
         
-        :param array:
-        :type array: np.ma.masked_array
         :param value: Value to create slices below.
         :type value: float or int
-        :returns: Slices where the array is above a certain value.
+        :returns: Slices where the array is below a certain value.
         :rtype: list of slice
         '''
         return slices_below(self.array, value)[1]
     
     def slices_between(self, min_, max_):
+        '''
+        Get slices where the parameter's array values are between min_ and
+        max_.
+        
+        :param min_: Minimum value within slice.
+        :type min_: float or int
+        :param max_: Maximum value within slice.
+        :type max_: float or int
+        :returns: Slices where the array is within min_ and max_.
+        :rtype: list of slice
+        '''
         return slices_between(self.array, min_, max_)[1]
     
     def slices_from_to(self, from_, to):
+        '''Get slices of the parameter's array where values are between from_
+        and to, and either ascending or descending depending on whether from_ 
+        is greater than or less than to. For instance,
+        param.slices_from_to(1000, 1500) is ascending and requires will only 
+        return slices where values are between 1000 and 1500 if
+        the value in the array at the start of the slice is less than the value at
+        the stop. The opposite condition would be applied if the arguments are
+        descending, e.g. slices_from_to(array, 1500, 1000).
+        
+        :param array:
+        :type array: np.ma.masked_array
+        :param from_: Value from.
+        :type from_: float or int
+        :param to: Value to.
+        :type to: float or int
+        :returns: Slices of the array where values are between from_ and to and either ascending or descending depending on comparing from_ and to.
+        :rtype: list of slice'''
         return slices_from_to(self.array, from_, to)[1]
 
 P = Parameter = DerivedParameterNode # shorthand

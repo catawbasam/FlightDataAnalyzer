@@ -105,10 +105,7 @@ class TestNode(unittest.TestCase):
             
             @classmethod
             def can_operate(cls, available):
-                if 'a' in available and 'b' in available:
-                    return True
-                else:
-                    return False
+                return 'a' in available and 'b' in available
         
         options = Combo.get_operational_combinations()
         self.assertEqual(options, [('a', 'b'), ('a', 'b', 'c')])

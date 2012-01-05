@@ -628,11 +628,12 @@ def is_index_within_slice(index, _slice):
 
 def is_slice_within_slice(inner_slice, outer_slice):
     '''
-    Tests whether inner_slice is within the outer_slice. inner_slice is
-    considered to not be within outer slice if its start or stop is None.
+    inner_slice is considered to not be within outer slice if its start or 
+    stop is None.
     
     :type inner_slice: slice
     :type outer_slice: slice
+    :returns: Whether inner_slice is within the outer_slice.
     :rtype: bool
     '''
     if outer_slice.start is None and outer_slice.stop is None:
@@ -649,15 +650,6 @@ def is_slice_within_slice(inner_slice, outer_slice):
         start_within = outer_slice.start <= inner_slice.start <= outer_slice.stop
         stop_within = outer_slice.start <= inner_slice.stop <= outer_slice.stop
         return start_within and stop_within
-
-def _value(array, _slice, operator):
-    """
-    Applies logic of min_value and max_value
-    """
-    if _slice.step and _slice.step < 0:
-        raise ValueError("Negative step not supported")
-    index = operator(array[_slice]) + (_slice.start or 0) * (_slice.step or 1)
-    return Value(index, array[index])
 
 def mask_inside_slices(array, slices):
     '''
@@ -936,7 +928,8 @@ def shift_slices(slicelist, offset):
 
 def slices_above(array, value):
     '''
-    Repairs the mask to avoid a large number of slices being created.
+    Get slices where the array is above value. Repairs the mask to avoid a 
+    large number of slices being created.
     
     :param array:
     :type array: np.ma.masked_array
@@ -954,7 +947,8 @@ def slices_above(array, value):
 
 def slices_below(array, value):
     '''
-    Repairs the mask to avoid a large number of slices being created.
+    Get slices where the array is below value. Repairs the mask to avoid a 
+    large number of slices being created.
     
     :param array:
     :type array: np.ma.masked_array
@@ -972,7 +966,8 @@ def slices_below(array, value):
 
 def slices_between(array, min_, max_):
     '''
-    Repairs the mask to avoid a large number of slices being created.
+    Get slices where the array's values are between min_ and max_. Repairs 
+    the mask to avoid a large number of slices being created.
     
     :param array:
     :type array: np.ma.masked_array
@@ -996,10 +991,22 @@ def slices_between(array, min_, max_):
 
 def slices_from_to(array, from_, to):
     '''
-    Only includes slices where the value in the array at start is less than stop,
-    therefore the slice is assumed to be ascending. Q: An ascent followed
-    by a smaller descent between from_ and to_ will all be included, not only
-    the ascent.
+    Get slices of the array where values are between from_ and to, and either
+    ascending or descending depending on whether from_ is greater than or less
+    than to. For instance, slices_from_to(array, 1000, 1500) is ascending and
+    requires will only return slices where values are between 1000 and 1500 if
+    the value in the array at the start of the slice is less than the value at
+    the stop. The opposite condition would be applied if the arguments are
+    descending, e.g. slices_from_to(array, 1500, 1000).
+    
+    :param array:
+    :type array: np.ma.masked_array
+    :param from_: Value from.
+    :type from_: float or int
+    :param to: Value to.
+    :type to: float or int
+    :returns: Slices of the array where values are between from_ and to and either ascending or descending depending on comparing from_ and to.
+    :rtype: list of slice
     '''
     if len(array) == 0:
         return array, []
@@ -1097,6 +1104,15 @@ def index_at_value (array, threshold, _slice=slice(None)):
         r = (float(threshold) - a) / (b-a) 
         #TODO: Could test 0 < r < 1 for completeness
     return (begin + step * (n+r))
+
+def _value(array, _slice, operator):
+    """
+    Applies logic of min_value and max_value
+    """
+    if _slice.step and _slice.step < 0:
+        raise ValueError("Negative step not supported")
+    index = operator(array[_slice]) + (_slice.start or 0) * (_slice.step or 1)
+    return Value(index, array[index])
 
 def value_at_time (array, hz, offset, time_index):
     '''
