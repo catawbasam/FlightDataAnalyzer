@@ -163,11 +163,8 @@ def can_operate(cls, available):
         """
         Compute every operational combination of dependencies.
         """
-        options = []
-        for args in powerset(cls.get_dependency_names()):
-            if cls.can_operate(args):
-                options.append(args)
-        return options
+        dependencies_powerset = powerset(cls.get_dependency_names())
+        return [args for args in dependencies_powerset if cls.can_operate(args)]
     
     # removed abstract wrapper to allow initialisation within def derive(KTI('a'))
     ##@abstractmethod #TODO: Review removal.
