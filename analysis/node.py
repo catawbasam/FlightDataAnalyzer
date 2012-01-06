@@ -816,8 +816,8 @@ class KeyPointValueNode(FormattedNameNode):
         '''
         Creates KPVs by sourcing the array at each KTI index.
         
-        :param array: Array to source values from.
-        :type array: np.ma.masked_array
+        :param param: Parameter object to source values from.
+        :type param: Parameter
         :param ktis: KTIs with indices to source values within the array from.
         :type ktis: KeyTimeInstanceNode
         :returns None:

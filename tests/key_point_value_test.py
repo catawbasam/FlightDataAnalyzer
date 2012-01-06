@@ -4,6 +4,7 @@ import unittest
 
 from mock import Mock, patch
 
+from analysis.derived_parameters import FlapStepped
 from analysis.node import (KeyTimeInstance, KTI, KeyPointValue, 
                            KeyPointValueNode, Parameter, P, Section, S)
 from analysis.key_point_values import (
@@ -12,7 +13,6 @@ from analysis.key_point_values import (
     AirspeedAtTouchdown,
     AirspeedMax,
     AirspeedWithFlapMax,
-    AirspeedWithFlapXMax,
     AirspeedWithGearSelectedDownMax,
     AltitudeAtTouchdown,
     AutopilotEngaged1AtLiftoff,
@@ -76,7 +76,7 @@ class TestAltitudeAtLiftoff(unittest.TestCase, TestKPV):
 class TestAccelerationNormalMax(unittest.TestCase):
     def test_can_operate(self, eng=P()):
         self.assertEqual(AccelerationNormalMax.get_operational_combinations(),
-                         [('Normal Acceleration',)])
+                         [('Acceleration Normal',)])
     
     @patch('analysis.key_point_values.max_value')
     def test_derive(self, max_value):
@@ -94,7 +94,7 @@ class TestAccelerationNormalMax(unittest.TestCase):
 
 class TestAirspeed1000To500FtMax(unittest.TestCase):
     def test_can_operate(self):
-        expected = [('Airspeed','Altitude AAL For Flight Phases')]
+        expected = [('Airspeed','Altitude AAL')]
         opts = Airspeed1000To500FtMax.get_operational_combinations()
         self.assertEqual(opts, expected) 
         
@@ -102,7 +102,7 @@ class TestAirspeed1000To500FtMax(unittest.TestCase):
         testline = np.arange(0,12.6,0.1)
         testwave = (np.cos(testline)*(-100))+100
         spd = Parameter('Airspeed', np.ma.array(testwave))
-        alt_ph = Parameter('Altitude AAL For Flight Phases', 
+        alt_ph = Parameter('Altitude AAL', 
                            np.ma.array(testwave)*10)
         kpv = Airspeed1000To500FtMax()
         kpv.derive(spd, alt_ph)
@@ -146,19 +146,40 @@ class TestAirspeedMax(unittest.TestCase):
         self.assertGreater(kpv[1].value, 199.9)
         self.assertLess(kpv[1].value, 200)
 
-
+    
 class TestAirspeedWithFlapMax(unittest.TestCase):
     def test_can_operate(self):
-        self.assertEqual(AirspeedWithFlapMax.get_operational_combinations(),
-                         [('Airspeed', 'Flap')])
-    
-    def test_derive(self):
+        self.assertEqual(\
+            AirspeedWithFlapMax.get_operational_combinations(),
+            [('Flap Stepped', 'Airspeed')])
+        
+    def test_airspeed_with_flaps(self):
+        spd = P('Airspeed', np.ma.array(range(30)))
+        flap = P('Flap Stepped', np.ma.array([0]*10 + [5]*10 + [10]*10))
+        flap.array[19] = np.ma.masked # mask the max val
+        spd_flap = AirspeedWithFlapMax()
+        spd_flap.derive(flap, spd)
+        self.assertEqual(len(spd_flap), 3)
+        self.assertEqual(spd_flap[0].name, 'Airspeed With Flap 0 Max')
+        self.assertEqual(spd_flap[0].index, 9)
+        self.assertEqual(spd_flap[0].value, 9)
+        self.assertEqual(spd_flap[1].name, 'Airspeed With Flap 5 Max')
+        self.assertEqual(spd_flap[1].index, 18) # 19 was masked
+        self.assertEqual(spd_flap[1].value, 18)
+        self.assertEqual(spd_flap[2].name, 'Airspeed With Flap 10 Max')
+        self.assertEqual(spd_flap[2].index, 29)
+        self.assertEqual(spd_flap[2].value, 29)
+        
+    def test_derive_by_glen(self):
         airspeed = P('Airspeed', np.ma.arange(20))
         flap = P('Flap', np.ma.masked_array([0] * 2 + [1] * 2 + [2] * 2 + [5] * 2 + \
                                       [10] * 2 +  [15] * 2 + [25] * 2 + \
                                       [30] * 2 + [40] * 2 + [0] * 2))
+        step = FlapStepped()
+        step.derive(flap)
+        
         airspeed_with_flap_max = AirspeedWithFlapMax()
-        airspeed_with_flap_max.derive(airspeed, flap)
+        airspeed_with_flap_max.derive(airspeed, step)
         self.assertEqual(airspeed_with_flap_max,
           [KeyPointValue(index=3, value=3, name='Airspeed With Flap 1 Max'),
            KeyPointValue(index=5, value=5, name='Airspeed With Flap 2 Max'),
@@ -168,32 +189,8 @@ class TestAirspeedWithFlapMax(unittest.TestCase):
            KeyPointValue(index=13, value=13, name='Airspeed With Flap 25 Max'),
            KeyPointValue(index=15, value=15, name='Airspeed With Flap 30 Max'),
            KeyPointValue(index=17, value=17, name='Airspeed With Flap 40 Max')])
-
-
-class TestAirspeedWithFlapXMax(unittest.TestCase):
-    def test_can_operate(self):
-        self.assertEqual(AirspeedWithFlapXMax.get_operational_combinations(),
-                         [('Airspeed With Flap Max',)])
-    
-    def test_derive(self):
-        airspeed_with_flap_max = KeyPointValueNode('Airspeed With Flap Max',
-                                                   items=\
-          [KeyPointValue(index=3, value=3, name='Airspeed With Flap 2 Max'),
-           KeyPointValue(index=5, value=5, name='Airspeed With Flap 1 Max'),
-           KeyPointValue(index=7, value=7, name='Airspeed With Flap 10 Max'),
-           KeyPointValue(index=9, value=9, name='Airspeed With Flap 5 Max'),
-           KeyPointValue(index=11, value=11, name='Airspeed With Flap 40 Max'),
-           KeyPointValue(index=13, value=13, name='Airspeed With Flap 25 Max'),
-           KeyPointValue(index=15, value=15, name='Airspeed With Flap 30 Max'),
-           KeyPointValue(index=17, value=17, name='Airspeed With Flap 15 Max')])
-        airspeed_with_flap_x_max = AirspeedWithFlapXMax()
-        airspeed_with_flap_x_max.derive(airspeed_with_flap_max)
-        self.assertEqual(airspeed_with_flap_x_max,
-                         [KeyPointValue(index=17, value=17, name='Airspeed With Flap X Max')])
-                         
-          
-
-
+        
+        
 class TestAirspeedWithGearSelectedDownMax(unittest.TestCase):
     def test_can_operate(self):
         self.assertEqual(\
@@ -411,14 +408,14 @@ class TestFuelQtyAtTouchdown(unittest.TestCase, TestCreateKPVsAtKTIs):
 
 class TestGlideslopeDeviation1500To1000FtMax(unittest.TestCase):
     def test_can_operate(self):
-        expected = [('ILS Glideslope','Altitude AAL For Flight Phases')]
+        expected = [('ILS Glideslope','Altitude AAL')]
         opts = GlideslopeDeviation1500To1000FtMax.get_operational_combinations()
         self.assertEqual(opts, expected) 
         
     def test_ils_glide_1500_1000_basic(self):
         testline = np.arange(0,12.6,0.1)
         testwave = (np.cos(testline)*(-1000))+1000
-        alt_ph = Parameter('Altitude AAL For Flight Phases', np.ma.array(testwave))
+        alt_ph = Parameter('Altitude AAL', np.ma.array(testwave))
         ils_gs = Parameter('ILS Glideslope', np.ma.array(testline))
         kpv = GlideslopeDeviation1500To1000FtMax()
         kpv.derive(ils_gs, alt_ph)
@@ -430,14 +427,14 @@ class TestGlideslopeDeviation1500To1000FtMax(unittest.TestCase):
         
 class TestGlideslopeDeviation1000To150FtMax(unittest.TestCase):
     def test_can_operate(self):
-        expected = [('ILS Glideslope','Altitude AAL For Flight Phases')]
+        expected = [('ILS Glideslope','Altitude AAL')]
         opts = GlideslopeDeviation1000To150FtMax.get_operational_combinations()
         self.assertEqual(opts, expected) 
         
     def test_ils_glide_1000_150_basic(self):
         testline = np.arange(0,12.6,0.1)
         testwave = (np.cos(testline)*(-1000))+1000
-        alt_ph = Parameter('Altitude AAL For Flight Phases', np.ma.array(testwave))
+        alt_ph = Parameter('Altitude AAL', np.ma.array(testwave))
         ils_gs = Parameter('ILS Glideslope', np.ma.array(testline))
         kpv = GlideslopeDeviation1000To150FtMax()
         kpv.derive(ils_gs, alt_ph)
@@ -567,14 +564,14 @@ class TestLongitudeAtLowPointOnApproach(unittest.TestCase, TestCreateKPVsAtKTIs)
 
 class TestLocalizerDeviation1500To1000FtMax(unittest.TestCase):
     def test_can_operate(self):
-        expected = [('ILS Localizer','Altitude AAL For Flight Phases')]
+        expected = [('ILS Localizer','Altitude AAL')]
         opts = LocalizerDeviation1500To1000FtMax.get_operational_combinations()
         self.assertEqual(opts, expected) 
         
     def test_ils_loc_1500_1000_basic(self):
         testline = np.arange(0,12.6,0.1)
         testwave = (np.cos(testline)*(-1000))+1000
-        alt_ph = Parameter('Altitude AAL For Flight Phases', np.ma.array(testwave))
+        alt_ph = Parameter('Altitude AAL', np.ma.array(testwave))
         ils_loc = Parameter('ILS Localizer', np.ma.array(testline))
         kpv = LocalizerDeviation1500To1000FtMax()
         kpv.derive(ils_loc, alt_ph)
@@ -586,14 +583,14 @@ class TestLocalizerDeviation1500To1000FtMax(unittest.TestCase):
         
 class TestLocalizerDeviation1000To150FtMax(unittest.TestCase):
     def test_can_operate(self):
-        expected = [('ILS Localizer','Altitude AAL For Flight Phases')]
+        expected = [('ILS Localizer','Altitude AAL')]
         opts = LocalizerDeviation1000To150FtMax.get_operational_combinations()
         self.assertEqual(opts, expected) 
         
     def test_ils_loc_1000_150_basic(self):
         testline = np.arange(0,12.6,0.1)
         testwave = (np.cos(testline)*(-1000))+1000
-        alt_ph = Parameter('Altitude AAL For Flight Phases', np.ma.array(testwave))
+        alt_ph = Parameter('Altitude AAL', np.ma.array(testwave))
         ils_loc = Parameter('ILS Localizer', np.ma.array(testline))
         kpv = LocalizerDeviation1000To150FtMax()
         kpv.derive(ils_loc, alt_ph)
@@ -605,14 +602,14 @@ class TestLocalizerDeviation1000To150FtMax(unittest.TestCase):
         
 class TestPitch35To400FtMax(unittest.TestCase):
     def test_can_operate(self):
-        expected = [('Pitch','Altitude AAL For Flight Phases')]
+        expected = [('Pitch','Altitude AAL')]
         opts = Pitch35To400FtMax.get_operational_combinations()
         self.assertEqual(opts, expected) 
         
     def test_pitch_35_400_basic(self):
         pch = [0,2,4,7,9,8,6,3,-1]
         alt = [100,101,102,103,700,105,104,103,102]
-        alt_ph = Parameter('Altitude AAL For Flight Phases', np.ma.array(alt))
+        alt_ph = Parameter('Altitude AAL', np.ma.array(alt))
         pitch = Parameter('Pitch', np.ma.array(pch))
         kpv = Pitch35To400FtMax()
         kpv.derive(pitch, alt_ph)
@@ -631,7 +628,7 @@ class TestPitchAtLiftoff(unittest.TestCase, TestCreateKPVsAtKTIs):
 class TestRollBelow20FtMax(unittest.TestCase):
     def test_can_operate(self, eng=P()):
         self.assertEqual(RollBelow20FtMax.get_operational_combinations(),
-                         [('Roll', 'Altitude AAL For Flight Phases')])
+                         [('Roll', 'Altitude AAL')])
     
     @patch('analysis.key_point_values.max_value')
     def test_derive(self, max_value):

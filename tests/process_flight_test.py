@@ -224,7 +224,7 @@ class TestProcessFlight(unittest.TestCase):
         nodes = get_derived_nodes(['sample_derived_parameters'])
         self.assertEqual(len(nodes), 13)
         self.assertEqual(sorted(nodes.keys())[0], 'Heading Rate')
-        self.assertEqual(sorted(nodes.keys())[-1], 'Vertical g')
+        self.assertEqual(sorted(nodes.keys())[-1], 'Vertical Speed')
         
         
 

@@ -27,6 +27,7 @@ from analysis.derived_parameters import (
     Eng_N2Avg,
     Eng_N2Max,
     Eng_N2Min,
+    FlapStepped,
     FuelQty,
     HeadingContinuous,
     Pitch,
@@ -48,12 +49,13 @@ class TestAccelerationVertical(unittest.TestCase):
         # Invoke the class object
         acc_vert = AccelerationVertical(frequency=8)
                         
-        acc_vert.derive(
-            acc_norm=Parameter('Acceleration Normal', np.ma.ones(8),8),
-            acc_lat=Parameter('Acceleration Lateral', np.ma.zeros(4),4),
-            acc_long=Parameter('Acceleration Longitudinal', np.ma.zeros(4),4),
-            pitch=Parameter('Pitch', np.ma.zeros(2),2),
-            roll=Parameter('Roll', np.ma.zeros(2),2))
+        acc_vert.get_derived([
+            Parameter('Acceleration Normal', np.ma.ones(8),8),
+            Parameter('Acceleration Lateral', np.ma.zeros(4),4),
+            Parameter('Acceleration Longitudinal', np.ma.zeros(4),4),
+            Parameter('Pitch', np.ma.zeros(2),2),
+            Parameter('Roll', np.ma.zeros(2),2)
+        ])
         
         ma_test.assert_masked_array_approx_equal(acc_vert.array,
                                                  np.ma.array([1]*8))
@@ -61,12 +63,13 @@ class TestAccelerationVertical(unittest.TestCase):
     def test_acceleration_vertical_pitch_up(self):
         acc_vert = AccelerationVertical(frequency=8)
 
-        acc_vert.derive(
+        acc_vert.get_derived([
             P('Acceleration Normal',np.ma.ones(8)*0.8660254,8),
             P('Acceleration Lateral',np.ma.zeros(4),4),
             P('Acceleration Longitudinal',np.ma.ones(4)*0.5,4),
             P('Pitch',np.ma.ones(2)*30.0,2),
-            P('Roll',np.ma.zeros(2),2))
+            P('Roll',np.ma.zeros(2),2)
+        ])
 
         ma_test.assert_masked_array_approx_equal(acc_vert.array,
                                                  np.ma.array([1]*8))
@@ -74,12 +77,13 @@ class TestAccelerationVertical(unittest.TestCase):
     def test_acceleration_vertical_roll_right(self):
         acc_vert = AccelerationVertical(frequency=8)
 
-        acc_vert.derive(
+        acc_vert.get_derived([
             P('Acceleration Normal',np.ma.ones(8)*0.7071068,8),
             P('Acceleration Lateral',np.ma.ones(4)*(-0.7071068),4),
             P('Acceleration Longitudinal',np.ma.zeros(4),4),
             P('Pitch',np.ma.zeros(2),2),
-            P('Roll',np.ma.ones(2)*45,2))
+            P('Roll',np.ma.ones(2)*45,2)
+        ])
 
         ma_test.assert_masked_array_approx_equal(acc_vert.array,
                                                  np.ma.array([1]*8))
@@ -96,10 +100,11 @@ class TestAccelerationForwards(unittest.TestCase):
         # Invoke the class object
         acc_fwd = AccelerationForwards(frequency=4)
                         
-        acc_fwd.derive(
-            acc_norm=Parameter('Acceleration Normal', np.ma.ones(8),8),
-            acc_long=Parameter('Acceleration Longitudinal', np.ma.ones(4)*0.1,4),
-            pitch=Parameter('Pitch', np.ma.zeros(2),2))
+        acc_fwd.get_derived([
+            Parameter('Acceleration Normal', np.ma.ones(8),8),
+            Parameter('Acceleration Longitudinal', np.ma.ones(4)*0.1,4),
+            Parameter('Pitch', np.ma.zeros(2),2)
+        ])
         
         ma_test.assert_masked_array_approx_equal(acc_fwd.array,
                                                  np.ma.array([0.1]*8))
@@ -107,10 +112,11 @@ class TestAccelerationForwards(unittest.TestCase):
     def test_acceleration_forward_pitch_up(self):
         acc_fwd = AccelerationForwards(frequency=4)
 
-        acc_fwd.derive(
+        acc_fwd.get_derived([
             P('Acceleration Normal',np.ma.ones(8)*0.8660254,8),
             P('Acceleration Longitudinal',np.ma.ones(4)*0.5,4),
-            P('Pitch',np.ma.ones(2)*30.0,2))
+            P('Pitch',np.ma.ones(2)*30.0,2)
+        ])
 
         ma_test.assert_masked_array_approx_equal(acc_fwd.array,
                                                  np.ma.array([0]*8))
@@ -127,39 +133,39 @@ class TestAccelerationSideways(unittest.TestCase):
         # Invoke the class object
         acc_lat = AccelerationSideways(frequency=8)
                         
-        acc_lat.derive(
-            acc_norm=Parameter('Acceleration Normal', np.ma.ones(8),8),
-            acc_lat=Parameter('Acceleration Lateral', np.ma.ones(4)*0.05,4),
-            acc_long=Parameter('Acceleration Longitudinal', np.ma.zeros(4),4),
-            pitch=Parameter('Pitch', np.ma.zeros(2),2),
-            roll=Parameter('Roll', np.ma.zeros(2),2))
-        
+        acc_lat.get_derived([
+            Parameter('Acceleration Normal', np.ma.ones(8),8),
+            Parameter('Acceleration Lateral', np.ma.ones(4)*0.05,4),
+            Parameter('Acceleration Longitudinal', np.ma.zeros(4),4),
+            Parameter('Pitch', np.ma.zeros(2),2),
+            Parameter('Roll', np.ma.zeros(2),2)
+        ])
         ma_test.assert_masked_array_approx_equal(acc_lat.array,
                                                  np.ma.array([0.05]*8))
         
     def test_acceleration_sideways_pitch_up(self):
         acc_lat = AccelerationSideways(frequency=8)
 
-        acc_lat.derive(
+        acc_lat.get_derived([
             P('Acceleration Normal',np.ma.ones(8)*0.8660254,8),
             P('Acceleration Lateral',np.ma.zeros(4),4),
             P('Acceleration Longitudinal',np.ma.ones(4)*0.5,4),
             P('Pitch',np.ma.ones(2)*30.0,2),
-            P('Roll',np.ma.zeros(2),2))
-
+            P('Roll',np.ma.zeros(2),2)
+        ])
         ma_test.assert_masked_array_approx_equal(acc_lat.array,
                                                  np.ma.array([0]*8))
 
     def test_acceleration_sideways_roll_right(self):
         acc_lat = AccelerationSideways(frequency=8)
 
-        acc_lat.derive(
+        acc_lat.get_derived([
             P('Acceleration Normal',np.ma.ones(8)*0.7071068,8),
             P('Acceleration Lateral',np.ma.ones(4)*(-0.7071068),4),
             P('Acceleration Longitudinal',np.ma.zeros(4),4),
             P('Pitch',np.ma.zeros(2),2),
-            P('Roll',np.ma.ones(2)*45,2))
-
+            P('Roll',np.ma.ones(2)*45,2)
+        ])
         ma_test.assert_masked_array_approx_equal(acc_lat.array,
                                                  np.ma.array([0]*8))
 
@@ -622,6 +628,25 @@ class TestEng_N2Min(unittest.TestCase):
             np.array([999, # both masked, so filled with 999
                       1,2,3,4,5,6,7,8,9])
         )
+        
+        
+class TestFlapStepped(unittest.TestCase):
+    def test_can_operate(self):
+        opts = FlapStepped.get_operational_combinations()
+        self.assertEqual(opts, ('Flap',))
+        
+    def test_flap_stepped_nearest_5(self):
+        flap = P('Flap', np.ma.array(range(50)))
+        fstep = FlapStepped()
+        fstep.derive(flap)
+        self.assertEqual(list(fstep.array[:15]), [0]*5 + [5]*5 + [10]*5)
+        self.assertEqual(list(fstep.array[-10:]), [45]*5 + [50]*5)
+
+        # test with mask
+        flap = P('Flap', np.ma.array(range(20), mask=[True]*10 + [False]*10))
+        fstep.derive(flap)
+        self.assertEqual(list(fstep.array.flatten(-1)),
+                         [-1]*10 + [10]*5 + [15] * 5)
 
 class TestFuelQty(unittest.TestCase):
     def test_can_operate(self):
