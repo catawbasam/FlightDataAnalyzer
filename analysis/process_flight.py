@@ -225,11 +225,12 @@ def process_flight(hdf_path, aircraft_info, start_datetime=datetime.now(), achie
     }
     
     """
+    logging.info("Processing: %s", hdf_path)
     # go through modules to get derived nodes
     derived_nodes = get_derived_nodes(settings.NODE_MODULES)
     # if required_params isn't set, try using ALL derived_nodes!
     if not required_params:
-        logging.warning("No required_params declared, using all derived nodes")
+        logging.info("No required_params declared, using all derived nodes")
         required_params = derived_nodes.keys()
     
     # include all flight attributes as required
@@ -259,10 +260,10 @@ def process_flight(hdf_path, aircraft_info, start_datetime=datetime.now(), achie
         # timestamp KPVs
         kpv_list = _timestamp(start_datetime, kpv_list)
         
-    if draw:
-        # only import if required
-        from analysis.plot_flight import plot_flight
-        plot_flight(hdf_path, kti_list, kpv_list, section_list)
+    ##if draw:
+        ### only import if required
+        ##from analysis.plot_flight import plot_flight
+        ##plot_flight(hdf_path, kti_list, kpv_list, section_list)
         
     return {'flight' : flight_attrs, 
             'kti' : kti_list, 

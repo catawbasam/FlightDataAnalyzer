@@ -7,7 +7,7 @@ from datetime import datetime
 from analysis.node import P
 from analysis.settings import AIRSPEED_THRESHOLD
 from analysis.split_segments import (append_segment_info, split_segments2, 
-                                     subslice, _identify_segment_type, 
+                                     _identify_segment_type, 
                                      _split_by_frame_counter, 
                                      _split_by_flight_data)
 
@@ -138,95 +138,7 @@ class TestSplitSegments(unittest.TestCase):
         self.assertEqual(len(segs), 1)
         
         
-class TestSubslice(unittest.TestCase):
-    def test_subslice(self):
-        """ Does not test using negative slice start/stop values e.g. (-2,2)
-        """
-        # test basic
-        orig = slice(2,10)
-        new = slice(2, 4)
-        res = subslice(orig, new)
-        self.assertEqual(res, slice(4, 6))
-        fifty = range(50)
-        self.assertEqual(fifty[orig][new], fifty[res])
-        
-        orig = slice(10,20,2)
-        new = slice(2, 4, 1)
-        res = subslice(orig, new)
-        thirty = range(30)
-        self.assertEqual(thirty[orig][new], thirty[res])
-        self.assertEqual(res, slice(14, 18, 2))
-        
-        
-        # test step
-        orig = slice(100,200,10)
-        new = slice(1, 5, 2)
-        sub = subslice(orig, new)
-        two_hundred = range(0,200)
-        self.assertEqual(two_hundred[orig][new], two_hundred[sub])
-        self.assertEqual(sub, slice(110, 150, 20))
-        
-        # test negative step
-        orig = slice(200,100,-10)
-        new = slice(1, 5, 2)
-        sub = subslice(orig, new)
-        two_hundred = range(201)
-        self.assertEqual(two_hundred[orig][new], two_hundred[sub])
-        self.assertEqual(sub, slice(190, 150, -20))
-        
-        orig = slice(100,200,10)
-        new = slice(5, 1, -2)
-        sub = subslice(orig, new)
-        two_hundred = range(201)
-        self.assertEqual(two_hundred[orig][new], two_hundred[sub])
-        self.assertEqual(sub, slice(150, 110, -20))
-        self.assertEqual(two_hundred[sub], [150, 130]) #fix
-        
-        # test invalid back step
-        orig = slice(0,200,10)
-        new = slice(1, 5, -2)
-        sub = subslice(orig, new)
-        two_hundred = range(201)
-        self.assertEqual(two_hundred[orig][new], two_hundred[sub])
-        self.assertEqual(two_hundred[sub], []) # invalid returns no data
-        self.assertEqual(sub, slice(10, 50, -20))
-        
-        # test no start
-        orig = slice(None,100,10)
-        new = slice(5, 1, -2)
-        sub = subslice(orig, new)
-        two_hundred = range(200)
-        self.assertEqual(two_hundred[orig][new], two_hundred[sub])
-        self.assertEqual(two_hundred[sub], [50,30])
-        self.assertEqual(sub, slice(50, 10, -20))
 
-        orig = slice(0,10,2)
-        new = slice(None, 4)
-        sub = subslice(orig, new)
-        two_hundred = range(5)
-        self.assertEqual(two_hundred[orig][new], two_hundred[sub])
-        self.assertEqual(two_hundred[sub], [0,2,4]) # also tests outside of range
-        self.assertEqual(sub, slice(0, 8, 2))
-        
-        # test None start and invalid back step
-        orig = slice(None,200,10)
-        new = slice(1, 5, -2)
-        sub = subslice(orig, new)
-        two_hundred = range(201)
-        self.assertEqual(two_hundred[orig][new], two_hundred[sub])
-        self.assertEqual(two_hundred[sub], [])
-        self.assertEqual(sub, slice(10, 50, -20))
-
-        # test None at end of second slice
-        orig = slice(0,10,2)
-        new = slice(1, None)
-        sub = subslice(orig, new)
-        two_hundred = range(5)
-        self.assertEqual(two_hundred[orig][new], two_hundred[sub])
-        self.assertEqual(two_hundred[sub], [2,4])
-        self.assertEqual(sub, slice(2, 20, 2))
-                    
-        #TODO: test negative start, stop and step
         
 class TestIdentifySegment(unittest.TestCase):
     def test_ground_only(self):

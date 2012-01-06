@@ -1037,6 +1037,20 @@ def straighten_headings(heading_array):
     heading_array[1:] = np.cumsum(diff) + head_prev
     return heading_array
 
+def subslice(orig, new):
+    """
+    a = slice(2,10,2)
+    b = slice(2,2)
+    c = subslice(a, b)
+    assert range(100)[c] == range(100)[a][b]
+    
+    See tests for capabilities.
+    """
+    step = (orig.step or 1) * (new.step or 1)
+    start = (orig.start or 0) + (new.start or orig.start or 0) * (orig.step or 1)
+    stop = (orig.start or 0) + (new.stop or orig.stop or 0) * (orig.step or 1) # the bit after "+" isn't quite right!!
+    return slice(start, stop, None if step == 1 else step)
+
 def index_at_value (array, threshold, _slice=slice(None)):
     '''
     This function seeks the moment when the parameter in question first crosses 
