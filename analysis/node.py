@@ -955,6 +955,14 @@ class Attribute(object):
         self.value = value
         self.frequency = self.hz = self.sample_rate = None
         self.offset = None
+    
+    def get_aligned(self, param):
+        '''
+        Attributes do not contain data which can be aligned to other parameters.
+        Q: If attributes start storing indices rather than time, this will
+        require implementing.
+        '''
+        return self
 
 
 A = Attribute
