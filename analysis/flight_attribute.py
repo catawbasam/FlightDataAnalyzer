@@ -600,7 +600,7 @@ class LandingDatetime(FlightAttributeNode):
         if not last_touchdown:
             self.set_flight_attr(None)
             return
-        landing_datetime = datetime_of_index(start_datetime,
+        landing_datetime = datetime_of_index(start_datetime.value,
                                              last_touchdown.index,
                                              frequency=touchdown.frequency) 
         self.set_flight_attr(landing_datetime)
