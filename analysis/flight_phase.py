@@ -398,8 +398,7 @@ class Takeoff(FlightPhaseNode):
     def derive(self, head=P('Heading Continuous'),
                alt_aal=P('Altitude AAL For Flight Phases'),
                fast=S('Fast'),
-               alt_rad=P('Altitude Radio For Phases')
-               ):
+               alt_rad=P('Altitude Radio For Phases')):
         for speedy in fast:
             # This basic flight phase cuts data into fast and slow sections.
             # We know a takeoff comes at the start of the phase.

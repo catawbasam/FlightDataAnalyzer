@@ -226,6 +226,7 @@ class TestNodeManager(unittest.TestCase):
         start_dt = mgr.get_attribute('Start Datetime')
         self.assertEqual(start_dt.name, 'Start Datetime')
         self.assertEqual(start_dt.value, dt)
+        self.assertTrue(mgr.operational('Start Datetime', []))
                 
         
 class TestPowerset(unittest.TestCase):

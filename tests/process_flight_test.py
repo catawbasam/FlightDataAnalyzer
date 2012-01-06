@@ -2,15 +2,18 @@ import unittest
 import csv
 import os
 import shutil
+import mock
 import sys
 debug = sys.gettrace() is not None
 
 from datetime import datetime, timedelta
         
 from analysis.library import value_at_time
-from analysis.node import KeyPointValueNode, P, KeyTimeInstanceNode, S
+from analysis.node import (Attribute, FlightAttributeNode, KeyPointValueNode,
+                           KeyTimeInstanceNode, P, S)
 from analysis.process_flight import (process_flight, derive_parameters, 
                                      get_derived_nodes)
+from analysis import settings
 
 debug = sys.gettrace() is not None
 if debug:
@@ -93,6 +96,7 @@ class TestProcessFlight(unittest.TestCase):
         tdwn = res['kti'].get(name='Touchdown')[0]
         tdwn_minus_1 = res['kti'].get(name='1 Mins To Touchdown')[0]
         
+        self.assertEqual(tdwn.frequency, 1)
         self.assertAlmostEqual(tdwn.index, 4967.0, places=0)
         self.assertAlmostEqual(tdwn_minus_1.index, 4907.0, places=0)
         self.assertEqual(tdwn.datetime - tdwn_minus_1.datetime, timedelta(minutes=1))
@@ -115,7 +119,7 @@ class TestProcessFlight(unittest.TestCase):
                    'Tail Number': u'B-HERC',
                    'Precise Positioning': False,
                    }
-        afr = {'AFR Destination Airport': 3279,
+        afr = {'AFR Destination Airport': 3279, # TODO: Choose another airport.
                'AFR Flight ID': 4041843,
                'AFR Flight Number': u'ISF51VC',
                'AFR Landing Aiport': 3279,
@@ -146,8 +150,11 @@ class TestProcessFlight(unittest.TestCase):
             plot_flight(hdf_path, res['kti'], res['kpv'], res['phases'])
         #TODO: Further assertions on the results!
         
-    @unittest.skipIf(not os.path.isfile("test_data/4_3377853_146-301.005.hdf5"), "Test file not present")
+    @unittest.skipIf(not os.path.isfile("test_data/4_3377853_146-301.007.hdf5"),
+                     "Test file not present")
     def test_4_3377853_146_301(self):
+        # Avoid side effects which may be caused by PRE_FLIGHT_ANALYSIS.
+        settings.PRE_FLIGHT_ANALYSIS = None
         hdf_orig = "test_data/4_3377853_146-301.005.hdf5"
         hdf_path = "test_data/4_3377853_146-301.005_copy.hdf5"
         if os.path.isfile(hdf_path):
@@ -158,15 +165,47 @@ class TestProcessFlight(unittest.TestCase):
                    'Manufacturer': 'BAE',
                    'Tail Number': 'G-ABCD',
                    }
-        res = process_flight(hdf_path, ac_info, draw=False)
-        self.assertEqual(len(res), 4)
+        afr = {'AFR Flight ID': 3377853}
+        res = process_flight(hdf_path, ac_info, achieved_flight_record=afr)
         if debug:
             from analysis.plot_flight import csv_flight_details
             csv_flight_details(hdf_path, res['kti'], res['kpv'], res['phases'])
             plot_flight(hdf_path, res['kti'], res['kpv'], res['phases'])
+        self.assertEqual(len(res), 4)
+        self.assertTrue('flight' in res)
+        from pprint import pprint
+        pprint(res)
+        flight_attrs = {attr.name: attr for attr in res['flight']}
+        # 'FDR Flight ID' is sourced from 'AFR Flight ID'.
+        fdr_flight_id = flight_attrs['FDR Flight ID']
+        self.assertEqual(fdr_flight_id.value, 3377853)
+        # 'FDR Analysis Datetime' is created during processing. Ensure the
+        # value is sensible.
+        fdr_analysis_dt = flight_attrs['FDR Analysis Datetime']
+        now = datetime.now()
+        five_minutes_ago = now - timedelta(minutes=5)
+        self.assertTrue(now > fdr_analysis_dt.value > five_minutes_ago)
+        
+        # FIXME: 'TakeoffDatetime' requires missing 'Liftoff' KTI.
+        # FIXME: 'Duration' requires missing 'Takeoff Datetime' and 'Landing Datetime' FlightAttributes.
+        # 
+        # 'Flight Number' is not recorded.
         #TODO: Further assertions on the results!
-
-            
+        # TODO: Test cases for attributes which should be coming out but are NotImplemented.
+        # AnalysisDatetime
+        # Approaches
+        # Duration
+        # Flight ID
+        # FlightNumber? May not be recorded.
+        # Airports and Runways (not for Herc)
+        # All datetimes.
+        # Fuel ? Depends if recorded and maybe generated from AFR.
+        # Weights.
+        # Pilots. (might not be for Herc)
+        # FlightType
+        # V2, Vapp, Version (Herc will be AFR based).
+        # Version 
+    
     @unittest.skip('Not Implemented')
     def test_get_required_params(self):
         self.assertTrue(False)

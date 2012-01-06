@@ -655,11 +655,6 @@ class EGTTakeoffMax(KeyPointValueNode):
         return NotImplemented
 
 
-class AirspeedWithFlapXMax(KeyPointValueNode):
-    def derive(self, flap=P('Flap'), airspeed=P('Airspeed')):
-        return NotImplemented
-
-
 class GlideslopeWarning(KeyPointValueNode):
     def derive(self, gpws_glideslope=P('GPWS Glideslope')):
         return NotImplemented
@@ -993,7 +988,7 @@ class RollBelow20FtMax(KeyPointValueNode):
 class RudderReversalAbove50Ft(KeyPointValueNode):
     def derive(self, rudder_reversal=S('Rudder Reversal'),
                alt_aal=P('Altitude AAL For Flight Phases')):
-        # Q: Should this be Max or Min?
+        # Q: Should this be Max/Min?
         return NotImplemented
 
 
@@ -1041,44 +1036,27 @@ class Airspeed1000To500FtMax(KeyPointValueNode):
         return NotImplemented
 """
 
-class AirspeedWithFlap1Max(KeyPointValueNode):
+class AirspeedWithFlapMax(KeyPointValueNode):
+    NAME_FORMAT = 'Airspeed With Flap %(flap_setting)d Max'
+    FLAP_SETTINGS = [1, 2, 5, 10, 15, 25, 30, 40]
+    NAME_VALUES = {'flap_setting': FLAP_SETTINGS}
+    
     def derive(self, airspeed=P('Airspeed'), flap=P('Flap')):
-        return NotImplemented
+        for flap_setting in self.FLAP_SETTINGS:
+            airspeed_array = np.ma.copy(airspeed.array)
+            # Mask values where 'Flap' != flap_setting.
+            airspeed_array[flap.array != flap_setting] = np.ma.masked
+            value, index = max_value(airspeed_array)
+            self.create_kpv(index, value, flap_setting=flap_setting)
 
 
-class AirspeedWithFlap2Max(KeyPointValueNode):
-    def derive(self, airspeed=P('Airspeed'), flap=P('Flap')):
-        return NotImplemented
-
-
-class AirspeedWithFlap5Max(KeyPointValueNode):
-    def derive(self, airspeed=P('Airspeed'), flap=P('Flap')):
-        return NotImplemented
-
-
-class AirspeedWithFlap15Max(KeyPointValueNode):
-    def derive(self, airspeed=P('Airspeed'), flap=P('Flap')):
-        return NotImplemented
-
-
-class AirspeedWithFlap25Max(KeyPointValueNode):
-    def derive(self, airspeed=P('Airspeed'), flap=P('Flap')):
-        return NotImplemented
-
-
-class AirspeedWithFlap40Max(KeyPointValueNode):
-    def derive(self, airspeed=P('Airspeed'), flap=P('Flap')):
-        return NotImplemented
-
-
-class AirspeedWithFlap30Max(KeyPointValueNode):
-    def derive(self, airspeed=P('Airspeed'), flap=P('Flap')):
-        return NotImplemented
-
-
-class AirspeedWithFlap10Max(KeyPointValueNode):
-    def derive(self, airspeed=P('Airspeed'), flap=P('Flap')):
-        return NotImplemented
+class AirspeedWithFlapXMax(KeyPointValueNode):
+    '''
+    Flap X assumed to mean Flap enabled (non-zero).
+    '''
+    def derive(self, airspeed_with_flap_max=KPV('Airspeed With Flap Max')):
+        max_flap = airspeed_with_flap_max.get_max()
+        self.create_kpv(max_flap.index, max_flap.value)
 
 
 class AirspeedVrefAtTouchdown(KeyPointValueNode):
