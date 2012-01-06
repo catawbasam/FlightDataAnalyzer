@@ -4,8 +4,9 @@ import unittest
 
 from mock import Mock, patch
 
-from analysis.node import (KeyTimeInstance, KTI, KeyPointValue, Parameter, P,
-                           Section, S)
+from analysis.derived_parameters import FlapStepped
+from analysis.node import (KeyTimeInstance, KTI, KeyPointValue, 
+                           KeyPointValueNode, Parameter, P, Section, S)
 from analysis.key_point_values import (
     AccelerationNormalMax,
     Airspeed1000To500FtMax,
@@ -92,15 +93,9 @@ class TestAccelerationNormalMax(unittest.TestCase):
                                         name=acc_norm_max.name)])
 
 
-class TestAirspeedAtTouchdown(unittest.TestCase, TestCreateKPVsAtKTIs):
-    def setUp(self):
-        self.node_class = AirspeedAtTouchdown
-        self.operational_combinations = [('Airspeed', 'Touchdown')]
-
-
 class TestAirspeed1000To500FtMax(unittest.TestCase):
     def test_can_operate(self):
-        expected = [('Airspeed','Altitude AAL')]
+        expected = [('Airspeed','Altitude AAL For Flight Phases')]
         opts = Airspeed1000To500FtMax.get_operational_combinations()
         self.assertEqual(opts, expected) 
         
@@ -108,7 +103,7 @@ class TestAirspeed1000To500FtMax(unittest.TestCase):
         testline = np.arange(0,12.6,0.1)
         testwave = (np.cos(testline)*(-100))+100
         spd = Parameter('Airspeed', np.ma.array(testwave))
-        alt_ph = Parameter('Altitude AAL', 
+        alt_ph = Parameter('Altitude AAL For Flight Phases', 
                            np.ma.array(testwave)*10)
         kpv = Airspeed1000To500FtMax()
         kpv.derive(spd, alt_ph)
@@ -117,6 +112,12 @@ class TestAirspeed1000To500FtMax(unittest.TestCase):
         self.assertEqual(kpv[0].value, 91.250101656055278)
         self.assertEqual(kpv[1].index, 110)
         self.assertEqual(kpv[1].value, 99.557430201194919)
+
+
+class TestAirspeedAtTouchdown(unittest.TestCase, TestCreateKPVsAtKTIs):
+    def setUp(self):
+        self.node_class = AirspeedAtTouchdown
+        self.operational_combinations = [('Airspeed', 'Touchdown')]
 
 
 class TestAirspeedMax(unittest.TestCase):
@@ -146,38 +147,6 @@ class TestAirspeedMax(unittest.TestCase):
         self.assertGreater(kpv[1].value, 199.9)
         self.assertLess(kpv[1].value, 200)
 
-
-class TestAirspeed1000To500FtMax(unittest.TestCase):
-    def test_can_operate(self):
-        expected = [('Airspeed','Altitude AAL')]
-        opts = Airspeed1000To500FtMax.get_operational_combinations()
-        self.assertEqual(opts, expected) 
-        
-    def test_airspeed_1000_500_basic(self):
-        testline = np.arange(0,12.6,0.1)
-        testwave = (np.cos(testline)*(-100))+100
-        spd = Parameter('Airspeed', np.ma.array(testwave))
-        alt_ph = Parameter('Altitude AAL', 
-                           np.ma.array(testwave)*10)
-        kpv = Airspeed1000To500FtMax()
-        kpv.derive(spd, alt_ph)
-        self.assertEqual(len(kpv), 2)
-        self.assertEqual(kpv[0].index, 48)
-        self.assertEqual(kpv[0].value, 91.250101656055278)
-        self.assertEqual(kpv[1].index, 110)
-        self.assertEqual(kpv[1].value, 99.557430201194919)
-
-
-class TestAltitudeAtTouchdown(unittest.TestCase, TestCreateKPVsAtKTIs):
-    def setUp(self):
-        self.node_class = AltitudeAtTouchdown
-        self.operational_combinations = [('Altitude STD', 'Touchdown')]
-
-class TestAltitudeWithFlapsMax(unittest.TestCase):
-    @unittest.expectedFailure
-    def test_altitude_with_flaps_max(self):
-        self.assertTrue(False)
-    
     
 class TestAirspeedWithFlapMax(unittest.TestCase):
     def test_can_operate(self):
@@ -202,6 +171,27 @@ class TestAirspeedWithFlapMax(unittest.TestCase):
         self.assertEqual(spd_flap[2].index, 29)
         self.assertEqual(spd_flap[2].value, 29)
         
+    def test_derive_by_glen(self):
+        airspeed = P('Airspeed', np.ma.arange(20))
+        flap = P('Flap', np.ma.masked_array([0] * 2 + [1] * 2 + [2] * 2 + [5] * 2 + \
+                                      [10] * 2 +  [15] * 2 + [25] * 2 + \
+                                      [30] * 2 + [40] * 2 + [0] * 2))
+        step = FlapStepped()
+        step.derive(flap)
+        
+        airspeed_with_flap_max = AirspeedWithFlapMax()
+        airspeed_with_flap_max.derive(airspeed, step)
+        self.assertEqual(airspeed_with_flap_max,
+          [KeyPointValue(index=3, value=3, name='Airspeed With Flap 1 Max'),
+           KeyPointValue(index=5, value=5, name='Airspeed With Flap 2 Max'),
+           KeyPointValue(index=7, value=7, name='Airspeed With Flap 5 Max'),
+           KeyPointValue(index=9, value=9, name='Airspeed With Flap 10 Max'),
+           KeyPointValue(index=11, value=11, name='Airspeed With Flap 15 Max'),
+           KeyPointValue(index=13, value=13, name='Airspeed With Flap 25 Max'),
+           KeyPointValue(index=15, value=15, name='Airspeed With Flap 30 Max'),
+           KeyPointValue(index=17, value=17, name='Airspeed With Flap 40 Max')])
+        
+        
 class TestAirspeedWithGearSelectedDownMax(unittest.TestCase):
     def test_can_operate(self):
         self.assertEqual(\
@@ -220,6 +210,12 @@ class TestAirspeedWithGearSelectedDownMax(unittest.TestCase):
           [KeyPointValue(index=2, value=2,
                          name='Airspeed With Gear Selected Down Max',
                          slice=slice(None, None, None), datetime=None)])
+
+
+class TestAltitudeAtTouchdown(unittest.TestCase, TestCreateKPVsAtKTIs):
+    def setUp(self):
+        self.node_class = AltitudeAtTouchdown
+        self.operational_combinations = [('Altitude STD', 'Touchdown')]
 
 
 class TestAutopilotEngaged1AtLiftoff(unittest.TestCase, TestCreateKPVsAtKTIs):

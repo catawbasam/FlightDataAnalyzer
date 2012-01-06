@@ -740,6 +740,14 @@ class HeadingContinuous(DerivedParameterNode):
         self.array = repair_mask(straighten_headings(head_mag.array))
 
 
+class HeadingMagnetic(DerivedParameterNode):
+    '''
+    This class currently exists only to give the 146-301 Magnetic Heading.
+    '''
+    def derive(self, head_mag=P('RECORDED MAGNETIC HEADING')):
+        self.array = head_mag.array
+
+
 class HeadingTrue(DerivedParameterNode):
     #TODO: TESTS
     # Requires the computation of a magnetic deviation parameter linearly 

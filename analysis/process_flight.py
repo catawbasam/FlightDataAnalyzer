@@ -82,7 +82,7 @@ def derive_parameters(hdf, node_mgr, process_order):
         
         elif node_mgr.get_attribute(param_name):
             # add attribute to dictionary of available params
-            params[param_name] = node_mgr.get_attribute(param_name) #TODO: optimise with only one call to get_attribute
+            ###params[param_name] = node_mgr.get_attribute(param_name) #TODO: optimise with only one call to get_attribute
             continue
         
         node_class = node_mgr.derived_nodes[param_name]  #NB raises KeyError if Node is "unknown"
@@ -93,6 +93,8 @@ def derive_parameters(hdf, node_mgr, process_order):
         for dep_name in node_deps:
             if dep_name in params:  # already calculated KPV/KTI/Phase
                 deps.append(params[dep_name])
+            elif node_mgr.get_attribute(dep_name):
+                deps.append(node_mgr.get_attribute(dep_name))
             elif dep_name in hdf:  # LFL/Derived parameter
                 # all parameters (LFL or other) need get_aligned which is
                 # available on DerivedParameterNode
@@ -242,7 +244,6 @@ def process_flight(hdf_path, aircraft_info, start_datetime=datetime.now(), achie
         # Track nodes. Assume that all params in HDF are from LFL(!)
         node_mgr = NodeManager(start_datetime, hdf.keys(), required_params, 
                                derived_nodes, aircraft_info, achieved_flight_record)
-        
         # calculate dependency tree
         process_order = dependency_order(node_mgr, draw=draw) 
         

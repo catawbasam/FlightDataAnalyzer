@@ -41,8 +41,6 @@ class TestNode(unittest.TestCase):
         self.assertEqual(NewNode.get_name(), '1000 Ft')
         NewNode = type('TouchdownV2Max', (Node,), dict(derive=lambda x:x))
         self.assertEqual(NewNode.get_name(), 'Touchdown V2 Max')
-        NewNode.name = 'MACH'
-        self.assertEqual(NewNode.get_name(), 'MACH')
 
     def test_get_dependency_names(self):
         """ Check class names or strings return strings
@@ -228,6 +226,7 @@ class TestNodeManager(unittest.TestCase):
         start_dt = mgr.get_attribute('Start Datetime')
         self.assertEqual(start_dt.name, 'Start Datetime')
         self.assertEqual(start_dt.value, dt)
+        self.assertTrue(mgr.operational('Start Datetime', []))
                 
         
 class TestPowerset(unittest.TestCase):

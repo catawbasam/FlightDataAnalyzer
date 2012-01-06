@@ -105,7 +105,7 @@ class Node(object):
     def get_name(cls):
         """ class My2BNode -> 'My2B Node'
         """
-        return get_verbose_name(cls.__name__).title()
+        return cls.name or get_verbose_name(cls.__name__).title()
     
     @classmethod
     def get_dependency_names(cls):
@@ -906,9 +906,9 @@ class NodeManager(object):
         """
         if name == 'Start Datetime':
             return Attribute(name, value=self.start_datetime)
-        if self.aircraft_info.get(name) is not None:
+        elif name in self.aircraft_info:
             return Attribute(name, value=self.aircraft_info[name])
-        elif self.achieved_flight_record.get(name) is not None:
+        elif name in self.achieved_flight_record:
             return Attribute(name, value=self.achieved_flight_record[name])
         else:
             return None
@@ -928,7 +928,8 @@ class NodeManager(object):
         if name in self.lfl \
              or self.aircraft_info.get(name) is not None \
              or self.achieved_flight_record.get(name) is not None \
-             or name == 'root':
+             or name == 'root'\
+             or name == 'Start Datetime':
             return True
         elif name in self.derived_nodes:
             #NOTE: Raises "Unbound method" here due to can_operate being overridden without wrapping with @classmethod decorator
