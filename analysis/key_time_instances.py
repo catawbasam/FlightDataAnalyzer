@@ -1,3 +1,4 @@
+import logging
 import numpy as np
 
 from analysis.library import hysteresis, index_at_value, peak_curvature
@@ -214,7 +215,11 @@ class Liftoff(KeyTimeInstanceNode):
         for toff in toffs:
             lift_index = index_at_value(roc.array,
                                         RATE_OF_CLIMB_FOR_LIFTOFF, toff.slice)
-            self.create_kti(lift_index)
+            if lift_index:
+                self.create_kti(lift_index)
+            else:
+                logging.warning("'%s' does not reach '%s' within '%s' section.",
+                                roc.name, RATE_OF_CLIMB_FOR_LIFTOFF, toff.name)
             
 
 class InitialClimbStart(KeyTimeInstanceNode):

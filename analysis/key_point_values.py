@@ -30,8 +30,6 @@ class AirspeedAtLiftoff(KeyPointValueNode):
 
 class AirspeedAtTouchdown(KeyPointValueNode):
     def derive(self, airspeed=P('Airspeed'), touchdowns=KTI('Touchdown')):
-        print 'airspeed', airspeed.hz, len(airspeed.array)
-        print touchdowns
         self.create_kpvs_at_ktis(airspeed, touchdowns)
 
 

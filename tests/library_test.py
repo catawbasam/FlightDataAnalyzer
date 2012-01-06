@@ -581,8 +581,8 @@ class TestHysteresis(unittest.TestCase):
         # hysteresis, being affected only on one pass of this two-pass
         # process.
         np.testing.assert_array_equal(result.data,[0.5,1,2,3,4,4,4,4,3,2,1,0.5])
-        
-        
+
+
 class TestIndexAtValue(unittest.TestCase):
     
     # Reminder: index_at_value (array, section, threshold):
@@ -632,8 +632,8 @@ class TestIndexAtValue(unittest.TestCase):
         '''
         array = np.ma.arange(50)
         self.assertEqual(index_at_value(array, 25, slice(25,26)), None)
-      
- 
+
+
 class TestInterleave(unittest.TestCase):
     def test_interleave(self):
         param1 = P('A1',np.ma.array(range(4),dtype=float),1,0.2)

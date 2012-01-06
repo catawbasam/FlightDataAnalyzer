@@ -66,13 +66,12 @@ class TestAltitudeAtLiftoff(unittest.TestCase, TestKPV):
     
     def test_derive(self):
         mock1, mock2 = Mock(), Mock()
-        mock1.array = Mock()
         node = self.node_class()
         node.create_kpvs_at_ktis = Mock()
         node.derive(mock1, mock2)
         self.assertEqual(node.create_kpvs_at_ktis.call_args,
-                     ((mock1.array, mock2), {}))
-
+                         ((mock1, mock2), {}))
+        
 
 class TestAccelerationNormalMax(unittest.TestCase):
     def test_can_operate(self, eng=P()):

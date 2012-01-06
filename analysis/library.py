@@ -1012,56 +1012,59 @@ def straighten_headings(heading_array):
     heading_array[1:] = np.cumsum(diff) + head_prev
     return heading_array
 
-def index_at_value (array, threshold, _slice=slice(None)):
+def index_at_value(array, threshold, _slice=slice(None)):
     '''
     This function seeks the moment when the parameter in question first crosses 
     a threshold. It works both forwards and backwards in time. To scan backwards
-    just make the start point later than the end point. This is really useful
+    pass in a slice with a negative step. This is really useful
     for finding things like the point of landing.
     
     For example, to find 50ft Rad Alt on the descent, use something like:
-       altitude_radio.seek(t_approach, t_landing, 50)
+       altitude_radio.seek(t_approach, t_landing, slice(50,0,-1))
     
     :param array: input data
     :type array: masked array
-    :param _slice: slice where we want to seek the threshold transit.
-    :type _slice: slice
     :param threshold: the value that we expect the array to cross between scan_start and scan_end.
     :type threshold: float
+    :param _slice: slice where we want to seek the threshold transit.
+    :type _slice: slice
     :returns: interpolated time when the array values crossed the threshold. (One value only).
     :returns type: float
     '''
-    begin = int(round(_slice.start or 0))
-    end = int(round(_slice.stop or len(array)))
+    ##print _slice
     step = _slice.step or 1
-    if abs(begin - end) < 2:
+    max_index = len(array) - 1
+    if step == 1:
+        begin = int(round(_slice.start or 0))
+        end = int(round(_slice.stop or max_index))
+        left, right = slice(begin,end-1,step), slice(begin+1,end,step)
+    elif step == -1:
+        begin = int(round(_slice.start or max_index))
+        end = int(round(_slice.stop or 0))
+        left, right = slice(begin,end+1,step), slice(begin-1,end,step)
+    else:
+        raise ValueError, 'Step length not 1 in index_at_value'
+    
+    ##print begin, end
+    
+    if begin == end:
+        raise ValueError, 'No range for seek function to scan across'
+    elif abs(begin - end) < 2:
         # Requires at least two values to find if the array crosses a
         # threshold.
         return None
 
-    if begin == end:
-        raise ValueError, 'No range for seek function to scan across'
-
     # A "let's get the logic right and tidy it up afterwards" bit of code...
-    if begin > len(array):
-        begin = len(array)
-    if begin < 0:
+    if begin >= len(array):
+        begin = max_index
+    elif begin < 0:
         begin = 0
     if end > len(array):
-        end = len(array)
-    if end < 0:
+        end = max_index
+    elif end < 0:
         end = 0
-        
-    if step == None:
-        step = 1
-        
-    if step == 1:
-        left, right = slice(begin,end-1,step), slice(begin+1,end,step)
-    elif step == -1:
-        left, right = slice(begin,end+1,step), slice(begin-1,end,step)
-    else:
-        raise ValueError, 'Step length not 1 in index_at_value'
-        
+    
+    print left, right, len(array)
     # When the data being tested passes the value we are seeking, the 
     # difference between the data and the value will change sign.
     # Therefore a negative value indicates where value has been passed.

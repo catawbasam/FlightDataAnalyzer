@@ -192,8 +192,8 @@ def get_derived_nodes(module_names):
     return nodes
 
 
-def process_flight(hdf_path, aircraft_info, start_datetime=datetime.now(), achieved_flight_record={},
-                   required_params=[], draw=False):
+def process_flight(hdf_path, aircraft_info, start_datetime=datetime.now(),
+                   achieved_flight_record={}, required_params=[], draw=False):
     """
     aircraft_info API:
     {

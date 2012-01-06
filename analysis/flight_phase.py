@@ -1,3 +1,4 @@
+import logging
 import numpy as np
 
 from analysis.library import (hysteresis, index_at_value, peak_curvature, 
@@ -420,6 +421,7 @@ class Takeoff(FlightPhaseNode):
             # Track back to the turn
             # If he took more than 5 minutes on the runway we're not interested!
             first = max(0, takeoff_run - 300*head.frequency)
+            print 'Takeoff', first, takeoff_run, head.frequency
             takeoff_begin = index_at_value(np.ma.abs(head.array-datum),
                                           HEADING_TURN_ONTO_RUNWAY,
                                           slice(first, takeoff_run))
