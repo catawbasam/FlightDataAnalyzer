@@ -95,7 +95,7 @@ class TestAccelerationNormalMax(unittest.TestCase):
 
 class TestAirspeed1000To500FtMax(unittest.TestCase):
     def test_can_operate(self):
-        expected = [('Airspeed','Altitude AAL For Flight Phases')]
+        expected = [('Airspeed','Altitude AAL')]
         opts = Airspeed1000To500FtMax.get_operational_combinations()
         self.assertEqual(opts, expected) 
         
@@ -103,7 +103,7 @@ class TestAirspeed1000To500FtMax(unittest.TestCase):
         testline = np.arange(0,12.6,0.1)
         testwave = (np.cos(testline)*(-100))+100
         spd = Parameter('Airspeed', np.ma.array(testwave))
-        alt_ph = Parameter('Altitude AAL For Flight Phases', 
+        alt_ph = Parameter('Altitude AAL', 
                            np.ma.array(testwave)*10)
         kpv = Airspeed1000To500FtMax()
         kpv.derive(spd, alt_ph)
