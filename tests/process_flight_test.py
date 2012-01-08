@@ -96,7 +96,6 @@ class TestProcessFlight(unittest.TestCase):
         tdwn = res['kti'].get(name='Touchdown')[0]
         tdwn_minus_1 = res['kti'].get(name='1 Mins To Touchdown')[0]
         
-        self.assertEqual(tdwn.frequency, 1)
         self.assertAlmostEqual(tdwn.index, 4967.0, places=0)
         self.assertAlmostEqual(tdwn_minus_1.index, 4907.0, places=0)
         self.assertEqual(tdwn.datetime - tdwn_minus_1.datetime, timedelta(minutes=1))

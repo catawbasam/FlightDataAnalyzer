@@ -1047,14 +1047,16 @@ def index_at_value (array, threshold, _slice=slice(None)):
     '''
     ##print _slice
     step = _slice.step or 1
-    max_index = len(array) - 1
+    ##max_index = len(array) - 1 < Old code replaced when end=min(...,max_index added. TODO: Remove comment.
+    max_index = len(array)
+    # Arrange the limits of our scan, ensuring that we stay inside the array.
     if step == 1:
-        begin = int(round(_slice.start or 0))
-        end = int(round(_slice.stop or max_index))
+        begin = max(int(round(_slice.start or 0)),0)
+        end = min(int(round(_slice.stop or max_index)),max_index)
         left, right = slice(begin,end-1,step), slice(begin+1,end,step)
     elif step == -1:
-        begin = int(round(_slice.start or max_index))
-        end = int(round(_slice.stop or 0))
+        begin = min(int(round(_slice.start or max_index)),max_index)
+        end = max(int(round(_slice.stop or 0)),0)
         left, right = slice(begin,end+1,step), slice(begin-1,end,step)
     else:
         raise ValueError, 'Step length not 1 in index_at_value'

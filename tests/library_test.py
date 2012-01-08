@@ -633,6 +633,21 @@ class TestIndexAtValue(unittest.TestCase):
         array = np.ma.arange(50)
         self.assertEqual(index_at_value(array, 25, slice(25,26)), None)
 
+    def test_index_at_value_slice_beyond_top_end_of_data(self):
+        '''
+        Returns None when there is only one value in the array since it cannot
+        cross a threshold.
+        '''
+        array = np.ma.arange(50)
+        self.assertEqual(index_at_value(array, 55, slice(40,60)), None)
+
+    def test_index_at_value_slice_beyond_bottom_end_of_data(self):
+        '''
+        Returns None when there is only one value in the array since it cannot
+        cross a threshold.
+        '''
+        array = np.ma.arange(50)
+        self.assertEqual(index_at_value(array, 55, slice(-20,20)), None)
 
 class TestInterleave(unittest.TestCase):
     def test_interleave(self):

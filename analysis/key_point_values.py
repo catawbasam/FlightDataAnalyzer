@@ -480,7 +480,8 @@ class AccelerationNormalDuringTakeoffMax(KeyPointValueNode):
     def derive(self, acceleration_normal=P('Acceleration Normal'),
                takeoffs=S('Takeoff')):
         for toff in takeoffs:
-            index, value = max_value(acceleration_normal, toff.slice)
+            # TODO: Confirm *.array is correct (DJ)
+            index, value = max_value(acceleration_normal.array, toff.slice)
             self.create_kpv(index, value)
 
         
@@ -609,7 +610,8 @@ class HeightMinsToTouchdown(KeyPointValueNode):
     def derive(self, t_tdwns=KTI('Mins To Touchdown'), alt=P('Altitude AAL')):
         for t_tdwn in t_tdwns:
             #WARNING: This assumes Mins time will be the first value and only two digit
-            self.create_kpv(t_tdwn.index, alt[t_tdwn.index], time=int(t_tdwn.name[:2]))
+            # TODO: Confirm *.array is correct (DJ)
+            self.create_kpv(t_tdwn.index, alt.array[t_tdwn.index], time=int(t_tdwn.name[:2]))
             
 # See HeightMinsToTouchdown
 ##class Height1MinToTouchdown(KeyPointValueNode):
