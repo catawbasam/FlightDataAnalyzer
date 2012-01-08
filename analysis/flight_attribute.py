@@ -394,6 +394,7 @@ class TakeoffDatetime(FlightAttributeNode):
     def derive(self, liftoff=A('Liftoff'), start_dt=A('Start Datetime')):
         first_liftoff = liftoff.get_first()
         if not first_liftoff:
+            self.set_flight_attr(None)
             return
         liftoff_index = first_liftoff.index
         takeoff_dt = datetime_of_index(start_dt.value, liftoff_index,

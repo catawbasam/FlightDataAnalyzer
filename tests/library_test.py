@@ -828,11 +828,24 @@ class TestPeakCurvature(unittest.TestCase):
     def test_peak_curvature_basic(self):
         array = np.ma.array([0]*20+range(20))
         pc = peak_curvature(array)
-        self.assertEqual(pc,20)
+        self.assertEqual(pc,18.5) 
+        #  Very artificial case returns first location of many seconds of
+        #  high curvature.
 
     def test_peak_curvature(self):
         array = np.ma.array([0]*40+range(40))
         pc = peak_curvature(array)
+        self.assertGreaterEqual(pc,35)
+        self.assertLessEqual(pc,45)
+
+    def test_peak_curvature_no_peak(self):
+        array = np.ma.array([0]*40+range(40))*(-1.0)
+        pc = peak_curvature(array, search_for='Concave')
+        self.assertEqual(pc,None)
+
+    def test_peak_curvature_bipolar(self):
+        array = np.ma.array([0]*40+range(40))*(-1.0)
+        pc = peak_curvature(array, search_for='Bipolar')
         self.assertGreaterEqual(pc,35)
         self.assertLessEqual(pc,45)
 
@@ -846,13 +859,13 @@ class TestPeakCurvature(unittest.TestCase):
                              47.5,49.6,52,53.2,54.7,57.4,60.7,61.9,64.3,66.1,
                              69.4,70.6,74.2,74.8])
         pc = peak_curvature(array)
-        self.assertGreaterEqual(pc,16.5)
-        self.assertLessEqual(pc,16.6)
+        self.assertGreaterEqual(pc,15.0)
+        self.assertLessEqual(pc,15.1)
         
     def test_peak_curvature_with_slice(self):
         array = np.ma.array([0]*100)
         pc = peak_curvature(array, slice(10, 50))
-        self.assertEqual(pc, 10)
+        self.assertEqual(pc, 18)
 
 class TestPeakIndex(unittest.TestCase):
     def test_peak_index_no_data(self):
@@ -1280,18 +1293,32 @@ class TestValueAtTime(unittest.TestCase):
         array[2] = np.ma.masked
         self.assertEquals (value_at_time(array, 2.0, 0.2, 1.0), None)
 
+        
+class TestValueAtIndex(unittest.TestCase):
 
-'''
-ma_test.assert_masked_array_approx_equal(result, answer)
-
-self.assertAlmostEquals(result.data[-1], 10.0)
-
-    def test_firstorderlag_stability_check(self):
-        array = np.ma.ones(4)
-        # With a time constant of 1 and a frequency of 4, the simple algorithm
-        # becomes too inaccurate to be useful.
-        self.assertRaises(ValueError, first_order_lag, array, 1.0, 4.0)
-'''
+    # Reminder: value_at_time (array, index) This function is thoroughly
+    # tested by the higher level value_at_time function, so this single test
+    # just establishes confidence in the ability to access the lower level
+    # function directly.
+    
+    def test_value_at_index_basic(self):
+        array = np.ma.arange(4)
+        self.assertEquals (value_at_index(array, 1.5), 1.5)
+        
+    def test_value_at_index_above_range(self):
+        array = np.ma.arange(4)
+        self.assertRaises(ValueError, value_at_index, array, 7)
+        
+    def test_value_at_index_below_range(self):
+        array = np.ma.arange(4)
+        self.assertRaises(ValueError, value_at_index, array, -33)
+        
+    def test_value_at_index_masked(self):
+        array = np.ma.arange(4)
+        array[2]=np.ma.masked
+        expected=np.ma.array(1)
+        expected 
+        self.assertEquals (value_at_index(array, 2), None)
 
 
 class TestVstackParams(unittest.TestCase):

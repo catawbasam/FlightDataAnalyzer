@@ -10,26 +10,26 @@ from analysis.flight_phase import (ApproachAndLanding,
                                    Climbing,
                                    DescentLowClimb,
                                    )
-from analysis.key_time_instances import (
-    AltitudeInApproach,
-    AltitudeInFinalApproach,
-    AltitudeWhenClimbing,
-    AltitudeWhenDescending,
-    BottomOfDescent,
-    ClimbStart,
-    GoAround,
-    InitialClimbStart,
-    LandingDecelerationEnd,
-    LandingPeakDeceleration,
-    LandingStart,
-    LandingTurnOffRunway,
-    Liftoff,
-    TakeoffAccelerationStart,
-    TakeoffTurnOntoRunway,
-    TopOfClimb,
-    TopOfDescent,
-    Touchdown,
-)
+
+from analysis.key_time_instances import (AltitudeInApproach,
+                                         AltitudeInFinalApproach,
+                                         AltitudeWhenClimbing,
+                                         AltitudeWhenDescending,
+                                         BottomOfDescent,
+                                         ClimbStart,
+                                         GoAround,
+                                         InitialClimbStart,
+                                         LandingDecelerationEnd,
+                                         LandingPeakDeceleration,
+                                         LandingStart,
+                                         LandingTurnOffRunway,
+                                         Liftoff,
+                                         TakeoffAccelerationStart,
+                                         TakeoffTurnOntoRunway,
+                                         TopOfClimb,
+                                         TopOfDescent,
+                                         Touchdown,
+                                         )
 
 debug = sys.gettrace() is not None
 
@@ -299,7 +299,7 @@ class TestLandingDecelerationEnd(unittest.TestCase):
         opts = LandingDecelerationEnd.get_operational_combinations()
         self.assertEqual(opts, expected)
 
-    def test_landing_start_deceleration(self):
+    def test_landing_end_deceleration(self):
         landing = [Section('Landing',slice(2,40,None))]
         speed = np.ma.array([79,77.5,76,73.9,73,70.3,68.8,67.6,66.4,63.4,62.8,
                              61.6,61.9,61,60.1,56.8,53.8,49.6,47.5,46,44.5,43.6,
@@ -308,24 +308,22 @@ class TestLandingDecelerationEnd(unittest.TestCase):
         aspd = P('Airspeed',speed)
         kpv = LandingDecelerationEnd()
         kpv.derive(aspd, landing)
-        expected = [KeyTimeInstance(index=24, name='Landing Deceleration End')]
+        expected = [KeyTimeInstance(index=21.0, name='Landing Deceleration End')]
         self.assertEqual(kpv, expected)
 
 
 class TestLandingPeakDeceleration(unittest.TestCase):
     def test_can_operate(self):
-        expected = [('Heading Continuous', 'Landing',
-                     'Acceleration Longitudinal')]
+        expected = [('Landing', 'Acceleration Longitudinal')]
         opts = LandingPeakDeceleration.get_operational_combinations()
         self.assertEqual(opts, expected) 
         
     def test_landing_peak_deceleration_basic(self):
-        head = P('Heading Continuous',np.ma.array([0,2,4,7,9,8,6,3]))
         acc = P('Acceleration Longitudinal',
                 np.ma.array([0,0,-.1,-.1,-.2,-.1,0,0]))
         landing = [Section('Landing',slice(2,5,None))]
         kti = LandingPeakDeceleration()
-        kti.derive(head, landing, acc)
+        kti.derive(landing, acc)
         expected = [KeyTimeInstance(index=4, name='Landing Peak Deceleration')]
         self.assertEqual(kti, expected)
 
@@ -378,7 +376,8 @@ class TestLiftoff(unittest.TestCase):
 
 class TestTakeoffAccelerationStart(unittest.TestCase):
     def test_can_operate(self):
-        expected = [('Airspeed', 'Takeoff')]
+        expected = [('Airspeed', 'Takeoff'),
+                    ('Airspeed', 'Takeoff','Acceleration Forwards')]
         opts = TakeoffAccelerationStart.get_operational_combinations()
         self.assertEqual(opts, expected)
 
@@ -393,8 +392,8 @@ class TestTakeoffAccelerationStart(unittest.TestCase):
         takeoff = [Section('Takeoff',slice(3,len(airspeed_data),None))]
         aspd = P('Airspeed', airspeed_data)
         instance = TakeoffAccelerationStart()
-        instance.derive(aspd, takeoff)
-        expected = [KeyTimeInstance(index=16, name='Takeoff Acceleration Start')]
+        instance.derive(aspd, takeoff,None)
+        expected = [KeyTimeInstance(index=15.083333333333361, name='Takeoff Acceleration Start')]
         self.assertEqual(instance, expected)
 
     

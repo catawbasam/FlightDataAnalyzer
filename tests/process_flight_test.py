@@ -102,7 +102,7 @@ class TestProcessFlight(unittest.TestCase):
         #TODO: Further assertions on the results!
         
 
-    @unittest.skipIf(not os.path.isfile("test_data/3_6748984_L382-Hercules.hdf5"), "Test file not present")
+    #@unittest.skipIf(not os.path.isfile("test_data/3_6748984_L382-Hercules.hdf5"), "Test file not present")
     def test_3_6748984_L382_Hercules(self):
         # test copied from herc_2 so AFR may not be accurate
         hdf_orig = "test_data/3_6748984_L382-Hercules.hdf5"
