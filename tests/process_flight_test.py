@@ -25,7 +25,8 @@ class TestProcessFlight(unittest.TestCase):
     def setUp(self):
         pass
     
-    @unittest.skipIf(not os.path.isfile("test_data/1_7295949_737-3C.001.hdf5"), "Test file not present")
+    @unittest.skipIf(not os.path.isfile("test_data/1_7295949_737-3C.001.hdf5"),
+                     "Test file not present")
     def test_1_7295949_737_3C(self):
         hdf_orig = "test_data/1_7295949_737-3C.001.hdf5"
         hdf_path = "test_data/1_7295949_737-3C.001_copy.hdf5"
@@ -47,7 +48,8 @@ class TestProcessFlight(unittest.TestCase):
 
         #TODO: Further assertions on the results!
 
-    @unittest.skipIf(not os.path.isfile("test_data/2_6748957_L382-Hercules.hdf5"), "Test file not present")
+    @unittest.skipIf(not os.path.isfile("test_data/2_6748957_L382-Hercules.hdf5"),
+                     "Test file not present")
     def test_2_6748957_L382_Hercules(self):
         hdf_orig = "test_data/2_6748957_L382-Hercules.hdf5"
         hdf_path = "test_data/2_6748957_L382-Hercules_copy.hdf5"
@@ -96,14 +98,13 @@ class TestProcessFlight(unittest.TestCase):
         tdwn = res['kti'].get(name='Touchdown')[0]
         tdwn_minus_1 = res['kti'].get(name='1 Mins To Touchdown')[0]
         
-        self.assertEqual(tdwn.frequency, 1)
         self.assertAlmostEqual(tdwn.index, 4967.0, places=0)
         self.assertAlmostEqual(tdwn_minus_1.index, 4907.0, places=0)
         self.assertEqual(tdwn.datetime - tdwn_minus_1.datetime, timedelta(minutes=1))
         #TODO: Further assertions on the results!
         
 
-    @unittest.skipIf(not os.path.isfile("test_data/3_6748984_L382-Hercules.hdf5"), "Test file not present")
+    #@unittest.skipIf(not os.path.isfile("test_data/3_6748984_L382-Hercules.hdf5"), "Test file not present")
     def test_3_6748984_L382_Hercules(self):
         # test copied from herc_2 so AFR may not be accurate
         hdf_orig = "test_data/3_6748984_L382-Hercules.hdf5"

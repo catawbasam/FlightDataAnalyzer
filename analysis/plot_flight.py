@@ -93,11 +93,11 @@ def plot_flight(hdf_path, kti_list, kpv_list, phase_list):
         sections.append(roc_data)
         sections.append('k-')
         for phase in filter(lambda p: p.name in (
-            'Climbing', 'Level Flight', 'Descending'), phase_list):
+            'Takeoff', 'Level Flight', 'Descending'), phase_list):
             # Declare the x-axis parameter first...
             sections.append(frame[phase.slice]-frame[0])
             sections.append(roc[phase.slice])
-            if phase.name == 'Climbing':
+            if phase.name == 'Takeoff':
                 sections.append('g-')
             elif phase.name == 'Level Flight':
                 sections.append('b-')
@@ -164,7 +164,7 @@ def csv_flight_details(hdf_path, kti_list, kpv_list, phase_list, dest_path=None)
     rows = []
     params = ['Airspeed', 'Altitude STD', 'Pitch', 'Roll']
     attrs = ['value', 'slice', 'datetime'] # 'latitude', 'longitude'] 
-    header = ['Type', 'Phase Start', 'Index', 'Phase End', 'Name'] + attrs + params
+    header = ['Remember: KTIs are exact, Phase times are to nearest sample \n','Type', 'Phase Start', 'Index', 'Phase End', 'Name'] + attrs + params
 
     def vals_for_iterable(iter_type, iterable):
         for value in iterable:
@@ -194,8 +194,7 @@ def csv_flight_details(hdf_path, kti_list, kpv_list, phase_list, dest_path=None)
                     vals.append( dp.at(index) )
                 except (KeyError, ValueError, IndexError):
                     vals.append(None)
-            rows.append( vals )
-
+            
             if iter_type == 'Phase':
                 # Append the stop time for this phase.
                 vals = [iter_type, None, value.slice.stop, value.name, None]
@@ -210,9 +209,8 @@ def csv_flight_details(hdf_path, kti_list, kpv_list, phase_list, dest_path=None)
                         vals.append( dp.at(index) )
                     except (KeyError, ValueError, IndexError):
                         vals.append(None)
-                rows.append( vals )
-            #endif
 
+            rows.append( vals )
             
     with hdf_file(hdf_path) as hdf:
         vals_for_iterable('Key Time Instance', kti_list)

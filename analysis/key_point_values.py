@@ -5,7 +5,8 @@ from analysis import settings
 from analysis.node import  KeyPointValue, KeyPointValueNode, KTI, P, S
 from analysis.library import (duration, index_at_value, max_abs_value, 
                               max_continuous_unmasked, max_value, min_value, 
-                              repair_mask, subslice, value_at_time)
+                              repair_mask, subslice, value_at_index, 
+                              value_at_time)
 from analysis.node import  KeyPointValue, KPV, KeyPointValueNode, KTI, P, S
 
 
@@ -427,17 +428,18 @@ class RateOfDescentHigh(KeyPointValueNode):
     '''
     def derive(self, rate_of_climb=P('Rate Of Climb'),
                descending=S('Descending')):
-        #TODO: Merge with below RateOfDescentMax accepting a flightphase arg
         for descent in descending:
             duration = descent.slice.stop - descent.slice.start
             if duration > settings.CLIMB_OR_DESCENT_MIN_DURATION:
                 index, value = min_value(rate_of_climb.array, descent.slice)
                 self.create_kpv(index, value)
 
+"""
+Not needed if we retain high ROD and keep many highs - max must be one of these... DJ
 
 class RateOfDescentMax(KeyPointValueNode):
     '''
-    .. TODO:: testcases ??? Do we need this if we have high and keep many highs - max must be one of these... DJ
+    .. TODO:: testcases ??? 
     '''
     # Minimum period of a descent for testing against thresholds (reduces number of KPVs computed in turbulence)
     DESCENT_MIN_DURATION = 10
@@ -448,7 +450,7 @@ class RateOfDescentMax(KeyPointValueNode):
             if duration > self.DESCENT_MIN_DURATION:
                 index, value = min_value(rate_of_climb.array, descent.slice)
                 self.create_kpv(index, value)
-             
+"""             
     
                 
 class AirspeedLevelFlightMax(KeyPointValueNode):
@@ -480,7 +482,8 @@ class AccelerationNormalDuringTakeoffMax(KeyPointValueNode):
     def derive(self, acceleration_normal=P('Acceleration Normal'),
                takeoffs=S('Takeoff')):
         for toff in takeoffs:
-            index, value = max_value(acceleration_normal, toff.slice)
+            # TODO: Confirm *.array is correct (DJ)
+            index, value = max_value(acceleration_normal.array, toff.slice)
             self.create_kpv(index, value)
 
         
@@ -609,7 +612,8 @@ class HeightMinsToTouchdown(KeyPointValueNode):
     def derive(self, t_tdwns=KTI('Mins To Touchdown'), alt=P('Altitude AAL')):
         for t_tdwn in t_tdwns:
             #WARNING: This assumes Mins time will be the first value and only two digit
-            self.create_kpv(t_tdwn.index, alt[t_tdwn.index], time=int(t_tdwn.name[:2]))
+            # TODO: Confirm *.array is correct (DJ)
+            self.create_kpv(t_tdwn.index, alt.array[t_tdwn.index], time=int(t_tdwn.name[:2]))
             
 # See HeightMinsToTouchdown
 ##class Height1MinToTouchdown(KeyPointValueNode):
@@ -910,9 +914,10 @@ class RollAbove1500FtMax(KeyPointValueNode):
 
 
 class RollBelow20FtMax(KeyPointValueNode):
+    #TODO: TESTS
     def derive(self, roll=P('Roll'), alt_aal=P('Altitude AAL')):
-        for below_20ft_slice in alt_aal.slices_below(20):
-            index, value = max_value(roll.array, _slice=below_20ft_slice)
+        for this_slice in alt_aal.slices_below(20):
+            index, value  = max_abs_value(roll.array, this_slice)
             self.create_kpv(index, value)
 
 
