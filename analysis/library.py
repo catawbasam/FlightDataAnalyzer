@@ -1051,15 +1051,11 @@ def index_at_value (array, threshold, _slice=slice(None)):
     if step == 1:
         begin = int(round(_slice.start or 0))
         end = int(round(_slice.stop or max_index))
-        left, right = slice(begin,end-1,step), slice(begin+1,end,step)
     elif step == -1:
         begin = int(round(_slice.start or max_index))
         end = int(round(_slice.stop or 0))
-        left, right = slice(begin,end+1,step), slice(begin-1,end,step)
     else:
         raise ValueError, 'Step length not 1 in index_at_value'
-    
-    ##print begin, end
     
     if begin == end:
         raise ValueError, 'No range for seek function to scan across'
@@ -1077,6 +1073,11 @@ def index_at_value (array, threshold, _slice=slice(None)):
         end = max_index
     elif end < 0:
         end = 0
+    
+    if step == 1:
+        left, right = slice(begin,end-1,step), slice(begin+1,end,step)
+    elif step == -1:
+        left, right = slice(begin,end+1,step), slice(begin-1,end,step)
     
     print left, right, len(array)
     # When the data being tested passes the value we are seeking, the 

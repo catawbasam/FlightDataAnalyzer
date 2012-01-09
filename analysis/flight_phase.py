@@ -428,7 +428,7 @@ class Takeoff(FlightPhaseNode):
 
             # Where the data starts in line with the runway, default to the
             # start of the data
-            if takeoff_begin == None:
+            if takeoff_begin is None:
                 takeoff_begin = 0
             
             # Where possible use the point of peak curvature.

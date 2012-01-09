@@ -621,7 +621,14 @@ class TestTakeoff(unittest.TestCase):
                        P('Altitude Radio',alt_rad))
         expected = Section(name='Takeoff', slice=slice(0.5, 8.25, None))
         self.assertEqual(takeoff[0], expected)
-        
+    
+    def test_takeoff_with_zero_slices(self):
+        '''
+        A zero slice is causing the derive method to raise an exception.
+        '''
+        self.assertFalse(True)
+
+
 class TestTurning(unittest.TestCase):
     def test_can_operate(self):
         expected = [('Rate Of Turn',)]
