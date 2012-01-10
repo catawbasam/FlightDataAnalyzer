@@ -38,6 +38,7 @@ class TestProcessFlight(unittest.TestCase):
                    'Main Gear To Altitude Radio': 10,
                    'Manufacturer': 'Boeing',
                    'Tail Number': 'G-ABCD',
+                   'Flap Selections': [0,1,2,5,10,15,25,30,40],
                    }
         res = process_flight(hdf_path, ac_info, draw=False)
         self.assertEqual(len(res), 4)
@@ -165,7 +166,9 @@ class TestProcessFlight(unittest.TestCase):
         ac_info = {'Frame': '146-301',
                    'Identifier': '1',
                    'Manufacturer': 'BAE',
-                   'Tail Number': 'G-ABCD'}
+                   'Tail Number': 'G-ABCD',
+                   'Flap Selections': [0,18,24,30,33],
+                   }
         afr = {'AFR Flight ID': 3377853}
         # Mock API handler return values so that we do not make http requests.
         api_handler = mock.Mock()

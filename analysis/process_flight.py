@@ -205,6 +205,7 @@ def process_flight(hdf_path, aircraft_info, start_datetime=datetime.now(),
         'Manufacturer': # e.g. Boeing
         'Manufacturer Serial Number': #MSN
         'Model': # e.g. 737-800
+        'Flap Selections': # e.g. [0,18,24,30,33]
         'Frame': # e.g. 737-3C
         'Main Gear To Altitude Radio': # Distance in metres
         'Wing Span': # Distance in metres
