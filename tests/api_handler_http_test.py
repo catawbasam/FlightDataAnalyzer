@@ -1,10 +1,7 @@
-try:
-    import unittest2 as unittest  # py2.6
-except ImportError:
-    import unittest
-
-import socket
 import httplib2
+import unittest
+import socket
+
 from mock import Mock, patch
 
 from analysis.api_handler import (APIConnectionError, InvalidAPIInputError,
@@ -88,9 +85,11 @@ class APIHandlerHTTPTest(unittest.TestCase):
         self.assertEqual(handler.get_nearest_airport(14.1, 0.52),
                          request_return_value['airport'])
     
+    @unittest.skip("Remove skip if a server is online to test against.")
     def test_get_nearest_airport_integration(self):
         '''
-        Make an HTTP request rather than mocking the response.
+        Make an HTTP request rather than mocking the response. Requires the
+        BASE_URL server being online.
         '''
         handler = APIHandlerHTTP(attempts=3)
         self.assertEqual(handler.get_nearest_airport(51.4775, -0.461389),

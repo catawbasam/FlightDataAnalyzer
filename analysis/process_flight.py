@@ -1,7 +1,7 @@
-import inspect
 import logging
 
 from datetime import datetime, timedelta
+from inspect import isclass
 
 from analysis import settings
 from analysis.dependency_graph import dependency_order
@@ -63,9 +63,9 @@ def derive_parameters(hdf, node_mgr, process_order):
     :type process_order: list of strings
     """
     params = {} # store all derived params that aren't masked arrays
-    kpv_list = [] # duplicate storage, but maintaining types
-    kti_list = []
-    phase_list = []  # 'Node Name' : node()  pass in node.get_accessor()
+    kpv_list = KeyPointValueNode() # duplicate storage, but maintaining types
+    kti_list = KeyTimeInstanceNode()
+    section_list = SectionNode()  # 'Node Name' : node()  pass in node.get_accessor()
     flight_attrs = []
     
     nodes_not_implemented = []
@@ -82,7 +82,7 @@ def derive_parameters(hdf, node_mgr, process_order):
         
         elif node_mgr.get_attribute(param_name):
             # add attribute to dictionary of available params
-            params[param_name] = node_mgr.get_attribute(param_name) #TODO: optimise with only one call to get_attribute
+            ###params[param_name] = node_mgr.get_attribute(param_name) #TODO: optimise with only one call to get_attribute
             continue
         
         node_class = node_mgr.derived_nodes[param_name]  #NB raises KeyError if Node is "unknown"
@@ -93,6 +93,8 @@ def derive_parameters(hdf, node_mgr, process_order):
         for dep_name in node_deps:
             if dep_name in params:  # already calculated KPV/KTI/Phase
                 deps.append(params[dep_name])
+            elif node_mgr.get_attribute(dep_name):
+                deps.append(node_mgr.get_attribute(dep_name))
             elif dep_name in hdf:  # LFL/Derived parameter
                 # all parameters (LFL or other) need get_aligned which is
                 # available on DerivedParameterNode
@@ -103,9 +105,12 @@ def derive_parameters(hdf, node_mgr, process_order):
             else:  # dependency not available
                 deps.append(None)
         if not any(deps):
-            raise RuntimeError("No dependencies available - Nodes cannot "
+            logging.info("No dependencies available - Nodes cannot "
                                "operate without ANY dependencies available! "
                                "Node: %s" % node_class.__name__)
+            #raise RuntimeError("No dependencies available - Nodes cannot "
+                               #"operate without ANY dependencies available! "
+                               #"Node: %s" % node_class.__name__)
         try:
             first_dep = next((d for d in deps if d is not None and d.frequency))
             frequency = first_dep.frequency
@@ -130,17 +135,17 @@ def derive_parameters(hdf, node_mgr, process_order):
         if isinstance(node, KeyPointValueNode):
             #Q: track node instead of result here??
             params[param_name] = result
-            kpv_list.extend(result.get_aligned(P('for_aligned_storage',[],1,0)))
+            kpv_list.extend(result.get_aligned(P(frequency=1,offset=0)))
         elif isinstance(node, KeyTimeInstanceNode):
             params[param_name] = result
-            kti_list.extend(result.get_aligned(P('for_aligned_storage',[],1,0)))
+            kti_list.extend(result.get_aligned(P(frequency=1,offset=0)))
         elif isinstance(node, FlightAttributeNode):
             params[param_name] = result
             flight_attrs.append(Attribute(result.name, result.value)) # only has one Attribute result
-        elif isinstance(node, FlightPhaseNode):
+        elif isinstance(node, SectionNode):
             # expect a single slice
             params[param_name] = result
-            phase_list.extend(result.get_aligned(P('for_aligned_storage',[],1,0)))
+            section_list.extend(result.get_aligned(P(frequency=1,offset=0)))
         elif isinstance(node, DerivedParameterNode):
             # perform any post_processing
             if settings.POST_DERIVED_PARAM_PROCESS:
@@ -157,14 +162,14 @@ def derive_parameters(hdf, node_mgr, process_order):
         continue
     if nodes_not_implemented:
         logging.error("Nodes not implemented: %s", nodes_not_implemented)
-    return kti_list, kpv_list, phase_list, flight_attrs
+    return kti_list, kpv_list, section_list, flight_attrs
 
 
 def get_derived_nodes(module_names):
     """ Get all nodes into a dictionary
     """
     def isclassandsubclass(value, classinfo):
-        return inspect.isclass(value) and issubclass(value, classinfo)
+        return isclass(value) and issubclass(value, classinfo)
 
     nodes = {}
     for name in module_names:
@@ -190,8 +195,8 @@ def get_derived_nodes(module_names):
     return nodes
 
 
-def process_flight(hdf_path, aircraft_info, start_datetime=datetime.now(), achieved_flight_record={},
-                   required_params=[], draw=False):
+def process_flight(hdf_path, aircraft_info, start_datetime=datetime.now(),
+                   achieved_flight_record={}, required_params=[], draw=False):
     """
     aircraft_info API:
     {
@@ -225,22 +230,23 @@ def process_flight(hdf_path, aircraft_info, start_datetime=datetime.now(), achie
     }
     
     """
+    logging.info("Processing: %s", hdf_path)
     # go through modules to get derived nodes
     derived_nodes = get_derived_nodes(settings.NODE_MODULES)
     # if required_params isn't set, try using ALL derived_nodes!
     if not required_params:
-        logging.warning("No required_params declared, using all derived nodes")
+        logging.info("No required_params declared, using all derived nodes")
         required_params = derived_nodes.keys()
     
     # include all flight attributes as required
-    required_params += get_derived_nodes(['analysis.flight_attribute']).keys()
+    required_params = list(set(
+        required_params + get_derived_nodes(['analysis.flight_attribute']).keys()))
         
     # open HDF for reading
     with hdf_file(hdf_path) as hdf:
         # Track nodes. Assume that all params in HDF are from LFL(!)
         node_mgr = NodeManager(start_datetime, hdf.keys(), required_params, 
                                derived_nodes, aircraft_info, achieved_flight_record)
-        
         # calculate dependency tree
         process_order = dependency_order(node_mgr, draw=draw) 
         
@@ -248,7 +254,7 @@ def process_flight(hdf_path, aircraft_info, start_datetime=datetime.now(), achie
             settings.PRE_FLIGHT_ANALYSIS(hdf, aircraft_info, process_order)
         
         # derive parameters
-        kti_list, kpv_list, phase_list, flight_attrs = derive_parameters(
+        kti_list, kpv_list, section_list, flight_attrs = derive_parameters(
             hdf, node_mgr, process_order)
              
         # geo locate KTIs
@@ -258,14 +264,15 @@ def process_flight(hdf_path, aircraft_info, start_datetime=datetime.now(), achie
         # timestamp KPVs
         kpv_list = _timestamp(start_datetime, kpv_list)
         
-    if draw:
-        from analysis.plot_flight import plot_flight
-        plot_flight(hdf_path, kti_list, kpv_list, phase_list)
+    ##if draw:
+        ### only import if required
+        ##from analysis.plot_flight import plot_flight
+        ##plot_flight(hdf_path, kti_list, kpv_list, section_list)
         
     return {'flight' : flight_attrs, 
             'kti' : kti_list, 
             'kpv' : kpv_list,
-            'phases' : phase_list}
+            'phases' : section_list}
 
 
 if __name__ == '__main__':

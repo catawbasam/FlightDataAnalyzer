@@ -1,38 +1,42 @@
-try:
-    import unittest2 as unittest  # py2.6
-except ImportError:
-    import unittest
+import unittest
 import numpy as np
 import mock
+import sys
 
 import utilities.masked_array_testutils as ma_test
 from utilities.struct import Struct
-from analysis.settings import GRAVITY
+from analysis.settings import GRAVITY, HYSTERESIS_FPIAS
 from analysis.node import Attribute, A, KPV, KTI, Parameter, P, Section, S
 from analysis.flight_phase import Fast
 
-from analysis.derived_parameters import (AccelerationVertical,
-                                         AccelerationForwards,
-                                         AccelerationSideways,
-                                         AirspeedForFlightPhases,
-                                         AltitudeAALForFlightPhases,
-                                         AltitudeForFlightPhases,
-                                         AltitudeRadio,
-                                         AltitudeRadioForFlightPhases,
-                                         AltitudeSTD,
-                                         AltitudeTail,
-                                         ClimbForFlightPhases,
-                                         Eng_N1Avg,
-                                         Eng_N1Min,
-                                         Eng_N2Avg,
-                                         FuelQty,
-                                         HeadingContinuous,
-                                         Pitch,
-                                         RateOfClimb,
-                                         RateOfClimbForFlightPhases,
-                                         RateOfTurn)
+from analysis.derived_parameters import (
+    AccelerationVertical,
+    AccelerationForwards,
+    AccelerationSideways,
+    AirspeedForFlightPhases,
+    AltitudeAALForFlightPhases,
+    AltitudeForFlightPhases,
+    AltitudeRadio,
+    AltitudeRadioForFlightPhases,
+    AltitudeSTD,
+    AltitudeTail,
+    ClimbForFlightPhases,
+    Eng_N1Avg,
+    Eng_N1Max,
+    Eng_N1Min,
+    Eng_N2Avg,
+    Eng_N2Max,
+    Eng_N2Min,
+    FlapStepped,
+    FuelQty,
+    HeadingContinuous,
+    Pitch,
+    RateOfClimb,
+    RateOfClimbForFlightPhases,
+    RateOfTurn,
+)
 
-
+debug = sys.gettrace() is not None
 
 class TestAccelerationVertical(unittest.TestCase):
     def test_can_operate(self):
@@ -45,12 +49,13 @@ class TestAccelerationVertical(unittest.TestCase):
         # Invoke the class object
         acc_vert = AccelerationVertical(frequency=8)
                         
-        acc_vert.derive(
-            acc_norm=Parameter('Acceleration Normal', np.ma.ones(8),8),
-            acc_lat=Parameter('Acceleration Lateral', np.ma.zeros(4),4),
-            acc_long=Parameter('Acceleration Longitudinal', np.ma.zeros(4),4),
-            pitch=Parameter('Pitch', np.ma.zeros(2),2),
-            roll=Parameter('Roll', np.ma.zeros(2),2))
+        acc_vert.get_derived([
+            Parameter('Acceleration Normal', np.ma.ones(8),8),
+            Parameter('Acceleration Lateral', np.ma.zeros(4),4),
+            Parameter('Acceleration Longitudinal', np.ma.zeros(4),4),
+            Parameter('Pitch', np.ma.zeros(2),2),
+            Parameter('Roll', np.ma.zeros(2),2)
+        ])
         
         ma_test.assert_masked_array_approx_equal(acc_vert.array,
                                                  np.ma.array([1]*8))
@@ -58,12 +63,13 @@ class TestAccelerationVertical(unittest.TestCase):
     def test_acceleration_vertical_pitch_up(self):
         acc_vert = AccelerationVertical(frequency=8)
 
-        acc_vert.derive(
+        acc_vert.get_derived([
             P('Acceleration Normal',np.ma.ones(8)*0.8660254,8),
             P('Acceleration Lateral',np.ma.zeros(4),4),
             P('Acceleration Longitudinal',np.ma.ones(4)*0.5,4),
             P('Pitch',np.ma.ones(2)*30.0,2),
-            P('Roll',np.ma.zeros(2),2))
+            P('Roll',np.ma.zeros(2),2)
+        ])
 
         ma_test.assert_masked_array_approx_equal(acc_vert.array,
                                                  np.ma.array([1]*8))
@@ -71,12 +77,13 @@ class TestAccelerationVertical(unittest.TestCase):
     def test_acceleration_vertical_roll_right(self):
         acc_vert = AccelerationVertical(frequency=8)
 
-        acc_vert.derive(
+        acc_vert.get_derived([
             P('Acceleration Normal',np.ma.ones(8)*0.7071068,8),
             P('Acceleration Lateral',np.ma.ones(4)*(-0.7071068),4),
             P('Acceleration Longitudinal',np.ma.zeros(4),4),
             P('Pitch',np.ma.zeros(2),2),
-            P('Roll',np.ma.ones(2)*45,2))
+            P('Roll',np.ma.ones(2)*45,2)
+        ])
 
         ma_test.assert_masked_array_approx_equal(acc_vert.array,
                                                  np.ma.array([1]*8))
@@ -93,10 +100,11 @@ class TestAccelerationForwards(unittest.TestCase):
         # Invoke the class object
         acc_fwd = AccelerationForwards(frequency=4)
                         
-        acc_fwd.derive(
-            acc_norm=Parameter('Acceleration Normal', np.ma.ones(8),8),
-            acc_long=Parameter('Acceleration Longitudinal', np.ma.ones(4)*0.1,4),
-            pitch=Parameter('Pitch', np.ma.zeros(2),2))
+        acc_fwd.get_derived([
+            Parameter('Acceleration Normal', np.ma.ones(8),8),
+            Parameter('Acceleration Longitudinal', np.ma.ones(4)*0.1,4),
+            Parameter('Pitch', np.ma.zeros(2),2)
+        ])
         
         ma_test.assert_masked_array_approx_equal(acc_fwd.array,
                                                  np.ma.array([0.1]*8))
@@ -104,10 +112,11 @@ class TestAccelerationForwards(unittest.TestCase):
     def test_acceleration_forward_pitch_up(self):
         acc_fwd = AccelerationForwards(frequency=4)
 
-        acc_fwd.derive(
+        acc_fwd.get_derived([
             P('Acceleration Normal',np.ma.ones(8)*0.8660254,8),
             P('Acceleration Longitudinal',np.ma.ones(4)*0.5,4),
-            P('Pitch',np.ma.ones(2)*30.0,2))
+            P('Pitch',np.ma.ones(2)*30.0,2)
+        ])
 
         ma_test.assert_masked_array_approx_equal(acc_fwd.array,
                                                  np.ma.array([0]*8))
@@ -124,39 +133,39 @@ class TestAccelerationSideways(unittest.TestCase):
         # Invoke the class object
         acc_lat = AccelerationSideways(frequency=8)
                         
-        acc_lat.derive(
-            acc_norm=Parameter('Acceleration Normal', np.ma.ones(8),8),
-            acc_lat=Parameter('Acceleration Lateral', np.ma.ones(4)*0.05,4),
-            acc_long=Parameter('Acceleration Longitudinal', np.ma.zeros(4),4),
-            pitch=Parameter('Pitch', np.ma.zeros(2),2),
-            roll=Parameter('Roll', np.ma.zeros(2),2))
-        
+        acc_lat.get_derived([
+            Parameter('Acceleration Normal', np.ma.ones(8),8),
+            Parameter('Acceleration Lateral', np.ma.ones(4)*0.05,4),
+            Parameter('Acceleration Longitudinal', np.ma.zeros(4),4),
+            Parameter('Pitch', np.ma.zeros(2),2),
+            Parameter('Roll', np.ma.zeros(2),2)
+        ])
         ma_test.assert_masked_array_approx_equal(acc_lat.array,
                                                  np.ma.array([0.05]*8))
         
     def test_acceleration_sideways_pitch_up(self):
         acc_lat = AccelerationSideways(frequency=8)
 
-        acc_lat.derive(
+        acc_lat.get_derived([
             P('Acceleration Normal',np.ma.ones(8)*0.8660254,8),
             P('Acceleration Lateral',np.ma.zeros(4),4),
             P('Acceleration Longitudinal',np.ma.ones(4)*0.5,4),
             P('Pitch',np.ma.ones(2)*30.0,2),
-            P('Roll',np.ma.zeros(2),2))
-
+            P('Roll',np.ma.zeros(2),2)
+        ])
         ma_test.assert_masked_array_approx_equal(acc_lat.array,
                                                  np.ma.array([0]*8))
 
     def test_acceleration_sideways_roll_right(self):
         acc_lat = AccelerationSideways(frequency=8)
 
-        acc_lat.derive(
+        acc_lat.get_derived([
             P('Acceleration Normal',np.ma.ones(8)*0.7071068,8),
             P('Acceleration Lateral',np.ma.ones(4)*(-0.7071068),4),
             P('Acceleration Longitudinal',np.ma.zeros(4),4),
             P('Pitch',np.ma.zeros(2),2),
-            P('Roll',np.ma.ones(2)*45,2))
-
+            P('Roll',np.ma.ones(2)*45,2)
+        ])
         ma_test.assert_masked_array_approx_equal(acc_lat.array,
                                                  np.ma.array([0]*8))
 
@@ -211,13 +220,18 @@ class TestAirspeedForFlightPhases(unittest.TestCase):
         expected = [('Airspeed',)]
         opts = AirspeedForFlightPhases.get_operational_combinations()
         self.assertEqual(opts, expected)
-        
-    def test_airspeed_for_phases_basic(self):
-        fast_and_slow = np.ma.array([40,200,190,180,170])
+    
+    @mock.patch('analysis.derived_parameters.hysteresis')
+    def test_airspeed_for_phases_basic(self, hysteresis):
+        # Avoiding testing hysteresis.
+        param = mock.Mock()
+        param.array = mock.Mock()
+        hysteresis.return_value = mock.Mock()
         speed = AirspeedForFlightPhases()
-        speed.derive(Parameter('Airspeed', fast_and_slow))
-        expected = np.ma.array([40,195,195,185,175])
-        ma_test.assert_masked_array_approx_equal(speed.array, expected)
+        speed.derive(param)
+        self.assertEqual(hysteresis.call_args,
+                         ((param.array, HYSTERESIS_FPIAS), {}))
+        self.assertEqual(speed.array, hysteresis.return_value)
 
 
 class TestAltitudeAALForFlightPhases(unittest.TestCase):
@@ -515,7 +529,7 @@ class TestEng_N1Max(unittest.TestCase):
         ma_test.assert_array_equal(
             np.ma.filled(eng.array, fill_value=999),
             np.array([999, # both masked, so filled with 999
-                      11,12,13,14,15,16,17,18,10])
+                      11,12,13,14,15,16,17,18,9])
         )
         
         
@@ -568,6 +582,71 @@ class TestEng_N2Avg(unittest.TestCase):
                       9]) # only second engine value masked
         )
 
+class TestEng_N2Max(unittest.TestCase):
+    def test_can_operate(self):
+        opts = Eng_N2Max.get_operational_combinations()
+        self.assertEqual(opts[0], ('Eng (1) N2',))
+        self.assertEqual(opts[-1], ('Eng (1) N2', 'Eng (2) N2', 'Eng (3) N2', 'Eng (4) N2'))
+        self.assertEqual(len(opts), 15) # 15 combinations accepted!
+  
+    def test_derive_two_engines(self):
+        # this tests that average is performed on incomplete dependencies and 
+        # more than one dependency provided.
+        a = np.ma.array(range(0, 10))
+        b = np.ma.array(range(10,20))
+        a[0] = np.ma.masked
+        b[0] = np.ma.masked
+        b[-1] = np.ma.masked
+        eng = Eng_N2Max()
+        eng.derive(P('a',a), P('b',b), None, None)
+        ma_test.assert_array_equal(
+            np.ma.filled(eng.array, fill_value=999),
+            np.array([999, # both masked, so filled with 999
+                      11,12,13,14,15,16,17,18,9])
+        )
+        
+        
+class TestEng_N2Min(unittest.TestCase):
+    def test_can_operate(self):
+        opts = Eng_N2Min.get_operational_combinations()
+        self.assertEqual(opts[0], ('Eng (1) N2',))
+        self.assertEqual(opts[-1], ('Eng (1) N2', 'Eng (2) N2', 'Eng (3) N2', 'Eng (4) N2'))
+        self.assertEqual(len(opts), 15) # 15 combinations accepted!
+  
+    def test_derive_two_engines(self):
+        # this tests that average is performed on incomplete dependencies and 
+        # more than one dependency provided.
+        a = np.ma.array(range(0, 10))
+        b = np.ma.array(range(10,20))
+        a[0] = np.ma.masked
+        b[0] = np.ma.masked
+        b[-1] = np.ma.masked
+        eng = Eng_N2Min()
+        eng.derive(P('a',a), P('b',b), None, None)
+        ma_test.assert_array_equal(
+            np.ma.filled(eng.array, fill_value=999),
+            np.array([999, # both masked, so filled with 999
+                      1,2,3,4,5,6,7,8,9])
+        )
+        
+        
+class TestFlapStepped(unittest.TestCase):
+    def test_can_operate(self):
+        opts = FlapStepped.get_operational_combinations()
+        self.assertEqual(opts, ('Flap',))
+        
+    def test_flap_stepped_nearest_5(self):
+        flap = P('Flap', np.ma.array(range(50)))
+        fstep = FlapStepped()
+        fstep.derive(flap)
+        self.assertEqual(list(fstep.array[:15]), [0]*5 + [5]*5 + [10]*5)
+        self.assertEqual(list(fstep.array[-10:]), [45]*5 + [50]*5)
+
+        # test with mask
+        flap = P('Flap', np.ma.array(range(20), mask=[True]*10 + [False]*10))
+        fstep.derive(flap)
+        self.assertEqual(list(fstep.array.flatten(-1)),
+                         [-1]*10 + [10]*5 + [15] * 5)
 
 class TestFuelQty(unittest.TestCase):
     def test_can_operate(self):
@@ -653,13 +732,12 @@ class TestPitch(unittest.TestCase):
 
 class TestRateOfClimb(unittest.TestCase):
     def test_can_operate(self):
-        expected = [('Altitude STD',),
-                    ('Acceleration Vertical',
-                     'Altitude STD',
-                     'Altitude Radio')
-                    ]
-        opts = RateOfClimb.get_operational_combinations()
-        self.assertEqual(opts, expected)
+        self.assertEqual(RateOfClimb.get_operational_combinations(),
+                         [('Altitude STD',),
+                          ('Acceleration Vertical', 'Altitude STD'),
+                          ('Altitude STD', 'Altitude Radio'),
+                          ('Acceleration Vertical', 'Altitude STD',
+                           'Altitude Radio')])
         
     def test_rate_of_climb_basic(self):
         az = P('Acceleration Vertical', np.ma.array([1]*10))

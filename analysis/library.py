@@ -1,10 +1,10 @@
-import math
 import numpy as np
 
 from collections import OrderedDict, namedtuple
 from datetime import datetime, timedelta
 from hashlib import sha256
 from itertools import izip
+from math import floor
 from scipy.signal import iirfilter, lfilter, lfilter_zi, filtfilt
 
 from settings import REPAIR_DURATION, TRUCK_OR_TRAILER_INTERVAL, TRUCK_OR_TRAILER_PERIOD
@@ -13,26 +13,6 @@ Value = namedtuple('Value', 'index value')
 
 class InvalidDatetime(ValueError):
     pass
-
-#Q: Not sure that there's any point in these? Very easy to define later
-#----------------------------------------------------------------------
-#def offset(data, offset):
-    #return data + offset
-    
-#def plus(self, offset):
-    #self.data = self.data + offset
-    #return self
-
-#def minus(self, offset):
-    #self.data = self.data - offset
-    #return self
-    
-#def plus (self, to_add):
-    #return self.data + shift(self, to_add)
-
-#def times (self, to_multiply):
-    #return self.data * shift(self, to_multiply)
-#----------------------------------------------------------------------
 
 
 def align(slave, master, interval='Subframe', signaltype='Analogue'):
@@ -115,7 +95,7 @@ def align(slave, master, interval='Subframe', signaltype='Analogue'):
     for i in range(int(wm)):
         bracket=(i/r+delta)
         # Interpolate between the hth and (h+1)th samples of the slave array
-        h=int(math.floor(bracket))
+        h=int(floor(bracket))
         h1 = h+1
 
         # Compute the linear interpolation coefficients, b & a
@@ -470,44 +450,37 @@ def hash_array(array):
     checksum = sha256()
     checksum.update(array.tostring())
     return checksum.hexdigest()
-    
+
 def hysteresis (array, hysteresis):
-    '''
-    Hysteresis is a process used to prevent noisy data from triggering 
-    an unnecessary number of events or state changes when the parameter is 
-    close to a threshold.
-        
-    :param array: data values to process
-    :type array: masked array
-    :param hysteresis: hysteresis range to apply
-    :type hysteresis: float
-    :returns: masked array of values with hysteresis applied
-    '''
 
-    # This routine accepts the usual masked array but only processes the
-    # data part of the array as the hysteresis process cannot make the
-    # values invalid.
-   
     quarter_range = hysteresis / 4.0
-    result = np.ma.copy(array)
+    # Length is going to be used often, so prepare here:
+    length = len(array)
+    half_done = np.empty(length)
+    result = np.empty(length)
+    length = length-1 #  To be used for array indexing next
 
-    for i in xrange(0, len(result)-1, 1):
-        if result.data[i+1] - result.data[i] > quarter_range:
-            result.data[i+1] = result.data[i+1] - quarter_range
-        elif result.data[i+1] - result.data[i] < -quarter_range:
-            result.data[i+1] = result.data[i+1] + quarter_range
-        else:
-            result.data[i+1] = result.data[i]
+    # The starting point for the computation is the first sample.
+    old = array[0]
 
-    for i in xrange(len(result)-1, 0, -1):
-        if result.data[i-1] - result.data[i] > quarter_range:
-            result.data[i-1] = result.data[i-1] - quarter_range
-        elif result.data[i-1] - result.data[i] < -quarter_range:
-            result.data[i-1] = result.data[i-1] + quarter_range
-        else:
-            result.data[i-1] = result.data[i]
-        
-    return result
+    # Index through the data storing the answer in reverse order
+    for index, new in enumerate(array.data):
+        if new - old > quarter_range:
+            old = new  - quarter_range
+        elif new - old < -quarter_range:
+            old = new + quarter_range
+        half_done[length-index] = old
+
+    # Repeat the process in the "backwards" sense to remove phase effects.
+    for index, new in enumerate(half_done):
+        if new - old > quarter_range:
+            old = new  - quarter_range
+        elif new - old < -quarter_range:
+            old = new + quarter_range
+        result[length-index] = old
+
+    return np.ma.array(result, mask=array.mask)
+
 
 def interleave (param_1, param_2):
     """
@@ -596,36 +569,46 @@ def interleave_uneven_spacing (param_1, param_2):
     #return straight_array
     return None # to force a test error until this is fixed to prevent extrapolation
 
-def is_index_within_slice(index, slice_):
+def is_index_within_slice(index, _slice):
     '''
     Tests whether index is within the slice.
     
     :type index: int or float
-    :type slice_: slice
+    :type _slice: slice
     :rtype: bool
     '''
-    return slice_.start <= index < slice_.stop
+    if _slice.start is None and _slice.stop is None:
+        return True
+    elif _slice.start is None:
+        return index < _slice.stop
+    elif _slice.stop is None:
+        return index >= _slice.start
+    return _slice.start <= index < _slice.stop
 
 def is_slice_within_slice(inner_slice, outer_slice):
     '''
-    Tests whether inner_slice is within the outer slice.
+    inner_slice is considered to not be within outer slice if its start or 
+    stop is None.
     
     :type inner_slice: slice
     :type outer_slice: slice
+    :returns: Whether inner_slice is within the outer_slice.
     :rtype: bool
     '''
-    start_within = outer_slice.start <= inner_slice.start <= outer_slice.stop
-    stop_within = outer_slice.start <= inner_slice.stop <= outer_slice.stop
-    return start_within and stop_within
-
-def _value(array, _slice, operator):
-    """
-    Applies logic of min_value and max_value
-    """
-    if _slice.step and _slice.step < 0:
-        raise ValueError("Negative step not supported")
-    index = operator(array[_slice]) + (_slice.start or 0) * (_slice.step or 1)
-    return Value(index, array[index])
+    if outer_slice.start is None and outer_slice.stop is None:
+        return True
+    elif inner_slice.start is None and outer_slice.start is not None:
+        return False
+    elif inner_slice.stop is None and outer_slice.stop is not None:
+        return False
+    elif inner_slice.start is None and outer_slice.start is None:
+        return inner_slice.stop < outer_slice.stop
+    elif outer_slice.stop is None and outer_slice.stop is None:
+        return inner_slice.start >= outer_slice.start
+    else:
+        start_within = outer_slice.start <= inner_slice.start <= outer_slice.stop
+        stop_within = outer_slice.start <= inner_slice.stop <= outer_slice.stop
+        return start_within and stop_within
 
 def mask_inside_slices(array, slices):
     '''
@@ -659,10 +642,28 @@ def mask_outside_slices(array, slices):
         mask[slice_] = False
     return np.ma.array(array, mask=np.ma.mask_or(mask, array.mask))
 
+def max_continuous_unmasked(array, _slice=slice(None)):
+    """
+    Returns the max_slice
+    """
+    if _slice.step and _slice.step != 1:
+        raise ValueError("Step not supported")
+    clumps = np.ma.clump_unmasked(array[_slice])
+    if not clumps or clumps == [slice(0,0,None)]:
+        return None
+    
+    _max = None
+    for clump in clumps:
+        dur = clump.stop - clump.start
+        if not _max or _max.stop-_max.start < dur:
+            _max = clump
+    offset = _slice.start or 0
+    return slice(_max.start + offset, _max.stop + offset)
+
 def max_abs_value(array, _slice=slice(None)):
     """
     Get the value of the maximum absolute value in the array. 
-    Return value is not the absolute value (i.e. may be negative)
+    Return value is NOT the absolute value (i.e. may be negative)
     
     :param array: masked array
     :type array: np.ma.array
@@ -674,7 +675,8 @@ def max_abs_value(array, _slice=slice(None)):
     
 def max_value(array, _slice=slice(None)):
     """
-    Get the maximum value in the array and its index.
+    Get the maximum value in the array and its index relative to the array and
+    not the _slice argument.
     
     :param array: masked array
     :type array: np.ma.array
@@ -716,7 +718,8 @@ def merge_alternate_sensors (array):
     result[-1] = (array[-2] + array[-1]) / 2.0
     return result
 
-def peak_curvature(array, frequency=1):
+
+def peak_curvature(array, _slice=slice(None), search_for='Concave'):
     """
     This routine uses a "Truck and Trailer" algorithm to find where a
     parameter changes slope. In the case of FDM, we are looking for the point
@@ -726,28 +729,95 @@ def peak_curvature(array, frequency=1):
     we should provide analysis with only airspeed, altitude and heading data
     available.
     """
-    gap = TRUCK_OR_TRAILER_INTERVAL * frequency
+    data = array[_slice].data
+    gap = TRUCK_OR_TRAILER_INTERVAL
     if gap%2-1:
-      gap-=1  #  Ensure gap is odd
-    ttp = TRUCK_OR_TRAILER_PERIOD * frequency
+        gap-=1  #  Ensure gap is odd
+    ttp = TRUCK_OR_TRAILER_PERIOD
+    trailer = ttp+gap
     overall = 2*ttp + gap 
     # check the array is long enough.
-    if len(array) < overall:
+    if len(data) < overall:
         raise ValueError, 'Peak curvature called with too short a sample'
-    
-    steps = len(array)-overall+1
-    A = np.vstack([np.arange(ttp), np.ones(ttp)*frequency]).T
 
-    # Keep the answers in an array of measurements
-    measures = np.zeros(steps)
-    
-    for step in range(steps):
-        m1, c1 = np.linalg.lstsq(A, array[step:step+ttp])[0]
-        m2, c2 = np.linalg.lstsq(A, array[step+ttp+gap:step+ttp+gap+ttp])[0]
-        measures[step] = m2-m1
+    # Set up working arrays
+    x = np.arange(ttp) + 1 #  The x-axis is always short and constant
+    sx = np.sum(x)
+    r = sx/float(x[-1]) #  
+    trucks = len(data) - ttp + 1 #  How many trucks fit this array length?
+
+    sy = np.empty(trucks) #  Sigma y
+    sy[0]=np.sum(data[0:ttp]) #  Initialise this array with just y values
+
+    sxy = np.empty(trucks) #  Sigma x.y
+    sxy[0]=np.sum(data[0:ttp]*x[0:ttp]) #  Initialise with xy products 
+  
+    for back in range(trucks-1):
+        # We compute the values for the least squares formula, using the
+        # numerator only (the denominator is constant and we're not really
+        # interested in the answer).
         
-    return np.argmax(measures)+overall/2
+        # As we move the back of the truck forward, the trailer front is a
+        # little way ahead...
+        front = back + ttp
+        sy[back+1] = sy[back] - data [back] + data[front]
+        sxy[back+1] = sxy[back] - sy[back] + ttp*data[front]
+
+    m = np.empty(trucks) # Resulting least squares slope (best fit y=mx+c)
+    m = sxy - r*sy
+
+    #  How many places can the truck and trailer fit into this data set?
+    places=len(data) - overall + 1
+    #  The angle between the truck and trailer at each place it can fit
+    angle=np.empty(places) 
     
+    for place in range(places):
+        angle[place] = m[place+trailer] - m[place]
+
+    # Normalise array and prepare for masking operations
+    angle=np.ma.array(angle/np.max(np.abs(angle)))
+    if search_for == 'Bipolar':
+        angle = np.ma.abs(angle)
+    
+    # Find peak - using values over 50% of the highest allows us to operate
+    # without knowing the data characteristics.
+    peak_slice=np.ma.clump_unmasked(np.ma.masked_less(angle,0.5))
+        
+    if peak_slice:
+        index = peak_index(angle.data[peak_slice[0]])+\
+            peak_slice[0].start+(overall/2.0)-0.5
+        return index + (_slice.start or 0)
+    else:
+        return None
+    
+def peak_index(a):
+    '''
+    Scans an array and returns the peak, where possible computing the local
+    maximum assuming a quadratic curve over the top three samples.
+    
+    :param a: array
+    :type a: list of floats
+    
+    '''
+    if len(a) == 0:
+        raise ValueError, 'No data to scan for peak'
+    elif len(a) == 1:
+        return 0
+    elif len(a) == 2:
+        return np.argmax(a)
+    else:
+        loc=np.argmax(a)
+        if loc == 0:
+            return 0
+        elif loc == len(a)-1:
+            return len(a)-1
+        else:
+            denominator = (2.0*a[loc-1]-4.0*a[loc]+2.0*a[loc+1])
+            if abs(denominator) < 0.001:
+                return loc
+            else:
+                peak=(a[loc-1]-a[loc+1])/denominator
+                return loc+peak
     
 def rate_of_change(diff_param, half_width):
     '''
@@ -805,6 +875,119 @@ def repair_mask(array):
                                        [array.data[section.start - 1],
                                         array.data[section.stop]])
     return array
+   
+
+def shift_slices(slicelist, offset):
+    """
+    This function shifts a list of slices by offset. The need for this arises
+    when a phase condition has been used to limit the scope of another phase
+    calculation.
+    """
+    newlist = []
+    for each_slice in slicelist:
+        a = each_slice.start + offset
+        b = each_slice.stop + offset
+        if (b-a)>1:
+            # This traps single sample slices which can arise due to rounding
+            # of the iterpolated slices.
+            newlist.append(slice(a,b))
+    return newlist
+
+
+def slices_above(array, value):
+    '''
+    Get slices where the array is above value. Repairs the mask to avoid a 
+    large number of slices being created.
+    
+    :param array:
+    :type array: np.ma.masked_array
+    :param value: Value to create slices above.
+    :type value: float or int
+    :returns: Slices where the array is above a certain value.
+    :rtype: list of slice
+    '''
+    if len(array) == 0:
+        return array, []
+    repaired_array = repair_mask(array)
+    band = np.ma.masked_less(repaired_array, value)
+    slices = np.ma.clump_unmasked(band)
+    return repaired_array, slices
+
+def slices_below(array, value):
+    '''
+    Get slices where the array is below value. Repairs the mask to avoid a 
+    large number of slices being created.
+    
+    :param array:
+    :type array: np.ma.masked_array
+    :param value: Value to create slices below.
+    :type value: float or int
+    :returns: Slices where the array is below a certain value.
+    :rtype: list of slice
+    '''
+    if len(array) == 0:
+        return array, []
+    repaired_array = repair_mask(array)
+    band = np.ma.masked_greater(repaired_array, value)
+    slices = np.ma.clump_unmasked(band)
+    return repaired_array, slices
+
+def slices_between(array, min_, max_):
+    '''
+    Get slices where the array's values are between min_ and max_. Repairs 
+    the mask to avoid a large number of slices being created.
+    
+    :param array:
+    :type array: np.ma.masked_array
+    :param min_: Minimum value within slices.
+    :type min_: float or int
+    :param max_: Maximum value within slices.
+    :type max_: float or int
+    :returns: Slices where the array is above a certain value.
+    :rtype: list of slice
+    '''
+    if len(array) == 0:
+        return array, []
+    repaired_array = repair_mask(array)
+    # Slice through the array at the top and bottom of the band of interest
+    band = np.ma.masked_outside(repaired_array, min_, max_)
+    # Group the result into slices - note that the array is repaired and
+    # therefore already has small masked sections repaired, so no allowance
+    # is needed here for minor data corruptions.
+    slices = np.ma.clump_unmasked(band)
+    return repaired_array, slices
+
+def slices_from_to(array, from_, to):
+    '''
+    Get slices of the array where values are between from_ and to, and either
+    ascending or descending depending on whether from_ is greater than or less
+    than to. For instance, slices_from_to(array, 1000, 1500) is ascending and
+    requires will only return slices where values are between 1000 and 1500 if
+    the value in the array at the start of the slice is less than the value at
+    the stop. The opposite condition would be applied if the arguments are
+    descending, e.g. slices_from_to(array, 1500, 1000).
+    
+    :param array:
+    :type array: np.ma.masked_array
+    :param from_: Value from.
+    :type from_: float or int
+    :param to: Value to.
+    :type to: float or int
+    :returns: Slices of the array where values are between from_ and to and either ascending or descending depending on comparing from_ and to.
+    :rtype: list of slice
+    '''
+    if len(array) == 0:
+        return array, []
+    rep_array, slices = slices_between(array, from_, to)
+    if from_ > to:
+        condition = lambda s: rep_array[s.start] > rep_array[s.stop-1]
+    elif from_ < to:
+        condition = lambda s: rep_array[s.start] < rep_array[s.stop-1]
+    else:
+        raise ValueError('From and to values should not be equal.')
+    filtered_slices = filter(condition, slices)
+    return rep_array, filtered_slices
+
             
 def straighten_headings(heading_array):
     '''
@@ -822,150 +1005,84 @@ def straighten_headings(heading_array):
     heading_array[1:] = np.cumsum(diff) + head_prev
     return heading_array
 
-"""
-============================================================
-Time functions replaced by index operations for consistency.
-============================================================
+def subslice(orig, new):
+    """
+    a = slice(2,10,2)
+    b = slice(2,2)
+    c = subslice(a, b)
+    assert range(100)[c] == range(100)[a][b]
+    
+    See tests for capabilities.
+    """
+    step = (orig.step or 1) * (new.step or 1)
+    start = (orig.start or 0) + (new.start or orig.start or 0) * (orig.step or 1)
+    stop = (orig.start or 0) + (new.stop or orig.stop or 0) * (orig.step or 1) # the bit after "+" isn't quite right!!
+    return slice(start, stop, None if step == 1 else step)
 
-def time_at_value_wrapped(parameter, section, value, direction='Forwards'):
-    '''
-    This function makes it easier to access the time_at_value function 
-    when using POLARIS parameter and section components.
-
-    :param parameter: input data
-    :type parameter: parameter object
-    :param section: the section to be used for finding the value
-    :type section: section object
-    :param value: the threshold being sought
-    :type value: float
-    :param direction : the direction of travel for the search.
-    :type value: text. Permitted values 'Forwards' (the default) or 'Backwards'
-    '''
-    data = parameter.array[section.slice]
-    if direction == 'Forwards':
-        result = time_at_value (repair_mask(data) , parameter.frequency, 
-                                parameter.offset, 0, len(data)-1, value)
-    else:
-        result = time_at_value (repair_mask(data) , parameter.frequency, 
-                                parameter.offset, len(data)-1, 0, value)
-    return result
-
-
-def time_at_value (array, hz, offset, scan_start, scan_end, threshold):
+def index_at_value (array, threshold, _slice=slice(None)):
     '''
     This function seeks the moment when the parameter in question first crosses 
     a threshold. It works both forwards and backwards in time. To scan backwards
-    just make the start point later than the end point. This is really useful
-    for finding things like the point of landing.
+    pass in a slice with a negative step. This is really useful for finding
+    things like the point of landing.
     
     For example, to find 50ft Rad Alt on the descent, use something like:
-       altitude_radio.seek(t_approach, t_landing, 50)
+       altitude_radio.seek(t_approach, t_landing, slice(50,0,-1))
     
     :param array: input data
     :type array: masked array
-    :param hz: sample rate for the input data (sec-1)
-    :type hz: float
-    :param offset: fdr offset for the array (sec)
-    :type offset: float
-    :param scan_start: time into the array where we want to start seeking the threshold transit.
-    :type scan_start: float
-    :param scan_end: time into the array where we want to stop seeking the threshold transit.
-    :type scan_end: float
     :param threshold: the value that we expect the array to cross between scan_start and scan_end.
     :type threshold: float
+    :param _slice: slice where we want to seek the threshold transit.
+    :type _slice: slice
     :returns: interpolated time when the array values crossed the threshold. (One value only).
     :returns type: float
     '''
+    step = _slice.step or 1
+    max_index = len(array)
+    # Arrange the limits of our scan, ensuring that we stay inside the array.
+    if step == 1:
+        begin = max(int(round(_slice.start or 0)),0)
+        end = min(int(round(_slice.stop or max_index)),max_index)
 
-    if scan_start == scan_end:
-        raise ValueError, 'No range for seek function to scan across'
-    
-    begin = int((scan_start - offset) * hz)
-    cease = int((scan_end   - offset) * hz)
-
-    # Trim the end points to the array boundaries and allow for the 
-    # alternative scan directions.
-    if cease > begin : # Normal increasing scan
-        step = 1
-        cease = min(cease + 1, len(array))
-        begin = max(begin, 0)
-    else:
-        # Allow for traversing the data backwards
-        step = -1
-        cease = max(cease-1, 0)
-        begin = min(begin, len(array))
+        # A "let's get the logic right and tidy it up afterwards" bit of code...
+        if begin >= len(array):
+            begin = max_index
+        elif begin < 0:
+            begin = 0
+        if end > len(array):
+            end = max_index
+        elif end < 0:
+            end = 0
+            
+        left, right = slice(begin,end-1,step), slice(begin+1,end,step)
         
-    # When the data being tested passes the value we are seeking, the 
-    # difference between the data and the value will change sign.
-    # Therefore a negative value indicates where value has been passed.
-    value_passing_array = (array[begin:cease-step:step]-threshold) * (array[begin+step:cease:step]-threshold)
-    test_array = np.ma.masked_greater(value_passing_array, 0.0)
-    
-    if np.ma.all(test_array.mask):
-        # The parameter does not pass through threshold in the period in question, so return empty-handed.
-        return None
+    elif step == -1:
+        begin = min(int(round(_slice.start or max_index)),max_index)
+        end = max(int(round(_slice.stop or 0)),0)
+
+        # More "let's get the logic right and tidy it up afterwards" bit of code...
+        if begin >= len(array):
+            begin = max_index - 1
+        elif begin < 0:
+            begin = 0
+        if end > len(array):
+            end = max_index
+        elif end < 0:
+            end = 0
+            
+        left, right = slice(begin,end+1,step), slice(begin-1,end,step)
+        
     else:
-        n,dummy=np.ma.flatnotmasked_edges(np.ma.masked_greater(value_passing_array, 0.0))
-        a = array[begin+step*n]
-        b = array[begin+step*(n+1)]
-        # Force threshold to float as often passed as an integer.
-        r = (float(threshold) - a) / (b-a) 
-        #TODO: Could test 0 < r < 1 for completeness
-    return (begin + step * (n + r)) / hz
-============================================================
-Time functions replaced by index operations for consistency.
-============================================================
-"""
-
-
-def index_at_value (array, section, threshold):
-    '''
-    This function seeks the moment when the parameter in question first crosses 
-    a threshold. It works both forwards and backwards in time. To scan backwards
-    just make the start point later than the end point. This is really useful
-    for finding things like the point of landing.
+        raise ValueError, 'Step length not 1 in index_at_value'
     
-    For example, to find 50ft Rad Alt on the descent, use something like:
-       altitude_radio.seek(t_approach, t_landing, 50)
-    
-    :param array: input data
-    :type array: masked array
-    :param section: slice where we want to seek the threshold transit.
-    :type section: slice
-    :param threshold: the value that we expect the array to cross between scan_start and scan_end.
-    :type threshold: float
-    :returns: interpolated time when the array values crossed the threshold. (One value only).
-    :returns type: float
-    '''
-    begin, end, step = int(round(section.start)), int(round(section.stop)), section.step
-    if abs(begin - end) < 2:
+    if begin == end:
+        raise ValueError, 'No range for seek function to scan across'
+    elif abs(begin - end) < 2:
         # Requires at least two values to find if the array crosses a
         # threshold.
         return None
 
-    if begin == end:
-        raise ValueError, 'No range for seek function to scan across'
-
-    # A "let's get the logic right and tidy it up afterwards" bit of code...
-    if begin > len(array):
-        begin = len(array)
-    if begin < 0:
-        begin = 0
-    if end > len(array):
-        end = len(array)
-    if end < 0:
-        end = 0
-        
-    if step == None:
-        step = 1
-        
-    if step == 1:
-        left, right = slice(begin,end-1,step), slice(begin+1,end,step)
-    elif step == -1:
-        left, right = slice(begin,end+1,step), slice(begin-1,end,step)
-    else:
-        raise ValueError, 'Step length not 1 in index_at_value'
-        
     # When the data being tested passes the value we are seeking, the 
     # difference between the data and the value will change sign.
     # Therefore a negative value indicates where value has been passed.
@@ -984,6 +1101,15 @@ def index_at_value (array, section, threshold):
         #TODO: Could test 0 < r < 1 for completeness
     return (begin + step * (n+r))
 
+def _value(array, _slice, operator):
+    """
+    Applies logic of min_value and max_value
+    """
+    if _slice.step and _slice.step < 0:
+        raise ValueError("Negative step not supported")
+    index = operator(array[_slice]) + (_slice.start or 0) * (_slice.step or 1)
+    return Value(index, array[index])
+
 def value_at_time (array, hz, offset, time_index):
     '''
     Finds the value of the data in array at the time given by the time_index.
@@ -998,20 +1124,30 @@ def value_at_time (array, hz, offset, time_index):
     :type time_index: float
     :returns: interpolated value from the array
     '''
-
     time_into_array = time_index - offset
     location_in_array = time_into_array * hz
+    return value_at_index(array, location_in_array)
 
-    if location_in_array < 0.0 or location_in_array > len(array):
+def value_at_index(array, index):
+    '''
+    Finds the value of the data in array at a given index.
+    
+    :param array: input data
+    :type array: masked array
+    :param index: index into the array where we want to find the array value.
+    :type index: float
+    :returns: interpolated value from the array
+    '''
+    if index < 0.0 or index > len(array):
         raise ValueError, 'Seeking value outside data time range'
     
-    low = int(location_in_array)
-    if (low==location_in_array):
+    low = int(index)
+    if (low==index):
         # I happen to have arrived at exactly the right value by a fluke...
-        return array.data[low]
+        return None if array.mask[low] else array[low]
     else:
         high = low + 1
-        r = location_in_array - low
+        r = index - low
         low_value = array.data[low]
         high_value = array.data[high]
         # Crude handling of masked values. Must be a better way !

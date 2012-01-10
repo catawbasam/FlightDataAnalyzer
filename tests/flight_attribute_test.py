@@ -1,18 +1,29 @@
+import numpy as np
 import unittest
 
 from datetime import datetime
 from mock import Mock, patch
 
-import numpy as np
-
 from analysis.api_handler import NotFoundError
 from analysis.node import (A, KeyPointValue, KeyTimeInstance, KPV, KTI, P, S,
                            Section)
 from analysis.flight_attribute import (
-    Approaches, Duration, FlightID, FlightNumber, FlightType, LandingAirport, 
-    LandingDatetime, LandingFuel, LandingGrossWeight, LandingRunway,
-    TakeoffAirport, TakeoffDatetime, TakeoffFuel, TakeoffGrossWeight,
-    TakeoffRunway)
+    Approaches, 
+    Duration, 
+    FlightID, 
+    FlightNumber,
+    FlightType, 
+    LandingAirport, 
+    LandingDatetime, 
+    LandingFuel, 
+    LandingGrossWeight,
+    LandingRunway,
+    TakeoffAirport,
+    TakeoffDatetime, 
+    TakeoffFuel,
+    TakeoffGrossWeight,
+    TakeoffRunway,
+)
 
 
 class TestApproaches(unittest.TestCase):
@@ -763,12 +774,7 @@ class TestTakeoffRunway(unittest.TestCase):
 
 class TestFlightType(unittest.TestCase):
     def test_can_operate(self):
-
         self.assertEqual(FlightType.get_operational_combinations(),
-                         [('Fast', 'Liftoff', 'Touchdown'),
-                          ('AFR Type', 'Fast', 'Liftoff', 'Touchdown')])
-
-        self.assertEqual(Type.get_operational_combinations(),
           [('Fast', 'Liftoff', 'Touchdown'),
            ('AFR Type', 'Fast', 'Liftoff', 'Touchdown'),
            ('Fast', 'Liftoff', 'Touchdown', 'Touch And Go'),

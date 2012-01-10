@@ -9,8 +9,13 @@ from analysis.node import A, KTI, KPV, FlightAttributeNode, P, S
 
 class AnalysisDatetime(FlightAttributeNode):
     "Datetime flight was analysed (local datetime)"
-    name = 'FDR Analysis Duration'
-    def derive(self, unknown_dep=P('UNKNOWN')): # TODO: Remove dependency if possible?
+    name = 'FDR Analysis Datetime'
+    def derive(self, start_datetime=A('Start Datetime')):
+        '''
+        Every derive method requires at least one dependency. Since this class
+        should always derive a flight attribute, 'Start Datetime' is its only
+        dependency as it will always be present, though it is unused.
+        '''
         self.set_flight_attr(datetime.now())
 
 
@@ -217,7 +222,8 @@ class Approaches(FlightAttributeNode):
 class Duration(FlightAttributeNode):
     "Duration of the flight (between takeoff and landing) in seconds"
     name = 'FDR Duration'
-    def derive(self, takeoff_dt=A('Takeoff Datetime'), landing_dt=A('Landing Datetime')):
+    def derive(self, takeoff_dt=A('Takeoff Datetime'),
+               landing_dt=A('Landing Datetime')):
         duration = landing_dt.value - takeoff_dt.value
         self.set_flight_attr(duration.total_seconds()) # py2.7
 
@@ -227,8 +233,8 @@ class FlightID(FlightAttributeNode):
     name = 'FDR Flight ID'
     def derive(self, flight_id=A('AFR Flight ID')):
         self.set_flight_attr(flight_id.value)
-    
-        
+
+
 class FlightNumber(FlightAttributeNode):
     "Airline route flight number"
     name = 'FDR Flight Number'
@@ -343,7 +349,7 @@ class OnBlocksDatetime(FlightAttributeNode):
     def derive(self, unknown_dep=P('UNKNOWN')):
         return NotImplemented
 
-   
+
 class TakeoffAirport(FlightAttributeNode):
     "Takeoff Airport including ID and Name"
     name = 'FDR Takeoff Airport'
@@ -385,9 +391,10 @@ class TakeoffDatetime(FlightAttributeNode):
     to be used.
     '''
     name = 'FDR Takeoff Datetime'
-    def derive(self, liftoff=KTI('Liftoff'), start_dt=A('Start Datetime')):
+    def derive(self, liftoff=A('Liftoff'), start_dt=A('Start Datetime')):
         first_liftoff = liftoff.get_first()
         if not first_liftoff:
+            self.set_flight_attr(None)
             return
         liftoff_index = first_liftoff.index
         takeoff_dt = datetime_of_index(start_dt.value, liftoff_index,
@@ -516,7 +523,7 @@ class TakeoffRunway(FlightAttributeNode):
 
 class FlightType(FlightAttributeNode):
     "Type of flight flown"
-    name = 'Flight Type'
+    name = 'FDR Flight Type'
     
     @classmethod
     def can_operate(self, available):
@@ -594,7 +601,7 @@ class LandingDatetime(FlightAttributeNode):
         if not last_touchdown:
             self.set_flight_attr(None)
             return
-        landing_datetime = datetime_of_index(start_datetime,
+        landing_datetime = datetime_of_index(start_datetime.value,
                                              last_touchdown.index,
                                              frequency=touchdown.frequency) 
         self.set_flight_attr(landing_datetime)

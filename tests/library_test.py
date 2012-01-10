@@ -1,9 +1,8 @@
-try:
-    import unittest2 as unittest  # py2.6
-except ImportError:
-    import unittest
-import numpy as np
 import csv
+import unittest
+import numpy as np
+
+from datetime import datetime
 
 # A set of masked array test utilities from Pierre GF Gerard-Marchant
 # http://www.java2s.com/Open-Source/Python/Math/Numerical-Python/numpy/numpy/ma/testutils.py.htm
@@ -14,16 +13,19 @@ from datetime import datetime
 from analysis.library import (align, calculate_timebase, create_phase_inside,
                               create_phase_outside, duration, 
                               first_order_lag, first_order_washout, hash_array,
-                              hysteresis, index_at_value, interleave, is_index_within_slice,
-                              is_slice_within_slice, min_value, 
-                              mask_inside_slices, mask_outside_slices,
+                              hysteresis, index_at_value, interleave,
+                              is_index_within_slice, is_slice_within_slice,
+                              min_value, mask_inside_slices,
+                              mask_outside_slices, max_continuous_unmasked,
                               max_value, max_abs_value, merge_alternate_sensors,
-                              peak_curvature,
-                              rate_of_change, repair_mask, straighten_headings,
+                              peak_curvature, peak_index, rate_of_change, repair_mask, 
+                              slices_above, slices_below, slices_between, 
+                              slices_from_to, straighten_headings,
                               #time_at_value, time_at_value_wrapped,
                               value_at_time, vstack_params, InvalidDatetime)
 
 from analysis.node import A, KPV, KTI, Parameter, P, S, Section
+from analysis.library import *
 
 class TestAlign(unittest.TestCase):
     
@@ -562,8 +564,8 @@ class TestHysteresis(unittest.TestCase):
         data = np.ma.array([0,1,2,1,0,-1,5,6,7,0],dtype=float)
         data[4] = np.ma.masked
         result = hysteresis(data,2)
-        np.testing.assert_array_equal(result.data,[0.5,1,1,1,0,0,5,6,6,0.5])
-        np.testing.assert_array_equal(result.mask,[0,0,0,0,1,0,0,0,0,0])
+        np.testing.assert_array_equal(result.filled(999),
+                                      [0.5,1,1,1,999,0,5,6,6,0.5])
 
     def test_hysteresis_change_of_threshold(self):
         data = np.ma.array([0,1,2,1,0,-1,5,6,7,0],dtype=float)
@@ -579,44 +581,49 @@ class TestHysteresis(unittest.TestCase):
         # hysteresis, being affected only on one pass of this two-pass
         # process.
         np.testing.assert_array_equal(result.data,[0.5,1,2,3,4,4,4,4,3,2,1,0.5])
-        
-        
+
+
 class TestIndexAtValue(unittest.TestCase):
     
     # Reminder: index_at_value (array, section, threshold):
 
     def test_index_at_value_basic(self):
         array = np.ma.arange(4)
-        self.assertEquals (index_at_value(array, slice(0, 3), 1.5), 1.5)
+        self.assertEquals (index_at_value(array, 1.5, slice(0, 3)), 1.5)
+        
+    def test_index_at_value_no_slice(self):
+        array = np.ma.arange(4)
+        self.assertEquals (index_at_value(array, 1.5), 1.5)
+        self.assertEquals (index_at_value(array, 1.5, slice(None, None, None)), 1.5)
         
     def test_index_at_value_backwards(self):
         array = np.ma.arange(8)
-        self.assertEquals (index_at_value(array, slice(6, 2, -1), 3.2), 3.2)
+        self.assertEquals (index_at_value(array, 3.2, slice(6, 2, -1)), 3.2)
 
     def test_index_at_value_backwards_with_negative_values_a(self):
         array = np.ma.arange(8)*(-1.0)
-        self.assertEquals (index_at_value(array, slice(6, 2, -1), -3.2), 3.2)
+        self.assertEquals (index_at_value(array, -3.2, slice(6, 2, -1)), 3.2)
         
     def test_index_at_value_backwards_with_negative_values_b(self):
         array = np.ma.arange(8)-10
-        self.assertEquals (index_at_value(array, slice(6, 2, -1), -5.2), 4.8)
+        self.assertEquals (index_at_value(array, -5.2, slice(6, 2, -1)), 4.8)
 
     def test_index_at_value_right_at_start(self):
         array = np.ma.arange(4)
-        self.assertEquals (index_at_value(array, slice(1, 3), 1.0), 1.0)
+        self.assertEquals (index_at_value(array, 1.0, slice(1, 3)), 1.0)
                            
     def test_index_at_value_right_at_end(self):
         array = np.ma.arange(4)
-        self.assertEquals (index_at_value(array, slice(1, 4), 3.0), 3.0)
+        self.assertEquals (index_at_value(array, 3.0, slice(1, 4)), 3.0)
         
     def test_index_at_value_threshold_not_crossed(self):
         array = np.ma.arange(4)
-        self.assertEquals (index_at_value(array, slice(0, 3), 7.5), None)
+        self.assertEquals (index_at_value(array, 7.5, slice(0, 3)), None)
         
     def test_index_at_value_masked(self):
         array = np.ma.arange(4)
         array[1] = np.ma.masked
-        self.assertEquals (index_at_value(array, slice(0, 3), 1.5), None)
+        self.assertEquals (index_at_value(array, 1.5, slice(0, 3)), None)
     
     def test_index_at_value_slice_too_small(self):
         '''
@@ -624,12 +631,24 @@ class TestIndexAtValue(unittest.TestCase):
         cross a threshold.
         '''
         array = np.ma.arange(50)
-        self.assertEqual(index_at_value(array, slice(25,26), 25),
-                         None)
-        
-        
-      
- 
+        self.assertEqual(index_at_value(array, 25, slice(25,26)), None)
+
+    def test_index_at_value_slice_beyond_top_end_of_data(self):
+        '''
+        Returns None when there is only one value in the array since it cannot
+        cross a threshold.
+        '''
+        array = np.ma.arange(50)
+        self.assertEqual(index_at_value(array, 55, slice(40,60)), None)
+
+    def test_index_at_value_slice_beyond_bottom_end_of_data(self):
+        '''
+        Returns None when there is only one value in the array since it cannot
+        cross a threshold.
+        '''
+        array = np.ma.arange(50)
+        self.assertEqual(index_at_value(array, 55, slice(-20,20)), None)
+
 class TestInterleave(unittest.TestCase):
     def test_interleave(self):
         param1 = P('A1',np.ma.array(range(4),dtype=float),1,0.2)
@@ -658,7 +677,9 @@ class TestIsIndexWithinSlice(unittest.TestCase):
         self.assertTrue(is_index_within_slice(5, slice(5,7)))
         # Slice is not inclusive of last index.
         self.assertFalse(is_index_within_slice(7, slice(5,7)))
-
+        self.assertTrue(is_index_within_slice(10, slice(8,None)))
+        self.assertTrue(is_index_within_slice(10, slice(None, 12)))
+        
 
 class TestIsSliceWithinSlice(unittest.TestCase):
     def test_is_slice_within_slice(self):
@@ -667,6 +688,17 @@ class TestIsSliceWithinSlice(unittest.TestCase):
         self.assertTrue(is_slice_within_slice(slice(4,7), slice(4,7)))
         self.assertFalse(is_slice_within_slice(slice(4,8), slice(4,7)))
         self.assertFalse(is_slice_within_slice(slice(3,7), slice(4,7)))
+        self.assertTrue(is_slice_within_slice(slice(None, None),
+                                              slice(None, None)))
+        self.assertFalse(is_slice_within_slice(slice(None, None),
+                                               slice(None, 20)))
+        self.assertFalse(is_slice_within_slice(slice(None, 15), slice(4, None)))
+        self.assertTrue(is_slice_within_slice(slice(-1000, 15),
+                                              slice(None, None)))
+        self.assertTrue(is_slice_within_slice(slice(-1000, None),
+                                              slice(None, None)))
+        self.assertTrue(is_slice_within_slice(slice(None, 15),
+                                              slice(None, None)))
         
 
 class TestMaskInsideSlices(unittest.TestCase):
@@ -678,6 +710,49 @@ class TestMaskInsideSlices(unittest.TestCase):
         expected_result.mask = np.array([True] * 5 + [False] * 5 + [True] *  10 + [False] * 10 + [True] * 10)
         ma_test.assert_equal(mask_inside_slices(array, slices),
                              expected_result)
+
+
+class TestMaxContinuousUnmasked(unittest.TestCase):
+    def test_max_continuous_unmasked(self):
+        data = np.ma.array(range(20),
+                           mask=[1,0,1,1,1,0,0,0,0,1,
+                                 0,0,0,0,0,0,0,1,1,1])
+        _max = max_continuous_unmasked(data)
+        # test duration
+        self.assertEqual(_max.stop-_max.start, 7)
+        self.assertEqual(_max.start, 10)
+        self.assertEqual(_max.stop, 17)
+        self.assertFalse(np.any(data[_max].mask)) # none should be masked
+    
+    def test_max_continuous_unmasked_no_mask(self):
+        # no mask
+        data = np.ma.array(range(20), mask=False)
+        _max = max_continuous_unmasked(data)
+        self.assertEqual(_max.stop-_max.start, 20)
+        self.assertEqual(_max.start, 0)
+        self.assertEqual(_max.stop, 20)
+        
+        # all masked
+        data = np.ma.array(range(5), mask=[1,1,1,1,1])
+        _max = max_continuous_unmasked(data)
+        self.assertEqual(_max, None)
+        
+        # no data
+        data = np.ma.array([])
+        _max = max_continuous_unmasked(data, slice(110,120))
+        self.assertEqual(_max, None)
+        
+    def test_max_continuous_unmasked_with_slice(self):
+        data = np.ma.array(range(30),
+                           mask=[0,1,0,0,0,1,1,1,1,0,
+                                 1,1,1,1,1,1,1,0,0,0,
+                                 1,1,1,1,1,0,0,1,1,1,])
+        _max = max_continuous_unmasked(data, slice(20,30))
+        # test duration
+        self.assertEqual(_max.stop-_max.start, 2)
+        self.assertEqual(_max.start, 25)
+        self.assertEqual(_max.stop, 27)
+                
 
 
 class TestMaskOutsideSlices(unittest.TestCase):
@@ -753,12 +828,24 @@ class TestPeakCurvature(unittest.TestCase):
     def test_peak_curvature_basic(self):
         array = np.ma.array([0]*20+range(20))
         pc = peak_curvature(array)
-        self.assertGreaterEqual(pc,17)
-        self.assertLessEqual(pc,23)
+        self.assertEqual(pc,18.5) 
+        #  Very artificial case returns first location of many seconds of
+        #  high curvature.
 
-    def test_peak_curvature_2Hz(self):
+    def test_peak_curvature(self):
         array = np.ma.array([0]*40+range(40))
-        pc = peak_curvature(array, frequency=2)
+        pc = peak_curvature(array)
+        self.assertGreaterEqual(pc,35)
+        self.assertLessEqual(pc,45)
+
+    def test_peak_curvature_no_peak(self):
+        array = np.ma.array([0]*40+range(40))*(-1.0)
+        pc = peak_curvature(array, search_for='Concave')
+        self.assertEqual(pc,None)
+
+    def test_peak_curvature_bipolar(self):
+        array = np.ma.array([0]*40+range(40))*(-1.0)
+        pc = peak_curvature(array, search_for='Bipolar')
         self.assertGreaterEqual(pc,35)
         self.assertLessEqual(pc,45)
 
@@ -772,8 +859,43 @@ class TestPeakCurvature(unittest.TestCase):
                              47.5,49.6,52,53.2,54.7,57.4,60.7,61.9,64.3,66.1,
                              69.4,70.6,74.2,74.8])
         pc = peak_curvature(array)
-        self.assertEqual(pc,16)
+        self.assertGreaterEqual(pc,15.0)
+        self.assertLessEqual(pc,15.1)
+        
+    def test_peak_curvature_with_slice(self):
+        array = np.ma.array([0]*100)
+        pc = peak_curvature(array, slice(10, 50))
+        self.assertEqual(pc, 18)
 
+class TestPeakIndex(unittest.TestCase):
+    def test_peak_index_no_data(self):
+        self.assertRaises(ValueError, peak_index, [])
+        
+    def test_peak_index_one_sample(self):
+        self.assertEqual(peak_index([4]),0)
+        
+    def test_peak_index_two_samples_rising(self):
+        self.assertEqual(peak_index([2,4]),1)
+        
+    def test_peak_index_two_samples_falling(self):
+        self.assertEqual(peak_index([4,2]),0)
+        
+    def test_peak_index_three_samples_falling(self):
+        self.assertEqual(peak_index([6,4,2]),0)
+        
+    def test_peak_index_three_samples_rising(self):
+        self.assertEqual(peak_index([1,2,3]),2)
+        
+    def test_peak_index_three_samples_with_peak(self):
+        self.assertEqual(peak_index([1,2,1]),1)
+        
+    def test_peak_index_three_samples_trap_linear(self):
+        self.assertEqual(peak_index([0,0.0000001,0]),1)
+        
+    def test_peak_index_real_peak(self):
+        peak=np.sin(np.arange(10)/3.)
+        self.assertEqual(peak_index(peak),4.7141807866121832)
+        
 class TestPhaseMasking(unittest.TestCase):
     def test_phase_inside_basic(self):
         # Reminder: create_phase_inside(reference, a, b)
@@ -882,32 +1004,77 @@ class TestRepairMask(unittest.TestCase):
     def test_repair_mask_basic(self):
         array = np.ma.arange(10)
         array[3] = np.ma.masked
+        self.assertTrue(np.ma.is_masked(array[3]))
         array[6:8] = np.ma.masked
-        repair_mask(array)
-        np.testing.assert_array_equal(array.data,range(10))
+        res = repair_mask(array)
+        np.testing.assert_array_equal(res.data,range(10))
+        # test mask is now unmasked
+        self.assertFalse(np.ma.is_masked(res[3]))
+        self.assertFalse(np.ma.is_masked(res[4]))
+        self.assertFalse(np.ma.is_masked(res[5]))
+        self.assertFalse(np.ma.is_masked(res[6]))
+        self.assertFalse(np.ma.is_masked(res[7]))
+        self.assertFalse(np.ma.is_masked(res[8]))
         
     def test_repair_mask_too_much_invalid(self):
         array = np.ma.arange(20)
         array[4:15] = np.ma.masked
-        unchanged = array
-        repair_mask(array)
-        ma_test.assert_masked_array_approx_equal(array, unchanged)
+        res = repair_mask(array)
+        ma_test.assert_masked_array_approx_equal(res, array)
         
     def test_repair_mask_not_at_start(self):
         array = np.ma.arange(10)
         array[0] = np.ma.masked
-        unchanged = array
-        repair_mask(array)
-        ma_test.assert_masked_array_approx_equal(array, unchanged)
+        res = repair_mask(array)
+        ma_test.assert_masked_array_approx_equal(res, array)
         
     def test_repair_mask_not_at_end(self):
         array = np.ma.arange(10)
         array[9] = np.ma.masked
-        unchanged = array
-        repair_mask(array)
-        ma_test.assert_masked_array_approx_equal(array, unchanged)
-        
-        
+        res = repair_mask(array)
+        ma_test.assert_masked_array_approx_equal(res, array)
+
+
+class TestSlicesAbove(unittest.TestCase):
+    def test_slices_above(self):
+        array = np.ma.concatenate([np.ma.arange(10), np.ma.arange(10)])
+        array.mask = [False] * 18 + [True] * 2
+        repaired_array, slices = slices_above(array, 5)
+        self.assertEqual(slices, [slice(5, 10, None), slice(15, 18, None)])
+
+
+class TestSlicesBelow(unittest.TestCase):
+    def test_slices_below(self):
+        array = np.ma.concatenate([np.ma.arange(10), np.ma.arange(10)])
+        array.mask = [True] * 2 + [False] * 18
+        repaired_array, slices = slices_below(array, 5)
+        self.assertEqual(slices, [slice(2, 6, None), slice(10, 16, None)])
+
+
+class TestSlicesBetween(unittest.TestCase):
+    def test_slices_between(self):
+        array = np.ma.arange(20)
+        array.mask = [True] * 10 + [False] * 10
+        repaired_array, slices = slices_between(array, 5, 15)
+        self.assertEqual(slices, [slice(10, 16)])
+
+
+class TestSlicesFromTo(unittest.TestCase):
+    def test_slices_from_to(self):
+        array = np.ma.arange(20)
+        array.mask = [True] * 10 + [False] * 10
+        # Ascending.
+        repaired_array, slices = slices_from_to(array, 5, 15)
+        self.assertEqual(slices, [slice(10, 16)])
+        # Descending.
+        repaired_array, slices = slices_from_to(array, 18, 3)
+        self.assertEqual(slices, [])
+        array = np.ma.arange(20, 0, -1)
+        array.mask = [True] * 10 + [False] * 10
+        repaired_array, slices = slices_from_to(array, 18, 3)
+        self.assertEqual(slices, [slice(10, 18)])
+
+
 class TestStraightenHeadings(unittest.TestCase):
     def test_straight_headings(self):
         data = [35.5,
@@ -938,11 +1105,101 @@ class TestStraightenHeadings(unittest.TestCase):
                 #'%.2f' % expected[index],
                 #msg="Failed at %s == %s at %s" % (val, expected[index], index)
             #)
+            
+class TestSubslice(unittest.TestCase):
+    def test_subslice(self):
+        """ Does not test using negative slice start/stop values e.g. (-2,2)
+        """
+        # test basic
+        orig = slice(2,10)
+        new = slice(2, 4)
+        res = subslice(orig, new)
+        self.assertEqual(res, slice(4, 6))
+        fifty = range(50)
+        self.assertEqual(fifty[orig][new], fifty[res])
+        
+        orig = slice(10,20,2)
+        new = slice(2, 4, 1)
+        res = subslice(orig, new)
+        thirty = range(30)
+        self.assertEqual(thirty[orig][new], thirty[res])
+        self.assertEqual(res, slice(14, 18, 2))
+        
+        
+        # test step
+        orig = slice(100,200,10)
+        new = slice(1, 5, 2)
+        sub = subslice(orig, new)
+        two_hundred = range(0,200)
+        self.assertEqual(two_hundred[orig][new], two_hundred[sub])
+        self.assertEqual(sub, slice(110, 150, 20))
+        
+        # test negative step
+        orig = slice(200,100,-10)
+        new = slice(1, 5, 2)
+        sub = subslice(orig, new)
+        two_hundred = range(201)
+        self.assertEqual(two_hundred[orig][new], two_hundred[sub])
+        self.assertEqual(sub, slice(190, 150, -20))
+        
+        orig = slice(100,200,10)
+        new = slice(5, 1, -2)
+        sub = subslice(orig, new)
+        two_hundred = range(201)
+        self.assertEqual(two_hundred[orig][new], two_hundred[sub])
+        self.assertEqual(sub, slice(150, 110, -20))
+        self.assertEqual(two_hundred[sub], [150, 130]) #fix
+        
+        # test invalid back step
+        orig = slice(0,200,10)
+        new = slice(1, 5, -2)
+        sub = subslice(orig, new)
+        two_hundred = range(201)
+        self.assertEqual(two_hundred[orig][new], two_hundred[sub])
+        self.assertEqual(two_hundred[sub], []) # invalid returns no data
+        self.assertEqual(sub, slice(10, 50, -20))
+        
+        # test no start
+        orig = slice(None,100,10)
+        new = slice(5, 1, -2)
+        sub = subslice(orig, new)
+        two_hundred = range(200)
+        self.assertEqual(two_hundred[orig][new], two_hundred[sub])
+        self.assertEqual(two_hundred[sub], [50,30])
+        self.assertEqual(sub, slice(50, 10, -20))
+
+        orig = slice(0,10,2)
+        new = slice(None, 4)
+        sub = subslice(orig, new)
+        two_hundred = range(5)
+        self.assertEqual(two_hundred[orig][new], two_hundred[sub])
+        self.assertEqual(two_hundred[sub], [0,2,4]) # also tests outside of range
+        self.assertEqual(sub, slice(0, 8, 2))
+        
+        # test None start and invalid back step
+        orig = slice(None,200,10)
+        new = slice(1, 5, -2)
+        sub = subslice(orig, new)
+        two_hundred = range(201)
+        self.assertEqual(two_hundred[orig][new], two_hundred[sub])
+        self.assertEqual(two_hundred[sub], [])
+        self.assertEqual(sub, slice(10, 50, -20))
+
+        # test None at end of second slice
+        orig = slice(0,10,2)
+        new = slice(1, None)
+        sub = subslice(orig, new)
+        two_hundred = range(5)
+        self.assertEqual(two_hundred[orig][new], two_hundred[sub])
+        self.assertEqual(two_hundred[sub], [2,4])
+        self.assertEqual(sub, slice(2, 20, 2))
+                    
+        #TODO: test negative start, stop and step
 
 """
-============================================================
+------------------------------------------------------------
 Time functions replaced by index operations for consistency.
-============================================================
+------------------------------------------------------------
 
 class TestTimeAtValue(unittest.TestCase):
     
@@ -986,9 +1243,9 @@ class TestTimeAtValueWrapped(unittest.TestCase):
         test_param = P('TAVW_param',np.ma.array([0,4,0,4]),1,0.0)
         test_section = Section('TAVW_section',slice(0,4))
         self.assertEquals(time_at_value_wrapped(test_param,test_section,2,'Backwards'),2.5)
-============================================================
+------------------------------------------------------------
 Time functions replaced by index operations for consistency.
-============================================================
+------------------------------------------------------------
 """
         
 class TestValueAtTime(unittest.TestCase):
@@ -1036,18 +1293,32 @@ class TestValueAtTime(unittest.TestCase):
         array[2] = np.ma.masked
         self.assertEquals (value_at_time(array, 2.0, 0.2, 1.0), None)
 
+        
+class TestValueAtIndex(unittest.TestCase):
 
-'''
-ma_test.assert_masked_array_approx_equal(result, answer)
-
-self.assertAlmostEquals(result.data[-1], 10.0)
-
-    def test_firstorderlag_stability_check(self):
-        array = np.ma.ones(4)
-        # With a time constant of 1 and a frequency of 4, the simple algorithm
-        # becomes too inaccurate to be useful.
-        self.assertRaises(ValueError, first_order_lag, array, 1.0, 4.0)
-'''
+    # Reminder: value_at_time (array, index) This function is thoroughly
+    # tested by the higher level value_at_time function, so this single test
+    # just establishes confidence in the ability to access the lower level
+    # function directly.
+    
+    def test_value_at_index_basic(self):
+        array = np.ma.arange(4)
+        self.assertEquals (value_at_index(array, 1.5), 1.5)
+        
+    def test_value_at_index_above_range(self):
+        array = np.ma.arange(4)
+        self.assertRaises(ValueError, value_at_index, array, 7)
+        
+    def test_value_at_index_below_range(self):
+        array = np.ma.arange(4)
+        self.assertRaises(ValueError, value_at_index, array, -33)
+        
+    def test_value_at_index_masked(self):
+        array = np.ma.arange(4)
+        array[2]=np.ma.masked
+        expected=np.ma.array(1)
+        expected 
+        self.assertEquals (value_at_index(array, 2), None)
 
 
 class TestVstackParams(unittest.TestCase):

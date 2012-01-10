@@ -1,17 +1,23 @@
-try:
-    import unittest2 as unittest  # py2.6
-except ImportError:
-    import unittest
 import mock
+import numpy as np
+import unittest
+
 from random import shuffle
 from datetime import datetime
-import numpy as np
 
 from analysis.node import (
-    Attribute, DerivedParameterNode, get_verbose_name, KeyPointValue,
-    KeyPointValueNode, KeyTimeInstance, KTI, KeyTimeInstanceNode, 
-    FlightAttributeNode,FormattedNameNode, Node, NodeManager, P, Parameter,
-    powerset, Section, SectionNode)
+    Attribute, 
+    DerivedParameterNode,
+    get_verbose_name,
+    KeyPointValueNode, KeyPointValue, 
+    KeyTimeInstanceNode, KeyTimeInstance, KTI,
+    FlightAttributeNode,
+    FormattedNameNode, 
+    Node, NodeManager, 
+    Parameter, P,
+    powerset,
+    SectionNode, Section,
+)
 
 
 class TestAbstractNode(unittest.TestCase):
@@ -35,8 +41,6 @@ class TestNode(unittest.TestCase):
         self.assertEqual(NewNode.get_name(), '1000 Ft')
         NewNode = type('TouchdownV2Max', (Node,), dict(derive=lambda x:x))
         self.assertEqual(NewNode.get_name(), 'Touchdown V2 Max')
-        NewNode.name = 'MACH'
-        self.assertEqual(NewNode.get_name(), 'MACH')
 
     def test_get_dependency_names(self):
         """ Check class names or strings return strings
@@ -99,10 +103,7 @@ class TestNode(unittest.TestCase):
             
             @classmethod
             def can_operate(cls, available):
-                if 'a' in available and 'b' in available:
-                    return True
-                else:
-                    return False
+                return 'a' in available and 'b' in available
         
         options = Combo.get_operational_combinations()
         self.assertEqual(options, [('a', 'b'), ('a', 'b', 'c')])
@@ -225,6 +226,7 @@ class TestNodeManager(unittest.TestCase):
         start_dt = mgr.get_attribute('Start Datetime')
         self.assertEqual(start_dt.name, 'Start Datetime')
         self.assertEqual(start_dt.value, dt)
+        self.assertTrue(mgr.operational('Start Datetime', []))
                 
         
 class TestPowerset(unittest.TestCase):
@@ -266,6 +268,18 @@ class TestSectionNode(unittest.TestCase):
                                   slice=slice(1.2, 2.2, None)),
                           Section(name='Example Section Node',
                                   slice=slice(2.7, 3.7, None))])
+        
+    def test_get_aligned_with_slice_start_as_none(self):
+        section_node = self.section_node_class(frequency=1, offset=0.5)
+        section_node.create_section(slice(None,4))
+        section_node.create_section(slice(5,None))
+        param = Parameter('p', frequency=0.5, offset=0.1)
+        aligned_node = section_node.get_aligned(param)
+        self.assertEqual(list(aligned_node),
+                         [Section(name='Example Section Node',
+                                  slice=slice(None, 2.2, None)),
+                          Section(name='Example Section Node',
+                                  slice=slice(2.7, None, None))])
     
     def test_items(self):
         items = [Section('a', slice(0,10))]
@@ -555,14 +569,18 @@ class TestKeyPointValueNode(unittest.TestCase):
         # wrong type raises TypeError
         self.assertRaises(TypeError, knode.create_kpv, 2, '3', 
                           phase='', altitude='')
+        # None index
+        self.assertRaises(ValueError, knode.create_kpv, None, 'b')
         
     def test_create_kpvs_at_ktis(self):
         knode = self.knode
-        array = np.ma.arange(10)
-        array[3:7] = np.ma.masked
+        param = P('Param', np.ma.arange(10))
+        # value_at_index will interpolate masked values.
+        param.array[3:7] = np.ma.masked
         ktis = KTI('KTI', items=[KeyTimeInstance(i, 'a') for i in range(0,10,2)])
-        knode.create_kpvs_at_ktis(array, ktis)
-        self.assertEqual(knode,
+        knode.create_kpvs_at_ktis(param.array, ktis)
+        print list(knode)
+        self.assertEqual(list(knode),
                          [KeyPointValue(index=0, value=0, name='Kpv'),
                           KeyPointValue(index=2, value=2, name='Kpv'),
                           KeyPointValue(index=8, value=8, name='Kpv')])
@@ -701,6 +719,8 @@ class TestKeyTimeInstanceNode(unittest.TestCase):
         kti.create_kti(35, {'setting':25})
         self.assertEqual(list(kti), [KeyTimeInstance(index=24, name='Flap 10'),
                                      KeyTimeInstance(index=35, name='Flap 25'),])
+        # None index
+        self.assertRaises(ValueError, kti.create_kti, None)
     
     def test_get_aligned(self):
         '''
@@ -778,3 +798,65 @@ class TestDerivedParameterNode(unittest.TestCase):
         self.assertIsInstance(result, DerivedParameterNode)
         self.assertEqual(result.frequency, unaligned_param.frequency)
         self.assertEqual(result.offset, unaligned_param.offset)
+        
+    def test_parameter_at(self):
+        # using a plain range as the parameter array, the results are equal to 
+        # the index used to get the value (cool)
+        spd = Parameter('Airspeed', np.ma.array(range(20)), 2, 0.75)
+        self.assertEqual(spd.at(0.75), 0) # min val possible to return
+        self.assertEqual(spd.at(1.75), 1*2) # one second in (*2Hz)
+        self.assertEqual(spd.at(2.5), 1.75*2) # interpolates
+        self.assertEqual(spd.at(9.75), 9*2) # max val possible to return
+        
+        #Q: Is this the desired behaivour to give an IndexError at second 0?
+        # ... it would be misleading to use interpolation.
+        self.assertRaises(ValueError, spd.at, 0)
+        self.assertRaises(ValueError, spd.at, 11)
+        
+    @mock.patch('analysis.node.slices_above')
+    def test_slices_above(self, slices_above):
+        '''
+        Ensure slices_above is called with the expected arguments.
+        '''
+        array = np.ma.arange(10)
+        slices_above.return_value = (array, [slice(0,10)])
+        param = DerivedParameterNode('Param', array=array)
+        slices = param.slices_above(5)
+        self.assertEqual(slices_above.call_args, ((array, 5), {}))
+        self.assertEqual(slices, slices_above.return_value[1])
+        
+    @mock.patch('analysis.node.slices_below')
+    def test_slices_below(self, slices_below):
+        '''
+        Ensure slices_below is called with the expected arguments.
+        '''
+        array = np.ma.arange(10)
+        slices_below.return_value = (array, [slice(0,10)])
+        param = DerivedParameterNode('Param', array=array)
+        slices = param.slices_below(5)
+        self.assertEqual(slices_below.call_args, ((array, 5), {}))
+        self.assertEqual(slices, slices_below.return_value[1]) 
+    
+    @mock.patch('analysis.node.slices_between')
+    def test_slices_between(self, slices_between):
+        '''
+        Ensure slices_between is called with the expected arguments.
+        '''
+        array = np.ma.arange(10)
+        slices_between.return_value = (array, [slice(0, 10)])
+        param = DerivedParameterNode('Param', array=array)
+        slices = param.slices_between(5, 15)
+        self.assertEqual(slices_between.call_args, ((array, 5, 15), {}))
+        self.assertEqual(slices, slices_between.return_value[1])
+    
+    @mock.patch('analysis.node.slices_from_to')
+    def test_slices_from_to(self, slices_from_to):
+        '''
+        Ensure slices_from_to is called with the expected arguments.
+        '''
+        array = np.ma.arange(10)
+        slices_from_to.return_value = (array, [slice(0, 10)])
+        param = DerivedParameterNode('Param', array=array)
+        slices = param.slices_from_to(5, 15)
+        self.assertEqual(slices_from_to.call_args, ((array, 5, 15), {}))
+        self.assertEqual(slices, slices_from_to.return_value[1])

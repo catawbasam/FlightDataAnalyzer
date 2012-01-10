@@ -93,11 +93,11 @@ def plot_flight(hdf_path, kti_list, kpv_list, phase_list):
         sections.append(roc_data)
         sections.append('k-')
         for phase in filter(lambda p: p.name in (
-            'Climbing', 'Level Flight', 'Descending'), phase_list):
+            'Takeoff', 'Level Flight', 'Descending'), phase_list):
             # Declare the x-axis parameter first...
             sections.append(frame[phase.slice]-frame[0])
             sections.append(roc[phase.slice])
-            if phase.name == 'Climbing':
+            if phase.name == 'Takeoff':
                 sections.append('g-')
             elif phase.name == 'Level Flight':
                 sections.append('b-')
@@ -164,22 +164,25 @@ def csv_flight_details(hdf_path, kti_list, kpv_list, phase_list, dest_path=None)
     rows = []
     params = ['Airspeed', 'Altitude STD', 'Pitch', 'Roll']
     attrs = ['value', 'slice', 'datetime'] # 'latitude', 'longitude'] 
-    header = ['Type', 'Phase Start', 'Index', 'Phase End', 'Name'] + attrs + params
+    header = ['Remember: KTIs are exact, Phase times are to nearest sample \n','Type', 'Phase Start', 'Index', 'Phase End', 'Name'] + attrs + params
 
     def vals_for_iterable(iter_type, iterable):
         for value in iterable:
             # add required attributes
             index = _index_or_slice(value)
             if iter_type == 'Phase':
-                vals = [iter_type, value.name, index, None, None]
+                
+                # TACKY FIX FOR PHASE START AND STOP
+                vals = [iter_type, value.name, value.slice.start, None, None]
+                rows.append( vals )
+                # EMBARRASING BUT WAITING FOR "at" METHOD ON DERIVED NODE
+                
+                vals = [iter_type, None, value.slice.stop, value.name, None]
             else:
                 vals = [iter_type, None, index, None, value.name]
                 
             # add optional attributes
             [vals.append(getattr(value, attr, None)) for attr in attrs]
-            
-            """
-            Fails: AttributeError: 'DerivedParameterNode' object has no attribute 'at'
             
             # add associated parameter information
             for param in params:
@@ -191,8 +194,7 @@ def csv_flight_details(hdf_path, kti_list, kpv_list, phase_list, dest_path=None)
                     vals.append( dp.at(index) )
                 except (KeyError, ValueError, IndexError):
                     vals.append(None)
-            rows.append( vals )
-
+            
             if iter_type == 'Phase':
                 # Append the stop time for this phase.
                 vals = [iter_type, None, value.slice.stop, value.name, None]
@@ -201,14 +203,14 @@ def csv_flight_details(hdf_path, kti_list, kpv_list, phase_list, dest_path=None)
                 # add associated parameter information
                 for param in params:
                     try:
-                        vals.append( hdf[param].at(index) )
+                        p = hdf[param]
+                        dp = DerivedParameterNode(name=p.name, array=p.array, 
+                                        frequency=p.frequency, offset=p.offset)
+                        vals.append( dp.at(index) )
                     except (KeyError, ValueError, IndexError):
                         vals.append(None)
-                rows.append( vals )
-            """
+
             rows.append( vals )
-
-
             
     with hdf_file(hdf_path) as hdf:
         vals_for_iterable('Key Time Instance', kti_list)

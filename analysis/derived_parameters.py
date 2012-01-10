@@ -45,17 +45,14 @@ class AccelerationVertical(DerivedParameterNode):
         Resolution of three accelerations to compute the vertical
         acceleration (perpendicular to the earth surface). Upwards = +ve
         """
-        # Align the acceleration and attitude samples to the normal acceleration,
-        # ready for combining them.
-        # "align" returns an array of the first parameter aligned to the second.
-        ax = align(acc_long, acc_norm) 
-        pch = np.radians(align(pitch, acc_norm))
-        ay = align(acc_lat, acc_norm) 
-        rol = np.radians(align(roll, acc_norm))
-        
         # Simple Numpy algorithm working on masked arrays
-        resolved_in_pitch = ax * np.sin(pch) + acc_norm.array * np.cos(pch)
-        self.array = (resolved_in_pitch * np.cos(rol) - ay * np.sin(rol)) * GRAVITY
+        pitch_rad = np.radians(pitch.array)
+        roll_rad = np.radians(roll.array)
+        resolved_in_pitch = acc_long.array * np.ma.sin(pitch_rad) \
+                            + acc_norm.array * np.ma.cos(pitch_rad)
+        self.array = resolved_in_pitch * np.ma.cos(roll_rad) \
+                     - acc_lat.array * np.ma.sin(roll_rad)
+        
 
 class AccelerationForwards(DerivedParameterNode):
     def derive(self, acc_norm=P('Acceleration Normal'), 
@@ -66,11 +63,10 @@ class AccelerationForwards(DerivedParameterNode):
         acceleration, that is, in the direction of the aircraft centreline
         when projected onto the earth's surface. Forwards = +ve
         """
-        ax = align(acc_long, acc_norm) 
-        pch = np.radians(align(pitch, acc_norm))
-        
         # Simple Numpy algorithm working on masked arrays
-        self.array = ax * np.cos(pch) - acc_norm.array * np.sin(pch)
+        pitch_rad = np.radians(pitch.array)
+        self.array = acc_long.array * np.cos(pitch_rad)\
+                     - acc_norm.array * np.sin(pitch_rad)
 
 
 class AccelerationSideways(DerivedParameterNode):
@@ -83,21 +79,18 @@ class AccelerationSideways(DerivedParameterNode):
         acceleration, that is, in the direction perpendicular to the aircraft centreline
         when projected onto the earth's surface. Right = +ve.
         """
-        ax = align(acc_long, acc_norm)
-        pch = np.radians(align(pitch, acc_norm))
-        ay = align(acc_lat, acc_norm)
-        rol = np.radians(align(roll, acc_norm))
-        
+        pitch_rad = np.radians(pitch.array)
+        roll_rad = np.radians(roll.array)
         # Simple Numpy algorithm working on masked arrays
-        resolved_in_pitch = ax * np.sin(pch) + acc_norm.array * np.cos(pch)
-        self.array = resolved_in_pitch * np.sin(rol) + ay * np.cos(rol)
-
-
+        resolved_in_pitch = acc_long.array * np.sin(pitch_rad) \
+                            + acc_norm.array * np.cos(pitch_rad)
+        self.array = resolved_in_pitch * np.sin(roll_rad) \
+                     + acc_lat.array * np.cos(roll_rad)
 
 """
-===============================================================================
+-------------------------------------------------------------------------------
 Superceded by Truck and Trailer analysis of airspeed during takeoff and landing
-===============================================================================
+-------------------------------------------------------------------------------
 class AccelerationForwardsForFlightPhases(DerivedParameterNode):
     # List the minimum acceptable parameters here
     @classmethod
@@ -130,9 +123,9 @@ class AccelerationForwardsForFlightPhases(DerivedParameterNode):
             # Tacky smoothing to see how it works. TODO fix !
             roc_aspd = rate_of_change(aspd,1.5) * KTS_TO_FPS/GRAVITY
             self.array =  roc_aspd 
-===============================================================================
+-------------------------------------------------------------------------------
 Superceded by Truck and Trailer analysis of airspeed during takeoff and landing
-===============================================================================
+-------------------------------------------------------------------------------
 """
             
 
@@ -141,10 +134,15 @@ class AirspeedForFlightPhases(DerivedParameterNode):
         self.array = hysteresis(airspeed.array, HYSTERESIS_FPIAS)
 
 
+class AirspeedMinusV2(DerivedParameterNode):
+    #TODO: TESTS
+    def derive(self, airspeed=P('Airspeed'), v2=P('V2')):
+        self.array = airspeed.array - v2
+
 class AirspeedMinusVref(DerivedParameterNode):
+    #TODO: TESTS
     def derive(self, airspeed=P('Airspeed'), vref=P('Vref')):
-        vref_aligned = align(vref, airspeed)
-        self.array = airspeed.array - vref_aligned
+        self.array = airspeed.array - vref
 
 
 class AirspeedTrue(DerivedParameterNode):
@@ -159,8 +157,11 @@ class AirspeedTrue(DerivedParameterNode):
 class AltitudeAAL(DerivedParameterNode):
     # Dummy for testing DJ TODO: Replace with one that takes radio altitude and local minima into account.
     name = 'Altitude AAL'
-    def derive(self, alt_std=P('Altitude AAL For Flight Phases')):
-        self.array = alt_std.array
+    def derive(self, alt_aal=P('Altitude AAL For Flight Phases')):# alt_std=P('Altitude STD'), alt_rad=P('Altitude Radio')):
+        # TODO: This is a hack! Implement separate derive method for Altitude
+        # AAL.
+        logging.warning("Altitude AAL is not properly implemented!!")
+        self.array = alt_aal.array
 
     
 class AltitudeAALForFlightPhases(DerivedParameterNode):
@@ -173,55 +174,56 @@ class AltitudeAALForFlightPhases(DerivedParameterNode):
         # will be 0ft when the aircraft cannot be airborne.
         self.array = np.ma.zeros(len(alt_std.array))
         
-        repair_mask(alt_std.array) # Remove small sections of corrupt data
-        ##print 'fast, len(alt_std)', fast, len(alt_std.array)
+        altitude = repair_mask(alt_std.array) # Remove small sections of corrupt data
+        ##print 'fast, len(alt_std), alt_std.offset', fast, len(alt_std.array), alt_std.offset
         for speedy in fast:
             begin = speedy.slice.start
             end = speedy.slice.stop
-            peak = np.ma.argmax(alt_std.array[speedy.slice])
+            peak = np.ma.argmax(altitude[speedy.slice])
             # We override any negative altitude variations that occur at
             # takeoff or landing rotations. This parameter is only used for
             # flight phase determination so it is important that it behaves
             # in a predictable manner.
             ##print end
-            self.array[begin:begin+peak] = np.ma.maximum(0.0,alt_std.array[begin:begin+peak]-alt_std.array[begin])
-            self.array[begin+peak:end] = np.ma.maximum(0.0,alt_std.array[begin+peak:end]-alt_std.array[end-1])
+            self.array[begin:begin+peak] = np.ma.maximum(0.0,altitude[begin:begin+peak]-altitude[begin])
+            self.array[begin+peak:end] = np.ma.maximum(0.0,altitude[begin+peak:end]-altitude[end-1])
     
     
 class AltitudeForClimbCruiseDescent(DerivedParameterNode):
-    name = 'Altitude For Climb Cruise Descent'
     def derive(self, alt_std=P('Altitude STD')):
-        self.array = hysteresis ( alt_std.array, HYSTERESIS_FPALT_CCD)
+        self.array = hysteresis(alt_std.array, HYSTERESIS_FPALT_CCD)
     
     
 class AltitudeForFlightPhases(DerivedParameterNode):
     def derive(self, alt_std=P('Altitude STD')):
-        self.array = hysteresis (repair_mask(alt_std.array), HYSTERESIS_FPALT)
+        self.array = hysteresis(repair_mask(alt_std.array), HYSTERESIS_FPALT)
     
     
 class AltitudeRadio(DerivedParameterNode):
-    # This function allows for the distance between the radio altimeter antenna
-    # and the main wheels of the undercarriage.
+    """
+    This function allows for the distance between the radio altimeter antenna
+    and the main wheels of the undercarriage.
 
-    # The parameter raa_to_gear is measured in feet and is positive if the
-    # antenna is forward of the mainwheels.
+    The parameter raa_to_gear is measured in feet and is positive if the
+    antenna is forward of the mainwheels.
+    """
     def derive(self, alt_rad=P('Altitude Radio Sensor'), pitch=P('Pitch'),
                main_gear_to_alt_rad=A('Main Gear To Altitude Radio')):
         # Align the pitch attitude samples to the Radio Altimeter samples,
         # ready for combining them.
-        pitch_aligned = np.radians(align(pitch, alt_rad))
+        pitch_rad = np.radians(pitch.array)
         # Now apply the offset if one has been provided
-        self.array = alt_rad.array - np.sin(pitch_aligned) * main_gear_to_alt_rad.value
+        self.array = alt_rad.array - np.sin(pitch_rad) * main_gear_to_alt_rad.value
 
 
 class AltitudeRadioForFlightPhases(DerivedParameterNode):
     def derive(self, alt_rad=P('Altitude Radio')):
-        self.array = hysteresis (repair_mask(alt_rad.array), HYSTERESIS_FP_RAD_ALT)
+        self.array = hysteresis(repair_mask(alt_rad.array), HYSTERESIS_FP_RAD_ALT)
 
 
 class AltitudeQNH(DerivedParameterNode):
     name = 'Altitude QNH'
-    def derive(self, param=P('Flap')):
+    def derive(self, param=P('Altitude AAL')):
         return NotImplemented
 
 
@@ -293,20 +295,23 @@ class AltitudeSTD(DerivedParameterNode):
                 ##ratio = 0.0
             ##alt = alt_std_low * ratio + alt_std_high * (1.0 - ratio)
             ##alt_std  = alt_std * 0.8 + alt * 0.2
-            #146-300_945003_01.add-2!// Set the thresholds for changeover from low to high scales.
-#146-300_945003_01.add-2!top = 18000
-#146-300_945003_01.add-2!bottom = 17000
-#146-300_945003_01.add-2!
-#146-300_945003_01.add-2!av = (ALT_STD_HIGH + ALT_STD_LOW) /2
-#146-300_945003_01.add-2!ratio = (top - av) / (top - bottom)
-#146-300_945003_01.add-2!
-#146-300_945003_01.add-2!IF (ratio > 1.0) THEN ratio = 1.0 ENDIF
-#146-300_945003_01.add-2!IF (ratio < 0.0) THEN ratio = 0.0 ENDIF
-#146-300_945003_01.add-2!
-#146-300_945003_01.add-2!alt = ALT_STD_LOW * ratio + ALT_STD_HIGH * (1.0 - ratio)
-#146-300_945003_01.add-2!
-#146-300_945003_01.add-2!// Smoothing to reduce unsightly noise in the signal. DJ
-#146-300_945003_01.add-2!ALT_STDC = ALT_STDC * 0.8 + alt * 0.2
+            
+            #146-300 945003 (01) 
+            #-------------------
+            ##Set the thresholds for changeover from low to high scales.
+            #top = 18000
+            #bottom = 17000
+            #
+            #av = (ALT_STD_HIGH + ALT_STD_LOW) /2
+            #ratio = (top - av) / (top - bottom)
+            #
+            #IF (ratio > 1.0) THEN ratio = 1.0 ENDIF
+            #IF (ratio < 0.0) THEN ratio = 0.0 ENDIF
+            #
+            #alt = ALT_STD_LOW * ratio + ALT_STD_HIGH * (1.0 - ratio)
+            #
+            ## Smoothing to reduce unsightly noise in the signal. DJ
+            #ALT_STDC = ALT_STDC * 0.8 + alt * 0.2
         elif alt_std_rough and ivv:
             self.array = self._rough_and_ivv(alt_std_rough, ivv)
             #ALT_STDC = (last_alt_std * 0.9) + (ALT_STD * 0.1) + (IVVR / 60.0)
@@ -314,23 +319,26 @@ class AltitudeSTD(DerivedParameterNode):
 
 
 class AltitudeTail(DerivedParameterNode):
-    # This function allows for the distance between the radio altimeter antenna
-    # and the point of the airframe closest to tailscrape.
-    
-    # The parameter gear_to_tail is measured in feet and is the distance from 
-    # the main gear to the point on the tail most likely to scrape the runway.
+    """
+    This function allows for the distance between the radio altimeter antenna
+    and the point of the airframe closest to tailscrape.
+   
+    The parameter gear_to_tail is measured in feet and is the distance from 
+    the main gear to the point on the tail most likely to scrape the runway.
+    """
+    #TODO: Review availability of Attribute "Dist Gear To Tail"
     def derive(self, alt_rad = P('Altitude Radio'), 
                pitch = P('Pitch'),
                dist_gear_to_tail=A('Dist Gear To Tail')):
-        
         # Align the pitch attitude samples to the Radio Altimeter samples,
         # ready for combining them.
-        pitch_aligned = np.radians(align(pitch, alt_rad))
+        pitch_rad= np.radians(pitch.array)
         # Now apply the offset
-        self.array = alt_rad.array - np.sin(pitch_aligned) * dist_gear_to_tail.value
+        self.array = alt_rad.array - np.sin(pitch_rad) * dist_gear_to_tail.value
         
 
 class ClimbForFlightPhases(DerivedParameterNode):
+    #TODO: Optimise with numpy operations
     def derive(self, alt_std=P('Altitude STD'), airs=S('Fast')):
         self.array = np.ma.zeros(len(alt_std.array))
         repair_mask(alt_std.array) # Remove small sections of corrupt data
@@ -347,12 +355,21 @@ class ClimbForFlightPhases(DerivedParameterNode):
                 else:
                     self.array[ax][count] = alt_std.array[ax][count] - curr_alt
     
+    
+class DistanceTravelled(DerivedParameterNode):
+    "Distance travelled in Nautical Miles. Calculated using Groundspeed"
+    #Q: could be validated using the track flown or distance between origin 
+    # and destination
+    def derive(self, gspd=P('Groundspeed')):
+        return NotImplemented
+
 
 class DistanceToLanding(DerivedParameterNode):
-    def derive(self, alt_aal = P('Altitude AAL'),
-               gspd = P('Groundspeed'),
-               ils_gs = P('Glideslope Deviation'),
-               ldg = P('LandingAirport')):
+    # Q: Is this distance to final landing, or distance to each approach
+    # destination (i.e. resets once reaches point of go-around)
+    def derive(self, dist=P('Distance Travelled'), tdwns=KTI('Touchdown')):
+               ##ils_gs=P('Glideslope Deviation'),
+               ##ldg=P('LandingAirport')):
         return NotImplemented
     
 
@@ -371,8 +388,8 @@ class Eng_EGTAvg(DerivedParameterNode):
                eng2=P('Eng (2) EGT'),
                eng3=P('Eng (3) EGT'),
                eng4=P('Eng (4) EGT')):
-        eng = vstack_params(eng1, eng2, eng3, eng4)
-        self.array = eng.average(axis=0)
+        engines = vstack_params(eng1, eng2, eng3, eng4)
+        self.array = np.ma.average(engines, axis=0)
         
 class Eng_EGTMax(DerivedParameterNode):
     #TODO: TEST
@@ -461,7 +478,6 @@ class Eng_N1Min(DerivedParameterNode):
         self.array = np.ma.min(engines, axis=0)
 
 
-
 class Eng_N2Avg(DerivedParameterNode):
     name = "Eng (*) N2 Avg"
     @classmethod
@@ -496,6 +512,7 @@ class Eng_N2Max(DerivedParameterNode):
         engines = vstack_params(eng1, eng2, eng3, eng4)
         self.array = np.ma.max(engines, axis=0)
 
+
 class Eng_N2Min(DerivedParameterNode):
     #TODO: TEST
     name = "Eng (*) N2 Min"
@@ -528,8 +545,8 @@ class Eng_OilTempAvg(DerivedParameterNode):
                eng2=P('Eng (2) Oil Temp'),
                eng3=P('Eng (3) Oil Temp'),
                eng4=P('Eng (4) Oil Temp')):
-        eng = vstack_params(eng1, eng2, eng3, eng4)
-        self.array = eng.average(axis=0)
+        engines = vstack_params(eng1, eng2, eng3, eng4)
+        self.array = np.ma.average(engines, axis=0)
         
 
 class Eng_OilTempMin(DerivedParameterNode):
@@ -582,12 +599,13 @@ class Eng_OilPressAvg(DerivedParameterNode):
                eng2=P('Eng (2) Oil Press'),
                eng3=P('Eng (3) Oil Press'),
                eng4=P('Eng (4) Oil Press')):
-        eng = vstack_params(eng1, eng2, eng3, eng4)
-        self.array = eng.average(axis=0)
+        engines = vstack_params(eng1, eng2, eng3, eng4)
+        self.array = np.ma.average(engines, axis=0)
         
         
 class Eng_OilPressMax(DerivedParameterNode):
     #TODO: TEST
+    #Q: Press or Pressure?
     name = "Eng (*) Oil Press Max"
     @classmethod
     def can_operate(cls, available):
@@ -666,13 +684,6 @@ class FuelQty(DerivedParameterNode):
         # works with any combination of params available
         if any([d in available for d in cls.get_dependency_names()]):
             return True
-        
-    ##@classmethod
-    ##def can_operate(self, available):
-        ##fuel_qty1 = 'Fuel Qty (1)' in available
-        ##fuel_qty2 = 'Fuel Qty (2)' in available
-        ##fuel_qty3 = 'Fuel Qty (3)' in available
-        ##return fuel_qty1 or fuel_qty2 or fuel_qty3
     
     def derive(self, 
                fuel_qty1=P('Fuel Qty (1)'),
@@ -686,12 +697,24 @@ class FuelQty(DerivedParameterNode):
         self.array = np.ma.sum(stacked_params, axis=0)
 
 
-
-class FlapCorrected(DerivedParameterNode):
+class FlapStepped(DerivedParameterNode):
+    """
+    Steps raw Flap angle into chunks.
+    """
     def derive(self, flap=P('Flap')):
+        #common_steps = (0, 5, 10, 15, 20, 35, 40, 45)
+        # for the moment, round off to the nearest 5 degrees
+        step = 5
+        self.array = np.ma.round(flap.array / step) * step
+    
+class SlatStepped(DerivedParameterNode):
+    """
+    Steps raw Slat angle into chunks.
+    """
+    def derive(self, flap=P('Slat')):
         return NotImplemented
     
-
+    
 class GearSelectedDown(DerivedParameterNode):
     # And here is where the nightmare starts.
     # Sometimes recorded
@@ -717,13 +740,21 @@ class HeadingContinuous(DerivedParameterNode):
         self.array = repair_mask(straighten_headings(head_mag.array))
 
 
+class HeadingMagnetic(DerivedParameterNode):
+    '''
+    This class currently exists only to give the 146-301 Magnetic Heading.
+    '''
+    def derive(self, head_mag=P('RECORDED MAGNETIC HEADING')):
+        self.array = head_mag.array
+
+
 class HeadingTrue(DerivedParameterNode):
+    #TODO: TESTS
     # Requires the computation of a magnetic deviation parameter linearly 
     # changing from the deviation at the origin to the destination.
     def derive(self, head = P('Heading Continuous'),
                dev = P('Magnetic Deviation')):
-        dev_array = align(dev, head)
-        self.array = head + dev_array
+        self.array = head + dev.array
     
 
 class ILSLocalizerGap(DerivedParameterNode):
@@ -777,10 +808,7 @@ class RateOfClimb(DerivedParameterNode):
         # List the minimum required parameters. If 'Altitude Radio For Flight
         # Phases' is available, that's a bonus and we will use it, but it is
         # not required.
-        if 'Altitude STD' in available:
-            return True
-        else:
-            return False
+        return 'Altitude STD' in available
     
     def derive(self, 
                az = P('Acceleration Vertical'),
@@ -832,8 +860,7 @@ class Relief(DerivedParameterNode):
     # Quickly written without tests as I'm really editing out the old dependencies statements :-(
     def derive(self, alt_aal = P('Altitude AAL'),
                alt_rad = P('Radio Altitude')):
-        altitude = align(alt_aal, alt_rad)
-        self.array = altitude - alt_rad
+        self.array = alt_aal - alt_rad
 
 
 class Speedbrake(DerivedParameterNode):
@@ -860,113 +887,24 @@ class SmoothedLongitude(DerivedParameterNode): # TODO: Old dependency format.
 
 
 class RateOfTurn(DerivedParameterNode):
-    def derive(self, head = P('Heading Continuous')):
+    def derive(self, head=P('Heading Continuous')):
+        #TODO: Review whether half_width 1 is applicable at multi Hz
         self.array = rate_of_change(head, 1)
 
 
 class Pitch(DerivedParameterNode):
-    name = "Pitch"
     def derive(self, p1=P('Pitch (1)'), p2=P('Pitch (2)')):
         self.hz = p1.hz * 2
         self.offset = min(p1.offset, p2.offset)
         self.array = interleave (p1, p2)
 
 
-
-
-
-class ThrustLever(DerivedParameterNode):
-    name = 'Thrust Lever'
-    def derive(self, param=P('Flap')): # Q: Args?
+class ThrottleLever(DerivedParameterNode):
+    def derive(self, tla1=P('Throttle Lever Angle (1)'), 
+               tla2=P('Throttle Lever Angle (2)')):
+        ##self.hz = tla1.hz * 2
+        ##self.offset = min(tla1.offset, tla2.offset)
+        ##self.array = interleave (tla1, tla2)
         return NotImplemented
 
 
-
-'''
-########## FLIGHT PHASES ###########
-
-class GoAround(DerivedParameterNode): # Q: is this a parameter?
-    def derive(self, param=P('Flap')): # Q: Args?
-        return NotImplemented
-
-
-class RudderReversal(DerivedParameterNode):
-    def derive(self, param=P('Flap')): # Q: Args?
-        return NotImplemented
-'''
-
-'''
-########## RECORDED ###########
-
-
-
-class GPWSDontSink(DerivedParameterNode):
-    name = 'GPWS Don't Sink'
-    def derive(self, param=P('GPWS Dont Sink Warning')):
-    
-    
-class Eng1OilTemp(DerivedParameterNode):
-    name = 'Eng (1) Oil Temp'
-    def derive(self, param=P('Eng (1) Oil Temp')):
-        return NotImplemented
-
-
-class GPWSSinkRate(DerivedParameterNode):
-    name = "GPWS Sink Rate"
-    def derive(self, param=P('Flap')):
-        return NotImplemented
-
-
-class GPWSGlideslope(DerivedParameterNode):
-    name = "GPWS Glideslope"
-    def derive(self, param=P('Flap')):
-        return NotImplemented
-
-
-class GPWSWindshear(DerivedParameterNode):
-    name = "GPWS Windshear"
-    def derive(self, param=P('Flap')):
-        return NotImplemented
-
-
-class GPWSTooLowFlap(DerivedParameterNode):
-    name = 'GPWS Too Low Flap'
-    def derive(self, param=P('Flap')):
-        return NotImplemented
-
-
-class GPWSTooLowGear(DerivedParameterNode):
-    name = 'GPWS Too Low Gear'
-    def derive(self, param=P('Flap')):
-        return NotImplemented
-
-
-# Are the following the same?
-class GPWSTooLowTerrain(DerivedParameterNode):
-    name = 'GPWS Too Low Terrain'
-    def derive(self, param=P('Flap')):
-        return NotImplemented
-
-
-class GPWSTerrainPullUp(DerivedParameterNode):
-    name = 'GPWS Terrain Pull Up'
-    def derive(self, param=P('Flap')):
-        return NotImplemented
-
-
-class GPWSTerrain(DerivedParameterNode):
-    name = 'GPWS Terrain'
-    def derive(self, param=P('Flap')):
-        return NotImplemented
-    
-
-class ILSLocalizer(DerivedParameterNode):
-    name = "ILS Localizer"
-    def derive(self, param=P('Flap')):
-        return NotImplemented
-
-
-class GrossWeight(DerivedParameterNode):
-    def derive(self, param=P('Flap')): # Q: Args?
-        return NotImplemented
-'''

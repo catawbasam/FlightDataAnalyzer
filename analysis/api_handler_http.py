@@ -57,7 +57,6 @@ class APIHandlerHTTP(APIHandler):
             resp, content = http.request(uri, method, body)
         except (httplib2.ServerNotFoundError, socket.error): # DNS..
             raise APIConnectionError(uri, method, body)
-        print resp, content
         status = int(resp['status'])
         try:
             decoded_content = simplejson.loads(content)
