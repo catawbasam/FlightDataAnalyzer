@@ -523,7 +523,7 @@ class TakeoffRunway(FlightAttributeNode):
 
 class FlightType(FlightAttributeNode):
     "Type of flight flown"
-    name = 'Flight Type'
+    name = 'FDR Flight Type'
     
     @classmethod
     def can_operate(self, available):

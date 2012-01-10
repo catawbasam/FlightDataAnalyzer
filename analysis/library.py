@@ -1124,10 +1124,8 @@ def value_at_time (array, hz, offset, time_index):
     :type time_index: float
     :returns: interpolated value from the array
     '''
-
     time_into_array = time_index - offset
     location_in_array = time_into_array * hz
-    
     return value_at_index(array, location_in_array)
 
 def value_at_index(array, index):
@@ -1140,7 +1138,6 @@ def value_at_index(array, index):
     :type index: float
     :returns: interpolated value from the array
     '''
-
     if index < 0.0 or index > len(array):
         raise ValueError, 'Seeking value outside data time range'
     

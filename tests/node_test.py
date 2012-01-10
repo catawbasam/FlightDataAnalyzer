@@ -575,15 +575,14 @@ class TestKeyPointValueNode(unittest.TestCase):
     def test_create_kpvs_at_ktis(self):
         knode = self.knode
         param = P('Param', np.ma.arange(10))
-        # value_at_time will interpolate masked values.
+        # value_at_index will interpolate masked values.
         param.array[3:7] = np.ma.masked
         ktis = KTI('KTI', items=[KeyTimeInstance(i, 'a') for i in range(0,10,2)])
-        knode.create_kpvs_at_ktis(param, ktis)
+        knode.create_kpvs_at_ktis(param.array, ktis)
+        print list(knode)
         self.assertEqual(list(knode),
                          [KeyPointValue(index=0, value=0, name='Kpv'),
                           KeyPointValue(index=2, value=2, name='Kpv'),
-                          KeyPointValue(index=4, value=4, name='Kpv'),
-                          KeyPointValue(index=6, value=6, name='Kpv'),
                           KeyPointValue(index=8, value=8, name='Kpv')])
     
     def test_get_aligned(self):
