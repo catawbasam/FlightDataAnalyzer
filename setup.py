@@ -1,11 +1,39 @@
 #!/usr/bin/env python
 
+import re
+
 try:
     from setuptools import setup, find_packages
 except ImportError:
     from distribute_setup import use_setuptools
     use_setuptools()
     from setuptools import setup, find_packages
+
+# http://cburgmer.posterous.com/pip-requirementstxt-and-setuppy
+def parse_requirements(file_name):
+    requirements = []
+    for line in open(file_name, 'r').read().split('\n'):
+        if re.match(r'(\s*#)|(\s*$)', line):
+            continue
+        if re.match(r'\s*-e\s+', line):
+            # TODO support version numbers
+            requirements.append(re.sub(r'\s*-e\s+.*#egg=(.*)$', r'\1', line))
+        elif re.match(r'\s*-f\s+', line):
+            pass
+        else:
+            requirements.append(line)
+
+    requirements.reverse()
+    return requirements
+
+def parse_dependency_links(file_name):
+    dependency_links = []
+    for line in open(file_name, 'r').read().split('\n'):
+        if re.match(r'\s*-[ef]\s+', line):
+            dependency_links.append(re.sub(r'\s*-[ef]\s+', '', line))
+
+    dependency_links.reverse()
+    return dependency_links
 
 #from analysis import __version__ as VERSION
 
@@ -128,9 +156,10 @@ setup(
 
     # A string or list of strings specifying what other distributions need to be 
     # installed when this one is.
-    install_requires = ['distribute', 'Utilties', 'HDFAccess', 'numpy'
-                        'matplotlib', 'networkx', 'pygraphviz', 'scipy', 
-                        'mock'],
+    #install_requires = ['distribute', 'Utilties', 'HDFAccess', 'numpy'
+    #                    'matplotlib', 'networkx', 'pygraphviz', 'scipy', 
+    #                    'mock'],
+    install_requires = parse_requirements('requirements.txt'),    
          
     # Sometimes a project has "recommended" dependencies, that are not required 
     # for all uses of the project. For example, a project might offer optional 
@@ -169,7 +198,7 @@ setup(
     # needed to install it, you can use this option to specify them. It should 
     # be a string or list of strings specifying what other distributions need to 
     # be present for the package's tests to run.     
-    tests_require = [],
+    #tests_require = [],
 
 
     # If your project depends on packages that aren't registered in PyPI, you 
@@ -192,9 +221,10 @@ setup(
     # for eggs or source distributions, if the package's dependencies aren't 
     # already installed:
 
-    dependency_links = [
-        'http://vindictive.flightdataservices.com/Nest/dist/'
-    ],
+    #dependency_links = [
+    #    'http://vindictive.flightdataservices.com/Nest/dist/'
+    #],
+    dependency_links = parse_dependency_links('requirements.txt'),
 
     # === Script Creation ===
     
