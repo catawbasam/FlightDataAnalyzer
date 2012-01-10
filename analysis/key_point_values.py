@@ -591,8 +591,14 @@ class SinkRateWarning(KeyPointValueNode):
 
 class AccelerationNormal20FtToGroundMax(KeyPointValueNode):
     name = 'Acceleration Normal 20 Ft To Ground Max' # not required?
-    def derive(self, acceleration_normal=P('Acceleration Normal')):
-        return NotImplemented
+    def derive(self, acceleration_normal=P('Acceleration Normal'),
+               alt_aal=P('Altitude AAL')):
+        for from_20ft_to_ground in alt_aal.slices_from_to(20, 0):
+            # Q: Is from 20 Ft to 0 Ft of Alt AAL the same as '20 Ft To Ground'?
+            index, value = max_value(acceleration_normal.array,
+                                     _slice=from_20ft_to_ground)
+            if value:
+                self.create_kpv(index, value)
 
 
 class HeadingDeviation100KtsToFtMax(KeyPointValueNode):

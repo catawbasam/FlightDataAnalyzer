@@ -8,6 +8,7 @@ from analysis.derived_parameters import FlapStepped
 from analysis.node import (KeyTimeInstance, KTI, KeyPointValue, 
                            KeyPointValueNode, Parameter, P, Section, S)
 from analysis.key_point_values import (
+    AccelerationNormal20FtToGroundMax,
     AccelerationNormalMax,
     Airspeed1000To500FtMax,
     AirspeedAtTouchdown,
@@ -91,6 +92,25 @@ class TestAccelerationNormalMax(unittest.TestCase):
         self.assertEqual(acc_norm_max,
                          [KeyPointValue(index=index, value=value,
                                         name=acc_norm_max.name)])
+
+
+class TestAccelerationNormal20FtToGroundMax(unittest.TestCase):
+    def test_can_operate(self):
+        self.assertEqual(\
+            AccelerationNormal20FtToGroundMax.get_operational_combinations(),
+            [('Acceleration Normal', 'Altitude AAL')])
+    
+    def test_derive(self):
+        '''
+        Depends upon DerivedParameterNode.slices_from_to and library.max_value.
+        '''
+        alt_aal = P('Altitude AAL', np.ma.arange(40, -20, -1))
+        acceleration_normal = P('Acceleration Normal', np.ma.arange(0, 60))
+        node = AccelerationNormal20FtToGroundMax()
+        node.derive(acceleration_normal, alt_aal)
+        self.assertEqual(node,
+                [KeyPointValue(index=40, value=40,
+                               name='Acceleration Normal 20 Ft To Ground Max')])
 
 
 class TestAirspeed1000To500FtMax(unittest.TestCase):
