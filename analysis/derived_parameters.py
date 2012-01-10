@@ -700,12 +700,34 @@ class FuelQty(DerivedParameterNode):
 class FlapStepped(DerivedParameterNode):
     """
     Steps raw Flap angle into chunks.
+
+    common_steps = (0, 5, 10, 15, 20, 35, 40, 45)
     """
-    def derive(self, flap=P('Flap')):
-        #common_steps = (0, 5, 10, 15, 20, 35, 40, 45)
-        # for the moment, round off to the nearest 5 degrees
-        step = 5
-        self.array = np.ma.round(flap.array / step) * step
+    @classmethod
+    def can_operate(cls, available):
+        if 'Flap' in available:
+            return True
+        
+    def derive(self, flap=P('Flap'), flap_steps=A('Flap Settings')):
+        if flap_steps:
+            # for the moment, round off to the nearest 5 degrees
+            steps = np.ediff1d(flap_steps.value, to_end=[0])/2.0 + flap_steps.value
+            flap_stepped = np.zeros_like(flap.array.data)
+            low = None
+            for level, high in zip(flap_steps.value, steps):
+                i = (low < flap.array) & (flap.array <= high)
+                flap_stepped[i] = level
+                low = high
+            else:
+                # all flap values above the last
+                flap_stepped[low < flap.array] = level
+        else:
+            # round to nearest 5 degrees for the moment
+            step = 5
+            self.array = np.ma.round(flap.array / step) * step
+            
+        self.array = np.ma.array(flap_stepped, mask=flap.array.mask)
+            
     
 class SlatStepped(DerivedParameterNode):
     """
