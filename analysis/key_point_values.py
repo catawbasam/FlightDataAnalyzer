@@ -917,7 +917,7 @@ class RollBelow20FtMax(KeyPointValueNode):
     #TODO: TESTS
     def derive(self, roll=P('Roll'), alt_aal=P('Altitude AAL')):
         for this_slice in alt_aal.slices_below(20):
-            index, value  = max_abs_value(roll.array, this_slice)
+            index, value  = max_abs_value(roll.array, _slice=this_slice)
             self.create_kpv(index, value)
 
 
@@ -970,7 +970,7 @@ class AirspeedMinusVref500FtToTouchdownMax(KeyPointValueNode):
 
 class AirspeedWithFlapMax(KeyPointValueNode):
     NAME_FORMAT = "Airspeed With Flap %(flap)d Max"
-    NAME_VALUES = {'flap': range(0,46,5)}
+    NAME_VALUES = {'flap': range(0,46,1)}
     #Q: Is it required to have a KPV of "Flap 0 Max"
     def derive(self, flap=P('Flap Stepped'), airspeed=P('Airspeed')):
         for flap_setting in np.ma.unique(flap.array):
