@@ -663,7 +663,7 @@ def max_continuous_unmasked(array, _slice=slice(None)):
 def max_abs_value(array, _slice=slice(None)):
     """
     Get the value of the maximum absolute value in the array. 
-    Return value is not the absolute value (i.e. may be negative)
+    Return value is NOT the absolute value (i.e. may be negative)
     
     :param array: masked array
     :type array: np.ma.array
@@ -719,7 +719,7 @@ def merge_alternate_sensors (array):
     return result
 
 
-def peak_curvature(array, _slice=slice(None)):
+def peak_curvature(array, _slice=slice(None), search_for='Concave'):
     """
     This routine uses a "Truck and Trailer" algorithm to find where a
     parameter changes slope. In the case of FDM, we are looking for the point
@@ -739,41 +739,21 @@ def peak_curvature(array, _slice=slice(None)):
     # check the array is long enough.
     if len(data) < overall:
         raise ValueError, 'Peak curvature called with too short a sample'
-    '''
-    steps = len(data)-overall+1
-    A = np.vstack([np.arange(ttp), np.ones(ttp)*frequency]).T
 
-    # Keep the answers in an array of measurements
-    measures = np.zeros(steps)
-           
-    for step in xrange(steps):
-        m1, c1 = np.linalg.lstsq(A, data[step:step+ttp])[0]
-        m2, c2 = np.linalg.lstsq(A, data[step+ttp+gap:step+ttp+gap+ttp])[0]
-        measures[step] = abs(m2 - m1)
-    
-    index = np.ma.argmax(measures) + overall/2
-    '''
     # Set up working arrays
     x = np.arange(ttp) + 1 #  The x-axis is always short and constant
     sx = np.sum(x)
     r = sx/float(x[-1]) #  
-    trucks = len(data) - ttp#  How many trucks fit this array length?
+    trucks = len(data) - ttp + 1 #  How many trucks fit this array length?
 
-    sy = np.empty(trucks+1) #  Sigma y
-    sy[0]=np.sum(data[0:ttp])
+    sy = np.empty(trucks) #  Sigma y
+    sy[0]=np.sum(data[0:ttp]) #  Initialise this array with just y values
 
-    sxy = np.empty(trucks+1) #  Sigma x.y
-    sxy[0]=np.sum(data[0:ttp]*x[0:ttp])
-    
-    m = np.empty(trucks) # Resulting least squares slope (best fit y=mx+c)
-
-    #  How many places can the truck and trailer fit into this data set?
-    places=len(data)-overall 
-    #  The angle between the truck and trailer at each place it can fit
-    angle=np.empty(places) 
-    
-    for back in range(trucks):
-        # We compute the parts of the least squares formula, using the
+    sxy = np.empty(trucks) #  Sigma x.y
+    sxy[0]=np.sum(data[0:ttp]*x[0:ttp]) #  Initialise with xy products 
+  
+    for back in range(trucks-1):
+        # We compute the values for the least squares formula, using the
         # numerator only (the denominator is constant and we're not really
         # interested in the answer).
         
@@ -782,28 +762,38 @@ def peak_curvature(array, _slice=slice(None)):
         front = back + ttp
         sy[back+1] = sy[back] - data [back] + data[front]
         sxy[back+1] = sxy[back] - sy[back] + ttp*data[front]
-        m[back] = sxy[back] - r*sy[back]
-        # Perhaps we have gone far enough to hook up the trailer as well?
-        if back >= trailer:
-            angle[back-trailer]=abs(m[back] - m[back-trailer])
+
+    m = np.empty(trucks) # Resulting least squares slope (best fit y=mx+c)
+    m = sxy - r*sy
+
+    #  How many places can the truck and trailer fit into this data set?
+    places=len(data) - overall + 1
+    #  The angle between the truck and trailer at each place it can fit
+    angle=np.empty(places) 
+    
+    for place in range(places):
+        angle[place] = m[place+trailer] - m[place]
+
     # Normalise array and prepare for masking operations
     angle=np.ma.array(angle/np.max(np.abs(angle)))
-
+    if search_for == 'Bipolar':
+        angle = np.ma.abs(angle)
+    
     # Find peak - using values over 50% of the highest allows us to operate
     # without knowing the data characteristics.
-    peak_slice=np.ma.clump_unmasked(np.ma.masked_inside(angle,-0.5,0.5))
-
-    index = peak_index(angle.data[peak_slice[0]])+ peak_slice[0].start+trailer- 0.5
-    #index = peak_index(angle.data[peak_slice[0]])\ #  The local peak
-        #+ peak_slice[0].start\ #  Offset from the first range of data to test
-        #+ trailer \ #  Our curvature is with respect to the centre of the t&t
-        #- 0.5
-    
-    return index + (_slice.start or 0)
+    peak_slice=np.ma.clump_unmasked(np.ma.masked_less(angle,0.5))
+        
+    if peak_slice:
+        index = peak_index(angle.data[peak_slice[0]])+\
+            peak_slice[0].start+(overall/2.0)-0.5
+        return index + (_slice.start or 0)
+    else:
+        return None
     
 def peak_index(a):
     '''
-    Scans an array and returns the peak, where possible computing the local maximum assuming a quadratic curve over the top three samples.
+    Scans an array and returns the peak, where possible computing the local
+    maximum assuming a quadratic curve over the top three samples.
     
     :param a: array
     :type a: list of floats
@@ -897,7 +887,10 @@ def shift_slices(slicelist, offset):
     for each_slice in slicelist:
         a = each_slice.start + offset
         b = each_slice.stop + offset
-        newlist.append(slice(a,b))
+        if (b-a)>1:
+            # This traps single sample slices which can arise due to rounding
+            # of the iterpolated slices.
+            newlist.append(slice(a,b))
     return newlist
 
 
@@ -1030,52 +1023,66 @@ def index_at_value (array, threshold, _slice=slice(None)):
     '''
     This function seeks the moment when the parameter in question first crosses 
     a threshold. It works both forwards and backwards in time. To scan backwards
-    just make the start point later than the end point. This is really useful
-    for finding things like the point of landing.
+    pass in a slice with a negative step. This is really useful for finding
+    things like the point of landing.
     
     For example, to find 50ft Rad Alt on the descent, use something like:
-       altitude_radio.seek(t_approach, t_landing, 50)
+       altitude_radio.seek(t_approach, t_landing, slice(50,0,-1))
     
     :param array: input data
     :type array: masked array
-    :param _slice: slice where we want to seek the threshold transit.
-    :type _slice: slice
     :param threshold: the value that we expect the array to cross between scan_start and scan_end.
     :type threshold: float
+    :param _slice: slice where we want to seek the threshold transit.
+    :type _slice: slice
     :returns: interpolated time when the array values crossed the threshold. (One value only).
     :returns type: float
     '''
-    begin = int(round(_slice.start or 0))
-    end = int(round(_slice.stop or len(array)))
     step = _slice.step or 1
-    if abs(begin - end) < 2:
+    max_index = len(array)
+    # Arrange the limits of our scan, ensuring that we stay inside the array.
+    if step == 1:
+        begin = max(int(round(_slice.start or 0)),0)
+        end = min(int(round(_slice.stop or max_index)),max_index)
+
+        # A "let's get the logic right and tidy it up afterwards" bit of code...
+        if begin >= len(array):
+            begin = max_index
+        elif begin < 0:
+            begin = 0
+        if end > len(array):
+            end = max_index
+        elif end < 0:
+            end = 0
+            
+        left, right = slice(begin,end-1,step), slice(begin+1,end,step)
+        
+    elif step == -1:
+        begin = min(int(round(_slice.start or max_index)),max_index)
+        end = max(int(round(_slice.stop or 0)),0)
+
+        # More "let's get the logic right and tidy it up afterwards" bit of code...
+        if begin >= len(array):
+            begin = max_index - 1
+        elif begin < 0:
+            begin = 0
+        if end > len(array):
+            end = max_index
+        elif end < 0:
+            end = 0
+            
+        left, right = slice(begin,end+1,step), slice(begin-1,end,step)
+        
+    else:
+        raise ValueError, 'Step length not 1 in index_at_value'
+    
+    if begin == end:
+        raise ValueError, 'No range for seek function to scan across'
+    elif abs(begin - end) < 2:
         # Requires at least two values to find if the array crosses a
         # threshold.
         return None
 
-    if begin == end:
-        raise ValueError, 'No range for seek function to scan across'
-
-    # A "let's get the logic right and tidy it up afterwards" bit of code...
-    if begin > len(array):
-        begin = len(array)
-    if begin < 0:
-        begin = 0
-    if end > len(array):
-        end = len(array)
-    if end < 0:
-        end = 0
-        
-    if step == None:
-        step = 1
-        
-    if step == 1:
-        left, right = slice(begin,end-1,step), slice(begin+1,end,step)
-    elif step == -1:
-        left, right = slice(begin,end+1,step), slice(begin-1,end,step)
-    else:
-        raise ValueError, 'Step length not 1 in index_at_value'
-        
     # When the data being tested passes the value we are seeking, the 
     # difference between the data and the value will change sign.
     # Therefore a negative value indicates where value has been passed.
@@ -1117,20 +1124,30 @@ def value_at_time (array, hz, offset, time_index):
     :type time_index: float
     :returns: interpolated value from the array
     '''
-
     time_into_array = time_index - offset
     location_in_array = time_into_array * hz
+    return value_at_index(array, location_in_array)
 
-    if location_in_array < 0.0 or location_in_array > len(array):
+def value_at_index(array, index):
+    '''
+    Finds the value of the data in array at a given index.
+    
+    :param array: input data
+    :type array: masked array
+    :param index: index into the array where we want to find the array value.
+    :type index: float
+    :returns: interpolated value from the array
+    '''
+    if index < 0.0 or index > len(array):
         raise ValueError, 'Seeking value outside data time range'
     
-    low = int(location_in_array)
-    if (low==location_in_array):
+    low = int(index)
+    if (low==index):
         # I happen to have arrived at exactly the right value by a fluke...
-        return array.data[low]
+        return None if array.mask[low] else array[low]
     else:
         high = low + 1
-        r = location_in_array - low
+        r = index - low
         low_value = array.data[low]
         high_value = array.data[high]
         # Crude handling of masked values. Must be a better way !

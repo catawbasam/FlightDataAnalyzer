@@ -12,7 +12,7 @@ from operator import attrgetter
 from analysis.library import (align, is_index_within_slice,
                               is_slice_within_slice, slices_above,
                               slices_below, slices_between, slices_from_to,
-                              value_at_time)
+                              value_at_index, value_at_time)
 from analysis.recordtype import recordtype
 
 # Define named tuples for KPV and KTI and FlightPhase
@@ -812,21 +812,25 @@ class KeyPointValueNode(FormattedNameNode):
         return KeyPointValueNode(name=self.name, frequency=self.frequency,
                                  offset=self.offset, items=ordered_by_value)
     
-    def create_kpvs_at_ktis(self, param, ktis):
+    def create_kpvs_at_ktis(self, array, ktis):
         '''
-        Creates KPVs by sourcing the array at each KTI index.
+        Creates KPVs by sourcing the array at each KTI index. Requires the array
+        to be aligned to the KTIs.
         
-        :param param: Parameter object to source values from.
-        :type param: Parameter
+        :param array: Array to source values from.
+        :type array: np.ma.masked_array
         :param ktis: KTIs with indices to source values within the array from.
         :type ktis: KeyTimeInstanceNode
         :returns None:
         :rtype: None
         '''
         for kti in ktis:
-            value = value_at_time(param.array, param.hz, param.offset,
-                                  kti.index)
-            self.create_kpv(kti.index, value)
+            value = value_at_index(array, kti.index)
+            if value is None:
+                logging.warning("Array is masked at index '%s' and therefore "
+                                "KPV '%s' will not be created.", kti.index, self.name)
+            else:
+                self.create_kpv(kti.index, value)
     create_kpvs_at_kpvs = create_kpvs_at_ktis # both will work the same!
 
 
@@ -955,6 +959,14 @@ class Attribute(object):
         self.value = value
         self.frequency = self.hz = self.sample_rate = None
         self.offset = None
+    
+    def get_aligned(self, param):
+        '''
+        Attributes do not contain data which can be aligned to other parameters.
+        Q: If attributes start storing indices rather than time, this will
+        require implementing.
+        '''
+        return self
 
 
 A = Attribute

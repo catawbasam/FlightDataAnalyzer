@@ -8,6 +8,7 @@ from analysis.derived_parameters import FlapStepped
 from analysis.node import (KeyTimeInstance, KTI, KeyPointValue, 
                            KeyPointValueNode, Parameter, P, Section, S)
 from analysis.key_point_values import (
+    AccelerationNormal20FtToGroundMax,
     AccelerationNormalMax,
     Airspeed1000To500FtMax,
     AirspeedAtTouchdown,
@@ -71,8 +72,8 @@ class TestAltitudeAtLiftoff(unittest.TestCase, TestKPV):
         node.create_kpvs_at_ktis = Mock()
         node.derive(mock1, mock2)
         self.assertEqual(node.create_kpvs_at_ktis.call_args,
-                     ((mock1.array, mock2), {}))
-
+                         ((mock1.array, mock2), {}))
+        
 
 class TestAccelerationNormalMax(unittest.TestCase):
     def test_can_operate(self, eng=P()):
@@ -91,6 +92,25 @@ class TestAccelerationNormalMax(unittest.TestCase):
         self.assertEqual(acc_norm_max,
                          [KeyPointValue(index=index, value=value,
                                         name=acc_norm_max.name)])
+
+
+class TestAccelerationNormal20FtToGroundMax(unittest.TestCase):
+    def test_can_operate(self):
+        self.assertEqual(\
+            AccelerationNormal20FtToGroundMax.get_operational_combinations(),
+            [('Acceleration Normal', 'Altitude AAL')])
+    
+    def test_derive(self):
+        '''
+        Depends upon DerivedParameterNode.slices_from_to and library.max_value.
+        '''
+        alt_aal = P('Altitude AAL', np.ma.arange(40, -20, -1))
+        acceleration_normal = P('Acceleration Normal', np.ma.arange(0, 60))
+        node = AccelerationNormal20FtToGroundMax()
+        node.derive(acceleration_normal, alt_aal)
+        self.assertEqual(node,
+                [KeyPointValue(index=40, value=40,
+                               name='Acceleration Normal 20 Ft To Ground Max')])
 
 
 class TestAirspeed1000To500FtMax(unittest.TestCase):
@@ -180,18 +200,17 @@ class TestAirspeedWithFlapMax(unittest.TestCase):
         step.derive(flap)
         
         airspeed_with_flap_max = AirspeedWithFlapMax()
-        airspeed_with_flap_max.derive(airspeed, step)
+        airspeed_with_flap_max.derive(step, airspeed)
         self.assertEqual(airspeed_with_flap_max,
-          [KeyPointValue(index=3, value=3, name='Airspeed With Flap 1 Max'),
-           KeyPointValue(index=5, value=5, name='Airspeed With Flap 2 Max'),
+          [KeyPointValue(index=19, value=19, name='Airspeed With Flap 0 Max'),
            KeyPointValue(index=7, value=7, name='Airspeed With Flap 5 Max'),
            KeyPointValue(index=9, value=9, name='Airspeed With Flap 10 Max'),
            KeyPointValue(index=11, value=11, name='Airspeed With Flap 15 Max'),
            KeyPointValue(index=13, value=13, name='Airspeed With Flap 25 Max'),
            KeyPointValue(index=15, value=15, name='Airspeed With Flap 30 Max'),
            KeyPointValue(index=17, value=17, name='Airspeed With Flap 40 Max')])
-        
-        
+
+
 class TestAirspeedWithGearSelectedDownMax(unittest.TestCase):
     def test_can_operate(self):
         self.assertEqual(\
@@ -420,7 +439,7 @@ class TestGlideslopeDeviation1500To1000FtMax(unittest.TestCase):
         ils_gs = Parameter('ILS Glideslope', np.ma.array(testline))
         kpv = GlideslopeDeviation1500To1000FtMax()
         kpv.derive(ils_gs, alt_ph)
-        # 'KeyPointValue', 'index value name'
+        # 'KeyPointValue', 'index' 'value' 'name'
         self.assertEqual(len(kpv), 2)
         self.assertEqual(kpv[0].index, 47)
         self.assertEqual(kpv[1].index, 109)
@@ -631,11 +650,11 @@ class TestRollBelow20FtMax(unittest.TestCase):
         self.assertEqual(RollBelow20FtMax.get_operational_combinations(),
                          [('Roll', 'Altitude AAL')])
     
-    @patch('analysis.key_point_values.max_value')
-    def test_derive(self, max_value):
+    @patch('analysis.key_point_values.max_abs_value')
+    def test_derive(self, max_abs_value):
         roll_below_20ft_max = RollBelow20FtMax()
         index, value = 10, 30
-        max_value.return_value = index, value
+        max_abs_value.return_value = index, value
         param1 = Mock()
         param1.array = Mock()
         param2 = Mock()
@@ -643,8 +662,8 @@ class TestRollBelow20FtMax(unittest.TestCase):
         param2.slices_below = Mock()
         param2.slices_below.return_value = [slice(0, 10)]
         roll_below_20ft_max.derive(param1, param2)
-        self.assertEqual(max_value.call_args, ((param1.array,),
-                                               {'_slice':slice(0,10)}))
+        self.assertEqual(max_abs_value.call_args, ((param1.array,),
+                                                   {'_slice':slice(0,10)}))
         self.assertEqual(roll_below_20ft_max,
                          [KeyPointValue(index=index, value=value,
                                         name=roll_below_20ft_max.name)])

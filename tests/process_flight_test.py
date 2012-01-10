@@ -25,7 +25,8 @@ class TestProcessFlight(unittest.TestCase):
     def setUp(self):
         pass
     
-    @unittest.skipIf(not os.path.isfile("test_data/1_7295949_737-3C.001.hdf5"), "Test file not present")
+    @unittest.skipIf(not os.path.isfile("test_data/1_7295949_737-3C.001.hdf5"),
+                     "Test file not present")
     def test_1_7295949_737_3C(self):
         hdf_orig = "test_data/1_7295949_737-3C.001.hdf5"
         hdf_path = "test_data/1_7295949_737-3C.001_copy.hdf5"
@@ -47,7 +48,8 @@ class TestProcessFlight(unittest.TestCase):
 
         #TODO: Further assertions on the results!
 
-    @unittest.skipIf(not os.path.isfile("test_data/2_6748957_L382-Hercules.hdf5"), "Test file not present")
+    @unittest.skipIf(not os.path.isfile("test_data/2_6748957_L382-Hercules.hdf5"),
+                     "Test file not present")
     def test_2_6748957_L382_Hercules(self):
         hdf_orig = "test_data/2_6748957_L382-Hercules.hdf5"
         hdf_path = "test_data/2_6748957_L382-Hercules_copy.hdf5"
@@ -96,14 +98,13 @@ class TestProcessFlight(unittest.TestCase):
         tdwn = res['kti'].get(name='Touchdown')[0]
         tdwn_minus_1 = res['kti'].get(name='1 Mins To Touchdown')[0]
         
-        self.assertEqual(tdwn.frequency, 1)
         self.assertAlmostEqual(tdwn.index, 4967.0, places=0)
         self.assertAlmostEqual(tdwn_minus_1.index, 4907.0, places=0)
         self.assertEqual(tdwn.datetime - tdwn_minus_1.datetime, timedelta(minutes=1))
         #TODO: Further assertions on the results!
         
 
-    @unittest.skipIf(not os.path.isfile("test_data/3_6748984_L382-Hercules.hdf5"), "Test file not present")
+    #@unittest.skipIf(not os.path.isfile("test_data/3_6748984_L382-Hercules.hdf5"), "Test file not present")
     def test_3_6748984_L382_Hercules(self):
         # test copied from herc_2 so AFR may not be accurate
         hdf_orig = "test_data/3_6748984_L382-Hercules.hdf5"
@@ -152,7 +153,8 @@ class TestProcessFlight(unittest.TestCase):
         
     @unittest.skipIf(not os.path.isfile("test_data/4_3377853_146-301.007.hdf5"),
                      "Test file not present")
-    def test_4_3377853_146_301(self):
+    @mock.patch('analysis.flight_attribute.get_api_handler')
+    def test_4_3377853_146_301(self, get_api_handler):
         # Avoid side effects which may be caused by PRE_FLIGHT_ANALYSIS.
         settings.PRE_FLIGHT_ANALYSIS = None
         hdf_orig = "test_data/4_3377853_146-301.005.hdf5"
@@ -163,9 +165,15 @@ class TestProcessFlight(unittest.TestCase):
         ac_info = {'Frame': '146-301',
                    'Identifier': '1',
                    'Manufacturer': 'BAE',
-                   'Tail Number': 'G-ABCD',
-                   }
+                   'Tail Number': 'G-ABCD'}
         afr = {'AFR Flight ID': 3377853}
+        # Mock API handler return values so that we do not make http requests.
+        api_handler = mock.Mock()
+        get_api_handler.return_value = api_handler
+        takeoff_airport = {'icao': 'EGLL'}
+        api_handler.get_nearest_airport = mock.Mock()
+        api_handler.get_nearest_airport.return_value = takeoff_airport
+        
         res = process_flight(hdf_path, ac_info, achieved_flight_record=afr)
         if debug:
             from analysis.plot_flight import csv_flight_details
@@ -177,8 +185,7 @@ class TestProcessFlight(unittest.TestCase):
         pprint(res)
         flight_attrs = {attr.name: attr for attr in res['flight']}
         # 'FDR Flight ID' is sourced from 'AFR Flight ID'.
-        fdr_flight_id = flight_attrs['FDR Flight ID']
-        self.assertEqual(fdr_flight_id.value, 3377853)
+        self.assertEqual(flight_attrs['FDR Flight ID'].value, 3377853)
         # 'FDR Analysis Datetime' is created during processing. Ensure the
         # value is sensible.
         fdr_analysis_dt = flight_attrs['FDR Analysis Datetime']

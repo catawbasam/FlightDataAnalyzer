@@ -1,3 +1,4 @@
+import logging
 import numpy as np
 
 from analysis.library import hysteresis, index_at_value, peak_curvature
@@ -120,12 +121,12 @@ class LandingPeakDeceleration(KeyTimeInstanceNode):
     of the turn off the runway. Here we find the point of maximum
     deceleration, as this should lie between the touchdown when the aircraft
     may be drifting and the turnoff which could be at high speed, but should
-    be at a gentler deceleration. This is used to identify the heading and
-    location of the landing, as these will be more stable at peak
+    be at a gentler deceleration. This is subsequently used to identify the
+    location and heading of the landing, as these will be more stable at peak
     deceleration than at the actual point of touchdown where the aircraft may
     still be have drift on.
     """
-    def derive(self, head=P('Heading Continuous'), landings=S('Landing'),  
+    def derive(self, landings=S('Landing'),  
                accel=P('Acceleration Longitudinal')):
         for land in landings:
             peak_decel_index = np.ma.argmin(accel.array[land.slice])
@@ -200,9 +201,36 @@ class TakeoffTurnOntoRunway(KeyTimeInstanceNode):
 
 
 class TakeoffAccelerationStart(KeyTimeInstanceNode):
-    def derive(self, speed=P('Airspeed'), takeoffs=S('Takeoff')):
+    '''
+    The start of the takeoff roll is ideally computed from the forwards
+    acceleration down the runway, but a quite respectable "backstop" is
+    available from the point where the airspeed starts to increase. This
+    allows for aircraft either with a faulty sensor, or no longitudinal
+    accelerometer.
+    '''
+    # List the minimum acceptable parameters here
+    @classmethod
+    def can_operate(cls, available):
+        # List the minimum required parameters. If 'Altitude Radio For Flight
+        # Phases' is available, that's a bonus and we will use it, but it is
+        # not required.
+        if 'Airspeed' in available and 'Takeoff' in available :
+            return True
+        else:
+            return False
+        
+    # List the optimal parameter set here
+    def derive(self, speed=P('Airspeed'), takeoffs=S('Takeoff'),
+               accel=P('Acceleration Forwards')):
         for takeoff in takeoffs:
-            start_accel = peak_curvature(speed.array[takeoff.slice])
+            if accel:
+                # Ideally compute this from the forwards acceleration
+                start_accel=index_at_value(accel.array,
+                                           TAKEOFF_ACCELERATION_THRESHOLD,
+                                           takeoff.slice)
+            else:
+                # A quite respectable "backstop" is from the rate of change of airspeed.
+                start_accel = peak_curvature(speed.array[takeoff.slice])
             self.create_kti(start_accel+takeoff.slice.start)
 
 
@@ -214,7 +242,11 @@ class Liftoff(KeyTimeInstanceNode):
         for toff in toffs:
             lift_index = index_at_value(roc.array,
                                         RATE_OF_CLIMB_FOR_LIFTOFF, toff.slice)
-            self.create_kti(lift_index)
+            if lift_index:
+                self.create_kti(lift_index)
+            else:
+                logging.warning("'%s' does not reach '%s' within '%s' section.",
+                                roc.name, RATE_OF_CLIMB_FOR_LIFTOFF, toff.name)
             
 
 class InitialClimbStart(KeyTimeInstanceNode):
@@ -287,7 +319,7 @@ class AltitudeWhenClimbing(KeyTimeInstanceNode):
                  1500, 2000, 2500, 3000, 3500, 4000, 5000, 6000, 7000, 8000, 
                  9000, 10000]
     NAME_VALUES = {'altitude': ALTITUDES}
-    HYSTERESIS = 10 # Q: Better as setting?
+    HYSTERESIS = 0 # Was 10 Q: Better as setting?
     
     def derive(self, climbing=S('Climbing'), alt_aal=P('Altitude AAL')):
         alt_array = hysteresis(alt_aal.array, self.HYSTERESIS)
@@ -309,17 +341,20 @@ class AltitudeWhenDescending(KeyTimeInstanceNode):
                  1500, 2000, 3000, 3500, 4000, 5000, 6000, 7000, 8000, 9000,
                  10000]
     NAME_VALUES = {'altitude': ALTITUDES}
-    HYSTERESIS = 10 # Q: Better as setting?
+    HYSTERESIS = 0 # Was 10 Q: Better as setting?
     
     def derive(self, descending=S('Descending'), alt_aal=P('Altitude AAL')):
-        alt_array = hysteresis(alt_aal.array, self.HYSTERESIS)
+        ##alt_array = hysteresis(alt_aal.array, self.HYSTERESIS)
+        alt_array = alt_aal.array
         for descend in descending:
             for alt_threshold in self.ALTITUDES:
-                # Will trigger a single KTI per height (if threshold is crossed)
-                # per climbing phase.
-                # Q: This will get the first index where the threshold is
-                # crossed. Should we be getting the last?
-                index = index_at_value(alt_array, alt_threshold, descend.slice)
+                # Will trigger a single KTI per height (if threshold is
+                # crossed) per descending phase. The altitude array is
+                # scanned backwards to make sure we trap the last instance at
+                # each height.
+                index = index_at_value(alt_array, alt_threshold, 
+                                       slice(descend.slice.stop,
+                                             descend.slice.start,-1))
                 if index:
                     self.create_kti(index, altitude=alt_threshold)
 

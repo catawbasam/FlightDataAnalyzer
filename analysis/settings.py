@@ -41,8 +41,8 @@ FLIGHT_WORTH_ANALYSING_SEC = 300
 # Threshold for start of climb phase
 CLIMB_THRESHOLD = 1000 # ft AAL
 
-# Minimum period of a climb or descent for testing against thresholds (reduces number
-# of KPVs computed in turbulence)
+# Minimum period of a climb or descent for testing against thresholds
+# (reduces number of KPVs computed in turbulence)
 CLIMB_OR_DESCENT_MIN_DURATION = 10  # sec
 
 # Acceleration due to gravity
@@ -139,10 +139,10 @@ RATE_OF_CLIMB_LAG_TC = 6.0 # sec
 TAKEOFF_ACCELERATION_THRESHOLD = 0.1 # g
 
 # The takeoff and landing acceleration algorithm linear estimation period
-TRUCK_OR_TRAILER_INTERVAL = 3 # sec: should be odd.
+TRUCK_OR_TRAILER_INTERVAL = 3 # samples: should be odd.
 
 # The takeoff and landing acceleration algorithm linear estimation period
-TRUCK_OR_TRAILER_PERIOD = 7 # sec
+TRUCK_OR_TRAILER_PERIOD = 7 # samples
 
 
 """  Top of Climb / Top of Descent Threshold.

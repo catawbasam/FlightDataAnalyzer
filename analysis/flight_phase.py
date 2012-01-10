@@ -1,3 +1,4 @@
+import logging
 import numpy as np
 
 from analysis.library import (hysteresis, index_at_value, peak_curvature, 
@@ -25,10 +26,14 @@ class Airborne(FlightPhaseNode):
         # end of takeoff / start of landing.
         for speedy in fast:
             midpoint = (speedy.slice.start + speedy.slice.stop) / 2
-            # Scan through the first half to find where the aircraft first
-            # flies upwards
-            up = index_at_value(roc.array, +RATE_OF_CLIMB_FOR_LEVEL_FLIGHT,
-                                slice(speedy.slice.start,midpoint))
+            # If the data starts in the climb, it must be already airborne.
+            if roc.array[speedy.slice.start] > RATE_OF_CLIMB_FOR_LEVEL_FLIGHT:
+                up = speedy.slice.start
+            else:
+                # Scan through the first half to find where the aircraft first
+                # flies upwards
+                up = index_at_value(roc.array, +RATE_OF_CLIMB_FOR_LEVEL_FLIGHT,
+                                    slice(speedy.slice.start,midpoint))
             if not up:
                 # The aircraft can have been airborne at the start of this
                 # segment. If it goes down during this half of the data we
@@ -36,14 +41,21 @@ class Airborne(FlightPhaseNode):
                 if index_at_value(roc.array, -RATE_OF_CLIMB_FOR_LEVEL_FLIGHT,
                                   slice(speedy.slice.start,midpoint)):
                     up = speedy.slice.start
+                    
             # Scan backwards through the latter half to find where the
             # aircraft last descends.
-            down = index_at_value(roc.array, -RATE_OF_CLIMB_FOR_LEVEL_FLIGHT,
-                                  slice(speedy.slice.stop,midpoint,-1))
+            lastpoint = int(speedy.slice.stop)
+            if roc.array[lastpoint-1] < -RATE_OF_CLIMB_FOR_LEVEL_FLIGHT:
+                down = lastpoint
+            else:
+                down = index_at_value(roc.array, -RATE_OF_CLIMB_FOR_LEVEL_FLIGHT,
+                                      slice(lastpoint,midpoint,-1))
+
             if not down:
                 if index_at_value(roc.array, +RATE_OF_CLIMB_FOR_LEVEL_FLIGHT,
-                                  slice(speedy.slice.stop,midpoint,-1)):
-                    down = speedy.slice.stop
+                                  slice(lastpoint,midpoint,-1)):
+                    down = lastpoint
+
             if up and down:
                 self.create_phase(slice(up,down))
 
@@ -142,7 +154,7 @@ class ClimbCruiseDescent(FlightPhaseNode):
         ccd = np.ma.masked_less(alt.array, ALTITUDE_FOR_CLB_CRU_DSC)
         self.create_phases(np.ma.clump_unmasked(ccd))
 
-
+"""
 class ClimbFromBottomOfDescent(FlightPhaseNode):
     def derive(self, 
                toc=P('Top Of Climb'),
@@ -183,7 +195,7 @@ class ClimbFromBottomOfDescent(FlightPhaseNode):
             # Build the slice from what we have found.
             self.create_phase(slice(bod, closest_toc))        
         return 
-
+"""
         
 class Climbing(FlightPhaseNode):
     def derive(self, roc=P('Rate Of Climb For Flight Phases'), airs=S('Fast')):
@@ -274,7 +286,6 @@ class Fast(FlightPhaseNode):
         fast_where = np.ma.masked_less(repair_mask(airspeed.array),
                                        AIRSPEED_THRESHOLD)
         fast_slices = np.ma.clump_unmasked(fast_where)
-        ##print fast_slices
         self.create_phases(fast_slices)
  
 
@@ -354,7 +365,7 @@ class LevelFlight(FlightPhaseNode):
             level_slices = np.ma.clump_unmasked(level_flight)
             self.create_phases(shift_slices(level_slices, air.slice.start))
 
-
+"""
 class OnGround(FlightPhaseNode):
     '''
     Includes before Liftoff and after Touchdown.
@@ -364,6 +375,18 @@ class OnGround(FlightPhaseNode):
         fast_where = np.ma.masked_less(airspeed.array, AIRSPEED_THRESHOLD)
         a,b = np.ma.flatnotmasked_edges(fast_where)
         self.create_phases([slice(a, b, None)])
+    
+
+(a) computes the inverse of the phase we want, 
+(b) should be related to fast as below
+(c) may be defunct
+
+        fast_where = np.ma.masked_less(repair_mask(airspeed.array),
+                                       AIRSPEED_THRESHOLD)
+        fast_slices = np.ma.clump_unmasked(fast_where)
+        self.create_phases(fast_slices)
+    
+"""    
     
     
 class Turning(FlightPhaseNode):
@@ -399,18 +422,24 @@ class Takeoff(FlightPhaseNode):
                alt_aal=P('Altitude AAL For Flight Phases'),
                fast=S('Fast'),
                alt_rad=P('Altitude Radio For Phases')):
+
+        # Note: This algorithm works across the entire data array, and
+        # not just inside the speedy slice, so the final indexes are
+        # absolute and not relative references.
+
         for speedy in fast:
             # This basic flight phase cuts data into fast and slow sections.
-            # We know a takeoff comes at the start of the phase.
+
+            # We know a takeoff should come at the start of the phase,
+            # however if the aircraft is already airborne, we can skip the
+            # takeoff stuff.
+            if int(speedy.slice.start) == 0:
+                break
             
             # The aircraft is part way down it's takeoff run at the start of 
             # the section.
             takeoff_run = speedy.slice.start
             
-            # Note: This algorithm works across the entire data array, and
-            # not just inside the speedy slice, so the final indeces are
-            # absolute and not relative references.
-
             #-------------------------------------------------------------------
             # Find the start of the takeoff phase from the turn onto the runway.
 
@@ -426,7 +455,7 @@ class Takeoff(FlightPhaseNode):
 
             # Where the data starts in line with the runway, default to the
             # start of the data
-            if takeoff_begin == None:
+            if takeoff_begin is None:
                 takeoff_begin = 0
             
             # Where possible use the point of peak curvature.
@@ -482,6 +511,10 @@ class Landing(FlightPhaseNode):
         for speedy in fast:
             # See takeoff phase for comments on how the algorithm works.
 
+            # AARRGG - How can we check if this is at the end of the data without having to go back and test against the airspeed array? TODO: Improve endpoint checks. DJ
+            if speedy.slice.stop >= len(alt_aal.array):
+                break
+            
             landing_run = speedy.slice.stop
             datum = head.array[landing_run]
             
