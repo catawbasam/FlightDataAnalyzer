@@ -633,20 +633,22 @@ class TestEng_N2Min(unittest.TestCase):
 class TestFlapStepped(unittest.TestCase):
     def test_can_operate(self):
         opts = FlapStepped.get_operational_combinations()
-        self.assertEqual(opts, ('Flap',))
+        self.assertEqual(opts, [('Flap',),
+                                ('Flap', 'Flap Settings')])
         
     def test_flap_stepped_nearest_5(self):
         flap = P('Flap', np.ma.array(range(50)))
         fstep = FlapStepped()
         fstep.derive(flap, None)
-        self.assertEqual(list(fstep.array[:15]), [0]*5 + [5]*5 + [10]*5)
-        self.assertEqual(list(fstep.array[-10:]), [45]*5 + [50]*5)
+        self.assertEqual(list(fstep.array[:15]), 
+                         [0,0,0,5,5,5,5,5,10,10,10,10,10,15,15])
+        self.assertEqual(list(fstep.array[-7:]), [45]*5 + [50]*2)
 
         # test with mask
         flap = P('Flap', np.ma.array(range(20), mask=[True]*10 + [False]*10))
         fstep.derive(flap, None)
-        self.assertEqual(list(fstep.array.flatten(-1)),
-                         [-1]*10 + [10]*5 + [15] * 5)
+        self.assertEqual(list(np.ma.filled(fstep.array, fill_value=-1)),
+                         [-1]*10 + [10,10,10,15,15,15,15,15,20,20])
         
     def test_flap_using_md82_settings(self):
         steps = (0, 11, 15, 28, 40)
