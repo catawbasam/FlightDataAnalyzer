@@ -1,7 +1,8 @@
 import logging
 import numpy as np
 
-from analysis.library import hysteresis, index_at_value, peak_curvature
+from analysis.library import (hysteresis, index_at_value, min_value, max_value,
+                              peak_curvature)
 from analysis.node import FlightPhaseNode, P, S, KTI
 from analysis.node import KeyTimeInstance, KeyTimeInstanceNode
 
@@ -129,9 +130,8 @@ class LandingPeakDeceleration(KeyTimeInstanceNode):
     def derive(self, landings=S('Landing'),  
                accel=P('Acceleration Longitudinal')):
         for land in landings:
-            peak_decel_index = np.ma.argmin(accel.array[land.slice])
-            peak_decel_index += land.slice.start
-            self.create_kti(peak_decel_index)
+            index, value = min_value(accel.array, _slice=land.slice)
+            self.create_kti(index)
 
 
 class TopOfClimb(KeyTimeInstanceNode):
@@ -232,6 +232,14 @@ class TakeoffAccelerationStart(KeyTimeInstanceNode):
                 # A quite respectable "backstop" is from the rate of change of airspeed.
                 start_accel = peak_curvature(speed.array[takeoff.slice])
             self.create_kti(start_accel+takeoff.slice.start)
+
+
+class TakeoffPeakAcceleration(KeyTimeInstanceNode):
+    def derive(self, takeoffs=S('Takeoff'),
+               accel=P('Acceleration Longitudinal')):
+        for takeoff in takeoffs:
+            index, value = max_value(accel.array, _slice=takeoff.slice)
+            self.create_kti(index)
 
 
 class Liftoff(KeyTimeInstanceNode):
