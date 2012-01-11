@@ -633,21 +633,57 @@ class TestEng_N2Min(unittest.TestCase):
 class TestFlapStepped(unittest.TestCase):
     def test_can_operate(self):
         opts = FlapStepped.get_operational_combinations()
-        self.assertEqual(opts, ('Flap',))
+        self.assertEqual(opts, [('Flap',),
+                                ('Flap', 'Flap Settings')])
         
     def test_flap_stepped_nearest_5(self):
         flap = P('Flap', np.ma.array(range(50)))
         fstep = FlapStepped()
-        fstep.derive(flap)
-        self.assertEqual(list(fstep.array[:15]), [0]*5 + [5]*5 + [10]*5)
-        self.assertEqual(list(fstep.array[-10:]), [45]*5 + [50]*5)
+        fstep.derive(flap, None)
+        self.assertEqual(list(fstep.array[:15]), 
+                         [0,0,0,5,5,5,5,5,10,10,10,10,10,15,15])
+        self.assertEqual(list(fstep.array[-7:]), [45]*5 + [50]*2)
 
         # test with mask
         flap = P('Flap', np.ma.array(range(20), mask=[True]*10 + [False]*10))
-        fstep.derive(flap)
-        self.assertEqual(list(fstep.array.flatten(-1)),
-                         [-1]*10 + [10]*5 + [15] * 5)
-
+        fstep.derive(flap, None)
+        self.assertEqual(list(np.ma.filled(fstep.array, fill_value=-1)),
+                         [-1]*10 + [10,10,10,15,15,15,15,15,20,20])
+        
+    def test_flap_using_md82_settings(self):
+        steps = (0, 11, 15, 28, 40)
+        flap_steps = Attribute('Flap Settings', steps)
+        flap = P('Flap', np.ma.array(range(50) + range(-5,0) + [13.1,1.3,10,10]))
+        flap.array[1] = np.ma.masked
+        flap.array[57] = np.ma.masked
+        flap.array[58] = np.ma.masked
+        fstep = FlapStepped()
+        fstep.derive(flap, flap_steps)
+        self.assertEqual(len(fstep.array), 59)
+        self.assertEqual(
+            list(np.ma.filled(fstep.array, fill_value=-999)), 
+            [0,-999,0,0,0,0, # 0 -> 5.5
+             11,11,11,11,11,11,11,11, # 6 -> 13.5
+             15,15,15,15,15,15,15,15, # 14 -> 21
+             28,28,28,28,28,28,28,28,28,28,28,28,28, # 22.5 -> 34
+             40,40,40,40,40,40,40,40,40,40,40,40,40,40,40, # 35 -> 49
+             0,0,0,0,0, # -5 -> -1
+             15,0, # odd float values
+             -999,-999 # masked values
+             ])
+        self.assertTrue(np.ma.is_masked(fstep.array[1]))
+        self.assertTrue(np.ma.is_masked(fstep.array[57]))
+        self.assertTrue(np.ma.is_masked(fstep.array[58]))
+    
+    def test_time_taken(self):
+        from timeit import Timer
+        timer = Timer(self.test_flap_using_md82_settings)
+        time = min(timer.repeat(2, 100))
+        print "Time taken %s secs" % time
+        self.assertLess(time, 1.0, msg="Took too long")
+        
+        
+        
 class TestFuelQty(unittest.TestCase):
     def test_can_operate(self):
         self.assertEqual(FuelQty.get_operational_combinations(),
@@ -855,3 +891,10 @@ class TestRateOfTurn(unittest.TestCase):
                                                           dtype=float)))
         answer = np.ma.array([0,0,0.5,0,-0.5,0,0])
         ma_test.assert_masked_array_approx_equal(rot.array, answer)
+        
+        
+        
+if __name__ == '__main__':
+    suite = unittest.TestSuite()
+    suite.addTest(TestFlapStepped('test_time_taken'))
+    unittest.TextTestRunner(verbosity=2).run(suite)

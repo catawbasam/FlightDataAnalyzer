@@ -25,6 +25,7 @@ from analysis.key_time_instances import (AltitudeInApproach,
                                          LandingTurnOffRunway,
                                          Liftoff,
                                          TakeoffAccelerationStart,
+                                         TakeoffPeakAcceleration,
                                          TakeoffTurnOntoRunway,
                                          TopOfClimb,
                                          TopOfDescent,
@@ -325,6 +326,21 @@ class TestLandingPeakDeceleration(unittest.TestCase):
         kti = LandingPeakDeceleration()
         kti.derive(landing, acc)
         expected = [KeyTimeInstance(index=4, name='Landing Peak Deceleration')]
+        self.assertEqual(kti, expected)
+
+
+class TestTakeoffPeakAcceleration(unittest.TestCase):
+    def test_can_operate(self):
+        self.assertEqual(TakeoffPeakAcceleration.get_operational_combinations(),
+                         [('Takeoff', 'Acceleration Longitudinal')])
+        
+    def test_takeoff_peak_acceleration_basic(self):
+        acc = P('Acceleration Longitudinal',
+                np.ma.array([0,0,.1,.1,.2,.1,0,0]))
+        landing = [Section('Takeoff',slice(2,5,None))]
+        kti = TakeoffPeakAcceleration()
+        kti.derive(landing, acc)
+        expected = [KeyTimeInstance(index=4, name='Takeoff Peak Acceleration')]
         self.assertEqual(kti, expected)
 
 

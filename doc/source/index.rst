@@ -11,7 +11,10 @@ Contents:
 .. toctree::
    :maxdepth: 2
 
-
+   Introduction
+   Principles
+   Tutorial
+   Profiling
 
 Indices and tables
 ==================

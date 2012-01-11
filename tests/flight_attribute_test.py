@@ -374,13 +374,13 @@ class TestApproaches(unittest.TestCase):
 class TestDuration(unittest.TestCase):
     def test_can_operate(self):
         self.assertEqual(Duration.get_operational_combinations(),
-                         [('Takeoff Datetime', 'Landing Datetime')])
+                         [('FDR Takeoff Datetime', 'FDR Landing Datetime')])
     
     def test_derive(self):
         duration = Duration()
         duration.set_flight_attr = Mock()
-        takeoff_dt = A('Takeoff Datetime', value=datetime(1970, 1, 1, 0, 1, 0))
-        landing_dt = A('Landing Datetime', value=datetime(1970, 1, 1, 0, 2, 30))
+        takeoff_dt = A('FDR Takeoff Datetime', value=datetime(1970, 1, 1, 0, 1, 0))
+        landing_dt = A('FDR Landing Datetime', value=datetime(1970, 1, 1, 0, 2, 30))
         duration.derive(takeoff_dt, landing_dt)
         self.assertEqual(duration.set_flight_attr.call_args, ((90,), {}))
 
@@ -436,7 +436,8 @@ class TestLandingAirport(unittest.TestCase):
         landing_airport.set_flight_attr = Mock()
         landing_airport.derive(latitude, longitude)
         self.assertEqual(get_nearest_airport.call_args, ((0.9, 8.4), {}))
-        self.assertFalse(landing_airport.set_flight_attr.called)
+        self.assertEqual(landing_airport.set_flight_attr.call_args,
+                         ((None,), {}))
     
     @patch('analysis.api_handler_http.APIHandlerHTTP.get_nearest_airport')
     def test_derive_airport_found(self, get_nearest_airport):
@@ -469,7 +470,7 @@ class TestLandingDatetime(unittest.TestCase):
     def test_derive(self):
         landing_datetime = LandingDatetime()
         landing_datetime.set_flight_attr = Mock()
-        start_datetime = datetime(1970, 1, 1)
+        start_datetime = A('Start Datetime', datetime(1970, 1, 1))
         touchdown = KTI('Touchdown', items=[KeyTimeInstance(12, 'a'),
                                             KeyTimeInstance(30, 'b')])
         touchdown.frequency = 0.5
@@ -535,10 +536,10 @@ class TestLandingRunway(unittest.TestCase):
         self.assertEqual(len(combinations), 16)
         self.assertEqual(combinations[0], ('Approach And Landing',
                                            'Heading At Landing',
-                                           'Landing Airport'))
+                                           'FDR Landing Airport'))
         self.assertEqual(combinations[-1], ('Approach And Landing',
                                             'Heading At Landing',
-                                            'Landing Airport',
+                                            'FDR Landing Airport',
                                             'Latitude At Landing',
                                             'Longitude At Landing',
                                             'ILS Frequency On Approach',
@@ -550,7 +551,7 @@ class TestLandingRunway(unittest.TestCase):
         get_nearest_runway.return_value = runway_info
         landing_runway = LandingRunway()
         landing_runway.set_flight_attr = Mock()
-        # Airport and Takeoff Heading arguments.
+        # Airport and Heading At Landing arguments.
         airport = A('Takeoff Airport')
         airport.value = {'id':25}
         landing_hdg = KPV('Heading At Landing',
@@ -704,29 +705,29 @@ class TestTakeoffRunway(unittest.TestCase):
         There may be a neater way to test this, but at least it's verbose.
         '''
         expected = \
-        [('Takeoff Airport', 'Takeoff Heading'),
-         ('Takeoff Airport', 'Takeoff Heading', 'Liftoff'),
-         ('Takeoff Airport', 'Takeoff Heading', 'Latitude'),
-         ('Takeoff Airport', 'Takeoff Heading', 'Longitude'),
-         ('Takeoff Airport', 'Takeoff Heading', 'Precise Positioning'),
-         ('Takeoff Airport', 'Takeoff Heading', 'Liftoff', 'Latitude'),
-         ('Takeoff Airport', 'Takeoff Heading', 'Liftoff', 'Longitude'),
-         ('Takeoff Airport', 'Takeoff Heading', 'Liftoff', 
+        [('FDR Takeoff Airport', 'Heading At Takeoff'),
+         ('FDR Takeoff Airport', 'Heading At Takeoff', 'Liftoff'),
+         ('FDR Takeoff Airport', 'Heading At Takeoff', 'Latitude'),
+         ('FDR Takeoff Airport', 'Heading At Takeoff', 'Longitude'),
+         ('FDR Takeoff Airport', 'Heading At Takeoff', 'Precise Positioning'),
+         ('FDR Takeoff Airport', 'Heading At Takeoff', 'Liftoff', 'Latitude'),
+         ('FDR Takeoff Airport', 'Heading At Takeoff', 'Liftoff', 'Longitude'),
+         ('FDR Takeoff Airport', 'Heading At Takeoff', 'Liftoff', 
           'Precise Positioning'),
-         ('Takeoff Airport', 'Takeoff Heading', 'Latitude', 'Longitude'),
-         ('Takeoff Airport', 'Takeoff Heading', 'Latitude', 
+         ('FDR Takeoff Airport', 'Heading At Takeoff', 'Latitude', 'Longitude'),
+         ('FDR Takeoff Airport', 'Heading At Takeoff', 'Latitude', 
           'Precise Positioning'),
-         ('Takeoff Airport', 'Takeoff Heading', 'Longitude', 
+         ('FDR Takeoff Airport', 'Heading At Takeoff', 'Longitude', 
           'Precise Positioning'),
-         ('Takeoff Airport', 'Takeoff Heading', 'Liftoff', 'Latitude', 
+         ('FDR Takeoff Airport', 'Heading At Takeoff', 'Liftoff', 'Latitude', 
           'Longitude'),
-         ('Takeoff Airport', 'Takeoff Heading', 'Liftoff', 'Latitude',
+         ('FDR Takeoff Airport', 'Heading At Takeoff', 'Liftoff', 'Latitude',
           'Precise Positioning'),
-         ('Takeoff Airport', 'Takeoff Heading', 'Liftoff', 'Longitude',
+         ('FDR Takeoff Airport', 'Heading At Takeoff', 'Liftoff', 'Longitude',
           'Precise Positioning'),
-         ('Takeoff Airport', 'Takeoff Heading', 'Latitude', 'Longitude',
+         ('FDR Takeoff Airport', 'Heading At Takeoff', 'Latitude', 'Longitude',
           'Precise Positioning'),
-         ('Takeoff Airport', 'Takeoff Heading', 'Liftoff', 'Latitude',
+         ('FDR Takeoff Airport', 'Heading At Takeoff', 'Liftoff', 'Latitude',
           'Longitude', 'Precise Positioning')]
         self.assertEqual(TakeoffRunway.get_operational_combinations(),
                          expected)
@@ -737,16 +738,16 @@ class TestTakeoffRunway(unittest.TestCase):
         get_nearest_runway.return_value = runway_info
         takeoff_runway = TakeoffRunway()
         takeoff_runway.set_flight_attr = Mock()
-        # Airport and Takeoff Heading arguments.
+        # Airport and Heading At Takeoff arguments.
         airport = A('Takeoff Airport')
         airport.value = {'id':25}
-        takeoff_heading = KPV('Takeoff Heading')
+        takeoff_heading = KPV('Heading At Takeoff')
         takeoff_heading.create_kpv(1, 20.0)
         takeoff_runway.derive(airport, takeoff_heading)
         self.assertEqual(get_nearest_runway.call_args, ((25, 20.0), {}))
         self.assertEqual(takeoff_runway.set_flight_attr.call_args,
                          ((runway_info,), {}))
-        # Airport, Takeoff Heading, Liftoff, Latitude, Longitude and Precision
+        # Airport, Heading At Takeoff, Liftoff, Latitude, Longitude and Precision
         # arguments. Latitude and Longitude are only passed with all these
         # parameters available and Precise Positioning is True.
         liftoff = KTI('Liftoff')

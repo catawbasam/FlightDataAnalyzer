@@ -122,7 +122,7 @@ def plot_flight(hdf_path, kti_list, kpv_list, phase_list):
         ax3.plot(*sections)
         
         #---------- Axis 4 ----------
-        if 'Heading Continuous' in hdf:
+        if 'Airspeed' in hdf:
             ax4 = fig.add_subplot(4,1,4,sharex=ax1)
             ax4.plot(hdf['Heading Continuous'].array, 'b-')  
     
