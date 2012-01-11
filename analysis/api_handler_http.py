@@ -3,7 +3,11 @@ import socket
 import httplib
 import time
 import httplib2
-import simplejson
+try:
+    import simplejson as json
+except ImportError:
+    import json
+    
 
 from analysis.api_handler import (APIConnectionError, APIHandler,
                                   InvalidAPIInputError, NotFoundError,
@@ -59,8 +63,8 @@ class APIHandlerHTTP(APIHandler):
             raise APIConnectionError(uri, method, body)
         status = int(resp['status'])
         try:
-            decoded_content = simplejson.loads(content)
-        except simplejson.decoder.JSONDecodeError:
+            decoded_content = json.loads(content)
+        except ValueError:
             decoded_content = None
         # Test HTTP Status.
         if status != 200:
