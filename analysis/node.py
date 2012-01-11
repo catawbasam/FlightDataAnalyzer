@@ -848,6 +848,8 @@ class KeyPointValueNode(FormattedNameNode):
         :rtype: None
         '''
         for slice_ in slices:
+            if isinstance(slice_, Section): # Use slice within Section.
+                slice_ = slice_.slice
             index, value = function(array, slice_)
             self.create_kpv(index, value)
 
