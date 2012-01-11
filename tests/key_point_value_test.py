@@ -46,34 +46,73 @@ from analysis.key_point_values import (
     LocalizerDeviation1000To150FtMax,
     Pitch35To400FtMax,
     PitchAtLiftoff,
+    PitchRate35To1500FtMax,
+    PitchRateDuringTakeoffMax,
+    RollAbove1500FtMax,
     RollBelow20FtMax,
+    RollBetween100And500FtMax,
+    RollBetween500And1500FtMax,
 )
+from analysis.library import (max_abs_value, max_value, min_value)
 
 debug = sys.gettrace() is not None
 
 
-class TestCreateKPVsAtKTIs(object):
+class TestNode(object):
+    def test_can_operate(self):
+        self.assertEqual(self.node_class.get_operational_combinations(),
+                         self.operational_combinations)
+
+
+class TestCreateKPVsAtKTIs(TestNode):
     '''
     Example of subclass inheriting tests:
     
-class TestAltitudeAtLiftoff(unittest.TestCase, TestKPV):
+class TestAltitudeAtLiftoff(unittest.TestCase, TestCreateKPVsAtKTIs):
     def setUp(self):
         self.node_class = AltitudeAtLiftoff
         self.operational_combinations = [('Altitude STD', 'Liftoff')]
     '''
-    def test_can_operate(self):
-        self.assertEqual(self.node_class.get_operational_combinations(),
-                         self.operational_combinations)
-    
     def test_derive(self):
         mock1, mock2 = Mock(), Mock()
         mock1.array = Mock()
         node = self.node_class()
         node.create_kpvs_at_ktis = Mock()
         node.derive(mock1, mock2)
-        self.assertEqual(node.create_kpvs_at_ktis.call_args,
-                         ((mock1.array, mock2), {}))
-        
+        node.create_kpvs_at_ktis.assert_called_once_with(mock1.array, mock2)
+
+
+class TestCreateKPVsWithinSlices(TestNode):
+    '''
+    Example of subclass inheriting tests:
+    
+class TestAltitudeAtLiftoff(unittest.TestCase, TestKPV):
+    def setUp(self):
+        self.node_class = AltitudeAtLiftoff
+        self.operational_combinations = [('Altitude STD', 'Roll')]
+        self.second_param_method_calls = [('slices_above', (1500,), {})]
+    
+    TODO: Implement in a neater way?
+    '''
+    def test_derive(self):
+        self.assertEqual
+        mock1, mock2, mock3 = Mock(), Mock(), Mock()
+        mock1.array = Mock()
+        if hasattr(self, 'second_param_method_calls'):
+            mock3 = Mock()
+            setattr(mock2, self.second_param_method_calls[0][0], mock3)
+            mock3.return_value = Mock()
+        node = self.node_class()
+        node.create_kpvs_within_slices = Mock()
+        node.derive(mock1, mock2)
+        if hasattr(self, 'second_param_method_calls'):
+            mock3.assert_called_once_with(*self.second_param_method_calls[0][1])
+            node.create_kpvs_within_slices.assert_called_once_with(\
+                mock1.array, mock3.return_value, self.function)
+        else:
+            node.create_kpvs_within_slices.assert_called_once_with(\
+                mock1.array, mock2, self.function)
+
 
 class TestAccelerationNormalMax(unittest.TestCase):
     def test_can_operate(self, eng=P()):
@@ -88,7 +127,7 @@ class TestAccelerationNormalMax(unittest.TestCase):
         param = Mock()
         param.array = Mock()
         acc_norm_max.derive(param)
-        self.assertEqual(max_value.call_args, ((param.array,), {}))
+        max_value.assert_called_once_with(param.array)
         self.assertEqual(acc_norm_max,
                          [KeyPointValue(index=index, value=value,
                                         name=acc_norm_max.name)])
@@ -274,7 +313,7 @@ class TestEngEGTMax(unittest.TestCase):
         param = Mock()
         param.array = Mock()
         eng_egt_max.derive(param)
-        self.assertEqual(max_value.call_args, ((param.array,), {}))
+        max_value.assert_called_once_with(param.array)
         self.assertEqual(eng_egt_max,
                          [KeyPointValue(index=index, value=value,
                                         name=eng_egt_max.name)])
@@ -293,7 +332,7 @@ class TestEngN1Max(unittest.TestCase):
         param = Mock()
         param.array = Mock()
         eng_n1_max.derive(param)
-        self.assertEqual(max_value.call_args, ((param.array,), {}))
+        max_value.assert_called_once_with(param.array)
         self.assertEqual(eng_n1_max,
                          [KeyPointValue(index=index, value=value,
                                         name=eng_n1_max.name)])
@@ -312,7 +351,7 @@ class TestEngN2Max(unittest.TestCase):
         param = Mock()
         param.array = Mock()
         eng_n2_max.derive(param)
-        self.assertEqual(max_value.call_args, ((param.array,), {}))
+        max_value.assert_called_once_with(param.array)
         self.assertEqual(eng_n2_max,
                          [KeyPointValue(index=index, value=value,
                                         name=eng_n2_max.name)])
@@ -331,7 +370,7 @@ class TestEngOilTempMax(unittest.TestCase):
         param = Mock()
         param.array = Mock()
         eng_oil_temp_max.derive(param)
-        self.assertEqual(max_value.call_args, ((param.array,), {}))
+        max_value.assert_called_once_with(param.array)
         self.assertEqual(eng_oil_temp_max,
                          [KeyPointValue(index=index, value=value,
                                         name=eng_oil_temp_max.name)])
@@ -350,7 +389,7 @@ class TestEngVibN1Max(unittest.TestCase):
         param = Mock()
         param.array = Mock()
         eng_vib_n1_max.derive(param)
-        self.assertEqual(max_value.call_args, ((param.array,), {}))
+        max_value.assert_called_once_with(param.array)
         self.assertEqual(eng_vib_n1_max,
                          [KeyPointValue(index=index, value=value,
                                         name=eng_vib_n1_max.name)])
@@ -369,7 +408,7 @@ class TestEngVibN2Max(unittest.TestCase):
         param = Mock()
         param.array = Mock()
         eng_vib_n2_max.derive(param)
-        self.assertEqual(max_value.call_args, ((param.array,), {}))
+        max_value.assert_called_once_with(param.array)
         self.assertEqual(eng_vib_n2_max,
                          [KeyPointValue(index=index, value=value,
                                         name=eng_vib_n2_max.name)])
@@ -645,7 +684,30 @@ class TestPitchAtLiftoff(unittest.TestCase, TestCreateKPVsAtKTIs):
         self.operational_combinations = [('Pitch', 'Liftoff')]
 
 
-class TestRollBelow20FtMax(unittest.TestCase):
+class TestPitchRate35To1500FtMax(unittest.TestCase, TestCreateKPVsWithinSlices):
+    def setUp(self):
+        self.node_class = PitchRate35To1500FtMax
+        self.operational_combinations = [('Pitch Rate', 'Altitude AAL')]
+        self.function = max_value
+        self.second_param_method_calls = [('slices_from_to', (35, 1500), {})]
+
+
+class TestPitchRateDuringTakeoffMax(unittest.TestCase,
+                                    TestCreateKPVsWithinSlices):
+    def setUp(self):
+        self.node_class = PitchRateDuringTakeoffMax
+        self.operational_combinations = [('Pitch Rate', 'Takeoff')]
+        self.function = max_value
+
+class TestRollAbove1500FtMax(unittest.TestCase, TestCreateKPVsWithinSlices):
+    def setUp(self):
+        self.node_class = RollAbove1500FtMax
+        self.operational_combinations = [('Roll', 'Altitude AAL')]
+        self.function = max_abs_value
+        self.second_param_method_calls = [('slices_above', (1500,), {})]
+
+
+class TestRollBelow20FtMax(unittest.TestCase, TestCreateKPVsWithinSlices):
     def test_can_operate(self, eng=P()):
         self.assertEqual(RollBelow20FtMax.get_operational_combinations(),
                          [('Roll', 'Altitude AAL')])
@@ -662,8 +724,25 @@ class TestRollBelow20FtMax(unittest.TestCase):
         param2.slices_below = Mock()
         param2.slices_below.return_value = [slice(0, 10)]
         roll_below_20ft_max.derive(param1, param2)
-        self.assertEqual(max_abs_value.call_args, ((param1.array,),
-                                                   {'_slice':slice(0,10)}))
+        max_abs_value.assert_called_once_with(param1.array, slice(0,10))
         self.assertEqual(roll_below_20ft_max,
                          [KeyPointValue(index=index, value=value,
                                         name=roll_below_20ft_max.name)])
+
+
+class TestRollBetween100And500FtMax(unittest.TestCase,
+                                    TestCreateKPVsWithinSlices):
+    def setUp(self):
+        self.node_class = RollBetween100And500FtMax
+        self.operational_combinations = [('Roll', 'Altitude AAL')]
+        self.function = max_abs_value
+        self.second_param_method_calls = [('slices_between', (100, 500), {})]
+
+
+class TestRollBetween500And1500FtMax(unittest.TestCase,
+                                     TestCreateKPVsWithinSlices):
+    def setUp(self):
+        self.node_class = RollBetween500And1500FtMax
+        self.operational_combinations = [('Roll', 'Altitude AAL')]
+        self.function = max_abs_value
+        self.second_param_method_calls = [('slices_between', (500, 1500), {})]

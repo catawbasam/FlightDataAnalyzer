@@ -229,8 +229,7 @@ class TestAirspeedForFlightPhases(unittest.TestCase):
         hysteresis.return_value = mock.Mock()
         speed = AirspeedForFlightPhases()
         speed.derive(param)
-        self.assertEqual(hysteresis.call_args,
-                         ((param.array, HYSTERESIS_FPIAS), {}))
+        hysteresis.assert_called_once_with(param.array, HYSTERESIS_FPIAS)
         self.assertEqual(speed.array, hysteresis.return_value)
 
 
@@ -421,8 +420,7 @@ class TestAltitudeSTD(unittest.TestCase):
         alt_std_high = 1
         alt_std_low = 2
         alt_std.derive(alt_std_high, alt_std_low, None, None)
-        self.assertEqual(alt_std._high_and_low.call_args, ((alt_std_high, 
-                                                            alt_std_low), {}))
+        alt_std._high_and_low.assert_called_once_with(alt_std_high, alt_std_low)
         self.assertEqual(alt_std.array, high_and_low_array)
         # alt_std_rough and ivv passed in.
         rough_and_ivv_array = 6
@@ -431,8 +429,7 @@ class TestAltitudeSTD(unittest.TestCase):
         alt_std_rough = 4        
         ivv = 5
         alt_std.derive(None, None, alt_std_rough, ivv)
-        self.assertEqual(alt_std._rough_and_ivv.call_args,
-                         ((alt_std_rough, ivv), {}))
+        alt_std._rough_and_ivv.assert_called_once_with(alt_std_rough, ivv)
         self.assertEqual(alt_std.array, rough_and_ivv_array)
         # All parameters passed in (improbable).
         alt_std.derive(alt_std_high, alt_std_low, alt_std_rough, ivv)
@@ -632,8 +629,8 @@ class TestEng_N2Min(unittest.TestCase):
         
 class TestFlapStepped(unittest.TestCase):
     def test_can_operate(self):
-        opts = FlapStepped.get_operational_combinations()
-        self.assertEqual(opts, ('Flap',))
+        self.assertEqual(FlapStepped.get_operational_combinations(),
+                         [('Flap',)])
         
     def test_flap_stepped_nearest_5(self):
         flap = P('Flap', np.ma.array(range(50)))

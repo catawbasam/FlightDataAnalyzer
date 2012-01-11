@@ -481,6 +481,7 @@ class AccelerationNormalDuringTakeoffMax(KeyPointValueNode):
     #TODO: TESTS
     def derive(self, acceleration_normal=P('Acceleration Normal'),
                takeoffs=S('Takeoff')):
+        self.create_kpvs_within_slices(acceleration_normal, takeoffs, max_value)
         for toff in takeoffs:
             # TODO: Confirm *.array is correct (DJ)
             index, value = max_value(acceleration_normal.array, toff.slice)
@@ -852,19 +853,15 @@ class Pitch20FtToTouchdownMin(KeyPointValueNode):
 
 
 class PitchRateDuringTakeoffMax(KeyPointValueNode):
-    #TODO: TESTS
     def derive(self, pitch_rate=P('Pitch Rate'), takeoffs=S('Takeoff')):
-        for takeoff in takeoffs:
-            index, value = max_value(pitch_rate.array, takeoff.slice)
-            self.create_kpv(index, value)
+        self.create_kpvs_within_slices(pitch_rate.array, takeoffs, max_value)
 
 
 class PitchRate35To1500FtMax(KeyPointValueNode):
-    #TODO: TESTS
     def derive(self, pitch_rate=P('Pitch Rate'), alt_aal=P('Altitude AAL')):
-        for this_slice in alt_aal.slices_from_to(35, 1500):
-            index, value = max_value(pitch_rate.array, this_slice)
-            self.create_kpv(index, value)
+        self.create_kpvs_within_slices(pitch_rate.array,
+                                       alt_aal.slices_from_to(35, 1500),
+                                       max_value)
 
 
 class PitchRateFrom2DegreesOfPitchTo35FtMin(KeyPointValueNode):
@@ -895,36 +892,30 @@ class RollCycles1000FtToTouchdownMax(KeyPointValueNode):
         return NotImplemented
 
 
-class RollBetween100And500FtMax(KeyPointValueNode):
-    #TODO: TESTS
-    def derive(self, roll=P('Roll'), alt_aal=P('Altitude AAL')):
-        for this_slice in alt_aal.slices_between(100, 500):
-            index, value = max_abs_value(roll.array, this_slice)
-            self.create_kpv(index, value)
-
-
-class RollBetween500And1500FtMax(KeyPointValueNode):
-    #TODO: TESTS
-    def derive(self, roll=P('Roll'), alt_aal=P('Altitude AAL')):
-        for this_slice in alt_aal.slices_between(500, 1500):
-            index, value = max_abs_value(roll.array, this_slice)
-            self.create_kpv(index, value)
-
-
 class RollAbove1500FtMax(KeyPointValueNode):
-    #TODO: TESTS
     def derive(self, roll=P('Roll'), alt_aal=P('Altitude AAL')):
-        for this_slice in alt_aal.slices_above(1500):
-            index, value = max_abs_value(roll.array, this_slice)
-            self.create_kpv(index, value)
+        self.create_kpvs_within_slices(roll.array, alt_aal.slices_above(1500),
+                                       max_abs_value)
 
 
 class RollBelow20FtMax(KeyPointValueNode):
-    #TODO: TESTS
     def derive(self, roll=P('Roll'), alt_aal=P('Altitude AAL')):
-        for this_slice in alt_aal.slices_below(20):
-            index, value  = max_abs_value(roll.array, _slice=this_slice)
-            self.create_kpv(index, value)
+        self.create_kpvs_within_slices(roll.array, alt_aal.slices_below(20),
+                                       max_abs_value)
+
+
+class RollBetween100And500FtMax(KeyPointValueNode):
+    def derive(self, roll=P('Roll'), alt_aal=P('Altitude AAL')):
+        self.create_kpvs_within_slices(roll.array,
+                                       alt_aal.slices_between(100, 500),
+                                       max_abs_value)
+
+
+class RollBetween500And1500FtMax(KeyPointValueNode):
+    def derive(self, roll=P('Roll'), alt_aal=P('Altitude AAL')):
+        self.create_kpvs_within_slices(roll.array,
+                                       alt_aal.slices_between(500, 1500),
+                                       max_abs_value)
 
 
 class RudderReversalAbove50Ft(KeyPointValueNode):

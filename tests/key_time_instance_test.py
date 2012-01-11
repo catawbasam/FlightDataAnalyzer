@@ -241,8 +241,8 @@ class TestAltitudeWhenClimbing(unittest.TestCase):
         hysteresis.return_value = alt_aal.array
         altitude_when_climbing = AltitudeWhenClimbing()
         altitude_when_climbing.derive(climbing, alt_aal)
-        self.assertEqual(hysteresis.call_args,
-            ((alt_aal.array, altitude_when_climbing.HYSTERESIS), {}))
+        hysteresis.assert_called_once_with(alt_aal.array,
+                                           altitude_when_climbing.HYSTERESIS)
         self.assertEqual(list(altitude_when_climbing),
           [KeyTimeInstance(index=5.0, name='100 Ft Climbing'),
            KeyTimeInstance(index=12.5, name='50 Ft Climbing'),
@@ -269,8 +269,8 @@ class TestAltitudeWhenDescending(unittest.TestCase):
         hysteresis.return_value = alt_aal.array
         altitude_when_descending = AltitudeWhenDescending()
         altitude_when_descending.derive(descending, alt_aal)
-        self.assertEqual(hysteresis.call_args,
-            ((alt_aal.array, altitude_when_descending.HYSTERESIS), {}))
+        hysteresis.assert_called_once_with(alt_aal.array,
+                                           altitude_when_descending.HYSTERESIS)
         self.assertEqual(list(altitude_when_descending),
           [KeyTimeInstance(index=5.0, name='50 Ft Descending'),
            KeyTimeInstance(index=2.5, name='75 Ft Descending'), 
