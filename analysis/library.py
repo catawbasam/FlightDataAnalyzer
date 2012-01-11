@@ -1038,9 +1038,7 @@ def index_at_value (array, threshold, _slice=slice(None)):
     :returns: interpolated time when the array values crossed the threshold. (One value only).
     :returns type: float
     '''
-    ##print _slice
     step = _slice.step or 1
-    ##max_index = len(array) - 1 < Old code replaced when end=min(...,max_index added. TODO: Remove comment.
     max_index = len(array)
     # Arrange the limits of our scan, ensuring that we stay inside the array.
     if step == 1:
@@ -1078,8 +1076,6 @@ def index_at_value (array, threshold, _slice=slice(None)):
         
     else:
         raise ValueError, 'Step length not 1 in index_at_value'
-    
-    ##print begin, end
     
     if begin == end:
         raise ValueError, 'No range for seek function to scan across'
@@ -1129,10 +1125,8 @@ def value_at_time (array, hz, offset, time_index):
     :type time_index: float
     :returns: interpolated value from the array
     '''
-
     time_into_array = time_index - offset
     location_in_array = time_into_array * hz
-    
     return value_at_index(array, location_in_array)
 
 def value_at_index(array, index):
@@ -1145,14 +1139,13 @@ def value_at_index(array, index):
     :type index: float
     :returns: interpolated value from the array
     '''
-
     if index < 0.0 or index > len(array):
         raise ValueError, 'Seeking value outside data time range'
     
     low = int(index)
     if (low==index):
         # I happen to have arrived at exactly the right value by a fluke...
-        return array[low]
+        return None if array.mask[low] else array[low]
     else:
         high = low + 1
         r = index - low

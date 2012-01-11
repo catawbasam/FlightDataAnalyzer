@@ -147,21 +147,25 @@ class TestNode(unittest.TestCase):
         node.derive = mock.Mock()
         node.derive.return_value = None
         node.get_derived([param1, param2])
-        self.assertEqual(param1.get_aligned.call_args, None)
-        self.assertEqual(param2.get_aligned.call_args,
-                         ((param1,), {}))
-        # check param1 is returned unchanged and param2 get_aligned is called (returns '2')
-        self.assertEqual(node.derive.call_args, ((param1, 2), {}))
+        self.assertFalse(param1.get_aligned.called)
+        param2.get_aligned.assert_called_once_with(param1)
+        # check param1 is returned unchanged and param2 get_aligned is called
+        # (returns '2')
+        node.derive.assert_called_once_with(param1, 2)
         param1, param2 = get_mock_params()
         param3 = FlightAttributeNode('Attr')
+        node.derive = mock.Mock()
+        node.derive.return_value = None
         node.get_derived([param3, param2])
-        self.assertEqual(node.derive.call_args, ((param3, param2), {}))
+        node.derive.assert_called_once_with(param3, param2)
+        # NotImplemented
         class NotImplementedNode(Node):
             def derive(self, kwarg1=param1, kwarg2=param2):
                 return NotImplemented
         not_implemented_node = NotImplementedNode()
         self.assertRaises(NotImplementedError, not_implemented_node.get_derived,
                           [param1, param2])
+        # align_to_first_dependency = False
         class UnalignedNode(Node):
             align_to_first_dependency = False
             def derive(self, kwarg1=param1, kwarg2=param2):
@@ -575,16 +579,29 @@ class TestKeyPointValueNode(unittest.TestCase):
     def test_create_kpvs_at_ktis(self):
         knode = self.knode
         param = P('Param', np.ma.arange(10))
-        # value_at_time will interpolate masked values.
+        # value_at_index will interpolate masked values.
         param.array[3:7] = np.ma.masked
         ktis = KTI('KTI', items=[KeyTimeInstance(i, 'a') for i in range(0,10,2)])
-        knode.create_kpvs_at_ktis(param, ktis)
+        knode.create_kpvs_at_ktis(param.array, ktis)
         self.assertEqual(list(knode),
                          [KeyPointValue(index=0, value=0, name='Kpv'),
                           KeyPointValue(index=2, value=2, name='Kpv'),
-                          KeyPointValue(index=4, value=4, name='Kpv'),
-                          KeyPointValue(index=6, value=6, name='Kpv'),
                           KeyPointValue(index=8, value=8, name='Kpv')])
+    
+    def test_create_kpvs_within_slices(self):
+        knode = self.knode
+        function = mock.Mock()
+        return_values = [(10, 15), (22, 27)]
+        def side_effect(x, y):
+            return return_values.pop()
+        function.side_effect = side_effect
+        slices = [slice(1,10), slice(15, 25)]
+        array = np.ma.arange(10)
+        knode.create_kpvs_within_slices(array, slices, function)
+        self.assertEqual(list(knode),
+                         [KeyPointValue(index=22, value=27, name='Kpv'),
+                          KeyPointValue(index=10, value=15, name='Kpv')])
+    
     
     def test_get_aligned(self):
         '''
@@ -823,7 +840,7 @@ class TestDerivedParameterNode(unittest.TestCase):
         slices_above.return_value = (array, [slice(0,10)])
         param = DerivedParameterNode('Param', array=array)
         slices = param.slices_above(5)
-        self.assertEqual(slices_above.call_args, ((array, 5), {}))
+        slices_above.assert_called_once_with(array, 5)
         self.assertEqual(slices, slices_above.return_value[1])
         
     @mock.patch('analysis.node.slices_below')
@@ -835,7 +852,7 @@ class TestDerivedParameterNode(unittest.TestCase):
         slices_below.return_value = (array, [slice(0,10)])
         param = DerivedParameterNode('Param', array=array)
         slices = param.slices_below(5)
-        self.assertEqual(slices_below.call_args, ((array, 5), {}))
+        slices_below.assert_called_once_with(array, 5)
         self.assertEqual(slices, slices_below.return_value[1]) 
     
     @mock.patch('analysis.node.slices_between')
@@ -847,7 +864,7 @@ class TestDerivedParameterNode(unittest.TestCase):
         slices_between.return_value = (array, [slice(0, 10)])
         param = DerivedParameterNode('Param', array=array)
         slices = param.slices_between(5, 15)
-        self.assertEqual(slices_between.call_args, ((array, 5, 15), {}))
+        slices_between.assert_called_once_with(array, 5, 15)
         self.assertEqual(slices, slices_between.return_value[1])
     
     @mock.patch('analysis.node.slices_from_to')
@@ -859,5 +876,5 @@ class TestDerivedParameterNode(unittest.TestCase):
         slices_from_to.return_value = (array, [slice(0, 10)])
         param = DerivedParameterNode('Param', array=array)
         slices = param.slices_from_to(5, 15)
-        self.assertEqual(slices_from_to.call_args, ((array, 5, 15), {}))
+        slices_from_to.assert_called_once_with(array, 5, 15)
         self.assertEqual(slices, slices_from_to.return_value[1])

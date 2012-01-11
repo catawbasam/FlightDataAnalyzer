@@ -384,7 +384,6 @@ class OnGround(FlightPhaseNode):
         fast_where = np.ma.masked_less(repair_mask(airspeed.array),
                                        AIRSPEED_THRESHOLD)
         fast_slices = np.ma.clump_unmasked(fast_where)
-        ##print fast_slices
         self.create_phases(fast_slices)
     
 """    
@@ -450,14 +449,13 @@ class Takeoff(FlightPhaseNode):
             # Track back to the turn
             # If he took more than 5 minutes on the runway we're not interested!
             first = max(0, takeoff_run - 300*head.frequency)
-            print 'Takeoff', first, takeoff_run, head.frequency
             takeoff_begin = index_at_value(np.ma.abs(head.array-datum),
                                           HEADING_TURN_ONTO_RUNWAY,
                                           slice(first, takeoff_run))
 
             # Where the data starts in line with the runway, default to the
             # start of the data
-            if takeoff_begin == None:
+            if takeoff_begin is None:
                 takeoff_begin = 0
             
             # Where possible use the point of peak curvature.

@@ -25,6 +25,7 @@ from analysis.key_time_instances import (AltitudeInApproach,
                                          LandingTurnOffRunway,
                                          Liftoff,
                                          TakeoffAccelerationStart,
+                                         TakeoffPeakAcceleration,
                                          TakeoffTurnOntoRunway,
                                          TopOfClimb,
                                          TopOfDescent,
@@ -240,8 +241,8 @@ class TestAltitudeWhenClimbing(unittest.TestCase):
         hysteresis.return_value = alt_aal.array
         altitude_when_climbing = AltitudeWhenClimbing()
         altitude_when_climbing.derive(climbing, alt_aal)
-        self.assertEqual(hysteresis.call_args,
-            ((alt_aal.array, altitude_when_climbing.HYSTERESIS), {}))
+        hysteresis.assert_called_once_with(alt_aal.array,
+                                           altitude_when_climbing.HYSTERESIS)
         self.assertEqual(list(altitude_when_climbing),
           [KeyTimeInstance(index=5.0, name='100 Ft Climbing'),
            KeyTimeInstance(index=12.5, name='50 Ft Climbing'),
@@ -268,8 +269,8 @@ class TestAltitudeWhenDescending(unittest.TestCase):
         hysteresis.return_value = alt_aal.array
         altitude_when_descending = AltitudeWhenDescending()
         altitude_when_descending.derive(descending, alt_aal)
-        self.assertEqual(hysteresis.call_args,
-            ((alt_aal.array, altitude_when_descending.HYSTERESIS), {}))
+        hysteresis.assert_called_once_with(alt_aal.array,
+                                           altitude_when_descending.HYSTERESIS)
         self.assertEqual(list(altitude_when_descending),
           [KeyTimeInstance(index=5.0, name='50 Ft Descending'),
            KeyTimeInstance(index=2.5, name='75 Ft Descending'), 
@@ -325,6 +326,21 @@ class TestLandingPeakDeceleration(unittest.TestCase):
         kti = LandingPeakDeceleration()
         kti.derive(landing, acc)
         expected = [KeyTimeInstance(index=4, name='Landing Peak Deceleration')]
+        self.assertEqual(kti, expected)
+
+
+class TestTakeoffPeakAcceleration(unittest.TestCase):
+    def test_can_operate(self):
+        self.assertEqual(TakeoffPeakAcceleration.get_operational_combinations(),
+                         [('Takeoff', 'Acceleration Longitudinal')])
+        
+    def test_takeoff_peak_acceleration_basic(self):
+        acc = P('Acceleration Longitudinal',
+                np.ma.array([0,0,.1,.1,.2,.1,0,0]))
+        landing = [Section('Takeoff',slice(2,5,None))]
+        kti = TakeoffPeakAcceleration()
+        kti.derive(landing, acc)
+        expected = [KeyTimeInstance(index=4, name='Takeoff Peak Acceleration')]
         self.assertEqual(kti, expected)
 
 

@@ -222,10 +222,14 @@ class Approaches(FlightAttributeNode):
 class Duration(FlightAttributeNode):
     "Duration of the flight (between takeoff and landing) in seconds"
     name = 'FDR Duration'
-    def derive(self, takeoff_dt=A('Takeoff Datetime'),
-               landing_dt=A('Landing Datetime')):
-        duration = landing_dt.value - takeoff_dt.value
-        self.set_flight_attr(duration.total_seconds()) # py2.7
+    def derive(self, takeoff_dt=A('FDR Takeoff Datetime'),
+               landing_dt=A('FDR Landing Datetime')):
+        if landing_dt.value and takeoff_dt.value:
+            duration = landing_dt.value - takeoff_dt.value
+            self.set_flight_attr(duration.total_seconds()) # py2.7
+        else:
+            self.set_flight_attr(None)
+            return
 
 
 class FlightID(FlightAttributeNode):
@@ -259,10 +263,11 @@ class LandingAirport(FlightAttributeNode):
         last_latitude = landing_latitude.get_last()
         last_longitude = landing_longitude.get_last()
         if not last_latitude or not last_longitude:
-            logging.warning("'%s' and/or '%s' KPVs did not exist, therefore "
-                            "'%s' cannot query for landing airport.",
-                            last_latitude.name, last_longitude.name,
+            logging.warning("'Latitude At Landing' and/or 'Longitude At "
+                            "Landing' KPVs did not exist, therefore '%s' "
+                            "cannot query for landing airport.",
                             self.__class__.__name__)
+            self.set_flight_attr(None)
             return
         api_handler = get_api_handler()
         try:
@@ -272,6 +277,7 @@ class LandingAirport(FlightAttributeNode):
             logging.warning("Airport could not be found with latitude '%f' "
                             "and longitude '%f'.", last_latitude.value,
                             last_longitude.value)
+            self.set_flight_attr(None)
         else:
             self.set_flight_attr(airport)
 
@@ -285,12 +291,12 @@ class LandingRunway(FlightAttributeNode):
         'Landing Heading' is the only required parameter.
         '''
         return all([n in available for n in ['Approach And Landing',
-                                             'Landing Airport',
+                                             'FDR Landing Airport',
                                              'Heading At Landing']])
         
     def derive(self, approach_and_landing=S('Approach And Landing'),
                landing_hdg=P('Heading At Landing'),
-               airport=A('Landing Airport'),
+               airport=A('FDR Landing Airport'),
                landing_latitude=P('Latitude At Landing'),
                landing_longitude=P('Longitude At Landing'),
                approach_ilsfreq=KPV('ILS Frequency On Approach'),
@@ -312,8 +318,9 @@ class LandingRunway(FlightAttributeNode):
         # 'Last Approach And Landing' assumed to be Landing. Q: May not be true
         # for partial data.
         kwargs = {}
-        ilsfreq_kpv = approach_ilsfreq.get_last(within_slice=landing.slice)
-        kwargs['ilsfreq'] = ilsfreq_kpv.value if ilsfreq_kpv else None
+        if approach_ilsfreq:
+            ilsfreq_kpv = approach_ilsfreq.get_last(within_slice=landing.slice)
+            kwargs['ilsfreq'] = ilsfreq_kpv.value if ilsfreq_kpv else None
         if precision and precision.value and landing_latitude and \
            landing_longitude:
             last_latitude = landing_latitude.get_last(within_slice=
@@ -369,6 +376,11 @@ class TakeoffAirport(FlightAttributeNode):
          'magnetic_variation': 'W002241 0106', # Format subject to change.
          'name': 'London Heathrow'}
         '''
+        if not liftoff:
+            logging.warning("Cannot create '%s' attribute without a single "
+                            "'%s'.", self.name, liftoff.name)
+            self.set_flight_attr(None)
+            return
         liftoff_index = liftoff[0].index
         latitude_at_liftoff = latitude.array[liftoff_index]
         longitude_at_liftoff = longitude.array[liftoff_index]
@@ -435,12 +447,23 @@ class TakeoffGrossWeight(FlightAttributeNode):
 class TakeoffPilot(FlightAttributeNode):
     "Pilot flying at takeoff, Captain, First Officer or None"
     name = 'FDR Takeoff Pilot'
+    @classmethod
+    def can_operate(cls, available):
+        autopilot_available = 'Autopilot Engaged 1 At Liftoff' in available and\
+                              'Autopilot Engaged 2 At Liftoff' in available
+        controls_available = all([n in available for n in ('Pitch (Capt)',
+                                                           'Pitch (FO)',
+                                                           'Roll (Capt)',
+                                                           'Roll (FO)',
+                                                           'Takeoff')])
+        return autopilot_available or controls_available
+        
     # TODO: Dependency name mappings.
     def derive(self, liftoff_autopilot1=KPV('Autopilot Engaged 1 At Liftoff'),
                liftoff_autopilot2=KPV('Autopilot Engaged 2 At Liftoff'),
                pitch_captain=P('Pitch (Capt)'), roll_captain=P('Roll (Capt)'),
-               pitch_fo=P('Pitch (FO)'), roll_fo=P('Roll (FO)')):
-        
+               pitch_fo=P('Pitch (FO)'), roll_fo=P('Roll (FO)'),
+               takeoffs=S('Takeoff')):
         # TODO: Use Flight Director parameters if possible.
         #pilot = None
         #assert pilot in ("FIRST_OFFICER", "CAPTAIN", None)
@@ -452,9 +475,36 @@ class TakeoffPilot(FlightAttributeNode):
                 self.set_flight_attr('First Officer')
                 return
         
-        #control_input (1) Control Input (2) / contro wheeel / control column
-        # Cannot determine Takeoff Pilot.
-        self.set_flight_attr(None)
+        if pitch_captain and roll_captain and pitch_fo and roll_fo and takeoffs:
+            # Detect which controls were in use during 'Takeoff'.
+            takeoff = takeoffs.get_first()
+            if not takeoff:
+                logging.warning("'Takeoffs' empty, but required for '%s'",
+                                self.name)
+                self.set_flight_attr(None)
+                return
+            
+            def controls_in_use(takeoff_slice, pitch, roll):
+                # Q: Is ptp() == 0 the right check to work out who was at the
+                # controls?
+                return  pitch.array[takeoff_slice].ptp() != 0 or \
+                        roll.array[takeoff_slice].ptp() != 0
+
+            captain_flying = controls_in_use(takeoff.slice, pitch_captain,
+                                             roll_captain)
+            fo_flying = controls_in_use(takeoff.slice, pitch_fo, roll_fo)
+            if captain_flying and fo_flying:
+                logging.warning("Cannot determine whether Captain or First "
+                                "Officer was at the controls because both "
+                                "controls change during takeoff slice.")
+                self.set_flight_attr(None)
+            elif captain_flying:
+                self.set_flight_attr('Captain')
+            elif fo_flying:
+                self.set_flight_attr('First Officer')
+            else:
+                logging.warning("Both captain and first officer controls "
+                                "do not change during takeoff slice.")
 
 
 class TakeoffRunway(FlightAttributeNode):
@@ -462,11 +512,13 @@ class TakeoffRunway(FlightAttributeNode):
     name = 'FDR Takeoff Runway'
     @classmethod
     def can_operate(self, available):
-        return 'Takeoff Airport' in available and 'Takeoff Heading' in available
+        return 'FDR Takeoff Airport' in available and \
+               'Heading At Takeoff' in available
 
-    def derive(self, airport=A('Takeoff Airport'), hdg=KPV('Takeoff Heading'),
-               liftoff=KTI('Liftoff'), latitude=P('Latitude'),
-               longitude=P('Longitude'), precision=A('Precise Positioning')):
+    def derive(self, airport=A('FDR Takeoff Airport'),
+               hdg=KPV('Heading At Takeoff'), liftoff=KTI('Liftoff'),
+               latitude=P('Latitude'), longitude=P('Longitude'),
+               precision=A('Precise Positioning')):
         '''
         Runway information is in the following format:
         {'id': 1234,
@@ -523,7 +575,7 @@ class TakeoffRunway(FlightAttributeNode):
 
 class FlightType(FlightAttributeNode):
     "Type of flight flown"
-    name = 'Flight Type'
+    name = 'FDR Flight Type'
     
     @classmethod
     def can_operate(self, available):
@@ -646,26 +698,39 @@ class LandingPilot(FlightAttributeNode):
 class V2(FlightAttributeNode):
     name = 'FDR V2'
     def derive(self, unknown_dep=P('UNKNOWN')):
+        '''
+        Do not source from AFR, only set attribute if V2 is recorded/derived.
+        '''
         return NotImplemented
          
          
 class Vapp(FlightAttributeNode):
     name = 'FDR Vapp'
     def derive(self, unknown_dep=P('UNKNOWN')):
+        '''
+        Do not source from AFR, only set attribute if Vapp is recorded/derived.
+        '''
         return NotImplemented
 
 
 class Version(FlightAttributeNode):
     "Version of code used for analysis"
     name = 'FDR Version'
-    def derive(self, unknown_dep=P('UNKNOWN')):
+    def derive(self, start_datetime=P('Start Datetime')):
+        '''
+        Every derive method requires at least one dependency. Since this class
+        should always derive a flight attribute, 'Start Datetime' is its only
+        dependency as it will always be present, though it is unused.
+        '''
         self.set_flight_attr(___version___)
-        return NotImplemented
-         
-         
+
+
 class Vref(FlightAttributeNode):
     name = 'FDR Vref'
     def derive(self, unknown_dep=P('UNKNOWN')):
+        '''
+        Do not source from AFR, only set attribute if V2 is recorded/derived.
+        '''
         return NotImplemented
                 
         
