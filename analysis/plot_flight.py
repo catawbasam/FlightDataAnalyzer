@@ -122,9 +122,9 @@ def plot_flight(hdf_path, kti_list, kpv_list, phase_list):
         ax3.plot(*sections)
         
         #---------- Axis 4 ----------
-        if 'Heading Continuous' in hdf:
+        if 'Acceleration Normal' in hdf:
             ax4 = fig.add_subplot(4,1,4,sharex=ax1)
-            ax4.plot(hdf['Heading Continuous'].array, 'b-')  
+            ax4.plot(hdf['Acceleration Normal'].array, 'b-')  
     
     for kpv in kpv_list:
         label = '%s %s' % (kpv.name, kpv.value)
@@ -164,7 +164,7 @@ def csv_flight_details(hdf_path, kti_list, kpv_list, phase_list, dest_path=None)
     rows = []
     params = ['Airspeed', 'Altitude STD', 'Pitch', 'Roll']
     attrs = ['value', 'slice', 'datetime'] # 'latitude', 'longitude'] 
-    header = ['Remember: KTIs are exact, Phase times are to nearest sample \n','Type', 'Phase Start', 'Index', 'Phase End', 'Name'] + attrs + params
+    header = ['Type', 'Phase Start', 'Index', 'Phase End', 'Name'] + attrs + params
 
     def vals_for_iterable(iter_type, iterable):
         for value in iterable:

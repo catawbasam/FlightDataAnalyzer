@@ -104,13 +104,10 @@ def derive_parameters(hdf, node_mgr, process_order):
                 deps.append(dp)
             else:  # dependency not available
                 deps.append(None)
-        if not any(deps):
-            logging.info("No dependencies available - Nodes cannot "
+        if all([d == None for d in deps]):
+            raise RuntimeError("No dependencies available - Nodes cannot "
                                "operate without ANY dependencies available! "
                                "Node: %s" % node_class.__name__)
-            #raise RuntimeError("No dependencies available - Nodes cannot "
-                               #"operate without ANY dependencies available! "
-                               #"Node: %s" % node_class.__name__)
         try:
             first_dep = next((d for d in deps if d is not None and d.frequency))
             frequency = first_dep.frequency

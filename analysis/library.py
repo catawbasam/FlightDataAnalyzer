@@ -1048,6 +1048,7 @@ def index_at_value (array, threshold, _slice=slice(None)):
         end = min(int(round(_slice.stop or max_index)),max_index)
 
         # A "let's get the logic right and tidy it up afterwards" bit of code...
+        # TODO: Refactor this algorithm
         if begin >= len(array):
             begin = max_index
         elif begin < 0:
@@ -1087,7 +1088,6 @@ def index_at_value (array, threshold, _slice=slice(None)):
         # threshold.
         return None
 
-    print left, right, len(array)
     # When the data being tested passes the value we are seeking, the 
     # difference between the data and the value will change sign.
     # Therefore a negative value indicates where value has been passed.
