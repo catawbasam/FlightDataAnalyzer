@@ -697,24 +697,24 @@ class FuelQty(DerivedParameterNode):
         self.array = np.ma.sum(stacked_params, axis=0)
 
 
-class FlapStepped(DerivedParameterNode):
+class Flap(DerivedParameterNode):
     """
-    Steps raw Flap angle into chunks.
-
-    common_steps = (0, 5, 10, 15, 20, 35, 40, 45)
+    Steps raw Flap angle into detents.
     """
     @classmethod
     def can_operate(cls, available):
-        if 'Flap' in available:
+        if 'Flap Surface' in available:
             return True
         
-    def derive(self, flap=P('Flap'), flap_steps=A('Flap Settings')):
+    def derive(self, flap=P('Flap Surface'), series=A('Model Series')):
+        from analysis.model_information import model_series_flap_map
+        flap_steps = model_series_flap_map.get(series.value) if series else None
         if flap_steps:
             # for the moment, round off to the nearest 5 degrees
-            steps = np.ediff1d(flap_steps.value, to_end=[0])/2.0 + flap_steps.value
+            steps = np.ediff1d(flap_steps, to_end=[0])/2.0 + flap_steps
             flap_stepped = np.zeros_like(flap.array.data)
             low = None
-            for level, high in zip(flap_steps.value, steps):
+            for level, high in zip(flap_steps, steps):
                 flap_stepped[(low < flap.array) & (flap.array <= high)] = level
                 low = high
             else:
@@ -722,18 +722,44 @@ class FlapStepped(DerivedParameterNode):
                 flap_stepped[low < flap.array] = level
             self.array = np.ma.array(flap_stepped, mask=flap.array.mask)
         else:
+            logging.warning(
+                "No Model Series flap settings - rounding to nearest 5")
             # round to nearest 5 degrees for the moment
             step = 5.0  # must be a float
             self.array = np.ma.round(flap.array / step) * step
         
             
-    
-class SlatStepped(DerivedParameterNode):
+class Slat(DerivedParameterNode):
     """
-    Steps raw Slat angle into chunks.
+    Steps raw Slat angle into detents.
     """
-    def derive(self, flap=P('Slat')):
-        return NotImplemented
+    @classmethod
+    def can_operate(cls, available):
+        if 'Slat Surface' in available:
+            return True
+        
+    def derive(self, slat=P('Slat Surface'), series=A('Model Series')):
+        from analysis.model_information import model_series_slat_map
+        slat_steps = model_series_slat_map.get(series.value) if series else None
+            
+        if slat_steps:
+            # for the moment, round off to the nearest 5 degrees
+            steps = np.ediff1d(slat_steps, to_end=[0])/2.0 + slat_steps
+            slat_stepped = np.zeros_like(slat.array.data)
+            low = None
+            for level, high in zip(slat_steps, steps):
+                slat_stepped[(low < slat.array) & (slat.array <= high)] = level
+                low = high
+            else:
+                # all slat values above the last
+                slat_stepped[low < slat.array] = level
+            self.array = np.ma.array(slat_stepped, mask=slat.array.mask)
+        else:
+            logging.warning(
+                "No Model Series slat settings - rounding to nearest 5")
+            # round to nearest 5 degrees for the moment
+            step = 5.0  # must be a float
+            self.array = np.ma.round(slat.array / step) * step
     
     
 class GearSelectedDown(DerivedParameterNode):
