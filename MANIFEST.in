@@ -1,4 +1,4 @@
-include docs/*.*
+include doc/*.*
 include *.py
 include README
 include LICENSE
