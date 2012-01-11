@@ -38,6 +38,7 @@ class TestProcessFlight(unittest.TestCase):
                    'Main Gear To Altitude Radio': 10,
                    'Manufacturer': 'Boeing',
                    'Tail Number': 'G-ABCD',
+                   'Flap Selections': [0,1,2,5,10,15,25,30,40],
                    }
         res = process_flight(hdf_path, ac_info, draw=False)
         self.assertEqual(len(res), 4)
@@ -166,13 +167,13 @@ class TestProcessFlight(unittest.TestCase):
         ac_info = {'Frame': '146-301',
                    'Identifier': '1',
                    'Manufacturer': 'BAE',
-                   'Tail Number': 'G-ABCD'}
+                   'Tail Number': 'G-ABCD',
+                   'Flap Selections': [0,18,24,30,33],
+                   }
         
         afr_flight_id = 3377853
         afr_landing_fuel = 500
         afr_takeoff_fuel = 1000
-        afr_v2 = 2000
-        afr_vapp = 3000
         afr = {'AFR Flight ID': afr_flight_id,
                'AFR Landing Fuel': afr_landing_fuel,
                'AFR Takeoff Fuel': afr_takeoff_fuel,

@@ -977,6 +977,9 @@ class Attribute(object):
         self.value = value
         self.frequency = self.hz = self.sample_rate = None
         self.offset = None
+
+    def __nonzero__(self):
+        return self.value != None
     
     def get_aligned(self, param):
         '''
