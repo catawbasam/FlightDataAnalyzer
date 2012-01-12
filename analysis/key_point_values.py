@@ -204,8 +204,6 @@ class Pitch35To400FtMax(KeyPointValueNode):
 '''
 
 
-
-    
 class AltitudeWithFlapsMax(KeyPointValueNode):
     #TODO: TESTS
     """
@@ -624,7 +622,6 @@ class EngN1TakeoffMax(KeyPointValueNode):
 
 
 class FlapAtGearSelectedDown(KeyPointValueNode):
-    #TODO: TESTS
     #Q: Use Flap or Flap Stepped?
     #NB: flap put as primary parameter as if we use Flap Stepped the step will be aligned!
     def derive(self, flap=P('Flap'), gear_sel_down=KTI('Gear Selected Down')):

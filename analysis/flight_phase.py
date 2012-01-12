@@ -1,8 +1,8 @@
 import logging
 import numpy as np
 
-from analysis.library import (hysteresis, index_at_value, peak_curvature, 
-                              repair_mask, shift_slices)
+from analysis.library import (hysteresis, index_at_value, is_slice_within_slice,
+                              peak_curvature, repair_mask, shift_slices)
 from analysis.node import FlightPhaseNode, P, S, KTI
 from analysis.settings import (AIRSPEED_THRESHOLD,
                                ALTITUDE_FOR_CLB_CRU_DSC,
@@ -393,14 +393,19 @@ class Turning(FlightPhaseNode):
     """
     Rate of Turn is greater than +/- RATE_OF_TURN_FOR_FLIGHT_PHASES
     """
-    def derive(self, rate_of_turn=P('Rate Of Turn')):
+    def derive(self, rate_of_turn=P('Rate Of Turn'), airborne=S('Airborne')):
         turning = np.ma.masked_inside(
             hysteresis(repair_mask(rate_of_turn.array), HYSTERESIS_FPROT),
             RATE_OF_TURN_FOR_FLIGHT_PHASES * (-1.0),
             RATE_OF_TURN_FOR_FLIGHT_PHASES)
         turn_slices = np.ma.clump_unmasked(turning)
-        self.create_phases(turn_slices)
-  
+        for turn_slice in turn_slices:
+            if any([is_slice_within_slice(turn, a) for a in airborne]):
+                # If the slice is within any airborne section.
+                self.create_phase(turn_slices, name="Turning In Air")
+            else:
+                self.create_phase(turn_slices, name="Turning On Ground")
+
 
 class Takeoff(FlightPhaseNode):
     """

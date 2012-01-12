@@ -3,8 +3,11 @@ import logging
 
 from analysis import ___version___
 from analysis.api_handler import get_api_handler, NotFoundError
-from analysis.library import datetime_of_index, is_slice_within_slice
+from analysis.library import (datetime_of_index, index_at_value,
+                              is_slice_within_slice)
 from analysis.node import A, KTI, KPV, FlightAttributeNode, P, S
+
+from scipy.interpolate import interp1d
 
 
 class AnalysisDatetime(FlightAttributeNode):
@@ -346,15 +349,25 @@ class LandingRunway(FlightAttributeNode):
 class OffBlocksDatetime(FlightAttributeNode):
     "Datetime when moving away from Gate/Blocks"
     name = 'FDR Off Blocks Datetime'
-    def derive(self, unknown_dep=P('UNKNOWN')):
-        return NotImplemented
+    # TODO: Tests.
+    def derive(self, turning=P('Turning')):
+        first_turning = turning.get_first(name='Turning On Ground')
+        if first_turning:
+            self.set_flight_attr(first_turning.slice.start)
+        else:
+            self.set_flight_attr(None)
 
 
 class OnBlocksDatetime(FlightAttributeNode):
     "Datetime when moving away from Gate/Blocks"
     name = 'FDR On Blocks Datetime'
-    def derive(self, unknown_dep=P('UNKNOWN')):
-        return NotImplemented
+    # TODO: Tests.
+    def derive(self, turning=P('Turning')):
+        last_turning = turning.get_last(name='Turning On Ground')
+        if last_turning:
+            self.set_flight_attr(last_turning.slice.stop)
+        else:
+            self.set_flight_attr(None)
 
 
 class TakeoffAirport(FlightAttributeNode):
@@ -696,20 +709,38 @@ class LandingPilot(FlightAttributeNode):
     
         
 class V2(FlightAttributeNode):
+    '''
+    Based on weight and flap at time of landing.
+    '''
     name = 'FDR V2'
-    def derive(self, unknown_dep=P('UNKNOWN')):
+    def derive(self, weight_touchdown=KPV('Gross Weight At Touchdown'),
+               flap_touchdown=KPV('Flap At Touchdown')):
         '''
         Do not source from AFR, only set attribute if V2 is recorded/derived.
         '''
+        weight = weight_touchdown.get_last()
+        flap = flap_touchdown.get_last()
+        if not weight or not flap:
+            # TODO: Log.
+            return
         return NotImplemented
          
          
 class Vapp(FlightAttributeNode):
+    '''
+    Based on weight and flap at time of landing.
+    '''
     name = 'FDR Vapp'
-    def derive(self, unknown_dep=P('UNKNOWN')):
+    def derive(self, weight_touchdown=KPV('Gross Weight At Touchdown'),
+               flap_touchdown=KPV('Flap At Touchdown')):
         '''
         Do not source from AFR, only set attribute if Vapp is recorded/derived.
         '''
+        weight = weight_touchdown.get_last()
+        flap = flap_touchdown.get_last()
+        if not weight or not flap:
+            # TODO: Log.
+            return
         return NotImplemented
 
 
@@ -726,12 +757,34 @@ class Version(FlightAttributeNode):
 
 
 class Vref(FlightAttributeNode):
+    '''
+    Based on weight and flap at time of landing.
+    '''
     name = 'FDR Vref'
-    def derive(self, unknown_dep=P('UNKNOWN')):
+    def derive(self, aircraft_model=A('AFR Aircraft Model'),
+               weight_touchdown=KPV('Gross Weight At Touchdown'),
+               flap_touchdown=KPV('Flap At Touchdown')):
         '''
         Do not source from AFR, only set attribute if V2 is recorded/derived.
         '''
+        weight = weight_touchdown.get_last()
+        flap = flap_touchdown.get_last()
+        if not weight or not flap:
+            # TODO: Log.
+            return
+        try:
+            mapping = VREF_MAP[aircraft_model.value]
+            index = index_at_value(np.array(mapping['Gross Weights']),
+                                   weight.value)
+            interp = interp1d(enumerate(mapping['Flaps']))
+            interp(index)
+            
         return NotImplemented
                 
-        
+##VREF_MAP = 
+##{'B737-2_800010_00.add':
+ ##{'Gross Weights': range(32, 65, 4),
+  ##'Flaps': {15: (111, 118, 125, 132, 138, 143, 149, 154, 159),
+            ##30: (105, 111, 117, 123, 129, 135, 140, 144, 149),
+            ##40: (101, 108, 114, 120, 125, 130, 135, 140, 145)}}}
     

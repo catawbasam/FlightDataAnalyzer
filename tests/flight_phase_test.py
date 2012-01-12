@@ -638,8 +638,9 @@ class TestTurning(unittest.TestCase):
     def test_turning_phase_basic(self):
         rate_of_turn_data = np.arange(-4, 4.4, 0.4)
         rate_of_turn = Parameter('Rate Of Turn', np.ma.array(rate_of_turn_data))
+        airborne = S('Airborne')
         turning = Turning()
-        turning.derive(rate_of_turn)
+        turning.derive(rate_of_turn, airborne)
         expected = [Section(name='Turning', slice=slice(0, 7, None)),
                   Section(name='Turning', slice=slice(14, 21, None))]
         self.assertEqual(turning, expected)
