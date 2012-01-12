@@ -400,11 +400,11 @@ class Turning(FlightPhaseNode):
             RATE_OF_TURN_FOR_FLIGHT_PHASES)
         turn_slices = np.ma.clump_unmasked(turning)
         for turn_slice in turn_slices:
-            if any([is_slice_within_slice(turn, a) for a in airborne]):
+            if any([is_slice_within_slice(turn_slice, a.slice) for a in airborne]):
                 # If the slice is within any airborne section.
-                self.create_phase(turn_slices, name="Turning In Air")
+                self.create_phase(turn_slice, name="Turning In Air")
             else:
-                self.create_phase(turn_slices, name="Turning On Ground")
+                self.create_phase(turn_slice, name="Turning On Ground")
 
 
 class Takeoff(FlightPhaseNode):

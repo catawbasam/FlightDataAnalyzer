@@ -310,6 +310,9 @@ class TestSectionNode(unittest.TestCase):
         self.assertEqual(items[2:3], sections)
     
     def test_get_first(self):
+        # First test empty node.
+        empty_section_node = self.section_node_class()
+        self.assertEqual(empty_section_node.get_first(), None)
         items = [Section('a', slice(4,10)),
                  Section('b', slice(14,17)),
                  Section('b', slice(19,21)),
@@ -331,6 +334,9 @@ class TestSectionNode(unittest.TestCase):
         self.assertEqual(items[2], first_b_section_within_slice)
     
     def test_get_last(self):
+        # First test empty node.
+        empty_section_node = self.section_node_class()
+        self.assertEqual(empty_section_node.get_last(), None)
         items = [Section('a', slice(4,10)),
                  Section('b', slice(14,17)),
                  Section('b', slice(19,21)),
@@ -418,6 +424,9 @@ class TestFormattedNameNode(unittest.TestCase):
         self.assertRaises(ValueError, formatted_name_node._validate_name, 'Speed in ascent at -10 ft')       
         
     def test_get_first(self):
+        # Test empty Node first.
+        empty_kti_node = KeyTimeInstanceNode()
+        self.assertEqual(empty_kti_node.get_last(), None)
         kti_node = KeyTimeInstanceNode(items=[KeyTimeInstance(12, 'Slowest'), 
                                               KeyTimeInstance(342, 'Slowest'), 
                                               KeyTimeInstance(2, 'Slowest'), 
@@ -444,6 +453,9 @@ class TestFormattedNameNode(unittest.TestCase):
         self.assertEqual(kti7, None)
     
     def test_get_last(self):
+        # Test empty Node first.
+        empty_kti_node = KeyTimeInstanceNode()
+        self.assertEqual(empty_kti_node.get_last(), None)
         kti_node = KeyTimeInstanceNode(items=[KeyTimeInstance(12, 'Slowest'), 
                                               KeyTimeInstance(342, 'Slowest'), 
                                               KeyTimeInstance(2, 'Slowest'), 
@@ -621,6 +633,9 @@ class TestKeyPointValueNode(unittest.TestCase):
                           KeyPointValue(index=5.45, value=12.5, name='Speed at 1000ft')])
         
     def test_get_min(self):
+        # Test empty Node first.
+        empty_kpv_node = KeyPointValueNode()
+        self.assertEqual(empty_kpv_node.get_min(), None)
         kpv_node = KeyPointValueNode(items=[KeyPointValue(12, 30, 'Slowest'), 
                                             KeyPointValue(342, 60, 'Slowest'), 
                                             KeyPointValue(2, 14, 'Slowest'), 
@@ -647,6 +662,9 @@ class TestKeyPointValueNode(unittest.TestCase):
         self.assertEqual(kpv7, None)
     
     def test_get_max(self):
+        # Test empty Node first.
+        empty_kpv_node = KeyPointValueNode()
+        self.assertEqual(empty_kpv_node.get_max(), None)
         kpv_node = KeyPointValueNode(items=[KeyPointValue(12, 30, 'Slowest'), 
                                             KeyPointValue(342, 60, 'Slowest'), 
                                             KeyPointValue(2, 14, 'Slowest'), 

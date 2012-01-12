@@ -18,6 +18,8 @@ from analysis.flight_attribute import (
     LandingFuel, 
     LandingGrossWeight,
     LandingRunway,
+    OffBlocksDatetime,
+    OnBlocksDatetime,
     TakeoffAirport,
     TakeoffDatetime, 
     TakeoffFuel,
@@ -579,6 +581,68 @@ class TestLandingRunway(unittest.TestCase):
                               latitude, longitude, approach_ilsfreq, precision)
         get_nearest_runway.assert_called_with(25, 20.0, ilsfreq=330150,
                                               latitude=1.2, longitude=3.2)
+
+
+class TestOffBlocksDatetime(unittest.TestCase):
+    def test_derive_without_turning(self):
+        # Empty 'Turning'.
+        turning = S('Turning')
+        off_blocks_datetime = OffBlocksDatetime()
+        off_blocks_datetime.set_flight_attr = Mock()
+        off_blocks_datetime.derive(turning)
+        off_blocks_datetime.set_flight_attr.assert_called_once_with(None)
+        # Only 'Turning In Air'.
+        turning = S('Turning', items=[KeyPointValue(name='Turning In Air',
+                                                    slice=slice(0, 100))])
+        off_blocks_datetime.set_flight_attr = Mock()
+        off_blocks_datetime.derive(turning)
+        off_blocks_datetime.set_flight_attr.assert_called_once_with(None)
+        # 'Turning On Ground'.
+        turning = S('Turning', items=[KeyPointValue(name='Turning On Ground',
+                                                    slice=slice(20, 60))])
+        off_blocks_datetime.set_flight_attr = Mock()
+        off_blocks_datetime.derive(turning)
+        off_blocks_datetime.set_flight_attr.assert_called_once_with(20)
+        turning = S('Turning', items=[KeyPointValue(name='Turning On Ground',
+                                                    slice=slice(10, 20)),
+                                      KeyPointValue(name='Turning In Air',
+                                                    slice=slice(20, 60)),
+                                      KeyPointValue(name='Turning On Ground',
+                                                    slice=slice(70, 90))])
+        off_blocks_datetime.set_flight_attr = Mock()
+        off_blocks_datetime.derive(turning)
+        off_blocks_datetime.set_flight_attr.assert_called_once_with(10)
+
+
+class TestOnBlocksDatetime(unittest.TestCase):
+    def test_derive_without_turning(self):
+        # Empty 'Turning'.
+        turning = S('Turning')
+        off_blocks_datetime = OnBlocksDatetime()
+        off_blocks_datetime.set_flight_attr = Mock()
+        off_blocks_datetime.derive(turning)
+        off_blocks_datetime.set_flight_attr.assert_called_once_with(None)
+        # Only 'Turning In Air'.
+        turning = S('Turning', items=[KeyPointValue(name='Turning In Air',
+                                                    slice=slice(0, 100))])
+        off_blocks_datetime.set_flight_attr = Mock()
+        off_blocks_datetime.derive(turning)
+        off_blocks_datetime.set_flight_attr.assert_called_once_with(None)
+        # 'Turning On Ground'.
+        turning = S('Turning', items=[KeyPointValue(name='Turning On Ground',
+                                                    slice=slice(20, 60))])
+        off_blocks_datetime.set_flight_attr = Mock()
+        off_blocks_datetime.derive(turning)
+        off_blocks_datetime.set_flight_attr.assert_called_once_with(60)
+        turning = S('Turning', items=[KeyPointValue(name='Turning On Ground',
+                                                    slice=slice(10, 20)),
+                                      KeyPointValue(name='Turning In Air',
+                                                    slice=slice(20, 60)),
+                                      KeyPointValue(name='Turning On Ground',
+                                                    slice=slice(70, 90))])
+        off_blocks_datetime.set_flight_attr = Mock()
+        off_blocks_datetime.derive(turning)
+        off_blocks_datetime.set_flight_attr.assert_called_once_with(90)
 
 
 class TestTakeoffAirport(unittest.TestCase):

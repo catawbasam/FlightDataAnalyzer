@@ -349,7 +349,6 @@ class LandingRunway(FlightAttributeNode):
 class OffBlocksDatetime(FlightAttributeNode):
     "Datetime when moving away from Gate/Blocks"
     name = 'FDR Off Blocks Datetime'
-    # TODO: Tests.
     def derive(self, turning=P('Turning')):
         first_turning = turning.get_first(name='Turning On Ground')
         if first_turning:
@@ -361,7 +360,6 @@ class OffBlocksDatetime(FlightAttributeNode):
 class OnBlocksDatetime(FlightAttributeNode):
     "Datetime when moving away from Gate/Blocks"
     name = 'FDR On Blocks Datetime'
-    # TODO: Tests.
     def derive(self, turning=P('Turning')):
         last_turning = turning.get_last(name='Turning On Ground')
         if last_turning:
@@ -767,17 +765,17 @@ class Vref(FlightAttributeNode):
         '''
         Do not source from AFR, only set attribute if V2 is recorded/derived.
         '''
-        weight = weight_touchdown.get_last()
-        flap = flap_touchdown.get_last()
-        if not weight or not flap:
-            # TODO: Log.
-            return
-        try:
-            mapping = VREF_MAP[aircraft_model.value]
-            index = index_at_value(np.array(mapping['Gross Weights']),
-                                   weight.value)
-            interp = interp1d(enumerate(mapping['Flaps']))
-            interp(index)
+        ##weight = weight_touchdown.get_last()
+        ##flap = flap_touchdown.get_last()
+        ##if not weight or not flap:
+            ### TODO: Log.
+            ##return
+        ##try:
+            ##mapping = VREF_MAP[aircraft_model.value]
+            ##index = index_at_value(np.array(mapping['Gross Weights']),
+                                   ##weight.value)
+            ##interp = interp1d(enumerate(mapping['Flaps']))
+            ##interp(index)
             
         return NotImplemented
                 

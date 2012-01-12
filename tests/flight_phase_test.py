@@ -13,7 +13,6 @@ from analysis.flight_phase import (
     Approach,
     ApproachAndLanding,
     ClimbCruiseDescent,
-    ClimbFromBottomOfDescent,
     Climbing,
     Cruise,
     Descending,
@@ -25,7 +24,6 @@ from analysis.flight_phase import (
     InitialApproach,
     Landing,
     LevelFlight,
-    OnGround,
     Takeoff,
     Turning
     )
@@ -212,6 +210,8 @@ class TestClimbCruiseDescent(unittest.TestCase):
         self.assertEqual(len(camel), 2)
 
 
+'''
+# ClimbFromBottomOfDescent is commented out in flight_phase.py
 class TestClimbFromBottomOfDescent(unittest.TestCase):
     def test_can_operate(self):
         expected = [('Top Of Climb', 'Climb Start', 'Bottom Of Descent')]
@@ -243,7 +243,8 @@ class TestClimbFromBottomOfDescent(unittest.TestCase):
         descent_phase.derive(toc, [], bod) # TODO: include start of climb instance
         expected = [Section(name='Climb From Bottom Of Descent',slice=slice(63, 94, None))]
         self.assertEqual(descent_phase, expected)
-                
+'''
+
 
 class TestClimbing(unittest.TestCase):
     def test_can_operate(self):
@@ -566,7 +567,9 @@ class TestLevelFlight(unittest.TestCase):
                   Section(name='Level Flight', slice=slice(28, 30, None))]
         self.assertEqual(level, expected)
 
-        
+
+'''
+# OnGround has been commented out in flight_phase.py
 class TestOnGround(unittest.TestCase):
     # Based simply on moving too slowly to be airborne.
     # Keeping to minimum number of validated sensors makes this robust logic.
@@ -586,7 +589,8 @@ class TestOnGround(unittest.TestCase):
         if AIRSPEED_THRESHOLD == 70:
             expected = [Section(name='On Ground',slice=slice(1,11,None))]
         self.assertEqual(phase_onground, expected)
- 
+'''
+
 
 class TestTakeoff(unittest.TestCase):
     def test_can_operate(self):
@@ -631,7 +635,7 @@ class TestTakeoff(unittest.TestCase):
 
 class TestTurning(unittest.TestCase):
     def test_can_operate(self):
-        expected = [('Rate Of Turn',)]
+        expected = [('Rate Of Turn', 'Airborne')]
         opts = Turning.get_operational_combinations()
         self.assertEqual(opts, expected)
 
@@ -641,26 +645,29 @@ class TestTurning(unittest.TestCase):
         airborne = S('Airborne')
         turning = Turning()
         turning.derive(rate_of_turn, airborne)
-        expected = [Section(name='Turning', slice=slice(0, 7, None)),
-                  Section(name='Turning', slice=slice(14, 21, None))]
+        expected = [Section(name='Turning On Ground', slice=slice(0, 7, None)),
+                    Section(name='Turning On Ground', slice=slice(14, 21, None))]
         self.assertEqual(turning, expected)
         
     def test_turning_phase_basic_masked_not_turning(self):
+        airborne = S('Airborne', items=[Section('Airborne', slice(13, 22))])
         rate_of_turn_data = np.ma.arange(-4, 4.4, 0.4)
         rate_of_turn_data[10] = np.ma.masked
         rate_of_turn = Parameter('Rate Of Turn', rate_of_turn_data)
         turning = Turning()
-        turning.derive(rate_of_turn)
-        expected = [Section(name='Turning', slice=slice(0, 7, None)),
-                  Section(name='Turning', slice=slice(14, 21, None))]
+        turning.derive(rate_of_turn, airborne)
+        expected = [Section(name='Turning On Ground', slice=slice(0, 7, None)),
+                    Section(name='Turning In Air', slice=slice(14, 21, None))]
         self.assertEqual(turning, expected)
         
     def test_turning_phase_basic_masked_while_turning(self):
+        airborne = S('Airborne',
+                     items=[Section(name='Airborne', slice=slice(0, 8))])
         rate_of_turn_data = np.ma.arange(-4, 4.4, 0.4)
         rate_of_turn_data[1] = np.ma.masked
         rate_of_turn = Parameter('Rate Of Turn', rate_of_turn_data)
         turning = Turning()
-        turning.derive(rate_of_turn)
-        expected = [Section(name='Turning', slice=slice(0, 7, None)),
-                  Section(name='Turning', slice=slice(14, 21, None))]
+        turning.derive(rate_of_turn, airborne)
+        expected = [Section(name='Turning In Air', slice=slice(0, 7, None)),
+                    Section(name='Turning On Ground', slice=slice(14, 21, None))]
         self.assertEqual(turning, expected)

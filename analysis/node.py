@@ -460,7 +460,10 @@ class SectionNode(Node, list):
         :rtype: Section
         '''
         matching = self.get(within_slice=within_slice, name=name)
-        return min(matching, key=attrgetter('slice.start'))
+        if matching:
+            return min(matching, key=attrgetter('slice.start'))
+        else:
+            return None
     
     def get_last(self, within_slice=None, name=None):
         '''
@@ -472,7 +475,10 @@ class SectionNode(Node, list):
         :rtype: Section
         '''
         matching = self.get(within_slice=within_slice, name=name)
-        return max(matching, key=attrgetter('slice.stop'))
+        if matching:
+            return max(matching, key=attrgetter('slice.stop'))
+        else:
+            return None
     
     def get_ordered_by_index(self, within_slice=None, name=None):
         '''
@@ -637,7 +643,10 @@ class FormattedNameNode(Node, list):
         :rtype: self
         '''
         matching = self.get(within_slice=within_slice, name=name)
-        return min(matching, key=attrgetter('index')) if matching else None
+        if matching:
+            return min(matching, key=attrgetter('index')) if matching else None
+        else:
+            return None
     
     def get_last(self, within_slice=None, name=None):
         '''
@@ -650,7 +659,10 @@ class FormattedNameNode(Node, list):
         :type name: str
         '''
         matching = self.get(within_slice=within_slice, name=name)
-        return max(matching, key=attrgetter('index')) if matching else None
+        if matching:
+            return max(matching, key=attrgetter('index')) if matching else None
+        else:
+            return None
     
     def get_named(self, name, within_slice=None):
         '''
@@ -780,7 +792,10 @@ class KeyPointValueNode(FormattedNameNode):
         :rtype: KeyPointValue
         '''
         matching = self.get(within_slice=within_slice, name=name)
-        return max(matching, key=attrgetter('value')) if matching else None
+        if matching:
+            return max(matching, key=attrgetter('value')) if matching else None
+        else:
+            return None
     
     def get_min(self, within_slice=None, name=None):
         '''
@@ -794,7 +809,10 @@ class KeyPointValueNode(FormattedNameNode):
         :rtype: KeyPointValue
         '''
         matching = self.get(within_slice=within_slice, name=name)
-        return min(matching, key=attrgetter('value')) if matching else None
+        if matching:
+            return min(matching, key=attrgetter('value')) if matching else None
+        else:
+            return None
     
     def get_ordered_by_value(self, within_slice=None, name=None):
         '''
