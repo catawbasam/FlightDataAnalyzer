@@ -196,10 +196,10 @@ class TestProcessFlight(unittest.TestCase):
         start_datetime = datetime.now()
         res = process_flight(hdf_path, ac_info, achieved_flight_record=afr,
                              start_datetime=start_datetime)
-        if debug:
-            from analysis.plot_flight import csv_flight_details
-            csv_flight_details(hdf_path, res['kti'], res['kpv'], res['phases'])
-            plot_flight(hdf_path, res['kti'], res['kpv'], res['phases'])
+        ##if debug:
+            ##from analysis.plot_flight import csv_flight_details
+            ##csv_flight_details(hdf_path, res['kti'], res['kpv'], res['phases'])
+            ##plot_flight(hdf_path, res['kti'], res['kpv'], res['phases'])
         self.assertEqual(len(res), 4)
         self.assertTrue('flight' in res)
         from pprint import pprint
@@ -269,7 +269,7 @@ class TestProcessFlight(unittest.TestCase):
         #TODO: Further assertions on the results!
         # TODO: Test cases for attributes which should be coming out but are NotImplemented.
         # FlightNumber? May not be recorded.
-        # OnBlocks and OffBlocks datetimes.
+        # All datetimes.
         # Pilots. (might not be for Herc)
         # V2, Vapp, Version (Herc will be AFR based).
         

@@ -447,12 +447,23 @@ class TakeoffGrossWeight(FlightAttributeNode):
 class TakeoffPilot(FlightAttributeNode):
     "Pilot flying at takeoff, Captain, First Officer or None"
     name = 'FDR Takeoff Pilot'
+    @classmethod
+    def can_operate(cls, available):
+        autopilot_available = 'Autopilot Engaged 1 At Liftoff' in available and\
+                              'Autopilot Engaged 2 At Liftoff' in available
+        controls_available = all([n in available for n in ('Pitch (Capt)',
+                                                           'Pitch (FO)',
+                                                           'Roll (Capt)',
+                                                           'Roll (FO)',
+                                                           'Takeoff')])
+        return autopilot_available or controls_available
+        
     # TODO: Dependency name mappings.
     def derive(self, liftoff_autopilot1=KPV('Autopilot Engaged 1 At Liftoff'),
                liftoff_autopilot2=KPV('Autopilot Engaged 2 At Liftoff'),
                pitch_captain=P('Pitch (Capt)'), roll_captain=P('Roll (Capt)'),
-               pitch_fo=P('Pitch (FO)'), roll_fo=P('Roll (FO)')):
-        
+               pitch_fo=P('Pitch (FO)'), roll_fo=P('Roll (FO)'),
+               takeoffs=S('Takeoff')):
         # TODO: Use Flight Director parameters if possible.
         #pilot = None
         #assert pilot in ("FIRST_OFFICER", "CAPTAIN", None)
@@ -464,9 +475,36 @@ class TakeoffPilot(FlightAttributeNode):
                 self.set_flight_attr('First Officer')
                 return
         
-        #control_input (1) Control Input (2) / contro wheeel / control column
-        # Cannot determine Takeoff Pilot.
-        self.set_flight_attr(None)
+        if pitch_captain and roll_captain and pitch_fo and roll_fo and takeoffs:
+            # Detect which controls were in use during 'Takeoff'.
+            takeoff = takeoffs.get_first()
+            if not takeoff:
+                logging.warning("'Takeoffs' empty, but required for '%s'",
+                                self.name)
+                self.set_flight_attr(None)
+                return
+            
+            def controls_in_use(takeoff_slice, pitch, roll):
+                # Q: Is ptp() == 0 the right check to work out who was at the
+                # controls?
+                return  pitch.array[takeoff_slice].ptp() != 0 or \
+                        roll.array[takeoff_slice].ptp() != 0
+
+            captain_flying = controls_in_use(takeoff.slice, pitch_captain,
+                                             roll_captain)
+            fo_flying = controls_in_use(takeoff.slice, pitch_fo, roll_fo)
+            if captain_flying and fo_flying:
+                logging.warning("Cannot determine whether Captain or First "
+                                "Officer was at the controls because both "
+                                "controls change during takeoff slice.")
+                self.set_flight_attr(None)
+            elif captain_flying:
+                self.set_flight_attr('Captain')
+            elif fo_flying:
+                self.set_flight_attr('First Officer')
+            else:
+                logging.warning("Both captain and first officer controls "
+                                "do not change during takeoff slice.")
 
 
 class TakeoffRunway(FlightAttributeNode):

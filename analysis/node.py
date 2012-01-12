@@ -832,6 +832,26 @@ class KeyPointValueNode(FormattedNameNode):
             else:
                 self.create_kpv(kti.index, value)
     create_kpvs_at_kpvs = create_kpvs_at_ktis # both will work the same!
+    
+    def create_kpvs_within_slices(self, array, slices, function):
+        '''
+        Shortcut for creating KPVs from a number of slices by retrieving an
+        index and value from function (for instance max_value).
+        
+        :param array: Array to source values from.
+        :type array: np.ma.masked_array
+        :param slices: Slices to create KPVs within.
+        :type slices: SectionNode or list of slices.
+        :param function: Function which will return an index and value from the array.
+        :type function: function
+        :returns: None
+        :rtype: None
+        '''
+        for slice_ in slices:
+            if isinstance(slice_, Section): # Use slice within Section.
+                slice_ = slice_.slice
+            index, value = function(array, slice_)
+            self.create_kpv(index, value)
 
 
 class FlightAttributeNode(Node):

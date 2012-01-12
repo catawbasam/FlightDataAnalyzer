@@ -760,7 +760,101 @@ class Slat(DerivedParameterNode):
             # round to nearest 5 degrees for the moment
             step = 5.0  # must be a float
             self.array = np.ma.round(slat.array / step) * step
+            
+            
+class Config(DerivedParameterNode):
+    """
+    Multi-state with the following mapping:
+    {
+        0 : '0',
+        1 : '1',
+        2 : '1 + F',
+        3 : '2(a)',
+        4 : '2',
+        5 : '3(b)',
+        6 : '3',
+        7 : 'FULL',
+    }
+    (a) corresponds to CONF 1*
+    (b) corresponds to CONF 2*
     
+    Note: Does not use the Flap Lever position. This parameter reflects the
+    actual config state of the aircraft rather than the intended state
+    represented by the selected lever position.
+    """
+    @classmethod
+    def can_operate(cls, available):
+        if 'Flap' in available and 'Slat' in available:
+            return True
+        
+    def derive(self, flap=P('Flap'), slat=P('Slat'), aileron=P('Aileron')):
+        # manu=A('Manufacturer') - we could ensure this is only done for Airbus?
+        
+        summed = vstack_params(flap, slat, aileron).sum(axis=0)
+        if aileron:
+            map_a330 = (
+                (0, 0),
+                (1, 16),
+                (2, 29),
+                (3, 38),
+                (4, 44),
+                (5, 47),
+                (6, 55),
+                (7, 65))
+            
+        else:
+            map_a330 = (
+                (0, 0),
+                (1, 16),
+                (2, 24),
+                (3, 28),
+                (4, 34),
+                (5, 37),
+                (6, 45),
+                (7, 55))
+        self.array = np.ma.empty_like(flap.array)
+        self.array.mask=True
+        for state, value in map_a330:
+            # unmask bits we know about
+            self.array[summed == value] = state
+            
+            
+        ### alternative pattern matching (slow?)
+        ##def equal_to(a, values):
+            ##return np.ma.allequal(a, values, fill_value=False)
+        
+        ##stacked = vstack_params(flap, slat, aileron)
+        ##for state, values in map_a330:
+            ##match = np.ma.apply_along_axis(equal_to, axis=0, arr=stacked, test=values)
+            ##self.array[match] = state
+          
+    ##@profile
+    def derive2(self, flap=P('Flap'), slat=P('Slat'), aileron=P('Aileron')):
+
+        # alternative pattern matching (slow?)
+        ##@profile
+        def map_with(axis, mapping):
+            a = tuple(axis.tolist())
+            return mapping.get(a, np.ma.masked)
+        
+        map_a330 = {
+            #slat, flap, aileron
+            ( 0, 0, 0) : 0,
+            (16, 0, 0) : 1,
+            (16, 8, 5) : 2,
+            (20, 8,10) : 3,
+            (20,14,10) : 4,
+            (23,14,10) : 5,
+            (23,22,10) : 6,
+            (23,32,10) : 7,
+            }
+        stacked = vstack_params(slat, flap, aileron)
+        self.array = np.ma.apply_along_axis(map_with, axis=0, arr=stacked, 
+                                            mapping=map_a330)
+    
+
+        # what about those that aren't in the correct state? Mask as invalid?
+            
     
 class GearSelectedDown(DerivedParameterNode):
     # And here is where the nightmare starts.

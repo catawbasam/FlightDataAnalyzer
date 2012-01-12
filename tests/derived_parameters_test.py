@@ -21,6 +21,7 @@ from analysis.derived_parameters import (
     AltitudeSTD,
     AltitudeTail,
     ClimbForFlightPhases,
+    Config,
     Eng_N1Avg,
     Eng_N1Max,
     Eng_N1Min,
@@ -170,6 +171,8 @@ class TestAccelerationSideways(unittest.TestCase):
         ma_test.assert_masked_array_approx_equal(acc_lat.array,
                                                  np.ma.array([0]*8))
 
+
+
 """
 -------------------------------------------------------------------------------
 Superceded by Truck and Trailer analysis of airspeed during takeoff and landing
@@ -230,8 +233,7 @@ class TestAirspeedForFlightPhases(unittest.TestCase):
         hysteresis.return_value = mock.Mock()
         speed = AirspeedForFlightPhases()
         speed.derive(param)
-        self.assertEqual(hysteresis.call_args,
-                         ((param.array, HYSTERESIS_FPIAS), {}))
+        hysteresis.assert_called_once_with(param.array, HYSTERESIS_FPIAS)
         self.assertEqual(speed.array, hysteresis.return_value)
 
 
@@ -422,8 +424,7 @@ class TestAltitudeSTD(unittest.TestCase):
         alt_std_high = 1
         alt_std_low = 2
         alt_std.derive(alt_std_high, alt_std_low, None, None)
-        self.assertEqual(alt_std._high_and_low.call_args, ((alt_std_high, 
-                                                            alt_std_low), {}))
+        alt_std._high_and_low.assert_called_once_with(alt_std_high, alt_std_low)
         self.assertEqual(alt_std.array, high_and_low_array)
         # alt_std_rough and ivv passed in.
         rough_and_ivv_array = 6
@@ -432,8 +433,7 @@ class TestAltitudeSTD(unittest.TestCase):
         alt_std_rough = 4        
         ivv = 5
         alt_std.derive(None, None, alt_std_rough, ivv)
-        self.assertEqual(alt_std._rough_and_ivv.call_args,
-                         ((alt_std_rough, ivv), {}))
+        alt_std._rough_and_ivv.assert_called_once_with(alt_std_rough, ivv)
         self.assertEqual(alt_std.array, rough_and_ivv_array)
         # All parameters passed in (improbable).
         alt_std.derive(alt_std_high, alt_std_low, alt_std_rough, ivv)
@@ -484,6 +484,55 @@ class TestClimbForFlightPhases(unittest.TestCase):
         expected = np.ma.array([0,2,5,0,0,3,4,6])
         ma_test.assert_masked_array_approx_equal(climb.array, expected)
    
+   
+
+class TestConfig(unittest.TestCase):
+    
+    def setUp(self):
+        # last state is invalid
+        s = np.ma.array([0]*2 + [16]*4 + [20]*4 + [23]*6 + [16])
+        self.slat = P('Slat', np.repeat(s, 10000)) # 23 long
+        f = np.ma.array([0]*4 + [8]*4 + [14]*4 + [22]*2 + [32]*2 + [14])
+        self.flap = P('Flap', np.repeat(f, 10000))
+        a = np.ma.array([0]*4 + [5]*2 + [10]*10 + [10])
+        self.ails = P('Aileron', np.repeat(a, 10000))
+        
+    def test_can_operate(self):
+        expected = [('Flap','Slat'),
+                    ('Flap','Slat', 'Aileron')]
+        opts = Config.get_operational_combinations()
+        self.assertEqual(opts, expected)
+        
+    def test_config_for_a330(self):
+        # last state is invalid
+        config = Config()
+        config.derive(self.flap, self.slat, self.ails)
+        #self.assertEqual(list(np.ma.filled(config.array, fill_value=-999)),
+                         #[0,0,1,1,2,2,3,3,4,4,5,5,6,6,7,7,-999]
+                         #)
+        
+    def test_time_taken(self):
+        from timeit import Timer
+        timer = Timer(self.test_config_for_a330)
+        time = min(timer.repeat(1, 1))
+        print "Time taken %s secs" % time
+        self.assertLess(time, 1.0, msg="Took too long")
+        
+    ##@profile
+    def test_config_for_a330_2(self):
+        config = Config()
+        config.derive2(self.flap, self.slat, self.ails)
+        #self.assertEqual(list(np.ma.filled(config.array, fill_value=-999)),
+                         #[0,0,1,1,2,2,3,3,4,4,5,5,6,6,7,7,-999]
+                         #)
+        
+    def test_time_taken2(self):
+        from timeit import Timer
+        timer = Timer(self.test_config_for_a330_2)
+        time = min(timer.repeat(1, 1))
+        print "Time taken %s secs" % time
+        #self.assertLess(time, 1.0, msg="Took too long")
+        
 
 class TestEng_N1Avg(unittest.TestCase):
     def test_can_operate(self):
@@ -930,5 +979,5 @@ class TestSlat(unittest.TestCase):
 
 if __name__ == '__main__':
     suite = unittest.TestSuite()
-    suite.addTest(TestFlapStepped('test_time_taken'))
+    suite.addTest(TestConfig('test_time_taken2'))
     unittest.TextTestRunner(verbosity=2).run(suite)

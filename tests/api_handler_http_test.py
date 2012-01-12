@@ -47,7 +47,7 @@ class APIHandlerHTTPTest(unittest.TestCase):
         handler._request = Mock()
         handler._request.return_value = {}
         self.assertEqual(handler._attempt_request(1, x=2), {})
-        self.assertEqual(handler._request.call_args, ((1,), {'x': 2}))
+        handler._request.assert_called_once_with(1, x=2)
         # Raises out Exception if it is raised in every attempt.
         handler._request.side_effect = Exception()
         self.assertRaises(Exception, handler._attempt_request, 3)
