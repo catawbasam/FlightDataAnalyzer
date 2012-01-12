@@ -1046,6 +1046,7 @@ def index_at_value (array, threshold, _slice=slice(None)):
         end = min(int(round(_slice.stop or max_index)),max_index)
 
         # A "let's get the logic right and tidy it up afterwards" bit of code...
+        # TODO: Refactor this algorithm
         if begin >= len(array):
             begin = max_index
         elif begin < 0:

@@ -1,21 +1,43 @@
+# dot directories
 .*/
-*.egg
-*.egg-info
+
+# Transient files
 *.log
-*.pyc
-*.pyo
 *.tmp
-*.wpu
-*~
+
+# Operating System cruft
+Desktop.ini
+Thumbs.db
+__MACOSX
 .DS_Store
-.coverage
+
+# Sphinx transient files (old style)
+.build
+.static
+
+# Eclipse, WingIDE and Text Editors
+*.sw[nop]
+*~
 .project
 .pydevproject
+*.wp[ur]
+
+# Python builds and binaries
 dist
 build
+*.egg
+*.egg-info
+*.py[co]
+
+# Jenkins
+.coverage
 coverage.xml
 nosetests.xml
+cpd.xml
+pep8.log
+pylint.log
 
+# Analysis Engine cruft
 test_data/temp/*
 graph*.png
 analysis/local_settings.py
