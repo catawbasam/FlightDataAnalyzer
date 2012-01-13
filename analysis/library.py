@@ -5,7 +5,7 @@ from datetime import datetime, timedelta
 from hashlib import sha256
 from itertools import izip
 from math import floor
-from scipy.signal import iirfilter, lfilter, lfilter_zi, filtfilt
+from scipy.signal import lfilter, lfilter_zi
 
 from settings import REPAIR_DURATION, TRUCK_OR_TRAILER_INTERVAL, TRUCK_OR_TRAILER_PERIOD
 
@@ -279,7 +279,6 @@ def duration(a, period, hz=1.0):
     :param hz: Frequency of the data_array
     :type hz: float
     '''
-    
     if period <= 0.01:
         raise ValueError('Duration called with period outside permitted range')
 
@@ -323,7 +322,6 @@ def duration(a, period, hz=1.0):
         else:
             i = i + 1
     '''
-    
     return a
 
 def first_order_lag (array, time_constant, hz, gain = 1.0, initial_value = None):
@@ -535,7 +533,7 @@ def interleave_uneven_spacing (param_1, param_2):
         raise ValueError, 'Attempt to interleave parameters at differing sample rates'
 
     mean_offset = (param_2.offset + param_1.offset) / 2.0
-    result_offset = mean_offset - 1.0/(2.0 * param_1.frequency)
+    #result_offset = mean_offset - 1.0/(2.0 * param_1.frequency)
     dt = 1.0/param_1.frequency
     
     merged_array = np.ma.zeros((2, len(param_1.array)))
@@ -893,6 +891,21 @@ def shift_slices(slicelist, offset):
             newlist.append(slice(a,b))
     return newlist
 
+def slice_duration(_slice, hz):
+    '''
+    Gets the duration of a slice in taking the frequency into account. While
+    the calculation is simple, there were instances within the code of slice
+    durations being compared against values in seconds without considering
+    the frequency of the slice indices.
+    
+    :param _slice: Slice to calculate the duration of.
+    :type _slice: slice
+    :param hz: Frequency of slice.
+    :type hz: float or int
+    :returns: Duration of _slice in seconds.
+    :rtype: float
+    '''
+    return _slice.start - _slice.stop / hz
 
 def slices_above(array, value):
     '''

@@ -187,7 +187,6 @@ Node: Start Datetime 	Pre: [] 	Succ: [] 	Neighbors: [] 	Edges: []
         nodes = NodeManager(datetime.now(), lfl_params, required_nodes, derived, {}, {})
         order = dependency_order(nodes)
         pos = order.index
-        #print nodes
         self.assertTrue(len(order))
         self.assertTrue(pos('Vertical Speed') > pos('Pressure Altitude'))
         self.assertTrue(pos('Slip On Runway') > pos('Groundspeed'))

@@ -17,6 +17,7 @@ from analysis.flight_attribute import (
     LandingDatetime, 
     LandingFuel, 
     LandingGrossWeight,
+    LandingPilot,
     LandingRunway,
     OffBlocksDatetime,
     OnBlocksDatetime,
@@ -516,6 +517,90 @@ class TestLandingGrossWeight(unittest.TestCase):
                                             KeyPointValue(12, 120, 'b')])
         landing_gross_weight.derive(touchdown_gross_weight)
         landing_gross_weight.set_flight_attr.assert_called_once_with(120)
+
+
+class TestLandingPilot(unittest.TestCase):
+    def test_can_operate(self):
+        opts = LandingPilot.get_operational_combinations()
+        self.assertTrue(('Autopilot Engaged 1 At Touchdown',
+                         'Autopilot Engaged 2 At Touchdown') in opts)
+        
+            [('Autopilot Engaged 1 At Touchdown',
+              'Autopilot Engaged 2 At Touchdown'),
+             ('Pitch (Capt)', 'Autopilot Engaged 1 At Touchdown',
+              'Autopilot Engaged 2 At Touchdown'), 
+             ('Roll (Capt)', 'Autopilot Engaged 1 At Touchdown',
+              'Autopilot Engaged 2 At Touchdown'),
+             ('Pitch (FO)', 'Autopilot Engaged 1 At Touchdown',
+              'Autopilot Engaged 2 At Touchdown'),
+             ('Roll (FO)', 'Autopilot Engaged 1 At Touchdown',
+              'Autopilot Engaged 2 At Touchdown'),
+             ('Landing', 'Autopilot Engaged 1 At Touchdown',
+              'Autopilot Engaged 2 At Touchdown'),
+             ('Pitch (Capt)', 'Roll (Capt)', 'Autopilot Engaged 1 At Touchdown',
+              'Autopilot Engaged 2 At Touchdown'),
+             ('Pitch (Capt)', 'Pitch (FO)', 'Autopilot Engaged 1 At Touchdown',
+              'Autopilot Engaged 2 At Touchdown'),
+             ('Pitch (Capt)', 'Roll (FO)', 'Autopilot Engaged 1 At Touchdown',
+              'Autopilot Engaged 2 At Touchdown'),
+             ('Pitch (Capt)', 'Landing', 'Autopilot Engaged 1 At Touchdown',
+              'Autopilot Engaged 2 At Touchdown'),
+             ('Roll (Capt)', 'Pitch (FO)', 'Autopilot Engaged 1 At Touchdown',
+              'Autopilot Engaged 2 At Touchdown'),
+             ('Roll (Capt)', 'Roll (FO)', 'Autopilot Engaged 1 At Touchdown',
+              'Autopilot Engaged 2 At Touchdown'),
+             ('Roll (Capt)', 'Landing', 'Autopilot Engaged 1 At Touchdown',
+              'Autopilot Engaged 2 At Touchdown'),
+             ('Pitch (FO)', 'Roll (FO)', 'Autopilot Engaged 1 At Touchdown',
+              'Autopilot Engaged 2 At Touchdown'),
+             ('Pitch (FO)', 'Landing', 'Autopilot Engaged 1 At Touchdown',
+              'Autopilot Engaged 2 At Touchdown'),
+             ('Roll (FO)', 'Landing', 'Autopilot Engaged 1 At Touchdown',
+              'Autopilot Engaged 2 At Touchdown'),
+             ('Pitch (Capt)', 'Roll (Capt)', 'Pitch (FO)', 'Roll (FO)',
+              'Landing'),
+             ('Pitch (Capt)', 'Roll (Capt)', 'Pitch (FO)',
+              'Autopilot Engaged 1 At Touchdown',
+              'Autopilot Engaged 2 At Touchdown'),
+             ('Pitch (Capt)', 'Roll (Capt)', 'Roll (FO)',
+              'Autopilot Engaged 1 At Touchdown',
+              'Autopilot Engaged 2 At Touchdown'),
+             ('Pitch (Capt)', 'Roll (Capt)', 'Landing',
+              'Autopilot Engaged 1 At Touchdown',
+              'Autopilot Engaged 2 At Touchdown'),
+             ('Pitch (Capt)', 'Pitch (FO)', 'Roll (FO)',
+              'Autopilot Engaged 1 At Touchdown',
+              'Autopilot Engaged 2 At Touchdown'), ('Pitch (Capt)', 'Pitch (FO)', 'Landing', 'Autopilot Engaged 1 At Touchdown', 'Autopilot Engaged 2 At Touchdown'), ('Pitch (Capt)', 'Roll (FO)', 'Landing', 'Autopilot Engaged 1 At Touchdown', 'Autopilot Engaged 2 At Touchdown'), ('Roll (Capt)', 'Pitch (FO)', 'Roll (FO)', 'Autopilot Engaged 1 At Touchdown', 'Autopilot Engaged 2 At Touchdown'), ('Roll (Capt)', 'Pitch (FO)', 'Landing', 'Autopilot Engaged 1 At Touchdown', 'Autopilot Engaged 2 At Touchdown'), ('Roll (Capt)', 'Roll (FO)', 'Landing', 'Autopilot Engaged 1 At Touchdown', 'Autopilot Engaged 2 At Touchdown'), ('Pitch (FO)', 'Roll (FO)', 'Landing', 'Autopilot Engaged 1 At Touchdown', 'Autopilot Engaged 2 At Touchdown'), ('Pitch (Capt)', 'Roll (Capt)', 'Pitch (FO)', 'Roll (FO)', 'Landing', 'Autopilot Engaged 1 At Touchdown'), ('Pitch (Capt)', 'Roll (Capt)', 'Pitch (FO)', 'Roll (FO)', 'Landing', 'Autopilot Engaged 2 At Touchdown'), ('Pitch (Capt)', 'Roll (Capt)', 'Pitch (FO)', 'Roll (FO)', 'Autopilot Engaged 1 At Touchdown', 'Autopilot Engaged 2 At Touchdown'), ('Pitch (Capt)', 'Roll (Capt)', 'Pitch (FO)', 'Landing', 'Autopilot Engaged 1 At Touchdown', 'Autopilot Engaged 2 At Touchdown'), ('Pitch (Capt)', 'Roll (Capt)', 'Roll (FO)', 'Landing', 'Autopilot Engaged 1 At Touchdown', 'Autopilot Engaged 2 At Touchdown'), ('Pitch (Capt)', 'Pitch (FO)', 'Roll (FO)', 'Landing', 'Autopilot Engaged 1 At Touchdown', 'Autopilot Engaged 2 At Touchdown'), ('Roll (Capt)', 'Pitch (FO)', 'Roll (FO)', 'Landing', 'Autopilot Engaged 1 At Touchdown', 'Autopilot Engaged 2 At Touchdown'), ('Pitch (Capt)', 'Roll (Capt)', 'Pitch (FO)', 'Roll (FO)', 'Landing', 'Autopilot Engaged 1 At Touchdown', 'Autopilot Engaged 2 At Touchdown')])
+    
+    def test_derive(self):
+        node = LandingPilot()
+        node.set_flight_attr = Mock()
+        # Only Autopilot available, neither engaged.
+        # Q: What should discrete values be?
+        autopilot1 = KPV('Autopilot Engaged 1 At Touchdown', value=0)
+        autopilot2 = KPV('Autopilot Engaged 2 At Touchdown', value=0)
+        node.derive(None, None, None, None, None, autopilot1, autopilot2)
+        node.set_flight_attr.assert_called_once_with(None)
+        # Autopilot 1 Engaged.
+        autopilot1 = KPV('Autopilot Engaged 1 At Touchdown', value=1)
+        autopilot2 = KPV('Autopilot Engaged 2 At Touchdown', value=0)
+        node.set_flight_attr = Mock()
+        node.derive(None, None, None, None, None, autopilot1, autopilot2)
+        node.set_flight_attr.assert_called_once_with('Captain')
+        # Autopilot 2 Engaged.
+        autopilot1 = KPV('Autopilot Engaged 1 At Touchdown', value=0)
+        autopilot2 = KPV('Autopilot Engaged 2 At Touchdown', value=1)
+        node.set_flight_attr = Mock()
+        node.derive(None, None, None, None, None, autopilot1, autopilot2)
+        node.set_flight_attr.assert_called_once_with('First Officer')
+        # Both Autopilots Engaged.
+        autopilot1 = KPV('Autopilot Engaged 1 At Touchdown', value=1)
+        autopilot2 = KPV('Autopilot Engaged 2 At Touchdown', value=1)
+        node.set_flight_attr = Mock()
+        node.derive(None, None, None, None, None, autopilot1, autopilot2)
+        node.set_flight_attr.assert_called_once_with(None)
+
+
 
 
 class TestLandingRunway(unittest.TestCase):

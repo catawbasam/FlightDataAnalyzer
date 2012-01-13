@@ -3,7 +3,6 @@ import sys
 import logging 
 import networkx as nx # pip install networkx or /opt/epd/bin/easy_install networkx
 
-from analysis import settings
 from utilities.dict_helpers import dict_filter
 
 not_windows = sys.platform not in ('win32', 'win64') # False for Windows :-(
