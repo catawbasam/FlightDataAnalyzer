@@ -219,25 +219,23 @@ class TakeoffAccelerationStart(KeyTimeInstanceNode):
         
     # List the optimal parameter set here
     def derive(self, speed=P('Airspeed'), takeoffs=S('Takeoff'),
-               accel=P('Acceleration Forwards')):
+               accel=P('Acceleration Longitudinal')):
         for takeoff in takeoffs:
+            start_accel = None
             if accel:
                 # Ideally compute this from the forwards acceleration
                 start_accel=index_at_value(accel.array,
                                            TAKEOFF_ACCELERATION_THRESHOLD,
                                            takeoff.slice)
-            else:
-                # A quite respectable "backstop" is from the rate of change of airspeed.
+            
+            if start_accel == None:
+                # A quite respectable "backstop" is from the rate of change
+                # of airspeed. We use this if the acceleration is not
+                # available or if, for any reason, the previous computation
+                # failed.
                 start_accel = peak_curvature(speed.array[takeoff.slice])
+
             self.create_kti(start_accel+takeoff.slice.start)
-
-
-class TakeoffPeakAcceleration(KeyTimeInstanceNode):
-    def derive(self, takeoffs=S('Takeoff'),
-               accel=P('Acceleration Longitudinal')):
-        for takeoff in takeoffs:
-            index, value = max_value(accel.array, _slice=takeoff.slice)
-            self.create_kti(index)
 
 
 class Liftoff(KeyTimeInstanceNode):
@@ -307,13 +305,18 @@ class LandingTurnOffRunway(KeyTimeInstanceNode):
         for landing in landings:
             if landing.slice.stop:
                 self.create_kti(landing.slice.stop)
-
+                
 
 class LandingDecelerationEnd(KeyTimeInstanceNode):
     def derive(self, speed=P('Airspeed'), landings=S('Landing')):
         for landing in landings:
             end_decel = peak_curvature(speed.array[landing.slice])
-            self.create_kti(end_decel+landing.slice.start)
+            # Create the KTI if we have found one, otherwise point to the end
+            # of the data, as sometimes recordings stop in mid-landing phase
+            if end_decel:
+                self.create_kti(end_decel+landing.slice.start)
+            else:
+                self.create_kti(landing.slice.stop)
 
 
 class AltitudeWhenClimbing(KeyTimeInstanceNode):
