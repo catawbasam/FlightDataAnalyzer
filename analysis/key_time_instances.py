@@ -3,11 +3,9 @@ import numpy as np
 
 from analysis.library import (hysteresis, index_at_value, min_value, max_value,
                               peak_curvature)
-from analysis.node import FlightPhaseNode, P, S, KTI
-from analysis.node import KeyTimeInstance, KeyTimeInstanceNode
+from analysis.node import P, S, KTI, KeyTimeInstanceNode
 
 from settings import (CLIMB_THRESHOLD,
-                      LANDING_ACCELERATION_THRESHOLD,
                       RATE_OF_CLIMB_FOR_LIFTOFF,
                       RATE_OF_CLIMB_FOR_TOUCHDOWN,
                       SLOPE_FOR_TOC_TOD,

@@ -45,6 +45,10 @@ CLIMB_THRESHOLD = 1000 # ft AAL
 # (reduces number of KPVs computed in turbulence)
 CLIMB_OR_DESCENT_MIN_DURATION = 10  # sec
 
+# Tolerance of controls (Pitch/Roll (Captain/FO)) when in use in degrees.
+# Used when trying determine which pilot is actively using the controls.
+CONTROLS_IN_USE_TOLERANCE = 1
+
 # Acceleration due to gravity
 GRAVITY = 32.2 # ft/sec^2 - used for combining acceleration and height terms
 
