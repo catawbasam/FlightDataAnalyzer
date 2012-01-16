@@ -766,13 +766,30 @@ class HeadingMagnetic(DerivedParameterNode):
 
 
 class HeadingTrue(DerivedParameterNode):
-    #TODO: TESTS
-    # Requires the computation of a magnetic deviation parameter linearly 
-    # changing from the deviation at the origin to the destination.
+    # Computes magnetic deviation linearly changing from the deviation at
+    # the origin to the destination.
     def derive(self, head = P('Heading Continuous'),
-               dev = P('Magnetic Deviation')):
-        self.array = head + dev.array
-    
+               flights = S('Airborne'),
+               dev_origin=A('Heading Deviation Origin'),
+               dev_dest=A('Heading Deviation Destination')):
+        # We copy the masked array to transfer the mask array. All the data
+        # values will be overwritten, but the mask will not be affected by
+        # conversion from magnetic to true headings.
+        self.array = np.ma.copy(head.array)
+        start = 0
+        for num_flt, flight in enumerate(flights):
+            orig=slice(start,flight.slice.start)
+            dest=slice(flight.slice.stop,None)
+            self.array[orig] = head.array[orig] + dev_origin[num_flt]
+            
+            # Prepare the linear interpolation values
+            begin = dev_origin[num_flt]
+            end = dev_dest[num_flt]
+            step = (end-begin)/(flight.slice.stop-flight.slice.start)
+            
+            self.array[flight.slice] = head.array[flight.slice]+np.arange(begin,end,step)
+            self.array[dest] = head[dest] + dev_dest[num_flt]
+                        
 
 class ILSLocalizerGap(DerivedParameterNode):
     def derive(self, ils_loc = P('Localizer Deviation'),

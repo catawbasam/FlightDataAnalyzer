@@ -30,6 +30,7 @@ from analysis.derived_parameters import (
     FlapStepped,
     FuelQty,
     HeadingContinuous,
+    HeadingTrue,
     Pitch,
     RateOfClimb,
     RateOfClimbForFlightPhases,
@@ -725,6 +726,24 @@ class TestHeadContinuous(unittest.TestCase):
         #ma_test.assert_masked_array_approx_equal(res, answer)
         np.testing.assert_array_equal(head.array.data, answer.data)
         
+        
+class TestHeadTrue(unittest.TestCase):
+    def test_can_operate(self):
+        expected = [('Heading Continuous'),('Airborne'),
+                    ('Heading Deviation Origin'),
+                    ('Heading Deviation Destination')]
+        opts = HeadingTrue.get_operational_combinations()
+        self.assertEqual(opts, expected)
+        
+    def test_basic(self):
+        head = P('Heading Continuous',np.ma.zeros(15))
+        flights = S('Airborne',items=[Section('Airborne', slice(5, 10, None))])
+        dev_origin=A('Heading Deviation Origin', value = 5),
+        dev_dest=A('Heading Deviation Destination', value = 10)
+        true_path = HeadingTrue()
+        true_path.derive(head, flights, dev_dest, dev_origin)
+        np.testing.assert_array_equal(true_path.array, [5,5,5,5,5,5,6,7,8,9,10,10,10,10,10])
+            
         
 class TestPitch(unittest.TestCase):
     def test_can_operate(self):
