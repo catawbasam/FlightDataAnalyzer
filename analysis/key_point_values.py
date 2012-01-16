@@ -34,14 +34,14 @@ class AirspeedMax(KeyPointValueNode):
             
 
 class HeadingAtTakeoff(KeyPointValueNode):
-    def derive(self, toffs=KTI('Takeoff Peak Acceleration'), 
+    def derive(self, toffs=KTI('Fast'), 
                head=P('Heading Continuous')):
         for toff in toffs:
             toff_head = np.ma.median(
-                head.array[toff.index-5:toff.index+5])
+                head.array[toff.slice.start-5:toff.slice.start+5])
             # Scanning 10 seconds around this point allows for short periods of
             # corrupt data during the takeoff run.
-            self.create_kpv(toff.index, toff_head%360.0)
+            self.create_kpv(toff.slice.start, toff_head%360.0)
 
 """
 
@@ -188,13 +188,25 @@ class AccelerationNormalFtTo35FtMax(KeyPointValueNode): # Q: Name?
 
 
 class AccelerationNormalAirborneMax(KeyPointValueNode):
-    def derive(self, norm_g=P('Acceleration Normal'), airborne=S('Airborne')):
-        self.create_kpvs_within_slices(norm_g.array, airborne, max_value)
+    def derive(self, accel=P('Acceleration Normal'), airborne=S('Airborne')):
+        self.create_kpvs_within_slices(accel.array, airborne, max_value)
+
+
+class AccelerationPeakTakeoff(KeyPointValueNode):
+    def derive(self, takeoff=S('Takeoff'),
+               accel=P('Acceleration Longitudinal')):
+        self.create_kpvs_within_slices(accel.array, takeoff, max_value)
+
+
+class DecelerationPeakLanding(KeyPointValueNode):
+    def derive(self, landing=S('Landing'),
+               accel=P('Acceleration Longitudinal')):
+        self.create_kpvs_within_slices(accel.array, landing, min_value)
 
 
 class AccelerationNormalAirborneMin(KeyPointValueNode):
-    def derive(self, norm_g=P('Acceleration Normal'), airborne=S('Airborne')):
-        self.create_kpvs_within_slices(norm_g.array, airborne, min_value)
+    def derive(self, accel=P('Acceleration Normal'), airborne=S('Airborne')):
+        self.create_kpvs_within_slices(accel.array, airborne, min_value)
 
 
 '''

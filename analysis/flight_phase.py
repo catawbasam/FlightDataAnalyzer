@@ -281,7 +281,7 @@ class DescentLowClimb(FlightPhaseNode):
 
 
 class Fast(FlightPhaseNode):
-    def derive(self, airspeed=P('Airspeed')):
+    def derive(self, airspeed=P('Airspeed For Flight Phases')):
         # Did the aircraft go fast enough to possibly become airborne?
         fast_where = np.ma.masked_less(repair_mask(airspeed.array),
                                        AIRSPEED_THRESHOLD)
@@ -545,7 +545,7 @@ class Landing(FlightPhaseNode):
             # If the data stops before this value is reached, substitute the
             # end of the data
             if landing_end == None:
-                landing_end = len(head.array)
+                landing_end = len(head.array)-1
             
             # Where possible use the point of peak curvature.
             try:

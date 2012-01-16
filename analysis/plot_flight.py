@@ -122,9 +122,9 @@ def plot_flight(hdf_path, kti_list, kpv_list, phase_list):
         ax3.plot(*sections)
         
         #---------- Axis 4 ----------
-        if 'Acceleration Normal' in hdf:
+        if 'Heading Continuous' in hdf:
             ax4 = fig.add_subplot(4,1,4,sharex=ax1)
-            ax4.plot(hdf['Acceleration Normal'].array, 'b-')  
+            ax4.plot(hdf['Heading Continuous'].array, 'b-')  
     
     for kpv in kpv_list:
         label = '%s %s' % (kpv.name, kpv.value)
@@ -134,6 +134,7 @@ def plot_flight(hdf_path, kti_list, kpv_list, phase_list):
                      #arrowprops=dict(arrowstyle="->"),
                      rotation='vertical'
                      )
+    '''
     for kti in kti_list:
         label = '%s' % (kti.name)
         ax1.annotate(label, xy=(kti.index, alt[kti.index]),
@@ -142,6 +143,7 @@ def plot_flight(hdf_path, kti_list, kpv_list, phase_list):
                      #arrowprops=dict(arrowstyle="->"),
                      rotation='vertical'
                      )
+    '''
     plt.show()
     return
 

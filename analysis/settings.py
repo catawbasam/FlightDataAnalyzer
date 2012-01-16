@@ -18,8 +18,7 @@ BASE_URL = 'http://127.0.0.1'
 ##########################
 
 # An airspeed below which you just can't possibly be flying.
-# 70kts taken from Hercules test data file when decelerating before landing
-AIRSPEED_THRESHOLD = 70  # kts
+AIRSPEED_THRESHOLD = 80  # kts
 
 # Altitude to break flights into separate climb/cruise/descent segments.
 # This is applied to altitude with hysteresis, so break will happen when
@@ -75,7 +74,7 @@ HYSTERESIS_FPALT_CCD = 2500 # ft
 # Threshold for flight phase rate of climb hysteresis.
 # We're going to ignore changes smaller than this to avoid repeatedly changing
 # phase if the aircraft is climbing/descending close to a threshold level.
-HYSTERESIS_FPROC = 400 # fpm
+HYSTERESIS_FPROC = 100 # fpm
 # The 400 fpm value has been selected from inspection of Hercules test data
 # which is notoriously noisy. This may need to be revised to suit a wider
 # range of aircraft.
