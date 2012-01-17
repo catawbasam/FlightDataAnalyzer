@@ -241,13 +241,15 @@ class TakeoffAccelerationStart(KeyTimeInstanceNode):
 
 
 class Liftoff(KeyTimeInstanceNode):
-    # TODO: This should use the real rate of climb, but for the Hercules (and
-    # old 146s) the data isn't good enough so need to use this parameter.
-    def derive(self, roc=P('Rate Of Climb For Flight Phases'),
+    def derive(self, roc=P('Rate Of Climb'),
               toffs=S('Takeoff')):
         for toff in toffs:
+            # We scan the data backwards to find the last point where the
+            # rate of climb passed the threshold, so transients during the
+            # takeoff run will not affect the result.
+            scan=slice(toff.slice.stop,toff.slice.start,-1)
             lift_index = index_at_value(roc.array,
-                                        RATE_OF_CLIMB_FOR_LIFTOFF, toff.slice)
+                                        RATE_OF_CLIMB_FOR_LIFTOFF, scan)
             if lift_index:
                 self.create_kti(lift_index)
             else:

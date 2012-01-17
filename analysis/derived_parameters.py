@@ -43,15 +43,16 @@ class AccelerationVertical(DerivedParameterNode):
                pitch=P('Pitch'), roll=P('Roll')):
         """
         Resolution of three accelerations to compute the vertical
-        acceleration (perpendicular to the earth surface). Upwards = +ve
+        acceleration (perpendicular to the earth surface). Result is in g,
+        retaining the 1.0 datum and positive upwards.
         """
         # Simple Numpy algorithm working on masked arrays
         pitch_rad = np.radians(pitch.array)
         roll_rad = np.radians(roll.array)
-        resolved_in_pitch = acc_long.array * np.ma.sin(pitch_rad) \
-                            + acc_norm.array * np.ma.cos(pitch_rad)
-        self.array = resolved_in_pitch * np.ma.cos(roll_rad) \
-                     - acc_lat.array * np.ma.sin(roll_rad)
+        resolved_in_roll = acc_norm.array*np.ma.cos(roll_rad)\
+            - acc_lat.array * np.ma.sin(roll_rad)
+        self.array = resolved_in_roll * np.ma.cos(pitch_rad) \
+                     + acc_long.array * np.ma.sin(pitch_rad)
         
 
 class AccelerationForwards(DerivedParameterNode):

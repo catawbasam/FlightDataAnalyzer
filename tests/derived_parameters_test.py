@@ -74,6 +74,19 @@ class TestAccelerationVertical(unittest.TestCase):
         ma_test.assert_masked_array_approx_equal(acc_vert.array,
                                                  np.ma.array([1]*8))
 
+    def test_acceleration_vertical_pitch_up_roll_right(self):
+        acc_vert = AccelerationVertical(frequency=8)
+
+        acc_vert.get_derived([
+            P('Acceleration Normal',np.ma.ones(8)*0.8,8),
+            P('Acceleration Lateral',np.ma.ones(4)*(-0.2),4),
+            P('Acceleration Longitudinal',np.ma.ones(4)*0.3,4),
+            P('Pitch',np.ma.ones(2)*30.0,2),
+            P('Roll',np.ma.ones(2)*20,2)])
+
+        ma_test.assert_masked_array_approx_equal(acc_vert.array,
+                                                 np.ma.array([0.86027777]*8))
+
     def test_acceleration_vertical_roll_right(self):
         acc_vert = AccelerationVertical(frequency=8)
 
