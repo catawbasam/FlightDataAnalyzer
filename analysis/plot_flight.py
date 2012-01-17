@@ -1,6 +1,5 @@
 import csv
 import os
-import itertools
 import matplotlib.pyplot as plt
 from analysis.node import DerivedParameterNode
 

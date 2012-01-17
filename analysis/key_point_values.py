@@ -2,12 +2,10 @@ import logging
 import numpy as np
 
 from analysis import settings
-from analysis.node import  KeyPointValue, KeyPointValueNode, KTI, P, S
+from analysis.node import  KeyPointValue, KeyPointValueNode, KPV, KTI, P, S
 from analysis.library import (duration, index_at_value, max_abs_value, 
                               max_continuous_unmasked, max_value, min_value, 
-                              repair_mask, subslice, value_at_index, 
-                              value_at_time)
-from analysis.node import  KeyPointValue, KPV, KeyPointValueNode, KTI, P, S
+                              repair_mask, subslice)
 
 
 class Airspeed1000To500FtMax(KeyPointValueNode):
@@ -308,12 +306,13 @@ class Eng_N1MaxDurationUnder60PercentAfterTouchdown(KeyPointValueNode): ##was na
             eng_array = repair_mask(eng.array)
             eng_below_60 = np.ma.masked_greater(eng_array, 60)
             # measure duration between final touchdown and engine stop
-            duration_slice = max_continuous_unmasked(
+            touchdown_to_stop_slice = max_continuous_unmasked(
                 eng_below_60, slice(tdwn[-1].index, eng_stop[0].index))
-            if duration_slice:
-                #TODO future storage of slice: self.slice = duration_slice
-                duration = (duration_slice.stop - duration_slice.start) / self.hz
-                self.create_kpv(duration_slice.start, duration, eng_num=eng_num)
+            if touchdown_to_stop_slice:
+                #TODO future storage of slice: self.slice = touchdown_to_stop_slice
+                touchdown_to_stop_duration = (touchdown_to_stop_slice.stop - \
+                                        touchdown_to_stop_slice.start) / self.hz
+                self.create_kpv(touchdown_to_stop_slice.start,duration, eng_num=eng_num)
             else:
                 # create KPV of 0 seconds
                 self.create_kpv(eng_stop[0].index, 0.0, eng_num=eng_num)

@@ -244,7 +244,8 @@ def process_flight(hdf_path, aircraft_info, start_datetime=datetime.now(),
     with hdf_file(hdf_path) as hdf:
         # Track nodes. Assume that all params in HDF are from LFL(!)
         node_mgr = NodeManager(start_datetime, hdf.keys(), required_params, 
-                               derived_nodes, aircraft_info, achieved_flight_record)
+                               derived_nodes, aircraft_info,
+                               achieved_flight_record)
         # calculate dependency tree
         process_order = dependency_order(node_mgr, draw=draw) 
         

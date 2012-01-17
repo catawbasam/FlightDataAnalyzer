@@ -1,10 +1,9 @@
 import logging
 import numpy as np
 
-from analysis.node import A, DerivedParameterNode, KPV, KTI, P, S, Parameter
+from analysis.node import A, DerivedParameterNode, KTI, P, S
 
-from analysis.library import (align, 
-                              first_order_lag,
+from analysis.library import (first_order_lag,
                               first_order_washout,
                               hysteresis, 
                               interleave,
@@ -20,7 +19,6 @@ from settings import (AZ_WASHOUT_TC,
                       HYSTERESIS_FPIAS, 
                       HYSTERESIS_FPROC,
                       GRAVITY,
-                      KTS_TO_FPS,
                       RATE_OF_CLIMB_LAG_TC
                       )
 
@@ -176,7 +174,6 @@ class AltitudeAALForFlightPhases(DerivedParameterNode):
         self.array = np.ma.zeros(len(alt_std.array))
         
         altitude = repair_mask(alt_std.array) # Remove small sections of corrupt data
-        ##print 'fast, len(alt_std), alt_std.offset', fast, len(alt_std.array), alt_std.offset
         for speedy in fast:
             begin = speedy.slice.start
             end = speedy.slice.stop
@@ -185,7 +182,6 @@ class AltitudeAALForFlightPhases(DerivedParameterNode):
             # takeoff or landing rotations. This parameter is only used for
             # flight phase determination so it is important that it behaves
             # in a predictable manner.
-            ##print end
             self.array[begin:begin+peak] = np.ma.maximum(0.0,altitude[begin:begin+peak]-altitude[begin])
             self.array[begin+peak:end] = np.ma.maximum(0.0,altitude[begin+peak:end]-altitude[end-1])
     
@@ -771,13 +767,30 @@ class HeadingMagnetic(DerivedParameterNode):
 
 
 class HeadingTrue(DerivedParameterNode):
-    #TODO: TESTS
-    # Requires the computation of a magnetic deviation parameter linearly 
-    # changing from the deviation at the origin to the destination.
+    # Computes magnetic deviation linearly changing from the deviation at
+    # the origin to the destination.
     def derive(self, head = P('Heading Continuous'),
-               dev = P('Magnetic Deviation')):
-        self.array = head + dev.array
-    
+               flights = S('Airborne'),
+               dev_origin=A('Heading Deviation Origin'),
+               dev_dest=A('Heading Deviation Destination')):
+        # We copy the masked array to transfer the mask array. All the data
+        # values will be overwritten, but the mask will not be affected by
+        # conversion from magnetic to true headings.
+        self.array = np.ma.copy(head.array)
+        start = 0
+        for num_flt, flight in enumerate(flights):
+            orig=slice(start,flight.slice.start)
+            dest=slice(flight.slice.stop,None)
+            self.array[orig] = head.array[orig] + dev_origin[num_flt]
+            
+            # Prepare the linear interpolation values
+            begin = dev_origin[num_flt]
+            end = dev_dest[num_flt]
+            step = (end-begin)/(flight.slice.stop-flight.slice.start)
+            
+            self.array[flight.slice] = head.array[flight.slice]+np.arange(begin,end,step)
+            self.array[dest] = head[dest] + dev_dest[num_flt]
+                        
 
 class ILSLocalizerGap(DerivedParameterNode):
     def derive(self, ils_loc = P('Localizer Deviation'),

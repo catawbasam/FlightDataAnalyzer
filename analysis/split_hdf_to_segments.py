@@ -1,7 +1,6 @@
 import os
 import logging
 import numpy as np
-import time
 
 from hdfaccess.file import hdf_file
 from hdfaccess.utils import write_segment

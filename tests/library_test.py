@@ -8,8 +8,6 @@ from datetime import datetime
 # http://www.java2s.com/Open-Source/Python/Math/Numerical-Python/numpy/numpy/ma/testutils.py.htm
 import utilities.masked_array_testutils as ma_test
 
-from datetime import datetime
-
 from analysis.library import (align, calculate_timebase, create_phase_inside,
                               create_phase_outside, duration, 
                               first_order_lag, first_order_washout, hash_array,
@@ -24,7 +22,7 @@ from analysis.library import (align, calculate_timebase, create_phase_inside,
                               #time_at_value, time_at_value_wrapped,
                               value_at_time, vstack_params, InvalidDatetime)
 
-from analysis.node import A, KPV, KTI, Parameter, P, S, Section
+from analysis.node import P, S
 from analysis.library import *
 
 class TestAlign(unittest.TestCase):
@@ -983,13 +981,11 @@ class TestRateOfChange(unittest.TestCase):
         ma_test.assert_mask_eqivalent(sloped, answer)
         
     def test_rate_of_change_half_width_zero(self):
-        array = np.ma.array([0, 1, 0])
         self.assertRaises(ValueError, 
                           rate_of_change, 
                           P('Test',np.ma.array([0, 1, 0]), 1), 0)
         
     def test_rate_of_change_half_width_negative(self):
-        array = np.ma.array([0, 1, 0])
         self.assertRaises(ValueError, 
                           rate_of_change, 
                           P('Test',np.ma.array([0, 1, 0]), 1), -2)

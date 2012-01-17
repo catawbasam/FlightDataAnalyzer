@@ -343,7 +343,12 @@ class TestProcessFlight(unittest.TestCase):
         self.assertEqual(flight_attrs['FDR Landing Fuel'].value,
                          afr_landing_fuel)
         self.assertEqual(flight_attrs['FDR Version'].value, ___version___)
-        
+        self.assertEqual(\
+            flight_attrs['FDR Off Blocks Datetime'].value - start_datetime, 
+            timedelta(0, 172))
+        self.assertEqual(\
+            flight_attrs['FDR On Blocks Datetime'].value - start_datetime, 
+            timedelta(0, 3490))
         
         
         # 'FDR Takeoff Gross Weight' and 'FDR Landing Gross Weight' cannot be
