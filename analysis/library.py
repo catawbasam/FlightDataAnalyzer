@@ -388,7 +388,7 @@ def first_order_lag (array, time_constant, hz, gain = 1.0, initial_value = None)
 def first_order_washout (in_param, time_constant, hz, gain = 1.0, initial_value = None):
     '''
     Computes the transfer function
-          x.G.s
+         x.G.(T.s)
     y = -----------
          (1 + T.s)
     where:
