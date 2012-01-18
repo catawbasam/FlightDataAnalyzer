@@ -6,7 +6,7 @@ import numpy as np
 
 import utilities.masked_array_testutils as ma_test
 from utilities.struct import Struct
-from analysis.settings import GRAVITY, HYSTERESIS_FPIAS
+from analysis.settings import GRAVITY_IMPERIAL, HYSTERESIS_FPIAS
 from analysis.node import Attribute, A, KPV, KTI, Parameter, P, Section, S
 from analysis.flight_phase import Fast
 
@@ -14,6 +14,8 @@ from analysis.derived_parameters import (
     AccelerationVertical,
     AccelerationForwards,
     AccelerationSideways,
+    AccelerationAlongTrack,
+    AccelerationAcrossTrack,
     AirspeedForFlightPhases,
     AltitudeAALForFlightPhases,
     AltitudeForFlightPhases,
@@ -30,6 +32,7 @@ from analysis.derived_parameters import (
     Eng_N2Min,
     FlapStepped,
     FuelQty,
+    GroundspeedAlongTrack,
     HeadingContinuous,
     HeadingTrue,
     Pitch,
@@ -75,6 +78,19 @@ class TestAccelerationVertical(unittest.TestCase):
 
         ma_test.assert_masked_array_approx_equal(acc_vert.array,
                                                  np.ma.array([1]*8))
+
+    def test_acceleration_vertical_pitch_up_roll_right(self):
+        acc_vert = AccelerationVertical(frequency=8)
+
+        acc_vert.get_derived([
+            P('Acceleration Normal',np.ma.ones(8)*0.8,8),
+            P('Acceleration Lateral',np.ma.ones(4)*(-0.2),4),
+            P('Acceleration Longitudinal',np.ma.ones(4)*0.3,4),
+            P('Pitch',np.ma.ones(2)*30.0,2),
+            P('Roll',np.ma.ones(2)*20,2)])
+
+        ma_test.assert_masked_array_approx_equal(acc_vert.array,
+                                                 np.ma.array([0.86027777]*8))
 
     def test_acceleration_vertical_roll_right(self):
         acc_vert = AccelerationVertical(frequency=8)
@@ -170,52 +186,61 @@ class TestAccelerationSideways(unittest.TestCase):
         ])
         ma_test.assert_masked_array_approx_equal(acc_lat.array,
                                                  np.ma.array([0]*8))
-
-"""
--------------------------------------------------------------------------------
-Superceded by Truck and Trailer analysis of airspeed during takeoff and landing
--------------------------------------------------------------------------------
-
-class TestAccelerationForwardsForFlightPhases(unittest.TestCase):
-    def test_can_operate_only_airspeed(self):
-        expected = [('Airspeed',)]
-        opts = AirspeedForFlightPhases.get_operational_combinations()
+        
+class AccelerationAcrossTrack(unittest.TestCase):
+    def test_can_operate(self):
+        expected = [('Acceleration Forwards',
+                    'Acceleration Sideways', 'Drift')]
+        opts = AccelerationAcrossTrack.get_operational_combinations()
         self.assertEqual(opts, expected)
         
-    def test_can_operate_only_acceleration(self):
-        expected = [('Airspeed',),
-                    ('Acceleration Longitudinal',),
-                    ('Acceleration Longitudinal','Airspeed')]
-        opts = AirspeedForFlightPhases.get_operational_combinations()
+    def test_acceleration_across_side_only(self):
+        acc_across = AccelerationAcrossTrack()
+        acc_across.derive([
+            Parameter('Acceleration Forwards', np.ma.ones(8),8),
+            Parameter('Acceleration Sideways', np.ma.ones(4)*0.1,4),
+            Parameter('Drift', np.ma.zeros(2),2)])
+        ma_test.assert_masked_array_approx_equal(acc_across.array,
+                                                 np.ma.array([0.1]*8))
+        
+    def test_acceleration_across_resolved(self):
+        acc_across = AccelerationAcrossTrack()
+        acc_across.get_derived([
+            P('Acceleration Forwards',np.ma.ones(8)*0.8660254,8),
+            P('Acceleration Sideways',np.ma.ones(4)*0.5,4),
+            P('Drift',np.ma.ones(2)*30.0,2)])
+
+        ma_test.assert_masked_array_approx_equal(acc_across.array,
+                                                 np.ma.array([0]*8))
+
+
+class AccelerationAlongTrack(unittest.TestCase):
+    def test_can_operate(self):
+        expected = [('Acceleration Forwards',
+                    'Acceleration Sideways', 'Drift')]
+        opts = AccelerationAlongTrack.get_operational_combinations()
         self.assertEqual(opts, expected)
         
-    def test_accelearation_forwards_for_phases_using_acceleration(self):
-        # If acceleration data is available, this is used without change.
-        acc = np.ma.arange(0,0.5,0.1)
-        accel_fwd = AccelerationForwardsForFlightPhases()
-        accel_fwd.derive(Parameter('Acceleration Longitudinal', acc), None)
-        ma_test.assert_masked_array_approx_equal(accel_fwd.array, acc)
+    def test_acceleration_along_forward_only(self):
+        acc_along = AccelerationAlongTrack()
+        acc_along.derive([
+            Parameter('Acceleration Forwards', np.ma.ones(8)*0.2,8),
+            Parameter('Acceleration Sideways', np.ma.ones(4)*0.1,4),
+            Parameter('Drift', np.ma.zeros(2),2)])
+        
+        ma_test.assert_masked_array_approx_equal(acc_along.array,
+                                                 np.ma.array([0.2]*8))
+        
+    def test_acceleration_along_resolved(self):
+        acc_across = AccelerationAlongTrack()
+        acc_across.derive([
+            P('Acceleration Forwards',np.ma.ones(8)*0.1,8),
+            P('Acceleration Sideways',np.ma.ones(4)*0.2,4),
+            P('Drift',np.ma.ones(2)*10.0,2)])
 
-    def test_acceleration_forwards_for_phases_using_airspeed(self):
-        # If only airspeed data is available, it needs differentiating.
-        speed = np.ma.arange(0,150,10)
-        speed[3:5] = np.ma.masked
-        accel_fwd = AccelerationForwardsForFlightPhases()
-        accel_fwd.derive(None, Parameter('Airspeed', speed))
-        expected = np.ma.array([0.5241646]*15)
-        ma_test.assert_masked_array_approx_equal(accel_fwd.array, expected)
+        ma_test.assert_masked_array_approx_equal(acc_along.array,
+                                                 np.ma.array([0.13321]*8))
 
-    def test_acceleration_forwards_for_phases_mask_repair(self):
-        # Show that the mask is repaired in case of minor corruption.
-        acc = np.ma.arange(0,0.5,0.1)
-        acc[1:4] = np.ma.masked
-        accel_fwd = AccelerationForwardsForFlightPhases()
-        accel_fwd.derive(Parameter('Acceleration Longitudinal', acc), None)
-        ma_test.assert_masked_array_approx_equal(accel_fwd.array, acc)
--------------------------------------------------------------------------------
-Superceded by Truck and Trailer analysis of airspeed during takeoff and landing
--------------------------------------------------------------------------------
-"""
 
 class TestAirspeedForFlightPhases(unittest.TestCase):
     def test_can_operate(self):
@@ -236,14 +261,6 @@ class TestAirspeedForFlightPhases(unittest.TestCase):
 
 
 class TestAltitudeAALForFlightPhases(unittest.TestCase):
-    """
-    THIS TEST FAILS IF THE AIRSPEED_THRESHOLD = 70  # kts IS SET
-    THIS LOW VALUE WAS USED FOR HERCULES TESTING BUT SHOULD BE RESET TO 80 KTS
-    WHEN WE GET THINGS WORKING
-   
-    DON'T PANIC !!!   
-    
-    """
     def test_can_operate(self):
         expected = [('Altitude STD','Fast')]
         opts = AltitudeAALForFlightPhases.get_operational_combinations()
@@ -708,6 +725,41 @@ class TestFuelQty(unittest.TestCase):
         np.testing.assert_array_equal(fuel_qty_node.array,
                                       np.ma.array([1, 2, 3]))
                          
+
+
+
+class TestGroundspeedAlongTrack(unittest.TestCase):
+    def test_can_operate(self):
+        expected = [('Groundspeed','Acceleration Along Track')]
+        opts = GroundspeedAlongTrack.get_operational_combinations()
+        self.assertEqual(opts, expected)
+
+    def test_groundspeed_along_track_basic(self):
+        gat = GroundspeedAlongTrack()
+        gspd = P('Groundspeed',np.ma.array(data=[100]*2+[120]*18), frequency=1)
+        accel = P('Acceleration Along Track',np.ma.zeros(20), frequency=1)
+        gat.derive(gspd, accel)
+        # A first order lag of 20 sec time constant rising from 100 to 120
+        # will pass through 110 knots between 13 & 14 seconds after the step
+        # rise.
+        self.assertLess(gat.array[15],56.5)
+        self.assertGreater(gat.array[16],56.5)
+        
+    def test_groundspeed_along_track_accel_term(self):
+        gat = GroundspeedAlongTrack()
+        gspd = P('Groundspeed',np.ma.array(data=[100]*200), frequency=1)
+        accel = P('Acceleration Along Track',np.ma.ones(200)*.1, frequency=1)
+        accel.array[0]=0.0
+        gat.derive(gspd, accel)
+        # The resulting waveform takes time to start going...
+        self.assertLess(gat.array[4],55.0)
+        # ...then rises under the influence of the lag...
+        self.assertGreater(gat.array[20],60.0)
+        # ...to a peak...
+        self.assertGreater(np.ma.max(gat.array.data),65)
+        # ...and finally decays as the longer washout time constant takes effect.
+        self.assertLess(gat.array[199],60.0)
+        
         
 class TestHeadContinuous(unittest.TestCase):
     def test_can_operate(self):
@@ -845,7 +897,7 @@ class TestRateOfClimb(unittest.TestCase):
         # Initialise to 1g
         az = P('Acceleration Vertical', np.ma.array([1]*30,dtype=float))
         # After 2 seconds, increment by 1 ft/s^2
-        az.array[2:] += 1/GRAVITY
+        az.array[2:] += 1/GRAVITY_IMPERIAL
         
         # This will give a linearly increasing rate of climb 0>28 ft/sec...
         # which integrated (cumcum) gives a parabolic theoretical solution.

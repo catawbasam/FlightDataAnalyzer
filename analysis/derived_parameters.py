@@ -15,12 +15,16 @@ from analysis.library import (first_order_lag,
                               vstack_params)
 
 from settings import (AZ_WASHOUT_TC,
+                      AT_WASHOUT_TC,
+                      GROUNDSPEED_LAG_TC,
                       HYSTERESIS_FPALT,
                       HYSTERESIS_FPALT_CCD,
                       HYSTERESIS_FP_RAD_ALT,
                       HYSTERESIS_FPIAS, 
                       HYSTERESIS_FPROC,
-                      GRAVITY,
+                      GRAVITY_IMPERIAL,
+                      GRAVITY_METRIC,
+                      KTS_TO_MPS,
                       RATE_OF_CLIMB_LAG_TC
                       )
 
@@ -43,15 +47,16 @@ class AccelerationVertical(DerivedParameterNode):
                pitch=P('Pitch'), roll=P('Roll')):
         """
         Resolution of three accelerations to compute the vertical
-        acceleration (perpendicular to the earth surface). Upwards = +ve
+        acceleration (perpendicular to the earth surface). Result is in g,
+        retaining the 1.0 datum and positive upwards.
         """
         # Simple Numpy algorithm working on masked arrays
         pitch_rad = np.radians(pitch.array)
         roll_rad = np.radians(roll.array)
-        resolved_in_pitch = acc_long.array * np.ma.sin(pitch_rad) \
-                            + acc_norm.array * np.ma.cos(pitch_rad)
-        self.array = resolved_in_pitch * np.ma.cos(roll_rad) \
-                     - acc_lat.array * np.ma.sin(roll_rad)
+        resolved_in_roll = acc_norm.array*np.ma.cos(roll_rad)\
+            - acc_lat.array * np.ma.sin(roll_rad)
+        self.array = resolved_in_roll * np.ma.cos(pitch_rad) \
+                     + acc_long.array * np.ma.sin(pitch_rad)
         
 
 class AccelerationForwards(DerivedParameterNode):
@@ -67,6 +72,34 @@ class AccelerationForwards(DerivedParameterNode):
         pitch_rad = np.radians(pitch.array)
         self.array = acc_long.array * np.cos(pitch_rad)\
                      - acc_norm.array * np.sin(pitch_rad)
+
+
+class AccelerationAcrossTrack(DerivedParameterNode):
+    def derive(self, acc_fwd=P('Acceleration Forwards'), 
+               acc_side=P('Acceleration Sideways'), 
+               drift=P('Drift')):
+        """
+        The forward and sideways ground-referenced accelerations are resolved
+        into along track and across track coordinates in preparation for
+        groundspeed computations.
+        """
+        drift_rad = np.radians(drift.array)
+        self.array = acc_side.array * np.cos(drift_rad)\
+                     - acc_fwd.array * np.sin(drift_rad)
+
+
+class AccelerationAlongTrack(DerivedParameterNode):
+    def derive(self, acc_fwd=P('Acceleration Forwards'), 
+               acc_side=P('Acceleration Sideways'), 
+               drift=P('Drift')):
+        """
+        The forward and sideways ground-referenced accelerations are resolved
+        into along track and across track coordinates in preparation for
+        groundspeed computations.
+        """
+        drift_rad = np.radians(drift.array)
+        self.array = acc_fwd.array * np.cos(drift_rad)\
+                     + acc_side.array * np.sin(drift_rad)
 
 
 class AccelerationSideways(DerivedParameterNode):
@@ -747,6 +780,22 @@ class GearSelectedDown(DerivedParameterNode):
 class GearSelectedUp(DerivedParameterNode):
     def derive(self, param=P('Gear Selected Up FDR')):
         pass
+    
+    
+class GroundspeedAlongTrack(DerivedParameterNode):
+    # Inertial smoothing provides computation of groundspeed data when the
+    # recorded groundspeed is unreliable. For example, during sliding motion
+    # on a runway during deceleration. This is not good enough for long
+    # period computation, but is an improvement over groundspeed data that
+    # stops at 40kn or thereabouts.
+    def derive(self, gndspd=P('Groundspeed'),
+               at=P('Acceleration Along Track')):
+        at_washout = first_order_washout(at.array, AT_WASHOUT_TC, at.hz, 
+                                         gain=GROUNDSPEED_LAG_TC*GRAVITY_METRIC)
+        self.array = first_order_lag((gndspd.array*KTS_TO_MPS) + at_washout,
+                                     GROUNDSPEED_LAG_TC,gndspd.hz)
+    
+
 
 
 class HeadingContinuous(DerivedParameterNode):
@@ -921,7 +970,7 @@ class RateOfClimb(DerivedParameterNode):
             
             # Lag this rate of climb
             az_washout = first_order_washout (az.array, AZ_WASHOUT_TC, az.hz, initial_value = az.array[0])
-            inertial_roc = first_order_lag (az_washout, RATE_OF_CLIMB_LAG_TC, az.hz, gain=GRAVITY*RATE_OF_CLIMB_LAG_TC)
+            inertial_roc = first_order_lag (az_washout, RATE_OF_CLIMB_LAG_TC, az.hz, gain=GRAVITY_IMPERIAL*RATE_OF_CLIMB_LAG_TC)
             self.array = (roc_altitude + inertial_roc) * 60.0
         else:
             # The period for averaging altitude only data has been chosen

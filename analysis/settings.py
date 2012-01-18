@@ -30,6 +30,9 @@ ALTITUDE_FOR_CLB_CRU_DSC = 12500
 # and is essential in the vertical velocity complementary filter.
 AZ_WASHOUT_TC = 60.0
 
+# As above for the along-track resolved acceleration term.
+AT_WASHOUT_TC = 200.0
+
 #Less than 5 mins you can't do a circuit, so we'll presume this is a data
 #snippet 
 FLIGHT_WORTH_ANALYSING_SEC = 300
@@ -49,10 +52,13 @@ CLIMB_OR_DESCENT_MIN_DURATION = 10  # sec
 CONTROLS_IN_USE_TOLERANCE = 1
 
 # Acceleration due to gravity
-GRAVITY = 32.2 # ft/sec^2 - used for combining acceleration and height terms
+GRAVITY_IMPERIAL = 32.2 # ft/sec^2 - used for combining acceleration and height terms
 
 # Acceleration due to gravity
 GRAVITY_METRIC = 9.81 # m/sec^2 - used for comibining acceleration and groundspeed terms
+
+# Groundspeed complementary filter time constant.
+GROUNDSPEED_LAG_TC = 20.0 # seconds
 
 # Threshold for turn onto runway at start of takeoff.
 # This will usually be overwritten by the peak curvature test.
@@ -78,7 +84,7 @@ HYSTERESIS_FPALT_CCD = 2500 # ft
 # Threshold for flight phase rate of climb hysteresis.
 # We're going to ignore changes smaller than this to avoid repeatedly changing
 # phase if the aircraft is climbing/descending close to a threshold level.
-HYSTERESIS_FPROC = 100 # fpm
+HYSTERESIS_FPROC = 400 # fpm
 # The 400 fpm value has been selected from inspection of Hercules test data
 # which is notoriously noisy. This may need to be revised to suit a wider
 # range of aircraft.

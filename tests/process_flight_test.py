@@ -151,15 +151,110 @@ class TestProcessFlight(unittest.TestCase):
             csv_flight_details(hdf_path, res['kti'], res['kpv'], res['phases'])
             plot_flight(hdf_path, res['kti'], res['kpv'], res['phases'])
         #TODO: Further assertions on the results!
-        
-    @unittest.skipIf(not os.path.isfile("test_data/4_3377853_146-301.018.hdf5"),
+
+   
+    @unittest.skipIf(not os.path.isfile("test_data/HERCDIP.hdf5"), "Test file not present")
+    def test_3A_L382_Hercules_NODIP(self):
+        # test copied from herc_2 so AFR may not be accurate
+        hdf_orig = "test_data/HERCNODIP.hdf5"
+        hdf_path = "test_data/HERCNODIP_copy.hdf5"
+        if os.path.isfile(hdf_path):
+            os.remove(hdf_path)
+        shutil.copy(hdf_orig, hdf_path)
+        ac_info = {'Frame': u'L382-Hercules',
+                   'Identifier': u'',
+                   'Manufacturer': u'Lockheed',
+                   'Manufacturer Serial Number': u'',
+                   'Model': u'L382',
+                   'Tail Number': u'B-HERC',
+                   'Precise Positioning': False,
+                   }
+        afr = {'AFR Destination Airport': 3279, # TODO: Choose another airport.
+               'AFR Flight ID': 4041843,
+               'AFR Flight Number': u'ISF51VC',
+               'AFR Landing Aiport': 3279,
+               'AFR Landing Datetime': datetime(2011, 4, 4, 8, 7, 42),
+               'AFR Landing Fuel': 0,
+               'AFR Landing Gross Weight': 0,
+               'AFR Landing Pilot': 'CAPTAIN',
+               'AFR Landing Runway': '23*',
+               'AFR Off Blocks Datetime': datetime(2011, 4, 4, 6, 48),
+               'AFR On Blocks Datetime': datetime(2011, 4, 4, 8, 18),
+               'AFR Takeoff Airport': 3282,
+               'AFR Takeoff Datetime': datetime(2011, 4, 4, 6, 48, 59),
+               'AFR Takeoff Fuel': 0,
+               'AFR Takeoff Gross Weight': 0,
+               'AFR Takeoff Pilot': 'FIRST_OFFICER',
+               'AFR Takeoff Runway': '11*',
+               'AFR Type': u'LINE_TRAINING',
+               'AFR V2': 149,
+               'AFR Vapp': 135,
+               'AFR Vref': 120
+              }
+        res = process_flight(hdf_path, ac_info, achieved_flight_record=afr, 
+                             draw=False)
+        self.assertEqual(len(res), 4)
+        if debug:
+            from analysis.plot_flight import csv_flight_details
+            csv_flight_details(hdf_path, res['kti'], res['kpv'], res['phases'])
+            plot_flight(hdf_path, res['kti'], res['kpv'], res['phases'])
+        #TODO: Further assertions on the results!
+    
+    @unittest.skipIf(not os.path.isfile("test_data/HERCDIP.hdf5"), "Test file not present")
+    def test_3B_L382_Hercules_DIP(self):
+        # test copied from herc_2 so AFR may not be accurate
+        hdf_orig = "test_data/HERCDIP.hdf5"
+        hdf_path = "test_data/HERCDIP_copy.hdf5"
+        if os.path.isfile(hdf_path):
+            os.remove(hdf_path)
+        shutil.copy(hdf_orig, hdf_path)
+        ac_info = {'Frame': u'L382-Hercules',
+                   'Identifier': u'',
+                   'Manufacturer': u'Lockheed',
+                   'Manufacturer Serial Number': u'',
+                   'Model': u'L382',
+                   'Tail Number': u'B-HERC',
+                   'Precise Positioning': False,
+                   }
+        afr = {'AFR Destination Airport': 3279, # TODO: Choose another airport.
+               'AFR Flight ID': 4041843,
+               'AFR Flight Number': u'ISF51VC',
+               'AFR Landing Aiport': 3279,
+               'AFR Landing Datetime': datetime(2011, 4, 4, 8, 7, 42),
+               'AFR Landing Fuel': 0,
+               'AFR Landing Gross Weight': 0,
+               'AFR Landing Pilot': 'CAPTAIN',
+               'AFR Landing Runway': '23*',
+               'AFR Off Blocks Datetime': datetime(2011, 4, 4, 6, 48),
+               'AFR On Blocks Datetime': datetime(2011, 4, 4, 8, 18),
+               'AFR Takeoff Airport': 3282,
+               'AFR Takeoff Datetime': datetime(2011, 4, 4, 6, 48, 59),
+               'AFR Takeoff Fuel': 0,
+               'AFR Takeoff Gross Weight': 0,
+               'AFR Takeoff Pilot': 'FIRST_OFFICER',
+               'AFR Takeoff Runway': '11*',
+               'AFR Type': u'LINE_TRAINING',
+               'AFR V2': 149,
+               'AFR Vapp': 135,
+               'AFR Vref': 120
+              }
+        res = process_flight(hdf_path, ac_info, achieved_flight_record=afr, 
+                             draw=False)
+        self.assertEqual(len(res), 4)
+        if debug:
+            from analysis.plot_flight import csv_flight_details
+            csv_flight_details(hdf_path, res['kti'], res['kpv'], res['phases'])
+            plot_flight(hdf_path, res['kti'], res['kpv'], res['phases'])
+        #TODO: Further assertions on the results!
+     
+    @unittest.skipIf(not os.path.isfile("test_data/4_3377853_146_301.hdf5"),
                      "Test file not present")
     @mock.patch('analysis.flight_attribute.get_api_handler')
     def test_4_3377853_146_301(self, get_api_handler):
         # Avoid side effects which may be caused by PRE_FLIGHT_ANALYSIS.
         settings.PRE_FLIGHT_ANALYSIS = None
-        hdf_orig = "test_data/4_3377853_146-301.018.hdf5"
-        hdf_path = "test_data/4_3377853_146-301.018_copy.hdf5"
+        hdf_orig = "test_data/4_3377853_146_301.hdf5"
+        hdf_path = "test_data/4_3377853_146_301_copy.hdf5"
         if os.path.isfile(hdf_path):
             os.remove(hdf_path)
         shutil.copy(hdf_orig, hdf_path)
@@ -192,10 +287,11 @@ class TestProcessFlight(unittest.TestCase):
         start_datetime = datetime.now()
         res = process_flight(hdf_path, ac_info, achieved_flight_record=afr,
                              start_datetime=start_datetime)
-        ##if debug:
-            ##from analysis.plot_flight import csv_flight_details
-            ##csv_flight_details(hdf_path, res['kti'], res['kpv'], res['phases'])
-            ##plot_flight(hdf_path, res['kti'], res['kpv'], res['phases'])
+        if debug:
+            from analysis.plot_flight import csv_flight_details
+            csv_flight_details(hdf_path, res['kti'], res['kpv'], res['phases'])
+            plot_flight(hdf_path, res['kti'], res['kpv'], res['phases'])
+        
         self.assertEqual(len(res), 4)
         self.assertTrue('flight' in res)
         from pprint import pprint
