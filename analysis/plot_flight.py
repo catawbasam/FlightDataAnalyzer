@@ -85,7 +85,8 @@ def plot_flight(hdf_path, kti_list, kpv_list, phase_list):
         ax1.plot(*sections)
         
         #---------- Axis 2 ----------
-        ax2 = fig.add_subplot(4,1,2,sharex=ax1)
+        ax2 = fig.add_subplot(4,1,2)
+        #ax2 = fig.add_subplot(4,1,2,sharex=ax1)
         roc = hdf.get('Rate Of Climb For Flight Phases', hdf['Altitude STD']).array
         roc_data = hdf.get('Rate Of Climb', hdf['Altitude STD']).array
         sections = []
@@ -105,7 +106,8 @@ def plot_flight(hdf_path, kti_list, kpv_list, phase_list):
         ax2.plot(*sections)
         
         #---------- Axis 3 ----------
-        ax3 = fig.add_subplot(4,1,3,sharex=ax1)
+        ax3 = fig.add_subplot(4,1,3)
+        #ax3 = fig.add_subplot(4,1,3,sharex=ax1)
         airspeed = hdf.get('Airspeed',hdf['Altitude STD']).array
         sections = []
         sections.append(airspeed)

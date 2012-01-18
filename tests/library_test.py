@@ -109,22 +109,6 @@ class TestAlign(unittest.TestCase):
         np.testing.assert_array_equal(result.data, [1,2,3,4,4])
         np.testing.assert_array_equal(result.mask, False)
     
-    # No longer asserting equal array length as only Parameter's have arrays.                    
-    #def test_align_assert_array_lengths(self):
-        #class DumParam():
-            #def __init__(self):
-                #self.offset = 0.0
-                #self.frequency = 1
-                #self.array = []
-                
-        #first = DumParam()
-        #first.frequency = 4
-        #first.array = np.ma.array(range(8))
-        #second = DumParam()
-        #second.frequency = 2
-        #second.array = np.ma.array(range(7)) # Unmatched array length !
-        #self.assertRaises (AssertionError, align, first, second)
-                
     def test_align_same_hz_delayed(self):
         # Both arrays at 1Hz, master behind slave in time
         class DumParam():
@@ -316,7 +300,58 @@ class TestAlign(unittest.TestCase):
         # Build the correct answer...
         answer=np.ma.array([5.6,13.6,21.6,29.6])
         ma_test.assert_masked_array_approx_equal(result, answer)
-        
+
+    def test_align_superframe_master(self):
+        class DumParam():
+            def __init__(self):
+                self.offset = None
+                self.frequency = 1
+                self.offset = 0.0
+                self.array = []
+        master = DumParam()
+        master.array = np.ma.array([1,2])
+        master.frequency = 1/64.0
+        slave = DumParam()
+        slave.array = np.ma.arange(128)
+        slave.frequency = 1
+        result = align(slave, master)
+        expected = [0,64]
+        np.testing.assert_array_equal(result.data,expected)
+
+    def test_align_superframe_slave(self):
+        class DumParam():
+            def __init__(self):
+                self.offset = None
+                self.frequency = 1
+                self.offset = 0.0
+                self.array = []
+        master = DumParam()
+        master.array = np.ma.arange(64)
+        master.frequency = 2
+        slave = DumParam()
+        slave.array = np.ma.array([1,3,6,9])
+        slave.frequency = 1/8.0
+        result = align(slave, master)
+        expected = [1]*16+[3]*16+[6]*16+[9]*16
+        np.testing.assert_array_equal(result.data,expected)
+
+    def test_align_superframes_both(self):
+        class DumParam():
+            def __init__(self):
+                self.offset = None
+                self.frequency = 1
+                self.offset = 0.0
+                self.array = []
+        master = DumParam()
+        master.array = np.ma.arange(16)
+        master.frequency = 1/8.0
+        slave = DumParam()
+        slave.array = np.ma.arange(4)+100
+        slave.frequency = 1/32.0
+        result = align(slave, master)
+        expected = [100]*4+[101]*4+[102]*4+[103]*4
+        np.testing.assert_array_equal(result.data,expected)
+                
 
 class TestCalculateTimebase(unittest.TestCase):
     def test_calculate_timebase(self):

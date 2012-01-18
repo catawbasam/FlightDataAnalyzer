@@ -73,8 +73,8 @@ class AccelerationForwards(DerivedParameterNode):
 
 
 class AccelerationAcrossTrack(DerivedParameterNode):
-    def derive(self, acc_fwd=P('Acceleration Forwards'), 
-               acc_side=P('Acceleration Sideways'), 
+    def derive(self, acc_fwd=P('Acceleration Forwards'),
+               acc_side=P('Acceleration Sideways'),
                drift=P('Drift')):
         """
         The forward and sideways ground-referenced accelerations are resolved
@@ -83,7 +83,7 @@ class AccelerationAcrossTrack(DerivedParameterNode):
         """
         drift_rad = np.radians(drift.array)
         self.array = acc_side.array * np.cos(drift_rad)\
-                     - acc_fwd.array * np.sin(drift_rad)
+            - acc_fwd.array * np.sin(drift_rad)
 
 
 class AccelerationAlongTrack(DerivedParameterNode):
@@ -168,12 +168,12 @@ class AirspeedForFlightPhases(DerivedParameterNode):
 class AirspeedMinusV2(DerivedParameterNode):
     #TODO: TESTS
     def derive(self, airspeed=P('Airspeed'), v2=P('V2')):
-        self.array = airspeed.array - v2
+        self.array = airspeed.array - v2.array
 
 class AirspeedMinusVref(DerivedParameterNode):
     #TODO: TESTS
     def derive(self, airspeed=P('Airspeed'), vref=P('Vref')):
-        self.array = airspeed.array - vref
+        self.array = airspeed.array - vref.array
 
 
 class AirspeedTrue(DerivedParameterNode):
@@ -207,15 +207,16 @@ class AltitudeAALForFlightPhases(DerivedParameterNode):
         
         altitude = repair_mask(alt_std.array) # Remove small sections of corrupt data
         for speedy in fast:
-            begin = speedy.slice.start
-            end = speedy.slice.stop
+            begin = max(0, speedy.slice.start - 1)
+            end = min(speedy.slice.stop, len(altitude)-1)
             peak = np.ma.argmax(altitude[speedy.slice])
+            top = begin+peak+1
             # We override any negative altitude variations that occur at
             # takeoff or landing rotations. This parameter is only used for
             # flight phase determination so it is important that it behaves
             # in a predictable manner.
-            self.array[begin:begin+peak] = np.ma.maximum(0.0,altitude[begin:begin+peak]-altitude[begin])
-            self.array[begin+peak:end] = np.ma.maximum(0.0,altitude[begin+peak:end]-altitude[end-1])
+            self.array[begin:top] = np.ma.maximum(0.0,altitude[begin:top]-altitude[begin])
+            self.array[top:end+1] = np.ma.maximum(0.0,altitude[top:end+1]-altitude[end])
     
     
 class AltitudeForClimbCruiseDescent(DerivedParameterNode):
@@ -920,6 +921,23 @@ class RateOfClimb(DerivedParameterNode):
             az_washout = first_order_washout (az.array, AZ_WASHOUT_TC, az.hz, initial_value = az.array[0])
             inertial_roc = first_order_lag (az_washout, RATE_OF_CLIMB_LAG_TC, az.hz, gain=GRAVITY_IMPERIAL*RATE_OF_CLIMB_LAG_TC)
             self.array = (roc_altitude + inertial_roc) * 60.0
+
+
+            
+            import csv
+            spam = csv.writer(open('eggs.csv', 'wb'))
+            spam.writerow(['Alt_std', 'roc_alt_std', 'alt_rad', 'roc_alt_rad', 
+                           'std_rad_ratio', 'roc_altitude', 'az', 'az_washout', 
+                           'inertial_roc', 'self'])            
+            for showme in range(4300,5000):
+                spam.writerow([alt_std.array.data[showme], roc_alt_std.data[showme],
+                               alt_rad.array.data[showme], roc_alt_rad.data[showme],
+                               std_rad_ratio[showme], roc_altitude.data[showme],
+                               az.array.data[showme], az_washout.data[showme],
+                               inertial_roc.data[showme], self.array.data[showme]])
+
+
+            
         else:
             # The period for averaging altitude only data has been chosen
             # from careful inspection of Hercules data, where the pressure

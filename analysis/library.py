@@ -71,13 +71,46 @@ def align(slave, master, interval='Subframe', signaltype='Analogue'):
     # Get the sample rates for the two parameters
     wm = master.frequency
     ws = slave.frequency
+    slowest = min(wm,ws)
+    
+    #---------------------------------------------------------------------------
+    # Section to handle superframe parameters, in master, slave or both.
+    #---------------------------------------------------------------------------
+    if slowest < 0.25:
+        # One or both parameters is in a superframe. Handle without
+        # interpolation as these parameters are recorded at too low a rate
+        # for interpolation to be meaningful.
+        if wm==ws:
+            # All we need do is copy the data across as they are at the same
+            # sample rate.
+            slave_aligned=np.ma.copy(slave.array)
+            return slave_aligned
+        
+        if wm>ws:
+            # Increase samples in slave accordingly
+            r = wm/ws
+            assert r in [2,4,8,16,32,64,128,256]
+            slave_aligned = np.ma.reshape(np.ma.empty_like(master.array),(-1,r))
+            for i in range(len(slave.array)):
+                slave_aligned[i::r]=slave.array[i]
+            return np.ma.ravel(slave_aligned)
+            
+        else:
+            # Reduce samples in slave.
+            r = ws/wm
+            assert r in [2,4,8,16,32,64,128,256]
+            slave_aligned=np.ma.empty_like(master.array)
+            slave_aligned=slave_array[::r]
+            return slave_aligned
+    #---------------------------------------------------------------------------
+            
 
     # Express the timing disparity in terms of the slave paramter sample interval
     delta = (tp-ts)*slave.frequency
 
     # If we are working across a complete frame, the number of samples in each case
     # is four times greater.
-    if interval == 'Frame':
+    if interval == 'Frame' or 0.25 <= slowest < 1:
         wm = int(wm * 4)
         ws = int(ws * 4)
     assert wm in [1,2,4,8,16,32,64]
