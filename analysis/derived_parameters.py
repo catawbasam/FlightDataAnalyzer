@@ -5,8 +5,10 @@ from analysis.node import A, DerivedParameterNode, KTI, P, S
 
 from analysis.library import (first_order_lag,
                               first_order_washout,
-                              hysteresis, 
+                              hysteresis,
+                              index_of_datetime,
                               interleave,
+                              is_slice_within_slice,
                               rate_of_change, 
                               repair_mask,
                               straighten_headings,
@@ -818,28 +820,78 @@ class HeadingMagnetic(DerivedParameterNode):
 class HeadingTrue(DerivedParameterNode):
     # Computes magnetic deviation linearly changing from the deviation at
     # the origin to the destination.
-    def derive(self, head = P('Heading Continuous'),
-               flights = S('Airborne'),
-               dev_origin=A('Heading Deviation Origin'),
-               dev_dest=A('Heading Deviation Destination')):
+    def derive(self, head=P('Heading Continuous'),
+               airbornes=S('Airborne'),
+               approaches=A('FDR Approaches'),
+               start_datetime=A('Start Datetime')):
+        if not approaches.value:
+            return
         # We copy the masked array to transfer the mask array. All the data
         # values will be overwritten, but the mask will not be affected by
         # conversion from magnetic to true headings.
-        self.array = np.ma.copy(head.array)
-        start = 0
-        for num_flt, flight in enumerate(flights):
-            orig=slice(start,flight.slice.start)
-            dest=slice(flight.slice.stop,None)
-            self.array[orig] = head.array[orig] + dev_origin[num_flt]
+        true_array = np.ma.copy(head.array)
+        approach_dicts = []
+        for index, first_approach in enumerate(approaches.value):
+            # Loop over two airports at a time ((0, 1), (1, 2), (2, 3), etc..)
+            try:
+                second_approach = approaches.value[index+1]
+            except IndexError:
+                # We have exceeded the number of approaches.
+                break
             
-            # Prepare the linear interpolation values
-            begin = dev_origin[num_flt]
-            end = dev_dest[num_flt]
-            step = (end-begin)/(flight.slice.stop-flight.slice.start)
+            # Find 'Airborne' slice within two consecutive 'Approaches'.
+            first_approach_index = index_of_datetime(start_datetime.value,
+                                                     first_approach['datetime'],
+                                                     self.frequency)
+            second_approach_index = index_of_datetime(start_datetime.value,
+                                                      second_approach['datetime'],
+                                                      self.frequency)
+            approach_slice = slice(first_approach_index, second_approach_index)
+            for airborne in airbornes:
+                if is_slice_within_slice(airborne.slice, approach_slice):
+                    break
+            else:
+                logging.warning("'%s' slice could not be found within "
+                                "approaches, start index '%s', end index '%s'.",
+                                airbornes.name, first_approach_index,
+                                second_approach_index)
+                return
             
-            self.array[flight.slice] = head.array[flight.slice]+np.arange(begin,end,step)
-            self.array[dest] = head[dest] + dev_dest[num_flt]
-                        
+            # Requires 'magnetic_variation' for both airports.
+            orig_mag_var = first_approach['airport'].get('magnetic_variation')
+            dest_mag_var = second_approach['airport'].get('magnetic_variation')
+            if orig_mag_var is None or dest_mag_var is None:
+                logging.warning("Cannot calculate '%s' with a missing magnetic "
+                                "variation for airport with ID either '%s' or "
+                                "'%s'.", self.name,
+                                first_approach['airport']['id'],
+                                second_approach['airport']['id'])
+                return
+            
+            approach_dict = {'orig_mag_var': orig_mag_var,
+                             'dest_mag_var': dest_mag_var,
+                             'airborne_slice': airborne.slice}
+            approach_dicts.append(approach_dict)
+        
+        start_index = 0
+        for approach_dict in approach_dicts:
+            orig_mag_var = approach_dict['orig_mag_var']
+            dest_mag_var = approach_dict['dest_mag_var']
+            airborne_slice = approach_dict['airborne_slice']
+            
+            orig_slice = slice(start_index, airborne.slice.start)
+            true_array[orig_slice] = head.array[orig_slice] + orig_mag_var
+            mag_var_diff = dest_mag_var - orig_mag_var
+            airborne_duration = airborne_slice.stop - airborne_slice.start
+            step = mag_var_diff / airborne_duration
+            true_array[airborne_slice] = head.array[airborne_slice] + \
+                np.arange(orig_mag_var, dest_mag_var, step)
+            start_index = airborne_slice.stop
+        # Apply landing airport magnetic varation to remainder of array.
+        end_slice = slice(start_index, None)
+        true_array[end_slice] = true_array[end_slice] + dest_mag_var
+        self.array = true_array
+        
 
 class ILSLocalizerGap(DerivedParameterNode):
     def derive(self, ils_loc = P('Localizer Deviation'),

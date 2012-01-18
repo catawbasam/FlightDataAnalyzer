@@ -682,6 +682,17 @@ class TestIndexAtValue(unittest.TestCase):
         array = np.ma.arange(50)
         self.assertEqual(index_at_value(array, 55, slice(-20,20)), None)
 
+
+class TestIndexOfDatetime(unittest.TestCase):
+    def test_index_of_datetime(self):
+        start_datetime = datetime.now()
+        difference = timedelta(seconds=40)
+        index_datetime = start_datetime + difference
+        frequency = 4
+        index = index_of_datetime(start_datetime, index_datetime, frequency)
+        self.assertEqual(index, 160)
+
+
 class TestInterleave(unittest.TestCase):
     def test_interleave(self):
         param1 = P('A1',np.ma.array(range(4),dtype=float),1,0.2)

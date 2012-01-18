@@ -600,12 +600,24 @@ def interleave_uneven_spacing (param_1, param_2):
     #return straight_array
     return None # to force a test error until this is fixed to prevent extrapolation
 
+def index_of_datetime(start_datetime, index_datetime, frequency):
+    '''
+    :param start_datetime: Start datetime of data file.
+    :type start_datetime: datetime
+    :param index_datetime: Datetime to calculate the index of.
+    :type index_datetime: datetime
+    :param frequency: Frequency of index.
+    :type frequency: float or int
+    :returns: The index of index_datetime relative to start_datetime and frequency.
+    '''
+    difference = index_datetime - start_datetime
+    return difference.total_seconds() * frequency
+
 def is_index_within_slice(index, _slice):
     '''
-    Tests whether index is within the slice.
-    
     :type index: int or float
     :type _slice: slice
+    :returns: whether index is within the slice.
     :rtype: bool
     '''
     if _slice.start is None and _slice.stop is None:
