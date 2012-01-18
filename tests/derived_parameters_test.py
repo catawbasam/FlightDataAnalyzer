@@ -1,7 +1,8 @@
 import unittest
-import numpy as np
-import mock
 import sys
+from datetime import datetime, timedelta
+import mock
+import numpy as np
 
 import utilities.masked_array_testutils as ma_test
 from utilities.struct import Struct
@@ -727,22 +728,30 @@ class TestHeadContinuous(unittest.TestCase):
         np.testing.assert_array_equal(head.array.data, answer.data)
         
         
-class TestHeadTrue(unittest.TestCase):
+class TestHeadingTrue(unittest.TestCase):
     def test_can_operate(self):
-        expected = [('Heading Continuous'),('Airborne'),
-                    ('Heading Deviation Origin'),
-                    ('Heading Deviation Destination')]
-        opts = HeadingTrue.get_operational_combinations()
-        self.assertEqual(opts, expected)
+        self.assertEqual(HeadingTrue.get_operational_combinations(),
+                         [('Heading Continuous', 'Airborne', 'FDR Approaches',
+                           'Start Datetime')])
         
     def test_basic(self):
-        head = P('Heading Continuous',np.ma.zeros(15))
-        flights = S('Airborne',items=[Section('Airborne', slice(5, 10, None))])
-        dev_origin=A('Heading Deviation Origin', value = 5),
-        dev_dest=A('Heading Deviation Destination', value = 10)
+        head = P('Heading Continuous', np.ma.arange(25))
+        start_datetime = A('Start Datetime', value=datetime.now())
+        airbornes = S('Airborne',
+                      items=[Section('Airborne', slice(5, 10, None)),
+                             Section('Airborne', slice(10, 15, None))])
+        approaches = A('Approaches',
+                       value=[{'airport':{'magnetic_variation': 5},
+                               'datetime': start_datetime.value + timedelta(seconds=5)},
+                              {'airport':{'magnetic_variation': 20},
+                               'datetime': start_datetime.value + timedelta(seconds=10)},
+                              {'airport':{'magnetic_variation': 30},
+                               'datetime': start_datetime.value + timedelta(seconds=15)},])
         true_path = HeadingTrue()
-        true_path.derive(head, flights, dev_dest, dev_origin)
-        np.testing.assert_array_equal(true_path.array, [5,5,5,5,5,5,6,7,8,9,10,10,10,10,10])
+        true_path.derive(head, airbornes, approaches, start_datetime)
+        np.testing.assert_array_equal(true_path.array,
+            [5, 6, 7, 8, 9, 10, 14, 18, 22, 26, 30, 33, 36, 39, 42, 45, 46, 47,
+             48, 49, 50, 51, 52, 53, 54])
             
         
 class TestPitch(unittest.TestCase):

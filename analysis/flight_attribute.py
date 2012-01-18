@@ -147,6 +147,9 @@ class Approaches(FlightAttributeNode):
                approach_hdg_kpvs=KPV('Heading At Low Point On Approach'),
                approach_ilsfreq_kpvs=KPV('ILS Frequency On Approach'),
                precision=A('Precise Positioning')):
+        '''
+        TODO: Document approaches format.
+        '''
         api_handler = get_api_handler()
         approaches = []
         for approach in approach_and_landing:
