@@ -269,13 +269,13 @@ class TestAirspeedMinusVref(unittest.TestCase):
     
     def test_airspeed_for_phases_basic(self):
         speed=P('Airspeed',np.ma.array([200]*128),frequency=1)
-        ref = P('Vref',np.ma.array([120,130]), frequency=1/64, offset=3)
+        ref = P('Vref',np.ma.array([120,130]), frequency=1/64.0, offset=3)
         # Offset is frame-related, not superframe based, so is to some extent
         # meaningless.
         param = AirspeedMinusVref()
         param.get_derived([speed, ref])
         expected=np.array([80]*64+[70]*64)
-        self.assertEqual(param.array, expected)
+        np.testing.assert_array_equal(param.array, expected)
 
 
 class TestAltitudeAALForFlightPhases(unittest.TestCase):

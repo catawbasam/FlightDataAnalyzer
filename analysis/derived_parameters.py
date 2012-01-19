@@ -3,12 +3,14 @@ import numpy as np
 
 from analysis.node import A, DerivedParameterNode, KTI, P, S
 
-from analysis.library import (first_order_lag,
+from analysis.library import (blend_alternate_sensors,
+                              first_order_lag,
                               first_order_washout,
                               hysteresis,
                               index_of_datetime,
                               interleave,
                               is_slice_within_slice,
+                              merge_two_sources,
                               rate_of_change, 
                               repair_mask,
                               straighten_headings,
@@ -239,7 +241,7 @@ class AltitudeRadio(DerivedParameterNode):
     The parameter raa_to_gear is measured in feet and is positive if the
     antenna is forward of the mainwheels.
     """
-    def derive(self, alt_rad=P('Altitude Radio Sensor'), pitch=P('Pitch'),
+    def derive(self, alt_rad=P('Altitude Radio'), pitch=P('Pitch'),
                main_gear_to_alt_rad=A('Main Gear To Altitude Radio')):
         # Align the pitch attitude samples to the Radio Altimeter samples,
         # ready for combining them.
@@ -949,14 +951,25 @@ class RateOfClimb(DerivedParameterNode):
     def derive(self, 
                az = P('Acceleration Vertical'),
                alt_std = P('Altitude STD'),
-               alt_rad = P('Altitude Radio')):
+               alt_rad = P('Altitude Radio'),
+               """
+               TODO: Remove this
+               ax = P('Acceleration Longitudinal'),
+               ay = P('Acceleration Lateral'),
+               an = P('Acceleration Normal'),
+               pch = P('Pitch'),
+               roll = P('Roll')
+               """
+               ):
         if az and alt_rad:
             # Use the complementary smoothing approach
 
             roc_alt_std = first_order_washout(alt_std.array,
-                                              RATE_OF_CLIMB_LAG_TC, az.hz)
+                                              RATE_OF_CLIMB_LAG_TC, az.hz,
+                                              gain=1/RATE_OF_CLIMB_LAG_TC)
             roc_alt_rad = first_order_washout(alt_rad.array,
-                                              RATE_OF_CLIMB_LAG_TC, az.hz)
+                                              RATE_OF_CLIMB_LAG_TC, az.hz,
+                                              gain=1/RATE_OF_CLIMB_LAG_TC)
                     
             # Use pressure altitude rate above 100ft and radio altitude rate
             # below 50ft with progressive changeover across that range.
@@ -967,28 +980,39 @@ class RateOfClimb(DerivedParameterNode):
             roc_altitude = roc_alt_std*std_rad_ratio +\
                 roc_alt_rad*(1.0-std_rad_ratio)
                 
-            roc_altitude /= RATE_OF_CLIMB_LAG_TC # Remove washout gain  
-            
-            # Lag this rate of climb
-            az_washout = first_order_washout (az.array, AZ_WASHOUT_TC, az.hz, initial_value = az.array[0])
-            inertial_roc = first_order_lag (az_washout, RATE_OF_CLIMB_LAG_TC, az.hz, gain=GRAVITY_IMPERIAL*RATE_OF_CLIMB_LAG_TC)
+            az_washout = first_order_washout (az.array, AZ_WASHOUT_TC, az.hz, 
+                                              gain=GRAVITY_IMPERIAL,
+                                              initial_value = az.array[0])
+            inertial_roc = first_order_lag (az_washout, RATE_OF_CLIMB_LAG_TC, az.hz, gain=RATE_OF_CLIMB_LAG_TC)
             self.array = (roc_altitude + inertial_roc) * 60.0
 
 
-            
+            """
+            #-------------------------------------------------------------------
+            # TEST OUTPUT TO CSV FILE FOR DEBUGGING ONLY
+            # TODO: REMOVE THIS SECTION BEFORE RELEASE
+            #-------------------------------------------------------------------
             import csv
             spam = csv.writer(open('eggs.csv', 'wb'))
             spam.writerow(['Alt_std', 'roc_alt_std', 'alt_rad', 'roc_alt_rad', 
                            'std_rad_ratio', 'roc_altitude', 'az', 'az_washout', 
-                           'inertial_roc', 'self'])            
-            for showme in range(4300,5000):
+                           'inertial_roc', 'self',
+                           'Longitudinal','Lateral','Normal','Pitch','Roll'])
+            #for showme in range(0, len(roc_alt_std)):
+            for showme in range(23550, 23710):
                 spam.writerow([alt_std.array.data[showme], roc_alt_std.data[showme],
                                alt_rad.array.data[showme], roc_alt_rad.data[showme],
                                std_rad_ratio[showme], roc_altitude.data[showme],
                                az.array.data[showme], az_washout.data[showme],
-                               inertial_roc.data[showme], self.array.data[showme]])
-
-
+                               inertial_roc.data[showme], self.array.data[showme],
+                               ax.array.data[showme], ay.array.data[showme],
+                               an.array.data[showme], pch.array.data[showme],
+                               roll.array.data[showme]])
+            #-------------------------------------------------------------------
+            # TEST OUTPUT TO CSV FILE FOR DEBUGGING ONLY
+            # TODO: REMOVE THIS SECTION BEFORE RELEASE
+            #-------------------------------------------------------------------
+            """
             
         else:
             # The period for averaging altitude only data has been chosen
@@ -999,6 +1023,64 @@ class RateOfClimb(DerivedParameterNode):
             # corrupt source data. So, change the "3" only after careful
             # consideration.
             self.array = rate_of_change(alt_std,3)*60
+
+
+class AltitudeRadio(DerivedParameterNode):
+    '''
+    Assumes that signal (A) is at twice the frequency of (B) and (C).
+    
+    Therefore align to first dependency is disabled.
+    '''
+    align_to_first_dependency = False
+    
+    def derive(self, source_A=P('Altitude Radio (A)'),
+               source_B=P('Altitude Radio (B)'),
+               source_C=P('Altitude Radio (C)')):
+        
+        #TODO: Align arrays to proportionate offsets evenly between samples
+        
+        #TODO: Tests - the sample given had (a) at twice the frequency of (b)
+        #and (c), is this always the case? if so, state in docstring. 
+        
+        #TODO: Make blend alternate sensors work with n sensors (3 in this case)?
+        
+        #Q: Merge merge_two_sources and blend_alternate_sensors into one function?
+        
+        assert source_A.frequency == source_B.frequency * 2
+        assert source_B.frequency == source_C.frequency
+        
+        
+        # with the following align example, it should be possible to use
+        # different frequency parameters too - but you'd have to be clever
+        # about picking the minimum working up to the maximum hz parameters.
+        from analysis.library import align
+        # make the "master" (B) half the frequency ahead for the "slave" (C) to align to
+        # source_B.offset += .5/source_B.hz
+        # source_c_aligned_ahead = align(source_C, source_B)
+        b_and_c = merge_two_sources(source_B.array, source_C.array)
+        # blend b and c smoothly together
+        b_and_c_blended = blend_alternate_sensors(b_and_c)
+        # store in a parameter ready for alignment
+        BandC = P(array=b_and_c_blended, frequency=source_B.hz*2, offset=source_B.offset)
+        
+        # make the "master" (A) half the frequency ahead for the slave (BandC) to align to
+        # source_A.offset += .5/source_A.hz
+        # source_bc_aligned_ahead = align(BandC, source_A)
+        # merge (A) with (B C)
+        a_b_and_c = merge_two_sources(source_A.array, BandC.array)
+        self.array = blend_alternate_sensors(a_b_and_c)
+        
+        
+        ##b_and_c = merge_two_sources(source_B.array, source_C.array)
+        ##a_b_and_c = merge_two_sources(source_A.array, b_and_c)
+        
+        # increase frequency
+        #e.g. A = 0.5Hz, B = 0.25Hz and C = 0.25Hz
+        # b_and_c == 0.5Hz
+        # a_b_and_c == 1Hz
+        self.frequency = source_A.frequency * 2
+        self.offset = source_A.offset # everything has been pulled into alignment of (A)
+        
 
 
 class RateOfClimbForFlightPhases(DerivedParameterNode):

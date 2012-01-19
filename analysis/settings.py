@@ -142,7 +142,7 @@ RATE_OF_TURN_FOR_FLIGHT_PHASES = 1.5 # deg per second
 REPAIR_DURATION = 10 # seconds 
 
 # Rate of Climb complementary filter timeconstant
-RATE_OF_CLIMB_LAG_TC = 6.0 # sec
+RATE_OF_CLIMB_LAG_TC = 3.0 # sec
 
 # Acceleration forwards at the start of the takeoff roll.
 TAKEOFF_ACCELERATION_THRESHOLD = 0.1 # g
