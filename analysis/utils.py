@@ -1,4 +1,6 @@
+import sys
 from datetime import datetime
+import argparse
 
 import h5py
 
@@ -33,9 +35,22 @@ def trimmer(hdf_path, node_names, dest):
         process_order = dependency_order(node_mgr, draw=False)
     strip_hdf(hdf_path, process_order, dest)
     return dest
-        
+
 
 if __name__ == '__main__':
-    strip_hdf('/tmp/tmp_strip_hdf.hdf5', ['Altitude When Descending', 'Heading Continuous', 'Rate Of Climb For Flight Phases'],
-              '/tmp/tmp_strip_hdf_out.hdf5')
+    command_parser = argparse.ArgumentParser()
+    command_parser.add_argument('command',
+                            help="utils command to run, options: 'trimmer'.")
+    args = command_parser.parse_args(sys.argv[1:2])
+    if args.command == 'trimmer':
+        trimmer_parser = argparse.ArgumentParser()
+        trimmer_parser.add_argument('source_path')
+        trimmer_parser.add_argument('node_names', nargs='+')
+        trimmer_parser.add_argument('out_path')
+        print sys.argv[2:]
+        trimmer_args = trimmer_parser.parse_args(args=sys.argv[2:])
+        trimmer(trimmer_args.source_path, trimmer_args.node_names,
+                trimmer_args.out_path)
+    else:
+        parser.error("'%s' is not a known command." % args.command)
 
