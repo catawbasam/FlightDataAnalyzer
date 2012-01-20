@@ -25,11 +25,11 @@ class TestProcessFlight(unittest.TestCase):
     def setUp(self):
         pass
     
-    @unittest.skipIf(not os.path.isfile("test_data/1_7295949_737-3C.001.hdf5"),
+    @unittest.skipIf(not os.path.isfile("test_data/1_7295949_737-3C.hdf5"),
                      "Test file not present")
     def test_1_7295949_737_3C(self):
-        hdf_orig = "test_data/1_7295949_737-3C.001.hdf5"
-        hdf_path = "test_data/1_7295949_737-3C.001_copy.hdf5"
+        hdf_orig = "test_data/1_7295949_737-3C.hdf5"
+        hdf_path = "test_data/1_7295949_737-3C_copy.hdf5"
         if os.path.isfile(hdf_path):
             os.remove(hdf_path)
         shutil.copy(hdf_orig, hdf_path)

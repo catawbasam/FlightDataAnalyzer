@@ -71,13 +71,46 @@ def align(slave, master, interval='Subframe', signaltype='Analogue'):
     # Get the sample rates for the two parameters
     wm = master.frequency
     ws = slave.frequency
+    slowest = min(wm,ws)
+    
+    #---------------------------------------------------------------------------
+    # Section to handle superframe parameters, in master, slave or both.
+    #---------------------------------------------------------------------------
+    if slowest < 0.25:
+        # One or both parameters is in a superframe. Handle without
+        # interpolation as these parameters are recorded at too low a rate
+        # for interpolation to be meaningful.
+        if wm==ws:
+            # All we need do is copy the data across as they are at the same
+            # sample rate.
+            slave_aligned=np.ma.copy(slave.array)
+            return slave_aligned
+        
+        if wm>ws:
+            # Increase samples in slave accordingly
+            r = wm/ws
+            assert r in [2,4,8,16,32,64,128,256]
+            slave_aligned = np.ma.reshape(np.ma.empty_like(master.array),(-1,r))
+            for i in range(len(slave.array)):
+                slave_aligned[i::r]=slave.array[i]
+            return np.ma.ravel(slave_aligned)
+            
+        else:
+            # Reduce samples in slave.
+            r = ws/wm
+            assert r in [2,4,8,16,32,64,128,256]
+            slave_aligned=np.ma.empty_like(master.array)
+            slave_aligned=slave_array[::r]
+            return slave_aligned
+    #---------------------------------------------------------------------------
+            
 
     # Express the timing disparity in terms of the slave paramter sample interval
     delta = (tp-ts)*slave.frequency
 
     # If we are working across a complete frame, the number of samples in each case
     # is four times greater.
-    if interval == 'Frame':
+    if interval == 'Frame' or 0.25 <= slowest < 1:
         wm = int(wm * 4)
         ws = int(ws * 4)
     assert wm in [1,2,4,8,16,32,64]
@@ -324,7 +357,7 @@ def duration(a, period, hz=1.0):
     '''
     return a
 
-def first_order_lag (array, time_constant, hz, gain = 1.0, initial_value = None):
+def first_order_lag (in_param, time_constant, hz, gain = 1.0, initial_value = None):
     '''
     Computes the transfer function
             x.G
@@ -341,8 +374,8 @@ def first_order_lag (array, time_constant, hz, gain = 1.0, initial_value = None)
     first_order_lag(param, time_constant=5) is equivalent to
     array[index] = array[index-1] * 0.8 + array[index] * 0.2.
     
-    :param array: input data (x)
-    :type array: masked array
+    :param in_param: input data (x)
+    :type in_param: masked array
     :param time_constant: time_constant for the lag function (T)(sec)
     :type time_constant: float
     :param hz: sample rate for the input data (sec-1)
@@ -353,10 +386,10 @@ def first_order_lag (array, time_constant, hz, gain = 1.0, initial_value = None)
     :type initial_value: float
     :returns: masked array of values with first order lag applied
     '''
-    input_data = np.copy(array.data)
+    #input_data = np.copy(array.data)
     
     # Scale the time constant to allow for different data sample rates.
-    tc = time_constant / hz
+    tc = time_constant * hz
     
     # Trap the condition for stability
     if tc < 0.5:
@@ -372,19 +405,51 @@ def first_order_lag (array, time_constant, hz, gain = 1.0, initial_value = None)
     y_term.append ((1.0 - 2.0*tc)/(1.0 + 2.0*tc)) #a[1]
     y_term = np.array(y_term)
     
+    return masked_first_order_filter(y_term, x_term, in_param, initial_value)
+
+def masked_first_order_filter(y_term, x_term, in_param, initial_value):
+    """
+    This provides access to the scipy filter function processed across the
+    unmasked data blocks, with masked data retained as masked zero values.
+    This is a better option than masking all subsequent values which would be
+    the mathematically correct thing to do with infinite response filters.
+    
+    :param y_term: Filter denominator terms. 
+    :type in_param: list 
+    :param x_term: Filter numerator terms.
+    :type x_term: list
+    :param in_param: input data array
+    :type in_param: masked array
+    :param initial_value: Value to be used at the start of the data
+    :type initial_value: float (or may be None)
+    """
+    
     z_initial = lfilter_zi(x_term, y_term) # Prepare for non-zero initial state
     # The initial value may be set as a command line argument, mainly for testing
     # otherwise we set it to the first data value.
-    if initial_value == None:
-        initial_value = input_data[0]
-    answer, z_final = lfilter(x_term, y_term, input_data, zi=z_initial*initial_value)
-    masked_result = np.ma.array(answer)
+    
+    result = np.ma.zeros(len(in_param))  # There is no zeros_like method.
+    good_parts = np.ma.clump_unmasked(in_param)
+    for good_part in good_parts:
+        
+        if initial_value == None:
+            initial_value = in_param[good_part.start]
+        # Tested version here...
+        answer, z_final = lfilter(x_term, y_term, in_param[good_part], zi=z_initial*initial_value)
+        result[good_part] = np.ma.array(answer)
+        
     # The mask should last indefinitely following any single corrupt data point
     # but this is impractical for our use, so we just copy forward the original
     # mask.
-    masked_result.mask = array.mask
-    return masked_result
-
+    bad_parts = np.ma.clump_masked(in_param)
+    for bad_part in bad_parts:
+        # The mask should last indefinitely following any single corrupt data point
+        # but this is impractical for our use, so we just copy forward the original
+        # mask.
+        result[bad_part] = np.ma.masked
+        
+    return result
+    
 def first_order_washout (in_param, time_constant, hz, gain = 1.0, initial_value = None):
     '''
     Computes the transfer function
@@ -410,10 +475,10 @@ def first_order_washout (in_param, time_constant, hz, gain = 1.0, initial_value 
     :type initial_value: float
     :returns: masked array of values with first order lag applied
     '''
-    input_data = np.copy(in_param.data)
+    #input_data = np.copy(in_param.data)
     
     # Scale the time constant to allow for different data sample rates.
-    tc = time_constant / hz
+    tc = time_constant * hz
     
     # Trap the condition for stability
     if tc < 0.5:
@@ -429,17 +494,7 @@ def first_order_washout (in_param, time_constant, hz, gain = 1.0, initial_value 
     y_term.append ((1.0 - 2.0*tc)/(1.0 + 2.0*tc)) #a[1]
     y_term = np.array(y_term)
     
-    z_initial = lfilter_zi(x_term, y_term)
-    if initial_value == None:
-        initial_value = input_data[0]
-    # Tested version here...
-    answer, z_final = lfilter(x_term, y_term, input_data, zi=z_initial*initial_value)
-    masked_result = np.ma.array(answer)
-    # The mask should last indefinitely following any single corrupt data point
-    # but this is impractical for our use, so we just copy forward the original
-    # mask.
-    masked_result.mask = in_param.mask
-    return masked_result
+    return masked_first_order_filter(y_term, x_term, in_param, initial_value)
 
 def hash_array(array):
     '''
@@ -706,7 +761,7 @@ def min_value(array, _slice=slice(None)):
     """
     return _value(array, _slice, np.ma.argmin)
             
-def merge_alternate_sensors (array):
+def blend_alternate_sensors (array):
     '''
     This simple process merges the data from two sensors where they are sampled
     alternately. Often pilot and co-pilot attitude and air data signals are
@@ -727,6 +782,30 @@ def merge_alternate_sensors (array):
     result[0] = (array[0] + array[1]) / 2.0
     result[-1] = (array[-2] + array[-1]) / 2.0
     return result
+
+
+def merge_sources(*arrays):
+    '''
+    This simple process merges the data from two sensors where they are
+    sampled alternately. Unlike merge_alternate_sensors, this procedure does
+    not make any allowance for the two sensor readings being different.
+    
+    :param array: sampled data from an alternate signal source
+    :type array: masked array
+    :returns: masked array with merging algorithm applied.
+    :rtype: masked array
+    '''
+    result = np.ma.empty((len(arrays[0]),len(arrays)))
+    for dim, array in enumerate(arrays):
+        result[:,dim] = array
+    return np.ma.ravel(result)
+
+
+def merge_two_sources (array_one, array_two):
+    '''
+    Shortcut to merge_sources.
+    '''
+    return merge_sources(array_one, array_two)
 
 
 def peak_curvature(array, _slice=slice(None), search_for='Concave'):
@@ -1170,7 +1249,7 @@ def value_at_index(array, index):
     low = int(index)
     if (low==index):
         # I happen to have arrived at exactly the right value by a fluke...
-        return None if array.mask[low] else array[low]
+        return None if np.ma.is_masked(array[low]) else array[low]
     else:
         high = low + 1
         r = index - low
