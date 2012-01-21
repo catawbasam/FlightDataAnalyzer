@@ -91,6 +91,7 @@ class AccelerationAcrossTrack(DerivedParameterNode):
             - acc_fwd.array * np.sin(drift_rad)
 
 
+##class     name = 'Airspeed Minus V2 400 To 1500 Ft Min'
 class AccelerationAlongTrack(DerivedParameterNode):
     def derive(self, acc_fwd=P('Acceleration Forwards'), 
                acc_side=P('Acceleration Sideways'), 
@@ -850,22 +851,40 @@ class GearSelectedUp(DerivedParameterNode):
     def derive(self, param=P('Gear Selected Up FDR')):
         pass
     
-    
+"""
+Not needed for 737-3C Frame
+
 class GroundspeedAlongTrack(DerivedParameterNode):
     # Inertial smoothing provides computation of groundspeed data when the
     # recorded groundspeed is unreliable. For example, during sliding motion
     # on a runway during deceleration. This is not good enough for long
-    # period computation, but is an improvement over groundspeed data that
-    # stops at 40kn or thereabouts.
-    def derive(self, gndspd=P('Groundspeed'),
-               at=P('Acceleration Along Track')):
-        at_washout = first_order_washout(at.array, AT_WASHOUT_TC, at.hz, 
+    # period computation, but is an improvement over aircraft where the 
+    # groundspeed data stops at 40kn or thereabouts.
+    def derive(self, gndspd=P('Ground Speed'),
+               at=P('Acceleration Along Track'),
+               ):
+        at_washout = first_order_washout(at.array, AT_WASHOUT_TC, gndspd.hz, 
                                          gain=GROUNDSPEED_LAG_TC*GRAVITY_METRIC)
-        self.array = first_order_lag((gndspd.array*KTS_TO_MPS) + at_washout,
+        self.array = first_order_lag(gndspd.array*KTS_TO_MPS + at_washout,
                                      GROUNDSPEED_LAG_TC,gndspd.hz)
     
-
-
+        #-------------------------------------------------------------------
+        # TEST OUTPUT TO CSV FILE FOR DEBUGGING ONLY
+        # TODO: REMOVE THIS SECTION BEFORE RELEASE
+        #-------------------------------------------------------------------
+        import csv
+        spam = csv.writer(open('beans.csv', 'wb'))
+        spam.writerow(['at', 'gndspd', 'at_washout', 'self'])
+        for showme in range(0, 30000):
+            spam.writerow([at.array.data[showme], 
+                           gndspd.array.data[showme]*KTS_TO_MPS,
+                           at_washout[showme], 
+                           self.array.data[showme]])
+        #-------------------------------------------------------------------
+        # TEST OUTPUT TO CSV FILE FOR DEBUGGING ONLY
+        # TODO: REMOVE THIS SECTION BEFORE RELEASE
+        #-------------------------------------------------------------------
+"""
 
 class HeadingContinuous(DerivedParameterNode):
     """

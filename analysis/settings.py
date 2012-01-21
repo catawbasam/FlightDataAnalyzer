@@ -31,7 +31,7 @@ ALTITUDE_FOR_CLB_CRU_DSC = 12500
 AZ_WASHOUT_TC = 60.0
 
 # As above for the along-track resolved acceleration term.
-AT_WASHOUT_TC = 200.0
+AT_WASHOUT_TC = 60.0
 
 #Less than 5 mins you can't do a circuit, so we'll presume this is a data
 #snippet 
@@ -58,7 +58,7 @@ GRAVITY_IMPERIAL = 32.2 # ft/sec^2 - used for combining acceleration and height 
 GRAVITY_METRIC = 9.81 # m/sec^2 - used for comibining acceleration and groundspeed terms
 
 # Groundspeed complementary filter time constant.
-GROUNDSPEED_LAG_TC = 20.0 # seconds
+GROUNDSPEED_LAG_TC = 6.0 # seconds
 
 # Threshold for turn onto runway at start of takeoff.
 # This will usually be overwritten by the peak curvature test.
