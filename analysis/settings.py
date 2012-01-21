@@ -133,7 +133,7 @@ RATE_OF_CLIMB_FOR_LEVEL_FLIGHT = 300 # fpm
 RATE_OF_CLIMB_FOR_LIFTOFF = 5 # fpm
 
 # Rate of climb for touchdown.
-RATE_OF_CLIMB_FOR_TOUCHDOWN = -10 # fpm
+RATE_OF_CLIMB_FOR_TOUCHDOWN = -60 # fpm
 
 # Rate of turn limits of +/- 90 deg/minute work well in flight and on ground.
 RATE_OF_TURN_FOR_FLIGHT_PHASES = 1.5 # deg per second

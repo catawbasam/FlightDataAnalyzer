@@ -18,10 +18,11 @@ from analysis.derived_parameters import (
     AccelerationAcrossTrack,
     AirspeedForFlightPhases,
     AirspeedMinusVref,
+    AltitudeAAL,
     AltitudeAALForFlightPhases,
     AltitudeForFlightPhases,
     AltitudeRadio,
-    AltitudeRadioForFlightPhases,
+    #AltitudeRadioForFlightPhases,
     AltitudeSTD,
     AltitudeTail,
     ClimbForFlightPhases,
@@ -278,6 +279,31 @@ class TestAirspeedMinusVref(unittest.TestCase):
         np.testing.assert_array_equal(param.array, expected)
 
 
+class TestAltitudeAAL(unittest.TestCase):
+    def test_can_operate(self):
+        expected = [('Rate Of Climb','Altitude STD','Altitude Radio','Fast')]
+        opts = AltitudeAAL.get_operational_combinations()
+        self.assertEqual(opts, expected)
+        
+    '''
+
+    TODO: Write a better test. The problem is that the algorithm requires the 
+    rate of climb and altitudes to be compatible. i.e. the rates relate to sample intervals etc.
+
+    def test_altitude_AAL_basic(self):
+        slow_and_fast_data = np.ma.array(range(60,120,10)+range(120,50,-10))
+        roc = Parameter('Rate Of Climb',np.ma.array([0]*3+[600]*3+[-600]*3+[0]*4))
+        up_and_down_data = np.ma.array([0, 0, 0, 100, 200, 300, 
+                                400, 300, 200, 100, 0, 0, 0], dtype=float)
+        phase_fast = Fast()
+        phase_fast.derive(Parameter('Airspeed', slow_and_fast_data))
+        alt_aal = AltitudeAAL()
+        altitude = Parameter('Altitude STD', up_and_down_data)
+        alt_aal.derive(roc, altitude, altitude, phase_fast)
+        expected = up_and_down_data
+        ma_test.assert_masked_array_approx_equal(alt_aal.array, expected)
+    '''
+
 class TestAltitudeAALForFlightPhases(unittest.TestCase):
     def test_can_operate(self):
         expected = [('Altitude STD','Fast')]
@@ -374,6 +400,7 @@ class TestAltitudeRadio(unittest.TestCase):
         np.testing.assert_array_almost_equal(alt_rad.array, answer)
 
 
+"""
 class TestAltitudeRadioForFlightPhases(unittest.TestCase):
     def test_can_operate(self):
         expected = [('Altitude Radio',)]
@@ -387,7 +414,7 @@ class TestAltitudeRadioForFlightPhases(unittest.TestCase):
         alt_4_ph.derive(Parameter('Altitude Radio', raw_data, 1,0.0))
         expected = np.ma.array([0,0,0],mask=False)
         np.testing.assert_array_equal(alt_4_ph.array, expected)
-
+"""
 
 class TestAltitudeSTD(unittest.TestCase):
     def test_can_operate(self):

@@ -61,9 +61,6 @@ def align(slave, master, interval='Subframe', signaltype='Analogue'):
     # Check the type of signal is one of those we recognise
     assert signaltype in ['Analogue', 'Discrete', 'Multi-State']
     
-    ## slave_aligned[:] = 0.0
-    ## Clearing the slave_aligned array is unnecessary, but can make testing easier to follow.
-
     # Get the timing offsets, comprised of word location and possible latency.
     tp = master.offset
     ts = slave.offset
@@ -513,10 +510,13 @@ def hysteresis (array, hysteresis):
     result = np.empty(length)
     length = length-1 #  To be used for array indexing next
 
-    # The starting point for the computation is the first sample.
-    old = array[0]
+    # The starting point for the computation is the first sample. We have to
+    # be careful to take only the data part, as a masked value of old will
+    # cause the entire data set to be masked :o(
+    old = array.data[0]
 
-    # Index through the data storing the answer in reverse order
+    # Index through the data storing the answer in reverse order Enumerate
+    # does not convey the mask, so this is processed on raw data values.
     for index, new in enumerate(array.data):
         if new - old > quarter_range:
             old = new  - quarter_range
@@ -531,7 +531,9 @@ def hysteresis (array, hysteresis):
         elif new - old < -quarter_range:
             old = new + quarter_range
         result[length-index] = old
-
+ 
+    # At the end of the process we reinstate the mask, although the data
+    # values may have affected the result.
     return np.ma.array(result, mask=array.mask)
 
 
@@ -761,33 +763,10 @@ def min_value(array, _slice=slice(None)):
     """
     return _value(array, _slice, np.ma.argmin)
             
-def blend_alternate_sensors (array):
-    '''
-    This simple process merges the data from two sensors where they are sampled
-    alternately. Often pilot and co-pilot attitude and air data signals are
-    stored in alternate locations to provide the required sample rate while
-    allowing errors in either to be identified for investigation purposes.
-    
-    For FDM, only a single parameter is required, but mismatches in the two 
-    sensors can lead to, taking pitch attitude as an example, apparent "nodding"
-    of the aircraft and errors in the derived pitch rate.
-    
-    :param array: sampled data from an alternate signal source
-    :type array: masked array
-    :returns: masked array with merging algorithm applied.
-    :rtype: masked array
-    '''
-    result = np.ma.empty_like(array)
-    result[1:-1] = (array[:-2] + array[1:-1]*2.0 + array[2:]) / 4.0
-    result[0] = (array[0] + array[1]) / 2.0
-    result[-1] = (array[-2] + array[-1]) / 2.0
-    return result
-
-
 def merge_sources(*arrays):
     '''
-    This simple process merges the data from two sensors where they are
-    sampled alternately. Unlike merge_alternate_sensors, this procedure does
+    This simple process merges the data from multiple sensors where they are
+    sampled alternately. Unlike merge_two_sensors, this procedure does
     not make any allowance for the two sensor readings being different.
     
     :param array: sampled data from an alternate signal source
@@ -801,12 +780,67 @@ def merge_sources(*arrays):
     return np.ma.ravel(result)
 
 
-def merge_two_sources (array_one, array_two):
+def blend_alternate_sensors (array_one, array_two, padding):
     '''
-    Shortcut to merge_sources.
+    This simple process merges the data from two sensors where they are sampled
+    alternately. Often pilot and co-pilot attitude and air data signals are
+    stored in alternate locations to provide the required sample rate while
+    allowing errors in either to be identified for investigation purposes.
+    
+    For FDM, only a single parameter is required, but mismatches in the two 
+    sensors can lead to, taking pitch attitude as an example, apparent "nodding"
+    of the aircraft and errors in the derived pitch rate.
+    
+    Mismatches can also occur when there are timing differences between the
+    two samples, in which case this averaging process combined with
+    corrections to the offset and sampling interval are effective.
+    
+    :param array_one: sampled data from one signal source
+    :type array_one: masked array
+    :param array_two: sampled data from one signal source
+    :type array_two: masked array
+    :param padding: where to put the padding value in the array
+    :type padding: String "Precede" or "Follow"
+    :returns: masked array with merging algorithm applied.
+    :rtype: masked array
     '''
-    return merge_sources(array_one, array_two)
+    assert len(array_one) == len(array_two)
+    both = merge_sources(array_one, array_two)
+    # A simpler technique than trying to append to the averaged array.
+    av_pairs = np.ma.empty_like(both)
+    if padding == 'Follow':
+        av_pairs[:-1] = (both[:-1]+both[1:])/2
+        av_pairs[-1] = av_pairs[-2]
+        av_pairs[-1] = np.ma.masked
+    else:
+        av_pairs[1:] = (both[:-1]+both[1:])/2
+        av_pairs[0] = av_pairs[1]
+        av_pairs[0] = np.ma.masked
+    return av_pairs
 
+def blend_two_parameters (param_one, param_two):
+    '''
+    This process merges two parameter arrays of the same frequency.
+    Soothes and then computes the offset and frequency appropriately.
+    
+    :param param_one: Parameter object
+    :type param_one: Parameter
+    '''
+    assert param_one.frequency  == param_two.frequency
+    offset = (param_one.offset + param_two.offset)/2.0
+    frequency = param_one.frequency * 2
+    padding = 'Follow'
+    
+    if offset > 1/frequency:
+        offset = offset - 1/frequency
+        padding = 'Precede'
+        
+    if param_one.offset <= param_two.offset:
+        # merged array should be monotonic (always increasing in time)
+        array = blend_alternate_sensors(param_one.array, param_two.array, padding)
+    else:
+        array = blend_alternate_sensors(param_two.array, param_one.array, padding)
+    return array, param_one.frequency * 2, offset
 
 def peak_curvature(array, _slice=slice(None), search_for='Concave'):
     """
