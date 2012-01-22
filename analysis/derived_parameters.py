@@ -14,6 +14,8 @@ from analysis.library import (blend_alternate_sensors,
                               merge_sources,
                               rate_of_change, 
                               repair_mask,
+                              rms_noise,
+                              smooth_track,
                               straighten_headings,
                               vstack_params)
 
@@ -22,8 +24,7 @@ from settings import (AZ_WASHOUT_TC,
                       GROUNDSPEED_LAG_TC,
                       HYSTERESIS_FPALT,
                       HYSTERESIS_FPALT_CCD,
-                      HYSTERESIS_FP_RAD_ALT,
-                      HYSTERESIS_FPIAS, 
+                      HYSTERESIS_FPIAS,
                       HYSTERESIS_FPROC,
                       GRAVITY_IMPERIAL,
                       GRAVITY_METRIC,
@@ -239,6 +240,7 @@ class AltitudeAAL(DerivedParameterNode):
                 self.array[speedy.slice] = (alt_aal_lag + roc_lag)
                 
                 
+                """
                 #-------------------------------------------------------------------
                 # TEST OUTPUT TO CSV FILE FOR DEBUGGING ONLY
                 # TODO: REMOVE THIS SECTION BEFORE RELEASE
@@ -255,13 +257,11 @@ class AltitudeAAL(DerivedParameterNode):
                                    alt_aal_lag[showme],
                                    roc_lag[showme],
                                    self.array[speedy.slice][showme]])
-                x=0
-        
                 #-------------------------------------------------------------------
                 # TEST OUTPUT TO CSV FILE FOR DEBUGGING ONLY
                 # TODO: REMOVE THIS SECTION BEFORE RELEASE
                 #-------------------------------------------------------------------
-                
+                """
 
     
 class AltitudeAALForFlightPhases(DerivedParameterNode):
@@ -853,7 +853,7 @@ class GearSelectedUp(DerivedParameterNode):
     
 """
 Not needed for 737-3C Frame
-
+"""
 class GroundspeedAlongTrack(DerivedParameterNode):
     # Inertial smoothing provides computation of groundspeed data when the
     # recorded groundspeed is unreliable. For example, during sliding motion
@@ -868,6 +868,7 @@ class GroundspeedAlongTrack(DerivedParameterNode):
         self.array = first_order_lag(gndspd.array*KTS_TO_MPS + at_washout,
                                      GROUNDSPEED_LAG_TC,gndspd.hz)
     
+        """
         #-------------------------------------------------------------------
         # TEST OUTPUT TO CSV FILE FOR DEBUGGING ONLY
         # TODO: REMOVE THIS SECTION BEFORE RELEASE
@@ -875,7 +876,7 @@ class GroundspeedAlongTrack(DerivedParameterNode):
         import csv
         spam = csv.writer(open('beans.csv', 'wb'))
         spam.writerow(['at', 'gndspd', 'at_washout', 'self'])
-        for showme in range(0, 30000):
+        for showme in range(0, len(at.array):
             spam.writerow([at.array.data[showme], 
                            gndspd.array.data[showme]*KTS_TO_MPS,
                            at_washout[showme], 
@@ -884,7 +885,7 @@ class GroundspeedAlongTrack(DerivedParameterNode):
         # TEST OUTPUT TO CSV FILE FOR DEBUGGING ONLY
         # TODO: REMOVE THIS SECTION BEFORE RELEASE
         #-------------------------------------------------------------------
-"""
+        """
 
 class HeadingContinuous(DerivedParameterNode):
     """
@@ -1036,12 +1037,7 @@ class RateOfClimb(DerivedParameterNode):
     def derive(self, 
                az = P('Acceleration Vertical'),
                alt_std = P('Altitude STD'),
-               alt_rad = P('Altitude Radio'),
-               ax = P('Acceleration Longitudinal'),
-               ay = P('Acceleration Lateral'),
-               an = P('Acceleration Normal'),
-               pch = P('Pitch'),
-               roll = P('Roll')):
+               alt_rad = P('Altitude Radio')):
 
         if az and alt_rad:
             # Use the complementary smoothing approach
@@ -1127,9 +1123,15 @@ class AltitudeRadio(DerivedParameterNode):
          
          
 class RateOfClimbForFlightPhases(DerivedParameterNode):
-    def derive(self, alt_std = P('Altitude STD')):
-        self.array = hysteresis(rate_of_change(repair_mask(alt_std),3)*60,
-                                HYSTERESIS_FPROC)
+    def derive(self, alt_std = P('Altitude STD'),
+               fast = S('Fast')):
+        # This uses a scaled hysteresis parameter. See settings for more detail.
+        for speedy in fast:
+            threshold = HYSTERESIS_FPROC * \
+                max(1, rms_noise(alt_std.array[speedy.slice]))  
+            # The max(1, prevents =0 case when testing with artificial data.
+            self.array = hysteresis(rate_of_change(repair_mask(alt_std),3)*60,
+                                    threshold)
 
 
 class Relief(DerivedParameterNode):
@@ -1148,20 +1150,51 @@ class Speedbrake(DerivedParameterNode):
         self.array = param
 
 
-'''
-
-Better done together
-
-class SmoothedLatitude(DerivedParameterNode): # TODO: Old dependency format.
-    dependencies = ['Latitude', 'True Heading', 'Indicated Airspeed'] ##, 'Altitude Std']
-    def derive(self, params):
-        return NotImplemented
+class LatitudeSmoothed(DerivedParameterNode):
+    def derive(self, acc_fwd=P('Acceleration Along Track'),
+               lat=P('Latitude'), lon=P('Longitude')):
+        """
+        Acceleration along track only used to determine the sample rate and
+        alignment of the resulting smoothed track parameter.
+        """
+        lat_s = repair_mask(lat.array)
+        lon_s = repair_mask(lon.array)
+        
+        # Join the masks, so that we only consider positional data when both are valid:
+        lat_s.mask = np.ma.logical_or(np.ma.getmaskarray(lat_s), np.ma.getmaskarray(lon_s))
+        lon_s.mask = lat_s.mask
+        # Preload the output with masked values to keep dimension correct 
+        self.array = lat_s  
+        
+        # Now we just smooth the valid sections.
+        tracks = np.ma.clump_unmasked(lat_s)
+        for track in tracks:
+            lat_s_track, lon_s_track, cost = \
+                smooth_track(lat.array[track], lon.array[track])
+            self.array[track] = lat_s_track
     
-class SmoothedLongitude(DerivedParameterNode): # TODO: Old dependency format.
-    dependencies = ['Longitude', 'True Heading', 'Indicated Airspeed'] ##, 'Altitude Std']
-    def derive(self, params):
-        return NotImplemented
-'''
+class LongitudeSmoothed(DerivedParameterNode):  # TODO: Try to merge this with the algorithm above to avoid duplication of computing effort
+    def derive(self, acc_fwd=P('Acceleration Along Track'),
+               lat=P('Latitude'), lon=P('Longitude')):
+        """
+        Acceleration along track only used to determine the sample rate and
+        alignment of the resulting smoothed track parameter.
+        """
+        lat_s = repair_mask(lat.array)
+        lon_s = repair_mask(lon.array)
+        
+        # Join the masks, so that we only consider positional data when both are valid:
+        lat_s.mask = np.ma.logical_or(np.ma.getmaskarray(lat_s), np.ma.getmaskarray(lon_s))
+        lon_s.mask = lat_s.mask
+        # Preload the output with masked values to keep dimension correct 
+        self.array = lon_s  
+        
+        # Now we just smooth the valid sections.
+        tracks = np.ma.clump_unmasked(lat_s)
+        for track in tracks:
+            lat_s_track, lon_s_track, cost = \
+                smooth_track(lat.array[track], lon.array[track])
+            self.array[track] = lon_s_track
 
 
 class RateOfTurn(DerivedParameterNode):

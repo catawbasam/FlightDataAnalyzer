@@ -1,4 +1,5 @@
 import numpy as np
+from math import sqrt
 
 from collections import OrderedDict, namedtuple
 from datetime import datetime, timedelta
@@ -999,7 +1000,18 @@ def repair_mask(array):
                                         array.data[section.stop]])
     return array
    
-
+def rms_noise(array):
+    """
+    This computes the rms noise for each sample compared with its neighbours.
+    In this way, a steady cruise at 30,000 ft will yield no noise, as will a
+    steady climb or descent.
+    """
+    diff_left = np.ma.ediff1d(array, to_end=0)
+    diff_right = np.ma.array(data=np.roll(diff_left.data,1), 
+                             mask=np.roll(diff_left.mask,1))
+    local_diff = diff_left - diff_right
+    return sqrt(np.ma.mean(np.ma.power(local_diff,2)))  # RMS in one line !
+    
 def shift_slices(slicelist, offset):
     """
     This function shifts a list of slices by offset. The need for this arises
@@ -1125,6 +1137,58 @@ def slices_from_to(array, from_, to):
         raise ValueError('From and to values should not be equal.')
     filtered_slices = filter(condition, slices)
     return rep_array, filtered_slices
+
+
+def smooth_track_cost_function(lat_s, lon_s, lat, lon):
+    # Summing the errors from the recorded data is easy.
+    from_data = np.sum((lat_s - lat)**2)+np.sum((lon_s - lon)**2)
+    
+    # The errors from a straight line are computed swiftly using convolve.
+    slider=np.array([-1,2,-1])
+    from_straight = np.sum(np.convolve(lat_s,slider,'valid')**2) + \
+        np.sum(np.convolve(lon_s,slider,'valid')**2)
+    
+    cost = from_data + 100*from_straight
+    return cost
+    
+def smooth_track(lat, lon):
+    """
+    Input:
+    lat = Recorded latitude array
+    lon = Recorded longitude array
+    
+    Returns:
+    lat_last = Optimised latitude array
+    lon_last = optimised longitude array
+    Cost = cost function, used for testing satisfactory convergence.
+    """
+    # This routine used to index through the arrays. By using np.convolve (in
+    # both the iteration and cost functions) the same algorithm runs 350
+    # times faster !!!
+    
+    lat_s = np.ma.copy(lat)
+    lon_s = np.ma.copy(lon)
+    
+    # Set up a weighted array that will slide past the data.
+    r = 0.7  
+    # Values of r alter the speed to converge; 0.7 seems best.
+    slider=np.ma.ones(5)*r/4
+    slider[2]=1-r
+
+    cost_0 = 9e+99
+    cost = smooth_track_cost_function(lat_s, lon_s, lat, lon)
+    
+    while cost < cost_0:  # Iterate to an optimal solution.
+        lat_last = np.ma.copy(lat_s)
+        lon_last = np.ma.copy(lon_s)
+
+        # Straighten out the middle of the arrays, leaving the ends unchanged.
+        lat_s.data[2:-2] = np.convolve(lat_last,slider,'valid')
+        lon_s.data[2:-2] = np.convolve(lon_last,slider,'valid')
+
+        cost_0 = cost
+        cost = smooth_track_cost_function(lat_s, lon_s, lat, lon)
+    return lat_last, lon_last, cost_0
 
             
 def straighten_headings(heading_array):
