@@ -811,7 +811,8 @@ class TestHeadContinuous(unittest.TestCase):
 
         #ma_test.assert_masked_array_approx_equal(res, answer)
         np.testing.assert_array_equal(head.array.data, answer.data)
-        
+
+
 class TestLatitudeSmoothed(unittest.TestCase):
     def test_can_operate(self):
         self.assertEqual(LatitudeSmoothed.get_operational_combinations(),
@@ -834,9 +835,8 @@ class TestLatitudeSmoothed(unittest.TestCase):
         smoother.get_derived([aat,lat,lon])
         self.assertGreater(smoother.array[9],-3.2)
         self.assertLess(smoother.array[9],-3.0)
-        
-        
-        
+
+
 class TestHeadingTrue(unittest.TestCase):
     def test_can_operate(self):
         self.assertEqual(HeadingTrue.get_operational_combinations(),
