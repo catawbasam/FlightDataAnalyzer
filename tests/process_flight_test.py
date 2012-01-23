@@ -48,36 +48,21 @@ class TestProcessFlight(unittest.TestCase):
         api_handler = mock.Mock()
         get_api_handler.return_value = api_handler
         airport = {'id': 100, 'icao': 'EGLL'}
-        runway = {'id': 1234, # TODO: Replace with correct runway for flight. Perhaps use side_effect for multiple runways.
-         'identifier': '29L',
-         'magnetic_heading': 290,
-         'start': {
-             'latitude': 14.1,
-             'longitude': 7.1,
-         },
-         'end': {
-             'latitude': 14.2,
-             'longitude': 7.2,
-         },
-             'glideslope': {
-                  'angle': 120, # Q: Sensible example value?
-                  'frequency': 330, # Q: Sensible example value?
-                  'latitude': 14.3,
-                  'longitude': 7.3,
-                  'threshold_distance': 20,
-              },
-              'localiser': {
-                  'beam_width': 14, # Q: Sensible example value?
-                  'frequency': 335, # Q: Sensible example value?
-                  'heading': 291,
-                  'latitude': 14.4,
-                  'longitude': 7.4,
-              },
-         'strip': {
-             'length': 150,
-             'surface': 'ASPHALT',
-             'width': 30,
-        }}
+        runway = {'end': {'latitude': 60.280151, 'longitude': 5.222579},
+                  'glideslope': {'angle': 3.1,
+                   'frequency': u'333800M',
+                   'latitude': 60.300981,
+                   'longitude': 5.214092,
+                   'threshold_distance': 1161},
+                  'id': 8193,
+                  'identifier': u'17',
+                  'localizer': {'beam_width': 4.5,
+                   'frequency': u'109900M',
+                   'heading': 173,
+                   'latitude': 60.2789,
+                   'longitude': 5.223},
+                  'start': {'latitude': 60.30662494, 'longitude': 5.21370074},
+                  'strip': {'id': 4097, 'length': 9810, 'surface': u'ASP', 'width': 147}}
         api_handler.get_nearest_airport = mock.Mock()
         api_handler.get_nearest_airport.return_value = airport
         api_handler.get_nearest_runway = mock.Mock()
