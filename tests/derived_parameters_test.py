@@ -7,7 +7,7 @@ import numpy as np
 import utilities.masked_array_testutils as ma_test
 from utilities.struct import Struct
 from analysis.settings import GRAVITY_IMPERIAL, HYSTERESIS_FPIAS
-from analysis.node import Attribute, A, KPV, KTI, Parameter, P, Section, S
+from analysis.node import Attribute, A, KeyTimeInstance, KPV, KTI, Parameter, P, Section, S
 from analysis.flight_phase import Fast
 
 from analysis.derived_parameters import (
@@ -811,7 +811,8 @@ class TestHeadContinuous(unittest.TestCase):
 
         #ma_test.assert_masked_array_approx_equal(res, answer)
         np.testing.assert_array_equal(head.array.data, answer.data)
-        
+
+
 class TestLatitudeSmoothed(unittest.TestCase):
     def test_can_operate(self):
         self.assertEqual(LatitudeSmoothed.get_operational_combinations(),
@@ -834,41 +835,35 @@ class TestLatitudeSmoothed(unittest.TestCase):
         smoother.get_derived([aat,lat,lon])
         self.assertGreater(smoother.array[9],-3.2)
         self.assertLess(smoother.array[9],-3.0)
-        
-        
-        
+
+
 class TestHeadingTrue(unittest.TestCase):
     def test_can_operate(self):
         self.assertEqual(HeadingTrue.get_operational_combinations(),
-                         [('Heading Continuous', 'Airborne', 'FDR Approaches',
-                           'Start Datetime')])
+            [('Heading Continuous', 'Liftoff', 'FDR Takeoff Airport',
+              'FDR Approaches', 'Start Datetime')])
         
     def test_basic(self):
         head = P('Heading Continuous', np.ma.arange(25))
         start_datetime = A('Start Datetime', value=datetime.now())
-        airbornes = S('Airborne',
-                      items=[Section('Airborne', slice(5, 10, None)),
-                             Section('Airborne', slice(10, 15, None))])
+        #airbornes = S('Airborne',
+                      #items=[Section('Airborne', slice(5, 10, None)),
+                             #Section('Airborne', slice(10, 15, None))])
+        takeoff_airport = A('FDR Takeoff Airport', value={'magnetic_variation': 5})
+        liftoffs = KTI('Liftoff', items=[KeyTimeInstance(name='Liftoff', index=5)])
         approaches = A('Approaches',
-                       value=[{'airport':{'magnetic_variation': 5},
-                               'datetime': start_datetime.value + timedelta(seconds=5)},
-                              {'airport':{'magnetic_variation': 20},
+                       value=[{'airport':{'magnetic_variation': 20},
                                'datetime': start_datetime.value + timedelta(seconds=10)},
                               {'airport':{'magnetic_variation': 30},
                                'datetime': start_datetime.value + timedelta(seconds=15)},])
         true_path = HeadingTrue()
-        """
-<<<<<<< TREE
-        true_path.get_derived([head, flights, dev_dest, dev_origin])
-        np.testing.assert_array_equal(true_path.array, [5,5,5,5,5,5,6,7,8,9,10,10,10,10,10])
-=======
-        true_path.derive(head, airbornes, approaches, start_datetime)
+        
+        true_path.derive(head, liftoffs, takeoff_airport, approaches, start_datetime)
         np.testing.assert_array_equal(true_path.array,
             [5, 6, 7, 8, 9, 10, 14, 18, 22, 26, 30, 33, 36, 39, 42, 45, 46, 47,
              48, 49, 50, 51, 52, 53, 54])
->>>>>>> MERGE-SOURCE
-        """    
-        
+
+
 class TestPitch(unittest.TestCase):
     def test_can_operate(self):
         expected = [('Pitch (1)', 'Pitch (2)')]
