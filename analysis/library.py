@@ -1001,11 +1001,18 @@ def repair_mask(array):
     return array
    
 def rms_noise(array):
-    """
+    '''
+    :param array: input parameter to measure noise level
+    :type array: numpy masked array
+    :returns: RMS noise level
+    
     This computes the rms noise for each sample compared with its neighbours.
     In this way, a steady cruise at 30,000 ft will yield no noise, as will a
     steady climb or descent.
-    """
+    '''
+    # The difference between one sample and the ample to the left is computed
+    # using the ediff1d algorithm, then by rolling it right we get the answer
+    # for the difference between this sample and the one to the right.
     diff_left = np.ma.ediff1d(array, to_end=0)
     diff_right = np.ma.array(data=np.roll(diff_left.data,1), 
                              mask=np.roll(diff_left.mask,1))
