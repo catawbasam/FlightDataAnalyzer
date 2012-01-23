@@ -1061,9 +1061,12 @@ class WindshearWarningBelow1500Ft(KeyPointValueNode):
 
 
 class TaxiSpeedStraight(KeyPointValueNode):
-    def derive(self, groundspeed=P('Groundspeed'), rot=P('Rate Of Turn')):
-        return NotImplemented
-
+    name = 'Groundspeed event to force operation of the GAT parameter TODO: Remove title'
+    def derive(self, groundspeed=P('Groundspeed Along Track'), rot=P('Rate Of Turn')):
+        # TODO: Decide on parameter. Can use groundspeed, but amended to ...along track to ensure derived parameter call.
+        if groundspeed > 900:
+            print "wow"
+            return
 
 
 

@@ -31,7 +31,7 @@ ALTITUDE_FOR_CLB_CRU_DSC = 12500
 AZ_WASHOUT_TC = 60.0
 
 # As above for the along-track resolved acceleration term.
-AT_WASHOUT_TC = 200.0
+AT_WASHOUT_TC = 60.0
 
 #Less than 5 mins you can't do a circuit, so we'll presume this is a data
 #snippet 
@@ -58,7 +58,7 @@ GRAVITY_IMPERIAL = 32.2 # ft/sec^2 - used for combining acceleration and height 
 GRAVITY_METRIC = 9.81 # m/sec^2 - used for comibining acceleration and groundspeed terms
 
 # Groundspeed complementary filter time constant.
-GROUNDSPEED_LAG_TC = 20.0 # seconds
+GROUNDSPEED_LAG_TC = 6.0 # seconds
 
 # Threshold for turn onto runway at start of takeoff.
 # This will usually be overwritten by the peak curvature test.
@@ -74,9 +74,6 @@ HYSTERESIS_FPIAS = 10 # kts
 # Threshold for flight phase altitude hysteresis.
 HYSTERESIS_FPALT = 200 # ft
 
-# Threshold for flight phase radio altitude hysteresis.
-HYSTERESIS_FP_RAD_ALT = 5 # ft
-
 # Threshold for flight phase altitude hysteresis specifically for separating 
 # Climb Cruise Descent phases.
 HYSTERESIS_FPALT_CCD = 2500 # ft
@@ -84,10 +81,11 @@ HYSTERESIS_FPALT_CCD = 2500 # ft
 # Threshold for flight phase rate of climb hysteresis.
 # We're going to ignore changes smaller than this to avoid repeatedly changing
 # phase if the aircraft is climbing/descending close to a threshold level.
-HYSTERESIS_FPROC = 400 # fpm
-# The 400 fpm value has been selected from inspection of Hercules test data
-# which is notoriously noisy. This may need to be revised to suit a wider
-# range of aircraft.
+HYSTERESIS_FPROC = 40 # fpm / RMS altitude noise
+# The threshold used is scaled in proportion to the altitude noise level, so
+# that for the Hercule we can get up to 400 fpm or more, a value which has
+# been selected from inspection of test data which is notoriously noisy. By
+# measuring the noise, we don't burden "quieter" aircraft unnecessarily.
 
 # Threshold for rate of turn hysteresis.
 HYSTERESIS_FPROT = 2 # deg/sec
@@ -133,7 +131,7 @@ RATE_OF_CLIMB_FOR_LEVEL_FLIGHT = 300 # fpm
 RATE_OF_CLIMB_FOR_LIFTOFF = 5 # fpm
 
 # Rate of climb for touchdown.
-RATE_OF_CLIMB_FOR_TOUCHDOWN = -10 # fpm
+RATE_OF_CLIMB_FOR_TOUCHDOWN = -60 # fpm
 
 # Rate of turn limits of +/- 90 deg/minute work well in flight and on ground.
 RATE_OF_TURN_FOR_FLIGHT_PHASES = 1.5 # deg per second

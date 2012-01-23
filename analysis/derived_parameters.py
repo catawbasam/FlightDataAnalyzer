@@ -4,15 +4,18 @@ import numpy as np
 from analysis.node import A, DerivedParameterNode, KTI, P, S
 
 from analysis.library import (blend_alternate_sensors,
+                              blend_two_parameters,
                               first_order_lag,
                               first_order_washout,
                               hysteresis,
                               index_of_datetime,
                               interleave,
                               is_slice_within_slice,
-                              merge_two_sources,
+                              merge_sources,
                               rate_of_change, 
                               repair_mask,
+                              rms_noise,
+                              smooth_track,
                               straighten_headings,
                               vstack_params)
 
@@ -21,8 +24,7 @@ from settings import (AZ_WASHOUT_TC,
                       GROUNDSPEED_LAG_TC,
                       HYSTERESIS_FPALT,
                       HYSTERESIS_FPALT_CCD,
-                      HYSTERESIS_FP_RAD_ALT,
-                      HYSTERESIS_FPIAS, 
+                      HYSTERESIS_FPIAS,
                       HYSTERESIS_FPROC,
                       GRAVITY_IMPERIAL,
                       GRAVITY_METRIC,
@@ -90,6 +92,7 @@ class AccelerationAcrossTrack(DerivedParameterNode):
             - acc_fwd.array * np.sin(drift_rad)
 
 
+##class     name = 'Airspeed Minus V2 400 To 1500 Ft Min'
 class AccelerationAlongTrack(DerivedParameterNode):
     def derive(self, acc_fwd=P('Acceleration Forwards'), 
                acc_side=P('Acceleration Sideways'), 
@@ -190,13 +193,75 @@ class AirspeedTrue(DerivedParameterNode):
     
 
 class AltitudeAAL(DerivedParameterNode):
-    # Dummy for testing DJ TODO: Replace with one that takes radio altitude and local minima into account.
-    name = 'Altitude AAL'
-    def derive(self, alt_aal=P('Altitude AAL For Flight Phases')):# alt_std=P('Altitude STD'), alt_rad=P('Altitude Radio')):
-        # TODO: This is a hack! Implement separate derive method for Altitude
-        # AAL.
-        logging.warning("Altitude AAL is not properly implemented!!")
-        self.array = alt_aal.array
+    """
+    # List the minimum acceptable parameters here
+    @classmethod
+    def can_operate(cls, available):
+        # List the minimum required parameters. If 'Altitude Radio For Flight
+        # Phases' is available, that's a bonus and we will use it, but it is
+        # not required.
+        return 'Altitude AAL For Flight Phases' in available
+    """
+    def derive(self, roc = P('Rate Of Climb'),
+               alt_std = P('Altitude STD'),
+               alt_rad = P('Altitude Radio'),
+               fast = S('Fast')):
+
+        # alt_aal is a local working array, which may strictly be unnecessary
+        # but makes testing and inspection of results convenient.
+        alt_aal = np.ma.copy(alt_rad.array) 
+        self.array = np.ma.masked_all_like(alt_aal)
+
+        for speedy in fast:
+            if alt_rad:
+                highs = np.ma.clump_unmasked(np.ma.masked_less(alt_rad.array[speedy.slice],100))
+                for high in highs:
+                    peak = np.ma.argmax(alt_std.array[speedy.slice][high])
+
+                    dh_climb = alt_rad.array[speedy.slice][high][0] - \
+                        alt_std.array[speedy.slice][high][0]
+
+                    alt_aal[speedy.slice][high][0:peak] = \
+                        alt_std.array[speedy.slice][high][0:peak] + dh_climb
+
+                    dh_descend = alt_rad.array[speedy.slice][high][-1] - \
+                        alt_std.array[speedy.slice][high][-1]
+
+                    alt_aal[speedy.slice][high][peak:-1] = \
+                        alt_std.array[speedy.slice][high][peak:-1] + dh_descend
+                
+                # Use the complementary smoothing approach
+                alt_aal_lag = first_order_lag(alt_aal[speedy.slice],
+                                              RATE_OF_CLIMB_LAG_TC, roc.hz)
+                
+                roc_lag = first_order_lag(roc.array[speedy.slice],RATE_OF_CLIMB_LAG_TC, roc.hz,
+                                          gain=RATE_OF_CLIMB_LAG_TC/60.0)
+    
+                self.array[speedy.slice] = (alt_aal_lag + roc_lag)
+                
+                
+                """
+                #-------------------------------------------------------------------
+                # TEST OUTPUT TO CSV FILE FOR DEBUGGING ONLY
+                # TODO: REMOVE THIS SECTION BEFORE RELEASE
+                #-------------------------------------------------------------------
+                import csv
+                spam = csv.writer(open('spam.csv', 'wb'))
+                spam.writerow(['Rate Of Climb', 'Altitude STD', 'Altitude Radio','alt_aal',
+                               'alt_aal_lag', 'roc_lag', 'self.array'])
+                for showme in range(0, len(alt_aal_lag)):
+                    spam.writerow([roc.array.data[speedy.slice][showme], 
+                                   alt_std.array.data[speedy.slice][showme],
+                                   alt_rad.array.data[speedy.slice][showme],
+                                   alt_aal.data[speedy.slice][showme],
+                                   alt_aal_lag[showme],
+                                   roc_lag[showme],
+                                   self.array[speedy.slice][showme]])
+                #-------------------------------------------------------------------
+                # TEST OUTPUT TO CSV FILE FOR DEBUGGING ONLY
+                # TODO: REMOVE THIS SECTION BEFORE RELEASE
+                #-------------------------------------------------------------------
+                """
 
     
 class AltitudeAALForFlightPhases(DerivedParameterNode):
@@ -250,10 +315,12 @@ class AltitudeRadio(DerivedParameterNode):
         self.array = alt_rad.array - np.sin(pitch_rad) * main_gear_to_alt_rad.value
 
 
+"""
+TODO: Remove when proven to be superfluous
 class AltitudeRadioForFlightPhases(DerivedParameterNode):
     def derive(self, alt_rad=P('Altitude Radio')):
         self.array = hysteresis(repair_mask(alt_rad.array), HYSTERESIS_FP_RAD_ALT)
-
+"""
 
 class AltitudeQNH(DerivedParameterNode):
     name = 'Altitude QNH'
@@ -784,22 +851,41 @@ class GearSelectedUp(DerivedParameterNode):
     def derive(self, param=P('Gear Selected Up FDR')):
         pass
     
-    
+"""
+Not needed for 737-3C Frame
+"""
 class GroundspeedAlongTrack(DerivedParameterNode):
     # Inertial smoothing provides computation of groundspeed data when the
     # recorded groundspeed is unreliable. For example, during sliding motion
     # on a runway during deceleration. This is not good enough for long
-    # period computation, but is an improvement over groundspeed data that
-    # stops at 40kn or thereabouts.
-    def derive(self, gndspd=P('Groundspeed'),
-               at=P('Acceleration Along Track')):
-        at_washout = first_order_washout(at.array, AT_WASHOUT_TC, at.hz, 
+    # period computation, but is an improvement over aircraft where the 
+    # groundspeed data stops at 40kn or thereabouts.
+    def derive(self, gndspd=P('Ground Speed'),
+               at=P('Acceleration Along Track'),
+               ):
+        at_washout = first_order_washout(at.array, AT_WASHOUT_TC, gndspd.hz, 
                                          gain=GROUNDSPEED_LAG_TC*GRAVITY_METRIC)
-        self.array = first_order_lag((gndspd.array*KTS_TO_MPS) + at_washout,
+        self.array = first_order_lag(gndspd.array*KTS_TO_MPS + at_washout,
                                      GROUNDSPEED_LAG_TC,gndspd.hz)
     
-
-
+        """
+        #-------------------------------------------------------------------
+        # TEST OUTPUT TO CSV FILE FOR DEBUGGING ONLY
+        # TODO: REMOVE THIS SECTION BEFORE RELEASE
+        #-------------------------------------------------------------------
+        import csv
+        spam = csv.writer(open('beans.csv', 'wb'))
+        spam.writerow(['at', 'gndspd', 'at_washout', 'self'])
+        for showme in range(0, len(at.array):
+            spam.writerow([at.array.data[showme], 
+                           gndspd.array.data[showme]*KTS_TO_MPS,
+                           at_washout[showme], 
+                           self.array.data[showme]])
+        #-------------------------------------------------------------------
+        # TEST OUTPUT TO CSV FILE FOR DEBUGGING ONLY
+        # TODO: REMOVE THIS SECTION BEFORE RELEASE
+        #-------------------------------------------------------------------
+        """
 
 class HeadingContinuous(DerivedParameterNode):
     """
@@ -951,16 +1037,8 @@ class RateOfClimb(DerivedParameterNode):
     def derive(self, 
                az = P('Acceleration Vertical'),
                alt_std = P('Altitude STD'),
-               alt_rad = P('Altitude Radio'),
-               """
-               TODO: Remove this
-               ax = P('Acceleration Longitudinal'),
-               ay = P('Acceleration Lateral'),
-               an = P('Acceleration Normal'),
-               pch = P('Pitch'),
-               roll = P('Roll')
-               """
-               ):
+               alt_rad = P('Altitude Radio')):
+
         if az and alt_rad:
             # Use the complementary smoothing approach
 
@@ -1030,6 +1108,9 @@ class AltitudeRadio(DerivedParameterNode):
     Assumes that signal (A) is at twice the frequency of (B) and (C).
     
     Therefore align to first dependency is disabled.
+    
+    TODO: Make this the 737-3C fram version only and await any fixes needed for other frames.
+    
     '''
     align_to_first_dependency = False
     
@@ -1037,56 +1118,20 @@ class AltitudeRadio(DerivedParameterNode):
                source_B=P('Altitude Radio (B)'),
                source_C=P('Altitude Radio (C)')):
         
-        #TODO: Align arrays to proportionate offsets evenly between samples
-        
-        #TODO: Tests - the sample given had (a) at twice the frequency of (b)
-        #and (c), is this always the case? if so, state in docstring. 
-        
-        #TODO: Make blend alternate sensors work with n sensors (3 in this case)?
-        
-        #Q: Merge merge_two_sources and blend_alternate_sensors into one function?
-        
-        assert source_A.frequency == source_B.frequency * 2
-        assert source_B.frequency == source_C.frequency
-        
-        
-        # with the following align example, it should be possible to use
-        # different frequency parameters too - but you'd have to be clever
-        # about picking the minimum working up to the maximum hz parameters.
-        from analysis.library import align
-        # make the "master" (B) half the frequency ahead for the "slave" (C) to align to
-        # source_B.offset += .5/source_B.hz
-        # source_c_aligned_ahead = align(source_C, source_B)
-        b_and_c = merge_two_sources(source_B.array, source_C.array)
-        # blend b and c smoothly together
-        b_and_c_blended = blend_alternate_sensors(b_and_c)
-        # store in a parameter ready for alignment
-        BandC = P(array=b_and_c_blended, frequency=source_B.hz*2, offset=source_B.offset)
-        
-        # make the "master" (A) half the frequency ahead for the slave (BandC) to align to
-        # source_A.offset += .5/source_A.hz
-        # source_bc_aligned_ahead = align(BandC, source_A)
-        # merge (A) with (B C)
-        a_b_and_c = merge_two_sources(source_A.array, BandC.array)
-        self.array = blend_alternate_sensors(a_b_and_c)
-        
-        
-        ##b_and_c = merge_two_sources(source_B.array, source_C.array)
-        ##a_b_and_c = merge_two_sources(source_A.array, b_and_c)
-        
-        # increase frequency
-        #e.g. A = 0.5Hz, B = 0.25Hz and C = 0.25Hz
-        # b_and_c == 0.5Hz
-        # a_b_and_c == 1Hz
-        self.frequency = source_A.frequency * 2
-        self.offset = source_A.offset # everything has been pulled into alignment of (A)
-        
-
-
+        self.array, self.frequency, self.offset = \
+            blend_two_parameters(source_B, source_C)
+         
+         
 class RateOfClimbForFlightPhases(DerivedParameterNode):
-    def derive(self, alt_std = P('Altitude STD')):
-        self.array = hysteresis(rate_of_change(repair_mask(alt_std),3)*60,
-                                HYSTERESIS_FPROC)
+    def derive(self, alt_std = P('Altitude STD'),
+               fast = S('Fast')):
+        # This uses a scaled hysteresis parameter. See settings for more detail.
+        for speedy in fast:
+            threshold = HYSTERESIS_FPROC * \
+                max(1, rms_noise(alt_std.array[speedy.slice]))  
+            # The max(1, prevents =0 case when testing with artificial data.
+            self.array = hysteresis(rate_of_change(repair_mask(alt_std),3)*60,
+                                    threshold)
 
 
 class Relief(DerivedParameterNode):
@@ -1105,20 +1150,52 @@ class Speedbrake(DerivedParameterNode):
         self.array = param
 
 
-'''
+class CoordinatesSmoothed(object):
+    def _smooth_coordinates(self, coord1, coord2):
+        """
+        Acceleration along track only used to determine the sample rate and
+        alignment of the resulting smoothed track parameter.
+        
+        :param coord1: Either 'Latitude' or 'Longitude' parameter.
+        :type coord1: DerivedParameterNode
+        :param coord2: Either 'Latitude' or 'Longitude' parameter.
+        :type coord2: DerivedParameterNode
+        :returns: coord1 smoothed.
+        :rtype: np.ma.masked_array
+        """        
+        coord1_s = repair_mask(coord1.array)
+        coord2_s = repair_mask(coord2.array)
+        
+        # Join the masks, so that we only consider positional data when both are valid:
+        coord1_s.mask = np.ma.logical_or(np.ma.getmaskarray(coord1_s),
+                                         np.ma.getmaskarray(coord2_s))
+        coord2_s.mask = coord1_s.mask
+        # Preload the output with masked values to keep dimension correct 
+        array = coord1_s  
+        
+        # Now we just smooth the valid sections.
+        tracks = np.ma.clump_unmasked(coord1_s)
+        for track in tracks:
+            coord1_s_track, coord2_s_track, cost = \
+                smooth_track(coord1.array[track], coord2.array[track])
+            array[track] = coord1_s_track
+        return array
+        
 
-Better done together
+class LatitudeSmoothed(DerivedParameterNode, CoordinatesSmoothed):
+    def derive(self, acc_fwd=P('Acceleration Along Track'),
+               lat=P('Latitude'), lon=P('Longitude')):
+        """
+        Acceleration along track only used to determine the sample rate and
+        alignment of the resulting smoothed track parameter.
+        """
+        self.array = self._smooth_coordinates(lat, lon)
 
-class SmoothedLatitude(DerivedParameterNode): # TODO: Old dependency format.
-    dependencies = ['Latitude', 'True Heading', 'Indicated Airspeed'] ##, 'Altitude Std']
-    def derive(self, params):
-        return NotImplemented
     
-class SmoothedLongitude(DerivedParameterNode): # TODO: Old dependency format.
-    dependencies = ['Longitude', 'True Heading', 'Indicated Airspeed'] ##, 'Altitude Std']
-    def derive(self, params):
-        return NotImplemented
-'''
+class LongitudeSmoothed(DerivedParameterNode, CoordinatesSmoothed):
+    def derive(self, acc_fwd=P('Acceleration Along Track'),
+               lat=P('Latitude'), lon=P('Longitude')):
+        self.array = self._smooth_coordinates(lon, lat)
 
 
 class RateOfTurn(DerivedParameterNode):

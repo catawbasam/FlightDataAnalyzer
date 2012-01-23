@@ -8,7 +8,6 @@ from analysis.settings import (AIRSPEED_THRESHOLD,
                                ALTITUDE_FOR_CLB_CRU_DSC,
                                HEADING_TURN_OFF_RUNWAY,
                                HEADING_TURN_ONTO_RUNWAY,
-                               HYSTERESIS_FP_RAD_ALT,
                                HYSTERESIS_FPROT,
                                ILS_MAX_SCALE,
                                INITIAL_CLIMB_THRESHOLD,
@@ -295,7 +294,6 @@ class FinalApproach(FlightPhaseNode):
                app_lands=S('Approach And Landing')):
         for app_land in app_lands:
             # Allow for the hysteresis applied to the radio altimeter signal 
-            # for phase computations
             thold = LANDING_THRESHOLD_HEIGHT+HYSTERESIS_FP_RAD_ALT
             app = np.ma.masked_where(np.ma.logical_or(
                 alt_AAL.array[app_land.slice]>1000,
@@ -303,7 +301,7 @@ class FinalApproach(FlightPhaseNode):
                                      alt_AAL.array[app_land.slice])
             phases = np.ma.clump_unmasked(app)
             for phase in phases:
-                begin = app_land.slice.start + phase.start
+                begin = phase.start
                 pit = np.ma.argmin(app[phase]) + begin
                 if app[pit] < app[begin] :
                     self.create_phase(slice(begin, pit))

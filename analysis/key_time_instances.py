@@ -290,10 +290,7 @@ class TouchAndGo(KeyTimeInstanceNode):
 
 
 class Touchdown(KeyTimeInstanceNode):
-    # TODO: Establish whether this works satisfactorily. If there are
-    # problems with this algorithm we could compute the rate of descent
-    # backwards from the runway for greater accuracy.
-    def derive(self, roc=P('Rate Of Climb For Flight Phases'), landings=S('Landing')):
+    def derive(self, roc=P('Rate Of Climb'), landings=S('Landing')):
         for landing in landings:
             land_index = index_at_value(roc.array, RATE_OF_CLIMB_FOR_TOUCHDOWN,
                                         landing.slice)

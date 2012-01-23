@@ -2,6 +2,8 @@ import csv
 import unittest
 import numpy as np
 
+from math import sqrt
+
 from datetime import datetime
 
 # A set of masked array test utilities from Pierre GF Gerard-Marchant
@@ -16,9 +18,9 @@ from analysis.library import (align, blend_alternate_sensors,
                               is_index_within_slice, is_slice_within_slice,
                               min_value, mask_inside_slices,
                               mask_outside_slices, max_continuous_unmasked,
-                              max_value, max_abs_value, merge_two_sources,
+                              max_value, max_abs_value, blend_two_parameters,
                               peak_curvature, peak_index, rate_of_change, repair_mask, 
-                              slices_above, slices_below, slices_between, 
+                              rms_noise, slices_above, slices_below, slices_between, 
                               slices_from_to, straighten_headings,
                               #time_at_value, time_at_value_wrapped,
                               value_at_time, vstack_params, InvalidDatetime)
@@ -250,7 +252,7 @@ class TestAlign(unittest.TestCase):
                                                           10.15,10.275,10.4,10.525,
                                                           10.65,10.775,10.9,11.0  ])
         np.testing.assert_array_equal(result.mask, False)
-        
+
     def test_align_across_frame_increasing(self):
         # Master at higher frequency than slave
         class DumParam():
@@ -356,20 +358,31 @@ class TestAlign(unittest.TestCase):
 
 class TestBlendAlternateSensors(unittest.TestCase):
     def test_blend_alternage_sensors_basic(self):
-        array = np.ma.array([0, 5, 0, 5, 1, 6, 1, 6],dtype=float)
-        result = blend_alternate_sensors (array)
-        np.testing.assert_array_equal(result.data, [2.5,2.5,2.5,2.75,3.25,3.5,3.5,3.5])
-        np.testing.assert_array_equal(result.mask, False)
+        array_1 = np.ma.array([0, 0, 1, 1],dtype=float)
+        array_2 = np.ma.array([5, 5, 6, 6],dtype=float)
+        result = blend_alternate_sensors (array_1, array_2, 'Follow')
+        np.testing.assert_array_equal(result.data, [2.5,2.5,2.5,3,3.5,3.5,3.5,3.5])
+        np.testing.assert_array_equal(result.mask, [False,False,False,False,
+                                                   False,False,False,True])
 
     def test_blend_alternage_sensors_mask(self):
-        array = np.ma.array([0, 5, 0, 5, 1, 6, 1, 6],dtype=float)
-        array[4] = np.ma.masked
-        result = blend_alternate_sensors (array)
+        array_1 = np.ma.array([0, 0, 1, 1],dtype=float)
+        array_2 = np.ma.array([5, 5, 6, 6],dtype=float)
+        array_1[2] = np.ma.masked
+        result = blend_alternate_sensors (array_1, array_2, 'Follow')
         np.testing.assert_array_equal(result.data[0:3], [2.5,2.5,2.5])
         np.testing.assert_array_equal(result.data[6:8], [3.5,3.5])
         np.testing.assert_array_equal(result.mask, [False,False,False,
-                                                    True,True,True,
-                                                    False,False])
+                                                    True,True,False,
+                                                    False,True])
+
+    def test_blend_alternage_sensors_reverse(self):
+        array_1 = np.ma.array([0, 0, 1, 1],dtype=float)
+        array_2 = np.ma.array([5, 5, 6, 6],dtype=float)
+        result = blend_alternate_sensors (array_1, array_2, 'Precede')
+        np.testing.assert_array_equal(result.data, [2.5,2.5,2.5,2.5,3,3.5,3.5,3.5])
+        np.testing.assert_array_equal(result.mask, [True,False,False,False,
+                                                    False,False,False,False])
 
 
 class TestCalculateTimebase(unittest.TestCase):
@@ -886,23 +899,34 @@ class TestMinValue(unittest.TestCase):
         self.assertRaises(ValueError, min_value, array, neg_step)
 
 
-class TestMergeTwoSources(unittest.TestCase):
-    def test_merge_two_sources_basic(self):
-        array_a = np.ma.arange(4,dtype=float)
-        array_b = np.ma.arange(4,dtype=float) + 10.0
-        result = merge_two_sources (array_a, array_b)
-        np.testing.assert_array_equal(result.data, [0,10,1,11,2,12,3,13])
-        np.testing.assert_array_equal(result.mask, False)
+class TestBlendTwoParameters(unittest.TestCase):
+    def test_blend_two_parameters_offset_ordered_forward(self):
+        p1 = P(array=[0]*4, frequency=1, offset=0.0)
+        p2 = P(array=[1,2,3,4], frequency=1, offset=0.2)
+        arr, freq, off = blend_two_parameters(p1, p2)
+        self.assertEqual(arr[1], 0.5)
+        self.assertEqual(freq, 2)
+        self.assertEqual(off, 0.1)
 
-    # TODO: Complete this test
-    #def test_merge_two_sources_mask(self):
-        #array_a = np.ma.arange(4,dtype=float)
-        #array_b = np.ma.arange(4,dtype=float) + 10.0
-        #result = merge_two_sources (array_a, array_b)
-        #np.testing.assert_array_equal(result.data, [0,10,1,11,2,12,3,13])
-        #np.testing.assert_array_equal(result.mask, False)
+    def test_blend_two_parameters_offset_ordered_backward(self):
+        p1 = P(array=[5,10,7,8], frequency=2, offset=0.1)
+        p2 = P(array=[1,2,3,4], frequency=2, offset=0.0)
+        arr, freq, off = blend_two_parameters(p1, p2)
+        self.assertEqual(arr[2], 3.5)
+        self.assertEqual(freq, 4)
+        self.assertEqual(off, 0.05)
 
+    def test_blend_two_parameters_assertion_error(self):
+        p1 = P(array=[0]*4, frequency=1, offset=0.0)
+        p2 = P(array=[1]*4, frequency=2, offset=0.2)
+        self.assertRaises(AssertionError, blend_two_parameters, p1, p2)
 
+    def test_blend_two_parameters_array_mismatch_error(self):
+        p1 = P(array=[0]*4, frequency=1, offset=0.0)
+        p2 = P(array=[1]*3, frequency=2, offset=0.2)
+        self.assertRaises(AssertionError, blend_two_parameters, p1, p2)
+
+        
 class TestPeakCurvature(unittest.TestCase):
     # Note: The results from the first two tests are in a range format as the
     # artificial data results in multiple maxima.
@@ -1114,7 +1138,20 @@ class TestRepairMask(unittest.TestCase):
         res = repair_mask(array)
         ma_test.assert_masked_array_approx_equal(res, array)
 
-
+class test_rms_noise(unittest.TestCase):
+    def test_rms_noise_basic(self):
+        array = np.ma.array([0,0,1,0,0])
+        result = rms_noise(array)
+        expected = sqrt(6.0/5.0)
+        self.assertAlmostEqual(result, expected)
+        
+    def test_rms_noise_masked(self):
+        array = np.ma.array([0,0,1,0,0])
+        array[2]=np.ma.masked
+        result = rms_noise(array)
+        expected = 0.0
+        self.assertAlmostEqual(result, expected)
+        
 class TestSlicesAbove(unittest.TestCase):
     def test_slices_above(self):
         array = np.ma.concatenate([np.ma.arange(10), np.ma.arange(10)])
@@ -1186,6 +1223,39 @@ class TestStraightenHeadings(unittest.TestCase):
                 #msg="Failed at %s == %s at %s" % (val, expected[index], index)
             #)
             
+            
+class TestSmoothTrack(unittest.TestCase):
+    def test_smooth_track_latitude(self):
+        lat = np.ma.array([0,0,0,1,1,1], dtype=float)
+        lon = np.ma.zeros(6, dtype=float)
+        lat_s, lon_s, cost = smooth_track(lat, lon)
+        self.assertLess (cost,26)
+        
+    def test_smooth_track_longitude(self):
+        lon = np.ma.array([0,0,0,1,1,1], dtype=float)
+        lat = np.ma.zeros(6, dtype=float)
+        lat_s, lon_s, cost = smooth_track(lat, lon)
+        self.assertLess (cost,26)
+        
+    def test_smooth_track_masked(self):
+        lon = np.ma.array([0,0,0,1,1,1], dtype=float)
+        lat = np.ma.zeros(6, dtype=float)
+        lon[4]=np.ma.masked
+        lat_s, lon_s, cost = smooth_track(lat, lon)
+        self.assertLess (cost,26)
+        
+    def test_smooth_track_speed(self):
+        from time import clock
+        lon = np.ma.arange(10000, dtype=float)
+        lon = lon%27
+        lat = np.ma.zeros(10000, dtype=float)
+        start = clock()
+        lat_s, lon_s, cost = smooth_track(lat, lon)
+        end = clock()      
+        print end-start      
+        self.assertLess (end-start,1.0)
+            
+        
 class TestSubslice(unittest.TestCase):
     def test_subslice(self):
         """ Does not test using negative slice start/stop values e.g. (-2,2)

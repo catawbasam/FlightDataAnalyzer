@@ -264,6 +264,11 @@ class DerivedParameterNode(Node):
         :returns: The interpolated value of the array at time secs.
         :rtype: float
         """
+
+        # TODO: Check this DJ-added code please. Included for phases where one time is None (data starts in mid-phase)
+        if secs == None:
+            return None
+        
         try:
             # get seconds from timedelta
             secs = float(secs.total_seconds)
