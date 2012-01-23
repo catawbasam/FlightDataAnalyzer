@@ -909,72 +909,54 @@ class HeadingTrue(DerivedParameterNode):
     # Computes magnetic deviation linearly changing from the deviation at
     # the origin to the destination.
     def derive(self, head=P('Heading Continuous'),
-               airbornes=S('Airborne'),
+               #airbornes=S('Airborne'),
+               liftoffs=KTI('Liftoff'),
+               takeoff_airport=A('FDR Takeoff Airport'),
                approaches=A('FDR Approaches'),
                start_datetime=A('Start Datetime')):
-        if not approaches.value:
-            return
         # We copy the masked array to transfer the mask array. All the data
         # values will be overwritten, but the mask will not be affected by
         # conversion from magnetic to true headings.
-        true_array = np.ma.copy(head.array)
-        approach_dicts = []
-        for index, first_approach in enumerate(approaches.value):
-            # Loop over two airports at a time ((0, 1), (1, 2), (2, 3), etc..)
-            try:
-                second_approach = approaches.value[index+1]
-            except IndexError:
-                # We have exceeded the number of approaches.
-                break
-            
-            # Find 'Airborne' slice within two consecutive 'Approaches'.
-            first_approach_index = index_of_datetime(start_datetime.value,
-                                                     first_approach['datetime'],
-                                                     self.frequency)
-            second_approach_index = index_of_datetime(start_datetime.value,
-                                                      second_approach['datetime'],
-                                                      self.frequency)
-            approach_slice = slice(first_approach_index, second_approach_index)
-            for airborne in airbornes:
-                if is_slice_within_slice(airborne.slice, approach_slice):
-                    break
-            else:
-                logging.warning("'%s' slice could not be found within "
-                                "approaches, start index '%s', end index '%s'.",
-                                airbornes.name, first_approach_index,
-                                second_approach_index)
-                return
-            
-            # Requires 'magnetic_variation' for both airports.
-            orig_mag_var = first_approach['airport'].get('magnetic_variation')
-            dest_mag_var = second_approach['airport'].get('magnetic_variation')
-            if orig_mag_var is None or dest_mag_var is None:
+        true_array = np.ma.copy(head.array)        
+        start_dt = start_datetime.value
+        first_liftoff = liftoffs.get_first()
+        if not takeoff_airport.value or \
+           not takeoff_airport.value['magnetic_variation'] or not \
+           approaches.value or not first_liftoff:
+            return
+        orig_index = first_liftoff.index
+        orig_mag_var = takeoff_airport.value['magnetic_variation']
+        variations = []
+        
+        for approach in approaches.value:
+            dest_index = index_of_datetime(start_dt, approach['datetime'],
+                                           self.frequency)
+            dest_mag_var = approach['airport'].get('magnetic_variation')
+            if not dest_mag_var:
                 logging.warning("Cannot calculate '%s' with a missing magnetic "
-                                "variation for airport with ID either '%s' or "
-                                "'%s'.", self.name,
-                                first_approach['airport']['id'],
-                                second_approach['airport']['id'])
-                return
-            
-            approach_dict = {'orig_mag_var': orig_mag_var,
-                             'dest_mag_var': dest_mag_var,
-                             'airborne_slice': airborne.slice}
-            approach_dicts.append(approach_dict)
+                                "variation for airport with ID '%s'.",
+                                self.name, approach['airport']['id'])
+                return # TODO: this will break!
+            variations.append({'slice': slice(orig_index, dest_index),
+                               'orig_mag_var': orig_mag_var,
+                               'dest_mag_var': dest_mag_var})
+            orig_index = dest_index
+            orig_mag_var = dest_mag_var
         
         start_index = 0
-        for approach_dict in approach_dicts:
-            orig_mag_var = approach_dict['orig_mag_var']
-            dest_mag_var = approach_dict['dest_mag_var']
-            airborne_slice = approach_dict['airborne_slice']
+        for variation in variations:
+            orig_mag_var = variation['orig_mag_var']
+            dest_mag_var = variation['dest_mag_var']
+            variation_slice = variation['slice']
             
-            orig_slice = slice(start_index, airborne.slice.start)
+            orig_slice = slice(start_index, variation_slice.start)
             true_array[orig_slice] = head.array[orig_slice] + orig_mag_var
             mag_var_diff = dest_mag_var - orig_mag_var
-            airborne_duration = airborne_slice.stop - airborne_slice.start
-            step = mag_var_diff / airborne_duration
-            true_array[airborne_slice] = head.array[airborne_slice] + \
+            variation_duration = variation_slice.stop - variation_slice.start
+            step = mag_var_diff / variation_duration
+            true_array[variation_slice] = head.array[variation_slice] + \
                 np.arange(orig_mag_var, dest_mag_var, step)
-            start_index = airborne_slice.stop
+            start_index = variation_slice.stop
         # Apply landing airport magnetic varation to remainder of array.
         end_slice = slice(start_index, None)
         true_array[end_slice] = true_array[end_slice] + dest_mag_var

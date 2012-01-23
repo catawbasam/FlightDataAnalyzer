@@ -452,7 +452,7 @@ class TakeoffAirport(FlightAttributeNode):
          'latitude': 51.4775,
          'longitude': -0.461389,
          'location': {'city': 'London', 'country': 'United Kingdom'},
-         'magnetic_variation': 'W002241 0106', # Format subject to change.
+         'magnetic_variation': 2.5,
          'name': 'London Heathrow'}
         '''
         if not liftoff:
