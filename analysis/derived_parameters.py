@@ -923,6 +923,7 @@ class HeadingTrue(DerivedParameterNode):
         if not takeoff_airport.value or \
            not takeoff_airport.value['magnetic_variation'] or not \
            approaches.value or not first_liftoff:
+            self.array.mask = True
             return
         orig_index = first_liftoff.index
         orig_mag_var = takeoff_airport.value['magnetic_variation']
@@ -936,7 +937,8 @@ class HeadingTrue(DerivedParameterNode):
                 logging.warning("Cannot calculate '%s' with a missing magnetic "
                                 "variation for airport with ID '%s'.",
                                 self.name, approach['airport']['id'])
-                return # TODO: this will break!
+                self.array.mask = True
+                return
             variations.append({'slice': slice(orig_index, dest_index),
                                'orig_mag_var': orig_mag_var,
                                'dest_mag_var': dest_mag_var})
