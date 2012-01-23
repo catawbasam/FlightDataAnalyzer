@@ -1151,6 +1151,9 @@ class Speedbrake(DerivedParameterNode):
 
 
 class CoordinatesSmoothed(object):
+    '''
+    Superclass for LatitudeSmoothed and LongitudeSmoothed.
+    '''
     def _smooth_coordinates(self, coord1, coord2):
         """
         Acceleration along track only used to determine the sample rate and
