@@ -25,6 +25,9 @@ AIRSPEED_THRESHOLD = 80  # kts
 # climbing above 15000 ft and below 10000 ft.
 ALTITUDE_FOR_CLB_CRU_DSC = 12500
 
+# Minimum descent height range for an approach and landing phase.
+APPROACH_MIN_DESCENT = 500
+
 # Resolved vertical acceleration washout time constant. This long period
 # function removes any standing offset to the resolved acceleration signal
 # and is essential in the vertical velocity complementary filter.

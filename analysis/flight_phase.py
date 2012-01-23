@@ -6,6 +6,7 @@ from analysis.library import (hysteresis, index_at_value, is_slice_within_slice,
 from analysis.node import FlightPhaseNode, P, S, KTI
 from analysis.settings import (AIRSPEED_THRESHOLD,
                                ALTITUDE_FOR_CLB_CRU_DSC,
+                               APPROACH_MIN_DESCENT,
                                HEADING_TURN_OFF_RUNWAY,
                                HEADING_TURN_ONTO_RUNWAY,
                                HYSTERESIS_FPROT,
@@ -129,23 +130,25 @@ class ApproachAndLanding(FlightPhaseNode):
         
     # List the optimal parameter set here
     def derive(self, alt_aal=P('Altitude AAL For Flight Phases'),
-               alt_rad=P('Altitude Radio For Flight Phases')):
-        if alt_rad:
-            # Start the phase if we pass over high ground, so the radio
-            # altitude falls below 3000ft before the pressure altitude
-            app = np.ma.masked_where(np.ma.minimum(alt_aal.array,alt_rad.array)
-                                 >3000,alt_aal.array)
-        else:
-            # Just use airfield elevation clearance
-            app = np.ma.masked_where(alt_aal.array>3000,alt_aal.array)
-        phases = np.ma.clump_unmasked(app)
-        for phase in phases:
-            # Check that the aircraft descended in this section of data, as
-            # the same altitude range tests can also detect climbing flight.
-            begin = phase.start
-            pit = np.ma.argmin(app[phase]) + begin
-            if app[pit] < app[begin]: #  OK - we went downwards!
-                self.create_phase(phase)
+               alt_rad=P('Altitude Radio For Flight Phases'),
+               fast=S('Fast')):
+        for speedy in fast:
+            if alt_rad:
+                # Start the phase if we pass over high ground, so the radio
+                # altitude falls below 3000ft before the pressure altitude
+                app = np.ma.masked_where(np.ma.minimum(alt_aal.array[speedy.slice],alt_rad.array[speedy.slice])
+                                     >3000,alt_aal.array[speedy.slice])
+            else:
+                # Just use airfield elevation clearance
+                app = np.ma.masked_where(alt_aal.array[speedy.slice]>3000,alt_aal.array[speedy.slice])
+            phases = np.ma.clump_unmasked(app)
+            for phase in phases:
+                # Check that the aircraft descended in this section of data, as
+                # the same altitude range tests can also detect climbing flight.
+                begin = phase.start
+                pit = np.ma.argmin(app[phase]) + begin
+                if app[begin]-app[pit] > APPROACH_MIN_DESCENT:
+                    self.create_phases(shift_slices([slice(begin,pit)],speedy.slice.start))
 
 
 class ClimbCruiseDescent(FlightPhaseNode):

@@ -985,7 +985,7 @@ class AirspeedMinusVrefBetween2MinutesToTouchdownAndTouchdownMin(KeyPointValueNo
         for _2_min in mins_to_touchdown.get(name='2 Mins To Touchdown'):
             # add 2 mins to find touchdown
             tdwn = _2_min.index + 2 * 60 * self.frequency
-            index, value = min_value(airspeed, slice(_2_min.index, tdwn))
+            index, value = min_value(airspeed.array, slice(_2_min.index, tdwn))
             self.create_kpv(index, value)
 
             
