@@ -5,7 +5,10 @@ from datetime import datetime, timedelta
 from hashlib import sha256
 from itertools import izip
 from math import floor
+from operator import attrgetter
 from scipy.signal import lfilter, lfilter_zi
+from scipy.interpolate import interp1d
+
 
 from settings import REPAIR_DURATION, TRUCK_OR_TRAILER_INTERVAL, TRUCK_OR_TRAILER_PERIOD
 
@@ -621,6 +624,47 @@ def interleave_uneven_spacing (param_1, param_2):
     
     #return straight_array
     return None # to force a test error until this is fixed to prevent extrapolation
+
+def interpolate_params(*params):
+    '''
+    Q: Should we mask indices which are being interpolated in masked areas of
+       the input arrays.
+    '''
+    param_frequencies = [param.frequency for param in params]
+    max_frequency = max(param_frequencies)
+    out_frequency = sum(param_frequencies)
+    
+    data_arrays = []
+    index_arrays = []
+    
+    for param in sorted(params, key=attrgetter('frequency')):
+        multiplier = out_frequency / float(param.frequency)
+        offset = (param.offset * multiplier)
+        # Will not create interpolation points for masked indices.
+        unmasked_indices = np.where(param.array.mask == False)[0]
+        index_array = unmasked_indices.astype(np.float_) * multiplier + offset
+        # Take only unmasked values to match size with index_array.
+        data_arrays.append(param.array.data[unmasked_indices])
+        index_arrays.append(index_array)
+    # param assigned within loop has the maximum frequency.
+    
+    data_array = np.concatenate(data_arrays)
+    index_array = np.concatenate(index_arrays)
+    record = np.rec.fromarrays([index_array, data_array],
+                               names='indices,values')
+    record.sort()
+    # Masked values will be NaN.
+    interpolator = interp1d(record.indices, record.values, bounds_error=False,
+                            fill_value=np.NaN)
+    # Ensure first interpolated value is within range.
+    out_offset = np.min(record.indices)
+    out_indices = np.arange(out_offset, len(param.array) * multiplier,
+                            param.frequency / float(out_frequency))
+    interpolated_array = interpolator(out_indices)
+    masked_array = np.ma.masked_array(interpolated_array,
+                                      mask=np.isnan(interpolated_array))
+    return masked_array, out_frequency, out_offset
+
 
 def index_of_datetime(start_datetime, index_datetime, frequency):
     '''

@@ -27,7 +27,8 @@ class TestProcessFlight(unittest.TestCase):
     
     @unittest.skipIf(not os.path.isfile("test_data/1_7295949_737-3C.hdf5"),
                      "Test file not present")
-    def test_1_7295949_737_3C(self):
+    @mock.patch('analysis.flight_attribute.get_api_handler')
+    def test_1_7295949_737_3C(self, get_api_handler):
         hdf_orig = "test_data/1_7295949_737-3C.hdf5"
         hdf_path = "test_data/1_7295949_737-3C_copy.hdf5"
         if os.path.isfile(hdf_path):
@@ -40,6 +41,51 @@ class TestProcessFlight(unittest.TestCase):
                    'Tail Number': 'G-ABCD',
                    'Flap Selections': [0,1,2,5,10,15,25,30,40],
                    }
+        
+        # Mock API handler return values so that we do not make http requests.
+        # Will return the same airport and runway for each query, can be
+        # avoided with side_effect.
+        api_handler = mock.Mock()
+        get_api_handler.return_value = api_handler
+        airport = {'id': 100, 'icao': 'EGLL'}
+        runway = {'id': 1234, # TODO: Replace with correct runway for flight. Perhaps use side_effect for multiple runways.
+         'identifier': '29L',
+         'magnetic_heading': 290,
+         'start': {
+             'latitude': 14.1,
+             'longitude': 7.1,
+         },
+         'end': {
+             'latitude': 14.2,
+             'longitude': 7.2,
+         },
+             'glideslope': {
+                  'angle': 120, # Q: Sensible example value?
+                  'frequency': 330, # Q: Sensible example value?
+                  'latitude': 14.3,
+                  'longitude': 7.3,
+                  'threshold_distance': 20,
+              },
+              'localiser': {
+                  'beam_width': 14, # Q: Sensible example value?
+                  'frequency': 335, # Q: Sensible example value?
+                  'heading': 291,
+                  'latitude': 14.4,
+                  'longitude': 7.4,
+              },
+         'strip': {
+             'length': 150,
+             'surface': 'ASPHALT',
+             'width': 30,
+        }}
+        api_handler.get_nearest_airport = mock.Mock()
+        api_handler.get_nearest_airport.return_value = airport
+        api_handler.get_nearest_runway = mock.Mock()
+        api_handler.get_nearest_runway.return_value = runway
+        start_datetime = datetime.now()
+        res = process_flight(hdf_path, ac_info, achieved_flight_record=afr,
+                             start_datetime=start_datetime)
+        
         res = process_flight(hdf_path, ac_info, draw=False)
         self.assertEqual(len(res), 4)
         if debug:

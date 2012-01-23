@@ -733,6 +733,26 @@ class TestInterleave(unittest.TestCase):
                                                     False,False])
 
 
+class TestInterpolateParams(unittest.TestCase):
+    def test_interpolate_params(self):
+        param1 = P('A1',np.ma.arange(10),
+                   frequency=1,offset=0.2)
+        param2 = P('A2',np.ma.arange(0.2, 10, 0.5),
+                   frequency=2,offset=0.7)
+        param1.array[1] = np.ma.masked
+        param2.array[2] = np.ma.masked
+        array, freq, off = interpolate_params(param1, param2)
+        np.testing.assert_array_equal(array.data[:5], 
+            [0.0, 0.27222222222222225, 0.49444444444444441, 0.71666666666666656,
+             0.93888888888888866])
+        np.testing.assert_array_equal(array[-5:], 
+            [8.9047619047619033, 9.1481481481481435, 9.3833333333333311,
+             9.6055555555555525, np.nan])
+        array.mask[-1] = True
+        self.assertEqual(freq, 3)
+        self.assertEqual(off, 3 * param1.offset)
+
+
 class TestIsIndexWithinSlice(unittest.TestCase):
     def test_is_index_within_slice(self):
         self.assertTrue(is_index_within_slice(1, slice(0,2)))
