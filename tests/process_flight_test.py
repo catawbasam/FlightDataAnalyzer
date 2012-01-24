@@ -68,8 +68,6 @@ class TestProcessFlight(unittest.TestCase):
         api_handler.get_nearest_runway = mock.Mock()
         api_handler.get_nearest_runway.return_value = runway
         start_datetime = datetime.now()
-        res = process_flight(hdf_path, ac_info, achieved_flight_record=afr,
-                             start_datetime=start_datetime)
         
         res = process_flight(hdf_path, ac_info, draw=False)
         self.assertEqual(len(res), 4)

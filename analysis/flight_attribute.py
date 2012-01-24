@@ -568,7 +568,7 @@ class TakeoffRunway(FlightAttributeNode):
         {'id': 1234,
          'identifier': '29L',
          'magnetic_heading': 290,
-         'start': {
+         ['start': {
              'latitude': 14.1,
              'longitude': 7.1,
          },

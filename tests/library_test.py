@@ -1194,35 +1194,15 @@ class TestSlicesFromTo(unittest.TestCase):
 
 class TestStraightenHeadings(unittest.TestCase):
     def test_straight_headings(self):
-        data = [35.5,
-                29.5,
-                11.3,
-                0.0,
-                348.4,
-                336.8,
-                358.9,
-                2.5,
-                8.1,
-                14.4]
-        expected = [35.5,
-                    29.5,
-                    11.3,
-                    0.0,
-                    -11.6,
-                    -23.2,
-                    -1.1,
-                    2.5,
-                    8.1,
-                    14.4]
-        np.testing.assert_array_almost_equal(straighten_headings(data), expected)
+        data = np.ma.array([35.5,29.5,11.3,0.0,348.4,336.8,358.9,2.5,8.1,14.4])
+        expected = np.ma.array([35.5,29.5,11.3,0.0,-11.6,-23.2,-1.1,2.5,8.1,14.4])
+        np.testing.assert_array_almost_equal(straighten_headings(data),expected)
 
-        #for index, val in enumerate(straighten_headings(data)):
-            #self.assertEqual(
-                #'%.2f' % val,
-                #'%.2f' % expected[index],
-                #msg="Failed at %s == %s at %s" % (val, expected[index], index)
-            #)
-            
+    def test_straight_headings_starting_masked(self):
+        data=np.ma.array([1,2,3])
+        data[0]=np.ma.masked
+        expected=data
+        ma_test.assert_masked_array_approx_equal(straighten_headings(data), expected)
             
 class TestSmoothTrack(unittest.TestCase):
     def test_smooth_track_latitude(self):

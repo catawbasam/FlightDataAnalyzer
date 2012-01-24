@@ -1252,8 +1252,8 @@ def straighten_headings(heading_array):
     :returns: Straightened headings
     :rtype: Generator of type Float
     '''
-    head_prev = heading_array[0]
-    diff = np.ediff1d(heading_array)
+    head_prev = heading_array.data[0]
+    diff = np.ediff1d(heading_array.data)
     diff = diff - 360.0 * np.trunc(diff/180.0)
     heading_array[1:] = np.cumsum(diff) + head_prev
     return heading_array

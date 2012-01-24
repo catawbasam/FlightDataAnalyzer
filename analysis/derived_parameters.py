@@ -202,6 +202,7 @@ class AltitudeAAL(DerivedParameterNode):
         # not required.
         return 'Altitude AAL For Flight Phases' in available
     """
+    name = "Altitude AAL"
     def derive(self, roc = P('Rate Of Climb'),
                alt_std = P('Altitude STD'),
                alt_rad = P('Altitude Radio'),
@@ -893,7 +894,7 @@ class HeadingContinuous(DerivedParameterNode):
     jump as it passes through North. To recover the compass display, modulus
     ("%360" in Python) returns the value to display to the user.
     """
-    def derive(self, head_mag=P('Heading Magnetic')):
+    def derive(self, head_mag=P('Heading')):
         self.array = repair_mask(straighten_headings(head_mag.array))
 
 
@@ -914,6 +915,15 @@ class HeadingTrue(DerivedParameterNode):
                takeoff_airport=A('FDR Takeoff Airport'),
                approaches=A('FDR Approaches'),
                start_datetime=A('Start Datetime')):
+        
+        
+        #"Hard wired" for Bergen !!!!!!!!!!!!!!!!!!!
+        self.array = head.array - 1.185
+        
+        if not approaches.value:
+            return
+
+
         # We copy the masked array to transfer the mask array. All the data
         # values will be overwritten, but the mask will not be affected by
         # conversion from magnetic to true headings.
@@ -963,12 +973,51 @@ class HeadingTrue(DerivedParameterNode):
         end_slice = slice(start_index, None)
         true_array[end_slice] = true_array[end_slice] + dest_mag_var
         self.array = true_array
-        
 
-class ILSLocalizerGap(DerivedParameterNode):
-    def derive(self, ils_loc = P('Localizer Deviation'),
-               alt_aal = P('Altitude AAL')):
-        return NotImplemented
+        
+class ILSLocalizerComputation(DerivedParameterNode):
+    name = "ILS Localizer Sums"
+    
+    @classmethod
+    def can_operate(cls, available):
+        return True
+    
+    def derive(self, ils_loc = P('ILS Localizer'),
+               glide = P('ILS Glideslope'),
+               alt_aal = P('Altitude AAL'),
+               rwy=A('FDR Landing Runway'),
+               lat=P('Latitude Smoothed'),
+               lon=P('Longitude Smoothed'),
+               hdg=P('Heading True'),
+               ap=S('Approach And Landing')
+               ):
+        #-------------------------------------------------------------------
+        # TEST OUTPUT TO CSV FILE FOR DEBUGGING ONLY
+        # TODO: REMOVE THIS SECTION BEFORE RELEASE
+        #-------------------------------------------------------------------
+        import csv
+        spam = csv.writer(open('tomato.csv', 'wb'))
+        spam.writerow(['ILS Localizer',
+                       'ILS GLideslope',
+                       'Altitude AAL',
+                       'Latitude Smoothed',
+                       'Longitude Smoothed',
+                       'Heading True'])
+        scope = ap.get_last()  # Only the last approach is interesting.
+        for showme in range(int(scope.slice.start), int(scope.slice.stop)):
+            spam.writerow([ils_loc.array[showme],
+                           glide.array[showme],
+                           alt_aal.array[showme],
+                           lat.array[showme],
+                           lon.array[showme],
+                           hdg.array[showme]%360.0,
+                           ])
+        #-------------------------------------------------------------------
+        # TEST OUTPUT TO CSV FILE FOR DEBUGGING ONLY
+        # TODO: REMOVE THIS SECTION BEFORE RELEASE
+        #-------------------------------------------------------------------
+        
+        self.array = ils_loc
 
     
 class ILSGlideslopeGap(DerivedParameterNode):
