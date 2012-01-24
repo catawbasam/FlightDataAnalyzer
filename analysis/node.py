@@ -499,6 +499,62 @@ class SectionNode(Node, list):
         return self.__class__(name=self.name, frequency=self.frequency,
                               offset=self.offset, items=ordered_by_start)
     
+    def get_next(self, index, frequency=None, use='start', within_slice=None,
+                 name=None):
+        '''
+        Gets the section with the next index optionally filter within_slice or
+        by name.
+        
+        :param index: Index to get the next Section from.
+        :type index: int or float
+        :param frequency: Frequency of index.
+        :type frequency: int or float
+        :param use: Use either 'start' or 'stop' of slice.
+        :type use: str        
+        :param within_slice: Only return elements within this slice.
+        :type within_slice: slice
+        :param name: Only return elements with this name.
+        :type name: str 
+        :returns: Section with the next index matching criteria.
+        :rtype: Section or None      
+        '''
+        if frequency:
+            index = index * (self.frequency / float(frequency))
+        ordered = self.get_ordered_by_index(within_slice=within_slice,
+                                            name=name)
+        for elem in ordered:
+            if getattr(elem.slice, use) > index:
+                return elem
+        return None
+    
+    def get_previous(self, index, frequency=None, use='stop', within_slice=None,
+                     name=None):
+        '''
+        Gets the element with the previous index optionally filter within_slice
+        or by name.
+        
+        :param index: Index to get the previous Section from.
+        :type index: int or float
+        :param frequency: Frequency of index.
+        :type frequency: int or float
+        :param use: Use either 'start' or 'stop' of slice.
+        :type use: str
+        :param within_slice: Only return elements within this slice.
+        :type within_slice: slice
+        :param name: Only return elements with this name.
+        :type name: str 
+        :returns: Element with the previous index matching criteria.
+        :rtype: item within self or None     
+        '''
+        if frequency:
+            index = index * (self.frequency / float(frequency))
+        ordered = self.get_ordered_by_index(within_slice=within_slice,
+                                            name=name)
+        for elem in reversed(ordered):
+            if getattr(elem.slice, use) < index:
+                return elem
+        return None
+    
 
 class FlightPhaseNode(SectionNode):
     """ Is a Section, but called "phase" for user-friendliness!
@@ -676,7 +732,7 @@ class FormattedNameNode(Node, list):
         Gets the element with the next index optionally filter within_slice or
         by name.
         
-        :param index: Index to get the next KPV from.
+        :param index: Index to get the next item from.
         :type index: int or float
         :param frequency: Frequency of index.
         :type frequency: int or float
@@ -701,7 +757,7 @@ class FormattedNameNode(Node, list):
         Gets the element with the previous index optionally filter within_slice
         or by name.
         
-        :param index: Index to get the next KPV from.
+        :param index: Index to get the previous item from.
         :type index: int or float
         :param frequency: Frequency of index.
         :type frequency: int or float                

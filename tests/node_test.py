@@ -374,6 +374,42 @@ class TestSectionNode(unittest.TestCase):
         self.assertEqual([items[2], items[1]], sections)
         sections = section_node.get_ordered_by_index(within_slice=slice(15, 40), name='b')
         self.assertEqual([items[1]], sections)
+    
+    def test_get_next(self):
+        items = [Section('a', slice(4,10)),
+                 Section('b', slice(19,21)),
+                 Section('b', slice(14,17)),
+                 Section('c', slice(30,34)),]
+        section_node = self.section_node_class(frequency=1, offset=0.5,
+                                               items=items)
+        section = section_node.get_next(16)
+        self.assertEqual(items[1], section)
+        section = section_node.get_next(16, use='stop')
+        self.assertEqual(items[2], section)
+        section = section_node.get_next(16, name='c')
+        self.assertEqual(items[3], section)
+        section = section_node.get_next(16, within_slice=slice(25, 40))
+        self.assertEqual(items[3], section)
+        section = section_node.get_next(3, frequency=0.5)
+        self.assertEqual(items[2], section)
+    
+    def test_get_previous(self):
+        items = [Section('a', slice(4,10)),
+                 Section('b', slice(19,21)),
+                 Section('b', slice(14,17)),
+                 Section('c', slice(30,34)),]
+        section_node = self.section_node_class(frequency=1, offset=0.5,
+                                               items=items)
+        section = section_node.get_previous(16)
+        self.assertEqual(items[0], section)
+        section = section_node.get_previous(16, use='start')
+        self.assertEqual(items[2], section)
+        section = section_node.get_previous(30, name='a')
+        self.assertEqual(items[0], section)
+        section = section_node.get_previous(23, within_slice=slice(0, 12))
+        self.assertEqual(items[0], section)
+        section = section_node.get_previous(40, frequency=2)
+        self.assertEqual(items[2], section)    
 
 
 class TestFormattedNameNode(unittest.TestCase):
