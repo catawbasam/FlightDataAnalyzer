@@ -1013,7 +1013,7 @@ class ILSLocalizerComputation(DerivedParameterNode):
                                lon.array[showme],
                                hdg.array[showme]%360.0,
                                ])
-        self.array = np.arange(1000) # TODO: Remove.
+        self.array = np.ma.arange(1000) # TODO: Remove.
         #-------------------------------------------------------------------
         # TEST OUTPUT TO CSV FILE FOR DEBUGGING ONLY
         # TODO: REMOVE THIS SECTION BEFORE RELEASE
