@@ -995,23 +995,24 @@ class ILSLocalizerComputation(DerivedParameterNode):
         # TEST OUTPUT TO CSV FILE FOR DEBUGGING ONLY
         # TODO: REMOVE THIS SECTION BEFORE RELEASE
         #-------------------------------------------------------------------
-        import csv
-        spam = csv.writer(open('tomato.csv', 'wb'))
-        spam.writerow(['ILS Localizer',
-                       'ILS GLideslope',
-                       'Altitude AAL',
-                       'Latitude Smoothed',
-                       'Longitude Smoothed',
-                       'Heading True'])
-        scope = ap.get_last()  # Only the last approach is interesting.
-        for showme in range(int(scope.slice.start), int(scope.slice.stop)):
-            spam.writerow([ils_loc.array[showme],
-                           glide.array[showme],
-                           alt_aal.array[showme],
-                           lat.array[showme],
-                           lon.array[showme],
-                           hdg.array[showme]%360.0,
-                           ])
+        if ils_loc and glide and alt_aal and rwy and lat and lon and hdg and ap:
+            import csv
+            spam = csv.writer(open('tomato.csv', 'wb'))
+            spam.writerow(['ILS Localizer',
+                           'ILS GLideslope',
+                           'Altitude AAL',
+                           'Latitude Smoothed',
+                           'Longitude Smoothed',
+                           'Heading True'])
+            scope = ap.get_last()  # Only the last approach is interesting.
+            for showme in range(int(scope.slice.start), int(scope.slice.stop)):
+                spam.writerow([ils_loc.array[showme],
+                               glide.array[showme],
+                               alt_aal.array[showme],
+                               lat.array[showme],
+                               lon.array[showme],
+                               hdg.array[showme]%360.0,
+                               ])
         #-------------------------------------------------------------------
         # TEST OUTPUT TO CSV FILE FOR DEBUGGING ONLY
         # TODO: REMOVE THIS SECTION BEFORE RELEASE
