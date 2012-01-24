@@ -645,7 +645,7 @@ class FormattedNameNode(Node, list):
         :param name: Only return elements with this name.
         :type name: str
         :returns: First element matching conditions.
-        :rtype: self
+        :rtype: item within self or None
         '''
         matching = self.get(within_slice=within_slice, name=name)
         if matching:
@@ -662,6 +662,8 @@ class FormattedNameNode(Node, list):
         :type within_slice: slice
         :param name: Only return elements with this name.
         :type name: str
+        :returns: Element with the lowest index matching criteria.
+        :rtype: item within self or None
         '''
         matching = self.get(within_slice=within_slice, name=name)
         if matching:
@@ -669,20 +671,55 @@ class FormattedNameNode(Node, list):
         else:
             return None
     
-    def get_named(self, name, within_slice=None):
+    def get_next(self, index, frequency=None, within_slice=None, name=None):
         '''
-        Gets elements with name optionally filtered within_slice.
+        Gets the element with the next index optionally filter within_slice or
+        by name.
         
-        :param name: Only return elements with this name.
-        :type name: str
+        :param index: Index to get the next KPV from.
+        :type index: int or float
+        :param frequency: Frequency of index.
+        :type frequency: int or float
         :param within_slice: Only return elements within this slice.
         :type within_slice: slice
-        :returns: An object of the same type as self containing the filtered elements.
-        :rtype: self.__class__
+        :param name: Only return elements with this name.
+        :type name: str 
+        :returns: Element with the next index matching criteria.
+        :rtype: item within self or None      
         '''
-        matching = self.get(within_slice=within_slice, name=name)
-        return self.__class__(name=self.name, frequency=self.frequency,
-                              offset=self.offset, items=matching)
+        if frequency:
+            index = index * (self.frequency / float(frequency))
+        ordered = self.get_ordered_by_index(within_slice=within_slice,
+                                            name=name)
+        for elem in ordered:
+            if elem.index > index:
+                return elem
+        return None
+    
+    def get_previous(self, index, frequency=None, within_slice=None, name=None):
+        '''
+        Gets the element with the previous index optionally filter within_slice
+        or by name.
+        
+        :param index: Index to get the next KPV from.
+        :type index: int or float
+        :param frequency: Frequency of index.
+        :type frequency: int or float                
+        :param within_slice: Only return elements within this slice.
+        :type within_slice: slice
+        :param name: Only return elements with this name.
+        :type name: str 
+        :returns: Element with the previous index matching criteria.
+        :rtype: item within self or None     
+        '''
+        if frequency:
+            index = index * (self.frequency / float(frequency))      
+        ordered = self.get_ordered_by_index(within_slice=within_slice,
+                                            name=name)
+        for elem in reversed(ordered):
+            if elem.index < index:
+                return elem
+        return None        
 
 
 class KeyTimeInstanceNode(FormattedNameNode):
