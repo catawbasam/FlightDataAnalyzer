@@ -1013,12 +1013,13 @@ class ILSLocalizerComputation(DerivedParameterNode):
                                lon.array[showme],
                                hdg.array[showme]%360.0,
                                ])
+        param = ils_loc or glide or alt_aal or rwy or lat or lon or hdg or ap
+        self.array = param.array
         #-------------------------------------------------------------------
         # TEST OUTPUT TO CSV FILE FOR DEBUGGING ONLY
         # TODO: REMOVE THIS SECTION BEFORE RELEASE
         #-------------------------------------------------------------------
         
-        self.array = ils_loc
 
     
 class ILSGlideslopeGap(DerivedParameterNode):
