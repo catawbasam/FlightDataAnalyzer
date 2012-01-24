@@ -714,6 +714,33 @@ class TestIndexAtValue(unittest.TestCase):
         self.assertEqual(index_at_value(array, 55, slice(-20,20)), None)
 
 
+class TestIndexClosestValue(unittest.TestCase):
+    def test_index_closest_value(self):
+        array = np.ma.array([1,2,3,4,5,4,3])
+        self.assertEqual(index_closest_value(array, 6, slice(0,6)), 4)
+
+    def test_index_closest_value_at_start(self):
+        array = np.ma.array([6,2,3,4,5,4,3])
+        self.assertEqual(index_closest_value(array, 7, slice(0,6)), 0)
+
+    def test_index_closest_value_at_end(self):
+        array = np.ma.array([1,2,3,4,5,6,7])
+        self.assertEqual(index_closest_value(array, 99, slice(0,6)), 6)
+
+    def test_index_closest_value_negative(self):
+        array = np.ma.array([3,2,1,4,5,6,7])
+        self.assertEqual(index_closest_value(array, -9, slice(0,6)), 2)
+
+    def test_index_closest_value_sliced(self):
+        array = np.ma.array([1,2,3,4,5,4,3])
+        self.assertEqual(index_closest_value(array, 6, slice(2,5)), 4)
+
+    def test_index_closest_value_backwards(self):
+        array = np.ma.array([3,2,1,4,5,6,7])
+        self.assertEqual(index_closest_value(array, -9, slice(5,1,-1)), 2)
+
+
+
 class TestIndexOfDatetime(unittest.TestCase):
     def test_index_of_datetime(self):
         start_datetime = datetime.now()
@@ -946,12 +973,12 @@ class TestPeakCurvature(unittest.TestCase):
 
     def test_peak_curvature_no_peak(self):
         array = np.ma.array([0]*40+range(40))*(-1.0)
-        pc = peak_curvature(array, search_for='Concave')
+        pc = peak_curvature(array, curve_sense='Concave')
         self.assertEqual(pc,None)
 
     def test_peak_curvature_bipolar(self):
         array = np.ma.array([0]*40+range(40))*(-1.0)
-        pc = peak_curvature(array, search_for='Bipolar')
+        pc = peak_curvature(array, curve_sense='Bipolar')
         self.assertGreaterEqual(pc,35)
         self.assertLessEqual(pc,45)
 

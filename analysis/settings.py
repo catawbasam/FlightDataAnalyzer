@@ -96,6 +96,9 @@ HYSTERESIS_FPROT = 2 # deg/sec
 # Full scale reading on the ILS
 ILS_MAX_SCALE = 2.5 # dots
 
+# Initial approach threshold height
+INITIAL_APPROACH_THRESHOLD = 3000 # ft
+
 # Threshold for start of initial climb phase
 INITIAL_CLIMB_THRESHOLD = 35 # ft (Radio, where available)
 
@@ -131,7 +134,7 @@ RATE_OF_CLIMB_FOR_LEVEL_FLIGHT = 300 # fpm
 
 # Rate of climb for liftoff. This builds upon the intertially smoothed rate of
 # climb computation to identify accurately the point of liftoff.
-RATE_OF_CLIMB_FOR_LIFTOFF = 5 # fpm
+RATE_OF_CLIMB_FOR_LIFTOFF = 120 # fpm
 
 # Rate of climb for touchdown.
 RATE_OF_CLIMB_FOR_TOUCHDOWN = -60 # fpm

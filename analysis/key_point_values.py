@@ -190,13 +190,13 @@ class AccelerationNormalAirborneMax(KeyPointValueNode):
         self.create_kpvs_within_slices(accel.array, airborne, max_value)
 
 
-class AccelerationPeakTakeoff(KeyPointValueNode):
+class AccelerationLongitudinalPeakTakeoff(KeyPointValueNode):
     def derive(self, takeoff=S('Takeoff'),
                accel=P('Acceleration Longitudinal')):
         self.create_kpvs_within_slices(accel.array, takeoff, max_value)
 
 
-class DecelerationPeakLanding(KeyPointValueNode):
+class DecelerationLongitudinalPeakLanding(KeyPointValueNode):
     def derive(self, landing=S('Landing'),
                accel=P('Acceleration Longitudinal')):
         self.create_kpvs_within_slices(accel.array, landing, min_value)

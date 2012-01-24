@@ -11,6 +11,7 @@ from analysis.plot_flight import plot_parameter
 from analysis.flight_phase import (
     Airborne,
     Approach,
+    ApproachAndGoAround,
     ApproachAndLanding,
     ClimbCruiseDescent,
     Climbing,
@@ -75,51 +76,113 @@ class TestApproach(unittest.TestCase):
         self.assertEqual(app, expected)
 
 
+class TestApproachAndGoAround(unittest.TestCase):
+    def test_can_operate(self):
+        expected = [('Altitude AAL',
+                     'Climb For Flight Phases',
+                     'Go Around','Fast'),
+                    ('Altitude AAL',
+                     'Altitude Radio',
+                     'Climb For Flight Phases',
+                     'Go Around','Fast')]
+        opts = ApproachAndGoAround.get_operational_combinations()
+        self.assertEqual(opts, expected)
+
+    def test_approach_and_go_around_phase_basic(self):
+        alt = np.ma.array(range(5000,500,-500)+[0]*11)
+        ga = KTI('Go Around', items=[KeyTimeInstance(index=11, name='Go Around')])
+        climb=S(items=[Section('Climb For Flight Phases',slice=slice(11,20))])
+        fast=S(items=[Section('Fast',slice=slice(0,19))])
+        app = ApproachAndGoAround()
+        # Pretend we are flying over flat ground, so the altitudes are equal.
+        app.derive(Parameter('Altitude AAL',alt),
+                   Parameter('Altitude Radio',alt),
+                   climb, ga, fast)
+        expected = [Section(name='Approach And Go Around', slice=slice(4, 19, None))]
+        self.assertEqual(app, expected)
+
+    def test_approach_and_go_around_phase_no_ralt(self):
+        alt = np.ma.array(range(4000,400,-400)+[0]*11)
+        ga = KTI('Go Around', items=[KeyTimeInstance(index=11, name='Go Around')])
+        climb=S(items=[Section('Climb For Flight Phases',slice=slice(11,20))])
+        fast=S(items=[Section('Fast',slice=slice(0,19))])
+        app = ApproachAndGoAround()
+        # Pretend we are flying over flat ground, so the altitudes are equal.
+        app.derive(Parameter('Altitude AAL',alt),
+                   None,
+                   climb, ga, fast)
+        expected = [Section(name='Approach And Go Around', slice=slice(2.5, 19, None))]
+        self.assertEqual(app, expected)
+
+    def test_approach_and_go_around_over_high_ground(self):
+        alt = np.ma.array(range(5000,500,-500)+[0]*12)
+        ga = KTI('Go Around', items=[KeyTimeInstance(index=11, name='Go Around')])
+        climb=S(items=[Section('Climb For Flight Phases',slice=slice(11,20))])
+        fast=S(items=[Section('Fast',slice=slice(0,19))])
+        app = ApproachAndGoAround()
+        # Pretend we are flying over flat ground, so the altitudes are equal.
+        app.derive(Parameter('Altitude AAL',alt),
+                   Parameter('Altitude Radio',alt-500),
+                   climb, ga, fast)
+        expected = [Section(name='Approach And Go Around', slice=slice(3, 19, None))]
+        self.assertEqual(app, expected)
+    
+    def test_approach_and_go_around_levels_out(self):
+        # The height does not reach 3000ft, and drops away before that.
+        alt = np.ma.array([2500,2600]+range(2500,500,-500)+[0]*14)
+        ga = KTI('Go Around', items=[KeyTimeInstance(index=11, name='Go Around')])
+        climb=S(items=[Section('Climb For Flight Phases',slice=slice(11,17))])
+        fast=S(items=[Section('Fast',slice=slice(0,17))])
+        app = ApproachAndGoAround()
+        app.derive(Parameter('Altitude AAL',alt),
+                   Parameter('Altitude Radio',alt),
+                   climb, ga, fast)
+        expected = [Section(name='Approach And Go Around', slice=slice(1, 17, None))]
+        self.assertEqual(app, expected)
+    
+
 class TestApproachAndLanding(unittest.TestCase):
     def test_can_operate(self):
-        expected = [('Altitude AAL For Flight Phases',),
+        expected = [('Altitude AAL For Flight Phases',
+                     'Landing'),
                     ('Altitude AAL For Flight Phases',
-                     'Altitude Radio For Flight Phases')]
+                     'Altitude Radio For Flight Phases',
+                     'Landing')]
         opts = ApproachAndLanding.get_operational_combinations()
         self.assertEqual(opts, expected)
 
     def test_approach_and_landing_phase_basic(self):
-        alt = np.ma.array(range(5000,500,-500)+range(500,3000,500))
+        alt = np.ma.array(range(5000,500,-500)+[0]*10)
+        land=S(items=[Section('Landing',slice=slice(11,20))])
         app = ApproachAndLanding()
         # Pretend we are flying over flat ground, so the altitudes are equal.
         app.derive(Parameter('Altitude AAL For Flight Phases',alt),
-                   Parameter('Altitude Radio For Flight Phases',alt))
-        expected = [Section(name='Approach And Landing', slice=slice(4, 14, None))]
+                   Parameter('Altitude Radio For Flight Phases',alt),
+                   land)
+        expected = [Section(name='Approach And Landing', slice=slice(4, 20, None))]
         self.assertEqual(app, expected)
 
     def test_approach_and_landing_phase_no_ralt(self):
-        alt = np.ma.array(range(5000,500,-500)+range(500,3000,500))
+        alt = np.ma.array(range(5000,500,-500)+[0]*10)
+        land=S(items=[Section('Landing',slice=slice(11,20))])
         alt_param = Parameter('Altitude AAL For Flight Phases',alt)
         app = ApproachAndLanding()
         # Pretend we are flying over flat ground, so the altitudes are equal.
-        app.derive(alt_param, None)
-        expected = [Section(name='Approach And Landing', slice=slice(4, 14, None))]
+        app.derive(alt_param, None, land)
+        expected = [Section(name='Approach And Landing', slice=slice(4, 20, None))]
         self.assertEqual(app, expected)
 
     def test_initial_approach_phase_over_high_ground(self):
-        alt_aal = np.ma.array(range(0,4000,500)+range(4000,0,-500))
+        alt = np.ma.array(range(5000,500,-500)+[0]*10)
+        land=S(items=[Section('Landing',slice=slice(11,20))])
+        app = ApproachAndLanding()
         # Raising the ground makes the radio altitude trigger one sample sooner.
-        alt_rad = alt_aal - 600
-        app = ApproachAndLanding()
-        app.derive(Parameter('Altitude AAL For Flight Phases',alt_aal),
-                   Parameter('Altitude Radio For Flight Phases',alt_rad))
-        expected = [Section(name='Approach And Landing', slice=slice(9, 16, None))]
-        self.assertEqual(app, expected)
-
-    def test_initial_approach_phase_with_go_around(self):
-        alt = np.ma.array(range(4000,2000,-500)+range(2000,4000,500))
-        app = ApproachAndLanding()
-        # Pretend we are flying over flat ground, so the altitudes are equal.
         app.derive(Parameter('Altitude AAL For Flight Phases',alt),
-                   Parameter('Altitude Radio For Flight Phases',alt))
-        expected = [Section(name='Approach And Landing', slice=slice(2, 7, None))]
+                   Parameter('Altitude Radio For Flight Phases',alt-750),
+                   land)
+        expected = [Section(name='Approach And Landing', slice=slice(2.5, 20, None))]
         self.assertEqual(app, expected)
-
+    
 
 class TestILSLocalizerEstablished(unittest.TestCase):
     def test_can_operate(self):
@@ -340,16 +403,36 @@ class TestCruise(unittest.TestCase):
 
 class TestDescentLowClimb(unittest.TestCase):
     def test_can_operate(self):
-        expected = [('Altitude For Flight Phases',)]
+        expected = [('Altitude AAL For Flight Phases',
+                     'Climb For Flight Phases')]
         opts = DescentLowClimb.get_operational_combinations()
         self.assertEqual(opts, expected)
 
-    def test_descent_low_climb_basic(self):
+    def test_descent_low_climb_inadequate_climb(self):
         # This test will find out if we can separate the two humps on this camel
         dlc = DescentLowClimb()
-        testwave = np.cos(np.arange(0,12.6,0.1))*(-3000)+12500
-        alt = Parameter('Altitude For Flight Phases', np.ma.array(testwave))
-        dlc.derive(alt)
+        testwave = np.cos(np.arange(0,12.6,0.1))*(100)+3000
+        alt = Parameter('Altitude AAL For Flight Phases', np.ma.array(testwave))
+        clb = Parameter('Climb For Flight Phases', np.ma.array([0]*len(alt.array)))
+        dlc.derive(alt, clb)
+        self.assertEqual(len(dlc), 0)
+
+    def test_descent_low_climb_with_climbs(self):
+        # This test will find out if we can separate the two humps on this camel
+        dlc = DescentLowClimb()
+        testwave = np.cos(np.arange(0,12.6,0.1))*(1000)+3000
+        alt = Parameter('Altitude AAL For Flight Phases', np.ma.array(testwave))
+        clb = Parameter('Climb For Flight Phases', np.ma.array([1000]*len(alt.array)))
+        dlc.derive(alt, clb)
+        self.assertEqual(len(dlc), 2)
+
+    def test_descent_low_climb_with_one_climb(self):
+        # This test will find out if we can separate the two humps on this camel
+        dlc = DescentLowClimb()
+        testwave = np.cos(np.arange(0,12.6,0.1))*(1000)+3000
+        alt = Parameter('Altitude AAL For Flight Phases', np.ma.array(testwave))
+        clb = Parameter('Climb For Flight Phases', np.ma.array([0]*63+[600]*63))
+        dlc.derive(alt, clb)
         self.assertEqual(len(dlc), 1)
 
 

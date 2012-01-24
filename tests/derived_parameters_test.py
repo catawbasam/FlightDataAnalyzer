@@ -796,13 +796,13 @@ class TestGroundspeedAlongTrack(unittest.TestCase):
         
 class TestHeadContinuous(unittest.TestCase):
     def test_can_operate(self):
-        expected = [('Heading Magnetic',)]
+        expected = [('Heading',)]
         opts = HeadingContinuous.get_operational_combinations()
         self.assertEqual(opts, expected)
 
     def test_heading_continuous(self):
         head = HeadingContinuous()
-        head.derive(P('Heading Magnetic',np.ma.remainder(
+        head.derive(P('Heading',np.ma.remainder(
             np.ma.array(range(10))+355,360.0)))
         
         answer = np.ma.array(data=[355.0, 356.0, 357.0, 358.0, 359.0, 360.0, 

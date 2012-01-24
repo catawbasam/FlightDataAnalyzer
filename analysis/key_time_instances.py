@@ -84,6 +84,21 @@ class GoAround(KeyTimeInstanceNode):
     checking these cases.
     """
     
+    def derive(self, dlcs=P('Descent Low Climb'),
+               alt_std=P('Altitude STD'),
+               alt_rad=P('Altitude Radio')):
+        for dlc in dlcs:
+            if alt_rad:
+                pit = np.ma.argmin(alt_rad.array[dlc.slice])
+            else:
+                pit = np.ma.argmin(alt_std.array[dlc.slice])
+            self.create_kti(pit+dlc.slice.start)
+        
+        
+    
+    """
+    OLD CODE:>
+    
     # List the minimum acceptable parameters here
     @classmethod
     def can_operate(cls, available):
@@ -112,7 +127,7 @@ class GoAround(KeyTimeInstanceNode):
                     # In case this aircraft has no rad alt fitted
                     pit_index = np.ma.argmin(alt_AAL.array[app.slice])
                 self.create_kti(app.slice.start+pit_index)
-
+    """
 
 class LandingPeakDeceleration(KeyTimeInstanceNode):
     """
@@ -186,16 +201,25 @@ class FlapStateChanges(KeyTimeInstanceNode):
                 self.create_kti(index, setting=value)
 
 
-"""
-Takeoff KTIs are derived from the Takeoff Phase
-"""
-
 class TakeoffTurnOntoRunway(KeyTimeInstanceNode):
     # The Takeoff flight phase is computed to start when the aircraft turns
-    # onto the runway, so this KTI is just at the start of that phase.
-    def derive(self, toffs=S('Takeoff')):
+    # onto the runway, so at worst this KTI is just the start of that phase.
+    # Where possible we compute the sharp point of the turn onto the runway.
+    def derive(self, head=P('Heading Continuous'),
+               toffs=S('Takeoff')):
         for toff in toffs:
-            self.create_kti(toff.slice.start)
+            # Where possible use the point of peak curvature.
+            try:
+                takeoff_turn = peak_curvature(\
+                    head.array[slice(toff.slice.stop,toff.slice.start,-1)],
+                    curve_sense='Bipolar') + toff.slice.start
+            except ValueError:
+                # If this didn't find a suitable point, revert to the start
+                # of the takeoff phase.
+                logging.debug \
+                    ("Lack of data for peak curvature of heading in takeoff")
+                takeoff_turn = toff.slice.start
+            self.create_kti(takeoff_turn)
 
 
 class TakeoffAccelerationStart(KeyTimeInstanceNode):
@@ -303,12 +327,21 @@ class Touchdown(KeyTimeInstanceNode):
 
 
 class LandingTurnOffRunway(KeyTimeInstanceNode):
-    # The Landing phase is computed to end when the aircraft turns off the
-    # runway, so this KTI is just at the start of that phase.
-    def derive(self, landings=S('Landing')):
+    # See Takeoff Turn Onto Runway for description.
+    def derive(self, head=P('Heading Continuous'),
+               landings=S('Landing')):
         for landing in landings:
-            if landing.slice.stop:
-                self.create_kti(landing.slice.stop)
+            try:
+                landing_turn = landing.slice.start + \
+                    peak_curvature(head.array[
+                        slice(landing.slice.start,landing.slice.stop)],
+                                   curve_sense='Bipolar')
+            except ValueError:
+                logging.debug \
+                    ("Lack of data for peak curvature of heading in takeoff")
+                landing_turn = landing.slice.stop
+            self.create_kti(landing_turn)
+    
                 
 
 class LandingDecelerationEnd(KeyTimeInstanceNode):
@@ -332,7 +365,7 @@ class AltitudeWhenClimbing(KeyTimeInstanceNode):
                  1500, 2000, 2500, 3000, 3500, 4000, 5000, 6000, 7000, 8000, 
                  9000, 10000]
     NAME_VALUES = {'altitude': ALTITUDES}
-    HYSTERESIS = 0 # Was 10 Q: Better as setting?
+    HYSTERESIS = 0 # Was 10 Q: Better as setting? A: Remove this as we want the true altitudes - DJ
     
     def derive(self, climbing=S('Climbing'), alt_aal=P('Altitude AAL')):
         alt_array = hysteresis(alt_aal.array, self.HYSTERESIS)
