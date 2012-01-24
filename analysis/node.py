@@ -590,19 +590,21 @@ class FormattedNameNode(Node, list):
     def __repr__(self):
         return '%s' % list(self)
     
-    def names(self):
+    @classmethod
+    def names(cls):
         """        
         :returns: The product of all NAME_VALUES name combinations
         :rtype: list
         """
-        # cache option below disabled until required.
+        # cache option below disabled until required (will have to change from 
+        # classmethod).
         ##if hasattr(self, 'names'):
             ##return self.names
-        if not self.NAME_FORMAT and not self.NAME_VALUES:
-            return [self.get_name()]
+        if not cls.NAME_FORMAT and not cls.NAME_VALUES:
+            return [cls.get_name()]
         names = []
-        for a in product(*self.NAME_VALUES.values()): 
-            name = self.NAME_FORMAT % dict(zip(self.NAME_VALUES.keys(), a))
+        for a in product(*cls.NAME_VALUES.values()): 
+            name = cls.NAME_FORMAT % dict(zip(cls.NAME_VALUES.keys(), a))
             names.append(name)
         ##self.names = names  #cache
         return names
