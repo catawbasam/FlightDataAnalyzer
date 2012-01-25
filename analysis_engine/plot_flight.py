@@ -1,7 +1,7 @@
 import csv
 import os
 import matplotlib.pyplot as plt
-from analysis.node import DerivedParameterNode
+from analysis_engine.node import DerivedParameterNode
 
 from utilities.print_table import indent
 

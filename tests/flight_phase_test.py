@@ -1,14 +1,14 @@
 import unittest
 import numpy as np
 
-from analysis.node import A, KPV, KTI, KeyTimeInstance, Parameter, P, Section, S
+from analysis_engine.node import A, KPV, KTI, KeyTimeInstance, Parameter, P, Section, S
 
-from analysis.key_time_instances import (BottomOfDescent,
+from analysis_engine.key_time_instances import (BottomOfDescent,
                                          TopOfClimb, 
                                          TopOfDescent
                                          )
-from analysis.plot_flight import plot_parameter
-from analysis.flight_phase import (
+from analysis_engine.plot_flight import plot_parameter
+from analysis_engine.flight_phase import (
     Airborne,
     Approach,
     ApproachAndLanding,
@@ -28,7 +28,7 @@ from analysis.flight_phase import (
     Turning
     )
 
-from analysis.settings import AIRSPEED_THRESHOLD
+from analysis_engine.settings import AIRSPEED_THRESHOLD
 
 class TestAirborne(unittest.TestCase):
     # Based closely on the level flight condition, but taking only the

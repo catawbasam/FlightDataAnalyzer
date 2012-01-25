@@ -5,9 +5,9 @@ import h5py
 from utilities.dict_helpers import dict_filter
 from hdfaccess.utils import strip_hdf
 
-from analysis.node import NodeManager
-from analysis.process_flight import dependency_order, get_derived_nodes
-from analysis.settings import NODE_MODULES
+from analysis_engine.node import NodeManager
+from analysis_engine.process_flight import dependency_order, get_derived_nodes
+from analysis_engine.settings import NODE_MODULES
 
 
 def trimmer(hdf_path, node_names, dest):

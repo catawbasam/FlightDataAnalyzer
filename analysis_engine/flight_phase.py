@@ -1,23 +1,21 @@
 import logging
 import numpy as np
 
-from analysis.library import (hysteresis, index_at_value, is_slice_within_slice,
-                              peak_curvature, repair_mask, shift_slices)
-from analysis.node import FlightPhaseNode, P, S, KTI
-from analysis.settings import (AIRSPEED_THRESHOLD,
-                               ALTITUDE_FOR_CLB_CRU_DSC,
-                               HEADING_TURN_OFF_RUNWAY,
-                               HEADING_TURN_ONTO_RUNWAY,
-                               HYSTERESIS_FP_RAD_ALT,
-                               HYSTERESIS_FPROT,
-                               ILS_MAX_SCALE,
-                               INITIAL_CLIMB_THRESHOLD,
-                               LANDING_THRESHOLD_HEIGHT,
-                               RATE_OF_CLIMB_FOR_CLIMB_PHASE,
-                               RATE_OF_CLIMB_FOR_DESCENT_PHASE,
-                               RATE_OF_CLIMB_FOR_LEVEL_FLIGHT,
-                               RATE_OF_TURN_FOR_FLIGHT_PHASES,
-                               )
+from analysis_engine.library import (hysteresis, index_at_value,
+                                     is_slice_within_slice, peak_curvature,
+                                     repair_mask, shift_slices)
+from analysis_engine.node import FlightPhaseNode, P, S, KTI
+from analysis_engine.settings import (AIRSPEED_THRESHOLD,
+                                      ALTITUDE_FOR_CLB_CRU_DSC,
+                                      HEADING_TURN_OFF_RUNWAY,
+                                      HEADING_TURN_ONTO_RUNWAY,
+                                      HYSTERESIS_FP_RAD_ALT, HYSTERESIS_FPROT,
+                                      ILS_MAX_SCALE, INITIAL_CLIMB_THRESHOLD,
+                                      LANDING_THRESHOLD_HEIGHT,
+                                      RATE_OF_CLIMB_FOR_CLIMB_PHASE,
+                                      RATE_OF_CLIMB_FOR_DESCENT_PHASE,
+                                      RATE_OF_CLIMB_FOR_LEVEL_FLIGHT,
+                                      RATE_OF_TURN_FOR_FLIGHT_PHASES,)
 
     
 class Airborne(FlightPhaseNode):

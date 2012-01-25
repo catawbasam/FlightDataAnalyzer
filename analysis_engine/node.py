@@ -9,11 +9,12 @@ from collections import namedtuple
 from itertools import product
 from operator import attrgetter
 
-from analysis.library import (align, is_index_within_slice,
-                              is_slice_within_slice, slices_above,
-                              slices_below, slices_between, slices_from_to,
-                              value_at_index, value_at_time)
-from analysis.recordtype import recordtype
+from analysis_engine.library import (align, is_index_within_slice,
+                                     is_slice_within_slice, slices_above,
+                                     slices_below, slices_between,
+                                     slices_from_to, value_at_index,
+                                     value_at_time)
+from analysis_engine.recordtype import recordtype
 
 # Define named tuples for KPV and KTI and FlightPhase
 KeyPointValue = recordtype('KeyPointValue', 'index value name slice datetime', 

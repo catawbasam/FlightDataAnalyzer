@@ -1,7 +1,8 @@
 import os.path
 import unittest
 
-from analysis.split_hdf_to_segments import validate_aircraft, split_hdf_to_segments
+from analysis_engine.split_hdf_to_segments import (validate_aircraft,
+                                                   split_hdf_to_segments)
 
 
 class TestSplitHDFToSegments(unittest.TestCase):

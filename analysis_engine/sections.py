@@ -1,7 +1,7 @@
 import logging
 import numpy as np
 
-from analysis.node import SectionNode, P, S
+from analysis_engine.node import SectionNode, P, S
 
 
 #Q: What about using a different letter than "P" for non-parameters

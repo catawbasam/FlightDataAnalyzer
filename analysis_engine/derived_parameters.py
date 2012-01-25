@@ -1,16 +1,12 @@
 import logging
 import numpy as np
 
-from analysis.node import A, DerivedParameterNode, KTI, P, S
+from analysis_engine.node import A, DerivedParameterNode, KTI, P, S
 
-from analysis.library import (first_order_lag,
-                              first_order_washout,
-                              hysteresis, 
-                              interleave,
-                              rate_of_change, 
-                              repair_mask,
-                              straighten_headings,
-                              vstack_params)
+from analysis_engine.library import (first_order_lag, first_order_washout,
+                                     hysteresis, interleave, rate_of_change,
+                                     repair_mask, straighten_headings,
+                                     vstack_params)
 
 from settings import (AZ_WASHOUT_TC,
                       AT_WASHOUT_TC,

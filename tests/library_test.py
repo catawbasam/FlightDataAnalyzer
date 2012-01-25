@@ -8,22 +8,26 @@ from datetime import datetime
 # http://www.java2s.com/Open-Source/Python/Math/Numerical-Python/numpy/numpy/ma/testutils.py.htm
 import utilities.masked_array_testutils as ma_test
 
-from analysis.library import (align, calculate_timebase, create_phase_inside,
-                              create_phase_outside, duration, 
-                              first_order_lag, first_order_washout, hash_array,
-                              hysteresis, index_at_value, interleave,
-                              is_index_within_slice, is_slice_within_slice,
-                              min_value, mask_inside_slices,
-                              mask_outside_slices, max_continuous_unmasked,
-                              max_value, max_abs_value, merge_alternate_sensors,
-                              peak_curvature, peak_index, rate_of_change, repair_mask, 
-                              slices_above, slices_below, slices_between, 
-                              slices_from_to, straighten_headings,
-                              #time_at_value, time_at_value_wrapped,
-                              value_at_time, vstack_params, InvalidDatetime)
+from analysis_engine.library import (align, calculate_timebase,
+                                     create_phase_inside, create_phase_outside,
+                                     duration, first_order_lag,
+                                     first_order_washout, hash_array,
+                                     hysteresis, index_at_value, interleave,
+                                     is_index_within_slice,
+                                     is_slice_within_slice, min_value,
+                                     mask_inside_slices, mask_outside_slices,
+                                     max_continuous_unmasked, max_value,
+                                     max_abs_value, merge_alternate_sensors,
+                                     peak_curvature, peak_index,
+                                     rate_of_change, repair_mask, slices_above,
+                                     slices_below, slices_between,
+                                     slices_from_to, straighten_headings,
+                                     #time_at_value, time_at_value_wrapped,
+                                     value_at_time, vstack_params,
+                                     InvalidDatetime)
 
-from analysis.node import P, S
-from analysis.library import *
+from analysis_engine.node import P, S
+from analysis_engine.library import *
 
 class TestAlign(unittest.TestCase):
     

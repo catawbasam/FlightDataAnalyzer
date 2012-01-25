@@ -3,12 +3,13 @@ import logging
 from datetime import datetime, timedelta
 from inspect import isclass
 
-from analysis import settings
-from analysis.dependency_graph import dependency_order
-from analysis.node import (Attribute, DerivedParameterNode, 
-    FlightAttributeNode, FlightPhaseNode, KeyPointValue,
-    KeyPointValueNode, KeyTimeInstance, KeyTimeInstanceNode, 
-    Node, NodeManager, P, SectionNode)
+from analysis_engine import settings
+from analysis_engine.dependency_graph import dependency_order
+from analysis_engine.node import (Attribute, DerivedParameterNode,
+                                  FlightAttributeNode, FlightPhaseNode,
+                                  KeyPointValue, KeyPointValueNode,
+                                  KeyTimeInstance, KeyTimeInstanceNode, Node,
+                                  NodeManager, P, SectionNode)
 from hdfaccess.file import hdf_file
 from utilities.dict_helpers import dict_filter
 
@@ -179,9 +180,11 @@ def get_derived_nodes(module_names):
         # parameter is defined, regardless of what its value is, we end up
         # loading "A.B.C"
         ##abstract_nodes = ['Node', 'Derived Parameter Node', 'Key Point Value Node', 'Flight Phase Node'
+        print 'importing', name
         module = __import__(name, globals(), locals(), [''])
         for c in vars(module).values():
-            if isclassandsubclass(c, Node) and c.__module__ != 'analysis.node':
+            if isclassandsubclass(c, Node) \
+                    and c.__module__ != 'analysis_engine.node':
                 try:
                     nodes[c.get_name()] = c
                 except TypeError:
@@ -238,7 +241,8 @@ def process_flight(hdf_path, aircraft_info, start_datetime=datetime.now(),
     
     # include all flight attributes as required
     required_params = list(set(
-        required_params + get_derived_nodes(['analysis.flight_attribute']).keys()))
+        required_params + get_derived_nodes(
+            ['analysis_engine.flight_attribute']).keys()))
         
     # open HDF for reading
     with hdf_file(hdf_path) as hdf:
@@ -265,7 +269,7 @@ def process_flight(hdf_path, aircraft_info, start_datetime=datetime.now(),
         
     ##if draw:
         ### only import if required
-        ##from analysis.plot_flight import plot_flight
+        ##from analysis_engine.plot_flight import plot_flight
         ##plot_flight(hdf_path, kti_list, kpv_list, section_list)
         
     return {'flight' : flight_attrs, 

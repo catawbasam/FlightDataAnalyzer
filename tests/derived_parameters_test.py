@@ -5,11 +5,11 @@ import sys
 
 import utilities.masked_array_testutils as ma_test
 from utilities.struct import Struct
-from analysis.settings import GRAVITY_IMPERIAL, HYSTERESIS_FPIAS
-from analysis.node import Attribute, A, KPV, KTI, Parameter, P, Section, S
-from analysis.flight_phase import Fast
+from analysis_engine.settings import GRAVITY_IMPERIAL, HYSTERESIS_FPIAS
+from analysis_engine.node import Attribute, A, KPV, KTI, Parameter, P, Section, S
+from analysis_engine.flight_phase import Fast
 
-from analysis.derived_parameters import (
+from analysis_engine.derived_parameters import (
     AccelerationVertical,
     AccelerationForwards,
     AccelerationSideways,
@@ -247,7 +247,7 @@ class TestAirspeedForFlightPhases(unittest.TestCase):
         opts = AirspeedForFlightPhases.get_operational_combinations()
         self.assertEqual(opts, expected)
     
-    @mock.patch('analysis.derived_parameters.hysteresis')
+    @mock.patch('analysis_engine.derived_parameters.hysteresis')
     def test_airspeed_for_phases_basic(self, hysteresis):
         # Avoiding testing hysteresis.
         param = mock.Mock()
@@ -414,7 +414,7 @@ class TestAltitudeSTD(unittest.TestCase):
                                                  20000, 19000, 17980, 17375, 16500],
                                                 mask=[False] * 8 + 2 * [True]))
     
-    @mock.patch('analysis.derived_parameters.first_order_lag')
+    @mock.patch('analysis_engine.derived_parameters.first_order_lag')
     def test__rough_and_ivv(self, first_order_lag):
         alt_std = AltitudeSTD()
         alt_std_rough = Parameter('Altitude STD Rough',

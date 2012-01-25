@@ -3,15 +3,15 @@ import numpy as np
 import sys
 import unittest
 
-from analysis.derived_parameters import ClimbForFlightPhases
-from analysis.node import KeyTimeInstance, Parameter, P, Section, S
-from analysis.flight_phase import (ApproachAndLanding,
+from analysis_engine.derived_parameters import ClimbForFlightPhases
+from analysis_engine.node import KeyTimeInstance, Parameter, P, Section, S
+from analysis_engine.flight_phase import (ApproachAndLanding,
                                    ClimbCruiseDescent,
                                    Climbing,
                                    DescentLowClimb,
                                    )
 
-from analysis.key_time_instances import (AltitudeInApproach,
+from analysis_engine.key_time_instances import (AltitudeInApproach,
                                          AltitudeInFinalApproach,
                                          AltitudeWhenClimbing,
                                          AltitudeWhenDescending,
@@ -113,7 +113,7 @@ class TestGoAround(unittest.TestCase):
         alt = np.ma.array(np.cos(np.arange(0,21,0.02))*(1000)+2500)
 
         if debug:
-            from analysis.plot_flight import plot_parameter
+            from analysis_engine.plot_flight import plot_parameter
             plot_parameter(alt)
             
         aal = ApproachAndLanding()
@@ -228,7 +228,7 @@ class TestAltitudeWhenClimbing(unittest.TestCase):
         self.assertEqual(AltitudeWhenClimbing.get_operational_combinations(),
                          [('Climbing', 'Altitude AAL')])
     
-    @mock.patch('analysis.key_time_instances.hysteresis')
+    @mock.patch('analysis_engine.key_time_instances.hysteresis')
     def test_derive(self, hysteresis):
         climbing = S('Climbing', items=[Section('a', slice(4, 10)),
                                         Section('b', slice(12, 20))])
@@ -256,7 +256,7 @@ class TestAltitudeWhenDescending(unittest.TestCase):
         self.assertEqual(AltitudeWhenDescending.get_operational_combinations(),
                          [('Descending', 'Altitude AAL')])
     
-    @mock.patch('analysis.key_time_instances.hysteresis')
+    @mock.patch('analysis_engine.key_time_instances.hysteresis')
     def test_derive(self, hysteresis):
         descending = S('Descending', items=[Section('a', slice(0, 10)),
                                             Section('b', slice(12, 20))])

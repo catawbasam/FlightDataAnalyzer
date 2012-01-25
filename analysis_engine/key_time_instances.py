@@ -1,9 +1,9 @@
 import logging
 import numpy as np
 
-from analysis.library import (hysteresis, index_at_value, min_value, max_value,
-                              peak_curvature)
-from analysis.node import P, S, KTI, KeyTimeInstanceNode
+from analysis_engine.library import (hysteresis, index_at_value, min_value,
+                                     max_value, peak_curvature)
+from analysis_engine.node import P, S, KTI, KeyTimeInstanceNode
 
 from settings import (CLIMB_THRESHOLD,
                       RATE_OF_CLIMB_FOR_LIFTOFF,

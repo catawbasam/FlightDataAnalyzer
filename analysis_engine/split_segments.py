@@ -2,13 +2,13 @@ import numpy as np
 import logging
 from datetime import datetime, timedelta
 
-from analysis import settings
-from analysis.library import calculate_timebase, hash_array, hysteresis, max_abs_value
-from analysis.recordtype import recordtype
+from analysis_engine import settings
+from analysis_engine.library import (calculate_timebase, hash_array,
+                                     hysteresis, max_abs_value)
 from hdfaccess.file import hdf_file
 from utilities.filesystem_tools import sha_hash_file
 
-Segment = recordtype('Segment', 'slice type part path hash start_dt go_fast_dt stop_dt', default=None)
+from datastructures import Segment
 
 
 def mask_slow_airspeed(airspeed):
@@ -47,7 +47,7 @@ def split_segments2(airspeed, dfc):
 
             #TODO: implement and test below:
             '''
-            from analysis.library import vstack_params, min_value
+            from analysis_engine.library import vstack_params, min_value
             #TODO: Improve by ensuring we were sat still for the longest period
             #TODO: ensure all at same freq or align!
             engine_params = vstack_params(

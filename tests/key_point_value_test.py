@@ -4,10 +4,10 @@ import unittest
 
 from mock import Mock, patch
 
-from analysis.derived_parameters import FlapStepped
-from analysis.node import (KeyTimeInstance, KTI, KeyPointValue, 
+from analysis_engine.derived_parameters import FlapStepped
+from analysis_engine.node import (KeyTimeInstance, KTI, KeyPointValue, 
                            KeyPointValueNode, Parameter, P, Section, S)
-from analysis.key_point_values import (
+from analysis_engine.key_point_values import (
     AccelerationNormal20FtToGroundMax,
     AccelerationNormalAirborneMax,
     AccelerationNormalAirborneMin,
@@ -79,7 +79,7 @@ from analysis.key_point_values import (
     RollBetween100And500FtMax,
     RollBetween500And1500FtMax,
 )
-from analysis.library import (max_abs_value, max_value, min_value)
+from analysis_engine.library import (max_abs_value, max_value, min_value)
 
 debug = sys.gettrace() is not None
 
@@ -193,7 +193,7 @@ class TestAccelerationNormalMax(unittest.TestCase):
         self.assertEqual(AccelerationNormalMax.get_operational_combinations(),
                          [('Acceleration Normal',)])
     
-    @patch('analysis.key_point_values.max_value')
+    @patch('analysis_engine.key_point_values.max_value')
     def test_derive(self, max_value):
         acc_norm_max = AccelerationNormalMax()
         index, value = 10, 30
@@ -271,7 +271,7 @@ class TestAirspeedMax(unittest.TestCase, TestCreateKPVsWithinSlices):
         airs=[]
         for wave in waves:
             airs.append(Section('Airborne',wave))
-        ##from analysis.node import FlightPhaseNode
+        ##from analysis_engine.node import FlightPhaseNode
         ##wave_phases = FlightPhaseNode(items=airs)
         
         kpv = AirspeedMax()
@@ -438,7 +438,7 @@ class TestEngEGTMax(unittest.TestCase):
         self.assertEqual(EngEGTMax.get_operational_combinations(),
                          [('Eng (*) EGT Max',)])
     
-    @patch('analysis.key_point_values.max_value')
+    @patch('analysis_engine.key_point_values.max_value')
     def test_derive(self, max_value):
         eng_egt_max = EngEGTMax()
         index, value = 10, 30
@@ -479,7 +479,7 @@ class TestEngN1Max(unittest.TestCase):
         self.assertEqual(EngN1Max.get_operational_combinations(),
                          [('Eng (*) N1 Max',)])
     
-    @patch('analysis.key_point_values.max_value')
+    @patch('analysis_engine.key_point_values.max_value')
     def test_derive(self, max_value):
         eng_n1_max = EngN1Max()
         index, value = 10, 30
@@ -498,7 +498,7 @@ class TestEngN2Max(unittest.TestCase):
         self.assertEqual(EngN2Max.get_operational_combinations(),
                          [('Eng (*) N2 Max',)])
     
-    @patch('analysis.key_point_values.max_value')
+    @patch('analysis_engine.key_point_values.max_value')
     def test_derive(self, max_value):
         eng_n2_max = EngN2Max()
         index, value = 10, 30
@@ -517,7 +517,7 @@ class TestEngOilTempMax(unittest.TestCase):
         self.assertEqual(EngOilTempMax.get_operational_combinations(),
                          [('Eng (*) Oil Temp Max',)])
     
-    @patch('analysis.key_point_values.max_value')
+    @patch('analysis_engine.key_point_values.max_value')
     def test_derive(self, max_value):
         eng_oil_temp_max = EngOilTempMax()
         index, value = 10, 30
@@ -536,7 +536,7 @@ class TestEngVibN1Max(unittest.TestCase):
         self.assertEqual(EngVibN1Max.get_operational_combinations(),
                          [('Eng (*) Vib N1 Max',)])
     
-    @patch('analysis.key_point_values.max_value')
+    @patch('analysis_engine.key_point_values.max_value')
     def test_derive(self, max_value):
         eng_vib_n1_max = EngVibN1Max()
         index, value = 10, 30
@@ -555,7 +555,7 @@ class TestEngVibN2Max(unittest.TestCase):
         self.assertEqual(EngVibN2Max.get_operational_combinations(),
                          [('Eng (*) Vib N2 Max',)])
     
-    @patch('analysis.key_point_values.max_value')
+    @patch('analysis_engine.key_point_values.max_value')
     def test_derive(self, max_value):
         eng_vib_n2_max = EngVibN2Max()
         index, value = 10, 30
@@ -981,7 +981,7 @@ class TestRollBelow20FtMax(unittest.TestCase, TestCreateKPVsWithinSlices):
         self.function = max_abs_value
         self.second_param_method_calls = [('slices_below', (20,), {})]
     
-    @patch('analysis.key_point_values.max_abs_value')
+    @patch('analysis_engine.key_point_values.max_abs_value')
     def test_derive(self, max_abs_value):
         roll_below_20ft_max = RollBelow20FtMax()
         index, value = 10, 30

@@ -1,6 +1,6 @@
 import logging
 
-from analysis.process_file import split_hdf_file_into_segments
+from analysis_engine.process_file import split_hdf_file_into_segments
 from compass.data_frame_parser import FrameFormatParser
 from compass.hdf import create_hdf
 
