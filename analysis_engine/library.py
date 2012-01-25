@@ -570,6 +570,9 @@ def interleave (param_1, param_2):
         
     return np.ma.ravel(merged_array)
             
+"""
+Superceded by blend routines.
+
 def interleave_uneven_spacing (param_1, param_2):
     '''
     This interleaves samples that are not quote equi-spaced.
@@ -627,6 +630,7 @@ def interleave_uneven_spacing (param_1, param_2):
     
     #return straight_array
     return None # to force a test error until this is fixed to prevent extrapolation
+"""
 
 def interpolate_params(*params):
     '''
@@ -887,7 +891,7 @@ def blend_two_parameters (param_one, param_two):
         array = blend_alternate_sensors(param_two.array, param_one.array, padding)
     return array, param_one.frequency * 2, offset
 
-def peak_curvature(array, _slice=slice(None), search_for='Concave'):
+def peak_curvature(array, _slice=slice(None), curve_sense='Concave'):
     """
     This routine uses a "Truck and Trailer" algorithm to find where a
     parameter changes slope. In the case of FDM, we are looking for the point
@@ -944,7 +948,7 @@ def peak_curvature(array, _slice=slice(None), search_for='Concave'):
 
     # Normalise array and prepare for masking operations
     angle=np.ma.array(angle/np.max(np.abs(angle)))
-    if search_for == 'Bipolar':
+    if curve_sense == 'Bipolar':
         angle = np.ma.abs(angle)
     
     # Find peak - using values over 50% of the highest allows us to operate
@@ -1272,7 +1276,10 @@ def subslice(orig, new):
     stop = (orig.start or 0) + (new.stop or orig.stop or 0) * (orig.step or 1) # the bit after "+" isn't quite right!!
     return slice(start, stop, None if step == 1 else step)
 
-def index_at_value (array, threshold, _slice=slice(None)):
+def index_closest_value (array, threshold, _slice=slice(None)):
+    return index_at_value (array, threshold, _slice, endpoint='closing')
+    
+def index_at_value (array, threshold, _slice=slice(None), endpoint='exact'):
     '''
     This function seeks the moment when the parameter in question first crosses 
     a threshold. It works both forwards and backwards in time. To scan backwards
@@ -1288,6 +1295,10 @@ def index_at_value (array, threshold, _slice=slice(None)):
     :type threshold: float
     :param _slice: slice where we want to seek the threshold transit.
     :type _slice: slice
+    :param endpoint: type of end condition being sought.
+    :type endpoint: string 'exact' requires array to pass through the threshold,
+    while 'closing' seeks the last point where the array is closing on the 
+    threshold.
     :returns: interpolated time when the array values crossed the threshold. (One value only).
     :returns type: float
     '''
@@ -1345,7 +1356,17 @@ def index_at_value (array, threshold, _slice=slice(None)):
     
     if np.ma.all(test_array.mask):
         # The parameter does not pass through threshold in the period in question, so return empty-handed.
-        return None
+        if endpoint=='closing':
+            # Rescan the data to find the last point where the array data is closing.
+            closing_array = abs(array-threshold)
+            i=begin
+            while (closing_array [i+step]<=closing_array [i]):
+                i=i+step
+                if i==end:
+                    return end
+            return i
+        else:
+            return None
     else:
         n,dummy=np.ma.flatnotmasked_edges(np.ma.masked_greater(value_passing_array, 0.0))
         a = array[begin+step*n]

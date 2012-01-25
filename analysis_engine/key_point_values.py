@@ -130,15 +130,69 @@ class HeadingAtLowPointOnApproach(KeyPointValueNode):
         self.create_kpvs_at_ktis(head.array, lands)
 
 
+class HeadingAtTakeoff(KeyPointValueNode):
+    """
+    We take the heading at the point of maximum acceleration, as this should 
+    be a point where the aircraft is lined up well on the centreline.
+    """
+    def derive(self, toffs=KTI('Takeoff Peak Acceleration'), 
+               head=P('Heading Continuous')):
+        for toff in toffs:
+            toff_head = np.ma.median(
+                head.array[toff.index-5:toff.index+5])
+            # Scanning 10 seconds around this point allows for short periods of
+            # corrupt data during the takeoff run.
+            self.create_kpv(toff.index, toff_head%360.0)
+
+
 class LatitudeAtLanding(KeyPointValueNode):
-    def derive(self, lat=P('Latitude'), lands=KTI('Landing Peak Deceleration')):
+    def derive(self, lat=P('Latitude Smoothed'), lands=KTI('Landing Peak Deceleration')):
+        '''
+        While storing this is redundant due to geo-locating KeyPointValues, it is
+        used in multiple Nodes to simplify their implementation.
+        '''    
         self.create_kpvs_at_ktis(lat.array, lands)
             
 
 class LongitudeAtLanding(KeyPointValueNode):
-    def derive(self, lon=P('Longitude'),
-               lands=KTI('Landing Peak Deceleration')):
+    def derive(self, lon=P('Longitude Smoothed'), lands=KTI('Landing Peak Deceleration')):
+        '''
+        While storing this is redundant due to geo-locating KeyPointValues, it is
+        used in multiple Nodes to simplify their implementation.
+        '''       
         self.create_kpvs_at_ktis(lon.array, lands)
+
+
+class LatitudeAtTakeoff(KeyPointValueNode):
+    '''
+    While storing this is redundant due to geo-locating KeyPointValues, it is
+    used in multiple Nodes to simplify their implementation.
+    '''    
+    def derive(self, lat=P('Latitude'),
+               takeoffs=KTI('Takeoff Peak Acceleration')):
+        self.create_kpvs_at_ktis(lat.array, takeoffs)
+
+
+class LongitudeAtTakeoff(KeyPointValueNode):
+    '''
+    While storing this is redundant due to geo-locating KeyPointValues, it is
+    used in multiple Nodes to simplify their implementation.
+    '''    
+    def derive(self, lon=P('Longitude'),
+               takeoffs=KTI('Takeoff Peak Acceleration')):
+        self.create_kpvs_at_ktis(lon.array, takeoffs)
+
+
+class LatitudeAtTakeoff(KeyPointValueNode):
+    def derive(self, lat=P('Latitude Smoothed'), 
+               toffs=KTI('Takeoff Peak Acceleration')):
+        self.create_kpvs_at_ktis(lat.array, toffs)
+            
+
+class LongitudeAtTakeoff(KeyPointValueNode):
+    def derive(self, lon=P('Longitude Smoothed'),
+               toffs=KTI('Takeoff Peak Acceleration')):
+        self.create_kpvs_at_ktis(lon.array, toffs)
             
 
 class ILSFrequencyOnApproach(KeyPointValueNode):
@@ -164,13 +218,13 @@ class ILSFrequencyOnApproach(KeyPointValueNode):
             
 
 class LatitudeAtLowPointOnApproach(KeyPointValueNode):
-    def derive(self, lat=P('Latitude'), 
+    def derive(self, lat=P('Latitude Smoothed'), 
                lands=KTI('Approach And Landing Lowest')):
         self.create_kpvs_at_ktis(lat.array, lands)
             
 
 class LongitudeAtLowPointOnApproach(KeyPointValueNode):
-    def derive(self, lon=P('Longitude'), 
+    def derive(self, lon=P('Longitude Smoothed'), 
                lands=KTI('Approach And Landing Lowest')):
         self.create_kpvs_at_ktis(lon.array, lands)
    
@@ -191,13 +245,13 @@ class AccelerationNormalAirborneMax(KeyPointValueNode):
         self.create_kpvs_within_slices(accel.array, airborne, max_value)
 
 
-class AccelerationPeakTakeoff(KeyPointValueNode):
+class AccelerationLongitudinalPeakTakeoff(KeyPointValueNode):
     def derive(self, takeoff=S('Takeoff'),
                accel=P('Acceleration Longitudinal')):
         self.create_kpvs_within_slices(accel.array, takeoff, max_value)
 
 
-class DecelerationPeakLanding(KeyPointValueNode):
+class DecelerationLongitudinalPeakLanding(KeyPointValueNode):
     def derive(self, landing=S('Landing'),
                accel=P('Acceleration Longitudinal')):
         self.create_kpvs_within_slices(accel.array, landing, min_value)
@@ -482,21 +536,21 @@ class RateOfDescent500ToTouchdownMax(KeyPointValueNode):
     def derive(self, roc=P('Rate Of Climb'), alt_aal=P('Altitude AAL')):
         self.create_kpvs_within_slices(roc.array,
                                        alt_aal.slices_from_to(500, 0),
-                                       max_value)
+                                       min_value)
 
 
 class RateOfDescent1000To500FtMax(KeyPointValueNode):
     def derive(self, roc=P('Rate Of Climb'),alt_aal=P('Altitude AAL')):
         self.create_kpvs_within_slices(roc.array,
                                        alt_aal.slices_from_to(1000, 500),
-                                       max_value)
+                                       min_value)
 
 
 class RateOfDescent2000To1000FtMax(KeyPointValueNode):
     def derive(self, roc=P('Rate Of Climb'), alt_aal=P('Altitude AAL')):
         self.create_kpvs_within_slices(roc.array,
                                        alt_aal.slices_from_to(2000, 1000),
-                                       max_value)
+                                       min_value)
 
 
 class DontSinkWarning(KeyPointValueNode):
@@ -775,6 +829,11 @@ class Pitch1000To100FtMax(KeyPointValueNode):
 
 class PitchAtLiftoff(KeyPointValueNode):
     def derive(self, pitch=P('Pitch'), liftoffs=KTI('Liftoff')):
+        self.create_kpvs_at_ktis(pitch.array, liftoffs)
+
+
+class PitchAtTouchdown(KeyPointValueNode):
+    def derive(self, pitch=P('Pitch'), touchdowns=KTI('Touchdown')):
         self.create_kpvs_at_ktis(pitch.array, liftoffs)
 
 
@@ -1070,6 +1129,13 @@ class TaxiSpeedStraight(KeyPointValueNode):
             return
 
 
-
-
-
+class AirspeedBelowAltitudeMax(KeyPointValueNode):
+    NAME_FORMAT = 'Airspeed Below %(altitude)d Ft Max'
+    NAME_VALUES = {'altitude': [500, 3000, 7000]}
+    
+    def derive(self, alt_aal=P('Altitude AAL'), airspeed=P('Airspeed')):
+        for alt in self.NAME_VALUES['altitude']:
+            self.create_kpvs_within_slices(airspeed.array,
+                                           alt_aal.slices_below(alt),
+                                           max_value,
+                                           altitude=alt)

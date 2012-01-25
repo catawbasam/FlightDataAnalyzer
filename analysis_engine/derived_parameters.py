@@ -8,6 +8,7 @@ from analysis_engine.library import (blend_alternate_sensors,
                               first_order_lag,
                               first_order_washout,
                               hysteresis,
+                              index_at_value,
                               index_of_datetime,
                               interleave,
                               is_slice_within_slice,
@@ -920,10 +921,7 @@ class HeadingTrue(DerivedParameterNode):
         #"Hard wired" for Bergen !!!!!!!!!!!!!!!!!!!
         self.array = head.array - 1.185
         
-        if not approaches.value:
-            return
-
-
+        """
         # We copy the masked array to transfer the mask array. All the data
         # values will be overwritten, but the mask will not be affected by
         # conversion from magnetic to true headings.
@@ -973,6 +971,7 @@ class HeadingTrue(DerivedParameterNode):
         end_slice = slice(start_index, None)
         true_array[end_slice] = true_array[end_slice] + dest_mag_var
         self.array = true_array
+        """
 
         
 class ILSLocalizerComputation(DerivedParameterNode):
@@ -985,11 +984,11 @@ class ILSLocalizerComputation(DerivedParameterNode):
     def derive(self, ils_loc = P('ILS Localizer'),
                glide = P('ILS Glideslope'),
                alt_aal = P('Altitude AAL'),
-               rwy=A('FDR Landing Runway'),
-               lat=P('Latitude Smoothed'),
-               lon=P('Longitude Smoothed'),
-               hdg=P('Heading True'),
-               ap=S('Approach And Landing')
+               rwy = A('FDR Landing Runway'),
+               lat = P('Latitude Smoothed'),
+               lon = P('Longitude Smoothed'),
+               hdg = P('Heading True'),
+               ap = S('Approach And Landing')
                ):
         #-------------------------------------------------------------------
         # TEST OUTPUT TO CSV FILE FOR DEBUGGING ONLY
@@ -1019,6 +1018,7 @@ class ILSLocalizerComputation(DerivedParameterNode):
         # TODO: REMOVE THIS SECTION BEFORE RELEASE
         #-------------------------------------------------------------------
         
+        return NotImplemented
 
     
 class ILSGlideslopeGap(DerivedParameterNode):
@@ -1099,7 +1099,7 @@ class RateOfClimb(DerivedParameterNode):
             self.array = (roc_altitude + inertial_roc) * 60.0
 
 
-            """
+            
             #-------------------------------------------------------------------
             # TEST OUTPUT TO CSV FILE FOR DEBUGGING ONLY
             # TODO: REMOVE THIS SECTION BEFORE RELEASE
@@ -1110,21 +1110,19 @@ class RateOfClimb(DerivedParameterNode):
                            'std_rad_ratio', 'roc_altitude', 'az', 'az_washout', 
                            'inertial_roc', 'self',
                            'Longitudinal','Lateral','Normal','Pitch','Roll'])
-            #for showme in range(0, len(roc_alt_std)):
-            for showme in range(23550, 23710):
-                spam.writerow([alt_std.array.data[showme], roc_alt_std.data[showme],
-                               alt_rad.array.data[showme], roc_alt_rad.data[showme],
-                               std_rad_ratio[showme], roc_altitude.data[showme],
-                               az.array.data[showme], az_washout.data[showme],
-                               inertial_roc.data[showme], self.array.data[showme],
-                               ax.array.data[showme], ay.array.data[showme],
-                               an.array.data[showme], pch.array.data[showme],
-                               roll.array.data[showme]])
+            for showme in range(0, len(roc_alt_std)):
+            #for showme in range(23550, 23710):
+                if alt_std.array.data[showme] < 3000:
+                    spam.writerow([alt_std.array.data[showme], roc_alt_std.data[showme],
+                                   alt_rad.array.data[showme], roc_alt_rad.data[showme],
+                                   std_rad_ratio[showme], roc_altitude.data[showme],
+                                   az.array.data[showme], az_washout.data[showme],
+                                   inertial_roc.data[showme], self.array.data[showme]])
             #-------------------------------------------------------------------
             # TEST OUTPUT TO CSV FILE FOR DEBUGGING ONLY
             # TODO: REMOVE THIS SECTION BEFORE RELEASE
             #-------------------------------------------------------------------
-            """
+           
             
         else:
             # The period for averaging altitude only data has been chosen
@@ -1237,7 +1235,6 @@ class LongitudeSmoothed(DerivedParameterNode, CoordinatesSmoothed):
 
 class RateOfTurn(DerivedParameterNode):
     def derive(self, head=P('Heading Continuous')):
-        #TODO: Review whether half_width 1 is applicable at multi Hz
         self.array = rate_of_change(head, 1)
 
 

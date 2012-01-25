@@ -514,7 +514,7 @@ class SectionNode(Node, list):
         matching = self.get(within_slice=within_slice, name=name,
                             within_use=within_use)
         if matching:
-            return max(matching, key=self.slice_attrgetters[slice_index])
+            return max(matching, key=self.slice_attrgetters[last_by])
         else:
             return None
     
@@ -995,7 +995,7 @@ class KeyPointValueNode(FormattedNameNode):
                 self.create_kpv(kti.index, value)
     create_kpvs_at_kpvs = create_kpvs_at_ktis # both will work the same!
     
-    def create_kpvs_within_slices(self, array, slices, function):
+    def create_kpvs_within_slices(self, array, slices, function, **kwargs):
         '''
         Shortcut for creating KPVs from a number of slices by retrieving an
         index and value from function (for instance max_value).
@@ -1013,7 +1013,7 @@ class KeyPointValueNode(FormattedNameNode):
             if isinstance(slice_, Section): # Use slice within Section.
                 slice_ = slice_.slice
             index, value = function(array, slice_)
-            self.create_kpv(index, value)
+            self.create_kpv(index, value, **kwargs)
 
 
 class FlightAttributeNode(Node):

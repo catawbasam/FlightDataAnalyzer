@@ -71,9 +71,11 @@ class TestProcessFlight(unittest.TestCase):
         
         res = process_flight(hdf_path, ac_info, draw=False)
         self.assertEqual(len(res), 4)
+
+        from analysis.plot_flight import csv_flight_details
+        csv_flight_details(hdf_path, res['kti'], res['kpv'], res['phases'])
+
         if debug:
-            from analysis_engine.plot_flight import csv_flight_details
-            csv_flight_details(hdf_path, res['kti'], res['kpv'], res['phases'])
             plot_flight(hdf_path, res['kti'], res['kpv'], res['phases'])
 
         #TODO: Further assertions on the results!

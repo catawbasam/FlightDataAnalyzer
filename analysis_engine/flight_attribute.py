@@ -439,8 +439,8 @@ class OnBlocksDatetime(FlightAttributeNode):
 class TakeoffAirport(FlightAttributeNode):
     "Takeoff Airport including ID and Name"
     name = 'FDR Takeoff Airport'
-    def derive(self, liftoff=KTI('Liftoff'), latitude=P('Latitude'),
-               longitude=P('Longitude')):
+    def derive(self, latitude_at_takeoff=KPV('Latitude At Takeoff'),
+               longitude_at_takeoff=KPV('Longitude At Takeoff')):
         '''
         Requests the nearest airport to the latitude and longitude at liftoff
         from the API and sets it as an attribute.
@@ -455,22 +455,23 @@ class TakeoffAirport(FlightAttributeNode):
          'magnetic_variation': 2.5,
          'name': 'London Heathrow'}
         '''
-        if not liftoff:
-            logging.warning("Cannot create '%s' attribute without a single "
-                            "'%s'.", self.name, liftoff.name)
+        first_latitude = latitude_at_takeoff.get_first()
+        first_longitude = longitude_at_takeoff.get_first()
+        if not first_latitude or not first_longitude:
+            logging.warning("Cannot create '%s' attribute without '%s' or "
+                            "'%s'.", self.name, latitude_at_takeoff.name,
+                            longitude_at_takeoff.name)
             self.set_flight_attr(None)
             return
-        liftoff_index = liftoff[0].index
-        latitude_at_liftoff = latitude.array[liftoff_index]
-        longitude_at_liftoff = longitude.array[liftoff_index]
         api_handler = get_api_handler()
         try:
-            airport = api_handler.get_nearest_airport(latitude_at_liftoff,
-                                                      longitude_at_liftoff)
+            airport = api_handler.get_nearest_airport(first_latitude.value,
+                                                      first_longitude.value)
         except NotFoundError:
-            logging.warning("Takeoff Airport could not be found with latitude "
-                            "'%f' and longitude '%f'.", latitude_at_liftoff,
-                            longitude_at_liftoff)
+            logging.warning("Takeoff Airport could not be found with '%s' "
+                            "'%f' and '%s' '%f'.", latitude_at_takeoff.name,
+                            first_latitude.value, longitude_at_takeoff.name,
+                            first_longitude.value)
         else:
             self.set_flight_attr(airport)
 
@@ -560,8 +561,9 @@ class TakeoffRunway(FlightAttributeNode):
                'Heading At Takeoff' in available
 
     def derive(self, airport=A('FDR Takeoff Airport'),
-               hdg=KPV('Heading At Takeoff'), liftoff=KTI('Liftoff'),
-               latitude=P('Latitude'), longitude=P('Longitude'),
+               hdg=KPV('Heading At Takeoff'),
+               latitude_at_takeoff=KPV('Latitude At Takeoff'),
+               longitude_at_takeoff=KPV('Longitude At Takeoff'),
                precision=A('Precise Positioning')):
         '''
         Runway information is in the following format:
@@ -597,12 +599,13 @@ class TakeoffRunway(FlightAttributeNode):
         }}
         '''
         kwargs = {}
-        if precision and precision.value and liftoff and latitude and longitude:
-            liftoff_index = liftoff[0].index
-            latitude_at_liftoff = latitude.array[liftoff_index]
-            longitude_at_liftoff = longitude.array[liftoff_index]
-            kwargs.update(latitude=latitude_at_liftoff,
-                          longitude=longitude_at_liftoff)
+        if precision and precision.value and latitude_at_takeoff and \
+           longitude_at_takeoff:
+            first_latitude = latitude_at_takeoff.get_first()
+            first_longitude = longitude_at_takeoff.get_first()
+            if first_latitude and first_longitude:
+                kwargs.update(latitude=first_latitude.value,
+                              longitude=first_longitude.value)
         airport_id = airport.value['id']
         hdg_value = hdg[0].value
         api_handler = get_api_handler()
