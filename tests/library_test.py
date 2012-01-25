@@ -2,29 +2,28 @@ import csv
 import unittest
 import numpy as np
 
+from math import sqrt
+
 from datetime import datetime
 
 # A set of masked array test utilities from Pierre GF Gerard-Marchant
 # http://www.java2s.com/Open-Source/Python/Math/Numerical-Python/numpy/numpy/ma/testutils.py.htm
 import utilities.masked_array_testutils as ma_test
 
-from analysis_engine.library import (align, calculate_timebase,
-                                     create_phase_inside, create_phase_outside,
-                                     duration, first_order_lag,
-                                     first_order_washout, hash_array,
-                                     hysteresis, index_at_value, interleave,
-                                     is_index_within_slice,
-                                     is_slice_within_slice, min_value,
-                                     mask_inside_slices, mask_outside_slices,
-                                     max_continuous_unmasked, max_value,
-                                     max_abs_value, merge_alternate_sensors,
-                                     peak_curvature, peak_index,
-                                     rate_of_change, repair_mask, slices_above,
-                                     slices_below, slices_between,
-                                     slices_from_to, straighten_headings,
-                                     #time_at_value, time_at_value_wrapped,
-                                     value_at_time, vstack_params,
-                                     InvalidDatetime)
+from analysis_engine.library import (align, blend_alternate_sensors,
+                              calculate_timebase, create_phase_inside,
+                              create_phase_outside, duration, 
+                              first_order_lag, first_order_washout, hash_array,
+                              hysteresis, index_at_value, interleave,
+                              is_index_within_slice, is_slice_within_slice,
+                              min_value, mask_inside_slices,
+                              mask_outside_slices, max_continuous_unmasked,
+                              max_value, max_abs_value, blend_two_parameters,
+                              peak_curvature, peak_index, rate_of_change, repair_mask, 
+                              rms_noise, slices_above, slices_below, slices_between, 
+                              slices_from_to, straighten_headings,
+                              #time_at_value, time_at_value_wrapped,
+                              value_at_time, vstack_params, InvalidDatetime)
 
 from analysis_engine.node import P, S
 from analysis_engine.library import *
@@ -113,22 +112,6 @@ class TestAlign(unittest.TestCase):
         np.testing.assert_array_equal(result.data, [1,2,3,4,4])
         np.testing.assert_array_equal(result.mask, False)
     
-    # No longer asserting equal array length as only Parameter's have arrays.                    
-    #def test_align_assert_array_lengths(self):
-        #class DumParam():
-            #def __init__(self):
-                #self.offset = 0.0
-                #self.frequency = 1
-                #self.array = []
-                
-        #first = DumParam()
-        #first.frequency = 4
-        #first.array = np.ma.array(range(8))
-        #second = DumParam()
-        #second.frequency = 2
-        #second.array = np.ma.array(range(7)) # Unmatched array length !
-        #self.assertRaises (AssertionError, align, first, second)
-                
     def test_align_same_hz_delayed(self):
         # Both arrays at 1Hz, master behind slave in time
         class DumParam():
@@ -269,7 +252,7 @@ class TestAlign(unittest.TestCase):
                                                           10.15,10.275,10.4,10.525,
                                                           10.65,10.775,10.9,11.0  ])
         np.testing.assert_array_equal(result.mask, False)
-        
+
     def test_align_across_frame_increasing(self):
         # Master at higher frequency than slave
         class DumParam():
@@ -320,7 +303,87 @@ class TestAlign(unittest.TestCase):
         # Build the correct answer...
         answer=np.ma.array([5.6,13.6,21.6,29.6])
         ma_test.assert_masked_array_approx_equal(result, answer)
-        
+
+    def test_align_superframe_master(self):
+        class DumParam():
+            def __init__(self):
+                self.offset = None
+                self.frequency = 1
+                self.offset = 0.0
+                self.array = []
+        master = DumParam()
+        master.array = np.ma.array([1,2])
+        master.frequency = 1/64.0
+        slave = DumParam()
+        slave.array = np.ma.arange(128)
+        slave.frequency = 1
+        result = align(slave, master)
+        expected = [0,64]
+        np.testing.assert_array_equal(result.data,expected)
+
+    def test_align_superframe_slave(self):
+        class DumParam():
+            def __init__(self):
+                self.offset = None
+                self.frequency = 1
+                self.offset = 0.0
+                self.array = []
+        master = DumParam()
+        master.array = np.ma.arange(64)
+        master.frequency = 2
+        slave = DumParam()
+        slave.array = np.ma.array([1,3,6,9])
+        slave.frequency = 1/8.0
+        result = align(slave, master)
+        expected = [1]*16+[3]*16+[6]*16+[9]*16
+        np.testing.assert_array_equal(result.data,expected)
+
+    def test_align_superframes_both(self):
+        class DumParam():
+            def __init__(self):
+                self.offset = None
+                self.frequency = 1
+                self.offset = 0.0
+                self.array = []
+        master = DumParam()
+        master.array = np.ma.arange(16)
+        master.frequency = 1/8.0
+        slave = DumParam()
+        slave.array = np.ma.arange(4)+100
+        slave.frequency = 1/32.0
+        result = align(slave, master)
+        expected = [100]*4+[101]*4+[102]*4+[103]*4
+        np.testing.assert_array_equal(result.data,expected)
+                
+
+class TestBlendAlternateSensors(unittest.TestCase):
+    def test_blend_alternage_sensors_basic(self):
+        array_1 = np.ma.array([0, 0, 1, 1],dtype=float)
+        array_2 = np.ma.array([5, 5, 6, 6],dtype=float)
+        result = blend_alternate_sensors (array_1, array_2, 'Follow')
+        np.testing.assert_array_equal(result.data, [2.5,2.5,2.5,3,3.5,3.5,3.5,3.5])
+        np.testing.assert_array_equal(result.mask, [False,False,False,False,
+                                                   False,False,False,True])
+
+    def test_blend_alternage_sensors_mask(self):
+        array_1 = np.ma.array([0, 0, 1, 1],dtype=float)
+        array_2 = np.ma.array([5, 5, 6, 6],dtype=float)
+        array_1[2] = np.ma.masked
+        result = blend_alternate_sensors (array_1, array_2, 'Follow')
+        np.testing.assert_array_equal(result.data[0:3], [2.5,2.5,2.5])
+        np.testing.assert_array_equal(result.data[6:8], [3.5,3.5])
+        np.testing.assert_array_equal(result.mask, [False,False,False,
+                                                    True,True,False,
+                                                    False,True])
+
+    def test_blend_alternage_sensors_reverse(self):
+        array_1 = np.ma.array([0, 0, 1, 1],dtype=float)
+        array_2 = np.ma.array([5, 5, 6, 6],dtype=float)
+        result = blend_alternate_sensors (array_1, array_2, 'Precede')
+        np.testing.assert_array_equal(result.data, [2.5,2.5,2.5,2.5,3,3.5,3.5,3.5])
+        np.testing.assert_array_equal(result.mask, [True,False,False,False,
+                                                    False,False,False,False])
+
 
 class TestCalculateTimebase(unittest.TestCase):
     def test_calculate_timebase(self):
@@ -459,10 +522,9 @@ class TestFirstOrderLag(unittest.TestCase):
         # The result of processing this data is...
         result = first_order_lag (array, 2.0, 2.0, initial_value = 1.0)
         # The correct answer is...
-        answer = np.ma.array(data=[6.66666667e-01,2.22222222e-01,7.40740741e-02,
-                                   2.46913580e-02,8.23045267e-03,2.74348422e-03,
-                                   9.14494742e-04,3.04831581e-04,1.01610527e-04,
-                                   3.38701756e-05], mask = False)
+        answer = np.ma.array(data=[0.88888889,0.69135802,0.53772291,0.41822893,
+                                 0.32528917,0.25300269,0.19677987,0.15305101,
+                                 0.11903967,0.09258641], mask = False)
         ma_test.assert_masked_array_approx_equal(result, answer)
 
     def test_firstorderlag_gain(self):
@@ -476,7 +538,7 @@ class TestFirstOrderLag(unittest.TestCase):
         array = np.ma.ones(4)
         # With a time constant of 1 and a frequency of 4, the simple algorithm
         # becomes too inaccurate to be useful.
-        self.assertRaises(ValueError, first_order_lag, array, 1.0, 4.0)
+        self.assertRaises(ValueError, first_order_lag, array, 0.2, 1.0)
 
     def test_firstorderlag_mask_retained(self):
         array = np.ma.zeros(5)
@@ -514,7 +576,7 @@ class TestFirstOrderWashout(unittest.TestCase):
         array[0]=0.0 gives a +1.0 step change to the input and we get a positive 
         kick on the output.
         '''
-        result = first_order_washout (array, 2.0, 2.0, initial_value = -1.0)
+        result = first_order_washout (array, 2.0, 0.5, initial_value = -1.0)
         # The correct answer is...
         answer = np.ma.array(data=[6.66666667e-01,2.22222222e-01,7.40740741e-02,
                                    2.46913580e-02,8.23045267e-03,2.74348422e-03,
@@ -533,7 +595,7 @@ class TestFirstOrderWashout(unittest.TestCase):
         array = np.ma.ones(4)
         # With a time constant of 1 and a frequency of 4, the simple algorithm
         # becomes too inaccurate to be useful.
-        self.assertRaises(ValueError, first_order_washout, array, 1.0, 4.0)
+        self.assertRaises(ValueError, first_order_washout, array, 0.2, 1.0)
 
     def test_firstorderwashout_mask_retained(self):
         array = np.ma.zeros(5)
@@ -651,6 +713,17 @@ class TestIndexAtValue(unittest.TestCase):
         array = np.ma.arange(50)
         self.assertEqual(index_at_value(array, 55, slice(-20,20)), None)
 
+
+class TestIndexOfDatetime(unittest.TestCase):
+    def test_index_of_datetime(self):
+        start_datetime = datetime.now()
+        difference = timedelta(seconds=40)
+        index_datetime = start_datetime + difference
+        frequency = 4
+        index = index_of_datetime(start_datetime, index_datetime, frequency)
+        self.assertEqual(index, 160)
+
+
 class TestInterleave(unittest.TestCase):
     def test_interleave(self):
         param1 = P('A1',np.ma.array(range(4),dtype=float),1,0.2)
@@ -671,6 +744,26 @@ class TestInterleave(unittest.TestCase):
         np.testing.assert_array_equal(result.mask, [False,False,True,
                                                     False,False,True,
                                                     False,False])
+
+
+class TestInterpolateParams(unittest.TestCase):
+    def test_interpolate_params(self):
+        param1 = P('A1',np.ma.arange(10),
+                   frequency=1,offset=0.2)
+        param2 = P('A2',np.ma.arange(0.2, 10, 0.5),
+                   frequency=2,offset=0.7)
+        param1.array[1] = np.ma.masked
+        param2.array[2] = np.ma.masked
+        array, freq, off = interpolate_params(param1, param2)
+        np.testing.assert_array_equal(array.data[:5], 
+            [0.0, 0.27222222222222225, 0.49444444444444441, 0.71666666666666656,
+             0.93888888888888866])
+        np.testing.assert_array_equal(array[-5:], 
+            [8.9047619047619033, 9.1481481481481435, 9.3833333333333311,
+             9.6055555555555525, np.nan])
+        array.mask[-1] = True
+        self.assertEqual(freq, 3)
+        self.assertEqual(off, 3 * param1.offset)
 
 
 class TestIsIndexWithinSlice(unittest.TestCase):
@@ -804,25 +897,36 @@ class TestMinValue(unittest.TestCase):
         
         neg_step = slice(100,65,-10)
         self.assertRaises(ValueError, min_value, array, neg_step)
-        ##self.assertEqual(res, (69, 81)) # you can get this if you use slice.stop!
+
+
+class TestBlendTwoParameters(unittest.TestCase):
+    def test_blend_two_parameters_offset_ordered_forward(self):
+        p1 = P(array=[0]*4, frequency=1, offset=0.0)
+        p2 = P(array=[1,2,3,4], frequency=1, offset=0.2)
+        arr, freq, off = blend_two_parameters(p1, p2)
+        self.assertEqual(arr[1], 0.5)
+        self.assertEqual(freq, 2)
+        self.assertEqual(off, 0.1)
+
+    def test_blend_two_parameters_offset_ordered_backward(self):
+        p1 = P(array=[5,10,7,8], frequency=2, offset=0.1)
+        p2 = P(array=[1,2,3,4], frequency=2, offset=0.0)
+        arr, freq, off = blend_two_parameters(p1, p2)
+        self.assertEqual(arr[2], 3.5)
+        self.assertEqual(freq, 4)
+        self.assertEqual(off, 0.05)
+
+    def test_blend_two_parameters_assertion_error(self):
+        p1 = P(array=[0]*4, frequency=1, offset=0.0)
+        p2 = P(array=[1]*4, frequency=2, offset=0.2)
+        self.assertRaises(AssertionError, blend_two_parameters, p1, p2)
+
+    def test_blend_two_parameters_array_mismatch_error(self):
+        p1 = P(array=[0]*4, frequency=1, offset=0.0)
+        p2 = P(array=[1]*3, frequency=2, offset=0.2)
+        self.assertRaises(AssertionError, blend_two_parameters, p1, p2)
+
         
-class TestMergeAlternateSensors(unittest.TestCase):
-    def test_merge_alternage_sensors_basic(self):
-        array = np.ma.array([0, 5, 0, 5, 1, 6, 1, 6],dtype=float)
-        result = merge_alternate_sensors (array)
-        np.testing.assert_array_equal(result.data, [2.5,2.5,2.5,2.75,3.25,3.5,3.5,3.5])
-        np.testing.assert_array_equal(result.mask, False)
-
-    def test_merge_alternage_sensors_mask(self):
-        array = np.ma.array([0, 5, 0, 5, 1, 6, 1, 6],dtype=float)
-        array[4] = np.ma.masked
-        result = merge_alternate_sensors (array)
-        np.testing.assert_array_equal(result.data[0:3], [2.5,2.5,2.5])
-        np.testing.assert_array_equal(result.data[6:8], [3.5,3.5])
-        np.testing.assert_array_equal(result.mask, [False,False,False,
-                                                    True,True,True,
-                                                    False,False])
-
 class TestPeakCurvature(unittest.TestCase):
     # Note: The results from the first two tests are in a range format as the
     # artificial data results in multiple maxima.
@@ -1034,7 +1138,20 @@ class TestRepairMask(unittest.TestCase):
         res = repair_mask(array)
         ma_test.assert_masked_array_approx_equal(res, array)
 
-
+class test_rms_noise(unittest.TestCase):
+    def test_rms_noise_basic(self):
+        array = np.ma.array([0,0,1,0,0])
+        result = rms_noise(array)
+        expected = sqrt(6.0/5.0)
+        self.assertAlmostEqual(result, expected)
+        
+    def test_rms_noise_masked(self):
+        array = np.ma.array([0,0,1,0,0])
+        array[2]=np.ma.masked
+        result = rms_noise(array)
+        expected = 0.0
+        self.assertAlmostEqual(result, expected)
+        
 class TestSlicesAbove(unittest.TestCase):
     def test_slices_above(self):
         array = np.ma.concatenate([np.ma.arange(10), np.ma.arange(10)])
@@ -1077,35 +1194,48 @@ class TestSlicesFromTo(unittest.TestCase):
 
 class TestStraightenHeadings(unittest.TestCase):
     def test_straight_headings(self):
-        data = [35.5,
-                29.5,
-                11.3,
-                0.0,
-                348.4,
-                336.8,
-                358.9,
-                2.5,
-                8.1,
-                14.4]
-        expected = [35.5,
-                    29.5,
-                    11.3,
-                    0.0,
-                    -11.6,
-                    -23.2,
-                    -1.1,
-                    2.5,
-                    8.1,
-                    14.4]
-        np.testing.assert_array_almost_equal(straighten_headings(data), expected)
+        data = np.ma.array([35.5,29.5,11.3,0.0,348.4,336.8,358.9,2.5,8.1,14.4])
+        expected = np.ma.array([35.5,29.5,11.3,0.0,-11.6,-23.2,-1.1,2.5,8.1,14.4])
+        np.testing.assert_array_almost_equal(straighten_headings(data),expected)
 
-        #for index, val in enumerate(straighten_headings(data)):
-            #self.assertEqual(
-                #'%.2f' % val,
-                #'%.2f' % expected[index],
-                #msg="Failed at %s == %s at %s" % (val, expected[index], index)
-            #)
+    def test_straight_headings_starting_masked(self):
+        data=np.ma.array([1,2,3])
+        data[0]=np.ma.masked
+        expected=data
+        ma_test.assert_masked_array_approx_equal(straighten_headings(data), expected)
             
+class TestSmoothTrack(unittest.TestCase):
+    def test_smooth_track_latitude(self):
+        lat = np.ma.array([0,0,0,1,1,1], dtype=float)
+        lon = np.ma.zeros(6, dtype=float)
+        lat_s, lon_s, cost = smooth_track(lat, lon)
+        self.assertLess (cost,26)
+        
+    def test_smooth_track_longitude(self):
+        lon = np.ma.array([0,0,0,1,1,1], dtype=float)
+        lat = np.ma.zeros(6, dtype=float)
+        lat_s, lon_s, cost = smooth_track(lat, lon)
+        self.assertLess (cost,26)
+        
+    def test_smooth_track_masked(self):
+        lon = np.ma.array([0,0,0,1,1,1], dtype=float)
+        lat = np.ma.zeros(6, dtype=float)
+        lon[4]=np.ma.masked
+        lat_s, lon_s, cost = smooth_track(lat, lon)
+        self.assertLess (cost,26)
+        
+    def test_smooth_track_speed(self):
+        from time import clock
+        lon = np.ma.arange(10000, dtype=float)
+        lon = lon%27
+        lat = np.ma.zeros(10000, dtype=float)
+        start = clock()
+        lat_s, lon_s, cost = smooth_track(lat, lon)
+        end = clock()      
+        print end-start      
+        self.assertLess (end-start,1.0)
+            
+        
 class TestSubslice(unittest.TestCase):
     def test_subslice(self):
         """ Does not test using negative slice start/stop values e.g. (-2,2)
@@ -1262,7 +1392,7 @@ class TestValueAtTime(unittest.TestCase):
         
     def test_value_at_time_right_at_end_of_data(self):
         array = np.ma.arange(4) + 22.3
-        self.assertEquals (value_at_time(array, 4, 0.0, 0.75), 25.3)
+        self.assertEquals (value_at_time(array, 1.0, 0.0, 3.0), 25.3)
         
     def test_value_at_time_assertion_below_range(self):
         array = np.ma.arange(4)

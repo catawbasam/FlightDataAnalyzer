@@ -25,11 +25,12 @@ class TestProcessFlight(unittest.TestCase):
     def setUp(self):
         pass
     
-    @unittest.skipIf(not os.path.isfile("test_data/1_7295949_737-3C.001.hdf5"),
+    @unittest.skipIf(not os.path.isfile("test_data/1_7295949_737-3C.hdf5"),
                      "Test file not present")
-    def test_1_7295949_737_3C(self):
-        hdf_orig = "test_data/1_7295949_737-3C.001.hdf5"
-        hdf_path = "test_data/1_7295949_737-3C.001_copy.hdf5"
+    @mock.patch('analysis.flight_attribute.get_api_handler')
+    def test_1_7295949_737_3C(self, get_api_handler):
+        hdf_orig = "test_data/1_7295949_737-3C.hdf5"
+        hdf_path = "test_data/1_7295949_737-3C_copy.hdf5"
         if os.path.isfile(hdf_path):
             os.remove(hdf_path)
         shutil.copy(hdf_orig, hdf_path)
@@ -40,6 +41,34 @@ class TestProcessFlight(unittest.TestCase):
                    'Tail Number': 'G-ABCD',
                    'Flap Selections': [0,1,2,5,10,15,25,30,40],
                    }
+        
+        # Mock API handler return values so that we do not make http requests.
+        # Will return the same airport and runway for each query, can be
+        # avoided with side_effect.
+        api_handler = mock.Mock()
+        get_api_handler.return_value = api_handler
+        airport = {'id': 100, 'icao': 'EGLL'}
+        runway = {'end': {'latitude': 60.280151, 'longitude': 5.222579},
+                  'glideslope': {'angle': 3.1,
+                   'frequency': u'333800M',
+                   'latitude': 60.300981,
+                   'longitude': 5.214092,
+                   'threshold_distance': 1161},
+                  'id': 8193,
+                  'identifier': u'17',
+                  'localizer': {'beam_width': 4.5,
+                   'frequency': u'109900M',
+                   'heading': 173,
+                   'latitude': 60.2789,
+                   'longitude': 5.223},
+                  'start': {'latitude': 60.30662494, 'longitude': 5.21370074},
+                  'strip': {'id': 4097, 'length': 9810, 'surface': u'ASP', 'width': 147}}
+        api_handler.get_nearest_airport = mock.Mock()
+        api_handler.get_nearest_airport.return_value = airport
+        api_handler.get_nearest_runway = mock.Mock()
+        api_handler.get_nearest_runway.return_value = runway
+        start_datetime = datetime.now()
+        
         res = process_flight(hdf_path, ac_info, draw=False)
         self.assertEqual(len(res), 4)
         if debug:
@@ -382,7 +411,7 @@ class TestProcessFlight(unittest.TestCase):
         nodes = get_derived_nodes(['sample_derived_parameters'])
         self.assertEqual(len(nodes), 13)
         self.assertEqual(sorted(nodes.keys())[0], 'Heading Rate')
-        self.assertEqual(sorted(nodes.keys())[-1], 'Vertical Speed')
+        self.assertEqual(sorted(nodes.keys())[-1], 'Vertical g')
         
         
 

@@ -1,11 +1,15 @@
 import numpy as np
+from math import sqrt
 
 from collections import OrderedDict, namedtuple
 from datetime import datetime, timedelta
 from hashlib import sha256
 from itertools import izip
 from math import floor
+from operator import attrgetter
 from scipy.signal import lfilter, lfilter_zi
+from scipy.interpolate import interp1d
+
 
 from settings import REPAIR_DURATION, TRUCK_OR_TRAILER_INTERVAL, TRUCK_OR_TRAILER_PERIOD
 
@@ -61,9 +65,6 @@ def align(slave, master, interval='Subframe', signaltype='Analogue'):
     # Check the type of signal is one of those we recognise
     assert signaltype in ['Analogue', 'Discrete', 'Multi-State']
     
-    ## slave_aligned[:] = 0.0
-    ## Clearing the slave_aligned array is unnecessary, but can make testing easier to follow.
-
     # Get the timing offsets, comprised of word location and possible latency.
     tp = master.offset
     ts = slave.offset
@@ -71,13 +72,46 @@ def align(slave, master, interval='Subframe', signaltype='Analogue'):
     # Get the sample rates for the two parameters
     wm = master.frequency
     ws = slave.frequency
+    slowest = min(wm,ws)
+    
+    #---------------------------------------------------------------------------
+    # Section to handle superframe parameters, in master, slave or both.
+    #---------------------------------------------------------------------------
+    if slowest < 0.25:
+        # One or both parameters is in a superframe. Handle without
+        # interpolation as these parameters are recorded at too low a rate
+        # for interpolation to be meaningful.
+        if wm==ws:
+            # All we need do is copy the data across as they are at the same
+            # sample rate.
+            slave_aligned=np.ma.copy(slave.array)
+            return slave_aligned
+        
+        if wm>ws:
+            # Increase samples in slave accordingly
+            r = wm/ws
+            assert r in [2,4,8,16,32,64,128,256]
+            slave_aligned = np.ma.reshape(np.ma.empty_like(master.array),(-1,r))
+            for i in range(len(slave.array)):
+                slave_aligned[i::r]=slave.array[i]
+            return np.ma.ravel(slave_aligned)
+            
+        else:
+            # Reduce samples in slave.
+            r = ws/wm
+            assert r in [2,4,8,16,32,64,128,256]
+            slave_aligned=np.ma.empty_like(master.array)
+            slave_aligned=slave_array[::r]
+            return slave_aligned
+    #---------------------------------------------------------------------------
+            
 
     # Express the timing disparity in terms of the slave paramter sample interval
     delta = (tp-ts)*slave.frequency
 
     # If we are working across a complete frame, the number of samples in each case
     # is four times greater.
-    if interval == 'Frame':
+    if interval == 'Frame' or 0.25 <= slowest < 1:
         wm = int(wm * 4)
         ws = int(ws * 4)
     assert wm in [1,2,4,8,16,32,64]
@@ -324,7 +358,7 @@ def duration(a, period, hz=1.0):
     '''
     return a
 
-def first_order_lag (array, time_constant, hz, gain = 1.0, initial_value = None):
+def first_order_lag (in_param, time_constant, hz, gain = 1.0, initial_value = None):
     '''
     Computes the transfer function
             x.G
@@ -341,8 +375,8 @@ def first_order_lag (array, time_constant, hz, gain = 1.0, initial_value = None)
     first_order_lag(param, time_constant=5) is equivalent to
     array[index] = array[index-1] * 0.8 + array[index] * 0.2.
     
-    :param array: input data (x)
-    :type array: masked array
+    :param in_param: input data (x)
+    :type in_param: masked array
     :param time_constant: time_constant for the lag function (T)(sec)
     :type time_constant: float
     :param hz: sample rate for the input data (sec-1)
@@ -353,10 +387,10 @@ def first_order_lag (array, time_constant, hz, gain = 1.0, initial_value = None)
     :type initial_value: float
     :returns: masked array of values with first order lag applied
     '''
-    input_data = np.copy(array.data)
+    #input_data = np.copy(array.data)
     
     # Scale the time constant to allow for different data sample rates.
-    tc = time_constant / hz
+    tc = time_constant * hz
     
     # Trap the condition for stability
     if tc < 0.5:
@@ -372,19 +406,51 @@ def first_order_lag (array, time_constant, hz, gain = 1.0, initial_value = None)
     y_term.append ((1.0 - 2.0*tc)/(1.0 + 2.0*tc)) #a[1]
     y_term = np.array(y_term)
     
+    return masked_first_order_filter(y_term, x_term, in_param, initial_value)
+
+def masked_first_order_filter(y_term, x_term, in_param, initial_value):
+    """
+    This provides access to the scipy filter function processed across the
+    unmasked data blocks, with masked data retained as masked zero values.
+    This is a better option than masking all subsequent values which would be
+    the mathematically correct thing to do with infinite response filters.
+    
+    :param y_term: Filter denominator terms. 
+    :type in_param: list 
+    :param x_term: Filter numerator terms.
+    :type x_term: list
+    :param in_param: input data array
+    :type in_param: masked array
+    :param initial_value: Value to be used at the start of the data
+    :type initial_value: float (or may be None)
+    """
+    
     z_initial = lfilter_zi(x_term, y_term) # Prepare for non-zero initial state
     # The initial value may be set as a command line argument, mainly for testing
     # otherwise we set it to the first data value.
-    if initial_value == None:
-        initial_value = input_data[0]
-    answer, z_final = lfilter(x_term, y_term, input_data, zi=z_initial*initial_value)
-    masked_result = np.ma.array(answer)
+    
+    result = np.ma.zeros(len(in_param))  # There is no zeros_like method.
+    good_parts = np.ma.clump_unmasked(in_param)
+    for good_part in good_parts:
+        
+        if initial_value == None:
+            initial_value = in_param[good_part.start]
+        # Tested version here...
+        answer, z_final = lfilter(x_term, y_term, in_param[good_part], zi=z_initial*initial_value)
+        result[good_part] = np.ma.array(answer)
+        
     # The mask should last indefinitely following any single corrupt data point
     # but this is impractical for our use, so we just copy forward the original
     # mask.
-    masked_result.mask = array.mask
-    return masked_result
-
+    bad_parts = np.ma.clump_masked(in_param)
+    for bad_part in bad_parts:
+        # The mask should last indefinitely following any single corrupt data point
+        # but this is impractical for our use, so we just copy forward the original
+        # mask.
+        result[bad_part] = np.ma.masked
+        
+    return result
+    
 def first_order_washout (in_param, time_constant, hz, gain = 1.0, initial_value = None):
     '''
     Computes the transfer function
@@ -410,10 +476,10 @@ def first_order_washout (in_param, time_constant, hz, gain = 1.0, initial_value 
     :type initial_value: float
     :returns: masked array of values with first order lag applied
     '''
-    input_data = np.copy(in_param.data)
+    #input_data = np.copy(in_param.data)
     
     # Scale the time constant to allow for different data sample rates.
-    tc = time_constant / hz
+    tc = time_constant * hz
     
     # Trap the condition for stability
     if tc < 0.5:
@@ -429,17 +495,7 @@ def first_order_washout (in_param, time_constant, hz, gain = 1.0, initial_value 
     y_term.append ((1.0 - 2.0*tc)/(1.0 + 2.0*tc)) #a[1]
     y_term = np.array(y_term)
     
-    z_initial = lfilter_zi(x_term, y_term)
-    if initial_value == None:
-        initial_value = input_data[0]
-    # Tested version here...
-    answer, z_final = lfilter(x_term, y_term, input_data, zi=z_initial*initial_value)
-    masked_result = np.ma.array(answer)
-    # The mask should last indefinitely following any single corrupt data point
-    # but this is impractical for our use, so we just copy forward the original
-    # mask.
-    masked_result.mask = in_param.mask
-    return masked_result
+    return masked_first_order_filter(y_term, x_term, in_param, initial_value)
 
 def hash_array(array):
     '''
@@ -458,10 +514,13 @@ def hysteresis (array, hysteresis):
     result = np.empty(length)
     length = length-1 #  To be used for array indexing next
 
-    # The starting point for the computation is the first sample.
-    old = array[0]
+    # The starting point for the computation is the first sample. We have to
+    # be careful to take only the data part, as a masked value of old will
+    # cause the entire data set to be masked :o(
+    old = array.data[0]
 
-    # Index through the data storing the answer in reverse order
+    # Index through the data storing the answer in reverse order Enumerate
+    # does not convey the mask, so this is processed on raw data values.
     for index, new in enumerate(array.data):
         if new - old > quarter_range:
             old = new  - quarter_range
@@ -476,7 +535,9 @@ def hysteresis (array, hysteresis):
         elif new - old < -quarter_range:
             old = new + quarter_range
         result[length-index] = old
-
+ 
+    # At the end of the process we reinstate the mask, although the data
+    # values may have affected the result.
     return np.ma.array(result, mask=array.mask)
 
 
@@ -567,12 +628,65 @@ def interleave_uneven_spacing (param_1, param_2):
     #return straight_array
     return None # to force a test error until this is fixed to prevent extrapolation
 
+def interpolate_params(*params):
+    '''
+    Q: Should we mask indices which are being interpolated in masked areas of
+       the input arrays.
+    '''
+    param_frequencies = [param.frequency for param in params]
+    max_frequency = max(param_frequencies)
+    out_frequency = sum(param_frequencies)
+    
+    data_arrays = []
+    index_arrays = []
+    
+    for param in sorted(params, key=attrgetter('frequency')):
+        multiplier = out_frequency / float(param.frequency)
+        offset = (param.offset * multiplier)
+        # Will not create interpolation points for masked indices.
+        unmasked_indices = np.where(param.array.mask == False)[0]
+        index_array = unmasked_indices.astype(np.float_) * multiplier + offset
+        # Take only unmasked values to match size with index_array.
+        data_arrays.append(param.array.data[unmasked_indices])
+        index_arrays.append(index_array)
+    # param assigned within loop has the maximum frequency.
+    
+    data_array = np.concatenate(data_arrays)
+    index_array = np.concatenate(index_arrays)
+    record = np.rec.fromarrays([index_array, data_array],
+                               names='indices,values')
+    record.sort()
+    # Masked values will be NaN.
+    interpolator = interp1d(record.indices, record.values, bounds_error=False,
+                            fill_value=np.NaN)
+    # Ensure first interpolated value is within range.
+    out_offset = np.min(record.indices)
+    out_indices = np.arange(out_offset, len(param.array) * multiplier,
+                            param.frequency / float(out_frequency))
+    interpolated_array = interpolator(out_indices)
+    masked_array = np.ma.masked_array(interpolated_array,
+                                      mask=np.isnan(interpolated_array))
+    return masked_array, out_frequency, out_offset
+
+
+def index_of_datetime(start_datetime, index_datetime, frequency):
+    '''
+    :param start_datetime: Start datetime of data file.
+    :type start_datetime: datetime
+    :param index_datetime: Datetime to calculate the index of.
+    :type index_datetime: datetime
+    :param frequency: Frequency of index.
+    :type frequency: float or int
+    :returns: The index of index_datetime relative to start_datetime and frequency.
+    '''
+    difference = index_datetime - start_datetime
+    return difference.total_seconds() * frequency
+
 def is_index_within_slice(index, _slice):
     '''
-    Tests whether index is within the slice.
-    
     :type index: int or float
     :type _slice: slice
+    :returns: whether index is within the slice.
     :rtype: bool
     '''
     if _slice.start is None and _slice.stop is None:
@@ -694,7 +808,24 @@ def min_value(array, _slice=slice(None)):
     """
     return _value(array, _slice, np.ma.argmin)
             
-def merge_alternate_sensors (array):
+def merge_sources(*arrays):
+    '''
+    This simple process merges the data from multiple sensors where they are
+    sampled alternately. Unlike merge_two_sensors, this procedure does
+    not make any allowance for the two sensor readings being different.
+    
+    :param array: sampled data from an alternate signal source
+    :type array: masked array
+    :returns: masked array with merging algorithm applied.
+    :rtype: masked array
+    '''
+    result = np.ma.empty((len(arrays[0]),len(arrays)))
+    for dim, array in enumerate(arrays):
+        result[:,dim] = array
+    return np.ma.ravel(result)
+
+
+def blend_alternate_sensors (array_one, array_two, padding):
     '''
     This simple process merges the data from two sensors where they are sampled
     alternately. Often pilot and co-pilot attitude and air data signals are
@@ -705,17 +836,56 @@ def merge_alternate_sensors (array):
     sensors can lead to, taking pitch attitude as an example, apparent "nodding"
     of the aircraft and errors in the derived pitch rate.
     
-    :param array: sampled data from an alternate signal source
-    :type array: masked array
+    Mismatches can also occur when there are timing differences between the
+    two samples, in which case this averaging process combined with
+    corrections to the offset and sampling interval are effective.
+    
+    :param array_one: sampled data from one signal source
+    :type array_one: masked array
+    :param array_two: sampled data from one signal source
+    :type array_two: masked array
+    :param padding: where to put the padding value in the array
+    :type padding: String "Precede" or "Follow"
     :returns: masked array with merging algorithm applied.
     :rtype: masked array
     '''
-    result = np.ma.empty_like(array)
-    result[1:-1] = (array[:-2] + array[1:-1]*2.0 + array[2:]) / 4.0
-    result[0] = (array[0] + array[1]) / 2.0
-    result[-1] = (array[-2] + array[-1]) / 2.0
-    return result
+    assert len(array_one) == len(array_two)
+    both = merge_sources(array_one, array_two)
+    # A simpler technique than trying to append to the averaged array.
+    av_pairs = np.ma.empty_like(both)
+    if padding == 'Follow':
+        av_pairs[:-1] = (both[:-1]+both[1:])/2
+        av_pairs[-1] = av_pairs[-2]
+        av_pairs[-1] = np.ma.masked
+    else:
+        av_pairs[1:] = (both[:-1]+both[1:])/2
+        av_pairs[0] = av_pairs[1]
+        av_pairs[0] = np.ma.masked
+    return av_pairs
 
+def blend_two_parameters (param_one, param_two):
+    '''
+    This process merges two parameter arrays of the same frequency.
+    Soothes and then computes the offset and frequency appropriately.
+    
+    :param param_one: Parameter object
+    :type param_one: Parameter
+    '''
+    assert param_one.frequency  == param_two.frequency
+    offset = (param_one.offset + param_two.offset)/2.0
+    frequency = param_one.frequency * 2
+    padding = 'Follow'
+    
+    if offset > 1/frequency:
+        offset = offset - 1/frequency
+        padding = 'Precede'
+        
+    if param_one.offset <= param_two.offset:
+        # merged array should be monotonic (always increasing in time)
+        array = blend_alternate_sensors(param_one.array, param_two.array, padding)
+    else:
+        array = blend_alternate_sensors(param_two.array, param_one.array, padding)
+    return array, param_one.frequency * 2, offset
 
 def peak_curvature(array, _slice=slice(None), search_for='Concave'):
     """
@@ -874,7 +1044,25 @@ def repair_mask(array):
                                         array.data[section.stop]])
     return array
    
-
+def rms_noise(array):
+    '''
+    :param array: input parameter to measure noise level
+    :type array: numpy masked array
+    :returns: RMS noise level
+    
+    This computes the rms noise for each sample compared with its neighbours.
+    In this way, a steady cruise at 30,000 ft will yield no noise, as will a
+    steady climb or descent.
+    '''
+    # The difference between one sample and the ample to the left is computed
+    # using the ediff1d algorithm, then by rolling it right we get the answer
+    # for the difference between this sample and the one to the right.
+    diff_left = np.ma.ediff1d(array, to_end=0)
+    diff_right = np.ma.array(data=np.roll(diff_left.data,1), 
+                             mask=np.roll(diff_left.mask,1))
+    local_diff = diff_left - diff_right
+    return sqrt(np.ma.mean(np.ma.power(local_diff,2)))  # RMS in one line !
+    
 def shift_slices(slicelist, offset):
     """
     This function shifts a list of slices by offset. The need for this arises
@@ -1001,6 +1189,58 @@ def slices_from_to(array, from_, to):
     filtered_slices = filter(condition, slices)
     return rep_array, filtered_slices
 
+
+def smooth_track_cost_function(lat_s, lon_s, lat, lon):
+    # Summing the errors from the recorded data is easy.
+    from_data = np.sum((lat_s - lat)**2)+np.sum((lon_s - lon)**2)
+    
+    # The errors from a straight line are computed swiftly using convolve.
+    slider=np.array([-1,2,-1])
+    from_straight = np.sum(np.convolve(lat_s,slider,'valid')**2) + \
+        np.sum(np.convolve(lon_s,slider,'valid')**2)
+    
+    cost = from_data + 100*from_straight
+    return cost
+    
+def smooth_track(lat, lon):
+    """
+    Input:
+    lat = Recorded latitude array
+    lon = Recorded longitude array
+    
+    Returns:
+    lat_last = Optimised latitude array
+    lon_last = optimised longitude array
+    Cost = cost function, used for testing satisfactory convergence.
+    """
+    # This routine used to index through the arrays. By using np.convolve (in
+    # both the iteration and cost functions) the same algorithm runs 350
+    # times faster !!!
+    
+    lat_s = np.ma.copy(lat)
+    lon_s = np.ma.copy(lon)
+    
+    # Set up a weighted array that will slide past the data.
+    r = 0.7  
+    # Values of r alter the speed to converge; 0.7 seems best.
+    slider=np.ma.ones(5)*r/4
+    slider[2]=1-r
+
+    cost_0 = 9e+99
+    cost = smooth_track_cost_function(lat_s, lon_s, lat, lon)
+    
+    while cost < cost_0:  # Iterate to an optimal solution.
+        lat_last = np.ma.copy(lat_s)
+        lon_last = np.ma.copy(lon_s)
+
+        # Straighten out the middle of the arrays, leaving the ends unchanged.
+        lat_s.data[2:-2] = np.convolve(lat_last,slider,'valid')
+        lon_s.data[2:-2] = np.convolve(lon_last,slider,'valid')
+
+        cost_0 = cost
+        cost = smooth_track_cost_function(lat_s, lon_s, lat, lon)
+    return lat_last, lon_last, cost_0
+
             
 def straighten_headings(heading_array):
     '''
@@ -1012,8 +1252,8 @@ def straighten_headings(heading_array):
     :returns: Straightened headings
     :rtype: Generator of type Float
     '''
-    head_prev = heading_array[0]
-    diff = np.ediff1d(heading_array)
+    head_prev = heading_array.data[0]
+    diff = np.ediff1d(heading_array.data)
     diff = diff - 360.0 * np.trunc(diff/180.0)
     heading_array[1:] = np.cumsum(diff) + head_prev
     return heading_array
@@ -1158,7 +1398,7 @@ def value_at_index(array, index):
     low = int(index)
     if (low==index):
         # I happen to have arrived at exactly the right value by a fluke...
-        return None if array.mask[low] else array[low]
+        return None if np.ma.is_masked(array[low]) else array[low]
     else:
         high = low + 1
         r = index - low

@@ -31,8 +31,8 @@ def geo_locate(hdf, kti_list):
     lat_pos = hdf['Latitude Smoothed']
     long_pos = hdf['Longitude Smoothed']
     for kti in kti_list:
-        kti.latitude = lat_pos[kti.index]
-        kti.longitude = long_pos[kti.index]
+        kti.latitude = lat_pos.array[kti.index]
+        kti.longitude = long_pos.array[kti.index]
     return kti_list
 
 

@@ -223,10 +223,14 @@ class TakeoffAccelerationStart(KeyTimeInstanceNode):
         for takeoff in takeoffs:
             start_accel = None
             if accel:
-                # Ideally compute this from the forwards acceleration
-                start_accel=index_at_value(accel.array,
-                                           TAKEOFF_ACCELERATION_THRESHOLD,
-                                           takeoff.slice)
+                # Ideally compute this from the forwards acceleration.
+                # If they turn onto the runway already accelerating, take that as the start point.
+                if accel.array[takeoff.slice][0]>TAKEOFF_ACCELERATION_THRESHOLD:
+                    start_accel = takeoff.slice.start
+                else:
+                    start_accel=index_at_value(accel.array,
+                                               TAKEOFF_ACCELERATION_THRESHOLD,
+                                               takeoff.slice)
             
             if start_accel == None:
                 # A quite respectable "backstop" is from the rate of change
@@ -235,7 +239,8 @@ class TakeoffAccelerationStart(KeyTimeInstanceNode):
                 # failed.
                 start_accel = peak_curvature(speed.array[takeoff.slice])
 
-            self.create_kti(start_accel+takeoff.slice.start)
+            if start_accel != None:
+                self.create_kti(start_accel+takeoff.slice.start)
 
 
 class Liftoff(KeyTimeInstanceNode):
@@ -290,10 +295,7 @@ class TouchAndGo(KeyTimeInstanceNode):
 
 
 class Touchdown(KeyTimeInstanceNode):
-    # TODO: Establish whether this works satisfactorily. If there are
-    # problems with this algorithm we could compute the rate of descent
-    # backwards from the runway for greater accuracy.
-    def derive(self, roc=P('Rate Of Climb For Flight Phases'), landings=S('Landing')):
+    def derive(self, roc=P('Rate Of Climb'), landings=S('Landing')):
         for landing in landings:
             land_index = index_at_value(roc.array, RATE_OF_CLIMB_FOR_TOUCHDOWN,
                                         landing.slice)

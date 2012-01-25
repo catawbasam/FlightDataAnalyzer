@@ -147,6 +147,9 @@ class Approaches(FlightAttributeNode):
                approach_hdg_kpvs=KPV('Heading At Low Point On Approach'),
                approach_ilsfreq_kpvs=KPV('ILS Frequency On Approach'),
                precision=A('Precise Positioning')):
+        '''
+        TODO: Document approaches format.
+        '''
         api_handler = get_api_handler()
         approaches = []
         for approach in approach_and_landing:
@@ -449,7 +452,7 @@ class TakeoffAirport(FlightAttributeNode):
          'latitude': 51.4775,
          'longitude': -0.461389,
          'location': {'city': 'London', 'country': 'United Kingdom'},
-         'magnetic_variation': 'W002241 0106', # Format subject to change.
+         'magnetic_variation': 2.5,
          'name': 'London Heathrow'}
         '''
         if not liftoff:
@@ -565,7 +568,7 @@ class TakeoffRunway(FlightAttributeNode):
         {'id': 1234,
          'identifier': '29L',
          'magnetic_heading': 290,
-         'start': {
+         ['start': {
              'latitude': 14.1,
              'longitude': 7.1,
          },

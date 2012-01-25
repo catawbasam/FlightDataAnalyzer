@@ -3,18 +3,28 @@ import numpy as np
 
 from analysis_engine.node import A, DerivedParameterNode, KTI, P, S
 
-from analysis_engine.library import (first_order_lag, first_order_washout,
-                                     hysteresis, interleave, rate_of_change,
-                                     repair_mask, straighten_headings,
-                                     vstack_params)
+from analysis_engine.library import (blend_alternate_sensors,
+                              blend_two_parameters,
+                              first_order_lag,
+                              first_order_washout,
+                              hysteresis,
+                              index_of_datetime,
+                              interleave,
+                              is_slice_within_slice,
+                              merge_sources,
+                              rate_of_change, 
+                              repair_mask,
+                              rms_noise,
+                              smooth_track,
+                              straighten_headings,
+                              vstack_params)
 
 from settings import (AZ_WASHOUT_TC,
                       AT_WASHOUT_TC,
                       GROUNDSPEED_LAG_TC,
                       HYSTERESIS_FPALT,
                       HYSTERESIS_FPALT_CCD,
-                      HYSTERESIS_FP_RAD_ALT,
-                      HYSTERESIS_FPIAS, 
+                      HYSTERESIS_FPIAS,
                       HYSTERESIS_FPROC,
                       GRAVITY_IMPERIAL,
                       GRAVITY_METRIC,
@@ -69,8 +79,8 @@ class AccelerationForwards(DerivedParameterNode):
 
 
 class AccelerationAcrossTrack(DerivedParameterNode):
-    def derive(self, acc_fwd=P('Acceleration Forwards'), 
-               acc_side=P('Acceleration Sideways'), 
+    def derive(self, acc_fwd=P('Acceleration Forwards'),
+               acc_side=P('Acceleration Sideways'),
                drift=P('Drift')):
         """
         The forward and sideways ground-referenced accelerations are resolved
@@ -79,9 +89,10 @@ class AccelerationAcrossTrack(DerivedParameterNode):
         """
         drift_rad = np.radians(drift.array)
         self.array = acc_side.array * np.cos(drift_rad)\
-                     - acc_fwd.array * np.sin(drift_rad)
+            - acc_fwd.array * np.sin(drift_rad)
 
 
+##class     name = 'Airspeed Minus V2 400 To 1500 Ft Min'
 class AccelerationAlongTrack(DerivedParameterNode):
     def derive(self, acc_fwd=P('Acceleration Forwards'), 
                acc_side=P('Acceleration Sideways'), 
@@ -164,12 +175,12 @@ class AirspeedForFlightPhases(DerivedParameterNode):
 class AirspeedMinusV2(DerivedParameterNode):
     #TODO: TESTS
     def derive(self, airspeed=P('Airspeed'), v2=P('V2')):
-        self.array = airspeed.array - v2
+        self.array = airspeed.array - v2.array
 
 class AirspeedMinusVref(DerivedParameterNode):
     #TODO: TESTS
     def derive(self, airspeed=P('Airspeed'), vref=P('Vref')):
-        self.array = airspeed.array - vref
+        self.array = airspeed.array - vref.array
 
 
 class AirspeedTrue(DerivedParameterNode):
@@ -182,13 +193,76 @@ class AirspeedTrue(DerivedParameterNode):
     
 
 class AltitudeAAL(DerivedParameterNode):
-    # Dummy for testing DJ TODO: Replace with one that takes radio altitude and local minima into account.
-    name = 'Altitude AAL'
-    def derive(self, alt_aal=P('Altitude AAL For Flight Phases')):# alt_std=P('Altitude STD'), alt_rad=P('Altitude Radio')):
-        # TODO: This is a hack! Implement separate derive method for Altitude
-        # AAL.
-        logging.warning("Altitude AAL is not properly implemented!!")
-        self.array = alt_aal.array
+    """
+    # List the minimum acceptable parameters here
+    @classmethod
+    def can_operate(cls, available):
+        # List the minimum required parameters. If 'Altitude Radio For Flight
+        # Phases' is available, that's a bonus and we will use it, but it is
+        # not required.
+        return 'Altitude AAL For Flight Phases' in available
+    """
+    name = "Altitude AAL"
+    def derive(self, roc = P('Rate Of Climb'),
+               alt_std = P('Altitude STD'),
+               alt_rad = P('Altitude Radio'),
+               fast = S('Fast')):
+
+        # alt_aal is a local working array, which may strictly be unnecessary
+        # but makes testing and inspection of results convenient.
+        alt_aal = np.ma.copy(alt_rad.array) 
+        self.array = np.ma.masked_all_like(alt_aal)
+
+        for speedy in fast:
+            if alt_rad:
+                highs = np.ma.clump_unmasked(np.ma.masked_less(alt_rad.array[speedy.slice],100))
+                for high in highs:
+                    peak = np.ma.argmax(alt_std.array[speedy.slice][high])
+
+                    dh_climb = alt_rad.array[speedy.slice][high][0] - \
+                        alt_std.array[speedy.slice][high][0]
+
+                    alt_aal[speedy.slice][high][0:peak] = \
+                        alt_std.array[speedy.slice][high][0:peak] + dh_climb
+
+                    dh_descend = alt_rad.array[speedy.slice][high][-1] - \
+                        alt_std.array[speedy.slice][high][-1]
+
+                    alt_aal[speedy.slice][high][peak:-1] = \
+                        alt_std.array[speedy.slice][high][peak:-1] + dh_descend
+                
+                # Use the complementary smoothing approach
+                alt_aal_lag = first_order_lag(alt_aal[speedy.slice],
+                                              RATE_OF_CLIMB_LAG_TC, roc.hz)
+                
+                roc_lag = first_order_lag(roc.array[speedy.slice],RATE_OF_CLIMB_LAG_TC, roc.hz,
+                                          gain=RATE_OF_CLIMB_LAG_TC/60.0)
+    
+                self.array[speedy.slice] = (alt_aal_lag + roc_lag)
+                
+                
+                """
+                #-------------------------------------------------------------------
+                # TEST OUTPUT TO CSV FILE FOR DEBUGGING ONLY
+                # TODO: REMOVE THIS SECTION BEFORE RELEASE
+                #-------------------------------------------------------------------
+                import csv
+                spam = csv.writer(open('spam.csv', 'wb'))
+                spam.writerow(['Rate Of Climb', 'Altitude STD', 'Altitude Radio','alt_aal',
+                               'alt_aal_lag', 'roc_lag', 'self.array'])
+                for showme in range(0, len(alt_aal_lag)):
+                    spam.writerow([roc.array.data[speedy.slice][showme], 
+                                   alt_std.array.data[speedy.slice][showme],
+                                   alt_rad.array.data[speedy.slice][showme],
+                                   alt_aal.data[speedy.slice][showme],
+                                   alt_aal_lag[showme],
+                                   roc_lag[showme],
+                                   self.array[speedy.slice][showme]])
+                #-------------------------------------------------------------------
+                # TEST OUTPUT TO CSV FILE FOR DEBUGGING ONLY
+                # TODO: REMOVE THIS SECTION BEFORE RELEASE
+                #-------------------------------------------------------------------
+                """
 
     
 class AltitudeAALForFlightPhases(DerivedParameterNode):
@@ -203,15 +277,16 @@ class AltitudeAALForFlightPhases(DerivedParameterNode):
         
         altitude = repair_mask(alt_std.array) # Remove small sections of corrupt data
         for speedy in fast:
-            begin = speedy.slice.start
-            end = speedy.slice.stop
+            begin = max(0, speedy.slice.start - 1)
+            end = min(speedy.slice.stop, len(altitude)-1)
             peak = np.ma.argmax(altitude[speedy.slice])
+            top = begin+peak+1
             # We override any negative altitude variations that occur at
             # takeoff or landing rotations. This parameter is only used for
             # flight phase determination so it is important that it behaves
             # in a predictable manner.
-            self.array[begin:begin+peak] = np.ma.maximum(0.0,altitude[begin:begin+peak]-altitude[begin])
-            self.array[begin+peak:end] = np.ma.maximum(0.0,altitude[begin+peak:end]-altitude[end-1])
+            self.array[begin:top] = np.ma.maximum(0.0,altitude[begin:top]-altitude[begin])
+            self.array[top:end+1] = np.ma.maximum(0.0,altitude[top:end+1]-altitude[end])
     
     
 class AltitudeForClimbCruiseDescent(DerivedParameterNode):
@@ -232,7 +307,7 @@ class AltitudeRadio(DerivedParameterNode):
     The parameter raa_to_gear is measured in feet and is positive if the
     antenna is forward of the mainwheels.
     """
-    def derive(self, alt_rad=P('Altitude Radio Sensor'), pitch=P('Pitch'),
+    def derive(self, alt_rad=P('Altitude Radio'), pitch=P('Pitch'),
                main_gear_to_alt_rad=A('Main Gear To Altitude Radio')):
         # Align the pitch attitude samples to the Radio Altimeter samples,
         # ready for combining them.
@@ -241,10 +316,12 @@ class AltitudeRadio(DerivedParameterNode):
         self.array = alt_rad.array - np.sin(pitch_rad) * main_gear_to_alt_rad.value
 
 
+"""
+TODO: Remove when proven to be superfluous
 class AltitudeRadioForFlightPhases(DerivedParameterNode):
     def derive(self, alt_rad=P('Altitude Radio')):
         self.array = hysteresis(repair_mask(alt_rad.array), HYSTERESIS_FP_RAD_ALT)
-
+"""
 
 class AltitudeQNH(DerivedParameterNode):
     name = 'Altitude QNH'
@@ -775,22 +852,41 @@ class GearSelectedUp(DerivedParameterNode):
     def derive(self, param=P('Gear Selected Up FDR')):
         pass
     
-    
+"""
+Not needed for 737-3C Frame
+"""
 class GroundspeedAlongTrack(DerivedParameterNode):
     # Inertial smoothing provides computation of groundspeed data when the
     # recorded groundspeed is unreliable. For example, during sliding motion
     # on a runway during deceleration. This is not good enough for long
-    # period computation, but is an improvement over groundspeed data that
-    # stops at 40kn or thereabouts.
-    def derive(self, gndspd=P('Groundspeed'),
-               at=P('Acceleration Along Track')):
-        at_washout = first_order_washout(at.array, AT_WASHOUT_TC, at.hz, 
+    # period computation, but is an improvement over aircraft where the 
+    # groundspeed data stops at 40kn or thereabouts.
+    def derive(self, gndspd=P('Ground Speed'),
+               at=P('Acceleration Along Track'),
+               ):
+        at_washout = first_order_washout(at.array, AT_WASHOUT_TC, gndspd.hz, 
                                          gain=GROUNDSPEED_LAG_TC*GRAVITY_METRIC)
-        self.array = first_order_lag((gndspd.array*KTS_TO_MPS) + at_washout,
+        self.array = first_order_lag(gndspd.array*KTS_TO_MPS + at_washout,
                                      GROUNDSPEED_LAG_TC,gndspd.hz)
     
-
-
+        """
+        #-------------------------------------------------------------------
+        # TEST OUTPUT TO CSV FILE FOR DEBUGGING ONLY
+        # TODO: REMOVE THIS SECTION BEFORE RELEASE
+        #-------------------------------------------------------------------
+        import csv
+        spam = csv.writer(open('beans.csv', 'wb'))
+        spam.writerow(['at', 'gndspd', 'at_washout', 'self'])
+        for showme in range(0, len(at.array):
+            spam.writerow([at.array.data[showme], 
+                           gndspd.array.data[showme]*KTS_TO_MPS,
+                           at_washout[showme], 
+                           self.array.data[showme]])
+        #-------------------------------------------------------------------
+        # TEST OUTPUT TO CSV FILE FOR DEBUGGING ONLY
+        # TODO: REMOVE THIS SECTION BEFORE RELEASE
+        #-------------------------------------------------------------------
+        """
 
 class HeadingContinuous(DerivedParameterNode):
     """
@@ -798,7 +894,7 @@ class HeadingContinuous(DerivedParameterNode):
     jump as it passes through North. To recover the compass display, modulus
     ("%360" in Python) returns the value to display to the user.
     """
-    def derive(self, head_mag=P('Heading Magnetic')):
+    def derive(self, head_mag=P('Heading')):
         self.array = repair_mask(straighten_headings(head_mag.array))
 
 
@@ -813,33 +909,116 @@ class HeadingMagnetic(DerivedParameterNode):
 class HeadingTrue(DerivedParameterNode):
     # Computes magnetic deviation linearly changing from the deviation at
     # the origin to the destination.
-    def derive(self, head = P('Heading Continuous'),
-               flights = S('Airborne'),
-               dev_origin=A('Heading Deviation Origin'),
-               dev_dest=A('Heading Deviation Destination')):
+    def derive(self, head=P('Heading Continuous'),
+               #airbornes=S('Airborne'),
+               liftoffs=KTI('Liftoff'),
+               takeoff_airport=A('FDR Takeoff Airport'),
+               approaches=A('FDR Approaches'),
+               start_datetime=A('Start Datetime')):
+        
+        
+        #"Hard wired" for Bergen !!!!!!!!!!!!!!!!!!!
+        self.array = head.array - 1.185
+        
+        if not approaches.value:
+            return
+
+
         # We copy the masked array to transfer the mask array. All the data
         # values will be overwritten, but the mask will not be affected by
         # conversion from magnetic to true headings.
-        self.array = np.ma.copy(head.array)
-        start = 0
-        for num_flt, flight in enumerate(flights):
-            orig=slice(start,flight.slice.start)
-            dest=slice(flight.slice.stop,None)
-            self.array[orig] = head.array[orig] + dev_origin[num_flt]
+        true_array = np.ma.copy(head.array)        
+        start_dt = start_datetime.value
+        first_liftoff = liftoffs.get_first()
+        if not takeoff_airport.value or \
+           not takeoff_airport.value['magnetic_variation'] or not \
+           approaches.value or not first_liftoff:
+            self.array.mask = True
+            return
+        orig_index = first_liftoff.index
+        orig_mag_var = takeoff_airport.value['magnetic_variation']
+        variations = []
+        
+        for approach in approaches.value:
+            dest_index = index_of_datetime(start_dt, approach['datetime'],
+                                           self.frequency)
+            dest_mag_var = approach['airport'].get('magnetic_variation')
+            if not dest_mag_var:
+                logging.warning("Cannot calculate '%s' with a missing magnetic "
+                                "variation for airport with ID '%s'.",
+                                self.name, approach['airport']['id'])
+                self.array.mask = True
+                return
+            variations.append({'slice': slice(orig_index, dest_index),
+                               'orig_mag_var': orig_mag_var,
+                               'dest_mag_var': dest_mag_var})
+            orig_index = dest_index
+            orig_mag_var = dest_mag_var
+        
+        start_index = 0
+        for variation in variations:
+            orig_mag_var = variation['orig_mag_var']
+            dest_mag_var = variation['dest_mag_var']
+            variation_slice = variation['slice']
             
-            # Prepare the linear interpolation values
-            begin = dev_origin[num_flt]
-            end = dev_dest[num_flt]
-            step = (end-begin)/(flight.slice.stop-flight.slice.start)
-            
-            self.array[flight.slice] = head.array[flight.slice]+np.arange(begin,end,step)
-            self.array[dest] = head[dest] + dev_dest[num_flt]
-                        
+            orig_slice = slice(start_index, variation_slice.start)
+            true_array[orig_slice] = head.array[orig_slice] + orig_mag_var
+            mag_var_diff = dest_mag_var - orig_mag_var
+            variation_duration = variation_slice.stop - variation_slice.start
+            step = mag_var_diff / variation_duration
+            true_array[variation_slice] = head.array[variation_slice] + \
+                np.arange(orig_mag_var, dest_mag_var, step)
+            start_index = variation_slice.stop
+        # Apply landing airport magnetic varation to remainder of array.
+        end_slice = slice(start_index, None)
+        true_array[end_slice] = true_array[end_slice] + dest_mag_var
+        self.array = true_array
 
-class ILSLocalizerGap(DerivedParameterNode):
-    def derive(self, ils_loc = P('Localizer Deviation'),
-               alt_aal = P('Altitude AAL')):
-        return NotImplemented
+        
+class ILSLocalizerComputation(DerivedParameterNode):
+    name = "ILS Localizer Sums"
+    
+    @classmethod
+    def can_operate(cls, available):
+        return True
+    
+    def derive(self, ils_loc = P('ILS Localizer'),
+               glide = P('ILS Glideslope'),
+               alt_aal = P('Altitude AAL'),
+               rwy=A('FDR Landing Runway'),
+               lat=P('Latitude Smoothed'),
+               lon=P('Longitude Smoothed'),
+               hdg=P('Heading True'),
+               ap=S('Approach And Landing')
+               ):
+        #-------------------------------------------------------------------
+        # TEST OUTPUT TO CSV FILE FOR DEBUGGING ONLY
+        # TODO: REMOVE THIS SECTION BEFORE RELEASE
+        #-------------------------------------------------------------------
+        if ils_loc and glide and alt_aal and rwy and lat and lon and hdg and ap:
+            import csv
+            spam = csv.writer(open('tomato.csv', 'wb'))
+            spam.writerow(['ILS Localizer',
+                           'ILS GLideslope',
+                           'Altitude AAL',
+                           'Latitude Smoothed',
+                           'Longitude Smoothed',
+                           'Heading True'])
+            scope = ap.get_last()  # Only the last approach is interesting.
+            for showme in range(int(scope.slice.start), int(scope.slice.stop)):
+                spam.writerow([ils_loc.array[showme],
+                               glide.array[showme],
+                               alt_aal.array[showme],
+                               lat.array[showme],
+                               lon.array[showme],
+                               hdg.array[showme]%360.0,
+                               ])
+        self.array = np.ma.arange(1000) # TODO: Remove.
+        #-------------------------------------------------------------------
+        # TEST OUTPUT TO CSV FILE FOR DEBUGGING ONLY
+        # TODO: REMOVE THIS SECTION BEFORE RELEASE
+        #-------------------------------------------------------------------
+        
 
     
 class ILSGlideslopeGap(DerivedParameterNode):
@@ -893,13 +1072,16 @@ class RateOfClimb(DerivedParameterNode):
                az = P('Acceleration Vertical'),
                alt_std = P('Altitude STD'),
                alt_rad = P('Altitude Radio')):
+
         if az and alt_rad:
             # Use the complementary smoothing approach
 
             roc_alt_std = first_order_washout(alt_std.array,
-                                              RATE_OF_CLIMB_LAG_TC, az.hz)
+                                              RATE_OF_CLIMB_LAG_TC, az.hz,
+                                              gain=1/RATE_OF_CLIMB_LAG_TC)
             roc_alt_rad = first_order_washout(alt_rad.array,
-                                              RATE_OF_CLIMB_LAG_TC, az.hz)
+                                              RATE_OF_CLIMB_LAG_TC, az.hz,
+                                              gain=1/RATE_OF_CLIMB_LAG_TC)
                     
             # Use pressure altitude rate above 100ft and radio altitude rate
             # below 50ft with progressive changeover across that range.
@@ -910,12 +1092,40 @@ class RateOfClimb(DerivedParameterNode):
             roc_altitude = roc_alt_std*std_rad_ratio +\
                 roc_alt_rad*(1.0-std_rad_ratio)
                 
-            roc_altitude /= RATE_OF_CLIMB_LAG_TC # Remove washout gain  
-            
-            # Lag this rate of climb
-            az_washout = first_order_washout (az.array, AZ_WASHOUT_TC, az.hz, initial_value = az.array[0])
-            inertial_roc = first_order_lag (az_washout, RATE_OF_CLIMB_LAG_TC, az.hz, gain=GRAVITY_IMPERIAL*RATE_OF_CLIMB_LAG_TC)
+            az_washout = first_order_washout (az.array, AZ_WASHOUT_TC, az.hz, 
+                                              gain=GRAVITY_IMPERIAL,
+                                              initial_value = az.array[0])
+            inertial_roc = first_order_lag (az_washout, RATE_OF_CLIMB_LAG_TC, az.hz, gain=RATE_OF_CLIMB_LAG_TC)
             self.array = (roc_altitude + inertial_roc) * 60.0
+
+
+            """
+            #-------------------------------------------------------------------
+            # TEST OUTPUT TO CSV FILE FOR DEBUGGING ONLY
+            # TODO: REMOVE THIS SECTION BEFORE RELEASE
+            #-------------------------------------------------------------------
+            import csv
+            spam = csv.writer(open('eggs.csv', 'wb'))
+            spam.writerow(['Alt_std', 'roc_alt_std', 'alt_rad', 'roc_alt_rad', 
+                           'std_rad_ratio', 'roc_altitude', 'az', 'az_washout', 
+                           'inertial_roc', 'self',
+                           'Longitudinal','Lateral','Normal','Pitch','Roll'])
+            #for showme in range(0, len(roc_alt_std)):
+            for showme in range(23550, 23710):
+                spam.writerow([alt_std.array.data[showme], roc_alt_std.data[showme],
+                               alt_rad.array.data[showme], roc_alt_rad.data[showme],
+                               std_rad_ratio[showme], roc_altitude.data[showme],
+                               az.array.data[showme], az_washout.data[showme],
+                               inertial_roc.data[showme], self.array.data[showme],
+                               ax.array.data[showme], ay.array.data[showme],
+                               an.array.data[showme], pch.array.data[showme],
+                               roll.array.data[showme]])
+            #-------------------------------------------------------------------
+            # TEST OUTPUT TO CSV FILE FOR DEBUGGING ONLY
+            # TODO: REMOVE THIS SECTION BEFORE RELEASE
+            #-------------------------------------------------------------------
+            """
+            
         else:
             # The period for averaging altitude only data has been chosen
             # from careful inspection of Hercules data, where the pressure
@@ -927,10 +1137,35 @@ class RateOfClimb(DerivedParameterNode):
             self.array = rate_of_change(alt_std,3)*60
 
 
+class AltitudeRadio(DerivedParameterNode):
+    '''
+    Assumes that signal (A) is at twice the frequency of (B) and (C).
+    
+    Therefore align to first dependency is disabled.
+    
+    TODO: Make this the 737-3C fram version only and await any fixes needed for other frames.
+    
+    '''
+    align_to_first_dependency = False
+    
+    def derive(self, source_A=P('Altitude Radio (A)'),
+               source_B=P('Altitude Radio (B)'),
+               source_C=P('Altitude Radio (C)')):
+        
+        self.array, self.frequency, self.offset = \
+            blend_two_parameters(source_B, source_C)
+         
+         
 class RateOfClimbForFlightPhases(DerivedParameterNode):
-    def derive(self, alt_std = P('Altitude STD')):
-        self.array = hysteresis(rate_of_change(repair_mask(alt_std),3)*60,
-                                HYSTERESIS_FPROC)
+    def derive(self, alt_std = P('Altitude STD'),
+               fast = S('Fast')):
+        # This uses a scaled hysteresis parameter. See settings for more detail.
+        for speedy in fast:
+            threshold = HYSTERESIS_FPROC * \
+                max(1, rms_noise(alt_std.array[speedy.slice]))  
+            # The max(1, prevents =0 case when testing with artificial data.
+            self.array = hysteresis(rate_of_change(repair_mask(alt_std),3)*60,
+                                    threshold)
 
 
 class Relief(DerivedParameterNode):
@@ -949,20 +1184,55 @@ class Speedbrake(DerivedParameterNode):
         self.array = param
 
 
-'''
+class CoordinatesSmoothed(object):
+    '''
+    Superclass for LatitudeSmoothed and LongitudeSmoothed.
+    '''
+    def _smooth_coordinates(self, coord1, coord2):
+        """
+        Acceleration along track only used to determine the sample rate and
+        alignment of the resulting smoothed track parameter.
+        
+        :param coord1: Either 'Latitude' or 'Longitude' parameter.
+        :type coord1: DerivedParameterNode
+        :param coord2: Either 'Latitude' or 'Longitude' parameter.
+        :type coord2: DerivedParameterNode
+        :returns: coord1 smoothed.
+        :rtype: np.ma.masked_array
+        """        
+        coord1_s = repair_mask(coord1.array)
+        coord2_s = repair_mask(coord2.array)
+        
+        # Join the masks, so that we only consider positional data when both are valid:
+        coord1_s.mask = np.ma.logical_or(np.ma.getmaskarray(coord1_s),
+                                         np.ma.getmaskarray(coord2_s))
+        coord2_s.mask = coord1_s.mask
+        # Preload the output with masked values to keep dimension correct 
+        array = coord1_s  
+        
+        # Now we just smooth the valid sections.
+        tracks = np.ma.clump_unmasked(coord1_s)
+        for track in tracks:
+            coord1_s_track, coord2_s_track, cost = \
+                smooth_track(coord1.array[track], coord2.array[track])
+            array[track] = coord1_s_track
+        return array
+        
 
-Better done together
+class LatitudeSmoothed(DerivedParameterNode, CoordinatesSmoothed):
+    def derive(self, acc_fwd=P('Acceleration Along Track'),
+               lat=P('Latitude'), lon=P('Longitude')):
+        """
+        Acceleration along track only used to determine the sample rate and
+        alignment of the resulting smoothed track parameter.
+        """
+        self.array = self._smooth_coordinates(lat, lon)
 
-class SmoothedLatitude(DerivedParameterNode): # TODO: Old dependency format.
-    dependencies = ['Latitude', 'True Heading', 'Indicated Airspeed'] ##, 'Altitude Std']
-    def derive(self, params):
-        return NotImplemented
     
-class SmoothedLongitude(DerivedParameterNode): # TODO: Old dependency format.
-    dependencies = ['Longitude', 'True Heading', 'Indicated Airspeed'] ##, 'Altitude Std']
-    def derive(self, params):
-        return NotImplemented
-'''
+class LongitudeSmoothed(DerivedParameterNode, CoordinatesSmoothed):
+    def derive(self, acc_fwd=P('Acceleration Along Track'),
+               lat=P('Latitude'), lon=P('Longitude')):
+        self.array = self._smooth_coordinates(lon, lat)
 
 
 class RateOfTurn(DerivedParameterNode):

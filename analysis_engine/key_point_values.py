@@ -986,7 +986,7 @@ class AirspeedMinusVrefBetween2MinutesToTouchdownAndTouchdownMin(KeyPointValueNo
         for _2_min in mins_to_touchdown.get(name='2 Mins To Touchdown'):
             # add 2 mins to find touchdown
             tdwn = _2_min.index + 2 * 60 * self.frequency
-            index, value = min_value(airspeed, slice(_2_min.index, tdwn))
+            index, value = min_value(airspeed.array, slice(_2_min.index, tdwn))
             self.create_kpv(index, value)
 
             
@@ -1062,9 +1062,12 @@ class WindshearWarningBelow1500Ft(KeyPointValueNode):
 
 
 class TaxiSpeedStraight(KeyPointValueNode):
-    def derive(self, groundspeed=P('Groundspeed'), rot=P('Rate Of Turn')):
-        return NotImplemented
-
+    name = 'Groundspeed event to force operation of the GAT parameter TODO: Remove title'
+    def derive(self, groundspeed=P('Groundspeed Along Track'), rot=P('Rate Of Turn')):
+        # TODO: Decide on parameter. Can use groundspeed, but amended to ...along track to ensure derived parameter call.
+        if groundspeed > 900:
+            print "wow"
+            return
 
 
 
