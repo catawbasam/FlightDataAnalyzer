@@ -24,6 +24,7 @@ from analysis.key_time_instances import (AltitudeInApproach,
                                          LandingTurnOffRunway,
                                          Liftoff,
                                          TakeoffAccelerationStart,
+                                         TakeoffPeakAcceleration,
                                          TakeoffTurnOntoRunway,
                                          TopOfClimb,
                                          TopOfDescent,
@@ -375,7 +376,7 @@ class TestLandingStart(unittest.TestCase):
 
 class TestLandingTurnOffRunway(unittest.TestCase):
     def test_can_operate(self):
-        expected = [('Heading Continuous','Landing',)]
+        expected = [('Heading Continuous','Landing','Fast')]
         opts = LandingTurnOffRunway.get_operational_combinations()
         self.assertEqual(opts, expected)        
 
@@ -383,8 +384,9 @@ class TestLandingTurnOffRunway(unittest.TestCase):
         instance = LandingTurnOffRunway()
         # This just needs the takeoff slice endpoint, so trivial to test
         head = P('Heading Continuous',np.ma.arange(5))
-        land=[Section('Landing',slice(66,77,None))]
-        instance.derive(head,land)
+        land=[Section('Fast',slice(0,70,None))]
+        fast = [Section('Landing',slice(60,86,None))]
+        instance.derive(head,land,fast)
         expected = [KeyTimeInstance(index=77, name='Landing Turn Off Runway')]
         self.assertEqual(instance, expected)
 
@@ -405,9 +407,6 @@ class TestLandingTurnOffRunway(unittest.TestCase):
         instance.derive(head, land)
         expected = [KeyTimeInstance(index=68, name='Landing Turn Off Runway')]
         self.assertEqual(instance, expected)
-
-
-
 
 
 class TestLiftoff(unittest.TestCase):
@@ -453,22 +452,21 @@ class TestTakeoffAccelerationStart(unittest.TestCase):
     
 class TestTakeoffTurnOntoRunway(unittest.TestCase):
     def test_can_operate(self):
-        expected = [('Heading Continuous','Takeoff',)]
+        expected = [('Heading Continuous','Takeoff','Fast')]
         opts = TakeoffTurnOntoRunway.get_operational_combinations()
         self.assertEqual(opts, expected)
 
     def test_takeoff_turn_onto_runway_basic(self):
         instance = TakeoffTurnOntoRunway()
-        # This just needs the takeoff slice startpoint, so trivial to test
         head = P('Heading Continuous',np.ma.arange(5))
         takeoff = [Section('Takeoff',slice(1.7,3.5,None))]
+        fast = [Section('Fast',slice(2.7,6,None))]
         instance.derive(head, takeoff)
         expected = [KeyTimeInstance(index=1.7, name='Takeoff Turn Onto Runway')]
         self.assertEqual(instance, expected)
 
     def test_takeoff_turn_onto_runway_curved(self):
         instance = TakeoffTurnOntoRunway()
-        # This just needs the takeoff slice startpoint, so trivial to test
         head = P('Heading Continuous',np.ma.array([0]*10+[1,2,3,4,5,6,7,8,9,10]))
         takeoff = [Section('Takeoff',slice(0,20,None))]
         instance.derive(head, takeoff)
@@ -477,7 +475,6 @@ class TestTakeoffTurnOntoRunway(unittest.TestCase):
 
     def test_takeoff_turn_onto_runway_curved_left(self):
         instance = TakeoffTurnOntoRunway()
-        # This just needs the takeoff slice startpoint, so trivial to test
         head = P('Heading Continuous',np.ma.array([0]*10+[1,2,3,4,5,6,7,8,9,10])*-2)
         takeoff = [Section('Takeoff',slice(0,20,None))]
         instance.derive(head, takeoff)

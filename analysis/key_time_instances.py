@@ -45,7 +45,8 @@ def find_toc_tod(alt_data, ccd_slice, mode):
 
 class BottomOfDescent(KeyTimeInstanceNode):
     def derive(self, alt_std=P('Altitude STD'),
-               dlc=S('Descent Low Climb')):
+               dlc=S('Descent Low Climb'),
+               fast=S('Fast')):
         # In the case of descents without landing, this finds the minimum
         # point of the dip.
         for this_dlc in dlc:
@@ -211,9 +212,15 @@ class TakeoffTurnOntoRunway(KeyTimeInstanceNode):
         for toff in toffs:
             # Where possible use the point of peak curvature.
             try:
-                fast_index=fast.get_next(toff.slice.start)
+                # Ideally we'd like to work from the start of the Fast phase
+                # backwards, but in case there is a problem with the phases,
+                # use the midpoint. This avoids identifying the heading
+                # change immediately after liftoff as a turn onto the runway.
+                fast_index=fast.get_next(toff.slice.start).slice.start
+                if (fast_index == None) or (fast_index > toff.slice.stop):
+                    fast_index = (toff.slice.start+toff.slice.stop)/2
                 takeoff_turn = peak_curvature(\
-                    head.array[slice(toff.slice.stop,toff.slice.start,-1)],
+                    head.array[slice(fast_index,toff.slice.start,-1)],
                     curve_sense='Bipolar') + toff.slice.start
             except ValueError:
                 # If this didn't find a suitable point, revert to the start
@@ -263,10 +270,23 @@ class TakeoffAccelerationStart(KeyTimeInstanceNode):
                 # of airspeed. We use this if the acceleration is not
                 # available or if, for any reason, the previous computation
                 # failed.
-                start_accel = peak_curvature(speed.array[takeoff.slice])
+                start_accel = peak_curvature(speed.array[takeoff.slice]) +\
+                    takeoff.slice.start
 
             if start_accel != None:
-                self.create_kti(start_accel+takeoff.slice.start)
+                self.create_kti(start_accel)
+
+
+class TakeoffPeakAcceleration(KeyTimeInstanceNode):
+    """
+    As for landing, the point of maximum acceleration, is used to identify the
+    location and heading of the takeoff.
+    """
+    def derive(self, toffs=S('Takeoff'),  
+               accel=P('Acceleration Longitudinal')):
+        for toff in toffs:
+            index, value = max_value(accel.array, _slice=toff.slice)
+            self.create_kti(index)
 
 
 class Liftoff(KeyTimeInstanceNode):
@@ -331,9 +351,13 @@ class Touchdown(KeyTimeInstanceNode):
 class LandingTurnOffRunway(KeyTimeInstanceNode):
     # See Takeoff Turn Onto Runway for description.
     def derive(self, head=P('Heading Continuous'),
-               landings=S('Landing')):
+               landings=S('Landing'),
+               fast=P('Fast')):
         for landing in landings:
             try:
+                fast_index=fast.get_previous(landing.slice.stop).slice.stop
+                if (fast_index == None) or (fast_index < landing.slice.start):
+                    fast_index = (landing.slice.start+landing.slice.stop)/2
                 landing_turn = landing.slice.start + \
                     peak_curvature(head.array[
                         slice(landing.slice.start,landing.slice.stop)],
@@ -407,6 +431,11 @@ class AltitudeWhenDescending(KeyTimeInstanceNode):
                     self.create_kti(index, altitude=alt_threshold)
 
 
+"""
+-------------------------------------------------
+Superceded by Descending conditions listed above.
+-------------------------------------------------
+
 class AltitudeInApproach(KeyTimeInstanceNode):
     '''
     Creates KTIs at certain altitudes when the aircraft is in the approach phase.
@@ -449,7 +478,7 @@ class AltitudeInFinalApproach(KeyTimeInstanceNode):
                 index = index_at_value(alt_array, alt_threshold, approach.slice)
                 if index:
                     self.create_kti(index, altitude=alt_threshold)
-
+"""
 
 class MinsToTouchdown(KeyTimeInstanceNode):
     #TODO: TESTS

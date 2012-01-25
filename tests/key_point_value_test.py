@@ -57,8 +57,10 @@ from analysis.key_point_values import (
     HeightAtGoAroundMin,
     LatitudeAtLanding,
     LatitudeAtLowPointOnApproach,
+    LatitudeAtTakeoff,
     LongitudeAtLanding,
     LongitudeAtLowPointOnApproach,
+    LongitudeAtTakeoff,
     LocalizerDeviation1500To1000FtMax,
     LocalizerDeviation1000To150FtMax,
     MACHMax,
@@ -787,27 +789,40 @@ class TestILSFrequencyOnApproach(unittest.TestCase):
 class TestLatitudeAtLanding(unittest.TestCase, TestCreateKPVsAtKTIs):
     def setUp(self):
         self.node_class = LatitudeAtLanding
-        self.operational_combinations = [('Latitude',
+        self.operational_combinations = [('Latitude Smoothed',
                                           'Landing Peak Deceleration')]
 
 class TestLongitudeAtLanding(unittest.TestCase, TestCreateKPVsAtKTIs):
     def setUp(self):
         self.node_class = LongitudeAtLanding
-        self.operational_combinations = [('Longitude',
+        self.operational_combinations = [('Longitude Smoothed',
                                           'Landing Peak Deceleration')]
+
+
+class TestLatitudeAtTakeoff(unittest.TestCase, TestCreateKPVsAtKTIs):
+    def setUp(self):
+        self.node_class = LatitudeAtTakeoff
+        self.operational_combinations = [('Latitude Smoothed',
+                                          'Takeoff Peak Acceleration')]
+
+class TestLongitudeAtTakeoff(unittest.TestCase, TestCreateKPVsAtKTIs):
+    def setUp(self):
+        self.node_class = LongitudeAtTakeoff
+        self.operational_combinations = [('Longitude Smoothed',
+                                          'Takeoff Peak Acceleration')]
 
 
 class TestLatitudeAtLowPointOnApproach(unittest.TestCase, TestCreateKPVsAtKTIs):
     def setUp(self):
         self.node_class = LatitudeAtLowPointOnApproach
-        self.operational_combinations = [('Latitude',
+        self.operational_combinations = [('Latitude Smoothed',
                                           'Approach And Landing Lowest')]
 
 
 class TestLongitudeAtLowPointOnApproach(unittest.TestCase, TestCreateKPVsAtKTIs):
     def setUp(self):
         self.node_class = LongitudeAtLowPointOnApproach
-        self.operational_combinations = [('Longitude',
+        self.operational_combinations = [('Longitude Smoothed',
                                           'Approach And Landing Lowest')]
 
 

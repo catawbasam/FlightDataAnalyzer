@@ -220,13 +220,13 @@ class ClimbFromBottomOfDescent(FlightPhaseNode):
 """
         
 class Climbing(FlightPhaseNode):
-    def derive(self, roc=P('Rate Of Climb For Flight Phases'), airs=S('Fast')):
+    def derive(self, roc=P('Rate Of Climb For Flight Phases'), fast=S('Fast')):
         # Climbing is used for data validity checks and to reinforce regimes.
-        for air in airs:
-            climbing = np.ma.masked_less(roc.array[air.slice],
+        for speedy in fast:
+            climbing = np.ma.masked_less(roc.array[speedy.slice],
                                          RATE_OF_CLIMB_FOR_CLIMB_PHASE)
             climbing_slices = np.ma.clump_unmasked(climbing)
-            self.create_phases(shift_slices(climbing_slices, air.slice.start))
+            self.create_phases(shift_slices(climbing_slices, speedy.slice.start))
 
       
 class Cruise(FlightPhaseNode):
@@ -292,13 +292,15 @@ class DescentToBottomOfDescent(FlightPhaseNode):
 
 class DescentLowClimb(FlightPhaseNode):
     def derive(self, alt=P('Altitude AAL For Flight Phases'),
-               climb=P('Climb For Flight Phases')):
+               climb=P('Climb For Flight Phases'),
+               lands=S('Landing')):
         dlc = np.ma.masked_greater(alt.array, INITIAL_APPROACH_THRESHOLD)
         dlc_list = np.ma.clump_unmasked(dlc)
         my_list=[]
         for this_dlc in dlc_list:
             if (this_dlc.start != 0 and
                 this_dlc.stop != len(alt.array) and
+                #this_dlc.stop < lands.###
                 np.ma.max(climb.array[this_dlc]) > 500):
                 my_list.append(this_dlc)
         self.create_phases(my_list)

@@ -374,6 +374,42 @@ class TestSectionNode(unittest.TestCase):
         self.assertEqual([items[2], items[1]], sections)
         sections = section_node.get_ordered_by_index(within_slice=slice(15, 40), name='b')
         self.assertEqual([items[1]], sections)
+    
+    def test_get_next(self):
+        items = [Section('a', slice(4,10)),
+                 Section('b', slice(19,21)),
+                 Section('b', slice(14,17)),
+                 Section('c', slice(30,34)),]
+        section_node = self.section_node_class(frequency=1, offset=0.5,
+                                               items=items)
+        section = section_node.get_next(16)
+        self.assertEqual(items[1], section)
+        section = section_node.get_next(16, use='stop')
+        self.assertEqual(items[2], section)
+        section = section_node.get_next(16, name='c')
+        self.assertEqual(items[3], section)
+        section = section_node.get_next(16, within_slice=slice(25, 40))
+        self.assertEqual(items[3], section)
+        section = section_node.get_next(3, frequency=0.5)
+        self.assertEqual(items[2], section)
+    
+    def test_get_previous(self):
+        items = [Section('a', slice(4,10)),
+                 Section('b', slice(19,21)),
+                 Section('b', slice(14,17)),
+                 Section('c', slice(30,34)),]
+        section_node = self.section_node_class(frequency=1, offset=0.5,
+                                               items=items)
+        section = section_node.get_previous(16)
+        self.assertEqual(items[0], section)
+        section = section_node.get_previous(16, use='start')
+        self.assertEqual(items[2], section)
+        section = section_node.get_previous(30, name='a')
+        self.assertEqual(items[0], section)
+        section = section_node.get_previous(23, within_slice=slice(0, 12))
+        self.assertEqual(items[0], section)
+        section = section_node.get_previous(40, frequency=2)
+        self.assertEqual(items[2], section)    
 
 
 class TestFormattedNameNode(unittest.TestCase):
@@ -486,23 +522,24 @@ class TestFormattedNameNode(unittest.TestCase):
                                               KeyTimeInstance(342, 'Slowest'), 
                                               KeyTimeInstance(2, 'Slowest'), 
                                               KeyTimeInstance(50, 'Fast')])
-        kti_node_returned1 = kti_node.get_named('Slowest')
+        kti_node_returned1 = kti_node.get(name='Slowest')
         self.assertEqual(kti_node_returned1,
                          [KeyTimeInstance(12, 'Slowest'),
                           KeyTimeInstance(342, 'Slowest'),
                           KeyTimeInstance(2, 'Slowest'),])
-        kti_node_returned2 = kti_node.get_named('Fast')
+        kti_node_returned2 = kti_node.get(name='Fast')
         self.assertEqual(kti_node_returned2, [KeyTimeInstance(50, 'Fast')])
         # named within a slice
-        kti_node_returned3 = kti_node.get_named('Slowest',
-                                                slice(10,400))
+        kti_node_returned3 = kti_node.get(name='Slowest',
+                                          within_slice=slice(10,400))
         self.assertEqual(kti_node_returned3,
                          [KeyTimeInstance(12, 'Slowest'),
                           KeyTimeInstance(342, 'Slowest')])
         # does not exist
-        kti_node_returned4 = kti_node.get_named('Not Here')
+        kti_node_returned4 = kti_node.get(name='Not Here')
         self.assertEqual(kti_node_returned4, [])
-        kti_node_returned5 = kti_node.get_named('Slowest', slice(500,600))
+        kti_node_returned5 = kti_node.get(name='Slowest',
+                                          within_slice=slice(500,600))
         self.assertEqual(kti_node_returned5, [])
 
     
@@ -545,6 +582,38 @@ class TestFormattedNameNode(unittest.TestCase):
         self.assertEqual(kti_node_returned6, [])
         kti_node_returned7 = kti_node.get_ordered_by_index(slice(500,600))
         self.assertEqual(kti_node_returned7, [])
+    
+    def test_get_next(self):
+        kti_node = KeyTimeInstanceNode(items=[KeyTimeInstance(12, 'Slowest'), 
+                                              KeyTimeInstance(342, 'Slowest'), 
+                                              KeyTimeInstance(2, 'Slowest'), 
+                                              KeyTimeInstance(50, 'Fast')])
+        next_kti = kti_node.get_next(35)
+        self.assertEqual(next_kti, KeyTimeInstance(50, 'Fast'))
+        next_kti = kti_node.get_next(35, name="Slowest")
+        self.assertEqual(next_kti, KeyTimeInstance(342, 'Slowest'))
+        next_kti = kti_node.get_next(1, within_slice=slice(10,20))
+        self.assertEqual(next_kti, KeyTimeInstance(12, 'Slowest'))
+        next_kti = kti_node.get_next(65, name="Fast")
+        self.assertEqual(next_kti, None)
+        next_kti = kti_node.get_next(1, frequency=0.25)
+        self.assertEqual(next_kti, KeyTimeInstance(12, 'Slowest'))        
+        
+    def test_get_previous(self):
+        kti_node = KeyTimeInstanceNode(items=[KeyTimeInstance(12, 'Slowest'), 
+                                              KeyTimeInstance(342, 'Slowest'), 
+                                              KeyTimeInstance(2, 'Slowest'), 
+                                              KeyTimeInstance(50, 'Fast')])
+        previous_kti = kti_node.get_previous(56)
+        self.assertEqual(previous_kti, KeyTimeInstance(50, 'Fast'))
+        previous_kti = kti_node.get_previous(410, name="Slowest")
+        self.assertEqual(previous_kti, KeyTimeInstance(342, 'Slowest'))
+        previous_kti = kti_node.get_previous(60, within_slice=slice(10,20))
+        self.assertEqual(previous_kti, KeyTimeInstance(12, 'Slowest'))
+        previous_kti = kti_node.get_previous(25, name="Fast")
+        self.assertEqual(previous_kti, None)
+        previous_kti = kti_node.get_previous(40, frequency=4)
+        self.assertEqual(previous_kti, KeyTimeInstance(2, 'Slowest'))                
 
 
 class TestKeyPointValueNode(unittest.TestCase):

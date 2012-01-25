@@ -129,15 +129,42 @@ class HeadingAtLowPointOnApproach(KeyPointValueNode):
         self.create_kpvs_at_ktis(head.array, lands)
 
 
+class HeadingAtTakeoff(KeyPointValueNode):
+    """
+    We take the heading at the point of maximum acceleration, as this should 
+    be a point where the aircraft is lined up well on the centreline.
+    """
+    def derive(self, toffs=KTI('Takeoff Peak Acceleration'), 
+               head=P('Heading Continuous')):
+        for toff in toffs:
+            toff_head = np.ma.median(
+                head.array[toff.index-5:toff.index+5])
+            # Scanning 10 seconds around this point allows for short periods of
+            # corrupt data during the takeoff run.
+            self.create_kpv(toff.index, toff_head%360.0)
+
+
 class LatitudeAtLanding(KeyPointValueNode):
-    def derive(self, lat=P('Latitude'), lands=KTI('Landing Peak Deceleration')):
+    def derive(self, lat=P('Latitude Smoothed'), lands=KTI('Landing Peak Deceleration')):
         self.create_kpvs_at_ktis(lat.array, lands)
             
 
 class LongitudeAtLanding(KeyPointValueNode):
-    def derive(self, lon=P('Longitude'),
+    def derive(self, lon=P('Longitude Smoothed'),
                lands=KTI('Landing Peak Deceleration')):
         self.create_kpvs_at_ktis(lon.array, lands)
+            
+
+class LatitudeAtTakeoff(KeyPointValueNode):
+    def derive(self, lat=P('Latitude Smoothed'), 
+               toffs=KTI('Takeoff Peak Acceleration')):
+        self.create_kpvs_at_ktis(lat.array, toffs)
+            
+
+class LongitudeAtTakeoff(KeyPointValueNode):
+    def derive(self, lon=P('Longitude Smoothed'),
+               toffs=KTI('Takeoff Peak Acceleration')):
+        self.create_kpvs_at_ktis(lon.array, toffs)
             
 
 class ILSFrequencyOnApproach(KeyPointValueNode):
@@ -163,13 +190,13 @@ class ILSFrequencyOnApproach(KeyPointValueNode):
             
 
 class LatitudeAtLowPointOnApproach(KeyPointValueNode):
-    def derive(self, lat=P('Latitude'), 
+    def derive(self, lat=P('Latitude Smoothed'), 
                lands=KTI('Approach And Landing Lowest')):
         self.create_kpvs_at_ktis(lat.array, lands)
             
 
 class LongitudeAtLowPointOnApproach(KeyPointValueNode):
-    def derive(self, lon=P('Longitude'), 
+    def derive(self, lon=P('Longitude Smoothed'), 
                lands=KTI('Approach And Landing Lowest')):
         self.create_kpvs_at_ktis(lon.array, lands)
    

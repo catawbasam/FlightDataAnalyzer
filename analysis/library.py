@@ -570,6 +570,9 @@ def interleave (param_1, param_2):
         
     return np.ma.ravel(merged_array)
             
+"""
+Superceded by blend routines.
+
 def interleave_uneven_spacing (param_1, param_2):
     '''
     This interleaves samples that are not quote equi-spaced.
@@ -627,6 +630,7 @@ def interleave_uneven_spacing (param_1, param_2):
     
     #return straight_array
     return None # to force a test error until this is fixed to prevent extrapolation
+"""
 
 def interpolate_params(*params):
     '''
