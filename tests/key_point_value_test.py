@@ -15,6 +15,7 @@ from analysis.key_point_values import (
     AccelerationNormalMax,
     Airspeed1000To500FtMax,
     AirspeedAtTouchdown,
+    AirspeedBelowAltitudeMax,
     AirspeedMax,
     AirspeedMinusV235To400FtMin,
     AirspeedMinusV2400To1500FtMin,
@@ -257,6 +258,18 @@ class TestAirspeedAtTouchdown(unittest.TestCase, TestCreateKPVsAtKTIs):
     def setUp(self):
         self.node_class = AirspeedAtTouchdown
         self.operational_combinations = [('Airspeed', 'Touchdown')]
+
+class TestAirspeedBelowAltitudeMax(unittest.TestCase):
+    def test_derive(self):
+        airspeed = P(array=np.ma.arange(20))
+        alt_aal = P(array=np.ma.arange(0, 10000, 500))
+        param = AirspeedBelowAltitudeMax()
+        param.derive(alt_aal, airspeed)
+        self.assertEqual(param,
+            [KeyPointValue(index=1, value=1, name='Airspeed Below 500 Ft Max'),
+             KeyPointValue(index=6, value=6, name='Airspeed Below 3000 Ft Max'),
+             KeyPointValue(index=14, value=14,
+                           name='Airspeed Below 7000 Ft Max')])
 
 
 class TestAirspeedMax(unittest.TestCase, TestCreateKPVsWithinSlices):
@@ -959,7 +972,7 @@ class TestRateOfDescent500ToTouchdownMax(unittest.TestCase,
     def setUp(self):
         self.node_class = RateOfDescent500ToTouchdownMax
         self.operational_combinations = [('Rate Of Climb', 'Altitude AAL')]
-        self.function = max_value
+        self.function = min_value
         self.second_param_method_calls = [('slices_from_to', (500, 0), {})]
 
 
@@ -968,7 +981,7 @@ class TestRateOfDescent1000To500FtMax(unittest.TestCase,
     def setUp(self):
         self.node_class = RateOfDescent1000To500FtMax
         self.operational_combinations = [('Rate Of Climb', 'Altitude AAL')]
-        self.function = max_value
+        self.function = min_value
         self.second_param_method_calls = [('slices_from_to', (1000, 500), {})]
 
 
@@ -977,7 +990,7 @@ class TestRateOfDescent2000To1000FtMax(unittest.TestCase,
     def setUp(self):
         self.node_class = RateOfDescent2000To1000FtMax
         self.operational_combinations = [('Rate Of Climb', 'Altitude AAL')]
-        self.function = max_value
+        self.function = min_value
         self.second_param_method_calls = [('slices_from_to', (2000, 1000), {})]
 
 
