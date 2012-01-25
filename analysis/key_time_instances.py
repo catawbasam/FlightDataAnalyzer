@@ -206,10 +206,12 @@ class TakeoffTurnOntoRunway(KeyTimeInstanceNode):
     # onto the runway, so at worst this KTI is just the start of that phase.
     # Where possible we compute the sharp point of the turn onto the runway.
     def derive(self, head=P('Heading Continuous'),
-               toffs=S('Takeoff')):
+               toffs=S('Takeoff'),
+               fast=S('Fast')):
         for toff in toffs:
             # Where possible use the point of peak curvature.
             try:
+                fast_index=fast.get_next(toff.slice.start)
                 takeoff_turn = peak_curvature(\
                     head.array[slice(toff.slice.stop,toff.slice.start,-1)],
                     curve_sense='Bipolar') + toff.slice.start
