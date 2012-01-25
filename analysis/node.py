@@ -415,7 +415,10 @@ class SectionNode(Node, list):
             aligned_node.create_section(converted_slice, section.name)
         return aligned_node
     
-    def _get_condition(self, within_slice=None, name=None):
+    slice_attrgetters = {'start': attrgetter('slice.start'),
+                         'stop': attrgetter('slice.stop')}
+    
+    def _get_condition(self, name=None, within_slice=None, within_use='slice'):
         '''
         Returns a condition function which checks if the element is within
         a slice or has a specified name if they are provided.
@@ -424,20 +427,34 @@ class SectionNode(Node, list):
         :type within_slice: slice
         :param name: Only return elements with this name.
         :type name: str
+        :param within_use: Which part of the slice to use when testing if it is within_slice. Either entire 'slice', or the slice's 'start' or 'stop'.
+        :type within_use: str
         :returns: Either a condition function or None.
         :rtype: func or None
         '''
+        # Function for testing if Section is within a slice depending on
+        # within_use.
+        if within_slice:
+            within_funcs = \
+                {'slice': lambda s, within: is_slice_within_slice(s.slice,
+                                                                  within),
+                 'start': lambda s, within: is_index_within_slice(s.slice.start,
+                                                                  within),
+                 'stop': lambda s, within: is_index_within_slice(s.slice.stop,
+                                                                 within)}
+            within_func = within_funcs[within_use]
+        
         if within_slice and name:
-            return lambda e: is_slice_within_slice(e.slice, within_slice) and \
+            return lambda e: within_func(e, within_slice) and \
                    e.name == name
         elif within_slice:
-            return lambda e: is_slice_within_slice(e.slice, within_slice)
+            return lambda e: within_func(e, within_slice)
         elif name:
             return lambda e: e.name == name
         else:
             return None
     
-    def get(self, within_slice=None, name=None):
+    def get(self, name=None, within_slice=None, within_use='slice'):
         '''
         Gets elements either within_slice or with name. Duplicated from
         FormattedNameNode. TODO: Share implementation with NameFormattedNode,
@@ -447,60 +464,84 @@ class SectionNode(Node, list):
         :type within_slice: slice
         :param name: Only return elements with this name.
         :type name: str
+        :param within_use: Which part of the slice to use when testing if it is within_slice. Either entire 'slice', or the slice's 'start' or 'stop'.
+        :type within_use: str
         :returns: An object of the same type as self containing matching elements.
         :rtype: self.__class__
         '''
-        condition = self._get_condition(within_slice=within_slice, name=name)
+        condition = self._get_condition(within_slice=within_slice, name=name,
+                                        within_use=within_use)
         matching = filter(condition, self) if condition else self
         return self.__class__(name=self.name, frequency=self.frequency,
                               offset=self.offset, items=matching)
     
-    def get_first(self, within_slice=None, name=None):
+    def get_first(self, first_by='start', name=None, within_slice=None,
+                  within_use='slice'):
         '''
+        :param first_by: Get the first by either 'start' or 'stop' of slice.
+        :type first_by: str
         :param within_slice: Only return elements within this slice.
         :type within_slice: slice
         :param name: Only return elements with this name.
         :type name: str
+        :param within_use: Which part of the slice to use when testing if it is within_slice. Either entire 'slice', or the slice's 'start' or 'stop'.
+        :type within_use: str        
         :returns: First Section matching conditions.
         :rtype: Section
         '''
-        matching = self.get(within_slice=within_slice, name=name)
+        matching = self.get(within_slice=within_slice, name=name,
+                            within_use=within_use)
         if matching:
-            return min(matching, key=attrgetter('slice.start'))
+            return min(matching, key=self.slice_attrgetters[first_by])
         else:
             return None
     
-    def get_last(self, within_slice=None, name=None):
+    def get_last(self, last_by='start', name=None, within_slice=None,
+                 within_use='slice'):
         '''
+        :param last_by: Get the last by either 'start' or 'stop' of slice.
+        :type last_by: str        
         :param within_slice: Only return elements within this slice.
         :type within_slice: slice
         :param name: Only return elements with this name.
         :type name: str
+        :param within_use: Which part of the slice to use when testing if it is within_slice. Either entire 'slice', or the slice's 'start' or 'stop'.
+        :type within_use: str         
         :returns: Last Section matching conditions.
         :rtype: Section
         '''
-        matching = self.get(within_slice=within_slice, name=name)
+        matching = self.get(within_slice=within_slice, name=name,
+                            within_use=within_use)
         if matching:
-            return max(matching, key=attrgetter('slice.stop'))
+            return max(matching, key=self.slice_attrgetters[slice_index])
         else:
             return None
     
-    def get_ordered_by_index(self, within_slice=None, name=None):
+    def get_ordered_by_index(self, order_by='start', name=None,
+                             within_slice=None, within_use='slice'):
         '''
+        :param order_by: Index of slice to use when ordering, either 'start' or 'stop'.
+        :type order_by: str
+        :param index: Order by either 'start' or 'stop' slice index.
+        :type index: str
         :param within_slice: Only return elements within this slice.
         :type within_slice: slice
         :param name: Only return elements with this name.
         :type name: str
+        :param within_use: Which part of the slice to use when testing if it is within_slice. Either entire 'slice', or the slice's 'start' or 'stop'.
+        :type within_use: str         
         :returns: An object of the same type as self containing elements ordered by index.
         :rtype: self.__class__
         '''
-        matching = self.get(within_slice=within_slice, name=name)
-        ordered_by_start = sorted(matching, key=attrgetter('slice.start'))
+        matching = self.get(within_slice=within_slice, name=name,
+                            within_use=within_use)
+        ordered_by_start = sorted(matching,
+                                  key=self.slice_attrgetters[order_by])
         return self.__class__(name=self.name, frequency=self.frequency,
                               offset=self.offset, items=ordered_by_start)
     
-    def get_next(self, index, frequency=None, use='start', within_slice=None,
-                 name=None):
+    def get_next(self, index, frequency=None, use='start', name=None,
+                 within_slice=None, within_use='slice'):
         '''
         Gets the section with the next index optionally filter within_slice or
         by name.
@@ -515,20 +556,22 @@ class SectionNode(Node, list):
         :type within_slice: slice
         :param name: Only return elements with this name.
         :type name: str 
+        :param within_use: Which part of the slice to use when testing if it is within_slice. Either entire 'slice', or the slice's 'start' or 'stop'.
+        :type within_use: str         
         :returns: Section with the next index matching criteria.
         :rtype: Section or None      
         '''
         if frequency:
             index = index * (self.frequency / float(frequency))
         ordered = self.get_ordered_by_index(within_slice=within_slice,
-                                            name=name)
+                                            name=name, within_use=within_use)
         for elem in ordered:
             if getattr(elem.slice, use) > index:
                 return elem
         return None
     
     def get_previous(self, index, frequency=None, use='stop', within_slice=None,
-                     name=None):
+                     name=None, within_use='slice'):
         '''
         Gets the element with the previous index optionally filter within_slice
         or by name.
@@ -549,7 +592,7 @@ class SectionNode(Node, list):
         if frequency:
             index = index * (self.frequency / float(frequency))
         ordered = self.get_ordered_by_index(within_slice=within_slice,
-                                            name=name)
+                                            name=name, within_use=within_use)
         for elem in reversed(ordered):
             if getattr(elem.slice, use) < index:
                 return elem
