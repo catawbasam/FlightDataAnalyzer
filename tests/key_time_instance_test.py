@@ -160,7 +160,7 @@ class TestGoAround(unittest.TestCase):
         alt_rad = Parameter('Altitude Radio',\
                         alt.array-range(len(alt.array)))
         if debug:
-            from analysis.plot_flight import plot_parameter
+            from analysis_engine.plot_flight import plot_parameter
             plot_parameter(alt_rad.array)
         # The sloping graph has shifted minima. We only need to check one to
         # show it's using the rad alt signal.

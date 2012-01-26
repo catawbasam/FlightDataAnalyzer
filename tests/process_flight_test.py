@@ -27,7 +27,7 @@ class TestProcessFlight(unittest.TestCase):
     
     @unittest.skipIf(not os.path.isfile("test_data/1_7295949_737-3C.hdf5"),
                      "Test file not present")
-    @mock.patch('analysis.flight_attribute.get_api_handler')
+    @mock.patch('analysis_engine.flight_attribute.get_api_handler')
     def test_1_7295949_737_3C(self, get_api_handler):
         hdf_orig = "test_data/1_7295949_737-3C.hdf5"
         hdf_path = "test_data/1_7295949_737-3C_copy.hdf5"
@@ -72,7 +72,7 @@ class TestProcessFlight(unittest.TestCase):
         res = process_flight(hdf_path, ac_info, draw=False)
         self.assertEqual(len(res), 4)
 
-        from analysis.plot_flight import csv_flight_details
+        from analysis_engine.plot_flight import csv_flight_details
         csv_flight_details(hdf_path, res['kti'], res['kpv'], res['phases'])
 
         if debug:
