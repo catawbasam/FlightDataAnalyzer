@@ -62,6 +62,7 @@ class Airborne(FlightPhaseNode):
                 self.create_phase(slice(up,down))
 
 
+'''
 class Approach(FlightPhaseNode):
     """
     The 'Approach And Landing' phase descends but may also include a climb
@@ -74,7 +75,7 @@ class Approach(FlightPhaseNode):
             begin = app.slice.start
             pit = np.ma.argmin(alt_AAL.array[app.slice]) + begin
             self.create_phase(slice(begin,pit,None))
-
+'''
 
 class ApproachAndGoAround(FlightPhaseNode):
     # List the optimal parameter set here
@@ -147,7 +148,7 @@ class ApproachAndLanding(FlightPhaseNode):
     # List the minimum acceptable parameters here
     @classmethod
     def can_operate(cls, available):
-        if 'Altitude AAL For Flight Phases' in available:
+        if ['Altitude AAL For Flight Phases','Landing'] in available:
             return True
         else:
             return False
@@ -156,18 +157,27 @@ class ApproachAndLanding(FlightPhaseNode):
     def derive(self, alt_aal=P('Altitude AAL For Flight Phases'),
                alt_rad = P('Altitude Radio'),
                lands=S('Landing')):
-        if alt_rad:
-            height = np.ma.minimum(alt_aal.array,alt_rad.array)
-        else:
-            height = alt_aal.array
-            
         # Prepare a home for the approach slices
         app_slice = []    
-        
+        if alt_rad:
+            height = np.ma.minimum(alt_aal.array,
+                                   alt_rad.array)
+        else:
+            height = alt_aal.array
+
         for land in lands:
-            app_start = index_at_value(height,INITIAL_APPROACH_THRESHOLD,slice(land.slice.start,0, -1))
+            # Ideally we'd like to start at the initial approach threshold...
+            app_start = index_at_value(height,
+                                       INITIAL_APPROACH_THRESHOLD,
+                                       slice(land.slice.start,0, -1))
+            # ...but if this fails, take the end of the last climb.
+            if app_start == None:
+                app_start = index_at_value(height,
+                                           INITIAL_APPROACH_THRESHOLD,
+                                           slice(land.slice.start,0, -1), 
+                                           endpoint='closing')
             app_slice.append(slice(app_start,land.slice.stop,None))
-        
+            
         self.create_phases(app_slice)
 
 
@@ -254,10 +264,10 @@ class Cruise(FlightPhaseNode):
 
 
 class Descending(FlightPhaseNode):
-    """ Descending faster than 800fpm towards the ground
+    """ Descending faster than 500fpm towards the ground
     """
     def derive(self, roc=P('Rate Of Climb For Flight Phases'), airs=S('Fast')):
-        # Rate of climb and descent limits of 800fpm gives good distinction
+        # Rate of climb and descent limits of 500fpm gives good distinction
         # with level flight.
         for air in airs:
             descending = np.ma.masked_greater(roc.array[air.slice],
@@ -266,6 +276,7 @@ class Descending(FlightPhaseNode):
             self.create_phases(shift_slices(desc_slices, air.slice.start))
 
 
+"""
 class DescentToBottomOfDescent(FlightPhaseNode):
     def derive(self, 
                tod=P('Top Of Descent'), 
@@ -288,21 +299,28 @@ class DescentToBottomOfDescent(FlightPhaseNode):
             # Build the slice from what we have found.
             self.create_phase(slice(closest_tod, bod))        
         return 
-
+"""
 
 class DescentLowClimb(FlightPhaseNode):
     def derive(self, alt=P('Altitude AAL For Flight Phases'),
                climb=P('Climb For Flight Phases'),
-               lands=S('Landing')):
-        dlc = np.ma.masked_greater(alt.array, INITIAL_APPROACH_THRESHOLD)
-        dlc_list = np.ma.clump_unmasked(dlc)
+               lands=S('Landing'),
+               fast=S('Fast')):
         my_list=[]
-        for this_dlc in dlc_list:
-            if (this_dlc.start != 0 and
-                this_dlc.stop != len(alt.array) and
-                #this_dlc.stop < lands.###
-                np.ma.max(climb.array[this_dlc]) > 500):
-                my_list.append(this_dlc)
+        for speedy in fast:
+            # Select periods below the initial approach threshold
+            dlc = np.ma.masked_greater(alt.array[speedy.slice],
+                                       INITIAL_APPROACH_THRESHOLD)
+            dlc_list = np.ma.clump_unmasked(dlc)
+            for this_dlc in dlc_list:
+                # When is the next landing phase?
+                land_start=lands.get_next(this_dlc.start)
+                # OK, we want a real dip that does not end in a landing, and
+                # where the climb exceeds 500ft.
+                if (np.ma.ptp(alt.array[0:69]) > 500 and
+                    this_dlc.stop < land_start.slice.start and
+                    np.ma.max(climb.array[speedy.slice][this_dlc]) > 500):
+                    my_list.append(this_dlc)
         self.create_phases(my_list)
 
         
@@ -486,7 +504,7 @@ class Takeoff(FlightPhaseNode):
             # Where the data starts in line with the runway, default to the
             # start of the data
             if takeoff_begin is None:
-                takeoff_begin = 0
+                takeoff_begin = first
             
             #-------------------------------------------------------------------
             # Find the end of the takeoff phase as we climb through 35ft.

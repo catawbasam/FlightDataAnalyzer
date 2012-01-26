@@ -100,6 +100,19 @@ class AutopilotEngaged2AtTouchdown(KeyPointValueNode):
         self.create_kpvs_at_ktis(autopilot.array, touchdowns)
 
 
+class GoAroundAltitude(KeyPointValueNode):
+    def derive(self, gas=KTI('Go Around'),
+                alt_std=P('Altitude AAL'),
+                alt_rad=P('Altitude Radio')):
+        for ga in gas:
+            if alt_rad:
+                pit = np.ma.min(alt_rad.array[ga.index])
+            else:
+                pit = np.ma.min(alt_std.array[ga.index])
+            self.create_kpv(pit)
+         
+
+
 class HeadingAtLanding(KeyPointValueNode):
     """
     The landing has been found already, including and the flare and a little
@@ -833,7 +846,7 @@ class PitchAtLiftoff(KeyPointValueNode):
 
 class PitchAtTouchdown(KeyPointValueNode):
     def derive(self, pitch=P('Pitch'), touchdowns=KTI('Touchdown')):
-        self.create_kpvs_at_ktis(pitch.array, liftoffs)
+        self.create_kpvs_at_ktis(pitch.array, touchdowns)
 
 
 class Pitch1000To100FtMin(KeyPointValueNode):

@@ -64,7 +64,7 @@ def plot_flight(hdf_path, kti_list, kpv_list, phase_list):
         ax1 = fig.add_subplot(4,1,1)
         alt_data = hdf['Altitude STD'].array
         alt = hdf.get('Altitude AAL For Flight Phases',hdf['Altitude STD']).array
-        #frame = hdf['Frame Counter'].array
+        frame = hdf['Time'].array
         #frame = hdf.get('Frame Counter',hdf['Altitude STD']).array
         
         sections = []

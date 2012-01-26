@@ -11,15 +11,14 @@ from analysis.flight_phase import (ApproachAndLanding,
                                    DescentLowClimb,
                                    )
 
-from analysis.key_time_instances import (AltitudeInApproach,
-                                         AltitudeInFinalApproach,
-                                         AltitudeWhenClimbing,
+from analysis.key_time_instances import (AltitudeWhenClimbing,
                                          AltitudeWhenDescending,
                                          BottomOfDescent,
                                          ClimbStart,
                                          GoAround,
                                          InitialClimbStart,
                                          LandingDecelerationEnd,
+                                         LandingPeakDeceleration,
                                          LandingStart,
                                          LandingTurnOffRunway,
                                          Liftoff,
@@ -83,113 +82,84 @@ class TestClimbStart(unittest.TestCase):
 class TestGoAround(unittest.TestCase):
     def test_can_operate(self):
         expected = [('Descent Low Climb',
-                     'Altitude STD',
+                     'Altitude AAL',
                      'Altitude Radio'),
                     ('Descent Low Climb',
-                     'Altitude STD'),
+                     'Altitude AAL'),
                     ]
         opts = GoAround.get_operational_combinations()
         self.assertEqual(opts, expected)
 
     def test_go_around_basic(self):
-        alt = np.ma.array(range(0,4000,500)+range(4000,0,-500)+range(0,1000,501))
-        aal = [Section('Approach And Landing',slice(10,18))]
-        climb = ClimbForFlightPhases()
-        climb.derive(Parameter('Altitude STD', alt), aal)
+        dlc = [Section('Descent Low Climb',slice(10,18))]
+        alt = Parameter('Altitude AAL',\
+                        np.ma.array(range(0,4000,500)+\
+                                    range(4000,0,-500)+\
+                                    range(0,1000,501)))
         goa = GoAround()
         # Pretend we are flying over flat ground, so the altitudes are equal.
-        goa.derive(Parameter('Altitude AAL For Flight Phases',alt),
-                   Parameter('Altitude Radio For Flight Phases',alt),
-                   aal, climb)
+        goa.derive(dlc,alt,alt)
         expected = [KeyTimeInstance(index=16, name='Go Around')]
         self.assertEqual(goa, expected)
 
     def test_multiple_go_arounds(self):
         # This tests for three go-arounds, but the fourth part of the curve
         # does not produce a go-around as it ends in mid-descent.
-        alt = np.ma.array(np.cos(np.arange(0,21,0.02))*(1000)+2500)
-
+        alt = Parameter('Altitude AAL',
+                        np.ma.array(np.cos(
+                            np.arange(0,21,0.02))*(1000)+2500))
         if debug:
             from analysis.plot_flight import plot_parameter
-            plot_parameter(alt)
+            plot_parameter(alt.array)
             
-        aal = ApproachAndLanding()
-        aal.derive(Parameter('Altitude AAL For Flight Phases',alt),
-                   Parameter('Altitude Radio For Flight Phases',alt))
-            
-        climb = ClimbForFlightPhases()
-        climb.derive(Parameter('Altitude STD', alt), 
-                     [Section('Fast',slice(0,len(alt),None))])
-        
+        dlc = [Section('Descent Low Climb',slice( 50,260)),
+               Section('Descent Low Climb',slice(360,570)),
+               Section('Descent Low Climb',slice(670,890))]
+
         goa = GoAround()
-        goa.derive(Parameter('Altitude AAL For Flight Phases',alt),
-                   Parameter('Altitude Radio For Flight Phases',alt),
-                   aal, climb)
+        goa.derive(dlc,alt,alt)
                    
         expected = [KeyTimeInstance(index=157, name='Go Around'), 
                     KeyTimeInstance(index=471, name='Go Around'), 
                     KeyTimeInstance(index=785, name='Go Around')]
         self.assertEqual(goa, expected)
 
-    def test_go_around_insufficient_climb(self):
-        # 500 ft climb is not enough to trigger the go-around. 
-        # Compare to 501 ft for the "basic" test.
-        alt = np.ma.array(range(0,4000,500)+range(4000,0,-500)+range(0,700,499))
-        aal = ApproachAndLanding()
-        aal.derive(Parameter('Altitude AAL For Flight Phases',alt),
-                   Parameter('Altitude Radio For Flight Phases',alt))
-            
-        climb = ClimbForFlightPhases()
-        climb.derive(Parameter('Altitude STD', alt),  
-                     [Section('Fast',slice(0,len(alt),None))])
-        
-        goa = GoAround()
-        # Pretend we are flying over flat ground, so the altitudes are equal.
-        goa.derive(Parameter('Altitude AAL For Flight Phases',alt),
-                   Parameter('Altitude Radio',alt),
-                   aal, climb)
-        expected = []
-        self.assertEqual(goa, expected)
-
     def test_go_around_no_rad_alt(self):
         # This tests that the go-around works without a radio altimeter.
-        alt = np.ma.array(range(4000,0,-500)+range(0,4000,500))
-        clb = np.ma.array([0]*8+[600]*8)
-        # Pretend we are flying over flat ground, so the altitudes are equal.
-        alt_aal=Parameter('Altitude AAL For Flight Phases',alt)
-        alt_rad = alt_aal
-        climb = P('Climb For Flight Phases',clb)
-
-        dlc = DescentLowClimb()
-        dlc.derive(alt_aal, climb)
+        dlc = [Section('Descent Low Climb',slice(10,18))]
+        alt = Parameter('Altitude AAL',\
+                        np.ma.array(range(0,4000,500)+\
+                                    range(4000,0,-500)+\
+                                    range(0,1000,501)))
         goa = GoAround()
-        # !!! None is positional argument in place of alt_rad !!!
-        goa.derive(dlc, alt_aal, alt_rad)
-        
-        expected = [KeyTimeInstance(index=8, name='Go Around')]
+        # Pretend we are flying over flat ground, so the altitudes are equal.
+        goa.derive(dlc,alt,None)
+        expected = [KeyTimeInstance(index=16, name='Go Around')]
         self.assertEqual(goa, expected)
 
 
     def test_go_around_with_rad_alt(self):
         # This tests that the go-around works without a radio altimeter.
-        alt = np.ma.array(range(4000,0,-500)+range(0,4000,500))
-        clb = np.ma.array([0]*8+[600]*8)
-        # Pretend we are flying over flat ground, so the altitudes are equal.
-        alt_aal=Parameter('Altitude AAL For Flight Phases',alt)
-        alt_rad = alt_aal
-        alt_rad.array[7:9] = [0,50]
-        climb = P('Climb For Flight Phases',clb)
+        alt = Parameter('Altitude AAL',
+                        np.ma.array(np.cos(
+                            np.arange(0,21,0.02))*(1000)+2500))
+        alt_rad = Parameter('Altitude Radio',\
+                        alt.array-range(len(alt.array)))
+        if debug:
+            from analysis.plot_flight import plot_parameter
+            plot_parameter(alt_rad.array)
+        # The sloping graph has shifted minima. We only need to check one to
+        # show it's using the rad alt signal.
+        dlc = [Section('Descent Low Climb',slice( 50,260))]
 
-        dlc = DescentLowClimb()
-        dlc.derive(alt_aal, climb)
         goa = GoAround()
-        # !!! None is positional argument in place of alt_rad !!!
-        goa.derive(dlc, alt_aal, alt_rad)
-        
-        expected = [KeyTimeInstance(index=7, name='Go Around')]
+        goa.derive(dlc,alt,alt_rad)
+        expected = [KeyTimeInstance(index=160, name='Go Around')]
         self.assertEqual(goa, expected)
 
 
+
+"""
 class TestAltitudeInApproach(unittest.TestCase):
     def test_can_operate(self):
         self.assertEqual(AltitudeInApproach.get_operational_combinations(),
@@ -210,8 +180,9 @@ class TestAltitudeInApproach(unittest.TestCase):
                            datetime=None, latitude=None, longitude=None),
            KeyTimeInstance(index=12.25, name='1500 Ft In Approach',
                            datetime=None, latitude=None, longitude=None)])
+"""
 
-
+"""
 class TestAltitudeInFinalApproach(unittest.TestCase):
     def test_can_operate(self):
         self.assertEqual(AltitudeInFinalApproach.get_operational_combinations(),
@@ -237,7 +208,7 @@ class TestAltitudeInFinalApproach(unittest.TestCase):
            KeyTimeInstance(index=14.5,
                            name='500 Ft In Final Approach', datetime=None,
                            latitude=None, longitude=None)])
-
+"""
 
 class TestAltitudeWhenClimbing(unittest.TestCase):
     def test_can_operate(self):

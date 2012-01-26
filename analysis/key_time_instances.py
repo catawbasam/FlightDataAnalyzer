@@ -84,15 +84,27 @@ class GoAround(KeyTimeInstanceNode):
     land on roads or at the wrong airport, EGPWS database errors etc from
     checking these cases.
     """
+    # List the minimum acceptable parameters here
+    @classmethod
+    def can_operate(cls, available):
+        # List the minimum required parameters. If 'Altitude Radio For Flight
+        # Phases' is available, that's a bonus and we will use it, but it is
+        # not required.
+        if 'Descent Low Climb' in available and 'Altitude AAL' in available :
+            return True
+        else:
+            return False
+        
+    # List the optimal parameter set here
     
-    def derive(self, dlcs=P('Descent Low Climb'),
-               alt_std=P('Altitude STD'),
+    def derive(self, dlcs=S('Descent Low Climb'),
+               alt_aal=P('Altitude AAL'),
                alt_rad=P('Altitude Radio')):
         for dlc in dlcs:
             if alt_rad:
                 pit = np.ma.argmin(alt_rad.array[dlc.slice])
             else:
-                pit = np.ma.argmin(alt_std.array[dlc.slice])
+                pit = np.ma.argmin(alt_aal.array[dlc.slice])
             self.create_kti(pit+dlc.slice.start)
         
         
@@ -216,12 +228,12 @@ class TakeoffTurnOntoRunway(KeyTimeInstanceNode):
                 # backwards, but in case there is a problem with the phases,
                 # use the midpoint. This avoids identifying the heading
                 # change immediately after liftoff as a turn onto the runway.
-                fast_index=fast.get_next(toff.slice.start).slice.start
-                if (fast_index == None) or (fast_index > toff.slice.stop):
-                    fast_index = (toff.slice.start+toff.slice.stop)/2
-                takeoff_turn = peak_curvature(\
-                    head.array[slice(fast_index,toff.slice.start,-1)],
-                    curve_sense='Bipolar') + toff.slice.start
+                start_search=fast.get_next(toff.slice.start).slice.start
+                if (start_search == None) or (start_search > toff.slice.stop):
+                    start_search = (toff.slice.start+toff.slice.stop)/2
+                takeoff_turn = start_search + peak_curvature(\
+                    head.array[slice(start_search,toff.slice.start,-1)],
+                    curve_sense='Bipolar')
             except ValueError:
                 # If this didn't find a suitable point, revert to the start
                 # of the takeoff phase.
@@ -355,12 +367,12 @@ class LandingTurnOffRunway(KeyTimeInstanceNode):
                fast=P('Fast')):
         for landing in landings:
             try:
-                fast_index=fast.get_previous(landing.slice.stop).slice.stop
-                if (fast_index == None) or (fast_index < landing.slice.start):
-                    fast_index = (landing.slice.start+landing.slice.stop)/2
-                landing_turn = landing.slice.start + \
+                start_search=fast.get_previous(landing.slice.stop).slice.stop
+                if (start_search == None) or (start_search < landing.slice.start):
+                    start_search = (landing.slice.start+landing.slice.stop)/2
+                landing_turn = start_search + \
                     peak_curvature(head.array[
-                        slice(landing.slice.start,landing.slice.stop)],
+                        slice(start_search,landing.slice.stop)],
                                    curve_sense='Bipolar')
             except ValueError:
                 logging.debug \

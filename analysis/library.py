@@ -631,7 +631,7 @@ def interleave_uneven_spacing (param_1, param_2):
     #return straight_array
     return None # to force a test error until this is fixed to prevent extrapolation
 """
-
+"""
 def interpolate_params(*params):
     '''
     Q: Should we mask indices which are being interpolated in masked areas of
@@ -671,7 +671,7 @@ def interpolate_params(*params):
     masked_array = np.ma.masked_array(interpolated_array,
                                       mask=np.isnan(interpolated_array))
     return masked_array, out_frequency, out_offset
-
+"""
 
 def index_of_datetime(start_datetime, index_datetime, frequency):
     '''
@@ -1256,10 +1256,12 @@ def straighten_headings(heading_array):
     :returns: Straightened headings
     :rtype: Generator of type Float
     '''
-    head_prev = heading_array.data[0]
-    diff = np.ediff1d(heading_array.data)
-    diff = diff - 360.0 * np.trunc(diff/180.0)
-    heading_array[1:] = np.cumsum(diff) + head_prev
+    for clump in np.ma.clump_unmasked(heading_array):
+        head_prev = heading_array.data[clump.start]
+        diff = np.ediff1d(heading_array.data[clump])
+        diff = diff - 360.0 * np.trunc(diff/180.0)
+        heading_array[clump][0] = head_prev
+        heading_array[clump][1:] = np.cumsum(diff) + head_prev
     return heading_array
 
 def subslice(orig, new):

@@ -1071,7 +1071,9 @@ class RateOfClimb(DerivedParameterNode):
     def derive(self, 
                az = P('Acceleration Vertical'),
                alt_std = P('Altitude STD'),
-               alt_rad = P('Altitude Radio')):
+               alt_rad = P('Altitude Radio'),
+               pitch=P('Pitch'),
+               aoa=P('AOA')):
 
         if az and alt_rad:
             # Use the complementary smoothing approach
@@ -1109,7 +1111,7 @@ class RateOfClimb(DerivedParameterNode):
             spam.writerow(['Alt_std', 'roc_alt_std', 'alt_rad', 'roc_alt_rad', 
                            'std_rad_ratio', 'roc_altitude', 'az', 'az_washout', 
                            'inertial_roc', 'self',
-                           'Longitudinal','Lateral','Normal','Pitch','Roll'])
+                           'Pitch','AOA'])
             for showme in range(0, len(roc_alt_std)):
             #for showme in range(23550, 23710):
                 if alt_std.array.data[showme] < 3000:
@@ -1117,7 +1119,8 @@ class RateOfClimb(DerivedParameterNode):
                                    alt_rad.array.data[showme], roc_alt_rad.data[showme],
                                    std_rad_ratio[showme], roc_altitude.data[showme],
                                    az.array.data[showme], az_washout.data[showme],
-                                   inertial_roc.data[showme], self.array.data[showme]])
+                                   inertial_roc.data[showme], self.array.data[showme],
+                                   pitch.array.data[showme],aoa.array.data[showme]])
             #-------------------------------------------------------------------
             # TEST OUTPUT TO CSV FILE FOR DEBUGGING ONLY
             # TODO: REMOVE THIS SECTION BEFORE RELEASE
