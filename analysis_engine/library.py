@@ -1,15 +1,11 @@
 import numpy as np
-from math import sqrt
 
+from math import floor, sqrt, sin, cos, atan2, radians
 from collections import OrderedDict, namedtuple
 from datetime import datetime, timedelta
 from hashlib import sha256
 from itertools import izip
-from math import floor
-from operator import attrgetter
 from scipy.signal import lfilter, lfilter_zi
-from scipy.interpolate import interp1d
-
 
 from settings import REPAIR_DURATION, TRUCK_OR_TRAILER_INTERVAL, TRUCK_OR_TRAILER_PERIOD
 
@@ -297,6 +293,10 @@ def datetime_of_index(start_datetime, index, frequency=1):
     offset = timedelta(seconds=index_in_seconds)
     return start_datetime + offset
     
+
+
+
+
 def duration(a, period, hz=1.0):
     '''
     This function clips the maxima and minima of a data array such that the 
@@ -890,6 +890,56 @@ def blend_two_parameters (param_one, param_two):
     else:
         array = blend_alternate_sensors(param_two.array, param_one.array, padding)
     return array, param_one.frequency * 2, offset
+
+def nav_distance(origin, destination):
+    """
+    Returns the distance from one place to another, in metres.
+    
+    This is taken from the "Haversine formula example in Python" with thanks
+    to Wayne Dyck
+    
+    :param origin: The location of the first point.
+    :type origin: List of [latitude, longitude] in degrees.
+    :param destination: The location of the second point.
+    :type origin: List of [latitude, longitude] in degrees.
+    :returns distance: Distance in metres.
+    :type bearing: Float
+    """
+
+    lat1, lon1 = origin
+    lat2, lon2 = destination
+
+    dlat = radians(lat2-lat1)
+    dlon = radians(lon2-lon1)
+    
+    a = sin(dlat/2) * sin(dlat/2) + cos(radians(lat1)) \
+        * cos(radians(lat2)) * sin(dlon/2) * sin(dlon/2)
+    c = 2 * atan2(sqrt(a), sqrt(1-a))
+
+    return c * 6371000 # Earth radius in metres
+    
+def nav_bearing(origin, destination):
+    """
+    Returns the true bearing from one place to another, in radians.
+    
+    :param origin: The location of the reference point for the bearing.
+    :type origin: List of [latitude, longitude] in degrees.
+    :param destination: The location of the target for the bearing.
+    :type origin: List of [latitude, longitude] in degrees.
+    :returns bearing: True bearing
+    :type bearing: Float ***in radians***
+    """
+
+    lat1, lon1 = origin
+    lat2, lon2 = destination
+
+    dLon = lon2 - lon1
+
+    y = sin(dLon) * cos(lat2)
+    x = cos(lat1) * sin(lat2) \
+        - sin(lat1) * cos(lat2) * cos(dLon)
+    
+    return atan2(x,y) 
 
 def peak_curvature(array, _slice=slice(None), curve_sense='Concave'):
     """

@@ -2,7 +2,7 @@ import csv
 import unittest
 import numpy as np
 
-from math import sqrt
+from math import sqrt, pi
 
 from datetime import datetime
 
@@ -10,20 +10,42 @@ from datetime import datetime
 # http://www.java2s.com/Open-Source/Python/Math/Numerical-Python/numpy/numpy/ma/testutils.py.htm
 import utilities.masked_array_testutils as ma_test
 
-from analysis_engine.library import (align, blend_alternate_sensors,
-                              calculate_timebase, create_phase_inside,
-                              create_phase_outside, duration, 
-                              first_order_lag, first_order_washout, hash_array,
-                              hysteresis, index_at_value, interleave,
-                              is_index_within_slice, is_slice_within_slice,
-                              min_value, mask_inside_slices,
-                              mask_outside_slices, max_continuous_unmasked,
-                              max_value, max_abs_value, blend_two_parameters,
-                              peak_curvature, peak_index, rate_of_change, repair_mask, 
-                              rms_noise, slices_above, slices_below, slices_between, 
-                              slices_from_to, straighten_headings,
-                              #time_at_value, time_at_value_wrapped,
-                              value_at_time, vstack_params, InvalidDatetime)
+from analysis_engine.library import (align, 
+                                     blend_alternate_sensors,
+                                     blend_two_parameters,
+                                     calculate_timebase, 
+                                     create_phase_inside,
+                                     create_phase_outside, 
+                                     duration, 
+                                     first_order_lag, 
+                                     first_order_washout, 
+                                     hash_array,
+                                     hysteresis, 
+                                     index_at_value, 
+                                     interleave,
+                                     is_index_within_slice, 
+                                     is_slice_within_slice,
+                                     mask_inside_slices,
+                                     mask_outside_slices, 
+                                     max_continuous_unmasked,
+                                     max_value, 
+                                     max_abs_value, 
+                                     min_value, 
+                                     nav_bearing,
+                                     nav_distance,
+                                     peak_curvature, 
+                                     peak_index, 
+                                     rate_of_change, 
+                                     repair_mask,
+                                     rms_noise, 
+                                     slices_above, 
+                                     slices_below, 
+                                     slices_between, 
+                                     slices_from_to, 
+                                     straighten_headings,
+                                     value_at_time, 
+                                     vstack_params, 
+                                     InvalidDatetime)
 
 from analysis_engine.node import P, S
 from analysis_engine.library import *
@@ -954,7 +976,23 @@ class TestBlendTwoParameters(unittest.TestCase):
         p2 = P(array=[1]*3, frequency=2, offset=0.2)
         self.assertRaises(AssertionError, blend_two_parameters, p1, p2)
 
+
+class TestNavBearing(unittest.TestCase):
+    def test_bearing_ordinals(self):
+        self.assertEqual(nav_bearing([0,0],[0,1]),0.0)
+        self.assertEqual(nav_bearing([0,0],[1,0]),pi/2.0)
+        self.assertEqual(nav_bearing([0,1],[0,0]),pi)
+        self.assertEqual(nav_bearing([1,0],[0,0]),-pi/2.0)
+
         
+class TestNavDistance(unittest.TestCase):
+    def test_known_distance(self):
+        fareham = [50.856146, -1.183182]
+        goodyear = [33.449806, -112.358214]
+        self.assertEqual(nav_distance(fareham ,goodyear),
+                         8481553.935041398)
+        
+
 class TestPeakCurvature(unittest.TestCase):
     # Note: The results from the first two tests are in a range format as the
     # artificial data results in multiple maxima.

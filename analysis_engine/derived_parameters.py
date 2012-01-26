@@ -1073,59 +1073,64 @@ class RateOfClimb(DerivedParameterNode):
                alt_std = P('Altitude STD'),
                alt_rad = P('Altitude Radio'),
                pitch=P('Pitch'),
-               aoa=P('AOA')):
+               aoa=P('AOA'),
+               speed=P('Airspeed')):
 
         if az and alt_rad:
-            # Use the complementary smoothing approach
-
-            roc_alt_std = first_order_washout(alt_std.array,
-                                              RATE_OF_CLIMB_LAG_TC, az.hz,
-                                              gain=1/RATE_OF_CLIMB_LAG_TC)
-            roc_alt_rad = first_order_washout(alt_rad.array,
-                                              RATE_OF_CLIMB_LAG_TC, az.hz,
-                                              gain=1/RATE_OF_CLIMB_LAG_TC)
-                    
-            # Use pressure altitude rate above 100ft and radio altitude rate
-            # below 50ft with progressive changeover across that range.
-            # up to 50 ft radio 0 < std_rad_ratio < 1 over 100ft radio
-            std_rad_ratio = np.maximum(np.minimum(
-                (alt_rad.array.data-50.0)/50.0,
-                1),0)
-            roc_altitude = roc_alt_std*std_rad_ratio +\
-                roc_alt_rad*(1.0-std_rad_ratio)
-                
-            az_washout = first_order_washout (az.array, AZ_WASHOUT_TC, az.hz, 
-                                              gain=GRAVITY_IMPERIAL,
-                                              initial_value = az.array[0])
-            inertial_roc = first_order_lag (az_washout, RATE_OF_CLIMB_LAG_TC, az.hz, gain=RATE_OF_CLIMB_LAG_TC)
-            self.array = (roc_altitude + inertial_roc) * 60.0
-
-
+            # Make space for the answers
+            self.array = np.ma.masked_all_like(alt_std.array)
             
-            #-------------------------------------------------------------------
-            # TEST OUTPUT TO CSV FILE FOR DEBUGGING ONLY
-            # TODO: REMOVE THIS SECTION BEFORE RELEASE
-            #-------------------------------------------------------------------
-            import csv
-            spam = csv.writer(open('eggs.csv', 'wb'))
-            spam.writerow(['Alt_std', 'roc_alt_std', 'alt_rad', 'roc_alt_rad', 
-                           'std_rad_ratio', 'roc_altitude', 'az', 'az_washout', 
-                           'inertial_roc', 'self',
-                           'Pitch','AOA'])
-            for showme in range(0, len(roc_alt_std)):
-            #for showme in range(23550, 23710):
-                if alt_std.array.data[showme] < 3000:
-                    spam.writerow([alt_std.array.data[showme], roc_alt_std.data[showme],
-                                   alt_rad.array.data[showme], roc_alt_rad.data[showme],
-                                   std_rad_ratio[showme], roc_altitude.data[showme],
-                                   az.array.data[showme], az_washout.data[showme],
-                                   inertial_roc.data[showme], self.array.data[showme],
-                                   pitch.array.data[showme],aoa.array.data[showme]])
-            #-------------------------------------------------------------------
-            # TEST OUTPUT TO CSV FILE FOR DEBUGGING ONLY
-            # TODO: REMOVE THIS SECTION BEFORE RELEASE
-            #-------------------------------------------------------------------
-           
+            # Fix minor dropouts
+            az_repair = repair_mask(az.array)
+            alt_rad_repair = repair_mask(alt_rad.array)
+            alt_std_repair = repair_mask(alt_std.array)
+            
+            # np.ma.getmaskarray ensures we have complete mask arrays even if
+            # none of the samples are masked (normally returns a single
+            # "False" value.
+            az_masked = np.ma.array(data = az_repair.data, 
+                                    mask = np.ma.logical_or(
+                                        np.ma.logical_or(
+                                        np.ma.getmaskarray(az_repair),
+                                        np.ma.getmaskarray(alt_rad_repair)),
+                                        np.ma.getmaskarray(alt_std_repair)))
+            
+            # We are going to compute the answers only for ranges where all
+            # the required parameters are available.
+            clumps = np.ma.clump_unmasked(az_masked)
+            for clump in clumps:
+                
+                # Use the complementary smoothing approach
+    
+                roc_alt_std = first_order_washout(alt_std.array[clump],
+                                                  RATE_OF_CLIMB_LAG_TC, az.hz,
+                                                  gain=1/RATE_OF_CLIMB_LAG_TC)
+                roc_alt_rad = first_order_washout(alt_rad.array[clump],
+                                                  RATE_OF_CLIMB_LAG_TC, az.hz,
+                                                  gain=1/RATE_OF_CLIMB_LAG_TC)
+                        
+                # Use pressure altitude rate above 100ft and radio altitude rate
+                # below 50ft with progressive changeover across that range.
+                # up to 50 ft radio 0 < std_rad_ratio < 1 over 100ft radio
+                std_rad_ratio = np.maximum(np.minimum(
+                    (alt_rad.array.data[clump]-50.0)/50.0,
+                    1),0)
+                roc_altitude = roc_alt_std*std_rad_ratio +\
+                    roc_alt_rad*(1.0-std_rad_ratio)
+                
+                # This is the washout term, with considerable gain. The
+                # initialisation "initial_value=az.array[clump][0]" is very
+                # important, as without this the function produces huge
+                # spikes at each start of a data period.
+                az_washout = first_order_washout (az.array[clump], 
+                                                  AZ_WASHOUT_TC, az.hz, 
+                                                  gain=GRAVITY_IMPERIAL,
+                                                  initial_value=az.array[clump][0])
+                inertial_roc = first_order_lag (az_washout, 
+                                                RATE_OF_CLIMB_LAG_TC, 
+                                                az.hz, 
+                                                gain=RATE_OF_CLIMB_LAG_TC)
+                self.array[clump] = (roc_altitude + inertial_roc) * 60.0
             
         else:
             # The period for averaging altitude only data has been chosen

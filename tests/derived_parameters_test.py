@@ -920,6 +920,23 @@ class TestRateOfClimb(unittest.TestCase):
                              mask=False)
         ma_test.assert_masked_array_approx_equal(roc.array, expected)
 
+    def test_rate_of_climb_masked(self):
+        # The blocks of masked values have to exceed the repair_nask
+        # threshold of 10 samples, hence the large arrays.
+        az = P('Acceleration Vertical', np.ma.array([1]*100, dtype=np.float))
+        az.array[5:20]=np.ma.masked
+        alt_std = P('Altitude STD', np.ma.array([100]*100, dtype=np.float))
+        alt_std.array[35:50]=np.ma.masked
+        alt_rad = P('Altitude Radio', np.ma.array([0]*100, dtype=np.float))
+        alt_rad.array[65:80]=np.ma.masked
+        roc = RateOfClimb()
+        roc.derive(az, alt_std, alt_rad)
+        expected = np.ma.array(data=[0]*100, dtype=np.float,
+                             mask=[[False]*5+[True]*15+[False]*15+
+                                   [True]*15+[False]*15+
+                                   [True]*15+[False]*15+[False]*5])
+        ma_test.assert_masked_array_approx_equal(roc.array, expected)
+
     def test_rate_of_climb_alt_std_only(self):
         az = None
         alt_std = P('Altitude STD', np.ma.arange(100,200,10))
@@ -934,8 +951,8 @@ class TestRateOfClimb(unittest.TestCase):
         az = P('Acceleration Vertical', np.ma.array([1]*10,dtype=float))
         az.array[2:4] = 1.1
         # (Low acceleration for this test as the sample rate is only 1Hz).
-        alt_std = P('Altitude STD', np.ma.array([100]*10))
-        alt_rad = P('Altitude Radio', np.ma.array([0]*10))
+        alt_std = P('Altitude STD', np.ma.array([100]*10,dtype=float))
+        alt_rad = P('Altitude Radio', np.ma.array([0]*10,dtype=float))
         roc = RateOfClimb()
         roc.derive(az, alt_std, alt_rad)
         expected = np.ma.array(data=[0, 0, 82.11570, 221.52819, 236.30071,
