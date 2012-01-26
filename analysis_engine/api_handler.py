@@ -1,6 +1,6 @@
 from abc import ABCMeta, abstractmethod
 
-from analysis.settings import HANDLER
+from analysis_engine.settings import HANDLER
 
 
 class APIError(Exception):

@@ -1,11 +1,12 @@
 import logging
 import numpy as np
 
-from analysis.library import (hysteresis, index_at_value, index_closest_value,
+from analysis_engine.library import (hysteresis, index_at_value,
+                              index_closest_value,
                               is_slice_within_slice,
                               peak_curvature, repair_mask, shift_slices)
-from analysis.node import FlightPhaseNode, P, S, KTI
-from analysis.settings import (AIRSPEED_THRESHOLD,
+from analysis_engine.node import FlightPhaseNode, P, S, KTI
+from analysis_engine.settings import (AIRSPEED_THRESHOLD,
                                ALTITUDE_FOR_CLB_CRU_DSC,
                                APPROACH_MIN_DESCENT,
                                HEADING_TURN_OFF_RUNWAY,

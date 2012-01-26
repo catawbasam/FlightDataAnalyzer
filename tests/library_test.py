@@ -10,7 +10,7 @@ from datetime import datetime
 # http://www.java2s.com/Open-Source/Python/Math/Numerical-Python/numpy/numpy/ma/testutils.py.htm
 import utilities.masked_array_testutils as ma_test
 
-from analysis.library import (align, blend_alternate_sensors,
+from analysis_engine.library import (align, blend_alternate_sensors,
                               calculate_timebase, create_phase_inside,
                               create_phase_outside, duration, 
                               first_order_lag, first_order_washout, hash_array,
@@ -25,8 +25,8 @@ from analysis.library import (align, blend_alternate_sensors,
                               #time_at_value, time_at_value_wrapped,
                               value_at_time, vstack_params, InvalidDatetime)
 
-from analysis.node import P, S
-from analysis.library import *
+from analysis_engine.node import P, S
+from analysis_engine.library import *
 
 class TestAlign(unittest.TestCase):
     

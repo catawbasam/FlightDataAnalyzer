@@ -1,9 +1,9 @@
 import logging
 import numpy as np
 
-from analysis.node import A, DerivedParameterNode, KTI, P, S
+from analysis_engine.node import A, DerivedParameterNode, KTI, P, S
 
-from analysis.library import (blend_alternate_sensors,
+from analysis_engine.library import (blend_alternate_sensors,
                               blend_two_parameters,
                               first_order_lag,
                               first_order_washout,

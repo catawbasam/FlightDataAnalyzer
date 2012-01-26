@@ -4,19 +4,19 @@ import h5py
 
 from mock import Mock, patch
 
-from analysis.utils import trimmer
+from analysis_engine.utils import trimmer
 
 class TestTrimmer(unittest.TestCase):
     '''
     TODO: Functional test with fewer mocks.
     '''
-    @patch('analysis.utils.h5py.File')
-    @patch('analysis.utils.datetime')
-    @patch('analysis.utils.get_derived_nodes')
-    @patch('analysis.utils.dependency_order')
-    @patch('analysis.utils.strip_hdf')
-    @patch('analysis.utils.NodeManager')
-    @patch('analysis.utils.NODE_MODULES')
+    @patch('analysis_engine.utils.h5py.File')
+    @patch('analysis_engine.utils.datetime')
+    @patch('analysis_engine.utils.get_derived_nodes')
+    @patch('analysis_engine.utils.dependency_order')
+    @patch('analysis_engine.utils.strip_hdf')
+    @patch('analysis_engine.utils.NodeManager')
+    @patch('analysis_engine.utils.NODE_MODULES')
     def test_trimmer_mocked(self, node_modules, node_mgr, strip_hdf,
                             dependency_order, get_derived_nodes, datetime,
                             file_patched):

@@ -2,15 +2,15 @@
 
 # Modules to import all derived Nodes from. Additional modules can be
 # appended to this list in local_settings.py
-NODE_MODULES = ['analysis.derived_parameters',
-                'analysis.key_point_values', 
-                'analysis.key_time_instances',
-                'analysis.sections',
-                'analysis.flight_phase',
-                'analysis.flight_attribute']
+NODE_MODULES = ['analysis_engine.derived_parameters',
+                'analysis_engine.key_point_values', 
+                'analysis_engine.key_time_instances',
+                'analysis_engine.sections',
+                'analysis_engine.flight_phase',
+                'analysis_engine.flight_attribute']
 
 # Handler
-HANDLER = 'analysis.api_handler_http.APIHandlerHTTP'
+HANDLER = 'analysis_engine.api_handler_http.APIHandlerHTTP'
 BASE_URL = 'http://127.0.0.1'
 
 ##########################
@@ -203,7 +203,7 @@ POST_LFL_PARAM_PROCESS = fn
 
 # Import from local_settings if exists
 try:
-    from analysis.local_settings import *
+    from analysis_engine.local_settings import *
 except ImportError:
     pass
 

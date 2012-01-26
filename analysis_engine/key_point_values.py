@@ -1,11 +1,12 @@
 import logging
 import numpy as np
 
-from analysis import settings
-from analysis.node import  KeyPointValue, KeyPointValueNode, KPV, KTI, P, S
-from analysis.library import (duration, index_at_value, max_abs_value, 
-                              max_continuous_unmasked, max_value, min_value, 
-                              repair_mask, subslice)
+from analysis_engine import settings
+from analysis_engine.node import (KeyPointValue, KeyPointValueNode, KPV, KTI,
+                                  P, S)
+from analysis_engine.library import (duration, index_at_value, max_abs_value,
+                                     max_continuous_unmasked, max_value,
+                                     min_value, repair_mask, subslice)
 
 
 class Airspeed1000To500FtMax(KeyPointValueNode):
@@ -646,7 +647,7 @@ class HeadingDeviation100KtsToFtMax(KeyPointValueNode):
 class HeightMinsToTouchdown(KeyPointValueNode):
     #TODO: TESTS
     #Q: Review and improve this technique of building KPVs on KTIs.
-    from analysis.key_time_instances import MinsToTouchdown
+    from analysis_engine.key_time_instances import MinsToTouchdown
     NAME_FORMAT = "Height " + MinsToTouchdown.NAME_FORMAT
     NAME_VALUES = MinsToTouchdown.NAME_VALUES
     

@@ -9,10 +9,10 @@ except ImportError:
     import json
     
 
-from analysis.api_handler import (APIConnectionError, APIHandler,
-                                  InvalidAPIInputError, NotFoundError,
-                                  UnknownAPIError)
-from analysis.settings import BASE_URL
+from analysis_engine.api_handler import (APIConnectionError, APIHandler,
+                                         InvalidAPIInputError, NotFoundError,
+                                         UnknownAPIError)
+from analysis_engine.settings import BASE_URL
 
 TIMEOUT = 60
 

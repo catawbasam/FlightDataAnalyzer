@@ -4,11 +4,11 @@ import unittest
 from datetime import datetime, timedelta
 from mock import Mock, patch
 
-from analysis.api_handler import NotFoundError
-from analysis.node import (A, KeyPointValue, KeyTimeInstance, KPV, KTI, P, S,
-                           Section)
-from analysis.settings import CONTROLS_IN_USE_TOLERANCE
-from analysis.flight_attribute import (
+from analysis_engine.api_handler import NotFoundError
+from analysis_engine.node import (A, KeyPointValue, KeyTimeInstance, KPV, KTI,
+                                  P, S, Section)
+from analysis_engine.settings import CONTROLS_IN_USE_TOLERANCE
+from analysis_engine.flight_attribute import (
     Approaches, 
     DeterminePilot,
     Duration, 
@@ -206,8 +206,8 @@ class TestApproaches(unittest.TestCase):
         self.assertEqual(approach_type, None)
         
     
-    @patch('analysis.api_handler_http.APIHandlerHTTP.get_nearest_airport')
-    @patch('analysis.api_handler_http.APIHandlerHTTP.get_nearest_runway')
+    @patch('analysis_engine.api_handler_http.APIHandlerHTTP.get_nearest_airport')
+    @patch('analysis_engine.api_handler_http.APIHandlerHTTP.get_nearest_runway')
     def test_derive(self, get_nearest_runway, get_nearest_airport):
         approaches = Approaches()
         approaches.set_flight_attr = Mock()
@@ -586,7 +586,7 @@ class TestLandingAirport(unittest.TestCase):
         self.assertEqual(LandingAirport.get_operational_combinations(),
                          [('Latitude At Landing', 'Longitude At Landing')])
     
-    @patch('analysis.api_handler_http.APIHandlerHTTP.get_nearest_airport')
+    @patch('analysis_engine.api_handler_http.APIHandlerHTTP.get_nearest_airport')
     def test_derive_airport_not_found(self, get_nearest_airport):
         '''
         Attribute is not set when airport is not found.
@@ -604,7 +604,7 @@ class TestLandingAirport(unittest.TestCase):
         get_nearest_airport.assert_called_once_with(0.9, 8.4)
         landing_airport.set_flight_attr.assert_called_once_with(None)
     
-    @patch('analysis.api_handler_http.APIHandlerHTTP.get_nearest_airport')
+    @patch('analysis_engine.api_handler_http.APIHandlerHTTP.get_nearest_airport')
     def test_derive_airport_found(self, get_nearest_airport):
         '''
         Attribute is set when airport is found.
@@ -764,7 +764,7 @@ class TestLandingRunway(unittest.TestCase):
                                             'ILS Frequency On Approach',
                                             'Precise Positioning'))
     
-    @patch('analysis.api_handler_http.APIHandlerHTTP.get_nearest_runway')
+    @patch('analysis_engine.api_handler_http.APIHandlerHTTP.get_nearest_runway')
     def test_derive(self, get_nearest_runway):
         runway_info = {'ident': '27L', 'runways': [{'length': 20}]}
         get_nearest_runway.return_value = runway_info
@@ -885,7 +885,7 @@ class TestTakeoffAirport(unittest.TestCase):
         self.assertEqual([('Latitude At Takeoff', 'Longitude At Takeoff')],
                          TakeoffAirport.get_operational_combinations())
         
-    @patch('analysis.api_handler_http.APIHandlerHTTP.get_nearest_airport')
+    @patch('analysis_engine.api_handler_http.APIHandlerHTTP.get_nearest_airport')
     def test_derive_airport_not_found(self, get_nearest_airport):
         '''
         Attribute is not set when airport is not found.
@@ -903,7 +903,7 @@ class TestTakeoffAirport(unittest.TestCase):
         get_nearest_airport.assert_called_once_with(4.0, 3.0)
         self.assertFalse(takeoff_airport.set_flight_attr.called)
     
-    @patch('analysis.api_handler_http.APIHandlerHTTP.get_nearest_airport')
+    @patch('analysis_engine.api_handler_http.APIHandlerHTTP.get_nearest_airport')
     def test_derive_airport_found(self, get_nearest_airport):
         '''
         Attribute is set when airport is found.
@@ -1062,7 +1062,7 @@ class TestTakeoffRunway(unittest.TestCase):
         self.assertEqual(TakeoffRunway.get_operational_combinations(),
                          expected)
     
-    @patch('analysis.api_handler_http.APIHandlerHTTP.get_nearest_runway')
+    @patch('analysis_engine.api_handler_http.APIHandlerHTTP.get_nearest_runway')
     def test_derive(self, get_nearest_runway):
         runway_info = {'ident': '27L', 'runways': [{'length': 20}]}
         get_nearest_runway.return_value = runway_info
