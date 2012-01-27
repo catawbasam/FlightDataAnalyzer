@@ -387,25 +387,72 @@ class OnGround(FlightPhaseNode):
         fast_slices = np.ma.clump_unmasked(fast_where)
         self.create_phases(fast_slices)
     
-"""    
-    
-    
-class Turning(FlightPhaseNode):
+"""
+
+class Landing(FlightPhaseNode):
     """
-    Rate of Turn is greater than +/- RATE_OF_TURN_FOR_FLIGHT_PHASES
+    This flight phase starts at 50 ft in the approach and ends as the
+    aircraft turns off the runway. Subsequent KTIs and KPV computations
+    identify the specific moments and values of interest within this phase.
     """
-    def derive(self, rate_of_turn=P('Rate Of Turn'), airborne=S('Airborne')):
-        turning = np.ma.masked_inside(
-            hysteresis(repair_mask(rate_of_turn.array), HYSTERESIS_FPROT),
-            RATE_OF_TURN_FOR_FLIGHT_PHASES * (-1.0),
-            RATE_OF_TURN_FOR_FLIGHT_PHASES)
-        turn_slices = np.ma.clump_unmasked(turning)
-        for turn_slice in turn_slices:
-            if any([is_slice_within_slice(turn_slice, a.slice) for a in airborne]):
-                # If the slice is within any airborne section.
-                self.create_phase(turn_slice, name="Turning In Air")
+    # List the minimum acceptable parameters here
+    @classmethod
+    def can_operate(cls, available):
+        if 'Heading Continuous' in available and \
+           'Altitude AAL For Flight Phases' in available and \
+           'Fast' in available:
+            return True
+        else:
+            return False
+    
+    def derive(self, head=P('Heading Continuous'),
+               alt_aal=P('Altitude AAL For Flight Phases'),
+               fast=S('Fast'),
+               alt_rad=P('Altitude Radio For Phases')
+               ):
+        for speedy in fast:
+            # See takeoff phase for comments on how the algorithm works.
+
+            # AARRGG - How can we check if this is at the end of the data without having to go back and test against the airspeed array? TODO: Improve endpoint checks. DJ
+            if speedy.slice.stop >= len(alt_aal.array):
+                break
+            
+            landing_run = speedy.slice.stop
+            datum = head.array[landing_run]
+            
+            if alt_rad:
+                first = landing_run - 300*alt_rad.frequency
+                landing_begin = index_at_value(alt_rad.array,
+                                            LANDING_THRESHOLD_HEIGHT,
+                                            slice(first, landing_run))
             else:
-                self.create_phase(turn_slice, name="Turning On Ground")
+                first = landing_run - 300*alt_aal.frequency
+                landing_begin = index_at_value(alt_aal.array,
+                                              LANDING_THRESHOLD_HEIGHT,
+                                              slice(first, landing_run))
+ 
+            # The turn off the runway must lie within five minutes of the landing.
+            last = landing_run + 300*head.frequency
+            
+            # A crude estimate is given by the angle of turn
+            landing_end = index_at_value(np.ma.abs(head.array-datum),
+                                         HEADING_TURN_OFF_RUNWAY,
+                                         slice(landing_run, last))
+            
+            # If the data stops before this value is reached, substitute the
+            # end of the data
+            if landing_end == None:
+                landing_end = len(head.array)-1
+            
+            # Where possible use the point of peak curvature.
+            try:
+                landing_end = min(landing_end, 
+                                  peak_curvature(head.array, slice(landing_run, last)))
+            except ValueError:
+                logging.debug("Lack of data for peak curvature of heading in landing")
+                pass
+
+            self.create_phases([slice(landing_begin, landing_end)])
 
 
 class Takeoff(FlightPhaseNode):
@@ -491,69 +538,21 @@ class Takeoff(FlightPhaseNode):
             #-------------------------------------------------------------------
             # Create a phase for this takeoff
             self.create_phases([slice(takeoff_begin, takeoff_end)])
-            
 
-class Landing(FlightPhaseNode):
-    """
-    This flight phase starts at 50 ft in the approach and ends as the
-    aircraft turns off the runway. Subsequent KTIs and KPV computations
-    identify the specific moments and values of interest within this phase.
-    """
-    # List the minimum acceptable parameters here
-    @classmethod
-    def can_operate(cls, available):
-        if 'Heading Continuous' in available and \
-           'Altitude AAL For Flight Phases' in available and \
-           'Fast' in available:
-            return True
-        else:
-            return False
-    
-    def derive(self, head=P('Heading Continuous'),
-               alt_aal=P('Altitude AAL For Flight Phases'),
-               fast=S('Fast'),
-               alt_rad=P('Altitude Radio For Phases')
-               ):
-        for speedy in fast:
-            # See takeoff phase for comments on how the algorithm works.
 
-            # AARRGG - How can we check if this is at the end of the data without having to go back and test against the airspeed array? TODO: Improve endpoint checks. DJ
-            if speedy.slice.stop >= len(alt_aal.array):
-                break
-            
-            landing_run = speedy.slice.stop
-            datum = head.array[landing_run]
-            
-            if alt_rad:
-                first = landing_run - 300*alt_rad.frequency
-                landing_begin = index_at_value(alt_rad.array,
-                                            LANDING_THRESHOLD_HEIGHT,
-                                            slice(first, landing_run))
+class Turning(FlightPhaseNode):
+    """
+    Rate of Turn is greater than +/- RATE_OF_TURN_FOR_FLIGHT_PHASES
+    """
+    def derive(self, rate_of_turn=P('Rate Of Turn'), airborne=S('Airborne')):
+        turning = np.ma.masked_inside(
+            hysteresis(repair_mask(rate_of_turn.array), HYSTERESIS_FPROT),
+            RATE_OF_TURN_FOR_FLIGHT_PHASES * (-1.0),
+            RATE_OF_TURN_FOR_FLIGHT_PHASES)
+        turn_slices = np.ma.clump_unmasked(turning)
+        for turn_slice in turn_slices:
+            if any([is_slice_within_slice(turn_slice, a.slice) for a in airborne]):
+                # If the slice is within any airborne section.
+                self.create_phase(turn_slice, name="Turning In Air")
             else:
-                first = landing_run - 300*alt_aal.frequency
-                landing_begin = index_at_value(alt_aal.array,
-                                              LANDING_THRESHOLD_HEIGHT,
-                                              slice(first, landing_run))
- 
-            # The turn off the runway must lie within five minutes of the landing.
-            last = landing_run + 300*head.frequency
-            
-            # A crude estimate is given by the angle of turn
-            landing_end = index_at_value(np.ma.abs(head.array-datum),
-                                         HEADING_TURN_OFF_RUNWAY,
-                                         slice(landing_run, last))
-            
-            # If the data stops before this value is reached, substitute the
-            # end of the data
-            if landing_end == None:
-                landing_end = len(head.array)-1
-            
-            # Where possible use the point of peak curvature.
-            try:
-                landing_end = min(landing_end, 
-                                  peak_curvature(head.array, slice(landing_run, last)))
-            except ValueError:
-                logging.debug("Lack of data for peak curvature of heading in landing")
-                pass
-
-            self.create_phases([slice(landing_begin, landing_end)])
+                self.create_phase(turn_slice, name="Turning On Ground")
