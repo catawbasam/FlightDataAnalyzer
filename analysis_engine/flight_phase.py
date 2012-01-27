@@ -313,7 +313,9 @@ class DescentLowClimb(FlightPhaseNode):
             dlc_list = np.ma.clump_unmasked(dlc)
             for this_dlc in dlc_list:
                 # When is the next landing phase?
-                land_start=lands.get_next(this_dlc.start)
+                land_start = lands.get_next(this_dlc.start)
+                if land_start is None:
+                    continue
                 # OK, we want a real dip that does not end in a landing, and
                 # where the climb exceeds 500ft.
                 if (np.ma.ptp(alt.array[0:69]) > 500 and
