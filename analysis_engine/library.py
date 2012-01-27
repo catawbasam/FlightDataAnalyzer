@@ -1,15 +1,11 @@
 import numpy as np
-from math import sqrt
 
+from math import floor, sqrt, sin, cos, atan2, radians
 from collections import OrderedDict, namedtuple
 from datetime import datetime, timedelta
 from hashlib import sha256
 from itertools import izip
-from math import floor
-from operator import attrgetter
 from scipy.signal import lfilter, lfilter_zi
-from scipy.interpolate import interp1d
-
 
 from settings import REPAIR_DURATION, TRUCK_OR_TRAILER_INTERVAL, TRUCK_OR_TRAILER_PERIOD
 
@@ -297,6 +293,10 @@ def datetime_of_index(start_datetime, index, frequency=1):
     offset = timedelta(seconds=index_in_seconds)
     return start_datetime + offset
     
+
+
+
+
 def duration(a, period, hz=1.0):
     '''
     This function clips the maxima and minima of a data array such that the 
@@ -570,6 +570,9 @@ def interleave (param_1, param_2):
         
     return np.ma.ravel(merged_array)
             
+"""
+Superceded by blend routines.
+
 def interleave_uneven_spacing (param_1, param_2):
     '''
     This interleaves samples that are not quote equi-spaced.
@@ -627,7 +630,8 @@ def interleave_uneven_spacing (param_1, param_2):
     
     #return straight_array
     return None # to force a test error until this is fixed to prevent extrapolation
-
+"""
+"""
 def interpolate_params(*params):
     '''
     Q: Should we mask indices which are being interpolated in masked areas of
@@ -667,7 +671,7 @@ def interpolate_params(*params):
     masked_array = np.ma.masked_array(interpolated_array,
                                       mask=np.isnan(interpolated_array))
     return masked_array, out_frequency, out_offset
-
+"""
 
 def index_of_datetime(start_datetime, index_datetime, frequency):
     '''
@@ -887,7 +891,57 @@ def blend_two_parameters (param_one, param_two):
         array = blend_alternate_sensors(param_two.array, param_one.array, padding)
     return array, param_one.frequency * 2, offset
 
-def peak_curvature(array, _slice=slice(None), search_for='Concave'):
+def nav_distance(origin, destination):
+    """
+    Returns the distance from one place to another, in metres.
+    
+    This is taken from the "Haversine formula example in Python" with thanks
+    to Wayne Dyck
+    
+    :param origin: The location of the first point.
+    :type origin: List of [latitude, longitude] in degrees.
+    :param destination: The location of the second point.
+    :type origin: List of [latitude, longitude] in degrees.
+    :returns distance: Distance in metres.
+    :type bearing: Float
+    """
+
+    lat1, lon1 = origin
+    lat2, lon2 = destination
+
+    dlat = radians(lat2-lat1)
+    dlon = radians(lon2-lon1)
+    
+    a = sin(dlat/2) * sin(dlat/2) + cos(radians(lat1)) \
+        * cos(radians(lat2)) * sin(dlon/2) * sin(dlon/2)
+    c = 2 * atan2(sqrt(a), sqrt(1-a))
+
+    return c * 6371000 # Earth radius in metres
+    
+def nav_bearing(origin, destination):
+    """
+    Returns the true bearing from one place to another, in radians.
+    
+    :param origin: The location of the reference point for the bearing.
+    :type origin: List of [latitude, longitude] in degrees.
+    :param destination: The location of the target for the bearing.
+    :type origin: List of [latitude, longitude] in degrees.
+    :returns bearing: True bearing
+    :type bearing: Float ***in radians***
+    """
+
+    lat1, lon1 = origin
+    lat2, lon2 = destination
+
+    dLon = lon2 - lon1
+
+    y = sin(dLon) * cos(lat2)
+    x = cos(lat1) * sin(lat2) \
+        - sin(lat1) * cos(lat2) * cos(dLon)
+    
+    return atan2(x,y) 
+
+def peak_curvature(array, _slice=slice(None), curve_sense='Concave'):
     """
     This routine uses a "Truck and Trailer" algorithm to find where a
     parameter changes slope. In the case of FDM, we are looking for the point
@@ -944,7 +998,7 @@ def peak_curvature(array, _slice=slice(None), search_for='Concave'):
 
     # Normalise array and prepare for masking operations
     angle=np.ma.array(angle/np.max(np.abs(angle)))
-    if search_for == 'Bipolar':
+    if curve_sense == 'Bipolar':
         angle = np.ma.abs(angle)
     
     # Find peak - using values over 50% of the highest allows us to operate
@@ -1252,10 +1306,12 @@ def straighten_headings(heading_array):
     :returns: Straightened headings
     :rtype: Generator of type Float
     '''
-    head_prev = heading_array.data[0]
-    diff = np.ediff1d(heading_array.data)
-    diff = diff - 360.0 * np.trunc(diff/180.0)
-    heading_array[1:] = np.cumsum(diff) + head_prev
+    for clump in np.ma.clump_unmasked(heading_array):
+        head_prev = heading_array.data[clump.start]
+        diff = np.ediff1d(heading_array.data[clump])
+        diff = diff - 360.0 * np.trunc(diff/180.0)
+        heading_array[clump][0] = head_prev
+        heading_array[clump][1:] = np.cumsum(diff) + head_prev
     return heading_array
 
 def subslice(orig, new):
@@ -1272,7 +1328,10 @@ def subslice(orig, new):
     stop = (orig.start or 0) + (new.stop or orig.stop or 0) * (orig.step or 1) # the bit after "+" isn't quite right!!
     return slice(start, stop, None if step == 1 else step)
 
-def index_at_value (array, threshold, _slice=slice(None)):
+def index_closest_value (array, threshold, _slice=slice(None)):
+    return index_at_value (array, threshold, _slice, endpoint='closing')
+    
+def index_at_value (array, threshold, _slice=slice(None), endpoint='exact'):
     '''
     This function seeks the moment when the parameter in question first crosses 
     a threshold. It works both forwards and backwards in time. To scan backwards
@@ -1288,6 +1347,10 @@ def index_at_value (array, threshold, _slice=slice(None)):
     :type threshold: float
     :param _slice: slice where we want to seek the threshold transit.
     :type _slice: slice
+    :param endpoint: type of end condition being sought.
+    :type endpoint: string 'exact' requires array to pass through the threshold,
+    while 'closing' seeks the last point where the array is closing on the 
+    threshold.
     :returns: interpolated time when the array values crossed the threshold. (One value only).
     :returns type: float
     '''
@@ -1345,7 +1408,17 @@ def index_at_value (array, threshold, _slice=slice(None)):
     
     if np.ma.all(test_array.mask):
         # The parameter does not pass through threshold in the period in question, so return empty-handed.
-        return None
+        if endpoint=='closing':
+            # Rescan the data to find the last point where the array data is closing.
+            closing_array = abs(array-threshold)
+            i=begin
+            while (closing_array [i+step]<=closing_array [i]):
+                i=i+step
+                if i==end:
+                    return end
+            return i
+        else:
+            return None
     else:
         n,dummy=np.ma.flatnotmasked_edges(np.ma.masked_greater(value_passing_array, 0.0))
         a = array[begin+step*n]

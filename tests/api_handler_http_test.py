@@ -4,14 +4,15 @@ import socket
 
 from mock import Mock, patch
 
-from analysis.api_handler import (APIConnectionError, InvalidAPIInputError,
-                                  NotFoundError, UnknownAPIError)
-from analysis.api_handler_http import APIHandlerHTTP
+from analysis_engine.api_handler import (APIConnectionError,
+                                         InvalidAPIInputError, NotFoundError,
+                                         UnknownAPIError)
+from analysis_engine.api_handler_http import APIHandlerHTTP
 
 
 class APIHandlerHTTPTest(unittest.TestCase):
     
-    @patch('analysis.api_handler_http.httplib2.Http.request')
+    @patch('analysis_engine.api_handler_http.httplib2.Http.request')
     def test__request(self, http_request_patched):
         '''
         Test error handling.

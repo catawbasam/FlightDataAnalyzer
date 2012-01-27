@@ -2,7 +2,7 @@ import csv
 import unittest
 import numpy as np
 
-from math import sqrt
+from math import sqrt, pi
 
 from datetime import datetime
 
@@ -10,23 +10,45 @@ from datetime import datetime
 # http://www.java2s.com/Open-Source/Python/Math/Numerical-Python/numpy/numpy/ma/testutils.py.htm
 import utilities.masked_array_testutils as ma_test
 
-from analysis.library import (align, blend_alternate_sensors,
-                              calculate_timebase, create_phase_inside,
-                              create_phase_outside, duration, 
-                              first_order_lag, first_order_washout, hash_array,
-                              hysteresis, index_at_value, interleave,
-                              is_index_within_slice, is_slice_within_slice,
-                              min_value, mask_inside_slices,
-                              mask_outside_slices, max_continuous_unmasked,
-                              max_value, max_abs_value, blend_two_parameters,
-                              peak_curvature, peak_index, rate_of_change, repair_mask, 
-                              rms_noise, slices_above, slices_below, slices_between, 
-                              slices_from_to, straighten_headings,
-                              #time_at_value, time_at_value_wrapped,
-                              value_at_time, vstack_params, InvalidDatetime)
+from analysis_engine.library import (align, 
+                                     blend_alternate_sensors,
+                                     blend_two_parameters,
+                                     calculate_timebase, 
+                                     create_phase_inside,
+                                     create_phase_outside, 
+                                     duration, 
+                                     first_order_lag, 
+                                     first_order_washout, 
+                                     hash_array,
+                                     hysteresis, 
+                                     index_at_value, 
+                                     interleave,
+                                     is_index_within_slice, 
+                                     is_slice_within_slice,
+                                     mask_inside_slices,
+                                     mask_outside_slices, 
+                                     max_continuous_unmasked,
+                                     max_value, 
+                                     max_abs_value, 
+                                     min_value, 
+                                     nav_bearing,
+                                     nav_distance,
+                                     peak_curvature, 
+                                     peak_index, 
+                                     rate_of_change, 
+                                     repair_mask,
+                                     rms_noise, 
+                                     slices_above, 
+                                     slices_below, 
+                                     slices_between, 
+                                     slices_from_to, 
+                                     straighten_headings,
+                                     value_at_time, 
+                                     vstack_params, 
+                                     InvalidDatetime)
 
-from analysis.node import P, S
-from analysis.library import *
+from analysis_engine.node import P, S
+from analysis_engine.library import *
 
 class TestAlign(unittest.TestCase):
     
@@ -714,6 +736,33 @@ class TestIndexAtValue(unittest.TestCase):
         self.assertEqual(index_at_value(array, 55, slice(-20,20)), None)
 
 
+class TestIndexClosestValue(unittest.TestCase):
+    def test_index_closest_value(self):
+        array = np.ma.array([1,2,3,4,5,4,3])
+        self.assertEqual(index_closest_value(array, 6, slice(0,6)), 4)
+
+    def test_index_closest_value_at_start(self):
+        array = np.ma.array([6,2,3,4,5,4,3])
+        self.assertEqual(index_closest_value(array, 7, slice(0,6)), 0)
+
+    def test_index_closest_value_at_end(self):
+        array = np.ma.array([1,2,3,4,5,6,7])
+        self.assertEqual(index_closest_value(array, 99, slice(0,6)), 6)
+
+    def test_index_closest_value_negative(self):
+        array = np.ma.array([3,2,1,4,5,6,7])
+        self.assertEqual(index_closest_value(array, -9, slice(0,6)), 2)
+
+    def test_index_closest_value_sliced(self):
+        array = np.ma.array([1,2,3,4,5,4,3])
+        self.assertEqual(index_closest_value(array, 6, slice(2,5)), 4)
+
+    def test_index_closest_value_backwards(self):
+        array = np.ma.array([3,2,1,4,5,6,7])
+        self.assertEqual(index_closest_value(array, -9, slice(5,1,-1)), 2)
+
+
+
 class TestIndexOfDatetime(unittest.TestCase):
     def test_index_of_datetime(self):
         start_datetime = datetime.now()
@@ -746,6 +795,7 @@ class TestInterleave(unittest.TestCase):
                                                     False,False])
 
 
+"""
 class TestInterpolateParams(unittest.TestCase):
     def test_interpolate_params(self):
         param1 = P('A1',np.ma.arange(10),
@@ -764,7 +814,7 @@ class TestInterpolateParams(unittest.TestCase):
         array.mask[-1] = True
         self.assertEqual(freq, 3)
         self.assertEqual(off, 3 * param1.offset)
-
+"""
 
 class TestIsIndexWithinSlice(unittest.TestCase):
     def test_is_index_within_slice(self):
@@ -926,7 +976,23 @@ class TestBlendTwoParameters(unittest.TestCase):
         p2 = P(array=[1]*3, frequency=2, offset=0.2)
         self.assertRaises(AssertionError, blend_two_parameters, p1, p2)
 
+
+class TestNavBearing(unittest.TestCase):
+    def test_bearing_ordinals(self):
+        self.assertEqual(nav_bearing([0,0],[0,1]),0.0)
+        self.assertEqual(nav_bearing([0,0],[1,0]),pi/2.0)
+        self.assertEqual(nav_bearing([0,1],[0,0]),pi)
+        self.assertEqual(nav_bearing([1,0],[0,0]),-pi/2.0)
+
         
+class TestNavDistance(unittest.TestCase):
+    def test_known_distance(self):
+        fareham = [50.856146, -1.183182]
+        goodyear = [33.449806, -112.358214]
+        self.assertEqual(nav_distance(fareham ,goodyear),
+                         8481553.935041398)
+        
+
 class TestPeakCurvature(unittest.TestCase):
     # Note: The results from the first two tests are in a range format as the
     # artificial data results in multiple maxima.
@@ -946,12 +1012,12 @@ class TestPeakCurvature(unittest.TestCase):
 
     def test_peak_curvature_no_peak(self):
         array = np.ma.array([0]*40+range(40))*(-1.0)
-        pc = peak_curvature(array, search_for='Concave')
+        pc = peak_curvature(array, curve_sense='Concave')
         self.assertEqual(pc,None)
 
     def test_peak_curvature_bipolar(self):
         array = np.ma.array([0]*40+range(40))*(-1.0)
-        pc = peak_curvature(array, search_for='Bipolar')
+        pc = peak_curvature(array, curve_sense='Bipolar')
         self.assertGreaterEqual(pc,35)
         self.assertLessEqual(pc,45)
 
@@ -1199,9 +1265,10 @@ class TestStraightenHeadings(unittest.TestCase):
         np.testing.assert_array_almost_equal(straighten_headings(data),expected)
 
     def test_straight_headings_starting_masked(self):
-        data=np.ma.array([1,2,3])
-        data[0]=np.ma.masked
-        expected=data
+        data=np.ma.array(data=[0]*10+[6]*8+[1]*4+[10,5,0,355,350]+[0]*4,
+                         mask=[True]*10+[False]*8+[True]*4+[False]*5+[True]*4)
+        expected=np.ma.array(data=[0]*10+[6]*8+[0]*4+[10,5,0,-5,-10]+[0]*4,
+                         mask=[True]*10+[False]*8+[True]*4+[False]*5+[True]*4)
         ma_test.assert_masked_array_approx_equal(straighten_headings(data), expected)
             
 class TestSmoothTrack(unittest.TestCase):

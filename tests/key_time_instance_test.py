@@ -3,15 +3,15 @@ import numpy as np
 import sys
 import unittest
 
-from analysis.derived_parameters import ClimbForFlightPhases
-from analysis.node import KeyTimeInstance, Parameter, P, Section, S
-from analysis.flight_phase import (ApproachAndLanding,
+from analysis_engine.derived_parameters import ClimbForFlightPhases
+from analysis_engine.node import KeyTimeInstance, Parameter, P, Section, S
+from analysis_engine.flight_phase import (ApproachAndLanding,
                                    ClimbCruiseDescent,
                                    Climbing,
                                    DescentLowClimb,
                                    )
 
-from analysis.key_time_instances import (AltitudeInApproach,
+from analysis_engine.key_time_instances import (AltitudeInApproach,
                                          AltitudeInFinalApproach,
                                          AltitudeWhenClimbing,
                                          AltitudeWhenDescending,
@@ -83,97 +83,97 @@ class TestClimbStart(unittest.TestCase):
 
 class TestGoAround(unittest.TestCase):
     def test_can_operate(self):
-        expected = [('Altitude AAL For Flight Phases',
-                     'Approach And Landing',
-                     'Climb For Flight Phases'),
-                    ('Altitude AAL For Flight Phases',
-                     'Altitude Radio For Flight Phases',
-                     'Approach And Landing',
-                     'Climb For Flight Phases'),
+        expected = [('Descent Low Climb',
+                     'Altitude AAL',
+                     'Altitude Radio'),
+                    ('Descent Low Climb',
+                     'Altitude AAL'),
                     ]
         opts = GoAround.get_operational_combinations()
         self.assertEqual(opts, expected)
 
     def test_go_around_basic(self):
-        alt = np.ma.array(range(0,4000,500)+range(4000,0,-500)+range(0,1000,501))
-        aal = [Section('Approach And Landing',slice(10,18))]
-        climb = ClimbForFlightPhases()
-        climb.derive(Parameter('Altitude STD', alt), aal)
+        dlc = [Section('Descent Low Climb',slice(10,18))]
+        alt = Parameter('Altitude AAL',\
+                        np.ma.array(range(0,4000,500)+\
+                                    range(4000,0,-500)+\
+                                    range(0,1000,501)))
         goa = GoAround()
         # Pretend we are flying over flat ground, so the altitudes are equal.
-        goa.derive(Parameter('Altitude AAL For Flight Phases',alt),
-                   Parameter('Altitude Radio For Flight Phases',alt),
-                   aal, climb)
+        goa.derive(dlc,alt,alt)
         expected = [KeyTimeInstance(index=16, name='Go Around')]
         self.assertEqual(goa, expected)
 
     def test_multiple_go_arounds(self):
         # This tests for three go-arounds, but the fourth part of the curve
         # does not produce a go-around as it ends in mid-descent.
-        alt = np.ma.array(np.cos(np.arange(0,21,0.02))*(1000)+2500)
-
+        alt = Parameter('Altitude AAL',
+                        np.ma.array(np.cos(
+                            np.arange(0,21,0.02))*(1000)+2500))
         if debug:
-            from analysis.plot_flight import plot_parameter
-            plot_parameter(alt)
+            from analysis_engine.plot_flight import plot_parameter
+            plot_parameter(alt.array)
             
-        aal = ApproachAndLanding()
-        aal.derive(Parameter('Altitude AAL For Flight Phases',alt),
-                   Parameter('Altitude Radio For Flight Phases',alt))
+        dlc = [Section('Descent Low Climb',slice( 50,260)),
+               Section('Descent Low Climb',slice(360,570)),
+               Section('Descent Low Climb',slice(670,890))]
+        
+        ## Merge with analysis_engine refactoring
+            #from analysis_engine.plot_flight import plot_parameter
+            #plot_parameter(alt)
             
-        climb = ClimbForFlightPhases()
-        climb.derive(Parameter('Altitude STD', alt), 
-                     [Section('Fast',slice(0,len(alt),None))])
+        #aal = ApproachAndLanding()
+        #aal.derive(Parameter('Altitude AAL For Flight Phases',alt),
+                   #Parameter('Altitude Radio For Flight Phases',alt))
+            
+        #climb = ClimbForFlightPhases()
+        #climb.derive(Parameter('Altitude STD', alt), 
+                     #[Section('Fast',slice(0,len(alt),None))])
         
         goa = GoAround()
-        goa.derive(Parameter('Altitude AAL For Flight Phases',alt),
-                   Parameter('Altitude Radio For Flight Phases',alt),
-                   aal, climb)
+        goa.derive(dlc,alt,alt)
                    
         expected = [KeyTimeInstance(index=157, name='Go Around'), 
                     KeyTimeInstance(index=471, name='Go Around'), 
                     KeyTimeInstance(index=785, name='Go Around')]
         self.assertEqual(goa, expected)
 
-    def test_go_around_insufficient_climb(self):
-        # 500 ft climb is not enough to trigger the go-around. 
-        # Compare to 501 ft for the "basic" test.
-        alt = np.ma.array(range(0,4000,500)+range(4000,0,-500)+range(0,700,499))
-        aal = ApproachAndLanding()
-        aal.derive(Parameter('Altitude AAL For Flight Phases',alt),
-                   Parameter('Altitude Radio For Flight Phases',alt))
-            
-        climb = ClimbForFlightPhases()
-        climb.derive(Parameter('Altitude STD', alt),  
-                     [Section('Fast',slice(0,len(alt),None))])
-        
-        goa = GoAround()
-        # Pretend we are flying over flat ground, so the altitudes are equal.
-        goa.derive(Parameter('Altitude AAL For Flight Phases',alt),
-                   Parameter('Altitude Radio',alt),
-                   aal, climb)
-        expected = []
-        self.assertEqual(goa, expected)
-
     def test_go_around_no_rad_alt(self):
         # This tests that the go-around works without a radio altimeter.
-        alt = np.ma.array(range(0,4000,500)+range(4000,0,-500)+range(0,1000,501))
-        aal = ApproachAndLanding()
-
-        # Call derive method. Note: "None" required to replace rad alt argument.
-        aal.derive(Parameter('Altitude AAL For Flight Phases',alt),None) 
-        climb = ClimbForFlightPhases()
-        climb.derive(Parameter('Altitude STD', alt), aal)
+        dlc = [Section('Descent Low Climb',slice(10,18))]
+        alt = Parameter('Altitude AAL',\
+                        np.ma.array(range(0,4000,500)+\
+                                    range(4000,0,-500)+\
+                                    range(0,1000,501)))
         goa = GoAround()
         # Pretend we are flying over flat ground, so the altitudes are equal.
-        alt_aal=Parameter('Altitude AAL For Flight Phases',alt)
-        
-        # !!! None is positional argument in place of alt_rad !!!
-        goa.derive(alt_aal, None, aal, climb)
-        
+        goa.derive(dlc,alt,None)
         expected = [KeyTimeInstance(index=16, name='Go Around')]
         self.assertEqual(goa, expected)
 
 
+    def test_go_around_with_rad_alt(self):
+        # This tests that the go-around works without a radio altimeter.
+        alt = Parameter('Altitude AAL',
+                        np.ma.array(np.cos(
+                            np.arange(0,21,0.02))*(1000)+2500))
+        alt_rad = Parameter('Altitude Radio',\
+                        alt.array-range(len(alt.array)))
+        if debug:
+            from analysis_engine.plot_flight import plot_parameter
+            plot_parameter(alt_rad.array)
+        # The sloping graph has shifted minima. We only need to check one to
+        # show it's using the rad alt signal.
+        dlc = [Section('Descent Low Climb',slice( 50,260))]
+
+        goa = GoAround()
+        goa.derive(dlc,alt,alt_rad)
+        expected = [KeyTimeInstance(index=160, name='Go Around')]
+        self.assertEqual(goa, expected)
+
+
+
+"""
 class TestAltitudeInApproach(unittest.TestCase):
     def test_can_operate(self):
         self.assertEqual(AltitudeInApproach.get_operational_combinations(),
@@ -194,8 +194,9 @@ class TestAltitudeInApproach(unittest.TestCase):
                            datetime=None, latitude=None, longitude=None),
            KeyTimeInstance(index=12.25, name='1500 Ft In Approach',
                            datetime=None, latitude=None, longitude=None)])
+"""
 
-
+"""
 class TestAltitudeInFinalApproach(unittest.TestCase):
     def test_can_operate(self):
         self.assertEqual(AltitudeInFinalApproach.get_operational_combinations(),
@@ -221,14 +222,14 @@ class TestAltitudeInFinalApproach(unittest.TestCase):
            KeyTimeInstance(index=14.5,
                            name='500 Ft In Final Approach', datetime=None,
                            latitude=None, longitude=None)])
-
+"""
 
 class TestAltitudeWhenClimbing(unittest.TestCase):
     def test_can_operate(self):
         self.assertEqual(AltitudeWhenClimbing.get_operational_combinations(),
                          [('Climbing', 'Altitude AAL')])
     
-    @mock.patch('analysis.key_time_instances.hysteresis')
+    @mock.patch('analysis_engine.key_time_instances.hysteresis')
     def test_derive(self, hysteresis):
         climbing = S('Climbing', items=[Section('a', slice(4, 10)),
                                         Section('b', slice(12, 20))])
@@ -256,7 +257,7 @@ class TestAltitudeWhenDescending(unittest.TestCase):
         self.assertEqual(AltitudeWhenDescending.get_operational_combinations(),
                          [('Descending', 'Altitude AAL')])
     
-    @mock.patch('analysis.key_time_instances.hysteresis')
+    @mock.patch('analysis_engine.key_time_instances.hysteresis')
     def test_derive(self, hysteresis):
         descending = S('Descending', items=[Section('a', slice(0, 10)),
                                             Section('b', slice(12, 20))])
@@ -360,15 +361,36 @@ class TestLandingStart(unittest.TestCase):
 
 class TestLandingTurnOffRunway(unittest.TestCase):
     def test_can_operate(self):
-        expected = [('Landing',)]
+        expected = [('Heading Continuous','Landing','Fast')]
         opts = LandingTurnOffRunway.get_operational_combinations()
         self.assertEqual(opts, expected)        
 
     def test_initial_landing_turn_off_runway_basic(self):
         instance = LandingTurnOffRunway()
         # This just needs the takeoff slice endpoint, so trivial to test
-        instance.derive([Section('Landing',slice(66,77,None))])
+        head = P('Heading Continuous',np.ma.arange(5))
+        land=[Section('Fast',slice(0,70,None))]
+        fast = [Section('Landing',slice(60,86,None))]
+        instance.derive(head,land,fast)
         expected = [KeyTimeInstance(index=77, name='Landing Turn Off Runway')]
+        self.assertEqual(instance, expected)
+
+    def test_takeoff_turn_onto_runway_curved(self):
+        instance = LandingTurnOffRunway()
+        # This just needs the takeoff slice startpoint, so trivial to test
+        head = P('Heading Continuous',np.ma.array([0]*70+[1,2,3,4,5,6,7,8,9,10]))
+        land = [Section('Landing',slice(60,86,None))]
+        instance.derive(head, land)
+        expected = [KeyTimeInstance(index=68, name='Landing Turn Off Runway')]
+        self.assertEqual(instance, expected)
+
+    def test_takeoff_turn_onto_runway_curved_left(self):
+        instance = LandingTurnOffRunway()
+        # This just needs the takeoff slice startpoint, so trivial to test
+        head = P('Heading Continuous',np.ma.array([0]*70+[1,2,3,4,5,6,7,8,9,10])*-3)
+        land = [Section('Landing',slice(60,86,None))]
+        instance.derive(head, land)
+        expected = [KeyTimeInstance(index=68, name='Landing Turn Off Runway')]
         self.assertEqual(instance, expected)
 
 
@@ -415,16 +437,33 @@ class TestTakeoffAccelerationStart(unittest.TestCase):
     
 class TestTakeoffTurnOntoRunway(unittest.TestCase):
     def test_can_operate(self):
-        expected = [('Takeoff',)]
+        expected = [('Heading Continuous','Takeoff','Fast')]
         opts = TakeoffTurnOntoRunway.get_operational_combinations()
         self.assertEqual(opts, expected)
 
     def test_takeoff_turn_onto_runway_basic(self):
         instance = TakeoffTurnOntoRunway()
-        # This just needs the takeoff slice startpoint, so trivial to test
+        head = P('Heading Continuous',np.ma.arange(5))
         takeoff = [Section('Takeoff',slice(1.7,3.5,None))]
-        instance.derive(takeoff)
+        fast = [Section('Fast',slice(2.7,6,None))]
+        instance.derive(head, takeoff)
         expected = [KeyTimeInstance(index=1.7, name='Takeoff Turn Onto Runway')]
+        self.assertEqual(instance, expected)
+
+    def test_takeoff_turn_onto_runway_curved(self):
+        instance = TakeoffTurnOntoRunway()
+        head = P('Heading Continuous',np.ma.array([0]*10+[1,2,3,4,5,6,7,8,9,10]))
+        takeoff = [Section('Takeoff',slice(0,20,None))]
+        instance.derive(head, takeoff)
+        expected = [KeyTimeInstance(index=8, name='Takeoff Turn Onto Runway')]
+        self.assertEqual(instance, expected)
+
+    def test_takeoff_turn_onto_runway_curved_left(self):
+        instance = TakeoffTurnOntoRunway()
+        head = P('Heading Continuous',np.ma.array([0]*10+[1,2,3,4,5,6,7,8,9,10])*-2)
+        takeoff = [Section('Takeoff',slice(0,20,None))]
+        instance.derive(head, takeoff)
+        expected = [KeyTimeInstance(index=8, name='Takeoff Turn Onto Runway')]
         self.assertEqual(instance, expected)
 
 

@@ -6,11 +6,11 @@ import numpy as np
 
 import utilities.masked_array_testutils as ma_test
 from utilities.struct import Struct
-from analysis.settings import GRAVITY_IMPERIAL, HYSTERESIS_FPIAS
-from analysis.node import Attribute, A, KeyTimeInstance, KPV, KTI, Parameter, P, Section, S
-from analysis.flight_phase import Fast
+from analysis_engine.settings import GRAVITY_IMPERIAL, HYSTERESIS_FPIAS
+from analysis_engine.node import Attribute, A, KeyTimeInstance, KPV, KTI, Parameter, P, Section, S
+from analysis_engine.flight_phase import Fast
 
-from analysis.derived_parameters import (
+from analysis_engine.derived_parameters import (
     AccelerationVertical,
     AccelerationForwards,
     AccelerationSideways,
@@ -252,7 +252,7 @@ class TestAirspeedForFlightPhases(unittest.TestCase):
         opts = AirspeedForFlightPhases.get_operational_combinations()
         self.assertEqual(opts, expected)
     
-    @mock.patch('analysis.derived_parameters.hysteresis')
+    @mock.patch('analysis_engine.derived_parameters.hysteresis')
     def test_airspeed_for_phases_basic(self, hysteresis):
         # Avoiding testing hysteresis.
         param = mock.Mock()
@@ -448,7 +448,7 @@ class TestAltitudeSTD(unittest.TestCase):
                                                  20000, 19000, 17980, 17375, 16500],
                                                 mask=[False] * 8 + 2 * [True]))
     
-    @mock.patch('analysis.derived_parameters.first_order_lag')
+    @mock.patch('analysis_engine.derived_parameters.first_order_lag')
     def test__rough_and_ivv(self, first_order_lag):
         alt_std = AltitudeSTD()
         alt_std_rough = Parameter('Altitude STD Rough',
@@ -796,13 +796,13 @@ class TestGroundspeedAlongTrack(unittest.TestCase):
         
 class TestHeadContinuous(unittest.TestCase):
     def test_can_operate(self):
-        expected = [('Heading Magnetic',)]
+        expected = [('Heading',)]
         opts = HeadingContinuous.get_operational_combinations()
         self.assertEqual(opts, expected)
 
     def test_heading_continuous(self):
         head = HeadingContinuous()
-        head.derive(P('Heading Magnetic',np.ma.remainder(
+        head.derive(P('Heading',np.ma.remainder(
             np.ma.array(range(10))+355,360.0)))
         
         answer = np.ma.array(data=[355.0, 356.0, 357.0, 358.0, 359.0, 360.0, 
@@ -920,6 +920,23 @@ class TestRateOfClimb(unittest.TestCase):
                              mask=False)
         ma_test.assert_masked_array_approx_equal(roc.array, expected)
 
+    def test_rate_of_climb_masked(self):
+        # The blocks of masked values have to exceed the repair_nask
+        # threshold of 10 samples, hence the large arrays.
+        az = P('Acceleration Vertical', np.ma.array([1]*100, dtype=np.float))
+        az.array[5:20]=np.ma.masked
+        alt_std = P('Altitude STD', np.ma.array([100]*100, dtype=np.float))
+        alt_std.array[35:50]=np.ma.masked
+        alt_rad = P('Altitude Radio', np.ma.array([0]*100, dtype=np.float))
+        alt_rad.array[65:80]=np.ma.masked
+        roc = RateOfClimb()
+        roc.derive(az, alt_std, alt_rad)
+        expected = np.ma.array(data=[0]*100, dtype=np.float,
+                             mask=[[False]*5+[True]*15+[False]*15+
+                                   [True]*15+[False]*15+
+                                   [True]*15+[False]*15+[False]*5])
+        ma_test.assert_masked_array_approx_equal(roc.array, expected)
+
     def test_rate_of_climb_alt_std_only(self):
         az = None
         alt_std = P('Altitude STD', np.ma.arange(100,200,10))
@@ -934,8 +951,8 @@ class TestRateOfClimb(unittest.TestCase):
         az = P('Acceleration Vertical', np.ma.array([1]*10,dtype=float))
         az.array[2:4] = 1.1
         # (Low acceleration for this test as the sample rate is only 1Hz).
-        alt_std = P('Altitude STD', np.ma.array([100]*10))
-        alt_rad = P('Altitude Radio', np.ma.array([0]*10))
+        alt_std = P('Altitude STD', np.ma.array([100]*10,dtype=float))
+        alt_rad = P('Altitude Radio', np.ma.array([0]*10,dtype=float))
         roc = RateOfClimb()
         roc.derive(az, alt_std, alt_rad)
         expected = np.ma.array(data=[0, 0, 82.11570, 221.52819, 236.30071,

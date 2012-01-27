@@ -5,7 +5,7 @@ import unittest
 from random import shuffle
 from datetime import datetime
 
-from analysis.node import (
+from analysis_engine.node import (
     Attribute, 
     DerivedParameterNode,
     get_verbose_name,
@@ -940,7 +940,7 @@ class TestDerivedParameterNode(unittest.TestCase):
         self.assertRaises(ValueError, spd.at, 0)
         self.assertRaises(ValueError, spd.at, 11)
         
-    @mock.patch('analysis.node.slices_above')
+    @mock.patch('analysis_engine.node.slices_above')
     def test_slices_above(self, slices_above):
         '''
         Ensure slices_above is called with the expected arguments.
@@ -952,7 +952,7 @@ class TestDerivedParameterNode(unittest.TestCase):
         slices_above.assert_called_once_with(array, 5)
         self.assertEqual(slices, slices_above.return_value[1])
         
-    @mock.patch('analysis.node.slices_below')
+    @mock.patch('analysis_engine.node.slices_below')
     def test_slices_below(self, slices_below):
         '''
         Ensure slices_below is called with the expected arguments.
@@ -964,7 +964,7 @@ class TestDerivedParameterNode(unittest.TestCase):
         slices_below.assert_called_once_with(array, 5)
         self.assertEqual(slices, slices_below.return_value[1]) 
     
-    @mock.patch('analysis.node.slices_between')
+    @mock.patch('analysis_engine.node.slices_between')
     def test_slices_between(self, slices_between):
         '''
         Ensure slices_between is called with the expected arguments.
@@ -976,7 +976,7 @@ class TestDerivedParameterNode(unittest.TestCase):
         slices_between.assert_called_once_with(array, 5, 15)
         self.assertEqual(slices, slices_between.return_value[1])
     
-    @mock.patch('analysis.node.slices_from_to')
+    @mock.patch('analysis_engine.node.slices_from_to')
     def test_slices_from_to(self, slices_from_to):
         '''
         Ensure slices_from_to is called with the expected arguments.

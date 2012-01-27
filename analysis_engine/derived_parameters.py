@@ -1,13 +1,14 @@
 import logging
 import numpy as np
 
-from analysis.node import A, DerivedParameterNode, KTI, P, S
+from analysis_engine.node import A, DerivedParameterNode, KTI, P, S
 
-from analysis.library import (blend_alternate_sensors,
+from analysis_engine.library import (blend_alternate_sensors,
                               blend_two_parameters,
                               first_order_lag,
                               first_order_washout,
                               hysteresis,
+                              index_at_value,
                               index_of_datetime,
                               interleave,
                               is_slice_within_slice,
@@ -992,10 +993,7 @@ class HeadingTrue(DerivedParameterNode):
         #"Hard wired" for Bergen !!!!!!!!!!!!!!!!!!!
         self.array = head.array - 1.185
         
-        if not approaches.value:
-            return
-
-
+        """
         # We copy the masked array to transfer the mask array. All the data
         # values will be overwritten, but the mask will not be affected by
         # conversion from magnetic to true headings.
@@ -1045,6 +1043,7 @@ class HeadingTrue(DerivedParameterNode):
         end_slice = slice(start_index, None)
         true_array[end_slice] = true_array[end_slice] + dest_mag_var
         self.array = true_array
+        """
 
         
 class ILSLocalizerComputation(DerivedParameterNode):
@@ -1057,11 +1056,11 @@ class ILSLocalizerComputation(DerivedParameterNode):
     def derive(self, ils_loc = P('ILS Localizer'),
                glide = P('ILS Glideslope'),
                alt_aal = P('Altitude AAL'),
-               rwy=A('FDR Landing Runway'),
-               lat=P('Latitude Smoothed'),
-               lon=P('Longitude Smoothed'),
-               hdg=P('Heading True'),
-               ap=S('Approach And Landing')
+               rwy = A('FDR Landing Runway'),
+               lat = P('Latitude Smoothed'),
+               lon = P('Longitude Smoothed'),
+               hdg = P('Heading True'),
+               ap = S('Approach And Landing')
                ):
         #-------------------------------------------------------------------
         # TEST OUTPUT TO CSV FILE FOR DEBUGGING ONLY
@@ -1091,6 +1090,7 @@ class ILSLocalizerComputation(DerivedParameterNode):
         # TODO: REMOVE THIS SECTION BEFORE RELEASE
         #-------------------------------------------------------------------
         
+        return NotImplemented
 
     
 class ILSGlideslopeGap(DerivedParameterNode):
@@ -1143,60 +1143,66 @@ class RateOfClimb(DerivedParameterNode):
     def derive(self, 
                az = P('Acceleration Vertical'),
                alt_std = P('Altitude STD'),
-               alt_rad = P('Altitude Radio')):
+               alt_rad = P('Altitude Radio'),
+               pitch=P('Pitch'),
+               aoa=P('AOA'),
+               speed=P('Airspeed')):
 
         if az and alt_rad:
-            # Use the complementary smoothing approach
-
-            roc_alt_std = first_order_washout(alt_std.array,
-                                              RATE_OF_CLIMB_LAG_TC, az.hz,
-                                              gain=1/RATE_OF_CLIMB_LAG_TC)
-            roc_alt_rad = first_order_washout(alt_rad.array,
-                                              RATE_OF_CLIMB_LAG_TC, az.hz,
-                                              gain=1/RATE_OF_CLIMB_LAG_TC)
-                    
-            # Use pressure altitude rate above 100ft and radio altitude rate
-            # below 50ft with progressive changeover across that range.
-            # up to 50 ft radio 0 < std_rad_ratio < 1 over 100ft radio
-            std_rad_ratio = np.maximum(np.minimum(
-                (alt_rad.array.data-50.0)/50.0,
-                1),0)
-            roc_altitude = roc_alt_std*std_rad_ratio +\
-                roc_alt_rad*(1.0-std_rad_ratio)
+            # Make space for the answers
+            self.array = np.ma.masked_all_like(alt_std.array)
+            
+            # Fix minor dropouts
+            az_repair = repair_mask(az.array)
+            alt_rad_repair = repair_mask(alt_rad.array)
+            alt_std_repair = repair_mask(alt_std.array)
+            
+            # np.ma.getmaskarray ensures we have complete mask arrays even if
+            # none of the samples are masked (normally returns a single
+            # "False" value.
+            az_masked = np.ma.array(data = az_repair.data, 
+                                    mask = np.ma.logical_or(
+                                        np.ma.logical_or(
+                                        np.ma.getmaskarray(az_repair),
+                                        np.ma.getmaskarray(alt_rad_repair)),
+                                        np.ma.getmaskarray(alt_std_repair)))
+            
+            # We are going to compute the answers only for ranges where all
+            # the required parameters are available.
+            clumps = np.ma.clump_unmasked(az_masked)
+            for clump in clumps:
                 
-            az_washout = first_order_washout (az.array, AZ_WASHOUT_TC, az.hz, 
-                                              gain=GRAVITY_IMPERIAL,
-                                              initial_value = az.array[0])
-            inertial_roc = first_order_lag (az_washout, RATE_OF_CLIMB_LAG_TC, az.hz, gain=RATE_OF_CLIMB_LAG_TC)
-            self.array = (roc_altitude + inertial_roc) * 60.0
-
-
-            """
-            #-------------------------------------------------------------------
-            # TEST OUTPUT TO CSV FILE FOR DEBUGGING ONLY
-            # TODO: REMOVE THIS SECTION BEFORE RELEASE
-            #-------------------------------------------------------------------
-            import csv
-            spam = csv.writer(open('eggs.csv', 'wb'))
-            spam.writerow(['Alt_std', 'roc_alt_std', 'alt_rad', 'roc_alt_rad', 
-                           'std_rad_ratio', 'roc_altitude', 'az', 'az_washout', 
-                           'inertial_roc', 'self',
-                           'Longitudinal','Lateral','Normal','Pitch','Roll'])
-            #for showme in range(0, len(roc_alt_std)):
-            for showme in range(23550, 23710):
-                spam.writerow([alt_std.array.data[showme], roc_alt_std.data[showme],
-                               alt_rad.array.data[showme], roc_alt_rad.data[showme],
-                               std_rad_ratio[showme], roc_altitude.data[showme],
-                               az.array.data[showme], az_washout.data[showme],
-                               inertial_roc.data[showme], self.array.data[showme],
-                               ax.array.data[showme], ay.array.data[showme],
-                               an.array.data[showme], pch.array.data[showme],
-                               roll.array.data[showme]])
-            #-------------------------------------------------------------------
-            # TEST OUTPUT TO CSV FILE FOR DEBUGGING ONLY
-            # TODO: REMOVE THIS SECTION BEFORE RELEASE
-            #-------------------------------------------------------------------
-            """
+                # Use the complementary smoothing approach
+    
+                roc_alt_std = first_order_washout(alt_std.array[clump],
+                                                  RATE_OF_CLIMB_LAG_TC, az.hz,
+                                                  gain=1/RATE_OF_CLIMB_LAG_TC)
+                roc_alt_rad = first_order_washout(alt_rad.array[clump],
+                                                  RATE_OF_CLIMB_LAG_TC, az.hz,
+                                                  gain=1/RATE_OF_CLIMB_LAG_TC)
+                        
+                # Use pressure altitude rate above 100ft and radio altitude rate
+                # below 50ft with progressive changeover across that range.
+                # up to 50 ft radio 0 < std_rad_ratio < 1 over 100ft radio
+                std_rad_ratio = np.maximum(np.minimum(
+                    (alt_rad.array.data[clump]-50.0)/50.0,
+                    1),0)
+                roc_altitude = roc_alt_std*std_rad_ratio +\
+                    roc_alt_rad*(1.0-std_rad_ratio)
+                
+                # This is the washout term, with considerable gain. The
+                # initialisation "initial_value=az.array[clump][0]" is very
+                # important, as without this the function produces huge
+                # spikes at each start of a data period.
+                az_washout = first_order_washout (az.array[clump], 
+                                                  AZ_WASHOUT_TC, az.hz, 
+                                                  gain=GRAVITY_IMPERIAL,
+                                                  initial_value=az.array[clump][0])
+                inertial_roc = first_order_lag (az_washout, 
+                                                RATE_OF_CLIMB_LAG_TC, 
+                                                az.hz, 
+                                                gain=RATE_OF_CLIMB_LAG_TC)
+                self.array[clump] = (roc_altitude + inertial_roc) * 60.0
             
         else:
             # The period for averaging altitude only data has been chosen
@@ -1309,7 +1315,6 @@ class LongitudeSmoothed(DerivedParameterNode, CoordinatesSmoothed):
 
 class RateOfTurn(DerivedParameterNode):
     def derive(self, head=P('Heading Continuous')):
-        #TODO: Review whether half_width 1 is applicable at multi Hz
         self.array = rate_of_change(head, 1)
 
 

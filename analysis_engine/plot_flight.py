@@ -1,7 +1,7 @@
 import csv
 import os
 import matplotlib.pyplot as plt
-from analysis.node import DerivedParameterNode
+from analysis_engine.node import DerivedParameterNode
 
 from library import rms_noise
 from utilities.print_table import indent
@@ -63,17 +63,9 @@ def plot_flight(hdf_path, kti_list, kpv_list, phase_list):
         #---------- Axis 1 ----------
         ax1 = fig.add_subplot(4,1,1)
         alt_data = hdf['Altitude STD'].array
-
-        """
-        RMS noise test output
-        print '#################################################'
-        for phase in phase_list:
-            print phase.name, '=', rms_noise(alt_data[phase.slice])
-        """
-
         alt = hdf.get('Altitude AAL For Flight Phases',hdf['Altitude STD']).array
-        #frame = hdf['Frame Counter'].array
-        frame = hdf.get('Frame Counter',hdf['Altitude STD']).array
+        frame = hdf['Time'].array
+        #frame = hdf.get('Frame Counter',hdf['Altitude STD']).array
         
         sections = []
         sections.append(alt_data)

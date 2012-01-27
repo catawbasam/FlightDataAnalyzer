@@ -8,17 +8,17 @@ debug = sys.gettrace() is not None
 
 from datetime import datetime, timedelta
         
-from analysis.library import value_at_time
-from analysis.node import (Attribute, FlightAttributeNode, KeyPointValueNode,
-                           KeyTimeInstanceNode, P, S)
-from analysis.process_flight import (process_flight, derive_parameters, 
-                                     get_derived_nodes)
-from analysis import settings, ___version___
+from analysis_engine.library import value_at_time
+from analysis_engine.node import (Attribute, FlightAttributeNode,
+                                  KeyPointValueNode, KeyTimeInstanceNode, P, S)
+from analysis_engine.process_flight import (process_flight, derive_parameters,
+                                            get_derived_nodes)
+from analysis_engine import settings, ___version___
 
 debug = sys.gettrace() is not None
 if debug:
     # only import if we're going to use this as it's slow!
-    from analysis.plot_flight import plot_flight
+    from analysis_engine.plot_flight import plot_flight
 
 class TestProcessFlight(unittest.TestCase):
     
@@ -27,7 +27,7 @@ class TestProcessFlight(unittest.TestCase):
     
     @unittest.skipIf(not os.path.isfile("test_data/1_7295949_737-3C.hdf5"),
                      "Test file not present")
-    @mock.patch('analysis.flight_attribute.get_api_handler')
+    @mock.patch('analysis_engine.flight_attribute.get_api_handler')
     def test_1_7295949_737_3C(self, get_api_handler):
         hdf_orig = "test_data/1_7295949_737-3C.hdf5"
         hdf_path = "test_data/1_7295949_737-3C_copy.hdf5"
@@ -71,9 +71,11 @@ class TestProcessFlight(unittest.TestCase):
         
         res = process_flight(hdf_path, ac_info, draw=False)
         self.assertEqual(len(res), 4)
+
+        from analysis_engine.plot_flight import csv_flight_details
+        csv_flight_details(hdf_path, res['kti'], res['kpv'], res['phases'])
+
         if debug:
-            from analysis.plot_flight import csv_flight_details
-            csv_flight_details(hdf_path, res['kti'], res['kpv'], res['phases'])
             plot_flight(hdf_path, res['kti'], res['kpv'], res['phases'])
 
         #TODO: Further assertions on the results!
@@ -121,7 +123,7 @@ class TestProcessFlight(unittest.TestCase):
         self.assertEqual(len(res), 4)
 
         if debug:
-            from analysis.plot_flight import csv_flight_details
+            from analysis_engine.plot_flight import csv_flight_details
             csv_flight_details(hdf_path, res['kti'], res['kpv'], res['phases'])
             plot_flight(hdf_path, res['kti'], res['kpv'], res['phases'])
 
@@ -176,7 +178,7 @@ class TestProcessFlight(unittest.TestCase):
                              draw=False)
         self.assertEqual(len(res), 4)
         if debug:
-            from analysis.plot_flight import csv_flight_details
+            from analysis_engine.plot_flight import csv_flight_details
             csv_flight_details(hdf_path, res['kti'], res['kpv'], res['phases'])
             plot_flight(hdf_path, res['kti'], res['kpv'], res['phases'])
         #TODO: Further assertions on the results!
@@ -224,7 +226,7 @@ class TestProcessFlight(unittest.TestCase):
                              draw=False)
         self.assertEqual(len(res), 4)
         if debug:
-            from analysis.plot_flight import csv_flight_details
+            from analysis_engine.plot_flight import csv_flight_details
             csv_flight_details(hdf_path, res['kti'], res['kpv'], res['phases'])
             plot_flight(hdf_path, res['kti'], res['kpv'], res['phases'])
         #TODO: Further assertions on the results!
@@ -271,14 +273,14 @@ class TestProcessFlight(unittest.TestCase):
                              draw=False)
         self.assertEqual(len(res), 4)
         if debug:
-            from analysis.plot_flight import csv_flight_details
+            from analysis_engine.plot_flight import csv_flight_details
             csv_flight_details(hdf_path, res['kti'], res['kpv'], res['phases'])
             plot_flight(hdf_path, res['kti'], res['kpv'], res['phases'])
         #TODO: Further assertions on the results!
      
     @unittest.skipIf(not os.path.isfile("test_data/4_3377853_146_301.hdf5"),
                      "Test file not present")
-    @mock.patch('analysis.flight_attribute.get_api_handler')
+    @mock.patch('analysis_engine.flight_attribute.get_api_handler')
     def test_4_3377853_146_301(self, get_api_handler):
         # Avoid side effects which may be caused by PRE_FLIGHT_ANALYSIS.
         settings.PRE_FLIGHT_ANALYSIS = None
@@ -317,7 +319,7 @@ class TestProcessFlight(unittest.TestCase):
         res = process_flight(hdf_path, ac_info, achieved_flight_record=afr,
                              start_datetime=start_datetime)
         if debug:
-            from analysis.plot_flight import csv_flight_details
+            from analysis_engine.plot_flight import csv_flight_details
             csv_flight_details(hdf_path, res['kti'], res['kpv'], res['phases'])
             plot_flight(hdf_path, res['kti'], res['kpv'], res['phases'])
         
