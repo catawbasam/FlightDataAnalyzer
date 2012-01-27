@@ -149,10 +149,8 @@ class ApproachAndLanding(FlightPhaseNode):
     # List the minimum acceptable parameters here
     @classmethod
     def can_operate(cls, available):
-        if ['Altitude AAL For Flight Phases','Landing'] in available:
-            return True
-        else:
-            return False
+        return 'Altitude AAL For Flight Phases' in available and \
+               'Landing' in available
         
     # List the optimal parameter set here
     def derive(self, alt_aal=P('Altitude AAL For Flight Phases'),

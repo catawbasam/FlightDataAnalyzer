@@ -47,6 +47,13 @@ class Airspeed400To50FtMax(KeyPointValueNode):
     def derive(self, speed=P('Airspeed'), alt_aal=P('Altitude AAL')):
             self.create_kpvs_within_slices(speed.array,
                                            alt_aal.slices_from_to(500, 50),
+                                           max_value)
+
+
+class Airspeed500To50FtMax(KeyPointValueNode):
+    def derive(self, speed=P('Airspeed'), alt_aal=P('Altitude AAL')):
+            self.create_kpvs_within_slices(speed.array,
+                                           alt_aal.slices_from_to(500, 50),
                                            max_value) 
 
 

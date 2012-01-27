@@ -90,7 +90,7 @@ class GoAround(KeyTimeInstanceNode):
         # List the minimum required parameters. If 'Altitude Radio For Flight
         # Phases' is available, that's a bonus and we will use it, but it is
         # not required.
-        if 'Descent Low Climb' in available and 'Altitude AAL' in available :
+        if 'Descent Low Climb' in available and 'Altitude AAL' in available:
             return True
         else:
             return False

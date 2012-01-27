@@ -11,26 +11,24 @@ from analysis_engine.flight_phase import (ApproachAndLanding,
                                    DescentLowClimb,
                                    )
 
-from analysis_engine.key_time_instances import (AltitudeInApproach,
-                                         AltitudeInFinalApproach,
-                                         AltitudeWhenClimbing,
-                                         AltitudeWhenDescending,
-                                         BottomOfDescent,
-                                         ClimbStart,
-                                         GoAround,
-                                         InitialClimbStart,
-                                         LandingDecelerationEnd,
-                                         LandingPeakDeceleration,
-                                         LandingStart,
-                                         LandingTurnOffRunway,
-                                         Liftoff,
-                                         TakeoffAccelerationStart,
-                                         TakeoffPeakAcceleration,
-                                         TakeoffTurnOntoRunway,
-                                         TopOfClimb,
-                                         TopOfDescent,
-                                         Touchdown,
-                                         )
+from analysis_engine.key_time_instances import (AltitudeWhenClimbing,
+                                                AltitudeWhenDescending,
+                                                BottomOfDescent,
+                                                ClimbStart,
+                                                GoAround,
+                                                InitialClimbStart,
+                                                LandingDecelerationEnd,
+                                                LandingPeakDeceleration,
+                                                LandingStart,
+                                                LandingTurnOffRunway,
+                                                Liftoff,
+                                                TakeoffAccelerationStart,
+                                                TakeoffPeakAcceleration,
+                                                TakeoffTurnOntoRunway,
+                                                TopOfClimb,
+                                                TopOfDescent,
+                                                Touchdown,
+                                                )
 
 debug = sys.gettrace() is not None
 
@@ -83,14 +81,9 @@ class TestClimbStart(unittest.TestCase):
 
 class TestGoAround(unittest.TestCase):
     def test_can_operate(self):
-        expected = [('Descent Low Climb',
-                     'Altitude AAL',
-                     'Altitude Radio'),
-                    ('Descent Low Climb',
-                     'Altitude AAL'),
-                    ]
-        opts = GoAround.get_operational_combinations()
-        self.assertEqual(opts, expected)
+        self.assertEqual(GoAround.get_operational_combinations(),
+                    [('Descent Low Climb', 'Altitude AAL'),
+                     ('Descent Low Climb', 'Altitude AAL', 'Altitude Radio')])
 
     def test_go_around_basic(self):
         dlc = [Section('Descent Low Climb',slice(10,18))]
@@ -396,9 +389,8 @@ class TestLandingTurnOffRunway(unittest.TestCase):
 
 class TestLiftoff(unittest.TestCase):
     def test_can_operate(self):
-        expected = [('Rate Of Climb For Flight Phases','Takeoff')]
-        opts = Liftoff.get_operational_combinations()
-        self.assertEqual(opts, expected)
+        self.assertEqual(Liftoff.get_operational_combinations(),
+                         [('Rate Of Climb', 'Takeoff')])
 
     def test_liftoff_basic(self):
         # Linearly increasing climb rate with the 5 fpm threshold set between 
@@ -414,10 +406,10 @@ class TestLiftoff(unittest.TestCase):
 
 class TestTakeoffAccelerationStart(unittest.TestCase):
     def test_can_operate(self):
-        expected = [('Airspeed', 'Takeoff'),
-                    ('Airspeed', 'Takeoff','Acceleration Forwards')]
-        opts = TakeoffAccelerationStart.get_operational_combinations()
-        self.assertEqual(opts, expected)
+        self.assertEqual(\
+            TakeoffAccelerationStart.get_operational_combinations(),
+            [('Airspeed', 'Takeoff'),
+             ('Airspeed', 'Takeoff', 'Acceleration Longitudinal')])
 
     def test_takeoff_acceleration_start(self):
         # This test uses the same airspeed data as the library routine test,
@@ -557,9 +549,8 @@ class TestTopOfDescent(unittest.TestCase):
         
 class TestTouchdown(unittest.TestCase):
     def test_can_operate(self):
-        expected = [('Rate Of Climb For Flight Phases', 'Landing')]
-        opts = Touchdown.get_operational_combinations()
-        self.assertEqual(opts, expected)
+        self.assertEqual(Touchdown.get_operational_combinations(),
+                         [('Rate Of Climb', 'Landing')])
 
     def test_touchdown_basic(self):
         rate_of_climb = Parameter('Rate Of Climb For Flight Phases', np.ma.array([-30,-20,-11,-1,0,0,0]))
