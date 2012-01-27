@@ -151,7 +151,6 @@ class GoAroundAltitude(KeyPointValueNode):
             self.create_kpv(pit)
          
 
-
 class HeadingAtLanding(KeyPointValueNode):
     """
     The landing has been found already, including and the flare and a little
