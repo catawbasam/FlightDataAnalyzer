@@ -709,6 +709,21 @@ class GlideslopeWarning(KeyPointValueNode):
         return NotImplemented
 
 
+class GlideslopeDeviationAbove1000FtMax(KeyPointValueNode):
+    def derive(self, ils_glideslope=P('ILS Glideslope'),
+               alt_aal = P('Altitude AAL')):
+        self.create_kpvs_within_slices(ils_glideslope.array,
+                                       alt_aal.slices_above(1000),
+                                       max_abs_value) 
+
+
+class GlideslopeDeviationBelow1000FtMax(KeyPointValueNode):
+    def derive(self, ils_glideslope=P('ILS Glideslope'),
+               alt_aal = P('Altitude AAL')):
+        self.create_kpvs_within_slices(ils_glideslope.array,
+                                       alt_aal.slices_below(1000),
+                                       max_abs_value) 
+
 class GlideslopeDeviation1000To150FtMax(KeyPointValueNode):
     def derive(self, ils_glideslope=P('ILS Glideslope'),
                alt_aal = P('Altitude AAL')):
@@ -958,6 +973,11 @@ class PitchAtLiftoff(KeyPointValueNode):
         self.create_kpvs_at_ktis(pitch.array, liftoffs)
 
 
+class PitchDuringFinalApproachMin(KeyPointValueNode):
+    def derive(self, pitch=P('Pitch'), final_approaches=S('Final Approach')):
+        self.create_kpvs_within_slices(pitch.array, final_approaches, min_value)
+
+
 class PitchDuringTakeoffMax(KeyPointValueNode):
     def derive(self, pitch=P('Pitch'), takeoffs=S('Takeoff')):
         self.create_kpvs_within_slices(pitch.array, takeoffs, max_value)
@@ -1040,10 +1060,12 @@ class RollCycles1000FtToTouchdownMax(KeyPointValueNode):
         return NotImplemented
 
 
+class RollAbove1000FtMax(KeyPointValueNode):
+    def derive(self, roll=P('Roll'), alt_aal=P('Altitude AAL')):
+        self.create_kpvs_within_slices(roll.array, alt_aal.slices_above(1000),
+                                       max_abs_value)
+
 class RollAbove1500FtMax(KeyPointValueNode):
-    '''
-    
-    '''
     def derive(self, roll=P('Roll'), alt_aal=P('Altitude AAL')):
         self.create_kpvs_within_slices(roll.array, alt_aal.slices_above(1500),
                                        max_abs_value)

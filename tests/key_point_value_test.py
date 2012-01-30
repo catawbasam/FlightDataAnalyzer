@@ -57,6 +57,7 @@ from analysis_engine.key_point_values import (
     FuelQtyAirborneMin,
     GlideslopeDeviation1500To1000FtMax,
     GlideslopeDeviation1000To150FtMax,
+    GlideslopeDeviationBelow1000FtMax,
     GrossWeightAtLiftoff,
     GrossWeightAtTouchdown,
     GroundSpeedOnGroundMax,
@@ -89,6 +90,7 @@ from analysis_engine.key_point_values import (
     RateOfDescent1000To500FtMax,
     RateOfDescent1000To50FtMax,
     RateOfDescent2000To1000FtMax,
+    RollAbove1000FtMax,
     RollAbove1500FtMax,
     RollBelow20FtMax,
     RollBetween100And500FtMax,
@@ -742,8 +744,17 @@ class TestGlideslopeDeviation1500To1000FtMax(unittest.TestCase,
         self.assertEqual(len(kpv), 2)
         self.assertEqual(kpv[0].index, 47)
         self.assertEqual(kpv[1].index, 109)
-        
-        
+
+
+class TestGlideslopeDeviationBelow1000FtMax(unittest.TestCase,
+                                            TestCreateKPVsWithinSlices):
+    def setUp(self):
+        self.node_class = GlideslopeDeviationBelow1000FtMax
+        self.operational_combinations = [('ILS Glideslope', 'Altitude AAL')]
+        self.function = max_abs_value
+        self.second_param_method_calls = [('slices_below', (1000,), {})]
+
+
 class TestGlideslopeDeviation1000To150FtMax(unittest.TestCase,
                                             TestCreateKPVsWithinSlices):
     def setUp(self):
@@ -1027,6 +1038,14 @@ class TestPitchAtTouchdown(unittest.TestCase, TestCreateKPVsAtKTIs):
         self.operational_combinations = [('Pitch', 'Touchdown')]
 
 
+class TestPitchDuringFinalApproachMin(unittest.TestCase,
+                                      TestCreateKPVsWithinSlices):
+    def setUp(self):
+        self.node_class = PitchDuringFinalApproachMin
+        self.operational_combinations = [('Pitch', 'Final Approach')]
+        self.function = min_value
+
+
 class TestPitchDuringTakeoffMax(unittest.TestCase, TestCreateKPVsWithinSlices):
     def setUp(self):
         self.node_class = PitchDuringTakeoffMax
@@ -1092,6 +1111,14 @@ class TestRateOfDescent2000To1000FtMax(unittest.TestCase,
         self.operational_combinations = [('Rate Of Climb', 'Altitude AAL')]
         self.function = min_value
         self.second_param_method_calls = [('slices_from_to', (2000, 1000), {})]
+
+
+class TestRollAbove1000FtMax(unittest.TestCase, TestCreateKPVsWithinSlices):
+    def setUp(self):
+        self.node_class = RollAbove1000FtMax
+        self.operational_combinations = [('Roll', 'Altitude AAL')]
+        self.function = max_abs_value
+        self.second_param_method_calls = [('slices_above', (1000,), {})]
 
 
 class TestRollAbove1500FtMax(unittest.TestCase, TestCreateKPVsWithinSlices):
