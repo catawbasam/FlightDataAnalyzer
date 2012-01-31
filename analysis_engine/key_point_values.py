@@ -1307,7 +1307,7 @@ class AirspeedBelowFL100Max(KeyPointValueNode):
     '''
     name = 'Airspeed Below FL100 Max'
     def derive(self, alt_std=P('Altitude STD'), airspeed=P('Airspeed')):
-        self.create_kpvs_within_slices(speed.array,
+        self.create_kpvs_within_slices(airspeed.array,
                                        alt_std.slices_below(10000),
                                        max_value)
 

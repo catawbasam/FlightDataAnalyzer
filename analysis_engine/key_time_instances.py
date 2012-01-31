@@ -257,10 +257,7 @@ class TakeoffAccelerationStart(KeyTimeInstanceNode):
         # List the minimum required parameters. If 'Altitude Radio For Flight
         # Phases' is available, that's a bonus and we will use it, but it is
         # not required.
-        if 'Airspeed' in available and 'Takeoff' in available :
-            return True
-        else:
-            return False
+        return 'Airspeed' in available and 'Takeoff' in available
         
     # List the optimal parameter set here
     def derive(self, speed=P('Airspeed'), takeoffs=S('Takeoff'),
@@ -282,8 +279,11 @@ class TakeoffAccelerationStart(KeyTimeInstanceNode):
                 # of airspeed. We use this if the acceleration is not
                 # available or if, for any reason, the previous computation
                 # failed.
-                start_accel = peak_curvature(speed.array[takeoff.slice]) +\
-                    takeoff.slice.start
+                pc = peak_curvature(speed.array[takeoff.slice])
+                if pc:
+                    start_accel = pc + takeoff.slice.start
+                else:
+                    pass
 
             if start_accel != None:
                 self.create_kti(start_accel)
