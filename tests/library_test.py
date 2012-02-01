@@ -1,10 +1,8 @@
 import csv
 import unittest
 import numpy as np
-from numpy.random import uniform
-
+import mock
 from math import sqrt, pi
-
 from datetime import datetime
 
 # A set of masked array test utilities from Pierre GF Gerard-Marchant
@@ -1618,6 +1616,21 @@ class TestValueAtTime(unittest.TestCase):
         array[2] = np.ma.masked
         self.assertEquals (value_at_time(array, 2.0, 0.2, 1.0), None)
 
+
+class TestValueAtDatetime(unittest.TestCase):
+    @mock.patch('analysis_engine.library.value_at_time')
+    def test_value_at_datetime(self, value_at_time):
+        array = mock.Mock()
+        hz = mock.Mock()
+        offset = mock.Mock()
+        start_datetime = datetime.now()
+        seconds = 20
+        value_datetime = start_datetime + timedelta(seconds=seconds)
+        value = value_at_datetime(start_datetime, array, hz, offset,
+                                  value_datetime)
+        value_at_time.assert_called_once_with(array, hz, offset, seconds)
+        self.assertEqual(value, value_at_time.return_value)
+        
         
 class TestValueAtIndex(unittest.TestCase):
 

@@ -547,6 +547,42 @@ class Eng_EGTMin(DerivedParameterNode):
         self.array = eng.min(axis=0)
 
 
+class Eng_EPRMax(DerivedParameterNode):
+    #TODO: TEST
+    name = "Eng (*) EPR Max"
+    @classmethod
+    def can_operate(cls, available):
+        # works with any combination of params available
+        if any([d in available for d in cls.get_dependency_names()]):
+            return True
+        
+    def derive(self, 
+               eng1=P('Eng (1) EPR'),
+               eng2=P('Eng (2) EPR'),
+               eng3=P('Eng (3) EPR'),
+               eng4=P('Eng (4) EPR')):
+        eng = vstack_params(eng1, eng2, eng3, eng4)
+        self.array = eng.max(axis=0)
+
+
+class Eng_EPRMin(DerivedParameterNode):
+    #TODO: TEST
+    name = "Eng (*) EPR Min"
+    @classmethod
+    def can_operate(cls, available):
+        # works with any combination of params available
+        if any([d in available for d in cls.get_dependency_names()]):
+            return True
+        
+    def derive(self, 
+               eng1=P('Eng (1) EPR'),
+               eng2=P('Eng (2) EPR'),
+               eng3=P('Eng (3) EPR'),
+               eng4=P('Eng (4) EPR')):
+        eng = vstack_params(eng1, eng2, eng3, eng4)
+        self.array = eng.min(axis=0)
+
+
 class Eng_N1Avg(DerivedParameterNode):
     name = "Eng (*) N1 Avg"
     @classmethod
@@ -757,6 +793,42 @@ class Eng_OilPressMin(DerivedParameterNode):
                eng4=P('Eng (4) Oil Press')):
         eng = vstack_params(eng1, eng2, eng3, eng4)
         self.array = eng.min(axis=0)
+
+
+class Eng_TorqueMin(DerivedParameterNode):
+    #TODO: TEST
+    name = "Eng (*) Torque Min"
+    @classmethod
+    def can_operate(cls, available):
+        # works with any combination of params available
+        if any([d in available for d in cls.get_dependency_names()]):
+            return True
+        
+    def derive(self, 
+               eng1=P('Eng (1) Torque'),
+               eng2=P('Eng (2) Torque'),
+               eng3=P('Eng (3) Torque'),
+               eng4=P('Eng (4) Torque')):
+        engines = vstack_params(eng1, eng2, eng3, eng4)
+        self.array = np.ma.min(engines, axis=0)
+
+
+class Eng_TorqueMax(DerivedParameterNode):
+    #TODO: TEST
+    name = "Eng (*) Torque Max"
+    @classmethod
+    def can_operate(cls, available):
+        # works with any combination of params available
+        if any([d in available for d in cls.get_dependency_names()]):
+            return True
+        
+    def derive(self, 
+               eng1=P('Eng (1) Torque'),
+               eng2=P('Eng (2) Torque'),
+               eng3=P('Eng (3) Torque'),
+               eng4=P('Eng (4) Torque')):
+        engines = vstack_params(eng1, eng2, eng3, eng4)
+        self.array = np.ma.max(engines, axis=0)
 
 
 class Eng_VibN1Max(DerivedParameterNode):
@@ -1400,6 +1472,13 @@ class Pitch(DerivedParameterNode):
         self.hz = p1.hz * 2
         self.offset = min(p1.offset, p2.offset)
         self.array = interleave (p1, p2)
+
+
+class PitchRate(DerivedParameterNode):
+    # TODO: Tests.
+    def derive(self, pitch=P('Pitch')):
+        # TODO: What should half_width be?
+        self.array = rate_of_change(pitch, 1)
 
 
 class ThrottleLever(DerivedParameterNode):

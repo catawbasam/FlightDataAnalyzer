@@ -1626,7 +1626,7 @@ def _value(array, _slice, operator):
     index = operator(array[_slice]) + (_slice.start or 0) * (_slice.step or 1)
     return Value(index, array[index])
 
-def value_at_time (array, hz, offset, time_index):
+def value_at_time(array, hz, offset, time_index):
     '''
     Finds the value of the data in array at the time given by the time_index.
     
@@ -1639,10 +1639,32 @@ def value_at_time (array, hz, offset, time_index):
     :param time_index: time into the array where we want to find the array value.
     :type time_index: float
     :returns: interpolated value from the array
+    :raises ValueError: From value_at_index if time_index is outside of array range.
     '''
     time_into_array = time_index - offset
     location_in_array = time_into_array * hz
     return value_at_index(array, location_in_array)
+
+def value_at_datetime(start_datetime, array, hz, offset, value_datetime):
+    '''
+    Finds the value of the data in array at the time given by value_datetime.
+    
+    :param start_datetime: Start datetime of data.
+    :type start_datetime: datetime
+    :param array: input data
+    :type array: masked array
+    :param hz: sample rate for the input data (sec-1)
+    :type hz: float
+    :param offset: fdr offset for the array (sec)
+    :type offset: float    
+    :param value_datetime: Datetime to fetch the value for.
+    :type value_datetime: datetime
+    :returns: interpolated value from the array
+    :raises ValueError: From value_at_index if value_datetime is outside of array range.
+    '''
+    value_timedelta = value_datetime - start_datetime
+    seconds = value_timedelta.total_seconds()
+    return value_at_time(array, hz, offset, seconds)
 
 def value_at_index(array, index):
     '''
@@ -1653,6 +1675,7 @@ def value_at_index(array, index):
     :param index: index into the array where we want to find the array value.
     :type index: float
     :returns: interpolated value from the array
+    :raises ValueError: If index is outside of array range.
     '''
     if index < 0.0 or index > len(array):
         raise ValueError, 'Seeking value outside data time range'
