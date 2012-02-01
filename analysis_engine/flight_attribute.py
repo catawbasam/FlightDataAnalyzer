@@ -365,7 +365,8 @@ class LandingRunway(FlightAttributeNode):
                landing_latitude=P('Latitude At Landing'),
                landing_longitude=P('Longitude At Landing'),
                approach_ilsfreq=KPV('ILS Frequency On Approach'),
-               precision=A('Precise Positioning')):
+               precision=A('Precise Positioning')
+               ):
         '''
         See TakeoffRunway for runway information.
         '''

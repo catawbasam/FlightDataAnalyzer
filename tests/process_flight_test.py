@@ -39,6 +39,7 @@ class TestProcessFlight(unittest.TestCase):
                    'Main Gear To Altitude Radio': 10,
                    'Manufacturer': 'Boeing',
                    'Tail Number': 'G-ABCD',
+                   'Precise Positioning': True,
                    'Flap Selections': [0,1,2,5,10,15,25,30,40],
                    }
         
@@ -72,13 +73,21 @@ class TestProcessFlight(unittest.TestCase):
         res = process_flight(hdf_path, ac_info, draw=False)
         self.assertEqual(len(res), 4)
 
-        from analysis_engine.plot_flight import csv_flight_details
-        csv_flight_details(hdf_path, res['kti'], res['kpv'], res['phases'])
+        #from analysis_engine.plot_flight import csv_flight_details
+        #csv_flight_details(hdf_path, res['kti'], res['kpv'], res['phases'])
 
-        if debug:
-            plot_flight(hdf_path, res['kti'], res['kpv'], res['phases'])
+        #if debug:
+            #plot_flight(hdf_path, res['kti'], res['kpv'], res['phases'])
 
         #TODO: Further assertions on the results!
+        
+        
+    def test_time_taken(self):
+        from timeit import Timer
+        timer = Timer(self.test_1_7295949_737_3C)
+        time = min(timer.repeat(1, 1))
+        print "Time taken %s secs" % time
+        self.assertLess(time, 1.0, msg="Took too long")    
 
     @unittest.skipIf(not os.path.isfile("test_data/2_6748957_L382-Hercules.hdf5"),
                      "Test file not present")
