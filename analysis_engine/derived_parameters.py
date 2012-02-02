@@ -204,6 +204,7 @@ class AltitudeAAL(DerivedParameterNode):
         return 'Altitude AAL For Flight Phases' in available
     """
     name = "Altitude AAL"
+    units = 'ft'
     def derive(self, roc = P('Rate Of Climb'),
                alt_std = P('Altitude STD'),
                alt_rad = P('Altitude Radio'),
@@ -268,6 +269,7 @@ class AltitudeAAL(DerivedParameterNode):
     
 class AltitudeAALForFlightPhases(DerivedParameterNode):
     name = 'Altitude AAL For Flight Phases'
+    units = 'ft'
     # This crude parameter is used for flight phase determination,
     # and only uses airspeed and pressure altitude for robustness.
     def derive(self, alt_std=P('Altitude STD'), fast=S('Fast')):
@@ -291,15 +293,18 @@ class AltitudeAALForFlightPhases(DerivedParameterNode):
     
     
 class AltitudeForClimbCruiseDescent(DerivedParameterNode):
+    units = 'ft'
     def derive(self, alt_std=P('Altitude STD')):
         self.array = hysteresis(alt_std.array, HYSTERESIS_FPALT_CCD)
     
     
 class AltitudeForFlightPhases(DerivedParameterNode):
+    units = 'ft'
     def derive(self, alt_std=P('Altitude STD')):
         self.array = hysteresis(repair_mask(alt_std.array), HYSTERESIS_FPALT)
     
-    
+
+# Q: Which of the two following AltitudeRadio's are correct?
 class AltitudeRadio(DerivedParameterNode):
     """
     This function allows for the distance between the radio altimeter antenna
@@ -308,6 +313,7 @@ class AltitudeRadio(DerivedParameterNode):
     The parameter raa_to_gear is measured in feet and is positive if the
     antenna is forward of the mainwheels.
     """
+    units = 'ft'
     def derive(self, alt_rad=P('Altitude Radio'), pitch=P('Pitch'),
                main_gear_to_alt_rad=A('Main Gear To Altitude Radio')):
         # Align the pitch attitude samples to the Radio Altimeter samples,
@@ -315,6 +321,25 @@ class AltitudeRadio(DerivedParameterNode):
         pitch_rad = np.radians(pitch.array)
         # Now apply the offset if one has been provided
         self.array = alt_rad.array - np.sin(pitch_rad) * main_gear_to_alt_rad.value
+
+
+class AltitudeRadio(DerivedParameterNode):
+    '''
+    Assumes that signal (A) is at twice the frequency of (B) and (C).
+    
+    Therefore align to first dependency is disabled.
+    
+    TODO: Make this the 737-3C fram version only and await any fixes needed for other frames.
+    
+    '''
+    align_to_first_dependency = False
+    
+    def derive(self, source_A=P('Altitude Radio (A)'),
+               source_B=P('Altitude Radio (B)'),
+               source_C=P('Altitude Radio (C)')):
+        
+        self.array, self.frequency, self.offset = \
+            blend_two_parameters(source_B, source_C)
 
 
 """
@@ -326,12 +351,14 @@ class AltitudeRadioForFlightPhases(DerivedParameterNode):
 
 class AltitudeQNH(DerivedParameterNode):
     name = 'Altitude QNH'
+    units = 'ft'
     def derive(self, param=P('Altitude AAL')):
         return NotImplemented
 
 
 class AltitudeSTD(DerivedParameterNode):
     name = 'Altitude STD'
+    units = 'ft'
     @classmethod
     def can_operate(cls, available):
         high_and_low = 'Altitude STD High' in available and \
@@ -418,7 +445,6 @@ class AltitudeSTD(DerivedParameterNode):
         elif alt_std_rough and ivv:
             self.array = self._rough_and_ivv(alt_std_rough, ivv)
             #ALT_STDC = (last_alt_std * 0.9) + (ALT_STD * 0.1) + (IVVR / 60.0)
-            
 
 
 class AltitudeTail(DerivedParameterNode):
@@ -429,6 +455,7 @@ class AltitudeTail(DerivedParameterNode):
     The parameter gear_to_tail is measured in feet and is the distance from 
     the main gear to the point on the tail most likely to scrape the runway.
     """
+    units = 'ft'
     #TODO: Review availability of Attribute "Dist Gear To Tail"
     def derive(self, alt_rad = P('Altitude Radio'), 
                pitch = P('Pitch'),
@@ -461,6 +488,7 @@ class ClimbForFlightPhases(DerivedParameterNode):
     
 class DistanceTravelled(DerivedParameterNode):
     "Distance travelled in Nautical Miles. Calculated using Groundspeed"
+    units = 'nm'
     #Q: could be validated using the track flown or distance between origin 
     # and destination
     def derive(self, gspd=P('Groundspeed')):
@@ -468,13 +496,13 @@ class DistanceTravelled(DerivedParameterNode):
 
 
 class DistanceToLanding(DerivedParameterNode):
+    units = 'nm'
     # Q: Is this distance to final landing, or distance to each approach
     # destination (i.e. resets once reaches point of go-around)
     def derive(self, dist=P('Distance Travelled'), tdwns=KTI('Touchdown')):
                ##ils_gs=P('Glideslope Deviation'),
                ##ldg=P('LandingAirport')):
         return NotImplemented
-    
 
 
 class Eng_EGTAvg(DerivedParameterNode):
@@ -493,7 +521,8 @@ class Eng_EGTAvg(DerivedParameterNode):
                eng4=P('Eng (4) EGT')):
         engines = vstack_params(eng1, eng2, eng3, eng4)
         self.array = np.ma.average(engines, axis=0)
-        
+
+
 class Eng_EGTMax(DerivedParameterNode):
     #TODO: TEST
     name = "Eng (*) EGT Max"
@@ -900,7 +929,6 @@ class FlapStepped(DerivedParameterNode):
             # round to nearest 5 degrees for the moment
             step = 5.0  # must be a float
             self.array = np.ma.round(flap.array / step) * step
-        
             
     
 class SlatStepped(DerivedParameterNode):
@@ -909,8 +937,8 @@ class SlatStepped(DerivedParameterNode):
     """
     def derive(self, flap=P('Slat')):
         return NotImplemented
-    
-    
+
+
 class GearSelectedDown(DerivedParameterNode):
     # And here is where the nightmare starts.
     # Sometimes recorded
@@ -967,6 +995,7 @@ class HeadingContinuous(DerivedParameterNode):
     jump as it passes through North. To recover the compass display, modulus
     ("%360" in Python) returns the value to display to the user.
     """
+    units = 'deg'
     def derive(self, head_mag=P('Heading')):
         self.array = repair_mask(straighten_headings(head_mag.array))
 
@@ -975,11 +1004,13 @@ class HeadingMagnetic(DerivedParameterNode):
     '''
     This class currently exists only to give the 146-301 Magnetic Heading.
     '''
+    units = 'deg'
     def derive(self, head_mag=P('RECORDED MAGNETIC HEADING')):
         self.array = head_mag.array
 
 
 class HeadingTrue(DerivedParameterNode):
+    units = 'deg'
     # Computes magnetic deviation linearly changing from the deviation at
     # the origin to the destination.
     def derive(self, head=P('Heading Continuous'),
@@ -1213,25 +1244,6 @@ class RateOfClimb(DerivedParameterNode):
             # corrupt source data. So, change the "3" only after careful
             # consideration.
             self.array = rate_of_change(alt_std,3)*60
-
-
-class AltitudeRadio(DerivedParameterNode):
-    '''
-    Assumes that signal (A) is at twice the frequency of (B) and (C).
-    
-    Therefore align to first dependency is disabled.
-    
-    TODO: Make this the 737-3C fram version only and await any fixes needed for other frames.
-    
-    '''
-    align_to_first_dependency = False
-    
-    def derive(self, source_A=P('Altitude Radio (A)'),
-               source_B=P('Altitude Radio (B)'),
-               source_C=P('Altitude Radio (C)')):
-        
-        self.array, self.frequency, self.offset = \
-            blend_two_parameters(source_B, source_C)
          
          
 class RateOfClimbForFlightPhases(DerivedParameterNode):
@@ -1266,6 +1278,7 @@ class CoordinatesSmoothed(object):
     '''
     Superclass for LatitudeSmoothed and LongitudeSmoothed.
     '''
+    units = 'deg'
     def _smooth_coordinates(self, coord1, coord2):
         """
         Acceleration along track only used to determine the sample rate and
@@ -1319,6 +1332,7 @@ class RateOfTurn(DerivedParameterNode):
 
 
 class Pitch(DerivedParameterNode):
+    units = 'deg'
     def derive(self, p1=P('Pitch (1)'), p2=P('Pitch (2)')):
         self.hz = p1.hz * 2
         self.offset = min(p1.offset, p2.offset)

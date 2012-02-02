@@ -1076,21 +1076,30 @@ def rate_of_change(diff_param, half_width):
     slope[-hw:] = (to_diff[-hw:] - to_diff[-hw-1:-1])* hz
     return slope
 
-def repair_mask(array):
+def repair_mask(array, frequency=1, repair_duration=REPAIR_DURATION,
+                raise_duration_exceedance=True):
     '''
     This repairs short sections of data ready for use by flight phase algorithms
     It is not intended to be used for key point computations, where invalid data
-    should remain masked.
+    should remain masked. Modifies the array in-place.
+    
+    :param repair_duration: If None, any length of masked data will be repaired.
     '''
+    repair_samples = repair_duration * frequency if repair_duration else None
     masked_sections = np.ma.clump_masked(array)
     for section in masked_sections:
         length = section.stop - section.start
-        if (length) > REPAIR_DURATION:  # TODO: include frequency as length is in samples and REPAIR_DURATION is in seconds
-            break # Too long to repair
+        if repair_samples and (length) > repair_samples:
+            if raise_duration_exceedance:
+                raise ValueError("Length of masked section '%s' exceeds "
+                                 "repair_samples '%s'." % (length,
+                                                           repair_samples))
+            else:
+                continue # Too long to repair
         elif section.start == 0:
-            break # Can't interpolate if we don't know the first sample
+            continue # Can't interpolate if we don't know the first sample
         elif section.stop == len(array):
-            break # Can't interpolate if we don't know the last sample
+            continue # Can't interpolate if we don't know the last sample
         else:
             array[section] = np.interp(np.arange(length) + 1,
                                        [0, length + 1],
@@ -1452,7 +1461,8 @@ def value_at_time(array, hz, offset, time_index):
     :returns: interpolated value from the array
     :raises ValueError: From value_at_index if time_index is outside of array range.
     '''
-    time_into_array = time_index - offset
+    # Timedelta truncates to 6 digits, therefore round offset down.
+    time_into_array = time_index - round(offset-0.0000005, 6)
     location_in_array = time_into_array * hz
     return value_at_index(array, location_in_array)
 

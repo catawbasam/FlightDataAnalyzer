@@ -82,6 +82,20 @@ class APIHandler(object):
         raise NotImplementedError
 
 
+class DummyAPIHandler(APIHandler):
+    '''
+    DummyAPIHandler will always raise NotFoundError.
+    '''
+    def get_nearest_airport(self, *args, **kwargs):
+        raise NotFoundError('DummyAPIHandler will always raise NotFoundError.')       
+    
+    def get_nearest_runway(self, *args, **kwargs):
+        raise NotFoundError('DummyAPIHandler will always raise NotFoundError.')
+    
+    def get_vspeed_limit(self, *args, **kwargs):
+        raise NotFoundError('DummyAPIHandler will always raise NotFoundError.')
+
+
 def get_api_handler(*args, **kwargs):
     '''
     Returns an instance of the class specified by the settings.HANDLER import

@@ -53,13 +53,12 @@ class APIHandlerHTTP(APIHandler):
         :raises APIConnectionError: If the server does not respond or returns 401.
         :raises UnknownAPIError: If the server returns 500 or an unexpected status code.
         '''
-        ##if method == 'GET':
         # Encode body as GET parameters.
         body = urllib.urlencode(body)
         http = httplib2.Http(timeout=timeout)
         try:
             resp, content = http.request(uri, method, body)
-        except (httplib2.ServerNotFoundError, socket.error): # DNS..
+        except (httplib2.ServerNotFoundError, socket.error, AttributeError): # DNS..
             raise APIConnectionError(uri, method, body)
         status = int(resp['status'])
         try:

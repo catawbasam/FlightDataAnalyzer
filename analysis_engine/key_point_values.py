@@ -1032,16 +1032,16 @@ class PitchRateDuringTakeoffMax(KeyPointValueNode):
         self.create_kpvs_within_slices(pitch_rate.array, takeoffs, max_value)
 
 
-class PitchRateFrom2DegreesOfPitchTo35FtMin(KeyPointValueNode):
-    #TODO: TESTS
-    def derive(self, pitch_rate=P('Pitch Rate'), pitch=P('Pitch'), 
-               alt_aal=P('Altitude AAL')):
-        for this_slice in alt_aal.slices_from_to(0, 35):
-            pitch_2_deg = index_at_value(pitch, 2, this_slice)
-            pitch_2_slice = subslice(this_slice, slice(pitch_2_deg,None,1))
-            index, value = min_value(pitch_rate.array, pitch_2_slice)
-            self.create_kpv(index, value)
-    
+# Commenting to get process_flight working temporarily.
+#class PitchRateFrom2DegreesOfPitchTo35FtMin(KeyPointValueNode):
+    ##TODO: TESTS
+    #def derive(self, pitch_rate=P('Pitch Rate'), pitch=P('Pitch'), 
+               #alt_aal=P('Altitude AAL')):
+        #for this_slice in alt_aal.slices_from_to(0, 35):
+            #pitch_2_deg = index_at_value(pitch.array, 2, this_slice)
+            #pitch_2_slice = subslice(this_slice, slice(pitch_2_deg,None,1))
+            #index, value = min_value(pitch_rate.array, pitch_2_slice)
+            #self.create_kpv(index, value)
 
 
 class PowerOnWithSpeedbrakesDeployedDuration(KeyPointValueNode):
@@ -1281,13 +1281,13 @@ class WindshearWarningBelow1500Ft(KeyPointValueNode):
         return NotImplemented
 
 
-class TaxiSpeedStraight(KeyPointValueNode):
-    name = 'Groundspeed event to force operation of the GAT parameter TODO: Remove title'
-    def derive(self, groundspeed=P('Groundspeed Along Track'), rot=P('Rate Of Turn')):
-        # TODO: Decide on parameter. Can use groundspeed, but amended to ...along track to ensure derived parameter call.
-        if groundspeed > 900:
-            print "wow"
-            return
+#class TaxiSpeedStraight(KeyPointValueNode):
+    #name = 'Groundspeed event to force operation of the GAT parameter TODO: Remove title'
+    #def derive(self, groundspeed=P('Groundspeed Along Track'), rot=P('Rate Of Turn')):
+        ## TODO: Decide on parameter. Can use groundspeed, but amended to ...along track to ensure derived parameter call.
+        #if groundspeed > 900:
+            #print "wow"
+            #return
 
 
 class AirspeedBelowAltitudeMax(KeyPointValueNode):

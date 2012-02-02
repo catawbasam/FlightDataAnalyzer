@@ -248,10 +248,17 @@ class DerivedParameterNode(Node):
     Also used during processing when creating parameters from HDF files as
     dependencies for other Nodes.
     """
-    def __init__(self, name='', array=np.ma.array([]), frequency=1, offset=0, *args, **kwargs):
+    # The units which the derived parameter's array is measured in. It is in
+    # lower case to be consistent with the HDFAccess Parameter class and
+    # therefore written as an attribute to the HDF file.
+    units = None
+    
+    def __init__(self, name='', array=np.ma.array([]), frequency=1, offset=0,
+                 *args, **kwargs):
         # create array results placeholder
         self.array = array # np.ma.array derive result goes here!
-        super(DerivedParameterNode, self).__init__(name=name, frequency=frequency, 
+        super(DerivedParameterNode, self).__init__(name=name,
+                                                   frequency=frequency, 
                                                    offset=offset, 
                                                    *args, **kwargs)
         
