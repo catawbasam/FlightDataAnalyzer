@@ -3,15 +3,18 @@ import numpy as np
 
 from analysis_engine.node import A, DerivedParameterNode, KTI, P, S
 
-from analysis_engine.library import (blend_alternate_sensors,
+from analysis_engine.library import (bearings_and_distances,
+                                     blend_alternate_sensors,
                                      blend_two_parameters,
                                      first_order_lag,
                                      first_order_washout,
                                      hysteresis,
                                      index_at_value,
                                      index_of_datetime,
+                                     integrate,
                                      interleave,
                                      is_slice_within_slice,
+                                     latitudes_and_longitudes,
                                      merge_sources,
                                      rate_of_change, 
                                      repair_mask,
@@ -26,9 +29,11 @@ from settings import (AZ_WASHOUT_TC,
                       HYSTERESIS_FPALT,
                       HYSTERESIS_FPALT_CCD,
                       HYSTERESIS_FPIAS,
+                      HYSTERESIS_FP_RAD_ALT,
                       HYSTERESIS_FPROC,
                       GRAVITY_IMPERIAL,
                       GRAVITY_METRIC,
+                      KTS_TO_FPS,
                       KTS_TO_MPS,
                       RATE_OF_CLIMB_LAG_TC
                       )
@@ -195,43 +200,72 @@ class AirspeedTrue(DerivedParameterNode):
 
 class AltitudeAAL(DerivedParameterNode):
     """
-    # List the minimum acceptable parameters here
-    @classmethod
-    def can_operate(cls, available):
-        # List the minimum required parameters. If 'Altitude Radio For Flight
-        # Phases' is available, that's a bonus and we will use it, but it is
-        # not required.
-        return 'Altitude AAL For Flight Phases' in available
-    """
+    This is the main altitude measure used during analysis. Where radio
+    altimeter data is available, this is used for altitudes up to 100ft and
+    thereafter the pressure altitude signal is used. The two are "joined"
+    together at the sample above 100ft in the climb or descent as
+    appropriate. Once joined, the altitude signal is inertially smoothed to
+    provide accurate short term signals at the sample rate of the Rate of
+    Climb parameter, and this also reduces any "join" effect at the signal
+    transition.
+    
+    If no radio altitude signal is available, the simple measure
+    "Altitude AAL For Flight Phases" is used instead, which provides perfecly
+    workable solutions except that it tends to dip below the runway at
+    takeoff and landing.
+    """    
     name = "Altitude AAL"
     units = 'ft'
+
+    @classmethod
+    def can_operate(cls, available):
+        return 'Altitude AAL For Flight Phases' in available:
+    
     def derive(self, roc = P('Rate Of Climb'),
+               alt_aal_4fp = P('Altitude AAL For Flight Phases'),
                alt_std = P('Altitude STD'),
                alt_rad = P('Altitude Radio'),
                fast = S('Fast')):
+        if alt_rad:
+            # Initialise the array to zero, so that the altitude above the airfield
+            # will be 0ft when the aircraft cannot be airborne.
+            alt_aal = np.ma.masked_all_like(alt_std.array)
+            
+            for speedy in fast:
+                # Populate the array with Altitude Radio data from one runway
+                # to the next.
+                alt_aal[speedy.slice] = np.ma.copy(alt_rad.array[speedy.slice])
 
-        # alt_aal is a local working array, which may strictly be unnecessary
-        # but makes testing and inspection of results convenient.
-        alt_aal = np.ma.copy(alt_rad.array) 
-        self.array = np.ma.masked_all_like(alt_aal)
-
-        for speedy in fast:
-            if alt_rad:
-                highs = np.ma.clump_unmasked(np.ma.masked_less(alt_rad.array[speedy.slice],100))
+                # Now look where the aircraft passed through 100ft Alt_Rad
+                highs = np.ma.clump_unmasked(np.ma.masked_less
+                                             (alt_rad.array[speedy.slice],100))
+                
+                # For each segment like this (allowing for touch and go's)
                 for high in highs:
+                    
+                    # TODO: Allow for touch and go's (i.e. end indexes should refer to possible touch and gos.
+                    
+                    # Find the highest point, where we'll put the "step"
                     peak = np.ma.argmax(alt_std.array[speedy.slice][high])
 
+                    # We want to make the climb data join just above 100ft
                     dh_climb = alt_rad.array[speedy.slice][high][0] - \
                         alt_std.array[speedy.slice][high][0]
 
-                    alt_aal[speedy.slice][high][0:peak] = \
-                        alt_std.array[speedy.slice][high][0:peak] + dh_climb
+                    # Shift the pressure altitude data with this adjustment
+                    alt_aal.data[speedy.slice][high][0:peak] = \
+                        alt_std.array.data[speedy.slice][high][0:peak] + dh_climb
+                    alt_aal.mask[speedy.slice][high][0:peak] = \
+                        np.ma.getmaskarray(alt_std.array)[speedy.slice][high][0:peak]
 
+                    # ...and do the same on the way down...
                     dh_descend = alt_rad.array[speedy.slice][high][-1] - \
                         alt_std.array[speedy.slice][high][-1]
 
-                    alt_aal[speedy.slice][high][peak:-1] = \
-                        alt_std.array[speedy.slice][high][peak:-1] + dh_descend
+                    alt_aal.data[speedy.slice][high][peak:] = \
+                        alt_std.array[speedy.slice][high][peak:] + dh_descend
+                    alt_aal.mask[speedy.slice][high][peak:] = \
+                        np.ma.getmaskarray(alt_std.array)[speedy.slice][high][peak:]
                 
                 # Use the complementary smoothing approach
                 alt_aal_lag = first_order_lag(alt_aal[speedy.slice],
@@ -240,31 +274,12 @@ class AltitudeAAL(DerivedParameterNode):
                 roc_lag = first_order_lag(roc.array[speedy.slice],RATE_OF_CLIMB_LAG_TC, roc.hz,
                                           gain=RATE_OF_CLIMB_LAG_TC/60.0)
     
-                self.array[speedy.slice] = (alt_aal_lag + roc_lag)
+                alt_aal[speedy.slice] = (alt_aal_lag + roc_lag)
                 
-                
-                """
-                #-------------------------------------------------------------------
-                # TEST OUTPUT TO CSV FILE FOR DEBUGGING ONLY
-                # TODO: REMOVE THIS SECTION BEFORE RELEASE
-                #-------------------------------------------------------------------
-                import csv
-                spam = csv.writer(open('spam.csv', 'wb'))
-                spam.writerow(['Rate Of Climb', 'Altitude STD', 'Altitude Radio','alt_aal',
-                               'alt_aal_lag', 'roc_lag', 'self.array'])
-                for showme in range(0, len(alt_aal_lag)):
-                    spam.writerow([roc.array.data[speedy.slice][showme], 
-                                   alt_std.array.data[speedy.slice][showme],
-                                   alt_rad.array.data[speedy.slice][showme],
-                                   alt_aal.data[speedy.slice][showme],
-                                   alt_aal_lag[showme],
-                                   roc_lag[showme],
-                                   self.array[speedy.slice][showme]])
-                #-------------------------------------------------------------------
-                # TEST OUTPUT TO CSV FILE FOR DEBUGGING ONLY
-                # TODO: REMOVE THIS SECTION BEFORE RELEASE
-                #-------------------------------------------------------------------
-                """
+            self.array = alt_aal
+            
+        else:
+            self.array = np.ma.copy(alt_aal_4fp.array) 
 
     
 class AltitudeAALForFlightPhases(DerivedParameterNode):
@@ -276,7 +291,7 @@ class AltitudeAALForFlightPhases(DerivedParameterNode):
         
         # Initialise the array to zero, so that the altitude above the airfield
         # will be 0ft when the aircraft cannot be airborne.
-        self.array = np.ma.zeros(len(alt_std.array))
+        self.array = np.ma.masked_all_like(alt_std.array)
         
         altitude = repair_mask(alt_std.array) # Remove small sections of corrupt data
         for speedy in fast:
@@ -342,12 +357,13 @@ class AltitudeRadio(DerivedParameterNode):
             blend_two_parameters(source_B, source_C)
 
 
-"""
+'''
 TODO: Remove when proven to be superfluous
 class AltitudeRadioForFlightPhases(DerivedParameterNode):
     def derive(self, alt_rad=P('Altitude Radio')):
         self.array = hysteresis(repair_mask(alt_rad.array), HYSTERESIS_FP_RAD_ALT)
-"""
+'''
+
 
 class AltitudeQNH(DerivedParameterNode):
     name = 'Altitude QNH'
@@ -964,30 +980,37 @@ class GroundspeedAlongTrack(DerivedParameterNode):
     # groundspeed data stops at 40kn or thereabouts.
     def derive(self, gndspd=P('Ground Speed'),
                at=P('Acceleration Along Track'),
+               
+               
+               alt_aal=P('Altitude AAL'),
+               glide = P('ILS Glideslope'),
+
+
                ):
         at_washout = first_order_washout(at.array, AT_WASHOUT_TC, gndspd.hz, 
                                          gain=GROUNDSPEED_LAG_TC*GRAVITY_METRIC)
         self.array = first_order_lag(gndspd.array*KTS_TO_MPS + at_washout,
                                      GROUNDSPEED_LAG_TC,gndspd.hz)
     
-        """
+        
         #-------------------------------------------------------------------
         # TEST OUTPUT TO CSV FILE FOR DEBUGGING ONLY
         # TODO: REMOVE THIS SECTION BEFORE RELEASE
         #-------------------------------------------------------------------
         import csv
         spam = csv.writer(open('beans.csv', 'wb'))
-        spam.writerow(['at', 'gndspd', 'at_washout', 'self'])
-        for showme in range(0, len(at.array):
+        spam.writerow(['at', 'gndspd', 'at_washout', 'self', 'alt_aal','glide'])
+        for showme in range(0, len(at.array)):
             spam.writerow([at.array.data[showme], 
-                           gndspd.array.data[showme]*KTS_TO_MPS,
+                           gndspd.array.data[showme]*KTS_TO_FPS,
                            at_washout[showme], 
-                           self.array.data[showme]])
+                           self.array.data[showme],
+                           alt_aal.array[showme],glide.array[showme]])
         #-------------------------------------------------------------------
         # TEST OUTPUT TO CSV FILE FOR DEBUGGING ONLY
         # TODO: REMOVE THIS SECTION BEFORE RELEASE
         #-------------------------------------------------------------------
-        """
+        
 
 class HeadingContinuous(DerivedParameterNode):
     """
@@ -1076,60 +1099,185 @@ class HeadingTrue(DerivedParameterNode):
         self.array = true_array
         """
 
-        
-class ILSLocalizerComputation(DerivedParameterNode):
-    name = "ILS Localizer Sums"
-    
-    @classmethod
-    def can_operate(cls, available):
-        return True
-    
+"""
+class LatitudeAdjustToILS(DerivedParameterNode):
+    name="Latitude Adjusted To ILS"
     def derive(self, ils_loc = P('ILS Localizer'),
+               lat = P('Latitude'),
+               lon = P('Longitude'),
+               on_locs = S('ILS Localizer Established')):
+        # We can be on the ILS during an approach leading to a landing or a go-around.
+        #if (Precisiong Positioning) thingy
+        for on_loc in on-locs:
+"""            
+       
+
+class ILSRange(DerivedParameterNode):
+    name = "ILS Range"
+    
+    """
+    Range is computed from the track where available, otherwise estimated
+    from available groundspeed or airspeed parameters.
+    """
+    
+    def derive(self, lat=P('Latitude'),
+               lon = P('Longitude'),
                glide = P('ILS Glideslope'),
+               gspd = P('Groundspeed'),
+               tas = P('Airspeed True'),
                alt_aal = P('Altitude AAL'),
-               rwy = A('FDR Landing Runway'),
-               lat = P('Latitude Smoothed'),
-               lon = P('Longitude Smoothed'),
-               hdg = P('Heading True'),
-               ap = S('Approach And Landing')
-               ):
-        #-------------------------------------------------------------------
-        # TEST OUTPUT TO CSV FILE FOR DEBUGGING ONLY
-        # TODO: REMOVE THIS SECTION BEFORE RELEASE
-        #-------------------------------------------------------------------
-        if ils_loc and glide and alt_aal and rwy and lat and lon and hdg and ap:
-            import csv
-            spam = csv.writer(open('tomato.csv', 'wb'))
-            spam.writerow(['ILS Localizer',
-                           'ILS GLideslope',
-                           'Altitude AAL',
-                           'Latitude Smoothed',
-                           'Longitude Smoothed',
-                           'Heading True'])
-            scope = ap.get_last()  # Only the last approach is interesting.
-            for showme in range(int(scope.slice.start), int(scope.slice.stop)):
-                spam.writerow([ils_loc.array[showme],
-                               glide.array[showme],
-                               alt_aal.array[showme],
-                               lat.array[showme],
-                               lon.array[showme],
-                               hdg.array[showme]%360.0,
-                               ])
-        self.array = np.ma.arange(1000) # TODO: Remove.
-        #-------------------------------------------------------------------
-        # TEST OUTPUT TO CSV FILE FOR DEBUGGING ONLY
-        # TODO: REMOVE THIS SECTION BEFORE RELEASE
-        #-------------------------------------------------------------------
+               gs_established = S('ILS Glideslope Established'),
+               airport_thing = A('Airport Data of some sort TODO put this straight')):
+        
+        for ils_app in 'ILS Approach Phase':
+
+            if 'Precision':
+                # Convert (repaired) latitude & longitude for the whole phase
+                # into range from the threshold.
+                # threshold{} = airport_thing.value[]
+                brg, ils_range = bearings_and_distances(repair_mask(lat[ils_app]),
+                                                        repair_mask(lon[ils_app]),
+                                                        threshold)
+            else:
+                if 'groundspeed available':
+                    # Estimate range by integrating back from zero at the end
+                    # of the phase to high range values at the start of the
+                    # phase.
+                    speed_signal = gspd.array
+                else:
+                    # Estimate range using true airspeed as above.
+                    speed_signal = tas.array
+                    
+                for this_gs in gs_established:
+                    # Check we don't go below 100ft as the glideslope
+                    # becomes meaningless in the last few samples.
+                    slope = this_gs.slice
+                    slope.stop = index_at_value(
+                        alt_aal.array, 100, _slice(slope.stop,slope.start,-1))
+                    
+                    ils_range = integrate(repair_mask(speed_signal[slope]), 
+                                          scale=KTS_TO_FPS, 
+                                          direction='reverse')
+                    
+                    #(Q: Do we have aircraft with ILS but no groundspeed??)
+            
+                if 'Glideslope Established':
+                    pass
+                    th_dist, gs_slope, gs_gain = \
+                        gs_estimate(ils_range, alt_aal.array[slope], glide[slope])
+                    
+                    # Compute best fit glidepath for the period from start of
+                    # Glideslope Established phase to 100ft (NOT below) - use
+                    # 0ft reference at antenna position (projected onto
+                    # runway centreline) and the glidepath slope given in
+                    # airport database for this step.
+                    
+                    # From the computed best fit line, find the error between
+                    # the range at the threshold (localizer to threshold
+                    # distance) and the range at the 50ft point on the best
+                    # fit glidepath.
+                else:
+                    if 'runway has ILS glideslope antenna':
+                        pass
+                        # Compute range based upon descent path at the ILS
+                        # glidepath angle to minimum point of approach.
+                    else:
+                        # Assume crossing runway threshold at 50ft.
+                        pass
+                        
+
+                # Adjust all range values to match the datum point by
+                # subtracting the range error from all values.
         
         return NotImplemented
-
     
-class ILSGlideslopeGap(DerivedParameterNode):
-    def derive(self, ils_gs = P('Glideslope Deviation'),
-               alt_aal = P('Altitude AAL')):
+    
+class LatitudeAdjusted(DerivedParameterNode):
+    def derive(self, lat = P('Latitude'),
+               lon = P('Longitude'),
+               loc_est = S('ILS Localizer Established'),
+               range = P('ILS Range'),
+               alt_aal = P('Altitude AAL'),
+               gspd = P('Groundspeed'),
+               tas = P('Airspeed True'),
+               ldg_rwy = A('Landing Runway ??'),
+               ):
+        
+        # As Longitude Adjusted
+        
         return NotImplemented
- 
+          
+          
+class LongitudeAdjusted(DerivedParameterNode):
+    def derive(self, lat = P('Latitude'),
+               lon = P('Longitude'),
+               loc_est = S('ILS Localizer Established'),
+               range = P('ILS Range'),
+               alt_aal = P('Altitude AAL'),
+               gspd = P('Groundspeed'),
+               tas = P('Airspeed True'),
+               ldg_rwy = A('Landing Runway ??'),
+               ):
+
+        for app in 'ILS Localizer Established':
+            continue
+            # Recover previously computed range from the threshold and
+            # convert to range from the localizer.
+            
+            # Join with ILS bearings (inherently from the localizer) and
+            # revert the ILS track from range and bearing to lat & long
+            # coordinates.
+
+        if 'Precision':
+            # No need to refine takeoff or landing plots other than using
+            # localizer covered above, so finish now.
+            pass
+        
+        else:
+            # We can improve the track using a variety of techniques.
+
+            # --- Takeoff Track ---
+            
+            if 'groundspeed available':
+                # Compute takeoff track from start of runway using
+                # integrated groundspeed, down runway centreline to point
+                # of liftoff.
+                pass
+            else:
+                # Compute takeoff track from start of runway using
+                # integrated true airspeed down runway centreline to
+                # point of liftoff.
+                pass
     
+            # --- Landing Track ---
+            
+            if not 'Localizer Established Approach':
+                if 'groundspeed available':
+                    # Compute landing track from 50ft AAL over threshold
+                    # using integrated groundspeed, down runway
+                    # centreline.
+                    pass
+
+                else:
+                    # Compute landing track from 50ft AAL over threshold
+                    # using integrated true airspeed, down runway
+                    # centreline.
+                    pass
+
+        # --- Merge Tracks ---
+                
+        # Obtain corrected tracks from takeoff phase, final
+        # approach and landing phase and possible
+        # intermediate approach and go-around phases, and
+        # compute error terms to align the recorded lat&long
+        # with each partial data segment. This is done by
+        # computing linearly varying adjustment factors
+        # between each computed section.
+
+
+        return NotImplemented
+          
+          
 class MACH(DerivedParameterNode):
     def derive(self, ias = P('Airspeed'), tat = P('TAT'),
                alt = P('Altitude Std')):
@@ -1312,7 +1460,7 @@ class CoordinatesSmoothed(object):
 
 class LatitudeSmoothed(DerivedParameterNode, CoordinatesSmoothed):
     def derive(self, acc_fwd=P('Acceleration Along Track'),
-               lat=P('Latitude'), lon=P('Longitude')):
+               lat=P('Latitude Adjusted'), lon=P('Longitude Adjusted')):
         """
         Acceleration along track only used to determine the sample rate and
         alignment of the resulting smoothed track parameter.
@@ -1322,7 +1470,7 @@ class LatitudeSmoothed(DerivedParameterNode, CoordinatesSmoothed):
     
 class LongitudeSmoothed(DerivedParameterNode, CoordinatesSmoothed):
     def derive(self, acc_fwd=P('Acceleration Along Track'),
-               lat=P('Latitude'), lon=P('Longitude')):
+               lat=P('Latitude Adjusted'), lon=P('Longitude Adjusted')):
         self.array = self._smooth_coordinates(lon, lat)
 
 

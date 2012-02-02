@@ -283,29 +283,54 @@ class TestAirspeedMinusVref(unittest.TestCase):
 
 class TestAltitudeAAL(unittest.TestCase):
     def test_can_operate(self):
-        expected = [('Rate Of Climb','Altitude STD','Altitude Radio','Fast')]
+        expected = [('Altitude AAL For Flight Phases',),
+                    ('Rate Of Climb', 'Altitude AAL For Flight Phases'),
+                    ('Altitude AAL For Flight Phases', 'Altitude STD'),
+                    ('Altitude AAL For Flight Phases', 'Altitude Radio'),
+                    ('Altitude AAL For Flight Phases', 'Fast'),
+                    ('Rate Of Climb', 'Altitude AAL For Flight Phases',
+                     'Altitude STD'),
+                    ('Rate Of Climb', 'Altitude AAL For Flight Phases',
+                     'Altitude Radio'), 
+                    ('Rate Of Climb','Altitude AAL For Flight Phases', 'Fast'),
+                    ('Altitude AAL For Flight Phases', 'Altitude STD',
+                     'Altitude Radio'), 
+                    ('Altitude AAL For Flight Phases', 'Altitude STD', 'Fast'), 
+                    ('Altitude AAL For Flight Phases', 'Altitude Radio','Fast'), 
+                    ('Rate Of Climb', 'Altitude AAL For Flight Phases', 
+                     'Altitude STD', 'Altitude Radio'), 
+                    ('Rate Of Climb', 'Altitude AAL For Flight Phases', 
+                     'Altitude STD', 'Fast'), 
+                    ('Rate Of Climb', 'Altitude AAL For Flight Phases', 
+                     'Altitude Radio', 'Fast'), 
+                    ('Altitude AAL For Flight Phases', 'Altitude STD', 
+                     'Altitude Radio', 'Fast'), 
+                    ('Rate Of Climb', 'Altitude AAL For Flight Phases', 
+                     'Altitude STD', 'Altitude Radio', 'Fast')]
         opts = AltitudeAAL.get_operational_combinations()
         self.assertEqual(opts, expected)
         
-    '''
-
-    TODO: Write a better test. The problem is that the algorithm requires the 
-    rate of climb and altitudes to be compatible. i.e. the rates relate to sample intervals etc.
-
     def test_altitude_AAL_basic(self):
-        slow_and_fast_data = np.ma.array(range(60,120,10)+range(120,50,-10))
-        roc = Parameter('Rate Of Climb',np.ma.array([0]*3+[600]*3+[-600]*3+[0]*4))
-        up_and_down_data = np.ma.array([0, 0, 0, 100, 200, 300, 
-                                400, 300, 200, 100, 0, 0, 0], dtype=float)
+        slow_and_fast_data = np.ma.array(range(70,120,10)+range(140,75,-10))
         phase_fast = Fast()
         phase_fast.derive(Parameter('Airspeed', slow_and_fast_data))
+        roc = Parameter('Rate Of Climb',np.ma.array([0]*3+[600]*3+[-600]*3+[0]*4))
+        press_data = np.ma.array([0, 0, 0, 60, 120, 200, 
+                                400, 250, 130, 80, 60, 60, 60], dtype=float)
+        altitude = Parameter('Altitude STD', press_data)
+        rad_data = np.ma.array([0, 0, 0, 60, 120, 200, 
+                                200, 200, 80, 20, -1, -2, 0], dtype=float)
+        alt_radio = Parameter('Altitude Radio', rad_data)
         alt_aal = AltitudeAAL()
-        altitude = Parameter('Altitude STD', up_and_down_data)
-        alt_aal.derive(roc, altitude, altitude, phase_fast)
-        expected = up_and_down_data
+        alt_aal.derive(roc, altitude, altitude, alt_radio, phase_fast)
+        expected = np.ma.array(data=[0,0,0.0,12.8571428571,43.4693877551,
+                                     85.3352769679,139.525197834,169.660855596,
+                                     152.614896854,119.01064061,87.7218861501,
+                                     62.2299186786,0],
+                               mask = [[True]+[False]*11+[True]])
         ma_test.assert_masked_array_approx_equal(alt_aal.array, expected)
-    '''
-
+    
+    
 class TestAltitudeAALForFlightPhases(unittest.TestCase):
     def test_can_operate(self):
         expected = [('Altitude STD','Fast')]
@@ -320,7 +345,8 @@ class TestAltitudeAALForFlightPhases(unittest.TestCase):
         alt_4_ph = AltitudeAALForFlightPhases()
         alt_4_ph.derive(Parameter('Altitude STD', up_and_down_data), phase_fast)
         expected = np.ma.array([0, 0, 0, 100, 200, 300, 
-                                400, 300, 200, 100, 0, 0, 0], dtype=float)
+                                400, 300, 200, 100, 0, 0, 0],
+                               mask=[[True]*2+[False]*9+[True]*2], dtype=float)
         ma_test.assert_masked_array_approx_equal(alt_4_ph.array, expected)
 
     def test_altitude_AAL_for_flight_phases_to_ends_of_array(self):
@@ -342,7 +368,8 @@ class TestAltitudeAALForFlightPhases(unittest.TestCase):
         alt_4_ph = AltitudeAALForFlightPhases()
         alt_4_ph.derive(Parameter('Altitude STD', up_and_down_data), phase_fast)
         expected = np.ma.array([0, 0, 0, 100, 200, 300, 
-                                400, 300, 200, 100, 0, 0, 0], dtype=float)
+                                400, 300, 200, 100, 0, 0, 0],
+                               mask=[[True]*2+[False]*9+[True]*2], dtype=float)
         ma_test.assert_masked_array_approx_equal(alt_4_ph.array, expected)
 
 

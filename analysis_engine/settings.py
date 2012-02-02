@@ -81,6 +81,10 @@ HYSTERESIS_FPALT = 200 # ft
 # Climb Cruise Descent phases.
 HYSTERESIS_FPALT_CCD = 2500 # ft
 
+# Threshold for radio altimeter hysteresis 
+# (used for flight phase calculations only)
+HYSTERESIS_FP_RAD_ALT = 5 # ft
+
 # Threshold for flight phase rate of climb hysteresis.
 # We're going to ignore changes smaller than this to avoid repeatedly changing
 # phase if the aircraft is climbing/descending close to a threshold level.

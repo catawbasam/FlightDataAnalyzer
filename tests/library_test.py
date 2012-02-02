@@ -9,7 +9,8 @@ from datetime import datetime
 # http://www.java2s.com/Open-Source/Python/Math/Numerical-Python/numpy/numpy/ma/testutils.py.htm
 import utilities.masked_array_testutils as ma_test
 
-from analysis_engine.library import (align, 
+from analysis_engine.library import (align,
+                                     bearings_and_distances,
                                      blend_alternate_sensors,
                                      blend_two_parameters,
                                      calculate_timebase, 
@@ -19,7 +20,8 @@ from analysis_engine.library import (align,
                                      first_order_lag, 
                                      first_order_washout, 
                                      hash_array,
-                                     hysteresis, 
+                                     hysteresis,
+                                     ils_gs_estimate,
                                      index_at_value, 
                                      interleave,
                                      is_index_within_slice, 
@@ -29,13 +31,12 @@ from analysis_engine.library import (align,
                                      max_continuous_unmasked,
                                      max_value, 
                                      max_abs_value, 
-                                     min_value, 
-                                     nav_bearing,
-                                     nav_distance,
+                                     min_value,
                                      peak_curvature, 
                                      peak_index, 
                                      rate_of_change, 
                                      repair_mask,
+                                     runway_distances,
                                      rms_noise, 
                                      slices_above, 
                                      slices_below, 
@@ -375,7 +376,70 @@ class TestAlign(unittest.TestCase):
         result = align(slave, master)
         expected = [100]*4+[101]*4+[102]*4+[103]*4
         np.testing.assert_array_equal(result.data,expected)
-                
+
+
+class TestBearingsAndDistances(unittest.TestCase):
+    def test_known_distance(self):
+        fareham = {'latitude':50.856146,'longitude':-1.183182}
+        goodyear_lon = np.ma.array([-112.358214])
+        goodyear_lat = np.ma.array([33.449806])
+        brg,dist = bearings_and_distances(goodyear_lat, goodyear_lon, fareham)
+        self.assertEqual(dist,[8481553.935041398])
+        
+    # With an atan(x/y) formula giving the bearings, it's easy to get this
+    # wrong, as I did originally, hence the three tests for bearings ! The
+    # important thing to remember is we are looking for the bearing from the
+    # reference point to the array points, not the other way round.
+    def test_quarter_bearings(self):
+        origin = {'latitude':0.0,'longitude':0.0}
+        latitudes = np.ma.array([.1,.1,-.1,-.1])
+        longitudes = np.ma.array([-.1,.1,.1,-.1])
+        compass = np.ma.array([-45,45,135,-135])*pi/180
+        brg, dist = bearings_and_distances(latitudes, longitudes, origin)
+        ma_test.assert_masked_array_approx_equal(brg, compass)
+
+    def test_ordinal_bearings(self):
+        origin = {'latitude':0.0,'longitude':0.0}
+        latitudes = np.ma.array([1,0,-1,0])
+        longitudes = np.ma.array([0,1,0,-1])
+        compass = np.ma.array([0,90,-180,-90])*pi/180
+        brg, dist = bearings_and_distances(latitudes, longitudes, origin)
+        ma_test.assert_masked_array_approx_equal(brg, compass)
+
+    def test_known_bearings(self):
+        origin = {'latitude':60.280151,'longitude':5.222579}
+        latitudes = np.ma.array([60.2789,60.30662494,60.289,60.28875])
+        longitudes = np.ma.array([5.223,5.21370074,5.2272,5.2636])
+        compass = np.ma.array([170,-9,14,67])
+        brg, dist = bearings_and_distances(latitudes, longitudes, origin)
+        bearings = np.int0(brg*180/pi)
+        np.testing.assert_equal(compass,bearings)
+
+    def test_mask(self):
+        origin = {'latitude':0.0,'longitude':0.0}
+        latitudes = np.ma.array([.1,.1,-.1,-.1])
+        latitudes[0]=np.ma.masked
+        longitudes = np.ma.array([-.1,.1,.1,-.1])
+        longitudes[2]=np.ma.masked
+        compass = np.ma.array([135,45,-45,-135])*pi/180
+        compass.mask=[True,False,True,False]
+        brg, dist = bearings_and_distances(latitudes, longitudes, origin)
+        ma_test.assert_masked_array_approx_equal(brg, compass)
+        self.assertEqual(dist[0].mask,True)
+        self.assertEqual(dist[2].mask,True)
+
+
+class TestLatitudesAndLongitudes(unittest.TestCase):
+    def test_known_distance(self):
+        fareham = {'latitude': 50.852731,'longitude': -1.185608}
+        pompey_dist = np.ma.array([10662.0])
+        pompey_brg = np.ma.array([2.207])
+        lat,lon = latitudes_and_longitudes(pompey_brg, pompey_dist, fareham)
+        self.assertAlmostEqual(lat,[50.79569723])
+        self.assertAlmostEqual(lon,[-1.06358954])
+        
+        # TODO - Test with array and masks (for Brg/Dist also?)
+        
 
 class TestBlendAlternateSensors(unittest.TestCase):
     def test_blend_alternage_sensors_basic(self):
@@ -623,7 +687,38 @@ class TestFirstOrderWashout(unittest.TestCase):
         array[3] = np.ma.masked
         result = first_order_washout (array, 1.0, 1.0, initial_value = 1.0)
         ma_test.assert_mask_eqivalent(result.mask, [0,0,0,1,0], err_msg='Masks are not equal')
-        
+    
+    
+class TestRunwayDistances(unittest.TestCase):
+    # This single test case uses data for Bergen and has been checked against
+    # Google Earth measurements for reasonable accuracy.
+    def test_runway_distances(self):
+        result = []
+        runway =  {'end': {'latitude': 60.280151, 
+                              'longitude': 5.222579}, 
+                      'localizer': {'latitude': 60.2789, 
+                                    'frequency': u'109900M', 
+                                    'longitude': 5.223, 
+                                    'heading': 173, 
+                                    'beam_width': 4.5}, 
+                      'glideslope': {'latitude': 60.300981, 
+                                     'frequency': u'333800M', 
+                                     'angle': 3.1, 
+                                     'longitude': 5.214092, 
+                                     'threshold_distance': 1161}, 
+                      'start': {'latitude': 60.30662494, 
+                                'longitude': 5.21370074}, 
+                      'strip': {'width': 147, 'length': 9810, 
+                                'id': 4097, 'surface': u'ASP'}, 
+                      'identifier': u'17', 'id': 8193}
+        result = runway_distances(runway)
+        self.assertEqual(result[0],3172.0339519041663)
+        self.assertEqual(result[1],2554.6994582864313)
+        self.assertEqual(result[2],143.15449122311364)
+        # Optional glideslope antenna projected position...
+        self.assertEqual(result[3],60.30122917121095)
+        self.assertEqual(result[4],5.215510542180608)
+
 
 class TestHashArray(unittest.TestCase):
     def test_hash_array(self):
@@ -825,6 +920,54 @@ class TestIsIndexWithinSlice(unittest.TestCase):
         self.assertTrue(is_index_within_slice(10, slice(None, 12)))
         
 
+class TestIntegrate (unittest.TestCase):
+    # Reminder: integrate(array, frequency, initial_value=0.0, scale=1.0, direction="forwards"):
+    def test_integration_basic(self):
+        result = integrate([10,0], 1.0)
+        np.testing.assert_array_equal(result, [0.0,5.0])
+
+    def test_integration_initial_value(self):
+        result = integrate([0,0], 1.0, initial_value=3.0)
+        np.testing.assert_array_equal(result, [3.0,3.0])
+
+    def test_integration_frequency(self):
+        result = integrate([0,10.0], 2.0)
+        np.testing.assert_array_equal(result, [0.0,2.5])
+
+    def test_integration_reverse(self):
+        result = integrate([0,10,6], 1.0, initial_value=7, direction='reverse')
+        np.testing.assert_array_equal(result, [20.0,15.0,7.0])
+
+    def test_integration_scale(self):
+        result = integrate([1,1,1], 1.0, scale=10)
+        np.testing.assert_array_equal(result, [0.0,10.0,20.0])
+
+    def test_integration_sinewave(self):
+        # Double integration of a sine wave reverses phase, so result is just error terms.
+        testwave = np.sin(np.arange(0,20.0,0.01))
+        step_1 = integrate(testwave, 1.0, scale=0.01, initial_value=-1.0)
+        step_2 = integrate(step_1, 1.0, scale=0.01)
+        self.assertLess(np.max(np.abs(step_2+testwave)), 0.001)
+
+class TestILSGSEstimate(unittest.TestCase):
+    def test_ils_gs_estimate_basic(self):
+        y = np.arange(800,100,-15, dtype=float)
+        x = y*20.1
+        gs = np.zeros_like(y)
+        params = ils_gs_estimate(x,y,gs)
+        th_dist = params[0]
+        gs_slope = params[1]
+        gs_gain = params[2]
+        
+        # print th_dist, gs_slope, gs_gain
+        
+        self.assertGreater(th_dist,120)
+        self.assertLess(th_dist,122)
+        self.assertGreater(gs_slope,2.75)
+        self.assertLess(gs_slope,2.8)
+        self.assertGreater(gs_gain,3.4)
+        self.assertLess(gs_gain,3.5)
+
 class TestIsSliceWithinSlice(unittest.TestCase):
     def test_is_slice_within_slice(self):
         self.assertTrue(is_slice_within_slice(slice(5,6), slice(4,7)))
@@ -975,23 +1118,7 @@ class TestBlendTwoParameters(unittest.TestCase):
         p2 = P(array=[1]*3, frequency=2, offset=0.2)
         self.assertRaises(AssertionError, blend_two_parameters, p1, p2)
 
-
-class TestNavBearing(unittest.TestCase):
-    def test_bearing_ordinals(self):
-        self.assertEqual(nav_bearing([0,0],[0,1]),0.0)
-        self.assertEqual(nav_bearing([0,0],[1,0]),pi/2.0)
-        self.assertEqual(nav_bearing([0,1],[0,0]),pi)
-        self.assertEqual(nav_bearing([1,0],[0,0]),-pi/2.0)
-
         
-class TestNavDistance(unittest.TestCase):
-    def test_known_distance(self):
-        fareham = [50.856146, -1.183182]
-        goodyear = [33.449806, -112.358214]
-        self.assertEqual(nav_distance(fareham ,goodyear),
-                         8481553.935041398)
-        
-
 class TestPeakCurvature(unittest.TestCase):
     # Note: The results from the first two tests are in a range format as the
     # artificial data results in multiple maxima.

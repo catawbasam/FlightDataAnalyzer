@@ -6,6 +6,7 @@ from datetime import datetime, timedelta
 from hashlib import sha256
 from itertools import izip
 from scipy.signal import lfilter, lfilter_zi
+from scipy.optimize import fmin_cobyla
 
 from settings import REPAIR_DURATION, TRUCK_OR_TRAILER_INTERVAL, TRUCK_OR_TRAILER_PERIOD
 
@@ -158,6 +159,101 @@ def align(slave, master, interval='Subframe', signaltype='Analogue'):
             slave_aligned[i::wm]=a*slave_array[h::ws]+b*slave_array[h1::ws]
 
     return slave_aligned
+
+
+def bearings_and_distances(latitudes, longitudes, reference):
+    """
+    Returns the bearings and distances of a track with respect to a fixed point.
+    
+    Usage: 
+    brg[], dist[] = bearings_and_distances(lat[], lon[], {'latitude':lat_ref, 'longitude', lon_ref})
+    
+    :param latitudes: The latitudes of the track.
+    :type latitudes: Numpy masked array.
+    :param longitudes: The latitudes of the track.
+    :type longitudes: Numpy masked array.
+    :param reference: The location of the second point.
+    :type reference: dict with {'latitude': lat, 'longitude': lon} in degrees.
+    
+    :returns bearings, distances: Bearings in degrees, Distances in metres.
+    :type distances: Two Numpy masked arrays
+
+    Navigation formulae have been derived from the scripts at 
+    http://www.movable-type.co.uk/scripts/latlong.html
+    Copyright 2002-2011 Chris Veness, and altered by Flight dAta Services to 
+    suit the POLARIS project.
+    """
+
+    lat_array = np.ma.array(data=np.deg2rad(latitudes.data),mask=latitudes.mask)
+    lon_array = np.ma.array(data=np.deg2rad(longitudes.data),mask=longitudes.mask)
+    lat_ref = radians(reference['latitude'])
+    lon_ref = radians(reference['longitude'])
+    
+    dlat = lat_ref-lat_array
+    dlon = lon_ref-lon_array
+    
+    a = np.ma.sin(dlat/2) * np.ma.sin(dlat/2) + \
+        np.ma.cos(lat_array) * np.ma.cos(lat_ref) * np.ma.sin(dlon/2) * np.ma.sin(dlon/2)
+    dists = 2 * np.ma.arctan2(np.ma.sqrt(a), np.ma.sqrt(1.0-a))
+    dists *= 6371000 # Earth radius in metres
+
+    
+    y = np.ma.sin(dlon) * np.ma.cos(lat_ref)
+    x = np.ma.cos(lat_array) * np.ma.sin(lat_ref) \
+        - np.ma.sin(lat_array) * np.ma.cos(lat_ref) * np.ma.cos(dlon)
+    brgs = np.ma.arctan2(-y,-x)
+    
+    joined_mask = np.logical_or(latitudes.mask, longitudes.mask)
+    brg_array = np.ma.array(data = brgs,mask = joined_mask)
+    dist_array = np.ma.array(data = dists,mask = joined_mask)
+
+    return brg_array, dist_array
+
+def latitudes_and_longitudes(bearings, distances, reference):
+    """
+    Returns the bearings and distances of a track with respect to a fixed point.
+    
+    Usage: 
+    lat[], lon[] = latitudes_and_longitudes(brg[], dist[], {'latitude':lat_ref, 'longitude', lon_ref})
+    
+    :param bearings: The bearings of the track.
+    :type bearings: Numpy masked array.
+    :param distances: The distances of the track.
+    :type distances: Numpy masked array.
+    :param reference: The location of the reference point.
+    :type reference: dict with {'latitude': lat, 'longitude': lon} in degrees.
+    
+    :returns latitude, longitude: Latitudes and Longitudes in degrees.
+    :type latitude, longitude: Two Numpy masked arrays
+
+    Navigation formulae have been derived from the scripts at 
+    http://www.movable-type.co.uk/scripts/latlong.html
+    Copyright 2002-2011 Chris Veness, and altered by Flight dAta Services to 
+    suit the POLARIS project.
+    """
+    lat_ref = radians(reference['latitude'])
+    lon_ref = radians(reference['longitude'])
+    brg = bearings.data
+    dist = distances.data / 6371000.0 # Scale to earth radius in metres
+
+    lat = np.arcsin(sin(lat_ref)*np.cos(dist) + 
+                   cos(lat_ref)*np.sin(dist)*np.cos(brg))
+    lon = np.arctan2(np.sin(brg)*np.sin(dist)*np.cos(lat_ref), 
+                      np.cos(dist)-sin(lat_ref)*np.sin(lat))
+    lon += lon_ref 
+    
+    
+    """
+    lat2: =ASIN(SIN(lat1)*COS(d/R) + COS(lat1)*SIN(d/R)*COS(brng))
+    lon2: =lon1 + ATAN2(COS(d/R)-SIN(lat1)*SIN(lat2), SIN(brng)*SIN(d/R)*COS(lat1))    
+    """
+    
+    joined_mask = np.logical_or(bearings.mask, distances.mask)
+    lat_array = np.ma.array(data = np.rad2deg(lat),mask = joined_mask)
+    lon_array = np.ma.array(data = np.rad2deg(lon),mask = joined_mask)
+    return lat_array, lon_array
+
+
 
 def calculate_timebase(years, months, days, hours, mins, secs):
     """
@@ -497,6 +593,47 @@ def first_order_washout (in_param, time_constant, hz, gain = 1.0, initial_value 
     
     return masked_first_order_filter(y_term, x_term, in_param, initial_value)
 
+def runway_distances(runway):
+    '''
+    Projection of the ILS glideslope antenna position onto the runway centreline
+    '''
+    def dist(lat1_d, lon1_d, lat2_d, lon2_d):
+        lat1 = radians(lat1_d)
+        lon1 = radians(lon1_d)
+        lat2 = radians(lat2_d)
+        lon2 = radians(lon2_d)
+
+        dlat = lat2-lat1
+        dlon = lon2-lon1
+
+        a = sin(dlat/2) * sin(dlat/2) + cos(lat2) \
+            * (lat2) * (dlon/2) * sin(dlon/2)
+        return 2 * atan2(sqrt(a), sqrt(1-a)) * 6371000
+    
+    start_lat = runway['start']['latitude']
+    start_lon = runway['start']['longitude']
+    end_lat = runway['end']['latitude']
+    end_lon = runway['end']['longitude']
+    lzr_lat = runway['localizer']['latitude']
+    lzr_lon = runway['localizer']['longitude']
+    gs_lat = runway['glideslope']['latitude']
+    gs_lon = runway['glideslope']['longitude']
+    
+    a = dist(gs_lat, gs_lon, lzr_lat, lzr_lon)
+    b = dist(gs_lat, gs_lon, start_lat, start_lon)
+    c = dist(end_lat, end_lon, lzr_lat, lzr_lon)
+    d = dist(start_lat, start_lon, lzr_lat, lzr_lon)
+    
+    r = (1.0+(a**2 - b**2)/d**2)/2.0
+    g = r*d
+    
+    # The projected glideslope antenna position is given by this formula
+    pgs_lat = lzr_lat + r*(start_lat - lzr_lat)
+    pgs_lon = lzr_lon + r*(start_lon - lzr_lon)
+    
+    return [d, g, c, pgs_lat, pgs_lon]  # Runway distances to start, glideslope and end.
+
+
 def hash_array(array):
     '''
     Creates a sha256 hash from the array's tostring() method.
@@ -541,6 +678,107 @@ def hysteresis (array, hysteresis):
     return np.ma.array(result, mask=array.mask)
 
 
+def ils_gs_estimate(x, y, gs):
+    """
+    Computation of the best fit glidepath.
+    
+    :param x: ils range, starting at high values and decreasing towards the glideslope antenna
+    :type x: array, units = feet.
+    :param y: altitude above runway
+    :type y: array, units = feet.
+    :param gs: glideslope deviations
+    :type gs: array of deviations, units = dots
+    
+    :return
+    :param th_dist: distance from last sample to glideslope datum
+    :type th_dist: float, units = feet.
+    :param gs_slope: slope of the ILS glidepath measured from the recorded data
+    :type gs_slope: float, degrees
+    :param gs_gain: gain of signal from glideslope
+    :type gs_gain: float, units dots per degree deviation.
+    """
+    
+    # Estimate the offset from the last sample only
+    d0 = x[-1] - y[-1]*19 # Approximately 1/tan(3deg) to initialise parameters.
+    x0 = np.array([d0, 5.0, 2.5])
+    #xopt = fmin_bfgs(ils_cost, x0, args=(x,y,gs))
+    xopt = fmin_cobyla(ils_cost, x0, 
+                       [ils_rule_th, ils_rule_slope, ils_rule_gain],
+                       args=(x,y,gs), consargs=(), 
+                       rhobeg=0.01, rhoend=0.0001,
+                       disp=2)
+    
+    return xopt
+    
+def ils_cost(params, x, y, gs):
+    th_dist = params[0]
+    gs_slope = params[1]
+    gs_gain = params[2]
+
+    dist = x + th_dist
+    elevation = np.degrees(np.arctan2(y, dist))
+    my_dev = (gs_slope - elevation)/gs_gain
+    cost = np.sum((my_dev-gs)*(my_dev-gs))
+    return cost
+
+def ils_rule_th(x):
+    th_dist = x[0]
+    # Limit the threshold distance to +/- 2000 ft
+    return 1-(th_dist/2000)**2
+
+def ils_rule_slope(x):
+    gs_slope = x[1]
+    # Limit ILS glideslope estimates to 2.5 to 6.5 degrees
+    return 1-((gs_slope-4.5)/2)**2
+    
+def ils_rule_gain(x):
+    gs_gain = x[2]
+    # Limit ILS glideslope gain to 2 to 5 dots/degree
+    return 1-((gs_gain-3.5)/1.5)**2
+
+
+def integrate (array, frequency, initial_value=0.0, scale=1.0, direction="forwards"):
+    """
+    Rectangular integration
+    
+    Usage example: 
+    feet_to_land = integrate(airspeed[:touchdown], scale=KTS_TO_FPS, direction='reverse')
+
+    :param array: Integrand.
+    :type array: Numpy masked array.
+    :param frequency: Sample rate of the integrand.
+    :type frequency: Float
+    :param initial_value: Initial falue for the integral
+    :type initial_value: float
+    :param scale: Scaling factor, default = 1.0
+    :type scale: float
+    :param direction: Optional integration sense, default = 'forwards'
+    
+    :returns integral: Result of integration by time
+    :type integral: Numpy masked array.
+   
+    Note: Masked values will be "repaired" before integration. If errors longer 
+    than the repair limit exist, subsequent values in the array will all be 
+    masked.
+    """
+    result = np.copy(array)
+    
+    if direction == 'forwards':
+        d = +1
+    else:
+        d = -1
+        
+    k = (scale*0.5)/frequency
+    to_int = k*(array + np.roll(array,d))
+    if direction == 'forwards':
+        to_int[0] = initial_value
+    else:
+        to_int[-1] = initial_value
+    
+    result[::d] = np.ma.cumsum(to_int[::d])
+    return result
+    
+    
 def interleave (param_1, param_2):
     """
     Interleaves two parameters (usually from different sources) into one
@@ -891,55 +1129,6 @@ def blend_two_parameters (param_one, param_two):
         array = blend_alternate_sensors(param_two.array, param_one.array, padding)
     return array, param_one.frequency * 2, offset
 
-def nav_distance(origin, destination):
-    """
-    Returns the distance from one place to another, in metres.
-    
-    This is taken from the "Haversine formula example in Python" with thanks
-    to Wayne Dyck
-    
-    :param origin: The location of the first point.
-    :type origin: List of [latitude, longitude] in degrees.
-    :param destination: The location of the second point.
-    :type origin: List of [latitude, longitude] in degrees.
-    :returns distance: Distance in metres.
-    :type bearing: Float
-    """
-
-    lat1, lon1 = origin
-    lat2, lon2 = destination
-
-    dlat = radians(lat2-lat1)
-    dlon = radians(lon2-lon1)
-    
-    a = sin(dlat/2) * sin(dlat/2) + cos(radians(lat1)) \
-        * cos(radians(lat2)) * sin(dlon/2) * sin(dlon/2)
-    c = 2 * atan2(sqrt(a), sqrt(1-a))
-
-    return c * 6371000 # Earth radius in metres
-    
-def nav_bearing(origin, destination):
-    """
-    Returns the true bearing from one place to another, in radians.
-    
-    :param origin: The location of the reference point for the bearing.
-    :type origin: List of [latitude, longitude] in degrees.
-    :param destination: The location of the target for the bearing.
-    :type origin: List of [latitude, longitude] in degrees.
-    :returns bearing: True bearing
-    :type bearing: Float ***in radians***
-    """
-
-    lat1, lon1 = origin
-    lat2, lon2 = destination
-
-    dLon = lon2 - lon1
-
-    y = sin(dLon) * cos(lat2)
-    x = cos(lat1) * sin(lat2) \
-        - sin(lat1) * cos(lat2) * cos(dLon)
-    
-    return atan2(x,y) 
 
 def peak_curvature(array, _slice=slice(None), curve_sense='Concave'):
     """

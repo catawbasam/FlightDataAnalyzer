@@ -12,6 +12,7 @@ from analysis_engine.settings import (AIRSPEED_THRESHOLD,
                                HEADING_TURN_OFF_RUNWAY,
                                HEADING_TURN_ONTO_RUNWAY,
                                HYSTERESIS_FPROT,
+                               HYSTERESIS_FP_RAD_ALT,
                                ILS_MAX_SCALE,
                                INITIAL_CLIMB_THRESHOLD,
                                INITIAL_APPROACH_THRESHOLD,
@@ -146,12 +147,21 @@ class ApproachAndLanding(FlightPhaseNode):
                 use "*" to declare the runway not identified.
     """
 
+    """
+    
+    ----------------------------------------------------------------------------
+    Was not being called, although these two parameters were available.
+    Commented out to see if things worked.
+    ----------------------------------------------------------------------------
+    
     # List the minimum acceptable parameters here
     @classmethod
     def can_operate(cls, available):
+
         return 'Altitude AAL For Flight Phases' in available and \
                'Landing' in available
-        
+    """
+    
     # List the optimal parameter set here
     def derive(self, alt_aal=P('Altitude AAL For Flight Phases'),
                alt_rad = P('Altitude Radio'),
@@ -356,28 +366,147 @@ class FinalApproach(FlightPhaseNode):
 class ILSLocalizerEstablished(FlightPhaseNode):
     name = 'ILS Localizer Established'
     """
-    The aircraft is said to be established on the ILS when the pilot has
-    intercepted the localizer. There are various interpretations of
-    "established" in this sense, but we will work backwards from the lowest
-    point to find out the point after which the ILS localizer was
-    continuously displayed. Reminder: 'Approach And Landing' phase is
-    computed fromt the parameter 'Altitude AAL For Flight Phases' which in
-    turn is a subset of the 'Fast' phase which requires the aircraft to be
-    travelling at high speed. Therefore the lowest point is either the bottom
-    of a go-around, touch-and-go or landing.
+    Duration of approach with (repaired) Localizer deviation
+    continuously less than 1 dot, within either approach phase. Where this
+    duration is over 20 seconds, identify as Localizer Established and create
+    a phase accordingly. Reminder: 'Approach And Landing' phase is computed
+    fromt the parameter 'Altitude AAL For Flight Phases' which in turn is a
+    subset of the 'Fast' phase which requires the aircraft to be travelling
+    at high speed. Therefore the lowest point is either the bottom of a
+    go-around, touch-and-go or landing.
     """
+    def scan_ils(self, abs_ils_loc):
+
+        # TODO: extract as settings
+        LOCALIZER_ESTABLISHED_THRESHOLD = 1.0
+        LOCALIZER_ESTABLISHED_MINIMUM_TIME = 30 # Seconds
+
+        # Is the aircraft on the centreline during this phase?
+        centreline = np.ma.masked_greater(abs_ils_loc,1.0)
+        cls = np.ma.clump_unmasked(centreline)
+        for cl in cls:
+            if cl.stop-cl.start > 30:
+                # Long enough to be established and not just crossing the ILS.
+                self.create_phase(cl)
+    
+
     def derive(self, aals=S('Approach And Landing'),
-               lowest=KTI('Approach And Landing Lowest Point'),
+               aags=S('Approach And Go Around'),
                ils_loc=P('ILS Localizer')):
         for aal in aals:
-            low_index=lowest.get_last(within_slice=aal.slice).index
-            if np.ma.abs(ils_loc.array[low_index]) > ILS_MAX_SCALE:
-                # Not on ILS localizer at lowest point, so not established.
-                break
-            amplitude = np.ma.abs(ils_loc.array)
-            in_range = np.ma.masked_outside(amplitude,-ILS_MAX_SCALE,ILS_MAX_SCALE)
-            phases = np.ma.clump_unmasked(in_range)
-            self.create_phase(phases[-1])
+            self.scan_ils(abs(ils_loc.array[aal.slice]))
+        for aag in aags:
+            self.scan_ils(abs(ils_loc.array[aag.slice]))
+
+    ##'''
+    ##Old code - TODO: Remove when new version working
+            ###low_index=lowest.get_last(within_slice=aal.slice).index
+            ###if np.ma.abs(ils_loc.array[low_index]) > ILS_MAX_SCALE:
+                #### Not on ILS localizer at lowest point, so not established.
+                ###break
+            ###amplitude = np.ma.abs(ils_loc.array)
+            ###in_range = np.ma.masked_outside(amplitude,-ILS_MAX_SCALE,ILS_MAX_SCALE)
+            ###phases = np.ma.clump_unmasked(in_range)
+            ###self.create_phase(phases[-1])
+    ##'''
+
+    
+    ##"""
+    ###-------------------------------------------------------------------
+    ### TEST OUTPUT TO CSV FILE FOR DEBUGGING ONLY
+    ### TODO: REMOVE THIS SECTION BEFORE RELEASE
+    ###-------------------------------------------------------------------
+    ##if ils_loc and glide and alt_aal and rwy and lat and lon and hdg and ap:
+        ##import csv
+        ##spam = csv.writer(open('tomato.csv', 'wb'))
+        ##spam.writerow(['ILS Localizer',
+                       ##'ILS Glideslope',
+                       ##'Altitude AAL',
+                       ##'Altitude Radio',
+                       ##'Heading', 'Bearing', 'Distance',
+                       ##'Longitude',
+                       ##'Latitude',
+                       ##'Longitude Return',
+                       ##'Latitude Return'])
+        ###scope = ap.get_last().slice  # Only the last approach is interesting.
+        ##for speedy in fast:
+            ##scope = slice(int(speedy.slice.stop-400),int(speedy.slice.stop))
+            ###Option to track back to localiser intercept
+            ###capture = index_at_value(ils_loc.array,4.0,slice(scope.start,0,-1))
+            ###newslice = slice(capture, int(scope.stop)+20)
+            ##newslice = scope
+            ##if lat.array[scope][-1] > 62:
+                ### Trondheim = TRD
+                ##lzr_loc = {'latitude': 63.45763, 'longitude': 10.90043}
+                ##lzr_hdg = 89-180
+            ##elif lon.array[scope][-1] < 7:
+                ### Bergen = BGO
+                ##lzr_loc = {'latitude': 60.30112, 'longitude': 5.21556}
+                ##lzr_hdg = 173-180
+            ##else:
+                ### Oslo = OSL
+                ##lzr_loc = {'latitude': 60.2134, 'longitude': 11.08986}
+                ##lzr_hdg = 196-180
+                
+            ##brg,dist=bearings_and_distances(lat.array[newslice], lon.array[newslice], lzr_loc)
+            ##lat_trk,lon_trk=latitudes_and_longitudes(
+                ##(ils_loc.array[newslice]-lzr_hdg)/180*3.14159, 
+                ##dist, rwy.value['localizer'])
+            ##for showme in range(newslice.start, newslice.stop):
+            ###for showme in range(0, len(ils_loc.array)):
+                ##spam.writerow([ils_loc.array[showme],
+                               ##glide.array[showme],
+                               ##alt_aal.array[showme],
+                               ##alt_rad.array[showme],
+                               ##hdg.array[showme]%360.0,
+                               ##brg[showme-newslice.start]*180/3.14159,
+                               ##dist[showme-newslice.start]*1000/25.4/12,
+                               ##lon.array[showme],
+                               ##lat.array[showme],
+                               ##lon_trk[showme-newslice.start],
+                               ##lat_trk[showme-newslice.start]
+                               ##])
+    ##self.array = np.ma.arange(1000) # TODO: Remove.
+    ###-------------------------------------------------------------------
+    ### TEST OUTPUT TO CSV FILE FOR DEBUGGING ONLY
+    ### TODO: REMOVE THIS SECTION BEFORE RELEASE
+    ###-------------------------------------------------------------------
+    ##"""
+
+  
+class ILSApproach(FlightPhaseNode):
+    name = "ILS Approach"
+    """
+    Where a Localizer Established phase exists, extend the start and end of
+    the phase back to 3 dots (i.e. to beyond the view of the pilot which is
+    2.5 dots) and assign this to ILS Approach phase. This period will be used
+    to determine the range for the ILS display on the web site and for
+    examination for ILS KPVs.
+    """
+    
+    """
+    @classmethod
+    def can_operate(cls, available):
+        return True
+    """
+    
+    def derive(self, ils_loc = P('ILS Localizer'),
+               fast = S('Fast')):
+        return NotImplemented
+     
+
+    
+class ILSGlideslopeEstablished(FlightPhaseNode):
+    name = "ILS Glideslope Established"
+    """
+    Within the Localizer Established phase, compute duration of approach with
+    (repaired) Glideslope deviation continuously less than 1 dot,. Where > 10
+    seconds, identify as Glideslope Established.
+    """
+    def derive(self, ils_gs = P('Glideslope Deviation'),
+               ils_loc_est = S("ILS Localizer Established")):
+        return NotImplemented
+
 
 
 class InitialApproach(FlightPhaseNode):
