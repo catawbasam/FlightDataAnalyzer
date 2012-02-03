@@ -1125,8 +1125,15 @@ class AirspeedAtGearSelectedUp(KeyPointValueNode):
         return NotImplemented
 
 
-class TaxiSpeedTurningMax(KeyPointValueNode):
+class TaxiSpeedTurning(KeyPointValueNode):
     def derive(self, groundspeed=P('Groundspeed'), on_ground=S('On Ground'), turning=S('Turning')):
+        return NotImplemented
+
+
+class TaxiSpeedStraight(KeyPointValueNode):
+    # TODO: Decide on parameter. Can use groundspeed, but amended to ...along
+    #       track to ensure derived parameter call.
+    def derive(self, groundspeed=P('Groundspeed Along Track'), on_ground=S('On Ground'), rot=P('Rate Of Turn')):
         return NotImplemented
 
 
@@ -1279,15 +1286,6 @@ class WindshearWarningBelow1500Ft(KeyPointValueNode):
     def derive(self, gpws_windshear=P('GPWS Windshear'),
                alt_aal=P('Altitude AAL')):
         return NotImplemented
-
-
-#class TaxiSpeedStraight(KeyPointValueNode):
-    #name = 'Groundspeed event to force operation of the GAT parameter TODO: Remove title'
-    #def derive(self, groundspeed=P('Groundspeed Along Track'), rot=P('Rate Of Turn')):
-        ## TODO: Decide on parameter. Can use groundspeed, but amended to ...along track to ensure derived parameter call.
-        #if groundspeed > 900:
-            #print "wow"
-            #return
 
 
 class AirspeedBelowAltitudeMax(KeyPointValueNode):
