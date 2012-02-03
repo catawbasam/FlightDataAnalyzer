@@ -219,7 +219,7 @@ class AltitudeAAL(DerivedParameterNode):
 
     @classmethod
     def can_operate(cls, available):
-        return 'Altitude AAL For Flight Phases' in available:
+        return 'Altitude AAL For Flight Phases' in available
     
     def derive(self, roc = P('Rate Of Climb'),
                alt_aal_4fp = P('Altitude AAL For Flight Phases'),
@@ -609,6 +609,24 @@ class Eng_EPRMin(DerivedParameterNode):
                eng4=P('Eng (4) EPR')):
         eng = vstack_params(eng1, eng2, eng3, eng4)
         self.array = eng.min(axis=0)
+
+
+class EngFuelFlow(DerivedParameterNode):
+    name = "Eng (*) EPR Min"
+    @classmethod
+    def can_operate(cls, available):
+        # works with any combination of params available
+        if any([d in available for d in cls.get_dependency_names()]):
+            return True
+            
+    def derive(self, 
+               eng1=P('Eng (1) Fuel Flow'),
+               eng2=P('Eng (2) Fuel Flow'),
+               eng3=P('Eng (3) Fuel Flow'),
+               eng4=P('Eng (4) Fuel Flow')):
+        eng = vstack_params(eng1, eng2, eng3, eng4)
+        np.ma.sum(eng)
+        pass
 
 
 class Eng_N1Avg(DerivedParameterNode):

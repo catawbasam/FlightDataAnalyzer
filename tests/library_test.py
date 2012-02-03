@@ -1448,7 +1448,6 @@ class TestSubslice(unittest.TestCase):
         self.assertEqual(thirty[orig][new], thirty[res])
         self.assertEqual(res, slice(14, 18, 2))
         
-        
         # test step
         orig = slice(100,200,10)
         new = slice(1, 5, 2)
@@ -1516,7 +1515,7 @@ class TestSubslice(unittest.TestCase):
         self.assertEqual(two_hundred[orig][new], two_hundred[sub])
         self.assertEqual(two_hundred[sub], [2,4])
         self.assertEqual(sub, slice(2, 20, 2))
-                    
+        
         #TODO: test negative start, stop and step
 
 """

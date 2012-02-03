@@ -73,12 +73,6 @@ def derive_parameters(hdf, node_mgr, process_order):
     
     for param_name in process_order:
         if param_name in node_mgr.lfl:
-            if settings.POST_LFL_PARAM_PROCESS:
-                # perform any post_processing on LFL params
-                param = hdf.get_param(param_name)
-                _param = settings.POST_LFL_PARAM_PROCESS(hdf, param)
-                if _param:
-                    hdf.set_param(_param)
             continue
         
         elif node_mgr.get_attribute(param_name):
@@ -279,6 +273,7 @@ def process_flight(hdf_path, aircraft_info, start_datetime=datetime.now(),
 
 
 if __name__ == '__main__':
+    
     import argparse
     parser = argparse.ArgumentParser(description="Process a flight.")
     parser.add_argument('file', type=str,
@@ -286,4 +281,7 @@ if __name__ == '__main__':
     parser.add_argument('-p', dest='plot', action='store_true',
                         default=False, help='Plot flight onto a graph.')
     args = parser.parse_args()
-    process_flight(args.file, {'Tail Number': 'G-ABCD'}, draw=args.plot)
+    process_flight(args.file, {'Tail Number': 'G-ABCD'},
+                   required_params=['Latitude Smoothed', 'Longitude Smoothed',
+                                    ],
+                   draw=args.plot)
