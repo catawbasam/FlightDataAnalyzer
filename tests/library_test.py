@@ -10,20 +10,6 @@ import utilities.masked_array_testutils as ma_test
 
 from datetime import datetime
 
-from analysis.library import (align, calculate_timebase, create_phase_inside,
-                              create_phase_outside, duration, 
-                              first_order_lag, first_order_washout, hash_array,
-                              hysteresis, index_at_value, interleave,
-                              is_index_within_slice, is_slice_within_slice,
-                              min_value, mask_inside_slices,
-                              mask_outside_slices, max_continuous_unmasked,
-                              max_value, max_abs_value, merge_alternate_sensors,
-                              peak_curvature, peak_index, rate_of_change, repair_mask, 
-                              slices_above, slices_below, slices_between, 
-                              slices_from_to, straighten_headings,
-                              #time_at_value, time_at_value_wrapped,
-                              value_at_time, vstack_params, InvalidDatetime)
-
 from analysis.node import A, KPV, KTI, Parameter, P, S, Section
 from analysis.library import *
 
@@ -581,7 +567,28 @@ class TestHysteresis(unittest.TestCase):
         # hysteresis, being affected only on one pass of this two-pass
         # process.
         np.testing.assert_array_equal(result.data,[0.5,1,2,3,4,4,4,4,3,2,1,0.5])
+        
+    def test_hysteresis_with_initial_data_masked(self):
+        data = np.ma.array([0,1,2,1,-100000,-1,5,6,7,0],dtype=float)
+        data[0] = np.ma.masked
+        data[4] = np.ma.masked
+        result = hysteresis(data,2)
+        np.testing.assert_array_equal(result.filled(999),
+                                      [999,1,1,1,999,0,5,6,6,0.5])
+        
+    def using_large_data(self):
+        data = np.ma.arange(100000)
+        data[0] = np.ma.masked
+        data[-1000:] = np.ma.masked
+        res = hysteresis(data, 10)
+        pass
 
+    def test_time_taken(self):
+        from timeit import Timer
+        timer = Timer(self.using_large_data)
+        time = min(timer.repeat(1, 1))
+        print "Time taken %s secs" % time
+        self.assertLess(time, 0.1, msg="Took too long")
 
 class TestIndexAtValue(unittest.TestCase):
     
@@ -818,8 +825,52 @@ class TestMergeAlternateSensors(unittest.TestCase):
         np.testing.assert_array_equal(result.data[0:3], [2.5,2.5,2.5])
         np.testing.assert_array_equal(result.data[6:8], [3.5,3.5])
         np.testing.assert_array_equal(result.mask, [False,False,False,
-                                                    True,True,True,
-                                                    False,False])
+                                                    True,True,True,False,False])
+
+
+class TestNormalise(unittest.TestCase):
+    def test_normalise_copy(self):
+        md = np.ma.array([range(10), range(20,30)])
+        res = normalise(md, copy=True)
+        self.assertNotEqual(id(res), id(md))
+        self.assertEqual(md.max(), 29)
+        
+        res = normalise(md, copy=False)
+        self.assertEqual(id(res), id(md))
+        self.assertEqual(md.max(), 1.0)
+        
+    def test_normalise_two_dims(self):
+        # normalise over all axis
+        md = np.ma.array([range(10), range(20,30)], dtype=np.float)
+        res1 = normalise(md)
+        # normalised to max val 30 means first 10 will be below 0.33 and second 10 above 0.66
+        ma_test.assert_array_less(res1[0,:], 0.33)
+        ma_test.assert_array_less(res1[1,:], 1.1)
+            
+        # normalise per axis
+        res2 = normalise(md, axis=1)
+        # each axis should be between 0 and 1
+        self.assertEqual(res2[0,:].max(), 1.0)
+        self.assertEqual(res2[1,:].max(), 1.0)
+        
+        # normalise per on all values across 0 axis
+        res3 = normalise(md, axis=0)
+        # each axis should be between 0 and 1
+        self.assertEqual(res3.shape, (2,10))
+        ##self.assertEqual(res3[0,:].max(), 1.0)
+        ##self.assertEqual(res3[1,:].max(), 1.0)
+        
+    def test_normalise_masked(self):
+        arr = np.ma.arange(10)
+        arr[0] = 1000
+        arr[0] = np.ma.masked
+        arr[9] = np.ma.masked
+        # mask the max value
+        res = normalise(arr)
+        index, value = max_value(arr)
+        self.assertEqual(index, 8)
+        self.assertEqual(value, 8)
+
 
 class TestPeakCurvature(unittest.TestCase):
     # Note: The results from the first two tests are in a range format as the
@@ -1035,6 +1086,22 @@ class TestRepairMask(unittest.TestCase):
         ma_test.assert_masked_array_approx_equal(res, array)
 
 
+class TestRoundToNearest(unittest.TestCase):
+    def test_round_to_nearest(self):
+        array = np.ma.array(range(50))
+        res = round_to_nearest(array, 5)
+        
+        self.assertEqual(list(res[:15]), 
+                         [0,0,0,5,5,5,5,5,10,10,10,10,10,15,15])
+        self.assertEqual(list(res[-7:]),
+                         [45]*5 + [50]*2)
+        
+    def test_round_to_nearest_with_mask(self):
+        array = np.ma.array(range(20), mask=[True]*10 + [False]*10)
+        res = round_to_nearest(array, 5)
+        self.assertEqual(list(np.ma.filled(res, fill_value=-1)),
+                         [-1]*10 + [10,10,10,15,15,15,15,15,20,20])
+
 class TestSlicesAbove(unittest.TestCase):
     def test_slices_above(self):
         array = np.ma.concatenate([np.ma.arange(10), np.ma.arange(10)])
@@ -1074,7 +1141,21 @@ class TestSlicesFromTo(unittest.TestCase):
         repaired_array, slices = slices_from_to(array, 18, 3)
         self.assertEqual(slices, [slice(10, 18)])
 
-
+class TestStepValues(unittest.TestCase):
+    def test_step_values(self):
+        # borrowed from TestSlat
+        array = np.ma.array(range(25) + range(-5,0))
+        array[1] = np.ma.masked
+        array = step_values(array, ( 0, 16, 20, 23))
+        self.assertEqual(len(array), 30)
+        self.assertEqual(
+            list(np.ma.filled(array, fill_value=-999)), 
+            [0, -999, 0, 0, 0, 0, 0, 0, 0, 
+             16, 16, 16, 16, 16, 16, 16, 16, 16, 16,
+             20, 20, 20, 
+             23, 23, 23, 
+             0, 0, 0, 0, 0])
+        
 class TestStraightenHeadings(unittest.TestCase):
     def test_straight_headings(self):
         data = [35.5,

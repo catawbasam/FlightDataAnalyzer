@@ -2,7 +2,8 @@ import logging
 import numpy as np
 
 from analysis.node import A, DerivedParameterNode, KPV, KTI, P, S, Parameter
-
+from analysis.model_information import (get_aileron_map, get_config_map,
+                                        get_flap_map, get_slat_map)
 from analysis.library import (align, 
                               first_order_lag,
                               first_order_washout,
@@ -10,6 +11,8 @@ from analysis.library import (align,
                               interleave,
                               rate_of_change, 
                               repair_mask,
+                              round_to_nearest,
+                              step_values,
                               straighten_headings,
                               vstack_params)
 
@@ -155,6 +158,13 @@ class AirspeedTrue(DerivedParameterNode):
     
 
 class AltitudeAAL(DerivedParameterNode):
+    """
+    TODO: Altitude Parameter to account for transition altitudes for airports
+    between "altitude above mean sea level" and "pressure altitude relative
+    to FL100". Ideally use the BARO selection switch when recorded, else the
+    Airport elevation where provided, else guess based on location (USA =
+    18,000ft, Europe = 3,000ft)
+    """
     # Dummy for testing DJ TODO: Replace with one that takes radio altitude and local minima into account.
     name = 'Altitude AAL'
     def derive(self, alt_aal=P('Altitude AAL For Flight Phases')):# alt_std=P('Altitude STD'), alt_rad=P('Altitude Radio')):
@@ -697,69 +707,53 @@ class FuelQty(DerivedParameterNode):
         self.array = np.ma.sum(stacked_params, axis=0)
 
 
+class FlapLever(DerivedParameterNode):
+    """
+    Steps raw Flap angle from lever into detents.
+    """
+    def derive(self, flap=P('Flap Lever Position'), series=A('Series'), family=A('Family')):
+        try:
+            flap_steps = get_flap_map(series.value, family.value) 
+        except ValueError:
+            # no flaps mapping, round to nearest 5 degrees
+            logging.warning("No flap settings - rounding to nearest 5")
+            # round to nearest 5 degrees
+            self.array = round_to_nearest(flap.array, 5.0)
+        else:
+            self.array = step_values(flap.array, flap_steps)
+        
+            
 class Flap(DerivedParameterNode):
     """
     Steps raw Flap angle into detents.
     """
-    @classmethod
-    def can_operate(cls, available):
-        if 'Flap Surface' in available:
-            return True
-        
-    def derive(self, flap=P('Flap Surface'), series=A('Model Series')):
-        from analysis.model_information import model_series_flap_map
-        flap_steps = model_series_flap_map.get(series.value) if series else None
-        if flap_steps:
-            # for the moment, round off to the nearest 5 degrees
-            steps = np.ediff1d(flap_steps, to_end=[0])/2.0 + flap_steps
-            flap_stepped = np.zeros_like(flap.array.data)
-            low = None
-            for level, high in zip(flap_steps, steps):
-                flap_stepped[(low < flap.array) & (flap.array <= high)] = level
-                low = high
-            else:
-                # all flap values above the last
-                flap_stepped[low < flap.array] = level
-            self.array = np.ma.array(flap_stepped, mask=flap.array.mask)
+    def derive(self, flap=P('Flap Surface'), series=A('Series'), family=A('Family')):
+        try:
+            flap_steps = get_flap_map(series.value, family.value) 
+        except ValueError:
+            # no flaps mapping, round to nearest 5 degrees
+            logging.warning("No flap settings - rounding to nearest 5")
+            # round to nearest 5 degrees
+            self.array = round_to_nearest(flap.array, 5.0)
         else:
-            logging.warning(
-                "No Model Series flap settings - rounding to nearest 5")
-            # round to nearest 5 degrees for the moment
-            step = 5.0  # must be a float
-            self.array = np.ma.round(flap.array / step) * step
+            self.array = step_values(flap.array, flap_steps)
         
             
 class Slat(DerivedParameterNode):
     """
     Steps raw Slat angle into detents.
     """
-    @classmethod
-    def can_operate(cls, available):
-        if 'Slat Surface' in available:
-            return True
-        
-    def derive(self, slat=P('Slat Surface'), series=A('Model Series')):
-        from analysis.model_information import model_series_slat_map
-        slat_steps = model_series_slat_map.get(series.value) if series else None
-            
-        if slat_steps:
-            # for the moment, round off to the nearest 5 degrees
-            steps = np.ediff1d(slat_steps, to_end=[0])/2.0 + slat_steps
-            slat_stepped = np.zeros_like(slat.array.data)
-            low = None
-            for level, high in zip(slat_steps, steps):
-                slat_stepped[(low < slat.array) & (slat.array <= high)] = level
-                low = high
-            else:
-                # all slat values above the last
-                slat_stepped[low < slat.array] = level
-            self.array = np.ma.array(slat_stepped, mask=slat.array.mask)
+    def derive(self, slat=P('Slat Surface'), series=A('Series'), family=A('Family')):
+        try:
+            slat_steps = get_slat_map(series.value, family.value) 
+        except ValueError:
+            # no slats mapping, round to nearest 5 degrees
+            logging.warning("No slat settings - rounding to nearest 5")
+            # round to nearest 5 degrees
+            self.array = round_to_nearest(slat.array, 5.0)
         else:
-            logging.warning(
-                "No Model Series slat settings - rounding to nearest 5")
-            # round to nearest 5 degrees for the moment
-            step = 5.0  # must be a float
-            self.array = np.ma.round(slat.array / step) * step
+            self.array = step_values(slat.array, slat_steps)
+            
             
             
 class Config(DerivedParameterNode):
@@ -769,7 +763,7 @@ class Config(DerivedParameterNode):
         0 : '0',
         1 : '1',
         2 : '1 + F',
-        3 : '2(a)',
+        3 : '2(a)',  #Q: should display be (a) or 2* or 1* ?!
         4 : '2',
         5 : '3(b)',
         6 : '3',
@@ -781,79 +775,42 @@ class Config(DerivedParameterNode):
     Note: Does not use the Flap Lever position. This parameter reflects the
     actual config state of the aircraft rather than the intended state
     represented by the selected lever position.
+    
+    Note: Values that do not map directly to a required state are masked with
+    the data being random (memory alocated)
     """
     @classmethod
     def can_operate(cls, available):
-        if 'Flap' in available and 'Slat' in available:
+        if 'Flap' in available and 'Slat' in available \
+           and 'Series' in available and 'Family' in available:
             return True
         
-    def derive(self, flap=P('Flap'), slat=P('Slat'), aileron=P('Aileron')):
-        # manu=A('Manufacturer') - we could ensure this is only done for Airbus?
+    def derive(self, flap=P('Flap'), slat=P('Slat'), aileron=P('Aileron'), 
+               series=A('Series'), family=A('Family')):
+        #TODO: manu=A('Manufacturer') - we could ensure this is only done for Airbus?
         
-        summed = vstack_params(flap, slat, aileron).sum(axis=0)
-        if aileron:
-            map_a330 = (
-                (0, 0),
-                (1, 16),
-                (2, 29),
-                (3, 38),
-                (4, 44),
-                (5, 47),
-                (6, 55),
-                (7, 65))
-            
-        else:
-            map_a330 = (
-                (0, 0),
-                (1, 16),
-                (2, 24),
-                (3, 28),
-                (4, 34),
-                (5, 37),
-                (6, 45),
-                (7, 55))
+        mapping = get_config_map(series.value, family.value)        
+        qty_param = len(mapping.itervalues().next())
+        if qty_param == 3 and not aileron:
+            # potential problem here!
+            logging.warning("Aileron not available, so will calculate Config using only slat and flap")
+            qty_param = 2
+        elif qty_param == 2 and aileron:
+            # only two items in values tuple
+            logging.debug("Aileron available but not required for Config calculation")
+            pass
+        
+        #TODO: Scale each parameter individually to ensure uniqueness
+        # sum the required parameters
+        summed = vstack_params(*(flap, slat, aileron)[:qty_param]).sum(axis=0)
+        
+        # create a placeholder array fully masked
         self.array = np.ma.empty_like(flap.array)
         self.array.mask=True
-        for state, value in map_a330:
+        for state, values in mapping.iteritems():
+            s = sum(values[:qty_param])
             # unmask bits we know about
-            self.array[summed == value] = state
-            
-            
-        ### alternative pattern matching (slow?)
-        ##def equal_to(a, values):
-            ##return np.ma.allequal(a, values, fill_value=False)
-        
-        ##stacked = vstack_params(flap, slat, aileron)
-        ##for state, values in map_a330:
-            ##match = np.ma.apply_along_axis(equal_to, axis=0, arr=stacked, test=values)
-            ##self.array[match] = state
-          
-    ##@profile
-    def derive2(self, flap=P('Flap'), slat=P('Slat'), aileron=P('Aileron')):
-
-        # alternative pattern matching (slow?)
-        ##@profile
-        def map_with(axis, mapping):
-            a = tuple(axis.tolist())
-            return mapping.get(a, np.ma.masked)
-        
-        map_a330 = {
-            #slat, flap, aileron
-            ( 0, 0, 0) : 0,
-            (16, 0, 0) : 1,
-            (16, 8, 5) : 2,
-            (20, 8,10) : 3,
-            (20,14,10) : 4,
-            (23,14,10) : 5,
-            (23,22,10) : 6,
-            (23,32,10) : 7,
-            }
-        stacked = vstack_params(slat, flap, aileron)
-        self.array = np.ma.apply_along_axis(map_with, axis=0, arr=stacked, 
-                                            mapping=map_a330)
-    
-
-        # what about those that aren't in the correct state? Mask as invalid?
+            self.array[summed == s] = state
             
     
 class GearSelectedDown(DerivedParameterNode):

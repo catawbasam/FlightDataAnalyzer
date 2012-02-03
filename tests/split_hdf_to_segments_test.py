@@ -5,6 +5,23 @@ from analysis.split_hdf_to_segments import validate_aircraft, split_hdf_to_segme
 
 
 class TestSplitHDFToSegments(unittest.TestCase):
+    
+    
+    @unittest.skipIf(not os.path.isfile("test_data/1_7295949_737-3C.hdf5"), 
+                     'Test file not present')
+    def test_1_7295949_737_3C(self):
+        hdf_path = "test_data/1_7295949_737-3C.hdf5"
+        segs = split_hdf_to_segments(hdf_path, draw=False)
+        self.assertEqual(len(segs), 6)
+        #Oil temp states breaks at index 392, 768-782, - - but recorded at a 0.125hz low frequency!
+        # Eng (1) and (2) say 3167  - NOTE 3136 is at mins, but is masked!
+        
+        #todo: getwithmask, validate, align, normalise, stack, min, min_durations?!
+        
+        #
+        
+        # normalise?
+    
     @unittest.skipIf(not os.path.isfile("test_data/4_3377853_146-301.hdf5"), 
                      'Test file not present')
     def test_146_301(self):

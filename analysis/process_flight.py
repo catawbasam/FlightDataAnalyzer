@@ -198,20 +198,25 @@ def get_derived_nodes(module_names):
 def process_flight(hdf_path, aircraft_info, start_datetime=datetime.now(),
                    achieved_flight_record={}, required_params=[], draw=False):
     """
-    aircraft_info API:
+    For development, the definitive API is located here:
+        "PolarisTaskManagement.test.tasks_mask.process_flight"
+        
+    sample aircraft_info API:
     {
         'Tail Number':  # Aircraft Registration
         'Identifier':  # Aircraft Ident
         'Manufacturer': # e.g. Boeing
         'Manufacturer Serial Number': #MSN
-        'Model': # e.g. 737-800
+        'Model': # e.g. 737-808-ER
+        'Series': # e.g. 737-800
+        'Family': # e.g. 737
         'Flap Selections': # e.g. [0,18,24,30,33]
         'Frame': # e.g. 737-3C
         'Main Gear To Altitude Radio': # Distance in metres
         'Wing Span': # Distance in metres
     }
     
-    achieved_flight_record API:
+    sample achieved_flight_record API:
     {
         # TODO!
     }
