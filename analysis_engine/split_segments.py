@@ -20,13 +20,34 @@ def mask_slow_airspeed(airspeed):
     hysteresisless_spd = hysteresis(airspeed, settings.HYSTERESIS_FPIAS)
     return np.ma.masked_less(hysteresisless_spd, settings.AIRSPEED_THRESHOLD)
 
-
-
-def split_segments2(airspeed, dfc):
+    
+# new
+def split_segments_new(airspeed, dfc):
+    """
+    TODO: Ensure nan is masked!
+    
+    """
+    # I do not like splitting on speedy segments based on airspeed which may have superframe padded masks within mid-flight - i.e. we don't want to split at that point!
+    # repair mask first?
     speedy_slices = np.ma.notmasked_contiguous(mask_slow_airspeed(airspeed.array))
     # be clever about splitting between speedy slices
     if len(speedy_slices) <= 1:
         return [slice(0, len(airspeed))]
+    
+
+    # normalise the parameters we'll use for splitting the data
+    params = vstack_params(
+        hdf.get('Eng (1) N1'), hdf.get('Eng (1) Oil Temp'),
+        hdf.get('Eng (2) N1'), hdf.get('Eng (2) Oil Temp'),
+        hdf.get('Eng (3) N1'), hdf.get('Eng (3) Oil Temp'),
+        hdf.get('Eng (4) N1'), hdf.get('Eng (4) Oil Temp'), 
+        #TODO: Add "Turning" to ensure we're staying still (rate of turn)
+    )
+    norm_split_params = normalise(params)
+    
+    
+    
+    
     # more than one speedy section
     dfc_diff = np.ma.diff(dfc.array)
     dfc_mask_one = np.ma.masked_equal(dfc_diff, 1)
@@ -37,27 +58,46 @@ def split_segments2(airspeed, dfc):
     start = speedy_slices[0].stop
     for speedy_slice in speedy_slices[1:]:
         stop = speedy_slice.start
+        
+
+        #TODO: If stop - start * rate < settings.MINIMUM_SLOW_SPEED_FOR_FLIGHT_SPLIT seconds,
+        # then continue
+        #TODO: TEST
+        if stop - start < settings.ASBELOW * rate:
+            start = speedy_slice.stop
+            continue
+        
+        
+        
+        '''
+        Q: How many splits shall we make if the DFC jumps more than once? e.g. engine runups?
+        Q: Shall we allow multiple splits if we don't use DFC between flights, e.g. params.
+        Q: Be ware of pre-masked minimums to ensure we don't split on padded superframes
+        '''
+        
+        
+        
+        
+        
         # find DFC split within speedy sections
 
         # take the biggest jump (not that it means anything, but only one jump is enough!
         index, value = max_abs_value(dfc_mask_4094, slice(start*dfc.frequency,
                                                           stop*dfc.frequency))
         cut_index = index * (1.0/dfc.frequency) # align index again
+        
+        # if masked (no jump in dfc to split on) or the cut_index is the same
+        # as the start (again, no jump so it returns the first index)
         if np.ma.is_masked(value) or cut_index == start:
-
+            # NO DFC JUMP - so use parameters to cut most accurately.
             #TODO: implement and test below:
             '''
             from analysis_engine.library import vstack_params, min_value
             #TODO: Improve by ensuring we were sat still for the longest period
             #TODO: ensure all at same freq or align!
-            engine_params = vstack_params(
-                hdf.get('Eng (1) N1'), hdf.get('Eng (1) Oil Temp'),
-                hdf.get('Eng (2) N1'), hdf.get('Eng (2) Oil Temp'),
-                hdf.get('Eng (3) N1'), hdf.get('Eng (3) Oil Temp'),
-                hdf.get('Eng (4) N1'), hdf.get('Eng (4) Oil Temp'), 
-                #TODO: Add "Turning" to ensure we're staying still
-            )
-            cut_index, value = min_value(engine_params, slice(start, stop)) 
+            
+            # NOTE: This will only allow for a single split!
+            cut_index, value = min_value(norm_params, slice(start, stop)) 
             
             #Q: Use a threshold for value? if not met, then cut halfway
             # between the two. To improve effectiveness of threshold, you
@@ -65,10 +105,17 @@ def split_segments2(airspeed, dfc):
             # state so that you're sure the minimum is when they were nearly
             # off, otherwise you'll have a masked value and you can use that
             # to cut upon.
+            
+            # e.g. if value < .5 (50%) then it's likely that they didn't really turn off anything! 
+            # so split by lack of rate of turn and groundspeed or just half way!?
+            
             '''
             # no jump, take half way between values
             cut_index = (start + stop) / 2.0
             
+        if origin == cut_index:
+            # zero-length slice
+            continue
         segment_slices.append(slice(origin, cut_index))
         # keep track of slices
         origin = cut_index

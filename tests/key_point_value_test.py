@@ -4,7 +4,7 @@ import unittest
 
 from mock import Mock, patch
 
-from analysis_engine.derived_parameters import FlapStepped
+from analysis_engine.derived_parameters import Flap
 from analysis_engine.node import (KeyTimeInstance, KTI, KeyPointValue, 
                            KeyPointValueNode, Parameter, P, Section, S)
 
@@ -400,11 +400,11 @@ class TestAirspeedWithFlapMax(unittest.TestCase):
     def test_can_operate(self):
         self.assertEqual(\
             AirspeedWithFlapMax.get_operational_combinations(),
-            [('Flap Stepped', 'Airspeed')])
+            [('Flap', 'Airspeed')])
         
     def test_airspeed_with_flaps(self):
         spd = P('Airspeed', np.ma.array(range(30)))
-        flap = P('Flap Stepped', np.ma.array([0]*10 + [5]*10 + [10]*10))
+        flap = P('Flap', np.ma.array([0]*10 + [5]*10 + [10]*10))
         flap.array[19] = np.ma.masked # mask the max val
         spd_flap = AirspeedWithFlapMax()
         spd_flap.derive(flap, spd)
@@ -424,7 +424,7 @@ class TestAirspeedWithFlapMax(unittest.TestCase):
         flap = P('Flap', np.ma.masked_array([0] * 2 + [1] * 2 + [2] * 2 + [5] * 2 + \
                                       [10] * 2 +  [15] * 2 + [25] * 2 + \
                                       [30] * 2 + [40] * 2 + [0] * 2))
-        step = FlapStepped()
+        step = Flap()
         step.derive(flap)
         
         airspeed_with_flap_max = AirspeedWithFlapMax()

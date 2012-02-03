@@ -26,13 +26,14 @@ from analysis_engine.derived_parameters import (
     AltitudeSTD,
     AltitudeTail,
     ClimbForFlightPhases,
+    Config,
     Eng_N1Avg,
     Eng_N1Max,
     Eng_N1Min,
     Eng_N2Avg,
     Eng_N2Max,
     Eng_N2Min,
-    FlapStepped,
+    Flap,
     FuelQty,
     GroundspeedAlongTrack,
     HeadingContinuous,
@@ -43,6 +44,7 @@ from analysis_engine.derived_parameters import (
     RateOfClimb,
     RateOfClimbForFlightPhases,
     RateOfTurn,
+    Slat,
 )
 
 debug = sys.gettrace() is not None
@@ -190,6 +192,7 @@ class TestAccelerationSideways(unittest.TestCase):
         ])
         ma_test.assert_masked_array_approx_equal(acc_lat.array,
                                                  np.ma.array([0]*8))
+
         
 class TestAccelerationAcrossTrack(unittest.TestCase):
     def test_can_operate(self):
@@ -559,6 +562,41 @@ class TestClimbForFlightPhases(unittest.TestCase):
         expected = np.ma.array([0,2,5,0,0,3,4,6])
         ma_test.assert_masked_array_approx_equal(climb.array, expected)
    
+   
+
+class TestConfig(unittest.TestCase):
+    
+    def setUp(self):
+        # last state is invalid
+        s = np.ma.array([0]*2 + [16]*4 + [20]*4 + [23]*6 + [16])
+        self.slat = P('Slat', np.tile(s, 10000)) # 23 long
+        f = np.ma.array([0]*4 + [8]*4 + [14]*4 + [22]*2 + [32]*2 + [14])
+        self.flap = P('Flap', np.tile(f, 10000))
+        a = np.ma.array([0]*4 + [5]*2 + [10]*10 + [10])
+        self.ails = P('Aileron', np.tile(a, 10000))
+        
+    def test_can_operate(self):
+        expected = [('Flap','Slat', 'Series', 'Family'),
+                    ('Flap','Slat', 'Aileron', 'Series', 'Family')]
+        opts = Config.get_operational_combinations()
+        self.assertEqual(opts, expected)
+        
+    def test_config_for_a330(self):
+        # last state is invalid
+        config = Config()
+        config.derive(self.flap, self.slat, self.ails, 
+                      A('','A330-301'), A('','A330'))
+        self.assertEqual(list(np.ma.filled(config.array[:17], fill_value=-999)),
+                         [0,0,1,1,2,2,3,3,4,4,5,5,6,6,7,7,-999]
+                         )
+        
+    def test_time_taken(self):
+        from timeit import Timer
+        timer = Timer(self.test_config_for_a330)
+        time = min(timer.repeat(1, 1))
+        print "Time taken %s secs" % time
+        self.assertLess(time, 0.1, msg="Took too long")
+        
 
 class TestEng_N1Avg(unittest.TestCase):
     def test_can_operate(self):
@@ -706,35 +744,34 @@ class TestEng_N2Min(unittest.TestCase):
         )
         
         
-class TestFlapStepped(unittest.TestCase):
+class TestFlap(unittest.TestCase):
     def test_can_operate(self):
-        opts = FlapStepped.get_operational_combinations()
-        self.assertEqual(opts, [('Flap',),
-                                ('Flap', 'Flap Settings')])
+        opts = Flap.get_operational_combinations()
+        self.assertEqual(opts, [('Flap Surface', 'Series', 'Family'),
+                                ])
         
     def test_flap_stepped_nearest_5(self):
-        flap = P('Flap', np.ma.array(range(50)))
-        fstep = FlapStepped()
-        fstep.derive(flap, None)
+        flap = P('Flap Surface', np.ma.array(range(50)))
+        fstep = Flap()
+        fstep.derive(flap, A('Series', None), A('Family', None))
         self.assertEqual(list(fstep.array[:15]), 
                          [0,0,0,5,5,5,5,5,10,10,10,10,10,15,15])
         self.assertEqual(list(fstep.array[-7:]), [45]*5 + [50]*2)
 
         # test with mask
-        flap = P('Flap', np.ma.array(range(20), mask=[True]*10 + [False]*10))
-        fstep.derive(flap, None)
+        flap = P('Flap Surface', np.ma.array(range(20), mask=[True]*10 + [False]*10))
+        fstep.derive(flap, A('Series', None), A('Family', None))
         self.assertEqual(list(np.ma.filled(fstep.array, fill_value=-1)),
                          [-1]*10 + [10,10,10,15,15,15,15,15,20,20])
         
     def test_flap_using_md82_settings(self):
-        steps = (0, 11, 15, 28, 40)
-        flap_steps = Attribute('Flap Settings', steps)
-        flap = P('Flap', np.ma.array(range(50) + range(-5,0) + [13.1,1.3,10,10]))
+        # MD82 has flaps (0, 11, 15, 28, 40)
+        flap = P('Flap Surface', np.ma.array(range(50) + range(-5,0) + [13.1,1.3,10,10]))
         flap.array[1] = np.ma.masked
         flap.array[57] = np.ma.masked
         flap.array[58] = np.ma.masked
-        fstep = FlapStepped()
-        fstep.derive(flap, flap_steps)
+        fstep = Flap()
+        fstep.derive(flap, A('Series', None), A('Family', 'MD80'))
         self.assertEqual(len(fstep.array), 59)
         self.assertEqual(
             list(np.ma.filled(fstep.array, fill_value=-999)), 
@@ -1067,8 +1104,42 @@ class TestRateOfTurn(unittest.TestCase):
         ma_test.assert_masked_array_approx_equal(rot.array, answer)
         
         
+class TestSlat(unittest.TestCase):
+    def test_can_operate(self):
+        opts = Slat.get_operational_combinations()
+        self.assertEqual(opts, [('Slat Surface', 'Series', 'Family'),
+                                ])
         
+    def test_slat_stepped_nearest_5(self):
+        slat = P('Slat Surface', np.ma.array(range(50)))
+        fstep = Slat()
+        fstep.derive(slat, A('Series', None), A('Family', None))
+        self.assertEqual(list(fstep.array[:15]), 
+                         [0,0,0,5,5,5,5,5,10,10,10,10,10,15,15])
+        self.assertEqual(list(fstep.array[-7:]), [45]*5 + [50]*2)
+
+        # test with mask
+        slat = P('Slat Surface', np.ma.array(range(20), mask=[True]*10 + [False]*10))
+        fstep.derive(slat, A('Series', None), A('Family', None))
+        self.assertEqual(list(np.ma.filled(fstep.array, fill_value=-1)),
+                         [-1]*10 + [10,10,10,15,15,15,15,15,20,20])
+        
+    def test_slat_using_A330_settings(self):
+        # A330 has slats ( 0, 16, 20, 23),
+        slat = P('Slat Surface', np.ma.array(range(25) + range(-5,0)))
+        slat.array[1] = np.ma.masked
+        fstep = Slat()
+        fstep.derive(slat, A('Series', None), A('Family', 'A330'))
+        self.assertEqual(len(fstep.array), 30)
+        self.assertEqual(
+            list(np.ma.filled(fstep.array, fill_value=-999)), 
+            [0, -999, 0, 0, 0, 0, 0, 0, 0, 
+             16, 16, 16, 16, 16, 16, 16, 16, 16, 16,
+             20, 20, 20, 
+             23, 23, 23, 
+             0, 0, 0, 0, 0])
+
 if __name__ == '__main__':
     suite = unittest.TestSuite()
-    suite.addTest(TestFlapStepped('test_time_taken'))
+    suite.addTest(TestConfig('test_time_taken2'))
     unittest.TextTestRunner(verbosity=2).run(suite)
