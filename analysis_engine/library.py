@@ -1,11 +1,12 @@
 import numpy as np
 
+from math import floor, sqrt, sin, cos, atan2, radians
 from collections import OrderedDict, namedtuple
 from datetime import datetime, timedelta
 from hashlib import sha256
 from itertools import izip
-from math import floor
-from scipy.signal import iirfilter, lfilter, lfilter_zi, filtfilt
+from scipy.signal import lfilter, lfilter_zi
+from scipy.optimize import fmin_cobyla
 
 from settings import REPAIR_DURATION, TRUCK_OR_TRAILER_INTERVAL, TRUCK_OR_TRAILER_PERIOD
 
@@ -61,9 +62,6 @@ def align(slave, master, interval='Subframe', signaltype='Analogue'):
     # Check the type of signal is one of those we recognise
     assert signaltype in ['Analogue', 'Discrete', 'Multi-State']
     
-    ## slave_aligned[:] = 0.0
-    ## Clearing the slave_aligned array is unnecessary, but can make testing easier to follow.
-
     # Get the timing offsets, comprised of word location and possible latency.
     tp = master.offset
     ts = slave.offset
@@ -71,13 +69,46 @@ def align(slave, master, interval='Subframe', signaltype='Analogue'):
     # Get the sample rates for the two parameters
     wm = master.frequency
     ws = slave.frequency
+    slowest = min(wm,ws)
+    
+    #---------------------------------------------------------------------------
+    # Section to handle superframe parameters, in master, slave or both.
+    #---------------------------------------------------------------------------
+    if slowest < 0.25:
+        # One or both parameters is in a superframe. Handle without
+        # interpolation as these parameters are recorded at too low a rate
+        # for interpolation to be meaningful.
+        if wm==ws:
+            # All we need do is copy the data across as they are at the same
+            # sample rate.
+            slave_aligned=np.ma.copy(slave.array)
+            return slave_aligned
+        
+        if wm>ws:
+            # Increase samples in slave accordingly
+            r = wm/ws
+            assert r in [2,4,8,16,32,64,128,256]
+            slave_aligned = np.ma.reshape(np.ma.empty_like(master.array),(-1,r))
+            for i in range(len(slave.array)):
+                slave_aligned[i::r]=slave.array[i]
+            return np.ma.ravel(slave_aligned)
+            
+        else:
+            # Reduce samples in slave.
+            r = ws/wm
+            assert r in [2,4,8,16,32,64,128,256]
+            slave_aligned=np.ma.empty_like(master.array)
+            slave_aligned=slave_array[::r]
+            return slave_aligned
+    #---------------------------------------------------------------------------
+            
 
     # Express the timing disparity in terms of the slave paramter sample interval
     delta = (tp-ts)*slave.frequency
 
     # If we are working across a complete frame, the number of samples in each case
     # is four times greater.
-    if interval == 'Frame':
+    if interval == 'Frame' or 0.25 <= slowest < 1:
         wm = int(wm * 4)
         ws = int(ws * 4)
     assert wm in [1,2,4,8,16,32,64]
@@ -128,6 +159,101 @@ def align(slave, master, interval='Subframe', signaltype='Analogue'):
             slave_aligned[i::wm]=a*slave_array[h::ws]+b*slave_array[h1::ws]
 
     return slave_aligned
+
+
+def bearings_and_distances(latitudes, longitudes, reference):
+    """
+    Returns the bearings and distances of a track with respect to a fixed point.
+    
+    Usage: 
+    brg[], dist[] = bearings_and_distances(lat[], lon[], {'latitude':lat_ref, 'longitude', lon_ref})
+    
+    :param latitudes: The latitudes of the track.
+    :type latitudes: Numpy masked array.
+    :param longitudes: The latitudes of the track.
+    :type longitudes: Numpy masked array.
+    :param reference: The location of the second point.
+    :type reference: dict with {'latitude': lat, 'longitude': lon} in degrees.
+    
+    :returns bearings, distances: Bearings in degrees, Distances in metres.
+    :type distances: Two Numpy masked arrays
+
+    Navigation formulae have been derived from the scripts at 
+    http://www.movable-type.co.uk/scripts/latlong.html
+    Copyright 2002-2011 Chris Veness, and altered by Flight dAta Services to 
+    suit the POLARIS project.
+    """
+
+    lat_array = np.ma.array(data=np.deg2rad(latitudes.data),mask=latitudes.mask)
+    lon_array = np.ma.array(data=np.deg2rad(longitudes.data),mask=longitudes.mask)
+    lat_ref = radians(reference['latitude'])
+    lon_ref = radians(reference['longitude'])
+    
+    dlat = lat_ref-lat_array
+    dlon = lon_ref-lon_array
+    
+    a = np.ma.sin(dlat/2) * np.ma.sin(dlat/2) + \
+        np.ma.cos(lat_array) * np.ma.cos(lat_ref) * np.ma.sin(dlon/2) * np.ma.sin(dlon/2)
+    dists = 2 * np.ma.arctan2(np.ma.sqrt(a), np.ma.sqrt(1.0-a))
+    dists *= 6371000 # Earth radius in metres
+
+    
+    y = np.ma.sin(dlon) * np.ma.cos(lat_ref)
+    x = np.ma.cos(lat_array) * np.ma.sin(lat_ref) \
+        - np.ma.sin(lat_array) * np.ma.cos(lat_ref) * np.ma.cos(dlon)
+    brgs = np.ma.arctan2(-y,-x)
+    
+    joined_mask = np.logical_or(latitudes.mask, longitudes.mask)
+    brg_array = np.ma.array(data = brgs,mask = joined_mask)
+    dist_array = np.ma.array(data = dists,mask = joined_mask)
+
+    return brg_array, dist_array
+
+def latitudes_and_longitudes(bearings, distances, reference):
+    """
+    Returns the bearings and distances of a track with respect to a fixed point.
+    
+    Usage: 
+    lat[], lon[] = latitudes_and_longitudes(brg[], dist[], {'latitude':lat_ref, 'longitude', lon_ref})
+    
+    :param bearings: The bearings of the track.
+    :type bearings: Numpy masked array.
+    :param distances: The distances of the track.
+    :type distances: Numpy masked array.
+    :param reference: The location of the reference point.
+    :type reference: dict with {'latitude': lat, 'longitude': lon} in degrees.
+    
+    :returns latitude, longitude: Latitudes and Longitudes in degrees.
+    :type latitude, longitude: Two Numpy masked arrays
+
+    Navigation formulae have been derived from the scripts at 
+    http://www.movable-type.co.uk/scripts/latlong.html
+    Copyright 2002-2011 Chris Veness, and altered by Flight dAta Services to 
+    suit the POLARIS project.
+    """
+    lat_ref = radians(reference['latitude'])
+    lon_ref = radians(reference['longitude'])
+    brg = bearings.data
+    dist = distances.data / 6371000.0 # Scale to earth radius in metres
+
+    lat = np.arcsin(sin(lat_ref)*np.cos(dist) + 
+                   cos(lat_ref)*np.sin(dist)*np.cos(brg))
+    lon = np.arctan2(np.sin(brg)*np.sin(dist)*np.cos(lat_ref), 
+                      np.cos(dist)-sin(lat_ref)*np.sin(lat))
+    lon += lon_ref 
+    
+    
+    """
+    lat2: =ASIN(SIN(lat1)*COS(d/R) + COS(lat1)*SIN(d/R)*COS(brng))
+    lon2: =lon1 + ATAN2(COS(d/R)-SIN(lat1)*SIN(lat2), SIN(brng)*SIN(d/R)*COS(lat1))    
+    """
+    
+    joined_mask = np.logical_or(bearings.mask, distances.mask)
+    lat_array = np.ma.array(data = np.rad2deg(lat),mask = joined_mask)
+    lon_array = np.ma.array(data = np.rad2deg(lon),mask = joined_mask)
+    return lat_array, lon_array
+
+
 
 def calculate_timebase(years, months, days, hours, mins, secs):
     """
@@ -263,6 +389,10 @@ def datetime_of_index(start_datetime, index, frequency=1):
     offset = timedelta(seconds=index_in_seconds)
     return start_datetime + offset
     
+
+
+
+
 def duration(a, period, hz=1.0):
     '''
     This function clips the maxima and minima of a data array such that the 
@@ -279,7 +409,6 @@ def duration(a, period, hz=1.0):
     :param hz: Frequency of the data_array
     :type hz: float
     '''
-    
     if period <= 0.01:
         raise ValueError('Duration called with period outside permitted range')
 
@@ -323,10 +452,9 @@ def duration(a, period, hz=1.0):
         else:
             i = i + 1
     '''
-    
     return a
 
-def first_order_lag (array, time_constant, hz, gain = 1.0, initial_value = None):
+def first_order_lag (in_param, time_constant, hz, gain = 1.0, initial_value = None):
     '''
     Computes the transfer function
             x.G
@@ -343,8 +471,8 @@ def first_order_lag (array, time_constant, hz, gain = 1.0, initial_value = None)
     first_order_lag(param, time_constant=5) is equivalent to
     array[index] = array[index-1] * 0.8 + array[index] * 0.2.
     
-    :param array: input data (x)
-    :type array: masked array
+    :param in_param: input data (x)
+    :type in_param: masked array
     :param time_constant: time_constant for the lag function (T)(sec)
     :type time_constant: float
     :param hz: sample rate for the input data (sec-1)
@@ -355,10 +483,10 @@ def first_order_lag (array, time_constant, hz, gain = 1.0, initial_value = None)
     :type initial_value: float
     :returns: masked array of values with first order lag applied
     '''
-    input_data = np.copy(array.data)
+    #input_data = np.copy(array.data)
     
     # Scale the time constant to allow for different data sample rates.
-    tc = time_constant / hz
+    tc = time_constant * hz
     
     # Trap the condition for stability
     if tc < 0.5:
@@ -374,23 +502,55 @@ def first_order_lag (array, time_constant, hz, gain = 1.0, initial_value = None)
     y_term.append ((1.0 - 2.0*tc)/(1.0 + 2.0*tc)) #a[1]
     y_term = np.array(y_term)
     
+    return masked_first_order_filter(y_term, x_term, in_param, initial_value)
+
+def masked_first_order_filter(y_term, x_term, in_param, initial_value):
+    """
+    This provides access to the scipy filter function processed across the
+    unmasked data blocks, with masked data retained as masked zero values.
+    This is a better option than masking all subsequent values which would be
+    the mathematically correct thing to do with infinite response filters.
+    
+    :param y_term: Filter denominator terms. 
+    :type in_param: list 
+    :param x_term: Filter numerator terms.
+    :type x_term: list
+    :param in_param: input data array
+    :type in_param: masked array
+    :param initial_value: Value to be used at the start of the data
+    :type initial_value: float (or may be None)
+    """
+    
     z_initial = lfilter_zi(x_term, y_term) # Prepare for non-zero initial state
     # The initial value may be set as a command line argument, mainly for testing
     # otherwise we set it to the first data value.
-    if initial_value == None:
-        initial_value = input_data[0]
-    answer, z_final = lfilter(x_term, y_term, input_data, zi=z_initial*initial_value)
-    masked_result = np.ma.array(answer)
+    
+    result = np.ma.zeros(len(in_param))  # There is no zeros_like method.
+    good_parts = np.ma.clump_unmasked(in_param)
+    for good_part in good_parts:
+        
+        if initial_value == None:
+            initial_value = in_param[good_part.start]
+        # Tested version here...
+        answer, z_final = lfilter(x_term, y_term, in_param[good_part], zi=z_initial*initial_value)
+        result[good_part] = np.ma.array(answer)
+        
     # The mask should last indefinitely following any single corrupt data point
     # but this is impractical for our use, so we just copy forward the original
     # mask.
-    masked_result.mask = array.mask
-    return masked_result
-
+    bad_parts = np.ma.clump_masked(in_param)
+    for bad_part in bad_parts:
+        # The mask should last indefinitely following any single corrupt data point
+        # but this is impractical for our use, so we just copy forward the original
+        # mask.
+        result[bad_part] = np.ma.masked
+        
+    return result
+    
 def first_order_washout (in_param, time_constant, hz, gain = 1.0, initial_value = None):
     '''
     Computes the transfer function
-          x.G.s
+         x.G.(T.s)
     y = -----------
          (1 + T.s)
     where:
@@ -412,10 +572,10 @@ def first_order_washout (in_param, time_constant, hz, gain = 1.0, initial_value 
     :type initial_value: float
     :returns: masked array of values with first order lag applied
     '''
-    input_data = np.copy(in_param.data)
+    #input_data = np.copy(in_param.data)
     
     # Scale the time constant to allow for different data sample rates.
-    tc = time_constant / hz
+    tc = time_constant * hz
     
     # Trap the condition for stability
     if tc < 0.5:
@@ -431,17 +591,48 @@ def first_order_washout (in_param, time_constant, hz, gain = 1.0, initial_value 
     y_term.append ((1.0 - 2.0*tc)/(1.0 + 2.0*tc)) #a[1]
     y_term = np.array(y_term)
     
-    z_initial = lfilter_zi(x_term, y_term)
-    if initial_value == None:
-        initial_value = input_data[0]
-    # Tested version here...
-    answer, z_final = lfilter(x_term, y_term, input_data, zi=z_initial*initial_value)
-    masked_result = np.ma.array(answer)
-    # The mask should last indefinitely following any single corrupt data point
-    # but this is impractical for our use, so we just copy forward the original
-    # mask.
-    masked_result.mask = in_param.mask
-    return masked_result
+    return masked_first_order_filter(y_term, x_term, in_param, initial_value)
+
+def runway_distances(runway):
+    '''
+    Projection of the ILS glideslope antenna position onto the runway centreline
+    '''
+    def dist(lat1_d, lon1_d, lat2_d, lon2_d):
+        lat1 = radians(lat1_d)
+        lon1 = radians(lon1_d)
+        lat2 = radians(lat2_d)
+        lon2 = radians(lon2_d)
+
+        dlat = lat2-lat1
+        dlon = lon2-lon1
+
+        a = sin(dlat/2) * sin(dlat/2) + cos(lat2) \
+            * (lat2) * (dlon/2) * sin(dlon/2)
+        return 2 * atan2(sqrt(a), sqrt(1-a)) * 6371000
+    
+    start_lat = runway['start']['latitude']
+    start_lon = runway['start']['longitude']
+    end_lat = runway['end']['latitude']
+    end_lon = runway['end']['longitude']
+    lzr_lat = runway['localizer']['latitude']
+    lzr_lon = runway['localizer']['longitude']
+    gs_lat = runway['glideslope']['latitude']
+    gs_lon = runway['glideslope']['longitude']
+    
+    a = dist(gs_lat, gs_lon, lzr_lat, lzr_lon)
+    b = dist(gs_lat, gs_lon, start_lat, start_lon)
+    c = dist(end_lat, end_lon, lzr_lat, lzr_lon)
+    d = dist(start_lat, start_lon, lzr_lat, lzr_lon)
+    
+    r = (1.0+(a**2 - b**2)/d**2)/2.0
+    g = r*d
+    
+    # The projected glideslope antenna position is given by this formula
+    pgs_lat = lzr_lat + r*(start_lat - lzr_lat)
+    pgs_lon = lzr_lon + r*(start_lon - lzr_lon)
+    
+    return [d, g, c, pgs_lat, pgs_lon]  # Runway distances to start, glideslope and end.
+
 
 def hash_array(array):
     '''
@@ -467,18 +658,9 @@ def hysteresis (array, hysteresis):
         notmasked = np.ma.where(array.mask == False)[0]
     # The starting point for the computation is the first notmasked sample.
     old = array[notmasked[0]]
-    
-    ### Index through the data storing the answer in reverse order
-    ##for c in range(2):
-        ##diff = np.ma.ediff1d(array, to_end=[0])
-        ##gt = np.ma.greater(diff, quarter_range)
-        ##lt = np.ma.less(diff, -quarter_range)
-        ##array[gt] -= quarter_range
-        ##array[lt] += quarter_range
-
-    
     for index in notmasked:
         new = array[index]
+
         if new - old > quarter_range:
             old = new  - quarter_range
         elif new - old < -quarter_range:
@@ -493,10 +675,113 @@ def hysteresis (array, hysteresis):
         elif new - old < -quarter_range:
             old = new + quarter_range
         result[length-index] = old
-
+ 
+    # At the end of the process we reinstate the mask, although the data
+    # values may have affected the result.
     return np.ma.array(result, mask=array.mask)
 
 
+def ils_gs_estimate(x, y, gs):
+    """
+    Computation of the best fit glidepath.
+    
+    :param x: ils range, starting at high values and decreasing towards the glideslope antenna
+    :type x: array, units = feet.
+    :param y: altitude above runway
+    :type y: array, units = feet.
+    :param gs: glideslope deviations
+    :type gs: array of deviations, units = dots
+    
+    :return
+    :param th_dist: distance from last sample to glideslope datum
+    :type th_dist: float, units = feet.
+    :param gs_slope: slope of the ILS glidepath measured from the recorded data
+    :type gs_slope: float, degrees
+    :param gs_gain: gain of signal from glideslope
+    :type gs_gain: float, units dots per degree deviation.
+    """
+    
+    # Estimate the offset from the last sample only
+    d0 = x[-1] - y[-1]*19 # Approximately 1/tan(3deg) to initialise parameters.
+    x0 = np.array([d0, 5.0, 2.5])
+    #xopt = fmin_bfgs(ils_cost, x0, args=(x,y,gs))
+    xopt = fmin_cobyla(ils_cost, x0, 
+                       [ils_rule_th, ils_rule_slope, ils_rule_gain],
+                       args=(x,y,gs), consargs=(), 
+                       rhobeg=0.01, rhoend=0.0001,
+                       disp=2)
+    
+    return xopt
+    
+def ils_cost(params, x, y, gs):
+    th_dist = params[0]
+    gs_slope = params[1]
+    gs_gain = params[2]
+
+    dist = x + th_dist
+    elevation = np.degrees(np.arctan2(y, dist))
+    my_dev = (gs_slope - elevation)/gs_gain
+    cost = np.sum((my_dev-gs)*(my_dev-gs))
+    return cost
+
+def ils_rule_th(x):
+    th_dist = x[0]
+    # Limit the threshold distance to +/- 2000 ft
+    return 1-(th_dist/2000)**2
+
+def ils_rule_slope(x):
+    gs_slope = x[1]
+    # Limit ILS glideslope estimates to 2.5 to 6.5 degrees
+    return 1-((gs_slope-4.5)/2)**2
+    
+def ils_rule_gain(x):
+    gs_gain = x[2]
+    # Limit ILS glideslope gain to 2 to 5 dots/degree
+    return 1-((gs_gain-3.5)/1.5)**2
+
+
+def integrate (array, frequency, initial_value=0.0, scale=1.0, direction="forwards"):
+    """
+    Rectangular integration
+    
+    Usage example: 
+    feet_to_land = integrate(airspeed[:touchdown], scale=KTS_TO_FPS, direction='reverse')
+
+    :param array: Integrand.
+    :type array: Numpy masked array.
+    :param frequency: Sample rate of the integrand.
+    :type frequency: Float
+    :param initial_value: Initial falue for the integral
+    :type initial_value: float
+    :param scale: Scaling factor, default = 1.0
+    :type scale: float
+    :param direction: Optional integration sense, default = 'forwards'
+    
+    :returns integral: Result of integration by time
+    :type integral: Numpy masked array.
+   
+    Note: Masked values will be "repaired" before integration. If errors longer 
+    than the repair limit exist, subsequent values in the array will all be 
+    masked.
+    """
+    result = np.copy(array)
+    
+    if direction == 'forwards':
+        d = +1
+    else:
+        d = -1
+        
+    k = (scale*0.5)/frequency
+    to_int = k*(array + np.roll(array,d))
+    if direction == 'forwards':
+        to_int[0] = initial_value
+    else:
+        to_int[-1] = initial_value
+    
+    result[::d] = np.ma.cumsum(to_int[::d])
+    return result
+    
+    
 def interleave (param_1, param_2):
     """
     Interleaves two parameters (usually from different sources) into one
@@ -526,6 +811,9 @@ def interleave (param_1, param_2):
         
     return np.ma.ravel(merged_array)
             
+"""
+Superceded by blend routines.
+
 def interleave_uneven_spacing (param_1, param_2):
     '''
     This interleaves samples that are not quote equi-spaced.
@@ -550,7 +838,7 @@ def interleave_uneven_spacing (param_1, param_2):
         raise ValueError, 'Attempt to interleave parameters at differing sample rates'
 
     mean_offset = (param_2.offset + param_1.offset) / 2.0
-    result_offset = mean_offset - 1.0/(2.0 * param_1.frequency)
+    #result_offset = mean_offset - 1.0/(2.0 * param_1.frequency)
     dt = 1.0/param_1.frequency
     
     merged_array = np.ma.zeros((2, len(param_1.array)))
@@ -583,13 +871,67 @@ def interleave_uneven_spacing (param_1, param_2):
     
     #return straight_array
     return None # to force a test error until this is fixed to prevent extrapolation
+"""
+"""
+def interpolate_params(*params):
+    '''
+    Q: Should we mask indices which are being interpolated in masked areas of
+       the input arrays.
+    '''
+    param_frequencies = [param.frequency for param in params]
+    max_frequency = max(param_frequencies)
+    out_frequency = sum(param_frequencies)
+    
+    data_arrays = []
+    index_arrays = []
+    
+    for param in sorted(params, key=attrgetter('frequency')):
+        multiplier = out_frequency / float(param.frequency)
+        offset = (param.offset * multiplier)
+        # Will not create interpolation points for masked indices.
+        unmasked_indices = np.where(param.array.mask == False)[0]
+        index_array = unmasked_indices.astype(np.float_) * multiplier + offset
+        # Take only unmasked values to match size with index_array.
+        data_arrays.append(param.array.data[unmasked_indices])
+        index_arrays.append(index_array)
+    # param assigned within loop has the maximum frequency.
+    
+    data_array = np.concatenate(data_arrays)
+    index_array = np.concatenate(index_arrays)
+    record = np.rec.fromarrays([index_array, data_array],
+                               names='indices,values')
+    record.sort()
+    # Masked values will be NaN.
+    interpolator = interp1d(record.indices, record.values, bounds_error=False,
+                            fill_value=np.NaN)
+    # Ensure first interpolated value is within range.
+    out_offset = np.min(record.indices)
+    out_indices = np.arange(out_offset, len(param.array) * multiplier,
+                            param.frequency / float(out_frequency))
+    interpolated_array = interpolator(out_indices)
+    masked_array = np.ma.masked_array(interpolated_array,
+                                      mask=np.isnan(interpolated_array))
+    return masked_array, out_frequency, out_offset
+"""
+
+def index_of_datetime(start_datetime, index_datetime, frequency):
+    '''
+    :param start_datetime: Start datetime of data file.
+    :type start_datetime: datetime
+    :param index_datetime: Datetime to calculate the index of.
+    :type index_datetime: datetime
+    :param frequency: Frequency of index.
+    :type frequency: float or int
+    :returns: The index of index_datetime relative to start_datetime and frequency.
+    '''
+    difference = index_datetime - start_datetime
+    return difference.total_seconds() * frequency
 
 def is_index_within_slice(index, _slice):
     '''
-    Tests whether index is within the slice.
-    
     :type index: int or float
     :type _slice: slice
+    :returns: whether index is within the slice.
     :rtype: bool
     '''
     if _slice.start is None and _slice.stop is None:
@@ -714,7 +1056,24 @@ def min_value(array, _slice=slice(None)):
     """
     return _value(array, _slice, np.ma.argmin)
             
-def merge_alternate_sensors (array):
+def merge_sources(*arrays):
+    '''
+    This simple process merges the data from multiple sensors where they are
+    sampled alternately. Unlike merge_two_sensors, this procedure does
+    not make any allowance for the two sensor readings being different.
+    
+    :param array: sampled data from an alternate signal source
+    :type array: masked array
+    :returns: masked array with merging algorithm applied.
+    :rtype: masked array
+    '''
+    result = np.ma.empty((len(arrays[0]),len(arrays)))
+    for dim, array in enumerate(arrays):
+        result[:,dim] = array
+    return np.ma.ravel(result)
+
+
+def blend_alternate_sensors (array_one, array_two, padding):
     '''
     This simple process merges the data from two sensors where they are sampled
     alternately. Often pilot and co-pilot attitude and air data signals are
@@ -725,16 +1084,56 @@ def merge_alternate_sensors (array):
     sensors can lead to, taking pitch attitude as an example, apparent "nodding"
     of the aircraft and errors in the derived pitch rate.
     
-    :param array: sampled data from an alternate signal source
-    :type array: masked array
+    Mismatches can also occur when there are timing differences between the
+    two samples, in which case this averaging process combined with
+    corrections to the offset and sampling interval are effective.
+    
+    :param array_one: sampled data from one signal source
+    :type array_one: masked array
+    :param array_two: sampled data from one signal source
+    :type array_two: masked array
+    :param padding: where to put the padding value in the array
+    :type padding: String "Precede" or "Follow"
     :returns: masked array with merging algorithm applied.
     :rtype: masked array
     '''
-    result = np.ma.empty_like(array)
-    result[1:-1] = (array[:-2] + array[1:-1]*2.0 + array[2:]) / 4.0
-    result[0] = (array[0] + array[1]) / 2.0
-    result[-1] = (array[-2] + array[-1]) / 2.0
-    return result
+    assert len(array_one) == len(array_two)
+    both = merge_sources(array_one, array_two)
+    # A simpler technique than trying to append to the averaged array.
+    av_pairs = np.ma.empty_like(both)
+    if padding == 'Follow':
+        av_pairs[:-1] = (both[:-1]+both[1:])/2
+        av_pairs[-1] = av_pairs[-2]
+        av_pairs[-1] = np.ma.masked
+    else:
+        av_pairs[1:] = (both[:-1]+both[1:])/2
+        av_pairs[0] = av_pairs[1]
+        av_pairs[0] = np.ma.masked
+    return av_pairs
+
+def blend_two_parameters (param_one, param_two):
+    '''
+    This process merges two parameter arrays of the same frequency.
+    Soothes and then computes the offset and frequency appropriately.
+    
+    :param param_one: Parameter object
+    :type param_one: Parameter
+    '''
+    assert param_one.frequency  == param_two.frequency
+    offset = (param_one.offset + param_two.offset)/2.0
+    frequency = param_one.frequency * 2
+    padding = 'Follow'
+    
+    if offset > 1/frequency:
+        offset = offset - 1/frequency
+        padding = 'Precede'
+        
+    if param_one.offset <= param_two.offset:
+        # merged array should be monotonic (always increasing in time)
+        array = blend_alternate_sensors(param_one.array, param_two.array, padding)
+    else:
+        array = blend_alternate_sensors(param_two.array, param_one.array, padding)
+    return array, param_one.frequency * 2, offset
 
 def normalise(array, normalise_max=1.0, copy=True, axis=None):
     """
@@ -757,7 +1156,7 @@ def normalise(array, normalise_max=1.0, copy=True, axis=None):
     ##array *= normalise_max / array.max() # original single axis version
     return array
 
-def peak_curvature(array, _slice=slice(None), search_for='Concave'):
+def peak_curvature(array, _slice=slice(None), curve_sense='Concave'):
     """
     This routine uses a "Truck and Trailer" algorithm to find where a
     parameter changes slope. In the case of FDM, we are looking for the point
@@ -814,7 +1213,7 @@ def peak_curvature(array, _slice=slice(None), search_for='Concave'):
 
     # Normalise array and prepare for masking operations
     angle=np.ma.array(angle/np.max(np.abs(angle)))
-    if search_for == 'Bipolar':
+    if curve_sense == 'Bipolar':
         angle = np.ma.abs(angle)
     
     # Find peak - using values over 50% of the highest allows us to operate
@@ -892,21 +1291,30 @@ def rate_of_change(diff_param, half_width):
     slope[-hw:] = (to_diff[-hw:] - to_diff[-hw-1:-1])* hz
     return slope
 
-def repair_mask(array):
+def repair_mask(array, frequency=1, repair_duration=REPAIR_DURATION,
+                raise_duration_exceedance=True):
     '''
     This repairs short sections of data ready for use by flight phase algorithms
     It is not intended to be used for key point computations, where invalid data
-    should remain masked.
+    should remain masked. Modifies the array in-place.
+    
+    :param repair_duration: If None, any length of masked data will be repaired.
     '''
+    repair_samples = repair_duration * frequency if repair_duration else None
     masked_sections = np.ma.clump_masked(array)
     for section in masked_sections:
         length = section.stop - section.start
-        if (length) > REPAIR_DURATION:  # TODO: include frequency as length is in samples and REPAIR_DURATION is in seconds
-            break # Too long to repair
+        if repair_samples and (length) > repair_samples:
+            if raise_duration_exceedance:
+                raise ValueError("Length of masked section '%s' exceeds "
+                                 "repair_samples '%s'." % (length,
+                                                           repair_samples))
+            else:
+                continue # Too long to repair
         elif section.start == 0:
-            break # Can't interpolate if we don't know the first sample
+            continue # Can't interpolate if we don't know the first sample
         elif section.stop == len(array):
-            break # Can't interpolate if we don't know the last sample
+            continue # Can't interpolate if we don't know the last sample
         else:
             array[section] = np.interp(np.arange(length) + 1,
                                        [0, length + 1],
@@ -914,7 +1322,7 @@ def repair_mask(array):
                                         array.data[section.stop]])
     return array
    
-   
+
 def round_to_nearest(array, step):
     """
     Rounds to nearest step value, so step 5 would round as follows:
@@ -932,6 +1340,25 @@ def round_to_nearest(array, step):
     return np.ma.round(array / step) * step
 
 
+def rms_noise(array):
+    '''
+    :param array: input parameter to measure noise level
+    :type array: numpy masked array
+    :returns: RMS noise level
+    
+    This computes the rms noise for each sample compared with its neighbours.
+    In this way, a steady cruise at 30,000 ft will yield no noise, as will a
+    steady climb or descent.
+    '''
+    # The difference between one sample and the ample to the left is computed
+    # using the ediff1d algorithm, then by rolling it right we get the answer
+    # for the difference between this sample and the one to the right.
+    diff_left = np.ma.ediff1d(array, to_end=0)
+    diff_right = np.ma.array(data=np.roll(diff_left.data,1), 
+                             mask=np.roll(diff_left.mask,1))
+    local_diff = diff_left - diff_right
+    return sqrt(np.ma.mean(np.ma.power(local_diff,2)))  # RMS in one line !
+    
 def shift_slices(slicelist, offset):
     """
     This function shifts a list of slices by offset. The need for this arises
@@ -948,6 +1375,21 @@ def shift_slices(slicelist, offset):
             newlist.append(slice(a,b))
     return newlist
 
+def slice_duration(_slice, hz):
+    '''
+    Gets the duration of a slice in taking the frequency into account. While
+    the calculation is simple, there were instances within the code of slice
+    durations being compared against values in seconds without considering
+    the frequency of the slice indices.
+    
+    :param _slice: Slice to calculate the duration of.
+    :type _slice: slice
+    :param hz: Frequency of slice.
+    :type hz: float or int
+    :returns: Duration of _slice in seconds.
+    :rtype: float
+    '''
+    return _slice.start - _slice.stop / hz
 
 def slices_above(array, value):
     '''
@@ -1067,6 +1509,58 @@ def step_values(array, steps):
         stepped_array[low < array] = level
     return np.ma.array(stepped_array, mask=array.mask)
             
+
+def smooth_track_cost_function(lat_s, lon_s, lat, lon):
+    # Summing the errors from the recorded data is easy.
+    from_data = np.sum((lat_s - lat)**2)+np.sum((lon_s - lon)**2)
+    
+    # The errors from a straight line are computed swiftly using convolve.
+    slider=np.array([-1,2,-1])
+    from_straight = np.sum(np.convolve(lat_s,slider,'valid')**2) + \
+        np.sum(np.convolve(lon_s,slider,'valid')**2)
+    
+    cost = from_data + 100*from_straight
+    return cost
+    
+def smooth_track(lat, lon):
+    """
+    Input:
+    lat = Recorded latitude array
+    lon = Recorded longitude array
+    
+    Returns:
+    lat_last = Optimised latitude array
+    lon_last = optimised longitude array
+    Cost = cost function, used for testing satisfactory convergence.
+    """
+    # This routine used to index through the arrays. By using np.convolve (in
+    # both the iteration and cost functions) the same algorithm runs 350
+    # times faster !!!
+    
+    lat_s = np.ma.copy(lat)
+    lon_s = np.ma.copy(lon)
+    
+    # Set up a weighted array that will slide past the data.
+    r = 0.7  
+    # Values of r alter the speed to converge; 0.7 seems best.
+    slider=np.ma.ones(5)*r/4
+    slider[2]=1-r
+
+    cost_0 = 9e+99
+    cost = smooth_track_cost_function(lat_s, lon_s, lat, lon)
+    
+    while cost < cost_0:  # Iterate to an optimal solution.
+        lat_last = np.ma.copy(lat_s)
+        lon_last = np.ma.copy(lon_s)
+
+        # Straighten out the middle of the arrays, leaving the ends unchanged.
+        lat_s.data[2:-2] = np.convolve(lat_last,slider,'valid')
+        lon_s.data[2:-2] = np.convolve(lon_last,slider,'valid')
+
+        cost_0 = cost
+        cost = smooth_track_cost_function(lat_s, lon_s, lat, lon)
+    return lat_last, lon_last, cost_0
+
             
 def straighten_headings(heading_array):
     '''
@@ -1078,10 +1572,12 @@ def straighten_headings(heading_array):
     :returns: Straightened headings
     :rtype: Generator of type Float
     '''
-    head_prev = heading_array[0]
-    diff = np.ediff1d(heading_array)
-    diff = diff - 360.0 * np.trunc(diff/180.0)
-    heading_array[1:] = np.cumsum(diff) + head_prev
+    for clump in np.ma.clump_unmasked(heading_array):
+        head_prev = heading_array.data[clump.start]
+        diff = np.ediff1d(heading_array.data[clump])
+        diff = diff - 360.0 * np.trunc(diff/180.0)
+        heading_array[clump][0] = head_prev
+        heading_array[clump][1:] = np.cumsum(diff) + head_prev
     return heading_array
 
 def subslice(orig, new):
@@ -1098,7 +1594,10 @@ def subslice(orig, new):
     stop = (orig.start or 0) + (new.stop or orig.stop or 0) * (orig.step or 1) # the bit after "+" isn't quite right!!
     return slice(start, stop, None if step == 1 else step)
 
-def index_at_value (array, threshold, _slice=slice(None)):
+def index_closest_value (array, threshold, _slice=slice(None)):
+    return index_at_value (array, threshold, _slice, endpoint='closing')
+    
+def index_at_value (array, threshold, _slice=slice(None), endpoint='exact'):
     '''
     This function seeks the moment when the parameter in question first crosses 
     a threshold. It works both forwards and backwards in time. To scan backwards
@@ -1114,6 +1613,10 @@ def index_at_value (array, threshold, _slice=slice(None)):
     :type threshold: float
     :param _slice: slice where we want to seek the threshold transit.
     :type _slice: slice
+    :param endpoint: type of end condition being sought.
+    :type endpoint: string 'exact' requires array to pass through the threshold,
+    while 'closing' seeks the last point where the array is closing on the 
+    threshold.
     :returns: interpolated time when the array values crossed the threshold. (One value only).
     :returns type: float
     '''
@@ -1125,6 +1628,7 @@ def index_at_value (array, threshold, _slice=slice(None)):
         end = min(int(round(_slice.stop or max_index)),max_index)
 
         # A "let's get the logic right and tidy it up afterwards" bit of code...
+        # TODO: Refactor this algorithm
         if begin >= len(array):
             begin = max_index
         elif begin < 0:
@@ -1170,7 +1674,17 @@ def index_at_value (array, threshold, _slice=slice(None)):
     
     if np.ma.all(test_array.mask):
         # The parameter does not pass through threshold in the period in question, so return empty-handed.
-        return None
+        if endpoint=='closing':
+            # Rescan the data to find the last point where the array data is closing.
+            closing_array = abs(array-threshold)
+            i=begin
+            while (closing_array [i+step]<=closing_array [i]):
+                i=i+step
+                if i==end:
+                    return end
+            return i
+        else:
+            return None
     else:
         n,dummy=np.ma.flatnotmasked_edges(np.ma.masked_greater(value_passing_array, 0.0))
         a = array[begin+step*n]
@@ -1189,7 +1703,7 @@ def _value(array, _slice, operator):
     index = operator(array[_slice]) + (_slice.start or 0) * (_slice.step or 1)
     return Value(index, array[index])
 
-def value_at_time (array, hz, offset, time_index):
+def value_at_time(array, hz, offset, time_index):
     '''
     Finds the value of the data in array at the time given by the time_index.
     
@@ -1202,10 +1716,33 @@ def value_at_time (array, hz, offset, time_index):
     :param time_index: time into the array where we want to find the array value.
     :type time_index: float
     :returns: interpolated value from the array
+    :raises ValueError: From value_at_index if time_index is outside of array range.
     '''
-    time_into_array = time_index - offset
+    # Timedelta truncates to 6 digits, therefore round offset down.
+    time_into_array = time_index - round(offset-0.0000005, 6)
     location_in_array = time_into_array * hz
     return value_at_index(array, location_in_array)
+
+def value_at_datetime(start_datetime, array, hz, offset, value_datetime):
+    '''
+    Finds the value of the data in array at the time given by value_datetime.
+    
+    :param start_datetime: Start datetime of data.
+    :type start_datetime: datetime
+    :param array: input data
+    :type array: masked array
+    :param hz: sample rate for the input data (sec-1)
+    :type hz: float
+    :param offset: fdr offset for the array (sec)
+    :type offset: float    
+    :param value_datetime: Datetime to fetch the value for.
+    :type value_datetime: datetime
+    :returns: interpolated value from the array
+    :raises ValueError: From value_at_index if value_datetime is outside of array range.
+    '''
+    value_timedelta = value_datetime - start_datetime
+    seconds = value_timedelta.total_seconds()
+    return value_at_time(array, hz, offset, seconds)
 
 def value_at_index(array, index):
     '''
@@ -1216,6 +1753,7 @@ def value_at_index(array, index):
     :param index: index into the array where we want to find the array value.
     :type index: float
     :returns: interpolated value from the array
+    :raises ValueError: If index is outside of array range.
     '''
     if index < 0.0 or index > len(array):
         raise ValueError, 'Seeking value outside data time range'
@@ -1223,7 +1761,7 @@ def value_at_index(array, index):
     low = int(index)
     if (low==index):
         # I happen to have arrived at exactly the right value by a fluke...
-        return None if array.mask[low] else array[low]
+        return None if np.ma.is_masked(array[low]) else array[low]
     else:
         high = low + 1
         r = index - low

@@ -3,12 +3,16 @@ import socket
 import httplib
 import time
 import httplib2
-import simplejson
+try:
+    import simplejson as json
+except ImportError:
+    import json
+    
 
-from analysis.api_handler import (APIConnectionError, APIHandler,
-                                  InvalidAPIInputError, NotFoundError,
-                                  UnknownAPIError)
-from analysis.settings import BASE_URL
+from analysis_engine.api_handler import (APIConnectionError, APIHandler,
+                                         InvalidAPIInputError, NotFoundError,
+                                         UnknownAPIError)
+from analysis_engine.settings import BASE_URL
 
 TIMEOUT = 60
 
@@ -49,18 +53,17 @@ class APIHandlerHTTP(APIHandler):
         :raises APIConnectionError: If the server does not respond or returns 401.
         :raises UnknownAPIError: If the server returns 500 or an unexpected status code.
         '''
-        ##if method == 'GET':
         # Encode body as GET parameters.
         body = urllib.urlencode(body)
         http = httplib2.Http(timeout=timeout)
         try:
             resp, content = http.request(uri, method, body)
-        except (httplib2.ServerNotFoundError, socket.error): # DNS..
+        except (httplib2.ServerNotFoundError, socket.error, AttributeError): # DNS..
             raise APIConnectionError(uri, method, body)
         status = int(resp['status'])
         try:
-            decoded_content = simplejson.loads(content)
-        except simplejson.decoder.JSONDecodeError:
+            decoded_content = json.loads(content)
+        except ValueError:
             decoded_content = None
         # Test HTTP Status.
         if status != 200:

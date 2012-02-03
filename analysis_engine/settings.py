@@ -2,15 +2,15 @@
 
 # Modules to import all derived Nodes from. Additional modules can be
 # appended to this list in local_settings.py
-NODE_MODULES = ['analysis.derived_parameters',
-                'analysis.key_point_values', 
-                'analysis.key_time_instances',
-                'analysis.sections',
-                'analysis.flight_phase',
-                'analysis.flight_attribute']
+NODE_MODULES = ['analysis_engine.derived_parameters',
+                'analysis_engine.key_point_values', 
+                'analysis_engine.key_time_instances',
+                'analysis_engine.sections',
+                'analysis_engine.flight_phase',
+                'analysis_engine.flight_attribute']
 
 # Handler
-HANDLER = 'analysis.api_handler_http.APIHandlerHTTP'
+HANDLER = 'analysis_engine.api_handler_http.APIHandlerHTTP'
 BASE_URL = 'http://127.0.0.1'
 
 ##########################
@@ -18,18 +18,23 @@ BASE_URL = 'http://127.0.0.1'
 ##########################
 
 # An airspeed below which you just can't possibly be flying.
-# 70kts taken from Hercules test data file when decelerating before landing
-AIRSPEED_THRESHOLD = 70  # kts
+AIRSPEED_THRESHOLD = 80  # kts
 
 # Altitude to break flights into separate climb/cruise/descent segments.
 # This is applied to altitude with hysteresis, so break will happen when
 # climbing above 15000 ft and below 10000 ft.
 ALTITUDE_FOR_CLB_CRU_DSC = 12500
 
+# Minimum descent height range for an approach and landing phase.
+APPROACH_MIN_DESCENT = 500
+
 # Resolved vertical acceleration washout time constant. This long period
 # function removes any standing offset to the resolved acceleration signal
 # and is essential in the vertical velocity complementary filter.
 AZ_WASHOUT_TC = 60.0
+
+# As above for the along-track resolved acceleration term.
+AT_WASHOUT_TC = 60.0
 
 #Less than 5 mins you can't do a circuit, so we'll presume this is a data
 #snippet 
@@ -45,11 +50,18 @@ CLIMB_THRESHOLD = 1000 # ft AAL
 # (reduces number of KPVs computed in turbulence)
 CLIMB_OR_DESCENT_MIN_DURATION = 10  # sec
 
+# Tolerance of controls (Pitch/Roll (Captain/FO)) when in use in degrees.
+# Used when trying determine which pilot is actively using the controls.
+CONTROLS_IN_USE_TOLERANCE = 1
+
 # Acceleration due to gravity
-GRAVITY = 32.2 # ft/sec^2 - used for combining acceleration and height terms
+GRAVITY_IMPERIAL = 32.2 # ft/sec^2 - used for combining acceleration and height terms
 
 # Acceleration due to gravity
 GRAVITY_METRIC = 9.81 # m/sec^2 - used for comibining acceleration and groundspeed terms
+
+# Groundspeed complementary filter time constant.
+GROUNDSPEED_LAG_TC = 6.0 # seconds
 
 # Threshold for turn onto runway at start of takeoff.
 # This will usually be overwritten by the peak curvature test.
@@ -65,26 +77,31 @@ HYSTERESIS_FPIAS = 10 # kts
 # Threshold for flight phase altitude hysteresis.
 HYSTERESIS_FPALT = 200 # ft
 
-# Threshold for flight phase radio altitude hysteresis.
-HYSTERESIS_FP_RAD_ALT = 5 # ft
-
 # Threshold for flight phase altitude hysteresis specifically for separating 
 # Climb Cruise Descent phases.
 HYSTERESIS_FPALT_CCD = 2500 # ft
 
+# Threshold for radio altimeter hysteresis 
+# (used for flight phase calculations only)
+HYSTERESIS_FP_RAD_ALT = 5 # ft
+
 # Threshold for flight phase rate of climb hysteresis.
 # We're going to ignore changes smaller than this to avoid repeatedly changing
 # phase if the aircraft is climbing/descending close to a threshold level.
-HYSTERESIS_FPROC = 400 # fpm
-# The 400 fpm value has been selected from inspection of Hercules test data
-# which is notoriously noisy. This may need to be revised to suit a wider
-# range of aircraft.
+HYSTERESIS_FPROC = 40 # fpm / RMS altitude noise
+# The threshold used is scaled in proportion to the altitude noise level, so
+# that for the Hercule we can get up to 400 fpm or more, a value which has
+# been selected from inspection of test data which is notoriously noisy. By
+# measuring the noise, we don't burden "quieter" aircraft unnecessarily.
 
 # Threshold for rate of turn hysteresis.
 HYSTERESIS_FPROT = 2 # deg/sec
 
 # Full scale reading on the ILS
 ILS_MAX_SCALE = 2.5 # dots
+
+# Initial approach threshold height
+INITIAL_APPROACH_THRESHOLD = 3000 # ft
 
 # Threshold for start of initial climb phase
 INITIAL_CLIMB_THRESHOLD = 35 # ft (Radio, where available)
@@ -113,7 +130,7 @@ METRES_PER_DEG_LATITUDE = 111120 # metres/deg
 # Rate of climb and descent limits of 800fpm gives good distinction with
 # level flight. Separately defined to allow for future adjustment.
 RATE_OF_CLIMB_FOR_CLIMB_PHASE = 800 # fpm
-RATE_OF_CLIMB_FOR_DESCENT_PHASE = -800 # fpm
+RATE_OF_CLIMB_FOR_DESCENT_PHASE = -500 # fpm
 
 # Rate of climb and descent limits of 300 fpm to identify airborne after takeoff
 # and end of descent, when relying solely upon pressure altitude data.
@@ -121,10 +138,10 @@ RATE_OF_CLIMB_FOR_LEVEL_FLIGHT = 300 # fpm
 
 # Rate of climb for liftoff. This builds upon the intertially smoothed rate of
 # climb computation to identify accurately the point of liftoff.
-RATE_OF_CLIMB_FOR_LIFTOFF = 5 # fpm
+RATE_OF_CLIMB_FOR_LIFTOFF = 120 # fpm
 
 # Rate of climb for touchdown.
-RATE_OF_CLIMB_FOR_TOUCHDOWN = -10 # fpm
+RATE_OF_CLIMB_FOR_TOUCHDOWN = -60 # fpm
 
 # Rate of turn limits of +/- 90 deg/minute work well in flight and on ground.
 RATE_OF_TURN_FOR_FLIGHT_PHASES = 1.5 # deg per second
@@ -133,7 +150,7 @@ RATE_OF_TURN_FOR_FLIGHT_PHASES = 1.5 # deg per second
 REPAIR_DURATION = 10 # seconds 
 
 # Rate of Climb complementary filter timeconstant
-RATE_OF_CLIMB_LAG_TC = 6.0 # sec
+RATE_OF_CLIMB_LAG_TC = 3.0 # sec
 
 # Acceleration forwards at the start of the takeoff roll.
 TAKEOFF_ACCELERATION_THRESHOLD = 0.1 # g
@@ -176,7 +193,6 @@ PRE_FLIGHT_ANALYSIS = fn
 
 # Function for post process analysis of parameters - see example below
 POST_DERIVED_PARAM_PROCESS = None
-POST_LFL_PARAM_PROCESS = None
 """
 # create post processing function
 def fn(hdf, param):
@@ -184,13 +200,12 @@ def fn(hdf, param):
     return f(param)
 # set as post process
 POST_DERIVED_PARAM_PROCESS = fn
-POST_LFL_PARAM_PROCESS = fn
 """
 
 
 # Import from local_settings if exists
 try:
-    from analysis.local_settings import *
+    from analysis_engine.local_settings import *
 except ImportError:
     pass
 

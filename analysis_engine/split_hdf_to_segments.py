@@ -1,14 +1,13 @@
 import os
 import logging
 import numpy as np
-import time
 
 from hdfaccess.file import hdf_file
 from hdfaccess.utils import write_segment
 
-from analysis import settings
-from analysis.plot_flight import plot_essential
-from analysis.split_segments import append_segment_info, split_segments
+from analysis_engine import settings
+from analysis_engine.plot_flight import plot_essential
+from analysis_engine.split_segments import append_segment_info, split_segments
 
 
 class AircraftMismatch(ValueError):

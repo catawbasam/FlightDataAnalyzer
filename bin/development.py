@@ -1,5 +1,6 @@
-from analysis.split_hdf_file_into_segments import split_hdf_file_into_segments
-from analysis.process_flight import process_flight
+from analysis_engine.split_hdf_file_into_segments import \
+        split_hdf_file_into_segments
+from analysis_engine.process_flight import process_flight
 
 def main():
     file_path = os.path.join('.', 'file.csv')

@@ -1,9 +1,9 @@
 import csv
 import os
-import itertools
 import matplotlib.pyplot as plt
-from analysis.node import DerivedParameterNode
+from analysis_engine.node import DerivedParameterNode
 
+from library import rms_noise
 from utilities.print_table import indent
 
 from hdfaccess.file import hdf_file
@@ -64,8 +64,8 @@ def plot_flight(hdf_path, kti_list, kpv_list, phase_list):
         ax1 = fig.add_subplot(4,1,1)
         alt_data = hdf['Altitude STD'].array
         alt = hdf.get('Altitude AAL For Flight Phases',hdf['Altitude STD']).array
-        #frame = hdf['Frame Counter'].array
-        frame = hdf.get('Frame Counter',hdf['Altitude STD']).array
+        frame = hdf['Time'].array
+        #frame = hdf.get('Frame Counter',hdf['Altitude STD']).array
         
         sections = []
         sections.append(alt_data)
@@ -86,7 +86,8 @@ def plot_flight(hdf_path, kti_list, kpv_list, phase_list):
         ax1.plot(*sections)
         
         #---------- Axis 2 ----------
-        ax2 = fig.add_subplot(4,1,2,sharex=ax1)
+        ax2 = fig.add_subplot(4,1,2)
+        #ax2 = fig.add_subplot(4,1,2,sharex=ax1)
         roc = hdf.get('Rate Of Climb For Flight Phases', hdf['Altitude STD']).array
         roc_data = hdf.get('Rate Of Climb', hdf['Altitude STD']).array
         sections = []
@@ -106,7 +107,8 @@ def plot_flight(hdf_path, kti_list, kpv_list, phase_list):
         ax2.plot(*sections)
         
         #---------- Axis 3 ----------
-        ax3 = fig.add_subplot(4,1,3,sharex=ax1)
+        ax3 = fig.add_subplot(4,1,3)
+        #ax3 = fig.add_subplot(4,1,3,sharex=ax1)
         airspeed = hdf.get('Airspeed',hdf['Altitude STD']).array
         sections = []
         sections.append(airspeed)
@@ -122,7 +124,7 @@ def plot_flight(hdf_path, kti_list, kpv_list, phase_list):
         ax3.plot(*sections)
         
         #---------- Axis 4 ----------
-        if 'Airspeed' in hdf:
+        if 'Heading Continuous' in hdf:
             ax4 = fig.add_subplot(4,1,4,sharex=ax1)
             ax4.plot(hdf['Heading Continuous'].array, 'b-')  
     
@@ -134,6 +136,7 @@ def plot_flight(hdf_path, kti_list, kpv_list, phase_list):
                      #arrowprops=dict(arrowstyle="->"),
                      rotation='vertical'
                      )
+    '''
     for kti in kti_list:
         label = '%s' % (kti.name)
         ax1.annotate(label, xy=(kti.index, alt[kti.index]),
@@ -142,6 +145,7 @@ def plot_flight(hdf_path, kti_list, kpv_list, phase_list):
                      #arrowprops=dict(arrowstyle="->"),
                      rotation='vertical'
                      )
+    '''
     plt.show()
     return
 
@@ -164,7 +168,7 @@ def csv_flight_details(hdf_path, kti_list, kpv_list, phase_list, dest_path=None)
     rows = []
     params = ['Airspeed', 'Altitude STD', 'Pitch', 'Roll']
     attrs = ['value', 'slice', 'datetime'] # 'latitude', 'longitude'] 
-    header = ['Remember: KTIs are exact, Phase times are to nearest sample \n','Type', 'Phase Start', 'Index', 'Phase End', 'Name'] + attrs + params
+    header = ['Type', 'Phase Start', 'Index', 'Phase End', 'Name'] + attrs + params
 
     def vals_for_iterable(iter_type, iterable):
         for value in iterable:

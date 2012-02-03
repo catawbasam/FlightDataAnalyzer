@@ -4,10 +4,10 @@ import networkx as nx
 
 from datetime import datetime
 
-from analysis.node import (A, DerivedParameterNode, KPV, KTI, Node,
+from analysis_engine.node import (A, DerivedParameterNode, KPV, KTI, Node,
                            NodeManager, P, Parameter, Section, S)
-from analysis.process_flight import get_derived_nodes
-from analysis.dependency_graph import (
+from analysis_engine.process_flight import get_derived_nodes
+from analysis_engine.dependency_graph import (
     dependency_order, 
     graph_nodes, 
     graph_adjacencies, 
@@ -95,7 +95,7 @@ class TestDependencyGraph(unittest.TestCase):
         self.assertEqual(gr.edges(4), [(4,'DepFour')])
         self.assertEqual(gr.node[4], {}) # same as {'color': 'black'}!
         # Root
-        from analysis.dependency_graph import draw_graph
+        from analysis_engine.dependency_graph import draw_graph
         draw_graph(gr, 'test_graph_nodes_with_duplicate_key_in_lfl_and_derived')
         self.assertEqual(gr.successors('root'), [2,4]) # only the two requested are linked
         self.assertEqual(gr.node['root'], {'color': 'red'})
@@ -187,7 +187,6 @@ Node: Start Datetime 	Pre: [] 	Succ: [] 	Neighbors: [] 	Edges: []
         nodes = NodeManager(datetime.now(), lfl_params, required_nodes, derived, {}, {})
         order = dependency_order(nodes)
         pos = order.index
-        #print nodes
         self.assertTrue(len(order))
         self.assertTrue(pos('Vertical Speed') > pos('Pressure Altitude'))
         self.assertTrue(pos('Slip On Runway') > pos('Groundspeed'))

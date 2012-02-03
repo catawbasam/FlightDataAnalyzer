@@ -4,12 +4,13 @@ import unittest
 
 from datetime import datetime
 
-from analysis.node import P
-from analysis.settings import AIRSPEED_THRESHOLD
-from analysis.split_segments import (append_segment_info, split_segments2, 
-                                     _identify_segment_type, 
-                                     _split_by_frame_counter, 
-                                     _split_by_flight_data)
+from analysis_engine.node import P
+from analysis_engine.settings import AIRSPEED_THRESHOLD
+from analysis_engine.split_segments import (append_segment_info,
+                                            split_segments2,
+                                            _identify_segment_type,
+                                            _split_by_frame_counter,
+                                            _split_by_flight_data)
 
 class TestSplitSegments(unittest.TestCase):
     
@@ -167,7 +168,7 @@ class TestIdentifySegment(unittest.TestCase):
         
 class TestSegmentInfo(unittest.TestCase):
     def setUp(self):
-        import analysis.split_segments as splitseg
+        import analysis_engine.split_segments as splitseg
         class mocked_hdf(object):
             def __init__(self, path):
                 self.path = path

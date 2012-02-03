@@ -15,6 +15,7 @@ Contents:
    Principles
    Tutorial
    Profiling
+   ParameterNaming
 
 Indices and tables
 ==================
