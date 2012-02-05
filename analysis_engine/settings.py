@@ -36,6 +36,10 @@ AZ_WASHOUT_TC = 60.0
 # As above for the along-track resolved acceleration term.
 AT_WASHOUT_TC = 60.0
 
+# Force to start checking control stiffness. Intended to be the same setting
+# for all three flying controls.
+CONTROL_FORCE_THRESHOLD = 3 # lb
+
 #Less than 5 mins you can't do a circuit, so we'll presume this is a data
 #snippet 
 FLIGHT_WORTH_ANALYSING_SEC = 300

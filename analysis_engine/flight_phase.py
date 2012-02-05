@@ -410,69 +410,6 @@ class ILSLocalizerEstablished(FlightPhaseNode):
             ###self.create_phase(phases[-1])
     ##'''
 
-    
-    ##"""
-    ###-------------------------------------------------------------------
-    ### TEST OUTPUT TO CSV FILE FOR DEBUGGING ONLY
-    ### TODO: REMOVE THIS SECTION BEFORE RELEASE
-    ###-------------------------------------------------------------------
-    ##if ils_loc and glide and alt_aal and rwy and lat and lon and hdg and ap:
-        ##import csv
-        ##spam = csv.writer(open('tomato.csv', 'wb'))
-        ##spam.writerow(['ILS Localizer',
-                       ##'ILS Glideslope',
-                       ##'Altitude AAL',
-                       ##'Altitude Radio',
-                       ##'Heading', 'Bearing', 'Distance',
-                       ##'Longitude',
-                       ##'Latitude',
-                       ##'Longitude Return',
-                       ##'Latitude Return'])
-        ###scope = ap.get_last().slice  # Only the last approach is interesting.
-        ##for speedy in fast:
-            ##scope = slice(int(speedy.slice.stop-400),int(speedy.slice.stop))
-            ###Option to track back to localiser intercept
-            ###capture = index_at_value(ils_loc.array,4.0,slice(scope.start,0,-1))
-            ###newslice = slice(capture, int(scope.stop)+20)
-            ##newslice = scope
-            ##if lat.array[scope][-1] > 62:
-                ### Trondheim = TRD
-                ##lzr_loc = {'latitude': 63.45763, 'longitude': 10.90043}
-                ##lzr_hdg = 89-180
-            ##elif lon.array[scope][-1] < 7:
-                ### Bergen = BGO
-                ##lzr_loc = {'latitude': 60.30112, 'longitude': 5.21556}
-                ##lzr_hdg = 173-180
-            ##else:
-                ### Oslo = OSL
-                ##lzr_loc = {'latitude': 60.2134, 'longitude': 11.08986}
-                ##lzr_hdg = 196-180
-                
-            ##brg,dist=bearings_and_distances(lat.array[newslice], lon.array[newslice], lzr_loc)
-            ##lat_trk,lon_trk=latitudes_and_longitudes(
-                ##(ils_loc.array[newslice]-lzr_hdg)/180*3.14159, 
-                ##dist, rwy.value['localizer'])
-            ##for showme in range(newslice.start, newslice.stop):
-            ###for showme in range(0, len(ils_loc.array)):
-                ##spam.writerow([ils_loc.array[showme],
-                               ##glide.array[showme],
-                               ##alt_aal.array[showme],
-                               ##alt_rad.array[showme],
-                               ##hdg.array[showme]%360.0,
-                               ##brg[showme-newslice.start]*180/3.14159,
-                               ##dist[showme-newslice.start]*1000/25.4/12,
-                               ##lon.array[showme],
-                               ##lat.array[showme],
-                               ##lon_trk[showme-newslice.start],
-                               ##lat_trk[showme-newslice.start]
-                               ##])
-    ##self.array = np.ma.arange(1000) # TODO: Remove.
-    ###-------------------------------------------------------------------
-    ### TEST OUTPUT TO CSV FILE FOR DEBUGGING ONLY
-    ### TODO: REMOVE THIS SECTION BEFORE RELEASE
-    ###-------------------------------------------------------------------
-    ##"""
-
   
 class ILSApproach(FlightPhaseNode):
     name = "ILS Approach"
