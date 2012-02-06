@@ -34,15 +34,15 @@ def validate_aircraft(aircraft_ident, hdf):
         raise AircraftMismatch("Tail does not match identification %s" % \
                                aircraft_ident['Tail Number'])
     
-def post_lfl_param_process(hdf, param):
-    if settings.POST_LFL_PARAM_PROCESS:
-        # perform post lfl retrieval steps
-        _param = settings.POST_LFL_PARAM_PROCESS(hdf, param)
-        if _param:
-            # store any updates to param to hdf file
-            hdf.set_param(_param)
-            return _param
-    return param
+##def post_lfl_param_process(hdf, param):
+    ##if settings.POST_LFL_PARAM_PROCESS:
+        ### perform post lfl retrieval steps
+        ##_param = settings.POST_LFL_PARAM_PROCESS(hdf, param)
+        ##if _param:
+            ### store any updates to param to hdf file
+            ##hdf.set_param(_param)
+            ##return _param
+    ##return param
 
 ##def split_segments2(airspeed, dfc):
     ##speedy_slices = np.ma.notmasked_contiguous(mask_slow_airspeed(airspeed.array))
@@ -111,12 +111,14 @@ def split_hdf_to_segments(hdf_path, aircraft_ident={}, output_dir=None, draw=Fal
             logging.info("Not validating aircraft is correct")
         
         # uses flight phases and DFC if aircraft determines to do so
-        airspeed = post_lfl_param_process(hdf, hdf['Airspeed'])
+        #airspeed = post_lfl_param_process(hdf, hdf['Airspeed'])
                 
         # split large dataset into segments
         logging.debug("Splitting segments. Data length: %s", len(airspeed.array))
         if hdf.reliable_frame_counter:
-            dfc = post_lfl_param_process(hdf, hdf['Frame Counter'])
+            #dfc = post_lfl_param_process(hdf, hdf['Frame Counter'])
+            # TODO: Reimplement.
+            pass
         else:
             dfc = None
         segment_slices = split_segments(airspeed, dfc=dfc)

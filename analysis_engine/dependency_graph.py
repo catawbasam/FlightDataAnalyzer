@@ -79,7 +79,7 @@ def dependencies3(di_graph, root, node_mgr):
 
 
 # Display entire dependency graph, not taking into account which are active for a frame
-def draw_graph(graph, name, horizontal=True):
+def draw_graph(graph, name, horizontal=False):
     """
     Draws a graph to file with label and filename taken from name argument.
     
