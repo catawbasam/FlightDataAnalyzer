@@ -1,4 +1,5 @@
 import numpy as np
+import logging
 
 from math import floor, sqrt, sin, cos, atan2, radians
 from collections import OrderedDict, namedtuple
@@ -715,18 +716,20 @@ def hysteresis (array, hysteresis):
     quarter_range = hysteresis / 4.0
     # Length is going to be used often, so prepare here:
     length = len(array)
-    half_done = np.empty(length)
-    result = np.empty(length)
+    half_done = np.zeros(length)
+    result = np.zeros(length)
     length = length-1 #  To be used for array indexing next
 
-    # The starting point for the computation is the first sample. We have to
-    # be careful to take only the data part, as a masked value of old will
-    # cause the entire data set to be masked :o(
-    old = array.data[0]
+    # get a list of the unmasked data - allow for array.mask = False (not an array)
+    if array.mask is np.False_:
+        notmasked = np.arange(length+1)
+    else:
+        notmasked = np.ma.where(array.mask == False)[0]
+    # The starting point for the computation is the first notmasked sample.
+    old = array[notmasked[0]]
+    for index in notmasked:
+        new = array[index]
 
-    # Index through the data storing the answer in reverse order Enumerate
-    # does not convey the mask, so this is processed on raw data values.
-    for index, new in enumerate(array.data):
         if new - old > quarter_range:
             old = new  - quarter_range
         elif new - old < -quarter_range:
@@ -734,7 +737,8 @@ def hysteresis (array, hysteresis):
         half_done[length-index] = old
 
     # Repeat the process in the "backwards" sense to remove phase effects.
-    for index, new in enumerate(half_done):
+    for index in notmasked:
+        new = half_done[index]
         if new - old > quarter_range:
             old = new  - quarter_range
         elif new - old < -quarter_range:
@@ -1100,6 +1104,9 @@ def max_abs_value(array, _slice=slice(None)):
     Get the value of the maximum absolute value in the array. 
     Return value is NOT the absolute value (i.e. may be negative)
     
+    Note, if all values are masked, it will return the value at the first index 
+    (which will be masked!)
+    
     :param array: masked array
     :type array: np.ma.array
     :param _slice: Slice to apply to the array and return max value relative to
@@ -1210,6 +1217,26 @@ def blend_two_parameters (param_one, param_two):
         array = blend_alternate_sensors(param_two.array, param_one.array, padding)
     return array, param_one.frequency * 2, offset
 
+def normalise(array, normalise_max=1.0, copy=True, axis=None):
+    """
+    Normalise an array between 0 and normalise_max.
+    
+    :param normalise_max: Upper limit of normalisation
+    :type normalise_max: float
+    :param copy: Returns a copy of the array, leaving input array untouched
+    :type copy: bool
+    :param axis: default to normalise across all axis together. Only supports None, 0 and 1!
+    :type axis: int or None
+    """
+    if copy:
+        array = array.copy()
+    scaling = normalise_max / array.max(axis=axis)
+    if axis == 1:
+        # transpose
+        scaling = scaling.reshape(scaling.shape[0],-1)
+    array *= scaling
+    ##array *= normalise_max / array.max() # original single axis version
+    return array
 
 def peak_curvature(array, _slice=slice(None), curve_sense='Concave'):
     """
@@ -1346,21 +1373,30 @@ def rate_of_change(diff_param, half_width):
     slope[-hw:] = (to_diff[-hw:] - to_diff[-hw-1:-1])* hz
     return slope
 
-def repair_mask(array):
+def repair_mask(array, frequency=1, repair_duration=REPAIR_DURATION,
+                raise_duration_exceedance=False):
     '''
     This repairs short sections of data ready for use by flight phase algorithms
     It is not intended to be used for key point computations, where invalid data
-    should remain masked.
+    should remain masked. Modifies the array in-place.
+    
+    :param repair_duration: If None, any length of masked data will be repaired.
     '''
+    repair_samples = repair_duration * frequency if repair_duration else None
     masked_sections = np.ma.clump_masked(array)
     for section in masked_sections:
         length = section.stop - section.start
-        if (length) > REPAIR_DURATION:  # TODO: include frequency as length is in samples and REPAIR_DURATION is in seconds
-            break # Too long to repair
+        if repair_samples and (length) > repair_samples:
+            if raise_duration_exceedance:
+                raise ValueError("Length of masked section '%s' exceeds "
+                                 "repair_samples '%s'." % (length,
+                                                           repair_samples))
+            else:
+                continue # Too long to repair
         elif section.start == 0:
-            break # Can't interpolate if we don't know the first sample
+            continue # Can't interpolate if we don't know the first sample
         elif section.stop == len(array):
-            break # Can't interpolate if we don't know the last sample
+            continue # Can't interpolate if we don't know the last sample
         else:
             array[section] = np.interp(np.arange(length) + 1,
                                        [0, length + 1],
@@ -1368,6 +1404,24 @@ def repair_mask(array):
                                         array.data[section.stop]])
     return array
    
+
+def round_to_nearest(array, step):
+    """
+    Rounds to nearest step value, so step 5 would round as follows:
+    1 -> 0 
+    3.3 -> 5
+    7.5 -> 10
+    10.5 -> 10 # np.round drops to nearest even number(!)
+    
+    :param array: Array to be rounded
+    :type array: np.ma.array
+    :param step: Value to round to
+    :type step: int or float
+    """
+    step = float(step) # must be a float
+    return np.ma.round(array / step) * step
+
+
 def rms_noise(array):
     '''
     :param array: input parameter to measure noise level
@@ -1387,20 +1441,30 @@ def rms_noise(array):
     local_diff = diff_left - diff_right
     return sqrt(np.ma.mean(np.ma.power(local_diff,2)))  # RMS in one line !
     
+def shift_slice(this_slice, offset):
+    """
+    This function shifts a slice by an offset. The need for this arises when
+    a phase condition has been used to limit the scope of another phase
+    calculation.
+    """
+    a = (this_slice.start or 0) + offset
+    b = (this_slice.stop or 0) + offset
+    c = this_slice.step
+    if (b-a)>1:
+        # This traps single sample slices which can arise due to rounding of
+        # the iterpolated slices.
+        return(slice(a,b,c))
+    
 def shift_slices(slicelist, offset):
     """
-    This function shifts a list of slices by offset. The need for this arises
-    when a phase condition has been used to limit the scope of another phase
-    calculation.
+    This function shifts a list of slices by a common offset, retaining only
+    the valid (not None) slices.
     """
     newlist = []
     for each_slice in slicelist:
-        a = each_slice.start + offset
-        b = each_slice.stop + offset
-        if (b-a)>1:
-            # This traps single sample slices which can arise due to rounding
-            # of the iterpolated slices.
-            newlist.append(slice(a,b))
+        if each_slice:
+            new_slice = shift_slice(each_slice,offset)
+            if new_slice: newlist.append(new_slice)
     return newlist
 
 def slice_duration(_slice, hz):
@@ -1417,7 +1481,7 @@ def slice_duration(_slice, hz):
     :returns: Duration of _slice in seconds.
     :rtype: float
     '''
-    return _slice.start - _slice.stop / hz
+    return (_slice.stop - _slice.start) / hz
 
 def slice_samples(_slice):
     '''
@@ -1529,6 +1593,30 @@ def slices_from_to(array, from_, to):
     return rep_array, filtered_slices
 
 
+def step_values(array, steps):
+    """
+    Rounds each value in array to nearest step. Maintains the
+    original array mask.
+    
+    :param array: Masked array to step
+    :type array: np.ma.array
+    :param steps: Steps to round to nearest value
+    :type steps: list of integers
+    :returns: Stepped masked array
+    :rtype: np.ma.array
+    """
+    stepping_points = np.ediff1d(steps, to_end=[0])/2.0 + steps
+    stepped_array = np.zeros_like(array.data)
+    low = None
+    for level, high in zip(steps, stepping_points):
+        stepped_array[(low < array) & (array <= high)] = level
+        low = high
+    else:
+        # all values above the last
+        stepped_array[low < array] = level
+    return np.ma.array(stepped_array, mask=array.mask)
+            
+
 def smooth_track_cost_function(lat_s, lon_s, lat, lon):
     # Summing the errors from the recorded data is easy.
     from_data = np.sum((lat_s - lat)**2)+np.sum((lon_s - lon)**2)
@@ -1609,7 +1697,14 @@ def subslice(orig, new):
     See tests for capabilities.
     """
     step = (orig.step or 1) * (new.step or 1)
-    start = (orig.start or 0) + (new.start or orig.start or 0) * (orig.step or 1)
+
+    # FIXME: asks DJ
+    # Inelegant fix for one special case. Sorry, Glen.
+    if new.start == 0:
+        start = orig.start
+    else:
+        
+        start = (orig.start or 0) + (new.start or orig.start or 0) * (orig.step or 1)
     stop = (orig.start or 0) + (new.stop or orig.stop or 0) * (orig.step or 1) # the bit after "+" isn't quite right!!
     return slice(start, stop, None if step == 1 else step)
 
@@ -1737,7 +1832,8 @@ def value_at_time(array, hz, offset, time_index):
     :returns: interpolated value from the array
     :raises ValueError: From value_at_index if time_index is outside of array range.
     '''
-    time_into_array = time_index - offset
+    # Timedelta truncates to 6 digits, therefore round offset down.
+    time_into_array = time_index - round(offset-0.0000005, 6)
     location_in_array = time_into_array * hz
     return value_at_index(array, location_in_array)
 

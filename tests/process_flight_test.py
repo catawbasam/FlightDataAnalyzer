@@ -38,6 +38,7 @@ class TestProcessFlight(unittest.TestCase):
                    'Identifier': '5',
                    'Main Gear To Altitude Radio': 10,
                    'Manufacturer': 'Boeing',
+                   'Model Series': '737',
                    'Tail Number': 'G-ABCD',
                    'Precise Positioning': True,
                    'Flap Selections': [0,1,2,5,10,15,25,30,40],
@@ -76,8 +77,8 @@ class TestProcessFlight(unittest.TestCase):
         from analysis_engine.plot_flight import csv_flight_details
         csv_flight_details(hdf_path, res['kti'], res['kpv'], res['phases'])
 
-        if debug:
-            plot_flight(hdf_path, res['kti'], res['kpv'], res['phases'])
+        #if debug:
+            #plot_flight(hdf_path, res['kti'], res['kpv'], res['phases'])
 
         #TODO: Further assertions on the results!
         
@@ -102,6 +103,7 @@ class TestProcessFlight(unittest.TestCase):
                    'Manufacturer': u'Lockheed',
                    'Manufacturer Serial Number': u'',
                    'Model': u'L382',
+                   'Model Series': 'L382',
                    'Tail Number': u'A-HERC',
                    'Precise Positioning': False,
                    }
@@ -158,6 +160,7 @@ class TestProcessFlight(unittest.TestCase):
                    'Manufacturer': u'Lockheed',
                    'Manufacturer Serial Number': u'',
                    'Model': u'L382',
+                   'Model Series': 'L382',
                    'Tail Number': u'B-HERC',
                    'Precise Positioning': False,
                    }
@@ -302,6 +305,7 @@ class TestProcessFlight(unittest.TestCase):
         ac_info = {'Frame': '146-301',
                    'Identifier': '1',
                    'Manufacturer': 'BAE',
+                   'Model Series': '146',
                    'Tail Number': 'G-ABCD',
                    'Flap Selections': [0,18,24,30,33],
                    }
@@ -409,6 +413,14 @@ class TestProcessFlight(unittest.TestCase):
         # All datetimes.
         # Pilots. (might not be for Herc)
         # V2, Vapp, Version (Herc will be AFR based).
+        
+        
+    def test_time_taken_4_3377853_146_301(self):
+        from timeit import Timer
+        timer = Timer(self.test_4_3377853_146_301)
+        time_taken = min(timer.repeat(2, 1))
+        print "Time taken %s secs" % time_taken
+        self.assertLess(time_taken, 10.0, msg="Took too long")
     
     @unittest.skip('Not Implemented')
     def test_get_required_params(self):

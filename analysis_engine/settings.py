@@ -197,7 +197,6 @@ PRE_FLIGHT_ANALYSIS = fn
 
 # Function for post process analysis of parameters - see example below
 POST_DERIVED_PARAM_PROCESS = None
-POST_LFL_PARAM_PROCESS = None
 """
 # create post processing function
 def fn(hdf, param):
@@ -205,7 +204,6 @@ def fn(hdf, param):
     return f(param)
 # set as post process
 POST_DERIVED_PARAM_PROCESS = fn
-POST_LFL_PARAM_PROCESS = fn
 """
 
 

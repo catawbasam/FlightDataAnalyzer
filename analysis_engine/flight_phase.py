@@ -4,7 +4,8 @@ import numpy as np
 from analysis_engine.library import (hysteresis, index_at_value,
                               index_closest_value,
                               is_slice_within_slice,
-                              peak_curvature, repair_mask, shift_slices)
+                              peak_curvature, repair_mask, 
+                              shift_slice, shift_slices, slice_duration)
 from analysis_engine.node import FlightPhaseNode, P, S, KTI
 from analysis_engine.settings import (AIRSPEED_THRESHOLD,
                                ALTITUDE_FOR_CLB_CRU_DSC,
@@ -375,7 +376,7 @@ class ILSLocalizerEstablished(FlightPhaseNode):
     at high speed. Therefore the lowest point is either the bottom of a
     go-around, touch-and-go or landing.
     """
-    def scan_ils(self, abs_ils_loc):
+    def scan_ils(self, abs_ils_loc, start):
 
         # TODO: extract as settings
         LOCALIZER_ESTABLISHED_THRESHOLD = 1.0
@@ -387,16 +388,16 @@ class ILSLocalizerEstablished(FlightPhaseNode):
         for cl in cls:
             if cl.stop-cl.start > 30:
                 # Long enough to be established and not just crossing the ILS.
-                self.create_phase(cl)
+                self.create_phase(shift_slice(cl,start))
     
 
     def derive(self, aals=S('Approach And Landing'),
                aags=S('Approach And Go Around'),
                ils_loc=P('ILS Localizer')):
         for aal in aals:
-            self.scan_ils(abs(ils_loc.array[aal.slice]))
+            self.scan_ils(abs(ils_loc.array[aal.slice]),aal.slice.start)
         for aag in aags:
-            self.scan_ils(abs(ils_loc.array[aag.slice]))
+            self.scan_ils(abs(ils_loc.array[aag.slice]),aag.slice.start)
 
     ##'''
     ##Old code - TODO: Remove when new version working
@@ -440,10 +441,35 @@ class ILSGlideslopeEstablished(FlightPhaseNode):
     (repaired) Glideslope deviation continuously less than 1 dot,. Where > 10
     seconds, identify as Glideslope Established.
     """
-    def derive(self, ils_gs = P('Glideslope Deviation'),
-               ils_loc_est = S("ILS Localizer Established")):
-        return NotImplemented
-
+    def derive(self, ils_gs = P('ILS Glideslope'),
+               ils_loc_ests = S('ILS Localizer Established'),
+               alt_aal=P('Altitude AAL')):
+        for ils_loc_est in ils_loc_ests:
+            # Reduce the duration of the ILS localizer established period
+            # down to minimum altitude. TODO: replace 100ft by variable ILS
+            # caterogry minima, possibly variable by operator.
+            min_index = index_closest_value(alt_aal.array, 100, ils_loc_est.slice)
+            # Truncate the ILS establiched phase.
+            ils_loc_2_min = slice(ils_loc_est.slice.start,
+                                  min(ils_loc_est.slice.stop,min_index)) 
+            gs = repair_mask(ils_gs.array[ils_loc_2_min]) # prepare gs data
+            gsm = np.ma.masked_outside(gs,-1,1)  # mask data more than 1 dot
+            ends = np.ma.flatnotmasked_edges(gsm)  # find the valid endpoints
+            if ends[0] == 0 and ends[1] == -1:  # TODO: Pythonese this line !
+                # All the data is within one dot, so the phase is already known
+                self.create_phase(ils_loc_2_min)
+            else:
+                # Create the reduced duration phase
+                self.create_phase(
+                    shift_slice(slice(ends[0],ends[1]),ils_loc_est.slice.start))
+            
+            
+            ##this_slice = ils_loc_est.slice
+            ##on_slopes = np.ma.clump_unmasked(
+                ##np.ma.masked_outside(repair_mask(ils_gs.array)[this_slice],-1,1))
+            ##for on_slope in on_slopes:
+                ##if slice_duration(on_slope, ils_gs.hz)>10:
+                    ##self.create_phase(shift_slice(on_slope,this_slice.start))
 
 
 class InitialApproach(FlightPhaseNode):

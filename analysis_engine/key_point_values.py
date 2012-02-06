@@ -332,7 +332,6 @@ class LongitudeAtLowPointOnApproach(KeyPointValueNode):
    
 class FlapAtLiftoff(KeyPointValueNode):
     def derive(self, flap=P('Flap'), liftoffs=KTI('Liftoff')):
-        #Q: Flap or Flap Stepped?
         self.create_kpvs_at_ktis(flap.array, liftoffs)
     
 
@@ -375,7 +374,7 @@ class AltitudeWithFlapsMax(KeyPointValueNode):
     """
     FIXME: It's max Altitude not Max Flaps
     """
-    def derive(self, flap=P('Flap Stepped'), alt_std=P('Altitude STD')):
+    def derive(self, flap=P('Flap'), alt_std=P('Altitude STD')):
         flap_set = np.ma.masked_less_equal(flap.array, 0)
         index, value = max_value(alt_std.array | flap_set)
         self.create_kpv(index, value)
@@ -873,8 +872,8 @@ class EngN1TakeoffMax(KeyPointValueNode):
 
 
 class FlapAtGearSelectedDown(KeyPointValueNode):
-    #Q: Use Flap or Flap Stepped?
-    #NB: flap put as primary parameter as if we use Flap Stepped the step will be aligned!
+    #TODO: TESTS
+    #NB: flap put as primary parameter as if we use Flap the step will be aligned!
     def derive(self, flap=P('Flap'), gear_sel_down=KTI('Gear Selected Down')):
         self.create_kpvs_at_ktis(flap.array, gear_sel_down)
 
@@ -1076,7 +1075,6 @@ class PitchRateDuringTakeoffMax(KeyPointValueNode):
         self.create_kpvs_within_slices(pitch_rate.array, takeoffs, max_value)
 
 
-"""
 class PitchRateFrom2DegreesOfPitchTo35FtMin(KeyPointValueNode):
     #TODO: TESTS
     def derive(self, pitch_rate=P('Pitch Rate'), pitch=P('Pitch'), 
@@ -1090,7 +1088,6 @@ class PitchRateFrom2DegreesOfPitchTo35FtMin(KeyPointValueNode):
             
             index, value = min_value(pitch_rate.array, pitch_2_slice)
             self.create_kpv(index, value)
-"""    
 
 
 class PowerOnWithSpeedbrakesDeployedDuration(KeyPointValueNode):
@@ -1174,8 +1171,15 @@ class AirspeedAtGearSelectedUp(KeyPointValueNode):
         return NotImplemented
 
 
-class TaxiSpeedTurningMax(KeyPointValueNode):
+class TaxiSpeedTurning(KeyPointValueNode):
     def derive(self, groundspeed=P('Groundspeed'), on_ground=S('On Ground'), turning=S('Turning')):
+        return NotImplemented
+
+
+class TaxiSpeedStraight(KeyPointValueNode):
+    # TODO: Decide on parameter. Can use groundspeed, but amended to ...along
+    #       track to ensure derived parameter call.
+    def derive(self, groundspeed=P('Groundspeed Along Track'), on_ground=S('On Ground'), rot=P('Rate Of Turn')):
         return NotImplemented
 
 
@@ -1191,7 +1195,7 @@ class AirspeedWithFlapMax(KeyPointValueNode):
     NAME_FORMAT = "Airspeed With Flap %(flap)d Max"
     NAME_VALUES = {'flap': range(0,46,1)}
     #Q: Is it required to have a KPV of "Flap 0 Max"
-    def derive(self, flap=P('Flap Stepped'), airspeed=P('Airspeed')):
+    def derive(self, flap=P('Flap'), airspeed=P('Airspeed')):
         for flap_setting in np.ma.unique(flap.array):
             if np.ma.is_masked(flap_setting):
                 # ignore masked values
@@ -1328,15 +1332,6 @@ class WindshearWarningBelow1500Ft(KeyPointValueNode):
     def derive(self, gpws_windshear=P('GPWS Windshear'),
                alt_aal=P('Altitude AAL')):
         return NotImplemented
-
-
-class TaxiSpeedStraight(KeyPointValueNode):
-    name = 'Groundspeed event to force operation of the GAT parameter TODO: Remove title'
-    def derive(self, groundspeed=P('Groundspeed Along Track'), rot=P('Rate Of Turn')):
-        # TODO: Decide on parameter. Can use groundspeed, but amended to ...along track to ensure derived parameter call.
-        if groundspeed > 900:
-            print "wow"
-            return
 
 
 class AirspeedBelowAltitudeMax(KeyPointValueNode):

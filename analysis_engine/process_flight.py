@@ -73,12 +73,6 @@ def derive_parameters(hdf, node_mgr, process_order):
     
     for param_name in process_order:
         if param_name in node_mgr.lfl:
-            if settings.POST_LFL_PARAM_PROCESS:
-                # perform any post_processing on LFL params
-                param = hdf.get_param(param_name)
-                _param = settings.POST_LFL_PARAM_PROCESS(hdf, param)
-                if _param:
-                    hdf.set_param(_param)
             continue
         
         elif node_mgr.get_attribute(param_name):
@@ -198,20 +192,25 @@ def get_derived_nodes(module_names):
 def process_flight(hdf_path, aircraft_info, start_datetime=datetime.now(),
                    achieved_flight_record={}, required_params=[], draw=False):
     """
-    aircraft_info API:
+    For development, the definitive API is located here:
+        "PolarisTaskManagement.test.tasks_mask.process_flight"
+        
+    sample aircraft_info API:
     {
         'Tail Number':  # Aircraft Registration
         'Identifier':  # Aircraft Ident
         'Manufacturer': # e.g. Boeing
         'Manufacturer Serial Number': #MSN
-        'Model': # e.g. 737-800
+        'Model': # e.g. 737-808-ER
+        'Series': # e.g. 737-800
+        'Family': # e.g. 737
         'Flap Selections': # e.g. [0,18,24,30,33]
         'Frame': # e.g. 737-3C
         'Main Gear To Altitude Radio': # Distance in metres
         'Wing Span': # Distance in metres
     }
     
-    achieved_flight_record API:
+    sample achieved_flight_record API:
     {
         # TODO!
     }
@@ -279,6 +278,7 @@ def process_flight(hdf_path, aircraft_info, start_datetime=datetime.now(),
 
 
 if __name__ == '__main__':
+    
     import argparse
     parser = argparse.ArgumentParser(description="Process a flight.")
     parser.add_argument('file', type=str,
@@ -286,4 +286,7 @@ if __name__ == '__main__':
     parser.add_argument('-p', dest='plot', action='store_true',
                         default=False, help='Plot flight onto a graph.')
     args = parser.parse_args()
-    process_flight(args.file, {'Tail Number': 'G-ABCD'}, draw=args.plot)
+    process_flight(args.file, {'Tail Number': 'G-ABCD'},
+                   required_params=['Latitude Smoothed', 'Longitude Smoothed',
+                                    ],
+                   draw=args.plot)

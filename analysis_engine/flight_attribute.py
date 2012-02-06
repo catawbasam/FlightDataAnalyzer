@@ -370,6 +370,11 @@ class LandingRunway(FlightAttributeNode):
         '''
         See TakeoffRunway for runway information.
         '''
+        if not airport.value:
+            logging.warning("'%s' requires '%s' to be set.", self.name,
+                            airport.name)
+            self.set_flight_attr(None)
+            return
         airport_id = airport.value['id']
         landing = approach_and_landing.get_last()
         if not landing:
@@ -473,6 +478,7 @@ class TakeoffAirport(FlightAttributeNode):
                             "'%f' and '%s' '%f'.", latitude_at_takeoff.name,
                             first_latitude.value, longitude_at_takeoff.name,
                             first_longitude.value)
+            self.set_flight_attr(None)
         else:
             self.set_flight_attr(airport)
 
@@ -599,6 +605,12 @@ class TakeoffRunway(FlightAttributeNode):
              'width': 30,
         }}
         '''
+        if not airport.value:
+            logging.warning("'%s' requires '%s' to be set.", self.name,
+                            airport.name)
+            self.set_flight_attr(None)
+            return
+        airport_id = airport.value['id']
         kwargs = {}
         if precision and precision.value and latitude_at_takeoff and \
            longitude_at_takeoff:
@@ -607,7 +619,7 @@ class TakeoffRunway(FlightAttributeNode):
             if first_latitude and first_longitude:
                 kwargs.update(latitude=first_latitude.value,
                               longitude=first_longitude.value)
-        airport_id = airport.value['id']
+        
         hdg_value = hdg[0].value
         api_handler = get_api_handler()
         try:
