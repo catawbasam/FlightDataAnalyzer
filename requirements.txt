@@ -8,4 +8,4 @@ httplib2
 pygraphviz
 matplotlib
 mock
-
+aerocalc
