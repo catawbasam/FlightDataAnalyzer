@@ -613,12 +613,11 @@ class Eng_EPRMin(DerivedParameterNode):
 
 
 class EngFuelFlow(DerivedParameterNode):
-    name = "Eng (*) EPR Min"
+    name = "Eng Fuel Flow"
     @classmethod
     def can_operate(cls, available):
         # works with any combination of params available
-        if any([d in available for d in cls.get_dependency_names()]):
-            return True
+        return any([d in available for d in cls.get_dependency_names()])
             
     def derive(self, 
                eng1=P('Eng (1) Fuel Flow'),
@@ -626,8 +625,7 @@ class EngFuelFlow(DerivedParameterNode):
                eng3=P('Eng (3) Fuel Flow'),
                eng4=P('Eng (4) Fuel Flow')):
         eng = vstack_params(eng1, eng2, eng3, eng4)
-        np.ma.sum(eng)
-        pass
+        self.array = np.ma.sum(eng, axis=0) # TODO: TEST!
 
 
 class Eng_N1Avg(DerivedParameterNode):

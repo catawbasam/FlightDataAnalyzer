@@ -278,7 +278,9 @@ def process_flight(hdf_path, aircraft_info, start_datetime=datetime.now(),
 
 
 if __name__ == '__main__':
-    
+    required_parameters = ['Latitude Smoothed', 'Longitude Smoothed',
+                           'Distance To Landing', 'Eng Fuel Flow',
+                           'Altitude STD']
     import argparse
     parser = argparse.ArgumentParser(description="Process a flight.")
     parser.add_argument('file', type=str,
@@ -287,6 +289,5 @@ if __name__ == '__main__':
                         default=False, help='Plot flight onto a graph.')
     args = parser.parse_args()
     process_flight(args.file, {'Tail Number': 'G-ABCD'},
-                   required_params=['Latitude Smoothed', 'Longitude Smoothed',
-                                    ],
+                   required_params=required_parameters,
                    draw=args.plot)
