@@ -1,7 +1,11 @@
 import logging
 import numpy as np
 
-from analysis_engine.node import A, DerivedParameterNode, KTI, P, S
+from analysis_engine.model_information import (get_aileron_map, 
+                                               get_config_map,
+                                               get_flap_map,
+                                               get_slat_map)
+from analysis_engine.node import A, DerivedParameterNode, KPV, KTI, P, S, Parameter
 
 from analysis_engine.library import (bearings_and_distances,
                                      blend_alternate_sensors,
@@ -18,8 +22,10 @@ from analysis_engine.library import (bearings_and_distances,
                                      merge_sources,
                                      rate_of_change, 
                                      repair_mask,
+                                     round_to_nearest,
                                      rms_noise,
                                      smooth_track,
+                                     step_values,
                                      straighten_headings,
                                      vstack_params)
 
@@ -37,17 +43,6 @@ from settings import (AZ_WASHOUT_TC,
                       KTS_TO_MPS,
                       RATE_OF_CLIMB_LAG_TC
                       )
-
-#-------------------------------------------------------------------------------
-# Derived Parameters
-
-
-# Q: What do we do about accessing KTIs - params['a kti class name'] is a list of kti's
-#   - could have a helper - filter_for('kti_name', take_max=True) # and possibly take_first, take_min, take_last??
-
-# Q: Accessing information like ORIGIN / DESTINATION
-
-# Q: What about V2 Vref etc?
 
 
 class AccelerationVertical(DerivedParameterNode):
@@ -200,6 +195,12 @@ class AirspeedTrue(DerivedParameterNode):
 
 class AltitudeAAL(DerivedParameterNode):
     """
+    TODO: Altitude Parameter to account for transition altitudes for airports
+    between "altitude above mean sea level" and "pressure altitude relative
+    to FL100". Ideally use the BARO selection switch when recorded, else the
+    Airport elevation where provided, else guess based on location (USA =
+    18,000ft, Europe = 3,000ft)
+
     This is the main altitude measure used during analysis. Where radio
     altimeter data is available, this is used for altitudes up to 100ft and
     thereafter the pressure altitude signal is used. The two are "joined"
@@ -935,42 +936,110 @@ class FuelQty(DerivedParameterNode):
         self.array = np.ma.sum(stacked_params, axis=0)
 
 
-class FlapStepped(DerivedParameterNode):
+class FlapLever(DerivedParameterNode):
     """
-    Steps raw Flap angle into chunks.
-
-    common_steps = (0, 5, 10, 15, 20, 35, 40, 45)
+    Steps raw Flap angle from lever into detents.
+    """
+    def derive(self, flap=P('Flap Lever Position'), series=A('Series'), family=A('Family')):
+        try:
+            flap_steps = get_flap_map(series.value, family.value) 
+        except ValueError:
+            # no flaps mapping, round to nearest 5 degrees
+            logging.warning("No flap settings - rounding to nearest 5")
+            # round to nearest 5 degrees
+            self.array = round_to_nearest(flap.array, 5.0)
+        else:
+            self.array = step_values(flap.array, flap_steps)
+        
+            
+class Flap(DerivedParameterNode):
+    """
+    Steps raw Flap angle into detents.
+    """
+    def derive(self, flap=P('Flap Surface'), series=A('Series'), family=A('Family')):
+        try:
+            flap_steps = get_flap_map(series.value, family.value) 
+        except ValueError:
+            # no flaps mapping, round to nearest 5 degrees
+            logging.warning("No flap settings - rounding to nearest 5")
+            # round to nearest 5 degrees
+            self.array = round_to_nearest(flap.array, 5.0)
+        else:
+            self.array = step_values(flap.array, flap_steps)
+        
+            
+class Slat(DerivedParameterNode):
+    """
+    Steps raw Slat angle into detents.
+    """
+    def derive(self, slat=P('Slat Surface'), series=A('Series'), family=A('Family')):
+        try:
+            slat_steps = get_slat_map(series.value, family.value) 
+        except ValueError:
+            # no slats mapping, round to nearest 5 degrees
+            logging.warning("No slat settings - rounding to nearest 5")
+            # round to nearest 5 degrees
+            self.array = round_to_nearest(slat.array, 5.0)
+        else:
+            self.array = step_values(slat.array, slat_steps)
+            
+            
+            
+class Config(DerivedParameterNode):
+    """
+    Multi-state with the following mapping:
+    {
+        0 : '0',
+        1 : '1',
+        2 : '1 + F',
+        3 : '2(a)',  #Q: should display be (a) or 2* or 1* ?!
+        4 : '2',
+        5 : '3(b)',
+        6 : '3',
+        7 : 'FULL',
+    }
+    (a) corresponds to CONF 1*
+    (b) corresponds to CONF 2*
+    
+    Note: Does not use the Flap Lever position. This parameter reflects the
+    actual config state of the aircraft rather than the intended state
+    represented by the selected lever position.
+    
+    Note: Values that do not map directly to a required state are masked with
+    the data being random (memory alocated)
     """
     @classmethod
     def can_operate(cls, available):
-        if 'Flap' in available:
+        if 'Flap' in available and 'Slat' in available \
+           and 'Series' in available and 'Family' in available:
             return True
         
-    def derive(self, flap=P('Flap'), flap_steps=A('Flap Settings')):
-        if flap_steps:
-            # for the moment, round off to the nearest 5 degrees
-            steps = np.ediff1d(flap_steps.value, to_end=[0])/2.0 + flap_steps.value
-            flap_stepped = np.zeros_like(flap.array.data)
-            low = None
-            for level, high in zip(flap_steps.value, steps):
-                flap_stepped[(low < flap.array) & (flap.array <= high)] = level
-                low = high
-            else:
-                # all flap values above the last
-                flap_stepped[low < flap.array] = level
-            self.array = np.ma.array(flap_stepped, mask=flap.array.mask)
-        else:
-            # round to nearest 5 degrees for the moment
-            step = 5.0  # must be a float
-            self.array = np.ma.round(flap.array / step) * step
-            
-    
-class SlatStepped(DerivedParameterNode):
-    """
-    Steps raw Slat angle into chunks.
-    """
-    def derive(self, flap=P('Slat')):
-        return NotImplemented
+    def derive(self, flap=P('Flap'), slat=P('Slat'), aileron=P('Aileron'), 
+               series=A('Series'), family=A('Family')):
+        #TODO: manu=A('Manufacturer') - we could ensure this is only done for Airbus?
+        
+        mapping = get_config_map(series.value, family.value)        
+        qty_param = len(mapping.itervalues().next())
+        if qty_param == 3 and not aileron:
+            # potential problem here!
+            logging.warning("Aileron not available, so will calculate Config using only slat and flap")
+            qty_param = 2
+        elif qty_param == 2 and aileron:
+            # only two items in values tuple
+            logging.debug("Aileron available but not required for Config calculation")
+            pass
+        
+        #TODO: Scale each parameter individually to ensure uniqueness
+        # sum the required parameters
+        summed = vstack_params(*(flap, slat, aileron)[:qty_param]).sum(axis=0)
+        
+        # create a placeholder array fully masked
+        self.array = np.ma.empty_like(flap.array)
+        self.array.mask=True
+        for state, values in mapping.iteritems():
+            s = sum(values[:qty_param])
+            # unmask bits we know about
+            self.array[summed == s] = state
 
 
 class GearSelectedDown(DerivedParameterNode):

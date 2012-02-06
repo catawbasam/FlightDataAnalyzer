@@ -647,18 +647,20 @@ def hysteresis (array, hysteresis):
     quarter_range = hysteresis / 4.0
     # Length is going to be used often, so prepare here:
     length = len(array)
-    half_done = np.empty(length)
-    result = np.empty(length)
+    half_done = np.zeros(length)
+    result = np.zeros(length)
     length = length-1 #  To be used for array indexing next
 
-    # The starting point for the computation is the first sample. We have to
-    # be careful to take only the data part, as a masked value of old will
-    # cause the entire data set to be masked :o(
-    old = array.data[0]
+    # get a list of the unmasked data - allow for array.mask = False (not an array)
+    if array.mask is np.False_:
+        notmasked = np.arange(length+1)
+    else:
+        notmasked = np.ma.where(array.mask == False)[0]
+    # The starting point for the computation is the first notmasked sample.
+    old = array[notmasked[0]]
+    for index in notmasked:
+        new = array[index]
 
-    # Index through the data storing the answer in reverse order Enumerate
-    # does not convey the mask, so this is processed on raw data values.
-    for index, new in enumerate(array.data):
         if new - old > quarter_range:
             old = new  - quarter_range
         elif new - old < -quarter_range:
@@ -666,7 +668,8 @@ def hysteresis (array, hysteresis):
         half_done[length-index] = old
 
     # Repeat the process in the "backwards" sense to remove phase effects.
-    for index, new in enumerate(half_done):
+    for index in notmasked:
+        new = half_done[index]
         if new - old > quarter_range:
             old = new  - quarter_range
         elif new - old < -quarter_range:
@@ -1019,6 +1022,9 @@ def max_abs_value(array, _slice=slice(None)):
     Get the value of the maximum absolute value in the array. 
     Return value is NOT the absolute value (i.e. may be negative)
     
+    Note, if all values are masked, it will return the value at the first index 
+    (which will be masked!)
+    
     :param array: masked array
     :type array: np.ma.array
     :param _slice: Slice to apply to the array and return max value relative to
@@ -1129,6 +1135,26 @@ def blend_two_parameters (param_one, param_two):
         array = blend_alternate_sensors(param_two.array, param_one.array, padding)
     return array, param_one.frequency * 2, offset
 
+def normalise(array, normalise_max=1.0, copy=True, axis=None):
+    """
+    Normalise an array between 0 and normalise_max.
+    
+    :param normalise_max: Upper limit of normalisation
+    :type normalise_max: float
+    :param copy: Returns a copy of the array, leaving input array untouched
+    :type copy: bool
+    :param axis: default to normalise across all axis together. Only supports None, 0 and 1!
+    :type axis: int or None
+    """
+    if copy:
+        array = array.copy()
+    scaling = normalise_max / array.max(axis=axis)
+    if axis == 1:
+        # transpose
+        scaling = scaling.reshape(scaling.shape[0],-1)
+    array *= scaling
+    ##array *= normalise_max / array.max() # original single axis version
+    return array
 
 def peak_curvature(array, _slice=slice(None), curve_sense='Concave'):
     """
@@ -1296,6 +1322,24 @@ def repair_mask(array, frequency=1, repair_duration=REPAIR_DURATION,
                                         array.data[section.stop]])
     return array
    
+
+def round_to_nearest(array, step):
+    """
+    Rounds to nearest step value, so step 5 would round as follows:
+    1 -> 0 
+    3.3 -> 5
+    7.5 -> 10
+    10.5 -> 10 # np.round drops to nearest even number(!)
+    
+    :param array: Array to be rounded
+    :type array: np.ma.array
+    :param step: Value to round to
+    :type step: int or float
+    """
+    step = float(step) # must be a float
+    return np.ma.round(array / step) * step
+
+
 def rms_noise(array):
     '''
     :param array: input parameter to measure noise level
@@ -1441,6 +1485,30 @@ def slices_from_to(array, from_, to):
     filtered_slices = filter(condition, slices)
     return rep_array, filtered_slices
 
+
+def step_values(array, steps):
+    """
+    Rounds each value in array to nearest step. Maintains the
+    original array mask.
+    
+    :param array: Masked array to step
+    :type array: np.ma.array
+    :param steps: Steps to round to nearest value
+    :type steps: list of integers
+    :returns: Stepped masked array
+    :rtype: np.ma.array
+    """
+    stepping_points = np.ediff1d(steps, to_end=[0])/2.0 + steps
+    stepped_array = np.zeros_like(array.data)
+    low = None
+    for level, high in zip(steps, stepping_points):
+        stepped_array[(low < array) & (array <= high)] = level
+        low = high
+    else:
+        # all values above the last
+        stepped_array[low < array] = level
+    return np.ma.array(stepped_array, mask=array.mask)
+            
 
 def smooth_track_cost_function(lat_s, lon_s, lat, lon):
     # Summing the errors from the recorded data is easy.
