@@ -201,7 +201,8 @@ class TopOfDescent(KeyTimeInstanceNode):
 
 
 class FlapStateChanges(KeyTimeInstanceNode):
-    NAME_FORMAT = 'Flap %(setting)d'
+    NAME_FORMAT = 'Flap %(flap)d'
+    NAME_VALUES = {'flap': range(0, 46, 1)}
     
     def derive(self, flap=P('Flap')):
         # Mark all flap changes, irrespective of the aircraft type :o)
