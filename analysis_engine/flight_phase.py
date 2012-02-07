@@ -350,18 +350,13 @@ class FinalApproach(FlightPhaseNode):
                alt_rad=P('Altitude Radio For Flight Phases'),
                app_lands=S('Approach And Landing')):
         for app_land in app_lands:
-            # Allow for the hysteresis applied to the radio altimeter signal 
-            thold = LANDING_THRESHOLD_HEIGHT+HYSTERESIS_FP_RAD_ALT
-            app = np.ma.masked_where(np.ma.logical_or(
-                alt_AAL.array[app_land.slice]>1000,
-                alt_rad.array[app_land.slice]<thold), 
-                                     alt_AAL.array[app_land.slice])
-            phases = np.ma.clump_unmasked(app)
-            for phase in phases:
-                begin = phase.start
-                pit = np.ma.argmin(app[phase]) + begin
-                if app[pit] < app[begin] :
-                    self.create_phase(slice(begin, pit))
+            # From the lower of pressure or radio altitude reading 1000ft to
+            # the first showing zero ft (bear in mind Altitude AAL is
+            # computed from Altitude Radio below 50ft, so this is not
+            # affected by pressure altitude variations at landing).
+            app = np.ma.masked_outside(
+                np.ma.minimum(alt_AAL.array,alt_rad.array),0,1000)
+            self.create_phase(np.ma.clump_unmasked(app))
 
 
 class ILSLocalizerEstablished(FlightPhaseNode):
@@ -449,6 +444,10 @@ class ILSGlideslopeEstablished(FlightPhaseNode):
             # down to minimum altitude. TODO: replace 100ft by variable ILS
             # caterogry minima, possibly variable by operator.
             min_index = index_closest_value(alt_aal.array, 100, ils_loc_est.slice)
+            
+            # ^^^
+            #TODO: limit this to 100ft min if the ILS Glideslope established threshold is reduced.            
+            
             # Truncate the ILS establiched phase.
             ils_loc_2_min = slice(ils_loc_est.slice.start,
                                   min(ils_loc_est.slice.stop,min_index)) 

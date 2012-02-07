@@ -13,6 +13,7 @@ from analysis_engine.node import A, DerivedParameterNode, KPV, KTI, P, S, Parame
 from analysis_engine.library import (bearings_and_distances,
                                      blend_alternate_sensors,
                                      blend_two_parameters,
+                                     coreg,
                                      first_order_lag,
                                      first_order_washout,
                                      hysteresis,
@@ -25,8 +26,9 @@ from analysis_engine.library import (bearings_and_distances,
                                      merge_sources,
                                      rate_of_change, 
                                      repair_mask,
-                                     round_to_nearest,
                                      rms_noise,
+                                     round_to_nearest,
+                                     runway_distances,
                                      smooth_track,
                                      step_values,
                                      straighten_headings,
@@ -1233,6 +1235,13 @@ class LatitudeAdjustToILS(DerivedParameterNode):
         #if (Precisiong Positioning) thingy
         for on_loc in on-locs:
 """            
+
+class ILSFrequency(DerivedParameterNode):
+    name = "ILS Frequency"
+    def derive(self, f1=P('ILS Freq (1)'),f2=P('ILS Freq (2)')):
+        # TODO: Fix scaling of 737NG ILS and remove +100 term.
+        self.array = merge_sources(f1.array, f2.array) + 100
+        
        
 
 class ILSRange(DerivedParameterNode):
@@ -1246,68 +1255,82 @@ class ILSRange(DerivedParameterNode):
     def derive(self, lat=P('Latitude'),
                lon = P('Longitude'),
                glide = P('ILS Glideslope'),
-               gspd = P('Groundspeed'),
+               gspd = P('Ground Speed'),
                tas = P('Airspeed True'),
                alt_aal = P('Altitude AAL'),
+               loc_established = S('ILS Localizer Established'),
                gs_established = S('ILS Glideslope Established'),
-               airport_thing = A('Airport Data of some sort TODO put this straight')):
+               precise =A('Precise Positioning'),
+               runway_info = A('FDR Approaches'),
+               ):
         
-        for ils_app in 'ILS Approach Phase':
+        ils_range = np.ma.array(np.zeros_like(gspd.array.data))
+        
+        # Identify the speed signals we will use if we don't have accurate
+        # position data. Precise is an attribute, and we test it's value:
+        if not precise.value:
+            if gspd:
+                # Use recorded groundspeed where available.
+                speed_signal = gspd.array
+            else:
+                # Estimate range using true airspeed. This is because there
+                # are aircraft which record ILS but not groundspeed data.
+                speed_signal = tas.array
+                    
+        for this_loc in loc_established:
+            
+            ## d, g, c, pgs_lat, pgs_lon = runway_distances(runway)
 
-            if 'Precision':
+            if precise.value:
                 # Convert (repaired) latitude & longitude for the whole phase
                 # into range from the threshold.
-                # threshold{} = airport_thing.value[]
-                brg, ils_range = bearings_and_distances(repair_mask(lat[ils_app]),
-                                                        repair_mask(lon[ils_app]),
+                
+                rwy = runway_info.value[0]['runway']['end']['latitude']
+                ## threshold{} = airport_thing.value[]
+                
+                brg, ils_range = bearings_and_distances(repair_mask(lat[this_loc]),
+                                                        repair_mask(lon[this_loc]),
                                                         threshold)
             else:
-                if 'groundspeed available':
-                    # Estimate range by integrating back from zero at the end
-                    # of the phase to high range values at the start of the
-                    # phase.
-                    speed_signal = gspd.array
-                else:
-                    # Estimate range using true airspeed as above.
-                    speed_signal = tas.array
-                    
+                # Estimate range by integrating back from zero at the end
+                # of the phase to high range values at the start of the
+                # phase.
+                ils_range[this_loc.slice] = \
+                    integrate(repair_mask(speed_signal[this_loc.slice]), 
+                              gspd.frequency, 
+                              scale=KTS_TO_FPS, 
+                              direction='reverse')
+     
                 for this_gs in gs_established:
-                    # Check we don't go below 100ft as the glideslope
-                    # becomes meaningless in the last few samples.
-                    slope = this_gs.slice
-                    slope.stop = index_at_value(
-                        alt_aal.array, 100, _slice(slope.stop,slope.start,-1))
-                    
-                    ils_range = integrate(repair_mask(speed_signal[slope]), 
-                                          scale=KTS_TO_FPS, 
-                                          direction='reverse')
-                    
-                    #(Q: Do we have aircraft with ILS but no groundspeed??)
-            
-                if 'Glideslope Established':
-                    pass
-                    th_dist, gs_slope, gs_gain = \
-                        gs_estimate(ils_range, alt_aal.array[slope], glide[slope])
-                    
-                    # Compute best fit glidepath for the period from start of
-                    # Glideslope Established phase to 100ft (NOT below) - use
-                    # 0ft reference at antenna position (projected onto
-                    # runway centreline) and the glidepath slope given in
-                    # airport database for this step.
-                    
-                    # From the computed best fit line, find the error between
-                    # the range at the threshold (localizer to threshold
-                    # distance) and the range at the 50ft point on the best
-                    # fit glidepath.
-                else:
-                    if 'runway has ILS glideslope antenna':
-                        pass
-                        # Compute range based upon descent path at the ILS
-                        # glidepath angle to minimum point of approach.
-                    else:
-                        # Assume crossing runway threshold at 50ft.
-                        pass
+                    if is_slice_within_slice(this_gs.slice, this_loc.slice):
+                        # Compute best fit glidepath.
+                        corr, slope, offset = coreg(alt_aal.array[this_gs.slice], 
+                                                    ils_range[this_gs.slice])
+                        # Shift the values in this approach so that the range = 0
+                        # at 0ft on the projected ILS slope.
+                        ils_range[this_loc.slice] -= offset/slope
                         
+                        # - use
+                        # 0ft reference at antenna position (projected onto
+                        # runway centreline) and the glidepath slope given in
+                        # airport database for this step.
+                        
+                        # From the computed best fit line, find the error between
+                        # the range at the threshold (localizer to threshold
+                        # distance) and the range at the 50ft point on the best
+                        # fit glidepath.
+                    else:
+                        
+                        # Cases of an ILS approach using localizer only. 
+                        
+                        if 'runway has ILS glideslope antenna':
+                            pass
+                            # Compute range based upon descent path at the ILS
+                            # glidepath angle to minimum point of approach.
+                        else:
+                            # Assume crossing runway threshold at 50ft.
+                            pass
+                            
 
                 # Adjust all range values to match the datum point by
                 # subtracting the range error from all values.

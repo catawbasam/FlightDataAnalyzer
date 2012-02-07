@@ -220,14 +220,14 @@ class HeadingAtLanding(KeyPointValueNode):
             self.create_kpv(land.index, land_head%360.0)
 
 
-class HeadingAtLowPointOnApproach(KeyPointValueNode):
+class HeadingAtLowestPointOnApproach(KeyPointValueNode):
     """
     The approach phase has been found already. Here we take the heading at
     the lowest point reached in the approach. This may not be a go-around, if
     the aircraft did not climb 500ft before the next approach to landing.
     """
     def derive(self, head=P('Heading Continuous'),
-               lands=KTI('Approach And Landing Lowest')):
+               lands=KTI('Approach And Landing Lowest Point')):
         self.create_kpvs_at_ktis(head.array, lands)
 
 
@@ -247,7 +247,8 @@ class HeadingAtTakeoff(KeyPointValueNode):
 
 
 class LatitudeAtLanding(KeyPointValueNode):
-    def derive(self, lat=P('Latitude Smoothed'), lands=KTI('Landing Peak Deceleration')):
+    # Cannot use smoothed position as this causes circular dependancy.
+    def derive(self, lat=P('Latitude'), lands=KTI('Landing Peak Deceleration')):
         '''
         While storing this is redundant due to geo-locating KeyPointValues, it is
         used in multiple Nodes to simplify their implementation.
@@ -256,10 +257,11 @@ class LatitudeAtLanding(KeyPointValueNode):
             
 
 class LongitudeAtLanding(KeyPointValueNode):
-    def derive(self, lon=P('Longitude Smoothed'), lands=KTI('Landing Peak Deceleration')):
+    # Cannot use smoothed position as this causes circular dependancy.
+    def derive(self, lon=P('Longitude'),lands=KTI('Landing Peak Deceleration')):
         '''
-        While storing this is redundant due to geo-locating KeyPointValues, it is
-        used in multiple Nodes to simplify their implementation.
+        While storing this is redundant due to geo-locating KeyPointValues, 
+        it is used in multiple Nodes to simplify their implementation.
         '''       
         self.create_kpvs_at_ktis(lon.array, lands)
 
@@ -318,15 +320,17 @@ class ILSFrequencyOnApproach(KeyPointValueNode):
             self.create_kpv(established.slice.start, freq)
             
 
-class LatitudeAtLowPointOnApproach(KeyPointValueNode):
-    def derive(self, lat=P('Latitude Smoothed'), 
-               lands=KTI('Approach And Landing Lowest')):
+class LatitudeAtLowestPointOnApproach(KeyPointValueNode):
+    # Cannot use smoothed position as this causes circular dependancy.
+    def derive(self, lat=P('Latitude'), 
+               lands=KTI('Approach And Landing Lowest Point')):
         self.create_kpvs_at_ktis(lat.array, lands)
             
 
-class LongitudeAtLowPointOnApproach(KeyPointValueNode):
-    def derive(self, lon=P('Longitude Smoothed'), 
-               lands=KTI('Approach And Landing Lowest')):
+class LongitudeAtLowestPointOnApproach(KeyPointValueNode):
+    # Cannot use smoothed position as this causes circular dependancy.
+    def derive(self, lon=P('Longitude'), 
+               lands=KTI('Approach And Landing Lowest Point')):
         self.create_kpvs_at_ktis(lon.array, lands)
    
    
@@ -576,7 +580,8 @@ class FuelQtyAirborneMin(KeyPointValueNode):
     def derive(self, fuel=P('Fuel Qty'), airborne=S('Airborne')):
         self.create_kpvs_within_slices(fuel.array, airborne, min_value)
 
-
+'''
+See Heading at liftoff and touchdown - TODO: Remove if possible. DJ
 class MagneticHeadingAtLiftOff(KeyPointValue):
     """ Shouldn't this be difference between aircraft heading and runway heading???
     """
@@ -589,6 +594,7 @@ class MagneticHeadingAtTouchdown(KeyPointValue):
     """
     def derive(self, heading=P('Magnetic Heading'), touchdown=KTI('Touchdown')):
         return NotImplemented
+'''
     
 # TODO: Trouble with naming these
 #class LatgOnGround??

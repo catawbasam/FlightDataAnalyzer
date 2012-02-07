@@ -31,11 +31,10 @@ class Approaches(FlightAttributeNode):
         required = all([n in available for n in ['Start Datetime',
                                                  'Approach And Landing',
                                                  'Heading At Landing',
-                                                 'Touch And Go',
-                                                 'Go Around']])
+                                                 'Approach And Go Around']])
         
-        approach_lat_lon = 'Latitude At Low Point On Approach' in available and\
-                           'Longitude At Low Point On Approach' in available
+        approach_lat_lon = 'Latitude At Lowest Point On Approach' in available and\
+                           'Longitude At Lowest Point On Approach' in available
         landing_lat_lon = 'Latitude At Landing' in available and \
                           'Longitude At Landing' in available
         return required and (approach_lat_lon or landing_lat_lon)
@@ -142,9 +141,9 @@ class Approaches(FlightAttributeNode):
                touch_and_gos=KTI('Touch And Go'), go_arounds=KTI('Go Around'),
                landing_lat_kpvs=KPV('Latitude At Landing'),
                landing_lon_kpvs=KPV('Longitude At Landing'),
-               approach_lat_kpvs=KPV('Latitude At Low Point On Approach'),
-               approach_lon_kpvs=KPV('Longitude At Low Point On Approach'),
-               approach_hdg_kpvs=KPV('Heading At Low Point On Approach'),
+               approach_lat_kpvs=KPV('Latitude At Lowest Point On Approach'),
+               approach_lon_kpvs=KPV('Longitude At Lowest Point On Approach'),
+               approach_hdg_kpvs=KPV('Heading At Lowest Point On Approach'),
                approach_ilsfreq_kpvs=KPV('ILS Frequency On Approach'),
                precision=A('Precise Positioning')):
         '''

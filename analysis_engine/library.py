@@ -664,8 +664,31 @@ def first_order_washout (in_param, time_constant, hz, gain = 1.0, initial_value 
 
 def runway_distances(runway):
     '''
-    Projection of the ILS glideslope antenna position onto the runway centreline
+    Projection of the ILS antenna positions onto the runway
+    :param runway: Runway location details dictionary.
+    :type runway: Dictionary containing:
+    ['start']['latitude'] runway start position
+    ['start']['longitude']
+    ['end']['latitude'] runway end position
+    ['end']['longitude']
+    ['localizer']['latitude'] ILS localizer antenna position
+    ['localizer']['longitude']
+    ['glideslope']['latitude'] ILS glideslope antenna position
+    ['glideslope']['longitude']    
+        
+    :return
+    :param start_loc: distance from start of runway to localizer antenna
+    :type start_loc: float, units = feet.
+    :param gs_loc: distance from projected position of glideslope antenna on runway centerline to the localizer antenna
+    :type gs_loc: float, units = ??
+    :param end_loc: distance from end of runway to localizer antenna
+    :type end_loc: float, units = ??
+    :param pgs_lat: projected position of glideslope antenna on runway centerline
+    :type pgs_lat: float, units = degrees latitude
+    :param pgs_lon: projected position of glideslope antenna on runway centerline
+    :type pgs_lon: float, units = degrees longitude
     '''
+    
     def dist(lat1_d, lon1_d, lat2_d, lon2_d):
         lat1 = radians(lat1_d)
         lon1 = radians(lon1_d)
