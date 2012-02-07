@@ -18,6 +18,7 @@ from analysis_engine.derived_parameters import (
     AccelerationAcrossTrack,
     AirspeedForFlightPhases,
     AirspeedMinusVref,
+    AirspeedTrue,
     AltitudeAAL,
     AltitudeAALForFlightPhases,
     AltitudeForFlightPhases,
@@ -283,6 +284,48 @@ class TestAirspeedMinusVref(unittest.TestCase):
         expected=np.array([80]*64+[70]*64)
         np.testing.assert_array_equal(param.array, expected)
 
+class TestAirspeedTrue(unittest.TestCase):
+    def test_can_operate(self):
+        expected = [('Airspeed','Altitude STD','TAT')]
+        opts = AirspeedTrue.get_operational_combinations()
+        self.assertEqual(opts, expected)
+        
+    def test_tas_basic(self):
+        cas = P('Airspeed', np.ma.array([100,200,300]))
+        alt = P('Altitude STD', np.ma.array([0,20000,40000]))
+        tat = P('TAT', np.ma.array([20,-10,-40]))
+        tas = AirspeedTrue()
+        tas.derive(cas,alt,tat)
+        # Answers without compressibility obtained from
+        # http://www.newbyte.co.il/calc.html.
+        result = [100.864, 278.377, 574.379]
+        # Answers with compressibility are:
+        result = [100.634, 273.131, 527.337]
+        self.assertLess(abs(tas.array.data[0]-result[0]),0.01)
+        self.assertLess(abs(tas.array.data[1]-result[1]),0.01)
+        self.assertLess(abs(tas.array.data[2]-result[2]),0.01)
+        
+    def test_tas_masks(self):
+        cas = P('Airspeed', np.ma.array([100,200,300]))
+        alt = P('Altitude STD', np.ma.array([0,20000,40000]))
+        tat = P('TAT', np.ma.array([20,-10,-40]))
+        tas = AirspeedTrue()
+        cas.array[0]=np.ma.masked
+        alt.array[1]=np.ma.masked
+        tat.array[2]=np.ma.masked
+        tas.derive(cas,alt,tat)
+        np.testing.assert_array_equal(tas.array.mask,[True]*3)
+        
+    def test_tas_no_tat(self):
+        cas = P('Airspeed', np.ma.array([100,200,300]))
+        alt = P('Altitude STD', np.ma.array([0,10000,20000]))
+        tas = AirspeedTrue()
+        tas.derive(cas,alt,None)
+        result = [100.000, 231.575, 400.097]
+        self.assertLess(abs(tas.array.data[0]-result[0]),0.01)
+        self.assertLess(abs(tas.array.data[1]-result[1]),0.01)
+        self.assertLess(abs(tas.array.data[2]-result[2]),0.01)
+        
 
 class TestAltitudeAAL(unittest.TestCase):
     def test_can_operate(self):

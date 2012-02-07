@@ -1,6 +1,9 @@
 import logging
 import numpy as np
+from tempfile import TemporaryFile
 
+from aerocalc.airspeed import cas2tas, cas2dp, cas_alt2mach, mach2temp, dp2tas
+    
 from analysis_engine.model_information import (get_aileron_map, 
                                                get_config_map,
                                                get_flap_map,
@@ -185,13 +188,42 @@ class AirspeedMinusVref(DerivedParameterNode):
 
 
 class AirspeedTrue(DerivedParameterNode):
-    #dependencies = ['SAT', 'VMO', 'MMO', 'Indicated Airspeed', 'Altitude QNH']
-    # TODO: Move required dependencies from old format above to derive kwargs.
-    def derive(self, ias = P('Airspeed'),
-               alt_std = P('Altitude STD'),
-               sat = P('SAT')):
-        return NotImplemented
+    @classmethod
+    def can_operate(cls, available):
+        if 'Airspeed' in available and 'Altitude STD':
+            return True
+        else:
+            return False
     
+    def derive(self, cas = P('Airspeed'),
+               alt_std = P('Altitude STD'),
+               tat = P('TAT')):
+        '''
+        Uses AeroCalc library for conversion of airspeed data
+        '''
+        # Prepare a list for the answers
+        tas=[]
+        # Compute each value in turn, using only the data elements
+        if tat:
+            for i in range(len(cas.array)):
+                dp = cas2dp(cas.array.data[i])
+                mach = cas_alt2mach(cas.array.data[i], alt_std.array.data[i])
+                temp = mach2temp(mach, tat.array.data[i], 1.0)
+                tas.append(dp2tas(dp,alt_std.array.data[i],temp))
+            
+            # Each value is invalid if any of the three components is masked
+            combined_mask= np.logical_or(
+                np.logical_or(cas.array.mask,alt_std.array.mask),tat.array.mask)
+        else:
+            # The Hercules "worst case" has no air temperature recorded
+            for i in range(len(cas.array)):
+                tas.append(cas2tas(cas.array.data[i],alt_std.array.data[i])) 
+                # Assumes ISA temperatures
+            combined_mask= np.logical_or(cas.array.mask,alt_std.array.mask)
+                           
+        # Combine the data and mask to finish the job.
+        self.array = np.ma.array(data=tas, mask=combined_mask)
+        
 
 class AltitudeAAL(DerivedParameterNode):
     """
@@ -1078,6 +1110,7 @@ class GroundspeedAlongTrack(DerivedParameterNode):
                                      GROUNDSPEED_LAG_TC,gndspd.hz)
     
         
+        """
         #-------------------------------------------------------------------
         # TEST OUTPUT TO CSV FILE FOR DEBUGGING ONLY
         # TODO: REMOVE THIS SECTION BEFORE RELEASE
@@ -1095,7 +1128,7 @@ class GroundspeedAlongTrack(DerivedParameterNode):
         # TEST OUTPUT TO CSV FILE FOR DEBUGGING ONLY
         # TODO: REMOVE THIS SECTION BEFORE RELEASE
         #-------------------------------------------------------------------
-        
+        """
 
 class HeadingContinuous(DerivedParameterNode):
     """
@@ -1106,6 +1139,11 @@ class HeadingContinuous(DerivedParameterNode):
     units = 'deg'
     def derive(self, head_mag=P('Heading')):
         self.array = repair_mask(straighten_headings(head_mag.array))
+
+
+class Heading(DerivedParameterNode):
+    def derive(self, head_mag=P('Heading Magnetic')):
+        self.array = head_mag.array
 
 
 class HeadingMagnetic(DerivedParameterNode):
@@ -1588,3 +1626,89 @@ class ThrottleLever(DerivedParameterNode):
         return NotImplemented
 
 
+
+
+
+
+
+"""
+class ILSTestOutput(DerivedParameterNode):
+    name = "ILS TEST OUTPUT"
+    
+    def derive(self, lat=P('Latitude'),
+               lon = P('Longitude'),
+               glide = P('ILS Glideslope'),
+               ils_loc = P('ILS Localizer'),
+               alt_aal = P('Altitude AAL'),
+               fast=S('Fast')):
+
+        #-------------------------------------------------------------------
+        # TEST OUTPUT TO CSV FILE FOR DEBUGGING ONLY
+        # TODO: REMOVE THIS SECTION BEFORE RELEASE
+        #-------------------------------------------------------------------
+        ##import csv
+        ##spam = csv.writer(open('tomato.csv', 'wb'))
+        ##spam.writerow(['ILS Localizer',
+                       ##'ILS Glideslope',
+                       ##'Altitude AAL',
+                       ##'Altitude Radio',
+                       ##'Heading', 'Bearing', 'Distance',
+                       ##'Longitude',
+                       ##'Latitude',
+                       ##'Longitude Return',
+                       ##'Latitude Return'])
+        ###scope = ap.get_last().slice  # Only the last approach is interesting.
+        for speedy in fast:
+            scope = slice(int(speedy.slice.stop-400),int(speedy.slice.stop))
+            #Option to track back to localiser intercept
+            capture = index_at_value(ils_loc.array,4.0,slice(scope.start,0,-1))
+            newslice = slice(capture, int(scope.stop)+20)
+            if lat.array[scope][-1] > 62:
+                # Trondheim = TRD
+                lzr_loc = {'latitude': 63.45763, 'longitude': 10.90043}
+                lzr_hdg = 89-180
+            elif lon.array[scope][-1] < 7:
+                # Bergen = BGO
+                lzr_loc = {'latitude': 60.30112, 'longitude': 5.21556}
+                lzr_hdg = 173-180
+            else:
+                # Oslo = OSL
+                lzr_loc = {'latitude': 60.2134, 'longitude': 11.08986}
+                lzr_hdg = 196-180
+                
+            brg,dist=bearings_and_distances(lat.array[newslice], lon.array[newslice], lzr_loc)
+            
+            ##lat_trk,lon_trk=latitudes_and_longitudes((ils_loc.array[newslice]-lzr_hdg)/180*3.14159,dist, rwy.value['localizer'])
+            
+            #outfile=open('C:/POLARIS Development/AnalysisEngine/tests/test.npy', 'w')
+            np.savez('C:/POLARIS Development/AnalysisEngine/tests/test',
+                     alt_aal=alt_aal.array.data[newslice], dist=dist.data, glide=glide.array.data[newslice])
+            #outfile.close()
+            
+            #outfile.seek(0)
+            #npzfile = np.load(outfile)
+            #npzfile.files
+            #['y', 'x']
+            #>>> npzfile['x']
+            #array([0, 1, 2, 3, 4, 5, 6, 7, 8, 9])            
+        
+        ##for showme in range(newslice.start, newslice.stop):
+        ###for showme in range(0, len(ils_loc.array)):
+            ##spam.writerow([ils_loc.array[showme],
+                           ##glide.array[showme],
+                           ##alt_aal.array[showme],
+                           ##alt_rad.array[showme],
+                           ##hdg.array[showme]%360.0,
+                           ##brg[showme-newslice.start]*180/3.14159,
+                           ##dist[showme-newslice.start]*1000/25.4/12,
+                           ##lon.array[showme],
+                           ##lat.array[showme],
+                           ##lon_trk[showme-newslice.start],
+                           ##lat_trk[showme-newslice.start]
+                           ##])
+    ##self.array = np.ma.arange(1000) # TODO: Remove.
+    #-------------------------------------------------------------------
+    # TEST OUTPUT TO CSV FILE FOR DEBUGGING ONLY
+    # TODO: REMOVE THIS SECTION BEFORE RELEASE
+    #-------------------------------------------------------------------
+"""    

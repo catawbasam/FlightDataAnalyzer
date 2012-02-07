@@ -33,7 +33,6 @@ class Approaches(FlightAttributeNode):
     def can_operate(self, available):
         return all([n in available for n in ['Start Datetime',
                                              'Approach And Landing',
-                                             'Heading At Landing',
                                              'Altitude AAL',
                                              'Approach And Go Around',
                                              'Latitude At Low Point On Approach',

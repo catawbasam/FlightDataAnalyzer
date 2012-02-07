@@ -2,11 +2,14 @@ import logging
 import numpy as np
 
 from analysis_engine import settings
+from analysis_engine.settings import CONTROL_FORCE_THRESHOLD
+
 from analysis_engine.node import (KeyPointValue, KeyPointValueNode, KPV, KTI,
                                   P, S)
-from analysis_engine.library import (duration, index_at_value, max_abs_value,
+from analysis_engine.library import (coreg, duration, index_at_value, max_abs_value,
                                      max_continuous_unmasked, max_value,
-                                     min_value, repair_mask, subslice)
+                                     min_value, repair_mask, 
+                                     slice_samples, subslice)
 
 
 class Airspeed1000To500FtMax(KeyPointValueNode):
@@ -145,6 +148,47 @@ class AutopilotEngaged2AtTouchdown(KeyPointValueNode):
                touchdowns=P('Touchdown')):
         self.create_kpvs_at_ktis(autopilot.array, touchdowns)
 
+class ControlColumnStiffnessMax(KeyPointValueNode):
+    """
+    The control force and displacement of the flying controls should follow a
+    predictable relationship. This parameter is included to identify
+    stiffness in the controls in flight.
+
+    TODO:
+    Boeing parameter names need improving    
+    CC FORCE (PITCH CWS FOREIGN)
+    CC FORCE (PITCH CWS LOCAL)
+    
+    CW FORCE (ROLL CWS)
+    
+    RUD PEDAL FORCE
+    
+    Also Rudder pedal force conversion forumla is "bust"
+    
+    """
+    def derive(self, force=P('CC FORCE (PITCH CWS LOCAL)'),
+               disp = P('CONTROL COLUMN POSN - CAPT'),
+               fast=S('Fast')):
+        # We only test during high speed operation to avoid "testing" the
+        # full and free movements before flight.
+        for speedy in fast:
+            # We look for forces above a threshold to detect manual input.
+            # This is better than looking for movement, as in the case of
+            # stiff controls there is more force but less movement, hence
+            # using a movement threshold will tend to be suppressed in the
+            # cases we are looking to detect.
+            moves = np.ma.clump_unmasked(
+                np.ma.masked_less(np.ma.abs(force.array),
+                                  CONTROL_FORCE_THRESHOLD))
+            for move in moves:
+                if slice_samples(move) < 5:
+                    break
+                corr, slope, off = \
+                    coreg(force.array[move], indep_var=disp.array[move], force_zero=True)
+                if corr>0.5:  # This checks the data looks sound.
+                    self.create_kpv(move.start, slope)
+                    # FIXME: I only want to keep the maximum this flight.
+        
 
 class GoAroundAltitude(KeyPointValueNode):
     def derive(self, gas=KTI('Go Around'),
@@ -276,13 +320,13 @@ class ILSFrequencyOnApproach(KeyPointValueNode):
 
 class LatitudeAtLowPointOnApproach(KeyPointValueNode):
     def derive(self, lat=P('Latitude Smoothed'), 
-               lands=KTI('Approach And Landing Lowest')):
+               lands=KTI('Approach And Landing Lowest Point')):
         self.create_kpvs_at_ktis(lat.array, lands)
             
 
 class LongitudeAtLowPointOnApproach(KeyPointValueNode):
     def derive(self, lon=P('Longitude Smoothed'), 
-               lands=KTI('Approach And Landing Lowest')):
+               lands=KTI('Approach And Landing Lowest Point')):
         self.create_kpvs_at_ktis(lon.array, lands)
    
    
@@ -1031,16 +1075,19 @@ class PitchRateDuringTakeoffMax(KeyPointValueNode):
         self.create_kpvs_within_slices(pitch_rate.array, takeoffs, max_value)
 
 
-# Commenting to get process_flight working temporarily.
-#class PitchRateFrom2DegreesOfPitchTo35FtMin(KeyPointValueNode):
-    ##TODO: TESTS
-    #def derive(self, pitch_rate=P('Pitch Rate'), pitch=P('Pitch'), 
-               #alt_aal=P('Altitude AAL')):
-        #for this_slice in alt_aal.slices_from_to(0, 35):
-            #pitch_2_deg = index_at_value(pitch.array, 2, this_slice)
-            #pitch_2_slice = subslice(this_slice, slice(pitch_2_deg,None,1))
-            #index, value = min_value(pitch_rate.array, pitch_2_slice)
-            #self.create_kpv(index, value)
+class PitchRateFrom2DegreesOfPitchTo35FtMin(KeyPointValueNode):
+    #TODO: TESTS
+    def derive(self, pitch_rate=P('Pitch Rate'), pitch=P('Pitch'), 
+               alt_aal=P('Altitude AAL')):
+        for this_slice in alt_aal.slices_from_to(0, 35):
+            # Endpoint closing allows for the case where the aircraft is at
+            # more than 2 deg of pitch at takeoff.
+            pitch_2_deg = index_at_value(pitch.array, 2, 
+                                         this_slice, endpoint='closing') - this_slice.start
+            pitch_2_slice = subslice(this_slice, slice(pitch_2_deg,None,1))
+            
+            index, value = min_value(pitch_rate.array, pitch_2_slice)
+            self.create_kpv(index, value)
 
 
 class PowerOnWithSpeedbrakesDeployedDuration(KeyPointValueNode):

@@ -1,4 +1,5 @@
 import numpy as np
+import logging
 
 from math import floor, sqrt, sin, cos, atan2, radians
 from collections import OrderedDict, namedtuple
@@ -6,7 +7,8 @@ from datetime import datetime, timedelta
 from hashlib import sha256
 from itertools import izip
 from scipy.signal import lfilter, lfilter_zi
-from scipy.optimize import fmin_cobyla
+from scipy.optimize import fmin, fmin_bfgs, fmin_tnc
+# TODO: Inform Enthought that fmin_l_bfgs_b dies in a dark hole at _lbfgsb.setulb
 
 from settings import REPAIR_DURATION, TRUCK_OR_TRAILER_INTERVAL, TRUCK_OR_TRAILER_PERIOD
 
@@ -299,6 +301,73 @@ def calculate_timebase(years, months, days, hours, mins, secs):
         # No valid datestamps found
         raise InvalidDatetime("No valid datestamps found")
 
+def coreg(y, indep_var=None, force_zero=False):
+    """
+    Combined correlation and regression line calculation. 
+
+    correlate, slope, offset = coreg(y, indep_var=x, force_zero=True)
+    
+    :param y: dependent variable
+    :type y: numpy array
+    :param x: independent variable
+    :type x: numpy array. Where not supplied, a linear scale is created.
+    :param force_zero: switch to force the regression offset to zero
+    :type force_zero: logic, default=False
+    
+    :returns:
+    :param correlate: The modulus of Pearson's correlation coefficient
+
+    Note that we use only the modulus of the correlation coefficient, so that
+    we only have to test for positive values when checking the strength of
+    correlation. Thereafter the slope is used to identify the sign of the
+    correlation.
+
+    :type correlate: float, in range 0 to +1,
+    :param slope: The slope (m) in the equation y=mx+c for the regression line
+    :type slope: float
+    :param offset: The offset (c) in the equation y=mx+c
+    :type offset: float
+    
+    Example usage:
+
+    corr,m,c = coreg(air_temp.array, indep_var=alt_std.array)
+    
+    corr > 0.5 shows weak correlation between temperature and altitude
+    corr > 0.8 shows good correlation between temperature and altitude
+    m is the lapse rate
+    c is the temperature at 0ft
+    
+    """
+    
+    n = len(y)
+    if n < 2:
+        raise ValueError, 'Function coreg called with data of length 1 or null'
+    
+    if indep_var == None:
+        x = np.arange(n, dtype=float)
+    else:
+        x = indep_var
+        if len(x) != n:
+                raise ValueError, 'Function coreg called with arrays of differing length'
+    
+    sx = np.sum(x)
+    sxy = np.sum(x*y)
+    sy = np.sum(y)
+    sx2 = np.sum(x*x)
+    sy2 = np.sum(y*y)
+    
+    # Correlation
+    p = abs((n*sxy - sx*sy)/(sqrt(n*sx2-sx*sx)*sqrt(n*sy2-sy*sy)))
+    
+    # Regression
+    if force_zero:
+        m = sxy/sx2
+        c = 0.0
+    else:
+        m = (sxy-sx*sy/n)/(sx2-sx*sx/n)
+        c = sy/n - m*sx/n
+    
+    return p, m, c
     
 def create_phase_inside(array, hz, offset, phase_start, phase_end):
     '''
@@ -681,6 +750,7 @@ def hysteresis (array, hysteresis):
     return np.ma.array(result, mask=array.mask)
 
 
+'''
 def ils_gs_estimate(x, y, gs):
     """
     Computation of the best fit glidepath.
@@ -700,16 +770,20 @@ def ils_gs_estimate(x, y, gs):
     :param gs_gain: gain of signal from glideslope
     :type gs_gain: float, units dots per degree deviation.
     """
+    x *= 1000/25.4/12
     
     # Estimate the offset from the last sample only
     d0 = x[-1] - y[-1]*19 # Approximately 1/tan(3deg) to initialise parameters.
-    x0 = np.array([d0, 5.0, 2.5])
+    if d0 == None or d0 < -4000 or d0 > 2000:
+        d0 = 0.0
+    s0 = np.degrees(np.arctan2(y[0]-y[-1], x[0]-x[-1]))
+    if s0 == None or s0 < 2.5 or s0 > 6.5:
+        s0 = 3.0
+    x0 = np.array([d0, s0, 2.8])
+    xopt = fmin(ils_cost, x0, args=(x,y,gs), xtol=0.001)
     #xopt = fmin_bfgs(ils_cost, x0, args=(x,y,gs))
-    xopt = fmin_cobyla(ils_cost, x0, 
-                       [ils_rule_th, ils_rule_slope, ils_rule_gain],
-                       args=(x,y,gs), consargs=(), 
-                       rhobeg=0.01, rhoend=0.0001,
-                       disp=2)
+    #xopt = fmin_tnc(ils_cost, x0, args=(x,y,gs), approx_grad=True,
+    #                     bounds=[(-500,500),(2.5,6.5),(0,4)])
     
     return xopt
     
@@ -720,26 +794,34 @@ def ils_cost(params, x, y, gs):
 
     dist = x + th_dist
     elevation = np.degrees(np.arctan2(y, dist))
-    my_dev = (gs_slope - elevation)/gs_gain
+    my_dev = (elevation - gs_slope)*gs_gain
     cost = np.sum((my_dev-gs)*(my_dev-gs))
+    #+ \
+        #ils_rule_th(th_dist) + \
+        #ils_rule_slope(gs_slope) + \
+        #ils_rule_gain(gs_gain)
+    
+    print params, cost
+    
     return cost
 
-def ils_rule_th(x):
-    th_dist = x[0]
+def ils_rule_th(th_dist):
     # Limit the threshold distance to +/- 2000 ft
-    return 1-(th_dist/2000)**2
+    hump = 1-(th_dist/2000)**2
+    return abs(hump) - hump
 
-def ils_rule_slope(x):
-    gs_slope = x[1]
+def ils_rule_slope(gs_slope):
     # Limit ILS glideslope estimates to 2.5 to 6.5 degrees
-    return 1-((gs_slope-4.5)/2)**2
+    hump = 1-((gs_slope-4.5)/2)**2
+    return abs(hump) - hump
     
-def ils_rule_gain(x):
-    gs_gain = x[2]
+def ils_rule_gain(gs_gain):
     # Limit ILS glideslope gain to 2 to 5 dots/degree
-    return 1-((gs_gain-3.5)/1.5)**2
-
-
+    hump = 1-((gs_gain-3.5)/1.5)**2
+    return abs(hump) - hump
+'''
+    
+    
 def integrate (array, frequency, initial_value=0.0, scale=1.0, direction="forwards"):
     """
     Rectangular integration
@@ -1292,7 +1374,7 @@ def rate_of_change(diff_param, half_width):
     return slope
 
 def repair_mask(array, frequency=1, repair_duration=REPAIR_DURATION,
-                raise_duration_exceedance=True):
+                raise_duration_exceedance=False):
     '''
     This repairs short sections of data ready for use by flight phase algorithms
     It is not intended to be used for key point computations, where invalid data
@@ -1359,20 +1441,30 @@ def rms_noise(array):
     local_diff = diff_left - diff_right
     return sqrt(np.ma.mean(np.ma.power(local_diff,2)))  # RMS in one line !
     
+def shift_slice(this_slice, offset):
+    """
+    This function shifts a slice by an offset. The need for this arises when
+    a phase condition has been used to limit the scope of another phase
+    calculation.
+    """
+    a = (this_slice.start or 0) + offset
+    b = (this_slice.stop or 0) + offset
+    c = this_slice.step
+    if (b-a)>1:
+        # This traps single sample slices which can arise due to rounding of
+        # the iterpolated slices.
+        return(slice(a,b,c))
+    
 def shift_slices(slicelist, offset):
     """
-    This function shifts a list of slices by offset. The need for this arises
-    when a phase condition has been used to limit the scope of another phase
-    calculation.
+    This function shifts a list of slices by a common offset, retaining only
+    the valid (not None) slices.
     """
     newlist = []
     for each_slice in slicelist:
-        a = each_slice.start + offset
-        b = each_slice.stop + offset
-        if (b-a)>1:
-            # This traps single sample slices which can arise due to rounding
-            # of the iterpolated slices.
-            newlist.append(slice(a,b))
+        if each_slice:
+            new_slice = shift_slice(each_slice,offset)
+            if new_slice: newlist.append(new_slice)
     return newlist
 
 def slice_duration(_slice, hz):
@@ -1389,7 +1481,22 @@ def slice_duration(_slice, hz):
     :returns: Duration of _slice in seconds.
     :rtype: float
     '''
-    return _slice.start - _slice.stop / hz
+    return (_slice.stop - _slice.start) / hz
+
+def slice_samples(_slice):
+    '''
+    Gets the number of samples in a slice.
+    
+    :param _slice: Slice to calculate the duration of.
+    :type _slice: slice
+    :returns: Number of samplees in _slice.
+    :rtype: integer
+    '''
+    if _slice.step == None:
+        step = 1
+    else:
+        step = _slice.step
+    return (abs(_slice.stop - _slice.start) - 1) / abs(step) + 1
 
 def slices_above(array, value):
     '''
@@ -1590,7 +1697,14 @@ def subslice(orig, new):
     See tests for capabilities.
     """
     step = (orig.step or 1) * (new.step or 1)
-    start = (orig.start or 0) + (new.start or orig.start or 0) * (orig.step or 1)
+
+    # FIXME: asks DJ
+    # Inelegant fix for one special case. Sorry, Glen.
+    if new.start == 0:
+        start = orig.start
+    else:
+        
+        start = (orig.start or 0) + (new.start or orig.start or 0) * (orig.step or 1)
     stop = (orig.start or 0) + (new.stop or orig.stop or 0) * (orig.step or 1) # the bit after "+" isn't quite right!!
     return slice(start, stop, None if step == 1 else step)
 

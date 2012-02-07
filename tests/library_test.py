@@ -487,6 +487,51 @@ class TestCalculateTimebase(unittest.TestCase):
         self.assertFalse(True)
         
 
+class TestCoReg(unittest.TestCase):
+    def test_correlation_basic(self):
+        x=np.array([0,1,2,4,5,7], dtype=float)
+        y=np.array([2,4,5,3,6,8], dtype=float)
+        correlate, slope, offset = coreg(y, indep_var=x)
+        self.assertAlmostEqual(correlate, 0.818447591071135)
+        self.assertAlmostEqual(slope, 0.669856459330144)
+        self.assertAlmostEqual(offset, 2.54545454545455)
+        
+    def test_correlation_raises_error_unequal(self):
+        x=np.array([0,1,2,4,5,7], dtype=float)
+        y=np.array([-2,-4,-5,-3,-6], dtype=float)
+        self.assertRaises(ValueError, coreg, y, indep_var=x)
+        
+    def test_correlation_raises_error_too_short(self):
+        y=np.array([1], dtype=float)
+        self.assertRaises(ValueError, coreg, y)
+        
+    def test_correlation_monotonic_independent_variable(self):
+        y=np.array([2,4,5,3,6,8], dtype=float)
+        correlate, slope, offset = coreg(y)
+        self.assertAlmostEqual(correlate, 0.841281820819169)
+        self.assertAlmostEqual(slope, 0.971428571428571)
+        self.assertAlmostEqual(offset, 2.23809523809524)
+        
+    def test_correlation_only_return(self):
+        y=np.array([2,4,5,3,6,8], dtype=float)
+        correlate,d1,d2 = coreg(y)  # You need to cater for the three return arguments.
+        self.assertAlmostEqual(correlate, 0.841281820819169)
+        
+    def test_correlation_forced_zero(self):
+        y=np.array([2,4,5,3,6,8], dtype=float)
+        correlate, slope, offset = coreg(y, force_zero=True)
+        self.assertAlmostEqual(slope, 1.58181818181818)
+        self.assertAlmostEqual(offset, 0.0)
+        
+    def test_correlation_negative_slope(self):
+        x=np.array([0,1,2,4,5,7], dtype=float)
+        y=np.array([-2,-4,-5,-3,-6,-8], dtype=float)
+        correlate, slope, offset = coreg(y,indep_var=x)
+        self.assertAlmostEqual(correlate, 0.818447591071135)
+        self.assertAlmostEqual(slope, -0.669856459330144)
+        self.assertAlmostEqual(offset, -2.54545454545455)
+
+
 class TestDuration(unittest.TestCase):
     def setUp(self):
         test_list = []
@@ -933,7 +978,89 @@ class TestIntegrate (unittest.TestCase):
         step_2 = integrate(step_1, 1.0, scale=0.01)
         self.assertLess(np.max(np.abs(step_2+testwave)), 0.001)
 
+"""
+
+Superceded by regression
+
 class TestILSGSEstimate(unittest.TestCase):
+    # Simulate range and elevation data for an approach perfectly on the glidepath.
+    def test_ils_gs_estimate_from_file_1(self):
+        data=np.load('C:/POLARIS Development/AnalysisEngine/tests/test_data/ILS_Glideslope_Test_Data/test_1.npz')
+        gs = data['glide']
+        y = data['alt_aal']
+        x = data['dist']
+        
+        on_glides = np.ma.clump_unmasked(np.ma.masked_outside(np.ma.array(data=y),100,3000))
+        for on_glide in on_glides:
+            duration = on_glide.stop - on_glide.start
+            if duration > 100:
+                params = ils_gs_estimate(x[on_glide],y[on_glide],gs[on_glide])
+                #th_dist = params[0]
+                #gs_slope = params[1]
+                #self.assertGreater(th_dist,120)
+                #self.assertLess(th_dist,122)
+                #self.assertGreater(gs_slope,2.75)
+                #self.assertLess(gs_slope,2.8)
+
+    def test_ils_gs_estimate_from_file_2(self):
+        data=np.load('C:/POLARIS Development/AnalysisEngine/tests/test_data/ILS_Glideslope_Test_Data/test_2.npz')
+        gs = data['glide']
+        y = data['alt_aal']
+        x = data['dist']
+        
+        on_glides = np.ma.clump_unmasked(np.ma.masked_outside(np.ma.array(data=y),100,3000))
+        for on_glide in on_glides:
+            duration = on_glide.stop - on_glide.start
+            if duration > 100:
+                params = ils_gs_estimate(x[on_glide],y[on_glide],gs[on_glide])
+    def test_ils_gs_estimate_from_file_3(self):
+        data=np.load('C:/POLARIS Development/AnalysisEngine/tests/test_data/ILS_Glideslope_Test_Data/test_3.npz')
+        gs = data['glide']
+        y = data['alt_aal']
+        x = data['dist']
+        
+        on_glides = np.ma.clump_unmasked(np.ma.masked_outside(np.ma.array(data=y),100,3000))
+        for on_glide in on_glides:
+            duration = on_glide.stop - on_glide.start
+            if duration > 100:
+                params = ils_gs_estimate(x[on_glide],y[on_glide],gs[on_glide])
+    def test_ils_gs_estimate_from_file_4(self):
+        data=np.load('C:/POLARIS Development/AnalysisEngine/tests/test_data/ILS_Glideslope_Test_Data/test_4.npz')
+        gs = data['glide']
+        y = data['alt_aal']
+        x = data['dist']
+        
+        on_glides = np.ma.clump_unmasked(np.ma.masked_outside(np.ma.array(data=y),100,3000))
+        for on_glide in on_glides:
+            duration = on_glide.stop - on_glide.start
+            if duration > 100:
+                params = ils_gs_estimate(x[on_glide],y[on_glide],gs[on_glide])
+    def test_ils_gs_estimate_from_file_5(self):
+        data=np.load('C:/POLARIS Development/AnalysisEngine/tests/test_data/ILS_Glideslope_Test_Data/test_5.npz')
+        gs = data['glide']
+        y = data['alt_aal']
+        x = data['dist']
+        
+        on_glides = np.ma.clump_unmasked(np.ma.masked_outside(np.ma.array(data=y),100,3000))
+        for on_glide in on_glides:
+            duration = on_glide.stop - on_glide.start
+            if duration > 100:
+                params = ils_gs_estimate(x[on_glide],y[on_glide],gs[on_glide])
+    def test_ils_gs_estimate_from_file_6(self):
+        data=np.load('C:/POLARIS Development/AnalysisEngine/tests/test_data/ILS_Glideslope_Test_Data/test_6.npz')
+        gs = data['glide']
+        y = data['alt_aal']
+        x = data['dist']
+        
+        on_glides = np.ma.clump_unmasked(np.ma.masked_outside(np.ma.array(data=y),100,3000))
+        for on_glide in on_glides:
+            duration = on_glide.stop - on_glide.start
+            if duration > 100:
+                params = ils_gs_estimate(x[on_glide],y[on_glide],gs[on_glide])
+
+        
+    
+    # Simulate range and elevation data for an approach perfectly on the glidepath.
     def test_ils_gs_estimate_basic(self):
         y = np.arange(800,100,-15, dtype=float)
         x = y*20.1
@@ -941,16 +1068,43 @@ class TestILSGSEstimate(unittest.TestCase):
         params = ils_gs_estimate(x,y,gs)
         th_dist = params[0]
         gs_slope = params[1]
-        gs_gain = params[2]
-        
-        # print th_dist, gs_slope, gs_gain
-        
         self.assertGreater(th_dist,120)
         self.assertLess(th_dist,122)
         self.assertGreater(gs_slope,2.75)
         self.assertLess(gs_slope,2.8)
-        self.assertGreater(gs_gain,3.4)
-        self.assertLess(gs_gain,3.5)
+
+    def test_ils_gs_estimate_steep(self):
+        y = np.arange(800,100,-15, dtype=float)
+        x = y*10
+        gs = np.zeros_like(y)
+        gs[0]=0.1
+        gs[1]=-0.1
+        params = ils_gs_estimate(x,y,gs)
+        gs_slope = params[1]
+        self.assertGreater(gs_slope,6.4)
+
+    def test_ils_gs_estimate_shallow(self):
+        y = np.arange(800,100,-15, dtype=float)
+        x = y*40
+        gs = np.zeros_like(y)
+        params = ils_gs_estimate(x,y,gs)
+        gs_slope = params[1]
+        self.assertEqual(gs_slope,2.5)
+
+    def test_ils_gs_estimate_gain(self):
+        x = np.arange(16000,2000,-300, dtype=float)
+        gs = np.zeros_like(x)
+        gs[0]=0.1
+        gs[1]=-0.1
+        y = x/20
+        y[0] -= 0.3
+        y[1] += 0.3
+        params = ils_gs_estimate(x,y,gs)
+        gs_gain = params[2]
+        self.assertGreater(gs_gain,2.75)
+        self.assertLess(gs_gain,2.85)
+"""
+
 
 class TestIsSliceWithinSlice(unittest.TestCase):
     def test_is_slice_within_slice(self):
@@ -1389,6 +1543,38 @@ class TestRMSNoise(unittest.TestCase):
         expected = 0.0
         self.assertAlmostEqual(result, expected)
         
+class TestShiftSlice(unittest.TestCase):
+    def test_shift_slice(self):
+        a = slice(1,3,None)
+        b = 10
+        self.assertEqual(shift_slice(a,b),slice(11,13,None))
+
+    def test_shift_slice_too_short(self):
+        a = slice(3.3,3.4,None)
+        b = 6
+        self.assertEqual(shift_slice(a,b),None)
+
+    def test_shift_slice_transfer_none(self):
+        a = slice(30.3,None)
+        b = 3
+        self.assertEqual(shift_slice(a,b),None)
+
+class TestShiftSlices(unittest.TestCase):
+    def test_shift_slices(self):
+        a = [slice(1,3,None)]
+        b = 10
+        self.assertEqual(shift_slices(a,b),[slice(11,13,None)])
+
+    def test_shift_slices_incl_none(self):
+        a = [slice(1,3,None),None,slice(2,4,2)]
+        b = 10
+        self.assertEqual(shift_slices(a,b),[slice(11,13,None),slice(12,14,2)])
+        
+    def test_shift_slices_real_data(self):
+        a = [slice(0, 1, None), slice(599, 933, None), 
+             slice(1988, 1992, None), slice(2018, 2073, None)]
+        b = 548.65
+        self.assertEqual(len(shift_slices(a,b)),3)
 
 class TestSlicesAbove(unittest.TestCase):
     def test_slices_above(self):
@@ -1413,6 +1599,22 @@ class TestSlicesBetween(unittest.TestCase):
         repaired_array, slices = slices_between(array, 5, 15)
         self.assertEqual(slices, [slice(10, 16)])
 
+class TestSliceSamples(unittest.TestCase):
+    def test_slice_samples(self):
+        test_slice=slice(45,47,1)
+        self.assertEqual(slice_samples(test_slice), 2)
+
+    def test_slice_samples_backwards(self):
+        test_slice=slice(48,45,-1)
+        self.assertEqual(slice_samples(test_slice), 3)
+
+    def test_slice_samples_stepping(self):
+        test_slice=slice(10,20,4)
+        self.assertEqual(slice_samples(test_slice), 3)
+
+    def test_slice_samples_step_none(self):
+        test_slice=slice(10,20)
+        self.assertEqual(slice_samples(test_slice), 10)
 
 class TestSlicesFromTo(unittest.TestCase):
     def test_slices_from_to(self):
@@ -1498,6 +1700,14 @@ class TestSubslice(unittest.TestCase):
         new = slice(2, 4)
         res = subslice(orig, new)
         self.assertEqual(res, slice(4, 6))
+        fifty = range(50)
+        self.assertEqual(fifty[orig][new], fifty[res])
+        
+        # test basic starting from zero
+        orig = slice(2,10)
+        new = slice(0, 4)
+        res = subslice(orig, new)
+        self.assertEqual(res, slice(2, 6))
         fifty = range(50)
         self.assertEqual(fifty[orig][new], fifty[res])
         

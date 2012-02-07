@@ -37,6 +37,7 @@ from analysis_engine.key_point_values import (
     AutopilotEngaged1AtTouchdown,
     AutopilotEngaged2AtLiftoff,
     AutopilotEngaged2AtTouchdown,
+    ControlColumnStiffnessMax,
     EngEGTMax,
     EngEPR500FtToTouchdownMin,
     EngN13000FtToTouchdownMax,
@@ -97,6 +98,7 @@ from analysis_engine.key_point_values import (
     RollBetween500And1500FtMax,
 )
 from analysis_engine.library import (max_abs_value, max_value, min_value)
+from analysis_engine.flight_phase import Fast
 
 debug = sys.gettrace() is not None
 
@@ -501,6 +503,39 @@ class TestAutopilotEngaged2AtTouchdown(unittest.TestCase, TestCreateKPVsAtKTIs):
         self.node_class = AutopilotEngaged2AtTouchdown
         self.operational_combinations = [('Autopilot Engaged 2', 'Touchdown')]
 
+class TestControlColumnStiffnessMax(unittest.TestCase):
+    def test_can_operate(self):
+        self.assertEqual(ControlColumnStiffnessMax.get_operational_combinations(),
+                         [('Control Column Force','Control Column','Fast')])
+
+    def test_control_column_stiffness_too_few_samples(self):
+        cc_disp = Parameter('Control Column', 
+                            np.ma.array([0,.3,1,2,2.5,1.4,0,0]))
+        cc_force = Parameter('Control Column Force',
+                             np.ma.array([0,2,4,7,8,5,2,1]))
+        phase_fast = Fast()
+        phase_fast.derive(Parameter('Airspeed', np.ma.array([100]*10)))
+        stiff = ControlColumnStiffnessMax()
+        stiff.derive(cc_force,cc_disp,phase_fast)
+        self.assertEqual(stiff, [])
+        
+    def test_control_column_stiffness_max(self):
+        cc_disp = Parameter('Control Column', 
+                            np.ma.array([0,.3,1,2,2.5,3,2,1.4,0,0]))
+        cc_force = Parameter('Control Column Force',
+                             np.ma.array([0,2,4,7,8,7.2,6.5,5,2,1]))
+        phase_fast = Fast()
+        phase_fast.derive(Parameter('Airspeed', np.ma.array([100]*12)))
+        stiff = ControlColumnStiffnessMax()
+        stiff.derive(cc_force,cc_disp,phase_fast)
+        stiff_index = 2
+        stiff_value = 3.0370087752766115 # lb/deg ignoring samples < 3lbf
+        stiff_name = 'Control Column Stiffness Max'
+        self.assertEqual(stiff,
+                         [KeyPointValue(value=stiff_value,
+                                        index=stiff_index, 
+                                        name=stiff_name)])        
+        
 
 class TestEngEGTMax(unittest.TestCase):
     def test_can_operate(self, eng=P()):

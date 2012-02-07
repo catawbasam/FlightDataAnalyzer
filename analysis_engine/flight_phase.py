@@ -4,7 +4,8 @@ import numpy as np
 from analysis_engine.library import (hysteresis, index_at_value,
                               index_closest_value,
                               is_slice_within_slice,
-                              peak_curvature, repair_mask, shift_slices)
+                              peak_curvature, repair_mask, 
+                              shift_slice, shift_slices, slice_duration)
 from analysis_engine.node import FlightPhaseNode, P, S, KTI
 from analysis_engine.settings import (AIRSPEED_THRESHOLD,
                                ALTITUDE_FOR_CLB_CRU_DSC,
@@ -375,7 +376,7 @@ class ILSLocalizerEstablished(FlightPhaseNode):
     at high speed. Therefore the lowest point is either the bottom of a
     go-around, touch-and-go or landing.
     """
-    def scan_ils(self, abs_ils_loc):
+    def scan_ils(self, abs_ils_loc, start):
 
         # TODO: extract as settings
         LOCALIZER_ESTABLISHED_THRESHOLD = 1.0
@@ -387,16 +388,16 @@ class ILSLocalizerEstablished(FlightPhaseNode):
         for cl in cls:
             if cl.stop-cl.start > 30:
                 # Long enough to be established and not just crossing the ILS.
-                self.create_phase(cl)
+                self.create_phase(shift_slice(cl,start))
     
 
     def derive(self, aals=S('Approach And Landing'),
                aags=S('Approach And Go Around'),
                ils_loc=P('ILS Localizer')):
         for aal in aals:
-            self.scan_ils(abs(ils_loc.array[aal.slice]))
+            self.scan_ils(abs(ils_loc.array[aal.slice]),aal.slice.start)
         for aag in aags:
-            self.scan_ils(abs(ils_loc.array[aag.slice]))
+            self.scan_ils(abs(ils_loc.array[aag.slice]),aag.slice.start)
 
     ##'''
     ##Old code - TODO: Remove when new version working
@@ -409,69 +410,6 @@ class ILSLocalizerEstablished(FlightPhaseNode):
             ###phases = np.ma.clump_unmasked(in_range)
             ###self.create_phase(phases[-1])
     ##'''
-
-    
-    ##"""
-    ###-------------------------------------------------------------------
-    ### TEST OUTPUT TO CSV FILE FOR DEBUGGING ONLY
-    ### TODO: REMOVE THIS SECTION BEFORE RELEASE
-    ###-------------------------------------------------------------------
-    ##if ils_loc and glide and alt_aal and rwy and lat and lon and hdg and ap:
-        ##import csv
-        ##spam = csv.writer(open('tomato.csv', 'wb'))
-        ##spam.writerow(['ILS Localizer',
-                       ##'ILS Glideslope',
-                       ##'Altitude AAL',
-                       ##'Altitude Radio',
-                       ##'Heading', 'Bearing', 'Distance',
-                       ##'Longitude',
-                       ##'Latitude',
-                       ##'Longitude Return',
-                       ##'Latitude Return'])
-        ###scope = ap.get_last().slice  # Only the last approach is interesting.
-        ##for speedy in fast:
-            ##scope = slice(int(speedy.slice.stop-400),int(speedy.slice.stop))
-            ###Option to track back to localiser intercept
-            ###capture = index_at_value(ils_loc.array,4.0,slice(scope.start,0,-1))
-            ###newslice = slice(capture, int(scope.stop)+20)
-            ##newslice = scope
-            ##if lat.array[scope][-1] > 62:
-                ### Trondheim = TRD
-                ##lzr_loc = {'latitude': 63.45763, 'longitude': 10.90043}
-                ##lzr_hdg = 89-180
-            ##elif lon.array[scope][-1] < 7:
-                ### Bergen = BGO
-                ##lzr_loc = {'latitude': 60.30112, 'longitude': 5.21556}
-                ##lzr_hdg = 173-180
-            ##else:
-                ### Oslo = OSL
-                ##lzr_loc = {'latitude': 60.2134, 'longitude': 11.08986}
-                ##lzr_hdg = 196-180
-                
-            ##brg,dist=bearings_and_distances(lat.array[newslice], lon.array[newslice], lzr_loc)
-            ##lat_trk,lon_trk=latitudes_and_longitudes(
-                ##(ils_loc.array[newslice]-lzr_hdg)/180*3.14159, 
-                ##dist, rwy.value['localizer'])
-            ##for showme in range(newslice.start, newslice.stop):
-            ###for showme in range(0, len(ils_loc.array)):
-                ##spam.writerow([ils_loc.array[showme],
-                               ##glide.array[showme],
-                               ##alt_aal.array[showme],
-                               ##alt_rad.array[showme],
-                               ##hdg.array[showme]%360.0,
-                               ##brg[showme-newslice.start]*180/3.14159,
-                               ##dist[showme-newslice.start]*1000/25.4/12,
-                               ##lon.array[showme],
-                               ##lat.array[showme],
-                               ##lon_trk[showme-newslice.start],
-                               ##lat_trk[showme-newslice.start]
-                               ##])
-    ##self.array = np.ma.arange(1000) # TODO: Remove.
-    ###-------------------------------------------------------------------
-    ### TEST OUTPUT TO CSV FILE FOR DEBUGGING ONLY
-    ### TODO: REMOVE THIS SECTION BEFORE RELEASE
-    ###-------------------------------------------------------------------
-    ##"""
 
   
 class ILSApproach(FlightPhaseNode):
@@ -503,10 +441,35 @@ class ILSGlideslopeEstablished(FlightPhaseNode):
     (repaired) Glideslope deviation continuously less than 1 dot,. Where > 10
     seconds, identify as Glideslope Established.
     """
-    def derive(self, ils_gs = P('Glideslope Deviation'),
-               ils_loc_est = S("ILS Localizer Established")):
-        return NotImplemented
-
+    def derive(self, ils_gs = P('ILS Glideslope'),
+               ils_loc_ests = S('ILS Localizer Established'),
+               alt_aal=P('Altitude AAL')):
+        for ils_loc_est in ils_loc_ests:
+            # Reduce the duration of the ILS localizer established period
+            # down to minimum altitude. TODO: replace 100ft by variable ILS
+            # caterogry minima, possibly variable by operator.
+            min_index = index_closest_value(alt_aal.array, 100, ils_loc_est.slice)
+            # Truncate the ILS establiched phase.
+            ils_loc_2_min = slice(ils_loc_est.slice.start,
+                                  min(ils_loc_est.slice.stop,min_index)) 
+            gs = repair_mask(ils_gs.array[ils_loc_2_min]) # prepare gs data
+            gsm = np.ma.masked_outside(gs,-1,1)  # mask data more than 1 dot
+            ends = np.ma.flatnotmasked_edges(gsm)  # find the valid endpoints
+            if ends[0] == 0 and ends[1] == -1:  # TODO: Pythonese this line !
+                # All the data is within one dot, so the phase is already known
+                self.create_phase(ils_loc_2_min)
+            else:
+                # Create the reduced duration phase
+                self.create_phase(
+                    shift_slice(slice(ends[0],ends[1]),ils_loc_est.slice.start))
+            
+            
+            ##this_slice = ils_loc_est.slice
+            ##on_slopes = np.ma.clump_unmasked(
+                ##np.ma.masked_outside(repair_mask(ils_gs.array)[this_slice],-1,1))
+            ##for on_slope in on_slopes:
+                ##if slice_duration(on_slope, ils_gs.hz)>10:
+                    ##self.create_phase(shift_slice(on_slope,this_slice.start))
 
 
 class InitialApproach(FlightPhaseNode):
