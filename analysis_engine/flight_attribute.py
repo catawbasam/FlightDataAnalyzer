@@ -115,7 +115,7 @@ class Approaches(FlightAttributeNode):
                 #return (lat_kpvs[0].value, lon_kpvs[0].value)
         #return (None, None)
     
-    def _get_lat_lon(self, lat_kpv_node, lon_kpv_node):
+    def _get_lat_lon(self, approach_slice, lat_kpv_node, lon_kpv_node):
         lat_kpvs = lat_kpv_node.get(within_slice=approach_slice)
         lon_kpvs = lon_kpv_node.get(within_slice=approach_slice)        
         if len(lat_kpvs) == 1 and len(lon_kpvs) == 1:
@@ -164,12 +164,13 @@ class Approaches(FlightAttributeNode):
             ##approaches.append((approach_stop_dt, approach))
         ##return sorted(approaches, key=operator.itemgetter(0))
     
-    def _create_approach(self, approach, approach_type, frequency, lat_kpv_node,
-                         lon_kpv_node, hdg_kpv_node, ilsfreq_kpv_node):
-        approach_datetime = datetime_of_index(start_datetime.value,
-                                              approach.slice.stop, # Q: Should it be start of approach?
+    def _create_approach(self, start_dt, api_handler, approach, approach_type,
+                         frequency, lat_kpv_node, lon_kpv_node, hdg_kpv_node,
+                         ilsfreq_kpv_node, precision):
+        approach_datetime = datetime_of_index(start_dt, approach.slice.stop, # Q: Should it be start of approach?
                                               frequency=frequency)        
-        lat, lon = self._get_lat_lon(lat_kpv_node, lon_kpv_node)
+        lat, lon = self._get_lat_lon(approach.slice,
+                                     lat_kpv_node, lon_kpv_node)
         if not lat or not lon:
             logging.warning("Latitude and/or Longitude KPVs not found "
                             "within 'Approach and Landing' phase between "
@@ -202,8 +203,7 @@ class Approaches(FlightAttributeNode):
         # ILS Frequency.
         kwargs = {}
         if ilsfreq_kpv_node:
-            ilsfreq_kpvs = approach_ilsfreq_kpvs.get(within_slice=
-                                                     approach.slice)
+            ilsfreq_kpvs = ilsfreq_kpv_node.get(within_slice=approach.slice)
             if len(ilsfreq_kpvs) == 1:
                 kwargs['ilsfreq'] = ilsfreq_kpvs[0].value
         if precision and precision.value:
@@ -236,16 +236,18 @@ class Approaches(FlightAttributeNode):
                precision=A('Precise Positioning')):
         '''
         TODO: Document approaches format.
+        TODO: Test!
         '''
         api_handler = get_api_handler()
         approaches = []
         
         for approach_section in approach_landing:
-            approach = self._create_approach(approach_section, 'LANDING',
+            approach = self._create_approach(start_datetime.value, api_handler,
+                                             approach_section, 'LANDING',
                                              approach_landing.frequency,
                                              landing_lat_kpvs, landing_lon_kpvs,
                                              landing_hdg_kpvs,
-                                             approach_ilsfreq_kpvs)
+                                             approach_ilsfreq_kpvs, precision)
             if approach:
                 approaches.append(approach)
         
@@ -255,13 +257,16 @@ class Approaches(FlightAttributeNode):
                 approach_type = 'TOUCH_AND_GO'
             else:
                 approach_type = 'GO_AROUND'
-            approach = self._create_approach(approach_section, approach_type,
+            approach = self._create_approach(start_datetime.value, api_handler,
+                                             approach_section, approach_type,
                                              approach_landing.frequency,
                                              landing_lat_kpvs, landing_lon_kpvs,
                                              landing_hdg_kpvs,
-                                             approach_ilsfreq_kpvs)
+                                             approach_ilsfreq_kpvs, precision)
             if approach:
                 approaches.append(approach)
+            
+        self.set_flight_attr(approaches)
         
         ##self.set_flight_attr(approaches)
             ####approach_datetime = datetime_of_index(start_datetime.value,
