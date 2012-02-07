@@ -320,26 +320,16 @@ class ILSFrequencyOnApproach(KeyPointValueNode):
             self.create_kpv(established.slice.start, freq)
             
 
-<<<<<<< TREE
 class LatitudeAtLowestPointOnApproach(KeyPointValueNode):
     # Cannot use smoothed position as this causes circular dependancy.
     def derive(self, lat=P('Latitude'), 
-=======
-class LatitudeAtLowPointOnApproach(KeyPointValueNode):
-    def derive(self, lat=P('Latitude Smoothed'), 
->>>>>>> MERGE-SOURCE
                lands=KTI('Approach And Landing Lowest Point')):
         self.create_kpvs_at_ktis(lat.array, lands)
             
 
-<<<<<<< TREE
 class LongitudeAtLowestPointOnApproach(KeyPointValueNode):
     # Cannot use smoothed position as this causes circular dependancy.
     def derive(self, lon=P('Longitude'), 
-=======
-class LongitudeAtLowPointOnApproach(KeyPointValueNode):
-    def derive(self, lon=P('Longitude Smoothed'), 
->>>>>>> MERGE-SOURCE
                lands=KTI('Approach And Landing Lowest Point')):
         self.create_kpvs_at_ktis(lon.array, lands)
    

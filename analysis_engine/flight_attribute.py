@@ -31,120 +31,12 @@ class Approaches(FlightAttributeNode):
     name = 'FDR Approaches'
     @classmethod
     def can_operate(self, available):
-<<<<<<< TREE
-        required = all([n in available for n in ['Start Datetime',
-                                                 'Approach And Landing',
-                                                 'Heading At Landing',
-                                                 'Approach And Go Around']])
-        
-        approach_lat_lon = 'Latitude At Lowest Point On Approach' in available and\
-                           'Longitude At Lowest Point On Approach' in available
-        landing_lat_lon = 'Latitude At Landing' in available and \
-                          'Longitude At Landing' in available
-        return required and (approach_lat_lon or landing_lat_lon)
-    
-    def _get_approach_type(self, approach_slice, landing_hdg_kpvs,
-                           touch_and_gos, go_arounds):
-        '''
-        Decides the approach type depending on whether or not a KPV or KTI
-        exists or approach.
-        
-        * Landing At Low Point On Approach KPV exists - LANDING
-        * Touch And Go - TOUCH_AND_GO
-        * Go Around - GO_AROUND
-        
-        :param approach_slice: Slice of approach section to get KPVs or KTIs within.
-        :type approach_slice: slice
-        :param landing_hdg_kpvs: 'Landing At Low Point On Approach' KeyPointValueNode.
-        :type landing_hdg_kpvs: KeyPointValueNode
-        :param touch_and_gos: 'Touch And Go' KeyTimeInstanceNode.
-        :type touch_and_gos: KeyTimeInstanceNode
-        :param go_arounds: 'Go Arounds' KeyTimeInstanceNode.
-        :type go_arounds: KeyTimeInstanceNode
-        '''
-        if landing_hdg_kpvs:
-            hdg_kpvs = landing_hdg_kpvs.get(within_slice=approach_slice)
-            if len(hdg_kpvs) == 1:
-                return 'LANDING'
-        if touch_and_gos:
-            approach_touch_and_gos = touch_and_gos.get(within_slice=
-                                                       approach_slice)
-            if len(approach_touch_and_gos) == 1:
-                return 'TOUCH_AND_GO'
-        if go_arounds:
-            approach_go_arounds = go_arounds.get(within_slice=approach_slice)
-            if len(approach_go_arounds) == 1:
-                return 'GO_AROUND'
-        return None
-    
-    def _get_lat_lon(self, approach_slice, landing_lat_kpvs, landing_lon_kpvs,
-                     approach_lat_kpvs, approach_lon_kpvs):
-        '''
-        Returns the latitude and longitude KPV values from landing_lat_kpvs and
-        landing_lon_kpvs if they are available (not None) and there is exactly
-        one of each within the slice, otherwise will return the latitude and
-        longitude KPV values from approach_lat_kpvs and approach_lon_kpvs if
-        there is exactly one of each within the slice, otherwise returns None.
-        
-        :param approach_slice: Slice of approach section to get latitude and longitude within.
-        :type approach_slice: slice
-        :param landing_lat_kpvs: 'Latitude At Landing' KeyPointValueNode.
-        :type landing_lat_kpvs: KeyPointValueNode
-        :param landing_lon_kpvs: 'Longitude At Landing' KeyPointValueNode.
-        :type landing_lon_kpvs: KeyPointValueNode
-        :param approach_lat_kpvs: 'Latitude At Low Point Of Approach' KeyPointValueNode.
-        :type approach_lat_kpvs: KeyPointValueNode
-        :param approach_lon_kpvs: 'Longitude At Low Point Of Approach' KeyPointValueNode.
-        :type approach_lon_kpvs: KeyPointValueNode
-        :returns: Latitude and longitude within slice (landing preferred) or pair of Nones.
-        :rtype: (int, int) or (None, None)
-        '''
-        if landing_lat_kpvs and landing_lon_kpvs:
-            lat_kpvs = landing_lat_kpvs.get(within_slice=approach_slice)
-            lon_kpvs = landing_lon_kpvs.get(within_slice=approach_slice)
-            if len(lat_kpvs) == 1 and len(lon_kpvs) == 1:
-                return (lat_kpvs[0].value, lon_kpvs[0].value)
-        if approach_lat_kpvs and approach_lon_kpvs:
-            # Try approach KPVs.
-            lat_kpvs = approach_lat_kpvs.get(within_slice=approach_slice)
-            lon_kpvs = approach_lon_kpvs.get(within_slice=approach_slice)
-            if len(lat_kpvs) == 1 and len(lon_kpvs) == 1:
-                return (lat_kpvs[0].value, lon_kpvs[0].value)
-        return (None, None)
-    
-    def _get_hdg(self, approach_slice, landing_hdg_kpvs, approach_hdg_kpvs):
-        '''
-        Returns the value of a KPV from landing_hdg_kpvs if it is available
-        (not None) and there is exactly one within the slice, otherwise will
-        return the value of a KPV from approach_hdg_kpvs if there is
-        exactly one within the slice, otherwise returns None.
-        
-        :param approach_slice: Slice of approach section to get a heading within.
-        :type approach_slice: slice
-        :param landing_hdg_kpvs: 'Heading At Landing' KeyPointValueNode.
-        :type landing_hdg_kpvs: KeyPointValueNode
-        :param approach_hdg_kpvs: 'Heading At Low Point On Approach' KeyPointValueNode.
-        :type approach_hdg_kpvs: KeyPointValueNode
-        :returns: Heading within slice (landing preferred) or None.
-        :rtype: int or None
-        '''
-        if landing_hdg_kpvs:
-            hdg_kpvs = landing_hdg_kpvs.get(within_slice=approach_slice)
-            if len(hdg_kpvs) == 1:
-                return hdg_kpvs[0].value
-        if approach_hdg_kpvs:
-            # Try approach KPV.
-            hdg_kpvs = approach_hdg_kpvs.get(within_slice=approach_slice)
-            if len(hdg_kpvs) == 1:
-                return hdg_kpvs[0].value
-        return None
-=======
         return all([n in available for n in ['Start Datetime',
                                              'Approach And Landing',
                                              'Altitude AAL',
                                              'Approach And Go Around',
-                                             'Latitude At Low Point On Approach',
-                                             'Longitude At Low Point On Approach',
+                                             'Latitude At Lowest Point On Approach',
+                                             'Longitude At Lowest Point On Approach',
                                              'Latitude At Landing',
                                              'Longitude At Landing']])
         
@@ -329,9 +221,6 @@ class Approaches(FlightAttributeNode):
                 'runway': runway,
                 'type': approach_type,
                 'datetime': approach_datetime}    
-    
-    
->>>>>>> MERGE-SOURCE
     
     def derive(self, start_datetime=A('Start Datetime'),
                approach_landing=S('Approach And Landing'),
