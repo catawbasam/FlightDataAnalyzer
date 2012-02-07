@@ -280,8 +280,8 @@ def calculate_timebase(years, months, days, hours, mins, secs):
     clock_variation = OrderedDict() # so if all values are the same, take the first
     for step, (yr, mth, day, hr, mn, sc) in enumerate(izip(years, months, days, hours, mins, secs)):
         try:
-            dt = datetime(yr, mth, day, hr, mn, sc)
-        except (ValueError, TypeError):
+            dt = datetime(int(yr), int(mth), int(day), int(hr), int(mn), int(sc))
+        except (ValueError, TypeError, np.ma.core.MaskError):
             continue
         if not base_dt:
             base_dt = dt # store reference datetime 
@@ -1240,7 +1240,7 @@ def blend_two_parameters (param_one, param_two):
         array = blend_alternate_sensors(param_two.array, param_one.array, padding)
     return array, param_one.frequency * 2, offset
 
-def normalise(array, normalise_max=1.0, copy=True, axis=None):
+def normalise(array, normalise_max=1.0, copy=True, axis=None, max_value=None):
     """
     Normalise an array between 0 and normalise_max.
     
@@ -1253,7 +1253,7 @@ def normalise(array, normalise_max=1.0, copy=True, axis=None):
     """
     if copy:
         array = array.copy()
-    scaling = normalise_max / array.max(axis=axis)
+    scaling = normalise_max / (max_value or array.max(axis=axis))
     if axis == 1:
         # transpose
         scaling = scaling.reshape(scaling.shape[0],-1)
