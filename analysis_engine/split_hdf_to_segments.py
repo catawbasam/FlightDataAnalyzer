@@ -110,17 +110,14 @@ def split_hdf_to_segments(hdf_path, aircraft_ident={}, output_dir=None, draw=Fal
         else:
             logging.info("Not validating aircraft is correct")
         
+        # TODO: Apply hook for single parameters.
+        
         # uses flight phases and DFC if aircraft determines to do so
-        #airspeed = post_lfl_param_process(hdf, hdf['Airspeed'])
+        airspeed = hdf['Airspeed']
                 
         # split large dataset into segments
         logging.debug("Splitting segments. Data length: %s", len(airspeed.array))
-        if hdf.reliable_frame_counter:
-            #dfc = post_lfl_param_process(hdf, hdf['Frame Counter'])
-            # TODO: Reimplement.
-            pass
-        else:
-            dfc = None
+        dfc = hdf['Frame Counter'] if hdf.reliable_frame_counter else None
         segment_slices = split_segments(airspeed, dfc=dfc)
             
     # process each segment (into a new file) having closed original hdf_path

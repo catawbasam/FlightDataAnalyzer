@@ -20,13 +20,58 @@ def mask_slow_airspeed(airspeed):
     hysteresisless_spd = hysteresis(airspeed, settings.HYSTERESIS_FPIAS)
     return np.ma.masked_less(hysteresisless_spd, settings.AIRSPEED_THRESHOLD)
 
+
+def split_segments_new_2(hdf):
+    '''
+    DJ suggested not to use decaying engine oil temperature.
     
+    TODO: Use L3UQAR num power ups for difficult cases?
+    '''
+    # TODO: Apply hook to hdf params.
+    airspeed = mask_slow_airspeed(hdf['Airspeed'])
+    # mask where airspeed drops below min airspeed, using hysteresis
+    airspeed = hysteresis(airspeed, settings.HYSTERESIS_FPIAS)
+    airspeed = np.ma.masked_less(airspeed,
+                                 settings.AIRSPEED_THRESHOLD)
+    speedy_slices = np.ma.clump_unmasked(airspeed)
+    first_speedy_slice = speedy_slices[0]
+    # If we start in a speedy slice.
+    if first_speedy_slice.start != 0:
+        start_index = speedy_slices[0].stop
+    else:
+        start_index = 0
+    
+    for first_speedy_slice, second_speedy_slice in zip(speedy_slices[0::2],
+                                                       speedy_slices[1::2]):
+        gap_between_slices = second_speedy_slice.start - first_speedy_slice.stop
+        if gap_between_slices < settings.MINIMUM_SPLIT_DURATION:
+            logging.info("Disregarding period of airspeed below '%s'slice since '%s' is shorter than MINIMUM_SPLIT_DURATION.")
+            continue
+        pass
+    
+    
+    
+    dfc = hdf['Frame Counter'] if hdf.reliable_frame_counter else None
+    
+    if dfc:
+        dfc_diff = np.ma.diff(dfc.array)
+        # Mask incrementing 'Frame Counter'.
+        dfc_mask_one = np.ma.masked_equal(dfc_diff, 1)
+        # Mask 'Frame Counter' overflow.
+        dfc_mask_4094 = np.ma.masked_equal(dfc_mask_one, -4094)
+    
+
 # new
-def split_segments_new(airspeed, dfc):
+def split_segments_new(hdf):
     """
     TODO: Ensure nan is masked!
     
     """
+    # TODO: Apply hook to hdf params.
+    airspeed = hdf['Airspeed']
+    
+    dfc = hdf['Frame Counter'] if hdf.reliable_frame_counter else None
+    
     # I do not like splitting on speedy segments based on airspeed which may have superframe padded masks within mid-flight - i.e. we don't want to split at that point!
     # repair mask first?
     speedy_slices = np.ma.notmasked_contiguous(mask_slow_airspeed(airspeed.array))
@@ -44,9 +89,6 @@ def split_segments_new(airspeed, dfc):
         #TODO: Add "Turning" to ensure we're staying still (rate of turn)
     )
     norm_split_params = normalise(params)
-    
-    
-    
     
     # more than one speedy section
     dfc_diff = np.ma.diff(dfc.array)
