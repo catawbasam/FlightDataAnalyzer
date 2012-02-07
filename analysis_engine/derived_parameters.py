@@ -1240,8 +1240,11 @@ class ILSFrequency(DerivedParameterNode):
     name = "ILS Frequency"
     def derive(self, f1=P('ILS Freq (1)'),f2=P('ILS Freq (2)')):
         # TODO: Fix scaling of 737NG ILS and remove +100 term.
-        self.array = merge_sources(f1.array, f2.array) + 100
-        
+        if np.ma.max(f1.array) < 100:
+            f1.array += 100
+        if np.ma.max(f2.array) < 100:
+            f2.array += 100
+        self.array = merge_sources(f1.array, f2.array)
        
 
 class ILSRange(DerivedParameterNode):
@@ -1469,8 +1472,6 @@ class RateOfClimb(DerivedParameterNode):
                az = P('Acceleration Vertical'),
                alt_std = P('Altitude STD'),
                alt_rad = P('Altitude Radio'),
-               pitch=P('Pitch'),
-               aoa=P('AOA'),
                speed=P('Airspeed')):
 
         if az and alt_rad:
