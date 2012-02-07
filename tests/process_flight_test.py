@@ -40,7 +40,7 @@ class TestProcessFlight(unittest.TestCase):
                    'Manufacturer': 'Boeing',
                    'Model Series': '737',
                    'Tail Number': 'G-ABCD',
-                   'Precise Positioning': True,
+                   'Precise Positioning': False,
                    'Flap Selections': [0,1,2,5,10,15,25,30,40],
                    }
         

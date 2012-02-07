@@ -35,8 +35,8 @@ class Approaches(FlightAttributeNode):
                                              'Approach And Landing',
                                              'Altitude AAL',
                                              'Approach And Go Around',
-                                             'Latitude At Low Point On Approach',
-                                             'Longitude At Low Point On Approach',
+                                             'Latitude At Lowest Point On Approach',
+                                             'Longitude At Lowest Point On Approach',
                                              'Latitude At Landing',
                                              'Longitude At Landing']])
         
@@ -222,8 +222,6 @@ class Approaches(FlightAttributeNode):
                 'type': approach_type,
                 'datetime': approach_datetime}    
     
-    
-    
     def derive(self, start_datetime=A('Start Datetime'),
                approach_landing=S('Approach And Landing'),
                landing_hdg_kpvs=KPV('Heading At Landing'), # touch_and_gos=KTI('Touch And Go'),
@@ -231,9 +229,9 @@ class Approaches(FlightAttributeNode):
                alt_aal = P('Altitude AAL'),
                landing_lat_kpvs=KPV('Latitude At Landing'),
                landing_lon_kpvs=KPV('Longitude At Landing'),
-               approach_lat_kpvs=KPV('Latitude At Low Point On Approach'),
-               approach_lon_kpvs=KPV('Longitude At Low Point On Approach'),
-               approach_hdg_kpvs=KPV('Heading At Low Point On Approach'),
+               approach_lat_kpvs=KPV('Latitude At Lowest Point On Approach'),
+               approach_lon_kpvs=KPV('Longitude At Lowest Point On Approach'),
+               approach_hdg_kpvs=KPV('Heading At Lowest Point On Approach'),
                approach_ilsfreq_kpvs=KPV('ILS Frequency On Approach'),
                precision=A('Precise Positioning')):
         '''
