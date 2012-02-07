@@ -1,5 +1,8 @@
 from datetime import datetime
+import numpy as np
 import logging
+import itertools
+import operator
 
 from analysis_engine import ___version___
 from analysis_engine.api_handler import get_api_handler, NotFoundError
@@ -28,6 +31,7 @@ class Approaches(FlightAttributeNode):
     name = 'FDR Approaches'
     @classmethod
     def can_operate(self, available):
+<<<<<<< TREE
         required = all([n in available for n in ['Start Datetime',
                                                  'Approach And Landing',
                                                  'Heading At Landing',
@@ -134,11 +138,206 @@ class Approaches(FlightAttributeNode):
             if len(hdg_kpvs) == 1:
                 return hdg_kpvs[0].value
         return None
+=======
+        return all([n in available for n in ['Start Datetime',
+                                             'Approach And Landing',
+                                             'Altitude AAL',
+                                             'Approach And Go Around',
+                                             'Latitude At Low Point On Approach',
+                                             'Longitude At Low Point On Approach',
+                                             'Latitude At Landing',
+                                             'Longitude At Landing']])
+        
+        ##approach_lat_lon = 'Latitude At Low Point On Approach' in available and\
+                           ##'Longitude At Low Point On Approach' in available
+        ##landing_lat_lon = 'Latitude At Landing' in available and \
+                          ##'Longitude At Landing' in available
+        ##return required and (approach_lat_lon or landing_lat_lon)
+    
+    ##def _get_approach_type(self, approach_slice, landing_hdg_kpvs,
+                           ##touch_and_gos, go_arounds):
+        ##'''
+        ##Decides the approach type depending on whether or not a KPV or KTI
+        ##exists or approach.
+        
+        ##* Landing At Low Point On Approach KPV exists - LANDING
+        ##* Touch And Go - TOUCH_AND_GO
+        ##* Go Around - GO_AROUND
+        
+        ##:param approach_slice: Slice of approach section to get KPVs or KTIs within.
+        ##:type approach_slice: slice
+        ##:param landing_hdg_kpvs: 'Landing At Low Point On Approach' KeyPointValueNode.
+        ##:type landing_hdg_kpvs: KeyPointValueNode
+        ##:param touch_and_gos: 'Touch And Go' KeyTimeInstanceNode.
+        ##:type touch_and_gos: KeyTimeInstanceNode
+        ##:param go_arounds: 'Go Arounds' KeyTimeInstanceNode.
+        ##:type go_arounds: KeyTimeInstanceNode
+        ##'''
+        ##if landing_hdg_kpvs:
+            ##hdg_kpvs = landing_hdg_kpvs.get(within_slice=approach_slice)
+            ##if len(hdg_kpvs) == 1:
+                ##return 'LANDING'
+        ##if touch_and_gos:
+            ##approach_touch_and_gos = touch_and_gos.get(within_slice=
+                                                       ##approach_slice)
+            ##if len(approach_touch_and_gos) == 1:
+                ##return 'TOUCH_AND_GO'
+        ##if go_arounds:
+            ##approach_go_arounds = go_arounds.get(within_slice=approach_slice)
+            ##if len(approach_go_arounds) == 1:
+                ##return 'GO_AROUND'
+        ##return None
+    
+    #def _get_lat_lon(self, approach_slice, landing_lat_kpvs, landing_lon_kpvs,
+                     #approach_lat_kpvs, approach_lon_kpvs):
+        #'''
+        #Returns the latitude and longitude KPV values from landing_lat_kpvs and
+        #landing_lon_kpvs if they are available (not None) and there is exactly
+        #one of each within the slice, otherwise will return the latitude and
+        #longitude KPV values from approach_lat_kpvs and approach_lon_kpvs if
+        #there is exactly one of each within the slice, otherwise returns None.
+        
+        #:param approach_slice: Slice of approach section to get latitude and longitude within.
+        #:type approach_slice: slice
+        #:param landing_lat_kpvs: 'Latitude At Landing' KeyPointValueNode.
+        #:type landing_lat_kpvs: KeyPointValueNode
+        #:param landing_lon_kpvs: 'Longitude At Landing' KeyPointValueNode.
+        #:type landing_lon_kpvs: KeyPointValueNode
+        #:param approach_lat_kpvs: 'Latitude At Low Point Of Approach' KeyPointValueNode.
+        #:type approach_lat_kpvs: KeyPointValueNode
+        #:param approach_lon_kpvs: 'Longitude At Low Point Of Approach' KeyPointValueNode.
+        #:type approach_lon_kpvs: KeyPointValueNode
+        #:returns: Latitude and longitude within slice (landing preferred) or pair of Nones.
+        #:rtype: (int, int) or (None, None)
+        #'''
+        #if landing_lat_kpvs and landing_lon_kpvs:
+            #lat_kpvs = landing_lat_kpvs.get(within_slice=approach_slice)
+            #lon_kpvs = landing_lon_kpvs.get(within_slice=approach_slice)
+            #if len(lat_kpvs) == 1 and len(lon_kpvs) == 1:
+                #return (lat_kpvs[0].value, lon_kpvs[0].value)
+        #if approach_lat_kpvs and approach_lon_kpvs:
+            ## Try approach KPVs.
+            #lat_kpvs = approach_lat_kpvs.get(within_slice=approach_slice)
+            #lon_kpvs = approach_lon_kpvs.get(within_slice=approach_slice)
+            #if len(lat_kpvs) == 1 and len(lon_kpvs) == 1:
+                #return (lat_kpvs[0].value, lon_kpvs[0].value)
+        #return (None, None)
+    
+    def _get_lat_lon(self, lat_kpv_node, lon_kpv_node):
+        lat_kpvs = lat_kpv_node.get(within_slice=approach_slice)
+        lon_kpvs = lon_kpv_node.get(within_slice=approach_slice)        
+        if len(lat_kpvs) == 1 and len(lon_kpvs) == 1:
+            return (lat_kpvs[0].value, lon_kpvs[0].value)
+        else:
+            return (None, None)
+    
+    ##def _get_hdg(self, approach_slice, landing_hdg_kpvs, approach_hdg_kpvs):
+        ##'''
+        ##Returns the value of a KPV from landing_hdg_kpvs if it is available
+        ##(not None) and there is exactly one within the slice, otherwise will
+        ##return the value of a KPV from approach_hdg_kpvs if there is
+        ##exactly one within the slice, otherwise returns None.
+        
+        ##:param approach_slice: Slice of approach section to get a heading within.
+        ##:type approach_slice: slice
+        ##:param landing_hdg_kpvs: 'Heading At Landing' KeyPointValueNode.
+        ##:type landing_hdg_kpvs: KeyPointValueNode
+        ##:param approach_hdg_kpvs: 'Heading At Low Point On Approach' KeyPointValueNode.
+        ##:type approach_hdg_kpvs: KeyPointValueNode
+        ##:returns: Heading within slice (landing preferred) or None.
+        ##:rtype: int or None
+        ##'''
+        ##if landing_hdg_kpvs:
+            ##hdg_kpvs = landing_hdg_kpvs.get(within_slice=approach_slice)
+            ##if len(hdg_kpvs) == 1:
+                ##return hdg_kpvs[0].value
+        ##if approach_hdg_kpvs:
+            ### Try approach KPV.
+            ##hdg_kpvs = approach_hdg_kpvs.get(within_slice=approach_slice)
+            ##if len(hdg_kpvs) == 1:
+                ##return hdg_kpvs[0].value
+        ##return None
+    
+    ##def _sort_approaches(self, start_dt, approach_landing, approach_go_around):
+        ##approaches = []
+        ##frequency = approach_landing.frequency
+        ##for approach in approach_landing:    
+            ##approach_stop_dt = datetime_of_index(start_dt, approach.slice.stop,
+                                                 ##frequency=frequency)
+            ##approaches.append((approach_stop_dt, approach))
+        ##frequency = approach_go_around.frequency
+        ##for approach in approach_go_around:
+            ##approach_stop_dt = datetime_of_index(start_dt, approach.slice.stop,
+                                                 ##frequency=frequency)
+            ##approaches.append((approach_stop_dt, approach))
+        ##return sorted(approaches, key=operator.itemgetter(0))
+    
+    def _create_approach(self, approach, approach_type, frequency, lat_kpv_node,
+                         lon_kpv_node, hdg_kpv_node, ilsfreq_kpv_node):
+        approach_datetime = datetime_of_index(start_datetime.value,
+                                              approach.slice.stop, # Q: Should it be start of approach?
+                                              frequency=frequency)        
+        lat, lon = self._get_lat_lon(lat_kpv_node, lon_kpv_node)
+        if not lat or not lon:
+            logging.warning("Latitude and/or Longitude KPVs not found "
+                            "within 'Approach and Landing' phase between "
+                            "indices '%d' and '%d'.", approach.slice.start,
+                            approach.slice.stop)
+            return
+        # Get nearest airport.
+        try:
+            airport = api_handler.get_nearest_airport(lat, lon)
+        except NotFoundError:
+            logging.warning("Airport could not be found with latitude '%f' "
+                            "and longitude '%f'.", lat, lon)
+            return
+        airport_id = airport['id']
+        
+        # Heading. Try landing KPV if aircraft landed.
+        hdg = None
+        if hdg_kpv_node:
+            hdg_kpvs = hdg_kpv_node.get(within_slice=approach.slice)
+            if len(hdg_kpvs) == 1:
+                hdg = hdg_kpvs[0].value
+        if not hdg:
+            logging.info("Heading not available for approach between "
+                         "indices '%d' and '%d'.", approach.slice.start,
+                         approach.slice.stop)
+            return {'airport': airport,
+                    'runway': None,
+                    'type': approach_type,
+                    'datetime': approach_datetime}
+        # ILS Frequency.
+        kwargs = {}
+        if ilsfreq_kpv_node:
+            ilsfreq_kpvs = approach_ilsfreq_kpvs.get(within_slice=
+                                                     approach.slice)
+            if len(ilsfreq_kpvs) == 1:
+                kwargs['ilsfreq'] = ilsfreq_kpvs[0].value
+        if precision and precision.value:
+            # Only use lat and lon if 'Precise Positioning' is True.
+            kwargs.update(latitude=lat, longitude=lon)
+        try:
+            runway = api_handler.get_nearest_runway(airport_id, hdg, **kwargs)
+        except NotFoundError:
+            logging.warning("Runway could not be found with airport id '%d'"
+                            "heading '%s' and kwargs '%s'.", airport_id,
+                            hdg, kwargs)
+            runway = None
+        
+        return {'airport': airport,
+                'runway': runway,
+                'type': approach_type,
+                'datetime': approach_datetime}    
+    
+    
+>>>>>>> MERGE-SOURCE
     
     def derive(self, start_datetime=A('Start Datetime'),
-               approach_and_landing=S('Approach And Landing'),
-               landing_hdg_kpvs=KPV('Heading At Landing'),
-               touch_and_gos=KTI('Touch And Go'), go_arounds=KTI('Go Around'),
+               approach_landing=S('Approach And Landing'),
+               landing_hdg_kpvs=KPV('Heading At Landing'), # touch_and_gos=KTI('Touch And Go'),
+               approach_go_around=KTI('Approach And Go Around'),
+               alt_aal = P('Altitude AAL'),
                landing_lat_kpvs=KPV('Latitude At Landing'),
                landing_lon_kpvs=KPV('Longitude At Landing'),
                approach_lat_kpvs=KPV('Latitude At Lowest Point On Approach'),
@@ -151,76 +350,155 @@ class Approaches(FlightAttributeNode):
         '''
         api_handler = get_api_handler()
         approaches = []
-        for approach in approach_and_landing:
-            approach_datetime = datetime_of_index(start_datetime.value,
-                                                  approach.slice.stop, # Q: Should it be start of approach?
-                                                  frequency=approach_and_landing.frequency)
-            # Type.
-            approach_type = self._get_approach_type(approach.slice,
-                                                    landing_hdg_kpvs,
-                                                    touch_and_gos, go_arounds)
-            if not approach_type:
-                logging.warning("No instance of 'Touch And Go', 'Go Around' or "
-                                "'Heading At Landing' within 'Approach And "
-                                "Landing' slice indices '%d' and '%d'.",
-                                approach.slice.start, approach.slice.stop)
-                continue
-            # Latitude and Longitude (required for airport query).
-            # Try landing KPVs if aircraft landed.
-            lat, lon = self._get_lat_lon(approach.slice, landing_lat_kpvs,
-                                         landing_lon_kpvs, approach_lat_kpvs,
-                                         approach_lon_kpvs)
-            if not lat or not lon:
-                logging.warning("Latitude and/or Longitude KPVs not found "
-                                "within 'Approach and Landing' phase between "
-                                "indices '%d' and '%d'.", approach.slice.start,
-                                approach.slice.stop)
-                continue
-            # Get nearest airport.
-            try:
-                airport = api_handler.get_nearest_airport(lat, lon)
-            except NotFoundError:
-                logging.warning("Airport could not be found with latitude '%f' "
-                                "and longitude '%f'.", lat, lon)
-                continue
-            airport_id = airport['id']
-            # Heading. Try landing KPV if aircraft landed.
-            hdg = self._get_hdg(approach.slice, landing_hdg_kpvs,
-                                approach_hdg_kpvs)
-            if not hdg:
-                logging.info("Heading not available for approach between "
-                             "indices '%d' and '%d'.", approach.slice.start,
-                             approach.slice.stop)
-                approaches.append({'airport': airport_id,
-                                   'runway': None,
-                                   'type': approach_type,
-                                   'datetime': approach_datetime})
-                continue
-            # ILS Frequency.
-            kwargs = {}
-            if approach_ilsfreq_kpvs:
-                ilsfreq_kpvs = approach_ilsfreq_kpvs.get(within_slice=
-                                                         approach.slice)
-                if len(ilsfreq_kpvs) == 1:
-                    kwargs['ilsfreq'] = ilsfreq_kpvs[0].value
-            if precision and precision.value:
-                kwargs.update(latitude=lat, longitude=lon)
-            try:
-                runway = api_handler.get_nearest_runway(airport_id, hdg,
-                                                        **kwargs)
-                runway_ident = runway['identifier']
-            except NotFoundError:
-                logging.warning("Runway could not be found with airport id '%d'"
-                                "heading '%s' and kwargs '%s'.", airport_id,
-                                hdg, kwargs)
-                runway_ident = None
-            
-            approaches.append({'airport': airport_id,
-                               'runway': runway_ident,
-                               'type': approach_type,
-                               'datetime': approach_datetime})
         
-        self.set_flight_attr(approaches)
+        for approach_section in approach_landing:
+            approach = self._create_approach(approach_section, 'LANDING',
+                                             approach_landing.frequency,
+                                             landing_lat_kpvs, landing_lon_kpvs,
+                                             landing_hdg_kpvs,
+                                             approach_ilsfreq_kpvs)
+            if approach:
+                approaches.append(approach)
+        
+        for approach_section in approach_go_around:
+            # If Altitude AAL reached 0, the approach type is 'TOUCH_AND_GO'.
+            if np.ma.any(alt_aal[approach_section.slice] <= 0):
+                approach_type = 'TOUCH_AND_GO'
+            else:
+                approach_type = 'GO_AROUND'
+            approach = self._create_approach(approach_section, approach_type,
+                                             approach_landing.frequency,
+                                             landing_lat_kpvs, landing_lon_kpvs,
+                                             landing_hdg_kpvs,
+                                             approach_ilsfreq_kpvs)
+            if approach:
+                approaches.append(approach)
+        
+        ##self.set_flight_attr(approaches)
+            ####approach_datetime = datetime_of_index(start_datetime.value,
+                                                  ####approach.slice.stop, # Q: Should it be start of approach?
+                                                  ####frequency=approach_landing.frequency)
+            
+            
+            
+            ##airport_id = airport['id']
+            ### Heading. Try landing KPV if aircraft landed.
+            ##self._get_hdg(approach_slice, landing_hdg_kpvs, approach_hdg_kpvs)
+            ##hdg = self._get_hdg(approach.slice, landing_hdg_kpvs,
+                                ##approach_hdg_kpvs)
+            ##if not hdg:
+                ##logging.info("Heading not available for approach between "
+                             ##"indices '%d' and '%d'.", approach.slice.start,
+                             ##approach.slice.stop)
+                ##approaches.append({'airport': airport_id,
+                                   ##'runway': None,
+                                   ##'type': approach_type,
+                                   ##'datetime': approach_datetime})
+                ##continue
+            ### ILS Frequency.
+            ##kwargs = {}
+            ##if approach_ilsfreq_kpvs:
+                ##ilsfreq_kpvs = approach_ilsfreq_kpvs.get(within_slice=
+                                                         ##approach.slice)
+                ##if len(ilsfreq_kpvs) == 1:
+                    ##kwargs['ilsfreq'] = ilsfreq_kpvs[0].value
+            ##if precision and precision.value:
+                ##kwargs.update(latitude=lat, longitude=lon)
+            ##try:
+                ##runway = api_handler.get_nearest_runway(airport_id, hdg,
+                                                        ##**kwargs)
+            ##except NotFoundError:
+                ##logging.warning("Runway could not be found with airport id '%d'"
+                                ##"heading '%s' and kwargs '%s'.", airport_id,
+                                ##hdg, kwargs)
+                ##runway = None
+            
+            ##approaches.append({'airport': airport_id,
+                               ##'runway': runway,
+                               ##'type': approach_type,
+                               ##'datetime': approach_datetime})            
+            
+        
+        ##for approach in approach_go_around:
+            ##approach_datetime = datetime_of_index(start_datetime.value,
+                                                  ##approach.slice.stop, # Q: Should it be start of approach?
+                                                  ##frequency=approach_landing.frequency)  
+            
+            
+    
+        ##sorted_approaches = self._sort_approaches(start_datetime.value,
+                                                  ##approach_landing,
+                                                  ##approach_go_around)
+        
+        ##for approach_datetime, approach in sorted_approaches:
+            ####approach_datetime = datetime_of_index(start_datetime.value,
+                                                  ####approach.slice.stop, # Q: Should it be start of approach?
+                                                  ####frequency=approach_landing.frequency)
+            ### Type.
+            ##approach_type = self._get_approach_type(approach.slice,
+                                                    ##landing_hdg_kpvs,
+                                                    ##touch_and_gos, go_arounds)
+            ##if not approach_type:
+                ##logging.warning("No instance of 'Touch And Go', 'Go Around' or "
+                                ##"'Heading At Landing' within 'Approach And "
+                                ##"Landing' slice indices '%d' and '%d'.",
+                                ##approach.slice.start, approach.slice.stop)
+                ##continue
+            ### Latitude and Longitude (required for airport query).
+            ### Try landing KPVs if aircraft landed.
+            ##lat, lon = self._get_lat_lon(approach.slice, landing_lat_kpvs,
+                                         ##landing_lon_kpvs, approach_lat_kpvs,
+                                         ##approach_lon_kpvs)
+            ##if not lat or not lon:
+                ##logging.warning("Latitude and/or Longitude KPVs not found "
+                                ##"within 'Approach and Landing' phase between "
+                                ##"indices '%d' and '%d'.", approach.slice.start,
+                                ##approach.slice.stop)
+                ##continue
+            ### Get nearest airport.
+            ##try:
+                ##airport = api_handler.get_nearest_airport(lat, lon)
+            ##except NotFoundError:
+                ##logging.warning("Airport could not be found with latitude '%f' "
+                                ##"and longitude '%f'.", lat, lon)
+                ##continue
+            ##airport_id = airport['id']
+            ### Heading. Try landing KPV if aircraft landed.
+            ##hdg = self._get_hdg(approach.slice, landing_hdg_kpvs,
+                                ##approach_hdg_kpvs)
+            ##if not hdg:
+                ##logging.info("Heading not available for approach between "
+                             ##"indices '%d' and '%d'.", approach.slice.start,
+                             ##approach.slice.stop)
+                ##approaches.append({'airport': airport_id,
+                                   ##'runway': None,
+                                   ##'type': approach_type,
+                                   ##'datetime': approach_datetime})
+                ##continue
+            ### ILS Frequency.
+            ##kwargs = {}
+            ##if approach_ilsfreq_kpvs:
+                ##ilsfreq_kpvs = approach_ilsfreq_kpvs.get(within_slice=
+                                                         ##approach.slice)
+                ##if len(ilsfreq_kpvs) == 1:
+                    ##kwargs['ilsfreq'] = ilsfreq_kpvs[0].value
+            ##if precision and precision.value:
+                ##kwargs.update(latitude=lat, longitude=lon)
+            ##try:
+                ##runway = api_handler.get_nearest_runway(airport_id, hdg,
+                                                        ##**kwargs)
+            ##except NotFoundError:
+                ##logging.warning("Runway could not be found with airport id '%d'"
+                                ##"heading '%s' and kwargs '%s'.", airport_id,
+                                ##hdg, kwargs)
+                ##runway = None
+            
+            ##approaches.append({'airport': airport_id,
+                               ##'runway': runway,
+                               ##'type': approach_type,
+                               ##'datetime': approach_datetime})
+        
+        ##self.set_flight_attr(approaches)
 
 
 class DeterminePilot(object):

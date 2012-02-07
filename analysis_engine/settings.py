@@ -151,7 +151,8 @@ RATE_OF_CLIMB_FOR_TOUCHDOWN = -60 # fpm
 RATE_OF_TURN_FOR_FLIGHT_PHASES = 1.5 # deg per second
 
 # Duration of masked data to repair by interpolation for flight phase analysis
-REPAIR_DURATION = 10 # seconds 
+REPAIR_DURATION = None
+#REPAIR_DURATION = 10 # seconds 
 
 # Rate of Climb complementary filter timeconstant
 RATE_OF_CLIMB_LAG_TC = 3.0 # sec
