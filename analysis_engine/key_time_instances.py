@@ -355,6 +355,8 @@ class TouchAndGo(KeyTimeInstanceNode):
 class Touchdown(KeyTimeInstanceNode):
     def derive(self, roc=P('Rate Of Climb'), landings=S('Landing')):
         for landing in landings:
+            # TODO: Find out why this is creating Touchdown's under 5 minutes
+            # into the data.
             land_index = index_at_value(roc.array, RATE_OF_CLIMB_FOR_TOUCHDOWN,
                                         landing.slice)
             self.create_kti(land_index)
@@ -502,7 +504,9 @@ class MinsToTouchdown(KeyTimeInstanceNode):
         for touchdown in touchdowns:
             for t in self.NAME_VALUES['time']:
                 index = touchdown.index - (t * 60 * self.frequency)
-                self.create_kti(index, time=t)
+                if index > 0:
+                    # May happen when data starts mid-flight.
+                    self.create_kti(index, time=t)
 
 
 class SecsToTouchdown(KeyTimeInstanceNode):
