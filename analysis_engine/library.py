@@ -1240,20 +1240,24 @@ def blend_two_parameters (param_one, param_two):
         array = blend_alternate_sensors(param_two.array, param_one.array, padding)
     return array, param_one.frequency * 2, offset
 
-def normalise(array, normalise_max=1.0, copy=True, axis=None, max_value=None):
+def normalise(array, normalise_max=1.0, scale_max=None, copy=True, axis=None):
     """
     Normalise an array between 0 and normalise_max.
     
-    :param normalise_max: Upper limit of normalisation
+    :param normalise_max: Upper limit of normalised result. Default range is between 0 and 1.
     :type normalise_max: float
+    :param scale_max: Maximum value to normalise against. If None, the maximum value will be sourced from the array.
+    :type scale_max: int or float or None
     :param copy: Returns a copy of the array, leaving input array untouched
     :type copy: bool
     :param axis: default to normalise across all axis together. Only supports None, 0 and 1!
     :type axis: int or None
+    :returns: Array containing normalised values.
+    :rtype: np.ma.masked_array
     """
     if copy:
         array = array.copy()
-    scaling = normalise_max / (max_value or array.max(axis=axis))
+    scaling = normalise_max / (scale_max or array.max(axis=axis))
     if axis == 1:
         # transpose
         scaling = scaling.reshape(scaling.shape[0],-1)

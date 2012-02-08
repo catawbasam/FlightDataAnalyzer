@@ -7,7 +7,7 @@ from hdfaccess.utils import write_segment
 
 from analysis_engine import settings
 from analysis_engine.plot_flight import plot_essential
-from analysis_engine.split_segments import append_segment_info, split_segments_new_2
+from analysis_engine.split_segments import append_segment_info, split_segments
 
 
 class AircraftMismatch(ValueError):
@@ -118,7 +118,7 @@ def split_hdf_to_segments(hdf_path, aircraft_ident={}, output_dir=None, draw=Fal
         # split large dataset into segments
         #logging.debug("Splitting segments. Data length: %s", len(airspeed.array))
         #dfc = hdf['Frame Counter'] if hdf.reliable_frame_counter else None
-        segment_slices = split_segments_new_2(hdf)
+        segment_slices = split_segments(hdf)
             
     # process each segment (into a new file) having closed original hdf_path
     segments = []
