@@ -167,7 +167,7 @@ def csv_flight_details(hdf_path, kti_list, kpv_list, phase_list, dest_path=None)
 
     rows = []
     params = ['Airspeed', 'Altitude STD', 'Pitch', 'Roll']
-    attrs = ['value', 'slice', 'datetime'] # 'latitude', 'longitude'] 
+    attrs = ['value', 'slice', 'datetime', 'latitude', 'longitude'] 
     header = ['Type', 'Phase Start', 'Index', 'Phase End', 'Name'] + attrs + params
 
     def vals_for_iterable(iter_type, iterable):

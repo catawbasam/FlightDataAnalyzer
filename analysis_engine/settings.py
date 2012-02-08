@@ -131,6 +131,9 @@ LEVEL_FLIGHT_MIN_DURATION = 60  # sec
 # the cos(latitude) reduction in distance as we get away from the equator.
 METRES_PER_DEG_LATITUDE = 111120 # metres/deg
 
+# Conversion of length units
+METRES_TO_FEET = 1000/25.4/12
+
 # Rate of climb and descent limits of 800fpm gives good distinction with
 # level flight. Separately defined to allow for future adjustment.
 RATE_OF_CLIMB_FOR_CLIMB_PHASE = 800 # fpm

@@ -6,10 +6,15 @@ from analysis_engine.settings import CONTROL_FORCE_THRESHOLD
 
 from analysis_engine.node import (KeyPointValue, KeyPointValueNode, KPV, KTI,
                                   P, S)
-from analysis_engine.library import (coreg, duration, index_at_value, max_abs_value,
+from analysis_engine.library import (coreg, 
+                                     duration, index_at_value, max_abs_value,
                                      max_continuous_unmasked, max_value,
                                      min_value, repair_mask, 
-                                     slice_samples, subslice)
+                                     slice_samples, 
+                                     slices_above,
+                                     slices_below,
+                                     slices_from_to,
+                                     subslice)
 
 
 class Airspeed1000To500FtMax(KeyPointValueNode):
@@ -758,40 +763,45 @@ class GlideslopeWarning(KeyPointValueNode):
         return NotImplemented
 
 
-class GlideslopeDeviationAbove1000FtMax(KeyPointValueNode):
-    def derive(self, ils_glideslope=P('ILS Glideslope'),
-               alt_aal = P('Altitude AAL')):
-        self.create_kpvs_within_slices(ils_glideslope.array,
-                                       alt_aal.slices_above(1000),
-                                       max_abs_value) 
-
-
-class GlideslopeDeviationBelow1000FtMax(KeyPointValueNode):
-    def derive(self, ils_glideslope=P('ILS Glideslope'),
-               alt_aal = P('Altitude AAL')):
-        self.create_kpvs_within_slices(ils_glideslope.array,
-                                       alt_aal.slices_below(1000),
-                                       max_abs_value) 
-
-class GlideslopeDeviation1000To150FtMax(KeyPointValueNode):
-    def derive(self, ils_glideslope=P('ILS Glideslope'),
-               alt_aal = P('Altitude AAL')):
-        self.create_kpvs_within_slices(ils_glideslope.array,
-                                       alt_aal.slices_from_to(1000, 150),
-                                       max_abs_value)  
-
-
 class GlideslopeDeviation1500To1000FtMax(KeyPointValueNode):
     def derive(self, ils_glideslope=P('ILS Glideslope'),
-               alt_aal = P('Altitude AAL')):
+               alt_aal = P('Altitude AAL'),
+               estabs=S('ILS Glideslope Established')):
         # Find where the maximum (absolute) deviation occured and
         # store the actual value. We can do abs on the statistics to
         # normalise this, but retaining the sign will make it
         # possible to look for direction of errors at specific
         # airports.
-        self.create_kpvs_within_slices(ils_glideslope.array,
-                                       alt_aal.slices_from_to(1500, 1000),
-                                       max_abs_value)            
+        for estab in estabs:
+            for band in slices_from_to(alt_aal.array[estab.slice],1500, 1000)[1]:
+                self.create_kpvs_within_slices(ils_glideslope.array[estab.slice],[band],max_abs_value)            
+
+
+class GlideslopeDeviationAbove1000FtMax(KeyPointValueNode):
+    def derive(self, ils_glideslope=P('ILS Glideslope'),
+               alt_aal = P('Altitude AAL'),
+               estabs=S('ILS Glideslope Established')):
+        for estab in estabs:
+            for band in slices_above(alt_aal.array[estab.slice],1000)[1]:
+                self.create_kpvs_within_slices(ils_glideslope.array[estab.slice],[band],max_abs_value) 
+            
+
+class GlideslopeDeviationBelow1000FtMax(KeyPointValueNode):
+    def derive(self, ils_glideslope=P('ILS Glideslope'),
+               alt_aal = P('Altitude AAL'),
+               estabs=S('ILS Glideslope Established')):
+        for estab in estabs:
+            for band in slices_below(alt_aal.array[estab.slice],1000)[1]:
+                self.create_kpvs_within_slices(ils_glideslope.array[estab.slice],[band],max_abs_value) 
+
+    
+class GlideslopeDeviation1000To150FtMax(KeyPointValueNode):
+    def derive(self, ils_glideslope=P('ILS Glideslope'),
+               alt_aal = P('Altitude AAL'),
+               estabs=S('ILS Glideslope Established')):
+        for estab in estabs:
+            for band in slices_from_to(alt_aal.array[estab.slice],1000, 150)[1]:
+                self.create_kpvs_within_slices(ils_glideslope.array[estab.slice],[band],max_abs_value)  
 
 
 class HeightAtGoAroundMin(KeyPointValueNode):

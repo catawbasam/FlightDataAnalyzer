@@ -356,7 +356,7 @@ class FinalApproach(FlightPhaseNode):
             # affected by pressure altitude variations at landing).
             app = np.ma.masked_outside(
                 np.ma.minimum(alt_AAL.array,alt_rad.array),0,1000)
-            self.create_phase(np.ma.clump_unmasked(app))
+            self.create_phases(np.ma.clump_unmasked(app))
 
 
 class ILSLocalizerEstablished(FlightPhaseNode):

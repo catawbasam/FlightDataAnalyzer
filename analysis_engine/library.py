@@ -182,7 +182,7 @@ def bearings_and_distances(latitudes, longitudes, reference):
 
     Navigation formulae have been derived from the scripts at 
     http://www.movable-type.co.uk/scripts/latlong.html
-    Copyright 2002-2011 Chris Veness, and altered by Flight dAta Services to 
+    Copyright 2002-2011 Chris Veness, and altered by Flight Data Services to 
     suit the POLARIS project.
     """
 
