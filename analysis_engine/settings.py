@@ -14,6 +14,15 @@ HANDLER = 'analysis_engine.api_handler_http.APIHandlerHTTP'
 BASE_URL = 'http://127.0.0.1'
 
 ##########################
+## Splitting into Segments
+##########################
+
+MINIMUM_SPLIT_DURATION = 120
+
+MINIMUM_SPLIT_PARAM_VALUE = 0.2
+
+
+##########################
 ## Parameter Analysis
 ##########################
 
