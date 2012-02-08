@@ -46,6 +46,7 @@ from settings import (AZ_WASHOUT_TC,
                       GRAVITY_METRIC,
                       KTS_TO_FPS,
                       KTS_TO_MPS,
+                      METRES_TO_FEET,
                       RATE_OF_CLIMB_LAG_TC
                       )
 
@@ -392,12 +393,9 @@ class AltitudeRadio(DerivedParameterNode):
             blend_two_parameters(source_B, source_C)
 
 
-'''
-TODO: Remove when proven to be superfluous
 class AltitudeRadioForFlightPhases(DerivedParameterNode):
     def derive(self, alt_rad=P('Altitude Radio')):
         self.array = hysteresis(repair_mask(alt_rad.array), HYSTERESIS_FP_RAD_ALT)
-'''
 
 
 class AltitudeQNH(DerivedParameterNode):
@@ -1240,8 +1238,11 @@ class ILSFrequency(DerivedParameterNode):
     name = "ILS Frequency"
     def derive(self, f1=P('ILS Freq (1)'),f2=P('ILS Freq (2)')):
         # TODO: Fix scaling of 737NG ILS and remove +100 term.
-        self.array = merge_sources(f1.array, f2.array) + 100
-        
+        if np.ma.max(f1.array) < 100:
+            f1.array += 100
+        if np.ma.max(f2.array) < 100:
+            f2.array += 100
+        self.array = merge_sources(f1.array, f2.array)
        
 
 class ILSRange(DerivedParameterNode):
@@ -1250,6 +1251,8 @@ class ILSRange(DerivedParameterNode):
     """
     Range is computed from the track where available, otherwise estimated
     from available groundspeed or airspeed parameters.
+    
+    It is (currently) in feet from the localizer antenna.
     """
     
     def derive(self, lat=P('Latitude'),
@@ -1261,7 +1264,8 @@ class ILSRange(DerivedParameterNode):
                loc_established = S('ILS Localizer Established'),
                gs_established = S('ILS Glideslope Established'),
                precise =A('Precise Positioning'),
-               runway_info = A('FDR Approaches'),
+               app_info = A('FDR Approaches'),
+               final_apps = S('Final Approach'),
                ):
         
         ils_range = np.ma.array(np.zeros_like(gspd.array.data))
@@ -1277,20 +1281,21 @@ class ILSRange(DerivedParameterNode):
                 # are aircraft which record ILS but not groundspeed data.
                 speed_signal = tas.array
                     
-        for this_loc in loc_established:
+        for num_loc, this_loc in enumerate(loc_established):
             
-            ## d, g, c, pgs_lat, pgs_lon = runway_distances(runway)
+            # TODO: Amend FDR Approaches and this code to avoid risk of misalignment of dictionary records.
+            start_2_loc, gs_2_loc, end_2_loc, pgs_lat, pgs_lon = \
+                runway_distances(app_info.value[num_loc]['runway'])
 
             if precise.value:
                 # Convert (repaired) latitude & longitude for the whole phase
-                # into range from the threshold.
-                
-                rwy = runway_info.value[0]['runway']['end']['latitude']
-                ## threshold{} = airport_thing.value[]
-                
+                # into range from the threshold. (threshold = {})
+                threshold = app_info.value[num_loc]['runway']['localizer']
                 brg, ils_range = bearings_and_distances(repair_mask(lat[this_loc]),
                                                         repair_mask(lon[this_loc]),
                                                         threshold)
+                ils_range *= METRES_TO_FEET
+                
             else:
                 # Estimate range by integrating back from zero at the end
                 # of the phase to high range values at the start of the
@@ -1301,42 +1306,38 @@ class ILSRange(DerivedParameterNode):
                               scale=KTS_TO_FPS, 
                               direction='reverse')
      
-                for this_gs in gs_established:
-                    if is_slice_within_slice(this_gs.slice, this_loc.slice):
-                        # Compute best fit glidepath.
-                        corr, slope, offset = coreg(alt_aal.array[this_gs.slice], 
-                                                    ils_range[this_gs.slice])
-                        # Shift the values in this approach so that the range = 0
-                        # at 0ft on the projected ILS slope.
-                        ils_range[this_loc.slice] -= offset/slope
-                        
-                        # - use
-                        # 0ft reference at antenna position (projected onto
-                        # runway centreline) and the glidepath slope given in
-                        # airport database for this step.
-                        
-                        # From the computed best fit line, find the error between
-                        # the range at the threshold (localizer to threshold
-                        # distance) and the range at the 50ft point on the best
-                        # fit glidepath.
-                    else:
-                        
-                        # Cases of an ILS approach using localizer only. 
-                        
-                        if 'runway has ILS glideslope antenna':
-                            pass
-                            # Compute range based upon descent path at the ILS
-                            # glidepath angle to minimum point of approach.
-                        else:
-                            # Assume crossing runway threshold at 50ft.
-                            pass
-                            
+                if app_info.value[num_loc]['runway'].has_key('glideslope'):
+                    # The runway has an ILS glideslope antenna
+                    
+                    for this_gs in gs_established:                    
+                        if is_slice_within_slice(this_gs.slice, this_loc.slice):
 
-                # Adjust all range values to match the datum point by
-                # subtracting the range error from all values.
-        
-        return NotImplemented
-    
+                            # Compute best fit glidepath.
+                            corr, slope, offset = coreg(alt_aal.array[this_gs.slice], 
+                                                        ils_range[this_gs.slice])
+
+                            # Shift the values in this approach so that the range
+                            # = 0 at 0ft on the projected ILS slope, then reference
+                            # back to the localizer antenna.
+                            datum_2_loc = gs_2_loc * METRES_TO_FEET + offset/slope
+                    
+                else:
+                    # Case of an ILS approach using localizer only.
+                    for this_app in final_apps:
+                        if is_slice_within_slice(this_app.slice, this_loc.slice):
+                            corr, slope, offset = coreg(alt_aal.array[this_app.slice], 
+                                                ils_range[this_app.slice])
+                            
+                            # Touchdown point nominally 1000ft from start of runway
+                            datum_2_loc = (start_2_loc*METRES_TO_FEET-1000) - offset/slope
+                    
+                # Adjust all range values to relate to the localizer
+                # antenna by adding the landing datum to localizer
+                # distance.
+                ils_range[this_loc.slice] += datum_2_loc
+                
+        self.array = ils_range
+   
     
 class LatitudeAdjusted(DerivedParameterNode):
     def derive(self, lat = P('Latitude'),
@@ -1355,24 +1356,39 @@ class LatitudeAdjusted(DerivedParameterNode):
           
           
 class LongitudeAdjusted(DerivedParameterNode):
-    def derive(self, lat = P('Latitude'),
-               lon = P('Longitude'),
+    def derive(self, lon = P('Longitude'),
+               lat = P('Latitude'),
                loc_est = S('ILS Localizer Established'),
-               range = P('ILS Range'),
+               ils_range = P('ILS Range'),
+               ils_loc = P('ILS Localizer'),
                alt_aal = P('Altitude AAL'),
                gspd = P('Groundspeed'),
                tas = P('Airspeed True'),
                ldg_rwy = A('Landing Runway ??'),
                ):
 
-        for app in 'ILS Localizer Established':
-            continue
-            # Recover previously computed range from the threshold and
-            # convert to range from the localizer.
+        # Set up a working space.
+        lat_adj = np.ma.masked_all_like(lat.array)
+        lon_adj = np.ma.masked_all_like(lon.array)
+        
+        fix = np.array([0,lon_adj[0:1]])
+       
+        for num_loc, this_loc in enumerate(loc_established):
             
             # Join with ILS bearings (inherently from the localizer) and
             # revert the ILS track from range and bearing to lat & long
             # coordinates.
+                
+            # TODO: Amend FDR Approaches and this code to avoid risk of misalignment of dictionary records.
+            reference = app_info.value[num_loc]['runway']['localizer']
+            scale = (reference['beam_width']/2.0) * 2.5  # degrees per dot
+            bearings = ils_loc[this_loc] * scale + reference['heading']
+            distances = ils_range[this_loc]
+            lat_adj[this_loc], lon_adj[this_loc] = \
+                latitudes_and_longitudes(bearings, distances, reference)
+            fix.append([lat_adj[this_loc][0:1],lat_adj[this_loc][-2:-1],
+            fix.append([lat_adj[this_loc][0:1],lat_adj[this_loc][-2:-1],
+
 
         if 'Precision':
             # No need to refine takeoff or landing plots other than using
@@ -1469,8 +1485,6 @@ class RateOfClimb(DerivedParameterNode):
                az = P('Acceleration Vertical'),
                alt_std = P('Altitude STD'),
                alt_rad = P('Altitude Radio'),
-               pitch=P('Pitch'),
-               aoa=P('AOA'),
                speed=P('Airspeed')):
 
         if az and alt_rad:

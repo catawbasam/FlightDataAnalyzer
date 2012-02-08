@@ -41,8 +41,8 @@ class TestApproaches(unittest.TestCase):
              'Heading At Landing',
              'Touch And Go',
              'Go Around',
-             'Latitude At Low Point On Approach',
-             'Longitude At Low Point On Approach']))
+             'Latitude At Lowest Point On Approach',
+             'Longitude At Lowest Point On Approach']))
         # Can operate with landing lat lng.
         self.assertTrue(Approaches.can_operate(\
             ['Start Datetime',
@@ -59,9 +59,9 @@ class TestApproaches(unittest.TestCase):
              'Heading At Landing',
              'Touch And Go',
              'Go Around',
-             'Latitude At Low Point On Approach',
-             'Longitude At Low Point On Approach',
-             'Heading At Low Point On Approach',
+             'Latitude At Lowest Point On Approach',
+             'Longitude At Lowest Point On Approach',
+             'Heading At Lowest Point On Approach',
              'Latitude At Landing',
              'Longitude At Landing',
              'Touch And Go',
@@ -73,13 +73,13 @@ class TestApproaches(unittest.TestCase):
              'Heading At Landing',
              'Touch And Go',
              'Go Around',
-             'Longitude At Low Point On Approach']))
+             'Longitude At Lowest Point On Approach']))
         # Cannot operate missing Approach and Landing.
         self.assertFalse(Approaches.can_operate(\
             ['Start Datetime',
              'Heading At Landing',
-             'Latitude At Low Point On Approach',
-             'Longitude At Low Point On Approach']))
+             'Latitude At Lowest Point On Approach',
+             'Longitude At Lowest Point On Approach']))
         # Cannot operate with differing sources of lat lng.
         self.assertFalse(Approaches.can_operate(\
             ['Start Datetime',
@@ -87,7 +87,7 @@ class TestApproaches(unittest.TestCase):
              'Heading At Landing',
              'Touch And Go',
              'Go Around',
-             'Latitude At Low Point On Approach',
+             'Latitude At Lowest Point On Approach',
              'Longitude At Landing']))
     
     def test__get_lat_lon(self):
@@ -108,9 +108,9 @@ class TestApproaches(unittest.TestCase):
         self.assertEqual(lon, -2)
         # Approach KPVs.
         approach_slice = slice(10,15)
-        approach_lat_kpvs = KPV('Latitude At Low Point On Approach',
+        approach_lat_kpvs = KPV('Latitude At Lowest Point On Approach',
                                 items=[KeyPointValue(12, 4, 'b')])
-        approach_lon_kpvs = KPV('Longitude At Low Point On Approach',
+        approach_lon_kpvs = KPV('Longitude At Lowest Point On Approach',
                                 items=[KeyPointValue(12, 3, 'b')])
         lat, lon = approaches._get_lat_lon(approach_slice, None, None,
                                            approach_lat_kpvs, approach_lon_kpvs)
@@ -316,9 +316,9 @@ class TestApproaches(unittest.TestCase):
         get_nearest_airport.assert_called_with(10, -2)
         get_nearest_runway.assert_called_with(1, 60, latitude=10, longitude=-2)
         # Use Approach Lat Lon KPVs if available.
-        approach_lat_kpvs = KPV('Latitude At Low Point On Approach',
+        approach_lat_kpvs = KPV('Latitude At Lowest Point On Approach',
                                 items=[KeyPointValue(5, 8, 'b')])
-        approach_lon_kpvs = KPV('Longitude At Low Point On Approach',
+        approach_lon_kpvs = KPV('Longitude At Lowest Point On Approach',
                                 items=[KeyPointValue(5, 4, 'b')])
         approaches.set_flight_attr = Mock()
         approaches.derive(start_datetime, approach_and_landing,

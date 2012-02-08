@@ -1011,12 +1011,12 @@ class TestPitch(unittest.TestCase):
 class TestRateOfClimb(unittest.TestCase):
     def test_can_operate(self):
         opts = RateOfClimb.get_operational_combinations()
-        self.assertEqual(len(opts), 32)
+        self.assertEqual(len(opts), 8)
         self.assertEqual(opts[0], ('Altitude STD',))
-        self.assertTrue(('Altitude STD', 'Altitude Radio', 'Pitch') in opts)
+        self.assertTrue(('Altitude STD', 'Altitude Radio') in opts)
         self.assertEqual(opts[-1],
                          ('Acceleration Vertical', 'Altitude STD', 
-                          'Altitude Radio', 'Pitch', 'AOA', 'Airspeed'))
+                          'Altitude Radio', 'Airspeed'))
                          
     def test_rate_of_climb_basic(self):
         az = P('Acceleration Vertical', np.ma.array([1]*10))
