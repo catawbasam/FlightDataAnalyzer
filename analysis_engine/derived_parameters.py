@@ -1242,6 +1242,7 @@ class ILSFrequency(DerivedParameterNode):
             f1.array += 100
         if np.ma.max(f2.array) < 100:
             f2.array += 100
+        self.frequency *= 2
         self.array = merge_sources(f1.array, f2.array)
        
 
@@ -1386,8 +1387,8 @@ class LongitudeAdjusted(DerivedParameterNode):
             distances = ils_range[this_loc]
             lat_adj[this_loc], lon_adj[this_loc] = \
                 latitudes_and_longitudes(bearings, distances, reference)
-            fix.append([lat_adj[this_loc][0:1],lat_adj[this_loc][-2:-1],
-            fix.append([lat_adj[this_loc][0:1],lat_adj[this_loc][-2:-1],
+            fix.append([lat_adj[this_loc][0:1],lat_adj[this_loc][-2:-1]])
+            fix.append([lat_adj[this_loc][0:1],lat_adj[this_loc][-2:-1]])
 
 
         if 'Precision':
