@@ -118,12 +118,12 @@ def split_hdf_to_segments(hdf_path, aircraft_ident={}, output_dir=None, draw=Fal
         # split large dataset into segments
         #logging.debug("Splitting segments. Data length: %s", len(airspeed.array))
         #dfc = hdf['Frame Counter'] if hdf.reliable_frame_counter else None
-        segment_slices = split_segments(hdf)
+        segment_tuples = split_segments(hdf)
             
     # process each segment (into a new file) having closed original hdf_path
     segments = []
-    for part, segment_slice in enumerate(segment_slices):
-        part += 1 # one indexed part
+    for part, segment_tuple in enumerate(segment_tuples, start=1):
+        segment_type, segment_slice = segment_tuple
         # write segment to new split file (.001)
         if output_dir:
             path = os.path.join(output_dir, os.path.basename(hdf_path))
@@ -133,7 +133,8 @@ def split_hdf_to_segments(hdf_path, aircraft_ident={}, output_dir=None, draw=Fal
         logging.debug("Writing segment %d: %s", part, dest_path)
         dest_path = write_segment(hdf_path, segment_slice, dest_path)
         
-        segment = append_segment_info(dest_path, segment_slice, part)
+        segment = append_segment_info(dest_path, segment_type, segment_slice,
+                                      part)
         segments.append(segment)
         if draw:
             plot_essential(dest_path)
