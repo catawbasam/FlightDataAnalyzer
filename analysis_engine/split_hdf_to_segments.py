@@ -101,7 +101,7 @@ def split_hdf_to_segments(hdf_path, aircraft_ident={}, output_dir=None, draw=Fal
     with hdf_file(hdf_path) as hdf:
         if settings.PRE_FILE_ANALYSIS:
             logging.debug("Performing pre-file analysis: %s", settings.PRE_FILE_ANALYSIS.func_name)
-            settings.PRE_FILE_ANALYSIS(hdf)
+            settings.PRE_FILE_ANALYSIS(hdf, aircraft_ident)
         
         # Confirm aircraft tail for the entire datafile
         if aircraft_ident:
@@ -152,7 +152,9 @@ if __name__ == '__main__':
     import sys
     import pprint
     hdf_path = sys.argv[1]
-    segs = split_hdf_to_segments(hdf_path, draw=False)    
+    aircraft_ident = {'Tail Number': 'G-DEMA'}
+    segs = split_hdf_to_segments(hdf_path, aircraft_ident=aircraft_ident,
+                                 draw=False)    
     pprint.pprint(segs)
     ##os.remove(file_path) # delete original raw data file?
     ##os.remove(hdf_path) # delete original hdf file?

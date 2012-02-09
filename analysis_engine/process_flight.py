@@ -154,6 +154,7 @@ def derive_parameters(hdf, node_mgr, process_order):
         continue
     if nodes_not_implemented:
         logging.error("Nodes not implemented: %s", nodes_not_implemented)
+    print '** 12467:', flight_attrs
     return kti_list, kpv_list, section_list, flight_attrs
 
 

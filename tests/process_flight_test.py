@@ -44,36 +44,54 @@ class TestProcessFlight(unittest.TestCase):
                    'Flap Selections': [0,1,2,5,10,15,25,30,40],
                    }
         
+        airport_osl = {"distance":0.93165142982548599,"magnetic_variation":"E001226 0106","code":{"icao":"ENGM","iata":"OSL"},"name":"Oslo Gardermoen","longitude":11.1004,"location":{"city":"Oslo","country":"Norway"},"latitude":60.193899999999999,"id":2461}
+        airport_trd = {"distance":0.52169665188063608,"magnetic_variation":"E001220 0706","code":{"icao":"ENVA","iata":"TRD"},"name":"Vaernes","longitude":10.9399,"location":{"city":"Trondheim","country":"Norway"},"latitude":63.457599999999999,"id":2472}
+        airport_bgo = {"distance":0.065627843313191145,"magnetic_variation":"W001185 0106","code":{"icao":"ENBR","iata":"BGO"},"name":"Bergen Lufthavn Flesland","longitude":5.21814,"location":{"city":"Bergen","country":"Norway"},"latitude":60.293399999999998,"id":2455}
+        airports = \
+            {(60.207918026368986, 11.087010689351679):airport_osl,
+             (63.457546234130859, 10.920455589077017):airport_trd,
+             (60.209332779049873, 11.08782559633255):airport_osl,
+             (60.297126313897756, 5.2168199977260254):airport_bgo,
+             (60.201646909117699, 11.083488464355469):airport_osl,
+             (60.292314738035202, 5.2184030413627625):airport_bgo,
+             (60.292314738035202, 5.2184030413627625):airport_bgo}
+        
+        runway_osl_19r = {"end":{"latitude":60.185000000000002,"longitude":11.073744},"glideslope":{"latitude":60.213763999999998,"frequency":"332300M","angle":3.0,"longitude":11.088044,"threshold_distance":991},"start":{"latitude":60.216067000000002,"longitude":11.091664},"localizer":{"latitude":60.182102999999998,"beam_width":4.5,"frequency":"111300M","heading":196,"longitude":11.072075},"strip":{"width":147,"length":11811,"surface":"ASP"},"identifier":"19R","id":8152}
+        runway_trd_09 = {"end":{"latitude":63.457552769999999,"longitude":10.94666812},"glideslope":{"latitude":63.457085999999997,"frequency":"335000M","angle":3.0,"longitude":10.901011,"threshold_distance":1067},"start":{"latitude":63.457656229999998,"longitude":10.88929278},"localizer":{"latitude":63.457549999999998,"beam_width":4.5,"frequency":"110300M","heading":89,"longitude":10.947803},"strip":{"width":147,"length":9347,"surface":"ASP"},"identifier":"09","id":8129}
+        runway_bgo_17 = {"end":{"latitude":60.280150999999996,"longitude":5.2225789999999996},"glideslope":{"latitude":60.300981,"frequency":"333800M","angle":3.1000000000000001,"longitude":5.2140919999999999,"threshold_distance":1161},"start":{"latitude":60.306624939999999,"longitude":5.2137007400000002},"localizer":{"latitude":60.2789,"beam_width":4.5,"frequency":"109900M","heading":173,"longitude":5.2229999999999999},"strip":{"width":147,"length":9810,"surface":"ASP"},"identifier":"17","id":8193}
+        
+        
+        runways = \
+            {2461: runway_osl_19r, 2472: runway_trd_09, 2455: runway_bgo_17}        
+        
         # Mock API handler return values so that we do not make http requests.
         # Will return the same airport and runway for each query, can be
         # avoided with side_effect.
         api_handler = mock.Mock()
         get_api_handler.return_value = api_handler
-        airport = {'id': 100, 'icao': 'EGLL'}
-        runway = {'end': {'latitude': 60.280151, 'longitude': 5.222579},
-                  'glideslope': {'angle': 3.1,
-                   'frequency': u'333800M',
-                   'latitude': 60.300981,
-                   'longitude': 5.214092,
-                   'threshold_distance': 1161},
-                  'id': 8193,
-                  'identifier': u'17',
-                  'localizer': {'beam_width': 4.5,
-                   'frequency': u'109900M',
-                   'heading': 173,
-                   'latitude': 60.2789,
-                   'longitude': 5.223},
-                  'start': {'latitude': 60.30662494, 'longitude': 5.21370074},
-                  'strip': {'id': 4097, 'length': 9810, 'surface': u'ASP', 'width': 147}}
         api_handler.get_nearest_airport = mock.Mock()
-        api_handler.get_nearest_airport.return_value = airport
+        def mocked_nearest_airport(lon, lat, **kwargs):
+            return airports[(lon, lat)]
+        api_handler.get_nearest_airport.side_effect = mocked_nearest_airport
         api_handler.get_nearest_runway = mock.Mock()
-        api_handler.get_nearest_runway.return_value = runway
+        def mocked_nearest_runway(airport_id, mag_hdg, **kwargs):
+            return runways[airport_id]
+        api_handler.get_nearest_runway.side_effect = mocked_nearest_runway
         start_datetime = datetime.now()
         
         res = process_flight(hdf_path, ac_info, draw=False)
         self.assertEqual(len(res), 4)
-
+        
+        
+        
+        #{(100, 199.1700849216941), {'ilsfreq': 111.29999999999998}),
+         #(100, 89.552385829139439), {'ilsfreq': 110.29999999999998}),
+         #(100, 198.56913073103789), {'ilsfreq': 111.29999999999998}),
+         #(100, 170.90112739017678), {'ilsfreq': 109.90000000000001}),
+         #(100, 198.76976926976215), {'ilsfreq': 111.29999999999998}),
+         #(100, 170.24757505834623), {'ilsfreq': 109.90000000000001}),
+         #(100, 170.24757505834623), {'ilsfreq': 109.90000000000001})]        
+        
         from analysis_engine.plot_flight import csv_flight_details
         csv_flight_details(hdf_path, res['kti'], res['kpv'], res['phases'])
 

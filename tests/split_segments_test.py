@@ -14,22 +14,46 @@ from analysis_engine.split_segments import (append_segment_info,
                                             _split_by_frame_counter,
                                             _split_by_flight_data)
 
+
+
 class TestSplitSegments(unittest.TestCase):
     
-    def test_split_segments_single_flight(self):
+    @mock.patch('analysis_engine.split_segments.hysteresis')
+    def test_split_segments(self, hysteresis_patched):
+        # Mock hdf
         airspeed_array = np.ma.concatenate([np.ma.arange(200),
-                                            np.ma.arange(200, 0, -1)])        
+                                            np.ma.arange(200, 0, -1)])
+        hysteresis_patched.side_effect = lambda x,y: x
+        airspeed_frequency = 2
+        airspeed_secs = len(airspeed_array) / airspeed_frequency
+        
+        dfc_array = np.ma.arange(0,200, 2)
+        
         hdf = mock.Mock()
+        hdf.get = mock.Mock()
+        hdf.get.return_value = None
+        hdf.reliable_frame_counter = False
+        
         def hdf_getitem(self, key):
             if key == 'Airspeed':
-                return Parameter('Airspeed', array=airspeed_array)
+                return Parameter('Airspeed', array=airspeed_array,
+                                 frequency=airspeed_frequency)
+            elif key == 'Frame Counter':
+                return Parameter('Frame Counter', array=dfc_array,
+                                 frequency=0.25)
             else:
                 raise NotImplementedError
         hdf.__getitem__ = hdf_getitem
-        segment_type, segment_slice = split_segments(hdf)[0]
+        
+        # Unmasked single flight.
+        segment_tuples = split_segments(hdf)
+        self.assertEqual(len(segment_tuples), 1)
+        segment_type, segment_slice = segment_tuples[0]
         self.assertEqual(segment_type, 'START_AND_STOP')
         self.assertEqual(segment_slice.start, 0)
-        self.assertEqual(segment_slice.stop, len(airspeed_array))
+        self.assertEqual(segment_slice.stop, airspeed_secs)
+        # DFC should not affect result.
+        hdf.reliable_frame_counter = True
         # Mask within slow data should not affect result.
         airspeed_array[:50] = np.ma.masked
         airspeed_array[-50:] = np.ma.masked
@@ -38,14 +62,71 @@ class TestSplitSegments(unittest.TestCase):
         segment_type, segment_slice = segment_tuples[0]
         self.assertEqual(segment_type, 'START_AND_STOP')
         self.assertEqual(segment_slice.start, 0)
-        self.assertEqual(segment_slice.stop, len(airspeed_array))
-        # Mask within speedy data will affect result.
+        self.assertEqual(segment_slice.stop, airspeed_secs)
+        # Masked beginning of speedy data will affect result.
         airspeed_array[:100] = np.ma.masked
-        #airspeed_array[-100:] = np.ma.masked
-        self.assertEqual(segment_type, 'STOP_ONLY') # ??
+        segment_tuples = split_segments(hdf)
+        self.assertEqual(len(segment_tuples), 1)
+        segment_type, segment_slice = segment_tuples[0]         
+        self.assertEqual(segment_type, 'STOP_ONLY')
         self.assertEqual(segment_slice.start, 0)
-        self.assertEqual(segment_slice.stop, len(airspeed_array))        
+        self.assertEqual(segment_slice.stop, airspeed_secs)
+        # Masked end of speedy data will affect result.
+        airspeed_array = np.ma.concatenate([np.ma.arange(200),
+                                            np.ma.arange(200, 0, -1)])
+        airspeed_array[-100:] = np.ma.masked
+        segment_tuples = split_segments(hdf)
+        self.assertEqual(len(segment_tuples), 1)
+        segment_type, segment_slice = segment_tuples[0]
+        self.assertEqual(segment_type, 'START_ONLY')
+        self.assertEqual(segment_slice.start, 0)
+        self.assertEqual(segment_slice.stop, airspeed_secs)
+        # Masked beginning and end of speedy data will affect result.
+        airspeed_array[:100] = np.ma.masked
+        airspeed_array[-100:] = np.ma.masked
+        segment_tuples = split_segments(hdf)
+        self.assertEqual(len(segment_tuples), 1)
+        segment_type, segment_slice = segment_tuples[0]
+        self.assertEqual(segment_type, 'MID_FLIGHT')
+        self.assertEqual(segment_slice.start, 0)
+        self.assertEqual(segment_slice.stop, airspeed_secs)
+        # Airspeed always slow.
+        airspeed_array = np.ma.concatenate([np.ma.arange(50),
+                                            np.ma.arange(50, 0, -1)])
+        airspeed_secs = len(airspeed_array) / airspeed_frequency
         
+        segment_tuples = split_segments(hdf)
+        self.assertEqual(len(segment_tuples), 1)
+        segment_type, segment_slice = segment_tuples[0]
+        self.assertEqual(segment_type, 'GROUND_ONLY')
+        self.assertEqual(segment_slice.start, 0)
+        self.assertEqual(segment_slice.stop, airspeed_secs)
+        
+        # Two flights, split will be made using DFC.
+        # TODO: Test when the DFC does not jump.
+        airspeed_array = np.ma.concatenate([np.ma.arange(0, 200, 0.5),
+                                            np.ma.arange(200, 0, -0.5),
+                                            np.ma.arange(0, 200, 0.5),
+                                            np.ma.arange(200, 0, -0.5),])
+        airspeed_secs = len(airspeed_array) / airspeed_frequency
+        # DFC jumps exactly half way.
+        dfc_array = np.ma.concatenate([np.ma.arange(0, 100),
+                                       np.ma.arange(200, 300)])
+        segment_tuples = split_segments(hdf)
+        self.assertEqual(len(segment_tuples), 2)
+        segment_type, segment_slice = segment_tuples[0]
+        self.assertEqual(segment_type, 'START_AND_STOP')
+        self.assertEqual(segment_slice.start, 0)
+        self.assertEqual(segment_slice.stop, 398)
+        segment_type, segment_slice = segment_tuples[1]
+        self.assertEqual(segment_type, 'START_AND_STOP')
+        self.assertEqual(segment_slice.start, 398)
+        self.assertEqual(segment_slice.stop, airspeed_secs)
+        
+        # TODO: Test engine parameters.
+        
+    
+    
         
     
     #def test_split_segments(self):
