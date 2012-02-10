@@ -60,7 +60,6 @@ class TestProcessFlight(unittest.TestCase):
         runway_trd_09 = {"end":{"latitude":63.457552769999999,"longitude":10.94666812},"glideslope":{"latitude":63.457085999999997,"frequency":"335000M","angle":3.0,"longitude":10.901011,"threshold_distance":1067},"start":{"latitude":63.457656229999998,"longitude":10.88929278},"localizer":{"latitude":63.457549999999998,"beam_width":4.5,"frequency":"110300M","heading":89,"longitude":10.947803},"strip":{"width":147,"length":9347,"surface":"ASP"},"identifier":"09","id":8129}
         runway_bgo_17 = {"end":{"latitude":60.280150999999996,"longitude":5.2225789999999996},"glideslope":{"latitude":60.300981,"frequency":"333800M","angle":3.1000000000000001,"longitude":5.2140919999999999,"threshold_distance":1161},"start":{"latitude":60.306624939999999,"longitude":5.2137007400000002},"localizer":{"latitude":60.2789,"beam_width":4.5,"frequency":"109900M","heading":173,"longitude":5.2229999999999999},"strip":{"width":147,"length":9810,"surface":"ASP"},"identifier":"17","id":8193}
         
-        
         runways = \
             {2461: runway_osl_19r, 2472: runway_trd_09, 2455: runway_bgo_17}        
         
@@ -81,16 +80,6 @@ class TestProcessFlight(unittest.TestCase):
         
         res = process_flight(hdf_path, ac_info, draw=False)
         self.assertEqual(len(res), 4)
-        
-        
-        
-        #{(100, 199.1700849216941), {'ilsfreq': 111.29999999999998}),
-         #(100, 89.552385829139439), {'ilsfreq': 110.29999999999998}),
-         #(100, 198.56913073103789), {'ilsfreq': 111.29999999999998}),
-         #(100, 170.90112739017678), {'ilsfreq': 109.90000000000001}),
-         #(100, 198.76976926976215), {'ilsfreq': 111.29999999999998}),
-         #(100, 170.24757505834623), {'ilsfreq': 109.90000000000001}),
-         #(100, 170.24757505834623), {'ilsfreq': 109.90000000000001})]        
         
         from analysis_engine.plot_flight import csv_flight_details
         csv_flight_details(hdf_path, res['kti'], res['kpv'], res['phases'])
