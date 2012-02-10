@@ -206,55 +206,10 @@ def bearings_and_distances(latitudes, longitudes, reference):
     brgs = np.ma.arctan2(-y,-x)
     
     joined_mask = np.logical_or(latitudes.mask, longitudes.mask)
-    brg_array = np.ma.array(data = brgs,mask = joined_mask)
+    brg_array = np.ma.array(data = np.rad2deg(brgs),mask = joined_mask)
     dist_array = np.ma.array(data = dists,mask = joined_mask)
 
     return brg_array, dist_array
-
-def latitudes_and_longitudes(bearings, distances, reference):
-    """
-    Returns the bearings and distances of a track with respect to a fixed point.
-    
-    Usage: 
-    lat[], lon[] = latitudes_and_longitudes(brg[], dist[], {'latitude':lat_ref, 'longitude', lon_ref})
-    
-    :param bearings: The bearings of the track.
-    :type bearings: Numpy masked array.
-    :param distances: The distances of the track.
-    :type distances: Numpy masked array.
-    :param reference: The location of the reference point.
-    :type reference: dict with {'latitude': lat, 'longitude': lon} in degrees.
-    
-    :returns latitude, longitude: Latitudes and Longitudes in degrees.
-    :type latitude, longitude: Two Numpy masked arrays
-
-    Navigation formulae have been derived from the scripts at 
-    http://www.movable-type.co.uk/scripts/latlong.html
-    Copyright 2002-2011 Chris Veness, and altered by Flight dAta Services to 
-    suit the POLARIS project.
-    """
-    lat_ref = radians(reference['latitude'])
-    lon_ref = radians(reference['longitude'])
-    brg = bearings.data
-    dist = distances.data / 6371000.0 # Scale to earth radius in metres
-
-    lat = np.arcsin(sin(lat_ref)*np.cos(dist) + 
-                   cos(lat_ref)*np.sin(dist)*np.cos(brg))
-    lon = np.arctan2(np.sin(brg)*np.sin(dist)*np.cos(lat_ref), 
-                      np.cos(dist)-sin(lat_ref)*np.sin(lat))
-    lon += lon_ref 
-    
-    
-    """
-    lat2: =ASIN(SIN(lat1)*COS(d/R) + COS(lat1)*SIN(d/R)*COS(brng))
-    lon2: =lon1 + ATAN2(COS(d/R)-SIN(lat1)*SIN(lat2), SIN(brng)*SIN(d/R)*COS(lat1))    
-    """
-    
-    joined_mask = np.logical_or(bearings.mask, distances.mask)
-    lat_array = np.ma.array(data = np.rad2deg(lat),mask = joined_mask)
-    lon_array = np.ma.array(data = np.rad2deg(lon),mask = joined_mask)
-    return lat_array, lon_array
-
 
 
 def calculate_timebase(years, months, days, hours, mins, secs):
@@ -725,6 +680,27 @@ def runway_distances(runway):
     
     return [d, g, c, pgs_lat, pgs_lon]  # Runway distances to start, glideslope and end.
 
+def runway_heading(runway):
+    '''
+    Computation of the runway heading from endpoints.
+    :param runway: Runway location details dictionary.
+    :type runway: Dictionary containing:
+    ['start']['latitude'] runway start position
+    ['start']['longitude']
+    ['end']['latitude'] runway end position
+    ['end']['longitude']
+        
+    :return
+    :param rwy_hdg: true heading of runway centreline.
+    :type rwy_hdg: float, units = degrees, facing from start to end.
+    '''
+    end_lat = runway['end']['latitude']
+    end_lon = runway['end']['longitude']
+    
+    brg, dist = bearings_and_distances(np.ma.array(end_lat),
+                                       np.ma.array(end_lon),
+                                       runway['start'])
+    return brg.data    
 
 def hash_array(array):
     '''
@@ -773,76 +749,7 @@ def hysteresis (array, hysteresis):
     return np.ma.array(result, mask=array.mask)
 
 
-'''
-def ils_gs_estimate(x, y, gs):
-    """
-    Computation of the best fit glidepath.
-    
-    :param x: ils range, starting at high values and decreasing towards the glideslope antenna
-    :type x: array, units = feet.
-    :param y: altitude above runway
-    :type y: array, units = feet.
-    :param gs: glideslope deviations
-    :type gs: array of deviations, units = dots
-    
-    :return
-    :param th_dist: distance from last sample to glideslope datum
-    :type th_dist: float, units = feet.
-    :param gs_slope: slope of the ILS glidepath measured from the recorded data
-    :type gs_slope: float, degrees
-    :param gs_gain: gain of signal from glideslope
-    :type gs_gain: float, units dots per degree deviation.
-    """
-    x *= 1000/25.4/12
-    
-    # Estimate the offset from the last sample only
-    d0 = x[-1] - y[-1]*19 # Approximately 1/tan(3deg) to initialise parameters.
-    if d0 == None or d0 < -4000 or d0 > 2000:
-        d0 = 0.0
-    s0 = np.degrees(np.arctan2(y[0]-y[-1], x[0]-x[-1]))
-    if s0 == None or s0 < 2.5 or s0 > 6.5:
-        s0 = 3.0
-    x0 = np.array([d0, s0, 2.8])
-    xopt = fmin(ils_cost, x0, args=(x,y,gs), xtol=0.001)
-    #xopt = fmin_bfgs(ils_cost, x0, args=(x,y,gs))
-    #xopt = fmin_tnc(ils_cost, x0, args=(x,y,gs), approx_grad=True,
-    #                     bounds=[(-500,500),(2.5,6.5),(0,4)])
-    
-    return xopt
-    
-def ils_cost(params, x, y, gs):
-    th_dist = params[0]
-    gs_slope = params[1]
-    gs_gain = params[2]
 
-    dist = x + th_dist
-    elevation = np.degrees(np.arctan2(y, dist))
-    my_dev = (elevation - gs_slope)*gs_gain
-    cost = np.sum((my_dev-gs)*(my_dev-gs))
-    #+ \
-        #ils_rule_th(th_dist) + \
-        #ils_rule_slope(gs_slope) + \
-        #ils_rule_gain(gs_gain)
-    
-    print params, cost
-    
-    return cost
-
-def ils_rule_th(th_dist):
-    # Limit the threshold distance to +/- 2000 ft
-    hump = 1-(th_dist/2000)**2
-    return abs(hump) - hump
-
-def ils_rule_slope(gs_slope):
-    # Limit ILS glideslope estimates to 2.5 to 6.5 degrees
-    hump = 1-((gs_slope-4.5)/2)**2
-    return abs(hump) - hump
-    
-def ils_rule_gain(gs_gain):
-    # Limit ILS glideslope gain to 2 to 5 dots/degree
-    hump = 1-((gs_gain-3.5)/1.5)**2
-    return abs(hump) - hump
-'''
     
     
 def integrate (array, frequency, initial_value=0.0, scale=1.0, direction="forwards"):
@@ -1071,6 +978,44 @@ def is_slice_within_slice(inner_slice, outer_slice):
         start_within = outer_slice.start <= inner_slice.start <= outer_slice.stop
         stop_within = outer_slice.start <= inner_slice.stop <= outer_slice.stop
         return start_within and stop_within
+
+def latitudes_and_longitudes(bearings, distances, reference):
+    """
+    Returns the bearings and distances of a track with respect to a fixed point.
+    
+    Usage: 
+    lat[], lon[] = latitudes_and_longitudes(brg[], dist[], {'latitude':lat_ref, 'longitude', lon_ref})
+    
+    :param bearings: The bearings of the track in degres.
+    :type bearings: Numpy masked array.
+    :param distances: The distances of the track in metres.
+    :type distances: Numpy masked array.
+    :param reference: The location of the reference point in degrees.
+    :type reference: dict with {'latitude': lat, 'longitude': lon} in degrees.
+    
+    :returns latitude, longitude: Latitudes and Longitudes in degrees.
+    :type latitude, longitude: Two Numpy masked arrays
+
+    Navigation formulae have been derived from the scripts at 
+    http://www.movable-type.co.uk/scripts/latlong.html
+    Copyright 2002-2011 Chris Veness, and altered by Flight dAta Services to 
+    suit the POLARIS project.
+    """
+    lat_ref = radians(reference['latitude'])
+    lon_ref = radians(reference['longitude'])
+    brg = np.deg2rad(bearings.data)
+    dist = distances.data / 6371000.0 # Scale to earth radius in metres
+
+    lat = np.arcsin(sin(lat_ref)*np.cos(dist) + 
+                   cos(lat_ref)*np.sin(dist)*np.cos(brg))
+    lon = np.arctan2(np.sin(brg)*np.sin(dist)*np.cos(lat_ref), 
+                      np.cos(dist)-sin(lat_ref)*np.sin(lat))
+    lon += lon_ref 
+ 
+    joined_mask = np.logical_or(bearings.mask, distances.mask)
+    lat_array = np.ma.array(data = np.rad2deg(lat),mask = joined_mask)
+    lon_array = np.ma.array(data = np.rad2deg(lon),mask = joined_mask)
+    return lat_array, lon_array
 
 def mask_inside_slices(array, slices):
     '''
@@ -1651,7 +1596,61 @@ def smooth_track_cost_function(lat_s, lon_s, lat, lon):
     
     cost = from_data + 100*from_straight
     return cost
+
+def track_linking(pos, local_pos):
+    """
+    Obtain corrected tracks from takeoff phase, final approach and landing
+    phase and possible intermediate approach and go-around phases, and
+    compute error terms to align the recorded lat&long with each partial data
+    segment. This is done by computing linearly varying adjustment factors
+    between each computed section.
     
+    Takes an array of latitude or longitude position data and the equvalent
+    array of local position data from ILS localizer and synthetic takeoff
+    data.
+    
+    :param pos: Flight track data (latitude or longitude) in degrees.
+    :type pos: np.ma.masked_array, masked from data validity tests.
+    :param local_pos: Position data relating to runway or ILS.
+    :type local_pos: np.ma.masked_array, masked where no local data computed.
+    
+    :returns: Position array using local_pos data where available and interpolated pos data elsewhere.
+    """
+    # Where do we need to use the raw data?
+    blocks = np.ma.clump_masked(local_pos)
+    last = len(local_pos)
+    
+    for block in blocks:
+        # Setup local variables
+        a = block.start
+        b = block.stop
+        adj_a = 0.0
+        adj_b = 0.0
+        link_a = 0
+        link_b = 0
+        
+        # Look at the first edge
+        if a<2:
+            link_a = 1
+        else:
+            adj_a = (3 * local_pos.data[a-1] - local_pos.data[a-2])/2 -\
+                (3 * pos.data[a] - pos.data[a+1])/2
+    
+        # now the other end
+        if b>last-2:
+            link_b=1
+        else:
+            adj_b = (3 * local_pos.data[b] - local_pos.data[b+1])/2 -\
+                (3 * pos.data[b-1] - pos.data[b-2])/2
+
+        adj_a = adj_a + link_a*adj_b
+        adj_b = adj_b + link_b*adj_a
+        
+        fix = np.linspace(adj_a, adj_b, num=b-a)
+        local_pos[a:b] = pos[a:b] + fix
+    return local_pos
+        
+        
 def smooth_track(lat, lon):
     """
     Input:

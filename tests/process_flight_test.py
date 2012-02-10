@@ -82,7 +82,60 @@ class TestProcessFlight(unittest.TestCase):
 
         #TODO: Further assertions on the results!
         
+    #----------------------------------------------------------------------
+    
+    @unittest.skipIf(not os.path.isfile("test_data/6_737_1_RD0001851371.hdf5"),
+                     "Test file not present")
+    @mock.patch('analysis_engine.flight_attribute.get_api_handler')
+    def test_6_737_1_RD0001851371(self, get_api_handler):
+        hdf_orig = "test_data/6_737_1_RD0001851371.hdf5"
+        hdf_path = "test_data/6_737_1_RD0001851371_copy.hdf5"
+        if os.path.isfile(hdf_path):
+            os.remove(hdf_path)
+        shutil.copy(hdf_orig, hdf_path)
+        ac_info = {'Frame': '737-1',
+                   'Precise Positioning': False,
+                   'Flap Selections': [0,1,2,5,10,15,25,30,40],
+                   }
         
+        # Mock API handler return values so that we do not make http requests.
+        # Will return the same airport and runway for each query, can be
+        # avoided with side_effect.
+        api_handler = mock.Mock()
+        get_api_handler.return_value = api_handler
+        airport = {'id': 100, 'icao': 'EGLL'}
+        runway = {'end': {'latitude': 60.280151, 'longitude': 5.222579},
+                  'glideslope': {'angle': 3.1,
+                   'frequency': u'333800M',
+                   'latitude': 60.300981,
+                   'longitude': 5.214092,
+                   'threshold_distance': 1161},
+                  'id': 8193,
+                  'identifier': u'17',
+                  'localizer': {'beam_width': 4.5,
+                   'frequency': u'109900M',
+                   'heading': 173,
+                   'latitude': 60.2789,
+                   'longitude': 5.223},
+                  'start': {'latitude': 60.30662494, 'longitude': 5.21370074},
+                  'strip': {'id': 4097, 'length': 9810, 'surface': u'ASP', 'width': 147}}
+        api_handler.get_nearest_airport = mock.Mock()
+        api_handler.get_nearest_airport.return_value = airport
+        api_handler.get_nearest_runway = mock.Mock()
+        api_handler.get_nearest_runway.return_value = runway
+        start_datetime = datetime.now()
+        
+        res = process_flight(hdf_path, ac_info, draw=False)
+        self.assertEqual(len(res), 4)
+
+        from analysis_engine.plot_flight import csv_flight_details
+        csv_flight_details(hdf_path, res['kti'], res['kpv'], res['phases'])
+
+        #if debug:
+            #plot_flight(hdf_path, res['kti'], res['kpv'], res['phases'])
+
+        #TODO: Further assertions on the results!
+         
     def test_time_taken(self):
         from timeit import Timer
         timer = Timer(self.test_1_7295949_737_3C)

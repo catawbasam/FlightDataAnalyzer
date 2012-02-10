@@ -291,18 +291,6 @@ class LongitudeAtTakeoff(KeyPointValueNode):
         self.create_kpvs_at_ktis(lon.array, takeoffs)
 
 
-class LatitudeAtTakeoff(KeyPointValueNode):
-    def derive(self, lat=P('Latitude Smoothed'), 
-               toffs=KTI('Takeoff Peak Acceleration')):
-        self.create_kpvs_at_ktis(lat.array, toffs)
-            
-
-class LongitudeAtTakeoff(KeyPointValueNode):
-    def derive(self, lon=P('Longitude Smoothed'),
-               toffs=KTI('Takeoff Peak Acceleration')):
-        self.create_kpvs_at_ktis(lon.array, toffs)
-            
-
 class ILSFrequencyOnApproach(KeyPointValueNode):
     """
     The period when the aircraft was continuously established on the ILS and
