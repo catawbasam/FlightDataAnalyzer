@@ -1242,6 +1242,7 @@ class ILSFrequency(DerivedParameterNode):
             f1.array += 100
         if np.ma.max(f2.array) < 100:
             f2.array += 100
+        self.frequency *= 2
         self.array = merge_sources(f1.array, f2.array)
        
 
@@ -1380,12 +1381,12 @@ class LongitudeAdjusted(DerivedParameterNode):
         lat_adj, lon_adj = adjust_track(lon,lat,loc_est,ils_range,ils_loc,
                                         alt_aal,gspd,tas,precise,toff,
                                         app_info,toff_rwy)
-        
         self.array = lon_adj
         
         
 def adjust_track(lon,lat,loc_est,ils_range,ils_loc,alt_aal,gspd,tas,
                  precise,toff,app_info,toff_rwy):
+
     # Set up a working space.
     lat_adj = np.ma.array(data=lat.array.data,mask=True)
     lon_adj = np.ma.array(data=lon.array.data,mask=True)
@@ -1409,8 +1410,6 @@ def adjust_track(lon,lat,loc_est,ils_range,ils_loc,alt_aal,gspd,tas,
         # Adjust the ils data to be degrees from the reference point.
         bearings = ils_loc.array[this_loc.slice] * scale + \
             runway_heading(app_info.value[num_loc]['runway'])
-        
-        # TODO: Include magnetic variation here !!!
         
         # Adjust distance units
         distances = ils_range.array[this_loc.slice] / METRES_TO_FEET

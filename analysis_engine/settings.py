@@ -17,9 +17,18 @@ BASE_URL = 'http://127.0.0.1'
 ## Splitting into Segments
 ##########################
 
+# Minimum duration of slow airspeed in seconds to split flights inbetween.
+# TODO: Find sensible value.
 MINIMUM_SPLIT_DURATION = 120
 
+# When the average normalised value of selected parameters drops below this
+# value, a flight split can be made. TODO: Find sensible value.
 MINIMUM_SPLIT_PARAM_VALUE = 0.2
+
+# Parameter names to be normalised for splitting flights.
+SPLIT_PARAMETERS = ('Eng (1) N1', 'Eng (2) N1', 'Eng (3) N1', 'Eng (4) N1',
+                    'Eng (1) N2', 'Eng (2) N2', 'Eng (3) N2', 'Eng (4) N2',
+                    'Eng (1) NP', 'Eng (2) NP', 'Eng (3) NP', 'Eng (4) NP')
 
 
 ##########################

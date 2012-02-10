@@ -7,7 +7,7 @@ from hdfaccess.utils import write_segment
 
 from analysis_engine import settings
 from analysis_engine.plot_flight import plot_essential
-from analysis_engine.split_segments import append_segment_info, split_segments_new_2
+from analysis_engine.split_segments import append_segment_info, split_segments
 
 
 class AircraftMismatch(ValueError):
@@ -101,7 +101,7 @@ def split_hdf_to_segments(hdf_path, aircraft_ident={}, output_dir=None, draw=Fal
     with hdf_file(hdf_path) as hdf:
         if settings.PRE_FILE_ANALYSIS:
             logging.debug("Performing pre-file analysis: %s", settings.PRE_FILE_ANALYSIS.func_name)
-            settings.PRE_FILE_ANALYSIS(hdf)
+            settings.PRE_FILE_ANALYSIS(hdf, aircraft_ident)
         
         # Confirm aircraft tail for the entire datafile
         if aircraft_ident:
@@ -118,12 +118,12 @@ def split_hdf_to_segments(hdf_path, aircraft_ident={}, output_dir=None, draw=Fal
         # split large dataset into segments
         #logging.debug("Splitting segments. Data length: %s", len(airspeed.array))
         #dfc = hdf['Frame Counter'] if hdf.reliable_frame_counter else None
-        segment_slices = split_segments_new_2(hdf)
+        segment_tuples = split_segments(hdf)
             
     # process each segment (into a new file) having closed original hdf_path
     segments = []
-    for part, segment_slice in enumerate(segment_slices):
-        part += 1 # one indexed part
+    for part, segment_tuple in enumerate(segment_tuples, start=1):
+        segment_type, segment_slice = segment_tuple
         # write segment to new split file (.001)
         if output_dir:
             path = os.path.join(output_dir, os.path.basename(hdf_path))
@@ -133,7 +133,8 @@ def split_hdf_to_segments(hdf_path, aircraft_ident={}, output_dir=None, draw=Fal
         logging.debug("Writing segment %d: %s", part, dest_path)
         dest_path = write_segment(hdf_path, segment_slice, dest_path)
         
-        segment = append_segment_info(dest_path, segment_slice, part)
+        segment = append_segment_info(dest_path, segment_type, segment_slice,
+                                      part)
         segments.append(segment)
         if draw:
             plot_essential(dest_path)
@@ -151,7 +152,9 @@ if __name__ == '__main__':
     import sys
     import pprint
     hdf_path = sys.argv[1]
-    segs = split_hdf_to_segments(hdf_path, draw=False)    
+    aircraft_ident = {'Tail Number': 'G-DEMA'}
+    segs = split_hdf_to_segments(hdf_path, aircraft_ident=aircraft_ident,
+                                 draw=False)    
     pprint.pprint(segs)
     ##os.remove(file_path) # delete original raw data file?
     ##os.remove(hdf_path) # delete original hdf file?

@@ -1168,7 +1168,7 @@ class TestNormalise(unittest.TestCase):
         
         # normalise with max value
         md = np.ma.array([range(10), range(20,30)], dtype=np.float)
-        res1 = normalise(md, max_value=40)
+        res1 = normalise(md, scale_max=40)
         # normalised to max val 40 means first 10 will be below 0.33 and second 10 above 0.66
         ma_test.assert_array_less(res1[0,:], 0.226)
         ma_test.assert_array_less(res1[1,:], 0.776)        
