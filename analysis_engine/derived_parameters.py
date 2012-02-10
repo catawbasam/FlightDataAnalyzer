@@ -1236,19 +1236,15 @@ class LatitudeAdjustToILS(DerivedParameterNode):
 
 class ILSFrequency(DerivedParameterNode):
     name = "ILS Frequency"
+    align_to_first_dependency = False
     def derive(self, f1=P('ILS Freq (1)'),f2=P('ILS Freq (2)')):
-        # TODO: Fix scaling of 737NG ILS and remove +100 term.
-        if np.ma.max(f1.array) < 100:
-            f1.array += 100
-        if np.ma.max(f2.array) < 100:
-            f2.array += 100
         self.frequency *= 2
+        self.offset = min(f1.offset, f2.offset)
         self.array = merge_sources(f1.array, f2.array)
        
 
 class ILSRange(DerivedParameterNode):
     name = "ILS Range"
-    
     """
     Range is computed from the track where available, otherwise estimated
     from available groundspeed or airspeed parameters.
@@ -1405,11 +1401,11 @@ def adjust_track(lon,lat,loc_est,ils_range,ils_loc,alt_aal,gspd,tas,
         reference = app_info.value[num_loc]['runway']['localizer']
         
         # Compute the localizer scale factor (degrees per dot)
-        scale = (reference['beam_width']/2.0) * 2.5
+        scale = (reference['beam_width']/2.0) / 2.5
         
         # Adjust the ils data to be degrees from the reference point.
         bearings = ils_loc.array[this_loc.slice] * scale + \
-            runway_heading(app_info.value[num_loc]['runway'])
+            runway_heading(app_info.value[num_loc]['runway'])+180
         
         # Adjust distance units
         distances = ils_range.array[this_loc.slice] / METRES_TO_FEET
@@ -1455,7 +1451,7 @@ def adjust_track(lon,lat,loc_est,ils_range,ils_loc,alt_aal,gspd,tas,
         # converted to latitude and longitude.
         lat_adj[toff[0].slice], lon_adj[toff[0].slice] = \
             latitudes_and_longitudes(rwy_brg, 
-                                     rwy_dist*METRES_TO_FEET, 
+                                     rwy_dist/METRES_TO_FEET, 
                                      start_locn)                    
 
     # --- Merge Tracks and return ---

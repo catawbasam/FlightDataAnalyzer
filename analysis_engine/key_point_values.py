@@ -762,7 +762,8 @@ class GlideslopeDeviation1500To1000FtMax(KeyPointValueNode):
         # airports.
         for estab in estabs:
             for band in slices_from_to(alt_aal.array[estab.slice],1500, 1000)[1]:
-                self.create_kpvs_within_slices(ils_glideslope.array[estab.slice],[band],max_abs_value)            
+                kpv_slice=[slice(estab.slice.start+band.start, estab.slice.start+band.stop)]
+                self.create_kpvs_within_slices(ils_glideslope.array,kpv_slice,max_abs_value)  
 
 
 class GlideslopeDeviationAbove1000FtMax(KeyPointValueNode):
@@ -771,7 +772,8 @@ class GlideslopeDeviationAbove1000FtMax(KeyPointValueNode):
                estabs=S('ILS Glideslope Established')):
         for estab in estabs:
             for band in slices_above(alt_aal.array[estab.slice],1000)[1]:
-                self.create_kpvs_within_slices(ils_glideslope.array[estab.slice],[band],max_abs_value) 
+                kpv_slice=[slice(estab.slice.start+band.start, estab.slice.start+band.stop)]
+                self.create_kpvs_within_slices(ils_glideslope.array,kpv_slice,max_abs_value)  
             
 
 class GlideslopeDeviationBelow1000FtMax(KeyPointValueNode):
@@ -780,7 +782,8 @@ class GlideslopeDeviationBelow1000FtMax(KeyPointValueNode):
                estabs=S('ILS Glideslope Established')):
         for estab in estabs:
             for band in slices_below(alt_aal.array[estab.slice],1000)[1]:
-                self.create_kpvs_within_slices(ils_glideslope.array[estab.slice],[band],max_abs_value) 
+                kpv_slice=[slice(estab.slice.start+band.start, estab.slice.start+band.stop)]
+                self.create_kpvs_within_slices(ils_glideslope.array,kpv_slice,max_abs_value)  
 
     
 class GlideslopeDeviation1000To150FtMax(KeyPointValueNode):
@@ -789,7 +792,8 @@ class GlideslopeDeviation1000To150FtMax(KeyPointValueNode):
                estabs=S('ILS Glideslope Established')):
         for estab in estabs:
             for band in slices_from_to(alt_aal.array[estab.slice],1000, 150)[1]:
-                self.create_kpvs_within_slices(ils_glideslope.array[estab.slice],[band],max_abs_value)  
+                kpv_slice=[slice(estab.slice.start+band.start, estab.slice.start+band.stop)]
+                self.create_kpvs_within_slices(ils_glideslope.array,kpv_slice,max_abs_value)  
 
 
 class HeightAtGoAroundMin(KeyPointValueNode):

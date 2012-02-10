@@ -1096,11 +1096,21 @@ class TestMaxValue(unittest.TestCase):
         neg_step = slice(100,65,-10)
         self.assertRaises(ValueError, max_value, array, neg_step)
         ##self.assertEqual(res, (69, 81)) # you can get this if you use slice.stop!
+
         
 class TestMaxAbsValue(unittest.TestCase):
     def test_max_abs_value(self):
         array = np.ma.array(range(-20,30) + range(10,-41, -1) + range(10))
         self.assertEqual(max_abs_value(array), (100, -40))
+
+
+class TestMergeSources(unittest.TestCase):
+    def test_merge_sources_basic(self):
+        p1 = np.ma.array([0]*4)
+        p2 = np.ma.array([1,2,3,4])
+        result = merge_sources(p1, p2)
+        expected = np.ma.array([0,1,0,2,0,3,0,4])
+        np.testing.assert_array_equal(expected, result)
 
 
 class TestMinValue(unittest.TestCase):

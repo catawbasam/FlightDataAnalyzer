@@ -105,31 +105,43 @@ class TestProcessFlight(unittest.TestCase):
                    'Flap Selections': [0,1,2,5,10,15,25,30,40],
                    }
         
+        airport_osl = {"distance":0.93165142982548599,"magnetic_variation":"E001226 0106","code":{"icao":"ENGM","iata":"OSL"},"name":"Oslo Gardermoen","longitude":11.1004,"location":{"city":"Oslo","country":"Norway"},"latitude":60.193899999999999,"id":2461}
+        airport_trd = {"distance":0.52169665188063608,"magnetic_variation":"E001220 0706","code":{"icao":"ENVA","iata":"TRD"},"name":"Vaernes","longitude":10.9399,"location":{"city":"Trondheim","country":"Norway"},"latitude":63.457599999999999,"id":2472}
+        airport_bgo = {"distance":0.065627843313191145,"magnetic_variation":"W001185 0106","code":{"icao":"ENBR","iata":"BGO"},"name":"Bergen Lufthavn Flesland","longitude":5.21814,"location":{"city":"Bergen","country":"Norway"},"latitude":60.293399999999998,"id":2455}
+        airport_krs = {"distance":0.29270199259899349,"magnetic_variation":"E000091 0106","code":{"icao":"ENCN","iata":"KRS"},"name":"Kristiansand Lufthavn Kjevik","longitude":8.0853699999999993,"location":{"city":"Kjevik","country":"Norway"},"latitude":58.2042,"id":2456}
+        airports = \
+            {(60.207918026368986, 11.087010689351679):airport_osl,
+             (63.457546234130859, 10.920455589077017):airport_trd,
+             (60.209332779049873, 11.08782559633255):airport_osl,
+             (60.297126313897756, 5.2168199977260254):airport_bgo,
+             (60.201646909117699, 11.083488464355469):airport_osl,
+             (60.292314738035202, 5.2184030413627625):airport_bgo,
+             (60.18585205078125,  11.1126708984375):airport_osl,
+             (60.292314738035202, 5.2184030413627625):airport_bgo,
+             (58.2000732421875, 8.0804443359375):airport_krs}
+        
+        runway_osl_01r = {"end":{"latitude":60.201208000000001,"longitude":11.122486},"glideslope":{"latitude":60.177936000000003,"frequency":"330950M","angle":3.0,"longitude":11.111328,"threshold_distance":945},"start":{"latitude":60.175756,"longitude":11.107780999999999},"localizer":{"latitude":60.204968999999998,"beam_width":4.5,"frequency":"111950M","heading":16,"longitude":11.124661},"strip":{"width":147,"length":9678,"surface":"ASP"},"identifier":"01R","id":8149}       
+        #runway_osl_19r = {"end":{"latitude":60.185000000000002,"longitude":11.073744},"glideslope":{"latitude":60.213763999999998,"frequency":"332300M","angle":3.0,"longitude":11.088044,"threshold_distance":991},"start":{"latitude":60.216067000000002,"longitude":11.091664},"localizer":{"latitude":60.182102999999998,"beam_width":4.5,"frequency":"111300M","heading":196,"longitude":11.072075},"strip":{"width":147,"length":11811,"surface":"ASP"},"identifier":"19R","id":8152}
+        runway_trd_09 = {"end":{"latitude":63.457552769999999,"longitude":10.94666812},"glideslope":{"latitude":63.457085999999997,"frequency":"335000M","angle":3.0,"longitude":10.901011,"threshold_distance":1067},"start":{"latitude":63.457656229999998,"longitude":10.88929278},"localizer":{"latitude":63.457549999999998,"beam_width":4.5,"frequency":"110300M","heading":89,"longitude":10.947803},"strip":{"width":147,"length":9347,"surface":"ASP"},"identifier":"09","id":8129}
+        runway_bgo_17 = {"end":{"latitude":60.280150999999996,"longitude":5.2225789999999996},"glideslope":{"latitude":60.300981,"frequency":"333800M","angle":3.1000000000000001,"longitude":5.2140919999999999,"threshold_distance":1161},"start":{"latitude":60.306624939999999,"longitude":5.2137007400000002},"localizer":{"latitude":60.2789,"beam_width":4.5,"frequency":"109900M","heading":173,"longitude":5.2229999999999999},"strip":{"width":147,"length":9810,"surface":"ASP"},"identifier":"17","id":8193}
+        runway_krs_22 = {"end":{"latitude":58.196702999999999,"longitude":8.0754059999999992},"glideslope":{"latitude":58.208922000000001,"frequency":"330800M","angle":3.6000000000000001,"longitude":8.0932750000000002,"threshold_distance":422},"start":{"latitude":58.211677999999999,"longitude":8.095269},"localizer":{"latitude":58.196164000000003,"beam_width":4.5,"frequency":"110900M","heading":216,"longitude":8.0746920000000006},"strip":{"width":147,"length":6660,"surface":"ASP"},"identifier":"22","id":8128}
+        runway_krs_04 = {"end":{"latitude":58.211678,"longitude":8.095269},"localizer":{"latitude":58.212397,"beam_width":4.5,"frequency":"110300M","heading":36,"longitude":8.096228},"glideslope":{"latitude":58.198664,"frequency":"335000M","angle":3.4,"longitude":8.080164,"threshold_distance":720},"start":{"latitude":58.196703,"longitude":8.075406},"strip":{"width":147,"length":6660,"id":4064,"surface":"ASP"},"identifier":"04","id":8127}
+        runways = \
+            {2461: runway_osl_01r, 2472: runway_trd_09, 2455: runway_bgo_17, 2456: runway_krs_22}        
+        
         # Mock API handler return values so that we do not make http requests.
         # Will return the same airport and runway for each query, can be
         # avoided with side_effect.
         api_handler = mock.Mock()
         get_api_handler.return_value = api_handler
-        airport = {'id': 100, 'icao': 'EGLL'}
-        runway = {'end': {'latitude': 60.280151, 'longitude': 5.222579},
-                  'glideslope': {'angle': 3.1,
-                   'frequency': u'333800M',
-                   'latitude': 60.300981,
-                   'longitude': 5.214092,
-                   'threshold_distance': 1161},
-                  'id': 8193,
-                  'identifier': u'17',
-                  'localizer': {'beam_width': 4.5,
-                   'frequency': u'109900M',
-                   'heading': 173,
-                   'latitude': 60.2789,
-                   'longitude': 5.223},
-                  'start': {'latitude': 60.30662494, 'longitude': 5.21370074},
-                  'strip': {'id': 4097, 'length': 9810, 'surface': u'ASP', 'width': 147}}
         api_handler.get_nearest_airport = mock.Mock()
-        api_handler.get_nearest_airport.return_value = airport
+        def mocked_nearest_airport(lat, lon, **kwargs):
+            return airports[(lat, lon)]
+        api_handler.get_nearest_airport.side_effect = mocked_nearest_airport
         api_handler.get_nearest_runway = mock.Mock()
-        api_handler.get_nearest_runway.return_value = runway
+        def mocked_nearest_runway(airport_id, mag_hdg, **kwargs):
+            return runways[airport_id]
+        api_handler.get_nearest_runway.side_effect = mocked_nearest_runway
         start_datetime = datetime.now()
         
         res = process_flight(hdf_path, ac_info, draw=False)
