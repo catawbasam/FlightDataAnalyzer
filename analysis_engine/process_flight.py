@@ -24,12 +24,12 @@ def geo_locate(hdf, kti_list):
     
     TODO: Account for different frequency kti indexes.
     """
-    if 'Latitude Smoothed' not in hdf \
-       or 'Longitude Smoothed' not in hdf:
+    if 'Latitude Adjusted' not in hdf \
+       or 'Longitude Adjusted' not in hdf:
         return kti_list
     
-    lat_pos = hdf['Latitude Smoothed']
-    long_pos = hdf['Longitude Smoothed']
+    lat_pos = hdf['Latitude Adjusted']
+    long_pos = hdf['Longitude Adjusted']
     for kti in kti_list:
         kti.latitude = lat_pos.array[kti.index]
         kti.longitude = long_pos.array[kti.index]

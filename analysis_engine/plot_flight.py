@@ -21,14 +21,16 @@ def add_track(kml, hdf, track_name, lat_name, lon_name, colour):
     line.style.linestyle.color = colour
     return
 
-def track_to_kml(hdf_path):
+def track_to_kml(hdf_path, kti_list):
     hdf = hdf_file(hdf_path)
     kml = simplekml.Kml()
 
     add_track(kml, hdf, 'Recorded', 'Latitude', 'Longitude', 'ff0000ff')
-    add_track(kml, hdf, 'Adjusted', 'Latitude Adjusted', 'Longitude Adjusted', 'ff780AF0')
-    add_track(kml, hdf, 'Smoothed', 'Latitude Smoothed', 'Longitude Smoothed', 'ff14F03C')
+    add_track(kml, hdf, 'Adjusted', 'Latitude Adjusted', 'Longitude Adjusted', 'ff00ff00')
 
+    for kti in kti_list:
+        kml.newpoint(name=kti.name, coords=[(kti.longitude,kti.latitude)])
+           
     kml.save("test_data/track.kml")
     return
 
