@@ -1092,7 +1092,7 @@ class PitchRateFrom2DegreesOfPitchTo35FtMin(KeyPointValueNode):
             # more than 2 deg of pitch at takeoff.
             pitch_2_deg = index_at_value(pitch.array, 2, 
                                          this_slice, endpoint='closing') - this_slice.start
-            pitch_2_slice = subslice(this_slice, slice(pitch_2_deg,None,1))
+            pitch_2_slice = subslice(this_slice, slice(pitch_2_deg,None,None))
             
             index, value = min_value(pitch_rate.array, pitch_2_slice)
             self.create_kpv(index, value)
@@ -1126,8 +1126,8 @@ class RollAbove1500FtMax(KeyPointValueNode):
 
 
 class RollBelow20FtMax(KeyPointValueNode):
-    def derive(self, roll=P('Roll'), alt_aal=P('Altitude AAL')):
-        self.create_kpvs_within_slices(roll.array, alt_aal.slices_below(20),
+    def derive(self, roll=P('Roll'), alt_rad=P('Altitude Radio')):
+        self.create_kpvs_within_slices(roll.array, alt_rad.slices_between(1,20),
                                        max_abs_value)
 
 
@@ -1358,8 +1358,14 @@ class AirspeedBelowFL100Max(KeyPointValueNode):
     TODO: Test.
     '''
     name = 'Airspeed Below FL100 Max'
-    def derive(self, alt_std=P('Altitude STD'), airspeed=P('Airspeed')):
-        self.create_kpvs_within_slices(airspeed.array,
-                                       alt_std.slices_below(10000),
-                                       max_value)
+    def derive(self, alt_std=P('Altitude STD'), airspeed=P('Airspeed'),
+               in_airs=S('Airborne')):
+        # Other airspeed tests relate to heights above the runway, whereas
+        # this is flight level dependent. Altitude_AAL is invalid at low
+        # speeds, whereas alt_std is always valid, hence why the conditional
+        # airborne element is required.
+        for in_air in in_airs:
+            self.create_kpvs_within_slices(airspeed.array,
+                                           alt_std.slices_below(10000),
+                                           max_value)
 

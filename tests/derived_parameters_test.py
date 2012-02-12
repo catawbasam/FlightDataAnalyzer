@@ -491,6 +491,12 @@ class TestAltitudeRadioForFlightPhases(unittest.TestCase):
         np.testing.assert_array_equal(alt_4_ph.array, expected)
 """
 
+"""
+class TestAltitudeSTD(unittest.TestCase):
+    # Needs airport database entries simulated. TODO.
+
+"""    
+    
 class TestAltitudeSTD(unittest.TestCase):
     def test_can_operate(self):
         self.assertEqual(AltitudeSTD.get_operational_combinations(),

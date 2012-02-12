@@ -375,7 +375,6 @@ class AltitudeRadio(DerivedParameterNode):
         # Now apply the offset if one has been provided
         self.array = alt_rad.array - np.sin(pitch_rad) * main_gear_to_alt_rad.value
 
-
 class AltitudeRadio(DerivedParameterNode):
     '''
     Assumes that signal (A) is at twice the frequency of (B) and (C).
@@ -403,8 +402,27 @@ class AltitudeRadioForFlightPhases(DerivedParameterNode):
 class AltitudeQNH(DerivedParameterNode):
     name = 'Altitude QNH'
     units = 'ft'
-    def derive(self, param=P('Altitude AAL')):
-        return NotImplemented
+    def derive(self, alt_aal=P('Altitude AAL'), 
+               land = A('FDR Landing Airport'),
+               toff = A('FDR Takeoff Airport')):
+        # Break the "journey" at the midpoint.
+        peak = np.ma.argmax(alt_aal.array)
+        alt_qnh = np.ma.copy(alt_aal.array)
+
+        # Add the elevation of the takeoff airport (above sea level) to the
+        # climb portion. If this fails, make sure it's inhibited.
+        try:
+            alt_qnh[:peak]+=toff.value['elevation']
+        except:
+            alt_qnh[:peak]=np.ma.masked
+        
+        # Same for the downward leg of the journey.
+        try:
+            alt_qnh[peak:]+=land.value['elevation']
+        except:
+            alt_qnh[peak:]=np.ma.masked
+            
+        self.array = alt_qnh
 
 
 class AltitudeSTD(DerivedParameterNode):
@@ -1087,7 +1105,12 @@ class GearSelectedDown(DerivedParameterNode):
 class GearSelectedUp(DerivedParameterNode):
     def derive(self, param=P('Gear Selected Up FDR')):
         pass
-    
+
+
+class Groundspeed(DerivedParameterNode):
+    def derive(self, g=P('Ground Speed')):
+        self.array = g.array
+        
 
 class GroundspeedAlongTrack(DerivedParameterNode):
     # Inertial smoothing provides computation of groundspeed data when the
@@ -1339,8 +1362,8 @@ class ILSRange(DerivedParameterNode):
     
 class LatitudeAdjusted(DerivedParameterNode):
     # Note order of longitude and latitude sets data aligned to latitude.
-    def derive(self, lat = P('Latitude'),
-               lon = P('Longitude'),
+    def derive(self, lat = P('Latitude Smoothed'),
+               lon = P('Longitude Smoothed'),
                loc_est = S('ILS Localizer Established'),
                ils_range = P('ILS Range'),
                ils_loc = P('ILS Localizer'),
@@ -1360,8 +1383,8 @@ class LatitudeAdjusted(DerivedParameterNode):
 
 class LongitudeAdjusted(DerivedParameterNode):
     # Note order of longitude and latitude sets data aligned to longitude.
-    def derive(self, lon = P('Longitude'),
-               lat = P('Latitude'),
+    def derive(self, lon = P('Longitude Smoothed'),
+               lat = P('Latitude Smoothed'),
                loc_est = S('ILS Localizer Established'),
                ils_range = P('ILS Range'),
                ils_loc = P('ILS Localizer'),
@@ -1386,6 +1409,47 @@ def adjust_track(lon,lat,loc_est,ils_range,ils_loc,alt_aal,gspd,tas,
     # Set up a working space.
     lat_adj = np.ma.array(data=lat.array.data,mask=True)
     lon_adj = np.ma.array(data=lon.array.data,mask=True)
+
+    #-----------------------------------------------------------------------
+    # Use synthesized track for takeoffs where necessary
+    #-----------------------------------------------------------------------
+
+    if not precise.value:
+
+        # We can improve the track using available data.
+        if gspd:
+            speed = gspd.array[toff[0].slice]
+            freq = gspd.frequency
+        else:
+            speed = tas.array[toff[0].slice]
+            freq = tas.frequency
+            
+        # Compute takeoff track from start of runway using integrated
+        # groundspeed, down runway centreline to end of takeoff
+        # (35ft). An initial value of 300ft puts the aircraft at a
+        # reasonable position with respect to the runway start.
+        rwy_dist = np.ma.array(                        
+            data = integrate(speed, freq, initial_value=300, 
+                             scale=KTS_TO_FPS),
+            mask = gspd.array.mask[toff[0].slice])
+
+        # The start location has been read from the database.
+        start_locn = toff_rwy.value['start']
+
+        # Similarly the runway bearing is derived from the runway endpoints
+        # (this gives better visualisation images than relying upon the
+        # nominal runway heading). This is converted to a numpy masked array
+        # of the length required to cover the takeoff phase. (This is a bit
+        # clumsy, because there is no np.ma.ones_like method).
+        hdg = runway_heading(toff_rwy.value)
+        rwy_brg = np.ma.array(data = np.ones_like(speed)*hdg, mask = False)
+        
+        # And finally the track down the runway centreline is
+        # converted to latitude and longitude.
+        lat_adj[toff[0].slice], lon_adj[toff[0].slice] = \
+            latitudes_and_longitudes(rwy_brg, 
+                                     rwy_dist/METRES_TO_FEET, 
+                                     start_locn)                    
     
     #-----------------------------------------------------------------------
     # Use ILS track for approach and landings in all localizer approches
@@ -1414,45 +1478,6 @@ def adjust_track(lon,lat,loc_est,ils_range,ils_loc,alt_aal,gspd,tas,
         lat_adj[this_loc.slice], lon_adj[this_loc.slice] = \
             latitudes_and_longitudes(bearings, distances, reference)
         
-    #-----------------------------------------------------------------------
-    # Use synthesized track for takeoffs where necessary
-    #-----------------------------------------------------------------------
-
-    if not precise.value:
-
-        # We can improve the track using available data.
-        if gspd:
-            speed = gspd.array[toff[0].slice]
-            freq = gspd.frequency
-        else:
-            speed = tas.array[toff[0].slice]
-            freq = tas.frequency
-            
-        # Compute takeoff track from start of runway using integrated
-        # groundspeed, down runway centreline to end of takeoff
-        # (35ft).An initial value of 300ft puts the aircraft at a
-        # reasonable position with respect to the runway start.
-        rwy_dist = np.ma.array(                        
-            data = integrate(speed, freq, initial_value=300, 
-                             scale=KTS_TO_FPS),
-            mask = gspd.array.mask[toff[0].slice])
-
-        # The start location has been read from the database.
-        start_locn = toff_rwy.value['start']
-
-        # Similarly the runway bearing is known. This is
-        # converted to a numpy masked array of the length
-        # required to cover the takeoff phase. (This is a bit
-        # clumsy, because there is no np.ma.ones_like method).
-        hdg = toff_rwy.value['localizer']['heading']
-        rwy_brg = np.ma.array(data = np.ones_like(speed)*hdg, mask = False)
-        
-        # And finally the track down the runway centreline is
-        # converted to latitude and longitude.
-        lat_adj[toff[0].slice], lon_adj[toff[0].slice] = \
-            latitudes_and_longitudes(rwy_brg, 
-                                     rwy_dist/METRES_TO_FEET, 
-                                     start_locn)                    
 
     # --- Merge Tracks and return ---
     return track_linking(lat.array, lat_adj), track_linking(lon.array, lon_adj)
@@ -1638,9 +1663,8 @@ class CoordinatesSmoothed(object):
 
 class LatitudeSmoothed(DerivedParameterNode, CoordinatesSmoothed):
     def derive(self,
-               acc_fwd=P('Acceleration Along Track'),
-               lat=P('Latitude Adjusted'), 
-               lon=P('Longitude Adjusted')):
+               lat=P('Latitude'), 
+               lon=P('Longitude')):
         """
         Acceleration along track may be added to increase the sample rate and
         alignment of the resulting smoothed track parameter.
@@ -1650,9 +1674,8 @@ class LatitudeSmoothed(DerivedParameterNode, CoordinatesSmoothed):
     
 class LongitudeSmoothed(DerivedParameterNode, CoordinatesSmoothed):
     def derive(self, 
-               acc_fwd=P('Acceleration Along Track'),
-               lat=P('Latitude Adjusted'), 
-               lon=P('Longitude Adjusted')):
+               lat=P('Latitude'), 
+               lon=P('Longitude')):
         self.array = self._smooth_coordinates(lon, lat)
 
 

@@ -237,8 +237,8 @@ class TakeoffTurnOntoRunway(KeyTimeInstanceNode):
                 start_search=fast.get_next(toff.slice.start).slice.start
                 if (start_search == None) or (start_search > toff.slice.stop):
                     start_search = (toff.slice.start+toff.slice.stop)/2
-                takeoff_turn = start_search + peak_curvature(\
-                    head.array[slice(start_search,toff.slice.start,-1)],
+                takeoff_turn = peak_curvature(
+                    head.array,slice(start_search,toff.slice.start,-1),
                     curve_sense='Bipolar')
             except ValueError:
                 # If this didn't find a suitable point, revert to the start

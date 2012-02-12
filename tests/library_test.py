@@ -1254,6 +1254,11 @@ class TestPeakCurvature(unittest.TestCase):
         pc = peak_curvature(array, slice(10, 50))
         self.assertEqual(pc, 18)
 
+    def test_peak_curvature_slice_backwards(self):
+        array = np.ma.array([0]*40+range(40))
+        pc = peak_curvature(array, slice(75, 10, -1))
+        self.assertEqual(pc, 41.5)
+
 class TestPeakIndex(unittest.TestCase):
     def test_peak_index_no_data(self):
         self.assertRaises(ValueError, peak_index, [])
@@ -1693,8 +1698,18 @@ class TestSubslice(unittest.TestCase):
         self.assertEqual(two_hundred[sub], [2,4])
         self.assertEqual(sub, slice(2, 20, 2))
         
-        #TODO: test negative start, stop and step
+        # Actual case from test 6_737_1_RD0001851371
+        orig = slice(419, 423, None)
+        new = slice(0, None, 1)
+        sub = subslice(orig, new)
+        self.assertEqual(sub,slice(419,423,1))
 
+        orig = slice(419, 423, None)
+        new = slice(0, None, None)
+        sub = subslice(orig, new)
+        self.assertEqual(sub,slice(419,423,1))
+
+        #TODO: test negative start, stop and step
 """
 ------------------------------------------------------------
 Time functions replaced by index operations for consistency.

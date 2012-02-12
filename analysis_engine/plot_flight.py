@@ -1,13 +1,36 @@
 import csv
 import os
 import matplotlib.pyplot as plt
-from analysis_engine.node import DerivedParameterNode
+import simplekml
 
+from analysis_engine.node import DerivedParameterNode
 from library import rms_noise
 from utilities.print_table import indent
-
 from hdfaccess.file import hdf_file
 
+def add_track(kml, hdf, track_name, lat_name, lon_name, colour):
+    track_coords = []
+    lat = hdf[lat_name]
+    lon = hdf[lon_name]
+    for i in range(len(lat.array)):
+        if lat.array.mask[i] or lon.array.mask[i]:
+            pass  # Masked data not worth plotting
+        else:
+            track_coords.append((lon.array.data[i],lat.array.data[i]))
+    line = kml.newlinestring(name=track_name, coords=track_coords)
+    line.style.linestyle.color = colour
+    return
+
+def track_to_kml(hdf_path):
+    hdf = hdf_file(hdf_path)
+    kml = simplekml.Kml()
+
+    add_track(kml, hdf, 'Recorded', 'Latitude', 'Longitude', 'ff0000ff')
+    add_track(kml, hdf, 'Adjusted', 'Latitude Adjusted', 'Longitude Adjusted', 'ff780AF0')
+    add_track(kml, hdf, 'Smoothed', 'Latitude Smoothed', 'Longitude Smoothed', 'ff14F03C')
+
+    kml.save("test_data/track.kml")
+    return
 
 def plot_parameter(array, show=True):
     """
@@ -24,7 +47,6 @@ def plot_parameter(array, show=True):
     if show:
         plt.show()
     return
-    
 
 def plot_essential(hdf_path):
     """
@@ -162,64 +184,35 @@ def csv_flight_details(hdf_path, kti_list, kpv_list, phase_list, dest_path=None)
     
     :param dest_path: If None, writes to hdf_path.csv
     """
-    ##iterable = itertools.chain(kti_list, kpv_list, phase_list)
-    ##index_sorted_keys = sorted(iterable, key=_index_or_slice)
-
     rows = []
     params = ['Airspeed', 'Altitude STD', 'Pitch', 'Roll']
-    attrs = ['value', 'slice', 'datetime', 'latitude', 'longitude'] 
+    attrs = ['value', 'datetime', 'latitude', 'longitude'] 
     header = ['Type', 'Phase Start', 'Index', 'Phase End', 'Name'] + attrs + params
 
-    def vals_for_iterable(iter_type, iterable):
-        for value in iterable:
-            # add required attributes
-            index = _index_or_slice(value)
-            if iter_type == 'Phase':
-                
-                # TACKY FIX FOR PHASE START AND STOP
-                vals = [iter_type, value.name, value.slice.start, None, None]
-                rows.append( vals )
-                # EMBARRASING BUT WAITING FOR "at" METHOD ON DERIVED NODE
-                
-                vals = [iter_type, None, value.slice.stop, value.name, None]
-            else:
-                vals = [iter_type, None, index, None, value.name]
-                
-            # add optional attributes
-            [vals.append(getattr(value, attr, None)) for attr in attrs]
-            
-            # add associated parameter information
-            for param in params:
-                try:
-                    # Create DerivedParameterNode to utilise the .at() method
-                    p = hdf[param]
-                    dp = DerivedParameterNode(name=p.name, array=p.array, 
-                                        frequency=p.frequency, offset=p.offset)
-                    vals.append( dp.at(index) )
-                except (KeyError, ValueError, IndexError):
-                    vals.append(None)
-            
-            if iter_type == 'Phase':
-                # Append the stop time for this phase.
-                vals = [iter_type, None, value.slice.stop, value.name, None]
-                # add optional attributes
-                [vals.append(getattr(value, attr, None)) for attr in attrs]
-                # add associated parameter information
-                for param in params:
-                    try:
-                        p = hdf[param]
-                        dp = DerivedParameterNode(name=p.name, array=p.array, 
-                                        frequency=p.frequency, offset=p.offset)
-                        vals.append( dp.at(index) )
-                    except (KeyError, ValueError, IndexError):
-                        vals.append(None)
-
-            rows.append( vals )
-            
     with hdf_file(hdf_path) as hdf:
-        vals_for_iterable('Key Time Instance', kti_list)
-        vals_for_iterable('Key Point Value', kpv_list)
-        vals_for_iterable('Phase', phase_list)
+        for value in kti_list:
+            vals = ['Key Time Instance', None, value.index, None, value.name, None,
+                    value.datetime, value.latitude, value.longitude]
+            rows.append( vals )
+
+        for value in kpv_list:
+            vals = ['Key Point Value', None, value.index, None, value.name, value.value,
+                    value.datetime]+[None]*2
+            rows.append( vals )
+
+        for value in phase_list:
+            vals = ['Phase', value.name, value.slice.start]+[None]*6
+            rows.append( vals )
+            vals = ['Phase', None, value.slice.stop, value.name]+[None]*5
+            rows.append( vals )
+
+        for param in params:
+            # Create DerivedParameterNode to utilise the .at() method
+            p = hdf[param]
+            dp = DerivedParameterNode(name=p.name, array=p.array, 
+                                frequency=p.frequency, offset=p.offset)
+            for row in rows:
+                row.append(dp.at(row[2]))
 
     # sort rows
     rows = sorted(rows, key=lambda x: x[header.index('Index')])

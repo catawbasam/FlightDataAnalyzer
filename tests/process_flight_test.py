@@ -7,6 +7,7 @@ import sys
 debug = sys.gettrace() is not None
 
 from datetime import datetime, timedelta
+from analysis_engine.plot_flight import track_to_kml
         
 from analysis_engine.library import value_at_time
 from analysis_engine.node import (Attribute, FlightAttributeNode,
@@ -40,7 +41,7 @@ class TestProcessFlight(unittest.TestCase):
                    'Manufacturer': 'Boeing',
                    'Model Series': '737',
                    'Tail Number': 'G-ABCD',
-                   'Precise Positioning': False,
+                   'Precise Positioning': True,
                    'Flap Selections': [0,1,2,5,10,15,25,30,40],
                    }
         
@@ -54,11 +55,12 @@ class TestProcessFlight(unittest.TestCase):
              (60.297126313897756, 5.2168199977260254):airport_bgo,
              (60.201646909117699, 11.083488464355469):airport_osl,
              (60.292314738035202, 5.2184030413627625):airport_bgo,
-             (60.292314738035202, 5.2184030413627625):airport_bgo}
+             (60.292314738035202, 5.2184030413627625):airport_bgo,
+             (60.295075884447485, 5.2175367817352285):airport_bgo}
         
-        runway_osl_19r = {"end":{"latitude":60.185000000000002,"longitude":11.073744},"glideslope":{"latitude":60.213763999999998,"frequency":"332300M","angle":3.0,"longitude":11.088044,"threshold_distance":991},"start":{"latitude":60.216067000000002,"longitude":11.091664},"localizer":{"latitude":60.182102999999998,"beam_width":4.5,"frequency":"111300M","heading":196,"longitude":11.072075},"strip":{"width":147,"length":11811,"surface":"ASP"},"identifier":"19R","id":8152}
-        runway_trd_09 = {"end":{"latitude":63.457552769999999,"longitude":10.94666812},"glideslope":{"latitude":63.457085999999997,"frequency":"335000M","angle":3.0,"longitude":10.901011,"threshold_distance":1067},"start":{"latitude":63.457656229999998,"longitude":10.88929278},"localizer":{"latitude":63.457549999999998,"beam_width":4.5,"frequency":"110300M","heading":89,"longitude":10.947803},"strip":{"width":147,"length":9347,"surface":"ASP"},"identifier":"09","id":8129}
-        runway_bgo_17 = {"end":{"latitude":60.280150999999996,"longitude":5.2225789999999996},"glideslope":{"latitude":60.300981,"frequency":"333800M","angle":3.1000000000000001,"longitude":5.2140919999999999,"threshold_distance":1161},"start":{"latitude":60.306624939999999,"longitude":5.2137007400000002},"localizer":{"latitude":60.2789,"beam_width":4.5,"frequency":"109900M","heading":173,"longitude":5.2229999999999999},"strip":{"width":147,"length":9810,"surface":"ASP"},"identifier":"17","id":8193}
+        runway_osl_19r = {"end":{"latitude":60.184763,"longitude":11.073319},"glideslope":{"latitude":60.213763999999998,"frequency":"332300M","angle":3.0,"longitude":11.088044,"threshold_distance":991},"start":{"latitude":60.216242,"longitude":11.091471},"localizer":{"latitude":60.182059,"beam_width":4.5,"frequency":"111300M","heading":196,"longitude":11.071759},"strip":{"width":147,"length":11811,"surface":"ASP"},"identifier":"19R","id":8152}
+        runway_trd_09 = {"end":{"latitude":63.457572,"longitude":10.941974},"glideslope":{"latitude":63.457085999999997,"frequency":"335000M","angle":3.0,"longitude":10.901011,"threshold_distance":1067},"start":{"latitude":63.457614,"longitude":10.894439},"localizer":{"latitude":63.457539,"beam_width":4.5,"frequency":"110300M","heading":89,"longitude":10.947803},"strip":{"width":147,"length":9347,"surface":"ASP"},"identifier":"09","id":8129}
+        runway_bgo_17 = {"end":{"latitude":60.282283,"longitude":5.221859},"glideslope":{"latitude":60.300981,"frequency":"333800M","angle":3.1000000000000001,"longitude":5.2140919999999999,"threshold_distance":1161},"start":{"latitude":60.304365,"longitude":5.214447},"localizer":{"latitude":60.278892,"beam_width":4.5,"frequency":"109900M","heading":173,"longitude":5.223010},"strip":{"width":147,"length":9810,"surface":"ASP"},"identifier":"17","id":8193}
         
         runways = \
             {2461: runway_osl_19r, 2472: runway_trd_09, 2455: runway_bgo_17}        
@@ -80,10 +82,11 @@ class TestProcessFlight(unittest.TestCase):
         
         res = process_flight(hdf_path, ac_info, draw=False)
         self.assertEqual(len(res), 4)
-        
+
+        track_to_kml(hdf_path)
         from analysis_engine.plot_flight import csv_flight_details
         csv_flight_details(hdf_path, res['kti'], res['kpv'], res['phases'])
-
+                
         #if debug:
             #plot_flight(hdf_path, res['kti'], res['kpv'], res['phases'])
 
@@ -120,11 +123,12 @@ class TestProcessFlight(unittest.TestCase):
              (60.292314738035202, 5.2184030413627625):airport_bgo,
              (58.2000732421875, 8.0804443359375):airport_krs}
         
-        runway_osl_01r = {"end":{"latitude":60.201208000000001,"longitude":11.122486},"glideslope":{"latitude":60.177936000000003,"frequency":"330950M","angle":3.0,"longitude":11.111328,"threshold_distance":945},"start":{"latitude":60.175756,"longitude":11.107780999999999},"localizer":{"latitude":60.204968999999998,"beam_width":4.5,"frequency":"111950M","heading":16,"longitude":11.124661},"strip":{"width":147,"length":9678,"surface":"ASP"},"identifier":"01R","id":8149}       
+        runway_osl_01r = {"end":{"latitude":60.201367,"longitude":11.122289},"glideslope":{"latitude":60.177936000000003,"frequency":"330950M","angle":3.0,"longitude":11.111328,"threshold_distance":945},"start":{"latitude":60.175513,"longitude":11.107355},"localizer":{"latitude":60.204934,"beam_width":4.5,"frequency":"111950M","heading":16,"longitude":11.124370},"strip":{"width":147,"length":9678,"surface":"ASP"},"identifier":"01R","id":8149}       
+        # from dB runway_osl_01r = {"end":{"latitude":60.201208000000001,"longitude":11.122486},"glideslope":{"latitude":60.177936000000003,"frequency":"330950M","angle":3.0,"longitude":11.111328,"threshold_distance":945},"start":{"latitude":60.175756,"longitude":11.107780999999999},"localizer":{"latitude":60.204968999999998,"beam_width":4.5,"frequency":"111950M","heading":16,"longitude":11.124661},"strip":{"width":147,"length":9678,"surface":"ASP"},"identifier":"01R","id":8149}       
         #runway_osl_19r = {"end":{"latitude":60.185000000000002,"longitude":11.073744},"glideslope":{"latitude":60.213763999999998,"frequency":"332300M","angle":3.0,"longitude":11.088044,"threshold_distance":991},"start":{"latitude":60.216067000000002,"longitude":11.091664},"localizer":{"latitude":60.182102999999998,"beam_width":4.5,"frequency":"111300M","heading":196,"longitude":11.072075},"strip":{"width":147,"length":11811,"surface":"ASP"},"identifier":"19R","id":8152}
         runway_trd_09 = {"end":{"latitude":63.457552769999999,"longitude":10.94666812},"glideslope":{"latitude":63.457085999999997,"frequency":"335000M","angle":3.0,"longitude":10.901011,"threshold_distance":1067},"start":{"latitude":63.457656229999998,"longitude":10.88929278},"localizer":{"latitude":63.457549999999998,"beam_width":4.5,"frequency":"110300M","heading":89,"longitude":10.947803},"strip":{"width":147,"length":9347,"surface":"ASP"},"identifier":"09","id":8129}
         runway_bgo_17 = {"end":{"latitude":60.280150999999996,"longitude":5.2225789999999996},"glideslope":{"latitude":60.300981,"frequency":"333800M","angle":3.1000000000000001,"longitude":5.2140919999999999,"threshold_distance":1161},"start":{"latitude":60.306624939999999,"longitude":5.2137007400000002},"localizer":{"latitude":60.2789,"beam_width":4.5,"frequency":"109900M","heading":173,"longitude":5.2229999999999999},"strip":{"width":147,"length":9810,"surface":"ASP"},"identifier":"17","id":8193}
-        runway_krs_22 = {"end":{"latitude":58.196702999999999,"longitude":8.0754059999999992},"glideslope":{"latitude":58.208922000000001,"frequency":"330800M","angle":3.6000000000000001,"longitude":8.0932750000000002,"threshold_distance":422},"start":{"latitude":58.211677999999999,"longitude":8.095269},"localizer":{"latitude":58.196164000000003,"beam_width":4.5,"frequency":"110900M","heading":216,"longitude":8.0746920000000006},"strip":{"width":147,"length":6660,"surface":"ASP"},"identifier":"22","id":8128}
+        runway_krs_22 = {"end":{"latitude":58.196636,"longitude":8.075328},"glideslope":{"latitude":58.208922000000001,"frequency":"330800M","angle":3.6000000000000001,"longitude":8.0932750000000002,"threshold_distance":422},"start":{"latitude":58.211733,"longitude":8.095353},"localizer":{"latitude":58.196164000000003,"beam_width":4.5,"frequency":"110900M","heading":216,"longitude":8.0746920000000006},"strip":{"width":147,"length":6660,"surface":"ASP"},"identifier":"22","id":8128}
         runway_krs_04 = {"end":{"latitude":58.211678,"longitude":8.095269},"localizer":{"latitude":58.212397,"beam_width":4.5,"frequency":"110300M","heading":36,"longitude":8.096228},"glideslope":{"latitude":58.198664,"frequency":"335000M","angle":3.4,"longitude":8.080164,"threshold_distance":720},"start":{"latitude":58.196703,"longitude":8.075406},"strip":{"width":147,"length":6660,"id":4064,"surface":"ASP"},"identifier":"04","id":8127}
         runways = \
             {2461: runway_osl_01r, 2472: runway_trd_09, 2455: runway_bgo_17, 2456: runway_krs_22}        
@@ -147,13 +151,12 @@ class TestProcessFlight(unittest.TestCase):
         res = process_flight(hdf_path, ac_info, draw=False)
         self.assertEqual(len(res), 4)
 
+        track_to_kml(hdf_path)
+                     
         from analysis_engine.plot_flight import csv_flight_details
+
         csv_flight_details(hdf_path, res['kti'], res['kpv'], res['phases'])
 
-        #if debug:
-            #plot_flight(hdf_path, res['kti'], res['kpv'], res['phases'])
-
-        #TODO: Further assertions on the results!
          
     def test_time_taken(self):
         from timeit import Timer

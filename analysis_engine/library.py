@@ -1277,7 +1277,7 @@ def peak_curvature(array, _slice=slice(None), curve_sense='Concave'):
     if peak_slice:
         index = peak_index(angle.data[peak_slice[0]])+\
             peak_slice[0].start+(overall/2.0)-0.5
-        return index + (_slice.start or 0)
+        return index*(_slice.step or 1) + (_slice.start or 0)
     else:
         return None
     
@@ -1606,12 +1606,16 @@ def track_linking(pos, local_pos):
     Obtain corrected tracks from takeoff phase, final approach and landing
     phase and possible intermediate approach and go-around phases, and
     compute error terms to align the recorded lat&long with each partial data
-    segment. This is done by computing linearly varying adjustment factors
-    between each computed section.
+    segment. 
     
     Takes an array of latitude or longitude position data and the equvalent
     array of local position data from ILS localizer and synthetic takeoff
     data.
+    
+    This is done by computing linearly varying adjustment factors between
+    each computed section, a process that was found to be unnecessarily
+    complex, but as it gives good results and is already programmed it was
+    decided to leave this in place.
     
     :param pos: Flight track data (latitude or longitude) in degrees.
     :type pos: np.ma.masked_array, masked from data validity tests.
@@ -1666,6 +1670,10 @@ def smooth_track(lat, lon):
     lon_last = optimised longitude array
     Cost = cost function, used for testing satisfactory convergence.
     """
+    
+    if len(lat) <= 5:
+        return lat, lon, 0.0 # Polite return of data too short to smooth.
+    
     # This routine used to index through the arrays. By using np.convolve (in
     # both the iteration and cost functions) the same algorithm runs 350
     # times faster !!!
