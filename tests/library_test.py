@@ -1129,6 +1129,21 @@ class TestMinValue(unittest.TestCase):
         self.assertRaises(ValueError, min_value, array, neg_step)
 
 
+class TestMinimumUnmasked(unittest.TestCase):
+    def test_min_unmasked_basic(self):
+        a1= np.ma.array(data=[1.1,2.1,3.1,4.1],
+                        mask=[True,True,False,False])
+        a2= np.ma.array(data=[4.2,3.2,2.2,1.2],
+                        mask=[True,False,True,False])
+        expected= np.ma.array(data=[99,3.2,3.1,1.2],
+                              mask=[True,False,False,False],
+                              dtype=float)
+        result = minimum_unmasked(a1,a2)
+        np.testing.assert_array_equal(expected, result)
+        
+        
+        
+
 class TestBlendTwoParameters(unittest.TestCase):
     def test_blend_two_parameters_offset_ordered_forward(self):
         p1 = P(array=[0]*4, frequency=1, offset=0.0)

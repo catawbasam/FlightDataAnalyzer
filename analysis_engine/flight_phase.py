@@ -4,6 +4,7 @@ import numpy as np
 from analysis_engine.library import (hysteresis, index_at_value,
                               index_closest_value,
                               is_slice_within_slice,
+                              minimum_unmasked,
                               peak_curvature, repair_mask, 
                               shift_slice, shift_slices, slice_duration)
 from analysis_engine.node import FlightPhaseNode, P, S, KTI
@@ -91,7 +92,7 @@ class ApproachAndGoAround(FlightPhaseNode):
         app_slice = []    
         for speedy in fast:
             if alt_rad:
-                height = np.ma.minimum(alt_aal.array,alt_rad.array)
+                height = minimum_unmasked(alt_aal.array,alt_rad.array)
             else:
                 height = alt_aal.array
             
@@ -170,8 +171,8 @@ class ApproachAndLanding(FlightPhaseNode):
         # Prepare a home for the approach slices
         app_slice = []    
         if alt_rad:
-            height = np.ma.minimum(alt_aal.array,
-                                   alt_rad.array)
+            height = minimum_unmasked(alt_aal.array,
+                                      alt_rad.array)
         else:
             height = alt_aal.array
 
@@ -354,7 +355,7 @@ class FinalApproach(FlightPhaseNode):
             # the first showing zero ft (bear in mind Altitude AAL is
             # computed from Altitude Radio below 50ft, so this is not
             # affected by pressure altitude variations at landing).
-            alt = repair_mask(np.ma.minimum(alt_AAL.array[app_land.slice],alt_rad.array[app_land.slice]))
+            alt = repair_mask(minimum_unmasked(alt_AAL.array[app_land.slice],alt_rad.array[app_land.slice]))
             app = np.ma.clump_unmasked(np.ma.masked_outside(alt,0,1000))
             if len(app)>1:
                 logging.debug('More than one final approach during a single approach and landing phase')
@@ -474,6 +475,7 @@ class ILSGlideslopeEstablished(FlightPhaseNode):
                     ##self.create_phase(shift_slice(on_slope,this_slice.start))
 
 
+"""
 class InitialApproach(FlightPhaseNode):
     def derive(self, alt_AAL=P('Altitude AAL For Flight Phases'),
                app_lands=S('Approach And Landing')):
@@ -490,7 +492,7 @@ class InitialApproach(FlightPhaseNode):
                 if ini_app[pit] < ini_app[begin] :
                     self.create_phases(shift_slices([slice(begin, pit)],
                                                    app_land.slice.start))
-
+"""
 
 class LevelFlight(FlightPhaseNode):
     def derive(self, roc=P('Rate Of Climb For Flight Phases'),airs=S('Airborne')):

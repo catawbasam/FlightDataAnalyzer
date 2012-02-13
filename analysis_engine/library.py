@@ -1106,6 +1106,27 @@ def min_value(array, _slice=slice(None)):
     """
     return _value(array, _slice, np.ma.argmin)
             
+def minimum_unmasked(array1, array2):
+    """
+    Get the minimum value between two arrays. Differs from the Numpy minimum
+    in that is there are masked values in one array, these are ignored and
+    data from the other array is used.
+    
+    :param array_1: masked array
+    :type array_1: np.ma.array
+    :param array_2: masked array
+    :type array_2: np.ma.array
+    """
+    a1_masked = np.ma.getmaskarray(array1)
+    a2_masked = np.ma.getmaskarray(array2)
+    neither_masked = np.logical_not(np.logical_or(a1_masked,a2_masked))
+    one_masked = np.logical_xor(a1_masked,a2_masked)
+    # Data for a1 is good when only one is masked and the mask is on a2.
+    a1_good = np.logical_and(a2_masked, one_masked)
+    
+    return np.ma.where(neither_masked, np.ma.minimum(array1, array2),
+                       np.ma.where(a1_good, array1, array2))
+
 def merge_sources(*arrays):
     '''
     This simple process merges the data from multiple sensors where they are
