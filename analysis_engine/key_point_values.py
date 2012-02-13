@@ -311,7 +311,7 @@ class ILSFrequencyOnApproach(KeyPointValueNode):
 
             # Identify the KPV as relating to the start of this ILS approach
             self.create_kpv(established.slice.start, freq)
-            
+
 
 class LatitudeAtLowestPointOnApproach(KeyPointValueNode):
     # Cannot use smoothed position as this causes circular dependancy.

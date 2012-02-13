@@ -78,7 +78,7 @@ def _rate_of_turn(heading):
     '''
     heading.array = repair_mask(straighten_headings(heading.array),
                                 repair_duration=None)
-    rate_of_turn = rate_of_change(heading, 1)
+    rate_of_turn = np.ma.abs(rate_of_change(heading, 1))
     rate_of_turn_masked = np.ma.masked_greater(rate_of_turn,
                                                settings.RATE_OF_TURN_SPLITTING_THRESHOLD)    
     return rate_of_turn_masked
@@ -96,7 +96,6 @@ def split_segments(hdf):
     
     TODO: Use L3UQAR num power ups for difficult cases?
     '''
-    
     airspeed = hdf['Airspeed']
     airspeed_array = repair_mask(airspeed.array, repair_duration=None)
     # mask where airspeed drops below min airspeed, using hysteresis
@@ -128,8 +127,9 @@ def split_segments(hdf):
         dfc_diff = np.ma.diff(dfc.array)
         # Mask 'Frame Counter' incrementing by 1.
         dfc_diff = np.ma.masked_equal(dfc_diff, 1)
-        # Mask 'Frame Counter' overflow.
-        dfc_diff = np.ma.masked_equal(dfc_diff, -4094)
+        # Mask 'Frame Counter' overflow where the Frame Counter transitions from
+        # 4095 to 0. Q: This used to be 4094, are there some Frame Counters which increment from 1 rather than 0 or something else?
+        dfc_diff = np.ma.masked_equal(dfc_diff, -4095)
         # Gap between difference values.
         dfc_half_period = (1 / dfc.frequency) / 2
     else:
@@ -225,14 +225,13 @@ def split_segments(hdf):
         else:
             # Split half-way within the stop slice.
             stop_duration = first_stop.stop - first_stop.start
-            rot_split_index = rot_slice.start + (stop_duration / 2)
+            rot_split_index = rot_slice.start + first_stop.start + (stop_duration / 2)
             # Get the absolute split index at 1Hz.
-            split_index = slice_start_secs + (rot_split_index * heading.frequency)
-            segments.append(_segment_type_and_slice(airspeed, airspeed.frequency,
+            split_index = rot_split_index / heading.frequency
+            segments.append(_segment_type_and_slice(airspeed_array, airspeed.frequency,
                                                     start, split_index))
             start = split_index
             continue
-        
         
         logging.info("Splitting methods failed to split within slow_slice "
                      "'%s'.", slow_slice)
