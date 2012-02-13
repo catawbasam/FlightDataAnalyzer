@@ -124,7 +124,7 @@ class APIHandlerHTTP(APIHandler):
         :rtype: dict
         '''
         url = '%(base_url)s/api/airport/nearest.json?ll=%(ll)s' % \
-            {'base_url': settings.BASE_URL, 'll': '%f,%f' % (latitude, longitude)}
+            {'base_url': settings.BASE_URL.rstrip('/'), 'll': '%f,%f' % (latitude, longitude)}
         return self._attempt_request(url)['airport']
     
     def get_nearest_runway(self, airport, heading, latitude=None,
