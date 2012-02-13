@@ -151,7 +151,7 @@ class TestProcessFlight(unittest.TestCase):
         res = process_flight(hdf_path, ac_info, draw=False)
         self.assertEqual(len(res), 4)
 
-        track_to_kml(hdf_path, res['kti'])
+        track_to_kml(hdf_path, res['kti'], res['kpv'])
                      
         from analysis_engine.plot_flight import csv_flight_details
 

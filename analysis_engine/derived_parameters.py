@@ -1245,18 +1245,6 @@ class HeadingTrue(DerivedParameterNode):
         self.array = true_array
         """
 
-"""
-class LatitudeAdjustToILS(DerivedParameterNode):
-    name="Latitude Adjusted To ILS"
-    def derive(self, ils_loc = P('ILS Localizer'),
-               lat = P('Latitude'),
-               lon = P('Longitude'),
-               on_locs = S('ILS Localizer Established')):
-        # We can be on the ILS during an approach leading to a landing or a go-around.
-        #if (Precisiong Positioning) thingy
-        for on_loc in on-locs:
-"""            
-
 class ILSFrequency(DerivedParameterNode):
     name = "ILS Frequency"
     align_to_first_dependency = False
@@ -1360,10 +1348,10 @@ class ILSRange(DerivedParameterNode):
         self.array = ils_range
    
     
-class LatitudeAdjusted(DerivedParameterNode):
+class LatitudeSmoothed(DerivedParameterNode):
     # Note order of longitude and latitude sets data aligned to latitude.
-    def derive(self, lat = P('Latitude Smoothed'),
-               lon = P('Longitude Smoothed'),
+    def derive(self, lat = P('Latitude Straighten'),
+               lon = P('Longitude Straighten'),
                loc_est = S('ILS Localizer Established'),
                ils_range = P('ILS Range'),
                ils_loc = P('ILS Localizer'),
@@ -1381,10 +1369,10 @@ class LatitudeAdjusted(DerivedParameterNode):
         self.array = lat_adj
         
 
-class LongitudeAdjusted(DerivedParameterNode):
+class LongitudeSmoothed(DerivedParameterNode):
     # Note order of longitude and latitude sets data aligned to longitude.
-    def derive(self, lon = P('Longitude Smoothed'),
-               lat = P('Latitude Smoothed'),
+    def derive(self, lon = P('Longitude Straighten'),
+               lat = P('Latitude Straighten'),
                loc_est = S('ILS Localizer Established'),
                ils_range = P('ILS Range'),
                ils_loc = P('ILS Localizer'),
@@ -1625,9 +1613,9 @@ class Speedbrake(DerivedParameterNode):
         self.array = param
 
 
-class CoordinatesSmoothed(object):
+class CoordinatesStraighten(object):
     '''
-    Superclass for LatitudeSmoothed and LongitudeSmoothed.
+    Superclass for LatitudeStraighten and LongitudeStraighten.
     '''
     units = 'deg'
     def _smooth_coordinates(self, coord1, coord2):
@@ -1661,7 +1649,7 @@ class CoordinatesSmoothed(object):
         return array
         
 
-class LatitudeSmoothed(DerivedParameterNode, CoordinatesSmoothed):
+class LatitudeStraighten(DerivedParameterNode, CoordinatesStraighten):
     def derive(self,
                lat=P('Latitude'), 
                lon=P('Longitude')):
@@ -1672,7 +1660,7 @@ class LatitudeSmoothed(DerivedParameterNode, CoordinatesSmoothed):
         self.array = self._smooth_coordinates(lat, lon)
 
     
-class LongitudeSmoothed(DerivedParameterNode, CoordinatesSmoothed):
+class LongitudeStraighten(DerivedParameterNode, CoordinatesStraighten):
     def derive(self, 
                lat=P('Latitude'), 
                lon=P('Longitude')):
