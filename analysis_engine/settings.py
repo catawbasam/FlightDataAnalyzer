@@ -175,11 +175,10 @@ RATE_OF_CLIMB_FOR_LIFTOFF = 120 # fpm
 # Rate of climb for touchdown.
 RATE_OF_CLIMB_FOR_TOUCHDOWN = -60 # fpm
 
-# Rate of turn limits of +/- 90 deg/minute work well in flight and on ground.
-RATE_OF_TURN_FOR_FLIGHT_PHASES = 1.5 # deg per second
+# Rate of turn limits for flight and ground.
+RATE_OF_TURN_FOR_FLIGHT_PHASES = 2.5 # deg per second
 
 # Duration of masked data to repair by interpolation for flight phase analysis
-#REPAIR_DURATION = None
 REPAIR_DURATION = 10 # seconds 
 
 # Rate of Climb complementary filter timeconstant

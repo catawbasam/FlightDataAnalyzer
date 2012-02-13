@@ -64,13 +64,13 @@ from analysis_engine.key_point_values import (
     GroundSpeedOnGroundMax,
     ILSFrequencyOnApproach,
     HeadingAtLanding,
-    HeadingAtLowPointOnApproach,
+    ## HeadingAtLowPointOnApproach,
     HeightAtGoAroundMin,
     LatitudeAtLanding,
-    LatitudeAtLowPointOnApproach,
+    ## LatitudeAtLowPointOnApproach,
     LatitudeAtTakeoff,
     LongitudeAtLanding,
-    LongitudeAtLowPointOnApproach,
+    ## LongitudeAtLowPointOnApproach,
     LongitudeAtTakeoff,
     LocalizerDeviation1500To1000FtMax,
     LocalizerDeviation1000To150FtMax,
@@ -86,6 +86,7 @@ from analysis_engine.key_point_values import (
     PitchRate35To1500FtMax,
     PitchRateDuringTakeoffMax,
     PitchRateDuringTakeoffMin,
+    PitchDuringFinalApproachMin,
     PitchDuringTakeoffMax,
     RateOfDescent500FtToTouchdownMax,
     RateOfDescent1000To500FtMax,
@@ -879,12 +880,13 @@ class TestHeadingAtLanding(unittest.TestCase):
         self.assertEqual(kpv, expected)
 
 
+"""
 class TestHeadingAtLowPointOnApproach(unittest.TestCase, TestCreateKPVsAtKTIs):
     def setUp(self):
         self.node_class = HeadingAtLowPointOnApproach
         self.operational_combinations = [('Heading Continuous',
                                           'Approach And Landing Lowest')]
-
+"""
 
 class TestHeightAtGoAroundMin(unittest.TestCase, TestCreateKPVsAtKTIs):
     def setUp(self):
@@ -918,29 +920,30 @@ class TestILSFrequencyOnApproach(unittest.TestCase):
 class TestLatitudeAtLanding(unittest.TestCase, TestCreateKPVsAtKTIs):
     def setUp(self):
         self.node_class = LatitudeAtLanding
-        self.operational_combinations = [('Latitude Smoothed',
+        self.operational_combinations = [('Latitude',
                                           'Landing Peak Deceleration')]
 
 class TestLongitudeAtLanding(unittest.TestCase, TestCreateKPVsAtKTIs):
     def setUp(self):
         self.node_class = LongitudeAtLanding
-        self.operational_combinations = [('Longitude Smoothed',
+        self.operational_combinations = [('Longitude',
                                           'Landing Peak Deceleration')]
 
 
 class TestLatitudeAtTakeoff(unittest.TestCase, TestCreateKPVsAtKTIs):
     def setUp(self):
         self.node_class = LatitudeAtTakeoff
-        self.operational_combinations = [('Latitude Smoothed',
+        self.operational_combinations = [('Latitude',
                                           'Takeoff Peak Acceleration')]
 
 class TestLongitudeAtTakeoff(unittest.TestCase, TestCreateKPVsAtKTIs):
     def setUp(self):
         self.node_class = LongitudeAtTakeoff
-        self.operational_combinations = [('Longitude Smoothed',
+        self.operational_combinations = [('Longitude',
                                           'Takeoff Peak Acceleration')]
 
 
+"""
 class TestLatitudeAtLowPointOnApproach(unittest.TestCase, TestCreateKPVsAtKTIs):
     def setUp(self):
         self.node_class = LatitudeAtLowPointOnApproach
@@ -953,7 +956,7 @@ class TestLongitudeAtLowPointOnApproach(unittest.TestCase, TestCreateKPVsAtKTIs)
         self.node_class = LongitudeAtLowPointOnApproach
         self.operational_combinations = [('Longitude Smoothed',
                                           'Approach And Landing Lowest')]
-
+"""
 
 class TestLocalizerDeviation1500To1000FtMax(unittest.TestCase):
     def test_can_operate(self):
@@ -1167,9 +1170,9 @@ class TestRollAbove1500FtMax(unittest.TestCase, TestCreateKPVsWithinSlices):
 class TestRollBelow20FtMax(unittest.TestCase, TestCreateKPVsWithinSlices):
     def setUp(self):
         self.node_class = RollBelow20FtMax
-        self.operational_combinations = [('Roll', 'Altitude AAL')]
+        self.operational_combinations = [('Roll', 'Altitude Radio')]
         self.function = max_abs_value
-        self.second_param_method_calls = [('slices_below', (20,), {})]
+        self.second_param_method_calls = [('slices_between', (1,20), {})]
     
     @patch('analysis_engine.key_point_values.max_abs_value')
     def test_derive(self, max_abs_value):

@@ -29,9 +29,11 @@ from analysis_engine.library import (bearings_and_distances,
                                      rms_noise,
                                      round_to_nearest,
                                      runway_distances,
+                                     runway_heading,
                                      smooth_track,
                                      step_values,
                                      straighten_headings,
+                                     track_linking,
                                      vstack_params)
 
 from settings import (AZ_WASHOUT_TC,
@@ -373,7 +375,6 @@ class AltitudeRadio(DerivedParameterNode):
         # Now apply the offset if one has been provided
         self.array = alt_rad.array - np.sin(pitch_rad) * main_gear_to_alt_rad.value
 
-
 class AltitudeRadio(DerivedParameterNode):
     '''
     Assumes that signal (A) is at twice the frequency of (B) and (C).
@@ -401,8 +402,27 @@ class AltitudeRadioForFlightPhases(DerivedParameterNode):
 class AltitudeQNH(DerivedParameterNode):
     name = 'Altitude QNH'
     units = 'ft'
-    def derive(self, param=P('Altitude AAL')):
-        return NotImplemented
+    def derive(self, alt_aal=P('Altitude AAL'), 
+               land = A('FDR Landing Airport'),
+               toff = A('FDR Takeoff Airport')):
+        # Break the "journey" at the midpoint.
+        peak = np.ma.argmax(alt_aal.array)
+        alt_qnh = np.ma.copy(alt_aal.array)
+
+        # Add the elevation of the takeoff airport (above sea level) to the
+        # climb portion. If this fails, make sure it's inhibited.
+        try:
+            alt_qnh[:peak]+=toff.value['elevation']
+        except:
+            alt_qnh[:peak]=np.ma.masked
+        
+        # Same for the downward leg of the journey.
+        try:
+            alt_qnh[peak:]+=land.value['elevation']
+        except:
+            alt_qnh[peak:]=np.ma.masked
+            
+        self.array = alt_qnh
 
 
 class AltitudeSTD(DerivedParameterNode):
@@ -658,7 +678,7 @@ class EngFuelFlow(DerivedParameterNode):
                eng4=P('Eng (4) Fuel Flow')):
         eng = vstack_params(eng1, eng2, eng3, eng4)
         self.array = np.ma.sum(eng, axis=0) # TODO: TEST!
-
+      
 
 class Eng_N1Avg(DerivedParameterNode):
     name = "Eng (*) N1 Avg"
@@ -1085,10 +1105,13 @@ class GearSelectedDown(DerivedParameterNode):
 class GearSelectedUp(DerivedParameterNode):
     def derive(self, param=P('Gear Selected Up FDR')):
         pass
-    
-"""
-Not needed for 737-3C Frame
-"""
+
+
+class Groundspeed(DerivedParameterNode):
+    def derive(self, g=P('Ground Speed')):
+        self.array = g.array
+        
+
 class GroundspeedAlongTrack(DerivedParameterNode):
     # Inertial smoothing provides computation of groundspeed data when the
     # recorded groundspeed is unreliable. For example, during sliding motion
@@ -1222,33 +1245,17 @@ class HeadingTrue(DerivedParameterNode):
         self.array = true_array
         """
 
-"""
-class LatitudeAdjustToILS(DerivedParameterNode):
-    name="Latitude Adjusted To ILS"
-    def derive(self, ils_loc = P('ILS Localizer'),
-               lat = P('Latitude'),
-               lon = P('Longitude'),
-               on_locs = S('ILS Localizer Established')):
-        # We can be on the ILS during an approach leading to a landing or a go-around.
-        #if (Precisiong Positioning) thingy
-        for on_loc in on-locs:
-"""            
-
 class ILSFrequency(DerivedParameterNode):
     name = "ILS Frequency"
+    align_to_first_dependency = False
     def derive(self, f1=P('ILS Freq (1)'),f2=P('ILS Freq (2)')):
-        # TODO: Fix scaling of 737NG ILS and remove +100 term.
-        if np.ma.max(f1.array) < 100:
-            f1.array += 100
-        if np.ma.max(f2.array) < 100:
-            f2.array += 100
         self.frequency *= 2
+        self.offset = min(f1.offset, f2.offset)
         self.array = merge_sources(f1.array, f2.array)
        
 
 class ILSRange(DerivedParameterNode):
     name = "ILS Range"
-    
     """
     Range is computed from the track where available, otherwise estimated
     from available groundspeed or airspeed parameters.
@@ -1259,7 +1266,7 @@ class ILSRange(DerivedParameterNode):
     def derive(self, lat=P('Latitude'),
                lon = P('Longitude'),
                glide = P('ILS Glideslope'),
-               gspd = P('Ground Speed'),
+               gspd = P('Groundspeed'),
                tas = P('Airspeed True'),
                alt_aal = P('Altitude AAL'),
                loc_established = S('ILS Localizer Established'),
@@ -1292,10 +1299,11 @@ class ILSRange(DerivedParameterNode):
                 # Convert (repaired) latitude & longitude for the whole phase
                 # into range from the threshold. (threshold = {})
                 threshold = app_info.value[num_loc]['runway']['localizer']
-                brg, ils_range = bearings_and_distances(repair_mask(lat[this_loc]),
-                                                        repair_mask(lon[this_loc]),
-                                                        threshold)
-                ils_range *= METRES_TO_FEET
+                brg, ils_range[this_loc.slice] = \
+                    bearings_and_distances(repair_mask(lat.array[this_loc.slice]),
+                                           repair_mask(lon.array[this_loc.slice]),
+                                           threshold)
+                ils_range[this_loc.slice] *= METRES_TO_FEET
                 
             else:
                 # Estimate range by integrating back from zero at the end
@@ -1340,106 +1348,128 @@ class ILSRange(DerivedParameterNode):
         self.array = ils_range
    
     
-class LatitudeAdjusted(DerivedParameterNode):
-    def derive(self, lat = P('Latitude'),
-               lon = P('Longitude'),
-               loc_est = S('ILS Localizer Established'),
-               range = P('ILS Range'),
-               alt_aal = P('Altitude AAL'),
-               gspd = P('Groundspeed'),
-               tas = P('Airspeed True'),
-               ldg_rwy = A('Landing Runway ??'),
-               ):
-        
-        # As Longitude Adjusted
-        
-        return NotImplemented
-          
-          
-class LongitudeAdjusted(DerivedParameterNode):
-    def derive(self, lon = P('Longitude'),
-               lat = P('Latitude'),
+class LatitudeSmoothed(DerivedParameterNode):
+    # Note order of longitude and latitude sets data aligned to latitude.
+    def derive(self, lat = P('Latitude Straighten'),
+               lon = P('Longitude Straighten'),
                loc_est = S('ILS Localizer Established'),
                ils_range = P('ILS Range'),
                ils_loc = P('ILS Localizer'),
                alt_aal = P('Altitude AAL'),
                gspd = P('Groundspeed'),
                tas = P('Airspeed True'),
-               ldg_rwy = A('Landing Runway ??'),
+               precise =A('Precise Positioning'),
+               toff = S('Takeoff'),
+               app_info = A('FDR Approaches'),
+               toff_rwy = A('FDR Takeoff Runway'),
+               ):
+        lat_adj, lon_adj = adjust_track(lon,lat,loc_est,ils_range,ils_loc,
+                                        alt_aal,gspd,tas,precise,toff,
+                                        app_info,toff_rwy)
+        self.array = lat_adj
+        
+
+class LongitudeSmoothed(DerivedParameterNode):
+    # Note order of longitude and latitude sets data aligned to longitude.
+    def derive(self, lon = P('Longitude Straighten'),
+               lat = P('Latitude Straighten'),
+               loc_est = S('ILS Localizer Established'),
+               ils_range = P('ILS Range'),
+               ils_loc = P('ILS Localizer'),
+               alt_aal = P('Altitude AAL'),
+               gspd = P('Groundspeed'),
+               tas = P('Airspeed True'),
+               precise =A('Precise Positioning'),
+               toff = S('Takeoff'),
+               app_info = A('FDR Approaches'),
+               toff_rwy = A('FDR Takeoff Runway'),
                ):
 
-        # Set up a working space.
-        lat_adj = np.ma.masked_all_like(lat.array)
-        lon_adj = np.ma.masked_all_like(lon.array)
+        lat_adj, lon_adj = adjust_track(lon,lat,loc_est,ils_range,ils_loc,
+                                        alt_aal,gspd,tas,precise,toff,
+                                        app_info,toff_rwy)
+        self.array = lon_adj
         
-        fix = np.array([0,lon_adj[0:1]])
-       
-        for num_loc, this_loc in enumerate(loc_established):
-            
-            # Join with ILS bearings (inherently from the localizer) and
-            # revert the ILS track from range and bearing to lat & long
-            # coordinates.
-                
-            # TODO: Amend FDR Approaches and this code to avoid risk of misalignment of dictionary records.
-            reference = app_info.value[num_loc]['runway']['localizer']
-            scale = (reference['beam_width']/2.0) * 2.5  # degrees per dot
-            bearings = ils_loc[this_loc] * scale + reference['heading']
-            distances = ils_range[this_loc]
-            lat_adj[this_loc], lon_adj[this_loc] = \
-                latitudes_and_longitudes(bearings, distances, reference)
-            fix.append([lat_adj[this_loc][0:1],lat_adj[this_loc][-2:-1]])
-            fix.append([lat_adj[this_loc][0:1],lat_adj[this_loc][-2:-1]])
-
-
-        if 'Precision':
-            # No need to refine takeoff or landing plots other than using
-            # localizer covered above, so finish now.
-            pass
         
+def adjust_track(lon,lat,loc_est,ils_range,ils_loc,alt_aal,gspd,tas,
+                 precise,toff,app_info,toff_rwy):
+
+    # Set up a working space.
+    lat_adj = np.ma.array(data=lat.array.data,mask=True)
+    lon_adj = np.ma.array(data=lon.array.data,mask=True)
+
+    #-----------------------------------------------------------------------
+    # Use synthesized track for takeoffs where necessary
+    #-----------------------------------------------------------------------
+
+    if not precise.value:
+
+        # We can improve the track using available data.
+        if gspd:
+            speed = gspd.array[toff[0].slice]
+            freq = gspd.frequency
         else:
-            # We can improve the track using a variety of techniques.
-
-            # --- Takeoff Track ---
+            speed = tas.array[toff[0].slice]
+            freq = tas.frequency
             
-            if 'groundspeed available':
-                # Compute takeoff track from start of runway using
-                # integrated groundspeed, down runway centreline to point
-                # of liftoff.
-                pass
-            else:
-                # Compute takeoff track from start of runway using
-                # integrated true airspeed down runway centreline to
-                # point of liftoff.
-                pass
+        # Compute takeoff track from start of runway using integrated
+        # groundspeed, down runway centreline to end of takeoff
+        # (35ft). An initial value of 300ft puts the aircraft at a
+        # reasonable position with respect to the runway start.
+        rwy_dist = np.ma.array(                        
+            data = integrate(speed, freq, initial_value=300, 
+                             scale=KTS_TO_FPS),
+            mask = gspd.array.mask[toff[0].slice])
+
+        # The start location has been read from the database.
+        start_locn = toff_rwy.value['start']
+
+        # Similarly the runway bearing is derived from the runway endpoints
+        # (this gives better visualisation images than relying upon the
+        # nominal runway heading). This is converted to a numpy masked array
+        # of the length required to cover the takeoff phase. (This is a bit
+        # clumsy, because there is no np.ma.ones_like method).
+        hdg = runway_heading(toff_rwy.value)
+        rwy_brg = np.ma.array(data = np.ones_like(speed)*hdg, mask = False)
+        
+        # And finally the track down the runway centreline is
+        # converted to latitude and longitude.
+        lat_adj[toff[0].slice], lon_adj[toff[0].slice] = \
+            latitudes_and_longitudes(rwy_brg, 
+                                     rwy_dist/METRES_TO_FEET, 
+                                     start_locn)                    
     
-            # --- Landing Track ---
-            
-            if not 'Localizer Established Approach':
-                if 'groundspeed available':
-                    # Compute landing track from 50ft AAL over threshold
-                    # using integrated groundspeed, down runway
-                    # centreline.
-                    pass
+    #-----------------------------------------------------------------------
+    # Use ILS track for approach and landings in all localizer approches
+    #-----------------------------------------------------------------------
+    
+    for num_loc, this_loc in enumerate(loc_est):
+        
+        # Join with ILS bearings (inherently from the localizer) and
+        # revert the ILS track from range and bearing to lat & long
+        # coordinates.
+        
+        # Which runway are we approaching?    
+        reference = app_info.value[num_loc]['runway']['localizer']
+        
+        # Compute the localizer scale factor (degrees per dot)
+        scale = (reference['beam_width']/2.0) / 2.5
+        
+        # Adjust the ils data to be degrees from the reference point.
+        bearings = ils_loc.array[this_loc.slice] * scale + \
+            runway_heading(app_info.value[num_loc]['runway'])+180
+        
+        # Adjust distance units
+        distances = ils_range.array[this_loc.slice] / METRES_TO_FEET
+        
+        # At last, the conversion of ILS localizer data to latitude and longitude
+        lat_adj[this_loc.slice], lon_adj[this_loc.slice] = \
+            latitudes_and_longitudes(bearings, distances, reference)
+        
 
-                else:
-                    # Compute landing track from 50ft AAL over threshold
-                    # using integrated true airspeed, down runway
-                    # centreline.
-                    pass
+    # --- Merge Tracks and return ---
+    return track_linking(lat.array, lat_adj), track_linking(lon.array, lon_adj)
 
-        # --- Merge Tracks ---
-                
-        # Obtain corrected tracks from takeoff phase, final
-        # approach and landing phase and possible
-        # intermediate approach and go-around phases, and
-        # compute error terms to align the recorded lat&long
-        # with each partial data segment. This is done by
-        # computing linearly varying adjustment factors
-        # between each computed section.
-
-
-        return NotImplemented
-          
           
 class MACH(DerivedParameterNode):
     def derive(self, ias = P('Airspeed'), tat = P('TAT'),
@@ -1583,9 +1613,9 @@ class Speedbrake(DerivedParameterNode):
         self.array = param
 
 
-class CoordinatesSmoothed(object):
+class CoordinatesStraighten(object):
     '''
-    Superclass for LatitudeSmoothed and LongitudeSmoothed.
+    Superclass for LatitudeStraighten and LongitudeStraighten.
     '''
     units = 'deg'
     def _smooth_coordinates(self, coord1, coord2):
@@ -1619,19 +1649,21 @@ class CoordinatesSmoothed(object):
         return array
         
 
-class LatitudeSmoothed(DerivedParameterNode, CoordinatesSmoothed):
-    def derive(self, acc_fwd=P('Acceleration Along Track'),
-               lat=P('Latitude Adjusted'), lon=P('Longitude Adjusted')):
+class LatitudeStraighten(DerivedParameterNode, CoordinatesStraighten):
+    def derive(self,
+               lat=P('Latitude'), 
+               lon=P('Longitude')):
         """
-        Acceleration along track only used to determine the sample rate and
+        Acceleration along track may be added to increase the sample rate and
         alignment of the resulting smoothed track parameter.
         """
         self.array = self._smooth_coordinates(lat, lon)
 
     
-class LongitudeSmoothed(DerivedParameterNode, CoordinatesSmoothed):
-    def derive(self, acc_fwd=P('Acceleration Along Track'),
-               lat=P('Latitude Adjusted'), lon=P('Longitude Adjusted')):
+class LongitudeStraighten(DerivedParameterNode, CoordinatesStraighten):
+    def derive(self, 
+               lat=P('Latitude'), 
+               lon=P('Longitude')):
         self.array = self._smooth_coordinates(lon, lat)
 
 

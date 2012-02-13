@@ -2,7 +2,7 @@ import csv
 import unittest
 import numpy as np
 import mock
-from math import sqrt, pi
+from math import sqrt, pi, atan
 from datetime import datetime
 
 # A set of masked array test utilities from Pierre GF Gerard-Marchant
@@ -357,7 +357,7 @@ class TestBearingsAndDistances(unittest.TestCase):
         origin = {'latitude':0.0,'longitude':0.0}
         latitudes = np.ma.array([.1,.1,-.1,-.1])
         longitudes = np.ma.array([-.1,.1,.1,-.1])
-        compass = np.ma.array([-45,45,135,-135])*pi/180
+        compass = np.ma.array([-45,45,135,-135])
         brg, dist = bearings_and_distances(latitudes, longitudes, origin)
         ma_test.assert_masked_array_approx_equal(brg, compass)
 
@@ -365,7 +365,7 @@ class TestBearingsAndDistances(unittest.TestCase):
         origin = {'latitude':0.0,'longitude':0.0}
         latitudes = np.ma.array([1,0,-1,0])
         longitudes = np.ma.array([0,1,0,-1])
-        compass = np.ma.array([0,90,-180,-90])*pi/180
+        compass = np.ma.array([0,90,-180,-90])
         brg, dist = bearings_and_distances(latitudes, longitudes, origin)
         ma_test.assert_masked_array_approx_equal(brg, compass)
 
@@ -375,8 +375,8 @@ class TestBearingsAndDistances(unittest.TestCase):
         longitudes = np.ma.array([5.223,5.21370074,5.2272,5.2636])
         compass = np.ma.array([170,-9,14,67])
         brg, dist = bearings_and_distances(latitudes, longitudes, origin)
-        bearings = np.int0(brg*180/pi)
-        np.testing.assert_equal(compass,bearings)
+        for i in range(4):
+            self.assertLess(abs(compass[i]-brg[i]),1.0)
 
     def test_mask(self):
         origin = {'latitude':0.0,'longitude':0.0}
@@ -384,7 +384,7 @@ class TestBearingsAndDistances(unittest.TestCase):
         latitudes[0]=np.ma.masked
         longitudes = np.ma.array([-.1,.1,.1,-.1])
         longitudes[2]=np.ma.masked
-        compass = np.ma.array([135,45,-45,-135])*pi/180
+        compass = np.ma.array([135,45,-45,-135])
         compass.mask=[True,False,True,False]
         brg, dist = bearings_and_distances(latitudes, longitudes, origin)
         ma_test.assert_masked_array_approx_equal(brg, compass)
@@ -396,10 +396,10 @@ class TestLatitudesAndLongitudes(unittest.TestCase):
     def test_known_distance(self):
         fareham = {'latitude': 50.852731,'longitude': -1.185608}
         pompey_dist = np.ma.array([10662.0])
-        pompey_brg = np.ma.array([2.207])
+        pompey_brg = np.ma.array([126.45])
         lat,lon = latitudes_and_longitudes(pompey_brg, pompey_dist, fareham)
-        self.assertAlmostEqual(lat,[50.79569723])
-        self.assertAlmostEqual(lon,[-1.06358954])
+        self.assertAlmostEqual(lat,[50.79569963])
+        self.assertAlmostEqual(lon,[-1.06358672])
         
         # TODO - Test with array and masks (for Brg/Dist also?)
         
@@ -728,6 +728,23 @@ class TestRunwayDistances(unittest.TestCase):
         self.assertEqual(result[4],5.215510542180608)
 
 
+class TestRunwayHeading(unittest.TestCase):
+    # This single test case uses data for Bergen and has been checked against
+    # Google Earth measurements for reasonable accuracy.
+    def test_runway_heading(self):
+        result = []
+        runway =  {'end': {'latitude': 60.280151, 
+                              'longitude': 5.222579}, 
+                      'localizer': {'latitude': 60.2789, 
+                                    'longitude': 5.223, 
+                                    'heading': 999}, 
+                      'start': {'latitude': 60.30662494, 
+                                'longitude': 5.21370074}, 
+}
+        rwy_hdg = runway_heading(runway)
+        self.assertLess(abs(rwy_hdg - 170.6), 0.3)
+        
+
 class TestHashArray(unittest.TestCase):
     def test_hash_array(self):
         '''
@@ -978,133 +995,6 @@ class TestIntegrate (unittest.TestCase):
         step_2 = integrate(step_1, 1.0, scale=0.01)
         self.assertLess(np.max(np.abs(step_2+testwave)), 0.001)
 
-"""
-
-Superceded by regression
-
-class TestILSGSEstimate(unittest.TestCase):
-    # Simulate range and elevation data for an approach perfectly on the glidepath.
-    def test_ils_gs_estimate_from_file_1(self):
-        data=np.load('C:/POLARIS Development/AnalysisEngine/tests/test_data/ILS_Glideslope_Test_Data/test_1.npz')
-        gs = data['glide']
-        y = data['alt_aal']
-        x = data['dist']
-        
-        on_glides = np.ma.clump_unmasked(np.ma.masked_outside(np.ma.array(data=y),100,3000))
-        for on_glide in on_glides:
-            duration = on_glide.stop - on_glide.start
-            if duration > 100:
-                params = ils_gs_estimate(x[on_glide],y[on_glide],gs[on_glide])
-                #th_dist = params[0]
-                #gs_slope = params[1]
-                #self.assertGreater(th_dist,120)
-                #self.assertLess(th_dist,122)
-                #self.assertGreater(gs_slope,2.75)
-                #self.assertLess(gs_slope,2.8)
-
-    def test_ils_gs_estimate_from_file_2(self):
-        data=np.load('C:/POLARIS Development/AnalysisEngine/tests/test_data/ILS_Glideslope_Test_Data/test_2.npz')
-        gs = data['glide']
-        y = data['alt_aal']
-        x = data['dist']
-        
-        on_glides = np.ma.clump_unmasked(np.ma.masked_outside(np.ma.array(data=y),100,3000))
-        for on_glide in on_glides:
-            duration = on_glide.stop - on_glide.start
-            if duration > 100:
-                params = ils_gs_estimate(x[on_glide],y[on_glide],gs[on_glide])
-    def test_ils_gs_estimate_from_file_3(self):
-        data=np.load('C:/POLARIS Development/AnalysisEngine/tests/test_data/ILS_Glideslope_Test_Data/test_3.npz')
-        gs = data['glide']
-        y = data['alt_aal']
-        x = data['dist']
-        
-        on_glides = np.ma.clump_unmasked(np.ma.masked_outside(np.ma.array(data=y),100,3000))
-        for on_glide in on_glides:
-            duration = on_glide.stop - on_glide.start
-            if duration > 100:
-                params = ils_gs_estimate(x[on_glide],y[on_glide],gs[on_glide])
-    def test_ils_gs_estimate_from_file_4(self):
-        data=np.load('C:/POLARIS Development/AnalysisEngine/tests/test_data/ILS_Glideslope_Test_Data/test_4.npz')
-        gs = data['glide']
-        y = data['alt_aal']
-        x = data['dist']
-        
-        on_glides = np.ma.clump_unmasked(np.ma.masked_outside(np.ma.array(data=y),100,3000))
-        for on_glide in on_glides:
-            duration = on_glide.stop - on_glide.start
-            if duration > 100:
-                params = ils_gs_estimate(x[on_glide],y[on_glide],gs[on_glide])
-    def test_ils_gs_estimate_from_file_5(self):
-        data=np.load('C:/POLARIS Development/AnalysisEngine/tests/test_data/ILS_Glideslope_Test_Data/test_5.npz')
-        gs = data['glide']
-        y = data['alt_aal']
-        x = data['dist']
-        
-        on_glides = np.ma.clump_unmasked(np.ma.masked_outside(np.ma.array(data=y),100,3000))
-        for on_glide in on_glides:
-            duration = on_glide.stop - on_glide.start
-            if duration > 100:
-                params = ils_gs_estimate(x[on_glide],y[on_glide],gs[on_glide])
-    def test_ils_gs_estimate_from_file_6(self):
-        data=np.load('C:/POLARIS Development/AnalysisEngine/tests/test_data/ILS_Glideslope_Test_Data/test_6.npz')
-        gs = data['glide']
-        y = data['alt_aal']
-        x = data['dist']
-        
-        on_glides = np.ma.clump_unmasked(np.ma.masked_outside(np.ma.array(data=y),100,3000))
-        for on_glide in on_glides:
-            duration = on_glide.stop - on_glide.start
-            if duration > 100:
-                params = ils_gs_estimate(x[on_glide],y[on_glide],gs[on_glide])
-
-        
-    
-    # Simulate range and elevation data for an approach perfectly on the glidepath.
-    def test_ils_gs_estimate_basic(self):
-        y = np.arange(800,100,-15, dtype=float)
-        x = y*20.1
-        gs = np.zeros_like(y)
-        params = ils_gs_estimate(x,y,gs)
-        th_dist = params[0]
-        gs_slope = params[1]
-        self.assertGreater(th_dist,120)
-        self.assertLess(th_dist,122)
-        self.assertGreater(gs_slope,2.75)
-        self.assertLess(gs_slope,2.8)
-
-    def test_ils_gs_estimate_steep(self):
-        y = np.arange(800,100,-15, dtype=float)
-        x = y*10
-        gs = np.zeros_like(y)
-        gs[0]=0.1
-        gs[1]=-0.1
-        params = ils_gs_estimate(x,y,gs)
-        gs_slope = params[1]
-        self.assertGreater(gs_slope,6.4)
-
-    def test_ils_gs_estimate_shallow(self):
-        y = np.arange(800,100,-15, dtype=float)
-        x = y*40
-        gs = np.zeros_like(y)
-        params = ils_gs_estimate(x,y,gs)
-        gs_slope = params[1]
-        self.assertEqual(gs_slope,2.5)
-
-    def test_ils_gs_estimate_gain(self):
-        x = np.arange(16000,2000,-300, dtype=float)
-        gs = np.zeros_like(x)
-        gs[0]=0.1
-        gs[1]=-0.1
-        y = x/20
-        y[0] -= 0.3
-        y[1] += 0.3
-        params = ils_gs_estimate(x,y,gs)
-        gs_gain = params[2]
-        self.assertGreater(gs_gain,2.75)
-        self.assertLess(gs_gain,2.85)
-"""
-
 
 class TestIsSliceWithinSlice(unittest.TestCase):
     def test_is_slice_within_slice(self):
@@ -1206,11 +1096,21 @@ class TestMaxValue(unittest.TestCase):
         neg_step = slice(100,65,-10)
         self.assertRaises(ValueError, max_value, array, neg_step)
         ##self.assertEqual(res, (69, 81)) # you can get this if you use slice.stop!
+
         
 class TestMaxAbsValue(unittest.TestCase):
     def test_max_abs_value(self):
         array = np.ma.array(range(-20,30) + range(10,-41, -1) + range(10))
         self.assertEqual(max_abs_value(array), (100, -40))
+
+
+class TestMergeSources(unittest.TestCase):
+    def test_merge_sources_basic(self):
+        p1 = np.ma.array([0]*4)
+        p2 = np.ma.array([1,2,3,4])
+        result = merge_sources(p1, p2)
+        expected = np.ma.array([0,1,0,2,0,3,0,4])
+        np.testing.assert_array_equal(expected, result)
 
 
 class TestMinValue(unittest.TestCase):
@@ -1353,6 +1253,11 @@ class TestPeakCurvature(unittest.TestCase):
         array = np.ma.array([0]*100)
         pc = peak_curvature(array, slice(10, 50))
         self.assertEqual(pc, 18)
+
+    def test_peak_curvature_slice_backwards(self):
+        array = np.ma.array([0]*40+range(40))
+        pc = peak_curvature(array, slice(75, 10, -1))
+        self.assertEqual(pc, 41.5)
 
 class TestPeakIndex(unittest.TestCase):
     def test_peak_index_no_data(self):
@@ -1793,8 +1698,18 @@ class TestSubslice(unittest.TestCase):
         self.assertEqual(two_hundred[sub], [2,4])
         self.assertEqual(sub, slice(2, 20, 2))
         
-        #TODO: test negative start, stop and step
+        # Actual case from test 6_737_1_RD0001851371
+        orig = slice(419, 423, None)
+        new = slice(0, None, 1)
+        sub = subslice(orig, new)
+        self.assertEqual(sub,slice(419,423,1))
 
+        orig = slice(419, 423, None)
+        new = slice(0, None, None)
+        sub = subslice(orig, new)
+        self.assertEqual(sub,slice(419,423,1))
+
+        #TODO: test negative start, stop and step
 """
 ------------------------------------------------------------
 Time functions replaced by index operations for consistency.
@@ -1846,6 +1761,21 @@ class TestTimeAtValueWrapped(unittest.TestCase):
 Time functions replaced by index operations for consistency.
 ------------------------------------------------------------
 """
+        
+        
+class TestTrackLinking(unittest.TestCase):
+    def test_track_linking_basic(self):
+        pos = np.ma.array(data=[0]*16,mask=False)
+        local = np.ma.arange(16, dtype=float)
+        local[0:3]=np.ma.masked
+        local[6:10]=np.ma.masked
+        local[13:]=np.ma.masked
+        local[8:] -= 2.5
+        result = track_linking(pos,local)
+        expected = np.ma.array(data = [2.5,2.5,2.5,3.0,4.0,5.0,5.5,6.0,
+                                       6.5,7.0,7.5,8.5,9.5,10.0,10.0,10.0],
+                               mask = False)
+        np.testing.assert_array_equal(expected,result)
         
 class TestValueAtTime(unittest.TestCase):
 

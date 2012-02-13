@@ -291,18 +291,6 @@ class LongitudeAtTakeoff(KeyPointValueNode):
         self.create_kpvs_at_ktis(lon.array, takeoffs)
 
 
-class LatitudeAtTakeoff(KeyPointValueNode):
-    def derive(self, lat=P('Latitude Smoothed'), 
-               toffs=KTI('Takeoff Peak Acceleration')):
-        self.create_kpvs_at_ktis(lat.array, toffs)
-            
-
-class LongitudeAtTakeoff(KeyPointValueNode):
-    def derive(self, lon=P('Longitude Smoothed'),
-               toffs=KTI('Takeoff Peak Acceleration')):
-        self.create_kpvs_at_ktis(lon.array, toffs)
-            
-
 class ILSFrequencyOnApproach(KeyPointValueNode):
     """
     The period when the aircraft was continuously established on the ILS and
@@ -774,7 +762,8 @@ class GlideslopeDeviation1500To1000FtMax(KeyPointValueNode):
         # airports.
         for estab in estabs:
             for band in slices_from_to(alt_aal.array[estab.slice],1500, 1000)[1]:
-                self.create_kpvs_within_slices(ils_glideslope.array[estab.slice],[band],max_abs_value)            
+                kpv_slice=[slice(estab.slice.start+band.start, estab.slice.start+band.stop)]
+                self.create_kpvs_within_slices(ils_glideslope.array,kpv_slice,max_abs_value)  
 
 
 class GlideslopeDeviationAbove1000FtMax(KeyPointValueNode):
@@ -783,7 +772,8 @@ class GlideslopeDeviationAbove1000FtMax(KeyPointValueNode):
                estabs=S('ILS Glideslope Established')):
         for estab in estabs:
             for band in slices_above(alt_aal.array[estab.slice],1000)[1]:
-                self.create_kpvs_within_slices(ils_glideslope.array[estab.slice],[band],max_abs_value) 
+                kpv_slice=[slice(estab.slice.start+band.start, estab.slice.start+band.stop)]
+                self.create_kpvs_within_slices(ils_glideslope.array,kpv_slice,max_abs_value)  
             
 
 class GlideslopeDeviationBelow1000FtMax(KeyPointValueNode):
@@ -792,7 +782,8 @@ class GlideslopeDeviationBelow1000FtMax(KeyPointValueNode):
                estabs=S('ILS Glideslope Established')):
         for estab in estabs:
             for band in slices_below(alt_aal.array[estab.slice],1000)[1]:
-                self.create_kpvs_within_slices(ils_glideslope.array[estab.slice],[band],max_abs_value) 
+                kpv_slice=[slice(estab.slice.start+band.start, estab.slice.start+band.stop)]
+                self.create_kpvs_within_slices(ils_glideslope.array,kpv_slice,max_abs_value)  
 
     
 class GlideslopeDeviation1000To150FtMax(KeyPointValueNode):
@@ -801,7 +792,8 @@ class GlideslopeDeviation1000To150FtMax(KeyPointValueNode):
                estabs=S('ILS Glideslope Established')):
         for estab in estabs:
             for band in slices_from_to(alt_aal.array[estab.slice],1000, 150)[1]:
-                self.create_kpvs_within_slices(ils_glideslope.array[estab.slice],[band],max_abs_value)  
+                kpv_slice=[slice(estab.slice.start+band.start, estab.slice.start+band.stop)]
+                self.create_kpvs_within_slices(ils_glideslope.array,kpv_slice,max_abs_value)  
 
 
 class HeightAtGoAroundMin(KeyPointValueNode):
@@ -1100,7 +1092,7 @@ class PitchRateFrom2DegreesOfPitchTo35FtMin(KeyPointValueNode):
             # more than 2 deg of pitch at takeoff.
             pitch_2_deg = index_at_value(pitch.array, 2, 
                                          this_slice, endpoint='closing') - this_slice.start
-            pitch_2_slice = subslice(this_slice, slice(pitch_2_deg,None,1))
+            pitch_2_slice = subslice(this_slice, slice(pitch_2_deg,None,None))
             
             index, value = min_value(pitch_rate.array, pitch_2_slice)
             self.create_kpv(index, value)
@@ -1134,8 +1126,8 @@ class RollAbove1500FtMax(KeyPointValueNode):
 
 
 class RollBelow20FtMax(KeyPointValueNode):
-    def derive(self, roll=P('Roll'), alt_aal=P('Altitude AAL')):
-        self.create_kpvs_within_slices(roll.array, alt_aal.slices_below(20),
+    def derive(self, roll=P('Roll'), alt_rad=P('Altitude Radio')):
+        self.create_kpvs_within_slices(roll.array, alt_rad.slices_between(1,20),
                                        max_abs_value)
 
 
@@ -1366,8 +1358,14 @@ class AirspeedBelowFL100Max(KeyPointValueNode):
     TODO: Test.
     '''
     name = 'Airspeed Below FL100 Max'
-    def derive(self, alt_std=P('Altitude STD'), airspeed=P('Airspeed')):
-        self.create_kpvs_within_slices(airspeed.array,
-                                       alt_std.slices_below(10000),
-                                       max_value)
+    def derive(self, alt_std=P('Altitude STD'), airspeed=P('Airspeed'),
+               in_airs=S('Airborne')):
+        # Other airspeed tests relate to heights above the runway, whereas
+        # this is flight level dependent. Altitude_AAL is invalid at low
+        # speeds, whereas alt_std is always valid, hence why the conditional
+        # airborne element is required.
+        for in_air in in_airs:
+            self.create_kpvs_within_slices(airspeed.array,
+                                           alt_std.slices_below(10000),
+                                           max_value)
 

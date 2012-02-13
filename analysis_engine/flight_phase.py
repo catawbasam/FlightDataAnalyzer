@@ -354,9 +354,12 @@ class FinalApproach(FlightPhaseNode):
             # the first showing zero ft (bear in mind Altitude AAL is
             # computed from Altitude Radio below 50ft, so this is not
             # affected by pressure altitude variations at landing).
-            app = np.ma.masked_outside(
-                np.ma.minimum(alt_AAL.array,alt_rad.array),0,1000)
-            self.create_phases(np.ma.clump_unmasked(app))
+            alt = repair_mask(np.ma.minimum(alt_AAL.array[app_land.slice],alt_rad.array[app_land.slice]))
+            app = np.ma.clump_unmasked(np.ma.masked_outside(alt,0,1000))
+            if len(app)>1:
+                logging.debug('More than one final approach during a single approach and landing phase')
+            if alt[app[0].start] > alt[app[0].stop]:  # Trap descents only
+                self.create_phase(shift_slice(app[0],app_land.slice.start))
 
 
 class ILSLocalizerEstablished(FlightPhaseNode):
@@ -673,10 +676,12 @@ class Turning(FlightPhaseNode):
     Rate of Turn is greater than +/- RATE_OF_TURN_FOR_FLIGHT_PHASES
     """
     def derive(self, rate_of_turn=P('Rate Of Turn'), airborne=S('Airborne')):
-        turning = np.ma.masked_inside(
-            hysteresis(repair_mask(rate_of_turn.array), HYSTERESIS_FPROT),
-            RATE_OF_TURN_FOR_FLIGHT_PHASES * (-1.0),
-            RATE_OF_TURN_FOR_FLIGHT_PHASES)
+        #turning = np.ma.masked_inside(
+            #hysteresis(repair_mask(rate_of_turn.array), HYSTERESIS_FPROT),
+            #RATE_OF_TURN_FOR_FLIGHT_PHASES * (-1.0),
+            #RATE_OF_TURN_FOR_FLIGHT_PHASES)
+        turning = np.ma.masked_inside(repair_mask(rate_of_turn.array),
+            -RATE_OF_TURN_FOR_FLIGHT_PHASES,RATE_OF_TURN_FOR_FLIGHT_PHASES)
         turn_slices = np.ma.clump_unmasked(turning)
         for turn_slice in turn_slices:
             if any([is_slice_within_slice(turn_slice, a.slice) for a in airborne]):

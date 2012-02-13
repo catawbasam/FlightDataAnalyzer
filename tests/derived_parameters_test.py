@@ -39,8 +39,8 @@ from analysis_engine.derived_parameters import (
     GroundspeedAlongTrack,
     HeadingContinuous,
     HeadingTrue,
-    LatitudeSmoothed,
-    LongitudeSmoothed,
+    LatitudeStraighten,
+    LongitudeStraighten,
     Pitch,
     RateOfClimb,
     RateOfClimbForFlightPhases,
@@ -491,6 +491,12 @@ class TestAltitudeRadioForFlightPhases(unittest.TestCase):
         np.testing.assert_array_equal(alt_4_ph.array, expected)
 """
 
+"""
+class TestAltitudeSTD(unittest.TestCase):
+    # Needs airport database entries simulated. TODO.
+
+"""    
+    
 class TestAltitudeSTD(unittest.TestCase):
     def test_can_operate(self):
         self.assertEqual(AltitudeSTD.get_operational_combinations(),
@@ -920,28 +926,32 @@ class TestHeadContinuous(unittest.TestCase):
         np.testing.assert_array_equal(head.array.data, answer.data)
 
 
-class TestLatitudeSmoothed(unittest.TestCase):
+class TestLatitudeAndLongitudeStraighten(unittest.TestCase):
     def test_can_operate(self):
-        self.assertEqual(LatitudeSmoothed.get_operational_combinations(),
-                         [('Acceleration Along Track','Latitude','Longitude')])
+        self.assertEqual(LatitudeStraighten.get_operational_combinations(),
+                         [('Latitude','Longitude')])
 
     def test_latitude_smoothing_basic(self):
-        aat = P('Accel',np.ma.array([0]*20),frequency=4)
-        lat = P('Latitude',np.ma.array([0,1,2,1,0]))
-        lon = P('Longitude', np.ma.zeros(5))
-        smoother = LatitudeSmoothed()
-        smoother.get_derived([aat,lat,lon])
-        self.assertGreater(smoother.array[9],1.5)
-        self.assertLess(smoother.array[9],1.6)
+        lat = P('Latitude',np.ma.array([0,0,1,2,1,0,0],dtype=float))
+        lon = P('Longitude', np.ma.zeros(7,dtype=float))
+        smoother = LatitudeStraighten()
+        smoother.get_derived([lat,lon])
+        self.assertGreater(smoother.array[3],0.01)
+        self.assertLess(smoother.array[3],0.013)
+        
+    def test_latitude_smoothing_short_array(self):
+        lat = P('Latitude',np.ma.array([0,0],dtype=float))
+        lon = P('Longitude', np.ma.zeros(2,dtype=float))
+        smoother = LatitudeStraighten()
+        smoother.get_derived([lat,lon])
         
     def test_longitude_smoothing_basic(self):
-        aat = P('Accel',np.ma.array([0]*20),frequency=4)
-        lat = P('Latitude',np.ma.array([0,1,2,1,0]))
-        lon = P('Longitude', np.ma.array([0,-2,-4,-2,0]))
-        smoother = LongitudeSmoothed()
-        smoother.get_derived([aat,lat,lon])
-        self.assertGreater(smoother.array[9],-3.2)
-        self.assertLess(smoother.array[9],-3.0)
+        lat = P('Latitude',np.ma.array([0,0,1,2,1,0,0],dtype=float))
+        lon = P('Longitude', np.ma.array([0,0,-2,-4,-2,0,0],dtype=float))
+        smoother = LongitudeStraighten()
+        smoother.get_derived([lat,lon])
+        self.assertGreater(smoother.array[3],-0.025)
+        self.assertLess(smoother.array[3],-0.02)
 
 
 class TestHeadingTrue(unittest.TestCase):
