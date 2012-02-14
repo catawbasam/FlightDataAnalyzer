@@ -1917,6 +1917,10 @@ def value_at_index(array, index):
     '''
     Finds the value of the data in array at a given index.
     
+    Samples within one index outside the array boundaries are permitted to
+    allow for offsets within the data frame. Beyond this a ValueError is
+    raised.
+    
     :param array: input data
     :type array: masked array
     :param index: index into the array where we want to find the array value.
@@ -1924,8 +1928,13 @@ def value_at_index(array, index):
     :returns: interpolated value from the array
     :raises ValueError: If index is outside of array range.
     '''
-    if index < 0.0 or index > len(array):
+    
+    if index < -1.0 or index > len(array):
         raise ValueError, 'Seeking value outside data time range'
+    elif index < 0.0:
+        return array[0]
+    elif index > len(array)-1:
+        return array[-1]
     
     low = int(index)
     if (low==index):
