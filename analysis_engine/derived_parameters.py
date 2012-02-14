@@ -1483,7 +1483,8 @@ def adjust_track(lon,lat,loc_est,ils_range,ils_loc,alt_aal,gspd,tas,
         # revert the ILS track from range and bearing to lat & long
         # coordinates.
         
-        # Which runway are we approaching?    
+        # Which runway are we approaching?
+        # TODO: What do we do if localizer is not available in runway dict.
         reference = app_info.value[num_loc]['runway']['localizer']
         
         # Compute the localizer scale factor (degrees per dot)

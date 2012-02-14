@@ -91,8 +91,6 @@ def split_segments(hdf):
     Notes:
      * We do not want to split on masked superframe data if mid-flight (e.g. short section of corrupt data) - repair_mask without defining repair_duration should fix that.
      * Use turning alongside engine parameters to ensure there is no movement?
-     Q: How many splits shall we make if the DFC jumps more than once? e.g. engine runups? Current answer: 1
-     Q: Shall we allow multiple splits if we don't use DFC between flights, e.g. params? No, same as above.
      Q: Beware of pre-masked minimums to ensure we don't split on padded superframes     
     
     TODO: Use L3UQAR num power ups for difficult cases?
