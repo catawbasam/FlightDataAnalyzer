@@ -8,11 +8,10 @@ try:
 except ImportError:
     import json
     
-
 from analysis_engine.api_handler import (APIConnectionError, APIHandler,
                                          InvalidAPIInputError, NotFoundError,
                                          UnknownAPIError)
-from analysis_engine.settings import BASE_URL
+from analysis_engine import settings
 
 TIMEOUT = 60
 
@@ -125,7 +124,7 @@ class APIHandlerHTTP(APIHandler):
         :rtype: dict
         '''
         url = '%(base_url)s/api/airport/nearest.json?ll=%(ll)s' % \
-            {'base_url': BASE_URL, 'll': '%f,%f' % (latitude, longitude)}
+            {'base_url': settings.BASE_URL.rstrip('/'), 'll': '%f,%f' % (latitude, longitude)}
         return self._attempt_request(url)['airport']
     
     def get_nearest_runway(self, airport, heading, latitude=None,
@@ -142,7 +141,7 @@ class APIHandlerHTTP(APIHandler):
         :type latitude: float
         :param longitude: Longitude in decimal degrees.
         :type longitude: float
-        :param ilsfreq: ILS frequency of runway # Q: Glideslope or Localizer frequency?
+        :param ilsfreq: ILS Localizer frequency of the runway in KHz.
         :type ilsfreq: float # Q: could/should it be int?
         :raises NotFoundError: If runway cannot be found.
         :raises InvalidAPIInputError: If latitude, longitude or heading are out of bounds.
@@ -150,13 +149,14 @@ class APIHandlerHTTP(APIHandler):
         :rtype: dict
         '''
         url = '%(base_url)s/api/airport/%(airport)s/runway/nearest.json' % \
-            {'base_url': BASE_URL, 'airport': airport}
+            {'base_url': settings.BASE_URL.rstrip('/'), 'airport': airport}
         
         params = {'heading': heading}
         if latitude and longitude:
             params['ll'] = '%f,%f' % (latitude, longitude)
         if ilsfreq:
-            params['ilsfreq'] = ilsfreq
+            # While ILS frequency is recorded in MHz, the API expects KHz.
+            params['ilsfreq'] = int(ilsfreq * 1000)
         get_params = urllib.urlencode(params)
         url += '?' + get_params
         return self._attempt_request(url)['runway']
