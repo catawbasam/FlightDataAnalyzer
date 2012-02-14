@@ -163,7 +163,7 @@ RATE_OF_CLIMB_FOR_LEVEL_FLIGHT = 300 # fpm
 
 # Rate of climb for liftoff. This builds upon the intertially smoothed rate of
 # climb computation to identify accurately the point of liftoff.
-RATE_OF_CLIMB_FOR_LIFTOFF = 120 # fpm
+RATE_OF_CLIMB_FOR_LIFTOFF = 200 # fpm
 
 # Rate of climb for touchdown.
 RATE_OF_CLIMB_FOR_TOUCHDOWN = -60 # fpm

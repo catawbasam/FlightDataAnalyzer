@@ -4,6 +4,7 @@ from datetime import datetime, timedelta
 from inspect import isclass
 
 from analysis_engine import settings
+from analysis_engine.library import value_at_index
 from analysis_engine.dependency_graph import dependency_order
 from analysis_engine.node import (Attribute, DerivedParameterNode,
                                   FlightAttributeNode, FlightPhaseNode,
@@ -21,8 +22,6 @@ logger.setLevel(logging.INFO)
 def geo_locate(hdf, kti_list):
     """
     Translate KeyTimeInstance into GeoKeyTimeInstance namedtuples
-    
-    TODO: Account for different frequency kti indexes.
     """
     if 'Latitude Smoothed' not in hdf \
        or 'Longitude Smoothed' not in hdf:
@@ -30,9 +29,13 @@ def geo_locate(hdf, kti_list):
     
     lat_pos = hdf['Latitude Smoothed']
     long_pos = hdf['Longitude Smoothed']
+    assert len(lat_pos.array)==len(long_pos.array)
+    assert lat_pos.frequency==long_pos.frequency
+    hz = lat_pos.hz # Shorthand for lat_pos.frequency
+    
     for kti in kti_list:
-        kti.latitude = lat_pos.array[kti.index]
-        kti.longitude = long_pos.array[kti.index]
+        kti.latitude = value_at_index(lat_pos.array, kti.index*hz)
+        kti.longitude = value_at_index(long_pos.array, kti.index*hz)
     return kti_list
 
 
