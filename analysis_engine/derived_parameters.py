@@ -1307,8 +1307,13 @@ class ILSRange(DerivedParameterNode):
             if not approach['runway']:
                 logging.warning("Approach runway information not available.")
             
-            start_2_loc, gs_2_loc, end_2_loc, pgs_lat, pgs_lon = \
-                runway_distances(app_info.value[num_loc]['runway'])
+            try:
+                start_2_loc, gs_2_loc, end_2_loc, pgs_lat, pgs_lon = \
+                    runway_distances(app_info.value[num_loc]['runway'])
+            except KeyError:
+                logging.exception("KeyError when calculating runway_distances.")
+                # TODO: Consider resulting array.
+                continue
 
             if precise.value:
                 # Convert (repaired) latitude & longitude for the whole phase
