@@ -305,15 +305,14 @@ class TakeoffPeakAcceleration(KeyTimeInstanceNode):
 
 
 class Liftoff(KeyTimeInstanceNode):
-    def derive(self, roc=P('Rate Of Climb'),
-              toffs=S('Takeoff')):
+    def derive(self, roc=P('Rate Of Climb'), toffs=S('Takeoff')):
         for toff in toffs:
             # We scan the data backwards to find the last point where the
             # rate of climb passed the threshold, so transients during the
             # takeoff run will not affect the result.
-            scan=slice(toff.slice.stop,toff.slice.start,-1)
-            lift_index = index_at_value(roc.array,
-                                        RATE_OF_CLIMB_FOR_LIFTOFF, scan)
+            scan=slice(toff.slice.stop, toff.slice.start, -1)
+            lift_index = index_at_value(roc.array, RATE_OF_CLIMB_FOR_LIFTOFF,
+                                        scan)
             if lift_index:
                 self.create_kti(lift_index)
             else:
@@ -362,7 +361,12 @@ class Touchdown(KeyTimeInstanceNode):
             # into the data.
             land_index = index_at_value(roc.array, RATE_OF_CLIMB_FOR_TOUCHDOWN,
                                         landing.slice)
-            self.create_kti(land_index)
+            if land_index:
+                self.create_kti(land_index)
+            else:
+                logging.warning("'%s' does not reach '%s' within '%s' section.",
+                                roc.name, RATE_OF_CLIMB_FOR_TOUCHDOWN,
+                                landing.name)
 
 
 class LandingTurnOffRunway(KeyTimeInstanceNode):
