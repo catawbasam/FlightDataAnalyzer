@@ -1,6 +1,6 @@
 from abc import ABCMeta, abstractmethod
 
-from analysis_engine.settings import HANDLER
+from analysis_engine import settings
 
 
 class APIError(Exception):
@@ -106,7 +106,7 @@ def get_api_handler(*args, **kwargs):
     :param kwargs: Handler class instantiation kwargs.
     :type kwargs: dict
     '''
-    import_path_split = HANDLER.split('.')
+    import_path_split = settings.HANDLER.split('.')
     class_name = import_path_split[-1]
     module_path = '.'.join(import_path_split[:-1])
     handler_module = __import__(module_path, globals(), locals(),

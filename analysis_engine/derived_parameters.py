@@ -358,6 +358,8 @@ class AltitudeForFlightPhases(DerivedParameterNode):
     
 
 # Q: Which of the two following AltitudeRadio's are correct?
+# Note: The first one cannot replace its own name (Altitude Radio) and
+# therefore will never be processed?
 class AltitudeRadio(DerivedParameterNode):
     """
     This function allows for the distance between the radio altimeter antenna
@@ -1290,7 +1292,7 @@ class ILSRange(DerivedParameterNode):
                 speed_signal = tas.array
                     
         for num_loc, this_loc in enumerate(loc_established):
-            
+            ##datetime_of_index(loc)
             # TODO: Amend FDR Approaches and this code to avoid risk of misalignment of dictionary records.
             start_2_loc, gs_2_loc, end_2_loc, pgs_lat, pgs_lon = \
                 runway_distances(app_info.value[num_loc]['runway'])

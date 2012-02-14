@@ -146,15 +146,30 @@ def derive_parameters(hdf, node_mgr, process_order):
                     result = process_result
             if hdf.duration:
                 # check that the right number of results were returned
-                assert len(result.array) == hdf.duration * result.frequency, \
-                       "Array lengths mismatch."
+                # Allow a small tolerance. For example if duration in seconds
+                # is 2822, then there will be an array length of  1411 at 0.5Hz and 706
+                # at 0.25Hz (rounded upwards). If we combine two 0.25Hz
+                # parameters then we will have an array length of 1412.
+                expected_length = hdf.duration * result.frequency
+                length_diff = len(result.array) - expected_length
+                if length_diff == 0:
+                    pass
+                elif 0 < length_diff < 5:
+                    logging.warning("Cutting excess data for parameter '%s'. Expected length was "
+                                    "'%s' while resulting array length was '%s'.",
+                                    param_name, expected_length, len(result.array))
+                    result.array = result.array[:expected_length]
+                else:
+                    raise ValueError("Array length mismatch for parameter "
+                                     "'%s'. Expected '%s', resulting array length '%s'.",
+                                     param_name, expected_length, len(result.array))
+                
             hdf.set_param(result)
         else:
             raise NotImplementedError("Unknown Type %s" % node.__class__)
         continue
     if nodes_not_implemented:
         logging.error("Nodes not implemented: %s", nodes_not_implemented)
-    print '** 12467:', flight_attrs
     return kti_list, kpv_list, section_list, flight_attrs
 
 
@@ -279,9 +294,9 @@ def process_flight(hdf_path, aircraft_info, start_datetime=datetime.now(),
 
 
 if __name__ == '__main__':
-    #required_parameters = ['Latitude Smoothed', 'Longitude Smoothed',
-                           #'Distance To Landing', 'Eng Fuel Flow',
-                           #'Altitude STD']
+    required_parameters = ['Latitude Smoothed', 'Longitude Smoothed',
+                           'Distance To Landing', 'Eng Fuel Flow',
+                           'Altitude STD']
     import argparse
     parser = argparse.ArgumentParser(description="Process a flight.")
     parser.add_argument('file', type=str,
@@ -289,4 +304,5 @@ if __name__ == '__main__':
     parser.add_argument('-p', dest='plot', action='store_true',
                         default=False, help='Plot flight onto a graph.')
     args = parser.parse_args()
-    process_flight(args.file, {'Tail Number': 'G-ABCD'}, draw=args.plot)
+    process_flight(args.file, {'Tail Number': 'G-ABCD',
+                               'Precise Positioning': True}, draw=args.plot)

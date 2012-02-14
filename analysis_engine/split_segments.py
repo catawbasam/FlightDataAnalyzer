@@ -83,6 +83,7 @@ def _rate_of_turn(heading):
                                                settings.RATE_OF_TURN_SPLITTING_THRESHOLD)    
     return rate_of_turn_masked
 
+
 def split_segments(hdf):
     '''
     DJ suggested not to use decaying engine oil temperature.
@@ -169,8 +170,8 @@ def split_segments(hdf):
             if unmasked_edges is not None:
                 # Split on the first DFC jump.
                 dfc_index = unmasked_edges[0]
-                split_index = (dfc_index / dfc.frequency) + slice_start_secs + \
-                    dfc_half_period
+                split_index = round((dfc_index / dfc.frequency) + slice_start_secs + \
+                    dfc_half_period)
                 logging.info("'Frame Counter' jumped within slow_slice '%s' "
                              "at index '%s'.", slow_slice, split_index)
                 segments.append(_segment_type_and_slice(airspeed_array,
@@ -197,8 +198,9 @@ def split_segments(hdf):
                              split_params_slice)
             else:
                 below_min_duration = below_min_slice.stop - below_min_slice.start
-                param_split_index = below_min_slice.start + (below_min_duration / 2)
-                split_index = param_split_index * split_params_frequency + slice_start_secs
+                param_split_index = split_params_slice.start + \
+                    below_min_slice.start + (below_min_duration / 2)
+                split_index = round(param_split_index / split_params_frequency)
                 logging.info("Average of normalised split parameters value was "
                              "below MINIMUM_SPLIT_PARAM_VALUE ('%s') within "
                              "slow_slice '%s' at index '%s'.",
@@ -227,7 +229,7 @@ def split_segments(hdf):
             stop_duration = first_stop.stop - first_stop.start
             rot_split_index = rot_slice.start + first_stop.start + (stop_duration / 2)
             # Get the absolute split index at 1Hz.
-            split_index = rot_split_index / heading.frequency
+            split_index = round(rot_split_index / heading.frequency)
             segments.append(_segment_type_and_slice(airspeed_array, airspeed.frequency,
                                                     start, split_index))
             start = split_index
