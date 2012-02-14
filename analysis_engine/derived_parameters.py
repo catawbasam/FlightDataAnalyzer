@@ -358,6 +358,8 @@ class AltitudeForFlightPhases(DerivedParameterNode):
     
 
 # Q: Which of the two following AltitudeRadio's are correct?
+# Note: The first one cannot replace its own name (Altitude Radio) and
+# therefore will never be processed?
 class AltitudeRadio(DerivedParameterNode):
     """
     This function allows for the distance between the radio altimeter antenna
@@ -1274,8 +1276,8 @@ class ILSRange(DerivedParameterNode):
                precise =A('Precise Positioning'),
                app_info = A('FDR Approaches'),
                final_apps = S('Final Approach'),
+               start_datetime = A('Start Datetime')
                ):
-        
         ils_range = np.ma.array(np.zeros_like(gspd.array.data))
         
         # Identify the speed signals we will use if we don't have accurate
@@ -1288,12 +1290,30 @@ class ILSRange(DerivedParameterNode):
                 # Estimate range using true airspeed. This is because there
                 # are aircraft which record ILS but not groundspeed data.
                 speed_signal = tas.array
-                    
+        
         for num_loc, this_loc in enumerate(loc_established):
             
+            for approach in app_info.value:
+                approach_index = index_of_datetime(start_datetime.value,
+                                                   approach['datetime'],
+                                                   self.frequency)
+                if this_loc.slice.start <= approach_index <= this_loc.slice.stop:
+                    break
+            else:
+                logging.warning("No approach found within slice '%s'.",
+                                this_loc)
+                continue
             # TODO: Amend FDR Approaches and this code to avoid risk of misalignment of dictionary records.
-            start_2_loc, gs_2_loc, end_2_loc, pgs_lat, pgs_lon = \
-                runway_distances(app_info.value[num_loc]['runway'])
+            if not approach['runway']:
+                logging.warning("Approach runway information not available.")
+            
+            try:
+                start_2_loc, gs_2_loc, end_2_loc, pgs_lat, pgs_lon = \
+                    runway_distances(app_info.value[num_loc]['runway'])
+            except KeyError:
+                logging.exception("KeyError when calculating runway_distances.")
+                # TODO: Consider resulting array.
+                continue
 
             if precise.value:
                 # Convert (repaired) latitude & longitude for the whole phase
@@ -1363,9 +1383,16 @@ class LatitudeSmoothed(DerivedParameterNode):
                app_info = A('FDR Approaches'),
                toff_rwy = A('FDR Takeoff Runway'),
                ):
+        if len(app_info.value) != len(loc_est):
+            logging.warning("Cannot Smooth latitude if the number of '%s'"
+                            "Sections is not equal to the number of approaches.",
+                            loc_est.name)
+            self.array = lat.array
+            return
         lat_adj, lon_adj = adjust_track(lon,lat,loc_est,ils_range,ils_loc,
                                         alt_aal,gspd,tas,precise,toff,
                                         app_info,toff_rwy)
+        
         self.array = lat_adj
         
 
@@ -1384,10 +1411,18 @@ class LongitudeSmoothed(DerivedParameterNode):
                app_info = A('FDR Approaches'),
                toff_rwy = A('FDR Takeoff Runway'),
                ):
+        if len(app_info.value) != len(loc_est):
+            logging.warning("Cannot Smooth longitude if the number of '%s'"
+                            "Sections is not equal to the number of approaches.",
+                            loc_est.name)
+            self.array = lon.array
+            return        
 
         lat_adj, lon_adj = adjust_track(lon,lat,loc_est,ils_range,ils_loc,
                                         alt_aal,gspd,tas,precise,toff,
                                         app_info,toff_rwy)
+        if len(app_info.value) != len(loc_est):
+            return None
         self.array = lon_adj
         
         
@@ -1448,13 +1483,13 @@ def adjust_track(lon,lat,loc_est,ils_range,ils_loc,alt_aal,gspd,tas,
     # Use ILS track for approach and landings in all localizer approches
     #-----------------------------------------------------------------------
     
-    for num_loc, this_loc in enumerate(loc_est):
-        
+    for num_loc, this_loc in enumerate(loc_est):    
         # Join with ILS bearings (inherently from the localizer) and
         # revert the ILS track from range and bearing to lat & long
         # coordinates.
         
-        # Which runway are we approaching?    
+        # Which runway are we approaching?
+        # TODO: What do we do if localizer is not available in runway dict.
         reference = app_info.value[num_loc]['runway']['localizer']
         
         # Compute the localizer scale factor (degrees per dot)

@@ -129,7 +129,7 @@ def split_hdf_to_segments(hdf_path, aircraft_ident={}, output_dir=None, draw=Fal
             path = os.path.join(output_dir, os.path.basename(hdf_path))
         else:
             path = hdf_path
-        dest_path = path.rstrip('.hdf5') + '.%03d' % part + '.hdf5'
+        dest_path = os.path.splitext(path)[0] + '.%03d' % part + '.hdf5'
         logging.debug("Writing segment %d: %s", part, dest_path)
         dest_path = write_segment(hdf_path, segment_slice, dest_path)
         
