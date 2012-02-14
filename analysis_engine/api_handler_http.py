@@ -149,7 +149,7 @@ class APIHandlerHTTP(APIHandler):
         :rtype: dict
         '''
         url = '%(base_url)s/api/airport/%(airport)s/runway/nearest.json' % \
-            {'base_url': settings.BASE_URL, 'airport': airport}
+            {'base_url': settings.BASE_URL.rstrip('/'), 'airport': airport}
         
         params = {'heading': heading}
         if latitude and longitude:
