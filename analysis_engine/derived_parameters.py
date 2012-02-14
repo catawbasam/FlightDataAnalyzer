@@ -1297,7 +1297,7 @@ class ILSRange(DerivedParameterNode):
                 approach_index = index_of_datetime(start_datetime.value,
                                                    approach['datetime'],
                                                    self.frequency)
-                if this_loc.start <= approach_index <= this_loc.stop:
+                if this_loc.slice.start <= approach_index <= this_loc.slice.stop:
                     break
             else:
                 logging.warning("No approach found within slice '%s'.",
