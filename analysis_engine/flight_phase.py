@@ -11,6 +11,7 @@ from analysis_engine.node import FlightPhaseNode, P, S, KTI
 from analysis_engine.settings import (AIRSPEED_THRESHOLD,
                                ALTITUDE_FOR_CLB_CRU_DSC,
                                APPROACH_MIN_DESCENT,
+                               FLIGHT_WORTH_ANALYSING_SEC,
                                HEADING_TURN_OFF_RUNWAY,
                                HEADING_TURN_ONTO_RUNWAY,
                                HYSTERESIS_FPROT,
@@ -342,8 +343,12 @@ class Fast(FlightPhaseNode):
         # Did the aircraft go fast enough to possibly become airborne?
         fast_where = np.ma.masked_less(repair_mask(airspeed.array),
                                        AIRSPEED_THRESHOLD)
-        fast_slices = np.ma.clump_unmasked(fast_where)
-        self.create_phases(fast_slices)
+        # Was the "flight" long enough to be worth bothering with?
+        whole_slice = np.ma.flatnotmasked_edges(fast_where)
+        if (whole_slice[1]-whole_slice[0]) > \
+           (FLIGHT_WORTH_ANALYSING_SEC*airspeed.frequency):
+            # OK - let's make a phase for each fast section.
+            self.create_phases(np.ma.clump_unmasked(fast_where))
  
 
 class FinalApproach(FlightPhaseNode):

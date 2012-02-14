@@ -1674,10 +1674,10 @@ def track_linking(pos, local_pos):
             adj_b = (3 * local_pos.data[b] - local_pos.data[b+1])/2 -\
                 (3 * pos.data[b-1] - pos.data[b-2])/2
 
-        adj_a = adj_a + link_a*adj_b
-        adj_b = adj_b + link_b*adj_a
+        fix_a = adj_a + link_a*adj_b
+        fix_b = adj_b + link_b*adj_a
         
-        fix = np.linspace(adj_a, adj_b, num=b-a)
+        fix = np.linspace(fix_a, fix_b, num=b-a)
         local_pos[a:b] = pos[a:b] + fix
     return local_pos
         
