@@ -75,6 +75,7 @@ def align(slave, master, interval='Subframe', signaltype='Analogue'):
     
     #---------------------------------------------------------------------------
     # Section to handle superframe parameters, in master, slave or both.
+    # Note: We do not interpolate at these low sample rates.
     #---------------------------------------------------------------------------
     if slowest < 0.25:
         # One or both parameters is in a superframe. Handle without
@@ -108,16 +109,17 @@ def align(slave, master, interval='Subframe', signaltype='Analogue'):
     # Express the timing disparity in terms of the slave paramter sample interval
     delta = (tp-ts)*slave.frequency
 
-    # If we are working across a complete frame, the number of samples in each case
-    # is four times greater.
-    if interval == 'Frame' or 0.25 <= slowest < 1:
-        wm = int(wm * 4)
-        ws = int(ws * 4)
+    # If the slowest sample rate is less than 1 Hz, we extend the period and
+    # so achieve a lowest rate of one per period.
+    if slowest<1:
+        wm /= slowest
+        ws /= slowest
+        
+    # Check the values are in ranges we have tested
     assert wm in [1,2,4,8,16,32,64]
     assert ws in [1,2,4,8,16,32,64]
-    ##assert len(master.array.data) * ws == len(slave_array.data) * wm
            
-    # Compute the sample rate ratio (in range 10:1 to 1:10 for sample rates up to 10Hz)
+    # Compute the sample rate ratio:
     r = wm/float(ws)
     
     # Here we create a masked array to hold the returned values that will have 
@@ -1917,6 +1919,10 @@ def value_at_index(array, index):
     '''
     Finds the value of the data in array at a given index.
     
+    Samples within one index outside the array boundaries are permitted to
+    allow for offsets within the data frame. Beyond this a ValueError is
+    raised.
+    
     :param array: input data
     :type array: masked array
     :param index: index into the array where we want to find the array value.
@@ -1924,8 +1930,13 @@ def value_at_index(array, index):
     :returns: interpolated value from the array
     :raises ValueError: If index is outside of array range.
     '''
-    if index < 0.0 or index > len(array):
+    
+    if index < -1.0 or index > len(array):
         raise ValueError, 'Seeking value outside data time range'
+    elif index < 0.0:
+        return array[0]
+    elif index > len(array)-1:
+        return array[-1]
     
     low = int(index)
     if (low==index):

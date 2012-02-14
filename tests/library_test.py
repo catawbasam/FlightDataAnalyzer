@@ -339,6 +339,21 @@ class TestAlign(unittest.TestCase):
         result = align(slave, master)
         expected = [100]*4+[101]*4+[102]*4+[103]*4
         np.testing.assert_array_equal(result.data,expected)
+        
+    def test_align_8_hz_half_hz(self):
+        class DumParam():
+            def __init__(self):
+                self.offset = None
+                self.frequency = 1
+                self.offset = 0.0
+                self.array = []
+        master = DumParam()
+        master.array = np.ma.arange(22576)
+        master.frequency = 8.0
+        slave = DumParam()
+        slave.array = np.ma.arange(1411)
+        slave.frequency = 0.5
+        result = align(slave, master)        
 
 
 class TestBearingsAndDistances(unittest.TestCase):
@@ -1863,10 +1878,18 @@ class TestValueAtIndex(unittest.TestCase):
     def test_value_at_index_basic(self):
         array = np.ma.arange(4)
         self.assertEquals (value_at_index(array, 1.5), 1.5)
+
+    def test_value_at_index_just_above_range(self):
+        array = np.ma.arange(4)
+        self.assertEquals (value_at_index(array, 3.7), 3.0)
         
     def test_value_at_index_above_range(self):
         array = np.ma.arange(4)
         self.assertRaises(ValueError, value_at_index, array, 7)
+        
+    def test_value_at_index_just_below_range(self):
+        array = np.ma.arange(4)
+        self.assertEquals (value_at_index(array, -0.5), 0.0)
         
     def test_value_at_index_below_range(self):
         array = np.ma.arange(4)
