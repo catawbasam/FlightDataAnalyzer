@@ -1457,6 +1457,7 @@ def adjust_track(lon,lat,loc_est,ils_range,ils_loc,alt_aal,gspd,tas,
             mask = gspd.array.mask[toff[0].slice])
 
         # The start location has been read from the database.
+        # TODO: What should we do if start coordinates are not available.
         start_locn = toff_rwy.value['start']
 
         # Similarly the runway bearing is derived from the runway endpoints

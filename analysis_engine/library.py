@@ -713,7 +713,9 @@ def hash_array(array):
     return checksum.hexdigest()
 
 def hysteresis (array, hysteresis):
-
+    if np.ma.count(array) == 0: # No unmasked elements.
+        return array
+    
     quarter_range = hysteresis / 4.0
     # Length is going to be used often, so prepare here:
     length = len(array)
