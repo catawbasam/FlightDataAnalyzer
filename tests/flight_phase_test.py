@@ -21,7 +21,6 @@ from analysis_engine.flight_phase import (
     Fast,
     FinalApproach,
     ILSLocalizerEstablished,
-    InitialApproach,
     Landing,
     LevelFlight,
     Takeoff,
@@ -178,17 +177,16 @@ class TestApproachAndLanding(unittest.TestCase):
 class TestILSLocalizerEstablished(unittest.TestCase):
     def test_can_operate(self):
         expected = [('Approach And Landing',
-                     'Approach And Landing Lowest Point',
+                     'Approach And Go Around',
                      'ILS Localizer')]
         opts = ILSLocalizerEstablished.get_operational_combinations()
         self.assertEqual(opts, expected)
 
     def test_ils_localizer_established_basic(self):
         aal = S('Approach And Landing', items=[Section('Approach And Landing', slice(2, 9, None))])
-        low = KTI('Approach And Landing Lowest Point', items=[KeyTimeInstance(index=8, name='Approach And Landing Lowest Point')])
         ils = P('ILS Localizer',np.ma.arange(-3,0,0.3))
         establish = ILSLocalizerEstablished()
-        establish.derive(aal, low, ils)
+        establish.derive(aal, None, ils)
         expected = [Section('ILS Localizer Established', slice(2, 10, None))]
         self.assertEqual(establish, expected)
 
@@ -497,39 +495,39 @@ class TestFast(unittest.TestCase):
                          [('Airspeed For Flight Phases',)])
 
     def test_fast_phase_basic(self):
-        slow_and_fast_data = np.ma.array(range(60,120,10)+range(120,50,-10))
+        slow_and_fast_data = np.ma.array(range(60,120,10)+[120]*300+range(120,50,-10))
         ias = Parameter('Airspeed', slow_and_fast_data,1,0)
         phase_fast = Fast()
         phase_fast.derive(ias)
         if AIRSPEED_THRESHOLD == 80:
-            expected = [Section(name='Fast',slice=slice(2,11,None))]
+            expected = [Section(name='Fast',slice=slice(2,311,None))]
         if AIRSPEED_THRESHOLD == 70:
-            expected = [Section(name='Fast', slice=slice(1, 12, None))]
+            expected = [Section(name='Fast', slice=slice(1, 312, None))]
         self.assertEqual(phase_fast, expected)
         
     def test_fast_phase_with_small_mask(self):
         slow_and_fast_data = np.ma.concatenate([np.ma.arange(60,120,10),
+                                                np.ma.array([120]*300),
                                                 np.ma.arange(120,50,-10)])
         slow_and_fast_data[5:8] = np.ma.masked
         ias = Parameter('Airspeed', slow_and_fast_data,1,0)
         phase_fast = Fast()
         phase_fast.derive(ias)
         if AIRSPEED_THRESHOLD == 80:
-            expected = [Section(name='Fast',slice=slice(2,11,None))]
+            expected = [Section(name='Fast',slice=slice(2,311,None))]
         if AIRSPEED_THRESHOLD == 70:
             expected = [Section(name='Fast', slice=slice(1, 12, None))]
         self.assertEqual(phase_fast, expected)
 
-
     def test_fast_phase_with_large_mask(self):
-        slow_and_fast_data = np.ma.array(range(60,120,10)+[120]*8+range(120,50,-10))
-        slow_and_fast_data[5:17] = np.ma.masked
+        slow_and_fast_data = np.ma.array(range(60,120,10)+[120]*308+range(120,50,-10))
+        slow_and_fast_data[50:100] = np.ma.masked
         ias = Parameter('Airspeed', slow_and_fast_data,1,0)
         phase_fast = Fast()
         phase_fast.derive(ias)
         if AIRSPEED_THRESHOLD == 80:
-            expected = [Section(name='Fast',slice=slice(2,5,None)),
-                        Section(name='Fast',slice=slice(17,19,None))]
+            expected = [Section(name='Fast',slice=slice(2,50,None)),
+                        Section(name='Fast',slice=slice(100,319,None))]
         if AIRSPEED_THRESHOLD == 70:
             expected = [Section(name='Fast', slice=slice(1, 5, None)), 
                         Section(name='Fast', slice=slice(17, 20, None))]
