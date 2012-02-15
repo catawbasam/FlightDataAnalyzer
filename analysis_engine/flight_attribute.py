@@ -94,7 +94,11 @@ class Approaches(FlightAttributeNode):
             # Only use lat and lon if 'Precise Positioning' is True.
             kwargs.update(latitude=lat, longitude=lon)
         try:
-            runway = api_handler.get_nearest_runway(airport_id, hdg, **kwargs)
+            runway_info = api_handler.get_nearest_runway(airport_id, hdg, **kwargs)
+            if len(runway_info['items']) > 1:
+                raise NotImplementedError('Multiple runways returned')
+            else:
+                runway = runway_info['items'][0]
         except NotFoundError:
             logging.warning("Runway could not be found with airport id '%d'"
                             "heading '%s' and kwargs '%s'.", airport_id,
@@ -333,8 +337,12 @@ class LandingRunway(FlightAttributeNode):
         
         api_handler = get_api_handler()
         try:
-            runway = api_handler.get_nearest_runway(airport_id, heading,
+            runway_info = api_handler.get_nearest_runway(airport_id, heading,
                                                     **kwargs)
+            if len(runway_info['items']) > 1:
+                raise NotImplementedError('Multiple runways returned')
+            else:
+                runway = runway_info['items'][0]            
         except NotFoundError:
             logging.warning("Runway not found for airport id '%d', heading "
                             "'%f' and kwargs '%s'.", airport_id, heading,
@@ -552,8 +560,12 @@ class TakeoffRunway(FlightAttributeNode):
         hdg_value = hdg[0].value
         api_handler = get_api_handler()
         try:
-            runway = api_handler.get_nearest_runway(airport_id, hdg_value,
+            runway_info = api_handler.get_nearest_runway(airport_id, hdg_value,
                                                     **kwargs)
+            if len(runway_info['items']) > 1:
+                raise NotImplementedError('Multiple runways returned')
+            else:
+                runway = runway_info['items'][0]
         except NotFoundError:
             logging.warning("Runway not found for airport id '%d', heading "
                             "'%f' and kwargs '%s'.", airport_id, hdg_value,
