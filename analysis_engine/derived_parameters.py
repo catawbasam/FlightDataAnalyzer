@@ -1437,7 +1437,12 @@ def adjust_track(lon,lat,loc_est,ils_range,ils_loc,alt_aal,gspd,tas,
     # Use synthesized track for takeoffs where necessary
     #-----------------------------------------------------------------------
 
-    if not precise.value:
+    if precise.value:
+        # We allow the recorded track to be used for the takeoff unchanged.
+        lat_adj[:toff[0].slice.stop] = lat.array[:toff[0].slice.stop]
+        lon_adj[:toff[0].slice.stop] = lon.array[:toff[0].slice.stop]
+        
+    else:
 
         # We can improve the track using available data.
         if gspd:
@@ -1483,7 +1488,8 @@ def adjust_track(lon,lat,loc_est,ils_range,ils_loc,alt_aal,gspd,tas,
         # revert the ILS track from range and bearing to lat & long
         # coordinates.
         
-        # Which runway are we approaching?    
+        # Which runway are we approaching?
+        # TODO: What do we do if localizer is not available in runway dict.
         reference = app_info.value[num_loc]['runway']['localizer']
         
         # Compute the localizer scale factor (degrees per dot)
@@ -1683,22 +1689,22 @@ class CoordinatesStraighten(object):
         return array
         
 
-class LatitudeStraighten(DerivedParameterNode, CoordinatesStraighten):
+class LongitudeStraighten(DerivedParameterNode, CoordinatesStraighten):
     def derive(self,
-               lat=P('Latitude'), 
-               lon=P('Longitude')):
+               lon=P('Longitude'),
+               lat=P('Latitude')):
         """
         Acceleration along track may be added to increase the sample rate and
         alignment of the resulting smoothed track parameter.
         """
-        self.array = self._smooth_coordinates(lat, lon)
+        self.array = self._smooth_coordinates(lon, lat)
 
     
-class LongitudeStraighten(DerivedParameterNode, CoordinatesStraighten):
+class LatitudeStraighten(DerivedParameterNode, CoordinatesStraighten):
     def derive(self, 
                lat=P('Latitude'), 
                lon=P('Longitude')):
-        self.array = self._smooth_coordinates(lon, lat)
+        self.array = self._smooth_coordinates(lat, lon)
 
 
 class RateOfTurn(DerivedParameterNode):
