@@ -1385,6 +1385,7 @@ class ILSRange(DerivedParameterNode):
    
     
 class LatitudeSmoothed(DerivedParameterNode):
+    units = 'deg'
     # Note order of longitude and latitude sets data aligned to latitude.
     def derive(self, lat = P('Latitude Straighten'),
                lon = P('Longitude Straighten'),
@@ -1413,6 +1414,7 @@ class LatitudeSmoothed(DerivedParameterNode):
         
 
 class LongitudeSmoothed(DerivedParameterNode):
+    units = 'deg'
     # Note order of longitude and latitude sets data aligned to longitude.
     def derive(self, lon = P('Longitude Straighten'),
                lat = P('Latitude Straighten'),
@@ -1478,6 +1480,7 @@ def adjust_track(lon,lat,loc_est,ils_range,ils_loc,alt_aal,gspd,tas,
             mask = gspd.array.mask[toff[0].slice])
 
         # The start location has been read from the database.
+        # TODO: What should we do if start coordinates are not available.
         start_locn = toff_rwy.value['start']
 
         # Similarly the runway bearing is derived from the runway endpoints
