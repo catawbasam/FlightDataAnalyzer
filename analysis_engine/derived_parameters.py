@@ -1660,7 +1660,7 @@ class Relief(DerivedParameterNode):
     
     # Quickly written without tests as I'm really editing out the old dependencies statements :-(
     def derive(self, alt_aal = P('Altitude AAL'),
-               alt_rad = P('Radio Altitude')):
+               alt_rad = P('Altitude Radio')):
         self.array = alt_aal - alt_rad
 
 
