@@ -667,7 +667,7 @@ class Eng_EPRMin(DerivedParameterNode):
 
 
 class EngFuelFlow(DerivedParameterNode):
-    name = "Eng Fuel Flow"
+    name = "Eng (*) Fuel Flow"
     @classmethod
     def can_operate(cls, available):
         # works with any combination of params available

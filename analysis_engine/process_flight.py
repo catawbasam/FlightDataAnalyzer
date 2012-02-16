@@ -299,7 +299,7 @@ def process_flight(hdf_path, aircraft_info, start_datetime=datetime.now(),
 
 if __name__ == '__main__':
     required_parameters = ['Latitude Smoothed', 'Longitude Smoothed',
-                           'Distance To Landing', 'Eng Fuel Flow',
+                           'Distance To Landing', 'Eng (*) Fuel Flow',
                            'Altitude STD']
     import argparse
     parser = argparse.ArgumentParser(description="Process a flight.")
