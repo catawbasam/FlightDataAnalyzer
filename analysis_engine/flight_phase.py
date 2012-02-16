@@ -602,8 +602,8 @@ class Takeoff(FlightPhaseNode):
     @classmethod
     def can_operate(cls, available):
         return 'Heading Continuous' in available and \
-               'Altitude AAL For Flight Phases' in available and\
-               'Fast' in available:
+               'Altitude AAL For Flight Phases' in available and \
+               'Fast' in available
     
     def derive(self, head=P('Heading Continuous'),
                alt_aal=P('Altitude AAL For Flight Phases'),
