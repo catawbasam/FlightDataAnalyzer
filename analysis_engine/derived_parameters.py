@@ -1242,14 +1242,34 @@ class HeadingTrue(DerivedParameterNode):
         self.array = true_array
         """
 
+
 class ILSFrequency(DerivedParameterNode):
     name = "ILS Frequency"
     align_to_first_dependency = False
-    def derive(self, f1=P('ILS (L) Frequency'),f2=P('ILS (R) Frequency')):
+
+    #TODO: Introduce f1==f2 as unmasked data requirement, thereby masking
+    # mismatched receivers.
+
+    def derive(self, f1=P('ILS (L) Frequency'),
+               f2=P('ILS (R) Frequency')):
         self.frequency *= 2
         self.offset = min(f1.offset, f2.offset)
         self.array = merge_sources(f1.array, f2.array)
-       
+
+
+class ILSLocalizer(DerivedParameterNode):
+    name = "ILS Localizer"
+    def derive(self, loc_1=P('ILS (L) Localizer'),
+               loc_2=P('ILS (R) Localizer')):
+        self.array, self.frequency, self.offset = blend_two_parameters(loc_1, loc_2)
+
+
+class ILSGlideslope(DerivedParameterNode):
+    name = "ILS Glideslope"
+    def derive(self, gs_1=P('ILS (L) Glideslope'),
+               gs_2=P('ILS (R) Glideslope')):
+        self.array, self.frequency, self.offset = blend_two_parameters(gs_1, gs_2)
+
 
 class ILSRange(DerivedParameterNode):
     name = "ILS Range"

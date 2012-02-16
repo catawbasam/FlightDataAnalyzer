@@ -41,3 +41,4 @@ pylint.log
 test_data/temp/*
 graph*.png
 analysis/local_settings.py
+analysis_engine/local_settings.py
