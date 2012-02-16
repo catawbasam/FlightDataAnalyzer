@@ -253,6 +253,7 @@ def process_flight(hdf_path, aircraft_info, start_datetime=datetime.now(),
     logging.info("Processing: %s", hdf_path)
     # go through modules to get derived nodes
     derived_nodes = get_derived_nodes(settings.NODE_MODULES)
+    required_params = list(set(required_params).intersection(set(derived_nodes)))
     # if required_params isn't set, try using ALL derived_nodes!
     if not required_params:
         logging.info("No required_params declared, using all derived nodes")
