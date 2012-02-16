@@ -928,7 +928,7 @@ class Flare20FtToTouchdown(KeyPointValueNode):
 class LowPowerLessThan500Ft10Sec(KeyPointValueNode):
     #TODO: TESTS
     #Q: N1 Minimum or N1 Average
-    def derive(self, eng_n1_min=P('Eng (*) N1 Minimum'), alt=P('Altitude AAL')):
+    def derive(self, eng_n1_min=P('Eng (*) N1 Min'), alt=P('Altitude AAL')):
         eng_clipped = duration(eng_n1_min.array, 10, eng_n1_min.hz)
         for alt_slice in alt.slices_from_to(500, 0):
             # clip to 10 secs
