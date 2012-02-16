@@ -938,7 +938,7 @@ class LowPowerLessThan500Ft10Sec(KeyPointValueNode):
 
 class LowPowerInFinalApproach10Sec(KeyPointValueNode):
     #Q: N1 Minimum or N1 Average (as above)
-    def derive(self, eng_avg=P('Eng (*) N1 Average'), fin_apps=S('Final Approach')):
+    def derive(self, eng_avg=P('Eng (*) N1 Avg'), fin_apps=S('Final Approach')):
         return NotImplemented
     
     
