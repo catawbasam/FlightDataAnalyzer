@@ -19,7 +19,7 @@ class SAT(DerivedParameterNode):
     
 class MACH(DerivedParameterNode):
     def derive(self, ias = P('Airspeed'), tat = P('TAT'),
-               alt = P('Altitude Std')):
+               alt = P('Altitude STD')):
         return NotImplemented
 
 class TrueAirspeed(DerivedParameterNode):

@@ -117,7 +117,7 @@ class AltitudeAtLiftoff(KeyPointValueNode):
 
     
 class AltitudeAtLanding(KeyPointValueNode):
-    def derive(self, lands=KTI('Touchdown'), alt_std=P('Altitude Std')):
+    def derive(self, lands=KTI('Touchdown'), alt_std=P('Altitude STD')):
         for land in lands:
             self.create_kpv(land.index, alt_std[land.index])
 """

@@ -1514,7 +1514,7 @@ def adjust_track(lon,lat,loc_est,ils_range,ils_loc,alt_aal,gspd,tas,
           
 class MACH(DerivedParameterNode):
     def derive(self, ias = P('Airspeed'), tat = P('TAT'),
-               alt = P('Altitude Std')):
+               alt = P('Altitude STD')):
         return NotImplemented
         
 
