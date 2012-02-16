@@ -1109,18 +1109,13 @@ class GearSelectedUp(DerivedParameterNode):
         pass
 
 
-class Groundspeed(DerivedParameterNode):
-    def derive(self, g=P('Ground Speed')):
-        self.array = g.array
-        
-
 class GroundspeedAlongTrack(DerivedParameterNode):
     # Inertial smoothing provides computation of groundspeed data when the
     # recorded groundspeed is unreliable. For example, during sliding motion
     # on a runway during deceleration. This is not good enough for long
     # period computation, but is an improvement over aircraft where the 
     # groundspeed data stops at 40kn or thereabouts.
-    def derive(self, gndspd=P('Ground Speed'),
+    def derive(self, gndspd=P('Groundspeed'),
                at=P('Acceleration Along Track'),
                
                

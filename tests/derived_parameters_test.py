@@ -876,13 +876,13 @@ class TestFuelQty(unittest.TestCase):
 
 class TestGroundspeedAlongTrack(unittest.TestCase):
     def test_can_operate(self):
-        expected = [('Ground Speed','Acceleration Along Track')]
+        expected = [('Groundspeed','Acceleration Along Track')]
         opts = GroundspeedAlongTrack.get_operational_combinations()
         self.assertEqual(opts, expected)
 
     def test_groundspeed_along_track_basic(self):
         gat = GroundspeedAlongTrack()
-        gspd = P('Ground Speed',np.ma.array(data=[100]*2+[120]*18), frequency=1)
+        gspd = P('Groundspeed',np.ma.array(data=[100]*2+[120]*18), frequency=1)
         accel = P('Acceleration Along Track',np.ma.zeros(20), frequency=1)
         gat.derive(gspd, accel)
         # A first order lag of 6 sec time constant rising from 100 to 120
@@ -893,7 +893,7 @@ class TestGroundspeedAlongTrack(unittest.TestCase):
         
     def test_groundspeed_along_track_accel_term(self):
         gat = GroundspeedAlongTrack()
-        gspd = P('Ground Speed',np.ma.array(data=[100]*200), frequency=1)
+        gspd = P('Groundspeed',np.ma.array(data=[100]*200), frequency=1)
         accel = P('Acceleration Along Track',np.ma.ones(200)*.1, frequency=1)
         accel.array[0]=0.0
         gat.derive(gspd, accel)
