@@ -165,8 +165,10 @@ def derive_parameters(hdf, node_mgr, process_order):
                     result.array = result.array[:expected_length]
                 else:
                     raise ValueError("Array length mismatch for parameter "
-                                     "'%s'. Expected '%s', resulting array length '%s'.",
-                                     param_name, expected_length, len(result.array))
+                                     "'%s'. Expected '%s', resulting array "
+                                     "length '%s'." % (param_name,
+                                                       expected_length,
+                                                       len(result.array)))
                 
             hdf.set_param(result)
         else:
@@ -253,6 +255,7 @@ def process_flight(hdf_path, aircraft_info, start_datetime=datetime.now(),
     logging.info("Processing: %s", hdf_path)
     # go through modules to get derived nodes
     derived_nodes = get_derived_nodes(settings.NODE_MODULES)
+    required_params = list(set(required_params).intersection(set(derived_nodes)))
     # if required_params isn't set, try using ALL derived_nodes!
     if not required_params:
         logging.info("No required_params declared, using all derived nodes")
@@ -299,7 +302,7 @@ def process_flight(hdf_path, aircraft_info, start_datetime=datetime.now(),
 
 if __name__ == '__main__':
     required_parameters = ['Latitude Smoothed', 'Longitude Smoothed',
-                           'Distance To Landing', 'Eng Fuel Flow',
+                           'Distance To Landing', 'Eng (*) Fuel Flow',
                            'Altitude STD']
     import argparse
     parser = argparse.ArgumentParser(description="Process a flight.")

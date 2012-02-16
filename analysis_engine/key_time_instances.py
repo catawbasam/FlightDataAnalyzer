@@ -120,12 +120,9 @@ class GoAround(KeyTimeInstanceNode):
         # List the minimum required parameters. If 'Altitude Radio For Flight
         # Phases' is available, that's a bonus and we will use it, but it is
         # not required.
-        if 'Altitude AAL For Flight Phases' in available \
+        return 'Altitude AAL For Flight Phases' in available \
            and 'Approach And Landing' in available \
-           and 'Climb For Flight Phases' in available:
-            return True
-        else:
-            return False
+           and 'Climb For Flight Phases' in available
         
     # List the optimal parameter set here
     def derive(self, alt_AAL=P('Altitude AAL For Flight Phases'),

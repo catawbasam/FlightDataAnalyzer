@@ -192,7 +192,7 @@ Node: Start Datetime 	Pre: [] 	Succ: [] 	Neighbors: [] 	Edges: []
         self.assertTrue(pos('Slip On Runway') > pos('Groundspeed'))
         self.assertTrue(pos('Slip On Runway') > pos('Horizontal g Across Track'))
         self.assertTrue(pos('Horizontal g Across Track') > pos('Roll'))
-        self.assertFalse('MACH' in order) # MACH wasn't requested!
+        self.assertFalse('Mach' in order) # Mach wasn't requested!
         self.assertFalse('Radio Altimeter' in order)
         self.assertEqual(len(nodes.lfl), 12)
         self.assertEqual(len(nodes.requested), 4)

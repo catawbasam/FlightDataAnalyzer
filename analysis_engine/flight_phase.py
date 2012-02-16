@@ -357,7 +357,7 @@ class Fast(FlightPhaseNode):
  
 
 class FinalApproach(FlightPhaseNode):
-    def derive(self, alt_AAL=P('Altitude AAL For Flight Phases'),
+    def derive(self, alt_aal=P('Altitude AAL For Flight Phases'),
                alt_rad=P('Altitude Radio For Flight Phases'),
                app_lands=S('Approach And Landing')):
         for app_land in app_lands:
@@ -365,7 +365,8 @@ class FinalApproach(FlightPhaseNode):
             # the first showing zero ft (bear in mind Altitude AAL is
             # computed from Altitude Radio below 50ft, so this is not
             # affected by pressure altitude variations at landing).
-            alt = repair_mask(minimum_unmasked(alt_AAL.array[app_land.slice],alt_rad.array[app_land.slice]))
+            alt = repair_mask(minimum_unmasked(alt_aal.array[app_land.slice],
+                                               alt_rad.array[app_land.slice]))
             app = np.ma.clump_unmasked(np.ma.masked_outside(alt,0,1000))
             if len(app)>1:
                 logging.debug('More than one final approach during a single approach and landing phase')
@@ -430,13 +431,6 @@ class ILSApproach(FlightPhaseNode):
     to determine the range for the ILS display on the web site and for
     examination for ILS KPVs.
     """
-    
-    """
-    @classmethod
-    def can_operate(cls, available):
-        return True
-    """
-    
     def derive(self, ils_loc = P('ILS Localizer'),
                fast = S('Fast')):
         return NotImplemented
@@ -547,12 +541,9 @@ class Landing(FlightPhaseNode):
     # List the minimum acceptable parameters here
     @classmethod
     def can_operate(cls, available):
-        if 'Heading Continuous' in available and \
-           'Altitude AAL For Flight Phases' in available and \
-           'Fast' in available:
-            return True
-        else:
-            return False
+        return 'Heading Continuous' in available and \
+               'Altitude AAL For Flight Phases' in available and \
+               'Fast' in available
     
     def derive(self, head=P('Heading Continuous'),
                alt_aal=P('Altitude AAL For Flight Phases'),
@@ -616,12 +607,9 @@ class Takeoff(FlightPhaseNode):
     # List the minimum acceptable parameters here
     @classmethod
     def can_operate(cls, available):
-        if 'Heading Continuous' in available and \
-           'Altitude AAL For Flight Phases' in available and\
-           'Fast' in available:
-            return True
-        else:
-            return False
+        return 'Heading Continuous' in available and \
+               'Altitude AAL For Flight Phases' in available and \
+               'Fast' in available
     
     def derive(self, head=P('Heading Continuous'),
                alt_aal=P('Altitude AAL For Flight Phases'),

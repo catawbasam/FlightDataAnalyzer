@@ -138,8 +138,8 @@ class TestApproachAndGoAround(unittest.TestCase):
 class TestApproachAndLanding(unittest.TestCase):
     def test_can_operate(self):
         self.assertEqual(ApproachAndLanding.get_operational_combinations(),
-            [('Altitude AAL For Flight Phases', 'Landing'),
-             ('Altitude AAL For Flight Phases', 'Altitude Radio', 'Landing')])
+                         [('Altitude AAL For Flight Phases', 'Altitude Radio',
+                           'Landing')])
 
     def test_approach_and_landing_phase_basic(self):
         alt = np.ma.array(range(5000,500,-500)+[0]*10)
@@ -183,6 +183,7 @@ class TestILSLocalizerEstablished(unittest.TestCase):
         self.assertEqual(opts, expected)
 
     def test_ils_localizer_established_basic(self):
+        # TODO: Either fix test by passing in Approach And Go Around instead of None or remove.
         aal = S('Approach And Landing', items=[Section('Approach And Landing', slice(2, 9, None))])
         ils = P('ILS Localizer',np.ma.arange(-3,0,0.3))
         establish = ILSLocalizerEstablished()
@@ -191,8 +192,11 @@ class TestILSLocalizerEstablished(unittest.TestCase):
         self.assertEqual(establish, expected)
 
     def test_ils_localizer_established_not_on_loc_at_minimum(self):
-        aal = S('Approach And Landing', items=[Section('Approach And Landing', slice(2, 9, None))])
-        low = KTI('Approach And Landing Lowest Point', items=[KeyTimeInstance(index=8, name='Approach And Landing Lowest Point')])
+        # TODO: Fix test by passing in Approach And Go Around SectionNode instead of Approach And Landing Lowest Point KTI.
+        aal = S('Approach And Landing',
+                items=[Section('Approach And Landing', slice(2, 9, None))])
+        low = KTI('Approach And Landing Lowest Point',
+                  items=[KeyTimeInstance(index=8, name='Approach And Landing Lowest Point')])
         ils = P('ILS Localizer',np.ma.array([3]*10))
         establish = ILSLocalizerEstablished()
         establish.derive(aal, low, ils)
@@ -200,6 +204,7 @@ class TestILSLocalizerEstablished(unittest.TestCase):
         self.assertEqual(establish, expected)
 
     def test_ils_localizer_established_only_last_segment(self):
+        # TODO: Fix test by passing in Approach And Go Around SectionNode instead of Approach And Landing Lowest Point KTI.
         aal = S('Approach And Landing', items=[Section('Approach And Landing', slice(2, 9, None))])
         low = KTI('Approach And Landing Lowest Point', items=[KeyTimeInstance(index=8, name='Approach And Landing Lowest Point')])
         ils = P('ILS Localizer',np.ma.array([0,0,0,1,3,3,2,1,0,0]))
@@ -315,7 +320,7 @@ class TestClimbing(unittest.TestCase):
                                          range(1200,-1200,-200)+
                                          range(-1200,500,100))
         rate_of_climb = Parameter('Rate Of Climb For Flight Phases', np.ma.array(rate_of_climb_data))
-        fast = SectionNode('Fast', item=[Section('Fast',slice(2,8,None))])
+        fast = SectionNode('Fast', items=[Section('Fast',slice(2,8,None))])
         up = Climbing()
         up.derive(rate_of_climb, fast)
         expected = [Section(name='Climbing', slice=slice(3, 8, None))]
@@ -520,7 +525,8 @@ class TestFast(unittest.TestCase):
         self.assertEqual(phase_fast, expected)
 
     def test_fast_phase_with_large_mask(self):
-        slow_and_fast_data = np.ma.array(range(60,120,10)+[120]*308+range(120,50,-10))
+        slow_and_fast_data = \
+            np.ma.array(range(60,120,10)+[120]*308+range(120,50,-10))
         slow_and_fast_data[50:100] = np.ma.masked
         ias = Parameter('Airspeed', slow_and_fast_data,1,0)
         phase_fast = Fast()

@@ -143,12 +143,7 @@ class AccelerationForwardsForFlightPhases(DerivedParameterNode):
     # List the minimum acceptable parameters here
     @classmethod
     def can_operate(cls, available):
-        if 'Airspeed' in available:
-            return True
-        elif 'Acceleration Longitudinal' in available:
-            return True
-        else:
-            return False
+        return 'Airspeed' in available or 'Acceleration Longitudinal' in available
         
     # List the optimal parameter set here
     def derive(self, acc_long=P('Acceleration Longitudinal'),
@@ -196,10 +191,7 @@ class AirspeedMinusVref(DerivedParameterNode):
 class AirspeedTrue(DerivedParameterNode):
     @classmethod
     def can_operate(cls, available):
-        if 'Airspeed' in available and 'Altitude STD':
-            return True
-        else:
-            return False
+       return 'Airspeed' in available and 'Altitude STD' in available
     
     def derive(self, cas = P('Airspeed'),
                alt_std = P('Altitude STD'),
@@ -577,6 +569,51 @@ class ClimbForFlightPhases(DerivedParameterNode):
                     self.array[ax][count] = alt_std.array[ax][count] - curr_alt
     
     
+class ControlColumn(DerivedParameterNode):
+    '''
+    '''
+    align_to_first_dependency = False
+    def derive(self,
+               disp_capt=P('Control Column (Capt)'),
+               disp_fo=P('Control Column (FO)')):
+        self.array, self.frequency, self.offset = \
+            blend_two_parameters(disp_capt, disp_fo)
+
+
+class ControlColumnForce(DerivedParameterNode):
+    '''
+    '''
+    def derive(self,
+               force_a_capt=P('Control Column (A) Force (Capt)'),
+               force_b_capt=P('Control Column (B) Force (Capt)'),
+               force_a_fo=P('Control Column (A) Force (FO)'),
+               force_b_fo=P('Control Column (B) Force (FO)')):
+        self.array = (force_a_capt.array + force_b_capt.array
+                   + force_a_fo.array + force_b_fo.array) / 2.0
+
+
+class ControlWheel(DerivedParameterNode):
+    '''
+    '''
+    align_to_first_dependency = False
+    def derive(self,
+               disp_capt=P('Control Wheel (Capt)'),
+               disp_fo=P('Control Wheel (FO)')):
+        self.array, self.frequency, self.offset = \
+            blend_two_parameters(disp_capt, disp_fo)
+
+
+class ControlWheelForce(DerivedParameterNode):
+    '''
+    '''
+    align_to_first_dependency = False
+    def derive(self,
+               force_capt=P('Control Wheel Force (Capt)'),
+               force_fo=P('Control Wheel Force (FO)')):
+        self.array, self.frequency, self.offset = \
+            blend_two_parameters(force_capt, force_fo)
+
+
 class DistanceTravelled(DerivedParameterNode):
     "Distance travelled in Nautical Miles. Calculated using Groundspeed"
     units = 'nm'
@@ -602,8 +639,7 @@ class Eng_EGTAvg(DerivedParameterNode):
     @classmethod
     def can_operate(cls, available):
         # works with any combination of params available
-        if any([d in available for d in cls.get_dependency_names()]):
-            return True
+        return any([d in available for d in cls.get_dependency_names()])
         
     def derive(self, 
                eng1=P('Eng (1) EGT'),
@@ -620,16 +656,15 @@ class Eng_EGTMax(DerivedParameterNode):
     @classmethod
     def can_operate(cls, available):
         # works with any combination of params available
-        if any([d in available for d in cls.get_dependency_names()]):
-            return True
+        return any([d in available for d in cls.get_dependency_names()])
         
     def derive(self, 
                eng1=P('Eng (1) EGT'),
                eng2=P('Eng (2) EGT'),
                eng3=P('Eng (3) EGT'),
                eng4=P('Eng (4) EGT')):
-        eng = vstack_params(eng1, eng2, eng3, eng4)
-        self.array = eng.max(axis=0)
+        engines = vstack_params(eng1, eng2, eng3, eng4)
+        self.array = np.ma.max(engines, axis=0)
 
 
 class Eng_EGTMin(DerivedParameterNode):
@@ -638,16 +673,33 @@ class Eng_EGTMin(DerivedParameterNode):
     @classmethod
     def can_operate(cls, available):
         # works with any combination of params available
-        if any([d in available for d in cls.get_dependency_names()]):
-            return True
+        return any([d in available for d in cls.get_dependency_names()])
         
     def derive(self, 
                eng1=P('Eng (1) EGT'),
                eng2=P('Eng (2) EGT'),
                eng3=P('Eng (3) EGT'),
                eng4=P('Eng (4) EGT')):
-        eng = vstack_params(eng1, eng2, eng3, eng4)
-        self.array = eng.min(axis=0)
+        engines = vstack_params(eng1, eng2, eng3, eng4)
+        self.array = np.ma.min(engines, axis=0)
+
+
+class Eng_EPRAvg(DerivedParameterNode):
+    #TODO: TEST
+    name = "Eng (*) EPR Avg"
+    @classmethod
+    def can_operate(cls, available):
+        # works with any combination of params available
+        if any([d in available for d in cls.get_dependency_names()]):
+            return True
+    
+    def derive(self, 
+               eng1=P('Eng (1) EPR'),
+               eng2=P('Eng (2) EPR'),
+               eng3=P('Eng (3) EPR'),
+               eng4=P('Eng (4) EPR')):
+        engines = vstack_params(eng1, eng2, eng3, eng4)
+        self.array = np.ma.average(engines, axis=0)
 
 
 class Eng_EPRMax(DerivedParameterNode):
@@ -656,16 +708,15 @@ class Eng_EPRMax(DerivedParameterNode):
     @classmethod
     def can_operate(cls, available):
         # works with any combination of params available
-        if any([d in available for d in cls.get_dependency_names()]):
-            return True
+        return any([d in available for d in cls.get_dependency_names()])
         
     def derive(self, 
                eng1=P('Eng (1) EPR'),
                eng2=P('Eng (2) EPR'),
                eng3=P('Eng (3) EPR'),
                eng4=P('Eng (4) EPR')):
-        eng = vstack_params(eng1, eng2, eng3, eng4)
-        self.array = eng.max(axis=0)
+        engines = vstack_params(eng1, eng2, eng3, eng4)
+        self.array = np.ma.max(engines, axis=0)
 
 
 class Eng_EPRMin(DerivedParameterNode):
@@ -674,20 +725,20 @@ class Eng_EPRMin(DerivedParameterNode):
     @classmethod
     def can_operate(cls, available):
         # works with any combination of params available
-        if any([d in available for d in cls.get_dependency_names()]):
-            return True
+        return any([d in available for d in cls.get_dependency_names()])
         
     def derive(self, 
                eng1=P('Eng (1) EPR'),
                eng2=P('Eng (2) EPR'),
                eng3=P('Eng (3) EPR'),
                eng4=P('Eng (4) EPR')):
-        eng = vstack_params(eng1, eng2, eng3, eng4)
-        self.array = eng.min(axis=0)
+        engines = vstack_params(eng1, eng2, eng3, eng4)
+        self.array = np.ma.min(engines, axis=0)
 
 
-class EngFuelFlow(DerivedParameterNode):
-    name = "Eng Fuel Flow"
+class Eng_FuelFlow(DerivedParameterNode):
+    #TODO: TEST
+    name = "Eng (*) Fuel Flow"
     @classmethod
     def can_operate(cls, available):
         # works with any combination of params available
@@ -698,8 +749,8 @@ class EngFuelFlow(DerivedParameterNode):
                eng2=P('Eng (2) Fuel Flow'),
                eng3=P('Eng (3) Fuel Flow'),
                eng4=P('Eng (4) Fuel Flow')):
-        eng = vstack_params(eng1, eng2, eng3, eng4)
-        self.array = np.ma.sum(eng, axis=0) # TODO: TEST!
+        engines = vstack_params(eng1, eng2, eng3, eng4)
+        self.array = np.ma.sum(engines, axis=0)
       
 
 class Eng_N1Avg(DerivedParameterNode):
@@ -707,8 +758,7 @@ class Eng_N1Avg(DerivedParameterNode):
     @classmethod
     def can_operate(cls, available):
         # works with any combination of params available
-        if any([d in available for d in cls.get_dependency_names()]):
-            return True
+        return any([d in available for d in cls.get_dependency_names()])
     
     def derive(self, 
                eng1=P('Eng (1) N1'),
@@ -724,8 +774,7 @@ class Eng_N1Max(DerivedParameterNode):
     @classmethod
     def can_operate(cls, available):
         # works with any combination of params available
-        if any([d in available for d in cls.get_dependency_names()]):
-            return True
+        return any([d in available for d in cls.get_dependency_names()])
     
     def derive(self, 
                eng1=P('Eng (1) N1'),
@@ -741,8 +790,7 @@ class Eng_N1Min(DerivedParameterNode):
     @classmethod
     def can_operate(cls, available):
         # works with any combination of params available
-        if any([d in available for d in cls.get_dependency_names()]):
-            return True
+        return any([d in available for d in cls.get_dependency_names()])
     
     def derive(self, 
                eng1=P('Eng (1) N1'),
@@ -758,8 +806,7 @@ class Eng_N2Avg(DerivedParameterNode):
     @classmethod
     def can_operate(cls, available):
         # works with any combination of params available
-        if any([d in available for d in cls.get_dependency_names()]):
-            return True
+        return any([d in available for d in cls.get_dependency_names()])
         
     def derive(self, 
                eng1=P('Eng (1) N2'),
@@ -771,14 +818,12 @@ class Eng_N2Avg(DerivedParameterNode):
 
 
 class Eng_N2Max(DerivedParameterNode):
-    #TODO: TEST
     name = "Eng (*) N2 Max"
     @classmethod
     def can_operate(cls, available):
         # works with any combination of params available
-        if any([d in available for d in cls.get_dependency_names()]):
-            return True
-    
+        return any([d in available for d in cls.get_dependency_names()])
+            
     def derive(self, 
                eng1=P('Eng (1) N2'),
                eng2=P('Eng (2) N2'),
@@ -789,13 +834,11 @@ class Eng_N2Max(DerivedParameterNode):
 
 
 class Eng_N2Min(DerivedParameterNode):
-    #TODO: TEST
     name = "Eng (*) N2 Min"
     @classmethod
     def can_operate(cls, available):
         # works with any combination of params available
-        if any([d in available for d in cls.get_dependency_names()]):
-            return True
+        return any([d in available for d in cls.get_dependency_names()])
     
     def derive(self, 
                eng1=P('Eng (1) N2'),
@@ -806,14 +849,64 @@ class Eng_N2Min(DerivedParameterNode):
         self.array = np.ma.min(engines, axis=0)
 
 
+class Eng_N3Avg(DerivedParameterNode):
+    name = "Eng (*) N3 Avg"
+    @classmethod
+    def can_operate(cls, available):
+        # works with any combination of params available
+        if any([d in available for d in cls.get_dependency_names()]):
+            return True
+        
+    def derive(self, 
+               eng1=P('Eng (1) N3'),
+               eng2=P('Eng (2) N3'),
+               eng3=P('Eng (3) N3'),
+               eng4=P('Eng (4) N3')):
+        engines = vstack_params(eng1, eng2, eng3, eng4)
+        self.array = np.ma.average(engines, axis=0)
+
+
+class Eng_N3Max(DerivedParameterNode):
+    name = "Eng (*) N3 Max"
+    @classmethod
+    def can_operate(cls, available):
+        # works with any combination of params available
+        if any([d in available for d in cls.get_dependency_names()]):
+            return True
+    
+    def derive(self, 
+               eng1=P('Eng (1) N3'),
+               eng2=P('Eng (2) N3'),
+               eng3=P('Eng (3) N3'),
+               eng4=P('Eng (4) N3')):
+        engines = vstack_params(eng1, eng2, eng3, eng4)
+        self.array = np.ma.max(engines, axis=0)
+
+
+class Eng_N3Min(DerivedParameterNode):
+    name = "Eng (*) N3 Min"
+    @classmethod
+    def can_operate(cls, available):
+        # works with any combination of params available
+        if any([d in available for d in cls.get_dependency_names()]):
+            return True
+    
+    def derive(self, 
+               eng1=P('Eng (1) N3'),
+               eng2=P('Eng (2) N3'),
+               eng3=P('Eng (3) N3'),
+               eng4=P('Eng (4) N3')):
+        engines = vstack_params(eng1, eng2, eng3, eng4)
+        self.array = np.ma.min(engines, axis=0)
+
+
 class Eng_OilTempAvg(DerivedParameterNode):
     #TODO: TEST
     name = "Eng (*) Oil Temp Avg"
     @classmethod
     def can_operate(cls, available):
         # works with any combination of params available
-        if any([d in available for d in cls.get_dependency_names()]):
-            return True
+        return any([d in available for d in cls.get_dependency_names()])
         
     def derive(self, 
                eng1=P('Eng (1) Oil Temp'),
@@ -830,16 +923,15 @@ class Eng_OilTempMin(DerivedParameterNode):
     @classmethod
     def can_operate(cls, available):
         # works with any combination of params available
-        if any([d in available for d in cls.get_dependency_names()]):
-            return True
+        return any([d in available for d in cls.get_dependency_names()])
         
     def derive(self, 
                eng1=P('Eng (1) Oil Temp'),
                eng2=P('Eng (2) Oil Temp'),
                eng3=P('Eng (3) Oil Temp'),
                eng4=P('Eng (4) Oil Temp')):
-        eng = vstack_params(eng1, eng2, eng3, eng4)
-        self.array = eng.min(axis=0)
+        engines = vstack_params(eng1, eng2, eng3, eng4)
+        self.array = np.ma.min(engines, axis=0)
 
 
 class Eng_OilTempMax(DerivedParameterNode):
@@ -848,16 +940,15 @@ class Eng_OilTempMax(DerivedParameterNode):
     @classmethod
     def can_operate(cls, available):
         # works with any combination of params available
-        if any([d in available for d in cls.get_dependency_names()]):
-            return True
+        return any([d in available for d in cls.get_dependency_names()])
         
     def derive(self, 
                eng1=P('Eng (1) Oil Temp'),
                eng2=P('Eng (2) Oil Temp'),
                eng3=P('Eng (3) Oil Temp'),
                eng4=P('Eng (4) Oil Temp')):
-        eng = vstack_params(eng1, eng2, eng3, eng4)
-        self.array = eng.max(axis=0)
+        engines = vstack_params(eng1, eng2, eng3, eng4)
+        self.array = np.ma.max(engines, axis=0)
 
 
 class Eng_OilPressAvg(DerivedParameterNode):
@@ -866,8 +957,7 @@ class Eng_OilPressAvg(DerivedParameterNode):
     @classmethod
     def can_operate(cls, available):
         # works with any combination of params available
-        if any([d in available for d in cls.get_dependency_names()]):
-            return True
+        return any([d in available for d in cls.get_dependency_names()])
         
     def derive(self, 
                eng1=P('Eng (1) Oil Press'),
@@ -885,20 +975,37 @@ class Eng_OilPressMax(DerivedParameterNode):
     @classmethod
     def can_operate(cls, available):
         # works with any combination of params available
-        if any([d in available for d in cls.get_dependency_names()]):
-            return True
+        return any([d in available for d in cls.get_dependency_names()])
         
     def derive(self, 
                eng1=P('Eng (1) Oil Press'),
                eng2=P('Eng (2) Oil Press'),
                eng3=P('Eng (3) Oil Press'),
                eng4=P('Eng (4) Oil Press')):
-        eng = vstack_params(eng1, eng2, eng3, eng4)
-        self.array = eng.max(axis=0)
+        engines = vstack_params(eng1, eng2, eng3, eng4)
+        self.array = np.ma.max(engines, axis=0)
 
 
 class Eng_OilPressMin(DerivedParameterNode):
+    #TODO: TEST
     name = 'Eng (*) Oil Press Min'
+    @classmethod
+    def can_operate(cls, available):
+        # works with any combination of params available
+        return any([d in available for d in cls.get_dependency_names()])
+        
+    def derive(self, 
+               eng1=P('Eng (1) Oil Press'),
+               eng2=P('Eng (2) Oil Press'),
+               eng3=P('Eng (3) Oil Press'),
+               eng4=P('Eng (4) Oil Press')):
+        engines = vstack_params(eng1, eng2, eng3, eng4)
+        self.array = np.ma.min(engines, axis=0)
+
+
+class Eng_TorqueAvg(DerivedParameterNode):
+    #TODO: TEST
+    name = "Eng (*) Torque Avg"
     @classmethod
     def can_operate(cls, available):
         # works with any combination of params available
@@ -906,12 +1013,12 @@ class Eng_OilPressMin(DerivedParameterNode):
             return True
         
     def derive(self, 
-               eng1=P('Eng (1) Oil Press'),
-               eng2=P('Eng (2) Oil Press'),
-               eng3=P('Eng (3) Oil Press'),
-               eng4=P('Eng (4) Oil Press')):
-        eng = vstack_params(eng1, eng2, eng3, eng4)
-        self.array = eng.min(axis=0)
+               eng1=P('Eng (1) Torque'),
+               eng2=P('Eng (2) Torque'),
+               eng3=P('Eng (3) Torque'),
+               eng4=P('Eng (4) Torque')):
+        engines = vstack_params(eng1, eng2, eng3, eng4)
+        self.array = np.ma.average(engines, axis=0)
 
 
 class Eng_TorqueMin(DerivedParameterNode):
@@ -920,8 +1027,7 @@ class Eng_TorqueMin(DerivedParameterNode):
     @classmethod
     def can_operate(cls, available):
         # works with any combination of params available
-        if any([d in available for d in cls.get_dependency_names()]):
-            return True
+        return any([d in available for d in cls.get_dependency_names()])
         
     def derive(self, 
                eng1=P('Eng (1) Torque'),
@@ -938,8 +1044,7 @@ class Eng_TorqueMax(DerivedParameterNode):
     @classmethod
     def can_operate(cls, available):
         # works with any combination of params available
-        if any([d in available for d in cls.get_dependency_names()]):
-            return True
+        return any([d in available for d in cls.get_dependency_names()])
         
     def derive(self, 
                eng1=P('Eng (1) Torque'),
@@ -951,24 +1056,42 @@ class Eng_TorqueMax(DerivedParameterNode):
 
 
 class Eng_VibN1Max(DerivedParameterNode):
+    #TODO: TEST
     name = 'Eng (*) Vib N1 Max'
     @classmethod
     def can_operate(cls, available):
         # works with any combination of params available
-        if any([d in available for d in cls.get_dependency_names()]):
-            return True
+        return any([d in available for d in cls.get_dependency_names()])
         
     def derive(self, 
                eng1=P('Eng (1) Vib N1'),
                eng2=P('Eng (2) Vib N1'),
                eng3=P('Eng (3) Vib N1'),
                eng4=P('Eng (4) Vib N1')):
-        eng = vstack_params(eng1, eng2, eng3, eng4)
-        self.array = eng.max(axis=0)
+        engines = vstack_params(eng1, eng2, eng3, eng4)
+        self.array = np.ma.max(engines, axis=0)
         
         
 class Eng_VibN2Max(DerivedParameterNode):
+    #TODO: TEST
     name = 'Eng (*) Vib N2 Max'
+    @classmethod
+    def can_operate(cls, available):
+        # works with any combination of params available
+        return any([d in available for d in cls.get_dependency_names()])
+        
+    def derive(self, 
+               eng1=P('Eng (1) Vib N2'),
+               eng2=P('Eng (2) Vib N2'),
+               eng3=P('Eng (3) Vib N2'),
+               eng4=P('Eng (4) Vib N2')):
+        engines = vstack_params(eng1, eng2, eng3, eng4)
+        self.array = np.ma.max(engines, axis=0)
+
+
+class Eng_VibN3Max(DerivedParameterNode):
+    #TODO: TEST
+    name = 'Eng (*) Vib N3 Max'
     @classmethod
     def can_operate(cls, available):
         # works with any combination of params available
@@ -976,12 +1099,12 @@ class Eng_VibN2Max(DerivedParameterNode):
             return True
         
     def derive(self, 
-               eng1=P('Eng (1) Vib N2'),
-               eng2=P('Eng (2) Vib N2'),
-               eng3=P('Eng (3) Vib N2'),
-               eng4=P('Eng (4) Vib N2')):
-        eng = vstack_params(eng1, eng2, eng3, eng4)
-        self.array = eng.max(axis=0)
+               eng1=P('Eng (1) Vib N3'),
+               eng2=P('Eng (2) Vib N3'),
+               eng3=P('Eng (3) Vib N3'),
+               eng4=P('Eng (4) Vib N3')):
+        engines = vstack_params(eng1, eng2, eng3, eng4)
+        self.array = np.ma.max(engines, axis=0)
 
 
 class FuelQty(DerivedParameterNode):
@@ -993,8 +1116,7 @@ class FuelQty(DerivedParameterNode):
     @classmethod
     def can_operate(cls, available):
         # works with any combination of params available
-        if any([d in available for d in cls.get_dependency_names()]):
-            return True
+        return any([d in available for d in cls.get_dependency_names()])
     
     def derive(self, 
                fuel_qty1=P('Fuel Qty (1)'),
@@ -1082,9 +1204,10 @@ class Config(DerivedParameterNode):
     """
     @classmethod
     def can_operate(cls, available):
-        if 'Flap' in available and 'Slat' in available \
-           and 'Series' in available and 'Family' in available:
-            return True
+        return 'Flap' in available and \
+               'Slat' in available and \
+               'Series' in available and \
+               'Family' in available
         
     def derive(self, flap=P('Flap'), slat=P('Slat'), aileron=P('Aileron'), 
                series=A('Series'), family=A('Family')):
@@ -1114,25 +1237,20 @@ class Config(DerivedParameterNode):
             self.array[summed == s] = state
 
 
-class GearSelectedDown(DerivedParameterNode):
-    # And here is where the nightmare starts.
-    # Sometimes recorded
-    # Sometimes interpreted from other signals
-    # There's no pattern to how this is worked out.
-    # For aircraft with a Gear Selected Down parameter let's try this...
-    def derive(self, param=P('Gear Selected Down FDR')):
-        return NotImplemented
+####class GearSelectedDown(DerivedParameterNode):
+####    # And here is where the nightmare starts.
+####    # Sometimes recorded
+####    # Sometimes interpreted from other signals
+####    # There's no pattern to how this is worked out.
+####    # For aircraft with a Gear Selected Down parameter let's try this...
+####    def derive(self, param=P('Gear Selected Down')):
+####        return NotImplemented
 
 
-class GearSelectedUp(DerivedParameterNode):
-    def derive(self, param=P('Gear Selected Up FDR')):
-        pass
+####class GearSelectedUp(DerivedParameterNode):
+####    def derive(self, param=P('Gear Selected Up')):
+####        return NotImplemented
 
-
-class Groundspeed(DerivedParameterNode):
-    def derive(self, g=P('Ground Speed')):
-        self.array = g.array
-        
 
 class GroundspeedAlongTrack(DerivedParameterNode):
     # Inertial smoothing provides computation of groundspeed data when the
@@ -1140,7 +1258,7 @@ class GroundspeedAlongTrack(DerivedParameterNode):
     # on a runway during deceleration. This is not good enough for long
     # period computation, but is an improvement over aircraft where the 
     # groundspeed data stops at 40kn or thereabouts.
-    def derive(self, gndspd=P('Ground Speed'),
+    def derive(self, gndspd=P('Groundspeed'),
                at=P('Acceleration Along Track'),
                
                
@@ -1188,15 +1306,6 @@ class HeadingContinuous(DerivedParameterNode):
 
 class Heading(DerivedParameterNode):
     def derive(self, head_mag=P('Heading Magnetic')):
-        self.array = head_mag.array
-
-
-class HeadingMagnetic(DerivedParameterNode):
-    '''
-    This class currently exists only to give the 146-301 Magnetic Heading.
-    '''
-    units = 'deg'
-    def derive(self, head_mag=P('RECORDED MAGNETIC HEADING')):
         self.array = head_mag.array
 
 
@@ -1267,29 +1376,48 @@ class HeadingTrue(DerivedParameterNode):
         self.array = true_array
         """
 
+
 class ILSFrequency(DerivedParameterNode):
+    """
+    This code is based upon the normal operation of an Instrument Landing
+    System whereby the left and right receivers are tuned to the same runway
+    ILS frequency. This allows independent monitoring of the approach by the
+    two crew.
+    
+    If there is a problem with the system, users can inspect the (L) and (R)
+    signals separately, although the normal use will show valid ILS data when
+    both are tuned to the same frequency.
+    
+    """
     name = "ILS Frequency"
     align_to_first_dependency = False
-    
-    #TODO: Introduce f1==f2 as unmasked data requirement, thereby masking mismatched receivers.
-    
     def derive(self, f1=P('ILS (L) Frequency'),f2=P('ILS (R) Frequency')):
-        self.frequency *= 2
-        self.offset = min(f1.offset, f2.offset)
-        self.array = merge_sources(f1.array, f2.array)
-       
+        # Mask invalid frequencies
+        f1_trim = np.ma.masked_outside(f1.array,108.10,111.95)
+        f2_trim = np.ma.masked_outside(f2.array,108.10,111.95)
+        # and mask where the two receivers are not matched
+        self.array = np.ma.array(data = f1_trim.data,
+                                 mask = np.ma.masked_not_equal(f1_trim-f2_trim,0.0).mask)
+        
 
 class ILSLocalizer(DerivedParameterNode):
     name = "ILS Localizer"
-    def derive(self, loc_1=P('ILS (L) Localizer'),loc_2=P('ILS (R) Localizer')):
+    align_to_first_dependency = False
+    def derive(self, loc_1=P('ILS (L) Localizer'),loc_2=P('ILS (R) Localizer'), 
+               freq=P("ILS Frequency")):
         self.array, self.frequency, self.offset = blend_two_parameters(loc_1, loc_2)
-
+        # Would like to do this, except the frequemcies don't match
+        # self.array.mask = np.ma.logical_or(self.array.mask, freq.array.mask)
+               
        
 class ILSGlideslope(DerivedParameterNode):
     name = "ILS Glideslope"
-    
-    def derive(self, gs_1=P('ILS (L) Glideslope'),gs_2=P('ILS (R) Glideslope')):
+    align_to_first_dependency = False
+    def derive(self, gs_1=P('ILS (L) Glideslope'),gs_2=P('ILS (R) Glideslope'), 
+               freq=P("ILS Frequency")):
         self.array, self.frequency, self.offset = blend_two_parameters(gs_1, gs_2)
+        # Would like to do this, except the frequemcies don't match
+        # self.array.mask = np.ma.logical_or(self.array.mask, freq.array.mask)
        
 
 class ILSRange(DerivedParameterNode):
@@ -1570,11 +1698,12 @@ def adjust_track(lon,lat,loc_est,ils_range,ils_loc,alt_aal,gspd,tas,
     return track_linking(lat.array, lat_adj), track_linking(lon.array, lon_adj)
 
           
-class MACH(DerivedParameterNode):
+"""
+class Mach(DerivedParameterNode):
     def derive(self, ias = P('Airspeed'), tat = P('TAT'),
-               alt = P('Altitude Std')):
+               alt = P('Altitude STD')):
         return NotImplemented
-        
+"""        
 
 class RateOfClimb(DerivedParameterNode):
     """
@@ -1705,15 +1834,15 @@ class Relief(DerivedParameterNode):
     
     # Quickly written without tests as I'm really editing out the old dependencies statements :-(
     def derive(self, alt_aal = P('Altitude AAL'),
-               alt_rad = P('Radio Altitude')):
-        self.array = alt_aal - alt_rad
+               alt_rad = P('Altitude Radio')):
+        self.array = alt_aal.array - alt_rad.array
 
 
-class Speedbrake(DerivedParameterNode):
-    def derive(self, param=P('Speedbrake FDR')):
-        # There will be a recorded parameter, but varying types of correction will 
-        # need to be applied according to the aircraft type and data frame.
-        self.array = param
+####class Speedbrake(DerivedParameterNode):
+####    def derive(self, param=P('Speedbrake')):
+####        # There will be a recorded parameter, but varying types of correction will 
+####        # need to be applied according to the aircraft type and data frame.
+####        return NotImplemented
 
 
 class CoordinatesStraighten(object):
@@ -1791,11 +1920,14 @@ class PitchRate(DerivedParameterNode):
 
 
 class ThrottleLever(DerivedParameterNode):
-    def derive(self, tla1=P('Throttle Lever Angle (1)'), 
-               tla2=P('Throttle Lever Angle (2)')):
+    def derive(self,
+               tla1=P('Throttle Lever Angle (1)'), 
+               tla2=P('Throttle Lever Angle (2)'),
+               tla3=P('Throttle Lever Angle (3)'),
+               tla4=P('Throttle Lever Angle (4)')):
         ##self.hz = tla1.hz * 2
-        ##self.offset = min(tla1.offset, tla2.offset)
-        ##self.array = interleave (tla1, tla2)
+        ##self.offset = min(tla1.offset, tla2.offset, tla3.offset, tla4.offset)
+        ##self.array = interleave(tla1, tla2, tla3, tla4)
         return NotImplemented
 
 

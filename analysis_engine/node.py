@@ -135,17 +135,12 @@ class Node(object):
 @classmethod
 def can_operate(cls, available):
     # works with any combination of params available
-    if any([d in available for d in cls.get_dependency_names()]):
-        return True
-    else:
-        return False
+    return any([d in available for d in cls.get_dependency_names()])
 
 @classmethod
 def can_operate(cls, available):
-    if set(cls.get_dependency_names()).intersection(available):
-        return True  # if ANY are available
-    else:
-        return False  # we have none available
+    # Can operate if any are available.
+    return set(cls.get_dependency_names()).intersection(available)
             
         """
         # ensure all names are strings
