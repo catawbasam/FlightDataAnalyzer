@@ -1369,6 +1369,7 @@ class ILSRange(DerivedParameterNode):
    
     
 class LatitudeSmoothed(DerivedParameterNode):
+    units = 'deg'
     # Note order of longitude and latitude sets data aligned to latitude.
     def derive(self, lat = P('Latitude Straighten'),
                lon = P('Longitude Straighten'),
@@ -1397,6 +1398,7 @@ class LatitudeSmoothed(DerivedParameterNode):
         
 
 class LongitudeSmoothed(DerivedParameterNode):
+    units = 'deg'
     # Note order of longitude and latitude sets data aligned to longitude.
     def derive(self, lon = P('Longitude Straighten'),
                lat = P('Latitude Straighten'),
