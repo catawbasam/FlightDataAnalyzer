@@ -54,6 +54,8 @@ class Airborne(FlightPhaseNode):
             lastpoint = int(speedy.slice.stop)
             if roc.array[lastpoint-1] < -RATE_OF_CLIMB_FOR_LEVEL_FLIGHT:
                 down = lastpoint
+            elif lastpoint - midpoint < 2:
+                down = lastpoint
             else:
                 down = index_at_value(roc.array, -RATE_OF_CLIMB_FOR_LEVEL_FLIGHT,
                                       slice(lastpoint,midpoint,-1))
@@ -345,7 +347,10 @@ class Fast(FlightPhaseNode):
                                        AIRSPEED_THRESHOLD)
         # Was the "flight" long enough to be worth bothering with?
         whole_slice = np.ma.flatnotmasked_edges(fast_where)
-        if (whole_slice[1]-whole_slice[0]) > \
+        if whole_slice is None:
+            # The aircraft did not go fast.
+            return
+        elif (whole_slice[1]-whole_slice[0]) > \
            (FLIGHT_WORTH_ANALYSING_SEC*airspeed.frequency):
             # OK - let's make a phase for each fast section.
             self.create_phases(np.ma.clump_unmasked(fast_where))
@@ -598,7 +603,8 @@ class Landing(FlightPhaseNode):
                 pass
             """
 
-            self.create_phases([slice(landing_begin, landing_end)])
+            if landing_begin and landing_end:
+                self.create_phases([slice(landing_begin, landing_end)])
 
 
 class Takeoff(FlightPhaseNode):
@@ -675,7 +681,8 @@ class Takeoff(FlightPhaseNode):
  
             #-------------------------------------------------------------------
             # Create a phase for this takeoff
-            self.create_phases([slice(takeoff_begin, takeoff_end)])
+            if takeoff_begin and takeoff_end:
+                self.create_phases([slice(takeoff_begin, takeoff_end)])
 
 
 class Turning(FlightPhaseNode):

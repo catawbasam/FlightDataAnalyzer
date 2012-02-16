@@ -119,7 +119,7 @@ HYSTERESIS_FP_RAD_ALT = 5 # ft
 # phase if the aircraft is climbing/descending close to a threshold level.
 HYSTERESIS_FPROC = 40 # fpm / RMS altitude noise
 # The threshold used is scaled in proportion to the altitude noise level, so
-# that for the Hercule we can get up to 400 fpm or more, a value which has
+# that for the Hercules we can get up to 400 fpm or more, a value which has
 # been selected from inspection of test data which is notoriously noisy. By
 # measuring the noise, we don't burden "quieter" aircraft unnecessarily.
 
@@ -238,6 +238,6 @@ POST_DERIVED_PARAM_PROCESS = fn
 # Import from local_settings if exists
 try:
     from analysis_engine.local_settings import *
-except ImportError:
+except ImportError as err:
     pass
 

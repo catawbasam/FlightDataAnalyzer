@@ -58,9 +58,9 @@ class TestProcessFlight(unittest.TestCase):
              (60.292314738035202, 5.2184030413627625):airport_bgo,
              (60.295075884447485, 5.2175367817352285):airport_bgo}
         
-        runway_osl_19r = {"end":{"latitude":60.184763,"longitude":11.073319},"glideslope":{"latitude":60.213763999999998,"frequency":"332300M","angle":3.0,"longitude":11.088044,"threshold_distance":991},"start":{"latitude":60.216242,"longitude":11.091471},"localizer":{"latitude":60.182059,"beam_width":4.5,"frequency":"111300M","heading":196,"longitude":11.071759},"strip":{"width":147,"length":11811,"surface":"ASP"},"identifier":"19R","id":8152}
-        runway_trd_09 = {"end":{"latitude":63.457572,"longitude":10.941974},"glideslope":{"latitude":63.457085999999997,"frequency":"335000M","angle":3.0,"longitude":10.901011,"threshold_distance":1067},"start":{"latitude":63.457614,"longitude":10.894439},"localizer":{"latitude":63.457539,"beam_width":4.5,"frequency":"110300M","heading":89,"longitude":10.947803},"strip":{"width":147,"length":9347,"surface":"ASP"},"identifier":"09","id":8129}
-        runway_bgo_17 = {"end":{"latitude":60.282283,"longitude":5.221859},"glideslope":{"latitude":60.300981,"frequency":"333800M","angle":3.1000000000000001,"longitude":5.2140919999999999,"threshold_distance":1161},"start":{"latitude":60.304365,"longitude":5.214447},"localizer":{"latitude":60.278892,"beam_width":4.5,"frequency":"109900M","heading":173,"longitude":5.223010},"strip":{"width":147,"length":9810,"surface":"ASP"},"identifier":"17","id":8193}
+        runway_osl_19r = {'ident': '19', 'items': [{"end":{"latitude":60.184763,"longitude":11.073319},"glideslope":{"latitude":60.213763999999998,"frequency":"332300M","angle":3.0,"longitude":11.088044,"threshold_distance":991},"start":{"latitude":60.216242,"longitude":11.091471},"localizer":{"latitude":60.182059,"beam_width":4.5,"frequency":"111300M","heading":196,"longitude":11.071759},"strip":{"width":147,"length":11811,"surface":"ASP"},"identifier":"19R","id":8152}]}
+        runway_trd_09 = {'ident': '09', 'items': [{"end":{"latitude":63.457572,"longitude":10.941974},"glideslope":{"latitude":63.457085999999997,"frequency":"335000M","angle":3.0,"longitude":10.901011,"threshold_distance":1067},"start":{"latitude":63.457614,"longitude":10.894439},"localizer":{"latitude":63.457539,"beam_width":4.5,"frequency":"110300M","heading":89,"longitude":10.947803},"strip":{"width":147,"length":9347,"surface":"ASP"},"identifier":"09","id":8129}]}
+        runway_bgo_17 = {'ident': '09', 'items': [{"end":{"latitude":60.282283,"longitude":5.221859},"glideslope":{"latitude":60.300981,"frequency":"333800M","angle":3.1000000000000001,"longitude":5.2140919999999999,"threshold_distance":1161},"start":{"latitude":60.304365,"longitude":5.214447},"localizer":{"latitude":60.278892,"beam_width":4.5,"frequency":"109900M","heading":173,"longitude":5.223010},"strip":{"width":147,"length":9810,"surface":"ASP"},"identifier":"17","id":8193}]}
         
         runways = \
             {2461: runway_osl_19r, 2472: runway_trd_09, 2455: runway_bgo_17}        
@@ -119,12 +119,12 @@ class TestProcessFlight(unittest.TestCase):
             {(58.2000732421875, 8.0804443359375):airport_krs,
              (60.18585205078125, 11.1126708984375):airport_osl}
         
-        runway_osl_01r = {"end":{"latitude":60.201367,"longitude":11.122289},"glideslope":{"latitude":60.177936000000003,"frequency":"330950M","angle":3.0,"longitude":11.111328,"threshold_distance":945},"start":{"latitude":60.175513,"longitude":11.107355},"localizer":{"latitude":60.204934,"beam_width":4.5,"frequency":"111950M","heading":16,"longitude":11.124370},"strip":{"width":147,"length":9678,"surface":"ASP"},"identifier":"01R","id":8149}       
-        runway_osl_19r = {"end":{"latitude":60.185000000000002,"longitude":11.073744},"glideslope":{"latitude":60.213763999999998,"frequency":"332300M","angle":3.0,"longitude":11.088044,"threshold_distance":991},"start":{"latitude":60.216067000000002,"longitude":11.091664},"localizer":{"latitude":60.182102999999998,"beam_width":4.5,"frequency":"111300M","heading":196,"longitude":11.072075},"strip":{"width":147,"length":11811,"surface":"ASP"},"identifier":"19R","id":8152}
-        runway_trd_09 = {"end":{"latitude":63.457552769999999,"longitude":10.94666812},"glideslope":{"latitude":63.457085999999997,"frequency":"335000M","angle":3.0,"longitude":10.901011,"threshold_distance":1067},"start":{"latitude":63.457656229999998,"longitude":10.88929278},"localizer":{"latitude":63.457549999999998,"beam_width":4.5,"frequency":"110300M","heading":89,"longitude":10.947803},"strip":{"width":147,"length":9347,"surface":"ASP"},"identifier":"09","id":8129}
-        runway_bgo_17 = {"end":{"latitude":60.280150999999996,"longitude":5.2225789999999996},"glideslope":{"latitude":60.300981,"frequency":"333800M","angle":3.1000000000000001,"longitude":5.2140919999999999,"threshold_distance":1161},"start":{"latitude":60.306624939999999,"longitude":5.2137007400000002},"localizer":{"latitude":60.2789,"beam_width":4.5,"frequency":"109900M","heading":173,"longitude":5.2229999999999999},"strip":{"width":147,"length":9810,"surface":"ASP"},"identifier":"17","id":8193}
-        runway_krs_22 = {"end":{"latitude":58.196636,"longitude":8.075328},"glideslope":{"latitude":58.208922000000001,"frequency":"330800M","angle":3.6000000000000001,"longitude":8.0932750000000002,"threshold_distance":422},"start":{"latitude":58.211733,"longitude":8.095353},"localizer":{"latitude":58.196164000000003,"beam_width":4.5,"frequency":"110900M","heading":216,"longitude":8.0746920000000006},"strip":{"width":147,"length":6660,"surface":"ASP"},"identifier":"22","id":8128}
-        runway_krs_04 = {"end":{"latitude":58.211678,"longitude":8.095269},"localizer":{"latitude":58.212397,"beam_width":4.5,"frequency":"110300M","heading":36,"longitude":8.096228},"glideslope":{"latitude":58.198664,"frequency":"335000M","angle":3.4,"longitude":8.080164,"threshold_distance":720},"start":{"latitude":58.196703,"longitude":8.075406},"strip":{"width":147,"length":6660,"id":4064,"surface":"ASP"},"identifier":"04","id":8127}
+        runway_osl_01r = {'ident': '01', 'items': [{"end":{"latitude":60.201367,"longitude":11.122289},"glideslope":{"latitude":60.177936000000003,"frequency":"330950M","angle":3.0,"longitude":11.111328,"threshold_distance":945},"start":{"latitude":60.175513,"longitude":11.107355},"localizer":{"latitude":60.204934,"beam_width":4.5,"frequency":"111950M","heading":16,"longitude":11.124370},"strip":{"width":147,"length":9678,"surface":"ASP"},"identifier":"01R","id":8149}]}       
+        runway_osl_19r = {'ident': '19', 'items': [{"end":{"latitude":60.185000000000002,"longitude":11.073744},"glideslope":{"latitude":60.213763999999998,"frequency":"332300M","angle":3.0,"longitude":11.088044,"threshold_distance":991},"start":{"latitude":60.216067000000002,"longitude":11.091664},"localizer":{"latitude":60.182102999999998,"beam_width":4.5,"frequency":"111300M","heading":196,"longitude":11.072075},"strip":{"width":147,"length":11811,"surface":"ASP"},"identifier":"19R","id":8152}]}
+        runway_trd_09 = {'ident': '09', 'items': [{"end":{"latitude":63.457552769999999,"longitude":10.94666812},"glideslope":{"latitude":63.457085999999997,"frequency":"335000M","angle":3.0,"longitude":10.901011,"threshold_distance":1067},"start":{"latitude":63.457656229999998,"longitude":10.88929278},"localizer":{"latitude":63.457549999999998,"beam_width":4.5,"frequency":"110300M","heading":89,"longitude":10.947803},"strip":{"width":147,"length":9347,"surface":"ASP"},"identifier":"09","id":8129}]}
+        runway_bgo_17 = {'ident': '17', 'items': [{"end":{"latitude":60.280150999999996,"longitude":5.2225789999999996},"glideslope":{"latitude":60.300981,"frequency":"333800M","angle":3.1000000000000001,"longitude":5.2140919999999999,"threshold_distance":1161},"start":{"latitude":60.306624939999999,"longitude":5.2137007400000002},"localizer":{"latitude":60.2789,"beam_width":4.5,"frequency":"109900M","heading":173,"longitude":5.2229999999999999},"strip":{"width":147,"length":9810,"surface":"ASP"},"identifier":"17","id":8193}]}
+        runway_krs_22 = {'ident': '22', 'items': [{"end":{"latitude":58.196636,"longitude":8.075328},"glideslope":{"latitude":58.208922000000001,"frequency":"330800M","angle":3.6000000000000001,"longitude":8.0932750000000002,"threshold_distance":422},"start":{"latitude":58.211733,"longitude":8.095353},"localizer":{"latitude":58.196164000000003,"beam_width":4.5,"frequency":"110900M","heading":216,"longitude":8.0746920000000006},"strip":{"width":147,"length":6660,"surface":"ASP"},"identifier":"22","id":8128}]}
+        runway_krs_04 = {'ident': '04', 'items': [{"end":{"latitude":58.211678,"longitude":8.095269},"localizer":{"latitude":58.212397,"beam_width":4.5,"frequency":"110300M","heading":36,"longitude":8.096228},"glideslope":{"latitude":58.198664,"frequency":"335000M","angle":3.4,"longitude":8.080164,"threshold_distance":720},"start":{"latitude":58.196703,"longitude":8.075406},"strip":{"width":147,"length":6660,"id":4064,"surface":"ASP"},"identifier":"04","id":8127}]}
         runways = \
             {2461: runway_osl_01r, 2472: runway_trd_09, 2455: runway_bgo_17, 2456: runway_krs_22}        
         
@@ -176,8 +176,8 @@ class TestProcessFlight(unittest.TestCase):
             {(60.296829215117867, 5.2152368000575473):airport_bgo,
              (60.18907904624939, 11.098754405975342):airport_osl}
         
-        runway_osl_19r = {"end":{"latitude":60.185000000000002,"longitude":11.073744},"glideslope":{"latitude":60.213678,"frequency":"332300M","angle":3.0,"longitude": 11.087713,"threshold_distance":991},"start":{"latitude":60.216067000000002,"longitude":11.091664},"localizer":{"latitude": 60.182054,"beam_width":4.5,"frequency":"111300M","heading":016,"longitude": 11.071766},"strip":{"width":147,"length":11811,"surface":"ASP"},"identifier":"19R","id":8152}
-        runway_bgo_35 = {"start":{"latitude":60.280150999999996,"longitude":5.2225789999999996},"glideslope":{"latitude":60.285492,"frequency":"333800M","angle":3.1000000000000001,"longitude":5.219389,"threshold_distance":1161},"end":{"latitude":60.306624939999999,"longitude":5.2137007400000002},"localizer":{"latitude": 60.307589,"beam_width":4.5,"frequency":"109900M","heading":353,"longitude":  5.213357},"strip":{"width":147,"length":9810,"surface":"ASP"},"identifier":"17","id":8193}
+        runway_osl_19r = {'ident': '19', 'items': [{"end":{"latitude":60.185000000000002,"longitude":11.073744},"glideslope":{"latitude":60.213678,"frequency":"332300M","angle":3.0,"longitude": 11.087713,"threshold_distance":991},"start":{"latitude":60.216067000000002,"longitude":11.091664},"localizer":{"latitude": 60.182054,"beam_width":4.5,"frequency":"111300M","heading":016,"longitude": 11.071766},"strip":{"width":147,"length":11811,"surface":"ASP"},"identifier":"19R","id":8152}]}
+        runway_bgo_35 = {'ident': '35', 'items': [{"start":{"latitude":60.280150999999996,"longitude":5.2225789999999996},"glideslope":{"latitude":60.285492,"frequency":"333800M","angle":3.1000000000000001,"longitude":5.219389,"threshold_distance":1161},"end":{"latitude":60.306624939999999,"longitude":5.2137007400000002},"localizer":{"latitude": 60.307589,"beam_width":4.5,"frequency":"109900M","heading":353,"longitude":  5.213357},"strip":{"width":147,"length":9810,"surface":"ASP"},"identifier":"17","id":8193}]}
         runways = {2455: runway_bgo_35, 2461: runway_osl_19r}        
         
         # Mock API handler return values so that we do not make http requests.
@@ -260,8 +260,8 @@ class TestProcessFlight(unittest.TestCase):
             {(58.20556640625, 8.0878186225891113):airport_krs,
              (60.19134521484375, 11.07696533203125):airport_osl}
         
-        runway_osl_01l = {"end":{"latitude":60.216113,"longitude":11.091418},"glideslope":{"latitude":60.187709,"frequency":"332300M","angle":3.0,"longitude":11.072739,"threshold_distance":991},"start":{"latitude":60.185048,"longitude":11.073522},"localizer":{"latitude":60.21988,"beam_width":4.5,"frequency":"111300M","heading":196,"longitude":11.093544},"strip":{"width":147,"length":11811,"surface":"ASP"},"identifier":"19R","id":8152}
-        runway_krs_04 = {"end":{"latitude":58.211678,"longitude":8.095269},"localizer":{"latitude":58.212397,"beam_width":4.5,"frequency":"110300M","heading":36,"longitude":8.096228},"glideslope":{"latitude":58.198664,"frequency":"335000M","angle":3.4,"longitude":8.080164,"threshold_distance":720},"start":{"latitude":58.196703,"longitude":8.075406},"strip":{"width":147,"length":6660,"id":4064,"surface":"ASP"},"identifier":"04","id":8127}
+        runway_osl_01l = {'ident': '01', 'items': [{"end":{"latitude":60.216113,"longitude":11.091418},"glideslope":{"latitude":60.187709,"frequency":"332300M","angle":3.0,"longitude":11.072739,"threshold_distance":991},"start":{"latitude":60.185048,"longitude":11.073522},"localizer":{"latitude":60.21988,"beam_width":4.5,"frequency":"111300M","heading":196,"longitude":11.093544},"strip":{"width":147,"length":11811,"surface":"ASP"},"identifier":"19R","id":8152}]}
+        runway_krs_04 = {'ident': '04', 'items': [{"end":{"latitude":58.211678,"longitude":8.095269},"localizer":{"latitude":58.212397,"beam_width":4.5,"frequency":"110300M","heading":36,"longitude":8.096228},"glideslope":{"latitude":58.198664,"frequency":"335000M","angle":3.4,"longitude":8.080164,"threshold_distance":720},"start":{"latitude":58.196703,"longitude":8.075406},"strip":{"width":147,"length":6660,"id":4064,"surface":"ASP"},"identifier":"04","id":8127}]}
         runways = \
             {2461: runway_osl_01l, 2456: runway_krs_04}        
         
@@ -331,8 +331,8 @@ class TestProcessFlight(unittest.TestCase):
 
         airport_osl = {"distance":0.93165142982548599,"magnetic_variation":"E001226 0106","code":{"icao":"ENGM","iata":"OSL"},"name":"Oslo Gardermoen","longitude":11.1004,"location":{"city":"Oslo","country":"Norway"},"latitude":60.193899999999999,"id":2461}
         airport_trd = {"distance":0.52169665188063608,"magnetic_variation":"E001220 0706","code":{"icao":"ENVA","iata":"TRD"},"name":"Vaernes","longitude":10.9399,"location":{"city":"Trondheim","country":"Norway"},"latitude":63.457599999999999,"id":2472}
-        runway_osl_01l = {"end":{"latitude":60.216113,"longitude":11.091418},"glideslope":{"latitude":60.187709,"frequency":"332300M","angle":3.0,"longitude":11.072739,"threshold_distance":991},"start":{"latitude":60.185048,"longitude":11.073522},"localizer":{"latitude":60.219793,"beam_width":4.5,"frequency":"111300M","heading":196,"longitude":11.093544},"strip":{"width":147,"length":11811,"surface":"ASP"},"identifier":"19R","id":8152}
-        runway_trd_09 = {"end":{"latitude":63.457572,"longitude":10.941974},"glideslope":{"latitude":63.457085999999997,"frequency":"335000M","angle":3.0,"longitude":10.901011,"threshold_distance":1067},"start":{"latitude":63.457614,"longitude":10.894439},"localizer":{"latitude":63.457539,"beam_width":4.5,"frequency":"110300M","heading":89,"longitude":10.947803},"strip":{"width":147,"length":9347,"surface":"ASP"},"identifier":"09","id":8129}
+        runway_osl_01l = {'ident': '01', 'items': [{"end":{"latitude":60.216113,"longitude":11.091418},"glideslope":{"latitude":60.187709,"frequency":"332300M","angle":3.0,"longitude":11.072739,"threshold_distance":991},"start":{"latitude":60.185048,"longitude":11.073522},"localizer":{"latitude":60.219793,"beam_width":4.5,"frequency":"111300M","heading":196,"longitude":11.093544},"strip":{"width":147,"length":11811,"surface":"ASP"},"identifier":"19R","id":8152}]}
+        runway_trd_09 = {'ident': '09', 'items': [{"end":{"latitude":63.457572,"longitude":10.941974},"glideslope":{"latitude":63.457085999999997,"frequency":"335000M","angle":3.0,"longitude":10.901011,"threshold_distance":1067},"start":{"latitude":63.457614,"longitude":10.894439},"localizer":{"latitude":63.457539,"beam_width":4.5,"frequency":"110300M","heading":89,"longitude":10.947803},"strip":{"width":147,"length":9347,"surface":"ASP"},"identifier":"09","id":8129}]}
         runways = {2461: runway_osl_01l, 2472: runway_trd_09}        
         
         # Mock API handler return values so that we do not make http requests.
@@ -366,30 +366,6 @@ class TestProcessFlight(unittest.TestCase):
 
     #----------------------------------------------------------------------
     # Test 11 = 737-3C frame
-    #Traceback (most recent call last): File\
-        #"/var/local/polaris/virtualenvs/celery/local/lib/python2.7/site-packages/celery/execute/trace.py",\
-        #line 47, in trace return cls(states.SUCCESS, retval=fun(*args, **kwargs))\
-        #File\
-        #"/var/local/polaris/roles/celery/app/PolarisTaskManagement/polaris_tasks/base.py",\
-        #line 105, in __call__ return super(FileLoggingTask, self).__call__(*args,
-                                                                           #**kwargs) File\
-        #"/var/local/polaris/virtualenvs/celery/local/lib/python2.7/site-packages/celery/app/task/__init__.py",\
-        #line 247, in __call__ return self.run(*args, **kwargs) File\
-        #"/var/local/polaris/roles/celery/app/PolarisTaskManagement/polaris_tasks/analysis_tasks.py",\
-        #line 340, in run flight_info, required_params) File\
-        #"/var/local/polaris/roles/celery/app/AnalysisEngine/analysis_engine/process_flight.py",\
-        #line 261, in process_flight hdf, node_mgr, process_order) File\
-        #"/var/local/polaris/roles/celery/app/AnalysisEngine/analysis_engine/process_flight.py",\
-        #line 119, in derive_parameters result = node.get_derived(deps) File\
-        #"/var/local/polaris/roles/celery/app/AnalysisEngine/analysis_engine/node.py",\
-        #line 193, in get_derived res = self.derive(*args) File\
-        #"/var/local/polaris/roles/celery/app/AnalysisEngine/analysis_engine/flight_phase.py",\
-        #line 42, in derive slice(speedy.slice.start,midpoint)) File\
-        #"/var/local/polaris/roles/celery/app/AnalysisEngine/analysis_engine/library.py",\
-        #line 1832, in index_at_value raise ValueError, 'No range for seek\
-        #function to scan across' ValueError: No range for seek function to scan\
-                                 #across
-    
     #----------------------------------------------------------------------
     
     @unittest.skipIf(not os.path.isfile("test_data/11_737_3C_RD0001861129.001.hdf5"),
@@ -412,8 +388,8 @@ class TestProcessFlight(unittest.TestCase):
             {(58.20556640625, 8.0878186225891113):airport_krs,
              (60.19134521484375, 11.07696533203125):airport_osl}
         
-        runway_osl_01l = {"end":{"latitude":60.216113,"longitude":11.091418},"glideslope":{"latitude":60.187709,"frequency":"332300M","angle":3.0,"longitude":11.072739,"threshold_distance":991},"start":{"latitude":60.185048,"longitude":11.073522},"localizer":{"latitude":60.219793,"beam_width":4.5,"frequency":"111300M","heading":196,"longitude":11.093544},"strip":{"width":147,"length":11811,"surface":"ASP"},"identifier":"19R","id":8152}
-        runway_krs_04 = {"end":{"latitude":58.211678,"longitude":8.095269},"localizer":{"latitude":58.212397,"beam_width":4.5,"frequency":"110300M","heading":36,"longitude":8.096228},"glideslope":{"latitude":58.198664,"frequency":"335000M","angle":3.4,"longitude":8.080164,"threshold_distance":720},"start":{"latitude":58.196703,"longitude":8.075406},"strip":{"width":147,"length":6660,"id":4064,"surface":"ASP"},"identifier":"04","id":8127}
+        runway_osl_01l = {'ident': '01', 'items': [{"end":{"latitude":60.216113,"longitude":11.091418},"glideslope":{"latitude":60.187709,"frequency":"332300M","angle":3.0,"longitude":11.072739,"threshold_distance":991},"start":{"latitude":60.185048,"longitude":11.073522},"localizer":{"latitude":60.219793,"beam_width":4.5,"frequency":"111300M","heading":196,"longitude":11.093544},"strip":{"width":147,"length":11811,"surface":"ASP"},"identifier":"19R","id":8152}]}
+        runway_krs_04 = {'ident': '04', 'items': [{"end":{"latitude":58.211678,"longitude":8.095269},"localizer":{"latitude":58.212397,"beam_width":4.5,"frequency":"110300M","heading":36,"longitude":8.096228},"glideslope":{"latitude":58.198664,"frequency":"335000M","angle":3.4,"longitude":8.080164,"threshold_distance":720},"start":{"latitude":58.196703,"longitude":8.075406},"strip":{"width":147,"length":6660,"id":4064,"surface":"ASP"},"identifier":"04","id":8127}]}
         runways = \
             {2461: runway_osl_01l, 2456: runway_krs_04}        
         
@@ -441,61 +417,12 @@ class TestProcessFlight(unittest.TestCase):
     #----------------------------------------------------------------------
     # Test 12 = 737-3C frame
     #----------------------------------------------------------------------
-    @unittest.skipIf(not os.path.isfile("test_data/12_737_3C_RD000183818.001.hdf5"),
-                     "Test file not present")
-    @mock.patch('analysis_engine.flight_attribute.get_api_handler')
-    def test_12_737_3C_RD000183818_001(self, get_api_handler):
-        hdf_orig = "test_data/12_737_3C_RD000183818.001.hdf5"
-        hdf_path = "test_data/12_737_3C_RD000183818.001_copy.hdf5"
-        if os.path.isfile(hdf_path):
-            os.remove(hdf_path)
-        shutil.copy(hdf_orig, hdf_path)
-        ac_info = {'Frame': '737-3C',
-                   'Precise Positioning': True,
-                   'Flap Selections': [0,1,2,5,10,15,25,30,40],
-                   }
-
-        airport_osl = {"distance":0.93165142982548599,"magnetic_variation":"E001226 0106","code":{"icao":"ENGM","iata":"OSL"},"name":"Oslo Gardermoen","longitude":11.1004,"location":{"city":"Oslo","country":"Norway"},"latitude":60.193899999999999,"id":2461}
-        airport_krs = {"distance":0.29270199259899349,"magnetic_variation":"E000091 0106","code":{"icao":"ENCN","iata":"KRS"},"name":"Kristiansand Lufthavn Kjevik","longitude":8.0853699999999993,"location":{"city":"Kjevik","country":"Norway"},"latitude":58.2042,"id":2456}
-        airports = \
-            {(50.108969665785381, 14.250219723680361):airport_krs,
-             (60.18798957977976, 11.114856132439204):airport_osl}
-        
-        runway_osl_01l = {"end":{"latitude":60.216113,"longitude":11.091418},"glideslope":{"latitude":60.187709,"frequency":"332300M","angle":3.0,"longitude":11.072739,"threshold_distance":991},"start":{"latitude":60.185048,"longitude":11.073522},"localizer":{"latitude":60.219793,"beam_width":4.5,"frequency":"111300M","heading":196,"longitude":11.093544},"strip":{"width":147,"length":11811,"surface":"ASP"},"identifier":"19R","id":8152}
-        runway_krs_04 = {"end":{"latitude":58.211678,"longitude":8.095269},"localizer":{"latitude":58.212397,"beam_width":4.5,"frequency":"110300M","heading":36,"longitude":8.096228},"glideslope":{"latitude":58.198664,"frequency":"335000M","angle":3.4,"longitude":8.080164,"threshold_distance":720},"start":{"latitude":58.196703,"longitude":8.075406},"strip":{"width":147,"length":6660,"id":4064,"surface":"ASP"},"identifier":"04","id":8127}
-        runways = \
-            {2461: runway_osl_01l, 2456: runway_krs_04}        
-        
-        # Mock API handler return values so that we do not make http requests.
-        # Will return the same airport and runway for each query, can be
-        # avoided with side_effect.
-        api_handler = mock.Mock()
-        get_api_handler.return_value = api_handler
-        api_handler.get_nearest_airport = mock.Mock()
-        def mocked_nearest_airport(lat, lon, **kwargs):
-            return airports[(lat, lon)]
-        api_handler.get_nearest_airport.side_effect = mocked_nearest_airport
-        api_handler.get_nearest_runway = mock.Mock()
-        def mocked_nearest_runway(airport_id, mag_hdg, **kwargs):
-            return runways[airport_id]
-        api_handler.get_nearest_runway.side_effect = mocked_nearest_runway
-        start_datetime = datetime.now()
-        
-        res = process_flight(hdf_path, ac_info, draw=False)
-        self.assertEqual(len(res), 4)
-        track_to_kml(hdf_path, res['kti'], res['kpv'])
-        from analysis_engine.plot_flight import csv_flight_details
-        csv_flight_details(hdf_path, res['kti'], res['kpv'], res['phases'])
-
-    #----------------------------------------------------------------------
-    # Test 12a = 737-3C frame
-    #----------------------------------------------------------------------
-    @unittest.skipIf(not os.path.isfile("test_data/12a_737_3C_RD0001830229.001.hdf5"),
+    @unittest.skipIf(not os.path.isfile("test_data/12_737_3C_RD0001830229.001.hdf5"),
                          "Test file not present")
     @mock.patch('analysis_engine.flight_attribute.get_api_handler')
-    def test_12a_737_3C_RD0001830229_001(self, get_api_handler):
-        hdf_orig = "test_data/12a_737_3C_RD0001830229.001.hdf5"
-        hdf_path = "test_data/12a_737_3C_RD0001830229.001_copy.hdf5"
+    def test_12_737_3C_RD0001830229_001(self, get_api_handler):
+        hdf_orig = "test_data/12_737_3C_RD0001830229.001.hdf5"
+        hdf_path = "test_data/12_737_3C_RD0001830229.001_copy.hdf5"
         if os.path.isfile(hdf_path):
             os.remove(hdf_path)
         shutil.copy(hdf_orig, hdf_path)
@@ -537,62 +464,6 @@ class TestProcessFlight(unittest.TestCase):
         csv_flight_details(hdf_path, res['kti'], res['kpv'], res['phases'])  
 
     #----------------------------------------------------------------------
-    # Test 14a = 737-3C frame
-    #----------------------------------------------------------------------
-
-    @unittest.skipIf(not os.path.isfile("test_data/14a_737_3C_RD0001802061.001.hdf5"),
-                             "Test file not present")
-    #@mock.patch('analysis_engine.flight_attribute.get_api_handler')
-    def test_14a_RD0001802061(self):
-        hdf_orig = "test_data/14a_737_3C_RD0001802061.001.hdf5"
-        hdf_path = "test_data/14a_737_3C_RD0001802061.001_copy.hdf5"
-        
-        ac_info = {'Family': u'B737 NG',
-                   'Series': u'B737-800',
-                   'Tail Number': u'LN-DYV',
-                   'Main Gear To Lowest Point Of Tail': None,
-                   'Manufacturer Serial Number': u'39009', 
-                   'Main Gear To Radio Altimeter Antenna': None,
-                   'Precise Positioning': True, 
-                   'Model': u'B737-8JP', 
-                   'Identifier': u'15', 
-                   'Frame': u'737-3C',
-                   'Manufacturer': u'Boeing'}
-        
-
-        #airport_osl = {"distance":0.93165142982548599,"magnetic_variation":"E001226 0106","code":{"icao":"ENGM","iata":"OSL"},"name":"Oslo Gardermoen","longitude":11.1004,"location":{"city":"Oslo","country":"Norway"},"latitude":60.193899999999999,"id":2461}
-        #airport_trd = {"distance":0.52169665188063608,"magnetic_variation":"E001220 0706","code":{"icao":"ENVA","iata":"TRD"},"name":"Vaernes","longitude":10.9399,"location":{"city":"Trondheim","country":"Norway"},"latitude":63.457599999999999,"id":2472}
-        #airports = \
-            #{(63.457546234130859, 10.928016315005772):airport_trd,
-             #(60.181234387708784, 11.111000827986269):airport_osl}
-        
-        #runway_osl_01l = {"end":{"latitude":60.216113,"longitude":11.091418},"glideslope":{"latitude":60.187709,"frequency":"332300M","angle":3.0,"longitude":11.072739,"threshold_distance":991},"start":{"latitude":60.185048,"longitude":11.073522},"localizer":{"latitude":60.219793,"beam_width":4.5,"frequency":"111300M","heading":196,"longitude":11.093544},"strip":{"width":147,"length":11811,"surface":"ASP"},"identifier":"19R","id":8152}
-        #runway_trd_09 = {"end":{"latitude":63.457572,"longitude":10.941974},"glideslope":{"latitude":63.457085999999997,"frequency":"335000M","angle":3.0,"longitude":10.901011,"threshold_distance":1067},"start":{"latitude":63.457614,"longitude":10.894439},"localizer":{"latitude":63.457539,"beam_width":4.5,"frequency":"110300M","heading":89,"longitude":10.947803},"strip":{"width":147,"length":9347,"surface":"ASP"},"identifier":"09","id":8129}
-        #runways = \
-            #{2461: runway_osl_01l, 2472: runway_trd_09}        
-        
-        ## Mock API handler return values so that we do not make http requests.
-        ## Will return the same airport and runway for each query, can be
-        ## avoided with side_effect.
-        #api_handler = mock.Mock()
-        #get_api_handler.return_value = api_handler
-        #api_handler.get_nearest_airport = mock.Mock()
-        #def mocked_nearest_airport(lat, lon, **kwargs):
-            #return airports[(lat, lon)]
-        #api_handler.get_nearest_airport.side_effect = mocked_nearest_airport
-        #api_handler.get_nearest_runway = mock.Mock()
-        #def mocked_nearest_runway(airport_id, mag_hdg, **kwargs):
-            #return runways[airport_id]
-        #api_handler.get_nearest_runway.side_effect = mocked_nearest_runway
-        start_datetime = datetime.now()
-        
-        res = process_flight(hdf_path, ac_info, draw=False)
-        self.assertEqual(len(res), 4)
-        track_to_kml(hdf_path, res['kti'], res['kpv'])
-        from analysis_engine.plot_flight import csv_flight_details
-        csv_flight_details(hdf_path, res['kti'], res['kpv'], res['phases'])    
-
-    #----------------------------------------------------------------------
     # Test 13 = 737-3C frame
     #----------------------------------------------------------------------
     
@@ -616,8 +487,8 @@ class TestProcessFlight(unittest.TestCase):
             {(50.108969665785381, 14.250219723680361):airport_krs,
              (60.18798957977976, 11.114856132439204):airport_osl}
         
-        runway_osl_19l = {"end":{"latitude":60.175614,"longitude":11.107394},"glideslope":{"latitude":60.198077,"frequency":"332300M","angle":3.0,"longitude":11.122710,"threshold_distance":991},"start":{"latitude":60.201242,"longitude":11.122228},"localizer":{"latitude":60.171942,"beam_width":4.5,"frequency":"111300M","heading":196,"longitude":11.105293},"strip":{"width":147,"length":11811,"surface":"ASP"},"identifier":"19R","id":8152}
-        runway_krs_04 = {"end":{"latitude":58.211678,"longitude":8.095269},"localizer":{"latitude":58.212397,"beam_width":4.5,"frequency":"110300M","heading":36,"longitude":8.096228},"glideslope":{"latitude":58.198664,"frequency":"335000M","angle":3.4,"longitude":8.080164,"threshold_distance":720},"start":{"latitude":58.196703,"longitude":8.075406},"strip":{"width":147,"length":6660,"id":4064,"surface":"ASP"},"identifier":"04","id":8127}
+        runway_osl_19l = {'ident': '19', 'items': [{"end":{"latitude":60.175614,"longitude":11.107394},"glideslope":{"latitude":60.198077,"frequency":"332300M","angle":3.0,"longitude":11.122710,"threshold_distance":991},"start":{"latitude":60.201242,"longitude":11.122228},"localizer":{"latitude":60.171942,"beam_width":4.5,"frequency":"111300M","heading":196,"longitude":11.105293},"strip":{"width":147,"length":11811,"surface":"ASP"},"identifier":"19R","id":8152}]}
+        runway_krs_04 = {'ident': '04', 'items': [{"end":{"latitude":58.211678,"longitude":8.095269},"localizer":{"latitude":58.212397,"beam_width":4.5,"frequency":"110300M","heading":36,"longitude":8.096228},"glideslope":{"latitude":58.198664,"frequency":"335000M","angle":3.4,"longitude":8.080164,"threshold_distance":720},"start":{"latitude":58.196703,"longitude":8.075406},"strip":{"width":147,"length":6660,"id":4064,"surface":"ASP"},"identifier":"04","id":8127}]}
         runways = \
             {2461: runway_osl_19l, 2456: runway_krs_04}        
         
@@ -666,8 +537,8 @@ class TestProcessFlight(unittest.TestCase):
         airports = {(53.414031565189362, -6.3065528869628906):airport_dub,
                     (60.215677917003632, 11.046042442321777):airport_osl}
         
-        runway_osl_19r = {"end":{"latitude":60.185000000000002,"longitude":11.073744},"glideslope":{"latitude":60.213678,"frequency":"332300M","angle":3.0,"longitude": 11.087713,"threshold_distance":991},"start":{"latitude":60.216067000000002,"longitude":11.091664},"localizer":{"latitude": 60.182054,"beam_width":4.5,"frequency":"111300M","heading":016,"longitude": 11.071766},"strip":{"width":147,"length":11811,"surface":"ASP"},"identifier":"19R","id":8152}
-        runway_dub_28 = {"start":{"latitude":53.420248,"longitude":-6.250358},"end":{"latitude":53.422473,"longitude":-6.290858},"identifier":"04","id":8127}
+        runway_osl_19r = {'ident': '19', 'items': [{"end":{"latitude":60.185000000000002,"longitude":11.073744},"glideslope":{"latitude":60.213678,"frequency":"332300M","angle":3.0,"longitude": 11.087713,"threshold_distance":991},"start":{"latitude":60.216067000000002,"longitude":11.091664},"localizer":{"latitude": 60.182054,"beam_width":4.5,"frequency":"111300M","heading":016,"longitude": 11.071766},"strip":{"width":147,"length":11811,"surface":"ASP"},"identifier":"19R","id":8152}]}
+        runway_dub_28 = {'ident': '28', 'items': [{"start":{"latitude":53.420248,"longitude":-6.250358},"end":{"latitude":53.422473,"longitude":-6.290858},"identifier":"04","id":8127}]}
         runways = {2461: runway_osl_19r, 2429: runway_dub_28}        
         
         # Mock API handler return values so that we do not make http requests.
@@ -766,13 +637,13 @@ class TestProcessFlight(unittest.TestCase):
                    }
 
         airport_osl = {"distance":0.93165142982548599,"magnetic_variation":"E001226 0106","code":{"icao":"ENGM","iata":"OSL"},"name":"Oslo Gardermoen","longitude":11.1004,"location":{"city":"Oslo","country":"Norway"},"latitude":60.193899999999999,"id":2461}
-        airport_dub = {"magnetic_variation":"W005068 0106","code":{"icao":"EIDW","iata":"DUB"},"name":"Dublin","longitude":-6.27007,"location":{"city":"Dublin","country":"Ireland"},"latitude":53.4213,"id":2429}
-        airports = {(53.414031565189362, -6.3065528869628906):airport_dub,
-                    (60.215677917003632, 11.046042442321777):airport_osl}
+        airport_vno = {"magnetic_variation":"E005552 0106","code":{"icao":"EYVI","iata":"VNO"},"name":"Vilnius Intl","longitude":25.2858,"location":{"country":"Lithuania"},"latitude":54.6341,"id":2518}
+        airports = {(54.630581988738136, 25.283337957583939):airport_vno,
+                    (60.209477341638205, 11.08785446913123):airport_osl}
         
-        runway_osl_19r = {"end":{"latitude":60.185000000000002,"longitude":11.073744},"glideslope":{"latitude":60.213678,"frequency":"332300M","angle":3.0,"longitude": 11.087713,"threshold_distance":991},"start":{"latitude":60.216067000000002,"longitude":11.091664},"localizer":{"latitude": 60.182054,"beam_width":4.5,"frequency":"111300M","heading":016,"longitude": 11.071766},"strip":{"width":147,"length":11811,"surface":"ASP"},"identifier":"19R","id":8152}
-        runway_dub_28 = {"start":{"latitude":53.420248,"longitude":-6.250358},"end":{"latitude":53.422473,"longitude":-6.290858},"identifier":"04","id":8127}
-        runways = {2461: runway_osl_19r, 2429: runway_dub_28}        
+        runway_osl_19r = {'ident': '19', 'items': [{"end":{"latitude":60.185000000000002,"longitude":11.073744},"glideslope":{"latitude":60.213678,"frequency":"332300M","angle":3.0,"longitude": 11.087713,"threshold_distance":991},"start":{"latitude":60.216067000000002,"longitude":11.091664},"localizer":{"latitude": 60.182054,"beam_width":4.5,"frequency":"111300M","heading":016,"longitude": 11.071766},"strip":{"width":147,"length":11811,"surface":"ASP"},"identifier":"19R","id":8152}]}
+        runway_vno_20 = {'ident': '20', 'items': [{"end":{"latitude":54.6237288,"longitude":25.27854667},"localizer":{"latitude":54.616497,"beam_width":4.5,"frequency":109100.00,"heading":197,"longitude":25.27355},"glideslope":{"latitude":54.6414,"angle":3.0,"longitude":25.292828,"threshold_distance":1118},"start":{"latitude":54.64460419,"longitude":25.29304551},"magnetic_heading":200.0,"strip":{"width":164,"length":8251,"id":3656,"surface":"ASP"},"identifier":"20","id":7312}]}
+        runways = {2461: runway_osl_19r, 2518: runway_vno_20}        
         
         # Mock API handler return values so that we do not make http requests.
         # Will return the same airport and runway for each query, can be
@@ -796,7 +667,7 @@ class TestProcessFlight(unittest.TestCase):
         csv_flight_details(hdf_path, res['kti'], res['kpv'], res['phases'])
 
     #----------------------------------------------------------------------
-    # Test 15 = 737-4 frame (Digital engine parameters)
+    # Test 16 = 737-4a frame (Analogue engine parameters)
     #----------------------------------------------------------------------
     
     @unittest.skipIf(not os.path.isfile("test_data/16_737_4a_RD0001821019.hdf5"),
@@ -812,15 +683,23 @@ class TestProcessFlight(unittest.TestCase):
                    'Precise Positioning': False,
                    'Flap Selections': [0,1,2,5,10,15,25,30,40],
                    }
-
         airport_osl = {"distance":0.93165142982548599,"magnetic_variation":"E001226 0106","code":{"icao":"ENGM","iata":"OSL"},"name":"Oslo Gardermoen","longitude":11.1004,"location":{"city":"Oslo","country":"Norway"},"latitude":60.193899999999999,"id":2461}
-        airport_dub = {"magnetic_variation":"W005068 0106","code":{"icao":"EIDW","iata":"DUB"},"name":"Dublin","longitude":-6.27007,"location":{"city":"Dublin","country":"Ireland"},"latitude":53.4213,"id":2429}
-        airports = {(53.414031565189362, -6.3065528869628906):airport_dub,
-                    (60.215677917003632, 11.046042442321777):airport_osl}
+        airport_ory = {"magnetic_variation":"W001038 0106","code":{"icao":"LFPO","iata":"ORY"},"name":"Paris Orly","longitude":2.35944,"location":{"city":"Paris/Orly","country":"France"},"latitude":48.7253,"id":3031}
+        airports = {(48.728707092148916, 2.3638831717627387):airport_ory,
+                    (60.220870971679688, 11.114044189453125):airport_osl}
         
-        runway_osl_19r = {"end":{"latitude":60.185000000000002,"longitude":11.073744},"glideslope":{"latitude":60.213678,"frequency":"332300M","angle":3.0,"longitude": 11.087713,"threshold_distance":991},"start":{"latitude":60.216067000000002,"longitude":11.091664},"localizer":{"latitude": 60.182054,"beam_width":4.5,"frequency":"111300M","heading":016,"longitude": 11.071766},"strip":{"width":147,"length":11811,"surface":"ASP"},"identifier":"19R","id":8152}
-        runway_dub_28 = {"start":{"latitude":53.420248,"longitude":-6.250358},"end":{"latitude":53.422473,"longitude":-6.290858},"identifier":"04","id":8127}
-        runways = {2461: runway_osl_19r, 2429: runway_dub_28}        
+        runway_osl_19r = {'ident': '19', 'items': [{"end":{"latitude":60.185000000000002,"longitude":11.073744},
+                                                    "glideslope":{"latitude":60.213678,"frequency":"332300M","angle":3.0,"longitude": 11.087713,"threshold_distance":991},
+                                                    "start":{"latitude":60.216067000000002,"longitude":11.091664},
+                                                    "localizer":{"latitude": 60.182054,"beam_width":4.5,"frequency":"111300M","heading":016,"longitude": 11.071766},
+                                                    "strip":{"width":147,"length":11811,"surface":"ASP"},
+                                                    "identifier":"19R","id":8152}]}
+        runway_ory_02 = {'ident': '24', 'items': [{"end":{"latitude":48.7199661,"longitude":2.31692799},
+                                                   "localizer":{"latitude":48.719344,"beam_width":4.5,"frequency":110300.00,"heading":243,"longitude":2.315142},
+                                                   "glideslope":{"latitude":48.735189,"angle":3.0,"longitude":2.356069,"threshold_distance":1029},
+                                                   "start":{"latitude":48.7354471,"longitude":2.31692799},
+                                                   "identifier":"02","id":4851}]}
+        runways = {2461: runway_osl_19r, 3031: runway_ory_02}        
         
         # Mock API handler return values so that we do not make http requests.
         # Will return the same airport and runway for each query, can be

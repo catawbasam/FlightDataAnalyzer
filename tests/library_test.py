@@ -1128,6 +1128,35 @@ class TestMergeSources(unittest.TestCase):
         np.testing.assert_array_equal(expected, result)
 
 
+class TestMergeTwoParameters(unittest.TestCase):
+    def test_merge_two_parameters_offset_ordered_forward(self):
+        p1 = P(array=[0]*4, frequency=1, offset=0.0)
+        p2 = P(array=[1,2,3,4], frequency=1, offset=0.2)
+        arr, freq, off = merge_two_parameters(p1, p2)
+        self.assertEqual(arr[1], 1.0) # Differs from blend function here.
+        self.assertEqual(freq, 2)
+        self.assertEqual(off, 0.0)
+
+    def test_merge_two_parameters_offset_ordered_backward(self):
+        p1 = P(array=[5,10,7,8], frequency=2, offset=0.5)
+        p2 = P(array=[1,2,3,4], frequency=2, offset=0.1)
+        arr, freq, off = merge_two_parameters(p1, p2)
+        self.assertEqual(arr[3], 10.0)
+        self.assertEqual(freq, 4)
+        self.assertEqual(off, 0.1)
+
+    def test_merge_two_parameters_assertion_error(self):
+        p1 = P(array=[0]*4, frequency=1, offset=0.0)
+        p2 = P(array=[1]*4, frequency=2, offset=0.2)
+        self.assertRaises(AssertionError, merge_two_parameters, p1, p2)
+
+    def test_merge_two_parameters_array_mismatch_error(self):
+        p1 = P(array=[0]*4, frequency=1, offset=0.0)
+        p2 = P(array=[1]*3, frequency=2, offset=0.2)
+        self.assertRaises(AssertionError, merge_two_parameters, p1, p2)
+
+
+
 class TestMinValue(unittest.TestCase):
     def test_min_value(self):
         array = np.ma.array(range(50,100) + range(100,50,-1))
@@ -1155,9 +1184,7 @@ class TestMinimumUnmasked(unittest.TestCase):
                               dtype=float)
         result = minimum_unmasked(a1,a2)
         np.testing.assert_array_equal(expected, result)
-        
-        
-        
+
 
 class TestBlendTwoParameters(unittest.TestCase):
     def test_blend_two_parameters_offset_ordered_forward(self):

@@ -24,6 +24,7 @@ from analysis_engine.library import (bearings_and_distances,
                                      is_slice_within_slice,
                                      latitudes_and_longitudes,
                                      merge_sources,
+                                     merge_two_parameters,
                                      rate_of_change, 
                                      repair_mask,
                                      rms_noise,
@@ -379,22 +380,41 @@ class AltitudeRadio(DerivedParameterNode):
 
 class AltitudeRadio(DerivedParameterNode):
     '''
-    Assumes that signal (A) is at twice the frequency of (B) and (C).
-    
-    Therefore align to first dependency is disabled.
-    
-    TODO: Make this the 737-3C fram version only and await any fixes needed for other frames.
-    
+    This class allows for variations in the Altitude Radio sensor, and the
+    different frame types need to be identified accordingly.
     '''
+    @classmethod
+    def can_operate(cls, available):
+        if 'Altitude Radio (A)' in available and \
+           'Altitude Radio (B)' in available:
+            return True
+    
     align_to_first_dependency = False
     
     def derive(self, source_A=P('Altitude Radio (A)'),
                source_B=P('Altitude Radio (B)'),
                source_C=P('Altitude Radio (C)')):
         
-        self.array, self.frequency, self.offset = \
-            blend_two_parameters(source_B, source_C)
 
+        
+        #----------------------------------------------------------------------
+        # Temporary code until the database connection is made for frame types.
+        #----------------------------------------------------------------------
+        ac_info = {}
+        ac_info['Frame'] = '737-4'
+        #----------------------------------------------------------------------
+
+        
+        if ac_info['Frame'] in ['737-3C']:
+            # Alternate samples for this frame have latency of over 1 second,
+            # so do not contribute to the height measurements available.
+            self.array, self.frequency, self.offset = \
+                merge_two_parameters(source_B, source_C)
+            
+        if ac_info['Frame'] in ['737-4', '737-4_Analogue']:
+            self.array, self.frequency, self.offset = \
+                merge_two_parameters(source_A, source_B)
+            
 
 class AltitudeRadioForFlightPhases(DerivedParameterNode):
     def derive(self, alt_rad=P('Altitude Radio')):
@@ -1250,10 +1270,26 @@ class HeadingTrue(DerivedParameterNode):
 class ILSFrequency(DerivedParameterNode):
     name = "ILS Frequency"
     align_to_first_dependency = False
+    
+    #TODO: Introduce f1==f2 as unmasked data requirement, thereby masking mismatched receivers.
+    
     def derive(self, f1=P('ILS (L) Frequency'),f2=P('ILS (R) Frequency')):
         self.frequency *= 2
         self.offset = min(f1.offset, f2.offset)
         self.array = merge_sources(f1.array, f2.array)
+       
+
+class ILSLocalizer(DerivedParameterNode):
+    name = "ILS Localizer"
+    def derive(self, loc_1=P('ILS (L) Localizer'),loc_2=P('ILS (R) Localizer')):
+        self.array, self.frequency, self.offset = blend_two_parameters(loc_1, loc_2)
+
+       
+class ILSGlideslope(DerivedParameterNode):
+    name = "ILS Glideslope"
+    
+    def derive(self, gs_1=P('ILS (L) Glideslope'),gs_2=P('ILS (R) Glideslope')):
+        self.array, self.frequency, self.offset = blend_two_parameters(gs_1, gs_2)
        
 
 class ILSRange(DerivedParameterNode):
@@ -1264,6 +1300,10 @@ class ILSRange(DerivedParameterNode):
     
     It is (currently) in feet from the localizer antenna.
     """
+    
+    @classmethod
+    def can_operate(cls, available):
+        return True
     
     def derive(self, lat=P('Latitude Straighten'),
                lon = P('Longitude Straighten'),
