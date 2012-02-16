@@ -377,17 +377,17 @@ class AltitudeWithFlapsMax(KeyPointValueNode):
         self.create_kpv(index, value)
         
         
-class MACHMax(KeyPointValueNode):
-    name = 'MACH Max'
-    def derive(self, mach=P('MACH'), fast=S('Fast')):
+class MachMax(KeyPointValueNode):
+    name = 'Mach Max'
+    def derive(self, mach=P('Mach'), fast=S('Fast')):
         self.create_kpvs_within_slices(mach.array, fast, max_value)
 
 
-class AltitudeAtMACHMax(KeyPointValueNode):
-    name = 'Altitude At MACH Max'
-    def derive(self, alt_std=P('Altitude STD'), max_mach=KPV('MACH Max')):
-        # Aligns Altitude to MACH to ensure we have the most accurate
-        # altitude reading at the point of Maximum MACH
+class AltitudeAtMachMax(KeyPointValueNode):
+    name = 'Altitude At Mach Max'
+    def derive(self, alt_std=P('Altitude STD'), max_mach=KPV('Mach Max')):
+        # Aligns Altitude to Mach to ensure we have the most accurate
+        # altitude reading at the point of Maximum Mach
         self.create_kpvs_at_kpvs(alt_std.array, max_mach)
 
 

@@ -30,7 +30,7 @@ from analysis_engine.key_point_values import (
     AirspeedMinusVrefAtTouchdown,
     AirspeedWithFlapMax,
     AirspeedWithGearSelectedDownMax,
-    AltitudeAtMACHMax,
+    AltitudeAtMachMax,
     AltitudeAtTouchdown,
     AltitudeMax,
     AutopilotEngaged1AtLiftoff,
@@ -74,7 +74,7 @@ from analysis_engine.key_point_values import (
     LongitudeAtTakeoff,
     LocalizerDeviation1500To1000FtMax,
     LocalizerDeviation1000To150FtMax,
-    MACHMax,
+    MachMax,
     Pitch1000To100FtMax,
     Pitch1000To100FtMin,
     Pitch20FtToTouchdownMin,
@@ -468,10 +468,10 @@ class TestAltitudeAtTouchdown(unittest.TestCase, TestCreateKPVsAtKTIs):
         self.operational_combinations = [('Altitude STD', 'Touchdown')]
 
 
-class TestAltitudeAtMACHMax(unittest.TestCase, TestCreateKPVsAtKPVs):
+class TestAltitudeAtMachMax(unittest.TestCase, TestCreateKPVsAtKPVs):
     def setUp(self):
-        self.node_class = AltitudeAtMACHMax
-        self.operational_combinations = [('Altitude STD', 'MACH Max')]
+        self.node_class = AltitudeAtMachMax
+        self.operational_combinations = [('Altitude STD', 'Mach Max')]
 
 
 class TestAltitudeMax(unittest.TestCase, TestCreateKPVsWithinSlices):
@@ -996,10 +996,10 @@ class TestLocalizerDeviation1000To150FtMax(unittest.TestCase):
         self.assertEqual(kpv[1].index, 120)
 
 
-class TestMACHMax(unittest.TestCase, TestCreateKPVsWithinSlices):
+class TestMachMax(unittest.TestCase, TestCreateKPVsWithinSlices):
     def setUp(self):
-        self.node_class = MACHMax
-        self.operational_combinations = [('MACH', 'Fast')]
+        self.node_class = MachMax
+        self.operational_combinations = [('Mach', 'Fast')]
         self.function = max_value
 
 
