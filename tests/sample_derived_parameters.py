@@ -38,16 +38,9 @@ class SmoothedTrack(DerivedParameterNode):
     @classmethod
     def can_operate(cls, available):
         # Requires matching LAT/LONG pairs to operate - True Airspeed and Heading are a bonus!
-        if 'Latitude' in available and 'Longitude' in available:
-            # preferred, so lets use this
-            #Q: store a flag now?
-            ##self.use_ineterial = False
-            return True
-        elif 'Inertial Latitude' in available and 'Inertial Longitude' in available:
-            ##self.use_ineterial = True
-            return True
-        else:
-            return False
+        return ('Latitude' in available and 'Longitude' in available) or \
+               ('Inertial Latitude' in available and \
+                'Inertial Longitude' in available)
     
 class VerticalG(DerivedParameterNode):
     name = 'Vertical g'

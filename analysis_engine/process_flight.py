@@ -165,8 +165,10 @@ def derive_parameters(hdf, node_mgr, process_order):
                     result.array = result.array[:expected_length]
                 else:
                     raise ValueError("Array length mismatch for parameter "
-                                     "'%s'. Expected '%s', resulting array length '%s'.",
-                                     param_name, expected_length, len(result.array))
+                                     "'%s'. Expected '%s', resulting array "
+                                     "length '%s'." % (param_name,
+                                                       expected_length,
+                                                       len(result.array)))
                 
             hdf.set_param(result)
         else:
