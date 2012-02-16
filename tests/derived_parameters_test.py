@@ -890,6 +890,79 @@ class TestEng_N2Min(unittest.TestCase):
         )
         
         
+class TestEng_N3Avg(unittest.TestCase):
+    def test_can_operate(self):
+        opts = Eng_N3Avg.get_operational_combinations()
+        self.assertEqual(opts[0], ('Eng (1) N3',))
+        self.assertEqual(opts[-1], ('Eng (1) N3', 'Eng (2) N3', 'Eng (3) N3', 'Eng (4) N3'))
+        self.assertEqual(len(opts), 15) # 15 combinations accepted!
+        
+    
+    def test_derive_two_engines(self):
+        # this tests that average is performed on incomplete dependencies and 
+        # more than one dependency provided.
+        a = np.ma.array(range(0, 10))
+        b = np.ma.array(range(10,20))
+        a[0] = np.ma.masked
+        b[0] = np.ma.masked
+        b[-1] = np.ma.masked
+        eng_avg = Eng_N3Avg()
+        eng_avg.derive(P('a',a), P('b',b), None, None)
+        ma_test.assert_array_equal(
+            np.ma.filled(eng_avg.array, fill_value=999),
+            np.array([999, # both masked, so filled with 999
+                      6,7,8,9,10,11,12,13, # unmasked avg of two engines
+                      9]) # only second engine value masked
+        )
+
+class TestEng_N3Max(unittest.TestCase):
+    def test_can_operate(self):
+        opts = Eng_N3Max.get_operational_combinations()
+        self.assertEqual(opts[0], ('Eng (1) N3',))
+        self.assertEqual(opts[-1], ('Eng (1) N3', 'Eng (2) N3', 'Eng (3) N3', 'Eng (4) N3'))
+        self.assertEqual(len(opts), 15) # 15 combinations accepted!
+  
+    def test_derive_two_engines(self):
+        # this tests that average is performed on incomplete dependencies and 
+        # more than one dependency provided.
+        a = np.ma.array(range(0, 10))
+        b = np.ma.array(range(10,20))
+        a[0] = np.ma.masked
+        b[0] = np.ma.masked
+        b[-1] = np.ma.masked
+        eng = Eng_N3Max()
+        eng.derive(P('a',a), P('b',b), None, None)
+        ma_test.assert_array_equal(
+            np.ma.filled(eng.array, fill_value=999),
+            np.array([999, # both masked, so filled with 999
+                      11,12,13,14,15,16,17,18,9])
+        )
+        
+        
+class TestEng_N3Min(unittest.TestCase):
+    def test_can_operate(self):
+        opts = Eng_N3Min.get_operational_combinations()
+        self.assertEqual(opts[0], ('Eng (1) N3',))
+        self.assertEqual(opts[-1], ('Eng (1) N3', 'Eng (2) N3', 'Eng (3) N3', 'Eng (4) N3'))
+        self.assertEqual(len(opts), 15) # 15 combinations accepted!
+  
+    def test_derive_two_engines(self):
+        # this tests that average is performed on incomplete dependencies and 
+        # more than one dependency provided.
+        a = np.ma.array(range(0, 10))
+        b = np.ma.array(range(10,20))
+        a[0] = np.ma.masked
+        b[0] = np.ma.masked
+        b[-1] = np.ma.masked
+        eng = Eng_N3Min()
+        eng.derive(P('a',a), P('b',b), None, None)
+        ma_test.assert_array_equal(
+            np.ma.filled(eng.array, fill_value=999),
+            np.array([999, # both masked, so filled with 999
+                      1,2,3,4,5,6,7,8,9])
+        )
+        
+        
 class TestFlap(unittest.TestCase):
     def test_can_operate(self):
         opts = Flap.get_operational_combinations()
