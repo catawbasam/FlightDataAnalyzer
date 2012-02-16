@@ -557,6 +557,45 @@ class ClimbForFlightPhases(DerivedParameterNode):
                     self.array[ax][count] = alt_std.array[ax][count] - curr_alt
     
     
+class ControlColumn(DerivedParameterNode):
+    '''
+    '''
+    def derive(self,
+               disp_capt=P('Control Column (Capt)'),
+               disp_fo=P('Control Column (FO)')):
+        self.array = blend_two_parameters(disp_capt, disp_fo)
+
+
+class ControlColumnForce(DerivedParameterNode):
+    '''
+    '''
+    def derive(self,
+               force_a_capt=P('Control Column (A) Force (Capt)'),
+               force_b_capt=P('Control Column (B) Force (Capt)'),
+               force_a_fo=P('Control Column (A) Force (FO)'),
+               force_b_fo=P('Control Column (B) Force (FO)')):
+        self.array = (force_a_capt.array + force_b_capt.array
+                   + force_a_fo.array + force_b_fo.array) / 2.0
+
+
+class ControlWheel(DerivedParameterNode):
+    '''
+    '''
+    def derive(self,
+               disp_capt=P('Control Wheel (Capt)'),
+               disp_fo=P('Control Wheel (FO)')):
+        self.array = blend_two_parameters(disp_capt, disp_fo)
+
+
+class ControlWheelForce(DerivedParameterNode):
+    '''
+    '''
+    def derive(self,
+               force_capt=P('Control Wheel Force (Capt)'),
+               force_fo=P('Control Wheel Force (FO)')):
+        self.array = (force_capt.array + force_fo.array)
+
+
 class DistanceTravelled(DerivedParameterNode):
     "Distance travelled in Nautical Miles. Calculated using Groundspeed"
     units = 'nm'

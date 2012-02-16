@@ -28,6 +28,10 @@ from analysis_engine.derived_parameters import (
     AltitudeTail,
     ClimbForFlightPhases,
     Config,
+    ControlColumn,
+    ControlColumnForce,
+    ControlWheel,
+    ControlWheelForce,
     Eng_N1Avg,
     Eng_N1Max,
     Eng_N1Min,
@@ -645,7 +649,100 @@ class TestConfig(unittest.TestCase):
         time = min(timer.repeat(1, 1))
         print "Time taken %s secs" % time
         self.assertLess(time, 0.1, msg="Took too long")
-        
+
+
+class TestControlColumn(unittest.TestCase):
+
+    def setUp(self):
+        ccc = np.ma.array(data=[])
+        self.ccc = P('Control Column (Capt)', ccc)
+        ccf = np.ma.array(data=[])
+        self.ccf = P('Control Column (FO)', ccf)
+
+    def test_can_operate(self):
+        expected = [('Control Column (Capt)', 'Control Column (FO)')]
+        opts = ControlColumn.get_operational_combinations()
+        self.assertEqual(opts, expected)
+
+    @mock.patch('analysis_engine.derived_parameters.blend_two_parameters')
+    def test_control_column(self, blend_two_parameters):
+        cc = ControlColumn()
+        cc.derive(self.ccc, self.ccf)
+        blend_two_parameters.assert_called_once_with(self.ccc, self.ccf)
+
+
+class TestControlColumnForce(unittest.TestCase):
+
+    def setUp(self):
+        ccafc = np.ma.arange(1, 4)
+        self.ccafc = P('Control Column (A) Force (Capt)', ccafc)
+        ccbfc = np.ma.arange(1, 4)
+        ccbfc[-1:] = np.ma.masked
+        self.ccbfc = P('Control Column (B) Force (Capt)', ccbfc)
+        ccaff = np.ma.arange(1, 4)
+        self.ccaff = P('Control Column (A) Force (FO)', ccaff)
+        ccbff = np.ma.arange(1, 4)
+        self.ccbff = P('Control Column (B) Force (FO)', ccbff)
+        ccbff[-1:] = np.ma.masked
+
+    def test_can_operate(self):
+        expected = [('Control Column (A) Force (Capt)',
+                     'Control Column (B) Force (Capt)',
+                     'Control Column (A) Force (FO)',
+                     'Control Column (B) Force (FO)')]
+        opts = ControlColumnForce.get_operational_combinations()
+        self.assertEqual(opts, expected)
+
+    def test_control_column_force(self):
+        ccf = ControlColumnForce()
+        ccf.derive(self.ccafc, self.ccbfc, self.ccaff, self.ccbff)
+        result = ccf.array
+        answer = np.ma.array(data=[2, 4, 6], mask=[False, False, True])
+        np.testing.assert_array_almost_equal(result, answer)
+
+
+class TestControlWheel(unittest.TestCase):
+
+    def setUp(self):
+        cwc = np.ma.array(data=[])
+        self.cwc = P('Control Wheel (Capt)', cwc)
+        cwf = np.ma.array(data=[])
+        self.cwf = P('Control Wheel (FO)', cwf)
+
+    def test_can_operate(self):
+        expected = [('Control Wheel (Capt)', 'Control Wheel (FO)')]
+        opts = ControlWheel.get_operational_combinations()
+        self.assertEqual(opts, expected)
+
+    @mock.patch('analysis_engine.derived_parameters.blend_two_parameters')
+    def test_control_wheel(self, blend_two_parameters):
+        cw = ControlWheel()
+        cw.derive(self.cwc, self.cwf)
+        blend_two_parameters.assert_called_once_with(self.cwc, self.cwf)
+
+
+class TestControlWheelForce(unittest.TestCase):
+
+    def setUp(self):
+        cwfc = np.ma.arange(1, 4)
+        cwfc[-1:] = np.ma.masked
+        self.cwfc = P('Control Wheel Force (Capt)', cwfc)
+        cwff = np.ma.arange(1, 4)
+        cwff[-1:] = np.ma.masked
+        self.cwff = P('Control Wheel Force (FO)', cwff)
+
+    def test_can_operate(self):
+        expected = [('Control Wheel Force (Capt)', 'Control Wheel Force (FO)')]
+        opts = ControlWheelForce.get_operational_combinations()
+        self.assertEqual(opts, expected)
+
+    def test_control_wheel_force(self):
+        cwf = ControlWheelForce()
+        cwf.derive(self.cwfc, self.cwff)
+        result = cwf.array
+        answer = np.ma.array(data=[2, 4, 6], mask=[False, False, True])
+        np.testing.assert_array_almost_equal(result, answer)
+
 
 class TestEng_N1Avg(unittest.TestCase):
     def test_can_operate(self):

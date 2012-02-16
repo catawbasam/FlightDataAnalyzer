@@ -153,26 +153,16 @@ class AutopilotEngaged2AtTouchdown(KeyPointValueNode):
                touchdowns=P('Touchdown')):
         self.create_kpvs_at_ktis(autopilot.array, touchdowns)
 
+
 class ControlColumnStiffnessMax(KeyPointValueNode):
     """
     The control force and displacement of the flying controls should follow a
     predictable relationship. This parameter is included to identify
     stiffness in the controls in flight.
-
-    TODO:
-    Boeing parameter names need improving    
-    CC FORCE (PITCH CWS FOREIGN)
-    CC FORCE (PITCH CWS LOCAL)
-    
-    CW FORCE (ROLL CWS)
-    
-    RUD PEDAL FORCE
-    
-    Also Rudder pedal force conversion forumla is "bust"
-    
     """
-    def derive(self, force=P('CC FORCE (PITCH CWS LOCAL)'),
-               disp = P('CONTROL COLUMN POSN - CAPT'),
+    def derive(self,
+               force=P('Control Column Force'),
+               disp=P('Control Column'),
                fast=S('Fast')):
         # We only test during high speed operation to avoid "testing" the
         # full and free movements before flight.
