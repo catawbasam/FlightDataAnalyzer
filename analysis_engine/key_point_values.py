@@ -722,7 +722,7 @@ class RateOfDescent2000To1000FtMax(KeyPointValueNode):
 
 
 class DontSinkWarning(KeyPointValueNode):
-    def derive(self, gpws_dont_sink=P("GPWS Don't Sink")):
+    def derive(self, taws_dont_sink=P("TAWS Don't Sink")):
         return NotImplemented
 
 
@@ -747,7 +747,7 @@ class EngEGTTakeoffMax(KeyPointValueNode):
 
 
 class GlideslopeWarning(KeyPointValueNode):
-    def derive(self, gpws_glideslope=P('GPWS Glideslope')):
+    def derive(self, taws_glideslope=P('TAWS Glideslope')):
         return NotImplemented
 
 
@@ -802,7 +802,7 @@ class HeightAtGoAroundMin(KeyPointValueNode):
 
 
 class SinkRateWarning(KeyPointValueNode):
-    def derive(self, gpws_sink_rate=P('GPWS Sink Rate')):
+    def derive(self, taws_sink_rate=P('TAWS Sink Rate')):
         return NotImplemented
 
 
@@ -1105,7 +1105,7 @@ class PowerOnWithSpeedbrakesDeployedDuration(KeyPointValueNode):
 
 
 class PullUpWarning(KeyPointValueNode):
-    def derive(self, gpws_pull_up=P('GPWS Pull Up')):
+    def derive(self, taws_pull_up=P('TAWS Pull Up')):
         return NotImplemented
 
 
@@ -1291,15 +1291,15 @@ class StickShakerActivated(KeyPointValueNode):
         return NotImplemented
 
 
-class GPWSTerrainWarning(KeyPointValueNode):
-    name = 'GPWS Terrain Warning'
-    def derive(self, gpws_terrain=P('GPWS Terrain')):
+class TAWSTerrainWarning(KeyPointValueNode):
+    name = 'TAWS Terrain Warning'
+    def derive(self, taws_terrain=P('TAWS Terrain')):
         return NotImplemented
 
 
-class GPWSTerrainPullUpWarning(KeyPointValueNode):
-    name = 'GPWS Terrain Pull Up Warning'
-    def derive(self, gpws_terrain_pull_up=P('GPWS Terrain Pull Up')):
+class TAWSTerrainPullUpWarning(KeyPointValueNode):
+    name = 'TAWS Terrain Pull Up Warning'
+    def derive(self, taws_terrain_pull_up=P('TAWS Terrain Pull Up')):
         return NotImplemented
 
 
@@ -1309,18 +1309,18 @@ class ThrottleCycles1000FtToTouchdownMax(KeyPointValueNode):
 
 
 class TooLowFlapWarning(KeyPointValueNode):
-    def derive(self, gpws_too_low_flap=P('GPWS Too Low Flap'), flap=P('Flap')):
+    def derive(self, taws_too_low_flap=P('TAWS Too Low Flap'), flap=P('Flap')):
         return NotImplemented
 
 
 class TooLowGearWarning(KeyPointValueNode):
-    def derive(self, gpws_too_low_gear=P('GPWS Too Low Gear')):
+    def derive(self, taws_too_low_gear=P('TAWS Too Low Gear')):
         return NotImplemented
 
 
-class GPWSTooLowTerrainWarning(KeyPointValueNode):
-    name = 'GPWS Too Low Terrain Warning'
-    def derive(self, gpws_too_low_terrain=P('GPWS Too Low Terrain')):
+class TAWSTooLowTerrainWarning(KeyPointValueNode):
+    name = 'TAWS Too Low Terrain Warning'
+    def derive(self, taws_too_low_terrain=P('TAWS Too Low Terrain')):
         return NotImplemented
 
 
@@ -1337,7 +1337,7 @@ class EngVibN2Above_XXXXX_Duration(KeyPointValueNode):
 
 
 class WindshearWarningBelow1500Ft(KeyPointValueNode):
-    def derive(self, gpws_windshear=P('GPWS Windshear'),
+    def derive(self, taws_windshear=P('TAWS Windshear'),
                alt_aal=P('Altitude AAL')):
         return NotImplemented
 
