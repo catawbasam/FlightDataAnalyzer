@@ -17,7 +17,7 @@ class SAT(DerivedParameterNode):
                press_alt=P('Pressure Altitude')):
         return NotImplemented
     
-class MACH(DerivedParameterNode):
+class Mach(DerivedParameterNode):
     def derive(self, ias = P('Airspeed'), tat = P('TAT'),
                alt = P('Altitude STD')):
         return NotImplemented

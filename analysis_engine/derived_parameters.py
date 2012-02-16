@@ -549,6 +549,45 @@ class ClimbForFlightPhases(DerivedParameterNode):
                     self.array[ax][count] = alt_std.array[ax][count] - curr_alt
     
     
+class ControlColumn(DerivedParameterNode):
+    '''
+    '''
+    def derive(self,
+               disp_capt=P('Control Column (Capt)'),
+               disp_fo=P('Control Column (FO)')):
+        self.array = blend_two_parameters(disp_capt, disp_fo)
+
+
+class ControlColumnForce(DerivedParameterNode):
+    '''
+    '''
+    def derive(self,
+               force_a_capt=P('Control Column (A) Force (Capt)'),
+               force_b_capt=P('Control Column (B) Force (Capt)'),
+               force_a_fo=P('Control Column (A) Force (FO)'),
+               force_b_fo=P('Control Column (B) Force (FO)')):
+        self.array = (force_a_capt.array + force_b_capt.array
+                   + force_a_fo.array + force_b_fo.array) / 2.0
+
+
+class ControlWheel(DerivedParameterNode):
+    '''
+    '''
+    def derive(self,
+               disp_capt=P('Control Wheel (Capt)'),
+               disp_fo=P('Control Wheel (FO)')):
+        self.array = blend_two_parameters(disp_capt, disp_fo)
+
+
+class ControlWheelForce(DerivedParameterNode):
+    '''
+    '''
+    def derive(self,
+               force_capt=P('Control Wheel Force (Capt)'),
+               force_fo=P('Control Wheel Force (FO)')):
+        self.array = (force_capt.array + force_fo.array)
+
+
 class DistanceTravelled(DerivedParameterNode):
     "Distance travelled in Nautical Miles. Calculated using Groundspeed"
     units = 'nm'
@@ -598,8 +637,8 @@ class Eng_EGTMax(DerivedParameterNode):
                eng2=P('Eng (2) EGT'),
                eng3=P('Eng (3) EGT'),
                eng4=P('Eng (4) EGT')):
-        eng = vstack_params(eng1, eng2, eng3, eng4)
-        self.array = eng.max(axis=0)
+        engines = vstack_params(eng1, eng2, eng3, eng4)
+        self.array = np.ma.max(engines, axis=0)
 
 
 class Eng_EGTMin(DerivedParameterNode):
@@ -615,8 +654,26 @@ class Eng_EGTMin(DerivedParameterNode):
                eng2=P('Eng (2) EGT'),
                eng3=P('Eng (3) EGT'),
                eng4=P('Eng (4) EGT')):
-        eng = vstack_params(eng1, eng2, eng3, eng4)
-        self.array = eng.min(axis=0)
+        engines = vstack_params(eng1, eng2, eng3, eng4)
+        self.array = np.ma.min(engines, axis=0)
+
+
+class Eng_EPRAvg(DerivedParameterNode):
+    #TODO: TEST
+    name = "Eng (*) EPR Avg"
+    @classmethod
+    def can_operate(cls, available):
+        # works with any combination of params available
+        if any([d in available for d in cls.get_dependency_names()]):
+            return True
+    
+    def derive(self, 
+               eng1=P('Eng (1) EPR'),
+               eng2=P('Eng (2) EPR'),
+               eng3=P('Eng (3) EPR'),
+               eng4=P('Eng (4) EPR')):
+        engines = vstack_params(eng1, eng2, eng3, eng4)
+        self.array = np.ma.average(engines, axis=0)
 
 
 class Eng_EPRMax(DerivedParameterNode):
@@ -632,8 +689,8 @@ class Eng_EPRMax(DerivedParameterNode):
                eng2=P('Eng (2) EPR'),
                eng3=P('Eng (3) EPR'),
                eng4=P('Eng (4) EPR')):
-        eng = vstack_params(eng1, eng2, eng3, eng4)
-        self.array = eng.max(axis=0)
+        engines = vstack_params(eng1, eng2, eng3, eng4)
+        self.array = np.ma.max(engines, axis=0)
 
 
 class Eng_EPRMin(DerivedParameterNode):
@@ -649,12 +706,13 @@ class Eng_EPRMin(DerivedParameterNode):
                eng2=P('Eng (2) EPR'),
                eng3=P('Eng (3) EPR'),
                eng4=P('Eng (4) EPR')):
-        eng = vstack_params(eng1, eng2, eng3, eng4)
-        self.array = eng.min(axis=0)
+        engines = vstack_params(eng1, eng2, eng3, eng4)
+        self.array = np.ma.min(engines, axis=0)
 
 
-class EngFuelFlow(DerivedParameterNode):
-    name = "Eng Fuel Flow"
+class Eng_FuelFlow(DerivedParameterNode):
+    #TODO: TEST
+    name = "Eng (*) Fuel Flow"
     @classmethod
     def can_operate(cls, available):
         # works with any combination of params available
@@ -665,8 +723,8 @@ class EngFuelFlow(DerivedParameterNode):
                eng2=P('Eng (2) Fuel Flow'),
                eng3=P('Eng (3) Fuel Flow'),
                eng4=P('Eng (4) Fuel Flow')):
-        eng = vstack_params(eng1, eng2, eng3, eng4)
-        self.array = np.ma.sum(eng, axis=0) # TODO: TEST!
+        engines = vstack_params(eng1, eng2, eng3, eng4)
+        self.array = np.ma.sum(engines, axis=0)
       
 
 class Eng_N1Avg(DerivedParameterNode):
@@ -734,7 +792,6 @@ class Eng_N2Avg(DerivedParameterNode):
 
 
 class Eng_N2Max(DerivedParameterNode):
-    #TODO: TEST
     name = "Eng (*) N2 Max"
     @classmethod
     def can_operate(cls, available):
@@ -751,7 +808,6 @@ class Eng_N2Max(DerivedParameterNode):
 
 
 class Eng_N2Min(DerivedParameterNode):
-    #TODO: TEST
     name = "Eng (*) N2 Min"
     @classmethod
     def can_operate(cls, available):
@@ -763,6 +819,57 @@ class Eng_N2Min(DerivedParameterNode):
                eng2=P('Eng (2) N2'),
                eng3=P('Eng (3) N2'),
                eng4=P('Eng (4) N2')):
+        engines = vstack_params(eng1, eng2, eng3, eng4)
+        self.array = np.ma.min(engines, axis=0)
+
+
+class Eng_N3Avg(DerivedParameterNode):
+    name = "Eng (*) N3 Avg"
+    @classmethod
+    def can_operate(cls, available):
+        # works with any combination of params available
+        if any([d in available for d in cls.get_dependency_names()]):
+            return True
+        
+    def derive(self, 
+               eng1=P('Eng (1) N3'),
+               eng2=P('Eng (2) N3'),
+               eng3=P('Eng (3) N3'),
+               eng4=P('Eng (4) N3')):
+        engines = vstack_params(eng1, eng2, eng3, eng4)
+        self.array = np.ma.average(engines, axis=0)
+
+
+class Eng_N3Max(DerivedParameterNode):
+    name = "Eng (*) N3 Max"
+    @classmethod
+    def can_operate(cls, available):
+        # works with any combination of params available
+        if any([d in available for d in cls.get_dependency_names()]):
+            return True
+    
+    def derive(self, 
+               eng1=P('Eng (1) N3'),
+               eng2=P('Eng (2) N3'),
+               eng3=P('Eng (3) N3'),
+               eng4=P('Eng (4) N3')):
+        engines = vstack_params(eng1, eng2, eng3, eng4)
+        self.array = np.ma.max(engines, axis=0)
+
+
+class Eng_N3Min(DerivedParameterNode):
+    name = "Eng (*) N3 Min"
+    @classmethod
+    def can_operate(cls, available):
+        # works with any combination of params available
+        if any([d in available for d in cls.get_dependency_names()]):
+            return True
+    
+    def derive(self, 
+               eng1=P('Eng (1) N3'),
+               eng2=P('Eng (2) N3'),
+               eng3=P('Eng (3) N3'),
+               eng4=P('Eng (4) N3')):
         engines = vstack_params(eng1, eng2, eng3, eng4)
         self.array = np.ma.min(engines, axis=0)
 
@@ -797,8 +904,8 @@ class Eng_OilTempMin(DerivedParameterNode):
                eng2=P('Eng (2) Oil Temp'),
                eng3=P('Eng (3) Oil Temp'),
                eng4=P('Eng (4) Oil Temp')):
-        eng = vstack_params(eng1, eng2, eng3, eng4)
-        self.array = eng.min(axis=0)
+        engines = vstack_params(eng1, eng2, eng3, eng4)
+        self.array = np.ma.min(engines, axis=0)
 
 
 class Eng_OilTempMax(DerivedParameterNode):
@@ -814,8 +921,8 @@ class Eng_OilTempMax(DerivedParameterNode):
                eng2=P('Eng (2) Oil Temp'),
                eng3=P('Eng (3) Oil Temp'),
                eng4=P('Eng (4) Oil Temp')):
-        eng = vstack_params(eng1, eng2, eng3, eng4)
-        self.array = eng.max(axis=0)
+        engines = vstack_params(eng1, eng2, eng3, eng4)
+        self.array = np.ma.max(engines, axis=0)
 
 
 class Eng_OilPressAvg(DerivedParameterNode):
@@ -849,11 +956,12 @@ class Eng_OilPressMax(DerivedParameterNode):
                eng2=P('Eng (2) Oil Press'),
                eng3=P('Eng (3) Oil Press'),
                eng4=P('Eng (4) Oil Press')):
-        eng = vstack_params(eng1, eng2, eng3, eng4)
-        self.array = eng.max(axis=0)
+        engines = vstack_params(eng1, eng2, eng3, eng4)
+        self.array = np.ma.max(engines, axis=0)
 
 
 class Eng_OilPressMin(DerivedParameterNode):
+    #TODO: TEST
     name = 'Eng (*) Oil Press Min'
     @classmethod
     def can_operate(cls, available):
@@ -865,8 +973,26 @@ class Eng_OilPressMin(DerivedParameterNode):
                eng2=P('Eng (2) Oil Press'),
                eng3=P('Eng (3) Oil Press'),
                eng4=P('Eng (4) Oil Press')):
-        eng = vstack_params(eng1, eng2, eng3, eng4)
-        self.array = eng.min(axis=0)
+        engines = vstack_params(eng1, eng2, eng3, eng4)
+        self.array = np.ma.min(engines, axis=0)
+
+
+class Eng_TorqueAvg(DerivedParameterNode):
+    #TODO: TEST
+    name = "Eng (*) Torque Avg"
+    @classmethod
+    def can_operate(cls, available):
+        # works with any combination of params available
+        if any([d in available for d in cls.get_dependency_names()]):
+            return True
+        
+    def derive(self, 
+               eng1=P('Eng (1) Torque'),
+               eng2=P('Eng (2) Torque'),
+               eng3=P('Eng (3) Torque'),
+               eng4=P('Eng (4) Torque')):
+        engines = vstack_params(eng1, eng2, eng3, eng4)
+        self.array = np.ma.average(engines, axis=0)
 
 
 class Eng_TorqueMin(DerivedParameterNode):
@@ -904,6 +1030,7 @@ class Eng_TorqueMax(DerivedParameterNode):
 
 
 class Eng_VibN1Max(DerivedParameterNode):
+    #TODO: TEST
     name = 'Eng (*) Vib N1 Max'
     @classmethod
     def can_operate(cls, available):
@@ -915,11 +1042,12 @@ class Eng_VibN1Max(DerivedParameterNode):
                eng2=P('Eng (2) Vib N1'),
                eng3=P('Eng (3) Vib N1'),
                eng4=P('Eng (4) Vib N1')):
-        eng = vstack_params(eng1, eng2, eng3, eng4)
-        self.array = eng.max(axis=0)
+        engines = vstack_params(eng1, eng2, eng3, eng4)
+        self.array = np.ma.max(engines, axis=0)
         
         
 class Eng_VibN2Max(DerivedParameterNode):
+    #TODO: TEST
     name = 'Eng (*) Vib N2 Max'
     @classmethod
     def can_operate(cls, available):
@@ -931,8 +1059,26 @@ class Eng_VibN2Max(DerivedParameterNode):
                eng2=P('Eng (2) Vib N2'),
                eng3=P('Eng (3) Vib N2'),
                eng4=P('Eng (4) Vib N2')):
-        eng = vstack_params(eng1, eng2, eng3, eng4)
-        self.array = eng.max(axis=0)
+        engines = vstack_params(eng1, eng2, eng3, eng4)
+        self.array = np.ma.max(engines, axis=0)
+
+
+class Eng_VibN3Max(DerivedParameterNode):
+    #TODO: TEST
+    name = 'Eng (*) Vib N3 Max'
+    @classmethod
+    def can_operate(cls, available):
+        # works with any combination of params available
+        if any([d in available for d in cls.get_dependency_names()]):
+            return True
+        
+    def derive(self, 
+               eng1=P('Eng (1) Vib N3'),
+               eng2=P('Eng (2) Vib N3'),
+               eng3=P('Eng (3) Vib N3'),
+               eng4=P('Eng (4) Vib N3')):
+        engines = vstack_params(eng1, eng2, eng3, eng4)
+        self.array = np.ma.max(engines, axis=0)
 
 
 class FuelQty(DerivedParameterNode):
@@ -1065,25 +1211,20 @@ class Config(DerivedParameterNode):
             self.array[summed == s] = state
 
 
-class GearSelectedDown(DerivedParameterNode):
-    # And here is where the nightmare starts.
-    # Sometimes recorded
-    # Sometimes interpreted from other signals
-    # There's no pattern to how this is worked out.
-    # For aircraft with a Gear Selected Down parameter let's try this...
-    def derive(self, param=P('Gear Selected Down FDR')):
-        return NotImplemented
+####class GearSelectedDown(DerivedParameterNode):
+####    # And here is where the nightmare starts.
+####    # Sometimes recorded
+####    # Sometimes interpreted from other signals
+####    # There's no pattern to how this is worked out.
+####    # For aircraft with a Gear Selected Down parameter let's try this...
+####    def derive(self, param=P('Gear Selected Down')):
+####        return NotImplemented
 
 
-class GearSelectedUp(DerivedParameterNode):
-    def derive(self, param=P('Gear Selected Up FDR')):
-        pass
+####class GearSelectedUp(DerivedParameterNode):
+####    def derive(self, param=P('Gear Selected Up')):
+####        return NotImplemented
 
-
-class Groundspeed(DerivedParameterNode):
-    def derive(self, g=P('Ground Speed')):
-        self.array = g.array
-        
 
 class GroundspeedAlongTrack(DerivedParameterNode):
     # Inertial smoothing provides computation of groundspeed data when the
@@ -1091,7 +1232,7 @@ class GroundspeedAlongTrack(DerivedParameterNode):
     # on a runway during deceleration. This is not good enough for long
     # period computation, but is an improvement over aircraft where the 
     # groundspeed data stops at 40kn or thereabouts.
-    def derive(self, gndspd=P('Ground Speed'),
+    def derive(self, gndspd=P('Groundspeed'),
                at=P('Acceleration Along Track'),
                
                
@@ -1139,15 +1280,6 @@ class HeadingContinuous(DerivedParameterNode):
 
 class Heading(DerivedParameterNode):
     def derive(self, head_mag=P('Heading Magnetic')):
-        self.array = head_mag.array
-
-
-class HeadingMagnetic(DerivedParameterNode):
-    '''
-    This class currently exists only to give the 146-301 Magnetic Heading.
-    '''
-    units = 'deg'
-    def derive(self, head_mag=P('RECORDED MAGNETIC HEADING')):
         self.array = head_mag.array
 
 
@@ -1218,14 +1350,34 @@ class HeadingTrue(DerivedParameterNode):
         self.array = true_array
         """
 
+
 class ILSFrequency(DerivedParameterNode):
     name = "ILS Frequency"
     align_to_first_dependency = False
-    def derive(self, f1=P('ILS Freq (1)'),f2=P('ILS Freq (2)')):
+
+    #TODO: Introduce f1==f2 as unmasked data requirement, thereby masking
+    # mismatched receivers.
+
+    def derive(self, f1=P('ILS (L) Frequency'),
+               f2=P('ILS (R) Frequency')):
         self.frequency *= 2
         self.offset = min(f1.offset, f2.offset)
         self.array = merge_sources(f1.array, f2.array)
-       
+
+
+class ILSLocalizer(DerivedParameterNode):
+    name = "ILS Localizer"
+    def derive(self, loc_1=P('ILS (L) Localizer'),
+               loc_2=P('ILS (R) Localizer')):
+        self.array, self.frequency, self.offset = blend_two_parameters(loc_1, loc_2)
+
+
+class ILSGlideslope(DerivedParameterNode):
+    name = "ILS Glideslope"
+    def derive(self, gs_1=P('ILS (L) Glideslope'),
+               gs_2=P('ILS (R) Glideslope')):
+        self.array, self.frequency, self.offset = blend_two_parameters(gs_1, gs_2)
+
 
 class ILSRange(DerivedParameterNode):
     name = "ILS Range"
@@ -1236,8 +1388,8 @@ class ILSRange(DerivedParameterNode):
     It is (currently) in feet from the localizer antenna.
     """
     
-    def derive(self, lat=P('Latitude'),
-               lon = P('Longitude'),
+    def derive(self, lat=P('Latitude Straighten'),
+               lon = P('Longitude Straighten'),
                glide = P('ILS Glideslope'),
                gspd = P('Groundspeed'),
                tas = P('Airspeed True'),
@@ -1263,18 +1415,27 @@ class ILSRange(DerivedParameterNode):
                 speed_signal = tas.array
         
         for num_loc, this_loc in enumerate(loc_established):
-            
+ 
+            # Scan through the recorded approaches to find which matches this
+            # localizer established phase.
             for approach in app_info.value:
-                approach_index = index_of_datetime(start_datetime.value,
-                                                   approach['datetime'],
-                                                   self.frequency)
-                if this_loc.slice.start <= approach_index <= this_loc.slice.stop:
+
+                approach_slice = slice(index_of_datetime(start_datetime.value,
+                                                         approach['slice_start_datetime'],
+                                                         self.frequency),
+                                       index_of_datetime(start_datetime.value,
+                                                         approach['slice_stop_datetime'],
+                                                         self.frequency))
+                loc_est = loc_established.get_last(within_slice=approach_slice,
+                                                   within_use='any')
+                if approach_slice == None:
                     break
-            else:
+
+            if approach_slice == None:
                 logging.warning("No approach found within slice '%s'.",
                                 this_loc)
-                continue
-            # TODO: Amend FDR Approaches and this code to avoid risk of misalignment of dictionary records.
+                break
+
             if not approach['runway']:
                 logging.warning("Approach runway information not available.")
             
@@ -1287,7 +1448,7 @@ class ILSRange(DerivedParameterNode):
                 continue
 
             if precise.value:
-                # Convert (repaired) latitude & longitude for the whole phase
+                # Convert (straightened) latitude & longitude for the whole phase
                 # into range from the threshold. (threshold = {})
                 threshold = app_info.value[num_loc]['runway']['localizer']
                 brg, ils_range[this_loc.slice] = \
@@ -1312,9 +1473,16 @@ class ILSRange(DerivedParameterNode):
                     for this_gs in gs_established:                    
                         if is_slice_within_slice(this_gs.slice, this_loc.slice):
 
-                            # Compute best fit glidepath.
-                            corr, slope, offset = coreg(alt_aal.array[this_gs.slice], 
-                                                        ils_range[this_gs.slice])
+                            # Compute best fit glidepath. The term (1-.13 x
+                            # glideslope deviation) caters for the aircraft
+                            # deviating from the planned flightpath. 1 dot
+                            # low is about 0.76 deg, or 13% of a 3 degree
+                            # glidepath. Not precise, but adequate accuracy
+                            # for the small error we are correcting for here.
+                            corr, slope, offset = \
+                                coreg(alt_aal.array[this_gs.slice]*
+                                      (1-0.13*glide.array[this_gs.slice]),
+                                      ils_range[this_gs.slice])
 
                             # Shift the values in this approach so that the range
                             # = 0 at 0ft on the projected ILS slope, then reference
@@ -1485,7 +1653,7 @@ def adjust_track(lon,lat,loc_est,ils_range,ils_loc,alt_aal,gspd,tas,
     return track_linking(lat.array, lat_adj), track_linking(lon.array, lon_adj)
 
           
-class MACH(DerivedParameterNode):
+class Mach(DerivedParameterNode):
     def derive(self, ias = P('Airspeed'), tat = P('TAT'),
                alt = P('Altitude STD')):
         return NotImplemented
@@ -1532,6 +1700,38 @@ class RateOfClimb(DerivedParameterNode):
                alt_rad = P('Altitude Radio'),
                speed=P('Airspeed')):
 
+        def inertial_rate_of_climb(alt_std_repair, frequency, alt_rad_repair, az_repair):
+            # Use the complementary smoothing approach
+    
+            roc_alt_std = first_order_washout(alt_std_repair,
+                                              RATE_OF_CLIMB_LAG_TC, frequency,
+                                              gain=1/RATE_OF_CLIMB_LAG_TC)
+            roc_alt_rad = first_order_washout(alt_rad_repair,
+                                              RATE_OF_CLIMB_LAG_TC, frequency,
+                                              gain=1/RATE_OF_CLIMB_LAG_TC)
+                    
+            # Use pressure altitude rate above 100ft and radio altitude rate
+            # below 50ft with progressive changeover across that range.
+            # up to 50 ft radio 0 < std_rad_ratio < 1 over 100ft radio
+            std_rad_ratio = np.maximum(np.minimum((alt_rad_repair-50.0)/50.0,
+                                                  1),0)
+            roc_altitude = roc_alt_std*std_rad_ratio +\
+                roc_alt_rad*(1.0-std_rad_ratio)
+            
+            # This is the washout term, with considerable gain. The
+            # initialisation "initial_value=az.array[clump][0]" is very
+            # important, as without this the function produces huge
+            # spikes at each start of a data period.
+            az_washout = first_order_washout (az_repair, 
+                                              AZ_WASHOUT_TC, frequency, 
+                                              gain=GRAVITY_IMPERIAL,
+                                              initial_value=az_repair[0])
+            inertial_roc = first_order_lag (az_washout, 
+                                            RATE_OF_CLIMB_LAG_TC, 
+                                            frequency, 
+                                            gain=RATE_OF_CLIMB_LAG_TC)
+            return (roc_altitude + inertial_roc) * 60.0
+
         if az and alt_rad:
             # Make space for the answers
             self.array = np.ma.masked_all_like(alt_std.array)
@@ -1556,37 +1756,9 @@ class RateOfClimb(DerivedParameterNode):
             clumps = np.ma.clump_unmasked(az_masked)
             for clump in clumps:
                 
-                # Use the complementary smoothing approach
-    
-                roc_alt_std = first_order_washout(alt_std.array[clump],
-                                                  RATE_OF_CLIMB_LAG_TC, az.hz,
-                                                  gain=1/RATE_OF_CLIMB_LAG_TC)
-                roc_alt_rad = first_order_washout(alt_rad.array[clump],
-                                                  RATE_OF_CLIMB_LAG_TC, az.hz,
-                                                  gain=1/RATE_OF_CLIMB_LAG_TC)
-                        
-                # Use pressure altitude rate above 100ft and radio altitude rate
-                # below 50ft with progressive changeover across that range.
-                # up to 50 ft radio 0 < std_rad_ratio < 1 over 100ft radio
-                std_rad_ratio = np.maximum(np.minimum(
-                    (alt_rad.array.data[clump]-50.0)/50.0,
-                    1),0)
-                roc_altitude = roc_alt_std*std_rad_ratio +\
-                    roc_alt_rad*(1.0-std_rad_ratio)
-                
-                # This is the washout term, with considerable gain. The
-                # initialisation "initial_value=az.array[clump][0]" is very
-                # important, as without this the function produces huge
-                # spikes at each start of a data period.
-                az_washout = first_order_washout (az.array[clump], 
-                                                  AZ_WASHOUT_TC, az.hz, 
-                                                  gain=GRAVITY_IMPERIAL,
-                                                  initial_value=az.array[clump][0])
-                inertial_roc = first_order_lag (az_washout, 
-                                                RATE_OF_CLIMB_LAG_TC, 
-                                                az.hz, 
-                                                gain=RATE_OF_CLIMB_LAG_TC)
-                self.array[clump] = (roc_altitude + inertial_roc) * 60.0
+                 self.array[clump] = inertial_rate_of_climb(
+                     alt_std_repair[clump], az.frequency,
+                     alt_rad_repair[clump], az_repair[clump])
             
         else:
             # The period for averaging altitude only data has been chosen
@@ -1616,15 +1788,15 @@ class Relief(DerivedParameterNode):
     
     # Quickly written without tests as I'm really editing out the old dependencies statements :-(
     def derive(self, alt_aal = P('Altitude AAL'),
-               alt_rad = P('Radio Altitude')):
+               alt_rad = P('Altitude Radio')):
         self.array = alt_aal - alt_rad
 
 
-class Speedbrake(DerivedParameterNode):
-    def derive(self, param=P('Speedbrake FDR')):
-        # There will be a recorded parameter, but varying types of correction will 
-        # need to be applied according to the aircraft type and data frame.
-        self.array = param
+####class Speedbrake(DerivedParameterNode):
+####    def derive(self, param=P('Speedbrake')):
+####        # There will be a recorded parameter, but varying types of correction will 
+####        # need to be applied according to the aircraft type and data frame.
+####        return NotImplemented
 
 
 class CoordinatesStraighten(object):
@@ -1702,11 +1874,14 @@ class PitchRate(DerivedParameterNode):
 
 
 class ThrottleLever(DerivedParameterNode):
-    def derive(self, tla1=P('Throttle Lever Angle (1)'), 
-               tla2=P('Throttle Lever Angle (2)')):
+    def derive(self,
+               tla1=P('Throttle Lever Angle (1)'), 
+               tla2=P('Throttle Lever Angle (2)'),
+               tla3=P('Throttle Lever Angle (3)'),
+               tla4=P('Throttle Lever Angle (4)')):
         ##self.hz = tla1.hz * 2
-        ##self.offset = min(tla1.offset, tla2.offset)
-        ##self.array = interleave (tla1, tla2)
+        ##self.offset = min(tla1.offset, tla2.offset, tla3.offset, tla4.offset)
+        ##self.array = interleave(tla1, tla2, tla3, tla4)
         return NotImplemented
 
 

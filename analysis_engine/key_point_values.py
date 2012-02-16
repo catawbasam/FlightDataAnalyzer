@@ -153,26 +153,16 @@ class AutopilotEngaged2AtTouchdown(KeyPointValueNode):
                touchdowns=P('Touchdown')):
         self.create_kpvs_at_ktis(autopilot.array, touchdowns)
 
+
 class ControlColumnStiffnessMax(KeyPointValueNode):
     """
     The control force and displacement of the flying controls should follow a
     predictable relationship. This parameter is included to identify
     stiffness in the controls in flight.
-
-    TODO:
-    Boeing parameter names need improving    
-    CC FORCE (PITCH CWS FOREIGN)
-    CC FORCE (PITCH CWS LOCAL)
-    
-    CW FORCE (ROLL CWS)
-    
-    RUD PEDAL FORCE
-    
-    Also Rudder pedal force conversion forumla is "bust"
-    
     """
-    def derive(self, force=P('CC FORCE (PITCH CWS LOCAL)'),
-               disp = P('CONTROL COLUMN POSN - CAPT'),
+    def derive(self,
+               force=P('Control Column Force'),
+               disp=P('Control Column'),
                fast=S('Fast')):
         # We only test during high speed operation to avoid "testing" the
         # full and free movements before flight.
@@ -377,17 +367,17 @@ class AltitudeWithFlapsMax(KeyPointValueNode):
         self.create_kpv(index, value)
         
         
-class MACHMax(KeyPointValueNode):
-    name = 'MACH Max'
-    def derive(self, mach=P('MACH'), fast=S('Fast')):
+class MachMax(KeyPointValueNode):
+    name = 'Mach Max'
+    def derive(self, mach=P('Mach'), fast=S('Fast')):
         self.create_kpvs_within_slices(mach.array, fast, max_value)
 
 
-class AltitudeAtMACHMax(KeyPointValueNode):
-    name = 'Altitude At MACH Max'
-    def derive(self, alt_std=P('Altitude STD'), max_mach=KPV('MACH Max')):
-        # Aligns Altitude to MACH to ensure we have the most accurate
-        # altitude reading at the point of Maximum MACH
+class AltitudeAtMachMax(KeyPointValueNode):
+    name = 'Altitude At Mach Max'
+    def derive(self, alt_std=P('Altitude STD'), max_mach=KPV('Mach Max')):
+        # Aligns Altitude to Mach to ensure we have the most accurate
+        # altitude reading at the point of Maximum Mach
         self.create_kpvs_at_kpvs(alt_std.array, max_mach)
 
 
@@ -719,7 +709,7 @@ class RateOfDescent2000To1000FtMax(KeyPointValueNode):
 
 
 class DontSinkWarning(KeyPointValueNode):
-    def derive(self, gpws_dont_sink=P("GPWS Don't Sink")):
+    def derive(self, taws_dont_sink=P("TAWS Don't Sink")):
         return NotImplemented
 
 
@@ -744,7 +734,7 @@ class EngEGTTakeoffMax(KeyPointValueNode):
 
 
 class GlideslopeWarning(KeyPointValueNode):
-    def derive(self, gpws_glideslope=P('GPWS Glideslope')):
+    def derive(self, taws_glideslope=P('TAWS Glideslope')):
         return NotImplemented
 
 
@@ -799,7 +789,7 @@ class HeightAtGoAroundMin(KeyPointValueNode):
 
 
 class SinkRateWarning(KeyPointValueNode):
-    def derive(self, gpws_sink_rate=P('GPWS Sink Rate')):
+    def derive(self, taws_sink_rate=P('TAWS Sink Rate')):
         return NotImplemented
 
 
@@ -935,7 +925,7 @@ class Flare20FtToTouchdown(KeyPointValueNode):
 class LowPowerLessThan500Ft10Sec(KeyPointValueNode):
     #TODO: TESTS
     #Q: N1 Minimum or N1 Average
-    def derive(self, eng_n1_min=P('Eng (*) N1 Minimum'), alt=P('Altitude AAL')):
+    def derive(self, eng_n1_min=P('Eng (*) N1 Min'), alt=P('Altitude AAL')):
         eng_clipped = duration(eng_n1_min.array, 10, eng_n1_min.hz)
         for alt_slice in alt.slices_from_to(500, 0):
             # clip to 10 secs
@@ -945,7 +935,7 @@ class LowPowerLessThan500Ft10Sec(KeyPointValueNode):
 
 class LowPowerInFinalApproach10Sec(KeyPointValueNode):
     #Q: N1 Minimum or N1 Average (as above)
-    def derive(self, eng_avg=P('Eng (*) N1 Average'), fin_apps=S('Final Approach')):
+    def derive(self, eng_avg=P('Eng (*) N1 Avg'), fin_apps=S('Final Approach')):
         return NotImplemented
     
     
@@ -1102,7 +1092,7 @@ class PowerOnWithSpeedbrakesDeployedDuration(KeyPointValueNode):
 
 
 class PullUpWarning(KeyPointValueNode):
-    def derive(self, gpws_pull_up=P('GPWS Pull Up')):
+    def derive(self, taws_pull_up=P('TAWS Pull Up')):
         return NotImplemented
 
 
@@ -1288,15 +1278,15 @@ class StickShakerActivated(KeyPointValueNode):
         return NotImplemented
 
 
-class GPWSTerrainWarning(KeyPointValueNode):
-    name = 'GPWS Terrain Warning'
-    def derive(self, gpws_terrain=P('GPWS Terrain')):
+class TAWSTerrainWarning(KeyPointValueNode):
+    name = 'TAWS Terrain Warning'
+    def derive(self, taws_terrain=P('TAWS Terrain')):
         return NotImplemented
 
 
-class GPWSTerrainPullUpWarning(KeyPointValueNode):
-    name = 'GPWS Terrain Pull Up Warning'
-    def derive(self, gpws_terrain_pull_up=P('GPWS Terrain Pull Up')):
+class TAWSTerrainPullUpWarning(KeyPointValueNode):
+    name = 'TAWS Terrain Pull Up Warning'
+    def derive(self, taws_terrain_pull_up=P('TAWS Terrain Pull Up')):
         return NotImplemented
 
 
@@ -1306,18 +1296,18 @@ class ThrottleCycles1000FtToTouchdownMax(KeyPointValueNode):
 
 
 class TooLowFlapWarning(KeyPointValueNode):
-    def derive(self, gpws_too_low_flap=P('GPWS Too Low Flap'), flap=P('Flap')):
+    def derive(self, taws_too_low_flap=P('TAWS Too Low Flap'), flap=P('Flap')):
         return NotImplemented
 
 
 class TooLowGearWarning(KeyPointValueNode):
-    def derive(self, gpws_too_low_gear=P('GPWS Too Low Gear')):
+    def derive(self, taws_too_low_gear=P('TAWS Too Low Gear')):
         return NotImplemented
 
 
-class GPWSTooLowTerrainWarning(KeyPointValueNode):
-    name = 'GPWS Too Low Terrain Warning'
-    def derive(self, gpws_too_low_terrain=P('GPWS Too Low Terrain')):
+class TAWSTooLowTerrainWarning(KeyPointValueNode):
+    name = 'TAWS Too Low Terrain Warning'
+    def derive(self, taws_too_low_terrain=P('TAWS Too Low Terrain')):
         return NotImplemented
 
 
@@ -1334,7 +1324,7 @@ class EngVibN2Above_XXXXX_Duration(KeyPointValueNode):
 
 
 class WindshearWarningBelow1500Ft(KeyPointValueNode):
-    def derive(self, gpws_windshear=P('GPWS Windshear'),
+    def derive(self, taws_windshear=P('TAWS Windshear'),
                alt_aal=P('Altitude AAL')):
         return NotImplemented
 
