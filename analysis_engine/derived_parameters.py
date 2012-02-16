@@ -1240,19 +1240,19 @@ class Config(DerivedParameterNode):
             self.array[summed == s] = state
 
 
-class GearSelectedDown(DerivedParameterNode):
-    # And here is where the nightmare starts.
-    # Sometimes recorded
-    # Sometimes interpreted from other signals
-    # There's no pattern to how this is worked out.
-    # For aircraft with a Gear Selected Down parameter let's try this...
-    def derive(self, param=P('Gear Selected Down FDR')):
-        return NotImplemented
+####class GearSelectedDown(DerivedParameterNode):
+####    # And here is where the nightmare starts.
+####    # Sometimes recorded
+####    # Sometimes interpreted from other signals
+####    # There's no pattern to how this is worked out.
+####    # For aircraft with a Gear Selected Down parameter let's try this...
+####    def derive(self, param=P('Gear Selected Down')):
+####        return NotImplemented
 
 
-class GearSelectedUp(DerivedParameterNode):
-    def derive(self, param=P('Gear Selected Up FDR')):
-        pass
+####class GearSelectedUp(DerivedParameterNode):
+####    def derive(self, param=P('Gear Selected Up')):
+####        return NotImplemented
 
 
 class GroundspeedAlongTrack(DerivedParameterNode):
@@ -1801,11 +1801,11 @@ class Relief(DerivedParameterNode):
         self.array = alt_aal - alt_rad
 
 
-class Speedbrake(DerivedParameterNode):
-    def derive(self, param=P('Speedbrake FDR')):
-        # There will be a recorded parameter, but varying types of correction will 
-        # need to be applied according to the aircraft type and data frame.
-        self.array = param
+####class Speedbrake(DerivedParameterNode):
+####    def derive(self, param=P('Speedbrake')):
+####        # There will be a recorded parameter, but varying types of correction will 
+####        # need to be applied according to the aircraft type and data frame.
+####        return NotImplemented
 
 
 class CoordinatesStraighten(object):
