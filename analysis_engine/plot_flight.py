@@ -21,12 +21,12 @@ def add_track(kml, hdf, track_name, lat_name, lon_name, colour):
     line.style.linestyle.color = colour
     return
 
-def track_to_kml(hdf_path, kti_list, kpv_list):
+def track_to_kml(hdf_path, kti_list, kpv_list, filename):
     hdf = hdf_file(hdf_path)
     kml = simplekml.Kml()
 
     add_track(kml, hdf, 'Recorded', 'Latitude', 'Longitude', 'ff0000ff')
-    add_track(kml, hdf, 'Smoothed', 'Latitude Smoothed', 'Longitude Smoothed', 'ff00ff00')
+    add_track(kml, hdf, 'Smoothed', 'Latitude Smoothed', 'Longitude Smoothed', 'ff7fff7f')
 
     for kti in kti_list:
         kml.newpoint(name=kti.name, coords=[(kti.longitude,kti.latitude)])
@@ -39,7 +39,7 @@ def track_to_kml(hdf_path, kti_list, kpv_list):
         point = kml.newpoint(name=kpv.name, coords=[(lon[kpv.index],lat[kpv.index])])
         point.style.iconstyle.color = 'ff0000ff'  # Red
     """
-    kml.save("test_data/track.kml")
+    kml.save("test_data/"+filename+".kml")
     
     return
 

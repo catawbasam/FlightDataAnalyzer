@@ -83,7 +83,7 @@ class TestProcessFlight(unittest.TestCase):
         res = process_flight(hdf_path, ac_info, draw=False)
         self.assertEqual(len(res), 4)
 
-        track_to_kml(hdf_path, res['kti'], res['kpv'])
+        track_to_kml(hdf_path, res['kti'], res['kpv'],'test_1')
         from analysis_engine.plot_flight import csv_flight_details
         csv_flight_details(hdf_path, res['kti'], res['kpv'], res['phases'])
                 
@@ -146,7 +146,7 @@ class TestProcessFlight(unittest.TestCase):
         res = process_flight(hdf_path, ac_info, draw=False)
         self.assertEqual(len(res), 4)
 
-        track_to_kml(hdf_path, res['kti'], res['kpv'])
+        track_to_kml(hdf_path, res['kti'], res['kpv'],'test_6')
                      
         from analysis_engine.plot_flight import csv_flight_details
 
@@ -174,7 +174,7 @@ class TestProcessFlight(unittest.TestCase):
         airport_bgo = {"distance":0.065627843313191145,"magnetic_variation":"W001185 0106","code":{"icao":"ENBR","iata":"BGO"},"name":"Bergen Lufthavn Flesland","longitude":5.21814,"location":{"city":"Bergen","country":"Norway"},"latitude":60.293399999999998,"id":2455}
         airports = \
             {(60.296829215117867, 5.2152368000575473):airport_bgo,
-             (60.189057247979299, 11.098743506840297):airport_osl}
+             (60.18907904624939, 11.098754405975342):airport_osl}
         
         runway_osl_19r = {"end":{"latitude":60.185000000000002,"longitude":11.073744},"glideslope":{"latitude":60.213678,"frequency":"332300M","angle":3.0,"longitude": 11.087713,"threshold_distance":991},"start":{"latitude":60.216067000000002,"longitude":11.091664},"localizer":{"latitude": 60.182054,"beam_width":4.5,"frequency":"111300M","heading":016,"longitude": 11.071766},"strip":{"width":147,"length":11811,"surface":"ASP"},"identifier":"19R","id":8152}
         runway_bgo_35 = {"start":{"latitude":60.280150999999996,"longitude":5.2225789999999996},"glideslope":{"latitude":60.285492,"frequency":"333800M","angle":3.1000000000000001,"longitude":5.219389,"threshold_distance":1161},"end":{"latitude":60.306624939999999,"longitude":5.2137007400000002},"localizer":{"latitude": 60.307589,"beam_width":4.5,"frequency":"109900M","heading":353,"longitude":  5.213357},"strip":{"width":147,"length":9810,"surface":"ASP"},"identifier":"17","id":8193}
@@ -197,7 +197,7 @@ class TestProcessFlight(unittest.TestCase):
         
         res = process_flight(hdf_path, ac_info, draw=False)
         self.assertEqual(len(res), 4)
-        track_to_kml(hdf_path, res['kti'], res['kpv'])
+        track_to_kml(hdf_path, res['kti'], res['kpv'],'test_7')
         from analysis_engine.plot_flight import csv_flight_details
         csv_flight_details(hdf_path, res['kti'], res['kpv'], res['phases'])
 
@@ -260,7 +260,7 @@ class TestProcessFlight(unittest.TestCase):
             {(58.20556640625, 8.0878186225891113):airport_krs,
              (60.19134521484375, 11.07696533203125):airport_osl}
         
-        runway_osl_01l = {"end":{"latitude":60.216113,"longitude":11.091418},"glideslope":{"latitude":60.187709,"frequency":"332300M","angle":3.0,"longitude":11.072739,"threshold_distance":991},"start":{"latitude":60.185048,"longitude":11.073522},"localizer":{"latitude":60.219793,"beam_width":4.5,"frequency":"111300M","heading":196,"longitude":11.093544},"strip":{"width":147,"length":11811,"surface":"ASP"},"identifier":"19R","id":8152}
+        runway_osl_01l = {"end":{"latitude":60.216113,"longitude":11.091418},"glideslope":{"latitude":60.187709,"frequency":"332300M","angle":3.0,"longitude":11.072739,"threshold_distance":991},"start":{"latitude":60.185048,"longitude":11.073522},"localizer":{"latitude":60.21988,"beam_width":4.5,"frequency":"111300M","heading":196,"longitude":11.093544},"strip":{"width":147,"length":11811,"surface":"ASP"},"identifier":"19R","id":8152}
         runway_krs_04 = {"end":{"latitude":58.211678,"longitude":8.095269},"localizer":{"latitude":58.212397,"beam_width":4.5,"frequency":"110300M","heading":36,"longitude":8.096228},"glideslope":{"latitude":58.198664,"frequency":"335000M","angle":3.4,"longitude":8.080164,"threshold_distance":720},"start":{"latitude":58.196703,"longitude":8.075406},"strip":{"width":147,"length":6660,"id":4064,"surface":"ASP"},"identifier":"04","id":8127}
         runways = \
             {2461: runway_osl_01l, 2456: runway_krs_04}        
@@ -282,7 +282,7 @@ class TestProcessFlight(unittest.TestCase):
         
         res = process_flight(hdf_path, ac_info, draw=False)
         self.assertEqual(len(res), 4)
-        track_to_kml(hdf_path, res['kti'], res['kpv'])
+        track_to_kml(hdf_path, res['kti'], res['kpv'],'test_9')
         from analysis_engine.plot_flight import csv_flight_details
         csv_flight_details(hdf_path, res['kti'], res['kpv'], res['phases'])
 
@@ -359,7 +359,7 @@ class TestProcessFlight(unittest.TestCase):
         
         res = process_flight(hdf_path, ac_info, draw=False)
         self.assertEqual(len(res), 4)
-        track_to_kml(hdf_path, res['kti'], res['kpv'])
+        track_to_kml(hdf_path, res['kti'], res['kpv'],'test_10')
         from analysis_engine.plot_flight import csv_flight_details
         csv_flight_details(hdf_path, res['kti'], res['kpv'], res['phases'])
 
@@ -434,16 +434,19 @@ class TestProcessFlight(unittest.TestCase):
         
         res = process_flight(hdf_path, ac_info, draw=False)
         self.assertEqual(len(res), 4)
-        track_to_kml(hdf_path, res['kti'], res['kpv'])
+        track_to_kml(hdf_path, res['kti'], res['kpv'],'test_11')
         from analysis_engine.plot_flight import csv_flight_details
         csv_flight_details(hdf_path, res['kti'], res['kpv'], res['phases'])
         
-    @unittest.skipIf(not os.path.isfile("test_data/RD0001830229.001.hdf5"),
+    #----------------------------------------------------------------------
+    # Test 12 = 737-3C frame
+    #----------------------------------------------------------------------
+    @unittest.skipIf(not os.path.isfile("test_data/12_737_3C_RD0001830229.001.hdf5"),
                          "Test file not present")
     @mock.patch('analysis_engine.flight_attribute.get_api_handler')
-    def test_12_RD0001830229(self, get_api_handler):
-        hdf_orig = "test_data/RD0001830229.001.hdf5"
-        hdf_path = "test_data/RD0001830229.001_copy.hdf5"
+    def test_12_737_3C_RD0001830229_001(self, get_api_handler):
+        hdf_orig = "test_data/12_737_3C_RD0001830229.001.hdf5"
+        hdf_path = "test_data/12_737_3C_RD0001830229.001_copy.hdf5"
         if os.path.isfile(hdf_path):
             os.remove(hdf_path)
         shutil.copy(hdf_orig, hdf_path)
@@ -480,21 +483,21 @@ class TestProcessFlight(unittest.TestCase):
         
         res = process_flight(hdf_path, ac_info, draw=False)
         self.assertEqual(len(res), 4)
-        track_to_kml(hdf_path, res['kti'], res['kpv'])
+        track_to_kml(hdf_path, res['kti'], res['kpv'],'test_12')
         from analysis_engine.plot_flight import csv_flight_details
         csv_flight_details(hdf_path, res['kti'], res['kpv'], res['phases'])    
 
 
     #----------------------------------------------------------------------
-    # Test 12 = 737-3C frame
+    # Test 13 = 737-3C frame
     #----------------------------------------------------------------------
     
-    @unittest.skipIf(not os.path.isfile("test_data/12_737_3C_RD000183818.001.hdf5"),
+    @unittest.skipIf(not os.path.isfile("test_data/13_737_3C_RD000183818.001.hdf5"),
                      "Test file not present")
     @mock.patch('analysis_engine.flight_attribute.get_api_handler')
-    def test_12_737_3C_RD000183818_001(self, get_api_handler):
-        hdf_orig = "test_data/12_737_3C_RD000183818.001.hdf5"
-        hdf_path = "test_data/12_737_3C_RD000183818.001_copy.hdf5"
+    def test_13_737_3C_RD000183818_001(self, get_api_handler):
+        hdf_orig = "test_data/13_737_3C_RD000183818.001.hdf5"
+        hdf_path = "test_data/13_737_3C_RD000183818.001_copy.hdf5"
         if os.path.isfile(hdf_path):
             os.remove(hdf_path)
         shutil.copy(hdf_orig, hdf_path)
@@ -509,10 +512,10 @@ class TestProcessFlight(unittest.TestCase):
             {(50.108969665785381, 14.250219723680361):airport_krs,
              (60.18798957977976, 11.114856132439204):airport_osl}
         
-        runway_osl_01l = {"end":{"latitude":60.216113,"longitude":11.091418},"glideslope":{"latitude":60.187709,"frequency":"332300M","angle":3.0,"longitude":11.072739,"threshold_distance":991},"start":{"latitude":60.185048,"longitude":11.073522},"localizer":{"latitude":60.219793,"beam_width":4.5,"frequency":"111300M","heading":196,"longitude":11.093544},"strip":{"width":147,"length":11811,"surface":"ASP"},"identifier":"19R","id":8152}
+        runway_osl_19l = {"end":{"latitude":60.175614,"longitude":11.107394},"glideslope":{"latitude":60.198077,"frequency":"332300M","angle":3.0,"longitude":11.122710,"threshold_distance":991},"start":{"latitude":60.201242,"longitude":11.122228},"localizer":{"latitude":60.171942,"beam_width":4.5,"frequency":"111300M","heading":196,"longitude":11.105293},"strip":{"width":147,"length":11811,"surface":"ASP"},"identifier":"19R","id":8152}
         runway_krs_04 = {"end":{"latitude":58.211678,"longitude":8.095269},"localizer":{"latitude":58.212397,"beam_width":4.5,"frequency":"110300M","heading":36,"longitude":8.096228},"glideslope":{"latitude":58.198664,"frequency":"335000M","angle":3.4,"longitude":8.080164,"threshold_distance":720},"start":{"latitude":58.196703,"longitude":8.075406},"strip":{"width":147,"length":6660,"id":4064,"surface":"ASP"},"identifier":"04","id":8127}
         runways = \
-            {2461: runway_osl_01l, 2456: runway_krs_04}        
+            {2461: runway_osl_19l, 2456: runway_krs_04}        
         
         # Mock API handler return values so that we do not make http requests.
         # Will return the same airport and runway for each query, can be
@@ -531,11 +534,155 @@ class TestProcessFlight(unittest.TestCase):
         
         res = process_flight(hdf_path, ac_info, draw=False)
         self.assertEqual(len(res), 4)
-        track_to_kml(hdf_path, res['kti'], res['kpv'])
+        track_to_kml(hdf_path, res['kti'], res['kpv'],'test_13')
         from analysis_engine.plot_flight import csv_flight_details
         csv_flight_details(hdf_path, res['kti'], res['kpv'], res['phases'])
 
 
+    #----------------------------------------------------------------------
+    # Test 14 = 737-i frame
+    #----------------------------------------------------------------------
+    
+    @unittest.skipIf(not os.path.isfile("test_data/14_737_i_RD0001834649.001.hdf5"),
+                     "Test file not present")
+    @mock.patch('analysis_engine.flight_attribute.get_api_handler')
+    def test_14_737_i_RD0001834649_001(self, get_api_handler):
+        hdf_orig = "test_data/14_737_i_RD0001834649.001.hdf5"
+        hdf_path = "test_data/14_737_i_RD0001834649.001_copy.hdf5"
+        if os.path.isfile(hdf_path):
+            os.remove(hdf_path)
+        shutil.copy(hdf_orig, hdf_path)
+        ac_info = {'Frame': '737-i',
+                   'Precise Positioning': False,
+                   'Flap Selections': [0,1,2,5,10,15,25,30,40],
+                   }
+
+        airport_osl = {"distance":0.93165142982548599,"magnetic_variation":"E001226 0106","code":{"icao":"ENGM","iata":"OSL"},"name":"Oslo Gardermoen","longitude":11.1004,"location":{"city":"Oslo","country":"Norway"},"latitude":60.193899999999999,"id":2461}
+        airport_dub = {"magnetic_variation":"W005068 0106","code":{"icao":"EIDW","iata":"DUB"},"name":"Dublin","longitude":-6.27007,"location":{"city":"Dublin","country":"Ireland"},"latitude":53.4213,"id":2429}
+        airports = {(53.414031565189362, -6.3065528869628906):airport_dub,
+                    (60.215677917003632, 11.046042442321777):airport_osl}
+        
+        runway_osl_19r = {"end":{"latitude":60.185000000000002,"longitude":11.073744},"glideslope":{"latitude":60.213678,"frequency":"332300M","angle":3.0,"longitude": 11.087713,"threshold_distance":991},"start":{"latitude":60.216067000000002,"longitude":11.091664},"localizer":{"latitude": 60.182054,"beam_width":4.5,"frequency":"111300M","heading":016,"longitude": 11.071766},"strip":{"width":147,"length":11811,"surface":"ASP"},"identifier":"19R","id":8152}
+        runway_dub_28 = {"start":{"latitude":53.420248,"longitude":-6.250358},"end":{"latitude":53.422473,"longitude":-6.290858},"identifier":"04","id":8127}
+        runways = {2461: runway_osl_19r, 2429: runway_dub_28}        
+        
+        # Mock API handler return values so that we do not make http requests.
+        # Will return the same airport and runway for each query, can be
+        # avoided with side_effect.
+        api_handler = mock.Mock()
+        get_api_handler.return_value = api_handler
+        api_handler.get_nearest_airport = mock.Mock()
+        def mocked_nearest_airport(lat, lon, **kwargs):
+            return airports[(lat, lon)]
+        api_handler.get_nearest_airport.side_effect = mocked_nearest_airport
+        api_handler.get_nearest_runway = mock.Mock()
+        def mocked_nearest_runway(airport_id, mag_hdg, **kwargs):
+            return runways[airport_id]
+        api_handler.get_nearest_runway.side_effect = mocked_nearest_runway
+        start_datetime = datetime.now()
+        
+        res = process_flight(hdf_path, ac_info, draw=False)
+        self.assertEqual(len(res), 4)
+        track_to_kml(hdf_path, res['kti'], res['kpv'],'test_14')
+        from analysis_engine.plot_flight import csv_flight_details
+        csv_flight_details(hdf_path, res['kti'], res['kpv'], res['phases'])
+
+
+    #----------------------------------------------------------------------
+    # Test 15 = 737-4 frame (Digital engine parameters)
+    #----------------------------------------------------------------------
+    
+    @unittest.skipIf(not os.path.isfile("test_data/15_737_4_RD0001833760.hdf5"),
+                     "Test file not present")
+    @mock.patch('analysis_engine.flight_attribute.get_api_handler')
+    def test_15_737_4_RD0001833760(self, get_api_handler):
+        hdf_orig = "test_data/15_737_4_RD0001833760.hdf5"
+        hdf_path = "test_data/15_737_4_RD0001833760_copy.hdf5"
+        if os.path.isfile(hdf_path):
+            os.remove(hdf_path)
+        shutil.copy(hdf_orig, hdf_path)
+        ac_info = {'Frame': '737-4',
+                   'Precise Positioning': False,
+                   'Flap Selections': [0,1,2,5,10,15,25,30,40],
+                   }
+
+        airport_osl = {"distance":0.93165142982548599,"magnetic_variation":"E001226 0106","code":{"icao":"ENGM","iata":"OSL"},"name":"Oslo Gardermoen","longitude":11.1004,"location":{"city":"Oslo","country":"Norway"},"latitude":60.193899999999999,"id":2461}
+        airport_dub = {"magnetic_variation":"W005068 0106","code":{"icao":"EIDW","iata":"DUB"},"name":"Dublin","longitude":-6.27007,"location":{"city":"Dublin","country":"Ireland"},"latitude":53.4213,"id":2429}
+        airports = {(53.414031565189362, -6.3065528869628906):airport_dub,
+                    (60.215677917003632, 11.046042442321777):airport_osl}
+        
+        runway_osl_19r = {"end":{"latitude":60.185000000000002,"longitude":11.073744},"glideslope":{"latitude":60.213678,"frequency":"332300M","angle":3.0,"longitude": 11.087713,"threshold_distance":991},"start":{"latitude":60.216067000000002,"longitude":11.091664},"localizer":{"latitude": 60.182054,"beam_width":4.5,"frequency":"111300M","heading":016,"longitude": 11.071766},"strip":{"width":147,"length":11811,"surface":"ASP"},"identifier":"19R","id":8152}
+        runway_dub_28 = {"start":{"latitude":53.420248,"longitude":-6.250358},"end":{"latitude":53.422473,"longitude":-6.290858},"identifier":"04","id":8127}
+        runways = {2461: runway_osl_19r, 2429: runway_dub_28}        
+        
+        # Mock API handler return values so that we do not make http requests.
+        # Will return the same airport and runway for each query, can be
+        # avoided with side_effect.
+        api_handler = mock.Mock()
+        get_api_handler.return_value = api_handler
+        api_handler.get_nearest_airport = mock.Mock()
+        def mocked_nearest_airport(lat, lon, **kwargs):
+            return airports[(lat, lon)]
+        api_handler.get_nearest_airport.side_effect = mocked_nearest_airport
+        api_handler.get_nearest_runway = mock.Mock()
+        def mocked_nearest_runway(airport_id, mag_hdg, **kwargs):
+            return runways[airport_id]
+        api_handler.get_nearest_runway.side_effect = mocked_nearest_runway
+        start_datetime = datetime.now()
+        
+        res = process_flight(hdf_path, ac_info, draw=False)
+        self.assertEqual(len(res), 4)
+        track_to_kml(hdf_path, res['kti'], res['kpv'],'test_15')
+        from analysis_engine.plot_flight import csv_flight_details
+        csv_flight_details(hdf_path, res['kti'], res['kpv'], res['phases'])
+
+    #----------------------------------------------------------------------
+    # Test 15 = 737-4 frame (Digital engine parameters)
+    #----------------------------------------------------------------------
+    
+    @unittest.skipIf(not os.path.isfile("test_data/16_737_4a_RD0001821019.hdf5"),
+                     "Test file not present")
+    @mock.patch('analysis_engine.flight_attribute.get_api_handler')
+    def test_16_737_4a_RD0001821019(self, get_api_handler):
+        hdf_orig = "test_data/16_737_4a_RD0001821019.hdf5"
+        hdf_path = "test_data/16_737_4a_RD0001821019_copy.hdf5"
+        if os.path.isfile(hdf_path):
+            os.remove(hdf_path)
+        shutil.copy(hdf_orig, hdf_path)
+        ac_info = {'Frame': '737-4a',
+                   'Precise Positioning': False,
+                   'Flap Selections': [0,1,2,5,10,15,25,30,40],
+                   }
+
+        airport_osl = {"distance":0.93165142982548599,"magnetic_variation":"E001226 0106","code":{"icao":"ENGM","iata":"OSL"},"name":"Oslo Gardermoen","longitude":11.1004,"location":{"city":"Oslo","country":"Norway"},"latitude":60.193899999999999,"id":2461}
+        airport_dub = {"magnetic_variation":"W005068 0106","code":{"icao":"EIDW","iata":"DUB"},"name":"Dublin","longitude":-6.27007,"location":{"city":"Dublin","country":"Ireland"},"latitude":53.4213,"id":2429}
+        airports = {(53.414031565189362, -6.3065528869628906):airport_dub,
+                    (60.215677917003632, 11.046042442321777):airport_osl}
+        
+        runway_osl_19r = {"end":{"latitude":60.185000000000002,"longitude":11.073744},"glideslope":{"latitude":60.213678,"frequency":"332300M","angle":3.0,"longitude": 11.087713,"threshold_distance":991},"start":{"latitude":60.216067000000002,"longitude":11.091664},"localizer":{"latitude": 60.182054,"beam_width":4.5,"frequency":"111300M","heading":016,"longitude": 11.071766},"strip":{"width":147,"length":11811,"surface":"ASP"},"identifier":"19R","id":8152}
+        runway_dub_28 = {"start":{"latitude":53.420248,"longitude":-6.250358},"end":{"latitude":53.422473,"longitude":-6.290858},"identifier":"04","id":8127}
+        runways = {2461: runway_osl_19r, 2429: runway_dub_28}        
+        
+        # Mock API handler return values so that we do not make http requests.
+        # Will return the same airport and runway for each query, can be
+        # avoided with side_effect.
+        api_handler = mock.Mock()
+        get_api_handler.return_value = api_handler
+        api_handler.get_nearest_airport = mock.Mock()
+        def mocked_nearest_airport(lat, lon, **kwargs):
+            return airports[(lat, lon)]
+        api_handler.get_nearest_airport.side_effect = mocked_nearest_airport
+        api_handler.get_nearest_runway = mock.Mock()
+        def mocked_nearest_runway(airport_id, mag_hdg, **kwargs):
+            return runways[airport_id]
+        api_handler.get_nearest_runway.side_effect = mocked_nearest_runway
+        start_datetime = datetime.now()
+        
+        res = process_flight(hdf_path, ac_info, draw=False)
+        self.assertEqual(len(res), 4)
+        track_to_kml(hdf_path, res['kti'], res['kpv'],'test_16')
+        from analysis_engine.plot_flight import csv_flight_details
+        csv_flight_details(hdf_path, res['kti'], res['kpv'], res['phases'])
 
 
 

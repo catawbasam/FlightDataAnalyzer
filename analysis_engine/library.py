@@ -981,6 +981,14 @@ def is_slice_within_slice(inner_slice, outer_slice):
         stop_within = outer_slice.start <= inner_slice.stop <= outer_slice.stop
         return start_within and stop_within
 
+def slices_overlap(first_slice, second_slice):
+    '''
+    TODO: Test.
+    '''
+    start_within = first_slice.start <= second_slice.start <= first_slice.stop
+    stop_within = first_slice.start <= second_slice.stop <= first_slice.stop
+    return start_within or stop_within
+
 def latitudes_and_longitudes(bearings, distances, reference):
     """
     Returns the bearings and distances of a track with respect to a fixed point.
