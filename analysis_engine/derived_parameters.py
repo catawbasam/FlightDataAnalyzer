@@ -1746,11 +1746,14 @@ class PitchRate(DerivedParameterNode):
 
 
 class ThrottleLever(DerivedParameterNode):
-    def derive(self, tla1=P('Throttle Lever Angle (1)'), 
-               tla2=P('Throttle Lever Angle (2)')):
+    def derive(self,
+               tla1=P('Throttle Lever Angle (1)'), 
+               tla2=P('Throttle Lever Angle (2)'),
+               tla3=P('Throttle Lever Angle (3)'),
+               tla4=P('Throttle Lever Angle (4)')):
         ##self.hz = tla1.hz * 2
-        ##self.offset = min(tla1.offset, tla2.offset)
-        ##self.array = interleave (tla1, tla2)
+        ##self.offset = min(tla1.offset, tla2.offset, tla3.offset, tla4.offset)
+        ##self.array = interleave(tla1, tla2, tla3, tla4)
         return NotImplemented
 
 
