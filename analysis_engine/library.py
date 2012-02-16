@@ -713,7 +713,9 @@ def hash_array(array):
     return checksum.hexdigest()
 
 def hysteresis (array, hysteresis):
-
+    if np.ma.count(array) == 0: # No unmasked elements.
+        return array
+    
     quarter_range = hysteresis / 4.0
     # Length is going to be used often, so prepare here:
     length = len(array)
@@ -980,6 +982,14 @@ def is_slice_within_slice(inner_slice, outer_slice):
         start_within = outer_slice.start <= inner_slice.start <= outer_slice.stop
         stop_within = outer_slice.start <= inner_slice.stop <= outer_slice.stop
         return start_within and stop_within
+
+def slices_overlap(first_slice, second_slice):
+    '''
+    TODO: Test.
+    '''
+    start_within = first_slice.start <= second_slice.start <= first_slice.stop
+    stop_within = first_slice.start <= second_slice.stop <= first_slice.stop
+    return start_within or stop_within
 
 def latitudes_and_longitudes(bearings, distances, reference):
     """
@@ -1674,10 +1684,10 @@ def track_linking(pos, local_pos):
             adj_b = (3 * local_pos.data[b] - local_pos.data[b+1])/2 -\
                 (3 * pos.data[b-1] - pos.data[b-2])/2
 
-        adj_a = adj_a + link_a*adj_b
-        adj_b = adj_b + link_b*adj_a
+        fix_a = adj_a + link_a*adj_b
+        fix_b = adj_b + link_b*adj_a
         
-        fix = np.linspace(adj_a, adj_b, num=b-a)
+        fix = np.linspace(fix_a, fix_b, num=b-a)
         local_pos[a:b] = pos[a:b] + fix
     return local_pos
         

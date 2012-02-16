@@ -1250,7 +1250,7 @@ class HeadingTrue(DerivedParameterNode):
 class ILSFrequency(DerivedParameterNode):
     name = "ILS Frequency"
     align_to_first_dependency = False
-    def derive(self, f1=P('ILS Freq (1)'),f2=P('ILS Freq (2)')):
+    def derive(self, f1=P('ILS (L) Frequency'),f2=P('ILS (R) Frequency')):
         self.frequency *= 2
         self.offset = min(f1.offset, f2.offset)
         self.array = merge_sources(f1.array, f2.array)
@@ -1265,8 +1265,8 @@ class ILSRange(DerivedParameterNode):
     It is (currently) in feet from the localizer antenna.
     """
     
-    def derive(self, lat=P('Latitude'),
-               lon = P('Longitude'),
+    def derive(self, lat=P('Latitude Straighten'),
+               lon = P('Longitude Straighten'),
                glide = P('ILS Glideslope'),
                gspd = P('Groundspeed'),
                tas = P('Airspeed True'),
@@ -1292,18 +1292,27 @@ class ILSRange(DerivedParameterNode):
                 speed_signal = tas.array
         
         for num_loc, this_loc in enumerate(loc_established):
-            
+ 
+            # Scan through the recorded approaches to find which matches this
+            # localizer established phase.
             for approach in app_info.value:
-                approach_index = index_of_datetime(start_datetime.value,
-                                                   approach['datetime'],
-                                                   self.frequency)
-                if this_loc.slice.start <= approach_index <= this_loc.slice.stop:
+
+                approach_slice = slice(index_of_datetime(start_datetime.value,
+                                                         approach['slice_start_datetime'],
+                                                         self.frequency),
+                                       index_of_datetime(start_datetime.value,
+                                                         approach['slice_stop_datetime'],
+                                                         self.frequency))
+                loc_est = loc_established.get_last(within_slice=approach_slice,
+                                                   within_use='any')
+                if approach_slice == None:
                     break
-            else:
+
+            if approach_slice == None:
                 logging.warning("No approach found within slice '%s'.",
                                 this_loc)
-                continue
-            # TODO: Amend FDR Approaches and this code to avoid risk of misalignment of dictionary records.
+                break
+
             if not approach['runway']:
                 logging.warning("Approach runway information not available.")
             
@@ -1316,7 +1325,7 @@ class ILSRange(DerivedParameterNode):
                 continue
 
             if precise.value:
-                # Convert (repaired) latitude & longitude for the whole phase
+                # Convert (straightened) latitude & longitude for the whole phase
                 # into range from the threshold. (threshold = {})
                 threshold = app_info.value[num_loc]['runway']['localizer']
                 brg, ils_range[this_loc.slice] = \
@@ -1341,9 +1350,16 @@ class ILSRange(DerivedParameterNode):
                     for this_gs in gs_established:                    
                         if is_slice_within_slice(this_gs.slice, this_loc.slice):
 
-                            # Compute best fit glidepath.
-                            corr, slope, offset = coreg(alt_aal.array[this_gs.slice], 
-                                                        ils_range[this_gs.slice])
+                            # Compute best fit glidepath. The term (1-.13 x
+                            # glideslope deviation) caters for the aircraft
+                            # deviating from the planned flightpath. 1 dot
+                            # low is about 0.76 deg, or 13% of a 3 degree
+                            # glidepath. Not precise, but adequate accuracy
+                            # for the small error we are correcting for here.
+                            corr, slope, offset = \
+                                coreg(alt_aal.array[this_gs.slice]*
+                                      (1-0.13*glide.array[this_gs.slice]),
+                                      ils_range[this_gs.slice])
 
                             # Shift the values in this approach so that the range
                             # = 0 at 0ft on the projected ILS slope, then reference
@@ -1369,6 +1385,7 @@ class ILSRange(DerivedParameterNode):
    
     
 class LatitudeSmoothed(DerivedParameterNode):
+    units = 'deg'
     # Note order of longitude and latitude sets data aligned to latitude.
     def derive(self, lat = P('Latitude Straighten'),
                lon = P('Longitude Straighten'),
@@ -1397,6 +1414,7 @@ class LatitudeSmoothed(DerivedParameterNode):
         
 
 class LongitudeSmoothed(DerivedParameterNode):
+    units = 'deg'
     # Note order of longitude and latitude sets data aligned to longitude.
     def derive(self, lon = P('Longitude Straighten'),
                lat = P('Latitude Straighten'),
@@ -1437,7 +1455,12 @@ def adjust_track(lon,lat,loc_est,ils_range,ils_loc,alt_aal,gspd,tas,
     # Use synthesized track for takeoffs where necessary
     #-----------------------------------------------------------------------
 
-    if not precise.value:
+    if precise.value:
+        # We allow the recorded track to be used for the takeoff unchanged.
+        lat_adj[:toff[0].slice.stop] = lat.array[:toff[0].slice.stop]
+        lon_adj[:toff[0].slice.stop] = lon.array[:toff[0].slice.stop]
+        
+    else:
 
         # We can improve the track using available data.
         if gspd:
@@ -1457,6 +1480,7 @@ def adjust_track(lon,lat,loc_est,ils_range,ils_loc,alt_aal,gspd,tas,
             mask = gspd.array.mask[toff[0].slice])
 
         # The start location has been read from the database.
+        # TODO: What should we do if start coordinates are not available.
         start_locn = toff_rwy.value['start']
 
         # Similarly the runway bearing is derived from the runway endpoints
@@ -1483,7 +1507,8 @@ def adjust_track(lon,lat,loc_est,ils_range,ils_loc,alt_aal,gspd,tas,
         # revert the ILS track from range and bearing to lat & long
         # coordinates.
         
-        # Which runway are we approaching?    
+        # Which runway are we approaching?
+        # TODO: What do we do if localizer is not available in runway dict.
         reference = app_info.value[num_loc]['runway']['localizer']
         
         # Compute the localizer scale factor (degrees per dot)
@@ -1552,6 +1577,38 @@ class RateOfClimb(DerivedParameterNode):
                alt_rad = P('Altitude Radio'),
                speed=P('Airspeed')):
 
+        def inertial_rate_of_climb(alt_std_repair, frequency, alt_rad_repair, az_repair):
+            # Use the complementary smoothing approach
+    
+            roc_alt_std = first_order_washout(alt_std_repair,
+                                              RATE_OF_CLIMB_LAG_TC, frequency,
+                                              gain=1/RATE_OF_CLIMB_LAG_TC)
+            roc_alt_rad = first_order_washout(alt_rad_repair,
+                                              RATE_OF_CLIMB_LAG_TC, frequency,
+                                              gain=1/RATE_OF_CLIMB_LAG_TC)
+                    
+            # Use pressure altitude rate above 100ft and radio altitude rate
+            # below 50ft with progressive changeover across that range.
+            # up to 50 ft radio 0 < std_rad_ratio < 1 over 100ft radio
+            std_rad_ratio = np.maximum(np.minimum((alt_rad_repair-50.0)/50.0,
+                                                  1),0)
+            roc_altitude = roc_alt_std*std_rad_ratio +\
+                roc_alt_rad*(1.0-std_rad_ratio)
+            
+            # This is the washout term, with considerable gain. The
+            # initialisation "initial_value=az.array[clump][0]" is very
+            # important, as without this the function produces huge
+            # spikes at each start of a data period.
+            az_washout = first_order_washout (az_repair, 
+                                              AZ_WASHOUT_TC, frequency, 
+                                              gain=GRAVITY_IMPERIAL,
+                                              initial_value=az_repair[0])
+            inertial_roc = first_order_lag (az_washout, 
+                                            RATE_OF_CLIMB_LAG_TC, 
+                                            frequency, 
+                                            gain=RATE_OF_CLIMB_LAG_TC)
+            return (roc_altitude + inertial_roc) * 60.0
+
         if az and alt_rad:
             # Make space for the answers
             self.array = np.ma.masked_all_like(alt_std.array)
@@ -1576,37 +1633,9 @@ class RateOfClimb(DerivedParameterNode):
             clumps = np.ma.clump_unmasked(az_masked)
             for clump in clumps:
                 
-                # Use the complementary smoothing approach
-    
-                roc_alt_std = first_order_washout(alt_std.array[clump],
-                                                  RATE_OF_CLIMB_LAG_TC, az.hz,
-                                                  gain=1/RATE_OF_CLIMB_LAG_TC)
-                roc_alt_rad = first_order_washout(alt_rad.array[clump],
-                                                  RATE_OF_CLIMB_LAG_TC, az.hz,
-                                                  gain=1/RATE_OF_CLIMB_LAG_TC)
-                        
-                # Use pressure altitude rate above 100ft and radio altitude rate
-                # below 50ft with progressive changeover across that range.
-                # up to 50 ft radio 0 < std_rad_ratio < 1 over 100ft radio
-                std_rad_ratio = np.maximum(np.minimum(
-                    (alt_rad.array.data[clump]-50.0)/50.0,
-                    1),0)
-                roc_altitude = roc_alt_std*std_rad_ratio +\
-                    roc_alt_rad*(1.0-std_rad_ratio)
-                
-                # This is the washout term, with considerable gain. The
-                # initialisation "initial_value=az.array[clump][0]" is very
-                # important, as without this the function produces huge
-                # spikes at each start of a data period.
-                az_washout = first_order_washout (az.array[clump], 
-                                                  AZ_WASHOUT_TC, az.hz, 
-                                                  gain=GRAVITY_IMPERIAL,
-                                                  initial_value=az.array[clump][0])
-                inertial_roc = first_order_lag (az_washout, 
-                                                RATE_OF_CLIMB_LAG_TC, 
-                                                az.hz, 
-                                                gain=RATE_OF_CLIMB_LAG_TC)
-                self.array[clump] = (roc_altitude + inertial_roc) * 60.0
+                 self.array[clump] = inertial_rate_of_climb(
+                     alt_std_repair[clump], az.frequency,
+                     alt_rad_repair[clump], az_repair[clump])
             
         else:
             # The period for averaging altitude only data has been chosen
@@ -1683,22 +1712,22 @@ class CoordinatesStraighten(object):
         return array
         
 
-class LatitudeStraighten(DerivedParameterNode, CoordinatesStraighten):
+class LongitudeStraighten(DerivedParameterNode, CoordinatesStraighten):
     def derive(self,
-               lat=P('Latitude'), 
-               lon=P('Longitude')):
+               lon=P('Longitude'),
+               lat=P('Latitude')):
         """
         Acceleration along track may be added to increase the sample rate and
         alignment of the resulting smoothed track parameter.
         """
-        self.array = self._smooth_coordinates(lat, lon)
+        self.array = self._smooth_coordinates(lon, lat)
 
     
-class LongitudeStraighten(DerivedParameterNode, CoordinatesStraighten):
+class LatitudeStraighten(DerivedParameterNode, CoordinatesStraighten):
     def derive(self, 
                lat=P('Latitude'), 
                lon=P('Longitude')):
-        self.array = self._smooth_coordinates(lon, lat)
+        self.array = self._smooth_coordinates(lat, lon)
 
 
 class RateOfTurn(DerivedParameterNode):

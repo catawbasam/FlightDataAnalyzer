@@ -12,8 +12,8 @@ from operator import attrgetter
 from analysis_engine.library import (align, is_index_within_slice,
                                      is_slice_within_slice, slices_above,
                                      slices_below, slices_between,
-                                     slices_from_to, value_at_index,
-                                     value_at_time)
+                                     slices_from_to, slices_overlap,
+                                     value_at_index, value_at_time)
 from analysis_engine.recordtype import recordtype
 
 # Define named tuples for KPV and KTI and FlightPhase
@@ -449,7 +449,8 @@ class SectionNode(Node, list):
                  'start': lambda s, within: is_index_within_slice(s.slice.start,
                                                                   within),
                  'stop': lambda s, within: is_index_within_slice(s.slice.stop,
-                                                                 within)}
+                                                                 within),
+                 'any': lambda s, within: slices_overlap(s.slice, within)}
             within_func = within_funcs[within_use]
         
         if within_slice and name:

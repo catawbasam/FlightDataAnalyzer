@@ -47,6 +47,15 @@ def _segment_type_and_slice(airspeed, frequency, start, stop):
 
 
 def _get_normalised_split_params(hdf):
+    '''
+    Get split parameters (currently only engine power) from hdf, normalise
+    them on a scale from 0-1.0 and return the minimum.
+    
+    :param hdf: hdf_file object.
+    :type hdf: hdfaccess.file.hdf_file
+    :returns: Minimum of normalised split parameters along with its frequency. Will return None, None if no split parameters are available.
+    :rtype: (None, None) or (np.ma.masked_array, float)
+    '''
     params = []
     first_split_param = None
     for param_name in ('Eng (1) N1', 'Eng (2) N1', 'Eng (3) N1', 'Eng (4) N1',
@@ -57,6 +66,7 @@ def _get_normalised_split_params(hdf):
         except KeyError:
             continue
         if first_split_param:
+            # Align all other parameters to first available.
             param.array = align(param, first_split_param)
         else:
             first_split_param = param
@@ -67,7 +77,6 @@ def _get_normalised_split_params(hdf):
     # If there is at least one split parameter available.
     # normalise the parameters we'll use for splitting the data
     stacked_params = vstack_params(*params)
-    #TODO: Add "Turning" to ensure we're staying still (rate of turn)
     normalised_params = normalise(stacked_params, scale_max=100)
     split_params_min = np.ma.min(normalised_params, axis=0)
     return split_params_min, first_split_param.frequency
@@ -75,6 +84,9 @@ def _get_normalised_split_params(hdf):
 def _rate_of_turn(heading):
     '''
     Create rate of turn from heading.
+    
+    :param heading: Heading parameter.
+    :type heading: Parameter
     '''
     heading.array = repair_mask(straighten_headings(heading.array),
                                 repair_duration=None)
@@ -91,8 +103,6 @@ def split_segments(hdf):
     Notes:
      * We do not want to split on masked superframe data if mid-flight (e.g. short section of corrupt data) - repair_mask without defining repair_duration should fix that.
      * Use turning alongside engine parameters to ensure there is no movement?
-     Q: How many splits shall we make if the DFC jumps more than once? e.g. engine runups? Current answer: 1
-     Q: Shall we allow multiple splits if we don't use DFC between flights, e.g. params? No, same as above.
      Q: Beware of pre-masked minimums to ensure we don't split on padded superframes     
     
     TODO: Use L3UQAR num power ups for difficult cases?
