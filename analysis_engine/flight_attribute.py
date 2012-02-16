@@ -96,7 +96,9 @@ class Approaches(FlightAttributeNode):
         try:
             runway_info = api_handler.get_nearest_runway(airport_id, hdg, **kwargs)
             if len(runway_info['items']) > 1:
-                raise NotImplementedError('Multiple runways returned')
+                # TODO: What to store in approach dictionary.
+                runway = runway_info['ident']
+                ##raise NotImplementedError('Multiple runways returned')
             else:
                 runway = runway_info['items'][0]
         except NotFoundError:
@@ -340,7 +342,9 @@ class LandingRunway(FlightAttributeNode):
             runway_info = api_handler.get_nearest_runway(airport_id, heading,
                                                     **kwargs)
             if len(runway_info['items']) > 1:
-                raise NotImplementedError('Multiple runways returned')
+                # TODO: Having a string here will cause problems..
+                runway = runway_info['ident']
+                ##raise NotImplementedError('Multiple runways returned')
             else:
                 runway = runway_info['items'][0]            
         except NotFoundError:
@@ -563,7 +567,9 @@ class TakeoffRunway(FlightAttributeNode):
             runway_info = api_handler.get_nearest_runway(airport_id, hdg_value,
                                                     **kwargs)
             if len(runway_info['items']) > 1:
-                raise NotImplementedError('Multiple runways returned')
+                # TODO: This will probably break nodes which are dependent.
+                runway = runway_info['ident']
+                ##raise NotImplementedError('Multiple runways returned')
             else:
                 runway = runway_info['items'][0]
         except NotFoundError:

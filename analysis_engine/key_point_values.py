@@ -485,15 +485,12 @@ class Eng_N1MaxDurationUnder60PercentAfterTouchdown(KeyPointValueNode): ##was na
     
     @classmethod
     def can_operate(cls, available):
-        if 'Touchdown' in available\
-           and 'Eng (*) Stop' in available\
-           and ('Eng (1) N1' in available\
-                or 'Eng (2) N1' in available\
-                or 'Eng (3) N1' in available\
-                or 'Eng (4) N1' in available):
-            return True
-        else:
-            return False
+        return 'Touchdown' in available and \
+               'Eng (*) Stop' in available and \
+               ('Eng (1) N1' in available or \
+                'Eng (2) N1' in available or \
+                'Eng (3) N1' in available or \
+                'Eng (4) N1' in available)
     
     def derive(self, 
                eng1=P('Eng (1) N1'),

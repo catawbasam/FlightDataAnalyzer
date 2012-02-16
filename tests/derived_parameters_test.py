@@ -286,9 +286,9 @@ class TestAirspeedMinusVref(unittest.TestCase):
 
 class TestAirspeedTrue(unittest.TestCase):
     def test_can_operate(self):
-        expected = [('Airspeed','Altitude STD','TAT')]
-        opts = AirspeedTrue.get_operational_combinations()
-        self.assertEqual(opts, expected)
+        self.assertEqual(AirspeedTrue.get_operational_combinations(), 
+                         [('Airspeed', 'Altitude STD'),
+                          ('Airspeed', 'Altitude STD', 'TAT')])
         
     def test_tas_basic(self):
         cas = P('Airspeed', np.ma.array([100,200,300]))

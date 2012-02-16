@@ -142,12 +142,7 @@ class AccelerationForwardsForFlightPhases(DerivedParameterNode):
     # List the minimum acceptable parameters here
     @classmethod
     def can_operate(cls, available):
-        if 'Airspeed' in available:
-            return True
-        elif 'Acceleration Longitudinal' in available:
-            return True
-        else:
-            return False
+        return 'Airspeed' in available or 'Acceleration Longitudinal' in available
         
     # List the optimal parameter set here
     def derive(self, acc_long=P('Acceleration Longitudinal'),
@@ -195,10 +190,7 @@ class AirspeedMinusVref(DerivedParameterNode):
 class AirspeedTrue(DerivedParameterNode):
     @classmethod
     def can_operate(cls, available):
-        if 'Airspeed' in available and 'Altitude STD':
-            return True
-        else:
-            return False
+       return 'Airspeed' in available and 'Altitude STD' in available
     
     def derive(self, cas = P('Airspeed'),
                alt_std = P('Altitude STD'),
@@ -582,8 +574,7 @@ class Eng_EGTAvg(DerivedParameterNode):
     @classmethod
     def can_operate(cls, available):
         # works with any combination of params available
-        if any([d in available for d in cls.get_dependency_names()]):
-            return True
+        return any([d in available for d in cls.get_dependency_names()])
         
     def derive(self, 
                eng1=P('Eng (1) EGT'),
@@ -600,8 +591,7 @@ class Eng_EGTMax(DerivedParameterNode):
     @classmethod
     def can_operate(cls, available):
         # works with any combination of params available
-        if any([d in available for d in cls.get_dependency_names()]):
-            return True
+        return any([d in available for d in cls.get_dependency_names()])
         
     def derive(self, 
                eng1=P('Eng (1) EGT'),
@@ -618,8 +608,7 @@ class Eng_EGTMin(DerivedParameterNode):
     @classmethod
     def can_operate(cls, available):
         # works with any combination of params available
-        if any([d in available for d in cls.get_dependency_names()]):
-            return True
+        return any([d in available for d in cls.get_dependency_names()])
         
     def derive(self, 
                eng1=P('Eng (1) EGT'),
@@ -636,8 +625,7 @@ class Eng_EPRMax(DerivedParameterNode):
     @classmethod
     def can_operate(cls, available):
         # works with any combination of params available
-        if any([d in available for d in cls.get_dependency_names()]):
-            return True
+        return any([d in available for d in cls.get_dependency_names()])
         
     def derive(self, 
                eng1=P('Eng (1) EPR'),
@@ -654,8 +642,7 @@ class Eng_EPRMin(DerivedParameterNode):
     @classmethod
     def can_operate(cls, available):
         # works with any combination of params available
-        if any([d in available for d in cls.get_dependency_names()]):
-            return True
+        return any([d in available for d in cls.get_dependency_names()])
         
     def derive(self, 
                eng1=P('Eng (1) EPR'),
@@ -687,8 +674,7 @@ class Eng_N1Avg(DerivedParameterNode):
     @classmethod
     def can_operate(cls, available):
         # works with any combination of params available
-        if any([d in available for d in cls.get_dependency_names()]):
-            return True
+        return any([d in available for d in cls.get_dependency_names()])
     
     def derive(self, 
                eng1=P('Eng (1) N1'),
@@ -704,8 +690,7 @@ class Eng_N1Max(DerivedParameterNode):
     @classmethod
     def can_operate(cls, available):
         # works with any combination of params available
-        if any([d in available for d in cls.get_dependency_names()]):
-            return True
+        return any([d in available for d in cls.get_dependency_names()])
     
     def derive(self, 
                eng1=P('Eng (1) N1'),
@@ -721,8 +706,7 @@ class Eng_N1Min(DerivedParameterNode):
     @classmethod
     def can_operate(cls, available):
         # works with any combination of params available
-        if any([d in available for d in cls.get_dependency_names()]):
-            return True
+        return any([d in available for d in cls.get_dependency_names()])
     
     def derive(self, 
                eng1=P('Eng (1) N1'),
@@ -738,8 +722,7 @@ class Eng_N2Avg(DerivedParameterNode):
     @classmethod
     def can_operate(cls, available):
         # works with any combination of params available
-        if any([d in available for d in cls.get_dependency_names()]):
-            return True
+        return any([d in available for d in cls.get_dependency_names()])
         
     def derive(self, 
                eng1=P('Eng (1) N2'),
@@ -756,9 +739,8 @@ class Eng_N2Max(DerivedParameterNode):
     @classmethod
     def can_operate(cls, available):
         # works with any combination of params available
-        if any([d in available for d in cls.get_dependency_names()]):
-            return True
-    
+        return any([d in available for d in cls.get_dependency_names()])
+            
     def derive(self, 
                eng1=P('Eng (1) N2'),
                eng2=P('Eng (2) N2'),
@@ -774,8 +756,7 @@ class Eng_N2Min(DerivedParameterNode):
     @classmethod
     def can_operate(cls, available):
         # works with any combination of params available
-        if any([d in available for d in cls.get_dependency_names()]):
-            return True
+        return any([d in available for d in cls.get_dependency_names()])
     
     def derive(self, 
                eng1=P('Eng (1) N2'),
@@ -792,8 +773,7 @@ class Eng_OilTempAvg(DerivedParameterNode):
     @classmethod
     def can_operate(cls, available):
         # works with any combination of params available
-        if any([d in available for d in cls.get_dependency_names()]):
-            return True
+        return any([d in available for d in cls.get_dependency_names()])
         
     def derive(self, 
                eng1=P('Eng (1) Oil Temp'),
@@ -810,8 +790,7 @@ class Eng_OilTempMin(DerivedParameterNode):
     @classmethod
     def can_operate(cls, available):
         # works with any combination of params available
-        if any([d in available for d in cls.get_dependency_names()]):
-            return True
+        return any([d in available for d in cls.get_dependency_names()])
         
     def derive(self, 
                eng1=P('Eng (1) Oil Temp'),
@@ -828,8 +807,7 @@ class Eng_OilTempMax(DerivedParameterNode):
     @classmethod
     def can_operate(cls, available):
         # works with any combination of params available
-        if any([d in available for d in cls.get_dependency_names()]):
-            return True
+        return any([d in available for d in cls.get_dependency_names()])
         
     def derive(self, 
                eng1=P('Eng (1) Oil Temp'),
@@ -846,8 +824,7 @@ class Eng_OilPressAvg(DerivedParameterNode):
     @classmethod
     def can_operate(cls, available):
         # works with any combination of params available
-        if any([d in available for d in cls.get_dependency_names()]):
-            return True
+        return any([d in available for d in cls.get_dependency_names()])
         
     def derive(self, 
                eng1=P('Eng (1) Oil Press'),
@@ -865,8 +842,7 @@ class Eng_OilPressMax(DerivedParameterNode):
     @classmethod
     def can_operate(cls, available):
         # works with any combination of params available
-        if any([d in available for d in cls.get_dependency_names()]):
-            return True
+        return any([d in available for d in cls.get_dependency_names()])
         
     def derive(self, 
                eng1=P('Eng (1) Oil Press'),
@@ -882,8 +858,7 @@ class Eng_OilPressMin(DerivedParameterNode):
     @classmethod
     def can_operate(cls, available):
         # works with any combination of params available
-        if any([d in available for d in cls.get_dependency_names()]):
-            return True
+        return any([d in available for d in cls.get_dependency_names()])
         
     def derive(self, 
                eng1=P('Eng (1) Oil Press'),
@@ -900,8 +875,7 @@ class Eng_TorqueMin(DerivedParameterNode):
     @classmethod
     def can_operate(cls, available):
         # works with any combination of params available
-        if any([d in available for d in cls.get_dependency_names()]):
-            return True
+        return any([d in available for d in cls.get_dependency_names()])
         
     def derive(self, 
                eng1=P('Eng (1) Torque'),
@@ -918,8 +892,7 @@ class Eng_TorqueMax(DerivedParameterNode):
     @classmethod
     def can_operate(cls, available):
         # works with any combination of params available
-        if any([d in available for d in cls.get_dependency_names()]):
-            return True
+        return any([d in available for d in cls.get_dependency_names()])
         
     def derive(self, 
                eng1=P('Eng (1) Torque'),
@@ -935,8 +908,7 @@ class Eng_VibN1Max(DerivedParameterNode):
     @classmethod
     def can_operate(cls, available):
         # works with any combination of params available
-        if any([d in available for d in cls.get_dependency_names()]):
-            return True
+        return any([d in available for d in cls.get_dependency_names()])
         
     def derive(self, 
                eng1=P('Eng (1) Vib N1'),
@@ -952,8 +924,7 @@ class Eng_VibN2Max(DerivedParameterNode):
     @classmethod
     def can_operate(cls, available):
         # works with any combination of params available
-        if any([d in available for d in cls.get_dependency_names()]):
-            return True
+        return any([d in available for d in cls.get_dependency_names()])
         
     def derive(self, 
                eng1=P('Eng (1) Vib N2'),
@@ -973,8 +944,7 @@ class FuelQty(DerivedParameterNode):
     @classmethod
     def can_operate(cls, available):
         # works with any combination of params available
-        if any([d in available for d in cls.get_dependency_names()]):
-            return True
+        return any([d in available for d in cls.get_dependency_names()])
     
     def derive(self, 
                fuel_qty1=P('Fuel Qty (1)'),
@@ -1062,9 +1032,10 @@ class Config(DerivedParameterNode):
     """
     @classmethod
     def can_operate(cls, available):
-        if 'Flap' in available and 'Slat' in available \
-           and 'Series' in available and 'Family' in available:
-            return True
+        return 'Flap' in available and \
+               'Slat' in available and \
+               'Series' in available and \
+               'Family' in available
         
     def derive(self, flap=P('Flap'), slat=P('Slat'), aileron=P('Aileron'), 
                series=A('Series'), family=A('Family')):
