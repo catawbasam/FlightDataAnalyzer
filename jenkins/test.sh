@@ -35,7 +35,7 @@ fi
 
 # Install requirements
 if [ -f requirements.txt ]; then
-    pip install -r requirements.txt
+    pip install --upgrade -r requirements.txt
 fi
 
 # Install runtime requirements.
