@@ -571,47 +571,73 @@ class ClimbForFlightPhases(DerivedParameterNode):
     
 class ControlColumn(DerivedParameterNode):
     '''
+    The position of the control column blended from the position of the captain
+    and first officer's control columns.
     '''
     align_to_first_dependency = False
     def derive(self,
-               disp_capt=P('Control Column (Capt)'),
-               disp_fo=P('Control Column (FO)')):
+               posn_capt=P('Control Column (Capt)'),
+               posn_fo=P('Control Column (FO)')):
         self.array, self.frequency, self.offset = \
-            blend_two_parameters(disp_capt, disp_fo)
+            blend_two_parameters(posn_capt, posn_fo)
 
 
 class ControlColumnForce(DerivedParameterNode):
     '''
+    The combined force from the foreign and local control columns.
+
+    This is the total force applied by both the captain and the first officer.
     '''
     def derive(self,
-               force_a_capt=P('Control Column (A) Force (Capt)'),
-               force_b_capt=P('Control Column (B) Force (Capt)'),
-               force_a_fo=P('Control Column (A) Force (FO)'),
-               force_b_fo=P('Control Column (B) Force (FO)')):
-        self.array = (force_a_capt.array + force_b_capt.array
-                   + force_a_fo.array + force_b_fo.array) / 2.0
+               force_foreign=P('Control Column Force (Foreign)'),
+               force_local=P('Control Column Force (Local)')):
+        self.array = force_foreign.array + force_local.array
+
+
+class ControlColumnForceCapt(DerivedParameterNode):
+    '''
+    The force applied by the captain to the control column.  This is dependent
+    on who has master control of the aircraft and this derived parameter
+    selects the appropriate slices of data from the foreign and local forces.
+    '''
+    name = 'Control Column Force (Capt)'
+    def derive(self,
+               force_foreign=P('Control Column Force (Foreign)'),
+               force_local=P('Control Column Force (Local)'),
+               fcc_master=P('FCC Local Limited Master')):
+        self.array = np.ma.where(fcc_master.array != 1,
+                                 force_local.array,
+                                 force_foreign.array)
+
+
+class ControlColumnForceFO(DerivedParameterNode):
+    '''
+    The force applied by the first officer to the control column.  This is
+    dependent on who has master control of the aircraft and this derived
+    parameter selects the appropriate slices of data from the foreign and local
+    forces.
+    '''
+    name = 'Control Column Force (FO)'
+    def derive(self,
+               force_foreign=P('Control Column Force (Foreign)'),
+               force_local=P('Control Column Force (Local)'),
+               fcc_master=P('FCC Local Limited Master')):
+        self.array = np.ma.where(fcc_master.array == 1,
+                                 force_local.array,
+                                 force_foreign.array)
 
 
 class ControlWheel(DerivedParameterNode):
     '''
+    The position of the control wheel blended from the position of the captain
+    and first officer's control wheels.
     '''
     align_to_first_dependency = False
     def derive(self,
-               disp_capt=P('Control Wheel (Capt)'),
-               disp_fo=P('Control Wheel (FO)')):
+               posn_capt=P('Control Wheel (Capt)'),
+               posn_fo=P('Control Wheel (FO)')):
         self.array, self.frequency, self.offset = \
-            blend_two_parameters(disp_capt, disp_fo)
-
-
-class ControlWheelForce(DerivedParameterNode):
-    '''
-    '''
-    align_to_first_dependency = False
-    def derive(self,
-               force_capt=P('Control Wheel Force (Capt)'),
-               force_fo=P('Control Wheel Force (FO)')):
-        self.array, self.frequency, self.offset = \
-            blend_two_parameters(force_capt, force_fo)
+            blend_two_parameters(posn_capt, posn_fo)
 
 
 class DistanceTravelled(DerivedParameterNode):

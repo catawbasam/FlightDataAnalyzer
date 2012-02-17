@@ -30,8 +30,9 @@ from analysis_engine.derived_parameters import (
     Config,
     ControlColumn,
     ControlColumnForce,
+    ControlColumnForceCapt,
+    ControlColumnForceFO,
     ControlWheel,
-    ControlWheelForce,
     Eng_N1Avg,
     Eng_N1Max,
     Eng_N1Min,
@@ -667,6 +668,7 @@ class TestControlColumn(unittest.TestCase):
 
     @mock.patch('analysis_engine.derived_parameters.blend_two_parameters')
     def test_control_column(self, blend_two_parameters):
+        blend_two_parameters.return_value = [None, None, None]
         cc = ControlColumn()
         cc.derive(self.ccc, self.ccf)
         blend_two_parameters.assert_called_once_with(self.ccc, self.ccf)
@@ -675,30 +677,75 @@ class TestControlColumn(unittest.TestCase):
 class TestControlColumnForce(unittest.TestCase):
 
     def setUp(self):
-        ccafc = np.ma.arange(1, 4)
-        self.ccafc = P('Control Column (A) Force (Capt)', ccafc)
-        ccbfc = np.ma.arange(1, 4)
-        ccbfc[-1:] = np.ma.masked
-        self.ccbfc = P('Control Column (B) Force (Capt)', ccbfc)
-        ccaff = np.ma.arange(1, 4)
-        self.ccaff = P('Control Column (A) Force (FO)', ccaff)
-        ccbff = np.ma.arange(1, 4)
-        self.ccbff = P('Control Column (B) Force (FO)', ccbff)
-        ccbff[-1:] = np.ma.masked
+        ccff = np.ma.arange(1, 4)
+        self.ccff = P('Control Column Force (Foreign)', ccff)
+        ccfl = np.ma.arange(1, 4)
+        ccfl[-1:] = np.ma.masked
+        self.ccfl = P('Control Column Force (Local)', ccfl)
 
     def test_can_operate(self):
-        expected = [('Control Column (A) Force (Capt)',
-                     'Control Column (B) Force (Capt)',
-                     'Control Column (A) Force (FO)',
-                     'Control Column (B) Force (FO)')]
+        expected = [('Control Column Force (Foreign)',
+                     'Control Column Force (Local)')]
         opts = ControlColumnForce.get_operational_combinations()
         self.assertEqual(opts, expected)
 
     def test_control_column_force(self):
         ccf = ControlColumnForce()
-        ccf.derive(self.ccafc, self.ccbfc, self.ccaff, self.ccbff)
+        ccf.derive(self.ccff, self.ccfl)
         result = ccf.array
         answer = np.ma.array(data=[2, 4, 6], mask=[False, False, True])
+        np.testing.assert_array_almost_equal(result, answer)
+
+
+class TestControlColumnForceCapt(unittest.TestCase):
+
+    def setUp(self):
+        ccfl = np.ma.arange(0, 16)
+        self.ccfl = P('Control Column Force (Local)', ccfl)
+        ccff = ccfl[-1::-1]
+        self.ccff = P('Control Column Force (Foreign)', ccff)
+        fcc = np.repeat(np.ma.arange(0, 4), 4)
+        self.fcc = P('FCC Local Limited Master', fcc)
+
+    def test_can_operate(self):
+        expected = [('Control Column Force (Foreign)',
+                     'Control Column Force (Local)',
+                     'FCC Local Limited Master')]
+        opts = ControlColumnForceCapt.get_operational_combinations()
+        self.assertEqual(opts, expected)
+
+    def test_control_column_force_capt(self):
+        ccfc = ControlColumnForceCapt()
+        ccfc.derive(self.ccff, self.ccfl, self.fcc)
+        result = ccfc.array
+        answer = self.ccfl.array
+        answer[4:8] = self.ccff.array[4:8]
+        np.testing.assert_array_almost_equal(result, answer)
+
+
+class TestControlColumnForceFO(unittest.TestCase):
+
+    def setUp(self):
+        ccfl = np.ma.arange(0, 16)
+        self.ccfl = P('Control Column Force (Local)', ccfl)
+        ccff = ccfl[-1::-1]
+        self.ccff = P('Control Column Force (Foreign)', ccff)
+        fcc = np.repeat(np.ma.arange(0, 4), 4)
+        self.fcc = P('FCC Local Limited Master', fcc)
+
+    def test_can_operate(self):
+        expected = [('Control Column Force (Foreign)',
+                     'Control Column Force (Local)',
+                     'FCC Local Limited Master')]
+        opts = ControlColumnForceFO.get_operational_combinations()
+        self.assertEqual(opts, expected)
+
+    def test_control_column_force_fo(self):
+        ccff = ControlColumnForceFO()
+        ccff.derive(self.ccff, self.ccfl, self.fcc)
+        result = ccff.array
+        answer = self.ccff.array
+        answer[4:8] = self.ccfl.array[4:8]
         np.testing.assert_array_almost_equal(result, answer)
 
 
@@ -717,32 +764,10 @@ class TestControlWheel(unittest.TestCase):
 
     @mock.patch('analysis_engine.derived_parameters.blend_two_parameters')
     def test_control_wheel(self, blend_two_parameters):
+        blend_two_parameters.return_value = [None, None, None]
         cw = ControlWheel()
         cw.derive(self.cwc, self.cwf)
         blend_two_parameters.assert_called_once_with(self.cwc, self.cwf)
-
-
-class TestControlWheelForce(unittest.TestCase):
-
-    def setUp(self):
-        cwfc = np.ma.arange(1, 4)
-        cwfc[-1:] = np.ma.masked
-        self.cwfc = P('Control Wheel Force (Capt)', cwfc)
-        cwff = np.ma.arange(1, 4)
-        cwff[-1:] = np.ma.masked
-        self.cwff = P('Control Wheel Force (FO)', cwff)
-
-    def test_can_operate(self):
-        expected = [('Control Wheel Force (Capt)', 'Control Wheel Force (FO)')]
-        opts = ControlWheelForce.get_operational_combinations()
-        self.assertEqual(opts, expected)
-
-    def test_control_wheel_force(self):
-        cwf = ControlWheelForce()
-        cwf.derive(self.cwfc, self.cwff)
-        result = cwf.array
-        answer = np.ma.array(data=[2, 4, 6], mask=[False, False, True])
-        np.testing.assert_array_almost_equal(result, answer)
 
 
 class TestEng_N1Avg(unittest.TestCase):
