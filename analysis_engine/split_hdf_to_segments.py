@@ -5,7 +5,7 @@ import numpy as np
 from hdfaccess.file import hdf_file
 from hdfaccess.utils import write_segment
 
-from analysis_engine import settings
+from analysis_engine import hooks
 from analysis_engine.plot_flight import plot_essential
 from analysis_engine.split_segments import append_segment_info, split_segments
 
@@ -35,9 +35,9 @@ def validate_aircraft(aircraft_ident, hdf):
                                aircraft_ident['Tail Number'])
     
 ##def post_lfl_param_process(hdf, param):
-    ##if settings.POST_LFL_PARAM_PROCESS:
+    ##if hooks.POST_LFL_PARAM_PROCESS:
         ### perform post lfl retrieval steps
-        ##_param = settings.POST_LFL_PARAM_PROCESS(hdf, param)
+        ##_param = hooks.POST_LFL_PARAM_PROCESS(hdf, param)
         ##if _param:
             ### store any updates to param to hdf file
             ##hdf.set_param(_param)
@@ -78,7 +78,7 @@ def validate_aircraft(aircraft_ident, hdf):
             
     ##return segment_slices
 
-def split_hdf_to_segments(hdf_path, aircraft_ident={}, output_dir=None, draw=False):
+def split_hdf_to_segments(hdf_path, aircraft_ident, output_dir=None, draw=False):
     """
     Main method - analyses an HDF file for flight segments and splits each
     flight into a new segment appropriately.
@@ -99,16 +99,20 @@ def split_hdf_to_segments(hdf_path, aircraft_ident={}, output_dir=None, draw=Fal
         plot_essential(hdf_path)
         
     with hdf_file(hdf_path) as hdf:
-        if settings.PRE_FILE_ANALYSIS:
-            logging.debug("Performing pre-file analysis: %s", settings.PRE_FILE_ANALYSIS.func_name)
-            settings.PRE_FILE_ANALYSIS(hdf, aircraft_ident)
-        
         # Confirm aircraft tail for the entire datafile
         if aircraft_ident:
             logging.info("Validating aircraft matches that recorded in data")
             validate_aircraft(aircraft_ident, hdf)
         else:
-            logging.info("Not validating aircraft is correct")
+            logging.warning("Not validating aircraft is correct")
+
+        # now we know the Aircraft is correct, go and do the PRE FILE ANALYSIS
+        if hooks.PRE_FILE_ANALYSIS:
+            logging.info("Performing PRE_FILE_ANALYSIS analysis: %s", 
+                         hooks.PRE_FILE_ANALYSIS.func_name)
+            hooks.PRE_FILE_ANALYSIS(hdf, aircraft_ident)
+        else:
+            logging.info("No PRE_FILE_ANALYSIS actions to perform")
         
         segment_tuples = split_segments(hdf)
             

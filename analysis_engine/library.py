@@ -234,8 +234,20 @@ def calculate_timebase(years, months, days, hours, mins, secs):
     :raises: InvalidDatetime if no valid timestamps provided
     """
     base_dt = None
-    clock_variation = OrderedDict() # so if all values are the same, take the first
+    clock_variation = OrderedDict() # Ordered so if all values are the same, max will consistently take the first val
     for step, (yr, mth, day, hr, mn, sc) in enumerate(izip(years, months, days, hours, mins, secs)):
+        
+        #try:
+            #date = np.datetime64('%d-%d-%d' % (yr, mth, day), 'D')
+        #except np.core._mx_datetime_parser.RangeError  :
+            #continue
+        
+        # same for time?
+        
+        if yr and yr < 100:
+            yr = convert_two_digit_to_four_digit_year(yr)
+            
+        
         try:
             dt = datetime(int(yr), int(mth), int(day), int(hr), int(mn), int(sc))
         except (ValueError, TypeError, np.ma.core.MaskError):
@@ -257,6 +269,28 @@ def calculate_timebase(years, months, days, hours, mins, secs):
     else:
         # No valid datestamps found
         raise InvalidDatetime("No valid datestamps found")
+
+# calculate here to avoid repitition
+CURRENT_YEAR = str(datetime.now().year)
+def convert_two_digit_to_four_digit_year(yr):
+    """
+    Everything below the current year is assume to be in the current
+    century, everything above is assumed to be in the previous
+    century.
+    if current year is 2012
+    
+    13 = 1913
+    12 = 2012
+    11 = 2011
+    01 = 2001
+    """
+    # convert to 4 digit year
+    century = int(CURRENT_YEAR[:2]) * 100
+    yy = int(CURRENT_YEAR[2:])
+    if yr > yy:
+        return century - 100 + yr
+    else:
+        return century + yr
 
 def coreg(y, indep_var=None, force_zero=False):
     """

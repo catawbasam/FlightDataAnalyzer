@@ -14,6 +14,7 @@ Contents:
    Introduction
    Principles
    Tutorial
+   Extending
    Profiling
    ParameterNaming
 

@@ -14,7 +14,7 @@ from analysis_engine.node import (Attribute, FlightAttributeNode,
                                   KeyPointValueNode, KeyTimeInstanceNode, P, S)
 from analysis_engine.process_flight import (process_flight, derive_parameters,
                                             get_derived_nodes)
-from analysis_engine import settings, ___version___
+from analysis_engine import hooks, settings, ___version___
 
 debug = sys.gettrace() is not None
 if debug:
@@ -105,7 +105,8 @@ class TestProcessFlight(unittest.TestCase):
         if os.path.isfile(hdf_path):
             os.remove(hdf_path)
         shutil.copy(hdf_orig, hdf_path)
-        ac_info = {'Frame': '737-1',
+        ac_info = {'Tail Number': 'G-ABCD',
+                   'Frame': '737-1',
                    'Precise Positioning': False,
                    'Flap Selections': [0,1,2,5,10,15,25,30,40],
                    }
@@ -165,7 +166,8 @@ class TestProcessFlight(unittest.TestCase):
         if os.path.isfile(hdf_path):
             os.remove(hdf_path)
         shutil.copy(hdf_orig, hdf_path)
-        ac_info = {'Frame': '737-i',
+        ac_info = {'Tail Number': 'G-ABCD',
+                   'Frame': '737-i',
                    'Precise Positioning': False,
                    'Flap Selections': [0,1,2,5,10,15,25,30,40],
                    }
@@ -201,7 +203,6 @@ class TestProcessFlight(unittest.TestCase):
         from analysis_engine.plot_flight import csv_flight_details
         csv_flight_details(hdf_path, res['kti'], res['kpv'], res['phases'])
 
-
     #----------------------------------------------------------------------
     # Test 9 = 737-5 frame
     #----------------------------------------------------------------------
@@ -215,7 +216,8 @@ class TestProcessFlight(unittest.TestCase):
         if os.path.isfile(hdf_path):
             os.remove(hdf_path)
         shutil.copy(hdf_orig, hdf_path)
-        ac_info = {'Frame': '737-i',
+        ac_info = {'Tail Number': 'G-ABCD',
+                   'Frame': '737-i',
                    'Precise Positioning': False,
                    'Flap Selections': [0,1,2,5,10,15,25,30,40],
                    }
@@ -290,7 +292,8 @@ class TestProcessFlight(unittest.TestCase):
         if os.path.isfile(hdf_path):
             os.remove(hdf_path)
         shutil.copy(hdf_orig, hdf_path)
-        ac_info = {'Frame': '737-3C',
+        ac_info = {'Tail Number': 'G-ABCD',
+                   'Frame': '737-3C',
                    'Precise Positioning': True,
                    'Flap Selections': [0,1,2,5,10,15,25,30,40],
                    }
@@ -343,7 +346,8 @@ class TestProcessFlight(unittest.TestCase):
         if os.path.isfile(hdf_path):
             os.remove(hdf_path)
         shutil.copy(hdf_orig, hdf_path)
-        ac_info = {'Frame': '737-3C',
+        ac_info = {'Tail Number': 'G-ABCD',
+                   'Frame': '737-3C',
                    'Precise Positioning': True,
                    'Flap Selections': [0,1,2,5,10,15,25,30,40],
                    }
@@ -383,6 +387,55 @@ class TestProcessFlight(unittest.TestCase):
     #----------------------------------------------------------------------
     # Test 12 = 737-3C frame
     #----------------------------------------------------------------------
+    
+    @unittest.skipIf(not os.path.isfile("test_data/12_737_3C_RD000183818.001.hdf5"),
+                     "Test file not present")
+    @mock.patch('analysis_engine.flight_attribute.get_api_handler')
+    def test_12_737_3C_RD000183818_001(self, get_api_handler):
+        hdf_orig = "test_data/12_737_3C_RD000183818.001.hdf5"
+        hdf_path = "test_data/12_737_3C_RD000183818.001_copy.hdf5"
+        if os.path.isfile(hdf_path):
+            os.remove(hdf_path)
+        shutil.copy(hdf_orig, hdf_path)
+        ac_info = {'Tail Number': 'G-ABCD',
+                   'Frame': '737-3C',
+                   'Precise Positioning': True,
+                   'Flap Selections': [0,1,2,5,10,15,25,30,40],
+                   }
+
+        airport_osl = {"distance":0.93165142982548599,"magnetic_variation":"E001226 0106","code":{"icao":"ENGM","iata":"OSL"},"name":"Oslo Gardermoen","longitude":11.1004,"location":{"city":"Oslo","country":"Norway"},"latitude":60.193899999999999,"id":2461}
+        airport_krs = {"distance":0.29270199259899349,"magnetic_variation":"E000091 0106","code":{"icao":"ENCN","iata":"KRS"},"name":"Kristiansand Lufthavn Kjevik","longitude":8.0853699999999993,"location":{"city":"Kjevik","country":"Norway"},"latitude":58.2042,"id":2456}
+        airports = \
+            {(50.108969665785381, 14.250219723680361):airport_krs,
+             (60.18798957977976, 11.114856132439204):airport_osl}
+        
+        runway_osl_01l = {"end":{"latitude":60.216113,"longitude":11.091418},"glideslope":{"latitude":60.187709,"frequency":"332300M","angle":3.0,"longitude":11.072739,"threshold_distance":991},"start":{"latitude":60.185048,"longitude":11.073522},"localizer":{"latitude":60.219793,"beam_width":4.5,"frequency":"111300M","heading":196,"longitude":11.093544},"strip":{"width":147,"length":11811,"surface":"ASP"},"identifier":"19R","id":8152}
+        runway_krs_04 = {"end":{"latitude":58.211678,"longitude":8.095269},"localizer":{"latitude":58.212397,"beam_width":4.5,"frequency":"110300M","heading":36,"longitude":8.096228},"glideslope":{"latitude":58.198664,"frequency":"335000M","angle":3.4,"longitude":8.080164,"threshold_distance":720},"start":{"latitude":58.196703,"longitude":8.075406},"strip":{"width":147,"length":6660,"id":4064,"surface":"ASP"},"identifier":"04","id":8127}
+        runways = \
+            {2461: runway_osl_01l, 2456: runway_krs_04}        
+        
+        # Mock API handler return values so that we do not make http requests.
+        # Will return the same airport and runway for each query, can be
+        # avoided with side_effect.
+        api_handler = mock.Mock()
+        get_api_handler.return_value = api_handler
+        api_handler.get_nearest_airport = mock.Mock()
+        def mocked_nearest_airport(lat, lon, **kwargs):
+            return airports[(lat, lon)]
+        api_handler.get_nearest_airport.side_effect = mocked_nearest_airport
+        api_handler.get_nearest_runway = mock.Mock()
+        def mocked_nearest_runway(airport_id, mag_hdg, **kwargs):
+            return runways[airport_id]
+        api_handler.get_nearest_runway.side_effect = mocked_nearest_runway
+        start_datetime = datetime.now()
+        
+        res = process_flight(hdf_path, ac_info, draw=False)
+        self.assertEqual(len(res), 4)
+        track_to_kml(hdf_path, res['kti'], res['kpv'])
+        from analysis_engine.plot_flight import csv_flight_details
+        csv_flight_details(hdf_path, res['kti'], res['kpv'], res['phases'])
+
+
     @unittest.skipIf(not os.path.isfile("test_data/12_737_3C_RD0001830229.001.hdf5"),
                          "Test file not present")
     @mock.patch('analysis_engine.flight_attribute.get_api_handler')
@@ -392,7 +445,8 @@ class TestProcessFlight(unittest.TestCase):
         if os.path.isfile(hdf_path):
             os.remove(hdf_path)
         shutil.copy(hdf_orig, hdf_path)
-        ac_info = {'Frame': '737-3C',
+        ac_info = {'Tail Number': 'G-ABCD',
+                   'Frame': '737-3C',
                    'Precise Positioning': True,
                    'Flap Selections': [0,1,2,5,10,15,25,30,40],
                    }
@@ -539,9 +593,9 @@ class TestProcessFlight(unittest.TestCase):
         hdf_orig = "test_data/14a_737_3C_RD0001802061.001.hdf5"
         hdf_path = "test_data/14a_737_3C_RD0001802061.001_copy.hdf5"
         
-        ac_info = {'Family': u'B737 NG',
+        ac_info = {'Tail Number': 'G-ABCD',
+                   'Family': u'B737 NG',
                    'Series': u'B737-800',
-                   'Tail Number': u'LN-DYV',
                    'Main Gear To Lowest Point Of Tail': None,
                    'Manufacturer Serial Number': u'39009', 
                    'Main Gear To Radio Altimeter Antenna': None,
@@ -945,7 +999,7 @@ class TestProcessFlight(unittest.TestCase):
     @mock.patch('analysis_engine.flight_attribute.get_api_handler')
     def test_4_3377853_146_301(self, get_api_handler):
         # Avoid side effects which may be caused by PRE_FLIGHT_ANALYSIS.
-        settings.PRE_FLIGHT_ANALYSIS = None
+        hooks.PRE_FLIGHT_ANALYSIS = None
         hdf_orig = "test_data/4_3377853_146_301.hdf5"
         hdf_path = "test_data/4_3377853_146_301_copy.hdf5"
         if os.path.isfile(hdf_path):

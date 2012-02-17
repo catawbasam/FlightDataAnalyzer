@@ -171,7 +171,7 @@ class AccelerationForwardsForFlightPhases(DerivedParameterNode):
 Superceded by Truck and Trailer analysis of airspeed during takeoff and landing
 -------------------------------------------------------------------------------
 """
-            
+
 
 class AirspeedForFlightPhases(DerivedParameterNode):
     def derive(self, airspeed=P('Airspeed')):
@@ -567,47 +567,73 @@ class ClimbForFlightPhases(DerivedParameterNode):
     
 class ControlColumn(DerivedParameterNode):
     '''
+    The position of the control column blended from the position of the captain
+    and first officer's control columns.
     '''
     align_to_first_dependency = False
     def derive(self,
-               disp_capt=P('Control Column (Capt)'),
-               disp_fo=P('Control Column (FO)')):
+               posn_capt=P('Control Column (Capt)'),
+               posn_fo=P('Control Column (FO)')):
         self.array, self.frequency, self.offset = \
-            blend_two_parameters(disp_capt, disp_fo)
+            blend_two_parameters(posn_capt, posn_fo)
 
 
 class ControlColumnForce(DerivedParameterNode):
     '''
+    The combined force from the foreign and local control columns.
+
+    This is the total force applied by both the captain and the first officer.
     '''
     def derive(self,
-               force_a_capt=P('Control Column (A) Force (Capt)'),
-               force_b_capt=P('Control Column (B) Force (Capt)'),
-               force_a_fo=P('Control Column (A) Force (FO)'),
-               force_b_fo=P('Control Column (B) Force (FO)')):
-        self.array = (force_a_capt.array + force_b_capt.array
-                   + force_a_fo.array + force_b_fo.array) / 2.0
+               force_foreign=P('Control Column Force (Foreign)'),
+               force_local=P('Control Column Force (Local)')):
+        self.array = force_foreign.array + force_local.array
+
+
+class ControlColumnForceCapt(DerivedParameterNode):
+    '''
+    The force applied by the captain to the control column.  This is dependent
+    on who has master control of the aircraft and this derived parameter
+    selects the appropriate slices of data from the foreign and local forces.
+    '''
+    name = 'Control Column Force (Capt)'
+    def derive(self,
+               force_foreign=P('Control Column Force (Foreign)'),
+               force_local=P('Control Column Force (Local)'),
+               fcc_master=P('FCC Local Limited Master')):
+        self.array = np.ma.where(fcc_master.array != 1,
+                                 force_local.array,
+                                 force_foreign.array)
+
+
+class ControlColumnForceFO(DerivedParameterNode):
+    '''
+    The force applied by the first officer to the control column.  This is
+    dependent on who has master control of the aircraft and this derived
+    parameter selects the appropriate slices of data from the foreign and local
+    forces.
+    '''
+    name = 'Control Column Force (FO)'
+    def derive(self,
+               force_foreign=P('Control Column Force (Foreign)'),
+               force_local=P('Control Column Force (Local)'),
+               fcc_master=P('FCC Local Limited Master')):
+        self.array = np.ma.where(fcc_master.array == 1,
+                                 force_local.array,
+                                 force_foreign.array)
 
 
 class ControlWheel(DerivedParameterNode):
     '''
+    The position of the control wheel blended from the position of the captain
+    and first officer's control wheels.
     '''
     align_to_first_dependency = False
     def derive(self,
-               disp_capt=P('Control Wheel (Capt)'),
-               disp_fo=P('Control Wheel (FO)')):
+               posn_capt=P('Control Wheel (Capt)'),
+               posn_fo=P('Control Wheel (FO)')):
         self.array, self.frequency, self.offset = \
-            blend_two_parameters(disp_capt, disp_fo)
-
-
-class ControlWheelForce(DerivedParameterNode):
-    '''
-    '''
-    align_to_first_dependency = False
-    def derive(self,
-               force_capt=P('Control Wheel Force (Capt)'),
-               force_fo=P('Control Wheel Force (FO)')):
-        self.array, self.frequency, self.offset = \
-            blend_two_parameters(force_capt, force_fo)
+            blend_two_parameters(posn_capt, posn_fo)
 
 
 class DistanceTravelled(DerivedParameterNode):
@@ -748,6 +774,57 @@ class Eng_FuelFlow(DerivedParameterNode):
         engines = vstack_params(eng1, eng2, eng3, eng4)
         self.array = np.ma.sum(engines, axis=0)
       
+
+class Eng_ITTAvg(DerivedParameterNode):
+    #TODO: TEST
+    name = "Eng (*) ITT Avg"
+    @classmethod
+    def can_operate(cls, available):
+        # works with any combination of params available
+        return any([d in available for d in cls.get_dependency_names()])
+        
+    def derive(self, 
+               eng1=P('Eng (1) ITT'),
+               eng2=P('Eng (2) ITT'),
+               eng3=P('Eng (3) ITT'),
+               eng4=P('Eng (4) ITT')):
+        engines = vstack_params(eng1, eng2, eng3, eng4)
+        self.array = np.ma.average(engines, axis=0)
+
+
+class Eng_ITTMax(DerivedParameterNode):
+    #TODO: TEST
+    name = "Eng (*) ITT Max"
+    @classmethod
+    def can_operate(cls, available):
+        # works with any combination of params available
+        return any([d in available for d in cls.get_dependency_names()])
+        
+    def derive(self, 
+               eng1=P('Eng (1) ITT'),
+               eng2=P('Eng (2) ITT'),
+               eng3=P('Eng (3) ITT'),
+               eng4=P('Eng (4) ITT')):
+        engines = vstack_params(eng1, eng2, eng3, eng4)
+        self.array = np.ma.max(engines, axis=0)
+
+
+class Eng_ITTMin(DerivedParameterNode):
+    #TODO: TEST
+    name = "Eng (*) ITT Min"
+    @classmethod
+    def can_operate(cls, available):
+        # works with any combination of params available
+        return any([d in available for d in cls.get_dependency_names()])
+        
+    def derive(self, 
+               eng1=P('Eng (1) ITT'),
+               eng2=P('Eng (2) ITT'),
+               eng3=P('Eng (3) ITT'),
+               eng4=P('Eng (4) ITT')):
+        engines = vstack_params(eng1, eng2, eng3, eng4)
+        self.array = np.ma.min(engines, axis=0)
+
 
 class Eng_N1Avg(DerivedParameterNode):
     name = "Eng (*) N1 Avg"
@@ -1298,11 +1375,6 @@ class HeadingContinuous(DerivedParameterNode):
     units = 'deg'
     def derive(self, head_mag=P('Heading')):
         self.array = repair_mask(straighten_headings(head_mag.array))
-
-
-class Heading(DerivedParameterNode):
-    def derive(self, head_mag=P('Heading Magnetic')):
-        self.array = head_mag.array
 
 
 class HeadingTrue(DerivedParameterNode):
@@ -1925,7 +1997,107 @@ class ThrottleLever(DerivedParameterNode):
 
 
 
+class Aileron(DerivedParameterNode):
+    '''
+    '''
+    # TODO: TEST
+    name = 'Aileron'
 
+    @classmethod
+    def can_operate(cls, available):
+       a = set(['Aileron (L)', 'Aileron (R)'])
+       b = set(['Aileron (L) Inboard', 'Aileron (R) Inboard', 'Aileron (L) Outboard', 'Aileron (R) Outboard'])
+       x = set(available)
+       return not (a - x) or not (b - x)
+
+    def derive(self,
+               al=P('Aileron (L)'),
+               ar=P('Aileron (R)'),
+               ali=P('Aileron (L) Inboard'),
+               ari=P('Aileron (R) Inboard'),
+               alo=P('Aileron (L) Outboard'),
+               aro=P('Aileron (R) Outboard')):
+        return NotImplemented
+
+
+class AileronTrim(DerivedParameterNode): # RollTrim
+    '''
+    '''
+    # TODO: TEST
+    name = 'Aileron Trim' # Roll Trim
+
+    def derive(self,
+               atl=P('Aileron Trim (L)'),
+               atr=P('Aileron Trim (R)')):
+        return NotImplemented
+
+
+class Elevator(DerivedParameterNode):
+    '''
+    '''
+    # TODO: TEST
+    name = 'Elevator'
+
+    def derive(self,
+               el=P('Elevator (L)'),
+               er=P('Elevator (R)')):
+        return NotImplemented
+
+
+class ElevatorTrim(DerivedParameterNode): # PitchTrim
+    '''
+    '''
+    # TODO: TEST
+    name = 'Elevator Trim' # Pitch Trim
+
+    def derive(self,
+               etl=P('Elevator Trim (L)'),
+               etr=P('Elevator Trim (R)')):
+        return NotImplemented
+
+
+class Spoiler(DerivedParameterNode):
+    '''
+    '''
+    # TODO: TEST
+    name = 'Spoiler'
+
+    def derive(self,
+               s01=P('Spoiler (1)'),
+               s02=P('Spoiler (2)'),
+               s03=P('Spoiler (3)'),
+               s04=P('Spoiler (4)'),
+               s05=P('Spoiler (5)'),
+               s06=P('Spoiler (6)'),
+               s07=P('Spoiler (7)'),
+               s08=P('Spoiler (8)'),
+               s09=P('Spoiler (9)'),
+               s10=P('Spoiler (10)'),
+               s11=P('Spoiler (11)'),
+               s12=P('Spoiler (12)')):
+        return NotImplemented
+
+
+class Speedbrake(DerivedParameterNode):
+    '''
+    '''
+    # TODO: TEST
+    name = 'Speedbrake'
+
+    def derive(self,
+               s01=P('Spoiler (1)'),
+               s02=P('Spoiler (2)'),
+               s03=P('Spoiler (3)'),
+               s04=P('Spoiler (4)'),
+               s05=P('Spoiler (5)'),
+               s06=P('Spoiler (6)'),
+               s07=P('Spoiler (7)'),
+               s08=P('Spoiler (8)'),
+               s09=P('Spoiler (9)'),
+               s10=P('Spoiler (10)'),
+               s11=P('Spoiler (11)'),
+               s12=P('Spoiler (12)')):
+        return NotImplemented
 
 
 

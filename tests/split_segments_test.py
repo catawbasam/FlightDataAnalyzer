@@ -396,7 +396,7 @@ class TestSegmentInfo(unittest.TestCase):
         
     def test_append_segment_info(self):
         # example where it goes fast
-        seg = append_segment_info('fast', slice(10,1000), 4) # TODO: Increase slice to be realitic for duration of data
+        seg = append_segment_info('fast', 'START_AND_STOP', slice(10,1000), 4) # TODO: Increase slice to be realitic for duration of data
         self.assertEqual(seg.path, 'fast')
         self.assertEqual(seg.part, 4)
         self.assertEqual(seg.type, 'START_AND_STOP')   
@@ -406,7 +406,7 @@ class TestSegmentInfo(unittest.TestCase):
                          
     def test_append_segment_info_no_gofast(self):
         # example where it does not go fast
-        seg = append_segment_info('slow', slice(10,110), 1)
+        seg = append_segment_info('slow', 'GROUND_ONLY', slice(10,110), 1)
         self.assertEqual(seg.path, 'slow')
         self.assertEqual(seg.go_fast_dt, None) # didn't go fast
         self.assertEqual(seg.start_dt, datetime(2020,12,25,1,1,1)) # still has a start
@@ -416,6 +416,6 @@ class TestSegmentInfo(unittest.TestCase):
         self.assertEqual(seg.stop_dt, datetime(2020,12,25,1,1,51)) # +50 seconds of airspeed
         
     def test_invalid_datetimes(self):
-        seg = append_segment_info('invalid timestamps', slice(10,110), 2)
+        seg = append_segment_info('invalid timestamps', '', slice(10,110), 2)
         self.assertEqual(seg.start_dt, datetime(1970,1,1,1,0)) # start of time!
         self.assertEqual(seg.go_fast_dt, datetime(1970, 1, 1, 3, 20, 53)) # went fast
