@@ -201,40 +201,6 @@ class TestProcessFlight(unittest.TestCase):
         from analysis_engine.plot_flight import csv_flight_details
         csv_flight_details(hdf_path, res['kti'], res['kpv'], res['phases'])
 
-    #----------------------------------------------------------------------
-    # Test 8 = 737-i frame with short HDF file
-    #----------------------------------------------------------------------
-    
-    @unittest.skipIf(not os.path.isfile("test_data/8_737_i_RD0001835658.hdf5"),
-                     "Test file not present")
-    @mock.patch('analysis_engine.flight_attribute.get_api_handler')
-    def test_8_737_i_RD0001835658(self, get_api_handler):
-        hdf_orig = "test_data/8_737_i_RD0001835658.hdf5"
-        hdf_path = "test_data/8_737_i_RD0001835658_copy.hdf5"
-        if os.path.isfile(hdf_path):
-            os.remove(hdf_path)
-        shutil.copy(hdf_orig, hdf_path)
-        ac_info = {'Frame': '737-i'}
-        
-        airports = {}
-        
-        # Mock API handler return values so that we do not make http requests.
-        # Will return the same airport and runway for each query, can be
-        # avoided with side_effect.
-        api_handler = mock.Mock()
-        get_api_handler.return_value = api_handler
-        api_handler.get_nearest_airport = mock.Mock()
-        def mocked_nearest_airport(lat, lon, **kwargs):
-            return airports[(lat, lon)]
-        api_handler.get_nearest_airport.side_effect = mocked_nearest_airport
-        api_handler.get_nearest_runway = mock.Mock()
-        def mocked_nearest_runway(airport_id, mag_hdg, **kwargs):
-            return runways[airport_id]
-        api_handler.get_nearest_runway.side_effect = mocked_nearest_runway
-        start_datetime = datetime.now()
-        
-        res = process_flight(hdf_path, ac_info, draw=False)
-        # We want this to fail gracefully as there is no data in the HDF file.
 
     #----------------------------------------------------------------------
     # Test 9 = 737-5 frame
