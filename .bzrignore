@@ -37,7 +37,8 @@ cpd.xml
 pep8.log
 pylint.log
 
-# Analysis Engine cruft
+# Analysis Engine ignores
 test_data/temp/*
 graph*.png
-analysis/local_settings.py
+analysis_engine/custom_settings.py
+analysis_engine/custom_hooks.py

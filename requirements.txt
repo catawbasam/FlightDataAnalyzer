@@ -9,3 +9,4 @@ pygraphviz
 matplotlib
 mock
 aerocalc
+simplekml

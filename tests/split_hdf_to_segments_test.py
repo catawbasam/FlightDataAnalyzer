@@ -10,9 +10,10 @@ class TestSplitHDFToSegments(unittest.TestCase):
     
     @unittest.skipIf(not os.path.isfile("test_data/1_7295949_737-3C.hdf5"), 
                      'Test file not present')
+    # oops - i may have corrupted this file when testing :(
     def test_1_7295949_737_3C(self):
         hdf_path = "test_data/1_7295949_737-3C.hdf5"
-        segs = split_hdf_to_segments(hdf_path, draw=False)
+        segs = split_hdf_to_segments(hdf_path, {'Tail Number': 'G-ABCD'}, draw=False)
         self.assertEqual(len(segs), 6)
         #Oil temp states breaks at index 392, 768-782, - - but recorded at a 0.125hz low frequency!
         # Eng (1) and (2) say 3167  - NOTE 3136 is at mins, but is masked!

@@ -628,8 +628,8 @@ class Eng_EGTMin(DerivedParameterNode):
                eng4=P('Eng (4) EGT')):
         eng = vstack_params(eng1, eng2, eng3, eng4)
         self.array = eng.min(axis=0)
-
-
+        
+        
 class Eng_EPRMax(DerivedParameterNode):
     #TODO: TEST
     name = "Eng (*) EPR Max"

@@ -14,7 +14,7 @@ from analysis_engine.node import (Attribute, FlightAttributeNode,
                                   KeyPointValueNode, KeyTimeInstanceNode, P, S)
 from analysis_engine.process_flight import (process_flight, derive_parameters,
                                             get_derived_nodes)
-from analysis_engine import settings, ___version___
+from analysis_engine import hooks, settings, ___version___
 
 debug = sys.gettrace() is not None
 if debug:
@@ -105,7 +105,8 @@ class TestProcessFlight(unittest.TestCase):
         if os.path.isfile(hdf_path):
             os.remove(hdf_path)
         shutil.copy(hdf_orig, hdf_path)
-        ac_info = {'Frame': '737-1',
+        ac_info = {'Tail Number': 'G-ABCD',
+                   'Frame': '737-1',
                    'Precise Positioning': False,
                    'Flap Selections': [0,1,2,5,10,15,25,30,40],
                    }
@@ -165,7 +166,8 @@ class TestProcessFlight(unittest.TestCase):
         if os.path.isfile(hdf_path):
             os.remove(hdf_path)
         shutil.copy(hdf_orig, hdf_path)
-        ac_info = {'Frame': '737-i',
+        ac_info = {'Tail Number': 'G-ABCD',
+                   'Frame': '737-i',
                    'Precise Positioning': False,
                    'Flap Selections': [0,1,2,5,10,15,25,30,40],
                    }
@@ -214,7 +216,8 @@ class TestProcessFlight(unittest.TestCase):
         if os.path.isfile(hdf_path):
             os.remove(hdf_path)
         shutil.copy(hdf_orig, hdf_path)
-        ac_info = {'Frame': '737-i'}
+        ac_info = {'Tail Number': 'G-ABCD',
+                   'Frame': '737-i'}
         
         airports = {}
         
@@ -249,7 +252,8 @@ class TestProcessFlight(unittest.TestCase):
         if os.path.isfile(hdf_path):
             os.remove(hdf_path)
         shutil.copy(hdf_orig, hdf_path)
-        ac_info = {'Frame': '737-i',
+        ac_info = {'Tail Number': 'G-ABCD',
+                   'Frame': '737-i',
                    'Precise Positioning': False,
                    'Flap Selections': [0,1,2,5,10,15,25,30,40],
                    }
@@ -324,7 +328,8 @@ class TestProcessFlight(unittest.TestCase):
         if os.path.isfile(hdf_path):
             os.remove(hdf_path)
         shutil.copy(hdf_orig, hdf_path)
-        ac_info = {'Frame': '737-3C',
+        ac_info = {'Tail Number': 'G-ABCD',
+                   'Frame': '737-3C',
                    'Precise Positioning': True,
                    'Flap Selections': [0,1,2,5,10,15,25,30,40],
                    }
@@ -401,7 +406,8 @@ class TestProcessFlight(unittest.TestCase):
         if os.path.isfile(hdf_path):
             os.remove(hdf_path)
         shutil.copy(hdf_orig, hdf_path)
-        ac_info = {'Frame': '737-3C',
+        ac_info = {'Tail Number': 'G-ABCD',
+                   'Frame': '737-3C',
                    'Precise Positioning': True,
                    'Flap Selections': [0,1,2,5,10,15,25,30,40],
                    }
@@ -452,7 +458,8 @@ class TestProcessFlight(unittest.TestCase):
         if os.path.isfile(hdf_path):
             os.remove(hdf_path)
         shutil.copy(hdf_orig, hdf_path)
-        ac_info = {'Frame': '737-3C',
+        ac_info = {'Tail Number': 'G-ABCD',
+                   'Frame': '737-3C',
                    'Precise Positioning': True,
                    'Flap Selections': [0,1,2,5,10,15,25,30,40],
                    }
@@ -499,7 +506,8 @@ class TestProcessFlight(unittest.TestCase):
         if os.path.isfile(hdf_path):
             os.remove(hdf_path)
         shutil.copy(hdf_orig, hdf_path)
-        ac_info = {'Frame': '737-3C',
+        ac_info = {'Tail Number': 'G-ABCD',
+                   'Frame': '737-3C',
                    'Precise Positioning': True,
                    'Flap Selections': [0,1,2,5,10,15,25,30,40],
                    }
@@ -544,9 +552,9 @@ class TestProcessFlight(unittest.TestCase):
         hdf_orig = "test_data/RD0001802061.001.hdf5"
         hdf_path = "test_data/RD0001802061.001_copy.hdf5"
         
-        ac_info = {'Family': u'B737 NG',
+        ac_info = {'Tail Number': 'G-ABCD',
+                   'Family': u'B737 NG',
                    'Series': u'B737-800',
-                   'Tail Number': u'LN-DYV',
                    'Main Gear To Lowest Point Of Tail': None,
                    'Manufacturer Serial Number': u'39009', 
                    'Main Gear To Radio Altimeter Antenna': None,
@@ -803,7 +811,7 @@ class TestProcessFlight(unittest.TestCase):
     @mock.patch('analysis_engine.flight_attribute.get_api_handler')
     def test_4_3377853_146_301(self, get_api_handler):
         # Avoid side effects which may be caused by PRE_FLIGHT_ANALYSIS.
-        settings.PRE_FLIGHT_ANALYSIS = None
+        hooks.PRE_FLIGHT_ANALYSIS = None
         hdf_orig = "test_data/4_3377853_146_301.hdf5"
         hdf_path = "test_data/4_3377853_146_301_copy.hdf5"
         if os.path.isfile(hdf_path):
