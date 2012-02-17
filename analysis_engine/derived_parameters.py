@@ -775,6 +775,57 @@ class Eng_FuelFlow(DerivedParameterNode):
         self.array = np.ma.sum(engines, axis=0)
       
 
+class Eng_ITTAvg(DerivedParameterNode):
+    #TODO: TEST
+    name = "Eng (*) ITT Avg"
+    @classmethod
+    def can_operate(cls, available):
+        # works with any combination of params available
+        return any([d in available for d in cls.get_dependency_names()])
+        
+    def derive(self, 
+               eng1=P('Eng (1) ITT'),
+               eng2=P('Eng (2) ITT'),
+               eng3=P('Eng (3) ITT'),
+               eng4=P('Eng (4) ITT')):
+        engines = vstack_params(eng1, eng2, eng3, eng4)
+        self.array = np.ma.average(engines, axis=0)
+
+
+class Eng_ITTMax(DerivedParameterNode):
+    #TODO: TEST
+    name = "Eng (*) ITT Max"
+    @classmethod
+    def can_operate(cls, available):
+        # works with any combination of params available
+        return any([d in available for d in cls.get_dependency_names()])
+        
+    def derive(self, 
+               eng1=P('Eng (1) ITT'),
+               eng2=P('Eng (2) ITT'),
+               eng3=P('Eng (3) ITT'),
+               eng4=P('Eng (4) ITT')):
+        engines = vstack_params(eng1, eng2, eng3, eng4)
+        self.array = np.ma.max(engines, axis=0)
+
+
+class Eng_ITTMin(DerivedParameterNode):
+    #TODO: TEST
+    name = "Eng (*) ITT Min"
+    @classmethod
+    def can_operate(cls, available):
+        # works with any combination of params available
+        return any([d in available for d in cls.get_dependency_names()])
+        
+    def derive(self, 
+               eng1=P('Eng (1) ITT'),
+               eng2=P('Eng (2) ITT'),
+               eng3=P('Eng (3) ITT'),
+               eng4=P('Eng (4) ITT')):
+        engines = vstack_params(eng1, eng2, eng3, eng4)
+        self.array = np.ma.min(engines, axis=0)
+
+
 class Eng_N1Avg(DerivedParameterNode):
     name = "Eng (*) N1 Avg"
     @classmethod
