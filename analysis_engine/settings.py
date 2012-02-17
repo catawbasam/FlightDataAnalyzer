@@ -232,5 +232,5 @@ try:
     NODE_MODULES = list(set(NODE_MODULES))
 except ImportError as err:
     import logging
-    logging.info("Unable to import custom_settings.py")
+    logging.info("Unable to import analysis_engine custom_settings.py")
     pass
