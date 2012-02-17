@@ -31,6 +31,7 @@ from analysis_engine.library import (bearings_and_distances,
                                      round_to_nearest,
                                      runway_distances,
                                      runway_heading,
+                                     slices_overlap,
                                      smooth_track,
                                      step_values,
                                      straighten_headings,
@@ -385,27 +386,22 @@ class AltitudeRadio(DerivedParameterNode):
     
     def derive(self, source_A=P('Altitude Radio (A)'),
                source_B=P('Altitude Radio (B)'),
-               source_C=P('Altitude Radio (C)')):
-        
-
-        
-        #----------------------------------------------------------------------
-        # Temporary code until the database connection is made for frame types.
-        #----------------------------------------------------------------------
-        ac_info = {}
-        ac_info['Frame'] = '737-4'
-        #----------------------------------------------------------------------
-
-        
-        if ac_info['Frame'] in ['737-3C']:
+               source_C=P('Altitude Radio (C)'),
+               frame=A('Frame')):
+        if frame.value in ['737-3C']:
             # Alternate samples for this frame have latency of over 1 second,
             # so do not contribute to the height measurements available.
             self.array, self.frequency, self.offset = \
                 merge_two_parameters(source_B, source_C)
             
-        if ac_info['Frame'] in ['737-4', '737-4_Analogue']:
+        elif frame.value in ['737-4', '737-4_Analogue']:
             self.array, self.frequency, self.offset = \
                 merge_two_parameters(source_A, source_B)
+        
+        else:
+            logging.warning("No specified Altitude Radio (*) merging for frame "
+                            "'%s' so using source (A)", frame.value)
+            self.array = source_A.array
             
 
 class AltitudeRadioForFlightPhases(DerivedParameterNode):
@@ -1429,9 +1425,9 @@ class ILSRange(DerivedParameterNode):
     It is (currently) in feet from the localizer antenna.
     """
     
-    @classmethod
-    def can_operate(cls, available):
-        return True
+    ##@classmethod
+    ##def can_operate(cls, available):
+        ##return True
     
     def derive(self, lat=P('Latitude Straighten'),
                lon = P('Longitude Straighten'),
@@ -1441,114 +1437,111 @@ class ILSRange(DerivedParameterNode):
                alt_aal = P('Altitude AAL'),
                loc_established = S('ILS Localizer Established'),
                gs_established = S('ILS Glideslope Established'),
-               precise =A('Precise Positioning'),
+               precise = A('Precise Positioning'),
                app_info = A('FDR Approaches'),
                final_apps = S('Final Approach'),
                start_datetime = A('Start Datetime')
                ):
         ils_range = np.ma.array(np.zeros_like(gspd.array.data))
         
-        # Identify the speed signals we will use if we don't have accurate
-        # position data. Precise is an attribute, and we test it's value:
-        if not precise.value:
-            if gspd:
-                # Use recorded groundspeed where available.
-                speed_signal = gspd.array
-            else:
-                # Estimate range using true airspeed. This is because there
-                # are aircraft which record ILS but not groundspeed data.
-                speed_signal = tas.array
-        
-        for num_loc, this_loc in enumerate(loc_established):
+        for this_loc in loc_established:
  
             # Scan through the recorded approaches to find which matches this
             # localizer established phase.
-            for approach in app_info.value:
-
-                approach_slice = slice(index_of_datetime(start_datetime.value,
-                                                         approach['slice_start_datetime'],
-                                                         self.frequency),
-                                       index_of_datetime(start_datetime.value,
-                                                         approach['slice_stop_datetime'],
-                                                         self.frequency))
-                loc_est = loc_established.get_last(within_slice=approach_slice,
-                                                   within_use='any')
-                if approach_slice == None:
+            for num_loc, approach in enumerate(app_info.value):
+                # line up an approach slice
+                start = index_of_datetime(start_datetime.value,
+                                          approach['slice_start_datetime'],
+                                          self.frequency)
+                stop = index_of_datetime(start_datetime.value,
+                                         approach['slice_stop_datetime'],
+                                         self.frequency)
+                approach_slice = slice(start, stop)
+                if slices_overlap(this_loc.slice, approach_slice):
+                    # we've found a matching approach where the localiser was established
                     break
-
-            if approach_slice == None:
-                logging.warning("No approach found within slice '%s'.",
-                                this_loc)
-                break
-
-            if not approach['runway']:
-                logging.warning("Approach runway information not available.")
-            
-            try:
-                start_2_loc, gs_2_loc, end_2_loc, pgs_lat, pgs_lon = \
-                    runway_distances(app_info.value[num_loc]['runway'])
-            except KeyError:
-                logging.exception("KeyError when calculating runway_distances.")
-                # TODO: Consider resulting array.
+            else:
+                logging.warning("No approach found within slice '%s'.",this_loc)
                 continue
 
+            if not approach.get('runway'):
+                logging.error("Approach runway information not available.")
+                raise NotImplementedError(
+                    "No support for Airports without Runways! Details: %s" % approach)
+            
             if precise.value:
                 # Convert (straightened) latitude & longitude for the whole phase
                 # into range from the threshold. (threshold = {})
-                threshold = app_info.value[num_loc]['runway']['localizer']
+                threshold = approach['runway']['localizer']
                 brg, ils_range[this_loc.slice] = \
                     bearings_and_distances(repair_mask(lat.array[this_loc.slice]),
                                            repair_mask(lon.array[this_loc.slice]),
                                            threshold)
                 ils_range[this_loc.slice] *= METRES_TO_FEET
+                continue # move onto next loc_established
+                
+            #-----------------------------
+            #else: non-precise positioning
+            
+            # Use recorded groundspeed where available, otherwise estimate
+            # range using true airspeed. This is because there are aircraft
+            # which record ILS but not groundspeed data.
+            speed = gspd if gspd else tas
+                
+            # Estimate range by integrating back from zero at the end of the
+            # phase to high range values at the start of the phase.
+            spd_repaired = repair_mask(speed.array[this_loc.slice])
+            ils_range[this_loc.slice] = integrate(
+                spd_repaired, speed.frequency, scale=KTS_TO_FPS, direction='reverse')
+            
+            start_2_loc, gs_2_loc, end_2_loc, pgs_lat, pgs_lon = \
+                                runway_distances(approach['runway'])  
+            if 'glideslope' in approach['runway']:
+                # The runway has an ILS glideslope antenna
+                
+                for this_gs in gs_established:                    
+                    if is_slice_within_slice(this_gs.slice, this_loc.slice):
+                        # we'll take the first one!
+                        break
+                else:
+                    # we didn't find a period where the glideslope was
+                    # established at the same time as the localiser
+                    raise NotImplementedError("No glideslope established at same time as localiser")
+                    
+                # Compute best fit glidepath. The term (1-.13 x glideslope
+                # deviation) caters for the aircraft deviating from the
+                # planned flightpath. 1 dot low is about 0.76 deg, or 13% of
+                # a 3 degree glidepath. Not precise, but adequate accuracy
+                # for the small error we are correcting for here.
+                corr, slope, offset = coreg(
+                    alt_aal.array[this_gs.slice]* (1-0.13*glide.array[this_gs.slice]),
+                    ils_range[this_gs.slice])
+
+                # Shift the values in this approach so that the range = 0 at
+                # 0ft on the projected ILS slope, then reference back to the
+                # localizer antenna.                  
+                datum_2_loc = gs_2_loc * METRES_TO_FEET + offset/slope
                 
             else:
-                # Estimate range by integrating back from zero at the end
-                # of the phase to high range values at the start of the
-                # phase.
-                ils_range[this_loc.slice] = \
-                    integrate(repair_mask(speed_signal[this_loc.slice]), 
-                              gspd.frequency, 
-                              scale=KTS_TO_FPS, 
-                              direction='reverse')
-     
-                if app_info.value[num_loc]['runway'].has_key('glideslope'):
-                    # The runway has an ILS glideslope antenna
-                    
-                    for this_gs in gs_established:                    
-                        if is_slice_within_slice(this_gs.slice, this_loc.slice):
-
-                            # Compute best fit glidepath. The term (1-.13 x
-                            # glideslope deviation) caters for the aircraft
-                            # deviating from the planned flightpath. 1 dot
-                            # low is about 0.76 deg, or 13% of a 3 degree
-                            # glidepath. Not precise, but adequate accuracy
-                            # for the small error we are correcting for here.
-                            corr, slope, offset = \
-                                coreg(alt_aal.array[this_gs.slice]*
-                                      (1-0.13*glide.array[this_gs.slice]),
-                                      ils_range[this_gs.slice])
-
-                            # Shift the values in this approach so that the range
-                            # = 0 at 0ft on the projected ILS slope, then reference
-                            # back to the localizer antenna.
-                            datum_2_loc = gs_2_loc * METRES_TO_FEET + offset/slope
-                    
+                # Case of an ILS approach using localizer only.
+                for this_app in final_apps:
+                    if is_slice_within_slice(this_app.slice, this_loc.slice):
+                        # we'll take the first one!
+                        break
                 else:
-                    # Case of an ILS approach using localizer only.
-                    for this_app in final_apps:
-                        if is_slice_within_slice(this_app.slice, this_loc.slice):
-                            corr, slope, offset = coreg(alt_aal.array[this_app.slice], 
-                                                ils_range[this_app.slice])
-                            
-                            # Touchdown point nominally 1000ft from start of runway
-                            datum_2_loc = (start_2_loc*METRES_TO_FEET-1000) - offset/slope
-                    
-                # Adjust all range values to relate to the localizer
-                # antenna by adding the landing datum to localizer
-                # distance.
-                ils_range[this_loc.slice] += datum_2_loc
+                    # we didn't find a period where the approach was within the localiser
+                    raise NotImplementedError("Approaches were not fully established with localiser")
+                corr, slope, offset = coreg(
+                    alt_aal.array[this_app.slice], ils_range[this_app.slice])
                 
+                # Touchdown point nominally 1000ft from start of runway
+                datum_2_loc = (start_2_loc*METRES_TO_FEET-1000) - offset/slope
+                        
+                
+            # Adjust all range values to relate to the localizer antenna by
+            # adding the landing datum to localizer distance.
+            ils_range[this_loc.slice] += datum_2_loc
+
         self.array = ils_range
    
     

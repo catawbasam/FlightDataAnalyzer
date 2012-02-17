@@ -1599,6 +1599,23 @@ class TestSlicesFromTo(unittest.TestCase):
         array.mask = [True] * 10 + [False] * 10
         repaired_array, slices = slices_from_to(array, 18, 3)
         self.assertEqual(slices, [slice(10, 18)])
+        
+class TestSlicesOverlap(unittest.TestCase):
+    def test_slices_overlap(self):
+        # overlap
+        first = slice(10,20)
+        second = slice(15,25)
+        self.assertTrue(slices_overlap(first, second))
+        self.assertTrue(slices_overlap(second, first))
+        
+        # no overlap
+        no_overlap = slice(25,40)
+        self.assertFalse(slices_overlap(second, no_overlap))
+        self.assertFalse(slices_overlap(no_overlap, first))
+        
+        # step negative
+        self.assertRaises(ValueError, slices_overlap, first, slice(1,2,-1))
+        
 
 class TestStepValues(unittest.TestCase):
     def test_step_values(self):

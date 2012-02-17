@@ -680,7 +680,7 @@ def runway_distances(runway):
     pgs_lat = lzr_lat + r*(start_lat - lzr_lat)
     pgs_lon = lzr_lon + r*(start_lon - lzr_lon)
     
-    return [d, g, c, pgs_lat, pgs_lon]  # Runway distances to start, glideslope and end.
+    return d, g, c, pgs_lat, pgs_lon  # Runway distances to start, glideslope and end.
 
 def runway_heading(runway):
     '''
@@ -985,11 +985,13 @@ def is_slice_within_slice(inner_slice, outer_slice):
 
 def slices_overlap(first_slice, second_slice):
     '''
-    TODO: Test.
+    There must be more than one value overlapping
     '''
-    start_within = first_slice.start <= second_slice.start <= first_slice.stop
-    stop_within = first_slice.start <= second_slice.stop <= first_slice.stop
-    return start_within or stop_within
+    if first_slice.step != None and first_slice.step < 1 \
+       or second_slice.step != None and second_slice.step < 1:
+        raise ValueError("Negative step not supported")
+    return first_slice.start < second_slice.stop \
+           and second_slice.start < first_slice.stop
 
 def latitudes_and_longitudes(bearings, distances, reference):
     """
