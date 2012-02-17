@@ -171,7 +171,7 @@ class AccelerationForwardsForFlightPhases(DerivedParameterNode):
 Superceded by Truck and Trailer analysis of airspeed during takeoff and landing
 -------------------------------------------------------------------------------
 """
-            
+
 
 class AirspeedForFlightPhases(DerivedParameterNode):
     def derive(self, airspeed=P('Airspeed')):
@@ -1997,7 +1997,107 @@ class ThrottleLever(DerivedParameterNode):
 
 
 
+class Aileron(DerivedParameterNode):
+    '''
+    '''
+    # TODO: TEST
+    name = 'Aileron'
 
+    @classmethod
+    def can_operate(cls, available):
+       a = set(['Aileron (L)', 'Aileron (R)'])
+       b = set(['Aileron (L) Inboard', 'Aileron (R) Inboard', 'Aileron (L) Outboard', 'Aileron (R) Outboard'])
+       x = set(available)
+       return not (a - x) or not (b - x)
+
+    def derive(self,
+               al=P('Aileron (L)'),
+               ar=P('Aileron (R)'),
+               ali=P('Aileron (L) Inboard'),
+               ari=P('Aileron (R) Inboard'),
+               alo=P('Aileron (L) Outboard'),
+               aro=P('Aileron (R) Outboard')):
+        return NotImplemented
+
+
+class AileronTrim(DerivedParameterNode): # RollTrim
+    '''
+    '''
+    # TODO: TEST
+    name = 'Aileron Trim' # Roll Trim
+
+    def derive(self,
+               atl=P('Aileron Trim (L)'),
+               atr=P('Aileron Trim (R)')):
+        return NotImplemented
+
+
+class Elevator(DerivedParameterNode):
+    '''
+    '''
+    # TODO: TEST
+    name = 'Elevator'
+
+    def derive(self,
+               el=P('Elevator (L)'),
+               er=P('Elevator (R)')):
+        return NotImplemented
+
+
+class ElevatorTrim(DerivedParameterNode): # PitchTrim
+    '''
+    '''
+    # TODO: TEST
+    name = 'Elevator Trim' # Pitch Trim
+
+    def derive(self,
+               etl=P('Elevator Trim (L)'),
+               etr=P('Elevator Trim (R)')):
+        return NotImplemented
+
+
+class Spoiler(DerivedParameterNode):
+    '''
+    '''
+    # TODO: TEST
+    name = 'Spoiler'
+
+    def derive(self,
+               s01=P('Spoiler (1)'),
+               s02=P('Spoiler (2)'),
+               s03=P('Spoiler (3)'),
+               s04=P('Spoiler (4)'),
+               s05=P('Spoiler (5)'),
+               s06=P('Spoiler (6)'),
+               s07=P('Spoiler (7)'),
+               s08=P('Spoiler (8)'),
+               s09=P('Spoiler (9)'),
+               s10=P('Spoiler (10)'),
+               s11=P('Spoiler (11)'),
+               s12=P('Spoiler (12)')):
+        return NotImplemented
+
+
+class Speedbrake(DerivedParameterNode):
+    '''
+    '''
+    # TODO: TEST
+    name = 'Speedbrake'
+
+    def derive(self,
+               s01=P('Spoiler (1)'),
+               s02=P('Spoiler (2)'),
+               s03=P('Spoiler (3)'),
+               s04=P('Spoiler (4)'),
+               s05=P('Spoiler (5)'),
+               s06=P('Spoiler (6)'),
+               s07=P('Spoiler (7)'),
+               s08=P('Spoiler (8)'),
+               s09=P('Spoiler (9)'),
+               s10=P('Spoiler (10)'),
+               s11=P('Spoiler (11)'),
+               s12=P('Spoiler (12)')):
+        return NotImplemented
 
 
 
