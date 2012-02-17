@@ -462,13 +462,16 @@ class ILSGlideslopeEstablished(FlightPhaseNode):
             gs = repair_mask(ils_gs.array[ils_loc_2_min]) # prepare gs data
             gsm = np.ma.masked_outside(gs,-1,1)  # mask data more than 1 dot
             ends = np.ma.flatnotmasked_edges(gsm)  # find the valid endpoints
-            if ends[0] == 0 and ends[1] == -1:  # TODO: Pythonese this line !
+            if ends == None:
+                logging.debug("Did not establish localiser within +-1dot")
+                continue
+            elif ends[0] == 0 and ends[1] == -1:  # TODO: Pythonese this line !
                 # All the data is within one dot, so the phase is already known
                 self.create_phase(ils_loc_2_min)
             else:
                 # Create the reduced duration phase
                 self.create_phase(
-                    shift_slice(slice(ends[0],ends[1]),ils_loc_est.slice.start))
+                    shift_slice(slice(*ends),ils_loc_est.slice.start))
             
             
             ##this_slice = ils_loc_est.slice
