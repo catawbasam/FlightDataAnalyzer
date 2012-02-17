@@ -1377,11 +1377,6 @@ class HeadingContinuous(DerivedParameterNode):
         self.array = repair_mask(straighten_headings(head_mag.array))
 
 
-class Heading(DerivedParameterNode):
-    def derive(self, head_mag=P('Heading Magnetic')):
-        self.array = head_mag.array
-
-
 class HeadingTrue(DerivedParameterNode):
     units = 'deg'
     # Computes magnetic deviation linearly changing from the deviation at
