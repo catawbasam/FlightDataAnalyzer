@@ -35,7 +35,7 @@ def parse_dependency_links(file_name):
     dependency_links.reverse()
     return dependency_links
 
-from analysis_engine import __version__ as VERSION
+from analysis_engine import ___version___ as VERSION
 
 setup(
     name='AnalysisEngine',
