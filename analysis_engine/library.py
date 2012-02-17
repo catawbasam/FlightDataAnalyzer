@@ -7,7 +7,7 @@ from datetime import datetime, timedelta
 from hashlib import sha256
 from itertools import izip
 from scipy.signal import lfilter, lfilter_zi
-from scipy.optimize import fmin, fmin_bfgs, fmin_tnc
+##from scipy.optimize import fmin, fmin_bfgs, fmin_tnc
 # TODO: Inform Enthought that fmin_l_bfgs_b dies in a dark hole at _lbfgsb.setulb
 
 from settings import REPAIR_DURATION, TRUCK_OR_TRAILER_INTERVAL, TRUCK_OR_TRAILER_PERIOD
@@ -222,10 +222,13 @@ def calculate_timebase(years, months, days, hours, mins, secs):
     
     Accepts arrays and numpy arrays at 1Hz.
     
+    Note: if years, months or days is None, it will fill in invalid
+    datetimes, see below!!!
+    
     Note: if uneven arrays are passed in, they are assumed by izip that the
     start is valid and the uneven ends are invalid and skipped over.
     
-    TODO: Support year as a 2 digits - e.g. "11" is "2011"
+    Supports years as a 2 digits - e.g. "11" is "2011"
     
     :param years, months, days, hours, mins, secs: Appropriate 1Hz time elements
     :type years, months, days, hours, mins, secs: iterable of numeric type
@@ -236,7 +239,14 @@ def calculate_timebase(years, months, days, hours, mins, secs):
     base_dt = None
     clock_variation = OrderedDict() # Ordered so if all values are the same, max will consistently take the first val
     if years is None:
-        years = np.repeat([CURRENT_YEAR], len(months))
+        logging.warning("Year not supplied, filling in with 1970")
+        years = np.repeat([1970], len(mins)) # force invalid year
+    if months is None:
+        logging.warning("Month not supplied, filling in with 01")
+        months = np.repeat([01], len(mins)) # force invalid month
+    if days is None:
+        logging.warning("Day not supplied, filling in with 01")
+        days = np.repeat([01], len(mins)) # force invalid days
         
     for step, (yr, mth, day, hr, mn, sc) in enumerate(izip(years, months, days, hours, mins, secs)):
         
