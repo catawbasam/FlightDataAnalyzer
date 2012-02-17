@@ -235,6 +235,9 @@ def calculate_timebase(years, months, days, hours, mins, secs):
     """
     base_dt = None
     clock_variation = OrderedDict() # Ordered so if all values are the same, max will consistently take the first val
+    if years is None:
+        years = np.repeat([CURRENT_YEAR], len(months))
+        
     for step, (yr, mth, day, hr, mn, sc) in enumerate(izip(years, months, days, hours, mins, secs)):
         
         #try:

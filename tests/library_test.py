@@ -496,7 +496,7 @@ class TestCalculateTimebase(unittest.TestCase):
         start_dt = calculate_timebase(years, months, days, hours, mins, secs)
         self.assertEqual(start_dt, datetime(2020,12,25,23,0,0))
         
-    def test_different_frequency_params(self):
+    def test_real_data_params_2_digit_year(self):
         years = np.load('test_data/year.npy')
         months = np.load('test_data/month.npy')
         days = np.load('test_data/day.npy')
@@ -505,6 +505,16 @@ class TestCalculateTimebase(unittest.TestCase):
         secs = np.load('test_data/second.npy')
         start_dt = calculate_timebase(years, months, days, hours, mins, secs)
         self.assertEqual(start_dt, datetime(2011,12,30,8,20,36))
+        
+    def test_real_data_params_no_year(self):
+        years = None
+        months = np.load('test_data/month.npy')
+        days = np.load('test_data/day.npy')
+        hours = np.load('test_data/hour.npy')
+        mins = np.load('test_data/minute.npy')
+        secs = np.load('test_data/second.npy')
+        start_dt = calculate_timebase(years, months, days, hours, mins, secs)
+        self.assertEqual(start_dt, datetime(2012,12,30,8,20,36))        
         
     @unittest.skip("Implement if this is a requirement")
     def test_using_offset_for_seconds(self):

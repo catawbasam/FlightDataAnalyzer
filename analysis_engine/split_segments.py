@@ -416,7 +416,7 @@ def append_segment_info(hdf_segment_path, segment_type, segment_slice, part):
         onehz = P(frequency = 1)
         dt_arrays = []
         for name in ('Year', 'Month', 'Day', 'Hour', 'Minute', 'Second'):
-            dt_arrays.append(align(hdf[name], onehz, signaltype='Multi-State'))
+            dt_arrays.append(align(hdf.get(name), onehz, signaltype='Multi-State'))
         
         # establish timebase for start of data
         try:
