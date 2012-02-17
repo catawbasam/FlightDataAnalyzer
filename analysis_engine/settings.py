@@ -135,7 +135,7 @@ HYSTERESIS_FP_RAD_ALT = 5 # ft
 # phase if the aircraft is climbing/descending close to a threshold level.
 HYSTERESIS_FPROC = 40 # fpm / RMS altitude noise
 # The threshold used is scaled in proportion to the altitude noise level, so
-# that for the Hercule we can get up to 400 fpm or more, a value which has
+# that for the Hercules we can get up to 400 fpm or more, a value which has
 # been selected from inspection of test data which is notoriously noisy. By
 # measuring the noise, we don't burden "quieter" aircraft unnecessarily.
 
@@ -189,7 +189,7 @@ RATE_OF_CLIMB_FOR_LEVEL_FLIGHT = 300 # fpm
 RATE_OF_CLIMB_FOR_LIFTOFF = 200 # fpm
 
 # Rate of climb for touchdown.
-RATE_OF_CLIMB_FOR_TOUCHDOWN = -60 # fpm
+RATE_OF_CLIMB_FOR_TOUCHDOWN = -100 # fpm
 
 # Rate of turn limits for flight and ground.
 RATE_OF_TURN_FOR_FLIGHT_PHASES = 2.5 # deg per second

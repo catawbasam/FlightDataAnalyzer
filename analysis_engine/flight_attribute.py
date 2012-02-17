@@ -83,7 +83,14 @@ class Approaches(FlightAttributeNode):
             return {'airport': airport,
                     'runway': None,
                     'type': approach_type,
-                    'datetime': approach_datetime}
+                    'datetime': approach_datetime,
+                    'slice_start_datetime': datetime_of_index(start_dt,
+                                                              approach.slice.start,
+                                                              frequency), # NB: Not in API therefore not stored in DB
+                    'slice_stop_datetime': datetime_of_index(start_dt,
+                                                             approach.slice.stop,
+                                                             frequency), # NB: Not in API therefore not stored in DB
+                    }
         # ILS Frequency.
         kwargs = {}
         if ilsfreq_kpv_node:
@@ -96,7 +103,9 @@ class Approaches(FlightAttributeNode):
         try:
             runway_info = api_handler.get_nearest_runway(airport_id, hdg, **kwargs)
             if len(runway_info['items']) > 1:
-                raise NotImplementedError('Multiple runways returned')
+                # TODO: What to store in approach dictionary.
+                runway = {'identifier': runway_info['ident']}
+                ##raise NotImplementedError('Multiple runways returned')
             else:
                 runway = runway_info['items'][0]
         except NotFoundError:
@@ -108,7 +117,14 @@ class Approaches(FlightAttributeNode):
         return {'airport': airport,
                 'runway': runway,
                 'type': approach_type,
-                'datetime': approach_datetime}    
+                'datetime': approach_datetime,
+                'slice_start_datetime': datetime_of_index(start_dt,
+                                                          approach.slice.start,
+                                                          frequency), # NB: Not in API therefore not stored in DB
+                'slice_stop_datetime': datetime_of_index(start_dt,
+                                                         approach.slice.stop,
+                                                         frequency), # NB: Not in API therefore not stored in DB                
+                }    
     
     def derive(self, start_datetime=A('Start Datetime'),
                approach_landing=S('Approach And Landing'),
@@ -147,7 +163,7 @@ class Approaches(FlightAttributeNode):
                 approach_type = 'GO_AROUND'
             approach = self._create_approach(start_datetime.value, api_handler,
                                              approach_section, approach_type,
-                                             approach_landing.frequency,
+                                             approach_go_around.frequency,
                                              landing_lat_kpvs, landing_lon_kpvs,
                                              landing_hdg_kpvs,
                                              approach_ilsfreq_kpvs, precision)
@@ -356,7 +372,9 @@ class LandingRunway(FlightAttributeNode):
             runway_info = api_handler.get_nearest_runway(airport_id, heading,
                                                     **kwargs)
             if len(runway_info['items']) > 1:
-                raise NotImplementedError('Multiple runways returned')
+                # TODO: Having a string here will cause problems..
+                runway = {'identifier': runway_info['ident']}
+                ##raise NotImplementedError('Multiple runways returned')
             else:
                 runway = runway_info['items'][0]            
         except NotFoundError:
@@ -579,7 +597,9 @@ class TakeoffRunway(FlightAttributeNode):
             runway_info = api_handler.get_nearest_runway(airport_id, hdg_value,
                                                     **kwargs)
             if len(runway_info['items']) > 1:
-                raise NotImplementedError('Multiple runways returned')
+                # TODO: This will probably break nodes which are dependent.
+                runway = {'identifier': runway_info['ident']}
+                ##raise NotImplementedError('Multiple runways returned')
             else:
                 runway = runway_info['items'][0]
         except NotFoundError:

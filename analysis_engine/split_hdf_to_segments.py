@@ -114,15 +114,6 @@ def split_hdf_to_segments(hdf_path, aircraft_ident, output_dir=None, draw=False)
         else:
             logging.info("No PRE_FILE_ANALYSIS actions to perform")
         
-
-        # TODO: Apply hook for single parameters.
-        
-        # uses flight phases and DFC if aircraft determines to do so
-        #airspeed = hdf['Airspeed']
-                
-        # split large dataset into segments
-        #logging.debug("Splitting segments. Data length: %s", len(airspeed.array))
-        #dfc = hdf['Frame Counter'] if hdf.reliable_frame_counter else None
         segment_tuples = split_segments(hdf)
             
     # process each segment (into a new file) having closed original hdf_path

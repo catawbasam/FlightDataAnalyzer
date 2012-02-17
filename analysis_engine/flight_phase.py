@@ -54,6 +54,8 @@ class Airborne(FlightPhaseNode):
             lastpoint = int(speedy.slice.stop)
             if roc.array[lastpoint-1] < -RATE_OF_CLIMB_FOR_LEVEL_FLIGHT:
                 down = lastpoint
+            elif lastpoint - midpoint < 2:
+                down = lastpoint
             else:
                 down = index_at_value(roc.array, -RATE_OF_CLIMB_FOR_LEVEL_FLIGHT,
                                       slice(lastpoint,midpoint,-1))
@@ -345,14 +347,17 @@ class Fast(FlightPhaseNode):
                                        AIRSPEED_THRESHOLD)
         # Was the "flight" long enough to be worth bothering with?
         whole_slice = np.ma.flatnotmasked_edges(fast_where)
-        if (whole_slice[1]-whole_slice[0]) > \
+        if whole_slice is None:
+            # The aircraft did not go fast.
+            return
+        elif (whole_slice[1]-whole_slice[0]) > \
            (FLIGHT_WORTH_ANALYSING_SEC*airspeed.frequency):
             # OK - let's make a phase for each fast section.
             self.create_phases(np.ma.clump_unmasked(fast_where))
  
 
 class FinalApproach(FlightPhaseNode):
-    def derive(self, alt_AAL=P('Altitude AAL For Flight Phases'),
+    def derive(self, alt_aal=P('Altitude AAL For Flight Phases'),
                alt_rad=P('Altitude Radio For Flight Phases'),
                app_lands=S('Approach And Landing')):
         for app_land in app_lands:
@@ -360,7 +365,8 @@ class FinalApproach(FlightPhaseNode):
             # the first showing zero ft (bear in mind Altitude AAL is
             # computed from Altitude Radio below 50ft, so this is not
             # affected by pressure altitude variations at landing).
-            alt = repair_mask(minimum_unmasked(alt_AAL.array[app_land.slice],alt_rad.array[app_land.slice]))
+            alt = repair_mask(minimum_unmasked(alt_aal.array[app_land.slice],
+                                               alt_rad.array[app_land.slice]))
             app = np.ma.clump_unmasked(np.ma.masked_outside(alt,0,1000))
             if len(app)>1:
                 logging.debug('More than one final approach during a single approach and landing phase')
@@ -425,13 +431,6 @@ class ILSApproach(FlightPhaseNode):
     to determine the range for the ILS display on the web site and for
     examination for ILS KPVs.
     """
-    
-    """
-    @classmethod
-    def can_operate(cls, available):
-        return True
-    """
-    
     def derive(self, ils_loc = P('ILS Localizer'),
                fast = S('Fast')):
         return NotImplemented
@@ -463,13 +462,16 @@ class ILSGlideslopeEstablished(FlightPhaseNode):
             gs = repair_mask(ils_gs.array[ils_loc_2_min]) # prepare gs data
             gsm = np.ma.masked_outside(gs,-1,1)  # mask data more than 1 dot
             ends = np.ma.flatnotmasked_edges(gsm)  # find the valid endpoints
-            if ends[0] == 0 and ends[1] == -1:  # TODO: Pythonese this line !
+            if ends == None:
+                logging.debug("Did not establish localiser within +-1dot")
+                continue
+            elif ends[0] == 0 and ends[1] == -1:  # TODO: Pythonese this line !
                 # All the data is within one dot, so the phase is already known
                 self.create_phase(ils_loc_2_min)
             else:
                 # Create the reduced duration phase
                 self.create_phase(
-                    shift_slice(slice(ends[0],ends[1]),ils_loc_est.slice.start))
+                    shift_slice(slice(*ends),ils_loc_est.slice.start))
             
             
             ##this_slice = ils_loc_est.slice
@@ -542,12 +544,9 @@ class Landing(FlightPhaseNode):
     # List the minimum acceptable parameters here
     @classmethod
     def can_operate(cls, available):
-        if 'Heading Continuous' in available and \
-           'Altitude AAL For Flight Phases' in available and \
-           'Fast' in available:
-            return True
-        else:
-            return False
+        return 'Heading Continuous' in available and \
+               'Altitude AAL For Flight Phases' in available and \
+               'Fast' in available
     
     def derive(self, head=P('Heading Continuous'),
                alt_aal=P('Altitude AAL For Flight Phases'),
@@ -598,7 +597,8 @@ class Landing(FlightPhaseNode):
                 pass
             """
 
-            self.create_phases([slice(landing_begin, landing_end)])
+            if landing_begin and landing_end:
+                self.create_phases([slice(landing_begin, landing_end)])
 
 
 class Takeoff(FlightPhaseNode):
@@ -610,12 +610,9 @@ class Takeoff(FlightPhaseNode):
     # List the minimum acceptable parameters here
     @classmethod
     def can_operate(cls, available):
-        if 'Heading Continuous' in available and \
-           'Altitude AAL For Flight Phases' in available and\
-           'Fast' in available:
-            return True
-        else:
-            return False
+        return 'Heading Continuous' in available and \
+               'Altitude AAL For Flight Phases' in available and \
+               'Fast' in available
     
     def derive(self, head=P('Heading Continuous'),
                alt_aal=P('Altitude AAL For Flight Phases'),
@@ -675,7 +672,8 @@ class Takeoff(FlightPhaseNode):
  
             #-------------------------------------------------------------------
             # Create a phase for this takeoff
-            self.create_phases([slice(takeoff_begin, takeoff_end)])
+            if takeoff_begin and takeoff_end:
+                self.create_phases([slice(takeoff_begin, takeoff_end)])
 
 
 class Turning(FlightPhaseNode):

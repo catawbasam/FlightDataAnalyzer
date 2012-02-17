@@ -28,6 +28,11 @@ from analysis_engine.derived_parameters import (
     AltitudeTail,
     ClimbForFlightPhases,
     Config,
+    ControlColumn,
+    ControlColumnForce,
+    ControlColumnForceCapt,
+    ControlColumnForceFO,
+    ControlWheel,
     Eng_N1Avg,
     Eng_N1Max,
     Eng_N1Min,
@@ -39,6 +44,7 @@ from analysis_engine.derived_parameters import (
     GroundspeedAlongTrack,
     HeadingContinuous,
     HeadingTrue,
+    ILSFrequency,
     LatitudeStraighten,
     LongitudeStraighten,
     Pitch,
@@ -286,9 +292,9 @@ class TestAirspeedMinusVref(unittest.TestCase):
 
 class TestAirspeedTrue(unittest.TestCase):
     def test_can_operate(self):
-        expected = [('Airspeed','Altitude STD','TAT')]
-        opts = AirspeedTrue.get_operational_combinations()
-        self.assertEqual(opts, expected)
+        self.assertEqual(AirspeedTrue.get_operational_combinations(), 
+                         [('Airspeed', 'Altitude STD'),
+                          ('Airspeed', 'Altitude STD', 'TAT')])
         
     def test_tas_basic(self):
         cas = P('Airspeed', np.ma.array([100,200,300]))
@@ -645,7 +651,124 @@ class TestConfig(unittest.TestCase):
         time = min(timer.repeat(1, 1))
         print "Time taken %s secs" % time
         self.assertLess(time, 0.1, msg="Took too long")
-        
+
+
+class TestControlColumn(unittest.TestCase):
+
+    def setUp(self):
+        ccc = np.ma.array(data=[])
+        self.ccc = P('Control Column (Capt)', ccc)
+        ccf = np.ma.array(data=[])
+        self.ccf = P('Control Column (FO)', ccf)
+
+    def test_can_operate(self):
+        expected = [('Control Column (Capt)', 'Control Column (FO)')]
+        opts = ControlColumn.get_operational_combinations()
+        self.assertEqual(opts, expected)
+
+    @mock.patch('analysis_engine.derived_parameters.blend_two_parameters')
+    def test_control_column(self, blend_two_parameters):
+        blend_two_parameters.return_value = [None, None, None]
+        cc = ControlColumn()
+        cc.derive(self.ccc, self.ccf)
+        blend_two_parameters.assert_called_once_with(self.ccc, self.ccf)
+
+
+class TestControlColumnForce(unittest.TestCase):
+
+    def setUp(self):
+        ccff = np.ma.arange(1, 4)
+        self.ccff = P('Control Column Force (Foreign)', ccff)
+        ccfl = np.ma.arange(1, 4)
+        ccfl[-1:] = np.ma.masked
+        self.ccfl = P('Control Column Force (Local)', ccfl)
+
+    def test_can_operate(self):
+        expected = [('Control Column Force (Foreign)',
+                     'Control Column Force (Local)')]
+        opts = ControlColumnForce.get_operational_combinations()
+        self.assertEqual(opts, expected)
+
+    def test_control_column_force(self):
+        ccf = ControlColumnForce()
+        ccf.derive(self.ccff, self.ccfl)
+        result = ccf.array
+        answer = np.ma.array(data=[2, 4, 6], mask=[False, False, True])
+        np.testing.assert_array_almost_equal(result, answer)
+
+
+class TestControlColumnForceCapt(unittest.TestCase):
+
+    def setUp(self):
+        ccfl = np.ma.arange(0, 16)
+        self.ccfl = P('Control Column Force (Local)', ccfl)
+        ccff = ccfl[-1::-1]
+        self.ccff = P('Control Column Force (Foreign)', ccff)
+        fcc = np.repeat(np.ma.arange(0, 4), 4)
+        self.fcc = P('FCC Local Limited Master', fcc)
+
+    def test_can_operate(self):
+        expected = [('Control Column Force (Foreign)',
+                     'Control Column Force (Local)',
+                     'FCC Local Limited Master')]
+        opts = ControlColumnForceCapt.get_operational_combinations()
+        self.assertEqual(opts, expected)
+
+    def test_control_column_force_capt(self):
+        ccfc = ControlColumnForceCapt()
+        ccfc.derive(self.ccff, self.ccfl, self.fcc)
+        result = ccfc.array
+        answer = self.ccfl.array
+        answer[4:8] = self.ccff.array[4:8]
+        np.testing.assert_array_almost_equal(result, answer)
+
+
+class TestControlColumnForceFO(unittest.TestCase):
+
+    def setUp(self):
+        ccfl = np.ma.arange(0, 16)
+        self.ccfl = P('Control Column Force (Local)', ccfl)
+        ccff = ccfl[-1::-1]
+        self.ccff = P('Control Column Force (Foreign)', ccff)
+        fcc = np.repeat(np.ma.arange(0, 4), 4)
+        self.fcc = P('FCC Local Limited Master', fcc)
+
+    def test_can_operate(self):
+        expected = [('Control Column Force (Foreign)',
+                     'Control Column Force (Local)',
+                     'FCC Local Limited Master')]
+        opts = ControlColumnForceFO.get_operational_combinations()
+        self.assertEqual(opts, expected)
+
+    def test_control_column_force_fo(self):
+        ccff = ControlColumnForceFO()
+        ccff.derive(self.ccff, self.ccfl, self.fcc)
+        result = ccff.array
+        answer = self.ccff.array
+        answer[4:8] = self.ccfl.array[4:8]
+        np.testing.assert_array_almost_equal(result, answer)
+
+
+class TestControlWheel(unittest.TestCase):
+
+    def setUp(self):
+        cwc = np.ma.array(data=[])
+        self.cwc = P('Control Wheel (Capt)', cwc)
+        cwf = np.ma.array(data=[])
+        self.cwf = P('Control Wheel (FO)', cwf)
+
+    def test_can_operate(self):
+        expected = [('Control Wheel (Capt)', 'Control Wheel (FO)')]
+        opts = ControlWheel.get_operational_combinations()
+        self.assertEqual(opts, expected)
+
+    @mock.patch('analysis_engine.derived_parameters.blend_two_parameters')
+    def test_control_wheel(self, blend_two_parameters):
+        blend_two_parameters.return_value = [None, None, None]
+        cw = ControlWheel()
+        cw.derive(self.cwc, self.cwf)
+        blend_two_parameters.assert_called_once_with(self.cwc, self.cwf)
+
 
 class TestEng_N1Avg(unittest.TestCase):
     def test_can_operate(self):
@@ -793,6 +916,79 @@ class TestEng_N2Min(unittest.TestCase):
         )
         
         
+class TestEng_N3Avg(unittest.TestCase):
+    def test_can_operate(self):
+        opts = Eng_N3Avg.get_operational_combinations()
+        self.assertEqual(opts[0], ('Eng (1) N3',))
+        self.assertEqual(opts[-1], ('Eng (1) N3', 'Eng (2) N3', 'Eng (3) N3', 'Eng (4) N3'))
+        self.assertEqual(len(opts), 15) # 15 combinations accepted!
+        
+    
+    def test_derive_two_engines(self):
+        # this tests that average is performed on incomplete dependencies and 
+        # more than one dependency provided.
+        a = np.ma.array(range(0, 10))
+        b = np.ma.array(range(10,20))
+        a[0] = np.ma.masked
+        b[0] = np.ma.masked
+        b[-1] = np.ma.masked
+        eng_avg = Eng_N3Avg()
+        eng_avg.derive(P('a',a), P('b',b), None, None)
+        ma_test.assert_array_equal(
+            np.ma.filled(eng_avg.array, fill_value=999),
+            np.array([999, # both masked, so filled with 999
+                      6,7,8,9,10,11,12,13, # unmasked avg of two engines
+                      9]) # only second engine value masked
+        )
+
+class TestEng_N3Max(unittest.TestCase):
+    def test_can_operate(self):
+        opts = Eng_N3Max.get_operational_combinations()
+        self.assertEqual(opts[0], ('Eng (1) N3',))
+        self.assertEqual(opts[-1], ('Eng (1) N3', 'Eng (2) N3', 'Eng (3) N3', 'Eng (4) N3'))
+        self.assertEqual(len(opts), 15) # 15 combinations accepted!
+  
+    def test_derive_two_engines(self):
+        # this tests that average is performed on incomplete dependencies and 
+        # more than one dependency provided.
+        a = np.ma.array(range(0, 10))
+        b = np.ma.array(range(10,20))
+        a[0] = np.ma.masked
+        b[0] = np.ma.masked
+        b[-1] = np.ma.masked
+        eng = Eng_N3Max()
+        eng.derive(P('a',a), P('b',b), None, None)
+        ma_test.assert_array_equal(
+            np.ma.filled(eng.array, fill_value=999),
+            np.array([999, # both masked, so filled with 999
+                      11,12,13,14,15,16,17,18,9])
+        )
+        
+        
+class TestEng_N3Min(unittest.TestCase):
+    def test_can_operate(self):
+        opts = Eng_N3Min.get_operational_combinations()
+        self.assertEqual(opts[0], ('Eng (1) N3',))
+        self.assertEqual(opts[-1], ('Eng (1) N3', 'Eng (2) N3', 'Eng (3) N3', 'Eng (4) N3'))
+        self.assertEqual(len(opts), 15) # 15 combinations accepted!
+  
+    def test_derive_two_engines(self):
+        # this tests that average is performed on incomplete dependencies and 
+        # more than one dependency provided.
+        a = np.ma.array(range(0, 10))
+        b = np.ma.array(range(10,20))
+        a[0] = np.ma.masked
+        b[0] = np.ma.masked
+        b[-1] = np.ma.masked
+        eng = Eng_N3Min()
+        eng.derive(P('a',a), P('b',b), None, None)
+        ma_test.assert_array_equal(
+            np.ma.filled(eng.array, fill_value=999),
+            np.array([999, # both masked, so filled with 999
+                      1,2,3,4,5,6,7,8,9])
+        )
+        
+        
 class TestFlap(unittest.TestCase):
     def test_can_operate(self):
         opts = Flap.get_operational_combinations()
@@ -876,13 +1072,13 @@ class TestFuelQty(unittest.TestCase):
 
 class TestGroundspeedAlongTrack(unittest.TestCase):
     def test_can_operate(self):
-        expected = [('Ground Speed','Acceleration Along Track')]
+        expected = [('Groundspeed','Acceleration Along Track')]
         opts = GroundspeedAlongTrack.get_operational_combinations()
         self.assertEqual(opts, expected)
 
     def test_groundspeed_along_track_basic(self):
         gat = GroundspeedAlongTrack()
-        gspd = P('Ground Speed',np.ma.array(data=[100]*2+[120]*18), frequency=1)
+        gspd = P('Groundspeed',np.ma.array(data=[100]*2+[120]*18), frequency=1)
         accel = P('Acceleration Along Track',np.ma.zeros(20), frequency=1)
         gat.derive(gspd, accel)
         # A first order lag of 6 sec time constant rising from 100 to 120
@@ -893,7 +1089,7 @@ class TestGroundspeedAlongTrack(unittest.TestCase):
         
     def test_groundspeed_along_track_accel_term(self):
         gat = GroundspeedAlongTrack()
-        gspd = P('Ground Speed',np.ma.array(data=[100]*200), frequency=1)
+        gspd = P('Groundspeed',np.ma.array(data=[100]*200), frequency=1)
         accel = P('Acceleration Along Track',np.ma.ones(200)*.1, frequency=1)
         accel.array[0]=0.0
         gat.derive(gspd, accel)
@@ -980,7 +1176,41 @@ class TestHeadingTrue(unittest.TestCase):
             [5, 6, 7, 8, 9, 10, 14, 18, 22, 26, 30, 33, 36, 39, 42, 45, 46, 47,
              48, 49, 50, 51, 52, 53, 54])
 
-
+class TestILSFrequency(unittest.TestCase):
+    def test_can_operate(self):
+        expected = [('ILS (L) Frequency','ILS (R) Frequency')]
+        opts = ILSFrequency.get_operational_combinations()
+        self.assertEqual(opts, expected)
+        
+    def test_ils_frequency_in_range(self):
+        f1 = P('ILS (L) Frequency', 
+               np.ma.array([1,2,108.10,108.15,111.95,112.00]),
+               offset = 0.1, frequency = 0.5)
+        f2 = P('ILS (R) Frequency', 
+               np.ma.array([1,2,108.10,108.15,111.95,112.00]),
+               offset = 1.1, frequency = 0.5)
+        ils = ILSFrequency()
+        result = ils.get_derived([f1, f2])
+        expected_array = np.ma.array(
+            data=[1,2,108.10,108.15,111.95,112.00], 
+             mask=[True,True,False,False,False,True])
+        ma_test.assert_masked_array_approx_equal(result.array, expected_array)
+        
+    def test_ils_frequency_matched(self):
+        f1 = P('ILS (L) Frequency', 
+               np.ma.array([108.10]*3+[111.95]*3),
+               offset = 0.1, frequency = 0.5)
+        f2 = P('ILS (R) Frequency', 
+               np.ma.array([108.10,111.95]*3),
+               offset = 1.1, frequency = 0.5)
+        ils = ILSFrequency()
+        result = ils.get_derived([f1, f2])
+        expected_array = np.ma.array(
+            data=[108.10,99,108.10,111.95,99,111.95], 
+             mask=[False,True,False,False,True,False])
+        ma_test.assert_masked_array_approx_equal(result.array, expected_array)
+        
+        
 class TestPitch(unittest.TestCase):
     def test_can_operate(self):
         expected = [('Pitch (1)', 'Pitch (2)')]

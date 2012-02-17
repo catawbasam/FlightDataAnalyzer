@@ -714,7 +714,7 @@ def runway_distances(runway):
     pgs_lat = lzr_lat + r*(start_lat - lzr_lat)
     pgs_lon = lzr_lon + r*(start_lon - lzr_lon)
     
-    return [d, g, c, pgs_lat, pgs_lon]  # Runway distances to start, glideslope and end.
+    return d, g, c, pgs_lat, pgs_lon  # Runway distances to start, glideslope and end.
 
 def runway_heading(runway):
     '''
@@ -1017,6 +1017,16 @@ def is_slice_within_slice(inner_slice, outer_slice):
         stop_within = outer_slice.start <= inner_slice.stop <= outer_slice.stop
         return start_within and stop_within
 
+def slices_overlap(first_slice, second_slice):
+    '''
+    There must be more than one value overlapping
+    '''
+    if first_slice.step != None and first_slice.step < 1 \
+       or second_slice.step != None and second_slice.step < 1:
+        raise ValueError("Negative step not supported")
+    return first_slice.start < second_slice.stop \
+           and second_slice.start < first_slice.stop
+
 def latitudes_and_longitudes(bearings, distances, reference):
     """
     Returns the bearings and distances of a track with respect to a fixed point.
@@ -1165,11 +1175,34 @@ def minimum_unmasked(array1, array2):
     return np.ma.where(neither_masked, np.ma.minimum(array1, array2),
                        np.ma.where(a1_good, array1, array2))
 
+def merge_two_parameters (param_one, param_two):
+    '''
+    This process merges two parameter arrays of the same frequency.
+    without smoothing, and then computes the offset and frequency appropriately.
+    
+    Note: There is no check for the parameters being equi-spaced.
+    
+    :param param_one: Parameter object
+    :type param_one: Parameter
+    '''
+    assert param_one.frequency  == param_two.frequency
+    
+    if param_one.offset <= param_two.offset:
+        # merged array should be monotonic (always increasing in time)
+        array = merge_sources(param_one.array, param_two.array)
+        offset = param_one.offset
+    else:
+        array = merge_sources(param_two.array, param_one.array)
+        offset = param_two.offset
+    return array, param_one.frequency * 2, offset
+
+
 def merge_sources(*arrays):
     '''
     This simple process merges the data from multiple sensors where they are
-    sampled alternately. Unlike merge_two_sensors, this procedure does
-    not make any allowance for the two sensor readings being different.
+    sampled alternately. Unlike blend_alternate_sensors or the parameter
+    level option blend_teo_parameters, this procedure does not make any
+    allowance for the two sensor readings being different.
     
     :param array: sampled data from an alternate signal source
     :type array: masked array
@@ -1223,7 +1256,7 @@ def blend_alternate_sensors (array_one, array_two, padding):
 def blend_two_parameters (param_one, param_two):
     '''
     This process merges two parameter arrays of the same frequency.
-    Soothes and then computes the offset and frequency appropriately.
+    Smoothes and then computes the offset and frequency appropriately.
     
     :param param_one: Parameter object
     :type param_one: Parameter
