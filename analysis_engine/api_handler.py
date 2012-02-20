@@ -1,5 +1,6 @@
 import httplib
 import httplib2
+import logging
 import socket
 import time
 import urllib
@@ -81,7 +82,12 @@ class APIHandlerHTTP(object):
         try:
             decoded_content = json.loads(content)
         except ValueError:
-            decoded_content = None
+            # Only JSON return types supported, any other return means server
+            # is not configured correctly
+            logging.exception("JSON decode error for '%s' - only JSON supported"
+                             " by this API. Server configuration error? %s\nBody: %s",
+                             method, uri, body)
+            raise
         # Test HTTP Status.
         if status != 200:
             if decoded_content:
@@ -101,9 +107,6 @@ class APIHandlerHTTP(object):
             else:
                 raise UnknownAPIError(error_msg, uri, method, body)
         
-        if decoded_content is None:
-            raise UnknownAPIError('JSON response could not be decoded.',
-                                  uri, method, body)
         return decoded_content
     
     def _attempt_request(self, *args, **kwargs):
