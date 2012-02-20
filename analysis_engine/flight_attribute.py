@@ -104,8 +104,9 @@ class Approaches(FlightAttributeNode):
             runway_info = api_handler.get_nearest_runway(airport_id, hdg, **kwargs)
             if len(runway_info['items']) > 1:
                 # TODO: What to store in approach dictionary.
-                runway = {'identifier': runway_info['ident']}
-                ##raise NotImplementedError('Multiple runways returned')
+                runway = {'ident': runway_info[0]}
+                logging.warning("Identified %d Runways, ident %s. Picking the first!", 
+                             len(runway_info['items']), runway_info['ident'])
             else:
                 runway = runway_info['items'][0]
         except NotFoundError:
@@ -157,15 +158,15 @@ class Approaches(FlightAttributeNode):
         
         for approach_section in approach_go_around:
             # If Altitude AAL reached 0, the approach type is 'TOUCH_AND_GO'.
-            if np.ma.any(alt_aal[approach_section.slice] <= 0):
+            if np.ma.any(alt_aal.array[approach_section.slice] <= 0):
                 approach_type = 'TOUCH_AND_GO'
             else:
                 approach_type = 'GO_AROUND'
             approach = self._create_approach(start_datetime.value, api_handler,
                                              approach_section, approach_type,
                                              approach_go_around.frequency,
-                                             landing_lat_kpvs, landing_lon_kpvs,
-                                             landing_hdg_kpvs,
+                                             approach_lat_kpvs, approach_lon_kpvs,
+                                             approach_hdg_kpvs,
                                              approach_ilsfreq_kpvs, precision)
             if approach:
                 approaches.append(approach)
@@ -351,6 +352,7 @@ class LandingRunway(FlightAttributeNode):
                             self.__class__.__name__)
             return
         heading = heading_kpv.value
+            
         # 'Last Approach And Landing' assumed to be Landing. Q: May not be true
         # for partial data?
         kwargs = {}
@@ -583,8 +585,16 @@ class TakeoffRunway(FlightAttributeNode):
             return
         airport_id = airport.value['id']
         kwargs = {}
-        if precision and precision.value and latitude_at_takeoff and \
-           longitude_at_takeoff:
+        # Even if we do not have precise latitude and longitude information,
+        # we still use this for the takeoff runway detection as it is often
+        # accurate at the start of a flight, and in the absence of an ILS
+        # tuned frequency we have no better option. (We did consider using
+        # the last direction of turn onto the runway, but this would require
+        # an airport database with terminal and taxiway details that was not
+        # felt justified).
+        if latitude_at_takeoff and longitude_at_takeoff:
+        ##if precision and precision.value and latitude_at_takeoff and \
+           ##longitude_at_takeoff:
             first_latitude = latitude_at_takeoff.get_first()
             first_longitude = longitude_at_takeoff.get_first()
             if first_latitude and first_longitude:
@@ -599,7 +609,7 @@ class TakeoffRunway(FlightAttributeNode):
             if len(runway_info['items']) > 1:
                 # TODO: This will probably break nodes which are dependent.
                 runway = {'identifier': runway_info['ident']}
-                ##raise NotImplementedError('Multiple runways returned')
+                raise NotImplementedError('Multiple runways returned')
             else:
                 runway = runway_info['items'][0]
         except NotFoundError:
@@ -719,8 +729,9 @@ class LandingGrossWeight(FlightAttributeNode):
     name = 'FDR Landing Gross Weight'
     def derive(self, touchdown_gross_weight=KPV('Gross Weight At Touchdown')):
         last_gross_weight = touchdown_gross_weight.get_last()
-        if last_gross_weight:
-            self.set_flight_attr(last_gross_weight.value)
+        # TODO: Support flight attributes not calling set_flight_attr where appropriate.
+        #if last_gross_weight:
+        self.set_flight_attr(last_gross_weight.value)
 
 
 class LandingPilot(FlightAttributeNode, DeterminePilot):

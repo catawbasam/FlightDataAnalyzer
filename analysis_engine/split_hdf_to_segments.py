@@ -386,6 +386,7 @@ def split_hdf_to_segments(hdf_path, aircraft_info, output_dir=None, draw=False):
                                       part)
         segments.append(segment)
         if draw:
+            from analysis_engine.plot_flight import plot_essential
             plot_essential(dest_path)
             
     if draw:

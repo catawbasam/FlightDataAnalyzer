@@ -678,14 +678,14 @@ class TestControlColumnForce(unittest.TestCase):
 
     def setUp(self):
         ccff = np.ma.arange(1, 4)
-        self.ccff = P('Control Column Force (Foreign)', ccff)
+        self.ccff = P('Control Column Force (Capt)', ccff)
         ccfl = np.ma.arange(1, 4)
         ccfl[-1:] = np.ma.masked
-        self.ccfl = P('Control Column Force (Local)', ccfl)
+        self.ccfl = P('Control Column Force (FO)', ccfl)
 
     def test_can_operate(self):
-        expected = [('Control Column Force (Foreign)',
-                     'Control Column Force (Local)')]
+        expected = [('Control Column Force (Capt)',
+                     'Control Column Force (FO)')]
         opts = ControlColumnForce.get_operational_combinations()
         self.assertEqual(opts, expected)
 
@@ -708,15 +708,15 @@ class TestControlColumnForceCapt(unittest.TestCase):
         self.fcc = P('FCC Local Limited Master', fcc)
 
     def test_can_operate(self):
-        expected = [('Control Column Force (Foreign)',
-                     'Control Column Force (Local)',
+        expected = [('Control Column Force (Local)',
+                     'Control Column Force (Foreign)',
                      'FCC Local Limited Master')]
         opts = ControlColumnForceCapt.get_operational_combinations()
         self.assertEqual(opts, expected)
 
     def test_control_column_force_capt(self):
         ccfc = ControlColumnForceCapt()
-        ccfc.derive(self.ccff, self.ccfl, self.fcc)
+        ccfc.derive(self.ccfl, self.ccff, self.fcc)
         result = ccfc.array
         answer = self.ccfl.array
         answer[4:8] = self.ccff.array[4:8]
@@ -734,15 +734,15 @@ class TestControlColumnForceFO(unittest.TestCase):
         self.fcc = P('FCC Local Limited Master', fcc)
 
     def test_can_operate(self):
-        expected = [('Control Column Force (Foreign)',
-                     'Control Column Force (Local)',
+        expected = [('Control Column Force (Local)',
+                     'Control Column Force (Foreign)',
                      'FCC Local Limited Master')]
         opts = ControlColumnForceFO.get_operational_combinations()
         self.assertEqual(opts, expected)
 
     def test_control_column_force_fo(self):
         ccff = ControlColumnForceFO()
-        ccff.derive(self.ccff, self.ccfl, self.fcc)
+        ccff.derive(self.ccfl, self.ccff, self.fcc)
         result = ccff.array
         answer = self.ccff.array
         answer[4:8] = self.ccfl.array[4:8]

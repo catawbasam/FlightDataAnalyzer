@@ -153,7 +153,7 @@ class AutopilotEngaged2AtTouchdown(KeyPointValueNode):
         self.create_kpvs_at_ktis(autopilot.array, touchdowns)
 
 
-class ControlColumnStiffnessMax(KeyPointValueNode):
+class ControlColumnStiffness(KeyPointValueNode):
     """
     The control force and displacement of the flying controls should follow a
     predictable relationship. This parameter is included to identify
@@ -163,6 +163,20 @@ class ControlColumnStiffnessMax(KeyPointValueNode):
                force=P('Control Column Force'),
                disp=P('Control Column'),
                fast=S('Fast')):
+
+        #-------------------------------------------------------------------
+        # TEST OUTPUT TO CSV FILE FOR DEBUGGING ONLY
+        # TODO: REMOVE THIS SECTION BEFORE RELEASE
+        #-------------------------------------------------------------------
+        import csv
+        spam = csv.writer(open('cheese.csv', 'wb'))
+        spam.writerow(['ref','column', 'force'])
+        #-------------------------------------------------------------------
+        # TEST OUTPUT TO CSV FILE FOR DEBUGGING ONLY
+        # TODO: REMOVE THIS SECTION BEFORE RELEASE
+        #-------------------------------------------------------------------
+        
+
         # We only test during high speed operation to avoid "testing" the
         # full and free movements before flight.
         for speedy in fast:
@@ -171,18 +185,34 @@ class ControlColumnStiffnessMax(KeyPointValueNode):
             # stiff controls there is more force but less movement, hence
             # using a movement threshold will tend to be suppressed in the
             # cases we are looking to detect.
+            push = force.array[speedy.slice]
+            column = disp.array[speedy.slice]
+            
             moves = np.ma.clump_unmasked(
-                np.ma.masked_less(np.ma.abs(force.array),
+                np.ma.masked_less(np.ma.abs(push),
                                   CONTROL_FORCE_THRESHOLD))
             for move in moves:
-                if slice_samples(move) < 5:
-                    break
+                if slice_samples(move) < 10:
+                    continue
                 corr, slope, off = \
-                    coreg(force.array[move], indep_var=disp.array[move], force_zero=True)
-                if corr>0.5:  # This checks the data looks sound.
-                    self.create_kpv(move.start, slope)
-                    # FIXME: I only want to keep the maximum this flight.
-        
+                    coreg(push[move], indep_var=column[move], force_zero=True)
+                if corr>0.85:  # This checks the data looks sound.
+                    when = np.ma.argmax(np.ma.abs(push[move]))
+                    self.create_kpv(speedy.slice.start+move.start+when, slope)
+                    
+                    #-------------------------------------------------------------------
+                    # TEST OUTPUT TO CSV FILE FOR DEBUGGING ONLY
+                    # TODO: REMOVE THIS SECTION BEFORE RELEASE
+                    #-------------------------------------------------------------------
+                    n = speedy.slice.start+move.start
+                    for showme in range(0, slice_samples(move)):
+                        spam.writerow([n+showme,column[move][showme],push[move][showme]])
+                    #-------------------------------------------------------------------
+                    # TEST OUTPUT TO CSV FILE FOR DEBUGGING ONLY
+                    # TODO: REMOVE THIS SECTION BEFORE RELEASE
+                    #-------------------------------------------------------------------
+                    
+                    
 
 class GoAroundAltitude(KeyPointValueNode):
     def derive(self, gas=KTI('Go Around'),
@@ -190,10 +220,12 @@ class GoAroundAltitude(KeyPointValueNode):
                 alt_rad=P('Altitude Radio')):
         for ga in gas:
             if alt_rad:
-                pit = np.ma.min(alt_rad.array[ga.index])
+                index = np.ma.argmin(alt_rad.array[ga.index])
+                pit = alt_rad.array[ga.index+index]
             else:
-                pit = np.ma.min(alt_std.array[ga.index])
-            self.create_kpv(pit)
+                index = np.ma.argmin(alt_std.array[ga.index])
+                pit = alt_std.array[ga.index+index]
+            self.create_kpv(index, pit)
          
 
 class HeadingAtLanding(KeyPointValueNode):
@@ -204,14 +236,14 @@ class HeadingAtLanding(KeyPointValueNode):
     may be drifting and the turnoff which could be at high speed, but should
     be at a gentler deceleration.
     """
-    def derive(self, lands=KTI('Landing Peak Deceleration'), 
+    def derive(self, lands=S('Landing'), 
                head=P('Heading Continuous')):
         for land in lands:
-            land_head = np.ma.median(
-                head.array[land.index-5:land.index+5])
+            land_head = np.ma.median(head.array[land.slice])
+            land_index = (land.slice.start + land.slice.stop)/2.0
             # Scanning 10 seconds around this point allows for short periods of
             # corrupt data during the takeoff run.
-            self.create_kpv(land.index, land_head%360.0)
+            self.create_kpv(land_index, land_head%360.0)
 
 
 class HeadingAtLowestPointOnApproach(KeyPointValueNode):
@@ -220,24 +252,28 @@ class HeadingAtLowestPointOnApproach(KeyPointValueNode):
     the lowest point reached in the approach. This may not be a go-around, if
     the aircraft did not climb 500ft before the next approach to landing.
     """
+    def derive(self, head=P('Heading Continuous'), 
+               go_arounds=KTI('Go Around')):
+        self.create_kpvs_at_ktis(head.array, go_arounds)
+    """
     def derive(self, head=P('Heading Continuous'),
                lands=KTI('Approach And Landing Lowest Point')):
         self.create_kpvs_at_ktis(head.array, lands)
-
+        """
 
 class HeadingAtTakeoff(KeyPointValueNode):
     """
     We take the heading at the point of maximum acceleration, as this should 
     be a point where the aircraft is lined up well on the centreline.
     """
-    def derive(self, toffs=KTI('Takeoff Peak Acceleration'), 
+    def derive(self, toffs=S('Takeoff'),
                head=P('Heading Continuous')):
         for toff in toffs:
-            toff_head = np.ma.median(
-                head.array[toff.index-5:toff.index+5])
+            toff_head = np.ma.median(head.array[toff.slice])
+            toff_index = (toff.slice.start + toff.slice.stop)/2.0
             # Scanning 10 seconds around this point allows for short periods of
             # corrupt data during the takeoff run.
-            self.create_kpv(toff.index, toff_head%360.0)
+            self.create_kpv(toff_index, toff_head%360.0)
 
 
 class LatitudeAtLanding(KeyPointValueNode):
@@ -288,6 +324,7 @@ class ILSFrequencyOnApproach(KeyPointValueNode):
     """
     name='ILS Frequency On Approach' #  Set here to ensure "ILS" in uppercase.
     def derive(self, establishes=S('ILS Localizer Established'),
+              f1=P('ILS (L) Frequency'),f2=P('ILS (R) Frequency'),
               lowest=KTI('Approach And Landing Lowest Point'),
               ils_frq=P('ILS Frequency')):
         
@@ -305,16 +342,24 @@ class ILSFrequencyOnApproach(KeyPointValueNode):
 class LatitudeAtLowestPointOnApproach(KeyPointValueNode):
     # Cannot use smoothed position as this causes circular dependancy.
     def derive(self, lat=P('Latitude'), 
+               go_arounds=KTI('Go Around')):
+        self.create_kpvs_at_ktis(lat.array, go_arounds)
+    """
+    def derive(self, lat=P('Latitude'), 
                lands=KTI('Approach And Landing Lowest Point')):
         self.create_kpvs_at_ktis(lat.array, lands)
-            
+        """    
 
 class LongitudeAtLowestPointOnApproach(KeyPointValueNode):
     # Cannot use smoothed position as this causes circular dependancy.
     def derive(self, lon=P('Longitude'), 
+               go_arounds=KTI('Go Around')):
+        self.create_kpvs_at_ktis(lon.array, go_arounds)
+    """
+    def derive(self, lon=P('Longitude'), 
                lands=KTI('Approach And Landing Lowest Point')):
         self.create_kpvs_at_ktis(lon.array, lands)
-   
+        """
    
 class FlapAtLiftoff(KeyPointValueNode):
     def derive(self, flap=P('Flap'), liftoffs=KTI('Liftoff')):
