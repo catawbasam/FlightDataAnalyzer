@@ -155,7 +155,7 @@ class TestProcessFlight(unittest.TestCase):
     ############################################################################
     # Helper: Generates output data files post-processing:
 
-    def _render_output_files(self, hdf_path, results, filename):
+    def _render_output_files(self, hdf_path, results):
         '''
         Renders output files from testing such as CSV and KML.
 
@@ -163,10 +163,8 @@ class TestProcessFlight(unittest.TestCase):
         :type hdf_path: string
         :param results: The results dictionary from flight processing.
         :type results: dict
-        :param filename: The filename to use for outputting data.
-        :type filename: string
         '''
-        track_to_kml(hdf_path, results['kti'], results['kpv'], filename)
+        track_to_kml(hdf_path, results['kti'], results['kpv'])
         csv_flight_details(hdf_path, results['kti'], results['kpv'], results['phases'])
 
         if debug:
@@ -223,7 +221,7 @@ class TestProcessFlight(unittest.TestCase):
     #
     #    self.assertEqual(len(results), 4)
     #
-    #    self._render_output_files(hdf_path, results, 'test_1')
+    #    self._render_output_files(hdf_path, results)
 
     #def test_time_taken_test_1_7295949_737_3C(self):
     #    '''
@@ -293,7 +291,7 @@ class TestProcessFlight(unittest.TestCase):
         self.assertAlmostEqual(tdwn_minus_1.index, 4907.0, places=0)
         self.assertEqual(tdwn.datetime - tdwn_minus_1.datetime, timedelta(minutes=1))
 
-        self._render_output_files(hdf_path, results, 'test_2')
+        self._render_output_files(hdf_path, results)
 
     ############################################################################
     # Test 3: L382-Hercules Frame
@@ -349,7 +347,7 @@ class TestProcessFlight(unittest.TestCase):
         # TODO: Further assertions on the results!
         self.assertEqual(len(results), 4)
 
-        self._render_output_files(hdf_path, results, 'test_3')
+        self._render_output_files(hdf_path, results)
 
     ############################################################################
     # Test 3A: L382-Hercules Frame
@@ -404,7 +402,7 @@ class TestProcessFlight(unittest.TestCase):
         # TODO: Further assertions on the results!
         self.assertEqual(len(results), 4)
 
-        self._render_output_files(hdf_path, results, 'test_3A')
+        self._render_output_files(hdf_path, results)
 
     ############################################################################
     # Test 3B: L382-Hercules Frame
@@ -459,7 +457,7 @@ class TestProcessFlight(unittest.TestCase):
         # TODO: Further assertions on the results!
         self.assertEqual(len(results), 4)
 
-        self._render_output_files(hdf_path, results, 'test_3B')
+        self._render_output_files(hdf_path, results)
 
     ############################################################################
     # Test 4: 146_301 Frame
@@ -509,7 +507,7 @@ class TestProcessFlight(unittest.TestCase):
         self.assertEqual(len(results), 4)
         self.assertTrue('flight' in results)
 
-        self._render_output_files(hdf_path, results, 'test_4')
+        self._render_output_files(hdf_path, results)
 
         flight_attrs = {attr.name: attr for attr in results['flight']}
 
@@ -628,7 +626,7 @@ class TestProcessFlight(unittest.TestCase):
         # TODO: Further assertions on the results!
         self.assertEqual(len(results), 4)
 
-        self._render_output_files(hdf_path, results, 'test_6')
+        self._render_output_files(hdf_path, results)
 
     ############################################################################
     # Test 7: 737-i Frame
@@ -653,7 +651,7 @@ class TestProcessFlight(unittest.TestCase):
 
         airports = {
             (60.18907904624939, 11.098754405975342):  self.airports['OSL'],
-            (60.296829215117867, 5.2152368000575473): self.airports['BGO'],
+            (60.296865999698639, 5.2152204513549805): self.airports['BGO'],
         }
 
         runways = {
@@ -668,7 +666,7 @@ class TestProcessFlight(unittest.TestCase):
         # TODO: Further assertions on the results!
         self.assertEqual(len(results), 4)
 
-        self._render_output_files(hdf_path, results, 'test_7')
+        self._render_output_files(hdf_path, results)
 
     ############################################################################
     # Test 9: 737-5 Frame
@@ -692,7 +690,7 @@ class TestProcessFlight(unittest.TestCase):
         }
 
         airports = {
-            (58.20556640625, 8.0878186225891113):   self.airports['KRS'],
+            (58.20556640625, 8.0880683118646797):   self.airports['KRS'],
             (60.19134521484375, 11.07696533203125): self.airports['OSL'],
         }
 
@@ -708,7 +706,7 @@ class TestProcessFlight(unittest.TestCase):
         # TODO: Further assertions on the results!
         self.assertEqual(len(results), 4)
 
-        self._render_output_files(hdf_path, results, 'test_9')
+        self._render_output_files(hdf_path, results)
 
     ############################################################################
     # Test 10: 737-3C Frame
@@ -750,7 +748,7 @@ class TestProcessFlight(unittest.TestCase):
         # TODO: Further assertions on the results!
         self.assertEqual(len(results), 4)
 
-        self._render_output_files(hdf_path, results, 'test_10')
+        self._render_output_files(hdf_path, results)
 
     ############################################################################
     # Test 11: 737-3C Frame
@@ -794,7 +792,7 @@ class TestProcessFlight(unittest.TestCase):
         # TODO: Further assertions on the results!
         self.assertEqual(len(results), 4)
 
-        self._render_output_files(hdf_path, results, 'test_11')
+        self._render_output_files(hdf_path, results)
 
     ############################################################################
     # Test 12: 737-3C Frame
@@ -834,7 +832,7 @@ class TestProcessFlight(unittest.TestCase):
         # TODO: Further assertions on the results!
         self.assertEqual(len(results), 4)
 
-        self._render_output_files(hdf_path, results, 'test_12a')
+        self._render_output_files(hdf_path, results)
 
     @unittest.skipIf(not os.path.isfile('test_data/12_737_3C_RD0001830229.001.hdf5'),
                          'Test file not present')
@@ -855,8 +853,8 @@ class TestProcessFlight(unittest.TestCase):
         }
 
         airports = {
-            (60.181234387708784, 11.111000827986269): self.airports['OSL'],
-            (63.457546234130859, 10.928016315005772): self.airports['TRD'],
+            (60.181233670030323, 11.111000648566653): self.airports['OSL'],
+            (63.457546234130859, 10.928155781080219): self.airports['TRD'],
         }
 
         runways = {
@@ -871,7 +869,7 @@ class TestProcessFlight(unittest.TestCase):
         # TODO: Further assertions on the results!
         self.assertEqual(len(results), 4)
 
-        self._render_output_files(hdf_path, results, 'test_12')
+        self._render_output_files(hdf_path, results)
 
     ############################################################################
     # Test 13: 737-3C Frame
@@ -895,7 +893,7 @@ class TestProcessFlight(unittest.TestCase):
         }
 
         airports = {
-            (50.108969665785381, 14.250219723680361): self.airports['KRS'],  # FIXME: Incorrect?
+            (50.108961165864415, 14.250177224075527): self.airports['KRS'],  # FIXME: Incorrect?
             (60.18798957977976, 11.114856132439204):  self.airports['OSL'],
         }
 
@@ -911,7 +909,7 @@ class TestProcessFlight(unittest.TestCase):
         # TODO: Further assertions on the results!
         self.assertEqual(len(results), 4)
 
-        self._render_output_files(hdf_path, results, 'test_13')
+        self._render_output_files(hdf_path, results)
 
     ############################################################################
     # Test 14: 737-i Frame
@@ -935,7 +933,7 @@ class TestProcessFlight(unittest.TestCase):
         }
 
         airports = {
-            (53.414031565189362, -6.3065528869628906): self.airports['DUB'],
+            (53.414026200771332, -6.3064670562744141): self.airports['DUB'],
             (60.215677917003632, 11.046042442321777):  self.airports['OSL'],
         }
 
@@ -951,7 +949,7 @@ class TestProcessFlight(unittest.TestCase):
         # TODO: Further assertions on the results!
         self.assertEqual(len(results), 4)
 
-        self._render_output_files(hdf_path, results, 'test_14')
+        self._render_output_files(hdf_path, results)
 
     ############################################################################
     # Test 14a: 737-3C Frame
@@ -999,7 +997,7 @@ class TestProcessFlight(unittest.TestCase):
         # TODO: Further assertions on the results!
         self.assertEqual(len(results), 4)
 
-        self._render_output_files(hdf_path, results, 'test_14a')
+        self._render_output_files(hdf_path, results)
 
     ############################################################################
     # Test 15: 737-4 Frame (Digital Engine Parameters)
@@ -1041,7 +1039,7 @@ class TestProcessFlight(unittest.TestCase):
         # TODO: Further assertions on the results!
         self.assertEqual(len(results), 4)
 
-        self._render_output_files(hdf_path, results, 'test_15')
+        self._render_output_files(hdf_path, results)
 
     ############################################################################
     # Test 16: 737-4a Frame (Analogue Engine Parameters)
@@ -1065,8 +1063,8 @@ class TestProcessFlight(unittest.TestCase):
         }
 
         airports = {
-            (48.728707092148916, 2.3638831717627387): self.airports['ORY'],
-            (60.220870971679688, 11.114044189453125): self.airports['OSL'],
+            (48.728805184364319, 2.3640793561935425): self.airports['ORY'],
+            (60.220885479215063, 11.114044189453125): self.airports['OSL'],
         }
 
         runways = {
@@ -1081,7 +1079,7 @@ class TestProcessFlight(unittest.TestCase):
         # TODO: Further assertions on the results!
         self.assertEqual(len(results), 4)
 
-        self._render_output_files(hdf_path, results, 'test_16')
+        self._render_output_files(hdf_path, results)
 
     ############################################################################
     # Test 17: 737-3C Frame (ILS Approach - Not Tuned?)
@@ -1130,15 +1128,16 @@ class TestProcessFlight(unittest.TestCase):
         # TODO: Further assertions on the results!
         self.assertEqual(len(results), 4)
 
-        self._render_output_files(hdf_path, results, 'test_17')
+        self._render_output_files(hdf_path, results)
 
     ############################################################################
     # Test 18: 737-4 Frame (ILS Approach - Not Tuned?)
 
     @unittest.skipIf(not os.path.isfile('test_data/18_747_4_ILS_not_tuned_RD0001864580.001.hdf5'),
                      'Test file not present')
-    @mock.patch('analysis_engine.flight_attribute.get_api_handler')
-    def test_18_747_4_ILS_not_tuned_RD0001864580_001(self, get_api_handler):
+    #@mock.patch('analysis_engine.flight_attribute.get_api_handler')
+    #def test_18_747_4_ILS_not_tuned_RD0001864580_001(self, get_api_handler):
+    def test_18_747_4_ILS_not_tuned_RD0001864580_001(self):
         '''
         '''
         hdf_orig = 'test_data/18_747_4_ILS_not_tuned_RD0001864580.001.hdf5'
@@ -1179,7 +1178,7 @@ class TestProcessFlight(unittest.TestCase):
         # TODO: Further assertions on the results!
         self.assertEqual(len(results), 4)
 
-        self._render_output_files(hdf_path, results, 'test_18')
+        self._render_output_files(hdf_path, results)
 
     ############################################################################
     # Other Tests
