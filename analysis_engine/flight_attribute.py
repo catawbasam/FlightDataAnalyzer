@@ -729,8 +729,9 @@ class LandingGrossWeight(FlightAttributeNode):
     name = 'FDR Landing Gross Weight'
     def derive(self, touchdown_gross_weight=KPV('Gross Weight At Touchdown')):
         last_gross_weight = touchdown_gross_weight.get_last()
-        if last_gross_weight:
-            self.set_flight_attr(last_gross_weight.value)
+        # TODO: Support flight attributes not calling set_flight_attr where appropriate.
+        #if last_gross_weight:
+        self.set_flight_attr(last_gross_weight.value)
 
 
 class LandingPilot(FlightAttributeNode, DeterminePilot):
