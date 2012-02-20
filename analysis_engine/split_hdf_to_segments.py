@@ -23,7 +23,7 @@ class AircraftMismatch(ValueError):
     ##"""
     ##pass
 
-def validate_aircraft(aircraft_ident, hdf):
+def validate_aircraft(aircraft_info, hdf):
     """
     """
     #if 'Aircraft Ident' in hdf and so on:
@@ -32,7 +32,7 @@ def validate_aircraft(aircraft_ident, hdf):
         return True
     else:
         raise AircraftMismatch("Tail does not match identification %s" % \
-                               aircraft_ident['Tail Number'])
+                               aircraft_info['Tail Number'])
     
 ##def post_lfl_param_process(hdf, param):
     ##if hooks.POST_LFL_PARAM_PROCESS:
@@ -78,15 +78,15 @@ def validate_aircraft(aircraft_ident, hdf):
             
     ##return segment_slices
 
-def split_hdf_to_segments(hdf_path, aircraft_ident, output_dir=None, draw=False):
+def split_hdf_to_segments(hdf_path, aircraft_info, output_dir=None, draw=False):
     """
     Main method - analyses an HDF file for flight segments and splits each
     flight into a new segment appropriately.
     
     :param hdf_path: path to HDF file
     :type hdf_path: string
-    :param aircraft_ident: Information which identify the aircraft including 'Tail Number', 'MSN'...
-    :type aircraft_ident: Dict
+    :param aircraft_info: Information which identify the aircraft, specfically with the keys 'Tail Number', 'MSN'...
+    :type aircraft_info: Dict
     :param output_dir: Directory to write the destination file to. If None, directory of source file is used.
     :type output_dir: String (path)
     :param draw: Whether to use matplotlib to plot the flight
@@ -100,17 +100,14 @@ def split_hdf_to_segments(hdf_path, aircraft_ident, output_dir=None, draw=False)
         
     with hdf_file(hdf_path) as hdf:
         # Confirm aircraft tail for the entire datafile
-        if aircraft_ident:
-            logging.info("Validating aircraft matches that recorded in data")
-            validate_aircraft(aircraft_ident, hdf)
-        else:
-            logging.warning("Not validating aircraft is correct")
+        logging.info("Validating aircraft matches that recorded in data")
+        validate_aircraft(aircraft_info, hdf)
 
         # now we know the Aircraft is correct, go and do the PRE FILE ANALYSIS
         if hooks.PRE_FILE_ANALYSIS:
             logging.info("Performing PRE_FILE_ANALYSIS analysis: %s", 
                          hooks.PRE_FILE_ANALYSIS.func_name)
-            hooks.PRE_FILE_ANALYSIS(hdf, aircraft_ident)
+            hooks.PRE_FILE_ANALYSIS(hdf, aircraft_info)
         else:
             logging.info("No PRE_FILE_ANALYSIS actions to perform")
         
@@ -147,10 +144,15 @@ def split_hdf_to_segments(hdf_path, aircraft_ident, output_dir=None, draw=False)
       
 if __name__ == '__main__':
     import sys
+    import shutil
     import pprint
     hdf_path = sys.argv[1]
-    aircraft_ident = {'Tail Number': 'G-DEMA'}
-    segs = split_hdf_to_segments(hdf_path, aircraft_ident=aircraft_ident,
+    aircraft_info = {'Tail Number': 'G-DEMA'}
+    hdf_copy = os.path.splitext(hdf_path)[0] + '_copy.hdf5' 
+    if os.path.isfile(hdf_copy):
+        os.remove(hdf_copy)
+    shutil.copy(hdf_path, hdf_copy)
+    segs = split_hdf_to_segments(hdf_copy, aircraft_info=aircraft_info,
                                  draw=False)    
     pprint.pprint(segs)
     ##os.remove(file_path) # delete original raw data file?
