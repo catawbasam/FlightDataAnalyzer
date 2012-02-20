@@ -6,7 +6,6 @@ from hdfaccess.file import hdf_file
 from hdfaccess.utils import write_segment
 
 from analysis_engine import settings
-from analysis_engine.plot_flight import plot_essential
 from analysis_engine.split_segments import append_segment_info, split_segments
 
 
@@ -130,6 +129,7 @@ def split_hdf_to_segments(hdf_path, aircraft_ident={}, output_dir=None, draw=Fal
                                       part)
         segments.append(segment)
         if draw:
+            from analysis_engine.plot_flight import plot_essential
             plot_essential(dest_path)
             
     if draw:

@@ -11,7 +11,22 @@ NODE_MODULES = ['analysis_engine.derived_parameters',
 
 # Handler
 HANDLER = 'analysis_engine.api_handler_http.APIHandlerHTTP'
-BASE_URL = 'http://127.0.0.1'
+
+# Tried
+#BASE_URL = 'http://127.0.0.1'
+
+# Tried
+# BASE_URL = 'polaris-nax.flightdataservices.com' 
+# resulted in...
+# httplib2.RelativeURIError: Only absolute URIs are allowed. uri = polaris-nax.flightdataservices.com/api/airport/nearest.json?ll=63.457031,10.920178
+
+# Tried
+# BASE_URL = 'http://77.245.74.196'
+# resulted in...
+# httplib.BadStatusLine: ''
+
+# Tried
+BASE_URL = 'http://polaris-nax.flightdataservices.com'
 
 ##########################
 ## Splitting into Segments
@@ -63,7 +78,7 @@ AT_WASHOUT_TC = 60.0
 
 # Force to start checking control stiffness. Intended to be the same setting
 # for all three flying controls.
-CONTROL_FORCE_THRESHOLD = 3 # lb
+CONTROL_FORCE_THRESHOLD = 3.0 # lb
 
 #Less than 5 mins you can't do a circuit, so we'll presume this is a data
 #snippet 

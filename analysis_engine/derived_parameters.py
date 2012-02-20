@@ -576,8 +576,10 @@ class ControlColumn(DerivedParameterNode):
             blend_two_parameters(disp_capt, disp_fo)
 
 
+"""
 class ControlColumnForce(DerivedParameterNode):
     '''
+    More complete version - still needs logic to switch modes.
     '''
     def derive(self,
                force_a_capt=P('Control Column (A) Force (Capt)'),
@@ -586,7 +588,18 @@ class ControlColumnForce(DerivedParameterNode):
                force_b_fo=P('Control Column (B) Force (FO)')):
         self.array = (force_a_capt.array + force_b_capt.array
                    + force_a_fo.array + force_b_fo.array) / 2.0
+"""
 
+class ControlColumnForce(DerivedParameterNode):
+    '''
+    Control column forces added. This version does not allow for the
+    local:foreign switching so should be replaced by a full implementation at
+    a later date.
+    '''
+    def derive(self,
+               force_a=P('Control Column Force (Local)'),
+               force_b=P('Control Column Force (Foreign)')):
+        self.array = (force_a.array + force_b.array)
 
 class ControlWheel(DerivedParameterNode):
     '''
@@ -1472,7 +1485,14 @@ class ILSRange(DerivedParameterNode):
             if precise.value:
                 # Convert (straightened) latitude & longitude for the whole phase
                 # into range from the threshold. (threshold = {})
-                threshold = approach['runway']['localizer']
+                if approach['runway'].has_key('localizer'):
+                    threshold = approach['runway']['localizer']
+                elif approach['runway'].has_key('end'):
+                    threshold = approach['runway']['end']
+                else:
+                    pass
+                    # TODO: Set threshold is where the touchdown happened.
+                    
                 brg, ils_range[this_loc.slice] = \
                     bearings_and_distances(repair_mask(lat.array[this_loc.slice]),
                                            repair_mask(lon.array[this_loc.slice]),
@@ -1669,8 +1689,15 @@ def adjust_track(lon,lat,loc_est,ils_range,ils_loc,alt_aal,gspd,tas,
         # coordinates.
         
         # Which runway are we approaching?
+        approach = app_info.value[num_loc]
         # TODO: What do we do if localizer is not available in runway dict.
-        reference = app_info.value[num_loc]['runway']['localizer']
+        if approach['runway'].has_key('localizer'):
+            reference = approach['runway']['localizer']
+        elif approach['runway'].has_key('end'):
+            threshold = approach['runway']['end']
+        else:
+            pass
+            # TODO: Set threshold is where the touchdown happened.
         
         # Compute the localizer scale factor (degrees per dot)
         scale = (reference['beam_width']/2.0) / 2.5
@@ -1818,8 +1845,7 @@ class RateOfClimbForFlightPhases(DerivedParameterNode):
             threshold = HYSTERESIS_FPROC * \
                 max(1, rms_noise(alt_std.array[speedy.slice]))  
             # The max(1, prevents =0 case when testing with artificial data.
-            self.array = hysteresis(rate_of_change(repair_mask(alt_std),3)*60,
-                                    threshold)
+            self.array = hysteresis(rate_of_change(alt_std,3)*60,threshold)
 
 
 class Relief(DerivedParameterNode):

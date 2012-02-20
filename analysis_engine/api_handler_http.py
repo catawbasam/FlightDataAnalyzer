@@ -13,7 +13,7 @@ from analysis_engine.api_handler import (APIConnectionError, APIHandler,
                                          UnknownAPIError)
 from analysis_engine import settings
 
-TIMEOUT = 60
+TIMEOUT = 60.0
 
 socket.setdefaulttimeout(TIMEOUT)
 

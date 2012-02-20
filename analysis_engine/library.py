@@ -305,8 +305,11 @@ def coreg(y, indep_var=None, force_zero=False):
     else:
         x = indep_var
         if len(x) != n:
-                raise ValueError, 'Function coreg called with arrays of differing length'
-    
+            raise ValueError, 'Function coreg called with arrays of differing length'
+        if min(x)-max(x)==0.0:
+            # Could raise ValueError, 'Function coreg called with invariant independent variable'
+            return 0.0, 0.0, 0.0
+        
     sx = np.sum(x)
     sxy = np.sum(x*y)
     sy = np.sum(y)
@@ -737,16 +740,16 @@ def hysteresis (array, hysteresis):
             old = new  - quarter_range
         elif new - old < -quarter_range:
             old = new + quarter_range
-        half_done[length-index] = old
+        half_done[index] = old
 
     # Repeat the process in the "backwards" sense to remove phase effects.
-    for index in notmasked:
+    for index in notmasked[::-1]:
         new = half_done[index]
         if new - old > quarter_range:
             old = new  - quarter_range
         elif new - old < -quarter_range:
             old = new + quarter_range
-        result[length-index] = old
+        result[index] = old
  
     # At the end of the process we reinstate the mask, although the data
     # values may have affected the result.
@@ -1413,6 +1416,9 @@ def repair_mask(array, frequency=1, repair_duration=REPAIR_DURATION,
     :param repair_duration: If None, any length of masked data will be repaired.
     '''
     repair_samples = repair_duration * frequency if repair_duration else None
+    if len(array) < repair_samples/3:
+        # TODO: Better handling of trivial data segments
+        return None
     masked_sections = np.ma.clump_masked(array)
     for section in masked_sections:
         length = section.stop - section.start
@@ -1517,16 +1523,20 @@ def slice_samples(_slice):
     '''
     Gets the number of samples in a slice.
     
-    :param _slice: Slice to calculate the duration of.
+    :param _slice: Slice to count sample length.
     :type _slice: slice
-    :returns: Number of samplees in _slice.
+    :returns: Number of samples in _slice.
     :rtype: integer
     '''
     if _slice.step == None:
         step = 1
     else:
         step = _slice.step
-    return (abs(_slice.stop - _slice.start) - 1) / abs(step) + 1
+        
+    if _slice.start == None or _slice.stop == None:
+        return 0
+    else:
+        return (abs(_slice.stop - _slice.start) - 1) / abs(step) + 1
 
 def slices_above(array, value):
     '''
