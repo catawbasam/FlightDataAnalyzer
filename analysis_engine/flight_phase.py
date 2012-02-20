@@ -54,6 +54,8 @@ class Airborne(FlightPhaseNode):
             lastpoint = int(speedy.slice.stop)
             if roc.array[lastpoint-1] < -RATE_OF_CLIMB_FOR_LEVEL_FLIGHT:
                 down = lastpoint
+            elif lastpoint - midpoint < 2:
+                down = lastpoint
             else:
                 down = index_at_value(roc.array, -RATE_OF_CLIMB_FOR_LEVEL_FLIGHT,
                                       slice(lastpoint,midpoint,-1))
@@ -345,7 +347,10 @@ class Fast(FlightPhaseNode):
                                        AIRSPEED_THRESHOLD)
         # Was the "flight" long enough to be worth bothering with?
         whole_slice = np.ma.flatnotmasked_edges(fast_where)
-        if (whole_slice[1]-whole_slice[0]) > \
+        if whole_slice is None:
+            # The aircraft did not go fast.
+            return
+        elif (whole_slice[1]-whole_slice[0]) > \
            (FLIGHT_WORTH_ANALYSING_SEC*airspeed.frequency):
             # OK - let's make a phase for each fast section.
             self.create_phases(np.ma.clump_unmasked(fast_where))
@@ -457,13 +462,16 @@ class ILSGlideslopeEstablished(FlightPhaseNode):
             gs = repair_mask(ils_gs.array[ils_loc_2_min]) # prepare gs data
             gsm = np.ma.masked_outside(gs,-1,1)  # mask data more than 1 dot
             ends = np.ma.flatnotmasked_edges(gsm)  # find the valid endpoints
-            if ends[0] == 0 and ends[1] == -1:  # TODO: Pythonese this line !
+            if ends == None:
+                logging.debug("Did not establish localiser within +-1dot")
+                continue
+            elif ends[0] == 0 and ends[1] == -1:  # TODO: Pythonese this line !
                 # All the data is within one dot, so the phase is already known
                 self.create_phase(ils_loc_2_min)
             else:
                 # Create the reduced duration phase
                 self.create_phase(
-                    shift_slice(slice(ends[0],ends[1]),ils_loc_est.slice.start))
+                    shift_slice(slice(*ends),ils_loc_est.slice.start))
             
             
             ##this_slice = ils_loc_est.slice
@@ -589,7 +597,8 @@ class Landing(FlightPhaseNode):
                 pass
             """
 
-            self.create_phases([slice(landing_begin, landing_end)])
+            if landing_begin and landing_end:
+                self.create_phases([slice(landing_begin, landing_end)])
 
 
 class Takeoff(FlightPhaseNode):
@@ -602,8 +611,8 @@ class Takeoff(FlightPhaseNode):
     @classmethod
     def can_operate(cls, available):
         return 'Heading Continuous' in available and \
-               'Altitude AAL For Flight Phases' in available and\
-               'Fast' in available:
+               'Altitude AAL For Flight Phases' in available and \
+               'Fast' in available
     
     def derive(self, head=P('Heading Continuous'),
                alt_aal=P('Altitude AAL For Flight Phases'),
@@ -663,7 +672,8 @@ class Takeoff(FlightPhaseNode):
  
             #-------------------------------------------------------------------
             # Create a phase for this takeoff
-            self.create_phases([slice(takeoff_begin, takeoff_end)])
+            if takeoff_begin and takeoff_end:
+                self.create_phases([slice(takeoff_begin, takeoff_end)])
 
 
 class Turning(FlightPhaseNode):

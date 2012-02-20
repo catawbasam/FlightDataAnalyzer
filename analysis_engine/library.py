@@ -7,7 +7,7 @@ from datetime import datetime, timedelta
 from hashlib import sha256
 from itertools import izip
 from scipy.signal import lfilter, lfilter_zi
-from scipy.optimize import fmin, fmin_bfgs, fmin_tnc
+##from scipy.optimize import fmin, fmin_bfgs, fmin_tnc
 # TODO: Inform Enthought that fmin_l_bfgs_b dies in a dark hole at _lbfgsb.setulb
 
 from settings import REPAIR_DURATION, TRUCK_OR_TRAILER_INTERVAL, TRUCK_OR_TRAILER_PERIOD
@@ -222,10 +222,13 @@ def calculate_timebase(years, months, days, hours, mins, secs):
     
     Accepts arrays and numpy arrays at 1Hz.
     
+    Note: if years, months or days is None, it will fill in invalid
+    datetimes, see below!!!
+    
     Note: if uneven arrays are passed in, they are assumed by izip that the
     start is valid and the uneven ends are invalid and skipped over.
     
-    TODO: Support year as a 2 digits - e.g. "11" is "2011"
+    Supports years as a 2 digits - e.g. "11" is "2011"
     
     :param years, months, days, hours, mins, secs: Appropriate 1Hz time elements
     :type years, months, days, hours, mins, secs: iterable of numeric type
@@ -234,8 +237,30 @@ def calculate_timebase(years, months, days, hours, mins, secs):
     :raises: InvalidDatetime if no valid timestamps provided
     """
     base_dt = None
-    clock_variation = OrderedDict() # so if all values are the same, take the first
+    clock_variation = OrderedDict() # Ordered so if all values are the same, max will consistently take the first val
+    if years is None:
+        logging.warning("Year not supplied, filling in with 1970")
+        years = np.repeat([1970], len(mins)) # force invalid year
+    if months is None:
+        logging.warning("Month not supplied, filling in with 01")
+        months = np.repeat([01], len(mins)) # force invalid month
+    if days is None:
+        logging.warning("Day not supplied, filling in with 01")
+        days = np.repeat([01], len(mins)) # force invalid days
+        
     for step, (yr, mth, day, hr, mn, sc) in enumerate(izip(years, months, days, hours, mins, secs)):
+        
+        #try:
+            #date = np.datetime64('%d-%d-%d' % (yr, mth, day), 'D')
+        #except np.core._mx_datetime_parser.RangeError  :
+            #continue
+        
+        # same for time?
+        
+        if yr and yr < 100:
+            yr = convert_two_digit_to_four_digit_year(yr)
+            
+        
         try:
             dt = datetime(int(yr), int(mth), int(day), int(hr), int(mn), int(sc))
         except (ValueError, TypeError, np.ma.core.MaskError):
@@ -257,6 +282,28 @@ def calculate_timebase(years, months, days, hours, mins, secs):
     else:
         # No valid datestamps found
         raise InvalidDatetime("No valid datestamps found")
+
+# calculate here to avoid repitition
+CURRENT_YEAR = str(datetime.now().year)
+def convert_two_digit_to_four_digit_year(yr):
+    """
+    Everything below the current year is assume to be in the current
+    century, everything above is assumed to be in the previous
+    century.
+    if current year is 2012
+    
+    13 = 1913
+    12 = 2012
+    11 = 2011
+    01 = 2001
+    """
+    # convert to 4 digit year
+    century = int(CURRENT_YEAR[:2]) * 100
+    yy = int(CURRENT_YEAR[2:])
+    if yr > yy:
+        return century - 100 + yr
+    else:
+        return century + yr
 
 def coreg(y, indep_var=None, force_zero=False):
     """
@@ -680,7 +727,7 @@ def runway_distances(runway):
     pgs_lat = lzr_lat + r*(start_lat - lzr_lat)
     pgs_lon = lzr_lon + r*(start_lon - lzr_lon)
     
-    return [d, g, c, pgs_lat, pgs_lon]  # Runway distances to start, glideslope and end.
+    return d, g, c, pgs_lat, pgs_lon  # Runway distances to start, glideslope and end.
 
 def runway_heading(runway):
     '''
@@ -985,11 +1032,13 @@ def is_slice_within_slice(inner_slice, outer_slice):
 
 def slices_overlap(first_slice, second_slice):
     '''
-    TODO: Test.
+    There must be more than one value overlapping
     '''
-    start_within = first_slice.start <= second_slice.start <= first_slice.stop
-    stop_within = first_slice.start <= second_slice.stop <= first_slice.stop
-    return start_within or stop_within
+    if first_slice.step != None and first_slice.step < 1 \
+       or second_slice.step != None and second_slice.step < 1:
+        raise ValueError("Negative step not supported")
+    return first_slice.start < second_slice.stop \
+           and second_slice.start < first_slice.stop
 
 def latitudes_and_longitudes(bearings, distances, reference):
     """
@@ -1139,11 +1188,34 @@ def minimum_unmasked(array1, array2):
     return np.ma.where(neither_masked, np.ma.minimum(array1, array2),
                        np.ma.where(a1_good, array1, array2))
 
+def merge_two_parameters (param_one, param_two):
+    '''
+    This process merges two parameter arrays of the same frequency.
+    without smoothing, and then computes the offset and frequency appropriately.
+    
+    Note: There is no check for the parameters being equi-spaced.
+    
+    :param param_one: Parameter object
+    :type param_one: Parameter
+    '''
+    assert param_one.frequency  == param_two.frequency
+    
+    if param_one.offset <= param_two.offset:
+        # merged array should be monotonic (always increasing in time)
+        array = merge_sources(param_one.array, param_two.array)
+        offset = param_one.offset
+    else:
+        array = merge_sources(param_two.array, param_one.array)
+        offset = param_two.offset
+    return array, param_one.frequency * 2, offset
+
+
 def merge_sources(*arrays):
     '''
     This simple process merges the data from multiple sensors where they are
-    sampled alternately. Unlike merge_two_sensors, this procedure does
-    not make any allowance for the two sensor readings being different.
+    sampled alternately. Unlike blend_alternate_sensors or the parameter
+    level option blend_teo_parameters, this procedure does not make any
+    allowance for the two sensor readings being different.
     
     :param array: sampled data from an alternate signal source
     :type array: masked array
@@ -1197,7 +1269,7 @@ def blend_alternate_sensors (array_one, array_two, padding):
 def blend_two_parameters (param_one, param_two):
     '''
     This process merges two parameter arrays of the same frequency.
-    Soothes and then computes the offset and frequency appropriately.
+    Smoothes and then computes the offset and frequency appropriately.
     
     :param param_one: Parameter object
     :type param_one: Parameter

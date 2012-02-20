@@ -6,9 +6,9 @@ import operator
 
 from analysis_engine import ___version___
 from analysis_engine.api_handler import get_api_handler, NotFoundError
-from analysis_engine.library import datetime_of_index
+from analysis_engine.library import datetime_of_index, min_value, max_value
 from analysis_engine.node import A, KTI, KPV, FlightAttributeNode, P, S
-from analysis_engine.settings import CONTROLS_IN_USE_TOLERANCE
+from analysis_engine.settings import CONTROLS_IN_USE_TOLERANCE, API_HANDLER
 from scipy.interpolate import interp1d
 
 
@@ -142,7 +142,7 @@ class Approaches(FlightAttributeNode):
         TODO: Document approaches format.
         TODO: Test!
         '''
-        api_handler = get_api_handler()
+        api_handler = get_api_handler(API_HANDLER)
         approaches = []
         
         for approach_section in approach_landing:
@@ -254,12 +254,28 @@ class FlightID(FlightAttributeNode):
 
 
 class FlightNumber(FlightAttributeNode):
+    """
+    Returns String representation of the integer Flight Number value.
+    
+    Raises ValueError if negative value in array or too great a variance in
+    array values.
+    """
     "Airline route flight number"
     name = 'FDR Flight Number'
     def derive(self, num=P('Flight Number')):
-        # Q: Should we validate the flight number or source from a different
-        # index?
-        self.set_flight_attr(num.array[len(num.array) / 2])
+        # Q: Should we validate the flight number?
+        _, minvalue = min_value(num.array)
+        if minvalue < 0:
+            raise ValueError("Only supports unsigned (positive) values")
+        
+        # TODO: Fill num.array masked values (as there is no np.ma.bincount) - perhaps with 0.0 and then remove all 0 values?
+        # note reverse of value, index from max_value due to bincount usage.
+        value, count = max_value(np.bincount(num.array.astype(np.integer)))
+        if count > len(num.array) * 0.6:
+            # this value accounts for at least 60% of the values in the array
+            self.set_flight_attr(str(value))
+        else:
+            raise ValueError("Low variance")
 
 
 class LandingAirport(FlightAttributeNode):
@@ -283,7 +299,7 @@ class LandingAirport(FlightAttributeNode):
                             self.__class__.__name__)
             self.set_flight_attr(None)
             return
-        api_handler = get_api_handler()
+        api_handler = get_api_handler(API_HANDLER)
         try:
             airport = api_handler.get_nearest_airport(last_latitude.value,
                                                       last_longitude.value)
@@ -351,7 +367,7 @@ class LandingRunway(FlightAttributeNode):
                 kwargs.update(latitude=last_latitude.value,
                               longitude=last_longitude.value)
         
-        api_handler = get_api_handler()
+        api_handler = get_api_handler(API_HANDLER)
         try:
             runway_info = api_handler.get_nearest_runway(airport_id, heading,
                                                     **kwargs)
@@ -424,7 +440,7 @@ class TakeoffAirport(FlightAttributeNode):
                             longitude_at_takeoff.name)
             self.set_flight_attr(None)
             return
-        api_handler = get_api_handler()
+        api_handler = get_api_handler(API_HANDLER)
         try:
             airport = api_handler.get_nearest_airport(first_latitude.value,
                                                       first_longitude.value)
@@ -576,7 +592,7 @@ class TakeoffRunway(FlightAttributeNode):
                               longitude=first_longitude.value)
         
         hdg_value = hdg[0].value
-        api_handler = get_api_handler()
+        api_handler = get_api_handler(API_HANDLER)
         try:
             runway_info = api_handler.get_nearest_runway(airport_id, hdg_value,
                                                     **kwargs)

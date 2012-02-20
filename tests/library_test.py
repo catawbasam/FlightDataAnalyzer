@@ -496,12 +496,42 @@ class TestCalculateTimebase(unittest.TestCase):
         start_dt = calculate_timebase(years, months, days, hours, mins, secs)
         self.assertEqual(start_dt, datetime(2020,12,25,23,0,0))
         
+    def test_real_data_params_2_digit_year(self):
+        years = np.load('test_data/year.npy')
+        months = np.load('test_data/month.npy')
+        days = np.load('test_data/day.npy')
+        hours = np.load('test_data/hour.npy')
+        mins = np.load('test_data/minute.npy')
+        secs = np.load('test_data/second.npy')
+        start_dt = calculate_timebase(years, months, days, hours, mins, secs)
+        self.assertEqual(start_dt, datetime(2011,12,30,8,20,36))
+        
+    def test_real_data_params_no_year(self):
+        years = None
+        months = np.load('test_data/month.npy')
+        days = np.load('test_data/day.npy')
+        hours = np.load('test_data/hour.npy')
+        mins = np.load('test_data/minute.npy')
+        secs = np.load('test_data/second.npy')
+        start_dt = calculate_timebase(years, months, days, hours, mins, secs)
+        self.assertEqual(start_dt, datetime(2012,12,30,8,20,36))        
+        
     @unittest.skip("Implement if this is a requirement")
     def test_using_offset_for_seconds(self):
         # check offset milliseconds are applied to the timestamps
         self.assertFalse(True)
         
-
+        
+class TestConvertTwoDigitToFourDigitYear(unittest.TestCase):
+    def test_convert_two_digit_to_four_digit_year(self):
+        # WARNING - this test will fail next year(!)
+        self.assertEquals(convert_two_digit_to_four_digit_year(99), 1999)
+        self.assertEquals(convert_two_digit_to_four_digit_year(13), 1913)
+        self.assertEquals(convert_two_digit_to_four_digit_year(12), 2012) # will break next year
+        self.assertEquals(convert_two_digit_to_four_digit_year(11), 2011)
+        self.assertEquals(convert_two_digit_to_four_digit_year(1), 2001)
+        
+        
 class TestCoReg(unittest.TestCase):
     def test_correlation_basic(self):
         x=np.array([0,1,2,4,5,7], dtype=float)
@@ -1128,6 +1158,35 @@ class TestMergeSources(unittest.TestCase):
         np.testing.assert_array_equal(expected, result)
 
 
+class TestMergeTwoParameters(unittest.TestCase):
+    def test_merge_two_parameters_offset_ordered_forward(self):
+        p1 = P(array=[0]*4, frequency=1, offset=0.0)
+        p2 = P(array=[1,2,3,4], frequency=1, offset=0.2)
+        arr, freq, off = merge_two_parameters(p1, p2)
+        self.assertEqual(arr[1], 1.0) # Differs from blend function here.
+        self.assertEqual(freq, 2)
+        self.assertEqual(off, 0.0)
+
+    def test_merge_two_parameters_offset_ordered_backward(self):
+        p1 = P(array=[5,10,7,8], frequency=2, offset=0.5)
+        p2 = P(array=[1,2,3,4], frequency=2, offset=0.1)
+        arr, freq, off = merge_two_parameters(p1, p2)
+        self.assertEqual(arr[3], 10.0)
+        self.assertEqual(freq, 4)
+        self.assertEqual(off, 0.1)
+
+    def test_merge_two_parameters_assertion_error(self):
+        p1 = P(array=[0]*4, frequency=1, offset=0.0)
+        p2 = P(array=[1]*4, frequency=2, offset=0.2)
+        self.assertRaises(AssertionError, merge_two_parameters, p1, p2)
+
+    def test_merge_two_parameters_array_mismatch_error(self):
+        p1 = P(array=[0]*4, frequency=1, offset=0.0)
+        p2 = P(array=[1]*3, frequency=2, offset=0.2)
+        self.assertRaises(AssertionError, merge_two_parameters, p1, p2)
+
+
+
 class TestMinValue(unittest.TestCase):
     def test_min_value(self):
         array = np.ma.array(range(50,100) + range(100,50,-1))
@@ -1155,9 +1214,7 @@ class TestMinimumUnmasked(unittest.TestCase):
                               dtype=float)
         result = minimum_unmasked(a1,a2)
         np.testing.assert_array_equal(expected, result)
-        
-        
-        
+
 
 class TestBlendTwoParameters(unittest.TestCase):
     def test_blend_two_parameters_offset_ordered_forward(self):
@@ -1572,6 +1629,23 @@ class TestSlicesFromTo(unittest.TestCase):
         array.mask = [True] * 10 + [False] * 10
         repaired_array, slices = slices_from_to(array, 18, 3)
         self.assertEqual(slices, [slice(10, 18)])
+        
+class TestSlicesOverlap(unittest.TestCase):
+    def test_slices_overlap(self):
+        # overlap
+        first = slice(10,20)
+        second = slice(15,25)
+        self.assertTrue(slices_overlap(first, second))
+        self.assertTrue(slices_overlap(second, first))
+        
+        # no overlap
+        no_overlap = slice(25,40)
+        self.assertFalse(slices_overlap(second, no_overlap))
+        self.assertFalse(slices_overlap(no_overlap, first))
+        
+        # step negative
+        self.assertRaises(ValueError, slices_overlap, first, slice(1,2,-1))
+        
 
 class TestStepValues(unittest.TestCase):
     def test_step_values(self):

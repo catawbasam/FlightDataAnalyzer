@@ -8,6 +8,7 @@ from analysis_engine.library import (align, calculate_timebase, hash_array,
                                      repair_mask, rate_of_change,
                                      straighten_headings,
                                      vstack_params)
+from analysis_engine.node import P
 from hdfaccess.file import hdf_file
 from utilities.filesystem_tools import sha_hash_file
 
@@ -98,7 +99,7 @@ def _rate_of_turn(heading):
 
 def split_segments(hdf):
     '''
-    DJ suggested not to use decaying engine oil temperature.
+    TODO: DJ suggested not to use decaying engine oil temperature.
     
     Notes:
      * We do not want to split on masked superframe data if mid-flight (e.g. short section of corrupt data) - repair_mask without defining repair_duration should fix that.
@@ -411,16 +412,29 @@ def append_segment_info(hdf_segment_path, segment_type, segment_slice, part):
     with hdf_file(hdf_segment_path) as hdf:
         airspeed = hdf['Airspeed'].array
         duration = hdf.duration
+        # align required parameters to 1Hz
+        onehz = P(frequency = 1)
+        dt_arrays = []
+        for name in ('Year', 'Month', 'Day', 'Hour', 'Minute', 'Second'):
+            p = hdf.get(name)
+            if p:
+                dt_arrays.append(align(p, onehz, signaltype='Multi-State'))
+            else:
+                dt_arrays.append(None)
+        
         # establish timebase for start of data
         try:
             #TODO: use hdf.get('Year', [])[segment.slice] to provide empty slices.
-            start_datetime = calculate_timebase(
-                hdf['Year'].array, hdf['Month'].array, hdf['Day'].array,
-                hdf['Hour'].array, hdf['Minute'].array, hdf['Second'].array)
+            start_datetime = calculate_timebase(*dt_arrays)
+                ##hdf['Year'].array, hdf['Month'].array, hdf['Day'].array,
+                ##hdf['Hour'].array, hdf['Minute'].array, hdf['Second'].array)
         except (KeyError, ValueError):
             logging.exception("Unable to calculate timebase, using epoch 1.1.1970!")
             start_datetime = datetime.fromtimestamp(0)
         stop_datetime = start_datetime + timedelta(seconds=duration)
+        
+        # hdf.starttime
+        # hdf.endtime
             
     #end with
 

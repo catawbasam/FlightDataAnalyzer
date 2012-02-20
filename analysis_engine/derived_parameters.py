@@ -24,12 +24,14 @@ from analysis_engine.library import (bearings_and_distances,
                                      is_slice_within_slice,
                                      latitudes_and_longitudes,
                                      merge_sources,
+                                     merge_two_parameters,
                                      rate_of_change, 
                                      repair_mask,
                                      rms_noise,
                                      round_to_nearest,
                                      runway_distances,
                                      runway_heading,
+                                     slices_overlap,
                                      smooth_track,
                                      step_values,
                                      straighten_headings,
@@ -169,7 +171,7 @@ class AccelerationForwardsForFlightPhases(DerivedParameterNode):
 Superceded by Truck and Trailer analysis of airspeed during takeoff and landing
 -------------------------------------------------------------------------------
 """
-            
+
 
 class AirspeedForFlightPhases(DerivedParameterNode):
     def derive(self, airspeed=P('Airspeed')):
@@ -371,22 +373,36 @@ class AltitudeRadio(DerivedParameterNode):
 
 class AltitudeRadio(DerivedParameterNode):
     '''
-    Assumes that signal (A) is at twice the frequency of (B) and (C).
-    
-    Therefore align to first dependency is disabled.
-    
-    TODO: Make this the 737-3C fram version only and await any fixes needed for other frames.
-    
+    This class allows for variations in the Altitude Radio sensor, and the
+    different frame types need to be identified accordingly.
     '''
+    @classmethod
+    def can_operate(cls, available):
+        if 'Altitude Radio (A)' in available and \
+           'Altitude Radio (B)' in available:
+            return True
+    
     align_to_first_dependency = False
     
     def derive(self, source_A=P('Altitude Radio (A)'),
                source_B=P('Altitude Radio (B)'),
-               source_C=P('Altitude Radio (C)')):
+               source_C=P('Altitude Radio (C)'),
+               frame=A('Frame')):
+        if frame.value in ['737-3C']:
+            # Alternate samples for this frame have latency of over 1 second,
+            # so do not contribute to the height measurements available.
+            self.array, self.frequency, self.offset = \
+                merge_two_parameters(source_B, source_C)
+            
+        elif frame.value in ['737-4', '737-4_Analogue']:
+            self.array, self.frequency, self.offset = \
+                merge_two_parameters(source_A, source_B)
         
-        self.array, self.frequency, self.offset = \
-            blend_two_parameters(source_B, source_C)
-
+        else:
+            logging.warning("No specified Altitude Radio (*) merging for frame "
+                            "'%s' so using source (A)", frame.value)
+            self.array = source_A.array
+            
 
 class AltitudeRadioForFlightPhases(DerivedParameterNode):
     def derive(self, alt_rad=P('Altitude Radio')):
@@ -551,41 +567,73 @@ class ClimbForFlightPhases(DerivedParameterNode):
     
 class ControlColumn(DerivedParameterNode):
     '''
+    The position of the control column blended from the position of the captain
+    and first officer's control columns.
     '''
+    align_to_first_dependency = False
     def derive(self,
-               disp_capt=P('Control Column (Capt)'),
-               disp_fo=P('Control Column (FO)')):
-        self.array = blend_two_parameters(disp_capt, disp_fo)
+               posn_capt=P('Control Column (Capt)'),
+               posn_fo=P('Control Column (FO)')):
+        self.array, self.frequency, self.offset = \
+            blend_two_parameters(posn_capt, posn_fo)
 
 
 class ControlColumnForce(DerivedParameterNode):
     '''
+    The combined force from the foreign and local control columns.
+
+    This is the total force applied by both the captain and the first officer.
     '''
     def derive(self,
-               force_a_capt=P('Control Column (A) Force (Capt)'),
-               force_b_capt=P('Control Column (B) Force (Capt)'),
-               force_a_fo=P('Control Column (A) Force (FO)'),
-               force_b_fo=P('Control Column (B) Force (FO)')):
-        self.array = (force_a_capt.array + force_b_capt.array
-                   + force_a_fo.array + force_b_fo.array) / 2.0
+               force_foreign=P('Control Column Force (Foreign)'),
+               force_local=P('Control Column Force (Local)')):
+        self.array = force_foreign.array + force_local.array
+
+
+class ControlColumnForceCapt(DerivedParameterNode):
+    '''
+    The force applied by the captain to the control column.  This is dependent
+    on who has master control of the aircraft and this derived parameter
+    selects the appropriate slices of data from the foreign and local forces.
+    '''
+    name = 'Control Column Force (Capt)'
+    def derive(self,
+               force_foreign=P('Control Column Force (Foreign)'),
+               force_local=P('Control Column Force (Local)'),
+               fcc_master=P('FCC Local Limited Master')):
+        self.array = np.ma.where(fcc_master.array != 1,
+                                 force_local.array,
+                                 force_foreign.array)
+
+
+class ControlColumnForceFO(DerivedParameterNode):
+    '''
+    The force applied by the first officer to the control column.  This is
+    dependent on who has master control of the aircraft and this derived
+    parameter selects the appropriate slices of data from the foreign and local
+    forces.
+    '''
+    name = 'Control Column Force (FO)'
+    def derive(self,
+               force_foreign=P('Control Column Force (Foreign)'),
+               force_local=P('Control Column Force (Local)'),
+               fcc_master=P('FCC Local Limited Master')):
+        self.array = np.ma.where(fcc_master.array == 1,
+                                 force_local.array,
+                                 force_foreign.array)
 
 
 class ControlWheel(DerivedParameterNode):
     '''
+    The position of the control wheel blended from the position of the captain
+    and first officer's control wheels.
     '''
+    align_to_first_dependency = False
     def derive(self,
-               disp_capt=P('Control Wheel (Capt)'),
-               disp_fo=P('Control Wheel (FO)')):
-        self.array = blend_two_parameters(disp_capt, disp_fo)
-
-
-class ControlWheelForce(DerivedParameterNode):
-    '''
-    '''
-    def derive(self,
-               force_capt=P('Control Wheel Force (Capt)'),
-               force_fo=P('Control Wheel Force (FO)')):
-        self.array = (force_capt.array + force_fo.array)
+               posn_capt=P('Control Wheel (Capt)'),
+               posn_fo=P('Control Wheel (FO)')):
+        self.array, self.frequency, self.offset = \
+            blend_two_parameters(posn_capt, posn_fo)
 
 
 class DistanceTravelled(DerivedParameterNode):
@@ -726,6 +774,57 @@ class Eng_FuelFlow(DerivedParameterNode):
         engines = vstack_params(eng1, eng2, eng3, eng4)
         self.array = np.ma.sum(engines, axis=0)
       
+
+class Eng_ITTAvg(DerivedParameterNode):
+    #TODO: TEST
+    name = "Eng (*) ITT Avg"
+    @classmethod
+    def can_operate(cls, available):
+        # works with any combination of params available
+        return any([d in available for d in cls.get_dependency_names()])
+        
+    def derive(self, 
+               eng1=P('Eng (1) ITT'),
+               eng2=P('Eng (2) ITT'),
+               eng3=P('Eng (3) ITT'),
+               eng4=P('Eng (4) ITT')):
+        engines = vstack_params(eng1, eng2, eng3, eng4)
+        self.array = np.ma.average(engines, axis=0)
+
+
+class Eng_ITTMax(DerivedParameterNode):
+    #TODO: TEST
+    name = "Eng (*) ITT Max"
+    @classmethod
+    def can_operate(cls, available):
+        # works with any combination of params available
+        return any([d in available for d in cls.get_dependency_names()])
+        
+    def derive(self, 
+               eng1=P('Eng (1) ITT'),
+               eng2=P('Eng (2) ITT'),
+               eng3=P('Eng (3) ITT'),
+               eng4=P('Eng (4) ITT')):
+        engines = vstack_params(eng1, eng2, eng3, eng4)
+        self.array = np.ma.max(engines, axis=0)
+
+
+class Eng_ITTMin(DerivedParameterNode):
+    #TODO: TEST
+    name = "Eng (*) ITT Min"
+    @classmethod
+    def can_operate(cls, available):
+        # works with any combination of params available
+        return any([d in available for d in cls.get_dependency_names()])
+        
+    def derive(self, 
+               eng1=P('Eng (1) ITT'),
+               eng2=P('Eng (2) ITT'),
+               eng3=P('Eng (3) ITT'),
+               eng4=P('Eng (4) ITT')):
+        engines = vstack_params(eng1, eng2, eng3, eng4)
+        self.array = np.ma.min(engines, axis=0)
+
 
 class Eng_N1Avg(DerivedParameterNode):
     name = "Eng (*) N1 Avg"
@@ -1278,11 +1377,6 @@ class HeadingContinuous(DerivedParameterNode):
         self.array = repair_mask(straighten_headings(head_mag.array))
 
 
-class Heading(DerivedParameterNode):
-    def derive(self, head_mag=P('Heading Magnetic')):
-        self.array = head_mag.array
-
-
 class HeadingTrue(DerivedParameterNode):
     units = 'deg'
     # Computes magnetic deviation linearly changing from the deviation at
@@ -1352,32 +1446,47 @@ class HeadingTrue(DerivedParameterNode):
 
 
 class ILSFrequency(DerivedParameterNode):
+    """
+    This code is based upon the normal operation of an Instrument Landing
+    System whereby the left and right receivers are tuned to the same runway
+    ILS frequency. This allows independent monitoring of the approach by the
+    two crew.
+    
+    If there is a problem with the system, users can inspect the (L) and (R)
+    signals separately, although the normal use will show valid ILS data when
+    both are tuned to the same frequency.
+    
+    """
     name = "ILS Frequency"
     align_to_first_dependency = False
-
-    #TODO: Introduce f1==f2 as unmasked data requirement, thereby masking
-    # mismatched receivers.
-
-    def derive(self, f1=P('ILS (L) Frequency'),
-               f2=P('ILS (R) Frequency')):
-        self.frequency *= 2
-        self.offset = min(f1.offset, f2.offset)
-        self.array = merge_sources(f1.array, f2.array)
-
+    def derive(self, f1=P('ILS (L) Frequency'),f2=P('ILS (R) Frequency')):
+        # Mask invalid frequencies
+        f1_trim = np.ma.masked_outside(f1.array,108.10,111.95)
+        f2_trim = np.ma.masked_outside(f2.array,108.10,111.95)
+        # and mask where the two receivers are not matched
+        self.array = np.ma.array(data = f1_trim.data,
+                                 mask = np.ma.masked_not_equal(f1_trim-f2_trim,0.0).mask)
+        
 
 class ILSLocalizer(DerivedParameterNode):
     name = "ILS Localizer"
-    def derive(self, loc_1=P('ILS (L) Localizer'),
-               loc_2=P('ILS (R) Localizer')):
+    align_to_first_dependency = False
+    def derive(self, loc_1=P('ILS (L) Localizer'),loc_2=P('ILS (R) Localizer'), 
+               freq=P("ILS Frequency")):
         self.array, self.frequency, self.offset = blend_two_parameters(loc_1, loc_2)
-
-
+        # Would like to do this, except the frequemcies don't match
+        # self.array.mask = np.ma.logical_or(self.array.mask, freq.array.mask)
+               
+       
 class ILSGlideslope(DerivedParameterNode):
     name = "ILS Glideslope"
-    def derive(self, gs_1=P('ILS (L) Glideslope'),
-               gs_2=P('ILS (R) Glideslope')):
+    align_to_first_dependency = False
+    def derive(self, gs_1=P('ILS (L) Glideslope'),gs_2=P('ILS (R) Glideslope'), 
+               freq=P("ILS Frequency")):
         self.array, self.frequency, self.offset = blend_two_parameters(gs_1, gs_2)
-
+        # Would like to do this, except the frequemcies don't match
+        # self.array.mask = np.ma.logical_or(self.array.mask, freq.array.mask)
+       
 
 class ILSRange(DerivedParameterNode):
     name = "ILS Range"
@@ -1388,6 +1497,10 @@ class ILSRange(DerivedParameterNode):
     It is (currently) in feet from the localizer antenna.
     """
     
+    ##@classmethod
+    ##def can_operate(cls, available):
+        ##return True
+    
     def derive(self, lat=P('Latitude Straighten'),
                lon = P('Longitude Straighten'),
                glide = P('ILS Glideslope'),
@@ -1396,114 +1509,111 @@ class ILSRange(DerivedParameterNode):
                alt_aal = P('Altitude AAL'),
                loc_established = S('ILS Localizer Established'),
                gs_established = S('ILS Glideslope Established'),
-               precise =A('Precise Positioning'),
+               precise = A('Precise Positioning'),
                app_info = A('FDR Approaches'),
                final_apps = S('Final Approach'),
                start_datetime = A('Start Datetime')
                ):
         ils_range = np.ma.array(np.zeros_like(gspd.array.data))
         
-        # Identify the speed signals we will use if we don't have accurate
-        # position data. Precise is an attribute, and we test it's value:
-        if not precise.value:
-            if gspd:
-                # Use recorded groundspeed where available.
-                speed_signal = gspd.array
-            else:
-                # Estimate range using true airspeed. This is because there
-                # are aircraft which record ILS but not groundspeed data.
-                speed_signal = tas.array
-        
-        for num_loc, this_loc in enumerate(loc_established):
+        for this_loc in loc_established:
  
             # Scan through the recorded approaches to find which matches this
             # localizer established phase.
-            for approach in app_info.value:
-
-                approach_slice = slice(index_of_datetime(start_datetime.value,
-                                                         approach['slice_start_datetime'],
-                                                         self.frequency),
-                                       index_of_datetime(start_datetime.value,
-                                                         approach['slice_stop_datetime'],
-                                                         self.frequency))
-                loc_est = loc_established.get_last(within_slice=approach_slice,
-                                                   within_use='any')
-                if approach_slice == None:
+            for num_loc, approach in enumerate(app_info.value):
+                # line up an approach slice
+                start = index_of_datetime(start_datetime.value,
+                                          approach['slice_start_datetime'],
+                                          self.frequency)
+                stop = index_of_datetime(start_datetime.value,
+                                         approach['slice_stop_datetime'],
+                                         self.frequency)
+                approach_slice = slice(start, stop)
+                if slices_overlap(this_loc.slice, approach_slice):
+                    # we've found a matching approach where the localiser was established
                     break
-
-            if approach_slice == None:
-                logging.warning("No approach found within slice '%s'.",
-                                this_loc)
-                break
-
-            if not approach['runway']:
-                logging.warning("Approach runway information not available.")
-            
-            try:
-                start_2_loc, gs_2_loc, end_2_loc, pgs_lat, pgs_lon = \
-                    runway_distances(app_info.value[num_loc]['runway'])
-            except KeyError:
-                logging.exception("KeyError when calculating runway_distances.")
-                # TODO: Consider resulting array.
+            else:
+                logging.warning("No approach found within slice '%s'.",this_loc)
                 continue
 
+            if not approach.get('runway'):
+                logging.error("Approach runway information not available.")
+                raise NotImplementedError(
+                    "No support for Airports without Runways! Details: %s" % approach)
+            
             if precise.value:
                 # Convert (straightened) latitude & longitude for the whole phase
                 # into range from the threshold. (threshold = {})
-                threshold = app_info.value[num_loc]['runway']['localizer']
+                threshold = approach['runway']['localizer']
                 brg, ils_range[this_loc.slice] = \
                     bearings_and_distances(repair_mask(lat.array[this_loc.slice]),
                                            repair_mask(lon.array[this_loc.slice]),
                                            threshold)
                 ils_range[this_loc.slice] *= METRES_TO_FEET
+                continue # move onto next loc_established
+                
+            #-----------------------------
+            #else: non-precise positioning
+            
+            # Use recorded groundspeed where available, otherwise estimate
+            # range using true airspeed. This is because there are aircraft
+            # which record ILS but not groundspeed data.
+            speed = gspd if gspd else tas
+                
+            # Estimate range by integrating back from zero at the end of the
+            # phase to high range values at the start of the phase.
+            spd_repaired = repair_mask(speed.array[this_loc.slice])
+            ils_range[this_loc.slice] = integrate(
+                spd_repaired, speed.frequency, scale=KTS_TO_FPS, direction='reverse')
+            
+            start_2_loc, gs_2_loc, end_2_loc, pgs_lat, pgs_lon = \
+                                runway_distances(approach['runway'])  
+            if 'glideslope' in approach['runway']:
+                # The runway has an ILS glideslope antenna
+                
+                for this_gs in gs_established:                    
+                    if is_slice_within_slice(this_gs.slice, this_loc.slice):
+                        # we'll take the first one!
+                        break
+                else:
+                    # we didn't find a period where the glideslope was
+                    # established at the same time as the localiser
+                    raise NotImplementedError("No glideslope established at same time as localiser")
+                    
+                # Compute best fit glidepath. The term (1-.13 x glideslope
+                # deviation) caters for the aircraft deviating from the
+                # planned flightpath. 1 dot low is about 0.76 deg, or 13% of
+                # a 3 degree glidepath. Not precise, but adequate accuracy
+                # for the small error we are correcting for here.
+                corr, slope, offset = coreg(
+                    alt_aal.array[this_gs.slice]* (1-0.13*glide.array[this_gs.slice]),
+                    ils_range[this_gs.slice])
+
+                # Shift the values in this approach so that the range = 0 at
+                # 0ft on the projected ILS slope, then reference back to the
+                # localizer antenna.                  
+                datum_2_loc = gs_2_loc * METRES_TO_FEET + offset/slope
                 
             else:
-                # Estimate range by integrating back from zero at the end
-                # of the phase to high range values at the start of the
-                # phase.
-                ils_range[this_loc.slice] = \
-                    integrate(repair_mask(speed_signal[this_loc.slice]), 
-                              gspd.frequency, 
-                              scale=KTS_TO_FPS, 
-                              direction='reverse')
-     
-                if app_info.value[num_loc]['runway'].has_key('glideslope'):
-                    # The runway has an ILS glideslope antenna
-                    
-                    for this_gs in gs_established:                    
-                        if is_slice_within_slice(this_gs.slice, this_loc.slice):
-
-                            # Compute best fit glidepath. The term (1-.13 x
-                            # glideslope deviation) caters for the aircraft
-                            # deviating from the planned flightpath. 1 dot
-                            # low is about 0.76 deg, or 13% of a 3 degree
-                            # glidepath. Not precise, but adequate accuracy
-                            # for the small error we are correcting for here.
-                            corr, slope, offset = \
-                                coreg(alt_aal.array[this_gs.slice]*
-                                      (1-0.13*glide.array[this_gs.slice]),
-                                      ils_range[this_gs.slice])
-
-                            # Shift the values in this approach so that the range
-                            # = 0 at 0ft on the projected ILS slope, then reference
-                            # back to the localizer antenna.
-                            datum_2_loc = gs_2_loc * METRES_TO_FEET + offset/slope
-                    
+                # Case of an ILS approach using localizer only.
+                for this_app in final_apps:
+                    if is_slice_within_slice(this_app.slice, this_loc.slice):
+                        # we'll take the first one!
+                        break
                 else:
-                    # Case of an ILS approach using localizer only.
-                    for this_app in final_apps:
-                        if is_slice_within_slice(this_app.slice, this_loc.slice):
-                            corr, slope, offset = coreg(alt_aal.array[this_app.slice], 
-                                                ils_range[this_app.slice])
-                            
-                            # Touchdown point nominally 1000ft from start of runway
-                            datum_2_loc = (start_2_loc*METRES_TO_FEET-1000) - offset/slope
-                    
-                # Adjust all range values to relate to the localizer
-                # antenna by adding the landing datum to localizer
-                # distance.
-                ils_range[this_loc.slice] += datum_2_loc
+                    # we didn't find a period where the approach was within the localiser
+                    raise NotImplementedError("Approaches were not fully established with localiser")
+                corr, slope, offset = coreg(
+                    alt_aal.array[this_app.slice], ils_range[this_app.slice])
                 
+                # Touchdown point nominally 1000ft from start of runway
+                datum_2_loc = (start_2_loc*METRES_TO_FEET-1000) - offset/slope
+                        
+                
+            # Adjust all range values to relate to the localizer antenna by
+            # adding the landing datum to localizer distance.
+            ils_range[this_loc.slice] += datum_2_loc
+
         self.array = ils_range
    
     
@@ -1653,11 +1763,12 @@ def adjust_track(lon,lat,loc_est,ils_range,ils_loc,alt_aal,gspd,tas,
     return track_linking(lat.array, lat_adj), track_linking(lon.array, lon_adj)
 
           
+"""
 class Mach(DerivedParameterNode):
     def derive(self, ias = P('Airspeed'), tat = P('TAT'),
                alt = P('Altitude STD')):
         return NotImplemented
-        
+"""        
 
 class RateOfClimb(DerivedParameterNode):
     """
@@ -1789,7 +1900,7 @@ class Relief(DerivedParameterNode):
     # Quickly written without tests as I'm really editing out the old dependencies statements :-(
     def derive(self, alt_aal = P('Altitude AAL'),
                alt_rad = P('Altitude Radio')):
-        self.array = alt_aal - alt_rad
+        self.array = alt_aal.array - alt_rad.array
 
 
 ####class Speedbrake(DerivedParameterNode):
@@ -1886,7 +1997,107 @@ class ThrottleLever(DerivedParameterNode):
 
 
 
+class Aileron(DerivedParameterNode):
+    '''
+    '''
+    # TODO: TEST
+    name = 'Aileron'
 
+    @classmethod
+    def can_operate(cls, available):
+       a = set(['Aileron (L)', 'Aileron (R)'])
+       b = set(['Aileron (L) Inboard', 'Aileron (R) Inboard', 'Aileron (L) Outboard', 'Aileron (R) Outboard'])
+       x = set(available)
+       return not (a - x) or not (b - x)
+
+    def derive(self,
+               al=P('Aileron (L)'),
+               ar=P('Aileron (R)'),
+               ali=P('Aileron (L) Inboard'),
+               ari=P('Aileron (R) Inboard'),
+               alo=P('Aileron (L) Outboard'),
+               aro=P('Aileron (R) Outboard')):
+        return NotImplemented
+
+
+class AileronTrim(DerivedParameterNode): # RollTrim
+    '''
+    '''
+    # TODO: TEST
+    name = 'Aileron Trim' # Roll Trim
+
+    def derive(self,
+               atl=P('Aileron Trim (L)'),
+               atr=P('Aileron Trim (R)')):
+        return NotImplemented
+
+
+class Elevator(DerivedParameterNode):
+    '''
+    '''
+    # TODO: TEST
+    name = 'Elevator'
+
+    def derive(self,
+               el=P('Elevator (L)'),
+               er=P('Elevator (R)')):
+        return NotImplemented
+
+
+class ElevatorTrim(DerivedParameterNode): # PitchTrim
+    '''
+    '''
+    # TODO: TEST
+    name = 'Elevator Trim' # Pitch Trim
+
+    def derive(self,
+               etl=P('Elevator Trim (L)'),
+               etr=P('Elevator Trim (R)')):
+        return NotImplemented
+
+
+class Spoiler(DerivedParameterNode):
+    '''
+    '''
+    # TODO: TEST
+    name = 'Spoiler'
+
+    def derive(self,
+               s01=P('Spoiler (1)'),
+               s02=P('Spoiler (2)'),
+               s03=P('Spoiler (3)'),
+               s04=P('Spoiler (4)'),
+               s05=P('Spoiler (5)'),
+               s06=P('Spoiler (6)'),
+               s07=P('Spoiler (7)'),
+               s08=P('Spoiler (8)'),
+               s09=P('Spoiler (9)'),
+               s10=P('Spoiler (10)'),
+               s11=P('Spoiler (11)'),
+               s12=P('Spoiler (12)')):
+        return NotImplemented
+
+
+class Speedbrake(DerivedParameterNode):
+    '''
+    '''
+    # TODO: TEST
+    name = 'Speedbrake'
+
+    def derive(self,
+               s01=P('Spoiler (1)'),
+               s02=P('Spoiler (2)'),
+               s03=P('Spoiler (3)'),
+               s04=P('Spoiler (4)'),
+               s05=P('Spoiler (5)'),
+               s06=P('Spoiler (6)'),
+               s07=P('Spoiler (7)'),
+               s08=P('Spoiler (8)'),
+               s09=P('Spoiler (9)'),
+               s10=P('Spoiler (10)'),
+               s11=P('Spoiler (11)'),
+               s12=P('Spoiler (12)')):
+        return NotImplemented
 
 
 

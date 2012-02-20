@@ -3,6 +3,7 @@ import logging
 from datetime import datetime, timedelta
 from inspect import isclass
 
+from analysis_engine import hooks
 from analysis_engine import settings
 from analysis_engine.library import value_at_index
 from analysis_engine.dependency_graph import dependency_order
@@ -143,11 +144,11 @@ def derive_parameters(hdf, node_mgr, process_order):
             params[param_name] = result
             section_list.extend(result.get_aligned(P(frequency=1,offset=0)))
         elif isinstance(node, DerivedParameterNode):
-            # perform any post_processing
-            if settings.POST_DERIVED_PARAM_PROCESS:
-                process_result = settings.POST_DERIVED_PARAM_PROCESS(hdf, result)
-                if process_result:
-                    result = process_result
+            ### perform any post_processing
+            ##if hooks.POST_DERIVED_PARAM_PROCESS:
+                ##process_result = hooks.POST_DERIVED_PARAM_PROCESS(hdf, result)
+                ##if process_result:
+                    ##result = process_result
             if hdf.duration:
                 # check that the right number of results were returned
                 # Allow a small tolerance. For example if duration in seconds
@@ -255,6 +256,7 @@ def process_flight(hdf_path, aircraft_info, start_datetime=datetime.now(),
     logging.info("Processing: %s", hdf_path)
     # go through modules to get derived nodes
     derived_nodes = get_derived_nodes(settings.NODE_MODULES)
+    required_params = list(set(required_params).intersection(set(derived_nodes)))
     # if required_params isn't set, try using ALL derived_nodes!
     if not required_params:
         logging.info("No required_params declared, using all derived nodes")
@@ -273,9 +275,13 @@ def process_flight(hdf_path, aircraft_info, start_datetime=datetime.now(),
                                achieved_flight_record)
         # calculate dependency tree
         process_order = dependency_order(node_mgr, draw=draw) 
-        
-        if settings.PRE_FLIGHT_ANALYSIS:
-            settings.PRE_FLIGHT_ANALYSIS(hdf, aircraft_info, process_order)
+                    
+        if hooks.PRE_FLIGHT_ANALYSIS:
+            logging.info("Performing PRE_FLIGHT_ANALYSIS actions: %s", 
+                         hooks.PRE_FLIGHT_ANALYSIS.func_name)
+            hooks.PRE_FLIGHT_ANALYSIS(hdf, aircraft_info, process_order)
+        else:
+            logging.info("No PRE_FLIGHT_ANALYSIS actions to perform")
         
         # derive parameters
         kti_list, kpv_list, section_list, flight_attrs = derive_parameters(
