@@ -7,7 +7,7 @@ from datetime import datetime, timedelta
 from hashlib import sha256
 from itertools import izip
 from scipy.signal import lfilter, lfilter_zi
-from scipy.optimize import fmin, fmin_bfgs, fmin_tnc
+##from scipy.optimize import fmin, fmin_bfgs, fmin_tnc
 # TODO: Inform Enthought that fmin_l_bfgs_b dies in a dark hole at _lbfgsb.setulb
 
 from settings import REPAIR_DURATION, TRUCK_OR_TRAILER_INTERVAL, TRUCK_OR_TRAILER_PERIOD
@@ -222,10 +222,13 @@ def calculate_timebase(years, months, days, hours, mins, secs):
     
     Accepts arrays and numpy arrays at 1Hz.
     
+    Note: if years, months or days is None, it will fill in invalid
+    datetimes, see below!!!
+    
     Note: if uneven arrays are passed in, they are assumed by izip that the
     start is valid and the uneven ends are invalid and skipped over.
     
-    TODO: Support year as a 2 digits - e.g. "11" is "2011"
+    Supports years as a 2 digits - e.g. "11" is "2011"
     
     :param years, months, days, hours, mins, secs: Appropriate 1Hz time elements
     :type years, months, days, hours, mins, secs: iterable of numeric type
@@ -234,8 +237,30 @@ def calculate_timebase(years, months, days, hours, mins, secs):
     :raises: InvalidDatetime if no valid timestamps provided
     """
     base_dt = None
-    clock_variation = OrderedDict() # so if all values are the same, take the first
+    clock_variation = OrderedDict() # Ordered so if all values are the same, max will consistently take the first val
+    if years is None:
+        logging.warning("Year not supplied, filling in with 1970")
+        years = np.repeat([1970], len(mins)) # force invalid year
+    if months is None:
+        logging.warning("Month not supplied, filling in with 01")
+        months = np.repeat([01], len(mins)) # force invalid month
+    if days is None:
+        logging.warning("Day not supplied, filling in with 01")
+        days = np.repeat([01], len(mins)) # force invalid days
+        
     for step, (yr, mth, day, hr, mn, sc) in enumerate(izip(years, months, days, hours, mins, secs)):
+        
+        #try:
+            #date = np.datetime64('%d-%d-%d' % (yr, mth, day), 'D')
+        #except np.core._mx_datetime_parser.RangeError  :
+            #continue
+        
+        # same for time?
+        
+        if yr and yr < 100:
+            yr = convert_two_digit_to_four_digit_year(yr)
+            
+        
         try:
             dt = datetime(int(yr), int(mth), int(day), int(hr), int(mn), int(sc))
         except (ValueError, TypeError, np.ma.core.MaskError):
@@ -257,6 +282,28 @@ def calculate_timebase(years, months, days, hours, mins, secs):
     else:
         # No valid datestamps found
         raise InvalidDatetime("No valid datestamps found")
+
+# calculate here to avoid repitition
+CURRENT_YEAR = str(datetime.now().year)
+def convert_two_digit_to_four_digit_year(yr):
+    """
+    Everything below the current year is assume to be in the current
+    century, everything above is assumed to be in the previous
+    century.
+    if current year is 2012
+    
+    13 = 1913
+    12 = 2012
+    11 = 2011
+    01 = 2001
+    """
+    # convert to 4 digit year
+    century = int(CURRENT_YEAR[:2]) * 100
+    yy = int(CURRENT_YEAR[2:])
+    if yr > yy:
+        return century - 100 + yr
+    else:
+        return century + yr
 
 def coreg(y, indep_var=None, force_zero=False):
     """

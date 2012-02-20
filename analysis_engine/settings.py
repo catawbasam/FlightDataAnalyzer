@@ -1,7 +1,21 @@
-# use local_settings.py to override settings for your local environment.
+#####################################
+##                                 ##
+##    ANALYSIS ENGINE SETTINGS     ##
+##                                 ##
+#####################################
+
+# Note: Create a custom_settings.py module to override settings for your local
+# environment and append customised modules.
+
+
+
+###################
+## Configuration ##
+###################
 
 # Modules to import all derived Nodes from. Additional modules can be
-# appended to this list in local_settings.py
+# appended to this list in custom_settings.py by creating a similar list of
+# modules with the variable name ending with "_MODULES"
 NODE_MODULES = ['analysis_engine.derived_parameters',
                 'analysis_engine.key_point_values', 
                 'analysis_engine.key_time_instances',
@@ -9,28 +23,14 @@ NODE_MODULES = ['analysis_engine.derived_parameters',
                 'analysis_engine.flight_phase',
                 'analysis_engine.flight_attribute']
 
-# Handler
-HANDLER = 'analysis_engine.api_handler_http.APIHandlerHTTP'
+# API Handler
+API_HANDLER = 'analysis_engine.api_handler_analysis_engine.AnalysisEngineAPIHandlerHTTP'
+# Replace this as required
+BASE_URL = 'http://127.0.0.1'
 
-# Tried
-#BASE_URL = 'http://127.0.0.1'
-
-# Tried
-# BASE_URL = 'polaris-nax.flightdataservices.com' 
-# resulted in...
-# httplib2.RelativeURIError: Only absolute URIs are allowed. uri = polaris-nax.flightdataservices.com/api/airport/nearest.json?ll=63.457031,10.920178
-
-# Tried
-# BASE_URL = 'http://77.245.74.196'
-# resulted in...
-# httplib.BadStatusLine: ''
-
-# Tried
-BASE_URL = 'http://polaris-nax.flightdataservices.com'
-
-##########################
-## Splitting into Segments
-##########################
+#############################
+## Splitting into Segments ##
+#############################
 
 # Minimum duration of slow airspeed in seconds to split flights inbetween.
 # TODO: Find sensible value.
@@ -53,9 +53,9 @@ SPLIT_PARAMETERS = ('Eng (1) N1', 'Eng (2) N1', 'Eng (3) N1', 'Eng (4) N1',
 
 
 
-##########################
-## Parameter Analysis
-##########################
+########################
+## Parameter Analysis ##
+########################
 
 # An airspeed below which you just can't possibly be flying.
 AIRSPEED_THRESHOLD = 80  # kts
@@ -209,50 +209,27 @@ TRUCK_OR_TRAILER_INTERVAL = 3 # samples: should be odd.
 TRUCK_OR_TRAILER_PERIOD = 7 # samples
 
 
-"""  Top of Climb / Top of Descent Threshold.
-This threshold was based upon the idea of "Less than 600 fpm for 6 minutes"
+# Top of Climb / Top of Descent Threshold.
+"""This threshold was based upon the idea of "Less than 600 fpm for 6 minutes"
 This was often OK, but one test data sample had a 4000ft climb 20 mins
 after level off. This led to reducing the threshold to 600 fpm in 3
 minutes which has been found to give good qualitative segregation
 between climb, cruise and descent phases."""
-SLOPE_FOR_TOC_TOD = (600/float(180))
-
-##########################
-## Data Analysis Hooks
-##########################
-
-# Perform some analysis before analysing the file
-PRE_FILE_ANALYSIS = None
-"""
-# create processing function
-def fn(hdf):
-    # do something
-    return # no return args required
-PRE_FILE_ANALYSIS = fn
-"""
-
-PRE_FLIGHT_ANALYSIS = None
-"""
-def fn(hdf, aircraft, params):
-    return # no return args required
-PRE_FLIGHT_ANALYSIS = fn
-"""
-
-# Function for post process analysis of parameters - see example below
-POST_DERIVED_PARAM_PROCESS = None
-"""
-# create post processing function
-def fn(hdf, param):
-    "Do something to param. Return Param if changes are to be saved, else None"
-    return f(param)
-# set as post process
-POST_DERIVED_PARAM_PROCESS = fn
-"""
+SLOPE_FOR_TOC_TOD = 600 / float(3*60) # 600fpm in 3 mins
 
 
-# Import from local_settings if exists
+
+
+
+# Import from custom_settings if exists
 try:
-    from analysis_engine.local_settings import *
+    from analysis_engine.custom_settings import *
+    # add any new modules to the list of modules
+    from copy import copy
+    [NODE_MODULES.extend(v) for k, v in copy(locals()).iteritems() \
+                            if k.endswith('_MODULES') and k!= 'NODE_MODULES']
+    NODE_MODULES = list(set(NODE_MODULES))
 except ImportError as err:
+    import logging
+    logging.info("Unable to import analysis_engine custom_settings.py")
     pass
-

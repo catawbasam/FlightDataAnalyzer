@@ -496,12 +496,42 @@ class TestCalculateTimebase(unittest.TestCase):
         start_dt = calculate_timebase(years, months, days, hours, mins, secs)
         self.assertEqual(start_dt, datetime(2020,12,25,23,0,0))
         
+    def test_real_data_params_2_digit_year(self):
+        years = np.load('test_data/year.npy')
+        months = np.load('test_data/month.npy')
+        days = np.load('test_data/day.npy')
+        hours = np.load('test_data/hour.npy')
+        mins = np.load('test_data/minute.npy')
+        secs = np.load('test_data/second.npy')
+        start_dt = calculate_timebase(years, months, days, hours, mins, secs)
+        self.assertEqual(start_dt, datetime(2011,12,30,8,20,36))
+        
+    def test_real_data_params_no_year(self):
+        years = None
+        months = np.load('test_data/month.npy')
+        days = np.load('test_data/day.npy')
+        hours = np.load('test_data/hour.npy')
+        mins = np.load('test_data/minute.npy')
+        secs = np.load('test_data/second.npy')
+        start_dt = calculate_timebase(years, months, days, hours, mins, secs)
+        self.assertEqual(start_dt, datetime(2012,12,30,8,20,36))        
+        
     @unittest.skip("Implement if this is a requirement")
     def test_using_offset_for_seconds(self):
         # check offset milliseconds are applied to the timestamps
         self.assertFalse(True)
         
-
+        
+class TestConvertTwoDigitToFourDigitYear(unittest.TestCase):
+    def test_convert_two_digit_to_four_digit_year(self):
+        # WARNING - this test will fail next year(!)
+        self.assertEquals(convert_two_digit_to_four_digit_year(99), 1999)
+        self.assertEquals(convert_two_digit_to_four_digit_year(13), 1913)
+        self.assertEquals(convert_two_digit_to_four_digit_year(12), 2012) # will break next year
+        self.assertEquals(convert_two_digit_to_four_digit_year(11), 2011)
+        self.assertEquals(convert_two_digit_to_four_digit_year(1), 2001)
+        
+        
 class TestCoReg(unittest.TestCase):
     def test_correlation_basic(self):
         x=np.array([0,1,2,4,5,7], dtype=float)

@@ -850,7 +850,7 @@ class AccelerationNormal20FtToGroundMax(KeyPointValueNode):
 
 class HeadingDeviation100KtsToFtMax(KeyPointValueNode):
     #TODO: Rename - 100Kts to Ft is not clear
-    def derive(self, head_mag=P('Heading Magnetic'), airspeed=P('Airspeed'),
+    def derive(self, head_mag=P('Heading'), airspeed=P('Airspeed'),
                liftoff=KTI('Liftoff')):
         return NotImplemented
 
