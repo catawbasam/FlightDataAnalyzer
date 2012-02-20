@@ -4,10 +4,9 @@ import numpy as np
 from analysis_engine import settings
 from analysis_engine.settings import CONTROL_FORCE_THRESHOLD
 
-from analysis_engine.node import (KeyPointValue, KeyPointValueNode, KPV, KTI,
-                                  P, S)
-from analysis_engine.library import (coreg, 
-                                     duration, index_at_value, max_abs_value,
+from analysis_engine.node import KeyPointValueNode, KPV, KTI, P, S
+from analysis_engine.library import (clip, coreg, 
+                                     index_at_value, max_abs_value,
                                      max_continuous_unmasked, max_value,
                                      min_value, repair_mask, 
                                      slice_samples, 
@@ -507,7 +506,8 @@ class Eng_N1MaxDurationUnder60PercentAfterTouchdown(KeyPointValueNode): ##was na
                 #TODO future storage of slice: self.slice = touchdown_to_stop_slice
                 touchdown_to_stop_duration = (touchdown_to_stop_slice.stop - \
                                         touchdown_to_stop_slice.start) / self.hz
-                self.create_kpv(touchdown_to_stop_slice.start,duration, eng_num=eng_num)
+                self.create_kpv(touchdown_to_stop_slice.start,
+                                touchdown_to_stop_duration, eng_num=eng_num)
             else:
                 # create KPV of 0 seconds
                 self.create_kpv(eng_stop[0].index, 0.0, eng_num=eng_num)
@@ -926,7 +926,7 @@ class LowPowerLessThan500Ft10Sec(KeyPointValueNode):
     #TODO: TESTS
     #Q: N1 Minimum or N1 Average
     def derive(self, eng_n1_min=P('Eng (*) N1 Min'), alt=P('Altitude AAL')):
-        eng_clipped = duration(eng_n1_min.array, 10, eng_n1_min.hz)
+        eng_clipped = clip(eng_n1_min.array, 10, eng_n1_min.hz)
         for alt_slice in alt.slices_from_to(500, 0):
             # clip to 10 secs
             index, value = min_value(eng_clipped, alt_slice)

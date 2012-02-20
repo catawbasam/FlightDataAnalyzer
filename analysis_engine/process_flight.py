@@ -8,12 +8,11 @@ from analysis_engine import settings
 from analysis_engine.library import value_at_index
 from analysis_engine.dependency_graph import dependency_order
 from analysis_engine.node import (Attribute, DerivedParameterNode,
-                                  FlightAttributeNode, FlightPhaseNode,
-                                  KeyPointValue, KeyPointValueNode,
-                                  KeyTimeInstance, KeyTimeInstanceNode, Node,
+                                  FlightAttributeNode, 
+                                  KeyPointValueNode,
+                                  KeyTimeInstanceNode, Node,
                                   NodeManager, P, SectionNode)
 from hdfaccess.file import hdf_file
-from utilities.dict_helpers import dict_filter
 
 
 logger = logging.getLogger()
@@ -108,13 +107,8 @@ def derive_parameters(hdf, node_mgr, process_order):
             raise RuntimeError("No dependencies available - Nodes cannot "
                                "operate without ANY dependencies available! "
                                "Node: %s" % node_class.__name__)
-        try:
-            first_dep = next((d for d in deps if d is not None and d.frequency))
-            frequency = first_dep.frequency
-            offset = first_dep.offset
-        except StopIteration:
-            frequency = None
-            offset = None
+        first_dep = next((d for d in deps if d is not None))
+
         # initialise node
         node = node_class(frequency=first_dep.frequency,
                           offset=first_dep.offset)
@@ -309,12 +303,20 @@ if __name__ == '__main__':
     required_parameters = ['Latitude Smoothed', 'Longitude Smoothed',
                            'Distance To Landing', 'Eng (*) Fuel Flow',
                            'Altitude STD']
-    import argparse
+    import argparse, os, shutil
     parser = argparse.ArgumentParser(description="Process a flight.")
     parser.add_argument('file', type=str,
                         help='Path of file to process.')
+    parser.add_argument('-tail', dest='tail_number', type=str, default='G-ABCD',
+                        help='Aircraft Tail Number for processing.')
     parser.add_argument('-p', dest='plot', action='store_true',
                         default=False, help='Plot flight onto a graph.')
     args = parser.parse_args()
-    process_flight(args.file, {'Tail Number': 'G-ABCD',
-                               'Precise Positioning': True}, draw=args.plot)
+    
+    hdf_copy = os.path.splitext(args.file)[0] + '_process.hdf5' 
+    if os.path.isfile(hdf_copy):
+        os.remove(hdf_copy)
+    shutil.copy(args.file, hdf_copy)
+
+    process_flight(hdf_copy, {'Tail Number': args.tail_number,
+                              'Precise Positioning': True}, draw=args.plot)

@@ -388,19 +388,20 @@ class AltitudeRadio(DerivedParameterNode):
                source_B=P('Altitude Radio (B)'),
                source_C=P('Altitude Radio (C)'),
                frame=A('Frame')):
-        if frame.value in ['737-3C']:
+        frame_name = frame.value if frame else None
+        if frame_name in ['737-3C']:
             # Alternate samples for this frame have latency of over 1 second,
             # so do not contribute to the height measurements available.
             self.array, self.frequency, self.offset = \
                 merge_two_parameters(source_B, source_C)
             
-        elif frame.value in ['737-4', '737-4_Analogue']:
+        elif frame_name in ['737-4', '737-4_Analogue']:
             self.array, self.frequency, self.offset = \
                 merge_two_parameters(source_A, source_B)
         
         else:
             logging.warning("No specified Altitude Radio (*) merging for frame "
-                            "'%s' so using source (A)", frame.value)
+                            "'%s' so using source (A)", frame_name)
             self.array = source_A.array
             
 

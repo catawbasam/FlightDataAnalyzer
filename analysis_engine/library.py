@@ -463,10 +463,8 @@ def datetime_of_index(start_datetime, index, frequency=1):
     return start_datetime + offset
     
 
-
-
-
-def duration(a, period, hz=1.0):
+# Previously known as Duration
+def clip(a, period, hz=1.0):
     '''
     This function clips the maxima and minima of a data array such that the 
     values are present (or exceeded) in the original data for the period
@@ -512,19 +510,6 @@ def duration(a, period, hz=1.0):
                 a[index:index+delay+1] = level
         else:
             break # No need to process the rest of the array.
-    
-    '''
-    Original version using Fortranesque style :o)
-    i = 1 # return of the i!
-    while i < len(data_array) - delay:
-        # check if ...??
-        if (result[i]-result[i-1])*(result[i+delay]-result[i]) < 0: #why?
-            for j in range (delay-1):
-                result[i] = result[i-1]
-                i = i + 1 #argh (i += 1 is only slightly nicer)
-        else:
-            i = i + 1
-    '''
     return a
 
 def first_order_lag (in_param, time_constant, hz, gain = 1.0, initial_value = None):

@@ -403,7 +403,7 @@ if __name__ == '__main__':
     import pprint
     hdf_path = sys.argv[1]
     aircraft_info = {'Tail Number': 'G-DEMA'}
-    hdf_copy = os.path.splitext(hdf_path)[0] + '_copy.hdf5' 
+    hdf_copy = os.path.splitext(hdf_path)[0] + '_split.hdf5' 
     if os.path.isfile(hdf_copy):
         os.remove(hdf_copy)
     shutil.copy(hdf_path, hdf_copy)
