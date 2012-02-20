@@ -238,15 +238,16 @@ def calculate_timebase(years, months, days, hours, mins, secs):
     """
     base_dt = None
     clock_variation = OrderedDict() # Ordered so if all values are the same, max will consistently take the first val
-    if years is None:
+    length = len(mins)
+    if years is None or not len(years):
         logging.warning("Year not supplied, filling in with 1970")
-        years = np.repeat([1970], len(mins)) # force invalid year
-    if months is None:
+        years = np.repeat([1970], length) # force invalid year
+    if months is None or not len(months):
         logging.warning("Month not supplied, filling in with 01")
-        months = np.repeat([01], len(mins)) # force invalid month
-    if days is None:
+        months = np.repeat([01], length) # force invalid month
+    if days is None or not len(days):
         logging.warning("Day not supplied, filling in with 01")
-        days = np.repeat([01], len(mins)) # force invalid days
+        days = np.repeat([01], length) # force invalid days
         
     for step, (yr, mth, day, hr, mn, sc) in enumerate(izip(years, months, days, hours, mins, secs)):
         
@@ -260,7 +261,6 @@ def calculate_timebase(years, months, days, hours, mins, secs):
         if yr and yr < 100:
             yr = convert_two_digit_to_four_digit_year(yr)
             
-        
         try:
             dt = datetime(int(yr), int(mth), int(day), int(hr), int(mn), int(sc))
         except (ValueError, TypeError, np.ma.core.MaskError):
