@@ -326,7 +326,7 @@ class LandingRunway(FlightAttributeNode):
                                              'Heading At Landing']])
         
     def derive(self, approach_and_landing=S('Approach And Landing'),
-               landing_hdg=P('Heading At Landing'),
+               landing_hdg=KPV('Heading At Landing'),
                airport=A('FDR Landing Airport'),
                landing_latitude=P('Latitude At Landing'),
                landing_longitude=P('Longitude At Landing'),
@@ -344,14 +344,10 @@ class LandingRunway(FlightAttributeNode):
         airport_id = airport.value['id']
         landing = approach_and_landing.get_last()
         if not landing:
+            logging.warning("No landing")
+            self.set_flight_attr(None)
             return
-        heading_kpv = landing_hdg.get_last(within_slice=landing.slice)
-        if not heading_kpv:
-            logging.warning("'%s' not available in '%s', therefore runway "
-                            "cannot be queried for.", landing_hdg.name,
-                            self.__class__.__name__)
-            return
-        heading = heading_kpv.value
+        heading = landing_hdg[-1].value
             
         # 'Last Approach And Landing' assumed to be Landing. Q: May not be true
         # for partial data?
