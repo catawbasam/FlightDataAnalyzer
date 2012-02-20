@@ -213,6 +213,18 @@ class TestILSLocalizerEstablished(unittest.TestCase):
         expected = [Section('ILS Localizer Established', slice(6, 10, None))]
         self.assertEqual(establish, expected)
 
+    def test_ils_localizer_insensitive_to_few_masked_values(self):
+        # TODO: Fix test by passing in Approach And Go Around SectionNode instead of Approach And Landing Lowest Point KTI.
+        aal = S('Approach And Landing', items=[Section('Approach And Landing', slice(2, 9, None))])
+        low = KTI('Approach And Landing Lowest Point', items=[KeyTimeInstance(index=8, name='Approach And Landing Lowest Point')])
+        ils = P('ILS Localizer',np.ma.array(data=[0,0,0,1,3,3,2,1,0,0],
+                                            mask=[0,0,0,0,0,1,1,0,0,0]))
+        establish = ILSLocalizerEstablished()
+        establish.derive(aal, low, ils)
+        expected = [Section('ILS Localizer Established', slice(6, 10, None))]
+        self.assertEqual(establish, expected)
+
+
 
 """
 class TestInitialApproach(unittest.TestCase):

@@ -76,6 +76,7 @@ class AnalysisEngineAPIHandlerDummy(AnalysisEngineAPI):
 
 
 class AnalysisEngineAPIHandlerHTTP(AnalysisEngineAPI, APIHandlerHTTP):
+
     def get_nearest_airport(self, latitude, longitude):
         '''
         Either returns the nearest airport to the specified latitude and

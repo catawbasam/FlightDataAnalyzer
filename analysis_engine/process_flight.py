@@ -16,10 +16,6 @@ from hdfaccess.file import hdf_file
 from utilities.dict_helpers import dict_filter
 
 
-logger = logging.getLogger()
-logger.setLevel(logging.INFO)
-
-
 def geo_locate(hdf, kti_list):
     """
     Translate KeyTimeInstance into GeoKeyTimeInstance namedtuples
@@ -197,7 +193,7 @@ def get_derived_nodes(module_names):
         # parameter is defined, regardless of what its value is, we end up
         # loading "A.B.C"
         ##abstract_nodes = ['Node', 'Derived Parameter Node', 'Key Point Value Node', 'Flight Phase Node'
-        print 'importing', name
+        ##print 'importing', name
         module = __import__(name, globals(), locals(), [''])
         for c in vars(module).values():
             if isclassandsubclass(c, Node) \
@@ -306,6 +302,9 @@ def process_flight(hdf_path, aircraft_info, start_datetime=datetime.now(),
 
 
 if __name__ == '__main__':
+    
+    logger = logging.getLogger()
+    logger.setLevel(logging.INFO)    
     required_parameters = ['Latitude Smoothed', 'Longitude Smoothed',
                            'Distance To Landing', 'Eng (*) Fuel Flow',
                            'Altitude STD']

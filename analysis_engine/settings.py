@@ -23,7 +23,6 @@ NODE_MODULES = ['analysis_engine.derived_parameters',
                 'analysis_engine.flight_phase',
                 'analysis_engine.flight_attribute']
 
-
 # API Handler
 API_HANDLER = 'analysis_engine.api_handler_analysis_engine.AnalysisEngineAPIHandlerHTTP'
 # Replace this as required
@@ -79,7 +78,7 @@ AT_WASHOUT_TC = 60.0
 
 # Force to start checking control stiffness. Intended to be the same setting
 # for all three flying controls.
-CONTROL_FORCE_THRESHOLD = 3 # lb
+CONTROL_FORCE_THRESHOLD = 3.0 # lb
 
 #Less than 5 mins you can't do a circuit, so we'll presume this is a data
 #snippet 
