@@ -24,13 +24,9 @@ virtualenv --python=python${VIRTVER} --no-site-packages --distribute ${VIRTENV}
 cd ${WORKSPACE}
 
 # Install testing and code metric tools
-pip install clonedigger
-pip install nosexcover
-pip install pep8
-pip install pyflakes
-pip install sphinx
+pip -E ${VIRTUENV} install --upgrade clonedigger nosexcover pep8 pyflakes sphinx
 if [ ${PYLINT} -eq 1 ]; then
-  pip install pylint
+  pip -E ${VIRTUAL} install --upgrade pylint
 fi
 
 # Overlay the additional Analysis Egnine tests
