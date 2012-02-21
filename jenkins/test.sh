@@ -33,6 +33,10 @@ if [ ${PYLINT} -eq 1 ]; then
   pip install pylint
 fi
 
+# Overlay the additional Analysis Egnine tests
+rm -rf tests/AnalysisEngine_tests
+bzr branch http://vindictive.flightdataservices.com/Bazaar/AnalysisEngine_tests tests/AnalysisEngine_tests
+
 # Install requirements
 if [ -f requirements.txt ]; then
     pip install --upgrade -r requirements.txt
