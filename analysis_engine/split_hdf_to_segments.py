@@ -23,6 +23,9 @@ from utilities.filesystem_tools import sha_hash_file
 class AircraftMismatch(ValueError):
     pass
 
+class TimebaseError(ValueError):
+    pass
+
 
 def validate_aircraft(aircraft_info, hdf):
     """
@@ -277,6 +280,38 @@ def split_segments(hdf):
     return segments
         
         
+def _calculate_start_datetime(hdf):
+    """
+    Calculate start datetime.
+    
+    HDF params used:
+    :Year: Optional (defaults to 1970)
+    :Month: Optional (defaults to 1)
+    :Day: Optional (defaults to 1)
+    :Hour: Required
+    :Minute: Required
+    :Second: Required
+
+    If required parameters are not available, a TimebaseError is raised
+    """
+    # align required parameters to 1Hz
+    onehz = P(frequency = 1)
+    dt_arrays = []
+    for name in ('Year', 'Month', 'Day', 'Hour', 'Minute', 'Second'):
+        if name in hdf:
+            dt_arrays.append(align(hdf[name], onehz, signaltype='Multi-State'))
+        elif name in ('Hour', 'Minute', 'Second'):
+            raise TimebaseError("Required parameter '%s' not available" % name)
+        else:
+            dt_arrays.append(None)
+    
+    # establish timebase for start of data
+    try:
+        return calculate_timebase(*dt_arrays)
+    except (KeyError, ValueError) as err:
+        raise TimebaseError("Error with timestamp values: %s" % err)
+    
+        
 def append_segment_info(hdf_segment_path, segment_type, segment_slice, part):
     """
     Get information about a segment such as type, hash, etc. and return a
@@ -299,19 +334,9 @@ def append_segment_info(hdf_segment_path, segment_type, segment_slice, part):
     with hdf_file(hdf_segment_path) as hdf:
         airspeed = hdf['Airspeed'].array
         duration = hdf.duration
-        # align required parameters to 1Hz
-        onehz = P(frequency = 1)
-        dt_arrays = []
-        for name in ('Year', 'Month', 'Day', 'Hour', 'Minute', 'Second'):
-            if name in hdf:
-                dt_arrays.append(align(hdf[name], onehz, signaltype='Multi-State'))
-            else:
-                dt_arrays.append(None)
-        
-        # establish timebase for start of data
         try:
-            start_datetime = calculate_timebase(*dt_arrays)
-        except (KeyError, ValueError):
+            start_datetime = _calculate_start_datetime(hdf)
+        except TimebaseError:
             logging.warning("Unable to calculate timebase, using epoch 1.1.1970!")
             start_datetime = datetime.fromtimestamp(0)
         stop_datetime = start_datetime + timedelta(seconds=duration)
@@ -402,12 +427,9 @@ if __name__ == '__main__':
     import sys
     import shutil
     import pprint
+    from utilities.filesystem_tools import copy_file
     hdf_path = sys.argv[1]
     aircraft_info = {'Tail Number': 'G-DEMA'}
-    hdf_copy = os.path.splitext(hdf_path)[0] + '_split.hdf5' 
-    if os.path.isfile(hdf_copy):
-        os.remove(hdf_copy)
-    shutil.copy(hdf_path, hdf_copy)
-    segs = split_hdf_to_segments(hdf_copy, aircraft_info=aircraft_info,
-                                 draw=False)    
+    hdf_copy = copy_file(hdf_path, postfix='_split')
+    segs = split_hdf_to_segments(hdf_copy, aircraft_info=aircraft_info,draw=False)    
     pprint.pprint(segs)

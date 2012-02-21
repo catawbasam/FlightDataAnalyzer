@@ -82,7 +82,7 @@ class AirspeedMax(KeyPointValueNode):
     def derive(self, speed=P('Airspeed'), airs=S('Airborne')):
         # For commented version, see GlideslopeDeviation1500To1000FtMax
         self.create_kpvs_within_slices(speed.array, airs, max_value)
-            
+
 
 class AltitudeAtTouchdown(KeyPointValueNode):
     def derive(self, alt_std=P('Altitude STD'), touchdowns=KTI('Touchdown')):
