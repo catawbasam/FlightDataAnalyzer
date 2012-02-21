@@ -303,6 +303,7 @@ if __name__ == '__main__':
                            'Distance To Landing', 'Eng (*) Fuel Flow',
                            'Altitude STD']
     import argparse, os, shutil
+    from utilities.filesystem_tools import copy_file
     parser = argparse.ArgumentParser(description="Process a flight.")
     parser.add_argument('file', type=str,
                         help='Path of file to process.')
@@ -312,10 +313,6 @@ if __name__ == '__main__':
                         default=False, help='Plot flight onto a graph.')
     args = parser.parse_args()
     
-    hdf_copy = os.path.splitext(args.file)[0] + '_process.hdf5' 
-    if os.path.isfile(hdf_copy):
-        os.remove(hdf_copy)
-    shutil.copy(args.file, hdf_copy)
-
+    hdf_copy = copy_file(args.file, postfix='_process')
     process_flight(hdf_copy, {'Tail Number': args.tail_number,
                               'Precise Positioning': True}, draw=args.plot)
