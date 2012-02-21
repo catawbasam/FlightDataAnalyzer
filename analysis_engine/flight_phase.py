@@ -98,18 +98,18 @@ class ApproachAndGoAround(FlightPhaseNode):
                alt_rad = P('Altitude Radio'),
                climb=P('Climb For Flight Phases'),
                go_arounds=KTI('Go Around'),
-               fast=P('Fast')):
+               airs=S('Airborne')):
         # Prepare a home for the approach slices
         app_slice = []    
-        for speedy in fast:
+        for air in airs:
             if alt_rad:
                 height = minimum_unmasked(alt_aal.array,alt_rad.array)
             else:
                 height = alt_aal.array
             
             for ga in go_arounds:
-                app_start = index_closest_value(height,INITIAL_APPROACH_THRESHOLD,slice(ga.index,speedy.slice.start, -1))
-                app_stop = index_closest_value(height,500,slice(ga.index,speedy.slice.stop))
+                app_start = index_closest_value(height,INITIAL_APPROACH_THRESHOLD,slice(ga.index,air.slice.start, -1))
+                app_stop = index_closest_value(height,500,slice(ga.index,air.slice.stop))
                 app_slice.append(slice(app_start,app_stop))
         
         self.create_phases(app_slice)
@@ -252,13 +252,13 @@ class ClimbFromBottomOfDescent(FlightPhaseNode):
 """
         
 class Climbing(FlightPhaseNode):
-    def derive(self, roc=P('Rate Of Climb For Flight Phases'), fast=S('Fast')):
+    def derive(self, roc=P('Rate Of Climb For Flight Phases'), airs=S('Airborne')):
         # Climbing is used for data validity checks and to reinforce regimes.
-        for speedy in fast:
-            climbing = np.ma.masked_less(roc.array[speedy.slice],
+        for air in airs:
+            climbing = np.ma.masked_less(roc.array[air.slice],
                                          RATE_OF_CLIMB_FOR_CLIMB_PHASE)
             climbing_slices = np.ma.clump_unmasked(climbing)
-            self.create_phases(shift_slices(climbing_slices, speedy.slice.start))
+            self.create_phases(shift_slices(climbing_slices, air.slice.start))
 
       
 class Cruise(FlightPhaseNode):
@@ -288,7 +288,7 @@ class Cruise(FlightPhaseNode):
 class Descending(FlightPhaseNode):
     """ Descending faster than 500fpm towards the ground
     """
-    def derive(self, roc=P('Rate Of Climb For Flight Phases'), airs=S('Fast')):
+    def derive(self, roc=P('Rate Of Climb For Flight Phases'), airs=S('Airborne')):
         # Rate of climb and descent limits of 500fpm gives good distinction
         # with level flight.
         for air in airs:
@@ -327,16 +327,16 @@ class DescentLowClimb(FlightPhaseNode):
     def derive(self, alt=P('Altitude AAL For Flight Phases'),
                climb=P('Climb For Flight Phases'),
                lands=S('Landing'),
-               fast=S('Fast')):
+               airs=S('Airborne')):
         my_list=[]
-        for speedy in fast:
+        for air in airs:
             # Select periods below the initial approach threshold
-            dlc = np.ma.masked_greater(alt.array[speedy.slice],
+            dlc = np.ma.masked_greater(alt.array[air.slice],
                                        INITIAL_APPROACH_THRESHOLD)
             dlc_list = np.ma.clump_unmasked(dlc)
             for this_dlc in dlc_list:
-                this_alt = alt.array[speedy.slice][this_dlc]
-                this_climb = climb.array[speedy.slice][this_dlc]
+                this_alt = alt.array[air.slice][this_dlc]
+                this_climb = climb.array[air.slice][this_dlc]
                 # When is the next landing phase?
                 land_start = lands.get_next(this_dlc.start)
                 if land_start is None:
@@ -349,7 +349,7 @@ class DescentLowClimb(FlightPhaseNode):
                    this_dlc.stop < land_start.slice.start and \
                    np.ma.max(this_climb) > 500:
                     my_list.append(this_dlc)
-        self.create_phases(shift_slices(my_list, speedy.slice.start))
+        self.create_phases(shift_slices(my_list, air.slice.start))
 
         
 class Fast(FlightPhaseNode):
@@ -365,18 +365,20 @@ class Fast(FlightPhaseNode):
             (airspeed.array[1:-1]-AIRSPEED_THRESHOLD)
         test_array = np.ma.masked_outside(value_passing_array, 0.0, -100.0)
         fast_samples = np.ma.flatnotmasked_edges(test_array)
+
+        # Did the aircraft go fast?
         if fast_samples is None:
-            return
+            raise ValueError('Aircraft did not exceed %s kts.' %AIRSPEED_THRESHOLD)
+        
         fast_slice = slice(fast_samples[0],fast_samples[1])
         
-        # Did the aircraft go fast?
-        if fast_slice is None:
-            return
-
-        # Was the "flight" long enough to be worth bothering with?
-        elif slice_samples(fast_slice) > \
-             FLIGHT_WORTH_ANALYSING_SEC*airspeed.frequency:
-            # OK - let's make a phase
+        # Did the aircraft go fast long enough?
+        if slice_samples(fast_slice) < FLIGHT_WORTH_ANALYSING_SEC*airspeed.frequency:
+            raise ValueError('Less than %s sec above %s kts. Stopping' \
+                  %slice_samples(fast_slice)/airspeed.frequency, \
+                  AIRSPEED_THRESHOLD)
+       
+        else:
             self.create_phase(fast_slice)
  
 
@@ -576,7 +578,7 @@ class Landing(FlightPhaseNode):
     def can_operate(cls, available):
         return 'Heading Continuous' in available and \
                'Altitude AAL For Flight Phases' in available and \
-               'Fast' in available
+               'Airborne' in available
     
     def derive(self, head=P('Heading Continuous'),
                alt_aal=P('Altitude AAL For Flight Phases'),
@@ -647,7 +649,7 @@ class Takeoff(FlightPhaseNode):
     def derive(self, head=P('Heading Continuous'),
                alt_aal=P('Altitude AAL For Flight Phases'),
                fast=S('Fast'),
-               alt_rad=P('Altitude Radio For Phases')):
+               alt_rad=P('Altitude Radio')):
 
         # Note: This algorithm works across the entire data array, and
         # not just inside the speedy slice, so the final indexes are
@@ -677,7 +679,7 @@ class Takeoff(FlightPhaseNode):
             first = max(0, takeoff_run - 300*head.frequency)
             takeoff_begin = index_at_value(np.ma.abs(head.array-datum),
                                           HEADING_TURN_ONTO_RUNWAY,
-                                          slice(first, takeoff_run))
+                                          slice(takeoff_run, first, -1))
 
             # Where the data starts in line with the runway, default to the
             # start of the data

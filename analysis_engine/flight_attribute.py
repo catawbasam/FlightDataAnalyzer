@@ -499,10 +499,7 @@ class TakeoffGrossWeight(FlightAttributeNode):
     name = 'FDR Takeoff Gross Weight'
     def derive(self, liftoff_gross_weight=P('Gross Weight At Liftoff')):
         first_gross_weight = liftoff_gross_weight.get_first()
-        if not first_gross_weight:
-            return
-        self.set_flight_attr(first_gross_weight.value)
-            
+        self.set_flight_attr(first_gross_weight)
     
 class TakeoffPilot(FlightAttributeNode, DeterminePilot):
     "Pilot flying at takeoff, Captain, First Officer or None"
@@ -730,8 +727,7 @@ class LandingGrossWeight(FlightAttributeNode):
     def derive(self, touchdown_gross_weight=KPV('Gross Weight At Touchdown')):
         last_gross_weight = touchdown_gross_weight.get_last()
         # TODO: Support flight attributes not calling set_flight_attr where appropriate.
-        #if last_gross_weight:
-        self.set_flight_attr(last_gross_weight.value)
+        self.set_flight_attr(last_gross_weight)
 
 
 class LandingPilot(FlightAttributeNode, DeterminePilot):

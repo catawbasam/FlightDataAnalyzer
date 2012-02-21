@@ -1689,6 +1689,11 @@ class TestStraightenHeadings(unittest.TestCase):
                          mask=[True]*10+[False]*8+[True]*4+[False]*5+[True]*4)
         ma_test.assert_masked_array_approx_equal(straighten_headings(data), expected)
             
+    def test_straight_headings_initial_value_corrupted(self):
+        data = np.ma.array([35.5,29.5,11.3,0.0,348.4,336.8,358.9,2.5,8.1,14.4])
+        expected = np.ma.array([35.5,29.5,11.3,0.0,-11.6,-23.2,-1.1,2.5,8.1,14.4])
+        np.testing.assert_array_almost_equal(straighten_headings(data),expected)
+            
 class TestSmoothTrack(unittest.TestCase):
     def test_smooth_track_latitude(self):
         lat = np.ma.array([0,0,0,1,1,1], dtype=float)

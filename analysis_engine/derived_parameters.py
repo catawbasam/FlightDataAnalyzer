@@ -1749,28 +1749,30 @@ def adjust_track(lon,lat,loc_est,ils_range,ils_loc,alt_aal,gspd,tas,
         
         # Which runway are we approaching?
         approach = app_info.value[num_loc]
-        # TODO: What do we do if localizer is not available in runway dict.
+
         if approach['runway'].has_key('localizer'):
             reference = approach['runway']['localizer']
+            
+            # Compute the localizer scale factor (degrees per dot)
+            scale = (reference['beam_width']/2.0) / 2.5
+            
+            # Adjust the ils data to be degrees from the reference point.
+            bearings = ils_loc.array[this_loc.slice] * scale + \
+                runway_heading(app_info.value[num_loc]['runway'])+180
+            
+            # Adjust distance units
+            distances = ils_range.array[this_loc.slice] / METRES_TO_FEET
+            
+            # At last, the conversion of ILS localizer data to latitude and longitude
+            lat_adj[this_loc.slice], lon_adj[this_loc.slice] = \
+                latitudes_and_longitudes(bearings, distances, reference)
+            
         elif approach['runway'].has_key('end'):
+            # We can use the end of the runway as a threshold, but what next?
             threshold = approach['runway']['end']
         else:
             pass
-            # TODO: Set threshold is where the touchdown happened.
-        
-        # Compute the localizer scale factor (degrees per dot)
-        scale = (reference['beam_width']/2.0) / 2.5
-        
-        # Adjust the ils data to be degrees from the reference point.
-        bearings = ils_loc.array[this_loc.slice] * scale + \
-            runway_heading(app_info.value[num_loc]['runway'])+180
-        
-        # Adjust distance units
-        distances = ils_range.array[this_loc.slice] / METRES_TO_FEET
-        
-        # At last, the conversion of ILS localizer data to latitude and longitude
-        lat_adj[this_loc.slice], lon_adj[this_loc.slice] = \
-            latitudes_and_longitudes(bearings, distances, reference)
+            # TODO: Set threshold is where the touchdown happened?.
         
 
     # --- Merge Tracks and return ---
@@ -1900,11 +1902,9 @@ class RateOfClimbForFlightPhases(DerivedParameterNode):
     def derive(self, alt_std = P('Altitude STD'),
                fast = S('Fast')):
         # This uses a scaled hysteresis parameter. See settings for more detail.
-        for speedy in fast:
-            threshold = HYSTERESIS_FPROC * \
-                max(1, rms_noise(alt_std.array[speedy.slice]))  
-            # The max(1, prevents =0 case when testing with artificial data.
-            self.array = hysteresis(rate_of_change(alt_std,3)*60,threshold)
+        threshold = HYSTERESIS_FPROC * max(1, rms_noise(alt_std.array))  
+        # The max(1, prevents =0 case when testing with artificial data.
+        self.array = hysteresis(rate_of_change(alt_std,3)*60,threshold)
 
 
 class Relief(DerivedParameterNode):

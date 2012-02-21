@@ -1822,6 +1822,7 @@ def straighten_headings(heading_array):
         diff = diff - 360.0 * np.trunc(diff/180.0)
         heading_array[clump][0] = head_prev
         heading_array[clump][1:] = np.cumsum(diff) + head_prev
+        #heading_array[clump] = heading_array[clump] - np.ma.mod(heading_array[clump] - heading_array.data[clump], 360.0)
     return heading_array
 
 def subslice(orig, new):

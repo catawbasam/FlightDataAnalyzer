@@ -47,8 +47,7 @@ def find_toc_tod(alt_data, ccd_slice, mode):
 
 class BottomOfDescent(KeyTimeInstanceNode):
     def derive(self, alt_std=P('Altitude STD'),
-               dlc=S('Descent Low Climb'),
-               fast=S('Fast')):
+               dlc=S('Descent Low Climb')):
         # In the case of descents without landing, this finds the minimum
         # point of the dip.
         for this_dlc in dlc:
