@@ -37,44 +37,45 @@ class Airborne(FlightPhaseNode):
         # Rate of climb limit set to identify both level flight and 
         # end of takeoff / start of landing.
         for speedy in fast:
-            if speedy.slice.stop-speedy.slice.start < FLIGHT_WORTH_ANALYSING_SEC:
-                continue
+            midpoint = (speedy.slice.start + speedy.slice.stop) / 2
+            # If the data starts in the climb, it must be already airborne.
+            if roc.array[speedy.slice.start] > RATE_OF_CLIMB_FOR_LEVEL_FLIGHT :
+                up = speedy.slice.start
             else:
-                midpoint = (speedy.slice.start + speedy.slice.stop) / 2
-                # If the data starts in the climb, it must be already airborne.
-                if roc.array[speedy.slice.start] > RATE_OF_CLIMB_FOR_LEVEL_FLIGHT :
+                # Scan through the first half to find where the aircraft first
+                # flies upwards
+                up = index_at_value(roc.array, +RATE_OF_CLIMB_FOR_LEVEL_FLIGHT,
+                                    slice(speedy.slice.start,midpoint))
+            if not up:
+                # The aircraft can have been airborne at the start of this
+                # segment. If it goes down during this half of the data we
+                # can assume it was airborne at the start of the segment.
+                if index_at_value(roc.array, -RATE_OF_CLIMB_FOR_LEVEL_FLIGHT,
+                                  slice(speedy.slice.start,midpoint)):
                     up = speedy.slice.start
                 else:
-                    # Scan through the first half to find where the aircraft first
-                    # flies upwards
-                    up = index_at_value(roc.array, +RATE_OF_CLIMB_FOR_LEVEL_FLIGHT,
-                                        slice(speedy.slice.start,midpoint))
-                if not up:
-                    # The aircraft can have been airborne at the start of this
-                    # segment. If it goes down during this half of the data we
-                    # can assume it was airborne at the start of the segment.
-                    if index_at_value(roc.array, -RATE_OF_CLIMB_FOR_LEVEL_FLIGHT,
-                                      slice(speedy.slice.start,midpoint)):
-                        up = speedy.slice.start
-                        
-                # Scan backwards through the latter half to find where the
-                # aircraft last descends.
-                lastpoint = int(speedy.slice.stop)
-                if roc.array[lastpoint-1] < -RATE_OF_CLIMB_FOR_LEVEL_FLIGHT:
-                    down = lastpoint
-                elif lastpoint - midpoint < 2:
+                    up = None
+                    
+            # Scan backwards through the latter half to find where the
+            # aircraft last descends.
+            lastpoint = int(speedy.slice.stop)
+            if roc.array[lastpoint-1] < -RATE_OF_CLIMB_FOR_LEVEL_FLIGHT:
+                down = lastpoint
+            elif lastpoint - midpoint < 2:
+                down = lastpoint
+            else:
+                down = index_at_value(roc.array, -RATE_OF_CLIMB_FOR_LEVEL_FLIGHT,
+                                      slice(lastpoint,midpoint,-1))
+
+            if not down:
+                if index_at_value(roc.array, +RATE_OF_CLIMB_FOR_LEVEL_FLIGHT,
+                                  slice(lastpoint,midpoint,-1)):
                     down = lastpoint
                 else:
-                    down = index_at_value(roc.array, -RATE_OF_CLIMB_FOR_LEVEL_FLIGHT,
-                                          slice(lastpoint,midpoint,-1))
-    
-                if not down:
-                    if index_at_value(roc.array, +RATE_OF_CLIMB_FOR_LEVEL_FLIGHT,
-                                      slice(lastpoint,midpoint,-1)):
-                        down = lastpoint
-    
-                if up and down:
-                    self.create_phase(slice(up,down))
+                    down = None
+
+            if up and down:
+                self.create_phase(slice(up,down))
 
 
 '''
@@ -353,6 +354,16 @@ class DescentLowClimb(FlightPhaseNode):
 
         
 class Fast(FlightPhaseNode):
+
+    '''
+    Data will have been sliced into single flights before entering the
+    analysis engine, so we can be sure that there will be only one fast
+    phase. This may have masked data within the phase, but by taking the
+    notmasked edges we enclose all the data worth analysing.
+    
+    Therefore len(Fast) in [0,1]
+    '''
+    
     def derive(self, airspeed=P('Airspeed For Flight Phases')):
         # Did the aircraft go fast enough to possibly become airborne?
         
@@ -364,22 +375,13 @@ class Fast(FlightPhaseNode):
         value_passing_array = (airspeed.array[0:-2]-AIRSPEED_THRESHOLD) * \
             (airspeed.array[1:-1]-AIRSPEED_THRESHOLD)
         test_array = np.ma.masked_outside(value_passing_array, 0.0, -100.0)
-        fast_samples = np.ma.flatnotmasked_edges(test_array)
+        fast_samples = np.ma.notmasked_edges(test_array)
 
-        # Did the aircraft go fast?
         if fast_samples is None:
-            raise ValueError('Aircraft did not exceed %s kts.' %AIRSPEED_THRESHOLD)
+            # Did not go fast enough.
+            return 
         
-        fast_slice = slice(fast_samples[0],fast_samples[1])
-        
-        # Did the aircraft go fast long enough?
-        if slice_samples(fast_slice) < FLIGHT_WORTH_ANALYSING_SEC*airspeed.frequency:
-            raise ValueError('Less than %s sec above %s kts. Stopping' \
-                  %slice_samples(fast_slice)/airspeed.frequency, \
-                  AIRSPEED_THRESHOLD)
-       
-        else:
-            self.create_phase(fast_slice)
+        self.create_phase(slice(*fast_samples))
  
 
 class FinalApproach(FlightPhaseNode):

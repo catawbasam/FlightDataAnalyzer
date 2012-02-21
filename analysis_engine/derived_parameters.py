@@ -1648,11 +1648,10 @@ class LatitudeSmoothed(DerivedParameterNode):
                             loc_est.name)
             self.array = lat.array
             return
-        lat_adj, lon_adj = adjust_track(lon,lat,loc_est,ils_range,ils_loc,
+        
+        self.array, _ = adjust_track(lon,lat,loc_est,ils_range,ils_loc,
                                         alt_aal,gspd,tas,precise,toff,
                                         app_info,toff_rwy)
-        
-        self.array = lat_adj
         
 
 class LongitudeSmoothed(DerivedParameterNode):
@@ -1678,12 +1677,9 @@ class LongitudeSmoothed(DerivedParameterNode):
             self.array = lon.array
             return        
 
-        lat_adj, lon_adj = adjust_track(lon,lat,loc_est,ils_range,ils_loc,
+        _, self.array = adjust_track(lon,lat,loc_est,ils_range,ils_loc,
                                         alt_aal,gspd,tas,precise,toff,
                                         app_info,toff_rwy)
-        if len(app_info.value) != len(loc_est):
-            return None
-        self.array = lon_adj
         
         
 def adjust_track(lon,lat,loc_est,ils_range,ils_loc,alt_aal,gspd,tas,
@@ -1770,7 +1766,7 @@ def adjust_track(lon,lat,loc_est,ils_range,ils_loc,alt_aal,gspd,tas,
                 latitudes_and_longitudes(bearings, distances, reference)
             
         elif approach['runway'].has_key('end'):
-            # We can use the end of the runway as a threshold, but what next?
+            # TODO: Consider if we can use the end of the runway as a threshold?
             threshold = approach['runway']['end']
         else:
             pass
@@ -1901,8 +1897,7 @@ class RateOfClimb(DerivedParameterNode):
          
          
 class RateOfClimbForFlightPhases(DerivedParameterNode):
-    def derive(self, alt_std = P('Altitude STD'),
-               fast = S('Fast')):
+    def derive(self, alt_std = P('Altitude STD')):
         # This uses a scaled hysteresis parameter. See settings for more detail.
         threshold = HYSTERESIS_FPROC * max(1, rms_noise(alt_std.array))  
         # The max(1, prevents =0 case when testing with artificial data.
