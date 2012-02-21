@@ -578,12 +578,12 @@ class Landing(FlightPhaseNode):
     def can_operate(cls, available):
         return 'Heading Continuous' in available and \
                'Altitude AAL For Flight Phases' in available and \
-               'Airborne' in available
+               'Fast' in available
     
     def derive(self, head=P('Heading Continuous'),
                alt_aal=P('Altitude AAL For Flight Phases'),
                fast=S('Fast'),
-               alt_rad=P('Altitude Radio For Phases')
+               alt_rad=P('Altitude Radio For Flight Phases')
                ):
         for speedy in fast:
             # See takeoff phase for comments on how the algorithm works.

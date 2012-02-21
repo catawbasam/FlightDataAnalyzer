@@ -351,17 +351,18 @@ class AltitudeForFlightPhases(DerivedParameterNode):
         self.array = hysteresis(repair_mask(alt_std.array), HYSTERESIS_FPALT)
     
 
+"""
 # Q: Which of the two following AltitudeRadio's are correct?
 # Note: The first one cannot replace its own name (Altitude Radio) and
 # therefore will never be processed?
 class AltitudeRadio(DerivedParameterNode):
-    """
+    '''
     This function allows for the distance between the radio altimeter antenna
     and the main wheels of the undercarriage.
 
     The parameter raa_to_gear is measured in feet and is positive if the
     antenna is forward of the mainwheels.
-    """
+    '''
     units = 'ft'
     def derive(self, alt_rad=P('Altitude Radio'), pitch=P('Pitch'),
                main_gear_to_alt_rad=A('Main Gear To Altitude Radio')):
@@ -370,6 +371,7 @@ class AltitudeRadio(DerivedParameterNode):
         pitch_rad = np.radians(pitch.array)
         # Now apply the offset if one has been provided
         self.array = alt_rad.array - np.sin(pitch_rad) * main_gear_to_alt_rad.value
+"""
 
 class AltitudeRadio(DerivedParameterNode):
     '''
