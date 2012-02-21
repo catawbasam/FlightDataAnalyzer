@@ -104,7 +104,7 @@ class Approaches(FlightAttributeNode):
             runway_info = api_handler.get_nearest_runway(airport_id, hdg, **kwargs)
             if len(runway_info['items']) > 1:
                 # TODO: What to store in approach dictionary.
-                runway = {'ident': runway_info[0]}
+                runway = {'identifier': runway_info['ident']}
                 logging.warning("Identified %d Runways, ident %s. Picking the first!", 
                              len(runway_info['items']), runway_info['ident'])
             else:
