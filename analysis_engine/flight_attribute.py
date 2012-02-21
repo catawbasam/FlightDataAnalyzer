@@ -328,8 +328,8 @@ class LandingRunway(FlightAttributeNode):
     def derive(self, approach_and_landing=S('Approach And Landing'),
                landing_hdg=KPV('Heading At Landing'),
                airport=A('FDR Landing Airport'),
-               landing_latitude=P('Latitude At Landing'),
-               landing_longitude=P('Longitude At Landing'),
+               landing_latitude=KPV('Latitude At Landing'),
+               landing_longitude=KPV('Longitude At Landing'),
                approach_ilsfreq=KPV('ILS Frequency On Approach'),
                precision=A('Precise Positioning')
                ):
