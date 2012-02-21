@@ -1806,7 +1806,7 @@ def smooth_track(lat, lon):
     return lat_last, lon_last, cost_0
 
             
-def straighten_headings(heading_array):
+def straighten_headings(heading_array, copy=True):
     '''
     We always straighten heading data before checking for spikes. 
     It's easier to process heading data in this format.
@@ -1816,6 +1816,8 @@ def straighten_headings(heading_array):
     :returns: Straightened headings
     :rtype: Generator of type Float
     '''
+    if copy:
+        heading_array = heading_array.copy()
     for clump in np.ma.clump_unmasked(heading_array):
         head_prev = heading_array.data[clump.start]
         diff = np.ediff1d(heading_array.data[clump])
