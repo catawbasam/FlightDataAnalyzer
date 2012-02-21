@@ -39,7 +39,7 @@ bzr branch http://vindictive.flightdataservices.com/Bazaar/AnalysisEngine_tests 
 
 # Install requirements
 if [ -f requirements.txt ]; then
-    pip install --upgrade -r requirements.txt
+    pip -E ${VIRTENV} install --upgrade -r requirements.txt
 fi
 
 # Install runtime requirements.
