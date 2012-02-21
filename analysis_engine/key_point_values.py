@@ -83,43 +83,7 @@ class AirspeedMax(KeyPointValueNode):
         # For commented version, see GlideslopeDeviation1500To1000FtMax
         self.create_kpvs_within_slices(speed.array, airs, max_value)
             
-
-class HeadingAtTakeoff(KeyPointValueNode):
-    def derive(self, toffs=KTI('Fast'), 
-               head=P('Heading Continuous')):
-        for toff in toffs:
-            toff_head = np.ma.median(
-                head.array[toff.slice.start-5:toff.slice.start+5])
-            # Scanning 10 seconds around this point allows for short periods of
-            # corrupt data during the takeoff run.
-            self.create_kpv(toff.slice.start, toff_head%360.0)
-
-"""
-
-TODO: Can we omit this ?!?
-
-class AltitudeAtTakeoff(KeyPointValueNode):
-    def derive(self, takeoffs=S('Takeoff'), head=P('Heading Continuous'), 
-               accel=P('Acceleration Forwards')):
-        for toff in takeoffs:
-            peak_accel_index, value = max_value(accel.array, toff.slice)
-            toff_head = head.array.data[peak_accel_index] #TODO: What if data is masked on this value, use nearest valid by repairing mask?
-            self.create_kpv(peak_accel_index, toff_head%360.0)
-
-            
-class AltitudeAtLiftoff(KeyPointValueNode):
-    # Taken at the point of liftoff although there will be pressure errors at
-    # this point. The reason for computing this is unclear as we calculate
-    # Altitude AAL based upon the 35ft phase transition altitude.
-    def derive(self, alt_std=P('Altitude STD'), liftoffs=KTI('Liftoff')):
-        self.create_kpvs_at_ktis(alt_std.array, liftoffs)
-
-    
-class AltitudeAtLanding(KeyPointValueNode):
-    def derive(self, lands=KTI('Touchdown'), alt_std=P('Altitude STD')):
-        for land in lands:
-            self.create_kpv(land.index, alt_std[land.index])
-"""
+   
 class AltitudeAtTouchdown(KeyPointValueNode):
     def derive(self, alt_std=P('Altitude STD'), touchdowns=KTI('Touchdown')):
         self.create_kpvs_at_ktis(alt_std.array, touchdowns)

@@ -192,7 +192,7 @@ class AirspeedMinusVref(DerivedParameterNode):
 class AirspeedTrue(DerivedParameterNode):
     @classmethod
     def can_operate(cls, available):
-       return 'Airspeed' in available and 'Altitude STD' in available
+        return 'Airspeed' in available and 'Altitude STD' in available
     
     def derive(self, cas = P('Airspeed'),
                alt_std = P('Altitude STD'),
