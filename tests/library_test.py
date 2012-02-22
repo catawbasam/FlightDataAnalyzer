@@ -743,7 +743,7 @@ class TestFirstOrderWashout(unittest.TestCase):
         result = first_order_washout (array, 1.0, 1.0, initial_value = 1.0)
         ma_test.assert_mask_eqivalent(result.mask, [0,0,0,1,0], err_msg='Masks are not equal')
     
-    
+   
 class TestRunwayDistances(unittest.TestCase):
     # This single test case uses data for Bergen and has been checked against
     # Google Earth measurements for reasonable accuracy.

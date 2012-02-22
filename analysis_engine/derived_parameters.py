@@ -21,6 +21,7 @@ from analysis_engine.library import (bearings_and_distances,
                                      index_of_datetime,
                                      integrate,
                                      interleave,
+                                     is_index_within_slice,
                                      is_slice_within_slice,
                                      latitudes_and_longitudes,
                                      merge_sources,
@@ -36,6 +37,7 @@ from analysis_engine.library import (bearings_and_distances,
                                      step_values,
                                      straighten_headings,
                                      track_linking,
+                                     value_at_index,
                                      vstack_params)
 
 from settings import (AZ_WASHOUT_TC,
@@ -1204,6 +1206,62 @@ class FuelQty(DerivedParameterNode):
         stacked_params = vstack_params(fuel_qty1, fuel_qty2, fuel_qty3)
         self.array = np.ma.sum(stacked_params, axis=0)
 
+
+class GrossWeightSmoothed(DerivedParameterNode):
+    '''
+    Gross weight is usually sampled at a low rate and can be very poor in the
+    climb, often indicating an increase in weight at takeoff and this effect
+    may not end until the aircraft levels in the cruise. Also some aircraft
+    weight data saturates at high AUW values, and while the POLARIS Analysis
+    Engine can mask this data a subsitute is needed for takeoff weight (hence
+    V2) calculations. This can only be provided by extrapolation backwards
+    from data available later in the flight.
+    
+    This routine makes the best of both worlds by using fuel flow to compute
+    short term changes in weight and mapping this onto the level attitude
+    data.
+    '''
+    align_to_first_dependency = False
+    
+    def derive(self, ff = P('Eng (*) Fuel Flow'),
+               gw = P('Gross Weight'),
+               climbs = S('Climbing'),
+               descends = S('Descending')
+               ):
+        flow = repair_mask(ff.array)
+        fuel_to_burn = np.ma.array(integrate (flow/3600.0, ff.frequency,  direction='reverse'))
+
+        to_burn_valid = []
+        to_burn_all = []
+        gw_valid = []
+        gw_all = []
+        for gw_index in gw.array.nonzero()[0]:
+            # Keep all the values
+            gw_all.append(gw.array.data[gw_index])
+            ff_time = ((gw_index/gw.frequency)+gw.offset-ff.offset)*ff.frequency
+            to_burn_all.append(value_at_index(fuel_to_burn, ff_time))
+            
+            # Check for those not in climb or descent
+            for climb in climbs:
+                if is_index_within_slice(gw_index, climb.slice):
+                    break
+            for descend in descends:
+                if is_index_within_slice(gw_index, climb.slice):
+                    break
+            gw_valid.append(gw.array.data[gw_index])
+            ff_time = ((gw_index/gw.frequency)+gw.offset-ff.offset)*ff.frequency
+            to_burn_valid.append(value_at_index(fuel_to_burn, ff_time))
+            
+        if len(gw_valid) > 5:
+            corr, slope, offset = coreg(np.ma.array(gw_valid), indep_var=np.ma.array(to_burn_valid))
+        elif len(gw_all) > 2:
+            corr, slope, offset = coreg(np.ma.array(gw_all), indep_var=np.ma.array(to_burn_all))
+        elif len(gw_all) == 1:
+            offset = gw_all[0] - to_burn_all[0]
+        else:
+            return
+        
+        self.array = fuel_to_burn + offset
 
 class FlapLever(DerivedParameterNode):
     """

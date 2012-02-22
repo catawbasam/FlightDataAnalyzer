@@ -312,9 +312,9 @@ def coreg(y, indep_var=None, force_zero=False):
     correlate, slope, offset = coreg(y, indep_var=x, force_zero=True)
     
     :param y: dependent variable
-    :type y: numpy array
+    :type y: numpy float array - NB: MUST be float
     :param x: independent variable
-    :type x: numpy array. Where not supplied, a linear scale is created.
+    :type x: numpy float array. Where not supplied, a linear scale is created.
     :param force_zero: switch to force the regression offset to zero
     :type force_zero: logic, default=False
     
@@ -807,6 +807,9 @@ def integrate (array, frequency, initial_value=0.0, scale=1.0, direction="forwar
     :param scale: Scaling factor, default = 1.0
     :type scale: float
     :param direction: Optional integration sense, default = 'forwards'
+    
+    Note: Reverse integration does not include a change of sign, so positive 
+    values have a negative slope following integration using this function.
     
     :returns integral: Result of integration by time
     :type integral: Numpy masked array.
