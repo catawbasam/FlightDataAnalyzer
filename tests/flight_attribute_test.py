@@ -802,7 +802,6 @@ class TestLandingRunway(unittest.TestCase):
                 }
             ]}
         
-        
         get_nearest_runway.return_value = runway_info
         landing_runway = LandingRunway()
         landing_runway.set_flight_attr = Mock()

@@ -1101,7 +1101,8 @@ class TestGrossWeightSmoothed(unittest.TestCase):
 
 class TestGroundspeedAlongTrack(unittest.TestCase):
     def test_can_operate(self):
-        expected = [('Groundspeed','Acceleration Along Track')]
+        expected = [('Groundspeed','Acceleration Along Track', 'Altitude AAL',
+                     'ILS Glideslope')]
         opts = GroundspeedAlongTrack.get_operational_combinations()
         self.assertEqual(opts, expected)
 
@@ -1371,7 +1372,7 @@ class TestRateOfClimb(unittest.TestCase):
 
 class TestRateOfClimbForFlightPhases(unittest.TestCase):
     def test_can_operate(self):
-        expected = [('Altitude STD','Fast')]
+        expected = [('Altitude STD',)]
         opts = RateOfClimbForFlightPhases.get_operational_combinations()
         self.assertEqual(opts, expected)
         

@@ -1393,13 +1393,8 @@ class GroundspeedAlongTrack(DerivedParameterNode):
     # groundspeed data stops at 40kn or thereabouts.
     def derive(self, gndspd=P('Groundspeed'),
                at=P('Acceleration Along Track'),
-               
-               
                alt_aal=P('Altitude AAL'),
-               glide = P('ILS Glideslope'),
-
-
-               ):
+               glide = P('ILS Glideslope')):
         at_washout = first_order_washout(at.array, AT_WASHOUT_TC, gndspd.hz, 
                                          gain=GROUNDSPEED_LAG_TC*GRAVITY_METRIC)
         self.array = first_order_lag(gndspd.array*KTS_TO_MPS + at_washout,
@@ -1577,10 +1572,9 @@ class ILSRange(DerivedParameterNode):
         ils_range = np.ma.array(np.zeros_like(gspd.array.data))
         
         for this_loc in loc_established:
- 
             # Scan through the recorded approaches to find which matches this
             # localizer established phase.
-            for num_loc, approach in enumerate(app_info.value):
+            for approach in app_info.value:
                 # line up an approach slice
                 start = index_of_datetime(start_datetime.value,
                                           approach['slice_start_datetime'],
@@ -1596,18 +1590,19 @@ class ILSRange(DerivedParameterNode):
                 logging.warning("No approach found within slice '%s'.",this_loc)
                 continue
 
-            if not approach.get('runway'):
+            runway = approach['runway']
+            if not runway:
                 logging.error("Approach runway information not available.")
                 raise NotImplementedError(
-                    "No support for Airports without Runways! Details: %s" % approach)
+                    "No support for Airports without Runways! Details: %s" % approach)                
             
             if precise.value:
                 # Convert (straightened) latitude & longitude for the whole phase
                 # into range from the threshold. (threshold = {})
-                if approach['runway'].has_key('localizer'):
-                    threshold = approach['runway']['localizer']
-                elif approach['runway'].has_key('end'):
-                    threshold = approach['runway']['end']
+                if 'localizer' in runway:
+                    threshold = runway['localizer']
+                elif 'end' in runway:
+                    threshold = runway['end']
                 else:
                     pass
                     # TODO: Set threshold is where the touchdown happened.
@@ -1634,8 +1629,8 @@ class ILSRange(DerivedParameterNode):
                 spd_repaired, speed.frequency, scale=KTS_TO_FPS, direction='reverse')
             
             start_2_loc, gs_2_loc, end_2_loc, pgs_lat, pgs_lon = \
-                                runway_distances(approach['runway'])  
-            if 'glideslope' in approach['runway']:
+                                runway_distances(runway)  
+            if 'glideslope' in runway:
                 # The runway has an ILS glideslope antenna
                 
                 for this_gs in gs_established:                    
@@ -1699,8 +1694,10 @@ class LatitudeSmoothed(DerivedParameterNode):
                toff = S('Takeoff'),
                app_info = A('FDR Approaches'),
                toff_rwy = A('FDR Takeoff Runway'),
+               start_datetime = A('Start Datetime'),
                ):
         if len(app_info.value) != len(loc_est):
+            # Q: Is this still True?
             logging.warning("Cannot Smooth latitude if the number of '%s'"
                             "Sections is not equal to the number of approaches.",
                             loc_est.name)
@@ -1709,7 +1706,7 @@ class LatitudeSmoothed(DerivedParameterNode):
         
         self.array, _ = adjust_track(lon,lat,loc_est,ils_range,ils_loc,
                                         alt_aal,gspd,tas,precise,toff,
-                                        app_info,toff_rwy)
+                                        app_info,toff_rwy,start_datetime)
         
 
 class LongitudeSmoothed(DerivedParameterNode):
@@ -1727,8 +1724,10 @@ class LongitudeSmoothed(DerivedParameterNode):
                toff = S('Takeoff'),
                app_info = A('FDR Approaches'),
                toff_rwy = A('FDR Takeoff Runway'),
+               start_datetime = A('Start Datetime'),
                ):
         if len(app_info.value) != len(loc_est):
+            # Q: Is this still True?
             logging.warning("Cannot Smooth longitude if the number of '%s'"
                             "Sections is not equal to the number of approaches.",
                             loc_est.name)
@@ -1737,11 +1736,11 @@ class LongitudeSmoothed(DerivedParameterNode):
 
         _, self.array = adjust_track(lon,lat,loc_est,ils_range,ils_loc,
                                         alt_aal,gspd,tas,precise,toff,
-                                        app_info,toff_rwy)
+                                        app_info,toff_rwy,start_datetime)
         
         
 def adjust_track(lon,lat,loc_est,ils_range,ils_loc,alt_aal,gspd,tas,
-                 precise,toff,app_info,toff_rwy):
+                 precise,toff,app_info,toff_rwy,start_datetime):
 
     # Set up a working space.
     lat_adj = np.ma.array(data=lat.array.data,mask=True)
@@ -1750,20 +1749,20 @@ def adjust_track(lon,lat,loc_est,ils_range,ils_loc,alt_aal,gspd,tas,
     #-----------------------------------------------------------------------
     # Use synthesized track for takeoffs where necessary
     #-----------------------------------------------------------------------
-
+    first_toff = toff.get_first()
     if precise.value:
         # We allow the recorded track to be used for the takeoff unchanged.
-        lat_adj[:toff[0].slice.stop] = lat.array[:toff[0].slice.stop]
-        lon_adj[:toff[0].slice.stop] = lon.array[:toff[0].slice.stop]
+        lat_adj[:first_toff.slice.stop] = lat.array[:first_toff.slice.stop]
+        lon_adj[:first_toff.slice.stop] = lon.array[:first_toff.slice.stop]
         
     else:
 
         # We can improve the track using available data.
         if gspd:
-            speed = gspd.array[toff[0].slice]
+            speed = gspd.array[first_toff.slice]
             freq = gspd.frequency
         else:
-            speed = tas.array[toff[0].slice]
+            speed = tas.array[first_toff.slice]
             freq = tas.frequency
             
         # Compute takeoff track from start of runway using integrated
@@ -1773,7 +1772,7 @@ def adjust_track(lon,lat,loc_est,ils_range,ils_loc,alt_aal,gspd,tas,
         rwy_dist = np.ma.array(                        
             data = integrate(speed, freq, initial_value=300, 
                              scale=KTS_TO_FPS),
-            mask = gspd.array.mask[toff[0].slice])
+            mask = gspd.array.mask[first_toff.slice])
 
         # The start location has been read from the database.
         # TODO: What should we do if start coordinates are not available.
@@ -1789,7 +1788,7 @@ def adjust_track(lon,lat,loc_est,ils_range,ils_loc,alt_aal,gspd,tas,
         
         # And finally the track down the runway centreline is
         # converted to latitude and longitude.
-        lat_adj[toff[0].slice], lon_adj[toff[0].slice] = \
+        lat_adj[toff[0].slice], lon_adj[first_toff.slice] = \
             latitudes_and_longitudes(rwy_brg, 
                                      rwy_dist/METRES_TO_FEET, 
                                      start_locn)                    
@@ -1798,23 +1797,43 @@ def adjust_track(lon,lat,loc_est,ils_range,ils_loc,alt_aal,gspd,tas,
     # Use ILS track for approach and landings in all localizer approches
     #-----------------------------------------------------------------------
     
-    for num_loc, this_loc in enumerate(loc_est):    
+    for this_loc in loc_est:    
         # Join with ILS bearings (inherently from the localizer) and
         # revert the ILS track from range and bearing to lat & long
         # coordinates.
+        # Scan through the recorded approaches to find which matches this
+        # localizer established phase.
+        for approach in app_info.value:
+            # line up an approach slice
+            start = index_of_datetime(start_datetime.value,
+                                      approach['slice_start_datetime'],
+                                      self.frequency)
+            stop = index_of_datetime(start_datetime.value,
+                                     approach['slice_stop_datetime'],
+                                     self.frequency)
+            approach_slice = slice(start, stop)
+            if slices_overlap(this_loc.slice, approach_slice):
+                # we've found a matching approach where the localiser was established
+                break
+        else:
+            logging.warning("No approach found within slice '%s'.",this_loc)
+            continue
         
-        # Which runway are we approaching?
-        approach = app_info.value[num_loc]
-
-        if approach['runway'].has_key('localizer'):
-            reference = approach['runway']['localizer']
+        runway = approach['runway']
+        if not runway:
+            logging.error("Approach runway information not available.")
+            raise NotImplementedError(
+                "No support for Airports without Runways! Details: %s" % approach)    
+        
+        if 'localizer' in runway:
+            reference = runway['localizer']
             
             # Compute the localizer scale factor (degrees per dot)
             scale = (reference['beam_width']/2.0) / 2.5
             
             # Adjust the ils data to be degrees from the reference point.
             bearings = ils_loc.array[this_loc.slice] * scale + \
-                runway_heading(app_info.value[num_loc]['runway'])+180
+                runway_heading(runway)+180
             
             # Adjust distance units
             distances = ils_range.array[this_loc.slice] / METRES_TO_FEET
@@ -1823,9 +1842,9 @@ def adjust_track(lon,lat,loc_est,ils_range,ils_loc,alt_aal,gspd,tas,
             lat_adj[this_loc.slice], lon_adj[this_loc.slice] = \
                 latitudes_and_longitudes(bearings, distances, reference)
             
-        elif approach['runway'].has_key('end'):
+        elif 'end' in runway:
             # TODO: Consider if we can use the end of the runway as a threshold?
-            threshold = approach['runway']['end']
+            threshold = runway['end']
         else:
             pass
             # TODO: Set threshold is where the touchdown happened?.
