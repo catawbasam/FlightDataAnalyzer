@@ -300,12 +300,15 @@ class TestSegmentInfo(unittest.TestCase):
         res = _calculate_start_datetime(hdf, dt)
         self.assertEqual(res, datetime(2012,12,12,12,12,12))
         
+    def test_empty_year_no_seconds(self):
+        dt = datetime(2012,12,12,12,12,10)
         # Test only without second and empty year
-        hdf = {'Year':  P('Year',np.ma.array([])),
-               'Month': P('Month',np.ma.array([11])),
-               'Day':   P('Day',np.ma.array([11])),
-               'Hour':  P('Hour',np.ma.array([11])),
-               'Minute':P('Minute',np.ma.array([11])),
+        hdf = {
+               'Month': P('Month',np.ma.array([11, 11, 11,11])),
+               'Day':   P('Day',np.ma.array([])),
+               'Hour':  P('Hour',np.ma.array([11,11,11,11], mask=[True, False, False, False])),
+               'Minute':P('Minute',np.ma.array([11]), frequency=0.25),
                }
         res = _calculate_start_datetime(hdf, dt)
-        self.assertEqual(res, datetime(2012,11,11,11,11,12))
+        # 9th second as the first sample (10th second) was masked
+        self.assertEqual(res, datetime(2012,11,12,11,11,9))
