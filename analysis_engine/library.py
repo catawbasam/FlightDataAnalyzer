@@ -86,16 +86,14 @@ def align(slave, master, interval='Subframe', signaltype='Analogue'):
             # sample rate.
             slave_aligned=np.ma.copy(slave.array)
             return slave_aligned
-        
+
         if wm>ws:
             # Increase samples in slave accordingly
             r = wm/ws
             assert r in [2,4,8,16,32,64,128,256]
-            slave_aligned = np.ma.reshape(np.ma.empty_like(master.array),(-1,r))
-            for i in range(len(slave.array)):
-                slave_aligned[i::r]=slave.array[i]
-            return np.ma.ravel(slave_aligned)
-            
+            slave_aligned = np.ma.repeat(slave.array, r)
+            return slave_aligned
+
         else:
             # Reduce samples in slave.
             r = ws/wm

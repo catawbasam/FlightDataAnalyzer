@@ -267,7 +267,10 @@ class FlightNumber(FlightAttributeNode):
         # Q: Should we validate the flight number?
         _, minvalue = min_value(num.array)
         if minvalue < 0:
-            raise ValueError("Only supports unsigned (positive) values")
+            logging.warning("'%s' only supports unsigned (positive) values",
+                            self.name)
+            self.set_flight_attr(None)
+            return
         
         # TODO: Fill num.array masked values (as there is no np.ma.bincount) - perhaps with 0.0 and then remove all 0 values?
         # note reverse of value, index from max_value due to bincount usage.
@@ -276,7 +279,10 @@ class FlightNumber(FlightAttributeNode):
             # this value accounts for at least 60% of the values in the array
             self.set_flight_attr(str(value))
         else:
-            raise ValueError("Low variance")
+            logging.warning("'%s' found low variance in '%s'. Attribute will "
+                            "be set as None.", self.name, num.name)
+            self.set_flight_attr(None)
+            return
 
 
 class LandingAirport(FlightAttributeNode):
@@ -370,9 +376,7 @@ class LandingRunway(FlightAttributeNode):
             runway_info = api_handler.get_nearest_runway(airport_id, heading,
                                                     **kwargs)
             if len(runway_info['items']) > 1:
-                # TODO: Having a string here will cause problems..
                 runway = {'identifier': runway_info['ident']}
-                ##raise NotImplementedError('Multiple runways returned')
             else:
                 runway = runway_info['items'][0]            
         except NotFoundError:
@@ -587,8 +591,6 @@ class TakeoffRunway(FlightAttributeNode):
         # an airport database with terminal and taxiway details that was not
         # felt justified).
         if latitude_at_takeoff and longitude_at_takeoff:
-        ##if precision and precision.value and latitude_at_takeoff and \
-           ##longitude_at_takeoff:
             first_latitude = latitude_at_takeoff.get_first()
             first_longitude = longitude_at_takeoff.get_first()
             if first_latitude and first_longitude:
@@ -603,15 +605,14 @@ class TakeoffRunway(FlightAttributeNode):
             if len(runway_info['items']) > 1:
                 # TODO: This will probably break nodes which are dependent.
                 runway = {'identifier': runway_info['ident']}
-                raise NotImplementedError('Multiple runways returned')
             else:
                 runway = runway_info['items'][0]
+            self.set_flight_attr(runway)
         except NotFoundError:
             logging.warning("Runway not found for airport id '%d', heading "
                             "'%f' and kwargs '%s'.", airport_id, hdg_value,
                             kwargs)
-        else:
-            self.set_flight_attr(runway)
+            self.set_flight_attr(None)
 
 
 class FlightType(FlightAttributeNode):

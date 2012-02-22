@@ -585,7 +585,8 @@ class TestFlightNumber(unittest.TestCase):
         neg_number_param = P(
             'Flight Number',
             array=np.ma.array([-1,2,-4,10]))
-        self.assertRaises(ValueError, flight_number.derive, neg_number_param)
+        flight_number.derive(neg_number_param)
+        self.assertEqual(flight_number.value, None)
         
         # TODO: Implement variance checks as below
         ##high_variance_number_param = P(
@@ -801,7 +802,6 @@ class TestLandingRunway(unittest.TestCase):
                 }
             ]}
         
-        
         get_nearest_runway.return_value = runway_info
         landing_runway = LandingRunway()
         landing_runway.set_flight_attr = Mock()
@@ -815,14 +815,14 @@ class TestLandingRunway(unittest.TestCase):
         
         landing_runway.derive(approach_and_landing, landing_hdg, airport)
         get_nearest_runway.assert_called_once_with(25, 20.0)
-        landing_runway.set_flight_attr.assert_called_once_with(runway_info)
+        landing_runway.set_flight_attr.assert_called_once_with(runway_info['items'][0])
         approach_ilsfreq = KPV('ILS Frequency On Approach',
                                items=[KeyPointValue(15, 330150, 'a')])
         landing_runway.set_flight_attr = Mock()
         landing_runway.derive(approach_and_landing, landing_hdg, airport,
                               None, None, approach_ilsfreq, None)
         get_nearest_runway.assert_called_with(25, 20.0, ilsfreq=330150)
-        landing_runway.set_flight_attr.assert_called_once_with(runway_info)
+        landing_runway.set_flight_attr.assert_called_once_with(runway_info['items'][0])
         
         # Airport, Landing Heading, Latitude, Longitude and Precision
         # arguments. Latitude and Longitude are only passed with all these
@@ -837,7 +837,7 @@ class TestLandingRunway(unittest.TestCase):
         landing_runway.derive(approach_and_landing, landing_hdg, airport, latitude,
                               longitude, approach_ilsfreq, precision)
         get_nearest_runway.assert_called_with(25, 20.0, ilsfreq=330150)
-        landing_runway.set_flight_attr.assert_called_once_with(runway_info)
+        landing_runway.set_flight_attr.assert_called_once_with(runway_info['items'][0])
         precision.value = True
         landing_runway.set_flight_attr = Mock()
         landing_runway.derive(approach_and_landing, landing_hdg, airport,
@@ -936,7 +936,7 @@ class TestTakeoffAirport(unittest.TestCase):
         takeoff_airport.set_flight_attr = Mock()
         takeoff_airport.derive(latitude, longitude)
         get_nearest_airport.assert_called_once_with(4.0, 3.0)
-        self.assertFalse(takeoff_airport.set_flight_attr.called)
+        takeoff_airport.set_flight_attr.assert_called_once_with(None)
     
     @patch('analysis_engine.api_handler_analysis_engine.AnalysisEngineAPIHandlerHTTP.get_nearest_airport')
     def test_derive_airport_found(self, get_nearest_airport):
@@ -1099,7 +1099,7 @@ class TestTakeoffRunway(unittest.TestCase):
     
     @patch('analysis_engine.api_handler_analysis_engine.AnalysisEngineAPIHandlerHTTP.get_nearest_runway')
     def test_derive(self, get_nearest_runway):
-        runway_info = {'ident': '27L', 'runways': [{'length': 20}]}
+        runway_info = {'ident': '27L', 'items': [{'length': 20}]}
         get_nearest_runway.return_value = runway_info
         takeoff_runway = TakeoffRunway()
         takeoff_runway.set_flight_attr = Mock()
@@ -1110,7 +1110,7 @@ class TestTakeoffRunway(unittest.TestCase):
         takeoff_heading.create_kpv(1, 20.0)
         takeoff_runway.derive(airport, takeoff_heading)
         get_nearest_runway.assert_called_with(25, 20.0)
-        takeoff_runway.set_flight_attr.assert_called_once_with(runway_info)
+        takeoff_runway.set_flight_attr.assert_called_once_with(runway_info['items'][0])
         # Airport, Heading At Takeoff, Liftoff, Latitude, Longitude and Precision
         # arguments. Latitude and Longitude are only passed with all these
         # parameters available and Precise Positioning is True.
@@ -1126,14 +1126,15 @@ class TestTakeoffRunway(unittest.TestCase):
                               precision)
         get_nearest_runway.assert_called_with(25, 20.0, latitude=4.0,
                                               longitude=3.0)
-        takeoff_runway.set_flight_attr.assert_called_with(runway_info)
+        takeoff_runway.set_flight_attr.assert_called_with(runway_info['items'][0])
         # When Precise Positioning's value is False, Latitude and Longitude
         # are not used.
         precision.value = False
         takeoff_runway.derive(airport, takeoff_heading, latitude, longitude,
                               precision)
-        get_nearest_runway.assert_called_with(25, 20.0)
-        takeoff_runway.set_flight_attr.assert_called_with(runway_info)
+        get_nearest_runway.assert_called_with(25, 20.0, latitude=4.0,
+                                              longitude=3.0)
+        takeoff_runway.set_flight_attr.assert_called_with(runway_info['items'][0])
 
 
 class TestFlightType(unittest.TestCase):
