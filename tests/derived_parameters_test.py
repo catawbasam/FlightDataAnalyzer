@@ -1073,7 +1073,7 @@ class TestGrossWeightSmoothed(unittest.TestCase):
     def test_gw_formula(self):
         weight = P('Gross Weight',np.ma.array([292,228,164,100],dtype=float),offset=0.0,frequency=1/64.0)
         fuel_flow = P('Eng (*) Fuel Flow',np.ma.array([3600]*256,dtype=float),offset=0.0,frequency=1.0)
-        climbing = Section('Climbing',slice(None,None))
+        climbing = S('Climbing',items=[Section('Climbing', slice=slice(None,None))])
         gws = GrossWeightSmoothed()
         result = gws.get_derived([fuel_flow, weight, climbing])
         self.assertEqual(result.array[0], 292.0)
