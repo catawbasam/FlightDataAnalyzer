@@ -329,6 +329,8 @@ class DescentLowClimb(FlightPhaseNode):
                climb=P('Climb For Flight Phases'),
                lands=S('Landing'),
                airs=S('Airborne')):
+        if not airs:
+            return
         my_list=[]
         for air in airs:
             # Select periods below the initial approach threshold
