@@ -987,12 +987,13 @@ class FuelQtyAtTouchdown(KeyPointValueNode):
 
 
 class GrossWeightAtLiftoff(KeyPointValueNode):
-    def derive(self, gross_weight=P('Gross Weight'), liftoffs=KTI('Liftoff')):
+    def derive(self, gross_weight=P('Gross Weight Smoothed'), 
+               liftoffs=KTI('Liftoff')):
         self.create_kpvs_at_ktis(gross_weight.array, liftoffs)
 
 
 class GrossWeightAtTouchdown(KeyPointValueNode):
-    def derive(self, gross_weight=P('Gross Weight'),
+    def derive(self, gross_weight=P('Gross Weight Smoothed'),
                touchdowns=KTI('Touchdown')):
         self.create_kpvs_at_ktis(gross_weight.array, touchdowns)
 
