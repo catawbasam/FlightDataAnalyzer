@@ -23,19 +23,24 @@ virtualenv --python=python${VIRTVER} --no-site-packages --distribute ${VIRTENV}
 . ${VIRTENV}/bin/activate
 cd ${WORKSPACE}
 
-# Install testing and code metric tools
-pip -E ${VIRTUENV} install --upgrade clonedigger nosexcover pep8 pyflakes sphinx
-if [ ${PYLINT} -eq 1 ]; then
-  pip -E ${VIRTUAL} install --upgrade pylint
-fi
+# Update pip to the latest version and use the interna PyPI server
+export PIP_INDEX_URL=http://pypi.flightdataservices.com/simple/
+pip install --upgrade pip
 
-# Overlay the additional Analysis Egnine tests
-rm -rf tests/AnalysisEngine_tests
-bzr branch http://vindictive.flightdataservices.com/Bazaar/AnalysisEngine_tests tests/AnalysisEngine_tests
+# Install testing and code metric tools
+pip install --upgrade clonedigger nosexcover pep8 pyflakes sphinx
+if [ ${PYLINT} -eq 1 ]; then
+  pip install --upgrade pylint
+fi
 
 # Install requirements
 if [ -f requirements.txt ]; then
-    pip -E ${VIRTENV} install --upgrade -r requirements.txt
+    pip install --upgrade -r requirements.txt
+fi
+
+# Run any additional setup steps
+if [ -x jenkins/setup-extra.sh ]; then
+    jenkins/setup-extra.sh
 fi
 
 # Install runtime requirements.

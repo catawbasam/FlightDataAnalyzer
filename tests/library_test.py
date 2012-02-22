@@ -566,6 +566,14 @@ class TestCoReg(unittest.TestCase):
         y=np.array([1], dtype=float)
         self.assertRaises(ValueError, coreg, y)
         
+    
+    def test_correlation_constant_arrays(self):
+        x=np.array([0,0,0,0,0,0], dtype=float)
+        y=np.arange(6)
+        self.assertEqual(coreg(x), (0.0, 0.0, 0.0))
+        self.assertEqual(coreg(x, indep_var=y), (0.0, 0.0, 0.0))
+        self.assertEqual(coreg(y, indep_var=x), (0.0, 0.0, 0.0))
+    
     def test_correlation_monotonic_independent_variable(self):
         y=np.array([2,4,5,3,6,8], dtype=float)
         correlate, slope, offset = coreg(y)

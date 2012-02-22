@@ -1241,27 +1241,33 @@ class GrossWeightSmoothed(DerivedParameterNode):
             ff_time = ((gw_index/gw.frequency)+gw.offset-ff.offset)*ff.frequency
             to_burn_all.append(value_at_index(fuel_to_burn, ff_time))
             
-            # Check for those not in climb or descent
-            for climb in climbs:
-                if is_index_within_slice(gw_index, climb.slice):
-                    break
-            for descend in descends:
-                if is_index_within_slice(gw_index, climb.slice):
-                    break
+            # Skip values which are within Climbing or Descending phases.
+            if any([is_index_within_slice(gw_index, c.slice) for c in climbs]) or \
+               any([is_index_within_slice(gw_index, d.slice) for d in descends]):
+                continue
+            
             gw_valid.append(gw.array.data[gw_index])
             ff_time = ((gw_index/gw.frequency)+gw.offset-ff.offset)*ff.frequency
             to_burn_valid.append(value_at_index(fuel_to_burn, ff_time))
-            
-        if len(gw_valid) > 5:
-            corr, slope, offset = coreg(np.ma.array(gw_valid), indep_var=np.ma.array(to_burn_valid))
-        elif len(gw_all) > 2:
-            corr, slope, offset = coreg(np.ma.array(gw_all), indep_var=np.ma.array(to_burn_all))
+        
+        use_valid = len(gw_valid) > 5
+        use_all = len(gw_all) > 2
+        if use_valid or use_all:
+            if use_valid:
+                corr, slope, offset = coreg(np.ma.array(gw_valid), indep_var=np.ma.array(to_burn_valid))
+            elif use_all:
+                corr, slope, offset = coreg(np.ma.array(gw_all), indep_var=np.ma.array(to_burn_all))
+            if corr < 0.5:
+                offset = gw_all[0] - to_burn_all[0]
         elif len(gw_all) == 1:
             offset = gw_all[0] - to_burn_all[0]
         else:
+            logging.warning("'%s' cannot smooth '%s' and will set the original "
+                            "array.", self.name, gw.name)
+            self.array = gw.array
             return
-        
         self.array = fuel_to_burn + offset
+
 
 class FlapLever(DerivedParameterNode):
     """
@@ -1592,9 +1598,10 @@ class ILSRange(DerivedParameterNode):
 
             runway = approach['runway']
             if not runway:
-                logging.error("Approach runway information not available.")
-                raise NotImplementedError(
-                    "No support for Airports without Runways! Details: %s" % approach)                
+                logging.warning("Approach runway information not available. "
+                                "No support for Airports without Runways! "
+                                "Details: %s", approach)
+                continue
             
             if precise.value:
                 # Convert (straightened) latitude & longitude for the whole phase
@@ -1628,8 +1635,13 @@ class ILSRange(DerivedParameterNode):
             ils_range[this_loc.slice] = integrate(
                 spd_repaired, speed.frequency, scale=KTS_TO_FPS, direction='reverse')
             
-            start_2_loc, gs_2_loc, end_2_loc, pgs_lat, pgs_lon = \
-                                runway_distances(runway)  
+            try:
+                start_2_loc, gs_2_loc, end_2_loc, pgs_lat, pgs_lon = \
+                    runway_distances(runway)  
+            except KeyError:
+                logging.warning("Runway did not have required information in "
+                                "'%s', '%s'.", self.name, runway)
+                continue
             if 'glideslope' in runway:
                 # The runway has an ILS glideslope antenna
                 
@@ -1640,7 +1652,8 @@ class ILSRange(DerivedParameterNode):
                 else:
                     # we didn't find a period where the glideslope was
                     # established at the same time as the localiser
-                    raise NotImplementedError("No glideslope established at same time as localiser")
+                    logger.warning("No glideslope established at same time as localiser")
+                    continue
                     
                 # Compute best fit glidepath. The term (1-.13 x glideslope
                 # deviation) caters for the aircraft deviating from the
@@ -1664,7 +1677,9 @@ class ILSRange(DerivedParameterNode):
                         break
                 else:
                     # we didn't find a period where the approach was within the localiser
-                    raise NotImplementedError("Approaches were not fully established with localiser")
+                    logging.warning("Approaches were not fully established with localiser")
+                    continue
+                    
                 corr, slope, offset = coreg(
                     alt_aal.array[this_app.slice], ils_range[this_app.slice])
                 
@@ -1735,8 +1750,8 @@ class LongitudeSmoothed(DerivedParameterNode):
             return        
 
         _, self.array = adjust_track(lon,lat,loc_est,ils_range,ils_loc,
-                                        alt_aal,gspd,tas,precise,toff,
-                                        app_info,toff_rwy,start_datetime)
+                                     alt_aal,gspd,tas,precise,toff,
+                                     app_info,toff_rwy,start_datetime)
         
         
 def adjust_track(lon,lat,loc_est,ils_range,ils_loc,alt_aal,gspd,tas,
@@ -1807,10 +1822,10 @@ def adjust_track(lon,lat,loc_est,ils_range,ils_loc,alt_aal,gspd,tas,
             # line up an approach slice
             start = index_of_datetime(start_datetime.value,
                                       approach['slice_start_datetime'],
-                                      self.frequency)
+                                      lon.frequency)
             stop = index_of_datetime(start_datetime.value,
                                      approach['slice_stop_datetime'],
-                                     self.frequency)
+                                     lon.frequency)
             approach_slice = slice(start, stop)
             if slices_overlap(this_loc.slice, approach_slice):
                 # we've found a matching approach where the localiser was established
