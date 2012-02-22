@@ -238,16 +238,18 @@ def calculate_timebase(years, months, days, hours, mins, secs):
     """
     base_dt = None
     clock_variation = OrderedDict() # Ordered so if all values are the same, max will consistently take the first val
-    length = len(mins)
-    if years is None or not len(years):
-        logging.warning("Year not supplied, filling in with 1970")
-        years = np.repeat([1970], length) # force invalid year
-    if months is None or not len(months):
-        logging.warning("Month not supplied, filling in with 01")
-        months = np.repeat([01], length) # force invalid month
-    if days is None or not len(days):
-        logging.warning("Day not supplied, filling in with 01")
-        days = np.repeat([01], length) # force invalid days
+    
+    #22.02.2012 - below no longer seems to be required.
+    ##length = len(mins)
+    ##if years is None or not len(years):
+        ##logging.warning("Year not supplied, filling in with 1970")
+        ##years = np.repeat([1970], length) # force invalid year
+    ##if months is None or not len(months):
+        ##logging.warning("Month not supplied, filling in with 01")
+        ##months = np.repeat([01], length) # force invalid month
+    ##if days is None or not len(days):
+        ##logging.warning("Day not supplied, filling in with 01")
+        ##days = np.repeat([01], length) # force invalid days
         
     for step, (yr, mth, day, hr, mn, sc) in enumerate(izip(years, months, days, hours, mins, secs)):
         

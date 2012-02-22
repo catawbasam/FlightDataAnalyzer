@@ -296,14 +296,13 @@ def process_flight(hdf_path, aircraft_info, start_datetime=datetime.now(),
 
 
 if __name__ == '__main__':
-    
+    import argparse
+    from utilities.filesystem_tools import copy_file
     logger = logging.getLogger()
     logger.setLevel(logging.INFO)    
     required_parameters = ['Latitude Smoothed', 'Longitude Smoothed',
                            'Distance To Landing', 'Eng (*) Fuel Flow',
                            'Altitude STD']
-    import argparse, os, shutil
-    from utilities.filesystem_tools import copy_file
     parser = argparse.ArgumentParser(description="Process a flight.")
     parser.add_argument('file', type=str,
                         help='Path of file to process.')
