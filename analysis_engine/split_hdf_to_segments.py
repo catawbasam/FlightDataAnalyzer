@@ -307,8 +307,8 @@ def _calculate_start_datetime(hdf, fallback_dt=None):
         param = hdf.get(name)
         if param:
             array = align(hdf[name], onehz, signaltype='Multi-State')
-            if len(array) == 0:
-                logging.warning("No values returned for %s", name)
+            if len(array) == 0 or np.ma.count(array) == 0:
+                logging.warning("No valid values returned for %s", name)
             else:
                 # values returned, continue
                 dt_arrays.append(array)
@@ -326,10 +326,11 @@ def _calculate_start_datetime(hdf, fallback_dt=None):
     length = max([len(array) for array in dt_arrays])
     if length > 1:
         # ensure all arrays are the same length
-        for arr in dt_arrays:
+        for n, arr in enumerate(dt_arrays):
             if len(arr) == 1:
                 # repeat to the correct size
                 arr = np.repeat(arr, length)
+                dt_arrays[n] = arr
             elif len(arr) != length:
                 raise ValueError("After align, all array should be the same length")
             else:
@@ -468,7 +469,8 @@ if __name__ == '__main__':
 
     hdf_copy = copy_file(args.file, postfix='_split')
     segs = split_hdf_to_segments(hdf_copy,
-                                 aircraft_info={'Tail Number': args.tail_number,},
+                                 {'Tail Number': args.tail_number,},
+                                 fallback_dt=datetime(2012,12,12,12,12,12),
                                  draw=False)    
     pprint.pprint(segs)
 
