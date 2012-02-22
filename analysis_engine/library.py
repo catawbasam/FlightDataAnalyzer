@@ -86,16 +86,14 @@ def align(slave, master, interval='Subframe', signaltype='Analogue'):
             # sample rate.
             slave_aligned=np.ma.copy(slave.array)
             return slave_aligned
-        
+
         if wm>ws:
             # Increase samples in slave accordingly
             r = wm/ws
             assert r in [2,4,8,16,32,64,128,256]
-            slave_aligned = np.ma.reshape(np.ma.empty_like(master.array),(-1,r))
-            for i in range(len(slave.array)):
-                slave_aligned[i::r]=slave.array[i]
-            return np.ma.ravel(slave_aligned)
-            
+            slave_aligned = np.ma.repeat(slave.array, r)
+            return slave_aligned
+
         else:
             # Reduce samples in slave.
             r = ws/wm
@@ -238,16 +236,18 @@ def calculate_timebase(years, months, days, hours, mins, secs):
     """
     base_dt = None
     clock_variation = OrderedDict() # Ordered so if all values are the same, max will consistently take the first val
-    length = len(mins)
-    if years is None or not len(years):
-        logging.warning("Year not supplied, filling in with 1970")
-        years = np.repeat([1970], length) # force invalid year
-    if months is None or not len(months):
-        logging.warning("Month not supplied, filling in with 01")
-        months = np.repeat([01], length) # force invalid month
-    if days is None or not len(days):
-        logging.warning("Day not supplied, filling in with 01")
-        days = np.repeat([01], length) # force invalid days
+    
+    #22.02.2012 - below no longer seems to be required.
+    ##length = len(mins)
+    ##if years is None or not len(years):
+        ##logging.warning("Year not supplied, filling in with 1970")
+        ##years = np.repeat([1970], length) # force invalid year
+    ##if months is None or not len(months):
+        ##logging.warning("Month not supplied, filling in with 01")
+        ##months = np.repeat([01], length) # force invalid month
+    ##if days is None or not len(days):
+        ##logging.warning("Day not supplied, filling in with 01")
+        ##days = np.repeat([01], length) # force invalid days
         
     for step, (yr, mth, day, hr, mn, sc) in enumerate(izip(years, months, days, hours, mins, secs)):
         
@@ -312,9 +312,9 @@ def coreg(y, indep_var=None, force_zero=False):
     correlate, slope, offset = coreg(y, indep_var=x, force_zero=True)
     
     :param y: dependent variable
-    :type y: numpy array
+    :type y: numpy float array - NB: MUST be float
     :param x: independent variable
-    :type x: numpy array. Where not supplied, a linear scale is created.
+    :type x: numpy float array. Where not supplied, a linear scale is created.
     :param force_zero: switch to force the regression offset to zero
     :type force_zero: logic, default=False
     
@@ -807,6 +807,9 @@ def integrate (array, frequency, initial_value=0.0, scale=1.0, direction="forwar
     :param scale: Scaling factor, default = 1.0
     :type scale: float
     :param direction: Optional integration sense, default = 'forwards'
+    
+    Note: Reverse integration does not include a change of sign, so positive 
+    values have a negative slope following integration using this function.
     
     :returns integral: Result of integration by time
     :type integral: Numpy masked array.
@@ -1806,7 +1809,7 @@ def smooth_track(lat, lon):
     return lat_last, lon_last, cost_0
 
             
-def straighten_headings(heading_array):
+def straighten_headings(heading_array, copy=True):
     '''
     We always straighten heading data before checking for spikes. 
     It's easier to process heading data in this format.
@@ -1816,6 +1819,8 @@ def straighten_headings(heading_array):
     :returns: Straightened headings
     :rtype: Generator of type Float
     '''
+    if copy:
+        heading_array = heading_array.copy()
     for clump in np.ma.clump_unmasked(heading_array):
         head_prev = heading_array.data[clump.start]
         diff = np.ediff1d(heading_array.data[clump])

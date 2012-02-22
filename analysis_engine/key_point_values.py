@@ -82,8 +82,8 @@ class AirspeedMax(KeyPointValueNode):
     def derive(self, speed=P('Airspeed'), airs=S('Airborne')):
         # For commented version, see GlideslopeDeviation1500To1000FtMax
         self.create_kpvs_within_slices(speed.array, airs, max_value)
-            
-   
+
+
 class AltitudeAtTouchdown(KeyPointValueNode):
     def derive(self, alt_std=P('Altitude STD'), touchdowns=KTI('Touchdown')):
         self.create_kpvs_at_ktis(alt_std.array, touchdowns)
@@ -171,7 +171,7 @@ class ControlColumnStiffness(KeyPointValueNode):
                     n = speedy.slice.start+move.start
                     for showme in range(0, slice_samples(move)):
                         spam.writerow([n+showme,column[move][showme],push[move][showme]])
-                    #-------------------------------------------------------------------
+                     #-------------------------------------------------------------------
                     # TEST OUTPUT TO CSV FILE FOR DEBUGGING ONLY
                     # TODO: REMOVE THIS SECTION BEFORE RELEASE
                     #-------------------------------------------------------------------
@@ -377,8 +377,8 @@ class AltitudeWithFlapsMax(KeyPointValueNode):
         
 class MachMax(KeyPointValueNode):
     name = 'Mach Max'
-    def derive(self, mach=P('Mach'), fast=S('Fast')):
-        self.create_kpvs_within_slices(mach.array, fast, max_value)
+    def derive(self, mach=P('Mach'), airs=S('Airborne')):
+        self.create_kpvs_within_slices(mach.array, airs, max_value)
 
 
 class AltitudeAtMachMax(KeyPointValueNode):
@@ -987,12 +987,13 @@ class FuelQtyAtTouchdown(KeyPointValueNode):
 
 
 class GrossWeightAtLiftoff(KeyPointValueNode):
-    def derive(self, gross_weight=P('Gross Weight'), liftoffs=KTI('Liftoff')):
+    def derive(self, gross_weight=P('Gross Weight Smoothed'), 
+               liftoffs=KTI('Liftoff')):
         self.create_kpvs_at_ktis(gross_weight.array, liftoffs)
 
 
 class GrossWeightAtTouchdown(KeyPointValueNode):
-    def derive(self, gross_weight=P('Gross Weight'),
+    def derive(self, gross_weight=P('Gross Weight Smoothed'),
                touchdowns=KTI('Touchdown')):
         self.create_kpvs_at_ktis(gross_weight.array, touchdowns)
 

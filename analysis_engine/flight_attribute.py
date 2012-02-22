@@ -110,9 +110,8 @@ class Approaches(FlightAttributeNode):
             else:
                 runway = runway_info['items'][0]
         except NotFoundError:
-            logging.warning("Runway could not be found with airport id '%d'"
-                            "heading '%s' and kwargs '%s'.", airport_id,
-                            hdg, kwargs)
+            logging.warning("Runway not found for airport id '%d', heading "
+                            "'%f' and kwargs '%s'.", airport_id, hdg, kwargs)
             runway = None
         
         return {'airport': airport,
@@ -267,7 +266,10 @@ class FlightNumber(FlightAttributeNode):
         # Q: Should we validate the flight number?
         _, minvalue = min_value(num.array)
         if minvalue < 0:
-            raise ValueError("Only supports unsigned (positive) values")
+            logging.warning("'%s' only supports unsigned (positive) values",
+                            self.name)
+            self.set_flight_attr(None)
+            return
         
         # TODO: Fill num.array masked values (as there is no np.ma.bincount) - perhaps with 0.0 and then remove all 0 values?
         # note reverse of value, index from max_value due to bincount usage.
@@ -276,7 +278,10 @@ class FlightNumber(FlightAttributeNode):
             # this value accounts for at least 60% of the values in the array
             self.set_flight_attr(str(value))
         else:
-            raise ValueError("Low variance")
+            logging.warning("'%s' found low variance in '%s'. Attribute will "
+                            "be set as None.", self.name, num.name)
+            self.set_flight_attr(None)
+            return
 
 
 class LandingAirport(FlightAttributeNode):
@@ -344,7 +349,7 @@ class LandingRunway(FlightAttributeNode):
         airport_id = airport.value['id']
         landing = approach_and_landing.get_last()
         if not landing:
-            logging.warning("No landing")
+            logging.warning("Empty '%s' in '%s'.", landing.name, self.name)
             self.set_flight_attr(None)
             return
         heading = landing_hdg[-1].value
@@ -368,19 +373,17 @@ class LandingRunway(FlightAttributeNode):
         api_handler = get_api_handler(API_HANDLER)
         try:
             runway_info = api_handler.get_nearest_runway(airport_id, heading,
-                                                    **kwargs)
+                                                         **kwargs)
             if len(runway_info['items']) > 1:
-                # TODO: Having a string here will cause problems..
                 runway = {'identifier': runway_info['ident']}
-                ##raise NotImplementedError('Multiple runways returned')
             else:
                 runway = runway_info['items'][0]            
+            self.set_flight_attr(runway)
         except NotFoundError:
             logging.warning("Runway not found for airport id '%d', heading "
                             "'%f' and kwargs '%s'.", airport_id, heading,
                             kwargs)
-        else:
-            self.set_flight_attr(runway)
+            self.set_flight_attr(None)
 
 
 class OffBlocksDatetime(FlightAttributeNode):
@@ -493,13 +496,11 @@ class TakeoffFuel(FlightAttributeNode):
 class TakeoffGrossWeight(FlightAttributeNode):
     "Aircraft Gross Weight in KG at point of Takeoff"
     name = 'FDR Takeoff Gross Weight'
-    def derive(self, liftoff_gross_weight=P('Gross Weight At Liftoff')):
+    def derive(self, liftoff_gross_weight=KPV('Gross Weight At Liftoff')):
         first_gross_weight = liftoff_gross_weight.get_first()
-        if not first_gross_weight:
-            return
         self.set_flight_attr(first_gross_weight.value)
-            
     
+
 class TakeoffPilot(FlightAttributeNode, DeterminePilot):
     "Pilot flying at takeoff, Captain, First Officer or None"
     name = 'FDR Takeoff Pilot'
@@ -589,8 +590,6 @@ class TakeoffRunway(FlightAttributeNode):
         # an airport database with terminal and taxiway details that was not
         # felt justified).
         if latitude_at_takeoff and longitude_at_takeoff:
-        ##if precision and precision.value and latitude_at_takeoff and \
-           ##longitude_at_takeoff:
             first_latitude = latitude_at_takeoff.get_first()
             first_longitude = longitude_at_takeoff.get_first()
             if first_latitude and first_longitude:
@@ -605,15 +604,14 @@ class TakeoffRunway(FlightAttributeNode):
             if len(runway_info['items']) > 1:
                 # TODO: This will probably break nodes which are dependent.
                 runway = {'identifier': runway_info['ident']}
-                raise NotImplementedError('Multiple runways returned')
             else:
                 runway = runway_info['items'][0]
+            self.set_flight_attr(runway)
         except NotFoundError:
             logging.warning("Runway not found for airport id '%d', heading "
                             "'%f' and kwargs '%s'.", airport_id, hdg_value,
                             kwargs)
-        else:
-            self.set_flight_attr(runway)
+            self.set_flight_attr(None)
 
 
 class FlightType(FlightAttributeNode):
@@ -725,8 +723,6 @@ class LandingGrossWeight(FlightAttributeNode):
     name = 'FDR Landing Gross Weight'
     def derive(self, touchdown_gross_weight=KPV('Gross Weight At Touchdown')):
         last_gross_weight = touchdown_gross_weight.get_last()
-        # TODO: Support flight attributes not calling set_flight_attr where appropriate.
-        #if last_gross_weight:
         self.set_flight_attr(last_gross_weight.value)
 
 

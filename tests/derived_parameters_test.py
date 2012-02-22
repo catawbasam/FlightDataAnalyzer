@@ -41,6 +41,7 @@ from analysis_engine.derived_parameters import (
     Eng_N2Min,
     Flap,
     FuelQty,
+    GrossWeightSmoothed,
     GroundspeedAlongTrack,
     HeadingContinuous,
     HeadingTrue,
@@ -1066,13 +1067,42 @@ class TestFuelQty(unittest.TestCase):
         fuel_qty_node.derive(fuel_qty1, None, None)
         np.testing.assert_array_equal(fuel_qty_node.array,
                                       np.ma.array([1, 2, 3]))
-                         
 
+
+class TestGrossWeightSmoothed(unittest.TestCase):
+    def test_gw_formula(self):
+        weight = P('Gross Weight',np.ma.array([292,228,164,100],dtype=float),offset=0.0,frequency=1/64.0)
+        fuel_flow = P('Eng (*) Fuel Flow',np.ma.array([3600]*256,dtype=float),offset=0.0,frequency=1.0)
+        climbing = Section('Climbing',slice(None,None))
+        gws = GrossWeightSmoothed()
+        result = gws.get_derived([fuel_flow, weight, climbing])
+        self.assertEqual(result.array[0], 292.0)
+        self.assertEqual(result.array[-1], 37.0)
+        
+    def test_gw_formula_with_masked_gw(self):
+        weight = P('Gross Weight',np.ma.array(data=[292,228,164,100],
+                                              mask=[1,0,1,0],dtype=float),
+                   offset=0.0,frequency=1/64.0)
+        fuel_flow = P('Eng (*) Fuel Flow',np.ma.array([3600]*256,dtype=float),offset=0.0,frequency=1.0)
+        #climbing = Section('Climbing',slice(53,120))
+        gws = GrossWeightSmoothed()
+        result = gws.get_derived([fuel_flow, weight])
+        self.assertEqual(result.array[0], 292.0)
+        self.assertEqual(result.array[-1], 37.0)
+        
+    def test_gw_synthetic(self):
+        weight = P('Gross Weight',np.ma.array([58000,57940,57880,57820],dtype=float),offset=15.0,frequency=1/64.0)
+        fuel_flow = P('Eng (*) Fuel Flow',np.ma.array([0]*30+[3000]*50+[1000]*120+[0]*(4*64-(30+50+120)),dtype=float),offset=0.3,frequency=1)
+        #climbing = Section('Climbing',slice(53,120))
+        gws = GrossWeightSmoothed()
+        result = gws.get_derived([fuel_flow, weight])
+        expected = P('Gross Weight Smoothed', np.ma.array([]), frequency=1, offset=0.3)
 
 
 class TestGroundspeedAlongTrack(unittest.TestCase):
     def test_can_operate(self):
-        expected = [('Groundspeed','Acceleration Along Track')]
+        expected = [('Groundspeed','Acceleration Along Track', 'Altitude AAL',
+                     'ILS Glideslope')]
         opts = GroundspeedAlongTrack.get_operational_combinations()
         self.assertEqual(opts, expected)
 
@@ -1342,7 +1372,7 @@ class TestRateOfClimb(unittest.TestCase):
 
 class TestRateOfClimbForFlightPhases(unittest.TestCase):
     def test_can_operate(self):
-        expected = [('Altitude STD','Fast')]
+        expected = [('Altitude STD',)]
         opts = RateOfClimbForFlightPhases.get_operational_combinations()
         self.assertEqual(opts, expected)
         
