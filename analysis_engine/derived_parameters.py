@@ -1598,9 +1598,10 @@ class ILSRange(DerivedParameterNode):
 
             runway = approach['runway']
             if not runway:
-                logging.error("Approach runway information not available.")
-                raise NotImplementedError(
-                    "No support for Airports without Runways! Details: %s" % approach)                
+                logging.warning("Approach runway information not available. "
+                                "No support for Airports without Runways! "
+                                "Details: %s", approach)
+                continue
             
             if precise.value:
                 # Convert (straightened) latitude & longitude for the whole phase
@@ -1634,8 +1635,13 @@ class ILSRange(DerivedParameterNode):
             ils_range[this_loc.slice] = integrate(
                 spd_repaired, speed.frequency, scale=KTS_TO_FPS, direction='reverse')
             
-            start_2_loc, gs_2_loc, end_2_loc, pgs_lat, pgs_lon = \
-                                runway_distances(runway)  
+            try:
+                start_2_loc, gs_2_loc, end_2_loc, pgs_lat, pgs_lon = \
+                    runway_distances(runway)  
+            except KeyError:
+                logging.warning("Runway did not have required information in "
+                                "'%s', '%s'.", self.name, runway)
+                continue
             if 'glideslope' in runway:
                 # The runway has an ILS glideslope antenna
                 
@@ -1646,7 +1652,8 @@ class ILSRange(DerivedParameterNode):
                 else:
                     # we didn't find a period where the glideslope was
                     # established at the same time as the localiser
-                    raise NotImplementedError("No glideslope established at same time as localiser")
+                    logger.warning("No glideslope established at same time as localiser")
+                    continue
                     
                 # Compute best fit glidepath. The term (1-.13 x glideslope
                 # deviation) caters for the aircraft deviating from the
@@ -1670,7 +1677,9 @@ class ILSRange(DerivedParameterNode):
                         break
                 else:
                     # we didn't find a period where the approach was within the localiser
-                    raise NotImplementedError("Approaches were not fully established with localiser")
+                    logging.warning("Approaches were not fully established with localiser")
+                    continue
+                    
                 corr, slope, offset = coreg(
                     alt_aal.array[this_app.slice], ils_range[this_app.slice])
                 
