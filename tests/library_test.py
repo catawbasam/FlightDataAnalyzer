@@ -356,6 +356,21 @@ class TestAlign(unittest.TestCase):
         result = align(slave, master)
         #np.testing.assert_array_equal(result.data,expected) - test not implemented
 
+    def test_align_superframe_to_onehz_multistate(self):
+        # Slave once per superframe, master at 1Hz, Multi-State
+        class DumParam():
+            def __init__(self):
+                self.offset = None
+                self.frequency = 1
+                self.array = []
+        onehz = P(frequency = 1)
+        slave = DumParam()
+        slave.array = np.ma.array([1, 2, 3, 4], dtype=float)
+        slave.frequency = 1.0 / 64
+        result = align(slave, onehz, signaltype='Multi-State')
+        expected = np.ma.array([1] * 64 + [2] * 64 + [3] * 64 + [4] * 64)
+        np.testing.assert_array_equal(result.data, expected)
+
 
 class TestBearingsAndDistances(unittest.TestCase):
     def test_known_distance(self):
@@ -2015,4 +2030,9 @@ class TestVstackParams(unittest.TestCase):
                       [99, 11, 12, 13, 14, 15, 16, 17, 18, 99]])
         )
         self.assertRaises(ValueError, vstack_params, None, None, None)
-                              
+
+
+if __name__ == '__main__':
+    suite = unittest.TestSuite()
+    suite.addTest(TestAlign('test_align_superframe_to_onehz_multistate'))
+    unittest.TextTestRunner(verbosity=2).run(suite)
