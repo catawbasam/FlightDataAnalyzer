@@ -52,20 +52,20 @@ def _segment_type_and_slice(airspeed, frequency, start, stop):
     threshold_exceedance = np.ma.sum(airspeed[airspeed_start:airspeed_stop] > \
                                      settings.AIRSPEED_THRESHOLD) * frequency
     if threshold_exceedance < 30: # Q: What is a sensible value?
-        logging.info("Airspeed was below threshold.")
+        logging.debug("Airspeed was below threshold.")
         segment_type = 'GROUND_ONLY'
     elif slow_start and slow_stop:
-        logging.info("Airspeed started below threshold, rose above and stopped "
+        logging.debug("Airspeed started below threshold, rose above and stopped "
                      "below.")
         segment_type = 'START_AND_STOP'
     elif slow_start:
-        logging.info("Airspeed started below threshold and stopped above.")
+        logging.debug("Airspeed started below threshold and stopped above.")
         segment_type = 'START_ONLY'
     elif slow_stop:
-        logging.info("Airspeed started above threshold and stopped below.")
+        logging.debug("Airspeed started above threshold and stopped below.")
         segment_type = 'STOP_ONLY'
     else:
-        logging.info("Airspeed started and stopped above threshold.")
+        logging.debug("Airspeed started and stopped above threshold.")
         segment_type = 'MID_FLIGHT'
     logging.info("Segment type is '%s' between '%s' and '%s'.",
                  segment_type, start, stop)
@@ -280,9 +280,14 @@ def split_segments(hdf):
     return segments
         
         
-def _calculate_start_datetime(hdf):
+def _calculate_start_datetime(hdf, fallback_dt=None):
     """
     Calculate start datetime.
+    
+    :param hdf: Flight data HDF file 
+    :type hdf: hdf_access object
+    :param fallback_dt: Used to replace elements of datetimes which are not available in the hdf file (e.g. YEAR not being recorded)
+    :type fallback_dt: datetime
     
     HDF params used:
     :Year: Optional (defaults to 1970)
@@ -292,19 +297,44 @@ def _calculate_start_datetime(hdf):
     :Minute: Required
     :Second: Required
 
-    If required parameters are not available, a TimebaseError is raised
+    If required parameters are not available and fallback_dt is not provided,
+    a TimebaseError is raised
     """
     # align required parameters to 1Hz
     onehz = P(frequency = 1)
     dt_arrays = []
     for name in ('Year', 'Month', 'Day', 'Hour', 'Minute', 'Second'):
-        if name in hdf:
-            dt_arrays.append(align(hdf[name], onehz, signaltype='Multi-State'))
-        elif name in ('Hour', 'Minute', 'Second'):
-            raise TimebaseError("Required parameter '%s' not available" % name)
+        param = hdf.get(name)
+        if param:
+            array = align(hdf[name], onehz, signaltype='Multi-State')
+            if len(array) == 0:
+                logging.warning("No values returned for %s", name)
+            else:
+                # values returned, continue
+                dt_arrays.append(array)
+                continue
+        if fallback_dt:
+            array = [getattr(fallback_dt, name.lower())]
+            logging.info("%s not available, using %d from fallback_dt %s", 
+                         name, array[0], fallback_dt)
+            dt_arrays.append(array)
+            continue
         else:
-            dt_arrays.append(None)
-    
+            raise TimebaseError("Required parameter '%s' not available" % name)
+        
+        
+    length = max([len(array) for array in dt_arrays])
+    if length > 1:
+        # ensure all arrays are the same length
+        for arr in dt_arrays:
+            if len(arr) == 1:
+                # repeat to the correct size
+                arr = np.repeat(arr, length)
+            elif len(arr) != length:
+                raise ValueError("After align, all array should be the same length")
+            else:
+                pass
+        
     # establish timebase for start of data
     try:
         return calculate_timebase(*dt_arrays)
@@ -312,7 +342,8 @@ def _calculate_start_datetime(hdf):
         raise TimebaseError("Error with timestamp values: %s" % err)
     
         
-def append_segment_info(hdf_segment_path, segment_type, segment_slice, part):
+def append_segment_info(hdf_segment_path, segment_type, segment_slice, part,
+                        fallback_dt=None):
     """
     Get information about a segment such as type, hash, etc. and return a
     named tuple.
@@ -327,6 +358,8 @@ def append_segment_info(hdf_segment_path, segment_type, segment_slice, part):
     :type segment_slice: slice
     :param part: Numeric part this segment was in the original data file (1 indexed)
     :type part: Integer
+    :param fallback_dt: Used to replace elements of datetimes which are not available in the hdf file (e.g. YEAR not being recorded)
+    :type fallback_dt: datetime
     :returns: Segment named tuple
     :rtype: Segment
     """
@@ -335,7 +368,7 @@ def append_segment_info(hdf_segment_path, segment_type, segment_slice, part):
         airspeed = hdf['Airspeed'].array
         duration = hdf.duration
         try:
-            start_datetime = _calculate_start_datetime(hdf)
+            start_datetime = _calculate_start_datetime(hdf, fallback_dt)
         except TimebaseError:
             logging.warning("Unable to calculate timebase, using epoch 1.1.1970!")
             start_datetime = datetime.fromtimestamp(0)
@@ -358,7 +391,7 @@ def append_segment_info(hdf_segment_path, segment_type, segment_slice, part):
     return segment
 
 
-def split_hdf_to_segments(hdf_path, aircraft_info, output_dir=None, draw=False):
+def split_hdf_to_segments(hdf_path, aircraft_info, fallback_dt=None, draw=False):
     """
     Main method - analyses an HDF file for flight segments and splits each
     flight into a new segment appropriately.
@@ -367,8 +400,8 @@ def split_hdf_to_segments(hdf_path, aircraft_info, output_dir=None, draw=False):
     :type hdf_path: string
     :param aircraft_info: Information which identify the aircraft, specfically with the keys 'Tail Number', 'MSN'...
     :type aircraft_info: Dict
-    :param output_dir: Directory to write the destination file to. If None, directory of source file is used.
-    :type output_dir: String (path)
+    :param fallback_dt: Used to replace elements of datetimes which are not available in the hdf file (e.g. YEAR not being recorded)
+    :type fallback_dt: datetime
     :param draw: Whether to use matplotlib to plot the flight
     :type draw: Boolean
     :returns: List of Segments
@@ -398,17 +431,13 @@ def split_hdf_to_segments(hdf_path, aircraft_info, output_dir=None, draw=False):
     for part, segment_tuple in enumerate(segment_tuples, start=1):
         segment_type, segment_slice = segment_tuple
         # write segment to new split file (.001)
-        if output_dir:
-            path = os.path.join(output_dir, os.path.basename(hdf_path))
-        else:
-            path = hdf_path
-        dest_path = os.path.splitext(path)[0] + '.%03d' % part + '.hdf5'
+        dest_path = os.path.splitext(hdf_path)[0] + '.%03d' % part + '.hdf5'
         logging.debug("Writing segment %d: %s", part, dest_path)
         dest_path = write_segment(hdf_path, segment_slice, dest_path,
                                   supf_boundary=True)
         
         segment = append_segment_info(dest_path, segment_type, segment_slice,
-                                      part)
+                                      part, fallback_dt=fallback_dt)
         segments.append(segment)
         if draw:
             from analysis_engine.plot_flight import plot_essential
@@ -424,12 +453,22 @@ def split_hdf_to_segments(hdf_path, aircraft_info, output_dir=None, draw=False):
 
       
 if __name__ == '__main__':
-    import sys
-    import shutil
+    import argparse
     import pprint
     from utilities.filesystem_tools import copy_file
-    hdf_path = sys.argv[1]
-    aircraft_info = {'Tail Number': 'G-DEMA'}
-    hdf_copy = copy_file(hdf_path, postfix='_split')
-    segs = split_hdf_to_segments(hdf_copy, aircraft_info=aircraft_info,draw=False)    
+    logger = logging.getLogger()
+    logger.setLevel(logging.INFO)    
+    
+    parser = argparse.ArgumentParser(description="Process a flight.")
+    parser.add_argument('file', type=str,
+                        help='Path of file to process.')
+    parser.add_argument('-tail', dest='tail_number', type=str, default='G-ABCD',
+                        help='Aircraft Tail Number for processing.')
+    args = parser.parse_args()
+
+    hdf_copy = copy_file(args.file, postfix='_split')
+    segs = split_hdf_to_segments(hdf_copy,
+                                 aircraft_info={'Tail Number': args.tail_number,},
+                                 draw=False)    
     pprint.pprint(segs)
+
