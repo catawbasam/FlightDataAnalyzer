@@ -5,7 +5,8 @@ import unittest
 
 from datetime import datetime
 
-from analysis_engine.split_hdf_to_segments import append_segment_info, split_segments
+from analysis_engine.split_hdf_to_segments import (
+    _calculate_start_datetime, append_segment_info, split_segments)
 from analysis_engine.node import P,  Parameter
 
 from hdfaccess.file import hdf_file
@@ -257,3 +258,54 @@ class TestSegmentInfo(unittest.TestCase):
         seg = append_segment_info('invalid timestamps', '', slice(10,110), 2)
         self.assertEqual(seg.start_dt, datetime(1970,1,1,1,0)) # start of time!
         self.assertEqual(seg.go_fast_dt, datetime(1970, 1, 1, 3, 20, 53)) # went fast
+
+    #TODO: Test using fallback_dt
+    
+    def test_calculate_start_datetime(self):
+        """
+        """
+        hdf = {'Year':  P('Year',np.ma.array([2011])),
+               'Month': P('Month',np.ma.array([11])),
+               'Day':   P('Day',np.ma.array([11])),
+               'Hour':  P('Hour',np.ma.array([11])),
+               'Minute':P('Minute',np.ma.array([11])),
+               'Second':P('Second',np.ma.array([11]))
+               }
+        dt = datetime(2012,12,12,12,12,12)
+        # test with all params
+        res = _calculate_start_datetime(hdf, dt)
+        self.assertEqual(res, datetime(2011,11,11,11,11,11))
+        # test without Year
+        del hdf['Year']
+        res = _calculate_start_datetime(hdf, dt)
+        self.assertEqual(res, datetime(2012,11,11,11,11,11))
+        # test without Month
+        del hdf['Month']
+        res = _calculate_start_datetime(hdf, dt)
+        self.assertEqual(res, datetime(2012,12,11,11,11,11))
+        # test without Day
+        del hdf['Day']
+        res = _calculate_start_datetime(hdf, dt)
+        self.assertEqual(res, datetime(2012,12,12,11,11,11))
+        # test without Hour
+        del hdf['Hour']
+        res = _calculate_start_datetime(hdf, dt)
+        self.assertEqual(res, datetime(2012,12,12,12,11,11))
+        # test without Minute
+        del hdf['Minute']
+        res = _calculate_start_datetime(hdf, dt)
+        self.assertEqual(res, datetime(2012,12,12,12,12,11))
+        # test without Second
+        del hdf['Second']
+        res = _calculate_start_datetime(hdf, dt)
+        self.assertEqual(res, datetime(2012,12,12,12,12,12))
+        
+        # Test only without second and empty year
+        hdf = {'Year':  P('Year',np.ma.array([])),
+               'Month': P('Month',np.ma.array([11])),
+               'Day':   P('Day',np.ma.array([11])),
+               'Hour':  P('Hour',np.ma.array([11])),
+               'Minute':P('Minute',np.ma.array([11])),
+               }
+        res = _calculate_start_datetime(hdf, dt)
+        self.assertEqual(res, datetime(2012,11,11,11,11,12))

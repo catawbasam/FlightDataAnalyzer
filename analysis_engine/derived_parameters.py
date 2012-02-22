@@ -1735,8 +1735,8 @@ class LongitudeSmoothed(DerivedParameterNode):
             return        
 
         _, self.array = adjust_track(lon,lat,loc_est,ils_range,ils_loc,
-                                        alt_aal,gspd,tas,precise,toff,
-                                        app_info,toff_rwy,start_datetime)
+                                     alt_aal,gspd,tas,precise,toff,
+                                     app_info,toff_rwy,start_datetime)
         
         
 def adjust_track(lon,lat,loc_est,ils_range,ils_loc,alt_aal,gspd,tas,
@@ -1807,10 +1807,10 @@ def adjust_track(lon,lat,loc_est,ils_range,ils_loc,alt_aal,gspd,tas,
             # line up an approach slice
             start = index_of_datetime(start_datetime.value,
                                       approach['slice_start_datetime'],
-                                      self.frequency)
+                                      lon.frequency)
             stop = index_of_datetime(start_datetime.value,
                                      approach['slice_stop_datetime'],
-                                     self.frequency)
+                                     lon.frequency)
             approach_slice = slice(start, stop)
             if slices_overlap(this_loc.slice, approach_slice):
                 # we've found a matching approach where the localiser was established
