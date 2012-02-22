@@ -590,7 +590,7 @@ class TestLanding(unittest.TestCase):
         self.assertEqual(Landing.get_operational_combinations(),
             [('Heading Continuous', 'Altitude AAL For Flight Phases', 'Fast'),
              ('Heading Continuous', 'Altitude AAL For Flight Phases', 'Fast',
-              'Altitude Radio For Phases')])
+              'Altitude Radio For Flight Phases')])
 
     def test_landing_basic(self):
         head = np.ma.array([20]*8+[10,0])
@@ -616,7 +616,7 @@ class TestLanding(unittest.TestCase):
         landing.derive(P('Heading Continuous',head),
                        P('Altitude AAL For Flight Phases',alt_aal),
                        phase_fast,
-                       P('Altitude Radio For Phases',alt_rad))
+                       P('Altitude Radio For Flight Phases',alt_rad))
         expected = [Section(name='Landing', slice=slice(0.65, 8.5, None))]
         self.assertEqual(landing, expected)
         
@@ -708,7 +708,7 @@ class TestTakeoff(unittest.TestCase):
         self.assertEqual(Takeoff.get_operational_combinations(),
             [('Heading Continuous', 'Altitude AAL For Flight Phases', 'Fast'),
              ('Heading Continuous', 'Altitude AAL For Flight Phases', 'Fast',
-              'Altitude Radio For Phases')])
+              'Altitude Radio For Flight Phases')])
 
     def test_takeoff_basic(self):
         head = np.ma.array([ 0,10,20,20,20,20,20,20,20,20])

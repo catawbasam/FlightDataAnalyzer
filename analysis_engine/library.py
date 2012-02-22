@@ -86,16 +86,14 @@ def align(slave, master, interval='Subframe', signaltype='Analogue'):
             # sample rate.
             slave_aligned=np.ma.copy(slave.array)
             return slave_aligned
-        
+
         if wm>ws:
             # Increase samples in slave accordingly
             r = wm/ws
             assert r in [2,4,8,16,32,64,128,256]
-            slave_aligned = np.ma.reshape(np.ma.empty_like(master.array),(-1,r))
-            for i in range(len(slave.array)):
-                slave_aligned[i::r]=slave.array[i]
-            return np.ma.ravel(slave_aligned)
-            
+            slave_aligned = np.ma.repeat(slave.array, r)
+            return slave_aligned
+
         else:
             # Reduce samples in slave.
             r = ws/wm
@@ -314,9 +312,9 @@ def coreg(y, indep_var=None, force_zero=False):
     correlate, slope, offset = coreg(y, indep_var=x, force_zero=True)
     
     :param y: dependent variable
-    :type y: numpy array
+    :type y: numpy float array - NB: MUST be float
     :param x: independent variable
-    :type x: numpy array. Where not supplied, a linear scale is created.
+    :type x: numpy float array. Where not supplied, a linear scale is created.
     :param force_zero: switch to force the regression offset to zero
     :type force_zero: logic, default=False
     
@@ -809,6 +807,9 @@ def integrate (array, frequency, initial_value=0.0, scale=1.0, direction="forwar
     :param scale: Scaling factor, default = 1.0
     :type scale: float
     :param direction: Optional integration sense, default = 'forwards'
+    
+    Note: Reverse integration does not include a change of sign, so positive 
+    values have a negative slope following integration using this function.
     
     :returns integral: Result of integration by time
     :type integral: Numpy masked array.

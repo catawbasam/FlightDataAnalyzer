@@ -356,6 +356,21 @@ class TestAlign(unittest.TestCase):
         result = align(slave, master)
         #np.testing.assert_array_equal(result.data,expected) - test not implemented
 
+    def test_align_superframe_to_onehz_multistate(self):
+        # Slave once per superframe, master at 1Hz, Multi-State
+        class DumParam():
+            def __init__(self):
+                self.offset = None
+                self.frequency = 1
+                self.array = []
+        onehz = P(frequency = 1)
+        slave = DumParam()
+        slave.array = np.ma.array([1, 2, 3, 4], dtype=float)
+        slave.frequency = 1.0 / 64
+        result = align(slave, onehz, signaltype='Multi-State')
+        expected = np.ma.array([1] * 64 + [2] * 64 + [3] * 64 + [4] * 64)
+        np.testing.assert_array_equal(result.data, expected)
+
 
 class TestBearingsAndDistances(unittest.TestCase):
     def test_known_distance(self):
@@ -743,7 +758,7 @@ class TestFirstOrderWashout(unittest.TestCase):
         result = first_order_washout (array, 1.0, 1.0, initial_value = 1.0)
         ma_test.assert_mask_eqivalent(result.mask, [0,0,0,1,0], err_msg='Masks are not equal')
     
-    
+   
 class TestRunwayDistances(unittest.TestCase):
     # This single test case uses data for Bergen and has been checked against
     # Google Earth measurements for reasonable accuracy.
@@ -1689,6 +1704,7 @@ class TestStraightenHeadings(unittest.TestCase):
                          mask=[True]*10+[False]*8+[True]*4+[False]*5+[True]*4)
         ma_test.assert_masked_array_approx_equal(straighten_headings(data), expected)
             
+
 class TestSmoothTrack(unittest.TestCase):
     def test_smooth_track_latitude(self):
         lat = np.ma.array([0,0,0,1,1,1], dtype=float)
@@ -2014,4 +2030,9 @@ class TestVstackParams(unittest.TestCase):
                       [99, 11, 12, 13, 14, 15, 16, 17, 18, 99]])
         )
         self.assertRaises(ValueError, vstack_params, None, None, None)
-                              
+
+
+if __name__ == '__main__':
+    suite = unittest.TestSuite()
+    suite.addTest(TestAlign('test_align_superframe_to_onehz_multistate'))
+    unittest.TextTestRunner(verbosity=2).run(suite)
