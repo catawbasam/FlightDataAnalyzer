@@ -1241,30 +1241,33 @@ class GrossWeightSmoothed(DerivedParameterNode):
             ff_time = ((gw_index/gw.frequency)+gw.offset-ff.offset)*ff.frequency
             to_burn_all.append(value_at_index(fuel_to_burn, ff_time))
             
-            # Check for those not in climb or descent
-            for climb in climbs:
-                if is_index_within_slice(gw_index, climb.slice):
-                    break
-            for descend in descends:
-                if is_index_within_slice(gw_index, climb.slice):
-                    break
+            # Skip values which are within Climbing or Descending phases.
+            if any([is_index_within_slice(gw_index, c.slice) for c in climbs]) or \
+               any([is_index_within_slice(gw_index, d.slice) for d in descends]):
+                continue
+            
             gw_valid.append(gw.array.data[gw_index])
             ff_time = ((gw_index/gw.frequency)+gw.offset-ff.offset)*ff.frequency
             to_burn_valid.append(value_at_index(fuel_to_burn, ff_time))
-            
-        if len(gw_valid) > 5:
-            corr, slope, offset = coreg(np.ma.array(gw_valid), indep_var=np.ma.array(to_burn_valid))
-        elif len(gw_all) > 2:
-            corr, slope, offset = coreg(np.ma.array(gw_all), indep_var=np.ma.array(to_burn_all))
+        
+        use_valid = len(gw_valid) > 5
+        use_all = len(gw_all) > 2
+        if use_valid or use_all:
+            if use_valid:
+                corr, slope, offset = coreg(np.ma.array(gw_valid), indep_var=np.ma.array(to_burn_valid))
+            elif use_all:
+                corr, slope, offset = coreg(np.ma.array(gw_all), indep_var=np.ma.array(to_burn_all))
+            if corr < 0.5:
+                offset = gw_all[0] - to_burn_all[0]
         elif len(gw_all) == 1:
             offset = gw_all[0] - to_burn_all[0]
         else:
-            logger.warning("'%s' cannot smooth '%s' and will set the original "
-                           "array.", self.name, gw.name)
+            logging.warning("'%s' cannot smooth '%s' and will set the original "
+                            "array.", self.name, gw.name)
             self.array = gw.array
             return
-        
         self.array = fuel_to_burn + offset
+
 
 class FlapLever(DerivedParameterNode):
     """

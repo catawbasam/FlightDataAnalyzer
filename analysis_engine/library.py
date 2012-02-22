@@ -353,9 +353,9 @@ def coreg(y, indep_var=None, force_zero=False):
         x = indep_var
         if len(x) != n:
             raise ValueError, 'Function coreg called with arrays of differing length'
-        if min(x)-max(x)==0.0:
-            # Could raise ValueError, 'Function coreg called with invariant independent variable'
-            return 0.0, 0.0, 0.0
+    if x.ptp() == 0.0 or y.ptp() == 0.0:
+        # Could raise ValueError, 'Function coreg called with invariant independent variable'
+        return 0.0, 0.0, 0.0
         
     sx = np.sum(x)
     sxy = np.sum(x*y)
