@@ -350,7 +350,7 @@ class LandingRunway(FlightAttributeNode):
         airport_id = airport.value['id']
         landing = approach_and_landing.get_last()
         if not landing:
-            logging.warning("No landing")
+            logging.warning("Empty '%s' in '%s'.", landing.name, self.name)
             self.set_flight_attr(None)
             return
         heading = landing_hdg[-1].value
@@ -379,12 +379,12 @@ class LandingRunway(FlightAttributeNode):
                 runway = {'identifier': runway_info['ident']}
             else:
                 runway = runway_info['items'][0]            
+            self.set_flight_attr(runway)
         except NotFoundError:
             logging.warning("Runway not found for airport id '%d', heading "
                             "'%f' and kwargs '%s'.", airport_id, heading,
                             kwargs)
-        else:
-            self.set_flight_attr(runway)
+            self.set_flight_attr(None)
 
 
 class OffBlocksDatetime(FlightAttributeNode):
