@@ -2,26 +2,30 @@ import os
 import logging
 import numpy as np
 
+from datetime import datetime, timedelta
+
+from analysis_engine import hooks, settings
+from analysis_engine.datastructures import Segment
+from analysis_engine.node import P
+from analysis_engine.plot_flight import plot_essential
+from analysis_engine.library import (align, calculate_timebase, hash_array,
+                                     hysteresis, normalise,
+                                     repair_mask, rate_of_change,
+                                     straighten_headings,
+                                     vstack_params)
+
 from hdfaccess.file import hdf_file
 from hdfaccess.utils import write_segment
 
-from analysis_engine import hooks, settings
-from analysis_engine.plot_flight import plot_essential
-from analysis_engine.split_segments import append_segment_info, split_segments
+from utilities.filesystem_tools import sha_hash_file
 
 
 class AircraftMismatch(ValueError):
     pass
 
-    
+class TimebaseError(ValueError):
+    pass
 
-##def deidentify_file(file_path):
-    ##"""
-    ##Removes any specific meta-data.
-    ##Removes timebase / amends.
-    ##Removes parameters.
-    ##"""
-    ##pass
 
 def validate_aircraft(aircraft_info, hdf):
     """
@@ -33,50 +37,326 @@ def validate_aircraft(aircraft_info, hdf):
     else:
         raise AircraftMismatch("Tail does not match identification %s" % \
                                aircraft_info['Tail Number'])
-    
-##def post_lfl_param_process(hdf, param):
-    ##if hooks.POST_LFL_PARAM_PROCESS:
-        ### perform post lfl retrieval steps
-        ##_param = hooks.POST_LFL_PARAM_PROCESS(hdf, param)
-        ##if _param:
-            ### store any updates to param to hdf file
-            ##hdf.set_param(_param)
-            ##return _param
-    ##return param
 
-##def split_segments2(airspeed, dfc):
-    ##speedy_slices = np.ma.notmasked_contiguous(mask_slow_airspeed(airspeed.array))
-    ### be clever about splitting between speedy slices
-    ##if len(speedy_slices) <= 1:
-        ##return [slice(0, len(airspeed))]
-    ### more than one speedy section
-    ##dfc_diff = np.ma.diff(dfc.array)
-    ##dfc_mask_one = np.ma.masked_equal(dfc_diff, 1)
-    ##dfc_mask_4094 = np.ma.masked_equal(dfc_mask_one, -4094)
-    
-    ##segment_slices = []
-    ##origin = 0
-    ##start = speedy_slices[0].stop
-    ##for speedy_slice in speedy_slices[1:]:
-        ##stop = speedy_slice.start
-        ### find DFC split within speedy sections
 
-        ### take the biggest jump (not that it means anything, but only one jump is enough!
-        ##index, value = max_abs_value(dfc_mask_4094, slice(start, stop))
-        ##if np.ma.is_masked(value) or index == start:
-            ### no jump, take half way between values
-            ##index = (start + stop) / 2.0
-        ##segment_slices.append(slice(origin, index))
-        ##print slice(origin, index)
-        ### keep track of slices
-        ##origin = index
-        ##start = speedy_slice.stop
-    ##else:
-        ### end slice
-        ##segment_slices.append(slice(origin, None))
-        ##print segment_slices[-1]
-            
-    ##return segment_slices
+def _segment_type_and_slice(airspeed, frequency, start, stop):
+    airspeed_start = start * frequency
+    airspeed_stop = stop * frequency    
+    unmasked_start, unmasked_stop = np.ma.flatnotmasked_edges(airspeed[airspeed_start:airspeed_stop])
+    unmasked_start += airspeed_start
+    unmasked_stop += airspeed_start
+    
+    slow_start = airspeed[unmasked_start] < settings.AIRSPEED_THRESHOLD
+    slow_stop = airspeed[unmasked_stop] < settings.AIRSPEED_THRESHOLD
+    
+    threshold_exceedance = np.ma.sum(airspeed[airspeed_start:airspeed_stop] > \
+                                     settings.AIRSPEED_THRESHOLD) * frequency
+    if threshold_exceedance < 30: # Q: What is a sensible value?
+        logging.info("Airspeed was below threshold.")
+        segment_type = 'GROUND_ONLY'
+    elif slow_start and slow_stop:
+        logging.info("Airspeed started below threshold, rose above and stopped "
+                     "below.")
+        segment_type = 'START_AND_STOP'
+    elif slow_start:
+        logging.info("Airspeed started below threshold and stopped above.")
+        segment_type = 'START_ONLY'
+    elif slow_stop:
+        logging.info("Airspeed started above threshold and stopped below.")
+        segment_type = 'STOP_ONLY'
+    else:
+        logging.info("Airspeed started and stopped above threshold.")
+        segment_type = 'MID_FLIGHT'
+    logging.info("Segment type is '%s' between '%s' and '%s'.",
+                 segment_type, start, stop)
+    return segment_type, slice(start, stop)
+
+
+def _get_normalised_split_params(hdf):
+    '''
+    Get split parameters (currently only engine power) from hdf, normalise
+    them on a scale from 0-1.0 and return the minimum.
+    
+    :param hdf: hdf_file object.
+    :type hdf: hdfaccess.file.hdf_file
+    :returns: Minimum of normalised split parameters along with its frequency. Will return None, None if no split parameters are available.
+    :rtype: (None, None) or (np.ma.masked_array, float)
+    '''
+    params = []
+    first_split_param = None
+    for param_name in ('Eng (1) N1', 'Eng (2) N1', 'Eng (3) N1', 'Eng (4) N1',
+                       'Eng (1) N2', 'Eng (2) N2', 'Eng (3) N2', 'Eng (4) N2',
+                       'Eng (1) NP', 'Eng (2) NP', 'Eng (3) NP', 'Eng (4) NP'):
+        try:
+            param = hdf[param_name]
+        except KeyError:
+            continue
+        if first_split_param:
+            # Align all other parameters to first available.
+            param.array = align(param, first_split_param)
+        else:
+            first_split_param = param
+            params.append(param)
+    
+    if not first_split_param:
+        return None, None
+    # If there is at least one split parameter available.
+    # normalise the parameters we'll use for splitting the data
+    stacked_params = vstack_params(*params)
+    normalised_params = normalise(stacked_params, scale_max=100)
+    split_params_min = np.ma.min(normalised_params, axis=0)
+    return split_params_min, first_split_param.frequency
+
+def _rate_of_turn(heading):
+    '''
+    Create rate of turn from heading.
+    
+    :param heading: Heading parameter.
+    :type heading: Parameter
+    '''
+    heading.array = repair_mask(straighten_headings(heading.array),
+                                repair_duration=None)
+    rate_of_turn = np.ma.abs(rate_of_change(heading, 1))
+    rate_of_turn_masked = np.ma.masked_greater(rate_of_turn,
+                                               settings.RATE_OF_TURN_SPLITTING_THRESHOLD)    
+    return rate_of_turn_masked
+
+
+def split_segments(hdf):
+    '''
+    TODO: DJ suggested not to use decaying engine oil temperature.
+    
+    Notes:
+     * We do not want to split on masked superframe data if mid-flight (e.g. short section of corrupt data) - repair_mask without defining repair_duration should fix that.
+     * Use turning alongside engine parameters to ensure there is no movement?
+     Q: Beware of pre-masked minimums to ensure we don't split on padded superframes     
+    
+    TODO: Use L3UQAR num power ups for difficult cases?
+    '''
+    airspeed = hdf['Airspeed']
+    airspeed_array = repair_mask(airspeed.array, repair_duration=None)
+    # mask where airspeed drops below min airspeed, using hysteresis
+    airspeed_array = hysteresis(airspeed_array, settings.HYSTERESIS_FPIAS)
+    airspeed_secs = len(airspeed_array) / airspeed.frequency
+    slow_array = np.ma.masked_less_equal(airspeed_array,
+                                         settings.AIRSPEED_THRESHOLD)
+    
+    speedy_slices = np.ma.clump_unmasked(slow_array)
+    if len(speedy_slices) <= 1:
+        logging.info("There are '%s' sections of data where airspeed is "
+                     "above the splitting threshold. Therefore there can only "
+                     "be at maximum one flights worth of data. Creating a single "
+                     "segment comprising all data.", len(speedy_slices))
+        # Use the first and last available unmasked values to determine segment
+        # type.
+        return [_segment_type_and_slice(airspeed_array, airspeed.frequency, 0,
+                                        airspeed_secs)]
+    slow_slices = np.ma.clump_masked(slow_array)
+    
+    heading = hdf['Heading']
+    rate_of_turn = _rate_of_turn(heading)    
+    
+    split_params_min, \
+    split_params_frequency = _get_normalised_split_params(hdf)
+    
+    if hdf.reliable_frame_counter:
+        dfc = hdf['Frame Counter']
+        dfc_diff = np.ma.diff(dfc.array)
+        # Mask 'Frame Counter' incrementing by 1.
+        dfc_diff = np.ma.masked_equal(dfc_diff, 1)
+        # Mask 'Frame Counter' overflow where the Frame Counter transitions from
+        # 4095 to 0. Q: This used to be 4094, are there some Frame Counters which increment from 1 rather than 0 or something else?
+        dfc_diff = np.ma.masked_equal(dfc_diff, -4095)
+        # Gap between difference values.
+        dfc_half_period = (1 / dfc.frequency) / 2
+    else:
+        logging.info("'Frame Counter' will not be used for splitting since "
+                     "'reliable_frame_counter' is False.")
+        dfc = None
+    
+    segments = []
+    start = 0
+    for slow_slice in slow_slices:
+        if slow_slice.start == 0:
+            # Do not split if slow_slice is at the beginning of the data.
+            # Since we are working with masked slices, masked padded superframe
+            # data will be included within the first slow_slice.
+            continue
+        if slow_slice.stop == len(airspeed_array):
+            # After the loop we will add the remaining data to a segment.
+            break
+        
+        # Get start and stop at 1Hz.
+        slice_start_secs = slow_slice.start / airspeed.frequency
+        slice_stop_secs = slow_slice.stop / airspeed.frequency
+        
+        slow_duration = slice_stop_secs - slice_start_secs
+        if slow_duration < settings.MINIMUM_SPLIT_DURATION:
+            logging.info("Disregarding period of airspeed below '%s' "
+                          "since '%s' is shorter than MINIMUM_SPLIT_DURATION "
+                          "('%s').", settings.AIRSPEED_THRESHOLD, slow_duration,
+                          settings.MINIMUM_SPLIT_DURATION)
+            continue
+        
+        # Split using 'Frame Counter'.
+        if dfc is not None:
+            dfc_slice = slice(slice_start_secs * dfc.frequency,
+                              slice_stop_secs * dfc.frequency)
+            unmasked_edges = np.ma.flatnotmasked_edges(dfc_diff[dfc_slice])
+            if unmasked_edges is not None:
+                # Split on the first DFC jump.
+                dfc_index = unmasked_edges[0]
+                split_index = round((dfc_index / dfc.frequency) + slice_start_secs + \
+                    dfc_half_period)
+                logging.info("'Frame Counter' jumped within slow_slice '%s' "
+                             "at index '%s'.", slow_slice, split_index)
+                segments.append(_segment_type_and_slice(airspeed_array,
+                                                        airspeed.frequency,
+                                                        start, split_index))
+                start = split_index
+                continue
+            else:
+                logging.info("'Frame Counter' did not jump within slow_slice "
+                             "'%s'.", slow_slice)
+        
+        # Split using engine parameters.        
+        if split_params_min is not None:
+            split_params_slice = slice(slice_start_secs * split_params_frequency,
+                                       slice_stop_secs * split_params_frequency)
+            split_params_masked = np.ma.masked_greater(split_params_min[split_params_slice],
+                                                       settings.MINIMUM_SPLIT_PARAM_VALUE)
+            try:
+                below_min_slice = np.ma.clump_unmasked(split_params_masked)[0]
+            except IndexError:
+                logging.info("Average of normalised split parameters did not drop "
+                             "below MINIMUM_SPLIT_PARAM_VALUE ('%s') within slow_slice '%s'.",
+                             settings.MINIMUM_SPLIT_PARAM_VALUE,
+                             split_params_slice)
+            else:
+                below_min_duration = below_min_slice.stop - below_min_slice.start
+                param_split_index = split_params_slice.start + \
+                    below_min_slice.start + (below_min_duration / 2)
+                split_index = round(param_split_index / split_params_frequency)
+                logging.info("Average of normalised split parameters value was "
+                             "below MINIMUM_SPLIT_PARAM_VALUE ('%s') within "
+                             "slow_slice '%s' at index '%s'.",
+                             settings.MINIMUM_SPLIT_PARAM_VALUE,
+                             slow_slice, split_index)    
+                segments.append(_segment_type_and_slice(airspeed_array,
+                                                        airspeed.frequency,
+                                                        start, split_index))
+                start = split_index
+                continue
+        
+        # Split using rate of turn. Q: Should this be considered in other
+        # splitting methods.
+        rot_slice = slice(slice_start_secs * heading.frequency,
+                          slice_stop_secs * heading.frequency)
+        stopped_slices = np.ma.clump_unmasked(rate_of_turn[rot_slice])
+        try:
+            first_stop = stopped_slices[0]
+        except IndexError:
+            # The aircraft did not stop turning.
+            logging.info("Aircraft did not stop turning during slow_slice "
+                         "'%s'. Therefore a split will not be made.",
+                         slow_slice)
+        else:
+            # Split half-way within the stop slice.
+            stop_duration = first_stop.stop - first_stop.start
+            rot_split_index = rot_slice.start + first_stop.start + (stop_duration / 2)
+            # Get the absolute split index at 1Hz.
+            split_index = round(rot_split_index / heading.frequency)
+            segments.append(_segment_type_and_slice(airspeed_array, airspeed.frequency,
+                                                    start, split_index))
+            start = split_index
+            continue
+        
+        logging.info("Splitting methods failed to split within slow_slice "
+                     "'%s'.", slow_slice)
+    
+    # Add remaining data to a segment.
+    segments.append(_segment_type_and_slice(airspeed_array, airspeed.frequency,
+                                            start, airspeed_secs))
+    return segments
+        
+        
+def _calculate_start_datetime(hdf):
+    """
+    Calculate start datetime.
+    
+    HDF params used:
+    :Year: Optional (defaults to 1970)
+    :Month: Optional (defaults to 1)
+    :Day: Optional (defaults to 1)
+    :Hour: Required
+    :Minute: Required
+    :Second: Required
+
+    If required parameters are not available, a TimebaseError is raised
+    """
+    # align required parameters to 1Hz
+    onehz = P(frequency = 1)
+    dt_arrays = []
+    for name in ('Year', 'Month', 'Day', 'Hour', 'Minute', 'Second'):
+        if name in hdf:
+            dt_arrays.append(align(hdf[name], onehz, signaltype='Multi-State'))
+        elif name in ('Hour', 'Minute', 'Second'):
+            raise TimebaseError("Required parameter '%s' not available" % name)
+        else:
+            dt_arrays.append(None)
+    
+    # establish timebase for start of data
+    try:
+        return calculate_timebase(*dt_arrays)
+    except (KeyError, ValueError) as err:
+        raise TimebaseError("Error with timestamp values: %s" % err)
+    
+        
+def append_segment_info(hdf_segment_path, segment_type, segment_slice, part):
+    """
+    Get information about a segment such as type, hash, etc. and return a
+    named tuple.
+    
+    If a valid timestamp can't be found, it creates start_dt as epoch(0)
+    i.e. datetime(1970,1,1,1,0). Go-fast dt and Stop dt are relative to this
+    point in time.
+    
+    :param hdf_segment_path: path to HDF segment to analyse
+    :type hdf_segment_path: string
+    :param segment_slice: Slice of this segment relative to original file.
+    :type segment_slice: slice
+    :param part: Numeric part this segment was in the original data file (1 indexed)
+    :type part: Integer
+    :returns: Segment named tuple
+    :rtype: Segment
+    """
+    # build information about a slice
+    with hdf_file(hdf_segment_path) as hdf:
+        airspeed = hdf['Airspeed'].array
+        duration = hdf.duration
+        try:
+            start_datetime = _calculate_start_datetime(hdf)
+        except TimebaseError:
+            logging.warning("Unable to calculate timebase, using epoch 1.1.1970!")
+            start_datetime = datetime.fromtimestamp(0)
+        stop_datetime = start_datetime + timedelta(seconds=duration)
+    
+    if segment_type != 'GROUND_ONLY':
+        # we went fast, so get the index
+        spd_above_threshold = np.ma.where(airspeed > settings.AIRSPEED_THRESHOLD)
+        go_fast_index = spd_above_threshold[0][0]
+        go_fast_datetime = start_datetime + timedelta(seconds=int(go_fast_index))
+        # Identification of raw data airspeed hash (including all spikes etc)
+        airspeed_hash = hash_array(airspeed.data[airspeed.data > settings.AIRSPEED_THRESHOLD])
+    else:
+        go_fast_index = None
+        go_fast_datetime = None
+        # if not go_fast, create hash from entire file
+        airspeed_hash = sha_hash_file(hdf_segment_path)
+    #                ('slice         type          part  path              hash           start_dt        go_fast_dt        stop_dt')
+    segment = Segment(segment_slice, segment_type, part, hdf_segment_path, airspeed_hash, start_datetime, go_fast_datetime, stop_datetime)
+    return segment
+
 
 def split_hdf_to_segments(hdf_path, aircraft_info, output_dir=None, draw=False):
     """
@@ -147,15 +427,9 @@ if __name__ == '__main__':
     import sys
     import shutil
     import pprint
+    from utilities.filesystem_tools import copy_file
     hdf_path = sys.argv[1]
     aircraft_info = {'Tail Number': 'G-DEMA'}
-    hdf_copy = os.path.splitext(hdf_path)[0] + '_copy.hdf5' 
-    if os.path.isfile(hdf_copy):
-        os.remove(hdf_copy)
-    shutil.copy(hdf_path, hdf_copy)
-    segs = split_hdf_to_segments(hdf_copy, aircraft_info=aircraft_info,
-                                 draw=False)    
+    hdf_copy = copy_file(hdf_path, postfix='_split')
+    segs = split_hdf_to_segments(hdf_copy, aircraft_info=aircraft_info,draw=False)    
     pprint.pprint(segs)
-    ##os.remove(file_path) # delete original raw data file?
-    ##os.remove(hdf_path) # delete original hdf file?
-    

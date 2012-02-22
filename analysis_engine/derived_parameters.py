@@ -21,6 +21,7 @@ from analysis_engine.library import (bearings_and_distances,
                                      index_of_datetime,
                                      integrate,
                                      interleave,
+                                     is_index_within_slice,
                                      is_slice_within_slice,
                                      latitudes_and_longitudes,
                                      merge_sources,
@@ -36,6 +37,7 @@ from analysis_engine.library import (bearings_and_distances,
                                      step_values,
                                      straighten_headings,
                                      track_linking,
+                                     value_at_index,
                                      vstack_params)
 
 from settings import (AZ_WASHOUT_TC,
@@ -192,7 +194,7 @@ class AirspeedMinusVref(DerivedParameterNode):
 class AirspeedTrue(DerivedParameterNode):
     @classmethod
     def can_operate(cls, available):
-       return 'Airspeed' in available and 'Altitude STD' in available
+        return 'Airspeed' in available and 'Altitude STD' in available
     
     def derive(self, cas = P('Airspeed'),
                alt_std = P('Altitude STD'),
@@ -351,17 +353,18 @@ class AltitudeForFlightPhases(DerivedParameterNode):
         self.array = hysteresis(repair_mask(alt_std.array), HYSTERESIS_FPALT)
     
 
+"""
 # Q: Which of the two following AltitudeRadio's are correct?
 # Note: The first one cannot replace its own name (Altitude Radio) and
 # therefore will never be processed?
 class AltitudeRadio(DerivedParameterNode):
-    """
+    '''
     This function allows for the distance between the radio altimeter antenna
     and the main wheels of the undercarriage.
 
     The parameter raa_to_gear is measured in feet and is positive if the
     antenna is forward of the mainwheels.
-    """
+    '''
     units = 'ft'
     def derive(self, alt_rad=P('Altitude Radio'), pitch=P('Pitch'),
                main_gear_to_alt_rad=A('Main Gear To Altitude Radio')):
@@ -370,6 +373,7 @@ class AltitudeRadio(DerivedParameterNode):
         pitch_rad = np.radians(pitch.array)
         # Now apply the offset if one has been provided
         self.array = alt_rad.array - np.sin(pitch_rad) * main_gear_to_alt_rad.value
+"""
 
 class AltitudeRadio(DerivedParameterNode):
     '''
@@ -388,19 +392,20 @@ class AltitudeRadio(DerivedParameterNode):
                source_B=P('Altitude Radio (B)'),
                source_C=P('Altitude Radio (C)'),
                frame=A('Frame')):
-        if frame.value in ['737-3C']:
+        frame_name = frame.value if frame else None
+        if frame_name in ['737-3C']:
             # Alternate samples for this frame have latency of over 1 second,
             # so do not contribute to the height measurements available.
             self.array, self.frequency, self.offset = \
                 merge_two_parameters(source_B, source_C)
             
-        elif frame.value in ['737-4', '737-4_Analogue']:
+        elif frame_name in ['737-4', '737-4_Analogue']:
             self.array, self.frequency, self.offset = \
                 merge_two_parameters(source_A, source_B)
         
         else:
             logging.warning("No specified Altitude Radio (*) merging for frame "
-                            "'%s' so using source (A)", frame.value)
+                            "'%s' so using source (A)", frame_name)
             self.array = source_A.array
             
 
@@ -1202,6 +1207,62 @@ class FuelQty(DerivedParameterNode):
         self.array = np.ma.sum(stacked_params, axis=0)
 
 
+class GrossWeightSmoothed(DerivedParameterNode):
+    '''
+    Gross weight is usually sampled at a low rate and can be very poor in the
+    climb, often indicating an increase in weight at takeoff and this effect
+    may not end until the aircraft levels in the cruise. Also some aircraft
+    weight data saturates at high AUW values, and while the POLARIS Analysis
+    Engine can mask this data a subsitute is needed for takeoff weight (hence
+    V2) calculations. This can only be provided by extrapolation backwards
+    from data available later in the flight.
+    
+    This routine makes the best of both worlds by using fuel flow to compute
+    short term changes in weight and mapping this onto the level attitude
+    data.
+    '''
+    align_to_first_dependency = False
+    
+    def derive(self, ff = P('Eng (*) Fuel Flow'),
+               gw = P('Gross Weight'),
+               climbs = S('Climbing'),
+               descends = S('Descending')
+               ):
+        flow = repair_mask(ff.array)
+        fuel_to_burn = np.ma.array(integrate (flow/3600.0, ff.frequency,  direction='reverse'))
+
+        to_burn_valid = []
+        to_burn_all = []
+        gw_valid = []
+        gw_all = []
+        for gw_index in gw.array.nonzero()[0]:
+            # Keep all the values
+            gw_all.append(gw.array.data[gw_index])
+            ff_time = ((gw_index/gw.frequency)+gw.offset-ff.offset)*ff.frequency
+            to_burn_all.append(value_at_index(fuel_to_burn, ff_time))
+            
+            # Check for those not in climb or descent
+            for climb in climbs:
+                if is_index_within_slice(gw_index, climb.slice):
+                    break
+            for descend in descends:
+                if is_index_within_slice(gw_index, climb.slice):
+                    break
+            gw_valid.append(gw.array.data[gw_index])
+            ff_time = ((gw_index/gw.frequency)+gw.offset-ff.offset)*ff.frequency
+            to_burn_valid.append(value_at_index(fuel_to_burn, ff_time))
+            
+        if len(gw_valid) > 5:
+            corr, slope, offset = coreg(np.ma.array(gw_valid), indep_var=np.ma.array(to_burn_valid))
+        elif len(gw_all) > 2:
+            corr, slope, offset = coreg(np.ma.array(gw_all), indep_var=np.ma.array(to_burn_all))
+        elif len(gw_all) == 1:
+            offset = gw_all[0] - to_burn_all[0]
+        else:
+            return
+        
+        self.array = fuel_to_burn + offset
+
 class FlapLever(DerivedParameterNode):
     """
     Steps raw Flap angle from lever into detents.
@@ -1645,11 +1706,10 @@ class LatitudeSmoothed(DerivedParameterNode):
                             loc_est.name)
             self.array = lat.array
             return
-        lat_adj, lon_adj = adjust_track(lon,lat,loc_est,ils_range,ils_loc,
+        
+        self.array, _ = adjust_track(lon,lat,loc_est,ils_range,ils_loc,
                                         alt_aal,gspd,tas,precise,toff,
                                         app_info,toff_rwy)
-        
-        self.array = lat_adj
         
 
 class LongitudeSmoothed(DerivedParameterNode):
@@ -1675,12 +1735,9 @@ class LongitudeSmoothed(DerivedParameterNode):
             self.array = lon.array
             return        
 
-        lat_adj, lon_adj = adjust_track(lon,lat,loc_est,ils_range,ils_loc,
+        _, self.array = adjust_track(lon,lat,loc_est,ils_range,ils_loc,
                                         alt_aal,gspd,tas,precise,toff,
                                         app_info,toff_rwy)
-        if len(app_info.value) != len(loc_est):
-            return None
-        self.array = lon_adj
         
         
 def adjust_track(lon,lat,loc_est,ils_range,ils_loc,alt_aal,gspd,tas,
@@ -1748,28 +1805,30 @@ def adjust_track(lon,lat,loc_est,ils_range,ils_loc,alt_aal,gspd,tas,
         
         # Which runway are we approaching?
         approach = app_info.value[num_loc]
-        # TODO: What do we do if localizer is not available in runway dict.
+
         if approach['runway'].has_key('localizer'):
             reference = approach['runway']['localizer']
+            
+            # Compute the localizer scale factor (degrees per dot)
+            scale = (reference['beam_width']/2.0) / 2.5
+            
+            # Adjust the ils data to be degrees from the reference point.
+            bearings = ils_loc.array[this_loc.slice] * scale + \
+                runway_heading(app_info.value[num_loc]['runway'])+180
+            
+            # Adjust distance units
+            distances = ils_range.array[this_loc.slice] / METRES_TO_FEET
+            
+            # At last, the conversion of ILS localizer data to latitude and longitude
+            lat_adj[this_loc.slice], lon_adj[this_loc.slice] = \
+                latitudes_and_longitudes(bearings, distances, reference)
+            
         elif approach['runway'].has_key('end'):
+            # TODO: Consider if we can use the end of the runway as a threshold?
             threshold = approach['runway']['end']
         else:
             pass
-            # TODO: Set threshold is where the touchdown happened.
-        
-        # Compute the localizer scale factor (degrees per dot)
-        scale = (reference['beam_width']/2.0) / 2.5
-        
-        # Adjust the ils data to be degrees from the reference point.
-        bearings = ils_loc.array[this_loc.slice] * scale + \
-            runway_heading(app_info.value[num_loc]['runway'])+180
-        
-        # Adjust distance units
-        distances = ils_range.array[this_loc.slice] / METRES_TO_FEET
-        
-        # At last, the conversion of ILS localizer data to latitude and longitude
-        lat_adj[this_loc.slice], lon_adj[this_loc.slice] = \
-            latitudes_and_longitudes(bearings, distances, reference)
+            # TODO: Set threshold is where the touchdown happened?.
         
 
     # --- Merge Tracks and return ---
@@ -1896,14 +1955,11 @@ class RateOfClimb(DerivedParameterNode):
          
          
 class RateOfClimbForFlightPhases(DerivedParameterNode):
-    def derive(self, alt_std = P('Altitude STD'),
-               fast = S('Fast')):
+    def derive(self, alt_std = P('Altitude STD')):
         # This uses a scaled hysteresis parameter. See settings for more detail.
-        for speedy in fast:
-            threshold = HYSTERESIS_FPROC * \
-                max(1, rms_noise(alt_std.array[speedy.slice]))  
-            # The max(1, prevents =0 case when testing with artificial data.
-            self.array = hysteresis(rate_of_change(alt_std,3)*60,threshold)
+        threshold = HYSTERESIS_FPROC * max(1, rms_noise(alt_std.array))  
+        # The max(1, prevents =0 case when testing with artificial data.
+        self.array = hysteresis(rate_of_change(alt_std,3)*60,threshold)
 
 
 class Relief(DerivedParameterNode):

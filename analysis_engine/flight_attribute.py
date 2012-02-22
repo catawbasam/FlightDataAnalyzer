@@ -104,7 +104,7 @@ class Approaches(FlightAttributeNode):
             runway_info = api_handler.get_nearest_runway(airport_id, hdg, **kwargs)
             if len(runway_info['items']) > 1:
                 # TODO: What to store in approach dictionary.
-                runway = {'ident': runway_info[0]}
+                runway = {'identifier': runway_info['ident']}
                 logging.warning("Identified %d Runways, ident %s. Picking the first!", 
                              len(runway_info['items']), runway_info['ident'])
             else:
@@ -326,10 +326,10 @@ class LandingRunway(FlightAttributeNode):
                                              'Heading At Landing']])
         
     def derive(self, approach_and_landing=S('Approach And Landing'),
-               landing_hdg=P('Heading At Landing'),
+               landing_hdg=KPV('Heading At Landing'),
                airport=A('FDR Landing Airport'),
-               landing_latitude=P('Latitude At Landing'),
-               landing_longitude=P('Longitude At Landing'),
+               landing_latitude=KPV('Latitude At Landing'),
+               landing_longitude=KPV('Longitude At Landing'),
                approach_ilsfreq=KPV('ILS Frequency On Approach'),
                precision=A('Precise Positioning')
                ):
@@ -344,14 +344,10 @@ class LandingRunway(FlightAttributeNode):
         airport_id = airport.value['id']
         landing = approach_and_landing.get_last()
         if not landing:
+            logging.warning("No landing")
+            self.set_flight_attr(None)
             return
-        heading_kpv = landing_hdg.get_last(within_slice=landing.slice)
-        if not heading_kpv:
-            logging.warning("'%s' not available in '%s', therefore runway "
-                            "cannot be queried for.", landing_hdg.name,
-                            self.__class__.__name__)
-            return
-        heading = heading_kpv.value
+        heading = landing_hdg[-1].value
             
         # 'Last Approach And Landing' assumed to be Landing. Q: May not be true
         # for partial data?
@@ -497,13 +493,11 @@ class TakeoffFuel(FlightAttributeNode):
 class TakeoffGrossWeight(FlightAttributeNode):
     "Aircraft Gross Weight in KG at point of Takeoff"
     name = 'FDR Takeoff Gross Weight'
-    def derive(self, liftoff_gross_weight=P('Gross Weight At Liftoff')):
+    def derive(self, liftoff_gross_weight=KPV('Gross Weight At Liftoff')):
         first_gross_weight = liftoff_gross_weight.get_first()
-        if not first_gross_weight:
-            return
         self.set_flight_attr(first_gross_weight.value)
-            
     
+
 class TakeoffPilot(FlightAttributeNode, DeterminePilot):
     "Pilot flying at takeoff, Captain, First Officer or None"
     name = 'FDR Takeoff Pilot'
@@ -729,8 +723,6 @@ class LandingGrossWeight(FlightAttributeNode):
     name = 'FDR Landing Gross Weight'
     def derive(self, touchdown_gross_weight=KPV('Gross Weight At Touchdown')):
         last_gross_weight = touchdown_gross_weight.get_last()
-        # TODO: Support flight attributes not calling set_flight_attr where appropriate.
-        #if last_gross_weight:
         self.set_flight_attr(last_gross_weight.value)
 
 

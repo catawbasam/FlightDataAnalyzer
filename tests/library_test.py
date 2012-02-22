@@ -2,14 +2,14 @@ import csv
 import unittest
 import numpy as np
 import mock
-from math import sqrt, pi, atan
+from math import sqrt
 from datetime import datetime
 
 # A set of masked array test utilities from Pierre GF Gerard-Marchant
 # http://www.java2s.com/Open-Source/Python/Math/Numerical-Python/numpy/numpy/ma/testutils.py.htm
 import utilities.masked_array_testutils as ma_test
 
-from analysis_engine.node import A, KPV, KTI, Parameter, P, S, Section
+from analysis_engine.node import P, S
 from analysis_engine.library import *
 
 
@@ -353,7 +353,8 @@ class TestAlign(unittest.TestCase):
         slave = DumParam()
         slave.array = np.ma.arange(1411)
         slave.frequency = 0.5
-        result = align(slave, master)        
+        result = align(slave, master)
+        #np.testing.assert_array_equal(result.data,expected) - test not implemented
 
 
 class TestBearingsAndDistances(unittest.TestCase):
@@ -577,7 +578,8 @@ class TestCoReg(unittest.TestCase):
         self.assertAlmostEqual(offset, -2.54545454545455)
 
 
-class TestDuration(unittest.TestCase):
+class TestClip(unittest.TestCase):
+    # Previously known as Duration
     def setUp(self):
         test_list = []
         result_list = []
@@ -589,11 +591,11 @@ class TestDuration(unittest.TestCase):
         self.test_array = np.array(test_list)
         self.result_array = np.array(result_list)
 
-    def test_duration_example_of_use(self):
+    def test_clip_example_of_use(self):
         # Engine temperature at startup limit = 900 C for 5 seconds, say.
 
         # Pseudo-POLARIS exceedance would be like this:
-        # Exceedance = duration(Eng_1_EGT,5sec,1Hz) > 900
+        # Exceedance = clip(Eng_1_EGT,5sec,1Hz) > 900
         
         # In this case it was over 910 for 5 seconds, hence is an exceedance.
         
@@ -604,39 +606,39 @@ class TestDuration(unittest.TestCase):
                                 960.0,920.0,890.0,840.0,730.0])
         output_array = np.array([600.0,700.0,800.0,910.0,910.0,910.0,910.0,\
                                 910.0,910.0,890.0,840.0,730.0])
-        result = duration(engine_egt, 5)
+        result = clip(engine_egt, 5)
         np.testing.assert_array_equal(result, output_array)
         
-    def test_duration_correct_result(self):
-        result = duration(self.test_array, 3)
+    def test_clip_correct_result(self):
+        result = clip(self.test_array, 3)
         np.testing.assert_array_almost_equal(result, self.result_array)
     
-    def test_duration_rejects_negative_period(self):
+    def test_clip_rejects_negative_period(self):
         an_array = np.array([0,1])
-        self.assertRaises(ValueError, duration, an_array, -0.2)
+        self.assertRaises(ValueError, clip, an_array, -0.2)
         
-    def test_duration_rejects_negative_hz(self):
+    def test_clip_rejects_negative_hz(self):
         an_array = np.array([0,1])
-        self.assertRaises(ValueError, duration, an_array, 0.2, hz=-2)
+        self.assertRaises(ValueError, clip, an_array, 0.2, hz=-2)
         
-    def test_duration_rejects_zero_period(self):
+    def test_clip_rejects_zero_period(self):
         an_array = np.array([0,1])
-        self.assertRaises(ValueError, duration, an_array, 0.0)
+        self.assertRaises(ValueError, clip, an_array, 0.0)
         
-    def test_duration_rejects_zero_hz(self):
+    def test_clip_rejects_zero_hz(self):
         an_array = np.array([0,1])
-        self.assertRaises(ValueError, duration, an_array, 1.0, hz=0.0)
+        self.assertRaises(ValueError, clip, an_array, 1.0, hz=0.0)
         
-    def test_duration_no_change_below_period(self):
+    def test_clip_no_change_below_period(self):
         input_array = np.array([0,1,2,2,2,1,0])
         output_array = input_array
-        result = duration(input_array, 1, hz=2)
+        result = clip(input_array, 1, hz=2)
         np.testing.assert_array_equal(result, output_array)
         
-    def test_duration_change_at_period(self):
+    def test_clip_change_at_period(self):
         input_array = np.array([0.6,1.1,2.1,3.5,1.9,1.0,0])
         output_array = np.array([0.6,1.1,1.1,1.1,1.1,1.0,0.0])
-        result = duration(input_array, 6, hz=0.5)
+        result = clip(input_array, 6, hz=0.5)
         np.testing.assert_array_equal(result, output_array)
                     
 class TestFirstOrderLag(unittest.TestCase):
@@ -741,7 +743,7 @@ class TestFirstOrderWashout(unittest.TestCase):
         result = first_order_washout (array, 1.0, 1.0, initial_value = 1.0)
         ma_test.assert_mask_eqivalent(result.mask, [0,0,0,1,0], err_msg='Masks are not equal')
     
-    
+   
 class TestRunwayDistances(unittest.TestCase):
     # This single test case uses data for Bergen and has been checked against
     # Google Earth measurements for reasonable accuracy.
@@ -777,7 +779,6 @@ class TestRunwayHeading(unittest.TestCase):
     # This single test case uses data for Bergen and has been checked against
     # Google Earth measurements for reasonable accuracy.
     def test_runway_heading(self):
-        result = []
         runway =  {'end': {'latitude': 60.280151, 
                               'longitude': 5.222579}, 
                       'localizer': {'latitude': 60.2789, 
@@ -1688,6 +1689,7 @@ class TestStraightenHeadings(unittest.TestCase):
                          mask=[True]*10+[False]*8+[True]*4+[False]*5+[True]*4)
         ma_test.assert_masked_array_approx_equal(straighten_headings(data), expected)
             
+
 class TestSmoothTrack(unittest.TestCase):
     def test_smooth_track_latitude(self):
         lat = np.ma.array([0,0,0,1,1,1], dtype=float)

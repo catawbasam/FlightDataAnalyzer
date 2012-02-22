@@ -238,15 +238,16 @@ def calculate_timebase(years, months, days, hours, mins, secs):
     """
     base_dt = None
     clock_variation = OrderedDict() # Ordered so if all values are the same, max will consistently take the first val
-    if years is None:
+    length = len(mins)
+    if years is None or not len(years):
         logging.warning("Year not supplied, filling in with 1970")
-        years = np.repeat([1970], len(mins)) # force invalid year
-    if months is None:
+        years = np.repeat([1970], length) # force invalid year
+    if months is None or not len(months):
         logging.warning("Month not supplied, filling in with 01")
-        months = np.repeat([01], len(mins)) # force invalid month
-    if days is None:
+        months = np.repeat([01], length) # force invalid month
+    if days is None or not len(days):
         logging.warning("Day not supplied, filling in with 01")
-        days = np.repeat([01], len(mins)) # force invalid days
+        days = np.repeat([01], length) # force invalid days
         
     for step, (yr, mth, day, hr, mn, sc) in enumerate(izip(years, months, days, hours, mins, secs)):
         
@@ -260,7 +261,6 @@ def calculate_timebase(years, months, days, hours, mins, secs):
         if yr and yr < 100:
             yr = convert_two_digit_to_four_digit_year(yr)
             
-        
         try:
             dt = datetime(int(yr), int(mth), int(day), int(hr), int(mn), int(sc))
         except (ValueError, TypeError, np.ma.core.MaskError):
@@ -312,9 +312,9 @@ def coreg(y, indep_var=None, force_zero=False):
     correlate, slope, offset = coreg(y, indep_var=x, force_zero=True)
     
     :param y: dependent variable
-    :type y: numpy array
+    :type y: numpy float array - NB: MUST be float
     :param x: independent variable
-    :type x: numpy array. Where not supplied, a linear scale is created.
+    :type x: numpy float array. Where not supplied, a linear scale is created.
     :param force_zero: switch to force the regression offset to zero
     :type force_zero: logic, default=False
     
@@ -466,10 +466,8 @@ def datetime_of_index(start_datetime, index, frequency=1):
     return start_datetime + offset
     
 
-
-
-
-def duration(a, period, hz=1.0):
+# Previously known as Duration
+def clip(a, period, hz=1.0):
     '''
     This function clips the maxima and minima of a data array such that the 
     values are present (or exceeded) in the original data for the period
@@ -515,19 +513,6 @@ def duration(a, period, hz=1.0):
                 a[index:index+delay+1] = level
         else:
             break # No need to process the rest of the array.
-    
-    '''
-    Original version using Fortranesque style :o)
-    i = 1 # return of the i!
-    while i < len(data_array) - delay:
-        # check if ...??
-        if (result[i]-result[i-1])*(result[i+delay]-result[i]) < 0: #why?
-            for j in range (delay-1):
-                result[i] = result[i-1]
-                i = i + 1 #argh (i += 1 is only slightly nicer)
-        else:
-            i = i + 1
-    '''
     return a
 
 def first_order_lag (in_param, time_constant, hz, gain = 1.0, initial_value = None):
@@ -822,6 +807,9 @@ def integrate (array, frequency, initial_value=0.0, scale=1.0, direction="forwar
     :param scale: Scaling factor, default = 1.0
     :type scale: float
     :param direction: Optional integration sense, default = 'forwards'
+    
+    Note: Reverse integration does not include a change of sign, so positive 
+    values have a negative slope following integration using this function.
     
     :returns integral: Result of integration by time
     :type integral: Numpy masked array.
@@ -1821,7 +1809,7 @@ def smooth_track(lat, lon):
     return lat_last, lon_last, cost_0
 
             
-def straighten_headings(heading_array):
+def straighten_headings(heading_array, copy=True):
     '''
     We always straighten heading data before checking for spikes. 
     It's easier to process heading data in this format.
@@ -1831,6 +1819,8 @@ def straighten_headings(heading_array):
     :returns: Straightened headings
     :rtype: Generator of type Float
     '''
+    if copy:
+        heading_array = heading_array.copy()
     for clump in np.ma.clump_unmasked(heading_array):
         head_prev = heading_array.data[clump.start]
         diff = np.ediff1d(heading_array.data[clump])

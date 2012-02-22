@@ -24,18 +24,18 @@ virtualenv --python=python${VIRTVER} --no-site-packages --distribute ${VIRTENV}
 cd ${WORKSPACE}
 
 # Install testing and code metric tools
-pip install clonedigger
-pip install nosexcover
-pip install pep8
-pip install pyflakes
-pip install sphinx
+pip -E ${VIRTUENV} install --upgrade clonedigger nosexcover pep8 pyflakes sphinx
 if [ ${PYLINT} -eq 1 ]; then
-  pip install pylint
+  pip -E ${VIRTUAL} install --upgrade pylint
 fi
+
+# Overlay the additional Analysis Egnine tests
+rm -rf tests/AnalysisEngine_tests
+bzr branch http://vindictive.flightdataservices.com/Bazaar/AnalysisEngine_tests tests/AnalysisEngine_tests
 
 # Install requirements
 if [ -f requirements.txt ]; then
-    pip install --upgrade -r requirements.txt
+    pip -E ${VIRTENV} install --upgrade -r requirements.txt
 fi
 
 # Install runtime requirements.

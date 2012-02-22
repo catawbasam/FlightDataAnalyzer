@@ -4,10 +4,9 @@ import numpy as np
 from analysis_engine import settings
 from analysis_engine.settings import CONTROL_FORCE_THRESHOLD
 
-from analysis_engine.node import (KeyPointValue, KeyPointValueNode, KPV, KTI,
-                                  P, S)
-from analysis_engine.library import (coreg, 
-                                     duration, index_at_value, max_abs_value,
+from analysis_engine.node import KeyPointValueNode, KPV, KTI, P, S
+from analysis_engine.library import (clip, coreg, 
+                                     index_at_value, max_abs_value,
                                      max_continuous_unmasked, max_value,
                                      min_value, repair_mask, 
                                      slice_samples, 
@@ -83,44 +82,8 @@ class AirspeedMax(KeyPointValueNode):
     def derive(self, speed=P('Airspeed'), airs=S('Airborne')):
         # For commented version, see GlideslopeDeviation1500To1000FtMax
         self.create_kpvs_within_slices(speed.array, airs, max_value)
-            
 
-class HeadingAtTakeoff(KeyPointValueNode):
-    def derive(self, toffs=KTI('Fast'), 
-               head=P('Heading Continuous')):
-        for toff in toffs:
-            toff_head = np.ma.median(
-                head.array[toff.slice.start-5:toff.slice.start+5])
-            # Scanning 10 seconds around this point allows for short periods of
-            # corrupt data during the takeoff run.
-            self.create_kpv(toff.slice.start, toff_head%360.0)
 
-"""
-
-TODO: Can we omit this ?!?
-
-class AltitudeAtTakeoff(KeyPointValueNode):
-    def derive(self, takeoffs=S('Takeoff'), head=P('Heading Continuous'), 
-               accel=P('Acceleration Forwards')):
-        for toff in takeoffs:
-            peak_accel_index, value = max_value(accel.array, toff.slice)
-            toff_head = head.array.data[peak_accel_index] #TODO: What if data is masked on this value, use nearest valid by repairing mask?
-            self.create_kpv(peak_accel_index, toff_head%360.0)
-
-            
-class AltitudeAtLiftoff(KeyPointValueNode):
-    # Taken at the point of liftoff although there will be pressure errors at
-    # this point. The reason for computing this is unclear as we calculate
-    # Altitude AAL based upon the 35ft phase transition altitude.
-    def derive(self, alt_std=P('Altitude STD'), liftoffs=KTI('Liftoff')):
-        self.create_kpvs_at_ktis(alt_std.array, liftoffs)
-
-    
-class AltitudeAtLanding(KeyPointValueNode):
-    def derive(self, lands=KTI('Touchdown'), alt_std=P('Altitude STD')):
-        for land in lands:
-            self.create_kpv(land.index, alt_std[land.index])
-"""
 class AltitudeAtTouchdown(KeyPointValueNode):
     def derive(self, alt_std=P('Altitude STD'), touchdowns=KTI('Touchdown')):
         self.create_kpvs_at_ktis(alt_std.array, touchdowns)
@@ -208,7 +171,7 @@ class ControlColumnStiffness(KeyPointValueNode):
                     n = speedy.slice.start+move.start
                     for showme in range(0, slice_samples(move)):
                         spam.writerow([n+showme,column[move][showme],push[move][showme]])
-                    #-------------------------------------------------------------------
+                     #-------------------------------------------------------------------
                     # TEST OUTPUT TO CSV FILE FOR DEBUGGING ONLY
                     # TODO: REMOVE THIS SECTION BEFORE RELEASE
                     #-------------------------------------------------------------------
@@ -414,8 +377,8 @@ class AltitudeWithFlapsMax(KeyPointValueNode):
         
 class MachMax(KeyPointValueNode):
     name = 'Mach Max'
-    def derive(self, mach=P('Mach'), fast=S('Fast')):
-        self.create_kpvs_within_slices(mach.array, fast, max_value)
+    def derive(self, mach=P('Mach'), airs=S('Airborne')):
+        self.create_kpvs_within_slices(mach.array, airs, max_value)
 
 
 class AltitudeAtMachMax(KeyPointValueNode):
@@ -552,7 +515,8 @@ class Eng_N1MaxDurationUnder60PercentAfterTouchdown(KeyPointValueNode): ##was na
                 #TODO future storage of slice: self.slice = touchdown_to_stop_slice
                 touchdown_to_stop_duration = (touchdown_to_stop_slice.stop - \
                                         touchdown_to_stop_slice.start) / self.hz
-                self.create_kpv(touchdown_to_stop_slice.start,duration, eng_num=eng_num)
+                self.create_kpv(touchdown_to_stop_slice.start,
+                                touchdown_to_stop_duration, eng_num=eng_num)
             else:
                 # create KPV of 0 seconds
                 self.create_kpv(eng_stop[0].index, 0.0, eng_num=eng_num)
@@ -971,7 +935,7 @@ class LowPowerLessThan500Ft10Sec(KeyPointValueNode):
     #TODO: TESTS
     #Q: N1 Minimum or N1 Average
     def derive(self, eng_n1_min=P('Eng (*) N1 Min'), alt=P('Altitude AAL')):
-        eng_clipped = duration(eng_n1_min.array, 10, eng_n1_min.hz)
+        eng_clipped = clip(eng_n1_min.array, 10, eng_n1_min.hz)
         for alt_slice in alt.slices_from_to(500, 0):
             # clip to 10 secs
             index, value = min_value(eng_clipped, alt_slice)
@@ -1023,12 +987,13 @@ class FuelQtyAtTouchdown(KeyPointValueNode):
 
 
 class GrossWeightAtLiftoff(KeyPointValueNode):
-    def derive(self, gross_weight=P('Gross Weight'), liftoffs=KTI('Liftoff')):
+    def derive(self, gross_weight=P('Gross Weight Smoothed'), 
+               liftoffs=KTI('Liftoff')):
         self.create_kpvs_at_ktis(gross_weight.array, liftoffs)
 
 
 class GrossWeightAtTouchdown(KeyPointValueNode):
-    def derive(self, gross_weight=P('Gross Weight'),
+    def derive(self, gross_weight=P('Gross Weight Smoothed'),
                touchdowns=KTI('Touchdown')):
         self.create_kpvs_at_ktis(gross_weight.array, touchdowns)
 
