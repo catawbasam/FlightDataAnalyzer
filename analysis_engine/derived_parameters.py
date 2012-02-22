@@ -1259,6 +1259,9 @@ class GrossWeightSmoothed(DerivedParameterNode):
         elif len(gw_all) == 1:
             offset = gw_all[0] - to_burn_all[0]
         else:
+            logger.warning("'%s' cannot smooth '%s' and will set the original "
+                           "array.", self.name, gw.name)
+            self.array = gw.array
             return
         
         self.array = fuel_to_burn + offset
