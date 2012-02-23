@@ -1073,30 +1073,88 @@ class TestGrossWeightSmoothed(unittest.TestCase):
     def test_gw_formula(self):
         weight = P('Gross Weight',np.ma.array([292,228,164,100],dtype=float),offset=0.0,frequency=1/64.0)
         fuel_flow = P('Eng (*) Fuel Flow',np.ma.array([3600]*256,dtype=float),offset=0.0,frequency=1.0)
-        climbing = S('Climbing',items=[Section('Climbing', slice=slice(None,None))])
+        climb = S(items=[Section('Climbing',slice(None,None)),])
+        descend = S(items=[Section('Descending',slice(None,None)),])
         gws = GrossWeightSmoothed()
-        result = gws.get_derived([fuel_flow, weight, climbing])
+        result = gws.get_derived([fuel_flow, weight, climb, descend])
         self.assertEqual(result.array[0], 292.0)
         self.assertEqual(result.array[-1], 37.0)
         
-    def test_gw_formula_with_masked_gw(self):
-        weight = P('Gross Weight',np.ma.array(data=[292,228,164,100],
-                                              mask=[1,0,1,0],dtype=float),
-                   offset=0.0,frequency=1/64.0)
-        fuel_flow = P('Eng (*) Fuel Flow',np.ma.array([3600]*256,dtype=float),offset=0.0,frequency=1.0)
-        #climbing = Section('Climbing',slice(53,120))
-        gws = GrossWeightSmoothed()
-        result = gws.get_derived([fuel_flow, weight])
-        self.assertEqual(result.array[0], 292.0)
-        self.assertEqual(result.array[-1], 37.0)
-        
-    def test_gw_synthetic(self):
+    def test_gw_synthetic_data(self):
         weight = P('Gross Weight',np.ma.array([58000,57940,57880,57820],dtype=float),offset=15.0,frequency=1/64.0)
         fuel_flow = P('Eng (*) Fuel Flow',np.ma.array([0]*30+[3000]*50+[1000]*120+[0]*(4*64-(30+50+120)),dtype=float),offset=0.3,frequency=1)
-        #climbing = Section('Climbing',slice(53,120))
+        climb = S(items=[Section('Climbing',slice(2,3)),])
+        descend = S(items=[Section('Descending',slice(5,6)),])
         gws = GrossWeightSmoothed()
-        result = gws.get_derived([fuel_flow, weight])
+        result = gws.derive(fuel_flow, weight, climb, descend)
         expected = P('Gross Weight Smoothed', np.ma.array([]), frequency=1, offset=0.3)
+
+    def test_gw_formula_with_many_samples(self):
+        weight = P('Gross Weight',np.ma.array(data=range(56400,50000,-64), 
+                                              mask=False, dtype=float),
+                   offset=0.0,frequency=1/64.0)
+        fuel_flow = P('Eng (*) Fuel Flow',np.ma.array([3600]*64*100,dtype=float),offset=0.0,frequency=1.0)
+        climb = S(items=[Section('Climbing',slice(None,None)),])
+        descend = S(items=[Section('Descending',slice(None,None)),])
+        gws = GrossWeightSmoothed()
+        result = gws.get_derived([fuel_flow, weight, climb, descend])
+        self.assertEqual(result.array[1], 56400-1)
+        
+    def test_gw_formula_with_good_data(self):
+        weight = P('Gross Weight',np.ma.array(data=[484,420,356,292,228,164,100],
+                                              mask=[1,0,0,0,0,1,0],dtype=float),
+                   offset=0.0,frequency=1/64.0)
+        fuel_flow = P('Eng (*) Fuel Flow',np.ma.array([3600]*64*7,dtype=float),
+                      offset=0.0,frequency=1.0)
+        climb = S(items=[Section('Climbing',slice(None,None)),])
+        descend = S(items=[Section('Descending',slice(None,None)),])
+        gws = GrossWeightSmoothed()
+        result = gws.get_derived([fuel_flow, weight, climb, descend])
+        self.assertEqual(result.array[0], 484.0)
+        self.assertEqual(result.array[-1], 37.0)
+        
+    def test_gw_formula_climbing(self):
+        weight = P('Gross Weight',np.ma.array(data=[484,420,356,292,228,164,100],
+                                              mask=[1,0,0,0,0,1,0],dtype=float),
+                   offset=0.0,frequency=1/64.0)
+        fuel_flow = P('Eng (*) Fuel Flow',np.ma.array([3600]*64*7,dtype=float),
+                      offset=0.0,frequency=1.0)
+        climb = S(items=[Section('Climbing',slice(1,4)),])
+        descend = S(items=[Section('Descending',slice(None,None)),])
+        gws = GrossWeightSmoothed()
+        result = gws.get_derived([fuel_flow, weight, climb, descend])
+        self.assertEqual(result.array[0], 484.0)
+        self.assertEqual(result.array[-1], 37.0)
+        
+    def test_gw_descending(self):
+        weight = P('Gross Weight',np.ma.array(data=[484,420,356,292,228,164,100],
+                                              mask=[1,0,0,0,0,1,0],dtype=float),
+                   offset=0.0,frequency=1/64.0)
+        fuel_flow = P('Eng (*) Fuel Flow',np.ma.array([3600]*64*7,dtype=float),
+                      offset=0.0,frequency=1.0)
+        gws = GrossWeightSmoothed()
+        climb = S(items=[Section('Climbing',slice(None,None)),])
+        descend = S(items=[Section('Descending',slice(3,5)),])
+        gws = GrossWeightSmoothed()
+        result = gws.get_derived([fuel_flow, weight, climb, descend])
+        self.assertEqual(result.array[0], 484.0)
+        self.assertEqual(result.array[-1], 37.0)
+        
+    def test_gw_one_masked_data_point(self):
+        weight = P('Gross Weight',np.ma.array(data=[0],
+                                              mask=[1],dtype=float),
+                   offset=0.0,frequency=1/64.0)
+        fuel_flow = P('Eng (*) Fuel Flow',np.ma.array([0]*64,dtype=float),
+                      offset=0.0,frequency=1.0)
+        gws = GrossWeightSmoothed()
+        climb = S(items=[Section('Climbing',slice(None,None)),])
+        descend = S(items=[Section('Descending',slice(None,None)),])
+        gws = GrossWeightSmoothed()
+        result = gws.get_derived([fuel_flow, weight, climb, descend])
+        self.assertEqual(len(gws.array),64)
+        self.assertEqual(gws.frequency, fuel_flow.frequency)
+        self.assertEqual(gws.offset, fuel_flow.offset)
+        
 
 
 class TestGroundspeedAlongTrack(unittest.TestCase):
