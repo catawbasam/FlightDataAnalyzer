@@ -1575,7 +1575,7 @@ class ILSRange(DerivedParameterNode):
                final_apps = S('Final Approach'),
                start_datetime = A('Start Datetime')
                ):
-        ils_range = np.ma.array(np.zeros_like(gspd.array.data))
+        ils_range = np.ma.zeros(len(gspd.array))
         
         for this_loc in loc_established:
             # Scan through the recorded approaches to find which matches this
@@ -1652,7 +1652,7 @@ class ILSRange(DerivedParameterNode):
                 else:
                     # we didn't find a period where the glideslope was
                     # established at the same time as the localiser
-                    logger.warning("No glideslope established at same time as localiser")
+                    logging.warning("No glideslope established at same time as localiser")
                     continue
                     
                 # Compute best fit glidepath. The term (1-.13 x glideslope

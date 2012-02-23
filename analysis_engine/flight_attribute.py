@@ -498,7 +498,15 @@ class TakeoffGrossWeight(FlightAttributeNode):
     name = 'FDR Takeoff Gross Weight'
     def derive(self, liftoff_gross_weight=KPV('Gross Weight At Liftoff')):
         first_gross_weight = liftoff_gross_weight.get_first()
-        self.set_flight_attr(first_gross_weight.value)
+        if first_gross_weight:
+            self.set_flight_attr(first_gross_weight.value)
+        else:
+            # There is not a 'Gross Weight At Liftoff' KPV. Since it is sourced
+            # from 'Gross Weight Smoothed', gross weight at liftoff should be
+            # masked.
+            logging.warning("No '%s' KPVs, '%s' attribute will be None.",
+                            liftoff_gross_weight.name, self.name)
+            self.set_flight_attr(None)
     
 
 class TakeoffPilot(FlightAttributeNode, DeterminePilot):

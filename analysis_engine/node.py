@@ -1033,6 +1033,9 @@ class FlightAttributeNode(Node):
         self.frequency = self.hz = self.sample_rate = None
         self.offset = None
     
+    def __repr__(self):
+        return self.name
+    
     def set_flight_attribute(self, value):
         self.value = value
     set_flight_attr = set_flight_attribute
