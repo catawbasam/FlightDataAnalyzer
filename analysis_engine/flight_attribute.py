@@ -75,7 +75,8 @@ class Approaches(FlightAttributeNode):
         if hdg_kpv_node:
             hdg_kpvs = hdg_kpv_node.get(within_slice=approach.slice)
             if len(hdg_kpvs) == 1:
-                hdg = hdg_kpvs[0].value
+                # Note: Modulus as this is a continuous heading!
+                hdg = hdg_kpvs[0].value % 360
         if not hdg:
             logging.info("Heading not available for approach between "
                          "indices '%d' and '%d'.", approach.slice.start,
