@@ -1184,10 +1184,7 @@ def min_value(array, _slice=slice(None)):
     :param _slice: Slice to apply to the array and return max value relative to
     :type _slice: slice
     """
-    if np.ma.count(array[_slice]):
-        return _value(array, _slice, np.ma.argmin)
-    else:
-        return None
+    return _value(array, _slice, np.ma.argmin)
             
 def minimum_unmasked(array1, array2):
     """
@@ -1987,8 +1984,11 @@ def _value(array, _slice, operator):
     """
     if _slice.step and _slice.step < 0:
         raise ValueError("Negative step not supported")
-    index = operator(array[_slice]) + (_slice.start or 0) * (_slice.step or 1)
-    return Value(index, array[index])
+    if np.ma.count(array[_slice]):
+        index = operator(array[_slice]) + (_slice.start or 0) * (_slice.step or 1)
+        return Value(index, array[index])
+    else:
+        return Value(None, None)
 
 def value_at_time(array, hz, offset, time_index):
     '''
