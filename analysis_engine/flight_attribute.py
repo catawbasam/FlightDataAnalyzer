@@ -502,8 +502,8 @@ class TakeoffGrossWeight(FlightAttributeNode):
             self.set_flight_attr(first_gross_weight.value)
         else:
             # There is not a 'Gross Weight At Liftoff' KPV. Since it is sourced
-            # from 'Gross Weight Smoothed', gross weight at liftoff should be
-            # masked.
+            # from 'Gross Weight Smoothed', gross weight at liftoff should not
+            # be masked.
             logging.warning("No '%s' KPVs, '%s' attribute will be None.",
                             liftoff_gross_weight.name, self.name)
             self.set_flight_attr(None)
@@ -731,7 +731,16 @@ class LandingGrossWeight(FlightAttributeNode):
     name = 'FDR Landing Gross Weight'
     def derive(self, touchdown_gross_weight=KPV('Gross Weight At Touchdown')):
         last_gross_weight = touchdown_gross_weight.get_last()
-        self.set_flight_attr(last_gross_weight.value)
+        if last_gross_weight:
+            self.set_flight_attr(last_gross_weight.value)
+        else:
+            # There is not a 'Gross Weight At Touchdown' KPV. Since it is sourced
+            # from 'Gross Weight Smoothed', gross weight at touchdown should not
+            # be masked.
+            logging.warning("No '%s' KPVs, '%s' attribute will be None.",
+                            liftoff_gross_weight.name, self.name)
+            self.set_flight_attr(None)        
+        
 
 
 class LandingPilot(FlightAttributeNode, DeterminePilot):
