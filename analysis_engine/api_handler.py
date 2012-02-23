@@ -126,7 +126,9 @@ class APIHandlerHTTP(object):
         for attempt in range(self.attempts):
             try:
                 return self._request(*args, **kwargs)
-            except Exception as error:
+            except (APIConnectionError, UnknownAPIError) as error:
+                logging.exception("'%s' error in request, retrying in %.2f", 
+                                  error, self.delay)
                 time.sleep(self.delay)
         raise error
     
