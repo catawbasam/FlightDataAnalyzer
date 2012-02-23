@@ -739,8 +739,7 @@ class LandingGrossWeight(FlightAttributeNode):
             # be masked.
             logging.warning("No '%s' KPVs, '%s' attribute will be None.",
                             liftoff_gross_weight.name, self.name)
-            self.set_flight_attr(None)        
-        
+            self.set_flight_attr(None)
 
 
 class LandingPilot(FlightAttributeNode, DeterminePilot):
