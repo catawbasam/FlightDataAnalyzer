@@ -498,7 +498,8 @@ class TakeoffGrossWeight(FlightAttributeNode):
     name = 'FDR Takeoff Gross Weight'
     def derive(self, liftoff_gross_weight=KPV('Gross Weight At Liftoff')):
         first_gross_weight = liftoff_gross_weight.get_first()
-        self.set_flight_attr(first_gross_weight.value)
+        if first_gross_weight:
+            self.set_flight_attr(first_gross_weight.value)
     
 
 class TakeoffPilot(FlightAttributeNode, DeterminePilot):
@@ -723,7 +724,8 @@ class LandingGrossWeight(FlightAttributeNode):
     name = 'FDR Landing Gross Weight'
     def derive(self, touchdown_gross_weight=KPV('Gross Weight At Touchdown')):
         last_gross_weight = touchdown_gross_weight.get_last()
-        self.set_flight_attr(last_gross_weight.value)
+        if last_gross_weight:
+            self.set_flight_attr(last_gross_weight.value)
 
 
 class LandingPilot(FlightAttributeNode, DeterminePilot):

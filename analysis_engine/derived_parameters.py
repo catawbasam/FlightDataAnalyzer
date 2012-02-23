@@ -10,7 +10,8 @@ from analysis_engine.model_information import (get_aileron_map,
                                                get_slat_map)
 from analysis_engine.node import A, DerivedParameterNode, KPV, KTI, P, S, Parameter
 
-from analysis_engine.library import (bearings_and_distances,
+from analysis_engine.library import (align,
+                                     bearings_and_distances,
                                      blend_alternate_sensors,
                                      blend_two_parameters,
                                      coreg,
@@ -32,6 +33,7 @@ from analysis_engine.library import (bearings_and_distances,
                                      round_to_nearest,
                                      runway_distances,
                                      runway_heading,
+                                     runway_length,
                                      slices_overlap,
                                      smooth_track,
                                      step_values,
@@ -1245,13 +1247,14 @@ class GrossWeightSmoothed(DerivedParameterNode):
             if any([is_index_within_slice(gw_index, c.slice) for c in climbs]) or \
                any([is_index_within_slice(gw_index, d.slice) for d in descends]):
                 continue
-            
             gw_valid.append(gw.array.data[gw_index])
             ff_time = ((gw_index/gw.frequency)+gw.offset-ff.offset)*ff.frequency
             to_burn_valid.append(value_at_index(fuel_to_burn, ff_time))
         
         use_valid = len(gw_valid) > 5
         use_all = len(gw_all) > 2
+        offset = None
+        
         if use_valid or use_all:
             if use_valid:
                 corr, slope, offset = coreg(np.ma.array(gw_valid), indep_var=np.ma.array(to_burn_valid))
@@ -1261,12 +1264,14 @@ class GrossWeightSmoothed(DerivedParameterNode):
                 offset = gw_all[0] - to_burn_all[0]
         elif len(gw_all) == 1:
             offset = gw_all[0] - to_burn_all[0]
+            
+        if offset == None:
+            logging.warning("Cannot smooth Gross Weight. Using the original data")
+            self.frequency = ff.frequency
+            self.offset = ff.offset
+            self.array = align(gw, ff)
         else:
-            logging.warning("'%s' cannot smooth '%s' and will set the original "
-                            "array.", self.name, gw.name)
-            self.array = gw.array
-            return
-        self.array = fuel_to_burn + offset
+            self.array = fuel_to_burn + offset
 
 
 class FlapLever(DerivedParameterNode):
@@ -1843,9 +1848,14 @@ def adjust_track(lon,lat,loc_est,ils_range,ils_loc,alt_aal,gspd,tas,
         if 'localizer' in runway:
             reference = runway['localizer']
             
-            # Compute the localizer scale factor (degrees per dot)
-            scale = (reference['beam_width']/2.0) / 2.5
-            
+            if 'beam_width' in reference:
+                # Compute the localizer scale factor (degrees per dot)
+                # Half the beam width is 2 dots full scale
+                scale = (reference['beam_width']/2.0) / 2.0
+            else:
+                # Normal scaling of a localizer gives 700ft width at the threshold
+                scale = np.degrees(np.arctan2(700/2, runway_length(runway)*METRES_TO_FEET)) / 2.0
+                
             # Adjust the ils data to be degrees from the reference point.
             bearings = ils_loc.array[this_loc.slice] * scale + \
                 runway_heading(runway)+180
@@ -1856,14 +1866,6 @@ def adjust_track(lon,lat,loc_est,ils_range,ils_loc,alt_aal,gspd,tas,
             # At last, the conversion of ILS localizer data to latitude and longitude
             lat_adj[this_loc.slice], lon_adj[this_loc.slice] = \
                 latitudes_and_longitudes(bearings, distances, reference)
-            
-        elif 'end' in runway:
-            # TODO: Consider if we can use the end of the runway as a threshold?
-            threshold = runway['end']
-        else:
-            pass
-            # TODO: Set threshold is where the touchdown happened?.
-        
 
     # --- Merge Tracks and return ---
     return track_linking(lat.array, lat_adj), track_linking(lon.array, lon_adj)
@@ -1955,8 +1957,8 @@ class RateOfClimb(DerivedParameterNode):
             
             # Fix minor dropouts
             az_repair = repair_mask(az.array)
-            alt_rad_repair = repair_mask(alt_rad.array)
-            alt_std_repair = repair_mask(alt_std.array)
+            alt_rad_repair = repair_mask(alt_rad.array, frequency=alt_rad.frequency)
+            alt_std_repair = repair_mask(alt_std.array, frequency=alt_std.frequency)
             
             # np.ma.getmaskarray ensures we have complete mask arrays even if
             # none of the samples are masked (normally returns a single

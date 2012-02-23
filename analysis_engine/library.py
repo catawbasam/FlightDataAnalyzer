@@ -654,6 +654,20 @@ def first_order_washout (in_param, time_constant, hz, gain = 1.0, initial_value 
     
     return masked_first_order_filter(y_term, x_term, in_param, initial_value)
 
+
+def _dist(lat1_d, lon1_d, lat2_d, lon2_d):
+    lat1 = radians(lat1_d)
+    lon1 = radians(lon1_d)
+    lat2 = radians(lat2_d)
+    lon2 = radians(lon2_d)
+
+    dlat = lat2-lat1
+    dlon = lon2-lon1
+
+    a = sin(dlat/2) * sin(dlat/2) + cos(lat2) \
+        * (lat2) * (dlon/2) * sin(dlon/2)
+    return 2 * atan2(sqrt(a), sqrt(1-a)) * 6371000
+
 def runway_distances(runway):
     '''
     Projection of the ILS antenna positions onto the runway
@@ -681,18 +695,6 @@ def runway_distances(runway):
     :type pgs_lon: float, units = degrees longitude
     '''
     
-    def dist(lat1_d, lon1_d, lat2_d, lon2_d):
-        lat1 = radians(lat1_d)
-        lon1 = radians(lon1_d)
-        lat2 = radians(lat2_d)
-        lon2 = radians(lon2_d)
-
-        dlat = lat2-lat1
-        dlon = lon2-lon1
-
-        a = sin(dlat/2) * sin(dlat/2) + cos(lat2) \
-            * (lat2) * (dlon/2) * sin(dlon/2)
-        return 2 * atan2(sqrt(a), sqrt(1-a)) * 6371000
     
     start_lat = runway['start']['latitude']
     start_lon = runway['start']['longitude']
@@ -703,10 +705,10 @@ def runway_distances(runway):
     gs_lat = runway['glideslope']['latitude']
     gs_lon = runway['glideslope']['longitude']
     
-    a = dist(gs_lat, gs_lon, lzr_lat, lzr_lon)
-    b = dist(gs_lat, gs_lon, start_lat, start_lon)
-    c = dist(end_lat, end_lon, lzr_lat, lzr_lon)
-    d = dist(start_lat, start_lon, lzr_lat, lzr_lon)
+    a = _dist(gs_lat, gs_lon, lzr_lat, lzr_lon)
+    b = _dist(gs_lat, gs_lon, start_lat, start_lon)
+    c = _dist(end_lat, end_lon, lzr_lat, lzr_lon)
+    d = _dist(start_lat, start_lon, lzr_lat, lzr_lon)
     
     r = (1.0+(a**2 - b**2)/d**2)/2.0
     g = r*d
@@ -716,6 +718,32 @@ def runway_distances(runway):
     pgs_lon = lzr_lon + r*(start_lon - lzr_lon)
     
     return d, g, c, pgs_lat, pgs_lon  # Runway distances to start, glideslope and end.
+
+def runway_length(runway):
+    '''
+    Calculation of only the length for runways with no glideslope details
+    and possibly no localizer information. In these cases we assume the
+    localizer is near end of runway and the beam is 700ft wide at the
+    threshold.
+
+    :param runway: Runway location details dictionary.
+    :type runway: Dictionary containing:
+    ['start']['latitude'] runway start position
+    ['start']['longitude']
+    ['end']['latitude'] runway end position
+    ['end']['longitude']
+        
+    :return
+    :param start_end: distance from start of runway to end
+    :type start_loc: float, units = feet.
+    '''
+    
+    start_lat = runway['start']['latitude']
+    start_lon = runway['start']['longitude']
+    end_lat = runway['end']['latitude']
+    end_lon = runway['end']['longitude']
+    
+    return _dist(start_lat, start_lon, end_lat, end_lon)
 
 def runway_heading(runway):
     '''
@@ -1038,7 +1066,7 @@ def latitudes_and_longitudes(bearings, distances, reference):
     Usage: 
     lat[], lon[] = latitudes_and_longitudes(brg[], dist[], {'latitude':lat_ref, 'longitude', lon_ref})
     
-    :param bearings: The bearings of the track in degres.
+    :param bearings: The bearings of the track in degrees.
     :type bearings: Numpy masked array.
     :param distances: The distances of the track in metres.
     :type distances: Numpy masked array.
@@ -1156,7 +1184,10 @@ def min_value(array, _slice=slice(None)):
     :param _slice: Slice to apply to the array and return max value relative to
     :type _slice: slice
     """
-    return _value(array, _slice, np.ma.argmin)
+    if np.ma.count(array[_slice]):
+        return _value(array, _slice, np.ma.argmin)
+    else:
+        return None
             
 def minimum_unmasked(array1, array2):
     """
