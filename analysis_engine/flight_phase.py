@@ -381,7 +381,16 @@ class Fast(FlightPhaseNode):
 
         if fast_samples is None:
             # Did not go fast enough.
-            return 
+            return
+        elif fast_samples[0] == fast_samples[1]:
+            # Airspeed array either starts or stops Fast.
+            index = fast_samples[0]
+            if airspeed.array[index] > airspeed.array[index+1]:
+                # Airspeed slowing down, start at the beginning of the data.
+                fast_samples[0] = np.ma.where(airspeed.array)[0][0]
+            else:
+                # Airspeed speeding up, start at the end of the data.
+                fast_samples[1] = np.ma.where(airspeed.array)[0][-1]
         
         self.create_phase(slice(*fast_samples))
  

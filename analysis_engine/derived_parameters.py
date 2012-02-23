@@ -1746,7 +1746,7 @@ class LongitudeSmoothed(DerivedParameterNode):
                toff_rwy = A('FDR Takeoff Runway'),
                start_datetime = A('Start Datetime'),
                ):
-        if len(app_info.value) != len(loc_est):
+        if len(app_info.value) != len(loc_est) :
             # Q: Is this still True?
             logging.warning("Cannot Smooth longitude if the number of '%s'"
                             "Sections is not equal to the number of approaches.",
@@ -1770,6 +1770,9 @@ def adjust_track(lon,lat,loc_est,ils_range,ils_loc,alt_aal,gspd,tas,
     # Use synthesized track for takeoffs where necessary
     #-----------------------------------------------------------------------
     first_toff = toff.get_first()
+    if not first_toff:
+        raise NotImplementedError("'%s' is required for smoothing coordinates.",
+                                  toff.name)
     if precise.value:
         # We allow the recorded track to be used for the takeoff unchanged.
         lat_adj[:first_toff.slice.stop] = lat.array[:first_toff.slice.stop]
