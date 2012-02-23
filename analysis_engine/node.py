@@ -1015,8 +1015,12 @@ class KeyPointValueNode(FormattedNameNode):
         for slice_ in slices:
             if isinstance(slice_, Section): # Use slice within Section.
                 slice_ = slice_.slice
-            index, value = function(array, slice_)
-            self.create_kpv(index, value, **kwargs)
+            index_and_value = function(array, slice_)
+            if index_and_value is None:
+                logging.warning("'%s' returned None for '%s' and '%s' within "
+                                "'%s'.", function, array, slice_. self.name)
+                continue
+            self.create_kpv(*index_and_value, **kwargs)
 
 
 class FlightAttributeNode(Node):
