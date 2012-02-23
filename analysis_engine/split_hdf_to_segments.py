@@ -322,6 +322,10 @@ def _calculate_start_datetime(hdf, fallback_dt=None):
         else:
             raise TimebaseError("Required parameter '%s' not available" % name)
         
+    #TODO: Support limited time ranges - i.e. not in future and only up to 5 years in the past?
+    ##if (datetime.now() - timedelta(years=5)).year > dt_arrays[0].average() > datetime.now().year:
+        ##raise issue!
+        
         
     length = max([len(array) for array in dt_arrays])
     if length > 1:
