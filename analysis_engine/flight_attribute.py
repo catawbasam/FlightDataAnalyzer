@@ -75,7 +75,8 @@ class Approaches(FlightAttributeNode):
         if hdg_kpv_node:
             hdg_kpvs = hdg_kpv_node.get(within_slice=approach.slice)
             if len(hdg_kpvs) == 1:
-                hdg = hdg_kpvs[0].value
+                # Note: Modulus as this is a continuous heading!
+                hdg = hdg_kpvs[0].value % 360
         if not hdg:
             logging.info("Heading not available for approach between "
                          "indices '%d' and '%d'.", approach.slice.start,
@@ -498,7 +499,15 @@ class TakeoffGrossWeight(FlightAttributeNode):
     name = 'FDR Takeoff Gross Weight'
     def derive(self, liftoff_gross_weight=KPV('Gross Weight At Liftoff')):
         first_gross_weight = liftoff_gross_weight.get_first()
-        self.set_flight_attr(first_gross_weight.value)
+        if first_gross_weight:
+            self.set_flight_attr(first_gross_weight.value)
+        else:
+            # There is not a 'Gross Weight At Liftoff' KPV. Since it is sourced
+            # from 'Gross Weight Smoothed', gross weight at liftoff should not
+            # be masked.
+            logging.warning("No '%s' KPVs, '%s' attribute will be None.",
+                            liftoff_gross_weight.name, self.name)
+            self.set_flight_attr(None)
     
 
 class TakeoffPilot(FlightAttributeNode, DeterminePilot):
@@ -723,7 +732,15 @@ class LandingGrossWeight(FlightAttributeNode):
     name = 'FDR Landing Gross Weight'
     def derive(self, touchdown_gross_weight=KPV('Gross Weight At Touchdown')):
         last_gross_weight = touchdown_gross_weight.get_last()
-        self.set_flight_attr(last_gross_weight.value)
+        if last_gross_weight:
+            self.set_flight_attr(last_gross_weight.value)
+        else:
+            # There is not a 'Gross Weight At Touchdown' KPV. Since it is sourced
+            # from 'Gross Weight Smoothed', gross weight at touchdown should not
+            # be masked.
+            logging.warning("No '%s' KPVs, '%s' attribute will be None.",
+                            touchdown_gross_weight.name, self.name)
+            self.set_flight_attr(None)
 
 
 class LandingPilot(FlightAttributeNode, DeterminePilot):

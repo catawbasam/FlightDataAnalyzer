@@ -907,7 +907,7 @@ class KeyPointValueNode(FormattedNameNode):
         if index is None:
             raise ValueError("Cannot create at index None")
         name = self.format_name(replace_values, **kwargs)
-        kpv = KeyPointValue(index, value, name)
+        kpv = KeyPointValue(index, float(value), name)
         self.append(kpv)
         return kpv
     
@@ -1032,6 +1032,9 @@ class FlightAttributeNode(Node):
         # yet these are not relevant to them. TODO: Change inheritance.
         self.frequency = self.hz = self.sample_rate = None
         self.offset = None
+    
+    def __repr__(self):
+        return self.name
     
     def set_flight_attribute(self, value):
         self.value = value

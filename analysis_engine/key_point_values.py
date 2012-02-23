@@ -415,7 +415,7 @@ class EngN10FtToFL100Max(KeyPointValueNode):
     name = 'Eng N1 0 Ft To FL100 Max'
     def derive(self, eng=P('Eng (*) N1 Max'), alt_std=P('Altitude STD')):
         self.create_kpvs_within_slices(eng.array,
-                                       alt_std.slices_from_to(0, 10000),
+                                       alt_std.slices_below(10000),
                                        max_value)
 
 
@@ -1089,8 +1089,12 @@ class PitchRateFrom2DegreesOfPitchTo35FtMin(KeyPointValueNode):
             # more than 2 deg of pitch at takeoff.
             pitch_2_deg = index_at_value(pitch.array, 2, 
                                          this_slice, endpoint='closing') - this_slice.start
-            pitch_2_slice = subslice(this_slice, slice(pitch_2_deg,None,None))
+            #pitch_2_slice = subslice(this_slice, slice(pitch_2_deg,None,None))
+            pitch_2_slice = slice(this_slice.start+pitch_2_deg,this_slice.stop,None)
             
+            # TODO: Cater for cases where pitch_2_slice is length 1
+            # TODO: Cater for all pitch_rate values within slice to be masked
+            # TODO: Check we supply both index and value from min_value
             index, value = min_value(pitch_rate.array, pitch_2_slice)
             self.create_kpv(index, value)
 
