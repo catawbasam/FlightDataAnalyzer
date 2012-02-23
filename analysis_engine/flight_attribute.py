@@ -738,7 +738,7 @@ class LandingGrossWeight(FlightAttributeNode):
             # from 'Gross Weight Smoothed', gross weight at touchdown should not
             # be masked.
             logging.warning("No '%s' KPVs, '%s' attribute will be None.",
-                            liftoff_gross_weight.name, self.name)
+                            touchdown_gross_weight.name, self.name)
             self.set_flight_attr(None)
 
 
