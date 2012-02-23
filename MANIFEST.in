@@ -7,3 +7,5 @@ include requirements.txt
 exclude .bzr
 exclude build
 exclude dist
+
+exclude tests/AnalysisEngine_tests/*

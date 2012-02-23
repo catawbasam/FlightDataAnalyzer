@@ -220,8 +220,8 @@ def calculate_timebase(years, months, days, hours, mins, secs):
     
     Accepts arrays and numpy arrays at 1Hz.
     
-    Note: if years, months or days is None, it will fill in invalid
-    datetimes, see below!!!
+    WARNING: If at all times, one or more of the parameters are masked, you
+    willnot get a valid timestamp and an exception will be raised.
     
     Note: if uneven arrays are passed in, they are assumed by izip that the
     start is valid and the uneven ends are invalid and skipped over.
