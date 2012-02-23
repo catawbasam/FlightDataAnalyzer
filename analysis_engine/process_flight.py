@@ -14,6 +14,7 @@ from analysis_engine.node import (Attribute, DerivedParameterNode,
                                   NodeManager, P, SectionNode)
 from hdfaccess.file import hdf_file
 
+logger = logging.getLogger('ProcessFlightTask')
 
 def geo_locate(hdf, kti_list):
     """
@@ -108,12 +109,12 @@ def derive_parameters(hdf, node_mgr, process_order):
         # initialise node
         node = node_class(frequency=first_dep.frequency,
                           offset=first_dep.offset)
-        logging.info("Processing parameter %s", param_name)
+        logger.info("Processing parameter %s", param_name)
         # Derive the resulting value
         try:
             result = node.get_derived(deps)
         except NotImplementedError:
-            ##logging.error("Node %s not implemented", node_class.__name__)
+            ##logger.error("Node %s not implemented", node_class.__name__)
             #TODO: remove hack below!!!
             params[param_name] = node # HACK!
             nodes_not_implemented.append(node_class.__name__)
@@ -150,7 +151,7 @@ def derive_parameters(hdf, node_mgr, process_order):
                 if length_diff == 0:
                     pass
                 elif 0 < length_diff < 5:
-                    logging.warning("Cutting excess data for parameter '%s'. Expected length was "
+                    logger.warning("Cutting excess data for parameter '%s'. Expected length was "
                                     "'%s' while resulting array length was '%s'.",
                                     param_name, expected_length, len(result.array))
                     result.array = result.array[:expected_length]
@@ -166,7 +167,7 @@ def derive_parameters(hdf, node_mgr, process_order):
             raise NotImplementedError("Unknown Type %s" % node.__class__)
         continue
     if nodes_not_implemented:
-        logging.error("Nodes not implemented: %s", nodes_not_implemented)
+        logger.error("Nodes not implemented: %s", nodes_not_implemented)
     return kti_list, kpv_list, section_list, flight_attrs
 
 
@@ -198,7 +199,7 @@ def get_derived_nodes(module_names):
                     #TODO: Handle the expected error of top level classes
                     # Can't instantiate abstract class DerivedParameterNode
                     # - but don't know how to detect if we're at that level without resorting to 'if c.get_name() in 'derived parameter node',..
-                    logging.exception('Failed to import class: %s' % c.get_name())
+                    logger.exception('Failed to import class: %s' % c.get_name())
     return nodes
 
 
@@ -243,13 +244,13 @@ def process_flight(hdf_path, aircraft_info, start_datetime=datetime.now(),
     }
     
     """
-    logging.info("Processing: %s", hdf_path)
+    logger.info("Processing: %s", hdf_path)
     # go through modules to get derived nodes
     derived_nodes = get_derived_nodes(settings.NODE_MODULES)
     required_params = list(set(required_params).intersection(set(derived_nodes)))
     # if required_params isn't set, try using ALL derived_nodes!
     if not required_params:
-        logging.info("No required_params declared, using all derived nodes")
+        logger.info("No required_params declared, using all derived nodes")
         required_params = derived_nodes.keys()
     
     # include all flight attributes as required
@@ -267,11 +268,11 @@ def process_flight(hdf_path, aircraft_info, start_datetime=datetime.now(),
         process_order = dependency_order(node_mgr, draw=draw) 
                     
         if hooks.PRE_FLIGHT_ANALYSIS:
-            logging.info("Performing PRE_FLIGHT_ANALYSIS actions: %s", 
+            logger.info("Performing PRE_FLIGHT_ANALYSIS actions: %s", 
                          hooks.PRE_FLIGHT_ANALYSIS.func_name)
             hooks.PRE_FLIGHT_ANALYSIS(hdf, aircraft_info, process_order)
         else:
-            logging.info("No PRE_FLIGHT_ANALYSIS actions to perform")
+            logger.info("No PRE_FLIGHT_ANALYSIS actions to perform")
         
         # derive parameters
         kti_list, kpv_list, section_list, flight_attrs = derive_parameters(
