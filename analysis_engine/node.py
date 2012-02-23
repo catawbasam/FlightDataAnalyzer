@@ -907,7 +907,7 @@ class KeyPointValueNode(FormattedNameNode):
         if index is None:
             raise ValueError("Cannot create at index None")
         name = self.format_name(replace_values, **kwargs)
-        kpv = KeyPointValue(index, value, name)
+        kpv = KeyPointValue(index, float(value), name)
         self.append(kpv)
         return kpv
     
