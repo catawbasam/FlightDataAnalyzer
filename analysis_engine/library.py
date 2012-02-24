@@ -1962,7 +1962,7 @@ def index_at_value(array, threshold, _slice=slice(None), endpoint='exact'):
     value_passing_array = (array[left]-threshold) * (array[right]-threshold)
     test_array = np.ma.masked_greater(value_passing_array, 0.0)
     
-    if np.ma.all(test_array.mask):
+    if np.all(test_array.mask):
         # The parameter does not pass through threshold in the period in question, so return empty-handed.
         if endpoint=='closing':
             # Rescan the data to find the last point where the array data is closing.
