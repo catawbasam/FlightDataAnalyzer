@@ -243,6 +243,7 @@ class DerivedParameterNode(Node):
     Also used during processing when creating parameters from HDF files as
     dependencies for other Nodes.
     """
+    node_type = 'DerivedParameterNode'
     # The units which the derived parameter's array is measured in. It is in
     # lower case to be consistent with the HDFAccess Parameter class and
     # therefore written as an attribute to the HDF file.
@@ -359,6 +360,7 @@ class SectionNode(Node, list):
     
     Is a list of Section namedtuples, each with attributes .name and .slice
     '''
+    node_type = 'SectionNode'
     def __init__(self, *args, **kwargs):
         '''
         List of slices where this phase is active. Has a frequency and offset.
@@ -606,6 +608,7 @@ class SectionNode(Node, list):
 class FlightPhaseNode(SectionNode):
     """ Is a Section, but called "phase" for user-friendliness!
     """
+    node_type = 'FlightPhaseNode'
     # create_phase and create_phases are shortcuts for create_section and 
     # create_sections.
     create_phase = SectionNode.create_section
@@ -828,9 +831,7 @@ class FormattedNameNode(Node, list):
 
 
 class KeyTimeInstanceNode(FormattedNameNode):
-    """
-    TODO: determine what is required for get_derived to be stored in database
-    """
+    node_type = 'KeyTimeInstanceNode'
     def __init__(self, *args, **kwargs):
         # place holder
         super(KeyTimeInstanceNode, self).__init__(*args, **kwargs)
@@ -880,6 +881,7 @@ class KeyTimeInstanceNode(FormattedNameNode):
 
 
 class KeyPointValueNode(FormattedNameNode):
+    node_type = 'KeyPointValueNode'
     
     def __init__(self, *args, **kwargs):
         super(KeyPointValueNode, self).__init__(*args, **kwargs)
@@ -1029,6 +1031,7 @@ class FlightAttributeNode(Node):
     object (dict, list, integer etc). The class name serves as the name of the
     attribute.
     '''
+    node_type = 'FlightAttributeNode'
     def __init__(self, *args, **kwargs):
         self._value = None
         super(FlightAttributeNode, self).__init__(*args, **kwargs)

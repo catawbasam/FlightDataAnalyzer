@@ -9,7 +9,7 @@ try:
 except ImportError:
     import json
 
-TIMEOUT = 60
+TIMEOUT = 15
 socket.setdefaulttimeout(TIMEOUT)
 
 class APIError(Exception):

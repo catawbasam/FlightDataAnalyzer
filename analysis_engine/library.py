@@ -6,7 +6,6 @@ from collections import OrderedDict, namedtuple
 from datetime import datetime, timedelta
 from hashlib import sha256
 from itertools import izip
-from scipy.signal import lfilter, lfilter_zi
 ##from scipy.optimize import fmin, fmin_bfgs, fmin_tnc
 # TODO: Inform Enthought that fmin_l_bfgs_b dies in a dark hole at _lbfgsb.setulb
 
@@ -581,7 +580,8 @@ def masked_first_order_filter(y_term, x_term, in_param, initial_value):
     :param initial_value: Value to be used at the start of the data
     :type initial_value: float (or may be None)
     """
-    
+    # import locally to speed up imports of library.py
+    from scipy.signal import lfilter, lfilter_zi
     z_initial = lfilter_zi(x_term, y_term) # Prepare for non-zero initial state
     # The initial value may be set as a command line argument, mainly for testing
     # otherwise we set it to the first data value.
@@ -1918,10 +1918,10 @@ def subslice(orig, new):
     stop = (orig.start or 0) + (new.stop or orig.stop or 0) * (orig.step or 1) # the bit after "+" isn't quite right!!
     return slice(start, stop, None if step == 1 else step)
 
-def index_closest_value (array, threshold, _slice=slice(None)):
-    return index_at_value (array, threshold, _slice, endpoint='closing')
+def index_closest_value(array, threshold, _slice=slice(None)):
+    return index_at_value(array, threshold, _slice, endpoint='closing')
     
-def index_at_value (array, threshold, _slice=slice(None), endpoint='exact'):
+def index_at_value(array, threshold, _slice=slice(None), endpoint='exact'):
     '''
     This function seeks the moment when the parameter in question first crosses 
     a threshold. It works both forwards and backwards in time. To scan backwards

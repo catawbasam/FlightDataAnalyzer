@@ -61,7 +61,7 @@ class AnalysisEngineAPI(object):
         raise NotImplementedError
     
     
-class AnalysisEngineAPIHandlerDummy(AnalysisEngineAPI):
+class AnalysisEngineAPIHandlerDUMMY(AnalysisEngineAPI):
     '''
     DummyAPIHandler will always raise NotFoundError.
     '''
