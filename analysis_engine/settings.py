@@ -31,6 +31,9 @@ API_HANDLER = 'analysis_engine.api_handler_analysis_engine.AnalysisEngineAPIHand
 # Replace this as required
 BASE_URL = 'http://127.0.0.1'
 
+# Cache parameters which are used more than n times in HDF
+CACHE_PARAMETER_MIN_USAGE = 4
+
 #############################
 ## Splitting into Segments ##
 #############################

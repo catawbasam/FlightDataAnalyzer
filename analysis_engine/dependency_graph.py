@@ -248,6 +248,6 @@ def dependency_order(node_mgr, draw=not_windows):
         # reduce number of nodes by removing floating ones
         gr_all = remove_floating_nodes(gr_all)
         draw_graph(gr_all, 'Dependency Tree')
-    return order
+    return order, gr_st
 
 
