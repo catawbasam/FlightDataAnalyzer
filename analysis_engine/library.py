@@ -1184,10 +1184,7 @@ def min_value(array, _slice=slice(None)):
     :param _slice: Slice to apply to the array and return max value relative to
     :type _slice: slice
     """
-    if np.ma.count(array[_slice]):
-        return _value(array, _slice, np.ma.argmin)
-    else:
-        return None
+    return _value(array, _slice, np.ma.argmin)
             
 def minimum_unmasked(array1, array2):
     """
@@ -1622,6 +1619,8 @@ def slices_above(array, value):
     if len(array) == 0:
         return array, []
     repaired_array = repair_mask(array)
+    if repaired_array is None: # Array length is too short to be repaired.
+        return array, []    
     band = np.ma.masked_less(repaired_array, value)
     slices = np.ma.clump_unmasked(band)
     return repaired_array, slices
@@ -1641,6 +1640,8 @@ def slices_below(array, value):
     if len(array) == 0:
         return array, []
     repaired_array = repair_mask(array)
+    if repaired_array is None: # Array length is too short to be repaired.
+        return array, []    
     band = np.ma.masked_greater(repaired_array, value)
     slices = np.ma.clump_unmasked(band)
     return repaired_array, slices
@@ -1662,6 +1663,8 @@ def slices_between(array, min_, max_):
     if len(array) == 0:
         return array, []
     repaired_array = repair_mask(array)
+    if repaired_array is None: # Array length is too short to be repaired.
+        return array, []
     # Slice through the array at the top and bottom of the band of interest
     band = np.ma.masked_outside(repaired_array, min_, max_)
     # Group the result into slices - note that the array is repaired and
@@ -1987,8 +1990,11 @@ def _value(array, _slice, operator):
     """
     if _slice.step and _slice.step < 0:
         raise ValueError("Negative step not supported")
-    index = operator(array[_slice]) + (_slice.start or 0) * (_slice.step or 1)
-    return Value(index, array[index])
+    if np.ma.count(array[_slice]):
+        index = operator(array[_slice]) + (_slice.start or 0) * (_slice.step or 1)
+        return Value(index, array[index])
+    else:
+        return Value(None, None)
 
 def value_at_time(array, hz, offset, time_index):
     '''

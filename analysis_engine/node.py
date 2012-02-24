@@ -1018,6 +1018,10 @@ class KeyPointValueNode(FormattedNameNode):
             if isinstance(slice_, Section): # Use slice within Section.
                 slice_ = slice_.slice
             index, value = function(array, slice_)
+            if index is None:
+                logging.warning("'%s' returned Nones for '%s' and '%s' within "
+                                "'%s'.", function, array, slice_, self.name)
+                continue
             self.create_kpv(index, value, **kwargs)
 
 
