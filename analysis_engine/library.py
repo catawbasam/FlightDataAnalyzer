@@ -816,7 +816,41 @@ def hysteresis (array, hysteresis):
     return np.ma.array(result, mask=array.mask)
 
 
-
+def ils_localizer_align(runway):
+    '''
+    Projection of the ILS localizer antenna onto the runway centreline
+    :param runway: Runway location details dictionary.
+    :type runway: Dictionary containing:
+    ['start']['latitude'] runway start position
+    ['start']['longitude']
+    ['end']['latitude'] runway end position
+    ['end']['longitude']
+    ['localizer']['latitude'] ILS localizer antenna position
+    ['localizer']['longitude']
+        
+    :returns dictionary containing:
+    ['latitude'] ILS localizer position aligned to start and end of runway
+    ['longitude']
+    '''
+    
+    start_lat = runway['start']['latitude']
+    start_lon = runway['start']['longitude']
+    end_lat = runway['end']['latitude']
+    end_lon = runway['end']['longitude']
+    lzr_lat = runway['localizer']['latitude']
+    lzr_lon = runway['localizer']['longitude']
+    
+    a = _dist(lzr_lat, lzr_lon, end_lat, end_lon)
+    b = _dist(lzr_lat, lzr_lon, start_lat, start_lon)
+    d = _dist(start_lat, start_lon, end_lat, end_lon)
+    
+    r = (1.0+(a**2 - b**2)/d**2)/2.0
+    
+    # The projected glideslope antenna position is given by this formula
+    new_lat = end_lat + r*(start_lat - end_lat)
+    new_lon = end_lon + r*(start_lon - end_lon)
+    
+    return {'latitude':new_lat, 'longitude':new_lon}  # Runway distances to start, glideslope and end.
     
     
 def integrate (array, frequency, initial_value=0.0, scale=1.0, direction="forwards"):

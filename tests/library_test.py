@@ -1038,6 +1038,18 @@ class TestIsIndexWithinSlice(unittest.TestCase):
         self.assertFalse(is_index_within_slice(7, slice(5,7)))
         self.assertTrue(is_index_within_slice(10, slice(8,None)))
         self.assertTrue(is_index_within_slice(10, slice(None, 12)))
+
+class TestILSLocalizerAlign(unittest.TestCase):
+    def test_ils_localizer_align(self):
+        runway =  {'end': {'latitude': 60.280151, 
+                              'longitude': 5.222579}, 
+                      'localizer': {'latitude': 60.2788, 
+                                    'longitude': 5.22}, 
+                      'start': {'latitude': 60.30662494, 
+                                'longitude': 5.21370074}}
+        result = ils_localizer_align(runway)
+        self.assertEqual(result['longitude'],5.222864017688102)
+        self.assertEqual(result['latitude'],60.27930111036241)
         
 
 class TestIntegrate (unittest.TestCase):

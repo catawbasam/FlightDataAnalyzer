@@ -906,8 +906,10 @@ class KeyPointValueNode(FormattedNameNode):
         :raises KeyError: If a required string formatting key is not provided.
         :raises TypeError: If a string formatting argument is of the wrong type.
         '''
-        if index is None:
-            raise ValueError("Cannot create at index None")
+        if index is None or value is None or value is np.ma.masked:
+            logging.warning("'%s' cannot create KPV for index '%s' and value "
+                            "'%s'.", self.name, index, value)
+            return
         name = self.format_name(replace_values, **kwargs)
         kpv = KeyPointValue(index, float(value), name)
         self.append(kpv)
@@ -993,11 +995,7 @@ class KeyPointValueNode(FormattedNameNode):
         '''
         for kti in ktis:
             value = value_at_index(array, kti.index)
-            if value is None:
-                logging.warning("Array is masked at index '%s' and therefore "
-                                "KPV '%s' will not be created.", kti.index, self.name)
-            else:
-                self.create_kpv(kti.index, value)
+            self.create_kpv(kti.index, value)
     create_kpvs_at_kpvs = create_kpvs_at_ktis # both will work the same!
     
     def create_kpvs_within_slices(self, array, slices, function, **kwargs):
@@ -1018,10 +1016,6 @@ class KeyPointValueNode(FormattedNameNode):
             if isinstance(slice_, Section): # Use slice within Section.
                 slice_ = slice_.slice
             index, value = function(array, slice_)
-            if index is None:
-                logging.warning("'%s' returned Nones for '%s' and '%s' within "
-                                "'%s'.", function, array, slice_, self.name)
-                continue
             self.create_kpv(index, value, **kwargs)
 
 
