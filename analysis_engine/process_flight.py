@@ -120,21 +120,21 @@ def derive_parameters(hdf, node_mgr, process_order):
             nodes_not_implemented.append(node_class.__name__)
             continue
         
-        if isinstance(node, KeyPointValueNode):
+        if node.node_type == 'KeyPointValueNode':
             #Q: track node instead of result here??
             params[param_name] = result
             kpv_list.extend(result.get_aligned(P(frequency=1,offset=0)))
-        elif isinstance(node, KeyTimeInstanceNode):
+        elif node.node_type == 'KeyTimeInstanceNode':
             params[param_name] = result
             kti_list.extend(result.get_aligned(P(frequency=1,offset=0)))
-        elif isinstance(node, FlightAttributeNode):
+        elif node.node_type == 'FlightAttributeNode':
             params[param_name] = result
             flight_attrs.append(Attribute(result.name, result.value)) # only has one Attribute result
-        elif isinstance(node, SectionNode):
+        elif node.node_type in ('FlightPhaseNode', 'SectionNode'):
             # expect a single slice
             params[param_name] = result
             section_list.extend(result.get_aligned(P(frequency=1,offset=0)))
-        elif isinstance(node, DerivedParameterNode):
+        elif node.node_type == 'DerivedParameterNode':
             ### perform any post_processing
             ##if hooks.POST_DERIVED_PARAM_PROCESS:
                 ##process_result = hooks.POST_DERIVED_PARAM_PROCESS(hdf, result)
