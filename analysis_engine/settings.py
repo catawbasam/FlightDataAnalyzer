@@ -25,6 +25,9 @@ NODE_MODULES = ['analysis_engine.derived_parameters',
 
 # API Handler
 API_HANDLER = 'analysis_engine.api_handler_analysis_engine.AnalysisEngineAPIHandlerHTTP'
+##API_HANDLER = 'analysis_engine.api_handler_analysis_engine.AnalysisEngineAPIHandlerDUMMY'
+
+
 # Replace this as required
 BASE_URL = 'http://127.0.0.1'
 

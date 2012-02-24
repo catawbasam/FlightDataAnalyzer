@@ -22,6 +22,7 @@ from analysis_engine.library import (align,
                                      index_of_datetime,
                                      integrate,
                                      interleave,
+                                     ils_localizer_align,
                                      is_index_within_slice,
                                      is_slice_within_slice,
                                      latitudes_and_longitudes,
@@ -1866,9 +1867,12 @@ def adjust_track(lon,lat,loc_est,ils_range,ils_loc,alt_aal,gspd,tas,
             # Adjust distance units
             distances = ils_range.array[this_loc.slice] / METRES_TO_FEET
             
+            # Tweek the localizer position to be on the start:end centreline
+            localizer_on_cl = ils_localizer_align(runway)
+            
             # At last, the conversion of ILS localizer data to latitude and longitude
             lat_adj[this_loc.slice], lon_adj[this_loc.slice] = \
-                latitudes_and_longitudes(bearings, distances, reference)
+                latitudes_and_longitudes(bearings, distances, localizer_on_cl)
 
     # --- Merge Tracks and return ---
     return track_linking(lat.array, lat_adj), track_linking(lon.array, lon_adj)
