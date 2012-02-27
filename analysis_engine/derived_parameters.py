@@ -400,8 +400,8 @@ class AltitudeRadio(DerivedParameterNode):
             # Alternate samples for this frame have latency of over 1 second,
             # so do not contribute to the height measurements available.
             self.array, self.frequency, self.offset = \
-                merge_two_parameters(source_B, source_C)
-            
+                merge_two_parameters(source_C, source_B)
+
         elif frame_name in ['737-4', '737-4_Analogue']:
             self.array, self.frequency, self.offset = \
                 merge_two_parameters(source_A, source_B)
