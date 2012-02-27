@@ -381,7 +381,16 @@ class Fast(FlightPhaseNode):
 
         if fast_samples is None:
             # Did not go fast enough.
-            return 
+            return
+        elif fast_samples[0] == fast_samples[1]:
+            # Airspeed array either starts or stops Fast.
+            index = fast_samples[0]
+            if airspeed.array[index] > airspeed.array[index+1]:
+                # Airspeed slowing down, start at the beginning of the data.
+                fast_samples[0] = np.ma.where(airspeed.array)[0][0]
+            else:
+                # Airspeed speeding up, start at the end of the data.
+                fast_samples[1] = np.ma.where(airspeed.array)[0][-1]
         
         self.create_phase(slice(*fast_samples))
  
@@ -493,7 +502,7 @@ class ILSGlideslopeEstablished(FlightPhaseNode):
             gs = repair_mask(ils_gs.array[ils_loc_2_min]) # prepare gs data
             gsm = np.ma.masked_outside(gs,-1,1)  # mask data more than 1 dot
             ends = np.ma.flatnotmasked_edges(gsm)  # find the valid endpoints
-            if ends == None:
+            if ends is None:
                 logging.debug("Did not establish localiser within +-1dot")
                 continue
             elif ends[0] == 0 and ends[1] == -1:  # TODO: Pythonese this line !
@@ -507,9 +516,6 @@ class ILSGlideslopeEstablished(FlightPhaseNode):
                 # case the reduced phase will be None.
                 if reduced_phase:
                     self.create_phase(reduced_phase)
-                    
-            
-            
             ##this_slice = ils_loc_est.slice
             ##on_slopes = np.ma.clump_unmasked(
                 ##np.ma.masked_outside(repair_mask(ils_gs.array)[this_slice],-1,1))

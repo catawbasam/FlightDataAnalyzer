@@ -6,7 +6,6 @@ from collections import OrderedDict, namedtuple
 from datetime import datetime, timedelta
 from hashlib import sha256
 from itertools import izip
-from scipy.signal import lfilter, lfilter_zi
 ##from scipy.optimize import fmin, fmin_bfgs, fmin_tnc
 # TODO: Inform Enthought that fmin_l_bfgs_b dies in a dark hole at _lbfgsb.setulb
 
@@ -581,7 +580,8 @@ def masked_first_order_filter(y_term, x_term, in_param, initial_value):
     :param initial_value: Value to be used at the start of the data
     :type initial_value: float (or may be None)
     """
-    
+    # import locally to speed up imports of library.py
+    from scipy.signal import lfilter, lfilter_zi
     z_initial = lfilter_zi(x_term, y_term) # Prepare for non-zero initial state
     # The initial value may be set as a command line argument, mainly for testing
     # otherwise we set it to the first data value.
@@ -654,6 +654,20 @@ def first_order_washout (in_param, time_constant, hz, gain = 1.0, initial_value 
     
     return masked_first_order_filter(y_term, x_term, in_param, initial_value)
 
+
+def _dist(lat1_d, lon1_d, lat2_d, lon2_d):
+    lat1 = radians(lat1_d)
+    lon1 = radians(lon1_d)
+    lat2 = radians(lat2_d)
+    lon2 = radians(lon2_d)
+
+    dlat = lat2-lat1
+    dlon = lon2-lon1
+
+    a = sin(dlat/2) * sin(dlat/2) + cos(lat2) \
+        * (lat2) * (dlon/2) * sin(dlon/2)
+    return 2 * atan2(sqrt(a), sqrt(1-a)) * 6371000
+
 def runway_distances(runway):
     '''
     Projection of the ILS antenna positions onto the runway
@@ -681,18 +695,6 @@ def runway_distances(runway):
     :type pgs_lon: float, units = degrees longitude
     '''
     
-    def dist(lat1_d, lon1_d, lat2_d, lon2_d):
-        lat1 = radians(lat1_d)
-        lon1 = radians(lon1_d)
-        lat2 = radians(lat2_d)
-        lon2 = radians(lon2_d)
-
-        dlat = lat2-lat1
-        dlon = lon2-lon1
-
-        a = sin(dlat/2) * sin(dlat/2) + cos(lat2) \
-            * (lat2) * (dlon/2) * sin(dlon/2)
-        return 2 * atan2(sqrt(a), sqrt(1-a)) * 6371000
     
     start_lat = runway['start']['latitude']
     start_lon = runway['start']['longitude']
@@ -703,10 +705,10 @@ def runway_distances(runway):
     gs_lat = runway['glideslope']['latitude']
     gs_lon = runway['glideslope']['longitude']
     
-    a = dist(gs_lat, gs_lon, lzr_lat, lzr_lon)
-    b = dist(gs_lat, gs_lon, start_lat, start_lon)
-    c = dist(end_lat, end_lon, lzr_lat, lzr_lon)
-    d = dist(start_lat, start_lon, lzr_lat, lzr_lon)
+    a = _dist(gs_lat, gs_lon, lzr_lat, lzr_lon)
+    b = _dist(gs_lat, gs_lon, start_lat, start_lon)
+    c = _dist(end_lat, end_lon, lzr_lat, lzr_lon)
+    d = _dist(start_lat, start_lon, lzr_lat, lzr_lon)
     
     r = (1.0+(a**2 - b**2)/d**2)/2.0
     g = r*d
@@ -716,6 +718,32 @@ def runway_distances(runway):
     pgs_lon = lzr_lon + r*(start_lon - lzr_lon)
     
     return d, g, c, pgs_lat, pgs_lon  # Runway distances to start, glideslope and end.
+
+def runway_length(runway):
+    '''
+    Calculation of only the length for runways with no glideslope details
+    and possibly no localizer information. In these cases we assume the
+    localizer is near end of runway and the beam is 700ft wide at the
+    threshold.
+
+    :param runway: Runway location details dictionary.
+    :type runway: Dictionary containing:
+    ['start']['latitude'] runway start position
+    ['start']['longitude']
+    ['end']['latitude'] runway end position
+    ['end']['longitude']
+        
+    :return
+    :param start_end: distance from start of runway to end
+    :type start_loc: float, units = feet.
+    '''
+    
+    start_lat = runway['start']['latitude']
+    start_lon = runway['start']['longitude']
+    end_lat = runway['end']['latitude']
+    end_lon = runway['end']['longitude']
+    
+    return _dist(start_lat, start_lon, end_lat, end_lon)
 
 def runway_heading(runway):
     '''
@@ -788,7 +816,41 @@ def hysteresis (array, hysteresis):
     return np.ma.array(result, mask=array.mask)
 
 
-
+def ils_localizer_align(runway):
+    '''
+    Projection of the ILS localizer antenna onto the runway centreline
+    :param runway: Runway location details dictionary.
+    :type runway: Dictionary containing:
+    ['start']['latitude'] runway start position
+    ['start']['longitude']
+    ['end']['latitude'] runway end position
+    ['end']['longitude']
+    ['localizer']['latitude'] ILS localizer antenna position
+    ['localizer']['longitude']
+        
+    :returns dictionary containing:
+    ['latitude'] ILS localizer position aligned to start and end of runway
+    ['longitude']
+    '''
+    
+    start_lat = runway['start']['latitude']
+    start_lon = runway['start']['longitude']
+    end_lat = runway['end']['latitude']
+    end_lon = runway['end']['longitude']
+    lzr_lat = runway['localizer']['latitude']
+    lzr_lon = runway['localizer']['longitude']
+    
+    a = _dist(lzr_lat, lzr_lon, end_lat, end_lon)
+    b = _dist(lzr_lat, lzr_lon, start_lat, start_lon)
+    d = _dist(start_lat, start_lon, end_lat, end_lon)
+    
+    r = (1.0+(a**2 - b**2)/d**2)/2.0
+    
+    # The projected glideslope antenna position is given by this formula
+    new_lat = end_lat + r*(start_lat - end_lat)
+    new_lon = end_lon + r*(start_lon - end_lon)
+    
+    return {'latitude':new_lat, 'longitude':new_lon}  # Runway distances to start, glideslope and end.
     
     
 def integrate (array, frequency, initial_value=0.0, scale=1.0, direction="forwards"):
@@ -1038,7 +1100,7 @@ def latitudes_and_longitudes(bearings, distances, reference):
     Usage: 
     lat[], lon[] = latitudes_and_longitudes(brg[], dist[], {'latitude':lat_ref, 'longitude', lon_ref})
     
-    :param bearings: The bearings of the track in degres.
+    :param bearings: The bearings of the track in degrees.
     :type bearings: Numpy masked array.
     :param distances: The distances of the track in metres.
     :type distances: Numpy masked array.
@@ -1591,6 +1653,8 @@ def slices_above(array, value):
     if len(array) == 0:
         return array, []
     repaired_array = repair_mask(array)
+    if repaired_array is None: # Array length is too short to be repaired.
+        return array, []    
     band = np.ma.masked_less(repaired_array, value)
     slices = np.ma.clump_unmasked(band)
     return repaired_array, slices
@@ -1610,6 +1674,8 @@ def slices_below(array, value):
     if len(array) == 0:
         return array, []
     repaired_array = repair_mask(array)
+    if repaired_array is None: # Array length is too short to be repaired.
+        return array, []    
     band = np.ma.masked_greater(repaired_array, value)
     slices = np.ma.clump_unmasked(band)
     return repaired_array, slices
@@ -1631,6 +1697,8 @@ def slices_between(array, min_, max_):
     if len(array) == 0:
         return array, []
     repaired_array = repair_mask(array)
+    if repaired_array is None: # Array length is too short to be repaired.
+        return array, []
     # Slice through the array at the top and bottom of the band of interest
     band = np.ma.masked_outside(repaired_array, min_, max_)
     # Group the result into slices - note that the array is repaired and
@@ -1850,10 +1918,10 @@ def subslice(orig, new):
     stop = (orig.start or 0) + (new.stop or orig.stop or 0) * (orig.step or 1) # the bit after "+" isn't quite right!!
     return slice(start, stop, None if step == 1 else step)
 
-def index_closest_value (array, threshold, _slice=slice(None)):
-    return index_at_value (array, threshold, _slice, endpoint='closing')
+def index_closest_value(array, threshold, _slice=slice(None)):
+    return index_at_value(array, threshold, _slice, endpoint='closing')
     
-def index_at_value (array, threshold, _slice=slice(None), endpoint='exact'):
+def index_at_value(array, threshold, _slice=slice(None), endpoint='exact'):
     '''
     This function seeks the moment when the parameter in question first crosses 
     a threshold. It works both forwards and backwards in time. To scan backwards
@@ -1928,7 +1996,7 @@ def index_at_value (array, threshold, _slice=slice(None), endpoint='exact'):
     value_passing_array = (array[left]-threshold) * (array[right]-threshold)
     test_array = np.ma.masked_greater(value_passing_array, 0.0)
     
-    if np.ma.all(test_array.mask):
+    if np.all(test_array.mask):
         # The parameter does not pass through threshold in the period in question, so return empty-handed.
         if endpoint=='closing':
             # Rescan the data to find the last point where the array data is closing.
@@ -1956,8 +2024,11 @@ def _value(array, _slice, operator):
     """
     if _slice.step and _slice.step < 0:
         raise ValueError("Negative step not supported")
-    index = operator(array[_slice]) + (_slice.start or 0) * (_slice.step or 1)
-    return Value(index, array[index])
+    if np.ma.count(array[_slice]):
+        index = operator(array[_slice]) + (_slice.start or 0) * (_slice.step or 1)
+        return Value(index, array[index])
+    else:
+        return Value(None, None)
 
 def value_at_time(array, hz, offset, time_index):
     '''
