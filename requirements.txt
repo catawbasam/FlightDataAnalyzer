@@ -1,8 +1,6 @@
-Utilities
-HDFAccess
-h5py
 numpy
 scipy
+h5py
 networkx
 pygraphviz
 matplotlib
@@ -10,3 +8,5 @@ aerocalc
 simplekml
 simplejson
 argparse
+Utilities
+HDFAccess
