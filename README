@@ -1,1 +1,18 @@
+.. contents:: **Table of Contents**
 
+Introduction
+============
+
+AnalysisEngine is a tool parsing HDF5 files containing engineering unit 
+representation of flight data. It provides the following utilities:
+
+* Deriving parameters from others.
+* Split flight data into multiple flight segments.
+* Creation of flight attributes, such as take and landing runways.
+* Calculation and creation of KPVs and KTIs.
+
+Package requires **pip** for installation.
+
+| pip install analysisengine
+
+Project sponsored by Flight Data Services Ltd: http://www.flightdataservices.com/
