@@ -2054,5 +2054,5 @@ class TestVstackParams(unittest.TestCase):
 
 if __name__ == '__main__':
     suite = unittest.TestSuite()
-    suite.addTest(TestAlign('test_align_superframe_to_onehz_multistate'))
+    suite.addTest(TestIndexAtValue('test_index_at_value_slice_beyond_top_end_of_data'))
     unittest.TextTestRunner(verbosity=2).run(suite)
