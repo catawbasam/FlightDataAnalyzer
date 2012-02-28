@@ -68,16 +68,13 @@ cd ${WORKSPACE}
 export PIP_INDEX_URL=http://pypi.flightdataservices.com/simple/
 pip install --upgrade pip
 
-# Install Jenkins requirements
-if [ -f requirements-jenkins.txt ]; then
-    pip install --upgrade -r requirements-jenkins.txt
-fi
-
-# Install Sphinx requirements
-if [ -f requirements-sphinx.txt ]; then
-    pip install --upgrade -r requirements-sphinx.txt
-fi
-
+# Install Jenkins, Sphinx and Setup requirements
+for REQUIREMENTS in requirements-jenkins.txt requirements-sphinx.txt requirements-setup.txt
+do
+    if [ -f ${REQUIREMENTS} ]; then
+        pip install --upgrade -r ${REQUIREMENTS}
+    fi
+done
 #eval pip install --upgrade file:///.#egg=${PACKAGE}[jenkins,sphinx]
 
 # Run any additional setup steps
