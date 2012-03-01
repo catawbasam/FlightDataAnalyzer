@@ -265,7 +265,16 @@ def process_flight(hdf_path, aircraft_info, start_datetime=datetime.now(),
                                derived_nodes, aircraft_info,
                                achieved_flight_record)
         # calculate dependency tree
-        process_order = dependency_order(node_mgr, draw=draw) 
+        process_order, gr_st = dependency_order(node_mgr, draw=draw) 
+        if settings.CACHE_PARAMETER_MIN_USAGE:
+            # find params used more than
+            for node in gr_st.nodes():
+                if node in node_mgr.derived_nodes:  # this includes KPV/KTIs but they'll be ignored by HDF
+                    qty = len(gr_st.predecessors(node))
+                    if qty > settings.CACHE_PARAMETER_MIN_USAGE:
+                        hdf.cache_param_list.append(node)
+            logging.info("HDF set to cache parameters: %s", hdf.cache_param_list)
+            
                     
         if hooks.PRE_FLIGHT_ANALYSIS:
             logger.info("Performing PRE_FLIGHT_ANALYSIS actions: %s", 
@@ -315,4 +324,4 @@ if __name__ == '__main__':
     
     hdf_copy = copy_file(args.file, postfix='_process')
     process_flight(hdf_copy, {'Tail Number': args.tail_number,
-                              'Precise Positioning': False}, draw=args.plot)
+                              'Precise Positioning': True}, draw=args.plot)

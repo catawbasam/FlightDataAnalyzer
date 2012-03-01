@@ -397,7 +397,7 @@ class AltitudeRadio(DerivedParameterNode):
                frame=A('Frame')):
         frame_name = frame.value if frame else None
         if frame_name in ['737-3C']:
-            # Alternate samples for this frame have latency of over 1 second,
+            # Alternate samples (A) for this frame have latency of over 1 second,
             # so do not contribute to the height measurements available.
             self.array, self.frequency, self.offset = \
                 merge_two_parameters(source_B, source_C)
@@ -539,19 +539,21 @@ class AltitudeTail(DerivedParameterNode):
     This function allows for the distance between the radio altimeter antenna
     and the point of the airframe closest to tailscrape.
    
-    The parameter gear_to_tail is measured in feet and is the distance from 
+    The parameter gear_to_tail is measured in metres and is the distance from 
     the main gear to the point on the tail most likely to scrape the runway.
     """
     units = 'ft'
     #TODO: Review availability of Attribute "Dist Gear To Tail"
-    def derive(self, alt_rad = P('Altitude Radio'), 
-               pitch = P('Pitch'),
-               dist_gear_to_tail=A('Dist Gear To Tail')):
+    def derive(self, alt_rad=P('Altitude Radio'), pitch=P('Pitch'),
+               ground_to_tail=A('Ground To Lowest Point Of Tail'),
+               dist_gear_to_tail=A('Main Gear To Lowest Point Of Tail')):
         # Align the pitch attitude samples to the Radio Altimeter samples,
         # ready for combining them.
-        pitch_rad= np.radians(pitch.array)
+        pitch_rad = np.radians(pitch.array)
         # Now apply the offset
-        self.array = alt_rad.array - np.sin(pitch_rad) * dist_gear_to_tail.value
+        gear2tail = dist_gear_to_tail.value * METRES_TO_FEET
+        ground2tail = ground_to_tail.value * METRES_TO_FEET
+        self.array = (alt_rad.array - np.sin(pitch_rad) * gear2tail) + ground2tail
         
 
 class ClimbForFlightPhases(DerivedParameterNode):

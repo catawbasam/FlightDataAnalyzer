@@ -1,12 +1,12 @@
-FilterPype
-Utilities
-HDFAccess
 numpy
 scipy
+h5py
 networkx
-httplib2
 pygraphviz
 matplotlib
-mock
 aerocalc
 simplekml
+simplejson
+argparse
+Utilities
+HDFAccess
