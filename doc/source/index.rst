@@ -17,6 +17,7 @@ Contents:
    Extending
    Profiling
    ParameterNaming
+   FlightTypes
 
 Indices and tables
 ==================
