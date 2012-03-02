@@ -460,7 +460,7 @@ def datetime_of_index(start_datetime, index, frequency=1):
     :returns: Datetime at index.
     :rtype: datetime
     '''
-    index_in_seconds = index * frequency
+    index_in_seconds = index / frequency
     offset = timedelta(seconds=index_in_seconds)
     return start_datetime + offset
     

@@ -324,4 +324,5 @@ if __name__ == '__main__':
     
     hdf_copy = copy_file(args.file, postfix='_process')
     process_flight(hdf_copy, {'Tail Number': args.tail_number,
-                              'Precise Positioning': True}, draw=args.plot)
+                              'Precise Positioning': True},
+                   draw=args.plot)

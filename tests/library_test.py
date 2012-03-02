@@ -663,6 +663,16 @@ class TestClip(unittest.TestCase):
         output_array = np.array([0.6,1.1,1.1,1.1,1.1,1.0,0.0])
         result = clip(input_array, 6, hz=0.5)
         np.testing.assert_array_equal(result, output_array)
+
+
+class TestDatetimeOfIndex(unittest.TestCase):
+    def test_index_of_datetime(self):
+        start_datetime = datetime.now()
+        index = 160
+        frequency = 4
+        dt = datetime_of_index(start_datetime, index, frequency=frequency)
+        self.assertEqual(dt, start_datetime + timedelta(seconds=40))
+
                     
 class TestFirstOrderLag(unittest.TestCase):
 
