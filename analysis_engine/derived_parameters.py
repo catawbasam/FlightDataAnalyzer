@@ -2093,7 +2093,7 @@ class Pitch(DerivedParameterNode):
 class PitchRate(DerivedParameterNode):
     # TODO: Tests.
     def derive(self, pitch=P('Pitch')):
-        # TODO: What should half_width be?
+        # TODO: What should half_width argument to rate_of_change be?
         self.array = rate_of_change(pitch, 1)
 
 
