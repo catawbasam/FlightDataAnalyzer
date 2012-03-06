@@ -75,6 +75,7 @@ class Node(object):
 
     name = '' # Optional, default taken from ClassName
     align_to_first_dependency = True
+    data_type = None # Q: What should the default be? Q: Should this dictate the numpy dtype saved to the HDF file or should it be inferred from the array?
         
     def __init__(self, name='', frequency=1, offset=0):
         """
