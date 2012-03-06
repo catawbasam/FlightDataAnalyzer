@@ -882,10 +882,12 @@ def integrate (array, frequency, initial_value=0.0, scale=1.0, direction="forwar
     """
     result = np.copy(array)
     
-    if direction == 'forwards':
+    if direction.lower() == 'forwards':
         d = +1
-    else:
+    elif direction.lower() in ('reverse', 'backwards'):
         d = -1
+    else:
+        raise ValueError("Invalid direction '%s'" % direction)
         
     k = (scale*0.5)/frequency
     to_int = k*(array + np.roll(array,d))

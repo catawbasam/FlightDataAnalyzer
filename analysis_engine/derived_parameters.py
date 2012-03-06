@@ -1,6 +1,7 @@
 import logging
 import numpy as np
 from tempfile import TemporaryFile
+from operator import attrgetter
 
 from aerocalc.airspeed import cas2tas, cas2dp, cas_alt2mach, mach2temp, dp2tas
     
@@ -43,7 +44,8 @@ from analysis_engine.library import (align,
                                      value_at_index,
                                      vstack_params)
 
-from settings import (AZ_WASHOUT_TC,
+from settings import (AIRSPEED_THRESHOLD,
+                      AZ_WASHOUT_TC,
                       AT_WASHOUT_TC,
                       GROUNDSPEED_LAG_TC,
                       HYSTERESIS_FPALT,
@@ -256,62 +258,135 @@ class AltitudeAAL(DerivedParameterNode):
 
     @classmethod
     def can_operate(cls, available):
-        return 'Altitude AAL For Flight Phases' in available
+        #TODO: Improve accuracy of this method. For example, the code does
+        #not cater for the availability of Altitude Radio but Rate Of Climb
+        #not being available.
+        smoothing_params = all([d in available for d in ('Rate Of Climb',
+                                                         'Altitude STD',
+                                                         'Altitude Radio',
+                                                         'Fast')])
+        fallback = 'Altitude AAL For Flight Phases' in available
+        return smoothing_params or fallback
     
-    def derive(self, roc = P('Rate Of Climb'),
+    def derive(self, liftoffs=KTI('Liftoff'),
+               touchdowns=KTI('Touchdown'),
+               takeoffs=S('Takeoff'),
+               landings=S('Landing'),
+               roc = P('Rate Of Climb'),
                alt_aal_4fp = P('Altitude AAL For Flight Phases'),
                alt_std = P('Altitude STD'),
                alt_rad = P('Altitude Radio'),
-               fast = S('Fast')):
+               airspeed = P('Airspeed'),
+               
+               ):
         if alt_rad:
+            TRANSITION_ALT_RAD_TO_STD = 100 #100 (ft)
             # Initialise the array to zero, so that the altitude above the airfield
             # will be 0ft when the aircraft cannot be airborne.
             alt_aal = np.ma.masked_all_like(alt_std.array)
+            for section in takeoffs + landings:
+                alt_aal[section.slice] = 0
+            alt_aal[airspeed.array < AIRSPEED_THRESHOLD] = 0
+            alt_aal[alt_rad.array < 0] = 0
             
-            for speedy in fast:
-                # Populate the array with Altitude Radio data from one runway
-                # to the next.
-                alt_aal[speedy.slice] = np.ma.copy(alt_rad.array[speedy.slice])
-
-                # Now look where the aircraft passed through 100ft Alt_Rad
-                highs = np.ma.clump_unmasked(np.ma.masked_less
-                                             (alt_rad.array[speedy.slice],100))
+            ordered_ktis = sorted(liftoffs + touchdowns,
+                                  key=attrgetter('index'))
+            
+            for next_index, first_kti in enumerate(ordered_ktis, start=1):
+                try:
+                    second_kti = ordered_ktis[next_index]
+                except IndexError:
+                    break
+                airborne_slice = slice(first_kti.index, second_kti.index)
+                # Use pressure altitude to ensure data is filled between
+                # Liftoff and Touchdown KTIs.
+                alt_aal[airborne_slice] = alt_std.array[airborne_slice]
+                peak_index = np.ma.argmax(alt_std.array[airborne_slice]) + \
+                                        airborne_slice.start                
+                if first_kti.name == 'Liftoff':
+                    threshold_index = index_at_value(alt_std.array,
+                                                     TRANSITION_ALT_RAD_TO_STD,
+                                                     _slice=airborne_slice)
+                    difference = alt_rad.array[threshold_index] - \
+                        alt_std.array[threshold_index]
+                    alt_aal[threshold_index:peak_index] += difference
+                    pre_threshold = slice(airborne_slice.start,
+                                          threshold_index)
+                    alt_aal[pre_threshold] = alt_rad.array[pre_threshold]
                 
-                # For each segment like this (allowing for touch and go's)
-                for high in highs:
+                if second_kti.name == 'Touchdown':
+                    reverse_slice = slice(airborne_slice.stop,
+                                          airborne_slice.start, -1)
+                    threshold_index = index_at_value(alt_std.array,
+                                                     TRANSITION_ALT_RAD_TO_STD,
+                                                     _slice=reverse_slice)   
+                    difference = alt_rad.array[threshold_index] - \
+                        alt_std.array[threshold_index]
+                    alt_aal[peak_index:threshold_index] += difference
+                    post_threshold = slice(threshold_index,
+                                           airborne_slice.stop)
+                    alt_aal[post_threshold] = alt_rad.array[post_threshold]
                     
-                    # TODO: Allow for touch and go's (i.e. end indexes should refer to possible touch and gos.
+            
+            ####for speedy in fast:
+                ##### Populate the array with Altitude Radio data from one runway
+                ##### to the next.
+                ####alt_aal[speedy.slice] = np.ma.copy(alt_rad.array[speedy.slice])
+
+                ##### Now look where the aircraft passed through 100ft Alt_Rad
+                ####highs = np.ma.clump_unmasked(np.ma.masked_less
+                                             ####(alt_rad.array[speedy.slice],
+                                              ####TRANSITION_ALT_RAD_TO_STD))
+                #####TODO: Only use Altitude Radio for below 100ft from takeoff and before landing, ignore others (such as big hills!)
+                ##### Use index at value forwards (if takeoff) and backwards (if landing)
+                ##### See below for similar code from flight phase computation for approach threshold at landing 
+                #####for land in lands:
+                    ###### Ideally we'd like to start at the initial approach threshold...
+                    #####app_start = index_at_value(height,
+                                               #####INITIAL_APPROACH_THRESHOLD,
+                                               #####slice(land.slice.start,0, -1))
+                    ###### ...but if this fails, take the end of the last climb.
+                    #####if app_start == None:
+                        #####app_start = index_at_value(height,
+                                                   #####INITIAL_APPROACH_THRESHOLD,
+                                                   #####slice(land.slice.start,0, -1), 
+                                                   #####endpoint='closing')
+                    #####app_slice.append(slice(app_start,land.slice.stop,None))
+                ##### For each segment like this (allowing for touch and go's)
+                ####for high in highs:
                     
-                    # Find the highest point, where we'll put the "step"
-                    peak = np.ma.argmax(alt_std.array[speedy.slice][high])
+                    ##### TODO: Allow for touch and go's (i.e. end indexes should refer to possible touch and gos.
+                    
+                    ##### Find the highest point, where we'll put the "step"
+                    ####peak = np.ma.argmax(alt_std.array[speedy.slice][high])
 
-                    # We want to make the climb data join just above 100ft
-                    dh_climb = alt_rad.array[speedy.slice][high][0] - \
-                        alt_std.array[speedy.slice][high][0]
+                    ##### We want to make the climb data join just above 100ft
+                    ####dh_climb = alt_rad.array[speedy.slice][high][0] - \
+                        ####alt_std.array[speedy.slice][high][0]
 
-                    # Shift the pressure altitude data with this adjustment
-                    alt_aal.data[speedy.slice][high][0:peak] = \
-                        alt_std.array.data[speedy.slice][high][0:peak] + dh_climb
-                    alt_aal.mask[speedy.slice][high][0:peak] = \
-                        np.ma.getmaskarray(alt_std.array)[speedy.slice][high][0:peak]
+                    ##### Shift the pressure altitude data with this adjustment
+                    ####alt_aal.data[speedy.slice][high][0:peak] = \
+                        ####alt_std.array.data[speedy.slice][high][0:peak] + dh_climb
+                    ####alt_aal.mask[speedy.slice][high][0:peak] = \
+                        ####np.ma.getmaskarray(alt_std.array)[speedy.slice][high][0:peak]
 
-                    # ...and do the same on the way down...
-                    dh_descend = alt_rad.array[speedy.slice][high][-1] - \
-                        alt_std.array[speedy.slice][high][-1]
+                    ##### ...and do the same on the way down...
+                    ####dh_descend = alt_rad.array[speedy.slice][high][-1] - \
+                        ####alt_std.array[speedy.slice][high][-1]
 
-                    alt_aal.data[speedy.slice][high][peak:] = \
-                        alt_std.array[speedy.slice][high][peak:] + dh_descend
-                    alt_aal.mask[speedy.slice][high][peak:] = \
-                        np.ma.getmaskarray(alt_std.array)[speedy.slice][high][peak:]
+                    ####alt_aal.data[speedy.slice][high][peak:] = \
+                        ####alt_std.array[speedy.slice][high][peak:] + dh_descend
+                    ####alt_aal.mask[speedy.slice][high][peak:] = \
+                        ####np.ma.getmaskarray(alt_std.array)[speedy.slice][high][peak:]
                 
                 # Use the complementary smoothing approach
-                alt_aal_lag = first_order_lag(alt_aal[speedy.slice],
+                alt_aal_lag = first_order_lag(alt_aal[airborne_slice],
                                               RATE_OF_CLIMB_LAG_TC, roc.hz)
-                
-                roc_lag = first_order_lag(roc.array[speedy.slice],RATE_OF_CLIMB_LAG_TC, roc.hz,
+                    
+                roc_lag = first_order_lag(roc.array[airborne_slice],RATE_OF_CLIMB_LAG_TC, roc.hz,
                                           gain=RATE_OF_CLIMB_LAG_TC/60.0)
-    
-                alt_aal[speedy.slice] = (alt_aal_lag + roc_lag)
+        
+                alt_aal[airborne_slice] = alt_aal_lag + roc_lag
                 
             self.array = alt_aal
             
@@ -555,6 +630,27 @@ class AltitudeTail(DerivedParameterNode):
         ground2tail = ground_to_tail.value * METRES_TO_FEET
         self.array = (alt_rad.array - np.sin(pitch_rad) * gear2tail) + ground2tail
         
+class AltitudeTailRob(DerivedParameterNode):
+    """
+    This function allows for the distance between the radio altimeter antenna
+    and the point of the airframe closest to tailscrape.
+   
+    The parameter gear_to_tail is measured in metres and is the distance from 
+    the main gear to the point on the tail most likely to scrape the runway.
+    """
+    units = 'ft'
+    #TODO: Review availability of Attribute "Dist Gear To Tail"
+    def derive(self, alt_rad=P('Altitude Radio'), pitch=P('Pitch'),
+               ground_to_tail=A('Ground To Lowest Point Of Tail'),
+               dist_gear_to_tail=A('Main Gear To Lowest Point Of Tail')):
+        # Align the pitch attitude samples to the Radio Altimeter samples,
+        # ready for combining them.
+        pitch_rad = np.radians(pitch.array)
+        # Now apply the offset
+        gear2tail = dist_gear_to_tail.value * METRES_TO_FEET
+        ground2tail = ground_to_tail.value * METRES_TO_FEET
+        self.array = (alt_rad.array - np.sin(pitch_rad) * gear2tail)
+        
 
 class ClimbForFlightPhases(DerivedParameterNode):
     #TODO: Optimise with numpy operations
@@ -645,24 +741,26 @@ class ControlWheel(DerivedParameterNode):
             blend_two_parameters(posn_capt, posn_fo)
 
 
+class DistanceToLanding(DerivedParameterNode):
+    units = 'nm'
+    # Q: Is this distance to final landing, or distance to each approach
+    # destination (i.e. resets once reaches point of go-around)
+    def derive(self, dist=P('Distance Travelled'), tdwns=KTI('Touchdown')):
+        ##ils_gs=P('Glideslope Deviation'), ##ldg=P('LandingAirport')): #
+        # this version gets closer to zero as we approach the final touchdown
+        # and then increases as we go past
+        dist_flown_at_tdwn = dist.array[tdwns.get_last().index]
+        self.array = np.ma.abs(dist_flown_at_tdwn - dist.array)
+
+
 class DistanceTravelled(DerivedParameterNode):
     "Distance travelled in Nautical Miles. Calculated using Groundspeed"
     units = 'nm'
     #Q: could be validated using the track flown or distance between origin 
     # and destination
     def derive(self, gspd=P('Groundspeed')):
-        return NotImplemented
-
-
-class DistanceToLanding(DerivedParameterNode):
-    units = 'nm'
-    # Q: Is this distance to final landing, or distance to each approach
-    # destination (i.e. resets once reaches point of go-around)
-    def derive(self, dist=P('Distance Travelled'), tdwns=KTI('Touchdown')):
-               ##ils_gs=P('Glideslope Deviation'),
-               ##ldg=P('LandingAirport')):
-        return NotImplemented
-
+        self.array = integrate(gspd.array, gspd.frequency, scale=1.0)
+        
 
 class Eng_EGTAvg(DerivedParameterNode):
     #TODO: TEST
