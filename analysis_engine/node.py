@@ -352,8 +352,14 @@ class DerivedParameterNode(Node):
         :rtype: list of slice'''
         return slices_from_to(self.array, from_, to)[1]
 
+
 P = Parameter = DerivedParameterNode # shorthand
 
+def derived_param_from_hdf(hdf, name):
+    hdf_parameter = hdf[name]
+    return Parameter(name=hdf_parameter.name, array=hdf_parameter.array, 
+                     frequency=hdf_parameter.frequency,
+                     offset=hdf_parameter.offset)
 
 class SectionNode(Node, list):
     '''

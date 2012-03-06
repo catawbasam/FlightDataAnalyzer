@@ -7,7 +7,8 @@ from analysis_engine import hooks
 from analysis_engine import settings
 from analysis_engine.library import value_at_index
 from analysis_engine.dependency_graph import dependency_order
-from analysis_engine.node import (Attribute, DerivedParameterNode,
+from analysis_engine.node import (Attribute, derived_param_from_hdf,
+                                  DerivedParameterNode,
                                   FlightAttributeNode, 
                                   KeyPointValueNode,
                                   KeyTimeInstanceNode, Node,
@@ -24,15 +25,12 @@ def geo_locate(hdf, kti_list):
        or 'Longitude Smoothed' not in hdf:
         return kti_list
     
-    lat_pos = hdf['Latitude Smoothed']
-    long_pos = hdf['Longitude Smoothed']
-    assert len(lat_pos.array)==len(long_pos.array)
-    assert lat_pos.frequency==long_pos.frequency
-    hz = lat_pos.hz # Shorthand for lat_pos.frequency
+    lat_pos = derived_param_from_hdf(hdf, 'Latitude Smoothed')
+    long_pos = derived_param_from_hdf(hdf, 'Longitude Smoothed')
     
     for kti in kti_list:
-        kti.latitude = value_at_index(lat_pos.array, kti.index*hz)
-        kti.longitude = value_at_index(long_pos.array, kti.index*hz)
+        kti.latitude = lat_pos.at(kti.index)
+        kti.longitude = long_pos.at(kti.index)
     return kti_list
 
 

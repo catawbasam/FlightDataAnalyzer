@@ -1318,7 +1318,11 @@ class TooLowGearWarning(KeyPointValueNode):
 class TAWSTooLowTerrainWarning(KeyPointValueNode):
     name = 'TAWS Too Low Terrain Warning'
     def derive(self, taws_too_low_terrain=P('TAWS Too Low Terrain')):
-        return NotImplemented
+        slices = slices_above(taws_too_low_terrain.array, 1)[1]
+        for too_low_terrain_slice in slices:
+            index = too_low_terrain_slice.start
+            value = taws_too_low_terrain.array[too_low_terrain_slice.start]
+            self.create_kpv(index, value)
 
 
 class EngVibN1Above_XXXXX_Duration(KeyPointValueNode):
@@ -1366,3 +1370,17 @@ class AirspeedBelowFL100Max(KeyPointValueNode):
                                            alt_std.slices_below(10000),
                                            max_value)
 
+
+class BDUTerrain(KeyPointValueNode):
+    name = 'BDU Terrain'
+    # TODO: Rename after asking DJ.
+    
+    def derive(self, alt_aal=P('Altitude AAL'), alt_radio=P('Altitude Radio'), 
+                 dtl=P('Distance To Landing')):
+        '''
+        '''
+        for desc_slice in alt_aal.slices_from_to(3000, 50):
+            angle_array = alt_radio.array[desc_slice]/dtl.array[desc_slice]
+            index, value = min_value(angle_array)
+            self.create_kpv(index + desc_slice.start, value)
+    
