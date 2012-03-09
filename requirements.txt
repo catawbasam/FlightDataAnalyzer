@@ -1,6 +1,7 @@
 numpy
 scipy
 h5py
+httplib2>=0.7.0
 networkx
 pygraphviz
 matplotlib

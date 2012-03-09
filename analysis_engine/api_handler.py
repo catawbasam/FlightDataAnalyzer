@@ -1,6 +1,7 @@
 import httplib
 import httplib2
 import logging
+import os
 import socket
 import time
 import urllib
@@ -8,6 +9,8 @@ try:
     import simplejson as json
 except ImportError:
     import json
+
+from analysis_engine import settings
 
 TIMEOUT = 15
 socket.setdefaulttimeout(TIMEOUT)
@@ -73,7 +76,12 @@ class APIHandlerHTTP(object):
         '''
         # Encode body as GET parameters.
         body = urllib.urlencode(body)
-        http = httplib2.Http(timeout=timeout)
+        disable_validation = not os.path.exists(settings.CA_CERTIFICATE_FILE)
+        http = httplib2.Http(
+            ca_certs=settings.CA_CERTIFICATE_FILE,
+            disable_ssl_certificate_validation=disable_validation,
+            timeout=timeout,
+        )
         try:
             resp, content = http.request(uri, method, body)
         except (httplib2.ServerNotFoundError, socket.error, AttributeError): # DNS..

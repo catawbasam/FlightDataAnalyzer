@@ -658,6 +658,9 @@ def first_order_washout (in_param, time_constant, hz, gain = 1.0,
 
 
 def _dist(lat1_d, lon1_d, lat2_d, lon2_d):
+    """
+    Haversine formula for calculating distances between coordinates.
+    """
     lat1 = radians(lat1_d)
     lon1 = radians(lon1_d)
     lat2 = radians(lat2_d)

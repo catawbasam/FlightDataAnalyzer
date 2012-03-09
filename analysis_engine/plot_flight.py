@@ -33,6 +33,7 @@ def add_track(kml, track_name, lat, lon, colour, alt_param=None):
     track_config['coords'] = track_coords
     line = kml.newlinestring(**track_config)
     line.style.linestyle.color = colour
+    line.style.polystyle.color = '66%s' % colour[2:] # set opacity of area fill to 40%
     return
 
 def track_to_kml(hdf_path, kti_list, kpv_list, plot_altitude=None):
