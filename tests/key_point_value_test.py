@@ -35,11 +35,11 @@ from analysis_engine.key_point_values import (
     AltitudeAtMachMax,
     AltitudeAtTouchdown,
     AltitudeMax,
+    AltitudeRadioDividedByDistanceToLanding3000To50FtMin,
     AutopilotEngaged1AtLiftoff,
     AutopilotEngaged1AtTouchdown,
     AutopilotEngaged2AtLiftoff,
     AutopilotEngaged2AtTouchdown,
-    BDUTerrain,
     ControlColumnStiffness,
     EngEGTMax,
     EngEPR500FtToTouchdownMin,
@@ -324,7 +324,7 @@ class TestAirspeedBelowAltitudeMax(unittest.TestCase):
         airspeed = P(array=np.ma.arange(20))
         alt_aal = P(array=np.ma.arange(0, 10000, 500))
         param = AirspeedBelowAltitudeMax()
-        param.derive(alt_aal, airspeed)
+        param.derive(airspeed, alt_aal)
         self.assertEqual(param,
             [KeyPointValue(index=1, value=1, name='Airspeed Below 500 Ft Max'),
              KeyPointValue(index=6, value=6, name='Airspeed Below 3000 Ft Max'),
@@ -510,7 +510,7 @@ class TestAutopilotEngaged2AtTouchdown(unittest.TestCase, TestCreateKPVsAtKTIs):
 
 class TestBDUTerrain(unittest.TestCase):
     def test_can_operate(self):
-        self.assertEqual(BDUTerrain.get_operational_combinations(),
+        self.assertEqual(AltitudeRadioDividedByDistanceToLanding3000To50FtMin.get_operational_combinations(),
                          [('Altitude AAL', 'Altitude Radio',
                            'Distance To Landing')])
     
@@ -527,7 +527,7 @@ class TestBDUTerrain(unittest.TestCase):
         dtl = P(array=dtl_array, frequency=0.25)
         alt_radio.array = align(alt_radio, alt_aal)
         dtl.array = align(dtl, alt_aal)        
-        param = BDUTerrain()
+        param = AltitudeRadioDividedByDistanceToLanding3000To50FtMin()
         param.derive(alt_aal, alt_radio, dtl)
         self.assertEqual(param, [KeyPointValue(name='BDU Terrain', index=1008, value=0.037668517049960347)])
         

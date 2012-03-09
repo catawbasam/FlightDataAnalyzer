@@ -1219,13 +1219,6 @@ class AirspeedMinusVrefAtTouchdown(KeyPointValueNode):
         self.create_kpvs_at_ktis(airspeed.array, tdwns)
 
 
-class AirspeedBelow3000FtMax(KeyPointValueNode):
-    def derive(self, airspeed=P('Airspeed'), alt_aal=P('Altitude AAL')):
-        for this_slice in alt_aal.slices_below(3000):
-            index, value = max_value(airspeed.array, this_slice)
-            self.create_kpv(index, value)
-
-
 class AirspeedBetween90SecToTouchdownAndTouchdownMax(KeyPointValueNode):
     def derive(self, sec_to_touchdown=KTI('Secs To Touchdown'), airspeed=P('Airspeed')):
         for _90_sec in sec_to_touchdown.get(name='90 Secs To Touchdown'):
@@ -1347,7 +1340,7 @@ class AirspeedBelowAltitudeMax(KeyPointValueNode):
     NAME_FORMAT = 'Airspeed Below %(altitude)d Ft Max'
     NAME_VALUES = {'altitude': [500, 3000, 7000]}
     
-    def derive(self, alt_aal=P('Altitude AAL'), airspeed=P('Airspeed')):
+    def derive(self, airspeed=P('Airspeed'), alt_aal=P('Altitude AAL')):
         for alt in self.NAME_VALUES['altitude']:
             self.create_kpvs_within_slices(airspeed.array,
                                            alt_aal.slices_below(alt),
@@ -1371,14 +1364,9 @@ class AirspeedBelowFL100Max(KeyPointValueNode):
                                            max_value)
 
 
-class BDUTerrain(KeyPointValueNode):
-    name = 'BDU Terrain'
-    # TODO: Rename after asking DJ.
-    
+class AltitudeRadioDividedByDistanceToLanding3000To50FtMin(KeyPointValueNode):
     def derive(self, alt_aal=P('Altitude AAL'), alt_radio=P('Altitude Radio'), 
-                 dtl=P('Distance To Landing')):
-        '''
-        '''
+               dtl=P('Distance To Landing')):
         for desc_slice in alt_aal.slices_from_to(3000, 50):
             angle_array = alt_radio.array[desc_slice]/dtl.array[desc_slice]
             index, value = min_value(angle_array)

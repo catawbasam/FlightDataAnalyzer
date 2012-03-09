@@ -514,7 +514,8 @@ def clip(a, period, hz=1.0):
             break # No need to process the rest of the array.
     return a
 
-def first_order_lag (in_param, time_constant, hz, gain = 1.0, initial_value = None):
+def first_order_lag (in_param, time_constant, hz, gain = 1.0,
+                     initial_value = None):
     '''
     Computes the transfer function
             x.G
@@ -608,7 +609,8 @@ def masked_first_order_filter(y_term, x_term, in_param, initial_value):
         
     return result
     
-def first_order_washout (in_param, time_constant, hz, gain = 1.0, initial_value = None):
+def first_order_washout (in_param, time_constant, hz, gain = 1.0,
+                         initial_value = None):
     '''
     Computes the transfer function
          x.G.(T.s)
