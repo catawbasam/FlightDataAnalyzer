@@ -26,6 +26,8 @@ from analysis_engine.derived_parameters import (
     #AltitudeRadioForFlightPhases,
     AltitudeSTD,
     AltitudeTail,
+    DistanceTravelled,
+    DistanceToLanding,
     ClimbForFlightPhases,
     Config,
     ControlColumn,
@@ -333,32 +335,12 @@ class TestAirspeedTrue(unittest.TestCase):
 
 class TestAltitudeAAL(unittest.TestCase):
     def test_can_operate(self):
-        expected = [('Altitude AAL For Flight Phases',),
-                    ('Rate Of Climb', 'Altitude AAL For Flight Phases'),
-                    ('Altitude AAL For Flight Phases', 'Altitude STD'),
-                    ('Altitude AAL For Flight Phases', 'Altitude Radio'),
-                    ('Altitude AAL For Flight Phases', 'Fast'),
-                    ('Rate Of Climb', 'Altitude AAL For Flight Phases',
-                     'Altitude STD'),
-                    ('Rate Of Climb', 'Altitude AAL For Flight Phases',
-                     'Altitude Radio'), 
-                    ('Rate Of Climb','Altitude AAL For Flight Phases', 'Fast'),
-                    ('Altitude AAL For Flight Phases', 'Altitude STD',
-                     'Altitude Radio'), 
-                    ('Altitude AAL For Flight Phases', 'Altitude STD', 'Fast'), 
-                    ('Altitude AAL For Flight Phases', 'Altitude Radio','Fast'), 
-                    ('Rate Of Climb', 'Altitude AAL For Flight Phases', 
-                     'Altitude STD', 'Altitude Radio'), 
-                    ('Rate Of Climb', 'Altitude AAL For Flight Phases', 
-                     'Altitude STD', 'Fast'), 
-                    ('Rate Of Climb', 'Altitude AAL For Flight Phases', 
-                     'Altitude Radio', 'Fast'), 
-                    ('Altitude AAL For Flight Phases', 'Altitude STD', 
-                     'Altitude Radio', 'Fast'), 
-                    ('Rate Of Climb', 'Altitude AAL For Flight Phases', 
-                     'Altitude STD', 'Altitude Radio', 'Fast')]
         opts = AltitudeAAL.get_operational_combinations()
-        self.assertEqual(opts, expected)
+        self.assertTrue(('Altitude AAL For Flight Phases',) in opts)
+        self.assertTrue(('Rate Of Climb', 'Altitude STD', 'Altitude Radio',
+                         'Fast') in opts)
+        self.assertTrue(('Rate Of Climb', 'Altitude AAL For Flight Phases',
+                         'Altitude STD', 'Altitude Radio', 'Fast') in opts)        
         
     def test_altitude_AAL_basic(self):
         slow_and_fast_data = np.ma.array(range(70,120,10)+range(140,75,-10))
@@ -768,6 +750,41 @@ class TestControlWheel(unittest.TestCase):
         cw = ControlWheel()
         cw.derive(self.cwc, self.cwf)
         blend_two_parameters.assert_called_once_with(self.cwc, self.cwf)
+        
+class TestDistanceToLanding(unittest.TestCase):
+    
+    def test_can_operate(self):
+        expected = [('Distance Travelled', 'Touchdown')]
+        opts = DistanceToLanding.get_operational_combinations()
+        self.assertEqual(opts, expected)
+    
+    def test_derive(self):
+        distance_travelled = P('Distance Travelled', array=np.ma.arange(0, 100))
+        tdwns = KTI('Touchdown', items=[KeyTimeInstance(90, 'Touchdown'),
+                                        KeyTimeInstance(95, 'Touchdown')])
+        
+        expected_result = np.ma.concatenate((np.ma.arange(95, 0, -1),np.ma.arange(0, 5, 1)))
+        dtl = DistanceToLanding()
+        dtl.derive(distance_travelled, tdwns)
+        ma_test.assert_array_equal(dtl.array, expected_result)
+        
+           
+class TestDistanceTravelled(unittest.TestCase):
+    
+    def test_can_operate(self):
+        expected = [('Groundspeed',)]
+        opts = DistanceTravelled.get_operational_combinations()
+        self.assertEqual(opts, expected)
+
+    @mock.patch('analysis_engine.derived_parameters.integrate')
+    def test_derive(self, integrate_patch):
+        
+        gndspeed = mock.Mock()
+        gndspeed.array = mock.Mock()
+        gndspeed.frequency = mock.Mock()
+        DistanceTravelled().derive(gndspeed)
+        integrate_patch.assert_called_once_with(gndspeed.array, gndspeed.frequency, scale=1.0)
+     
 
 
 class TestEng_N1Avg(unittest.TestCase):
@@ -1507,66 +1524,7 @@ class TestSlat(unittest.TestCase):
              16, 16, 16, 16, 16, 16, 16, 16, 16, 16,
              20, 20, 20, 
              23, 23, 23, 
-             0, 0, 0, 0, 0])
-
-class TestStaticAirTemp(unittest.TestCase):
-    def test_can_operate(self):
-        return NotImplemented
-    
-    # Test the ufunc elements first
-    def test_func_lapse_rate(self):
-        sat = StaticAirTemp()
-        self.assertEqual(StaticAirTemp.lapse_rate(sat, 0),15.0)
-        self.assertAlmostEqual(StaticAirTemp.lapse_rate(sat, 10000),-4.812)
-        
-    def test_func_cas2dp(self):
-        sat = StaticAirTemp()
-        self.assertEqual(StaticAirTemp.cas2dp(sat, 0), 0.0)
-        self.assertAlmostEqual(StaticAirTemp.cas2dp(sat, 200),6633.5459,places=1)
-
-    def test_alt2press_ratio_01(self):
-        sat = StaticAirTemp()
-        PR = StaticAirTemp.alt2press_ratio(sat, 0)
-        self.assertEqual(PR, 1)
-
-    def test_alt2press_ratio_02(self):
-        # Truth values from NASA RP 1046
-        sat = StaticAirTemp()
-        Value = StaticAirTemp.alt2press_ratio(sat, -1000)
-        Truth = 2193.82 / 2116.22
-        self.assertAlmostEqual(Value, Truth, places=3)
-
-    def test_alt2press_ratio_03(self):
-        # Truth values from NASA RP 1046
-        sat = StaticAirTemp()
-        Value = StaticAirTemp.alt2press_ratio(sat, 20000*METRES_TO_FEET)
-        Truth = 5474.87 / 101325
-        self.assertAlmostEqual(Value, Truth, places=4)
-
-
-
-    def test_func_alt2press(self):
-        sat = StaticAirTemp()
-        self.assertEqual(StaticAirTemp.alt2press(sat, 0),101325.0)
-            
-    # Test the combined function
-    def test_SAT_from_TAT_and_Airspeed(self):
-        alt_std = P('Altitude STD', np.ma.array([0]*6))
-        tat = P('TAT', np.ma.arange(-40,80,20))
-        cas = P('Airspeed', np.ma.arange(300,0,-50))
-        sat = StaticAirTemp()
-        result = sat.get_derived([alt_std,cas,tat])
-        expected = np.ma.array([15,2,-11,-24,-37,-50,-56.5,-56.5])
-        np.testing.assert_array_almost_equal(result.array,expected)
-    
-    def test_SAT_from_altitude(self):
-        alt_std = P('Altitude STD', np.ma.arange(0,16000,2000)*METRES_TO_FEET)
-        sat = StaticAirTemp()
-        result = sat.get_derived([alt_std, None, None])
-        expected = np.ma.array([15,2,-11,-24,-37,-50,-56.5,-56.5])
-        np.testing.assert_array_almost_equal(result.array,expected)
-        
-        
+             0, 0, 0, 0, 0])       
 
 if __name__ == '__main__':
     suite = unittest.TestSuite()

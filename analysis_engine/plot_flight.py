@@ -4,33 +4,80 @@ import logging
 import matplotlib.pyplot as plt
 import simplekml
 
-from analysis_engine.node import DerivedParameterNode
-from library import rms_noise
+from analysis_engine.node import derived_param_from_hdf, Parameter
+from settings import METRES_TO_FEET
+from library import rms_noise, repair_mask
 from utilities.print_table import indent
 from hdfaccess.file import hdf_file
 
-def add_track(kml, hdf, track_name, lat_name, lon_name, colour):
+def add_track(kml, track_name, lat, lon, colour, alt_param=None):
+    
+    track_config = {'name': track_name}
+    if alt_param:
+        if alt_param.name in ['Altitude AAL', 'Altitude STD']:
+            track_config['altitudemode'] = simplekml.constants.AltitudeMode.absolute
+        elif alt_param.name in ['Altitude Radio', 'Altitude Radio']:
+            track_config['altitudemode'] = simplekml.constants.AltitudeMode.relativetoground
+        track_config['extrude'] = 1
+        
     track_coords = []
-    lat = hdf[lat_name]
-    lon = hdf[lon_name]
     for i in range(len(lat.array)):
-        if lat.array.mask[i] or lon.array.mask[i]:
+        if lat.array.mask[i] or lon.array.mask[i] or (alt_param and alt_param.array.mask[i*8]):
             pass  # Masked data not worth plotting
         else:
-            track_coords.append((lon.array.data[i],lat.array.data[i]))
-    line = kml.newlinestring(name=track_name, coords=track_coords)
+            if alt_param:
+                track_coords.append((lon.at(i),lat.at(i), (alt_param.at(i)+241)/METRES_TO_FEET))
+            else:
+                track_coords.append((lon.at(i),lat.at(i)))
+                
+    track_config['coords'] = track_coords
+    line = kml.newlinestring(**track_config)
     line.style.linestyle.color = colour
+    line.style.polystyle.color = '66%s' % colour[2:] # set opacity of area fill to 40%
     return
 
-def track_to_kml(hdf_path, kti_list, kpv_list):
+def track_to_kml(hdf_path, kti_list, kpv_list, plot_altitude=None):
     hdf = hdf_file(hdf_path)
     kml = simplekml.Kml()
-
-    add_track(kml, hdf, 'Recorded', 'Latitude', 'Longitude', 'ff0000ff')
-    add_track(kml, hdf, 'Smoothed', 'Latitude Smoothed', 'Longitude Smoothed', 'ff7fff7f')
+    if plot_altitude:
+        alt = derived_param_from_hdf(hdf, plot_altitude)
+        alt.array = repair_mask(alt.array, frequency=alt.frequency, repair_duration=None)
+    else:
+        alt = None
+              
+    smooth_lat = derived_param_from_hdf(hdf, 'Latitude Smoothed')
+    smooth_lon = derived_param_from_hdf(hdf, 'Longitude Smoothed')
+    lat = derived_param_from_hdf(hdf, 'Latitude')
+    lon = derived_param_from_hdf(hdf, 'Longitude')
+    
+    add_track(kml, 'Recorded', lat, lon, 'ff0000ff')
+    add_track(kml, 'Smoothed', smooth_lat, smooth_lon, 'ff7fff7f', 
+              alt_param=alt)
 
     for kti in kti_list:
-        kml.newpoint(name=kti.name, coords=[(kti.longitude,kti.latitude)])
+        kti_point_values = {'name': kti.name}
+        altitude = alt.at(kti.index) if plot_altitude else None
+        if altitude:
+            kti_point_values['coords'] = (
+                (kti.longitude, kti.latitude, (altitude+241)/METRES_TO_FEET),) # TODO: AIRPORT OFFSET HACK REMOVE AFTER USE
+            kti_point_values['altitudemode'] = simplekml.constants.AltitudeMode.absolute
+        else:
+            kti_point_values['coords'] = ((kti.longitude, kti.latitude,),)
+        
+        kml.newpoint(**kti_point_values)
+        
+    for kpv in kpv_list:
+        kpv_point_values = {'name': '%s (%s)' % (kpv.name, kpv.value)}
+        altitude = alt.at(kpv.index) if plot_altitude else None
+        if altitude:
+            kpv_point_values['coords'] = (
+                (smooth_lon.at(kpv.index), smooth_lat.at(kpv.index), (altitude+241)/METRES_TO_FEET), # TODO: AIRPORT OFFSET HACK REMOVE AFTER USE
+            )
+            kpv_point_values['altitudemode'] = simplekml.constants.AltitudeMode.absolute
+        else:
+            kpv_point_values['coords'] = ((smooth_lon.at(kpv.index), smooth_lat.at(kpv.index)),)
+        
+        kml.newpoint(**kpv_point_values)    
 
     """
     # Good but slow addition of the KPVs.
@@ -44,7 +91,7 @@ def track_to_kml(hdf_path, kti_list, kpv_list):
     
     return
 
-def plot_parameter(array, show=True):
+def plot_parameter(array, show=True, label=''):
     """
     For quickly plotting a single parameter to see its shape.
     
@@ -55,7 +102,7 @@ def plot_parameter(array, show=True):
     """
     plt.title("Length: %d | Min: %.2f | Max: %.2f" % (
                len(array), array.min(), array.max()))
-    plt.plot(array)
+    plt.plot(array, label=label)
     if show:
         plt.show()
     return
@@ -221,7 +268,7 @@ def csv_flight_details(hdf_path, kti_list, kpv_list, phase_list, dest_path=None)
         for param in params:
             # Create DerivedParameterNode to utilise the .at() method
             p = hdf[param]
-            dp = DerivedParameterNode(name=p.name, array=p.array, 
+            dp = Parameter(name=p.name, array=p.array, 
                                 frequency=p.frequency, offset=p.offset)
             for row in rows:
                 row.append(dp.at(row[2]))

@@ -32,7 +32,7 @@ def trimmer(hdf_path, node_names, dest):
         lfl_names = hdf_file['series'].keys()
         node_mgr = NodeManager(datetime.now(), lfl_names, filtered_nodes,
                                derived_nodes, {}, {})
-        process_order = dependency_order(node_mgr, draw=False)
+        process_order, _ = dependency_order(node_mgr, draw=False)
     strip_hdf(hdf_path, process_order, dest)
     return dest
 

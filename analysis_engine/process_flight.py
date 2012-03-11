@@ -7,7 +7,8 @@ from analysis_engine import hooks
 from analysis_engine import settings
 from analysis_engine.library import value_at_index
 from analysis_engine.dependency_graph import dependency_order
-from analysis_engine.node import (Attribute, DerivedParameterNode,
+from analysis_engine.node import (Attribute, derived_param_from_hdf,
+                                  DerivedParameterNode,
                                   FlightAttributeNode, 
                                   KeyPointValueNode,
                                   KeyTimeInstanceNode, Node,
@@ -24,15 +25,12 @@ def geo_locate(hdf, kti_list):
        or 'Longitude Smoothed' not in hdf:
         return kti_list
     
-    lat_pos = hdf['Latitude Smoothed']
-    long_pos = hdf['Longitude Smoothed']
-    assert len(lat_pos.array)==len(long_pos.array)
-    assert lat_pos.frequency==long_pos.frequency
-    hz = lat_pos.hz # Shorthand for lat_pos.frequency
+    lat_pos = derived_param_from_hdf(hdf, 'Latitude Smoothed')
+    long_pos = derived_param_from_hdf(hdf, 'Longitude Smoothed')
     
     for kti in kti_list:
-        kti.latitude = value_at_index(lat_pos.array, kti.index*hz)
-        kti.longitude = value_at_index(long_pos.array, kti.index*hz)
+        kti.latitude = lat_pos.at(kti.index)
+        kti.longitude = long_pos.at(kti.index)
     return kti_list
 
 
@@ -265,7 +263,16 @@ def process_flight(hdf_path, aircraft_info, start_datetime=datetime.now(),
                                derived_nodes, aircraft_info,
                                achieved_flight_record)
         # calculate dependency tree
-        process_order = dependency_order(node_mgr, draw=draw) 
+        process_order, gr_st = dependency_order(node_mgr, draw=draw) 
+        if settings.CACHE_PARAMETER_MIN_USAGE:
+            # find params used more than
+            for node in gr_st.nodes():
+                if node in node_mgr.derived_nodes:  # this includes KPV/KTIs but they'll be ignored by HDF
+                    qty = len(gr_st.predecessors(node))
+                    if qty > settings.CACHE_PARAMETER_MIN_USAGE:
+                        hdf.cache_param_list.append(node)
+            logging.info("HDF set to cache parameters: %s", hdf.cache_param_list)
+            
                     
         if hooks.PRE_FLIGHT_ANALYSIS:
             logger.info("Performing PRE_FLIGHT_ANALYSIS actions: %s", 
@@ -315,4 +322,5 @@ if __name__ == '__main__':
     
     hdf_copy = copy_file(args.file, postfix='_process')
     process_flight(hdf_copy, {'Tail Number': args.tail_number,
-                              'Precise Positioning': False}, draw=args.plot)
+                              'Precise Positioning': True},
+                   draw=args.plot)

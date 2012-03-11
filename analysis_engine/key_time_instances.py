@@ -3,6 +3,7 @@ import numpy as np
 
 from analysis_engine.library import (hysteresis, index_at_value,
                                     is_index_within_slice,
+                                    slices_above,
                                     min_value,
                                     max_value, peak_curvature)
 from analysis_engine.node import P, S, KTI, KeyTimeInstanceNode
@@ -66,6 +67,13 @@ class ApproachAndLandingLowestPoint(KeyTimeInstanceNode):
                     kti = np.ma.argmin(alt_std.array[app_land.slice])
                     kti = min(kti, touchdown.index)
                     self.create_kti(kti + app_land.slice.start)
+                    
+class ApproachAndLandingLowestPoint(KeyTimeInstanceNode):
+    def derive(self, app_lands=S('Approach And Landing'),
+               pitch=P('Pitch'), alt_rad=P('Altitude Radio'), alt_std=P('Altitude STD'), alt_tail=P('Altitude Tail'), alt_aal=P('Altitude AAL'), touchdowns=KTI('Touchdown')):
+        # In the case of descents without landing, this finds the minimum
+        # point of the dip.
+        pass
     
 
 class ClimbStart(KeyTimeInstanceNode):
@@ -523,3 +531,12 @@ class SecsToTouchdown(KeyTimeInstanceNode):
             for t in self.NAME_VALUES['time']:
                 index = touchdown.index - (t * self.frequency)
                 self.create_kti(index, time=t)
+
+class TAWSTooLowTerrainWarning(KeyTimeInstanceNode):
+    name = 'TAWS Too Low Terrain Warning'
+    def derive(self, taws_too_low_terrain=P('TAWS Too Low Terrain')):
+        slices = slices_above(taws_too_low_terrain.array, 1)[1]
+        for too_low_terrain_slice in slices:
+            index = too_low_terrain_slice.start
+            #value = taws_too_low_terrain.array[too_low_terrain_slice.start]
+            self.create_kti(index)

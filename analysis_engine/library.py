@@ -461,7 +461,7 @@ def datetime_of_index(start_datetime, index, frequency=1):
     :returns: Datetime at index.
     :rtype: datetime
     '''
-    index_in_seconds = index * frequency
+    index_in_seconds = index / frequency
     offset = timedelta(seconds=index_in_seconds)
     return start_datetime + offset
     
@@ -883,10 +883,12 @@ def integrate (array, frequency, initial_value=0.0, scale=1.0, direction="forwar
     """
     result = np.copy(array)
     
-    if direction == 'forwards':
+    if direction.lower() == 'forwards':
         d = +1
-    else:
+    elif direction.lower() in ('reverse', 'backwards'):
         d = -1
+    else:
+        raise ValueError("Invalid direction '%s'" % direction)
         
     k = (scale*0.5)/frequency
     to_int = k*(array + np.roll(array,d))
@@ -1997,7 +1999,7 @@ def index_at_value(array, threshold, _slice=slice(None), endpoint='exact'):
     value_passing_array = (array[left]-threshold) * (array[right]-threshold)
     test_array = np.ma.masked_greater(value_passing_array, 0.0)
     
-    if np.ma.all(test_array.mask):
+    if np.all(test_array.mask):
         # The parameter does not pass through threshold in the period in question, so return empty-handed.
         if endpoint=='closing':
             # Rescan the data to find the last point where the array data is closing.

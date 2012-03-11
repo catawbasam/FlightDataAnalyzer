@@ -737,7 +737,7 @@ class LandingGrossWeight(FlightAttributeNode):
         else:
             # There is not a 'Gross Weight At Touchdown' KPV. Since it is sourced
             # from 'Gross Weight Smoothed', gross weight at touchdown should not
-            # be masked.
+            # be masked. Are there no Touchdown KTIs?  
             logging.warning("No '%s' KPVs, '%s' attribute will be None.",
                             touchdown_gross_weight.name, self.name)
             self.set_flight_attr(None)

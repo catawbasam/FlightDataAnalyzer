@@ -1080,22 +1080,18 @@ class PitchRateDuringTakeoffMax(KeyPointValueNode):
         self.create_kpvs_within_slices(pitch_rate.array, takeoffs, max_value)
 
 
-class PitchRateFrom2DegreesOfPitchTo35FtMin(KeyPointValueNode):
+class PitchRateFrom2DegreesOfPitchDuringTakeoffMin(KeyPointValueNode):
     #TODO: TESTS
     def derive(self, pitch_rate=P('Pitch Rate'), pitch=P('Pitch'), 
-               alt_aal=P('Altitude AAL')):
-        for this_slice in alt_aal.slices_from_to(0, 35):
+               takeoffs=S('Takeoff')):
+        for takeoff in takeoffs:
             # Endpoint closing allows for the case where the aircraft is at
             # more than 2 deg of pitch at takeoff.
-            pitch_2_deg = index_at_value(pitch.array, 2, 
-                                         this_slice, endpoint='closing') - this_slice.start
-            #pitch_2_slice = subslice(this_slice, slice(pitch_2_deg,None,None))
-            pitch_2_slice = slice(this_slice.start+pitch_2_deg,this_slice.stop,None)
-            
-            # TODO: Cater for cases where pitch_2_slice is length 1
-            # TODO: Cater for all pitch_rate values within slice to be masked
-            # TODO: Check we supply both index and value from min_value
-            index, value = min_value(pitch_rate.array, pitch_2_slice)
+            reversed_slice = slice(takeoff.slice.stop, takeoff.slice.start, -1)
+            pitch_2_deg = index_at_value(pitch.array, 2, reversed_slice,
+                                         endpoint='closing') #- takeoff.slice.start
+            index, value = min_value(pitch_rate.array,
+                                     slice(pitch_2_deg, takeoff.slice.stop))
             self.create_kpv(index, value)
 
 
@@ -1322,7 +1318,11 @@ class TooLowGearWarning(KeyPointValueNode):
 class TAWSTooLowTerrainWarning(KeyPointValueNode):
     name = 'TAWS Too Low Terrain Warning'
     def derive(self, taws_too_low_terrain=P('TAWS Too Low Terrain')):
-        return NotImplemented
+        slices = slices_above(taws_too_low_terrain.array, 1)[1]
+        for too_low_terrain_slice in slices:
+            index = too_low_terrain_slice.start
+            value = taws_too_low_terrain.array[too_low_terrain_slice.start]
+            self.create_kpv(index, value)
 
 
 class EngVibN1Above_XXXXX_Duration(KeyPointValueNode):
@@ -1370,3 +1370,17 @@ class AirspeedBelowFL100Max(KeyPointValueNode):
                                            alt_std.slices_below(10000),
                                            max_value)
 
+
+class BDUTerrain(KeyPointValueNode):
+    name = 'BDU Terrain'
+    # TODO: Rename after asking DJ.
+    
+    def derive(self, alt_aal=P('Altitude AAL'), alt_radio=P('Altitude Radio'), 
+                 dtl=P('Distance To Landing')):
+        '''
+        '''
+        for desc_slice in alt_aal.slices_from_to(3000, 50):
+            angle_array = alt_radio.array[desc_slice]/dtl.array[desc_slice]
+            index, value = min_value(angle_array)
+            self.create_kpv(index + desc_slice.start, value)
+    

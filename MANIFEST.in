@@ -1,11 +1,21 @@
-include doc/*.*
-include *.py
-include README
-include LICENSE
+include AUTHORS
 include CHANGES
-include requirements.txt
+include LICENSE
+include README
+include TODO
+include *.py
+include requirements*.txt
+prune requirements-jenkins.txt
+recursive-include doc *
+prune doc/_build
 exclude .bzr
 exclude build
 exclude dist
+exclude jenkins
+exclude .coverage
+exclude coverage.xml
+exclude nosetests.xml
 
+
+# Project specific
 exclude tests/AnalysisEngine_tests/*

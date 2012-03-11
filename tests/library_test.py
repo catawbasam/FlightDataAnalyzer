@@ -663,6 +663,16 @@ class TestClip(unittest.TestCase):
         output_array = np.array([0.6,1.1,1.1,1.1,1.1,1.0,0.0])
         result = clip(input_array, 6, hz=0.5)
         np.testing.assert_array_equal(result, output_array)
+
+
+class TestDatetimeOfIndex(unittest.TestCase):
+    def test_index_of_datetime(self):
+        start_datetime = datetime.now()
+        index = 160
+        frequency = 4
+        dt = datetime_of_index(start_datetime, index, frequency=frequency)
+        self.assertEqual(dt, start_datetime + timedelta(seconds=40))
+
                     
 class TestFirstOrderLag(unittest.TestCase):
 
@@ -2243,5 +2253,5 @@ class Test_dp_over_p2mach(unittest.TestCase):
 
 if __name__ == '__main__':
     suite = unittest.TestSuite()
-    suite.addTest(TestAlign('test_align_superframe_to_onehz_multistate'))
+    suite.addTest(TestIndexAtValue('test_index_at_value_slice_beyond_top_end_of_data'))
     unittest.TextTestRunner(verbosity=2).run(suite)

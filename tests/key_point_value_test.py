@@ -1,3 +1,4 @@
+import os
 import numpy as np
 import sys
 import unittest
@@ -5,6 +6,7 @@ import unittest
 from mock import Mock, patch
 
 from analysis_engine.derived_parameters import Flap
+from analysis_engine.library import align
 from analysis_engine.node import (KeyTimeInstance, KTI, KeyPointValue, 
                            KeyPointValueNode, Parameter, P, Section, S)
 
@@ -37,7 +39,8 @@ from analysis_engine.key_point_values import (
     AutopilotEngaged1AtTouchdown,
     AutopilotEngaged2AtLiftoff,
     AutopilotEngaged2AtTouchdown,
-    ControlColumnStiffnessMax,
+    BDUTerrain,
+    ControlColumnStiffness,
     EngEGTMax,
     EngEPR500FtToTouchdownMin,
     EngN13000FtToTouchdownMax,
@@ -504,9 +507,35 @@ class TestAutopilotEngaged2AtTouchdown(unittest.TestCase, TestCreateKPVsAtKTIs):
         self.node_class = AutopilotEngaged2AtTouchdown
         self.operational_combinations = [('Autopilot Engaged 2', 'Touchdown')]
 
-class TestControlColumnStiffnessMax(unittest.TestCase):
+
+class TestBDUTerrain(unittest.TestCase):
     def test_can_operate(self):
-        self.assertEqual(ControlColumnStiffnessMax.get_operational_combinations(),
+        self.assertEqual(BDUTerrain.get_operational_combinations(),
+                         [('Altitude AAL', 'Altitude Radio',
+                           'Distance To Landing')])
+    
+    def test_derive(self):
+        test_data_dir = os.path.join('test_data', 'BDUTerrain')
+        alt_aal_array = np.ma.masked_array(np.load(os.path.join(test_data_dir,
+                                                                'alt_aal.npy')))
+        alt_radio_array = np.ma.masked_array(np.load(os.path.join(test_data_dir,
+                                                                  'alt_radio.npy')))
+        dtl_array = np.ma.masked_array(np.load(os.path.join(test_data_dir,
+                                                            'dtl.npy')))
+        alt_aal = P(array=alt_aal_array, frequency=8)
+        alt_radio = P(array=alt_radio_array, frequency=0.5)
+        dtl = P(array=dtl_array, frequency=0.25)
+        alt_radio.array = align(alt_radio, alt_aal)
+        dtl.array = align(dtl, alt_aal)        
+        param = BDUTerrain()
+        param.derive(alt_aal, alt_radio, dtl)
+        self.assertEqual(param, [KeyPointValue(name='BDU Terrain', index=1008, value=0.037668517049960347)])
+        
+    
+
+class TestControlColumnStiffness(unittest.TestCase):
+    def test_can_operate(self):
+        self.assertEqual(ControlColumnStiffness.get_operational_combinations(),
                          [('Control Column Force','Control Column','Fast')])
 
     def test_control_column_stiffness_too_few_samples(self):
@@ -516,7 +545,7 @@ class TestControlColumnStiffnessMax(unittest.TestCase):
                              np.ma.array([0,2,4,7,8,5,2,1]))
         phase_fast = Fast()
         phase_fast.derive(Parameter('Airspeed', np.ma.array([100]*10)))
-        stiff = ControlColumnStiffnessMax()
+        stiff = ControlColumnStiffness()
         stiff.derive(cc_force,cc_disp,phase_fast)
         self.assertEqual(stiff, [])
         
@@ -527,11 +556,11 @@ class TestControlColumnStiffnessMax(unittest.TestCase):
                              np.ma.array([0,2,4,7,8,7.2,6.5,5,2,1]))
         phase_fast = Fast()
         phase_fast.derive(Parameter('Airspeed', np.ma.array([100]*12)))
-        stiff = ControlColumnStiffnessMax()
+        stiff = ControlColumnStiffness()
         stiff.derive(cc_force,cc_disp,phase_fast)
         stiff_index = 2
         stiff_value = 3.0370087752766115 # lb/deg ignoring samples < 3lbf
-        stiff_name = 'Control Column Stiffness Max'
+        stiff_name = 'Control Column Stiffness'
         self.assertEqual(stiff,
                          [KeyPointValue(value=stiff_value,
                                         index=stiff_index, 
