@@ -2,7 +2,7 @@ import logging
 import numpy as np
 from tempfile import TemporaryFile
 
-from aerocalc.airspeed import cas2tas, cas2dp, cas_alt2mach, mach2temp, dp2tas
+#from aerocalc.airspeed import cas2tas, cas2dp, cas_alt2mach, mach2temp, dp2tas
     
 from analysis_engine.model_information import (get_aileron_map, 
                                                get_config_map,
@@ -41,7 +41,18 @@ from analysis_engine.library import (align,
                                      straighten_headings,
                                      track_linking,
                                      value_at_index,
-                                     vstack_params)
+                                     vstack_params,
+                                     
+                                     alt2press,
+                                     alt2press_ratio,
+                                     alt2sat,
+                                     cas2dp,
+                                     cas_alt2mach,
+                                     dp_over_p2mach,
+                                     dp2tas,
+                                     mach2temp,
+                                     _alt2press_ratio_gradient,
+                                     _alt2press_ratio_isothermal)
 
 from settings import (AZ_WASHOUT_TC,
                       AT_WASHOUT_TC,
@@ -193,12 +204,129 @@ class AirspeedMinusVref(DerivedParameterNode):
     def derive(self, airspeed=P('Airspeed'), vref=P('Vref')):
         self.array = airspeed.array - vref.array
 
+#class StaticAirTemp(DerivedParameterNode):
+    #---------------------------------------------------------------------------
+    # Calss initialisation and can operate preparation
+    #---------------------------------------------------------------------------
+    ##def __init__(self):
+        ##'''
+        ##Initialise constants used by the air data algorithms
+        ##'''
+        ##self.P0 = 101325.0 # Pressure at sea level, pa
+        ##self.Rhoref = 1.2250    # Density at sea level, kg/m**3
+        ##self.A0 = 340.2941      # Speed of sound at sea level, m/s
+        ##self.T0 = 288.15        # Sea level temperature 15 C = 288.15 K
+        ##self.L0 = -0.0065       # Lapse rate C/m
+        ##self.g = 9.80665        # Acceleration due to gravity, m/s**2
+        ##self.Rd = 287.05307     # Gas constant for dry air, J/kg K
+        
+        ### Values at 11km:
+        ##self.T11 =  self.T0 + 11000 * self.L0
+        ##self.PR11 = (self.T11 / self.T0) ** ((-self.g) / (self.Rd * self.L0)) 
+        ##self.P11 = self.PR11 * self.P0
+        ##return
+    
+    ##""" Calculation of air temperature from lapse rate based on standard atmosphere"""
+    ##def can_operate(self):
+        ##return 'Altitude STD' in available
 
+    ###---------------------------------------------------------------------------
+    ### Air data calculations adapted from AeroCalc V0.11 to suit POLARIS Numpy
+    ### data format. For increased speed, only standard POLARIS units used.
+    ### 
+    ### AeroCalc is Copyright (c) 2008, Kevin Horton and used under open source
+    ### license with permission. For copyright notice and disclaimer, please see
+    ### airspeed.py source code in AeroCalc.
+    ###---------------------------------------------------------------------------
+    
+    ##def alt2press(self, alt_ft):
+        ##press = self.P0  * self.alt2press_ratio(alt_ft)   
+        ##return press
+
+    ##def alt2press_ratio(self, alt_ft):
+        ##alt_km = (alt_ft / METRES_TO_FEET) / 1000
+       
+        ##if alt_km <= 11:
+            ##return self._alt2press_ratio_gradient(alt_km, 0, self.P0, self.T0, self.L0)
+        ##if alt_km <= 20:
+            ##return self._alt2press_ratio_isothermal(alt_km, 11, self.P11, self.T11)
+        
+    ##def cas2dp(self, cas_kt):
+        ##"""
+        ##Convert corrected airspeed to pressure rise (includes allowance for
+        ##compressibility)
+        ##"""
+        ##if cas_kt > 661.48:
+            ##raise ValueError, 'Supersonic airspeed compuations not included'
+        ##cas_mps = np.ma.masked_greater(cas_kt, 661.48) * KTS_TO_MPS
+        ##return self.P0 * (((self.Rhoref * cas_mps*cas_mps)/(7.*self.P0) + 1.)**3.5 - 1.)
+        
+    ##def cas_alt2mach(self, cas, alt_ft):
+        ##"""
+        ##Return the mach that corresponds to a given CAS and altitude.
+        ##"""
+        ##dp = self.cas2dp(cas)
+        ##p = self.alt2press(alt_ft)
+        ##dp_over_p = dp / p
+        ##mach = self.dp_over_p2mach(dp_over_p)
+        ##return mach
+
+    ##def dp_over_p2mach(self, dp_over_p):
+        ##"""
+        ##Return the mach number for a given delta p over p. (Subsonic only).
+        ##"""
+        ##mach = np.sqrt(5.0 * ((dp_over_p + 1.0) ** (2.0/7.0) - 1.0))
+        ##return mach
+    
+    ##def dp2tas(self, dp, alt_ft, temp,):
+    
+        ##P = self.alt2press(alt_ft)
+    
+        ##press_ratio = self.alt2press_ratio(alt_ft)
+        ##temp_ratio = (temp + 273.15) / 288.15
+        ##density_ratio = press_ratio / temp_ratio
+        ##Rho = Rho0 * density_ratio
+    
+        ##tas = self._dp2speed(dp, P, Rho, press_units, speed_units)
+        ##return tas
+
+    ##def lapse_rate(self, alt_ft):
+        ##""" Convert altitude to temperature using lapse rate"""
+        ##alt_m = alt_ft / METRES_TO_FEET
+        ##if alt_m < 11000:  # 11km top of Troposphere
+            ##return 15.0 + self.L0 * alt_m
+        ##else:
+            ##return -56.5
+  
+    ##def _alt2press_ratio_gradient(self, H, Hb, Pb, Tb, L):
+        ### eqn from USAF TPS PEC binder, page PS1-31
+        ##return (Pb / self.P0) * (1 + (L / Tb) * (H - Hb)) ** ((-1000 * self.g) / (self.Rd * L))
+    
+    ##def _alt2press_ratio_isothermal(self, H, Hb, Pb, Tb,):
+        ### eqn from USAF TPS PEC binder, page PS1-26
+        ##return (Pb / self.P0) * np.exp((-1 * (H - Hb)) * ((1000 * self.g) / (self.Rd * Tb)))
+
+    ##---------------------------------------------------------------------------
+    ## Derive method
+    ##---------------------------------------------------------------------------
+    #def derive(self, alt_std = P('Altitude STD'),
+               #cas = P('Airspeed'),
+               #tat = P('TAT')):
+        #if tat:
+            #tat_func = np.vectorize(self.cas_alt2mach)
+            #self.array = tat_func(cas.array, alt_std.array)
+        #else:
+            #lapse_func = np.vectorize(self.lapse_rate)
+            #self.array = lapse_func(alt_std.array)
+
+        
+        
 class AirspeedTrue(DerivedParameterNode):
     @classmethod
     def can_operate(cls, available):
         return 'Airspeed' in available and 'Altitude STD' in available
     
+    """
     def derive(self, cas = P('Airspeed'),
                alt_std = P('Altitude STD'),
                tat = P('TAT')):
@@ -226,6 +354,32 @@ class AirspeedTrue(DerivedParameterNode):
             combined_mask= np.logical_or(cas.array.mask,alt_std.array.mask)
                            
         # Combine the data and mask to finish the job.
+        self.array = np.ma.array(data=tas, mask=combined_mask)
+        """
+    #---------------------------------------------------------------------------
+    # Derive method
+    #---------------------------------------------------------------------------
+
+    def derive(self, cas_p = P('Airspeed'),
+               alt_std_p = P('Altitude STD'),
+               tat_p = P('TAT')):
+        cas = cas_p.array
+        alt_std = alt_std_p.array
+        if tat_p:
+            tat = tat_p.array
+            dp = cas2dp(cas)
+            mach = cas_alt2mach(cas, alt_std)
+            sat = mach2temp(mach, tat)
+            tas = dp2tas(dp, alt_std, sat)
+            combined_mask= np.logical_or(
+                np.logical_or(cas_p.array.mask,alt_std_p.array.mask),
+                tas.mask)
+        else:
+            dp = cas2dp(cas)
+            sat = alt2sat(alt_std)
+            tas = dp2tas(dp, alt_std, sat)
+            combined_mask= np.logical_or(cas_p.array.mask,alt_std_p.array.mask)
+            
         self.array = np.ma.array(data=tas, mask=combined_mask)
         
 
@@ -382,6 +536,12 @@ class AltitudeRadio(DerivedParameterNode):
     '''
     This class allows for variations in the Altitude Radio sensor, and the
     different frame types need to be identified accordingly.
+
+    POLARIS compensates for the apparent change in height caused by the
+    aircraft pitch attitude and the distance between the radio altimeter
+    antenna and the main wheels of the undercarriage. The parameter
+    raa_to_gear is measured in feet and is positive if the antenna is forward
+    of the mainwheels.
     '''
     @classmethod
     def can_operate(cls, available):
@@ -391,14 +551,18 @@ class AltitudeRadio(DerivedParameterNode):
     
     align_to_first_dependency = False
     
-    def derive(self, source_A=P('Altitude Radio (A)'),
-               source_B=P('Altitude Radio (B)'),
-               source_C=P('Altitude Radio (C)'),
-               frame=A('Frame')):
+    def derive(self, source_A = P('Altitude Radio (A)'),
+               source_B = P('Altitude Radio (B)'),
+               source_C = P('Altitude Radio (C)'),
+               frame = A('Frame'),
+               main_gear_to_alt_rad = A('Main Gear To Altitude Radio'),
+               pitch = P('Pitch')):
+        
         frame_name = frame.value if frame else None
         if frame_name in ['737-3C']:
             # Alternate samples for this frame have latency of over 1 second,
             # so do not contribute to the height measurements available.
+            
             self.array, self.frequency, self.offset = \
                 merge_two_parameters(source_B, source_C)
             
@@ -410,6 +574,10 @@ class AltitudeRadio(DerivedParameterNode):
             logging.warning("No specified Altitude Radio (*) merging for frame "
                             "'%s' so using source (A)", frame_name)
             self.array = source_A.array
+            
+        # Now apply the offset if one has been provided
+        if main_gear_to_alt_rad:
+            self.array -= np.sin(np.radians(pitch.array)) * main_gear_to_alt_rad.value
             
 
 class AltitudeRadioForFlightPhases(DerivedParameterNode):
@@ -546,12 +714,14 @@ class AltitudeTail(DerivedParameterNode):
     #TODO: Review availability of Attribute "Dist Gear To Tail"
     def derive(self, alt_rad = P('Altitude Radio'), 
                pitch = P('Pitch'),
-               dist_gear_to_tail=A('Dist Gear To Tail')):
+               dist_gear_to_tail=A('Dist Gear To Tail'),
+               dist_tail_to_ground=A('Dist Tail To Ground')):
         # Align the pitch attitude samples to the Radio Altimeter samples,
         # ready for combining them.
         pitch_rad= np.radians(pitch.array)
         # Now apply the offset
-        self.array = alt_rad.array - np.sin(pitch_rad) * dist_gear_to_tail.value
+        self.array = alt_rad.array + dist_tail_to_ground.value \
+            - np.sin(pitch_rad) * dist_gear_to_tail.value
         
 
 class ClimbForFlightPhases(DerivedParameterNode):
@@ -627,6 +797,8 @@ class ControlColumnForce(DerivedParameterNode):
                force_capt=P('Control Column Force (Capt)'),
                force_fo=P('Control Column Force (FO)')):
         self.array = force_capt.array + force_fo.array
+        # TODO: Check this summation is correct in amplitude and phase.
+        # Compare with Boeing charts for the 737NG.
 
 
 
