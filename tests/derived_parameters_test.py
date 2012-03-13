@@ -50,6 +50,7 @@ from analysis_engine.derived_parameters import (
     ILSFrequency,
     LatitudeStraighten,
     LongitudeStraighten,
+    Mach,
     Pitch,
     RateOfClimb,
     RateOfClimbForFlightPhases,
@@ -1490,41 +1491,44 @@ class TestRateOfTurn(unittest.TestCase):
         answer = np.ma.array([0,0,0.5,0,-0.5,0,0])
         ma_test.assert_masked_array_approx_equal(rot.array, answer)
         
-        
-class TestSlat(unittest.TestCase):
+class TestRateOfTurn(unittest.TestCase):
     def test_can_operate(self):
-        opts = Slat.get_operational_combinations()
-        self.assertEqual(opts, [('Slat Surface', 'Series', 'Family'),
-                                ])
+        expected = [('Heading Continuous',)]
+        opts = RateOfTurn.get_operational_combinations()
+        self.assertEqual(opts, expected)
+       
+    def test_rate_of_turn(self):
+        rot = RateOfTurn()
+        rot.derive(P('Heading Continuous', np.ma.array(range(10))))
+        answer = np.ma.array(data=[1]*10, dtype=np.float)
+        np.testing.assert_array_equal(rot.array, answer) # Tests data only; NOT mask
+       
+    def test_rate_of_turn_phase_stability(self):
+        params = {'Heading Continuous':Parameter('', np.ma.array([0,0,0,1,0,0,0], 
+                                                               dtype=float))}
+        rot = RateOfTurn()
+        rot.derive(P('Heading Continuous', np.ma.array([0,0,0,1,0,0,0],
+                                                          dtype=float)))
+        answer = np.ma.array([0,0,0.5,0,-0.5,0,0])
+        ma_test.assert_masked_array_approx_equal(rot.array, answer)
         
-    def test_slat_stepped_nearest_5(self):
-        slat = P('Slat Surface', np.ma.array(range(50)))
-        fstep = Slat()
-        fstep.derive(slat, A('Series', None), A('Family', None))
-        self.assertEqual(list(fstep.array[:15]), 
-                         [0,0,0,5,5,5,5,5,10,10,10,10,10,15,15])
-        self.assertEqual(list(fstep.array[-7:]), [45]*5 + [50]*2)
-
-        # test with mask
-        slat = P('Slat Surface', np.ma.array(range(20), mask=[True]*10 + [False]*10))
-        fstep.derive(slat, A('Series', None), A('Family', None))
-        self.assertEqual(list(np.ma.filled(fstep.array, fill_value=-1)),
-                         [-1]*10 + [10,10,10,15,15,15,15,15,20,20])
         
-    def test_slat_using_A330_settings(self):
-        # A330 has slats ( 0, 16, 20, 23),
-        slat = P('Slat Surface', np.ma.array(range(25) + range(-5,0)))
-        slat.array[1] = np.ma.masked
-        fstep = Slat()
-        fstep.derive(slat, A('Series', None), A('Family', 'A330'))
-        self.assertEqual(len(fstep.array), 30)
-        self.assertEqual(
-            list(np.ma.filled(fstep.array, fill_value=-999)), 
-            [0, -999, 0, 0, 0, 0, 0, 0, 0, 
-             16, 16, 16, 16, 16, 16, 16, 16, 16, 16,
-             20, 20, 20, 
-             23, 23, 23, 
-             0, 0, 0, 0, 0])       
+class TestMach(unittest.TestCase):
+    def test_can_operate(self):
+        opts = Mach.get_operational_combinations()
+        self.assertEqual(opts, [('Airspeed', 'Altitude STD')])
+        
+    def test_all_cases(self):
+        cas = P('Airspeed', np.ma.array(data=[0, 100, 200, 200, 200, 500, 200],
+                                        mask=[0,0,0,0,1,0,0], dtype=float))
+        alt = P('Altitude STD', np.ma.array(data=[0, 10000, 20000, 30000, 30000, 45000, 20000],
+                                        mask=[0,0,0,0,0,0,1], dtype=float))
+        mach = Mach()
+        mach.derive(cas, alt)
+        expected = np.ma.array(data=[0, 0.182, 0.4402, 0.5407, 0.5407, 1.6825, 45000],
+                                        mask=[0,0,0,0,1,1,1], dtype=float)
+        ma_test.assert_masked_array_approx_equal(mach.array, expected, decimal=2)
+        
 
 if __name__ == '__main__':
     suite = unittest.TestSuite()

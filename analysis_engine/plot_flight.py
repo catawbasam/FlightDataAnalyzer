@@ -38,6 +38,9 @@ def add_track(kml, track_name, lat, lon, colour, alt_param=None):
 
 def track_to_kml(hdf_path, kti_list, kpv_list, plot_altitude=None):
     hdf = hdf_file(hdf_path)
+    if 'Latitude Smoothed' not in hdf or 'Longitude Smoothed' not in hdf:
+        # unable to plot without these parameters
+        return
     kml = simplekml.Kml()
     if plot_altitude:
         alt = derived_param_from_hdf(hdf, plot_altitude)
@@ -88,7 +91,7 @@ def track_to_kml(hdf_path, kti_list, kpv_list, plot_altitude=None):
         point.style.iconstyle.color = 'ff0000ff'  # Red
     """
     kml.save(hdf_path+".kml")
-    
+    hdf.close()
     return
 
 def plot_parameter(array, show=True, label=''):

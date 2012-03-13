@@ -382,17 +382,14 @@ class AirspeedTrue(DerivedParameterNode):
             tas = dp2tas(dp, alt_std, sat)
             combined_mask= np.logical_or(cas_p.array.mask,alt_std_p.array.mask)
             
-        self.array = np.ma.array(data=tas, mask=combined_mask)
+        # This output format puts zero values where the TAS is invalid, makeing
+        # inspection using HDF viewer more convenient.
+        self.array = np.ma.array(data=np.where(combined_mask, 0.0, tas),
+                                 mask=combined_mask)
         
 
 class AltitudeAAL(DerivedParameterNode):
     """
-    TODO: Altitude Parameter to account for transition altitudes for airports
-    between "altitude above mean sea level" and "pressure altitude relative
-    to FL100". Ideally use the BARO selection switch when recorded, else the
-    Airport elevation where provided, else guess based on location (USA =
-    18,000ft, Europe = 3,000ft)
-
     This is the main altitude measure used during analysis. Where radio
     altimeter data is available, this is used for altitudes up to 100ft and
     thereafter the pressure altitude signal is used. The two are "joined"
@@ -458,27 +455,27 @@ class AltitudeAAL(DerivedParameterNode):
                 peak_index = np.ma.argmax(alt_std.array[airborne_slice]) + \
                                         airborne_slice.start                
                 if first_kti.name == 'Liftoff':
-                    threshold_index = index_at_value(alt_std.array,
+                    threshold_index = index_at_value(alt_rad.array,
                                                      TRANSITION_ALT_RAD_TO_STD,
                                                      _slice=airborne_slice)
-                    difference = alt_rad.array[threshold_index] - \
-                        alt_std.array[threshold_index]
-                    alt_aal[threshold_index:peak_index] += difference
-                    pre_threshold = slice(airborne_slice.start,
-                                          threshold_index)
+                    join_index = int(threshold_index)
+                    difference = alt_rad.array[join_index] - \
+                        alt_std.array[join_index]
+                    alt_aal[join_index:peak_index] += difference
+                    pre_threshold = slice(airborne_slice.start, join_index)
                     alt_aal[pre_threshold] = alt_rad.array[pre_threshold]
                 
                 if second_kti.name == 'Touchdown':
                     reverse_slice = slice(airborne_slice.stop,
                                           airborne_slice.start, -1)
-                    threshold_index = index_at_value(alt_std.array,
+                    threshold_index = index_at_value(alt_rad.array,
                                                      TRANSITION_ALT_RAD_TO_STD,
-                                                     _slice=reverse_slice)   
-                    difference = alt_rad.array[threshold_index] - \
-                        alt_std.array[threshold_index]
-                    alt_aal[peak_index:threshold_index] += difference
-                    post_threshold = slice(threshold_index,
-                                           airborne_slice.stop)
+                                                     _slice=reverse_slice)
+                    join_index = int(threshold_index)+1
+                    difference = alt_rad.array[join_index] - \
+                        alt_std.array[join_index]
+                    alt_aal[peak_index:join_index] += difference
+                    post_threshold = slice(join_index, airborne_slice.stop)
                     alt_aal[post_threshold] = alt_rad.array[post_threshold]
                     
             
@@ -663,6 +660,17 @@ class AltitudeRadioForFlightPhases(DerivedParameterNode):
 class AltitudeQNH(DerivedParameterNode):
     name = 'Altitude QNH'
     units = 'ft'
+    
+    ''' TODO: This altitude Parameter is for events based upon height above
+    sea level, not standard altitude or airfield elevation. For example, in
+    the US the speed high below 10,000ft is based on height above sea level.
+    Ideally use the BARO selection switch when recorded, else based upon the
+    transition height for the departing airport in the climb and the arrival
+    airport in the descent. If no such data is available, transition at
+    18,000 ft (USA standard). because there is no European standard
+    transition height.
+    '''
+    
     def derive(self, alt_aal=P('Altitude AAL'), 
                land = A('FDR Landing Airport'),
                toff = A('FDR Takeoff Airport')):
@@ -898,8 +906,12 @@ class DistanceToLanding(DerivedParameterNode):
         ##ils_gs=P('Glideslope Deviation'), ##ldg=P('LandingAirport')): #
         # this version gets closer to zero as we approach the final touchdown
         # and then increases as we go past
-        dist_flown_at_tdwn = dist.array[tdwns.get_last().index]
-        self.array = np.ma.abs(dist_flown_at_tdwn - dist.array)
+        if tdwns:
+            dist_flown_at_tdwn = dist.array[tdwns.get_last().index]
+            self.array = np.ma.abs(dist_flown_at_tdwn - dist.array)
+        else:
+            self.array = np.zeros_like(dist.array)
+            self.array.mask=True        
 
 
 class DistanceTravelled(DerivedParameterNode):
@@ -1882,13 +1894,18 @@ class ILSRange(DerivedParameterNode):
             # Use recorded groundspeed where available, otherwise estimate
             # range using true airspeed. This is because there are aircraft
             # which record ILS but not groundspeed data.
-            speed = gspd if gspd else tas
+            if gspd:
+                speed = np.ma.where(gspd.array.mask[this_loc.slice], \
+                                    tas.array.data[this_loc.slice], \
+                                    gspd.array.data[this_loc.slice]) 
+            else:
+                speed = tas.array.data[this_loc.slice]
                 
             # Estimate range by integrating back from zero at the end of the
             # phase to high range values at the start of the phase.
-            spd_repaired = repair_mask(speed.array[this_loc.slice])
+            spd_repaired = repair_mask(speed)
             ils_range[this_loc.slice] = integrate(
-                spd_repaired, speed.frequency, scale=KTS_TO_FPS, direction='reverse')
+                spd_repaired, gspd.frequency, scale=KTS_TO_FPS, direction='reverse')
             
             try:
                 start_2_loc, gs_2_loc, end_2_loc, pgs_lat, pgs_lon = \
@@ -2127,12 +2144,13 @@ def adjust_track(lon,lat,loc_est,ils_range,ils_loc,alt_aal,gspd,tas,
     return track_linking(lat.array, lat_adj), track_linking(lon.array, lon_adj)
 
           
-"""
+
 class Mach(DerivedParameterNode):
-    def derive(self, ias = P('Airspeed'), tat = P('TAT'),
-               alt = P('Altitude STD')):
-        return NotImplemented
-"""        
+    def derive(self, cas = P('Airspeed'), alt = P('Altitude STD')):
+        dp = cas2dp(cas.array)
+        p = alt2press(alt.array)
+        self.array = dp_over_p2mach(dp/p)
+       
 
 class RateOfClimb(DerivedParameterNode):
     """
@@ -2310,10 +2328,6 @@ class LongitudeStraighten(DerivedParameterNode, CoordinatesStraighten):
     def derive(self,
                lon=P('Longitude'),
                lat=P('Latitude')):
-        """
-        Acceleration along track may be added to increase the sample rate and
-        alignment of the resulting smoothed track parameter.
-        """
         self.array = self._smooth_coordinates(lon, lat)
 
     

@@ -1371,16 +1371,21 @@ class AirspeedBelowFL100Max(KeyPointValueNode):
                                            max_value)
 
 
-class BDUTerrain(KeyPointValueNode):
-    name = 'BDU Terrain'
-    # TODO: Rename after asking DJ.
-    
-    def derive(self, alt_aal=P('Altitude AAL'), alt_radio=P('Altitude Radio'), 
+class TailClearanceOnApproach(KeyPointValueNode):
+    def derive(self, alt_aal=P('Altitude AAL'), alt_tail=P('Altitude Tail'), 
                  dtl=P('Distance To Landing')):
         '''
+        This finds abnormally low tail clearance during the approach down to
+        100ft. It searches for the minimum angular separation between the
+        flightpath and the terrain, so a 500ft clearance at 2500ft AAL is
+        considered more significant than 500ft at 1500ft AAL. The value
+        stored is the tail clearance. A matching KTI will allow these to be
+        located on the approach chart.
         '''
-        for desc_slice in alt_aal.slices_from_to(3000, 50):
-            angle_array = alt_radio.array[desc_slice]/dtl.array[desc_slice]
+        for desc_slice in alt_aal.slices_from_to(3000, 100):
+            angle_array = alt_tail.array[desc_slice]/dtl.array[desc_slice]
             index, value = min_value(angle_array)
-            self.create_kpv(index + desc_slice.start, value)
+            if index:
+                sample = index + desc_slice.start
+                self.create_kpv(sample, alt_tail.array[sample])
     

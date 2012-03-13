@@ -2176,12 +2176,6 @@ class TestCas2Dp(unittest.TestCase):
         self.assertAlmostEqual(Value, Truth, delta = 1e-2)
 
 
-##def cas_alt2mach(cas, alt_ft):
-##def dp2tas(dp, alt_ft, temp,):
-##def mach2temp(mach, tat):
-
-
-
 class TestDp2Cas(unittest.TestCase):
 
     def test_01(self):

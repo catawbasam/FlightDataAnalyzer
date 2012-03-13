@@ -39,7 +39,6 @@ from analysis_engine.key_point_values import (
     AutopilotEngaged1AtTouchdown,
     AutopilotEngaged2AtLiftoff,
     AutopilotEngaged2AtTouchdown,
-    BDUTerrain,
     ControlColumnStiffness,
     EngEGTMax,
     EngEPR500FtToTouchdownMin,
@@ -100,6 +99,7 @@ from analysis_engine.key_point_values import (
     RollBelow20FtMax,
     RollBetween100And500FtMax,
     RollBetween500And1500FtMax,
+    TailClearanceOnApproach,   
 )
 from analysis_engine.library import (max_abs_value, max_value, min_value)
 from analysis_engine.flight_phase import Fast
@@ -508,30 +508,6 @@ class TestAutopilotEngaged2AtTouchdown(unittest.TestCase, TestCreateKPVsAtKTIs):
         self.operational_combinations = [('Autopilot Engaged 2', 'Touchdown')]
 
 
-class TestBDUTerrain(unittest.TestCase):
-    def test_can_operate(self):
-        self.assertEqual(BDUTerrain.get_operational_combinations(),
-                         [('Altitude AAL', 'Altitude Radio',
-                           'Distance To Landing')])
-    
-    def test_derive(self):
-        test_data_dir = os.path.join('test_data', 'BDUTerrain')
-        alt_aal_array = np.ma.masked_array(np.load(os.path.join(test_data_dir,
-                                                                'alt_aal.npy')))
-        alt_radio_array = np.ma.masked_array(np.load(os.path.join(test_data_dir,
-                                                                  'alt_radio.npy')))
-        dtl_array = np.ma.masked_array(np.load(os.path.join(test_data_dir,
-                                                            'dtl.npy')))
-        alt_aal = P(array=alt_aal_array, frequency=8)
-        alt_radio = P(array=alt_radio_array, frequency=0.5)
-        dtl = P(array=dtl_array, frequency=0.25)
-        alt_radio.array = align(alt_radio, alt_aal)
-        dtl.array = align(dtl, alt_aal)        
-        param = BDUTerrain()
-        param.derive(alt_aal, alt_radio, dtl)
-        self.assertEqual(param, [KeyPointValue(name='BDU Terrain', index=1008, value=0.037668517049960347)])
-        
-    
 
 class TestControlColumnStiffness(unittest.TestCase):
     def test_can_operate(self):
@@ -1237,3 +1213,28 @@ class TestRollBetween500And1500FtMax(unittest.TestCase,
         self.operational_combinations = [('Roll', 'Altitude AAL')]
         self.function = max_abs_value
         self.second_param_method_calls = [('slices_between', (500, 1500), {})]
+
+class TestTailClearanceOnApproach(unittest.TestCase):
+    def test_can_operate(self):
+        self.assertEqual(TailClearanceOnApproach.get_operational_combinations(),
+                         [('Altitude AAL', 'Altitude Tail',
+                           'Distance To Landing')])
+    
+    def test_derive(self):
+        test_data_dir = os.path.join('test_data', 'BDUTerrain')
+        alt_aal_array = np.ma.masked_array(np.load(os.path.join(test_data_dir,
+                                                                'alt_aal.npy')))
+        alt_radio_array = np.ma.masked_array(np.load(os.path.join(test_data_dir,
+                                                                  'alt_radio.npy')))
+        dtl_array = np.ma.masked_array(np.load(os.path.join(test_data_dir,
+                                                            'dtl.npy')))
+        alt_aal = P(array=alt_aal_array, frequency=8)
+        alt_radio = P(array=alt_radio_array, frequency=0.5)
+        dtl = P(array=dtl_array, frequency=0.25)
+        alt_radio.array = align(alt_radio, alt_aal)
+        dtl.array = align(dtl, alt_aal)        
+        param = BDUTerrain()
+        param.derive(alt_aal, alt_radio, dtl)
+        self.assertEqual(param, [KeyPointValue(name='BDU Terrain', index=1008, value=0.037668517049960347)])
+        
+    
