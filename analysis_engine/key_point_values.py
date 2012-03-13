@@ -858,7 +858,7 @@ class HeightLost50To1000Max(KeyPointValueNode):
 class AccelerationLateralOnGroundMax(KeyPointValueNode):
     def derive(self, acc_lat=P('Acceleration Lateral'),
                on_grounds=S('On Ground')):
-        self.create_kpvs_within_slices(acc_lat.array, on_grounds, max_value)
+        self.create_kpvs_within_slices(acc_lat.array, on_grounds, max_abs_value)
 
 
 class EngN13000FtToTouchdownMax(KeyPointValueNode):
@@ -1009,12 +1009,6 @@ class Pitch5FtToTouchdownMax(KeyPointValueNode):
         self.create_kpvs_within_slices(pitch.array,
                                        alt_aal.slices_from_to(5, 0), max_value)
 
-class Pitch1000To100FtMax(KeyPointValueNode):
-    def derive(self, pitch=P('Pitch'), alt_aal=P('Altitude AAL')):
-        self.create_kpvs_within_slices(pitch.array,
-                                       alt_aal.slices_from_to(1000, 100),
-                                       max_value)
-
 
 class PitchAtLiftoff(KeyPointValueNode):
     def derive(self, pitch=P('Pitch'), liftoffs=KTI('Liftoff')):
@@ -1036,11 +1030,19 @@ class PitchAtTouchdown(KeyPointValueNode):
         self.create_kpvs_at_ktis(pitch.array, touchdowns)
 
 
+class Pitch1000To100FtMax(KeyPointValueNode):
+    def derive(self, pitch=P('Pitch'), alt_aal=P('Altitude AAL')):
+        self.create_kpvs_within_slices(pitch.array,
+                                       alt_aal.slices_from_to(1000, 100),
+                                       max_value)
+
+
 class Pitch1000To100FtMin(KeyPointValueNode):
     def derive(self, pitch=P('Pitch'), alt_aal=P('Altitude AAL')):
         self.create_kpvs_within_slices(pitch.array,
                                        alt_aal.slices_from_to(1000, 100),
                                        min_value)
+
 
 
 class Pitch20FtToTouchdownMin(KeyPointValueNode):

@@ -26,8 +26,6 @@ from analysis_engine.derived_parameters import (
     #AltitudeRadioForFlightPhases,
     AltitudeSTD,
     AltitudeTail,
-    DistanceTravelled,
-    DistanceToLanding,
     ClimbForFlightPhases,
     Config,
     ControlColumn,
@@ -35,6 +33,9 @@ from analysis_engine.derived_parameters import (
     ControlColumnForceCapt,
     ControlColumnForceFO,
     ControlWheel,
+    DescendForFlightPhases,
+    DistanceTravelled,
+    DistanceToLanding,
     Eng_N1Avg,
     Eng_N1Max,
     Eng_N1Min,
@@ -592,12 +593,12 @@ class TestClimbForFlightPhases(unittest.TestCase):
         self.assertEqual(opts, expected)
         
     def test_climb_for_flight_phases_basic(self):
-        up_and_down_data = np.ma.array([0,2,5,3,2,5,6,8])
+        up_and_down_data = np.ma.array([0,0,2,5,3,2,5,6,8,0])
         phase_fast = Fast()
-        phase_fast.derive(P('Airspeed', np.ma.array([100]*8)))
+        phase_fast.derive(P('Airspeed', np.ma.array([[0]+[100]*8+[0]])))
         climb = ClimbForFlightPhases()
         climb.derive(Parameter('Altitude STD', up_and_down_data), phase_fast)
-        expected = np.ma.array([0,2,5,0,0,3,4,6])
+        expected = np.ma.array([0,0,2,5,0,0,3,4,6,0])
         ma_test.assert_masked_array_approx_equal(climb.array, expected)
    
    
@@ -751,6 +752,23 @@ class TestControlWheel(unittest.TestCase):
         cw = ControlWheel()
         cw.derive(self.cwc, self.cwf)
         blend_two_parameters.assert_called_once_with(self.cwc, self.cwf)
+
+
+class TestDescendForFlightPhases(unittest.TestCase):
+    def test_can_operate(self):
+        expected = [('Altitude STD','Fast')]
+        opts = DescendForFlightPhases.get_operational_combinations()
+        self.assertEqual(opts, expected)
+        
+    def test_descend_for_flight_phases_basic(self):
+        down_and_up_data = np.ma.array([0,0,12,5,3,12,15,10,7,0])
+        phase_fast = Fast()
+        phase_fast.derive(P('Airspeed', np.ma.array([[0]+[100]*8+[0]])))
+        descend = DescendForFlightPhases()
+        descend.derive(Parameter('Altitude STD', down_and_up_data ), phase_fast)
+        expected = np.ma.array([0,0,0,-7,-9,0,0,-5,-8,0])
+        ma_test.assert_masked_array_approx_equal(descend.array, expected)
+
         
 class TestDistanceToLanding(unittest.TestCase):
     

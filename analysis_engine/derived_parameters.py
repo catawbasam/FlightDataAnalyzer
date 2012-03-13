@@ -813,17 +813,21 @@ class ClimbForFlightPhases(DerivedParameterNode):
         self.array = np.ma.zeros(len(alt_std.array))
         repair_mask(alt_std.array) # Remove small sections of corrupt data
         for air in airs:
-            ax = air.slice
-            # Initialise the tracking altitude value
-            curr_alt = alt_std.array[ax][0]
-            self.array[ax][0] = 0.0
-            for count in xrange(1, int(ax.stop - ax.start)):
-                if alt_std.array[ax][count] < alt_std.array[ax][count-1]:
-                    # Going down, keep track of current altitude
-                    curr_alt = alt_std.array[ax][count]
-                    self.array[ax][count] = 0.0
-                else:
-                    self.array[ax][count] = alt_std.array[ax][count] - curr_alt
+            deltas = np.ma.ediff1d(alt_std.array[air.slice], to_begin=0.0)
+            ups = np.ma.clump_unmasked(np.ma.masked_less(deltas,0.0))
+            for up in ups:
+                self.array[air.slice][up] = np.ma.cumsum(deltas[up])    
+
+            
+class DescendForFlightPhases(DerivedParameterNode):
+    def derive(self, alt_std=P('Altitude STD'), airs=S('Fast')):
+        self.array = np.ma.zeros(len(alt_std.array))
+        repair_mask(alt_std.array) # Remove small sections of corrupt data
+        for air in airs:
+            deltas = np.ma.ediff1d(alt_std.array[air.slice], to_begin=0.0)
+            downs = np.ma.clump_unmasked(np.ma.masked_greater(deltas,0.0))
+            for down in downs:
+                self.array[air.slice][down] = np.ma.cumsum(deltas[down])
     
     
 class ControlColumn(DerivedParameterNode):
