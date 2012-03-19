@@ -340,39 +340,43 @@ def coreg(y, indep_var=None, force_zero=False):
     corr > 0.8 shows good correlation between temperature and altitude
     m is the lapse rate
     c is the temperature at 0ft
-    
     """
-    
     n = len(y)
     if n < 2:
         raise ValueError, 'Function coreg called with data of length 1 or null'
-    
     if indep_var == None:
-        x = np.arange(n, dtype=float)
+        x = np.ma.arange(n, dtype=float)
     else:
         x = indep_var
         if len(x) != n:
             raise ValueError, 'Function coreg called with arrays of differing length'
     if x.ptp() == 0.0 or y.ptp() == 0.0:
-        # Could raise ValueError, 'Function coreg called with invariant independent variable'
+        # raise ValueError, 'Function coreg called with invariant independent variable'
         return 0.0, 0.0, 0.0
-        
-    sx = np.sum(x)
-    sxy = np.sum(x*y)
-    sy = np.sum(y)
-    sx2 = np.sum(x*x)
-    sy2 = np.sum(y*y)
+    
+    # Need to propagate masks into both arrays equally.
+    mask = np.ma.logical_or(x.mask, y.mask)
+    x_ = np.ma.array(data=x.data,mask=mask)
+    y_ = np.ma.array(data=y.data,mask=mask)
+
+    # n_ is the number of useful data pairs for analysis.
+    n_ = np.ma.count(x_)
+    sx = np.ma.sum(x_)
+    sxy = np.ma.sum(x_*y_)
+    sy = np.ma.sum(y_)
+    sx2 = np.ma.sum(x_*x_)
+    sy2 = np.ma.sum(y_*y_)
     
     # Correlation
-    p = abs((n*sxy - sx*sy)/(sqrt(n*sx2-sx*sx)*sqrt(n*sy2-sy*sy)))
+    p = abs((n_*sxy - sx*sy)/(sqrt(n_*sx2-sx*sx)*sqrt(n_*sy2-sy*sy)))
     
     # Regression
     if force_zero:
         m = sxy/sx2
         c = 0.0
     else:
-        m = (sxy-sx*sy/n)/(sx2-sx*sx/n)
-        c = sy/n - m*sx/n
+        m = (sxy-sx*sy/n_)/(sx2-sx*sx/n_)
+        c = sy/n_ - m*sx/n_
     
     return p, m, c
     
@@ -483,13 +487,15 @@ def clip(a, period, hz=1.0):
     :param hz: Frequency of the data_array
     :type hz: float
     '''
-    if period <= 0.01:
-        raise ValueError('Duration called with period outside permitted range')
 
     if hz <= 0.01:
         raise ValueError('Duration called with sample rate outside permitted range')
 
     delay = period * hz
+    # Trap low values. This can occur, for an example, where a parameter has
+    # a lower sample rate than expected.
+    if delay < 1.0:
+        raise ValueError('Duration called with period too short to have an effect')
 
     # Compute an array of differences across period, such that each maximum or
     # minimum results in a negative result.

@@ -307,7 +307,7 @@ if __name__ == '__main__':
     import argparse
     from utilities.filesystem_tools import copy_file
     logger = logging.getLogger()
-    logger.setLevel(logging.INFO)    
+    logger.setLevel(logging.DEBUG)    
     required_parameters = ['Latitude Smoothed', 'Longitude Smoothed',
                            'Distance To Landing', 'Eng (*) Fuel Flow',
                            'Altitude STD']

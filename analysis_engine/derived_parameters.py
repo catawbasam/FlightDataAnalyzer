@@ -121,7 +121,6 @@ class AccelerationAcrossTrack(DerivedParameterNode):
             - acc_fwd.array * np.sin(drift_rad)
 
 
-##class     name = 'Airspeed Minus V2 400 To 1500 Ft Min'
 class AccelerationAlongTrack(DerivedParameterNode):
     def derive(self, acc_fwd=P('Acceleration Forwards'), 
                acc_side=P('Acceleration Sideways'), 
@@ -201,6 +200,7 @@ class AirspeedMinusV2(DerivedParameterNode):
     def derive(self, airspeed=P('Airspeed'), v2=P('V2')):
         self.array = airspeed.array - v2.array
 
+
 class AirspeedMinusVref(DerivedParameterNode):
     #TODO: TESTS
     def derive(self, airspeed=P('Airspeed'), vref=P('Vref')):
@@ -208,7 +208,7 @@ class AirspeedMinusVref(DerivedParameterNode):
 
 #class StaticAirTemp(DerivedParameterNode):
     #---------------------------------------------------------------------------
-    # Calss initialisation and can operate preparation
+    # Class initialisation and can operate preparation
     #---------------------------------------------------------------------------
     ##def __init__(self):
         ##'''
@@ -1475,6 +1475,20 @@ class FuelQty(DerivedParameterNode):
         self.array = np.ma.sum(stacked_params, axis=0)
 
 
+class GearDown(DerivedParameterNode):
+    align_to_first_dependency = False
+    def derive(self, gl=P('GEAR DOWN LEFT'),
+               gn=P('GEAR DOWN NOSE'),
+               gr=P('GEAR DOWN RIGHT')):
+        '''
+        Highly aircraft dependent, so likely to be extended.
+        '''
+        # 737-5 has nose gear sampled alternately with mains. No obvious way
+        # to accommodate mismatch of the main gear positions, so assume that
+        # the right wheel does the same as the left !
+        self.array, self.frequency, self.offset = merge_two_parameters(gl, gn)
+        
+        
 class GrossWeightSmoothed(DerivedParameterNode):
     '''
     Gross weight is usually sampled at a low rate and can be very poor in the
@@ -1487,7 +1501,8 @@ class GrossWeightSmoothed(DerivedParameterNode):
     
     This routine makes the best of both worlds by using fuel flow to compute
     short term changes in weight and mapping this onto the level attitude
-    data.
+    data. We avoid using the recorded fuel weight in this calculation,
+    however it is used in the Zero Fuel Weight calculation.
     '''
     align_to_first_dependency = False
     
@@ -1556,11 +1571,39 @@ class FlapLever(DerivedParameterNode):
             self.array = step_values(flap.array, flap_steps)
         
             
+class FlapSurface(DerivedParameterNode):
+    """
+    Gather the recorded flap parameters and convert into a single analogue.
+    """
+    align_to_first_dependency = False
+
+    @classmethod
+    def can_operate(cls, available):
+        # works with any combination of params available
+        return True
+
+    def derive(self, flap_A=P('Flap (1)'), flap_B=P('Flap (2)'),
+               frame = A('Frame')):
+        frame_name = frame.value if frame else None
+
+        if frame_name in ['737-5']:
+            self.array, self.frequency, self.offset = merge_two_parameters(flap_A, flap_B)
+            
+                    
 class Flap(DerivedParameterNode):
-    """
-    Steps raw Flap angle into detents.
-    """
-    def derive(self, flap=P('Flap Surface'), series=A('Series'), family=A('Family')):
+    @classmethod
+    def can_operate(cls, available):
+        # works with any combination of params available
+        return True
+
+    def derive(self, flap=P('Flap Surface'), 
+               series=A('Series'), family=A('Family')):
+        """
+        Steps raw Flap angle into detents.
+        """
+        flap_steps=[0, 1, 5, 15, 30] # VERY TEMPORARY FIX ########################################
+        """
+        !!! REINSTATE AS SOON AS POSSIBLE !!!
         try:
             flap_steps = get_flap_map(series.value, family.value) 
         except ValueError:
@@ -1569,7 +1612,9 @@ class Flap(DerivedParameterNode):
             # round to nearest 5 degrees
             self.array = round_to_nearest(flap.array, 5.0)
         else:
-            self.array = step_values(flap.array, flap_steps)
+        !!! REINSTATE AS SOON AS POSSIBLE !!!
+        """
+        self.array = step_values(flap.array, flap_steps)
         
             
 class Slat(DerivedParameterNode):
@@ -2476,7 +2521,6 @@ class Speedbrake(DerivedParameterNode):
                s11=P('Spoiler (11)'),
                s12=P('Spoiler (12)')):
         return NotImplemented
-
 
 
 """

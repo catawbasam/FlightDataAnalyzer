@@ -550,51 +550,58 @@ class TestConvertTwoDigitToFourDigitYear(unittest.TestCase):
         
 class TestCoReg(unittest.TestCase):
     def test_correlation_basic(self):
-        x=np.array([0,1,2,4,5,7], dtype=float)
-        y=np.array([2,4,5,3,6,8], dtype=float)
+        x=np.ma.array([0,1,2,4,5,7], dtype=float)
+        y=np.ma.array([2,4,5,3,6,8], dtype=float)
         correlate, slope, offset = coreg(y, indep_var=x)
         self.assertAlmostEqual(correlate, 0.818447591071135)
         self.assertAlmostEqual(slope, 0.669856459330144)
         self.assertAlmostEqual(offset, 2.54545454545455)
         
+    def test_correlation_masked(self):
+        x=np.ma.array([0,1,2,4,5,7], mask=[0,0,1,0,0,0], dtype=float)
+        y=np.ma.array([2,4,5,3,6,8], mask=[0,0,0,0,1,0], dtype=float)
+        correlate, slope, offset = coreg(y, indep_var=x)
+        self.assertAlmostEqual(correlate, 0.841685056859012)
+        self.assertAlmostEqual(slope, 0.7)
+        self.assertAlmostEqual(offset, 2.15)
+        
     def test_correlation_raises_error_unequal(self):
-        x=np.array([0,1,2,4,5,7], dtype=float)
-        y=np.array([-2,-4,-5,-3,-6], dtype=float)
+        x=np.ma.array([0,1,2,4,5,7], dtype=float)
+        y=np.ma.array([-2,-4,-5,-3,-6], dtype=float)
         self.assertRaises(ValueError, coreg, y, indep_var=x)
         
     def test_correlation_raises_error_too_short(self):
-        y=np.array([1], dtype=float)
+        y=np.ma.array([1], dtype=float)
         self.assertRaises(ValueError, coreg, y)
-        
     
     def test_correlation_constant_arrays(self):
-        x=np.array([0,0,0,0,0,0], dtype=float)
-        y=np.arange(6)
+        x=np.ma.array([0,0,0,0,0,0], dtype=float)
+        y=np.ma.arange(6)
         self.assertEqual(coreg(x), (0.0, 0.0, 0.0))
         self.assertEqual(coreg(x, indep_var=y), (0.0, 0.0, 0.0))
         self.assertEqual(coreg(y, indep_var=x), (0.0, 0.0, 0.0))
     
     def test_correlation_monotonic_independent_variable(self):
-        y=np.array([2,4,5,3,6,8], dtype=float)
+        y=np.ma.array([2,4,5,3,6,8], dtype=float)
         correlate, slope, offset = coreg(y)
         self.assertAlmostEqual(correlate, 0.841281820819169)
         self.assertAlmostEqual(slope, 0.971428571428571)
         self.assertAlmostEqual(offset, 2.23809523809524)
         
     def test_correlation_only_return(self):
-        y=np.array([2,4,5,3,6,8], dtype=float)
+        y=np.ma.array([2,4,5,3,6,8], dtype=float)
         correlate,d1,d2 = coreg(y)  # You need to cater for the three return arguments.
         self.assertAlmostEqual(correlate, 0.841281820819169)
         
     def test_correlation_forced_zero(self):
-        y=np.array([2,4,5,3,6,8], dtype=float)
+        y=np.ma.array([2,4,5,3,6,8], dtype=float)
         correlate, slope, offset = coreg(y, force_zero=True)
         self.assertAlmostEqual(slope, 1.58181818181818)
         self.assertAlmostEqual(offset, 0.0)
         
     def test_correlation_negative_slope(self):
-        x=np.array([0,1,2,4,5,7], dtype=float)
-        y=np.array([-2,-4,-5,-3,-6,-8], dtype=float)
+        x=np.ma.array([0,1,2,4,5,7], dtype=float)
+        y=np.ma.array([-2,-4,-5,-3,-6,-8], dtype=float)
         correlate, slope, offset = coreg(y,indep_var=x)
         self.assertAlmostEqual(correlate, 0.818447591071135)
         self.assertAlmostEqual(slope, -0.669856459330144)
