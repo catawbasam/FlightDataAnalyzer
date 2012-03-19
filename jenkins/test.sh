@@ -64,24 +64,31 @@ fi
 # Enter the Jenkins workspace
 cd ${WORKSPACE}
 
-# Use the interna PyPI server
-export PIP_INDEX_URL=http://pypi.flightdataservices.com/simple/
+# Ensure 'pip' uses the internal PyPI server
+if [ ! -f ~/.pip/pip.conf ]; then
+    mkdir -p ~/.pip/ 2>/dev/null
+    echo "[global]"                                                 >  ~/.pip/pip.conf
+    echo "index-url = http://pypi.flightdataservices.com/simple/"   >> ~/.pip/pip.conf
+fi    
 
-# Update easy_install/distutil PyPI server
-echo "[easy_install]"                                          >  ~/.pydistutils.cfg
-echo "index_url = http://pypi.flightdataservices.com/simple/"  >> ~/.pydistutils.cfg
+# Ensure 'easy_install' and distutils uses the internal PyPI server
+if [ ! -f ~/.pydistutils.cfg ]; then
+    echo "[easy_install]"                                           >  ~/.pydistutils.cfg
+    echo "index_url = http://pypi.flightdataservices.com/simple/"   >> ~/.pydistutils.cfg
+fi    
 
-Update pip to the latest version
+# Update pip to the latest version
 pip install --upgrade pip
 
-# Install Jenkins, Sphinx and Setup requirements
-for REQUIREMENTS in requirements-jenkins.txt requirements-sphinx.txt requirements-setup.txt
+# Install requirements
+#  - Shame this doesn't appear to be reliable
+#  - eval pip install --upgrade file:///.#egg=${PACKAGE}[jenkins,sphinx]
+for REQUIREMENTS in requirements*.txt
 do
     if [ -f ${REQUIREMENTS} ]; then
         pip install --upgrade -r ${REQUIREMENTS}
     fi
 done
-#eval pip install --upgrade file:///.#egg=${PACKAGE}[jenkins,sphinx]
 
 # Run any additional setup steps
 if [ -x ${WORKSPACE}/jenkins/setup-extra.sh ]; then
