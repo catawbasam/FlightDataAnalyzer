@@ -550,51 +550,58 @@ class TestConvertTwoDigitToFourDigitYear(unittest.TestCase):
         
 class TestCoReg(unittest.TestCase):
     def test_correlation_basic(self):
-        x=np.array([0,1,2,4,5,7], dtype=float)
-        y=np.array([2,4,5,3,6,8], dtype=float)
+        x=np.ma.array([0,1,2,4,5,7], dtype=float)
+        y=np.ma.array([2,4,5,3,6,8], dtype=float)
         correlate, slope, offset = coreg(y, indep_var=x)
         self.assertAlmostEqual(correlate, 0.818447591071135)
         self.assertAlmostEqual(slope, 0.669856459330144)
         self.assertAlmostEqual(offset, 2.54545454545455)
         
+    def test_correlation_masked(self):
+        x=np.ma.array([0,1,2,4,5,7], mask=[0,0,1,0,0,0], dtype=float)
+        y=np.ma.array([2,4,5,3,6,8], mask=[0,0,0,0,1,0], dtype=float)
+        correlate, slope, offset = coreg(y, indep_var=x)
+        self.assertAlmostEqual(correlate, 0.841685056859012)
+        self.assertAlmostEqual(slope, 0.7)
+        self.assertAlmostEqual(offset, 2.15)
+        
     def test_correlation_raises_error_unequal(self):
-        x=np.array([0,1,2,4,5,7], dtype=float)
-        y=np.array([-2,-4,-5,-3,-6], dtype=float)
+        x=np.ma.array([0,1,2,4,5,7], dtype=float)
+        y=np.ma.array([-2,-4,-5,-3,-6], dtype=float)
         self.assertRaises(ValueError, coreg, y, indep_var=x)
         
     def test_correlation_raises_error_too_short(self):
-        y=np.array([1], dtype=float)
+        y=np.ma.array([1], dtype=float)
         self.assertRaises(ValueError, coreg, y)
-        
     
     def test_correlation_constant_arrays(self):
-        x=np.array([0,0,0,0,0,0], dtype=float)
-        y=np.arange(6)
+        x=np.ma.array([0,0,0,0,0,0], dtype=float)
+        y=np.ma.arange(6)
         self.assertEqual(coreg(x), (0.0, 0.0, 0.0))
         self.assertEqual(coreg(x, indep_var=y), (0.0, 0.0, 0.0))
         self.assertEqual(coreg(y, indep_var=x), (0.0, 0.0, 0.0))
     
     def test_correlation_monotonic_independent_variable(self):
-        y=np.array([2,4,5,3,6,8], dtype=float)
+        y=np.ma.array([2,4,5,3,6,8], dtype=float)
         correlate, slope, offset = coreg(y)
         self.assertAlmostEqual(correlate, 0.841281820819169)
         self.assertAlmostEqual(slope, 0.971428571428571)
         self.assertAlmostEqual(offset, 2.23809523809524)
         
     def test_correlation_only_return(self):
-        y=np.array([2,4,5,3,6,8], dtype=float)
+        y=np.ma.array([2,4,5,3,6,8], dtype=float)
         correlate,d1,d2 = coreg(y)  # You need to cater for the three return arguments.
         self.assertAlmostEqual(correlate, 0.841281820819169)
         
     def test_correlation_forced_zero(self):
-        y=np.array([2,4,5,3,6,8], dtype=float)
+        y=np.ma.array([2,4,5,3,6,8], dtype=float)
         correlate, slope, offset = coreg(y, force_zero=True)
         self.assertAlmostEqual(slope, 1.58181818181818)
         self.assertAlmostEqual(offset, 0.0)
         
     def test_correlation_negative_slope(self):
-        x=np.array([0,1,2,4,5,7], dtype=float)
-        y=np.array([-2,-4,-5,-3,-6,-8], dtype=float)
+        x=np.ma.array([0,1,2,4,5,7], dtype=float)
+        y=np.ma.array([-2,-4,-5,-3,-6,-8], dtype=float)
         correlate, slope, offset = coreg(y,indep_var=x)
         self.assertAlmostEqual(correlate, 0.818447591071135)
         self.assertAlmostEqual(slope, -0.669856459330144)
@@ -2060,6 +2067,189 @@ class TestVstackParams(unittest.TestCase):
                       [99, 11, 12, 13, 14, 15, 16, 17, 18, 99]])
         )
         self.assertRaises(ValueError, vstack_params, None, None, None)
+
+
+#-----------------------------------------------------------------------------
+#Tests for Atmospheric and air speed calculations derived from AeroCalc test
+#suite. Changes relate to simplification of units and translation to Numpy.
+#-----------------------------------------------------------------------------
+class TestAlt2Press(unittest.TestCase):
+    def test_01(self):
+
+        # Truth values from NASA RP 1046
+
+        Value = alt2press(np.ma.array([5000]))
+        Truth = 843.0725884 # mBar
+        self.assertAlmostEqual(Value, Truth)
+
+    def test_02(self):
+
+        # Truth values from aerospaceweb
+
+        Value = alt2press(25000)
+        Truth = 376.0087326
+        self.assertAlmostEqual(Value, Truth, delta = 1e-5)
+
+    def test_03(self):
+
+        # Truth values from aerospaceweb
+
+        Value = alt2press(45000)
+        Truth = 147.4755452
+        self.assertAlmostEqual(Value, Truth, delta = 1e-5)
+
+    def test_04(self):
+
+        # Truth values from NASA RP 1046
+
+        Value = alt2press(25000*METRES_TO_FEET)
+        Truth = 25.492
+        # Wide tolerance as we're not going to be using this for 
+        # commercial air transport !
+        self.assertAlmostEqual(Value, Truth, delta = 1e-0)
+
+
+class TestAlt2Press_Ratio(unittest.TestCase):
+
+    def test_01(self):
+        Value = alt2press_ratio(0)
+        self.assertEqual(Value, 1.0)
+
+    def test_02(self):
+        
+        # Truth values from NASA RP 1046
+
+        Value = alt2press_ratio(-1000)
+        Truth = 2193.82 / 2116.22
+        self.assertAlmostEqual(Value, Truth, delta = 1e-5)
+
+    def test_03(self):
+
+        # Truth values from NASA RP 1046
+
+        Value = alt2press_ratio(20000*METRES_TO_FEET)
+        Truth = 5474.87 / 101325
+        self.assertAlmostEqual(Value, Truth, delta = 1e-5)
+
+    def test_04(self):
+
+        # Typical value at 25,000 ft
+        # From Aerospace.web
+        # ratio = (1 - h/145442)^(5.255876)
+
+        Value = alt2press_ratio(25000)
+        Truth = np.power(1.0-25000./145442.,5.255876)
+        self.assertAlmostEqual(Value, Truth)
+
+class TestCas2Dp(unittest.TestCase):
+    
+    # Many AeroCalc tests using different units removed as we are
+    # standardising the units for use inside the algorithms.
+    # Test 08a added to include alternative Truth value
+    # Test 17 added to confirm operation in typical takeoff/landing speeds
+
+    def test_08(self):
+
+        # 244 kt to pa
+        # truth value from NASA RP 1046
+
+        Value = cas2dp(244)
+        Truth = 99.837
+        self.assertAlmostEqual(Value, Truth, delta = 1e-2)
+
+    def test_08a(self):
+
+        # 244 kt to pa
+        # truth value from aerospaceweb
+
+        Value = cas2dp(244)
+        Truth = 99.8355
+        self.assertAlmostEqual(Value, Truth, delta = 1e-3)
+
+    def test_16(self):
+
+        # 1000 kt to pa
+        # truth value from NASA RP 1046
+
+        self.assertRaises(ValueError, cas2dp, 1000)
+
+    def test_17(self):
+
+        # 120 kt
+        # truth value from aerospaceweb
+
+        Value = cas2dp(120)
+        Truth = 23.5351
+        self.assertAlmostEqual(Value, Truth, delta = 1e-2)
+
+
+class TestDp2Cas(unittest.TestCase):
+
+    def test_01(self):
+
+        # Tests low speed and masking supersonic cases in one go.
+
+        # 244 kt in pa
+        # truth value from NASA RP 1046
+
+        # 1000 kt in pa
+        # truth value from NASA RP 1046
+
+        Value = dp2cas(np.ma.array([99.837, 2490.53]))
+        Truth = np.ma.array(data=[244.0, 1000.0], mask=[False,True])
+        ma_test.assert_almost_equal(Value,Truth,decimal=2)
+
+class TestDp2Tas(unittest.TestCase):
+
+    def test_01(self):
+        # "Null" case to start
+        Value = dp2tas(0.0, 0.0, 15.0)
+        Truth = 0.0
+        self.assertEqual(Value, Truth)
+
+    def test_02(self):
+        # Trivial case = 200 KIAS
+        Value = dp2tas(66.3355, 20000.0, -24.586)
+        Truth = 270.4489
+        self.assertAlmostEqual(Value, Truth, delta = 1)
+        
+    def test_03(self):
+        # 200 KIAS at ISA + 20C
+        Value = dp2tas(66.3355, 20000.0, -13.4749)
+        Truth = 276.4275
+        self.assertAlmostEqual(Value, Truth, delta = 1)
+        
+    def test_04(self):
+        # Speed up to 300 KIAS and higher
+        Value = dp2tas(153.5471, 30000.0, -44.35)
+        Truth = 465.6309
+        self.assertAlmostEqual(Value, Truth, delta = 1)
+
+    def test_05(self):
+        # Still 300 KIAS but Stratospheric
+        Value = dp2tas(153.5469, 45000.0, -56.5)
+        Truth = 608.8925
+        self.assertAlmostEqual(Value, Truth, delta = 1)
+ 
+
+class TestAlt2Sat(unittest.TestCase):
+
+    def test_01(self):
+
+        Value = alt2sat(np.ma.array([0.0, 15000.0, 45000.0]))
+        Truth = np.ma.array(data=[15.0, -14.718, -56.5])
+        ma_test.assert_almost_equal(Value,Truth)
+
+class Test_dp_over_p2mach(unittest.TestCase):
+
+    def test_01(self):
+
+        Value = dp_over_p2mach(np.ma.array([.52434, .89072, 1.1]))
+
+        # truth values from NASA RP 1046
+
+        Truth = np.ma.array(data=[0.8, 0.999, 1.0], mask=[False, False, True])
+        ma_test.assert_almost_equal(Value,Truth, decimal=3)
 
 
 if __name__ == '__main__':

@@ -27,9 +27,12 @@ NODE_MODULES = ['analysis_engine.derived_parameters',
 API_HANDLER = 'analysis_engine.api_handler_analysis_engine.AnalysisEngineAPIHandlerHTTP'
 ##API_HANDLER = 'analysis_engine.api_handler_analysis_engine.AnalysisEngineAPIHandlerDUMMY'
 
-
-# Replace this as required
+# Base URL for the API for determining nearest airport/runway, etc:
 BASE_URL = 'http://127.0.0.1'
+
+# Location of the CA certificates to be used by the HTTP API handler:
+# Note: This is the system-wide default location on Ubuntu.
+CA_CERTIFICATE_FILE = '/etc/ssl/certs/ca-certificates.crt'
 
 # Cache parameters which are used more than n times in HDF
 CACHE_PARAMETER_MIN_USAGE = 4
@@ -196,8 +199,12 @@ RATE_OF_CLIMB_FOR_LIFTOFF = 200 # fpm
 # Rate of climb for touchdown.
 RATE_OF_CLIMB_FOR_TOUCHDOWN = -100 # fpm
 
-# Rate of turn limits for flight and ground.
+# Rate of turn limits for flight. 
+# (Also used for validation of accelerometers on ground).
 RATE_OF_TURN_FOR_FLIGHT_PHASES = 2.5 # deg per second
+
+# Rate of turn limit for taxi event.
+RATE_OF_TURN_FOR_TAXI_TURNS = 8.0 # deg per second
 
 # Duration of masked data to repair by interpolation for flight phase analysis
 REPAIR_DURATION = 10 # seconds 

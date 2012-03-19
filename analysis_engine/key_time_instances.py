@@ -87,6 +87,16 @@ class ClimbStart(KeyTimeInstanceNode):
                 self.create_kti(initial_climb_index)
 
 
+class GearExtending(KeyTimeInstanceNode):
+    def derive(self, gear_down=P('Gear Down'), airborne=S('Airborne')):
+        self.create_ktis_at_edges(gear_down.array, direction='rising_edges', phase=airborne)
+
+
+class GearRetracting(KeyTimeInstanceNode):
+    def derive(self, gear_down=P('Gear Down'), airborne=S('Airborne')):
+        self.create_ktis_at_edges(gear_down.array, direction='falling_edges', phase=airborne)
+
+
 class GoAround(KeyTimeInstanceNode):
     """
     In POLARIS we define a Go-Around as any descent below 3000ft followed by
@@ -212,6 +222,7 @@ class FlapStateChanges(KeyTimeInstanceNode):
     
     def derive(self, flap=P('Flap')):
         # Mark all flap changes, irrespective of the aircraft type :o)
+        """
         previous = None
         for index, value in enumerate(flap.array):
             if value == previous:
@@ -219,7 +230,9 @@ class FlapStateChanges(KeyTimeInstanceNode):
             else:
                 # Flap moved from previous setting, so record this change:
                 self.create_kti(index, setting=value)
-
+        """
+        self.create_ktis_at_edges(flap.array, direction='all_edges') 
+        # Could include "phase=airborne" if we want to eliminate ground flap changes.
 
 class TakeoffTurnOntoRunway(KeyTimeInstanceNode):
     # The Takeoff flight phase is computed to start when the aircraft turns

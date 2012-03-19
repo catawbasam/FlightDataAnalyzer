@@ -3,7 +3,7 @@ import numpy as np
 from tempfile import TemporaryFile
 from operator import attrgetter
 
-from aerocalc.airspeed import cas2tas, cas2dp, cas_alt2mach, mach2temp, dp2tas
+#from aerocalc.airspeed import cas2tas, cas2dp, cas_alt2mach, mach2temp, dp2tas
     
 from analysis_engine.model_information import (get_aileron_map, 
                                                get_config_map,
@@ -42,7 +42,18 @@ from analysis_engine.library import (align,
                                      straighten_headings,
                                      track_linking,
                                      value_at_index,
-                                     vstack_params)
+                                     vstack_params,
+                                     
+                                     alt2press,
+                                     alt2press_ratio,
+                                     alt2sat,
+                                     cas2dp,
+                                     cas_alt2mach,
+                                     dp_over_p2mach,
+                                     dp2tas,
+                                     mach2temp,
+                                     _alt2press_ratio_gradient,
+                                     _alt2press_ratio_isothermal)
 
 from settings import (AIRSPEED_THRESHOLD,
                       AZ_WASHOUT_TC,
@@ -110,7 +121,6 @@ class AccelerationAcrossTrack(DerivedParameterNode):
             - acc_fwd.array * np.sin(drift_rad)
 
 
-##class     name = 'Airspeed Minus V2 400 To 1500 Ft Min'
 class AccelerationAlongTrack(DerivedParameterNode):
     def derive(self, acc_fwd=P('Acceleration Forwards'), 
                acc_side=P('Acceleration Sideways'), 
@@ -190,17 +200,135 @@ class AirspeedMinusV2(DerivedParameterNode):
     def derive(self, airspeed=P('Airspeed'), v2=P('V2')):
         self.array = airspeed.array - v2.array
 
+
 class AirspeedMinusVref(DerivedParameterNode):
     #TODO: TESTS
     def derive(self, airspeed=P('Airspeed'), vref=P('Vref')):
         self.array = airspeed.array - vref.array
 
+#class StaticAirTemp(DerivedParameterNode):
+    #---------------------------------------------------------------------------
+    # Class initialisation and can operate preparation
+    #---------------------------------------------------------------------------
+    ##def __init__(self):
+        ##'''
+        ##Initialise constants used by the air data algorithms
+        ##'''
+        ##self.P0 = 101325.0 # Pressure at sea level, pa
+        ##self.Rhoref = 1.2250    # Density at sea level, kg/m**3
+        ##self.A0 = 340.2941      # Speed of sound at sea level, m/s
+        ##self.T0 = 288.15        # Sea level temperature 15 C = 288.15 K
+        ##self.L0 = -0.0065       # Lapse rate C/m
+        ##self.g = 9.80665        # Acceleration due to gravity, m/s**2
+        ##self.Rd = 287.05307     # Gas constant for dry air, J/kg K
+        
+        ### Values at 11km:
+        ##self.T11 =  self.T0 + 11000 * self.L0
+        ##self.PR11 = (self.T11 / self.T0) ** ((-self.g) / (self.Rd * self.L0)) 
+        ##self.P11 = self.PR11 * self.P0
+        ##return
+    
+    ##""" Calculation of air temperature from lapse rate based on standard atmosphere"""
+    ##def can_operate(self):
+        ##return 'Altitude STD' in available
 
+    ###---------------------------------------------------------------------------
+    ### Air data calculations adapted from AeroCalc V0.11 to suit POLARIS Numpy
+    ### data format. For increased speed, only standard POLARIS units used.
+    ### 
+    ### AeroCalc is Copyright (c) 2008, Kevin Horton and used under open source
+    ### license with permission. For copyright notice and disclaimer, please see
+    ### airspeed.py source code in AeroCalc.
+    ###---------------------------------------------------------------------------
+    
+    ##def alt2press(self, alt_ft):
+        ##press = self.P0  * self.alt2press_ratio(alt_ft)   
+        ##return press
+
+    ##def alt2press_ratio(self, alt_ft):
+        ##alt_km = (alt_ft / METRES_TO_FEET) / 1000
+       
+        ##if alt_km <= 11:
+            ##return self._alt2press_ratio_gradient(alt_km, 0, self.P0, self.T0, self.L0)
+        ##if alt_km <= 20:
+            ##return self._alt2press_ratio_isothermal(alt_km, 11, self.P11, self.T11)
+        
+    ##def cas2dp(self, cas_kt):
+        ##"""
+        ##Convert corrected airspeed to pressure rise (includes allowance for
+        ##compressibility)
+        ##"""
+        ##if cas_kt > 661.48:
+            ##raise ValueError, 'Supersonic airspeed compuations not included'
+        ##cas_mps = np.ma.masked_greater(cas_kt, 661.48) * KTS_TO_MPS
+        ##return self.P0 * (((self.Rhoref * cas_mps*cas_mps)/(7.*self.P0) + 1.)**3.5 - 1.)
+        
+    ##def cas_alt2mach(self, cas, alt_ft):
+        ##"""
+        ##Return the mach that corresponds to a given CAS and altitude.
+        ##"""
+        ##dp = self.cas2dp(cas)
+        ##p = self.alt2press(alt_ft)
+        ##dp_over_p = dp / p
+        ##mach = self.dp_over_p2mach(dp_over_p)
+        ##return mach
+
+    ##def dp_over_p2mach(self, dp_over_p):
+        ##"""
+        ##Return the mach number for a given delta p over p. (Subsonic only).
+        ##"""
+        ##mach = np.sqrt(5.0 * ((dp_over_p + 1.0) ** (2.0/7.0) - 1.0))
+        ##return mach
+    
+    ##def dp2tas(self, dp, alt_ft, temp,):
+    
+        ##P = self.alt2press(alt_ft)
+    
+        ##press_ratio = self.alt2press_ratio(alt_ft)
+        ##temp_ratio = (temp + 273.15) / 288.15
+        ##density_ratio = press_ratio / temp_ratio
+        ##Rho = Rho0 * density_ratio
+    
+        ##tas = self._dp2speed(dp, P, Rho, press_units, speed_units)
+        ##return tas
+
+    ##def lapse_rate(self, alt_ft):
+        ##""" Convert altitude to temperature using lapse rate"""
+        ##alt_m = alt_ft / METRES_TO_FEET
+        ##if alt_m < 11000:  # 11km top of Troposphere
+            ##return 15.0 + self.L0 * alt_m
+        ##else:
+            ##return -56.5
+  
+    ##def _alt2press_ratio_gradient(self, H, Hb, Pb, Tb, L):
+        ### eqn from USAF TPS PEC binder, page PS1-31
+        ##return (Pb / self.P0) * (1 + (L / Tb) * (H - Hb)) ** ((-1000 * self.g) / (self.Rd * L))
+    
+    ##def _alt2press_ratio_isothermal(self, H, Hb, Pb, Tb,):
+        ### eqn from USAF TPS PEC binder, page PS1-26
+        ##return (Pb / self.P0) * np.exp((-1 * (H - Hb)) * ((1000 * self.g) / (self.Rd * Tb)))
+
+    ##---------------------------------------------------------------------------
+    ## Derive method
+    ##---------------------------------------------------------------------------
+    #def derive(self, alt_std = P('Altitude STD'),
+               #cas = P('Airspeed'),
+               #tat = P('TAT')):
+        #if tat:
+            #tat_func = np.vectorize(self.cas_alt2mach)
+            #self.array = tat_func(cas.array, alt_std.array)
+        #else:
+            #lapse_func = np.vectorize(self.lapse_rate)
+            #self.array = lapse_func(alt_std.array)
+
+        
+        
 class AirspeedTrue(DerivedParameterNode):
     @classmethod
     def can_operate(cls, available):
         return 'Airspeed' in available and 'Altitude STD' in available
     
+    """
     def derive(self, cas = P('Airspeed'),
                alt_std = P('Altitude STD'),
                tat = P('TAT')):
@@ -229,16 +357,39 @@ class AirspeedTrue(DerivedParameterNode):
                            
         # Combine the data and mask to finish the job.
         self.array = np.ma.array(data=tas, mask=combined_mask)
+        """
+    #---------------------------------------------------------------------------
+    # Derive method
+    #---------------------------------------------------------------------------
+
+    def derive(self, cas_p = P('Airspeed'),
+               alt_std_p = P('Altitude STD'),
+               tat_p = P('TAT')):
+        cas = cas_p.array
+        alt_std = alt_std_p.array
+        if tat_p:
+            tat = tat_p.array
+            dp = cas2dp(cas)
+            mach = cas_alt2mach(cas, alt_std)
+            sat = mach2temp(mach, tat)
+            tas = dp2tas(dp, alt_std, sat)
+            combined_mask= np.logical_or(
+                np.logical_or(cas_p.array.mask,alt_std_p.array.mask),
+                tas.mask)
+        else:
+            dp = cas2dp(cas)
+            sat = alt2sat(alt_std)
+            tas = dp2tas(dp, alt_std, sat)
+            combined_mask= np.logical_or(cas_p.array.mask,alt_std_p.array.mask)
+            
+        # This output format puts zero values where the TAS is invalid, makeing
+        # inspection using HDF viewer more convenient.
+        self.array = np.ma.array(data=np.where(combined_mask, 0.0, tas),
+                                 mask=combined_mask)
         
 
 class AltitudeAAL(DerivedParameterNode):
     """
-    TODO: Altitude Parameter to account for transition altitudes for airports
-    between "altitude above mean sea level" and "pressure altitude relative
-    to FL100". Ideally use the BARO selection switch when recorded, else the
-    Airport elevation where provided, else guess based on location (USA =
-    18,000ft, Europe = 3,000ft)
-
     This is the main altitude measure used during analysis. Where radio
     altimeter data is available, this is used for altitudes up to 100ft and
     thereafter the pressure altitude signal is used. The two are "joined"
@@ -304,27 +455,27 @@ class AltitudeAAL(DerivedParameterNode):
                 peak_index = np.ma.argmax(alt_std.array[airborne_slice]) + \
                                         airborne_slice.start                
                 if first_kti.name == 'Liftoff':
-                    threshold_index = index_at_value(alt_std.array,
+                    threshold_index = index_at_value(alt_rad.array,
                                                      TRANSITION_ALT_RAD_TO_STD,
                                                      _slice=airborne_slice)
-                    difference = alt_rad.array[threshold_index] - \
-                        alt_std.array[threshold_index]
-                    alt_aal[threshold_index:peak_index] += difference
-                    pre_threshold = slice(airborne_slice.start,
-                                          threshold_index)
+                    join_index = int(threshold_index)
+                    difference = alt_rad.array[join_index] - \
+                        alt_std.array[join_index]
+                    alt_aal[join_index:peak_index] += difference
+                    pre_threshold = slice(airborne_slice.start, join_index)
                     alt_aal[pre_threshold] = alt_rad.array[pre_threshold]
                 
                 if second_kti.name == 'Touchdown':
                     reverse_slice = slice(airborne_slice.stop,
                                           airborne_slice.start, -1)
-                    threshold_index = index_at_value(alt_std.array,
+                    threshold_index = index_at_value(alt_rad.array,
                                                      TRANSITION_ALT_RAD_TO_STD,
-                                                     _slice=reverse_slice)   
-                    difference = alt_rad.array[threshold_index] - \
-                        alt_std.array[threshold_index]
-                    alt_aal[peak_index:threshold_index] += difference
-                    post_threshold = slice(threshold_index,
-                                           airborne_slice.stop)
+                                                     _slice=reverse_slice)
+                    join_index = int(threshold_index)+1
+                    difference = alt_rad.array[join_index] - \
+                        alt_std.array[join_index]
+                    alt_aal[peak_index:join_index] += difference
+                    post_threshold = slice(join_index, airborne_slice.stop)
                     alt_aal[post_threshold] = alt_rad.array[post_threshold]
                     
             
@@ -457,6 +608,12 @@ class AltitudeRadio(DerivedParameterNode):
     '''
     This class allows for variations in the Altitude Radio sensor, and the
     different frame types need to be identified accordingly.
+
+    POLARIS compensates for the apparent change in height caused by the
+    aircraft pitch attitude and the distance between the radio altimeter
+    antenna and the main wheels of the undercarriage. The parameter
+    raa_to_gear is measured in feet and is positive if the antenna is forward
+    of the mainwheels.
     '''
     @classmethod
     def can_operate(cls, available):
@@ -466,14 +623,18 @@ class AltitudeRadio(DerivedParameterNode):
     
     align_to_first_dependency = False
     
-    def derive(self, source_A=P('Altitude Radio (A)'),
-               source_B=P('Altitude Radio (B)'),
-               source_C=P('Altitude Radio (C)'),
-               frame=A('Frame')):
+    def derive(self, source_A = P('Altitude Radio (A)'),
+               source_B = P('Altitude Radio (B)'),
+               source_C = P('Altitude Radio (C)'),
+               frame = A('Frame'),
+               main_gear_to_alt_rad = A('Main Gear To Altitude Radio'),
+               pitch = P('Pitch')):
+        
         frame_name = frame.value if frame else None
         if frame_name in ['737-3C']:
             # Alternate samples (A) for this frame have latency of over 1 second,
             # so do not contribute to the height measurements available.
+            
             self.array, self.frequency, self.offset = \
                 merge_two_parameters(source_B, source_C)
             
@@ -486,6 +647,10 @@ class AltitudeRadio(DerivedParameterNode):
                             "'%s' so using source (A)", frame_name)
             self.array = source_A.array
             
+        # Now apply the offset if one has been provided
+        if main_gear_to_alt_rad:
+            self.array -= np.sin(np.radians(pitch.array)) * main_gear_to_alt_rad.value
+            
 
 class AltitudeRadioForFlightPhases(DerivedParameterNode):
     def derive(self, alt_rad=P('Altitude Radio')):
@@ -495,6 +660,17 @@ class AltitudeRadioForFlightPhases(DerivedParameterNode):
 class AltitudeQNH(DerivedParameterNode):
     name = 'Altitude QNH'
     units = 'ft'
+    
+    ''' TODO: This altitude Parameter is for events based upon height above
+    sea level, not standard altitude or airfield elevation. For example, in
+    the US the speed high below 10,000ft is based on height above sea level.
+    Ideally use the BARO selection switch when recorded, else based upon the
+    transition height for the departing airport in the climb and the arrival
+    airport in the descent. If no such data is available, transition at
+    18,000 ft (USA standard). because there is no European standard
+    transition height.
+    '''
+    
     def derive(self, alt_aal=P('Altitude AAL'), 
                land = A('FDR Landing Airport'),
                toff = A('FDR Takeoff Airport')):
@@ -628,29 +804,8 @@ class AltitudeTail(DerivedParameterNode):
         # Now apply the offset
         gear2tail = dist_gear_to_tail.value * METRES_TO_FEET
         ground2tail = ground_to_tail.value * METRES_TO_FEET
-        self.array = (alt_rad.array - np.sin(pitch_rad) * gear2tail) + ground2tail
-        
-class AltitudeTailRob(DerivedParameterNode):
-    """
-    This function allows for the distance between the radio altimeter antenna
-    and the point of the airframe closest to tailscrape.
-   
-    The parameter gear_to_tail is measured in metres and is the distance from 
-    the main gear to the point on the tail most likely to scrape the runway.
-    """
-    units = 'ft'
-    #TODO: Review availability of Attribute "Dist Gear To Tail"
-    def derive(self, alt_rad=P('Altitude Radio'), pitch=P('Pitch'),
-               ground_to_tail=A('Ground To Lowest Point Of Tail'),
-               dist_gear_to_tail=A('Main Gear To Lowest Point Of Tail')):
-        # Align the pitch attitude samples to the Radio Altimeter samples,
-        # ready for combining them.
-        pitch_rad = np.radians(pitch.array)
-        # Now apply the offset
-        gear2tail = dist_gear_to_tail.value * METRES_TO_FEET
-        ground2tail = ground_to_tail.value * METRES_TO_FEET
         self.array = (alt_rad.array - np.sin(pitch_rad) * gear2tail)
-        
+
 
 class ClimbForFlightPhases(DerivedParameterNode):
     #TODO: Optimise with numpy operations
@@ -658,17 +813,21 @@ class ClimbForFlightPhases(DerivedParameterNode):
         self.array = np.ma.zeros(len(alt_std.array))
         repair_mask(alt_std.array) # Remove small sections of corrupt data
         for air in airs:
-            ax = air.slice
-            # Initialise the tracking altitude value
-            curr_alt = alt_std.array[ax][0]
-            self.array[ax][0] = 0.0
-            for count in xrange(1, int(ax.stop - ax.start)):
-                if alt_std.array[ax][count] < alt_std.array[ax][count-1]:
-                    # Going down, keep track of current altitude
-                    curr_alt = alt_std.array[ax][count]
-                    self.array[ax][count] = 0.0
-                else:
-                    self.array[ax][count] = alt_std.array[ax][count] - curr_alt
+            deltas = np.ma.ediff1d(alt_std.array[air.slice], to_begin=0.0)
+            ups = np.ma.clump_unmasked(np.ma.masked_less(deltas,0.0))
+            for up in ups:
+                self.array[air.slice][up] = np.ma.cumsum(deltas[up])    
+
+            
+class DescendForFlightPhases(DerivedParameterNode):
+    def derive(self, alt_std=P('Altitude STD'), airs=S('Fast')):
+        self.array = np.ma.zeros(len(alt_std.array))
+        repair_mask(alt_std.array) # Remove small sections of corrupt data
+        for air in airs:
+            deltas = np.ma.ediff1d(alt_std.array[air.slice], to_begin=0.0)
+            downs = np.ma.clump_unmasked(np.ma.masked_greater(deltas,0.0))
+            for down in downs:
+                self.array[air.slice][down] = np.ma.cumsum(deltas[down])
     
     
 class ControlColumn(DerivedParameterNode):
@@ -725,6 +884,8 @@ class ControlColumnForce(DerivedParameterNode):
                force_capt=P('Control Column Force (Capt)'),
                force_fo=P('Control Column Force (FO)')):
         self.array = force_capt.array + force_fo.array
+        # TODO: Check this summation is correct in amplitude and phase.
+        # Compare with Boeing charts for the 737NG.
 
 
 
@@ -749,8 +910,12 @@ class DistanceToLanding(DerivedParameterNode):
         ##ils_gs=P('Glideslope Deviation'), ##ldg=P('LandingAirport')): #
         # this version gets closer to zero as we approach the final touchdown
         # and then increases as we go past
-        dist_flown_at_tdwn = dist.array[tdwns.get_last().index]
-        self.array = np.ma.abs(dist_flown_at_tdwn - dist.array)
+        if tdwns:
+            dist_flown_at_tdwn = dist.array[tdwns.get_last().index]
+            self.array = np.ma.abs(dist_flown_at_tdwn - dist.array)
+        else:
+            self.array = np.zeros_like(dist.array)
+            self.array.mask=True        
 
 
 class DistanceTravelled(DerivedParameterNode):
@@ -1310,6 +1475,20 @@ class FuelQty(DerivedParameterNode):
         self.array = np.ma.sum(stacked_params, axis=0)
 
 
+class GearDown(DerivedParameterNode):
+    align_to_first_dependency = False
+    def derive(self, gl=P('GEAR DOWN LEFT'),
+               gn=P('GEAR DOWN NOSE'),
+               gr=P('GEAR DOWN RIGHT')):
+        '''
+        Highly aircraft dependent, so likely to be extended.
+        '''
+        # 737-5 has nose gear sampled alternately with mains. No obvious way
+        # to accommodate mismatch of the main gear positions, so assume that
+        # the right wheel does the same as the left !
+        self.array, self.frequency, self.offset = merge_two_parameters(gl, gn)
+        
+        
 class GrossWeightSmoothed(DerivedParameterNode):
     '''
     Gross weight is usually sampled at a low rate and can be very poor in the
@@ -1322,7 +1501,8 @@ class GrossWeightSmoothed(DerivedParameterNode):
     
     This routine makes the best of both worlds by using fuel flow to compute
     short term changes in weight and mapping this onto the level attitude
-    data.
+    data. We avoid using the recorded fuel weight in this calculation,
+    however it is used in the Zero Fuel Weight calculation.
     '''
     align_to_first_dependency = False
     
@@ -1391,11 +1571,39 @@ class FlapLever(DerivedParameterNode):
             self.array = step_values(flap.array, flap_steps)
         
             
+class FlapSurface(DerivedParameterNode):
+    """
+    Gather the recorded flap parameters and convert into a single analogue.
+    """
+    align_to_first_dependency = False
+
+    @classmethod
+    def can_operate(cls, available):
+        # works with any combination of params available
+        return True
+
+    def derive(self, flap_A=P('Flap (1)'), flap_B=P('Flap (2)'),
+               frame = A('Frame')):
+        frame_name = frame.value if frame else None
+
+        if frame_name in ['737-5']:
+            self.array, self.frequency, self.offset = merge_two_parameters(flap_A, flap_B)
+            
+                    
 class Flap(DerivedParameterNode):
-    """
-    Steps raw Flap angle into detents.
-    """
-    def derive(self, flap=P('Flap Surface'), series=A('Series'), family=A('Family')):
+    @classmethod
+    def can_operate(cls, available):
+        # works with any combination of params available
+        return True
+
+    def derive(self, flap=P('Flap Surface'), 
+               series=A('Series'), family=A('Family')):
+        """
+        Steps raw Flap angle into detents.
+        """
+        flap_steps=[0, 1, 5, 15, 30] # VERY TEMPORARY FIX ########################################
+        """
+        !!! REINSTATE AS SOON AS POSSIBLE !!!
         try:
             flap_steps = get_flap_map(series.value, family.value) 
         except ValueError:
@@ -1404,7 +1612,9 @@ class Flap(DerivedParameterNode):
             # round to nearest 5 degrees
             self.array = round_to_nearest(flap.array, 5.0)
         else:
-            self.array = step_values(flap.array, flap_steps)
+        !!! REINSTATE AS SOON AS POSSIBLE !!!
+        """
+        self.array = step_values(flap.array, flap_steps)
         
             
 class Slat(DerivedParameterNode):
@@ -1733,13 +1943,18 @@ class ILSRange(DerivedParameterNode):
             # Use recorded groundspeed where available, otherwise estimate
             # range using true airspeed. This is because there are aircraft
             # which record ILS but not groundspeed data.
-            speed = gspd if gspd else tas
+            if gspd:
+                speed = np.ma.where(gspd.array.mask[this_loc.slice], \
+                                    tas.array.data[this_loc.slice], \
+                                    gspd.array.data[this_loc.slice]) 
+            else:
+                speed = tas.array.data[this_loc.slice]
                 
             # Estimate range by integrating back from zero at the end of the
             # phase to high range values at the start of the phase.
-            spd_repaired = repair_mask(speed.array[this_loc.slice])
+            spd_repaired = repair_mask(speed)
             ils_range[this_loc.slice] = integrate(
-                spd_repaired, speed.frequency, scale=KTS_TO_FPS, direction='reverse')
+                spd_repaired, gspd.frequency, scale=KTS_TO_FPS, direction='reverse')
             
             try:
                 start_2_loc, gs_2_loc, end_2_loc, pgs_lat, pgs_lon = \
@@ -1978,12 +2193,13 @@ def adjust_track(lon,lat,loc_est,ils_range,ils_loc,alt_aal,gspd,tas,
     return track_linking(lat.array, lat_adj), track_linking(lon.array, lon_adj)
 
           
-"""
+
 class Mach(DerivedParameterNode):
-    def derive(self, ias = P('Airspeed'), tat = P('TAT'),
-               alt = P('Altitude STD')):
-        return NotImplemented
-"""        
+    def derive(self, cas = P('Airspeed'), alt = P('Altitude STD')):
+        dp = cas2dp(cas.array)
+        p = alt2press(alt.array)
+        self.array = dp_over_p2mach(dp/p)
+       
 
 class RateOfClimb(DerivedParameterNode):
     """
@@ -2161,10 +2377,6 @@ class LongitudeStraighten(DerivedParameterNode, CoordinatesStraighten):
     def derive(self,
                lon=P('Longitude'),
                lat=P('Latitude')):
-        """
-        Acceleration along track may be added to increase the sample rate and
-        alignment of the resulting smoothed track parameter.
-        """
         self.array = self._smooth_coordinates(lon, lat)
 
     
@@ -2309,7 +2521,6 @@ class Speedbrake(DerivedParameterNode):
                s11=P('Spoiler (11)'),
                s12=P('Spoiler (12)')):
         return NotImplemented
-
 
 
 """
