@@ -64,13 +64,14 @@ fi
 # Enter the Jenkins workspace
 cd ${WORKSPACE}
 
-# Update pip to the latest version and use the interna PyPI server
+# Use the interna PyPI server
 export PIP_INDEX_URL=http://pypi.flightdataservices.com/simple/
 
 # Update easy_install/distutil PyPI server
 echo "[easy_install]"                                          >  ~/.pydistutils.cfg
 echo "index_url = http://pypi.flightdataservices.com/simple/"  >> ~/.pydistutils.cfg
 
+Update pip to the latest version
 pip install --upgrade pip
 
 # Install Jenkins, Sphinx and Setup requirements
