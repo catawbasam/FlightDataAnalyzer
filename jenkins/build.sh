@@ -57,7 +57,7 @@ if [ -f setup.py ] && [ -f setup.cfg ]; then
 
     # Get the tag.
     TAG_BUILD=`grep tag_build ${WORKSPACE}/setup.cfg | cut -d'=' -f2 | sed 's/ //g'`
-
+    
     # If the build is tagged, in any way, then append the Jenkins build number.
     # If the build is not tagged, it is assumed to be a release.
     if [ -n "${TAG_BUILD}" ]; then

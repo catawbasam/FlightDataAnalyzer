@@ -43,7 +43,7 @@ setup(
     platforms=[
         'OS Independent',
     ],        
-    keywords=['flight', 'data', 'analysis', 'monitoring'],
+    keywords=['flight', 'data', 'analyser', 'analysis', 'monitoring', 'foqa'],
     classifiers=[
         'Development Status :: 5 - Production/Stable',
         'Environment :: Console',
