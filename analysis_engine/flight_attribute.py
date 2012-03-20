@@ -824,9 +824,19 @@ class Vref(FlightAttributeNode):
     Based on weight and flap at time of landing.
     '''
     name = 'FDR Vref'
-    def derive(self, aircraft_model=A('AFR Aircraft Model'),
+    def derive(self, 
+               #aircraft_model=A('AFR Aircraft Model'),
                weight_touchdown=KPV('Gross Weight At Touchdown'),
                flap_touchdown=KPV('Flap At Touchdown')):
+
+
+
+
+        # I have no idea why this is called FDR Vref. Very confusing.
+        self.set_flight_attr(110.0) # It doesn't get simpler than this ! DJ
+
+
+
         '''
         Do not source from AFR, only set attribute if V2 is recorded/derived.
         '''
@@ -842,7 +852,7 @@ class Vref(FlightAttributeNode):
             ##interp = interp1d(enumerate(mapping['Flaps']))
             ##interp(index)
             
-        return NotImplemented
+        ## return NotImplemented
                 
 ##VREF_MAP = 
 ##{'B737-2_800010_00.add':

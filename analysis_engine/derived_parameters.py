@@ -15,6 +15,7 @@ from analysis_engine.library import (align,
                                      bearings_and_distances,
                                      blend_alternate_sensors,
                                      blend_two_parameters,
+                                     clip,
                                      coreg,
                                      first_order_lag,
                                      first_order_washout,
@@ -201,127 +202,35 @@ class AirspeedMinusV2(DerivedParameterNode):
         self.array = airspeed.array - v2.array
 
 
+class AirspeedMinusV2For3Sec(DerivedParameterNode):
+    #TODO: TESTS
+    def derive(self, spd_v2=P('AirspeedMinusV2')):
+        self.array = clip(spd_v2.array, 3.0, spd_v2.frequency)
+        
+
+class AirspeedMinusV2For5Sec(DerivedParameterNode):
+    #TODO: TESTS
+    def derive(self, airspeed=P('AirspeedMinusV2')):
+        self.array = clip(spd_v2.array, 5.0, spd_v2.frequency)
+        
+
 class AirspeedMinusVref(DerivedParameterNode):
     #TODO: TESTS
-    def derive(self, airspeed=P('Airspeed'), vref=P('Vref')):
-        self.array = airspeed.array - vref.array
+    def derive(self, airspeed=P('Airspeed'), vref=A('FDR Vref')):
+        self.array = airspeed.array - vref.value
 
-#class StaticAirTemp(DerivedParameterNode):
-    #---------------------------------------------------------------------------
-    # Class initialisation and can operate preparation
-    #---------------------------------------------------------------------------
-    ##def __init__(self):
-        ##'''
-        ##Initialise constants used by the air data algorithms
-        ##'''
-        ##self.P0 = 101325.0 # Pressure at sea level, pa
-        ##self.Rhoref = 1.2250    # Density at sea level, kg/m**3
-        ##self.A0 = 340.2941      # Speed of sound at sea level, m/s
-        ##self.T0 = 288.15        # Sea level temperature 15 C = 288.15 K
-        ##self.L0 = -0.0065       # Lapse rate C/m
-        ##self.g = 9.80665        # Acceleration due to gravity, m/s**2
-        ##self.Rd = 287.05307     # Gas constant for dry air, J/kg K
-        
-        ### Values at 11km:
-        ##self.T11 =  self.T0 + 11000 * self.L0
-        ##self.PR11 = (self.T11 / self.T0) ** ((-self.g) / (self.Rd * self.L0)) 
-        ##self.P11 = self.PR11 * self.P0
-        ##return
-    
-    ##""" Calculation of air temperature from lapse rate based on standard atmosphere"""
-    ##def can_operate(self):
-        ##return 'Altitude STD' in available
 
-    ###---------------------------------------------------------------------------
-    ### Air data calculations adapted from AeroCalc V0.11 to suit POLARIS Numpy
-    ### data format. For increased speed, only standard POLARIS units used.
-    ### 
-    ### AeroCalc is Copyright (c) 2008, Kevin Horton and used under open source
-    ### license with permission. For copyright notice and disclaimer, please see
-    ### airspeed.py source code in AeroCalc.
-    ###---------------------------------------------------------------------------
-    
-    ##def alt2press(self, alt_ft):
-        ##press = self.P0  * self.alt2press_ratio(alt_ft)   
-        ##return press
-
-    ##def alt2press_ratio(self, alt_ft):
-        ##alt_km = (alt_ft / METRES_TO_FEET) / 1000
-       
-        ##if alt_km <= 11:
-            ##return self._alt2press_ratio_gradient(alt_km, 0, self.P0, self.T0, self.L0)
-        ##if alt_km <= 20:
-            ##return self._alt2press_ratio_isothermal(alt_km, 11, self.P11, self.T11)
-        
-    ##def cas2dp(self, cas_kt):
-        ##"""
-        ##Convert corrected airspeed to pressure rise (includes allowance for
-        ##compressibility)
-        ##"""
-        ##if cas_kt > 661.48:
-            ##raise ValueError, 'Supersonic airspeed compuations not included'
-        ##cas_mps = np.ma.masked_greater(cas_kt, 661.48) * KTS_TO_MPS
-        ##return self.P0 * (((self.Rhoref * cas_mps*cas_mps)/(7.*self.P0) + 1.)**3.5 - 1.)
-        
-    ##def cas_alt2mach(self, cas, alt_ft):
-        ##"""
-        ##Return the mach that corresponds to a given CAS and altitude.
-        ##"""
-        ##dp = self.cas2dp(cas)
-        ##p = self.alt2press(alt_ft)
-        ##dp_over_p = dp / p
-        ##mach = self.dp_over_p2mach(dp_over_p)
-        ##return mach
-
-    ##def dp_over_p2mach(self, dp_over_p):
-        ##"""
-        ##Return the mach number for a given delta p over p. (Subsonic only).
-        ##"""
-        ##mach = np.sqrt(5.0 * ((dp_over_p + 1.0) ** (2.0/7.0) - 1.0))
-        ##return mach
-    
-    ##def dp2tas(self, dp, alt_ft, temp,):
-    
-        ##P = self.alt2press(alt_ft)
-    
-        ##press_ratio = self.alt2press_ratio(alt_ft)
-        ##temp_ratio = (temp + 273.15) / 288.15
-        ##density_ratio = press_ratio / temp_ratio
-        ##Rho = Rho0 * density_ratio
-    
-        ##tas = self._dp2speed(dp, P, Rho, press_units, speed_units)
-        ##return tas
-
-    ##def lapse_rate(self, alt_ft):
-        ##""" Convert altitude to temperature using lapse rate"""
-        ##alt_m = alt_ft / METRES_TO_FEET
-        ##if alt_m < 11000:  # 11km top of Troposphere
-            ##return 15.0 + self.L0 * alt_m
-        ##else:
-            ##return -56.5
-  
-    ##def _alt2press_ratio_gradient(self, H, Hb, Pb, Tb, L):
-        ### eqn from USAF TPS PEC binder, page PS1-31
-        ##return (Pb / self.P0) * (1 + (L / Tb) * (H - Hb)) ** ((-1000 * self.g) / (self.Rd * L))
-    
-    ##def _alt2press_ratio_isothermal(self, H, Hb, Pb, Tb,):
-        ### eqn from USAF TPS PEC binder, page PS1-26
-        ##return (Pb / self.P0) * np.exp((-1 * (H - Hb)) * ((1000 * self.g) / (self.Rd * Tb)))
-
-    ##---------------------------------------------------------------------------
-    ## Derive method
-    ##---------------------------------------------------------------------------
-    #def derive(self, alt_std = P('Altitude STD'),
-               #cas = P('Airspeed'),
-               #tat = P('TAT')):
-        #if tat:
-            #tat_func = np.vectorize(self.cas_alt2mach)
-            #self.array = tat_func(cas.array, alt_std.array)
-        #else:
-            #lapse_func = np.vectorize(self.lapse_rate)
-            #self.array = lapse_func(alt_std.array)
+class AirspeedMinusVrefFor3Sec(DerivedParameterNode):
+    #TODO: TESTS
+    def derive(self, spd_vref=P('Airspeed Minus Vref')):
+        self.array = clip(spd_vref.array, 3.0, spd_vref.frequency)
 
         
+class AirspeedMinusVrefFor5Sec(DerivedParameterNode):
+    #TODO: TESTS
+    def derive(self, spd_vref=P('Airspeed Minus Vref')):
+        self.array = clip(spd_vref.array, 5.0, spd_vref.frequency)
+
         
 class AirspeedTrue(DerivedParameterNode):
     @classmethod
@@ -1597,13 +1506,11 @@ class Flap(DerivedParameterNode):
         return True
 
     def derive(self, flap=P('Flap Surface'), 
-               series=A('Series'), family=A('Family')):
+               series=A('Series'), family=A('Family'),
+               flap_steps=A('Flap Selections')):
         """
         Steps raw Flap angle into detents.
         """
-        flap_steps=[0, 1, 5, 15, 30] # VERY TEMPORARY FIX ########################################
-        """
-        !!! REINSTATE AS SOON AS POSSIBLE !!!
         try:
             flap_steps = get_flap_map(series.value, family.value) 
         except ValueError:
@@ -1612,9 +1519,7 @@ class Flap(DerivedParameterNode):
             # round to nearest 5 degrees
             self.array = round_to_nearest(flap.array, 5.0)
         else:
-        !!! REINSTATE AS SOON AS POSSIBLE !!!
-        """
-        self.array = step_values(flap.array, flap_steps)
+            self.array = step_values(flap.array, flap_steps)
         
             
 class Slat(DerivedParameterNode):

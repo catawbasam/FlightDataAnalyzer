@@ -611,6 +611,22 @@ class SectionNode(Node, list):
                 return elem
         return None
     
+    def get_surrounding(self, index):
+        '''
+        Returns a list of sections where the index is surrounded by the
+        section's slice.
+        
+        :param index: The index being inspected
+        :type index: float
+        :returns: List of surrounding sections
+        :rtype: List of sections
+        '''
+        surrounded = []
+        for section in self:
+            if section.slice.start <= index <= section.slice.stop:
+                surrounded.append(section)
+        return surrounded
+    
 
 class FlightPhaseNode(SectionNode):
     """ Is a Section, but called "phase" for user-friendliness!

@@ -471,32 +471,52 @@ def datetime_of_index(start_datetime, index, frequency=1):
     
 
 # Previously known as Duration
-def clip(a, period, hz=1.0):
+def clip(array, period, hz=1.0, remove='peaks'):
     '''
-    This function clips the maxima and minima of a data array such that the 
+    This function clips the maxima of a data array such that the 
     values are present (or exceeded) in the original data for the period
     defined. After processing with this function, the resulting array can be 
     used to detect maxima or minima (in exactly the same way as a non-clipped 
     parameter), however the values will have been met or exceeded in the 
     original data for the given duration.
         
-    :param a: Masked array of floats
-    :type a: Numpy masked array
+    :param array: Masked array of floats
+    :type array: Numpy masked array
     :param period: Time for the output values to be sustained(sec)
     :type period: int/float
     :param hz: Frequency of the data_array
     :type hz: float
+    :param remove: type of data to clip.
+    :type remove: string, default to 'peaks' option 'troughs'
     '''
 
     if hz <= 0.01:
         raise ValueError('Duration called with sample rate outside permitted range')
 
-    delay = period * hz
+    delay = (int(period * hz)-1)/2
     # Trap low values. This can occur, for an example, where a parameter has
     # a lower sample rate than expected.
-    if delay < 1.0:
+    if delay < 1:
         raise ValueError('Duration called with period too short to have an effect')
+    if remove not in ['peaks', 'troughs']:
+        raise ValueError('Clip called with unrecognised removal mode')
+    
+    # Preparation of convenient numbers
+    width = len(array) - 2*delay
+    result = repair_mask(array, frequency=hz, repair_duration=period-(1/hz))
+    
+    for step in range(2*delay+1):
+        if remove == 'peaks':
+            result[delay:-delay] = np.ma.minimum(result[delay:-delay], array[step:step+width])
+        else:
+            result[delay:-delay] = np.ma.maximum(result[delay:-delay], array[step:step+width])
 
+    # Stretch the ends out and return the answer.
+    result[:delay] = result[delay]
+    result[-delay:] = result[-(delay+1)]
+    return result
+
+    """
     # Compute an array of differences across period, such that each maximum or
     # minimum results in a negative result.
     b = (a[:-delay]-a[delay-1:-1]) * (a[1:1-delay]-a[delay:])
@@ -520,6 +540,7 @@ def clip(a, period, hz=1.0):
         else:
             break # No need to process the rest of the array.
     return a
+    """
 
 def first_order_lag (in_param, time_constant, hz, gain = 1.0, initial_value = None):
     '''
@@ -1101,6 +1122,12 @@ def slices_overlap(first_slice, second_slice):
         raise ValueError("Negative step not supported")
     return first_slice.start < second_slice.stop \
            and second_slice.start < first_slice.stop
+
+def section_contains_kti(section, kti):
+    '''
+    Often want to check that a KTI value is inside a given slice.
+    '''
+    return section.slice.start <= kti.index <= section.slice.stop
 
 def latitudes_and_longitudes(bearings, distances, reference):
     """

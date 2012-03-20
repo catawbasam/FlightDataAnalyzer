@@ -9,7 +9,7 @@ from datetime import datetime
 # http://www.java2s.com/Open-Source/Python/Math/Numerical-Python/numpy/numpy/ma/testutils.py.htm
 import utilities.masked_array_testutils as ma_test
 
-from analysis_engine.node import P, S
+from analysis_engine.node import P, S, Section, KTI
 from analysis_engine.library import *
 
 
@@ -634,13 +634,13 @@ class TestClip(unittest.TestCase):
 
         engine_egt = np.array([600.0,700.0,800.0,910.0,950.0,970.0,940.0,\
                                 960.0,920.0,890.0,840.0,730.0])
-        output_array = np.array([600.0,700.0,800.0,910.0,910.0,910.0,910.0,\
-                                910.0,910.0,890.0,840.0,730.0])
+        output_array = np.array([600.0,600.0,600.0,700.0,800.0,910.0,920.0,\
+                                890.0,840.0,730.0,730.0,730.0])
         result = clip(engine_egt, 5)
         np.testing.assert_array_equal(result, output_array)
         
     def test_clip_correct_result(self):
-        result = clip(self.test_array, 3)
+        result = clip(self.test_array, 7)
         np.testing.assert_array_almost_equal(result, self.result_array)
     
     def test_clip_rejects_negative_period(self):
@@ -659,18 +659,16 @@ class TestClip(unittest.TestCase):
         an_array = np.array([0,1])
         self.assertRaises(ValueError, clip, an_array, 1.0, hz=0.0)
         
-    def test_clip_no_change_below_period(self):
-        input_array = np.array([0,1,2,2,2,1,0])
-        output_array = input_array
-        result = clip(input_array, 1, hz=2)
-        np.testing.assert_array_equal(result, output_array)
+    def test_clip_rejects_meaningless_call(self):
+        an_array = np.array([0,1])
+        self.assertRaises(ValueError, clip, an_array, 1.0, remove='everything')
         
-    def test_clip_change_at_period(self):
-        input_array = np.array([0.6,1.1,2.1,3.5,1.9,1.0,0])
-        output_array = np.array([0.6,1.1,1.1,1.1,1.1,1.0,0.0])
-        result = clip(input_array, 6, hz=0.5)
-        np.testing.assert_array_equal(result, output_array)
-
+    def test_clip_minimum(self):
+        an_array = np.array([9,8,7,6,5,4,3,2,1,2,3,4,5,6,7,8])
+        result = clip(an_array, 5, remove='troughs')
+        expected = np.array([9,9,9,8,7,6,5,4,3,4,5,6,7,8,8,8])
+        np.testing.assert_array_almost_equal(result, expected)
+        
 
 class TestDatetimeOfIndex(unittest.TestCase):
     def test_index_of_datetime(self):
@@ -1599,6 +1597,14 @@ class TestRMSNoise(unittest.TestCase):
         result = rms_noise(array)
         expected = 0.0
         self.assertAlmostEqual(result, expected)
+        
+        
+class TestSectionContainsKti(unittest.TestCase):
+    def test_valid(self):
+        section =  S(items=[Section('first_section', slice(4,6))])
+        kti = KTI(items=[KTI('More Test', 5)])
+        self.assertTrue(section_contains_kti(section.get_first(), kti))
+        
         
 class TestShiftSlice(unittest.TestCase):
     def test_shift_slice(self):
