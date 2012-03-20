@@ -3,6 +3,7 @@ import sys
 from datetime import datetime, timedelta
 import mock
 import numpy as np
+import os
 
 import utilities.masked_array_testutils as ma_test
 from utilities.struct import Struct
@@ -339,30 +340,41 @@ class TestAltitudeAAL(unittest.TestCase):
     def test_can_operate(self):
         opts = AltitudeAAL.get_operational_combinations()
         self.assertTrue(('Altitude AAL For Flight Phases',) in opts)
-        self.assertTrue(('Rate Of Climb', 'Altitude STD', 'Altitude Radio',
-                         'Fast') in opts)
-        self.assertTrue(('Rate Of Climb', 'Altitude AAL For Flight Phases',
-                         'Altitude STD', 'Altitude Radio', 'Fast') in opts)        
+        self.assertTrue(('Liftoff', 'Touchdown', 'Takeoff', 'Landing',
+                         'Rate Of Climb', 'Altitude STD', 'Altitude Radio',
+                         'Airspeed') in opts)
+        self.assertTrue(('Liftoff', 'Touchdown', 'Takeoff', 'Landing',
+                         'Rate Of Climb', 'Altitude STD', 'Altitude Radio',
+                         'Airspeed', 'Altitude AAL For Flight Phases',) in opts)        
         
-    def test_altitude_AAL_basic(self):
-        slow_and_fast_data = np.ma.array(range(70,120,10)+range(140,75,-10))
-        phase_fast = Fast()
-        phase_fast.derive(Parameter('Airspeed', slow_and_fast_data))
-        roc = Parameter('Rate Of Climb',np.ma.array([0]*3+[600]*3+[-600]*3+[0]*4))
-        press_data = np.ma.array([0, 0, 0, 60, 120, 200, 
-                                400, 250, 130, 80, 60, 60, 60], dtype=float)
-        altitude = Parameter('Altitude STD', press_data)
-        rad_data = np.ma.array([0, 0, 0, 60, 120, 200, 
-                                200, 200, 80, 20, -1, -2, 0], dtype=float)
-        alt_radio = Parameter('Altitude Radio', rad_data)
+    def test_derive(self):
+        test_data_dir = os.path.join('test_data', 'Altitude AAL')
+        
+        alt_std_array = np.ma.array(np.load(os.path.join(test_data_dir, 'alt_std_data.npy')),
+                                    mask=np.load(os.path.join(test_data_dir, 'alt_std_mask.npy')))
+        alt_rad_array = np.ma.array(np.load(os.path.join(test_data_dir, 'alt_rad_data.npy')),
+                                    mask=np.load(os.path.join(test_data_dir, 'alt_rad_mask.npy')))
+        airspeed_array = np.ma.array(np.load(os.path.join(test_data_dir, 'airspeed_data.npy')),
+                                     mask=np.load(os.path.join(test_data_dir, 'airspeed_mask.npy')))
+        roc_array = np.ma.array(np.load(os.path.join(test_data_dir, 'roc_data.npy')),
+                                mask=np.load(os.path.join(test_data_dir, 'roc_mask.npy')))
+        alt_std = P(array=alt_std_array)
+        alt_rad = P(array=alt_rad_array)
+        airspeed = P(array=airspeed_array)
+        roc = P(array=roc_array)
+                                
+        liftoffs = KTI('Liftoff', items=[KeyTimeInstance(index=2375.2635769148078, name='Liftoff')])
+        touchdowns = KTI('Touchdown', items=[KeyTimeInstance(index=2064.1310460955269, name='Touchdown')])
+        takeoffs = S('Takeoff', items=[Section(name='Takeoff', slice=slice(267.97237318840581, 300.31930865921788, None))])
+        landings = S('Landing', items=[Section(name='Landing', slice=slice(2060.3218750000001, 2103.2818130630631, None))])
+        
         alt_aal = AltitudeAAL()
-        alt_aal.derive(roc, altitude, altitude, alt_radio, phase_fast)
-        expected = np.ma.array(data=[0,0,0.0,12.8571428571,43.4693877551,
-                                     85.3352769679,139.525197834,169.660855596,
-                                     152.614896854,119.01064061,87.7218861501,
-                                     62.2299186786,0],
-                               mask = [[True]+[False]*11+[True]])
-        ma_test.assert_masked_array_approx_equal(alt_aal.array, expected)
+        alt_aal.derive(liftoffs, touchdowns, takeoffs, landings,
+                       roc, alt_std, alt_rad, airspeed)
+        
+        expected_result = np.ma.array(np.load(os.path.join(test_data_dir, 'alt_aal_data.npy')),
+                                      mask=np.load(os.path.join(test_data_dir, 'alt_aal_mask.npy'))) 
+        ma_test.assert_array_equal(alt_aal.array, expected_result)
     
     
 class TestAltitudeAALForFlightPhases(unittest.TestCase):

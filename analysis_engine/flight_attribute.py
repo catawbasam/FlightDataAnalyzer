@@ -4,7 +4,7 @@ import logging
 import itertools
 import operator
 
-from analysis_engine import ___version___
+from analysis_engine import __version__
 from analysis_engine.api_handler import get_api_handler, NotFoundError
 from analysis_engine.library import datetime_of_index, min_value, max_value
 from analysis_engine.node import A, KTI, KPV, FlightAttributeNode, P, S
@@ -745,7 +745,7 @@ class LandingGrossWeight(FlightAttributeNode):
 
 class LandingPilot(FlightAttributeNode, DeterminePilot):
     "Pilot flying at takeoff, Captain, First Officer or None"
-    name = 'FDR Takeoff Pilot'
+    name = 'FDR Landing Pilot'
     @classmethod
     def can_operate(cls, available):
         controls_available = all([n in available for n in ('Pitch (Capt)',
@@ -816,7 +816,7 @@ class Version(FlightAttributeNode):
         should always derive a flight attribute, 'Start Datetime' is its only
         dependency as it will always be present, though it is unused.
         '''
-        self.set_flight_attr(___version___)
+        self.set_flight_attr(__version__)
 
 
 class Vref(FlightAttributeNode):

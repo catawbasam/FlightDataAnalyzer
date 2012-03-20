@@ -1498,7 +1498,13 @@ class AirspeedBelowFL100Max(KeyPointValueNode):
                                            alt_std.slices_below(10000),
                                            max_value)
 
-
+class AltitudeRadioDividedByDistanceToLanding3000To50FtMin(KeyPointValueNode):
+    def derive(self, alt_aal=P('Altitude AAL'), alt_radio=P('Altitude Radio'), 
+               dtl=P('Distance To Landing')):
+        for desc_slice in alt_aal.slices_from_to(3000, 50):
+            angle_array = alt_radio.array[desc_slice]/dtl.array[desc_slice]
+            
+    
 class TailClearanceOnApproach(KeyPointValueNode):
     def derive(self, alt_aal=P('Altitude AAL'), alt_tail=P('Altitude Tail'), 
                  dtl=P('Distance To Landing')):
