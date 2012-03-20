@@ -1868,7 +1868,7 @@ def smooth_track(lat, lon):
     slider=np.ma.ones(5)*r/4
     slider[2]=1-r
 
-    cost_0 = 9e+99
+    cost_0 = float('inf')
     cost = smooth_track_cost_function(lat_s, lon_s, lat, lon)
     
     while cost < cost_0:  # Iterate to an optimal solution.
