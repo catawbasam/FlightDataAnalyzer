@@ -34,6 +34,7 @@ class TestAlign(unittest.TestCase):
     def test_align_basic(self):
         class DumParam():
             def __init__(self):
+                self.data_type = None
                 self.offset = None
                 self.frequency = None
                 self.array = []
@@ -57,6 +58,7 @@ class TestAlign(unittest.TestCase):
     def test_align_discrete(self):
         class DumParam():
             def __init__(self):
+                self.data_type = None
                 self.offset = None
                 self.frequency = None
                 self.array = []
@@ -71,7 +73,7 @@ class TestAlign(unittest.TestCase):
         second.offset = 0.7
         second.array = np.ma.array([0,0,1,1,0,1,0,1],dtype=float)
         
-        result = align(second, first, signaltype='Discrete') #  sounds more natural so order reversed 20/11/11
+        result = align(second, first, data_type='Discrete') #  sounds more natural so order reversed 20/11/11
         np.testing.assert_array_equal(result.data, [0,0,0,1,1,0,1,0])
         np.testing.assert_array_equal(result.mask, False)
                         
@@ -79,6 +81,7 @@ class TestAlign(unittest.TestCase):
     def test_align_multi_state(self):
         class DumParam():
             def __init__(self):
+                self.data_type = None
                 self.offset = None
                 self.frequency = None
                 self.array = []
@@ -93,7 +96,7 @@ class TestAlign(unittest.TestCase):
         second.offset = 0.0
         second.array = np.ma.array([0,1,2,3,4],dtype=float)
         
-        result = align(second, first, signaltype='Discrete') #  sounds more natural so order reversed 20/11/11
+        result = align(second, first, data_type='Discrete') #  sounds more natural so order reversed 20/11/11
         np.testing.assert_array_equal(result.data, [1,2,3,4,4])
         np.testing.assert_array_equal(result.mask, False)
     
@@ -101,6 +104,7 @@ class TestAlign(unittest.TestCase):
         # Both arrays at 1Hz, master behind slave in time
         class DumParam():
             def __init__(self):
+                self.data_type = None
                 self.offset = None
                 self.frequency = 1
                 self.array = []
@@ -122,6 +126,7 @@ class TestAlign(unittest.TestCase):
         # Both arrays at 1Hz, master ahead of slave in time
         class DumParam():
             def __init__(self):
+                self.data_type = None
                 self.offset = None
                 self.frequency = 1
                 self.array = []
@@ -141,6 +146,7 @@ class TestAlign(unittest.TestCase):
         # Master at higher frequency than slave
         class DumParam():
             def __init__(self):
+                self.data_type = None
                 self.offset = None
                 self.frequency = 1
                 self.array = []
@@ -163,6 +169,7 @@ class TestAlign(unittest.TestCase):
         # Master at higher frequency than slave
         class DumParam():
             def __init__(self):
+                self.data_type = None
                 self.offset = None
                 self.frequency = 1
                 self.array = []
@@ -187,6 +194,7 @@ class TestAlign(unittest.TestCase):
         # Master at higher frequency than slave
         class DumParam():
             def __init__(self):
+                self.data_type = None
                 self.offset = None
                 self.frequency = 1
                 self.array = []
@@ -217,6 +225,7 @@ class TestAlign(unittest.TestCase):
         # Master at higher frequency than slave
         class DumParam():
             def __init__(self):
+                self.data_type = None
                 self.offset = None
                 self.frequency = 1
                 self.array = []
@@ -242,6 +251,7 @@ class TestAlign(unittest.TestCase):
         # Master at higher frequency than slave
         class DumParam():
             def __init__(self):
+                self.data_type = None
                 self.offset = None
                 self.frequency = 1
                 self.array = []
@@ -270,6 +280,7 @@ class TestAlign(unittest.TestCase):
         # Master at higher frequency than slave
         class DumParam():
             def __init__(self):
+                self.data_type = None
                 self.offset = None
                 self.frequency = 1
                 self.array = []
@@ -292,6 +303,7 @@ class TestAlign(unittest.TestCase):
     def test_align_superframe_master(self):
         class DumParam():
             def __init__(self):
+                self.data_type = None
                 self.offset = None
                 self.frequency = 1
                 self.offset = 0.0
@@ -309,6 +321,7 @@ class TestAlign(unittest.TestCase):
     def test_align_superframe_slave(self):
         class DumParam():
             def __init__(self):
+                self.data_type = None
                 self.offset = None
                 self.frequency = 1
                 self.offset = 0.0
@@ -326,6 +339,7 @@ class TestAlign(unittest.TestCase):
     def test_align_superframes_both(self):
         class DumParam():
             def __init__(self):
+                self.data_type = None
                 self.offset = None
                 self.frequency = 1
                 self.offset = 0.0
@@ -343,10 +357,12 @@ class TestAlign(unittest.TestCase):
     def test_align_8_hz_half_hz(self):
         class DumParam():
             def __init__(self):
+                self.data_type = None
                 self.offset = None
                 self.frequency = 1
                 self.offset = 0.0
                 self.array = []
+                
         master = DumParam()
         master.array = np.ma.arange(22576)
         master.frequency = 8.0
@@ -360,6 +376,7 @@ class TestAlign(unittest.TestCase):
         # Slave once per superframe, master at 1Hz, Multi-State
         class DumParam():
             def __init__(self):
+                self.data_type = None
                 self.offset = None
                 self.frequency = 1
                 self.array = []
@@ -367,7 +384,7 @@ class TestAlign(unittest.TestCase):
         slave = DumParam()
         slave.array = np.ma.array([1, 2, 3, 4], dtype=float)
         slave.frequency = 1.0 / 64
-        result = align(slave, onehz, signaltype='Multi-State')
+        result = align(slave, onehz, data_type='Multi-state')
         expected = np.ma.array([1] * 64 + [2] * 64 + [3] * 64 + [4] * 64)
         np.testing.assert_array_equal(result.data, expected)
 

@@ -249,11 +249,14 @@ class DerivedParameterNode(Node):
     # lower case to be consistent with the HDFAccess Parameter class and
     # therefore written as an attribute to the HDF file.
     units = None
+    data_type = None
     
     def __init__(self, name='', array=np.ma.array([]), frequency=1, offset=0,
-                 *args, **kwargs):
+                 data_type=None, *args, **kwargs):
         # create array results placeholder
         self.array = array # np.ma.array derive result goes here!
+        if not self.data_type:
+            self.data_type = data_type
         super(DerivedParameterNode, self).__init__(name=name,
                                                    frequency=frequency, 
                                                    offset=offset, 
@@ -359,7 +362,8 @@ def derived_param_from_hdf(hdf, name):
     hdf_parameter = hdf[name]
     return Parameter(name=hdf_parameter.name, array=hdf_parameter.array, 
                      frequency=hdf_parameter.frequency,
-                     offset=hdf_parameter.offset)
+                     offset=hdf_parameter.offset,
+                     data_type=hdf_parameter.data_type)
 
 class SectionNode(Node, list):
     '''

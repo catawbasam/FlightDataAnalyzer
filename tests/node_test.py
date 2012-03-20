@@ -960,6 +960,21 @@ class TestDerivedParameterNode(unittest.TestCase):
         self.assertEqual(result.frequency, unaligned_param.frequency)
         self.assertEqual(result.offset, unaligned_param.offset)
         
+    def test_get_derived_discrete_align(self):
+        """
+        Ensure that interpolations does not occur
+        """
+        class Flap(DerivedParameterNode):
+            data_type = 'Multi-state'
+            
+        master_param = Parameter(array=np.ma.array([5,6,7]), 
+                                 frequency=1, offset=0.4, data_type=None)
+            
+        slave_flap = Flap(array=np.ma.array([1,2,3]),frequency=1, offset=0)
+        res = slave_flap.get_aligned(master_param)
+        # note it has not interpolated to 1.4, 2.4, 3.4 forward
+        self.assertEqual(list(res.array), [1,2,3]) 
+        
     def test_parameter_at(self):
         # using a plain range as the parameter array, the results are equal to 
         # the index used to get the value (cool)

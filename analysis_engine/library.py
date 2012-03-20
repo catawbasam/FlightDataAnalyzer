@@ -18,7 +18,7 @@ class InvalidDatetime(ValueError):
     pass
 
 
-def align(slave, master, interval='Subframe', signaltype='Analogue'):
+def align(slave, master, interval='Subframe', data_type=None):
     """
     This function takes two parameters which will have been sampled at different
     rates and with different offsets, and aligns the slave parameter's samples
@@ -30,7 +30,13 @@ def align(slave, master, interval='Subframe', signaltype='Analogue'):
     or final values will be extended from the first or last values if they lie 
     outside the timebase of the slave parameter (i.e. we do not extrapolate).
     The offset and hz for the returned masked array will be those of the 
-    master parameter.    
+    master parameter.
+    
+    The slave's data_type is used to determine the method of interpolation.
+    Anything other than discrete or multi-state will result in interpolation
+    of the data across each sample period
+ 
+    WARNING! Not tested with ascii data_type.
     
     :param slave: The parameter to be aligned to the master
     :type slave: Parameter objects
@@ -38,10 +44,8 @@ def align(slave, master, interval='Subframe', signaltype='Analogue'):
     :type master: Parameter objects    
     :param interval: Has possible values 'Subframe' or 'Frame'.  #TODO: explain this!
     :type interval: String
-    :param mode: Has possible values 'Analogue' or 'Discrete'. TODO: 'Multistate' mode as those parameters should be shifted similar to Discrete (or use Multistate for discrete)
-    :signaltype = Analogue results in interpolation of the data across each sample period
-    :signaltype = Discrete or Multi-State results in shifting to the closest data sample, without interpolation.
-    :Note: Multistate is a type of discrete in this case.
+    :param data_type: Overrides the slave data_type for interpolation method. 
+    :type data_type: str
     :type interval: String
     
     :raises AssertionError: If the interval is neither 'Subframe' or 'Frame'
@@ -61,8 +65,8 @@ def align(slave, master, interval='Subframe', signaltype='Analogue'):
     # Check the interval is one of the two forms we recognise
     assert interval in ['Subframe', 'Frame']
     
-    # Check the type of signal is one of those we recognise
-    assert signaltype in ['Analogue', 'Discrete', 'Multi-State']
+    if data_type is None and slave.data_type:
+        data_type = slave.data_type
     
     # Get the timing offsets, comprised of word location and possible latency.
     tp = master.offset
@@ -137,7 +141,7 @@ def align(slave, master, interval='Subframe', signaltype='Analogue'):
         # Cunningly, if we are working with discrete or multi-state parameters, 
         # by reverting to 1,0 or 0,1 coefficients we gather the closest value
         # in time to the master parameter.
-        if signaltype != 'Analogue':
+        if data_type and data_type.lower() in ('discrete', 'multi-state'):
             b = round(b)
             
         # Either way, a is the residual part.    
