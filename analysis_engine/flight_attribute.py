@@ -745,7 +745,7 @@ class LandingGrossWeight(FlightAttributeNode):
 
 class LandingPilot(FlightAttributeNode, DeterminePilot):
     "Pilot flying at takeoff, Captain, First Officer or None"
-    name = 'FDR Takeoff Pilot'
+    name = 'FDR Landing Pilot'
     @classmethod
     def can_operate(cls, available):
         controls_available = all([n in available for n in ('Pitch (Capt)',

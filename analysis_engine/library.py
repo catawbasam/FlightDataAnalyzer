@@ -521,7 +521,8 @@ def clip(a, period, hz=1.0):
             break # No need to process the rest of the array.
     return a
 
-def first_order_lag (in_param, time_constant, hz, gain = 1.0, initial_value = None):
+def first_order_lag (in_param, time_constant, hz, gain = 1.0,
+                     initial_value = None):
     '''
     Computes the transfer function
             x.G
@@ -615,7 +616,8 @@ def masked_first_order_filter(y_term, x_term, in_param, initial_value):
         
     return result
     
-def first_order_washout (in_param, time_constant, hz, gain = 1.0, initial_value = None):
+def first_order_washout (in_param, time_constant, hz, gain = 1.0,
+                         initial_value = None):
     '''
     Computes the transfer function
          x.G.(T.s)
@@ -663,6 +665,9 @@ def first_order_washout (in_param, time_constant, hz, gain = 1.0, initial_value 
 
 
 def _dist(lat1_d, lon1_d, lat2_d, lon2_d):
+    """
+    Haversine formula for calculating distances between coordinates.
+    """
     lat1 = radians(lat1_d)
     lon1 = radians(lon1_d)
     lat2 = radians(lat2_d)
@@ -1870,7 +1875,7 @@ def smooth_track(lat, lon):
     slider=np.ma.ones(5)*r/4
     slider[2]=1-r
 
-    cost_0 = 9e+99
+    cost_0 = float('inf')
     cost = smooth_track_cost_function(lat_s, lon_s, lat, lon)
     
     while cost < cost_0:  # Iterate to an optimal solution.

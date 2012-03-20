@@ -35,6 +35,7 @@ from analysis_engine.key_point_values import (
     AltitudeAtMachMax,
     AltitudeAtTouchdown,
     AltitudeMax,
+    AltitudeRadioDividedByDistanceToLanding3000To50FtMin,
     AutopilotEngaged1AtLiftoff,
     AutopilotEngaged1AtTouchdown,
     AutopilotEngaged2AtLiftoff,
@@ -325,7 +326,7 @@ class TestAirspeedBelowAltitudeMax(unittest.TestCase):
         airspeed = P(array=np.ma.arange(20))
         alt_aal = P(array=np.ma.arange(0, 10000, 500))
         param = AirspeedBelowAltitudeMax()
-        param.derive(alt_aal, airspeed)
+        param.derive(airspeed, alt_aal)
         self.assertEqual(param,
             [KeyPointValue(index=1, value=1, name='Airspeed Below 500 Ft Max'),
              KeyPointValue(index=6, value=6, name='Airspeed Below 3000 Ft Max'),
@@ -508,6 +509,29 @@ class TestAutopilotEngaged2AtTouchdown(unittest.TestCase, TestCreateKPVsAtKTIs):
         self.node_class = AutopilotEngaged2AtTouchdown
         self.operational_combinations = [('Autopilot Engaged 2', 'Touchdown')]
 
+
+class TestAltitudeRadioDividedByDistanceToLanding3000To50FtMinTerrain(unittest.TestCase):
+    def test_can_operate(self):
+        self.assertEqual(AltitudeRadioDividedByDistanceToLanding3000To50FtMin.get_operational_combinations(),
+                         [('Altitude AAL', 'Altitude Radio',
+                           'Distance To Landing')])
+    
+    def test_derive(self):
+        test_data_dir = os.path.join('test_data', 'BDUTerrain')
+        alt_aal_array = np.ma.masked_array(np.load(os.path.join(test_data_dir,
+                                                                'alt_aal.npy')))
+        alt_radio_array = np.ma.masked_array(np.load(os.path.join(test_data_dir,
+                                                                  'alt_radio.npy')))
+        dtl_array = np.ma.masked_array(np.load(os.path.join(test_data_dir,
+                                                            'dtl.npy')))
+        alt_aal = P(array=alt_aal_array, frequency=8)
+        alt_radio = P(array=alt_radio_array, frequency=0.5)
+        dtl = P(array=dtl_array, frequency=0.25)
+        alt_radio.array = align(alt_radio, alt_aal)
+        dtl.array = align(dtl, alt_aal)        
+        param = AltitudeRadioDividedByDistanceToLanding3000To50FtMin()
+        param.derive(alt_aal, alt_radio, dtl)
+        self.assertEqual(param, [KeyPointValue(name='BDU Terrain', index=1008, value=0.037668517049960347)])
 
 
 class TestControlColumnStiffness(unittest.TestCase):
