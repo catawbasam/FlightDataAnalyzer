@@ -5,7 +5,7 @@ include README
 include TODO
 include *.py
 include requirements*.txt
-prune requirements-jenkins.txt
+exclude requirements-jenkins.txt
 recursive-include doc *
 prune doc/_build
 exclude .bzr
