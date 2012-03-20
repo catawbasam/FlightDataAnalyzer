@@ -2,7 +2,7 @@ import logging
 import numpy as np
 
 from analysis_engine import settings
-from analysis_engine.settings import CONTROL_FORCE_THRESHOLD
+from analysis_engine.settings import CONTROL_FORCE_THRESHOLD, RATE_OF_TURN_FOR_TAXI_TURNS
 
 from analysis_engine.node import KeyPointValueNode, KPV, KTI, P, S
 from analysis_engine.library import (clip, coreg, 
@@ -13,7 +13,34 @@ from analysis_engine.library import (clip, coreg,
                                      slices_above,
                                      slices_below,
                                      slices_from_to,
-                                     subslice)
+                                     subslice,
+                                     value_at_index)
+
+class AccelerationLateralTaxiingMax(KeyPointValueNode):
+    def derive(self, acc_lat = P('Acceleration Lateral'), taxi = S('Taxi')):
+        self.create_kpvs_within_slices(acc_lat.array, taxi, max_value)
+    
+        
+class AccelerationNormal20FtToGroundMax(KeyPointValueNode):
+    name = 'Acceleration Normal 20 Ft To Ground Max' # not required?
+    def derive(self, acceleration_normal=P('Acceleration Normal'),
+               alt_aal=P('Altitude AAL')):
+        # Q: Is from 20 Ft to 0 Ft of Alt AAL the same as '20 Ft To Ground'?
+        self.create_kpvs_within_slices(acceleration_normal.array,
+                                       alt_aal.slices_from_to(20, 0),
+                                       max_value)
+
+
+class AccelerationNormalAtTouchdown(KeyPointValueNode):
+    def derive(self, acc=P('Acceleration Normal'), tdwns=KTI('Touchdown')):
+        for tdwn in tdwns:
+            dt=2.0 # Half width of range to scan across for peak acceleration.
+            from_index = max(int(tdwn.index-dt*acc.hz), 0)
+            to_index = min(int(tdwn.index+dt*acc.hz)+1, len(acc.array))
+            bump_accel = acc.array[from_index:to_index]
+            bump_index = np.ma.argmax(bump_accel)
+            peak = bump_accel[bump_index]
+            self.create_kpv(from_index + bump_index, peak)
 
 
 class Airspeed1000To500FtMax(KeyPointValueNode):
@@ -64,6 +91,62 @@ class Airspeed500To50FtMax(KeyPointValueNode):
                                            max_value) 
 
 
+#-------------------------------------------------------------------------------
+# Set of gear speed KPVs, which should better reflect what we need to monitor.
+#TODO: Review these
+#-------------------------------------------------------------------------------
+class AirspeedAsGearRetracting(KeyPointValueNode):
+    def derive(self, airspeed=P('Airspeed'), gear_ret=KTI('Gear Retracting')):
+        self.create_kpvs_at_ktis(airspeed.array, gear_ret)
+
+
+class AirspeedAsGearSelectedUp(KeyPointValueNode):
+    # Q: Does this mean a KPV will be created on switching the discrete from 0
+    # to 1?
+    def derive(self, airspeed=P('Airspeed'), 
+               gear_sel_up=P('Gear Selected Up')):
+        self.create_kpvs_at_ktis(airspeed.array, gear_sel_up)
+
+
+class AirspeedWithGearDownMax(KeyPointValueNode):
+    def derive(self, airspeed=P('Airspeed'), gear=P('Gear Down'), 
+               airs=S('Airborne')):
+        for air in airs:
+            downs = np.ma.clump_unmasked(np.ma.masked_equal(gear.array[air.slice], 0.0))
+            for down in downs:
+                index = np.ma.argmax(airspeed.array[air.slice][down])
+                value = airspeed.array[air.slice][down][index]
+                self.create_kpv(int(air.slice.start)+down.start+index, value)
+
+
+class AirspeedWithGearSelectedDownMax(KeyPointValueNode):
+    def derive(self, airspeed=P('Airspeed'),
+               gear_down=P('Gear Down')):
+        '''
+        First programmed for 737-5 frame, where gear selection is not
+        available, hence based on gear position. 
+        Expects 'Gear Down' to be a discrete parameter.
+        '''
+        # Mask values where gear_down != 1.
+        airspeed.array[gear_down.array != 1] = np.ma.masked
+        index, value = max_value(airspeed.array)
+        self.create_kpv(index, value)
+
+        
+class AirspeedAsGearExtending(KeyPointValueNode):
+    def derive(self, airspeed=P('Airspeed'), gear_ext=KTI('Gear Extending')):
+        self.create_kpvs_at_ktis(airspeed.array, gear_ext)
+
+
+class AirspeedAsGearSelectedDown(KeyPointValueNode):
+    # Q: Does this mean a KPV will be created on switching the discrete from 0
+    # to 1?
+    def derive(self, airspeed=P('Airspeed'),
+               gear_sel_down=KTI('Gear Selected Down')):
+        self.create_kpvs_at_ktis(airspeed.array, gear_sel_down)
+
+#-------------------------------------------------------------------------------
+
 class AirspeedAtLiftoff(KeyPointValueNode):
     '''
     DJ suggested TailWindAtLiftoff would complement this parameter when used
@@ -82,6 +165,11 @@ class AirspeedMax(KeyPointValueNode):
     def derive(self, speed=P('Airspeed'), airs=S('Airborne')):
         # For commented version, see GlideslopeDeviation1500To1000FtMax
         self.create_kpvs_within_slices(speed.array, airs, max_value)
+
+
+class AirspeedMax3Sec(KeyPointValueNode):
+    def derive(self, speed=P('Airspeed'), airs=S('Airborne')):
+        self.create_kpvs_within_slices(clip(speed.array, 3.0, speed.hz), airs, max_value)
 
 
 class AltitudeAtTouchdown(KeyPointValueNode):
@@ -194,19 +282,15 @@ class GoAroundAltitude(KeyPointValueNode):
 
 class HeadingAtLanding(KeyPointValueNode):
     """
-    The landing has been found already, including and the flare and a little
-    of the turn off the runway. We take the heading at the point of maximum
-    deceleration, as this should lie between the touchdown when the aircraft
-    may be drifting and the turnoff which could be at high speed, but should
-    be at a gentler deceleration.
+    We take the median heading, as this avoids problems with drift just
+    before touchdown and turning off the runway. The value is "assigned" to a
+    time midway through the landing phase.
     """
     def derive(self, lands=S('Landing'), 
                head=P('Heading Continuous')):
         for land in lands:
             land_head = np.ma.median(head.array[land.slice])
             land_index = (land.slice.start + land.slice.stop)/2.0
-            # Scanning 10 seconds around this point allows for short periods of
-            # corrupt data during the takeoff run.
             self.create_kpv(land_index, land_head%360.0)
 
 
@@ -227,16 +311,15 @@ class HeadingAtLowestPointOnApproach(KeyPointValueNode):
 
 class HeadingAtTakeoff(KeyPointValueNode):
     """
-    We take the heading at the point of maximum acceleration, as this should 
-    be a point where the aircraft is lined up well on the centreline.
+    We take the median heading, as this avoids problems with drift just
+    after liftoff and turning onto the runway. The value is "assigned" to a
+    time midway through the landing phase.
     """
     def derive(self, toffs=S('Takeoff'),
                head=P('Heading Continuous')):
         for toff in toffs:
             toff_head = np.ma.median(head.array[toff.slice])
             toff_index = (toff.slice.start + toff.slice.stop)/2.0
-            # Scanning 10 seconds around this point allows for short periods of
-            # corrupt data during the takeoff run.
             self.create_kpv(toff_index, toff_head%360.0)
 
 
@@ -260,24 +343,20 @@ class LongitudeAtLanding(KeyPointValueNode):
         self.create_kpvs_at_ktis(lon.array, lands)
 
 
-class LatitudeAtTakeoff(KeyPointValueNode):
-    '''
-    While storing this is redundant due to geo-locating KeyPointValues, it is
-    used in multiple Nodes to simplify their implementation.
-    '''    
+class LatitudeAtLiftoff(KeyPointValueNode):
     def derive(self, lat=P('Latitude'),
-               takeoffs=KTI('Takeoff Peak Acceleration')):
-        self.create_kpvs_at_ktis(lat.array, takeoffs)
+               liftoffs=KTI('Liftoff')):
+        self.create_kpvs_at_ktis(lat.array, liftoffs)
 
 
-class LongitudeAtTakeoff(KeyPointValueNode):
+class LongitudeAtLiftoff(KeyPointValueNode):
     '''
     While storing this is redundant due to geo-locating KeyPointValues, it is
     used in multiple Nodes to simplify their implementation.
     '''    
     def derive(self, lon=P('Longitude'),
-               takeoffs=KTI('Takeoff Peak Acceleration')):
-        self.create_kpvs_at_ktis(lon.array, takeoffs)
+               liftoffs=KTI('Liftoff')):
+        self.create_kpvs_at_ktis(lon.array, liftoffs)
 
 
 class ILSFrequencyOnApproach(KeyPointValueNode):
@@ -370,8 +449,17 @@ class AltitudeWithFlapsMax(KeyPointValueNode):
     FIXME: It's max Altitude not Max Flaps
     """
     def derive(self, flap=P('Flap'), alt_std=P('Altitude STD')):
+        '''
         flap_set = np.ma.masked_less_equal(flap.array, 0)
+        # Failed on the line below with the following error...
+        # TypeError: ufunc 'bitwise_or' not supported for the input types, and the inputs could not be safely coerced to any supported types according to the casting rule 'safe'
         index, value = max_value(alt_std.array | flap_set)
+        #...hence the noddy rewrite.
+        self.create_kpv(index, value)
+        '''
+        alt_flap = alt_std.array * np.ma.minimum(flap.array,1.0)
+        index = np.ma.argmax(alt_flap)
+        value = alt_flap[index]
         self.create_kpv(index, value)
         
         
@@ -379,6 +467,13 @@ class MachMax(KeyPointValueNode):
     name = 'Mach Max'
     def derive(self, mach=P('Mach'), airs=S('Airborne')):
         self.create_kpvs_within_slices(mach.array, airs, max_value)
+
+
+class MachMax3Sec(KeyPointValueNode):
+    def derive(self, mach=P('Mach'), airs=S('Airborne')):
+        self.create_kpvs_within_slices(clip(mach.array, 3.0, mach.hz),
+                                       airs, max_value)
+
 
 
 class AltitudeAtMachMax(KeyPointValueNode):
@@ -389,10 +484,12 @@ class AltitudeAtMachMax(KeyPointValueNode):
         self.create_kpvs_at_kpvs(alt_std.array, max_mach)
 
 
+'''
+# See taxi speeds - redundant?
 class GroundSpeedOnGroundMax(KeyPointValueNode):
     def derive(self, groundspeed=P('Groundspeed'), on_grounds=S('On Ground')):
         self.create_kpvs_within_slices(groundspeed.array, on_grounds, max_value)
-
+'''
 
 class FlapAtTouchdown(KeyPointValueNode):
     def derive(self, flap=P('Flap'), touchdowns=KTI('Touchdown')):
@@ -612,7 +709,7 @@ class AccelerationNormalMax(KeyPointValueNode):
         self.create_kpv(index, value)
 
 
-class RateOfClimbHigh(KeyPointValueNode):
+class RateOfClimbMax(KeyPointValueNode):
     '''
     .. TODO:: testcases
     '''
@@ -626,7 +723,7 @@ class RateOfClimbHigh(KeyPointValueNode):
                 self.create_kpv(index, value)
 
 
-class RateOfDescentHigh(KeyPointValueNode):
+class RateOfDescentMax(KeyPointValueNode):
     '''
     .. TODO:: testcases
     '''
@@ -638,24 +735,6 @@ class RateOfDescentHigh(KeyPointValueNode):
                 index, value = min_value(rate_of_climb.array, descent.slice)
                 self.create_kpv(index, value)
 
-"""
-Not needed if we retain high ROD and keep many highs - max must be one of these... DJ
-
-class RateOfDescentMax(KeyPointValueNode):
-    '''
-    .. TODO:: testcases ??? 
-    '''
-    # Minimum period of a descent for testing against thresholds (reduces number of KPVs computed in turbulence)
-    DESCENT_MIN_DURATION = 10
-    
-    def derive(self, rate_of_climb=P('Rate Of Climb'), descents=S('Descent')):
-        for descent in descents:
-            duration = (descent.slice.stop - descent.slice.start) / self.frequency
-            if duration > self.DESCENT_MIN_DURATION:
-                index, value = min_value(rate_of_climb.array, descent.slice)
-                self.create_kpv(index, value)
-"""             
-    
                 
 class AirspeedLevelFlightMax(KeyPointValueNode):
     def derive(self, airspeed=P('Airspeed'), level_flight=S('Level Flight')):
@@ -726,14 +805,17 @@ class HeightAtConfigChangeLiftoffTo3500FtMin(KeyPointValueNode):
     #TODO: TESTS
     
     # This is height at FIRST config change - KPV is MIN(Height) at config change
-    def derive(self, flap=P('Flap'), alt_aal=P('Altitude AAL')):
+    def derive(self, flap=P('Flap'), alt_aal=P('Altitude AAL'),
+               airs=S('Airborne')):
         # use .diff and declare the heights at those indexes
-        for this_slice in alt_aal.slices_from_to(0, 3500):
+        for air in airs: # Was "alt_aal.slices_from_to(0, 3500):" but triggered for flap changes on the ground.
             # find where flap changes
-            change_indexes = np.ma.where(np.ma.diff(flap.array))[0]
+            change_indexes = np.ma.where(np.ma.diff(flap.array[air.slice]))[0]
             if len(change_indexes):
                 # create at first change
-                self.create_kpv(change_indexes[0], alt_aal[change_indexes[0]])
+                index = air.slice.start + change_indexes[0]
+                self.create_kpv(air.slice.start + change_indexes[0], 
+                                value_at_index(alt_aal.array, index))
 
 
 class EngEGTTakeoffMax(KeyPointValueNode):
@@ -742,12 +824,14 @@ class EngEGTTakeoffMax(KeyPointValueNode):
         self.create_kpvs_within_slices(eng_egt.array, takeoffs, max_value)
 
 
-class GlideslopeWarning(KeyPointValueNode):
+class TAWSGlideslopeWarning(KeyPointValueNode):
+    name = 'TAWS Glideslope Warning'
     def derive(self, taws_glideslope=P('TAWS Glideslope')):
         return NotImplemented
 
 
-class GlideslopeDeviation1500To1000FtMax(KeyPointValueNode):
+class ILSGlideslopeDeviation1500To1000FtMax(KeyPointValueNode):
+    name = 'ILS Glideslope Deviation 1500 To 1000 Ft Max'
     def derive(self, ils_glideslope=P('ILS Glideslope'),
                alt_aal = P('Altitude AAL'),
                estabs=S('ILS Glideslope Established')):
@@ -762,7 +846,8 @@ class GlideslopeDeviation1500To1000FtMax(KeyPointValueNode):
                 self.create_kpvs_within_slices(ils_glideslope.array,kpv_slice,max_abs_value)  
 
 
-class GlideslopeDeviationAbove1000FtMax(KeyPointValueNode):
+class ILSGlideslopeDeviationAbove1000FtMax(KeyPointValueNode):
+    name = 'ILS Glideslope Deviation Above 1000 Ft Max'
     def derive(self, ils_glideslope=P('ILS Glideslope'),
                alt_aal = P('Altitude AAL'),
                estabs=S('ILS Glideslope Established')):
@@ -772,7 +857,8 @@ class GlideslopeDeviationAbove1000FtMax(KeyPointValueNode):
                 self.create_kpvs_within_slices(ils_glideslope.array,kpv_slice,max_abs_value)  
             
 
-class GlideslopeDeviationBelow1000FtMax(KeyPointValueNode):
+class ILSGlideslopeDeviationBelow1000FtMax(KeyPointValueNode):
+    name = 'ILS Glideslope Deviation Below 1000 Ft Max'
     def derive(self, ils_glideslope=P('ILS Glideslope'),
                alt_aal = P('Altitude AAL'),
                estabs=S('ILS Glideslope Established')):
@@ -782,7 +868,8 @@ class GlideslopeDeviationBelow1000FtMax(KeyPointValueNode):
                 self.create_kpvs_within_slices(ils_glideslope.array,kpv_slice,max_abs_value)  
 
     
-class GlideslopeDeviation1000To150FtMax(KeyPointValueNode):
+class ILSGlideslopeDeviation1000To150FtMax(KeyPointValueNode):
+    name = 'ILS Glideslope Deviation 1000 To 150 Ft Max'
     def derive(self, ils_glideslope=P('ILS Glideslope'),
                alt_aal = P('Altitude AAL'),
                estabs=S('ILS Glideslope Established')):
@@ -802,22 +889,37 @@ class SinkRateWarning(KeyPointValueNode):
         return NotImplemented
 
 
-class AccelerationNormal20FtToGroundMax(KeyPointValueNode):
-    name = 'Acceleration Normal 20 Ft To Ground Max' # not required?
-    def derive(self, acceleration_normal=P('Acceleration Normal'),
-               alt_aal=P('Altitude AAL')):
-        # Q: Is from 20 Ft to 0 Ft of Alt AAL the same as '20 Ft To Ground'?
-        self.create_kpvs_within_slices(acceleration_normal.array,
-                                       alt_aal.slices_from_to(20, 0),
-                                       max_value)
+class HeadingDeviationOnTakeoffAbove100Kts(KeyPointValueNode):
+    """
+    The heading deviation is measured as the peak-to-peak deviation between
+    100kts and 5 deg nose pitch up, at which time the weight is clearly off
+    the wheel (we avoid using weight on nosewheel as this is often not
+    recorded).
+    The value is annotated half way between the end conditions.
+    """
+    def derive(self, head=P('Heading Continuous'), airspeed=P('Airspeed'),
+               pitch=P('Pitch'), toffs=S('Takeoff')):
+        for toff in toffs:
+            start = index_at_value(airspeed.array, 100.0, _slice=toff.slice)
+            stop = index_at_value(pitch.array, 5.0, _slice=toff.slice)
+            head_dev = np.ma.ptp(head.array[start:stop])
+            self.create_kpv((start+stop)/2, head_dev)
+            
 
-
-class HeadingDeviation100KtsToFtMax(KeyPointValueNode):
-    #TODO: Rename - 100Kts to Ft is not clear
-    def derive(self, head_mag=P('Heading'), airspeed=P('Airspeed'),
-               liftoff=KTI('Liftoff')):
-        return NotImplemented
-
+class HeadingDeviationOnLandingAbove100Kts(KeyPointValueNode):
+    """
+    See heading deviation on takeoff comments. For landing the Altitude AAL
+    is used to detect start of landing, again to avoid variation from the use
+    of different aircraft recording configurations.
+    """
+    def derive(self, head=P('Heading Continuous'), airspeed=P('Airspeed'),
+               alt=P('Altitude AAL'), lands=S('Landing')):
+        for land in lands:
+            start = index_at_value(alt.array, 1.0, _slice=land.slice)
+            stop = index_at_value(airspeed.array, 100.0, _slice=land.slice)
+            head_dev = np.ma.ptp(head.array[start:stop])
+            self.create_kpv((start+stop)/2, head_dev)
+            
 
 class HeightMinsToTouchdown(KeyPointValueNode):
     #TODO: TESTS
@@ -826,7 +928,7 @@ class HeightMinsToTouchdown(KeyPointValueNode):
     NAME_FORMAT = "Height " + MinsToTouchdown.NAME_FORMAT
     NAME_VALUES = MinsToTouchdown.NAME_VALUES
     
-    def derive(self, t_tdwns=KTI('Mins To Touchdown'), alt=P('Altitude AAL')):
+    def derive(self, alt=P('Altitude AAL'), t_tdwns=KTI('Mins To Touchdown')):
         for t_tdwn in t_tdwns:
             #WARNING: This assumes Mins time will be the first value and only two digit
             # TODO: Confirm *.array is correct (DJ)
@@ -855,12 +957,6 @@ class HeightLost50To1000Max(KeyPointValueNode):
         return NotImplemented
 
 
-class AccelerationLateralOnGroundMax(KeyPointValueNode):
-    def derive(self, acc_lat=P('Acceleration Lateral'),
-               on_grounds=S('On Ground')):
-        self.create_kpvs_within_slices(acc_lat.array, on_grounds, max_value)
-
-
 class EngN13000FtToTouchdownMax(KeyPointValueNode):
     name = 'Eng N1 3000 Ft To Touchdown Max'
     def derive(self, eng=P('Eng (*) N1 Max'), alt_aal=P('Altitude AAL')):
@@ -871,14 +967,13 @@ class EngN13000FtToTouchdownMax(KeyPointValueNode):
 
 class EngN1TakeoffMax(KeyPointValueNode):
     name = 'Eng N1 Takeoff Max'
-    def derive(self, eng_n1_max=P('Eng (*) N1 Max'), liftoffs=KTI('Liftoff')):
-        self.create_kpvs_at_ktis(eng_n1_max.array, liftoffs)
+    def derive(self, eng_n1_max=P('Eng (*) N1 Max'), ratings=S('Takeoff 5 Min Rating')):
+        self.create_kpvs_within_slices(eng_n1_max.array, ratings, max_value)
 
 
-class FlapAtGearSelectedDown(KeyPointValueNode):
-    #TODO: TESTS
+class FlapAsGearSelectedDown(KeyPointValueNode):
     #NB: flap put as primary parameter as if we use Flap the step will be aligned!
-    def derive(self, flap=P('Flap'), gear_sel_down=KTI('Gear Selected Down')):
+    def derive(self, flap=P('Flap'), gear_sel_down=KTI('Gear Extending')):
         self.create_kpvs_at_ktis(flap.array, gear_sel_down)
 
 
@@ -898,20 +993,20 @@ class SuspectedLevelBust(KeyPointValueNode):
         return NotImplemented
 
 
-class LocalizerDeviation1000To150FtMax(KeyPointValueNode):
+class ILSLocalizerDeviation1000To150FtMax(KeyPointValueNode):
     def derive(self, ils_loc=P('ILS Localizer'),
                alt_aal = P('Altitude AAL')):
         # For commented version, see GlideslopeDeviation1500To1000FtMax
         for this_period in alt_aal.slices_from_to(1000, 150):
             begin = this_period.start
             end = this_period.stop
-            index = np.ma.argmax(np.ma.abs(ils_loc.array[begin:end]))
-            when = begin + index
-            value = ils_loc.array[when]
-            self.create_kpv(when, value)
+            index_this_period = np.ma.argmax(np.ma.abs(ils_loc.array[begin:end]))
+            index = begin + index_this_period
+            value = ils_loc.array[index]
+            self.create_kpv(index, value)
 
 
-class LocalizerDeviation1500To1000FtMax(KeyPointValueNode):
+class ILSLocalizerDeviation1500To1000FtMax(KeyPointValueNode):
     def derive(self, ils_loc=P('ILS Localizer'),
                alt_aal = P('Altitude AAL')):
         # For commented version, see GlideslopeDeviation1500To1000FtMax
@@ -919,10 +1014,10 @@ class LocalizerDeviation1500To1000FtMax(KeyPointValueNode):
             begin = this_period.start
             end = this_period.stop
             if alt_aal.array[begin] > alt_aal.array[end-1]:
-                index = np.ma.argmax(np.ma.abs(ils_loc.array[begin:end]))
-                when = begin + index
-                value = ils_loc.array[when]
-                self.create_kpv(when, value)
+                index_this_period = np.ma.argmax(np.ma.abs(ils_loc.array[begin:end]))
+                index = begin + index_this_period
+                value = ils_loc.array[index]
+                self.create_kpv(index, value)
 
 
 class Flare20FtToTouchdown(KeyPointValueNode):
@@ -1009,12 +1104,6 @@ class Pitch5FtToTouchdownMax(KeyPointValueNode):
         self.create_kpvs_within_slices(pitch.array,
                                        alt_aal.slices_from_to(5, 0), max_value)
 
-class Pitch1000To100FtMax(KeyPointValueNode):
-    def derive(self, pitch=P('Pitch'), alt_aal=P('Altitude AAL')):
-        self.create_kpvs_within_slices(pitch.array,
-                                       alt_aal.slices_from_to(1000, 100),
-                                       max_value)
-
 
 class PitchAtLiftoff(KeyPointValueNode):
     def derive(self, pitch=P('Pitch'), liftoffs=KTI('Liftoff')):
@@ -1036,10 +1125,38 @@ class PitchAtTouchdown(KeyPointValueNode):
         self.create_kpvs_at_ktis(pitch.array, touchdowns)
 
 
+class Pitch1000To100FtMax(KeyPointValueNode):
+    def derive(self, pitch=P('Pitch'), alt_aal=P('Altitude AAL')):
+        self.create_kpvs_within_slices(pitch.array,
+                                       alt_aal.slices_from_to(1000, 100),
+                                       max_value)
+
+
 class Pitch1000To100FtMin(KeyPointValueNode):
     def derive(self, pitch=P('Pitch'), alt_aal=P('Altitude AAL')):
         self.create_kpvs_within_slices(pitch.array,
                                        alt_aal.slices_from_to(1000, 100),
+                                       min_value)
+
+
+class Pitch1000To500FtMin(KeyPointValueNode):
+    def derive(self, pitch=P('Pitch'), alt_aal=P('Altitude AAL')):
+        self.create_kpvs_within_slices(pitch.array,
+                                       alt_aal.slices_from_to(1000, 500),
+                                       min_value)
+
+
+class Pitch500To100FtMin(KeyPointValueNode):
+    def derive(self, pitch=P('Pitch'), alt_aal=P('Altitude AAL')):
+        self.create_kpvs_within_slices(pitch.array,
+                                       alt_aal.slices_from_to(500, 100),
+                                       min_value)
+
+
+class Pitch500To50FtMin(KeyPointValueNode):
+    def derive(self, pitch=P('Pitch'), alt_aal=P('Altitude AAL')):
+        self.create_kpvs_within_slices(pitch.array,
+                                       alt_aal.slices_from_to(500, 50),
                                        min_value)
 
 
@@ -1149,43 +1266,32 @@ class RudderReversalAbove50Ft(KeyPointValueNode):
         return NotImplemented
 
 
-class AirspeedWithGearSelectedDownMax(KeyPointValueNode):
-    def derive(self, airspeed=P('Airspeed'),
-               gear_sel_down=P('Gear Selected Down')):
-        '''
-        Expects 'Gear Selected Down' to be a discrete parameter.
-        '''
-        # Mask values where gear_sel_down != 1.
-        airspeed.array[gear_sel_down.array != 1] = np.ma.masked
-        value, index = max_value(airspeed.array)
-        self.create_kpv(index, value)
-
-
-class AirspeedAtGearSelectedDown(KeyPointValueNode):
-    # Q: Does this mean a KPV will be created on switching the discrete from 0
-    # to 1?
-    def derive(self, airspeed=P('Airspeed'),
-               gear_sel_down=P('Gear Selected Down')):
-        return NotImplemented
-
-
-class AirspeedAtGearSelectedUp(KeyPointValueNode):
-    # Q: Does this mean a KPV will be created on switching the discrete from 0
-    # to 1?
-    def derive(self, airspeed=P('Airspeed'), gear_sel_up=P('Gear Selected Up')):
-        return NotImplemented
-
-
 class TaxiSpeedTurning(KeyPointValueNode):
-    def derive(self, groundspeed=P('Groundspeed'), on_ground=S('On Ground'), turning=S('Turning')):
-        return NotImplemented
+    def derive(self, gspd=P('Groundspeed'), taxis=S('Taxi'), rot=P('Rate Of Turn')):
+        for taxi in taxis:
+            turns = np.ma.clump_masked(np.ma.masked_greater(rot.array[taxi.slice], RATE_OF_TURN_FOR_TAXI_TURNS))
+            for turn in turns:
+                index = np.ma.argmax(gspd.array[taxi.slice][turn])
+                value = gspd.array[taxi.slice][turn][index]
+                self.create_kpv(int(taxi.slice.start)+turn+index, value)
 
 
 class TaxiSpeedStraight(KeyPointValueNode):
-    # TODO: Decide on parameter. Can use groundspeed, but amended to ...along
-    #       track to ensure derived parameter call.
-    def derive(self, groundspeed=P('Groundspeed Along Track'), on_ground=S('On Ground'), rot=P('Rate Of Turn')):
-        return NotImplemented
+    def derive(self, gspd=P('Groundspeed'), taxis=S('Taxi'), rot=P('Rate Of Turn')):
+        for taxi in taxis:
+            straights = np.ma.clump_unmasked(np.ma.masked_greater(rot.array[taxi.slice], RATE_OF_TURN_FOR_TAXI_TURNS))
+            for straight in straights:
+                index = np.ma.argmax(gspd.array[taxi.slice][straight])
+                value = gspd.array[taxi.slice][straight][index]
+                self.create_kpv(int(taxi.slice.start)+straight+index, value)
+
+
+class TaxiSpeed(KeyPointValueNode):
+    def derive(self, gspd=P('Groundspeed'), taxis=S('Taxi')):
+        for taxi in taxis:
+            index = np.ma.argmax(gspd.array[taxi.slice])
+            value = gspd.array[taxi.slice][index]
+            self.create_kpv(int(taxi.slice.start)+index, value)
 
 
 class AirspeedMinusVref500FtToTouchdownMax(KeyPointValueNode):
@@ -1200,7 +1306,7 @@ class AirspeedWithFlapMax(KeyPointValueNode):
     NAME_FORMAT = "Airspeed With Flap %(flap)d Max"
     NAME_VALUES = {'flap': range(0,46,1)}
     #Q: Is it required to have a KPV of "Flap 0 Max"
-    def derive(self, flap=P('Flap'), airspeed=P('Airspeed')):
+    def derive(self, airspeed=P('Airspeed'), flap=P('Flap')):
         for flap_setting in np.ma.unique(flap.array):
             if np.ma.is_masked(flap_setting):
                 # ignore masked values
@@ -1363,12 +1469,49 @@ class AirspeedBelowFL100Max(KeyPointValueNode):
                                            alt_std.slices_below(10000),
                                            max_value)
 
-
 class AltitudeRadioDividedByDistanceToLanding3000To50FtMin(KeyPointValueNode):
     def derive(self, alt_aal=P('Altitude AAL'), alt_radio=P('Altitude Radio'), 
                dtl=P('Distance To Landing')):
         for desc_slice in alt_aal.slices_from_to(3000, 50):
             angle_array = alt_radio.array[desc_slice]/dtl.array[desc_slice]
-            index, value = min_value(angle_array)
-            self.create_kpv(index + desc_slice.start, value)
+            
     
+class TailClearanceOnApproach(KeyPointValueNode):
+    def derive(self, alt_aal=P('Altitude AAL'), alt_tail=P('Altitude Tail'), 
+                 dtl=P('Distance To Landing')):
+        '''
+        This finds abnormally low tail clearance during the approach down to
+        100ft. It searches for the minimum angular separation between the
+        flightpath and the terrain, so a 500ft clearance at 2500ft AAL is
+        considered more significant than 500ft at 1500ft AAL. The value
+        stored is the tail clearance. A matching KTI will allow these to be
+        located on the approach chart.
+        '''
+        for desc_slice in alt_aal.slices_from_to(3000, 100):
+            angle_array = alt_tail.array[desc_slice]/dtl.array[desc_slice]
+            index, value = min_value(angle_array)
+            if index:
+                sample = index + desc_slice.start
+                self.create_kpv(sample, alt_tail.array[sample])
+    
+    
+class ZeroFuelWeight(KeyPointValueNode):
+    """
+    The aircraft zero fuel weight is estimated from the recorded gross weight
+    and fuel data. A best fit line should be close to a straight line, with a
+    slope of 1.0 and the intercept at fuel=0 is the Zero Fuel Weight. The
+    test for slope is important as this traps errors where one of the weights
+    is converted in the wrong units!
+    
+    See also the GrossWeightSmoothed calculation which uses fuel flow data to
+    obtain a higher sample rate solution to the aircraft weight calculation.
+    """
+    def derive(self, fuel=P('Fuel Qty'), gw=P('Gross Weight')):
+        corr, slope, zfw = coreg(gw.array, indep_var=fuel.array)
+        if corr>0.9 and 0.8 < slope < 1.2:
+            self.create_kpv(0, zfw)
+        else:
+            raise ValueError, 'Unable to compute Zero Fuel Weight from data supplied'
+            
+        
+        

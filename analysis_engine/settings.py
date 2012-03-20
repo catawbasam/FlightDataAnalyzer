@@ -199,8 +199,12 @@ RATE_OF_CLIMB_FOR_LIFTOFF = 200 # fpm
 # Rate of climb for touchdown.
 RATE_OF_CLIMB_FOR_TOUCHDOWN = -100 # fpm
 
-# Rate of turn limits for flight and ground.
+# Rate of turn limits for flight. 
+# (Also used for validation of accelerometers on ground).
 RATE_OF_TURN_FOR_FLIGHT_PHASES = 2.5 # deg per second
+
+# Rate of turn limit for taxi event.
+RATE_OF_TURN_FOR_TAXI_TURNS = 8.0 # deg per second
 
 # Duration of masked data to repair by interpolation for flight phase analysis
 REPAIR_DURATION = 10 # seconds 

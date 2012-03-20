@@ -6,7 +6,7 @@ from random import shuffle
 from datetime import datetime
 
 from analysis_engine.node import (
-    Attribute, 
+    Attribute,
     DerivedParameterNode,
     get_verbose_name,
     KeyPointValueNode, KeyPointValue, 
@@ -849,6 +849,40 @@ class TestKeyTimeInstanceNode(unittest.TestCase):
         # None index
         self.assertRaises(ValueError, kti.create_kti, None)
     
+    def test_create_ktis_at_edges_inside_phases(self):
+        kti=self.kti
+        test_array = np.ma.array([0,1,0,1,0,1,0,1,0])
+        test_phase = SectionNode(items=[Section(name='try',slice=slice(None,2,None)),
+                                        Section(name='try',slice=slice(5,None,None))])
+        kti.create_ktis_at_edges(test_array, phase=test_phase)
+        self.assertEqual(kti,[KeyTimeInstance(index=0.5, name='Kti'),
+                              KeyTimeInstance(index=6.5, name='Kti')])
+    
+    def test_create_ktis_at_edges_either(self):
+        kti=self.kti
+        test_param = np.ma.array([0,0,0,1,1,1,0,0,0])
+        kti.create_ktis_at_edges(test_param, direction='all_edges')
+        self.assertEqual(kti,[KeyTimeInstance(index=2.5, name='Kti'),
+                          KeyTimeInstance(index=5.5, name='Kti')])
+        
+    def test_create_ktis_at_edges_rising(self):
+        kti=self.kti
+        test_param = np.ma.array([0,0,0,1,1,1,0,0,0])
+        kti.create_ktis_at_edges(test_param)
+        self.assertEqual(kti,[KeyTimeInstance(index=2.5, name='Kti')])
+        
+    def test_create_ktis_at_edges_falling(self):
+        kti=self.kti
+        test_param = np.ma.array([0,1,1,0,0,0,-1,-1,0])
+        kti.create_ktis_at_edges(test_param, direction='falling_edges')
+        self.assertEqual(kti,[KeyTimeInstance(index=2.5, name='Kti'),
+                              KeyTimeInstance(index=5.5, name='Kti')])
+        
+    def test_create_ktis_at_edges_fails(self):
+        kti=self.kti
+        test_param = np.ma.array([0])
+        self.assertRaises(ValueError, kti.create_ktis_at_edges, test_param, direction='sideways')
+        
     def test_get_aligned(self):
         '''
         TODO: Test offset alignment.

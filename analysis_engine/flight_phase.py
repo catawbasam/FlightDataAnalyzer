@@ -10,7 +10,8 @@ from analysis_engine.library import (hysteresis,
                                      repair_mask, 
                                      shift_slice, 
                                      shift_slices, 
-                                     slice_duration, 
+                                     slice_duration,
+                                     slices_overlap,
                                      slice_samples)
 from analysis_engine.node import FlightPhaseNode, P, S, KTI
 from analysis_engine.settings import (AIRSPEED_THRESHOLD,
@@ -554,28 +555,17 @@ class LevelFlight(FlightPhaseNode):
             level_slices = np.ma.clump_unmasked(level_flight)
             self.create_phases(shift_slices(level_slices, air.slice.start))
 
-"""
+
 class OnGround(FlightPhaseNode):
     '''
-    Includes before Liftoff and after Touchdown.
+    Includes start of takeoff run and part of landing run
     '''
     def derive(self, airspeed=P('Airspeed')):
         # Did the aircraft go fast enough to possibly become airborne?
-        fast_where = np.ma.masked_less(airspeed.array, AIRSPEED_THRESHOLD)
-        a,b = np.ma.flatnotmasked_edges(fast_where)
-        self.create_phases([slice(a, b, None)])
-    
-
-(a) computes the inverse of the phase we want, 
-(b) should be related to fast as below
-(c) may be defunct
-
-        fast_where = np.ma.masked_less(repair_mask(airspeed.array),
+        slow_where = np.ma.masked_greater(repair_mask(airspeed.array),
                                        AIRSPEED_THRESHOLD)
-        fast_slices = np.ma.clump_unmasked(fast_where)
-        self.create_phases(fast_slices)
+        self.create_phases(np.ma.clump_unmasked(slow_where))
     
-"""
 
 class Landing(FlightPhaseNode):
     """
@@ -718,6 +708,39 @@ class Takeoff(FlightPhaseNode):
                 self.create_phases([slice(takeoff_begin, takeoff_end)])
 
 
+class Takeoff5MinRating(FlightPhaseNode):
+    #TODO: Test
+    """
+    For engines, the period of high power operation is normally 5 minutes
+    from the start of takeoff.
+    """
+    def derive(self, toffs=S('Takeoff')):
+        for toff in toffs:
+            self.create_phase(slice(toff.slice.start, toff.slice.start + 300))
+            
+    
+class Taxiing(FlightPhaseNode):
+    #TODO: Test
+    """
+    This takes the period from start of data to start of takeoff as the taxi
+    out, and the end of the landing to the end of the data as taxi in. Could
+    be improved to include engines running condition at a later date.
+    """
+    def derive(self, gnds=S('On Ground'), toffs=S('Takeoff'), lands=S('Landing')):
+        for gnd in gnds:
+            taxi_start = gnd.slice.start
+            taxi_stop = gnd.slice.stop
+            for toff in toffs:
+                if slices_overlap(gnd.slice, toff.slice):
+                    taxi_stop = toff.slice.start
+                    self.create_phase(slice(taxi_start, taxi_stop), name="Taxi Out")
+            for land in lands:
+                if slices_overlap(gnd.slice, land.slice):
+                    taxi_start = land.slice.stop
+                    self.create_phase(slice(taxi_start, taxi_stop), name="Taxi In")
+            self.create_phase(slice(taxi_start, taxi_stop), name="Taxi")
+        
+        
 class Turning(FlightPhaseNode):
     """
     Rate of Turn is greater than +/- RATE_OF_TURN_FOR_FLIGHT_PHASES

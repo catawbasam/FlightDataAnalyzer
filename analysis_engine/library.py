@@ -6,6 +6,7 @@ from collections import OrderedDict, namedtuple
 from datetime import datetime, timedelta
 from hashlib import sha256
 from itertools import izip
+from settings import KTS_TO_MPS, METRES_TO_FEET
 ##from scipy.optimize import fmin, fmin_bfgs, fmin_tnc
 # TODO: Inform Enthought that fmin_l_bfgs_b dies in a dark hole at _lbfgsb.setulb
 
@@ -339,39 +340,43 @@ def coreg(y, indep_var=None, force_zero=False):
     corr > 0.8 shows good correlation between temperature and altitude
     m is the lapse rate
     c is the temperature at 0ft
-    
     """
-    
     n = len(y)
     if n < 2:
         raise ValueError, 'Function coreg called with data of length 1 or null'
-    
     if indep_var == None:
-        x = np.arange(n, dtype=float)
+        x = np.ma.arange(n, dtype=float)
     else:
         x = indep_var
         if len(x) != n:
             raise ValueError, 'Function coreg called with arrays of differing length'
     if x.ptp() == 0.0 or y.ptp() == 0.0:
-        # Could raise ValueError, 'Function coreg called with invariant independent variable'
+        # raise ValueError, 'Function coreg called with invariant independent variable'
         return 0.0, 0.0, 0.0
-        
-    sx = np.sum(x)
-    sxy = np.sum(x*y)
-    sy = np.sum(y)
-    sx2 = np.sum(x*x)
-    sy2 = np.sum(y*y)
+    
+    # Need to propagate masks into both arrays equally.
+    mask = np.ma.logical_or(x.mask, y.mask)
+    x_ = np.ma.array(data=x.data,mask=mask)
+    y_ = np.ma.array(data=y.data,mask=mask)
+
+    # n_ is the number of useful data pairs for analysis.
+    n_ = np.ma.count(x_)
+    sx = np.ma.sum(x_)
+    sxy = np.ma.sum(x_*y_)
+    sy = np.ma.sum(y_)
+    sx2 = np.ma.sum(x_*x_)
+    sy2 = np.ma.sum(y_*y_)
     
     # Correlation
-    p = abs((n*sxy - sx*sy)/(sqrt(n*sx2-sx*sx)*sqrt(n*sy2-sy*sy)))
+    p = abs((n_*sxy - sx*sy)/(sqrt(n_*sx2-sx*sx)*sqrt(n_*sy2-sy*sy)))
     
     # Regression
     if force_zero:
         m = sxy/sx2
         c = 0.0
     else:
-        m = (sxy-sx*sy/n)/(sx2-sx*sx/n)
-        c = sy/n - m*sx/n
+        m = (sxy-sx*sy/n_)/(sx2-sx*sx/n_)
+        c = sy/n_ - m*sx/n_
     
     return p, m, c
     
@@ -482,13 +487,15 @@ def clip(a, period, hz=1.0):
     :param hz: Frequency of the data_array
     :type hz: float
     '''
-    if period <= 0.01:
-        raise ValueError('Duration called with period outside permitted range')
 
     if hz <= 0.01:
         raise ValueError('Duration called with sample rate outside permitted range')
 
     delay = period * hz
+    # Trap low values. This can occur, for an example, where a parameter has
+    # a lower sample rate than expected.
+    if delay < 1.0:
+        raise ValueError('Duration called with period too short to have an effect')
 
     # Compute an array of differences across period, such that each maximum or
     # minimum results in a negative result.
@@ -2135,3 +2142,119 @@ def vstack_params(*params):
     :raises: ValueError if all params are None (concatenation of zero-length sequences is impossible)
     '''
     return np.ma.vstack([getattr(p, 'array', p) for p in params if p is not None])
+
+
+#---------------------------------------------------------------------------
+# Air data calculations adapted from AeroCalc V0.11 to suit POLARIS Numpy
+# data format. For increased speed, only standard POLARIS units used.
+# 
+# AeroCalc is Copyright (c) 2008, Kevin Horton and used under open source
+# license with permission. For copyright notice and disclaimer, please see
+# airspeed.py source code in AeroCalc.
+#---------------------------------------------------------------------------
+
+#---------------------------------------------------------------------------
+# Initialise constants used by the air data algorithms
+#---------------------------------------------------------------------------
+P0 = 1013.25       # Pressure at sea level, mBar
+Rhoref = 1.2250    # Density at sea level, kg/m**3
+A0 = 340.2941      # Speed of sound at sea level, m/s
+T0 = 288.15        # Sea level temperature 15 C = 288.15 K
+L0 = -0.0019812    # Lapse rate C/ft
+g = 9.80665        # Acceleration due to gravity, m/s**2
+Rd = 287.05307     # Gas constant for dry air, J/kg K
+H1 = 36089.0       # Transition from Troposphere to Stratosphere
+   
+# Values at 11km:
+T11 =  T0 + 11000 * L0
+PR11 = (T11 / T0) ** ((-g) / (Rd * L0)) 
+P11 = PR11 * P0
+
+#---------------------------------------------------------------------------
+# Computation modules use AeroCalc structure and are called from the Derived
+# Parameters as required.
+#---------------------------------------------------------------------------
+
+def alt2press(alt_ft):
+    press = P0  * alt2press_ratio(alt_ft)   
+    return press
+
+def alt2press_ratio(alt_ft):
+    return np.ma.where(alt_ft <= H1, \
+                       _alt2press_ratio_gradient(alt_ft),
+                       _alt2press_ratio_isothermal(alt_ft))
+    
+def cas2dp(cas_kt):
+    """
+    Convert corrected airspeed to pressure rise (includes allowance for
+    compressibility)
+    """
+    if np.ma.max(cas_kt) > 661.48:
+        raise ValueError, 'Supersonic airspeed compuations not included'
+    cas_mps = np.ma.masked_greater(cas_kt, 661.48) * KTS_TO_MPS
+    p = P0*100 # pascal not mBar inside the calculation
+    return P0 * (((Rhoref * cas_mps*cas_mps)/(7.* p) + 1.)**3.5 - 1.)
+    
+def cas_alt2mach(cas, alt_ft):
+    """
+    Return the mach that corresponds to a given CAS and altitude.
+    """
+    dp = cas2dp(cas)
+    p = alt2press(alt_ft)
+    dp_over_p = dp / p
+    mach = dp_over_p2mach(dp_over_p)
+    return mach
+
+def dp_over_p2mach(dp_over_p):
+    """
+    Return the mach number for a given delta p over p. Supersonic results masked as invalid.
+    """
+    mach = np.sqrt(5.0 * ((dp_over_p + 1.0) ** (2.0/7.0) - 1.0))
+    return np.ma.masked_greater_equal(mach, 1.0)
+
+def _dp2speed(dp, P, Rho):
+
+    p = P*100 # pascal not mBar inside the calculation
+    # dp / P not changed as we use mBar for pressure dp.
+    speed_mps = np.ma.sqrt(((7. * p) * (1. / Rho)) * (
+        np.ma.power((dp / P + 1.), 2./7.) - 1.))
+    speed_kt = speed_mps / KTS_TO_MPS
+    
+    # Mask speeds over 661.48 kt
+    return np.ma.masked_greater(speed_kt, 661.48)
+
+def dp2cas(dp):
+    return np.ma.masked_greater(_dp2speed(dp, P0, Rhoref), 661.48)
+
+def dp2tas(dp, alt_ft, sat):
+    P = alt2press(alt_ft)
+    press_ratio = alt2press_ratio(alt_ft)
+    temp_ratio = (sat + 273.15) / 288.15
+    density_ratio = press_ratio / temp_ratio
+    Rho = Rhoref * density_ratio
+    tas = _dp2speed(dp, P, Rho)
+    return tas
+
+def alt2sat(alt_ft):
+    """ Convert altitude to temperature using lapse rate"""
+    return np.ma.where(alt_ft <= H1, 15.0 + L0 * alt_ft, -56.5)
+    
+def mach2temp(mach, tat):
+    """
+    Return the ambient temp, given the mach number, indicated
+    temperature and the temperature probe's recovery factor.
+    """
+    recovery_factor = 0.9
+    ambient_temp = tat + 273.15 / (1. + (0.2 * recovery_factor) * mach
+             ** 2.)
+    sat = ambient_temp - 273.15
+    return sat
+
+def _alt2press_ratio_gradient(H):
+    # From http://www.aerospaceweb.org/question/atmosphere/q0049.shtml
+    # Faster to compute than AeroCalc formulae, and pass AeroCalc tests.
+    return np.ma.power(1 - H/145442.0, 5.255876)
+
+def _alt2press_ratio_isothermal(H):
+    return 0.223361 * np.ma.exp((36089.0-H)/20806.0)
+

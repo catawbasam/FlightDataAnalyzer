@@ -3,9 +3,10 @@
 Introduction
 ============
 
-AnalysisEngine is a tool parsing HDF5 files containing engineering unit 
-representation of flight data. It provides the following utilities:
+A tool analysing HDF5 files containing engineering unit representation of 
+flight data. It provides the following utilities:
 
+* Flight phase detection.
 * Deriving parameters from others.
 * Split flight data into multiple flight segments.
 * Creation of flight attributes, such as take and landing runways.

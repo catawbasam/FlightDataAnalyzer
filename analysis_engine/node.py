@@ -868,6 +868,63 @@ class KeyTimeInstanceNode(FormattedNameNode):
         self.append(kti)
         return kti
     
+    def create_ktis_at_edges(self, array, direction='rising_edges', phase=None):
+        '''
+        Create one or more key time instances where a parameter rises or
+        falls. Usually used with discrete parameters, e.g. Event marker
+        pressed, it is suitable for multi-state or analogue parameters such
+        as flap selections.
+        
+        :param param: The input parameter, with data and sample rate information.
+        :type param: A recorded or derived parameter.
+        
+        :param direction: Keyword argument with possible fields 'rising_edges'
+        or 'falling_edges'. In the absence of a direction parameter, the
+        default 'rising_edges' will be retained, and all edges will be
+        triggered. :type direction: string
+        
+        :param phase: An optional flight phase (section) argument may be
+        provided. If supplied, only edges arising within this phase will be
+        triggered.
+        '''
+        
+        # Low level function that finds edges from array and creates KTIs
+        def find_edges(subarray, start_index, direction='rising_edges'):
+            # Find increments. Extrapolate at start to keep array sizes straight.
+            deltas = np.ma.ediff1d(subarray, to_begin=subarray[0])
+            deltas[0]=0 # Ignore the first value 
+            if direction == 'rising_edges':
+                edges = np.ma.nonzero(np.ma.maximum(deltas,0))
+            elif direction == 'falling_edges':
+                edges = np.ma.nonzero(np.ma.minimum(deltas,0))
+            elif direction == 'all_edges':
+                edges = np.ma.nonzero(deltas)
+            else:
+                raise ValueError, 'Edge direction not recognised'
+            
+            # edges is a tuple catering for multi-dimensional arrays, but we
+            # are only interested in 1-D arrays, hence selection of the first
+            # element only. 
+            # The -0.5 shifts the KTI midway between the pre- and post-change
+            # samples.
+            edge_list = edges[0] + int(start_index) - 0.5
+            
+            for edge_index in edge_list:
+                kti = KeyTimeInstance(edge_index, self.name)
+                self.append(kti)
+                
+            return
+        
+        # High level function scans phase blocks or complete array and presents
+        # appropriate arguments for analysis.
+        if phase:
+            for each_period in phase:
+                to_scan = array[each_period.slice]
+                find_edges(to_scan, each_period.slice.start or 0, direction)
+        else:
+            find_edges(array, 0, direction)
+        return    
+    
     def get_aligned(self, param):
         '''
         :param param: Node to align this KeyTimeInstanceNode to.
@@ -901,7 +958,7 @@ class KeyPointValueNode(FormattedNameNode):
         appended to self.
         
         :param index: Index of the KeyTimeInstance within the data relative to self.frequency.
-        :type index: int or float # Q: Is float correct?
+        :type index: float (NB data may be interpolated hence use of float here)
         :param value: Value sourced at the index.
         :type value: float
         :param replace_values: Dictionary of string formatting arguments to be applied to self.NAME_FORMAT.

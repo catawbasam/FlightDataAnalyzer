@@ -11,7 +11,7 @@ from analysis_engine.node import (KeyTimeInstance, KTI, KeyPointValue,
                            KeyPointValueNode, Parameter, P, Section, S)
 
 from analysis_engine.key_point_values import (
-    AccelerationLateralOnGroundMax,
+    AccelerationLateralTaxiingMax,
     AccelerationNormal20FtToGroundMax,
     AccelerationNormalAirborneMax,
     AccelerationNormalAirborneMin,
@@ -53,30 +53,30 @@ from analysis_engine.key_point_values import (
     EngVibN2Max,
     HeadingAtTakeoff,
     Eng_N1MaxDurationUnder60PercentAfterTouchdown,
-    FlapAtGearSelectedDown,
+    FlapAsGearSelectedDown,
     FlapAtLiftoff,
     FlapAtTouchdown,
     FuelQtyAtLiftoff,
     FuelQtyAtTouchdown,
     FuelQtyAirborneMin,
-    GlideslopeDeviation1500To1000FtMax,
-    GlideslopeDeviation1000To150FtMax,
-    GlideslopeDeviationBelow1000FtMax,
     GrossWeightAtLiftoff,
     GrossWeightAtTouchdown,
-    GroundSpeedOnGroundMax,
+    ##GroundSpeedOnGroundMax,
     ILSFrequencyOnApproach,
+    ILSGlideslopeDeviation1500To1000FtMax,
+    ILSGlideslopeDeviation1000To150FtMax,
+    ILSGlideslopeDeviationBelow1000FtMax,
     HeadingAtLanding,
     ## HeadingAtLowPointOnApproach,
     HeightAtGoAroundMin,
     LatitudeAtLanding,
     ## LatitudeAtLowPointOnApproach,
-    LatitudeAtTakeoff,
+    LatitudeAtLiftoff,
     LongitudeAtLanding,
     ## LongitudeAtLowPointOnApproach,
-    LongitudeAtTakeoff,
-    LocalizerDeviation1500To1000FtMax,
-    LocalizerDeviation1000To150FtMax,
+    LongitudeAtLiftoff,
+    ILSLocalizerDeviation1500To1000FtMax,
+    ILSLocalizerDeviation1000To150FtMax,
     MachMax,
     Pitch1000To100FtMax,
     Pitch1000To100FtMin,
@@ -100,6 +100,8 @@ from analysis_engine.key_point_values import (
     RollBelow20FtMax,
     RollBetween100And500FtMax,
     RollBetween500And1500FtMax,
+    TailClearanceOnApproach,
+    ZeroFuelWeight,
 )
 from analysis_engine.library import (max_abs_value, max_value, min_value)
 from analysis_engine.flight_phase import Fast
@@ -187,10 +189,10 @@ class TestRollAbove1500FtMax(unittest.TestCase, TestCreateKPVsWithinSlices):
                 mock1.array, mock2, self.function)
 
 
-class TestAccelerationLateralOnGroundMax(unittest.TestCase,
+class TestAccelerationLateralTaxiingMax(unittest.TestCase,
                                          TestCreateKPVsWithinSlices):
     def setUp(self):
-        self.node_class = AccelerationLateralOnGroundMax
+        self.node_class = AccelerationLateralTaxiingMax
         self.operational_combinations = [('Acceleration Lateral', 'On Ground')]
         self.function = max_value
 
@@ -508,7 +510,7 @@ class TestAutopilotEngaged2AtTouchdown(unittest.TestCase, TestCreateKPVsAtKTIs):
         self.operational_combinations = [('Autopilot Engaged 2', 'Touchdown')]
 
 
-class TestBDUTerrain(unittest.TestCase):
+class TestAltitudeRadioDividedByDistanceToLanding3000To50FtMinTerrain(unittest.TestCase):
     def test_can_operate(self):
         self.assertEqual(AltitudeRadioDividedByDistanceToLanding3000To50FtMin.get_operational_combinations(),
                          [('Altitude AAL', 'Altitude Radio',
@@ -530,8 +532,7 @@ class TestBDUTerrain(unittest.TestCase):
         param = AltitudeRadioDividedByDistanceToLanding3000To50FtMin()
         param.derive(alt_aal, alt_radio, dtl)
         self.assertEqual(param, [KeyPointValue(name='BDU Terrain', index=1008, value=0.037668517049960347)])
-        
-    
+
 
 class TestControlColumnStiffness(unittest.TestCase):
     def test_can_operate(self):
@@ -753,9 +754,9 @@ class TestEng_N1MaxDurationUnder60PercentAfterTouchdown(unittest.TestCase):
         ##self.assertTrue('Eng (2)' in max_dur[1].name)
         self.assertEqual(len(max_dur), 1)
 
-class TestFlapAtGearSelectedDown(unittest.TestCase, TestCreateKPVsAtKTIs):
+class TestFlapAsGearSelectedDown(unittest.TestCase, TestCreateKPVsAtKTIs):
     def setUp(self):
-        self.node_class = FlapAtGearSelectedDown
+        self.node_class = FlapAsGearSelectedDown
         self.operational_combinations = [('Flap', 'Gear Selected Down')]
 
 
@@ -790,10 +791,10 @@ class TestFuelQtyAirborneMin(unittest.TestCase, TestCreateKPVsWithinSlices):
         self.function = min_value
 
 
-class TestGlideslopeDeviation1500To1000FtMax(unittest.TestCase,
+class TestILSGlideslopeDeviation1500To1000FtMax(unittest.TestCase,
                                              TestCreateKPVsWithinSlices):
     def setUp(self):
-        self.node_class = GlideslopeDeviation1500To1000FtMax
+        self.node_class = ILSGlideslopeDeviation1500To1000FtMax
         self.operational_combinations = [('ILS Glideslope', 'Altitude AAL')]
         self.function = max_abs_value
         self.second_param_method_calls = [('slices_from_to', (1500, 1000,), {})]
@@ -803,7 +804,7 @@ class TestGlideslopeDeviation1500To1000FtMax(unittest.TestCase,
         testwave = (np.cos(testline)*(-1000))+1000
         alt_ph = Parameter('Altitude AAL', np.ma.array(testwave))
         ils_gs = Parameter('ILS Glideslope', np.ma.array(testline))
-        kpv = GlideslopeDeviation1500To1000FtMax()
+        kpv = ILSGlideslopeDeviation1500To1000FtMax()
         kpv.derive(ils_gs, alt_ph)
         # 'KeyPointValue', 'index' 'value' 'name'
         self.assertEqual(len(kpv), 2)
@@ -811,19 +812,19 @@ class TestGlideslopeDeviation1500To1000FtMax(unittest.TestCase,
         self.assertEqual(kpv[1].index, 109)
 
 
-class TestGlideslopeDeviationBelow1000FtMax(unittest.TestCase,
+class TestILSGlideslopeDeviationBelow1000FtMax(unittest.TestCase,
                                             TestCreateKPVsWithinSlices):
     def setUp(self):
-        self.node_class = GlideslopeDeviationBelow1000FtMax
+        self.node_class = ILSGlideslopeDeviationBelow1000FtMax
         self.operational_combinations = [('ILS Glideslope', 'Altitude AAL')]
         self.function = max_abs_value
         self.second_param_method_calls = [('slices_below', (1000,), {})]
 
 
-class TestGlideslopeDeviation1000To150FtMax(unittest.TestCase,
+class TestILSGlideslopeDeviation1000To150FtMax(unittest.TestCase,
                                             TestCreateKPVsWithinSlices):
     def setUp(self):
-        self.node_class = GlideslopeDeviation1000To150FtMax
+        self.node_class = ILSGlideslopeDeviation1000To150FtMax
         self.operational_combinations = [('ILS Glideslope', 'Altitude AAL')]
         self.function = max_abs_value
         self.second_param_method_calls = [('slices_from_to', (1000, 150,), {})]
@@ -833,20 +834,20 @@ class TestGlideslopeDeviation1000To150FtMax(unittest.TestCase,
         testwave = (np.cos(testline)*(-1000))+1000
         alt_ph = Parameter('Altitude AAL', np.ma.array(testwave))
         ils_gs = Parameter('ILS Glideslope', np.ma.array(testline))
-        kpv = GlideslopeDeviation1000To150FtMax()
+        kpv = ILSGlideslopeDeviation1000To150FtMax()
         kpv.derive(ils_gs, alt_ph)
         # 'KeyPointValue', 'index value name'
         self.assertEqual(len(kpv), 2)
         self.assertEqual(kpv[0].index, 57)
         self.assertEqual(kpv[1].index, 120)
 
-
+'''
 class TestGroundSpeedOnGroundMax(unittest.TestCase, TestCreateKPVsWithinSlices):
     def setUp(self):
         self.node_class = GroundSpeedOnGroundMax
         self.operational_combinations = [('Groundspeed', 'On Ground')]
         self.function = max_value
-
+'''
 
 class TestGrossWeightAtLiftoff(unittest.TestCase, TestCreateKPVsAtKTIs):
     def setUp(self):
@@ -987,10 +988,10 @@ class TestLongitudeAtLowPointOnApproach(unittest.TestCase, TestCreateKPVsAtKTIs)
                                           'Approach And Landing Lowest')]
 """
 
-class TestLocalizerDeviation1500To1000FtMax(unittest.TestCase):
+class TestILSLocalizerDeviation1500To1000FtMax(unittest.TestCase):
     def test_can_operate(self):
         expected = [('ILS Localizer','Altitude AAL')]
-        opts = LocalizerDeviation1500To1000FtMax.get_operational_combinations()
+        opts = ILSLocalizerDeviation1500To1000FtMax.get_operational_combinations()
         self.assertEqual(opts, expected) 
         
     def test_ils_loc_1500_1000_basic(self):
@@ -998,7 +999,7 @@ class TestLocalizerDeviation1500To1000FtMax(unittest.TestCase):
         testwave = (np.cos(testline)*(-1000))+1000
         alt_ph = Parameter('Altitude AAL', np.ma.array(testwave))
         ils_loc = Parameter('ILS Localizer', np.ma.array(testline))
-        kpv = LocalizerDeviation1500To1000FtMax()
+        kpv = ILSLocalizerDeviation1500To1000FtMax()
         kpv.derive(ils_loc, alt_ph)
         # 'KeyPointValue', 'index value name'
         self.assertEqual(len(kpv), 2)
@@ -1006,10 +1007,10 @@ class TestLocalizerDeviation1500To1000FtMax(unittest.TestCase):
         self.assertEqual(kpv[1].index, 109)
         
         
-class TestLocalizerDeviation1000To150FtMax(unittest.TestCase):
+class TestILSLocalizerDeviation1000To150FtMax(unittest.TestCase):
     def test_can_operate(self):
         expected = [('ILS Localizer','Altitude AAL')]
-        opts = LocalizerDeviation1000To150FtMax.get_operational_combinations()
+        opts = ILSLocalizerDeviation1000To150FtMax.get_operational_combinations()
         self.assertEqual(opts, expected) 
         
     def test_ils_loc_1000_150_basic(self):
@@ -1017,7 +1018,7 @@ class TestLocalizerDeviation1000To150FtMax(unittest.TestCase):
         testwave = (np.cos(testline)*(-1000))+1000
         alt_ph = Parameter('Altitude AAL', np.ma.array(testwave))
         ils_loc = Parameter('ILS Localizer', np.ma.array(testline))
-        kpv = LocalizerDeviation1000To150FtMax()
+        kpv = ILSLocalizerDeviation1000To150FtMax()
         kpv.derive(ils_loc, alt_ph)
         # 'KeyPointValue', 'index value name'
         self.assertEqual(len(kpv), 2)
@@ -1237,3 +1238,40 @@ class TestRollBetween500And1500FtMax(unittest.TestCase,
         self.operational_combinations = [('Roll', 'Altitude AAL')]
         self.function = max_abs_value
         self.second_param_method_calls = [('slices_between', (500, 1500), {})]
+
+class TestTailClearanceOnApproach(unittest.TestCase):
+    def test_can_operate(self):
+        self.assertEqual(TailClearanceOnApproach.get_operational_combinations(),
+                         [('Altitude AAL', 'Altitude Tail',
+                           'Distance To Landing')])
+    
+    def test_derive(self):
+        test_data_dir = os.path.join('test_data', 'BDUTerrain')
+        alt_aal_array = np.ma.masked_array(np.load(os.path.join(test_data_dir,
+                                                                'alt_aal.npy')))
+        alt_radio_array = np.ma.masked_array(np.load(os.path.join(test_data_dir,
+                                                                  'alt_radio.npy')))
+        dtl_array = np.ma.masked_array(np.load(os.path.join(test_data_dir,
+                                                            'dtl.npy')))
+        alt_aal = P(array=alt_aal_array, frequency=8)
+        alt_radio = P(array=alt_radio_array, frequency=0.5)
+        dtl = P(array=dtl_array, frequency=0.25)
+        alt_radio.array = align(alt_radio, alt_aal)
+        dtl.array = align(dtl, alt_aal)        
+        param = BDUTerrain()
+        param.derive(alt_aal, alt_radio, dtl)
+        self.assertEqual(param, [KeyPointValue(name='BDU Terrain', index=1008, value=0.037668517049960347)])
+        
+class TestZeroFuelWeight(unittest.TestCase):
+    def test_derive(self):
+        fuel = P('Fuel Qty', np.ma.array([1,2,3,4]))
+        weight = P('Gross Weight', np.ma.array([11,12,13,14]))
+        zfw = ZeroFuelWeight()
+        zfw.derive(fuel, weight)
+        self.assertEqual(zfw[0].value, 10.0)
+        
+    def test_fails(self):
+        fuel = P('Fuel Qty', np.ma.array([1,2,3,4])*2.2) #Most likely mix of lb/kg!
+        weight = P('Gross Weight', np.ma.array([11,12,13,14]))
+        zfw = ZeroFuelWeight()
+        self.assertRaises(ValueError, zfw.derive, fuel, weight)
