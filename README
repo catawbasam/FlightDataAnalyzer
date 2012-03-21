@@ -1,5 +1,3 @@
-.. contents:: **Table of Contents**
-
 Introduction
 ============
 
@@ -12,8 +10,15 @@ flight data. It provides the following utilities:
 * Creation of flight attributes, such as take and landing runways.
 * Calculation and creation of KPVs and KTIs.
 
-Package requires **pip** for installation.
+Project sponsored by `Flight Data Services`_.
 
-| pip install analysisengine
+Installation
+------------
 
-Project sponsored by Flight Data Services Ltd: http://www.flightdataservices.com/
+Package requires ``pip`` for installation.
+::
+
+    pip install analysisengine
+
+.. _Flight Data Services: http://www.flightdataservices.com/
+
