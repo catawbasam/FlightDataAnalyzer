@@ -2,11 +2,12 @@ import logging
 import numpy as np
 
 from analysis_engine import settings
-from analysis_engine.settings import CONTROL_FORCE_THRESHOLD, RATE_OF_TURN_FOR_TAXI_TURNS
+from analysis_engine.settings import CONTROL_FORCE_THRESHOLD
 
 from analysis_engine.node import KeyPointValueNode, KPV, KTI, P, S
-from analysis_engine.library import (clip, coreg, 
-                                     index_at_value, max_abs_value,
+from analysis_engine.library import (clip, coreg, cycle_counter,
+                                     index_at_value, integrate,
+                                     max_abs_value,
                                      max_continuous_unmasked, max_value,
                                      min_value, repair_mask, 
                                      slice_samples, 
@@ -17,10 +18,16 @@ from analysis_engine.library import (clip, coreg,
                                      subslice,
                                      value_at_index)
 
-class AccelerationLateralTaxiingMax(KeyPointValueNode):
-    def derive(self, acc_lat = P('Acceleration Lateral'), taxi = S('Taxi')):
+class AccelerationLateralTaxiingStraightMax(KeyPointValueNode):
+    def derive(self, acc_lat=P('Acceleration Lateral'), taxi=S('Taxi'), turns=S('Turning On Ground')):
+        #Still to do inverse logic for slices here.
         self.create_kpvs_within_slices(acc_lat.array, taxi, max_value)
+
     
+class AccelerationLateralTaxiingTurnsMax(KeyPointValueNode):
+    def derive(self, acc_lat=P('Acceleration Lateral'), turns=S('Turning On Ground')):
+        self.create_kpvs_within_slices(acc_lat.array, turns, max_value)
+
         
 class AccelerationNormal20FtToGroundMax(KeyPointValueNode):
     name = 'Acceleration Normal 20 Ft To Ground Max' # not required?
@@ -463,18 +470,12 @@ class Pitch35To400FtMax(KeyPointValueNode):
 
 
 class AltitudeWithFlapsMax(KeyPointValueNode):
-    #TODO: TESTS
-    """
-    FIXME: It's max Altitude not Max Flaps
-    """
     def derive(self, flap=P('Flap'), alt_std=P('Altitude STD')):
         '''
-        flap_set = np.ma.masked_less_equal(flap.array, 0)
-        # Failed on the line below with the following error...
-        # TypeError: ufunc 'bitwise_or' not supported for the input types, and the inputs could not be safely coerced to any supported types according to the casting rule 'safe'
-        index, value = max_value(alt_std.array | flap_set)
-        #...hence the noddy rewrite.
-        self.create_kpv(index, value)
+        The exceedance being detected here is the altitude reached with flaps
+        not stowed, hence any flap value greater than zero is applicable and
+        we're not really interested (for the purpose of identifying the
+        event) what flap setting was reached.
         '''
         alt_flap = alt_std.array * np.ma.minimum(flap.array,1.0)
         index = np.ma.argmax(alt_flap)
@@ -644,11 +645,26 @@ class EngN1Max(KeyPointValueNode):
         index, value = max_value(eng.array)
         self.create_kpv(index, value)
 
+
+class EngN1CyclesInFinalApproach(KeyPointValueNode):
+    def derive(self, eng_n1=P('Eng (*) N1 Avg'), fapps = S('Final Approach')):
+        for fapp in fapps:
+            self.create_kpv(*cycle_counter(eng_n1.array[fapp.slice], 0.0, 14.0, eng_n1.hz, fapp.slice.start))
+
+
 class EngN2Max(KeyPointValueNode):
     name = 'Eng N2 Max'
     def derive(self, eng=P('Eng (*) N2 Max')):
         index, value = max_value(eng.array)
         self.create_kpv(index, value)
+
+
+class EngN2CyclesInFinalApproach(KeyPointValueNode):
+    def derive(self, eng_n2=P('Eng (*) N2 Avg'), fapps = S('Final Approach')):
+        for fapp in fapps:
+            # TODO: Set correct threshold. Zero for demonstration
+            self.create_kpv(*cycle_counter(eng_n2.array[fapp.slice], 0.0, 14.0, eng_n2.hz, fapp.slice.start))
+
 
 class EngOilTempMax(KeyPointValueNode):
     name = 'Eng Oil Temp Max'
@@ -1039,28 +1055,53 @@ class ILSLocalizerDeviation1500To1000FtMax(KeyPointValueNode):
                 self.create_kpv(index, value)
 
 
-class Flare20FtToTouchdown(KeyPointValueNode):
-    def derive(self, alt_rad=P('Altitude Radio'), alt_aal=P('Altitude AAL')):
-        return NotImplemented
-        
+class FlareTime20FtToTouchdown(KeyPointValueNode):
+    #TODO: Tests
+    def derive(self, alt_aal=P('Altitude AAL'), tdowns=KTI('Touchdown'), lands=S('Landing')):
+        for tdown in tdowns:
+            this_landing = lands.get_surrounding(tdown.index)[0]
+            if this_landing:
+                idx_20 = index_at_value(alt_aal.array, 20.0, _slice=slice(tdown.index,this_landing.slice.start))
+                self.create_kpv(tdown.index, (tdown.index-idx_20)/alt_aal.frequency)
 
 
-class LowPowerLessThan500Ft10Sec(KeyPointValueNode):
+class FlareDistance20FtToTouchdown(KeyPointValueNode):
+    #TODO: Tests
+    def derive(self, alt_aal=P('Altitude AAL'), tdowns=KTI('Touchdown'), lands=S('Landing'), gspd=P('Groundspeed')):
+        for tdown in tdowns:
+            this_landing = lands.get_surrounding(tdown.index)[0]
+            if this_landing:
+                idx_20 = index_at_value(alt_aal.array, 20.0, _slice=slice(tdown.index,this_landing.slice.start))
+                dist = max(integrate(gspd.array[idx_20:tdown.index], gspd.hz))
+                self.create_kpv(tdown.index, dist)
+
+
+class AirspeedMinusVrefFor5Sec50FtToTouchdownMax(KeyPointValueNode):
+    def derive(self, speed=P('Airspeed Minus Vref For 5 Sec'), lands=S('Landing'), tdowns=KTI('Touchdown')):
+        for tdown in tdowns:
+            this_landing = lands.get_surrounding(tdown.index)[0]
+            if this_landing:
+                index, value = max_value(speed.array, slice(this_landing.slice.start, tdown.index))
+                self.create_kpv(index, value)
+
+
+class LowPowerInFinalApproachFor10Sec(KeyPointValueNode):
     #TODO: TESTS
-    #Q: N1 Minimum or N1 Average
-    def derive(self, eng_n1_min=P('Eng (*) N1 Min'), alt=P('Altitude AAL')):
-        eng_clipped = clip(eng_n1_min.array, 10, eng_n1_min.hz, remove='troughs')
-        for alt_slice in alt.slices_from_to(500, 0):
-            # clip to 10 secs
-            index, value = min_value(eng_clipped, alt_slice)
-            self.create_kpv(index, value)
+    def derive(self, eng_n1_avg=P('Eng (*) N1 Avg'), fin_apps=S('Final Approach')):
+        for fin_app in fin_apps:
+            eng_clipped = clip(eng_n1_avg.array[fin_app.slice], 10, eng_n1_avg.hz, remove='troughs')
+            self.create_kpv(*min_value(eng_clipped, fin_app.slice))
 
-
-class LowPowerInFinalApproach10Sec(KeyPointValueNode):
-    #Q: N1 Minimum or N1 Average (as above)
-    def derive(self, eng_avg=P('Eng (*) N1 Avg'), fin_apps=S('Final Approach')):
-        return NotImplemented
     
+class LowPowerBelow500FtFor10Sec(KeyPointValueNode):
+    #TODO: TESTS
+    def derive(self, eng_n1_avg=P('Eng (*) N1 Avg'), alt=P('Altitude AAL')):
+        for alt_slice in alt.slices_from_to(500, 0):
+            if alt_slice.stop-alt_slice.start > 10:
+                # clip to 10 secs
+                eng_clipped = clip(eng_n1_avg.array[alt_slice], 10, eng_n1_avg.hz, remove='troughs')
+                self.create_kpv(*min_value(eng_clipped, alt_slice))
+
     
 class GroundspeedRTOMax(KeyPointValueNode):
     name = 'Groundspeed RTO Max'
@@ -1073,10 +1114,6 @@ class GroundspeedAtTouchdown(KeyPointValueNode):
     def derive(self, gspd=P('Groundspeed'), touchdowns=KTI('Touchdown')):
         self.create_kpvs_at_ktis(gspd.array, touchdowns)
 
-
-class EngN2Cycles(KeyPointValueNode):
-    def derive(self, eng_n2=P('Eng (*) N2 Avg')):
-        return NotImplemented
 
 
 class EngOilPressMax(KeyPointValueNode):
@@ -1117,10 +1154,15 @@ class GrossWeightAtTouchdown(KeyPointValueNode):
         self.create_kpvs_at_ktis(gross_weight.array, touchdowns)
 
 
-class PitchCycles(KeyPointValueNode):
-    #TODO: Review which period to reset the pitch cycles by (15 minute period?)
-    def derive(self, pitch=P('Pitch')):
-        return NotImplemented
+class PitchCyclesInFinalApproach(KeyPointValueNode):
+    '''
+    Counts the number of half-cycles of pitch attitude that exceed 3 deg in
+    pitch from peak to peak and with a maximum cycle period of 10 seconds
+    during the final approach phase.
+    '''
+    def derive(self, pitch=P('Pitch'), fapps = S('Final Approach')):
+        for fapp in fapps:
+            self.create_kpv(*cycle_counter(pitch.array[fapp.slice], 3.0, 10.0, pitch.hz, fapp.slice.start))
 
 
 class Pitch5FtToTouchdownMax(KeyPointValueNode):
@@ -1247,9 +1289,15 @@ class PullUpWarning(KeyPointValueNode):
         return NotImplemented
 
 
-class RollCycles1000FtToTouchdownMax(KeyPointValueNode):
-    def derive(self, roll=P('Roll'), alt_aal=P('Altitude AAL')):
-        return NotImplemented
+class RollCyclesInFinalApproach(KeyPointValueNode):
+    '''
+    Counts the number of half-cycles of roll attitude that exceed 5 deg from
+    peak to peak and with a maximum cycle period of 10 seconds during the
+    final approach phase.
+    '''
+    def derive(self, roll=P('Roll'), fapps = S('Final Approach')):
+        for fapp in fapps:
+            self.create_kpv(*cycle_counter(roll.array[fapp.slice], 5.0, 10.0, roll.hz, fapp.slice.start))
 
 
 class RollAbove1000FtMax(KeyPointValueNode):
@@ -1288,6 +1336,18 @@ class RudderReversalAbove50Ft(KeyPointValueNode):
                alt_aal=P('Altitude AAL')):
         # Q: Should this be Max or Min?
         return NotImplemented
+
+
+class RudderReversalInFinalApproach(KeyPointValueNode):
+    '''
+    Looks for sharp rudder reversal in the final approach phase, mainly
+    looking for where drift is kicked off. Uses the standard cycle counting
+    process but looking for only one pair of half-cycles.
+    '''
+    def derive(self, rudder=P('Rudder'), fapps = S('Final Approach')):
+        for fapp in fapps:
+            self.create_kpv(*cycle_counter(rudder.array[fapp.slice], 6.25, 2.0, 
+                                           rudder.hz, fapp.slice.start))
 
 
 class TaxiSpeedTurning(KeyPointValueNode):
@@ -1428,9 +1488,16 @@ class TAWSTerrainPullUpWarning(KeyPointValueNode):
         return NotImplemented
 
 
-class ThrottleCycles1000FtToTouchdownMax(KeyPointValueNode):
-    def derive(self, thrust_lever=P('Throttle Lever')):
-        return NotImplemented
+class ThrottleCyclesInFinalApproach(KeyPointValueNode):
+    '''
+    Counts the number of half-cycles of throttle lever movement that exceed
+    10 deg peak to peak and with a maximum cycle period of 14 seconds during
+    the final approach phase.
+    '''
+    def derive(self, lever=P('Throttle Lever'), fapps = S('Final Approach')):
+        for fapp in fapps:
+            self.create_kpv(*cycle_counter(lever.array[fapp.slice], 10.0, 14.0, 
+                                           lever.hz, fapp.slice.start))
 
 
 class TooLowFlapWarning(KeyPointValueNode):

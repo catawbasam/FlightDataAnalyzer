@@ -981,6 +981,22 @@ class Eng_N1Avg(DerivedParameterNode):
         self.array = np.ma.average(engines, axis=0)
 
 
+class Eng_N1Avg(DerivedParameterNode):
+    name = "Eng (*) N1 Avg"
+    @classmethod
+    def can_operate(cls, available):
+        # works with any combination of params available
+        return any([d in available for d in cls.get_dependency_names()])
+    
+    def derive(self, 
+               eng1=P('Eng (1) N1'),
+               eng2=P('Eng (2) N1'),
+               eng3=P('Eng (3) N1'),
+               eng4=P('Eng (4) N1')):
+        engines = vstack_params(eng1, eng2, eng3, eng4)
+        self.array = np.ma.average(engines, axis=0)
+        
+        
 class Eng_N1Max(DerivedParameterNode):
     name = "Eng (*) N1 Max"
     @classmethod
@@ -2191,6 +2207,10 @@ class Relief(DerivedParameterNode):
         self.array = alt_aal.array - alt_rad.array
 
 
+class Rudder(DerivedParameterNode):
+    def derive(self, rudd=P('RUDDER POSN')):
+        self.array, self.offset, self.frequency = rudd.array, rudd.offset, rudd.frequency
+
 ####class Speedbrake(DerivedParameterNode):
 ####    def derive(self, param=P('Speedbrake')):
 ####        # There will be a recorded parameter, but varying types of correction will 
@@ -2270,15 +2290,10 @@ class PitchRate(DerivedParameterNode):
 
 class ThrottleLever(DerivedParameterNode):
     def derive(self,
-               tla1=P('Throttle Lever Angle (1)'), 
-               tla2=P('Throttle Lever Angle (2)'),
-               tla3=P('Throttle Lever Angle (3)'),
-               tla4=P('Throttle Lever Angle (4)')):
-        ##self.hz = tla1.hz * 2
-        ##self.offset = min(tla1.offset, tla2.offset, tla3.offset, tla4.offset)
-        ##self.array = interleave(tla1, tla2, tla3, tla4)
-        return NotImplemented
-
+               tla1=P('THR LEVER ANGLE-LEFT'), 
+               tla2=P('THR LEVER ANGLE-RIGHT')):
+        self.array, self.frequency, self.offset = \
+            blend_two_parameters(tla1, tla2)
 
 
 class Aileron(DerivedParameterNode):

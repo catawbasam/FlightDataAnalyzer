@@ -685,6 +685,51 @@ class TestClip(unittest.TestCase):
         result = clip(an_array, 5, remove='troughs')
         expected = np.array([9,9,9,8,7,6,5,4,3,4,5,6,7,8,8,8])
         np.testing.assert_array_almost_equal(result, expected)
+
+class TestCycleCounter(unittest.TestCase):
+    def test_cycle_counter(self):
+        array = np.ma.sin(np.ma.arange(100)*0.7+3)+np.ma.sin(np.ma.arange(100)*0.82)
+        end_index, n_cycles = cycle_counter(array, 3.0, 10, 1.0)
+        self.assertEqual(n_cycles, 3)
+        self.assertEqual(end_index, 91)
+        
+    def test_cycle_counter_too_slow(self):
+        array = np.ma.sin(np.ma.arange(100)*0.7+3)+np.ma.sin(np.ma.arange(100)*0.82)
+        end_index, n_cycles = cycle_counter(array, 3.0, 1, 1.0)
+        self.assertEqual(n_cycles, None)
+        self.assertEqual(end_index, None)
+        
+    def test_cycle_counter_empty(self):
+        array=np.ma.array([])
+        end_index, n_cycles = cycle_counter(array, 3.0, 10, 1.0)
+        self.assertEqual(n_cycles, None)
+        self.assertEqual(end_index, None)
+        
+
+class TestCycleFinder(unittest.TestCase):
+    def test_cycle_finder_basic(self):
+        array = np.ma.array([0,1,3.8,1,0.3,1,2,3,2,1,2,3,4,3,2])
+        idxs, vals = cycle_finder(array, min_step=2.1, include_ends=False)
+        np.testing.assert_array_equal(idxs, [2, 4, 12])
+        np.testing.assert_array_equal(vals, [3.8,0.3,4])
+        
+    def test_cycle_finder_default(self):
+        array = np.ma.array([0,1,3.8,1,0.3,1,2,3,2,1,2,3,4,3,2])
+        idxs, vals = cycle_finder(array)
+        np.testing.assert_array_equal(idxs, [ 0, 2, 4, 7, 9,12,15])
+        np.testing.assert_array_equal(vals, [ 0., 3.8, 0.3, 3., 1., 4., 2.])
+        
+    def test_cycle_finder_null(self):
+        array = np.ma.array([0,1,3.8,1,0.3,1,2,3,2,1,2,3,4,3,2])
+        idxs, vals = cycle_finder(array, min_step=15)
+        np.testing.assert_array_equal(idxs, None)
+        np.testing.assert_array_equal(vals, None)
+        
+    def test_cycle_finder_ramp(self):
+        array = np.ma.array([0,1,2])
+        idxs, vals = cycle_finder(array, include_ends=False)
+        np.testing.assert_array_equal(idxs, None)
+        np.testing.assert_array_equal(vals, None)
         
 
 class TestDatetimeOfIndex(unittest.TestCase):
@@ -1505,7 +1550,6 @@ class TestPhaseMasking(unittest.TestCase):
         self.assertRaises(ValueError, create_phase_inside, array, 1,0, 2, -1)
         self.assertRaises(ValueError, create_phase_inside, array, 1,0, 2, 11)
     
-
 class TestRateOfChange(unittest.TestCase):
     
     # Reminder: rate_of_change(to_diff, half_width, hz) - half width in seconds.
