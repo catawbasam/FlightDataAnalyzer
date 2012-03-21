@@ -433,6 +433,18 @@ class TestSectionNode(unittest.TestCase):
         section = section_node.get_previous(40, frequency=2)
         self.assertEqual(items[2], section)    
 
+    def test_get_surrounding(self):
+        node = SectionNode()
+        self.assertEqual(node.get_surrounding(12), [])
+        sect_1 = Section('ThisSection', slice(2,15))
+        node.append(sect_1)
+        self.assertEqual(node.get_surrounding(2), [sect_1])
+        sect_2 = Section('ThisSection', slice(5,25))
+        node.append(sect_2)
+        self.assertEqual(node.get_surrounding(12), [sect_1, sect_2])
+        self.assertEqual(node.get_surrounding(-3), [])
+        self.assertEqual(node.get_surrounding(25), [sect_2])
+
 
 class TestFormattedNameNode(unittest.TestCase):
     def setUp(self):
@@ -635,8 +647,8 @@ class TestFormattedNameNode(unittest.TestCase):
         previous_kti = kti_node.get_previous(25, name="Fast")
         self.assertEqual(previous_kti, None)
         previous_kti = kti_node.get_previous(40, frequency=4)
-        self.assertEqual(previous_kti, KeyTimeInstance(2, 'Slowest'))                
-
+        self.assertEqual(previous_kti, KeyTimeInstance(2, 'Slowest'))
+        
 
 class TestKeyPointValueNode(unittest.TestCase):
     
@@ -959,6 +971,21 @@ class TestDerivedParameterNode(unittest.TestCase):
         self.assertIsInstance(result, DerivedParameterNode)
         self.assertEqual(result.frequency, unaligned_param.frequency)
         self.assertEqual(result.offset, unaligned_param.offset)
+        
+    def test_get_derived_discrete_align(self):
+        """
+        Ensure that interpolations does not occur
+        """
+        class Flap(DerivedParameterNode):
+            data_type = 'Multi-state'
+            
+        master_param = Parameter(array=np.ma.array([5,6,7]), 
+                                 frequency=1, offset=0.4, data_type=None)
+            
+        slave_flap = Flap(array=np.ma.array([1,2,3]),frequency=1, offset=0)
+        res = slave_flap.get_aligned(master_param)
+        # note it has not interpolated to 1.4, 2.4, 3.4 forward
+        self.assertEqual(list(res.array), [1,2,3]) 
         
     def test_parameter_at(self):
         # using a plain range as the parameter array, the results are equal to 
