@@ -628,7 +628,7 @@ def clip(array, period, hz=1.0, remove='peaks'):
     result[-delay:] = result[-(delay+1)]
     return result
 
-    """
+"""
     # Compute an array of differences across period, such that each maximum or
     # minimum results in a negative result.
     b = (a[:-delay]-a[delay-1:-1]) * (a[1:1-delay]-a[delay:])

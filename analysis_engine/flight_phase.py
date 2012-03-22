@@ -739,7 +739,7 @@ class Taxiing(FlightPhaseNode):
                 if slices_overlap(gnd.slice, land.slice):
                     taxi_start = land.slice.stop
                     self.create_phase(slice(taxi_start, taxi_stop), name="Taxi In")
-            self.create_phase(slice(taxi_start, taxi_stop), name="Taxi")
+            #self.create_phase(slice(taxi_start, taxi_stop), name="Taxi")
         
         
 class TurningInAir(FlightPhaseNode):

@@ -247,7 +247,7 @@ def csv_flight_details(hdf_path, kti_list, kpv_list, phase_list, dest_path=None)
     :param dest_path: If None, writes to hdf_path.csv
     """
     rows = []
-    params = ['Airspeed', 'Altitude STD', 'Pitch', 'Roll']
+    params = ['Airspeed', 'Altitude AAL', 'Pitch', 'Roll']
     attrs = ['value', 'datetime', 'latitude', 'longitude'] 
     header = ['Type', 'Phase Start', 'Index', 'Phase End', 'Name'] + attrs + params
 

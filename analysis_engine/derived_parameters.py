@@ -352,14 +352,9 @@ class AltitudeAAL(DerivedParameterNode):
            and alt_rad and airspeed:
             # Initialise the array to zero, so that the altitude above the airfield
             # will be 0ft when the aircraft cannot be airborne.
-            alt_aal = np.ma.masked_all_like(alt_std.array)
-            for section in takeoffs + landings:
-                # Set altitude to 0 during entire 'Takeoff' and 'Landing' 
-                # phases. Directly after 'Liftoff and before 'Touchdown' will
-                # be overwritten with alt rad afterwards.
-                alt_aal[section.slice] = 0
-            alt_aal[airspeed.array < AIRSPEED_THRESHOLD] = 0
-            alt_aal[alt_rad.array < 0] = 0
+            # Was: alt_aal = np.ma.masked_all_like(alt_std.array)
+            alt_aal = np.zeros_like(alt_std.array) 
+            # Actually creates a masked copy filled with zeros.
             
             ordered_ktis = sorted(liftoffs + touchdowns,
                                   key=attrgetter('index'))
@@ -406,8 +401,13 @@ class AltitudeAAL(DerivedParameterNode):
             roc_lag = first_order_lag(roc.array,
                                       RATE_OF_CLIMB_LAG_TC, roc.hz,
                                       gain=RATE_OF_CLIMB_LAG_TC/60.0)            
-            alt_aal_lag = first_order_lag(alt_aal, RATE_OF_CLIMB_LAG_TC, roc.hz)            
-            self.array = alt_aal_lag + roc_lag
+            alt_aal_lag = first_order_lag(alt_aal, RATE_OF_CLIMB_LAG_TC, roc.hz)
+            alt_aal = alt_aal_lag + roc_lag
+            # Force result to zero at low speed and on the ground.
+            alt_aal[airspeed.array < AIRSPEED_THRESHOLD] = 0
+            alt_aal[alt_rad.array < 0] = 0
+            self.array = alt_aal
+            
         else:
             self.array = np.ma.copy(alt_aal_4fp.array) 
 
@@ -675,7 +675,6 @@ class AltitudeTail(DerivedParameterNode):
 
 
 class ClimbForFlightPhases(DerivedParameterNode):
-    #TODO: Optimise with numpy operations
     def derive(self, alt_std=P('Altitude STD'), airs=S('Fast')):
         self.array = np.ma.zeros(len(alt_std.array))
         repair_mask(alt_std.array) # Remove small sections of corrupt data
@@ -2398,6 +2397,11 @@ class Speedbrake(DerivedParameterNode):
                s12=P('Spoiler (12)')):
         return NotImplemented
 
+class StickShaker(DerivedParameterNode):
+    def derive(self, shake=P('STICK SHAKER-LEFT')):
+        self.array, self.frequency, self.offset = \
+            shake.array, shake.frequency, shake.offset
+               
 
 """
 class ILSTestOutput(DerivedParameterNode):

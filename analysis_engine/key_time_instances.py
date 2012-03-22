@@ -217,22 +217,13 @@ class TopOfDescent(KeyTimeInstanceNode):
 
 
 class FlapStateChanges(KeyTimeInstanceNode):
-    NAME_FORMAT = 'Flap %(flap)d'
+    NAME_FORMAT = 'Flap %(flap)d Set'
     NAME_VALUES = {'flap': range(0, 46, 1)}
     
     def derive(self, flap=P('Flap')):
-        # Mark all flap changes, irrespective of the aircraft type :o)
-        """
-        previous = None
-        for index, value in enumerate(flap.array):
-            if value == previous:
-                continue
-            else:
-                # Flap moved from previous setting, so record this change:
-                self.create_kti(index, setting=value)
-        """
-        self.create_ktis_at_edges(flap.array, direction='all_edges') 
+        # Mark all flap changes, and annotate with the new flap position.
         # Could include "phase=airborne" if we want to eliminate ground flap changes.
+        self.create_ktis_at_edges(flap.array, direction='all_edges', name='flap') 
 
 class TakeoffTurnOntoRunway(KeyTimeInstanceNode):
     # The Takeoff flight phase is computed to start when the aircraft turns

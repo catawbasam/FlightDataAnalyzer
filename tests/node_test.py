@@ -716,6 +716,22 @@ class TestKeyPointValueNode(unittest.TestCase):
         self.assertEqual(list(knode),
                          [KeyPointValue(index=22, value=27, name='Kpv'),
                           KeyPointValue(index=10, value=15, name='Kpv')])
+
+    def test_create_kpvs_from_discretes(self):
+        knode = self.knode
+        param = P('Disc',np.ma.array([0.0]*20, dtype=float))
+        param.array[5:8] = 1.0
+        param.array[11:17] = 1.0
+        knode.create_kpvs_from_discretes(param.array, param.hz)
+        knode.create_kpvs_from_discretes(param.array, param.hz, sense='reverse')
+        self.assertEqual(list(knode),
+                         [KeyPointValue(index=5, value=3, name='Kpv'),
+                          KeyPointValue(index=11, value=6, name='Kpv'),
+                          KeyPointValue(index=0, value=5, name='Kpv'),
+                          KeyPointValue(index=8, value=3, name='Kpv'),
+                          KeyPointValue(index=17, value=3, name='Kpv')])
+        
+    
     
     
     def test_get_aligned(self):
