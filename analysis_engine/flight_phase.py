@@ -30,6 +30,7 @@ from analysis_engine.settings import (AIRSPEED_THRESHOLD,
                                RATE_OF_CLIMB_FOR_DESCENT_PHASE,
                                RATE_OF_CLIMB_FOR_LEVEL_FLIGHT,
                                RATE_OF_TURN_FOR_FLIGHT_PHASES,
+                               RATE_OF_TURN_FOR_TAXI_TURNS
                                )
 
     
@@ -738,24 +739,32 @@ class Taxiing(FlightPhaseNode):
                 if slices_overlap(gnd.slice, land.slice):
                     taxi_start = land.slice.stop
                     self.create_phase(slice(taxi_start, taxi_stop), name="Taxi In")
-            self.create_phase(slice(taxi_start, taxi_stop), name="Taxi")
+            #self.create_phase(slice(taxi_start, taxi_stop), name="Taxi")
         
         
-class Turning(FlightPhaseNode):
+class TurningInAir(FlightPhaseNode):
     """
-    Rate of Turn is greater than +/- RATE_OF_TURN_FOR_FLIGHT_PHASES
+    Rate of Turn is greater than +/- RATE_OF_TURN_FOR_FLIGHT_PHASES in the air
     """
     def derive(self, rate_of_turn=P('Rate Of Turn'), airborne=S('Airborne')):
-        #turning = np.ma.masked_inside(
-            #hysteresis(repair_mask(rate_of_turn.array), HYSTERESIS_FPROT),
-            #RATE_OF_TURN_FOR_FLIGHT_PHASES * (-1.0),
-            #RATE_OF_TURN_FOR_FLIGHT_PHASES)
         turning = np.ma.masked_inside(repair_mask(rate_of_turn.array),
             -RATE_OF_TURN_FOR_FLIGHT_PHASES,RATE_OF_TURN_FOR_FLIGHT_PHASES)
         turn_slices = np.ma.clump_unmasked(turning)
         for turn_slice in turn_slices:
-            if any([is_slice_within_slice(turn_slice, a.slice) for a in airborne]):
+            if any([is_slice_within_slice(turn_slice, air.slice) for air in airborne]):
                 # If the slice is within any airborne section.
                 self.create_phase(turn_slice, name="Turning In Air")
-            else:
+
+                
+class TurningOnGround(FlightPhaseNode):
+    """
+    Rate of Turn is greater than +/- RATE_OF_TURN_FOR_TAXI_TURNS on the ground
+    """
+    def derive(self, rate_of_turn=P('Rate Of Turn'), ground=S('On Ground')):
+        turning = np.ma.masked_inside(repair_mask(rate_of_turn.array),
+            -RATE_OF_TURN_FOR_TAXI_TURNS,RATE_OF_TURN_FOR_TAXI_TURNS)
+        turn_slices = np.ma.clump_unmasked(turning)
+        for turn_slice in turn_slices:
+            if any([is_slice_within_slice(turn_slice, gnd.slice) for gnd in ground]):
                 self.create_phase(turn_slice, name="Turning On Ground")
+

@@ -888,23 +888,24 @@ class KeyTimeInstanceNode(FormattedNameNode):
         self.append(kti)
         return kti
     
-    def create_ktis_at_edges(self, array, direction='rising_edges', phase=None):
+    def create_ktis_at_edges(self, array, direction='rising_edges', phase=None,
+                             name=None):
         '''
         Create one or more key time instances where a parameter rises or
         falls. Usually used with discrete parameters, e.g. Event marker
         pressed, it is suitable for multi-state or analogue parameters such
         as flap selections.
         
-        :param param: The input parameter, with data and sample rate information.
-        :type param: A recorded or derived parameter.
+        :param array: The input parameter, with data and sample rate information.
+        :type array: A recorded or derived parameter.
+        :param direction: Keyword argument.
+        :type direction: string
+        :param phase: An optional flight phase (section) argument.
         
-        :param direction: Keyword argument with possible fields 'rising_edges'
-        or 'falling_edges'. In the absence of a direction parameter, the
-        default 'rising_edges' will be retained, and all edges will be
-        triggered. :type direction: string
-        
-        :param phase: An optional flight phase (section) argument may be
-        provided. If supplied, only edges arising within this phase will be
+        Direction has possible fields 'rising_edges' or 'falling_edges'. In
+        the absence of a direction parameter, the default 'rising_edges' will
+        be retained, and all edges will be triggered.
+        Where phase is supplied, only edges arising within this phase will be
         triggered.
         '''
         
@@ -930,8 +931,11 @@ class KeyTimeInstanceNode(FormattedNameNode):
             edge_list = edges[0] + int(start_index) - 0.5
             
             for edge_index in edge_list:
-                kti = KeyTimeInstance(edge_index, self.name)
-                self.append(kti)
+                if name:
+                    # Annotate the transition with the post-change state.
+                    self.create_kti(edge_index, **{name:array[edge_index+1]})
+                else:
+                    self.create_kti(edge_index)
                 
             return
         
@@ -1101,6 +1105,103 @@ class KeyPointValueNode(FormattedNameNode):
                 slice_ = slice_.slice
             index, value = function(array, slice_)
             self.create_kpv(index, value, **kwargs)
+
+    def create_kpvs_at_edges(self, array, direction='rising_edges', phase=None,
+                             name=None):
+        '''
+        See also create_ktis_at_edges.
+        
+        :param array: The input parameter, with data and sample rate information.
+        :type array: A recorded or derived parameter.
+        :param direction: Keyword argument.
+        :type direction: string
+        :param phase: An optional flight phase (section) argument.
+        
+        Direction has possible fields 'rising_edges' or 'falling_edges'. In
+        the absence of a direction parameter, the default 'rising_edges' will
+        be retained, and all edges will be triggered.
+        Where phase is supplied, only edges arising within this phase will be
+        triggered.
+        '''
+        
+        # Low level function that finds edges from array and creates KTIs
+        def find_edges(subarray, start_index, direction='rising_edges'):
+            # Find increments. Extrapolate at start to keep array sizes straight.
+            deltas = np.ma.ediff1d(subarray, to_begin=subarray[0])
+            deltas[0]=0 # Ignore the first value 
+            if direction == 'rising_edges':
+                edges = np.ma.nonzero(np.ma.maximum(deltas,0))
+            elif direction == 'falling_edges':
+                edges = np.ma.nonzero(np.ma.minimum(deltas,0))
+            elif direction == 'all_edges':
+                edges = np.ma.nonzero(deltas)
+            else:
+                raise ValueError, 'Edge direction not recognised'
+            
+            edge_list = edges[0] + int(start_index) - 0.5
+            
+            for edge_index in edge_list:
+                if name:
+                    # Annotate the transition with the post-change state.
+                    self.create_kpv(edge_index, array[edge_index], 
+                                    **{name:array[edge_index+1]})
+                else:
+                    self.create_kpv(edge_index, array[edge_index])
+                
+            return
+        
+        # High level function scans phase blocks or complete array and presents
+        # appropriate arguments for analysis.
+        if phase:
+            for each_period in phase:
+                to_scan = array[each_period.slice]
+                find_edges(to_scan, each_period.slice.start or 0, direction)
+        else:
+            find_edges(array, 0, direction)
+        return    
+
+    def create_kpvs_from_discretes(self, array, hz, sense='normal', phase=None):
+        '''
+        For discrete parameters, this detects an event and records the
+        duration of each event.
+        
+        :param array: The input parameter, with data and sample rate information.
+        :type array: A recorded or derived discrete parameter. 
+        :param sense: Keyword argument.
+        :param phase: An optional flight phase (section) argument.
+        :name name: Facility for automatically naming the KPV.
+        :type name: String
+        
+        Sense has two options, namely the default 'normal': 0.0=OFF and
+        1.0=ON state. 'reverse': 1.0=OFF and 0.0=ON state.
+    
+        Where phase is supplied, only edges arising within this phase will be
+        triggered.
+        '''
+        
+        def find_events(subarray, start_index, sense):
+            if sense=='normal':
+                events = np.ma.clump_unmasked(np.ma.masked_less(subarray, 0.5))
+            elif sense=='reverse':
+                events = np.ma.clump_unmasked(np.ma.masked_greater(subarray, 0.5))
+            else:
+                raise ValueError,'Unrecognised sense in create_kpvs_for_discretes'
+            
+            for event in events:
+                index = event.start
+                value = (event.stop - event.start) / hz
+                self.create_kpv(index, value)
+            return
+        
+        # High level function scans phase blocks or complete array and presents
+        # appropriate arguments for analysis.
+        if phase:
+            for each_period in phase:
+                to_scan = array[each_period.slice]
+                find_events(to_scan, each_period.slice.start or 0, sense)
+        else:
+            find_events(array, 0, sense)
+        return    
 
 
 class FlightAttributeNode(Node):

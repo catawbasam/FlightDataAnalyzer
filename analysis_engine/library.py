@@ -455,6 +455,114 @@ def _create_phase_mask(array, hz, offset, a, b, which_side):
     # Return the masked array containing reference data and the created mask.
     return np.ma.MaskedArray(array, mask = m)
 
+
+def cycle_counter(array, min_step, cycle_time, hz, array_offset):
+    '''
+    Counts the number of consecutive cycles, each with a period not more than
+    cycle_time seconds, and with variation greater than min_step.
+
+    :param array: time series data 
+    :type array: Numpy masked array
+    :param min_step: Optional minimum step, below which fluctuations will be removed.
+    :type min_step: float
+    :param cycle_time: Maximum time for a complete valid cycle 
+    :type cycle_time: float, seconds
+    :param hz: array sample rate
+    :type hz: float, Hz
+    :param array_offset: Index to start of array
+    :type array_offset: integer
+    
+    :returns max_index: index of the array element at the end of the highest number of cycles
+    :type max_iundex: integer
+    :returns max_cycles: the highest number of cycles in the array.
+    :type max_cycles: float (counts a half cycle for each change over min_step)
+    
+    Note - Where two events with the same cycle count arise in the same
+    array, the latter is recorded as it is normally the later in the flight
+    that will be most hazardous.
+    '''
+    idxs, vals = cycle_finder(array, min_step=min_step)
+    if idxs == None:
+        return None, None
+    
+    half_cycle_times = np.ediff1d(idxs) / hz
+    half_cycles = 0
+    max_half_cycles = 0
+    for num, half_cycle_time in enumerate(half_cycle_times):
+        if half_cycle_time < cycle_time:
+            half_cycles += 1
+            index = idxs[num+1]
+        else:
+            if 0 < half_cycles >= max_half_cycles:
+               max_half_cycles = half_cycles
+               max_index = index
+               half_cycles = 0
+               
+    if 0 < half_cycles >= max_half_cycles:
+       max_half_cycles = half_cycles
+       max_index = index
+    
+    if max_half_cycles == 0:
+        return None, None
+    return array_offset+max_index, max_half_cycles/2.0 
+    
+    
+def cycle_finder(array, min_step=0.0, include_ends=True):
+    '''
+    Simple implementation of a peak detection algorithm with small cycle remover.
+
+    :param array: time series data 
+    :type array: Numpy masked array
+    :param min_step: Optional minimum step, below which fluctuations will be removed.
+    :type min_step: float
+    :param include_ends: Decides whether the first and last points of the array are to be included as possible turning points
+    :type include_ends: logical
+    
+    :returns: List of peak value, index tuples.
+    '''
+    
+    if len(array) == 0:
+        # Nothing to do, so return None.
+        return None, None
+    
+    # Find the peaks and troughs by difference products which change sign.
+    x = np.ma.ediff1d(array, to_begin=0.0)
+    peak = -x[:-1]*x[1:]
+    idxs = np.nonzero(np.ma.maximum(peak,0.0))
+    vals = array.data[idxs]
+    
+    # Optional inclusion of end points
+    if include_ends:
+        idxs = np.insert(idxs, 0, 0)
+        vals = np.insert(vals,0,array.data[0])
+        idxs = np.append(idxs, len(array))
+        vals = np.append(vals,array.data[-1])
+
+    dvals = np.ediff1d(vals)
+    while len(dvals) > 0 and np.min(abs(dvals)) < min_step:
+        sort_idx = np.argmin(abs(dvals))
+        last = len(dvals)
+        step = dvals[sort_idx]
+        if sort_idx == 0:
+            idxs = np.delete(idxs, 0)
+            vals = np.delete(vals, 0)
+            dvals = np.delete(dvals, 0)
+        elif sort_idx == last-1:
+            idxs = np.delete(idxs, last)
+            vals = np.delete(vals, last)
+            dvals = np.delete(dvals, last-1) # One fewer dval than val
+        else:
+            idxs = np.delete(idxs, slice(sort_idx,sort_idx+2))
+            vals = np.delete(vals, slice(sort_idx,sort_idx+2))
+            dvals[sort_idx-1] += dvals[sort_idx] + dvals[sort_idx+1]
+            dvals = np.delete(dvals, slice(sort_idx,sort_idx+2))
+    if len(dvals) == 0:
+        # All the changes have disappeared, so return None rather than a
+        # single residual array value.
+        return None, None
+    else:
+        return idxs, vals
+
 def datetime_of_index(start_datetime, index, frequency=1):
     '''
     Returns the datetime of an index within the flight at a particular
@@ -520,7 +628,7 @@ def clip(array, period, hz=1.0, remove='peaks'):
     result[-delay:] = result[-(delay+1)]
     return result
 
-    """
+"""
     # Compute an array of differences across period, such that each maximum or
     # minimum results in a negative result.
     b = (a[:-delay]-a[delay-1:-1]) * (a[1:1-delay]-a[delay:])
@@ -1512,6 +1620,7 @@ def peak_index(a):
             else:
                 peak=(a[loc-1]-a[loc+1])/denominator
                 return loc+peak
+    
     
 def rate_of_change(diff_param, half_width):
     '''
