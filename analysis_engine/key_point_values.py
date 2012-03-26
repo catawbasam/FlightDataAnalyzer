@@ -668,14 +668,14 @@ class FuelQtyAirborneMin(KeyPointValueNode):
 
 '''
 See Heading at liftoff and touchdown - TODO: Remove if possible. DJ
-class MagneticHeadingAtLiftOff(KeyPointValue):
+class MagneticHeadingAtLiftOff(KeyPointValueNode):
     """ Shouldn't this be difference between aircraft heading and runway heading???
     """
     def derive(self, heading=P('Magnetic Heading'), liftoff=KTI('Liftoff')):
         return NotImplemented
 
 
-class MagneticHeadingAtTouchdown(KeyPointValue):
+class MagneticHeadingAtTouchdown(KeyPointValueNode):
     """ Shouldn't this be difference between aircraft heading and runway heading???
     """
     def derive(self, heading=P('Magnetic Heading'), touchdown=KTI('Touchdown')):
