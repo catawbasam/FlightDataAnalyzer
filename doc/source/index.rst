@@ -10,6 +10,7 @@ Contents:
    Principles
    Tutorial
    Extending
+   HeightAndHeightRateComputation
    Profiling
    ParameterNaming
    FlightTypes      
