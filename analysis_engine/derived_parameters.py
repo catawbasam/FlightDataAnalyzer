@@ -57,6 +57,7 @@ from analysis_engine.library import (align,
                                      _alt2press_ratio_isothermal)
 
 from settings import (AIRSPEED_THRESHOLD,
+                      ALTITUDE_AAL_LAG_TC,
                       AZ_WASHOUT_TC,
                       AT_WASHOUT_TC,
                       GROUNDSPEED_LAG_TC,
@@ -352,7 +353,6 @@ class AltitudeAAL(DerivedParameterNode):
            and alt_rad and airspeed:
             # Initialise the array to zero, so that the altitude above the airfield
             # will be 0ft when the aircraft cannot be airborne.
-            # Was: alt_aal = np.ma.masked_all_like(alt_std.array)
             alt_aal = np.zeros_like(alt_std.array) 
             # Actually creates a masked copy filled with zeros.
             
@@ -366,27 +366,28 @@ class AltitudeAAL(DerivedParameterNode):
                     second_kti = ordered_ktis[next_index]
                 except IndexError:
                     break
-                airborne_slice = slice(first_kti.index, second_kti.index)
+                in_air_slice = slice(first_kti.index, second_kti.index)
+                
                              
                 # Use pressure altitude to ensure data is filled between
                 # Liftoff and Touchdown KTIs.
-                alt_aal[airborne_slice] = alt_std.array[airborne_slice]
-                peak_index = np.ma.argmax(alt_std.array[airborne_slice]) + \
-                                        airborne_slice.start
+                alt_aal[in_air_slice] = alt_std.array[in_air_slice]
+                peak_index = np.ma.argmax(alt_std.array[in_air_slice]) + \
+                                        in_air_slice.start
                 if first_kti.name == 'Liftoff':
                     threshold_index = index_at_value(alt_rad.array,
                                                      TRANSITION_ALT_RAD_TO_STD,
-                                                     _slice=airborne_slice)
+                                                     _slice=in_air_slice)
                     join_index = int(threshold_index)
                     difference = alt_rad.array[join_index] - \
                         alt_std.array[join_index]
                     alt_aal[join_index:peak_index] += difference
-                    pre_threshold = slice(airborne_slice.start, join_index)
+                    pre_threshold = slice(in_air_slice.start, join_index)
                     alt_aal[pre_threshold] = alt_rad.array[pre_threshold]
                 
                 if second_kti.name == 'Touchdown':
-                    reverse_slice = slice(airborne_slice.stop,
-                                          airborne_slice.start, -1)
+                    reverse_slice = slice(in_air_slice.stop,
+                                          in_air_slice.start, -1)
                     threshold_index = index_at_value(alt_rad.array,
                                                      TRANSITION_ALT_RAD_TO_STD,
                                                      _slice=reverse_slice)
@@ -394,18 +395,18 @@ class AltitudeAAL(DerivedParameterNode):
                     difference = alt_rad.array[join_index] - \
                         alt_std.array[join_index]
                     alt_aal[peak_index:join_index] += difference
-                    post_threshold = slice(join_index, airborne_slice.stop)
+                    post_threshold = slice(join_index, in_air_slice.stop)
                     alt_aal[post_threshold] = alt_rad.array[post_threshold]
         
             # Use the complementary smoothing approach
             roc_lag = first_order_lag(roc.array,
-                                      RATE_OF_CLIMB_LAG_TC, roc.hz,
-                                      gain=RATE_OF_CLIMB_LAG_TC/60.0)            
-            alt_aal_lag = first_order_lag(alt_aal, RATE_OF_CLIMB_LAG_TC, roc.hz)
+                                      ALTITUDE_AAL_LAG_TC, roc.hz,
+                                      gain=ALTITUDE_AAL_LAG_TC/60.0)            
+            alt_aal_lag = first_order_lag(alt_aal, ALTITUDE_AAL_LAG_TC, roc.hz)
             alt_aal = alt_aal_lag + roc_lag
             # Force result to zero at low speed and on the ground.
-            alt_aal[airspeed.array < AIRSPEED_THRESHOLD] = 0
-            alt_aal[alt_rad.array < 0] = 0
+            #alt_aal[airspeed.array < AIRSPEED_THRESHOLD] = 0
+            #alt_aal[alt_rad.array < 0] = 0
             self.array = alt_aal
             
         else:
@@ -2119,8 +2120,24 @@ class RateOfClimb(DerivedParameterNode):
                speed=P('Airspeed')):
 
         def inertial_rate_of_climb(alt_std_repair, frequency, alt_rad_repair, az_repair):
-            # Use the complementary smoothing approach
+            # Uses the complementary smoothing approach
+            
+            # This is the accelerometer washout term, with considerable gain.
+            # The initialisation "initial_value=az.array[clump][0]" is very
+            # important, as without this the function produces huge spikes at
+            # each start of a data period.
+            az_washout = first_order_washout (az_repair, 
+                                              AZ_WASHOUT_TC, frequency, 
+                                              gain=GRAVITY_IMPERIAL,
+                                              initial_value=az_repair[0])
+            inertial_roc = first_order_lag (az_washout, 
+                                            RATE_OF_CLIMB_LAG_TC, 
+                                            frequency, 
+                                            gain=RATE_OF_CLIMB_LAG_TC)
     
+            # Both sources of altitude data are differentiated before
+            # merging, as we mix height rate values to minimise the effect of
+            # changeover of sources.
             roc_alt_std = first_order_washout(alt_std_repair,
                                               RATE_OF_CLIMB_LAG_TC, frequency,
                                               gain=1/RATE_OF_CLIMB_LAG_TC)
@@ -2136,18 +2153,6 @@ class RateOfClimb(DerivedParameterNode):
             roc_altitude = roc_alt_std*std_rad_ratio +\
                 roc_alt_rad*(1.0-std_rad_ratio)
             
-            # This is the washout term, with considerable gain. The
-            # initialisation "initial_value=az.array[clump][0]" is very
-            # important, as without this the function produces huge
-            # spikes at each start of a data period.
-            az_washout = first_order_washout (az_repair, 
-                                              AZ_WASHOUT_TC, frequency, 
-                                              gain=GRAVITY_IMPERIAL,
-                                              initial_value=az_repair[0])
-            inertial_roc = first_order_lag (az_washout, 
-                                            RATE_OF_CLIMB_LAG_TC, 
-                                            frequency, 
-                                            gain=RATE_OF_CLIMB_LAG_TC)
             return (roc_altitude + inertial_roc) * 60.0
 
         if az and alt_rad:

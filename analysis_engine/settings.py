@@ -69,6 +69,9 @@ SPLIT_PARAMETERS = ('Eng (1) N1', 'Eng (2) N1', 'Eng (3) N1', 'Eng (4) N1',
 # An airspeed below which you just can't possibly be flying.
 AIRSPEED_THRESHOLD = 80  # kts
 
+# Altitude AAL complementary filter timeconstant
+ALTITUDE_AAL_LAG_TC = 3.0
+
 # Altitude to break flights into separate climb/cruise/descent segments.
 # This is applied to altitude with hysteresis, so break will happen when
 # climbing above 15000 ft and below 10000 ft.
