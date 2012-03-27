@@ -1,14 +1,16 @@
-==================
-Problem Definition
-==================
+====================================
+Height and Rate of Climb Calculation
+====================================
+
+---------------------
+Outlining the Problem
+---------------------
 
 Aircraft record pressure and radio altitudes, accelerations with respect to the body of the aircraft, and the attitude of the aircraft.
 
 None of these is exactly the information we want for safety analysis, where key parameters are the height with respect to the airfield and in particular the rate of climb or descent.
 
---------------------------------------
-Height, Rate of Climb and Acceleration
---------------------------------------
+**Height, Rate of Climb and Acceleration**
 
 The relationship we are going to exploit in this section is that these three parameters are related by differentiation, so rate of climb (roc) is the rate of change of altitude, and the vertical acceleration is the rate of change of roc::
 
@@ -36,9 +38,9 @@ The radio altitude works well over a flat surface but as soon as we are off the 
 
 The pressure altitude works well in flight, but suffers from transient pressure fluctuations around the airframe at the point of takeoff or landing. These result in apparent dips below the runway elevation at the point of rotation.
 
---------------------------
-Resolution of Acceleration
---------------------------
+-------------------------
+Acceleration Measurements
+-------------------------
 
 The acceleration data we have is measured with respect to the body of the aircraft, so the first step is to resolve the three body accelerations to compute the vertical acceleration (perpendicular to the earth surface).
 
@@ -49,9 +51,7 @@ The resulting Acceleration Vertical is scaled in g, and retains the 1.0 datum an
     resolved_in_roll = acc_norm.array*np.ma.cos(roll_rad) - acc_lat.array * np.ma.sin(roll_rad)
     self.array = resolved_in_roll * np.ma.cos(pitch_rad) + acc_long.array * np.ma.sin(pitch_rad)
 
----------------------
-Correction for errors
----------------------
+**Correction for errors**
 
 The acceleration term will include errors due to (a) the three accelerometers measurement errors, (b) errors in the pitch and roll attitude measurements, (c) numerical errors in the computation and (d) variation in the earth's gravitational field. If we do not compensate for these, there will be a large error in the result. The "washout" filter is therefore used to - you guessed it - wash out any errors in the signal. The time taken for removing these errors can be long, as they tend to be constant and we are interested in the transient response from the accelerometer.::
     
@@ -127,7 +127,7 @@ If you have persevered this far, you can see that our summation has produced a r
 Altitude AAL Calculation
 ========================
 
-This is the main altitude measure used during analysis. Again, a picture will help the reader follow the explanation which is similar to, but simpler than, the rate of climb calculation.
+Altitude Above Airfield Level is the main altitude measure used during analysis. Again, a picture will help the reader follow the explanation which is similar to, but simpler than, the rate of climb calculation.
 
 .. image:: Height_computation.png
 

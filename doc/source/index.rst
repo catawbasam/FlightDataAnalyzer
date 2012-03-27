@@ -10,9 +10,9 @@ Contents:
    Principles
    Tutorial
    Extending
-   HeightAndHeightRateComputation
    Profiling
    ParameterNaming
+   HeightAndHeightRateComputation
    FlightTypes      
    Changes
    TODO
