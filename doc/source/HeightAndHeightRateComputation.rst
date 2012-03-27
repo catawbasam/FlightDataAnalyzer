@@ -29,14 +29,16 @@ Resolution of Acceleration
 The acceleration data we have is measured with respect to the body of the aircraft, so the first step is to resolve the three body accelerations to compute the vertical acceleration (perpendicular to the earth surface).
 
 The resulting Acceleration Vertical is scaled in g, and retains the 1.0 datum and positive upwards. The code looks like this::
-  pitch_rad = np.radians(pitch.array)
-  roll_rad = np.radians(roll.array)
-  resolved_in_roll = acc_norm.array*np.ma.cos(roll_rad) - acc_lat.array * np.ma.sin(roll_rad)
-  self.array = resolved_in_roll * np.ma.cos(pitch_rad) + acc_long.array * np.ma.sin(pitch_rad)
+    
+    pitch_rad = np.radians(pitch.array)
+    roll_rad = np.radians(roll.array)
+    resolved_in_roll = acc_norm.array*np.ma.cos(roll_rad) - acc_lat.array * np.ma.sin(roll_rad)
+    self.array = resolved_in_roll * np.ma.cos(pitch_rad) + acc_long.array * np.ma.sin(pitch_rad)
 
 Correction for errors
 
 The acceleration term will include errors due to (a) the three accelerometers measurement errors, (b) errors in the pitch and roll attitude measurements, (c) numerical errors in the computation and (d) variation in the earth's gravitational field. If we do not compensate for these, there will be a large error in the result. The "washout" filter is therefore used to - you guessed it - wash out any errors in the signal. The time taken for removing these errors can be long, as they tend to be constant and we are interested in the transient response from the accelerometer.::
+    
     # Resolved vertical acceleration washout time constant. This long period
     # function removes any standing offset to the resolved acceleration signal
     # and is essential in the vertical velocity complementary filter.
@@ -74,13 +76,13 @@ When writing differentiations, one convention is two put a dot over the paramete
 
 Now, the relationship we are going to exploit is that the hdot is the rate of change of altitude, and the vertical acceleration is the rate of change of hdot. 
 
-Putting this into our new formulae,
+Putting this into our new formulae,::
 
-hdot = s.h
+    hdot = s.h
 
-and
+and::
 
-acceleration = s.hdot.
+    acceleration = s.hdot
 
 -------------------------
 Rate Of Climb Calculation
