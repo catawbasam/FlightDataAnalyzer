@@ -82,14 +82,6 @@ def track_to_kml(hdf_path, kti_list, kpv_list, plot_altitude=None):
         
         kml.newpoint(**kpv_point_values)    
 
-    """
-    # Good but slow addition of the KPVs.
-    lon=hdf['Longitude Smoothed'].array
-    lat=hdf['Latitude Smoothed'].array
-    for kpv in kpv_list:
-        point = kml.newpoint(name=kpv.name, coords=[(lon[kpv.index],lat[kpv.index])])
-        point.style.iconstyle.color = 'ff0000ff'  # Red
-    """
     kml.save(hdf_path+".kml")
     hdf.close()
     return

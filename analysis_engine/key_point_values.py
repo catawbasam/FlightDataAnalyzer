@@ -729,13 +729,13 @@ class LongitudeAtLanding(KeyPointValueNode):
         self.create_kpvs_at_ktis(lon.array, lands)
 
 
-class LatitudeAtLiftoff(KeyPointValueNode):
+class LatitudeAtTakeoff(KeyPointValueNode):
     def derive(self, lat=P('Latitude'),
                liftoffs=KTI('Liftoff')):
         self.create_kpvs_at_ktis(lat.array, liftoffs)
 
 
-class LongitudeAtLiftoff(KeyPointValueNode):
+class LongitudeAtTakeoff(KeyPointValueNode):
     '''
     While storing this is redundant due to geo-locating KeyPointValues, it is
     used in multiple Nodes to simplify their implementation.
