@@ -1044,6 +1044,46 @@ def integrate (array, frequency, initial_value=0.0, scale=1.0, direction="forwar
     result[::d] = np.ma.cumsum(to_int[::d])
     return result
     
+def interpolate_and_extend (array):
+    """ 
+    This will replace all masked values in an array with linearly
+    interpolated values between unmasked point pairs, and extrapolate first
+    and last unmasked values to the ends of the array.
+    
+    See Derived Parameter Node 'Magnetic Deviation' for an example of use.
+    
+    :param array: Array of data to be interpolated
+    :type array: numpy masked array
+    
+    :returns interpolated: array of all valid data
+    :type interpolated: Numpy masked array, with all masks (normally) False.
+    """
+    
+    # Where do we need to use the raw data?
+    blocks = np.ma.clump_masked(array)
+    last = len(array)
+    if len(blocks)==0:
+        raise ValueError,'No masked data in interpolate_and_extend'
+    
+    for block in blocks:
+        # Setup local variables
+        a = block.start
+        b = block.stop
+
+        if a == 0:
+            # First data can only be extension of the first valid sample.
+            if b == last:
+                raise ValueError,'No unmasked data in interpolate_and_extend'
+            array[:b] = array[b]
+        elif b == last:
+            array[a:] = array[a-1]
+        else:
+            join = np.linspace(array[a-1], array[b], num=b-a+2)
+            array[a:b] = join[1:-1]
+            
+    return array
+        
+    
     
 def interleave (param_1, param_2):
     """
@@ -2379,14 +2419,14 @@ def alt2sat(alt_ft):
     """ Convert altitude to temperature using lapse rate"""
     return np.ma.where(alt_ft <= H1, 15.0 + L0 * alt_ft, -56.5)
     
-def mach2temp(mach, tat):
+def machtat2sat(mach, tat, recovery_factor=0.9):
     """
-    Return the ambient temp, given the mach number, indicated
-    temperature and the temperature probe's recovery factor.
+    Return the ambient temp, given the mach number, indicated temperature and
+    the temperature probe's recovery factor. Default recovery factor is fine
+    for most cases, and allows for inherited test case which used a lower
+    value.
     """
-    recovery_factor = 0.9
-    ambient_temp = tat + 273.15 / (1. + (0.2 * recovery_factor) * mach
-             ** 2.)
+    ambient_temp = (tat + 273.15) / (1. + (0.2*recovery_factor) * mach** 2.)
     sat = ambient_temp - 273.15
     return sat
 

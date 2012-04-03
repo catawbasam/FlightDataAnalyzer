@@ -1292,6 +1292,12 @@ class GroundspeedAtTouchdown(KeyPointValueNode):
     def derive(self, gspd=P('Groundspeed'), touchdowns=KTI('Touchdown')):
         self.create_kpvs_at_ktis(gspd.array, touchdowns)
 
+'''
+# These funcitons fail because eng_clipped has only been computed
+# for the period alt_slice, whereas min_value searches for
+# alt_slice WITHIN eng_clipped. Need to be able to offset
+# this function - better than computing eng_clipped for
+# the whole flight.
 
 class LowPowerInFinalApproachFor10Sec(KeyPointValueNode):
     #TODO: TESTS
@@ -1309,8 +1315,7 @@ class LowPowerBelow500FtFor10Sec(KeyPointValueNode):
                 if slices_overlap(alt_slice, fin_app.slice):
                    eng_clipped = clip(eng_n1_avg.array[alt_slice], 10, eng_n1_avg.hz, remove='troughs')
                    self.create_kpv(*min_value(eng_clipped, alt_slice))
-
-
+'''
 
 class PitchCyclesInFinalApproach(KeyPointValueNode):
     '''
@@ -1483,6 +1488,13 @@ class RateOfDescent2000To1000FtMax(KeyPointValueNode):
                                        alt_aal.slices_from_to(2000, 1000),
                                        min_value)
 
+"""
+# These function fails because roll.array has only been computed
+# for the period fapp.slice, whereas min_value searches for
+# alt_slice WITHIN eng_clipped. Need to be able to offset
+# this function - better than computing eng_clipped for
+# the whole flight.
+
 
 class RollCyclesInFinalApproach(KeyPointValueNode):
     '''
@@ -1493,7 +1505,8 @@ class RollCyclesInFinalApproach(KeyPointValueNode):
     def derive(self, roll=P('Roll'), fapps = S('Final Approach')):
         for fapp in fapps:
             self.create_kpv(*cycle_counter(roll.array[fapp.slice], 5.0, 10.0, roll.hz, fapp.slice.start))
-
+            
+"""
 
 class RollAbove1000FtMax(KeyPointValueNode):
     def derive(self, roll=P('Roll'), alt_aal=P('Altitude AAL')):

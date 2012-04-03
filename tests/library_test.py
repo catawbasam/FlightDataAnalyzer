@@ -1052,7 +1052,43 @@ class TestIndexClosestValue(unittest.TestCase):
         array = np.ma.array([3,2,1,4,5,6,7])
         self.assertEqual(index_closest_value(array, -9, slice(5,1,-1)), 2)
 
+class TestInterpolateAndExtend(unittest.TestCase):
+    def test_interpolate_and_extend_basic(self):
+        array = np.ma.array(data=[0,0,2,0,0,3.5,0],
+                            mask=[1,1,0,1,1,0,1],
+                            dtype=float)
+        expected = np.ma.array([2,2,2,2.5,3,3.5,3.5])
+        result = interpolate_and_extend(array)
+        np.testing.assert_array_equal(result, expected)
+        
+    def test_interpolate_and_extend_four_parts(self):
+        array = np.ma.array(data=[2,0,2,0,2,0,2],
+                            mask=[1,0,1,0,1,0,1])
+        expected = np.ma.array([0]*7)
+        result = interpolate_and_extend(array)
+        np.testing.assert_array_equal(result, expected)
+        
+    def test_interpolate_and_extend_nothing_to_do_none_masked(self):
+        array = np.ma.array(data=[0,0,2,0,0,3.5,0],
+                            mask=[0,0,0,0,0,0,0],
+                            dtype=float)
+        self.assertRaises(ValueError, interpolate_and_extend, array)
+        
+    def test_interpolate_and_extend_nothing_to_do_all_masked(self):
+        array = np.ma.array(data=[0,0,2,0,0,3.5,0],
+                            mask=[1,1,1,1,1,1,1],
+                            dtype=float)
+        self.assertRaises(ValueError, interpolate_and_extend, array)
 
+    def test_interpolate_and_extend_no_ends(self):
+        array = np.ma.array(data=[5,0,0,20],
+                            mask=[0,1,1,0],
+                            dtype=float)
+        expected = np.ma.array([5, 10, 15, 20])
+        result = interpolate_and_extend(array)
+        np.testing.assert_array_equal(result, expected)
+        
+        
 
 class TestIndexOfDatetime(unittest.TestCase):
     def test_index_of_datetime(self):
@@ -2298,7 +2334,17 @@ class TestDp2Tas(unittest.TestCase):
         Truth = 608.8925
         self.assertAlmostEqual(Value, Truth, delta = 1)
  
+class TestMachTat2Sat(unittest.TestCase):
 
+    def test_01(self):
+
+        # Mach 0.5, 15 deg C, K = 0.5
+
+        Value = machtat2sat(.5, 15, recovery_factor = 0.5)
+        Truth = 7.97195121951
+        self.assertAlmostEqual(Value, Truth, delta = 1e-5)
+
+    
 class TestAlt2Sat(unittest.TestCase):
 
     def test_01(self):
