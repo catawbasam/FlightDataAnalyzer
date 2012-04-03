@@ -790,7 +790,7 @@ class EngEGTNotTakeoffMax(KeyPointValueNode):
         egt = np.ma.copy(eng_egt.array)
         for rating in ratings:
             egt[rating.slice] = np.ma.masked
-        index, value = max_value(egt.array) # i.e. maximum excluding takeoff periods
+        index, value = max_value(egt) # i.e. maximum excluding takeoff periods
         self.create_kpv(index, value)
 
 
@@ -1034,12 +1034,6 @@ class HeightAtFirstConfigChangeAfterLiftoff(KeyPointValueNode):
                 index = air.slice.start + change_indexes[0]
                 self.create_kpv(air.slice.start + change_indexes[0], 
                                 value_at_index(alt_aal.array, index))
-
-
-class EngEGTTakeoffMax(KeyPointValueNode):
-    name = 'Eng EGT Takeoff Max'
-    def derive(self, eng_egt=P('Eng (*) EGT Max'), takeoffs=KTI('Takeoff')):
-        self.create_kpvs_within_slices(eng_egt.array, takeoffs, max_value)
 
 
 class ILSGlideslopeDeviation1500To1000FtMax(KeyPointValueNode):
