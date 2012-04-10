@@ -613,15 +613,16 @@ def clip(array, period, hz=1.0, remove='peaks'):
     if remove not in ['peaks', 'troughs']:
         raise ValueError('Clip called with unrecognised removal mode')
     
-    # Preparation of convenient numbers
+    # Preparation of convenient numbers and data to process
     width = len(array) - 2*delay
-    result = repair_mask(array, frequency=hz, repair_duration=period-(1/hz))
+    source = repair_mask(array, frequency=hz, repair_duration=period-(1/hz))
+    result = np.ma.copy(source)
     
     for step in range(2*delay+1):
         if remove == 'peaks':
-            result[delay:-delay] = np.ma.minimum(result[delay:-delay], array[step:step+width])
+            result[delay:-delay] = np.ma.minimum(result[delay:-delay], source[step:step+width])
         else:
-            result[delay:-delay] = np.ma.maximum(result[delay:-delay], array[step:step+width])
+            result[delay:-delay] = np.ma.maximum(result[delay:-delay], source[step:step+width])
 
     # Stretch the ends out and return the answer.
     result[:delay] = result[delay]
@@ -1280,11 +1281,15 @@ def slices_overlap(first_slice, second_slice):
     return first_slice.start < second_slice.stop \
            and second_slice.start < first_slice.stop
 
+"""
 def section_contains_kti(section, kti):
     '''
     Often want to check that a KTI value is inside a given slice.
     '''
-    return section.slice.start <= kti.index <= section.slice.stop
+    if len(kti)!=1 or len(section)!=2:
+        return False
+    return section.slice.start <= kti[0].index <= section.slice.stop
+"""
 
 def latitudes_and_longitudes(bearings, distances, reference):
     """
@@ -2107,9 +2112,13 @@ def subslice(orig, new):
     if new.start == 0:
         start = orig.start
     else:
-        
         start = (orig.start or 0) + (new.start or orig.start or 0) * (orig.step or 1)
-    stop = (orig.start or 0) + (new.stop or orig.stop or 0) * (orig.step or 1) # the bit after "+" isn't quite right!!
+
+    if new.stop == None:
+        stop = orig.stop
+    else:
+        stop = (orig.start or 0) + (new.stop or orig.stop or 0) * (orig.step or 1) # the bit after "+" isn't quite right!!
+
     return slice(start, stop, None if step == 1 else step)
 
 def index_closest_value(array, threshold, _slice=slice(None)):

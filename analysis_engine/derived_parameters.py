@@ -418,7 +418,6 @@ class AltitudeRadio(DerivedParameterNode):
     antenna and the main wheels of the undercarriage. However, most of the
     aircraft we have dealt with include this correction within the sensor.
     """
-    
     @classmethod
     def can_operate(cls, available):
         if 'Altitude Radio (A)' in available and \
@@ -2312,7 +2311,7 @@ class Pitch(DerivedParameterNode):
 class PitchRate(DerivedParameterNode):
     # TODO: Tests.
     def derive(self, pitch=P('Pitch')):
-        self.array = rate_of_change(pitch, 0.5)
+        self.array = rate_of_change(pitch, 1.0)
 
 
 class Roll(DerivedParameterNode):
@@ -2329,7 +2328,7 @@ class Roll(DerivedParameterNode):
 class RollRate(DerivedParameterNode):
     # TODO: Tests.
     def derive(self, roll=P('Roll')):
-        self.array = rate_of_change(roll, 0.5)
+        self.array = rate_of_change(roll, 1.0)
 
 
 class ThrottleLever(DerivedParameterNode):

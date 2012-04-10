@@ -772,6 +772,7 @@ class Pitch35To400FtMax(KeyPointValueNode):
     def derive(self, pitch=P('Pitch'), alt_rad=P('Altitude Radio')):
         return NotImplemented
 '''
+
 class MachMax(KeyPointValueNode):
     name = 'Mach Max'
     def derive(self, mach=P('Mach'), airs=S('Airborne')):
@@ -782,6 +783,16 @@ class MachMax3Sec(KeyPointValueNode):
     def derive(self, mach=P('Mach'), airs=S('Airborne')):
         self.create_kpvs_within_slices(clip(mach.array, 3.0, mach.hz),
                                        airs, max_value)
+
+
+class MagneticVariationAtTakeoff(KeyPointValueNode):
+    def derive(self, var=P('Magnetic Variation'), toff=KTI('Takeoff Turn Onto Runway')):
+        self.create_kpvs_at_ktis(var.array, toff)
+
+
+class MagneticVariationAtLanding(KeyPointValueNode):
+    def derive(self, var=P('Magnetic Variation'), land=KTI('Landing Turn Off Runway')):
+        self.create_kpvs_at_ktis(var.array, land)
 
 
 class EngEGTNotTakeoffMax(KeyPointValueNode):
