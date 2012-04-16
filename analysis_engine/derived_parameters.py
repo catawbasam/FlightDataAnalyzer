@@ -18,6 +18,7 @@ from analysis_engine.library import (align,
                                      coreg,
                                      first_order_lag,
                                      first_order_washout,
+                                     ground_track,
                                      hysteresis,
                                      index_at_value,
                                      index_of_datetime,
@@ -1417,16 +1418,32 @@ class FlapSurface(DerivedParameterNode):
 
     @classmethod
     def can_operate(cls, available):
-        # works with any combination of params available
-        return True
+        return (#'Approach And Landing' in available and \
+                'Altitude AAL' in available) or \
+               ('Flap (1)' in available and \
+                'Flap (2)' in available)
 
     def derive(self, flap_A=P('Flap (1)'), flap_B=P('Flap (2)'),
-               frame = A('Frame')):
+               frame = A('Frame'),
+               aals=S('Approach And Landing'),               
+               alt_aal=P('Altitude AAL')):
         frame_name = frame.value if frame else None
 
         if frame_name in ['737-5']:
             self.array, self.frequency, self.offset = merge_two_parameters(flap_A, flap_B)
-            
+
+        if frame_name in ['L382-Hercules']:
+            # Flap is not recorded, so invent one of the correct length.
+            flap_herc = np.ma.array(np.zeros_like(alt_aal.array))
+            if aals:
+                for aal in aals:
+                    # The flap setting is not recorded, so we have to assume that
+                    # the flap is probably set to 50% above 1000ft, and 100% from
+                    # 500ft down.
+                    flap_herc[aal] = np.ma.where(alt_aal[aal]>1000.0,100.0,50.0)
+            self.array = np.ma.array(flap_herc)
+            self.frequency, self.offset = alt_aal.frequency, alt_aal.offset
+             
                     
 class Flap(DerivedParameterNode):
     """
@@ -1437,7 +1454,7 @@ class Flap(DerivedParameterNode):
         # works with any combination of params available
         return True
 
-    def derive(self, flap=P('Flap Surface'), 
+    def derive(self, flap=P('Flap Surface'),
                series=A('Series'), family=A('Family'),
                flap_steps=A('Flap Selections')):
         """
@@ -1445,7 +1462,7 @@ class Flap(DerivedParameterNode):
         """
         try:
             flap_steps = get_flap_map(series.value, family.value) 
-        except ValueError:
+        except:
             # no flaps mapping, round to nearest 5 degrees
             logging.warning("No flap settings - rounding to nearest 5")
             # round to nearest 5 degrees
@@ -1858,6 +1875,7 @@ class LatitudeSmoothed(DerivedParameterNode):
                ils_loc = P('ILS Localizer'),
                alt_aal = P('Altitude AAL'),
                gspd = P('Groundspeed'),
+               hdg=P('Heading True'),
                tas = P('Airspeed True'),
                precise =A('Precise Positioning'),
                toff = S('Takeoff'),
@@ -1874,10 +1892,9 @@ class LatitudeSmoothed(DerivedParameterNode):
             return
         
         self.array, _ = adjust_track(lon,lat,loc_est,ils_range,ils_loc,
-                                        alt_aal,gspd,tas,precise,toff,
+                                        alt_aal,gspd,hdg,tas,precise,toff,
                                         app_info,toff_rwy,start_datetime)
         
-
 class LongitudeSmoothed(DerivedParameterNode):
     units = 'deg'
     # Note order of longitude and latitude sets data aligned to longitude.
@@ -1888,6 +1905,7 @@ class LongitudeSmoothed(DerivedParameterNode):
                ils_loc = P('ILS Localizer'),
                alt_aal = P('Altitude AAL'),
                gspd = P('Groundspeed'),
+               hdg = P('Heading True'),
                tas = P('Airspeed True'),
                precise =A('Precise Positioning'),
                toff = S('Takeoff'),
@@ -1904,11 +1922,11 @@ class LongitudeSmoothed(DerivedParameterNode):
             return        
 
         _, self.array = adjust_track(lon,lat,loc_est,ils_range,ils_loc,
-                                     alt_aal,gspd,tas,precise,toff,
+                                     alt_aal,gspd,hdg,tas,precise,toff,
                                      app_info,toff_rwy,start_datetime)
         
         
-def adjust_track(lon,lat,loc_est,ils_range,ils_loc,alt_aal,gspd,tas,
+def adjust_track(lon,lat,loc_est,ils_range,ils_loc,alt_aal,gspd,hdg,tas,
                  precise,toff,app_info,toff_rwy,start_datetime):
 
     # Set up a working space.
@@ -1924,8 +1942,21 @@ def adjust_track(lon,lat,loc_est,ils_range,ils_loc,alt_aal,gspd,tas,
                                   toff.name)
     if precise.value:
         # We allow the recorded track to be used for the takeoff unchanged.
-        lat_adj[:first_toff.slice.stop] = lat.array[:first_toff.slice.stop]
-        lon_adj[:first_toff.slice.stop] = lon.array[:first_toff.slice.stop]
+        
+        
+        # TODO: REMOVE THIS DEVELOPMENT SECTION IF SUCCESSFUL
+        
+        #lat_adj[:first_toff.slice.stop] = lat.array[:first_toff.slice.stop]
+        #lon_adj[:first_toff.slice.stop] = lon.array[:first_toff.slice.stop]
+        [lat_adj[:first_toff.slice.stop], lon_adj[:first_toff.slice.stop]] = \
+            ground_track(lat_adj[first_toff.slice.stop],
+                         lon_adj[first_toff.slice.stop],
+                         gspd[:first_toff.slice.stop],
+                         hdg[:first_toff.slice.stop],
+                         gspd.frequency,
+                         'takeoff')
+
+
         
     else:
 
@@ -1933,9 +1964,26 @@ def adjust_track(lon,lat,loc_est,ils_range,ils_loc,alt_aal,gspd,tas,
         if gspd:
             speed = gspd.array[first_toff.slice]
             freq = gspd.frequency
+            # Forcing valid initial position ???
+            [lat_adj[:first_toff.slice.start],
+            lon_adj[:first_toff.slice.start]] = \
+                ground_track(lat_adj.data[first_toff.slice.start],
+                             lon_adj.data[first_toff.slice.start],
+                             gspd.array[:first_toff.slice.start],
+                             hdg.array[:first_toff.slice.start],
+                             freq, 'takeoff')
+
+            
         else:
             speed = tas.array[first_toff.slice]
             freq = tas.frequency
+            [lat_adj[:first_toff.slice.start],
+            lon_adj[:first_toff.slice.start]] = \
+                ground_track(lat_adj.data[first_toff.slice.start],
+                             lon_adj.data[first_toff.slice.start],
+                             tas.array[:first_toff.slice.start],
+                             hdg.array[:first_toff.slice.start],
+                             freq, 'takeoff')
             
         # Compute takeoff track from start of runway using integrated
         # groundspeed, down runway centreline to end of takeoff
@@ -1955,8 +2003,8 @@ def adjust_track(lon,lat,loc_est,ils_range,ils_loc,alt_aal,gspd,tas,
         # nominal runway heading). This is converted to a numpy masked array
         # of the length required to cover the takeoff phase. (This is a bit
         # clumsy, because there is no np.ma.ones_like method).
-        hdg = runway_heading(toff_rwy.value)
-        rwy_brg = np.ma.array(data = np.ones_like(speed)*hdg, mask = False)
+        rwy_hdg = runway_heading(toff_rwy.value)
+        rwy_brg = np.ma.array(data = np.ones_like(speed)*rwy_hdg, mask = False)
         
         # And finally the track down the runway centreline is
         # converted to latitude and longitude.
@@ -2021,6 +2069,16 @@ def adjust_track(lon,lat,loc_est,ils_range,ils_loc,alt_aal,gspd,tas,
             # At last, the conversion of ILS localizer data to latitude and longitude
             lat_adj[this_loc.slice], lon_adj[this_loc.slice] = \
                 latitudes_and_longitudes(bearings, distances, localizer_on_cl)
+            
+            #========= TODO: CORRECT THIS CODE AS IT'S NOT LANDING RELATED ===========
+            [lat_adj[this_loc.slice.stop:],
+            lon_adj[this_loc.slice.stop:]] = \
+                ground_track(lat_adj.data[this_loc.slice.stop],
+                             lon_adj.data[this_loc.slice.stop],
+                             gspd.array[this_loc.slice.stop:],
+                             hdg.array[this_loc.slice.stop:],
+                             freq, 'landing')
+            
 
     # --- Merge Tracks and return ---
     return track_linking(lat.array, lat_adj), track_linking(lon.array, lon_adj)
@@ -2192,9 +2250,9 @@ class RateOfClimb(DerivedParameterNode):
             # altitude signal resolution is of the order of 9 ft/bit.
             # Extension to wider timebases, or averaging with more samples,
             # smooths the data more but equally more samples are affected by
-            # corrupt source data. So, change the "3" only after careful
+            # corrupt source data. So, change the "6" only after careful
             # consideration.
-            self.array = rate_of_change(alt_std,3)*60
+            self.array = rate_of_change(alt_std,6)*60
          
          
 class RateOfClimbForFlightPhases(DerivedParameterNode):
@@ -2206,7 +2264,7 @@ class RateOfClimbForFlightPhases(DerivedParameterNode):
         # This uses a scaled hysteresis parameter. See settings for more detail.
         threshold = HYSTERESIS_FPROC * max(1, rms_noise(alt_std.array))  
         # The max(1, prevents =0 case when testing with artificial data.
-        self.array = hysteresis(rate_of_change(alt_std,3)*60,threshold)
+        self.array = hysteresis(rate_of_change(alt_std,6)*60,threshold)
 
 
 class Relief(DerivedParameterNode):
@@ -2270,7 +2328,9 @@ class CoordinatesStraighten(object):
 class LongitudeStraighten(DerivedParameterNode, CoordinatesStraighten):
     """
     This removes the jumps in longitude arising from the poor resolution of
-    the recorded signal.
+    the recorded signal. The complete parameter is processed, prior to
+    adjustment to use takeoff and ILS approach and landing data where
+    possible.
     """
     def derive(self,
                lon=P('Longitude'),
@@ -2281,7 +2341,9 @@ class LongitudeStraighten(DerivedParameterNode, CoordinatesStraighten):
 class LatitudeStraighten(DerivedParameterNode, CoordinatesStraighten):
     """
     This removes the jumps in latitude arising from the poor resolution of
-    the recorded signal.
+    the recorded signal. The complete parameter is processed, prior to
+    adjustment to use takeoff and ILS approach and landing data where
+    possible.
     """
     def derive(self, 
                lat=P('Latitude'), 
@@ -2294,7 +2356,7 @@ class RateOfTurn(DerivedParameterNode):
     Simple rate of change of heading. 
     """
     def derive(self, head=P('Heading Continuous')):
-        self.array = rate_of_change(head, 1)
+        self.array = rate_of_change(head, 2)
 
 
 class Pitch(DerivedParameterNode):
@@ -2309,9 +2371,18 @@ class Pitch(DerivedParameterNode):
 
 
 class PitchRate(DerivedParameterNode):
-    # TODO: Tests.
+    """
+    Computes rate of change of pitch attitude over a two second period.
+    
+    Comment: A two second period is used to remove excessive short period
+    transients which the pilot could not realistically be asked to control.
+    It also means that low sample rate data (one airline reported having
+    pitch sampled at 1Hz) will still give comparable results. The drawback is
+    that very brief transients, for example due to rough handling or
+    turbulence, will not be detected.
+    """
     def derive(self, pitch=P('Pitch')):
-        self.array = rate_of_change(pitch, 1.0)
+        self.array = rate_of_change(pitch, 2.0)
 
 
 class Roll(DerivedParameterNode):
@@ -2328,7 +2399,7 @@ class Roll(DerivedParameterNode):
 class RollRate(DerivedParameterNode):
     # TODO: Tests.
     def derive(self, roll=P('Roll')):
-        self.array = rate_of_change(roll, 1.0)
+        self.array = rate_of_change(roll, 2.0)
 
 
 class ThrottleLever(DerivedParameterNode):

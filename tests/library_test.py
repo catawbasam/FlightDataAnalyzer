@@ -896,6 +896,63 @@ class TestRunwayHeading(unittest.TestCase):
         rwy_hdg = runway_heading(runway)
         self.assertLess(abs(rwy_hdg - 170.6), 0.3)
         
+class TestGroundTrack(unittest.TestCase):
+    def test_ground_track_basic(self):
+        gspd = np.ma.array([60,60,60,60,60,60,60])
+        hdg = np.ma.array([0,0.0,0.0,90,90,90,270])
+        lat, lon = ground_track(0.0, 0.0, gspd, hdg, 1.0, 'landing')
+        expected_lat = [0.0,0.00027759,0.00055518,0.00069398,0.00069398,0.00069398,0.00069398]
+        expected_lon = [0.0,0.0,0.0,0.00013880,0.00041639,0.00069398,0.00069398]
+        np.testing.assert_array_almost_equal(expected_lat, lat)
+        np.testing.assert_array_almost_equal(expected_lon, lon)
+    def test_ground_track_data_errors(self):
+        # Mismatched array lengths
+        gspd = np.ma.array([60])
+        hdg = np.ma.array([0,0])
+        self.assertRaises(ValueError, ground_track, 0.0, 0.0, gspd, hdg, 1.0, 'landing')
+        # Direction not understood
+        gspd = np.ma.array([60,60,60,60,60,60,60])
+        hdg = np.ma.array([0,0.0,0.0,90,90,90,270])
+        self.assertRaises(ValueError, ground_track, 0.0, 0.0, gspd, hdg, 1.0, 'touchdown')
+    def test_ground_track_arrays_too_short(self):
+        gspd = np.ma.array([60,60])
+        hdg = np.ma.array([0,0])
+        lat, lon = ground_track(0.0, 0.0, gspd, hdg, 1.0, 'landing')
+        self.assertEqual(lat, None)
+        self.assertEqual(lon, None)
+    def test_ground_track_heading_continuous(self):
+        # Heading continuous means headings can be large.
+        gspd = np.ma.array([60,60,60,60,60,60,60])
+        hdg = np.ma.array([-720,-360.0,720,90,-270,450,-90])
+        lat, lon = ground_track(0.0, 0.0, gspd, hdg, 1.0, 'landing')
+        expected_lat = [0.0,0.00027759,0.00055518,0.00069398,0.00069398,0.00069398,0.00069398]
+        expected_lon = [0.0,0.0,0.0,0.00013880,0.00041639,0.00069398,0.00069398]
+        np.testing.assert_array_almost_equal(expected_lat, lat)
+        np.testing.assert_array_almost_equal(expected_lon, lon)
+    def test_ground_track_masking(self):
+        # Heading continuous means headings can be large.
+        gspd = np.ma.array(data=[60,60,60,60,60,60,60],
+                           mask=[0,0,1,0,0,0,0])
+        hdg = np.ma.array(data=[0,0.0,0.0,90,90,90,270],
+                          mask=[0,0,0,0,1,0,0])
+        lat, lon = ground_track(0.0, 0.0, gspd, hdg, 1.0, 'landing')
+        expected_lat = np.ma.array(data=[0.0,0.00027759,0.00055518,0.00069398,0.00069398,0.00069398,0.00069398],
+                                   mask=[0,0,1,0,1,0,0])
+        expected_lon = np.ma.array(data=[0.0,0.0,0.0,0.00013880,0.00041639,0.00069398,0.00069398],
+                                   mask=[0,0,1,0,1,0,0])
+        np.testing.assert_almost_equal(expected_lat.data, lat.data)
+        np.testing.assert_almost_equal(expected_lon.data, lon.data)
+        np.testing.assert_equal(expected_lat.mask, lat.mask)
+        np.testing.assert_equal(expected_lon.mask, lon.mask)
+    def test_ground_track_takeoff(self):
+        gspd = np.ma.array([60,60,60,60,60,60,60])
+        hdg = np.ma.array([0,0.0,0.0,90,90,90,270])
+        lat, lon = ground_track(0.0, 0.0, gspd, hdg, 1.0, 'takeoff')
+        expected_lat = [-0.00069398,-0.00041639,-0.00013880,0.0,0.0,0.0,0.0]
+        expected_lon = [-0.00069398,-0.00069398,-0.00069398,-0.00055518,-0.00027759,0.0,0.0]
+        np.testing.assert_array_almost_equal(expected_lat, lat)
+        np.testing.assert_array_almost_equal(expected_lon, lon)
+
 
 class TestHashArray(unittest.TestCase):
     def test_hash_array(self):
@@ -1188,6 +1245,10 @@ class TestIntegrate (unittest.TestCase):
     def test_integration_reverse(self):
         result = integrate([0,10,6], 1.0, initial_value=7, direction='reverse')
         np.testing.assert_array_equal(result, [20.0,15.0,7.0])
+        
+    def test_integration_backwards(self):
+        result = integrate([0,10,6], 1.0, initial_value=7, direction='BaCKWardS')
+        np.testing.assert_array_equal(result, [-6.0,-1.0,7.0])
 
     def test_integration_scale(self):
         result = integrate([1,1,1], 1.0, scale=10)
@@ -1593,13 +1654,14 @@ class TestPhaseMasking(unittest.TestCase):
         self.assertRaises(ValueError, create_phase_inside, array, 1,0, 2, 11)
     
 class TestRateOfChange(unittest.TestCase):
-    
-    # Reminder: rate_of_change(to_diff, half_width, hz) - half width in seconds.
+    # 13/4/12 Changed timebase to be full width as this is more logical.
+    # Reminder: was: rate_of_change(to_diff, half_width, hz) - half width in seconds.
+    # Reminder: is: rate_of_change(to_diff, width) - width in seconds and freq from parameter.
     
     def test_rate_of_change_basic(self):
         sloped = rate_of_change(P('Test', 
                                   np.ma.array([1, 0, -1, 2, 1, 3, 4, 6, 5, 7],
-                                              dtype=float), 1), 2)
+                                              dtype=float), 1), 4)
         answer = np.ma.array(data=[-1.0,-1.0,0.0,0.75,1.25,1.0,1.0,1.0,-1.0,2.0],
                              mask=False)
         ma_test.assert_mask_eqivalent(sloped, answer)
@@ -1607,7 +1669,7 @@ class TestRateOfChange(unittest.TestCase):
     def test_rate_of_change_increased_frequency(self):
         sloped = rate_of_change(P('Test', 
                                   np.ma.array([1, 0, -1, 2, 1, 3, 4, 6, 5, 7],
-                                              dtype=float), 2), 2)
+                                              dtype=float), 2), 4)
         answer = np.ma.array(data=[-2.0,-2.0,6.0,-2.0,1.0,1.75,2.0,4.0,-2.0,4.0],
                              mask=False)
         ma_test.assert_mask_eqivalent(sloped, answer)
@@ -1615,7 +1677,7 @@ class TestRateOfChange(unittest.TestCase):
     def test_rate_of_change_transfer_mask(self):
         sloped = rate_of_change(P('Test', 
                                   np.ma.array(data = [1, 0, -1, 2, 1, 3, 4, 6, 5, 7],dtype=float,
-                            mask = [0, 1,  0, 0, 0, 1, 0, 0, 0, 1]), 1), 1)
+                            mask = [0, 1,  0, 0, 0, 1, 0, 0, 0, 1]), 1), 2)
         answer = np.ma.array(data = [0,-1.0,0,1.0,0,1.5,0,0.5,0,0],
              mask = [True,False,True,False,True,False,True,False,True,True])
         ma_test.assert_mask_eqivalent(sloped, answer)
@@ -1631,7 +1693,7 @@ class TestRateOfChange(unittest.TestCase):
                           P('Test',np.ma.array([0, 1, 0]), 1), -2)
         
     def test_rate_of_change_small_values(self):
-        sloped = rate_of_change(P('Test',np.ma.arange(10)/100.0, 1), 2)
+        sloped = rate_of_change(P('Test',np.ma.arange(10)/100.0, 1), 4)
         answer = np.ma.array(data=[0.01]*10,mask=False)
         ma_test.assert_masked_array_approx_equal(sloped, answer)
         
@@ -1691,14 +1753,27 @@ class TestRMSNoise(unittest.TestCase):
     def test_rms_noise_basic(self):
         array = np.ma.array([0,0,1,0,0])
         result = rms_noise(array)
-        expected = sqrt(6.0/5.0)
+        expected = sqrt(1.5/3.0)
+        self.assertAlmostEqual(result, expected)
+        
+    def test_rms_noise_patent_example(self):
+        array = np.ma.array([8,7,6,9,4,8,2,7,5])
+        result = rms_noise(array)
+        expected = sqrt(107.75/7.0)
         self.assertAlmostEqual(result, expected)
         
     def test_rms_noise_masked(self):
+        array = np.ma.array([0,0,0,1,0,0,0])
+        array[3]=np.ma.masked
+        result = rms_noise(array)
+        expected = 0.0
+        self.assertAlmostEqual(result, expected)
+        
+    def test_rms_noise_no_valid_data(self):
         array = np.ma.array([0,0,1,0,0])
         array[2]=np.ma.masked
         result = rms_noise(array)
-        expected = 0.0
+        expected = None
         self.assertAlmostEqual(result, expected)
         
         
