@@ -161,23 +161,16 @@ class ApproachAndLanding(FlightPhaseNode):
                 use ApproachILSFrequency to identify the runway
             else:
                 use "*" to declare the runway not identified.
+    
     """
 
-    """
-    
-    ----------------------------------------------------------------------------
-    Was not being called, although these two parameters were available.
-    Commented out to see if things worked.
-    ----------------------------------------------------------------------------
-    
     # List the minimum acceptable parameters here
     @classmethod
     def can_operate(cls, available):
 
         return 'Altitude AAL For Flight Phases' in available and \
                'Landing' in available
-    """
-    
+        
     # List the optimal parameter set here
     def derive(self, alt_aal=P('Altitude AAL For Flight Phases'),
                alt_rad = P('Altitude Radio'),

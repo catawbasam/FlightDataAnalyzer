@@ -9,7 +9,7 @@ from datetime import datetime
 # http://www.java2s.com/Open-Source/Python/Math/Numerical-Python/numpy/numpy/ma/testutils.py.htm
 import utilities.masked_array_testutils as ma_test
 
-from analysis_engine.node import P, S, Section, KTI
+from analysis_engine.node import P, S, Section, KTI, KeyTimeInstance
 from analysis_engine.library import *
 
 
@@ -653,11 +653,11 @@ class TestClip(unittest.TestCase):
                                 960.0,920.0,890.0,840.0,730.0])
         output_array = np.array([600.0,600.0,600.0,700.0,800.0,910.0,920.0,\
                                 890.0,840.0,730.0,730.0,730.0])
-        result = clip(engine_egt, 5)
+        result = clip(engine_egt,5)
         np.testing.assert_array_equal(result, output_array)
         
     def test_clip_correct_result(self):
-        result = clip(self.test_array, 7)
+        result = clip(self.test_array, 5)
         np.testing.assert_array_almost_equal(result, self.result_array)
     
     def test_clip_rejects_negative_period(self):
@@ -686,22 +686,28 @@ class TestClip(unittest.TestCase):
         expected = np.array([9,9,9,8,7,6,5,4,3,4,5,6,7,8,8,8])
         np.testing.assert_array_almost_equal(result, expected)
 
+
 class TestCycleCounter(unittest.TestCase):
     def test_cycle_counter(self):
         array = np.ma.sin(np.ma.arange(100)*0.7+3)+np.ma.sin(np.ma.arange(100)*0.82)
-        end_index, n_cycles = cycle_counter(array, 3.0, 10, 1.0)
+        end_index, n_cycles = cycle_counter(array, 3.0, 10, 1.0, 0)
         self.assertEqual(n_cycles, 3)
         self.assertEqual(end_index, 91)
+
+    def test_cycle_counter_with_offset(self):
+        array = np.ma.sin(np.ma.arange(100)*0.7+3)+np.ma.sin(np.ma.arange(100)*0.82)
+        end_index, n_cycles = cycle_counter(array, 3.0, 10, 1.0, 1234)
+        self.assertEqual(end_index, 1234+91)
         
     def test_cycle_counter_too_slow(self):
         array = np.ma.sin(np.ma.arange(100)*0.7+3)+np.ma.sin(np.ma.arange(100)*0.82)
-        end_index, n_cycles = cycle_counter(array, 3.0, 1, 1.0)
+        end_index, n_cycles = cycle_counter(array, 3.0, 1, 1.0, 0)
         self.assertEqual(n_cycles, None)
         self.assertEqual(end_index, None)
         
     def test_cycle_counter_empty(self):
         array=np.ma.array([])
-        end_index, n_cycles = cycle_counter(array, 3.0, 10, 1.0)
+        end_index, n_cycles = cycle_counter(array, 3.0, 10, 1.0, 0)
         self.assertEqual(n_cycles, None)
         self.assertEqual(end_index, None)
         
@@ -890,6 +896,63 @@ class TestRunwayHeading(unittest.TestCase):
         rwy_hdg = runway_heading(runway)
         self.assertLess(abs(rwy_hdg - 170.6), 0.3)
         
+class TestGroundTrack(unittest.TestCase):
+    def test_ground_track_basic(self):
+        gspd = np.ma.array([60,60,60,60,60,60,60])
+        hdg = np.ma.array([0,0.0,0.0,90,90,90,270])
+        lat, lon = ground_track(0.0, 0.0, gspd, hdg, 1.0, 'landing')
+        expected_lat = [0.0,0.00027759,0.00055518,0.00069398,0.00069398,0.00069398,0.00069398]
+        expected_lon = [0.0,0.0,0.0,0.00013880,0.00041639,0.00069398,0.00069398]
+        np.testing.assert_array_almost_equal(expected_lat, lat)
+        np.testing.assert_array_almost_equal(expected_lon, lon)
+    def test_ground_track_data_errors(self):
+        # Mismatched array lengths
+        gspd = np.ma.array([60])
+        hdg = np.ma.array([0,0])
+        self.assertRaises(ValueError, ground_track, 0.0, 0.0, gspd, hdg, 1.0, 'landing')
+        # Direction not understood
+        gspd = np.ma.array([60,60,60,60,60,60,60])
+        hdg = np.ma.array([0,0.0,0.0,90,90,90,270])
+        self.assertRaises(ValueError, ground_track, 0.0, 0.0, gspd, hdg, 1.0, 'touchdown')
+    def test_ground_track_arrays_too_short(self):
+        gspd = np.ma.array([60,60])
+        hdg = np.ma.array([0,0])
+        lat, lon = ground_track(0.0, 0.0, gspd, hdg, 1.0, 'landing')
+        self.assertEqual(lat, None)
+        self.assertEqual(lon, None)
+    def test_ground_track_heading_continuous(self):
+        # Heading continuous means headings can be large.
+        gspd = np.ma.array([60,60,60,60,60,60,60])
+        hdg = np.ma.array([-720,-360.0,720,90,-270,450,-90])
+        lat, lon = ground_track(0.0, 0.0, gspd, hdg, 1.0, 'landing')
+        expected_lat = [0.0,0.00027759,0.00055518,0.00069398,0.00069398,0.00069398,0.00069398]
+        expected_lon = [0.0,0.0,0.0,0.00013880,0.00041639,0.00069398,0.00069398]
+        np.testing.assert_array_almost_equal(expected_lat, lat)
+        np.testing.assert_array_almost_equal(expected_lon, lon)
+    def test_ground_track_masking(self):
+        # Heading continuous means headings can be large.
+        gspd = np.ma.array(data=[60,60,60,60,60,60,60],
+                           mask=[0,0,1,0,0,0,0])
+        hdg = np.ma.array(data=[0,0.0,0.0,90,90,90,270],
+                          mask=[0,0,0,0,1,0,0])
+        lat, lon = ground_track(0.0, 0.0, gspd, hdg, 1.0, 'landing')
+        expected_lat = np.ma.array(data=[0.0,0.00027759,0.00055518,0.00069398,0.00069398,0.00069398,0.00069398],
+                                   mask=[0,0,1,0,1,0,0])
+        expected_lon = np.ma.array(data=[0.0,0.0,0.0,0.00013880,0.00041639,0.00069398,0.00069398],
+                                   mask=[0,0,1,0,1,0,0])
+        np.testing.assert_almost_equal(expected_lat.data, lat.data)
+        np.testing.assert_almost_equal(expected_lon.data, lon.data)
+        np.testing.assert_equal(expected_lat.mask, lat.mask)
+        np.testing.assert_equal(expected_lon.mask, lon.mask)
+    def test_ground_track_takeoff(self):
+        gspd = np.ma.array([60,60,60,60,60,60,60])
+        hdg = np.ma.array([0,0.0,0.0,90,90,90,270])
+        lat, lon = ground_track(0.0, 0.0, gspd, hdg, 1.0, 'takeoff')
+        expected_lat = [-0.00069398,-0.00041639,-0.00013880,0.0,0.0,0.0,0.0]
+        expected_lon = [-0.00069398,-0.00069398,-0.00069398,-0.00055518,-0.00027759,0.0,0.0]
+        np.testing.assert_array_almost_equal(expected_lat, lat)
+        np.testing.assert_array_almost_equal(expected_lon, lon)
+
 
 class TestHashArray(unittest.TestCase):
     def test_hash_array(self):
@@ -1052,7 +1115,43 @@ class TestIndexClosestValue(unittest.TestCase):
         array = np.ma.array([3,2,1,4,5,6,7])
         self.assertEqual(index_closest_value(array, -9, slice(5,1,-1)), 2)
 
+class TestInterpolateAndExtend(unittest.TestCase):
+    def test_interpolate_and_extend_basic(self):
+        array = np.ma.array(data=[0,0,2,0,0,3.5,0],
+                            mask=[1,1,0,1,1,0,1],
+                            dtype=float)
+        expected = np.ma.array([2,2,2,2.5,3,3.5,3.5])
+        result = interpolate_and_extend(array)
+        np.testing.assert_array_equal(result, expected)
+        
+    def test_interpolate_and_extend_four_parts(self):
+        array = np.ma.array(data=[2,0,2,0,2,0,2],
+                            mask=[1,0,1,0,1,0,1])
+        expected = np.ma.array([0]*7)
+        result = interpolate_and_extend(array)
+        np.testing.assert_array_equal(result, expected)
+        
+    def test_interpolate_and_extend_nothing_to_do_none_masked(self):
+        array = np.ma.array(data=[0,0,2,0,0,3.5,0],
+                            mask=[0,0,0,0,0,0,0],
+                            dtype=float)
+        self.assertRaises(ValueError, interpolate_and_extend, array)
+        
+    def test_interpolate_and_extend_nothing_to_do_all_masked(self):
+        array = np.ma.array(data=[0,0,2,0,0,3.5,0],
+                            mask=[1,1,1,1,1,1,1],
+                            dtype=float)
+        self.assertRaises(ValueError, interpolate_and_extend, array)
 
+    def test_interpolate_and_extend_no_ends(self):
+        array = np.ma.array(data=[5,0,0,20],
+                            mask=[0,1,1,0],
+                            dtype=float)
+        expected = np.ma.array([5, 10, 15, 20])
+        result = interpolate_and_extend(array)
+        np.testing.assert_array_equal(result, expected)
+        
+        
 
 class TestIndexOfDatetime(unittest.TestCase):
     def test_index_of_datetime(self):
@@ -1146,6 +1245,10 @@ class TestIntegrate (unittest.TestCase):
     def test_integration_reverse(self):
         result = integrate([0,10,6], 1.0, initial_value=7, direction='reverse')
         np.testing.assert_array_equal(result, [20.0,15.0,7.0])
+        
+    def test_integration_backwards(self):
+        result = integrate([0,10,6], 1.0, initial_value=7, direction='BaCKWardS')
+        np.testing.assert_array_equal(result, [-6.0,-1.0,7.0])
 
     def test_integration_scale(self):
         result = integrate([1,1,1], 1.0, scale=10)
@@ -1551,13 +1654,14 @@ class TestPhaseMasking(unittest.TestCase):
         self.assertRaises(ValueError, create_phase_inside, array, 1,0, 2, 11)
     
 class TestRateOfChange(unittest.TestCase):
-    
-    # Reminder: rate_of_change(to_diff, half_width, hz) - half width in seconds.
+    # 13/4/12 Changed timebase to be full width as this is more logical.
+    # Reminder: was: rate_of_change(to_diff, half_width, hz) - half width in seconds.
+    # Reminder: is: rate_of_change(to_diff, width) - width in seconds and freq from parameter.
     
     def test_rate_of_change_basic(self):
         sloped = rate_of_change(P('Test', 
                                   np.ma.array([1, 0, -1, 2, 1, 3, 4, 6, 5, 7],
-                                              dtype=float), 1), 2)
+                                              dtype=float), 1), 4)
         answer = np.ma.array(data=[-1.0,-1.0,0.0,0.75,1.25,1.0,1.0,1.0,-1.0,2.0],
                              mask=False)
         ma_test.assert_mask_eqivalent(sloped, answer)
@@ -1565,7 +1669,7 @@ class TestRateOfChange(unittest.TestCase):
     def test_rate_of_change_increased_frequency(self):
         sloped = rate_of_change(P('Test', 
                                   np.ma.array([1, 0, -1, 2, 1, 3, 4, 6, 5, 7],
-                                              dtype=float), 2), 2)
+                                              dtype=float), 2), 4)
         answer = np.ma.array(data=[-2.0,-2.0,6.0,-2.0,1.0,1.75,2.0,4.0,-2.0,4.0],
                              mask=False)
         ma_test.assert_mask_eqivalent(sloped, answer)
@@ -1573,7 +1677,7 @@ class TestRateOfChange(unittest.TestCase):
     def test_rate_of_change_transfer_mask(self):
         sloped = rate_of_change(P('Test', 
                                   np.ma.array(data = [1, 0, -1, 2, 1, 3, 4, 6, 5, 7],dtype=float,
-                            mask = [0, 1,  0, 0, 0, 1, 0, 0, 0, 1]), 1), 1)
+                            mask = [0, 1,  0, 0, 0, 1, 0, 0, 0, 1]), 1), 2)
         answer = np.ma.array(data = [0,-1.0,0,1.0,0,1.5,0,0.5,0,0],
              mask = [True,False,True,False,True,False,True,False,True,True])
         ma_test.assert_mask_eqivalent(sloped, answer)
@@ -1589,7 +1693,7 @@ class TestRateOfChange(unittest.TestCase):
                           P('Test',np.ma.array([0, 1, 0]), 1), -2)
         
     def test_rate_of_change_small_values(self):
-        sloped = rate_of_change(P('Test',np.ma.arange(10)/100.0, 1), 2)
+        sloped = rate_of_change(P('Test',np.ma.arange(10)/100.0, 1), 4)
         answer = np.ma.array(data=[0.01]*10,mask=False)
         ma_test.assert_masked_array_approx_equal(sloped, answer)
         
@@ -1649,23 +1753,54 @@ class TestRMSNoise(unittest.TestCase):
     def test_rms_noise_basic(self):
         array = np.ma.array([0,0,1,0,0])
         result = rms_noise(array)
-        expected = sqrt(6.0/5.0)
+        expected = sqrt(1.5/3.0)
+        self.assertAlmostEqual(result, expected)
+        
+    def test_rms_noise_patent_example(self):
+        array = np.ma.array([8,7,6,9,4,8,2,7,5])
+        result = rms_noise(array)
+        expected = sqrt(107.75/7.0)
         self.assertAlmostEqual(result, expected)
         
     def test_rms_noise_masked(self):
-        array = np.ma.array([0,0,1,0,0])
-        array[2]=np.ma.masked
+        array = np.ma.array([0,0,0,1,0,0,0])
+        array[3]=np.ma.masked
         result = rms_noise(array)
         expected = 0.0
         self.assertAlmostEqual(result, expected)
         
+    def test_rms_noise_no_valid_data(self):
+        array = np.ma.array([0,0,1,0,0])
+        array[2]=np.ma.masked
+        result = rms_noise(array)
+        expected = None
+        self.assertAlmostEqual(result, expected)
         
+        
+"""
 class TestSectionContainsKti(unittest.TestCase):
     def test_valid(self):
         section =  S(items=[Section('first_section', slice(4,6))])
-        kti = KTI(items=[KTI('More Test', 5)])
+        kti = KTI(items=[KeyTimeInstance(name='More Test', index=5)])
         self.assertTrue(section_contains_kti(section.get_first(), kti))
         
+    def test_invalid_for_two_ktis(self):
+        section =  S(items=[Section('first_section', slice(4,8))])
+        kti = KTI(items=[KeyTimeInstance(name='More Test', index=5),
+                         KeyTimeInstance(name='More Test', index=6)])
+        self.assertFalse(section_contains_kti(section.get_first(), kti))
+        
+    def test_invalid_for_no_ktis(self):
+        section =  S(items=[Section('first_section', slice(4,8))])
+        kti = []
+        self.assertFalse(section_contains_kti(section.get_first(), kti))
+        
+    def test_invalid_for_two_slices(self):
+        section =  S(items=[Section('first_section', slice(4,8)),
+                            Section('second_section', slice(14,18))])
+        kti = KTI(items=[KeyTimeInstance(name='More Test', index=5)])
+        self.assertFalse(section_contains_kti(section, kti))
+"""             
         
 class TestShiftSlice(unittest.TestCase):
     def test_shift_slice(self):
@@ -1932,18 +2067,18 @@ class TestSubslice(unittest.TestCase):
         two_hundred = range(5)
         self.assertEqual(two_hundred[orig][new], two_hundred[sub])
         self.assertEqual(two_hundred[sub], [2,4])
-        self.assertEqual(sub, slice(2, 20, 2))
+        self.assertEqual(sub, slice(2, 10, 2))
         
         # Actual case from test 6_737_1_RD0001851371
         orig = slice(419, 423, None)
         new = slice(0, None, 1)
         sub = subslice(orig, new)
-        self.assertEqual(sub,slice(419,423,1))
+        self.assertEqual(sub,slice(419,423,None))
 
         orig = slice(419, 423, None)
         new = slice(0, None, None)
         sub = subslice(orig, new)
-        self.assertEqual(sub,slice(419,423,1))
+        self.assertEqual(sub,slice(419,423,None))
 
         #TODO: test negative start, stop and step
 """
@@ -2298,7 +2433,17 @@ class TestDp2Tas(unittest.TestCase):
         Truth = 608.8925
         self.assertAlmostEqual(Value, Truth, delta = 1)
  
+class TestMachTat2Sat(unittest.TestCase):
 
+    def test_01(self):
+
+        # Mach 0.5, 15 deg C, K = 0.5
+
+        Value = machtat2sat(.5, 15, recovery_factor = 0.5)
+        Truth = 7.97195121951
+        self.assertAlmostEqual(Value, Truth, delta = 1e-5)
+
+    
 class TestAlt2Sat(unittest.TestCase):
 
     def test_01(self):

@@ -772,6 +772,7 @@ class Pitch35To400FtMax(KeyPointValueNode):
     def derive(self, pitch=P('Pitch'), alt_rad=P('Altitude Radio')):
         return NotImplemented
 '''
+
 class MachMax(KeyPointValueNode):
     name = 'Mach Max'
     def derive(self, mach=P('Mach'), airs=S('Airborne')):
@@ -784,13 +785,23 @@ class MachMax3Sec(KeyPointValueNode):
                                        airs, max_value)
 
 
+class MagneticVariationAtTakeoff(KeyPointValueNode):
+    def derive(self, var=P('Magnetic Variation'), toff=KTI('Takeoff Turn Onto Runway')):
+        self.create_kpvs_at_ktis(var.array, toff)
+
+
+class MagneticVariationAtLanding(KeyPointValueNode):
+    def derive(self, var=P('Magnetic Variation'), land=KTI('Landing Turn Off Runway')):
+        self.create_kpvs_at_ktis(var.array, land)
+
+
 class EngEGTNotTakeoffMax(KeyPointValueNode):
     name = 'Eng EGT Not Takeoff Max'
     def derive(self, eng_egt=P('Eng (*) EGT Max'), ratings=S('Takeoff 5 Min Rating')):
         egt = np.ma.copy(eng_egt.array)
         for rating in ratings:
             egt[rating.slice] = np.ma.masked
-        index, value = max_value(egt.array) # i.e. maximum excluding takeoff periods
+        index, value = max_value(egt) # i.e. maximum excluding takeoff periods
         self.create_kpv(index, value)
 
 
@@ -1034,12 +1045,6 @@ class HeightAtFirstConfigChangeAfterLiftoff(KeyPointValueNode):
                 index = air.slice.start + change_indexes[0]
                 self.create_kpv(air.slice.start + change_indexes[0], 
                                 value_at_index(alt_aal.array, index))
-
-
-class EngEGTTakeoffMax(KeyPointValueNode):
-    name = 'Eng EGT Takeoff Max'
-    def derive(self, eng_egt=P('Eng (*) EGT Max'), takeoffs=KTI('Takeoff')):
-        self.create_kpvs_within_slices(eng_egt.array, takeoffs, max_value)
 
 
 class ILSGlideslopeDeviation1500To1000FtMax(KeyPointValueNode):
@@ -1298,6 +1303,12 @@ class GroundspeedAtTouchdown(KeyPointValueNode):
     def derive(self, gspd=P('Groundspeed'), touchdowns=KTI('Touchdown')):
         self.create_kpvs_at_ktis(gspd.array, touchdowns)
 
+'''
+# These funcitons fail because eng_clipped has only been computed
+# for the period alt_slice, whereas min_value searches for
+# alt_slice WITHIN eng_clipped. Need to be able to offset
+# this function - better than computing eng_clipped for
+# the whole flight.
 
 class LowPowerInFinalApproachFor10Sec(KeyPointValueNode):
     #TODO: TESTS
@@ -1315,8 +1326,7 @@ class LowPowerBelow500FtFor10Sec(KeyPointValueNode):
                 if slices_overlap(alt_slice, fin_app.slice):
                    eng_clipped = clip(eng_n1_avg.array[alt_slice], 10, eng_n1_avg.hz, remove='troughs')
                    self.create_kpv(*min_value(eng_clipped, alt_slice))
-
-
+'''
 
 class PitchCyclesInFinalApproach(KeyPointValueNode):
     '''
@@ -1489,6 +1499,13 @@ class RateOfDescent2000To1000FtMax(KeyPointValueNode):
                                        alt_aal.slices_from_to(2000, 1000),
                                        min_value)
 
+"""
+# These function fails because roll.array has only been computed
+# for the period fapp.slice, whereas min_value searches for
+# alt_slice WITHIN eng_clipped. Need to be able to offset
+# this function - better than computing eng_clipped for
+# the whole flight.
+
 
 class RollCyclesInFinalApproach(KeyPointValueNode):
     '''
@@ -1499,7 +1516,8 @@ class RollCyclesInFinalApproach(KeyPointValueNode):
     def derive(self, roll=P('Roll'), fapps = S('Final Approach')):
         for fapp in fapps:
             self.create_kpv(*cycle_counter(roll.array[fapp.slice], 5.0, 10.0, roll.hz, fapp.slice.start))
-
+            
+"""
 
 class RollAbove1000FtMax(KeyPointValueNode):
     def derive(self, roll=P('Roll'), alt_aal=P('Altitude AAL')):
