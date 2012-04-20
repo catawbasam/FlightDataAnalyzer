@@ -1,67 +1,65 @@
-NOTES:
-======
-* Can have multiple KPVs, but only one of each type is marked as "primary".
-
-* Assumed storage of all LFL params in the HDF - uses this as the param set
-
-DISCUSSIONS:
-============
-* Re-assess dependency tree during processing when a node is determined as
-inoperable. This wouldn't be too slow as any params established so far will be
-cached in dicts or saved in HDF already. However it does make it harder to 
-predict the dependency tree for a given set of data and introduce an element
-of mystery and unpredictability.
-
-* What to do when getting a value at index, param[index], when the value is
-masked at that point. Can we scan a certain amount either side and repair
-mask for that section (interpolating the result)
-
-TODO:
+To Do
 =====
 
 * Review HDFAccess cache - implement copy to ensure array isn't manipulated by other processes - if so, profile before and after.
-
 * Optimise library.index_at_value and derived_parameters.ClimbForFlightPhases
-
 * Calculate timebase in split segments checks that dates are within timerange of -10yrs up to now
-
 * Use "quantities" library for numpy friendly unit conversions. Set our own for aeronautical calculations replacing aerocalc
 
 * Document tips for debugging, such as
  * Finding params within hdf file
  * Plotting params overlaying results of masks
- {{{
+
+.. code-block:: python
+
     from analysis_engine.plot_flight import plot_parameter
     INFO:root:Importing custom settings
     plot_parameter(loc_devc)
     plot_parameter(res) 
- }}}
 
 * Aircraft Parameters such as wingspan etc - to be determined
 
 * example of new Derived param structure
 
-* Add attribute to LFL parameters (or just use data type? derived could then be a type)
+* Add attribute to LFL parameters (or just use data type? derived could then 
+  be a type)
 
-* Change name of "Set param limits" to be more generic (removing word limits) such as "Set param attribute(param, attr, value)"
+* Change name of "Set param limits" to be more generic (removing word limits) 
+  such as "Set param attribute(param, attr, value)"
 
-* Document and validate the return types from nodes. Could even add an
-accessor for getting always a list of kpv/ktis to make collection in
-derive_parameters() easier.
+* Document and validate the return types from nodes. Could even add an accessor
+  for getting always a list of kpv/ktis to make collection in derive_parameters() 
+  easier.
 
 * Validate the derived parameters to ensure that all dependencies exist as
-classes OR are referenced in one of the LFL documents!
-
-
+  classes OR are referenced in one of the LFL documents!
 * test validation for ALL algorithm dependencies across ALL LFLs
-{{{
-from compass.dataframe_parser import get_all_parameter_names
-raw_param_list = get_all_parameter_names() # Don't restrict to any particular LFL unless requested 
-build_dependencies(raw_param_list, all_kpv)
-}}}
+
+.. code-block:: python
+
+    from compass.dataframe_parser import get_all_parameter_names
+    raw_param_list = get_all_parameter_names() # Don't restrict to any particular LFL unless requested 
+    build_dependencies(raw_param_list, all_kpv)
+
 
 * test validation for an aircraft's required algorithm dependencies across it's LFL
-
 * Should probably also assert that there are no duplicate Node names (copy and paste error!)
-
 * determine whether some of the events required cannot be detected as the raw parameters does not exist in the LFL'
+
+Notes
+=====
+
+* Can have multiple KPVs, but only one of each type is marked as "primary".
+* Assumed storage of all LFL params in the HDF - uses this as the param set
+
+Discussions
+===========
+
+* Re-assess dependency tree during processing when a node is determined as
+inoperable. This wouldn't be too slow as any params established so far will be
+cached in dicts or saved in HDF already. However it does make it harder to 
+predict the dependency tree for a given set of data and introduce an element
+of mystery and unpredictability.
+* What to do when getting a value at index, param[index], when the value is
+masked at that point. Can we scan a certain amount either side and repair
+mask for that section (interpolating the result)

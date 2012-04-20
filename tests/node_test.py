@@ -433,6 +433,18 @@ class TestSectionNode(unittest.TestCase):
         section = section_node.get_previous(40, frequency=2)
         self.assertEqual(items[2], section)    
 
+    def test_get_surrounding(self):
+        node = SectionNode()
+        self.assertEqual(node.get_surrounding(12), [])
+        sect_1 = Section('ThisSection', slice(2,15))
+        node.append(sect_1)
+        self.assertEqual(node.get_surrounding(2), [sect_1])
+        sect_2 = Section('ThisSection', slice(5,25))
+        node.append(sect_2)
+        self.assertEqual(node.get_surrounding(12), [sect_1, sect_2])
+        self.assertEqual(node.get_surrounding(-3), [])
+        self.assertEqual(node.get_surrounding(25), [sect_2])
+
 
 class TestFormattedNameNode(unittest.TestCase):
     def setUp(self):
@@ -635,8 +647,8 @@ class TestFormattedNameNode(unittest.TestCase):
         previous_kti = kti_node.get_previous(25, name="Fast")
         self.assertEqual(previous_kti, None)
         previous_kti = kti_node.get_previous(40, frequency=4)
-        self.assertEqual(previous_kti, KeyTimeInstance(2, 'Slowest'))                
-
+        self.assertEqual(previous_kti, KeyTimeInstance(2, 'Slowest'))
+        
 
 class TestKeyPointValueNode(unittest.TestCase):
     
@@ -704,6 +716,22 @@ class TestKeyPointValueNode(unittest.TestCase):
         self.assertEqual(list(knode),
                          [KeyPointValue(index=22, value=27, name='Kpv'),
                           KeyPointValue(index=10, value=15, name='Kpv')])
+
+    def test_create_kpvs_from_discretes(self):
+        knode = self.knode
+        param = P('Disc',np.ma.array([0.0]*20, dtype=float))
+        param.array[5:8] = 1.0
+        param.array[11:17] = 1.0
+        knode.create_kpvs_from_discretes(param.array, param.hz)
+        knode.create_kpvs_from_discretes(param.array, param.hz, sense='reverse')
+        self.assertEqual(list(knode),
+                         [KeyPointValue(index=5, value=3, name='Kpv'),
+                          KeyPointValue(index=11, value=6, name='Kpv'),
+                          KeyPointValue(index=0, value=5, name='Kpv'),
+                          KeyPointValue(index=8, value=3, name='Kpv'),
+                          KeyPointValue(index=17, value=3, name='Kpv')])
+        
+    
     
     
     def test_get_aligned(self):
