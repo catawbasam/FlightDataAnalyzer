@@ -29,6 +29,20 @@ class AnalysisEngineAPI(object):
         raise NotImplementedError
     
     @abstractmethod
+    def get_airport(self, code):
+        '''
+        Will either return an airport matching the code or raise an exception
+        if one cannot be found.
+        
+        :param code: Either the id, ICAO or IATA of the airport.
+        :type code: int or str
+        :raises NotFoundError: If airport cannot be found.
+        :returns: Airport info dictionary or None if the airport cannot be found.
+        :rtype: dict or None
+        '''
+        raise NotImplementedError
+    
+    @abstractmethod
     def get_nearest_runway(self, airport, heading, latitude=None, 
                            longitude=None, ilsfreq=None):
         '''
@@ -76,7 +90,22 @@ class AnalysisEngineAPIHandlerDUMMY(AnalysisEngineAPI):
 
 
 class AnalysisEngineAPIHandlerHTTP(AnalysisEngineAPI, APIHandlerHTTP):
-
+    
+    def get_airport(self, code):
+        '''
+        Will either return an airport matching the code or raise an exception
+        if one cannot be found.
+        
+        :param code: Either the id, ICAO or IATA of the airport.
+        :type code: int or str
+        :raises NotFoundError: If airport cannot be found.
+        :returns: Airport info dictionary or None if the airport cannot be found.
+        :rtype: dict or None
+        '''
+        url = '%(base_url)s/api/airport/%(code)s/' % \
+            {'base_url': BASE_URL.rstrip('/'), 'code': code}
+        return self._attempt_request(url)['airport']
+    
     def get_nearest_airport(self, latitude, longitude):
         '''
         Either returns the nearest airport to the specified latitude and
