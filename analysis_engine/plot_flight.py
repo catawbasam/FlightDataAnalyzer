@@ -22,7 +22,7 @@ def add_track(kml, track_name, lat, lon, colour, alt_param=None):
         
     track_coords = []
     for i in range(len(lat.array)):
-        if lat.array.mask[i] or lon.array.mask[i] or (alt_param and alt_param.array.mask[i*8]):
+        if lat.array.mask[i] or lon.array.mask[i] or (alt_param and alt_param.array.mask[i]):
             pass  # Masked data not worth plotting
         else:
             if alt_param:
@@ -38,9 +38,9 @@ def add_track(kml, track_name, lat, lon, colour, alt_param=None):
 
 def track_to_kml(hdf_path, kti_list, kpv_list, plot_altitude=None):
     hdf = hdf_file(hdf_path)
-    if 'Latitude Smoothed' not in hdf or 'Longitude Smoothed' not in hdf:
-        # unable to plot without these parameters
-        return
+    #if 'Latitude Smoothed' not in hdf or 'Longitude Smoothed' not in hdf:
+        ## unable to plot without these parameters
+        #return
     kml = simplekml.Kml()
     if plot_altitude:
         alt = derived_param_from_hdf(hdf, plot_altitude)
@@ -48,12 +48,12 @@ def track_to_kml(hdf_path, kti_list, kpv_list, plot_altitude=None):
     else:
         alt = None
               
-    smooth_lat = derived_param_from_hdf(hdf, 'Latitude Smoothed')
-    smooth_lon = derived_param_from_hdf(hdf, 'Longitude Smoothed')
-    lat = derived_param_from_hdf(hdf, 'Latitude')
-    lon = derived_param_from_hdf(hdf, 'Longitude')
+    smooth_lat = derived_param_from_hdf(hdf, 'Latitude Prepared')
+    smooth_lon = derived_param_from_hdf(hdf, 'Longitude Prepared')
+    #lat = derived_param_from_hdf(hdf, 'Latitude')
+    #lon = derived_param_from_hdf(hdf, 'Longitude')
     
-    add_track(kml, 'Recorded', lat, lon, 'ff0000ff')
+    #add_track(kml, 'Recorded', lat, lon, 'ff0000ff')
     add_track(kml, 'Smoothed', smooth_lat, smooth_lon, 'ff7fff7f', 
               alt_param=alt)
 
@@ -80,7 +80,8 @@ def track_to_kml(hdf_path, kti_list, kpv_list, plot_altitude=None):
         else:
             kpv_point_values['coords'] = ((smooth_lon.at(kpv.index), smooth_lat.at(kpv.index)),)
         
-        kml.newpoint(**kpv_point_values)    
+        kml.newpoint(**kpv_point_values)
+        
 
     kml.save(hdf_path+".kml")
     hdf.close()

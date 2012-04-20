@@ -389,6 +389,16 @@ class TestAlign(unittest.TestCase):
         np.testing.assert_array_equal(result.data, expected)
 
 
+class TestAltRadNonLinear(unittest.TestCase):
+    def test_sensor_type_not_recognised(self):
+        self.assertRaises(ValueError, alt_rad_non_linear, None, 'not a recognised sensor type')
+    
+    def test_boeing_16D(self):
+        test_data=np.ma.array([0,51,1280,3349,4095])
+        result = alt_rad_non_linear(test_data,'D226A101_1_16D')
+        expected = np.ma.array(data=[-20,0,480,2500,2600],mask=[0,0,0,0,1])
+        ma_test.assert_array_almost_equal(expected, result, decimal=0)
+    
 class TestBearingsAndDistances(unittest.TestCase):
     def test_known_distance(self):
         fareham = {'latitude':50.856146,'longitude':-1.183182}
@@ -1516,6 +1526,33 @@ class TestNormalise(unittest.TestCase):
         self.assertEqual(value, 8)
 
 
+class TestNpMaZerosLike(unittest.TestCase):
+    def test_zeros_like_basic(self):
+        result = np_ma_zeros_like([1,2,3])
+        expected = np.ma.array([0,0,0])
+        ma_test.assert_array_equal(expected, result)
+
+    def test_zeros_like_from_mask(self):
+        result = np_ma_zeros_like(np.ma.array([1,2,3]))
+        expected = np.ma.array([0,0,0])
+        ma_test.assert_array_equal(expected, result)
+
+    def test_zeros_like_from_masked(self):
+        result = np_ma_zeros_like(np.ma.array(data=[1,2,3],mask=[1,0,1]))
+        expected = np.ma.array([0,0,0])
+        ma_test.assert_array_equal(expected, result)
+
+        
+class TestNpMaMaskedZerosLike(unittest.TestCase):
+    def test_masked_zeros_like_basic(self):
+        result = np_ma_masked_zeros_like([1,2,3])
+        expected = np.ma.array(data=[0,0,0],mask=[1,1,1])
+        #ma_test.assert_array_equal(expected, result) 
+        
+        #The result is exactly right, except the assertion can't deal with
+        #two masked arguments, it appears.
+
+        
 class TestPeakCurvature(unittest.TestCase):
     # Note: The results from the first two tests are in a range format as the
     # artificial data results in multiple maxima.

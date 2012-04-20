@@ -373,10 +373,13 @@ class Fast(FlightPhaseNode):
             (airspeed.array[1:-1]-AIRSPEED_THRESHOLD)
         test_array = np.ma.masked_outside(value_passing_array, 0.0, -100.0)
         fast_samples = np.ma.notmasked_edges(test_array)
-
+        
         if fast_samples is None:
-            # Did not go fast enough.
-            return
+            # Did not go fast enough, or was always fast.
+            if np.ma.max(airspeed.array) > AIRSPEED_THRESHOLD:
+                fast_samples = np.array([0, len(airspeed.array)])
+            else:
+                return
         elif fast_samples[0] == fast_samples[1]:
             # Airspeed array either starts or stops Fast.
             index = fast_samples[0]
@@ -386,7 +389,10 @@ class Fast(FlightPhaseNode):
             else:
                 # Airspeed speeding up, start at the end of the data.
                 fast_samples[1] = np.ma.where(airspeed.array)[0][-1]
-        
+        else:
+            # Shift the samples to allow for the indexing at the beginning.
+            fast_samples += 1
+            
         self.create_phase(slice(*fast_samples))
  
 

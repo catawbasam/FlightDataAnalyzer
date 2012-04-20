@@ -87,6 +87,12 @@ class ClimbStart(KeyTimeInstanceNode):
                 self.create_kti(initial_climb_index)
 
 
+"""
+TODO: Move Gear Extending and Retracting
+Gear extending and retracting should be section nodes, as they last for a
+period, however the 737-5 data used for testing has inoperative undercarraige
+red warnings, so this change will be implemented later.
+
 class GearExtending(KeyTimeInstanceNode):
     def derive(self, gear_down=P('Gear Down'), airborne=S('Airborne')):
         self.create_ktis_at_edges(gear_down.array, direction='rising_edges', phase=airborne)
@@ -95,7 +101,7 @@ class GearExtending(KeyTimeInstanceNode):
 class GearRetracting(KeyTimeInstanceNode):
     def derive(self, gear_down=P('Gear Down'), airborne=S('Airborne')):
         self.create_ktis_at_edges(gear_down.array, direction='falling_edges', phase=airborne)
-
+"""
 
 class GoAround(KeyTimeInstanceNode):
     """
@@ -158,6 +164,9 @@ class GoAround(KeyTimeInstanceNode):
                 self.create_kti(app.slice.start+pit_index)
     """
 
+'''
+Not used now - replaced by KPV Deceleration...
+
 class LandingPeakDeceleration(KeyTimeInstanceNode):
     """
     The landing has been found already, including and the flare and a little
@@ -173,7 +182,9 @@ class LandingPeakDeceleration(KeyTimeInstanceNode):
                accel=P('Acceleration Longitudinal')):
         for land in landings:
             index, value = min_value(accel.array, _slice=land.slice)
-            self.create_kti(index)
+            if index:
+                self.create_kti(index)
+'''
 
 
 class TopOfClimb(KeyTimeInstanceNode):
@@ -218,7 +229,7 @@ class TopOfDescent(KeyTimeInstanceNode):
 
 class FlapStateChanges(KeyTimeInstanceNode):
     NAME_FORMAT = 'Flap %(flap)d Set'
-    NAME_VALUES = {'flap': range(0, 46, 1)}
+    NAME_VALUES = {'flap': range(0, 101, 1)}
     
     def derive(self, flap=P('Flap')):
         # Mark all flap changes, and annotate with the new flap position.

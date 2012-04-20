@@ -166,6 +166,29 @@ def align(slave, master, interval='Subframe', data_type=None):
 
     return slave_aligned
 
+def alt_rad_non_linear(array, sensor_type):
+    """
+    Nonlinear conversion for radio altimeters.
+    :param array: Input data array, as raw binary count from FDR data file.
+    :type array: Numpy masked array, unsigned integers stored as floats.
+    :param sensor_type: Identifier for the type of radio altimeter installed.
+    :type sensor_type: String - see code for details of sensors recognised.
+    
+    :returns altitude_radio
+    :type Numpy masked array of converted altitudes, in feet.
+    """
+    if sensor_type in ['D226A101_1_16D']:
+        # Reference Boeing document D226A101-1, Note 16D.
+        # This type uses an ARINC 573 HLDC input where 32V=4095 bits full scale.
+        # Interestingly, this input is not listed in the ARINC 717 spec.
+        ratio = 32.0/4095.0
+        volts = array * ratio
+        height = np.ma.where(volts<10.0,
+                             (volts-0.4)/0.02,
+                             500*np.ma.exp(volts/10.0)/np.exp(1.0)-20.0)
+        return np.ma.masked_outside(height, -20, 2500)
+    
+    raise ValueError,'alt_rad_non_linear called with unrecognised sensor_type'
 
 def bearings_and_distances(latitudes, longitudes, reference):
     """
@@ -1529,6 +1552,8 @@ def merge_two_parameters (param_one, param_two):
     
     Note: There is no check for the parameters being equi-spaced.
     
+    See also blend_two_parameters which compensates for differences between the two sensors.
+    
     :param param_one: Parameter object
     :type param_one: Parameter
     '''
@@ -1648,6 +1673,24 @@ def normalise(array, normalise_max=1.0, scale_max=None, copy=True, axis=None):
     array *= scaling
     ##array *= normalise_max / array.max() # original single axis version
     return array
+
+def np_ma_zeros_like(array):
+    """
+    The Numpy masked array library does not have equivalents for some array
+    creation functions. These are provided with similar names which may be
+    replaced should the Numpy library be extended in future.
+    """
+    return np.ma.array(np.zeros_like(array), mask=False)
+
+
+def np_ma_masked_zeros_like(array):
+    """
+    The Numpy masked array library does not have equivalents for some array
+    creation functions. These are provided with similar names which may be
+    replaced should the Numpy library be extended in future.
+    """
+    return np.ma.masked_all_like(np.zeros_like(array))
+
 
 def peak_curvature(array, _slice=slice(None), curve_sense='Concave'):
     """
@@ -2242,11 +2285,11 @@ def index_at_value(array, threshold, _slice=slice(None), endpoint='exact'):
     things like the point of landing.
     
     For example, to find 50ft Rad Alt on the descent, use something like:
-       altitude_radio.seek(t_approach, t_landing, slice(50,0,-1))
+       idx_50 = index_at_value(alt_rad, 50.0, slice(on_gnd_idx,0,-1))
     
     :param array: input data
     :type array: masked array
-    :param threshold: the value that we expect the array to cross between scan_start and scan_end.
+    :param threshold: the value that we expect the array to cross in this slice.
     :type threshold: float
     :param _slice: slice where we want to seek the threshold transit.
     :type _slice: slice
