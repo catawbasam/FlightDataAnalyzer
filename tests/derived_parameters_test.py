@@ -6,9 +6,8 @@ import numpy as np
 import os
 
 import utilities.masked_array_testutils as ma_test
-from utilities.struct import Struct
-from analysis_engine.settings import GRAVITY_IMPERIAL, HYSTERESIS_FPIAS, METRES_TO_FEET
-from analysis_engine.node import Attribute, A, KeyTimeInstance, KPV, KTI, Parameter, P, Section, S
+from analysis_engine.settings import GRAVITY_IMPERIAL, HYSTERESIS_FPIAS
+from analysis_engine.node import Attribute, A, KeyTimeInstance, KTI, Parameter, P, Section, S
 from analysis_engine.flight_phase import Fast
 
 from analysis_engine.derived_parameters import (
@@ -24,7 +23,7 @@ from analysis_engine.derived_parameters import (
     #AltitudeAALForFlightPhases,
     AltitudeForFlightPhases,
     AltitudeRadio,
-    #AltitudeRadioForFlightPhases,
+    AltitudeRadioForFlightPhases,
     AltitudeSTD,
     AltitudeTail,
     ClimbForFlightPhases,
@@ -43,6 +42,9 @@ from analysis_engine.derived_parameters import (
     Eng_N2Avg,
     Eng_N2Max,
     Eng_N2Min,
+    Eng_N3Avg,
+    Eng_N3Max,
+    Eng_N3Min,
     Flap,
     FuelQty,
     GrossWeightSmoothed,
@@ -57,7 +59,6 @@ from analysis_engine.derived_parameters import (
     RateOfClimb,
     RateOfClimbForFlightPhases,
     RateOfTurn,
-    Slat,
 )
 
 debug = sys.gettrace() is not None
@@ -537,7 +538,6 @@ class TestAltitudeRadio(unittest.TestCase):
         answer = np.ma.array(data=[62.051]*10,
                              dtype=np.float, mask=False)
         np.testing.assert_array_almost_equal(alt_rad.array, answer, decimal=2)
-
 
 
 class TestAltitudeRadioForFlightPhases(unittest.TestCase):
@@ -1195,8 +1195,8 @@ class TestGrossWeightSmoothed(unittest.TestCase):
         climb = S(items=[Section('Climbing',slice(2,3)),])
         descend = S(items=[Section('Descending',slice(5,6)),])
         gws = GrossWeightSmoothed()
-        result = gws.derive(fuel_flow, weight, climb, descend)
         expected = P('Gross Weight Smoothed', np.ma.array([]), frequency=1, offset=0.3)
+        self.assertTrue(False)
 
     def test_gw_formula_with_many_samples(self):
         weight = P('Gross Weight',np.ma.array(data=range(56400,50000,-64), 
