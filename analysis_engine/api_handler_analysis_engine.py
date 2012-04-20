@@ -23,8 +23,8 @@ class AnalysisEngineAPI(object):
         :type longitude: float
         :raises NotFoundError: If airport cannot be found.
         :raises InvalidAPIInputError: If latitude or longitude are out of bounds.
-        :returns: Airport info dictionary or None if the airport cannot be found.
-        :rtype: dict or None
+        :returns: Airport info dictionary.
+        :rtype: dict
         '''
         raise NotImplementedError
     
@@ -37,8 +37,8 @@ class AnalysisEngineAPI(object):
         :param code: Either the id, ICAO or IATA of the airport.
         :type code: int or str
         :raises NotFoundError: If airport cannot be found.
-        :returns: Airport info dictionary or None if the airport cannot be found.
-        :rtype: dict or None
+        :returns: Airport info dictionary.
+        :rtype: dict
         '''
         raise NotImplementedError
     
@@ -61,8 +61,8 @@ class AnalysisEngineAPI(object):
         :type ilsfreq: float # Q: could/should it be int?
         :raises NotFoundError: If runway cannot be found.
         :raises InvalidAPIInputError: If latitude, longitude or heading are out of bounds.
-        :returns: Runway info dictionary or None if the runway cannot be found.
-        :rtype: dict or None
+        :returns: Runway info dictionary.
+        :rtype: dict
         '''
         raise NotImplementedError
     
@@ -99,8 +99,8 @@ class AnalysisEngineAPIHandlerHTTP(AnalysisEngineAPI, APIHandlerHTTP):
         :param code: Either the id, ICAO or IATA of the airport.
         :type code: int or str
         :raises NotFoundError: If airport cannot be found.
-        :returns: Airport info dictionary or None if the airport cannot be found.
-        :rtype: dict or None
+        :returns: Airport info dictionary.
+        :rtype: dict
         '''
         url = '%(base_url)s/api/airport/%(code)s/' % \
             {'base_url': BASE_URL.rstrip('/'), 'code': code}
@@ -117,7 +117,7 @@ class AnalysisEngineAPIHandlerHTTP(AnalysisEngineAPI, APIHandlerHTTP):
         :type longitude: float
         :raises NotFoundError: If airport cannot be found.
         :raises InvalidAPIInputError: If latitude or longitude are out of bounds.
-        :returns: Airport information.
+        :returns: Airport info dictionary.
         :rtype: dict
         '''
         url = '%(base_url)s/api/airport/nearest.json?ll=%(ll)s' % \
