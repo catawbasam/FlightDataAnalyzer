@@ -3,6 +3,9 @@ import numpy as np
 from tempfile import TemporaryFile
 from operator import attrgetter
 from math import floor
+
+from analysis_engine.settings import API_HANDLER
+from analysis_engine.api_handler import get_api_handler
     
 from analysis_engine.model_information import (get_aileron_map, 
                                                get_config_map,
@@ -566,6 +569,7 @@ class AltitudeQNH(DerivedParameterNode):
         peak = np.ma.argmax(alt_aal.array)
         alt_qnh = np.ma.copy(alt_aal.array)
 
+        """
         # Add the elevation of the takeoff airport (above sea level) to the
         # climb portion. If this fails, make sure it's inhibited.
         try:
@@ -578,7 +582,8 @@ class AltitudeQNH(DerivedParameterNode):
             alt_qnh[peak:]+=land.value['elevation']
         except:
             alt_qnh[peak:]=np.ma.masked
-            
+        """
+        
         self.array = alt_qnh
 
 
@@ -679,6 +684,19 @@ class AltitudeSTD(DerivedParameterNode):
             #ALT_STDC = (last_alt_std * 0.9) + (ALT_STD * 0.1) + (IVVR / 60.0)
 
 
+class Autopilot(DerivedParameterNode):
+    """
+    Placeholder for combining multi-channel AP modes into a single consistent status.
+    """
+    def derive(self, ap_eng=P('Autopilot Engaged'),
+               frame=A('Frame')):
+        frame_name = frame.value if frame else None
+        
+        if frame_name in ['737-5']:
+            # TODO: Invert the 737-5 AP status.
+            self.array = 1 - ap_eng.array
+        
+        
 class AltitudeTail(DerivedParameterNode):
     """
     This function allows for the distance between the radio altimeter antenna
@@ -1408,7 +1426,21 @@ class GearDown(DerivedParameterNode):
         # to accommodate mismatch of the main gear positions, so assume that
         # the right wheel does the same as the left !
         self.array, self.frequency, self.offset = merge_two_parameters(gl, gn)
+
+class GearSelectedDown(DerivedParameterNode):
+    """
+    Derivation of gear selection for aircraft without this separately
+    recorded. Where Gear Selected Down is recorded, this derived parameter
+    will be skipped automatically.
+    """
+    def derive(self, gear=P('Gear Down')):
+        self.array = gear.array
+
         
+class GearSelectedUp(DerivedParameterNode):
+    def derive(self, gear=P('Gear Down')):
+        self.array = 1 - gear.array
+
         
 class GrossWeightSmoothed(DerivedParameterNode):
     '''
@@ -1640,11 +1672,6 @@ class Config(DerivedParameterNode):
 ####    # There's no pattern to how this is worked out.
 ####    # For aircraft with a Gear Selected Down parameter let's try this...
 ####    def derive(self, param=P('Gear Selected Down')):
-####        return NotImplemented
-
-
-####class GearSelectedUp(DerivedParameterNode):
-####    def derive(self, param=P('Gear Selected Up')):
 ####        return NotImplemented
 
 
@@ -2421,17 +2448,21 @@ class LongitudePrepared(DerivedParameterNode, CoordinatesStraighten):
                hdg=P('Heading Continuous'),
                tas=P('Airspeed True'),
                origin=A('AFR Takeoff Airport')):
+
         if lon and lat:
             self.array = self._smooth_coordinates(lon, lat)
+
         elif origin:
-            #get airport
-            #extract ap_lat = latitude and ap_lon = longitude
-            #temporary Konduz, Afghanistan
-            #ICAO: 	OAUZ
-            #IATA: 	UND            
-            ap_lat = 36.6651
-            ap_lon = 68.9108
-            
+            api_handler = get_api_handler(API_HANDLER)
+            airport = api_handler.get_airport(origin.value)
+            ap_lat = airport['latitude']
+            ap_lon = airport['longitude']
+
+            # The ground track function was written to add taxi tracks to
+            # recorded lat & long data, hence takeoff works from the point of
+            # takeoff backwards in time to the gate. In fact to operate for
+            # the flight we need it to integrate in the opposite direction,
+            # something that we can tidy up if it works.
             _, self.array = ground_track(ap_lat, ap_lon, tas.array, hdg.array, tas.hz, 'landing')
 
     
@@ -2454,24 +2485,16 @@ class LatitudePrepared(DerivedParameterNode, CoordinatesStraighten):
                hdg=P('Heading Continuous'),
                tas=P('Airspeed True'),
                origin=A('AFR Takeoff Airport')):
+
         if lat and lon:
             self.array = self._smooth_coordinates(lat, lon)
+
         elif origin:
-            #get airport
-            #extract ap_lat = latitude and ap_lon = longitude
-            #temporary Konduz, Afghanistan
-            #ICAO: 	OAUZ
-            #IATA: 	UND            
-            ap_lat = 36.6651
-            ap_lon = 68.9108
-            
-            # The ground track function was written to add taxi tracks to
-            # recorded lat & long data, hence takeoff works from the point of
-            # takeoff backwards in time to the gate. In fact to operate for
-            # the flight we need it to integrate in the opposite direction,
-            # something that we can tidy up if it works.
+            api_handler = get_api_handler(API_HANDLER)
+            airport = api_handler.get_airport(origin.value)
+            ap_lat = airport['latitude']
+            ap_lon = airport['longitude']
             self.array, _ = ground_track(ap_lat, ap_lon, tas.array, hdg.array, tas.hz, 'landing')
-            
 
 
 class RateOfTurn(DerivedParameterNode):

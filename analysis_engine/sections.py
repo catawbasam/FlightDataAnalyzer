@@ -57,6 +57,6 @@ class OnGround(SectionNode):
         pass
 
 
-class GearSelectedUp(SectionNode):
-    def derive(self, param=P('Flap')): # TODO: What should the arguments be?
-        pass
+##class GearSelectedUp(SectionNode):
+    ##def derive(self, param=P('Flap')): # TODO: What should the arguments be?
+        ##pass

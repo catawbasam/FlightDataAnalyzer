@@ -1569,14 +1569,20 @@ class TestPeakCurvature(unittest.TestCase):
         pc = peak_curvature(array)
         self.assertGreaterEqual(pc,35)
         self.assertLessEqual(pc,45)
-
-    def test_peak_curvature_no_peak(self):
+        
+    def test_peak_curvature_convex(self):
         array = np.ma.array([0]*40+range(40))*(-1.0)
-        pc = peak_curvature(array, curve_sense='Concave')
+        pc = peak_curvature(array, curve_sense='Convex')
+        self.assertGreaterEqual(pc,35)
+        self.assertLessEqual(pc,45)
+
+    def test_peak_curvature_flat_data(self):
+        array = np.ma.array([34]*40)
+        pc = peak_curvature(array)
         self.assertEqual(pc,None)
-
+        
     def test_peak_curvature_bipolar(self):
-        array = np.ma.array([0]*40+range(40))*(-1.0)
+        array = np.ma.array([0]*40+range(40))
         pc = peak_curvature(array, curve_sense='Bipolar')
         self.assertGreaterEqual(pc,35)
         self.assertLessEqual(pc,45)
@@ -1595,9 +1601,9 @@ class TestPeakCurvature(unittest.TestCase):
         self.assertLessEqual(pc,15.1)
         
     def test_peak_curvature_with_slice(self):
-        array = np.ma.array([0]*100)
-        pc = peak_curvature(array, slice(10, 50))
-        self.assertEqual(pc, 18)
+        array = np.ma.array([0]*20+[10]*20+[0]*20)
+        pc = peak_curvature(array, slice(10, 50), curve_sense='Bipolar')
+        self.assertEqual(pc, 24.5)
 
     def test_peak_curvature_slice_backwards(self):
         array = np.ma.array([0]*40+range(40))
@@ -1951,6 +1957,25 @@ class TestSlicesOverlap(unittest.TestCase):
         # step negative
         self.assertRaises(ValueError, slices_overlap, first, slice(1,2,-1))
         
+class TestSlicesOverlay(unittest.TestCase):
+    def test_slices_overlay(self):
+        # overlay
+        first = [slice(10,20)]
+        second = [slice(15,25)]
+        self.assertEqual(slices_overlay(first, second), [slice(15,20)])
+        
+        # no overlap
+        no_overlap = slice(25,40)
+        self.assertEqual(slices_overlay(second, [no_overlap]), [])
+        
+        # step negative
+        self.assertRaises(ValueError, slices_overlay, first, [slice(1,2,-1)])
+        
+        # complex with all four permutations
+        first = [slice(5,15),slice(20,25),slice(30,40)]
+        second = [slice(10,35),slice(45,50)]
+        result = [slice(10,15), slice(20,25), slice(30,35)]
+        self.assertEqual(slices_overlay(first,second),result)
 
 class TestStepValues(unittest.TestCase):
     def test_step_values(self):

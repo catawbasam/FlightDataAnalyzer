@@ -678,6 +678,45 @@ def clip(array, period, hz=1.0, remove='peaks'):
     return a
     """
 
+def find_edges(array, start_index, direction='rising_edges'):
+    '''
+    Edge finding low level routine, called by create_ktis_at_edges and
+    create_kpvs_at_edges. Also useful within algorithms directly.
+    
+    :param array: array of values to scan for edges
+    :type array: Numpy masked array (what else?!)
+    :param start_index: offset to the start of the array
+    :type start_index: float
+    :param direction: Optional edge direction for sensing. Default 'rising_edges'
+    :type direction: string, one of 'rising_edges', 'falling_edges' or 'all_edges'.
+    
+    :returns edge_list: Indexes for the appropriate edge transitions. 
+    :type edge_list: list of floats. 
+    
+    Note: edge_list values are always integer+0.5 as it is assumed that the
+    transition took place (with highest probability) midway between the two
+    recorded states.
+    '''
+    # Find increments. Extrapolate at start to keep array sizes straight.
+    deltas = np.ma.ediff1d(array, to_begin=array[0])
+    deltas[0]=0 # Ignore the first value 
+    if direction == 'rising_edges':
+        edges = np.ma.nonzero(np.ma.maximum(deltas,0))
+    elif direction == 'falling_edges':
+        edges = np.ma.nonzero(np.ma.minimum(deltas,0))
+    elif direction == 'all_edges':
+        edges = np.ma.nonzero(deltas)
+    else:
+        raise ValueError, 'Edge direction not recognised'
+    
+    # edges is a tuple catering for multi-dimensional arrays, but we
+    # are only interested in 1-D arrays, hence selection of the first
+    # element only. 
+    # The -0.5 shifts the value midway between the pre- and post-change
+    # samples.
+    edge_list = edges[0] + int(start_index) - 0.5
+    return list(edge_list)
+
 def first_order_lag (in_param, time_constant, hz, gain = 1.0,
                      initial_value = None):
     '''
@@ -1387,6 +1426,30 @@ def slices_overlap(first_slice, second_slice):
     return first_slice.start < second_slice.stop \
            and second_slice.start < first_slice.stop
 
+def slices_overlay(first_list, second_list):
+    '''
+    This is a simple function to allow two slice lists to be merged.
+    
+    Note: This currently has a trap for reverse slices, although this could be extended.
+    
+    :param first_list: First list of slices
+    :type first_list: List of slices
+    :param second_list: Second list of slices
+    :type second_list: List of slices
+    
+    :returns: List of slices where first and second lists overlap.
+    '''
+    result_list = []
+    for first_slice in first_list:
+        for second_slice in second_list:
+            if (first_slice.step != None and first_slice.step < 0) or \
+               (second_slice.step != None and second_slice.step < 0):
+                raise ValueError, 'slices_overlay will not work with reverse slices'
+            if slices_overlap(first_slice, second_slice):
+                result_list.append(slice(max(first_slice.start, second_slice.start),
+                                         min(first_slice.stop, second_slice.stop)))
+    return result_list
+
 """
 def section_contains_kti(section, kti):
     '''
@@ -1694,6 +1757,19 @@ def np_ma_masked_zeros_like(array):
 
 def peak_curvature(array, _slice=slice(None), curve_sense='Concave'):
     """
+    :param array: Parameter to be examined
+    :type array: Numpy masked array
+    :param _slice: Range of index values to be scanned.
+    :type _slice: Python slice. May be indexed in reverse to scan backwards in time.
+    :param curve_sense: Optional operating mode. Default 'Concave' has
+                        positive curvature (concave upwards when plotted). 
+                        Alternatives 'Convex' for curving downwards and 
+                        'Bi-polar' to detect either sense.
+    :type curve_sense: string
+    
+    :returns peak_curvature: The index within this array where the curvature first peaks in the required sense.
+    :rtype: integer
+    
     This routine uses a "Truck and Trailer" algorithm to find where a
     parameter changes slope. In the case of FDM, we are looking for the point
     where the airspeed starts to increase (or stops decreasing) on the
@@ -1748,9 +1824,18 @@ def peak_curvature(array, _slice=slice(None), curve_sense='Concave'):
         angle[place] = m[place+trailer] - m[place]
 
     # Normalise array and prepare for masking operations
-    angle=np.ma.array(angle/np.max(np.abs(angle)))
+    angle_max = np.max(np.abs(angle))
+    if angle_max == 0.0:
+        return None # All data in a straight line, so no curvature to find.
+    
+    angle=np.ma.array(angle/angle_max)
+    
+    # Default curve sense of Concave has a positive angle. The options are
+    # adjusted to allow us to use positive only tests hereafter.
     if curve_sense == 'Bipolar':
         angle = np.ma.abs(angle)
+    if curve_sense == 'Convex':
+        angle = -angle
     
     # Find peak - using values over 50% of the highest allows us to operate
     # without knowing the data characteristics.

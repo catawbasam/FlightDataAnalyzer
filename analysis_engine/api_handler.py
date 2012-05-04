@@ -133,6 +133,7 @@ class APIHandlerHTTP(object):
         '''
         for attempt in range(self.attempts):
             try:
+                logging.info("API Request args: %s | kwargs: %s", args, kwargs)
                 return self._request(*args, **kwargs)
             except (APIConnectionError, UnknownAPIError) as error:
                 logging.exception("'%s' error in request, retrying in %.2f", 
