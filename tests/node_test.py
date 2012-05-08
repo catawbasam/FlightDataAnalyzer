@@ -880,8 +880,8 @@ class TestKeyTimeInstanceNode(unittest.TestCase):
     def test_create_ktis_at_edges_inside_phases(self):
         kti=self.kti
         test_array = np.ma.array([0,1,0,1,0,1,0,1,0])
-        test_phase = SectionNode(items=[Section(name='try',slice=slice(None,2,None)),
-                                        Section(name='try',slice=slice(5,None,None))])
+        test_phase = SectionNode(items=[Section(name='try',slice=slice(None,2,None),begin=None,end=2),
+                                        Section(name='try',slice=slice(5,None,None),begin=5,end=None)])
         kti.create_ktis_at_edges(test_array, phase=test_phase)
         self.assertEqual(kti,[KeyTimeInstance(index=0.5, name='Kti'),
                               KeyTimeInstance(index=6.5, name='Kti')])

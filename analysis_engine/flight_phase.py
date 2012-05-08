@@ -468,7 +468,7 @@ class GearExtending(FlightPhaseNode):
     finite period.
     
     For aircraft data such as the 737-5 frame used for testing, the transit
-    is not recorded, so a dummy period of 1 second at gear down and
+    is not recorded, so a dummy period of 5 seconds at gear down and
     gear up is included to allow for exceedance of gear transit limits.
     """
     def derive(self, gear_down=P('Gear Down'), frame=A('Frame'), airs=S('Airborne')):
@@ -476,10 +476,14 @@ class GearExtending(FlightPhaseNode):
         if frame_name in ['737-5']:
             edge_list=[]
             for air in airs:
-                edge_list.append(find_edges(gear_down.array[air.slice], air.slice.start))
+                edge_list.append(find_edges(gear_down.array, air.slice))
             # We now have a list of lists and this trick flattens the result.
             for edge in sum(edge_list,[]):
-                self.create_phase(slice(edge-1, edge+1))
+                # We have no transition state, so allow 5 seconds for the
+                # gear to extend.
+                begin = edge-(0.5*gear_down.frequency)
+                end = edge+(4.5*gear_down.frequency)
+                self.create_phase(slice(begin, end))
 
 
 class GearRetracting(FlightPhaseNode):
@@ -488,10 +492,14 @@ class GearRetracting(FlightPhaseNode):
         if frame_name in ['737-5']:
             edge_list=[]
             for air in airs:
-                edge_list.append(find_edges(gear_down.array[air.slice], air.slice.start, direction='falling_edges'))
+                edge_list.append(find_edges(gear_down.array, air.slice, direction='falling_edges'))
             # We now have a list of lists and this trick flattens the result.
             for edge in sum(edge_list,[]):
-                self.create_phase(slice(edge-1, edge+1))
+                # We have no transition state, so allow 5 seconds for the
+                # gear to retract.
+                begin = edge-(0.5*gear_down.frequency)
+                end = edge+(4.5*gear_down.frequency)
+                self.create_phase(slice(begin, end))
 
   
 class ILSApproach(FlightPhaseNode):

@@ -28,7 +28,8 @@ API_HANDLER = 'analysis_engine.api_handler_analysis_engine.AnalysisEngineAPIHand
 ##API_HANDLER = 'analysis_engine.api_handler_analysis_engine.AnalysisEngineAPIHandlerDUMMY'
 
 # Base URL for the API for determining nearest airport/runway, etc:
-BASE_URL = 'http://127.0.0.1'
+# BASE_URL = 'http://127.0.0.1'
+BASE_URL = 'https://polaris-test.flightdataservices.com'
 
 # Location of the CA certificates to be used by the HTTP API handler:
 # Note: This is the system-wide default location on Ubuntu.
@@ -189,6 +190,12 @@ METRES_TO_FEET = 1000/25.4/12
 # Many flap KPVs require the same naming convention
 NAME_VALUES_FLAP = {'flap': range(1,101,1)}
 NAME_VALUES_CONF = {'conf': range(1,6,1)} # Needs fixing for Conf vales.
+NAME_VALUES_CLIMB = {'altitude': [10000,9000,8000,7000,6000,5000,4000,3500,\
+                                   3000,2500,2000,1500,1000,750,500,400,300,\
+                                   200,150,100,75,50,35,25]}
+NAME_VALUES_DESCENT = {'altitude':[10000,9000,8000,7000,6000,5000,4000,3500,\
+                                   3000,2500,2000,1500,1000,750,500,400,300,\
+                                   200,150,100,75,50,35,25]}
 
 # Rate of climb and descent limits of 800fpm gives good distinction with
 # level flight. Separately defined to allow for future adjustment.

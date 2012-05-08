@@ -695,7 +695,20 @@ class Autopilot(DerivedParameterNode):
         if frame_name in ['737-5']:
             # TODO: Invert the 737-5 AP status.
             self.array = 1 - ap_eng.array
+       
+
+class Autothrottle(DerivedParameterNode):
+    """
+    Placeholder for combining multi-channel AP modes into a single consistent status.
+    """
+    def derive(self, at_eng=P('Autothrottle Engaged'),
+               frame=A('Frame')):
+        frame_name = frame.value if frame else None
         
+        if frame_name in ['737-5']:
+            # TODO: Invert the 737-5 AP status.
+            self.array = at_eng.array
+ 
         
 class AltitudeTail(DerivedParameterNode):
     """
@@ -1421,11 +1434,15 @@ class GearDown(DerivedParameterNode):
     align_to_first_dependency = False
     def derive(self, gl=P('GEAR DOWN LEFT'),
                gn=P('GEAR DOWN NOSE'),
-               gr=P('GEAR DOWN RIGHT')):
-        # 737-5 has nose gear sampled alternately with mains. No obvious way
-        # to accommodate mismatch of the main gear positions, so assume that
-        # the right wheel does the same as the left !
-        self.array, self.frequency, self.offset = merge_two_parameters(gl, gn)
+               gr=P('GEAR DOWN RIGHT'),
+               frame=A('Frame')):
+        frame_name = frame.value if frame else None
+        
+        if frame_name in ['737-5']:
+            # 737-5 has nose gear sampled alternately with mains. No obvious
+            # way to accommodate mismatch of the main gear positions, so
+            # assume that the right wheel does the same as the left !
+            self.array, self.frequency, self.offset = merge_two_parameters(gl, gn)
 
 class GearSelectedDown(DerivedParameterNode):
     """
@@ -1433,13 +1450,19 @@ class GearSelectedDown(DerivedParameterNode):
     recorded. Where Gear Selected Down is recorded, this derived parameter
     will be skipped automatically.
     """
-    def derive(self, gear=P('Gear Down')):
-        self.array = gear.array
+    def derive(self, gear=P('Gear Down'), frame=A('Frame')):
+        frame_name = frame.value if frame else None
+        
+        if frame_name in ['737-5']:
+            self.array = gear.array
 
         
 class GearSelectedUp(DerivedParameterNode):
-    def derive(self, gear=P('Gear Down')):
-        self.array = 1 - gear.array
+    def derive(self, gear=P('Gear Down'), frame=A('Frame')):
+        frame_name = frame.value if frame else None
+        
+        if frame_name in ['737-5']:
+            self.array = 1 - gear.array
 
         
 class GrossWeightSmoothed(DerivedParameterNode):

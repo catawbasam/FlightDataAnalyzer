@@ -756,6 +756,43 @@ class TestDatetimeOfIndex(unittest.TestCase):
         dt = datetime_of_index(start_datetime, index, frequency=frequency)
         self.assertEqual(dt, start_datetime + timedelta(seconds=40))
 
+class TestFindEdges(unittest.TestCase):
+    # Reminder: find_edges(array, _slice, direction='rising_edges')                    
+    
+    def test_find_edges_basic(self):
+        array=np.ma.array([0,0,0,1,1,1])
+        result = find_edges(array, slice(0,6))
+        expected = [2.5]
+        self.assertEqual(expected, result)
+                    
+    def test_find_edges_slice(self):
+        array=np.ma.array([0,0,0,1,1,1])
+        result = find_edges(array, slice(0,2))
+        expected = []
+        self.assertEqual(expected, result)
+                    
+    def test_find_edges_default_direction(self):
+        array=np.ma.array([0,0,0,-1,-1,-1])
+        result = find_edges(array, slice(0,6))
+        expected = []
+        self.assertEqual(expected, result)
+
+    def test_find_edges_falling(self):
+        array=np.ma.array([2,2,2,2,0,0])
+        result = find_edges(array, slice(0,6), direction='falling_edges')
+        expected = [3.5]
+        self.assertEqual(expected, result)
+                         
+    def test_find_edges_falling(self):
+        array=np.ma.array([1,1,0,0,2,2,0,0,-1-1])
+        result = find_edges(array, slice(0,10), direction='all_edges')
+        expected = [1.5,3.5,5.5,7.5]
+        self.assertEqual(expected, result)
+        
+    def test_find_edges_failure(self):
+        array=np.ma.array([1])
+        self.assertRaises(ValueError, find_edges, array, slice(0,1), direction='anything')
+                    
                     
 class TestFirstOrderLag(unittest.TestCase):
 
@@ -1372,6 +1409,24 @@ class TestMaxValue(unittest.TestCase):
         neg_step = slice(100,65,-10)
         self.assertRaises(ValueError, max_value, array, neg_step)
         ##self.assertEqual(res, (69, 81)) # you can get this if you use slice.stop!
+        
+    def test_max_value_non_integer_slices(self):
+        array = np.ma.arange(5)+10
+        i, v, = max_value(array, slice(1.3,3.7))
+        self.assertEqual(i, 3.7)
+        self.assertEqual(v, 13.7)
+
+    def test_max_value_non_integer_slices_upper_limit(self):
+        array = np.ma.arange(5)+10
+        i, v, = max_value(array, slice(1.3,12))
+        self.assertEqual(i, 4)
+        self.assertEqual(v, 14)
+
+    def test_max_value_non_integer_slices_lower_limit(self):
+        array = 20-np.ma.arange(5)
+        i, v, = max_value(array, slice(1.3,3.7))
+        self.assertEqual(i, 1.3)
+        self.assertEqual(v, 18.7)
 
         
 class TestMaxAbsValue(unittest.TestCase):

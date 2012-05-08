@@ -678,15 +678,16 @@ def clip(array, period, hz=1.0, remove='peaks'):
     return a
     """
 
-def find_edges(array, start_index, direction='rising_edges'):
+def find_edges(array, _slice, direction='rising_edges'):
     '''
-    Edge finding low level routine, called by create_ktis_at_edges and
-    create_kpvs_at_edges. Also useful within algorithms directly.
+    Edge finding low level routine, called by create_ktis_at_edges (and
+    historically create_kpvs_at_edges). Also useful within algorithms
+    directly.
     
     :param array: array of values to scan for edges
     :type array: Numpy masked array (what else?!)
-    :param start_index: offset to the start of the array
-    :type start_index: float
+    :param _slice: slice to be examined
+    :type _slice: slice
     :param direction: Optional edge direction for sensing. Default 'rising_edges'
     :type direction: string, one of 'rising_edges', 'falling_edges' or 'all_edges'.
     
@@ -698,7 +699,7 @@ def find_edges(array, start_index, direction='rising_edges'):
     recorded states.
     '''
     # Find increments. Extrapolate at start to keep array sizes straight.
-    deltas = np.ma.ediff1d(array, to_begin=array[0])
+    deltas = np.ma.ediff1d(array[_slice], to_begin=array[_slice][0])
     deltas[0]=0 # Ignore the first value 
     if direction == 'rising_edges':
         edges = np.ma.nonzero(np.ma.maximum(deltas,0))
@@ -714,7 +715,7 @@ def find_edges(array, start_index, direction='rising_edges'):
     # element only. 
     # The -0.5 shifts the value midway between the pre- and post-change
     # samples.
-    edge_list = edges[0] + int(start_index) - 0.5
+    edge_list = edges[0] + int(_slice.start) - 0.5
     return list(edge_list)
 
 def first_order_lag (in_param, time_constant, hz, gain = 1.0,

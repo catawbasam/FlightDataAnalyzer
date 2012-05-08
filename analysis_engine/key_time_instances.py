@@ -94,6 +94,16 @@ class AutopilotSelectionDisengaged(KeyTimeInstanceNode):
         self.create_ktis_at_edges(autopilot.array, direction='falling_edges', phase=phase)
 
 
+class AutothrottleSelectionEngaged(KeyTimeInstanceNode):
+    def derive(self, autothrottle=P('Autothrottle'), phase=S('Airborne')):
+        self.create_ktis_at_edges(autothrottle.array, direction='rising_edges', phase=phase)
+
+
+class AutothrottleSelectionDisengaged(KeyTimeInstanceNode):
+    def derive(self, autothrottle=P('Autothrottle'), phase=S('Airborne')):
+        self.create_ktis_at_edges(autothrottle.array, direction='falling_edges', phase=phase)
+
+
 
 class ClimbStart(KeyTimeInstanceNode):
     def derive(self, alt_aal=P('Altitude AAL'), climbing=S('Climbing')):
@@ -238,6 +248,17 @@ class FlapStateChanges(KeyTimeInstanceNode):
         # Mark all flap changes, and annotate with the new flap position.
         # Could include "phase=airborne" if we want to eliminate ground flap changes.
         self.create_ktis_at_edges(flap.array, direction='all_edges', name='flap') 
+
+
+class GearSelectionDown(KeyTimeInstanceNode):
+    def derive(self, gear_sel_down=P('Gear Selected Down'), phase=S('Airborne')):
+        self.create_ktis_at_edges(gear_sel_down.array, direction='rising_edges', phase=phase)
+        
+
+class GearSelectionUp(KeyTimeInstanceNode):
+    def derive(self, gear_sel_up=P('Gear Selected Up'), phase=S('Airborne')):
+        self.create_ktis_at_edges(gear_sel_up.array, direction='rising_edges', phase=phase)    
+
 
 class TakeoffTurnOntoRunway(KeyTimeInstanceNode):
     # The Takeoff flight phase is computed to start when the aircraft turns
