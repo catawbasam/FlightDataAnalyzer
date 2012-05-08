@@ -20,7 +20,7 @@ from analysis_engine.derived_parameters import (
     AirspeedMinusVref,
     AirspeedTrue,
     AltitudeAAL,
-    AltitudeAALForFlightPhases,
+    #AltitudeAALForFlightPhases,
     AltitudeForFlightPhases,
     AltitudeRadio,
     AltitudeRadioForFlightPhases,
@@ -52,8 +52,8 @@ from analysis_engine.derived_parameters import (
     HeadingContinuous,
     HeadingTrue,
     ILSFrequency,
-    LatitudeStraighten,
-    LongitudeStraighten,
+    LatitudePrepared,
+    LongitudePrepared,
     Mach,
     Pitch,
     RateOfClimb,
@@ -345,14 +345,10 @@ class TestAirspeedTrue(unittest.TestCase):
 class TestAltitudeAAL(unittest.TestCase):
     def test_can_operate(self):
         opts = AltitudeAAL.get_operational_combinations()
-        self.assertTrue(('Altitude AAL For Flight Phases',) in opts)
-        self.assertTrue(('Liftoff', 'Touchdown', 'Takeoff', 'Landing',
-                         'Rate Of Climb', 'Altitude STD', 'Altitude Radio',
-                         'Airspeed') in opts)
-        self.assertTrue(('Liftoff', 'Touchdown', 'Takeoff', 'Landing',
-                         'Rate Of Climb', 'Altitude STD', 'Altitude Radio',
-                         'Airspeed', 'Altitude AAL For Flight Phases',) in opts)        
+        self.assertTrue(('Altitude STD','Fast') in opts)
+        self.assertTrue(('Altitude STD','Altitude Radio','Fast') in opts)
         
+    """
     def test_derive(self):
         test_data_dir = os.path.join('test_data', 'Altitude AAL')
         
@@ -381,6 +377,42 @@ class TestAltitudeAAL(unittest.TestCase):
         expected_result = np.ma.array(np.load(os.path.join(test_data_dir, 'alt_aal_data.npy')),
                                       mask=np.load(os.path.join(test_data_dir, 'alt_aal_mask.npy'))) 
         ma_test.assert_array_equal(alt_aal.array, expected_result)
+    """
+    
+    def test_alt_AAL_basic(self):
+        data = np.ma.array([-3,0,30,80,150,260,120,70,20,-5])
+        alt_std = P(array=data+300)
+        alt_rad = P(array=data)
+        fast_data = np.ma.array([100]*10)
+        phase_fast = Fast()
+        phase_fast.derive(Parameter('Airspeed', fast_data))
+        alt_aal = AltitudeAAL()
+        alt_aal.derive(alt_std, alt_rad, phase_fast)
+        expected = np.ma.array([0,0,30,80,150,260,120,70,20,0])
+        np.testing.assert_array_equal(expected, alt_aal.array.data)
+
+    def test_alt_AAL_bounce_rejection(self):
+        data = np.ma.array([-3,0,30,80,150,260,120,70,20,-5,2,5,2,-3,-3])
+        alt_std = P(array=data+300)
+        alt_rad = P(array=data)
+        fast_data = np.ma.array([100]*15)
+        phase_fast = Fast()
+        phase_fast.derive(Parameter('Airspeed', fast_data))
+        alt_aal = AltitudeAAL()
+        alt_aal.derive(alt_std, alt_rad, phase_fast)
+        expected = np.ma.array([0,0,30,80,150,260,120,70,20,0,0,0,0,0,0])
+        np.testing.assert_array_equal(expected, alt_aal.array.data)
+    
+    def test_alt_AAL_no_ralt(self):
+        data = np.ma.array([-3,0,30,80,150,260,120,70,20,-5])
+        alt_std = P(array=data+300)
+        slow_and_fast_data = np.ma.array([70]+[85]*7+[75,70])
+        phase_fast = Fast()
+        phase_fast.derive(Parameter('Airspeed', slow_and_fast_data))
+        alt_aal = AltitudeAAL()
+        alt_aal.derive(alt_std, None, phase_fast)
+        expected = np.ma.array([0,0,30,80,150,240,100,50,0,0])
+        np.testing.assert_array_equal(expected, alt_aal.array.data)
     
     
 class TestAltitudeAALForFlightPhases(unittest.TestCase):
@@ -453,34 +485,59 @@ class TestAltitudeForFlightPhases(unittest.TestCase):
 
 
 class TestAltitudeRadio(unittest.TestCase):
+    """
     def test_can_operate(self):
         expected = [('Altitude Radio Sensor', 'Pitch',
                      'Main Gear To Altitude Radio')]
         opts = AltitudeRadio.get_operational_combinations()
         self.assertEqual(opts, expected)
-        
-    def test_altitude_radio(self):
+    """
+    
+    def test_altitude_radio_737_3C(self):
         alt_rad = AltitudeRadio()
-        alt_rad.derive(
-            Parameter('Altitude Radio (A)', np.ma.ones(10)*10, 1,0.0),
-            Parameter('Altitude Radio (B)', np.ma.ones(10)*10, 1,0.0),
-            Parameter('Altitude Radio (C)', np.ma.ones(10)*10, 1,0.0),
-            Attribute('Frame','737-3C'),
-            Attribute('Main Gear To Altitude Radio', 10.0),
-            Parameter('Pitch', (np.ma.array(range(10))-2)*5, 1,0.0),
-        )
-        answer = np.ma.array(data=[11.7364817767,
-                                   10.8715574275,
-                                   10.0,
-                                   9.12844257252,
-                                   8.26351822333,
-                                   7.41180954897,
-                                   6.57979856674,
-                                   5.77381738259,
-                                   5.0,
-                                   4.26423563649],
+        alt_rad.derive(Attribute('Frame','737-3C'), 
+                       None,
+                       Parameter('Altitude Radio (A)', np.ma.ones(5)*10, 0.5,  0.0),
+                       Parameter('Altitude Radio (B)', np.ma.ones(5)*20, 0.25, 1.0),
+                       Parameter('Altitude Radio (C)', np.ma.ones(5)*30, 0.25, 3.0),
+                       None
+                       )
+        result = alt_rad.array
+        answer = np.ma.array(data=[25]*10,
                              dtype=np.float, mask=False)
-        np.testing.assert_array_almost_equal(alt_rad.array, answer)
+        np.testing.assert_array_equal(alt_rad.array, answer)
+        self.assertEqual(alt_rad.offset,2.0)
+        self.assertEqual(alt_rad.frequency,0.5)
+
+    def test_altitude_radio_737_5_EFIS(self):
+        alt_rad = AltitudeRadio()
+        alt_rad.derive(Attribute('Frame','737-5'), 
+                       Attribute('Frame Qualifier','Altitude_Radio_EFIS'),
+                       Parameter('Altitude Radio (A)', np.ma.ones(5)*10, 0.5, 0.0),
+                       Parameter('Altitude Radio (B)', np.ma.ones(5)*20, 0.5, 1.0),
+                       Parameter('Altitude Radio (C)', np.ma.ones(5)*30, 0.5, 0.3),
+                       Parameter('Altitude Radio (D)', np.ma.ones(5)*40, 0.5, 1.3),
+                       )
+        result = alt_rad.array
+        answer = np.ma.array(data=[35]*10,
+                             dtype=np.float, mask=False)
+        np.testing.assert_array_equal(alt_rad.array, answer)
+        self.assertEqual(alt_rad.offset,0.8)
+        self.assertEqual(alt_rad.frequency,1.0)
+
+    def test_altitude_radio_737_5_Analogue(self):
+        alt_rad = AltitudeRadio()
+        alt_rad.derive(Attribute('Frame','737-5'), 
+                       Attribute('Frame Qualifier','Altitude_Radio_D226A101_1_16D'),
+                       Parameter('Altitude Radio (A)', np.ma.ones(5)*200, 0.5, 0.0),
+                       Parameter('Altitude Radio (B)', np.ma.ones(5)*220, 0.5, 1.0),
+                       None,
+                       None
+                       )
+        result = alt_rad.array
+        answer = np.ma.array(data=[62.051]*10,
+                             dtype=np.float, mask=False)
+        np.testing.assert_array_almost_equal(alt_rad.array, answer, decimal=2)
 
 
 class TestAltitudeRadioForFlightPhases(unittest.TestCase):
@@ -1262,15 +1319,15 @@ class TestHeadContinuous(unittest.TestCase):
         np.testing.assert_array_equal(head.array.data, answer.data)
 
 
-class TestLatitudeAndLongitudeStraighten(unittest.TestCase):
+class TestLatitudeAndLongitudePrepared(unittest.TestCase):
     def test_can_operate(self):
-        self.assertEqual(LatitudeStraighten.get_operational_combinations(),
+        self.assertEqual(LatitudePrepared.get_operational_combinations(),
                          [('Latitude','Longitude')])
 
     def test_latitude_smoothing_basic(self):
         lat = P('Latitude',np.ma.array([0,0,1,2,1,0,0],dtype=float))
         lon = P('Longitude', np.ma.zeros(7,dtype=float))
-        smoother = LatitudeStraighten()
+        smoother = LatitudePrepared()
         smoother.get_derived([lat,lon])
         self.assertGreater(smoother.array[3],0.01)
         self.assertLess(smoother.array[3],0.013)
@@ -1278,13 +1335,13 @@ class TestLatitudeAndLongitudeStraighten(unittest.TestCase):
     def test_latitude_smoothing_short_array(self):
         lat = P('Latitude',np.ma.array([0,0],dtype=float))
         lon = P('Longitude', np.ma.zeros(2,dtype=float))
-        smoother = LatitudeStraighten()
+        smoother = LatitudePrepared()
         smoother.get_derived([lat,lon])
         
     def test_longitude_smoothing_basic(self):
         lat = P('Latitude',np.ma.array([0,0,1,2,1,0,0],dtype=float))
         lon = P('Longitude', np.ma.array([0,0,-2,-4,-2,0,0],dtype=float))
-        smoother = LongitudeStraighten()
+        smoother = LongitudePrepared()
         smoother.get_derived([lat,lon])
         self.assertGreater(smoother.array[3],-0.025)
         self.assertLess(smoother.array[3],-0.02)

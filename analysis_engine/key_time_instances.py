@@ -1,11 +1,15 @@
 import logging
 import numpy as np
 
-from analysis_engine.library import (hysteresis, index_at_value,
-                                    is_index_within_slice,
-                                    slices_above,
-                                    min_value,
-                                    max_value, peak_curvature)
+from analysis_engine.library import (find_edges,
+                                     hysteresis, 
+                                     index_at_value,
+                                     is_index_within_slice,
+                                     slices_above,
+                                     min_value,
+                                     max_value, 
+                                     peak_curvature)
+
 from analysis_engine.node import P, S, KTI, KeyTimeInstanceNode
 
 from settings import (CLIMB_THRESHOLD,
@@ -48,12 +52,16 @@ def find_toc_tod(alt_data, ccd_slice, mode):
 
 class BottomOfDescent(KeyTimeInstanceNode):
     def derive(self, alt_std=P('Altitude STD'),
-               dlc=S('Descent Low Climb')):
+               dlc=S('Descent Low Climb'),
+               airs=S('Airborne')):
         # In the case of descents without landing, this finds the minimum
         # point of the dip.
         for this_dlc in dlc:
             kti = np.ma.argmin(alt_std.array[this_dlc.slice])
             self.create_kti(kti + this_dlc.slice.start)
+        # For descents to landing, end where the aircraft is no longer airborne.
+        for air in airs:
+            self.create_kti(air.slice.stop)
         
            
 class ApproachAndLandingLowestPoint(KeyTimeInstanceNode):
@@ -76,6 +84,17 @@ class ApproachAndLandingLowestPoint(KeyTimeInstanceNode):
         pass
     
 
+class AutopilotSelectionEngaged(KeyTimeInstanceNode):
+    def derive(self, autopilot=P('Autopilot'), phase=S('Airborne')):
+        self.create_ktis_at_edges(autopilot.array, direction='rising_edges', phase=phase)
+
+
+class AutopilotSelectionDisengaged(KeyTimeInstanceNode):
+    def derive(self, autopilot=P('Autopilot'), phase=S('Airborne')):
+        self.create_ktis_at_edges(autopilot.array, direction='falling_edges', phase=phase)
+
+
+
 class ClimbStart(KeyTimeInstanceNode):
     def derive(self, alt_aal=P('Altitude AAL'), climbing=S('Climbing')):
         for climb in climbing:
@@ -85,16 +104,6 @@ class ClimbStart(KeyTimeInstanceNode):
             # above CLIMB_THRESHOLD. In this case no kti is created.
             if initial_climb_index:
                 self.create_kti(initial_climb_index)
-
-
-class GearExtending(KeyTimeInstanceNode):
-    def derive(self, gear_down=P('Gear Down'), airborne=S('Airborne')):
-        self.create_ktis_at_edges(gear_down.array, direction='rising_edges', phase=airborne)
-
-
-class GearRetracting(KeyTimeInstanceNode):
-    def derive(self, gear_down=P('Gear Down'), airborne=S('Airborne')):
-        self.create_ktis_at_edges(gear_down.array, direction='falling_edges', phase=airborne)
 
 
 class GoAround(KeyTimeInstanceNode):
@@ -158,6 +167,9 @@ class GoAround(KeyTimeInstanceNode):
                 self.create_kti(app.slice.start+pit_index)
     """
 
+'''
+Not used now - replaced by KPV Deceleration...
+
 class LandingPeakDeceleration(KeyTimeInstanceNode):
     """
     The landing has been found already, including and the flare and a little
@@ -173,7 +185,9 @@ class LandingPeakDeceleration(KeyTimeInstanceNode):
                accel=P('Acceleration Longitudinal')):
         for land in landings:
             index, value = min_value(accel.array, _slice=land.slice)
-            self.create_kti(index)
+            if index:
+                self.create_kti(index)
+'''
 
 
 class TopOfClimb(KeyTimeInstanceNode):
@@ -218,7 +232,7 @@ class TopOfDescent(KeyTimeInstanceNode):
 
 class FlapStateChanges(KeyTimeInstanceNode):
     NAME_FORMAT = 'Flap %(flap)d Set'
-    NAME_VALUES = {'flap': range(0, 46, 1)}
+    NAME_VALUES = {'flap': range(0, 101, 1)}
     
     def derive(self, flap=P('Flap')):
         # Mark all flap changes, and annotate with the new flap position.
@@ -400,13 +414,21 @@ class LandingTurnOffRunway(KeyTimeInstanceNode):
                 
 
 class LandingDecelerationEnd(KeyTimeInstanceNode):
+    '''
+    Whereas peak acceleration at takeoff is a good measure of the start of
+    the takeoff roll, the peak deceleration on landing often occurs very late
+    in the landing when the brakes are applied harshly for a moment, for
+    example when stopping to make a particular turnoff. For this reason we
+    prefer to use the end of the steep reduction in airspeed as a measure of
+    the end of the landing roll.
+    '''
     def derive(self, speed=P('Airspeed'), landings=S('Landing')):
         for landing in landings:
-            end_decel = peak_curvature(speed.array[landing.slice])
+            end_decel = peak_curvature(speed.array, landing.slice, curve_sense='Concave')
             # Create the KTI if we have found one, otherwise point to the end
             # of the data, as sometimes recordings stop in mid-landing phase
             if end_decel:
-                self.create_kti(end_decel+landing.slice.start)
+                self.create_kti(end_decel)
             else:
                 self.create_kti(landing.slice.stop)
 

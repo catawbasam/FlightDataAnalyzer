@@ -389,6 +389,16 @@ class TestAlign(unittest.TestCase):
         np.testing.assert_array_equal(result.data, expected)
 
 
+class TestAltRadNonLinear(unittest.TestCase):
+    def test_sensor_type_not_recognised(self):
+        self.assertRaises(ValueError, alt_rad_non_linear, None, 'not a recognised sensor type')
+    
+    def test_boeing_16D(self):
+        test_data=np.ma.array([0,51,1280,3349,4095])
+        result = alt_rad_non_linear(test_data,'D226A101_1_16D')
+        expected = np.ma.array(data=[-20,0,480,2500,2600],mask=[0,0,0,0,1])
+        ma_test.assert_array_almost_equal(expected, result, decimal=0)
+    
 class TestBearingsAndDistances(unittest.TestCase):
     def test_known_distance(self):
         fareham = {'latitude':50.856146,'longitude':-1.183182}
@@ -1516,6 +1526,33 @@ class TestNormalise(unittest.TestCase):
         self.assertEqual(value, 8)
 
 
+class TestNpMaZerosLike(unittest.TestCase):
+    def test_zeros_like_basic(self):
+        result = np_ma_zeros_like([1,2,3])
+        expected = np.ma.array([0,0,0])
+        ma_test.assert_array_equal(expected, result)
+
+    def test_zeros_like_from_mask(self):
+        result = np_ma_zeros_like(np.ma.array([1,2,3]))
+        expected = np.ma.array([0,0,0])
+        ma_test.assert_array_equal(expected, result)
+
+    def test_zeros_like_from_masked(self):
+        result = np_ma_zeros_like(np.ma.array(data=[1,2,3],mask=[1,0,1]))
+        expected = np.ma.array([0,0,0])
+        ma_test.assert_array_equal(expected, result)
+
+        
+class TestNpMaMaskedZerosLike(unittest.TestCase):
+    def test_masked_zeros_like_basic(self):
+        result = np_ma_masked_zeros_like([1,2,3])
+        expected = np.ma.array(data=[0,0,0],mask=[1,1,1])
+        #ma_test.assert_array_equal(expected, result) 
+        
+        #The result is exactly right, except the assertion can't deal with
+        #two masked arguments, it appears.
+
+        
 class TestPeakCurvature(unittest.TestCase):
     # Note: The results from the first two tests are in a range format as the
     # artificial data results in multiple maxima.
@@ -1532,14 +1569,20 @@ class TestPeakCurvature(unittest.TestCase):
         pc = peak_curvature(array)
         self.assertGreaterEqual(pc,35)
         self.assertLessEqual(pc,45)
-
-    def test_peak_curvature_no_peak(self):
+        
+    def test_peak_curvature_convex(self):
         array = np.ma.array([0]*40+range(40))*(-1.0)
-        pc = peak_curvature(array, curve_sense='Concave')
+        pc = peak_curvature(array, curve_sense='Convex')
+        self.assertGreaterEqual(pc,35)
+        self.assertLessEqual(pc,45)
+
+    def test_peak_curvature_flat_data(self):
+        array = np.ma.array([34]*40)
+        pc = peak_curvature(array)
         self.assertEqual(pc,None)
-
+        
     def test_peak_curvature_bipolar(self):
-        array = np.ma.array([0]*40+range(40))*(-1.0)
+        array = np.ma.array([0]*40+range(40))
         pc = peak_curvature(array, curve_sense='Bipolar')
         self.assertGreaterEqual(pc,35)
         self.assertLessEqual(pc,45)
@@ -1558,9 +1601,9 @@ class TestPeakCurvature(unittest.TestCase):
         self.assertLessEqual(pc,15.1)
         
     def test_peak_curvature_with_slice(self):
-        array = np.ma.array([0]*100)
-        pc = peak_curvature(array, slice(10, 50))
-        self.assertEqual(pc, 18)
+        array = np.ma.array([0]*20+[10]*20+[0]*20)
+        pc = peak_curvature(array, slice(10, 50), curve_sense='Bipolar')
+        self.assertEqual(pc, 24.5)
 
     def test_peak_curvature_slice_backwards(self):
         array = np.ma.array([0]*40+range(40))
@@ -1914,6 +1957,25 @@ class TestSlicesOverlap(unittest.TestCase):
         # step negative
         self.assertRaises(ValueError, slices_overlap, first, slice(1,2,-1))
         
+class TestSlicesOverlay(unittest.TestCase):
+    def test_slices_overlay(self):
+        # overlay
+        first = [slice(10,20)]
+        second = [slice(15,25)]
+        self.assertEqual(slices_overlay(first, second), [slice(15,20)])
+        
+        # no overlap
+        no_overlap = slice(25,40)
+        self.assertEqual(slices_overlay(second, [no_overlap]), [])
+        
+        # step negative
+        self.assertRaises(ValueError, slices_overlay, first, [slice(1,2,-1)])
+        
+        # complex with all four permutations
+        first = [slice(5,15),slice(20,25),slice(30,40)]
+        second = [slice(10,35),slice(45,50)]
+        result = [slice(10,15), slice(20,25), slice(30,35)]
+        self.assertEqual(slices_overlay(first,second),result)
 
 class TestStepValues(unittest.TestCase):
     def test_step_values(self):

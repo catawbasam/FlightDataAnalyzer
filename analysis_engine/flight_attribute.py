@@ -127,17 +127,18 @@ class Approaches(FlightAttributeNode):
                                                          frequency), # NB: Not in API therefore not stored in DB                
                 }    
     
-    def derive(self, start_datetime=A('Start Datetime'),
-               approach_landing=S('Approach And Landing'),
-               landing_hdg_kpvs=KPV('Heading At Landing'), # touch_and_gos=KTI('Touch And Go'),
-               approach_go_around=KTI('Approach And Go Around'),
+    def derive(self, 
                alt_aal = P('Altitude AAL'),
+               approach_landing=S('Approach And Landing'),
+               approach_go_around=S('Approach And Go Around'),
+               landing_hdg_kpvs=KPV('Heading At Landing'), # touch_and_gos=KTI('Touch And Go'),
                landing_lat_kpvs=KPV('Latitude At Landing'),
                landing_lon_kpvs=KPV('Longitude At Landing'),
+               approach_hdg_kpvs=KPV('Heading At Lowest Point On Approach'),
                approach_lat_kpvs=KPV('Latitude At Lowest Point On Approach'),
                approach_lon_kpvs=KPV('Longitude At Lowest Point On Approach'),
-               approach_hdg_kpvs=KPV('Heading At Lowest Point On Approach'),
                approach_ilsfreq_kpvs=KPV('ILS Frequency On Approach'),
+               start_datetime=A('Start Datetime'),
                precision=A('Precise Positioning')):
         '''
         TODO: Document approaches format.

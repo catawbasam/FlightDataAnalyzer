@@ -186,6 +186,10 @@ METRES_PER_DEG_LATITUDE = 111120 # metres/deg
 # Conversion of length units
 METRES_TO_FEET = 1000/25.4/12
 
+# Many flap KPVs require the same naming convention
+NAME_VALUES_FLAP = {'flap': range(1,101,1)}
+NAME_VALUES_CONF = {'conf': range(1,6,1)} # Needs fixing for Conf vales.
+
 # Rate of climb and descent limits of 800fpm gives good distinction with
 # level flight. Separately defined to allow for future adjustment.
 RATE_OF_CLIMB_FOR_CLIMB_PHASE = 800 # fpm

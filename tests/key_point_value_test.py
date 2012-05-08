@@ -53,7 +53,7 @@ from analysis_engine.key_point_values import (
     EngVibN2Max,
     HeadingAtTakeoff,
     Eng_N1MaxDurationUnder60PercentAfterTouchdown,
-    FlapAsGearSelectedDown,
+    FlapAtGearSelectedDown,
     FlapAtLiftoff,
     FlapAtTouchdown,
     FuelQtyAtLiftoff,
@@ -754,9 +754,9 @@ class TestEng_N1MaxDurationUnder60PercentAfterTouchdown(unittest.TestCase):
         ##self.assertTrue('Eng (2)' in max_dur[1].name)
         self.assertEqual(len(max_dur), 1)
 
-class TestFlapAsGearSelectedDown(unittest.TestCase, TestCreateKPVsAtKTIs):
+class TestFlapAtGearSelectedDown(unittest.TestCase, TestCreateKPVsAtKTIs):
     def setUp(self):
-        self.node_class = FlapAsGearSelectedDown
+        self.node_class = FlapAtGearSelectedDown
         self.operational_combinations = [('Flap', 'Gear Selected Down')]
 
 

@@ -24,7 +24,7 @@ from analysis_engine.flight_phase import (
     Landing,
     LevelFlight,
     Takeoff,
-    Turning
+    #Turning
     )
 
 from analysis_engine.settings import AIRSPEED_THRESHOLD
@@ -517,10 +517,18 @@ class TestFast(unittest.TestCase):
         phase_fast = Fast()
         phase_fast.derive(ias)
         if AIRSPEED_THRESHOLD == 80:
-            expected = [Section(name='Fast',slice=slice(2,311,None))]
+            expected = Section(name='Fast',slice=slice(2,311,None))
         if AIRSPEED_THRESHOLD == 70:
-            expected = [Section(name='Fast', slice=slice(1, 312, None))]
-        self.assertEqual(phase_fast, expected)
+            expected = Section(name='Fast', slice=slice(1, 312, None))
+        self.assertEqual(phase_fast.get_first(), expected)
+        
+    def test_fast_all_fast(self):
+        fast_data = np.ma.array([120]*10)
+        ias = Parameter('Airspeed', fast_data,1,0)
+        phase_fast = Fast()
+        phase_fast.derive(ias)
+        expected = Section(name='Fast',slice=slice(0,10,None))
+        self.assertEqual(phase_fast.get_first(), expected)
         
     def test_fast_phase_with_small_mask(self):
         slow_and_fast_data = np.ma.concatenate([np.ma.arange(60,120,10),
@@ -531,10 +539,10 @@ class TestFast(unittest.TestCase):
         phase_fast = Fast()
         phase_fast.derive(ias)
         if AIRSPEED_THRESHOLD == 80:
-            expected = [Section(name='Fast',slice=slice(2,311,None))]
+            expected = Section(name='Fast',slice=slice(2,311,None))
         if AIRSPEED_THRESHOLD == 70:
-            expected = [Section(name='Fast', slice=slice(1, 12, None))]
-        self.assertEqual(phase_fast, expected)
+            expected = Section(name='Fast', slice=slice(1, 12, None))
+        self.assertEqual(phase_fast.get_first(), expected)
 
     def test_fast_phase_with_large_mask(self):
         slow_and_fast_data = \
@@ -549,7 +557,7 @@ class TestFast(unittest.TestCase):
         if AIRSPEED_THRESHOLD == 70:
             expected = [Section(name='Fast', slice=slice(1, 5, None)), 
                         Section(name='Fast', slice=slice(17, 20, None))]
-        self.assertEqual(phase_fast, expected)
+        self.assertEqual(phase_fast.get_first(), expected)
 
 
 class TestFinalApproach(unittest.TestCase):

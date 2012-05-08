@@ -63,3 +63,14 @@ of mystery and unpredictability.
 * What to do when getting a value at index, param[index], when the value is
 masked at that point. Can we scan a certain amount either side and repair
 mask for that section (interpolating the result)
+
+
+
+Analysis Engine
+===============
+
+* Gear extending and retracting should be section nodes, as they last for a
+period, however the 737-5 data used for testing has inoperative undercarraige
+red warnings, so this change will be implemented later.
+
+* Resolve the processing of different base sets of data

@@ -1,7 +1,8 @@
 import logging
 import numpy as np
 
-from analysis_engine.library import (hysteresis, 
+from analysis_engine.library import (find_edges,
+                                     hysteresis, 
                                      index_at_value,
                                      index_closest_value,
                                      is_slice_within_slice,
@@ -13,7 +14,7 @@ from analysis_engine.library import (hysteresis,
                                      slice_duration,
                                      slices_overlap,
                                      slice_samples)
-from analysis_engine.node import FlightPhaseNode, P, S, KTI
+from analysis_engine.node import FlightPhaseNode, A, P, S, KTI
 from analysis_engine.settings import (AIRSPEED_THRESHOLD,
                                ALTITUDE_FOR_CLB_CRU_DSC,
                                APPROACH_MIN_DESCENT,
@@ -204,8 +205,8 @@ class ClimbCruiseDescent(FlightPhaseNode):
         ccd = np.ma.masked_less(alt.array, ALTITUDE_FOR_CLB_CRU_DSC)
         self.create_phases(np.ma.clump_unmasked(ccd))
 
-"""
-class ClimbFromBottomOfDescent(FlightPhaseNode):
+
+class Climb(FlightPhaseNode):
     def derive(self, 
                toc=P('Top Of Climb'),
                eot=P('Climb Start'), # AKA End Of Takeoff
@@ -241,11 +242,10 @@ class ClimbFromBottomOfDescent(FlightPhaseNode):
                      or
                      closest_toc == None)):
                     closest_toc = this_toc
-
-            # Build the slice from what we have found.
-            self.create_phase(slice(bod, closest_toc))        
+                    # Build the slice from what we have found.
+                    self.create_phase(slice(bod, closest_toc))        
         return 
-"""
+
         
 class Climbing(FlightPhaseNode):
     def derive(self, roc=P('Rate Of Climb For Flight Phases'), airs=S('Airborne')):
@@ -294,8 +294,7 @@ class Descending(FlightPhaseNode):
             self.create_phases(shift_slices(desc_slices, air.slice.start))
 
 
-"""
-class DescentToBottomOfDescent(FlightPhaseNode):
+class Descent(FlightPhaseNode):
     def derive(self, 
                tod=P('Top Of Descent'), 
                bod=P('Bottom Of Descent')):
@@ -317,7 +316,7 @@ class DescentToBottomOfDescent(FlightPhaseNode):
             # Build the slice from what we have found.
             self.create_phase(slice(closest_tod, bod))        
         return 
-"""
+
 
 class DescentLowClimb(FlightPhaseNode):
     def derive(self, alt=P('Altitude AAL For Flight Phases'),
@@ -373,10 +372,13 @@ class Fast(FlightPhaseNode):
             (airspeed.array[1:-1]-AIRSPEED_THRESHOLD)
         test_array = np.ma.masked_outside(value_passing_array, 0.0, -100.0)
         fast_samples = np.ma.notmasked_edges(test_array)
-
+        
         if fast_samples is None:
-            # Did not go fast enough.
-            return
+            # Did not go fast enough, or was always fast.
+            if np.ma.max(airspeed.array) > AIRSPEED_THRESHOLD:
+                fast_samples = np.array([0, len(airspeed.array)])
+            else:
+                return
         elif fast_samples[0] == fast_samples[1]:
             # Airspeed array either starts or stops Fast.
             index = fast_samples[0]
@@ -386,7 +388,10 @@ class Fast(FlightPhaseNode):
             else:
                 # Airspeed speeding up, start at the end of the data.
                 fast_samples[1] = np.ma.where(airspeed.array)[0][-1]
-        
+        else:
+            # Shift the samples to allow for the indexing at the beginning.
+            fast_samples += 1
+            
         self.create_phase(slice(*fast_samples))
  
 
@@ -456,6 +461,38 @@ class ILSLocalizerEstablished(FlightPhaseNode):
             ###self.create_phase(phases[-1])
     ##'''
 
+
+class GearExtending(FlightPhaseNode):
+    """
+    Gear extending and retracting are section nodes, as they last for a
+    finite period.
+    
+    For aircraft data such as the 737-5 frame used for testing, the transit
+    is not recorded, so a dummy period of 1 second at gear down and
+    gear up is included to allow for exceedance of gear transit limits.
+    """
+    def derive(self, gear_down=P('Gear Down'), frame=A('Frame'), airs=S('Airborne')):
+        frame_name = frame.value if frame else None
+        if frame_name in ['737-5']:
+            edge_list=[]
+            for air in airs:
+                edge_list.append(find_edges(gear_down.array[air.slice], air.slice.start))
+            # We now have a list of lists and this trick flattens the result.
+            for edge in sum(edge_list,[]):
+                self.create_phase(slice(edge-1, edge+1))
+
+
+class GearRetracting(FlightPhaseNode):
+    def derive(self, gear_down=P('Gear Down'), frame=A('Frame'), airs=S('Airborne')):
+        frame_name = frame.value if frame else None
+        if frame_name in ['737-5']:
+            edge_list=[]
+            for air in airs:
+                edge_list.append(find_edges(gear_down.array[air.slice], air.slice.start, direction='falling_edges'))
+            # We now have a list of lists and this trick flattens the result.
+            for edge in sum(edge_list,[]):
+                self.create_phase(slice(edge-1, edge+1))
+
   
 class ILSApproach(FlightPhaseNode):
     name = "ILS Approach"
@@ -467,9 +504,20 @@ class ILSApproach(FlightPhaseNode):
     examination for ILS KPVs.
     """
     def derive(self, ils_loc = P('ILS Localizer'),
-               fast = S('Fast')):
-        return NotImplemented
-     
+               ils_loc_ests = S('ILS Localizer Established')):
+        # For most of the flight, the ILS will not be valid, so we scan only
+        # the periods with valid data, ignoring short breaks:
+        locs = np.ma.clump_unmasked(repair_mask(ils_loc.array))
+        for loc_slice in locs:
+            for ils_loc_est in ils_loc_ests:
+                est_slice = ils_loc_est.slice
+                if slices_overlap(loc_slice, est_slice):
+                    before_established = slice(est_slice.start, loc_slice.start, -1)
+                    begin = index_at_value(np.ma.abs(ils_loc.array),
+                                                     3.0,
+                                                     _slice=before_established)
+                    end = est_slice.stop
+                    self.create_phase(slice(begin, end))
 
     
 class ILSGlideslopeEstablished(FlightPhaseNode):

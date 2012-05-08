@@ -3,6 +3,9 @@ import numpy as np
 from tempfile import TemporaryFile
 from operator import attrgetter
 from math import floor
+
+from analysis_engine.settings import API_HANDLER
+from analysis_engine.api_handler import get_api_handler
     
 from analysis_engine.model_information import (get_aileron_map, 
                                                get_config_map,
@@ -11,6 +14,7 @@ from analysis_engine.model_information import (get_aileron_map,
 from analysis_engine.node import A, DerivedParameterNode, KPV, KTI, P, S, Parameter
 
 from analysis_engine.library import (align,
+                                     alt_rad_non_linear,
                                      bearings_and_distances,
                                      blend_alternate_sensors,
                                      blend_two_parameters,
@@ -31,6 +35,8 @@ from analysis_engine.library import (align,
                                      latitudes_and_longitudes,
                                      merge_sources,
                                      merge_two_parameters,
+                                     np_ma_masked_zeros_like,
+                                     np_ma_zeros_like,
                                      rate_of_change, 
                                      repair_mask,
                                      rms_noise,
@@ -253,19 +259,97 @@ class AltitudeAAL(DerivedParameterNode):
     Airport elevation where provided, else guess based on location (USA =
     18,000ft, Europe = 3,000ft)
 
-    This is the main altitude measure used during analysis. Where radio
-    altimeter data is available, this is used for altitudes up to 100ft and
-    thereafter the pressure altitude signal is used. The two are "joined"
-    together at the sample above 100ft in the climb or descent as
-    appropriate. Once joined, the altitude signal is inertially smoothed to
-    provide accurate short term signals at the sample rate of the Rate of
-    Climb parameter, and this also reduces any "join" effect at the signal
-    transition.
+    This is the main altitude measure used during flight analysis.
     
-    If no radio altitude signal is available, the simple measure
-    "Altitude AAL For Flight Phases" is used instead, which provides perfecly
-    workable solutions except that it tends to dip below the runway at
-    takeoff and landing.
+    Where radio altimeter data is available, this is used for altitudes up to
+    100ft and thereafter the pressure altitude signal is used. The two are
+    "joined" together at the sample above 100ft in the climb or descent as
+    appropriate.
+    
+    If no radio altitude signal is available, the simple measure based on
+    pressure altitude only is used, which provides workable solutions except
+    that the point of takeoff and landing may be inaccurate.
+    """    
+    name = "Altitude AAL"
+    units = 'ft'
+
+    @classmethod
+    def can_operate(cls, available):
+        return all([d in available for d in ('Altitude STD', 'Fast')])
+        
+    def derive(self, alt_std = P('Altitude STD'),
+               alt_rad = P('Altitude Radio'),
+               speedies = S('Fast')):
+       
+        alt_aal = np_ma_zeros_like(alt_std.array)
+  
+        if alt_rad:
+            for speedy in speedies:
+                air = speedy.slice
+                from_0_to_100ft = np.ma.masked_outside(alt_rad.array[air], 0.0, 100.0)
+
+                ralt_sections = np.ma.clump_unmasked(from_0_to_100ft )
+                for ralt_section in ralt_sections:
+                    if np.ma.max(alt_rad.array[air][ralt_section]) > 35.0:
+                        alt_aal[air][ralt_section] = alt_rad.array[air][ralt_section]
+                    else:
+                        # Probably a bounced landing, which we will ignore.
+                        pass
+
+                below_100ft = np.ma.masked_greater(alt_rad.array[air], 100.0)
+                baro_sections = np.ma.clump_masked(below_100ft)
+                for baro_section in baro_sections:
+                    
+                    begin_index = air.start + baro_section.start
+                    peak_index = np.ma.argmax(alt_std.array[air][baro_section]) + begin_index
+                    end_index = air.start + baro_section.stop
+                    
+                    up_diff =  alt_std.array[begin_index] - alt_rad.array[begin_index]
+                    alt_aal[begin_index:peak_index] = alt_std.array[begin_index:peak_index] - up_diff
+                    
+                    dn_diff = alt_std.array[end_index] - alt_rad.array[end_index]
+                    alt_aal[peak_index:end_index] = alt_std.array[peak_index:end_index] - dn_diff
+
+                    self.array = alt_aal
+
+        else:
+            for speedy in speedies:
+                air = speedy.slice
+                begin_index = air.start
+                peak_index = np.ma.argmax(alt_std.array[air]) + begin_index
+                end_index = air.stop
+                
+                up_datum = alt_std.array[begin_index]
+                alt_aal[begin_index:peak_index] = alt_std.array[begin_index:peak_index] - up_datum
+                
+                dn_datum = alt_std.array[end_index]
+                alt_aal[peak_index:end_index] = alt_std.array[peak_index:end_index] - dn_datum
+                
+                # This backstop trap for negative values is necessary as aircraft without rad alts will indicate negative altitudes as they land. 
+                self.array = np.ma.maximum(alt_aal, 0.0)
+        
+
+    
+class AltitudeAALForFlightPhases(DerivedParameterNode):
+    name = 'Altitude AAL For Flight Phases'
+    units = 'ft'
+    
+    # This parameter allows for addition of hysteresis if required. For now,
+    # it is just a copy of the normal Altitude AAL for simplicity.
+    
+    def derive(self, alt_aal=P('Altitude AAL')):
+        
+        self.array = alt_aal.array
+   
+
+'''
+class AltitudeAALSmoothed(DerivedParameterNode):
+    """
+    A smoothed version of this altitude signal is available that includes
+    inertial smoothing to provide a higher sample rate signal. This may be
+    used for accurate determination of variations during turbulence or bumpy
+    landings.
+    
     """    
     name = "Altitude AAL"
     units = 'ft'
@@ -299,7 +383,7 @@ class AltitudeAAL(DerivedParameterNode):
            and alt_rad and airspeed:
             # Initialise the array to zero, so that the altitude above the airfield
             # will be 0ft when the aircraft cannot be airborne.
-            alt_aal = np.zeros_like(alt_std.array) 
+            alt_aal = np_ma_zeros_like(alt_std.array) 
             # Actually creates a masked copy filled with zeros.
             
             ordered_ktis = sorted(liftoffs + touchdowns,
@@ -351,43 +435,13 @@ class AltitudeAAL(DerivedParameterNode):
             alt_aal_lag = first_order_lag(alt_aal, ALTITUDE_AAL_LAG_TC, roc.hz)
             alt_aal = alt_aal_lag + roc_lag
             # Force result to zero at low speed and on the ground.
-            #alt_aal[airspeed.array < AIRSPEED_THRESHOLD] = 0
+            alt_aal[airspeed.array < AIRSPEED_THRESHOLD] = 0
             #alt_aal[alt_rad.array < 0] = 0
-            self.array = alt_aal
+            self.array = np.ma.maximum(0.0,alt_aal)
             
         else:
             self.array = np.ma.copy(alt_aal_4fp.array) 
-
-    
-class AltitudeAALForFlightPhases(DerivedParameterNode):
-    """
-    A simple computation using only airspeed and altitude parameters, this
-    ensures an altitude signal that is good enough to divide flight phases
-    and more robust than the accurate Altitude AAL parameter.
-    """
-    name = 'Altitude AAL For Flight Phases'
-    units = 'ft'
-    # This crude parameter is used for flight phase determination,
-    # and only uses airspeed and pressure altitude for robustness.
-    def derive(self, alt_std=P('Altitude STD'), fast=S('Fast')):
-        
-        # Initialise the array to zero, so that the altitude above the airfield
-        # will be 0ft when the aircraft cannot be airborne.
-        self.array = np.ma.masked_all_like(alt_std.array)
-        
-        altitude = repair_mask(alt_std.array) # Remove small sections of corrupt data
-        for speedy in fast:
-            begin = max(0, speedy.slice.start - 1)
-            end = min(speedy.slice.stop, len(altitude)-1)
-            peak = np.ma.argmax(altitude[speedy.slice])
-            top = begin+peak+1
-            # We override any negative altitude variations that occur at
-            # takeoff or landing rotations. This parameter is only used for
-            # flight phase determination so it is important that it behaves
-            # in a predictable manner.
-            self.array[begin:top] = np.ma.maximum(0.0,altitude[begin:top]-altitude[begin])
-            self.array[top:end+1] = np.ma.maximum(0.0,altitude[top:end+1]-altitude[end])
-    
+            '''
     
 class AltitudeForClimbCruiseDescent(DerivedParameterNode):
     """
@@ -411,13 +465,23 @@ class AltitudeForFlightPhases(DerivedParameterNode):
 
 class AltitudeRadio(DerivedParameterNode):
     """
-    This class allows for variations in the Altitude Radio sensor, and the
-    different frame types need to be identified accordingly.
-
-    POLARIS can compensate for the apparent change in height caused by the
-    aircraft pitch attitude and the distance between the radio altimeter
-    antenna and the main wheels of the undercarriage. However, most of the
-    aircraft we have dealt with include this correction within the sensor.
+    There is a wide variety of radio altimeter installations including linear
+    and non-linear transducers with various transfer functions, and two or
+    three sensors may be installed each with different timing and
+    inaccuracies to be compensated.
+    
+    The input data is stored 'temporarily' in parameters named Altitude Radio
+    (A) to (D), and the frame details are augmented by a frame qualifier
+    which identifies which formula to apply.
+    
+    :param frame: The frame attribute, e.g. '737-i'
+    :type frame: An attribute
+    :param frame_qual: The frame qualifier, e.g. 'Altitude_Radio_D226A101_1_16D'
+    :type frame_qual: An attribute
+    
+    :returns Altitude Radio with values typically taken as the mean between
+    two valid sensors.
+    :type parameter object.
     """
     @classmethod
     def can_operate(cls, available):
@@ -427,33 +491,54 @@ class AltitudeRadio(DerivedParameterNode):
     
     align_to_first_dependency = False
     
-    def derive(self, source_A = P('Altitude Radio (A)'),
+    def derive(self, frame = A('Frame'),
+               frame_qual = A('Frame Qualifier'),
+               source_A = P('Altitude Radio (A)'),
                source_B = P('Altitude Radio (B)'),
                source_C = P('Altitude Radio (C)'),
-               frame = A('Frame'),
-               main_gear_to_alt_rad = A('Main Gear To Altitude Radio'),
-               pitch = P('Pitch')):
+               source_D = P('Altitude Radio (D)')):
         
         frame_name = frame.value if frame else None
+        frame_qualifier = frame_qual.value if frame_qual else None
+        
         if frame_name in ['737-3C']:
-            # Alternate samples (A) for this frame have latency of over 1 second,
-            # so do not contribute to the height measurements available.
-            
+            # Alternate samples (A) for this frame have latency of over 1
+            # second, so do not contribute to the height measurements
+            # available. For this reason we only blend the two good sensors.
             self.array, self.frequency, self.offset = \
-                merge_two_parameters(source_B, source_C)
+                blend_two_parameters(source_B, source_C)
             
         elif frame_name in ['737-4', '737-4_Analogue']:
             self.array, self.frequency, self.offset = \
                 merge_two_parameters(source_A, source_B)
+        
+        elif frame_name in ['737-5']:
+            if 'Altitude_Radio_D226A101_1_16D' in frame_qualifier:
+                # Compute nonlinear rad alt from recorded value
+                source_A.array = alt_rad_non_linear(source_A.array, 'D226A101_1_16D')
+                source_B.array = alt_rad_non_linear(source_B.array, 'D226A101_1_16D')
+                self.array, self.frequency, self.offset = \
+                    blend_two_parameters(source_A, source_B)
+
+            elif 'Altitude_Radio_EFIS' in frame_qualifier:
+                self.array, self.frequency, self.offset = \
+                    blend_two_parameters(source_C, source_D)
+                self.array = np.ma.masked_greater(self.array, 2600)
+
+            elif 'Altitude_Radio_None' in frame_qualifier:
+                pass # Some old 737 aircraft have no rad alt recorded.
+
+            else:
+                raise ValueError,'737-5 frame needs qualifier Altitude_Radio_Analogue/EFIS/None'
         
         else:
             logging.warning("No specified Altitude Radio (*) merging for frame "
                             "'%s' so using source (A)", frame_name)
             self.array = source_A.array
             
-        # Now apply the offset if one has been provided
-        if main_gear_to_alt_rad:
-            self.array -= np.sin(np.radians(pitch.array)) * main_gear_to_alt_rad.value
+        ### Now apply the offset if one has been provided
+        ##if main_gear_to_alt_rad:
+            ##self.array -= np.sin(np.radians(pitch.array)) * main_gear_to_alt_rad.value
             
 
 class AltitudeRadioForFlightPhases(DerivedParameterNode):
@@ -484,6 +569,7 @@ class AltitudeQNH(DerivedParameterNode):
         peak = np.ma.argmax(alt_aal.array)
         alt_qnh = np.ma.copy(alt_aal.array)
 
+        """
         # Add the elevation of the takeoff airport (above sea level) to the
         # climb portion. If this fails, make sure it's inhibited.
         try:
@@ -496,7 +582,8 @@ class AltitudeQNH(DerivedParameterNode):
             alt_qnh[peak:]+=land.value['elevation']
         except:
             alt_qnh[peak:]=np.ma.masked
-            
+        """
+        
         self.array = alt_qnh
 
 
@@ -597,6 +684,19 @@ class AltitudeSTD(DerivedParameterNode):
             #ALT_STDC = (last_alt_std * 0.9) + (ALT_STD * 0.1) + (IVVR / 60.0)
 
 
+class Autopilot(DerivedParameterNode):
+    """
+    Placeholder for combining multi-channel AP modes into a single consistent status.
+    """
+    def derive(self, ap_eng=P('Autopilot Engaged'),
+               frame=A('Frame')):
+        frame_name = frame.value if frame else None
+        
+        if frame_name in ['737-5']:
+            # TODO: Invert the 737-5 AP status.
+            self.array = 1 - ap_eng.array
+        
+        
 class AltitudeTail(DerivedParameterNode):
     """
     This function allows for the distance between the radio altimeter antenna
@@ -1326,7 +1426,21 @@ class GearDown(DerivedParameterNode):
         # to accommodate mismatch of the main gear positions, so assume that
         # the right wheel does the same as the left !
         self.array, self.frequency, self.offset = merge_two_parameters(gl, gn)
+
+class GearSelectedDown(DerivedParameterNode):
+    """
+    Derivation of gear selection for aircraft without this separately
+    recorded. Where Gear Selected Down is recorded, this derived parameter
+    will be skipped automatically.
+    """
+    def derive(self, gear=P('Gear Down')):
+        self.array = gear.array
+
         
+class GearSelectedUp(DerivedParameterNode):
+    def derive(self, gear=P('Gear Down')):
+        self.array = 1 - gear.array
+
         
 class GrossWeightSmoothed(DerivedParameterNode):
     '''
@@ -1410,6 +1524,10 @@ class FlapLever(DerivedParameterNode):
             self.array = step_values(flap.array, flap_steps)
         
             
+'''
+:TODO: Resolve the processing of different base sets of data
+'''
+
 class FlapSurface(DerivedParameterNode):
     """
     Gather the recorded flap parameters and convert into a single analogue.
@@ -1418,14 +1536,13 @@ class FlapSurface(DerivedParameterNode):
 
     @classmethod
     def can_operate(cls, available):
-        return (#'Approach And Landing' in available and \
-                'Altitude AAL' in available) or \
+        return ('Altitude AAL' in available) or \
                ('Flap (1)' in available and \
                 'Flap (2)' in available)
 
     def derive(self, flap_A=P('Flap (1)'), flap_B=P('Flap (2)'),
-               frame = A('Frame'),
-               aals=S('Approach And Landing'),               
+               frame=A('Frame'),
+               app_ldgs=S('Approach And Landing'),               
                alt_aal=P('Altitude AAL')):
         frame_name = frame.value if frame else None
 
@@ -1435,16 +1552,17 @@ class FlapSurface(DerivedParameterNode):
         if frame_name in ['L382-Hercules']:
             # Flap is not recorded, so invent one of the correct length.
             flap_herc = np.ma.array(np.zeros_like(alt_aal.array))
-            if aals:
-                for aal in aals:
+            if app_ldgs:
+                for app_ldg in app_ldgs:
                     # The flap setting is not recorded, so we have to assume that
                     # the flap is probably set to 50% above 1000ft, and 100% from
                     # 500ft down.
-                    flap_herc[aal] = np.ma.where(alt_aal[aal]>1000.0,100.0,50.0)
+                    scope = app_ldg.slice
+                    flap_herc[scope] = np.ma.where(alt_aal.array[scope]>1000.0,100.0,50.0)
             self.array = np.ma.array(flap_herc)
             self.frequency, self.offset = alt_aal.frequency, alt_aal.offset
-             
-                    
+                   
+                            
 class Flap(DerivedParameterNode):
     """
     Steps raw Flap angle from surface into detents.
@@ -1457,6 +1575,7 @@ class Flap(DerivedParameterNode):
     def derive(self, flap=P('Flap Surface'),
                series=A('Series'), family=A('Family'),
                flap_steps=A('Flap Selections')):
+        
         """
         Steps raw Flap angle into detents.
         """
@@ -1553,11 +1672,6 @@ class Config(DerivedParameterNode):
 ####    # There's no pattern to how this is worked out.
 ####    # For aircraft with a Gear Selected Down parameter let's try this...
 ####    def derive(self, param=P('Gear Selected Down')):
-####        return NotImplemented
-
-
-####class GearSelectedUp(DerivedParameterNode):
-####    def derive(self, param=P('Gear Selected Up')):
 ####        return NotImplemented
 
 
@@ -1728,8 +1842,8 @@ class ILSRange(DerivedParameterNode):
     ##def can_operate(cls, available):
         ##return True
     
-    def derive(self, lat=P('Latitude Straighten'),
-               lon = P('Longitude Straighten'),
+    def derive(self, lat=P('Latitude Prepared'),
+               lon = P('Longitude Prepared'),
                glide = P('ILS Glideslope'),
                gspd = P('Groundspeed'),
                tas = P('Airspeed True'),
@@ -1770,7 +1884,7 @@ class ILSRange(DerivedParameterNode):
                 continue
             
             if precise.value:
-                # Convert (straightened) latitude & longitude for the whole phase
+                # Convert (prepared) latitude & longitude for the whole phase
                 # into range from the threshold. (threshold = {})
                 if 'localizer' in runway:
                     threshold = runway['localizer']
@@ -1868,8 +1982,8 @@ class ILSRange(DerivedParameterNode):
 class LatitudeSmoothed(DerivedParameterNode):
     units = 'deg'
     # Note order of longitude and latitude sets data aligned to latitude.
-    def derive(self, lat = P('Latitude Straighten'),
-               lon = P('Longitude Straighten'),
+    def derive(self, lat = P('Latitude Prepared'),
+               lon = P('Longitude Prepared'),
                loc_est = S('ILS Localizer Established'),
                ils_range = P('ILS Range'),
                ils_loc = P('ILS Localizer'),
@@ -1898,8 +2012,8 @@ class LatitudeSmoothed(DerivedParameterNode):
 class LongitudeSmoothed(DerivedParameterNode):
     units = 'deg'
     # Note order of longitude and latitude sets data aligned to longitude.
-    def derive(self, lon = P('Longitude Straighten'),
-               lat = P('Latitude Straighten'),
+    def derive(self, lon = P('Longitude Prepared'),
+               lat = P('Latitude Prepared'),
                loc_est = S('ILS Localizer Established'),
                ils_range = P('ILS Range'),
                ils_loc = P('ILS Localizer'),
@@ -1936,61 +2050,42 @@ def adjust_track(lon,lat,loc_est,ils_range,ils_loc,alt_aal,gspd,hdg,tas,
     #-----------------------------------------------------------------------
     # Use synthesized track for takeoffs where necessary
     #-----------------------------------------------------------------------
+    
     first_toff = toff.get_first()
+    
+    # We compute the ground track using best available data.
+    if gspd:
+        speed = gspd.array
+        freq = gspd.frequency
+    else:
+        speed = tas.array
+        freq = tas.frequency
+
     if not first_toff:
         raise NotImplementedError("'%s' is required for smoothing coordinates.",
                                   toff.name)
+
     if precise.value:
-        # We allow the recorded track to be used for the takeoff unchanged.
+        # We allow the recorded track to be used for the takeoff unchanged,
+        # but compute the ground track from bearing and heading as the
+        # recorded track will be inaccurate at low speeds.
         
-        
-        # TODO: REMOVE THIS DEVELOPMENT SECTION IF SUCCESSFUL
-        
-        #lat_adj[:first_toff.slice.stop] = lat.array[:first_toff.slice.stop]
-        #lon_adj[:first_toff.slice.stop] = lon.array[:first_toff.slice.stop]
-        [lat_adj[:first_toff.slice.stop], lon_adj[:first_toff.slice.stop]] = \
-            ground_track(lat_adj[first_toff.slice.stop],
-                         lon_adj[first_toff.slice.stop],
-                         gspd[:first_toff.slice.stop],
-                         hdg[:first_toff.slice.stop],
-                         gspd.frequency,
+        [lat_adj[:first_toff.slice.start], lon_adj[:first_toff.slice.start]] = \
+            ground_track(lat_adj[first_toff.slice.start],
+                         lon_adj[first_toff.slice.start],
+                         speed[:first_toff.slice.start],
+                         hdg.array[:first_toff.slice.start],
+                         freq,
                          'takeoff')
 
-
-        
     else:
 
-        # We can improve the track using available data.
-        if gspd:
-            speed = gspd.array[first_toff.slice]
-            freq = gspd.frequency
-            # Forcing valid initial position ???
-            [lat_adj[:first_toff.slice.start],
-            lon_adj[:first_toff.slice.start]] = \
-                ground_track(lat_adj.data[first_toff.slice.start],
-                             lon_adj.data[first_toff.slice.start],
-                             gspd.array[:first_toff.slice.start],
-                             hdg.array[:first_toff.slice.start],
-                             freq, 'takeoff')
-
-            
-        else:
-            speed = tas.array[first_toff.slice]
-            freq = tas.frequency
-            [lat_adj[:first_toff.slice.start],
-            lon_adj[:first_toff.slice.start]] = \
-                ground_track(lat_adj.data[first_toff.slice.start],
-                             lon_adj.data[first_toff.slice.start],
-                             tas.array[:first_toff.slice.start],
-                             hdg.array[:first_toff.slice.start],
-                             freq, 'takeoff')
-            
         # Compute takeoff track from start of runway using integrated
         # groundspeed, down runway centreline to end of takeoff
         # (35ft). An initial value of 300ft puts the aircraft at a
         # reasonable position with respect to the runway start.
         rwy_dist = np.ma.array(                        
-            data = integrate(speed, freq, initial_value=300, 
+            data = integrate(speed[first_toff.slice], freq, initial_value=300, 
                              scale=KTS_TO_FPS),
             mask = gspd.array.mask[first_toff.slice])
 
@@ -2004,15 +2099,24 @@ def adjust_track(lon,lat,loc_est,ils_range,ils_loc,alt_aal,gspd,hdg,tas,
         # of the length required to cover the takeoff phase. (This is a bit
         # clumsy, because there is no np.ma.ones_like method).
         rwy_hdg = runway_heading(toff_rwy.value)
-        rwy_brg = np.ma.array(data = np.ones_like(speed)*rwy_hdg, mask = False)
+        rwy_brg = np.ma.array(data = np.ones_like(speed[first_toff.slice])*rwy_hdg, mask = False)
         
         # And finally the track down the runway centreline is
         # converted to latitude and longitude.
-        lat_adj[toff[0].slice], lon_adj[first_toff.slice] = \
+        lat_adj[first_toff.slice], lon_adj[first_toff.slice] = \
             latitudes_and_longitudes(rwy_brg, 
                                      rwy_dist/METRES_TO_FEET, 
                                      start_locn)                    
-    
+
+        [lat_adj[:first_toff.slice.start],
+        lon_adj[:first_toff.slice.start]] = \
+            ground_track(lat_adj.data[first_toff.slice.start],
+                         lon_adj.data[first_toff.slice.start],
+                         speed[:first_toff.slice.start],
+                         hdg.array[:first_toff.slice.start],
+                         freq, 'takeoff')
+            
+
     #-----------------------------------------------------------------------
     # Use ILS track for approach and landings in all localizer approches
     #-----------------------------------------------------------------------
@@ -2070,20 +2174,18 @@ def adjust_track(lon,lat,loc_est,ils_range,ils_loc,alt_aal,gspd,hdg,tas,
             lat_adj[this_loc.slice], lon_adj[this_loc.slice] = \
                 latitudes_and_longitudes(bearings, distances, localizer_on_cl)
             
-            #========= TODO: CORRECT THIS CODE AS IT'S NOT LANDING RELATED ===========
+            # Finally, tack the ground track onto the end of the landing run            
             [lat_adj[this_loc.slice.stop:],
             lon_adj[this_loc.slice.stop:]] = \
                 ground_track(lat_adj.data[this_loc.slice.stop],
                              lon_adj.data[this_loc.slice.stop],
-                             gspd.array[this_loc.slice.stop:],
+                             speed[this_loc.slice.stop:],
                              hdg.array[this_loc.slice.stop:],
                              freq, 'landing')
-            
 
     # --- Merge Tracks and return ---
     return track_linking(lat.array, lat_adj), track_linking(lon.array, lon_adj)
 
-          
 
 class Mach(DerivedParameterNode):
     def derive(self, cas = P('Airspeed'), alt = P('Altitude STD')):
@@ -2222,27 +2324,29 @@ class RateOfClimb(DerivedParameterNode):
             
             # Fix minor dropouts
             az_repair = repair_mask(az.array)
-            alt_rad_repair = repair_mask(alt_rad.array, frequency=alt_rad.frequency)
+            alt_rad_repair = repair_mask(alt_rad.array, frequency=alt_rad.frequency, repair_duration=None)
             alt_std_repair = repair_mask(alt_std.array, frequency=alt_std.frequency)
             
             # np.ma.getmaskarray ensures we have complete mask arrays even if
             # none of the samples are masked (normally returns a single
-            # "False" value.
+            # "False" value. We ignore the rad alt mask because we are only
+            # going to use the radio altimeter values below 100ft, and short
+            # transients will have been repaired. By repairing with the
+            # repair_duration=None option, we ignore the masked saturated
+            # values at high altitude.
+            
             az_masked = np.ma.array(data = az_repair.data, 
                                     mask = np.ma.logical_or(
-                                        np.ma.logical_or(
                                         np.ma.getmaskarray(az_repair),
-                                        np.ma.getmaskarray(alt_rad_repair)),
                                         np.ma.getmaskarray(alt_std_repair)))
             
             # We are going to compute the answers only for ranges where all
             # the required parameters are available.
             clumps = np.ma.clump_unmasked(az_masked)
             for clump in clumps:
-                
-                 self.array[clump] = inertial_rate_of_climb(
-                     alt_std_repair[clump], az.frequency,
-                     alt_rad_repair[clump], az_repair[clump])
+                self.array[clump] = inertial_rate_of_climb(
+                    alt_std_repair[clump], az.frequency,
+                    alt_rad_repair[clump], az_repair[clump])
             
         else:
             # The period for averaging altitude only data has been chosen
@@ -2291,7 +2395,7 @@ class Rudder(DerivedParameterNode):
 
 class CoordinatesStraighten(object):
     '''
-    Superclass for LatitudeStraighten and LongitudeStraighten.
+    Superclass for LatitudePrepared and LongitudePrepared.
     '''
     units = 'deg'
     def _smooth_coordinates(self, coord1, coord2):
@@ -2325,30 +2429,72 @@ class CoordinatesStraighten(object):
         return array
         
 
-class LongitudeStraighten(DerivedParameterNode, CoordinatesStraighten):
+class LongitudePrepared(DerivedParameterNode, CoordinatesStraighten):
     """
     This removes the jumps in longitude arising from the poor resolution of
     the recorded signal. The complete parameter is processed, prior to
     adjustment to use takeoff and ILS approach and landing data where
     possible.
     """
+    # List the minimum acceptable parameters here
+    @classmethod
+    def can_operate(cls, available):
+        # List the minimum required parameters.
+        return True
+     
     def derive(self,
                lon=P('Longitude'),
-               lat=P('Latitude')):
-        self.array = self._smooth_coordinates(lon, lat)
+               lat=P('Latitude'),
+               hdg=P('Heading Continuous'),
+               tas=P('Airspeed True'),
+               origin=A('AFR Takeoff Airport')):
+
+        if lon and lat:
+            self.array = self._smooth_coordinates(lon, lat)
+
+        elif origin:
+            api_handler = get_api_handler(API_HANDLER)
+            airport = api_handler.get_airport(origin.value)
+            ap_lat = airport['latitude']
+            ap_lon = airport['longitude']
+
+            # The ground track function was written to add taxi tracks to
+            # recorded lat & long data, hence takeoff works from the point of
+            # takeoff backwards in time to the gate. In fact to operate for
+            # the flight we need it to integrate in the opposite direction,
+            # something that we can tidy up if it works.
+            _, self.array = ground_track(ap_lat, ap_lon, tas.array, hdg.array, tas.hz, 'landing')
 
     
-class LatitudeStraighten(DerivedParameterNode, CoordinatesStraighten):
+class LatitudePrepared(DerivedParameterNode, CoordinatesStraighten):
     """
     This removes the jumps in latitude arising from the poor resolution of
     the recorded signal. The complete parameter is processed, prior to
     adjustment to use takeoff and ILS approach and landing data where
     possible.
     """
+    # List the minimum acceptable parameters here
+    @classmethod
+    def can_operate(cls, available):
+        # List the minimum required parameters.
+        return True
+     
     def derive(self, 
                lat=P('Latitude'), 
-               lon=P('Longitude')):
-        self.array = self._smooth_coordinates(lat, lon)
+               lon=P('Longitude'),
+               hdg=P('Heading Continuous'),
+               tas=P('Airspeed True'),
+               origin=A('AFR Takeoff Airport')):
+
+        if lat and lon:
+            self.array = self._smooth_coordinates(lat, lon)
+
+        elif origin:
+            api_handler = get_api_handler(API_HANDLER)
+            airport = api_handler.get_airport(origin.value)
+            ap_lat = airport['latitude']
+            ap_lon = airport['longitude']
+            self.array, _ = ground_track(ap_lat, ap_lon, tas.array, hdg.array, tas.hz, 'landing')
 
 
 class RateOfTurn(DerivedParameterNode):
