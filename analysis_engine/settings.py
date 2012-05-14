@@ -111,6 +111,9 @@ CLIMB_OR_DESCENT_MIN_DURATION = 10  # sec
 # Used when trying determine which pilot is actively using the controls.
 CONTROLS_IN_USE_TOLERANCE = 1
 
+# This strange conversion is for the tail clearance calculation
+FEET_PER_NM = 6076
+
 # Acceleration due to gravity
 GRAVITY_IMPERIAL = 32.2 # ft/sec^2 - used for combining acceleration and height terms
 

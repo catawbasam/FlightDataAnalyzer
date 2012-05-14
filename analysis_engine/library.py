@@ -525,7 +525,7 @@ def cycle_counter(array, min_step, cycle_time, hz, array_offset):
        max_half_cycles = half_cycles
        max_index = index
     
-    if max_half_cycles == 0:
+    if max_half_cycles <= 1: # Ignore single direction movements.
         return None, None
     return array_offset+max_index, max_half_cycles/2.0 
     
@@ -1429,7 +1429,8 @@ def slices_overlap(first_slice, second_slice):
 
 def slices_overlay(first_list, second_list):
     '''
-    This is a simple function to allow two slice lists to be merged.
+    This is a simple function to allow two slice lists to be merged,
+    effectively a logical AND of the two slices.
     
     Note: This currently has a trap for reverse slices, although this could be extended.
     
@@ -1549,7 +1550,7 @@ def max_continuous_unmasked(array, _slice=slice(None)):
     offset = _slice.start or 0
     return slice(_max.start + offset, _max.stop + offset)
 
-def max_abs_value(array, _slice=slice(None)):
+def max_abs_value(array, _slice=slice(None), start_edge=None, stop_edge=None):
     """
     Get the value of the maximum absolute value in the array. 
     Return value is NOT the absolute value (i.e. may be negative)
@@ -1561,11 +1562,29 @@ def max_abs_value(array, _slice=slice(None)):
     :type array: np.ma.array
     :param _slice: Slice to apply to the array and return max value relative to
     :type _slice: slice
+    :param start_edge: Index for precise start timing
+    :type start_edge: Float, between _slice.start-1 and slice_start
+    :param stop_edge: Index for precise end timing
+    :type stop_edge: Float, between _slice.stop and slice_stop+1
+    
+    :returns: Value named tuple of index and value.
     """
     index, value = max_value(np.ma.abs(array), _slice)
-    return Value(index, array[index])
+    # If start or stop edges are given, check these extreme (interpolated) values.
+    if start_edge:
+        edge_value = abs(value_at_index(array, start_edge) or 0)
+        if edge_value and edge_value > value:
+            index = start_edge
+            value = edge_value
+    if stop_edge:
+        edge_value = abs(value_at_index(array, stop_edge) or 0)
+        if edge_value and edge_value > value:
+            index = stop_edge
+            value = edge_value
+    return Value(index, value)
+
     
-def max_value(array, _slice=slice(None)):
+def max_value(array, _slice=slice(None), start_edge=None, stop_edge=None):
     """
     Get the maximum value in the array and its index relative to the array and
     not the _slice argument.
@@ -1574,10 +1593,29 @@ def max_value(array, _slice=slice(None)):
     :type array: np.ma.array
     :param _slice: Slice to apply to the array and return max value relative to
     :type _slice: slice
+    :param start_edge: Index for precise start timing
+    :type start_edge: Float, between _slice.start-1 and slice_start
+    :param stop_edge: Index for precise end timing
+    :type stop_edge: Float, between _slice.stop and slice_stop+1
+    
+    :returns: Value named tuple of index and value.
     """
-    return _value(array, _slice, np.ma.argmax)
+    index, value = _value(array, _slice, np.ma.argmax)
+    # If start or stop edges are given, check these extreme (interpolated) values.
+    if start_edge:
+        edge_value = value_at_index(array, start_edge)
+        if edge_value and edge_value > value:
+            index = start_edge
+            value = edge_value
+    if stop_edge:
+        edge_value = value_at_index(array, stop_edge)
+        if edge_value and edge_value > value:
+            index = stop_edge
+            value = edge_value
+    return Value(index, value)
 
-def min_value(array, _slice=slice(None)):
+
+def min_value(array, _slice=slice(None), start_edge=None, stop_edge=None):
     """
     Get the minimum value in the array and its index.
     
@@ -1585,8 +1623,27 @@ def min_value(array, _slice=slice(None)):
     :type array: np.ma.array
     :param _slice: Slice to apply to the array and return max value relative to
     :type _slice: slice
+    :param start_edge: Index for precise start timing
+    :type start_edge: Float, between _slice.start-1 and slice_start
+    :param stop_edge: Index for precise end timing
+    :type stop_edge: Float, between _slice.stop and slice_stop+1
+    
+    :returns: Value named tuple of index and value.
     """
-    return _value(array, _slice, np.ma.argmin)
+    index, value = _value(array, _slice, np.ma.argmin)
+    # If start or stop edges are given, check these extreme (interpolated) values.
+    if start_edge:
+        edge_value = value_at_index(array, start_edge)
+        if edge_value and edge_value < value:
+            index = start_edge
+            value = edge_value
+    if stop_edge:
+        edge_value = value_at_index(array, stop_edge)
+        if edge_value and edge_value < value:
+            index = stop_edge
+            value = edge_value
+    return Value(index, value)
+            
             
 def minimum_unmasked(array1, array2):
     """
@@ -1620,6 +1677,10 @@ def merge_two_parameters (param_one, param_two):
     
     :param param_one: Parameter object
     :type param_one: Parameter
+    :param param_two: Parameter object
+    :type param_two: Parameter
+    
+    :returns array, frequency, offset
     '''
     assert param_one.frequency  == param_two.frequency
     
@@ -1637,7 +1698,7 @@ def merge_sources(*arrays):
     '''
     This simple process merges the data from multiple sensors where they are
     sampled alternately. Unlike blend_alternate_sensors or the parameter
-    level option blend_teo_parameters, this procedure does not make any
+    level option blend_two_parameters, this procedure does not make any
     allowance for the two sensor readings being different.
     
     :param array: sampled data from an alternate signal source
@@ -2116,6 +2177,14 @@ def slices_between(array, min_, max_):
         return array, []
     # Slice through the array at the top and bottom of the band of interest
     band = np.ma.masked_outside(repaired_array, min_, max_)
+    # Remove the equality cases as we don't want these. (The common issue
+    # here is takeoff and landing cases where 0ft includes operation on the
+    # runway. As the array samples here are not coincident with the parameter
+    # being tested in the KTP class, by doing this we retain the last test
+    # parameter sample before array parameter saturated at the end condition,
+    # and avoid testing the values when the array was unchanging.
+    band = np.ma.masked_equal(band, min_)
+    band = np.ma.masked_equal(band, max_)
     # Group the result into slices - note that the array is repaired and
     # therefore already has small masked sections repaired, so no allowance
     # is needed here for minor data corruptions.
@@ -2193,7 +2262,10 @@ def step_values(array, steps):
     stepped_array = np.zeros_like(array.data)
     low = None
     for level, high in zip(steps, stepping_points):
-        stepped_array[(low < array) & (array <= high)] = level
+        if low == None:
+            stepped_array[(-high < array) & (array <= high)] = level
+        else:
+            stepped_array[(low < array) & (array <= high)] = level
         low = high
     else:
         # all values above the last
@@ -2462,13 +2534,14 @@ def index_at_value(array, threshold, _slice=slice(None), endpoint='exact'):
 
 def _value(array, _slice, operator):
     """
-    Applies logic of min_value and max_value
+    Applies logic of min_value and max_value across the array slice.
     """
     if _slice.step and _slice.step < 0:
         raise ValueError("Negative step not supported")
     if np.ma.count(array[_slice]):
         index = operator(array[_slice]) + (_slice.start or 0) * (_slice.step or 1)
-        return Value(index, array[index])
+        value = array[index]
+        return Value(index, value)
     else:
         return Value(None, None)
 

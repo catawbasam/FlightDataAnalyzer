@@ -2,7 +2,7 @@ import logging
 import numpy as np
 from tempfile import TemporaryFile
 from operator import attrgetter
-from math import floor
+from math import floor, radians
 
 from analysis_engine.settings import API_HANDLER
 from analysis_engine.api_handler import get_api_handler
@@ -67,6 +67,7 @@ from settings import (AIRSPEED_THRESHOLD,
                       ALTITUDE_AAL_LAG_TC,
                       AZ_WASHOUT_TC,
                       AT_WASHOUT_TC,
+                      FEET_PER_NM,
                       GROUNDSPEED_LAG_TC,
                       HYSTERESIS_FPALT,
                       HYSTERESIS_FPALT_CCD,
@@ -859,7 +860,7 @@ class DistanceTravelled(DerivedParameterNode):
     """
     units = 'nm'
     def derive(self, gspd=P('Groundspeed')):
-        self.array = integrate(gspd.array, gspd.frequency, scale=1.0)
+        self.array = integrate(gspd.array, gspd.frequency, scale=1.0/3600.0)
         
 
 class Eng_EGTAvg(DerivedParameterNode):
@@ -1048,23 +1049,7 @@ class Eng_N1Avg(DerivedParameterNode):
         engines = vstack_params(eng1, eng2, eng3, eng4)
         self.array = np.ma.average(engines, axis=0)
 
-
-class Eng_N1Avg(DerivedParameterNode):
-    name = "Eng (*) N1 Avg"
-    @classmethod
-    def can_operate(cls, available):
-        # works with any combination of params available
-        return any([d in available for d in cls.get_dependency_names()])
-    
-    def derive(self, 
-               eng1=P('Eng (1) N1'),
-               eng2=P('Eng (2) N1'),
-               eng3=P('Eng (3) N1'),
-               eng4=P('Eng (4) N1')):
-        engines = vstack_params(eng1, eng2, eng3, eng4)
-        self.array = np.ma.average(engines, axis=0)
-        
-        
+       
 class Eng_N1Max(DerivedParameterNode):
     name = "Eng (*) N1 Max"
     @classmethod
@@ -1629,7 +1614,18 @@ class Slat(DerivedParameterNode):
             self.array = step_values(slat.array, slat_steps)
             
             
-            
+class SlopeToLanding(DerivedParameterNode):
+    """
+    This parameter was developed as part of the Artificical Intelligence
+    analysis of approach profiles, 'Identifying Abnormalities in Aircraft
+    Flight Data and Ranking their Impact on the Flight' by Dr Edward Smart,
+    Institute of Industrial Research, University of Portsmouth.
+    http://eprints.port.ac.uk/4141/
+    """
+    def derive(self, alt_aal=P('Altitude AAL'), dist=P('Distance To Landing')):
+        self.array = alt_aal.array / (dist.array * FEET_PER_NM)
+    
+    
 class Config(DerivedParameterNode):
     """
     Multi-state with the following mapping:
@@ -2233,7 +2229,7 @@ class MagneticVariation(DerivedParameterNode):
                toff_rwy = A('FDR Takeoff Runway'), 
                land_rwy = A('FDR Landing Runway')):
         
-        def near_zero(x):
+        def first_turn(x):
             # Heading continuous can be huge after a few turns in the hold,
             # so we need this to straighten things out! I bet there's a more
             # Pythonic way to do this, but at least it's simple.
@@ -2245,11 +2241,11 @@ class MagneticVariation(DerivedParameterNode):
         # two known points, and extrapolate to the ends of the array.
         dev = np.ma.masked_all_like(head.array)
         takeoff_heading = head_toff.get_first()
-        dev[takeoff_heading.index] = near_zero(\
+        dev[takeoff_heading.index] = first_turn(\
             runway_heading(toff_rwy.value) - takeoff_heading.value)
         
         landing_heading = head_land.get_last()
-        dev[landing_heading.index] = near_zero( \
+        dev[landing_heading.index] = first_turn( \
             runway_heading(land_rwy.value) - landing_heading.value)
         '''
         It may be beneficial to extend this to include approaches at a later
@@ -2577,11 +2573,62 @@ class ThrottleLever(DerivedParameterNode):
     for simple identification of changes in power etc.
     """
     def derive(self,
-               tla1=P('THR LEVER ANGLE-LEFT'), 
-               tla2=P('THR LEVER ANGLE-RIGHT')):
+               tla1=P('Eng (1) Throttle Lever'), 
+               tla2=P('Eng (2) Throttle Lever')):
         self.array, self.frequency, self.offset = \
             blend_two_parameters(tla1, tla2)
 
+class ThrustReversers(DerivedParameterNode):
+    """
+    A single parameter with values 0=all stowed, 1=all deployed, 0.5=in transit
+    """
+    def derive(self, e1_left_dep=P('Eng (1) Thrust Reverser (L) Deployed'),
+               e1_left_out=P('Eng (1) Thrust Reverser (L) Not Stowed'),
+               e1_right_dep=P('Eng (1) Thrust Reverser (R) Deployed'),
+               e1_right_out=P('Eng (1) Thrust Reverser (R) Not Stowed'),
+               e2_left_dep=P('Eng (2) Thrust Reverser (L) Deployed'),
+               e2_left_out=P('Eng (2) Thrust Reverser (L) Not Stowed'),
+               e2_right_dep=P('Eng (2) Thrust Reverser (R) Deployed'),
+               e2_right_out=P('Eng (2) Thrust Reverser (R) Not Stowed'),
+               frame = A('Frame')):
+        frame_name = frame.value if frame else None
+        
+        if frame_name in ['737-5']:
+            all_tr = e1_left_dep.array + e1_left_out.array + \
+                e1_right_dep.array + e1_right_out.array + \
+                e2_left_dep.array + e2_left_out.array + \
+                e2_right_dep.array + e2_right_out.array
+            self.array = step_values(all_tr/8.0, [0,0.5,1])
+            
+
+class Headwind(DerivedParameterNode):
+    """
+    This is the headwind, negative values are tailwind.
+    """
+    def derive(self, windspeed=P('Wind Speed'), wind_dir=P('Wind Direction'), 
+               head=P('Heading True')):
+        rad_scale = radians(1.0)
+        self.array = windspeed.array * np.ma.cos((wind_dir.array-head.array)*rad_scale)
+                
+
+class Tailwind(DerivedParameterNode):
+    """
+    This is the tailwind component.
+    """
+    def derive(self, hwd=P('Headwind')):
+        self.array = -hwd.array
+        
+        
+class WindAcrossLandingRunway(DerivedParameterNode):
+    """
+    This is the windspeed across the final landing runway, positive wind from left to right.
+    """
+    def derive(self, windspeed=P('Wind Speed'), wind_dir=P('Wind Direction'), 
+               land_rwy = A('FDR Landing Runway')):
+        rad_scale = radians(1.0)
+        land_heading = runway_heading(land_rwy.value)
+        self.array = windspeed.array * np.ma.sin((wind_dir.array-land_heading)*rad_scale)
+                
 
 class Aileron(DerivedParameterNode):
     '''
@@ -2645,45 +2692,26 @@ class ElevatorTrim(DerivedParameterNode): # PitchTrim
 class Spoiler(DerivedParameterNode):
     '''
     '''
-    # TODO: TEST
-    name = 'Spoiler'
-
-    def derive(self,
-               s01=P('Spoiler (1)'),
-               s02=P('Spoiler (2)'),
-               s03=P('Spoiler (3)'),
-               s04=P('Spoiler (4)'),
-               s05=P('Spoiler (5)'),
-               s06=P('Spoiler (6)'),
-               s07=P('Spoiler (7)'),
-               s08=P('Spoiler (8)'),
-               s09=P('Spoiler (9)'),
-               s10=P('Spoiler (10)'),
-               s11=P('Spoiler (11)'),
-               s12=P('Spoiler (12)')):
-        return NotImplemented
+    def derive(self, spoiler_2=P('SPOILER POSN NO. 2'),
+               spoiler_7=P('SPOILER POSN NO. 7'),
+               frame = A('Frame')):
+        frame_name = frame.value if frame else None
+        
+        if frame_name in ['737-5']:
+            self.array, self.frequency, self.offset = \
+                merge_two_parameters(spoiler_2, spoiler_7)
 
 
 class Speedbrake(DerivedParameterNode):
     '''
     '''
-    # TODO: TEST
-    name = 'Speedbrake'
+    def derive(self, spoiler=P('Spoiler'), 
+               frame = A('Frame')):
+        frame_name = frame.value if frame else None
+        
+        if frame_name in ['737-5']:
+            self.array = np.ma.where(spoiler.array > 20.0, 1, 0)
 
-    def derive(self,
-               s01=P('Spoiler (1)'),
-               s02=P('Spoiler (2)'),
-               s03=P('Spoiler (3)'),
-               s04=P('Spoiler (4)'),
-               s05=P('Spoiler (5)'),
-               s06=P('Spoiler (6)'),
-               s07=P('Spoiler (7)'),
-               s08=P('Spoiler (8)'),
-               s09=P('Spoiler (9)'),
-               s10=P('Spoiler (10)'),
-               s11=P('Spoiler (11)'),
-               s12=P('Spoiler (12)')):
-        return NotImplemented
 
 class StickShaker(DerivedParameterNode):
     def derive(self, shake=P('STICK SHAKER-LEFT')):
