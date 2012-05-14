@@ -256,9 +256,9 @@ def csv_flight_details(hdf_path, kti_list, kpv_list, phase_list, dest_path=None)
             rows.append( vals )
 
         for value in phase_list:
-            vals = ['Phase', value.name, value.slice.start]+[None]*6
+            vals = ['Phase', value.name, value.start_edge]+[None]*6
             rows.append( vals )
-            vals = ['Phase', None, value.slice.stop, value.name]+[None]*5
+            vals = ['Phase', None, value.stop_edge, value.name]+[None]*5
             rows.append( vals )
 
         for param in params:

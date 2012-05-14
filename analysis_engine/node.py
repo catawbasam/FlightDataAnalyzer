@@ -21,7 +21,7 @@ KeyPointValue = recordtype('KeyPointValue', 'index value name slice datetime',
                            field_defaults={'slice':slice(None)}, default=None)
 KeyTimeInstance = recordtype('KeyTimeInstance', 'index name datetime latitude longitude', 
                              default=None)
-Section = namedtuple('Section', 'name slice') #Q: rename mask -> slice/section
+Section = namedtuple('Section', 'name slice start_edge stop_edge') #Q: rename mask -> slice/section
 
 # Ref: django/db/models/options.py:20
 # Calculate the verbose_name by converting from InitialCaps to "lowercase with spaces".
@@ -384,7 +384,7 @@ class SectionNode(Node, list):
             del kwargs['items']
         super(SectionNode, self).__init__(*args, **kwargs)
 
-    def create_section(self, section_slice, name=''):
+    def create_section(self, section_slice, name='', begin=None, end=None):
         """
         Create a slice of the data.
         
@@ -395,7 +395,9 @@ class SectionNode(Node, list):
         if section_slice.start is None or section_slice.stop is None:
             logging.debug("Section %s created %s with None start or stop.", 
                           self.get_name(), section_slice)
-        section = Section(name or self.get_name(), section_slice)
+        section = Section(name or self.get_name(), section_slice, 
+                          begin or section_slice.start, 
+                          end or section_slice.stop)
         self.append(section)
         ##return section
         
@@ -419,16 +421,29 @@ class SectionNode(Node, list):
         multiplier = param.frequency / self.frequency
         offset = (self.offset - param.offset) * param.frequency
         for section in self:
-            if section.slice.start is None:
+
+            if section.start_edge is None:
                 converted_start = None
             else:
-                converted_start = (section.slice.start * multiplier) + offset
-            if section.slice.stop is None:
+                converted_start = (section.start_edge * multiplier) + offset
+                if int(converted_start) == converted_start:
+                    inner_slice_start = converted_start
+                else:
+                    inner_slice_start = int(converted_start) + 1
+            
+            if section.stop_edge is None:
                 converted_stop = None
             else:
-                converted_stop = (section.slice.stop * multiplier) + offset
-            converted_slice = slice(converted_start, converted_stop)
-            aligned_node.create_section(converted_slice, section.name)
+                converted_stop = (section.stop_edge * multiplier) + offset
+                if int(converted_stop) == converted_stop:
+                    inner_slice_stop = converted_stop + 1
+                else:
+                    inner_slice_stop = int(converted_stop) + 1
+
+            inner_slice = slice(inner_slice_start, inner_slice_stop)
+            aligned_node.create_section(inner_slice, section.name, 
+                                        begin = converted_start,
+                                        end = converted_stop)
         return aligned_node
     
     slice_attrgetters = {'start': attrgetter('slice.start'),
@@ -910,8 +925,8 @@ class KeyTimeInstanceNode(FormattedNameNode):
         '''
         
         # Low level function that finds edges from array and creates KTIs
-        def kti_edges(subarray, start_index, direction='rising_edges'):
-            edge_list = find_edges(subarray, start_index, direction='rising_edges')
+        def kti_edges(array, _slice):
+            edge_list = find_edges(array, _slice, direction=direction)
             for edge_index in edge_list:
                 if name:
                     # Annotate the transition with the post-change state.
@@ -924,10 +939,9 @@ class KeyTimeInstanceNode(FormattedNameNode):
         # appropriate arguments for analysis.
         if phase:
             for each_period in phase:
-                to_scan = array[each_period.slice]
-                kti_edges(to_scan, each_period.slice.start or 0, direction)
+                kti_edges(array, each_period.slice)
         else:
-            kti_edges(array, 0, direction)
+            kti_edges(array, slice(0,len(array)+1))
         return    
     
     def get_aligned(self, param):
@@ -1087,6 +1101,12 @@ class KeyPointValueNode(FormattedNameNode):
             index, value = function(array, slice_)
             self.create_kpv(index, value, **kwargs)
 
+    """
+    Original code allowing for for edge triggered KPVs. 
+    
+    Better practice is to create a KTI and then a separate KPV to go with
+    this.
+
     def create_kpvs_at_edges(self, value_array, edge_array, 
                              direction='rising_edges', phase=None,
                              name=None):
@@ -1126,10 +1146,11 @@ class KeyPointValueNode(FormattedNameNode):
         if phase:
             for each_period in phase:
                 to_scan = edge_array[each_period.slice]
-                find_edges(to_scan, each_period.slice.start or 0, direction)
+                kpvs_at_edges(to_scan, each_period.slice.start or 0, direction)
         else:
-            find_edges(edge_array, 0, direction)
+            kpvs_at_edges(edge_array, 0, direction)
         return    
+        """
 
     def create_kpvs_from_discretes(self, array, hz, sense='normal', phase=None):
         '''
