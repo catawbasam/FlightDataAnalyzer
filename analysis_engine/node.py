@@ -3,6 +3,7 @@ import logging
 import numpy as np
 import re
 import copy
+import math
 
 from abc import ABCMeta
 from collections import namedtuple
@@ -369,7 +370,8 @@ class SectionNode(Node, list):
     '''
     Derives from list to implement iteration and list methods.
     
-    Is a list of Section namedtuples, each with attributes .name and .slice
+    Is a list of Section namedtuples, each with attributes .name, .slice,
+    .start_edge and .stop_edge
     '''
     node_type = 'SectionNode'
     def __init__(self, *args, **kwargs):
@@ -423,22 +425,16 @@ class SectionNode(Node, list):
         for section in self:
 
             if section.start_edge is None:
-                converted_start = None
+                converted_start = inner_slice_start = None
             else:
                 converted_start = (section.start_edge * multiplier) + offset
-                if int(converted_start) == converted_start:
-                    inner_slice_start = converted_start
-                else:
-                    inner_slice_start = int(converted_start) + 1
+                inner_slice_start = int(math.ceil(converted_start))
             
             if section.stop_edge is None:
-                converted_stop = None
+                converted_stop = inner_slice_stop = None
             else:
                 converted_stop = (section.stop_edge * multiplier) + offset
-                if int(converted_stop) == converted_stop:
-                    inner_slice_stop = converted_stop + 1
-                else:
-                    inner_slice_stop = int(converted_stop) + 1
+                inner_slice_stop = int(math.ceil(converted_stop))
 
             inner_slice = slice(inner_slice_start, inner_slice_stop)
             aligned_node.create_section(inner_slice, section.name, 
@@ -1097,8 +1093,14 @@ class KeyPointValueNode(FormattedNameNode):
         '''
         for slice_ in slices:
             if isinstance(slice_, Section): # Use slice within Section.
+                start_edge = slice_.start_edge
+                stop_edge = slice_.stop_edge
+                # Tricky self-modifying code !
                 slice_ = slice_.slice
-            index, value = function(array, slice_)
+            else:
+                start_edge = None
+                stop_edge = None
+            index, value = function(array, slice_, start_edge, stop_edge)
             self.create_kpv(index, value, **kwargs)
 
     """

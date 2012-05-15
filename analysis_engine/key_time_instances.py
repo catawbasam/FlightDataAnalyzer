@@ -348,6 +348,13 @@ class TakeoffPeakAcceleration(KeyTimeInstanceNode):
 
 
 class Liftoff(KeyTimeInstanceNode):
+    def derive(self, alt_aal=P('Altitude AAL'), fast=S('Fast')):
+        for speedy in fast:
+            airs = np.ma.clump_masked(np.ma.masked_greater(alt_aal.array[speedy.slice], 0.0))
+            for air in airs:
+                self.create_kti(speedy.slice.start + air.start)
+    
+    """
     def derive(self, roc=P('Rate Of Climb'), toffs=S('Takeoff')):
         for toff in toffs:
             # We scan the data backwards to find the last point where the
@@ -361,6 +368,7 @@ class Liftoff(KeyTimeInstanceNode):
             else:
                 logging.warning("'%s' does not reach '%s' within '%s' section.",
                                 roc.name, RATE_OF_CLIMB_FOR_LIFTOFF, toff.name)
+                                """
             
 
 class InitialClimbStart(KeyTimeInstanceNode):
@@ -398,10 +406,14 @@ class TouchAndGo(KeyTimeInstanceNode):
 
 
 class Touchdown(KeyTimeInstanceNode):
+    def derive(self, alt_aal=P('Altitude AAL'), fast=S('Fast')):
+        for speedy in fast:
+            airs = np.ma.clump_masked(np.ma.masked_greater(alt_aal.array[speedy.slice], 0.0))
+            for air in airs:
+                self.create_kti(speedy.slice.start + air.stop)
+    """
     def derive(self, roc=P('Rate Of Climb'), landings=S('Landing')):
         for landing in landings:
-            # TODO: Find out why this is creating Touchdown's under 5 minutes
-            # into the data.
             land_index = index_at_value(roc.array, RATE_OF_CLIMB_FOR_TOUCHDOWN,
                                         landing.slice)
             if land_index:
@@ -410,6 +422,7 @@ class Touchdown(KeyTimeInstanceNode):
                 logging.warning("'%s' does not reach '%s' within '%s' section.",
                                 roc.name, RATE_OF_CLIMB_FOR_TOUCHDOWN,
                                 landing.name)
+                                """
 
 
 class LandingTurnOffRunway(KeyTimeInstanceNode):
@@ -481,9 +494,8 @@ class AltitudeWhenDescending(KeyTimeInstanceNode):
     Creates KTIs at certain heights when the aircraft is descending.
     '''
     NAME_FORMAT = '%(altitude)d Ft Descending'
-    ALTITUDES = [10, 20, 35, 50, 75, 100, 150, 200, 300, 400, 500, 750, 1000,
-                 1500, 2000, 3000, 3500, 4000, 5000, 6000, 7000, 8000, 9000,
-                 10000]
+    ALTITUDES = [10000,9000,8000,7000,6000,5000,4000,3500,3000,2500,2000,1500,\
+                 1000,750,500,400,300,200,150,100,75,50,35,20,10]
     NAME_VALUES = {'altitude': ALTITUDES}
     HYSTERESIS = 0 # Was 10 Q: Better as setting?
     

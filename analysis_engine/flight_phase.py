@@ -14,7 +14,9 @@ from analysis_engine.library import (find_edges,
                                      slice_duration,
                                      slices_overlap,
                                      slice_samples)
+
 from analysis_engine.node import FlightPhaseNode, A, P, S, KTI
+
 from analysis_engine.settings import (AIRSPEED_THRESHOLD,
                                ALTITUDE_FOR_CLB_CRU_DSC,
                                APPROACH_MIN_DESCENT,
@@ -758,15 +760,17 @@ class Takeoff(FlightPhaseNode):
                 self.create_phases([slice(takeoff_begin, takeoff_end)])
 
 
-class Takeoff5MinRating(FlightPhaseNode):
+class TOGA5MinRating(FlightPhaseNode):
     #TODO: Test
     """
     For engines, the period of high power operation is normally 5 minutes
-    from the start of takeoff.
+    from the start of takeoff. Also applies in the case of a go-around.
     """
-    def derive(self, toffs=S('Takeoff')):
+    def derive(self, toffs=S('Takeoff'), gas=S('Go Around')):
         for toff in toffs:
             self.create_phase(slice(toff.slice.start, toff.slice.start + 300))
+        for ga in gas:
+            self.create_phase(slice(ga.slice.start, ga.slice.start + 300))
             
     
 class Taxiing(FlightPhaseNode):

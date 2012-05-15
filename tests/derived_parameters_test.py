@@ -51,6 +51,7 @@ from analysis_engine.derived_parameters import (
     GroundspeedAlongTrack,
     HeadingContinuous,
     HeadingTrue,
+    Headwind,
     ILSFrequency,
     LatitudePrepared,
     LongitudePrepared,
@@ -59,6 +60,7 @@ from analysis_engine.derived_parameters import (
     RateOfClimb,
     RateOfClimbForFlightPhases,
     RateOfTurn,
+    Sidewind,
 )
 
 debug = sys.gettrace() is not None
@@ -1628,3 +1630,42 @@ if __name__ == '__main__':
     unittest.TextTestRunner(verbosity=2).run(suite)
 
 
+class TestHeadwind(unittest.TestCase):
+    def test_can_operate(self):
+        opts=Headwind.get_operational_combinations()
+        self.assertEqual(opts, [('Wind Speed', 'Wind Direction', 'Heading True')])
+    
+    def test_real_example(self):
+        ws = P('Wind Speed', np.ma.array([84.0]))
+        wd = P('Wind Direction', np.ma.array([-21]))
+        head=P('Heading True', np.ma.array([30]))
+        hw = Headwind()
+        hw.derive(ws,wd,head)
+        expected = np.ma.array([52.8629128481863])
+        self.assertAlmostEqual(hw.array.data, expected.data)
+        
+    def test_odd_angles(self):
+        ws = P('Wind Speed', np.ma.array([20.0]*8))
+        wd = P('Wind Direction', np.ma.array([0, 90, 180, -180, -90, 360, 23, -23], dtype=float))
+        head=P('Heading True', np.ma.array([-180, -90, 0, 180, 270, 360*15, 361*23, 359*23], dtype=float))
+        hw = Headwind()
+        hw.derive(ws,wd,head)
+        expected = np.ma.array([-20]*3+[20]*5)
+        ma_test.assert_almost_equal(hw.array, expected)
+        
+
+
+class TestSidewind(unittest.TestCase):
+    def test_can_operate(self):
+        opts=Sidewind.get_operational_combinations()
+        self.assertEqual(opts, [('Wind Speed', 'Wind Direction', 'Heading True')])
+    
+    def test_real_example(self):
+        ws = P('Wind Speed', np.ma.array([84.0]))
+        wd = P('Wind Direction', np.ma.array([-21]))
+        head=P('Heading True', np.ma.array([30]))
+        sw = Sidewind()
+        sw.derive(ws,wd,head)
+        expected = np.ma.array([-65.2802607623856])
+        self.assertAlmostEqual(sw.array.data, expected.data)
+        

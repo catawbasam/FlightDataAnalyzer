@@ -269,9 +269,9 @@ class TestSectionNode(unittest.TestCase):
         self.assertEqual(aligned_node.offset, param.offset)
         self.assertEqual(list(aligned_node),
                          [Section(name='Example Section Node',
-                                  slice=slice(1.2, 2.2, None)),
+                                  slice=slice(2, 3, None),start_edge=1.2,stop_edge=2.2),
                           Section(name='Example Section Node',
-                                  slice=slice(2.7, 3.7, None))])
+                                  slice=slice(3, 4, None),start_edge=2.7,stop_edge=3.7)])
         
     def test_get_aligned_with_slice_start_as_none(self):
         section_node = self.section_node_class(frequency=1, offset=0.5)
@@ -281,9 +281,9 @@ class TestSectionNode(unittest.TestCase):
         aligned_node = section_node.get_aligned(param)
         self.assertEqual(list(aligned_node),
                          [Section(name='Example Section Node',
-                                  slice=slice(None, 2.2, None)),
+                                  section_slice=slice(None, 2.2, None),start_edge=None,stop_edge=2.2),
                           Section(name='Example Section Node',
-                                  slice=slice(2.7, None, None))])
+                                  section_slice=slice(2.7, None, None),start_edge=2.7,stop_edge=None)])
     
     def test_items(self):
         items = [Section('a', slice(0,10))]
@@ -292,10 +292,10 @@ class TestSectionNode(unittest.TestCase):
         self.assertEqual(section_node, items)
     
     def test_get(self):
-        items = [Section('a', slice(4,10)),
-                 Section('b', slice(14,17)),
-                 Section('b', slice(19,21)),
-                 Section('c', slice(30,34)),]
+        items = [Section('a', slice(4,10),4,10),
+                 Section('b', slice(14,23),14,23),
+                 Section('b', slice(19,21),19,21),
+                 Section('c', slice(30,34),30,34),]
         section_node = self.section_node_class(frequency=1, offset=0.5,
                                                items=items)
         sections = section_node.get()
@@ -316,10 +316,10 @@ class TestSectionNode(unittest.TestCase):
         # First test empty node.
         empty_section_node = self.section_node_class()
         self.assertEqual(empty_section_node.get_first(), None)
-        items = [Section('a', slice(4,10)),
-                 Section('b', slice(14,23)),
-                 Section('b', slice(19,21)),
-                 Section('c', slice(30,34)),]
+        items = [Section('a', slice(4,10),4,10),
+                 Section('b', slice(14,23),14,23),
+                 Section('b', slice(19,21),19,21),
+                 Section('c', slice(30,34),30,34),]
         section_node = self.section_node_class(frequency=1, offset=0.5,
                                                items=items)
         first_section = section_node.get_first()
@@ -354,10 +354,10 @@ class TestSectionNode(unittest.TestCase):
         # First test empty node.
         empty_section_node = self.section_node_class()
         self.assertEqual(empty_section_node.get_last(), None)
-        items = [Section('a', slice(4,10)),
-                 Section('b', slice(14,23)),
-                 Section('b', slice(19,21)),
-                 Section('c', slice(30,34)),]
+        items = [Section('a', slice(4,10),4,10),
+                 Section('b', slice(14,23),14,23),
+                 Section('b', slice(19,21),19,21),
+                 Section('c', slice(30,34),30,34),]
         section_node = self.section_node_class(frequency=1, offset=0.5,
                                                items=items)
         last_section = section_node.get_last()
@@ -378,10 +378,10 @@ class TestSectionNode(unittest.TestCase):
         self.assertEqual(items[2], last_section_within_slice)
     
     def test_get_ordered_by_index(self):
-        items = [Section('a', slice(4,10)),
-                 Section('b', slice(19,21)),
-                 Section('b', slice(14,23)),
-                 Section('c', slice(30,34)),]
+        items = [Section('a', slice(4,10),4,10),
+                 Section('b', slice(14,23),14,23),
+                 Section('b', slice(19,21),19,21),
+                 Section('c', slice(30,34),30,34),]
         section_node = self.section_node_class(frequency=1, offset=0.5,
                                                items=items)
         sections = section_node.get_ordered_by_index()
@@ -398,10 +398,10 @@ class TestSectionNode(unittest.TestCase):
         self.assertEqual([items[1]], sections)
     
     def test_get_next(self):
-        items = [Section('a', slice(4,10)),
-                 Section('b', slice(19,21)),
-                 Section('b', slice(14,17)),
-                 Section('c', slice(30,34)),]
+        items = [Section('a', slice(4,10),4,10),
+                 Section('b', slice(14,23),14,23),
+                 Section('b', slice(19,21),19,21),
+                 Section('c', slice(30,34),30,34),]
         section_node = self.section_node_class(frequency=1, offset=0.5,
                                                items=items)
         section = section_node.get_next(16)
@@ -416,10 +416,10 @@ class TestSectionNode(unittest.TestCase):
         self.assertEqual(items[2], section)
     
     def test_get_previous(self):
-        items = [Section('a', slice(4,10)),
-                 Section('b', slice(19,21)),
-                 Section('b', slice(14,17)),
-                 Section('c', slice(30,34)),]
+        items = [Section('a', slice(4,10),4,10),
+                 Section('b', slice(14,23),14,23),
+                 Section('b', slice(19,21),19,21),
+                 Section('c', slice(30,34),30,34),]
         section_node = self.section_node_class(frequency=1, offset=0.5,
                                                items=items)
         section = section_node.get_previous(16)

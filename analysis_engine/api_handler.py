@@ -2,13 +2,10 @@ import httplib
 import httplib2
 import logging
 import os
+import simplejson
 import socket
 import time
 import urllib
-try:
-    import simplejson as json
-except ImportError:
-    import json
 
 from analysis_engine import settings
 
@@ -88,7 +85,7 @@ class APIHandlerHTTP(object):
             raise APIConnectionError(uri, method, body)
         status = int(resp['status'])
         try:
-            decoded_content = json.loads(content)
+            decoded_content = simplejson.loads(content)
         except ValueError:
             # Only JSON return types supported, any other return means server
             # is not configured correctly

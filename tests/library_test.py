@@ -1410,29 +1410,49 @@ class TestMaxValue(unittest.TestCase):
         self.assertRaises(ValueError, max_value, array, neg_step)
         ##self.assertEqual(res, (69, 81)) # you can get this if you use slice.stop!
         
-    def test_max_value_non_integer_slices(self):
+    def test_max_value_non_integer_slices_no_limits(self):
         array = np.ma.arange(5)+10
-        i, v, = max_value(array, slice(1.3,3.7))
-        self.assertEqual(i, 3.7)
-        self.assertEqual(v, 13.7)
-
-    def test_max_value_non_integer_slices_upper_limit(self):
-        array = np.ma.arange(5)+10
-        i, v, = max_value(array, slice(1.3,12))
+        i, v, = max_value(array)
         self.assertEqual(i, 4)
         self.assertEqual(v, 14)
 
-    def test_max_value_non_integer_slices_lower_limit(self):
+    def test_max_value_integer_slices(self):
+        array = np.ma.arange(10)+10
+        i, v, = max_value(array, slice(2,4))
+        self.assertEqual(i, 3)
+        self.assertEqual(v, 13)
+
+    def test_max_value_non_integer_upper_edge(self):
+        array = np.ma.arange(5)+10
+        i, v, = max_value(array, slice(2,3),None,3.7)
+        self.assertEqual(i, 3.7)
+        self.assertEqual(v, 13.7)
+
+    def test_max_value_non_integer_lower_edge(self):
         array = 20-np.ma.arange(5)
-        i, v, = max_value(array, slice(1.3,3.7))
+        i, v, = max_value(array, slice(2,3),1.3,None)
         self.assertEqual(i, 1.3)
         self.assertEqual(v, 18.7)
+
+    def test_max_value_slice_mismatch(self):
+        array = np.ma.arange(5)+10
+        i, v, = max_value(array, slice(100,101))
+        self.assertEqual(i, None)
+        self.assertEqual(v, None)
+        
+    def test_max_value_no_edge(self):
+        array = np.ma.array(data=[2,3,4,8,9],mask=[0,0,0,1,1])
+        i, v = max_value(array, slice(0,3),None,3.5)
+        self.assertEqual(i, 2)
+        self.assertEqual(v, 4) # Important that end case is ignored.
+        
+
 
         
 class TestMaxAbsValue(unittest.TestCase):
     def test_max_abs_value(self):
         array = np.ma.array(range(-20,30) + range(10,-41, -1) + range(10))
-        self.assertEqual(max_abs_value(array), (100, -40))
+        self.assertEqual(max_abs_value(array), (100, 40))
 
 
 class TestMergeSources(unittest.TestCase):
@@ -1487,6 +1507,36 @@ class TestMinValue(unittest.TestCase):
         
         neg_step = slice(100,65,-10)
         self.assertRaises(ValueError, min_value, array, neg_step)
+
+    def test_min_value_non_integer_slices_no_limits(self):
+        array = 10-np.ma.arange(5)
+        i, v, = min_value(array)
+        self.assertEqual(i, 4)
+        self.assertEqual(v, 6)
+
+    def test_min_value_integer_slices(self):
+        array = 10-np.ma.arange(10)
+        i, v, = min_value(array, slice(2,4))
+        self.assertEqual(i, 3)
+        self.assertEqual(v, 7)
+
+    def test_min_value_non_integer_upper_edge(self):
+        array = 10-np.ma.arange(5)
+        i, v, = min_value(array, slice(2,3),None,3.7)
+        self.assertEqual(i, 3.7)
+        self.assertEqual(v, 6.3)
+
+    def test_min_value_non_integer_lower_edge(self):
+        array = np.ma.arange(5)+5
+        i, v, = min_value(array, slice(2,3),1.3,None)
+        self.assertEqual(i, 1.3)
+        self.assertEqual(v, 6.3)
+
+    def test_min_value_slice_mismatch(self):
+        array = 10-np.ma.arange(5)
+        i, v, = min_value(array, slice(100,101))
+        self.assertEqual(i, None)
+        self.assertEqual(v, None)
 
 
 class TestMinimumUnmasked(unittest.TestCase):
@@ -1954,7 +2004,7 @@ class TestSlicesBetween(unittest.TestCase):
         array = np.ma.arange(20)
         array.mask = [True] * 10 + [False] * 10
         repaired_array, slices = slices_between(array, 5, 15)
-        self.assertEqual(slices, [slice(10, 16)])
+        self.assertEqual(slices, [slice(10, 15)])
 
 class TestSliceSamples(unittest.TestCase):
     def test_slice_samples(self):
@@ -1987,14 +2037,23 @@ class TestSlicesFromTo(unittest.TestCase):
         array.mask = [True] * 10 + [False] * 10
         # Ascending.
         repaired_array, slices = slices_from_to(array, 5, 15)
-        self.assertEqual(slices, [slice(10, 16)])
+        self.assertEqual(slices, [slice(10, 15)])
         # Descending.
         repaired_array, slices = slices_from_to(array, 18, 3)
         self.assertEqual(slices, [])
         array = np.ma.arange(20, 0, -1)
         array.mask = [True] * 10 + [False] * 10
         repaired_array, slices = slices_from_to(array, 18, 3)
-        self.assertEqual(slices, [slice(10, 18)])
+        self.assertEqual(slices, [slice(10, 17)])
+        
+    def test_slices_from_to_landing(self):
+        '''
+        Common usage it to end in 0 for ...to landing. This test covers this
+        specific case.
+        '''
+        array = np.ma.array([25,20,15,10,5,0,0,0,0])
+        _, slices = slices_from_to(array, 17, 0)
+        self.assertEqual(slices, [slice(2,5,None)])
         
 class TestSlicesOverlap(unittest.TestCase):
     def test_slices_overlap(self):
@@ -2046,6 +2105,13 @@ class TestStepValues(unittest.TestCase):
              20, 20, 20, 
              23, 23, 23, 
              0, 0, 0, 0, 0])
+
+    def test_step_inital_level(self):
+        array = np.ma.arange(9,14,0.6)
+        stepped = step_values(array, ( 10, 11, 15))
+        self.assertEqual(list(stepped),
+                         [10, 10, 10, 11, 11, 11, 11, 15, 15])
+
         
 class TestStraightenHeadings(unittest.TestCase):
     def test_straight_headings(self):
