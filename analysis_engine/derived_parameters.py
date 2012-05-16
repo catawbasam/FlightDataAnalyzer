@@ -1549,6 +1549,7 @@ class FlapSurface(DerivedParameterNode):
                 'Flap (2)' in available)
 
     def derive(self, flap_A=P('Flap (1)'), flap_B=P('Flap (2)'),
+               flap_146=P('RAW FLAP POSITION'),
                frame=A('Frame'),
                app_ldgs=S('Approach And Landing'),               
                alt_aal=P('Altitude AAL')):
@@ -1569,6 +1570,9 @@ class FlapSurface(DerivedParameterNode):
                     flap_herc[scope] = np.ma.where(alt_aal.array[scope]>1000.0,100.0,50.0)
             self.array = np.ma.array(flap_herc)
             self.frequency, self.offset = alt_aal.frequency, alt_aal.offset
+            
+        if frame_name in ['146-301']:
+            self.array = flap_146.array/100.0
                    
                             
 class Flap(DerivedParameterNode):
@@ -1867,7 +1871,7 @@ class ILSRange(DerivedParameterNode):
                gspd = P('Groundspeed'),
                tas = P('Airspeed True'),
                alt_aal = P('Altitude AAL'),
-               loc_established = S('ILS Localizer Established'),
+               loc_established = S('ILS Localizer Captured'),
                gs_established = S('ILS Glideslope Established'),
                precise = A('Precise Positioning'),
                app_info = A('FDR Approaches'),
@@ -2000,10 +2004,10 @@ class ILSRange(DerivedParameterNode):
     
 class LatitudeSmoothed(DerivedParameterNode):
     units = 'deg'
-    # Note order of longitude and latitude sets data aligned to latitude.
+    # Note order of longitude and latitude - data aligned to latitude here.
     def derive(self, lat = P('Latitude Prepared'),
                lon = P('Longitude Prepared'),
-               loc_est = S('ILS Localizer Established'),
+               loc_est = S('ILS Localizer Captured'),
                ils_range = P('ILS Range'),
                ils_loc = P('ILS Localizer'),
                alt_aal = P('Altitude AAL'),
@@ -2030,10 +2034,10 @@ class LatitudeSmoothed(DerivedParameterNode):
         
 class LongitudeSmoothed(DerivedParameterNode):
     units = 'deg'
-    # Note order of longitude and latitude sets data aligned to longitude.
+    # Note order of longitude and latitude - data aligned to longitude here.
     def derive(self, lon = P('Longitude Prepared'),
                lat = P('Latitude Prepared'),
-               loc_est = S('ILS Localizer Established'),
+               loc_est = S('ILS Localizer Captured'),
                ils_range = P('ILS Range'),
                ils_loc = P('ILS Localizer'),
                alt_aal = P('Altitude AAL'),
@@ -2089,7 +2093,7 @@ def adjust_track(lon,lat,loc_est,ils_range,ils_loc,alt_aal,gspd,hdg,tas,
         # but compute the ground track from bearing and heading as the
         # recorded track will be inaccurate at low speeds.
         
-        [lat_adj[:first_toff.slice.start], lon_adj[:first_toff.slice.start]] = \
+        [lat[:first_toff.slice.start], lon[:first_toff.slice.start]] = \
             ground_track(lat_adj[first_toff.slice.start],
                          lon_adj[first_toff.slice.start],
                          speed[:first_toff.slice.start],

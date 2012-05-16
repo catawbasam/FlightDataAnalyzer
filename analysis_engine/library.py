@@ -2296,10 +2296,10 @@ def track_linking(pos, local_pos):
     array of local position data from ILS localizer and synthetic takeoff
     data.
     
-    This is done by computing linearly varying adjustment factors between
-    each computed section, a process that was found to be unnecessarily
-    complex, but as it gives good results and is already programmed it was
-    decided to leave this in place.
+    The merge is done by computing linearly varying adjustment factors
+    between each computed section. This may be unnecessarily complex, as
+    simply aligning on a common point would work, but as it gives good
+    results and is already programmed it was decided to leave it in place.
     
     :param pos: Flight track data (latitude or longitude) in degrees.
     :type pos: np.ma.masked_array, masked from data validity tests.
