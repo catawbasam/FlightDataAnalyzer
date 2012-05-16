@@ -2003,7 +2003,14 @@ class ILSRange(DerivedParameterNode):
    
     
 class LatitudeSmoothed(DerivedParameterNode):
+    # List the minimum acceptable parameters here
+    @classmethod
+    def can_operate(cls, available):
+        # List the minimum required parameters.
+        return 'Latitude Prepared' in available
+     
     units = 'deg'
+    
     # Note order of longitude and latitude - data aligned to latitude here.
     def derive(self, lat = P('Latitude Prepared'),
                lon = P('Longitude Prepared'),
@@ -2020,20 +2027,31 @@ class LatitudeSmoothed(DerivedParameterNode):
                toff_rwy = A('FDR Takeoff Runway'),
                start_datetime = A('Start Datetime'),
                ):
-        if len(app_info.value) != len(loc_est):
-            # Q: Is this still True?
-            logging.warning("Cannot Smooth latitude if the number of '%s'"
-                            "Sections is not equal to the number of approaches.",
-                            loc_est.name)
+        if ils_range:
+            if len(app_info.value) != len(loc_est):
+                # Q: Is this still True?
+                logging.warning("Cannot Smooth latitude if the number of '%s'"
+                                "Sections is not equal to the number of approaches.",
+                                loc_est.name)
+                self.array = lat.array
+                return
+            
+            self.array, _ = adjust_track(lon,lat,loc_est,ils_range,ils_loc,
+                                            alt_aal,gspd,hdg,tas,precise,toff,
+                                            app_info,toff_rwy,start_datetime)
+        else:
+            # For aircraft without ILS recorded
             self.array = lat.array
-            return
-        
-        self.array, _ = adjust_track(lon,lat,loc_est,ils_range,ils_loc,
-                                        alt_aal,gspd,hdg,tas,precise,toff,
-                                        app_info,toff_rwy,start_datetime)
         
 class LongitudeSmoothed(DerivedParameterNode):
+    # List the minimum acceptable parameters here
+    @classmethod
+    def can_operate(cls, available):
+        # List the minimum required parameters.
+        return 'Longitude Prepared' in available
+    
     units = 'deg'
+    
     # Note order of longitude and latitude - data aligned to longitude here.
     def derive(self, lon = P('Longitude Prepared'),
                lat = P('Latitude Prepared'),
@@ -2050,17 +2068,23 @@ class LongitudeSmoothed(DerivedParameterNode):
                toff_rwy = A('FDR Takeoff Runway'),
                start_datetime = A('Start Datetime'),
                ):
-        if len(app_info.value) != len(loc_est) :
-            # Q: Is this still True?
-            logging.warning("Cannot Smooth longitude if the number of '%s'"
-                            "Sections is not equal to the number of approaches.",
-                            loc_est.name)
+        if ils_range:
+            if len(app_info.value) != len(loc_est) :
+                # Q: Is this still True?
+                logging.warning("Cannot Smooth longitude if the number of '%s'"
+                                "Sections is not equal to the number of approaches.",
+                                loc_est.name)
+                self.array = lon.array
+                return        
+    
+            _, self.array = adjust_track(lon,lat,loc_est,ils_range,ils_loc,
+                                         alt_aal,gspd,hdg,tas,precise,toff,
+                                         app_info,toff_rwy,start_datetime)
+            
+        else:
+            # For aircraft without ILS recorded
             self.array = lon.array
-            return        
-
-        _, self.array = adjust_track(lon,lat,loc_est,ils_range,ils_loc,
-                                     alt_aal,gspd,hdg,tas,precise,toff,
-                                     app_info,toff_rwy,start_datetime)
+            
         
         
 def adjust_track(lon,lat,loc_est,ils_range,ils_loc,alt_aal,gspd,hdg,tas,
@@ -2093,7 +2117,7 @@ def adjust_track(lon,lat,loc_est,ils_range,ils_loc,alt_aal,gspd,hdg,tas,
         # but compute the ground track from bearing and heading as the
         # recorded track will be inaccurate at low speeds.
         
-        [lat[:first_toff.slice.start], lon[:first_toff.slice.start]] = \
+        [lat_adj[:first_toff.slice.start], lon_adj[:first_toff.slice.start]] = \
             ground_track(lat_adj[first_toff.slice.start],
                          lon_adj[first_toff.slice.start],
                          speed[:first_toff.slice.start],

@@ -601,32 +601,33 @@ class GenericDescent(KeyPointValueNode):
         for this_descent in descent_list:
             for alt in self.NAME_VALUES['altitude']:
                 index = index_at_value(alt_aal.array, alt, _slice=this_descent)
-                #self.create_kpv(index, value_at_index(slope.array, index), 
-                                #parameter='Slope To Landing', altitude=alt)
-                self.create_kpv(index, value_at_index(flap.array, index), 
-                                parameter='Flap', altitude=alt)
-                #self.create_kpv(index, value_at_index(glide.array, index), 
-                                #parameter='ILS Glideslope', altitude=alt)
-                self.create_kpv(index, value_at_index(airspeed.array, index), 
-                                parameter='Airspeed', altitude=alt)
-                self.create_kpv(index, value_at_index(roc.array, index), 
-                                parameter='Rate Of Descent', altitude=alt)
-                #self.create_kpv(index, value_at_index(gear.array, index), 
-                                #parameter='Gear Down', altitude=alt)
-                #self.create_kpv(index, value_at_index(loc.array, index), 
-                                #parameter='ILS Localizer', altitude=alt)
-                #self.create_kpv(index, value_at_index(power.array, index), 
-                                #parameter='Power', altitude=alt)
-                self.create_kpv(index, value_at_index(pitch.array, index), 
-                                parameter='Pitch', altitude=alt)
-                #self.create_kpv(index, value_at_index(brake.array, index), 
-                                #parameter='Speedbrake', altitude=alt)
-                #self.create_kpv(index, value_at_index(v_vref.array, index), 
-                                #parameter='Airspeed Minus Vref', altitude=alt)
-                #self.create_kpv(index, value_at_index(roll.array, index), 
-                                #parameter='Roll', altitude=alt)
-                #self.create_kpv(index, value_at_index(head.array, index), 
-                                #parameter='Heading', altitude=alt)
+                if index:
+                    #self.create_kpv(index, value_at_index(slope.array, index), 
+                                    #parameter='Slope To Landing', altitude=alt)
+                    self.create_kpv(index, value_at_index(flap.array, index), 
+                                        parameter='Flap', altitude=alt)
+                    #self.create_kpv(index, value_at_index(glide.array, index), 
+                                    #parameter='ILS Glideslope', altitude=alt)
+                    self.create_kpv(index, value_at_index(airspeed.array, index), 
+                                    parameter='Airspeed', altitude=alt)
+                    self.create_kpv(index, value_at_index(roc.array, index), 
+                                    parameter='Rate Of Descent', altitude=alt)
+                    #self.create_kpv(index, value_at_index(gear.array, index), 
+                                    #parameter='Gear Down', altitude=alt)
+                    #self.create_kpv(index, value_at_index(loc.array, index), 
+                                    #parameter='ILS Localizer', altitude=alt)
+                    #self.create_kpv(index, value_at_index(power.array, index), 
+                                    #parameter='Power', altitude=alt)
+                    self.create_kpv(index, value_at_index(pitch.array, index), 
+                                    parameter='Pitch', altitude=alt)
+                    #self.create_kpv(index, value_at_index(brake.array, index), 
+                                    #parameter='Speedbrake', altitude=alt)
+                    #self.create_kpv(index, value_at_index(v_vref.array, index), 
+                                    #parameter='Airspeed Minus Vref', altitude=alt)
+                    #self.create_kpv(index, value_at_index(roll.array, index), 
+                                    #parameter='Roll', altitude=alt)
+                    #self.create_kpv(index, value_at_index(head.array, index), 
+                                    #parameter='Heading', altitude=alt)
             
   
 class AirspeedLevelFlightMax(KeyPointValueNode):
