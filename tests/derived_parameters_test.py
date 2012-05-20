@@ -60,7 +60,7 @@ from analysis_engine.derived_parameters import (
     RateOfClimb,
     RateOfClimbForFlightPhases,
     RateOfTurn,
-    Sidewind,
+    WindAcrossLandingRunway,
 )
 
 debug = sys.gettrace() is not None
@@ -1655,17 +1655,22 @@ class TestHeadwind(unittest.TestCase):
         
 
 
-class TestSidewind(unittest.TestCase):
+class TestWindAcrossLandingRunway(unittest.TestCase):
     def test_can_operate(self):
-        opts=Sidewind.get_operational_combinations()
-        self.assertEqual(opts, [('Wind Speed', 'Wind Direction', 'Heading True')])
+        opts=WindAcrossLandingRunway.get_operational_combinations()
+        self.assertEqual(opts, [('Wind Speed', 'Wind Direction', 'FDR Landing Runway')])
     
     def test_real_example(self):
         ws = P('Wind Speed', np.ma.array([84.0]))
         wd = P('Wind Direction', np.ma.array([-21]))
-        head=P('Heading True', np.ma.array([30]))
-        sw = Sidewind()
-        sw.derive(ws,wd,head)
-        expected = np.ma.array([-65.2802607623856])
-        self.assertAlmostEqual(sw.array.data, expected.data)
+        land_rwy = A('FDR Landing Runway')
+        land_rwy.value = {'start': {'latitude': 60.18499999999998,
+                                    'longitude': 11.073744}, 
+                          'end': {'latitude': 60.216066999999995,
+                                  'longitude': 11.091663999999993}}
+        
+        walr = WindAcrossLandingRunway()
+        walr.derive(ws,wd,land_rwy)
+        expected = np.ma.array([50.55619778])
+        self.assertAlmostEqual(walr.array.data, expected.data)
         

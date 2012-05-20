@@ -2655,7 +2655,7 @@ class WindAcrossLandingRunway(DerivedParameterNode):
                land_rwy = A('FDR Landing Runway')):
         rad_scale = radians(1.0)
         land_heading = runway_heading(land_rwy.value)
-        self.array = windspeed.array * np.ma.sin((wind_dir.array-land_heading)*rad_scale)
+        self.array = windspeed.array * np.ma.sin((land_heading - wind_dir.array)*rad_scale)
                 
 
 class Aileron(DerivedParameterNode):

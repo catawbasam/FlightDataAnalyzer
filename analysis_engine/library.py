@@ -20,33 +20,39 @@ class InvalidDatetime(ValueError):
 
 def align(slave, master, interval='Subframe', data_type=None):
     """
-    This function takes two parameters which will have been sampled at different
-    rates and with different offsets, and aligns the slave parameter's samples
-    to match the master parameter. In this way the master and aligned slave data
-    may be processed without timing errors.
+    This function takes two parameters which will have been sampled at
+    different rates and with different measurement offsets in time, and
+    aligns the slave parameter's samples to match the master parameter. In
+    this way the master and aligned slave data may be processed without
+    timing errors.
     
-    The values of the returned array will be those of the slave 
-    parameter, aligned to the master and adjusted by linear interpolation. The initial
-    or final values will be extended from the first or last values if they lie 
-    outside the timebase of the slave parameter (i.e. we do not extrapolate).
-    The offset and hz for the returned masked array will be those of the 
-    master parameter.
+    The values of the returned array will be those of the slave parameter,
+    aligned to the master and adjusted by linear interpolation. The initial
+    or final values will be extended from the first or last values if they
+    lie outside the timebase of the slave parameter (i.e. we do not
+    extrapolate). The offset and hz for the returned masked array will be
+    those of the master parameter.
     
     The slave's data_type is used to determine the method of interpolation.
     Anything other than discrete or multi-state will result in interpolation
-    of the data across each sample period
+    of the data across each sample period. The exception to this case is for
+    initial configuration of a recorded data LFL, in which case interpolation
+    can be confusing so an option to maintain non-aligned status is included.
  
     WARNING! Not tested with ascii data_type.
     
     :param slave: The parameter to be aligned to the master
     :type slave: Parameter objects
     :param master: The master parameter
-    :type master: Parameter objects    
+    :type master: Parameter objects
+    
+    :defunct option interval no longer required.
     :param interval: Has possible values 'Subframe' or 'Frame'.  #TODO: explain this!
     :type interval: String
-    :param data_type: Overrides the slave data_type for interpolation method. 
-    :type data_type: str
-    :type interval: String
+
+    :param data_type: Overrides the slave data_type for interpolation method.
+    :type data_type: string, default to None, but accepted options are:
+    "discrete", "multi-state" and "non-aligned".
     
     :raises AssertionError: If the interval is neither 'Subframe' or 'Frame'
     :raises AssertionError: If the arrays and sample rates do not equate to the same overall data duration.
@@ -141,7 +147,7 @@ def align(slave, master, interval='Subframe', data_type=None):
         # Cunningly, if we are working with discrete or multi-state parameters, 
         # by reverting to 1,0 or 0,1 coefficients we gather the closest value
         # in time to the master parameter.
-        if data_type and data_type.lower() in ('discrete', 'multi-state'):
+        if data_type and data_type.lower() in ('discrete', 'multi-state', 'non-aligned'):
             b = round(b)
             
         # Either way, a is the residual part.    
@@ -168,7 +174,7 @@ def align(slave, master, interval='Subframe', data_type=None):
 
 def alt_rad_non_linear(array, sensor_type):
     """
-    Nonlinear conversion for radio altimeters.
+    Nonlinear conversion for ARINC 552A radio altimeters.
     :param array: Input data array, as raw binary count from FDR data file.
     :type array: Numpy masked array, unsigned integers stored as floats.
     :param sensor_type: Identifier for the type of radio altimeter installed.

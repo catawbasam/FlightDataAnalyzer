@@ -183,19 +183,6 @@ class Airspeed1000To500FtMin(KeyPointValueNode):
                                            min_value) 
 
 
-"""
-
-Superceded by Generic Descent case
-
-class AirspeedAt1000FtInFinalApproach(KeyPointValueNode):
-    def derive(self, speed=P('Airspeed'), apps=S('Final Approach')):
-            for app in apps:
-                index = app.slice.start
-                # Reminder: by definition, final approach starts at 1000ft
-                self.create_kpv(index, value_at_index(speed.array, index)) 
-                """
-
-
 class Airspeed2000To30FtMin(KeyPointValueNode):
     def derive(self, speed=P('Airspeed'), alt_aal=P('Altitude AAL')):
             self.create_kpvs_within_slices(speed.array,
@@ -242,17 +229,6 @@ class Airspeed500To20FtMin(KeyPointValueNode):
             self.create_kpvs_within_slices(speed.array,
                                            alt_aal.slices_from_to(500, 20),
                                            min_value) 
-
-"""
-Superceded by Generic Descent case
-
-class AirspeedAt500FtInFinalApproach(KeyPointValueNode):
-    def derive(self, speed=P('Airspeed'), apps=S('Final Approach'), 
-               alt_aal=P('Altitude AAL')):
-            for app in apps:
-                index = index_at_value(alt_aal.array, 500.0, _slice=app.slice)
-                self.create_kpv(index, value_at_index(speed.array, index)) 
-                """
 
 
 class AirspeedVacatingRunway(KeyPointValueNode):
@@ -1388,17 +1364,6 @@ class EngN2CyclesInFinalApproach(KeyPointValueNode):
             self.create_kpv(*cycle_counter(eng_n2.array[fapp.slice], 0.0, 14.0, eng_n2.hz, fapp.slice.start))
 
 
-"""
-Replaced by Takeoff and After Takeoff bands.
-
-class EngN3Max(KeyPointValueNode):
-    name = 'Eng N3 Max'
-    def derive(self, eng=P('Eng (*) N3 Max')):
-        index, value = max_value(eng.array)
-        self.create_kpv(index, value)
-        """
-
-
 class EngN3TakeoffMax(KeyPointValueNode):
     name = 'Eng N3 Takeoff Max'
     def derive(self, eng_n3=P('Eng (*) N3 Avg'), ratings=S('TOGA 5 Min Rating')):
@@ -1595,25 +1560,6 @@ class FlapAtLiftoff(KeyPointValueNode):
     def derive(self, flap=P('Flap'), liftoffs=KTI('Liftoff')):
         self.create_kpvs_at_ktis(flap.array, liftoffs)
   
-
-"""
-
-Replaced by generic descent parameters
-
-class FlapInDescent(KeyPointValueNode):
-    NAME_FORMAT = 'Flap At %(altitude)d Ft AAL'
-    NAME_VALUES = {'altitude': [500, 1000, 2000]}
-    
-    def derive(self, flap=P('Flap'), alt_aal=P('Altitude AAL'), descent=S('Descent')):
-        descent_list = [s.slice for s in descent]
-        for this_descent in descent_list:
-            for alt in self.NAME_VALUES['altitude']:
-                index = index_at_value(alt_aal.array, alt, _slice=this_descent)
-                value = value_at_index(flap.array, index)
-                self.create_kpv(index, value, altitude=alt)
-                """
-            
-
 
 class FlapWithSpeedbrakesDeployedMax(KeyPointValueNode):
     #TODO: TESTS
@@ -2370,6 +2316,14 @@ class Wind(KeyPointValueNode):
                 self.create_kpv(index, value_at_index(wdir.array, index)%360.0, 
                                 parameter='Wind Direction', altitude=alt)
 
+
+class WindAcrossLandingRunwayAt50Ft(KeyPointValueNode):
+    def derive(self, walr = P('Wind Across Landing Runway'),
+               lands = S('Landing')):
+        for land in lands:
+            index = land.slice.start # Because by definition landings start at 50ft
+            self.create_kpv(index, walr.array[index])
+    
     
 class ZeroFuelWeight(KeyPointValueNode):
     """
