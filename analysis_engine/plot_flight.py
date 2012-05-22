@@ -48,8 +48,8 @@ def track_to_kml(hdf_path, kti_list, kpv_list, plot_altitude=None):
     else:
         alt = None
               
-    smooth_lat = derived_param_from_hdf(hdf, 'Latitude Prepared')
-    smooth_lon = derived_param_from_hdf(hdf, 'Longitude Prepared')
+    smooth_lat = derived_param_from_hdf(hdf, 'Latitude Smoothed')
+    smooth_lon = derived_param_from_hdf(hdf, 'Longitude Smoothed')
     #lat = derived_param_from_hdf(hdf, 'Latitude')
     #lon = derived_param_from_hdf(hdf, 'Longitude')
     

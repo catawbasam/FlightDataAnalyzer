@@ -1549,6 +1549,7 @@ class FlapSurface(DerivedParameterNode):
                 'Flap (2)' in available)
 
     def derive(self, flap_A=P('Flap (1)'), flap_B=P('Flap (2)'),
+               flap_146=P('RAW FLAP POSITION'),
                frame=A('Frame'),
                app_ldgs=S('Approach And Landing'),               
                alt_aal=P('Altitude AAL')):
@@ -1569,6 +1570,9 @@ class FlapSurface(DerivedParameterNode):
                     flap_herc[scope] = np.ma.where(alt_aal.array[scope]>1000.0,100.0,50.0)
             self.array = np.ma.array(flap_herc)
             self.frequency, self.offset = alt_aal.frequency, alt_aal.offset
+            
+        if frame_name in ['146-301']:
+            self.array = flap_146.array/100.0
                    
                             
 class Flap(DerivedParameterNode):
@@ -1867,7 +1871,7 @@ class ILSRange(DerivedParameterNode):
                gspd = P('Groundspeed'),
                tas = P('Airspeed True'),
                alt_aal = P('Altitude AAL'),
-               loc_established = S('ILS Localizer Established'),
+               loc_established = S('ILS Localizer Captured'),
                gs_established = S('ILS Glideslope Established'),
                precise = A('Precise Positioning'),
                app_info = A('FDR Approaches'),
@@ -1999,11 +2003,18 @@ class ILSRange(DerivedParameterNode):
    
     
 class LatitudeSmoothed(DerivedParameterNode):
+    # List the minimum acceptable parameters here
+    @classmethod
+    def can_operate(cls, available):
+        # List the minimum required parameters.
+        return 'Latitude Prepared' in available
+     
     units = 'deg'
-    # Note order of longitude and latitude sets data aligned to latitude.
+    
+    # Note order of longitude and latitude - data aligned to latitude here.
     def derive(self, lat = P('Latitude Prepared'),
                lon = P('Longitude Prepared'),
-               loc_est = S('ILS Localizer Established'),
+               loc_est = S('ILS Localizer Captured'),
                ils_range = P('ILS Range'),
                ils_loc = P('ILS Localizer'),
                alt_aal = P('Altitude AAL'),
@@ -2016,24 +2027,35 @@ class LatitudeSmoothed(DerivedParameterNode):
                toff_rwy = A('FDR Takeoff Runway'),
                start_datetime = A('Start Datetime'),
                ):
-        if len(app_info.value) != len(loc_est):
-            # Q: Is this still True?
-            logging.warning("Cannot Smooth latitude if the number of '%s'"
-                            "Sections is not equal to the number of approaches.",
-                            loc_est.name)
+        if ils_range:
+            if len(app_info.value) != len(loc_est):
+                # Q: Is this still True?
+                logging.warning("Cannot Smooth latitude if the number of '%s'"
+                                "Sections is not equal to the number of approaches.",
+                                loc_est.name)
+                self.array = lat.array
+                return
+            
+            self.array, _ = adjust_track(lon,lat,loc_est,ils_range,ils_loc,
+                                            alt_aal,gspd,hdg,tas,precise,toff,
+                                            app_info,toff_rwy,start_datetime)
+        else:
+            # For aircraft without ILS recorded
             self.array = lat.array
-            return
-        
-        self.array, _ = adjust_track(lon,lat,loc_est,ils_range,ils_loc,
-                                        alt_aal,gspd,hdg,tas,precise,toff,
-                                        app_info,toff_rwy,start_datetime)
         
 class LongitudeSmoothed(DerivedParameterNode):
+    # List the minimum acceptable parameters here
+    @classmethod
+    def can_operate(cls, available):
+        # List the minimum required parameters.
+        return 'Longitude Prepared' in available
+    
     units = 'deg'
-    # Note order of longitude and latitude sets data aligned to longitude.
+    
+    # Note order of longitude and latitude - data aligned to longitude here.
     def derive(self, lon = P('Longitude Prepared'),
                lat = P('Latitude Prepared'),
-               loc_est = S('ILS Localizer Established'),
+               loc_est = S('ILS Localizer Captured'),
                ils_range = P('ILS Range'),
                ils_loc = P('ILS Localizer'),
                alt_aal = P('Altitude AAL'),
@@ -2046,17 +2068,23 @@ class LongitudeSmoothed(DerivedParameterNode):
                toff_rwy = A('FDR Takeoff Runway'),
                start_datetime = A('Start Datetime'),
                ):
-        if len(app_info.value) != len(loc_est) :
-            # Q: Is this still True?
-            logging.warning("Cannot Smooth longitude if the number of '%s'"
-                            "Sections is not equal to the number of approaches.",
-                            loc_est.name)
+        if ils_range:
+            if len(app_info.value) != len(loc_est) :
+                # Q: Is this still True?
+                logging.warning("Cannot Smooth longitude if the number of '%s'"
+                                "Sections is not equal to the number of approaches.",
+                                loc_est.name)
+                self.array = lon.array
+                return        
+    
+            _, self.array = adjust_track(lon,lat,loc_est,ils_range,ils_loc,
+                                         alt_aal,gspd,hdg,tas,precise,toff,
+                                         app_info,toff_rwy,start_datetime)
+            
+        else:
+            # For aircraft without ILS recorded
             self.array = lon.array
-            return        
-
-        _, self.array = adjust_track(lon,lat,loc_est,ils_range,ils_loc,
-                                     alt_aal,gspd,hdg,tas,precise,toff,
-                                     app_info,toff_rwy,start_datetime)
+            
         
         
 def adjust_track(lon,lat,loc_est,ils_range,ils_loc,alt_aal,gspd,hdg,tas,
@@ -2627,7 +2655,7 @@ class WindAcrossLandingRunway(DerivedParameterNode):
                land_rwy = A('FDR Landing Runway')):
         rad_scale = radians(1.0)
         land_heading = runway_heading(land_rwy.value)
-        self.array = windspeed.array * np.ma.sin((wind_dir.array-land_heading)*rad_scale)
+        self.array = windspeed.array * np.ma.sin((land_heading - wind_dir.array)*rad_scale)
                 
 
 class Aileron(DerivedParameterNode):

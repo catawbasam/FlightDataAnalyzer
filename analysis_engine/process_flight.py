@@ -158,6 +158,7 @@ def derive_parameters(hdf, node_mgr, process_order):
                                                        expected_length,
                                                        len(result.array)))
                 
+            print result
             hdf.set_param(result)
         else:
             raise NotImplementedError("Unknown Type %s" % node.__class__)

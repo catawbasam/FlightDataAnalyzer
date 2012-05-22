@@ -28,7 +28,7 @@ family_flap_map = {
     'A321'       : ( 0, 10, 14, 21, 25),
     'A330'       : ( 0,  8, 14, 22, 32),
     'ATR42'      : ( 0, 15, 25, 35),
-    '146'        : ( 0, 18, 24, 30, 33), 
+    'BAE 146'    : ( 0, 18, 24, 30, 33), 
     '737'        : ( 0,  1,  2,  5, 10, 15, 25, 30, 40),
     '747'        : ( 0,  1,  5, 10, 20, 25, 30),
     '757'        : ( 0,  1,  5, 15, 20, 25, 30),
@@ -72,7 +72,7 @@ def get_flap_map(series=None, family=None):
     elif family in family_flap_map:
         return family_flap_map[family]
     else:
-        raise ValueError("No slat mapping for Series '%s' Family '%s'" % (
+        raise ValueError("No flap mapping for Series '%s' Family '%s'" % (
             series, family))
 
 #############################################################################
@@ -137,7 +137,7 @@ def get_aileron_map(series=None, family=None):
     elif family in family_aileron_map:
         return family_aileron_map[family]
     else:
-        raise ValueError("No slat mapping for Series '%s' Family '%s'" % (
+        raise ValueError("No aileron mapping for Series '%s' Family '%s'" % (
             series, family))
 
 #############################################################################
@@ -193,5 +193,5 @@ def get_config_map(series=None, family=None):
     elif family in family_config_map:
         return family_config_map[family]
     else:
-        raise ValueError("No slat mapping for Series '%s' Family '%s'" % (
+        raise ValueError("No config mapping for Series '%s' Family '%s'" % (
             series, family))

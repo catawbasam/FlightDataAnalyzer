@@ -414,10 +414,38 @@ class FinalApproach(FlightPhaseNode):
             if alt[app[0].start] > alt[app[0].stop-1]:  # Trap descents only
                 self.create_phase(shift_slice(app[0],app_land.slice.start))
 
+def scan_ils(ils_dots, height, scan_slice):
+    # Find where we first see the ILS indication. We will ignore data
+    # below 200ft to avoid getting spurious glideslope readings (hence
+    # this code is the same for glide and localizer).
+    
+    # Scan for going through 200ft, or in the case of a go-around, the lowest point - hence 'closing' condition.
+    idx_200 = index_at_value(height, 200, slice(scan_slice.stop, scan_slice.start, -1), endpoint='closing')
 
-class ILSLocalizerEstablished(FlightPhaseNode):
-    name = 'ILS Localizer Established'
+    # Now work back to 2.5 dots when the indication is first visible.
+    dots_25 = index_at_value(np.ma.abs(ils_dots), 2.5, slice(idx_200, scan_slice.start, -1))
+    if dots_25 == None:
+        dots_25 = scan_slice.start
+
+    # And now work forwards to the point of "Capture".
+    ils_capture_idx = index_at_value(np.ma.abs(ils_dots), 1.0, slice(dots_25, idx_200, +1))
+    if ils_capture_idx == None:
+        ils_capture_idx = dots_25
+    
+    ils_end_idx = index_at_value(np.ma.abs(ils_dots), 2.5, slice(idx_200, scan_slice.stop))
+    if ils_end_idx == None:
+        ils_end_idx = scan_slice.stop
+
+    return slice(ils_capture_idx, ils_end_idx)
+
+class ILSLocalizerCaptured(FlightPhaseNode):
+    name = 'ILS Localizer Captured'
     """
+    """
+    
+    """
+    Old code for 'ILS Localizer Established'
+
     Duration of approach with (repaired) Localizer deviation
     continuously less than 1 dot, within either approach phase. Where this
     duration is over 20 seconds, identify as Localizer Established and create
@@ -426,30 +454,31 @@ class ILSLocalizerEstablished(FlightPhaseNode):
     subset of the 'Fast' phase which requires the aircraft to be travelling
     at high speed. Therefore the lowest point is either the bottom of a
     go-around, touch-and-go or landing.
-    """
-    def scan_ils(self, ils_loc, start):
 
-        # TODO: extract as settings
-        LOCALIZER_ESTABLISHED_THRESHOLD = 1.0
-        LOCALIZER_ESTABLISHED_MINIMUM_TIME = 30 # Seconds
 
-        # Is the aircraft on the centreline during this phase?
-        # TODO: Rethink the mask and thresholds.
-        centreline = np.ma.masked_greater(np.ma.abs(repair_mask(ils_loc)),1.0)
-        cls = np.ma.clump_unmasked(centreline)
-        for cl in cls:
-            if cl.stop-cl.start > 30:
-                # Long enough to be established and not just crossing the ILS.
-                self.create_phase(shift_slice(cl,start))
-    
+    # TODO: extract as settings
+    LOCALIZER_ESTABLISHED_THRESHOLD = 1.0
+    LOCALIZER_ESTABLISHED_MINIMUM_TIME = 10 # Seconds
 
-    def derive(self, aals=S('Approach And Landing'),
-               aags=S('Approach And Go Around'),
-               ils_loc=P('ILS Localizer')):
+    # Is the aircraft on the centreline during this phase?
+    # TODO: Rethink the mask and thresholds.
+    centreline = np.ma.masked_greater(np.ma.abs(repair_mask(ils_loc)),1.0)
+    cls = np.ma.clump_unmasked(centreline)
+    for cl in cls:
+        if cl.stop-cl.start > 30:
+            # Long enough to be established and not just crossing the ILS.
+            self.create_phase(shift_slice(cl,start))
+            """
+
+
+    def derive(self, ils_loc=P('ILS Localizer'), 
+               alt_aal=P('Altitude AAL'),
+               aals=S('Approach And Landing'),
+               aags=S('Approach And Go Around')):
         for aal in aals:
-            self.scan_ils(ils_loc.array[aal.slice],aal.slice.start)
+            self.create_phase(scan_ils(ils_loc.array,alt_aal.array,aal.slice))
         for aag in aags:
-            self.scan_ils(ils_loc.array[aag.slice],aag.slice.start)
+            self.create_phase(scan_ils(ils_loc.array,alt_aal.array,aag.slice))
 
     ##'''
     ##Old code - TODO: Remove when new version working
@@ -507,20 +536,20 @@ class GearRetracting(FlightPhaseNode):
 class ILSApproach(FlightPhaseNode):
     name = "ILS Approach"
     """
-    Where a Localizer Established phase exists, extend the start and end of
+    Where a Localizer Captured phase exists, extend the start and end of
     the phase back to 3 dots (i.e. to beyond the view of the pilot which is
     2.5 dots) and assign this to ILS Approach phase. This period will be used
     to determine the range for the ILS display on the web site and for
     examination for ILS KPVs.
     """
     def derive(self, ils_loc = P('ILS Localizer'),
-               ils_loc_ests = S('ILS Localizer Established')):
+               ils_loc_caps = S('ILS Localizer Captured')):
         # For most of the flight, the ILS will not be valid, so we scan only
         # the periods with valid data, ignoring short breaks:
         locs = np.ma.clump_unmasked(repair_mask(ils_loc.array))
         for loc_slice in locs:
-            for ils_loc_est in ils_loc_ests:
-                est_slice = ils_loc_est.slice
+            for ils_loc_cap in ils_loc_caps:
+                est_slice = ils_loc_cap.slice
                 if slices_overlap(loc_slice, est_slice):
                     before_established = slice(est_slice.start, loc_slice.start, -1)
                     begin = index_at_value(np.ma.abs(ils_loc.array),
@@ -533,25 +562,25 @@ class ILSApproach(FlightPhaseNode):
 class ILSGlideslopeEstablished(FlightPhaseNode):
     name = "ILS Glideslope Established"
     """
-    Within the Localizer Established phase, compute duration of approach with
+    Within the Localizer Captured phase, compute duration of approach with
     (repaired) Glideslope deviation continuously less than 1 dot,. Where > 10
     seconds, identify as Glideslope Established.
     """
     def derive(self, ils_gs = P('ILS Glideslope'),
-               ils_loc_ests = S('ILS Localizer Established'),
+               ils_loc_caps = S('ILS Localizer Captured'),
                alt_aal=P('Altitude AAL')):
-        for ils_loc_est in ils_loc_ests:
+        for ils_loc_cap in ils_loc_caps:
             # Reduce the duration of the ILS localizer established period
             # down to minimum altitude. TODO: replace 100ft by variable ILS
-            # caterogry minima, possibly variable by operator.
-            min_index = index_closest_value(alt_aal.array, 100, ils_loc_est.slice)
+            # category minima, possibly variable by operator.
+            min_index = index_closest_value(alt_aal.array, 100, ils_loc_cap.slice)
             
             # ^^^
             #TODO: limit this to 100ft min if the ILS Glideslope established threshold is reduced.            
             
             # Truncate the ILS establiched phase.
-            ils_loc_2_min = slice(ils_loc_est.slice.start,
-                                  min(ils_loc_est.slice.stop,min_index)) 
+            ils_loc_2_min = slice(ils_loc_cap.slice.start,
+                                  min(ils_loc_cap.slice.stop,min_index)) 
             gs = repair_mask(ils_gs.array[ils_loc_2_min]) # prepare gs data
             gsm = np.ma.masked_outside(gs,-1,1)  # mask data more than 1 dot
             ends = np.ma.flatnotmasked_edges(gsm)  # find the valid endpoints
@@ -563,7 +592,7 @@ class ILSGlideslopeEstablished(FlightPhaseNode):
                 self.create_phase(ils_loc_2_min)
             else:
                 # Create the reduced duration phase
-                reduced_phase = shift_slice(slice(ends[0],ends[1]),ils_loc_est.slice.start)
+                reduced_phase = shift_slice(slice(ends[0],ends[1]),ils_loc_cap.slice.start)
                 # Cases where the aircraft shoots across the glidepath can
                 # result in one or two samples within the range, in which
                 # case the reduced phase will be None.

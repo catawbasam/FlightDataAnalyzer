@@ -893,7 +893,11 @@ class KeyTimeInstanceNode(FormattedNameNode):
         :raises TypeError: If a string formatting argument is of the wrong type.
         '''
         if index is None:
+            # This is treated as an error because conditions where a KTI does
+            # not arise, or where the data is masked at the point of the KTI,
+            # should be handled within the calling procedure.
             raise ValueError("Cannot create at index None")
+        
         name = self.format_name(replace_values, **kwargs)
         kti = KeyTimeInstance(index, name)
         self.append(kti)

@@ -183,19 +183,6 @@ class Airspeed1000To500FtMin(KeyPointValueNode):
                                            min_value) 
 
 
-"""
-
-Superceded by Generic Descent case
-
-class AirspeedAt1000FtInFinalApproach(KeyPointValueNode):
-    def derive(self, speed=P('Airspeed'), apps=S('Final Approach')):
-            for app in apps:
-                index = app.slice.start
-                # Reminder: by definition, final approach starts at 1000ft
-                self.create_kpv(index, value_at_index(speed.array, index)) 
-                """
-
-
 class Airspeed2000To30FtMin(KeyPointValueNode):
     def derive(self, speed=P('Airspeed'), alt_aal=P('Altitude AAL')):
             self.create_kpvs_within_slices(speed.array,
@@ -242,17 +229,6 @@ class Airspeed500To20FtMin(KeyPointValueNode):
             self.create_kpvs_within_slices(speed.array,
                                            alt_aal.slices_from_to(500, 20),
                                            min_value) 
-
-"""
-Superceded by Generic Descent case
-
-class AirspeedAt500FtInFinalApproach(KeyPointValueNode):
-    def derive(self, speed=P('Airspeed'), apps=S('Final Approach'), 
-               alt_aal=P('Altitude AAL')):
-            for app in apps:
-                index = index_at_value(alt_aal.array, 500.0, _slice=app.slice)
-                self.create_kpv(index, value_at_index(speed.array, index)) 
-                """
 
 
 class AirspeedVacatingRunway(KeyPointValueNode):
@@ -601,32 +577,33 @@ class GenericDescent(KeyPointValueNode):
         for this_descent in descent_list:
             for alt in self.NAME_VALUES['altitude']:
                 index = index_at_value(alt_aal.array, alt, _slice=this_descent)
-                #self.create_kpv(index, value_at_index(slope.array, index), 
-                                #parameter='Slope To Landing', altitude=alt)
-                self.create_kpv(index, value_at_index(flap.array, index), 
-                                parameter='Flap', altitude=alt)
-                #self.create_kpv(index, value_at_index(glide.array, index), 
-                                #parameter='ILS Glideslope', altitude=alt)
-                self.create_kpv(index, value_at_index(airspeed.array, index), 
-                                parameter='Airspeed', altitude=alt)
-                self.create_kpv(index, value_at_index(roc.array, index), 
-                                parameter='Rate Of Descent', altitude=alt)
-                #self.create_kpv(index, value_at_index(gear.array, index), 
-                                #parameter='Gear Down', altitude=alt)
-                #self.create_kpv(index, value_at_index(loc.array, index), 
-                                #parameter='ILS Localizer', altitude=alt)
-                #self.create_kpv(index, value_at_index(power.array, index), 
-                                #parameter='Power', altitude=alt)
-                self.create_kpv(index, value_at_index(pitch.array, index), 
-                                parameter='Pitch', altitude=alt)
-                #self.create_kpv(index, value_at_index(brake.array, index), 
-                                #parameter='Speedbrake', altitude=alt)
-                #self.create_kpv(index, value_at_index(v_vref.array, index), 
-                                #parameter='Airspeed Minus Vref', altitude=alt)
-                #self.create_kpv(index, value_at_index(roll.array, index), 
-                                #parameter='Roll', altitude=alt)
-                #self.create_kpv(index, value_at_index(head.array, index), 
-                                #parameter='Heading', altitude=alt)
+                if index:
+                    #self.create_kpv(index, value_at_index(slope.array, index), 
+                                    #parameter='Slope To Landing', altitude=alt)
+                    self.create_kpv(index, value_at_index(flap.array, index), 
+                                        parameter='Flap', altitude=alt)
+                    #self.create_kpv(index, value_at_index(glide.array, index), 
+                                    #parameter='ILS Glideslope', altitude=alt)
+                    self.create_kpv(index, value_at_index(airspeed.array, index), 
+                                    parameter='Airspeed', altitude=alt)
+                    self.create_kpv(index, value_at_index(roc.array, index), 
+                                    parameter='Rate Of Descent', altitude=alt)
+                    #self.create_kpv(index, value_at_index(gear.array, index), 
+                                    #parameter='Gear Down', altitude=alt)
+                    #self.create_kpv(index, value_at_index(loc.array, index), 
+                                    #parameter='ILS Localizer', altitude=alt)
+                    #self.create_kpv(index, value_at_index(power.array, index), 
+                                    #parameter='Power', altitude=alt)
+                    self.create_kpv(index, value_at_index(pitch.array, index), 
+                                    parameter='Pitch', altitude=alt)
+                    #self.create_kpv(index, value_at_index(brake.array, index), 
+                                    #parameter='Speedbrake', altitude=alt)
+                    #self.create_kpv(index, value_at_index(v_vref.array, index), 
+                                    #parameter='Airspeed Minus Vref', altitude=alt)
+                    #self.create_kpv(index, value_at_index(roll.array, index), 
+                                    #parameter='Roll', altitude=alt)
+                    #self.create_kpv(index, value_at_index(head.array, index), 
+                                    #parameter='Heading', altitude=alt)
             
   
 class AirspeedLevelFlightMax(KeyPointValueNode):
@@ -970,6 +947,33 @@ class ILSFrequencyOnApproach(KeyPointValueNode):
             self.create_kpv(established.slice.start, freq)
 
 
+class ILSGlideslopeDeviation1500To1000FtMax(KeyPointValueNode):
+    name = 'ILS Glideslope Deviation 1500 To 1000 Ft Max'
+    def derive(self, ils_glideslope=P('ILS Glideslope'),
+               alt_aal = P('Altitude AAL'),
+               estabs=S('ILS Glideslope Established')):
+        # Find where the maximum (absolute) deviation occured and
+        # store the actual value. We can do abs on the statistics to
+        # normalise this, but retaining the sign will make it
+        # possible to look for direction of errors at specific
+        # airports.
+        for estab in estabs:
+            for band in slices_from_to(alt_aal.array[estab.slice],1500, 1000)[1]:
+                kpv_slice=[slice(estab.slice.start+band.start, estab.slice.start+band.stop)]
+                self.create_kpvs_within_slices(ils_glideslope.array,kpv_slice,max_abs_value)  
+
+
+class ILSGlideslopeDeviation1000To150FtMax(KeyPointValueNode):
+    name = 'ILS Glideslope Deviation 1000 To 150 Ft Max'
+    def derive(self, ils_glideslope=P('ILS Glideslope'),
+               alt_aal = P('Altitude AAL'),
+               estabs=S('ILS Glideslope Established')):
+        for estab in estabs:
+            for band in slices_from_to(alt_aal.array[estab.slice],1000, 150)[1]:
+                kpv_slice=[slice(estab.slice.start+band.start, estab.slice.start+band.stop)]
+                self.create_kpvs_within_slices(ils_glideslope.array,kpv_slice,max_abs_value)  
+
+
 class ILSLocalizerDeviation1500To1000FtMax(KeyPointValueNode):
     name = 'ILS Localizer Deviation 1500 To 1000 Ft Max'
     def derive(self, ils_loc=P('ILS Localizer'),
@@ -996,21 +1000,6 @@ class ILSLocalizerDeviation1000To150FtMax(KeyPointValueNode):
             index = begin + index_this_period
             value = ils_loc.array[index]
             self.create_kpv(index, value)
-
-
-class ILSLocalizerDeviation1500To1000FtMax(KeyPointValueNode):
-    name = 'ILS Localizer Deviation 1500 To 1000 Ft Max'
-    def derive(self, ils_loc=P('ILS Localizer'),
-               alt_aal = P('Altitude AAL')):
-        # For commented version, see GlideslopeDeviation1500To1000FtMax
-        for this_period in alt_aal.slices_from_to(1500, 1000):
-            begin = this_period.start
-            end = this_period.stop
-            if alt_aal.array[begin] > alt_aal.array[end-1]:
-                index_this_period = np.ma.argmax(np.ma.abs(ils_loc.array[begin:end]))
-                index = begin + index_this_period
-                value = ils_loc.array[index]
-                self.create_kpv(index, value)
 
 
 class TimeFromTouchdownTo60Kts(KeyPointValueNode):
@@ -1375,17 +1364,6 @@ class EngN2CyclesInFinalApproach(KeyPointValueNode):
             self.create_kpv(*cycle_counter(eng_n2.array[fapp.slice], 0.0, 14.0, eng_n2.hz, fapp.slice.start))
 
 
-"""
-Replaced by Takeoff and After Takeoff bands.
-
-class EngN3Max(KeyPointValueNode):
-    name = 'Eng N3 Max'
-    def derive(self, eng=P('Eng (*) N3 Max')):
-        index, value = max_value(eng.array)
-        self.create_kpv(index, value)
-        """
-
-
 class EngN3TakeoffMax(KeyPointValueNode):
     name = 'Eng N3 Takeoff Max'
     def derive(self, eng_n3=P('Eng (*) N3 Avg'), ratings=S('TOGA 5 Min Rating')):
@@ -1491,55 +1469,6 @@ class AltitudeAtFirstConfigChangeAfterLiftoff(KeyPointValueNode):
                                 value_at_index(alt_aal.array, index))
 
 
-class ILSGlideslopeDeviation1500To1000FtMax(KeyPointValueNode):
-    name = 'ILS Glideslope Deviation 1500 To 1000 Ft Max'
-    def derive(self, ils_glideslope=P('ILS Glideslope'),
-               alt_aal = P('Altitude AAL'),
-               estabs=S('ILS Glideslope Established')):
-        # Find where the maximum (absolute) deviation occured and
-        # store the actual value. We can do abs on the statistics to
-        # normalise this, but retaining the sign will make it
-        # possible to look for direction of errors at specific
-        # airports.
-        for estab in estabs:
-            for band in slices_from_to(alt_aal.array[estab.slice],1500, 1000)[1]:
-                kpv_slice=[slice(estab.slice.start+band.start, estab.slice.start+band.stop)]
-                self.create_kpvs_within_slices(ils_glideslope.array,kpv_slice,max_abs_value)  
-
-
-class ILSGlideslopeDeviationAbove1000FtMax(KeyPointValueNode):
-    name = 'ILS Glideslope Deviation Above 1000 Ft Max'
-    def derive(self, ils_glideslope=P('ILS Glideslope'),
-               alt_aal = P('Altitude AAL'),
-               estabs=S('ILS Glideslope Established')):
-        for estab in estabs:
-            for band in slices_above(alt_aal.array[estab.slice],1000)[1]:
-                kpv_slice=[slice(estab.slice.start+band.start, estab.slice.start+band.stop)]
-                self.create_kpvs_within_slices(ils_glideslope.array,kpv_slice,max_abs_value)  
-            
-
-class ILSGlideslopeDeviationBelow1000FtMax(KeyPointValueNode):
-    name = 'ILS Glideslope Deviation Below 1000 Ft Max'
-    def derive(self, ils_glideslope=P('ILS Glideslope'),
-               alt_aal = P('Altitude AAL'),
-               estabs=S('ILS Glideslope Established')):
-        for estab in estabs:
-            for band in slices_below(alt_aal.array[estab.slice],1000)[1]:
-                kpv_slice=[slice(estab.slice.start+band.start, estab.slice.start+band.stop)]
-                self.create_kpvs_within_slices(ils_glideslope.array,kpv_slice,max_abs_value)  
-
-    
-class ILSGlideslopeDeviation1000To150FtMax(KeyPointValueNode):
-    name = 'ILS Glideslope Deviation 1000 To 150 Ft Max'
-    def derive(self, ils_glideslope=P('ILS Glideslope'),
-               alt_aal = P('Altitude AAL'),
-               estabs=S('ILS Glideslope Established')):
-        for estab in estabs:
-            for band in slices_from_to(alt_aal.array[estab.slice],1000, 150)[1]:
-                kpv_slice=[slice(estab.slice.start+band.start, estab.slice.start+band.stop)]
-                self.create_kpvs_within_slices(ils_glideslope.array,kpv_slice,max_abs_value)  
-
-
 class HeadingDeviationOnTakeoffAbove100Kts(KeyPointValueNode):
     """
     The heading deviation is measured as the peak-to-peak deviation between
@@ -1631,25 +1560,6 @@ class FlapAtLiftoff(KeyPointValueNode):
     def derive(self, flap=P('Flap'), liftoffs=KTI('Liftoff')):
         self.create_kpvs_at_ktis(flap.array, liftoffs)
   
-
-"""
-
-Replaced by generic descent parameters
-
-class FlapInDescent(KeyPointValueNode):
-    NAME_FORMAT = 'Flap At %(altitude)d Ft AAL'
-    NAME_VALUES = {'altitude': [500, 1000, 2000]}
-    
-    def derive(self, flap=P('Flap'), alt_aal=P('Altitude AAL'), descent=S('Descent')):
-        descent_list = [s.slice for s in descent]
-        for this_descent in descent_list:
-            for alt in self.NAME_VALUES['altitude']:
-                index = index_at_value(alt_aal.array, alt, _slice=this_descent)
-                value = value_at_index(flap.array, index)
-                self.create_kpv(index, value, altitude=alt)
-                """
-            
-
 
 class FlapWithSpeedbrakesDeployedMax(KeyPointValueNode):
     #TODO: TESTS
@@ -1831,10 +1741,10 @@ class PitchAt35FtInClimb(KeyPointValueNode):
                 self.create_kpv(index, value)
 
 
-class PitchUpTo1000FtMin(KeyPointValueNode):
+class Pitch35To1000FtMin(KeyPointValueNode):
     def derive(self, pitch=P('Pitch'), alt_aal=P('Altitude AAL')):
         self.create_kpvs_within_slices(pitch.array,
-                                       alt_aal.slices_from_to(0, 1000),
+                                       alt_aal.slices_from_to(35, 1000),
                                        min_value)
 
 
@@ -2406,6 +2316,14 @@ class Wind(KeyPointValueNode):
                 self.create_kpv(index, value_at_index(wdir.array, index)%360.0, 
                                 parameter='Wind Direction', altitude=alt)
 
+
+class WindAcrossLandingRunwayAt50Ft(KeyPointValueNode):
+    def derive(self, walr = P('Wind Across Landing Runway'),
+               lands = S('Landing')):
+        for land in lands:
+            index = land.slice.start # Because by definition landings start at 50ft
+            self.create_kpv(index, walr.array[index])
+    
     
 class ZeroFuelWeight(KeyPointValueNode):
     """
