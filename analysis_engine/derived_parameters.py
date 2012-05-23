@@ -292,6 +292,7 @@ class AltitudeAAL(DerivedParameterNode):
                 ralt_sections = np.ma.clump_unmasked(from_0_to_100ft )
                 for ralt_section in ralt_sections:
                     if np.ma.max(alt_rad.array[air][ralt_section]) > 35.0:
+                        # We have a reading between 35ft and 100ft so this looks good.
                         alt_aal[air][ralt_section] = alt_rad.array[air][ralt_section]
                     else:
                         # Probably a bounced landing, which we will ignore.

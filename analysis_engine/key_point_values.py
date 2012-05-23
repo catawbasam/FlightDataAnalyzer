@@ -2072,8 +2072,8 @@ class SpeedbrakesDeployedWithPowerOnDuration(KeyPointValueNode):
         # Speedbrake and Power => s_and_p
         s_and_ps = slices_overlay(speedbrakes_applied_in_flight, high_power)
         for s_and_p in s_and_ps:
-            index = s_and_p.start + airs.get_first().slice.start
-            value = (s_and_p.stop - s_and_p.start) / speedbrake.hz
+            index = s_and_p.start + np.ma.argmax(power.array[s_and_p])
+            value = (s_and_p.stop - s_and_p.start - 1) / speedbrake.hz
             self.create_kpv(index, value)
 
 
@@ -2123,10 +2123,10 @@ class SpeedbrakesDeployedWithPowerOnInHeightBandsDuration(KeyPointValueNode):
     '''
     Specific to certain operators.
     '''
-    NAME_FORMAT = 'Speedbrake Deployed N1 > %(eng_n1)d % Between %(upper)d And %(lower)d Ft Duration'
+    NAME_FORMAT = 'Speedbrake Deployed With N1>%(eng_n1)d Between %(upper)d And %(lower)d Ft Duration'
     NAME_VALUES = {'eng_n1': [50, 60],
                    'upper':[35000, 20000, 6000], 
-                   'lower':[20000, 6000, 1]}
+                   'lower':[20000, 6000, 0]}
     def derive(self, speedbrake=P('Speedbrake'), power=P('Eng (*) N1 Avg'), 
                alt_aal=P('Altitude AAL'), airs=S('Airborne')):
         
@@ -2135,16 +2135,17 @@ class SpeedbrakesDeployedWithPowerOnInHeightBandsDuration(KeyPointValueNode):
                 for low in self.NAME_VALUES['lower']:
                     if up <= low:
                         break
-                    
-                    speedbrake_in_flight = mask_outside_slices(speedbrake.array, [s.slice for s in airs])
-                    speedbrakes_applied_in_flight = np.ma.clump_unmasked(np.ma.masked_less(speedbrake_in_flight,0.5))
+                    speedbrake_in_band = mask_outside_slices(speedbrake.array, alt_aal.slices_between(up, low))
+                    speedbrakes_applied_in_flight = np.ma.clump_unmasked(np.ma.masked_less(speedbrake_in_band,0.5))
                     high_power = np.ma.clump_unmasked(np.ma.masked_less(power.array, eng_speed))
                     # Speedbrake and Power => s_and_p
                     s_and_ps = slices_overlay(speedbrakes_applied_in_flight, high_power)
                     for s_and_p in s_and_ps:
-                        index = s_and_p.start + airs.get_first().slice.start
-                        value = (s_and_p.stop - s_and_p.start) / speedbrake.hz
-                        self.create_kpv(index, value)
+                        # Mark the point at highest power applied
+                        index = s_and_p.start + np.ma.argmax(power.array[s_and_p])
+                        value = (s_and_p.stop - s_and_p.start - 1) / speedbrake.hz
+                        self.create_kpv(index, value, 
+                                        eng_n1=eng_speed, upper=up, lower=low)
 
 
 class StickPusherActivated(KeyPointValueNode):
