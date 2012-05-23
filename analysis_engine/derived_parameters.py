@@ -14,7 +14,6 @@ from analysis_engine.model_information import (get_aileron_map,
 from analysis_engine.node import A, DerivedParameterNode, KPV, KTI, P, S, Parameter
 
 from analysis_engine.library import (align,
-                                     alt_rad_non_linear,
                                      bearings_and_distances,
                                      blend_alternate_sensors,
                                      blend_two_parameters,
@@ -514,17 +513,14 @@ class AltitudeRadio(DerivedParameterNode):
                 merge_two_parameters(source_A, source_B)
         
         elif frame_name in ['737-5']:
-            if 'Altitude_Radio_D226A101_1_16D' in frame_qualifier:
-                # Compute nonlinear rad alt from recorded value
-                source_A.array = alt_rad_non_linear(source_A.array, 'D226A101_1_16D')
-                source_B.array = alt_rad_non_linear(source_B.array, 'D226A101_1_16D')
+            alt_rad_efis = 'Altitude_Radio_EFIS' in frame_qualifier
+            alt_rad_d226a101_1_16d = \
+                'Altitude_Radio_D226A101_1_16D' in frame_qualifier
+            if alt_rad_efis or alt_rad_d226a101_1_16d:
                 self.array, self.frequency, self.offset = \
                     blend_two_parameters(source_A, source_B)
-
-            elif 'Altitude_Radio_EFIS' in frame_qualifier:
-                self.array, self.frequency, self.offset = \
-                    blend_two_parameters(source_C, source_D)
-                self.array = np.ma.masked_greater(self.array, 2600)
+                if alt_rad_efis:
+                    self.array = np.ma.masked_greater(self.array, 2600)
 
             elif 'Altitude_Radio_None' in frame_qualifier:
                 pass # Some old 737 aircraft have no rad alt recorded.
