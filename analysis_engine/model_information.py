@@ -63,7 +63,7 @@ def get_flap_map(series=None, family=None):
     :type series: String
     :param family: Aircraft family e.g. B737
     :type family: String
-    :raises: ValueError if no mapping found
+    :raises: KeyError if no mapping found
     :returns: list of detent values
     :rtype: list
     """
@@ -72,7 +72,7 @@ def get_flap_map(series=None, family=None):
     elif family in family_flap_map:
         return family_flap_map[family]
     else:
-        raise ValueError("No flap mapping for Series '%s' Family '%s'" % (
+        raise KeyError("No flap mapping for Series '%s' Family '%s'" % (
             series, family))
 
 #############################################################################
@@ -95,7 +95,7 @@ def get_slat_map(series=None, family=None):
     :type series: String
     :param family: Aircraft family e.g. B737
     :type family: String
-    :raises: ValueError if no mapping found
+    :raises: KeyError if no mapping found
     :returns: list of detent values
     :rtype: list
     """
@@ -104,7 +104,7 @@ def get_slat_map(series=None, family=None):
     elif family in family_slat_map:
         return family_slat_map[family]
     else:
-        raise ValueError("No slat mapping for Series '%s' Family '%s'" % (
+        raise KeyError("No slat mapping for Series '%s' Family '%s'" % (
             series, family))
 
 
@@ -128,7 +128,7 @@ def get_aileron_map(series=None, family=None):
     :type series: String
     :param family: Aircraft family e.g. B737
     :type family: String
-    :raises: ValueError if no mapping found
+    :raises: KeyError if no mapping found
     :returns: list of detent values
     :rtype: list
     """
@@ -137,7 +137,7 @@ def get_aileron_map(series=None, family=None):
     elif family in family_aileron_map:
         return family_aileron_map[family]
     else:
-        raise ValueError("No aileron mapping for Series '%s' Family '%s'" % (
+        raise KeyError("No aileron mapping for Series '%s' Family '%s'" % (
             series, family))
 
 #############################################################################
@@ -184,7 +184,7 @@ def get_config_map(series=None, family=None):
     :type series: String
     :param family: Aircraft family e.g. B737
     :type family: String
-    :raises: ValueError if no mapping found
+    :raises: KeyError if no mapping found
     :returns: config mapping
     :rtype: dict
     """
@@ -193,5 +193,5 @@ def get_config_map(series=None, family=None):
     elif family in family_config_map:
         return family_config_map[family]
     else:
-        raise ValueError("No config mapping for Series '%s' Family '%s'" % (
+        raise KeyError("No config mapping for Series '%s' Family '%s'" % (
             series, family))

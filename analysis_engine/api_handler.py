@@ -89,9 +89,9 @@ class APIHandlerHTTP(object):
         except ValueError:
             # Only JSON return types supported, any other return means server
             # is not configured correctly
-            logging.exception("JSON decode error for '%s' - only JSON supported"
-                             " by this API. Server configuration error? %s\nBody: %s",
-                             method, uri, body)
+            logging.exception("JSON decode error for '%s' - only JSON "
+                              "supported by this API. Server configuration "
+                              "error? %s\nBody: %s", method, uri, body)
             raise
         # Test HTTP Status.
         if status != 200:

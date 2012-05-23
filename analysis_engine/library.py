@@ -172,30 +172,6 @@ def align(slave, master, interval='Subframe', data_type=None):
 
     return slave_aligned
 
-def alt_rad_non_linear(array, sensor_type):
-    """
-    Nonlinear conversion for ARINC 552A radio altimeters.
-    :param array: Input data array, as raw binary count from FDR data file.
-    :type array: Numpy masked array, unsigned integers stored as floats.
-    :param sensor_type: Identifier for the type of radio altimeter installed.
-    :type sensor_type: String - see code for details of sensors recognised.
-    
-    :returns altitude_radio
-    :type Numpy masked array of converted altitudes, in feet.
-    """
-    if sensor_type in ['D226A101_1_16D']:
-        # Reference Boeing document D226A101-1, Note 16D.
-        # This type uses an ARINC 573 HLDC input where 32V=4095 bits full scale.
-        # Interestingly, this input is not listed in the ARINC 717 spec.
-        ratio = 32.0/4095.0
-        volts = array * ratio
-        height = np.ma.where(volts<10.0,
-                             (volts-0.4)/0.02,
-                             500*np.ma.exp(volts/10.0)/np.exp(1.0)-20.0)
-        return np.ma.masked_outside(height, -20, 2500)
-    
-    raise ValueError,'alt_rad_non_linear called with unrecognised sensor_type'
-
 def bearings_and_distances(latitudes, longitudes, reference):
     """
     Returns the bearings and distances of a track with respect to a fixed point.

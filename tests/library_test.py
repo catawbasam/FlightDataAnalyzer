@@ -387,17 +387,7 @@ class TestAlign(unittest.TestCase):
         result = align(slave, onehz, data_type='Multi-state')
         expected = np.ma.array([1] * 64 + [2] * 64 + [3] * 64 + [4] * 64)
         np.testing.assert_array_equal(result.data, expected)
-
-
-class TestAltRadNonLinear(unittest.TestCase):
-    def test_sensor_type_not_recognised(self):
-        self.assertRaises(ValueError, alt_rad_non_linear, None, 'not a recognised sensor type')
     
-    def test_boeing_16D(self):
-        test_data=np.ma.array([0,51,1280,3349,4095])
-        result = alt_rad_non_linear(test_data,'D226A101_1_16D')
-        expected = np.ma.array(data=[-20,0,480,2500,2600],mask=[0,0,0,0,1])
-        ma_test.assert_array_almost_equal(expected, result, decimal=0)
     
 class TestBearingsAndDistances(unittest.TestCase):
     def test_known_distance(self):
