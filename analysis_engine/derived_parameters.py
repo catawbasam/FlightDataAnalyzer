@@ -519,10 +519,11 @@ class AltitudeRadio(DerivedParameterNode):
             if alt_rad_efis or alt_rad_d226a101_1_16d:
                 self.array, self.frequency, self.offset = \
                     blend_two_parameters(source_A, source_B)
+
                 if alt_rad_efis:
                     self.array = np.ma.masked_greater(self.array, 2600)
 
-            elif 'Altitude_Radio_None' in frame_qualifier:
+            elif frame_qualifier and 'Altitude_Radio_None' in frame_qualifier:
                 pass # Some old 737 aircraft have no rad alt recorded.
 
             else:
@@ -1519,7 +1520,7 @@ class FlapLever(DerivedParameterNode):
     def derive(self, flap=P('Flap Lever Position'), series=A('Series'), family=A('Family')):
         try:
             flap_steps = get_flap_map(series.value, family.value) 
-        except ValueError:
+        except KeyError:
             # no flaps mapping, round to nearest 5 degrees
             logging.warning("No flap settings - rounding to nearest 5")
             # round to nearest 5 degrees
@@ -1575,21 +1576,15 @@ class Flap(DerivedParameterNode):
     """
     Steps raw Flap angle from surface into detents.
     """
-    @classmethod
-    def can_operate(cls, available):
-        # works with any combination of params available
-        return True
-
     def derive(self, flap=P('Flap Surface'),
-               series=A('Series'), family=A('Family'),
-               flap_steps=A('Flap Selections')):
+               series=A('Series'), family=A('Family')):
         
         """
         Steps raw Flap angle into detents.
         """
         try:
             flap_steps = get_flap_map(series.value, family.value) 
-        except:
+        except KeyError:
             # no flaps mapping, round to nearest 5 degrees
             logging.warning("No flap settings - rounding to nearest 5")
             # round to nearest 5 degrees
@@ -1605,7 +1600,7 @@ class Slat(DerivedParameterNode):
     def derive(self, slat=P('Slat Surface'), series=A('Series'), family=A('Family')):
         try:
             slat_steps = get_slat_map(series.value, family.value) 
-        except ValueError:
+        except KeyError:
             # no slats mapping, round to nearest 5 degrees
             logging.warning("No slat settings - rounding to nearest 5")
             # round to nearest 5 degrees
