@@ -511,6 +511,12 @@ class TakeoffGrossWeight(FlightAttributeNode):
             self.set_flight_attr(None)
     
 
+"""
+
+TODO: This code does not identify the pilot correctly. Roll (FO) is the roll
+attitude from the right side instrument, not the Airbus first officer
+sidestick roll input. Needs a rewrite.
+
 class TakeoffPilot(FlightAttributeNode, DeterminePilot):
     "Pilot flying at takeoff, Captain, First Officer or None"
     name = 'FDR Takeoff Pilot'
@@ -537,6 +543,7 @@ class TakeoffPilot(FlightAttributeNode, DeterminePilot):
                                              pitch_fo, roll_fo, first_takeoff,
                                              first_autopilot1, first_autopilot2)
         self.set_flight_attr(pilot_flying)
+        """
 
 
 class TakeoffRunway(FlightAttributeNode):

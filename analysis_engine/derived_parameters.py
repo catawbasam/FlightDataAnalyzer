@@ -451,7 +451,7 @@ class AltitudeForClimbCruiseDescent(DerivedParameterNode):
     """
     units = 'ft'
     def derive(self, alt_std=P('Altitude STD')):
-        self.array = hysteresis(alt_std.array, HYSTERESIS_FPALT_CCD)
+        self.array = hysteresis(repair_mask(alt_std.array), HYSTERESIS_FPALT_CCD)
     
     
 class AltitudeForFlightPhases(DerivedParameterNode):
@@ -2687,14 +2687,12 @@ class AileronTrim(DerivedParameterNode): # RollTrim
 
 class Elevator(DerivedParameterNode):
     '''
+    Blends alternate elevator samples
     '''
-    # TODO: TEST
-    name = 'Elevator'
-
     def derive(self,
                el=P('Elevator (L)'),
                er=P('Elevator (R)')):
-        return NotImplemented
+        self.array, self.frequency, self.offset = blend_two_parameters(el, er)
 
 
 class ElevatorTrim(DerivedParameterNode): # PitchTrim

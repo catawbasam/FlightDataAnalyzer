@@ -13,6 +13,7 @@ from analysis_engine.library import (find_edges,
                                      shift_slices, 
                                      slice_duration,
                                      slices_overlap,
+                                     slices_overlay,
                                      slice_samples)
 
 from analysis_engine.node import FlightPhaseNode, A, P, S, KTI
@@ -203,9 +204,29 @@ class ApproachAndLanding(FlightPhaseNode):
 
 
 class ClimbCruiseDescent(FlightPhaseNode):
-    def derive(self, alt=P('Altitude For Climb Cruise Descent')):
-        ccd = np.ma.masked_less(alt.array, ALTITUDE_FOR_CLB_CRU_DSC)
-        self.create_phases(np.ma.clump_unmasked(ccd))
+    def derive(self, alt_ccd=P('Altitude For Climb Cruise Descent'), 
+               alt_aal=P('Altitude AAL For Flight Phases')):
+        above_1000_ft = np.ma.clump_unmasked(np.ma.masked_less(alt_aal.array, 1000.0))
+        low_flight = np.ma.clump_unmasked(np.ma.masked_greater(alt_ccd.array, ALTITUDE_FOR_CLB_CRU_DSC))
+        low_slices = slices_overlay(above_1000_ft, low_flight)
+        if len(low_slices)==0:
+            return
+        elif len(low_slices)==1:
+            self.create_phase(above_1000_ft[0])
+        else:
+            # We have descended and climbed again, so split the flights at minimum height points.
+            first_climb_start = above_1000_ft[0].start
+            climb_stop = np.ma.argmin(alt_aal.array[low_slices[1]])+ \
+                low_slices[1].start
+            self.create_phase(slice(first_climb_start, climb_stop))
+            for i in range(2,len(low_slices)):
+                this_climb_start = climb_stop
+                climb_stop = np.ma.argmin(alt_aal.array[low_slices[i]])+ \
+                    low_slices[i].start
+                self.create_phase(slice(this_climb_start, climb_stop))
+            this_climb_start = climb_stop
+            last_climb_stop = above_1000_ft[0].stop
+            self.create_phase(slice(this_climb_start, last_climb_stop))
 
 
 class Climb(FlightPhaseNode):
@@ -298,15 +319,15 @@ class Descending(FlightPhaseNode):
 
 class Descent(FlightPhaseNode):
     def derive(self, 
-               tod=P('Top Of Descent'), 
-               bod=P('Bottom Of Descent')):
+               tod_set=P('Top Of Descent'), 
+               bod_set=P('Bottom Of Descent')):
         # First we extract the kti index values into simple lists.
         tod_list = []
-        for this_tod in tod:
+        for this_tod in tod_set:
             tod_list.append(this_tod.index)
 
         # Now see which preceded this minimum
-        for this_bod in bod:
+        for this_bod in bod_set:
             bod = this_bod.index
             # Scan the TODs
             closest_tod = None

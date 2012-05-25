@@ -1650,7 +1650,7 @@ def minimum_unmasked(array1, array2):
 
 def merge_two_parameters (param_one, param_two):
     '''
-    This process merges two parameter arrays of the same frequency.
+    This process merges two parameter objects. They must be recorded at the same frequency.
     without smoothing, and then computes the offset and frequency appropriately.
     
     Note: There is no check for the parameters being equi-spaced.
@@ -1696,7 +1696,7 @@ def merge_sources(*arrays):
 
 def blend_alternate_sensors (array_one, array_two, padding):
     '''
-    This simple process merges the data from two sensors where they are sampled
+    This process merges the data from two sensors where they are sampled
     alternately. Often pilot and co-pilot attitude and air data signals are
     stored in alternate locations to provide the required sample rate while
     allowing errors in either to be identified for investigation purposes.
@@ -1831,7 +1831,19 @@ def peak_curvature(array, _slice=slice(None), curve_sense='Concave'):
     overall = 2*ttp + gap 
     # check the array is long enough.
     if len(data) < overall:
-        raise ValueError, 'Peak curvature called with too short a sample'
+        # Simple Numpy array method for small data sets.
+        if len(data) < 4:
+            return len(data)/2
+        else:
+            curve = data[2:] - 2.0*data[1:-1] + data[:-2]
+            if curve_sense == 'Concave':
+                return np.ma.argmax(curve) + 1
+            elif curve_sense == 'Convex':
+                return np.ma.argmin(curve) + 1
+            elif curve_sense == 'Bipolar':
+                return np.ma.argmin(np.ma.abs(curve)) + 1
+            else:
+                raise NotImplementedError
 
     # Set up working arrays
     x = np.arange(ttp) + 1 #  The x-axis is always short and constant
@@ -2545,6 +2557,14 @@ def value_at_time(array, hz, offset, time_index):
     # Timedelta truncates to 6 digits, therefore round offset down.
     time_into_array = time_index - round(offset-0.0000005, 6)
     location_in_array = time_into_array * hz
+    
+    # Trap overruns which can arise from compensation for timing offsets.
+    diff = location_in_array - len(array)
+    if 0<diff<1:
+        location_in_array = len(array)
+    if -1<location_in_array<0:
+        location_in_array = 0
+    
     return value_at_index(array, location_in_array)
 
 def value_at_datetime(start_datetime, array, hz, offset, value_datetime):
@@ -2584,9 +2604,7 @@ def value_at_index(array, index):
     :raises ValueError: If index is outside of array range.
     '''
     
-    if index < -1.0 or index > len(array):
-        raise ValueError, 'Seeking value outside data time range'
-    elif index < 0.0:
+    if index < 0.0:
         return array[0]
     elif index > len(array)-1:
         return array[-1]
