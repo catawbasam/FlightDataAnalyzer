@@ -514,9 +514,9 @@ class AltitudeRadio(DerivedParameterNode):
                 merge_two_parameters(source_A, source_B)
         
         elif frame_name in ['737-5']:
-            alt_rad_efis = 'Altitude_Radio_EFIS' in frame_qualifier
+            alt_rad_efis = frame_qualifier and 'Altitude_Radio_EFIS' in frame_qualifier
             alt_rad_d226a101_1_16d = \
-                'Altitude_Radio_D226A101_1_16D' in frame_qualifier
+                frame_qualifier and 'Altitude_Radio_D226A101_1_16D' in frame_qualifier
             if alt_rad_efis or alt_rad_d226a101_1_16d:
                 self.array, self.frequency, self.offset = \
                     blend_two_parameters(source_A, source_B)

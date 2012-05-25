@@ -306,7 +306,7 @@ def _calculate_start_datetime(hdf, fallback_dt=None):
     for name in ('Year', 'Month', 'Day', 'Hour', 'Minute', 'Second'):
         param = hdf.get(name)
         if param:
-            array = align(hdf[name], onehz, signaltype='Multi-State')
+            array = align(hdf[name], onehz, data_type='Multi-State')
             if len(array) == 0 or np.ma.count(array) == 0:
                 logging.warning("No valid values returned for %s", name)
             else:
