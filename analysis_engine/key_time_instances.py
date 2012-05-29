@@ -351,9 +351,11 @@ class TakeoffPeakAcceleration(KeyTimeInstanceNode):
 class Liftoff(KeyTimeInstanceNode):
     def derive(self, alt_aal=P('Altitude AAL'), fast=S('Fast')):
         for speedy in fast:
-            airs = np.ma.clump_masked(np.ma.masked_greater(alt_aal.array[speedy.slice], 0.0))
-            for air in airs:
-                self.create_kti(speedy.slice.start + air.start)
+            # We only want to look for a liftoff if we accelerated.
+            if speedy.slice.start:
+                airs = np.ma.clump_masked(np.ma.masked_greater(alt_aal.array[speedy.slice], 0.0))
+                for air in airs:
+                    self.create_kti(speedy.slice.start + air.start)
     
     """
     def derive(self, roc=P('Rate Of Climb'), toffs=S('Takeoff')):
@@ -372,10 +374,10 @@ class Liftoff(KeyTimeInstanceNode):
                                 """
             
 
+"""
 class ILSLocalizerEstablished(KeyTimeInstanceNode):
     name = 'ILS Localizer Established'
-    """
-    """
+
     def established(self, ils_dots, _slice):
         
         # TODO: extract as settings
@@ -393,12 +395,13 @@ class ILSLocalizerEstablished(KeyTimeInstanceNode):
                 return _slice.start+cl.start
         return None
             
-    def derive(self, ils_caps=S('ILS Localizer Captured'),
+    def derive(self, ils_caps=S('ILS Localizer Established'),
                ils_loc=P('ILS Localizer'), alt_aal=P('Altitude AAL')):
         for ils_cap in ils_caps:
             estab_idx = self.established(ils_loc.array, ils_cap.slice)
             if estab_idx:
                 self.create_kti(estab_idx)
+                """
 
 
 class InitialClimbStart(KeyTimeInstanceNode):
@@ -438,9 +441,14 @@ class TouchAndGo(KeyTimeInstanceNode):
 class Touchdown(KeyTimeInstanceNode):
     def derive(self, alt_aal=P('Altitude AAL'), fast=S('Fast')):
         for speedy in fast:
+            # Reject data with no endpoint.
+            if speedy.slice.stop == None:
+                break
+            # Find when we were on the ground.
             airs = np.ma.clump_masked(np.ma.masked_greater(alt_aal.array[speedy.slice], 0.0))
             for air in airs:
-                self.create_kti(speedy.slice.start + air.stop)
+                if is_index_within_slice(air.stop, speedy.slice):
+                    self.create_kti((speedy.slice.start or 0) + air.stop)
     """
     def derive(self, roc=P('Rate Of Climb'), landings=S('Landing')):
         for landing in landings:
@@ -453,7 +461,6 @@ class Touchdown(KeyTimeInstanceNode):
                                 roc.name, RATE_OF_CLIMB_FOR_TOUCHDOWN,
                                 landing.name)
                                 """
-
 
 class LandingTurnOffRunway(KeyTimeInstanceNode):
     # See Takeoff Turn Onto Runway for description.

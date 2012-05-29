@@ -9,23 +9,24 @@ from analysis_engine.key_time_instances import (BottomOfDescent,
                                          TopOfDescent
                                          )
 from analysis_engine.plot_flight import plot_parameter
-from analysis_engine.flight_phase import (
-    Airborne,
-    ApproachAndGoAround,
-    ApproachAndLanding,
-    ClimbCruiseDescent,
-    Climbing,
-    Cruise,
-    Descending,
-    DescentLowClimb,
-    Fast,
-    FinalApproach,
-    ILSLocalizerEstablished,
-    Landing,
-    LevelFlight,
-    Takeoff,
-    #Turning
-    )
+from analysis_engine.flight_phase import (Airborne,
+                                          ApproachAndGoAround,
+                                          ApproachAndLanding,
+                                          ClimbCruiseDescent,
+                                          Climbing,
+                                          Cruise,
+                                          Descending,
+                                          DescentLowClimb,
+                                          Fast,
+                                          FinalApproach,
+                                          ILSLocalizerEstablished,
+                                          Landing,
+                                          LevelFlight,
+                                          Takeoff,
+                                          #Turning
+                                          )
+
+from analysis_engine.library import integrate
 
 from analysis_engine.settings import AIRSPEED_THRESHOLD
 
@@ -42,10 +43,11 @@ class TestAirborne(unittest.TestCase):
                                          range(400,-450,-50)+
                                          range(-450,50,50))
         rate_of_climb = Parameter('Rate Of Climb For Flight Phases', np.ma.array(rate_of_climb_data))
-        fast = SectionNode('Fast', items=[Section('Fast',slice(2,25,None))])
+        altitude = Parameter('Altitude AAL', integrate(rate_of_climb_data, 1, 0, 1.0/60.0))
+        fast = SectionNode('Fast', items=[Section('Fast',slice(2,25,None),2,25)])
         air = Airborne()
-        air.derive(rate_of_climb, fast)
-        expected = Section(name='Airborne', slice=slice(6, 25, None))
+        air.derive(rate_of_climb, altitude, fast)
+        expected = Section(name='Airborne', slice=slice(2, 25, None), start_edge=6, stop_edge=25)
         self.assertEqual(air.get_first(), expected)
 
     def test_airborne_phase_not_airborne(self):

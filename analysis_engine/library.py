@@ -697,8 +697,64 @@ def find_edges(array, _slice, direction='rising_edges'):
     # element only. 
     # The -0.5 shifts the value midway between the pre- and post-change
     # samples.
-    edge_list = edges[0] + int(_slice.start) - 0.5
+    edge_list = edges[0] + int(_slice.start or 0) - 0.5
     return list(edge_list)
+
+def first_valid_sample(array, start_index=None):
+    '''
+    Returns the first valid sample of data from a point in an array.
+    
+    :param array: array of values to scan
+    :type array: Numpy masked array
+    :param start_index: optional initial point for the scan. Must be positive.
+    :type start_index: integer
+    
+    :returns index: index for the first valid sample at or after start_index.
+    :type index: Integer or None 
+    :returns value: the value of first valid sample.
+    :type index: Float or None
+    '''
+    if start_index == None:
+        start_index = 0
+    # Trap for start_index < 0 ensures we don't stray into the far end of the array.    
+    elif start_index < 0 or start_index > len(array):
+        return None, None
+    
+    clumps = np.ma.clump_unmasked(array[start_index:])
+    if clumps:
+        index = clumps[0].start + start_index
+        return index, array[index]
+    else:
+        return None, None
+
+
+def last_valid_sample(array, end_index=None):
+    '''
+    Returns the last valid sample of data before a point in an array.
+
+    :param array: array of values to scan
+    :type array: Numpy masked array
+    :param end_index: optional initial point for the scan. May be negative.
+    :type end_index: integer
+    
+    :returns index: index for the last valid sample at or before end_index.
+    :type index: Integer or None 
+    :returns value: the value of last valid sample.
+    :type index: Float or None
+    '''
+    if end_index == None: 
+        end_index = len(array)
+    elif end_index > len(array):
+        return None, None
+    
+    clumps = np.ma.clump_unmasked(array[:end_index+1])
+    if clumps:
+        index = clumps[-1].stop - 1
+        return index, array[index]
+    else:
+        return None, None
+
+
 
 def first_order_lag (in_param, time_constant, hz, gain = 1.0,
                      initial_value = None):
@@ -929,13 +985,16 @@ def runway_length(runway):
     :type start_loc: float, units = feet.
     '''
     
-    start_lat = runway['start']['latitude']
-    start_lon = runway['start']['longitude']
-    end_lat = runway['end']['latitude']
-    end_lon = runway['end']['longitude']
+    try:
+        start_lat = runway['start']['latitude']
+        start_lon = runway['start']['longitude']
+        end_lat = runway['end']['latitude']
+        end_lon = runway['end']['longitude']
+        
+        return _dist(start_lat, start_lon, end_lat, end_lon)
+    except:
+        return None
     
-    return _dist(start_lat, start_lon, end_lat, end_lon)
-
 def runway_heading(runway):
     '''
     Computation of the runway heading from endpoints.
@@ -950,13 +1009,16 @@ def runway_heading(runway):
     :param rwy_hdg: true heading of runway centreline.
     :type rwy_hdg: float, units = degrees, facing from start to end.
     '''
-    end_lat = runway['end']['latitude']
-    end_lon = runway['end']['longitude']
-    
-    brg, dist = bearings_and_distances(np.ma.array(end_lat),
-                                       np.ma.array(end_lon),
-                                       runway['start'])
-    return brg.data    
+    try:
+        end_lat = runway['end']['latitude']
+        end_lon = runway['end']['longitude']
+        
+        brg, dist = bearings_and_distances(np.ma.array(end_lat),
+                                           np.ma.array(end_lon),
+                                           runway['start'])
+        return brg.data
+    except:
+        return None
 
 def ground_track(lat_fix, lon_fix, gspd, hdg, frequency, mode):
     """
@@ -1788,6 +1850,9 @@ def np_ma_zeros_like(array):
     replaced should the Numpy library be extended in future.
     """
     return np.ma.array(np.zeros_like(array), mask=False)
+
+def np_ma_ones_like(array):
+    return np_ma_zeros_like(array) + 1
 
 
 def np_ma_masked_zeros_like(array):

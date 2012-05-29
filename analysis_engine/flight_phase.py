@@ -2,10 +2,12 @@ import logging
 import numpy as np
 
 from analysis_engine.library import (find_edges,
+                                     first_valid_sample,
                                      hysteresis, 
                                      index_at_value,
                                      index_closest_value,
                                      is_slice_within_slice,
+                                     last_valid_sample,
                                      minimum_unmasked,
                                      peak_curvature, 
                                      repair_mask, 
@@ -39,49 +41,37 @@ from analysis_engine.settings import (AIRSPEED_THRESHOLD,
 
     
 class Airborne(FlightPhaseNode):
-    def derive(self, roc=P('Rate Of Climb For Flight Phases'), fast=S('Fast')):
+    def derive(self, roc=P('Rate Of Climb For Flight Phases'), 
+               alt_aal=P('Altitude AAL'),fast=S('Fast')):
         # Rate of climb limit set to identify both level flight and 
         # end of takeoff / start of landing.
+
         for speedy in fast:
-            midpoint = (speedy.slice.start + speedy.slice.stop) / 2
-            # If the data starts in the climb, it must be already airborne.
-            if roc.array[speedy.slice.start] > RATE_OF_CLIMB_FOR_LEVEL_FLIGHT :
-                up = speedy.slice.start
+            start_point = speedy.slice.start or 0
+            stop_point = speedy.slice.stop or len(roc.array)
+            
+            # If the data starts in the air, and it's flying fast, it must be
+            # already airborne.
+            valid_index, valid_alt = first_valid_sample(alt_aal.array, start_point)
+            if valid_index == None:
+                #There is no valid altitude data so pack up now.
+                return
+            elif valid_alt > 0.0 :
+                up = valid_index
             else:
-                # Scan through the first half to find where the aircraft first
-                # flies upwards
+                # Scan to find where the aircraft first flies upwards
                 up = index_at_value(roc.array, +RATE_OF_CLIMB_FOR_LEVEL_FLIGHT,
-                                    slice(speedy.slice.start,midpoint))
-            if not up:
-                # The aircraft can have been airborne at the start of this
-                # segment. If it goes down during this half of the data we
-                # can assume it was airborne at the start of the segment.
-                if index_at_value(roc.array, -RATE_OF_CLIMB_FOR_LEVEL_FLIGHT,
-                                  slice(speedy.slice.start,midpoint)):
-                    up = speedy.slice.start
-                else:
-                    up = None
+                                    slice(start_point, stop_point))
                     
-            # Scan backwards through the latter half to find where the
-            # aircraft last descends.
-            lastpoint = int(speedy.slice.stop)
-            if roc.array[lastpoint-1] < -RATE_OF_CLIMB_FOR_LEVEL_FLIGHT:
-                down = lastpoint
-            elif lastpoint - midpoint < 2:
-                down = lastpoint
+            # Scan backwards to find where the aircraft last descends.
+            valid_index, valid_alt = last_valid_sample(alt_aal.array, stop_point)
+            if valid_alt > 0.0:
+                down = valid_index
             else:
                 down = index_at_value(roc.array, -RATE_OF_CLIMB_FOR_LEVEL_FLIGHT,
-                                      slice(lastpoint,midpoint,-1))
+                                      slice(stop_point,start_point,-1))
 
-            if not down:
-                if index_at_value(roc.array, +RATE_OF_CLIMB_FOR_LEVEL_FLIGHT,
-                                  slice(lastpoint,midpoint,-1)):
-                    down = lastpoint
-                else:
-                    down = None
-
-            if up and down:
-                self.create_phase(slice(up,down))
+            self.create_phase(slice(up,down))
 
 
 '''
@@ -386,6 +376,7 @@ class Fast(FlightPhaseNode):
     def derive(self, airspeed=P('Airspeed For Flight Phases')):
         # Did the aircraft go fast enough to possibly become airborne?
         
+        """
         # We use the same technique as in index_at_value where transition of
         # the required threshold is detected by summing shifted difference
         # arrays. This has the particular advantage that we can reject
@@ -394,28 +385,23 @@ class Fast(FlightPhaseNode):
         value_passing_array = (airspeed.array[0:-2]-AIRSPEED_THRESHOLD) * \
             (airspeed.array[1:-1]-AIRSPEED_THRESHOLD)
         test_array = np.ma.masked_outside(value_passing_array, 0.0, -100.0)
-        fast_samples = np.ma.notmasked_edges(test_array)
+        """
         
-        if fast_samples is None:
-            # Did not go fast enough, or was always fast.
-            if np.ma.max(airspeed.array) > AIRSPEED_THRESHOLD:
-                fast_samples = np.array([0, len(airspeed.array)])
-            else:
-                return
-        elif fast_samples[0] == fast_samples[1]:
-            # Airspeed array either starts or stops Fast.
-            index = fast_samples[0]
-            if airspeed.array[index] > airspeed.array[index+1]:
-                # Airspeed slowing down, start at the beginning of the data.
-                fast_samples[0] = np.ma.where(airspeed.array)[0][0]
-            else:
-                # Airspeed speeding up, start at the end of the data.
-                fast_samples[1] = np.ma.where(airspeed.array)[0][-1]
+        fast_samples = np.ma.clump_unmasked(np.ma.masked_less(airspeed.array, AIRSPEED_THRESHOLD))
+        
+        if fast_samples == []:
+            # Did not go fast enough, so no phase created.
+            new_list = [slice(None, None)]
+                
         else:
-            # Shift the samples to allow for the indexing at the beginning.
-            fast_samples += 1
-            
-        self.create_phase(slice(*fast_samples))
+            new_list = []
+            for fast_sample in fast_samples:
+                if abs(airspeed.array[fast_sample.start]-AIRSPEED_THRESHOLD) > 20:
+                    fast_sample = slice(None, fast_sample.stop)
+                if abs(airspeed.array[fast_sample.stop-1]-AIRSPEED_THRESHOLD) > 20:
+                    fast_sample = slice(fast_sample.start, None)
+                new_list.append(fast_sample)
+        self.create_phases(new_list)
  
 
 class FinalApproach(FlightPhaseNode):
@@ -434,84 +420,6 @@ class FinalApproach(FlightPhaseNode):
                 logging.debug('More than one final approach during a single approach and landing phase')
             if alt[app[0].start] > alt[app[0].stop-1]:  # Trap descents only
                 self.create_phase(shift_slice(app[0],app_land.slice.start))
-
-def scan_ils(ils_dots, height, scan_slice):
-    # Find where we first see the ILS indication. We will ignore data
-    # below 200ft to avoid getting spurious glideslope readings (hence
-    # this code is the same for glide and localizer).
-    
-    # Scan for going through 200ft, or in the case of a go-around, the lowest point - hence 'closing' condition.
-    idx_200 = index_at_value(height, 200, slice(scan_slice.stop, scan_slice.start, -1), endpoint='closing')
-
-    # Now work back to 2.5 dots when the indication is first visible.
-    dots_25 = index_at_value(np.ma.abs(ils_dots), 2.5, slice(idx_200, scan_slice.start, -1))
-    if dots_25 == None:
-        dots_25 = scan_slice.start
-
-    # And now work forwards to the point of "Capture".
-    ils_capture_idx = index_at_value(np.ma.abs(ils_dots), 1.0, slice(dots_25, idx_200, +1))
-    if ils_capture_idx == None:
-        ils_capture_idx = dots_25
-    
-    ils_end_idx = index_at_value(np.ma.abs(ils_dots), 2.5, slice(idx_200, scan_slice.stop))
-    if ils_end_idx == None:
-        ils_end_idx = scan_slice.stop
-
-    return slice(ils_capture_idx, ils_end_idx)
-
-class ILSLocalizerCaptured(FlightPhaseNode):
-    name = 'ILS Localizer Captured'
-    """
-    """
-    
-    """
-    Old code for 'ILS Localizer Established'
-
-    Duration of approach with (repaired) Localizer deviation
-    continuously less than 1 dot, within either approach phase. Where this
-    duration is over 20 seconds, identify as Localizer Established and create
-    a phase accordingly. Reminder: 'Approach And Landing' phase is computed
-    fromt the parameter 'Altitude AAL For Flight Phases' which in turn is a
-    subset of the 'Fast' phase which requires the aircraft to be travelling
-    at high speed. Therefore the lowest point is either the bottom of a
-    go-around, touch-and-go or landing.
-
-
-    # TODO: extract as settings
-    LOCALIZER_ESTABLISHED_THRESHOLD = 1.0
-    LOCALIZER_ESTABLISHED_MINIMUM_TIME = 10 # Seconds
-
-    # Is the aircraft on the centreline during this phase?
-    # TODO: Rethink the mask and thresholds.
-    centreline = np.ma.masked_greater(np.ma.abs(repair_mask(ils_loc)),1.0)
-    cls = np.ma.clump_unmasked(centreline)
-    for cl in cls:
-        if cl.stop-cl.start > 30:
-            # Long enough to be established and not just crossing the ILS.
-            self.create_phase(shift_slice(cl,start))
-            """
-
-
-    def derive(self, ils_loc=P('ILS Localizer'), 
-               alt_aal=P('Altitude AAL'),
-               aals=S('Approach And Landing'),
-               aags=S('Approach And Go Around')):
-        for aal in aals:
-            self.create_phase(scan_ils(ils_loc.array,alt_aal.array,aal.slice))
-        for aag in aags:
-            self.create_phase(scan_ils(ils_loc.array,alt_aal.array,aag.slice))
-
-    ##'''
-    ##Old code - TODO: Remove when new version working
-            ###low_index=lowest.get_last(within_slice=aal.slice).index
-            ###if np.ma.abs(ils_loc.array[low_index]) > ILS_MAX_SCALE:
-                #### Not on ILS localizer at lowest point, so not established.
-                ###break
-            ###amplitude = np.ma.abs(ils_loc.array)
-            ###in_range = np.ma.masked_outside(amplitude,-ILS_MAX_SCALE,ILS_MAX_SCALE)
-            ###phases = np.ma.clump_unmasked(in_range)
-            ###self.create_phase(phases[-1])
-    ##'''
 
 
 class GearExtending(FlightPhaseNode):
@@ -553,24 +461,66 @@ class GearRetracting(FlightPhaseNode):
                 end = edge+(4.5*gear_down.frequency)
                 self.create_phase(slice(begin, end))
 
+
+def scan_ils(ils_dots, height, scan_slice):
+    # Find where we first see the ILS indication. We will start from 200ft to
+    # avoid getting spurious glideslope readings (hence this code is the same
+    # for glide and localizer).
+    
+    # Scan for going through 200ft, or in the case of a go-around, the lowest
+    # point - hence 'closing' condition.
+    idx_200 = index_at_value(height, 200, slice(scan_slice.stop, scan_slice.start, -1), endpoint='closing')
+
+    # Now work back to 2.5 dots when the indication is first visible.
+    dots_25 = index_at_value(np.ma.abs(ils_dots), 2.5, slice(idx_200, scan_slice.start, -1))
+    if dots_25 == None:
+        dots_25 = scan_slice.start
+
+    # And now work forwards to the point of "Capture", defined as the first
+    # time the ILS goes below 1 dot.
+    ils_capture_idx = index_at_value(np.ma.abs(ils_dots), 1.0, slice(dots_25, idx_200, +1))
+    if ils_capture_idx == None:
+        # Aircraft came into the approach phase already on the centreline.
+        ils_capture_idx = dots_25
+    
+    ils_end_idx = index_at_value(np.ma.abs(ils_dots), 2.5, slice(idx_200, scan_slice.stop))
+    if ils_end_idx == None:
+        ils_end_idx = scan_slice.stop
+
+    return slice(ils_capture_idx, ils_end_idx)
+
+
+class ILSLocalizerEstablished(FlightPhaseNode):
+    name = 'ILS Localizer Established'
+    """
+    """
+    def derive(self, ils_loc=P('ILS Localizer'), 
+               alt_aal=P('Altitude AAL'),
+               aals=S('Approach And Landing'),
+               aags=S('Approach And Go Around')):
+        for aal in aals:
+            self.create_phase(scan_ils(ils_loc.array,alt_aal.array,aal.slice))
+        for aag in aags:
+            self.create_phase(scan_ils(ils_loc.array,alt_aal.array,aag.slice))
+
   
 class ILSApproach(FlightPhaseNode):
     name = "ILS Approach"
     """
-    Where a Localizer Captured phase exists, extend the start and end of
+    Where a Localizer Established phase exists, extend the start and end of
     the phase back to 3 dots (i.e. to beyond the view of the pilot which is
     2.5 dots) and assign this to ILS Approach phase. This period will be used
     to determine the range for the ILS display on the web site and for
     examination for ILS KPVs.
     """
     def derive(self, ils_loc = P('ILS Localizer'),
-               ils_loc_caps = S('ILS Localizer Captured')):
+               ils_loc_ests = S('ILS Localizer Established')):
         # For most of the flight, the ILS will not be valid, so we scan only
         # the periods with valid data, ignoring short breaks:
         locs = np.ma.clump_unmasked(repair_mask(ils_loc.array))
         for loc_slice in locs:
-            for ils_loc_cap in ils_loc_caps:
-                est_slice = ils_loc_cap.slice
+            for ils_loc_est in ils_loc_ests:
+                est_slice = ils_loc_est.slice
                 if slices_overlap(loc_slice, est_slice):
                     before_established = slice(est_slice.start, loc_slice.start, -1)
                     begin = index_at_value(np.ma.abs(ils_loc.array),
@@ -583,25 +533,30 @@ class ILSApproach(FlightPhaseNode):
 class ILSGlideslopeEstablished(FlightPhaseNode):
     name = "ILS Glideslope Established"
     """
-    Within the Localizer Captured phase, compute duration of approach with
+    Within the Localizer Established phase, compute duration of approach with
     (repaired) Glideslope deviation continuously less than 1 dot,. Where > 10
     seconds, identify as Glideslope Established.
     """
     def derive(self, ils_gs = P('ILS Glideslope'),
-               ils_loc_caps = S('ILS Localizer Captured'),
+               ils_loc_ests = S('ILS Localizer Established'),
                alt_aal=P('Altitude AAL')):
-        for ils_loc_cap in ils_loc_caps:
+        for ils_loc_est in ils_loc_ests:
+            self.create_phase(scan_ils(ils_gs.array, alt_aal.array, ils_loc_est.slice))
+            
+
+        """
+        for ils_loc_est in ils_loc_ests:
             # Reduce the duration of the ILS localizer established period
             # down to minimum altitude. TODO: replace 100ft by variable ILS
             # category minima, possibly variable by operator.
-            min_index = index_closest_value(alt_aal.array, 100, ils_loc_cap.slice)
+            min_index = index_closest_value(alt_aal.array, 100, ils_loc_est.slice)
             
             # ^^^
             #TODO: limit this to 100ft min if the ILS Glideslope established threshold is reduced.            
             
             # Truncate the ILS establiched phase.
-            ils_loc_2_min = slice(ils_loc_cap.slice.start,
-                                  min(ils_loc_cap.slice.stop,min_index)) 
+            ils_loc_2_min = slice(ils_loc_est.slice.start,
+                                  min(ils_loc_est.slice.stop,min_index)) 
             gs = repair_mask(ils_gs.array[ils_loc_2_min]) # prepare gs data
             gsm = np.ma.masked_outside(gs,-1,1)  # mask data more than 1 dot
             ends = np.ma.flatnotmasked_edges(gsm)  # find the valid endpoints
@@ -613,7 +568,7 @@ class ILSGlideslopeEstablished(FlightPhaseNode):
                 self.create_phase(ils_loc_2_min)
             else:
                 # Create the reduced duration phase
-                reduced_phase = shift_slice(slice(ends[0],ends[1]),ils_loc_cap.slice.start)
+                reduced_phase = shift_slice(slice(ends[0],ends[1]),ils_loc_est.slice.start)
                 # Cases where the aircraft shoots across the glidepath can
                 # result in one or two samples within the range, in which
                 # case the reduced phase will be None.
@@ -627,7 +582,7 @@ class ILSGlideslopeEstablished(FlightPhaseNode):
                     ##self.create_phase(shift_slice(on_slope,this_slice.start))
 
 
-"""
+
 class InitialApproach(FlightPhaseNode):
     def derive(self, alt_AAL=P('Altitude AAL For Flight Phases'),
                app_lands=S('Approach And Landing')):
@@ -644,7 +599,7 @@ class InitialApproach(FlightPhaseNode):
                 if ini_app[pit] < ini_app[begin] :
                     self.create_phases(shift_slices([slice(begin, pit)],
                                                    app_land.slice.start))
-"""
+                                                   """
 
 class LevelFlight(FlightPhaseNode):
     def derive(self, roc=P('Rate Of Climb For Flight Phases'),airs=S('Airborne')):
@@ -763,7 +718,7 @@ class Takeoff(FlightPhaseNode):
             # We know a takeoff should come at the start of the phase,
             # however if the aircraft is already airborne, we can skip the
             # takeoff stuff.
-            if int(speedy.slice.start) == 0:
+            if speedy.slice.start == None:
                 break
             
             # The aircraft is part way down it's takeoff run at the start of 

@@ -242,23 +242,23 @@ def csv_flight_details(hdf_path, kti_list, kpv_list, phase_list, dest_path=None)
     rows = []
     params = ['Airspeed', 'Altitude AAL', 'Pitch', 'Roll']
     attrs = ['value', 'datetime', 'latitude', 'longitude'] 
-    header = ['Type', 'Phase Start', 'Index', 'Phase End', 'Name'] + attrs + params
+    header = ['Path', 'Type', 'Phase Start', 'Index', 'Phase End', 'Name'] + attrs + params
 
     with hdf_file(hdf_path) as hdf:
         for value in kti_list:
-            vals = ['Key Time Instance', None, value.index, None, value.name, None,
+            vals = [hdf_path, 'Key Time Instance', None, value.index, None, value.name, None,
                     value.datetime, value.latitude, value.longitude]
             rows.append( vals )
 
         for value in kpv_list:
-            vals = ['Key Point Value', None, value.index, None, value.name, value.value,
+            vals = [hdf_path, 'Key Point Value', None, value.index, None, value.name, value.value,
                     value.datetime]+[None]*2
             rows.append( vals )
 
         for value in phase_list:
-            vals = ['Phase', value.name, value.start_edge]+[None]*6
+            vals = [hdf_path, 'Phase', value.name, value.start_edge]+[None]*6
             rows.append( vals )
-            vals = ['Phase', None, value.stop_edge, value.name]+[None]*5
+            vals = [hdf_path, 'Phase', None, value.stop_edge, value.name]+[None]*5
             rows.append( vals )
 
         for param in params:
@@ -267,14 +267,15 @@ def csv_flight_details(hdf_path, kti_list, kpv_list, phase_list, dest_path=None)
             dp = Parameter(name=p.name, array=p.array, 
                                 frequency=p.frequency, offset=p.offset)
             for row in rows:
-                row.append(dp.at(row[2]))
+                row.append(dp.at(row[3]))
 
     # sort rows
     rows = sorted(rows, key=lambda x: x[header.index('Index')])
     # print to CSV
     if not dest_path:
-        dest_path = os.path.splitext(hdf_path)[0] + '_values_at_indexes.csv'
-    with open(dest_path, 'wb') as dest:
+        # dest_path = os.path.splitext(hdf_path)[0] + '_values_at_indexes.csv'
+        dest_path = 'combined_test_output.csv'
+    with open(dest_path, 'ab') as dest:
         writer = csv.writer(dest)
         writer.writerow(header)
         writer.writerows(rows)

@@ -999,8 +999,8 @@ class KeyPointValueNode(FormattedNameNode):
         #threshold was masked needs to be a warning as this should not
         #happen.
         if value is np.ma.masked:
-            raise ValueError("'%s' cannot create KPV at index '%s' as value is masked."
-                             "'%s'."% [self.name, index])
+            logging.warn("'%s' cannot create KPV at index '%s' as value is masked."%
+                         (self.name, index))
             return
         name = self.format_name(replace_values, **kwargs)
         kpv = KeyPointValue(index, float(value), name)

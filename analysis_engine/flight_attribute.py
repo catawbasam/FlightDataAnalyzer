@@ -280,7 +280,7 @@ class FlightNumber(FlightAttributeNode):
             # this value accounts for at least 60% of the values in the array
             self.set_flight_attr(str(value))
         else:
-            logging.warning("'%s' found low variance in '%s'. Attribute will "
+            logging.warning("'%s' found no consistent values in '%s'. Attribute will "
                             "be set as None.", self.name, num.name)
             self.set_flight_attr(None)
             return
@@ -831,19 +831,11 @@ class Vref(FlightAttributeNode):
     '''
     Based on weight and flap at time of landing.
     '''
-    name = 'FDR Vref'
     def derive(self, 
                #aircraft_model=A('AFR Aircraft Model'),
                weight_touchdown=KPV('Gross Weight At Touchdown'),
                flap_touchdown=KPV('Flap At Touchdown')):
-
-
-
-
-        # I have no idea why this is called FDR Vref. Very confusing.
         self.set_flight_attr(110.0) # It doesn't get simpler than this ! DJ
-
-
 
         '''
         Do not source from AFR, only set attribute if V2 is recorded/derived.
