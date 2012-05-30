@@ -27,14 +27,54 @@ class AnalysisDatetime(FlightAttributeNode):
 class Approaches(FlightAttributeNode):
     '''
     All airports which were approached, including the final landing airport.
+    
+    Each Approach And Landing is associated with an airfield and a runway
+    where possible. 
+    
+    The airfield is identified thus:
+
+    if the aircraft lands:
+        the airfield closest to the position recorded at maximum deceleration on
+        the runway (i.e. LandingLatitude, LandingLongitude KPVs)
+    else:
+        the airfield closest to the aircraft position at the lowest point of 
+        approach (i.e. ApproachMinimumLongitude, ApproachMinimumLatitude KPVs)
+
+    The runway is identified thus:
+
+    if the aircraft lands:
+        identify using the runway bearing recorded at maximum deceleration
+        (i.e. the LandingHeading KPV)
+        
+        if there are parallel runways:
+            if the ILS is tuned and localizer data is valid:
+                use the ApproachILSFrequency KPV to identify the runway
+
+            elseif accurate position data is available:
+                use the position (LandingLatitude, LandingLongitude)
+                recorded at maximum deceleration to identify the runway
+
+            else:
+                use "*" to declare the runway not identified.
+                
+    else if the aircraft reaches the final approach phase:
+        identify the runway bearing from the heading at lowest point of the 
+        approach (ApproachMinimumHeading)
+
+        if there are parallel runways:
+            if the ILS is tuned and localizer data is valid:
+                use ApproachILSFrequency to identify the runway
+            else:
+                use "*" to declare the runway not identified.
+    
+    
     '''
     name = 'FDR Approaches'
     @classmethod
     def can_operate(self, available):
         return all([n in available for n in ['Start Datetime',
-                                             'Approach And Landing',
+                                             'Approach',
                                              'Altitude AAL',
-                                             'Approach And Go Around',
                                              'Latitude At Lowest Point On Approach',
                                              'Longitude At Lowest Point On Approach',
                                              'Latitude At Landing',
@@ -129,9 +169,9 @@ class Approaches(FlightAttributeNode):
     
     def derive(self, 
                alt_aal = P('Altitude AAL'),
-               approach_landing=S('Approach And Landing'),
-               approach_go_around=S('Approach And Go Around'),
-               landing_hdg_kpvs=KPV('Heading At Landing'), # touch_and_gos=KTI('Touch And Go'),
+               approach_sections=S('Approach'),
+               speedy=S('Fast'),
+               landing_hdg_kpvs=KPV('Heading At Landing'),
                landing_lat_kpvs=KPV('Latitude At Landing'),
                landing_lon_kpvs=KPV('Longitude At Landing'),
                approach_hdg_kpvs=KPV('Heading At Lowest Point On Approach'),
@@ -146,26 +186,23 @@ class Approaches(FlightAttributeNode):
         '''
         api_handler = get_api_handler(API_HANDLER)
         approaches = []
-        
-        for approach_section in approach_landing:
-            approach = self._create_approach(start_datetime.value, api_handler,
-                                             approach_section, 'LANDING',
-                                             approach_landing.frequency,
-                                             landing_lat_kpvs, landing_lon_kpvs,
-                                             landing_hdg_kpvs,
-                                             approach_ilsfreq_kpvs, precision)
-            if approach:
-                approaches.append(approach)
-        
-        for approach_section in approach_go_around:
-            # If Altitude AAL reached 0, the approach type is 'TOUCH_AND_GO'.
-            if np.ma.any(alt_aal.array[approach_section.slice] <= 0):
+
+        for approach_section in approach_sections:
+
+            # If the end is outside a Fast section, it's a landing.
+            # Else If Altitude AAL reached 0, the approach type is 'TOUCH_AND_GO'
+            # Else it's a GO_AROUND.
+
+            if approach_section.slice.stop > speedy[-1].slice.stop:
+                approach_type = 'LANDING'
+            elif np.ma.any(alt_aal.array[approach_section.slice] <= 0):
                 approach_type = 'TOUCH_AND_GO'
             else:
                 approach_type = 'GO_AROUND'
+            
             approach = self._create_approach(start_datetime.value, api_handler,
                                              approach_section, approach_type,
-                                             approach_go_around.frequency,
+                                             alt_aal.frequency,
                                              approach_lat_kpvs, approach_lon_kpvs,
                                              approach_hdg_kpvs,
                                              approach_ilsfreq_kpvs, precision)
@@ -328,11 +365,11 @@ class LandingRunway(FlightAttributeNode):
         '''
         'Landing Heading' is the only required parameter.
         '''
-        return all([n in available for n in ['Approach And Landing',
+        return all([n in available for n in ['Approach',
                                              'FDR Landing Airport',
                                              'Heading At Landing']])
         
-    def derive(self, approach_and_landing=S('Approach And Landing'),
+    def derive(self, approach_and_landing=S('Approach'),
                landing_hdg=KPV('Heading At Landing'),
                airport=A('FDR Landing Airport'),
                landing_latitude=KPV('Latitude At Landing'),

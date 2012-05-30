@@ -4,9 +4,12 @@ import numpy as np
 from analysis_engine.library import (find_edges,
                                      hysteresis, 
                                      index_at_value,
+                                     index_closest_value,
                                      is_index_within_slice,
+                                     minimum_unmasked,
                                      repair_mask,
                                      slices_above,
+                                     slices_overlap,
                                      min_value,
                                      max_value, 
                                      peak_curvature)
@@ -65,8 +68,8 @@ class BottomOfDescent(KeyTimeInstanceNode):
             self.create_kti(air.slice.stop)
         
            
-class ApproachAndLandingLowestPoint(KeyTimeInstanceNode):
-    def derive(self, app_lands=S('Approach And Landing'),
+class ApproachLowestPoint(KeyTimeInstanceNode):
+    def derive(self, app_lands=S('Approach'),
                alt_std=P('Altitude STD'), touchdowns=KTI('Touchdown')):
         # In the case of descents without landing, this finds the minimum
         # point of the dip.
@@ -77,8 +80,8 @@ class ApproachAndLandingLowestPoint(KeyTimeInstanceNode):
                     kti = min(kti, touchdown.index)
                     self.create_kti(kti + app_land.slice.start)
                     
-class ApproachAndLandingLowestPoint(KeyTimeInstanceNode):
-    def derive(self, app_lands=S('Approach And Landing'),
+class ApproachLowestPoint(KeyTimeInstanceNode):
+    def derive(self, app_lands=S('Approach'),
                pitch=P('Pitch'), alt_rad=P('Altitude Radio'), alt_std=P('Altitude STD'), alt_tail=P('Altitude Tail'), alt_aal=P('Altitude AAL'), touchdowns=KTI('Touchdown')):
         # In the case of descents without landing, this finds the minimum
         # point of the dip.
@@ -158,13 +161,13 @@ class GoAround(KeyTimeInstanceNode):
         # Phases' is available, that's a bonus and we will use it, but it is
         # not required.
         return 'Altitude AAL For Flight Phases' in available \
-           and 'Approach And Landing' in available \
+           and 'Approach' in available \
            and 'Climb For Flight Phases' in available
         
     # List the optimal parameter set here
     def derive(self, alt_AAL=P('Altitude AAL For Flight Phases'),
                alt_rad=P('Altitude Radio For Flight Phases'),
-               approaches=S('Approach And Landing'),
+               approaches=S('Approach'),
                climb=P('Climb For Flight Phases')):
         for app in approaches:
             if np.ma.maximum(climb.array[app.slice]) > 500:
@@ -403,6 +406,34 @@ class ILSLocalizerEstablished(KeyTimeInstanceNode):
                 self.create_kti(estab_idx)
                 """
 
+class LowestPointOnApproach(KeyTimeInstanceNode):
+    '''
+    For any approach phase that did not result in a landing, the lowest point
+    is taken as key, from which the position, heading and height will be
+    taken as KPVs.
+    '''
+    def derive(self, alt_aal=P('Altitude AAL'), alt_rad=P('Altitude Radio'),
+               apps = S('Approach'), lands=S('Landing')):
+        height = minimum_unmasked(alt_aal.array, alt_rad.array)
+        for app in apps:
+            index = index_closest_value(height,0.0,app.slice)
+            self.create_kti(index)
+    '''
+    This cunning version lists only approaches which do not land. However,
+    the Approach attribute code only scans lowest point values at present, so
+    this will have to wait for a more extensive change if we want to remove
+    these duplicates.
+    
+    def derive(self, alt_aal=P('Altitude AAL'), alt_rad=P('Altitude Radio'),
+               apps = S('Approach'), lands=S('Landing')):
+        height = minimum_unmasked(alt_aal.array, alt_rad.array)
+        for app in apps:
+            didnt_land = [app for l in lands if not slices_overlap(app.slice, l.slice)]
+            if didnt_land:
+                index = index_closest_value(height,0.0,didnt_land[0].slice)
+                self.create_kti(index)
+                '''
+
 
 class InitialClimbStart(KeyTimeInstanceNode):
     # The Takeoff flight phase is computed to run up to the start of the
@@ -566,7 +597,7 @@ class AltitudeInApproach(KeyTimeInstanceNode):
     NAME_VALUES = {'altitude': ALTITUDES}
     HYSTERESIS = 10 # Q: Better as setting?
     
-    def derive(self, approaches=S('Approach And Landing'),
+    def derive(self, approaches=S('Approach'),
                alt_aal=P('Altitude AAL')):
         alt_array = hysteresis(alt_aal.array, self.HYSTERESIS)
         for approach in approaches:
@@ -587,7 +618,7 @@ class AltitudeInFinalApproach(KeyTimeInstanceNode):
     NAME_VALUES = {'altitude': ALTITUDES}
     HYSTERESIS = 10 # Q: Better as setting?
     
-    def derive(self, approaches=S('Approach And Landing'),
+    def derive(self, approaches=S('Approach'),
                alt_aal=P('Altitude AAL')):
         # Attempt to smooth to avoid fluctuations triggering KTIs.
         # Q: Is this required?

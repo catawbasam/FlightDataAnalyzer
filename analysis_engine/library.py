@@ -2355,17 +2355,14 @@ def track_linking(pos, local_pos):
     array of local position data from ILS localizer and synthetic takeoff
     data.
     
-    The merge is done by computing linearly varying adjustment factors
-    between each computed section. This may be unnecessarily complex, as
-    simply aligning on a common point would work, but as it gives good
-    results and is already programmed it was decided to leave it in place.
-    
     :param pos: Flight track data (latitude or longitude) in degrees.
     :type pos: np.ma.masked_array, masked from data validity tests.
     :param local_pos: Position data relating to runway or ILS.
     :type local_pos: np.ma.masked_array, masked where no local data computed.
     
     :returns: Position array using local_pos data where available and interpolated pos data elsewhere.
+
+    TODO: Include last valid sample style functions to avoid trap of adjusting at a masked value.
     """
     # Where do we need to use the raw data?
     blocks = np.ma.clump_masked(local_pos)
@@ -2381,27 +2378,27 @@ def track_linking(pos, local_pos):
         link_b = 0
         
         # Look at the first edge
-        if a<2:
+        if a==0:
             link_a = 1
         else:
-            adj_a = (3 * local_pos.data[a-1] - local_pos.data[a-2])/2 -\
-                (3 * pos.data[a] - pos.data[a+1])/2
+            adj_a = local_pos[a-1] - pos[a-1]
     
         # now the other end
-        if b>last-2:
-            link_b=1
+        if b==last:
+            link_b = 1
         else:
-            adj_b = (3 * local_pos.data[b] - local_pos.data[b+1])/2 -\
-                (3 * pos.data[b-1] - pos.data[b-2])/2
+            adj_b = local_pos[b] - pos[b]
 
         fix_a = adj_a + link_a*adj_b
         fix_b = adj_b + link_b*adj_a
         
-        fix = np.linspace(fix_a, fix_b, num=b-a)
+        if link_a ==1 or link_b == 1:
+            fix = np.linspace(fix_a, fix_b, num=b-a)
+        else:
+            fix = np.linspace(fix_a, fix_b, num=b-a+2)[1:-1]
         local_pos[a:b] = pos[a:b] + fix
     return local_pos
-        
-        
+ 
 def smooth_track(lat, lon):
     """
     Input:
@@ -2421,8 +2418,8 @@ def smooth_track(lat, lon):
     # both the iteration and cost functions) the same algorithm runs 350
     # times faster !!!
     
-    lat_s = np.ma.copy(lat)
-    lon_s = np.ma.copy(lon)
+    lat_s = repair_mask(np.ma.copy(lat))
+    lon_s = repair_mask(np.ma.copy(lon))
     
     # Set up a weighted array that will slide past the data.
     r = 0.7  
@@ -2492,6 +2489,11 @@ def subslice(orig, new):
     return slice(start, stop, None if step == 1 else step)
 
 def index_closest_value(array, threshold, _slice=slice(None)):
+    '''
+    This function seeks the moment when the parameter in question gets
+    closest to a threshold. It works both forwards and backwards in time. See
+    index_at_value for further details.
+    '''
     return index_at_value(array, threshold, _slice, endpoint='closing')
     
 def index_at_value(array, threshold, _slice=slice(None), endpoint='exact'):

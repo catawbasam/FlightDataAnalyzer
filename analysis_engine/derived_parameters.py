@@ -505,7 +505,7 @@ class AltitudeAALSmoothed(DerivedParameterNode):
     
 class AltitudeForClimbCruiseDescent(DerivedParameterNode):
     """
-    This parameter includes a huge hysteresis and is solely to idenrify climb
+    This parameter includes a huge hysteresis and is solely to identify climb
     and descent phases. DO NOT use this for event detection.
     """
     units = 'ft'
@@ -1579,7 +1579,7 @@ class FlapSurface(DerivedParameterNode):
 
     def derive(self, flap_A=P('Flap (1)'), flap_B=P('Flap (2)'),
                frame=A('Frame'),
-               app_ldgs=S('Approach And Landing'),               
+               apps=S('Approach'),               
                alt_aal=P('Altitude AAL')):
         frame_name = frame.value if frame else None
 
@@ -1589,12 +1589,12 @@ class FlapSurface(DerivedParameterNode):
         if frame_name in ['L382-Hercules']:
             # Flap is not recorded, so invent one of the correct length.
             flap_herc = np.ma.array(np.zeros_like(alt_aal.array))
-            if app_ldgs:
-                for app_ldg in app_ldgs:
+            if apps:
+                for app in apps:
                     # The flap setting is not recorded, so we have to assume that
                     # the flap is probably set to 50% above 1000ft, and 100% from
                     # 500ft down.
-                    scope = app_ldg.slice
+                    scope = app.slice
                     flap_herc[scope] = np.ma.where(alt_aal.array[scope]>1000.0,100.0,50.0)
             self.array = np.ma.array(flap_herc)
             self.frequency, self.offset = alt_aal.frequency, alt_aal.offset
@@ -1898,10 +1898,10 @@ class ILSRange(DerivedParameterNode):
                gs_established = S('ILS Glideslope Established'),
                precise = A('Precise Positioning'),
                app_info = A('FDR Approaches'),
-               final_apps = S('Final Approach'),
+               #final_apps = S('Final Approach'),
                start_datetime = A('Start Datetime')
                ):
-        ils_range = np.ma.zeros(len(gspd.array))
+        ils_range = np_ma_masked_zeros_like(gspd.array)
         
         for this_loc in loc_established:
             # Scan through the recorded approaches to find which matches this
@@ -2068,6 +2068,7 @@ class LatitudeSmoothed(DerivedParameterNode):
 
         else:
             # For aircraft without ILS recorded
+            # TODO: Revise this to be embedded into adjust_track
             self.array = lat.array
         
 class LongitudeSmoothed(DerivedParameterNode):
@@ -2120,8 +2121,8 @@ def adjust_track(lon,lat,loc_est,ils_range,ils_loc,gspd,hdg,tas,
                  precise,toff,app_info,toff_rwy,start_datetime):
 
     # Set up a working space.
-    lat_adj = np.ma.array(data=lat.array.data,mask=True)
-    lon_adj = np.ma.array(data=lon.array.data,mask=True)
+    lat_adj = np.ma.array(data=lat.array.data, mask=True, copy=True)
+    lon_adj = np.ma.array(data=lon.array.data, mask=True, copy=True)
 
     #-----------------------------------------------------------------------
     # Use synthesized track for takeoffs where necessary
@@ -2249,17 +2250,23 @@ def adjust_track(lon,lat,loc_est,ils_range,ils_loc,gspd,hdg,tas,
             lat_adj[this_loc.slice], lon_adj[this_loc.slice] = \
                 latitudes_and_longitudes(bearings, distances, localizer_on_cl)
             
-            # Finally, tack the ground track onto the end of the landing run            
-            [lat_adj[this_loc.slice.stop:],
-            lon_adj[this_loc.slice.stop:]] = \
-                ground_track(lat_adj.data[this_loc.slice.stop],
-                             lon_adj.data[this_loc.slice.stop],
-                             speed[this_loc.slice.stop:],
-                             hdg.array[this_loc.slice.stop:],
+            # Alignment of the ILS Range causes corrupt first samples.
+            # TODO: Fix this by propogating the ILS Range mask correctly.
+            lat_adj[this_loc.slice.start] = np.ma.masked
+            lon_adj[this_loc.slice.start] = np.ma.masked
+            
+            # Finally, tack the ground track onto the end of the landing run
+            join_idx = this_loc.slice.stop - 1
+            [lat_adj[join_idx:], lon_adj[join_idx:]] = \
+                ground_track(lat_adj.data[join_idx], lon_adj.data[join_idx],
+                             speed[join_idx:], hdg.array[join_idx:], 
                              freq, 'landing')
-
+            
     # --- Merge Tracks and return ---
-    return track_linking(lat.array, lat_adj), track_linking(lon.array, lon_adj)
+    lat_adj = track_linking(lat.array, lat_adj)
+    lon_adj = track_linking(lon.array, lon_adj)
+
+    return lat_adj, lon_adj
 
 
 class Mach(DerivedParameterNode):
@@ -2498,69 +2505,24 @@ class CoordinatesStraighten(object):
 class LongitudePrepared(DerivedParameterNode, CoordinatesStraighten):
     """
     This removes the jumps in longitude arising from the poor resolution of
-    the recorded signal. The complete parameter is processed, prior to
-    adjustment to use takeoff and ILS approach and landing data where
-    possible.
+    the recorded signal.
     """
-    # List the minimum acceptable parameters here
-    @classmethod
-    def can_operate(cls, available):
-        # List the minimum required parameters.
-        return True
-     
     def derive(self,
                lon=P('Longitude'),
-               lat=P('Latitude'),
-               hdg=P('Heading Continuous'),
-               tas=P('Airspeed True'),
-               origin=A('AFR Takeoff Airport')):
+               lat=P('Latitude')):
 
-        if lon and lat:
-            self.array = self._smooth_coordinates(lon, lat)
-
-        elif origin:
-            api_handler = get_api_handler(API_HANDLER)
-            airport = api_handler.get_airport(origin.value)
-            ap_lat = airport['latitude']
-            ap_lon = airport['longitude']
-
-            # The ground track function was written to add taxi tracks to
-            # recorded lat & long data, hence takeoff works from the point of
-            # takeoff backwards in time to the gate. In fact to operate for
-            # the flight we need it to integrate in the opposite direction,
-            # something that we can tidy up if it works.
-            _, self.array = ground_track(ap_lat, ap_lon, tas.array, hdg.array, tas.hz, 'landing')
+        self.array = self._smooth_coordinates(lon, lat)
 
     
 class LatitudePrepared(DerivedParameterNode, CoordinatesStraighten):
     """
     This removes the jumps in latitude arising from the poor resolution of
-    the recorded signal. The complete parameter is processed, prior to
-    adjustment to use takeoff and ILS approach and landing data where
-    possible.
+    the recorded signal.
     """
-    # List the minimum acceptable parameters here
-    @classmethod
-    def can_operate(cls, available):
-        # List the minimum required parameters.
-        return True
-     
     def derive(self, 
                lat=P('Latitude'), 
-               lon=P('Longitude'),
-               hdg=P('Heading Continuous'),
-               tas=P('Airspeed True'),
-               origin=A('AFR Takeoff Airport')):
-
-        if lat and lon:
-            self.array = self._smooth_coordinates(lat, lon)
-
-        elif origin:
-            api_handler = get_api_handler(API_HANDLER)
-            airport = api_handler.get_airport(origin.value)
-            ap_lat = airport['latitude']
-            ap_lon = airport['longitude']
-            self.array, _ = ground_track(ap_lat, ap_lon, tas.array, hdg.array, tas.hz, 'landing')
+               lon=P('Longitude')):
+        self.array = self._smooth_coordinates(lat, lon)
 
 
 class RateOfTurn(DerivedParameterNode):

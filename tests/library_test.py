@@ -2186,9 +2186,9 @@ class TestSmoothTrack(unittest.TestCase):
         self.assertLess (cost,26)
         
     def test_smooth_track_masked(self):
-        lon = np.ma.array([0,0,0,1,1,1], dtype=float)
+        lon = np.ma.array([0,0,0,9,1,1], dtype=float)
         lat = np.ma.zeros(6, dtype=float)
-        lon[4]=np.ma.masked
+        lon[3]=np.ma.masked
         lat_s, lon_s, cost = smooth_track(lat, lon)
         self.assertLess (cost,26)
         
@@ -2371,8 +2371,8 @@ class TestTrackLinking(unittest.TestCase):
         local[13:]=np.ma.masked
         local[8:] -= 2.5
         result = track_linking(pos,local)
-        expected = np.ma.array(data = [2.5,2.5,2.5,3.0,4.0,5.0,5.5,6.0,
-                                       6.5,7.0,7.5,8.5,9.5,10.0,10.0,10.0],
+        expected = np.ma.array(data = [3.0,3.0,3.0,3.0,4.0,5.0,5.5,6.0,
+                                       6.5,7.0,7.5,8.5,9.5,9.5,9.5,9.5],
                                mask = False)
         np.testing.assert_array_equal(expected,result)
         

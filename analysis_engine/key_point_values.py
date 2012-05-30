@@ -21,7 +21,9 @@ from analysis_engine.library import (clip,
                                      max_abs_value,
                                      max_continuous_unmasked, 
                                      max_value,
-                                     min_value, repair_mask, 
+                                     min_value, 
+                                     minimum_unmasked,
+                                     repair_mask, 
                                      np_ma_masked_zeros_like,
                                      peak_curvature,
                                      rate_of_change,
@@ -369,6 +371,17 @@ class AirspeedAtLiftoff(KeyPointValueNode):
     '''
     def derive(self, airspeed=P('Airspeed'), liftoffs=KTI('Liftoff')):
         self.create_kpvs_at_ktis(airspeed.array, liftoffs)
+
+
+class AltitudeAtLowestPointOnApproach(KeyPointValueNode):
+    """
+    The approach phase has been found already. Here we take the height at
+    the lowest point reached in the approach.
+    """
+    def derive(self, alt_aal=P('Altitude AAL'), alt_rad=P('Altitude Radio'), 
+               low_points=KTI('Lowest Point On Approach')):
+        height = minimum_unmasked(alt_aal.array, alt_rad.array)
+        self.create_kpvs_at_ktis(height, low_points)
 
 
 class AirspeedAtTouchdown(KeyPointValueNode):
@@ -911,18 +924,13 @@ class HeadingAtLanding(KeyPointValueNode):
 class HeadingAtLowestPointOnApproach(KeyPointValueNode):
     """
     The approach phase has been found already. Here we take the heading at
-    the lowest point reached in the approach. This may not be a go-around, if
-    the aircraft did not climb 500ft before the next approach to landing.
+    the lowest point reached in the approach.
     """
     def derive(self, head=P('Heading Continuous'), 
-               go_arounds=KTI('Go Around')):
-        self.create_kpvs_at_ktis(head.array%360.0, go_arounds)
-    """
-    def derive(self, head=P('Heading Continuous'),
-               lands=KTI('Approach And Landing Lowest Point')):
-        self.create_kpvs_at_ktis(head.array, lands)
-        """
-
+               low_points=KTI('Lowest Point On Approach')):
+        self.create_kpvs_at_ktis(head.array%360.0, low_points)
+    
+    
 class HeadingAtTakeoff(KeyPointValueNode):
     """
     We take the median heading, as this avoids problems with drift just
@@ -1107,8 +1115,8 @@ class LongitudeAtTakeoff(KeyPointValueNode):
 class LatitudeAtLowestPointOnApproach(KeyPointValueNode):
     # Cannot use smoothed position as this causes circular dependancy.
     def derive(self, lat=P('Latitude'), 
-               go_arounds=KTI('Go Around')):
-        self.create_kpvs_at_ktis(lat.array, go_arounds)
+               low_points=KTI('Lowest Point On Approach')):
+        self.create_kpvs_at_ktis(lat.array, low_points)
     """
     def derive(self, lat=P('Latitude'), 
                lands=KTI('Approach And Landing Lowest Point')):
@@ -1119,8 +1127,8 @@ class LatitudeAtLowestPointOnApproach(KeyPointValueNode):
 class LongitudeAtLowestPointOnApproach(KeyPointValueNode):
     # Cannot use smoothed position as this causes circular dependancy.
     def derive(self, lon=P('Longitude'), 
-               go_arounds=KTI('Go Around')):
-        self.create_kpvs_at_ktis(lon.array, go_arounds)
+               low_points=KTI('Lowest Point On Approach')):
+        self.create_kpvs_at_ktis(lon.array, low_points)
     """
     def derive(self, lon=P('Longitude'), 
                lands=KTI('Approach And Landing Lowest Point')):
@@ -1365,7 +1373,7 @@ class EngN1AfterTakeoffMax(KeyPointValueNode):
 
 class EngN1GoAroundMax(KeyPointValueNode):
     name = 'Eng N1 Go Around Max'
-    def derive(self, eng_n1=P('Eng (*) N1 Max'), ga=S('Go Around')):
+    def derive(self, eng_n1=P('Eng (*) N1 Max'), ga=S('Go Around And Climbout')):
         self.create_kpvs_within_slices(eng_n1.array, ga, max_value)
 
 
@@ -2108,7 +2116,7 @@ class SpeedbrakesDeployed1000To20FtDuration(KeyPointValueNode):
 
 
 class SpeedbrakesDeployedInGoAroundDuration(KeyPointValueNode):
-    def derive(self, speedbrake=P('Speedbrake'), gas=S('Go Around')):
+    def derive(self, speedbrake=P('Speedbrake'), gas=S('Go Around And Climbout')):
         for ga in gas:
             event = np.ma.masked_less(speedbrake.array[ga],0.5) 
             duration = np.ma.count(event) / speedbrake.frequency
