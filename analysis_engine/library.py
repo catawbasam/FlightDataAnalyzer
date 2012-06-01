@@ -2593,10 +2593,21 @@ def index_at_value(array, threshold, _slice=slice(None), endpoint='exact'):
         b = array[begin+step*(n+1)]
         # Force threshold to float as often passed as an integer.
         # Also check for b=a as otherwise we get a divide by zero condition.
-        if a==b:
-            r = 0.5
-        else:
-            r = (float(threshold) - a) / (b-a) 
+        import warnings
+        
+        with warnings.catch_warnings(record=True) as w:
+            # Cause all warnings to always be triggered.
+            warnings.simplefilter("error")        
+            if a is np.ma.masked or b is np.ma.masked:
+                print a,b
+            if abs(a-b) < 1.0E-6:
+                r = 0.5
+            else:
+                try:
+                    r = (float(threshold) - a) / (b-a)
+                except:
+                    print a, b, a-b
+                    pass
         #TODO: Could test 0 < r < 1 for completeness
     return (begin + step * (n+r))
 

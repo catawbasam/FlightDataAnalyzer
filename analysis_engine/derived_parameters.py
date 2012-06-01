@@ -2318,7 +2318,7 @@ class MagneticVariation(DerivedParameterNode):
             # Pythonic way to do this, but at least it's simple.
             return x - floor(x/180.0 + 0.5)*180.0        
         
-        if toff_rwy.value == None and land_rwy.value == None:
+        if toff_rwy == None and land_rwy == None:
             # Return an array of zeros as we know no better
             # TODO: Perhaps fill in from the database values or a computed value?
             self.array = np_ma_zeros_like(head.array)
@@ -2337,7 +2337,7 @@ class MagneticVariation(DerivedParameterNode):
                 except:
                     dev[takeoff_heading.index] = 0.0
                     
-            if land_rwy.value:
+            if land_rwy:
                 landing_heading = head_land.get_last()
                 try:
                     dev[landing_heading.index] = first_turn( \
