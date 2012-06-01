@@ -886,7 +886,55 @@ class TestFirstOrderWashout(unittest.TestCase):
         result = first_order_washout (array, 1.0, 1.0, initial_value = 1.0)
         ma_test.assert_mask_eqivalent(result.mask, [0,0,0,1,0], err_msg='Masks are not equal')
     
-   
+    
+    
+class TestFirstValidSample(unittest.TestCase):
+    def test_first_valid_sample(self):
+        result = first_valid_sample(np.ma.array(data=[11,12,13,14],mask=[1,0,1,0]))
+        self.assertEqual(result, (1, 12))
+        
+    def test_first_valid_sample_all_masked(self):
+        result = first_valid_sample(np.ma.array(data=[11,12,13,14],mask=True))
+        self.assertEqual(result, (None, None))
+
+    def test_first_valid_sample_offset(self):
+        result = first_valid_sample(np.ma.array(data=[11,12,13,14],mask=[1,0,1,0]),2)
+        self.assertEqual(result, (3,14))
+
+    def test_first_valid_sample_at_offset(self):
+        result = first_valid_sample(np.ma.array(data=[11,12,13,14],mask=[1,0,1,0]),1)
+        self.assertEqual(result, (1,12))
+
+    def test_first_valid_sample_overrun(self):
+        result = first_valid_sample(np.ma.array(data=[11,12,13,14],mask=[1,0,1,0]),9)
+        self.assertEqual(result, (None, None))
+        
+    def test_first_valid_sample_underrun(self):
+        result = first_valid_sample(np.ma.array(data=[11,12,13,14],mask=[1,0,1,0]),-2)
+        self.assertEqual(result, (None, None))
+        
+class TestLastValidSample(unittest.TestCase):
+    def test_last_valid_sample(self):
+        result = last_valid_sample(np.ma.array(data=[11,12,13,14],mask=[1,0,1,0]))
+        self.assertEqual(result, (3,14))
+        
+    def test_last_valid_sample_all_masked(self):
+        result = last_valid_sample(np.ma.array(data=[11,12,13,14],mask=True))
+        self.assertEqual(result, (None, None))
+
+    def test_last_valid_sample_offset(self):
+        result = last_valid_sample(np.ma.array(data=[11,12,13,14],mask=[1,0,1,0]),-2)
+        self.assertEqual(result, (1,12))
+
+    def test_last_valid_sample_at_offset(self):
+        result = last_valid_sample(np.ma.array(data=[11,12,13,14],mask=[1,0,1,0]),-3)
+        self.assertEqual(result, (1,12))
+
+    def test_last_valid_sample_overrun(self):
+        result = last_valid_sample(np.ma.array(data=[11,12,13,14],mask=[1,0,1,0]),9)
+        self.assertEqual(result, (None, None))
+        
+    
 class TestRunwayDistances(unittest.TestCase):
     # This single test case uses data for Bergen and has been checked against
     # Google Earth measurements for reasonable accuracy.
@@ -1637,6 +1685,13 @@ class TestNpMaZerosLike(unittest.TestCase):
         expected = np.ma.array([0,0,0])
         ma_test.assert_array_equal(expected, result)
 
+
+class TestNpMaOnesLike(unittest.TestCase):
+    def test_zeros_like_basic(self):
+        result = np_ma_ones_like([1,2,3])
+        expected = np.ma.array([1,1,1])
+        ma_test.assert_array_equal(expected, result)
+
         
 class TestNpMaMaskedZerosLike(unittest.TestCase):
     def test_masked_zeros_like_basic(self):
@@ -2131,9 +2186,9 @@ class TestSmoothTrack(unittest.TestCase):
         self.assertLess (cost,26)
         
     def test_smooth_track_masked(self):
-        lon = np.ma.array([0,0,0,1,1,1], dtype=float)
+        lon = np.ma.array([0,0,0,9,1,1], dtype=float)
         lat = np.ma.zeros(6, dtype=float)
-        lon[4]=np.ma.masked
+        lon[3]=np.ma.masked
         lat_s, lon_s, cost = smooth_track(lat, lon)
         self.assertLess (cost,26)
         
@@ -2316,8 +2371,8 @@ class TestTrackLinking(unittest.TestCase):
         local[13:]=np.ma.masked
         local[8:] -= 2.5
         result = track_linking(pos,local)
-        expected = np.ma.array(data = [2.5,2.5,2.5,3.0,4.0,5.0,5.5,6.0,
-                                       6.5,7.0,7.5,8.5,9.5,10.0,10.0,10.0],
+        expected = np.ma.array(data = [3.0,3.0,3.0,3.0,4.0,5.0,5.5,6.0,
+                                       6.5,7.0,7.5,8.5,9.5,9.5,9.5,9.5],
                                mask = False)
         np.testing.assert_array_equal(expected,result)
         

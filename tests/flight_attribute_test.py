@@ -37,7 +37,7 @@ class TestApproaches(unittest.TestCase):
         # Can operate with approach lat lng.
         self.assertTrue(Approaches.can_operate(\
             ['Start Datetime',
-             'Approach And Landing',
+             'Approach',
              'Heading At Landing',
              'Touch And Go',
              'Go Around',
@@ -46,7 +46,7 @@ class TestApproaches(unittest.TestCase):
         # Can operate with landing lat lng.
         self.assertTrue(Approaches.can_operate(\
             ['Start Datetime',
-             'Approach And Landing',
+             'Approach',
              'Heading At Landing',
              'Touch And Go',
              'Go Around',
@@ -55,7 +55,7 @@ class TestApproaches(unittest.TestCase):
         # Can operate with everything.
         self.assertTrue(Approaches.can_operate(\
             ['Start Datetime',
-             'Approach And Landing',
+             'Approach',
              'Heading At Landing',
              'Touch And Go',
              'Go Around',
@@ -69,7 +69,7 @@ class TestApproaches(unittest.TestCase):
         # Cannot operate missing latitude.
         self.assertFalse(Approaches.can_operate(\
             ['Start Datetime',
-             'Approach And Landing',
+             'Approach',
              'Heading At Landing',
              'Touch And Go',
              'Go Around',
@@ -83,7 +83,7 @@ class TestApproaches(unittest.TestCase):
         # Cannot operate with differing sources of lat lng.
         self.assertFalse(Approaches.can_operate(\
             ['Start Datetime',
-             'Approach And Landing',
+             'Approach',
              'Heading At Landing',
              'Touch And Go',
              'Go Around',
@@ -774,10 +774,10 @@ class TestLandingRunway(unittest.TestCase):
         '''
         combinations = LandingRunway.get_operational_combinations()
         self.assertEqual(len(combinations), 16)
-        self.assertEqual(combinations[0], ('Approach And Landing',
+        self.assertEqual(combinations[0], ('Approach',
                                            'Heading At Landing',
                                            'FDR Landing Airport'))
-        self.assertEqual(combinations[-1], ('Approach And Landing',
+        self.assertEqual(combinations[-1], ('Approach',
                                             'Heading At Landing',
                                             'FDR Landing Airport',
                                             'Latitude At Landing',

@@ -9,23 +9,23 @@ from analysis_engine.key_time_instances import (BottomOfDescent,
                                          TopOfDescent
                                          )
 from analysis_engine.plot_flight import plot_parameter
-from analysis_engine.flight_phase import (
-    Airborne,
-    ApproachAndGoAround,
-    ApproachAndLanding,
-    ClimbCruiseDescent,
-    Climbing,
-    Cruise,
-    Descending,
-    DescentLowClimb,
-    Fast,
-    FinalApproach,
-    ILSLocalizerEstablished,
-    Landing,
-    LevelFlight,
-    Takeoff,
-    #Turning
-    )
+from analysis_engine.flight_phase import (Airborne,
+                                          Approach,
+                                          ClimbCruiseDescent,
+                                          Climbing,
+                                          Cruise,
+                                          Descending,
+                                          DescentLowClimb,
+                                          Fast,
+                                          FinalApproach,
+                                          ILSLocalizerEstablished,
+                                          Landing,
+                                          LevelFlight,
+                                          Takeoff,
+                                          #Turning
+                                          )
+
+from analysis_engine.library import integrate
 
 from analysis_engine.settings import AIRSPEED_THRESHOLD
 
@@ -42,10 +42,11 @@ class TestAirborne(unittest.TestCase):
                                          range(400,-450,-50)+
                                          range(-450,50,50))
         rate_of_climb = Parameter('Rate Of Climb For Flight Phases', np.ma.array(rate_of_climb_data))
-        fast = SectionNode('Fast', items=[Section('Fast',slice(2,25,None))])
+        altitude = Parameter('Altitude AAL', integrate(rate_of_climb_data, 1, 0, 1.0/60.0))
+        fast = SectionNode('Fast', items=[Section('Fast',slice(2,25,None),2,25)])
         air = Airborne()
-        air.derive(rate_of_climb, fast)
-        expected = Section(name='Airborne', slice=slice(6, 25, None))
+        air.derive(rate_of_climb, altitude, fast)
+        expected = Section(name='Airborne', slice=slice(2, 25, None), start_edge=6, stop_edge=25)
         self.assertEqual(air.get_first(), expected)
 
     def test_airborne_phase_not_airborne(self):
@@ -61,13 +62,13 @@ class TestAirborne(unittest.TestCase):
 class TestApproach(unittest.TestCase):
     def test_can_operate(self):
         expected = [('Altitude AAL For Flight Phases',
-                     'Approach And Landing')]
+                     'Approach')]
         opts = Approach.get_operational_combinations()
         self.assertEqual(opts, expected)
 
     def test_approach_phase_basic(self):
         alt = np.ma.array(range(5000,500,-500)+range(500,3000,500))
-        aal = S('Approach And Landing', items=[Section('Approach And Landing', slice(4, 14, None))])
+        aal = S('Approach', items=[Section('Approach', slice(4, 14, None))])
         # Pretend we are flying over flat ground, so the altitudes are equal.
         app = Approach()
         app.derive(Parameter('Altitude AAL For Flight Phases',alt), aal)
@@ -76,6 +77,7 @@ class TestApproach(unittest.TestCase):
 """
 
 
+"""
 class TestApproachAndGoAround(unittest.TestCase):
     def test_can_operate(self):
         self.assertEqual(ApproachAndGoAround.get_operational_combinations(),
@@ -133,50 +135,51 @@ class TestApproachAndGoAround(unittest.TestCase):
                    climb, ga, fast)
         expected = [Section(name='Approach And Go Around', slice=slice(1, 17, None))]
         self.assertEqual(app, expected)
+        """
     
 
-class TestApproachAndLanding(unittest.TestCase):
+class TestApproach(unittest.TestCase):
     def test_can_operate(self):
-        self.assertEqual(ApproachAndLanding.get_operational_combinations(),
+        self.assertEqual(Approach.get_operational_combinations(),
                          [('Altitude AAL For Flight Phases', 'Altitude Radio',
                            'Landing')])
 
     def test_approach_and_landing_phase_basic(self):
         alt = np.ma.array(range(5000,500,-500)+[0]*10)
         land=S(items=[Section('Landing',slice=slice(11,20))])
-        app = ApproachAndLanding()
+        app = Approach()
         # Pretend we are flying over flat ground, so the altitudes are equal.
         app.derive(Parameter('Altitude AAL For Flight Phases',alt),
                    Parameter('Altitude Radio For Flight Phases',alt),
                    land)
-        expected = [Section(name='Approach And Landing', slice=slice(4, 20, None))]
+        expected = [Section(name='Approach', slice=slice(4, 20, None))]
         self.assertEqual(app, expected)
 
     def test_approach_and_landing_phase_no_ralt(self):
         alt = np.ma.array(range(5000,500,-500)+[0]*10)
         land=S(items=[Section('Landing',slice=slice(11,20))])
         alt_param = Parameter('Altitude AAL For Flight Phases',alt)
-        app = ApproachAndLanding()
+        app = Approach()
         # Pretend we are flying over flat ground, so the altitudes are equal.
         app.derive(alt_param, None, land)
-        expected = [Section(name='Approach And Landing', slice=slice(4, 20, None))]
+        expected = [Section(name='Approach', slice=slice(4, 20, None))]
         self.assertEqual(app, expected)
 
     def test_initial_approach_phase_over_high_ground(self):
         alt = np.ma.array(range(5000,500,-500)+[0]*10)
         land=S(items=[Section('Landing',slice=slice(11,20))])
-        app = ApproachAndLanding()
+        app = Approach()
         # Raising the ground makes the radio altitude trigger one sample sooner.
         app.derive(Parameter('Altitude AAL For Flight Phases',alt),
                    Parameter('Altitude Radio For Flight Phases',alt-750),
                    land)
-        expected = [Section(name='Approach And Landing', slice=slice(2.5, 20, None))]
+        expected = [Section(name='Approach', slice=slice(2.5, 20, None))]
         self.assertEqual(app, expected)
     
 
 class TestILSLocalizerEstablished(unittest.TestCase):
     def test_can_operate(self):
-        expected = [('Approach And Landing',
+        expected = [('Approach',
                      'Approach And Go Around',
                      'ILS Localizer')]
         opts = ILSLocalizerEstablished.get_operational_combinations()
@@ -184,7 +187,7 @@ class TestILSLocalizerEstablished(unittest.TestCase):
 
     def test_ils_localizer_established_basic(self):
         # TODO: Either fix test by passing in Approach And Go Around instead of None or remove.
-        aal = S('Approach And Landing', items=[Section('Approach And Landing', slice(2, 9, None))])
+        aal = S('Approach', items=[Section('Approach', slice(2, 9, None))])
         ils = P('ILS Localizer',np.ma.arange(-3,0,0.3))
         establish = ILSLocalizerEstablished()
         establish.derive(aal, None, ils)
@@ -193,8 +196,8 @@ class TestILSLocalizerEstablished(unittest.TestCase):
 
     def test_ils_localizer_established_not_on_loc_at_minimum(self):
         # TODO: Fix test by passing in Approach And Go Around SectionNode instead of Approach And Landing Lowest Point KTI.
-        aal = S('Approach And Landing',
-                items=[Section('Approach And Landing', slice(2, 9, None))])
+        aal = S('Approach',
+                items=[Section('Approach', slice(2, 9, None))])
         low = KTI('Approach And Landing Lowest Point',
                   items=[KeyTimeInstance(index=8, name='Approach And Landing Lowest Point')])
         ils = P('ILS Localizer',np.ma.array([3]*10))
@@ -205,7 +208,7 @@ class TestILSLocalizerEstablished(unittest.TestCase):
 
     def test_ils_localizer_established_only_last_segment(self):
         # TODO: Fix test by passing in Approach And Go Around SectionNode instead of Approach And Landing Lowest Point KTI.
-        aal = S('Approach And Landing', items=[Section('Approach And Landing', slice(2, 9, None))])
+        aal = S('Approach', items=[Section('Approach', slice(2, 9, None))])
         low = KTI('Approach And Landing Lowest Point', items=[KeyTimeInstance(index=8, name='Approach And Landing Lowest Point')])
         ils = P('ILS Localizer',np.ma.array([0,0,0,1,3,3,2,1,0,0]))
         establish = ILSLocalizerEstablished()
@@ -215,7 +218,7 @@ class TestILSLocalizerEstablished(unittest.TestCase):
 
     def test_ils_localizer_insensitive_to_few_masked_values(self):
         # TODO: Fix test by passing in Approach And Go Around SectionNode instead of Approach And Landing Lowest Point KTI.
-        aal = S('Approach And Landing', items=[Section('Approach And Landing', slice(2, 9, None))])
+        aal = S('Approach', items=[Section('Approach', slice(2, 9, None))])
         low = KTI('Approach And Landing Lowest Point', items=[KeyTimeInstance(index=8, name='Approach And Landing Lowest Point')])
         ils = P('ILS Localizer',np.ma.array(data=[0,0,0,1,3,3,2,1,0,0],
                                             mask=[0,0,0,0,0,1,1,0,0,0]))
@@ -230,7 +233,7 @@ class TestILSLocalizerEstablished(unittest.TestCase):
 class TestInitialApproach(unittest.TestCase):
     def test_can_operate(self):
         expected = [('Altitude AAL For Flight Phases',
-                     'Approach And Landing')]
+                     'Approach')]
         opts = InitialApproach.get_operational_combinations()
         self.assertEqual(opts, expected)
 
@@ -238,8 +241,8 @@ class TestInitialApproach(unittest.TestCase):
         alt = np.ma.array(range(4000,0,-500)+range(0,4000,500))
         app = InitialApproach()
         alt_aal = Parameter('Altitude AAL For Flight Phases',alt)
-        app_land = SectionNode('Approach And Landing',
-            items=[Section('Approach And Landing', slice(2, 8, None))])
+        app_land = SectionNode('Approach',
+            items=[Section('Approach', slice(2, 8, None))])
         # Pretend we are flying over flat ground, so the altitudes are equal.
         app.derive(alt_aal, app_land)
         expected = [Section('Initial Approach', slice(2, 6, None))]
@@ -251,8 +254,8 @@ class TestInitialApproach(unittest.TestCase):
         alt_rad = alt_aal - 600
         app = InitialApproach()
         alt_aal = Parameter('Altitude AAL For Flight Phases',alt_aal)
-        app_land = SectionNode('Approach And Landing',
-            items=[Section('Approach And Landing', slice(10, 16, None))])
+        app_land = SectionNode('Approach',
+            items=[Section('Approach', slice(10, 16, None))])
         app.derive(alt_aal, app_land)
         expected = [Section(name='Initial Approach', slice=slice(10, 14, None))]
         self.assertEqual(app, expected)
@@ -261,8 +264,8 @@ class TestInitialApproach(unittest.TestCase):
         alt = np.ma.array(range(4000,2000,-500)+range(2000,4000,500))
         app = InitialApproach()
         alt_aal = Parameter('Altitude AAL For Flight Phases',alt)
-        app_land = SectionNode('Approach And Landing', 
-            items=[Section('Approach And Landing', slice(2, 5, None))])
+        app_land = SectionNode('Approach', 
+            items=[Section('Approach', slice(2, 5, None))])
         # Pretend we are flying over flat ground, so the altitudes are equal.
         app.derive(alt_aal, app_land)
         expected = [Section(name='Initial Approach', slice=slice(2, 4, None))]
@@ -564,7 +567,7 @@ class TestFinalApproach(unittest.TestCase):
     def test_can_operate(self):
         expected = [('Altitude AAL For Flight Phases',
                      'Altitude Radio For Flight Phases',
-                     'Approach And Landing')]
+                     'Approach')]
         opts = FinalApproach.get_operational_combinations()
         self.assertEqual(opts, expected)
 
@@ -573,8 +576,8 @@ class TestFinalApproach(unittest.TestCase):
         app = FinalApproach()
         alt_aal = Parameter('Altitude AAL For Flight Phases', array=alt)
         alt_radio = Parameter('Altitude Radio For Flight Phases', array=alt)
-        app_land = SectionNode('Approach And Landing',
-            items=[Section('Approach And Landing', slice(0, -1, None))])
+        app_land = SectionNode('Approach',
+            items=[Section('Approach', slice(0, -1, None))])
         # Pretend we are flying over flat ground, so the altitudes are equal.
         app.derive(alt_aal, alt_radio, app_land)
         expected = [Section('Final Approach', slice(17, 30, None))]
@@ -585,8 +588,8 @@ class TestFinalApproach(unittest.TestCase):
         app = FinalApproach()
         alt_aal = Parameter('Altitude AAL For Flight Phases', array=alt)
         alt_radio = Parameter('Altitude Radio For Flight Phases', array=alt)
-        app_land = SectionNode('Approach And Landing',
-            items=[Section('Approach And Landing', slice(0, 3, None))])
+        app_land = SectionNode('Approach',
+            items=[Section('Approach', slice(0, 3, None))])
         # Pretend we are flying over flat ground, so the altitudes are equal.
         app.derive(alt_aal, alt_radio, app_land)
         expected = [Section(name='Final Approach', slice=slice(0, 2, None))]

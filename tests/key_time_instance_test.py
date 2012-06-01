@@ -5,7 +5,7 @@ import unittest
 
 from analysis_engine.derived_parameters import ClimbForFlightPhases
 from analysis_engine.node import KeyTimeInstance, Parameter, P, Section, S
-from analysis_engine.flight_phase import (ApproachAndLanding,
+from analysis_engine.flight_phase import (Approach,
                                    ClimbCruiseDescent,
                                    Climbing,
                                    DescentLowClimb,
@@ -170,10 +170,10 @@ class TestGoAround(unittest.TestCase):
 class TestAltitudeInApproach(unittest.TestCase):
     def test_can_operate(self):
         self.assertEqual(AltitudeInApproach.get_operational_combinations(),
-                         [('Approach And Landing', 'Altitude AAL')])
+                         [('Approach', 'Altitude AAL')])
     
     def test_derive(self):
-        approaches = S('Approach And Landing', items=[Section('a', slice(4, 7)),
+        approaches = S('Approach', items=[Section('a', slice(4, 7)),
                                                       Section('b', slice(10, 20))])
         alt_aal = P('Altitude AAL',
                     np.ma.masked_array(range(1950, 0, -200) + \
@@ -193,10 +193,10 @@ class TestAltitudeInApproach(unittest.TestCase):
 class TestAltitudeInFinalApproach(unittest.TestCase):
     def test_can_operate(self):
         self.assertEqual(AltitudeInFinalApproach.get_operational_combinations(),
-                         [('Approach And Landing', 'Altitude AAL')])
+                         [('Approach', 'Altitude AAL')])
     
     def test_derive(self):
-        approaches = S('Approach And Landing',
+        approaches = S('Approach',
                        items=[Section('a', slice(2, 7)),
                               Section('b', slice(10, 20))])
         alt_aal = P('Altitude AAL',

@@ -989,9 +989,18 @@ class KeyPointValueNode(FormattedNameNode):
         :raises KeyError: If a required string formatting key is not provided.
         :raises TypeError: If a string formatting argument is of the wrong type.
         '''
-        if index is None or value is None or value is np.ma.masked:
-            logging.warning("'%s' cannot create KPV for index '%s' and value "
-                            "'%s'.", self.name, index, value)
+        # There are a number of algorithms which return None for valid
+        # computations, so these conditions are only logged as information...
+        if index is None or value is None:
+            logging.info("'%s' cannot create KPV for index '%s' and value "
+                         "'%s'.", self.name, index, value)
+            return
+        #...however where we should have raised an alert but the specific
+        #threshold was masked needs to be a warning as this should not
+        #happen.
+        if value is np.ma.masked:
+            logging.warn("'%s' cannot create KPV at index '%s' as value is masked."%
+                         (self.name, index))
             return
         name = self.format_name(replace_values, **kwargs)
         kpv = KeyPointValue(index, float(value), name)

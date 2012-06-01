@@ -697,8 +697,64 @@ def find_edges(array, _slice, direction='rising_edges'):
     # element only. 
     # The -0.5 shifts the value midway between the pre- and post-change
     # samples.
-    edge_list = edges[0] + int(_slice.start) - 0.5
+    edge_list = edges[0] + int(_slice.start or 0) - 0.5
     return list(edge_list)
+
+def first_valid_sample(array, start_index=None):
+    '''
+    Returns the first valid sample of data from a point in an array.
+    
+    :param array: array of values to scan
+    :type array: Numpy masked array
+    :param start_index: optional initial point for the scan. Must be positive.
+    :type start_index: integer
+    
+    :returns index: index for the first valid sample at or after start_index.
+    :type index: Integer or None 
+    :returns value: the value of first valid sample.
+    :type index: Float or None
+    '''
+    if start_index == None:
+        start_index = 0
+    # Trap for start_index < 0 ensures we don't stray into the far end of the array.    
+    elif start_index < 0 or start_index > len(array):
+        return None, None
+    
+    clumps = np.ma.clump_unmasked(array[start_index:])
+    if clumps:
+        index = clumps[0].start + start_index
+        return index, array[index]
+    else:
+        return None, None
+
+
+def last_valid_sample(array, end_index=None):
+    '''
+    Returns the last valid sample of data before a point in an array.
+
+    :param array: array of values to scan
+    :type array: Numpy masked array
+    :param end_index: optional initial point for the scan. May be negative.
+    :type end_index: integer
+    
+    :returns index: index for the last valid sample at or before end_index.
+    :type index: Integer or None 
+    :returns value: the value of last valid sample.
+    :type index: Float or None
+    '''
+    if end_index == None: 
+        end_index = len(array)
+    elif end_index > len(array):
+        return None, None
+    
+    clumps = np.ma.clump_unmasked(array[:end_index+1])
+    if clumps:
+        index = clumps[-1].stop - 1
+        return index, array[index]
+    else:
+        return None, None
+
+
 
 def first_order_lag (in_param, time_constant, hz, gain = 1.0,
                      initial_value = None):
@@ -929,13 +985,16 @@ def runway_length(runway):
     :type start_loc: float, units = feet.
     '''
     
-    start_lat = runway['start']['latitude']
-    start_lon = runway['start']['longitude']
-    end_lat = runway['end']['latitude']
-    end_lon = runway['end']['longitude']
+    try:
+        start_lat = runway['start']['latitude']
+        start_lon = runway['start']['longitude']
+        end_lat = runway['end']['latitude']
+        end_lon = runway['end']['longitude']
+        
+        return _dist(start_lat, start_lon, end_lat, end_lon)
+    except:
+        return None
     
-    return _dist(start_lat, start_lon, end_lat, end_lon)
-
 def runway_heading(runway):
     '''
     Computation of the runway heading from endpoints.
@@ -950,13 +1009,16 @@ def runway_heading(runway):
     :param rwy_hdg: true heading of runway centreline.
     :type rwy_hdg: float, units = degrees, facing from start to end.
     '''
-    end_lat = runway['end']['latitude']
-    end_lon = runway['end']['longitude']
-    
-    brg, dist = bearings_and_distances(np.ma.array(end_lat),
-                                       np.ma.array(end_lon),
-                                       runway['start'])
-    return brg.data    
+    try:
+        end_lat = runway['end']['latitude']
+        end_lon = runway['end']['longitude']
+        
+        brg, dist = bearings_and_distances(np.ma.array(end_lat),
+                                           np.ma.array(end_lon),
+                                           runway['start'])
+        return brg.data
+    except:
+        return None
 
 def ground_track(lat_fix, lon_fix, gspd, hdg, frequency, mode):
     """
@@ -1650,7 +1712,7 @@ def minimum_unmasked(array1, array2):
 
 def merge_two_parameters (param_one, param_two):
     '''
-    This process merges two parameter arrays of the same frequency.
+    This process merges two parameter objects. They must be recorded at the same frequency.
     without smoothing, and then computes the offset and frequency appropriately.
     
     Note: There is no check for the parameters being equi-spaced.
@@ -1696,7 +1758,7 @@ def merge_sources(*arrays):
 
 def blend_alternate_sensors (array_one, array_two, padding):
     '''
-    This simple process merges the data from two sensors where they are sampled
+    This process merges the data from two sensors where they are sampled
     alternately. Often pilot and co-pilot attitude and air data signals are
     stored in alternate locations to provide the required sample rate while
     allowing errors in either to be identified for investigation purposes.
@@ -1789,6 +1851,9 @@ def np_ma_zeros_like(array):
     """
     return np.ma.array(np.zeros_like(array), mask=False)
 
+def np_ma_ones_like(array):
+    return np_ma_zeros_like(array) + 1
+
 
 def np_ma_masked_zeros_like(array):
     """
@@ -1831,7 +1896,19 @@ def peak_curvature(array, _slice=slice(None), curve_sense='Concave'):
     overall = 2*ttp + gap 
     # check the array is long enough.
     if len(data) < overall:
-        raise ValueError, 'Peak curvature called with too short a sample'
+        # Simple Numpy array method for small data sets.
+        if len(data) < 4:
+            return len(data)/2
+        else:
+            curve = data[2:] - 2.0*data[1:-1] + data[:-2]
+            if curve_sense == 'Concave':
+                return np.ma.argmax(curve) + 1
+            elif curve_sense == 'Convex':
+                return np.ma.argmin(curve) + 1
+            elif curve_sense == 'Bipolar':
+                return np.ma.argmin(np.ma.abs(curve)) + 1
+            else:
+                raise NotImplementedError
 
     # Set up working arrays
     x = np.arange(ttp) + 1 #  The x-axis is always short and constant
@@ -2278,17 +2355,14 @@ def track_linking(pos, local_pos):
     array of local position data from ILS localizer and synthetic takeoff
     data.
     
-    The merge is done by computing linearly varying adjustment factors
-    between each computed section. This may be unnecessarily complex, as
-    simply aligning on a common point would work, but as it gives good
-    results and is already programmed it was decided to leave it in place.
-    
     :param pos: Flight track data (latitude or longitude) in degrees.
     :type pos: np.ma.masked_array, masked from data validity tests.
     :param local_pos: Position data relating to runway or ILS.
     :type local_pos: np.ma.masked_array, masked where no local data computed.
     
     :returns: Position array using local_pos data where available and interpolated pos data elsewhere.
+
+    TODO: Include last valid sample style functions to avoid trap of adjusting at a masked value.
     """
     # Where do we need to use the raw data?
     blocks = np.ma.clump_masked(local_pos)
@@ -2304,27 +2378,27 @@ def track_linking(pos, local_pos):
         link_b = 0
         
         # Look at the first edge
-        if a<2:
+        if a==0:
             link_a = 1
         else:
-            adj_a = (3 * local_pos.data[a-1] - local_pos.data[a-2])/2 -\
-                (3 * pos.data[a] - pos.data[a+1])/2
+            adj_a = local_pos[a-1] - pos[a-1]
     
         # now the other end
-        if b>last-2:
-            link_b=1
+        if b==last:
+            link_b = 1
         else:
-            adj_b = (3 * local_pos.data[b] - local_pos.data[b+1])/2 -\
-                (3 * pos.data[b-1] - pos.data[b-2])/2
+            adj_b = local_pos[b] - pos[b]
 
         fix_a = adj_a + link_a*adj_b
         fix_b = adj_b + link_b*adj_a
         
-        fix = np.linspace(fix_a, fix_b, num=b-a)
+        if link_a ==1 or link_b == 1:
+            fix = np.linspace(fix_a, fix_b, num=b-a)
+        else:
+            fix = np.linspace(fix_a, fix_b, num=b-a+2)[1:-1]
         local_pos[a:b] = pos[a:b] + fix
     return local_pos
-        
-        
+ 
 def smooth_track(lat, lon):
     """
     Input:
@@ -2344,8 +2418,8 @@ def smooth_track(lat, lon):
     # both the iteration and cost functions) the same algorithm runs 350
     # times faster !!!
     
-    lat_s = np.ma.copy(lat)
-    lon_s = np.ma.copy(lon)
+    lat_s = repair_mask(np.ma.copy(lat))
+    lon_s = repair_mask(np.ma.copy(lon))
     
     # Set up a weighted array that will slide past the data.
     r = 0.7  
@@ -2415,6 +2489,11 @@ def subslice(orig, new):
     return slice(start, stop, None if step == 1 else step)
 
 def index_closest_value(array, threshold, _slice=slice(None)):
+    '''
+    This function seeks the moment when the parameter in question gets
+    closest to a threshold. It works both forwards and backwards in time. See
+    index_at_value for further details.
+    '''
     return index_at_value(array, threshold, _slice, endpoint='closing')
     
 def index_at_value(array, threshold, _slice=slice(None), endpoint='exact'):
@@ -2545,6 +2624,14 @@ def value_at_time(array, hz, offset, time_index):
     # Timedelta truncates to 6 digits, therefore round offset down.
     time_into_array = time_index - round(offset-0.0000005, 6)
     location_in_array = time_into_array * hz
+    
+    # Trap overruns which can arise from compensation for timing offsets.
+    diff = location_in_array - len(array)
+    if 0<diff<1:
+        location_in_array = len(array)
+    if -1<location_in_array<0:
+        location_in_array = 0
+    
     return value_at_index(array, location_in_array)
 
 def value_at_datetime(start_datetime, array, hz, offset, value_datetime):
@@ -2584,9 +2671,7 @@ def value_at_index(array, index):
     :raises ValueError: If index is outside of array range.
     '''
     
-    if index < -1.0 or index > len(array):
-        raise ValueError, 'Seeking value outside data time range'
-    elif index < 0.0:
+    if index < 0.0:
         return array[0]
     elif index > len(array)-1:
         return array[-1]
