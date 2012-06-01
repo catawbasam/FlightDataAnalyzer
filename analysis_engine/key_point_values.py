@@ -30,7 +30,6 @@ from analysis_engine.library import (clip,
                                      shift_slices,
                                      slice_samples, 
                                      slices_above,
-                                     slices_below,
                                      slices_from_to,
                                      slices_overlap,
                                      slices_overlay,
@@ -249,7 +248,14 @@ class AirspeedBelowAltitudeMax(KeyPointValueNode):
 
 
 class AirspeedVacatingRunway(KeyPointValueNode):
-    def derive(self, airspeed=P('Airspeed'), off_rwy=KTI('Landing Turn Off Runway')):
+    '''
+    Airspeed vacating runway uses true airspeed, which is extended below the
+    minimum range of the indicated airspeed specifically for this type of
+    event. See the derived parameter for details of how groundspeed or
+    acceleration data is used to cover the landing phase.
+    '''
+    def derive(self, airspeed=P('Airspeed True'), 
+               off_rwy=KTI('Landing Turn Off Runway')):
         self.create_kpvs_at_ktis(airspeed.array, off_rwy)
         
 
@@ -505,7 +511,7 @@ class AirspeedBelowAltitudeMax(KeyPointValueNode):
     def derive(self, airspeed=P('Airspeed'), alt_aal=P('Altitude AAL For Flight Phases')):
         for alt in self.NAME_VALUES['altitude']:
             self.create_kpvs_within_slices(airspeed.array,
-                                           alt_aal.slices_below(alt),
+                                           alt_aal.slices_between(0, alt),
                                            max_value,
                                            altitude=alt)
 
@@ -523,7 +529,7 @@ class Airspeed10000ToLandMax(KeyPointValueNode):
         # regulations (and possibly others we don't currently know about)
         # relate to height above sea level (QNH) hence the options based on
         # landing airport location.
-        if destination.value['location']['country'] == 'United States':
+        if destination and destination.value['location']['country'] == 'United States':
             alt=alt_qnh.array
         else:
             alt=alt_std.array
@@ -552,7 +558,7 @@ class AirspeedTODTo10000Max(KeyPointValueNode):
                destination = A('FDR Landing Airport'), 
                descent=S('Descent')):
         # See comments for Airspeed10000ToLandMax
-        if destination.value['location']['country'] == 'United States':
+        if destination and destination.value['location']['country'] == 'United States':
             alt=alt_qnh.array
         else:
             alt=alt_std.array
@@ -1163,7 +1169,7 @@ class MagneticVariationAtLanding(KeyPointValueNode):
 
 def peak_start_egt(egt, n2):
     # Prepare to look for starting conditions.
-    n2_rate = rate_of_change(n2,4) # Ideally 2 sec, but N2 only sampled at this rate on 737-5 frame.
+    n2_rate = rate_of_change(n2,4) # Ideally 2 sec, but N2 only sampled at 1.4Hz on some frames.
     # The engine only accelerates through 30% when starting.
     passing_30 = index_at_value(n2.array,30.0)
     # after which it will peak and the rate will fall below zero at the
@@ -1684,9 +1690,12 @@ class EngOilPressMax(KeyPointValueNode):
 class EngOilPressMin(KeyPointValueNode):
     #TODO: TESTS
     name = 'Eng Oil Press Min'
-    def derive(self, eng_oil_press=P('Eng (*) Oil Press Min')):
-        index, value = min_value(eng_oil_press.array)
-        self.create_kpv(index, value)
+    def derive(self, eng_oil_press=P('Eng (*) Oil Press Min'), 
+               airs=S('Airborne')):
+        # Only check in flight to avoid zero pressure readings for stationary engines.
+        for air in airs:
+            index, value = min_value(eng_oil_press.array)
+            self.create_kpv(index, value)
 
 
 class FuelQtyAtLiftoff(KeyPointValueNode):
@@ -1805,7 +1814,7 @@ class PitchAt35FtInClimb(KeyPointValueNode):
         for climb in climbs:
             index= index_at_value(alt_aal.array, 35.0, climb.slice)
             if index:
-                value = value_at_index(index)
+                value = value_at_index(pitch.array, index)
                 self.create_kpv(index, value)
 
 
@@ -2276,59 +2285,59 @@ class Tailwind100FtToTouchdownMax(KeyPointValueNode):
 class TAWSAlert(KeyPointValueNode):
     name = 'TAWS Alert'
     def derive(self, taws_alert=P('TAWS Alert')):
-        self.create_kpvs_from_discretes(taws_alert.array, taws_alert.hz)
+        self.create_kpvs_from_discretes(taws_alert.array, taws_alert.hz, min_duration=2)
 
 class TAWSSinkRateWarning(KeyPointValueNode):
     name = 'TAWS Sink Rate Warning'
     def derive(self, taws_sink_rate=P('TAWS Sink Rate')):
-        self.create_kpvs_from_discretes(taws_sink_rate.array, taws_sink_rate.hz)
+        self.create_kpvs_from_discretes(taws_sink_rate.array, taws_sink_rate.hz, min_duration=2)
 
 class TAWSTooLowFlapWarning(KeyPointValueNode):
     name = 'TAWS Too Low Flap Warning'
     def derive(self, taws_too_low_flap=P('TAWS Terrain')):
-        self.create_kpvs_from_discretes(taws_too_low_flap.array, taws_too_low_flap.hz)
+        self.create_kpvs_from_discretes(taws_too_low_flap.array, taws_too_low_flap.hz, min_duration=2)
 
 class TAWSTerrainWarning(KeyPointValueNode):
     name = 'TAWS Terrain Warning'
     def derive(self, taws_terrain=P('TAWS Terrain Ahead')):
-        self.create_kpvs_from_discretes(taws_terrain.array, taws_terrain.hz)
+        self.create_kpvs_from_discretes(taws_terrain.array, taws_terrain.hz, min_duration=2)
 
 class TAWSTerrainPullUpWarning(KeyPointValueNode):
     name = 'TAWS Terrain Pull Up Warning'
     def derive(self, taws_terrain_pull_up=P('TAWS Terrain Ahead Pull Up')):
-        self.create_kpvs_from_discretes(taws_terrain_pull_up.array, taws_terrain_pull_up.hz)
+        self.create_kpvs_from_discretes(taws_terrain_pull_up.array, taws_terrain_pull_up.hz, min_duration=2)
 
 class TAWSGlideslopeWarning(KeyPointValueNode):
     name = 'TAWS Glideslope Warning'
     def derive(self, taws_glideslope=P('TAWS Glideslope')):
-        self.create_kpvs_from_discretes(taws_glideslope.array, taws_glideslope.hz)
+        self.create_kpvs_from_discretes(taws_glideslope.array, taws_glideslope.hz, min_duration=2)
 
 class TAWSTooLowTerrainWarning(KeyPointValueNode):
     name = 'TAWS Too Low Terrain Warning'
     def derive(self, taws_too_low_terrain=P('TAWS Too Low Terrain')):
-        self.create_kpvs_from_discretes(taws_too_low_terrain.array, taws_too_low_terrain.hz)
+        self.create_kpvs_from_discretes(taws_too_low_terrain.array, taws_too_low_terrain.hz, min_duration=2)
 
 class TAWSTooLowGearWarning(KeyPointValueNode):
     name = 'TAWS Too Low Gear Warning'
     def derive(self, taws_too_low_gear=P('TAWS Too Low Gear')):
-        self.create_kpvs_from_discretes(taws_too_low_gear.array, taws_too_low_gear.hz)
+        self.create_kpvs_from_discretes(taws_too_low_gear.array, taws_too_low_gear.hz, min_duration=2)
 
 class TAWSPullUpWarning(KeyPointValueNode):
     name='TAWS Pull Up Warning'
     def derive(self, taws_pull_up=P('TAWS Pull Up')):
-        self.create_kpvs_from_discretes(taws_pull_up.array, taws_pull_up.hz)
+        self.create_kpvs_from_discretes(taws_pull_up.array, taws_pull_up.hz, min_duration=2)
 
 class TAWSDontSinkWarning(KeyPointValueNode):
     name='TAWS Dont Sink Warning'
     def derive(self, taws_dont_sink=P('TAWS Dont Sink')):
-        self.create_kpvs_from_discretes(taws_dont_sink.array, taws_dont_sink.hz)
+        self.create_kpvs_from_discretes(taws_dont_sink.array, taws_dont_sink.hz, min_duration=2)
 
 class TAWSWindshearWarningBelow1500Ft(KeyPointValueNode):
     name='TAWS Windshear Warning Below 1500 Ft'
     def derive(self, taws_windshear=P('TAWS Windshear Warning'), 
                alt_aal=P('Altitude AAL For Flight Phases')):
         for descent in alt_aal.slices_from_to(1500,0):
-            self.create_kpvs_from_discretes(taws_windshear.array[descent], taws_windshear.hz)
+            self.create_kpvs_from_discretes(taws_windshear.array[descent], taws_windshear.hz, min_duration=2)
 
 
 class ThrottleCyclesInFinalApproach(KeyPointValueNode):

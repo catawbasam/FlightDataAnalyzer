@@ -411,6 +411,9 @@ def scan_ils(beam, ils_dots, height, scan_slice):
     '''
     beam = 'localizer' or 'glideslope'
     '''
+    # Let's check to see if we have anything to work with...
+    if np.ma.count(ils_dots[scan_slice])<5:
+        return None
     # Find where we first see the ILS indication. We will start from 200ft to
     # avoid getting spurious glideslope readings (hence this code is the same
     # for glide and localizer).
@@ -450,7 +453,9 @@ class ILSLocalizerEstablished(FlightPhaseNode):
     def derive(self, ils_loc=P('ILS Localizer'), 
                alt_aal=P('Altitude AAL'), apps=S('Approach')):
         for app in apps:
-            self.create_phase(scan_ils('localizer',ils_loc.array,alt_aal.array,app.slice))
+            ils_app = scan_ils('localizer',ils_loc.array,alt_aal.array,app.slice)
+            if ils_app != None:
+                self.create_phase(ils_app)
 
   
 '''
@@ -491,9 +496,12 @@ class ILSGlideslopeEstablished(FlightPhaseNode):
     def derive(self, ils_gs = P('ILS Glideslope'),
                ils_loc_ests = S('ILS Localizer Established'),
                alt_aal=P('Altitude AAL')):
+        # We don't accept glideslope approaches without localizer established
+        # first, so this only works within that context. If you want to
+        # follow a glidepath without a localizer, seek flight safety guidance
+        # elsewhere.
         for ils_loc_est in ils_loc_ests:
             gs_est = scan_ils('glideslope', ils_gs.array, alt_aal.array, ils_loc_est.slice)
-
             self.create_phase(gs_est)
             
 
