@@ -177,8 +177,33 @@ class TestNode(unittest.TestCase):
         self.assertEqual(param2.method_calls, [])
         
         
+class TestFlightAttributeNode(unittest.TestCase):
+    def test_nonzero_flight_attr_node(self):
+        'If no value is set, object evaluates to False - else True'
+        attr = FlightAttributeNode()
+        self.assertFalse(bool(attr))
+        attr.value = []
+        self.assertFalse(bool(attr))
+        attr.value = 'something'
+        self.assertTrue(bool(attr))
+        attr.value = True
+        self.assertTrue(bool(attr))
+        attr.value = False
+        self.assertFalse(bool(attr))
         
-                        
+    def test_nonzero_attribute(self):
+        'If no value is set, object evaluates to False - else True'
+        attr = Attribute()
+        self.assertFalse(bool(attr))
+        attr.value = []
+        self.assertFalse(bool(attr))
+        attr.value = 'something'
+        self.assertTrue(bool(attr))
+        attr.value = True
+        self.assertTrue(bool(attr))
+        attr.value = False
+        self.assertFalse(bool(attr))
+
 class TestNodeManager(unittest.TestCase):
     def test_operational(self):
         mock_node = mock.Mock('can_operate') # operable node
@@ -724,6 +749,8 @@ class TestKeyPointValueNode(unittest.TestCase):
         param.array[11:17] = 1.0
         knode.create_kpvs_from_discretes(param.array, param.hz)
         knode.create_kpvs_from_discretes(param.array, param.hz, sense='reverse')
+        knode.create_kpvs_from_discretes(param.array, param.hz, min_duration=3)
+        # Need to add result for min_duration case.
         self.assertEqual(list(knode),
                          [KeyPointValue(index=5, value=3, name='Kpv'),
                           KeyPointValue(index=11, value=6, name='Kpv'),

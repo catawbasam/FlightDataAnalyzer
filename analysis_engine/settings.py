@@ -29,7 +29,7 @@ API_HANDLER = 'analysis_engine.api_handler_analysis_engine.AnalysisEngineAPIHand
 
 # Base URL for the API for determining nearest airport/runway, etc:
 # BASE_URL = 'http://127.0.0.1'
-BASE_URL = 'https://polaris-test.flightdataservices.com'
+BASE_URL = 'https://polaris.flightdataservices.com'
 
 # Location of the CA certificates to be used by the HTTP API handler:
 # Note: This is the system-wide default location on Ubuntu.
@@ -132,7 +132,7 @@ HEADING_TURN_ONTO_RUNWAY = 15.0 # deg
 HEADING_TURN_OFF_RUNWAY = 15.0 # deg
 
 # Threshold for flight phase airspeed hysteresis.
-HYSTERESIS_FPIAS = 10 # kts
+HYSTERESIS_FPIAS = 5 # kts
 
 # Threshold for flight phase altitude hysteresis.
 HYSTERESIS_FPALT = 200 # ft

@@ -274,7 +274,6 @@ class DerivedParameterNode(Node):
         :rtype: float
         """
 
-        # TODO: Check this DJ-added code please. Included for phases where one time is None (data starts in mid-phase)
         if secs == None:
             return None
         
@@ -313,7 +312,9 @@ class DerivedParameterNode(Node):
     
     def slices_below(self, value):
         '''
-        Get slices where the parameter's array is below value.
+        Get slices where the parameter's array is below value. Note: It is
+        normally recommended to use slices_between and specify the lower
+        bound in preference to slices_below, as this is normally more robust.
         
         :param value: Value to create slices below.
         :type value: float or int
@@ -1167,7 +1168,7 @@ class KeyPointValueNode(FormattedNameNode):
         return    
         """
 
-    def create_kpvs_from_discretes(self, array, hz, sense='normal', phase=None):
+    def create_kpvs_from_discretes(self, array, hz, sense='normal', phase=None, min_duration=0.0):
         '''
         For discrete parameters, this detects an event and records the
         duration of each event.
@@ -1176,6 +1177,8 @@ class KeyPointValueNode(FormattedNameNode):
         :type array: A recorded or derived discrete parameter. 
         :param sense: Keyword argument.
         :param phase: An optional flight phase (section) argument.
+        :param min_duration: An optional minimum duration for the KPV to become valid.
+        :type min_duration: Float (seconds)
         :name name: Facility for automatically naming the KPV.
         :type name: String
         
@@ -1197,7 +1200,8 @@ class KeyPointValueNode(FormattedNameNode):
             for event in events:
                 index = event.start
                 value = (event.stop - event.start) / hz
-                self.create_kpv(index, value)
+                if value >= min_duration:
+                    self.create_kpv(index, value)
             return
         
         # High level function scans phase blocks or complete array and presents
@@ -1219,7 +1223,7 @@ class FlightAttributeNode(Node):
     '''
     node_type = 'FlightAttributeNode'
     def __init__(self, *args, **kwargs):
-        self._value = None
+        self.value = None
         super(FlightAttributeNode, self).__init__(*args, **kwargs)
         # FlightAttributeNodes inherit frequency and offset attributes from Node,
         # yet these are not relevant to them. TODO: Change inheritance.
@@ -1228,6 +1232,22 @@ class FlightAttributeNode(Node):
     
     def __repr__(self):
         return self.name
+    
+    def __nonzero__(self):
+        """
+        Set the boolean value of the object depending on it's attriubute
+        content.
+        
+        Note: If self.value is a boolean then evaluation of the object is the
+        same as evaluating the content.
+        node.value = True
+        bool(node) == bool(node.value)
+        """
+        if self.value == 0 or bool(self.value):
+            # 0 is a meaningful value
+            return True
+        else:
+            return False    
     
     def set_flight_attribute(self, value):
         self.value = value
@@ -1343,7 +1363,20 @@ class Attribute(object):
         self.offset = None
 
     def __nonzero__(self):
-        return self.value != None
+        """
+        Set the boolean value of the object depending on it's attriubute
+        content.
+        
+        Note: If self.value is a boolean then evaluation of the object is the
+        same as evaluating the content.
+        node.value = True
+        bool(node) == bool(node.value)
+        """
+        if self.value == 0 or bool(self.value):
+            # 0 is a meaningful value
+            return True
+        else:
+            return False
     
     def get_aligned(self, param):
         '''

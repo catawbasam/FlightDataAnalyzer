@@ -19,6 +19,7 @@ from analysis_engine.library import (align,
                                      blend_two_parameters,
                                      clip,
                                      coreg,
+                                     first_valid_sample,
                                      first_order_lag,
                                      first_order_washout,
                                      ground_track,
@@ -31,6 +32,7 @@ from analysis_engine.library import (align,
                                      interpolate_and_extend,
                                      is_index_within_slice,
                                      is_slice_within_slice,
+                                     last_valid_sample,
                                      latitudes_and_longitudes,
                                      merge_sources,
                                      merge_two_parameters,
@@ -167,7 +169,7 @@ class AccelerationSideways(DerivedParameterNode):
 
 class AirspeedForFlightPhases(DerivedParameterNode):
     def derive(self, airspeed=P('Airspeed')):
-        self.array = hysteresis(airspeed.array, HYSTERESIS_FPIAS)
+        self.array = hysteresis(repair_mask(airspeed.array), HYSTERESIS_FPIAS)
 
 
 class AirspeedMinusV2(DerivedParameterNode):
@@ -233,7 +235,8 @@ class AirspeedTrue(DerivedParameterNode):
     def derive(self, cas_p = P('Airspeed'),
                alt_std_p = P('Altitude STD'),
                tat_p = P('TAT'), 
-               toffs=S('Takeoff'), lands=S('Landing'), gspd=P('Groundspeed')):
+               toffs=S('Takeoff'), lands=S('Landing'), 
+               gspd=P('Groundspeed'), acc_fwd=P('Acceleration Forwards')):
         
         cas = cas_p.array
         alt_std = alt_std_p.array
@@ -255,23 +258,40 @@ class AirspeedTrue(DerivedParameterNode):
         tas_from_airspeed = np.ma.masked_less(np.ma.array(data=tas, mask=combined_mask),50)
         tas_valids = np.ma.clump_unmasked(tas_from_airspeed)
         
-        # Now see if we can extend this during the takeoff phase:
+        # Now see if we can extend this during the takeoff phase, using
+        # either recorded groundspeed or failing that integrating
+        # acceleration:
         for toff in toffs:
             for tas_valid in tas_valids:
                 tix = tas_valid.start
                 if is_index_within_slice(tix, toff.slice):
-                    wind = tas_from_airspeed[tix] - gspd.array[tix]
+                    tas_0 = tas_from_airspeed[tix]
+                    wind = tas_0 - gspd.array[tix]
                     scope = slice(toff.slice.start, tix)
-                    tas_from_airspeed[scope] = gspd.array[scope] + wind
+                    if gspd:
+                        tas_from_airspeed[scope] = gspd.array[scope] + wind
+                    else:
+                        tas_from_airspeed[scope] = \
+                            integrate(acc_fwd.array[scope], acc_fwd.frequency, 
+                                      initial_value=tas_0,
+                                      scale=GRAVITY_IMPERIAL/KTS_TO_FPS, 
+                                      direction='backwards')
                     
         # Then see if we can do the same for the landing phase:
         for land in lands:
             for tas_valid in tas_valids:
                 tix = tas_valid.stop - 1
                 if is_index_within_slice(tix, land.slice):
-                    wind = tas_from_airspeed[tix] - gspd.array[tix]
+                    tas_0 = tas_from_airspeed[tix]
+                    wind = tas_0 - gspd.array[tix]
                     scope = slice(tix + 1, land.slice.stop)
-                    tas_from_airspeed[scope] = gspd.array[scope] + wind
+                    if gspd:
+                        tas_from_airspeed[scope] = gspd.array[scope] + wind
+                    else:
+                        tas_from_airspeed[scope] = \
+                            integrate(acc_fwd.array[scope], acc_fwd.frequency,
+                                      initial_value=tas_0, 
+                                      scale=GRAVITY_IMPERIAL/KTS_TO_FPS)
                     
         self.array = tas_from_airspeed
         
@@ -2317,7 +2337,7 @@ class MagneticVariation(DerivedParameterNode):
                 except:
                     dev[takeoff_heading.index] = 0.0
                     
-            if land_rwy:
+            if land_rwy.value:
                 landing_heading = head_land.get_last()
                 try:
                     dev[landing_heading.index] = first_turn( \
@@ -2487,18 +2507,20 @@ class CoordinatesStraighten(object):
         coord2_s = repair_mask(coord2.array)
         
         # Join the masks, so that we only consider positional data when both are valid:
-        coord1_s.mask = np.ma.logical_or(np.ma.getmaskarray(coord1_s),
-                                         np.ma.getmaskarray(coord2_s))
+        coord1_s.mask = np.ma.logical_or(np.ma.getmaskarray(coord1.array),
+                                         np.ma.getmaskarray(coord2.array))
         coord2_s.mask = coord1_s.mask
         # Preload the output with masked values to keep dimension correct 
-        array = coord1_s  
+        array = np_ma_masked_zeros_like(coord1_s)  
         
         # Now we just smooth the valid sections.
         tracks = np.ma.clump_unmasked(coord1_s)
         for track in tracks:
-            coord1_s_track, coord2_s_track, cost = \
-                smooth_track(coord1.array[track], coord2.array[track])
-            array[track] = coord1_s_track
+            # Reject any data with invariant positions, i.e. sitting on stand.
+            if np.ma.ptp(coord1_s[track])>0.0 and np.ma.ptp(coord2_s[track])>0.0:
+                coord1_s_track, coord2_s_track, cost = \
+                    smooth_track(coord1_s[track], coord2_s[track])
+                array[track] = coord1_s_track
         return array
         
 

@@ -540,14 +540,14 @@ class TestCalculateTimebase(unittest.TestCase):
         self.assertEqual(start_dt, datetime(2011,12,30,8,20,36))
         
     def test_real_data_params_no_year(self):
-        years = None
         months = np.load('test_data/month.npy')
         days = np.load('test_data/day.npy')
         hours = np.load('test_data/hour.npy')
         mins = np.load('test_data/minute.npy')
         secs = np.load('test_data/second.npy')
+        years = np.array([2012]*len(months)) # fixed year
         start_dt = calculate_timebase(years, months, days, hours, mins, secs)
-        self.assertEqual(start_dt, datetime(2012,12,30,8,20,36))        
+        self.assertEqual(start_dt, datetime(2012,12,30,8,20,36))
         
     @unittest.skip("Implement if this is a requirement")
     def test_using_offset_for_seconds(self):
@@ -1174,6 +1174,17 @@ class TestIndexAtValue(unittest.TestCase):
         array = np.ma.arange(50)
         self.assertEqual(index_at_value(array, 55, slice(-20,20)), None)
 
+    def test_index_at_value_divide_by_zero_trap(self):
+        '''
+        Returns None when there is only one value in the array since it cannot
+        cross a threshold.
+        '''
+        array = np.ma.arange(50)
+        array[25:] -= 1
+        array[23]=np.ma.masked
+        array[26]=np.ma.masked
+        self.assertEqual(index_at_value(array, 24, slice(20,30)), 24.5)
+
 
 class TestIndexClosestValue(unittest.TestCase):
     def test_index_closest_value(self):
@@ -1737,10 +1748,6 @@ class TestPeakCurvature(unittest.TestCase):
         self.assertGreaterEqual(pc,35)
         self.assertLessEqual(pc,45)
 
-    def test_peak_curvature_failure(self):
-        array = np.ma.array([0]*2+range(2))
-        self.assertRaises(ValueError, peak_curvature, array)
-       
     def test_peak_curvature_real_data(self):
         array = np.ma.array([37.9,37.9,37.9,37.9,37.9,38.2,38.2,38.2,38.2,38.8,
                              38.2,38.8,39.1,39.7,40.6,41.5,42.7,43.6,44.5,46,
@@ -2185,13 +2192,6 @@ class TestSmoothTrack(unittest.TestCase):
         lat_s, lon_s, cost = smooth_track(lat, lon)
         self.assertLess (cost,26)
         
-    def test_smooth_track_masked(self):
-        lon = np.ma.array([0,0,0,9,1,1], dtype=float)
-        lat = np.ma.zeros(6, dtype=float)
-        lon[3]=np.ma.masked
-        lat_s, lon_s, cost = smooth_track(lat, lon)
-        self.assertLess (cost,26)
-        
     def test_smooth_track_speed(self):
         from time import clock
         lon = np.ma.arange(10000, dtype=float)
@@ -2392,19 +2392,10 @@ class TestValueAtTime(unittest.TestCase):
         array = np.ma.arange(4) + 22.3
         self.assertEquals (value_at_time(array, 1.0, 0.0, 3.0), 25.3)
         
-    def test_value_at_time_assertion_below_range(self):
-        array = np.ma.arange(4)
-        # Note: Frequency and offset selected to go more than one sample period below bottom of range.
-        self.assertRaises (ValueError, value_at_time, array, 2, 0.6, 0.0)
-        
     def test_value_at_time_assertion_just_below_range(self):
         array = np.ma.arange(4)+7.0
         # Note: Frequency and offset selected to go more than one sample period below bottom of range.
         self.assertEquals (value_at_time(array, 1, 0.1, 0.0), 7.0)
-        
-    def test_value_at_time_assertion_above_range(self):
-        array = np.ma.arange(4)
-        self.assertRaises (ValueError, value_at_time, array, 1, 0.0, 7.0)
         
     def test_value_at_time_with_lower_value_masked(self):
         array = np.ma.arange(4) + 7.4
@@ -2458,17 +2449,9 @@ class TestValueAtIndex(unittest.TestCase):
         array = np.ma.arange(4)
         self.assertEquals (value_at_index(array, 3.7), 3.0)
         
-    def test_value_at_index_above_range(self):
-        array = np.ma.arange(4)
-        self.assertRaises(ValueError, value_at_index, array, 7)
-        
     def test_value_at_index_just_below_range(self):
         array = np.ma.arange(4)
         self.assertEquals (value_at_index(array, -0.5), 0.0)
-        
-    def test_value_at_index_below_range(self):
-        array = np.ma.arange(4)
-        self.assertRaises(ValueError, value_at_index, array, -33)
         
     def test_value_at_index_masked(self):
         array = np.ma.arange(4)
@@ -2666,10 +2649,11 @@ class TestMachTat2Sat(unittest.TestCase):
     def test_01(self):
 
         # Mach 0.5, 15 deg C, K = 0.5
-
-        Value = machtat2sat(.5, 15, recovery_factor = 0.5)
+        mach = np.ma.array(data=[0.5, 0.5], mask=[False, True])
+        Value = machtat2sat(mach, 15, recovery_factor = 0.5)
         Truth = 7.97195121951
-        self.assertAlmostEqual(Value, Truth, delta = 1e-5)
+        self.assertAlmostEqual(Value[0], Truth, delta = 1e-5)
+        self.assertAlmostEqual(Value.data[1], 1.0, delta = 1e-5)
 
     
 class TestAlt2Sat(unittest.TestCase):

@@ -2022,7 +2022,7 @@ def rate_of_change(diff_param, width):
     
     hw = width * hz / 2.0
     if hw < 1:
-        raise ValueError
+        raise ValueError, 'Rate of change called with inadequate width.'
     
     # Set up an array of masked zeros for extending arrays.
     slope = np.ma.copy(to_diff)
@@ -2062,10 +2062,12 @@ def repair_mask(array, frequency=1, repair_duration=REPAIR_DURATION,
         elif section.stop == len(array):
             continue # Can't interpolate if we don't know the last sample
         else:
-            array[section] = np.interp(np.arange(length) + 1,
-                                       [0, length + 1],
-                                       [array.data[section.start - 1],
-                                        array.data[section.stop]])
+            array.data[section] = np.interp(np.arange(length) + 1,
+                                            [0, length + 1],
+                                            [array.data[section.start - 1],
+                                             array.data[section.stop]])
+            array.mask[section] = False
+            
     return array
    
 
@@ -2418,8 +2420,8 @@ def smooth_track(lat, lon):
     # both the iteration and cost functions) the same algorithm runs 350
     # times faster !!!
     
-    lat_s = repair_mask(np.ma.copy(lat))
-    lon_s = repair_mask(np.ma.copy(lon))
+    lat_s = np.ma.copy(lat)
+    lon_s = np.ma.copy(lon)
     
     # Set up a weighted array that will slide past the data.
     r = 0.7  
@@ -2429,6 +2431,7 @@ def smooth_track(lat, lon):
 
     cost_0 = float('inf')
     cost = smooth_track_cost_function(lat_s, lon_s, lat, lon)
+    print 'Initial smooth track cost function = ',cost
     
     while cost < cost_0:  # Iterate to an optimal solution.
         lat_last = np.ma.copy(lat_s)
@@ -2589,7 +2592,11 @@ def index_at_value(array, threshold, _slice=slice(None), endpoint='exact'):
         a = array[begin+step*n]
         b = array[begin+step*(n+1)]
         # Force threshold to float as often passed as an integer.
-        r = (float(threshold) - a) / (b-a) 
+        # Also check for b=a as otherwise we get a divide by zero condition.
+        if a==b:
+            r = 0.5
+        else:
+            r = (float(threshold) - a) / (b-a) 
         #TODO: Could test 0 < r < 1 for completeness
     return (begin + step * (n+r))
 
@@ -2628,7 +2635,7 @@ def value_at_time(array, hz, offset, time_index):
     # Trap overruns which can arise from compensation for timing offsets.
     diff = location_in_array - len(array)
     if 0<diff<1:
-        location_in_array = len(array)
+        location_in_array = len(array)-1
     if -1<location_in_array<0:
         location_in_array = 0
     
@@ -2814,7 +2821,10 @@ def machtat2sat(mach, tat, recovery_factor=0.9):
     for most cases, and allows for inherited test case which used a lower
     value.
     """
-    ambient_temp = (tat + 273.15) / (1. + (0.2*recovery_factor) * mach** 2.)
+    # Default fill of zero produces runtime divide by zero errors in Numpy. 
+    # Hence force fill to >0.
+    denominator = np.ma.array(1.0 + (0.2*recovery_factor) * mach * mach, fill_value=1.0)
+    ambient_temp = (tat + 273.15) / denominator
     sat = ambient_temp - 273.15
     return sat
 

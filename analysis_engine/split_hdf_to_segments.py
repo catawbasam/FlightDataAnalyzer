@@ -462,7 +462,7 @@ if __name__ == '__main__':
     import pprint
     from utilities.filesystem_tools import copy_file
     logger = logging.getLogger()
-    logger.setLevel(logging.INFO)    
+    logger.setLevel(logging.WARN)    
     
     parser = argparse.ArgumentParser(description="Process a flight.")
     parser.add_argument('file', type=str,
