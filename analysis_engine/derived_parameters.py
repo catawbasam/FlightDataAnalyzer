@@ -116,8 +116,8 @@ class AccelerationForwards(DerivedParameterNode):
                acc_long=P('Acceleration Longitudinal'), 
                pitch=P('Pitch')):
         pitch_rad = pitch.array*deg2rad
-        self.array = acc_long.array * np.cos(pitch_rad)\
-                     - acc_norm.array * np.sin(pitch_rad)
+        self.array = acc_long.array * np.ma.cos(pitch_rad)\
+                     - acc_norm.array * np.ma.sin(pitch_rad)
 
 
 class AccelerationAcrossTrack(DerivedParameterNode):
@@ -130,8 +130,8 @@ class AccelerationAcrossTrack(DerivedParameterNode):
                acc_side=P('Acceleration Sideways'),
                drift=P('Drift')):
         drift_rad = drift.array*deg2rad
-        self.array = acc_side.array * np.cos(drift_rad)\
-            - acc_fwd.array * np.sin(drift_rad)
+        self.array = acc_side.array * np.ma.cos(drift_rad)\
+            - acc_fwd.array * np.ma.sin(drift_rad)
 
 
 class AccelerationAlongTrack(DerivedParameterNode):
@@ -144,8 +144,8 @@ class AccelerationAlongTrack(DerivedParameterNode):
                acc_side=P('Acceleration Sideways'), 
                drift=P('Drift')):
         drift_rad = drift.array*deg2rad
-        self.array = acc_fwd.array * np.cos(drift_rad)\
-                     + acc_side.array * np.sin(drift_rad)
+        self.array = acc_fwd.array * np.ma.cos(drift_rad)\
+                     + acc_side.array * np.ma.sin(drift_rad)
 
 
 class AccelerationSideways(DerivedParameterNode):
@@ -161,15 +161,15 @@ class AccelerationSideways(DerivedParameterNode):
         pitch_rad = pitch.array*deg2rad
         roll_rad = roll.array*deg2rad
         # Simple Numpy algorithm working on masked arrays
-        resolved_in_pitch = acc_long.array * np.sin(pitch_rad) \
-                            + acc_norm.array * np.cos(pitch_rad)
-        self.array = resolved_in_pitch * np.sin(roll_rad) \
-                     + acc_lat.array * np.cos(roll_rad)
+        resolved_in_pitch = acc_long.array * np.ma.sin(pitch_rad) \
+                            + acc_norm.array * np.ma.cos(pitch_rad)
+        self.array = resolved_in_pitch * np.ma.sin(roll_rad) \
+                     + acc_lat.array * np.ma.cos(roll_rad)
 
 
 class AirspeedForFlightPhases(DerivedParameterNode):
     def derive(self, airspeed=P('Airspeed')):
-        self.array = hysteresis(repair_mask(airspeed.array), HYSTERESIS_FPIAS)
+        self.array = hysteresis(repair_mask(airspeed.array, repair_duration=None), HYSTERESIS_FPIAS)
 
 
 class AirspeedMinusV2(DerivedParameterNode):
@@ -362,18 +362,29 @@ class AltitudeAAL(DerivedParameterNode):
                     
                     up_diff = None
                     dn_diff = None
+                    alt_diff = alt_std.array-alt_rad.array
                     for ralt_section in ralt_sections:
                         if ralt_section.stop == baro_section.start:
-                            up_diff =  alt_std.array[begin_index] - alt_rad.array[begin_index]
+                            slip, up_diff =  first_valid_sample(alt_diff[begin_index:begin_index+60])
+                            if slip>0:
+                                # alt_std is invalid at the point of handover so stretch the radio signal until we can handover.
+                                fix_slice = slice(begin_index,begin_index+slip) 
+                                alt_aal[fix_slice] = alt_rad.array[fix_slice]
+                                begin_index += slip
                         elif ralt_section.start == baro_section.stop:
-                            dn_diff = alt_std.array[end_index] - alt_rad.array[end_index]
+                            slip, dn_diff = last_valid_sample(alt_diff[end_index-61:end_index])
+                            slip = slip-60
+                            if slip>0:
+                                end_index += slip
+                                fix_slice = slice(ralt_section.start+slip,ralt_section.start) 
+                                alt_aal[quick][fix_slice] = alt_rad.array[quick][fix_slice]
                             
                     if up_diff == None and dn_diff == None:
                         # Neither edge was found. Did we get close the ground at some point?
                         low_index = np.ma.argmin(alt_rad.array[begin_index:end_index])
                         if low_index:
                             # We did, so use that as a datum
-                            mid_diff = alt_std.array[low_index] - alt_rad.array[low_index]
+                            mid_diff = alt_diff[low_index]
                             alt_aal[begin_index:end_index] = alt_std.array[begin_index:end_index] - mid_diff
                         else:
                             # We didn't so there is nothing to be done but copy the altitude across.
@@ -419,7 +430,7 @@ class AltitudeAALForFlightPhases(DerivedParameterNode):
     
     def derive(self, alt_aal=P('Altitude AAL')):
         
-        self.array = repair_mask(alt_aal.array)
+        self.array = repair_mask(alt_aal.array, repair_duration=None)
    
 
 '''
@@ -796,7 +807,7 @@ class AltitudeTail(DerivedParameterNode):
         # Now apply the offset
         gear2tail = dist_gear_to_tail.value * METRES_TO_FEET
         ground2tail = ground_to_tail.value * METRES_TO_FEET
-        self.array = (alt_rad.array - np.sin(pitch_rad) * gear2tail)
+        self.array = (alt_rad.array - np.ma.sin(pitch_rad) * gear2tail)
 
 
 class ClimbForFlightPhases(DerivedParameterNode):
@@ -819,7 +830,7 @@ class DescendForFlightPhases(DerivedParameterNode):
     This computes descent segments, and resets to zero as soon as the aircraft
     climbs Used for measuring descents, e.g. following a suspected level bust.
     """
-    def derive(self, alt_std=P('Altitude STD'), airs=S('Fast')):
+    def derive(self, alt_std=P('Altitude STD'), airs=S('Airborne')):
         self.array = np.ma.zeros(len(alt_std.array))
         repair_mask(alt_std.array) # Remove small sections of corrupt data
         for air in airs:
@@ -1519,7 +1530,8 @@ class GrossWeightSmoothed(DerivedParameterNode):
     def derive(self, ff = P('Eng (*) Fuel Flow'),
                gw = P('Gross Weight'),
                climbs = S('Climbing'),
-               descends = S('Descending')
+               descends = S('Descending'),
+               fast = S('Fast')
                ):
         flow = repair_mask(ff.array)
         fuel_to_burn = np.ma.array(integrate (flow/3600.0, ff.frequency,  direction='reverse'))
@@ -2072,10 +2084,14 @@ class LatitudeSmoothed(DerivedParameterNode):
         
         if ils_range:
             if len(app_info.value) != len(loc_est):
-                # Q: Is this still True?
-                logging.warning("Cannot Smooth latitude if the number of '%s'"
-                                "Sections is not equal to the number of approaches.",
-                                loc_est.name)
+                # TODO: Sort out what we do with multiple approach phases.
+                
+                # Can't smooth appproach data if the ILS was not established,
+                # but apologise if it was and we got in a muddle.
+                if len(loc_est)>0: 
+                    logging.warning("Cannot use ILS approach data to smooth the approach track because the number of '%s'"
+                                    " sections was not equal to the number of approaches.",
+                                    loc_est.name)
                 self.array = lat.array
                 return
             
@@ -2117,10 +2133,7 @@ class LongitudeSmoothed(DerivedParameterNode):
                ):
         if ils_range:
             if len(app_info.value) != len(loc_est) :
-                # Q: Is this still True?
-                logging.warning("Cannot Smooth longitude if the number of '%s'"
-                                "Sections is not equal to the number of approaches.",
-                                loc_est.name)
+                # Warning issued by the Latitude code. No need to duplicate.
                 self.array = lon.array
                 return        
     
@@ -2307,8 +2320,8 @@ class MagneticVariation(DerivedParameterNode):
     Africa or post-war zones.
     """
     def derive(self, head=P('Heading Continuous'),
-               head_land = KTI('Heading At Landing'),
-               head_toff = KTI('Heading At Takeoff'),
+               head_land = KPV('Heading At Landing'),
+               head_toff = KPV('Heading At Takeoff'),
                toff_rwy = A('FDR Takeoff Runway'), 
                land_rwy = A('FDR Landing Runway')):
         
@@ -2503,8 +2516,8 @@ class CoordinatesStraighten(object):
         :returns: coord1 smoothed.
         :rtype: np.ma.masked_array
         """        
-        coord1_s = repair_mask(coord1.array)
-        coord2_s = repair_mask(coord2.array)
+        coord1_s = coord1.array
+        coord2_s = coord2.array
         
         # Join the masks, so that we only consider positional data when both are valid:
         coord1_s.mask = np.ma.logical_or(np.ma.getmaskarray(coord1.array),
@@ -2634,11 +2647,23 @@ class ThrustReversers(DerivedParameterNode):
             self.array = step_values(all_tr/8.0, [0,0.5,1])
             
 
+#------------------------------------------------------------------
+# WIND RELATED PARAMETERS
+#------------------------------------------------------------------
+class WindDirectionContinuous(DerivedParameterNode):
+    """
+    Like the aircraft heading, this does not jump as it passes through North.
+    """
+    units = 'deg'
+    def derive(self, wind_head=P('Wind Direction')):
+        self.array = straighten_headings(wind_head.array)
+
+
 class Headwind(DerivedParameterNode):
     """
     This is the headwind, negative values are tailwind.
     """
-    def derive(self, windspeed=P('Wind Speed'), wind_dir=P('Wind Direction'), 
+    def derive(self, windspeed=P('Wind Speed'), wind_dir=P('Wind Direction Continuous'), 
                head=P('Heading True')):
         rad_scale = radians(1.0)
         self.array = windspeed.array * np.ma.cos((wind_dir.array-head.array)*rad_scale)
@@ -2656,7 +2681,7 @@ class WindAcrossLandingRunway(DerivedParameterNode):
     """
     This is the windspeed across the final landing runway, positive wind from left to right.
     """
-    def derive(self, windspeed=P('Wind Speed'), wind_dir=P('Wind Direction'), 
+    def derive(self, windspeed=P('Wind Speed'), wind_dir=P('Wind Direction Continuous'), 
                land_rwy = A('FDR Landing Runway')):
         land_heading = runway_heading(land_rwy.value)
         if land_heading:

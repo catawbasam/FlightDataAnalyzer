@@ -1633,11 +1633,11 @@ if __name__ == '__main__':
 class TestHeadwind(unittest.TestCase):
     def test_can_operate(self):
         opts=Headwind.get_operational_combinations()
-        self.assertEqual(opts, [('Wind Speed', 'Wind Direction', 'Heading True')])
+        self.assertEqual(opts, [('Wind Speed', 'Wind Direction Continuous', 'Heading True')])
     
     def test_real_example(self):
         ws = P('Wind Speed', np.ma.array([84.0]))
-        wd = P('Wind Direction', np.ma.array([-21]))
+        wd = P('Wind Direction Continuous', np.ma.array([-21]))
         head=P('Heading True', np.ma.array([30]))
         hw = Headwind()
         hw.derive(ws,wd,head)
@@ -1646,7 +1646,7 @@ class TestHeadwind(unittest.TestCase):
         
     def test_odd_angles(self):
         ws = P('Wind Speed', np.ma.array([20.0]*8))
-        wd = P('Wind Direction', np.ma.array([0, 90, 180, -180, -90, 360, 23, -23], dtype=float))
+        wd = P('Wind Direction Continuous', np.ma.array([0, 90, 180, -180, -90, 360, 23, -23], dtype=float))
         head=P('Heading True', np.ma.array([-180, -90, 0, 180, 270, 360*15, 361*23, 359*23], dtype=float))
         hw = Headwind()
         hw.derive(ws,wd,head)
@@ -1658,11 +1658,11 @@ class TestHeadwind(unittest.TestCase):
 class TestWindAcrossLandingRunway(unittest.TestCase):
     def test_can_operate(self):
         opts=WindAcrossLandingRunway.get_operational_combinations()
-        self.assertEqual(opts, [('Wind Speed', 'Wind Direction', 'FDR Landing Runway')])
+        self.assertEqual(opts, [('Wind Speed', 'Wind Direction Continuous', 'FDR Landing Runway')])
     
     def test_real_example(self):
         ws = P('Wind Speed', np.ma.array([84.0]))
-        wd = P('Wind Direction', np.ma.array([-21]))
+        wd = P('Wind Direction Continuous', np.ma.array([-21]))
         land_rwy = A('FDR Landing Runway')
         land_rwy.value = {'start': {'latitude': 60.18499999999998,
                                     'longitude': 11.073744}, 

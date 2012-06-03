@@ -2124,24 +2124,24 @@ class TestSlicesOverlap(unittest.TestCase):
         self.assertRaises(ValueError, slices_overlap, first, slice(1,2,-1))
         
 class TestSlicesOverlay(unittest.TestCase):
-    def test_slices_overlay(self):
+    def test_slices_and(self):
         # overlay
         first = [slice(10,20)]
         second = [slice(15,25)]
-        self.assertEqual(slices_overlay(first, second), [slice(15,20)])
+        self.assertEqual(slices_and(first, second), [slice(15,20)])
         
         # no overlap
         no_overlap = slice(25,40)
-        self.assertEqual(slices_overlay(second, [no_overlap]), [])
+        self.assertEqual(slices_and(second, [no_overlap]), [])
         
         # step negative
-        self.assertRaises(ValueError, slices_overlay, first, [slice(1,2,-1)])
+        self.assertRaises(ValueError, slices_and, first, [slice(1,2,-1)])
         
         # complex with all four permutations
         first = [slice(5,15),slice(20,25),slice(30,40)]
         second = [slice(10,35),slice(45,50)]
         result = [slice(10,15), slice(20,25), slice(30,35)]
-        self.assertEqual(slices_overlay(first,second),result)
+        self.assertEqual(slices_and(first,second),result)
 
 class TestStepValues(unittest.TestCase):
     def test_step_values(self):

@@ -1073,7 +1073,7 @@ def ground_track(lat_fix, lon_fix, gspd, hdg, frequency, mode):
         raise ValueError,'Ground_track only recognises takeoff or landing modes'
     
     delta_north = np.ma.array(gspd*np.cos(np.deg2rad(hdg.data)))
-    delta_east = np.ma.array(gspd*np.sin(np.deg2rad(hdg.data)))
+    delta_east = np.ma.array(gspd*np.ma.sin(np.deg2rad(hdg.data)))
     
     north = integrate(delta_north, frequency, scale=KTS_TO_MPS, direction=direction)
     east = integrate(delta_east, frequency, scale=KTS_TO_MPS, direction=direction)
@@ -1471,10 +1471,9 @@ def slices_overlap(first_slice, second_slice):
     return first_slice.start < second_slice.stop \
            and second_slice.start < first_slice.stop
 
-def slices_overlay(first_list, second_list):
+def slices_and(first_list, second_list):
     '''
-    This is a simple function to allow two slice lists to be merged,
-    effectively a logical AND of the two slices.
+    This is a simple AND function to allow two slice lists to be merged.
     
     Note: This currently has a trap for reverse slices, although this could be extended.
     
@@ -1490,7 +1489,7 @@ def slices_overlay(first_list, second_list):
         for second_slice in second_list:
             if (first_slice.step != None and first_slice.step < 0) or \
                (second_slice.step != None and second_slice.step < 0):
-                raise ValueError, 'slices_overlay will not work with reverse slices'
+                raise ValueError, 'slices_and will not work with reverse slices'
             if slices_overlap(first_slice, second_slice):
                 result_list.append(slice(max(first_slice.start, second_slice.start),
                                          min(first_slice.stop, second_slice.stop)))
@@ -1533,10 +1532,10 @@ def latitudes_and_longitudes(bearings, distances, reference):
     brg = np.deg2rad(bearings.data)
     dist = distances.data / 6371000.0 # Scale to earth radius in metres
 
-    lat = np.arcsin(sin(lat_ref)*np.cos(dist) + 
-                   cos(lat_ref)*np.sin(dist)*np.cos(brg))
-    lon = np.arctan2(np.sin(brg)*np.sin(dist)*np.cos(lat_ref), 
-                      np.cos(dist)-sin(lat_ref)*np.sin(lat))
+    lat = np.arcsin(sin(lat_ref)*np.ma.cos(dist) + 
+                   cos(lat_ref)*np.ma.sin(dist)*np.ma.cos(brg))
+    lon = np.arctan2(np.ma.sin(brg)*np.ma.sin(dist)*np.ma.cos(lat_ref), 
+                      np.ma.cos(dist)-sin(lat_ref)*np.ma.sin(lat))
     lon += lon_ref 
  
     joined_mask = np.logical_or(bearings.mask, distances.mask)
@@ -1849,7 +1848,7 @@ def np_ma_zeros_like(array):
     creation functions. These are provided with similar names which may be
     replaced should the Numpy library be extended in future.
     """
-    return np.ma.array(np.zeros_like(array), mask=False)
+    return np.ma.array(np.zeros_like(array.data), mask=False)
 
 def np_ma_ones_like(array):
     return np_ma_zeros_like(array) + 1
@@ -2135,7 +2134,7 @@ def shift_slices(slicelist, offset):
     """
     newlist = []
     for each_slice in slicelist:
-        if each_slice:
+        if each_slice and offset:
             new_slice = shift_slice(each_slice,offset)
             if new_slice: newlist.append(new_slice)
     return newlist
@@ -2334,18 +2333,6 @@ def step_values(array, steps):
     return np.ma.array(stepped_array, mask=array.mask)
             
 
-def smooth_track_cost_function(lat_s, lon_s, lat, lon):
-    # Summing the errors from the recorded data is easy.
-    from_data = np.sum((lat_s - lat)**2)+np.sum((lon_s - lon)**2)
-    
-    # The errors from a straight line are computed swiftly using convolve.
-    slider=np.array([-1,2,-1])
-    from_straight = np.sum(np.convolve(lat_s,slider,'valid')**2) + \
-        np.sum(np.convolve(lon_s,slider,'valid')**2)
-    
-    cost = from_data + 100*from_straight
-    return cost
-
 def track_linking(pos, local_pos):
     """
     Obtain corrected tracks from takeoff phase, final approach and landing
@@ -2401,6 +2388,18 @@ def track_linking(pos, local_pos):
         local_pos[a:b] = pos[a:b] + fix
     return local_pos
  
+def smooth_track_cost_function(lat_s, lon_s, lat, lon):
+    # Summing the errors from the recorded data is easy.
+    from_data = np.sum((lat_s - lat)**2)+np.sum((lon_s - lon)**2)
+    
+    # The errors from a straight line are computed swiftly using convolve.
+    slider=np.array([-1,2,-1])
+    from_straight = np.sum(np.convolve(lat_s,slider,'valid')**2) + \
+        np.sum(np.convolve(lon_s,slider,'valid')**2)
+    
+    cost = from_data + 100*from_straight
+    return cost
+
 def smooth_track(lat, lon):
     """
     Input:
@@ -2431,7 +2430,6 @@ def smooth_track(lat, lon):
 
     cost_0 = float('inf')
     cost = smooth_track_cost_function(lat_s, lon_s, lat, lon)
-    print 'Initial smooth track cost function = ',cost
     
     while cost < cost_0:  # Iterate to an optimal solution.
         lat_last = np.ma.copy(lat_s)
@@ -2443,6 +2441,10 @@ def smooth_track(lat, lon):
 
         cost_0 = cost
         cost = smooth_track_cost_function(lat_s, lon_s, lat, lon)
+
+    if cost>0.100:
+        logging.warn("Smooth Track Cost Function closed with cost %d",cost)
+    
     return lat_last, lon_last, cost_0
 
             
@@ -2574,7 +2576,10 @@ def index_at_value(array, threshold, _slice=slice(None), endpoint='exact'):
     value_passing_array = (array[left]-threshold) * (array[right]-threshold)
     test_array = np.ma.masked_greater(value_passing_array, 0.0)
     
-    if np.all(test_array.mask):
+    if len(test_array)==0:
+        return None
+
+    elif np.all(test_array.mask):
         # The parameter does not pass through threshold in the period in question, so return empty-handed.
         if endpoint=='closing':
             # Rescan the data to find the last point where the array data is closing.
@@ -2587,28 +2592,20 @@ def index_at_value(array, threshold, _slice=slice(None), endpoint='exact'):
             return i
         else:
             return None
+
     else:
-        n,dummy=np.ma.flatnotmasked_edges(np.ma.masked_greater(value_passing_array, 0.0))
+        n,dummy=np.ma.flatnotmasked_edges(test_array)
         a = array[begin+step*n]
         b = array[begin+step*(n+1)]
         # Force threshold to float as often passed as an integer.
         # Also check for b=a as otherwise we get a divide by zero condition.
-        import warnings
-        
-        with warnings.catch_warnings(record=True) as w:
-            # Cause all warnings to always be triggered.
-            warnings.simplefilter("error")        
-            if a is np.ma.masked or b is np.ma.masked:
-                print a,b
-            if abs(a-b) < 1.0E-6:
-                r = 0.5
-            else:
-                try:
-                    r = (float(threshold) - a) / (b-a)
-                except:
-                    print a, b, a-b
-                    pass
-        #TODO: Could test 0 < r < 1 for completeness
+        if a is np.ma.masked or \
+           b is np.ma.masked or \
+           a==b:
+            r = 0.5
+        else:
+            r = (float(threshold) - a) / (b-a)
+
     return (begin + step * (n+r))
 
 def _value(array, _slice, operator):

@@ -282,7 +282,7 @@ class TestClimbCruiseDescent(unittest.TestCase):
         # This test will find out if we can separate the two humps on this camel
         camel = ClimbCruiseDescent()
         # Needs to get above 15000ft and below 10000ft to create this phase.
-        testwave = np.cos(np.arange(0,12.6,0.1))*(-3000)+12500
+        testwave = np.ma.cos(np.arange(0,12.6,0.1))*(-3000)+12500
         # plot_parameter (testwave)
         camel.derive(Parameter('Altitude For Climb Cruise Descent', np.ma.array(testwave)))
         self.assertEqual(len(camel), 2)

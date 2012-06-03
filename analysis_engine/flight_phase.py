@@ -15,7 +15,7 @@ from analysis_engine.library import (find_edges,
                                      shift_slices, 
                                      slice_duration,
                                      slices_overlap,
-                                     slices_overlay,
+                                     slices_and,
                                      slice_samples)
 
 from analysis_engine.node import FlightPhaseNode, A, P, S, KTI
@@ -154,7 +154,7 @@ class ClimbCruiseDescent(FlightPhaseNode):
                alt_aal=P('Altitude AAL For Flight Phases')):
         above_1000_ft = np.ma.clump_unmasked(np.ma.masked_less(alt_aal.array, 1000.0))
         low_flight = np.ma.clump_unmasked(np.ma.masked_greater(alt_ccd.array, ALTITUDE_FOR_CLB_CRU_DSC))
-        low_slices = slices_overlay(above_1000_ft, low_flight)
+        low_slices = slices_and(above_1000_ft, low_flight)
         if len(low_slices)==0:
             return
         elif len(low_slices)==1:
@@ -290,11 +290,15 @@ class Descent(FlightPhaseNode):
 class DescentLowClimb(FlightPhaseNode):
     def derive(self, alt_aal=P('Altitude AAL For Flight Phases'),
                climb=P('Climb For Flight Phases'),
-               lands=S('Landing')):
+               lands=S('Landing'), fast=S('Fast')):
         my_list=[]
-        # Select periods below the initial approach threshold
-        dlc = np.ma.masked_outside(alt_aal.array, 0.0, INITIAL_APPROACH_THRESHOLD)
-        dlc_list = np.ma.clump_unmasked(dlc)
+
+        # Select periods below the initial approach threshold, restricted to
+        # periods fast enough to be airborne.
+        for speedy in fast:
+            dlc = np.ma.masked_outside(alt_aal.array[speedy.slice], 0.0, INITIAL_APPROACH_THRESHOLD)
+            dlc_list = shift_slices(np.ma.clump_unmasked(dlc), speedy.slice.start)
+
         for this_dlc in dlc_list:
             this_alt = alt_aal.array[this_dlc]
             this_climb = climb.array[this_dlc]
