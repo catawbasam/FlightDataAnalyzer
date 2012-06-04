@@ -2018,6 +2018,12 @@ class TestShiftSlice(unittest.TestCase):
         b = 3
         self.assertEqual(shift_slice(a,b),None)
 
+    def test_shift_slice_no_shift(self):
+        a = slice(2, 5,None)
+        self.assertEqual(shift_slice(a,0),a)
+        self.assertEqual(shift_slice(a,None),a)
+
+
 class TestShiftSlices(unittest.TestCase):
     def test_shift_slices(self):
         a = [slice(1,3,None)]
@@ -2034,6 +2040,11 @@ class TestShiftSlices(unittest.TestCase):
              slice(1988, 1992, None), slice(2018, 2073, None)]
         b = 548.65
         self.assertEqual(len(shift_slices(a,b)),3)
+
+    def test_shift_slices_no_shift(self):
+        a = [slice(4, 7, None), slice(17, 12, -1)]
+        self.assertEqual(shift_slices(a,0), a)
+        self.assertEqual(shift_slices(a,None), a)
 
 class TestSlicesAbove(unittest.TestCase):
     def test_slices_above(self):
@@ -2142,6 +2153,38 @@ class TestSlicesOverlay(unittest.TestCase):
         second = [slice(10,35),slice(45,50)]
         result = [slice(10,15), slice(20,25), slice(30,35)]
         self.assertEqual(slices_and(first,second),result)
+
+
+class TestSlicesNot(unittest.TestCase):
+    def test_slices_not_internal(self):
+        slice_list = [slice(10,13),slice(16,25)]
+        self.assertEqual(slices_not(slice_list), [slice(13,16)])
+        
+    def test_slices_not_extended(self):
+        slice_list = [slice(10,13)]
+        self.assertEqual(slices_not(slice_list, begin_at=2, end_at=18), 
+                         [slice(2,10),slice(13,18)])
+        
+    def test_slices_not_to_none(self):
+        slice_list = [slice(10,None)]
+        self.assertRaises(ValueError, slices_not, slice_list)
+        
+    def test_slices_not_from_none(self):
+        slice_list = [slice(None,13)]
+        self.assertRaises(ValueError, slices_not, slice_list)
+        
+    def test_slices_not_null(self):
+        self.assertEqual(slices_not(None), None)
+        self.assertEqual(slices_not([]), None)
+        self.assertEqual(slices_not([slice(4,6)]),[])
+        
+    def test_slices_misordered(self):
+        slice_list = [slice(25,16,-1),slice(10,13)]
+        self.assertEqual(slices_not(slice_list), [slice(13,17)])
+        slice_list = [slice(1,5,2)]
+        # Single point slices get discarded by shift slices function.
+        self.assertEqual(slices_not(slice_list), [])
+
 
 class TestStepValues(unittest.TestCase):
     def test_step_values(self):

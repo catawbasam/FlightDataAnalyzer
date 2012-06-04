@@ -33,6 +33,7 @@ from analysis_engine.library import (clip,
                                      slices_from_to,
                                      slices_overlap,
                                      slices_and,
+                                     slices_not,
                                      subslice,
                                      value_at_index)
 
@@ -989,17 +990,17 @@ class ILSFrequencyOnApproach(KeyPointValueNode):
     """
     name='ILS Frequency On Approach' #  Set here to ensure "ILS" in uppercase.
     def derive(self, ils_frq=P('ILS Frequency'),
-               captures=S('ILS Localizer Established')):
+               loc_ests=S('ILS Localizer Established')):
         
-        for capture in captures:
+        for loc_est in loc_ests:
             # For the final period of operation of the ILS during this
             # approach, the ILS frequency was:
-            freq=np.ma.median(ils_frq.array[capture.slice])
+            freq=np.ma.median(ils_frq.array[loc_est.slice])
             # Note median picks the value most commonly recorded, so allows
             # for some masked values and perhaps one or two rogue values.
 
             # Identify the KPV as relating to the start of this ILS approach
-            self.create_kpv(capture.slice.start, freq)
+            self.create_kpv(loc_est.slice.start, freq)
 
 
 class ILSGlideslopeDeviation1500To1000FtMax(KeyPointValueNode):
@@ -1648,6 +1649,12 @@ class FlapAtGearSelectionDown(KeyPointValueNode):
         self.create_kpvs_at_ktis(flap.array, gear_sel_down)
 
 
+class FlapWithGearUpMax(KeyPointValueNode):
+    def derive(self, flap=P('Flap'), gear_down=P('Gear Down')):
+        gear_up = np.ma.masked_equal(gear_down.array, 1)
+        gear_up_slices = np.ma.clump_unmasked(gear_up)
+        self.create_kpvs_within_slices(flap.array, gear_up_slices, max_value)
+
 class FlapAtTouchdown(KeyPointValueNode):
     def derive(self, flap=P('Flap'), touchdowns=KTI('Touchdown')):
         self.create_kpvs_at_ktis(flap.array, touchdowns)
@@ -1776,6 +1783,11 @@ class GroundspeedRTOMax(KeyPointValueNode):
 class GroundspeedAtTouchdown(KeyPointValueNode):
     def derive(self, gspd=P('Groundspeed'), touchdowns=KTI('Touchdown')):
         self.create_kpvs_at_ktis(gspd.array, touchdowns)
+
+
+class GroundspeedOnGroundMax(KeyPointValueNode):
+    def derive(self, gspd=P('Groundspeed'), grounds=S('On Ground')):
+        self.create_kpvs_within_slices(gspd.array, grounds, max_value)
 
 
 class GroundspeedVacatingRunway(KeyPointValueNode):
@@ -2095,9 +2107,15 @@ class RollCyclesInFinalApproach(KeyPointValueNode):
             self.create_kpv(*cycle_counter(roll.array[fapp.slice], 5.0, 10.0, roll.hz, fapp.slice.start))
             
 
-class RollBelow20FtMax(KeyPointValueNode):
+class RollBelow20FtOnTakeoffMax(KeyPointValueNode):
     def derive(self, roll=P('Roll'), alt_rad=P('Altitude Radio')):
-        self.create_kpvs_within_slices(roll.array, alt_rad.slices_between(1,20),
+        self.create_kpvs_within_slices(roll.array, alt_rad.slices_from_to(1,20),
+                                       max_abs_value)
+
+
+class RollBelow20FtOnLandingMax(KeyPointValueNode):
+    def derive(self, roll=P('Roll'), alt_rad=P('Altitude Radio')):
+        self.create_kpvs_within_slices(roll.array, alt_rad.slices_from_to(20,1),
                                        max_abs_value)
 
 

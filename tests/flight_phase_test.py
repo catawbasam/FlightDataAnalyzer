@@ -21,19 +21,38 @@ from analysis_engine.flight_phase import (Airborne,
                                           ILSLocalizerEstablished,
                                           Landing,
                                           LevelFlight,
+                                          OnGround,
                                           Takeoff,
-                                          #Turning
+                                          TurningInAir,
+                                          TurningOnGround
                                           )
 
 from analysis_engine.library import integrate
 
 from analysis_engine.settings import AIRSPEED_THRESHOLD
 
+
+'''
+Two little routines to make building Sections for testing easier.
+'''
+def buildsection(name, begin, end):
+    return [Section(name, slice(begin, end), begin, end)]
+
+def buildsections(*args):
+    # buildsections('name',[from1,to1],[from2,to2])
+    built_list=[]
+    name = args[0]
+    for a in args[1:]:
+        new_section = buildsection(name, a[0], a[1])
+        built_list.append(new_section)
+    return built_list
+
+
 class TestAirborne(unittest.TestCase):
     # Based closely on the level flight condition, but taking only the
     # outside edges of the envelope.
     def test_can_operate(self):
-        expected = [('Rate Of Climb For Flight Phases', 'Fast')]
+        expected = [('Altitude AAL For Flight Phases', 'Fast')]
         opts = Airborne.get_operational_combinations()
         self.assertEqual(opts, expected)
 
@@ -42,19 +61,19 @@ class TestAirborne(unittest.TestCase):
                                          range(400,-450,-50)+
                                          range(-450,50,50))
         rate_of_climb = Parameter('Rate Of Climb For Flight Phases', np.ma.array(rate_of_climb_data))
-        altitude = Parameter('Altitude AAL', integrate(rate_of_climb_data, 1, 0, 1.0/60.0))
-        fast = SectionNode('Fast', items=[Section('Fast',slice(2,25,None),2,25)])
+        altitude = Parameter('Altitude AAL For Flight Phases', integrate(rate_of_climb_data, 1, 0, 1.0/60.0))
+        fast = SectionNode('Fast', items=[Section('Fast',slice(1,29,None),1,29)])
         air = Airborne()
-        air.derive(rate_of_climb, altitude, fast)
-        expected = Section(name='Airborne', slice=slice(2, 25, None), start_edge=6, stop_edge=25)
+        air.derive(altitude, fast)
+        expected = Section(name='Airborne', slice=slice(2, 28, None), start_edge=2, stop_edge=28)
         self.assertEqual(air.get_first(), expected)
 
     def test_airborne_phase_not_airborne(self):
-        rate_of_climb_data = np.ma.array(range(0,10))
-        rate_of_climb = Parameter('Rate Of Climb For Flight Phases', np.ma.array(rate_of_climb_data))
+        altitude_data = np.ma.array(range(0,10))
+        alt_aal = Parameter('Altitude AAL For Flight Phases', altitude_data)
         fast = []
         air = Airborne()
-        air.derive(rate_of_climb, fast)
+        air.derive(alt_aal, fast)
         self.assertEqual(air, [])
 
 
@@ -326,7 +345,7 @@ class TestClimbFromBottomOfDescent(unittest.TestCase):
 
 class TestClimbing(unittest.TestCase):
     def test_can_operate(self):
-        expected = [('Rate Of Climb For Flight Phases', 'Fast')]
+        expected = [('Rate Of Climb For Flight Phases', 'Airborne')]
         opts = Climbing.get_operational_combinations()
         self.assertEqual(opts, expected)
 
@@ -335,10 +354,10 @@ class TestClimbing(unittest.TestCase):
                                          range(1200,-1200,-200)+
                                          range(-1200,500,100))
         rate_of_climb = Parameter('Rate Of Climb For Flight Phases', np.ma.array(rate_of_climb_data))
-        fast = SectionNode('Fast', items=[Section('Fast',slice(2,8,None))])
+        air = buildsection('Airborne',2,8)
         up = Climbing()
-        up.derive(rate_of_climb, fast)
-        expected = [Section(name='Climbing', slice=slice(3, 8, None))]
+        up.derive(rate_of_climb, air)
+        expected = buildsection('Climbing', 3, 8)
         self.assertEqual(up, expected)
 
 
@@ -462,16 +481,16 @@ class TestDescentLowClimb(unittest.TestCase):
 
 class TestDescending(unittest.TestCase):
     def test_can_operate(self):
-        expected = [('Rate Of Climb For Flight Phases', 'Fast')]
+        expected = [('Rate Of Climb For Flight Phases', 'Airborne')]
         opts = Descending.get_operational_combinations()
         self.assertEqual(opts, expected)
 
     def test_descending_basic(self):
         roc = Parameter('Rate Of Climb For Flight Phases',np.ma.array([0,1000,-600,-800,0]))
-        fast = SectionNode('Fast', items=[Section('Fast',slice(1,5,None))])
+        air = buildsection('Airborne',2,8)
         phase = Descending()
-        phase.derive(roc,fast)
-        expected = [Section('Descending',slice(2,4))]
+        phase.derive(roc, air)
+        expected = buildsection('Descending',2,4)
         self.assertEqual(phase, expected)
 
 
@@ -516,51 +535,102 @@ class TestFast(unittest.TestCase):
 
     def test_fast_phase_basic(self):
         slow_and_fast_data = np.ma.array(range(60,120,10)+[120]*300+range(120,50,-10))
-        ias = Parameter('Airspeed', slow_and_fast_data,1,0)
+        ias = Parameter('Airspeed For Flight Phases', slow_and_fast_data,1,0)
         phase_fast = Fast()
         phase_fast.derive(ias)
         if AIRSPEED_THRESHOLD == 80:
-            expected = Section(name='Fast',slice=slice(2,311,None))
+            expected = buildsection('Fast',2,311)
         if AIRSPEED_THRESHOLD == 70:
-            expected = Section(name='Fast', slice=slice(1, 312, None))
-        self.assertEqual(phase_fast.get_first(), expected)
+            expected = buildsection('Fast',1,312)
+        self.assertEqual(phase_fast, expected)
         
     def test_fast_all_fast(self):
         fast_data = np.ma.array([120]*10)
-        ias = Parameter('Airspeed', fast_data,1,0)
+        ias = Parameter('Airspeed For Flight Phases', fast_data,1,0)
         phase_fast = Fast()
         phase_fast.derive(ias)
-        expected = Section(name='Fast',slice=slice(0,10,None))
-        self.assertEqual(phase_fast.get_first(), expected)
-        
-    def test_fast_phase_with_small_mask(self):
-        slow_and_fast_data = np.ma.concatenate([np.ma.arange(60,120,10),
-                                                np.ma.array([120]*300),
-                                                np.ma.arange(120,50,-10)])
-        slow_and_fast_data[5:8] = np.ma.masked
-        ias = Parameter('Airspeed', slow_and_fast_data,1,0)
-        phase_fast = Fast()
-        phase_fast.derive(ias)
-        if AIRSPEED_THRESHOLD == 80:
-            expected = Section(name='Fast',slice=slice(2,311,None))
-        if AIRSPEED_THRESHOLD == 70:
-            expected = Section(name='Fast', slice=slice(1, 12, None))
-        self.assertEqual(phase_fast.get_first(), expected)
+        expected = buildsection('Fast',None,None)
+        self.assertEqual(phase_fast, expected)
 
-    def test_fast_phase_with_large_mask(self):
-        slow_and_fast_data = \
-            np.ma.array(range(60,120,10)+[120]*308+range(120,50,-10))
-        slow_and_fast_data[50:100] = np.ma.masked
-        ias = Parameter('Airspeed', slow_and_fast_data,1,0)
+    def test_fast_all_slow(self):
+        fast_data = np.ma.array([12]*10)
+        ias = Parameter('Airspeed For Flight Phases', fast_data,1,0)
         phase_fast = Fast()
         phase_fast.derive(ias)
+        expected = buildsection('Fast',None,None)
+        self.assertEqual(phase_fast, expected)
+
+    def test_fast_slowing_only(self):
+        fast_data = np.ma.arange(110,60,-10)
+        ias = Parameter('Airspeed For Flight Phases', fast_data,1,0)
+        phase_fast = Fast()
+        phase_fast.derive(ias)
+        expected = buildsection('Fast',None,4)
+        self.assertEqual(phase_fast, expected)
+        
+    def test_fast_speeding_only(self):
+        fast_data = np.ma.arange(60,120,10)
+        ias = Parameter('Airspeed For Flight Phases', fast_data,1,0)
+        phase_fast = Fast()
+        phase_fast.derive(ias)
+        expected = buildsection('Fast',2,None)
+        self.assertEqual(phase_fast, expected)
+
+    #def test_fast_phase_with_masked_data(self): # These tests were removed.
+    #We now use Airspeed For Flight Phases which has a repair mask function,
+    #so this is not applicable.
+        
+
+class TestOnGround(unittest.TestCase):
+    def test_can_operate(self):
+        self.assertEqual(OnGround.get_operational_combinations(), 
+                         [('Airspeed For Flight Phases',)])
+
+    def test_on_ground_phase_basic(self):
+        slow_and_fast_data = np.ma.array(range(60,120,10)+[120]*300+range(120,50,-10))
+        ias = Parameter('Airspeed For Flight Phases', slow_and_fast_data,1,0)
+        phase_on_ground = OnGround()
+        phase_on_ground.derive(ias)
         if AIRSPEED_THRESHOLD == 80:
-            expected = [Section(name='Fast',slice=slice(2,50,None)),
-                        Section(name='Fast',slice=slice(100,319,None))]
+            expected = buildsections('On Ground',[0,3],[310,313])
         if AIRSPEED_THRESHOLD == 70:
-            expected = [Section(name='Fast', slice=slice(1, 5, None)), 
-                        Section(name='Fast', slice=slice(17, 20, None))]
-        self.assertEqual(phase_fast.get_first(), expected)
+            expected = buildsections('On Ground',[0,3],[56,0]) # Not set up.
+        self.assertEqual(phase_on_ground.get_first(), expected[0])
+        self.assertEqual(phase_on_ground.get_last(), expected[1])
+        
+    def test_on_ground_all_fast(self):
+        on_ground_data = np.ma.array([120]*10)
+        ias = Parameter('Airspeed For Flight Phases', on_ground_data,1,0)
+        phase_on_ground = OnGround()
+        phase_on_ground.derive(ias)
+        self.assertEqual(phase_on_ground.get_first(), None)
+
+    def test_on_ground_all_slow(self):
+        on_ground_data = np.ma.array([12]*10)
+        ias = Parameter('Airspeed For Flight Phases', on_ground_data,1,0)
+        phase_on_ground = OnGround()
+        phase_on_ground.derive(ias)
+        expected = buildsection('On Ground',0,10)
+        self.assertEqual(phase_on_ground.get_first(), expected)
+
+    def test_on_ground_slowing_only(self):
+        on_ground_data = np.ma.arange(110,60,-10)
+        ias = Parameter('Airspeed For Flight Phases', on_ground_data,1,0)
+        phase_on_ground = OnGround()
+        phase_on_ground.derive(ias)
+        expected = buildsection('On Ground',3,5)
+        self.assertEqual(phase_on_ground.get_first(), expected)
+        
+    def test_on_ground_speeding_only(self):
+        on_ground_data = np.ma.arange(60,120,10)
+        ias = Parameter('Airspeed For Flight Phases', on_ground_data,1,0)
+        phase_on_ground = OnGround()
+        phase_on_ground.derive(ias)
+        expected = buildsection('On Ground',0,3)
+        self.assertEqual(phase_on_ground.get_first(), expected)
+
+
+
 
 
 class TestFinalApproach(unittest.TestCase):
@@ -658,6 +728,7 @@ class TestLanding(unittest.TestCase):
         self.assertEqual(list(landing), expected)
         
         
+"""
 class TestLevelFlight(unittest.TestCase):
     def test_can_operate(self):
         expected = [('Rate Of Climb For Flight Phases','Airborne')]
@@ -688,30 +759,7 @@ class TestLevelFlight(unittest.TestCase):
         expected = [Section(name='Level Flight', slice=slice(10, 23, None)), 
                     Section(name='Level Flight', slice=slice(28, 30, None))]
         self.assertEqual(level, expected)
-
-
-'''
-# OnGround has been commented out in flight_phase.py
-class TestOnGround(unittest.TestCase):
-    # Based simply on moving too slowly to be airborne.
-    # Keeping to minimum number of validated sensors makes this robust logic.
-    def test_can_operate(self):
-        expected = [('Airspeed',)]
-        opts = OnGround.get_operational_combinations()
-        self.assertEqual(opts, expected)
-
-    def test_onground_basic(self):
-        slow_and_fast_data = np.ma.concatenate([np.ma.arange(60,120,10),
-                                        np.ma.arange(120,50,-10)])
-        ias = Parameter('Airspeed', slow_and_fast_data,1,0)
-        phase_onground = OnGround()
-        phase_onground.derive(ias)
-        if AIRSPEED_THRESHOLD == 80:
-            expected = [Section(name='On Ground',slice=slice(2,10,None))]
-        if AIRSPEED_THRESHOLD == 70:
-            expected = [Section(name='On Ground',slice=slice(1,11,None))]
-        self.assertEqual(phase_onground, expected)
-'''
+        """
 
 
 class TestTakeoff(unittest.TestCase):
@@ -755,41 +803,68 @@ class TestTakeoff(unittest.TestCase):
         self.assertFalse(True)
 
 
-class TestTurning(unittest.TestCase):
+class TestTurningInAir(unittest.TestCase):
     def test_can_operate(self):
         expected = [('Rate Of Turn', 'Airborne')]
-        opts = Turning.get_operational_combinations()
-        self.assertEqual(opts, expected)
-
-    def test_turning_phase_basic(self):
+        self.assertEqual(TurningInAir.get_operational_combinations(), expected)
+        
+    def test_turning_in_air_phase_basic(self):
         rate_of_turn_data = np.arange(-4, 4.4, 0.4)
         rate_of_turn = Parameter('Rate Of Turn', np.ma.array(rate_of_turn_data))
-        airborne = S('Airborne')
-        turning = Turning()
-        turning.derive(rate_of_turn, airborne)
-        expected = [Section(name='Turning On Ground', slice=slice(0, 7, None)),
-                    Section(name='Turning On Ground', slice=slice(14, 21, None))]
-        self.assertEqual(turning, expected)
+        airborne = buildsection('Airborne',0,21)
+        turning_in_air = TurningInAir()
+        turning_in_air.derive(rate_of_turn, airborne)
+        expected = buildsections('Turning In Air',[0, 4],[17,21])
+        self.assertEqual([turning_in_air.get_first()], expected[0])
+        self.assertEqual([turning_in_air.get_last()], expected[1])
         
-    def test_turning_phase_basic_masked_not_turning(self):
-        airborne = S('Airborne', items=[Section('Airborne', slice(13, 22))])
-        rate_of_turn_data = np.ma.arange(-4, 4.4, 0.4)
+    def test_turning_in_air_phase_with_mask(self):
+        rate_of_turn_data = np.arange(-4, 4.4, 0.4)
         rate_of_turn_data[10] = np.ma.masked
-        rate_of_turn = Parameter('Rate Of Turn', rate_of_turn_data)
-        turning = Turning()
-        turning.derive(rate_of_turn, airborne)
-        expected = [Section(name='Turning On Ground', slice=slice(0, 7, None)),
-                    Section(name='Turning In Air', slice=slice(14, 21, None))]
-        self.assertEqual(turning, expected)
+        rate_of_turn_data[18] = np.ma.masked
+        rate_of_turn = Parameter('Rate Of Turn', np.ma.array(rate_of_turn_data))
+        airborne = buildsection('Airborne',0,21)
+        turning_in_air = TurningInAir()
+        turning_in_air.derive(rate_of_turn, airborne)
+        expected = buildsections('Turning In Air',[0, 4],[17,21])
+        self.assertEqual([turning_in_air.get_first()], expected[0])
+        self.assertEqual([turning_in_air.get_last()], expected[1])
+
+class TestTurningOnGround(unittest.TestCase):
+    def test_can_operate(self):
+        expected = [('Rate Of Turn', 'On Ground')]
+        self.assertEqual(TurningOnGround.get_operational_combinations(), expected)
         
-    def test_turning_phase_basic_masked_while_turning(self):
-        airborne = S('Airborne',
-                     items=[Section(name='Airborne', slice=slice(0, 8))])
-        rate_of_turn_data = np.ma.arange(-4, 4.4, 0.4)
-        rate_of_turn_data[1] = np.ma.masked
-        rate_of_turn = Parameter('Rate Of Turn', rate_of_turn_data)
-        turning = Turning()
-        turning.derive(rate_of_turn, airborne)
-        expected = [Section(name='Turning In Air', slice=slice(0, 7, None)),
-                    Section(name='Turning On Ground', slice=slice(14, 21, None))]
-        self.assertEqual(turning, expected)
+    def test_turning_on_ground_phase_basic(self):
+        rate_of_turn_data = np.arange(-12, 12, 1)
+        rate_of_turn = Parameter('Rate Of Turn', np.ma.array(rate_of_turn_data))
+        airborne = buildsection('Airborne',0,24)
+        turning_on_ground = TurningOnGround()
+        turning_on_ground.derive(rate_of_turn, airborne)
+        expected = buildsections('Turning On Ground',[0, 4],[21,24])
+        self.assertEqual([turning_on_ground.get_first()], expected[0])
+        self.assertEqual([turning_on_ground.get_last()], expected[1])
+        
+    def test_turning_on_ground_phase_with_mask(self):
+        rate_of_turn_data = np.arange(-12, 12, 1)
+        rate_of_turn_data[10] = np.ma.masked
+        rate_of_turn_data[18] = np.ma.masked
+        rate_of_turn = Parameter('Rate Of Turn', np.ma.array(rate_of_turn_data))
+        airborne = buildsection('Airborne',0,24)
+        turning_on_ground = TurningOnGround()
+        turning_on_ground.derive(rate_of_turn, airborne)
+        expected = buildsections('Turning On Ground',[0, 4],[21,24])
+        self.assertEqual([turning_on_ground.get_first()], expected[0])
+        self.assertEqual([turning_on_ground.get_last()], expected[1])
+
+    def test_turning_on_ground_after_takeoff_inhibited(self):
+        rate_of_turn_data = np.arange(-12, 12, 1)
+        rate_of_turn_data[10] = np.ma.masked
+        rate_of_turn_data[18] = np.ma.masked
+        rate_of_turn = Parameter('Rate Of Turn', np.ma.array(rate_of_turn_data))
+        airborne = buildsection('Airborne',0,10)
+        turning_on_ground = TurningOnGround()
+        turning_on_ground.derive(rate_of_turn, airborne)
+        expected = buildsections('Turning On Ground',[0, 4])
+        self.assertEqual([turning_on_ground.get_first()], expected[0])
+        self.assertEqual([turning_on_ground.get_last()], expected[0])

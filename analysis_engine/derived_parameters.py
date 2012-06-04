@@ -169,7 +169,7 @@ class AccelerationSideways(DerivedParameterNode):
 
 class AirspeedForFlightPhases(DerivedParameterNode):
     def derive(self, airspeed=P('Airspeed')):
-        self.array = hysteresis(repair_mask(airspeed.array, repair_duration=None), HYSTERESIS_FPIAS)
+        self.array = repair_mask(airspeed.array, repair_duration=None))
 
 
 class AirspeedMinusV2(DerivedParameterNode):
@@ -1743,16 +1743,6 @@ class Config(DerivedParameterNode):
             self.array[summed == s] = state
 
 
-####class GearSelectedDown(DerivedParameterNode):
-####    # And here is where the nightmare starts.
-####    # Sometimes recorded
-####    # Sometimes interpreted from other signals
-####    # There's no pattern to how this is worked out.
-####    # For aircraft with a Gear Selected Down parameter let's try this...
-####    def derive(self, param=P('Gear Selected Down')):
-####        return NotImplemented
-
-
 class GroundspeedAlongTrack(DerivedParameterNode):
     """
     Inertial smoothing provides computation of groundspeed data when the
@@ -2023,14 +2013,13 @@ class ILSRange(DerivedParameterNode):
                 # planned flightpath. 1 dot low is about 0.76 deg, or 13% of
                 # a 3 degree glidepath. Not precise, but adequate accuracy
                 # for the small error we are correcting for here.
-                corr, slope, offset = coreg(
-                    alt_aal.array[this_gs.slice]* (1-0.13*glide.array[this_gs.slice]),
-                    ils_range[this_gs.slice])
+                corr, slope, offset = coreg(ils_range[this_gs.slice],
+                    alt_aal.array[this_gs.slice]* (1-0.13*glide.array[this_gs.slice]))
 
                 # Shift the values in this approach so that the range = 0 at
                 # 0ft on the projected ILS slope, then reference back to the
                 # localizer antenna.                  
-                datum_2_loc = gs_2_loc * METRES_TO_FEET + offset/slope
+                datum_2_loc = gs_2_loc * METRES_TO_FEET - offset
                 
             else:
                 # Case of an ILS approach using localizer only.
@@ -2043,8 +2032,8 @@ class ILSRange(DerivedParameterNode):
                     logging.warning("Approaches were not fully established with localiser")
                     continue
                     
-                corr, slope, offset = coreg(
-                    alt_aal.array[this_app.slice], ils_range[this_app.slice])
+                corr, slope, offset = coreg(ils_range[this_app.slice], 
+                                            alt_aal.array[this_app.slice])
                 
                 # Touchdown point nominally 1000ft from start of runway
                 datum_2_loc = (start_2_loc*METRES_TO_FEET-1000) - offset/slope
@@ -2752,7 +2741,7 @@ class ElevatorTrim(DerivedParameterNode): # PitchTrim
     def derive(self,
                etl=P('Elevator Trim (L)'),
                etr=P('Elevator Trim (R)')):
-        return NotImplemented
+        self.array, self.frequency, self.offset = blend_two_parameters(etl, etr)
 
 
 class Spoiler(DerivedParameterNode):

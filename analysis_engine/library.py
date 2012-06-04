@@ -1495,6 +1495,45 @@ def slices_and(first_list, second_list):
                                          min(first_slice.stop, second_slice.stop)))
     return result_list
 
+def slices_not(slice_list, begin_at=None, end_at=None):
+    '''
+    Inversion of a list of slices. Currently does not cater for reverse slices.
+    
+    :param slice_list: list of slices to be inverted.
+    :type slice_list: list of Python slices.
+    :param begin_at: optional starting index value, slices before this will be ignored
+    :param begin_at: integer
+    :param end_at: optional ending index value, slices before this will be ignored
+    :param end_at: integer
+    
+    :returns: list of slices. If begin or end is specified, the range will extend to these points. Otherwise the scope is within the end slices.
+    '''
+    if slice_list==[] or slice_list==None:
+        return
+    
+    a = min([s.start for s in slice_list])
+    b = min([s.stop for s in slice_list])
+    startpoint = min(a,b)
+    if startpoint == None:
+        raise ValueError, 'This function does not support slice(None,*) arguments.'
+    if begin_at != None  and begin_at < startpoint:
+        startpoint = begin_at
+        
+    a = max([s.start for s in slice_list])
+    b = max([s.stop for s in slice_list])
+    endpoint = max(a,b)
+    if startpoint == None:
+        raise ValueError, 'This function does not support slice(None,*) arguments.'
+    if end_at != None and end_at > endpoint:
+        endpoint = end_at
+        
+    workspace = np.ma.zeros(endpoint)
+    for each_slice in slice_list:
+        workspace[each_slice]=1
+    workspace=np.ma.masked_equal(workspace, 1)
+    return shift_slices(np.ma.clump_unmasked(workspace[startpoint:endpoint]), startpoint)
+    
+
 """
 def section_contains_kti(section, kti):
     '''
@@ -2119,25 +2158,31 @@ def shift_slice(this_slice, offset):
     a phase condition has been used to limit the scope of another phase
     calculation.
     """
-    a = (this_slice.start or 0) + offset
-    b = (this_slice.stop or 0) + offset
-    c = this_slice.step
-    if (b-a)>1:
-        # This traps single sample slices which can arise due to rounding of
-        # the iterpolated slices.
-        return(slice(a,b,c))
+    if offset:
+        a = (this_slice.start or 0) + offset
+        b = (this_slice.stop or 0) + offset
+        c = this_slice.step
+        if (b-a)>1:
+            # This traps single sample slices which can arise due to rounding of
+            # the iterpolated slices.
+            return(slice(a,b,c))
+    else:
+        return this_slice
     
 def shift_slices(slicelist, offset):
     """
     This function shifts a list of slices by a common offset, retaining only
     the valid (not None) slices.
     """
-    newlist = []
-    for each_slice in slicelist:
-        if each_slice and offset:
-            new_slice = shift_slice(each_slice,offset)
-            if new_slice: newlist.append(new_slice)
-    return newlist
+    if offset:
+        newlist = []
+        for each_slice in slicelist:
+            if each_slice and offset:
+                new_slice = shift_slice(each_slice,offset)
+                if new_slice: newlist.append(new_slice)
+        return newlist
+    else:
+        return slicelist
 
 def slice_duration(_slice, hz):
     '''

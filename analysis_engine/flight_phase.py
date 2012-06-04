@@ -41,39 +41,11 @@ from analysis_engine.settings import (AIRSPEED_THRESHOLD,
 
     
 class Airborne(FlightPhaseNode):
-    def derive(self, roc=P('Rate Of Climb For Flight Phases'), 
-               alt_aal=P('Altitude AAL'),fast=S('Fast')):
-        # Rate of climb limit set to identify both level flight and 
-        # end of takeoff / start of landing.
-
+    def derive(self, alt_aal=P('Altitude AAL For Flight Phases'),fast=S('Fast')):
+        # Just find out when altitude above airfield is non-zero.
         for speedy in fast:
             start_point = speedy.slice.start or 0
             stop_point = speedy.slice.stop or len(roc.array)
-            
-            """
-            # If the data starts in the air, and it's flying fast, it must be
-            # already airborne.
-            valid_index, valid_alt = first_valid_sample(alt_aal.array, start_point)
-            if valid_index == None:
-                #There is no valid altitude data so pack up now.
-                return
-            elif valid_alt > 0.0 :
-                up = valid_index
-            else:
-                # Scan to find where the aircraft first flies upwards
-                up = index_at_value(roc.array, +RATE_OF_CLIMB_FOR_LEVEL_FLIGHT,
-                                    slice(start_point, stop_point))
-                    
-            # Scan backwards to find where the aircraft last descends.
-            valid_index, valid_alt = last_valid_sample(alt_aal.array, stop_point)
-            if valid_alt > 0.0:
-                down = valid_index
-            else:
-                down = index_at_value(roc.array, -RATE_OF_CLIMB_FOR_LEVEL_FLIGHT,
-                                      slice(stop_point,start_point,-1))
-
-            self.create_phase(slice(up,down))
-            """
             self.create_phases(shift_slices(np.ma.clump_unmasked(\
                 np.ma.masked_less_equal(\
                     repair_mask(alt_aal.array[start_point:stop_point]),0.0)),
@@ -320,6 +292,8 @@ class Fast(FlightPhaseNode):
     notmasked edges we enclose all the data worth analysing.
     
     Therefore len(Fast) in [0,1]
+    
+    TODO: Discuss whether this assertion is reliable in the presence of air data corruption.
     '''
     
     def derive(self, airspeed=P('Airspeed For Flight Phases')):
@@ -433,19 +407,20 @@ def scan_ils(beam, ils_dots, height, scan_slice):
 
     # And now work forwards to the point of "Capture", defined as the first
     # time the ILS goes below 1 dot.
-    ils_capture_idx = index_at_value(np.ma.abs(ils_dots), 1.0, slice(dots_25, idx_200, +1))
-    if ils_capture_idx == None:
+    if first_valid_sample(np.ma.abs(ils_dots[slice(dots_25, idx_200, +1)]))[1] < 1.0:
         # Aircraft came into the approach phase already on the centreline.
         ils_capture_idx = dots_25
+    else:
+        ils_capture_idx = index_at_value(np.ma.abs(ils_dots), 1.0, slice(dots_25, idx_200, +1))
     
-    ils_end_idx = index_at_value(np.ma.abs(ils_dots), 2.5, slice(idx_200, scan_slice.stop))
-    if ils_end_idx == None:
-        if beam == 'localizer':
+    if beam == 'localizer':
+        ils_end_idx = index_at_value(np.ma.abs(ils_dots), 2.5, slice(idx_200, scan_slice.stop))
+        if ils_end_idx == None:
             ils_end_idx = scan_slice.stop
-        elif beam == 'glideslope':
-            ils_end_idx = idx_200
-        else:
-            raise ValueError,'Unrecognised beam type in scan_ils'
+    elif beam == 'glideslope':
+        ils_end_idx = idx_200
+    else:
+        raise ValueError,'Unrecognised beam type in scan_ils'
 
     return slice(ils_capture_idx, ils_end_idx)
 
@@ -582,10 +557,9 @@ class OnGround(FlightPhaseNode):
     '''
     Includes start of takeoff run and part of landing run
     '''
-    def derive(self, airspeed=P('Airspeed')):
+    def derive(self, airspeed=P('Airspeed For Flight Phases')):
         # Did the aircraft go fast enough to possibly become airborne?
-        slow_where = np.ma.masked_greater(repair_mask(airspeed.array),
-                                       AIRSPEED_THRESHOLD)
+        slow_where = np.ma.masked_greater(airspeed.array, AIRSPEED_THRESHOLD)
         self.create_phases(np.ma.clump_unmasked(slow_where))
     
 

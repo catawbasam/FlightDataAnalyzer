@@ -131,9 +131,6 @@ HEADING_TURN_ONTO_RUNWAY = 15.0 # deg
 # This will usually be overwritten by the peak curvature test.
 HEADING_TURN_OFF_RUNWAY = 15.0 # deg
 
-# Threshold for flight phase airspeed hysteresis.
-HYSTERESIS_FPIAS = 5 # kts
-
 # Threshold for flight phase altitude hysteresis.
 HYSTERESIS_FPALT = 200 # ft
 
