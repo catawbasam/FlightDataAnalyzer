@@ -1534,6 +1534,45 @@ def slices_not(slice_list, begin_at=None, end_at=None):
     return shift_slices(np.ma.clump_unmasked(workspace[startpoint:endpoint]), startpoint)
     
 
+def slices_or(*slice_lists, **kwargs):
+    '''
+    "OR" function for a list of slices.
+    
+    :param slice_list: list of slices to be combined.
+    :type slice_list: list of Python slices.
+    :param begin_at: optional starting index value, slices before this will be ignored
+    :param begin_at: integer
+    :param end_at: optional ending index value, slices before this will be ignored
+    :param end_at: integer
+    
+    :returns: list of slices. If begin or end is specified, the range will extend to these points. Otherwise the scope is within the end slices.
+    '''
+    if slice_lists==[] or slice_lists==None:
+        return
+
+    a = min([s.start for s in slice_lists[0]])
+    b = max([s.stop for s in slice_lists[0]])
+    for slice_list in slice_lists[1:]:
+        a = min([a, min([s.start for s in slice_list])])
+        b = max([b, max([s.stop for s in slice_list])])
+    
+    if kwargs.has_key('begin_at'):
+        startpoint = kwargs['begin_at']
+    else:
+        startpoint = 0
+
+    if kwargs.has_key('end_at'):
+        endpoint = kwargs['end_at']
+    else:
+        endpoint = b
+
+    workspace = np.ma.zeros(b)
+    for slice_list in slice_lists:
+        for each_slice in slice_list:
+            workspace[each_slice]=1
+    workspace=np.ma.masked_equal(workspace, 1)
+    return shift_slices(np.ma.clump_masked(workspace[startpoint:endpoint]), startpoint)
+    
 """
 def section_contains_kti(section, kti):
     '''

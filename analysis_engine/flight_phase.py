@@ -16,6 +16,7 @@ from analysis_engine.library import (find_edges,
                                      slice_duration,
                                      slices_overlap,
                                      slices_and,
+                                     slices_or,
                                      slice_samples)
 
 from analysis_engine.node import FlightPhaseNode, A, P, S, KTI
@@ -53,22 +54,23 @@ class Airborne(FlightPhaseNode):
 
 
 class GoAroundAndClimbout(FlightPhaseNode):
-    # List the optimal parameter set here
-    def derive(self, alt_aal=P('Altitude AAL'),
-               alt_rad = P('Altitude Radio'),
+    '''
+    We already know that the Key Time Instance has been identified at the
+    lowest point of the go-around, and that it lies below the 3000ft
+    approach thresholds. The function here is to expand the phase 500ft in
+    either direction.
+    '''
+    def derive(self, descend=P('Descend For Flight Phases'),
+               climb = P('Climb For Flight Phases'),
                gas=KTI('Go Around')):
-        # Prepare a home for the go-around slices
-        ga_slice = []    
-        if alt_rad:
-            height = minimum_unmasked(alt_aal.array,alt_rad.array)
-        else:
-            height = alt_aal.array
-            
+
+        # Prepare a home for multiple go-arounds. (Not a good day, eh?)
+        ga_slice = []
         for ga in gas:
-            ga_start = index_closest_value(height,500,slice(None,ga.index,-1))
-            ga_stop = index_closest_value(height,500,slice(ga.index,None))
+            back_up = descend.array - descend.array[ga.index]
+            ga_start = index_closest_value(back_up,500,slice(ga.index,None,-1))
+            ga_stop = index_closest_value(climb.array,500,slice(ga.index,None))
             ga_slice.append(slice(ga_start,ga_stop))
-    
         self.create_phases(ga_slice)
 
 
@@ -78,47 +80,35 @@ class Approach(FlightPhaseNode):
     in a landing. It includes go-arounds, touch-and-go's and of course
     successful landings.
     """
-    # List the minimum acceptable parameters here
-    @classmethod
-    def can_operate(cls, available):
-        return 'Altitude AAL For Flight Phases' in available and \
-               'Landing' in available
-        
-    # List the optimal parameter set here
     def derive(self, alt_aal=P('Altitude AAL For Flight Phases'),
-               go_arounds=S('Go Around And Climbout'),
-               lands=S('Landing')):
+               lands=S('Landing'), go_arounds=S('Go Around And Climbout')):
 
         # Prepare a home for the approach slices
-        app_slice = []    
+        app_slices = []    
 
         for land in lands:
-            # Ideally we'd like to start at the initial approach threshold...
-            #app_start = index_at_value(height,
-                                       #INITIAL_APPROACH_THRESHOLD,
-                                       #slice(land.slice.start,0, -1))
-            ## ...but if this fails, take the end of the last climb.
-            #if app_start == None:
             app_start = index_closest_value(alt_aal.array,
                                        INITIAL_APPROACH_THRESHOLD,
                                        slice(land.slice.start,0, -1))
-            app_slice.append(slice(app_start,land.slice.stop,None))
+            app_slices.append(slice(app_start,land.slice.stop,None))
             
         for ga in go_arounds:
-            app_start = index_at_value(alt_aal.array,INITIAL_APPROACH_THRESHOLD,ga.slice)
-            if app_start == None:
-                # We didn't descent through the initial approach threshold height during this go-around, so now look before the start of the go-around.
-                index_closest_value(alt_aal.array, INITIAL_APPROACH_THRESHOLD, slice(ga.slice.start, 0, -1))
-                if app_start == None:
-                    #Still no satisfactory answer, so return to the start of the go-around
-                    app_start = ga.slice.start
-            app_stop = index_closest_value(alt_aal.array,500,slice(ga.index,air.slice.stop))
-            if app_stop == None:
-                app_stop = ga.slice.stop
+            # When was this go-around below the approach threshold?
+            gapp_slice = np.ma.clump_unmasked(\
+                np.ma.masked_greater(alt_aal.array[ga.slice],
+                                     INITIAL_APPROACH_THRESHOLD))
+            # Only make an approach phase if it did go below the approach
+            # threshold. Notice there can only be one slice returned from
+            # this single go-around.
+            if gapp_slice[0]:
+                gapp_start = index_closest_value(alt_aal.array,
+                                                 INITIAL_APPROACH_THRESHOLD,
+                                                 slice(gapp_slice[0].start,0, -1))
                 
-            app_slice.append(slice(app_start,app_stop))
-            
-        self.create_phases(app_slice)
+            app_slices.append(shift_slice(slice(gapp_start, gapp_slice[0].stop),
+                                          ga.slice.start))
+        
+        self.create_phases(app_slices)
 
 
 class ClimbCruiseDescent(FlightPhaseNode):
@@ -559,8 +549,8 @@ class OnGround(FlightPhaseNode):
     '''
     def derive(self, airspeed=P('Airspeed For Flight Phases')):
         # Did the aircraft go fast enough to possibly become airborne?
-        slow_where = np.ma.masked_greater(airspeed.array, AIRSPEED_THRESHOLD)
-        self.create_phases(np.ma.clump_unmasked(slow_where))
+        slow_where = np.ma.masked_less(airspeed.array, AIRSPEED_THRESHOLD)
+        self.create_phases(np.ma.clump_masked(slow_where))
     
 
 class Landing(FlightPhaseNode):
@@ -695,26 +685,39 @@ class TOGA5MinRating(FlightPhaseNode):
             self.create_phase(slice(ga.slice.start, ga.slice.start + 300))
             
     
-class Taxiing(FlightPhaseNode):
-    #TODO: Test
+class TaxiIn(FlightPhaseNode):
     """
     This takes the period from start of data to start of takeoff as the taxi
     out, and the end of the landing to the end of the data as taxi in. Could
     be improved to include engines running condition at a later date.
     """
-    def derive(self, gnds=S('On Ground'), toffs=S('Takeoff'), lands=S('Landing')):
+    def derive(self, gnds=S('On Ground'), lands=S('Landing')):
+        land = lands[-1]
         for gnd in gnds:
-            taxi_start = gnd.slice.start
-            taxi_stop = gnd.slice.stop
-            for toff in toffs:
-                if slices_overlap(gnd.slice, toff.slice):
-                    taxi_stop = toff.slice.start
-                    self.create_phase(slice(taxi_start, taxi_stop), name="Taxi Out")
-            for land in lands:
-                if slices_overlap(gnd.slice, land.slice):
-                    taxi_start = land.slice.stop
-                    self.create_phase(slice(taxi_start, taxi_stop), name="Taxi In")
-            #self.create_phase(slice(taxi_start, taxi_stop), name="Taxi")
+            if slices_overlap(gnd.slice, land.slice):
+                taxi_start = land.slice.stop
+                taxi_stop = gnd.slice.stop
+                self.create_phase(slice(taxi_start, taxi_stop), name="Taxi In")
+
+        
+class TaxiOut(FlightPhaseNode):
+    """
+    This takes the period from start of data to start of takeoff as the taxi
+    out, and the end of the landing to the end of the data as taxi in. Could
+    be improved to include engines running condition at a later date.
+    """
+    def derive(self, gnds=S('On Ground'), toffs=S('Takeoff')):
+        toff = toffs[0]
+        for gnd in gnds:
+            if slices_overlap(gnd.slice, toff.slice):
+                taxi_start = gnd.slice.start
+                taxi_stop = toff.slice.start
+                self.create_phase(slice(taxi_start, taxi_stop), name="Taxi Out")
+
+
+class Taxiing(FlightPhaseNode):
+    def derive(self, t_out=S('Taxi Out'), t_in=S('Taxi In')):
+        self.create_phases(slices_or([s.slice for s in t_out],[s.slice for s in t_in]))
         
         
 class TurningInAir(FlightPhaseNode):

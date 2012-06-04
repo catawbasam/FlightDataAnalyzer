@@ -73,7 +73,6 @@ from settings import (AIRSPEED_THRESHOLD,
                       GROUNDSPEED_LAG_TC,
                       HYSTERESIS_FPALT,
                       HYSTERESIS_FPALT_CCD,
-                      HYSTERESIS_FPIAS,
                       HYSTERESIS_FP_RAD_ALT,
                       HYSTERESIS_FPROC,
                       GRAVITY_IMPERIAL,
@@ -169,7 +168,7 @@ class AccelerationSideways(DerivedParameterNode):
 
 class AirspeedForFlightPhases(DerivedParameterNode):
     def derive(self, airspeed=P('Airspeed')):
-        self.array = repair_mask(airspeed.array, repair_duration=None))
+        self.array = repair_mask(airspeed.array, repair_duration=None)
 
 
 class AirspeedMinusV2(DerivedParameterNode):

@@ -18,11 +18,15 @@ from analysis_engine.flight_phase import (Airborne,
                                           DescentLowClimb,
                                           Fast,
                                           FinalApproach,
+                                          GoAroundAndClimbout,
                                           ILSLocalizerEstablished,
                                           Landing,
                                           LevelFlight,
                                           OnGround,
                                           Takeoff,
+                                          Taxiing,
+                                          TaxiIn,
+                                          TaxiOut,
                                           TurningInAir,
                                           TurningOnGround
                                           )
@@ -36,7 +40,14 @@ from analysis_engine.settings import AIRSPEED_THRESHOLD
 Two little routines to make building Sections for testing easier.
 '''
 def buildsection(name, begin, end):
-    return [Section(name, slice(begin, end), begin, end)]
+    ib = int(begin)
+    if ib < begin:
+        ib += 1
+    ie = int(end)
+    if ie < end:
+        ie += 1
+    return [Section(name, slice(ib, ie), begin, end)]
+
 
 def buildsections(*args):
     # buildsections('name',[from1,to1],[from2,to2])
@@ -77,123 +88,33 @@ class TestAirborne(unittest.TestCase):
         self.assertEqual(air, [])
 
 
-"""
-class TestApproach(unittest.TestCase):
-    def test_can_operate(self):
-        expected = [('Altitude AAL For Flight Phases',
-                     'Approach')]
-        opts = Approach.get_operational_combinations()
-        self.assertEqual(opts, expected)
-
-    def test_approach_phase_basic(self):
-        alt = np.ma.array(range(5000,500,-500)+range(500,3000,500))
-        aal = S('Approach', items=[Section('Approach', slice(4, 14, None))])
-        # Pretend we are flying over flat ground, so the altitudes are equal.
-        app = Approach()
-        app.derive(Parameter('Altitude AAL For Flight Phases',alt), aal)
-        expected = [Section(name='Approach', slice=slice(4, 9, None))]
-        self.assertEqual(app, expected)
-"""
-
-
-"""
-class TestApproachAndGoAround(unittest.TestCase):
-    def test_can_operate(self):
-        self.assertEqual(ApproachAndGoAround.get_operational_combinations(),
-                         [('Altitude AAL', 'Altitude Radio',
-                           'Climb For Flight Phases', 'Go Around', 'Fast')])
-
-    def test_approach_and_go_around_phase_basic(self):
-        alt = np.ma.array(range(5000,500,-500)+[0]*11)
-        ga = KTI('Go Around', items=[KeyTimeInstance(index=11, name='Go Around')])
-        climb=S(items=[Section('Climb For Flight Phases',slice=slice(11,20))])
-        fast=S(items=[Section('Fast',slice=slice(0,19))])
-        app = ApproachAndGoAround()
-        # Pretend we are flying over flat ground, so the altitudes are equal.
-        app.derive(Parameter('Altitude AAL',alt),
-                   Parameter('Altitude Radio',alt),
-                   climb, ga, fast)
-        expected = [Section(name='Approach And Go Around', slice=slice(4, 19, None))]
-        self.assertEqual(app, expected)
-
-    def test_approach_and_go_around_phase_no_ralt(self):
-        alt = np.ma.array(range(4000,400,-400)+[0]*11)
-        ga = KTI('Go Around', items=[KeyTimeInstance(index=11, name='Go Around')])
-        climb=S(items=[Section('Climb For Flight Phases',slice=slice(11,20))])
-        fast=S(items=[Section('Fast',slice=slice(0,19))])
-        app = ApproachAndGoAround()
-        # Pretend we are flying over flat ground, so the altitudes are equal.
-        app.derive(Parameter('Altitude AAL',alt),
-                   None,
-                   climb, ga, fast)
-        expected = [Section(name='Approach And Go Around', slice=slice(2.5, 19, None))]
-        self.assertEqual(app, expected)
-
-    def test_approach_and_go_around_over_high_ground(self):
-        alt = np.ma.array(range(5000,500,-500)+[0]*12)
-        ga = KTI('Go Around', items=[KeyTimeInstance(index=11, name='Go Around')])
-        climb=S(items=[Section('Climb For Flight Phases',slice=slice(11,20))])
-        fast=S(items=[Section('Fast',slice=slice(0,19))])
-        app = ApproachAndGoAround()
-        # Pretend we are flying over flat ground, so the altitudes are equal.
-        app.derive(Parameter('Altitude AAL',alt),
-                   Parameter('Altitude Radio',alt-500),
-                   climb, ga, fast)
-        expected = [Section(name='Approach And Go Around', slice=slice(3, 19, None))]
-        self.assertEqual(app, expected)
-    
-    def test_approach_and_go_around_levels_out(self):
-        # The height does not reach 3000ft, and drops away before that.
-        alt = np.ma.array([2500,2600]+range(2500,500,-500)+[0]*14)
-        ga = KTI('Go Around', items=[KeyTimeInstance(index=11, name='Go Around')])
-        climb=S(items=[Section('Climb For Flight Phases',slice=slice(11,17))])
-        fast=S(items=[Section('Fast',slice=slice(0,17))])
-        app = ApproachAndGoAround()
-        app.derive(Parameter('Altitude AAL',alt),
-                   Parameter('Altitude Radio',alt),
-                   climb, ga, fast)
-        expected = [Section(name='Approach And Go Around', slice=slice(1, 17, None))]
-        self.assertEqual(app, expected)
-        """
-    
-
 class TestApproach(unittest.TestCase):
     def test_can_operate(self):
         self.assertEqual(Approach.get_operational_combinations(),
-                         [('Altitude AAL For Flight Phases', 'Altitude Radio',
-                           'Landing')])
+                         [('Altitude AAL For Flight Phases', 'Landing',
+                           'Go Around And Climbout')])
 
     def test_approach_and_landing_phase_basic(self):
         alt = np.ma.array(range(5000,500,-500)+[0]*10)
-        land=S(items=[Section('Landing',slice=slice(11,20))])
+        land=buildsection('Landing',11,20)
+        # Go-around above 3000ft will be ignored.
+        ga=buildsection('Go Around And Climbout',0,2)
         app = Approach()
-        # Pretend we are flying over flat ground, so the altitudes are equal.
         app.derive(Parameter('Altitude AAL For Flight Phases',alt),
-                   Parameter('Altitude Radio For Flight Phases',alt),
-                   land)
-        expected = [Section(name='Approach', slice=slice(4, 20, None))]
-        self.assertEqual(app, expected)
+                   land, ga)
+        expected = buildsection('Approach', 4.0, 20)
+        self.assertEqual([app.get_first()], expected)
 
-    def test_approach_and_landing_phase_no_ralt(self):
-        alt = np.ma.array(range(5000,500,-500)+[0]*10)
-        land=S(items=[Section('Landing',slice=slice(11,20))])
-        alt_param = Parameter('Altitude AAL For Flight Phases',alt)
+    def test_approach_and_landing_phase_go_around(self):
+        alt = np.ma.array([3500,2500,2000,2500,3500,3500])
+        land=buildsection('Landing',5,6)
+        ga=buildsection('Go Around And Climbout',0.5,3.5)
         app = Approach()
-        # Pretend we are flying over flat ground, so the altitudes are equal.
-        app.derive(alt_param, None, land)
-        expected = [Section(name='Approach', slice=slice(4, 20, None))]
-        self.assertEqual(app, expected)
-
-    def test_initial_approach_phase_over_high_ground(self):
-        alt = np.ma.array(range(5000,500,-500)+[0]*10)
-        land=S(items=[Section('Landing',slice=slice(11,20))])
-        app = Approach()
-        # Raising the ground makes the radio altitude trigger one sample sooner.
         app.derive(Parameter('Altitude AAL For Flight Phases',alt),
-                   Parameter('Altitude Radio For Flight Phases',alt-750),
-                   land)
-        expected = [Section(name='Approach', slice=slice(2.5, 20, None))]
-        self.assertEqual(app, expected)
+                   land, ga)
+        expected = buildsections('Approach', [1, 4], [3.5, 6])
+        self.assertEqual([app.get_first()], expected[0])
+
     
 
 class TestILSLocalizerEstablished(unittest.TestCase):
@@ -592,11 +513,11 @@ class TestOnGround(unittest.TestCase):
         phase_on_ground = OnGround()
         phase_on_ground.derive(ias)
         if AIRSPEED_THRESHOLD == 80:
-            expected = buildsections('On Ground',[0,3],[310,313])
+            expected = buildsections('On Ground',[0,2],[311,313])
         if AIRSPEED_THRESHOLD == 70:
             expected = buildsections('On Ground',[0,3],[56,0]) # Not set up.
-        self.assertEqual(phase_on_ground.get_first(), expected[0])
-        self.assertEqual(phase_on_ground.get_last(), expected[1])
+        self.assertEqual([phase_on_ground.get_first()], expected[0])
+        self.assertEqual([phase_on_ground.get_last()], expected[1])
         
     def test_on_ground_all_fast(self):
         on_ground_data = np.ma.array([120]*10)
@@ -611,23 +532,23 @@ class TestOnGround(unittest.TestCase):
         phase_on_ground = OnGround()
         phase_on_ground.derive(ias)
         expected = buildsection('On Ground',0,10)
-        self.assertEqual(phase_on_ground.get_first(), expected)
+        self.assertEqual(phase_on_ground.get_first(), expected[0])
 
     def test_on_ground_slowing_only(self):
         on_ground_data = np.ma.arange(110,60,-10)
         ias = Parameter('Airspeed For Flight Phases', on_ground_data,1,0)
         phase_on_ground = OnGround()
         phase_on_ground.derive(ias)
-        expected = buildsection('On Ground',3,5)
-        self.assertEqual(phase_on_ground.get_first(), expected)
+        expected = buildsection('On Ground',4,5)
+        self.assertEqual(phase_on_ground.get_first(), expected[0])
         
     def test_on_ground_speeding_only(self):
         on_ground_data = np.ma.arange(60,120,10)
         ias = Parameter('Airspeed For Flight Phases', on_ground_data,1,0)
         phase_on_ground = OnGround()
         phase_on_ground.derive(ias)
-        expected = buildsection('On Ground',0,3)
-        self.assertEqual(phase_on_ground.get_first(), expected)
+        expected = buildsection('On Ground',0,2)
+        self.assertEqual(phase_on_ground.get_first(), expected[0])
 
 
 
@@ -664,6 +585,26 @@ class TestFinalApproach(unittest.TestCase):
         app.derive(alt_aal, alt_radio, app_land)
         expected = [Section(name='Final Approach', slice=slice(0, 2, None))]
         self.assertEqual(app, expected)
+
+
+class TestGoAroundAndClimbout(unittest.TestCase):
+    def test_can_operate(self):
+        self.assertEqual(GoAroundAndClimbout.get_operational_combinations(),
+                         [('Descend For Flight Phases', 'Climb For Flight Phases',
+                           'Go Around')])
+
+    def test_go_around_and_climbout_phase_basic(self):
+        down = np.ma.array(range(4000,1000,-490)+[1000]*7) - 4000
+        up = np.ma.array([1000]*7+range(1000,4500,490)) - 1500
+        ga_kti = KTI('Go Around', items=[KeyTimeInstance(index=7, name='Go Around')])
+        ga_phase = GoAroundAndClimbout()
+        ga_phase.derive(Parameter('Descend For Flight Phases',down),
+                        Parameter('Climb For Flight Phases',up), 
+                        ga_kti)
+        expected = buildsection('Go Around And Climbout', 5.1020408163265305,
+                                9.0408163265306118)
+        self.assertEqual(ga_phase.get_first().start_edge, expected[0].start_edge)
+        self.assertEqual(ga_phase.get_first().stop_edge, expected[0].stop_edge)
 
 
 class TestLanding(unittest.TestCase):
@@ -803,6 +744,47 @@ class TestTakeoff(unittest.TestCase):
         self.assertFalse(True)
 
 
+class TestTaxiOut(unittest.TestCase):
+    def test_can_operate(self):
+        expected = [('On Ground', 'Takeoff')]
+        self.assertEqual(TaxiOut.get_operational_combinations(), expected)
+        
+    def test_taxi_out(self):
+        gnd = buildsection('On Ground',3,7)
+        toff = buildsection('Takeoff', 5,12)
+        tout = TaxiOut()
+        tout.derive(gnd, toff)
+        expected = buildsection('Taxi Out',3,5)
+        self.assertEqual(tout,expected)
+        
+class TestTaxiIn(unittest.TestCase):
+    def test_can_operate(self):
+        expected = [('On Ground', 'Landing')]
+        self.assertEqual(TaxiIn.get_operational_combinations(), expected)
+        
+    def test_taxi_in(self):
+        gnd = buildsection('On Ground',7,14)
+        toff = buildsection('Landing', 5,12)
+        t_in = TaxiIn()
+        t_in.derive(gnd, toff)
+        expected = buildsection('Taxi In',12,14)
+        self.assertEqual(t_in,expected)
+        
+class TestTaxiing(unittest.TestCase):
+    def test_can_operate(self):
+        expected=[('Taxi Out', 'Taxi In')]
+        self.assertEqual(Taxiing.get_operational_combinations(), expected)
+        
+    def test_taxiing(self):
+        tout = buildsection('Taxi Out', 2,  5)
+        t_in = buildsection('Taxi In',  8, 11)
+        ting = Taxiing()
+        ting.derive(tout, t_in)
+        expected = buildsections('Taxiing', [2,5],[8,11])
+        self.assertEqual([ting.get_first()], expected[0])
+        self.assertEqual([ting.get_last()], expected[1])
+                         
+                         
 class TestTurningInAir(unittest.TestCase):
     def test_can_operate(self):
         expected = [('Rate Of Turn', 'Airborne')]

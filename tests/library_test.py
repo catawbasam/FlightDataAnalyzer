@@ -2185,6 +2185,38 @@ class TestSlicesNot(unittest.TestCase):
         # Single point slices get discarded by shift slices function.
         self.assertEqual(slices_not(slice_list), [])
 
+class TestSlicesOr(unittest.TestCase):
+    def test_slices_or_with_overlap(self):
+        slice_list_a = [slice(10,13)]
+        slice_list_b = [slice(16,25)]
+        slice_list_c = [slice(20,31)]
+        self.assertEqual(slices_or(slice_list_a,
+                                   slice_list_b,
+                                   slice_list_c),
+                         [slice(10,13), slice(16,31)])
+
+    def test_slices_or_lists(self):
+        slice_list_a = [slice(10,13), slice(16,25)]
+        slice_list_b = [slice(20,31)]
+        self.assertEqual(slices_or(slice_list_a,
+                                   slice_list_b),
+                         [slice(10,13), slice(16,31)])
+
+    def test_slices_or_offset(self):
+        slice_list_a = [slice(10,13)]
+        self.assertEqual(slices_or(slice_list_a, begin_at = 11),
+                         [slice(11, 13)])
+
+    def test_slices_or_truncated(self):
+        slice_list_a = [slice(10,13)]
+        slice_list_b = [slice(16,25)]
+        slice_list_c = [slice(20,31)]
+        self.assertEqual(slices_or(slice_list_a,
+                                   slice_list_b,
+                                   slice_list_c,
+                                   end_at = 18),
+                         [slice(10,13), slice(16,18)])
+
 
 class TestStepValues(unittest.TestCase):
     def test_step_values(self):
