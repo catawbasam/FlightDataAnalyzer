@@ -35,28 +35,55 @@ from analysis_engine.library import integrate
 
 from analysis_engine.settings import AIRSPEED_THRESHOLD
 
+'''
+Three little routines to make building Sections for testing easier.
+'''
+def builditem(name, begin, end):
+    if begin==None:
+        ib = None
+    else:
+        ib = int(begin)
+        if ib < begin:
+            ib += 1
+    if end==None:
+        ie = None
+    else:
+        ie = int(end)
+        if ie < end:
+            ie += 1
+    return Section(name, slice(ib, ie, None), begin, end)
 
-'''
-Two little routines to make building Sections for testing easier.
-'''
 def buildsection(name, begin, end):
-    ib = int(begin)
-    if ib < begin:
-        ib += 1
-    ie = int(end)
-    if ie < end:
-        ie += 1
-    return [Section(name, slice(ib, ie), begin, end)]
+    '''
+    A little routine to make building Sections for testing easier.
 
+    :param name: name for a test Section
+    :param begin: index at start of section
+    :param end: index at end of section
+    
+    :returns: a SectionNode populated correctly.
+    
+    Example: land = buildsections('Landing', 100, 120)
+    '''
+    result = builditem(name, begin, end)
+    return SectionNode(name, items=[result])
 
 def buildsections(*args):
-    # buildsections('name',[from1,to1],[from2,to2])
+    '''
+    Like buildsection, this is used to build SectionNodes for test purposes.
+    
+    lands = buildsections('name',[from1,to1],[from2,to2])
+
+    Example of use:
+    approach = buildsections('Approach', [80,90], [100,110])
+    '''
     built_list=[]
     name = args[0]
     for a in args[1:]:
-        new_section = buildsection(name, a[0], a[1])
+        new_section = builditem(name, a[0], a[1])
         built_list.append(new_section)
-    return built_list
+    return SectionNode(name, items=built_list)
+
 
 
 class TestAirborne(unittest.TestCase):
@@ -79,13 +106,32 @@ class TestAirborne(unittest.TestCase):
         expected = Section(name='Airborne', slice=slice(2, 28, None), start_edge=2, stop_edge=28)
         self.assertEqual(air.get_first(), expected)
 
-    def test_airborne_phase_not_airborne(self):
+    def test_airborne_phase_not_fast(self):
         altitude_data = np.ma.array(range(0,10))
         alt_aal = Parameter('Altitude AAL For Flight Phases', altitude_data)
         fast = []
         air = Airborne()
         air.derive(alt_aal, fast)
         self.assertEqual(air, [])
+
+    def test_airborne_phase_started_midflight(self):
+        altitude_data = np.ma.array([100]*20+[60,30,10]+[0]*4)
+        alt_aal = Parameter('Altitude AAL For Flight Phases', altitude_data)
+        fast = buildsection('Fast', None, 25)
+        air = Airborne()
+        air.derive(alt_aal, fast)
+        expected = buildsection('Airborne', None, 23)
+        self.assertEqual(air, expected)
+        
+    def test_airborne_phase_ends_in_midflight(self):
+        altitude_data = np.ma.array([0]*5+[30,80]+[100]*20)
+        alt_aal = Parameter('Altitude AAL For Flight Phases', altitude_data)
+        fast = buildsection('Fast', 2, None)
+        air = Airborne()
+        air.derive(alt_aal, fast)
+        expected = buildsection('Airborne', 5, None)
+        self.assertEqual(air, expected)
+
 
 
 class TestApproach(unittest.TestCase):
@@ -98,36 +144,44 @@ class TestApproach(unittest.TestCase):
         alt = np.ma.array(range(5000,500,-500)+[0]*10)
         land=buildsection('Landing',11,20)
         # Go-around above 3000ft will be ignored.
-        ga=buildsection('Go Around And Climbout',0,2)
+        ga=buildsection('Go Around And Climbout',8,13)
         app = Approach()
         app.derive(Parameter('Altitude AAL For Flight Phases',alt),
                    land, ga)
         expected = buildsection('Approach', 4.0, 20)
-        self.assertEqual([app.get_first()], expected)
+        self.assertEqual(app, expected)
 
-    def test_approach_and_landing_phase_go_around(self):
+    def test_approach_landing_and_go_around_overlap(self):
         alt = np.ma.array([3500,2500,2000,2500,3500,3500])
         land=buildsection('Landing',5,6)
-        ga=buildsection('Go Around And Climbout',0.5,3.5)
+        ga=buildsection('Go Around And Climbout',2.5,3.5)
         app = Approach()
         app.derive(Parameter('Altitude AAL For Flight Phases',alt),
                    land, ga)
-        expected = buildsections('Approach', [1, 4], [3.5, 6])
-        self.assertEqual([app.get_first()], expected[0])
+        expected = buildsection('Approach', 0, 6)
+        self.assertEqual(app, expected)
 
-    
+    def test_approach_separate_landing_phase_go_around(self):
+        alt = np.ma.array([3500,2500,2000,2500,3500,3500])
+        land=buildsection('Landing',5,6)
+        ga=buildsection('Go Around And Climbout',1.5,2.0)
+        app = Approach()
+        app.derive(Parameter('Altitude AAL For Flight Phases',alt),
+                   land, ga)
+        expected = buildsections('Approach', [0, 2], [3, 6])
+        self.assertEqual(app, expected)
+
 
 class TestILSLocalizerEstablished(unittest.TestCase):
     def test_can_operate(self):
-        expected = [('Approach',
-                     'Approach And Go Around',
-                     'ILS Localizer')]
+        expected = [('ILS Localizer',
+                     'Altitude AAL For Flight Phases',
+                     'Approach')]
         opts = ILSLocalizerEstablished.get_operational_combinations()
         self.assertEqual(opts, expected)
 
     def test_ils_localizer_established_basic(self):
-        # TODO: Either fix test by passing in Approach And Go Around instead of None or remove.
-        aal = S('Approach', items=[Section('Approach', slice(2, 9, None))])
+        aal = buildsection('Approach',2, 9)
         ils = P('ILS Localizer',np.ma.arange(-3,0,0.3))
         establish = ILSLocalizerEstablished()
         establish.derive(aal, None, ils)
@@ -135,9 +189,7 @@ class TestILSLocalizerEstablished(unittest.TestCase):
         self.assertEqual(establish, expected)
 
     def test_ils_localizer_established_not_on_loc_at_minimum(self):
-        # TODO: Fix test by passing in Approach And Go Around SectionNode instead of Approach And Landing Lowest Point KTI.
-        aal = S('Approach',
-                items=[Section('Approach', slice(2, 9, None))])
+        aal = buildsection('Approach',2, 9)
         low = KTI('Approach And Landing Lowest Point',
                   items=[KeyTimeInstance(index=8, name='Approach And Landing Lowest Point')])
         ils = P('ILS Localizer',np.ma.array([3]*10))
@@ -147,8 +199,7 @@ class TestILSLocalizerEstablished(unittest.TestCase):
         self.assertEqual(establish, expected)
 
     def test_ils_localizer_established_only_last_segment(self):
-        # TODO: Fix test by passing in Approach And Go Around SectionNode instead of Approach And Landing Lowest Point KTI.
-        aal = S('Approach', items=[Section('Approach', slice(2, 9, None))])
+        aal = buildsection('Approach',2, 9)
         low = KTI('Approach And Landing Lowest Point', items=[KeyTimeInstance(index=8, name='Approach And Landing Lowest Point')])
         ils = P('ILS Localizer',np.ma.array([0,0,0,1,3,3,2,1,0,0]))
         establish = ILSLocalizerEstablished()
@@ -157,8 +208,7 @@ class TestILSLocalizerEstablished(unittest.TestCase):
         self.assertEqual(establish, expected)
 
     def test_ils_localizer_insensitive_to_few_masked_values(self):
-        # TODO: Fix test by passing in Approach And Go Around SectionNode instead of Approach And Landing Lowest Point KTI.
-        aal = S('Approach', items=[Section('Approach', slice(2, 9, None))])
+        aal = buildsection('Approach',2, 9)
         low = KTI('Approach And Landing Lowest Point', items=[KeyTimeInstance(index=8, name='Approach And Landing Lowest Point')])
         ils = P('ILS Localizer',np.ma.array(data=[0,0,0,1,3,3,2,1,0,0],
                                             mask=[0,0,0,0,0,1,1,0,0,0]))
@@ -362,6 +412,20 @@ class TestDescentLowClimb(unittest.TestCase):
         self.assertEqual(DescentLowClimb.get_operational_combinations(),
             [('Altitude AAL For Flight Phases', 'Climb For Flight Phases',
               'Landing', 'Fast')])
+        
+    def test_descent_low_climb_basic(self):
+        testwave = np.cos(np.arange(0,6.3,0.1))*(2500)+2500
+        clb = testwave - min(testwave)
+        clb[:31] = 0.0
+        alt_aal = Parameter('Altitude AAL For Flight Phases', np.ma.array(testwave))
+        climb = Parameter('Climb For Flight Phases', np.ma.array(clb))
+        landing = []
+        fast = buildsection('Fast', 0, 126)
+        dlc = DescentLowClimb()
+        dlc.derive(alt_aal, climb, landing, fast)
+        expected = buildsection('Descent Low Climb', 14, 50)    
+        self.assertEqual(dlc, expected)
+
 
     def test_descent_low_climb_inadequate_climb(self):
         # This test will find out if we can separate the two humps on this camel

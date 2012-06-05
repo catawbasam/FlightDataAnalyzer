@@ -45,13 +45,21 @@ class Airborne(FlightPhaseNode):
     def derive(self, alt_aal=P('Altitude AAL For Flight Phases'),fast=S('Fast')):
         # Just find out when altitude above airfield is non-zero.
         for speedy in fast:
-            start_point = speedy.slice.start or 0
-            stop_point = speedy.slice.stop or len(roc.array)
-            self.create_phases(shift_slices(np.ma.clump_unmasked(\
-                np.ma.masked_less_equal(\
-                    repair_mask(alt_aal.array[start_point:stop_point]),0.0)),
-                                            start_point))
-
+            start_point = speedy.slice.start
+            stop_point = speedy.slice.stop or len(alt_aal.array)
+            # First tidy up the data we're interested in
+            work = repair_mask(alt_aal.array[start_point:stop_point])
+            airs = np.ma.clump_unmasked(np.ma.masked_less_equal(work,0.0))
+            # Make sure we propogate None ends to data which starts or ends in midflight.
+            for air in airs:
+                begin = air.start
+                if begin == 0 and speedy.slice.start == None:
+                    begin = None
+                end = air.stop
+                if end == len(alt_aal.array) - (start_point or 0) and speedy.slice.stop == None:
+                    end = None
+                self.create_phase(shift_slice(slice(begin,end),start_point))
+          
 
 class GoAroundAndClimbout(FlightPhaseNode):
     '''
@@ -83,8 +91,9 @@ class Approach(FlightPhaseNode):
     def derive(self, alt_aal=P('Altitude AAL For Flight Phases'),
                lands=S('Landing'), go_arounds=S('Go Around And Climbout')):
 
-        # Prepare a home for the approach slices
-        app_slices = []    
+        # Prepare to extract the slicesa home for the approach slices
+        app_slices = []
+        ga_slices = []
 
         for land in lands:
             app_start = index_closest_value(alt_aal.array,
@@ -93,22 +102,13 @@ class Approach(FlightPhaseNode):
             app_slices.append(slice(app_start,land.slice.stop,None))
             
         for ga in go_arounds:
-            # When was this go-around below the approach threshold?
-            gapp_slice = np.ma.clump_unmasked(\
-                np.ma.masked_greater(alt_aal.array[ga.slice],
-                                     INITIAL_APPROACH_THRESHOLD))
-            # Only make an approach phase if it did go below the approach
-            # threshold. Notice there can only be one slice returned from
-            # this single go-around.
-            if gapp_slice[0]:
-                gapp_start = index_closest_value(alt_aal.array,
-                                                 INITIAL_APPROACH_THRESHOLD,
-                                                 slice(gapp_slice[0].start,0, -1))
-                
-            app_slices.append(shift_slice(slice(gapp_start, gapp_slice[0].stop),
-                                          ga.slice.start))
+            # Stretch the start point back to 3000ft (rather than 500ft)
+            gapp_start = index_closest_value(alt_aal.array,
+                                             INITIAL_APPROACH_THRESHOLD,
+                                             slice(ga.slice.start, 0, -1))
+            ga_slices.append(slice(gapp_start, ga.slice.stop,None))
         
-        self.create_phases(app_slices)
+        self.create_phases(slices_or(app_slices, ga_slices))
 
 
 class ClimbCruiseDescent(FlightPhaseNode):
@@ -261,16 +261,16 @@ class DescentLowClimb(FlightPhaseNode):
             dlc = np.ma.masked_outside(alt_aal.array[speedy.slice], 0.0, INITIAL_APPROACH_THRESHOLD)
             dlc_list = shift_slices(np.ma.clump_unmasked(dlc), speedy.slice.start)
 
-        for this_dlc in dlc_list:
-            this_alt = alt_aal.array[this_dlc]
-            this_climb = climb.array[this_dlc]
-            # OK, we want a descent followed by a climb that exceeds 500ft.
-            # Note: Testing "this_alt[0]" is acceptable as this must be valid
-            # as a result of the mask and clump process above.
-            if this_alt[0]-np.ma.min(this_alt) > 500 and \
-               np.ma.max(this_climb) > 500:
-                my_list.append(this_dlc)
-        self.create_phases(my_list)
+            for this_dlc in dlc_list:
+                this_alt = alt_aal.array[this_dlc]
+                this_climb = climb.array[this_dlc]
+                # OK, we want a descent followed by a climb that exceeds 500ft.
+                # Note: Testing "this_alt[0]" is acceptable as this must be valid
+                # as a result of the mask and clump process above.
+                if this_alt[0]-np.ma.min(this_alt) > 500 and \
+                   np.ma.max(this_climb) > 500:
+                    my_list.append(this_dlc)
+            self.create_phases(my_list)
 
         
 class Fast(FlightPhaseNode):
@@ -420,7 +420,7 @@ class ILSLocalizerEstablished(FlightPhaseNode):
     """
     """
     def derive(self, ils_loc=P('ILS Localizer'), 
-               alt_aal=P('Altitude AAL'), apps=S('Approach')):
+               alt_aal=P('Altitude AAL For Flight Phases'), apps=S('Approach')):
         for app in apps:
             ils_app = scan_ils('localizer',ils_loc.array,alt_aal.array,app.slice)
             if ils_app != None:
@@ -692,12 +692,13 @@ class TaxiIn(FlightPhaseNode):
     be improved to include engines running condition at a later date.
     """
     def derive(self, gnds=S('On Ground'), lands=S('Landing')):
-        land = lands[-1]
-        for gnd in gnds:
-            if slices_overlap(gnd.slice, land.slice):
-                taxi_start = land.slice.stop
-                taxi_stop = gnd.slice.stop
-                self.create_phase(slice(taxi_start, taxi_stop), name="Taxi In")
+        if lands:
+            land = lands[-1]
+            for gnd in gnds:
+                if slices_overlap(gnd.slice, land.slice):
+                    taxi_start = land.slice.stop
+                    taxi_stop = gnd.slice.stop
+                    self.create_phase(slice(taxi_start, taxi_stop), name="Taxi In")
 
         
 class TaxiOut(FlightPhaseNode):
@@ -707,12 +708,13 @@ class TaxiOut(FlightPhaseNode):
     be improved to include engines running condition at a later date.
     """
     def derive(self, gnds=S('On Ground'), toffs=S('Takeoff')):
-        toff = toffs[0]
-        for gnd in gnds:
-            if slices_overlap(gnd.slice, toff.slice):
-                taxi_start = gnd.slice.start
-                taxi_stop = toff.slice.start
-                self.create_phase(slice(taxi_start, taxi_stop), name="Taxi Out")
+        if toffs:
+            toff = toffs[0]
+            for gnd in gnds:
+                if slices_overlap(gnd.slice, toff.slice):
+                    taxi_start = gnd.slice.start
+                    taxi_stop = toff.slice.start
+                    self.create_phase(slice(taxi_start, taxi_stop), name="Taxi Out")
 
 
 class Taxiing(FlightPhaseNode):

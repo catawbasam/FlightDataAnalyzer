@@ -1062,6 +1062,10 @@ def ground_track(lat_fix, lon_fix, gspd, hdg, frequency, mode):
     if np.ma.count(result) < 5:
         return None, None
     
+    # Force a copy of the result array, as the repair_mask functions will
+    # otherwise overwrite the result mask.
+    result = np.ma.copy(result)
+    
     repair_mask(gspd, repair_duration=None)
     repair_mask(hdg, repair_duration=None)
     
@@ -1550,11 +1554,18 @@ def slices_or(*slice_lists, **kwargs):
     if slice_lists==[] or slice_lists==None:
         return
 
-    a = min([s.start for s in slice_lists[0]])
-    b = max([s.stop for s in slice_lists[0]])
+    for each_slice in slice_lists[0]:
+        if each_slice==[]:
+            break
+        a = each_slice.start
+        b = each_slice.stop
+
     for slice_list in slice_lists[1:]:
-        a = min([a, min([s.start for s in slice_list])])
-        b = max([b, max([s.stop for s in slice_list])])
+        for each_slice in slice_list:
+            if each_slice==[]:
+                break
+            a = min(a, each_slice.start)
+            b = max(b, each_slice.stop)
     
     if kwargs.has_key('begin_at'):
         startpoint = kwargs['begin_at']
@@ -1702,7 +1713,7 @@ def max_abs_value(array, _slice=slice(None), start_edge=None, stop_edge=None):
         if edge_value and edge_value > value:
             index = stop_edge
             value = edge_value
-    return Value(index, value)
+    return Value(index, value_at_index(array, index)) # Recover sign of the value.
 
     
 def max_value(array, _slice=slice(None), start_edge=None, stop_edge=None):
@@ -1925,18 +1936,36 @@ def np_ma_zeros_like(array):
     The Numpy masked array library does not have equivalents for some array
     creation functions. These are provided with similar names which may be
     replaced should the Numpy library be extended in future.
+    
+    :param array: array of length to be replicated.
+    :type array: A Numpy array - can be masked or not.
+    
+    :returns: Numpy masked array of unmasked zero values, length same as input array.
     """
-    return np.ma.array(np.zeros_like(array.data), mask=False)
+    return np.ma.array(np.zeros_like(array), mask=False)
 
 def np_ma_ones_like(array):
-    return np_ma_zeros_like(array) + 1
+    """
+    Creates a masked array filled with ones. See also np_ma_zeros_like.
+    
+    :param array: array of length to be replicated.
+    :type array: A Numpy array - can be masked or not.
+    
+    :returns: Numpy masked array of unmasked 1.0 float values, length same as input array.
+    """
+    return np_ma_zeros_like(array) + 1.0
 
 
 def np_ma_masked_zeros_like(array):
     """
-    The Numpy masked array library does not have equivalents for some array
-    creation functions. These are provided with similar names which may be
-    replaced should the Numpy library be extended in future.
+    Creates a masked array filled with masked values. The unmasked data
+    values are all zero. See also np_ma_zeros_like.
+    
+    :param array: array of length to be replicated.
+    :type array: A Numpy array - can be masked or not.
+    
+    :returns: Numpy masked array of masked 0.0 float values, length same as
+    input array.
     """
     return np.ma.masked_all_like(np.zeros_like(array))
 
@@ -1953,8 +1982,11 @@ def peak_curvature(array, _slice=slice(None), curve_sense='Concave'):
                         'Bi-polar' to detect either sense.
     :type curve_sense: string
     
-    :returns peak_curvature: The index within this array where the curvature first peaks in the required sense.
+    :returns peak_curvature: The index where the curvature first peaks in the required sense.
     :rtype: integer
+
+    Note: Although the range to be inspected may be restricted by slicing,
+    the peak curvature index relates to the whole array, not just the slice.
     
     This routine uses a "Truck and Trailer" algorithm to find where a
     parameter changes slope. In the case of FDM, we are looking for the point
@@ -1973,6 +2005,8 @@ def peak_curvature(array, _slice=slice(None), curve_sense='Concave'):
     overall = 2*ttp + gap 
     # check the array is long enough.
     if len(data) < overall:
+        if np.ma.ptp(data) == 0.0:
+            return None
         # Simple Numpy array method for small data sets.
         if len(data) < 4:
             return len(data)/2
@@ -2198,10 +2232,17 @@ def shift_slice(this_slice, offset):
     calculation.
     """
     if offset:
-        a = (this_slice.start or 0) + offset
-        b = (this_slice.stop or 0) + offset
+        if this_slice.start != None:
+            a = this_slice.start + offset
+        else:
+            a = None
+        if this_slice.stop != None:
+            b = this_slice.stop + offset
+        else:
+            b = None
         c = this_slice.step
-        if (b-a)>1:
+        
+        if a==None or b==None or (b-a)>1:
             # This traps single sample slices which can arise due to rounding of
             # the iterpolated slices.
             return(slice(a,b,c))
@@ -2635,6 +2676,8 @@ def index_at_value(array, threshold, _slice=slice(None), endpoint='exact'):
         # More "let's get the logic right and tidy it up afterwards" bit of code...
         if begin >= len(array):
             begin = max_index - 1
+        elif int(begin) == begin:
+            begin = begin - 1 # integer slice indexes need reducing to avoid overruns.
         elif begin < 0:
             begin = 0
         if end > len(array):

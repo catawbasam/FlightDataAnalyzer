@@ -1494,13 +1494,13 @@ class TestMaxValue(unittest.TestCase):
         i, v = max_value(array, slice(0,3),None,3.5)
         self.assertEqual(i, 2)
         self.assertEqual(v, 4) # Important that end case is ignored.
-        
-
 
         
 class TestMaxAbsValue(unittest.TestCase):
     def test_max_abs_value(self):
         array = np.ma.array(range(-20,30) + range(10,-41, -1) + range(10))
+        self.assertEqual(max_abs_value(array), (100, -40))
+        array = array*-1.0
         self.assertEqual(max_abs_value(array), (100, 40))
 
 
@@ -1699,14 +1699,14 @@ class TestNpMaZerosLike(unittest.TestCase):
 
 class TestNpMaOnesLike(unittest.TestCase):
     def test_zeros_like_basic(self):
-        result = np_ma_ones_like([1,2,3])
+        result = np_ma_ones_like(np.ma.array([1,2,3]))
         expected = np.ma.array([1,1,1])
         ma_test.assert_array_equal(expected, result)
 
         
 class TestNpMaMaskedZerosLike(unittest.TestCase):
     def test_masked_zeros_like_basic(self):
-        result = np_ma_masked_zeros_like([1,2,3])
+        result = np_ma_masked_zeros_like(np.ma.array([1,2,3]))
         expected = np.ma.array(data=[0,0,0],mask=[1,1,1])
         #ma_test.assert_array_equal(expected, result) 
         
@@ -1739,6 +1739,11 @@ class TestPeakCurvature(unittest.TestCase):
 
     def test_peak_curvature_flat_data(self):
         array = np.ma.array([34]*40)
+        pc = peak_curvature(array)
+        self.assertEqual(pc,None)
+        
+    def test_peak_curvature_short_flat_data(self):
+        array = np.ma.array([34]*4)
         pc = peak_curvature(array)
         self.assertEqual(pc,None)
         
@@ -2016,7 +2021,12 @@ class TestShiftSlice(unittest.TestCase):
     def test_shift_slice_transfer_none(self):
         a = slice(30.3,None)
         b = 3
-        self.assertEqual(shift_slice(a,b),None)
+        self.assertEqual(shift_slice(a,b),slice(33.3,None))
+
+    def test_shift_slice_transfer_none_reversed(self):
+        a = slice(None,23.8)
+        b = 4.2
+        self.assertEqual(shift_slice(a,b),slice(None, 28.0))
 
     def test_shift_slice_no_shift(self):
         a = slice(2, 5,None)

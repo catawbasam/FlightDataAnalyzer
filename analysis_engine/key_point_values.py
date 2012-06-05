@@ -920,8 +920,8 @@ class HeadingAtLanding(KeyPointValueNode):
     before touchdown and turning off the runway. The value is "assigned" to a
     time midway through the landing phase.
     """
-    def derive(self, lands=S('Landing'), 
-               head=P('Heading Continuous')):
+    def derive(self, head=P('Heading Continuous'),
+               lands=S('Landing')):
         for land in lands:
             land_head = np.ma.median(head.array[land.slice])
             land_index = (land.slice.start + land.slice.stop)/2.0
@@ -944,8 +944,8 @@ class HeadingAtTakeoff(KeyPointValueNode):
     after liftoff and turning onto the runway. The value is "assigned" to a
     time midway through the landing phase.
     """
-    def derive(self, toffs=S('Takeoff'),
-               head=P('Heading Continuous')):
+    def derive(self, head=P('Heading Continuous'),
+               toffs=S('Takeoff')):
         for toff in toffs:
             toff_head = np.ma.median(head.array[toff.slice])
             toff_index = (toff.slice.start + toff.slice.stop)/2.0
@@ -1098,6 +1098,9 @@ class LongitudeAtLanding(KeyPointValueNode):
 class LatitudeAtTakeoff(KeyPointValueNode):
     def derive(self, lat=P('Latitude'),
                liftoffs=KTI('Liftoff')):
+        # OK, At the risk of causing confusion, we use the liftoff instant to
+        # identify the takeoff airport. Strictly, takeoff is a process taking
+        # time and distance, whereas liftoff is an instant in time and space.
         self.create_kpvs_at_ktis(lat.array, liftoffs)
 
 
