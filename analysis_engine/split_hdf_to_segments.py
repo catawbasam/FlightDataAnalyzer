@@ -378,6 +378,7 @@ def append_segment_info(hdf_segment_path, segment_type, segment_slice, part,
             logging.warning("Unable to calculate timebase, using epoch 1.1.1970!")
             start_datetime = datetime.fromtimestamp(0)
         stop_datetime = start_datetime + timedelta(seconds=duration)
+        hdf.start_datetime = start_datetime
     
     if segment_type != 'GROUND_ONLY':
         # we went fast, so get the index
@@ -436,12 +437,11 @@ def split_hdf_to_segments(hdf_path, aircraft_info, fallback_dt=None, draw=False)
     for part, segment_tuple in enumerate(segment_tuples, start=1):
         segment_type, segment_slice = segment_tuple
         # write segment to new split file (.001)
-        dest_path = os.path.splitext(hdf_path)[0] + '.%03d' % part + '.hdf5'
+        dest_path = os.path.splitext(hdf_path)[0] + '.%03d.hdf5' % part
         logging.debug("Writing segment %d: %s", part, dest_path)
+        write_segment(hdf_path, segment_slice, dest_path, supf_boundary=True)
         segment = append_segment_info(dest_path, segment_type, segment_slice,
                                       part, fallback_dt=fallback_dt)        
-        dest_path = write_segment(hdf_path, segment_slice, segment.start_dt,
-                                  dest_path, supf_boundary=True)
         
         segments.append(segment)
         if draw:
