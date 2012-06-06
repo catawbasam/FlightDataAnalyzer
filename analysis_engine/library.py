@@ -2767,13 +2767,13 @@ def value_at_time(array, hz, offset, time_index):
     time_into_array = time_index - round(offset-0.0000005, 6)
     location_in_array = time_into_array * hz
     
-    # Trap overruns which can arise from compensation for timing offsets.
+    # Trap overruns which arise from compensation for timing offsets.
     diff = location_in_array - len(array)
-    if 0<diff<1:
-        location_in_array = len(array)-1
-    if -1<location_in_array<0:
+    if location_in_array < 0:
         location_in_array = 0
-    
+    if diff > 0:
+        location_in_array = len(array)-1
+
     return value_at_index(array, location_in_array)
 
 def value_at_datetime(start_datetime, array, hz, offset, value_datetime):
@@ -2801,16 +2801,14 @@ def value_at_index(array, index):
     '''
     Finds the value of the data in array at a given index.
     
-    Samples within one index outside the array boundaries are permitted to
-    allow for offsets within the data frame. Beyond this a ValueError is
-    raised.
+    Samples outside the array boundaries are permitted, as we need this to
+    allow for offsets within the data frame.
     
     :param array: input data
     :type array: masked array
     :param index: index into the array where we want to find the array value.
     :type index: float
     :returns: interpolated value from the array
-    :raises ValueError: If index is outside of array range.
     '''
     
     if index < 0.0:

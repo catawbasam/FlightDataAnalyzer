@@ -1037,12 +1037,9 @@ class TestDerivedParameterNode(unittest.TestCase):
         self.assertEqual(spd.at(0.75), 0) # min val possible to return
         self.assertEqual(spd.at(1.75), 1*2) # one second in (*2Hz)
         self.assertEqual(spd.at(2.5), 1.75*2) # interpolates
-        self.assertEqual(spd.at(9.75), 9*2) # max val possible to return
-        
-        #Q: Is this the desired behaivour to give an IndexError at second 0?
-        # ... it would be misleading to use interpolation.
-        self.assertRaises(ValueError, spd.at, 0)
-        self.assertRaises(ValueError, spd.at, 11)
+        self.assertEqual(spd.at(9.75), 9*2) # max val without extrapolation
+        self.assertEqual(spd.at(0), 0) # Extrapolation at bottom end
+        self.assertEqual(spd.at(11), 19) # Extrapolation at top end
         
     @mock.patch('analysis_engine.node.slices_above')
     def test_slices_above(self, slices_above):
