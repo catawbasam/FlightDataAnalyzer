@@ -31,14 +31,26 @@ from analysis_engine.flight_phase import (Airborne,
                                           TurningOnGround
                                           )
 
-from analysis_engine.library import integrate
+from analysis_engine.library import hysteresis, integrate, repair_mask
 
-from analysis_engine.settings import AIRSPEED_THRESHOLD
+from analysis_engine.settings import AIRSPEED_THRESHOLD, HYSTERESIS_FPALT_CCD
 
 '''
 Three little routines to make building Sections for testing easier.
 '''
 def builditem(name, begin, end):
+    if begin==None:
+        ib = None
+    else:
+        ib = begin
+    if end==None:
+        ie = None
+    else:
+        ie = end
+    '''
+    This code more accurately represents the aligned section values, but is
+    not suitable for test cases where the data does not get aligned.
+    
     if begin==None:
         ib = None
     else:
@@ -51,6 +63,7 @@ def builditem(name, begin, end):
         ie = int(end)
         if ie < end:
             ie += 1
+            '''
     return Section(name, slice(ib, ie, None), begin, end)
 
 def buildsection(name, begin, end):
@@ -63,7 +76,7 @@ def buildsection(name, begin, end):
     
     :returns: a SectionNode populated correctly.
     
-    Example: land = buildsections('Landing', 100, 120)
+    Example: land = buildsection('Landing', 100, 120)
     '''
     result = builditem(name, begin, end)
     return SectionNode(name, items=[result])
@@ -174,50 +187,66 @@ class TestApproach(unittest.TestCase):
 
 class TestILSLocalizerEstablished(unittest.TestCase):
     def test_can_operate(self):
-        expected = [('ILS Localizer',
-                     'Altitude AAL For Flight Phases',
-                     'Approach')]
+        expected=[('ILS Localizer','Altitude AAL For Flight Phases','Approach')]
         opts = ILSLocalizerEstablished.get_operational_combinations()
         self.assertEqual(opts, expected)
 
     def test_ils_localizer_established_basic(self):
-        aal = buildsection('Approach',2, 9)
         ils = P('ILS Localizer',np.ma.arange(-3,0,0.3))
+        alt_aal = P('Alttiude AAL For Flight Phases', np.ma.arange(1000, 0,-100))
+        app=buildsection('Approach',0,10)
         establish = ILSLocalizerEstablished()
-        establish.derive(aal, None, ils)
-        expected = [Section('ILS Localizer Established', slice(2, 10, None))]
-        self.assertEqual(establish, expected)
+        establish.derive(ils, alt_aal, app)
+        expected = buildsection('ILS Localizer Established', 10*2.0/3.0, 10)
+        # Slightly daft choice of ils array makes exact equality impossible!
+        self.assertAlmostEqual(establish.get_first().start_edge, expected.get_first().start_edge)
 
-    def test_ils_localizer_established_not_on_loc_at_minimum(self):
-        aal = buildsection('Approach',2, 9)
-        low = KTI('Approach And Landing Lowest Point',
-                  items=[KeyTimeInstance(index=8, name='Approach And Landing Lowest Point')])
+    def test_ils_localizer_established_never_on_loc(self):
         ils = P('ILS Localizer',np.ma.array([3]*10))
+        alt_aal = P('Alttiude AAL For Flight Phases', np.ma.arange(1000, 0,-100))
+        app = buildsection('Approach',2, 9)
         establish = ILSLocalizerEstablished()
-        establish.derive(aal, low, ils)
+        establish.derive(ils, alt_aal, app)
         expected = []
         self.assertEqual(establish, expected)
 
+    def test_ils_localizer_established_always_on_loc(self):
+        ils = P('ILS Localizer',np.ma.array([-0.2]*10))
+        alt_aal = P('Alttiude AAL For Flight Phases', np.ma.arange(1000, 0,-100))
+        app = buildsection('Approach',2, 9)
+        establish = ILSLocalizerEstablished()
+        establish.derive(ils, alt_aal, app)
+        expected = buildsection('ILS Localizer Established',2, 9)
+        self.assertEqual(establish, expected)
+
     def test_ils_localizer_established_only_last_segment(self):
-        aal = buildsection('Approach',2, 9)
-        low = KTI('Approach And Landing Lowest Point', items=[KeyTimeInstance(index=8, name='Approach And Landing Lowest Point')])
+        app = buildsection('Approach',2, 9)
+        alt_aal = P('Alttiude AAL For Flight Phases', np.ma.arange(1000, 0,-100))
         ils = P('ILS Localizer',np.ma.array([0,0,0,1,3,3,2,1,0,0]))
         establish = ILSLocalizerEstablished()
-        establish.derive(aal, low, ils)
-        expected = [Section('ILS Localizer Established', slice(6, 10, None))]
+        establish.derive(ils, alt_aal, app)
+        expected = buildsection('ILS Localizer Established', 7, 9)
         self.assertEqual(establish, expected)
+
+    def test_ils_localizer_stays_established_with_large_visible_deviations(self):
+        app = buildsection('Approach',1, 9)
+        alt_aal = P('Alttiude AAL For Flight Phases', np.ma.arange(1000, 0,-100))
+        ils = P('ILS Localizer',np.ma.array([0,0,0,1,2.3,2.3,2,1,0,0]))
+        establish = ILSLocalizerEstablished()
+        establish.derive(ils, alt_aal, app)
+        expected = buildsection('ILS Localizer Established', 1, 9)
+        self.assertEqual(establish, expected)
+
 
     def test_ils_localizer_insensitive_to_few_masked_values(self):
-        aal = buildsection('Approach',2, 9)
-        low = KTI('Approach And Landing Lowest Point', items=[KeyTimeInstance(index=8, name='Approach And Landing Lowest Point')])
-        ils = P('ILS Localizer',np.ma.array(data=[0,0,0,1,3,3,2,1,0,0],
+        app = buildsection('Approach',1, 9)
+        alt_aal = P('Alttiude AAL For Flight Phases', np.ma.arange(1000, 0,-100))
+        ils = P('ILS Localizer',np.ma.array(data=[0,0,0,1,2.3,2.3,2,1,0,0],
                                             mask=[0,0,0,0,0,1,1,0,0,0]))
         establish = ILSLocalizerEstablished()
-        establish.derive(aal, low, ils)
-        expected = [Section('ILS Localizer Established', slice(6, 10, None))]
+        establish.derive(ils, alt_aal, app)
+        expected = buildsection('ILS Localizer Established', 1, 9)
         self.assertEqual(establish, expected)
-
-
 
 """
 class TestInitialApproach(unittest.TestCase):
@@ -264,18 +293,73 @@ class TestInitialApproach(unittest.TestCase):
 
 class TestClimbCruiseDescent(unittest.TestCase):
     def test_can_operate(self):
-        expected = [('Altitude For Climb Cruise Descent',)]
+        expected = [('Altitude For Climb Cruise Descent','Altitude AAL For Flight Phases')]
         opts = ClimbCruiseDescent.get_operational_combinations()
         self.assertEqual(opts, expected)
 
-    def test_climb_cruise_descent_basic(self):
+    def test_climb_cruise_descent_start_midflight(self):
         # This test will find out if we can separate the two humps on this camel
         camel = ClimbCruiseDescent()
         # Needs to get above 15000ft and below 10000ft to create this phase.
-        testwave = np.ma.cos(np.arange(0,12.6,0.1))*(-3000)+12500
+        testwave = np.ma.array([15000]*5+range(15000,1000,-1000))
         # plot_parameter (testwave)
-        camel.derive(Parameter('Altitude For Climb Cruise Descent', np.ma.array(testwave)))
+        camel.derive(Parameter('Altitude For Climb Cruise Descent', np.ma.array(testwave)),
+                     Parameter('Altitude AAL For Flight Phases', np.ma.array(testwave)))
+        expected = buildsection('Climb Cruise Descent', None, 19)
+        self.assertEqual(camel, expected)
+
+    def test_climb_cruise_descent_end_midflight(self):
+        # This test will find out if we can separate the two humps on this camel
+        camel = ClimbCruiseDescent()
+        # Needs to get above 15000ft and below 10000ft to create this phase.
+        testwave = np.ma.array(range(1000,15000,1000)+[15000]*5)
+        # plot_parameter (testwave)
+        camel.derive(Parameter('Altitude For Climb Cruise Descent', np.ma.array(testwave)),
+                     Parameter('Altitude AAL For Flight Phases', np.ma.array(testwave)))
+        expected = buildsection('Climb Cruise Descent', 0, None)
+        self.assertEqual(camel, expected)
+
+    def test_climb_cruise_descent_all_high(self):
+        # This test will find out if we can separate the two humps on this camel
+        camel = ClimbCruiseDescent()
+        # Needs to get above 15000ft and below 10000ft to create this phase.
+        testwave = np.ma.array([15000]*5)
+        # plot_parameter (testwave)
+        camel.derive(Parameter('Altitude For Climb Cruise Descent', np.ma.array(testwave)),
+                     Parameter('Altitude AAL For Flight Phases', np.ma.array(testwave)))
+        expected = []
+        self.assertEqual(camel, expected)
+
+    def test_climb_cruise_descent_one_humps(self):
+        # This test will find out if we can separate the two humps on this camel
+        camel = ClimbCruiseDescent()
+        # Needs to get above 15000ft and below 10000ft to create this phase.
+        testwave = np.ma.cos(np.arange(0,3.14*2,0.1))*(-3000)+12500
+        # plot_parameter (testwave)
+        camel.derive(Parameter('Altitude For Climb Cruise Descent', np.ma.array(testwave)),
+                     Parameter('Altitude AAL For Flight Phases', np.ma.array(testwave)))
         self.assertEqual(len(camel), 2)
+        
+    def test_climb_cruise_descent_two_humps(self):
+        # This test will find out if we can separate the two humps on this camel
+        camel = ClimbCruiseDescent()
+        # Needs to get above 15000ft and below 10000ft to create this phase.
+        testwave = np.ma.cos(np.arange(0,3.14*4,0.1))*(-3000)+12500
+        # plot_parameter (testwave)
+        camel.derive(Parameter('Altitude For Climb Cruise Descent', np.ma.array(testwave)),
+                     Parameter('Altitude AAL For Flight Phases', np.ma.array(testwave)))
+        self.assertEqual(len(camel), 2)
+        
+    def test_climb_cruise_descent_three_humps(self):
+        # This test will find out if we can separate the two humps on this camel
+        camel = ClimbCruiseDescent()
+        # Needs to get above 15000ft and below 10000ft to create this phase.
+        testwave = np.ma.cos(np.arange(0,3.14*6,0.1))*(-3000)+12500
+        # plot_parameter (testwave)
+        camel.derive(Parameter('Altitude For Climb Cruise Descent', np.ma.array(testwave)),
+                     Parameter('Altitude AAL For Flight Phases', np.ma.array(testwave)))
+        self.assertEqual(len(camel), 3)
+
 
 
 '''
@@ -349,14 +433,16 @@ class TestCruise(unittest.TestCase):
         # descent data matches the cruise phase under test.
         #===========================================================
         # Use the same test data for flight phases and measured altitude.
-        alt = Parameter('Altitude STD', alt_data)
-        
+        alt_p = Parameter('Altitude STD', alt_data)
+        # Transform the "recorded" altitude into the CCD input data.
+        ccd_p = Parameter('Altitude For Climb Cruise Descent', 
+                          hysteresis(repair_mask(alt_data), HYSTERESIS_FPALT_CCD))
         ccd = ClimbCruiseDescent()
-        ccd.derive(Parameter('Altitude For Flight Phases', alt_data))
+        ccd.derive(ccd_p,alt_p)
         toc = TopOfClimb()
-        toc.derive(alt, ccd)
+        toc.derive(alt_p, ccd)
         tod = TopOfDescent()
-        tod.derive(alt, ccd)
+        tod.derive(alt_p, ccd)
 
         test_phase = Cruise()
         test_phase.derive(ccd, toc, tod)
@@ -365,17 +451,16 @@ class TestCruise(unittest.TestCase):
         # With this test waveform, the peak at 31:32 is just flat enough
         # for the climb and descent to be a second apart, whereas the peak
         # at 94 genuinely has no interval with a level cruise.
-        expected = SectionNode('Cruise',
-            items=[Section(name='Cruise', slice=slice(31, 32, None)),
-                   Section(name='Cruise', slice=slice(94, 94, None))])
+        expected = buildsections('Cruise',[31, 32],[94, 94])
         self.assertEqual(test_phase, expected)
 
     def test_cruise_truncated_start(self):
-        alt_data = np.ma.array([15000]*5+range(15000,12000,-1000))
+        alt_data = np.ma.array([15000]*5+range(15000,2000,-4000))
         #===========================================================
         alt = Parameter('Altitude STD', alt_data)
         ccd = ClimbCruiseDescent()
-        ccd.derive(Parameter('Altitude For Flight Phases', alt_data))
+        ccd.derive(Parameter('Altitude For Climb Cruise Descent', alt_data),
+                   Parameter('Altitude AAL For Flight Phases', alt_data))
         toc = TopOfClimb()
         toc.derive(alt, ccd)
         tod = TopOfDescent()
@@ -383,17 +468,18 @@ class TestCruise(unittest.TestCase):
         test_phase = Cruise()
         test_phase.derive(ccd, toc, tod)
         #===========================================================
-        expected = [Section(name='Cruise', slice=slice(0, 5, None))]
+        expected = buildsection('Cruise', None, 5)
         self.assertEqual(test_phase, expected)
         self.assertEqual(len(toc), 0)
         self.assertEqual(len(tod), 1)
 
     def test_cruise_truncated_end(self):
-        alt_data = np.ma.array(range(35000,36000,100)+[36000]*4)
+        alt_data = np.ma.array(range(300,36000,6000)+[36000]*4)
         #===========================================================
         alt = Parameter('Altitude STD', alt_data)
         ccd = ClimbCruiseDescent()
-        ccd.derive(Parameter('Altitude For Flight Phases', alt_data))
+        ccd.derive(Parameter('Altitude For Climb Cruise Descent', alt_data),
+                   Parameter('Altitude AAL For Flight Phases', alt_data))
         toc = TopOfClimb()
         toc.derive(alt, ccd)
         tod = TopOfDescent()
@@ -401,7 +487,7 @@ class TestCruise(unittest.TestCase):
         test_phase = Cruise()
         test_phase.derive(ccd, toc, tod)
         #===========================================================
-        expected = [Section(name='Cruise', slice=slice(10, 14, None))]
+        expected = buildsection('Cruise', 6, None)
         self.assertEqual(test_phase, expected)
         self.assertEqual(len(toc), 1)
         self.assertEqual(len(tod), 0)
@@ -410,58 +496,33 @@ class TestCruise(unittest.TestCase):
 class TestDescentLowClimb(unittest.TestCase):
     def test_can_operate(self):
         self.assertEqual(DescentLowClimb.get_operational_combinations(),
-            [('Altitude AAL For Flight Phases', 'Climb For Flight Phases',
-              'Landing', 'Fast')])
+            [('Altitude AAL For Flight Phases', 
+              'Climb For Flight Phases',
+              'Fast')])
         
     def test_descent_low_climb_basic(self):
+        # Wave is 5000ft to 0 ft and back up, with climb of 5000ft.
         testwave = np.cos(np.arange(0,6.3,0.1))*(2500)+2500
         clb = testwave - min(testwave)
         clb[:31] = 0.0
         alt_aal = Parameter('Altitude AAL For Flight Phases', np.ma.array(testwave))
         climb = Parameter('Climb For Flight Phases', np.ma.array(clb))
-        landing = []
         fast = buildsection('Fast', 0, 126)
         dlc = DescentLowClimb()
-        dlc.derive(alt_aal, climb, landing, fast)
+        dlc.derive(alt_aal, climb, fast)
         expected = buildsection('Descent Low Climb', 14, 50)    
         self.assertEqual(dlc, expected)
 
-
     def test_descent_low_climb_inadequate_climb(self):
-        # This test will find out if we can separate the two humps on this camel
+        testwave = np.cos(np.arange(0,6.3,0.1))*(240)+2500 # 480ft climb
+        clb = testwave - min(testwave)
+        clb[:31] = 0.0
+        alt_aal = Parameter('Altitude AAL For Flight Phases', np.ma.array(testwave))
+        climb = Parameter('Climb For Flight Phases', np.ma.array(clb))
+        fast = buildsection('Fast', 0, 126)
         dlc = DescentLowClimb()
-        testwave = np.cos(np.arange(0,12.6,0.1))*(100)+3000
-        alt = Parameter('Altitude AAL For Flight Phases', np.ma.array(testwave))
-        clb = Parameter('Climb For Flight Phases', np.ma.array([0]*len(alt.array)))
-        land = SectionNode('Landing') # items=[Section(name='Landing',slice=None)])
-        fast = SectionNode('Fast',
-                           items=[Section(name='Fast',slice=slice(0,len(testwave)))])        
-        dlc.derive(alt, clb, land, fast)
+        dlc.derive(alt_aal, climb, fast)
         self.assertEqual(len(dlc), 0)
-
-    def test_descent_low_climb_with_climbs(self):
-        # This test will find out if we can separate the two humps on this camel
-        dlc = DescentLowClimb()
-        testwave = np.cos(np.arange(0,12.6,0.1))*(1000)+3000
-        alt = Parameter('Altitude AAL For Flight Phases', np.ma.array(testwave))
-        clb = Parameter('Climb For Flight Phases', np.ma.array([1000]*len(alt.array)))
-        land = SectionNode('Landing') # [Section(name='Landing',slice=None)])
-        fast = SectionNode('Fast',
-                           items=[Section(name='Fast',slice=slice(0,len(testwave)))])
-        dlc.derive(alt, clb, land, fast)
-        self.assertEqual(len(dlc), 2)
-
-    def test_descent_low_climb_with_one_climb(self):
-        # This test will find out if we can separate the two humps on this camel
-        dlc = DescentLowClimb()
-        testwave = np.cos(np.arange(0,12.6,0.1))*(1000)+3000
-        alt = Parameter('Altitude AAL For Flight Phases', np.ma.array(testwave))
-        clb = Parameter('Climb For Flight Phases', np.ma.array([0]*63+[600]*63))
-        land = SectionNode('Landing') # items=[Section(name='Landing',slice=None)])
-        fast = SectionNode('Fast',
-                           items=[Section(name='Fast',slice=slice(0,len(testwave)))])        
-        dlc.derive(alt, clb, land, fast)
-        self.assertEqual(len(dlc), 1)
 
 
 class TestDescending(unittest.TestCase):
@@ -580,8 +641,7 @@ class TestOnGround(unittest.TestCase):
             expected = buildsections('On Ground',[0,2],[311,313])
         if AIRSPEED_THRESHOLD == 70:
             expected = buildsections('On Ground',[0,3],[56,0]) # Not set up.
-        self.assertEqual([phase_on_ground.get_first()], expected[0])
-        self.assertEqual([phase_on_ground.get_last()], expected[1])
+        self.assertEqual(phase_on_ground, expected)
         
     def test_on_ground_all_fast(self):
         on_ground_data = np.ma.array([120]*10)
@@ -620,36 +680,18 @@ class TestOnGround(unittest.TestCase):
 
 class TestFinalApproach(unittest.TestCase):
     def test_can_operate(self):
-        expected = [('Altitude AAL For Flight Phases',
-                     'Altitude Radio For Flight Phases',
-                     'Approach')]
+        expected = [('Altitude AAL For Flight Phases',)]
         opts = FinalApproach.get_operational_combinations()
         self.assertEqual(opts, expected)
 
     def test_approach_phase_basic(self):
-        alt = np.ma.array(range(0,1200,100)+range(1500,500,-100)+range(400,0,-40))
-        app = FinalApproach()
+        alt = np.ma.array(range(0,1200,100)+range(1500,500,-100)+range(400,0,-40)+[0,0,0])
         alt_aal = Parameter('Altitude AAL For Flight Phases', array=alt)
-        alt_radio = Parameter('Altitude Radio For Flight Phases', array=alt)
-        app_land = SectionNode('Approach',
-            items=[Section('Approach', slice(0, -1, None))])
-        # Pretend we are flying over flat ground, so the altitudes are equal.
-        app.derive(alt_aal, alt_radio, app_land)
-        expected = [Section('Final Approach', slice(17, 30, None))]
-        self.assertEqual(app, expected)
-
-    def test_approach_phase_starting_inside_phase_and_with_go_around(self):
-        alt = np.ma.array(range(400,300,-50)+range(300,500,50))
-        app = FinalApproach()
-        alt_aal = Parameter('Altitude AAL For Flight Phases', array=alt)
-        alt_radio = Parameter('Altitude Radio For Flight Phases', array=alt)
-        app_land = SectionNode('Approach',
-            items=[Section('Approach', slice(0, 3, None))])
-        # Pretend we are flying over flat ground, so the altitudes are equal.
-        app.derive(alt_aal, alt_radio, app_land)
-        expected = [Section(name='Final Approach', slice=slice(0, 2, None))]
-        self.assertEqual(app, expected)
-
+        expected = buildsection('Final Approach', 22, 32)
+        fapp=FinalApproach()
+        fapp.derive(alt_aal)
+        self.assertEqual(fapp, expected)
+        
 
 class TestGoAroundAndClimbout(unittest.TestCase):
     def test_can_operate(self):
@@ -674,63 +716,43 @@ class TestGoAroundAndClimbout(unittest.TestCase):
 class TestLanding(unittest.TestCase):
     def test_can_operate(self):
         self.assertEqual(Landing.get_operational_combinations(),
-            [('Heading Continuous', 'Altitude AAL For Flight Phases', 'Fast'),
-             ('Heading Continuous', 'Altitude AAL For Flight Phases', 'Fast',
-              'Altitude Radio For Flight Phases')])
+            [('Heading Continuous', 'Altitude AAL For Flight Phases', 'Fast')])
 
     def test_landing_basic(self):
         head = np.ma.array([20]*8+[10,0])
         ias  = np.ma.array([110]*4+[80,50,30,20,10,10])
         alt_aal = np.ma.array([80,40,20,5]+[0]*6)
-        phase_fast = Fast()
-        phase_fast.derive(P('Airspeed',ias))
+        phase_fast = buildsection('Fast',0,5)
         landing = Landing()
         landing.derive(P('Heading Continuous',head),
                        P('Altitude AAL For Flight Phases',alt_aal),
-                       phase_fast, None)
-        expected = [Section(name='Landing', slice=slice(0.75, 8.5, None))]
-        self.assertEqual(landing, expected)
-        
-    def test_landing_with_rad_alt(self):
-        head = np.ma.array([20]*8+[10,0])
-        ias  = np.ma.array([110]*4+[80,50,30,20,10,10])
-        alt_aal = np.ma.array([80,40,20,5]+[0]*6)
-        alt_rad = alt_aal - 4
-        phase_fast = Fast()
-        phase_fast.derive(P('Airspeed',ias))
-        landing = Landing()
-        landing.derive(P('Heading Continuous',head),
-                       P('Altitude AAL For Flight Phases',alt_aal),
-                       phase_fast,
-                       P('Altitude Radio For Flight Phases',alt_rad))
-        expected = [Section(name='Landing', slice=slice(0.65, 8.5, None))]
+                       phase_fast)
+        expected = buildsection('Landing', 0.75, 8.5)
         self.assertEqual(landing, expected)
         
     def test_landing_turnoff(self):
-        head = np.ma.array([20]*15+[10]*13)
+        head = np.ma.array([20]*15+range(20,0,-2))
         ias  = np.ma.array([110]*4+[80,50,40,30,20]+[10]*21)
         alt_aal = np.ma.array([80,40,20,5]+[0]*26)
-        phase_fast = Fast()
-        phase_fast.derive(P('Airspeed',ias))
+        phase_fast = buildsection('Fast',0,5)
         landing = Landing()
         landing.derive(P('Heading Continuous',head),
                        P('Altitude AAL For Flight Phases',alt_aal),
-                       phase_fast, None)
-        expected = [Section(name='Landing', slice=slice(0.75, 14, None))]
-        self.assertEqual(list(landing), expected)
+                       phase_fast)
+        expected = buildsection('Landing', 0.75, 22.5)
+        self.assertEqual(landing, expected)
         
     def test_landing_turnoff_left(self):
-        head = np.ma.array([4]*15+[-5]*13)
+        head = np.ma.array([20]*15+range(20,0,-2))*-1.0
         ias  = np.ma.array([110]*4+[80,50,40,30,20]+[10]*21)
         alt_aal = np.ma.array([80,40,20,5]+[0]*26)
-        phase_fast = Fast()
-        phase_fast.derive(P('Airspeed',ias))
+        phase_fast = buildsection('Fast',0,5)
         landing = Landing()
         landing.derive(P('Heading Continuous',head),
                        P('Altitude AAL For Flight Phases',alt_aal),
-                       phase_fast, None)
-        expected = [Section(name='Landing', slice=slice(0.75, 14, None))]
-        self.assertEqual(list(landing), expected)
+                       phase_fast)
+        expected = buildsection('Landing', 0.75, 22.5)
+        self.assertEqual(landing, expected)
         
         
 """
@@ -770,42 +792,36 @@ class TestLevelFlight(unittest.TestCase):
 class TestTakeoff(unittest.TestCase):
     def test_can_operate(self):
         self.assertEqual(Takeoff.get_operational_combinations(),
-            [('Heading Continuous', 'Altitude AAL For Flight Phases', 'Fast'),
-             ('Heading Continuous', 'Altitude AAL For Flight Phases', 'Fast',
-              'Altitude Radio For Flight Phases')])
+            [('Heading Continuous', 'Altitude AAL For Flight Phases', 'Fast')])
 
     def test_takeoff_basic(self):
-        head = np.ma.array([ 0,10,20,20,20,20,20,20,20,20])
-        ias  = np.ma.array([10,10,10,10,40,70,100,105,110,110])
-        alt_aal = np.ma.array([0,0,0,0,0,0,0,10,30,70])
-        phase_fast = Fast()
-        phase_fast.derive(P('Airspeed',ias))
+        head = np.ma.array([ 0,0,10,20,20,20,20,20,20,20,20])
+        ias  = np.ma.array([10,10,10,10,10,40,70,90,105,110,110])
+        alt_aal = np.ma.array([0,0,0,0,0,0,0,0,10,30,70])
+        phase_fast = buildsection('Fast', 6.5, 10)
         takeoff = Takeoff()
         takeoff.derive(P('Heading Continuous',head),
                        P('Altitude AAL For Flight Phases',alt_aal),
-                       phase_fast, None) #  No Rad Alt in this basic case
-        expected = Section(name='Takeoff', slice=slice(0.5, 8.125, None))
-        self.assertEqual(takeoff[0], expected)
+                       phase_fast)
+        expected = buildsection('Takeoff', 1.5, 9.125)
+        self.assertEqual(takeoff, expected)
         
-    def test_takeoff_with_rad_alt(self):
-        head = np.ma.array([ 0,10,20,20,20,20,20,20,20,20])
-        ias  = np.ma.array([10,10,10,10,40,70,100,105,110,110])
-        alt_aal = np.ma.array([0,0,0,0,0,0,0,10,30,70])
-        alt_rad = alt_aal - 5
-        phase_fast = Fast()
-        phase_fast.derive(P('Airspeed',ias))
-        takeoff = Takeoff()
-        takeoff.derive(P('Heading Continuous',head),
-                       P('Altitude AAL For Flight Phases',alt_aal), phase_fast, 
-                       P('Altitude Radio',alt_rad))
-        expected = Section(name='Takeoff', slice=slice(0.5, 8.25, None))
-        self.assertEqual(takeoff[0], expected)
-    
     def test_takeoff_with_zero_slices(self):
         '''
-        A zero slice is causing the derive method to raise an exception.
+        A zero slice was causing the derive method to raise an exception.
+        This test aims to replicate the problem, and shows that with a None 
+        slice an empty takeoff phase is produced.
         '''
-        self.assertFalse(True)
+        head = np.ma.array([ 0,0,10,20,20,20,20,20,20,20,20])
+        ias  = np.ma.array([10,10,10,10,10,40,70,90,105,110,110])
+        alt_aal = np.ma.array([0,0,0,0,0,0,0,0,10,30,70])
+        phase_fast = buildsection('Fast', None, None)
+        takeoff = Takeoff()
+        takeoff.derive(P('Heading Continuous',head),
+                       P('Altitude AAL For Flight Phases',alt_aal),
+                       phase_fast)
+        expected = []
+        self.assertEqual(takeoff, expected)
 
 
 class TestTaxiOut(unittest.TestCase):
@@ -834,6 +850,7 @@ class TestTaxiIn(unittest.TestCase):
         expected = buildsection('Taxi In',12,14)
         self.assertEqual(t_in,expected)
         
+        
 class TestTaxiing(unittest.TestCase):
     def test_can_operate(self):
         expected=[('Taxi Out', 'Taxi In')]
@@ -845,9 +862,8 @@ class TestTaxiing(unittest.TestCase):
         ting = Taxiing()
         ting.derive(tout, t_in)
         expected = buildsections('Taxiing', [2,5],[8,11])
-        self.assertEqual([ting.get_first()], expected[0])
-        self.assertEqual([ting.get_last()], expected[1])
-                         
+        self.assertEqual(ting, expected)
+                        
                          
 class TestTurningInAir(unittest.TestCase):
     def test_can_operate(self):
@@ -861,11 +877,10 @@ class TestTurningInAir(unittest.TestCase):
         turning_in_air = TurningInAir()
         turning_in_air.derive(rate_of_turn, airborne)
         expected = buildsections('Turning In Air',[0, 4],[17,21])
-        self.assertEqual([turning_in_air.get_first()], expected[0])
-        self.assertEqual([turning_in_air.get_last()], expected[1])
+        self.assertEqual(turning_in_air, expected)
         
     def test_turning_in_air_phase_with_mask(self):
-        rate_of_turn_data = np.arange(-4, 4.4, 0.4)
+        rate_of_turn_data = np.ma.arange(-4, 4.4, 0.4)
         rate_of_turn_data[10] = np.ma.masked
         rate_of_turn_data[18] = np.ma.masked
         rate_of_turn = Parameter('Rate Of Turn', np.ma.array(rate_of_turn_data))
@@ -873,9 +888,8 @@ class TestTurningInAir(unittest.TestCase):
         turning_in_air = TurningInAir()
         turning_in_air.derive(rate_of_turn, airborne)
         expected = buildsections('Turning In Air',[0, 4],[17,21])
-        self.assertEqual([turning_in_air.get_first()], expected[0])
-        self.assertEqual([turning_in_air.get_last()], expected[1])
-
+        self.assertEqual(turning_in_air, expected)
+        
 class TestTurningOnGround(unittest.TestCase):
     def test_can_operate(self):
         expected = [('Rate Of Turn', 'On Ground')]
@@ -888,8 +902,7 @@ class TestTurningOnGround(unittest.TestCase):
         turning_on_ground = TurningOnGround()
         turning_on_ground.derive(rate_of_turn, airborne)
         expected = buildsections('Turning On Ground',[0, 4],[21,24])
-        self.assertEqual([turning_on_ground.get_first()], expected[0])
-        self.assertEqual([turning_on_ground.get_last()], expected[1])
+        self.assertEqual(turning_on_ground, expected)
         
     def test_turning_on_ground_phase_with_mask(self):
         rate_of_turn_data = np.arange(-12, 12, 1)
@@ -900,8 +913,7 @@ class TestTurningOnGround(unittest.TestCase):
         turning_on_ground = TurningOnGround()
         turning_on_ground.derive(rate_of_turn, airborne)
         expected = buildsections('Turning On Ground',[0, 4],[21,24])
-        self.assertEqual([turning_on_ground.get_first()], expected[0])
-        self.assertEqual([turning_on_ground.get_last()], expected[1])
+        self.assertEqual(turning_on_ground, expected)
 
     def test_turning_on_ground_after_takeoff_inhibited(self):
         rate_of_turn_data = np.arange(-12, 12, 1)
@@ -912,5 +924,4 @@ class TestTurningOnGround(unittest.TestCase):
         turning_on_ground = TurningOnGround()
         turning_on_ground.derive(rate_of_turn, airborne)
         expected = buildsections('Turning On Ground',[0, 4])
-        self.assertEqual([turning_on_ground.get_first()], expected[0])
-        self.assertEqual([turning_on_ground.get_last()], expected[0])
+        self.assertEqual(turning_on_ground, expected)

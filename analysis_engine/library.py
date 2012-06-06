@@ -2408,7 +2408,7 @@ def slices_from_to(array, from_, to):
     return rep_array, filtered_slices
 
 """
-Spline finction placeholder
+Spline function placeholder
 
 At some time we are likely to want to add interpolation, and this scrap of
 code was used to prove the principle. Easy to do and the results are really

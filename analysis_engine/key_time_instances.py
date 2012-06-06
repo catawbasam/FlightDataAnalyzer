@@ -38,7 +38,7 @@ def find_toc_tod(alt_data, ccd_slice, mode):
         section = slice(ccd_slice.start, ccd_slice.start+peak_index+1, None)
         slope = SLOPE_FOR_TOC_TOD
     else:
-        section = slice(ccd_slice.start+peak_index, ccd_slice.stop, None)
+        section = slice((ccd_slice.start or 0)+peak_index, ccd_slice.stop, None)
         slope = -SLOPE_FOR_TOC_TOD
         
     # Quit if there is nothing to do here.
@@ -162,6 +162,9 @@ class TopOfClimb(KeyTimeInstanceNode):
             except:
                 # altitude data does not have an increasing section, so quit.
                 break
+            # If the data started in mid-flight the ccd slice will start with None
+            if ccd_slice.start == None:
+                break
             # if this is the first point in the slice, it's come from
             # data that is already in the cruise, so we'll ignore this as well
             if n_toc==0:
@@ -181,6 +184,9 @@ class TopOfDescent(KeyTimeInstanceNode):
                 n_tod = find_toc_tod(alt_std.array, ccd_slice, 'Descent')
             except:
                 # altitude data does not have a decreasing section, so quit.
+                break
+            # If this slice ended in mid-cruise, the ccd slice will end in None.
+            if ccd_slice.stop == None:
                 break
             # if this is the last point in the slice, it's come from
             # data that ends in the cruise, so we'll ignore this too.

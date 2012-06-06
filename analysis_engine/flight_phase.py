@@ -120,14 +120,19 @@ class ClimbCruiseDescent(FlightPhaseNode):
         if len(low_slices)==0:
             return
         elif len(low_slices)==1:
-            self.create_phase(above_1000_ft[0])
+            if low_slices[0].start != above_1000_ft[0].start:
+                self.create_phase(slice(None, low_slices[0].stop))
+            elif low_slices[0].stop != above_1000_ft[0].stop:
+                self.create_phase(slice(low_slices[0].start, None))
+            else:
+                self.create_phase(above_1000_ft[0])
         else:
             # We have descended and climbed again, so split the flights at minimum height points.
             first_climb_start = above_1000_ft[0].start
             climb_stop = np.ma.argmin(alt_aal.array[low_slices[1]])+ \
                 low_slices[1].start
             self.create_phase(slice(first_climb_start, climb_stop))
-            for i in range(2,len(low_slices)):
+            for i in range(2,len(low_slices)-1):
                 this_climb_start = climb_stop
                 climb_stop = np.ma.argmin(alt_aal.array[low_slices[i]])+ \
                     low_slices[i].start
@@ -252,7 +257,7 @@ class Descent(FlightPhaseNode):
 class DescentLowClimb(FlightPhaseNode):
     def derive(self, alt_aal=P('Altitude AAL For Flight Phases'),
                climb=P('Climb For Flight Phases'),
-               lands=S('Landing'), fast=S('Fast')):
+               fast=S('Fast')):
         my_list=[]
 
         # Select periods below the initial approach threshold, restricted to
@@ -318,21 +323,8 @@ class Fast(FlightPhaseNode):
  
 
 class FinalApproach(FlightPhaseNode):
-    def derive(self, alt_aal=P('Altitude AAL For Flight Phases'),
-               alt_rad=P('Altitude Radio For Flight Phases'),
-               app_lands=S('Approach')):
-        for app_land in app_lands:
-            # From the lower of pressure or radio altitude reading 1000ft to
-            # the first showing zero ft (bear in mind Altitude AAL is
-            # computed from Altitude Radio below 50ft, so this is not
-            # affected by pressure altitude variations at landing).
-            alt = repair_mask(minimum_unmasked(alt_aal.array[app_land.slice],
-                                               alt_rad.array[app_land.slice]))
-            app = np.ma.clump_unmasked(np.ma.masked_outside(alt,0,1000))
-            if len(app)>1:
-                logging.debug('More than one final approach during a single approach and landing phase')
-            if alt[app[0].start] > alt[app[0].stop-1]:  # Trap descents only
-                self.create_phase(shift_slice(app[0],app_land.slice.start))
+    def derive(self, alt_aal=P('Altitude AAL For Flight Phases')):
+        self.create_phases(alt_aal.slices_from_to(500, 0))
 
 
 class GearExtending(FlightPhaseNode):
@@ -402,11 +394,17 @@ def scan_ils(beam, ils_dots, height, scan_slice):
         ils_capture_idx = dots_25
     else:
         ils_capture_idx = index_at_value(np.ma.abs(ils_dots), 1.0, slice(dots_25, idx_200, +1))
+        if ils_capture_idx == None:
+            # Did we start with the ILS captured?
+            if np.ma.abs(ils_dots[dots_25]) < 1.0:
+                ils_capture_idx = dots_25
     
     if beam == 'localizer':
         ils_end_idx = index_at_value(np.ma.abs(ils_dots), 2.5, slice(idx_200, scan_slice.stop))
         if ils_end_idx == None:
-            ils_end_idx = scan_slice.stop
+            # Did we end with the ILS captured?
+            if np.ma.abs(ils_dots[scan_slice.stop-1]) < 1.0:
+                ils_end_idx = scan_slice.stop
     elif beam == 'glideslope':
         ils_end_idx = idx_200
     else:
@@ -423,7 +421,7 @@ class ILSLocalizerEstablished(FlightPhaseNode):
                alt_aal=P('Altitude AAL For Flight Phases'), apps=S('Approach')):
         for app in apps:
             ils_app = scan_ils('localizer',ils_loc.array,alt_aal.array,app.slice)
-            if ils_app != None:
+            if ils_app != slice(None, None, None):
                 self.create_phase(ils_app)
 
   
@@ -559,20 +557,15 @@ class Landing(FlightPhaseNode):
     aircraft turns off the runway. Subsequent KTIs and KPV computations
     identify the specific moments and values of interest within this phase.
     """
-    # List the minimum acceptable parameters here
-    @classmethod
-    def can_operate(cls, available):
-        return 'Heading Continuous' in available and \
-               'Altitude AAL For Flight Phases' in available and \
-               'Fast' in available
-    
     def derive(self, head=P('Heading Continuous'),
                alt_aal=P('Altitude AAL For Flight Phases'), fast=S('Fast')):
 
         for speedy in fast:
             # See takeoff phase for comments on how the algorithm works.
 
-            # AARRGG - How can we check if this is at the end of the data without having to go back and test against the airspeed array? TODO: Improve endpoint checks. DJ
+            # AARRGG - How can we check if this is at the end of the data
+            # without having to go back and test against the airspeed array?
+            # TODO: Improve endpoint checks. DJ
             if speedy.slice.stop >= len(alt_aal.array) or \
                speedy.slice.stop == None:
                 break
@@ -603,17 +596,9 @@ class Takeoff(FlightPhaseNode):
     as it climbs through 35ft. Subsequent KTIs and KPV computations identify
     the specific moments and values of interest within this phase.
     """
-    # List the minimum acceptable parameters here
-    @classmethod
-    def can_operate(cls, available):
-        return 'Heading Continuous' in available and \
-               'Altitude AAL For Flight Phases' in available and \
-               'Fast' in available
-    
     def derive(self, head=P('Heading Continuous'),
                alt_aal=P('Altitude AAL For Flight Phases'),
-               fast=S('Fast'),
-               alt_rad=P('Altitude Radio')):
+               fast=S('Fast')):
 
         # Note: This algorithm works across the entire data array, and
         # not just inside the speedy slice, so the final indexes are
@@ -655,16 +640,9 @@ class Takeoff(FlightPhaseNode):
             
             # If it takes more than 5 minutes, he's certainly not doing a normal
             # takeoff !
-            if alt_rad:
-                last = takeoff_run + 300*alt_rad.frequency
-                takeoff_end = index_at_value(alt_rad.array,
-                                             INITIAL_CLIMB_THRESHOLD,
-                                             slice(takeoff_run, last))
-            else:
-                last = takeoff_run + 300*alt_aal.frequency
-                takeoff_end = index_at_value(alt_aal.array,
-                                             INITIAL_CLIMB_THRESHOLD,
-                                             slice(takeoff_run, last))
+            last = takeoff_run + 300*alt_aal.frequency
+            takeoff_end = index_at_value(alt_aal.array, INITIAL_CLIMB_THRESHOLD,
+                                         slice(takeoff_run, last))
  
             #-------------------------------------------------------------------
             # Create a phase for this takeoff
