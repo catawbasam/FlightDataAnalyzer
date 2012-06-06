@@ -172,8 +172,9 @@ def graph_nodes(node_mgr):
     missing_required = list(set(node_mgr.requested) - available_nodes)
     
     if missing_derived_dep:
-        logging.warning("Dependencies referenced are not in LFL nor Node modules: %s",
-                        missing_derived_dep)
+        logging.warning("Found %s dependencies which don't exist in LFL "
+                        "nor Node modules.", len(missing_derived_dep))
+        logging.info("The missing dependencies: %s", missing_derived_dep)
     if missing_required:
         raise ValueError("Missing required parameters: %s" % missing_required)
 
@@ -242,7 +243,10 @@ def dependency_order(node_mgr, draw=not_windows):
         logging.info("JSON Graph Representation:\n%s", dumps( graph_adjacencies(gr_st), indent=2))
     inoperable_required = list(set(node_mgr.requested) - set(order))
     if inoperable_required:
-        logging.warning("Required parameters are inoperable: %s", inoperable_required)
+        logging.warning("Found %s inoperable required parameters.",
+                        len(inoperable_required))
+        logging.info("Inoperable required parameters: %s",
+                     inoperable_required)
     if draw:
         draw_graph(gr_st, 'Active Nodes in Spanning Tree')
         # reduce number of nodes by removing floating ones

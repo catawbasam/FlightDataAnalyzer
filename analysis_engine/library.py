@@ -1062,6 +1062,10 @@ def ground_track(lat_fix, lon_fix, gspd, hdg, frequency, mode):
     if np.ma.count(result) < 5:
         return None, None
     
+    # Force a copy of the result array, as the repair_mask functions will
+    # otherwise overwrite the result mask.
+    result = np.ma.copy(result)
+    
     repair_mask(gspd, repair_duration=None)
     repair_mask(hdg, repair_duration=None)
     
@@ -1073,7 +1077,7 @@ def ground_track(lat_fix, lon_fix, gspd, hdg, frequency, mode):
         raise ValueError,'Ground_track only recognises takeoff or landing modes'
     
     delta_north = np.ma.array(gspd*np.cos(np.deg2rad(hdg.data)))
-    delta_east = np.ma.array(gspd*np.sin(np.deg2rad(hdg.data)))
+    delta_east = np.ma.array(gspd*np.ma.sin(np.deg2rad(hdg.data)))
     
     north = integrate(delta_north, frequency, scale=KTS_TO_MPS, direction=direction)
     east = integrate(delta_east, frequency, scale=KTS_TO_MPS, direction=direction)
@@ -1471,10 +1475,9 @@ def slices_overlap(first_slice, second_slice):
     return first_slice.start < second_slice.stop \
            and second_slice.start < first_slice.stop
 
-def slices_overlay(first_list, second_list):
+def slices_and(first_list, second_list):
     '''
-    This is a simple function to allow two slice lists to be merged,
-    effectively a logical AND of the two slices.
+    This is a simple AND function to allow two slice lists to be merged.
     
     Note: This currently has a trap for reverse slices, although this could be extended.
     
@@ -1490,12 +1493,97 @@ def slices_overlay(first_list, second_list):
         for second_slice in second_list:
             if (first_slice.step != None and first_slice.step < 0) or \
                (second_slice.step != None and second_slice.step < 0):
-                raise ValueError, 'slices_overlay will not work with reverse slices'
+                raise ValueError, 'slices_and will not work with reverse slices'
             if slices_overlap(first_slice, second_slice):
                 result_list.append(slice(max(first_slice.start, second_slice.start),
                                          min(first_slice.stop, second_slice.stop)))
     return result_list
 
+def slices_not(slice_list, begin_at=None, end_at=None):
+    '''
+    Inversion of a list of slices. Currently does not cater for reverse slices.
+    
+    :param slice_list: list of slices to be inverted.
+    :type slice_list: list of Python slices.
+    :param begin_at: optional starting index value, slices before this will be ignored
+    :param begin_at: integer
+    :param end_at: optional ending index value, slices before this will be ignored
+    :param end_at: integer
+    
+    :returns: list of slices. If begin or end is specified, the range will extend to these points. Otherwise the scope is within the end slices.
+    '''
+    if slice_list==[] or slice_list==None:
+        return
+    
+    a = min([s.start for s in slice_list])
+    b = min([s.stop for s in slice_list])
+    startpoint = min(a,b)
+    if startpoint == None:
+        raise ValueError, 'This function does not support slice(None,*) arguments.'
+    if begin_at != None  and begin_at < startpoint:
+        startpoint = begin_at
+        
+    a = max([s.start for s in slice_list])
+    b = max([s.stop for s in slice_list])
+    endpoint = max(a,b)
+    if startpoint == None:
+        raise ValueError, 'This function does not support slice(None,*) arguments.'
+    if end_at != None and end_at > endpoint:
+        endpoint = end_at
+        
+    workspace = np.ma.zeros(endpoint)
+    for each_slice in slice_list:
+        workspace[each_slice]=1
+    workspace=np.ma.masked_equal(workspace, 1)
+    return shift_slices(np.ma.clump_unmasked(workspace[startpoint:endpoint]), startpoint)
+    
+
+def slices_or(*slice_lists, **kwargs):
+    '''
+    "OR" function for a list of slices.
+    
+    :param slice_list: list of slices to be combined.
+    :type slice_list: list of Python slices.
+    :param begin_at: optional starting index value, slices before this will be ignored
+    :param begin_at: integer
+    :param end_at: optional ending index value, slices before this will be ignored
+    :param end_at: integer
+    
+    :returns: list of slices. If begin or end is specified, the range will extend to these points. Otherwise the scope is within the end slices.
+    '''
+    if slice_lists==[] or slice_lists==None:
+        return
+
+    for each_slice in slice_lists[0]:
+        if each_slice==[]:
+            break
+        a = each_slice.start
+        b = each_slice.stop
+
+    for slice_list in slice_lists[1:]:
+        for each_slice in slice_list:
+            if each_slice==[]:
+                break
+            a = min(a, each_slice.start)
+            b = max(b, each_slice.stop)
+    
+    if kwargs.has_key('begin_at'):
+        startpoint = kwargs['begin_at']
+    else:
+        startpoint = 0
+
+    if kwargs.has_key('end_at'):
+        endpoint = kwargs['end_at']
+    else:
+        endpoint = b
+
+    workspace = np.ma.zeros(b)
+    for slice_list in slice_lists:
+        for each_slice in slice_list:
+            workspace[each_slice]=1
+    workspace=np.ma.masked_equal(workspace, 1)
+    return shift_slices(np.ma.clump_masked(workspace[startpoint:endpoint]), startpoint)
+    
 """
 def section_contains_kti(section, kti):
     '''
@@ -1533,10 +1621,10 @@ def latitudes_and_longitudes(bearings, distances, reference):
     brg = np.deg2rad(bearings.data)
     dist = distances.data / 6371000.0 # Scale to earth radius in metres
 
-    lat = np.arcsin(sin(lat_ref)*np.cos(dist) + 
-                   cos(lat_ref)*np.sin(dist)*np.cos(brg))
-    lon = np.arctan2(np.sin(brg)*np.sin(dist)*np.cos(lat_ref), 
-                      np.cos(dist)-sin(lat_ref)*np.sin(lat))
+    lat = np.arcsin(sin(lat_ref)*np.ma.cos(dist) + 
+                   cos(lat_ref)*np.ma.sin(dist)*np.ma.cos(brg))
+    lon = np.arctan2(np.ma.sin(brg)*np.ma.sin(dist)*np.ma.cos(lat_ref), 
+                      np.ma.cos(dist)-sin(lat_ref)*np.ma.sin(lat))
     lon += lon_ref 
  
     joined_mask = np.logical_or(bearings.mask, distances.mask)
@@ -1625,7 +1713,7 @@ def max_abs_value(array, _slice=slice(None), start_edge=None, stop_edge=None):
         if edge_value and edge_value > value:
             index = stop_edge
             value = edge_value
-    return Value(index, value)
+    return Value(index, value_at_index(array, index)) # Recover sign of the value.
 
     
 def max_value(array, _slice=slice(None), start_edge=None, stop_edge=None):
@@ -1848,18 +1936,36 @@ def np_ma_zeros_like(array):
     The Numpy masked array library does not have equivalents for some array
     creation functions. These are provided with similar names which may be
     replaced should the Numpy library be extended in future.
+    
+    :param array: array of length to be replicated.
+    :type array: A Numpy array - can be masked or not.
+    
+    :returns: Numpy masked array of unmasked zero values, length same as input array.
     """
     return np.ma.array(np.zeros_like(array), mask=False)
 
 def np_ma_ones_like(array):
-    return np_ma_zeros_like(array) + 1
+    """
+    Creates a masked array filled with ones. See also np_ma_zeros_like.
+    
+    :param array: array of length to be replicated.
+    :type array: A Numpy array - can be masked or not.
+    
+    :returns: Numpy masked array of unmasked 1.0 float values, length same as input array.
+    """
+    return np_ma_zeros_like(array) + 1.0
 
 
 def np_ma_masked_zeros_like(array):
     """
-    The Numpy masked array library does not have equivalents for some array
-    creation functions. These are provided with similar names which may be
-    replaced should the Numpy library be extended in future.
+    Creates a masked array filled with masked values. The unmasked data
+    values are all zero. See also np_ma_zeros_like.
+    
+    :param array: array of length to be replicated.
+    :type array: A Numpy array - can be masked or not.
+    
+    :returns: Numpy masked array of masked 0.0 float values, length same as
+    input array.
     """
     return np.ma.masked_all_like(np.zeros_like(array))
 
@@ -1876,8 +1982,11 @@ def peak_curvature(array, _slice=slice(None), curve_sense='Concave'):
                         'Bi-polar' to detect either sense.
     :type curve_sense: string
     
-    :returns peak_curvature: The index within this array where the curvature first peaks in the required sense.
+    :returns peak_curvature: The index where the curvature first peaks in the required sense.
     :rtype: integer
+
+    Note: Although the range to be inspected may be restricted by slicing,
+    the peak curvature index relates to the whole array, not just the slice.
     
     This routine uses a "Truck and Trailer" algorithm to find where a
     parameter changes slope. In the case of FDM, we are looking for the point
@@ -1896,6 +2005,8 @@ def peak_curvature(array, _slice=slice(None), curve_sense='Concave'):
     overall = 2*ttp + gap 
     # check the array is long enough.
     if len(data) < overall:
+        if np.ma.ptp(data) == 0.0:
+            return None
         # Simple Numpy array method for small data sets.
         if len(data) < 4:
             return len(data)/2
@@ -2022,7 +2133,7 @@ def rate_of_change(diff_param, width):
     
     hw = width * hz / 2.0
     if hw < 1:
-        raise ValueError
+        raise ValueError, 'Rate of change called with inadequate width.'
     
     # Set up an array of masked zeros for extending arrays.
     slope = np.ma.copy(to_diff)
@@ -2062,10 +2173,12 @@ def repair_mask(array, frequency=1, repair_duration=REPAIR_DURATION,
         elif section.stop == len(array):
             continue # Can't interpolate if we don't know the last sample
         else:
-            array[section] = np.interp(np.arange(length) + 1,
-                                       [0, length + 1],
-                                       [array.data[section.start - 1],
-                                        array.data[section.stop]])
+            array.data[section] = np.interp(np.arange(length) + 1,
+                                            [0, length + 1],
+                                            [array.data[section.start - 1],
+                                             array.data[section.stop]])
+            array.mask[section] = False
+            
     return array
    
 
@@ -2118,25 +2231,38 @@ def shift_slice(this_slice, offset):
     a phase condition has been used to limit the scope of another phase
     calculation.
     """
-    a = (this_slice.start or 0) + offset
-    b = (this_slice.stop or 0) + offset
-    c = this_slice.step
-    if (b-a)>1:
-        # This traps single sample slices which can arise due to rounding of
-        # the iterpolated slices.
-        return(slice(a,b,c))
+    if offset:
+        if this_slice.start != None:
+            a = this_slice.start + offset
+        else:
+            a = None
+        if this_slice.stop != None:
+            b = this_slice.stop + offset
+        else:
+            b = None
+        c = this_slice.step
+        
+        if a==None or b==None or (b-a)>1:
+            # This traps single sample slices which can arise due to rounding of
+            # the iterpolated slices.
+            return(slice(a,b,c))
+    else:
+        return this_slice
     
 def shift_slices(slicelist, offset):
     """
     This function shifts a list of slices by a common offset, retaining only
     the valid (not None) slices.
     """
-    newlist = []
-    for each_slice in slicelist:
-        if each_slice:
-            new_slice = shift_slice(each_slice,offset)
-            if new_slice: newlist.append(new_slice)
-    return newlist
+    if offset:
+        newlist = []
+        for each_slice in slicelist:
+            if each_slice and offset:
+                new_slice = shift_slice(each_slice,offset)
+                if new_slice: newlist.append(new_slice)
+        return newlist
+    else:
+        return slicelist
 
 def slice_duration(_slice, hz):
     '''
@@ -2282,7 +2408,7 @@ def slices_from_to(array, from_, to):
     return rep_array, filtered_slices
 
 """
-Spline finction placeholder
+Spline function placeholder
 
 At some time we are likely to want to add interpolation, and this scrap of
 code was used to prove the principle. Easy to do and the results are really
@@ -2331,18 +2457,6 @@ def step_values(array, steps):
         stepped_array[low < array] = level
     return np.ma.array(stepped_array, mask=array.mask)
             
-
-def smooth_track_cost_function(lat_s, lon_s, lat, lon):
-    # Summing the errors from the recorded data is easy.
-    from_data = np.sum((lat_s - lat)**2)+np.sum((lon_s - lon)**2)
-    
-    # The errors from a straight line are computed swiftly using convolve.
-    slider=np.array([-1,2,-1])
-    from_straight = np.sum(np.convolve(lat_s,slider,'valid')**2) + \
-        np.sum(np.convolve(lon_s,slider,'valid')**2)
-    
-    cost = from_data + 100*from_straight
-    return cost
 
 def track_linking(pos, local_pos):
     """
@@ -2399,6 +2513,18 @@ def track_linking(pos, local_pos):
         local_pos[a:b] = pos[a:b] + fix
     return local_pos
  
+def smooth_track_cost_function(lat_s, lon_s, lat, lon):
+    # Summing the errors from the recorded data is easy.
+    from_data = np.sum((lat_s - lat)**2)+np.sum((lon_s - lon)**2)
+    
+    # The errors from a straight line are computed swiftly using convolve.
+    slider=np.array([-1,2,-1])
+    from_straight = np.sum(np.convolve(lat_s,slider,'valid')**2) + \
+        np.sum(np.convolve(lon_s,slider,'valid')**2)
+    
+    cost = from_data + 100*from_straight
+    return cost
+
 def smooth_track(lat, lon):
     """
     Input:
@@ -2418,8 +2544,8 @@ def smooth_track(lat, lon):
     # both the iteration and cost functions) the same algorithm runs 350
     # times faster !!!
     
-    lat_s = repair_mask(np.ma.copy(lat))
-    lon_s = repair_mask(np.ma.copy(lon))
+    lat_s = np.ma.copy(lat)
+    lon_s = np.ma.copy(lon)
     
     # Set up a weighted array that will slide past the data.
     r = 0.7  
@@ -2440,6 +2566,10 @@ def smooth_track(lat, lon):
 
         cost_0 = cost
         cost = smooth_track_cost_function(lat_s, lon_s, lat, lon)
+
+    if cost>0.100:
+        logging.warn("Smooth Track Cost Function closed with cost %d",cost)
+    
     return lat_last, lon_last, cost_0
 
             
@@ -2546,6 +2676,8 @@ def index_at_value(array, threshold, _slice=slice(None), endpoint='exact'):
         # More "let's get the logic right and tidy it up afterwards" bit of code...
         if begin >= len(array):
             begin = max_index - 1
+        elif int(begin) == begin:
+            begin = begin - 1 # integer slice indexes need reducing to avoid overruns.
         elif begin < 0:
             begin = 0
         if end > len(array):
@@ -2571,7 +2703,10 @@ def index_at_value(array, threshold, _slice=slice(None), endpoint='exact'):
     value_passing_array = (array[left]-threshold) * (array[right]-threshold)
     test_array = np.ma.masked_greater(value_passing_array, 0.0)
     
-    if np.all(test_array.mask):
+    if len(test_array)==0:
+        return None
+
+    elif np.all(test_array.mask):
         # The parameter does not pass through threshold in the period in question, so return empty-handed.
         if endpoint=='closing':
             # Rescan the data to find the last point where the array data is closing.
@@ -2584,13 +2719,20 @@ def index_at_value(array, threshold, _slice=slice(None), endpoint='exact'):
             return i
         else:
             return None
+
     else:
-        n,dummy=np.ma.flatnotmasked_edges(np.ma.masked_greater(value_passing_array, 0.0))
+        n,dummy=np.ma.flatnotmasked_edges(test_array)
         a = array[begin+step*n]
         b = array[begin+step*(n+1)]
         # Force threshold to float as often passed as an integer.
-        r = (float(threshold) - a) / (b-a) 
-        #TODO: Could test 0 < r < 1 for completeness
+        # Also check for b=a as otherwise we get a divide by zero condition.
+        if a is np.ma.masked or \
+           b is np.ma.masked or \
+           a==b:
+            r = 0.5
+        else:
+            r = (float(threshold) - a) / (b-a)
+
     return (begin + step * (n+r))
 
 def _value(array, _slice, operator):
@@ -2628,7 +2770,7 @@ def value_at_time(array, hz, offset, time_index):
     # Trap overruns which can arise from compensation for timing offsets.
     diff = location_in_array - len(array)
     if 0<diff<1:
-        location_in_array = len(array)
+        location_in_array = len(array)-1
     if -1<location_in_array<0:
         location_in_array = 0
     
@@ -2814,7 +2956,10 @@ def machtat2sat(mach, tat, recovery_factor=0.9):
     for most cases, and allows for inherited test case which used a lower
     value.
     """
-    ambient_temp = (tat + 273.15) / (1. + (0.2*recovery_factor) * mach** 2.)
+    # Default fill of zero produces runtime divide by zero errors in Numpy. 
+    # Hence force fill to >0.
+    denominator = np.ma.array(1.0 + (0.2*recovery_factor) * mach * mach, fill_value=1.0)
+    ambient_temp = (tat + 273.15) / denominator
     sat = ambient_temp - 273.15
     return sat
 

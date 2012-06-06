@@ -90,7 +90,7 @@ class Approaches(FlightAttributeNode):
     
     def _create_approach(self, start_dt, api_handler, approach, approach_type,
                          frequency, lat_kpv_node, lon_kpv_node, hdg_kpv_node,
-                         ilsfreq_kpv_node, precision):
+                         ilsfreq_kpv_node, precision, turnoff_hdg_kpvs):
         approach_datetime = datetime_of_index(start_dt, approach.slice.stop, # Q: Should it be start of approach?
                                               frequency=frequency)        
         lat, lon = self._get_lat_lon(approach.slice,
@@ -115,8 +115,7 @@ class Approaches(FlightAttributeNode):
         if hdg_kpv_node:
             hdg_kpvs = hdg_kpv_node.get(within_slice=approach.slice)
             if len(hdg_kpvs) == 1:
-                # Note: Modulus as this is a continuous heading!
-                hdg = hdg_kpvs[0].value % 360
+                hdg = hdg_kpvs[0].value
         if not hdg:
             logging.info("Heading not available for approach between "
                          "indices '%d' and '%d'.", approach.slice.start,
@@ -146,8 +145,22 @@ class Approaches(FlightAttributeNode):
             if len(runway_info['items']) > 1:
                 # TODO: What to store in approach dictionary.
                 runway = {'identifier': runway_info['ident']}
-                logging.warning("Identified %d Runways, ident %s. Picking the first!", 
-                             len(runway_info['items']), runway_info['ident'])
+                
+                # TODO: Incorporate this experimental code
+                hdg_ldg = [x.value for x in hdg_kpv_node][-1]
+                hdg_toff = [x.value for x in turnoff_hdg_kpvs][-1]
+                delta = hdg_toff - hdg_ldg
+                if delta>180:
+                    delta = delta-360
+                if delta<-180:
+                    delta = delta+360
+                if delta>0:
+                    print "Should pick Left runway"
+                else:
+                    print "Should pick Right runway"
+                ##logging.warning("Identified %d Runways, ident %s. Picking the first!", 
+                             ##len(runway_info['items']), runway_info['ident'])
+
             else:
                 runway = runway_info['items'][0]
         except NotFoundError:
@@ -179,7 +192,8 @@ class Approaches(FlightAttributeNode):
                approach_lon_kpvs=KPV('Longitude At Lowest Point On Approach'),
                approach_ilsfreq_kpvs=KPV('ILS Frequency On Approach'),
                start_datetime=A('Start Datetime'),
-               precision=A('Precise Positioning')):
+               precision=A('Precise Positioning'),
+               turnoff_hdg_kpvs=KPV('Heading Vacating Runway')):
         '''
         TODO: Document approaches format.
         TODO: Test!
@@ -205,7 +219,8 @@ class Approaches(FlightAttributeNode):
                                              alt_aal.frequency,
                                              approach_lat_kpvs, approach_lon_kpvs,
                                              approach_hdg_kpvs,
-                                             approach_ilsfreq_kpvs, precision)
+                                             approach_ilsfreq_kpvs, precision, 
+                                             turnoff_hdg_kpvs)
             if approach:
                 approaches.append(approach)
             
@@ -313,12 +328,12 @@ class FlightNumber(FlightAttributeNode):
         # TODO: Fill num.array masked values (as there is no np.ma.bincount) - perhaps with 0.0 and then remove all 0 values?
         # note reverse of value, index from max_value due to bincount usage.
         value, count = max_value(np.bincount(num.array.astype(np.integer)))
-        if count > len(num.array) * 0.6:
+        if count > len(num.array) * 0.5:
             # this value accounts for at least 60% of the values in the array
             self.set_flight_attr(str(value))
         else:
-            logging.warning("'%s' found no consistent values in '%s'. Attribute will "
-                            "be set as None.", self.name, num.name)
+            logging.warning("Only %d out of %d flight numbers were the same."\
+                            " Flight Number attribute will be set as None.", count, len(num.array))
             self.set_flight_attr(None)
             return
 

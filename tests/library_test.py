@@ -540,14 +540,14 @@ class TestCalculateTimebase(unittest.TestCase):
         self.assertEqual(start_dt, datetime(2011,12,30,8,20,36))
         
     def test_real_data_params_no_year(self):
-        years = None
         months = np.load('test_data/month.npy')
         days = np.load('test_data/day.npy')
         hours = np.load('test_data/hour.npy')
         mins = np.load('test_data/minute.npy')
         secs = np.load('test_data/second.npy')
+        years = np.array([2012]*len(months)) # fixed year
         start_dt = calculate_timebase(years, months, days, hours, mins, secs)
-        self.assertEqual(start_dt, datetime(2012,12,30,8,20,36))        
+        self.assertEqual(start_dt, datetime(2012,12,30,8,20,36))
         
     @unittest.skip("Implement if this is a requirement")
     def test_using_offset_for_seconds(self):
@@ -1174,6 +1174,17 @@ class TestIndexAtValue(unittest.TestCase):
         array = np.ma.arange(50)
         self.assertEqual(index_at_value(array, 55, slice(-20,20)), None)
 
+    def test_index_at_value_divide_by_zero_trap(self):
+        '''
+        Returns None when there is only one value in the array since it cannot
+        cross a threshold.
+        '''
+        array = np.ma.arange(50)
+        array[25:] -= 1
+        array[23]=np.ma.masked
+        array[26]=np.ma.masked
+        self.assertEqual(index_at_value(array, 24, slice(20,30)), 24.5)
+
 
 class TestIndexClosestValue(unittest.TestCase):
     def test_index_closest_value(self):
@@ -1483,13 +1494,13 @@ class TestMaxValue(unittest.TestCase):
         i, v = max_value(array, slice(0,3),None,3.5)
         self.assertEqual(i, 2)
         self.assertEqual(v, 4) # Important that end case is ignored.
-        
-
 
         
 class TestMaxAbsValue(unittest.TestCase):
     def test_max_abs_value(self):
         array = np.ma.array(range(-20,30) + range(10,-41, -1) + range(10))
+        self.assertEqual(max_abs_value(array), (100, -40))
+        array = array*-1.0
         self.assertEqual(max_abs_value(array), (100, 40))
 
 
@@ -1688,14 +1699,14 @@ class TestNpMaZerosLike(unittest.TestCase):
 
 class TestNpMaOnesLike(unittest.TestCase):
     def test_zeros_like_basic(self):
-        result = np_ma_ones_like([1,2,3])
+        result = np_ma_ones_like(np.ma.array([1,2,3]))
         expected = np.ma.array([1,1,1])
         ma_test.assert_array_equal(expected, result)
 
         
 class TestNpMaMaskedZerosLike(unittest.TestCase):
     def test_masked_zeros_like_basic(self):
-        result = np_ma_masked_zeros_like([1,2,3])
+        result = np_ma_masked_zeros_like(np.ma.array([1,2,3]))
         expected = np.ma.array(data=[0,0,0],mask=[1,1,1])
         #ma_test.assert_array_equal(expected, result) 
         
@@ -1731,16 +1742,17 @@ class TestPeakCurvature(unittest.TestCase):
         pc = peak_curvature(array)
         self.assertEqual(pc,None)
         
+    def test_peak_curvature_short_flat_data(self):
+        array = np.ma.array([34]*4)
+        pc = peak_curvature(array)
+        self.assertEqual(pc,None)
+        
     def test_peak_curvature_bipolar(self):
         array = np.ma.array([0]*40+range(40))
         pc = peak_curvature(array, curve_sense='Bipolar')
         self.assertGreaterEqual(pc,35)
         self.assertLessEqual(pc,45)
 
-    def test_peak_curvature_failure(self):
-        array = np.ma.array([0]*2+range(2))
-        self.assertRaises(ValueError, peak_curvature, array)
-       
     def test_peak_curvature_real_data(self):
         array = np.ma.array([37.9,37.9,37.9,37.9,37.9,38.2,38.2,38.2,38.2,38.8,
                              38.2,38.8,39.1,39.7,40.6,41.5,42.7,43.6,44.5,46,
@@ -2009,7 +2021,18 @@ class TestShiftSlice(unittest.TestCase):
     def test_shift_slice_transfer_none(self):
         a = slice(30.3,None)
         b = 3
-        self.assertEqual(shift_slice(a,b),None)
+        self.assertEqual(shift_slice(a,b),slice(33.3,None))
+
+    def test_shift_slice_transfer_none_reversed(self):
+        a = slice(None,23.8)
+        b = 4.2
+        self.assertEqual(shift_slice(a,b),slice(None, 28.0))
+
+    def test_shift_slice_no_shift(self):
+        a = slice(2, 5,None)
+        self.assertEqual(shift_slice(a,0),a)
+        self.assertEqual(shift_slice(a,None),a)
+
 
 class TestShiftSlices(unittest.TestCase):
     def test_shift_slices(self):
@@ -2027,6 +2050,11 @@ class TestShiftSlices(unittest.TestCase):
              slice(1988, 1992, None), slice(2018, 2073, None)]
         b = 548.65
         self.assertEqual(len(shift_slices(a,b)),3)
+
+    def test_shift_slices_no_shift(self):
+        a = [slice(4, 7, None), slice(17, 12, -1)]
+        self.assertEqual(shift_slices(a,0), a)
+        self.assertEqual(shift_slices(a,None), a)
 
 class TestSlicesAbove(unittest.TestCase):
     def test_slices_above(self):
@@ -2117,24 +2145,88 @@ class TestSlicesOverlap(unittest.TestCase):
         self.assertRaises(ValueError, slices_overlap, first, slice(1,2,-1))
         
 class TestSlicesOverlay(unittest.TestCase):
-    def test_slices_overlay(self):
+    def test_slices_and(self):
         # overlay
         first = [slice(10,20)]
         second = [slice(15,25)]
-        self.assertEqual(slices_overlay(first, second), [slice(15,20)])
+        self.assertEqual(slices_and(first, second), [slice(15,20)])
         
         # no overlap
         no_overlap = slice(25,40)
-        self.assertEqual(slices_overlay(second, [no_overlap]), [])
+        self.assertEqual(slices_and(second, [no_overlap]), [])
         
         # step negative
-        self.assertRaises(ValueError, slices_overlay, first, [slice(1,2,-1)])
+        self.assertRaises(ValueError, slices_and, first, [slice(1,2,-1)])
         
         # complex with all four permutations
         first = [slice(5,15),slice(20,25),slice(30,40)]
         second = [slice(10,35),slice(45,50)]
         result = [slice(10,15), slice(20,25), slice(30,35)]
-        self.assertEqual(slices_overlay(first,second),result)
+        self.assertEqual(slices_and(first,second),result)
+
+
+class TestSlicesNot(unittest.TestCase):
+    def test_slices_not_internal(self):
+        slice_list = [slice(10,13),slice(16,25)]
+        self.assertEqual(slices_not(slice_list), [slice(13,16)])
+        
+    def test_slices_not_extended(self):
+        slice_list = [slice(10,13)]
+        self.assertEqual(slices_not(slice_list, begin_at=2, end_at=18), 
+                         [slice(2,10),slice(13,18)])
+        
+    def test_slices_not_to_none(self):
+        slice_list = [slice(10,None)]
+        self.assertRaises(ValueError, slices_not, slice_list)
+        
+    def test_slices_not_from_none(self):
+        slice_list = [slice(None,13)]
+        self.assertRaises(ValueError, slices_not, slice_list)
+        
+    def test_slices_not_null(self):
+        self.assertEqual(slices_not(None), None)
+        self.assertEqual(slices_not([]), None)
+        self.assertEqual(slices_not([slice(4,6)]),[])
+        
+    def test_slices_misordered(self):
+        slice_list = [slice(25,16,-1),slice(10,13)]
+        self.assertEqual(slices_not(slice_list), [slice(13,17)])
+        slice_list = [slice(1,5,2)]
+        # Single point slices get discarded by shift slices function.
+        self.assertEqual(slices_not(slice_list), [])
+
+class TestSlicesOr(unittest.TestCase):
+    def test_slices_or_with_overlap(self):
+        slice_list_a = [slice(10,13)]
+        slice_list_b = [slice(16,25)]
+        slice_list_c = [slice(20,31)]
+        self.assertEqual(slices_or(slice_list_a,
+                                   slice_list_b,
+                                   slice_list_c),
+                         [slice(10,13), slice(16,31)])
+
+    def test_slices_or_lists(self):
+        slice_list_a = [slice(10,13), slice(16,25)]
+        slice_list_b = [slice(20,31)]
+        self.assertEqual(slices_or(slice_list_a,
+                                   slice_list_b),
+                         [slice(10,13), slice(16,31)])
+
+    def test_slices_or_offset(self):
+        slice_list_a = [slice(10,13)]
+        self.assertEqual(slices_or(slice_list_a, begin_at = 11),
+                         [slice(11, 13)])
+
+    def test_slices_or_truncated(self):
+        slice_list_a = [slice(10,13)]
+        slice_list_b = [slice(16,25)]
+        slice_list_c = [slice(20,31)]
+        self.assertEqual(slices_or(slice_list_a,
+                                   slice_list_b,
+                                   slice_list_c,
+                                   end_at = 18),
+                         [slice(10,13), slice(16,18)])
+
 
 class TestStepValues(unittest.TestCase):
     def test_step_values(self):
@@ -2182,13 +2274,6 @@ class TestSmoothTrack(unittest.TestCase):
     def test_smooth_track_longitude(self):
         lon = np.ma.array([0,0,0,1,1,1], dtype=float)
         lat = np.ma.zeros(6, dtype=float)
-        lat_s, lon_s, cost = smooth_track(lat, lon)
-        self.assertLess (cost,26)
-        
-    def test_smooth_track_masked(self):
-        lon = np.ma.array([0,0,0,9,1,1], dtype=float)
-        lat = np.ma.zeros(6, dtype=float)
-        lon[3]=np.ma.masked
         lat_s, lon_s, cost = smooth_track(lat, lon)
         self.assertLess (cost,26)
         
@@ -2392,19 +2477,10 @@ class TestValueAtTime(unittest.TestCase):
         array = np.ma.arange(4) + 22.3
         self.assertEquals (value_at_time(array, 1.0, 0.0, 3.0), 25.3)
         
-    def test_value_at_time_assertion_below_range(self):
-        array = np.ma.arange(4)
-        # Note: Frequency and offset selected to go more than one sample period below bottom of range.
-        self.assertRaises (ValueError, value_at_time, array, 2, 0.6, 0.0)
-        
     def test_value_at_time_assertion_just_below_range(self):
         array = np.ma.arange(4)+7.0
         # Note: Frequency and offset selected to go more than one sample period below bottom of range.
         self.assertEquals (value_at_time(array, 1, 0.1, 0.0), 7.0)
-        
-    def test_value_at_time_assertion_above_range(self):
-        array = np.ma.arange(4)
-        self.assertRaises (ValueError, value_at_time, array, 1, 0.0, 7.0)
         
     def test_value_at_time_with_lower_value_masked(self):
         array = np.ma.arange(4) + 7.4
@@ -2458,17 +2534,9 @@ class TestValueAtIndex(unittest.TestCase):
         array = np.ma.arange(4)
         self.assertEquals (value_at_index(array, 3.7), 3.0)
         
-    def test_value_at_index_above_range(self):
-        array = np.ma.arange(4)
-        self.assertRaises(ValueError, value_at_index, array, 7)
-        
     def test_value_at_index_just_below_range(self):
         array = np.ma.arange(4)
         self.assertEquals (value_at_index(array, -0.5), 0.0)
-        
-    def test_value_at_index_below_range(self):
-        array = np.ma.arange(4)
-        self.assertRaises(ValueError, value_at_index, array, -33)
         
     def test_value_at_index_masked(self):
         array = np.ma.arange(4)
@@ -2666,10 +2734,11 @@ class TestMachTat2Sat(unittest.TestCase):
     def test_01(self):
 
         # Mach 0.5, 15 deg C, K = 0.5
-
-        Value = machtat2sat(.5, 15, recovery_factor = 0.5)
+        mach = np.ma.array(data=[0.5, 0.5], mask=[False, True])
+        Value = machtat2sat(mach, 15, recovery_factor = 0.5)
         Truth = 7.97195121951
-        self.assertAlmostEqual(Value, Truth, delta = 1e-5)
+        self.assertAlmostEqual(Value[0], Truth, delta = 1e-5)
+        self.assertAlmostEqual(Value.data[1], 1.0, delta = 1e-5)
 
     
 class TestAlt2Sat(unittest.TestCase):
