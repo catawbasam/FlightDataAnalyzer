@@ -314,7 +314,7 @@ class AirspeedWithGearDownMax(KeyPointValueNode):
             for down in downs:
                 index = np.ma.argmax(airspeed.array[air.slice][down])
                 value = airspeed.array[air.slice][down][index]
-                self.create_kpv(int(air.slice.start)+down.start+index, value)
+                self.create_kpv(int((air.slice.start or 0))+down.start+index, value)
 
 
 class MachWithGearDownMax(KeyPointValueNode):
@@ -325,7 +325,7 @@ class MachWithGearDownMax(KeyPointValueNode):
             for down in downs:
                 index = np.ma.argmax(mach.array[air.slice][down])
                 value = mach.array[air.slice][down][index]
-                self.create_kpv(int(air.slice.start)+down.start+index, value)
+                self.create_kpv(int((air.slice.start or 0))+down.start+index, value)
 
 
 class AirspeedAtGearSelectionUp(KeyPointValueNode):
@@ -1191,21 +1191,25 @@ class Eng1EGTStartMax(KeyPointValueNode):
     def derive(self, egt=P('Eng (1) EGT'), n2=P('Eng (1) N2'),
                toffs=KTI('Takeoff Turn Onto Runway')):
         # Extract the index for the first turn onto the runway.
-        fto_idx = [t.index for t in toffs][0]
-        started_up, ignition = peak_start_egt(egt, n2, fto_idx)
-        if started_up:
-            self.create_kpvs_within_slices(egt.array,[slice(ignition,started_up)],max_value)
+        if len(toffs) > 0:
+            # Extract the index for the first turn onto the runway.
+            fto_idx = [t.index for t in toffs][0]
+            started_up, ignition = peak_start_egt(egt, n2, fto_idx)
+            if started_up:
+                self.create_kpvs_within_slices(egt.array,[slice(ignition,started_up)],max_value)
 
     
 class Eng2EGTStartMax(KeyPointValueNode):
     name = 'Eng (2) EGT Start Max'
     def derive(self, egt=P('Eng (2) EGT'), n2=P('Eng (2) N2'),
                toffs=KTI('Takeoff Turn Onto Runway')):
-        # Extract the index for the first turn onto the runway.
-        fto_idx = [t.index for t in toffs][0]
-        started_up, ignition = peak_start_egt(egt, n2, fto_idx)
-        if started_up:
-            self.create_kpvs_within_slices(egt.array,[slice(ignition,started_up)],max_value)
+        # If the data started after the aircraft is airborne, we'll never see the engine start.
+        if len(toffs) > 0:
+            # Extract the index for the first turn onto the runway.
+            fto_idx = [t.index for t in toffs][0]
+            started_up, ignition = peak_start_egt(egt, n2, fto_idx)
+            if started_up:
+                self.create_kpvs_within_slices(egt.array,[slice(ignition,started_up)],max_value)
 
 #-------------------------------------------------------------------------------
     
@@ -1529,9 +1533,8 @@ class AltitudeAtFirstConfigChangeAfterLiftoff(KeyPointValueNode):
             change_indexes = np.ma.where(np.ma.diff(flap.array[air.slice]))[0]
             if len(change_indexes):
                 # create at first change
-                index = air.slice.start + change_indexes[0]
-                self.create_kpv(air.slice.start + change_indexes[0], 
-                                value_at_index(alt_aal.array, index))
+                index = (air.slice.start or 0) + change_indexes[0]
+                self.create_kpv(index, value_at_index(alt_aal.array, index))
 
 
 class HeadingDeviationOnTakeoffAbove100Kts(KeyPointValueNode):
@@ -2222,7 +2225,7 @@ class SpeedbrakesDeployedWithFlapDuration(KeyPointValueNode):
             # Speedbrake and Flap => s_and_f
             s_and_fs = slices_and(brakes, with_flap)
             for s_and_f in s_and_fs:
-                index = s_and_f.start + airs.get_first().slice.start
+                index = s_and_f.start + (airs.get_first().slice.start or 0)
                 value = (s_and_f.stop - s_and_f.start) / speedbrake.hz
                 self.create_kpv(index, value)
 

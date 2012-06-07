@@ -2176,12 +2176,20 @@ class TestSlicesNot(unittest.TestCase):
                          [slice(2,10),slice(13,18)])
         
     def test_slices_not_to_none(self):
+        slice_list = [slice(10,None),slice(2,3)]
+        self.assertEqual(slices_not(slice_list),[slice(3,10)])
+        
+    def test_slices_not_to_none_empty(self):
         slice_list = [slice(10,None)]
-        self.assertRaises(ValueError, slices_not, slice_list)
+        self.assertEqual(slices_not(slice_list),[])
+        
+    def test_slices_not_from_none_empty(self):
+        slice_list = [slice(None,13)]
+        self.assertEqual(slices_not(slice_list),[])
         
     def test_slices_not_from_none(self):
-        slice_list = [slice(None,13)]
-        self.assertRaises(ValueError, slices_not, slice_list)
+        slice_list = [slice(None,13),slice(15,20)]
+        self.assertEqual(slices_not(slice_list),[slice(13,15)])
         
     def test_slices_not_null(self):
         self.assertEqual(slices_not(None), None)
@@ -2226,7 +2234,15 @@ class TestSlicesOr(unittest.TestCase):
                                    slice_list_c,
                                    end_at = 18),
                          [slice(10,13), slice(16,18)])
-
+        
+    def test_slices_or_empty_first_list(self):
+        slice_list_a = []
+        slice_list_b = [slice(1,3)]
+        self.assertEqual(slices_or(slice_list_a, slice_list_b),
+                         [slice(1, 3)])
+ 
+    def test_slices_or_one_list(self):
+        self.assertEqual(slices_or([slice(1,2)]), [slice(1,2)])
 
 class TestStepValues(unittest.TestCase):
     def test_step_values(self):
