@@ -883,6 +883,8 @@ class Vref(FlightAttributeNode):
     '''
     Based on weight and flap at time of landing.
     '''
+    name = 'FDR Vref'
+
     def derive(self, 
                #aircraft_model=A('AFR Aircraft Model'),
                weight_touchdown=KPV('Gross Weight At Touchdown'),
