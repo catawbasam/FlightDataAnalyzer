@@ -17,6 +17,7 @@ from analysis_engine.library import (find_edges,
                                      slices_overlap,
                                      slices_and,
                                      slices_or,
+                                     slices_not,
                                      slice_samples)
 
 from analysis_engine.node import FlightPhaseNode, A, P, S, KTI
@@ -53,10 +54,10 @@ class Airborne(FlightPhaseNode):
             # Make sure we propogate None ends to data which starts or ends in midflight.
             for air in airs:
                 begin = air.start
-                if begin == 0 and speedy.slice.start == None:
+                if begin == 0 or speedy.slice.start == None:
                     begin = None
                 end = air.stop
-                if end == len(alt_aal.array) - (start_point or 0) and speedy.slice.stop == None:
+                if end == len(alt_aal.array) - (start_point or 0) or speedy.slice.stop == None:
                     end = None
                 self.create_phase(shift_slice(slice(begin,end),start_point))
           
@@ -400,7 +401,8 @@ def scan_ils(beam, ils_dots, height, scan_slice):
                 ils_capture_idx = dots_25
     
     if beam == 'localizer':
-        ils_end_idx = index_at_value(np.ma.abs(ils_dots), 2.5, slice(idx_200, scan_slice.stop))
+        #ils_end_idx = index_at_value(np.ma.abs(ils_dots), 2.5, slice(idx_200, scan_slice.stop))
+        ils_end_idx = index_at_value(np.ma.abs(ils_dots), 2.5, slice(idx_200, None))
         if ils_end_idx == None:
             # Did we end with the ILS captured?
             if np.ma.abs(ils_dots[scan_slice.stop-1]) < 1.0:
@@ -421,7 +423,7 @@ class ILSLocalizerEstablished(FlightPhaseNode):
                alt_aal=P('Altitude AAL For Flight Phases'), apps=S('Approach')):
         for app in apps:
             ils_app = scan_ils('localizer',ils_loc.array,alt_aal.array,app.slice)
-            if ils_app != slice(None, None, None):
+            if ils_app != None:
                 self.create_phase(ils_app)
 
   
@@ -545,10 +547,9 @@ class OnGround(FlightPhaseNode):
     '''
     Includes start of takeoff run and part of landing run
     '''
-    def derive(self, airspeed=P('Airspeed For Flight Phases')):
-        # Did the aircraft go fast enough to possibly become airborne?
-        slow_where = np.ma.masked_less(airspeed.array, AIRSPEED_THRESHOLD)
-        self.create_phases(np.ma.clump_masked(slow_where))
+    def derive(self, speed=P('Airspeed'), air=S('Airborne')):
+        data_end=len(speed.array)
+        self.create_phases(slices_not([a.slice for a in air],end_at=data_end))
     
 
 class Landing(FlightPhaseNode):
@@ -697,7 +698,9 @@ class TaxiOut(FlightPhaseNode):
 
 class Taxiing(FlightPhaseNode):
     def derive(self, t_out=S('Taxi Out'), t_in=S('Taxi In')):
-        self.create_phases(slices_or([s.slice for s in t_out],[s.slice for s in t_in]))
+        taxi_slices = slices_or([s.slice for s in t_out],[s.slice for s in t_in])
+        if taxi_slices:
+            self.create_phases(taxi_slices)
         
         
 class TurningInAir(FlightPhaseNode):
