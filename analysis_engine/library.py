@@ -1903,11 +1903,11 @@ def blend_two_parameters (param_one, param_two):
     '''
     assert param_one.frequency  == param_two.frequency
     offset = (param_one.offset + param_two.offset)/2.0
-    frequency = param_one.frequency * 2
+    frequency = param_one.frequency * 2.0
     padding = 'Follow'
     
-    if offset > 1/frequency:
-        offset = offset - 1/frequency
+    if offset > 1.0/frequency:
+        offset = offset - 1.0/frequency
         padding = 'Precede'
         
     if param_one.offset <= param_two.offset:

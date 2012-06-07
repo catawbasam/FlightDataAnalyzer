@@ -547,9 +547,19 @@ class OnGround(FlightPhaseNode):
     '''
     Includes start of takeoff run and part of landing run
     '''
-    def derive(self, speed=P('Airspeed'), air=S('Airborne')):
+    def derive(self, speed=P('Airspeed For Flight Phases'), air=S('Airborne')):
         data_end=len(speed.array)
-        self.create_phases(slices_not([a.slice for a in air],end_at=data_end))
+        gnd_phases = slices_not([a.slice for a in air], 
+                                begin_at=0, end_at=data_end)
+        if gnd_phases == []:
+            # Either all on ground or all in flight.
+            median_speed = np.ma.median(speed.array)
+            if median_speed > AIRSPEED_THRESHOLD:
+                gnd_phases = [slice(None,None,None)]
+            else:
+                gnd_phases = [slice(0,data_end,None)]
+                
+        self.create_phases(gnd_phases)
     
 
 class Landing(FlightPhaseNode):

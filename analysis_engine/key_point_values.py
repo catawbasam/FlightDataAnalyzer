@@ -2459,28 +2459,16 @@ class WindAcrossLandingRunwayAt50Ft(KeyPointValueNode):
     
 class ZeroFuelWeight(KeyPointValueNode):
     """
-    The aircraft zero fuel weight is estimated from the recorded gross weight
-    and fuel data. A best fit line should be close to a straight line, with a
-    slope of 1.0 and the intercept at fuel=0 is the Zero Fuel Weight. The
-    test for slope is important as this traps errors where one of the weights
-    is converted in the wrong units! It also detects cases where, on short
-    flights, the fuel movement in the tanks gives false readings in the
-    climb.
+    The aircraft zero fuel weight is computed from the recorded gross weight
+    and fuel data.
     
     See also the GrossWeightSmoothed calculation which uses fuel flow data to
     obtain a higher sample rate solution to the aircraft weight calculation,
     with a best fit to the available weight data.
     """
     def derive(self, fuel=P('Fuel Qty'), gw=P('Gross Weight')):
-        corr, slope, zfw = coreg(gw.array, indep_var=fuel.array)
-        if corr>0.95 and 0.8 < slope < 1.2:
-            self.create_kpv(0, zfw)
-        else:
-            logging.warning("Unable to compute Zero Fuel Weight from data supplied")
-        # Comment: This error has been seen from failure to connect to the
-        # limits database, or missing gross weight validation thresholds. As
-        # a result corrupt weight data is not masked and hence this
-        # correlation fails.
+        zfw=np.ma.median(gw.array-fuel.array)
+        self.create_kpv(0,zfw)
         
         
 class DualStickInput(KeyPointValueNode):
