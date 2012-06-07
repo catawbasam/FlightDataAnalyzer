@@ -543,6 +543,8 @@ class AltitudeForClimbCruiseDescent(DerivedParameterNode):
         self.array = hysteresis(repair_mask(alt_std.array), HYSTERESIS_FPALT_CCD)
     
     
+'''
+See Altitude AAL For Flight Phases which superceded this.
 class AltitudeForFlightPhases(DerivedParameterNode):
     """
     This parameter includes a hysteresis to avoid repeated phase changes in
@@ -551,6 +553,7 @@ class AltitudeForFlightPhases(DerivedParameterNode):
     units = 'ft'
     def derive(self, alt_std=P('Altitude STD')):
         self.array = hysteresis(repair_mask(alt_std.array), HYSTERESIS_FPALT)
+        '''
     
 
 class AltitudeRadio(DerivedParameterNode):
@@ -621,9 +624,11 @@ class AltitudeRadio(DerivedParameterNode):
             self.array = source_A.array
 
 
+'''
 class AltitudeRadioForFlightPhases(DerivedParameterNode):
     def derive(self, alt_rad=P('Altitude Radio')):
         self.array = hysteresis(repair_mask(alt_rad.array), HYSTERESIS_FP_RAD_ALT)
+        '''
 
 
 class AltitudeQNH(DerivedParameterNode):
@@ -1798,7 +1803,7 @@ class HeadingTrue(DerivedParameterNode):
     units = 'deg'
     def derive(self, head=P('Heading Continuous'),
                var = P('Magnetic Variation')):
-        self.array = head.array + var.array
+        self.array = (head.array + var.array)%360.0
         
         """
         # We copy the masked array to transfer the mask array. All the data
