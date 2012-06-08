@@ -38,6 +38,9 @@ from analysis_engine.library import (clip,
                                      value_at_index)
 
 
+logger = logging.getLogger(name=__name__)
+
+
 class AccelerationLateralMax(KeyPointValueNode):
     def derive(self, acc_lat=P('Acceleration Lateral')):
         index, value = max_abs_value(acc_lat.array)
@@ -659,7 +662,7 @@ class AirspeedLevelFlightMax(KeyPointValueNode):
                 index, value = max_value(airspeed.array, sect.slice)
                 self.create_kpv(index, value)
             else:
-                logging.debug("Level flight duration too short to create KPV")
+                logger.debug("Level flight duration too short to create KPV")
 
 
 class AirspeedMinusV2AtLiftoff(KeyPointValueNode):
@@ -1338,7 +1341,7 @@ class Eng_N1MaxDurationUnder60PercentAfterTouchdown(KeyPointValueNode): ##was na
             eng_stop = engines_stop.get(name='Eng (%d) Stop' % eng_num)
             if not eng_stop:
                 #Q: Should we measure until the end of the flight anyway? (probably not)
-                logging.debug("Engine %d did not stop on this flight, cannot measure KPV", eng_num)
+                logger.debug("Engine %d did not stop on this flight, cannot measure KPV", eng_num)
                 continue
             
             eng_array = repair_mask(eng.array)

@@ -17,6 +17,8 @@ from analysis_engine.library import (align, find_edges, is_index_within_slice,
                                      value_at_index, value_at_time)
 from analysis_engine.recordtype import recordtype
 
+logger = logging.getLogger(name=__name__)
+
 # Define named tuples for KPV and KTI and FlightPhase
 KeyPointValue = recordtype('KeyPointValue', 'index value name slice datetime', 
                            field_defaults={'slice':slice(None)}, default=None)
@@ -396,7 +398,7 @@ class SectionNode(Node, list):
         slicing data arrays from.
         """
         if section_slice.start is None or section_slice.stop is None:
-            logging.debug("Section %s created %s with None start or stop.", 
+            logger.debug("Section %s created %s with None start or stop.", 
                           self.get_name(), section_slice)
         section = Section(name or self.get_name(), section_slice, 
                           begin or section_slice.start, 
@@ -993,14 +995,14 @@ class KeyPointValueNode(FormattedNameNode):
         # There are a number of algorithms which return None for valid
         # computations, so these conditions are only logged as information...
         if index is None or value is None:
-            logging.info("'%s' cannot create KPV for index '%s' and value "
+            logger.info("'%s' cannot create KPV for index '%s' and value "
                          "'%s'.", self.name, index, value)
             return
         #...however where we should have raised an alert but the specific
         #threshold was masked needs to be a warning as this should not
         #happen.
         if value is np.ma.masked:
-            logging.warn("'%s' cannot create KPV at index '%s' as value is masked."%
+            logger.warn("'%s' cannot create KPV at index '%s' as value is masked."%
                          (self.name, index))
             return
         name = self.format_name(replace_values, **kwargs)
@@ -1341,11 +1343,11 @@ class NodeManager(object):
             #NOTE: Raises "Unbound method" here due to can_operate being overridden without wrapping with @classmethod decorator
             res = self.derived_nodes[name].can_operate(available)
             if not res:
-                logging.debug("Derived Node %s cannot operate with available nodes: %s",
+                logger.debug("Derived Node %s cannot operate with available nodes: %s",
                               name, available)
             return res
         else:  #elif name in unavailable_deps:
-            logging.debug("Node '%s' is unavailable", name)
+            logger.debug("Node '%s' is unavailable", name)
             return False
 
 

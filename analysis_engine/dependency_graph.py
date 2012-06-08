@@ -5,6 +5,7 @@ import networkx as nx # pip install networkx or /opt/epd/bin/easy_install networ
 
 from utilities.dict_helpers import dict_filter
 
+logger = logging.getLogger(__name__)
 not_windows = sys.platform not in ('win32', 'win64') # False for Windows :-(
 
 """
@@ -106,12 +107,12 @@ def draw_graph(graph, name, horizontal=False):
             graph.graph['graph'] = {'rankdir' : 'LR'}
         G = nx.to_agraph(graph)
     except ImportError:
-        logging.exception("Unable to import pygraphviz to draw graph '%s'", name)
+        logger.exception("Unable to import pygraphviz to draw graph '%s'", name)
         return
     G.layout(prog='dot')
     G.graph_attr['label'] = name
     G.draw(file_path)
-    logging.info("Dependency tree drawn: %s", os.path.abspath(file_path))
+    logger.info("Dependency tree drawn: %s", os.path.abspath(file_path))
     
 def graph_adjacencies(G):
     data = []
@@ -172,9 +173,9 @@ def graph_nodes(node_mgr):
     missing_required = list(set(node_mgr.requested) - available_nodes)
     
     if missing_derived_dep:
-        logging.warning("Found %s dependencies which don't exist in LFL "
+        logger.warning("Found %s dependencies which don't exist in LFL "
                         "nor Node modules.", len(missing_derived_dep))
-        logging.info("The missing dependencies: %s", missing_derived_dep)
+        logger.info("The missing dependencies: %s", missing_derived_dep)
     if missing_required:
         raise ValueError("Missing required parameters: %s" % missing_required)
 
@@ -195,13 +196,13 @@ def process_order(gr_all, node_mgr):
     :rtype: 
     """
     process_order = dependencies3(gr_all, 'root', node_mgr)
-    logging.info("Processing order of %d nodes is: %s", len(process_order), process_order)
+    logger.info("Processing order of %d nodes is: %s", len(process_order), process_order)
     
     for n, node in enumerate(process_order):
         gr_all.node[node]['label'] = '%d: %s' % (n, node)
         
     inactive_nodes = set(gr_all.nodes()) - set(process_order)
-    logging.info("Inactive nodes: %s", list(sorted(inactive_nodes)))
+    logger.info("Inactive nodes: %s", list(sorted(inactive_nodes)))
     gr_st = gr_all.copy()
     gr_st.remove_nodes_from(inactive_nodes)
     
@@ -240,12 +241,12 @@ def dependency_order(node_mgr, draw=not_windows):
     
     if draw:
         from json import dumps
-        logging.info("JSON Graph Representation:\n%s", dumps( graph_adjacencies(gr_st), indent=2))
+        logger.info("JSON Graph Representation:\n%s", dumps( graph_adjacencies(gr_st), indent=2))
     inoperable_required = list(set(node_mgr.requested) - set(order))
     if inoperable_required:
-        logging.warning("Found %s inoperable required parameters.",
+        logger.warning("Found %s inoperable required parameters.",
                         len(inoperable_required))
-        logging.info("Inoperable required parameters: %s",
+        logger.info("Inoperable required parameters: %s",
                      inoperable_required)
     if draw:
         draw_graph(gr_st, 'Active Nodes in Spanning Tree')
