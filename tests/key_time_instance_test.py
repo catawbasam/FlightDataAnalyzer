@@ -253,10 +253,8 @@ class TestAltitudeWhenDescending(unittest.TestCase):
         self.assertEqual(AltitudeWhenDescending.get_operational_combinations(),
                          [('Descending', 'Altitude AAL')])
     
-    @mock.patch('analysis_engine.key_time_instances.hysteresis')
-    def test_derive(self, hysteresis):
-        descending = S('Descending', items=[Section('a', slice(0, 10), 0, 10),
-                                            Section('b', slice(11, 20), 11, 20)])
+    def test_derive(self):
+        descending = buildsections('Descending', [0, 10], [11, 20])
         alt_aal = P('Altitude AAL',
                     np.ma.masked_array(range(100, 0, -10) + \
                                        range(100, 0, -10),
@@ -267,7 +265,6 @@ class TestAltitudeWhenDescending(unittest.TestCase):
         self.assertEqual(list(altitude_when_descending),
           [KeyTimeInstance(index=2.5, name='75 Ft Descending'), 
            KeyTimeInstance(index=5.0, name='50 Ft Descending'),
-           KeyTimeInstance(index=9.0, name='10 Ft Descending'),
            KeyTimeInstance(index=12.5, name='75 Ft Descending'), 
            KeyTimeInstance(index=15.0, name='50 Ft Descending'),
            KeyTimeInstance(index=16.5, name='35 Ft Descending'),

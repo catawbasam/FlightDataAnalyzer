@@ -489,7 +489,6 @@ class AltitudeWhenDescending(KeyTimeInstanceNode):
     HYSTERESIS = 0 # Was 10 Q: Better as setting?
     
     def derive(self, descending=S('Descending'), alt_aal=P('Altitude AAL')):
-        ##alt_array = hysteresis(alt_aal.array, self.HYSTERESIS)
         alt_array = alt_aal.array
         for descend in descending:
             for alt_threshold in self.ALTITUDES:

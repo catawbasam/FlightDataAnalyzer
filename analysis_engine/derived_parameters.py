@@ -606,18 +606,18 @@ class AltitudeRadio(DerivedParameterNode):
                 merge_two_parameters(source_A, source_B)
         
         elif frame_name in ['737-5']:
-            alt_rad_efis = frame_qualifier and 'Altitude_Radio_EFIS' in frame_qualifier
-            alt_rad_d226a101_1_16d = \
-                frame_qualifier and 'Altitude_Radio_D226A101_1_16D' in frame_qualifier
-            if alt_rad_efis:
+            if frame_qualifier and 'Altitude_Radio_EFIS' in frame_qualifier:
                 self.array, self.frequency, self.offset = \
-                    blend_two_parameters(source_C, source_D)
+                    blend_two_parameters(source_A, source_B)
                 self.array = np.ma.masked_greater(self.array, 2600)
+            elif frame_qualifier and 'Altitude_Radio_ARINC_552' in frame_qualifier:
+                self.array, self.frequency, self.offset = \
+                    blend_two_parameters(source_A, source_B)
             elif frame_qualifier and 'Altitude_Radio_None' in frame_qualifier:
                 pass # Some old 737 aircraft have no rad alt recorded.
             else:
-                raise ValueError,'737-5 frame needs qualifier Altitude_Radio_Analogue/EFIS/None'
-        
+                raise ValueError,'737-5 frame Altitude Radio qualifier not recognised.'
+            
         else:
             logging.warning("No specified Altitude Radio (*) merging for frame "
                             "'%s' so using source (A)", frame_name)

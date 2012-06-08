@@ -2688,7 +2688,9 @@ def index_at_value(array, threshold, _slice=slice(None), endpoint='exact'):
         if begin >= len(array):
             begin = max_index - 1
         elif int(begin) == begin:
-            begin = begin - 1 # integer slice indexes need reducing to avoid overruns.
+            # integer slice indexes need reducing because of the way Python
+            # does reverse slices.
+            begin = begin - 1 
         elif begin < 0:
             begin = 0
         if end > len(array):
