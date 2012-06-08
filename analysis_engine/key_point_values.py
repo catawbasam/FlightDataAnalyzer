@@ -1968,10 +1968,10 @@ class PitchRateDuringTakeoffMin(KeyPointValueNode):
         for toff in takeoffs:
             for lift in lifts:
                 if slices_overlap(toff.slice, slice(lift.index)):
-                    self.create_kpvs_within_slices(
-                        pitch_rate.array, 
-                        [slice(lift.index, toff.slice.stop)], 
-                        min_value)
+                    index, value = min_value(pitch_rate.array,
+                                             _slice=slice(lift.index,
+                                                          toff.slice.stop))
+                    self.create_kpv(index, value)
 
 
 class PitchRateDuringTakeoffMax(KeyPointValueNode):

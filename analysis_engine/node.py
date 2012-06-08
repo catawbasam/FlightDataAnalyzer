@@ -579,7 +579,7 @@ class SectionNode(Node, list):
         
         :param index: Index to get the next Section from.
         :type index: int or float
-        :param frequency: Frequency of index.
+        :param frequency: Frequency of index argument.
         :type frequency: int or float
         :param use: Use either 'start' or 'stop' of slice.
         :type use: str        
@@ -609,7 +609,7 @@ class SectionNode(Node, list):
         
         :param index: Index to get the previous Section from.
         :type index: int or float
-        :param frequency: Frequency of index.
+        :param frequency: Frequency of index argument.
         :type frequency: int or float
         :param use: Use either 'start' or 'stop' of slice.
         :type use: str
@@ -1245,11 +1245,12 @@ class FlightAttributeNode(Node):
         node.value = True
         bool(node) == bool(node.value)
         """
-        if self.value == 0 or bool(self.value):
-            # 0 is a meaningful value
+        if self.value or (self.value == 0 and self.value is not False): 
+            # 0 is a meaningful value. Check self.value is not False
+            # as False == 0.
             return True
         else:
-            return False    
+            return False   
     
     def set_flight_attribute(self, value):
         self.value = value
@@ -1374,8 +1375,9 @@ class Attribute(object):
         node.value = True
         bool(node) == bool(node.value)
         """
-        if self.value == 0 or bool(self.value):
-            # 0 is a meaningful value
+        if self.value or (self.value == 0 and self.value is not False): 
+            # 0 is a meaningful value. Check self.value is not False
+            # as False == 0.
             return True
         else:
             return False
