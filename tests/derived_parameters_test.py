@@ -273,17 +273,6 @@ class TestAirspeedForFlightPhases(unittest.TestCase):
         opts = AirspeedForFlightPhases.get_operational_combinations()
         self.assertEqual(opts, expected)
     
-    @mock.patch('analysis_engine.derived_parameters.hysteresis')
-    def test_airspeed_for_phases_basic(self, hysteresis):
-        # Avoiding testing hysteresis.
-        param = mock.Mock()
-        param.array = mock.Mock()
-        hysteresis.return_value = mock.Mock()
-        speed = AirspeedForFlightPhases()
-        speed.derive(param)
-        hysteresis.assert_called_once_with(param.array, HYSTERESIS_FPIAS)
-        self.assertEqual(speed.array, hysteresis.return_value)
-
 
 class TestAirspeedMinusVref(unittest.TestCase):
     def test_can_operate(self):
@@ -501,27 +490,25 @@ class TestAltitudeRadio(unittest.TestCase):
                        Attribute('Frame Qualifier','Altitude_Radio_EFIS'),
                        Parameter('Altitude Radio (A)', np.ma.ones(5)*10, 0.5, 0.0),
                        Parameter('Altitude Radio (B)', np.ma.ones(5)*20, 0.5, 1.0),
-                       Parameter('Altitude Radio (C)', np.ma.ones(5)*30, 0.5, 0.3),
-                       Parameter('Altitude Radio (D)', np.ma.ones(5)*40, 0.5, 1.3),
                        )
         result = alt_rad.array
-        answer = np.ma.array(data=[35]*10,
+        answer = np.ma.array(data=[15]*10,
                              dtype=np.float, mask=False)
         np.testing.assert_array_equal(alt_rad.array, answer)
-        self.assertEqual(alt_rad.offset,0.8)
+        self.assertEqual(alt_rad.offset,0.5)
         self.assertEqual(alt_rad.frequency,1.0)
 
     def test_altitude_radio_737_5_Analogue(self):
         alt_rad = AltitudeRadio()
         alt_rad.derive(Attribute('Frame','737-5'), 
-                       Attribute('Frame Qualifier','Altitude_Radio_D226A101_1_16D'),
+                       Attribute('Frame Qualifier','Altitude_Radio_ARINC_552'),
                        Parameter('Altitude Radio (A)', np.ma.ones(5)*200, 0.5, 0.0),
                        Parameter('Altitude Radio (B)', np.ma.ones(5)*220, 0.5, 1.0),
                        None,
                        None
                        )
         result = alt_rad.array
-        answer = np.ma.array(data=[62.051]*10,
+        answer = np.ma.array(data=[210]*10,
                              dtype=np.float, mask=False)
         np.testing.assert_array_almost_equal(alt_rad.array, answer, decimal=2)
 
@@ -1532,19 +1519,15 @@ class TestRateOfClimbForFlightPhases(unittest.TestCase):
         
     def test_rate_of_climb_for_flight_phases_basic(self):
         alt_std = P('Altitude STD', np.ma.arange(10))
-        phase_fast = Fast()
-        phase_fast.derive(Parameter('Airspeed', [120]*10))
         roc = RateOfClimbForFlightPhases()
-        roc.derive(alt_std, phase_fast)
+        roc.derive(alt_std)
         expected = np.ma.array(data=[60]*10, dtype=np.float, mask=False)
         np.testing.assert_array_equal(roc.array, expected)
 
     def test_rate_of_climb_for_flight_phases_level_flight(self):
         alt_std = P('Altitude STD', np.ma.array([100]*10))
-        phase_fast = Fast()
-        phase_fast.derive(Parameter('Airspeed', [120]*10))
         roc = RateOfClimbForFlightPhases()
-        roc.derive(alt_std, phase_fast)
+        roc.derive(alt_std)
         expected = np.ma.array(data=[0]*10, dtype=np.float, mask=False)
         np.testing.assert_array_equal(roc.array, expected)
 

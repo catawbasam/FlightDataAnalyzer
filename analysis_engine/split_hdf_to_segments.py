@@ -135,8 +135,6 @@ def split_segments(hdf):
     '''
     airspeed = hdf['Airspeed']
     airspeed_array = repair_mask(airspeed.array, repair_duration=None)
-    # mask where airspeed drops below min airspeed, using hysteresis
-    airspeed_array = hysteresis(airspeed_array, settings.HYSTERESIS_FPIAS)
     airspeed_secs = len(airspeed_array) / airspeed.frequency
     slow_array = np.ma.masked_less_equal(airspeed_array,
                                          settings.AIRSPEED_THRESHOLD)
