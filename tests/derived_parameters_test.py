@@ -1532,19 +1532,15 @@ class TestRateOfClimbForFlightPhases(unittest.TestCase):
         
     def test_rate_of_climb_for_flight_phases_basic(self):
         alt_std = P('Altitude STD', np.ma.arange(10))
-        phase_fast = Fast()
-        phase_fast.derive(Parameter('Airspeed', [120]*10))
         roc = RateOfClimbForFlightPhases()
-        roc.derive(alt_std, phase_fast)
+        roc.derive(alt_std)
         expected = np.ma.array(data=[60]*10, dtype=np.float, mask=False)
         np.testing.assert_array_equal(roc.array, expected)
 
     def test_rate_of_climb_for_flight_phases_level_flight(self):
         alt_std = P('Altitude STD', np.ma.array([100]*10))
-        phase_fast = Fast()
-        phase_fast.derive(Parameter('Airspeed', [120]*10))
         roc = RateOfClimbForFlightPhases()
-        roc.derive(alt_std, phase_fast)
+        roc.derive(alt_std)
         expected = np.ma.array(data=[0]*10, dtype=np.float, mask=False)
         np.testing.assert_array_equal(roc.array, expected)
 

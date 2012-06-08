@@ -182,8 +182,12 @@ Node: Start Datetime 	Pre: [] 	Succ: [] 	Neighbors: [] 	Edges: []
               'Longitudinal g', 'Lateral g', 'Normal g', 
               'Pitch', 'Roll', 
               ]
-        
-        derived = get_derived_nodes(['sample_derived_parameters'])
+        try:
+            # for test cmd line runners
+            derived = get_derived_nodes(['tests.sample_derived_parameters'])
+        except ImportError:
+            # for IDE test runners
+            derived = get_derived_nodes(['sample_derived_parameters'])
         nodes = NodeManager(datetime.now(), lfl_params, required_nodes, derived, {}, {})
         order, _ = dependency_order(nodes)
         pos = order.index
@@ -203,9 +207,14 @@ Node: Start Datetime 	Pre: [] 	Succ: [] 	Neighbors: [] 	Edges: []
     def test_invalid_requirement_raises(self):
         lfl_params = []
         required_nodes = ['Smoothed Track', 'Moment of Takeoff'] #it's called Moment Of Takeoff
-        derived_nodes = get_derived_nodes(['sample_derived_parameters'])
-        mgr = NodeManager(datetime.now(), lfl_params, required_nodes, 
-                    derived_nodes, {}, {})
+        try:
+            # for test cmd line runners
+            derived = get_derived_nodes(['tests.sample_derived_parameters'])
+        except ImportError:
+            # for IDE test runners
+            derived = get_derived_nodes(['sample_derived_parameters'])
+        mgr = NodeManager(datetime.now(), lfl_params, required_nodes, derived, 
+                          {}, {})
         self.assertRaises(nx.NetworkXError, dependency_order, mgr, draw=False)
         
 

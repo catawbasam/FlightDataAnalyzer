@@ -1352,11 +1352,4 @@ class TestZeroFuelWeight(unittest.TestCase):
         zfw = ZeroFuelWeight()
         zfw.derive(fuel, weight)
         self.assertEqual(zfw[0].value, 10.0)
-        
-    def test_fails(self):
-        fuel = P('Fuel Qty', np.ma.array([1,2,3,4])*2.2) #Most likely mix of lb/kg!
-        weight = P('Gross Weight', np.ma.array([11,12,13,14]))
-        zfw = ZeroFuelWeight()
-        zfw.derive(fuel, weight)
-        # A logging warning will be raised. Not sure how to test for this, but the result will also be an empty list :o)
-        self.assertEqual(zfw, [])
+    
