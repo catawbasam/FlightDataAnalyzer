@@ -1517,20 +1517,22 @@ def slices_not(slice_list, begin_at=None, end_at=None):
     
     a = min([s.start for s in slice_list])
     b = min([s.stop for s in slice_list])
-    startpoint = min(a,b)
-    if startpoint == None:
-        raise ValueError, 'This function does not support slice(None,*) arguments.'
+    if b != None:
+        startpoint = min(a,b)
+    else:
+        startpoint = a
+        
     if begin_at != None  and begin_at < startpoint:
         startpoint = begin_at
-        
-    a = max([s.start for s in slice_list])
-    b = max([s.stop for s in slice_list])
-    endpoint = max(a,b)
     if startpoint == None:
-        raise ValueError, 'This function does not support slice(None,*) arguments.'
+        startpoint = 0
+    
+    c = max([s.start for s in slice_list])
+    d = max([s.stop for s in slice_list])
+    endpoint = max(c,d)
     if end_at != None and end_at > endpoint:
         endpoint = end_at
-        
+
     workspace = np.ma.zeros(endpoint)
     for each_slice in slice_list:
         workspace[each_slice]=1
@@ -1551,22 +1553,30 @@ def slices_or(*slice_lists, **kwargs):
     
     :returns: list of slices. If begin or end is specified, the range will extend to these points. Otherwise the scope is within the end slices.
     '''
-    if slice_lists==[] or slice_lists==None:
+    if len(slice_lists) == 0:
         return
-
-    for each_slice in slice_lists[0]:
-        if each_slice==[]:
-            break
-        a = each_slice.start
-        b = each_slice.stop
-
-    for slice_list in slice_lists[1:]:
+    
+    a = None
+    b = None
+    for slice_list in slice_lists:
         for each_slice in slice_list:
             if each_slice==[]:
                 break
-            a = min(a, each_slice.start)
-            b = max(b, each_slice.stop)
+            
+            if each_slice.start == None:
+                break
+            if a == None:
+                a = each_slice.start
+            else:
+                a = min(a, each_slice.start)
     
+            if each_slice.stop == None:
+                break
+            if b == None:
+                b = each_slice.stop
+            else:
+                b = max(b, each_slice.stop)
+
     if kwargs.has_key('begin_at'):
         startpoint = kwargs['begin_at']
     else:
@@ -1577,12 +1587,13 @@ def slices_or(*slice_lists, **kwargs):
     else:
         endpoint = b
 
-    workspace = np.ma.zeros(b)
-    for slice_list in slice_lists:
-        for each_slice in slice_list:
-            workspace[each_slice]=1
-    workspace=np.ma.masked_equal(workspace, 1)
-    return shift_slices(np.ma.clump_masked(workspace[startpoint:endpoint]), startpoint)
+    if startpoint>=0 and endpoint>0:
+        workspace = np.ma.zeros(b)
+        for slice_list in slice_lists:
+            for each_slice in slice_list:
+                workspace[each_slice]=1
+        workspace=np.ma.masked_equal(workspace, 1)
+        return shift_slices(np.ma.clump_masked(workspace[startpoint:endpoint]), startpoint)
     
 """
 def section_contains_kti(section, kti):
@@ -1892,11 +1903,11 @@ def blend_two_parameters (param_one, param_two):
     '''
     assert param_one.frequency  == param_two.frequency
     offset = (param_one.offset + param_two.offset)/2.0
-    frequency = param_one.frequency * 2
+    frequency = param_one.frequency * 2.0
     padding = 'Follow'
     
-    if offset > 1/frequency:
-        offset = offset - 1/frequency
+    if offset > 1.0/frequency:
+        offset = offset - 1.0/frequency
         padding = 'Precede'
         
     if param_one.offset <= param_two.offset:

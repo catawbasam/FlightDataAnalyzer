@@ -314,7 +314,7 @@ class AirspeedWithGearDownMax(KeyPointValueNode):
             for down in downs:
                 index = np.ma.argmax(airspeed.array[air.slice][down])
                 value = airspeed.array[air.slice][down][index]
-                self.create_kpv(int(air.slice.start)+down.start+index, value)
+                self.create_kpv(int((air.slice.start or 0))+down.start+index, value)
 
 
 class MachWithGearDownMax(KeyPointValueNode):
@@ -325,7 +325,7 @@ class MachWithGearDownMax(KeyPointValueNode):
             for down in downs:
                 index = np.ma.argmax(mach.array[air.slice][down])
                 value = mach.array[air.slice][down][index]
-                self.create_kpv(int(air.slice.start)+down.start+index, value)
+                self.create_kpv(int((air.slice.start or 0))+down.start+index, value)
 
 
 class AirspeedAtGearSelectionUp(KeyPointValueNode):
@@ -1191,21 +1191,25 @@ class Eng1EGTStartMax(KeyPointValueNode):
     def derive(self, egt=P('Eng (1) EGT'), n2=P('Eng (1) N2'),
                toffs=KTI('Takeoff Turn Onto Runway')):
         # Extract the index for the first turn onto the runway.
-        fto_idx = [t.index for t in toffs][0]
-        started_up, ignition = peak_start_egt(egt, n2, fto_idx)
-        if started_up:
-            self.create_kpvs_within_slices(egt.array,[slice(ignition,started_up)],max_value)
+        if len(toffs) > 0:
+            # Extract the index for the first turn onto the runway.
+            fto_idx = [t.index for t in toffs][0]
+            started_up, ignition = peak_start_egt(egt, n2, fto_idx)
+            if started_up:
+                self.create_kpvs_within_slices(egt.array,[slice(ignition,started_up)],max_value)
 
     
 class Eng2EGTStartMax(KeyPointValueNode):
     name = 'Eng (2) EGT Start Max'
     def derive(self, egt=P('Eng (2) EGT'), n2=P('Eng (2) N2'),
                toffs=KTI('Takeoff Turn Onto Runway')):
-        # Extract the index for the first turn onto the runway.
-        fto_idx = [t.index for t in toffs][0]
-        started_up, ignition = peak_start_egt(egt, n2, fto_idx)
-        if started_up:
-            self.create_kpvs_within_slices(egt.array,[slice(ignition,started_up)],max_value)
+        # If the data started after the aircraft is airborne, we'll never see the engine start.
+        if len(toffs) > 0:
+            # Extract the index for the first turn onto the runway.
+            fto_idx = [t.index for t in toffs][0]
+            started_up, ignition = peak_start_egt(egt, n2, fto_idx)
+            if started_up:
+                self.create_kpvs_within_slices(egt.array,[slice(ignition,started_up)],max_value)
 
 #-------------------------------------------------------------------------------
     
@@ -1529,9 +1533,8 @@ class AltitudeAtFirstConfigChangeAfterLiftoff(KeyPointValueNode):
             change_indexes = np.ma.where(np.ma.diff(flap.array[air.slice]))[0]
             if len(change_indexes):
                 # create at first change
-                index = air.slice.start + change_indexes[0]
-                self.create_kpv(air.slice.start + change_indexes[0], 
-                                value_at_index(alt_aal.array, index))
+                index = (air.slice.start or 0) + change_indexes[0]
+                self.create_kpv(index, value_at_index(alt_aal.array, index))
 
 
 class HeadingDeviationOnTakeoffAbove100Kts(KeyPointValueNode):
@@ -2222,7 +2225,7 @@ class SpeedbrakesDeployedWithFlapDuration(KeyPointValueNode):
             # Speedbrake and Flap => s_and_f
             s_and_fs = slices_and(brakes, with_flap)
             for s_and_f in s_and_fs:
-                index = s_and_f.start + airs.get_first().slice.start
+                index = s_and_f.start + (airs.get_first().slice.start or 0)
                 value = (s_and_f.stop - s_and_f.start) / speedbrake.hz
                 self.create_kpv(index, value)
 
@@ -2456,28 +2459,16 @@ class WindAcrossLandingRunwayAt50Ft(KeyPointValueNode):
     
 class ZeroFuelWeight(KeyPointValueNode):
     """
-    The aircraft zero fuel weight is estimated from the recorded gross weight
-    and fuel data. A best fit line should be close to a straight line, with a
-    slope of 1.0 and the intercept at fuel=0 is the Zero Fuel Weight. The
-    test for slope is important as this traps errors where one of the weights
-    is converted in the wrong units! It also detects cases where, on short
-    flights, the fuel movement in the tanks gives false readings in the
-    climb.
+    The aircraft zero fuel weight is computed from the recorded gross weight
+    and fuel data.
     
     See also the GrossWeightSmoothed calculation which uses fuel flow data to
     obtain a higher sample rate solution to the aircraft weight calculation,
     with a best fit to the available weight data.
     """
     def derive(self, fuel=P('Fuel Qty'), gw=P('Gross Weight')):
-        corr, slope, zfw = coreg(gw.array, indep_var=fuel.array)
-        if corr>0.95 and 0.8 < slope < 1.2:
-            self.create_kpv(0, zfw)
-        else:
-            logging.warning("Unable to compute Zero Fuel Weight from data supplied")
-        # Comment: This error has been seen from failure to connect to the
-        # limits database, or missing gross weight validation thresholds. As
-        # a result corrupt weight data is not masked and hence this
-        # correlation fails.
+        zfw=np.ma.median(gw.array-fuel.array)
+        self.create_kpv(0,zfw)
         
         
 class DualStickInput(KeyPointValueNode):

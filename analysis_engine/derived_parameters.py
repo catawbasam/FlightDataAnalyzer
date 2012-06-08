@@ -672,6 +672,7 @@ class AltitudeQNH(DerivedParameterNode):
         self.array = alt_qnh
 
 
+'''
 class AltitudeSTD(DerivedParameterNode):
     """
     This section allows for manipulation of the altitude recordings from
@@ -766,6 +767,7 @@ class AltitudeSTD(DerivedParameterNode):
         elif alt_std_coarse and ivv:
             self.array = self._coarse_and_ivv(alt_std_coarse, ivv)
             #ALT_STDC = (last_alt_std * 0.9) + (ALT_STD * 0.1) + (IVVR / 60.0)
+            '''
 
 
 class Autopilot(DerivedParameterNode):
@@ -811,7 +813,7 @@ class AltitudeTail(DerivedParameterNode):
         # Now apply the offset
         gear2tail = dist_gear_to_tail.value * METRES_TO_FEET
         ground2tail = ground_to_tail.value * METRES_TO_FEET
-        self.array = (alt_rad.array - np.ma.sin(pitch_rad) * gear2tail)
+        self.array = (alt_rad.array + ground2tail - np.ma.sin(pitch_rad)*gear2tail)
 
 
 class ClimbForFlightPhases(DerivedParameterNode):

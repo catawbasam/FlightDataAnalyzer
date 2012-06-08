@@ -207,7 +207,7 @@ class TestILSLocalizerEstablished(unittest.TestCase):
         app = buildsection('Approach',2, 9)
         establish = ILSLocalizerEstablished()
         establish.derive(ils, alt_aal, app)
-        expected = []
+        expected = buildsection('ILS Localizer Established', None, None)
         self.assertEqual(establish, expected)
 
     def test_ils_localizer_established_always_on_loc(self):
@@ -630,47 +630,50 @@ class TestFast(unittest.TestCase):
 class TestOnGround(unittest.TestCase):
     def test_can_operate(self):
         self.assertEqual(OnGround.get_operational_combinations(), 
-                         [('Airspeed For Flight Phases',)])
+                         [('Airspeed For Flight Phases','Airborne')])
 
     def test_on_ground_phase_basic(self):
         slow_and_fast_data = np.ma.array(range(60,120,10)+[120]*300+range(120,50,-10))
         ias = Parameter('Airspeed For Flight Phases', slow_and_fast_data,1,0)
+        air = buildsection('Airborne',2,311)
         phase_on_ground = OnGround()
-        phase_on_ground.derive(ias)
-        if AIRSPEED_THRESHOLD == 80:
-            expected = buildsections('On Ground',[0,2],[311,313])
-        if AIRSPEED_THRESHOLD == 70:
-            expected = buildsections('On Ground',[0,3],[56,0]) # Not set up.
+        phase_on_ground.derive(ias, air)
+        expected = buildsections('On Ground',[0,2],[311,313])
         self.assertEqual(phase_on_ground, expected)
         
     def test_on_ground_all_fast(self):
         on_ground_data = np.ma.array([120]*10)
         ias = Parameter('Airspeed For Flight Phases', on_ground_data,1,0)
+        air = buildsection('Airborne',None,None)
         phase_on_ground = OnGround()
-        phase_on_ground.derive(ias)
-        self.assertEqual(phase_on_ground.get_first(), None)
+        phase_on_ground.derive(ias, air)
+        expected = buildsection('On Ground',None,None)
+        self.assertEqual(phase_on_ground, expected)
 
     def test_on_ground_all_slow(self):
         on_ground_data = np.ma.array([12]*10)
         ias = Parameter('Airspeed For Flight Phases', on_ground_data,1,0)
+        air = buildsection('Airborne',None,None)
         phase_on_ground = OnGround()
-        phase_on_ground.derive(ias)
+        phase_on_ground.derive(ias, air)
         expected = buildsection('On Ground',0,10)
         self.assertEqual(phase_on_ground.get_first(), expected[0])
 
-    def test_on_ground_slowing_only(self):
+    def test_on_ground_landing_only(self):
         on_ground_data = np.ma.arange(110,60,-10)
         ias = Parameter('Airspeed For Flight Phases', on_ground_data,1,0)
+        air = buildsection('Airborne',None,4)
         phase_on_ground = OnGround()
-        phase_on_ground.derive(ias)
+        phase_on_ground.derive(ias, air)
         expected = buildsection('On Ground',4,5)
         self.assertEqual(phase_on_ground.get_first(), expected[0])
         
     def test_on_ground_speeding_only(self):
         on_ground_data = np.ma.arange(60,120,10)
         ias = Parameter('Airspeed For Flight Phases', on_ground_data,1,0)
+        air = buildsection('Airborne',2,None)
         phase_on_ground = OnGround()
-        phase_on_ground.derive(ias)
+        phase_on_ground.derive(ias, air)
         expected = buildsection('On Ground',0,2)
         self.assertEqual(phase_on_ground.get_first(), expected[0])
 
