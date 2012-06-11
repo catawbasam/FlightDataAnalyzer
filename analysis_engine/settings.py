@@ -28,7 +28,6 @@ API_HANDLER = 'analysis_engine.api_handler_analysis_engine.AnalysisEngineAPIHand
 ##API_HANDLER = 'analysis_engine.api_handler_analysis_engine.AnalysisEngineAPIHandlerDUMMY'
 
 # Base URL for the API for determining nearest airport/runway, etc:
-# BASE_URL = 'http://127.0.0.1'
 BASE_URL = 'https://polaris.flightdataservices.com'
 
 # Location of the CA certificates to be used by the HTTP API handler:
