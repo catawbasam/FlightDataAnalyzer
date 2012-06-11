@@ -41,7 +41,9 @@ from analysis_engine.settings import (AIRSPEED_THRESHOLD,
                                RATE_OF_TURN_FOR_TAXI_TURNS
                                )
 
-    
+logger = logging.getLogger(name=__name__)
+
+
 class Airborne(FlightPhaseNode):
     def derive(self, alt_aal=P('Altitude AAL For Flight Phases'),fast=S('Fast')):
         # Just find out when altitude above airfield is non-zero.
@@ -109,7 +111,12 @@ class Approach(FlightPhaseNode):
                                              slice(ga.slice.start, 0, -1))
             ga_slices.append(slice(gapp_start, ga.slice.stop,None))
         
-        self.create_phases(slices_or(app_slices, ga_slices))
+        all_apps = slices_or(app_slices, ga_slices)
+        
+        if all_apps:
+            self.create_phases(all_apps)
+        else:
+            logger.warning('Flight with no valid approach or go-around phase. Probably truncated data')
 
 
 class ClimbCruiseDescent(FlightPhaseNode):
@@ -491,7 +498,7 @@ class ILSGlideslopeEstablished(FlightPhaseNode):
             gsm = np.ma.masked_outside(gs,-1,1)  # mask data more than 1 dot
             ends = np.ma.flatnotmasked_edges(gsm)  # find the valid endpoints
             if ends is None:
-                logging.debug("Did not establish localiser within +-1dot")
+                logger.debug("Did not establish localiser within +-1dot")
                 continue
             elif ends[0] == 0 and ends[1] == -1:  # TODO: Pythonese this line !
                 # All the data is within one dot, so the phase is already known

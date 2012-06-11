@@ -10,6 +10,8 @@ from library import rms_noise, repair_mask
 from utilities.print_table import indent
 from hdfaccess.file import hdf_file
 
+logger = logging.getLogger(name=__name__)
+
 def add_track(kml, track_name, lat, lon, colour, alt_param=None):
     
     track_config = {'name': track_name}
@@ -281,7 +283,7 @@ def csv_flight_details(hdf_path, kti_list, kpv_list, phase_list, dest_path=None)
         writer.writerows(rows)
     
     # print to Debug I/O
-    logging.info(indent([header] + rows, hasHeader=True, wrapfunc=lambda x:str(x)))
+    logger.info(indent([header] + rows, hasHeader=True, wrapfunc=lambda x:str(x)))
 
 
 if __name__ == '__main__':

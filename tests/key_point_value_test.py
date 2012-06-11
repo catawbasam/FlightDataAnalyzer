@@ -656,9 +656,10 @@ class TestEngN13000FtToTouchdownMax(unittest.TestCase,
         self.second_param_method_calls = [('slices_from_to', (3000, 0,), {})]
 
 
-class TestEngN1TakeoffMax(unittest.TestCase, TestCreateKPVsAtKTIs):
+class TestEngN1TakeoffMax(unittest.TestCase, TestCreateKPVsWithinSlices):
     def setUp(self):
         self.node_class = EngN1TakeoffMax
+        self.function = max_value
         self.operational_combinations = [('Eng (*) N1 Max', 'TOGA 5 Min Rating')]
 
 
@@ -832,15 +833,7 @@ class TestFuelQtyAirborneMin(unittest.TestCase, TestCreateKPVsWithinSlices):
         """
 
 
-class TestILSGlideslopeDeviation1500To1000FtMax(unittest.TestCase,
-                                             TestCreateKPVsWithinSlices):
-    def setUp(self):
-        self.node_class = ILSGlideslopeDeviation1500To1000FtMax
-        self.operational_combinations = [('ILS Glideslope', 
-                                          'Altitude AAL For Flight Phases',
-                                          'ILS Glideslope Established')]
-        self.function = max_abs_value
-        self.second_param_method_calls = [('slices_from_to', (1500, 1000,), {})]
+class TestILSGlideslopeDeviation1500To1000FtMax(unittest.TestCase):
         
     def test_ils_glide_1500_1000_basic(self):
         testline = np.ma.array((75 - np.arange(63))*25) # 1875 to 325 ft in 63 steps.
@@ -880,16 +873,7 @@ class TestILSGlideslopeDeviationBelow1000FtMax(unittest.TestCase,
         """
 
 
-class TestILSGlideslopeDeviation1000To150FtMax(unittest.TestCase,
-                                            TestCreateKPVsWithinSlices):
-    def setUp(self):
-        self.node_class = ILSGlideslopeDeviation1000To150FtMax
-        self.operational_combinations = [('ILS Glideslope', 
-                                          'Altitude AAL For Flight Phases',
-                                          'ILS Glideslope Established')]
-        self.function = max_abs_value
-        self.second_param_method_calls = [('slices_from_to', (1500, 1000,), {})]
-        
+class TestILSGlideslopeDeviation1000To150FtMax(unittest.TestCase):
     def test_ils_glide_1000_150_basic(self):
         testline = np.ma.array((75 - np.arange(63))*25) # 1875 to 325 ft in 63 steps.
         alt_ph = Parameter('Altitude AAL For Flight Phases', testline)
@@ -1210,16 +1194,16 @@ class TestPitchRateDuringTakeoffMax(unittest.TestCase,
         self.function = max_value
 
 
-class TestPitchRateDuringTakeoffMin(unittest.TestCase,
-                                    TestCreateKPVsWithinSlices):
-    def setUp(self):
-        self.node_class = PitchRateDuringTakeoffMin
-        self.operational_combinations = [('Pitch Rate', 'Takeoff', 'Liftoff')]
-        self.function = max_value
+class TestPitchRateDuringTakeoffMin(unittest.TestCase):
+    def test_derive(self):
+        '''
+        TODO
+        '''
+        self.assertTrue(False)
 
 
 class TestRateOfDescent500FtToTouchdownMax(unittest.TestCase,
-                                         TestCreateKPVsWithinSlices):
+                                           TestCreateKPVsWithinSlices):
     def setUp(self):
         self.node_class = RateOfDescent500FtToTouchdownMax
         self.operational_combinations = [('Rate Of Climb', 'Altitude AAL For Flight Phases')]

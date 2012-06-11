@@ -4,6 +4,8 @@ import numpy as np
 from analysis_engine.node import SectionNode, P, S
 
 
+logger = logging.getLogger(name=__name__)
+
 #Q: What about using a different letter than "P" for non-parameters
 
 ##class _500FtToTouchdown(SectionNode):

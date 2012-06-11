@@ -84,6 +84,7 @@ from settings import (AIRSPEED_THRESHOLD,
                       TRANSITION_ALT_RAD_TO_STD,
                       )
 
+logger = logging.getLogger(name=__name__)
 # There is no numpy masked array function for radians, so we just multiply thus:
 deg2rad = radians(1.0)
 
@@ -619,7 +620,7 @@ class AltitudeRadio(DerivedParameterNode):
                 raise ValueError,'737-5 frame Altitude Radio qualifier not recognised.'
             
         else:
-            logging.warning("No specified Altitude Radio (*) merging for frame "
+            logger.warning("No specified Altitude Radio (*) merging for frame "
                             "'%s' so using source (A)", frame_name)
             self.array = source_A.array
 
@@ -1575,7 +1576,7 @@ class GrossWeightSmoothed(DerivedParameterNode):
             offset = gw_all[0] - to_burn_all[0]
             
         if offset == None:
-            logging.warning("Cannot smooth Gross Weight. Using the original data")
+            logger.warning("Cannot smooth Gross Weight. Using the original data")
             self.frequency = ff.frequency
             self.offset = ff.offset
             self.array = align(gw, ff)
@@ -1592,7 +1593,7 @@ class FlapLever(DerivedParameterNode):
             flap_steps = get_flap_map(series.value, family.value) 
         except KeyError:
             # no flaps mapping, round to nearest 5 degrees
-            logging.warning("No flap settings - rounding to nearest 5")
+            logger.warning("No flap settings - rounding to nearest 5")
             # round to nearest 5 degrees
             self.array = round_to_nearest(flap.array, 5.0)
         else:
@@ -1656,7 +1657,7 @@ class Flap(DerivedParameterNode):
             flap_steps = get_flap_map(series.value, family.value) 
         except KeyError:
             # no flaps mapping, round to nearest 5 degrees
-            logging.warning("No flap settings - rounding to nearest 5")
+            logger.warning("No flap settings - rounding to nearest 5")
             # round to nearest 5 degrees
             self.array = round_to_nearest(flap.array, 5.0)
         else:
@@ -1672,7 +1673,7 @@ class Slat(DerivedParameterNode):
             slat_steps = get_slat_map(series.value, family.value) 
         except KeyError:
             # no slats mapping, round to nearest 5 degrees
-            logging.warning("No slat settings - rounding to nearest 5")
+            logger.warning("No slat settings - rounding to nearest 5")
             # round to nearest 5 degrees
             self.array = round_to_nearest(slat.array, 5.0)
         else:
@@ -1729,11 +1730,11 @@ class Config(DerivedParameterNode):
         qty_param = len(mapping.itervalues().next())
         if qty_param == 3 and not aileron:
             # potential problem here!
-            logging.warning("Aileron not available, so will calculate Config using only slat and flap")
+            logger.warning("Aileron not available, so will calculate Config using only slat and flap")
             qty_param = 2
         elif qty_param == 2 and aileron:
             # only two items in values tuple
-            logging.debug("Aileron available but not required for Config calculation")
+            logger.debug("Aileron available but not required for Config calculation")
             pass
         
         #TODO: Scale each parameter individually to ensure uniqueness
@@ -1828,7 +1829,7 @@ class HeadingTrue(DerivedParameterNode):
                                            self.frequency)
             dest_mag_var = approach['airport'].get('magnetic_variation')
             if not dest_mag_var:
-                logging.warning("Cannot calculate '%s' with a missing magnetic "
+                logger.warning("Cannot calculate '%s' with a missing magnetic "
                                 "variation for airport with ID '%s'.",
                                 self.name, approach['airport']['id'])
                 self.array.mask = True
@@ -1947,12 +1948,12 @@ class ILSRange(DerivedParameterNode):
                     # we've found a matching approach where the localiser was established
                     break
             else:
-                logging.warning("No approach found within slice '%s'.",this_loc)
+                logger.warning("No approach found within slice '%s'.",this_loc)
                 continue
 
             runway = approach['runway']
             if not runway:
-                logging.warning("Approach runway information not available. "
+                logger.warning("Approach runway information not available. "
                                 "No support for Airports without Runways! "
                                 "Details: %s", approach)
                 continue
@@ -1998,7 +1999,7 @@ class ILSRange(DerivedParameterNode):
                 start_2_loc, gs_2_loc, end_2_loc, pgs_lat, pgs_lon = \
                     runway_distances(runway)  
             except KeyError:
-                logging.warning("Runway did not have required information in "
+                logger.warning("Runway did not have required information in "
                                 "'%s', '%s'.", self.name, runway)
                 continue
             if 'glideslope' in runway:
@@ -2011,7 +2012,7 @@ class ILSRange(DerivedParameterNode):
                 else:
                     # we didn't find a period where the glideslope was
                     # established at the same time as the localiser
-                    logging.warning("No glideslope established at same time as localiser")
+                    logger.warning("No glideslope established at same time as localiser")
                     continue
                     
                 # Compute best fit glidepath. The term (1-.13 x glideslope
@@ -2035,7 +2036,7 @@ class ILSRange(DerivedParameterNode):
                         break
                 else:
                     # we didn't find a period where the approach was within the localiser
-                    logging.warning("Approaches were not fully established with localiser")
+                    logger.warning("Approaches were not fully established with localiser")
                     continue
                     
                 corr, slope, offset = coreg(ils_range[this_app.slice], 
@@ -2084,7 +2085,7 @@ class LatitudeSmoothed(DerivedParameterNode):
                 # Can't smooth appproach data if the ILS was not established,
                 # but apologise if it was and we got in a muddle.
                 if len(loc_est)>0: 
-                    logging.warning("Cannot use ILS approach data to smooth the approach track because the number of '%s'"
+                    logger.warning("Cannot use ILS approach data to smooth the approach track because the number of '%s'"
                                     " sections was not equal to the number of approaches.",
                                     loc_est.name)
                 self.array = lat.array
@@ -2177,7 +2178,7 @@ def adjust_track(lon,lat,loc_est,ils_range,ils_loc,gspd,hdg,tas,
                              freq,
                              'takeoff')
         else:
-            logging.warning("Cannot smooth taxi out without a takeoff.")
+            logger.warning("Cannot smooth taxi out without a takeoff.")
 
         # Either way, we allow the recorded track to be used for the takeoff unchanged.
         pass
@@ -2219,7 +2220,7 @@ def adjust_track(lon,lat,loc_est,ils_range,ils_loc,gspd,hdg,tas,
                              hdg.array[:first_toff.slice.start],
                              freq, 'takeoff')
         else:
-            logging.warning("Cannot smooth takeoff without runway details.")
+            logger.warning("Cannot smooth takeoff without runway details.")
 
     #-----------------------------------------------------------------------
     # Use ILS track for approach and landings in all localizer approches
@@ -2244,12 +2245,12 @@ def adjust_track(lon,lat,loc_est,ils_range,ils_loc,gspd,hdg,tas,
                 # we've found a matching approach where the localiser was established
                 break
         else:
-            logging.warning("No approach found within slice '%s'.",this_loc)
+            logger.warning("No approach found within slice '%s'.",this_loc)
             continue
         
         runway = approach['runway']
         if not runway:
-            logging.error("Approach runway information not available.")
+            logger.error("Approach runway information not available.")
             raise NotImplementedError(
                 "No support for Airports without Runways! Details: %s" % approach)    
         

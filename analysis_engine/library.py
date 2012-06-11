@@ -12,6 +12,9 @@ from settings import KTS_TO_MPS, METRES_TO_FEET
 
 from settings import REPAIR_DURATION, TRUCK_OR_TRAILER_INTERVAL, TRUCK_OR_TRAILER_PERIOD
 
+
+logger = logging.getLogger(name=__name__)
+
 Value = namedtuple('Value', 'index value')
 
 class InvalidDatetime(ValueError):
@@ -195,17 +198,20 @@ def bearings_and_distances(latitudes, longitudes, reference):
     suit the POLARIS project.
     """
 
-    lat_array = np.ma.array(data=np.deg2rad(latitudes.data),mask=latitudes.mask)
-    lon_array = np.ma.array(data=np.deg2rad(longitudes.data),mask=longitudes.mask)
+    lat_array = np.ma.array(data=np.deg2rad(latitudes.data),
+                            mask=latitudes.mask)
+    lon_array = np.ma.array(data=np.deg2rad(longitudes.data),
+                            mask=longitudes.mask)
     lat_ref = radians(reference['latitude'])
     lon_ref = radians(reference['longitude'])
     
-    dlat = lat_ref-lat_array
-    dlon = lon_ref-lon_array
+    dlat = lat_ref - lat_array
+    dlon = lon_ref - lon_array
     
     a = np.ma.sin(dlat/2) * np.ma.sin(dlat/2) + \
-        np.ma.cos(lat_array) * np.ma.cos(lat_ref) * np.ma.sin(dlon/2) * np.ma.sin(dlon/2)
-    dists = 2 * np.ma.arctan2(np.ma.sqrt(a), np.ma.sqrt(1.0-a))
+        np.ma.cos(lat_array) * np.ma.cos(lat_ref) * \
+        np.ma.sin(dlon/2) * np.ma.sin(dlon/2)
+    dists = 2 * np.ma.arctan2(np.ma.sqrt(a), np.ma.sqrt(1.0 - a))
     dists *= 6371000 # Earth radius in metres
 
     
@@ -215,8 +221,10 @@ def bearings_and_distances(latitudes, longitudes, reference):
     brgs = np.ma.arctan2(-y,-x)
     
     joined_mask = np.logical_or(latitudes.mask, longitudes.mask)
-    brg_array = np.ma.array(data = np.rad2deg(brgs),mask = joined_mask)
-    dist_array = np.ma.array(data = dists,mask = joined_mask)
+    brg_array = np.ma.array(data=np.rad2deg(brgs) % 360,
+                            mask=joined_mask)
+    dist_array = np.ma.array(data=dists,
+                             mask=joined_mask)
 
     return brg_array, dist_array
 
@@ -249,13 +257,13 @@ def calculate_timebase(years, months, days, hours, mins, secs):
     #22.02.2012 - below no longer seems to be required.
     ##length = len(mins)
     ##if years is None or not len(years):
-        ##logging.warning("Year not supplied, filling in with 1970")
+        ##logger.warning("Year not supplied, filling in with 1970")
         ##years = np.repeat([1970], length) # force invalid year
     ##if months is None or not len(months):
-        ##logging.warning("Month not supplied, filling in with 01")
+        ##logger.warning("Month not supplied, filling in with 01")
         ##months = np.repeat([01], length) # force invalid month
     ##if days is None or not len(days):
-        ##logging.warning("Day not supplied, filling in with 01")
+        ##logger.warning("Day not supplied, filling in with 01")
         ##days = np.repeat([01], length) # force invalid days
         
     for step, (yr, mth, day, hr, mn, sc) in enumerate(izip(years, months, days, hours, mins, secs)):
@@ -2579,7 +2587,7 @@ def smooth_track(lat, lon):
         cost = smooth_track_cost_function(lat_s, lon_s, lat, lon)
 
     if cost>0.100:
-        logging.warn("Smooth Track Cost Function closed with cost %d",cost)
+        logger.warn("Smooth Track Cost Function closed with cost %d",cost)
     
     return lat_last, lon_last, cost_0
 
