@@ -87,7 +87,7 @@ def derive_parameters(hdf, node_mgr, process_order):
         for dep_name in node_deps:
             if dep_name in params:  # already calculated KPV/KTI/Phase
                 deps.append(params[dep_name])
-            elif node_mgr.get_attribute(dep_name):
+            elif node_mgr.get_attribute(dep_name) is not None:
                 deps.append(node_mgr.get_attribute(dep_name))
             elif dep_name in hdf:  # LFL/Derived parameter
                 # all parameters (LFL or other) need get_aligned which is
