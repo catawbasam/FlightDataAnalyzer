@@ -195,17 +195,20 @@ def bearings_and_distances(latitudes, longitudes, reference):
     suit the POLARIS project.
     """
 
-    lat_array = np.ma.array(data=np.deg2rad(latitudes.data),mask=latitudes.mask)
-    lon_array = np.ma.array(data=np.deg2rad(longitudes.data),mask=longitudes.mask)
+    lat_array = np.ma.array(data=np.deg2rad(latitudes.data),
+                            mask=latitudes.mask)
+    lon_array = np.ma.array(data=np.deg2rad(longitudes.data),
+                            mask=longitudes.mask)
     lat_ref = radians(reference['latitude'])
     lon_ref = radians(reference['longitude'])
     
-    dlat = lat_ref-lat_array
-    dlon = lon_ref-lon_array
+    dlat = lat_ref - lat_array
+    dlon = lon_ref - lon_array
     
     a = np.ma.sin(dlat/2) * np.ma.sin(dlat/2) + \
-        np.ma.cos(lat_array) * np.ma.cos(lat_ref) * np.ma.sin(dlon/2) * np.ma.sin(dlon/2)
-    dists = 2 * np.ma.arctan2(np.ma.sqrt(a), np.ma.sqrt(1.0-a))
+        np.ma.cos(lat_array) * np.ma.cos(lat_ref) * \
+        np.ma.sin(dlon/2) * np.ma.sin(dlon/2)
+    dists = 2 * np.ma.arctan2(np.ma.sqrt(a), np.ma.sqrt(1.0 - a))
     dists *= 6371000 # Earth radius in metres
 
     
@@ -215,8 +218,10 @@ def bearings_and_distances(latitudes, longitudes, reference):
     brgs = np.ma.arctan2(-y,-x)
     
     joined_mask = np.logical_or(latitudes.mask, longitudes.mask)
-    brg_array = np.ma.array(data = np.rad2deg(brgs),mask = joined_mask)
-    dist_array = np.ma.array(data = dists,mask = joined_mask)
+    brg_array = np.ma.array(data=np.rad2deg(brgs) % 360,
+                            mask=joined_mask)
+    dist_array = np.ma.array(data=dists,
+                             mask=joined_mask)
 
     return brg_array, dist_array
 

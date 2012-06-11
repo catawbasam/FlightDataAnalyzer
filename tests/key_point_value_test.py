@@ -1203,7 +1203,7 @@ class TestPitchRateDuringTakeoffMin(unittest.TestCase):
 
 
 class TestRateOfDescent500FtToTouchdownMax(unittest.TestCase,
-                                         TestCreateKPVsWithinSlices):
+                                           TestCreateKPVsWithinSlices):
     def setUp(self):
         self.node_class = RateOfDescent500FtToTouchdownMax
         self.operational_combinations = [('Rate Of Climb', 'Altitude AAL For Flight Phases')]
