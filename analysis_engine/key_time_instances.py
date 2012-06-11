@@ -403,7 +403,7 @@ class TouchAndGo(KeyTimeInstanceNode):
 
 
 class Touchdown(KeyTimeInstanceNode):
-    def derive(self, roc=P('Rate Of Climb For Flight Phases'), airs=S('Airborne')):
+    def derive(self, roc=P('Rate Of Climb'), airs=S('Airborne')):
         for air in airs:
             t0 = air.slice.stop
             if t0:

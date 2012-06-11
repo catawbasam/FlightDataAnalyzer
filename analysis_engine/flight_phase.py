@@ -111,7 +111,12 @@ class Approach(FlightPhaseNode):
                                              slice(ga.slice.start, 0, -1))
             ga_slices.append(slice(gapp_start, ga.slice.stop,None))
         
-        self.create_phases(slices_or(app_slices, ga_slices))
+        all_apps = slices_or(app_slices, ga_slices)
+        
+        if all_apps:
+            self.create_phases(all_apps)
+        else:
+            logger.warning('Flight with no valid approach or go-around phase. Probably truncated data')
 
 
 class ClimbCruiseDescent(FlightPhaseNode):
