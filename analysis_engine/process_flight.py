@@ -74,7 +74,7 @@ def derive_parameters(hdf, node_mgr, process_order):
         if param_name in node_mgr.lfl:
             continue
         
-        elif node_mgr.get_attribute(param_name):
+        elif node_mgr.get_attribute(param_name) is not None:
             # add attribute to dictionary of available params
             ###params[param_name] = node_mgr.get_attribute(param_name) #TODO: optimise with only one call to get_attribute
             continue
