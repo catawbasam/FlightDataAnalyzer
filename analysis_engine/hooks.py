@@ -36,6 +36,7 @@ try:
     from analysis_engine.custom_hooks import *
 except ImportError as err:
     import logging
-    logging.info("Unable to import custom_hooks.py")
+    logger = logging.getLogger(name=__name__)
+    logger.info("Unable to import custom_hooks.py")
     pass
 

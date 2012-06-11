@@ -41,7 +41,9 @@ from analysis_engine.settings import (AIRSPEED_THRESHOLD,
                                RATE_OF_TURN_FOR_TAXI_TURNS
                                )
 
-    
+logger = logging.getLogger(name=__name__)
+
+
 class Airborne(FlightPhaseNode):
     def derive(self, alt_aal=P('Altitude AAL For Flight Phases'),fast=S('Fast')):
         # Just find out when altitude above airfield is non-zero.
@@ -491,7 +493,7 @@ class ILSGlideslopeEstablished(FlightPhaseNode):
             gsm = np.ma.masked_outside(gs,-1,1)  # mask data more than 1 dot
             ends = np.ma.flatnotmasked_edges(gsm)  # find the valid endpoints
             if ends is None:
-                logging.debug("Did not establish localiser within +-1dot")
+                logger.debug("Did not establish localiser within +-1dot")
                 continue
             elif ends[0] == 0 and ends[1] == -1:  # TODO: Pythonese this line !
                 # All the data is within one dot, so the phase is already known

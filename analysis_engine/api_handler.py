@@ -12,6 +12,8 @@ from analysis_engine import settings
 TIMEOUT = 15
 socket.setdefaulttimeout(TIMEOUT)
 
+logger = logging.getLogger(name=__name__)
+
 class APIError(Exception):
     def __init__(self, message, uri=None, method=None, body=None):
         super(APIError, self).__init__(message)
@@ -89,7 +91,7 @@ class APIHandlerHTTP(object):
         except ValueError:
             # Only JSON return types supported, any other return means server
             # is not configured correctly
-            logging.exception("JSON decode error for '%s' - only JSON "
+            logger.exception("JSON decode error for '%s' - only JSON "
                               "supported by this API. Server configuration "
                               "error? %s\nBody: %s", method, uri, body)
             raise
@@ -130,10 +132,10 @@ class APIHandlerHTTP(object):
         '''
         for attempt in range(self.attempts):
             try:
-                logging.info("API Request args: %s | kwargs: %s", args, kwargs)
+                logger.info("API Request args: %s | kwargs: %s", args, kwargs)
                 return self._request(*args, **kwargs)
             except (APIConnectionError, UnknownAPIError) as error:
-                logging.exception("'%s' error in request, retrying in %.2f", 
+                logger.exception("'%s' error in request, retrying in %.2f", 
                                   error, self.delay)
                 time.sleep(self.delay)
         raise error

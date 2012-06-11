@@ -12,6 +12,9 @@ from settings import KTS_TO_MPS, METRES_TO_FEET
 
 from settings import REPAIR_DURATION, TRUCK_OR_TRAILER_INTERVAL, TRUCK_OR_TRAILER_PERIOD
 
+
+logger = logging.getLogger(name=__name__)
+
 Value = namedtuple('Value', 'index value')
 
 class InvalidDatetime(ValueError):
@@ -254,13 +257,13 @@ def calculate_timebase(years, months, days, hours, mins, secs):
     #22.02.2012 - below no longer seems to be required.
     ##length = len(mins)
     ##if years is None or not len(years):
-        ##logging.warning("Year not supplied, filling in with 1970")
+        ##logger.warning("Year not supplied, filling in with 1970")
         ##years = np.repeat([1970], length) # force invalid year
     ##if months is None or not len(months):
-        ##logging.warning("Month not supplied, filling in with 01")
+        ##logger.warning("Month not supplied, filling in with 01")
         ##months = np.repeat([01], length) # force invalid month
     ##if days is None or not len(days):
-        ##logging.warning("Day not supplied, filling in with 01")
+        ##logger.warning("Day not supplied, filling in with 01")
         ##days = np.repeat([01], length) # force invalid days
         
     for step, (yr, mth, day, hr, mn, sc) in enumerate(izip(years, months, days, hours, mins, secs)):
@@ -2584,7 +2587,7 @@ def smooth_track(lat, lon):
         cost = smooth_track_cost_function(lat_s, lon_s, lat, lon)
 
     if cost>0.100:
-        logging.warn("Smooth Track Cost Function closed with cost %d",cost)
+        logger.warn("Smooth Track Cost Function closed with cost %d",cost)
     
     return lat_last, lon_last, cost_0
 

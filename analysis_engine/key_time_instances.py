@@ -24,6 +24,9 @@ from settings import (CLIMB_THRESHOLD,
                       )
 
 
+logger = logging.getLogger(name=__name__)
+
+
 def find_toc_tod(alt_data, ccd_slice, mode):
     '''
     :alt_data : numpy masked array of pressure altitude data
