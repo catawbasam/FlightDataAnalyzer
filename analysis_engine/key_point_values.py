@@ -956,14 +956,15 @@ class HeadingAtTakeoff(KeyPointValueNode):
 
 
 class HeightLostInClimbTo35Ft(KeyPointValueNode):
-    def derive(self, height_loss=P('Descend For Flight Phases'),
-               alt_aal=P('Altitude AAL For Flight Phases')):
+    def derive(self, alt_aal=P('Altitude AAL For Flight Phases')):
         for climb in alt_aal.slices_from_to(0, 35):
-            idx = np.ma.argmin(height_loss.array[climb])
-            index = climb.start + idx
-            value = height_loss.array[index]
-            self.create_kpv(index, value) # May make this value < 0 only at a later date.
-
+            deltas = np.ma.ediff1d(alt_aal.array[climb], to_begin=0.0)
+            downs = np.ma.masked_greater(deltas,0.0)
+            index = np.ma.argmin(downs)
+            drop = np.ma.sum(downs)
+            if index:
+                self.create_kpv(climb.start + index, drop)
+                
 
 class HeightLostInClimb35To1000Ft(KeyPointValueNode):
     def derive(self, height_loss=P('Descend For Flight Phases'),
@@ -1979,6 +1980,11 @@ class PitchRateDuringTakeoffMax(KeyPointValueNode):
         self.create_kpvs_within_slices(pitch_rate.array, takeoffs, max_value)
 
 
+class PitchRateDuringLandingMin(KeyPointValueNode):
+    def derive(self, pitch_rate=P('Pitch Rate'), lands=S('Landing')):
+        self.create_kpvs_within_slices(pitch_rate.array, lands, min_value)
+
+
 class PitchRate2DegPitchTo35FtMin(KeyPointValueNode):
     #TODO: TESTS
     def derive(self, pitch_rate=P('Pitch Rate'), pitch=P('Pitch'), 
@@ -2116,13 +2122,13 @@ class RollCyclesInFinalApproach(KeyPointValueNode):
             self.create_kpv(*cycle_counter(roll.array[fapp.slice], 5.0, 10.0, roll.hz, fapp.slice.start))
             
 
-class RollBelow20FtOnTakeoffMax(KeyPointValueNode):
+class RollFromTakeoffTo20FtMax(KeyPointValueNode):
     def derive(self, roll=P('Roll'), alt_rad=P('Altitude Radio')):
         self.create_kpvs_within_slices(roll.array, alt_rad.slices_from_to(1,20),
                                        max_abs_value)
 
 
-class RollBelow20FtOnLandingMax(KeyPointValueNode):
+class RollFrom20FtToLandingMax(KeyPointValueNode):
     def derive(self, roll=P('Roll'), alt_rad=P('Altitude Radio')):
         self.create_kpvs_within_slices(roll.array, alt_rad.slices_from_to(20,1),
                                        max_abs_value)
@@ -2183,8 +2189,9 @@ class SpeedbrakesDeployed1000To20FtDuration(KeyPointValueNode):
             event = np.ma.masked_less(speedbrake.array[descent],0.5) 
             # 0 = stowed, 1+ = deployed
             duration = np.ma.count(event) / speedbrake.frequency
-            index = descent.stop
-            self.create_kpv(index, duration)
+            if duration:
+                index = descent.stop
+                self.create_kpv(index, duration)
 
 
 class SpeedbrakesDeployedInGoAroundDuration(KeyPointValueNode):
@@ -2192,10 +2199,11 @@ class SpeedbrakesDeployedInGoAroundDuration(KeyPointValueNode):
         for ga in gas:
             event = np.ma.masked_less(speedbrake.array[ga],0.5) 
             duration = np.ma.count(event) / speedbrake.frequency
-            # Probably open at the start of the go-around, so when were they closed?
-            when = np.ma.clump_unmasked(event)
-            index = when[-1].stop 
-            self.create_kpv(index, duration)
+            if duration:
+                # Probably open at the start of the go-around, so when were they closed?
+                when = np.ma.clump_unmasked(event)
+                index = when[-1].stop 
+                self.create_kpv(index, duration)
 
 
 class SpeedbrakesDeployedWithPowerOnDuration(KeyPointValueNode):
@@ -2214,7 +2222,8 @@ class SpeedbrakesDeployedWithPowerOnDuration(KeyPointValueNode):
         for s_and_p in s_and_ps:
             index = s_and_p.start + np.ma.argmax(power.array[s_and_p])
             value = (s_and_p.stop - s_and_p.start - 1) / speedbrake.hz
-            self.create_kpv(index, value)
+            if value:
+                self.create_kpv(index, value)
 
 
 class SpeedbrakesDeployedWithFlapDuration(KeyPointValueNode):
@@ -2230,7 +2239,8 @@ class SpeedbrakesDeployedWithFlapDuration(KeyPointValueNode):
             for s_and_f in s_and_fs:
                 index = s_and_f.start + (airs.get_first().slice.start or 0)
                 value = (s_and_f.stop - s_and_f.start) / speedbrake.hz
-                self.create_kpv(index, value)
+                if value:
+                    self.create_kpv(index, value)
 
 
 class SpeedbrakesDeployedWithConfDuration(KeyPointValueNode):
@@ -2244,7 +2254,8 @@ class SpeedbrakesDeployedWithConfDuration(KeyPointValueNode):
         for clump in clumps:
             index = clump.start
             value = (clump.stop - clump.start) / speedbrake.hz
-            self.create_kpv(index, value)
+            if value:
+                self.create_kpv(index, value)
 
 
 class SpeedbrakesDeployedWithPowerOnInHeightBandsDuration(KeyPointValueNode):
@@ -2272,8 +2283,9 @@ class SpeedbrakesDeployedWithPowerOnInHeightBandsDuration(KeyPointValueNode):
                         # Mark the point at highest power applied
                         index = s_and_p.start + np.ma.argmax(power.array[s_and_p])
                         value = (s_and_p.stop - s_and_p.start - 1) / speedbrake.hz
-                        self.create_kpv(index, value, 
-                                        eng_n1=eng_speed, upper=up, lower=low)
+                        if value:
+                            self.create_kpv(index, value, 
+                                            eng_n1=eng_speed, upper=up, lower=low)
 
 
 class StickPusherActivated(KeyPointValueNode):
@@ -2425,7 +2437,7 @@ class TimeTouchdownToElevatorDown(KeyPointValueNode):
 
 
 class Wind(KeyPointValueNode):
-    NAME_FORMAT = '%(parameter)s At %(altitude)d Ft AAL In Descent'
+    NAME_FORMAT = 'Wind Direction At %(altitude)d Ft AAL In Descent'
     NAME_VALUES = {'parameter':['Wind Speed',
                                 'Wind Direction Continuous',
                                 'Headwind'],

@@ -68,7 +68,8 @@ class BottomOfDescent(KeyTimeInstanceNode):
             self.create_kti(kti + this_dlc.slice.start)
         # For descents to landing, end where the aircraft is no longer airborne.
         for air in airs:
-            self.create_kti(air.slice.stop)
+            if air.slice.stop:
+                self.create_kti(air.slice.stop)
         
            
 class ApproachLowestPoint(KeyTimeInstanceNode):
