@@ -377,23 +377,23 @@ class TestDeterminePilot(unittest.TestCase):
     def test__autopilot_engaged(self):
         determine_pilot = DeterminePilot()
         # Q: What should discrete values be?
-        autopilot1 = KeyPointValue('Autopilot Engaged 1 At Touchdown', value=0)
-        autopilot2 = KeyPointValue('Autopilot Engaged 2 At Touchdown', value=0)
+        autopilot1 = KeyPointValue('AP Engaged 1 At Touchdown', value=0)
+        autopilot2 = KeyPointValue('AP Engaged 2 At Touchdown', value=0)
         pilot = determine_pilot._autopilot_engaged(autopilot1, autopilot2)
         self.assertEqual(pilot, None)
         # Autopilot 1 Engaged.
-        autopilot1 = KeyPointValue('Autopilot Engaged 1 At Touchdown', value=1)
-        autopilot2 = KeyPointValue('Autopilot Engaged 2 At Touchdown', value=0)
+        autopilot1 = KeyPointValue('AP Engaged 1 At Touchdown', value=1)
+        autopilot2 = KeyPointValue('AP Engaged 2 At Touchdown', value=0)
         pilot = determine_pilot._autopilot_engaged(autopilot1, autopilot2)
         self.assertEqual(pilot, 'Captain')
         # Autopilot 2 Engaged.
-        autopilot1 = KeyPointValue('Autopilot Engaged 1 At Touchdown', value=0)
-        autopilot2 = KeyPointValue('Autopilot Engaged 2 At Touchdown', value=1)
+        autopilot1 = KeyPointValue('AP Engaged 1 At Touchdown', value=0)
+        autopilot2 = KeyPointValue('AP Engaged 2 At Touchdown', value=1)
         pilot = determine_pilot._autopilot_engaged(autopilot1, autopilot2)
         self.assertEqual(pilot, 'First Officer')
         # Both Autopilots Engaged.
-        autopilot1 = KeyPointValue('Autopilot Engaged 1 At Touchdown', value=1)
-        autopilot2 = KeyPointValue('Autopilot Engaged 2 At Touchdown', value=1)
+        autopilot1 = KeyPointValue('AP Engaged 1 At Touchdown', value=1)
+        autopilot2 = KeyPointValue('AP Engaged 2 At Touchdown', value=1)
         pilot = determine_pilot._autopilot_engaged(autopilot1, autopilot2)
         self.assertEqual(pilot, None)
     
@@ -716,19 +716,19 @@ class TestLandingPilot(unittest.TestCase):
         self.assertTrue(('Pitch (Capt)', 'Roll (Capt)', 'Pitch (FO)',
                          'Roll (FO)', 'Landing') in opts)
         # Only Autopilot.
-        self.assertTrue(('Autopilot Engaged 1 At Touchdown',
-                         'Autopilot Engaged 2 At Touchdown') in opts)
+        self.assertTrue(('AP Engaged 1 At Touchdown',
+                         'AP Engaged 2 At Touchdown') in opts)
         # Combinations.
         self.assertTrue(('Pitch (Capt)', 'Roll (Capt)', 'Pitch (FO)',
                          'Roll (FO)', 'Landing',
-                         'Autopilot Engaged 1 At Touchdown') in opts)
+                         'AP Engaged 1 At Touchdown') in opts)
         self.assertTrue(('Pitch (Capt)', 'Roll (Capt)', 'Landing',
-                         'Autopilot Engaged 1 At Touchdown',
-                         'Autopilot Engaged 2 At Touchdown' in opts))
+                         'AP Engaged 1 At Touchdown',
+                         'AP Engaged 2 At Touchdown' in opts))
         # All.
         self.assertTrue(('Pitch (Capt)', 'Roll (Capt)', 'Pitch (FO)',
-                         'Roll (FO)', 'Landing', 'Autopilot Engaged 1 At Touchdown',
-                         'Autopilot Engaged 2 At Touchdown') in opts)
+                         'Roll (FO)', 'Landing', 'AP Engaged 1 At Touchdown',
+                         'AP Engaged 2 At Touchdown') in opts)
         
     def test_derive(self):
         landing_pilot = LandingPilot()
@@ -849,7 +849,7 @@ class TestLandingRunway(unittest.TestCase):
 class TestOffBlocksDatetime(unittest.TestCase):
     def test_derive(self):
         # Empty 'Turning'.
-        turning = S('Turning')
+        turning = S('Turning On Ground')
         start_datetime = A(name='Start Datetime', value=datetime.now())
         off_blocks_datetime = OffBlocksDatetime()
         off_blocks_datetime.set_flight_attr = Mock()
@@ -862,7 +862,7 @@ class TestOffBlocksDatetime(unittest.TestCase):
         off_blocks_datetime.derive(turning, start_datetime)
         off_blocks_datetime.set_flight_attr.assert_called_once_with(None)
         # 'Turning On Ground'.
-        turning = S('Turning', items=[KeyPointValue(name='Turning On Ground',
+        turning = S('Turning On Ground', items=[KeyPointValue(name='Turning On Ground',
                                                     slice=slice(20, 60))])
         off_blocks_datetime.set_flight_attr = Mock()
         off_blocks_datetime.derive(turning, start_datetime)
@@ -1025,19 +1025,19 @@ class TestTakeoffPilot(unittest.TestCase):
         self.assertTrue(('Pitch (Capt)', 'Roll (Capt)', 'Pitch (FO)',
                          'Roll (FO)', 'Takeoff') in opts)
         # Only Autopilot.
-        self.assertTrue(('Autopilot Engaged 1 At Liftoff',
-                         'Autopilot Engaged 2 At Liftoff') in opts)
+        self.assertTrue(('AP Engaged 1 At Liftoff',
+                         'AP Engaged 2 At Liftoff') in opts)
         # Combinations.
         self.assertTrue(('Pitch (Capt)', 'Roll (Capt)', 'Pitch (FO)',
                          'Roll (FO)', 'Takeoff',
-                         'Autopilot Engaged 1 At Liftoff') in opts)
+                         'AP Engaged 1 At Liftoff') in opts)
         self.assertTrue(('Pitch (Capt)', 'Roll (Capt)', 'Takeoff',
-                         'Autopilot Engaged 1 At Liftoff',
-                         'Autopilot Engaged 2 At Liftoff' in opts))
+                         'AP Engaged 1 At Liftoff',
+                         'AP Engaged 2 At Liftoff' in opts))
         # All.
         self.assertTrue(('Pitch (Capt)', 'Roll (Capt)', 'Pitch (FO)',
-                         'Roll (FO)', 'Takeoff', 'Autopilot Engaged 1 At Liftoff',
-                         'Autopilot Engaged 2 At Liftoff') in opts)
+                         'Roll (FO)', 'Takeoff', 'AP Engaged 1 At Liftoff',
+                         'AP Engaged 2 At Liftoff') in opts)
     
     def test_derive(self):
         takeoff_pilot = TakeoffPilot()

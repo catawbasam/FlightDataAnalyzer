@@ -11,7 +11,8 @@ from settings import KTS_TO_MPS, METRES_TO_FEET
 # TODO: Inform Enthought that fmin_l_bfgs_b dies in a dark hole at _lbfgsb.setulb
 
 from settings import REPAIR_DURATION, TRUCK_OR_TRAILER_INTERVAL, TRUCK_OR_TRAILER_PERIOD
-
+# There is no numpy masked array function for radians, so we just multiply thus:
+deg2rad = radians(1.0)
 
 logger = logging.getLogger(name=__name__)
 
@@ -198,10 +199,8 @@ def bearings_and_distances(latitudes, longitudes, reference):
     suit the POLARIS project.
     """
 
-    lat_array = np.ma.array(data=np.deg2rad(latitudes.data),
-                            mask=latitudes.mask)
-    lon_array = np.ma.array(data=np.deg2rad(longitudes.data),
-                            mask=longitudes.mask)
+    lat_array = latitudes*deg2rad
+    lon_array = longitudes*deg2rad
     lat_ref = radians(reference['latitude'])
     lon_ref = radians(reference['longitude'])
     
@@ -1084,8 +1083,9 @@ def ground_track(lat_fix, lon_fix, gspd, hdg, frequency, mode):
     else:
         raise ValueError,'Ground_track only recognises takeoff or landing modes'
     
-    delta_north = np.ma.array(gspd*np.cos(np.deg2rad(hdg.data)))
-    delta_east = np.ma.array(gspd*np.ma.sin(np.deg2rad(hdg.data)))
+    hdg_rad = hdg*deg2rad
+    delta_north = gspd*np.ma.cos(hdg_rad)
+    delta_east = gspd*np.ma.sin(hdg_rad)
     
     north = integrate(delta_north, frequency, scale=KTS_TO_MPS, direction=direction)
     east = integrate(delta_east, frequency, scale=KTS_TO_MPS, direction=direction)
@@ -1637,7 +1637,7 @@ def latitudes_and_longitudes(bearings, distances, reference):
     """
     lat_ref = radians(reference['latitude'])
     lon_ref = radians(reference['longitude'])
-    brg = np.deg2rad(bearings.data)
+    brg = bearings*deg2rad
     dist = distances.data / 6371000.0 # Scale to earth radius in metres
 
     lat = np.arcsin(sin(lat_ref)*np.ma.cos(dist) + 

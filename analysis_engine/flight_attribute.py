@@ -445,8 +445,8 @@ class LandingRunway(FlightAttributeNode):
 class OffBlocksDatetime(FlightAttributeNode):
     "Datetime when moving away from Gate/Blocks"
     name = 'FDR Off Blocks Datetime'
-    def derive(self, turning=P('Turning'), start_datetime=A('Start Datetime')):
-        first_turning = turning.get_first(name='Turning On Ground')
+    def derive(self, turning=S('Turning On Ground'), start_datetime=A('Start Datetime')):
+        first_turning = turning.get_first()
         if first_turning:
             off_blocks_datetime = datetime_of_index(start_datetime.value,
                                                     first_turning.slice.start,
@@ -459,8 +459,8 @@ class OffBlocksDatetime(FlightAttributeNode):
 class OnBlocksDatetime(FlightAttributeNode):
     "Datetime when moving away from Gate/Blocks"
     name = 'FDR On Blocks Datetime'
-    def derive(self, turning=P('Turning'), start_datetime=A('Start Datetime')):
-        last_turning = turning.get_last(name='Turning On Ground')
+    def derive(self, turning=P('Turning On Ground'), start_datetime=A('Start Datetime')):
+        last_turning = turning.get_last()
         if last_turning:
             on_blocks_datetime = datetime_of_index(start_datetime.value,
                                                    last_turning.slice.stop,
@@ -831,42 +831,6 @@ class LandingPilot(FlightAttributeNode, DeterminePilot):
                                              pitch_fo, roll_fo, last_landing,
                                              last_autopilot1, last_autopilot2)
         self.set_flight_attr(pilot_flying)
-
-    
-class V2(FlightAttributeNode):
-    '''
-    Based on weight and flap at time of landing.
-    '''
-    name = 'FDR V2'
-    def derive(self, weight_touchdown=KPV('Gross Weight At Touchdown'),
-               flap_touchdown=KPV('Flap At Touchdown')):
-        '''
-        Do not source from AFR, only set attribute if V2 is recorded/derived.
-        '''
-        weight = weight_touchdown.get_last()
-        flap = flap_touchdown.get_last()
-        if not weight or not flap:
-            # TODO: Log.
-            return
-        return NotImplemented
-         
-         
-class Vapp(FlightAttributeNode):
-    '''
-    Based on weight and flap at time of landing.
-    '''
-    name = 'FDR Vapp'
-    def derive(self, weight_touchdown=KPV('Gross Weight At Touchdown'),
-               flap_touchdown=KPV('Flap At Touchdown')):
-        '''
-        Do not source from AFR, only set attribute if Vapp is recorded/derived.
-        '''
-        weight = weight_touchdown.get_last()
-        flap = flap_touchdown.get_last()
-        if not weight or not flap:
-            # TODO: Log.
-            return
-        return NotImplemented
 
 
 class Version(FlightAttributeNode):

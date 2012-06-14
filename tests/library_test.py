@@ -405,7 +405,9 @@ class TestBearingsAndDistances(unittest.TestCase):
         origin = {'latitude':0.0,'longitude':0.0}
         latitudes = np.ma.array([.1,.1,-.1,-.1])
         longitudes = np.ma.array([-.1,.1,.1,-.1])
-        compass = np.ma.array([-45,45,135,-135])
+        # Bearings changed from +/-180 to 0:360 when this function was used
+        # to populate runway magnetic headings in the airport database.
+        compass = np.ma.array([360-45,45,135,360-135])
         brg, dist = bearings_and_distances(latitudes, longitudes, origin)
         ma_test.assert_masked_array_approx_equal(brg, compass)
 
@@ -413,7 +415,7 @@ class TestBearingsAndDistances(unittest.TestCase):
         origin = {'latitude':0.0,'longitude':0.0}
         latitudes = np.ma.array([1,0,-1,0])
         longitudes = np.ma.array([0,1,0,-1])
-        compass = np.ma.array([0,90,-180,-90])
+        compass = np.ma.array([0,90,180,270])
         brg, dist = bearings_and_distances(latitudes, longitudes, origin)
         ma_test.assert_masked_array_approx_equal(brg, compass)
 
@@ -421,7 +423,7 @@ class TestBearingsAndDistances(unittest.TestCase):
         origin = {'latitude':60.280151,'longitude':5.222579}
         latitudes = np.ma.array([60.2789,60.30662494,60.289,60.28875])
         longitudes = np.ma.array([5.223,5.21370074,5.2272,5.2636])
-        compass = np.ma.array([170,-9,14,67])
+        compass = np.ma.array([170,351,14,67])
         brg, dist = bearings_and_distances(latitudes, longitudes, origin)
         for i in range(4):
             self.assertLess(abs(compass[i]-brg[i]),1.0)
@@ -432,7 +434,9 @@ class TestBearingsAndDistances(unittest.TestCase):
         latitudes[0]=np.ma.masked
         longitudes = np.ma.array([-.1,.1,.1,-.1])
         longitudes[2]=np.ma.masked
-        compass = np.ma.array([135,45,-45,-135])
+        # Bearings changed from +/-180 to 0:360 when this function was used
+        # to populate runway magnetic headings in the airport database.
+        compass = np.ma.array([135,45,360-45,360-135])
         compass.mask=[True,False,True,False]
         brg, dist = bearings_and_distances(latitudes, longitudes, origin)
         ma_test.assert_masked_array_approx_equal(brg, compass)
@@ -1711,7 +1715,7 @@ class TestNpMaOnesLike(unittest.TestCase):
         expected = np.ma.array([1,1,1])
         ma_test.assert_array_equal(expected, result)
 
-        
+
 class TestNpMaMaskedZerosLike(unittest.TestCase):
     def test_masked_zeros_like_basic(self):
         result = np_ma_masked_zeros_like(np.ma.array([1,2,3]))

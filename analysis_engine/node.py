@@ -914,7 +914,7 @@ class KeyTimeInstanceNode(FormattedNameNode):
         pressed, it is suitable for multi-state or analogue parameters such
         as flap selections.
         
-        :param array: The input parameter, with data and sample rate information.
+        :param array: The input array.
         :type array: A recorded or derived parameter.
         :param direction: Keyword argument.
         :type direction: string
@@ -1076,7 +1076,7 @@ class KeyPointValueNode(FormattedNameNode):
         return KeyPointValueNode(name=self.name, frequency=self.frequency,
                                  offset=self.offset, items=ordered_by_value)
     
-    def create_kpvs_at_ktis(self, array, ktis):
+    def create_kpvs_at_ktis(self, array, ktis, suppress_zeros=False):
         '''
         Creates KPVs by sourcing the array at each KTI index. Requires the array
         to be aligned to the KTIs.
@@ -1085,12 +1085,17 @@ class KeyPointValueNode(FormattedNameNode):
         :type array: np.ma.masked_array
         :param ktis: KTIs with indices to source values within the array from.
         :type ktis: KeyTimeInstanceNode
+        :param suppress_zeros: Optional flag to prevent zero values creating a KPV.
+        :type suppress_zeros: Boolean, default=False.
+    
         :returns None:
         :rtype: None
         '''
         for kti in ktis:
             value = value_at_index(array, kti.index)
-            self.create_kpv(kti.index, value)
+            if (not suppress_zeros) or value:
+                self.create_kpv(kti.index, value)
+                
     create_kpvs_at_kpvs = create_kpvs_at_ktis # both will work the same!
     
     def create_kpvs_within_slices(self, array, slices, function, **kwargs):

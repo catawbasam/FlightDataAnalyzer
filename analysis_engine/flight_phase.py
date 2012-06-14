@@ -674,7 +674,8 @@ class TOGA5MinRating(FlightPhaseNode):
     For engines, the period of high power operation is normally 5 minutes
     from the start of takeoff. Also applies in the case of a go-around.
     """
-    def derive(self, toffs=S('Takeoff'), gas=S('Go Around')):
+    name = 'TOGA 5 Min Rating'
+    def derive(self, toffs=S('Takeoff'), gas=S('Go Around And Climbout')):
         for toff in toffs:
             self.create_phase(slice(toff.slice.start, toff.slice.start + 300))
         for ga in gas:

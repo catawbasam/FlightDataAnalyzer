@@ -728,6 +728,16 @@ class TestKeyPointValueNode(unittest.TestCase):
                           KeyPointValue(index=2, value=2, name='Kpv'),
                           KeyPointValue(index=8, value=8, name='Kpv')])
     
+    def test_create_kpvs_at_ktis_suppressed_zeros(self):
+        knode = self.knode
+        param = P('Param', np.ma.array([0]*5+[7]*5))
+        # value_at_index will interpolate masked values.
+        param.array[3:7] = np.ma.masked
+        ktis = KTI('KTI', items=[KeyTimeInstance(i, 'a') for i in range(0,10,2)])
+        knode.create_kpvs_at_ktis(param.array, ktis, suppress_zeros=True)
+        self.assertEqual(list(knode),
+                         [KeyPointValue(index=8, value=7, name='Kpv')])
+    
     def test_create_kpvs_within_slices(self):
         knode = self.knode
         function = mock.Mock()

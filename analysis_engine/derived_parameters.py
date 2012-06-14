@@ -186,7 +186,7 @@ class AirspeedMinusV2For3Sec(DerivedParameterNode):
 
 class AirspeedMinusV2For5Sec(DerivedParameterNode):
     #TODO: TESTS
-    def derive(self, airspeed=P('Airspeed Minus V2')):
+    def derive(self, spd_v2=P('Airspeed Minus V2')):
         self.array = clip(spd_v2.array, 5.0, spd_v2.frequency)
         
 
@@ -771,28 +771,24 @@ class AltitudeSTD(DerivedParameterNode):
             '''
 
 
+'''
 class Autopilot(DerivedParameterNode):
+    name = 'AP Engaged'
     """
     Placeholder for combining multi-channel AP modes into a single consistent status.
+    
+    Not required for 737-5 frame as AP Engaged is recorded directly.
     """
-    def derive(self, ap_eng=P('Autopilot Engaged'),
-               frame=A('Frame')):
-        frame_name = frame.value if frame else None
-        
-        if frame_name in ['737-5']:
-            self.array = ap_eng.array
        
 
 class Autothrottle(DerivedParameterNode):
+    name = 'AT Engaged'
     """
     Placeholder for combining multi-channel AP modes into a single consistent status.
+
+    Not required for 737-5 frame as AT Engaged is recorded directly.
     """
-    def derive(self, at_eng=P('Autothrottle Engaged'),
-               frame=A('Frame')):
-        frame_name = frame.value if frame else None
-        
-        if frame_name in ['737-5']:
-            self.array = at_eng.array
+    '''
  
         
 class AltitudeTail(DerivedParameterNode):
@@ -945,6 +941,28 @@ class DistanceTravelled(DerivedParameterNode):
     units = 'nm'
     def derive(self, gspd=P('Groundspeed')):
         self.array = integrate(gspd.array, gspd.frequency, scale=1.0/3600.0)
+        
+        
+class PackValvesOpen(DerivedParameterNode):
+    """
+    Integer representation of the combined pack configuration.
+    
+    0 = All closed
+    1+ = One or more valves open and increasing flow rates.
+    """
+    name = "Pack Valves Open"
+    align_to_first_dependency = False
+
+    @classmethod
+    def can_operate(cls, available):
+        # works with any combination of params available
+        return any([d in available for d in cls.get_dependency_names()])
+
+    def derive(self, 
+               p1=P('ECS Pack (1) On'), p1h=P('ECS Pack (1) High Flow'),
+               p2=P('ECS Pack (2) On'), p2h=P('ECS Pack (2) High Flow')):
+        # Sum the open engines, allowing 1 for low flow and 1+1 for high flow each side.
+        self.array = p1.array*(1+p1h.array)+p2.array*(1+p2h.array)
         
 
 class Eng_EGTAvg(DerivedParameterNode):
@@ -1404,24 +1422,40 @@ class Eng_TorqueMax(DerivedParameterNode):
 
 
 class Eng_VibN1Max(DerivedParameterNode):
+    # This function condenses all the available first shaft order vibration
+    # measurements into a single consolidated value.
+
     #TODO: TEST
+
     name = 'Eng (*) Vib N1 Max'
     @classmethod
     def can_operate(cls, available):
         # works with any combination of params available
         return any([d in available for d in cls.get_dependency_names()])
-        
+    
     def derive(self, 
                eng1=P('Eng (1) Vib N1'),
                eng2=P('Eng (2) Vib N1'),
                eng3=P('Eng (3) Vib N1'),
-               eng4=P('Eng (4) Vib N1')):
-        engines = vstack_params(eng1, eng2, eng3, eng4)
+               eng4=P('Eng (4) Vib N1'),
+               eng1_fan=P('Eng (1) Vib N1 Fan'),
+               eng1_lpt=P('Eng (1) Vib N1 LPT'),
+               eng2_fan=P('Eng (2) Vib N1 Fan'),
+               eng2_lpt=P('Eng (2) Vib N1 LPT'),
+               ):
+        
+
+        engines = vstack_params(eng1, eng2, eng3, eng4,
+                                eng1_fan, eng1_lpt, eng2_fan, eng2_lpt)
         self.array = np.ma.max(engines, axis=0)
         
         
 class Eng_VibN2Max(DerivedParameterNode):
+    # This function condenses all the available second shaft order vibration
+    # measurements into a single consolidated value.
+
     #TODO: TEST
+
     name = 'Eng (*) Vib N2 Max'
     @classmethod
     def can_operate(cls, available):
@@ -1432,8 +1466,14 @@ class Eng_VibN2Max(DerivedParameterNode):
                eng1=P('Eng (1) Vib N2'),
                eng2=P('Eng (2) Vib N2'),
                eng3=P('Eng (3) Vib N2'),
-               eng4=P('Eng (4) Vib N2')):
-        engines = vstack_params(eng1, eng2, eng3, eng4)
+               eng4=P('Eng (4) Vib N2'),
+               eng1_hpc=P('Eng (1) Vib N2 HPC'),
+               eng1_hpt=P('Eng (1) Vib N2 HPT'),
+               eng2_hpc=P('Eng (2) Vib N2 HPC'),
+               eng2_hpt=P('Eng (2) Vib N2 HPT')
+               ):
+        engines = vstack_params(eng1, eng2, eng3, eng4,
+                                eng1_hpc, eng1_hpt, eng2_hpc, eng2_hpt)
         self.array = np.ma.max(engines, axis=0)
 
 
@@ -2313,7 +2353,9 @@ class MagneticVariation(DerivedParameterNode):
     The main idea here is that we can easily identify the ends of the runway
     and the heading on the runway, but it is far harder to find data on the
     magnetic variation at an airport. Especially in difficult locations like
-    Africa or post-war zones.
+    Africa or post-war zones. Also, by using the aircraft compass values to
+    work out the variation, we inherently accommodate compass drift for that
+    day.
     """
     def derive(self, head=P('Heading Continuous'),
                head_land = KPV('Heading At Landing'),
@@ -2672,6 +2714,54 @@ class Tailwind(DerivedParameterNode):
     def derive(self, hwd=P('Headwind')):
         self.array = -hwd.array
         
+
+class V2(DerivedParameterNode):
+    '''
+    Based on weight and flap at next intended landing.
+    '''
+    def derive(self, flap=P('Flap'), weight=P('Gross Weight Smoothed'),
+               app_lows=KTI('Lowest Point On Approach')):
+        
+        def _v2(weight, flap):
+            #TODO: V2 Speed calculations replace below...
+            return weight/(flap*15) # Silly formula for developing structure only.
+        
+        # Initialize the result space.
+        self.array = np_ma_masked_zeros_like(flap.array)
+        
+        # Fill the array with the last approach (and landing) V2:-
+        pit_idx = app_lows.get_last().index
+        pit_wt = weight.array[pit_idx]
+        pit_flap = flap.array[pit_idx]
+        self.array[:] = _v2(pit_wt, pit_flap)
+        
+        # If we made an approach earlier, fill up to the go-around point with
+        # the appropriate V2 value.
+        while app_lows.get_previous(pit_idx):
+            pit_idx = app_lows.get_previous(pit_idx).index
+            pit_wt = weight.array[pit_idx]
+            pit_flap = flap.array[pit_idx]
+            self.array[:pit_idx] = _v2(pit_wt, pit_flap)
+         
+         
+class Vapp(DerivedParameterNode):
+    '''
+    Based on weight and flap at time of landing.
+    '''
+    name = 'FDR Vapp'
+    def derive(self, weight_touchdown=KPV('Gross Weight At Touchdown'),
+               flap_touchdown=KPV('Flap At Touchdown')):
+        '''
+        Do not source from AFR, only set attribute if Vapp is recorded/derived.
+        '''
+        weight = weight_touchdown.get_last()
+        flap = flap_touchdown.get_last()
+        if not weight or not flap:
+            # TODO: Log.
+            return
+        return NotImplemented
+        
+        
         
 class WindAcrossLandingRunway(DerivedParameterNode):
     """
@@ -2795,3 +2885,4 @@ class StickShaker(DerivedParameterNode):
     def derive(self, shake=P('STICK SHAKER-LEFT')):
         self.array, self.frequency, self.offset = \
             shake.array, shake.frequency, shake.offset
+

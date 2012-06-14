@@ -13,6 +13,7 @@ from analysis_engine.node import KeyPointValueNode, KPV, KTI, P, S, A
 from analysis_engine.library import (clip, 
                                      coreg, 
                                      cycle_counter,
+                                     cycle_finder,
                                      _dist,
                                      find_edges,
                                      index_at_value, 
@@ -741,6 +742,20 @@ class AltitudeAtGoAroundMin(KeyPointValueNode):
             self.create_kpv(index, pit)
 
 
+class AltitudeGoAroundFlapRetracted(KeyPointValueNode):
+    # gafr pinpoints the flap retraction instance within the 500ft go-around window.
+    def derive(self, alt_aal=P('Altitude AAL'), 
+               gafr=KTI('Go Around Flap Retracted')):
+        self.create_kpvs_at_ktis(alt_aal.array,gafr)
+
+
+class AltitudeGoAroundGearRetracted(KeyPointValueNode):
+    # gagr pinpoints the gear retraction instance within the 500ft go-around window.
+    def derive(self, alt_aal=P('Altitude AAL'), 
+               gagr=KTI('Go Around Gear Retracted')):
+        self.create_kpvs_at_ktis(alt_aal.array,gagr)
+
+
 class AltitudeAtLiftoff(KeyPointValueNode):
     def derive(self, alt_std=P('Altitude STD'), liftoffs=KTI('Liftoff')):
         self.create_kpvs_at_ktis(alt_std.array, liftoffs)
@@ -796,27 +811,27 @@ class AltitudeMax(KeyPointValueNode):
 
 
 class AltitudeAutopilotEngaged(KeyPointValueNode):
-    name = 'Altitude AAL Autopilot Engaged In Flight'
-    def derive(self, alt_aal=P('Altitude AAL'), ap_eng=KTI('Autopilot Selection Engaged')):
+    name = 'Altitude AAL AP Engaged In Flight'
+    def derive(self, alt_aal=P('Altitude AAL'), ap_eng=KTI('AP Selection Engaged')):
         self.create_kpvs_at_ktis(alt_aal.array, ap_eng)
         
         
 class AltitudeAutopilotDisengaged(KeyPointValueNode):
-    name = 'Altitude AAL Autopilot Disengaged In Flight'
-    def derive(self, alt_aal=P('Altitude AAL'), ap_dis=KTI('Autopilot Selection Disengaged')):
+    name = 'Altitude AAL AP Disengaged In Flight'
+    def derive(self, alt_aal=P('Altitude AAL'), ap_dis=KTI('AP Selection Disengaged')):
         self.create_kpvs_at_ktis(alt_aal.array, ap_dis)
         
         
 class AltitudeAutothrottleEngaged(KeyPointValueNode):
-    name = 'Altitude AAL Autothrottle Engaged In Flight'
+    name = 'Altitude AAL AT Engaged In Flight'
     # Note: Autothrottle is normally engaged prior to takeoff, so will not trigger this event.
-    def derive(self, alt_aal=P('Altitude AAL'), at_eng=KTI('Autothrottle Selection Engaged')):
+    def derive(self, alt_aal=P('Altitude AAL'), at_eng=KTI('AT Selection Engaged')):
         self.create_kpvs_at_ktis(alt_aal.array, at_eng)
         
         
 class AltitudeAutothrottleDisengaged(KeyPointValueNode):
-    name = 'Altitude AAL Autothrottle Disengaged In Flight'
-    def derive(self, alt_aal=P('Altitude AAL'), at_dis=KTI('Autothrottle Selection Disengaged')):
+    name = 'Altitude AAL AT Disengaged In Flight'
+    def derive(self, alt_aal=P('Altitude AAL'), at_dis=KTI('AT Selection Disengaged')):
         self.create_kpvs_at_ktis(alt_aal.array, at_dis)
         
 
@@ -1053,31 +1068,16 @@ class ILSLocalizerDeviation1000To150FtMax(KeyPointValueNode):
         ils_bands = slices_and(alt_bands, [s.slice for s in ils_ests])
         self.create_kpvs_within_slices(ils_loc.array,ils_bands,max_abs_value)  
 
-
-class TimeFromTouchdownTo60Kts(KeyPointValueNode):
-    """
-    Ideally compute using groundspeed, otherwise use airspeed.
-    """
-    @classmethod
-    def can_operate(cls, available):
-        return 'Airspeed' in available and 'Touchdown' in available
-    
-    def derive(self, airspeed=P('Airspeed'), groundspeed=P('Groundspeed'), 
-               tdwns=KTI('Touchdown')):
         
-        if groundspeed:
-            speed=groundspeed.array
-            freq=groundspeed.frequency
-        else:
-            speed=airspeed.array
-            freq=airspeed.frequency
-            
-        for tdwn in tdwns:
-            index_60kt = index_at_value(speed, 60.0, slice(tdwn.index,None))
-            if index_60kt:
-                t__60kt = (index_60kt - tdwn.index) / freq
-                self.create_kpv(index_60kt, t__60kt)
-            
+class IsolationValveOpenAtLiftoff(KeyPointValueNode):
+    def derive(self, isol=P('Isolation Valve Open'), lifts=KTI('Liftoff')):
+        self.create_kpvs_at_ktis(isol.array, lifts, suppress_zeros=True)
+
+        
+class PackValvesOpenAtLiftoff(KeyPointValueNode):
+    def derive(self, isol=P('Pack Valves Open'), lifts=KTI('Liftoff')):
+        self.create_kpvs_at_ktis(isol.array, lifts, suppress_zeros=True)
+
 
 class LatitudeAtLanding(KeyPointValueNode):
     # Cannot use smoothed position as this causes circular dependancy.
@@ -1162,6 +1162,7 @@ class MagneticVariationAtTakeoff(KeyPointValueNode):
 class MagneticVariationAtLanding(KeyPointValueNode):
     def derive(self, var=P('Magnetic Variation'), land=KTI('Landing Turn Off Runway')):
         self.create_kpvs_at_ktis(var.array, land)
+
 
 #-------------------------------------------------------------------------------
 # Engine start conditions
@@ -1375,7 +1376,7 @@ class EngN1Max(KeyPointValueNode):
 
 class EngN1TaxiMax(KeyPointValueNode):
     name = 'Eng N1 Taxi Max'
-    def derive(self, eng_n1=P('Eng (*) N1 Max'), taxi=S('Taxi')):
+    def derive(self, eng_n1=P('Eng (*) N1 Max'), taxi=S('Taxiing')):
         self.create_kpvs_within_slices(eng_n1.array, taxi, max_value)
 
 
@@ -1460,8 +1461,8 @@ class EngOilTempMax(KeyPointValueNode):
         self.create_kpv(index, value)
 
 
-class EngOilTempMax15Min(KeyPointValueNode):
-    name = 'Eng Oil Temp Max 15 Min'
+class EngOilTemp15MinuteMax(KeyPointValueNode):
+    name = 'Eng Oil Temp 15 Minutes Max'
     def derive(self, oil_temp=P('Eng (*) Oil Temp Max')):
         self.create_kpv(*max_value(clip(oil_temp.array, 15*60, oil_temp.hz)))
 
@@ -1488,6 +1489,17 @@ class EngVibN2Max(KeyPointValueNode):
     def derive(self, eng=P('Eng (*) Vib N2 Max')):
         index, value = max_value(eng.array)
         self.create_kpv(index, value)
+
+
+class EventMarkerPressed(KeyPointValueNode):
+    def derive(self, event=P('Event Marker'), airs=S('Airborne')):
+        pushed = np.ma.clump_unmasked(np.ma.masked_equal(event.array, 0))
+        events_in_air = slices_and(pushed, [air.slice for air in airs])
+        for event_in_air in events_in_air:        
+            if event_in_air:
+                duration = (event_in_air.stop - event_in_air.start) / event.frequency
+                index = (event_in_air.stop + event_in_air.start) / 2.0
+                self.create_kpv(index, duration)
 
 
 class RateOfClimbMax(KeyPointValueNode):
@@ -1665,6 +1677,7 @@ class FlapWithGearUpMax(KeyPointValueNode):
         gear_up_slices = np.ma.clump_unmasked(gear_up)
         self.create_kpvs_within_slices(flap.array, gear_up_slices, max_value)
 
+
 class FlapAtTouchdown(KeyPointValueNode):
     def derive(self, flap=P('Flap'), touchdowns=KTI('Touchdown')):
         self.create_kpvs_at_ktis(flap.array, touchdowns)
@@ -1715,9 +1728,32 @@ class FlareDistance20FtToTouchdown(KeyPointValueNode):
 
 
 class AltitudeAtSuspectedLevelBust(KeyPointValueNode):
-    def derive(self, level_bust=S('Level Bust')):
-        return NotImplemented
+    def derive(self, alt_std=P('Altitude STD')):
+        bust = 300 # ft
+        bust_time = 3*60 # 3 mins
 
+        idxs, peaks = cycle_finder(alt_std.array, min_step=bust)
+
+        if idxs == None:
+            return
+        for num, idx in enumerate(idxs[1:-1]):
+            begin = index_at_value(np.ma.abs(alt_std.array-peaks[num]), bust, _slice=slice(idx,None,-1))
+            end = index_at_value(np.ma.abs(alt_std.array-peaks[num]), bust, _slice=slice(idx,None))
+            if begin and end:
+                duration = (end-begin)/alt_std.frequency
+                if duration < bust_time:
+                    a=alt_std.array[idxs[num]]
+                    b=alt_std.array[idxs[num+1]]
+                    c=alt_std.array[idxs[num+2]]
+                    if b>(a+c)/2:
+                        overshoot = min(b-a,b-c)
+                        self.create_kpv(idx,overshoot)
+                    else:
+                        undershoot = max(b-a,b-c)
+                        self.create_kpv(idx,undershoot)
+                        
+
+        
 
 class EngOilPressMax(KeyPointValueNode):
     #TODO: TESTS
@@ -1736,6 +1772,21 @@ class EngOilPressMin(KeyPointValueNode):
         for air in airs:
             index, value = min_value(eng_oil_press.array)
             self.create_kpv(index, value)
+
+
+class EngOilQtyMin(KeyPointValueNode):
+    def derive(self, q1=P('Eng (1) Oil Qty'), q2=P('Eng (2) Oil Qty'),
+               q3=P('Eng (3) Oil Qty'), q4=P('Eng (4) Oil Qty'),
+               airs=S('Airborne')):
+        qmin = np.ma.minimum(q1.array,q2.array,q3.array,q4.array)
+        self.create_kpvs_within_slices(qmin, airs, min_value)
+
+class EngOilQtyMax(KeyPointValueNode):
+    def derive(self, q1=P('Eng (1) Oil Qty'), q2=P('Eng (2) Oil Qty'), 
+               q3=P('Eng (3) Oil Qty'), q4=P('Eng (4) Oil Qty'),
+               airs=S('Airborne')):
+        qmax = np.ma.maximum(q1.array,q2.array,q3.array,q4.array)
+        self.create_kpvs_within_slices(qmax, airs, max_value)
 
 
 class FuelQtyAtLiftoff(KeyPointValueNode):
@@ -2427,13 +2478,39 @@ class ThrottleCyclesInFinalApproach(KeyPointValueNode):
                                            lever.hz, fapp.slice.start))
 
 
-class TimeTouchdownToElevatorDown(KeyPointValueNode):
+class TouchdownToElevatorDownTime(KeyPointValueNode):
     def derive(self, elevator=P('Elevator'), tdwns=KTI('Touchdown')):
         for tdwn in tdwns:
             index_elev = index_at_value(elevator.array, -14.0, slice(tdwn.index,None))
             if index_elev:
                 e_14 = (index_elev - tdwn.index) / airspeed.frequency
                 self.create_kpv(index_elev, e_14)
+
+
+class TouchdownTo60KtsTime(KeyPointValueNode):
+    """
+    Ideally compute using groundspeed, otherwise use airspeed.
+    """
+    @classmethod
+    def can_operate(cls, available):
+        return 'Airspeed' in available and 'Touchdown' in available
+    
+    def derive(self, airspeed=P('Airspeed'), groundspeed=P('Groundspeed'), 
+               tdwns=KTI('Touchdown')):
+        
+        if groundspeed:
+            speed=groundspeed.array
+            freq=groundspeed.frequency
+        else:
+            speed=airspeed.array
+            freq=airspeed.frequency
+            
+        for tdwn in tdwns:
+            index_60kt = index_at_value(speed, 60.0, slice(tdwn.index,None))
+            if index_60kt:
+                t__60kt = (index_60kt - tdwn.index) / freq
+                self.create_kpv(index_60kt, t__60kt)
+            
 
 
 class Wind(KeyPointValueNode):
@@ -2492,9 +2569,18 @@ class DualStickInput(KeyPointValueNode):
 
 
 class EngineBleedValvesAtLiftoff(KeyPointValueNode):
-    def derive(self, x=P('Not Yet')):
-        return NotImplemented
-
+    def derive(self, b1=P('Eng (1) Bleed'), b2=P('Eng (2) Bleed'),
+               lifts=KTI('Liftoff')):
+        # b1 & b2 are integer arrays, but to index them correctly we need to
+        # align the KTI to match these arrays. The alignment will cause the
+        # integer arrays to blur at transitions, so int(b1+b2) is used to
+        # remove this effect as the bleeds are changing state.
+        bleeds = np.ma.array(b1.array+b2.array, dtype=int)
+        for lift in lifts:
+            valves = bleeds[lift.index]
+            if valves:
+                self.create_kpv(lift.index, valves)
+        
 
 class EngineTorqueTakeoffMax(KeyPointValueNode):
     def derive(self, x=P('Not Yet')):
@@ -2504,49 +2590,17 @@ class EngineTorqueTakeoffMax(KeyPointValueNode):
 class EngineTorqueAbove10000FtMax(KeyPointValueNode):
     def derive(self, x=P('Not Yet')):
         return NotImplemented
-
-class AltitudeGoAroundFlapRetracted(KeyPointValueNode):
-    def derive(self, x=P('Not Yet')):
-        return NotImplemented
-
-class AltitudeGoAroundGearRetracted(KeyPointValueNode):
-    def derive(self, x=P('Not Yet')):
-        return NotImplemented
-
-class EventMarkerPressed(KeyPointValueNode):
-    def derive(self, x=P('Not Yet')):
-        return NotImplemented
-
-class IsolationValvesAtLiftoff(KeyPointValueNode):
-    def derive(self, x=P('Not Yet')):
-        return NotImplemented
-
-class PackValvesAtLiftoff(KeyPointValueNode):
-    def derive(self, x=P('Not Yet')):
-        return NotImplemented
-
+        
+        
 class TimeHolding(KeyPointValueNode):
     def derive(self, x=P('Not Yet')):
         return NotImplemented
-
-class OilQuantityMin(KeyPointValueNode):
-    def derive(self, x=P('Not Yet')):
-        return NotImplemented
-
-class OilQuantityMax(KeyPointValueNode):
-    def derive(self, x=P('Not Yet')):
-        return NotImplemented
-
 
 class ControlForcesTimesThree(KeyPointValueNode):
     def derive(self, x=P('Not Yet')):
         return NotImplemented
 
 class StickPusher(KeyPointValueNode):
-    def derive(self, x=P('Not Yet')):
-        return NotImplemented
-
-class TimeTouchdownTo60KtsOnLanding(KeyPointValueNode):
     def derive(self, x=P('Not Yet')):
         return NotImplemented
 
