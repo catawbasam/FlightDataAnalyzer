@@ -938,13 +938,14 @@ class KeyTimeInstanceNode(FormattedNameNode):
                     self.create_kti(edge_index)
             return
         
-        # High level function scans phase blocks or complete array and presents
-        # appropriate arguments for analysis.
-        if phase:
+        # High level function scans phase blocks or complete array and
+        # presents appropriate arguments for analysis. We test for phase.name
+        # as phase returns False.
+        if phase == None:
+            kti_edges(array, slice(0,len(array)+1))
+        else:
             for each_period in phase:
                 kti_edges(array, each_period.slice)
-        else:
-            kti_edges(array, slice(0,len(array)+1))
         return    
     
     def get_aligned(self, param):
@@ -1124,56 +1125,36 @@ class KeyPointValueNode(FormattedNameNode):
             index, value = function(array, slice_, start_edge, stop_edge)
             self.create_kpv(index, value, **kwargs)
 
-    """
-    Original code allowing for for edge triggered KPVs. 
-    
-    Better practice is to create a KTI and then a separate KPV to go with
-    this.
 
-    def create_kpvs_at_edges(self, value_array, edge_array, 
-                             direction='rising_edges', phase=None,
-                             name=None):
+    def create_kpvs_from_slices(self, slices, threshold=0.0, mark='midpoint', **kwargs):
         '''
-        See also create_ktis_at_edges.
+        Shortcut for creating KPVs from slices based only on the slice duration.
         
-        :param value_array: The parameter qualifying this event
-        :type value_array: A recorded or derived parameter.
-        :param edge_array: The parameter identifying the moment
-        :type edge_array: A recorded or derived parameter.
-        :param direction: Keyword argument.
-        :type direction: string
-        :param phase: An optional flight phase (section) argument.
-        
-        Direction has possible fields 'rising_edges' or 'falling_edges'. In
-        the absence of a direction parameter, the default 'rising_edges' will
-        be retained, and all edges will be triggered.
-        Where phase is supplied, only edges arising within this phase will be
-        triggered.
+        :param slices: Slices from which to create KPVs. Note: as the only
+                       parameter they will default to 1Hz.
+        :type slices: List of slices.
+        :param threshold: Minimum duration for a KPV to be created.
+        :type threshold: float (seconds)
+        :param mark: Optional field to select when to identify the KPV.
+        :type mark: String from 'start', 'midpoint' or 'end'
+ 
+        :returns: None
+        :rtype: None
         '''
-        # Low level function that finds edges from array and creates KTIs
-        def kpvs_at_edges(subarray, start_index, direction='rising_edges'):
-            edge_list = find_edges(subarray, start_index, direction='rising_edges')            
-            for edge_index in edge_list:
-                if name:
-                    # Annotate the transition with the post-change state.
-                    self.create_kpv(edge_index, 
-                                    value_at_index(value_array, edge_index), 
-                                    **{name:value_array[edge_index+1]})
-                else:
-                    self.create_kpv(edge_index, 
-                                    value_at_index(value_array, edge_index))
-            return
-        
-        # High level function scans phase blocks or complete array and presents
-        # appropriate arguments for analysis.
-        if phase:
-            for each_period in phase:
-                to_scan = edge_array[each_period.slice]
-                kpvs_at_edges(to_scan, each_period.slice.start or 0, direction)
-        else:
-            kpvs_at_edges(edge_array, 0, direction)
-        return    
-        """
+        for slice_ in slices:
+            if isinstance(slice_, Section): # Use slice within Section.
+                duration = slice_.stop_edge - slice_.start_edge
+                if duration > threshold:
+                    if mark == 'start':
+                        index = slice_.start_edge
+                    elif mark == 'end':
+                        index = slice_.stop_edge
+                    elif mark == 'midpoint':
+                        index = (slice_.stop_edge + slice_.start_edge) / 2.0
+                    else:
+                        raise ValueError,'Unrecognised option in create_kpvs_from_slices'
+                    self.create_kpv(index, duration, **kwargs)
+
 
     def create_kpvs_from_discretes(self, array, hz, sense='normal', phase=None, min_duration=0.0):
         '''

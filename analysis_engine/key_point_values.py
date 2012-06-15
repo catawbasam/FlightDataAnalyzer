@@ -1000,7 +1000,20 @@ class HeightLostInClimb1000To2000Ft(KeyPointValueNode):
             value = height_loss.array[index]
             self.create_kpv(index, value) # May make this value < 0 only at a later date.
 
-
+class HoldingTime(KeyPointValueNode):
+    """
+    Identify periods in the hold.
+    
+    For development purposes, we identify the start, midpoint and end, so
+    that any holding periods can be viewed and discussed with analysts before
+    selecting how to mark them.
+    """
+    def derive(self, holds=S('Holding')):
+        self.create_kpvs_from_slices(holds, mark='start')
+        self.create_kpvs_from_slices(holds, mark='midpoint')
+        self.create_kpvs_from_slices(holds, mark='end')
+        
+        
 class ILSFrequencyOnApproach(KeyPointValueNode):
     """
     The period when the aircraft was continuously established on the ILS and
@@ -2366,16 +2379,14 @@ class StickShakerActivated(KeyPointValueNode):
             self.create_kpv(index, value)
 
 
-
 class TailClearanceOnTakeoffMin(KeyPointValueNode):
     def derive(self, alt_tail=P('Altitude Tail'), toffs=S('Takeoff')):
-        for toff in toffs:
-            self.create_kpvs_within_slices(alt_tail.array, toff.slice, min_value)
+        self.create_kpvs_within_slices(alt_tail.array, toffs, min_value)
+
 
 class TailClearanceOnLandingMin(KeyPointValueNode):
     def derive(self, alt_tail=P('Altitude Tail'), lands=S('Landing')):
-        for land in lands:
-            self.create_kpvs_within_slices(alt_tail.array, land.slice, min_value)
+        self.create_kpvs_within_slices(alt_tail.array, lands, min_value)
 
 
 class TailClearanceOnApproach(KeyPointValueNode):

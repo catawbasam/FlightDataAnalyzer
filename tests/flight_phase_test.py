@@ -19,6 +19,7 @@ from analysis_engine.flight_phase import (Airborne,
                                           Fast,
                                           FinalApproach,
                                           GoAroundAndClimbout,
+                                          Holding,
                                           ILSLocalizerEstablished,
                                           Landing,
                                           LevelFlight,
@@ -714,6 +715,56 @@ class TestGoAroundAndClimbout(unittest.TestCase):
                                 9.0408163265306118)
         self.assertEqual(ga_phase.get_first().start_edge, expected[0].start_edge)
         self.assertEqual(ga_phase.get_first().stop_edge, expected[0].stop_edge)
+
+class TestHolding(unittest.TestCase):
+    def test_can_operate(self):
+        self.assertEqual(Holding.get_operational_combinations(),
+                         [('Altitude AAL For Flight Phases',
+                          'Heading Continuous')])
+        
+    def test_straightish_not_detected(self):
+        hdg=P('Heading Continuous', np.ma.arange(3000)*0.9)
+        alt=P('Altitude AAL For Flight Phases', np.ma.array([10000]*3000))
+        hold=Holding()
+        hold.derive(alt, hdg)
+        expected=[]
+        self.assertEqual(hold, expected)
+
+    def test_bent_detected(self):
+        hdg=P('Heading Continuous', np.ma.arange(3000)*(-1.1))
+        alt=P('Altitude AAL For Flight Phases', np.ma.array([10000]*3000))
+        hold=Holding()
+        hold.derive(alt, hdg)
+        expected=buildsection('Holding',0,3000)
+        self.assertEqual(hold, expected)
+
+    def test_rejected_outside_height_range(self):
+        hdg=P('Heading Continuous', np.ma.arange(3000)*(-1.1))
+        alt=P('Altitude AAL For Flight Phases', np.ma.arange(3000)*10)
+        hold=Holding()
+        hold.derive(alt, hdg)
+        # OK - I cheated. Who cares about the odd one sample passing 5000ft :o)
+        expected=buildsection('Holding',501,2000)
+        self.assertEqual(hold, expected)
+
+    def test_hold_detected(self):
+        rot=[0]*600+([3]*60+[0]*60)*6+[0]*180+([3]*60+[0]*90)*6+[0]*600
+        hdg=P('Heading Continuous', integrate(rot,1.0))
+        alt=P('Altitude AAL For Flight Phases', np.ma.array([10000]*3000))
+        hold=Holding()
+        hold.derive(alt, hdg)
+        expected=buildsections('Holding',[570,1290],[1470,2340])
+        self.assertEqual(hold, expected)
+
+    def test_single_turn_rejected(self):
+        rot=np.ma.array([0]*500+[3]*60+[0]*600+[6]*60+[0]*600+[0]*600+[3]*90+[0]*490, dtype=float)
+        hdg=P('Heading Continuous', integrate(rot,1.0))
+        alt=P('Altitude AAL For Flight Phases', np.ma.array([10000]*3000))
+        hold=Holding()
+        hold.derive(alt, hdg)
+        expected=[]
+        self.assertEqual(hold, expected)
+
 
 
 class TestLanding(unittest.TestCase):

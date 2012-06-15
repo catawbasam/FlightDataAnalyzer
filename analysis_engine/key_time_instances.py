@@ -109,8 +109,8 @@ class AutothrottleSelectionDisengaged(KeyTimeInstanceNode):
 class EngAllStop(KeyTimeInstanceNode):
     name = 'Eng (*) Stop'
     def derive(self, eng_n2=P('Eng (*) N2 Min')):
-        power = np.ma.where(eng_n2 > 30.0,1,0)
-        self.create_ktis_at_edges(power, direction='falling')
+        power = np.ma.where(eng_n2.array > 30.0,1,0)
+        self.create_ktis_at_edges(power, direction='falling_edges')
 
 class ClimbStart(KeyTimeInstanceNode):
     def derive(self, alt_aal=P('Altitude AAL'), climbing=S('Climbing')):
@@ -152,15 +152,20 @@ class GoAround(KeyTimeInstanceNode):
                 pit = np.ma.argmin(alt_aal.array[dlc.slice])
             self.create_kti(pit+dlc.slice.start)
 
-
+class GoAroundFlags(KeyTimeInstanceNode):
+    def derive(self, gas=S('Go Around And Climbout')):
+        for ga in gas:
+            self.create_kti(ga.slice.start)
+            self.create_kti(ga.slice.stop)
+    
 class GoAroundFlapRetracted(KeyTimeInstanceNode):
     def derive(self, flap=P('Flap'), gas=S('Go Around And Climbout')):
-        self.create_ktis_at_edges(flap.array, phase=gas)
+        self.create_ktis_at_edges(flap.array, direction='falling_edges', phase=gas)
         
 
 class GoAroundGearRetracted(KeyTimeInstanceNode):
     def derive(self, gear=P('Gear Down'), gas=S('Go Around And Climbout')):
-        self.create_ktis_at_edges(gear.array, phase=gas)
+        self.create_ktis_at_edges(gear.array, direction='falling_edges', phase=gas)
         
 
 class TopOfClimb(KeyTimeInstanceNode):

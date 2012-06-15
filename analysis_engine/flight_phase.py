@@ -9,11 +9,13 @@ from analysis_engine.library import (find_edges,
                                      is_slice_within_slice,
                                      last_valid_sample,
                                      minimum_unmasked,
-                                     peak_curvature, 
+                                     peak_curvature,
+                                     rate_of_change,
                                      repair_mask, 
                                      shift_slice, 
                                      shift_slices, 
                                      slice_duration,
+                                     slices_between,
                                      slices_overlap,
                                      slices_and,
                                      slices_or,
@@ -85,6 +87,30 @@ class GoAroundAndClimbout(FlightPhaseNode):
         self.create_phases(ga_slice)
 
 
+class Holding(FlightPhaseNode):
+    """
+    Holding is a process which involves multiple turns in a short period,
+    always in the same sense. We therefore compute the average rate of turn
+    over a long period to reject short turns and pass the entire holding
+    period.
+    
+    It may prove necessary to refine the computation of the start and end
+    points, but this is a sound starting point.
+    """
+    def derive(self, alt_aal=P('Altitude AAL For Flight Phases'),
+               hdg=P('Heading Continuous')):
+        turn_rate = rate_of_change(hdg, 3*60) # Should include two turn segments.
+        _, height_bands = slices_between(alt_aal.array, 5000, 20000)
+        turn_bands = np.ma.clump_unmasked(np.ma.masked_less(np.ma.abs(turn_rate), 1.0))
+        hold_bands=[]
+        for turn_band in turn_bands:
+            # Reject periods of less than 4 minutes.
+            if turn_band.stop - turn_band.start > 240*alt_aal.frequency:
+                hold_bands.append(turn_band)
+        holding = slices_and(hold_bands, height_bands)
+        self.create_phases(holding)
+    
+    
 class Approach(FlightPhaseNode):
     """
     This phase is used to identify an approach which may or may not include
