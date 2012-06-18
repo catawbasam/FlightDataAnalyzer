@@ -2481,7 +2481,7 @@ class TimeTouchdownToElevatorDown(KeyPointValueNode):
         for tdwn in tdwns:
             index_elev = index_at_value(elevator.array, -14.0, slice(tdwn.index,None))
             if index_elev:
-                e_14 = (index_elev - tdwn.index) / airspeed.frequency
+                e_14 = (index_elev - tdwn.index) / elevator.frequency
                 self.create_kpv(index_elev, e_14)
 
 

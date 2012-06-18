@@ -704,7 +704,9 @@ class SectionNode(Node, list):
         '''
         surrounded = []
         for section in self:
-            if section.slice.start <= index <= section.slice.stop:
+            if section.slice.start <= index <= section.slice.stop or\
+               section.slice.start <= index and section.slice.stop == None or\
+               section.slice.start == None and index <= section.slice.stop:
                 surrounded.append(section)
         return surrounded
     

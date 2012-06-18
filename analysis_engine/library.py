@@ -1936,6 +1936,10 @@ def blend_two_parameters (param_one, param_two):
     a = np.ma.ptp(param_one.array)
     b = np.ma.ptp(param_two.array)
 
+    if a+b == 0.0:
+        logger.warning("No variation in %s or %s, returning %s.", param_one.name, param_two.name, param_one.name)
+        return param_one.array, param_one.frequency, param_one.offset
+
     if a/(a+b) < 0.1:
         logger.warning("No variation in %s, using only %s.", param_one.name, param_two.name)
         return param_two.array, param_two.frequency, param_two.offset

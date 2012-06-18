@@ -43,6 +43,11 @@ class Airborne(FlightPhaseNode):
             stop_point = speedy.slice.stop or len(alt_aal.array)
             # First tidy up the data we're interested in
             work = repair_mask(alt_aal.array[start_point:stop_point])
+            
+            # repair_mask may return None if there is inadequate data to process.
+            if work == None:
+                break
+            
             airs = np.ma.clump_unmasked(np.ma.masked_less_equal(work,0.0))
             # Make sure we propogate None ends to data which starts or ends in midflight.
             for air in airs:
@@ -53,7 +58,7 @@ class Airborne(FlightPhaseNode):
                 if end == len(alt_aal.array) - (start_point or 0) or speedy.slice.stop == None:
                     end = None
                 self.create_phase(shift_slice(slice(begin,end),start_point))
-          
+      
 
 class GoAroundAndClimbout(FlightPhaseNode):
     '''
@@ -335,6 +340,7 @@ class Fast(FlightPhaseNode):
         if fast_samples == []:
             # Did not go fast enough, so no phase created.
             new_list = [slice(None, None)]
+            
                 
         else:
             new_list = []
@@ -620,9 +626,11 @@ class Landing(FlightPhaseNode):
             landing_end = index_at_value(np.ma.abs(head.array-datum),
                                          HEADING_TURN_OFF_RUNWAY,
                                          slice(landing_run, last))
-            
-            if landing_begin and landing_end:
-                self.create_phases([slice(landing_begin, landing_end)])
+            if landing_end == None:
+                # The data ran out before the aircraft left the runway so use all we have.
+                landing_end = len(head.array)-1
+          
+            self.create_phases([slice(landing_begin, landing_end)])
 
 
 class Takeoff(FlightPhaseNode):
