@@ -17,6 +17,7 @@ from analysis_engine.library import (align, find_edges, is_index_within_slice,
                                      value_at_index, value_at_time)
 from analysis_engine.recordtype import recordtype
 
+
 logger = logging.getLogger(name=__name__)
 
 # Define named tuples for KPV and KTI and FlightPhase
@@ -107,7 +108,17 @@ class Node(object):
     def __repr__(self):
         #TODO: Add __class__.__name__?
         return "%s %sHz %.2fsecs" % (self.get_name(), self.frequency, self.offset)
-        
+    
+    @property
+    def node_type(self):
+        '''
+        :returns: Node base class.
+        :rtype: class
+        '''
+        # XXX: May break if we adopt multi-inheritance or a different class 
+        # hierarchy.
+        return self.__class__.__base__
+    
     @classmethod
     def get_name(cls):
         """ class My2BNode -> 'My2B Node'
@@ -299,7 +310,6 @@ class DerivedParameterNode(Node):
     Also used during processing when creating parameters from HDF files as
     dependencies for other Nodes.
     """
-    node_type = 'DerivedParameterNode'
     # The units which the derived parameter's array is measured in. It is in
     # lower case to be consistent with the HDFAccess Parameter class and
     # therefore written as an attribute to the HDF file.
@@ -414,12 +424,14 @@ class DerivedParameterNode(Node):
 
 P = Parameter = DerivedParameterNode # shorthand
 
+
 def derived_param_from_hdf(hdf, name):
     hdf_parameter = hdf[name]
     return Parameter(name=hdf_parameter.name, array=hdf_parameter.array, 
                      frequency=hdf_parameter.frequency,
                      offset=hdf_parameter.offset,
                      data_type=hdf_parameter.data_type)
+
 
 class SectionNode(Node, list):
     '''
@@ -428,7 +440,6 @@ class SectionNode(Node, list):
     Is a list of Section namedtuples, each with attributes .name, .slice,
     .start_edge and .stop_edge
     '''
-    node_type = 'SectionNode'
     def __init__(self, *args, **kwargs):
         '''
         List of slices where this phase is active. Has a frequency and offset.
@@ -701,7 +712,6 @@ class SectionNode(Node, list):
 class FlightPhaseNode(SectionNode):
     """ Is a Section, but called "phase" for user-friendliness!
     """
-    node_type = 'FlightPhaseNode'
     # create_phase and create_phases are shortcuts for create_section and 
     # create_sections.
     create_phase = SectionNode.create_section
@@ -924,7 +934,6 @@ class FormattedNameNode(Node, list):
 
 
 class KeyTimeInstanceNode(FormattedNameNode):
-    node_type = 'KeyTimeInstanceNode'
     def __init__(self, *args, **kwargs):
         # place holder
         super(KeyTimeInstanceNode, self).__init__(*args, **kwargs)
@@ -1020,8 +1029,6 @@ class KeyTimeInstanceNode(FormattedNameNode):
 
 
 class KeyPointValueNode(FormattedNameNode):
-    node_type = 'KeyPointValueNode'
-    
     def __init__(self, *args, **kwargs):
         super(KeyPointValueNode, self).__init__(*args, **kwargs)
 
@@ -1177,7 +1184,6 @@ class KeyPointValueNode(FormattedNameNode):
             index, value = function(array, slice_, start_edge, stop_edge)
             self.create_kpv(index, value, **kwargs)
 
-
     def create_kpvs_from_slices(self, slices, threshold=0.0, mark='midpoint', **kwargs):
         '''
         Shortcut for creating KPVs from slices based only on the slice duration.
@@ -1261,7 +1267,6 @@ class FlightAttributeNode(Node):
     object (dict, list, integer etc). The class name serves as the name of the
     attribute.
     '''
-    node_type = 'FlightAttributeNode'
     def __init__(self, *args, **kwargs):
         self.value = None
         super(FlightAttributeNode, self).__init__(*args, **kwargs)
@@ -1302,7 +1307,6 @@ class FlightAttributeNode(Node):
 
 
 class NodeManager(object):
-    # TODO: Add accessor for type of Node.
     def __repr__(self):
         return 'NodeManager: x%d nodes in total' % (
             len(self.lfl) + len(self.requested) + len(self.derived_nodes) + 
@@ -1390,6 +1394,18 @@ class NodeManager(object):
             logger.debug("Node '%s' is unavailable", name)
             return False
 
+    def node_type(self, node_name):
+        '''
+        :param node_name: Name of node to retrieve type for.
+        :type node_name: str
+        :returns: Base class of node.
+        :rtype: class
+        :raises KeyError: If the node name cannot be found.
+        '''
+        node_clazz = self.derived_nodes[node_name]
+        # XXX: If we implement multi-inheritance then this may break.
+        return node_clazz.__base__
+        
 
 # The following acronyms are intended to be used as placeholder values
 # for kwargs in Node derive methods. Cannot instantiate Node subclass without 
