@@ -65,44 +65,38 @@ class BottomOfDescent(KeyTimeInstanceNode):
         
            
 class ApproachLowestPoint(KeyTimeInstanceNode):
-    def derive(self, app_lands=S('Approach'),
-               alt_std=P('Altitude STD'), touchdowns=KTI('Touchdown')):
+    def derive(self, apps=S('Approach'), alt_aal=P('Altitude AAL')):
         # In the case of descents without landing, this finds the minimum
         # point of the dip.
-        for app_land in app_lands:
-            for touchdown in touchdowns:
-                if is_index_within_slice(touchdown.index, app_land.slice):
-                    kti = np.ma.argmin(alt_std.array[app_land.slice])
-                    kti = min(kti, touchdown.index)
-                    self.create_kti(kti + app_land.slice.start)
-                    
-class ApproachLowestPoint(KeyTimeInstanceNode):
-    def derive(self, app_lands=S('Approach'),
-               pitch=P('Pitch'), alt_rad=P('Altitude Radio'), alt_std=P('Altitude STD'), alt_tail=P('Altitude Tail'), alt_aal=P('Altitude AAL'), touchdowns=KTI('Touchdown')):
-        # In the case of descents without landing, this finds the minimum
-        # point of the dip.
-        pass
+        for app in apps:
+            index = np.ma.argmin(alt_aal.array[app.slice]) + app.slice.start
+            value = alt_aal.array[index]
+            if value:
+                self.create_kti(index)
     
 
 class AutopilotSelectionEngaged(KeyTimeInstanceNode):
-    def derive(self, autopilot=P('Autopilot'), phase=S('Airborne')):
+    name = 'AP Selection Engaged'
+    def derive(self, autopilot=P('AP Engaged'), phase=S('Airborne')):
         self.create_ktis_at_edges(autopilot.array, direction='rising_edges', phase=phase)
 
 
 class AutopilotSelectionDisengaged(KeyTimeInstanceNode):
-    def derive(self, autopilot=P('Autopilot'), phase=S('Airborne')):
+    name = 'AP Selection Disengaged'
+    def derive(self, autopilot=P('AP Engaged'), phase=S('Airborne')):
         self.create_ktis_at_edges(autopilot.array, direction='falling_edges', phase=phase)
 
 
 class AutothrottleSelectionEngaged(KeyTimeInstanceNode):
-    def derive(self, autothrottle=P('Autothrottle'), phase=S('Airborne')):
+    name = 'AT Selection Engaged'
+    def derive(self, autothrottle=P('AT Engaged'), phase=S('Airborne')):
         self.create_ktis_at_edges(autothrottle.array, direction='rising_edges', phase=phase)
 
 
 class AutothrottleSelectionDisengaged(KeyTimeInstanceNode):
-    def derive(self, autothrottle=P('Autothrottle'), phase=S('Airborne')):
+    name = 'AT Selection Disengaged'
+    def derive(self, autothrottle=P('AT Engaged'), phase=S('Airborne')):
         self.create_ktis_at_edges(autothrottle.array, direction='falling_edges', phase=phase)
-
 
 
 class ClimbStart(KeyTimeInstanceNode):
@@ -114,6 +108,25 @@ class ClimbStart(KeyTimeInstanceNode):
             # above CLIMB_THRESHOLD. In this case no kti is created.
             if initial_climb_index:
                 self.create_kti(initial_climb_index)
+
+
+class EngAllStop(KeyTimeInstanceNode):
+    name = 'Eng (*) Stop'
+    def derive(self, eng_n2=P('Eng (*) N2 Min')):
+        power = np.ma.where(eng_n2.array > 30.0,1,0)
+        self.create_ktis_at_edges(power, direction='falling_edges')
+
+
+class EnterHold(KeyTimeInstanceNode):
+    def derive(self, holds=S('Holding')):
+        for hold in holds:
+            self.create_kti(hold.slice.start)
+
+
+class ExitHold(KeyTimeInstanceNode):
+    def derive(self, holds=S('Holding')):
+        for hold in holds:
+            self.create_kti(hold.slice.stop)
 
 
 class GoAround(KeyTimeInstanceNode):
@@ -145,6 +158,21 @@ class GoAround(KeyTimeInstanceNode):
                 pit = np.ma.argmin(alt_aal.array[dlc.slice])
             self.create_kti(pit+dlc.slice.start)
 
+class GoAroundFlags(KeyTimeInstanceNode):
+    def derive(self, gas=S('Go Around And Climbout')):
+        for ga in gas:
+            self.create_kti(ga.slice.start)
+            self.create_kti(ga.slice.stop)
+    
+class GoAroundFlapRetracted(KeyTimeInstanceNode):
+    def derive(self, flap=P('Flap'), gas=S('Go Around And Climbout')):
+        self.create_ktis_at_edges(flap.array, direction='falling_edges', phase=gas)
+        
+
+class GoAroundGearRetracted(KeyTimeInstanceNode):
+    def derive(self, gear=P('Gear Down'), gas=S('Go Around And Climbout')):
+        self.create_ktis_at_edges(gear.array, direction='falling_edges', phase=gas)
+        
 
 class TopOfClimb(KeyTimeInstanceNode):
     def derive(self, alt_std=P('Altitude STD'), 

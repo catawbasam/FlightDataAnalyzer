@@ -1,33 +1,38 @@
 import numpy as np
 
-from analysis_engine.library import (find_edges,
-                                     first_valid_sample,
-                                     index_at_value,
-                                     index_closest_value,
-                                     is_slice_within_slice,
-                                     repair_mask, 
-                                     shift_slice, 
-                                     shift_slices, 
-                                     slices_overlap,
-                                     slices_and,
-                                     slices_or,
-                                     slices_not)
+from analysis_engine.library import (
+    find_edges,
+    first_valid_sample,
+    index_at_value,
+    index_closest_value,
+    is_slice_within_slice,
+    rate_of_change,
+    repair_mask, 
+    shift_slice, 
+    shift_slices, 
+    slices_between,
+    slices_overlap,
+    slices_and,
+    slices_or,
+    slices_not
+)
 
 from analysis_engine.node import FlightPhaseNode, A, P, S, KTI
 
-from analysis_engine.settings import (AIRSPEED_THRESHOLD,
-                               ALTITUDE_FOR_CLB_CRU_DSC,
-                               HEADING_TURN_OFF_RUNWAY,
-                               HEADING_TURN_ONTO_RUNWAY,
-                               INITIAL_CLIMB_THRESHOLD,
-                               INITIAL_APPROACH_THRESHOLD,
-                               LANDING_THRESHOLD_HEIGHT,
-                               RATE_OF_CLIMB_FOR_CLIMB_PHASE,
-                               RATE_OF_CLIMB_FOR_DESCENT_PHASE,
-                               RATE_OF_CLIMB_FOR_LEVEL_FLIGHT,
-                               RATE_OF_TURN_FOR_FLIGHT_PHASES,
-                               RATE_OF_TURN_FOR_TAXI_TURNS
-                               )
+from analysis_engine.settings import (
+    AIRSPEED_THRESHOLD,
+    ALTITUDE_FOR_CLB_CRU_DSC,
+    HEADING_TURN_OFF_RUNWAY,
+    HEADING_TURN_ONTO_RUNWAY,
+    INITIAL_CLIMB_THRESHOLD,
+    INITIAL_APPROACH_THRESHOLD,
+    LANDING_THRESHOLD_HEIGHT,
+    RATE_OF_CLIMB_FOR_CLIMB_PHASE,
+    RATE_OF_CLIMB_FOR_DESCENT_PHASE,
+    RATE_OF_CLIMB_FOR_LEVEL_FLIGHT,
+    RATE_OF_TURN_FOR_FLIGHT_PHASES,
+    RATE_OF_TURN_FOR_TAXI_TURNS
+)
 
 
 class Airborne(FlightPhaseNode):
@@ -71,6 +76,32 @@ class GoAroundAndClimbout(FlightPhaseNode):
         self.create_phases(ga_slice)
 
 
+class Holding(FlightPhaseNode):
+    """
+    Holding is a process which involves multiple turns in a short period,
+    normally in the same sense. We therefore compute the average rate of turn
+    over a long period to reject short turns and pass the entire holding
+    period.
+    
+    Note that this is the only function that should use "Heading Increasing"
+    as we are only looking for turns, and not bothered about the sense or
+    actual heading angle.
+    """
+    def derive(self, alt_aal=P('Altitude AAL For Flight Phases'),
+               hdg=P('Heading Increasing')):
+        turn_rate = rate_of_change(hdg, 3*60) # Three minutes should include two turn segments.
+        _, height_bands = slices_between(alt_aal.array, 5000, 20000)
+        # We know turn rate will be positive because Heading Increasing only increases.
+        turn_bands = np.ma.clump_unmasked(np.ma.masked_less(turn_rate, 0.5))
+        hold_bands=[]
+        for turn_band in turn_bands:
+            # Reject periods of less than 4 minutes.
+            if turn_band.stop - turn_band.start > 240*alt_aal.frequency:
+                hold_bands.append(turn_band)
+        holding = slices_and(hold_bands, height_bands)
+        self.create_phases(holding)
+    
+    
 class Approach(FlightPhaseNode):
     """
     This phase is used to identify an approach which may or may not include
@@ -80,7 +111,7 @@ class Approach(FlightPhaseNode):
     def derive(self, alt_aal=P('Altitude AAL For Flight Phases'),
                lands=S('Landing'), go_arounds=S('Go Around And Climbout')):
 
-        # Prepare to extract the slicesa home for the approach slices
+        # Prepare to extract the slices
         app_slices = []
         ga_slices = []
 
@@ -660,7 +691,8 @@ class TOGA5MinRating(FlightPhaseNode):
     For engines, the period of high power operation is normally 5 minutes
     from the start of takeoff. Also applies in the case of a go-around.
     """
-    def derive(self, toffs=S('Takeoff'), gas=S('Go Around')):
+    name = 'TOGA 5 Min Rating'
+    def derive(self, toffs=S('Takeoff'), gas=S('Go Around And Climbout')):
         for toff in toffs:
             self.create_phase(slice(toff.slice.start, toff.slice.start + 300))
         for ga in gas:

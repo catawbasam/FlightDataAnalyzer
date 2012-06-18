@@ -33,13 +33,14 @@ from analysis_engine.key_point_values import (
     AirspeedWithFlapMax,
     ##AirspeedWithGearSelectedDownMax,
     AltitudeAtMachMax,
+    AltitudeAtSuspectedLevelBust,
     AltitudeAtTouchdown,
     AltitudeMax,
     ##AltitudeRadioDividedByDistanceToLanding3000To50FtMin,
-    ##AutopilotEngaged1AtLiftoff,
-    ##AutopilotEngaged1AtTouchdown,
-    ##AutopilotEngaged2AtLiftoff,
-    ##AutopilotEngaged2AtTouchdown,
+    ##APEngaged1AtLiftoff,
+    ##APEngaged1AtTouchdown,
+    ##APEngaged2AtLiftoff,
+    ##APEngaged2AtTouchdown,
     ControlColumnStiffness,
     ##EngEGTMax,
     EngEPR500FtToTouchdownMin,
@@ -521,30 +522,64 @@ class TestAltitudeMax(unittest.TestCase, TestCreateKPVsWithinSlices):
         self.operational_combinations = [('Altitude STD', 'Airborne')]
         self.function = max_value
 
-
+class TestAltitudeAtSuspectedLevelBust(unittest.TestCase):
+    def test_handling_no_data(self):
+        alt=Parameter('Altitude STD',np.ma.array([0,1000,1000,1000,1000]))
+        kpv=AltitudeAtSuspectedLevelBust()
+        kpv.derive(alt)
+        expected=[]
+        self.assertEqual(kpv,expected)
+        
+    def test_up_down_and_up(self):
+        testwave = np.ma.array(1.0+np.sin(np.arange(0,12.6,0.1)))*1000
+        alt=Parameter('Altitude STD',testwave)
+        kpv=AltitudeAtSuspectedLevelBust()
+        kpv.derive(alt)
+        expected=[KeyPointValue(index=16, value=999.5736030415051, 
+                                name='Altitude At Suspected Level Bust', 
+                                slice=slice(None, None, None), datetime=None), 
+                  KeyPointValue(index=47, value=-1998.8645994038727, 
+                                name='Altitude At Suspected Level Bust', 
+                                slice=slice(None, None, None), datetime=None), 
+                  KeyPointValue(index=79, value=1998.8645994038727, 
+                                name='Altitude At Suspected Level Bust', 
+                                slice=slice(None, None, None), datetime=None)]
+        self.assertEqual(kpv,expected)
+        
+    def test_too_slow(self):
+        testwave = np.ma.array(1.0+np.sin(np.arange(0,12.6,0.1)))*1000
+        alt=Parameter('Altitude STD',testwave,0.2)
+        kpv=AltitudeAtSuspectedLevelBust()
+        kpv.derive(alt)
+        expected=[KeyPointValue(index=16, value=999.5736030415051, 
+                                name='Altitude At Suspected Level Bust', 
+                                slice=slice(None, None, None), datetime=None)]
+        self.assertEqual(kpv,expected)
+    
+    
 """
-class TestAutopilotEngaged1AtLiftoff(unittest.TestCase, TestCreateKPVsAtKTIs):
+class TestAPEngaged1AtLiftoff(unittest.TestCase, TestCreateKPVsAtKTIs):
     def setUp(self):
-        self.node_class = AutopilotEngaged1AtLiftoff
-        self.operational_combinations = [('Autopilot Engaged 1', 'Liftoff')]
+        self.node_class = APEngaged1AtLiftoff
+        self.operational_combinations = [('AP Engaged 1', 'Liftoff')]
 
 
-class TestAutopilotEngaged1AtTouchdown(unittest.TestCase, TestCreateKPVsAtKTIs):
+class TestAPEngaged1AtTouchdown(unittest.TestCase, TestCreateKPVsAtKTIs):
     def setUp(self):
-        self.node_class = AutopilotEngaged1AtTouchdown
-        self.operational_combinations = [('Autopilot Engaged 1', 'Touchdown')]
+        self.node_class = APEngaged1AtTouchdown
+        self.operational_combinations = [('AP Engaged 1', 'Touchdown')]
 
 
-class TestAutopilotEngaged2AtLiftoff(unittest.TestCase, TestCreateKPVsAtKTIs):
+class TestAPEngaged2AtLiftoff(unittest.TestCase, TestCreateKPVsAtKTIs):
     def setUp(self):
-        self.node_class = AutopilotEngaged2AtLiftoff
-        self.operational_combinations = [('Autopilot Engaged 2', 'Liftoff')]
+        self.node_class = APEngaged2AtLiftoff
+        self.operational_combinations = [('AP Engaged 2', 'Liftoff')]
 
 
-class TestAutopilotEngaged2AtTouchdown(unittest.TestCase, TestCreateKPVsAtKTIs):
+class TestAPEngaged2AtTouchdown(unittest.TestCase, TestCreateKPVsAtKTIs):
     def setUp(self):
-        self.node_class = AutopilotEngaged2AtTouchdown
-        self.operational_combinations = [('Autopilot Engaged 2', 'Touchdown')]
+        self.node_class = APEngaged2AtTouchdown
+        self.operational_combinations = [('AP Engaged 2', 'Touchdown')]
         """
 
 

@@ -405,7 +405,9 @@ class TestBearingsAndDistances(unittest.TestCase):
         origin = {'latitude':0.0,'longitude':0.0}
         latitudes = np.ma.array([.1,.1,-.1,-.1])
         longitudes = np.ma.array([-.1,.1,.1,-.1])
-        compass = np.ma.array([-45,45,135,-135])
+        # Bearings changed from +/-180 to 0:360 when this function was used
+        # to populate runway magnetic headings in the airport database.
+        compass = np.ma.array([360-45,45,135,360-135])
         brg, dist = bearings_and_distances(latitudes, longitudes, origin)
         ma_test.assert_masked_array_approx_equal(brg, compass)
 
@@ -413,7 +415,7 @@ class TestBearingsAndDistances(unittest.TestCase):
         origin = {'latitude':0.0,'longitude':0.0}
         latitudes = np.ma.array([1,0,-1,0])
         longitudes = np.ma.array([0,1,0,-1])
-        compass = np.ma.array([0,90,-180,-90])
+        compass = np.ma.array([0,90,180,270])
         brg, dist = bearings_and_distances(latitudes, longitudes, origin)
         ma_test.assert_masked_array_approx_equal(brg, compass)
 
@@ -421,7 +423,7 @@ class TestBearingsAndDistances(unittest.TestCase):
         origin = {'latitude':60.280151,'longitude':5.222579}
         latitudes = np.ma.array([60.2789,60.30662494,60.289,60.28875])
         longitudes = np.ma.array([5.223,5.21370074,5.2272,5.2636])
-        compass = np.ma.array([170,-9,14,67])
+        compass = np.ma.array([170,351,14,67])
         brg, dist = bearings_and_distances(latitudes, longitudes, origin)
         for i in range(4):
             self.assertLess(abs(compass[i]-brg[i]),1.0)
@@ -432,7 +434,9 @@ class TestBearingsAndDistances(unittest.TestCase):
         latitudes[0]=np.ma.masked
         longitudes = np.ma.array([-.1,.1,.1,-.1])
         longitudes[2]=np.ma.masked
-        compass = np.ma.array([135,45,-45,-135])
+        # Bearings changed from +/-180 to 0:360 when this function was used
+        # to populate runway magnetic headings in the airport database.
+        compass = np.ma.array([135,45,360-45,360-135])
         compass.mask=[True,False,True,False]
         brg, dist = bearings_and_distances(latitudes, longitudes, origin)
         ma_test.assert_masked_array_approx_equal(brg, compass)
@@ -1603,24 +1607,24 @@ class TestMinimumUnmasked(unittest.TestCase):
 
 class TestBlendTwoParameters(unittest.TestCase):
     def test_blend_two_parameters_offset_ordered_forward(self):
-        p1 = P(array=[0]*4, frequency=1, offset=0.9)
-        p2 = P(array=[1,2,3,4], frequency=1, offset=0.4)
+        p1 = P(array=[0,0,0,1.0], frequency=1, offset=0.9)
+        p2 = P(array=[1,2,3,4.0], frequency=1, offset=0.4)
         arr, freq, off = blend_two_parameters(p1, p2)
         self.assertEqual(arr[1], 0.5)
         self.assertEqual(freq, 2)
         self.assertAlmostEqual(off, 0.15)
 
     def test_blend_two_parameters_offset_ordered_backward(self):
-        p1 = P(array=[5,10,7,8], frequency=2, offset=0.1)
-        p2 = P(array=[1,2,3,4], frequency=2, offset=0.0)
+        p1 = P(array=[5,10,7,8.0], frequency=2, offset=0.1)
+        p2 = P(array=[1,2,3,4.0], frequency=2, offset=0.0)
         arr, freq, off = blend_two_parameters(p1, p2)
         self.assertEqual(arr[2], 6)
         self.assertEqual(freq, 4)
         self.assertEqual(off, 0.05)
         
     def test_blend_two_parameters_offset_order_back_low_freq(self):
-        p1 = P(array=[5,10,7,8], frequency=0.25, offset=0.1)
-        p2 = P(array=[1,2,3,4], frequency=0.25, offset=0.0)
+        p1 = P(array=[5,10,7,8.0], frequency=0.25, offset=0.1)
+        p2 = P(array=[1,2,3,4.0], frequency=0.25, offset=0.0)
         arr, freq, off = blend_two_parameters(p1, p2)
         self.assertEqual(arr[2], 6)
         self.assertEqual(freq, 0.5)
@@ -1635,6 +1639,33 @@ class TestBlendTwoParameters(unittest.TestCase):
         p1 = P(array=[0]*4, frequency=1, offset=0.0)
         p2 = P(array=[1]*3, frequency=2, offset=0.2)
         self.assertRaises(AssertionError, blend_two_parameters, p1, p2)
+
+    def test_blend_two_parameters_param_one_rubbish(self):
+        p1 = P(array=[5,10,7,8], frequency=2, offset=0.1, name='First')
+        p2 = P(array=[1,2,3,4], frequency=2, offset=0.0, name='Second')
+        p1.array = np.ma.masked
+        arr, freq, off = blend_two_parameters(p1, p2)
+        self.assertEqual(arr[2], 3)
+        self.assertEqual(freq, 2)
+        self.assertEqual(off, 0.0)
+        
+    def test_blend_two_parameters_param_two_rubbish(self):
+        p1 = P(array=[5,10,7,8], frequency=2, offset=0.1, name='First')
+        p2 = P(array=[1,2,3,4], frequency=2, offset=0.0, name='Second')
+        p2.array = np.ma.masked
+        arr, freq, off = blend_two_parameters(p1, p2)
+        self.assertEqual(arr[2], 7)
+        self.assertEqual(freq, 2)
+        self.assertEqual(off, 0.1)
+        
+    def test_blend_two_parameters_rejecting_no_change_data(self):
+        p1 = P(array=[4.0]*4, frequency=1, offset=0.9)
+        p2 = P(array=[1,2,3,4.0], frequency=1, offset=0.4)
+        arr, freq, off = blend_two_parameters(p1, p2)
+        self.assertEqual(arr[1], 2)
+        self.assertEqual(freq, 1)
+        self.assertAlmostEqual(off, 0.4)
+
 
 
 class TestNormalise(unittest.TestCase):
@@ -1711,7 +1742,7 @@ class TestNpMaOnesLike(unittest.TestCase):
         expected = np.ma.array([1,1,1])
         ma_test.assert_array_equal(expected, result)
 
-        
+
 class TestNpMaMaskedZerosLike(unittest.TestCase):
     def test_masked_zeros_like_basic(self):
         result = np_ma_masked_zeros_like(np.ma.array([1,2,3]))
