@@ -193,7 +193,7 @@ class TestFlightAttributeNode(unittest.TestCase):
         
     def test_nonzero_attribute(self):
         'If no value is set, object evaluates to False - else True'
-        attr = Attribute()
+        attr = Attribute('Attribute')
         self.assertFalse(bool(attr))
         attr.value = []
         self.assertFalse(bool(attr))
@@ -230,23 +230,23 @@ class TestNodeManager(unittest.TestCase):
         self.assertEqual(mgr.keys(), ['Start Datetime'] + list('abclmnopxyz'))
         
     def test_get_attribute(self):
-        aci = {'a':'a_value', 'b':None}
-        afr = {'x':'x_value', 'y':None}
+        aci = {'a': 'a_value', 'b': None}
+        afr = {'x': 'x_value', 'y': None}
         mgr = NodeManager(None, [],[],{},aci, afr)
         # test aircraft info
         a = mgr.get_attribute('a')
         self.assertEqual(a.__repr__(), Attribute('a', 'a_value').__repr__())
         b = mgr.get_attribute('b')
-        self.assertEqual(b, None)
+        self.assertFalse(b)
         c = mgr.get_attribute('c')
-        self.assertEqual(c, None)
+        self.assertFalse(c)
         # test afr
         x = mgr.get_attribute('x')
         self.assertEqual(x.__repr__(), Attribute('x', 'x_value').__repr__())
         y = mgr.get_attribute('y')
-        self.assertEqual(y, None)
+        self.assertFalse(y)
         z = mgr.get_attribute('z')
-        self.assertEqual(z, None)
+        self.assertFalse(z)
         
     def test_get_start_datetime(self):
         dt = datetime(2020,12,25)
@@ -306,12 +306,12 @@ class TestSectionNode(unittest.TestCase):
         aligned_node = section_node.get_aligned(param)
         self.assertEqual(list(aligned_node),
                          [Section(name='Example Section Node',
-                                  section_slice=slice(None, 2.2, None),start_edge=None,stop_edge=2.2),
+                                  slice=slice(None, 2.2, None),start_edge=None,stop_edge=2.2),
                           Section(name='Example Section Node',
-                                  section_slice=slice(2.7, None, None),start_edge=2.7,stop_edge=None)])
+                                  slice=slice(2.7, None, None),start_edge=2.7,stop_edge=None)])
     
     def test_items(self):
-        items = [Section('a', slice(0,10))]
+        items = [Section('a', slice(0,10), start_edge=0, stop_edge=10)]
         section_node = self.section_node_class(frequency=1, offset=0.5,
                                                items=items)
         self.assertEqual(section_node, items)
@@ -358,7 +358,7 @@ class TestSectionNode(unittest.TestCase):
         self.assertEqual(items[1], first_section_within_slice)
         first_section_within_slice = section_node.get_first(within_slice=
                                                             slice(12, 25),
-                                                            slice_index='stop')
+                                                            first_by='stop')
         self.assertEqual(items[2], first_section_within_slice)        
         first_b_section_within_slice = section_node.get_first(within_slice=
                                                               slice(15, 40),
@@ -388,7 +388,7 @@ class TestSectionNode(unittest.TestCase):
         last_section = section_node.get_last()
         self.assertEqual(items[3], last_section)
         last_section = section_node.get_last(within_slice=slice(13,24),
-                                             slice_index='stop')
+                                             last_by='stop')
         self.assertEqual(items[1], last_section)     
         last_b_section = section_node.get_last(name='b')
         self.assertEqual(items[2], last_b_section)
@@ -410,17 +410,17 @@ class TestSectionNode(unittest.TestCase):
         section_node = self.section_node_class(frequency=1, offset=0.5,
                                                items=items)
         sections = section_node.get_ordered_by_index()
-        self.assertEqual([items[0], items[2], items[1], items[3]], sections)
+        self.assertEqual([items[0], items[1], items[2], items[3]], sections)
         sections = section_node.get_ordered_by_index(order_by='stop')
-        self.assertEqual([items[0], items[1], items[2], items[3]], sections)        
+        self.assertEqual([items[0], items[2], items[1], items[3]], sections)        
         sections = section_node.get_ordered_by_index(name='b')
-        self.assertEqual([items[2], items[1]], sections)
+        self.assertEqual([items[1], items[2]], sections)
         sections = section_node.get_ordered_by_index(name='c')
         self.assertEqual([items[-1]], sections)
         sections = section_node.get_ordered_by_index(within_slice=slice(12, 25))
-        self.assertEqual([items[2], items[1]], sections)
+        self.assertEqual([items[1], items[2]], sections)
         sections = section_node.get_ordered_by_index(within_slice=slice(15, 40), name='b')
-        self.assertEqual([items[1]], sections)
+        self.assertEqual([items[2]], sections)
     
     def test_get_next(self):
         items = [Section('a', slice(4,10),4,10),
@@ -430,15 +430,15 @@ class TestSectionNode(unittest.TestCase):
         section_node = self.section_node_class(frequency=1, offset=0.5,
                                                items=items)
         section = section_node.get_next(16)
-        self.assertEqual(items[1], section)
-        section = section_node.get_next(16, use='stop')
         self.assertEqual(items[2], section)
+        section = section_node.get_next(16, use='stop')
+        self.assertEqual(items[1], section)
         section = section_node.get_next(16, name='c')
         self.assertEqual(items[3], section)
         section = section_node.get_next(16, within_slice=slice(25, 40))
         self.assertEqual(items[3], section)
         section = section_node.get_next(3, frequency=0.5)
-        self.assertEqual(items[2], section)
+        self.assertEqual(items[1], section)
     
     def test_get_previous(self):
         items = [Section('a', slice(4,10),4,10),
@@ -450,21 +450,21 @@ class TestSectionNode(unittest.TestCase):
         section = section_node.get_previous(16)
         self.assertEqual(items[0], section)
         section = section_node.get_previous(16, use='start')
-        self.assertEqual(items[2], section)
+        self.assertEqual(items[1], section)
         section = section_node.get_previous(30, name='a')
         self.assertEqual(items[0], section)
         section = section_node.get_previous(23, within_slice=slice(0, 12))
         self.assertEqual(items[0], section)
         section = section_node.get_previous(40, frequency=2)
-        self.assertEqual(items[2], section)    
+        self.assertEqual(items[0], section)    
 
     def test_get_surrounding(self):
         node = SectionNode()
         self.assertEqual(node.get_surrounding(12), [])
-        sect_1 = Section('ThisSection', slice(2,15))
+        sect_1 = Section('ThisSection', slice(2,15), 2, 15)
         node.append(sect_1)
         self.assertEqual(node.get_surrounding(2), [sect_1])
-        sect_2 = Section('ThisSection', slice(5,25))
+        sect_2 = Section('ThisSection', slice(5,25), 5, 25)
         node.append(sect_2)
         self.assertEqual(node.get_surrounding(12), [sect_1, sect_2])
         self.assertEqual(node.get_surrounding(-3), [])
@@ -894,7 +894,7 @@ class TestKeyTimeInstanceNode(unittest.TestCase):
                 pass
         self.kti = KTI(frequency=2, offset=0.4)
     
-    def test_create_kti(self):
+    def test_create_kti(self):      
         kti = self.kti
         #KTI = type('MyKti', (KeyTimeInstanceNode,), dict(derive=lambda x:x,
                                                          #dependencies=['a']))
@@ -904,9 +904,12 @@ class TestKeyTimeInstanceNode(unittest.TestCase):
         self.assertEqual(list(kti), [KeyTimeInstance(index=12, name='Kti')])
         
         # NAME_FORMAT
-        kti = KTI()
-        kti.NAME_FORMAT = 'Flap %(setting)d'
-        kti.NAME_VALUES = {'setting': [10, 25, 35]}
+        class Flap(KeyTimeInstanceNode):
+            NAME_FORMAT = 'Flap %(setting)d'
+            NAME_VALUES = {'setting': [10, 25, 35]}
+            def derive(self, a=P('a')):
+                pass              
+        kti = Flap()
         kti.create_kti(24, setting=10)
         kti.create_kti(35, {'setting':25})
         self.assertEqual(list(kti), [KeyTimeInstance(index=24, name='Flap 10'),
@@ -917,8 +920,8 @@ class TestKeyTimeInstanceNode(unittest.TestCase):
     def test_create_ktis_at_edges_inside_phases(self):
         kti=self.kti
         test_array = np.ma.array([0,1,0,1,0,1,0,1,0])
-        test_phase = SectionNode(items=[Section(name='try',slice=slice(None,2,None),begin=None,end=2),
-                                        Section(name='try',slice=slice(5,None,None),begin=5,end=None)])
+        test_phase = SectionNode(items=[Section('try',slice(None,2,None),None,2),
+                                        Section('try',slice(5,None,None),5,None)])
         kti.create_ktis_at_edges(test_array, phase=test_phase)
         self.assertEqual(kti,[KeyTimeInstance(index=0.5, name='Kti'),
                               KeyTimeInstance(index=6.5, name='Kti')])
