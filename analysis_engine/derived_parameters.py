@@ -1641,7 +1641,8 @@ class FlapSurface(DerivedParameterNode):
         frame_name = frame.value if frame else None
 
         if frame_name in ['737-5']:
-            self.array, self.frequency, self.offset = blend_two_parameters(flap_A, flap_B)
+            self.array, self.frequency, self.offset = blend_two_parameters(flap_A,
+                                                                           flap_B)
 
         if frame_name in ['L382-Hercules']:
             # Flap is not recorded, so invent one of the correct length.

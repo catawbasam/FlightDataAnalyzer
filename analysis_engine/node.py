@@ -262,7 +262,7 @@ def can_operate(cls, available):
         if not self._logger:
             # Set up self._logger
             self._logger = logging.getLogger('%s.%s' % (
-                self.__class__.__bases__[0].__name__,
+                self.__class__.__module__,
                 self.__class__.__name__,
             ))
         return self._logger
