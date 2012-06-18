@@ -101,6 +101,8 @@ class Node(object):
             self.name = self.get_name() # usual option
         self.frequency = self.sample_rate = self.hz = frequency # Hz
         self.offset = offset # secs
+        # self._logger will be instantiated on the first logging message.
+        self._logger = None
         
     def __repr__(self):
         #TODO: Add __class__.__name__?
@@ -238,6 +240,56 @@ def can_operate(cls, available):
         :rtype: None
         """
         raise NotImplementedError("Abstract Method")
+    
+    # Logging
+    ############################################################################
+    
+    def _get_logger(self):
+        """
+        Only create a logger for this Node if a message is to be logged.
+        """
+        if not self._logger:
+            # Set up self._logger
+            self._logger = logging.getLogger('%s.%s' % (
+                self.__class__.__bases__[0].__name__,
+                self.__class__.__name__,
+            ))
+        return self._logger
+    
+    def debug(self, *args, **kwargs):
+        """
+        Log a debug level message.
+        """
+        logger = self._get_logger()
+        logger.debug(*args, **kwargs)    
+    
+    def error(self, *args, **kwargs):
+        """
+        Log an error level message.
+        """
+        logger = self._get_logger()
+        logger.error(*args, **kwargs)
+    
+    def exception(self, *args, **kwargs):
+        """
+        Log an exception level message.
+        """
+        logger = self._get_logger()
+        logger.exception(*args, **kwargs)            
+    
+    def info(self, *args, **kwargs):
+        """
+        Log an info level message.
+        """
+        logger = self._get_logger()
+        logger.info(*args, **kwargs)
+    
+    def warning(self, *args, **kwargs):
+        """
+        Log a warning level message.
+        """
+        logger = self._get_logger()
+        logger.warning(*args, **kwargs)
 
 
 class DerivedParameterNode(Node):

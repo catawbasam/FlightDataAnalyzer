@@ -5,11 +5,8 @@ from inspect import isclass
 
 from analysis_engine import hooks
 from analysis_engine import settings
-from analysis_engine.library import value_at_index
 from analysis_engine.dependency_graph import dependency_order
 from analysis_engine.node import (Attribute, derived_param_from_hdf,
-                                  DerivedParameterNode,
-                                  FlightAttributeNode, 
                                   KeyPointValueNode,
                                   KeyTimeInstanceNode, Node,
                                   NodeManager, P, SectionNode)
@@ -309,9 +306,6 @@ if __name__ == '__main__':
     from utilities.filesystem_tools import copy_file
     logger = logging.getLogger()
     logger.setLevel(logging.DEBUG)    
-    required_parameters = ['Latitude Smoothed', 'Longitude Smoothed',
-                           'Distance To Landing', 'Eng (*) Fuel Flow',
-                           'Altitude STD']
     parser = argparse.ArgumentParser(description="Process a flight.")
     parser.add_argument('file', type=str,
                         help='Path of file to process.')

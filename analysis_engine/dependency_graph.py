@@ -3,7 +3,17 @@ import sys
 import logging 
 import networkx as nx # pip install networkx or /opt/epd/bin/easy_install networkx
 
+from collections import defaultdict
+
 from utilities.dict_helpers import dict_filter
+
+from analysis_engine.node import (
+    DerivedParameterNode,
+    FlightAttributeNode,
+    FlightPhaseNode,
+    KeyPointValueNode,
+    KeyTimeInstanceNode,
+)
 
 logger = logging.getLogger(__name__)
 not_windows = sys.platform not in ('win32', 'win64') # False for Windows :-(
@@ -137,21 +147,42 @@ def graph_nodes(node_mgr):
     # (limitation of add_node_attribute())
     gr_all.add_nodes_from(node_mgr.lfl, color='forestgreen')
     derived_minus_lfl = dict_filter(node_mgr.derived_nodes, remove=node_mgr.lfl)
-    gr_all.add_nodes_from(derived_minus_lfl.keys())
+    # Group into node types to apply colour.
+    #clazz_to_node_names = defaultdict(list)
+    colors = {
+        DerivedParameterNode: 'yellow',
+        FlightAttributeNode: 'blue',
+        FlightPhaseNode: 'brown',
+        KeyPointValueNode: 'purple',
+        KeyTimeInstanceNode: 'orange',
+    }
+    gr_all.add_nodes_from(
+        [(name, {'color': colors[node.__base__]}) for name, node in derived_minus_lfl.items()])
+    #for name, node in derived_minus_lfl.items():
+        #for clazz in clazz_to_color.keys():
+            #if issubclass(node, clazz):
+                #clazz_to_node_names[clazz].append(name)
+                #break
+        #else:
+            #logger.warning("Node '%s' inherits from an unknown class '%s'",
+                           #name, node.__bases__)
+    #for clazz, color in clazz_to_color.items():
+        #node_names = clazz_to_node_names[clazz]
+        #gr_all.add_nodes_from(node_names, )
     
     # build list of dependencies
     derived_deps = set()  # list of derived dependencies
     for node_name, node_obj in derived_minus_lfl.iteritems():
         derived_deps.update(node_obj.get_dependency_names())
         # Create edges between node and its dependencies
-        edges = [(node_name, dep) for dep in node_obj.get_dependency_names()]
+        edges = [(node_name, dep, {'color': 'Gray'}) for dep in node_obj.get_dependency_names()]
         gr_all.add_edges_from(edges)
             
     # add root - the top level application dependency structure based on required nodes
     # filter only nodes which are at the top of the tree (no predecessors)
     gr_all.add_node('root', color='red')
     root_edges = [('root', node_name) for node_name in node_mgr.requested \
-                  if not gr_all.predecessors(node_name)] 
+                  if not gr_all.predecessors(node_name)]
     gr_all.add_edges_from(root_edges, color='red')
     
     #TODO: Split this up into the following lists of nodes
@@ -182,7 +213,7 @@ def graph_nodes(node_mgr):
     # Add missing nodes to graph so it shows everything. These should all be
     # RAW parameters missing from the LFL unless something has gone wrong with
     # the derived_nodes dict!    
-    gr_all.add_nodes_from(missing_derived_dep)  
+    gr_all.add_nodes_from(missing_derived_dep, color='fushcia')  
     return gr_all
 
     
@@ -207,9 +238,9 @@ def process_order(gr_all, node_mgr):
     gr_st.remove_nodes_from(inactive_nodes)
     
     for node in inactive_nodes:
-        gr_all.node[node]['color'] = 'grey'
+        gr_all.node[node]['color'] = 'Silver'
         inactive_edges = gr_all.in_edges(node)
-        gr_all.add_edges_from(inactive_edges, color='grey')
+        gr_all.add_edges_from(inactive_edges, color='Silver')
     
     return gr_all, gr_st, process_order[:-1] # exclude 'root'
 
