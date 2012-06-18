@@ -1004,15 +1004,9 @@ class HeightLostInClimb1000To2000Ft(KeyPointValueNode):
                 
 class HoldingTime(KeyPointValueNode):
     """
-    Identify periods in the hold.
-    
-    For development purposes, we identify the start, midpoint and end, so
-    that any holding periods can be viewed and discussed with analysts before
-    selecting how to mark them.
+    Identify time spent in the hold.
     """
     def derive(self, holds=S('Holding')):
-        self.create_kpvs_from_slices(holds, mark='start')
-        self.create_kpvs_from_slices(holds, mark='midpoint')
         self.create_kpvs_from_slices(holds, mark='end')
         
         

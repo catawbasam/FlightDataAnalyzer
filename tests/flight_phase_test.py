@@ -720,10 +720,10 @@ class TestHolding(unittest.TestCase):
     def test_can_operate(self):
         self.assertEqual(Holding.get_operational_combinations(),
                          [('Altitude AAL For Flight Phases',
-                          'Heading Continuous')])
+                          'Heading Increasing')])
         
     def test_straightish_not_detected(self):
-        hdg=P('Heading Continuous', np.ma.arange(3000)*0.9)
+        hdg=P('Heading Increasing', np.ma.arange(3000)*0.45)
         alt=P('Altitude AAL For Flight Phases', np.ma.array([10000]*3000))
         hold=Holding()
         hold.derive(alt, hdg)
@@ -731,7 +731,7 @@ class TestHolding(unittest.TestCase):
         self.assertEqual(hold, expected)
 
     def test_bent_detected(self):
-        hdg=P('Heading Continuous', np.ma.arange(3000)*(-1.1))
+        hdg=P('Heading Increasing', np.ma.arange(3000)*(1.1))
         alt=P('Altitude AAL For Flight Phases', np.ma.array([10000]*3000))
         hold=Holding()
         hold.derive(alt, hdg)
@@ -739,7 +739,7 @@ class TestHolding(unittest.TestCase):
         self.assertEqual(hold, expected)
 
     def test_rejected_outside_height_range(self):
-        hdg=P('Heading Continuous', np.ma.arange(3000)*(-1.1))
+        hdg=P('Heading Increasing', np.ma.arange(3000)*(1.1))
         alt=P('Altitude AAL For Flight Phases', np.ma.arange(3000)*10)
         hold=Holding()
         hold.derive(alt, hdg)
@@ -749,7 +749,7 @@ class TestHolding(unittest.TestCase):
 
     def test_hold_detected(self):
         rot=[0]*600+([3]*60+[0]*60)*6+[0]*180+([3]*60+[0]*90)*6+[0]*600
-        hdg=P('Heading Continuous', integrate(rot,1.0))
+        hdg=P('Heading Increasing', integrate(rot,1.0))
         alt=P('Altitude AAL For Flight Phases', np.ma.array([10000]*3000))
         hold=Holding()
         hold.derive(alt, hdg)
@@ -758,7 +758,7 @@ class TestHolding(unittest.TestCase):
 
     def test_single_turn_rejected(self):
         rot=np.ma.array([0]*500+[3]*60+[0]*600+[6]*60+[0]*600+[0]*600+[3]*90+[0]*490, dtype=float)
-        hdg=P('Heading Continuous', integrate(rot,1.0))
+        hdg=P('Heading Increasing', integrate(rot,1.0))
         alt=P('Altitude AAL For Flight Phases', np.ma.array([10000]*3000))
         hold=Holding()
         hold.derive(alt, hdg)

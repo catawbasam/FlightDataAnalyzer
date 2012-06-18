@@ -90,18 +90,20 @@ class GoAroundAndClimbout(FlightPhaseNode):
 class Holding(FlightPhaseNode):
     """
     Holding is a process which involves multiple turns in a short period,
-    always in the same sense. We therefore compute the average rate of turn
+    normally in the same sense. We therefore compute the average rate of turn
     over a long period to reject short turns and pass the entire holding
     period.
     
-    It may prove necessary to refine the computation of the start and end
-    points, but this is a sound starting point.
+    Note that this is the only function that should use "Heading Increasing"
+    as we are only looking for turns, and not bothered about the sense or
+    actual heading angle.
     """
     def derive(self, alt_aal=P('Altitude AAL For Flight Phases'),
-               hdg=P('Heading Continuous')):
-        turn_rate = rate_of_change(hdg, 3*60) # Should include two turn segments.
+               hdg=P('Heading Increasing')):
+        turn_rate = rate_of_change(hdg, 3*60) # Three minutes should include two turn segments.
         _, height_bands = slices_between(alt_aal.array, 5000, 20000)
-        turn_bands = np.ma.clump_unmasked(np.ma.masked_less(np.ma.abs(turn_rate), 0.5))
+        # We know turn rate will be positive because Heading Increasing only increases.
+        turn_bands = np.ma.clump_unmasked(np.ma.masked_less(turn_rate, 0.5))
         hold_bands=[]
         for turn_band in turn_bands:
             # Reject periods of less than 4 minutes.

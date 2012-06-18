@@ -1839,6 +1839,19 @@ class HeadingContinuous(DerivedParameterNode):
         self.array = repair_mask(straighten_headings(head_mag.array))
 
 
+class HeadingIncreasing(DerivedParameterNode):
+    """
+    This parameter is computed to allow holding patterns to be identified. As
+    the aircraft can enter a hold turning in one direction, then do a
+    teardrop and continue with turns in the opposite direction, we are
+    interested in the total angular changes, not the sign of these changes.    
+    """
+    units = 'deg'
+    def derive(self, head=P('Heading Continuous')):
+        rot = np.ma.ediff1d(head.array, to_begin = 0.0)
+        self.array = integrate(np.ma.abs(rot), head.frequency)
+        
+
 class HeadingTrue(DerivedParameterNode):
     """
     Compensates for magnetic variation, which will have been computed previously.

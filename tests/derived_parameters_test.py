@@ -52,6 +52,7 @@ from analysis_engine.derived_parameters import (
     GrossWeightSmoothed,
     GroundspeedAlongTrack,
     HeadingContinuous,
+    HeadingIncreasing,
     HeadingTrue,
     Headwind,
     ILSFrequency,
@@ -1291,6 +1292,21 @@ class TestHeadContinuous(unittest.TestCase):
         np.testing.assert_array_equal(head.array.data, answer.data)
 
 
+class TestHeadingIncreasing(unittest.TestCase):
+    def test_can_operate(self):
+        expected = [('Heading Continuous',)]
+        opts = HeadingIncreasing.get_operational_combinations()
+        self.assertEqual(opts, expected)
+        
+    def test_heading_increasing(self):
+        head = P('Heading Continuous', array=np.ma.array([0.0,1.0,-2.0]),
+                 frequency=0.5)
+        head_inc=HeadingIncreasing()
+        head_inc.derive(head)
+        expected = np.ma.array([0.0, 1.0, 5.0])
+        ma_test.assert_array_equal(head_inc.array, expected)
+        
+        
 class TestLatitudeAndLongitudePrepared(unittest.TestCase):
     def test_can_operate(self):
         self.assertEqual(LatitudePrepared.get_operational_combinations(),
@@ -1387,8 +1403,8 @@ class TestPitch(unittest.TestCase):
         
     def test_pitch_combination(self):
         pch = Pitch()
-        pch.derive(P('Pitch (1)', np.ma.array(range(5)), 1,0.1),
-                   P('Pitch (2)', np.ma.array(range(5))+10, 1,0.6)
+        pch.derive(P('Pitch (1)', np.ma.array(range(5),dtype=float), 1,0.1),
+                   P('Pitch (2)', np.ma.array(range(5),dtype=float)+10, 1,0.6)
                   )
         answer = np.ma.array(data=(range(10)),mask=([0]*9+[1]))/2.0+5.0
         combo = P('Pitch',answer,frequency=2,offset=0.35)
@@ -1398,8 +1414,8 @@ class TestPitch(unittest.TestCase):
 
     def test_pitch_reverse_combination(self):
         pch = Pitch()
-        pch.derive(P('Pitch (1)', np.ma.array(range(5))+1, 1,0.95),
-                   P('Pitch (2)', np.ma.array(range(5))+10, 1,0.45)
+        pch.derive(P('Pitch (1)', np.ma.array(range(5),dtype=float)+1, 1,0.95),
+                   P('Pitch (2)', np.ma.array(range(5),dtype=float)+10, 1,0.45)
                   )
         answer = np.ma.array(data=(range(10)),mask=([1]+[0]*9))/2.0+5.0
         np.testing.assert_array_equal(pch.array, answer.data)
@@ -1407,13 +1423,13 @@ class TestPitch(unittest.TestCase):
     def test_pitch_error_different_rates(self):
         pch = Pitch()
         self.assertRaises(AssertionError, pch.derive,
-                          P('Pitch (1)', np.ma.array(range(5)), 2,0.1),
-                          P('Pitch (2)', np.ma.array(range(10))+10, 4,0.6))
+                          P('Pitch (1)', np.ma.array(range(5),dtype=float), 2,0.1),
+                          P('Pitch (2)', np.ma.array(range(10),dtype=float)+10, 4,0.6))
         
     def test_pitch_different_offsets(self):
         pch = Pitch()
-        pch.derive(P('Pitch (1)', np.ma.array(range(5)), 1,0.11),
-                   P('Pitch (2)', np.ma.array(range(5)), 1,0.6))
+        pch.derive(P('Pitch (1)', np.ma.array(range(5),dtype=float), 1,0.11),
+                   P('Pitch (2)', np.ma.array(range(5),dtype=float), 1,0.6))
         # This originally produced an error, but with amended merge processes
         # this is not necessary. Simply check the result is the right length.
         self.assertEqual(len(pch.array),10)

@@ -107,12 +107,6 @@ class AutothrottleSelectionDisengaged(KeyTimeInstanceNode):
         self.create_ktis_at_edges(autothrottle.array, direction='falling_edges', phase=phase)
 
 
-class EngAllStop(KeyTimeInstanceNode):
-    name = 'Eng (*) Stop'
-    def derive(self, eng_n2=P('Eng (*) N2 Min')):
-        power = np.ma.where(eng_n2.array > 30.0,1,0)
-        self.create_ktis_at_edges(power, direction='falling_edges')
-
 class ClimbStart(KeyTimeInstanceNode):
     def derive(self, alt_aal=P('Altitude AAL'), climbing=S('Climbing')):
         for climb in climbing:
@@ -122,6 +116,25 @@ class ClimbStart(KeyTimeInstanceNode):
             # above CLIMB_THRESHOLD. In this case no kti is created.
             if initial_climb_index:
                 self.create_kti(initial_climb_index)
+
+
+class EngAllStop(KeyTimeInstanceNode):
+    name = 'Eng (*) Stop'
+    def derive(self, eng_n2=P('Eng (*) N2 Min')):
+        power = np.ma.where(eng_n2.array > 30.0,1,0)
+        self.create_ktis_at_edges(power, direction='falling_edges')
+
+
+class EnterHold(KeyTimeInstanceNode):
+    def derive(self, holds=S('Holding')):
+        for hold in holds:
+            self.create_kti(hold.slice.start)
+
+
+class ExitHold(KeyTimeInstanceNode):
+    def derive(self, holds=S('Holding')):
+        for hold in holds:
+            self.create_kti(hold.slice.stop)
 
 
 class GoAround(KeyTimeInstanceNode):
