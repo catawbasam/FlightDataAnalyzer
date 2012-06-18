@@ -1640,6 +1640,25 @@ class TestBlendTwoParameters(unittest.TestCase):
         p2 = P(array=[1]*3, frequency=2, offset=0.2)
         self.assertRaises(AssertionError, blend_two_parameters, p1, p2)
 
+    def test_blend_two_parameters_param_one_rubbish(self):
+        p1 = P(array=[5,10,7,8], frequency=2, offset=0.1, name='First')
+        p2 = P(array=[1,2,3,4], frequency=2, offset=0.0, name='Second')
+        p1.array = np.ma.masked
+        arr, freq, off = blend_two_parameters(p1, p2)
+        self.assertEqual(arr[2], 3)
+        self.assertEqual(freq, 2)
+        self.assertEqual(off, 0.0)
+        
+    def test_blend_two_parameters_param_two_rubbish(self):
+        p1 = P(array=[5,10,7,8], frequency=2, offset=0.1, name='First')
+        p2 = P(array=[1,2,3,4], frequency=2, offset=0.0, name='Second')
+        p2.array = np.ma.masked
+        arr, freq, off = blend_two_parameters(p1, p2)
+        self.assertEqual(arr[2], 7)
+        self.assertEqual(freq, 2)
+        self.assertEqual(off, 0.1)
+        
+
 
 class TestNormalise(unittest.TestCase):
     def test_normalise_copy(self):

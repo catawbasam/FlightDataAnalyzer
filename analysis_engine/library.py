@@ -1910,20 +1910,55 @@ def blend_two_parameters (param_one, param_two):
     :type param_one: Parameter
     '''
     assert param_one.frequency  == param_two.frequency
-    offset = (param_one.offset + param_two.offset)/2.0
-    frequency = param_one.frequency * 2.0
-    padding = 'Follow'
     
-    if offset > 1.0/frequency:
-        offset = offset - 1.0/frequency
-        padding = 'Precede'
-        
-    if param_one.offset <= param_two.offset:
-        # merged array should be monotonic (always increasing in time)
-        array = blend_alternate_sensors(param_one.array, param_two.array, padding)
+    # A common problem is that one sensor may be unserviceable, and has been
+    # identified already by parameter validity testing. Trap this case and
+    # deal with it first, raising a warning and dropping back to the single
+    # reliable source of information.
+    a = np.ma.count(param_one.array)
+    b = np.ma.count(param_two.array)
+    if a+b == 0:
+        logger.warning("Neither '%s' or '%s' has valid data available.", 
+                       param_one.name, param_two.name)
+        return None, None, None
+
+    if a < b*0.8:
+        logger.warning("Little valid data available for %s, using only %s data.", param_one.name, param_two.name)
+        return param_two.array, param_two.frequency, param_two.offset
+
+    elif b < a*0.8:
+        logger.warning("Little valid data available for %s, using only %s data.", param_two.name, param_one.name)
+        return param_one.array, param_one.frequency, param_one.offset
+
+    # A second problem is where both sensor may appear to be serviceable but
+    # one is invariant. If the parameters were similar, a/(a+b)=0.5 so we are
+    # looking for one being less than 20% of its normal level.
+    a = np.ma.ptp(param_one.array)
+    b = np.ma.ptp(param_two.array)
+
+    if a/(a+b) < 0.1:
+        logger.warning("No variation in %s, using only %s.", param_one.name, param_two.name)
+        return param_two.array, param_two.frequency, param_two.offset
+
+    elif b/(a+b) < 0.1:
+        logger.warning("No variation in %s, using only %s.", param_two.name, param_one.name)
+        return param_one.array, param_one.frequency, param_one.offset
+
     else:
-        array = blend_alternate_sensors(param_two.array, param_one.array, padding)
-    return array, param_one.frequency * 2, offset
+        offset = (param_one.offset + param_two.offset)/2.0
+        frequency = param_one.frequency * 2.0
+        padding = 'Follow'
+        
+        if offset > 1.0/frequency:
+            offset = offset - 1.0/frequency
+            padding = 'Precede'
+            
+        if param_one.offset <= param_two.offset:
+            # merged array should be monotonic (always increasing in time)
+            array = blend_alternate_sensors(param_one.array, param_two.array, padding)
+        else:
+            array = blend_alternate_sensors(param_two.array, param_one.array, padding)
+        return array, param_one.frequency * 2, offset
 
 def normalise(array, normalise_max=1.0, scale_max=None, copy=True, axis=None):
     """

@@ -101,7 +101,7 @@ class Holding(FlightPhaseNode):
                hdg=P('Heading Continuous')):
         turn_rate = rate_of_change(hdg, 3*60) # Should include two turn segments.
         _, height_bands = slices_between(alt_aal.array, 5000, 20000)
-        turn_bands = np.ma.clump_unmasked(np.ma.masked_less(np.ma.abs(turn_rate), 1.0))
+        turn_bands = np.ma.clump_unmasked(np.ma.masked_less(np.ma.abs(turn_rate), 0.5))
         hold_bands=[]
         for turn_band in turn_bands:
             # Reject periods of less than 4 minutes.
@@ -120,7 +120,7 @@ class Approach(FlightPhaseNode):
     def derive(self, alt_aal=P('Altitude AAL For Flight Phases'),
                lands=S('Landing'), go_arounds=S('Go Around And Climbout')):
 
-        # Prepare to extract the slicesa home for the approach slices
+        # Prepare to extract the slices
         app_slices = []
         ga_slices = []
 

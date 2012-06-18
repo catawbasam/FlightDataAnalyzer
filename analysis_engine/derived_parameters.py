@@ -1653,17 +1653,17 @@ class FlapSurface(DerivedParameterNode):
     @classmethod
     def can_operate(cls, available):
         return ('Altitude AAL' in available) or \
-               ('Flap (1)' in available and \
-                'Flap (2)' in available)
+               ('Flap (L)' in available and \
+                'Flap (R)' in available)
 
-    def derive(self, flap_A=P('Flap (1)'), flap_B=P('Flap (2)'),
+    def derive(self, flap_A=P('Flap (L)'), flap_B=P('Flap (R)'),
                frame=A('Frame'),
                apps=S('Approach'),               
                alt_aal=P('Altitude AAL')):
         frame_name = frame.value if frame else None
 
         if frame_name in ['737-5']:
-            self.array, self.frequency, self.offset = merge_two_parameters(flap_A, flap_B)
+            self.array, self.frequency, self.offset = blend_two_parameters(flap_A, flap_B)
 
         if frame_name in ['L382-Hercules']:
             # Flap is not recorded, so invent one of the correct length.
@@ -2715,51 +2715,60 @@ class Tailwind(DerivedParameterNode):
         self.array = -hwd.array
         
 
-class V2(DerivedParameterNode):
+class Vapp(DerivedParameterNode):
     '''
     Based on weight and flap at next intended landing.
     '''
+    name = 'FDR Vapp'
     def derive(self, flap=P('Flap'), weight=P('Gross Weight Smoothed'),
                app_lows=KTI('Lowest Point On Approach')):
         
-        def _v2(weight, flap):
-            #TODO: V2 Speed calculations replace below...
+        def _vapp(weight, flap):
+            #TODO: V Speed calculations replace below...
             return weight/(flap*15) # Silly formula for developing structure only.
         
         # Initialize the result space.
         self.array = np_ma_masked_zeros_like(flap.array)
         
-        # Fill the array with the last approach (and landing) V2:-
-        pit_idx = app_lows.get_last().index
-        pit_wt = weight.array[pit_idx]
-        pit_flap = flap.array[pit_idx]
-        self.array[:] = _v2(pit_wt, pit_flap)
-        
-        # If we made an approach earlier, fill up to the go-around point with
-        # the appropriate V2 value.
-        while app_lows.get_previous(pit_idx):
-            pit_idx = app_lows.get_previous(pit_idx).index
+        # Fill the array with the last approach (and landing) Vapp, providing
+        # that the data does have a final landing of course:-
+        if app_lows.get_last():
+            pit_idx = app_lows.get_last().index
             pit_wt = weight.array[pit_idx]
             pit_flap = flap.array[pit_idx]
-            self.array[:pit_idx] = _v2(pit_wt, pit_flap)
+            self.array[:] = _vapp(pit_wt, pit_flap)
+            
+            # If we made an approach earlier, fill up to the go-around point with
+            # the appropriate V2 value.
+            while app_lows.get_previous(pit_idx):
+                pit_idx = app_lows.get_previous(pit_idx).index
+                pit_wt = weight.array[pit_idx]
+                pit_flap = flap.array[pit_idx]
+                self.array[:pit_idx] = _vapp(pit_wt, pit_flap)
          
          
-class Vapp(DerivedParameterNode):
+class V2(DerivedParameterNode):
     '''
     Based on weight and flap at time of landing.
     '''
-    name = 'FDR Vapp'
-    def derive(self, weight_touchdown=KPV('Gross Weight At Touchdown'),
-               flap_touchdown=KPV('Flap At Touchdown')):
-        '''
-        Do not source from AFR, only set attribute if Vapp is recorded/derived.
-        '''
-        weight = weight_touchdown.get_last()
-        flap = flap_touchdown.get_last()
-        if not weight or not flap:
-            # TODO: Log.
-            return
-        return NotImplemented
+    def derive(self, flap=P('Flap'), weight_liftoff=KPV('Gross Weight At Liftoff')):
+        
+        def _v2(weight, flap):
+            #TODO: V Speed calculations replace below...
+            return 100.0 # Silly formula for developing structure only.
+        
+        # Initialize the result space.
+        self.array = np_ma_masked_zeros_like(flap.array)
+        
+        end=None
+        countdown = range(len(weight_liftoff),0,-1)
+        for each_one in countdown:
+            each = each_one - 1
+            each_weight = weight_liftoff[each].value
+            each_index = weight_liftoff[each].index
+            each_flap = flap.array[each_index]
+            self.array[each_index:end] = _v2(each_weight, each_flap)
+            end = each_index # so the next one will precede this.
         
         
         

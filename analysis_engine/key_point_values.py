@@ -988,8 +988,9 @@ class HeightLostInClimb35To1000Ft(KeyPointValueNode):
             idx = np.ma.argmin(height_loss.array[climb])
             index = climb.start + idx
             value = height_loss.array[index]
-            self.create_kpv(index, value) # May make this value < 0 only at a later date.
-
+            if value:
+                self.create_kpv(index, value)
+                
             
 class HeightLostInClimb1000To2000Ft(KeyPointValueNode):
     def derive(self, height_loss=P('Descend For Flight Phases'),
@@ -998,8 +999,9 @@ class HeightLostInClimb1000To2000Ft(KeyPointValueNode):
             idx = np.ma.argmin(height_loss.array[climb])
             index = climb.start + idx
             value = height_loss.array[index]
-            self.create_kpv(index, value) # May make this value < 0 only at a later date.
-
+            if value:
+                self.create_kpv(index, value)
+                
 class HoldingTime(KeyPointValueNode):
     """
     Identify periods in the hold.
@@ -2524,13 +2526,11 @@ class TouchdownTo60KtsTime(KeyPointValueNode):
             
 
 
-class Wind(KeyPointValueNode):
-    NAME_FORMAT = 'Wind Direction At %(altitude)d Ft AAL In Descent'
-    NAME_VALUES = {'parameter':['Wind Speed',
-                                'Wind Direction Continuous',
-                                'Headwind'],
+class WindSpeedInDescent(KeyPointValueNode):
+    NAME_FORMAT = 'Windspeed At %(altitude)d Ft AAL In Descent'
+    NAME_VALUES = {'parameter':['Wind Speed'],
                    'altitude':[2000,1500,1000,500,100,50]}
-    def derive(self, wspd=P('Wind Speed'),wdir=P('Wind Direction Continuous'),
+    def derive(self, wspd=P('Wind Speed'),
                alt_aal=P('Altitude AAL For Flight Phases')):
         for this_descent_slice in alt_aal.slices_from_to(2100, 0):
             for alt in self.NAME_VALUES['altitude']:
@@ -2541,6 +2541,18 @@ class Wind(KeyPointValueNode):
                         self.create_kpv(index, speed, 
                                         parameter='Wind Speed', 
                                         altitude=alt)
+                    
+
+class WindDirectionInDescent(KeyPointValueNode):
+    NAME_FORMAT = 'Wind Direction At %(altitude)d Ft AAL In Descent'
+    NAME_VALUES = {'parameter':['Wind Direction Continuous'],
+                   'altitude':[2000,1500,1000,500,100,50]}
+    def derive(self, wdir=P('Wind Direction Continuous'),
+               alt_aal=P('Altitude AAL For Flight Phases')):
+        for this_descent_slice in alt_aal.slices_from_to(2100, 0):
+            for alt in self.NAME_VALUES['altitude']:
+                index = index_at_value(alt_aal.array, alt, this_descent_slice)
+                if index:
                     # We check that the direction is not masked at this point
                     # before 'risking' the %360 function.
                     direction = value_at_index(wdir.array, index)

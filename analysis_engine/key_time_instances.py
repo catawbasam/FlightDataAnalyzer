@@ -77,9 +77,10 @@ class ApproachLowestPoint(KeyTimeInstanceNode):
         # In the case of descents without landing, this finds the minimum
         # point of the dip.
         for app in apps:
-            index = np.ma.argmin(alt_aal.array[app.slice])
+            index = np.ma.argmin(alt_aal.array[app.slice]) + app.slice.start
             value = alt_aal.array[index]
-            self.create_kti(index)
+            if value:
+                self.create_kti(index)
     
 
 class AutopilotSelectionEngaged(KeyTimeInstanceNode):
