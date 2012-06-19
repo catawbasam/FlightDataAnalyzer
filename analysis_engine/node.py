@@ -257,7 +257,7 @@ def can_operate(cls, available):
 
     def _get_logger(self):
         """
-        Only create a logger for this Node if a message is to be logged.
+        Return a logger with name based on module and class name.
         """
         # # FIXME: storing logger as Node attribute is causing problems as we
         # # deepcopy() the Node objects the loggers are copied as well. This
