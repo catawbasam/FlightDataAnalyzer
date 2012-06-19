@@ -298,13 +298,40 @@ class TestAirspeedMinusVref(unittest.TestCase):
 
 class TestAirspeedTrue(unittest.TestCase):
     def test_can_operate(self):
-        self.assertEqual(AirspeedTrue.get_operational_combinations(), 
-                         [('Airspeed', 'Altitude STD'),
-                          ('Airspeed', 'Altitude STD', 'TAT'),
-                          ('Airspeed', 'Altitude STD', 'TAT', 'Takeoff'),
-                          ('Airspeed', 'Altitude STD', 'TAT', 'Takeoff', 'Landing'),
-                          ('Airspeed', 'Altitude STD', 'TAT', 'Takeoff', 'Landing', 'Groundspeed'),
-                          ('Airspeed', 'Altitude STD', 'TAT', 'Takeoff', 'Landing', 'Groundspeed', 'Acceleration Forwards')])
+        self.assertEqual(AirspeedTrue.get_operational_combinations(), [
+            ('Airspeed', 'Altitude STD'),
+            ('Airspeed', 'Altitude STD', 'TAT'),
+            ('Airspeed', 'Altitude STD', 'Takeoff'),
+            ('Airspeed', 'Altitude STD', 'Landing'),
+            ('Airspeed', 'Altitude STD', 'Groundspeed'),
+            ('Airspeed', 'Altitude STD', 'Acceleration Forwards'),
+            ('Airspeed', 'Altitude STD', 'TAT', 'Takeoff'),
+            ('Airspeed', 'Altitude STD', 'TAT', 'Landing'),
+            ('Airspeed', 'Altitude STD', 'TAT', 'Groundspeed'),
+            ('Airspeed', 'Altitude STD', 'TAT', 'Acceleration Forwards'),
+            ('Airspeed', 'Altitude STD', 'Takeoff', 'Landing'),
+            ('Airspeed', 'Altitude STD', 'Takeoff', 'Groundspeed'),
+            ('Airspeed', 'Altitude STD', 'Takeoff', 'Acceleration Forwards'),
+            ('Airspeed', 'Altitude STD', 'Landing', 'Groundspeed'),
+            ('Airspeed', 'Altitude STD', 'Landing', 'Acceleration Forwards'),
+            ('Airspeed', 'Altitude STD', 'Groundspeed', 'Acceleration Forwards'),
+            ('Airspeed', 'Altitude STD', 'TAT', 'Takeoff', 'Landing'),
+            ('Airspeed', 'Altitude STD', 'TAT', 'Takeoff', 'Groundspeed'),
+            ('Airspeed', 'Altitude STD', 'TAT', 'Takeoff', 'Acceleration Forwards'),
+            ('Airspeed', 'Altitude STD', 'TAT', 'Landing', 'Groundspeed'),
+            ('Airspeed', 'Altitude STD', 'TAT', 'Landing', 'Acceleration Forwards'),
+            ('Airspeed', 'Altitude STD', 'TAT', 'Groundspeed', 'Acceleration Forwards'),
+            ('Airspeed', 'Altitude STD', 'Takeoff', 'Landing', 'Groundspeed'),
+            ('Airspeed', 'Altitude STD', 'Takeoff', 'Landing', 'Acceleration Forwards'),
+            ('Airspeed', 'Altitude STD', 'Takeoff', 'Groundspeed', 'Acceleration Forwards'),
+            ('Airspeed', 'Altitude STD', 'Landing', 'Groundspeed', 'Acceleration Forwards'),
+            ('Airspeed', 'Altitude STD', 'TAT', 'Takeoff', 'Landing', 'Groundspeed'),
+            ('Airspeed', 'Altitude STD', 'TAT', 'Takeoff', 'Landing', 'Acceleration Forwards'),
+            ('Airspeed', 'Altitude STD', 'TAT', 'Takeoff', 'Groundspeed', 'Acceleration Forwards'),
+            ('Airspeed', 'Altitude STD', 'TAT', 'Landing', 'Groundspeed', 'Acceleration Forwards'),
+            ('Airspeed', 'Altitude STD', 'Takeoff', 'Landing', 'Groundspeed', 'Acceleration Forwards'),
+            ('Airspeed', 'Altitude STD', 'TAT', 'Takeoff', 'Landing', 'Groundspeed', 'Acceleration Forwards')
+        ])
         
     def test_tas_basic(self):
         cas = P('Airspeed', np.ma.array([100,200,300]))

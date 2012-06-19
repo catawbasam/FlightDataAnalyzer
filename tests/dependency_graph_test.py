@@ -30,6 +30,9 @@ class TestDependencyGraph(unittest.TestCase):
             def __init__(self, dependencies=['a'], operational=True):
                 self.dependencies = dependencies
                 self.operational = operational
+                # Hack to allow objects rather than classes to be added
+                # to the tree.
+                self.__base__ = DerivedParameterNode
                 
             def can_operate(self, avail):
                 return self.operational
@@ -78,9 +81,13 @@ class TestDependencyGraph(unittest.TestCase):
         Tests a few of the colours
         """
         class One(DerivedParameterNode):
+            # Hack to allow objects rather than classes to be added to the tree.            
+            __base__ = DerivedParameterNode
             def derive(self, dep=P('DepOne')):
                 pass
         class Four(DerivedParameterNode):
+            # Hack to allow objects rather than classes to be added to the tree. 
+            __base__ = DerivedParameterNode
             def derive(self, dep=P('DepFour')):
                 pass
         one = One('overridden')
@@ -93,7 +100,7 @@ class TestDependencyGraph(unittest.TestCase):
         self.assertEqual(gr.node[1], {'color': 'forestgreen'})
         # Derived
         self.assertEqual(gr.edges(4), [(4,'DepFour')])
-        self.assertEqual(gr.node[4], {}) # same as {'color': 'black'}!
+        self.assertEqual(gr.node[4], {'color': 'yellow'})
         # Root
         from analysis_engine.dependency_graph import draw_graph
         draw_graph(gr, 'test_graph_nodes_with_duplicate_key_in_lfl_and_derived')

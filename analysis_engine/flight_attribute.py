@@ -256,8 +256,8 @@ class DeterminePilot(object):
             return 'First Officer'
         else:
             self.warning("Both captain and first officer controls "
-                            "do not change during '%s' slice.",
-                            section.name)
+                         "do not change during '%s' slice.",
+                         section.name)
             return None
     
     def _determine_pilot(self, pitch_captain, roll_captain, pitch_fo, roll_fo,

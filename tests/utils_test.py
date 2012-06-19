@@ -35,6 +35,7 @@ class TestTrimmer(unittest.TestCase):
         get_derived_nodes.return_value = derived_nodes
         in_path = 'in.hdf5'
         out_path = 'out.hdf5'
+        dependency_order.return_value = (Mock(), Mock())
         dest = trimmer(in_path, ['IVV', 'DME'], out_path)
         file_patched.assert_called_once_with(in_path, 'r')
         get_derived_nodes.assert_called_once_with(node_modules)
@@ -47,7 +48,7 @@ class TestTrimmer(unittest.TestCase):
         dependency_order.assert_called_once_with(node_mgr.return_value,
                                                  draw=False)
         strip_hdf.assert_called_once_with(in_path,
-                                          dependency_order.return_value,
+                                          dependency_order.return_value[0],
                                           out_path)
         self.assertEqual(dest, out_path)
         
