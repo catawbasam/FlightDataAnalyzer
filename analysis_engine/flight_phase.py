@@ -1,49 +1,38 @@
-import logging
 import numpy as np
 
-from analysis_engine.library import (find_edges,
-                                     first_valid_sample,
-                                     hysteresis, 
-                                     index_at_value,
-                                     index_closest_value,
-                                     is_slice_within_slice,
-                                     last_valid_sample,
-                                     minimum_unmasked,
-                                     peak_curvature,
-                                     rate_of_change,
-                                     repair_mask, 
-                                     shift_slice, 
-                                     shift_slices, 
-                                     slice_duration,
-                                     slices_between,
-                                     slices_overlap,
-                                     slices_and,
-                                     slices_or,
-                                     slices_not,
-                                     slice_samples)
+from analysis_engine.library import (
+    find_edges,
+    first_valid_sample,
+    index_at_value,
+    index_closest_value,
+    is_slice_within_slice,
+    rate_of_change,
+    repair_mask, 
+    shift_slice, 
+    shift_slices, 
+    slices_between,
+    slices_overlap,
+    slices_and,
+    slices_or,
+    slices_not
+)
 
 from analysis_engine.node import FlightPhaseNode, A, P, S, KTI
 
-from analysis_engine.settings import (AIRSPEED_THRESHOLD,
-                               ALTITUDE_FOR_CLB_CRU_DSC,
-                               APPROACH_MIN_DESCENT,
-                               FLIGHT_WORTH_ANALYSING_SEC,
-                               HEADING_TURN_OFF_RUNWAY,
-                               HEADING_TURN_ONTO_RUNWAY,
-                               HYSTERESIS_FPROT,
-                               HYSTERESIS_FP_RAD_ALT,
-                               ILS_MAX_SCALE,
-                               INITIAL_CLIMB_THRESHOLD,
-                               INITIAL_APPROACH_THRESHOLD,
-                               LANDING_THRESHOLD_HEIGHT,
-                               RATE_OF_CLIMB_FOR_CLIMB_PHASE,
-                               RATE_OF_CLIMB_FOR_DESCENT_PHASE,
-                               RATE_OF_CLIMB_FOR_LEVEL_FLIGHT,
-                               RATE_OF_TURN_FOR_FLIGHT_PHASES,
-                               RATE_OF_TURN_FOR_TAXI_TURNS
-                               )
-
-logger = logging.getLogger(name=__name__)
+from analysis_engine.settings import (
+    AIRSPEED_THRESHOLD,
+    ALTITUDE_FOR_CLB_CRU_DSC,
+    HEADING_TURN_OFF_RUNWAY,
+    HEADING_TURN_ONTO_RUNWAY,
+    INITIAL_CLIMB_THRESHOLD,
+    INITIAL_APPROACH_THRESHOLD,
+    LANDING_THRESHOLD_HEIGHT,
+    RATE_OF_CLIMB_FOR_CLIMB_PHASE,
+    RATE_OF_CLIMB_FOR_DESCENT_PHASE,
+    RATE_OF_CLIMB_FOR_LEVEL_FLIGHT,
+    RATE_OF_TURN_FOR_FLIGHT_PHASES,
+    RATE_OF_TURN_FOR_TAXI_TURNS
+)
 
 
 class Airborne(FlightPhaseNode):
@@ -149,7 +138,7 @@ class Approach(FlightPhaseNode):
         if all_apps:
             self.create_phases(all_apps)
         else:
-            logger.warning('Flight with no valid approach or go-around phase. Probably truncated data')
+            self.warning('Flight with no valid approach or go-around phase. Probably truncated data')
 
 
 class ClimbCruiseDescent(FlightPhaseNode):
@@ -532,7 +521,7 @@ class ILSGlideslopeEstablished(FlightPhaseNode):
             gsm = np.ma.masked_outside(gs,-1,1)  # mask data more than 1 dot
             ends = np.ma.flatnotmasked_edges(gsm)  # find the valid endpoints
             if ends is None:
-                logger.debug("Did not establish localiser within +-1dot")
+                self.debug("Did not establish localiser within +-1dot")
                 continue
             elif ends[0] == 0 and ends[1] == -1:  # TODO: Pythonese this line !
                 # All the data is within one dot, so the phase is already known

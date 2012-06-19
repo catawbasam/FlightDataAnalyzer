@@ -1193,7 +1193,7 @@ class TestFlightType(unittest.TestCase):
         type_node.set_flight_attr = Mock()
         type_node.derive(None, empty_fast, empty_liftoffs, empty_touchdowns,
                          None, groundspeed)
-        type_node.set_flight_attr.assert_called_once_with('GROUND_RUN')
+        type_node.set_flight_attr.assert_called_once_with('GROUND_ONLY')
         # Liftoff, Touchdown and Fast missing, Groundspeed stays the same.
         groundspeed = P('Groundspeed', np.ma.masked_array([0] * 20))
         type_node.set_flight_attr = Mock()

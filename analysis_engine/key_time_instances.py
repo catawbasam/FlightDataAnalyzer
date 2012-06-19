@@ -1,17 +1,12 @@
-import logging
 import numpy as np
 
-from analysis_engine.library import (find_edges,
-                                     hysteresis, 
+from analysis_engine.library import (hysteresis, 
                                      index_at_value,
                                      index_closest_value,
                                      is_index_within_slice,
                                      is_index_within_sections,
                                      minimum_unmasked,
-                                     repair_mask,
                                      slices_above,
-                                     slices_overlap,
-                                     min_value,
                                      max_value, 
                                      peak_curvature)
 
@@ -23,9 +18,6 @@ from settings import (CLIMB_THRESHOLD,
                       SLOPE_FOR_TOC_TOD,
                       TAKEOFF_ACCELERATION_THRESHOLD
                       )
-
-
-logger = logging.getLogger(name=__name__)
 
 
 def find_toc_tod(alt_data, ccd_slice, mode):

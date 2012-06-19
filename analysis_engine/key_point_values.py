@@ -1,12 +1,9 @@
-import logging
 import numpy as np
 
 from analysis_engine import settings
 from analysis_engine.settings import (CONTROL_FORCE_THRESHOLD,
                                       FEET_PER_NM,
-                                      NAME_VALUES_FLAP,
-                                      NAME_VALUES_CLIMB,
-                                      NAME_VALUES_CONF)
+                                      NAME_VALUES_FLAP)
 
 from analysis_engine.node import KeyPointValueNode, KPV, KTI, P, S, A
 
@@ -30,16 +27,9 @@ from analysis_engine.library import (clip,
                                      rate_of_change,
                                      shift_slices,
                                      slice_samples, 
-                                     slices_above,
-                                     slices_from_to,
                                      slices_overlap,
                                      slices_and,
-                                     slices_not,
-                                     subslice,
                                      value_at_index)
-
-
-logger = logging.getLogger(name=__name__)
 
 
 class AccelerationLateralMax(KeyPointValueNode):
@@ -546,7 +536,7 @@ class Airspeed10000ToLandMax(KeyPointValueNode):
 class AirspeedRTOMax(KeyPointValueNode):
     name = 'Airspeed RTO Max'
     def derive(self, airspeed=P('Airspeed'),
-               rejected_takeoff=S('Rejected Takeoff')):
+               rejected_takeoffs=S('Rejected Takeoff')):
         for rejected_takeoff in rejected_takeoffs:
             self.create_kpvs_within_slices(airspeed.array, 
                                            rejected_takeoff.slice, max_value)
@@ -663,7 +653,7 @@ class AirspeedLevelFlightMax(KeyPointValueNode):
                 index, value = max_value(airspeed.array, sect.slice)
                 self.create_kpv(index, value)
             else:
-                logger.debug("Level flight duration too short to create KPV")
+                self.debug("Level flight duration too short to create KPV")
 
 
 class AirspeedMinusV2AtLiftoff(KeyPointValueNode):
@@ -1352,7 +1342,7 @@ class Eng_N1MaxDurationUnder60PercentAfterTouchdown(KeyPointValueNode): ##was na
             eng_stop = engines_stop.get(name='Eng (%d) Stop' % eng_num)
             if not eng_stop:
                 #Q: Should we measure until the end of the flight anyway? (probably not)
-                logger.debug("Engine %d did not stop on this flight, cannot measure KPV", eng_num)
+                self.debug("Engine %d did not stop on this flight, cannot measure KPV", eng_num)
                 continue
             
             eng_array = repair_mask(eng.array)
@@ -2485,8 +2475,9 @@ class ThrottleCyclesInFinalApproach(KeyPointValueNode):
                                            lever.hz, fapp.slice.start))
 
 
-class TouchdownToElevatorDownTime(KeyPointValueNode):
-    def derive(self, elevator=P('Elevator'), tdwns=KTI('Touchdown')):
+class TimeTouchdownToElevatorDown(KeyPointValueNode):
+    def derive(self, airspeed=P('Airspeed'), elevator=P('Elevator'),
+               tdwns=KTI('Touchdown')):
         for tdwn in tdwns:
             index_elev = index_at_value(elevator.array, -14.0, slice(tdwn.index,None))
             if index_elev:

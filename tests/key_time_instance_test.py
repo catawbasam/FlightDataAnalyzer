@@ -3,15 +3,9 @@ import numpy as np
 import sys
 import unittest
 
-from analysis_engine.derived_parameters import ClimbForFlightPhases
-from analysis_engine.node import (A, KPV, KTI, KeyTimeInstance, Parameter, P,
-                                  Section, SectionNode, S)
+from analysis_engine.node import (KeyTimeInstance, Parameter, P, Section, S)
 
-from analysis_engine.flight_phase import (Approach,
-                                   ClimbCruiseDescent,
-                                   Climbing,
-                                   DescentLowClimb,
-                                   )
+from analysis_engine.flight_phase import Climbing
 
 from analysis_engine.key_time_instances import (AltitudeWhenClimbing,
                                                 AltitudeWhenDescending,
@@ -528,7 +522,7 @@ class TestTopOfDescent(unittest.TestCase):
 class TestTouchdown(unittest.TestCase):
     def test_can_operate(self):
         self.assertEqual(Touchdown.get_operational_combinations(),
-                         [('Rate Of Climb For Flight Phases', 'Airborne')])
+                         [('Rate Of Climb', 'Airborne')])
 
     def test_touchdown_basic(self):
         rate_of_climb = Parameter('Rate Of Climb For Flight Phases', np.ma.arange(10)*40 - 320)

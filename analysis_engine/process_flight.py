@@ -5,11 +5,11 @@ from inspect import isclass
 
 from analysis_engine import hooks
 from analysis_engine import settings
-from analysis_engine.library import value_at_index
 from analysis_engine.dependency_graph import dependency_order
 from analysis_engine.node import (Attribute, derived_param_from_hdf,
                                   DerivedParameterNode,
-                                  FlightAttributeNode, 
+                                  FlightAttributeNode,
+                                  FlightPhaseNode,
                                   KeyPointValueNode,
                                   KeyTimeInstanceNode, Node,
                                   NodeManager, P, SectionNode)
@@ -116,24 +116,24 @@ def derive_parameters(hdf, node_mgr, process_order):
             nodes_not_implemented.append(node_class.__name__)
             continue
         
-        if node.node_type == 'KeyPointValueNode':
+        if node.node_type is KeyPointValueNode:
             #Q: track node instead of result here??
             params[param_name] = result
             kpv_list.extend(result.get_aligned(P(frequency=1,offset=0)))
-        elif node.node_type == 'KeyTimeInstanceNode':
+        elif node.node_type is KeyTimeInstanceNode:
             params[param_name] = result
             kti_list.extend(result.get_aligned(P(frequency=1,offset=0)))
-        elif node.node_type == 'FlightAttributeNode':
+        elif node.node_type is FlightAttributeNode:
             params[param_name] = result
             try:
                 flight_attrs.append(Attribute(result.name, result.value)) # only has one Attribute result
             except:
                 logging.warning("Flight Attribute Node '%s' returned empty handed."%(param_name))
-        elif node.node_type in ('FlightPhaseNode', 'SectionNode'):
+        elif node.node_type in (FlightPhaseNode, SectionNode):
             # expect a single slice
             params[param_name] = result
             section_list.extend(result.get_aligned(P(frequency=1,offset=0)))
-        elif node.node_type == 'DerivedParameterNode':
+        elif node.node_type is DerivedParameterNode:
             ### perform any post_processing
             ##if hooks.POST_DERIVED_PARAM_PROCESS:
                 ##process_result = hooks.POST_DERIVED_PARAM_PROCESS(hdf, result)
@@ -309,9 +309,6 @@ if __name__ == '__main__':
     from utilities.filesystem_tools import copy_file
     logger = logging.getLogger()
     logger.setLevel(logging.DEBUG)    
-    required_parameters = ['Latitude Smoothed', 'Longitude Smoothed',
-                           'Distance To Landing', 'Eng (*) Fuel Flow',
-                           'Altitude STD']
     parser = argparse.ArgumentParser(description="Process a flight.")
     parser.add_argument('file', type=str,
                         help='Path of file to process.')

@@ -432,7 +432,7 @@ def split_hdf_to_segments(hdf_path, aircraft_info, fallback_dt=None, draw=False)
             logger.info("No PRE_FILE_ANALYSIS actions to perform")
         
         segment_tuples = split_segments(hdf)
-            
+    
     # process each segment (into a new file) having closed original hdf_path
     segments = []
     for part, segment_tuple in enumerate(segment_tuples, start=1):

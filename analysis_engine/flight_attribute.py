@@ -1,17 +1,11 @@
 from datetime import datetime
 import numpy as np
-import logging
-import itertools
-import operator
 
 from analysis_engine import __version__
 from analysis_engine.api_handler import get_api_handler, NotFoundError
 from analysis_engine.library import datetime_of_index, min_value, max_value
 from analysis_engine.node import A, KTI, KPV, FlightAttributeNode, P, S
 from analysis_engine.settings import CONTROLS_IN_USE_TOLERANCE, API_HANDLER
-from scipy.interpolate import interp1d
-
-logger = logging.getLogger(name=__name__)
 
 
 class AnalysisDatetime(FlightAttributeNode):
@@ -98,7 +92,7 @@ class Approaches(FlightAttributeNode):
         lat, lon = self._get_lat_lon(approach.slice,
                                      lat_kpv_node, lon_kpv_node)
         if not lat or not lon:
-            logger.warning("Latitude and/or Longitude KPVs not found "
+            self.warning("Latitude and/or Longitude KPVs not found "
                             "within 'Approach and Landing' phase between "
                             "indices '%d' and '%d'.", approach.slice.start,
                             approach.slice.stop)
@@ -107,7 +101,7 @@ class Approaches(FlightAttributeNode):
         try:
             airport = api_handler.get_nearest_airport(lat, lon)
         except NotFoundError:
-            logger.warning("Airport could not be found with latitude '%f' "
+            self.warning("Airport could not be found with latitude '%f' "
                             "and longitude '%f'.", lat, lon)
             return
         airport_id = airport['id']
@@ -119,7 +113,7 @@ class Approaches(FlightAttributeNode):
             if len(hdg_kpvs) == 1:
                 hdg = hdg_kpvs[0].value
         if not hdg:
-            logger.info("Heading not available for approach between "
+            self.info("Heading not available for approach between "
                          "indices '%d' and '%d'.", approach.slice.start,
                          approach.slice.stop)
             return {'airport': airport,
@@ -160,13 +154,13 @@ class Approaches(FlightAttributeNode):
                     print "Should pick Left runway"
                 else:
                     print "Should pick Right runway"
-                ##logger.warning("Identified %d Runways, ident %s. Picking the first!", 
+                ##self.warning("Identified %d Runways, ident %s. Picking the first!", 
                              ##len(runway_info['items']), runway_info['ident'])
 
             else:
                 runway = runway_info['items'][0]
         except NotFoundError:
-            logger.warning("Runway not found for airport id '%d', heading "
+            self.warning("Runway not found for airport id '%d', heading "
                             "'%f' and kwargs '%s'.", airport_id, hdg, kwargs)
             runway = None
         
@@ -251,7 +245,7 @@ class DeterminePilot(object):
                                                   roll_captain)
         fo_flying = self._pitch_roll_changed(section.slice, pitch_fo, roll_fo)
         if captain_flying and fo_flying:
-            logger.warning("Cannot determine whether Captain or First "
+            self.warning("Cannot determine whether Captain or First "
                             "Officer was at the controls because both "
                             "controls change during '%s' slice.",
                             section.name)
@@ -261,7 +255,7 @@ class DeterminePilot(object):
         elif fo_flying:
             return 'First Officer'
         else:
-            logger.warning("Both captain and first officer controls "
+            self.warning("Both captain and first officer controls "
                             "do not change during '%s' slice.",
                             section.name)
             return None
@@ -322,7 +316,7 @@ class FlightNumber(FlightAttributeNode):
         # Q: Should we validate the flight number?
         _, minvalue = min_value(num.array)
         if minvalue < 0:
-            logger.warning("'%s' only supports unsigned (positive) values",
+            self.warning("'%s' only supports unsigned (positive) values",
                             self.name)
             self.set_flight_attr(None)
             return
@@ -334,7 +328,7 @@ class FlightNumber(FlightAttributeNode):
             # this value accounts for at least 60% of the values in the array
             self.set_flight_attr(str(value))
         else:
-            logger.warning("Only %d out of %d flight numbers were the same."\
+            self.warning("Only %d out of %d flight numbers were the same."\
                             " Flight Number attribute will be set as None.", count, len(num.array))
             self.set_flight_attr(None)
             return
@@ -355,7 +349,7 @@ class LandingAirport(FlightAttributeNode):
         last_latitude = landing_latitude.get_last()
         last_longitude = landing_longitude.get_last()
         if not last_latitude or not last_longitude:
-            logger.warning("'Latitude At Landing' and/or 'Longitude At "
+            self.warning("'Latitude At Landing' and/or 'Longitude At "
                             "Landing' KPVs did not exist, therefore '%s' "
                             "cannot query for landing airport.",
                             self.__class__.__name__)
@@ -366,7 +360,7 @@ class LandingAirport(FlightAttributeNode):
             airport = api_handler.get_nearest_airport(last_latitude.value,
                                                       last_longitude.value)
         except NotFoundError:
-            logger.warning("Airport could not be found with latitude '%f' "
+            self.warning("Airport could not be found with latitude '%f' "
                             "and longitude '%f'.", last_latitude.value,
                             last_longitude.value)
             self.set_flight_attr(None)
@@ -398,14 +392,14 @@ class LandingRunway(FlightAttributeNode):
         See TakeoffRunway for runway information.
         '''
         if not airport.value:
-            logger.warning("'%s' requires '%s' to be set.", self.name,
+            self.warning("'%s' requires '%s' to be set.", self.name,
                             airport.name)
             self.set_flight_attr(None)
             return
         airport_id = airport.value['id']
         landing = approach_and_landing.get_last()
         if not landing:
-            logger.warning("Empty '%s' in '%s'.", landing.name, self.name)
+            self.warning("Empty '%s' in '%s'.", landing.name, self.name)
             self.set_flight_attr(None)
             return
         heading = landing_hdg[-1].value
@@ -436,7 +430,7 @@ class LandingRunway(FlightAttributeNode):
                 runway = runway_info['items'][0]            
             self.set_flight_attr(runway)
         except NotFoundError:
-            logger.warning("Runway not found for airport id '%d', heading "
+            self.warning("Runway not found for airport id '%d', heading "
                             "'%f' and kwargs '%s'.", airport_id, heading,
                             kwargs)
             self.set_flight_attr(None)
@@ -492,7 +486,7 @@ class TakeoffAirport(FlightAttributeNode):
         first_latitude = latitude_at_takeoff.get_first()
         first_longitude = longitude_at_takeoff.get_first()
         if not first_latitude or not first_longitude:
-            logger.warning("Cannot create '%s' attribute without '%s' or "
+            self.warning("Cannot create '%s' attribute without '%s' or "
                             "'%s'.", self.name, latitude_at_takeoff.name,
                             longitude_at_takeoff.name)
             self.set_flight_attr(None)
@@ -502,7 +496,7 @@ class TakeoffAirport(FlightAttributeNode):
             airport = api_handler.get_nearest_airport(first_latitude.value,
                                                       first_longitude.value)
         except NotFoundError:
-            logger.warning("Takeoff Airport could not be found with '%s' "
+            self.warning("Takeoff Airport could not be found with '%s' "
                             "'%f' and '%s' '%f'.", latitude_at_takeoff.name,
                             first_latitude.value, longitude_at_takeoff.name,
                             first_longitude.value)
@@ -560,7 +554,7 @@ class TakeoffGrossWeight(FlightAttributeNode):
             # There is not a 'Gross Weight At Liftoff' KPV. Since it is sourced
             # from 'Gross Weight Smoothed', gross weight at liftoff should not
             # be masked.
-            logger.warning("No '%s' KPVs, '%s' attribute will be None.",
+            self.warning("No '%s' KPVs, '%s' attribute will be None.",
                             liftoff_gross_weight.name, self.name)
             self.set_flight_attr(None)
     
@@ -647,7 +641,7 @@ class TakeoffRunway(FlightAttributeNode):
         }}
         '''
         if not airport.value:
-            logger.warning("'%s' requires '%s' to be set.", self.name,
+            self.warning("'%s' requires '%s' to be set.", self.name,
                             airport.name)
             self.set_flight_attr(None)
             return
@@ -679,7 +673,7 @@ class TakeoffRunway(FlightAttributeNode):
                 runway = runway_info['items'][0]
             self.set_flight_attr(runway)
         except NotFoundError:
-            logger.warning("Runway not found for airport id '%d', heading "
+            self.warning("Runway not found for airport id '%d', heading "
                             "'%f' and kwargs '%s'.", airport_id, hdg_value,
                             kwargs)
             self.set_flight_attr(None)
@@ -700,13 +694,13 @@ class FlightType(FlightAttributeNode):
         
         if liftoffs and not touchdowns:
             # In the air without having touched down.
-            logger.warning("'Liftoff' KTI exists without 'Touchdown'. '%s' "
+            self.warning("'Liftoff' KTI exists without 'Touchdown'. '%s' "
                             "will be 'INCOMPLETE'.", self.name)
             self.set_flight_attr('LIFTOFF_ONLY')
             return
         elif not liftoffs and touchdowns:
             # In the air without having lifted off.
-            logger.warning("'Touchdown' KTI exists without 'Liftoff'. '%s' "
+            self.warning("'Touchdown' KTI exists without 'Liftoff'. '%s' "
                             "will be 'INCOMPLETE'.", self.name)
             self.set_flight_attr('TOUCHDOWN_ONLY')
             return
@@ -716,7 +710,7 @@ class FlightType(FlightAttributeNode):
             first_liftoff = liftoffs.get_first()
             if first_touchdown.index < first_liftoff.index:
                 # Touchdown before having lifted off, data must be INCOMPLETE.
-                logger.warning("'Touchdown' KTI index before 'Liftoff'. '%s' "
+                self.warning("'Touchdown' KTI index before 'Liftoff'. '%s' "
                                 "will be 'INCOMPLETE'.", self.name)
                 self.set_flight_attr('TOUCHDOWN_BEFORE_LIFTOFF')
                 return
@@ -725,7 +719,7 @@ class FlightType(FlightAttributeNode):
                 last_touchdown = touchdowns.get_last()
                 last_touch_and_go = touch_and_gos.get_last()
                 if last_touchdown.index <= last_touch_and_go.index:
-                    logger.warning("A 'Touch And Go' KTI exists after the last "
+                    self.warning("A 'Touch And Go' KTI exists after the last "
                                     "'Touchdown'. '%s' will be 'INCOMPLETE'.",
                                     self.name)
                     self.set_flight_attr('LIFTOFF_ONLY')
@@ -800,7 +794,7 @@ class LandingGrossWeight(FlightAttributeNode):
             # There is not a 'Gross Weight At Touchdown' KPV. Since it is sourced
             # from 'Gross Weight Smoothed', gross weight at touchdown should not
             # be masked. Are there no Touchdown KTIs?  
-            logger.warning("No '%s' KPVs, '%s' attribute will be None.",
+            self.warning("No '%s' KPVs, '%s' attribute will be None.",
                             touchdown_gross_weight.name, self.name)
             self.set_flight_attr(None)
 

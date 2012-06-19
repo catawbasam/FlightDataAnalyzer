@@ -1921,7 +1921,7 @@ def blend_two_parameters (param_one, param_two):
     :param param_one: Parameter object
     :type param_one: Parameter
     '''
-    assert param_one.frequency  == param_two.frequency
+    assert param_one.frequency == param_two.frequency
     
     # A common problem is that one sensor may be unserviceable, and has been
     # identified already by parameter validity testing. Trap this case and
