@@ -38,7 +38,6 @@ class UnknownAPIError(APIError): # Q: Name?
     pass
 
 
-
 class APIHandlerHTTP(object):
     '''
     Restful HTTP API Handler.
@@ -72,6 +71,7 @@ class APIHandlerHTTP(object):
         :raises NotFoundError: If server returns 404.
         :raises APIConnectionError: If the server does not respond or returns 401.
         :raises UnknownAPIError: If the server returns 500 or an unexpected status code.
+        :raises JSONDecodeError: If status code is 200, but content is not JSON.
         '''
         # Encode body as GET parameters.
         body = urllib.urlencode(body)
@@ -86,22 +86,14 @@ class APIHandlerHTTP(object):
         except (httplib2.ServerNotFoundError, socket.error, AttributeError): # DNS..
             raise APIConnectionError(uri, method, body)
         status = int(resp['status'])
-        try:
-            decoded_content = simplejson.loads(content)
-        except ValueError:
-            # Only JSON return types supported, any other return means server
-            # is not configured correctly
-            logger.exception("JSON decode error for '%s' - only JSON "
-                              "supported by this API. Server configuration "
-                              "error? %s\nBody: %s", method, uri, body)
-            raise
+        
         # Test HTTP Status.
         if status != 200:
-            if decoded_content:
+            try:
                 # Try to get 'error' message from JSON which may not be
-                # available.
-                error_msg = decoded_content['error']
-            else:
+                # available.                
+                error_msg = simplejson.loads(content)['error']
+            except (simplejson.JSONDecodeError, KeyError):
                 error_msg = ''
             if status == httplib.BAD_REQUEST: # 400
                 raise InvalidAPIInputError(error_msg, uri, method, body)
@@ -114,7 +106,15 @@ class APIHandlerHTTP(object):
             else:
                 raise UnknownAPIError(error_msg, uri, method, body)
         
-        return decoded_content
+        try:
+            return simplejson.loads(content)
+        except simplejson.JSONDecodeError:
+            # Only JSON return types supported, any other return means server
+            # is not configured correctly
+            logger.exception("JSON decode error for '%s' - only JSON "
+                             "supported by this API. Server configuration "
+                             "error? %s\nBody: %s", method, uri, body)
+            raise
     
     def _attempt_request(self, *args, **kwargs):
         '''

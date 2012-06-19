@@ -306,9 +306,9 @@ class TestSectionNode(unittest.TestCase):
         aligned_node = section_node.get_aligned(param)
         self.assertEqual(list(aligned_node),
                          [Section(name='Example Section Node',
-                                  slice=slice(None, 2.2, None),start_edge=None,stop_edge=2.2),
+                                  slice=slice(None, 3, None),start_edge=None,stop_edge=2.2),
                           Section(name='Example Section Node',
-                                  slice=slice(2.7, None, None),start_edge=2.7,stop_edge=None)])
+                                  slice=slice(3, None, None),start_edge=2.7,stop_edge=None)])
     
     def test_items(self):
         items = [Section('a', slice(0,10), start_edge=0, stop_edge=10)]
@@ -490,12 +490,17 @@ class TestFormattedNameNode(unittest.TestCase):
         
     
     def test_names(self):
-        """ Using all RETURNS options, apply NAME_FORMAT to obtain a complete
+        """
+        Using all RETURNS options, apply NAME_FORMAT to obtain a complete
         list of KPV names this class will create.
         """
-        formatted_name_node = self.formatted_name_node
-        formatted_name_node.NAME_FORMAT = 'Speed in %(phase)s at %(altitude)d ft'
-        formatted_name_node.NAME_VALUES = {'altitude' : range(100, 701, 300),'phase' : ['ascent', 'descent']}
+        class Speed(FormattedNameNode):
+            NAME_FORMAT = 'Speed in %(phase)s at %(altitude)d ft'
+            NAME_VALUES = {'altitude': range(100, 701, 300),
+                           'phase': ['ascent', 'descent']}            
+            def derive(self, *args, **kwargs):
+                pass
+        formatted_name_node = Speed()
         names = formatted_name_node.names()
         
         self.assertEqual(names, ['Speed in ascent at 100 ft',
@@ -509,10 +514,13 @@ class TestFormattedNameNode(unittest.TestCase):
     def test__validate_name(self):
         """ Ensures that created names have a validated option
         """
-        formatted_name_node = self.formatted_name_node
-        formatted_name_node.NAME_FORMAT = 'Speed in %(phase)s at %(altitude)d ft'
-        formatted_name_node.NAME_VALUES = {'altitude' : range(100,1000,100),
-                                'phase' : ['ascent', 'descent']}
+        class Speed(FormattedNameNode):
+            NAME_FORMAT = 'Speed in %(phase)s at %(altitude)d ft'
+            NAME_VALUES = {'altitude' : range(100,1000,100),
+                           'phase' : ['ascent', 'descent']}          
+            def derive(self, *args, **kwargs):
+                pass
+        formatted_name_node = Speed()
         self.assertTrue(formatted_name_node._validate_name('Speed in ascent at 500 ft'))
         self.assertTrue(formatted_name_node._validate_name('Speed in descent at 900 ft'))
         self.assertTrue(formatted_name_node._validate_name('Speed in descent at 100 ft'))
@@ -683,15 +691,17 @@ class TestKeyPointValueNode(unittest.TestCase):
                 pass
         self.knode = KPV(frequency=2, offset=0.4)
 
-
     def test_create_kpv(self):
         """ Tests name format substitution and return type
         """
-        knode = self.knode
-        knode.NAME_FORMAT = 'Speed in %(phase)s at %(altitude)dft'
-        knode.NAME_VALUES = {'phase':['ascent', 'descent'],
-                             'altitude':[1000,1500],}
-        
+        class Speed(KeyPointValueNode):
+            NAME_FORMAT = 'Speed in %(phase)s at %(altitude)dft'
+            NAME_VALUES = {'phase': ['ascent', 'descent'],
+                           'altitude': [1000, 1500],}            
+            def derive(self, *args, **kwargs):
+                pass
+            
+        knode = Speed(frequency=2, offset=0.4)
         self.assertEqual(knode.frequency, 2)
         self.assertEqual(knode.offset, 0.4)
         # use keyword arguments
@@ -707,14 +717,14 @@ class TestKeyPointValueNode(unittest.TestCase):
                                                    altitude=1500.0,
                                                    ignored='excuseme'))
         self.assertEqual(spd_kpv2.name, 'Speed in ascent at 1500ft')
+        # None index
+        self.assertEqual(knode.create_kpv(None, 'b'), None)        
         # missing interpolation value "altitude"
         self.assertRaises(KeyError, knode.create_kpv, 1, 2,
                           dict(phase='ascent'))
         # wrong type raises TypeError
         self.assertRaises(TypeError, knode.create_kpv, 2, '3', 
                           phase='', altitude='')
-        # None index
-        self.assertRaises(ValueError, knode.create_kpv, None, 'b')
         
     def test_create_kpvs_at_ktis(self):
         knode = self.knode
@@ -742,7 +752,7 @@ class TestKeyPointValueNode(unittest.TestCase):
         knode = self.knode
         function = mock.Mock()
         return_values = [(10, 15), (22, 27)]
-        def side_effect(x, y):
+        def side_effect(*args, **kwargs):
             return return_values.pop()
         function.side_effect = side_effect
         slices = [slice(1,10), slice(15, 25)]
@@ -767,21 +777,21 @@ class TestKeyPointValueNode(unittest.TestCase):
                           KeyPointValue(index=0, value=5, name='Kpv'),
                           KeyPointValue(index=8, value=3, name='Kpv'),
                           KeyPointValue(index=17, value=3, name='Kpv')])
-        
-    
-    
     
     def test_get_aligned(self):
         '''
         TODO: Test offset alignment.
         '''
-        knode = self.knode
-        knode.NAME_FORMAT = 'Speed at %(altitude)dft'
-        knode.NAME_VALUES = {'altitude':[1000,1500]}
+        class Speed(KeyPointValueNode):
+            NAME_FORMAT = 'Speed at %(altitude)dft'
+            NAME_VALUES = {'altitude': [1000, 1500],}            
+            def derive(self, *args, **kwargs):
+                pass        
+        knode = Speed(frequency=2, offset=0.4)
         param = Parameter('p', frequency=0.5, offset=1.5)
-        knode.create_kpv(10, 12.5, altitude=1000.0)
-        knode.create_kpv(24, 12.5, altitude=1000.0)
-        aligned_node = self.knode.get_aligned(param)
+        knode.create_kpv(10, 12.5, altitude=1000)
+        knode.create_kpv(24, 12.5, altitude=1000)
+        aligned_node = knode.get_aligned(param)
         self.assertEqual(aligned_node.frequency, param.frequency)
         self.assertEqual(aligned_node.offset, param.offset)
         self.assertEqual(aligned_node,
