@@ -500,15 +500,18 @@ class TestAltitudeRadio(unittest.TestCase):
         alt_rad = AltitudeRadio()
         alt_rad.derive(Attribute('Frame','737-3C'), 
                        None,
-                       Parameter('Altitude Radio (A)', np.ma.ones(5)*10, 0.5,  0.0),
-                       Parameter('Altitude Radio (B)', np.ma.ones(5)*20, 0.25, 1.0),
-                       Parameter('Altitude Radio (C)', np.ma.ones(5)*30, 0.25, 3.0),
+                       Parameter('Altitude Radio (A)', 
+                                 np.ma.array([10.0,10.0,10.0,10.0,10.1]), 0.5,  0.0),
+                       Parameter('Altitude Radio (B)',
+                                 np.ma.array([20.0,20.0,20.0,20.0,20.2]), 0.25, 1.0),
+                       Parameter('Altitude Radio (C)',
+                                 np.ma.array([30.0,30.0,30.0,30.0,30.3]), 0.25, 3.0),
                        None
                        )
         result = alt_rad.array
-        answer = np.ma.array(data=[25]*10,
-                             dtype=np.float, mask=False)
-        np.testing.assert_array_equal(alt_rad.array, answer)
+        answer = np.ma.array(data=[25.0]*7+[25.1,25.25,0.0],
+                             dtype=np.float, mask=[0]*9+[1])
+        ma_test.assert_array_equal(alt_rad.array, answer)
         self.assertEqual(alt_rad.offset,2.0)
         self.assertEqual(alt_rad.frequency,0.5)
 
@@ -516,13 +519,15 @@ class TestAltitudeRadio(unittest.TestCase):
         alt_rad = AltitudeRadio()
         alt_rad.derive(Attribute('Frame','737-5'), 
                        Attribute('Frame Qualifier','Altitude_Radio_EFIS'),
-                       Parameter('Altitude Radio (A)', np.ma.ones(5)*10, 0.5, 0.0),
-                       Parameter('Altitude Radio (B)', np.ma.ones(5)*20, 0.5, 1.0),
+                       Parameter('Altitude Radio (A)', 
+                                 np.ma.array([10.0,10.0,10.0,10.0,10.1]), 0.5, 0.0),
+                       Parameter('Altitude Radio (B)',
+                                 np.ma.array([20.0,20.0,20.0,20.0,20.2]), 0.5, 1.0),
                        )
         result = alt_rad.array
-        answer = np.ma.array(data=[15]*10,
-                             dtype=np.float, mask=False)
-        np.testing.assert_array_equal(alt_rad.array, answer)
+        answer = np.ma.array(data=[15.0]*7+[15.05,15.15,0.0],
+                             dtype=np.float, mask=[0]*9+[1])
+        ma_test.assert_array_almost_equal(alt_rad.array, answer)
         self.assertEqual(alt_rad.offset,0.5)
         self.assertEqual(alt_rad.frequency,1.0)
 
@@ -530,15 +535,17 @@ class TestAltitudeRadio(unittest.TestCase):
         alt_rad = AltitudeRadio()
         alt_rad.derive(Attribute('Frame','737-5'), 
                        Attribute('Frame Qualifier','Altitude_Radio_ARINC_552'),
-                       Parameter('Altitude Radio (A)', np.ma.ones(5)*200, 0.5, 0.0),
-                       Parameter('Altitude Radio (B)', np.ma.ones(5)*220, 0.5, 1.0),
-                       None,
-                       None
+                       Parameter('Altitude Radio (A)', 
+                                 np.ma.array([10.0,10.0,10.0,10.0,10.1]), 0.5, 0.0),
+                       Parameter('Altitude Radio (B)',
+                                 np.ma.array([20.0,20.0,20.0,20.0,20.2]), 0.5, 1.0),
                        )
         result = alt_rad.array
-        answer = np.ma.array(data=[210]*10,
-                             dtype=np.float, mask=False)
-        np.testing.assert_array_almost_equal(alt_rad.array, answer, decimal=2)
+        answer = np.ma.array(data=[15.0]*7+[15.05,15.15,0.0],
+                             dtype=np.float, mask=[0]*9+[1])
+        ma_test.assert_array_almost_equal(alt_rad.array, answer)
+        self.assertEqual(alt_rad.offset,0.5)
+        self.assertEqual(alt_rad.frequency,1.0)
 
 '''
 class TestAltitudeRadioForFlightPhases(unittest.TestCase):
