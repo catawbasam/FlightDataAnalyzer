@@ -2257,7 +2257,7 @@ class SpeedbrakesDeployed1000To20FtDuration(KeyPointValueNode):
 class SpeedbrakesDeployedInGoAroundDuration(KeyPointValueNode):
     def derive(self, speedbrake=P('Speedbrake'), gas=S('Go Around And Climbout')):
         for ga in gas:
-            event = np.ma.masked_less(speedbrake.array[ga],0.5) 
+            event = np.ma.masked_less(speedbrake.array[ga.slice],0.5) 
             duration = np.ma.count(event) / speedbrake.frequency
             if duration:
                 # Probably open at the start of the go-around, so when were they closed?

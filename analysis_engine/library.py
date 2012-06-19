@@ -1440,6 +1440,18 @@ def is_index_within_slice(index, _slice):
         return index >= _slice.start
     return _slice.start <= index < _slice.stop
 
+def is_index_within_sections(index, section):
+    '''
+    :type index: int or float
+    :type _slices: list of slices
+    :returns: whether index is within any of the slices.
+    :rtype: bool
+    '''
+    for item in list(section):
+        if is_index_within_slice(index, item.slice):
+            return True
+    return False
+
 def is_slice_within_slice(inner_slice, outer_slice):
     '''
     inner_slice is considered to not be within outer slice if its start or 

@@ -85,7 +85,7 @@ class GoAroundAndClimbout(FlightPhaseNode):
         # Prepare a home for multiple go-arounds. (Not a good day, eh?)
         ga_slice = []
         for ga in gas:
-            back_up = descend.array - descend.array[ga.index]
+            back_up = descend.array - descend.array[ga.index-1]
             ga_start = index_closest_value(back_up,500,slice(ga.index,None,-1))
             ga_stop = index_closest_value(climb.array,500,slice(ga.index,None))
             ga_slice.append(slice(ga_start,ga_stop))

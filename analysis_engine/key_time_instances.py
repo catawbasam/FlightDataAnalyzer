@@ -6,6 +6,7 @@ from analysis_engine.library import (find_edges,
                                      index_at_value,
                                      index_closest_value,
                                      is_index_within_slice,
+                                     is_index_within_sections,
                                      minimum_unmasked,
                                      repair_mask,
                                      slices_above,
@@ -382,8 +383,8 @@ class LowestPointOnApproach(KeyTimeInstanceNode):
                apps = S('Approach'), lands=S('Landing')):
         height = minimum_unmasked(alt_aal.array, alt_rad.array)
         for app in apps:
-            index = index_closest_value(height,0.0,app.slice)
-            self.create_kti(index)
+            index = np.ma.argmin(height[app.slice])
+            self.create_kti(index+app.slice.start)
     '''
     This cunning version lists only approaches which do not land. However,
     the Approach attribute code only scans lowest point values at present, so
@@ -432,10 +433,10 @@ class TouchAndGo(KeyTimeInstanceNode):
 
 
 class Touchdown(KeyTimeInstanceNode):
-    def derive(self, roc=P('Rate Of Climb'), airs=S('Airborne')):
+    def derive(self, roc=P('Rate Of Climb'), airs=S('Airborne'), lands=S('Landing')):
         for air in airs:
             t0 = air.slice.stop
-            if t0:
+            if t0 and is_index_within_sections(t0, lands):
                 back_2 = (t0 - 2.0*roc.frequency)
                 on_2 = (t0 + 2.0*roc.frequency) + 1 # For indexing
                 index = index_at_value(roc.array, RATE_OF_CLIMB_FOR_TOUCHDOWN, slice(back_2,on_2))
