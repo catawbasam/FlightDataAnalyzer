@@ -34,6 +34,8 @@ from analysis_engine.library import (align,
                                      runway_distances,
                                      runway_heading,
                                      runway_length,
+                                     slices_and,
+                                     slices_not,
                                      slices_overlap,
                                      smooth_track,
                                      step_values,
@@ -314,10 +316,11 @@ class AltitudeAAL(DerivedParameterNode):
         if alt_rad:
             for speedy in speedies:
                 quick = speedy.slice
-                # Make use of the fact that radio altimeters give negative readings on the ground.
-                from_0_to_100ft = np.ma.masked_outside(alt_rad.array[quick], 0.0, 100.0)
-                ralt_sections = np.ma.clump_unmasked(from_0_to_100ft )
-                
+                ### Make use of the fact that radio altimeters give negative readings on the ground.
+                ##from_0_to_100ft = np.ma.masked_outside(alt_rad.array[quick], 0.0, 100.0)
+                ##ralt_sections = np.ma.clump_unmasked(from_0_to_100ft )
+
+                ralt_sections = np.ma.clump_unmasked(np.ma.masked_outside(alt_rad.array[quick], 0.0, 100.0))
                 for ralt_section in ralt_sections:
                     if np.ma.max(alt_rad.array[quick][ralt_section]) > 35.0:
                         # We have a reading between 35ft and 100ft so this looks good.
@@ -326,11 +329,27 @@ class AltitudeAAL(DerivedParameterNode):
                         # Probably a bounced landing, which we will ignore.
                         pass                    
   
-                # Checking for masked greater tnan 100ft makes this match the
+                from_0_to_2500ft = np.ma.clump_unmasked(np.ma.masked_outside(alt_rad.array[quick], 0.0, 2500.0))
+                if len(ralt_sections) < len(from_0_to_2500ft):
+                    # In this unusual case the aircraft got closer than 2500
+                    # to the ground and flew away again at some time. We need
+                    # to find the pit and mark it so that alt_aal indicates
+                    # height above the local ground.
+                    for low in from_0_to_2500ft:
+                        if slices_and([low], ralt_sections) == []:
+                            # This low slice is not one of the ones that goes down to the ground. Let's just use the lowest three sample points, and allow the pressure altitude to work above the minimum.
+                            pit = np.ma.argmin(alt_rad.array[quick][low])
+                            pit_slice = slice(low.start+pit-1, low.start+pit+2) 
+                            ralt_sections.append(pit_slice)
+                            alt_aal[quick][pit_slice] = alt_rad.array[quick][pit_slice]
+                
+                # Checking for masked greater than 100ft makes this match the
                 # previous mask operation in the case of a masked rad alt
                 # sample on the 100ft threshold.
-                below_100ft = np.ma.masked_greater(alt_rad.array[quick], 100.0)
-                baro_sections = np.ma.clump_masked(below_100ft)
+                ##below_100ft = np.ma.masked_greater(alt_rad.array[quick], 100.0)
+                ##baro_sections = np.ma.clump_masked(below_100ft)
+                
+                baro_sections = slices_not(ralt_sections)
                 
                 for baro_section in baro_sections:
                     # TODO: Consider if we should default to zero or baro alt in the case the tests below fail in the case of corrupt data?

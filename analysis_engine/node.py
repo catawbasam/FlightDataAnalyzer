@@ -103,7 +103,7 @@ class Node(object):
         self.frequency = self.sample_rate = self.hz = frequency # Hz
         self.offset = offset # secs
         # self._logger will be instantiated on the first logging message.
-        self._logger = None
+        # self._logger = None
         
     def __repr__(self):
         #TODO: Add __class__.__name__?
@@ -254,19 +254,28 @@ def can_operate(cls, available):
     
     # Logging
     ############################################################################
-    
+
     def _get_logger(self):
         """
-        Only create a logger for this Node if a message is to be logged.
+        Return a logger with name based on module and class name.
         """
-        if not self._logger:
-            # Set up self._logger
-            self._logger = logging.getLogger('%s.%s' % (
-                self.__class__.__module__,
-                self.__class__.__name__,
-            ))
-        return self._logger
-    
+        # # FIXME: storing logger as Node attribute is causing problems as we
+        # # deepcopy() the Node objects the loggers are copied as well. This
+        # # has side-effects.
+        # # logging.getLogger(logger_name) is using global dictionary, so it
+        # # does not seem to be an expensive operation.
+        # if not self._logger:
+        #     # Set up self._logger
+        #     self._logger = logging.getLogger('%s.%s' % (
+        #         self.__class__.__module__,
+        #         self.__class__.__name__,
+        #     ))
+        # return self._logger
+        return logging.getLogger('%s.%s' % (
+            self.__class__.__module__,
+            self.__class__.__name__,
+        ))
+
     def debug(self, *args, **kwargs):
         """
         Log a debug level message.
