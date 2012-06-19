@@ -77,7 +77,6 @@ class TestAlign(unittest.TestCase):
         np.testing.assert_array_equal(result.data, [0,0,0,1,1,0,1,0])
         np.testing.assert_array_equal(result.mask, False)
                         
-                        
     def test_align_multi_state(self):
         class DumParam():
             def __init__(self):

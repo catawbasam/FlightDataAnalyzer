@@ -27,45 +27,61 @@ from analysis_engine.flight_attribute import (
     TakeoffDatetime, 
     TakeoffFuel,
     TakeoffGrossWeight,
-    TakeoffPilot,
     TakeoffRunway,
 )
 
 
 class TestApproaches(unittest.TestCase):
     def test_can_operate(self):
-        # Can operate with approach lat lng.
+        ['Start Datetime',
+         'Approach',
+         'Altitude AAL',
+         'Latitude At Lowest Point On Approach',
+         'Longitude At Lowest Point On Approach',
+         'Latitude At Landing',
+         'Longitude At Landing']
+        # Can operate with all required parameters.
         self.assertTrue(Approaches.can_operate(\
             ['Start Datetime',
              'Approach',
-             'Heading At Landing',
-             'Touch And Go',
-             'Go Around',
+             'Altitude AAL',
              'Latitude At Lowest Point On Approach',
-             'Longitude At Lowest Point On Approach']))
-        # Can operate with landing lat lng.
-        self.assertTrue(Approaches.can_operate(\
-            ['Start Datetime',
-             'Approach',
-             'Heading At Landing',
-             'Touch And Go',
-             'Go Around',
+             'Longitude At Lowest Point On Approach',
              'Latitude At Landing',
              'Longitude At Landing']))
+        # Can operate with landing lat lng.
+        self.assertFalse(Approaches.can_operate(\
+            ['Start Datetime',
+             'Approach',
+             'Altitude AAL',
+             'Latitude At Lowest Point On Approach',
+             'Latitude At Landing',
+             'Longitude At Landing']))
+        # Can operate with some optional parameters.
+        self.assertTrue(Approaches.can_operate(\
+            ['Start Datetime',
+             'Approach',
+             'Altitude AAL',
+             'Latitude At Lowest Point On Approach',
+             'Longitude At Lowest Point On Approach',
+             'Latitude At Landing',
+             'Longitude At Landing',
+             'Heading At Lowest Point On Approach']))
         # Can operate with everything.
         self.assertTrue(Approaches.can_operate(\
             ['Start Datetime',
              'Approach',
-             'Heading At Landing',
-             'Touch And Go',
-             'Go Around',
+             'Altitude AAL',
              'Latitude At Lowest Point On Approach',
              'Longitude At Lowest Point On Approach',
-             'Heading At Lowest Point On Approach',
              'Latitude At Landing',
              'Longitude At Landing',
-             'Touch And Go',
-             'Go Around']))
+             'Heading At Lowest Point On Approach',
+             'Heading At Landing',
+             'Heading Vacating Runway',
+             'Fast',
+             'Precise Positioning',
+             'ILS Frequency On Approach']))        
         # Cannot operate missing latitude.
         self.assertFalse(Approaches.can_operate(\
             ['Start Datetime',
@@ -103,7 +119,7 @@ class TestApproaches(unittest.TestCase):
                                       KeyPointValue(5, -2, 'b'),
                                       KeyPointValue(17, 2, 'b')])
         lat, lon = approaches._get_lat_lon(approach_slice, landing_lat_kpvs,
-                                           landing_lon_kpvs, None, None)
+                                           landing_lon_kpvs)
         self.assertEqual(lat, 10)
         self.assertEqual(lon, -2)
         # Approach KPVs.
@@ -112,48 +128,15 @@ class TestApproaches(unittest.TestCase):
                                 items=[KeyPointValue(12, 4, 'b')])
         approach_lon_kpvs = KPV('Longitude At Lowest Point On Approach',
                                 items=[KeyPointValue(12, 3, 'b')])
-        lat, lon = approaches._get_lat_lon(approach_slice, None, None,
-                                           approach_lat_kpvs, approach_lon_kpvs)
+        lat, lon = approaches._get_lat_lon(approach_slice, approach_lat_kpvs,
+                                           approach_lon_kpvs)
         self.assertEqual(lat, 4)
         self.assertEqual(lon, 3)
-        # Landing and Approach KPVs, Landing KPVs preferred.
-        approach_slice = slice(4, 15)
-        lat, lon = approaches._get_lat_lon(approach_slice, landing_lat_kpvs,
-                                           landing_lon_kpvs, approach_lat_kpvs,
-                                           approach_lon_kpvs)
-        self.assertEqual(lat, 10)
-        self.assertEqual(lon, -2)
         approach_slice = slice(20,40)
         lat, lon = approaches._get_lat_lon(approach_slice, landing_lat_kpvs,
-                                           landing_lon_kpvs, approach_lat_kpvs,
-                                           approach_lon_kpvs)
+                                           landing_lon_kpvs)
         self.assertEqual(lat, None)
         self.assertEqual(lon, None)
-    
-    def test__get_hdg(self):
-        approaches = Approaches()
-        # Landing KPV
-        approach_slice = slice(1,10)
-        landing_hdg_kpvs = KPV('Heading At Landing',
-                               items=[KeyPointValue(2, 30, 'a'),
-                                      KeyPointValue(14, 40, 'b')])
-        hdg = approaches._get_hdg(approach_slice, landing_hdg_kpvs, None)
-        self.assertEqual(hdg, 30)
-        # Approach KPV
-        approach_hdg_kpvs = KPV('Heading At Landing',
-                                items=[KeyPointValue(4, 15, 'a'),
-                                       KeyPointValue(23, 30, 'b')])
-        hdg = approaches._get_hdg(approach_slice, None, approach_hdg_kpvs)
-        self.assertEqual(hdg, 15)
-        # Landing and Approach KPV, Landing preferred
-        hdg = approaches._get_hdg(approach_slice, landing_hdg_kpvs,
-                                  approach_hdg_kpvs)
-        self.assertEqual(hdg, 30)
-        # No KPVs in slice.
-        approach_slice = slice(30,60)
-        hdg = approaches._get_hdg(approach_slice, landing_hdg_kpvs,
-                                  approach_hdg_kpvs)
-        self.assertEqual(hdg, None)
     
     def test__get_approach_type(self):
         approaches = Approaches()
@@ -215,7 +198,7 @@ class TestApproaches(unittest.TestCase):
         # 'Heading At Landing' KTI/KPVs.
         start_datetime = A('Start Datetime', value=datetime(1970, 1,1))
         approach_and_landing = S('Approach and Landing',
-                                 items=[Section('a', slice(0,10))])
+                                 items=[Section('a', slice(0,10), 0, 10)])
         landing_lat_kpvs = KPV('Latitude At Landing',
                                items=[KeyPointValue(5, 10, 'b')])
         landing_lon_kpvs = KPV('Longitude At Landing',
@@ -432,12 +415,14 @@ class TestDeterminePilot(unittest.TestCase):
         self.assertFalse(pilot)
     
     def test__controls_in_use(self):
-        determine_pilot = DeterminePilot()
+        # Instantiating subclass of DeterminePilot since it will gain a logging
+        # methods through multiple inheritance.        
+        determine_pilot = LandingPilot()
         pitch_captain = Mock()
         roll_captain = Mock()
         pitch_fo = Mock()
         roll_fo = Mock()
-        section = Section(name='Takeoff', slice=slice(0,3))
+        section = Section('Takeoff', slice(0,3), 0, 3)
         determine_pilot._pitch_roll_changed = Mock()
         # Neither pilot's controls changed.
         in_use = [False, False]
@@ -659,7 +644,7 @@ class TestLandingDatetime(unittest.TestCase):
                                             KeyTimeInstance(30, 'b')])
         touchdown.frequency = 0.5
         landing_datetime.derive(start_datetime, touchdown)
-        expected_datetime = datetime(1970, 1, 1, 0, 0, 15)
+        expected_datetime = datetime(1970, 1, 1, 0, 1)
         landing_datetime.set_flight_attr.assert_called_once_with(\
             expected_datetime)
         touchdown = KTI('Touchdown')
@@ -716,19 +701,20 @@ class TestLandingPilot(unittest.TestCase):
         self.assertTrue(('Pitch (Capt)', 'Roll (Capt)', 'Pitch (FO)',
                          'Roll (FO)', 'Landing') in opts)
         # Only Autopilot.
-        self.assertTrue(('AP Engaged 1 At Touchdown',
-                         'AP Engaged 2 At Touchdown') in opts)
+        self.assertTrue(('Autopilot Engaged 1 At Touchdown',
+                         'Autopilot Engaged 2 At Touchdown') in opts)
         # Combinations.
         self.assertTrue(('Pitch (Capt)', 'Roll (Capt)', 'Pitch (FO)',
                          'Roll (FO)', 'Landing',
-                         'AP Engaged 1 At Touchdown') in opts)
+                         'Autopilot Engaged 1 At Touchdown') in opts)
         self.assertTrue(('Pitch (Capt)', 'Roll (Capt)', 'Landing',
-                         'AP Engaged 1 At Touchdown',
-                         'AP Engaged 2 At Touchdown' in opts))
+                         'Autopilot Engaged 1 At Touchdown',
+                         'Autopilot Engaged 2 At Touchdown' in opts))
         # All.
         self.assertTrue(('Pitch (Capt)', 'Roll (Capt)', 'Pitch (FO)',
-                         'Roll (FO)', 'Landing', 'AP Engaged 1 At Touchdown',
-                         'AP Engaged 2 At Touchdown') in opts)
+                         'Roll (FO)', 'Landing', 
+                         'Autopilot Engaged 1 At Touchdown',
+                         'Autopilot Engaged 2 At Touchdown') in opts)
         
     def test_derive(self):
         landing_pilot = LandingPilot()
@@ -811,7 +797,7 @@ class TestLandingRunway(unittest.TestCase):
         landing_hdg = KPV('Heading At Landing',
                           items=[KeyPointValue(15, 20.0, 'a')])
         approach_and_landing = S('Approach and Landing',
-                                 items=[Section('b', slice(14, 20))])
+                                 items=[Section('b', slice(14, 20), 14, 20)])
         
         landing_runway.derive(approach_and_landing, landing_hdg, airport)
         get_nearest_runway.assert_called_once_with(25, 20.0)
@@ -971,7 +957,7 @@ class TestTakeoffDatetime(unittest.TestCase):
                       items=[KeyTimeInstance(100, 'a')])
         takeoff_dt.derive(liftoff, start_dt)
         takeoff_dt.set_flight_attr.assert_called_once_with(\
-            datetime(1970, 1, 1, 0, 0, 25))
+            datetime(1970, 1, 1, 0, 6, 40))
         liftoff = KTI('Liftoff', frequency=0.25, items=[])
         takeoff_dt.set_flight_attr = Mock()
         takeoff_dt.derive(liftoff, start_dt)
@@ -1018,6 +1004,7 @@ class TestTakeoffGrossWeight(unittest.TestCase):
         takeoff_gross_weight.set_flight_attr.assert_called_once_with(135)
 
 
+'''
 class TestTakeoffPilot(unittest.TestCase):
     def test_can_operate(self):
         opts = TakeoffPilot.get_operational_combinations()
@@ -1074,7 +1061,8 @@ class TestTakeoffPilot(unittest.TestCase):
                                                                first_autopilot2)
         takeoff_pilot.set_flight_attr.assert_called_once_with(\
             takeoff_pilot._determine_pilot.return_value)
-    
+'''
+
 
 class TestTakeoffRunway(unittest.TestCase):
     def test_can_operate(self):
@@ -1193,7 +1181,7 @@ class TestFlightType(unittest.TestCase):
         type_node.set_flight_attr = Mock()
         type_node.derive(None, empty_fast, empty_liftoffs, empty_touchdowns,
                          None, groundspeed)
-        type_node.set_flight_attr.assert_called_once_with('GROUND_ONLY')
+        type_node.set_flight_attr.assert_called_once_with('GROUND_RUN')
         # Liftoff, Touchdown and Fast missing, Groundspeed stays the same.
         groundspeed = P('Groundspeed', np.ma.masked_array([0] * 20))
         type_node.set_flight_attr = Mock()

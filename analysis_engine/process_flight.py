@@ -67,7 +67,6 @@ def derive_parameters(hdf, node_mgr, process_order):
     section_list = SectionNode()  # 'Node Name' : node()  pass in node.get_accessor()
     flight_attrs = []
     
-    
     nodes_not_implemented = []
     
     for param_name in process_order:

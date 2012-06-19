@@ -147,8 +147,7 @@ def graph_nodes(node_mgr):
     # (limitation of add_node_attribute())
     gr_all.add_nodes_from(node_mgr.lfl, color='forestgreen')
     derived_minus_lfl = dict_filter(node_mgr.derived_nodes, remove=node_mgr.lfl)
-    # Group into node types to apply colour.
-    #clazz_to_node_names = defaultdict(list)
+    # Group into node types to apply colour. TODO: Make colours less garish.
     colors = {
         DerivedParameterNode: 'yellow',
         FlightAttributeNode: 'blue',
@@ -158,17 +157,6 @@ def graph_nodes(node_mgr):
     }
     gr_all.add_nodes_from(
         [(name, {'color': colors[node.__base__]}) for name, node in derived_minus_lfl.items()])
-    #for name, node in derived_minus_lfl.items():
-        #for clazz in clazz_to_color.keys():
-            #if issubclass(node, clazz):
-                #clazz_to_node_names[clazz].append(name)
-                #break
-        #else:
-            #logger.warning("Node '%s' inherits from an unknown class '%s'",
-                           #name, node.__bases__)
-    #for clazz, color in clazz_to_color.items():
-        #node_names = clazz_to_node_names[clazz]
-        #gr_all.add_nodes_from(node_names, )
     
     # build list of dependencies
     derived_deps = set()  # list of derived dependencies
