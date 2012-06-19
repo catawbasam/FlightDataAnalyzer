@@ -1,7 +1,9 @@
 import csv
-import unittest
-import numpy as np
 import mock
+import numpy as np
+import os
+import unittest
+
 from math import sqrt
 from datetime import datetime
 
@@ -9,8 +11,12 @@ from datetime import datetime
 # http://www.java2s.com/Open-Source/Python/Math/Numerical-Python/numpy/numpy/ma/testutils.py.htm
 import utilities.masked_array_testutils as ma_test
 
-from analysis_engine.node import P, S, Section, KTI, KeyTimeInstance
+from analysis_engine.node import P, S
 from analysis_engine.library import *
+
+
+test_data_path = os.path.join(os.path.dirname(os.path.abspath(__file__)),
+                              'test_data')
 
 
 class TestAlign(unittest.TestCase):
@@ -369,6 +375,7 @@ class TestAlign(unittest.TestCase):
         slave.array = np.ma.arange(1411)
         slave.frequency = 0.5
         result = align(slave, master)
+        self.assertTrue(False)
         #np.testing.assert_array_equal(result.data,expected) - test not implemented
 
     def test_align_superframe_to_onehz_multistate(self):
@@ -533,21 +540,21 @@ class TestCalculateTimebase(unittest.TestCase):
         self.assertEqual(start_dt, datetime(2020,12,25,23,0,0))
         
     def test_real_data_params_2_digit_year(self):
-        years = np.load('test_data/year.npy')
-        months = np.load('test_data/month.npy')
-        days = np.load('test_data/day.npy')
-        hours = np.load('test_data/hour.npy')
-        mins = np.load('test_data/minute.npy')
-        secs = np.load('test_data/second.npy')
+        years = np.load(os.path.join(test_data_path, 'year.npy'))
+        months = np.load(os.path.join(test_data_path, 'month.npy'))
+        days = np.load(os.path.join(test_data_path, 'day.npy'))
+        hours = np.load(os.path.join(test_data_path, 'hour.npy'))
+        mins = np.load(os.path.join(test_data_path, 'minute.npy'))
+        secs = np.load(os.path.join(test_data_path, 'second.npy'))
         start_dt = calculate_timebase(years, months, days, hours, mins, secs)
         self.assertEqual(start_dt, datetime(2011,12,30,8,20,36))
         
     def test_real_data_params_no_year(self):
-        months = np.load('test_data/month.npy')
-        days = np.load('test_data/day.npy')
-        hours = np.load('test_data/hour.npy')
-        mins = np.load('test_data/minute.npy')
-        secs = np.load('test_data/second.npy')
+        months = np.load(os.path.join(test_data_path, 'month.npy'))
+        days = np.load(os.path.join(test_data_path, 'day.npy'))
+        hours = np.load(os.path.join(test_data_path, 'hour.npy'))
+        mins = np.load(os.path.join(test_data_path, 'minute.npy'))
+        secs = np.load(os.path.join(test_data_path, 'second.npy'))
         years = np.array([2012]*len(months)) # fixed year
         start_dt = calculate_timebase(years, months, days, hours, mins, secs)
         self.assertEqual(start_dt, datetime(2012,12,30,8,20,36))
@@ -633,7 +640,9 @@ class TestClip(unittest.TestCase):
     def setUp(self):
         test_list = []
         result_list = []
-        with open('duration_test_data.csv', 'rb') as csvfile:
+        duration_test_data_path = os.path.join(test_data_path,
+                                               'duration_test_data.csv')
+        with open(duration_test_data_path, 'rb') as csvfile:
             self.reader = csv.DictReader(csvfile)
             for row in self.reader:
                 test_list.append(float(row['input']))
@@ -1712,6 +1721,7 @@ class TestNormalise(unittest.TestCase):
         arr[0] = np.ma.masked
         arr[9] = np.ma.masked
         # mask the max value
+        # Q: This does not modify the array in place, yet res is not used?
         res = normalise(arr)
         index, value = max_value(arr)
         self.assertEqual(index, 8)
@@ -1746,6 +1756,7 @@ class TestNpMaMaskedZerosLike(unittest.TestCase):
     def test_masked_zeros_like_basic(self):
         result = np_ma_masked_zeros_like(np.ma.array([1,2,3]))
         expected = np.ma.array(data=[0,0,0],mask=[1,1,1])
+        self.assertTrue(False)
         #ma_test.assert_array_equal(expected, result) 
         
         #The result is exactly right, except the assertion can't deal with

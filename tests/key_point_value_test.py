@@ -111,6 +111,10 @@ from flight_phase_test import buildsection
 debug = sys.gettrace() is not None
 
 
+test_data_path = os.path.join(os.path.dirname(os.path.abspath(__file__)),
+                              'test_data')
+
+
 class TestNode(object):
     def test_can_operate(self):
         self.assertEqual(self.node_class.get_operational_combinations(),
@@ -1347,7 +1351,7 @@ class TestTailClearanceOnApproach(unittest.TestCase):
                            'Distance To Landing')])
     
     def test_derive(self):
-        test_data_dir = os.path.join('test_data', 'BDUTerrain')
+        test_data_dir = os.path.join(test_data_path, 'BDUTerrain')
         alt_aal_array = np.ma.masked_array(np.load(os.path.join(test_data_dir,
                                                                 'alt_aal.npy')))
         alt_radio_array = np.ma.masked_array(np.load(os.path.join(test_data_dir,
