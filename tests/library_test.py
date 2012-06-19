@@ -634,7 +634,7 @@ class TestClip(unittest.TestCase):
     def setUp(self):
         test_list = []
         result_list = []
-        with open('test_data/duration_test_data.csv', 'rb') as csvfile:
+        with open('duration_test_data.csv', 'rb') as csvfile:
             self.reader = csv.DictReader(csvfile)
             for row in self.reader:
                 test_list.append(float(row['input']))
