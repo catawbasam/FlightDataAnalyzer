@@ -18,6 +18,7 @@ from analysis_engine.library import *
 test_data_path = os.path.join(os.path.dirname(os.path.abspath(__file__)),
                               'test_data')
 
+
 class TestAlign(unittest.TestCase):
     
     def test_align_returns_same_array_if_aligned(self):
