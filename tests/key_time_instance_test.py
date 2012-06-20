@@ -522,13 +522,14 @@ class TestTopOfDescent(unittest.TestCase):
 class TestTouchdown(unittest.TestCase):
     def test_can_operate(self):
         self.assertEqual(Touchdown.get_operational_combinations(),
-                         [('Rate Of Climb', 'Airborne')])
+                         [('Rate Of Climb', 'Airborne', 'Landing')])
 
     def test_touchdown_basic(self):
         rate_of_climb = Parameter('Rate Of Climb For Flight Phases', np.ma.arange(10)*40 - 320)
         airs = buildsection('Airborne', 1, 4.2)
+        lands = buildsection('Landing', 2, 9)
         tdwn=Touchdown()
-        tdwn.derive(rate_of_climb, airs)
+        tdwn.derive(rate_of_climb, airs, lands)
         expected = [KeyTimeInstance(index=5.5, name='Touchdown')]
         self.assertEqual(tdwn, expected)
     
@@ -536,8 +537,9 @@ class TestTouchdown(unittest.TestCase):
         # Check the backstop setting.
         rate_of_climb = Parameter('Rate Of Climb For Flight Phases', np.ma.arange(10)*40)
         airs = buildsection('Airborne', 1, 5)
+        lands = buildsection('Landing', 2, 9)
         tdwn=Touchdown()
-        tdwn.derive(rate_of_climb, airs)
+        tdwn.derive(rate_of_climb, airs, lands)
         expected = [KeyTimeInstance(index=5, name='Touchdown')]
         self.assertEqual(tdwn, expected)
     

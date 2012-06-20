@@ -604,11 +604,8 @@ class AltitudeRadio(DerivedParameterNode):
                 merge_two_parameters(source_A, source_B)
         
         elif frame_name in ['737-5']:
-            if frame_qualifier and 'Altitude_Radio_EFIS' in frame_qualifier:
-                self.array, self.frequency, self.offset = \
-                    blend_two_parameters(source_A, source_B)
-                self.array = np.ma.masked_greater(self.array, 2600)
-            elif frame_qualifier and 'Altitude_Radio_ARINC_552' in frame_qualifier:
+            if frame_qualifier and 'Altitude_Radio_EFIS' in frame_qualifier or\
+               frame_qualifier and 'Altitude_Radio_ARINC_552' in frame_qualifier:
                 self.array, self.frequency, self.offset = \
                     blend_two_parameters(source_A, source_B)
             elif frame_qualifier and 'Altitude_Radio_None' in frame_qualifier:
