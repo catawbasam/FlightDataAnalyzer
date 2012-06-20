@@ -115,13 +115,13 @@ test_data_path = os.path.join(os.path.dirname(os.path.abspath(__file__)),
                               'test_data')
 
 
-class TestNode(object):
+class NodeTest(object):
     def test_can_operate(self):
         self.assertEqual(self.node_class.get_operational_combinations(),
                          self.operational_combinations)
 
 
-class TestCreateKPVsAtKPVs(TestNode):
+class CreateKPVsAtKPVsTest(TestNode):
     '''
     Example of subclass inheriting tests:
     
@@ -139,7 +139,7 @@ class TestAltitudeAtLiftoff(unittest.TestCase, TestCreateKPVsAtKTIs):
         node.create_kpvs_at_kpvs.assert_called_once_with(mock1.array, mock2)
 
 
-class TestCreateKPVsAtKTIs(TestNode):
+class CreateKPVsAtKTIsTest(TestNode):
     '''
     Example of subclass inheriting tests:
     
@@ -157,7 +157,7 @@ class TestAltitudeAtLiftoff(unittest.TestCase, TestCreateKPVsAtKTIs):
         node.create_kpvs_at_ktis.assert_called_once_with(mock1.array, mock2)
 
 
-class TestCreateKPVsWithinSlices(TestNode):
+class CreateKPVsWithinSlicesTest(TestNode):
     '''
     Example of subclass inheriting tests:
     
