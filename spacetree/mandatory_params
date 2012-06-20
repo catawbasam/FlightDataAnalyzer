@@ -1,0 +1,105 @@
+Acceleration Lateral
+Acceleration Longitudinal
+Acceleration Normal
+Aileron
+Elevator
+Rudder
+Airspeed
+Mach
+Groundspeed
+Altitude STD
+Altitude Radio
+AP Engaged
+AT Engaged
+Control Column
+Control Wheel
+Rudder Pedal
+Control Column Force
+Eng (1) Throttle Lever
+Eng (1) N1
+Eng (1) N2
+Eng (1) N3
+Eng (1) EPR
+Eng (1) Gas Temp
+Eng (1) Fuel Flow
+Eng (1) Oil Press
+Eng (1) Oil Temp
+Eng (1) Oil Qty
+Eng (1) Torque
+Eng (1) Np
+Eng (1) Vib N1
+Eng (1) Vib N2
+Eng (1) Vib N3
+Eng (2) Throttle Lever
+Eng (2) N1
+Eng (2) N2
+Eng (2) N3
+Eng (2) EPR
+Eng (2) Gas Temp
+Eng (2) Fuel Flow
+Eng (2) Oil Press
+Eng (2) Oil Temp
+Eng (2) Oil Qty
+Eng (2) Torque
+Eng (2) Np
+Eng (2) Vib N1
+Eng (2) Vib N2
+Eng (2) Vib N3
+Eng (3) Throttle Lever
+Eng (3) N1
+Eng (3) N2
+Eng (3) N3
+Eng (3) EPR
+Eng (3) Gas Temp
+Eng (3) Fuel Flow
+Eng (3) Oil Press
+Eng (3) Oil Temp
+Eng (3) Oil Qty
+Eng (3) Torque
+Eng (3) Np
+Eng (3) Vib N1
+Eng (3) Vib N2
+Eng (3) Vib N3
+Eng (4) Throttle Lever
+Eng (4) N1
+Eng (4) N2
+Eng (4) N3
+Eng (4) EPR
+Eng (4) Gas Temp
+Eng (4) Fuel Flow
+Eng (4) Oil Press
+Eng (4) Oil Temp
+Eng (4) Oil Qty
+Eng (4) Torque
+Eng (4) Np
+Eng (4) Vib N1
+Eng (4) Vib N2
+Eng (4) Vib N3
+Flap
+Conf
+Fuel Qty
+Gear Down
+Gross Weight Smoothed
+Heading Continuous
+Latitude Smoothed
+Longitude Smoothed
+ILS Frequency
+ILS Glideslope
+ILS Localizer
+Pitch
+Roll
+Spoiler
+Stick Pusher
+Stick Shaker
+TAWS Alert
+TAWS Dont Sink
+TAWS Glideslope
+TAWS Pull Up
+TAWS Sink Rate
+TAWS Terrain
+TAWS Terrain Ahead
+TAWS Terrain Ahead Pull Up
+TAWS Too Low Flap
+TAWS Too Low Gear
+TAWS Too Low Terrain
+TAWS Windshear Warning

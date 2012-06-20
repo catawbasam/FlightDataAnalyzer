@@ -1,0 +1,131 @@
+{% extends "base.html" %}
+
+{% block title %}Spacetree - Tree Animation{% endblock %}
+
+{% block head %}
+<!-- CSS Files -->
+<link type="text/css" href="../_assets/css/Spacetree.css" rel="stylesheet" />
+<link rel="stylesheet" href="../_assets/css/ui-lightness/jquery-ui-1.8.17.custom.css">
+<link rel="stylesheet" href="../_assets/css/jquery-jqgrid-4.3.1.css">
+
+<!--[if IE]><script language="javascript" type="text/javascript" src="js/excanvas.js"></script><![endif]-->
+
+<!-- JIT Library File -->
+<script language="javascript" type="text/javascript" src="../_assets/js/jit.js"></script>
+
+<!-- JQuery -->
+<script language="javascript" type="text/javascript" src="../_assets/js/jquery-1.7.1.min.js"></script>
+<script language="javascript" type="text/javascript" src="../_assets/js/jquery-ui-1.8.17.custom.min.js"></script>
+<script language="javascript" type="text/javascript" src="../_assets/js/jquery-jqgrid-4.3.1/i18n/grid.locale-en.js"></script>
+<script language="javascript" type="text/javascript" src="../_assets/js/jquery-jqgrid-4.3.1.min.js"></script>
+
+<!-- SpacetreeFile -->
+<script language="javascript" type="text/javascript" src="../_assets/js/spacetree.js"></script>
+<script language="javascript" type="text/javascript" src="../_assets/js/spacetree.page.js"></script>
+{% endblock head %}
+
+{% block content %}
+<div id="container">
+<!--<div class="layout-default">-->
+<h1>Spacetree</h1>
+<img id="logo" src="../_assets/fds/img/logo/fds.png" width="160" height="60">
+
+<div id="left-container">
+
+<h4>Tree Orientation</h4>
+<table>
+    <tr>
+        <td>
+            <label for="r-left">Left </label>
+        </td>
+        <td>
+            <input type="radio" id="r-left" name="orientation" checked="checked" value="left" />
+        </td>
+    </tr>
+    <tr>
+         <td>
+            <label for="r-top">Top </label>
+         </td>
+         <td>
+            <input type="radio" id="r-top" name="orientation" value="top" />
+         </td>
+    </tr>
+    <tr>
+         <td>
+            <label for="r-bottom">Bottom </label>
+          </td>
+          <td>
+            <input type="radio" id="r-bottom" name="orientation" value="bottom" />
+          </td>
+    </tr>
+    <tr>
+          <td>
+            <label for="r-right">Right </label>
+          </td> 
+          <td> 
+           <input type="radio" id="r-right" name="orientation" value="right" />
+          </td>
+    </tr>
+</table>
+
+<table>
+    <tr>
+        <td>
+          <label for="combobox">Select Node</label><!-- TODO: Combobox -->
+        </td>
+        <td>
+	    <div class="ui-widget">
+	      <label for="tags">Tags: </label>
+	      <input id="tags" />
+	    </div>
+	</td>
+    </tr>
+</table>
+
+</div>
+
+
+<div id="center-container">
+    <div id="infovis"></div>    
+</div>
+
+<div id="log"></div>
+</div>
+
+<div id="parameters">
+<h1>Parameters</h1>
+{% if not polaris_query %}
+<p class="error"><img src="../_assets/img/exclamation-red.png"> <strong>Error:</strong> The POLARIS website could not be accessed.</p>
+{% endif %}
+<table id="parameter-list">
+<thead>
+<tr>
+<th>Name</th>
+<th>Mandatory</th>
+{% if polaris_query %}
+<th>Database</th>
+<th>Limits</th>
+{% endif %}
+</tr>
+</thead>
+<tbody>
+{% for param_name, param in params.iteritems() %}
+<tr>
+<td>{{ param_name }}</td>
+<td><img src="../_assets/img/{% if param.mandatory == True %}tick.png{% else %}cross.png{% endif %}"></td>
+{% if polaris_query %}
+<td><img src="../_assets/img/{% if param.database == True %}tick.png{% else %}cross.png{% endif %}"></td>
+<td><img src="../_assets/img/{% if param.limits == True %}tick.png{% else %}cross.png{% endif %}"></td>
+{% endif %}
+</tr>
+{% endfor %}
+</tbody>
+</table>
+<div id="parameter-list-pager"></div>
+{% if missing_params %}
+<p class="error"><strong>Missing parameters:</strong>
+<ul>{% for missing_param in missing_params %}<li class="error">{{ missing_param }}</li>{% endfor %}</ul></p>
+{% endif %}
+
+
+{% endblock %}
