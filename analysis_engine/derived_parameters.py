@@ -56,6 +56,7 @@ from settings import (AZ_WASHOUT_TC,
                       FEET_PER_NM,
                       GROUNDSPEED_LAG_TC,
                       HYSTERESIS_FPALT_CCD,
+                      HYSTERESIS_FPIAS,
                       HYSTERESIS_FPROC,
                       GRAVITY_IMPERIAL,
                       GRAVITY_METRIC,
@@ -149,7 +150,8 @@ class AccelerationSideways(DerivedParameterNode):
 
 class AirspeedForFlightPhases(DerivedParameterNode):
     def derive(self, airspeed=P('Airspeed')):
-        self.array = repair_mask(airspeed.array, repair_duration=None)
+        self.array = hysteresis(
+            repair_mask(airspeed.array, repair_duration=None),HYSTERESIS_FPIAS)
 
 
 class AirspeedMinusV2(DerivedParameterNode):
@@ -313,9 +315,13 @@ class AltitudeAAL(DerivedParameterNode):
         # alt_aal will be zero on the airfield
         alt_aal = np_ma_zeros_like(alt_std.array)
   
-        if alt_rad:
-            for speedy in speedies:
-                quick = speedy.slice
+        for speedy in speedies:
+            quick = speedy.slice
+            if speedy.slice == slice(None,None,None):
+                self.array = alt_aal
+                break
+            
+            if alt_rad:
                 ### Make use of the fact that radio altimeters give negative readings on the ground.
                 ##from_0_to_100ft = np.ma.masked_outside(alt_rad.array[quick], 0.0, 100.0)
                 ##ralt_sections = np.ma.clump_unmasked(from_0_to_100ft )
@@ -398,9 +404,7 @@ class AltitudeAAL(DerivedParameterNode):
 
                 self.array = alt_aal
 
-        else:
-            for speedy in speedies:
-                quick = speedy.slice
+            else:
                 begin_index = quick.start or 0
                 peak_index = np.ma.argmax(alt_std.array[quick]) + begin_index
                 end_index = quick.stop or len(alt_std.array)
@@ -1646,8 +1650,8 @@ class FlapSurface(DerivedParameterNode):
 
     @classmethod
     def can_operate(cls, available):
-        return ('Altitude AAL' in available) or \
-               ('Flap (L)' in available and \
+        return ('Altitude AAL' in available) and \
+               ('Flap (L)' in available or \
                 'Flap (R)' in available)
 
     def derive(self, flap_A=P('Flap (L)'), flap_B=P('Flap (R)'),
@@ -2031,7 +2035,11 @@ class ILSRange(DerivedParameterNode):
             # range using true airspeed. This is because there are aircraft
             # which record ILS but not groundspeed data.
             if gspd:
-                speed = np.ma.where(gspd.array.mask[this_loc.slice], \
+                # It is necessary to use getmaskarray rather than .array.mask
+                # here because the array may have no masked entries, in which
+                # case only a single False scalar is returned, which will not
+                # work with the np.ma.where function.
+                speed = np.ma.where(np.ma.getmaskarray(gspd.array[this_loc.slice]), \
                                     tas.array.data[this_loc.slice], \
                                     gspd.array.data[this_loc.slice]) 
             else:
@@ -2152,7 +2160,7 @@ class CoordinatesSmoothed(object):
                 rwy_dist = np.ma.array(                        
                     data = integrate(speed[first_toff.slice], freq, initial_value=100, 
                                      scale=KTS_TO_MPS),
-                    mask = speed.mask[first_toff.slice])
+                    mask = np.ma.getmaskarray(speed[first_toff.slice]))
         
                 # The start location has been read from the database.
                 start_locn = toff_rwy.value['start']
@@ -2571,7 +2579,7 @@ class CoordinatesStraighten(object):
         # Join the masks, so that we only consider positional data when both are valid:
         coord1_s.mask = np.ma.logical_or(np.ma.getmaskarray(coord1.array),
                                          np.ma.getmaskarray(coord2.array))
-        coord2_s.mask = coord1_s.mask
+        coord2_s.mask = np.ma.getmaskarray(coord1_s)
         # Preload the output with masked values to keep dimension correct 
         array = np_ma_masked_zeros_like(coord1_s)  
         

@@ -133,6 +133,9 @@ HEADING_TURN_OFF_RUNWAY = 15.0 # deg
 # Threshold for flight phase altitude hysteresis.
 HYSTERESIS_FPALT = 200 # ft
 
+# Threshold for flight phase airspeed hysteresis.
+HYSTERESIS_FPIAS = 5 #kts
+
 # Threshold for flight phase altitude hysteresis specifically for separating 
 # Climb Cruise Descent phases.
 HYSTERESIS_FPALT_CCD = 2500 # ft

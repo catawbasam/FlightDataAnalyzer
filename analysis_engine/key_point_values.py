@@ -421,7 +421,7 @@ def flap_or_conf_max_or_min(self, conflap, airspeed, function, scope=None):
     if scope:
         scope_array = np_ma_masked_zeros_like(airspeed.array)
         for valid in scope:
-            scope_array.mask[int(valid.slice.start or 0):
+            scope_array.mask[int(valid.slice.start or 0):\
                              int(valid.slice.stop or len(scope_array))+1]=False
             
     for conflap_setting in np.ma.unique(conflap.array):
@@ -918,8 +918,10 @@ class DistanceFrom60KtToRunwayEnd(KeyPointValueNode):
 
         land_idx=tdwns[-1].index
         idx_60 = index_at_value(gspd.array,60.0,slice(land_idx,None))
-        distance = _dist(lat.array[idx_60], lon.array[idx_60], lat_rwy, lon_rwy)
-        self.create_kpv(idx_60, distance)
+        if idx_60:
+            # Only work out the distance if we have a reading at 60kts...
+            distance = _dist(lat.array[idx_60], lon.array[idx_60], lat_rwy, lon_rwy)
+            self.create_kpv(idx_60, distance)
         
 
 class HeadingAtLanding(KeyPointValueNode):
