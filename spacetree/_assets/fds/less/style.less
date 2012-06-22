@@ -1,0 +1,286 @@
+@charset 'utf-8';
+/*!
+ * POLARIS Static Error Page Stylesheet
+ * Copyright © 2011, Flight Data Services Ltd.
+ */
+
+// -------------------------------------
+// Reset Styles
+// -------------------------------------
+
+abbr, address, article, aside, audio, b, blockquote, body, canvas, caption,
+cite, code, dd, del, details, dfn, div, dl, dt, em, fieldset, figcaption,
+figure, footer, form, h1, h2, h3, h4, h5, h6, header, hgroup, html, i, iframe,
+img, ins, kbd, label, legend, li, mark, menu, nav, object, ol, p, pre, q, samp,
+section, small, span, strong, sub, summary, sup, table, tbody, td, tfoot, th,
+thead, time, tr, ul, var, video {
+    border: 0;
+    font-size: 100%;
+    font: inherit;
+    margin: 0;
+    padding: 0;
+    vertical-align: baseline;
+}
+
+article, aside, details, figcaption, figure, footer, header, hgroup, menu, nav,
+section {
+    display: block;
+}
+
+blockquote, q {
+    quotes: none;
+}
+
+blockquote:after, blockquote:before, q:after, q:before {
+    content: '';
+    content: none;
+}
+
+mark {
+    background-color: #ff9;
+    color: #000;
+    font-style: italic;
+    font-weight: bold;
+}
+
+ins {
+    background-color: #ff9;
+    color: #000;
+    text-decoration: none;
+}
+
+del {
+    text-decoration: line-through;
+}
+
+abbr[title], dfn[title] {
+    border-bottom: 1px dotted;
+    cursor: help;
+}
+
+table {
+    border-collapse: collapse;
+    border-spacing: 0;
+}
+
+hr {
+    border-top: 1px solid #ccc;
+    border: 0;
+    display: block;
+    height: 1px;
+    margin: 1em 0;
+    padding: 0;
+}
+
+input, select {
+    vertical-align: middle;
+}
+
+// -------------------------------------
+// Branding Colours
+// -------------------------------------
+
+// Note: You cannot actually use cymk() - is for print and here for reference:
+@color-fds-grey:   #6a6e70;  // rgb(106, 110, 112) cymk(58, 49,  47, 15)
+@color-fds-blue:   #72cdf4;  // rgb(114, 205, 244) cymk(49,  2,   0,  0)
+@color-fds-green:  #bed630;  // rgb(190, 214,  48) cymk(31,  1, 100,  0)
+@color-fds-orange: #fdbb30;  // rgb(253, 187,  48) cymk( 1, 29,  92,  0)
+
+// -------------------------------------
+// Site Colours
+// -------------------------------------
+
+@color-base-bg: #f2f2f2;
+@color-base-fg: #444;
+
+@color-link:       darken(@color-fds-blue, 30%);
+@color-link-hover: darken(@color-link, 20%);
+
+@color-border: #ccc;
+
+// -------------------------------------
+// CSS3 Styles
+// -------------------------------------
+
+.box-shadow() {
+    // Fx 3.5+
+    -moz-box-shadow: @arguments;
+    // Cr 1+, Saf 3+
+    -webkit-box-shadow: @arguments;
+    // W3C; Fx 4+; Cr 10+; Op 10.5+; IE 9+
+    box-shadow: @arguments;
+}
+
+// -------------------------------------
+// Base Styles
+// -------------------------------------
+
+html {
+    font: 13px/16px sans-serif;
+    overflow: hidden;
+}
+
+body {
+    background: @color-base-bg;
+    color: @color-base-fg;
+}
+
+h1 {
+    border-bottom: 1px dotted darken(@color-fds-blue, 35%);
+    color: darken(@color-fds-blue, 35%);
+    font-size: 140%;
+    font-weight: bold;
+    margin: 1em 0 0.75em;
+    padding-bottom: 0.5em;
+    &:first-child {
+        margin-top: 0;
+    }
+}
+
+p, dt, dd, li {
+    margin-bottom: 0.5em;
+    &:last-child {
+        margin-bottom: 0;
+    }
+}
+
+dl {
+    margin: 1em 2em 1em 0.5em;
+}
+
+ol, ul {
+    margin: 1em 2em;
+}
+
+dt {
+    font-weight: bold;
+}
+
+dd {
+    margin-left: 1em;
+}
+
+ol {
+    list-style-type: decimal;
+}
+
+ul {
+    list-style-type: square;
+}
+
+b, strong {
+    font-weight: bold;
+}
+
+i, em {
+    font-style: italic;
+}
+
+sub {
+    font-size: smaller;
+    vertical-align: sub;
+}
+
+sup {
+    font-size: smaller;
+    vertical-align: super;
+}
+
+img {
+    vertical-align: middle;
+}
+
+a {
+    &:link, &:visited {
+        color: @color-link;
+        text-decoration: none;
+    }
+    &:hover, &:active {
+        color: @color-link-hover;
+        text-decoration: underline;
+    }
+    img {
+        border: 0;
+        cursor: pointer;
+    }
+}
+
+hr {
+    border-top: 1px solid @color-border;
+    display: block;
+    height: 1px;
+    margin: 1em;
+    padding: 0;
+    &.solid {
+        border-top: 1px solid @color-border;
+    }
+    &.dashed {
+        border-top: 1px dashed @color-border;
+    }
+    &.dotted {
+        border-top: 1px dotted @color-border;
+    }
+    &.double {
+        border-top: 3px double @color-border;
+    }
+}
+
+::-moz-selection {
+    background: @color-fds-green;
+    color: @color-base-fg;
+    text-shadow: none;
+}
+
+::selection {
+    background: @color-fds-green;
+    color: @color-base-fg;
+    text-shadow: none;
+}
+
+.text-right {
+    text-align: right;
+}
+
+// -------------------------------------
+// Layout Styles
+// -------------------------------------
+
+#container {
+    background: #fff;
+    height: 360px;
+    left: 50%;
+    margin-left: -350px;
+    margin-top: -200px;
+    padding: 20px;
+    position: absolute;
+    top: 50%;
+    width: 660px;
+    .box-shadow(0 0 10px darken(@color-base-bg, 15%);
+}
+
+#logo {
+    float: right;
+    margin-bottom: 2em;
+}
+
+#heading {
+    clear: both;
+}
+
+#details {
+    hr {
+        margin: 20px 10px;
+    }
+}
+
+#message {
+    max-height: 110px;
+    padding-right: 5px;
+    overflow-y: auto;
+    > dl, > ol, > ul {
+        margin: 0;
+    }
+}
+
+// -----------------------------------------------------------------------------
+// vim:et:ft=less:nowrap:sts=4:sw=4:ts=4
