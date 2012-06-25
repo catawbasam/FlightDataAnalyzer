@@ -256,7 +256,7 @@ SLOPE_FOR_TOC_TOD = 600 / float(3*60) # 600fpm in 3 mins
 
 # Import from custom_settings if exists
 try:
-    from analysis_engine.custom_settings import *
+    from analyser_custom_settings import *
     # add any new modules to the list of modules
     from copy import copy
     [NODE_MODULES.extend(v) for k, v in copy(locals()).iteritems() \
