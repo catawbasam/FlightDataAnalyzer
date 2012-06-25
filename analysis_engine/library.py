@@ -918,8 +918,10 @@ def _dist(lat1_d, lon1_d, lat2_d, lon2_d):
     dlat = lat2-lat1
     dlon = lon2-lon1
 
-    a = sin(dlat/2) * sin(dlat/2) + cos(lat2) \
-        * (lat2) * (dlon/2) * sin(dlon/2)
+    ##a = sin(dlat/2) * sin(dlat/2) + cos(lat2) \
+        ##* (lat2) * (dlon/2) * sin(dlon/2)
+    a = sin(dlat/2) * sin(dlat/2) + \
+        sin(dlon/2) * sin(dlon/2) * cos(lat1) * cos(lat2)
     return 2 * atan2(sqrt(a), sqrt(1-a)) * 6371000
 
 def runway_distances(runway):

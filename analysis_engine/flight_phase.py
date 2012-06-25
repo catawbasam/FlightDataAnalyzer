@@ -581,7 +581,7 @@ class OnGround(FlightPhaseNode):
         data_end=len(speed.array)
         gnd_phases = slices_not([a.slice for a in air], 
                                 begin_at=0, end_at=data_end)
-        if gnd_phases == []:
+        if gnd_phases == [] or gnd_phases == None:
             # Either all on ground or all in flight.
             median_speed = np.ma.median(speed.array)
             if median_speed > AIRSPEED_THRESHOLD:

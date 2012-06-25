@@ -421,7 +421,7 @@ def flap_or_conf_max_or_min(self, conflap, airspeed, function, scope=None):
     if scope:
         scope_array = np_ma_masked_zeros_like(airspeed.array)
         for valid in scope:
-            scope_array.mask[int(valid.slice.start or 0):
+            scope_array.mask[int(valid.slice.start or 0):\
                              int(valid.slice.stop or len(scope_array))+1]=False
             
     for conflap_setting in np.ma.unique(conflap.array):
@@ -557,7 +557,7 @@ class AirspeedTODTo10000Max(KeyPointValueNode):
             alt=alt_qnh.array
         else:
             alt=alt_std.array
-        height_bands = np.ma.clump_unmasked(np.ma.masked_less(alt,10000))
+        height_bands = np.ma.clump_unmasked(np.ma.masked_less(repair_mask(alt),10000))
         descent_bands = slices_and(height_bands, [s.slice for s in descent])
         self.create_kpvs_within_slices(airspeed.array, descent_bands, max_value)
 
@@ -918,8 +918,10 @@ class DistanceFrom60KtToRunwayEnd(KeyPointValueNode):
 
         land_idx=tdwns[-1].index
         idx_60 = index_at_value(gspd.array,60.0,slice(land_idx,None))
-        distance = _dist(lat.array[idx_60], lon.array[idx_60], lat_rwy, lon_rwy)
-        self.create_kpv(idx_60, distance)
+        if idx_60:
+            # Only work out the distance if we have a reading at 60kts...
+            distance = _dist(lat.array[idx_60], lon.array[idx_60], lat_rwy, lon_rwy)
+            self.create_kpv(idx_60, distance)
         
 
 class HeadingAtLanding(KeyPointValueNode):
@@ -1190,9 +1192,9 @@ def peak_start_egt(egt, n2, idx):
     else:
         return None, None
 
-class Eng1EGTStartMax(KeyPointValueNode):
-    name = 'Eng (1) EGT Start Max'
-    def derive(self, egt=P('Eng (1) EGT'), n2=P('Eng (1) N2'),
+class Eng1GasTempStartMax(KeyPointValueNode):
+    name = 'Eng (1) Gas Temp Start Max'
+    def derive(self, egt=P('Eng (1) Gas Temp'), n2=P('Eng (1) N2'),
                toffs=KTI('Takeoff Turn Onto Runway')):
         # Extract the index for the first turn onto the runway.
         if len(toffs) > 0:
@@ -1203,9 +1205,9 @@ class Eng1EGTStartMax(KeyPointValueNode):
                 self.create_kpvs_within_slices(egt.array,[slice(ignition,started_up)],max_value)
 
     
-class Eng2EGTStartMax(KeyPointValueNode):
-    name = 'Eng (2) EGT Start Max'
-    def derive(self, egt=P('Eng (2) EGT'), n2=P('Eng (2) N2'),
+class Eng2GasTempStartMax(KeyPointValueNode):
+    name = 'Eng (2) Gas Temp Start Max'
+    def derive(self, egt=P('Eng (2) Gas Temp'), n2=P('Eng (2) N2'),
                toffs=KTI('Takeoff Turn Onto Runway')):
         # If the data started after the aircraft is airborne, we'll never see the engine start.
         if len(toffs) > 0:
@@ -1217,9 +1219,9 @@ class Eng2EGTStartMax(KeyPointValueNode):
 
 #-------------------------------------------------------------------------------
     
-class EngEGTAfterTakeoffMax(KeyPointValueNode):
-    name = 'Eng EGT After Takeoff Max'
-    def derive(self, eng_egt=P('Eng (*) EGT Max'), ratings=S('TOGA 5 Min Rating')):
+class EngGasTempAfterTakeoffMax(KeyPointValueNode):
+    name = 'Eng Gas Temp After Takeoff Max'
+    def derive(self, eng_egt=P('Eng (*) Gas Temp Max'), ratings=S('TOGA 5 Min Rating')):
         egt = np.ma.copy(eng_egt.array)
         for rating in ratings:
             egt[rating.slice] = np.ma.masked
@@ -1227,9 +1229,9 @@ class EngEGTAfterTakeoffMax(KeyPointValueNode):
         self.create_kpv(index, value)
 
 
-class EngEGTTakeoffMax(KeyPointValueNode):
-    name = 'Eng EGT Takeoff Max'
-    def derive(self, eng_egt_max=P('Eng (*) EGT Max'), ratings=S('TOGA 5 Min Rating')):
+class EngGasTempTakeoffMax(KeyPointValueNode):
+    name = 'Eng Gas Temp Takeoff Max'
+    def derive(self, eng_egt_max=P('Eng (*) Gas Temp Max'), ratings=S('TOGA 5 Min Rating')):
         self.create_kpvs_within_slices(eng_egt_max.array, ratings, max_value)
 
 
@@ -2338,7 +2340,7 @@ class SpeedbrakesDeployedWithPowerOnInHeightBandsDuration(KeyPointValueNode):
                                             eng_n1=eng_speed, upper=up, lower=low)
 
 
-class StickPusherActivated(KeyPointValueNode):
+class TimeStickPusherActivated(KeyPointValueNode):
     '''
     We annotate the stick pusher event with the duration of the event.
     TODO: Check that this triggers correctly as stick push events are probably single samples.
@@ -2352,7 +2354,7 @@ class StickPusherActivated(KeyPointValueNode):
             self.create_kpv(index, value)
             
             
-class StickShakerActivated(KeyPointValueNode):
+class TimeStickShakerActivated(KeyPointValueNode):
     '''
     We annotate the stick shaker event with the duration of the event.
     '''
@@ -2485,7 +2487,7 @@ class TimeTouchdownToElevatorDown(KeyPointValueNode):
                 self.create_kpv(index_elev, e_14)
 
 
-class TouchdownTo60KtsTime(KeyPointValueNode):
+class TimeTouchdownTo60Kts(KeyPointValueNode):
     """
     Ideally compute using groundspeed, otherwise use airspeed.
     """

@@ -133,6 +133,9 @@ HEADING_TURN_OFF_RUNWAY = 15.0 # deg
 # Threshold for flight phase altitude hysteresis.
 HYSTERESIS_FPALT = 200 # ft
 
+# Threshold for flight phase airspeed hysteresis.
+HYSTERESIS_FPIAS = 5 #kts
+
 # Threshold for flight phase altitude hysteresis specifically for separating 
 # Climb Cruise Descent phases.
 HYSTERESIS_FPALT_CCD = 2500 # ft
@@ -253,7 +256,7 @@ SLOPE_FOR_TOC_TOD = 600 / float(3*60) # 600fpm in 3 mins
 
 # Import from custom_settings if exists
 try:
-    from analysis_engine.custom_settings import *
+    from analyser_custom_settings import *
     # add any new modules to the list of modules
     from copy import copy
     [NODE_MODULES.extend(v) for k, v in copy(locals()).iteritems() \

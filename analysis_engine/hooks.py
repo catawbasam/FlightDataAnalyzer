@@ -33,7 +33,7 @@ PRE_FLIGHT_ANALYSIS = fn
 
 
 try:
-    from analysis_engine.custom_hooks import *
+    from analyser_custom_hooks import *
 except ImportError as err:
     import logging
     logger = logging.getLogger(name=__name__)

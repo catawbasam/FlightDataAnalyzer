@@ -56,6 +56,7 @@ from settings import (AZ_WASHOUT_TC,
                       FEET_PER_NM,
                       GROUNDSPEED_LAG_TC,
                       HYSTERESIS_FPALT_CCD,
+                      HYSTERESIS_FPIAS,
                       HYSTERESIS_FPROC,
                       GRAVITY_IMPERIAL,
                       GRAVITY_METRIC,
@@ -90,7 +91,9 @@ class AccelerationForwards(DerivedParameterNode):
     """
     Resolution of three body axis accelerations to compute the forward
     acceleration, that is, in the direction of the aircraft centreline
-    when projected onto the earth's surface. Forwards = +ve
+    when projected onto the earth's surface. 
+    
+    Forwards = +ve, Constant sensor errors not washed out.
     """
     def derive(self, acc_norm=P('Acceleration Normal'), 
                acc_long=P('Acceleration Longitudinal'), 
@@ -149,7 +152,8 @@ class AccelerationSideways(DerivedParameterNode):
 
 class AirspeedForFlightPhases(DerivedParameterNode):
     def derive(self, airspeed=P('Airspeed')):
-        self.array = repair_mask(airspeed.array, repair_duration=None)
+        self.array = hysteresis(
+            repair_mask(airspeed.array, repair_duration=None),HYSTERESIS_FPIAS)
 
 
 class AirspeedMinusV2(DerivedParameterNode):
@@ -313,9 +317,13 @@ class AltitudeAAL(DerivedParameterNode):
         # alt_aal will be zero on the airfield
         alt_aal = np_ma_zeros_like(alt_std.array)
   
-        if alt_rad:
-            for speedy in speedies:
-                quick = speedy.slice
+        for speedy in speedies:
+            quick = speedy.slice
+            if speedy.slice == slice(None,None,None):
+                self.array = alt_aal
+                break
+            
+            if alt_rad:
                 ### Make use of the fact that radio altimeters give negative readings on the ground.
                 ##from_0_to_100ft = np.ma.masked_outside(alt_rad.array[quick], 0.0, 100.0)
                 ##ralt_sections = np.ma.clump_unmasked(from_0_to_100ft )
@@ -330,6 +338,11 @@ class AltitudeAAL(DerivedParameterNode):
                         pass                    
   
                 from_0_to_2500ft = np.ma.clump_unmasked(np.ma.masked_outside(alt_rad.array[quick], 0.0, 2500.0))
+
+                """
+                This section needs reworking as it triggers over high ground in descent. 
+                Use DLC phase to identify low sections of the type we are really interested in.
+                
                 if len(ralt_sections) < len(from_0_to_2500ft):
                     # In this unusual case the aircraft got closer than 2500
                     # to the ground and flew away again at some time. We need
@@ -342,12 +355,7 @@ class AltitudeAAL(DerivedParameterNode):
                             pit_slice = slice(low.start+pit-1, low.start+pit+2) 
                             ralt_sections.append(pit_slice)
                             alt_aal[quick][pit_slice] = alt_rad.array[quick][pit_slice]
-                
-                # Checking for masked greater than 100ft makes this match the
-                # previous mask operation in the case of a masked rad alt
-                # sample on the 100ft threshold.
-                ##below_100ft = np.ma.masked_greater(alt_rad.array[quick], 100.0)
-                ##baro_sections = np.ma.clump_masked(below_100ft)
+                            """
                 
                 baro_sections = slices_not(ralt_sections)
                 
@@ -398,9 +406,7 @@ class AltitudeAAL(DerivedParameterNode):
 
                 self.array = alt_aal
 
-        else:
-            for speedy in speedies:
-                quick = speedy.slice
+            else:
                 begin_index = quick.start or 0
                 peak_index = np.ma.argmax(alt_std.array[quick]) + begin_index
                 end_index = quick.stop or len(alt_std.array)
@@ -959,53 +965,53 @@ class PackValvesOpen(DerivedParameterNode):
         self.array = p1.array*(1+p1h.array)+p2.array*(1+p2h.array)
         
 
-class Eng_EGTAvg(DerivedParameterNode):
+class Eng_GasTempAvg(DerivedParameterNode):
     #TODO: TEST
-    name = "Eng (*) EGT Avg"
+    name = "Eng (*) Gas Temp Avg"
     @classmethod
     def can_operate(cls, available):
         # works with any combination of params available
         return any([d in available for d in cls.get_dependency_names()])
         
     def derive(self, 
-               eng1=P('Eng (1) EGT'),
-               eng2=P('Eng (2) EGT'),
-               eng3=P('Eng (3) EGT'),
-               eng4=P('Eng (4) EGT')):
+               eng1=P('Eng (1) Gas Temp'),
+               eng2=P('Eng (2) Gas Temp'),
+               eng3=P('Eng (3) Gas Temp'),
+               eng4=P('Eng (4) Gas Temp')):
         engines = vstack_params(eng1, eng2, eng3, eng4)
         self.array = np.ma.average(engines, axis=0)
 
 
-class Eng_EGTMax(DerivedParameterNode):
+class Eng_GasTempMax(DerivedParameterNode):
     #TODO: TEST
-    name = "Eng (*) EGT Max"
+    name = "Eng (*) Gas Temp Max"
     @classmethod
     def can_operate(cls, available):
         # works with any combination of params available
         return any([d in available for d in cls.get_dependency_names()])
         
     def derive(self, 
-               eng1=P('Eng (1) EGT'),
-               eng2=P('Eng (2) EGT'),
-               eng3=P('Eng (3) EGT'),
-               eng4=P('Eng (4) EGT')):
+               eng1=P('Eng (1) Gas Temp'),
+               eng2=P('Eng (2) Gas Temp'),
+               eng3=P('Eng (3) Gas Temp'),
+               eng4=P('Eng (4) Gas Temp')):
         engines = vstack_params(eng1, eng2, eng3, eng4)
         self.array = np.ma.max(engines, axis=0)
 
 
-class Eng_EGTMin(DerivedParameterNode):
+class Eng_GasTempMin(DerivedParameterNode):
     #TODO: TEST
-    name = "Eng (*) EGT Min"
+    name = "Eng (*) Gas Temp Min"
     @classmethod
     def can_operate(cls, available):
         # works with any combination of params available
         return any([d in available for d in cls.get_dependency_names()])
         
     def derive(self, 
-               eng1=P('Eng (1) EGT'),
-               eng2=P('Eng (2) EGT'),
-               eng3=P('Eng (3) EGT'),
-               eng4=P('Eng (4) EGT')):
+               eng1=P('Eng (1) Gas Temp'),
+               eng2=P('Eng (2) Gas Temp'),
+               eng3=P('Eng (3) Gas Temp'),
+               eng4=P('Eng (4) Gas Temp')):
         engines = vstack_params(eng1, eng2, eng3, eng4)
         self.array = np.ma.min(engines, axis=0)
 
@@ -1061,57 +1067,6 @@ class Eng_FuelFlow(DerivedParameterNode):
         engines = vstack_params(eng1, eng2, eng3, eng4)
         self.array = np.ma.sum(engines, axis=0)
       
-
-class Eng_ITTAvg(DerivedParameterNode):
-    #TODO: TEST
-    name = "Eng (*) ITT Avg"
-    @classmethod
-    def can_operate(cls, available):
-        # works with any combination of params available
-        return any([d in available for d in cls.get_dependency_names()])
-        
-    def derive(self, 
-               eng1=P('Eng (1) ITT'),
-               eng2=P('Eng (2) ITT'),
-               eng3=P('Eng (3) ITT'),
-               eng4=P('Eng (4) ITT')):
-        engines = vstack_params(eng1, eng2, eng3, eng4)
-        self.array = np.ma.average(engines, axis=0)
-
-
-class Eng_ITTMax(DerivedParameterNode):
-    #TODO: TEST
-    name = "Eng (*) ITT Max"
-    @classmethod
-    def can_operate(cls, available):
-        # works with any combination of params available
-        return any([d in available for d in cls.get_dependency_names()])
-        
-    def derive(self, 
-               eng1=P('Eng (1) ITT'),
-               eng2=P('Eng (2) ITT'),
-               eng3=P('Eng (3) ITT'),
-               eng4=P('Eng (4) ITT')):
-        engines = vstack_params(eng1, eng2, eng3, eng4)
-        self.array = np.ma.max(engines, axis=0)
-
-
-class Eng_ITTMin(DerivedParameterNode):
-    #TODO: TEST
-    name = "Eng (*) ITT Min"
-    @classmethod
-    def can_operate(cls, available):
-        # works with any combination of params available
-        return any([d in available for d in cls.get_dependency_names()])
-        
-    def derive(self, 
-               eng1=P('Eng (1) ITT'),
-               eng2=P('Eng (2) ITT'),
-               eng3=P('Eng (3) ITT'),
-               eng4=P('Eng (4) ITT')):
-        engines = vstack_params(eng1, eng2, eng3, eng4)
-        self.array = np.ma.min(engines, axis=0)
-
 
 class Eng_N1Avg(DerivedParameterNode):
     name = "Eng (*) N1 Avg"
@@ -1646,8 +1601,8 @@ class FlapSurface(DerivedParameterNode):
 
     @classmethod
     def can_operate(cls, available):
-        return ('Altitude AAL' in available) or \
-               ('Flap (L)' in available and \
+        return ('Altitude AAL' in available) and \
+               ('Flap (L)' in available or \
                 'Flap (R)' in available)
 
     def derive(self, flap_A=P('Flap (L)'), flap_B=P('Flap (R)'),
@@ -2025,23 +1980,27 @@ class ILSRange(DerivedParameterNode):
                 continue # move onto next loc_established
                 
             #-----------------------------
-            #else: non-precise positioning
+            else: # non-precise positioning
             
-            # Use recorded groundspeed where available, otherwise estimate
-            # range using true airspeed. This is because there are aircraft
-            # which record ILS but not groundspeed data.
-            if gspd:
-                speed = np.ma.where(gspd.array.mask[this_loc.slice], \
-                                    tas.array.data[this_loc.slice], \
-                                    gspd.array.data[this_loc.slice]) 
-            else:
-                speed = tas.array.data[this_loc.slice]
-                
-            # Estimate range by integrating back from zero at the end of the
-            # phase to high range values at the start of the phase.
-            spd_repaired = repair_mask(speed)
-            ils_range[this_loc.slice] = integrate(
-                spd_repaired, gspd.frequency, scale=KTS_TO_FPS, direction='reverse')
+                # Use recorded groundspeed where available, otherwise estimate
+                # range using true airspeed. This is because there are aircraft
+                # which record ILS but not groundspeed data.
+                if gspd:
+                    # It is necessary to use getmaskarray rather than .array.mask
+                    # here because the array may have no masked entries, in which
+                    # case only a single False scalar is returned, which will not
+                    # work with the np.ma.where function.
+                    speed = np.ma.where(np.ma.getmaskarray(gspd.array[this_loc.slice]), \
+                                        tas.array.data[this_loc.slice], \
+                                        gspd.array.data[this_loc.slice]) 
+                else:
+                    speed = tas.array.data[this_loc.slice]
+                    
+                # Estimate range by integrating back from zero at the end of the
+                # phase to high range values at the start of the phase.
+                spd_repaired = repair_mask(speed)
+                ils_range[this_loc.slice] = integrate(
+                    spd_repaired, gspd.frequency, scale=KTS_TO_FPS, direction='reverse')
             
             try:
                 start_2_loc, gs_2_loc, end_2_loc, pgs_lat, pgs_lon = \
@@ -2050,6 +2009,7 @@ class ILSRange(DerivedParameterNode):
                 self.warning("Runway did not have required information in "
                                 "'%s', '%s'.", self.name, runway)
                 continue
+
             if 'glideslope' in runway:
                 # The runway has an ILS glideslope antenna
                 
@@ -2152,7 +2112,7 @@ class CoordinatesSmoothed(object):
                 rwy_dist = np.ma.array(                        
                     data = integrate(speed[first_toff.slice], freq, initial_value=100, 
                                      scale=KTS_TO_MPS),
-                    mask = speed.mask[first_toff.slice])
+                    mask = np.ma.getmaskarray(speed[first_toff.slice]))
         
                 # The start location has been read from the database.
                 start_locn = toff_rwy.value['start']
@@ -2571,7 +2531,7 @@ class CoordinatesStraighten(object):
         # Join the masks, so that we only consider positional data when both are valid:
         coord1_s.mask = np.ma.logical_or(np.ma.getmaskarray(coord1.array),
                                          np.ma.getmaskarray(coord2.array))
-        coord2_s.mask = coord1_s.mask
+        coord2_s.mask = np.ma.getmaskarray(coord1_s)
         # Preload the output with masked values to keep dimension correct 
         array = np_ma_masked_zeros_like(coord1_s)  
         
