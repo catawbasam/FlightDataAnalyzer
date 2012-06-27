@@ -654,7 +654,7 @@ class TestClip(unittest.TestCase):
         # Engine temperature at startup limit = 900 C for 5 seconds, say.
 
         # Pseudo-POLARIS exceedance would be like this:
-        # Exceedance = clip(Eng_1_EGT,5sec,1Hz) > 900
+        # Exceedance = clip(Eng_1_Gas_Temp,5sec,1Hz) > 900
         
         # In this case it was over 910 for 5 seconds, hence is an exceedance.
         

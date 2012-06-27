@@ -42,7 +42,7 @@ from analysis_engine.key_point_values import (
     ##APEngaged2AtLiftoff,
     ##APEngaged2AtTouchdown,
     ControlColumnStiffness,
-    ##EngEGTMax,
+    ##EngGasTempMax,
     EngEPR500FtToTouchdownMin,
     EngN13000FtToTouchdownMax,
     EngN1500FtToTouchdownMin,
@@ -641,14 +641,14 @@ class TestControlColumnStiffness(unittest.TestCase):
         
 
 """
-class TestEngEGTMax(unittest.TestCase):
+class TestEngGasTempMax(unittest.TestCase):
     def test_can_operate(self, eng=P()):
-        self.assertEqual(EngEGTMax.get_operational_combinations(),
-                         [('Eng (*) EGT Max',)])
+        self.assertEqual(EngGasTempMax.get_operational_combinations(),
+                         [('Eng (*) Gas Temp Max',)])
     
     @patch('analysis_engine.key_point_values.max_value')
     def test_derive(self, max_value):
-        eng_egt_max = EngEGTMax()
+        eng_egt_max = EngGasTempMax()
         index, value = 10, 30
         max_value.return_value = index, value
         param = Mock()
@@ -679,9 +679,9 @@ class TestEngN1500FtToTouchdownMin(unittest.TestCase,
         self.second_param_method_calls = [('slices_from_to', (500, 0,), {})]
 
 
-class EngEGTTakeoffMax(unittest.TestCase):
+class EngGasTempTakeoffMax(unittest.TestCase):
     def setUp(self):
-        self.node_class = EngEGTTakeoffMax
+        self.node_class = EngGasTempTakeoffMax
         self.operational_combinations = [('Eng (*) N1 Max', 'Takeoff')]
         self.function = max_value
 
