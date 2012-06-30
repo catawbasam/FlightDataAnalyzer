@@ -1462,10 +1462,16 @@ class EngOilTempMax(KeyPointValueNode):
         self.create_kpv(index, value)
 
 
+'''
+
+Fails when oil_temp.array is wholly masked
+
+
 class EngOilTemp15MinuteMax(KeyPointValueNode):
     name = 'Eng Oil Temp 15 Minutes Max'
     def derive(self, oil_temp=P('Eng (*) Oil Temp Max')):
         self.create_kpv(*max_value(clip(oil_temp.array, 15*60, oil_temp.hz)))
+        '''
 
 
 class EngVibN1Max(KeyPointValueNode):
@@ -1744,8 +1750,8 @@ class AltitudeAtSuspectedLevelBust(KeyPointValueNode):
                 duration = (end-begin)/alt_std.frequency
                 if duration < bust_time:
                     a=alt_std.array[idxs[num]]
-                    b=alt_std.array[idxs[num+1]]
-                    c=alt_std.array[idxs[num+2]]
+                    b=alt_std.array[idxs[num]+1]
+                    c=alt_std.array[idxs[num]+2]
                     if b>(a+c)/2:
                         overshoot = min(b-a,b-c)
                         self.create_kpv(idx,overshoot)

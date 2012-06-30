@@ -2340,34 +2340,29 @@ class MagneticVariation(DerivedParameterNode):
             # Pythonic way to do this, but at least it's simple.
             return x - floor(x/180.0 + 0.5)*180.0        
         
-        if toff_rwy == None and land_rwy == None:
-            # Return an array of zeros as we know no better
-            # TODO: Perhaps fill in from the database values or a computed value?
-            self.array = np_ma_zeros_like(head.array)
-
-        else:
-            # Make a masked copy of the heading array, then insert deviations at
-            # just the points we know. "interpolate_and_extend" is designed to
-            # replace the masked values with linearly interpolated values between
-            # two known points, and extrapolate to the ends of the array.
-            dev = np.ma.masked_all_like(head.array)
-            if head_toff:
-                takeoff_heading = head_toff.get_first()
-                try:
-                    dev[takeoff_heading.index] = first_turn(\
-                        runway_heading(toff_rwy.value) - takeoff_heading.value)
-                except:
-                    dev[takeoff_heading.index] = 0.0
-                    
-            if land_rwy:
-                landing_heading = head_land.get_last()
-                try:
-                    dev[landing_heading.index] = first_turn( \
-                        runway_heading(land_rwy.value) - landing_heading.value)
-                except:
-                    dev[landing_heading.index] = 0.0
-            
-            self.array = interpolate_and_extend(dev)
+        # Make a masked copy of the heading array, then insert deviations at
+        # just the points we know. "interpolate_and_extend" is designed to
+        # replace the masked values with linearly interpolated values between
+        # two known points, and extrapolate to the ends of the array. It also
+        # substitutes a zero array in case neither is available.
+        dev = np.ma.masked_all_like(head.array)
+        if head_toff:
+            takeoff_heading = head_toff.get_first()
+            try:
+                dev[takeoff_heading.index] = first_turn(\
+                    runway_heading(toff_rwy.value) - takeoff_heading.value)
+            except:
+                dev[takeoff_heading.index] = 0.0
+                
+        if land_rwy:
+            landing_heading = head_land.get_last()
+            try:
+                dev[landing_heading.index] = first_turn( \
+                    runway_heading(land_rwy.value) - landing_heading.value)
+            except:
+                dev[landing_heading.index] = 0.0
+        
+        self.array = interpolate_and_extend(dev)
 
 class RateOfClimb(DerivedParameterNode):
     """

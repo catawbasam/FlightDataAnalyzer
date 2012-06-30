@@ -1259,8 +1259,9 @@ def interpolate_and_extend (array):
     # Where do we need to use the raw data?
     blocks = np.ma.clump_masked(array)
     last = len(array)
-    if len(blocks)==0:
-        raise ValueError,'No masked data in interpolate_and_extend'
+    if len(blocks)==1:
+        logger.warn('No unmasked data in interpolate_and_extend')
+        return np_ma_zeros_like(array)
     
     for block in blocks:
         # Setup local variables
@@ -1268,9 +1269,6 @@ def interpolate_and_extend (array):
         b = block.stop
 
         if a == 0:
-            # First data can only be extension of the first valid sample.
-            if b == last:
-                raise ValueError,'No unmasked data in interpolate_and_extend'
             array[:b] = array[b]
         elif b == last:
             array[a:] = array[a-1]
@@ -1279,7 +1277,6 @@ def interpolate_and_extend (array):
             array[a:b] = join[1:-1]
             
     return array
-        
     
     
 def interleave (param_1, param_2):
@@ -2227,6 +2224,12 @@ def repair_mask(array, frequency=1, repair_duration=REPAIR_DURATION,
         repair_samples = repair_duration * frequency
         if len(array) < repair_samples/3:
             # TODO: Better handling of trivial data segments
+            # e.g. the following resulted in None, while two valid samples 
+            # should have been the result
+            # masked_array(data = [1407.95071648 --],
+                           #mask = [False  True],
+                           #fill_value = 1e+20)
+            
             return None
     else:
         repair_samples = None
