@@ -65,16 +65,8 @@ class AnalysisEngineAPI(object):
         :rtype: dict
         '''
         raise NotImplementedError
-    
-    # TODO: Determine method signature...
-    @abstractmethod
-    def get_vspeed_limit(self, *args, **kwargs):
-        '''
-        TODO: Define what this does..
-        '''
-        raise NotImplementedError
-    
-    
+
+
 class AnalysisEngineAPIHandlerDUMMY(AnalysisEngineAPI):
     '''
     DummyAPIHandler will always raise NotFoundError.
@@ -85,9 +77,6 @@ class AnalysisEngineAPIHandlerDUMMY(AnalysisEngineAPI):
     def get_nearest_runway(self, *args, **kwargs):
         raise NotFoundError('DummyAPIHandler will always raise NotFoundError.')
     
-    def get_vspeed_limit(self, *args, **kwargs):
-        raise NotFoundError('DummyAPIHandler will always raise NotFoundError.')
-
 
 class AnalysisEngineAPIHandlerHTTP(AnalysisEngineAPI, APIHandlerHTTP):
     
@@ -157,11 +146,3 @@ class AnalysisEngineAPIHandlerHTTP(AnalysisEngineAPI, APIHandlerHTTP):
         get_params = urllib.urlencode(params)
         url += '?' + get_params
         return self._attempt_request(url)['runway']
-        
-    def get_vspeed_limit(self, *args, **kwargs):
-        '''
-        
-        '''
-        pass
-    
-    
