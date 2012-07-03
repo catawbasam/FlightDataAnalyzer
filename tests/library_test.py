@@ -698,6 +698,10 @@ class TestClip(unittest.TestCase):
         expected = np.array([9,9,9,8,7,6,5,4,3,4,5,6,7,8,8,8])
         np.testing.assert_array_almost_equal(result, expected)
 
+    def test_clip_all_masked(self):
+        array = np.ma.array(data=[1,2,3],mask=[1,1,1])
+        result = clip(array, 3)
+        np.testing.assert_array_equal(result.mask, array.mask)
 
 class TestCycleCounter(unittest.TestCase):
     def test_cycle_counter(self):
@@ -749,6 +753,11 @@ class TestCycleFinder(unittest.TestCase):
         np.testing.assert_array_equal(idxs, None)
         np.testing.assert_array_equal(vals, None)
         
+    def test_cycle_finder_removals(self):
+        array = np.ma.array([0,1,2,1,2,3,2,1,2,3,4,5,4,5,6])
+        idxs, vals = cycle_finder(array, min_step=1.5)
+        np.testing.assert_array_equal(idxs, [0,5,7,15])
+        np.testing.assert_array_equal(vals, [0,3,1,6])
 
 class TestDatetimeOfIndex(unittest.TestCase):
     def test_index_of_datetime(self):
@@ -970,12 +979,15 @@ class TestRunwayDistances(unittest.TestCase):
                                 'id': 4097, 'surface': u'ASP'}, 
                       'identifier': u'17', 'id': 8193}
         result = runway_distances(runway)
-        self.assertEqual(result[0],3172.0339519041663)
-        self.assertEqual(result[1],2554.6994582864313)
-        self.assertEqual(result[2],143.15449122311364)
+        
+        # Forced failure. the Bergen runway details need amending to remove undershoot areas.
+        self.assertAlmostEqual(result[0],9999, places=0)
+        # correct:self.assertAlmostEqual(result[0],3125, places=0)
+        self.assertAlmostEqual(result[1],2503, places=0)
+        self.assertAlmostEqual(result[2],141.0, places=1)
         # Optional glideslope antenna projected position...
-        self.assertEqual(result[3],60.30122917121095)
-        self.assertEqual(result[4],5.215510542180608)
+        self.assertAlmostEqual(result[3],60.3, places=1)
+        self.assertAlmostEqual(result[4],5.22, places=2)
 
 
 class TestRunwayHeading(unittest.TestCase):
@@ -1243,13 +1255,17 @@ class TestInterpolateAndExtend(unittest.TestCase):
         array = np.ma.array(data=[0,0,2,0,0,3.5,0],
                             mask=[0,0,0,0,0,0,0],
                             dtype=float)
-        self.assertRaises(ValueError, interpolate_and_extend, array)
+        result = interpolate_and_extend(array)
+        np.testing.assert_array_equal(result, array)
         
     def test_interpolate_and_extend_nothing_to_do_all_masked(self):
         array = np.ma.array(data=[0,0,2,0,0,3.5,0],
                             mask=[1,1,1,1,1,1,1],
                             dtype=float)
-        self.assertRaises(ValueError, interpolate_and_extend, array)
+        expected = np.ma.array(data=[0,0,0,0,0,0,0],
+                            mask=False, dtype=float)
+        result = interpolate_and_extend(array)
+        np.testing.assert_array_equal(result, expected)
 
     def test_interpolate_and_extend_no_ends(self):
         array = np.ma.array(data=[5,0,0,20],
@@ -1506,7 +1522,13 @@ class TestMaxValue(unittest.TestCase):
         i, v = max_value(array, slice(0,3),None,3.5)
         self.assertEqual(i, 2)
         self.assertEqual(v, 4) # Important that end case is ignored.
-
+    
+    def test_max_value_all_masked(self):
+        array = np.ma.array(data=[0,1,2], mask=[1,1,1])
+        i, v = max_value(array)
+        self.assertEqual(i, None)
+        self.assertEqual(v, None)
+        
         
 class TestMaxAbsValue(unittest.TestCase):
     def test_max_abs_value(self):
@@ -1730,7 +1752,7 @@ class TestNormalise(unittest.TestCase):
 
 class TestNpMaZerosLike(unittest.TestCase):
     def test_zeros_like_basic(self):
-        result = np_ma_zeros_like([1,2,3])
+        result = np_ma_zeros_like(np.ma.array([1,2,3]))
         expected = np.ma.array([0,0,0])
         ma_test.assert_array_equal(expected, result)
 
@@ -1743,6 +1765,13 @@ class TestNpMaZerosLike(unittest.TestCase):
         result = np_ma_zeros_like(np.ma.array(data=[1,2,3],mask=[1,0,1]))
         expected = np.ma.array([0,0,0])
         ma_test.assert_array_equal(expected, result)
+        
+    def test_zeros_like_from_all_masked(self):
+        # This was found to be a special case.
+        result = np_ma_zeros_like(np.ma.array(data=[1,2,3],mask=[1,1,1]))
+        expected = np.ma.array([0,0,0])
+        ma_test.assert_array_equal(expected, result)
+
 
 
 class TestNpMaOnesLike(unittest.TestCase):
@@ -1755,12 +1784,8 @@ class TestNpMaOnesLike(unittest.TestCase):
 class TestNpMaMaskedZerosLike(unittest.TestCase):
     def test_masked_zeros_like_basic(self):
         result = np_ma_masked_zeros_like(np.ma.array([1,2,3]))
-        expected = np.ma.array(data=[0,0,0],mask=[1,1,1])
-        self.assertTrue(False)
-        #ma_test.assert_array_equal(expected, result) 
-        
-        #The result is exactly right, except the assertion can't deal with
-        #two masked arguments, it appears.
+        np.testing.assert_array_equal(result.data, [0, 0, 0])
+        np.testing.assert_array_equal(result.mask, [1, 1, 1])
 
         
 class TestPeakCurvature(unittest.TestCase):
@@ -2212,6 +2237,26 @@ class TestSlicesOverlay(unittest.TestCase):
         second = [slice(10,35),slice(45,50)]
         result = [slice(10,15), slice(20,25), slice(30,35)]
         self.assertEqual(slices_and(first,second),result)
+
+
+class TestSlicesRemoveSmallGaps(unittest.TestCase):
+    def test_slice_removal(self):
+        slicelist=[slice(1,3), slice(5,7), slice(20,22)]
+        newlist=slices_remove_small_gaps(slicelist)
+        expected=[slice(1,7), slice(20,22)]
+        self.assertEqual(expected, newlist)
+
+    def test_slice_removal_big_time(self):
+        slicelist=[slice(1,3), slice(5,7), slice(20,22)]
+        newlist=slices_remove_small_gaps(slicelist,time_limit=15)
+        expected=[slice(1,22)]
+        self.assertEqual(expected, newlist)
+
+    def test_slice_removal_big_freq(self):
+        slicelist=[slice(1,3), slice(5,7), slice(20,22)]
+        newlist=slices_remove_small_gaps(slicelist,hz=2)
+        expected=[slice(1,22)]
+        self.assertEqual(expected, newlist)
 
 
 class TestSlicesNot(unittest.TestCase):

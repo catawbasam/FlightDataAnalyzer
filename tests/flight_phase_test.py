@@ -294,7 +294,7 @@ class TestInitialApproach(unittest.TestCase):
 
 class TestClimbCruiseDescent(unittest.TestCase):
     def test_can_operate(self):
-        expected = [('Altitude For Climb Cruise Descent','Altitude AAL For Flight Phases')]
+        expected = [('Altitude AAL For Flight Phases','Airborne')]
         opts = ClimbCruiseDescent.get_operational_combinations()
         self.assertEqual(opts, expected)
 
@@ -304,8 +304,8 @@ class TestClimbCruiseDescent(unittest.TestCase):
         # Needs to get above 15000ft and below 10000ft to create this phase.
         testwave = np.ma.array([15000]*5+range(15000,1000,-1000))
         # plot_parameter (testwave)
-        camel.derive(Parameter('Altitude For Climb Cruise Descent', np.ma.array(testwave)),
-                     Parameter('Altitude AAL For Flight Phases', np.ma.array(testwave)))
+        air=buildsection('Airborne',None,19)
+        camel.derive(Parameter('Altitude AAL For Flight Phases', np.ma.array(testwave)),air)
         expected = buildsection('Climb Cruise Descent', None, 19)
         self.assertEqual(camel, expected)
 
@@ -315,8 +315,8 @@ class TestClimbCruiseDescent(unittest.TestCase):
         # Needs to get above 15000ft and below 10000ft to create this phase.
         testwave = np.ma.array(range(1000,15000,1000)+[15000]*5)
         # plot_parameter (testwave)
-        camel.derive(Parameter('Altitude For Climb Cruise Descent', np.ma.array(testwave)),
-                     Parameter('Altitude AAL For Flight Phases', np.ma.array(testwave)))
+        air=buildsection('Airborne',0, None)
+        camel.derive(Parameter('Altitude AAL For Flight Phases', np.ma.array(testwave)),air)
         expected = buildsection('Climb Cruise Descent', 0, None)
         self.assertEqual(camel, expected)
 
@@ -326,8 +326,8 @@ class TestClimbCruiseDescent(unittest.TestCase):
         # Needs to get above 15000ft and below 10000ft to create this phase.
         testwave = np.ma.array([15000]*5)
         # plot_parameter (testwave)
-        camel.derive(Parameter('Altitude For Climb Cruise Descent', np.ma.array(testwave)),
-                     Parameter('Altitude AAL For Flight Phases', np.ma.array(testwave)))
+        air=buildsection('Airborne',0,5)
+        camel.derive(Parameter('Altitude AAL For Flight Phases', np.ma.array(testwave)),air)
         expected = []
         self.assertEqual(camel, expected)
 
@@ -337,9 +337,9 @@ class TestClimbCruiseDescent(unittest.TestCase):
         # Needs to get above 15000ft and below 10000ft to create this phase.
         testwave = np.ma.cos(np.arange(0,3.14*2,0.1))*(-3000)+12500
         # plot_parameter (testwave)
-        camel.derive(Parameter('Altitude For Climb Cruise Descent', np.ma.array(testwave)),
-                     Parameter('Altitude AAL For Flight Phases', np.ma.array(testwave)))
-        self.assertEqual(len(camel), 2)
+        air=buildsection('Airborne',0,62)
+        camel.derive(Parameter('Altitude AAL For Flight Phases', np.ma.array(testwave)),air)
+        self.assertEqual(len(camel), 1)
         
     def test_climb_cruise_descent_two_humps(self):
         # This test will find out if we can separate the two humps on this camel
@@ -347,8 +347,8 @@ class TestClimbCruiseDescent(unittest.TestCase):
         # Needs to get above 15000ft and below 10000ft to create this phase.
         testwave = np.ma.cos(np.arange(0,3.14*4,0.1))*(-3000)+12500
         # plot_parameter (testwave)
-        camel.derive(Parameter('Altitude For Climb Cruise Descent', np.ma.array(testwave)),
-                     Parameter('Altitude AAL For Flight Phases', np.ma.array(testwave)))
+        air=buildsection('Airborne',0,122)
+        camel.derive(Parameter('Altitude AAL For Flight Phases', np.ma.array(testwave)),air)
         self.assertEqual(len(camel), 2)
         
     def test_climb_cruise_descent_three_humps(self):
@@ -357,8 +357,8 @@ class TestClimbCruiseDescent(unittest.TestCase):
         # Needs to get above 15000ft and below 10000ft to create this phase.
         testwave = np.ma.cos(np.arange(0,3.14*6,0.1))*(-3000)+12500
         # plot_parameter (testwave)
-        camel.derive(Parameter('Altitude For Climb Cruise Descent', np.ma.array(testwave)),
-                     Parameter('Altitude AAL For Flight Phases', np.ma.array(testwave)))
+        air=buildsection('Airborne',0,186)
+        camel.derive(Parameter('Altitude AAL For Flight Phases', np.ma.array(testwave)),air)
         self.assertEqual(len(camel), 3)
 
 
@@ -439,7 +439,7 @@ class TestCruise(unittest.TestCase):
         ccd_p = Parameter('Altitude For Climb Cruise Descent', 
                           hysteresis(repair_mask(alt_data), HYSTERESIS_FPALT_CCD))
         ccd = ClimbCruiseDescent()
-        ccd.derive(ccd_p,alt_p)
+        ccd.derive(alt_p, buildsection('Airborne',0,len(alt_data)))
         toc = TopOfClimb()
         toc.derive(alt_p, ccd)
         tod = TopOfDescent()
@@ -461,7 +461,7 @@ class TestCruise(unittest.TestCase):
         alt = Parameter('Altitude STD', alt_data)
         ccd = ClimbCruiseDescent()
         ccd.derive(Parameter('Altitude For Climb Cruise Descent', alt_data),
-                   Parameter('Altitude AAL For Flight Phases', alt_data))
+                   buildsection('Airborne',0,len(alt_data)))
         toc = TopOfClimb()
         toc.derive(alt, ccd)
         tod = TopOfDescent()
@@ -480,7 +480,7 @@ class TestCruise(unittest.TestCase):
         alt = Parameter('Altitude STD', alt_data)
         ccd = ClimbCruiseDescent()
         ccd.derive(Parameter('Altitude For Climb Cruise Descent', alt_data),
-                   Parameter('Altitude AAL For Flight Phases', alt_data))
+                   buildsection('Airborne',0,len(alt_data)))
         toc = TopOfClimb()
         toc.derive(alt, ccd)
         tod = TopOfDescent()
@@ -497,20 +497,24 @@ class TestCruise(unittest.TestCase):
 class TestDescentLowClimb(unittest.TestCase):
     def test_can_operate(self):
         self.assertEqual(DescentLowClimb.get_operational_combinations(),
-            [('Altitude AAL For Flight Phases', 
+            [('Altitude AAL For Flight Phases',
+              'Descend For Flight Phases',
               'Climb For Flight Phases',
               'Fast')])
         
     def test_descent_low_climb_basic(self):
         # Wave is 5000ft to 0 ft and back up, with climb of 5000ft.
         testwave = np.cos(np.arange(0,6.3,0.1))*(2500)+2500
+        dsc = testwave - testwave[0]
+        dsc [ 32:] = 0.0
         clb = testwave - min(testwave)
         clb[:31] = 0.0
         alt_aal = Parameter('Altitude AAL For Flight Phases', np.ma.array(testwave))
+        descend = Parameter('Descend For Flight Phases', np.ma.array(dsc))
         climb = Parameter('Climb For Flight Phases', np.ma.array(clb))
         fast = buildsection('Fast', 0, 126)
         dlc = DescentLowClimb()
-        dlc.derive(alt_aal, climb, fast)
+        dlc.derive(alt_aal, descend, climb, fast)
         expected = buildsection('Descent Low Climb', 14, 50)    
         self.assertEqual(dlc, expected)
 

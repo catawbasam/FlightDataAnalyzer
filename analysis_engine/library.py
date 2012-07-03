@@ -176,12 +176,22 @@ def align(slave, master, interval='Subframe', data_type=None):
 
     return slave_aligned
 
+
+def bearing_and_distance(lat1, lon1, lat2, lon2):
+    """
+    Simplified version of bearings and distances for a single pair of locations.
+    """
+    brg, dist = bearings_and_distances(np.ma.array(lat2), np.ma.array(lon2),
+                                       {'latitude':lat1, 'longitude':lon1})
+    return np.asscalar(brg), np.asscalar(dist)
+
+    
 def bearings_and_distances(latitudes, longitudes, reference):
     """
     Returns the bearings and distances of a track with respect to a fixed point.
     
     Usage: 
-    brg[], dist[] = bearings_and_distances(lat[], lon[], {'latitude':lat_ref, 'longitude', lon_ref})
+    brg[], dist[] = bearings_and_distances(lat[], lon[], {'latitude':lat_ref, 'longitude':lon_ref})
     
     :param latitudes: The latitudes of the track.
     :type latitudes: Numpy masked array.
@@ -530,7 +540,7 @@ def cycle_finder(array, min_step=0.0, include_ends=True):
     :param include_ends: Decides whether the first and last points of the array are to be included as possible turning points
     :type include_ends: logical
     
-    :returns: List of peak value, index tuples.
+    :returns: List of peak indexes, List of peak values.
     '''
     
     if len(array) == 0:
@@ -539,17 +549,34 @@ def cycle_finder(array, min_step=0.0, include_ends=True):
     
     # Find the peaks and troughs by difference products which change sign.
     x = np.ma.ediff1d(array, to_begin=0.0)
-    peak = -x[:-1]*x[1:]
-    idxs = np.nonzero(np.ma.maximum(peak,0.0))
-    vals = array.data[idxs]
+    # Stripping out only the nonzero values ensures we don't get confused with invariant data
+    y = np.ma.nonzero(x)
+    z = x[y[0]] # y is a tuple of indices so this recovers the values of interest
+    peak = -z[:-1]*z[1:] # Here we compute the change in direction
+    idxs = y[0][np.nonzero(np.ma.maximum(peak,0.0))] # And these are the indeces where the direction changed
+    vals = array.data[idxs] # So these are the local peak and trough values.
     
     # Optional inclusion of end points
     if include_ends:
         idxs = np.insert(idxs, 0, 0)
         vals = np.insert(vals,0,array.data[0])
+        # If the end two are in line, scrub the middle one.
+        try:
+            if (vals[2]-vals[1])*(vals[1]-vals[0])>=0.0:
+                idxs = np.delete(idxs, 1)
+                vals = np.delete(vals, 1)
+        except:
+            pass # If there are few vals in the array, there's nothing to tidy up.
         idxs = np.append(idxs, len(array))
         vals = np.append(vals,array.data[-1])
+        try:
+            if (vals[-3]-vals[-2])*(vals[-2]-vals[-1])>=0.0:
+                idxs = np.delete(idxs, -2)
+                vals = np.delete(vals, -2)
+        except:
+            pass # as before.
 
+    # This section progressively removes reversals smaller than the step size of interest, hence the arrays shrink until just the desired answer is left.
     dvals = np.ediff1d(vals)
     while len(dvals) > 0 and np.min(abs(dvals)) < min_step:
         sort_idx = np.argmin(abs(dvals))
@@ -628,18 +655,22 @@ def clip(array, period, hz=1.0, remove='peaks'):
     # Preparation of convenient numbers and data to process
     width = len(array) - 2*delay
     source = repair_mask(array, frequency=hz, repair_duration=period-(1/hz))
-    result = np.ma.copy(source)
+    if np.ma.count(source):
+        result = np.ma.copy(source)
     
-    for step in range(2*delay+1):
-        if remove == 'peaks':
-            result[delay:-delay] = np.ma.minimum(result[delay:-delay], source[step:step+width])
-        else:
-            result[delay:-delay] = np.ma.maximum(result[delay:-delay], source[step:step+width])
-
-    # Stretch the ends out and return the answer.
-    result[:delay] = result[delay]
-    result[-delay:] = result[-(delay+1)]
-    return result
+        for step in range(2*delay+1):
+            if remove == 'peaks':
+                result[delay:-delay] = np.ma.minimum(result[delay:-delay], source[step:step+width])
+            else:
+                result[delay:-delay] = np.ma.maximum(result[delay:-delay], source[step:step+width])
+    
+        # Stretch the ends out and return the answer.
+        result[:delay] = result[delay]
+        result[-delay:] = result[-(delay+1)]
+        return result
+    
+    else:
+        return None
 
 """
     # Compute an array of differences across period, such that each maximum or
@@ -1247,21 +1278,26 @@ def interpolate_and_extend (array):
     interpolated values between unmasked point pairs, and extrapolate first
     and last unmasked values to the ends of the array.
     
-    See Derived Parameter Node 'Magnetic Deviation' for an example of use.
+    See Derived Parameter Node 'Magnetic Deviation' for the prime example of
+    use.
     
-    :param array: Array of data to be interpolated
+    In the special case where all source data is masked, the algorithm
+    returns an unmasked array of zeros. 
+    
+    :param array: Array of data to be interpolated 
     :type array: numpy masked array
     
     :returns interpolated: array of all valid data
-    :type interpolated: Numpy masked array, with all masks (normally) False.
+    :type interpolated: Numpy masked array, with all masks False.
     """
     
     # Where do we need to use the raw data?
     blocks = np.ma.clump_masked(array)
     last = len(array)
     if len(blocks)==1:
-        logger.warn('No unmasked data in interpolate_and_extend')
-        return np_ma_zeros_like(array)
+        if blocks[0].start == 0 and blocks[0].stop == last:
+            logger.warn('No unmasked data in interpolate_and_extend')
+            return np_ma_zeros_like(array)
     
     for block in blocks:
         # Setup local variables
@@ -1442,7 +1478,8 @@ def is_index_within_slice(index, _slice):
 def is_index_within_sections(index, section):
     '''
     :type index: int or float
-    :type _slices: list of slices
+    :type section: section node containing any number of slices
+    
     :returns: whether index is within any of the slices.
     :rtype: bool
     '''
@@ -1566,9 +1603,9 @@ def slices_or(*slice_lists, **kwargs):
     :param slice_list: list of slices to be combined.
     :type slice_list: list of Python slices.
     :param begin_at: optional starting index value, slices before this will be ignored
-    :param begin_at: integer
+    :type begin_at: integer
     :param end_at: optional ending index value, slices before this will be ignored
-    :param end_at: integer
+    :type end_at: integer
     
     :returns: list of slices. If begin or end is specified, the range will extend to these points. Otherwise the scope is within the end slices.
     '''
@@ -1613,6 +1650,35 @@ def slices_or(*slice_lists, **kwargs):
                 workspace[each_slice]=1
         workspace=np.ma.masked_equal(workspace, 1)
         return shift_slices(np.ma.clump_masked(workspace[startpoint:endpoint]), startpoint)
+
+def slices_remove_small_gaps(slice_list, time_limit=10, hz=1):
+    '''
+    Routine to remove small gaps in a list of slices. Typically when a list
+    of flight phases have been computed and we don't want to drop out for
+    trivial periods, this will create a single slice across what were two
+    slices with a small gap.
+    
+    :param slice_list: list of slices to be processed
+    :type slice_list: list of Python slices.
+    :param time_limit: Tolerance below which slices will be joined.
+    :type time_limit: integer (sec)
+    :param hz: sample rate for the parameter
+    :type hz: float
+    
+    :returns: slice list.
+    '''
+    sample_limit = time_limit*hz
+    if slice_list == None or len(slice_list) < 2:
+        return []
+    new_list = [slice_list[0]]
+    for each_slice in slice_list[1:]:
+        if each_slice.start - new_list[-1].stop < sample_limit:
+            new_list[-1] = slice(new_list[-1].start, each_slice.stop)
+        else:
+            new_list.append(each_slice)
+    return new_list
+
+
     
 """
 def section_contains_kti(section, kti):
@@ -2011,7 +2077,7 @@ def np_ma_zeros_like(array):
     
     :returns: Numpy masked array of unmasked zero values, length same as input array.
     """
-    return np.ma.array(np.zeros_like(array), mask=False)
+    return np.ma.array(np.zeros_like(array.data), mask=False)
 
 def np_ma_ones_like(array):
     """
@@ -2028,7 +2094,12 @@ def np_ma_ones_like(array):
 def np_ma_masked_zeros_like(array):
     """
     Creates a masked array filled with masked values. The unmasked data
-    values are all zero. See also np_ma_zeros_like.
+    values are all zero. The very klunky code here is to circumvent Numpy's
+    normal response which is to return random data values where it knows the
+    data is masked. In this case we want to ensure zero values as we may be
+    lifting the mask in due course and we don't want to reveal random data.
+    
+    See also np_ma_zeros_like.
     
     :param array: array of length to be replicated.
     :type array: A Numpy array - can be masked or not.
@@ -2036,7 +2107,8 @@ def np_ma_masked_zeros_like(array):
     :returns: Numpy masked array of masked 0.0 float values, length same as
     input array.
     """
-    return np.ma.masked_all_like(np.zeros_like(array))
+    return np.ma.array(data = np_ma_zeros_like(array).data,
+                       mask = np_ma_ones_like(array).data)
 
 
 def peak_curvature(array, _slice=slice(None), curve_sense='Concave'):

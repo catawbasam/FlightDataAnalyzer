@@ -429,14 +429,14 @@ class TestAltitudeAAL(unittest.TestCase):
         np.testing.assert_array_equal(expected, alt_aal.array.data)
     
     def test_alt_AAL_no_ralt(self):
-        data = np.ma.array([-3,0,30,80,150,260,120,70,20,-5])
+        data = np.ma.array([-3,0,30,80,150,280,120,70,20,-5])
         alt_std = P(array=data+300)
         slow_and_fast_data = np.ma.array([70]+[85]*7+[75,70])
         phase_fast = Fast()
         phase_fast.derive(Parameter('Airspeed', slow_and_fast_data))
         alt_aal = AltitudeAAL()
         alt_aal.derive(alt_std, None, phase_fast)
-        expected = np.ma.array([0,0,30,80,150,240,100,50,0,0])
+        expected = np.ma.array([0,0,30,80,150,210,50,0,0,0])
         np.testing.assert_array_equal(expected, alt_aal.array.data)
     
     

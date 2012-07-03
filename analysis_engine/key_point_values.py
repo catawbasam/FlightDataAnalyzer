@@ -15,6 +15,7 @@ from analysis_engine.library import (clip,
                                      find_edges,
                                      index_at_value, 
                                      integrate,
+                                     is_index_within_sections,
                                      mask_outside_slices,
                                      max_abs_value,
                                      max_continuous_unmasked, 
@@ -374,6 +375,9 @@ class AirspeedAtLiftoff(KeyPointValueNode):
         self.create_kpvs_at_ktis(airspeed.array, liftoffs)
 
 
+'''
+Redundant, as this will either be a go-around, with its minimum, or a landing
+
 class AltitudeAtLowestPointOnApproach(KeyPointValueNode):
     """
     The approach phase has been found already. Here we take the height at
@@ -383,6 +387,7 @@ class AltitudeAtLowestPointOnApproach(KeyPointValueNode):
                low_points=KTI('Lowest Point On Approach')):
         height = minimum_unmasked(alt_aal.array, alt_rad.array)
         self.create_kpvs_at_ktis(height, low_points)
+        '''
 
 
 class AirspeedAtTouchdown(KeyPointValueNode):
@@ -719,17 +724,15 @@ class AltitudeAtGoAroundMin(KeyPointValueNode):
     def can_operate(cls, available):
         return 'Go Around' in available and 'Altitude AAL' in available
     
-    def derive(self, alt_aal=P('Altitude AAL'),
-                alt_rad=P('Altitude Radio'),
-                gas=KTI('Go Around')):
+    def derive(self, alt_rad=P('Altitude Radio'),
+               alt_aal=P('Altitude AAL'),
+               gas=KTI('Go Around')):
         for ga in gas:
             if alt_rad:
-                index = np.ma.argmin(alt_rad.array[ga.index])
-                pit = alt_rad.array[ga.index+index]
+                pit = alt_rad.array[ga.index]
             else:
-                index = np.ma.argmin(alt_aal.array[ga.index])
-                pit = alt_aal.array[ga.index+index]
-            self.create_kpv(index, pit)
+                pit = alt_aal.array[ga.index]
+            self.create_kpv(ga.index, pit)
 
 
 class AltitudeGoAroundFlapRetracted(KeyPointValueNode):
@@ -888,8 +891,13 @@ class ControlColumnStiffness(KeyPointValueNode):
 
 
 class DistancePastGlideslopeAntennaToTouchdown(KeyPointValueNode):
-    def derive(self, ils_range=P('ILS Range'), tdwns=KTI('Touchdown')):
-        self.create_kpvs_at_ktis(ils_range.array, tdwns)
+    def derive(self, ils_range=P('ILS Range'), tdwns=KTI('Touchdown'), 
+               ils_ldgs=S('ILS Localizer Established')):
+        for tdwn in tdwns:
+            if is_index_within_sections(tdwn.index, ils_ldgs):
+                dist = ils_range.array[tdwn.index]
+                if dist:
+                    self.create_kpv(dist, tdwn.index)
 
 
 class DistanceFromRunwayStartToTouchdown(KeyPointValueNode):
@@ -921,7 +929,7 @@ class DistanceFrom60KtToRunwayEnd(KeyPointValueNode):
         if idx_60:
             # Only work out the distance if we have a reading at 60kts...
             distance = _dist(lat.array[idx_60], lon.array[idx_60], lat_rwy, lon_rwy)
-            self.create_kpv(idx_60, distance)
+            self.create_kpv(idx_60, distance) # Metres
         
 
 class HeadingAtLanding(KeyPointValueNode):
@@ -1462,16 +1470,15 @@ class EngOilTempMax(KeyPointValueNode):
         self.create_kpv(index, value)
 
 
-'''
-
-Fails when oil_temp.array is wholly masked
-
-
 class EngOilTemp15MinuteMax(KeyPointValueNode):
     name = 'Eng Oil Temp 15 Minutes Max'
     def derive(self, oil_temp=P('Eng (*) Oil Temp Max')):
-        self.create_kpv(*max_value(clip(oil_temp.array, 15*60, oil_temp.hz)))
-        '''
+        oil_15 = clip(oil_temp.array, 15*60, oil_temp.hz)
+        # There have been cases where there were no valid oil temperature
+        # measurements throughout the flight, in which case there's no point
+        # testing for a maximum.
+        if oil_15:
+            self.create_kpv(*max_value(oil_15))
 
 
 class EngVibN1Max(KeyPointValueNode):

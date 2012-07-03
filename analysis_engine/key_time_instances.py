@@ -3,9 +3,12 @@ import numpy as np
 from analysis_engine.library import (hysteresis, 
                                      index_at_value,
                                      index_closest_value,
+                                     integrate,
                                      is_index_within_slice,
                                      is_index_within_sections,
                                      minimum_unmasked,
+                                     np_ma_zeros_like,
+                                     repair_mask,
                                      slices_above,
                                      max_value, 
                                      peak_curvature)
@@ -65,6 +68,9 @@ class BottomOfDescent(KeyTimeInstanceNode):
                 self.create_kti(air.slice.stop)
         
            
+'''
+Redundant, as either a go-around, or landing
+
 class ApproachLowestPoint(KeyTimeInstanceNode):
     def derive(self, apps=S('Approach'), alt_aal=P('Altitude AAL')):
         # In the case of descents without landing, this finds the minimum
@@ -74,6 +80,7 @@ class ApproachLowestPoint(KeyTimeInstanceNode):
             value = alt_aal.array[index]
             if value:
                 self.create_kti(index)
+                '''
     
 
 class AutopilotSelectionEngaged(KeyTimeInstanceNode):
@@ -159,12 +166,7 @@ class GoAround(KeyTimeInstanceNode):
                 pit = np.ma.argmin(alt_aal.array[dlc.slice])
             self.create_kti(pit+dlc.slice.start)
 
-class GoAroundFlags(KeyTimeInstanceNode):
-    def derive(self, gas=S('Go Around And Climbout')):
-        for ga in gas:
-            self.create_kti(ga.slice.start)
-            self.create_kti(ga.slice.stop)
-    
+
 class GoAroundFlapRetracted(KeyTimeInstanceNode):
     def derive(self, flap=P('Flap'), gas=S('Go Around And Climbout')):
         self.create_ktis_at_edges(flap.array, direction='falling_edges', phase=gas)
@@ -365,6 +367,9 @@ class ILSLocalizerEstablished(KeyTimeInstanceNode):
                 self.create_kti(estab_idx)
                 """
 
+"""
+Redundant, as either a go-around, or landing
+
 class LowestPointOnApproach(KeyTimeInstanceNode):
     '''
     For any approach phase that did not result in a landing, the lowest point
@@ -391,8 +396,7 @@ class LowestPointOnApproach(KeyTimeInstanceNode):
             if didnt_land:
                 index = index_closest_value(height,0.0,didnt_land[0].slice)
                 self.create_kti(index)
-                '''
-
+                """
 
 class InitialClimbStart(KeyTimeInstanceNode):
     # The Takeoff flight phase is computed to run up to the start of the
@@ -414,8 +418,6 @@ class TouchAndGo(KeyTimeInstanceNode):
     #TODO: TESTS
     """
     In POLARIS we define a Touch and Go as a Go-Around that contacted the ground.
-    
-    TODO: Write a proper version when we have a better landing condition.
     """
     def derive(self, alt_AAL=P('Altitude AAL'), go_arounds=KTI('Go Around')):
         for ga in go_arounds:
@@ -425,18 +427,51 @@ class TouchAndGo(KeyTimeInstanceNode):
 
 
 class Touchdown(KeyTimeInstanceNode):
-    def derive(self, roc=P('Rate Of Climb'), airs=S('Airborne'), lands=S('Landing')):
+    def derive(self, roc=P('Rate Of Climb'), alt=P('Altitude AAL'), airs=S('Airborne'), lands=S('Landing')):
+        # We do a local integration of the inertial rate of climb to
+        # determine the actual point of landing. This is referenced to the
+        # available altitude signal, altitude AAL, which will have been
+        # derived from the best available source. Integration starts from
+        # 20ft and works downwards as we are likely to produce negative end
+        # readings and if only pressure altitude data is available, this
+        # cannot reliably be used integrating backwards from the runway
+        # level. This technique leads on to the rate of descent at landing
+        # KPV which can then accurately determine the landing ROD as we know
+        # precisely the point where the mainwheels touched.
+        
+        # One noteworthy point is that we have avoided the use of landing
+        # gear switches which (a) are unreliable, (b) are often sampled at
+        # low rates and (c) are provided in different forms on different
+        # aircraft. By using the same formulae for all aircraft, more
+        # consistent comparisons should be achieved.
+        
+        # Time constant
+        tau = 0.1
         for air in airs:
             t0 = air.slice.stop
             if t0 and is_index_within_sections(t0, lands):
-                back_2 = (t0 - 2.0*roc.frequency)
-                on_2 = (t0 + 2.0*roc.frequency) + 1 # For indexing
-                index = index_at_value(roc.array, RATE_OF_CLIMB_FOR_TOUCHDOWN, slice(back_2,on_2))
-                if index:
-                    self.create_kti(index)
+                # Let's scan from 20ft to 10 seconds after the approximate touchdown moment.
+                startpoint = index_at_value(alt.array, 20.0, slice(t0, t0-200,-1))
+                endpoint = min(t0+10.0*roc.hz, len(roc.array))
+                # Make space for the integrand
+                sm_ht = np_ma_zeros_like(roc.array[startpoint:endpoint])
+                # Repair the source data (otherwise we propogate masked data)
+                my_roc = repair_mask(roc.array[startpoint:endpoint])
+                my_alt = repair_mask(alt.array[startpoint:endpoint])
+                # Start at the beginning...
+                sm_ht[0] = alt.array[startpoint]
+                # ...and calculate each with a weighted correction factor.
+                for i in range(1, len(sm_ht)):
+                    sm_ht[i] = (1.0-tau)*sm_ht[i-1] + tau*my_alt[i-1] + my_roc[i]/60.0/roc.hz
+                # The final step is trivial.
+                t1 = index_at_value(sm_ht, 0.0)+startpoint
+                if t1:
+                    self.create_kti(t1)
                 else:
-                    self.create_kti(t0)
-
+                    # Mainly for testing !
+                    raise ValueError,'Disaster in touchdown'
+                
+                
                     
 class LandingTurnOffRunway(KeyTimeInstanceNode):
     # See Takeoff Turn Onto Runway for description.
