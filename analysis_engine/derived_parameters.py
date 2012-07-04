@@ -413,6 +413,9 @@ class AltitudeAAL(DerivedParameterNode):
                 break
             
             alt_idxs, alt_vals = cycle_finder(alt_std.array[quick], min_step=200.0)
+            if alt_idxs==None:
+                break # In the case where speedy was trivially short
+            
             alt_idxs += quick.start # Reference to start of arrays for simplicity hereafter.
             
             n=0
@@ -2013,7 +2016,6 @@ class ILSRange(DerivedParameterNode):
                     bearings_and_distances(repair_mask(lat.array[this_loc.slice]),
                                            repair_mask(lon.array[this_loc.slice]),
                                            threshold)
-                ils_range[this_loc.slice] *= METRES_TO_FEET
                 continue # move onto next loc_established
                 
             #-----------------------------
@@ -2037,7 +2039,7 @@ class ILSRange(DerivedParameterNode):
                 # phase to high range values at the start of the phase.
                 spd_repaired = repair_mask(speed)
                 ils_range[this_loc.slice] = integrate(
-                    spd_repaired, gspd.frequency, scale=KTS_TO_FPS, direction='reverse')
+                    spd_repaired, gspd.frequency, scale=KTS_TO_MPS, direction='reverse')
             
             try:
                 start_2_loc, gs_2_loc, end_2_loc, pgs_lat, pgs_lon = \
@@ -2071,7 +2073,7 @@ class ILSRange(DerivedParameterNode):
                 # Shift the values in this approach so that the range = 0 at
                 # 0ft on the projected ILS slope, then reference back to the
                 # localizer antenna.                  
-                datum_2_loc = gs_2_loc * METRES_TO_FEET - offset
+                datum_2_loc = gs_2_loc - offset
                 
             else:
                 # Case of an ILS approach using localizer only.
@@ -2088,7 +2090,7 @@ class ILSRange(DerivedParameterNode):
                                             alt_aal.array[this_app.slice])
                 
                 # Touchdown point nominally 1000ft from start of runway
-                datum_2_loc = (start_2_loc*METRES_TO_FEET-1000) - offset/slope
+                datum_2_loc = (start_2_loc - 1000/METRES_TO_FEET) - offset/slope
                         
                 
             # Adjust all range values to relate to the localizer antenna by
@@ -2218,15 +2220,18 @@ class CoordinatesSmoothed(object):
                     # Half the beam width is 2 dots full scale
                     scale = (reference['beam_width']/2.0) / 2.0
                 else:
-                    # Normal scaling of a localizer gives 700ft width at the threshold
-                    scale = np.degrees(np.arctan2(700/2, runway_length(runway)*METRES_TO_FEET)) / 2.0
+                    # Normal scaling of a localizer gives 700ft width at the
+                    # threshold, so half of this is 350ft=106.68m and will
+                    # give 2 dots full scale
+                    scale=np.degrees(np.arctan2(106.68, runway_length(runway)))\
+                        / 2.0
                     
                 # Adjust the ils data to be degrees from the reference point.
                 bearings = ils_loc.array[this_loc.slice] * scale + \
                     runway_heading(runway)+180
                 
                 # Adjust distance units
-                distances = ils_range.array[this_loc.slice] / METRES_TO_FEET
+                distances = ils_range.array[this_loc.slice]
                 
                 # Tweek the localizer position to be on the start:end centreline
                 localizer_on_cl = ils_localizer_align(runway)
@@ -2280,30 +2285,27 @@ class LatitudeSmoothed(DerivedParameterNode, CoordinatesSmoothed):
                start_datetime = A('Start Datetime'),
                ):
         
-        if ils_range:
-            if len(app_info.value) != len(loc_est):
-                # TODO: Sort out what we do with multiple approach phases.
-                
-                # Can't smooth appproach data if the ILS was not established,
-                # but apologise if it was and we got in a muddle.
-                if len(loc_est)>0: 
-                    self.warning("Cannot use ILS approach data to smooth the approach track because the number of '%s'"
-                                    " sections was not equal to the number of approaches.",
-                                    loc_est.name)
-                self.array = lat.array
-                return
+        '''
+        if len(app_info.value) != len(loc_est):
+            # TODO: Sort out what we do with multiple approach phases.
             
-            self.array, _ = self._adjust_track(lon,lat,loc_est,ils_range,ils_loc,
-                                               gspd,hdg,tas,precise,toff,
-                                               app_info,toff_rwy,start_datetime)
-
-            if self.array == None:
-                self.array = lat.array
-
-        else:
-            # For aircraft without ILS recorded
-            # TODO: Revise this to be embedded into adjust_track
+            # Can't smooth appproach data if the ILS was not established,
+            # but apologise if it was and we got in a muddle.
+            if len(loc_est)>0: 
+                self.warning("Cannot use ILS approach data to smooth the approach track because the number of '%s'"
+                                " sections was not equal to the number of approaches.",
+                                loc_est.name)
             self.array = lat.array
+            return
+            '''
+        
+        self.array, _ = self._adjust_track(lon,lat,loc_est,ils_range,ils_loc,
+                                           gspd,hdg,tas,precise,toff,
+                                           app_info,toff_rwy,start_datetime)
+
+        if self.array == None:
+            self.array = lat.array
+
         
 class LongitudeSmoothed(DerivedParameterNode, CoordinatesSmoothed):
     # List the minimum acceptable parameters here
@@ -2329,24 +2331,22 @@ class LongitudeSmoothed(DerivedParameterNode, CoordinatesSmoothed):
                toff_rwy = A('FDR Takeoff Runway'),
                start_datetime = A('Start Datetime'),
                ):
-        if ils_range:
-            if len(app_info.value) != len(loc_est) :
-                # Warning issued by the Latitude code. No need to duplicate.
-                self.array = lon.array
-                return        
-    
-            _, self.array = self._adjust_track(lon,lat,loc_est,ils_range,ils_loc,
-                                               gspd,hdg,tas,precise,toff,
-                                               app_info,toff_rwy,start_datetime)
-            
-            if self.array == None:
-                self.array = lon.array
-            
-        else:
-            # For aircraft without ILS recorded
+
+        '''
+        if len(app_info.value) != len(loc_est) :
+            # Warning issued by the Latitude code. No need to duplicate.
             self.array = lon.array
+            return
+            '''
 
-
+        _, self.array = self._adjust_track(lon,lat,loc_est,ils_range,ils_loc,
+                                           gspd,hdg,tas,precise,toff,
+                                           app_info,toff_rwy,start_datetime)
+        
+        if self.array == None:
+            self.array = lon.array
+            
+            
 class Mach(DerivedParameterNode):
     def derive(self, cas = P('Airspeed'), alt = P('Altitude STD')):
         dp = cas2dp(cas.array)

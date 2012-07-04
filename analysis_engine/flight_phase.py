@@ -129,6 +129,9 @@ class Approach(FlightPhaseNode):
     This phase is used to identify an approach which may or may not include
     in a landing. It includes go-arounds, touch-and-go's and of course
     successful landings.
+    
+    We can then process all approaches to runways in the same way, which
+    makes life easier later on.
     """
     def derive(self, alt_aal=P('Altitude AAL For Flight Phases'),
                lands=S('Landing'), go_arounds=S('Go Around And Climbout')):
@@ -530,7 +533,11 @@ class ILSGlideslopeEstablished(FlightPhaseNode):
             # Only look for glideslope established if the localizer was established.
             if ils_loc_est.slice.start and ils_loc_est.slice.stop:
                 gs_est = scan_ils('glideslope', ils_gs.array, alt_aal.array, ils_loc_est.slice)
-                self.create_phase(gs_est)
+                # If the glideslope signal is corrupt or there is no
+                # glidepath (not fitted or out of service) there may be no
+                # glideslope established phase.
+                if gs_est:
+                    self.create_phase(gs_est)
             
 
         """

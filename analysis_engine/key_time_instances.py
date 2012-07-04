@@ -10,6 +10,7 @@ from analysis_engine.library import (hysteresis,
                                      np_ma_zeros_like,
                                      repair_mask,
                                      slices_above,
+                                     slices_overlap,
                                      max_value, 
                                      peak_curvature)
 
@@ -367,14 +368,14 @@ class ILSLocalizerEstablished(KeyTimeInstanceNode):
                 self.create_kti(estab_idx)
                 """
 
-"""
-Redundant, as either a go-around, or landing
-
 class LowestPointOnApproach(KeyTimeInstanceNode):
     '''
     For any approach phase that did not result in a landing, the lowest point
     is taken as key, from which the position, heading and height will be
     taken as KPVs.
+    
+    This KTI is essential to collect the related KPVs which inform the
+    approach attribute, and thereafter compute the smoothed track.
     '''
     def derive(self, alt_aal=P('Altitude AAL'), alt_rad=P('Altitude Radio'),
                apps = S('Approach'), lands=S('Landing')):
@@ -382,21 +383,7 @@ class LowestPointOnApproach(KeyTimeInstanceNode):
         for app in apps:
             index = np.ma.argmin(height[app.slice])
             self.create_kti(index+app.slice.start)
-    '''
-    This cunning version lists only approaches which do not land. However,
-    the Approach attribute code only scans lowest point values at present, so
-    this will have to wait for a more extensive change if we want to remove
-    these duplicates.
-    
-    def derive(self, alt_aal=P('Altitude AAL'), alt_rad=P('Altitude Radio'),
-               apps = S('Approach'), lands=S('Landing')):
-        height = minimum_unmasked(alt_aal.array, alt_rad.array)
-        for app in apps:
-            didnt_land = [app for l in lands if not slices_overlap(app.slice, l.slice)]
-            if didnt_land:
-                index = index_closest_value(height,0.0,didnt_land[0].slice)
-                self.create_kti(index)
-                """
+            
 
 class InitialClimbStart(KeyTimeInstanceNode):
     # The Takeoff flight phase is computed to run up to the start of the

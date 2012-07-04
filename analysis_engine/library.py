@@ -1140,6 +1140,16 @@ def hash_array(array):
     return checksum.hexdigest()
 
 def hysteresis (array, hysteresis):
+    """
+    Applies hysteresis to an array of data. The function applies half the
+    required level of hysteresis forwards and then backwards to provide a
+    phase neutral result.
+    
+    :param array: Input data for processing
+    :type array: Numpy masked array
+    :param hysteresis: Level of hysteresis to apply.
+    :type hysteresis: Float
+    """
     if np.ma.count(array) == 0: # No unmasked elements.
         return array
     
@@ -1569,7 +1579,7 @@ def slices_not(slice_list, begin_at=None, end_at=None):
     :returns: list of slices. If begin or end is specified, the range will extend to these points. Otherwise the scope is within the end slices.
     '''
     if slice_list==[] or slice_list==None:
-        return
+        return [slice(begin_at, end_at)]
     
     a = min([s.start for s in slice_list])
     b = min([s.stop for s in slice_list])

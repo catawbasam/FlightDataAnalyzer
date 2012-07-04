@@ -13,6 +13,7 @@ from analysis_engine.library import (clip,
                                      cycle_finder,
                                      _dist,
                                      find_edges,
+                                     hysteresis,
                                      index_at_value, 
                                      integrate,
                                      is_index_within_sections,
@@ -891,6 +892,7 @@ class ControlColumnStiffness(KeyPointValueNode):
 
 
 class DistancePastGlideslopeAntennaToTouchdown(KeyPointValueNode):
+    units = 'm'
     def derive(self, ils_range=P('ILS Range'), tdwns=KTI('Touchdown'), 
                ils_ldgs=S('ILS Localizer Established')):
         for tdwn in tdwns:
@@ -1745,26 +1747,64 @@ class AltitudeAtSuspectedLevelBust(KeyPointValueNode):
     def derive(self, alt_std=P('Altitude STD')):
         bust = 300 # ft
         bust_time = 3*60 # 3 mins
+        
+        alt_hyst = hysteresis(alt_std.array, bust)
+        hyst_rate = np.ma.ediff1d(alt_hyst, to_end=0.0)
+        # Given application of hysteresis and taking differences, we can be
+        # sure of zero values where data is constant.
+        changes = np.ma.clump_unmasked(np.ma.masked_equal(hyst_rate, 0.0))
+        
+        for num in range(len(changes)-1):
+            begin = changes[num].stop
+            end = changes[num+1].start
+            if hyst_rate[begin-1] * hyst_rate[end] < 0.0:
+                duration = (end-begin)/alt_std.frequency
+                
+                if duration < bust_time:
+                    alt_before = alt_std.array[changes[num].start]
+                    alt_after = alt_std.array[changes[num+1].stop-1]
+                    peak_idx = np.ma.argmax(
+                        np.ma.abs(alt_std.array[begin:end]-
+                                  alt_std.array[begin]))\
+                        + begin
+                    
+                    alt_peak = alt_std.array[peak_idx]
+                    
+                    if alt_peak>(alt_before+alt_after)/2:
+                        overshoot = min(alt_peak-alt_before,
+                                        alt_peak-alt_after)
+                        
+                    else:
+                        # Strictly this is an undershoot, but keeping the
+                        # name the same saves a line of code
+                        overshoot = max(alt_peak-alt_before,
+                                        alt_peak-alt_after)
+                        
+                    self.create_kpv(peak_idx,overshoot)
+                    
+            
 
+        """
         idxs, peaks = cycle_finder(alt_std.array, min_step=bust)
 
         if idxs == None:
             return
         for num, idx in enumerate(idxs[1:-1]):
-            begin = index_at_value(np.ma.abs(alt_std.array-peaks[num]), bust, _slice=slice(idx,None,-1))
-            end = index_at_value(np.ma.abs(alt_std.array-peaks[num]), bust, _slice=slice(idx,None))
+            begin = index_at_value(np.ma.abs(alt_std.array-peaks[num+1]), bust, _slice=slice(idx,None,-1))
+            end = index_at_value(np.ma.abs(alt_std.array-peaks[num+1]), bust, _slice=slice(idx,None))
             if begin and end:
                 duration = (end-begin)/alt_std.frequency
                 if duration < bust_time:
-                    a=alt_std.array[idxs[num]]
-                    b=alt_std.array[idxs[num]+1]
-                    c=alt_std.array[idxs[num]+2]
+                    a=alt_std.array[idxs[num]] # One before the peak of interest
+                    b=alt_std.array[idxs[num+1]] # The peak of interst
+                    c=alt_std.array[idxs[num+2]] # The next one
                     if b>(a+c)/2:
                         overshoot = min(b-a,b-c)
                         self.create_kpv(idx,overshoot)
                     else:
                         undershoot = max(b-a,b-c)
                         self.create_kpv(idx,undershoot)
+                        """
                         
 
         
