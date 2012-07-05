@@ -955,6 +955,42 @@ def _dist(lat1_d, lon1_d, lat2_d, lon2_d):
         sin(dlon/2) * sin(dlon/2) * cos(lat1) * cos(lat2)
     return 2 * atan2(sqrt(a), sqrt(1-a)) * 6371000
 
+def runway_distance_from_end(runway, *args, **kwds):
+    """
+    Distance from the end of the runway to any point. The point is first
+    snapped onto the runway centreline and then the distance from the runway
+    end is taken. This is a convenient startingpoint for measuring runway
+    landing distances.
+    
+    :param runway: Runway location details dictionary.
+    :type runway: Dictionary containing:
+    ['start']['latitude'] runway start position
+    ['start']['longitude']
+    ['end']['latitude'] runway end position
+    ['end']['longitude']
+    *args if supplied are the latitude and longitude of a point.
+    :param lat: Latitude of the point of interest
+    :type lat: float
+    :param lon: Longitude of the point of interest
+    :type lon: float
+    **kwds if supplied are a point in the runway dictionary
+    :param point: dictionary name of the point of reference, e.g. 'glideslope'
+    :type point: String
+    
+    :return distance: Distance from runway end to the point of interest, along runway centreline.
+    :type distance: float (units=metres)
+    """
+    if args:
+        new_lat, new_lon = runway_snap(runway, args[0], args[1])
+    else:
+        if kwds['point'] in ['localizer', 'glideslope', 'start']:
+            new_lat, new_lon = runway_snap(runway, runway[kwds['point']]['latitude'], runway[kwds['point']]['longitude'])
+        else:
+            raise ValueError,'Unrecognised keyword in runway_distance_from_end'
+        
+    return _dist(new_lat, new_lon, 
+                 runway['end']['latitude'], runway['end']['longitude'])
+
 def runway_distances(runway):
     '''
     Projection of the ILS antenna positions onto the runway
@@ -981,8 +1017,6 @@ def runway_distances(runway):
     :param pgs_lon: projected position of glideslope antenna on runway centerline
     :type pgs_lon: float, units = degrees longitude
     '''
-    
-    
     start_lat = runway['start']['latitude']
     start_lon = runway['start']['longitude']
     end_lat = runway['end']['latitude']
@@ -992,19 +1026,21 @@ def runway_distances(runway):
     gs_lat = runway['glideslope']['latitude']
     gs_lon = runway['glideslope']['longitude']
     
-    a = _dist(gs_lat, gs_lon, lzr_lat, lzr_lon)
-    b = _dist(gs_lat, gs_lon, start_lat, start_lon)
-    c = _dist(end_lat, end_lon, lzr_lat, lzr_lon)
-    d = _dist(start_lat, start_lon, lzr_lat, lzr_lon)
+    #a = _dist(gs_lat, gs_lon, lzr_lat, lzr_lon)
+    #b = _dist(gs_lat, gs_lon, start_lat, start_lon)
+    #c = _dist(end_lat, end_lon, lzr_lat, lzr_lon)
+    #d = _dist(start_lat, start_lon, lzr_lat, lzr_lon)
     
-    r = (1.0+(a**2 - b**2)/d**2)/2.0
-    g = r*d
+    #r = (1.0+(a**2 - b**2)/d**2)/2.0
+    #g = r*d
     
+    start_2_loc = _dist(start_lat, start_lon, lzr_lat, lzr_lon)
     # The projected glideslope antenna position is given by this formula
-    pgs_lat = lzr_lat + r*(start_lat - lzr_lat)
-    pgs_lon = lzr_lon + r*(start_lon - lzr_lon)
+    pgs_lat, pgs_lon = runway_snap(runway, gs_lat, gs_lon)
+    gs_2_loc = _dist(pgs_lat, pgs_lon, lzr_lat, lzr_lon)
+    end_2_loc = _dist(end_lat, end_lon, lzr_lat, lzr_lon)
     
-    return d, g, c, pgs_lat, pgs_lon  # Runway distances to start, glideslope and end.
+    return start_2_loc, gs_2_loc, end_2_loc, pgs_lat, pgs_lon  # Runway distances to start, glideslope and end.
 
 def runway_length(runway):
     '''
@@ -1060,6 +1096,38 @@ def runway_heading(runway):
     except:
         return None
 
+def runway_snap(runway, lat, lon):
+    """
+    This function snaps any location onto the closest point on the runway centreline.
+    
+    :param runway: Dictionary containing the runway start and end points.
+    :type dict
+    :param lat: Latitude of the point to snap
+    :type lat: float
+    :param lon: Longitude of the point to snap
+    :type lon: float
+    
+    :returns new_lat, new_lon: Amended position now on runway centreline.
+    :type float, float.
+    """
+    start_lat = runway['start']['latitude']
+    start_lon = runway['start']['longitude']
+    end_lat = runway['end']['latitude']
+    end_lon = runway['end']['longitude']
+    
+    a = _dist(lat, lon, end_lat, end_lon)
+    b = _dist(lat, lon, start_lat, start_lon)
+    d = _dist(start_lat, start_lon, end_lat, end_lon)
+    
+    r = (1.0+(a**2 - b**2)/d**2)/2.0
+    
+    # The projected glideslope antenna position is given by this formula
+    new_lat = end_lat + r*(start_lat - end_lat)
+    new_lon = end_lon + r*(start_lon - end_lon)
+    
+    return new_lat, new_lon
+
+    
 def ground_track(lat_fix, lon_fix, gspd, hdg, frequency, mode):
     """
     Computation of the ground track assuming no slipping.
@@ -1206,23 +1274,25 @@ def ils_glideslope_align(runway):
     ['longitude']
     '''
     
-    start_lat = runway['start']['latitude']
-    start_lon = runway['start']['longitude']
-    end_lat = runway['end']['latitude']
-    end_lon = runway['end']['longitude']
-    gs_lat = runway['glideslope']['latitude']
-    gs_lon = runway['glideslope']['longitude']
+    ##start_lat = runway['start']['latitude']
+    ##start_lon = runway['start']['longitude']
+    ##end_lat = runway['end']['latitude']
+    ##end_lon = runway['end']['longitude']
+    ##gs_lat = runway['glideslope']['latitude']
+    ##gs_lon = runway['glideslope']['longitude']
     
-    a = _dist(gs_lat, gs_lon, end_lat, end_lon)
-    b = _dist(gs_lat, gs_lon, start_lat, start_lon)
-    d = _dist(start_lat, start_lon, end_lat, end_lon)
+    ##a = _dist(gs_lat, gs_lon, end_lat, end_lon)
+    ##b = _dist(gs_lat, gs_lon, start_lat, start_lon)
+    ##d = _dist(start_lat, start_lon, end_lat, end_lon)
     
-    r = (1.0+(a**2 - b**2)/d**2)/2.0
+    ##r = (1.0+(a**2 - b**2)/d**2)/2.0
     
-    # The projected glideslope antenna position is given by this formula
-    new_lat = end_lat + r*(start_lat - end_lat)
-    new_lon = end_lon + r*(start_lon - end_lon)
-    
+    ### The projected glideslope antenna position is given by this formula
+    ##new_lat = end_lat + r*(start_lat - end_lat)
+    ##new_lon = end_lon + r*(start_lon - end_lon)
+    new_lat, new_lon = runway_snap(runway, 
+                                   runway['glideslope']['latitude'],
+                                   runway['glideslope']['longitude'])
     return {'latitude':new_lat, 'longitude':new_lon}
 
 
@@ -1243,22 +1313,25 @@ def ils_localizer_align(runway):
     ['longitude']
     '''
     
-    start_lat = runway['start']['latitude']
-    start_lon = runway['start']['longitude']
-    end_lat = runway['end']['latitude']
-    end_lon = runway['end']['longitude']
-    lzr_lat = runway['localizer']['latitude']
-    lzr_lon = runway['localizer']['longitude']
+    ##start_lat = runway['start']['latitude']
+    ##start_lon = runway['start']['longitude']
+    ##end_lat = runway['end']['latitude']
+    ##end_lon = runway['end']['longitude']
+    ##lzr_lat = runway['localizer']['latitude']
+    ##lzr_lon = runway['localizer']['longitude']
     
-    a = _dist(lzr_lat, lzr_lon, end_lat, end_lon)
-    b = _dist(lzr_lat, lzr_lon, start_lat, start_lon)
-    d = _dist(start_lat, start_lon, end_lat, end_lon)
+    ##a = _dist(lzr_lat, lzr_lon, end_lat, end_lon)
+    ##b = _dist(lzr_lat, lzr_lon, start_lat, start_lon)
+    ##d = _dist(start_lat, start_lon, end_lat, end_lon)
     
-    r = (1.0+(a**2 - b**2)/d**2)/2.0
+    ##r = (1.0+(a**2 - b**2)/d**2)/2.0
     
-    # The projected localizer antenna position is given by this formula
-    new_lat = end_lat + r*(start_lat - end_lat)
-    new_lon = end_lon + r*(start_lon - end_lon)
+    ### The projected localizer antenna position is given by this formula
+    ##new_lat = end_lat + r*(start_lat - end_lat)
+    ##new_lon = end_lon + r*(start_lon - end_lon)
+    new_lat, new_lon = runway_snap(runway, 
+                                   runway['localizer']['latitude'],
+                                   runway['localizer']['longitude'])
     
     return {'latitude':new_lat, 'longitude':new_lon}
 

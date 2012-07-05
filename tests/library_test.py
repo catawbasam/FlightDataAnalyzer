@@ -955,7 +955,56 @@ class TestLastValidSample(unittest.TestCase):
         result = last_valid_sample(np.ma.array(data=[11,12,13,14],mask=[1,0,1,0]),9)
         self.assertEqual(result, (None, None))
         
+class TestRunwayDistanceFromEnd(unittest.TestCase):
+    def test_null(self):
+        runway =  {'end': {'latitude': 60.280151, 
+                      'longitude': 5.222579}, 
+              'localizer': {'latitude': 60.2789, 
+                            'longitude': 5.223}, 
+              'glideslope': {'latitude': 60.300981,
+                             'longitude': 5.214092, 
+                             'threshold_distance': 1161}, 
+              'start': {'latitude': 60.30662494, 
+                        'longitude': 5.21370074}}
+        result = runway_distance_from_end(runway, 60.280151, 5.222579)
+        expected = 0.0
+        self.assertEqual(result, expected)
     
+    def test_runway_dist_by_coordinates(self):
+        runway =  {'end': {'latitude': 60.280151, 
+                      'longitude': 5.222579}, 
+              'localizer': {'latitude': 60.2789, 
+                            'longitude': 5.223}, 
+              'glideslope': {'latitude': 60.300981,
+                             'longitude': 5.214092, 
+                             'threshold_distance': 1161}, 
+              'start': {'latitude': 60.30662494, 
+                        'longitude': 5.21370074}}
+        result = runway_distance_from_end(runway, 60.30662494, 5.21370074)
+        expected = 2984.0
+        self.assertAlmostEqual(result, expected, places=0)
+        
+    def test_runway_dist_by_identifier(self):
+        runway =  {'end': {'latitude': 60.280151, 
+                      'longitude': 5.222579}, 
+              'localizer': {'latitude': 60.2789, 
+                            'longitude': 5.223}, 
+              'glideslope': {'latitude': 60.300981,
+                             'longitude': 5.214092, 
+                             'threshold_distance': 1161}, 
+              'start': {'latitude': 60.30662494, 
+                        'longitude': 5.21370074}}
+        result = runway_distance_from_end(runway, point='start')
+        expected = 2984.0
+        self.assertAlmostEqual(result, expected, places=0)
+    
+    def test_runway_dist_not_recognised(self):
+        runway =  {'end': {'latitude': 60.280151, 
+                      'longitude': 5.222579},
+              'start': {'latitude': 60.30662494, 
+                        'longitude': 5.21370074}}
+        self.assertRaises(ValueError, runway_distance_from_end, runway, point='threshold')
+         
 class TestRunwayDistances(unittest.TestCase):
     # This single test case uses data for Bergen and has been checked against
     # Google Earth measurements for reasonable accuracy.

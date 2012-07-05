@@ -280,7 +280,8 @@ class Cruise(FlightPhaseNode):
 
 
 class Descending(FlightPhaseNode):
-    """ Descending faster than 500fpm towards the ground
+    """ 
+    Descending faster than 500fpm towards the ground
     """
     def derive(self, roc=P('Rate Of Climb For Flight Phases'), airs=S('Airborne')):
         # Rate of climb and descent limits of 500fpm gives good distinction

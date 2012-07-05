@@ -522,7 +522,8 @@ class AltitudeWhenClimbing(KeyTimeInstanceNode):
                 # per climbing phase.
                 index = index_at_value(alt_array, alt_threshold, climb.slice)
                 if index:
-                    self.create_kti(index, altitude=alt_threshold)
+                    pass
+                    #self.create_kti(index, altitude=alt_threshold)
 
 
 class AltitudeWhenDescending(KeyTimeInstanceNode):
@@ -547,7 +548,8 @@ class AltitudeWhenDescending(KeyTimeInstanceNode):
                                        slice(descend.slice.stop,
                                              descend.slice.start,-1))
                 if index:
-                    self.create_kti(index, altitude=alt_threshold)
+                    pass
+                    #self.create_kti(index, altitude=alt_threshold)
 
 
 class MinsToTouchdown(KeyTimeInstanceNode):

@@ -28,6 +28,7 @@ from analysis_engine.library import (clip,
                                      np_ma_masked_zeros_like,
                                      peak_curvature,
                                      rate_of_change,
+                                     runway_distance_from_end,
                                      shift_slices,
                                      slice_samples, 
                                      slices_overlap,
@@ -889,7 +890,6 @@ class ControlColumnStiffness(KeyPointValueNode):
                     # TODO: REMOVE THIS SECTION BEFORE RELEASE
                     #-------------------------------------------------------------------
                     
-                    
 
 
 class DistancePastGlideslopeAntennaToTouchdown(KeyPointValueNode):
@@ -897,51 +897,39 @@ class DistancePastGlideslopeAntennaToTouchdown(KeyPointValueNode):
     def derive(self,  lat=P('Latitude Smoothed'),lon=P('Longitude Smoothed'),
                tdwns=KTI('Touchdown'),rwy=A('FDR Landing Runway'),
                ils_ldgs=S('ILS Localizer Established')):
-        
-        try:
-            # See if we get a sensible return from the database.
-            gs_on_cl = ils_glideslope_align(rwy.value)
-        except:
-            return
-        
+
         land_idx=tdwns[-1].index
         # Check we did do an ILS approach (i.e. the ILS frequency was correct etc).
         if is_index_within_sections(land_idx, ils_ldgs):
             # Yes it was, so do the geometry...
-            distance = _dist(lat.array[land_idx], lon.array[land_idx], 
-                             gs_on_cl['latitude'], gs_on_cl['longitude'])
+            distance = runway_distance_from_end(rwy.value, point='glideslope')-\
+                runway_distance_from_end(rwy.value, lat.array[land_idx], lon.array[land_idx])
+                
             self.create_kpv(land_idx, distance)
 
 
 class DistanceFromRunwayStartToTouchdown(KeyPointValueNode):
+    units = 'm'
     def derive(self, lat=P('Latitude Smoothed'),lon=P('Longitude Smoothed'),
                tdwns=KTI('Touchdown'),rwy=A('FDR Landing Runway')):
-        try:
-            # See if we get a sensible return from the database.
-            lat_rwy, lon_rwy = rwy.value['start']['latitude'], rwy.value['start']['longitude']
-        except:
-            return
         
         land_idx=tdwns[-1].index
-        distance = _dist(lat.array[land_idx], lon.array[land_idx], lat_rwy, lon_rwy)
+        distance = runway_distance_from_end(rwy.value, point='start')-\
+            runway_distance_from_end(rwy.value, lat.array[land_idx], lon.array[land_idx])
         self.create_kpv(land_idx, distance)
     
     
 class DistanceFrom60KtToRunwayEnd(KeyPointValueNode):
+    units = 'm'
     def derive(self, gspd=P('Groundspeed'),
                lat=P('Latitude Smoothed'),lon=P('Longitude Smoothed'),
                tdwns=KTI('Touchdown'),rwy=A('FDR Landing Runway')):
-        try:
-            # See if we get a sensible return from the database.
-            lat_rwy, lon_rwy = rwy.value['end']['latitude'], rwy.value['end']['longitude']
-        except:
-            return
 
         land_idx=tdwns[-1].index
         idx_60 = index_at_value(gspd.array,60.0,slice(land_idx,None))
         if idx_60:
             # Only work out the distance if we have a reading at 60kts...
-            distance = _dist(lat.array[idx_60], lon.array[idx_60], lat_rwy, lon_rwy)
+            distance = runway_distance_from_end(rwy.value, lat.array[idx_60], lon.array[idx_60])
             self.create_kpv(idx_60, distance) # Metres
         
 
