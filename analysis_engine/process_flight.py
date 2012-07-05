@@ -145,7 +145,11 @@ def derive_parameters(hdf, node_mgr, process_order):
                 # at 0.25Hz (rounded upwards). If we combine two 0.25Hz
                 # parameters then we will have an array length of 1412.
                 expected_length = hdf.duration * result.frequency
-                length_diff = len(result.array) - expected_length
+                if result.array == None:
+                    array_length = 0
+                else:
+                    array_length = len(result.array)
+                length_diff = array_length - expected_length
                 if length_diff == 0:
                     pass
                 elif 0 < length_diff < 5:
@@ -158,7 +162,7 @@ def derive_parameters(hdf, node_mgr, process_order):
                                      "'%s'. Expected '%s', resulting array "
                                      "length '%s'." % (param_name,
                                                        expected_length,
-                                                       len(result.array)))
+                                                       array_length))
                 
             hdf.set_param(result)
         else:

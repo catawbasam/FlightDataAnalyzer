@@ -14,6 +14,7 @@ from analysis_engine.library import (clip,
                                      _dist,
                                      find_edges,
                                      hysteresis,
+                                     ils_glideslope_align,
                                      index_at_value, 
                                      integrate,
                                      is_index_within_sections,
@@ -893,13 +894,23 @@ class ControlColumnStiffness(KeyPointValueNode):
 
 class DistancePastGlideslopeAntennaToTouchdown(KeyPointValueNode):
     units = 'm'
-    def derive(self, ils_range=P('ILS Range'), tdwns=KTI('Touchdown'), 
+    def derive(self,  lat=P('Latitude Smoothed'),lon=P('Longitude Smoothed'),
+               tdwns=KTI('Touchdown'),rwy=A('FDR Landing Runway'),
                ils_ldgs=S('ILS Localizer Established')):
-        for tdwn in tdwns:
-            if is_index_within_sections(tdwn.index, ils_ldgs):
-                dist = ils_range.array[tdwn.index]
-                if dist:
-                    self.create_kpv(dist, tdwn.index)
+        
+        try:
+            # See if we get a sensible return from the database.
+            gs_on_cl = ils_glideslope_align(rwy.value)
+        except:
+            return
+        
+        land_idx=tdwns[-1].index
+        # Check we did do an ILS approach (i.e. the ILS frequency was correct etc).
+        if is_index_within_sections(land_idx, ils_ldgs):
+            # Yes it was, so do the geometry...
+            distance = _dist(lat.array[land_idx], lon.array[land_idx], 
+                             gs_on_cl['latitude'], gs_on_cl['longitude'])
+            self.create_kpv(land_idx, distance)
 
 
 class DistanceFromRunwayStartToTouchdown(KeyPointValueNode):
@@ -1479,7 +1490,7 @@ class EngOilTemp15MinuteMax(KeyPointValueNode):
         # There have been cases where there were no valid oil temperature
         # measurements throughout the flight, in which case there's no point
         # testing for a maximum.
-        if oil_15:
+        if oil_15 != None:
             self.create_kpv(*max_value(oil_15))
 
 
@@ -1753,6 +1764,9 @@ class AltitudeAtSuspectedLevelBust(KeyPointValueNode):
         # Given application of hysteresis and taking differences, we can be
         # sure of zero values where data is constant.
         changes = np.ma.clump_unmasked(np.ma.masked_equal(hyst_rate, 0.0))
+        
+        if len(changes) < 3:
+            return # You can't have a level bust if you just go up and down.
         
         for num in range(len(changes)-1):
             begin = changes[num].stop

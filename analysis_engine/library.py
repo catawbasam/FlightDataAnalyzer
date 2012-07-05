@@ -971,11 +971,11 @@ def runway_distances(runway):
         
     :return
     :param start_loc: distance from start of runway to localizer antenna
-    :type start_loc: float, units = feet.
+    :type start_loc: float, units = metres
     :param gs_loc: distance from projected position of glideslope antenna on runway centerline to the localizer antenna
-    :type gs_loc: float, units = ??
+    :type gs_loc: float, units = metres
     :param end_loc: distance from end of runway to localizer antenna
-    :type end_loc: float, units = ??
+    :type end_loc: float, units = metres
     :param pgs_lat: projected position of glideslope antenna on runway centerline
     :type pgs_lat: float, units = degrees latitude
     :param pgs_lon: projected position of glideslope antenna on runway centerline
@@ -1010,7 +1010,7 @@ def runway_length(runway):
     '''
     Calculation of only the length for runways with no glideslope details
     and possibly no localizer information. In these cases we assume the
-    localizer is near end of runway and the beam is 700ft wide at the
+    glideslope is near end of runway and the beam is 700ft wide at the
     threshold.
 
     :param runway: Runway location details dictionary.
@@ -1189,6 +1189,42 @@ def hysteresis (array, hysteresis):
     # values may have affected the result.
     return np.ma.array(result, mask=array.mask)
 
+def ils_glideslope_align(runway):
+    '''
+    Projection of the ILS glideslope antenna onto the runway centreline
+    :param runway: Runway location details dictionary.
+    :type runway: Dictionary containing:
+    ['start']['latitude'] runway start position
+    ['start']['longitude']
+    ['end']['latitude'] runway end position
+    ['end']['longitude']
+    ['glideslope']['latitude'] ILS glideslope antenna position
+    ['glideslope']['longitude']
+        
+    :returns dictionary containing:
+    ['latitude'] ILS glideslope position aligned to start and end of runway
+    ['longitude']
+    '''
+    
+    start_lat = runway['start']['latitude']
+    start_lon = runway['start']['longitude']
+    end_lat = runway['end']['latitude']
+    end_lon = runway['end']['longitude']
+    gs_lat = runway['glideslope']['latitude']
+    gs_lon = runway['glideslope']['longitude']
+    
+    a = _dist(gs_lat, gs_lon, end_lat, end_lon)
+    b = _dist(gs_lat, gs_lon, start_lat, start_lon)
+    d = _dist(start_lat, start_lon, end_lat, end_lon)
+    
+    r = (1.0+(a**2 - b**2)/d**2)/2.0
+    
+    # The projected glideslope antenna position is given by this formula
+    new_lat = end_lat + r*(start_lat - end_lat)
+    new_lon = end_lon + r*(start_lon - end_lon)
+    
+    return {'latitude':new_lat, 'longitude':new_lon}
+
 
 def ils_localizer_align(runway):
     '''
@@ -1220,12 +1256,12 @@ def ils_localizer_align(runway):
     
     r = (1.0+(a**2 - b**2)/d**2)/2.0
     
-    # The projected glideslope antenna position is given by this formula
+    # The projected localizer antenna position is given by this formula
     new_lat = end_lat + r*(start_lat - end_lat)
     new_lon = end_lon + r*(start_lon - end_lon)
     
-    return {'latitude':new_lat, 'longitude':new_lon}  # Runway distances to start, glideslope and end.
-    
+    return {'latitude':new_lat, 'longitude':new_lon}
+
     
 def integrate (array, frequency, initial_value=0.0, scale=1.0, direction="forwards"):
     """
@@ -2555,10 +2591,12 @@ def slices_from_to(array, from_, to):
     if len(array) == 0:
         return array, []
     rep_array, slices = slices_between(array, from_, to)
+    # Midpoint conditions added to lambda to prevent data that just dips into
+    # a band triggering.
     if from_ > to:
-        condition = lambda s: rep_array[s.start] > rep_array[s.stop-1]
+        condition = lambda s: rep_array[s.start] > rep_array[(s.start+s.stop)/2] > rep_array[s.stop-1]
     elif from_ < to:
-        condition = lambda s: rep_array[s.start] < rep_array[s.stop-1]
+        condition = lambda s: rep_array[s.start] < rep_array[(s.start+s.stop)/2] < rep_array[s.stop-1]
     else:
         raise ValueError('From and to values should not be equal.')
     filtered_slices = filter(condition, slices)

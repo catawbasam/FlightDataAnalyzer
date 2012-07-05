@@ -359,20 +359,22 @@ class AltitudeAAL(DerivedParameterNode):
                             alt_result[fix_slice] = alt_rad[fix_slice]
                             begin_index += slip
                     elif ralt_section.start == baro_section.stop:
-                        slip, dn_diff = last_valid_sample(alt_diff[end_index-61:end_index])
-                        slip = slip-60
+                        # See how far back we can scan
+                        back=min(60,end_index)
+                        slip, dn_diff = last_valid_sample(alt_diff[end_index-back:end_index])
+                        slip = slip-back
                         if slip>0:
                             end_index += slip
                             fix_slice = slice(ralt_section.start+slip,ralt_section.start) 
                             alt_result[fix_slice] = alt_rad[fix_slice]
                         
                 if up_diff == None and dn_diff == None:
-                    # Neither edge was found. Did we get close the ground at some point?
+                    # Neither edge was found. Did we get measurably close the ground at some point?
                     low_index = np.ma.argmin(alt_rad[begin_index:end_index])
                     if low_index:
                         # We did, so use that as a datum
                         mid_diff = alt_diff[low_index]
-                        alt_result[begin_index:end_index] = alt_std[begin_index:end_index] - mid_diff
+                        alt_result[begin_index:end_index] = alt_std[begin_index:end_index] -alt_std[low_index] + mid_diff
                     else:
                         # We didn't so there is nothing to be done but copy the altitude across.
                         alt_result[begin_index:end_index] = alt_std[begin_index:end_index]
@@ -416,7 +418,7 @@ class AltitudeAAL(DerivedParameterNode):
             if alt_idxs==None:
                 break # In the case where speedy was trivially short
             
-            alt_idxs += quick.start # Reference to start of arrays for simplicity hereafter.
+            alt_idxs += quick.start or 0 # Reference to start of arrays for simplicity hereafter.
             
             n=0
             n_vals = len(alt_vals)
