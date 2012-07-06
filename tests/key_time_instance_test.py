@@ -522,32 +522,29 @@ class TestTopOfDescent(unittest.TestCase):
 class TestTouchdown(unittest.TestCase):
     def test_can_operate(self):
         self.assertEqual(Touchdown.get_operational_combinations(),
-                         [('Rate Of Climb', 'Airborne', 'Landing')])
+                         [('Rate Of Climb', 'Altitude AAL', 'Airborne', 'Landing')])
 
     def test_touchdown_basic(self):
-        rate_of_climb = Parameter('Rate Of Climb For Flight Phases', np.ma.arange(10)*40 - 320)
-        airs = buildsection('Airborne', 1, 4.2)
+        rate_of_climb = Parameter('Rate Of Climb', np.ma.arange(10)*40 - 380)
+        altitude = Parameter('Altitude AAL', 
+                             np.ma.array(data=[28, 21, 15, 10, 6, 3, 1, 0, 0,  0],
+                                         mask = False))
+        airs = buildsection('Airborne', 1, 8)
         lands = buildsection('Landing', 2, 9)
         tdwn=Touchdown()
-        tdwn.derive(rate_of_climb, airs, lands)
-        expected = [KeyTimeInstance(index=5.5, name='Touchdown')]
-        self.assertEqual(tdwn, expected)
-    
-    def test_touchdown_no_roc_detected(self):
-        # Check the backstop setting.
-        rate_of_climb = Parameter('Rate Of Climb For Flight Phases', np.ma.arange(10)*40)
-        airs = buildsection('Airborne', 1, 5)
-        lands = buildsection('Landing', 2, 9)
-        tdwn=Touchdown()
-        tdwn.derive(rate_of_climb, airs, lands)
-        expected = [KeyTimeInstance(index=5, name='Touchdown')]
+        tdwn.derive(rate_of_climb, altitude, airs, lands)
+        expected = [KeyTimeInstance(index=37/6.0, name='Touchdown')]
         self.assertEqual(tdwn, expected)
     
     def test_touchdown_doesnt_land(self):
-        rate_of_climb = Parameter('Rate Of Climb For Flight Phases', np.ma.arange(10)*40)
+        rate_of_climb = Parameter('Rate Of Climb', np.ma.arange(10)*40)
+        altitude = Parameter('Altitude AAL', 
+                             np.ma.array(data=[28, 21, 15, 10, 6, 3, 1, 0, 0,  0],
+                                         mask = False))
         airs = buildsection('Airborne', 10, None)
+        lands = buildsection('Landing', 2, 9)
         tdwn=Touchdown()
-        tdwn.derive(rate_of_climb, airs)
+        tdwn.derive(rate_of_climb, altitude, airs, lands)
         expected = []
         self.assertEqual(tdwn, expected)
         

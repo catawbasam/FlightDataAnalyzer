@@ -13,8 +13,11 @@ from analysis_engine.library import (clip,
                                      cycle_finder,
                                      _dist,
                                      find_edges,
+                                     hysteresis,
+                                     ils_glideslope_align,
                                      index_at_value, 
                                      integrate,
+                                     is_index_within_sections,
                                      mask_outside_slices,
                                      max_abs_value,
                                      max_continuous_unmasked, 
@@ -25,6 +28,7 @@ from analysis_engine.library import (clip,
                                      np_ma_masked_zeros_like,
                                      peak_curvature,
                                      rate_of_change,
+                                     runway_distance_from_end,
                                      shift_slices,
                                      slice_samples, 
                                      slices_overlap,
@@ -374,6 +378,9 @@ class AirspeedAtLiftoff(KeyPointValueNode):
         self.create_kpvs_at_ktis(airspeed.array, liftoffs)
 
 
+'''
+Redundant, as this will either be a go-around, with its minimum, or a landing
+
 class AltitudeAtLowestPointOnApproach(KeyPointValueNode):
     """
     The approach phase has been found already. Here we take the height at
@@ -383,6 +390,7 @@ class AltitudeAtLowestPointOnApproach(KeyPointValueNode):
                low_points=KTI('Lowest Point On Approach')):
         height = minimum_unmasked(alt_aal.array, alt_rad.array)
         self.create_kpvs_at_ktis(height, low_points)
+        '''
 
 
 class AirspeedAtTouchdown(KeyPointValueNode):
@@ -719,17 +727,15 @@ class AltitudeAtGoAroundMin(KeyPointValueNode):
     def can_operate(cls, available):
         return 'Go Around' in available and 'Altitude AAL' in available
     
-    def derive(self, alt_aal=P('Altitude AAL'),
-                alt_rad=P('Altitude Radio'),
-                gas=KTI('Go Around')):
+    def derive(self, alt_rad=P('Altitude Radio'),
+               alt_aal=P('Altitude AAL'),
+               gas=KTI('Go Around')):
         for ga in gas:
             if alt_rad:
-                index = np.ma.argmin(alt_rad.array[ga.index])
-                pit = alt_rad.array[ga.index+index]
+                pit = alt_rad.array[ga.index]
             else:
-                index = np.ma.argmin(alt_aal.array[ga.index])
-                pit = alt_aal.array[ga.index+index]
-            self.create_kpv(index, pit)
+                pit = alt_aal.array[ga.index]
+            self.create_kpv(ga.index, pit)
 
 
 class AltitudeGoAroundFlapRetracted(KeyPointValueNode):
@@ -884,44 +890,47 @@ class ControlColumnStiffness(KeyPointValueNode):
                     # TODO: REMOVE THIS SECTION BEFORE RELEASE
                     #-------------------------------------------------------------------
                     
-                    
 
 
 class DistancePastGlideslopeAntennaToTouchdown(KeyPointValueNode):
-    def derive(self, ils_range=P('ILS Range'), tdwns=KTI('Touchdown')):
-        self.create_kpvs_at_ktis(ils_range.array, tdwns)
+    units = 'm'
+    def derive(self,  lat=P('Latitude Smoothed'),lon=P('Longitude Smoothed'),
+               tdwns=KTI('Touchdown'),rwy=A('FDR Landing Runway'),
+               ils_ldgs=S('ILS Localizer Established')):
+
+        land_idx=tdwns[-1].index
+        # Check we did do an ILS approach (i.e. the ILS frequency was correct etc).
+        if is_index_within_sections(land_idx, ils_ldgs):
+            # Yes it was, so do the geometry...
+            distance = runway_distance_from_end(rwy.value, point='glideslope')-\
+                runway_distance_from_end(rwy.value, lat.array[land_idx], lon.array[land_idx])
+                
+            self.create_kpv(land_idx, distance)
 
 
 class DistanceFromRunwayStartToTouchdown(KeyPointValueNode):
+    units = 'm'
     def derive(self, lat=P('Latitude Smoothed'),lon=P('Longitude Smoothed'),
                tdwns=KTI('Touchdown'),rwy=A('FDR Landing Runway')):
-        try:
-            # See if we get a sensible return from the database.
-            lat_rwy, lon_rwy = rwy.value['start']['latitude'], rwy.value['start']['longitude']
-        except:
-            return
         
         land_idx=tdwns[-1].index
-        distance = _dist(lat.array[land_idx], lon.array[land_idx], lat_rwy, lon_rwy)
+        distance = runway_distance_from_end(rwy.value, point='start')-\
+            runway_distance_from_end(rwy.value, lat.array[land_idx], lon.array[land_idx])
         self.create_kpv(land_idx, distance)
     
     
 class DistanceFrom60KtToRunwayEnd(KeyPointValueNode):
+    units = 'm'
     def derive(self, gspd=P('Groundspeed'),
                lat=P('Latitude Smoothed'),lon=P('Longitude Smoothed'),
                tdwns=KTI('Touchdown'),rwy=A('FDR Landing Runway')):
-        try:
-            # See if we get a sensible return from the database.
-            lat_rwy, lon_rwy = rwy.value['end']['latitude'], rwy.value['end']['longitude']
-        except:
-            return
 
         land_idx=tdwns[-1].index
         idx_60 = index_at_value(gspd.array,60.0,slice(land_idx,None))
         if idx_60:
             # Only work out the distance if we have a reading at 60kts...
-            distance = _dist(lat.array[idx_60], lon.array[idx_60], lat_rwy, lon_rwy)
-            self.create_kpv(idx_60, distance)
+            distance = runway_distance_from_end(rwy.value, lat.array[idx_60], lon.array[idx_60])
+            self.create_kpv(idx_60, distance) # Metres
         
 
 class HeadingAtLanding(KeyPointValueNode):
@@ -1462,16 +1471,15 @@ class EngOilTempMax(KeyPointValueNode):
         self.create_kpv(index, value)
 
 
-'''
-
-Fails when oil_temp.array is wholly masked
-
-
 class EngOilTemp15MinuteMax(KeyPointValueNode):
     name = 'Eng Oil Temp 15 Minutes Max'
     def derive(self, oil_temp=P('Eng (*) Oil Temp Max')):
-        self.create_kpv(*max_value(clip(oil_temp.array, 15*60, oil_temp.hz)))
-        '''
+        oil_15 = clip(oil_temp.array, 15*60, oil_temp.hz)
+        # There have been cases where there were no valid oil temperature
+        # measurements throughout the flight, in which case there's no point
+        # testing for a maximum.
+        if oil_15 != None:
+            self.create_kpv(*max_value(oil_15))
 
 
 class EngVibN1Max(KeyPointValueNode):
@@ -1738,26 +1746,67 @@ class AltitudeAtSuspectedLevelBust(KeyPointValueNode):
     def derive(self, alt_std=P('Altitude STD')):
         bust = 300 # ft
         bust_time = 3*60 # 3 mins
+        
+        alt_hyst = hysteresis(alt_std.array, bust)
+        hyst_rate = np.ma.ediff1d(alt_hyst, to_end=0.0)
+        # Given application of hysteresis and taking differences, we can be
+        # sure of zero values where data is constant.
+        changes = np.ma.clump_unmasked(np.ma.masked_equal(hyst_rate, 0.0))
+        
+        if len(changes) < 3:
+            return # You can't have a level bust if you just go up and down.
+        
+        for num in range(len(changes)-1):
+            begin = changes[num].stop
+            end = changes[num+1].start
+            if hyst_rate[begin-1] * hyst_rate[end] < 0.0:
+                duration = (end-begin)/alt_std.frequency
+                
+                if duration < bust_time:
+                    alt_before = alt_std.array[changes[num].start]
+                    alt_after = alt_std.array[changes[num+1].stop-1]
+                    peak_idx = np.ma.argmax(
+                        np.ma.abs(alt_std.array[begin:end]-
+                                  alt_std.array[begin]))\
+                        + begin
+                    
+                    alt_peak = alt_std.array[peak_idx]
+                    
+                    if alt_peak>(alt_before+alt_after)/2:
+                        overshoot = min(alt_peak-alt_before,
+                                        alt_peak-alt_after)
+                        
+                    else:
+                        # Strictly this is an undershoot, but keeping the
+                        # name the same saves a line of code
+                        overshoot = max(alt_peak-alt_before,
+                                        alt_peak-alt_after)
+                        
+                    self.create_kpv(peak_idx,overshoot)
+                    
+            
 
+        """
         idxs, peaks = cycle_finder(alt_std.array, min_step=bust)
 
         if idxs == None:
             return
         for num, idx in enumerate(idxs[1:-1]):
-            begin = index_at_value(np.ma.abs(alt_std.array-peaks[num]), bust, _slice=slice(idx,None,-1))
-            end = index_at_value(np.ma.abs(alt_std.array-peaks[num]), bust, _slice=slice(idx,None))
+            begin = index_at_value(np.ma.abs(alt_std.array-peaks[num+1]), bust, _slice=slice(idx,None,-1))
+            end = index_at_value(np.ma.abs(alt_std.array-peaks[num+1]), bust, _slice=slice(idx,None))
             if begin and end:
                 duration = (end-begin)/alt_std.frequency
                 if duration < bust_time:
-                    a=alt_std.array[idxs[num]]
-                    b=alt_std.array[idxs[num]+1]
-                    c=alt_std.array[idxs[num]+2]
+                    a=alt_std.array[idxs[num]] # One before the peak of interest
+                    b=alt_std.array[idxs[num+1]] # The peak of interst
+                    c=alt_std.array[idxs[num+2]] # The next one
                     if b>(a+c)/2:
                         overshoot = min(b-a,b-c)
                         self.create_kpv(idx,overshoot)
                     else:
                         undershoot = max(b-a,b-c)
                         self.create_kpv(idx,undershoot)
+                        """
                         
 
         
