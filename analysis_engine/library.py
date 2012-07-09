@@ -176,12 +176,22 @@ def align(slave, master, interval='Subframe', data_type=None):
 
     return slave_aligned
 
+
+def bearing_and_distance(lat1, lon1, lat2, lon2):
+    """
+    Simplified version of bearings and distances for a single pair of locations.
+    """
+    brg, dist = bearings_and_distances(np.ma.array(lat2), np.ma.array(lon2),
+                                       {'latitude':lat1, 'longitude':lon1})
+    return np.asscalar(brg), np.asscalar(dist)
+
+    
 def bearings_and_distances(latitudes, longitudes, reference):
     """
     Returns the bearings and distances of a track with respect to a fixed point.
     
     Usage: 
-    brg[], dist[] = bearings_and_distances(lat[], lon[], {'latitude':lat_ref, 'longitude', lon_ref})
+    brg[], dist[] = bearings_and_distances(lat[], lon[], {'latitude':lat_ref, 'longitude':lon_ref})
     
     :param latitudes: The latitudes of the track.
     :type latitudes: Numpy masked array.
@@ -530,7 +540,7 @@ def cycle_finder(array, min_step=0.0, include_ends=True):
     :param include_ends: Decides whether the first and last points of the array are to be included as possible turning points
     :type include_ends: logical
     
-    :returns: List of peak value, index tuples.
+    :returns: List of peak indexes, List of peak values.
     '''
     
     if len(array) == 0:
@@ -539,17 +549,34 @@ def cycle_finder(array, min_step=0.0, include_ends=True):
     
     # Find the peaks and troughs by difference products which change sign.
     x = np.ma.ediff1d(array, to_begin=0.0)
-    peak = -x[:-1]*x[1:]
-    idxs = np.nonzero(np.ma.maximum(peak,0.0))
-    vals = array.data[idxs]
+    # Stripping out only the nonzero values ensures we don't get confused with invariant data
+    y = np.ma.nonzero(x)
+    z = x[y[0]] # y is a tuple of indices so this recovers the values of interest
+    peak = -z[:-1]*z[1:] # Here we compute the change in direction
+    idxs = y[0][np.nonzero(np.ma.maximum(peak,0.0))] # And these are the indeces where the direction changed
+    vals = array.data[idxs] # So these are the local peak and trough values.
     
     # Optional inclusion of end points
     if include_ends:
         idxs = np.insert(idxs, 0, 0)
         vals = np.insert(vals,0,array.data[0])
+        # If the end two are in line, scrub the middle one.
+        try:
+            if (vals[2]-vals[1])*(vals[1]-vals[0])>=0.0:
+                idxs = np.delete(idxs, 1)
+                vals = np.delete(vals, 1)
+        except:
+            pass # If there are few vals in the array, there's nothing to tidy up.
         idxs = np.append(idxs, len(array))
         vals = np.append(vals,array.data[-1])
+        try:
+            if (vals[-3]-vals[-2])*(vals[-2]-vals[-1])>=0.0:
+                idxs = np.delete(idxs, -2)
+                vals = np.delete(vals, -2)
+        except:
+            pass # as before.
 
+    # This section progressively removes reversals smaller than the step size of interest, hence the arrays shrink until just the desired answer is left.
     dvals = np.ediff1d(vals)
     while len(dvals) > 0 and np.min(abs(dvals)) < min_step:
         sort_idx = np.argmin(abs(dvals))
@@ -628,18 +655,22 @@ def clip(array, period, hz=1.0, remove='peaks'):
     # Preparation of convenient numbers and data to process
     width = len(array) - 2*delay
     source = repair_mask(array, frequency=hz, repair_duration=period-(1/hz))
-    result = np.ma.copy(source)
+    if np.ma.count(source):
+        result = np.ma.copy(source)
     
-    for step in range(2*delay+1):
-        if remove == 'peaks':
-            result[delay:-delay] = np.ma.minimum(result[delay:-delay], source[step:step+width])
-        else:
-            result[delay:-delay] = np.ma.maximum(result[delay:-delay], source[step:step+width])
-
-    # Stretch the ends out and return the answer.
-    result[:delay] = result[delay]
-    result[-delay:] = result[-(delay+1)]
-    return result
+        for step in range(2*delay+1):
+            if remove == 'peaks':
+                result[delay:-delay] = np.ma.minimum(result[delay:-delay], source[step:step+width])
+            else:
+                result[delay:-delay] = np.ma.maximum(result[delay:-delay], source[step:step+width])
+    
+        # Stretch the ends out and return the answer.
+        result[:delay] = result[delay]
+        result[-delay:] = result[-(delay+1)]
+        return result
+    
+    else:
+        return None
 
 """
     # Compute an array of differences across period, such that each maximum or
@@ -924,6 +955,42 @@ def _dist(lat1_d, lon1_d, lat2_d, lon2_d):
         sin(dlon/2) * sin(dlon/2) * cos(lat1) * cos(lat2)
     return 2 * atan2(sqrt(a), sqrt(1-a)) * 6371000
 
+def runway_distance_from_end(runway, *args, **kwds):
+    """
+    Distance from the end of the runway to any point. The point is first
+    snapped onto the runway centreline and then the distance from the runway
+    end is taken. This is a convenient startingpoint for measuring runway
+    landing distances.
+    
+    :param runway: Runway location details dictionary.
+    :type runway: Dictionary containing:
+    ['start']['latitude'] runway start position
+    ['start']['longitude']
+    ['end']['latitude'] runway end position
+    ['end']['longitude']
+    *args if supplied are the latitude and longitude of a point.
+    :param lat: Latitude of the point of interest
+    :type lat: float
+    :param lon: Longitude of the point of interest
+    :type lon: float
+    **kwds if supplied are a point in the runway dictionary
+    :param point: dictionary name of the point of reference, e.g. 'glideslope'
+    :type point: String
+    
+    :return distance: Distance from runway end to the point of interest, along runway centreline.
+    :type distance: float (units=metres)
+    """
+    if args:
+        new_lat, new_lon = runway_snap(runway, args[0], args[1])
+    else:
+        if kwds['point'] in ['localizer', 'glideslope', 'start']:
+            new_lat, new_lon = runway_snap(runway, runway[kwds['point']]['latitude'], runway[kwds['point']]['longitude'])
+        else:
+            raise ValueError,'Unrecognised keyword in runway_distance_from_end'
+        
+    return _dist(new_lat, new_lon, 
+                 runway['end']['latitude'], runway['end']['longitude'])
+
 def runway_distances(runway):
     '''
     Projection of the ILS antenna positions onto the runway
@@ -940,18 +1007,16 @@ def runway_distances(runway):
         
     :return
     :param start_loc: distance from start of runway to localizer antenna
-    :type start_loc: float, units = feet.
+    :type start_loc: float, units = metres
     :param gs_loc: distance from projected position of glideslope antenna on runway centerline to the localizer antenna
-    :type gs_loc: float, units = ??
+    :type gs_loc: float, units = metres
     :param end_loc: distance from end of runway to localizer antenna
-    :type end_loc: float, units = ??
+    :type end_loc: float, units = metres
     :param pgs_lat: projected position of glideslope antenna on runway centerline
     :type pgs_lat: float, units = degrees latitude
     :param pgs_lon: projected position of glideslope antenna on runway centerline
     :type pgs_lon: float, units = degrees longitude
     '''
-    
-    
     start_lat = runway['start']['latitude']
     start_lon = runway['start']['longitude']
     end_lat = runway['end']['latitude']
@@ -961,25 +1026,27 @@ def runway_distances(runway):
     gs_lat = runway['glideslope']['latitude']
     gs_lon = runway['glideslope']['longitude']
     
-    a = _dist(gs_lat, gs_lon, lzr_lat, lzr_lon)
-    b = _dist(gs_lat, gs_lon, start_lat, start_lon)
-    c = _dist(end_lat, end_lon, lzr_lat, lzr_lon)
-    d = _dist(start_lat, start_lon, lzr_lat, lzr_lon)
+    #a = _dist(gs_lat, gs_lon, lzr_lat, lzr_lon)
+    #b = _dist(gs_lat, gs_lon, start_lat, start_lon)
+    #c = _dist(end_lat, end_lon, lzr_lat, lzr_lon)
+    #d = _dist(start_lat, start_lon, lzr_lat, lzr_lon)
     
-    r = (1.0+(a**2 - b**2)/d**2)/2.0
-    g = r*d
+    #r = (1.0+(a**2 - b**2)/d**2)/2.0
+    #g = r*d
     
+    start_2_loc = _dist(start_lat, start_lon, lzr_lat, lzr_lon)
     # The projected glideslope antenna position is given by this formula
-    pgs_lat = lzr_lat + r*(start_lat - lzr_lat)
-    pgs_lon = lzr_lon + r*(start_lon - lzr_lon)
+    pgs_lat, pgs_lon = runway_snap(runway, gs_lat, gs_lon)
+    gs_2_loc = _dist(pgs_lat, pgs_lon, lzr_lat, lzr_lon)
+    end_2_loc = _dist(end_lat, end_lon, lzr_lat, lzr_lon)
     
-    return d, g, c, pgs_lat, pgs_lon  # Runway distances to start, glideslope and end.
+    return start_2_loc, gs_2_loc, end_2_loc, pgs_lat, pgs_lon  # Runway distances to start, glideslope and end.
 
 def runway_length(runway):
     '''
     Calculation of only the length for runways with no glideslope details
     and possibly no localizer information. In these cases we assume the
-    localizer is near end of runway and the beam is 700ft wide at the
+    glideslope is near end of runway and the beam is 700ft wide at the
     threshold.
 
     :param runway: Runway location details dictionary.
@@ -1029,6 +1096,38 @@ def runway_heading(runway):
     except:
         return None
 
+def runway_snap(runway, lat, lon):
+    """
+    This function snaps any location onto the closest point on the runway centreline.
+    
+    :param runway: Dictionary containing the runway start and end points.
+    :type dict
+    :param lat: Latitude of the point to snap
+    :type lat: float
+    :param lon: Longitude of the point to snap
+    :type lon: float
+    
+    :returns new_lat, new_lon: Amended position now on runway centreline.
+    :type float, float.
+    """
+    start_lat = runway['start']['latitude']
+    start_lon = runway['start']['longitude']
+    end_lat = runway['end']['latitude']
+    end_lon = runway['end']['longitude']
+    
+    a = _dist(lat, lon, end_lat, end_lon)
+    b = _dist(lat, lon, start_lat, start_lon)
+    d = _dist(start_lat, start_lon, end_lat, end_lon)
+    
+    r = (1.0+(a**2 - b**2)/d**2)/2.0
+    
+    # The projected glideslope antenna position is given by this formula
+    new_lat = end_lat + r*(start_lat - end_lat)
+    new_lon = end_lon + r*(start_lon - end_lon)
+    
+    return new_lat, new_lon
+
+    
 def ground_track(lat_fix, lon_fix, gspd, hdg, frequency, mode):
     """
     Computation of the ground track assuming no slipping.
@@ -1109,6 +1208,16 @@ def hash_array(array):
     return checksum.hexdigest()
 
 def hysteresis (array, hysteresis):
+    """
+    Applies hysteresis to an array of data. The function applies half the
+    required level of hysteresis forwards and then backwards to provide a
+    phase neutral result.
+    
+    :param array: Input data for processing
+    :type array: Numpy masked array
+    :param hysteresis: Level of hysteresis to apply.
+    :type hysteresis: Float
+    """
     if np.ma.count(array) == 0: # No unmasked elements.
         return array
     
@@ -1148,6 +1257,44 @@ def hysteresis (array, hysteresis):
     # values may have affected the result.
     return np.ma.array(result, mask=array.mask)
 
+def ils_glideslope_align(runway):
+    '''
+    Projection of the ILS glideslope antenna onto the runway centreline
+    :param runway: Runway location details dictionary.
+    :type runway: Dictionary containing:
+    ['start']['latitude'] runway start position
+    ['start']['longitude']
+    ['end']['latitude'] runway end position
+    ['end']['longitude']
+    ['glideslope']['latitude'] ILS glideslope antenna position
+    ['glideslope']['longitude']
+        
+    :returns dictionary containing:
+    ['latitude'] ILS glideslope position aligned to start and end of runway
+    ['longitude']
+    '''
+    
+    ##start_lat = runway['start']['latitude']
+    ##start_lon = runway['start']['longitude']
+    ##end_lat = runway['end']['latitude']
+    ##end_lon = runway['end']['longitude']
+    ##gs_lat = runway['glideslope']['latitude']
+    ##gs_lon = runway['glideslope']['longitude']
+    
+    ##a = _dist(gs_lat, gs_lon, end_lat, end_lon)
+    ##b = _dist(gs_lat, gs_lon, start_lat, start_lon)
+    ##d = _dist(start_lat, start_lon, end_lat, end_lon)
+    
+    ##r = (1.0+(a**2 - b**2)/d**2)/2.0
+    
+    ### The projected glideslope antenna position is given by this formula
+    ##new_lat = end_lat + r*(start_lat - end_lat)
+    ##new_lon = end_lon + r*(start_lon - end_lon)
+    new_lat, new_lon = runway_snap(runway, 
+                                   runway['glideslope']['latitude'],
+                                   runway['glideslope']['longitude'])
+    return {'latitude':new_lat, 'longitude':new_lon}
+
 
 def ils_localizer_align(runway):
     '''
@@ -1166,25 +1313,28 @@ def ils_localizer_align(runway):
     ['longitude']
     '''
     
-    start_lat = runway['start']['latitude']
-    start_lon = runway['start']['longitude']
-    end_lat = runway['end']['latitude']
-    end_lon = runway['end']['longitude']
-    lzr_lat = runway['localizer']['latitude']
-    lzr_lon = runway['localizer']['longitude']
+    ##start_lat = runway['start']['latitude']
+    ##start_lon = runway['start']['longitude']
+    ##end_lat = runway['end']['latitude']
+    ##end_lon = runway['end']['longitude']
+    ##lzr_lat = runway['localizer']['latitude']
+    ##lzr_lon = runway['localizer']['longitude']
     
-    a = _dist(lzr_lat, lzr_lon, end_lat, end_lon)
-    b = _dist(lzr_lat, lzr_lon, start_lat, start_lon)
-    d = _dist(start_lat, start_lon, end_lat, end_lon)
+    ##a = _dist(lzr_lat, lzr_lon, end_lat, end_lon)
+    ##b = _dist(lzr_lat, lzr_lon, start_lat, start_lon)
+    ##d = _dist(start_lat, start_lon, end_lat, end_lon)
     
-    r = (1.0+(a**2 - b**2)/d**2)/2.0
+    ##r = (1.0+(a**2 - b**2)/d**2)/2.0
     
-    # The projected glideslope antenna position is given by this formula
-    new_lat = end_lat + r*(start_lat - end_lat)
-    new_lon = end_lon + r*(start_lon - end_lon)
+    ### The projected localizer antenna position is given by this formula
+    ##new_lat = end_lat + r*(start_lat - end_lat)
+    ##new_lon = end_lon + r*(start_lon - end_lon)
+    new_lat, new_lon = runway_snap(runway, 
+                                   runway['localizer']['latitude'],
+                                   runway['localizer']['longitude'])
     
-    return {'latitude':new_lat, 'longitude':new_lon}  # Runway distances to start, glideslope and end.
-    
+    return {'latitude':new_lat, 'longitude':new_lon}
+
     
 def integrate (array, frequency, initial_value=0.0, scale=1.0, direction="forwards"):
     """
@@ -1247,20 +1397,26 @@ def interpolate_and_extend (array):
     interpolated values between unmasked point pairs, and extrapolate first
     and last unmasked values to the ends of the array.
     
-    See Derived Parameter Node 'Magnetic Deviation' for an example of use.
+    See Derived Parameter Node 'Magnetic Deviation' for the prime example of
+    use.
     
-    :param array: Array of data to be interpolated
+    In the special case where all source data is masked, the algorithm
+    returns an unmasked array of zeros. 
+    
+    :param array: Array of data to be interpolated 
     :type array: numpy masked array
     
     :returns interpolated: array of all valid data
-    :type interpolated: Numpy masked array, with all masks (normally) False.
+    :type interpolated: Numpy masked array, with all masks False.
     """
     
     # Where do we need to use the raw data?
     blocks = np.ma.clump_masked(array)
     last = len(array)
-    if len(blocks)==0:
-        raise ValueError,'No masked data in interpolate_and_extend'
+    if len(blocks)==1:
+        if blocks[0].start == 0 and blocks[0].stop == last:
+            logger.warn('No unmasked data in interpolate_and_extend')
+            return np_ma_zeros_like(array)
     
     for block in blocks:
         # Setup local variables
@@ -1268,9 +1424,6 @@ def interpolate_and_extend (array):
         b = block.stop
 
         if a == 0:
-            # First data can only be extension of the first valid sample.
-            if b == last:
-                raise ValueError,'No unmasked data in interpolate_and_extend'
             array[:b] = array[b]
         elif b == last:
             array[a:] = array[a-1]
@@ -1279,7 +1432,6 @@ def interpolate_and_extend (array):
             array[a:b] = join[1:-1]
             
     return array
-        
     
     
 def interleave (param_1, param_2):
@@ -1445,7 +1597,8 @@ def is_index_within_slice(index, _slice):
 def is_index_within_sections(index, section):
     '''
     :type index: int or float
-    :type _slices: list of slices
+    :type section: section node containing any number of slices
+    
     :returns: whether index is within any of the slices.
     :rtype: bool
     '''
@@ -1535,7 +1688,7 @@ def slices_not(slice_list, begin_at=None, end_at=None):
     :returns: list of slices. If begin or end is specified, the range will extend to these points. Otherwise the scope is within the end slices.
     '''
     if slice_list==[] or slice_list==None:
-        return
+        return [slice(begin_at, end_at)]
     
     a = min([s.start for s in slice_list])
     b = min([s.stop for s in slice_list])
@@ -1569,9 +1722,9 @@ def slices_or(*slice_lists, **kwargs):
     :param slice_list: list of slices to be combined.
     :type slice_list: list of Python slices.
     :param begin_at: optional starting index value, slices before this will be ignored
-    :param begin_at: integer
+    :type begin_at: integer
     :param end_at: optional ending index value, slices before this will be ignored
-    :param end_at: integer
+    :type end_at: integer
     
     :returns: list of slices. If begin or end is specified, the range will extend to these points. Otherwise the scope is within the end slices.
     '''
@@ -1616,6 +1769,35 @@ def slices_or(*slice_lists, **kwargs):
                 workspace[each_slice]=1
         workspace=np.ma.masked_equal(workspace, 1)
         return shift_slices(np.ma.clump_masked(workspace[startpoint:endpoint]), startpoint)
+
+def slices_remove_small_gaps(slice_list, time_limit=10, hz=1):
+    '''
+    Routine to remove small gaps in a list of slices. Typically when a list
+    of flight phases have been computed and we don't want to drop out for
+    trivial periods, this will create a single slice across what were two
+    slices with a small gap.
+    
+    :param slice_list: list of slices to be processed
+    :type slice_list: list of Python slices.
+    :param time_limit: Tolerance below which slices will be joined.
+    :type time_limit: integer (sec)
+    :param hz: sample rate for the parameter
+    :type hz: float
+    
+    :returns: slice list.
+    '''
+    sample_limit = time_limit*hz
+    if slice_list == None or len(slice_list) < 2:
+        return []
+    new_list = [slice_list[0]]
+    for each_slice in slice_list[1:]:
+        if each_slice.start - new_list[-1].stop < sample_limit:
+            new_list[-1] = slice(new_list[-1].start, each_slice.stop)
+        else:
+            new_list.append(each_slice)
+    return new_list
+
+
     
 """
 def section_contains_kti(section, kti):
@@ -2014,7 +2196,7 @@ def np_ma_zeros_like(array):
     
     :returns: Numpy masked array of unmasked zero values, length same as input array.
     """
-    return np.ma.array(np.zeros_like(array), mask=False)
+    return np.ma.array(np.zeros_like(array.data), mask=False)
 
 def np_ma_ones_like(array):
     """
@@ -2031,7 +2213,12 @@ def np_ma_ones_like(array):
 def np_ma_masked_zeros_like(array):
     """
     Creates a masked array filled with masked values. The unmasked data
-    values are all zero. See also np_ma_zeros_like.
+    values are all zero. The very klunky code here is to circumvent Numpy's
+    normal response which is to return random data values where it knows the
+    data is masked. In this case we want to ensure zero values as we may be
+    lifting the mask in due course and we don't want to reveal random data.
+    
+    See also np_ma_zeros_like.
     
     :param array: array of length to be replicated.
     :type array: A Numpy array - can be masked or not.
@@ -2039,7 +2226,8 @@ def np_ma_masked_zeros_like(array):
     :returns: Numpy masked array of masked 0.0 float values, length same as
     input array.
     """
-    return np.ma.masked_all_like(np.zeros_like(array))
+    return np.ma.array(data = np_ma_zeros_like(array).data,
+                       mask = np_ma_ones_like(array).data)
 
 
 def peak_curvature(array, _slice=slice(None), curve_sense='Concave'):
@@ -2227,6 +2415,12 @@ def repair_mask(array, frequency=1, repair_duration=REPAIR_DURATION,
         repair_samples = repair_duration * frequency
         if len(array) < repair_samples/3:
             # TODO: Better handling of trivial data segments
+            # e.g. the following resulted in None, while two valid samples 
+            # should have been the result
+            # masked_array(data = [1407.95071648 --],
+                           #mask = [False  True],
+                           #fill_value = 1e+20)
+            
             return None
     else:
         repair_samples = None
@@ -2470,10 +2664,12 @@ def slices_from_to(array, from_, to):
     if len(array) == 0:
         return array, []
     rep_array, slices = slices_between(array, from_, to)
+    # Midpoint conditions added to lambda to prevent data that just dips into
+    # a band triggering.
     if from_ > to:
-        condition = lambda s: rep_array[s.start] > rep_array[s.stop-1]
+        condition = lambda s: rep_array[s.start] > rep_array[(s.start+s.stop)/2] > rep_array[s.stop-1]
     elif from_ < to:
-        condition = lambda s: rep_array[s.start] < rep_array[s.stop-1]
+        condition = lambda s: rep_array[s.start] < rep_array[(s.start+s.stop)/2] < rep_array[s.stop-1]
     else:
         raise ValueError('From and to values should not be equal.')
     filtered_slices = filter(condition, slices)

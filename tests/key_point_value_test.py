@@ -50,6 +50,7 @@ from analysis_engine.key_point_values import (
     EngN1TakeoffMax,
     ##EngN2Max,
     EngOilTempMax,
+    EngOilTemp15MinuteMax,
     EngVibN1Max,
     EngVibN2Max,
     HeadingAtTakeoff,
@@ -759,6 +760,20 @@ class TestEngOilTempMax(unittest.TestCase):
         self.assertEqual(eng_oil_temp_max,
                          [KeyPointValue(index=index, value=value,
                                         name=eng_oil_temp_max.name)])
+
+
+class TestEngOilTemp15MinuteMax(unittest.TestCase):
+    def test_can_operate(self):
+        self.assertEqual(EngOilTempMax.get_operational_combinations(),
+                         [('Eng (*) Oil Temp Max',)])
+        
+    def test_all_oil_data_masked(self):
+        # This has been a specific problem, hence this test.
+        oil_temp=np.ma.array(data=[123,124,125,126,127], dtype=float,
+                             mask=[1,1,1,1,1])
+        kpv = EngOilTemp15MinuteMax()
+        kpv.derive(P('Eng (*) Oil Temp Max', oil_temp))
+        
 
 
 class TestEngVibN1Max(unittest.TestCase):

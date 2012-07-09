@@ -130,6 +130,14 @@ HEADING_TURN_ONTO_RUNWAY = 15.0 # deg
 # This will usually be overwritten by the peak curvature test.
 HEADING_TURN_OFF_RUNWAY = 15.0 # deg
 
+# Holding pattern criteria.
+# Minimum time is 4 minutes, corresponding to one racetrack pattern.
+HOLDING_MIN_TIME = 4*60 #sec
+# Maximum groundspeed over the period in the hold. This segregates true
+# holds, where the effective speed is of the order of 0-20 knots, from curving
+# departures or approaches.
+HOLDING_MAX_GSPD = 50.0 # kts
+
 # Threshold for flight phase altitude hysteresis.
 HYSTERESIS_FPALT = 200 # ft
 

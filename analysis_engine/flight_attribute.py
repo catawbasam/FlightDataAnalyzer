@@ -150,6 +150,7 @@ class Approaches(FlightAttributeNode):
                     delta = delta-360
                 if delta<-180:
                     delta = delta+360
+                # TODO: Work this code into a form that returns the correct runway.
                 if delta>0:
                     print "Should pick Left runway"
                 else:
@@ -324,8 +325,8 @@ class FlightNumber(FlightAttributeNode):
         # TODO: Fill num.array masked values (as there is no np.ma.bincount) - perhaps with 0.0 and then remove all 0 values?
         # note reverse of value, index from max_value due to bincount usage.
         value, count = max_value(np.bincount(num.array.astype(np.integer)))
-        if count > len(num.array) * 0.5:
-            # this value accounts for at least 60% of the values in the array
+        if count > len(num.array) * 0.45:
+            # this value accounts for at least 45% of the values in the array
             self.set_flight_attr(str(value))
         else:
             self.warning("Only %d out of %d flight numbers were the same."\
