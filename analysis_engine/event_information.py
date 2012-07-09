@@ -10,6 +10,8 @@
 
 import logging
 
+from hdfaccess.file import hdf_file
+
 
 ################################################################################
 # Exports
@@ -29,25 +31,45 @@ logger = logging.getLogger(__name__)
 # Functions
 
 
-def populate_events(hdf_file_path, events_info):
+def populate_events(hdf_path, events_info):
     '''
     '''
-    for id, info in events_info:
+    logger.info('Populating events %r from HDF: %s',
+        sorted(events_info.keys()), hdf_path)
 
-        # 1. Determine duration of the event:
-        info['duration'] = None  # TODO
+    with hdf_file(hdf_path) as hdf:
 
-        # 2. Determine the flight phase in which the event occurred:
-        info['flight_phase'] = None  # TODO
+        def lookup(parameter, offset):
+            '''
+            '''
+            if not parameter in hdf:
+                return None
+            return hdf[parameter].get(offset)
 
-        # 3. Determine the coordinates at which the event occurred:
-        info['latitude'] = None  # TODO
-        info['longitude'] = None  # TODO
+        for id, info in events_info:
 
-        # 4. Record additional information about the event for comments:
-        info['variables'] = {}  # TODO
+            logger.debug('Populating event #%d with extra data...', id)
 
-    return events_info
+            offset = info['segment_offset']
+
+            # 1. Determine duration of the event:
+            info['duration'] = None  # TODO
+
+            # 2. Determine the flight phase in which the event occurred:
+            info['flight_phase'] = None  # TODO: Determine how this works!
+
+            # 3. Determine the coordinates at which the event occurred:
+            latitude = lookup('Latitude Smoothed', offset)
+            longitude = lookup('Longitude Smoothed', offset)
+            if latitude and longitude:
+                info['coordinates'] = (latitude, longitude)
+            else:
+                info['coordinates'] = None
+
+            # 4. Record additional information about the event for comments:
+            info['variables'] = {}  # TODO
+
+        return events_info
 
 
 ################################################################################
