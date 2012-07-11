@@ -655,7 +655,7 @@ def clip(array, period, hz=1.0, remove='peaks'):
     # Preparation of convenient numbers and data to process
     width = len(array) - 2*delay
     source = repair_mask(array, frequency=hz, repair_duration=period-(1/hz))
-    if np.ma.count(source):
+    if source != None and np.ma.count(source): # Because np.ma.count(source)=1 if source = None
         result = np.ma.copy(source)
     
         for step in range(2*delay+1):

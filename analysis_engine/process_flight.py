@@ -2,10 +2,11 @@ import logging
 
 from datetime import datetime, timedelta
 from inspect import isclass
-
+import numpy as np
 from analysis_engine import hooks
 from analysis_engine import settings
 from analysis_engine.dependency_graph import dependency_order
+from analysis_engine.library import np_ma_masked_zeros_like
 from analysis_engine.node import (Attribute, derived_param_from_hdf,
                                   DerivedParameterNode,
                                   FlightAttributeNode,
@@ -146,7 +147,11 @@ def derive_parameters(hdf, node_mgr, process_order):
                 # parameters then we will have an array length of 1412.
                 expected_length = hdf.duration * result.frequency
                 if result.array == None:
-                    array_length = 0
+                    array_length = expected_length
+                    logger.warning("Parameter '%s' wholly masked. HDF file filled with masked zeros",
+                                    param_name)
+                    result.array = np_ma_masked_zeros_like(np.ma.arange(expected_length))
+                    
                 else:
                     array_length = len(result.array)
                 length_diff = array_length - expected_length
