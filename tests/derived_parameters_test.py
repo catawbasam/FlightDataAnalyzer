@@ -11,6 +11,7 @@ from analysis_engine.node import Attribute, A, KeyTimeInstance, KTI, Parameter, 
 from analysis_engine.flight_phase import Fast
 from analysis_engine.library import np_ma_masked_zeros_like
 from flight_phase_test import buildsection, buildsections
+from analysis_engine.plot_flight import plot_parameter
 
 from analysis_engine.derived_parameters import (
     AccelerationVertical,
@@ -373,37 +374,6 @@ class TestAltitudeAAL(unittest.TestCase):
         self.assertTrue(('Altitude STD','Fast') in opts)
         self.assertTrue(('Altitude STD','Altitude Radio','Fast') in opts)
         
-    """
-    def test_derive(self):
-        test_data_dir = os.path.join('test_data', 'Altitude AAL')
-        
-        alt_std_array = np.ma.array(np.load(os.path.join(test_data_dir, 'alt_std_data.npy')),
-                                    mask=np.load(os.path.join(test_data_dir, 'alt_std_mask.npy')))
-        alt_rad_array = np.ma.array(np.load(os.path.join(test_data_dir, 'alt_rad_data.npy')),
-                                    mask=np.load(os.path.join(test_data_dir, 'alt_rad_mask.npy')))
-        airspeed_array = np.ma.array(np.load(os.path.join(test_data_dir, 'airspeed_data.npy')),
-                                     mask=np.load(os.path.join(test_data_dir, 'airspeed_mask.npy')))
-        roc_array = np.ma.array(np.load(os.path.join(test_data_dir, 'roc_data.npy')),
-                                mask=np.load(os.path.join(test_data_dir, 'roc_mask.npy')))
-        alt_std = P(array=alt_std_array)
-        alt_rad = P(array=alt_rad_array)
-        airspeed = P(array=airspeed_array)
-        roc = P(array=roc_array)
-                                
-        liftoffs = KTI('Liftoff', items=[KeyTimeInstance(index=2375.2635769148078, name='Liftoff')])
-        touchdowns = KTI('Touchdown', items=[KeyTimeInstance(index=2064.1310460955269, name='Touchdown')])
-        takeoffs = S('Takeoff', items=[Section(name='Takeoff', slice=slice(267.97237318840581, 300.31930865921788, None))])
-        landings = S('Landing', items=[Section(name='Landing', slice=slice(2060.3218750000001, 2103.2818130630631, None))])
-        
-        alt_aal = AltitudeAAL()
-        alt_aal.derive(liftoffs, touchdowns, takeoffs, landings,
-                       roc, alt_std, alt_rad, airspeed)
-        
-        expected_result = np.ma.array(np.load(os.path.join(test_data_dir, 'alt_aal_data.npy')),
-                                      mask=np.load(os.path.join(test_data_dir, 'alt_aal_mask.npy'))) 
-        ma_test.assert_array_equal(alt_aal.array, expected_result)
-    """
-    
     def test_alt_AAL_basic(self):
         data = np.ma.array([-3,0,30,80,150,260,120,70,20,-5])
         alt_std = P(array=data+300)
@@ -439,6 +409,21 @@ class TestAltitudeAAL(unittest.TestCase):
         expected = np.ma.array([0,0,30,80,150,210,50,0,0,0])
         np.testing.assert_array_equal(expected, alt_aal.array.data)
     
+    def test_alt_aal_complex(self):
+        testwave = np.ma.cos(np.arange(0,3.14*2*5,0.1))*(-3000)+\
+            np.ma.cos(np.arange(0,3.14*2,0.02))*(-5000)+7996
+        plot_parameter (testwave)
+        rad_wave = np.copy(testwave)
+        rad_wave[110:140] -= 8765 # The ground is 8,765 ft high at this point.
+        rad_data = np.ma.masked_greater(rad_wave, 2600)
+        plot_parameter (rad_data)
+        phase_fast = buildsection('Fast',0,len(testwave))
+        alt_aal = AltitudeAAL()
+        alt_aal.derive(P('Altitude STD', testwave),
+                       P('Altitude Radio', rad_data), phase_fast)
+        plot_parameter (alt_aal.array)
+        
+        np.testing.assert_equal(alt_aal.array[0], 0.0)
     
 class TestAltitudeAALForFlightPhases(unittest.TestCase):
     def test_can_operate(self):

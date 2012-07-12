@@ -57,7 +57,7 @@ class AnalysisEngineAPI(object):
         :type latitude: float
         :param longitude: Longitude in decimal degrees.
         :type longitude: float
-        :param ilsfreq: ILS frequency of runway # Q: Glideslope or Localizer frequency?
+        :param ilsfreq: ILS localizer frequency of runway
         :type ilsfreq: float # Q: could/should it be int?
         :raises NotFoundError: If runway cannot be found.
         :raises InvalidAPIInputError: If latitude, longitude or heading are out of bounds.

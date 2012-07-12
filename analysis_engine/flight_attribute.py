@@ -426,6 +426,13 @@ class LandingRunway(FlightAttributeNode):
             runway_info = api_handler.get_nearest_runway(airport_id, heading,
                                                          **kwargs)
             if len(runway_info['items']) > 1:
+                if kwargs.has_key('ilsfreq'):
+                    # This is a trap for airports where the ILS data is not
+                    # available, but the aircraft approached with the ILS
+                    # tuned. A good prompt for an omission in the database.
+                    self.warning("Runway not identified for airport x")
+                                 # id '%d'.",
+                                 #"ILS was tuned to '%s'." %airport_id, %kwargs['ilsfreq']) 
                 runway = {'identifier': runway_info['ident']}
             else:
                 runway = runway_info['items'][0]            

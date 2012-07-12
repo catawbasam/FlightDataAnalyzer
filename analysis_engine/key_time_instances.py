@@ -323,7 +323,8 @@ class TakeoffPeakAcceleration(KeyTimeInstanceNode):
                accel=P('Acceleration Longitudinal')):
         for toff in toffs:
             index, value = max_value(accel.array, _slice=toff.slice)
-            self.create_kti(index)
+            if index: # In case all the Ay data is invalid.
+                self.create_kti(index)
 
 
 class Liftoff(KeyTimeInstanceNode):
