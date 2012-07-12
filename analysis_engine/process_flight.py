@@ -3,9 +3,8 @@ import logging
 from datetime import datetime, timedelta
 from inspect import isclass
 
-from analysis_engine import hooks
-from analysis_engine import settings
-from analysis_engine.dependency_graph import dependency_order
+from analysis_engine import hooks, settings, __version__
+from analysis_engine.dependency_graph import dependency_order, graph_adjacencies
 from analysis_engine.node import (Attribute, derived_param_from_hdf,
                                   DerivedParameterNode,
                                   FlightAttributeNode,
@@ -295,6 +294,10 @@ def process_flight(hdf_path, aircraft_info, start_datetime=datetime.now(),
 
         # timestamp KPVs
         kpv_list = _timestamp(start_datetime, kpv_list)
+        
+        # Store version of FlightDataAnalyser and dependency tree in HDF file.
+        hdf.version = __version__
+        hdf.dependency_tree = graph_adjacencies(gr_st)
         
     ##if draw:
         ### only import if required

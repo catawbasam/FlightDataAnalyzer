@@ -110,6 +110,7 @@ def _get_normalised_split_params(hdf):
     split_params_min = np.ma.min(normalised_params, axis=0)
     return split_params_min, first_split_param.frequency
 
+
 def _rate_of_turn(heading):
     '''
     Create rate of turn from heading.
@@ -326,7 +327,6 @@ def _calculate_start_datetime(hdf, fallback_dt=None):
     #TODO: Support limited time ranges - i.e. not in future and only up to 5 years in the past?
     ##if (datetime.now() - timedelta(years=5)).year > dt_arrays[0].average() > datetime.now().year:
         ##raise issue!
-        
         
     length = max([len(array) for array in dt_arrays])
     if length > 1:
