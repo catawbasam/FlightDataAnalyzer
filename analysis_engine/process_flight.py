@@ -272,7 +272,7 @@ def process_flight(hdf_path, aircraft_info, start_datetime=datetime.now(),
                                derived_nodes, aircraft_info,
                                achieved_flight_record)
         # calculate dependency tree
-        process_order, gr_st = dependency_order(node_mgr, draw=draw) 
+        process_order, gr_st = dependency_order(node_mgr, draw=draw)
         if settings.CACHE_PARAMETER_MIN_USAGE:
             # find params used more than
             for node in gr_st.nodes():
