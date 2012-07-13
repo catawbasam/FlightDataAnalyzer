@@ -2,10 +2,10 @@ import logging
 
 from datetime import datetime, timedelta
 from inspect import isclass
+
 import numpy as np
-from analysis_engine import hooks
-from analysis_engine import settings
-from analysis_engine.dependency_graph import dependency_order
+from analysis_engine import hooks, settings, __version__
+from analysis_engine.dependency_graph import dependency_order, graph_adjacencies
 from analysis_engine.library import np_ma_masked_zeros_like
 from analysis_engine.node import (Attribute, derived_param_from_hdf,
                                   DerivedParameterNode,
@@ -271,7 +271,7 @@ def process_flight(hdf_path, aircraft_info, start_datetime=datetime.now(),
                                derived_nodes, aircraft_info,
                                achieved_flight_record)
         # calculate dependency tree
-        process_order, gr_st = dependency_order(node_mgr, draw=draw) 
+        process_order, gr_st = dependency_order(node_mgr, draw=draw)
         if settings.CACHE_PARAMETER_MIN_USAGE:
             # find params used more than
             for node in gr_st.nodes():
@@ -299,6 +299,10 @@ def process_flight(hdf_path, aircraft_info, start_datetime=datetime.now(),
 
         # timestamp KPVs
         kpv_list = _timestamp(start_datetime, kpv_list)
+        
+        # Store version of FlightDataAnalyser and dependency tree in HDF file.
+        hdf.version = __version__
+        hdf.dependency_tree = graph_adjacencies(gr_st)
         
     ##if draw:
         ### only import if required
