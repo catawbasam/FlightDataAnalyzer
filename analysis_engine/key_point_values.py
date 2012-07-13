@@ -90,12 +90,12 @@ class DecelerationLongitudinalPeakLanding(KeyPointValueNode):
         self.create_kpvs_within_slices(accel.array, landing, min_value)
 
         
-class AccelerationNormal20FtToGroundMax(KeyPointValueNode):
-    name = 'Acceleration Normal 20 Ft To Ground Max' # not required?
+class AccelerationNormal20FtToFlareMax(KeyPointValueNode):
+    #name = 'Acceleration Normal 20 Ft To Flare Max' # not required?
     def derive(self, acceleration_normal=P('Acceleration Normal'),
                alt_aal=P('Altitude AAL For Flight Phases')):
         self.create_kpvs_within_slices(acceleration_normal.array,
-                                       alt_aal.slices_from_to(20, 0),
+                                       alt_aal.slices_from_to(20, 5),
                                        max_value)
 
 
@@ -140,8 +140,9 @@ class AccelerationNormalAirborneFlapsDownMin(KeyPointValueNode):
 
 def bump(acc, phase):
     # Scan the acceleration array for a short period either side of the
-    # moment of interest.
-    dt=2.0 # Half width of range to scan across for peak acceleration.
+    # moment of interest. Too wide and we risk monitoring flares and
+    # post-liftoff motion. Too short and we may miss a local peak.
+    dt=1.0 # Half width of range to scan across for peak acceleration.
     from_index = max(int(phase.index-dt*acc.hz), 0)
     to_index = min(int(phase.index+dt*acc.hz)+1, len(acc.array))
     bump_accel = acc.array[from_index:to_index]

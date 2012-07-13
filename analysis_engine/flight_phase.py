@@ -577,7 +577,7 @@ class InitialApproach(FlightPhaseNode):
                                                    """
 
 class LevelFlight(FlightPhaseNode):
-    def derive(self, roc=P('Rate Of Climb For Flight Phases'),airs=S('Airborne')):
+    def derive(self, airs=S('Airborne'), roc=P('Rate Of Climb For Flight Phases')):
         # Rate of climb limit set to identify both level flight and 
         # end of takeoff / start of landing.
         for air in airs:

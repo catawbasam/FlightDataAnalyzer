@@ -146,7 +146,9 @@ HYSTERESIS_FPIAS = 5 #kts
 
 # Threshold for flight phase altitude hysteresis specifically for separating 
 # Climb Cruise Descent phases.
-HYSTERESIS_FPALT_CCD = 2500 # ft
+HYSTERESIS_FPALT_CCD = 500 # ft
+# Note: Original value was 2,500ft, based upon normal operations, but
+# circuits flown below 2,000ft agl were being processed incorrectly.
 
 # Threshold for radio altimeter hysteresis 
 # (used for flight phase calculations only)
