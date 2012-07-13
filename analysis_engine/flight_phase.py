@@ -103,25 +103,26 @@ class Holding(FlightPhaseNode):
     def derive(self, alt_aal=P('Altitude AAL For Flight Phases'),
                hdg=P('Heading Increasing'), 
                lat=P('Latitude Smoothed'), lon=P('Longitude Smoothed')):
-        turn_rate = rate_of_change(hdg, 3*60) # Three minutes should include two turn segments.
         _, height_bands = slices_between(alt_aal.array, 20000, 5000)
-        # We know turn rate will be positive because Heading Increasing only increases.
-        turn_bands = np.ma.clump_unmasked(np.ma.masked_less(turn_rate, 0.5))
-        hold_bands=[]
-        for turn_band in turn_bands:
-            # Reject short periods and check that the average groundspeed was
-            # low. The index is reduced by one sample to avoid overruns, and
-            # this is fine because we are not looking for great precision in
-            # this test.
-            hold_sec = turn_band.stop - turn_band.start
-            if (hold_sec > HOLDING_MIN_TIME*alt_aal.frequency):
-                _, hold_dist = bearing_and_distance(
-                    lat.array[turn_band.start], lon.array[turn_band.start],
-                    lat.array[turn_band.stop-1], lon.array[turn_band.stop-1])
-                if hold_dist/KTS_TO_MPS/hold_sec < HOLDING_MAX_GSPD:
-                    hold_bands.append(turn_band)
-        holding = slices_and(hold_bands, height_bands)
-        self.create_phases(holding)
+        turn_rate = rate_of_change(hdg, 3*60) # Three minutes should include two turn segments.
+        for height_band in height_bands:
+            # We know turn rate will be positive because Heading Increasing only increases.
+            turn_bands = np.ma.clump_unmasked(np.ma.masked_less(turn_rate[height_band], 0.5))
+            hold_bands=[]
+            for turn_band in shift_slices(turn_bands, height_band.start):
+                # Reject short periods and check that the average groundspeed was
+                # low. The index is reduced by one sample to avoid overruns, and
+                # this is fine because we are not looking for great precision in
+                # this test.
+                hold_sec = turn_band.stop - turn_band.start
+                if (hold_sec > HOLDING_MIN_TIME*alt_aal.frequency):
+                    _, hold_dist = bearing_and_distance(
+                        lat.array[turn_band.start], lon.array[turn_band.start],
+                        lat.array[turn_band.stop-1], lon.array[turn_band.stop-1])
+                    if hold_dist/KTS_TO_MPS/hold_sec < HOLDING_MAX_GSPD:
+                        hold_bands.append(turn_band)
+
+            self.create_phases(hold_bands)
     
     
 class Approach(FlightPhaseNode):
@@ -300,10 +301,12 @@ class DescentLowClimb(FlightPhaseNode):
             dlc_list = shift_slices(np.ma.clump_unmasked(dlc), speedy.slice.start)
 
             for this_dlc in dlc_list:
-                down = np.ma.min(descend.array[this_dlc])
-                up = np.ma.max(climb.array[this_dlc])
+                down_idx = np.ma.argmin(descend.array[this_dlc])
+                down = descend.array[this_dlc][down_idx]
+                up_idx = np.ma.argmax(climb.array[this_dlc])
+                up = climb.array[this_dlc][up_idx]
                 # OK, we want a descent of more than 500ft followed by a climb of more than 500ft.
-                if down < -500 and up > +500:
+                if down < -500 and up > +500 and up_idx > down_idx:
                     my_list.append(this_dlc)
             self.create_phases(my_list)
 
@@ -402,6 +405,9 @@ def scan_ils(beam, ils_dots, height, scan_slice):
     '''
     beam = 'localizer' or 'glideslope'
     '''
+    if beam not in ['localizer', 'glideslope']:
+        raise ValueError,'Unrecognised beam type in scan_ils'
+    
     # Let's check to see if we have anything to work with...
     if np.ma.count(ils_dots[scan_slice])<5:
         return None
@@ -431,18 +437,21 @@ def scan_ils(beam, ils_dots, height, scan_slice):
                 ils_capture_idx = dots_25
     
     if beam == 'localizer':
-        #ils_end_idx = index_at_value(np.ma.abs(ils_dots), 2.5, slice(idx_200, scan_slice.stop))
         ils_end_idx = index_at_value(np.ma.abs(ils_dots), 2.5, slice(idx_200, None))
         if ils_end_idx == None:
-            # Did we end with the ILS captured?
-            if np.ma.abs(ils_dots[scan_slice.stop-1]) < 1.0:
-                ils_end_idx = scan_slice.stop
+            # Can either never have captured, or data can end at less than 2.5 dots.
+            countback_idx, last_loc = first_valid_sample(ils_dots[::-1])
+            if abs(last_loc) < 2.5:
+                ils_end_idx = len(ils_dots) - countback_idx -1
     elif beam == 'glideslope':
         ils_end_idx = idx_200
     else:
         raise ValueError,'Unrecognised beam type in scan_ils'
 
-    return slice(ils_capture_idx, ils_end_idx)
+    if ils_capture_idx and ils_end_idx:
+        return slice(ils_capture_idx, ils_end_idx)
+    else:
+        return None
 
 
 class ILSLocalizerEstablished(FlightPhaseNode):

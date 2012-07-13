@@ -305,10 +305,11 @@ class AltitudeAAL(DerivedParameterNode):
     def can_operate(cls, available):
         return all([d in available for d in ('Altitude STD', 'Fast')])
     
-    def compute_aal(self, mode, alt_std, alt_rad, low_hb, high_gnd):
+    def compute_aal(self, mode, alt_std, low_hb, high_gnd, *args):
         alt_result = np_ma_zeros_like(alt_std)
-                                      
-        if alt_rad != None:
+
+        if len(args) == 1:
+            alt_rad = args[0]
             alt_rad_aal = np.ma.maximum(alt_rad, 0.0)
             if mode == 'land':
                 ralt_sections = np.ma.clump_unmasked(
@@ -332,60 +333,30 @@ class AltitudeAAL(DerivedParameterNode):
                                 alt_result[fix_slice] = alt_rad[fix_slice]
                                 begin_index += slip
                             alt_result[begin_index:] = alt_std[begin_index:] - up_diff
-                                
             else:
-                alt_result = alt_std - low_hb + high_gnd
-            ##else:
-                ##ralt_sections = None
-                        
-            
-            ##for baro_section in baro_sections:
-                ##begin_index = baro_section.start
-                ##end_index = baro_section.stop
-                
-                ##alt_diff = alt_std-alt_rad
-                ##for ralt_section in ralt_sections:
-                    ##if ralt_section.stop == baro_section.start:
-                        ##slip, up_diff =  first_valid_sample(alt_diff[begin_index:begin_index+60])
-                        ##if slip>0:
-                            ### alt_std is invalid at the point of handover so stretch the radio signal until we can handover.
-                            ##fix_slice = slice(begin_index,begin_index+slip) 
-                            ##alt_result[fix_slice] = alt_rad[fix_slice]
-                            ##begin_index += slip
-                    ##elif ralt_section.start == baro_section.stop:
-                        ### See how far back we can scan
-                        ##back=min(60,end_index)
-                        ##slip, dn_diff = last_valid_sample(alt_diff[end_index-back:end_index])
-                        ##slip = slip-back
-                        ##if slip>0:
-                            ##end_index += slip
-                            ##fix_slice = slice(ralt_section.start+slip,ralt_section.start) 
-                            ##alt_result[fix_slice] = alt_rad[fix_slice]
-                        
-                ##if up_diff == None and dn_diff == None:
-                    ### Neither edge was found. Did we get measurably close the ground at some point?
-                    ##low_index = np.ma.argmin(alt_rad[begin_index:end_index])
-                    ##if low_index:
-                        ### We did, so use that as a datum
-                        ##mid_diff = alt_diff[low_index]
-                        ##alt_result[begin_index:end_index] = alt_std[begin_index:end_index] -alt_std[low_index] + mid_diff
-                    ##else:
+                alt_result = alt_std - high_gnd
 
             return alt_result
 
-        ##else:
-            ##pit = np.ma.min(alt_std)
-            ##alt_result = alt_std - pit
+        else:
+            pit = np.ma.min(alt_std)
+            alt_result = alt_std - pit
             
-            ### This backstop trap for negative values is necessary as aircraft without rad alts will indicate negative altitudes as they land. 
-            ##return alt_result
+            # This backstop trap for negative values is necessary as aircraft
+            # without rad alts will indicate negative altitudes as they land.
+            return np.ma.maximum(alt_result, 0.0)
         
         
         
-    def derive(self, alt_std = P('Altitude STD'),
-               alt_rad = P('Altitude Radio'),
+    def derive(self, alt_rad = P('Altitude Radio'),
+               alt_std = P('Altitude STD'),
                speedies = S('Fast')):
        
+        # Altitude Radio is taken as the prime reference to ensure the
+        # minimum ground clearance passing peaks is accurately reflected.
+        # (Comment: This may give a problem with aircraft that do not have a
+        # radio altimeter; not yet tested).
+        
         # alt_aal will be zero on the airfield, so initialise to zero.
         alt_aal = np_ma_zeros_like(alt_std.array)
   
@@ -404,10 +375,22 @@ class AltitudeAAL(DerivedParameterNode):
             n=0
             dips=[]
             # List of lists, with each sublist containing:
-            # Type of item 'land' or 'air'
-            # slice of the data, in land, with the land section at the beginning of the slice
-            # The pressure altitude of the highest ground (if an air section) or the pressure altitude of the ground (if a land section)
-            # The pressure altitude of the lowest point of the data
+            
+            # Type of item 'land' or 'over_gnd' or 'high'
+            
+            # The slice for this part of the data
+            # if 'land' the land section comes at the beginning of the slice (i.e. takeoff slices are normal, landing slices are reversed)
+            # 'over_gnd' or 'air' are normal slices.
+
+            # Altitude STD as:
+            # 'land' = the pressure altitude on the ground
+            # 'over_gnd' = the pressure altitude when flying closest to the ground
+            # 'air' = the lowest pressure altitude in this slice
+
+            # The height of the highest ground in this area
+            # 'land' = the pressure altitude on the ground
+            # 'over_gnd' = the pressure altitude minus the radio altitude when flying closest to the ground
+            # 'air' = None (the aircraft was too high for the radio altimeter to register valid data
             
             n_vals = len(alt_vals)
             while n < n_vals-1:
@@ -418,16 +401,22 @@ class AltitudeAAL(DerivedParameterNode):
                 else:
                     if n+2 < n_vals:
                         if alt_vals[n+2] > alt_vals[n+1]:
-                            # A down and up section
-                            down_up = slice(alt_idxs[n],alt_idxs[n+2])
-                            hg_max = np.ma.max(alt_std.array[down_up] - alt_rad.array[down_up])
+                            # A down and up section.
+                            down_up = slice(alt_idxs[n], alt_idxs[n+2])
+                            # Let's find the lowest rad alt reading 
+                            #(this may not be exactly the highest ground, but 
+                            # it was probably the point of highest concern!)
+                            arg_hg_max = np.ma.argmin(alt_rad.array[down_up]) + alt_idxs[n]
+                            hg_max = alt_std.array[arg_hg_max] - alt_rad.array[arg_hg_max]
                             if np.ma.count(hg_max):
-                                dips.append(['over_gnd', down_up, alt_vals[n+1], hg_max])
+                                # The rad alt measured height above a peak...
+                                dips.append(['over_gnd', down_up, alt_std.array[arg_hg_max], hg_max])
                             else:
+                                # We have no rad alt data
                                 if dips[-1][0]=='high':
                                     # Join this dip onto the previous one
                                     dips[-1][1] = slice(dips[-1][1].start, alt_idxs[n+2]),
-                                    dips[-1][3] = min(dips[-1][3],alt_vals[n+1])
+                                    dips[-1][2] = min(dips[-1][2],alt_vals[n+1])
                                 else:
                                     dips.append(['high', down_up, alt_vals[n+1], None])
                             n = n+2
@@ -437,6 +426,8 @@ class AltitudeAAL(DerivedParameterNode):
                         # Just a falling section. Slice it backwards to use the same code as for takeoffs.
                         dips.append(['land', slice(alt_idxs[n+1]-1,alt_idxs[n]-1, -1), alt_vals[n+1], alt_vals[n+1]])
                         n = n+1
+
+
             for n, item in enumerate(dips):
                 if item[0] == 'high':
                     if n == 0:
@@ -450,20 +441,19 @@ class AltitudeAAL(DerivedParameterNode):
                         # Here is the most commonly used, and somewhat
                         # arbitrary code. For a dip where no radio
                         # measurement of the ground is available, what height
-                        # can you use as the datum? The highest ground
+                        # can you use as the datum? The lowest ground
                         # elevation in the preceding and following sections
                         # is practical, a little optimistic perhaps, but
                         # useable until we find a case otherwise.
-                        dips[n][3] = max(dips[n-1][3], dips[n+1][3])
+                        dips[n][3] = min(dips[n-1][3], dips[n+1][3])
 
             for dip in dips:
                 if alt_rad:
                     alt_aal[dip[1]] = self.compute_aal(dip[0],alt_std.array[dip[1]], 
-                                                       alt_rad.array[dip[1]], 
-                                                       dip[2], dip[3])
+                                                       dip[2], dip[3], alt_rad.array[dip[1]], )
                 else:
                     alt_aal[dip[1]] = self.compute_aal(dip[0],alt_std.array[dip[1]],
-                                                       None, dip[2], dip[3])
+                                                       dip[2], dip[3])
             
         self.array = alt_aal
 
@@ -2239,13 +2229,17 @@ class CoordinatesSmoothed(object):
                         latitudes_and_longitudes(bearings, distances, localizer_on_cl)
                     
                     # Alignment of the ILS Range causes corrupt first samples.
-                    # TODO: Fix this by propogating the ILS Range mask correctly.
                     lat_adj[this_loc.slice.start] = np.ma.masked
                     lon_adj[this_loc.slice.start] = np.ma.masked
                     
                     # Finally, tack the ground track onto the end of the landing run
                     if approach['type'] == 'LANDING':
-                        join_idx = (this_loc.slice.stop or 0) - 1
+                        # In some cases the bearings and distances computed
+                        # from ILS data may be masked at the end of the
+                        # approach, so we scan back to connect the ground
+                        # track onto the end of the valid data.
+                        index, _ = first_valid_sample(lat_adj[slice(this_loc.slice.stop,this_loc.slice.start,-1)])
+                        join_idx = (this_loc.slice.stop or 0) - index
                         [lat_adj[join_idx:], lon_adj[join_idx:]] = \
                             ground_track(lat_adj.data[join_idx], lon_adj.data[join_idx],
                                          speed[join_idx:], hdg.array[join_idx:], 

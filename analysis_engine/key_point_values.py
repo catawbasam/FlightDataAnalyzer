@@ -2467,53 +2467,53 @@ class Tailwind100FtToTouchdownMax(KeyPointValueNode):
 
 class TAWSAlert(KeyPointValueNode):
     name = 'TAWS Alert'
-    def derive(self, taws_alert=P('TAWS Alert')):
-        self.create_kpvs_from_discretes(taws_alert.array, taws_alert.hz, min_duration=2)
+    def derive(self, taws_alert=P('TAWS Alert'), airborne=S('Airborne')):
+        self.create_kpvs_from_discretes(taws_alert.array, taws_alert.hz, phase=airborne, min_duration=2)
 
 class TAWSSinkRateWarning(KeyPointValueNode):
     name = 'TAWS Sink Rate Warning'
-    def derive(self, taws_sink_rate=P('TAWS Sink Rate')):
-        self.create_kpvs_from_discretes(taws_sink_rate.array, taws_sink_rate.hz, min_duration=2)
+    def derive(self, taws_sink_rate=P('TAWS Sink Rate'), airborne=S('Airborne')):
+        self.create_kpvs_from_discretes(taws_sink_rate.array, taws_sink_rate.hz, phase=airborne, min_duration=2)
 
 class TAWSTooLowFlapWarning(KeyPointValueNode):
     name = 'TAWS Too Low Flap Warning'
-    def derive(self, taws_too_low_flap=P('TAWS Terrain')):
-        self.create_kpvs_from_discretes(taws_too_low_flap.array, taws_too_low_flap.hz, min_duration=2)
+    def derive(self, taws_too_low_flap=P('TAWS Terrain'), airborne=S('Airborne')):
+        self.create_kpvs_from_discretes(taws_too_low_flap.array, taws_too_low_flap.hz, phase=airborne, min_duration=2)
 
 class TAWSTerrainWarning(KeyPointValueNode):
     name = 'TAWS Terrain Warning'
-    def derive(self, taws_terrain=P('TAWS Terrain Ahead')):
-        self.create_kpvs_from_discretes(taws_terrain.array, taws_terrain.hz, min_duration=2)
+    def derive(self, taws_terrain=P('TAWS Terrain Ahead'), airborne=S('Airborne')):
+        self.create_kpvs_from_discretes(taws_terrain.array, taws_terrain.hz, phase=airborne, min_duration=2)
 
 class TAWSTerrainPullUpWarning(KeyPointValueNode):
     name = 'TAWS Terrain Pull Up Warning'
-    def derive(self, taws_terrain_pull_up=P('TAWS Terrain Ahead Pull Up')):
-        self.create_kpvs_from_discretes(taws_terrain_pull_up.array, taws_terrain_pull_up.hz, min_duration=2)
+    def derive(self, taws_terrain_pull_up=P('TAWS Terrain Ahead Pull Up'), airborne=S('Airborne')):
+        self.create_kpvs_from_discretes(taws_terrain_pull_up.array, taws_terrain_pull_up.hz, phase=airborne, min_duration=2)
 
 class TAWSGlideslopeWarning(KeyPointValueNode):
     name = 'TAWS Glideslope Warning'
-    def derive(self, taws_glideslope=P('TAWS Glideslope')):
-        self.create_kpvs_from_discretes(taws_glideslope.array, taws_glideslope.hz, min_duration=2)
+    def derive(self, taws_glideslope=P('TAWS Glideslope'), airborne=S('Airborne')):
+        self.create_kpvs_from_discretes(taws_glideslope.array, taws_glideslope.hz, phase=airborne, min_duration=2)
 
 class TAWSTooLowTerrainWarning(KeyPointValueNode):
     name = 'TAWS Too Low Terrain Warning'
-    def derive(self, taws_too_low_terrain=P('TAWS Too Low Terrain')):
-        self.create_kpvs_from_discretes(taws_too_low_terrain.array, taws_too_low_terrain.hz, min_duration=2)
+    def derive(self, taws_too_low_terrain=P('TAWS Too Low Terrain'), airborne=S('Airborne')):
+        self.create_kpvs_from_discretes(taws_too_low_terrain.array, taws_too_low_terrain.hz, phase=airborne, min_duration=2)
 
 class TAWSTooLowGearWarning(KeyPointValueNode):
     name = 'TAWS Too Low Gear Warning'
-    def derive(self, taws_too_low_gear=P('TAWS Too Low Gear')):
-        self.create_kpvs_from_discretes(taws_too_low_gear.array, taws_too_low_gear.hz, min_duration=2)
+    def derive(self, taws_too_low_gear=P('TAWS Too Low Gear'), airborne=S('Airborne')):
+        self.create_kpvs_from_discretes(taws_too_low_gear.array, taws_too_low_gear.hz, phase=airborne, min_duration=2)
 
 class TAWSPullUpWarning(KeyPointValueNode):
     name='TAWS Pull Up Warning'
-    def derive(self, taws_pull_up=P('TAWS Pull Up')):
-        self.create_kpvs_from_discretes(taws_pull_up.array, taws_pull_up.hz, min_duration=2)
+    def derive(self, taws_pull_up=P('TAWS Pull Up'), airborne=S('Airborne')):
+        self.create_kpvs_from_discretes(taws_pull_up.array, taws_pull_up.hz, phase=airborne, min_duration=2)
 
 class TAWSDontSinkWarning(KeyPointValueNode):
     name='TAWS Dont Sink Warning'
-    def derive(self, taws_dont_sink=P('TAWS Dont Sink')):
-        self.create_kpvs_from_discretes(taws_dont_sink.array, taws_dont_sink.hz, min_duration=2)
+    def derive(self, taws_dont_sink=P('TAWS Dont Sink'), airborne=S('Airborne')):
+        self.create_kpvs_from_discretes(taws_dont_sink.array, taws_dont_sink.hz, phase=airborne, min_duration=2)
 
 class TAWSWindshearWarningBelow1500Ft(KeyPointValueNode):
     name='TAWS Windshear Warning Below 1500 Ft'

@@ -1079,6 +1079,7 @@ class KeyPointValueNode(FormattedNameNode):
         name = self.format_name(replace_values, **kwargs)
         kpv = KeyPointValue(index, float(value), name)
         self.append(kpv)
+        self.debug("KPV %s" %kpv)
         return kpv
     
     def get_aligned(self, param):

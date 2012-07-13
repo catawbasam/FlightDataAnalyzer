@@ -13,7 +13,7 @@ import utilities.masked_array_testutils as ma_test
 
 from analysis_engine.node import P, S
 from analysis_engine.library import *
-
+from analysis_engine.plot_flight import plot_parameter
 
 test_data_path = os.path.join(os.path.dirname(os.path.abspath(__file__)),
                               'test_data')
@@ -1397,8 +1397,8 @@ class TestILSLocalizerAlign(unittest.TestCase):
                       'start': {'latitude': 60.30662494, 
                                 'longitude': 5.21370074}}
         result = ils_localizer_align(runway)
-        self.assertEqual(result['longitude'],5.222864017688102)
-        self.assertEqual(result['latitude'],60.27930111036241)
+        self.assertEqual(result['longitude'],5.2229505710057404)
+        self.assertEqual(result['latitude'],60.27904301842346)
         
 
 class TestIntegrate (unittest.TestCase):
@@ -2060,6 +2060,16 @@ class TestRepairMask(unittest.TestCase):
         res = repair_mask(array)
         ma_test.assert_masked_array_approx_equal(res, array)
 
+    def test_repair_short_sample(self):
+        # Very short samples were at one time returned as None, but simply
+        # applying the normal "rules" seems more consistent, so this is a
+        # test to show that an old function no longer applies.
+        array = np.ma.arange(2)
+        array[1] = np.ma.masked
+        res = repair_mask(array)
+        ma_test.assert_masked_array_approx_equal(res, array)
+
+
 class TestRoundToNearest(unittest.TestCase):
     def test_round_to_nearest(self):
         array = np.ma.array(range(50))
@@ -2259,6 +2269,26 @@ class TestSlicesOverlap(unittest.TestCase):
         self.assertTrue(slices_overlap(first, second))
         self.assertTrue(slices_overlap(second, first))
         
+        # None in slices
+        start_none = slice(None, 12)
+        self.assertTrue(slices_overlap(first, start_none))
+        self.assertFalse(slices_overlap(second, start_none))
+        self.assertTrue(slices_overlap(start_none, first))
+        self.assertFalse(slices_overlap(start_none, second))
+        
+        end_none = slice(22,None)
+        self.assertFalse(slices_overlap(first, end_none))
+        self.assertTrue(slices_overlap(second, end_none))
+        self.assertFalse(slices_overlap(end_none, first))
+        self.assertTrue(slices_overlap(end_none, second))
+        
+        both_none = slice(None, None)
+        self.assertTrue(slices_overlap(first, both_none))
+        self.assertTrue(slices_overlap(second, both_none))
+        self.assertTrue(slices_overlap(both_none, first))
+        self.assertTrue(slices_overlap(both_none, second))
+        
+        
         # no overlap
         no_overlap = slice(25,40)
         self.assertFalse(slices_overlap(second, no_overlap))
@@ -2335,8 +2365,8 @@ class TestSlicesNot(unittest.TestCase):
         self.assertEqual(slices_not(slice_list),[slice(13,15)])
         
     def test_slices_not_null(self):
-        self.assertEqual(slices_not(None), None)
-        self.assertEqual(slices_not([]), None)
+        self.assertEqual(slices_not(None), [slice(None,None,None)])
+        self.assertEqual(slices_not([]), [slice(None,None,None)])
         self.assertEqual(slices_not([slice(4,6)]),[])
         
     def test_slices_misordered(self):
@@ -2614,11 +2644,13 @@ class TestTrackLinking(unittest.TestCase):
         local[6:10]=np.ma.masked
         local[13:]=np.ma.masked
         local[8:] -= 2.5
+        # plot_parameter(local)
         result = track_linking(pos,local)
         expected = np.ma.array(data = [3.0,3.0,3.0,3.0,4.0,5.0,5.5,6.0,
                                        6.5,7.0,7.5,8.5,9.5,9.5,9.5,9.5],
                                mask = False)
         np.testing.assert_array_equal(expected,result)
+        # plot_parameter(expected)
         
 class TestValueAtTime(unittest.TestCase):
 

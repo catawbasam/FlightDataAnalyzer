@@ -372,7 +372,7 @@ class TestAltitudeAAL(unittest.TestCase):
     def test_can_operate(self):
         opts = AltitudeAAL.get_operational_combinations()
         self.assertTrue(('Altitude STD','Fast') in opts)
-        self.assertTrue(('Altitude STD','Altitude Radio','Fast') in opts)
+        self.assertTrue(('Altitude Radio','Altitude STD','Fast') in opts)
         
     def test_alt_AAL_basic(self):
         data = np.ma.array([-3,0,30,80,150,260,120,70,20,-5])
@@ -382,7 +382,7 @@ class TestAltitudeAAL(unittest.TestCase):
         phase_fast = Fast()
         phase_fast.derive(Parameter('Airspeed', fast_data))
         alt_aal = AltitudeAAL()
-        alt_aal.derive(alt_std, alt_rad, phase_fast)
+        alt_aal.derive(alt_rad, alt_std, phase_fast)
         expected = np.ma.array([0,0,30,80,150,260,120,70,20,0])
         np.testing.assert_array_equal(expected, alt_aal.array.data)
 
@@ -394,7 +394,7 @@ class TestAltitudeAAL(unittest.TestCase):
         phase_fast = Fast()
         phase_fast.derive(Parameter('Airspeed', fast_data))
         alt_aal = AltitudeAAL()
-        alt_aal.derive(alt_std, alt_rad, phase_fast)
+        alt_aal.derive(alt_rad, alt_std, phase_fast)
         expected = np.ma.array([0,0,30,80,150,260,120,70,20,0,0,0,0,0,0])
         np.testing.assert_array_equal(expected, alt_aal.array.data)
     
@@ -405,25 +405,33 @@ class TestAltitudeAAL(unittest.TestCase):
         phase_fast = Fast()
         phase_fast.derive(Parameter('Airspeed', slow_and_fast_data))
         alt_aal = AltitudeAAL()
-        alt_aal.derive(alt_std, None, phase_fast)
+        alt_aal.derive(None, alt_std, phase_fast)
         expected = np.ma.array([0,0,30,80,150,210,50,0,0,0])
         np.testing.assert_array_equal(expected, alt_aal.array.data)
     
     def test_alt_aal_complex(self):
         testwave = np.ma.cos(np.arange(0,3.14*2*5,0.1))*(-3000)+\
             np.ma.cos(np.arange(0,3.14*2,0.02))*(-5000)+7996
-        plot_parameter (testwave)
+        # plot_parameter (testwave)
         rad_wave = np.copy(testwave)
         rad_wave[110:140] -= 8765 # The ground is 8,765 ft high at this point.
         rad_data = np.ma.masked_greater(rad_wave, 2600)
-        plot_parameter (rad_data)
+        # plot_parameter (rad_data)
         phase_fast = buildsection('Fast',0,len(testwave))
         alt_aal = AltitudeAAL()
-        alt_aal.derive(P('Altitude STD', testwave),
-                       P('Altitude Radio', rad_data), phase_fast)
-        plot_parameter (alt_aal.array)
+        alt_aal.derive(P('Altitude Radio', rad_data),
+                       P('Altitude STD', testwave),
+                       phase_fast)
+        # plot_parameter (alt_aal.array)
         
         np.testing.assert_equal(alt_aal.array[0], 0.0)
+        np.testing.assert_almost_equal(alt_aal.array[34],7013,decimal=0)
+        np.testing.assert_almost_equal(alt_aal.array[60],3308,decimal=0)
+        np.testing.assert_almost_equal(alt_aal.array[124],217,decimal=0)
+        np.testing.assert_almost_equal(alt_aal.array[191],8965,decimal=0)
+        np.testing.assert_almost_equal(alt_aal.array[254],3288,decimal=0)
+        np.testing.assert_almost_equal(alt_aal.array[313],17,decimal=0)
+        
     
 class TestAltitudeAALForFlightPhases(unittest.TestCase):
     def test_can_operate(self):
