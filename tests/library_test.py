@@ -11,7 +11,8 @@ from datetime import datetime
 # http://www.java2s.com/Open-Source/Python/Math/Numerical-Python/numpy/numpy/ma/testutils.py.htm
 import utilities.masked_array_testutils as ma_test
 
-from analysis_engine.node import P, S
+from analysis_engine.node import (A, KeyPointValue, KeyTimeInstance, KPV, KTI,
+                                  P, S, Section)
 from analysis_engine.library import *
 from analysis_engine.plot_flight import plot_parameter
 
@@ -2002,6 +2003,14 @@ class TestRateOfChange(unittest.TestCase):
                              mask=False)
         ma_test.assert_mask_eqivalent(sloped, answer)
         
+    def test_rate_of_change_reduced_frequency(self):
+        sloped = rate_of_change(P('Test', 
+                                  np.ma.array([1, 0, -1, 2, 1, 3, 4, 6, 5, 7],
+                                              dtype=float), 0.5), 4)
+        answer = np.ma.array(data=[-0.5,-0.5,0.5,0.5,0.25,0.75,0.75,0.25,0.25,1.0],
+                             mask=False)
+        ma_test.assert_mask_eqivalent(sloped, answer)
+        
     def test_rate_of_change_transfer_mask(self):
         sloped = rate_of_change(P('Test', 
                                   np.ma.array(data = [1, 0, -1, 2, 1, 3, 4, 6, 5, 7],dtype=float,
@@ -2416,6 +2425,7 @@ class TestSlicesOr(unittest.TestCase):
  
     def test_slices_or_one_list(self):
         self.assertEqual(slices_or([slice(1,2)]), [slice(1,2)])
+
 
 class TestStepValues(unittest.TestCase):
     def test_step_values(self):

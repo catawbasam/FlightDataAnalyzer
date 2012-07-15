@@ -430,6 +430,25 @@ class DerivedParameterNode(Node):
         :rtype: list of slice'''
         return slices_from_to(self.array, from_, to)[1]
 
+    def slices_to_kti(self, ht, tdwns):
+        '''
+        Provides a slice across a height range ending precisely at the point of
+        touchdown, rather than the less precise altitude aal moment of touchdown.
+        
+        :param self: Reference to the height (normally Altitude AAL) Parameter
+        :param ht: Starting height for the slices
+        :param tdwns: Reference to the Touchdown KTIs
+        '''
+        result = [] # We are going to return a list of slices.
+        _, basics = slices_from_to(self.array, ht, 0)
+        for basic in basics:
+            new_basic = slice(basic.start, min(basic.stop + 20, len(self.array))) # In case the touchdown is behind the basic slice.
+            for tdwn in tdwns:
+                if is_index_within_slice(tdwn.index, new_basic):
+                    result.append(slice(new_basic.start, tdwn.index))
+                    break
+        return result
+
 
 P = Parameter = DerivedParameterNode # shorthand
 

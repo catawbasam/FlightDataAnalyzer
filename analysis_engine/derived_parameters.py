@@ -415,7 +415,7 @@ class AltitudeAAL(DerivedParameterNode):
                                 # We have no rad alt data
                                 if dips[-1][0]=='high':
                                     # Join this dip onto the previous one
-                                    dips[-1][1] = slice(dips[-1][1].start, alt_idxs[n+2]),
+                                    dips[-1][1] = slice(dips[-1][1].start, alt_idxs[n+2])
                                     dips[-1][2] = min(dips[-1][2],alt_vals[n+1])
                                 else:
                                     dips.append(['high', down_up, alt_vals[n+1], None])
@@ -619,7 +619,7 @@ class AltitudeRadio(DerivedParameterNode):
             self.array, self.frequency, self.offset = \
                 blend_two_parameters(source_B, source_C)
             
-        elif frame_name in ['737-4', '737-4_Analogue']:
+        elif frame_name in ['737-4', '737-4_Analogue', 'CRJ-700-900']:
             self.array, self.frequency, self.offset = \
                 merge_two_parameters(source_A, source_B)
         
@@ -639,11 +639,29 @@ class AltitudeRadio(DerivedParameterNode):
             self.array = source_A.array
 
 
-'''
-class AltitudeRadioForFlightPhases(DerivedParameterNode):
-    def derive(self, alt_rad=P('Altitude Radio')):
-        self.array = hysteresis(repair_mask(alt_rad.array), HYSTERESIS_FP_RAD_ALT)
-        '''
+class AltitudeSTD(DerivedParameterNode):
+    """
+    
+    :param frame: The frame attribute, e.g. '737-i'
+    :type frame: An attribute
+    
+    :returns Altitude STD as the mean between two valid sensors.
+    :type parameter object.
+    """
+    name = "Altitude STD"
+    units = 'ft'
+    align_to_first_dependency = False
+    
+    def derive(self, frame = A('Frame'),
+               source_A = P('Altitude STD (1)'),
+               source_B = P('Altitude STD (2)')):
+        
+        frame_name = frame.value if frame else None
+        
+        if frame_name in ['CRJ-700-900']:
+            # Alternate samples (1)&(2) are blended.
+            self.array, self.frequency, self.offset = \
+                blend_two_parameters(source_A, source_B)
 
 
 class AltitudeQNH(DerivedParameterNode):
@@ -2240,10 +2258,11 @@ class CoordinatesSmoothed(object):
                         # track onto the end of the valid data.
                         index, _ = first_valid_sample(lat_adj[slice(this_loc.slice.stop,this_loc.slice.start,-1)])
                         join_idx = (this_loc.slice.stop or 0) - index
-                        [lat_adj[join_idx:], lon_adj[join_idx:]] = \
-                            ground_track(lat_adj.data[join_idx], lon_adj.data[join_idx],
-                                         speed[join_idx:], hdg.array[join_idx:], 
-                                         freq, 'landing')
+                        if len(lat_adj) > join_idx: # We have some room to extend over.
+                            [lat_adj[join_idx:], lon_adj[join_idx:]] = \
+                                ground_track(lat_adj.data[join_idx], lon_adj.data[join_idx],
+                                             speed[join_idx:], hdg.array[join_idx:], 
+                                             freq, 'landing')
 
         # --- Merge Tracks and return ---
         if lat_adj != None:
@@ -2718,6 +2737,23 @@ class Tailwind(DerivedParameterNode):
         self.array = -hwd.array
         
 
+class TAT(DerivedParameterNode):
+    """
+    Blends data from two air temperature sources.
+    """
+    name = "TAT"
+    units = 'C'
+    align_to_first_dependency = False
+    
+    def derive(self, 
+               source_1 = P('ADC (1) TAT'),
+               source_2 = P('ADC (2) TAT')):
+        
+        # Alternate samples (1)&(2) are blended.
+        self.array, self.frequency, self.offset = \
+            blend_two_parameters(source_1, source_2)
+
+
 class Vapp(DerivedParameterNode):
     '''
     Based on weight and flap at next intended landing.
@@ -2894,7 +2930,26 @@ class Speedbrake(DerivedParameterNode):
 
 
 class StickShaker(DerivedParameterNode):
-    def derive(self, shake=P('STICK SHAKER-LEFT')):
-        self.array, self.frequency, self.offset = \
-            shake.array, shake.frequency, shake.offset
+    '''
+    This accounts for the different types of stick shaker system.
+    '''
+    @classmethod
+    def can_operate(cls, available):
+        if 'Frame' in available:
+            return True
+    
+    align_to_first_dependency = False
 
+    def derive(self, frame = A('Frame'), 
+               shake = P('STICK SHAKER-LEFT'), 
+               shake_act = P('Shaker Activation')):
+
+        frame_name = frame.value if frame else None
+        
+        if frame_name in ['CRJ-700-900']:
+            self.array, self.frequency, self.offset = \
+                shake_act.array, shake_act.frequency, shake_act.offset
+        
+        elif frame_name in ['737-5']:
+            self.array, self.frequency, self.offset = \
+                shake.array, shake.frequency, shake.offset

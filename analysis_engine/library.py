@@ -2563,6 +2563,8 @@ def slice_samples(_slice):
     else:
         return (abs(_slice.stop - _slice.start) - 1) / abs(step) + 1
 
+    
+
 def slices_above(array, value):
     '''
     Get slices where the array is above value. Repairs the mask to avoid a 

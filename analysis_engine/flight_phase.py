@@ -24,6 +24,7 @@ from analysis_engine.library import (
 from analysis_engine.node import FlightPhaseNode, A, P, S, KTI
 
 from analysis_engine.settings import (
+    AIRBORNE_THRESHOLD_TIME,
     AIRSPEED_THRESHOLD,
     ALTITUDE_FOR_CLB_CRU_DSC,
     HEADING_TURN_OFF_RUNWAY,
@@ -65,7 +66,11 @@ class Airborne(FlightPhaseNode):
                 end = air.stop
                 if end == len(alt_aal.array) - (start_point or 0) or speedy.slice.stop == None:
                     end = None
-                self.create_phase(shift_slice(slice(begin,end),start_point))
+                if begin == None or end == None:
+                    self.create_phase(shift_slice(slice(begin,end),start_point))
+                else:
+                    if ((end-begin)/alt_aal.hz) > AIRBORNE_THRESHOLD_TIME:
+                        self.create_phase(shift_slice(slice(begin,end),start_point))
       
 
 class GoAroundAndClimbout(FlightPhaseNode):

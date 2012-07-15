@@ -1111,3 +1111,32 @@ class TestDerivedParameterNode(unittest.TestCase):
         slices = param.slices_from_to(5, 15)
         slices_from_to.assert_called_once_with(array, 5, 15)
         self.assertEqual(slices, slices_from_to.return_value[1])
+        
+    def test_slices_to_touchdown_basic(self):
+        heights = np.ma.arange(100,-10,-10)
+        heights[:-1] -= 10
+        alt_aal = P('Altitude AAL',heights)
+        tdwns = KTI(items=[KeyTimeInstance(name='Touchdown', index=9.5)])
+        result = alt_aal.slices_to_kti(75, tdwns)
+        expected = [slice(2,9.5)]
+        self.assertEqual(result, expected)
+
+    def test_slices_to_touchdown_early(self):
+        heights = np.ma.arange(100,-10,-10)
+        heights[:-1] -= 10
+        alt_aal = P('Altitude AAL',heights)
+        tdwns = KTI(items=[KeyTimeInstance(name='Touchdown', index=6.7)])
+        result = alt_aal.slices_to_kti(75, tdwns)
+        expected = [slice(2,6.7)]
+        self.assertEqual(result, expected)
+        
+    def test_slices_to_touchdown_outside_range(self):
+        heights = np.ma.arange(100,-10,-10)
+        heights[:-1] -= 10
+        alt_aal = P('Altitude AAL',heights)
+        tdwns = KTI(items=[KeyTimeInstance(name='Touchdown', index=-2)])
+        result = alt_aal.slices_to_kti(75, tdwns)
+        expected = []
+        self.assertEqual(result, expected)
+
+
