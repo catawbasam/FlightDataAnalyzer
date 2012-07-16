@@ -612,10 +612,18 @@ class AltitudeRadio(DerivedParameterNode):
         frame_name = frame.value if frame else None
         frame_qualifier = frame_qual.value if frame_qual else None
         
-        if frame_name in ['737-3C']:
+        if frame_name in ['737-3C', '757-DHL']:
+            # 737-3C comment:
             # Alternate samples (A) for this frame have latency of over 1
             # second, so do not contribute to the height measurements
             # available. For this reason we only blend the two good sensors.
+            
+            # 757-DHL comment:
+            # Altitude Radio (B) comes from the Right altimeter, and is
+            # sampled in word 26 of the frame. Altitude Radio (C) comes from
+            # the Centre altimeter, is sample in word 104. Altitude Radio (A)
+            # comes from the EFIS system, and includes excessive latency so
+            # is not used.
             self.array, self.frequency, self.offset = \
                 blend_two_parameters(source_B, source_C)
             
@@ -632,6 +640,14 @@ class AltitudeRadio(DerivedParameterNode):
                 pass # Some old 737 aircraft have no rad alt recorded.
             else:
                 raise ValueError,'737-5 frame Altitude Radio qualifier not recognised.'
+
+        elif frame_name in ['757-DHL']:
+            # Altitude Radio (A) comes from the Right altimeter, and is
+            # sampled in word 26 of the frame. Altitude Radio (C) comes from
+            # the Centre altimeter, is sample in word 104. Altitude Radio (B)
+            # comes from the EFIS system, and includes excessive latency so
+            # is not used.
+                blend_two_parameters(source_A, source_C)
             
         else:
             self.warning("No specified Altitude Radio (*) merging for frame "
@@ -1611,6 +1627,39 @@ class GrossWeightSmoothed(DerivedParameterNode):
             self.array = fuel_to_burn + offset
 
 
+
+class Groundspeed(DerivedParameterNode):
+    """
+    This caters for cases where some preprocessing is required.
+    :param frame: The frame attribute, e.g. '737-i'
+    :type frame: An attribute
+    :returns groundspeed as the mean between two valid sensors.
+    :type parameter object.
+    """
+    units = 'kts'
+    align_to_first_dependency = False
+    
+    def derive(self, frame = A('Frame'),
+               alt = P('Altitude STD'),
+               source_A = P('Groundspeed (1)'),
+               source_B = P('Groundspeed (2)')):
+        
+        frame_name = frame.value if frame else None
+        
+        if frame_name in ['757-DHL']:
+            # The coding in this frame is unique as it only uses two bits for
+            # the first digit of the BCD-encoded groundspeed, limiting the
+            # recorded value range to 399 kts. At altitude the aircraft can
+            # exceed this to a fiddle is required to sort this out.
+            altitude = align(alt, source_A) # Caters for different sample rates.
+            adjust_A = np.logical_and(source_A.array<200, altitude>8000).data*400
+            source_A.array += adjust_A
+            adjust_B = np.logical_and(source_B.array<200, altitude>8000).data*400
+            source_B.array += adjust_B
+            self.array, self.frequency, self.offset = \
+                blend_two_parameters(source_A, source_B)
+
+
 class FlapLever(DerivedParameterNode):
     """
     Steps raw Flap angle from lever into detents.
@@ -1649,7 +1698,7 @@ class FlapSurface(DerivedParameterNode):
                alt_aal=P('Altitude AAL')):
         frame_name = frame.value if frame else None
 
-        if frame_name in ['737-5']:
+        if frame_name in ['737-5', '757-DHL']:
             self.array, self.frequency, self.offset = blend_two_parameters(flap_A,
                                                                            flap_B)
 
@@ -1928,8 +1977,7 @@ class ILSFrequency(DerivedParameterNode):
 class ILSLocalizer(DerivedParameterNode):
     name = "ILS Localizer"
     align_to_first_dependency = False
-    def derive(self, loc_1=P('ILS (L) Localizer'),loc_2=P('ILS (R) Localizer'), 
-               freq=P("ILS Frequency")):
+    def derive(self, loc_1=P('ILS (L) Localizer'),loc_2=P('ILS (R) Localizer')):
         self.array, self.frequency, self.offset = blend_two_parameters(loc_1, loc_2)
         # TODO: Would like to do this, except the frequencies don't match
         # self.array.mask = np.ma.logical_or(self.array.mask, freq.array.mask)
@@ -1938,8 +1986,7 @@ class ILSLocalizer(DerivedParameterNode):
 class ILSGlideslope(DerivedParameterNode):
     name = "ILS Glideslope"
     align_to_first_dependency = False
-    def derive(self, gs_1=P('ILS (L) Glideslope'),gs_2=P('ILS (R) Glideslope'), 
-               freq=P("ILS Frequency")):
+    def derive(self, gs_1=P('ILS (L) Glideslope'),gs_2=P('ILS (R) Glideslope')):
         self.array, self.frequency, self.offset = blend_two_parameters(gs_1, gs_2)
         # Would like to do this, except the frequemcies don't match
         # self.array.mask = np.ma.logical_or(self.array.mask, freq.array.mask)
@@ -2597,6 +2644,16 @@ class CoordinatesStraighten(object):
         return array
         
 
+class Longitude(DerivedParameterNode):
+    def derive(self, lon_deg=P('Longitude Degrees'), sign=P('Longitude Sign')):
+        self.array = lon_deg.array * (1.0-2.0*sign.array)
+
+
+class Latitude(DerivedParameterNode):
+    def derive(self, lat_deg=P('Latitude Degrees'), sign=P('Latitude Sign')):
+        self.array = lat_deg.array * (1.0-2.0*sign.array)
+        
+        
 class LongitudePrepared(DerivedParameterNode, CoordinatesStraighten):
     """
     This removes the jumps in longitude arising from the poor resolution of
@@ -2941,7 +2998,7 @@ class StickShaker(DerivedParameterNode):
     align_to_first_dependency = False
 
     def derive(self, frame = A('Frame'), 
-               shake = P('STICK SHAKER-LEFT'), 
+               shake = P('Stick Shaker (L)'), 
                shake_act = P('Shaker Activation')):
 
         frame_name = frame.value if frame else None
@@ -2950,6 +3007,6 @@ class StickShaker(DerivedParameterNode):
             self.array, self.frequency, self.offset = \
                 shake_act.array, shake_act.frequency, shake_act.offset
         
-        elif frame_name in ['737-5']:
+        elif frame_name in ['737-5', '757-DHL']:
             self.array, self.frequency, self.offset = \
                 shake.array, shake.frequency, shake.offset
