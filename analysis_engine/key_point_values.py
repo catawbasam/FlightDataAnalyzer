@@ -90,12 +90,12 @@ class DecelerationLongitudinalPeakLanding(KeyPointValueNode):
         self.create_kpvs_within_slices(accel.array, landing, min_value)
 
         
-class AccelerationNormal20FtToGroundMax(KeyPointValueNode):
-    name = 'Acceleration Normal 20 Ft To Ground Max' # not required?
+class AccelerationNormal20FtToFlareMax(KeyPointValueNode):
+    #name = 'Acceleration Normal 20 Ft To Flare Max' # not required?
     def derive(self, acceleration_normal=P('Acceleration Normal'),
                alt_aal=P('Altitude AAL For Flight Phases')):
         self.create_kpvs_within_slices(acceleration_normal.array,
-                                       alt_aal.slices_from_to(20, 0),
+                                       alt_aal.slices_from_to(20, 5),
                                        max_value)
 
 
@@ -140,8 +140,9 @@ class AccelerationNormalAirborneFlapsDownMin(KeyPointValueNode):
 
 def bump(acc, phase):
     # Scan the acceleration array for a short period either side of the
-    # moment of interest.
-    dt=2.0 # Half width of range to scan across for peak acceleration.
+    # moment of interest. Too wide and we risk monitoring flares and
+    # post-liftoff motion. Too short and we may miss a local peak.
+    dt=1.0 # Half width of range to scan across for peak acceleration.
     from_index = max(int(phase.index-dt*acc.hz), 0)
     to_index = min(int(phase.index+dt*acc.hz)+1, len(acc.array))
     bump_accel = acc.array[from_index:to_index]
@@ -1250,10 +1251,11 @@ class EngGasTempTakeoffMax(KeyPointValueNode):
 class EngN1ToFL100Max(KeyPointValueNode):
     '''TODO: Test.'''
     name = 'Eng N1 Up To FL100 Max'
-    def derive(self, eng=P('Eng (*) N1 Max'), alt_std=P('Altitude STD')):
-        self.create_kpvs_within_slices(eng.array,
-                                       alt_std.slices_from_to(-1000, 10000),
-                                       max_value)
+    def derive(self, eng=P('Eng (*) N1 Max'), alt_std=P('Altitude STD'), airs=S('Airborne')):
+        for air in airs:
+            self.create_kpvs_within_slices(eng.array,
+                                           alt_std.slices_from_to(-1000, 10000),
+                                           max_value)
 
 
 class EngEPRToFL100Max(KeyPointValueNode):
@@ -1954,9 +1956,11 @@ class PitchCyclesInFinalApproach(KeyPointValueNode):
 
 
 class Pitch5FtToTouchdownMax(KeyPointValueNode):
-    def derive(self, pitch=P('Pitch'), alt_aal=P('Altitude AAL For Flight Phases')):
+    def derive(self, pitch=P('Pitch'), tdwns=KTI('Touchdown'),
+               alt_aal=P('Altitude AAL For Flight Phases')):
         self.create_kpvs_within_slices(pitch.array,
-                                       alt_aal.slices_from_to(5, 0), max_value)
+                                       alt_aal.slices_to_kti(5, tdwns),
+                                       max_value)
 
 
 class PitchAtLiftoff(KeyPointValueNode):
@@ -2032,7 +2036,7 @@ class Pitch500To20FtMin(KeyPointValueNode):
                                        min_value)
 
 
-class Pitch20FtToTouchdownMin(KeyPointValueNode):
+class Pitch20FtTo0FtMin(KeyPointValueNode):
     def derive(self, pitch=P('Pitch'), alt_aal=P('Altitude AAL For Flight Phases')):
         self.create_kpvs_within_slices(pitch.array,
                                        alt_aal.slices_from_to(20, 0), min_value)
@@ -2204,15 +2208,17 @@ class RateOfDescent500FtTo20FtMax(KeyPointValueNode):
                                        min_value)
 
 class RateOfDescent500FtToTouchdownMax(KeyPointValueNode):
-    def derive(self, roc=P('Rate Of Climb'), alt_aal=P('Altitude AAL For Flight Phases')):
-        self.create_kpvs_within_slices(roc.array, 
-                                       alt_aal.slices_from_to(500, 0),
+    def derive(self, roc=P('Rate Of Climb'), 
+               alt_aal=P('Altitude AAL For Flight Phases'),tdwns=KTI('Touchdown')):
+        self.create_kpvs_within_slices(roc.array,
+                                       alt_aal.slices_to_kti(500, tdwns),
                                        min_value)
 
 class RateOfDescent20ToTouchdownMax(KeyPointValueNode):
-    def derive(self, roc=P('Rate Of Climb'), alt_aal=P('Altitude AAL For Flight Phases')):
+    def derive(self, roc=P('Rate Of Climb'), alt_aal=P('Altitude AAL For Flight Phases'),
+               tdwns=KTI('Touchdown')):
         self.create_kpvs_within_slices(roc.array, 
-                                       alt_aal.slices_from_to(20, 0),
+                                       alt_aal.slices_to_kti(20, tdwns),
                                        min_value)
         
         
@@ -2467,53 +2473,53 @@ class Tailwind100FtToTouchdownMax(KeyPointValueNode):
 
 class TAWSAlert(KeyPointValueNode):
     name = 'TAWS Alert'
-    def derive(self, taws_alert=P('TAWS Alert')):
-        self.create_kpvs_from_discretes(taws_alert.array, taws_alert.hz, min_duration=2)
+    def derive(self, taws_alert=P('TAWS Alert'), airborne=S('Airborne')):
+        self.create_kpvs_from_discretes(taws_alert.array, taws_alert.hz, phase=airborne, min_duration=2)
 
 class TAWSSinkRateWarning(KeyPointValueNode):
     name = 'TAWS Sink Rate Warning'
-    def derive(self, taws_sink_rate=P('TAWS Sink Rate')):
-        self.create_kpvs_from_discretes(taws_sink_rate.array, taws_sink_rate.hz, min_duration=2)
+    def derive(self, taws_sink_rate=P('TAWS Sink Rate'), airborne=S('Airborne')):
+        self.create_kpvs_from_discretes(taws_sink_rate.array, taws_sink_rate.hz, phase=airborne, min_duration=2)
 
 class TAWSTooLowFlapWarning(KeyPointValueNode):
     name = 'TAWS Too Low Flap Warning'
-    def derive(self, taws_too_low_flap=P('TAWS Terrain')):
-        self.create_kpvs_from_discretes(taws_too_low_flap.array, taws_too_low_flap.hz, min_duration=2)
+    def derive(self, taws_too_low_flap=P('TAWS Terrain'), airborne=S('Airborne')):
+        self.create_kpvs_from_discretes(taws_too_low_flap.array, taws_too_low_flap.hz, phase=airborne, min_duration=2)
 
 class TAWSTerrainWarning(KeyPointValueNode):
     name = 'TAWS Terrain Warning'
-    def derive(self, taws_terrain=P('TAWS Terrain Ahead')):
-        self.create_kpvs_from_discretes(taws_terrain.array, taws_terrain.hz, min_duration=2)
+    def derive(self, taws_terrain=P('TAWS Terrain Ahead'), airborne=S('Airborne')):
+        self.create_kpvs_from_discretes(taws_terrain.array, taws_terrain.hz, phase=airborne, min_duration=2)
 
 class TAWSTerrainPullUpWarning(KeyPointValueNode):
     name = 'TAWS Terrain Pull Up Warning'
-    def derive(self, taws_terrain_pull_up=P('TAWS Terrain Ahead Pull Up')):
-        self.create_kpvs_from_discretes(taws_terrain_pull_up.array, taws_terrain_pull_up.hz, min_duration=2)
+    def derive(self, taws_terrain_pull_up=P('TAWS Terrain Ahead Pull Up'), airborne=S('Airborne')):
+        self.create_kpvs_from_discretes(taws_terrain_pull_up.array, taws_terrain_pull_up.hz, phase=airborne, min_duration=2)
 
 class TAWSGlideslopeWarning(KeyPointValueNode):
     name = 'TAWS Glideslope Warning'
-    def derive(self, taws_glideslope=P('TAWS Glideslope')):
-        self.create_kpvs_from_discretes(taws_glideslope.array, taws_glideslope.hz, min_duration=2)
+    def derive(self, taws_glideslope=P('TAWS Glideslope'), airborne=S('Airborne')):
+        self.create_kpvs_from_discretes(taws_glideslope.array, taws_glideslope.hz, phase=airborne, min_duration=2)
 
 class TAWSTooLowTerrainWarning(KeyPointValueNode):
     name = 'TAWS Too Low Terrain Warning'
-    def derive(self, taws_too_low_terrain=P('TAWS Too Low Terrain')):
-        self.create_kpvs_from_discretes(taws_too_low_terrain.array, taws_too_low_terrain.hz, min_duration=2)
+    def derive(self, taws_too_low_terrain=P('TAWS Too Low Terrain'), airborne=S('Airborne')):
+        self.create_kpvs_from_discretes(taws_too_low_terrain.array, taws_too_low_terrain.hz, phase=airborne, min_duration=2)
 
 class TAWSTooLowGearWarning(KeyPointValueNode):
     name = 'TAWS Too Low Gear Warning'
-    def derive(self, taws_too_low_gear=P('TAWS Too Low Gear')):
-        self.create_kpvs_from_discretes(taws_too_low_gear.array, taws_too_low_gear.hz, min_duration=2)
+    def derive(self, taws_too_low_gear=P('TAWS Too Low Gear'), airborne=S('Airborne')):
+        self.create_kpvs_from_discretes(taws_too_low_gear.array, taws_too_low_gear.hz, phase=airborne, min_duration=2)
 
 class TAWSPullUpWarning(KeyPointValueNode):
     name='TAWS Pull Up Warning'
-    def derive(self, taws_pull_up=P('TAWS Pull Up')):
-        self.create_kpvs_from_discretes(taws_pull_up.array, taws_pull_up.hz, min_duration=2)
+    def derive(self, taws_pull_up=P('TAWS Pull Up'), airborne=S('Airborne')):
+        self.create_kpvs_from_discretes(taws_pull_up.array, taws_pull_up.hz, phase=airborne, min_duration=2)
 
 class TAWSDontSinkWarning(KeyPointValueNode):
     name='TAWS Dont Sink Warning'
-    def derive(self, taws_dont_sink=P('TAWS Dont Sink')):
-        self.create_kpvs_from_discretes(taws_dont_sink.array, taws_dont_sink.hz, min_duration=2)
+    def derive(self, taws_dont_sink=P('TAWS Dont Sink'), airborne=S('Airborne')):
+        self.create_kpvs_from_discretes(taws_dont_sink.array, taws_dont_sink.hz, phase=airborne, min_duration=2)
 
 class TAWSWindshearWarningBelow1500Ft(KeyPointValueNode):
     name='TAWS Windshear Warning Below 1500 Ft'

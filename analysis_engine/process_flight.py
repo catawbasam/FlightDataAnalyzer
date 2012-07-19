@@ -148,10 +148,9 @@ def derive_parameters(hdf, node_mgr, process_order):
                 expected_length = hdf.duration * result.frequency
                 if result.array == None:
                     array_length = expected_length
-                    logger.warning("Parameter '%s' wholly masked. HDF file filled with masked zeros",
-                                    param_name)
+                    # Where a parameter is wholly masked, we fill the HDF
+                    # file with masked zeros to maintain structure.
                     result.array = np_ma_masked_zeros_like(np.ma.arange(expected_length))
-                    
                 else:
                     array_length = len(result.array)
                 length_diff = array_length - expected_length

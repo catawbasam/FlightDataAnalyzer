@@ -28,9 +28,9 @@ def add_track(kml, track_name, lat, lon, colour, alt_param=None):
             pass  # Masked data not worth plotting
         else:
             if alt_param:
-                track_coords.append((lon.at(i),lat.at(i), (alt_param.at(i)+241)/METRES_TO_FEET))
+                track_coords.append((lon.array[i],lat.array[i], (alt_param.array[i]+241)/METRES_TO_FEET))
             else:
-                track_coords.append((lon.at(i),lat.at(i)))
+                track_coords.append((lon.array[i],lat.array[i]))
                 
     track_config['coords'] = track_coords
     line = kml.newlinestring(**track_config)
@@ -52,14 +52,15 @@ def track_to_kml(hdf_path, kti_list, kpv_list, plot_altitude=None):
               
     smooth_lat = derived_param_from_hdf(hdf, 'Latitude Smoothed')
     smooth_lon = derived_param_from_hdf(hdf, 'Longitude Smoothed')
-    #lat = derived_param_from_hdf(hdf, 'Latitude')
-    #lon = derived_param_from_hdf(hdf, 'Longitude')
+    lat = derived_param_from_hdf(hdf, 'Latitude')
+    lon = derived_param_from_hdf(hdf, 'Longitude')
     
-    #add_track(kml, 'Recorded', lat, lon, 'ff0000ff')
+    add_track(kml, 'Recorded', lat, lon, 'ff0000ff')
     add_track(kml, 'Smoothed', smooth_lat, smooth_lon, 'ff7fff7f', 
               alt_param=alt)
 
     for kti in kti_list:
+        #if kti.name in ['Liftoff','Touchdown']:
         kti_point_values = {'name': kti.name}
         altitude = alt.at(kti.index) if plot_altitude else None
         if altitude:

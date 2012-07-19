@@ -670,7 +670,7 @@ def clip(array, period, hz=1.0, remove='peaks'):
         return result
     
     else:
-        return None
+        return np_ma_masked_zeros_like(source)
 
 """
     # Compute an array of differences across period, such that each maximum or
@@ -1647,8 +1647,12 @@ def slices_overlap(first_slice, second_slice):
     if first_slice.step != None and first_slice.step < 1 \
        or second_slice.step != None and second_slice.step < 1:
         raise ValueError("Negative step not supported")
-    return first_slice.start < second_slice.stop \
-           and second_slice.start < first_slice.stop
+    return ((first_slice.start < second_slice.stop) or \
+            (second_slice.stop == None)\
+            ) and \
+           ((second_slice.start < first_slice.stop) or \
+            (first_slice.stop == None)
+            )
 
 def slices_and(first_list, second_list):
     '''
@@ -2410,20 +2414,14 @@ def repair_mask(array, frequency=1, repair_duration=REPAIR_DURATION,
     should remain masked. Modifies the array in-place.
     
     :param repair_duration: If None, any length of masked data will be repaired.
+    :param raise_duration_exceedance: If False, no warning is raised if there are masked sections longer than repair_duration. They will remain unrepaired.
     '''
+
     if repair_duration:
         repair_samples = repair_duration * frequency
-        if len(array) < repair_samples/3:
-            # TODO: Better handling of trivial data segments
-            # e.g. the following resulted in None, while two valid samples 
-            # should have been the result
-            # masked_array(data = [1407.95071648 --],
-                           #mask = [False  True],
-                           #fill_value = 1e+20)
-            
-            return None
     else:
         repair_samples = None
+
     masked_sections = np.ma.clump_masked(array)
     for section in masked_sections:
         length = section.stop - section.start
@@ -2564,6 +2562,8 @@ def slice_samples(_slice):
         return 0
     else:
         return (abs(_slice.stop - _slice.start) - 1) / abs(step) + 1
+
+    
 
 def slices_above(array, value):
     '''
@@ -2983,7 +2983,7 @@ def index_at_value(array, threshold, _slice=slice(None), endpoint='exact'):
             closing_array = abs(array-threshold)
             i=begin
             while (closing_array [i+step]<=closing_array [i]):
-                i=i+step
+                i += step
                 if i==end:
                     return end
             return i

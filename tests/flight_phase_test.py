@@ -98,8 +98,6 @@ def buildsections(*args):
         built_list.append(new_section)
     return SectionNode(name, items=built_list)
 
-
-
 class TestAirborne(unittest.TestCase):
     # Based closely on the level flight condition, but taking only the
     # outside edges of the envelope.
@@ -207,9 +205,7 @@ class TestILSLocalizerEstablished(unittest.TestCase):
         alt_aal = P('Alttiude AAL For Flight Phases', np.ma.arange(1000, 0,-100))
         app = buildsection('Approach',2, 9)
         establish = ILSLocalizerEstablished()
-        establish.derive(ils, alt_aal, app)
-        expected = buildsection('ILS Localizer Established', None, None)
-        self.assertEqual(establish, expected)
+        self.assertEqual(establish.derive(ils, alt_aal, app), None)
 
     def test_ils_localizer_established_always_on_loc(self):
         ils = P('ILS Localizer',np.ma.array([-0.2]*10))
@@ -724,29 +720,36 @@ class TestHolding(unittest.TestCase):
     def test_can_operate(self):
         self.assertEqual(Holding.get_operational_combinations(),
                          [('Altitude AAL For Flight Phases',
-                          'Heading Increasing')])
+                          'Heading Increasing','Latitude Smoothed',
+                          'Longitude Smoothed')])
         
     def test_straightish_not_detected(self):
         hdg=P('Heading Increasing', np.ma.arange(3000)*0.45)
         alt=P('Altitude AAL For Flight Phases', np.ma.array([10000]*3000))
+        lat=P('Latitude Smoothed', np.ma.array([24.0]*3000))
+        lon=P('Longitude Smoothed', np.ma.array([24.0]*3000))
         hold=Holding()
-        hold.derive(alt, hdg)
+        hold.derive(alt, hdg, lat, lon)
         expected=[]
         self.assertEqual(hold, expected)
 
     def test_bent_detected(self):
         hdg=P('Heading Increasing', np.ma.arange(3000)*(1.1))
         alt=P('Altitude AAL For Flight Phases', np.ma.array([10000]*3000))
+        lat=P('Latitude Smoothed', np.ma.array([24.0]*3000))
+        lon=P('Longitude Smoothed', np.ma.array([24.0]*3000))
         hold=Holding()
-        hold.derive(alt, hdg)
+        hold.derive(alt, hdg, lat, lon)
         expected=buildsection('Holding',0,3000)
         self.assertEqual(hold, expected)
 
     def test_rejected_outside_height_range(self):
         hdg=P('Heading Increasing', np.ma.arange(3000)*(1.1))
         alt=P('Altitude AAL For Flight Phases', np.ma.arange(3000)*10)
+        lat=P('Latitude Smoothed', np.ma.array([24.0]*3000))
+        lon=P('Longitude Smoothed', np.ma.array([24.0]*3000))
         hold=Holding()
-        hold.derive(alt, hdg)
+        hold.derive(alt, hdg, lat, lon)
         # OK - I cheated. Who cares about the odd one sample passing 5000ft :o)
         expected=buildsection('Holding',501,2000)
         self.assertEqual(hold, expected)
@@ -755,17 +758,32 @@ class TestHolding(unittest.TestCase):
         rot=[0]*600+([3]*60+[0]*60)*6+[0]*180+([3]*60+[0]*90)*6+[0]*600
         hdg=P('Heading Increasing', integrate(rot,1.0))
         alt=P('Altitude AAL For Flight Phases', np.ma.array([10000]*3000))
+        lat=P('Latitude Smoothed', np.ma.array([24.0]*3000))
+        lon=P('Longitude Smoothed', np.ma.array([24.0]*3000))
         hold=Holding()
-        hold.derive(alt, hdg)
+        hold.derive(alt, hdg, lat, lon)
         expected=buildsections('Holding',[570,1290],[1470,2340])
+        self.assertEqual(hold, expected)
+
+    def test_hold_rejected_if_travelling(self):
+        rot=[0]*600+([3]*60+[0]*60)*6+[0]*180+([3]*60+[0]*90)*6+[0]*600
+        hdg=P('Heading Increasing', integrate(rot,1.0))
+        alt=P('Altitude AAL For Flight Phases', np.ma.array([10000]*3000))
+        lat=P('Latitude Smoothed', np.ma.arange(0, 30, 0.01))
+        lon=P('Longitude Smoothed', np.ma.arange(0, 30, 0.01))
+        hold=Holding()
+        hold.derive(alt, hdg, lat, lon)
+        expected=[]
         self.assertEqual(hold, expected)
 
     def test_single_turn_rejected(self):
         rot=np.ma.array([0]*500+[3]*60+[0]*600+[6]*60+[0]*600+[0]*600+[3]*90+[0]*490, dtype=float)
         hdg=P('Heading Increasing', integrate(rot,1.0))
         alt=P('Altitude AAL For Flight Phases', np.ma.array([10000]*3000))
+        lat=P('Latitude Smoothed', np.ma.array([24.0]*3000))
+        lon=P('Longitude Smoothed', np.ma.array([24.0]*3000))
         hold=Holding()
-        hold.derive(alt, hdg)
+        hold.derive(alt, hdg, lat, lon)
         expected=[]
         self.assertEqual(hold, expected)
 

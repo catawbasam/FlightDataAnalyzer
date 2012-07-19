@@ -66,6 +66,7 @@ from settings import (AZ_WASHOUT_TC,
                       METRES_TO_FEET,
                       RATE_OF_CLIMB_LAG_TC)
 
+from data_validation.rate_of_change import validate_rate_of_change
 
 # There is no numpy masked array function for radians, so we just multiply thus:
 deg2rad = radians(1.0)
@@ -305,10 +306,11 @@ class AltitudeAAL(DerivedParameterNode):
     def can_operate(cls, available):
         return all([d in available for d in ('Altitude STD', 'Fast')])
     
-    def compute_aal(self, mode, alt_std, alt_rad, low_hb, high_gnd):
+    def compute_aal(self, mode, alt_std, low_hb, high_gnd, *args):
         alt_result = np_ma_zeros_like(alt_std)
-                                      
-        if alt_rad != None:
+
+        if len(args) == 1:
+            alt_rad = args[0]
             alt_rad_aal = np.ma.maximum(alt_rad, 0.0)
             if mode == 'land':
                 ralt_sections = np.ma.clump_unmasked(
@@ -332,60 +334,30 @@ class AltitudeAAL(DerivedParameterNode):
                                 alt_result[fix_slice] = alt_rad[fix_slice]
                                 begin_index += slip
                             alt_result[begin_index:] = alt_std[begin_index:] - up_diff
-                                
             else:
-                alt_result = alt_std - low_hb + high_gnd
-            ##else:
-                ##ralt_sections = None
-                        
-            
-            ##for baro_section in baro_sections:
-                ##begin_index = baro_section.start
-                ##end_index = baro_section.stop
-                
-                ##alt_diff = alt_std-alt_rad
-                ##for ralt_section in ralt_sections:
-                    ##if ralt_section.stop == baro_section.start:
-                        ##slip, up_diff =  first_valid_sample(alt_diff[begin_index:begin_index+60])
-                        ##if slip>0:
-                            ### alt_std is invalid at the point of handover so stretch the radio signal until we can handover.
-                            ##fix_slice = slice(begin_index,begin_index+slip) 
-                            ##alt_result[fix_slice] = alt_rad[fix_slice]
-                            ##begin_index += slip
-                    ##elif ralt_section.start == baro_section.stop:
-                        ### See how far back we can scan
-                        ##back=min(60,end_index)
-                        ##slip, dn_diff = last_valid_sample(alt_diff[end_index-back:end_index])
-                        ##slip = slip-back
-                        ##if slip>0:
-                            ##end_index += slip
-                            ##fix_slice = slice(ralt_section.start+slip,ralt_section.start) 
-                            ##alt_result[fix_slice] = alt_rad[fix_slice]
-                        
-                ##if up_diff == None and dn_diff == None:
-                    ### Neither edge was found. Did we get measurably close the ground at some point?
-                    ##low_index = np.ma.argmin(alt_rad[begin_index:end_index])
-                    ##if low_index:
-                        ### We did, so use that as a datum
-                        ##mid_diff = alt_diff[low_index]
-                        ##alt_result[begin_index:end_index] = alt_std[begin_index:end_index] -alt_std[low_index] + mid_diff
-                    ##else:
+                alt_result = alt_std - high_gnd
 
             return alt_result
 
-        ##else:
-            ##pit = np.ma.min(alt_std)
-            ##alt_result = alt_std - pit
+        else:
+            pit = np.ma.min(alt_std)
+            alt_result = alt_std - pit
             
-            ### This backstop trap for negative values is necessary as aircraft without rad alts will indicate negative altitudes as they land. 
-            ##return alt_result
+            # This backstop trap for negative values is necessary as aircraft
+            # without rad alts will indicate negative altitudes as they land.
+            return np.ma.maximum(alt_result, 0.0)
         
         
         
-    def derive(self, alt_std = P('Altitude STD'),
-               alt_rad = P('Altitude Radio'),
+    def derive(self, alt_rad = P('Altitude Radio'),
+               alt_std = P('Altitude STD'),
                speedies = S('Fast')):
        
+        # Altitude Radio is taken as the prime reference to ensure the
+        # minimum ground clearance passing peaks is accurately reflected.
+        # (Comment: This may give a problem with aircraft that do not have a
+        # radio altimeter; not yet tested).
+        
         # alt_aal will be zero on the airfield, so initialise to zero.
         alt_aal = np_ma_zeros_like(alt_std.array)
   
@@ -404,10 +376,22 @@ class AltitudeAAL(DerivedParameterNode):
             n=0
             dips=[]
             # List of lists, with each sublist containing:
-            # Type of item 'land' or 'air'
-            # slice of the data, in land, with the land section at the beginning of the slice
-            # The pressure altitude of the highest ground (if an air section) or the pressure altitude of the ground (if a land section)
-            # The pressure altitude of the lowest point of the data
+            
+            # Type of item 'land' or 'over_gnd' or 'high'
+            
+            # The slice for this part of the data
+            # if 'land' the land section comes at the beginning of the slice (i.e. takeoff slices are normal, landing slices are reversed)
+            # 'over_gnd' or 'air' are normal slices.
+
+            # Altitude STD as:
+            # 'land' = the pressure altitude on the ground
+            # 'over_gnd' = the pressure altitude when flying closest to the ground
+            # 'air' = the lowest pressure altitude in this slice
+
+            # The height of the highest ground in this area
+            # 'land' = the pressure altitude on the ground
+            # 'over_gnd' = the pressure altitude minus the radio altitude when flying closest to the ground
+            # 'air' = None (the aircraft was too high for the radio altimeter to register valid data
             
             n_vals = len(alt_vals)
             while n < n_vals-1:
@@ -418,16 +402,22 @@ class AltitudeAAL(DerivedParameterNode):
                 else:
                     if n+2 < n_vals:
                         if alt_vals[n+2] > alt_vals[n+1]:
-                            # A down and up section
-                            down_up = slice(alt_idxs[n],alt_idxs[n+2])
-                            hg_max = np.ma.max(alt_std.array[down_up] - alt_rad.array[down_up])
+                            # A down and up section.
+                            down_up = slice(alt_idxs[n], alt_idxs[n+2])
+                            # Let's find the lowest rad alt reading 
+                            #(this may not be exactly the highest ground, but 
+                            # it was probably the point of highest concern!)
+                            arg_hg_max = np.ma.argmin(alt_rad.array[down_up]) + alt_idxs[n]
+                            hg_max = alt_std.array[arg_hg_max] - alt_rad.array[arg_hg_max]
                             if np.ma.count(hg_max):
-                                dips.append(['over_gnd', down_up, alt_vals[n+1], hg_max])
+                                # The rad alt measured height above a peak...
+                                dips.append(['over_gnd', down_up, alt_std.array[arg_hg_max], hg_max])
                             else:
+                                # We have no rad alt data
                                 if dips[-1][0]=='high':
                                     # Join this dip onto the previous one
-                                    dips[-1][1] = slice(dips[-1][1].start, alt_idxs[n+2]),
-                                    dips[-1][3] = min(dips[-1][3],alt_vals[n+1])
+                                    dips[-1][1] = slice(dips[-1][1].start, alt_idxs[n+2])
+                                    dips[-1][2] = min(dips[-1][2],alt_vals[n+1])
                                 else:
                                     dips.append(['high', down_up, alt_vals[n+1], None])
                             n = n+2
@@ -437,6 +427,8 @@ class AltitudeAAL(DerivedParameterNode):
                         # Just a falling section. Slice it backwards to use the same code as for takeoffs.
                         dips.append(['land', slice(alt_idxs[n+1]-1,alt_idxs[n]-1, -1), alt_vals[n+1], alt_vals[n+1]])
                         n = n+1
+
+
             for n, item in enumerate(dips):
                 if item[0] == 'high':
                     if n == 0:
@@ -450,20 +442,19 @@ class AltitudeAAL(DerivedParameterNode):
                         # Here is the most commonly used, and somewhat
                         # arbitrary code. For a dip where no radio
                         # measurement of the ground is available, what height
-                        # can you use as the datum? The highest ground
+                        # can you use as the datum? The lowest ground
                         # elevation in the preceding and following sections
                         # is practical, a little optimistic perhaps, but
                         # useable until we find a case otherwise.
-                        dips[n][3] = max(dips[n-1][3], dips[n+1][3])
+                        dips[n][3] = min(dips[n-1][3], dips[n+1][3])
 
             for dip in dips:
                 if alt_rad:
                     alt_aal[dip[1]] = self.compute_aal(dip[0],alt_std.array[dip[1]], 
-                                                       alt_rad.array[dip[1]], 
-                                                       dip[2], dip[3])
+                                                       dip[2], dip[3], alt_rad.array[dip[1]], )
                 else:
                     alt_aal[dip[1]] = self.compute_aal(dip[0],alt_std.array[dip[1]],
-                                                       None, dip[2], dip[3])
+                                                       dip[2], dip[3])
             
         self.array = alt_aal
 
@@ -622,14 +613,22 @@ class AltitudeRadio(DerivedParameterNode):
         frame_name = frame.value if frame else None
         frame_qualifier = frame_qual.value if frame_qual else None
         
-        if frame_name in ['737-3C']:
+        if frame_name in ['737-3C', '757-DHL']:
+            # 737-3C comment:
             # Alternate samples (A) for this frame have latency of over 1
             # second, so do not contribute to the height measurements
             # available. For this reason we only blend the two good sensors.
+            
+            # 757-DHL comment:
+            # Altitude Radio (B) comes from the Right altimeter, and is
+            # sampled in word 26 of the frame. Altitude Radio (C) comes from
+            # the Centre altimeter, is sample in word 104. Altitude Radio (A)
+            # comes from the EFIS system, and includes excessive latency so
+            # is not used.
             self.array, self.frequency, self.offset = \
                 blend_two_parameters(source_B, source_C)
             
-        elif frame_name in ['737-4', '737-4_Analogue']:
+        elif frame_name in ['737-4', '737-4_Analogue', 'CRJ-700-900']:
             self.array, self.frequency, self.offset = \
                 merge_two_parameters(source_A, source_B)
         
@@ -642,6 +641,14 @@ class AltitudeRadio(DerivedParameterNode):
                 pass # Some old 737 aircraft have no rad alt recorded.
             else:
                 raise ValueError,'737-5 frame Altitude Radio qualifier not recognised.'
+
+        elif frame_name in ['757-DHL']:
+            # Altitude Radio (A) comes from the Right altimeter, and is
+            # sampled in word 26 of the frame. Altitude Radio (C) comes from
+            # the Centre altimeter, is sample in word 104. Altitude Radio (B)
+            # comes from the EFIS system, and includes excessive latency so
+            # is not used.
+                blend_two_parameters(source_A, source_C)
             
         else:
             self.warning("No specified Altitude Radio (*) merging for frame "
@@ -649,11 +656,29 @@ class AltitudeRadio(DerivedParameterNode):
             self.array = source_A.array
 
 
-'''
-class AltitudeRadioForFlightPhases(DerivedParameterNode):
-    def derive(self, alt_rad=P('Altitude Radio')):
-        self.array = hysteresis(repair_mask(alt_rad.array), HYSTERESIS_FP_RAD_ALT)
-        '''
+class AltitudeSTD(DerivedParameterNode):
+    """
+    
+    :param frame: The frame attribute, e.g. '737-i'
+    :type frame: An attribute
+    
+    :returns Altitude STD as the mean between two valid sensors.
+    :type parameter object.
+    """
+    name = "Altitude STD"
+    units = 'ft'
+    align_to_first_dependency = False
+    
+    def derive(self, frame = A('Frame'),
+               source_A = P('Altitude STD (1)'),
+               source_B = P('Altitude STD (2)')):
+        
+        frame_name = frame.value if frame else None
+        
+        if frame_name in ['CRJ-700-900']:
+            # Alternate samples (1)&(2) are blended.
+            self.array, self.frequency, self.offset = \
+                blend_two_parameters(source_A, source_B)
 
 
 class AltitudeQNH(DerivedParameterNode):
@@ -1603,6 +1628,39 @@ class GrossWeightSmoothed(DerivedParameterNode):
             self.array = fuel_to_burn + offset
 
 
+
+class Groundspeed(DerivedParameterNode):
+    """
+    This caters for cases where some preprocessing is required.
+    :param frame: The frame attribute, e.g. '737-i'
+    :type frame: An attribute
+    :returns groundspeed as the mean between two valid sensors.
+    :type parameter object.
+    """
+    units = 'kts'
+    align_to_first_dependency = False
+    
+    def derive(self, frame = A('Frame'),
+               alt = P('Altitude STD'),
+               source_A = P('Groundspeed (1)'),
+               source_B = P('Groundspeed (2)')):
+        
+        frame_name = frame.value if frame else None
+        
+        if frame_name in ['757-DHL']:
+            # The coding in this frame is unique as it only uses two bits for
+            # the first digit of the BCD-encoded groundspeed, limiting the
+            # recorded value range to 399 kts. At altitude the aircraft can
+            # exceed this to a fiddle is required to sort this out.
+            altitude = align(alt, source_A) # Caters for different sample rates.
+            adjust_A = np.logical_and(source_A.array<200, altitude>8000).data*400
+            source_A.array += adjust_A
+            adjust_B = np.logical_and(source_B.array<200, altitude>8000).data*400
+            source_B.array += adjust_B
+            self.array, self.frequency, self.offset = \
+                blend_two_parameters(source_A, source_B)
+
+
 class FlapLever(DerivedParameterNode):
     """
     Steps raw Flap angle from lever into detents.
@@ -1641,7 +1699,7 @@ class FlapSurface(DerivedParameterNode):
                alt_aal=P('Altitude AAL')):
         frame_name = frame.value if frame else None
 
-        if frame_name in ['737-5']:
+        if frame_name in ['737-5', '737-6', '757-DHL']:
             self.array, self.frequency, self.offset = blend_two_parameters(flap_A,
                                                                            flap_B)
 
@@ -1920,8 +1978,7 @@ class ILSFrequency(DerivedParameterNode):
 class ILSLocalizer(DerivedParameterNode):
     name = "ILS Localizer"
     align_to_first_dependency = False
-    def derive(self, loc_1=P('ILS (L) Localizer'),loc_2=P('ILS (R) Localizer'), 
-               freq=P("ILS Frequency")):
+    def derive(self, loc_1=P('ILS (L) Localizer'),loc_2=P('ILS (R) Localizer')):
         self.array, self.frequency, self.offset = blend_two_parameters(loc_1, loc_2)
         # TODO: Would like to do this, except the frequencies don't match
         # self.array.mask = np.ma.logical_or(self.array.mask, freq.array.mask)
@@ -1930,8 +1987,7 @@ class ILSLocalizer(DerivedParameterNode):
 class ILSGlideslope(DerivedParameterNode):
     name = "ILS Glideslope"
     align_to_first_dependency = False
-    def derive(self, gs_1=P('ILS (L) Glideslope'),gs_2=P('ILS (R) Glideslope'), 
-               freq=P("ILS Frequency")):
+    def derive(self, gs_1=P('ILS (L) Glideslope'),gs_2=P('ILS (R) Glideslope')):
         self.array, self.frequency, self.offset = blend_two_parameters(gs_1, gs_2)
         # Would like to do this, except the frequemcies don't match
         # self.array.mask = np.ma.logical_or(self.array.mask, freq.array.mask)
@@ -2239,17 +2295,22 @@ class CoordinatesSmoothed(object):
                         latitudes_and_longitudes(bearings, distances, localizer_on_cl)
                     
                     # Alignment of the ILS Range causes corrupt first samples.
-                    # TODO: Fix this by propogating the ILS Range mask correctly.
                     lat_adj[this_loc.slice.start] = np.ma.masked
                     lon_adj[this_loc.slice.start] = np.ma.masked
                     
                     # Finally, tack the ground track onto the end of the landing run
                     if approach['type'] == 'LANDING':
-                        join_idx = (this_loc.slice.stop or 0) - 1
-                        [lat_adj[join_idx:], lon_adj[join_idx:]] = \
-                            ground_track(lat_adj.data[join_idx], lon_adj.data[join_idx],
-                                         speed[join_idx:], hdg.array[join_idx:], 
-                                         freq, 'landing')
+                        # In some cases the bearings and distances computed
+                        # from ILS data may be masked at the end of the
+                        # approach, so we scan back to connect the ground
+                        # track onto the end of the valid data.
+                        index, _ = first_valid_sample(lat_adj[slice(this_loc.slice.stop,this_loc.slice.start,-1)])
+                        join_idx = (this_loc.slice.stop or 0) - index
+                        if len(lat_adj) > join_idx: # We have some room to extend over.
+                            [lat_adj[join_idx:], lon_adj[join_idx:]] = \
+                                ground_track(lat_adj.data[join_idx], lon_adj.data[join_idx],
+                                             speed[join_idx:], hdg.array[join_idx:], 
+                                             freq, 'landing')
 
         # --- Merge Tracks and return ---
         if lat_adj != None:
@@ -2583,7 +2644,28 @@ class CoordinatesStraighten(object):
                 array[track] = coord1_s_track
         return array
         
-
+"""
+================================================================================
+TODO: Add a function into FlightDataConverter to handle this type of signed data.
+Relates to 757-DHL frame only (so far).
+Temporary code to handle latitude and longitude stored with degrees minutes
+and seconds, with a separate sign bit. Without validation the smoothing
+process fails, because the first latitude sample = 0 and the next sample is
+52deg, giving (0-52)^2 as a cost function. Subsequent track calculations
+disintegrate!
+"""
+class Longitude(DerivedParameterNode):
+    def derive(self, lon_deg=P('Longitude Degrees'), sign=P('Longitude Sign')):
+        lon_signed = lon_deg.array * (1.0-2.0*sign.array)
+        self.array = validate_rate_of_change(lon_signed, 0.3, lon_deg.hz, copy=False)
+class Latitude(DerivedParameterNode):
+    def derive(self, lat_deg=P('Latitude Degrees'), sign=P('Latitude Sign')):
+        lat_signed = lat_deg.array * (1.0-2.0*sign.array)
+        self.array = validate_rate_of_change(lat_signed, 0.3, lat_deg.hz, copy=False)       
+"""
+================================================================================
+"""
+        
 class LongitudePrepared(DerivedParameterNode, CoordinatesStraighten):
     """
     This removes the jumps in longitude arising from the poor resolution of
@@ -2723,6 +2805,23 @@ class Tailwind(DerivedParameterNode):
     def derive(self, hwd=P('Headwind')):
         self.array = -hwd.array
         
+
+class TAT(DerivedParameterNode):
+    """
+    Blends data from two air temperature sources.
+    """
+    name = "TAT"
+    units = 'C'
+    align_to_first_dependency = False
+    
+    def derive(self, 
+               source_1 = P('ADC (1) TAT'),
+               source_2 = P('ADC (2) TAT')):
+        
+        # Alternate samples (1)&(2) are blended.
+        self.array, self.frequency, self.offset = \
+            blend_two_parameters(source_1, source_2)
+
 
 class Vapp(DerivedParameterNode):
     '''
@@ -2867,7 +2966,7 @@ class Spoiler(DerivedParameterNode):
                frame = A('Frame')):
         frame_name = frame.value if frame else None
         
-        if frame_name in ['737-5']:
+        if frame_name in ['737-5', '737-6']:
             '''
             We indicate the angle of either raised spoiler, ignoring sense of
             direction as it augments the roll.
@@ -2887,7 +2986,7 @@ class Speedbrake(DerivedParameterNode):
                frame = A('Frame')):
         frame_name = frame.value if frame else None
         
-        if frame_name in ['737-5']:
+        if frame_name in ['737-5', '737-6']:
             '''
             For the 737-5 frame, we do not have speedbrake handle position recorded,
             so the use of the speedbrake is identified by both spoilers being
@@ -2900,7 +2999,26 @@ class Speedbrake(DerivedParameterNode):
 
 
 class StickShaker(DerivedParameterNode):
-    def derive(self, shake=P('STICK SHAKER-LEFT')):
-        self.array, self.frequency, self.offset = \
-            shake.array, shake.frequency, shake.offset
+    '''
+    This accounts for the different types of stick shaker system.
+    '''
+    @classmethod
+    def can_operate(cls, available):
+        if 'Frame' in available:
+            return True
+    
+    align_to_first_dependency = False
 
+    def derive(self, frame = A('Frame'), 
+               shake = P('Stick Shaker (L)'), 
+               shake_act = P('Shaker Activation')):
+
+        frame_name = frame.value if frame else None
+        
+        if frame_name in ['CRJ-700-900']:
+            self.array, self.frequency, self.offset = \
+                shake_act.array, shake_act.frequency, shake_act.offset
+        
+        elif frame_name in ['737-5', '757-DHL']:
+            self.array, self.frequency, self.offset = \
+                shake.array, shake.frequency, shake.offset

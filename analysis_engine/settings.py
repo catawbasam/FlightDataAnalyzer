@@ -66,6 +66,9 @@ SPLIT_PARAMETERS = ('Eng (1) N1', 'Eng (2) N1', 'Eng (3) N1', 'Eng (4) N1',
 ## Parameter Analysis ##
 ########################
 
+# The minimum sensible duration for being airborne, used to reject skips and bounced landings.
+AIRBORNE_THRESHOLD_TIME = 60 # secs
+
 # An airspeed below which you just can't possibly be flying.
 AIRSPEED_THRESHOLD = 80  # kts
 
@@ -134,9 +137,9 @@ HEADING_TURN_OFF_RUNWAY = 15.0 # deg
 # Minimum time is 4 minutes, corresponding to one racetrack pattern.
 HOLDING_MIN_TIME = 4*60 #sec
 # Maximum groundspeed over the period in the hold. This segregates true
-# holds, where the effective speed is of the order of 0-20 knots, from curving
-# departures or approaches.
-HOLDING_MAX_GSPD = 50.0 # kts
+# holds, where the effective speed is significantly reduced (that's the point
+# of the hold), from curving departures or approaches.
+HOLDING_MAX_GSPD = 60.0 # kts
 
 # Threshold for flight phase altitude hysteresis.
 HYSTERESIS_FPALT = 200 # ft
@@ -146,7 +149,9 @@ HYSTERESIS_FPIAS = 5 #kts
 
 # Threshold for flight phase altitude hysteresis specifically for separating 
 # Climb Cruise Descent phases.
-HYSTERESIS_FPALT_CCD = 2500 # ft
+HYSTERESIS_FPALT_CCD = 500 # ft
+# Note: Original value was 2,500ft, based upon normal operations, but
+# circuits flown below 2,000ft agl were being processed incorrectly.
 
 # Threshold for radio altimeter hysteresis 
 # (used for flight phase calculations only)

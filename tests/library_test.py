@@ -11,9 +11,10 @@ from datetime import datetime
 # http://www.java2s.com/Open-Source/Python/Math/Numerical-Python/numpy/numpy/ma/testutils.py.htm
 import utilities.masked_array_testutils as ma_test
 
-from analysis_engine.node import P, S
+from analysis_engine.node import (A, KeyPointValue, KeyTimeInstance, KPV, KTI,
+                                  P, S, Section)
 from analysis_engine.library import *
-
+from analysis_engine.plot_flight import plot_parameter
 
 test_data_path = os.path.join(os.path.dirname(os.path.abspath(__file__)),
                               'test_data')
@@ -1397,8 +1398,8 @@ class TestILSLocalizerAlign(unittest.TestCase):
                       'start': {'latitude': 60.30662494, 
                                 'longitude': 5.21370074}}
         result = ils_localizer_align(runway)
-        self.assertEqual(result['longitude'],5.222864017688102)
-        self.assertEqual(result['latitude'],60.27930111036241)
+        self.assertEqual(result['longitude'],5.2229505710057404)
+        self.assertEqual(result['latitude'],60.27904301842346)
         
 
 class TestIntegrate (unittest.TestCase):
@@ -2002,6 +2003,14 @@ class TestRateOfChange(unittest.TestCase):
                              mask=False)
         ma_test.assert_mask_eqivalent(sloped, answer)
         
+    def test_rate_of_change_reduced_frequency(self):
+        sloped = rate_of_change(P('Test', 
+                                  np.ma.array([1, 0, -1, 2, 1, 3, 4, 6, 5, 7],
+                                              dtype=float), 0.5), 4)
+        answer = np.ma.array(data=[-0.5,-0.5,0.5,0.5,0.25,0.75,0.75,0.25,0.25,1.0],
+                             mask=False)
+        ma_test.assert_mask_eqivalent(sloped, answer)
+        
     def test_rate_of_change_transfer_mask(self):
         sloped = rate_of_change(P('Test', 
                                   np.ma.array(data = [1, 0, -1, 2, 1, 3, 4, 6, 5, 7],dtype=float,
@@ -2059,6 +2068,16 @@ class TestRepairMask(unittest.TestCase):
         array[9] = np.ma.masked
         res = repair_mask(array)
         ma_test.assert_masked_array_approx_equal(res, array)
+
+    def test_repair_short_sample(self):
+        # Very short samples were at one time returned as None, but simply
+        # applying the normal "rules" seems more consistent, so this is a
+        # test to show that an old function no longer applies.
+        array = np.ma.arange(2)
+        array[1] = np.ma.masked
+        res = repair_mask(array)
+        ma_test.assert_masked_array_approx_equal(res, array)
+
 
 class TestRoundToNearest(unittest.TestCase):
     def test_round_to_nearest(self):
@@ -2259,6 +2278,26 @@ class TestSlicesOverlap(unittest.TestCase):
         self.assertTrue(slices_overlap(first, second))
         self.assertTrue(slices_overlap(second, first))
         
+        # None in slices
+        start_none = slice(None, 12)
+        self.assertTrue(slices_overlap(first, start_none))
+        self.assertFalse(slices_overlap(second, start_none))
+        self.assertTrue(slices_overlap(start_none, first))
+        self.assertFalse(slices_overlap(start_none, second))
+        
+        end_none = slice(22,None)
+        self.assertFalse(slices_overlap(first, end_none))
+        self.assertTrue(slices_overlap(second, end_none))
+        self.assertFalse(slices_overlap(end_none, first))
+        self.assertTrue(slices_overlap(end_none, second))
+        
+        both_none = slice(None, None)
+        self.assertTrue(slices_overlap(first, both_none))
+        self.assertTrue(slices_overlap(second, both_none))
+        self.assertTrue(slices_overlap(both_none, first))
+        self.assertTrue(slices_overlap(both_none, second))
+        
+        
         # no overlap
         no_overlap = slice(25,40)
         self.assertFalse(slices_overlap(second, no_overlap))
@@ -2335,8 +2374,8 @@ class TestSlicesNot(unittest.TestCase):
         self.assertEqual(slices_not(slice_list),[slice(13,15)])
         
     def test_slices_not_null(self):
-        self.assertEqual(slices_not(None), None)
-        self.assertEqual(slices_not([]), None)
+        self.assertEqual(slices_not(None), [slice(None,None,None)])
+        self.assertEqual(slices_not([]), [slice(None,None,None)])
         self.assertEqual(slices_not([slice(4,6)]),[])
         
     def test_slices_misordered(self):
@@ -2386,6 +2425,7 @@ class TestSlicesOr(unittest.TestCase):
  
     def test_slices_or_one_list(self):
         self.assertEqual(slices_or([slice(1,2)]), [slice(1,2)])
+
 
 class TestStepValues(unittest.TestCase):
     def test_step_values(self):
@@ -2614,11 +2654,13 @@ class TestTrackLinking(unittest.TestCase):
         local[6:10]=np.ma.masked
         local[13:]=np.ma.masked
         local[8:] -= 2.5
+        # plot_parameter(local)
         result = track_linking(pos,local)
         expected = np.ma.array(data = [3.0,3.0,3.0,3.0,4.0,5.0,5.5,6.0,
                                        6.5,7.0,7.5,8.5,9.5,9.5,9.5,9.5],
                                mask = False)
         np.testing.assert_array_equal(expected,result)
+        # plot_parameter(expected)
         
 class TestValueAtTime(unittest.TestCase):
 
