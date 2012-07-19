@@ -66,6 +66,7 @@ from settings import (AZ_WASHOUT_TC,
                       METRES_TO_FEET,
                       RATE_OF_CLIMB_LAG_TC)
 
+from data_validation.rate_of_change import validate_rate_of_change
 
 # There is no numpy masked array function for radians, so we just multiply thus:
 deg2rad = radians(1.0)
@@ -1698,7 +1699,7 @@ class FlapSurface(DerivedParameterNode):
                alt_aal=P('Altitude AAL')):
         frame_name = frame.value if frame else None
 
-        if frame_name in ['737-5', '757-DHL']:
+        if frame_name in ['737-5', '737-6', '757-DHL']:
             self.array, self.frequency, self.offset = blend_two_parameters(flap_A,
                                                                            flap_B)
 
@@ -2643,16 +2644,27 @@ class CoordinatesStraighten(object):
                 array[track] = coord1_s_track
         return array
         
-
+"""
+================================================================================
+TODO: Add a function into FlightDataConverter to handle this type of signed data.
+Relates to 757-DHL frame only (so far).
+Temporary code to handle latitude and longitude stored with degrees minutes
+and seconds, with a separate sign bit. Without validation the smoothing
+process fails, because the first latitude sample = 0 and the next sample is
+52deg, giving (0-52)^2 as a cost function. Subsequent track calculations
+disintegrate!
+"""
 class Longitude(DerivedParameterNode):
     def derive(self, lon_deg=P('Longitude Degrees'), sign=P('Longitude Sign')):
-        self.array = lon_deg.array * (1.0-2.0*sign.array)
-
-
+        lon_signed = lon_deg.array * (1.0-2.0*sign.array)
+        self.array = validate_rate_of_change(lon_signed, 0.3, lon_deg.hz, copy=False)
 class Latitude(DerivedParameterNode):
     def derive(self, lat_deg=P('Latitude Degrees'), sign=P('Latitude Sign')):
-        self.array = lat_deg.array * (1.0-2.0*sign.array)
-        
+        lat_signed = lat_deg.array * (1.0-2.0*sign.array)
+        self.array = validate_rate_of_change(lat_signed, 0.3, lat_deg.hz, copy=False)       
+"""
+================================================================================
+"""
         
 class LongitudePrepared(DerivedParameterNode, CoordinatesStraighten):
     """
@@ -2954,7 +2966,7 @@ class Spoiler(DerivedParameterNode):
                frame = A('Frame')):
         frame_name = frame.value if frame else None
         
-        if frame_name in ['737-5']:
+        if frame_name in ['737-5', '737-6']:
             '''
             We indicate the angle of either raised spoiler, ignoring sense of
             direction as it augments the roll.
@@ -2974,7 +2986,7 @@ class Speedbrake(DerivedParameterNode):
                frame = A('Frame')):
         frame_name = frame.value if frame else None
         
-        if frame_name in ['737-5']:
+        if frame_name in ['737-5', '737-6']:
             '''
             For the 737-5 frame, we do not have speedbrake handle position recorded,
             so the use of the speedbrake is identified by both spoilers being
