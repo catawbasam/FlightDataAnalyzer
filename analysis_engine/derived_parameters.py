@@ -3004,7 +3004,9 @@ class StickShaker(DerivedParameterNode):
     '''
     @classmethod
     def can_operate(cls, available):
-        if 'Frame' in available:
+        # we cannot access the frame_name within this method to determine which
+        # parameter is the requirement
+        if 'Frame' in available and ('Stick Shaker (L)' in available or 'Shaker Activation' in available):
             return True
     
     align_to_first_dependency = False
@@ -3015,10 +3017,11 @@ class StickShaker(DerivedParameterNode):
 
         frame_name = frame.value if frame else None
         
-        if frame_name in ['CRJ-700-900']:
+        if frame_name in ['CRJ-700-900'] and shake_act:
             self.array, self.frequency, self.offset = \
                 shake_act.array, shake_act.frequency, shake_act.offset
         
-        elif frame_name in ['737-5', '757-DHL']:
+        else:
+            # elif frame_name in ['737-5', '757-DHL'] and shake:
             self.array, self.frequency, self.offset = \
                 shake.array, shake.frequency, shake.offset
