@@ -168,6 +168,16 @@ class AccelerationNormalAtTouchdown(KeyPointValueNode):
         for tdwn in tdwns:
             self.create_kpv(*bump(acc, tdwn))
 
+
+class AccelerationLateralAtTouchdown(KeyPointValueNode):
+    '''
+    Programmed at Goodyear office as a demonstration.
+    '''
+    def derive(self, acc=P('Acceleration Lateral'), tdwns=KTI('Touchdown')):
+        for tdwn in tdwns:
+            self.create_kpv(*bump(acc, tdwn))
+
+
 #-----------------------------------------------------------------------
 
 
