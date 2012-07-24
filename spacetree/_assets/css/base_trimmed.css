@@ -243,3 +243,37 @@ hr.double{
 .error{
     color: red;
 }
+
+.attribute-legend {
+    background-color: blue;
+}
+
+.derived-parameter-legend {
+    background-color: green;
+}
+
+.flight-phase-legend {
+    background-color: yellow;
+}
+
+.key-point-value-legend {
+    background-color: purple;
+}
+
+.key-time-instance-legend {
+    background-color: orange;
+}
+
+.legend-table
+{
+    border-collapse: collapse; /* 'cellspacing' equivalent */
+}
+
+.legend-table th {
+    width: 20px;
+}
+
+.legend-table td, .legend-table th
+{
+    padding: 5px; /* 'cellpadding' equivalent */
+}

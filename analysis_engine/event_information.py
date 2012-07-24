@@ -46,7 +46,7 @@ def populate_events(hdf_path, events_info):
                 return None
             return hdf[parameter].get(offset)
 
-        for id, info in events_info:
+        for id, info in events_info.iteritems():
 
             logger.debug('Populating event #%d with extra data...', id)
 
