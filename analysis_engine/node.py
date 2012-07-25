@@ -1011,9 +1011,10 @@ class KeyTimeInstanceNode(FormattedNameNode):
         :type direction: string
         :param phase: An optional flight phase (section) argument.
         
-        Direction has possible fields 'rising_edges' or 'falling_edges'. In
-        the absence of a direction parameter, the default 'rising_edges' will
-        be retained, and all edges will be triggered.
+        Direction has possible fields 'rising_edges', 'falling_edges' or
+        'all_edges'. In the absence of a direction parameter, the default is
+        'rising_edges'.
+        
         Where phase is supplied, only edges arising within this phase will be
         triggered.
         '''

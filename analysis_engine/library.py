@@ -2939,7 +2939,7 @@ def index_at_value(array, threshold, _slice=slice(None), endpoint='exact'):
         
     elif step == -1:
         begin = min(int(round(_slice.start or max_index)),max_index)
-        end = max(int(round(_slice.stop or 0)),0)
+        end = max(int(_slice.stop or 0),0)
 
         # More "let's get the logic right and tidy it up afterwards" bit of code...
         if begin >= len(array):

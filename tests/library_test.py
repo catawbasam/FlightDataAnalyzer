@@ -1215,6 +1215,14 @@ class TestIndexAtValue(unittest.TestCase):
         array = np.ma.arange(4)
         self.assertEquals (index_at_value(array, 3.0, slice(1, 4)), 3.0)
         
+    def test_index_at_value_backwards_floating_point_end(self):
+        array = np.ma.arange(4)
+        self.assertEquals (index_at_value(array, 1.0, slice(3.4, 0.5, -1)), 1.0)
+        
+    def test_index_at_value_forwards_floating_point_end(self):
+        array = np.ma.arange(4)
+        self.assertEquals (index_at_value(array, 3.0, slice(0.6, 3.5)), 3.0)
+        
     def test_index_at_value_threshold_not_crossed(self):
         array = np.ma.arange(4)
         self.assertEquals (index_at_value(array, 7.5, slice(0, 3)), None)

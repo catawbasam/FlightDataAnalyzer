@@ -44,8 +44,17 @@ def validate_aircraft(aircraft_info, hdf):
 
 def _segment_type_and_slice(airspeed, frequency, start, stop):
     airspeed_start = start * frequency
-    airspeed_stop = stop * frequency    
-    unmasked_start, unmasked_stop = np.ma.flatnotmasked_edges(airspeed[airspeed_start:airspeed_stop])
+    airspeed_stop = stop * frequency
+    try:
+        unmasked_start, unmasked_stop = \
+            np.ma.flatnotmasked_edges(airspeed[airspeed_start:airspeed_stop])
+    except TypeError:
+        # Raised when flatnotmasked_edges returns None because all data is
+        # masked.
+        segment_type = 'GROUND_ONLY'
+        logger.debug("Airspeed data was entirely masked. Assuming '%s' between"
+                     "'%s' and '%s'." % (segment_type, start, stop))
+        return segment_type, slice(start, stop)
     unmasked_start += airspeed_start
     unmasked_stop += airspeed_start
     

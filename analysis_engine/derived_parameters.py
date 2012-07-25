@@ -2010,6 +2010,8 @@ class ILSRange(DerivedParameterNode):
                lon = P('Longitude Prepared'),
                glide = P('ILS Glideslope'),
                gspd = P('Groundspeed'),
+               drift = P('Drift'),
+               head = P('Heading True'),
                tas = P('Airspeed True'),
                alt_aal = P('Altitude AAL'),
                loc_established = S('ILS Localizer Established'),
@@ -2047,6 +2049,17 @@ class ILSRange(DerivedParameterNode):
                                 "Details: %s", approach)
                 continue
             
+            try:
+                start_2_loc, gs_2_loc, end_2_loc, pgs_lat, pgs_lon = \
+                    runway_distances(runway)
+                off_cl = head.array - runway_heading(runway)
+            except KeyError:
+                self.warning("Runway did not have required information in "
+                                "'%s', '%s'.", self.name, runway)
+                off_cl = np_ma_zeros_like(head.array)
+                continue
+
+            
             if precise.value:
                 # Convert (prepared) latitude & longitude for the whole phase
                 # into range from the threshold. (threshold = {})
@@ -2067,34 +2080,33 @@ class ILSRange(DerivedParameterNode):
             #-----------------------------
             else: # non-precise positioning
             
-                # Use recorded groundspeed where available, otherwise estimate
-                # range using true airspeed. This is because there are aircraft
-                # which record ILS but not groundspeed data.
+                # Use recorded groundspeed where available, otherwise
+                # estimate range using true airspeed. This is because there
+                # are aircraft which record ILS but not groundspeed data. In
+                # either case the speed is referenced to the runway heading
+                # in case of large deviations on the approach or runway.
+                speed_gs = gspd.array.data[this_loc.slice] * \
+                    np.cos(np.radians(off_cl[this_loc.slice]+\
+                                      drift.array[this_loc.slice]))
+                speed_tas = tas.array.data[this_loc.slice] * \
+                    np.cos(np.radians(off_cl[this_loc.slice]))
                 if gspd:
                     # It is necessary to use getmaskarray rather than .array.mask
                     # here because the array may have no masked entries, in which
                     # case only a single False scalar is returned, which will not
                     # work with the np.ma.where function.
-                    speed = np.ma.where(np.ma.getmaskarray(gspd.array[this_loc.slice]), \
-                                        tas.array.data[this_loc.slice], \
-                                        gspd.array.data[this_loc.slice]) 
+                    speed = np.ma.where(np.ma.getmaskarray(\
+                        gspd.array[this_loc.slice]), speed_tas, speed_gs)
+
                 else:
-                    speed = tas.array.data[this_loc.slice]
+                    speed = speed_tas
                     
                 # Estimate range by integrating back from zero at the end of the
                 # phase to high range values at the start of the phase.
                 spd_repaired = repair_mask(speed)
                 ils_range[this_loc.slice] = integrate(
                     spd_repaired, gspd.frequency, scale=KTS_TO_MPS, direction='reverse')
-            
-            try:
-                start_2_loc, gs_2_loc, end_2_loc, pgs_lat, pgs_lon = \
-                    runway_distances(runway)  
-            except KeyError:
-                self.warning("Runway did not have required information in "
-                                "'%s', '%s'.", self.name, runway)
-                continue
-
+                
             if 'glideslope' in runway:
                 # The runway has an ILS glideslope antenna
                 
@@ -2107,14 +2119,15 @@ class ILSRange(DerivedParameterNode):
                     self.warning("No glideslope established at same time as localiser")
                     continue
                     
-                # Compute best fit glidepath. The term (1-.13 x glideslope
+                # Compute best fit glidepath. The term (1-0.1 x glideslope
                 # deviation) caters for the aircraft deviating from the
-                # planned flightpath. 1 dot low is about 0.76 deg, or 13% of
-                # a 3 degree glidepath. Not precise, but adequate accuracy
-                # for the small error we are correcting for here.
-                corr, slope, offset = coreg(ils_range[this_gs.slice],
-                    alt_aal.array[this_gs.slice]* (1-0.13*glide.array[this_gs.slice]))
+                # planned flightpath. 1 dot low is about 10% of a 3 degree
+                # glidepath. Not precise, but adequate accuracy for the small
+                # error we are correcting for here, and empyrically checked.
                 
+                corr, slope, offset = coreg(ils_range[this_gs.slice],
+                    alt_aal.array[this_gs.slice]* (1-0.1*glide.array[this_gs.slice]))
+                print corr, slope, offset
                 # This should correlate very well, and any drop in this is a
                 # sign of problems elsewhere.
                 if corr < 0.998:
@@ -2644,27 +2657,6 @@ class CoordinatesStraighten(object):
                 array[track] = coord1_s_track
         return array
         
-"""
-================================================================================
-TODO: Add a function into FlightDataConverter to handle this type of signed data.
-Relates to 757-DHL frame only (so far).
-Temporary code to handle latitude and longitude stored with degrees minutes
-and seconds, with a separate sign bit. Without validation the smoothing
-process fails, because the first latitude sample = 0 and the next sample is
-52deg, giving (0-52)^2 as a cost function. Subsequent track calculations
-disintegrate!
-"""
-class Longitude(DerivedParameterNode):
-    def derive(self, lon_deg=P('Longitude Degrees'), sign=P('Longitude Sign')):
-        lon_signed = lon_deg.array * (1.0-2.0*sign.array)
-        self.array = validate_rate_of_change(lon_signed, 0.3, lon_deg.hz, copy=False)
-class Latitude(DerivedParameterNode):
-    def derive(self, lat_deg=P('Latitude Degrees'), sign=P('Latitude Sign')):
-        lat_signed = lat_deg.array * (1.0-2.0*sign.array)
-        self.array = validate_rate_of_change(lat_signed, 0.3, lat_deg.hz, copy=False)       
-"""
-================================================================================
-"""
         
 class LongitudePrepared(DerivedParameterNode, CoordinatesStraighten):
     """
@@ -2877,7 +2869,6 @@ class V2(DerivedParameterNode):
             each_flap = flap.array[each_index]
             self.array[each_index:end] = _v2(each_weight, each_flap)
             end = each_index # so the next one will precede this.
-        
         
         
 class WindAcrossLandingRunway(DerivedParameterNode):

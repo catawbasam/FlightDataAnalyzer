@@ -459,7 +459,9 @@ class Touchdown(KeyTimeInstanceNode):
                     # Mainly for testing !
                     raise ValueError,'Disaster in touchdown'
                 
-                
+class TouchdownRecorded(KeyTimeInstanceNode):
+    def derive(self, ldg_sw = P('On Ground Switch')):
+        self.create_ktis_at_edges(ldg_sw.array, direction='rising_edges')
                     
 class LandingTurnOffRunway(KeyTimeInstanceNode):
     # See Takeoff Turn Onto Runway for description.

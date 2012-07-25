@@ -23,7 +23,11 @@ from analysis_engine.dependency_graph import (
 )
 from analysis_engine.node import NodeManager
 from analysis_engine.process_flight import get_derived_nodes
-from analysis_engine.settings import BASE_URL
+#from analysis_engine.settings import BASE_URL
+
+
+# Currently only test implements parameter request.
+BASE_URL = 'https://polaris-test.flightdataservices.com'
 
 
 class GetHandler(BaseHTTPRequestHandler):
@@ -209,17 +213,19 @@ class GetHandler(BaseHTTPRequestHandler):
         '''
         Fetch params from server.
         '''
-        http = httplib2.Http()
+        http = httplib2.Http(disable_ssl_certificate_validation=True)
         body = urllib.urlencode({'parameters': simplejson.dumps(param_names)})
         try:
             response, content = http.request(BASE_URL + '/api/parameter',
                                              'POST', body)
-        except Exception:
+        except Exception as err:
+            print 'Exception raised when querying website:', str(err)
             polaris_query = False
             params = {param_name: {'database': None,
                                    'limits': None} for param_name in param_names}
         else:
             polaris_query = True
+            print 'content', content
             params = simplejson.loads(content)['data']
         mandatory_params = open('mandatory_params', 'r').read().splitlines()
         for param_name, param_info in params.iteritems():
