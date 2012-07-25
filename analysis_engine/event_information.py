@@ -9,7 +9,9 @@
 
 
 import logging
+import numpy as np
 
+from analysis_engine.library import value_at_time
 from hdfaccess.file import hdf_file
 
 
@@ -39,12 +41,19 @@ def populate_events(hdf_path, events_info):
 
     with hdf_file(hdf_path) as hdf:
 
-        def lookup(parameter, offset):
+        def lookup(param_name, offset):
             '''
             '''
-            if not parameter in hdf:
+            if not param_name in hdf:
                 return None
-            return hdf[parameter].get(offset)
+
+            param = hdf[param_name]
+            value = value_at_time(param.array, param.hz, param.offset, offset)
+
+            if type(value) == np.ma.core.MaskedConstant:
+                return None
+
+            return value
 
         for id, info in events_info.iteritems():
 
