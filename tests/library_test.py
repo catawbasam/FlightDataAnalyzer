@@ -463,30 +463,50 @@ class TestLatitudesAndLongitudes(unittest.TestCase):
         # TODO - Test with array and masks (for Brg/Dist also?)
         
 
-class TestBlendAlternateSensors(unittest.TestCase):
-    def test_blend_alternage_sensors_basic(self):
+class TestBlendEquispacedSensors(unittest.TestCase):
+    def test_blend_alternate_sensors_basic(self):
         array_1 = np.ma.array([0, 0, 1, 1],dtype=float)
         array_2 = np.ma.array([5, 5, 6, 6],dtype=float)
-        result = blend_alternate_sensors (array_1, array_2, 'Follow')
+        result = blend_equispaced_sensors (array_1, array_2)
+        np.testing.assert_array_equal(result.data, [2.5,2.5,2.5,2.75,3.25,3.5,3.5,3.5])
+        np.testing.assert_array_equal(result.mask, [False,False,False,False,
+                                                   False,False,False,False])
+    
+    def test_blend_alternate_sensors_masked(self):
+        array_1 = np.ma.array(data = [0, 0, 1, 1, 2, 2],dtype=float,
+                              mask = [0, 1, 0, 0, 0, 1])
+        array_2 = np.ma.array(data = [5, 5, 6, 6, 7, 7],dtype=float,
+                              mask = [0, 0, 1, 0, 0, 1])
+        result = blend_equispaced_sensors (array_1, array_2)
+        np.testing.assert_array_equal(result.data,[2.5,5.0,5.0,5.0,1.0,1.0,
+                                                   1.0,3.75,4.25,7.0,0.0,0.0])
+        np.testing.assert_array_equal(result.mask, [False,False,False,False,False,False,
+                                                   False,False,False,False,True,True])
+    
+class TestBlendNonequispacedSensors(unittest.TestCase):
+    def test_blend_alternate_sensors_basic(self):
+        array_1 = np.ma.array([0, 0, 1, 1],dtype=float)
+        array_2 = np.ma.array([5, 5, 6, 6],dtype=float)
+        result = blend_nonequispaced_sensors (array_1, array_2, 'Follow')
         np.testing.assert_array_equal(result.data, [2.5,2.5,2.5,3,3.5,3.5,3.5,3.5])
         np.testing.assert_array_equal(result.mask, [False,False,False,False,
                                                    False,False,False,True])
 
-    def test_blend_alternage_sensors_mask(self):
+    def test_blend_alternate_sensors_mask(self):
         array_1 = np.ma.array([0, 0, 1, 1],dtype=float)
         array_2 = np.ma.array([5, 5, 6, 6],dtype=float)
         array_1[2] = np.ma.masked
-        result = blend_alternate_sensors (array_1, array_2, 'Follow')
+        result = blend_nonequispaced_sensors (array_1, array_2, 'Follow')
         np.testing.assert_array_equal(result.data[0:3], [2.5,2.5,2.5])
         np.testing.assert_array_equal(result.data[6:8], [3.5,3.5])
         np.testing.assert_array_equal(result.mask, [False,False,False,
                                                     True,True,False,
                                                     False,True])
 
-    def test_blend_alternage_sensors_reverse(self):
+    def test_blend_alternate_sensors_reverse(self):
         array_1 = np.ma.array([0, 0, 1, 1],dtype=float)
         array_2 = np.ma.array([5, 5, 6, 6],dtype=float)
-        result = blend_alternate_sensors (array_1, array_2, 'Precede')
+        result = blend_nonequispaced_sensors (array_1, array_2, 'Precede')
         np.testing.assert_array_equal(result.data, [2.5,2.5,2.5,2.5,3,3.5,3.5,3.5])
         np.testing.assert_array_equal(result.mask, [True,False,False,False,
                                                     False,False,False,False])
@@ -1694,15 +1714,15 @@ class TestMinimumUnmasked(unittest.TestCase):
 
 
 class TestBlendTwoParameters(unittest.TestCase):
-    def test_blend_two_parameters_offset_ordered_forward(self):
+    def test_blend_two_parameters_p2_before_p1_equal_spacing(self):
         p1 = P(array=[0,0,0,1.0], frequency=1, offset=0.9)
         p2 = P(array=[1,2,3,4.0], frequency=1, offset=0.4)
         arr, freq, off = blend_two_parameters(p1, p2)
-        self.assertEqual(arr[1], 0.5)
+        self.assertEqual(arr[1], 0.75)
         self.assertEqual(freq, 2)
-        self.assertAlmostEqual(off, 0.15)
+        self.assertAlmostEqual(off, 0.4)
 
-    def test_blend_two_parameters_offset_ordered_backward(self):
+    def test_blend_two_parameters_offset_p2_before_p1_unequal_spacing(self):
         p1 = P(array=[5,10,7,8.0], frequency=2, offset=0.1)
         p2 = P(array=[1,2,3,4.0], frequency=2, offset=0.0)
         arr, freq, off = blend_two_parameters(p1, p2)

@@ -630,7 +630,7 @@ class AltitudeRadio(DerivedParameterNode):
             
         elif frame_name in ['737-4', '737-4_Analogue', 'CRJ-700-900']:
             self.array, self.frequency, self.offset = \
-                merge_two_parameters(source_A, source_B)
+                blend_two_parameters(source_A, source_B)
         
         elif frame_name in ['737-5']:
             if frame_qualifier and 'Altitude_Radio_EFIS' in frame_qualifier or\
@@ -2127,7 +2127,7 @@ class ILSRange(DerivedParameterNode):
                 
                 corr, slope, offset = coreg(ils_range[this_gs.slice],
                     alt_aal.array[this_gs.slice]* (1-0.1*glide.array[this_gs.slice]))
-                print corr, slope, offset
+
                 # This should correlate very well, and any drop in this is a
                 # sign of problems elsewhere.
                 if corr < 0.998:
