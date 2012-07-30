@@ -271,7 +271,7 @@ class TestAlign(unittest.TestCase):
         slave.array = np.ma.array([10,11],dtype=float)
         slave.frequency = 0.25
         slave.offset = 3.95
-        result = align(slave, master, interval='Frame')
+        result = align(slave, master)
         # Build the correct answer...
         answer=np.ma.ones(64)*10
         answer[31] = answer[31] + 0.00625
@@ -301,7 +301,7 @@ class TestAlign(unittest.TestCase):
         slave.array = np.ma.arange(32,dtype=float)
         slave.frequency = 4
         slave.offset = 0.1
-        result = align(slave, master, interval='Frame')
+        result = align(slave, master)
         # Build the correct answer...
         answer=np.ma.array([5.6,13.6,21.6,29.6])
         ma_test.assert_masked_array_approx_equal(result, answer)

@@ -6,11 +6,11 @@ from collections import OrderedDict, namedtuple
 from datetime import datetime, timedelta
 from hashlib import sha256
 from itertools import izip
-from settings import KTS_TO_MPS, METRES_TO_FEET
 ##from scipy.optimize import fmin, fmin_bfgs, fmin_tnc
 # TODO: Inform Enthought that fmin_l_bfgs_b dies in a dark hole at _lbfgsb.setulb
 
-from settings import REPAIR_DURATION, TRUCK_OR_TRAILER_INTERVAL, TRUCK_OR_TRAILER_PERIOD
+from settings import (KTS_TO_MPS, METRES_TO_FEET, REPAIR_DURATION, 
+                      TRUCK_OR_TRAILER_INTERVAL, TRUCK_OR_TRAILER_PERIOD)
 # There is no numpy masked array function for radians, so we just multiply thus:
 deg2rad = radians(1.0)
 
@@ -22,7 +22,7 @@ class InvalidDatetime(ValueError):
     pass
 
 
-def align(slave, master, interval='Subframe', data_type=None):
+def align(slave, master, data_type=None):
     """
     This function takes two parameters which will have been sampled at
     different rates and with different measurement offsets in time, and
@@ -49,16 +49,10 @@ def align(slave, master, interval='Subframe', data_type=None):
     :type slave: Parameter objects
     :param master: The master parameter
     :type master: Parameter objects
-    
-    :defunct option interval no longer required.
-    :param interval: Has possible values 'Subframe' or 'Frame'.  #TODO: explain this!
-    :type interval: String
-
     :param data_type: Overrides the slave data_type for interpolation method.
     :type data_type: string, default to None, but accepted options are:
     "discrete", "multi-state" and "non-aligned".
     
-    :raises AssertionError: If the interval is neither 'Subframe' or 'Frame'
     :raises AssertionError: If the arrays and sample rates do not equate to the same overall data duration.
     
     :returns: Slave array aligned to master.
@@ -71,9 +65,6 @@ def align(slave, master, interval='Subframe', data_type=None):
     if slave.frequency == master.frequency and slave.offset == master.offset:
         # No alignment is required, return the slave's array unchanged.
         return slave_array
-    
-    # Check the interval is one of the two forms we recognise
-    assert interval in ['Subframe', 'Frame']
     
     if data_type is None and slave.data_type:
         data_type = slave.data_type
@@ -787,8 +778,7 @@ def last_valid_sample(array, end_index=None):
 
 
 
-def first_order_lag (in_param, time_constant, hz, gain = 1.0,
-                     initial_value = None):
+def first_order_lag(param, time_constant, hz, gain=1.0, initial_value=None):
     '''
     Computes the transfer function
             x.G
@@ -805,8 +795,8 @@ def first_order_lag (in_param, time_constant, hz, gain = 1.0,
     first_order_lag(param, time_constant=5) is equivalent to
     array[index] = array[index-1] * 0.8 + array[index] * 0.2.
     
-    :param in_param: input data (x)
-    :type in_param: masked array
+    :param param: input data (x)
+    :type param: masked array
     :param time_constant: time_constant for the lag function (T)(sec)
     :type time_constant: float
     :param hz: sample rate for the input data (sec-1)
@@ -836,9 +826,9 @@ def first_order_lag (in_param, time_constant, hz, gain = 1.0,
     y_term.append ((1.0 - 2.0*tc)/(1.0 + 2.0*tc)) #a[1]
     y_term = np.array(y_term)
     
-    return masked_first_order_filter(y_term, x_term, in_param, initial_value)
+    return masked_first_order_filter(y_term, x_term, param, initial_value)
 
-def masked_first_order_filter(y_term, x_term, in_param, initial_value):
+def masked_first_order_filter(y_term, x_term, param, initial_value):
     """
     This provides access to the scipy filter function processed across the
     unmasked data blocks, with masked data retained as masked zero values.
@@ -846,11 +836,11 @@ def masked_first_order_filter(y_term, x_term, in_param, initial_value):
     the mathematically correct thing to do with infinite response filters.
     
     :param y_term: Filter denominator terms. 
-    :type in_param: list 
+    :type param: list 
     :param x_term: Filter numerator terms.
     :type x_term: list
-    :param in_param: input data array
-    :type in_param: masked array
+    :param param: input data array
+    :type param: masked array
     :param initial_value: Value to be used at the start of the data
     :type initial_value: float (or may be None)
     """
@@ -860,20 +850,20 @@ def masked_first_order_filter(y_term, x_term, in_param, initial_value):
     # The initial value may be set as a command line argument, mainly for testing
     # otherwise we set it to the first data value.
     
-    result = np.ma.zeros(len(in_param))  # There is no zeros_like method.
-    good_parts = np.ma.clump_unmasked(in_param)
+    result = np.ma.zeros(len(param))  # There is no zeros_like method.
+    good_parts = np.ma.clump_unmasked(param)
     for good_part in good_parts:
         
         if initial_value == None:
-            initial_value = in_param[good_part.start]
+            initial_value = param[good_part.start]
         # Tested version here...
-        answer, z_final = lfilter(x_term, y_term, in_param[good_part], zi=z_initial*initial_value)
+        answer, z_final = lfilter(x_term, y_term, param[good_part], zi=z_initial*initial_value)
         result[good_part] = np.ma.array(answer)
         
     # The mask should last indefinitely following any single corrupt data point
     # but this is impractical for our use, so we just copy forward the original
     # mask.
-    bad_parts = np.ma.clump_masked(in_param)
+    bad_parts = np.ma.clump_masked(param)
     for bad_part in bad_parts:
         # The mask should last indefinitely following any single corrupt data point
         # but this is impractical for our use, so we just copy forward the original
@@ -882,8 +872,7 @@ def masked_first_order_filter(y_term, x_term, in_param, initial_value):
         
     return result
     
-def first_order_washout (in_param, time_constant, hz, gain = 1.0,
-                         initial_value = None):
+def first_order_washout(param, time_constant, hz, gain=1.0, initial_value=None):
     '''
     Computes the transfer function
          x.G.(T.s)
@@ -896,8 +885,8 @@ def first_order_washout (in_param, time_constant, hz, gain = 1.0,
     s is the Laplace operator
     y is the output
     
-    :param in_param: input data (x)
-    :type in_param: masked array
+    :param param: input data (x)
+    :type param: masked array
     :param time_constant: time_constant for the lag function (T)(sec)
     :type time_constant: float
     :param hz: sample rate for the input data (sec-1)
@@ -908,7 +897,7 @@ def first_order_washout (in_param, time_constant, hz, gain = 1.0,
     :type initial_value: float
     :returns: masked array of values with first order lag applied
     '''
-    #input_data = np.copy(in_param.data)
+    #input_data = np.copy(param.data)
     
     # Scale the time constant to allow for different data sample rates.
     tc = time_constant * hz
@@ -927,7 +916,7 @@ def first_order_washout (in_param, time_constant, hz, gain = 1.0,
     y_term.append ((1.0 - 2.0*tc)/(1.0 + 2.0*tc)) #a[1]
     y_term = np.array(y_term)
     
-    return masked_first_order_filter(y_term, x_term, in_param, initial_value)
+    return masked_first_order_filter(y_term, x_term, param, initial_value)
 
 
 def _dist(lat1_d, lon1_d, lat2_d, lon2_d):
@@ -1200,7 +1189,7 @@ def hash_array(array):
     checksum.update(array.tostring())
     return checksum.hexdigest()
 
-def hysteresis (array, hysteresis):
+paramrray, hysteresis):
     """
     Applies hysteresis to an array of data. The function applies half the
     required level of hysteresis forwards and then backwards to provide a
@@ -1329,7 +1318,7 @@ def ils_localizer_align(runway):
     return {'latitude':new_lat, 'longitude':new_lon}
 
     
-def integrate (array, frequency, initial_value=0.0, scale=1.0, direction="forwards"):
+def integrate(array, frequency, initial_value=0.0, scale=1.0, direction="forwards"):
     """
     Trapezoidal integration
     
@@ -1340,11 +1329,12 @@ def integrate (array, frequency, initial_value=0.0, scale=1.0, direction="forwar
     :type array: Numpy masked array.
     :param frequency: Sample rate of the integrand.
     :type frequency: Float
-    :param initial_value: Initial falue for the integral
-    :type initial_value: float
+    :param initial_value: Initial value for the integral
+    :type initial_value: Float
     :param scale: Scaling factor, default = 1.0
     :type scale: float
     :param direction: Optional integration sense, default = 'forwards'
+    :type direction: String - ['forwards', 'backwards', 'reverse']
     
     Note: Reverse integration does not include a change of sign, so positive 
     values have a negative slope following integration using this function.
@@ -1384,7 +1374,7 @@ def integrate (array, frequency, initial_value=0.0, scale=1.0, direction="forwar
     
     return result
     
-def interpolate_and_extend (array):
+def interpolate_and_extend(array):
     """ 
     This will replace all masked values in an array with linearly
     interpolated values between unmasked point pairs, and extrapolate first
@@ -1427,7 +1417,7 @@ def interpolate_and_extend (array):
     return array
     
     
-def interleave (param_1, param_2):
+def interleave(param_1, param_2):
     """
     Interleaves two parameters (usually from different sources) into one
     masked array. Maintains the mask of each parameter.
@@ -1459,7 +1449,7 @@ def interleave (param_1, param_2):
 """
 Superceded by blend routines.
 
-def interleave_uneven_spacing (param_1, param_2):
+def interleave_uneven_spacing(param_1, param_2):
     '''
     This interleaves samples that are not quote equi-spaced.
        |--------dt---------|
@@ -2010,7 +2000,7 @@ def minimum_unmasked(array1, array2):
     return np.ma.where(neither_masked, np.ma.minimum(array1, array2),
                        np.ma.where(a1_good, array1, array2))
 
-def merge_two_parameters (param_one, param_two):
+def merge_two_parameters(param_one, param_two):
     '''
     Use: merge_two_parameters is intended for discrete and multi-state
     parameters. Use blend_two_parameters for analogue parameters.
@@ -2056,7 +2046,7 @@ def merge_sources(*arrays):
         result[:,dim] = array
     return np.ma.ravel(result)
 
-def blend_equispaced_sensors (array_one, array_two):
+def blend_equispaced_sensors(array_one, array_two):
     '''
     This process merges the data from two sensors where they are sampled
     alternately. Where one sensor is invalid, the process substitutes from
@@ -2102,7 +2092,7 @@ def blend_equispaced_sensors (array_one, array_two):
 
 
 
-def blend_nonequispaced_sensors (array_one, array_two, padding):
+def blend_nonequispaced_sensors(array_one, array_two, padding):
     '''
     Where there are timing differences between the two samples, this
     averaging process computes the average value between alternate pairs of
@@ -2133,7 +2123,7 @@ def blend_nonequispaced_sensors (array_one, array_two, padding):
         av_pairs[0] = np.ma.masked
     return av_pairs
 
-def blend_two_parameters (param_one, param_two):
+def blend_two_parameters(param_one, param_two):
     '''
     Use: blend_two_parameters is intended for analogue parameters. Use
     merge_two_parameters for discrete and multi-state parameters.
