@@ -1,13 +1,13 @@
 include AUTHORS
 include CHANGES
 include LICENSE
-include README
+include README.rst
 include TODO
 include *.py
 include requirements*.txt
-prune requirements-jenkins.txt
+exclude requirements-jenkins.txt
 recursive-include doc *
-prune doc/_build
+prune doc/build
 exclude .bzr
 exclude build
 exclude dist

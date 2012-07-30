@@ -23,8 +23,22 @@ class AnalysisEngineAPI(object):
         :type longitude: float
         :raises NotFoundError: If airport cannot be found.
         :raises InvalidAPIInputError: If latitude or longitude are out of bounds.
-        :returns: Airport info dictionary or None if the airport cannot be found.
-        :rtype: dict or None
+        :returns: Airport info dictionary.
+        :rtype: dict
+        '''
+        raise NotImplementedError
+    
+    @abstractmethod
+    def get_airport(self, code):
+        '''
+        Will either return an airport matching the code or raise an exception
+        if one cannot be found.
+        
+        :param code: Either the id, ICAO or IATA of the airport.
+        :type code: int or str
+        :raises NotFoundError: If airport cannot be found.
+        :returns: Airport info dictionary.
+        :rtype: dict
         '''
         raise NotImplementedError
     
@@ -43,24 +57,16 @@ class AnalysisEngineAPI(object):
         :type latitude: float
         :param longitude: Longitude in decimal degrees.
         :type longitude: float
-        :param ilsfreq: ILS frequency of runway # Q: Glideslope or Localizer frequency?
+        :param ilsfreq: ILS localizer frequency of runway
         :type ilsfreq: float # Q: could/should it be int?
         :raises NotFoundError: If runway cannot be found.
         :raises InvalidAPIInputError: If latitude, longitude or heading are out of bounds.
-        :returns: Runway info dictionary or None if the runway cannot be found.
-        :rtype: dict or None
+        :returns: Runway info dictionary.
+        :rtype: dict
         '''
         raise NotImplementedError
-    
-    # TODO: Determine method signature...
-    @abstractmethod
-    def get_vspeed_limit(self, *args, **kwargs):
-        '''
-        TODO: Define what this does..
-        '''
-        raise NotImplementedError
-    
-    
+
+
 class AnalysisEngineAPIHandlerDUMMY(AnalysisEngineAPI):
     '''
     DummyAPIHandler will always raise NotFoundError.
@@ -71,12 +77,24 @@ class AnalysisEngineAPIHandlerDUMMY(AnalysisEngineAPI):
     def get_nearest_runway(self, *args, **kwargs):
         raise NotFoundError('DummyAPIHandler will always raise NotFoundError.')
     
-    def get_vspeed_limit(self, *args, **kwargs):
-        raise NotFoundError('DummyAPIHandler will always raise NotFoundError.')
-
 
 class AnalysisEngineAPIHandlerHTTP(AnalysisEngineAPI, APIHandlerHTTP):
-
+    
+    def get_airport(self, code):
+        '''
+        Will either return an airport matching the code or raise an exception
+        if one cannot be found.
+        
+        :param code: Either the id, ICAO or IATA of the airport.
+        :type code: int or str
+        :raises NotFoundError: If airport cannot be found.
+        :returns: Airport info dictionary.
+        :rtype: dict
+        '''
+        url = '%(base_url)s/api/airport/%(code)s/' % \
+            {'base_url': BASE_URL.rstrip('/'), 'code': code}
+        return self._attempt_request(url)['airport']
+    
     def get_nearest_airport(self, latitude, longitude):
         '''
         Either returns the nearest airport to the specified latitude and
@@ -88,7 +106,7 @@ class AnalysisEngineAPIHandlerHTTP(AnalysisEngineAPI, APIHandlerHTTP):
         :type longitude: float
         :raises NotFoundError: If airport cannot be found.
         :raises InvalidAPIInputError: If latitude or longitude are out of bounds.
-        :returns: Airport information.
+        :returns: Airport info dictionary.
         :rtype: dict
         '''
         url = '%(base_url)s/api/airport/nearest.json?ll=%(ll)s' % \
@@ -128,11 +146,3 @@ class AnalysisEngineAPIHandlerHTTP(AnalysisEngineAPI, APIHandlerHTTP):
         get_params = urllib.urlencode(params)
         url += '?' + get_params
         return self._attempt_request(url)['runway']
-        
-    def get_vspeed_limit(self, *args, **kwargs):
-        '''
-        
-        '''
-        pass
-    
-    

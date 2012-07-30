@@ -6,7 +6,7 @@ from random import shuffle
 from datetime import datetime
 
 from analysis_engine.node import (
-    Attribute, 
+    Attribute,
     DerivedParameterNode,
     get_verbose_name,
     KeyPointValueNode, KeyPointValue, 
@@ -177,8 +177,33 @@ class TestNode(unittest.TestCase):
         self.assertEqual(param2.method_calls, [])
         
         
+class TestFlightAttributeNode(unittest.TestCase):
+    def test_nonzero_flight_attr_node(self):
+        'If no value is set, object evaluates to False - else True'
+        attr = FlightAttributeNode()
+        self.assertFalse(bool(attr))
+        attr.value = []
+        self.assertFalse(bool(attr))
+        attr.value = 'something'
+        self.assertTrue(bool(attr))
+        attr.value = True
+        self.assertTrue(bool(attr))
+        attr.value = False
+        self.assertFalse(bool(attr))
         
-                        
+    def test_nonzero_attribute(self):
+        'If no value is set, object evaluates to False - else True'
+        attr = Attribute('Attribute')
+        self.assertFalse(bool(attr))
+        attr.value = []
+        self.assertFalse(bool(attr))
+        attr.value = 'something'
+        self.assertTrue(bool(attr))
+        attr.value = True
+        self.assertTrue(bool(attr))
+        attr.value = False
+        self.assertFalse(bool(attr))
+
 class TestNodeManager(unittest.TestCase):
     def test_operational(self):
         mock_node = mock.Mock('can_operate') # operable node
@@ -205,23 +230,23 @@ class TestNodeManager(unittest.TestCase):
         self.assertEqual(mgr.keys(), ['Start Datetime'] + list('abclmnopxyz'))
         
     def test_get_attribute(self):
-        aci = {'a':'a_value', 'b':None}
-        afr = {'x':'x_value', 'y':None}
+        aci = {'a': 'a_value', 'b': None}
+        afr = {'x': 'x_value', 'y': None}
         mgr = NodeManager(None, [],[],{},aci, afr)
         # test aircraft info
         a = mgr.get_attribute('a')
         self.assertEqual(a.__repr__(), Attribute('a', 'a_value').__repr__())
         b = mgr.get_attribute('b')
-        self.assertEqual(b, None)
+        self.assertFalse(b)
         c = mgr.get_attribute('c')
-        self.assertEqual(c, None)
+        self.assertFalse(c)
         # test afr
         x = mgr.get_attribute('x')
         self.assertEqual(x.__repr__(), Attribute('x', 'x_value').__repr__())
         y = mgr.get_attribute('y')
-        self.assertEqual(y, None)
+        self.assertFalse(y)
         z = mgr.get_attribute('z')
-        self.assertEqual(z, None)
+        self.assertFalse(z)
         
     def test_get_start_datetime(self):
         dt = datetime(2020,12,25)
@@ -269,9 +294,9 @@ class TestSectionNode(unittest.TestCase):
         self.assertEqual(aligned_node.offset, param.offset)
         self.assertEqual(list(aligned_node),
                          [Section(name='Example Section Node',
-                                  slice=slice(1.2, 2.2, None)),
+                                  slice=slice(2, 3, None),start_edge=1.2,stop_edge=2.2),
                           Section(name='Example Section Node',
-                                  slice=slice(2.7, 3.7, None))])
+                                  slice=slice(3, 4, None),start_edge=2.7,stop_edge=3.7)])
         
     def test_get_aligned_with_slice_start_as_none(self):
         section_node = self.section_node_class(frequency=1, offset=0.5)
@@ -281,21 +306,21 @@ class TestSectionNode(unittest.TestCase):
         aligned_node = section_node.get_aligned(param)
         self.assertEqual(list(aligned_node),
                          [Section(name='Example Section Node',
-                                  slice=slice(None, 2.2, None)),
+                                  slice=slice(None, 3, None),start_edge=None,stop_edge=2.2),
                           Section(name='Example Section Node',
-                                  slice=slice(2.7, None, None))])
+                                  slice=slice(3, None, None),start_edge=2.7,stop_edge=None)])
     
     def test_items(self):
-        items = [Section('a', slice(0,10))]
+        items = [Section('a', slice(0,10), start_edge=0, stop_edge=10)]
         section_node = self.section_node_class(frequency=1, offset=0.5,
                                                items=items)
         self.assertEqual(section_node, items)
     
     def test_get(self):
-        items = [Section('a', slice(4,10)),
-                 Section('b', slice(14,17)),
-                 Section('b', slice(19,21)),
-                 Section('c', slice(30,34)),]
+        items = [Section('a', slice(4,10),4,10),
+                 Section('b', slice(14,23),14,23),
+                 Section('b', slice(19,21),19,21),
+                 Section('c', slice(30,34),30,34),]
         section_node = self.section_node_class(frequency=1, offset=0.5,
                                                items=items)
         sections = section_node.get()
@@ -316,10 +341,10 @@ class TestSectionNode(unittest.TestCase):
         # First test empty node.
         empty_section_node = self.section_node_class()
         self.assertEqual(empty_section_node.get_first(), None)
-        items = [Section('a', slice(4,10)),
-                 Section('b', slice(14,23)),
-                 Section('b', slice(19,21)),
-                 Section('c', slice(30,34)),]
+        items = [Section('a', slice(4,10),4,10),
+                 Section('b', slice(14,23),14,23),
+                 Section('b', slice(19,21),19,21),
+                 Section('c', slice(30,34),30,34),]
         section_node = self.section_node_class(frequency=1, offset=0.5,
                                                items=items)
         first_section = section_node.get_first()
@@ -333,7 +358,7 @@ class TestSectionNode(unittest.TestCase):
         self.assertEqual(items[1], first_section_within_slice)
         first_section_within_slice = section_node.get_first(within_slice=
                                                             slice(12, 25),
-                                                            slice_index='stop')
+                                                            first_by='stop')
         self.assertEqual(items[2], first_section_within_slice)        
         first_b_section_within_slice = section_node.get_first(within_slice=
                                                               slice(15, 40),
@@ -354,16 +379,16 @@ class TestSectionNode(unittest.TestCase):
         # First test empty node.
         empty_section_node = self.section_node_class()
         self.assertEqual(empty_section_node.get_last(), None)
-        items = [Section('a', slice(4,10)),
-                 Section('b', slice(14,23)),
-                 Section('b', slice(19,21)),
-                 Section('c', slice(30,34)),]
+        items = [Section('a', slice(4,10),4,10),
+                 Section('b', slice(14,23),14,23),
+                 Section('b', slice(19,21),19,21),
+                 Section('c', slice(30,34),30,34),]
         section_node = self.section_node_class(frequency=1, offset=0.5,
                                                items=items)
         last_section = section_node.get_last()
         self.assertEqual(items[3], last_section)
         last_section = section_node.get_last(within_slice=slice(13,24),
-                                             slice_index='stop')
+                                             last_by='stop')
         self.assertEqual(items[1], last_section)     
         last_b_section = section_node.get_last(name='b')
         self.assertEqual(items[2], last_b_section)
@@ -378,60 +403,72 @@ class TestSectionNode(unittest.TestCase):
         self.assertEqual(items[2], last_section_within_slice)
     
     def test_get_ordered_by_index(self):
-        items = [Section('a', slice(4,10)),
-                 Section('b', slice(19,21)),
-                 Section('b', slice(14,23)),
-                 Section('c', slice(30,34)),]
+        items = [Section('a', slice(4,10),4,10),
+                 Section('b', slice(14,23),14,23),
+                 Section('b', slice(19,21),19,21),
+                 Section('c', slice(30,34),30,34),]
         section_node = self.section_node_class(frequency=1, offset=0.5,
                                                items=items)
         sections = section_node.get_ordered_by_index()
-        self.assertEqual([items[0], items[2], items[1], items[3]], sections)
+        self.assertEqual([items[0], items[1], items[2], items[3]], sections)
         sections = section_node.get_ordered_by_index(order_by='stop')
-        self.assertEqual([items[0], items[1], items[2], items[3]], sections)        
+        self.assertEqual([items[0], items[2], items[1], items[3]], sections)        
         sections = section_node.get_ordered_by_index(name='b')
-        self.assertEqual([items[2], items[1]], sections)
+        self.assertEqual([items[1], items[2]], sections)
         sections = section_node.get_ordered_by_index(name='c')
         self.assertEqual([items[-1]], sections)
         sections = section_node.get_ordered_by_index(within_slice=slice(12, 25))
-        self.assertEqual([items[2], items[1]], sections)
+        self.assertEqual([items[1], items[2]], sections)
         sections = section_node.get_ordered_by_index(within_slice=slice(15, 40), name='b')
-        self.assertEqual([items[1]], sections)
+        self.assertEqual([items[2]], sections)
     
     def test_get_next(self):
-        items = [Section('a', slice(4,10)),
-                 Section('b', slice(19,21)),
-                 Section('b', slice(14,17)),
-                 Section('c', slice(30,34)),]
+        items = [Section('a', slice(4,10),4,10),
+                 Section('b', slice(14,23),14,23),
+                 Section('b', slice(19,21),19,21),
+                 Section('c', slice(30,34),30,34),]
         section_node = self.section_node_class(frequency=1, offset=0.5,
                                                items=items)
         section = section_node.get_next(16)
-        self.assertEqual(items[1], section)
-        section = section_node.get_next(16, use='stop')
         self.assertEqual(items[2], section)
+        section = section_node.get_next(16, use='stop')
+        self.assertEqual(items[1], section)
         section = section_node.get_next(16, name='c')
         self.assertEqual(items[3], section)
         section = section_node.get_next(16, within_slice=slice(25, 40))
         self.assertEqual(items[3], section)
         section = section_node.get_next(3, frequency=0.5)
-        self.assertEqual(items[2], section)
+        self.assertEqual(items[1], section)
     
     def test_get_previous(self):
-        items = [Section('a', slice(4,10)),
-                 Section('b', slice(19,21)),
-                 Section('b', slice(14,17)),
-                 Section('c', slice(30,34)),]
+        items = [Section('a', slice(4,10),4,10),
+                 Section('b', slice(14,23),14,23),
+                 Section('b', slice(19,21),19,21),
+                 Section('c', slice(30,34),30,34),]
         section_node = self.section_node_class(frequency=1, offset=0.5,
                                                items=items)
         section = section_node.get_previous(16)
         self.assertEqual(items[0], section)
         section = section_node.get_previous(16, use='start')
-        self.assertEqual(items[2], section)
+        self.assertEqual(items[1], section)
         section = section_node.get_previous(30, name='a')
         self.assertEqual(items[0], section)
         section = section_node.get_previous(23, within_slice=slice(0, 12))
         self.assertEqual(items[0], section)
         section = section_node.get_previous(40, frequency=2)
-        self.assertEqual(items[2], section)    
+        self.assertEqual(items[0], section)    
+
+    def test_get_surrounding(self):
+        node = SectionNode()
+        self.assertEqual(node.get_surrounding(12), [])
+        sect_1 = Section('ThisSection', slice(2,15), 2, 15)
+        node.append(sect_1)
+        self.assertEqual(node.get_surrounding(2), [sect_1])
+        sect_2 = Section('ThisSection', slice(5,25), 5, 25)
+        node.append(sect_2)
+        self.assertEqual(node.get_surrounding(12), [sect_1, sect_2])
+        self.assertEqual(node.get_surrounding(-3), [])
+        self.assertEqual(node.get_surrounding(25), [sect_2])
 
 
 class TestFormattedNameNode(unittest.TestCase):
@@ -453,18 +490,17 @@ class TestFormattedNameNode(unittest.TestCase):
         
     
     def test_names(self):
-        """ Using all RETURNS options, apply NAME_FORMAT to obtain a complete
+        """
+        Using all RETURNS options, apply NAME_FORMAT to obtain a complete
         list of KPV names this class will create.
         """
-        class ExampleNameFormatNode(FormattedNameNode):
+        class Speed(FormattedNameNode):
             NAME_FORMAT = 'Speed in %(phase)s at %(altitude)d ft'
-            NAME_VALUES = {'altitude' : range(100, 701, 300),
-                           'phase' : ['ascent', 'descent']}
-            def derive(self, a=P('a',[], 2, 0.4)):
+            NAME_VALUES = {'altitude': range(100, 701, 300),
+                           'phase': ['ascent', 'descent']}            
+            def derive(self, *args, **kwargs):
                 pass
-            def get_derived(self):
-                pass
-        formatted_name_node = ExampleNameFormatNode()
+        formatted_name_node = Speed()
         names = formatted_name_node.names()
         
         self.assertEqual(names, ['Speed in ascent at 100 ft',
@@ -478,15 +514,13 @@ class TestFormattedNameNode(unittest.TestCase):
     def test__validate_name(self):
         """ Ensures that created names have a validated option
         """
-        class ExampleNameFormatNode(FormattedNameNode):
+        class Speed(FormattedNameNode):
             NAME_FORMAT = 'Speed in %(phase)s at %(altitude)d ft'
             NAME_VALUES = {'altitude' : range(100,1000,100),
-                           'phase' : ['ascent', 'descent']}
-            def derive(self, a=P('a',[], 2, 0.4)):
+                           'phase' : ['ascent', 'descent']}          
+            def derive(self, *args, **kwargs):
                 pass
-            def get_derived(self):
-                pass
-        formatted_name_node = ExampleNameFormatNode()
+        formatted_name_node = Speed()
         self.assertTrue(formatted_name_node._validate_name('Speed in ascent at 500 ft'))
         self.assertTrue(formatted_name_node._validate_name('Speed in descent at 900 ft'))
         self.assertTrue(formatted_name_node._validate_name('Speed in descent at 100 ft'))
@@ -647,7 +681,7 @@ class TestFormattedNameNode(unittest.TestCase):
         self.assertEqual(previous_kti, None)
         previous_kti = kti_node.get_previous(40, frequency=4)
         self.assertEqual(previous_kti, KeyTimeInstance(2, 'Slowest'))
-        
+
     def test_initial_items_storage(self):
         node = FormattedNameNode(['a', 'b', 'c'])
         self.assertEqual(list(node), ['a', 'b', 'c'])
@@ -655,6 +689,7 @@ class TestFormattedNameNode(unittest.TestCase):
         self.assertEqual(list(node), ['a', 'b', 'c'])
         node = FormattedNameNode(items=['a', 'b', 'c'])
         self.assertEqual(list(node), ['a', 'b', 'c'])
+
 
 class TestKeyPointValueNode(unittest.TestCase):
     
@@ -664,18 +699,17 @@ class TestKeyPointValueNode(unittest.TestCase):
                 pass
         self.knode = KPV(frequency=2, offset=0.4)
 
-
     def test_create_kpv(self):
         """ Tests name format substitution and return type
         """
-        class KPVNode(KeyPointValueNode):
+        class Speed(KeyPointValueNode):
             NAME_FORMAT = 'Speed in %(phase)s at %(altitude)dft'
-            NAME_VALUES = {'phase':['ascent', 'descent'],
-                             'altitude':[1000,1500],}
-            def derive(self, a=P('a',[], 2, 0.4)):
+            NAME_VALUES = {'phase': ['ascent', 'descent'],
+                           'altitude': [1000, 1500],}            
+            def derive(self, *args, **kwargs):
                 pass
-        knode = KPVNode(frequency=2, offset=0.4)
         
+        knode = Speed(frequency=2, offset=0.4)
         self.assertEqual(knode.frequency, 2)
         self.assertEqual(knode.offset, 0.4)
         # use keyword arguments
@@ -691,6 +725,8 @@ class TestKeyPointValueNode(unittest.TestCase):
                                                    altitude=1500.0,
                                                    ignored='excuseme'))
         self.assertEqual(spd_kpv2.name, 'Speed in ascent at 1500ft')
+        # None index
+        self.assertEqual(knode.create_kpv(None, 'b'), None)        
         # missing interpolation value "altitude"
         self.assertRaises(KeyError, knode.create_kpv, 1, 2,
                           dict(phase='ascent'))
@@ -700,6 +736,7 @@ class TestKeyPointValueNode(unittest.TestCase):
         # None index -- now logs a WARNING and does not raise an error
         knode.create_kpv(None, 'b')
         self.assertTrue('b' not in knode)  ## this test isn't quite right...!
+
         
     def test_create_kpvs_at_ktis(self):
         knode = self.knode
@@ -713,11 +750,21 @@ class TestKeyPointValueNode(unittest.TestCase):
                           KeyPointValue(index=2, value=2, name='Kpv'),
                           KeyPointValue(index=8, value=8, name='Kpv')])
     
+    def test_create_kpvs_at_ktis_suppressed_zeros(self):
+        knode = self.knode
+        param = P('Param', np.ma.array([0]*5+[7]*5))
+        # value_at_index will interpolate masked values.
+        param.array[3:7] = np.ma.masked
+        ktis = KTI('KTI', items=[KeyTimeInstance(i, 'a') for i in range(0,10,2)])
+        knode.create_kpvs_at_ktis(param.array, ktis, suppress_zeros=True)
+        self.assertEqual(list(knode),
+                         [KeyPointValue(index=8, value=7, name='Kpv')])
+    
     def test_create_kpvs_within_slices(self):
         knode = self.knode
         function = mock.Mock()
         return_values = [(10, 15), (22, 27)]
-        def side_effect(x, y):
+        def side_effect(*args, **kwargs):
             return return_values.pop()
         function.side_effect = side_effect
         slices = [slice(1,10), slice(15, 25)]
@@ -726,21 +773,36 @@ class TestKeyPointValueNode(unittest.TestCase):
         self.assertEqual(list(knode),
                          [KeyPointValue(index=22, value=27, name='Kpv'),
                           KeyPointValue(index=10, value=15, name='Kpv')])
-    
+
+    def test_create_kpvs_from_discretes(self):
+        knode = self.knode
+        param = P('Disc',np.ma.array([0.0]*20, dtype=float))
+        param.array[5:8] = 1.0
+        param.array[11:17] = 1.0
+        knode.create_kpvs_from_discretes(param.array, param.hz)
+        knode.create_kpvs_from_discretes(param.array, param.hz, sense='reverse')
+        knode.create_kpvs_from_discretes(param.array, param.hz, min_duration=3)
+        # Need to add result for min_duration case.
+        self.assertEqual(list(knode),
+                         [KeyPointValue(index=5, value=3, name='Kpv'),
+                          KeyPointValue(index=11, value=6, name='Kpv'),
+                          KeyPointValue(index=0, value=5, name='Kpv'),
+                          KeyPointValue(index=8, value=3, name='Kpv'),
+                          KeyPointValue(index=17, value=3, name='Kpv')])
     
     def test_get_aligned(self):
         '''
         TODO: Test offset alignment.
         '''
-        class KPVNode(KeyPointValueNode):
+        class Speed(KeyPointValueNode):
             NAME_FORMAT = 'Speed at %(altitude)dft'
-            NAME_VALUES = {'altitude':[1000,1500]}
-            def derive(self, a=P('a',[], 2, 0.4)):
-                pass
-        knode = KPVNode()
+            NAME_VALUES = {'altitude': [1000, 1500],}            
+            def derive(self, *args, **kwargs):
+                pass        
+        knode = Speed(frequency=2, offset=0.4)
         param = Parameter('p', frequency=0.5, offset=1.5)
-        knode.create_kpv(10, 12.5, altitude=1000.0)
-        knode.create_kpv(24, 12.5, altitude=1000.0)
+        knode.create_kpv(10, 12.5, altitude=1000)
+        knode.create_kpv(24, 12.5, altitude=1000)
         aligned_node = knode.get_aligned(param)
         self.assertEqual(aligned_node.frequency, param.frequency)
         self.assertEqual(aligned_node.offset, param.offset)
@@ -854,7 +916,7 @@ class TestKeyTimeInstanceNode(unittest.TestCase):
                 pass
         self.kti = KTI(frequency=2, offset=0.4)
     
-    def test_create_kti(self):
+    def test_create_kti(self):      
         kti = self.kti
         #KTI = type('MyKti', (KeyTimeInstanceNode,), dict(derive=lambda x:x,
                                                          #dependencies=['a']))
@@ -864,9 +926,12 @@ class TestKeyTimeInstanceNode(unittest.TestCase):
         self.assertEqual(list(kti), [KeyTimeInstance(index=12, name='Kti')])
         
         # NAME_FORMAT
-        kti = KTI()
-        kti.NAME_FORMAT = 'Flap %(setting)d'
-        kti.NAME_VALUES = {'setting': [10, 25, 35]}
+        class Flap(KeyTimeInstanceNode):
+            NAME_FORMAT = 'Flap %(setting)d'
+            NAME_VALUES = {'setting': [10, 25, 35]}
+            def derive(self, a=P('a')):
+                pass              
+        kti = Flap()
         kti.create_kti(24, setting=10)
         kti.create_kti(35, {'setting':25})
         self.assertEqual(list(kti), [KeyTimeInstance(index=24, name='Flap 10'),
@@ -874,6 +939,40 @@ class TestKeyTimeInstanceNode(unittest.TestCase):
         # None index
         self.assertRaises(ValueError, kti.create_kti, None)
     
+    def test_create_ktis_at_edges_inside_phases(self):
+        kti=self.kti
+        test_array = np.ma.array([0,1,0,1,0,1,0,1,0])
+        test_phase = SectionNode(items=[Section('try',slice(None,2,None),None,2),
+                                        Section('try',slice(5,None,None),5,None)])
+        kti.create_ktis_at_edges(test_array, phase=test_phase)
+        self.assertEqual(kti,[KeyTimeInstance(index=0.5, name='Kti'),
+                              KeyTimeInstance(index=6.5, name='Kti')])
+    
+    def test_create_ktis_at_edges_either(self):
+        kti=self.kti
+        test_param = np.ma.array([0,0,0,1,1,1,0,0,0])
+        kti.create_ktis_at_edges(test_param, direction='all_edges')
+        self.assertEqual(kti,[KeyTimeInstance(index=2.5, name='Kti'),
+                          KeyTimeInstance(index=5.5, name='Kti')])
+        
+    def test_create_ktis_at_edges_rising(self):
+        kti=self.kti
+        test_param = np.ma.array([0,0,0,1,1,1,0,0,0])
+        kti.create_ktis_at_edges(test_param)
+        self.assertEqual(kti,[KeyTimeInstance(index=2.5, name='Kti')])
+        
+    def test_create_ktis_at_edges_falling(self):
+        kti=self.kti
+        test_param = np.ma.array([0,1,1,0,0,0,-1,-1,0])
+        kti.create_ktis_at_edges(test_param, direction='falling_edges')
+        self.assertEqual(kti,[KeyTimeInstance(index=2.5, name='Kti'),
+                              KeyTimeInstance(index=5.5, name='Kti')])
+        
+    def test_create_ktis_at_edges_fails(self):
+        kti=self.kti
+        test_param = np.ma.array([0])
+        self.assertRaises(ValueError, kti.create_ktis_at_edges, test_param, direction='sideways')
+        
     def test_get_aligned(self):
         '''
         TODO: Test offset alignment.
@@ -951,6 +1050,21 @@ class TestDerivedParameterNode(unittest.TestCase):
         self.assertEqual(result.frequency, unaligned_param.frequency)
         self.assertEqual(result.offset, unaligned_param.offset)
         
+    def test_get_derived_discrete_align(self):
+        """
+        Ensure that interpolations does not occur
+        """
+        class Flap(DerivedParameterNode):
+            data_type = 'Multi-state'
+            
+        master_param = Parameter(array=np.ma.array([5,6,7]), 
+                                 frequency=1, offset=0.4, data_type=None)
+            
+        slave_flap = Flap(array=np.ma.array([1,2,3]),frequency=1, offset=0)
+        res = slave_flap.get_aligned(master_param)
+        # note it has not interpolated to 1.4, 2.4, 3.4 forward
+        self.assertEqual(list(res.array), [1,2,3]) 
+        
     def test_parameter_at(self):
         # using a plain range as the parameter array, the results are equal to 
         # the index used to get the value (cool)
@@ -958,12 +1072,9 @@ class TestDerivedParameterNode(unittest.TestCase):
         self.assertEqual(spd.at(0.75), 0) # min val possible to return
         self.assertEqual(spd.at(1.75), 1*2) # one second in (*2Hz)
         self.assertEqual(spd.at(2.5), 1.75*2) # interpolates
-        self.assertEqual(spd.at(9.75), 9*2) # max val possible to return
-        
-        #Q: Is this the desired behaivour to give an IndexError at second 0?
-        # ... it would be misleading to use interpolation.
-        self.assertRaises(ValueError, spd.at, 0)
-        self.assertRaises(ValueError, spd.at, 11)
+        self.assertEqual(spd.at(9.75), 9*2) # max val without extrapolation
+        self.assertEqual(spd.at(0), 0) # Extrapolation at bottom end
+        self.assertEqual(spd.at(11), 19) # Extrapolation at top end
         
     @mock.patch('analysis_engine.node.slices_above')
     def test_slices_above(self, slices_above):
@@ -1012,3 +1123,32 @@ class TestDerivedParameterNode(unittest.TestCase):
         slices = param.slices_from_to(5, 15)
         slices_from_to.assert_called_once_with(array, 5, 15)
         self.assertEqual(slices, slices_from_to.return_value[1])
+        
+    def test_slices_to_touchdown_basic(self):
+        heights = np.ma.arange(100,-10,-10)
+        heights[:-1] -= 10
+        alt_aal = P('Altitude AAL',heights)
+        tdwns = KTI(items=[KeyTimeInstance(name='Touchdown', index=9.5)])
+        result = alt_aal.slices_to_kti(75, tdwns)
+        expected = [slice(2,9.5)]
+        self.assertEqual(result, expected)
+
+    def test_slices_to_touchdown_early(self):
+        heights = np.ma.arange(100,-10,-10)
+        heights[:-1] -= 10
+        alt_aal = P('Altitude AAL',heights)
+        tdwns = KTI(items=[KeyTimeInstance(name='Touchdown', index=6.7)])
+        result = alt_aal.slices_to_kti(75, tdwns)
+        expected = [slice(2,6.7)]
+        self.assertEqual(result, expected)
+        
+    def test_slices_to_touchdown_outside_range(self):
+        heights = np.ma.arange(100,-10,-10)
+        heights[:-1] -= 10
+        alt_aal = P('Altitude AAL',heights)
+        tdwns = KTI(items=[KeyTimeInstance(name='Touchdown', index=-2)])
+        result = alt_aal.slices_to_kti(75, tdwns)
+        expected = []
+        self.assertEqual(result, expected)
+
+

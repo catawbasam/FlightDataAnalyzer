@@ -11,6 +11,11 @@ from analysis_engine.node import P,  Parameter
 
 from hdfaccess.file import hdf_file
 
+
+test_data_path = os.path.join(os.path.dirname(os.path.abspath(__file__)),
+                              'test_data')
+
+
 class TestSplitSegments(unittest.TestCase):
     @mock.patch('analysis_engine.split_segments.hysteresis')
     def test_split_segments(self, hysteresis_patched):
@@ -158,11 +163,12 @@ class TestSplitSegments(unittest.TestCase):
         
         # TODO: Test engine parameters.
     
-    @unittest.skipIf(not os.path.isfile("test_data/1_7295949_737-3C.hdf5"),
+    @unittest.skipIf(not os.path.isfile(os.path.join(test_data_path, 
+                                                     "1_7295949_737-3C.hdf5"),
                      "Test file not present")
     def test_split_segments_737_3C(self):
         '''Splits on both DFC Jump and Engine parameters.'''
-        hdf = hdf_file("test_data/1_7295949_737-3C.hdf5")
+        hdf = hdf_file(os.path.join(test_data_path, "1_7295949_737-3C.hdf5"))
         segment_tuples = split_segments(hdf)
         self.assertEqual(segment_tuples,
                          [('START_AND_STOP', slice(0, 3168.0, None)),
@@ -172,10 +178,11 @@ class TestSplitSegments(unittest.TestCase):
                           ('START_AND_STOP', slice(12373.0, 15410.0, None)),
                           ('START_AND_STOP', slice(15410.0, 18752.0, None))])
     
-    @unittest.skipIf(not os.path.isfile("test_data/4_3377853_146-301.hdf5"),
+    @unittest.skipIf(not os.path.isfile(os.path.join(test_data_path,
+                                                     "4_3377853_146-301.hdf5"),
                      "Test file not present")
     def test_split_segments_146_300(self):
-        hdf = hdf_file("test_data/4_3377853_146-301.hdf5")
+        hdf = hdf_file(os.path.join(test_data_path, "4_3377853_146-301.hdf5"))
         segment_tuples = split_segments(hdf)
         self.assertEqual(segment_tuples,
                          [('START_AND_STOP', slice(0, 3168.0, None)),

@@ -1,4 +1,3 @@
-import logging
 import numpy as np
 
 from analysis_engine.node import SectionNode, P, S
@@ -10,6 +9,7 @@ from analysis_engine.node import SectionNode, P, S
     ##def derive(self, alt=P('Altitude STD'), tdwn=P('Touchdown')):
         
         
+'''
 class _500FtTo0Ft(SectionNode):
     #TODO: TESTS
     def derive(self, alt=P('Altitude AAL'), desc=S('Descending')):
@@ -30,9 +30,9 @@ class _500FtTo0Ft(SectionNode):
 
 
 class BouncedLandingSection(SectionNode):
-    '''
+    """
     Q: Is this a valid Section?
-    '''
+    """
     def derive(self, param=P('Flap')): # TODO: What should the arguments be?
         pass
 
@@ -57,6 +57,7 @@ class OnGround(SectionNode):
         pass
 
 
-class GearSelectedUp(SectionNode):
-    def derive(self, param=P('Flap')): # TODO: What should the arguments be?
-        pass
+##class GearSelectedUp(SectionNode):
+    ##def derive(self, param=P('Flap')): # TODO: What should the arguments be?
+        ##pass
+'''

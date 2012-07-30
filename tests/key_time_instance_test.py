@@ -3,13 +3,9 @@ import numpy as np
 import sys
 import unittest
 
-from analysis_engine.derived_parameters import ClimbForFlightPhases
-from analysis_engine.node import KeyTimeInstance, Parameter, P, Section, S
-from analysis_engine.flight_phase import (ApproachAndLanding,
-                                   ClimbCruiseDescent,
-                                   Climbing,
-                                   DescentLowClimb,
-                                   )
+from analysis_engine.node import (KeyTimeInstance, Parameter, P, Section, S)
+
+from analysis_engine.flight_phase import Climbing
 
 from analysis_engine.key_time_instances import (AltitudeWhenClimbing,
                                                 AltitudeWhenDescending,
@@ -18,7 +14,7 @@ from analysis_engine.key_time_instances import (AltitudeWhenClimbing,
                                                 GoAround,
                                                 InitialClimbStart,
                                                 LandingDecelerationEnd,
-                                                LandingPeakDeceleration,
+                                                ##LandingPeakDeceleration,
                                                 LandingStart,
                                                 LandingTurnOffRunway,
                                                 Liftoff,
@@ -30,23 +26,26 @@ from analysis_engine.key_time_instances import (AltitudeWhenClimbing,
                                                 Touchdown,
                                                 )
 
+from flight_phase_test import buildsection, buildsections
+
 debug = sys.gettrace() is not None
 
 class TestBottomOfDescent(unittest.TestCase):
     def test_can_operate(self):
-        expected = [('Altitude AAL', 'Climbing')]
-        opts = ClimbStart.get_operational_combinations()
+        expected = [('Altitude AAL For Flight Phases', 
+                     'Descent Low Climb', 'Airborne')]
+        opts = BottomOfDescent.get_operational_combinations()
         self.assertEqual(opts, expected) 
         
     def test_bottom_of_descent_basic(self):
-        testwave = np.cos(np.arange(0,12.6,0.1))*(-2500)+12500
-        alt_ph = Parameter('Altitude For Flight Phases', np.ma.array(testwave))
-        alt_std = Parameter('Altitude STD', np.ma.array(testwave))
-        dlc = DescentLowClimb()
-        dlc.derive(alt_ph)
+        testwave = np.cos(np.arange(0,6.3,0.1))*(2500)+2560
+        alt_aal = Parameter('Altitude AAL For Flight Phases', np.ma.array(testwave))
+        dlc = buildsection('Descent Low Climb', 14, 50) # See dlc flight phase test.
+        air = buildsection('Airborne', 0,50)
         bod = BottomOfDescent()
-        bod.derive(alt_std, dlc)    
-        expected = [KeyTimeInstance(index=63, name='Bottom Of Descent')]        
+        bod.derive(alt_aal, dlc, air)    
+        expected = [KeyTimeInstance(index=31, name='Bottom Of Descent'),
+                    KeyTimeInstance(index=50, name='Bottom Of Descent')]        
         self.assertEqual(bod, expected)
         
         
@@ -59,7 +58,7 @@ class TestClimbStart(unittest.TestCase):
     def test_climb_start_basic(self):
         roc = Parameter('Rate Of Climb', np.ma.array([1200]*8))
         climb = Climbing()
-        climb.derive(roc, [Section('Fast',slice(0,8,None))])
+        climb.derive(roc, [Section('Fast',slice(0,8,None),0,8)])
         alt = Parameter('Altitude AAL', np.ma.array(range(0,1600,220)))
         kpi = ClimbStart()
         kpi.derive(alt, climb)
@@ -82,11 +81,11 @@ class TestClimbStart(unittest.TestCase):
 class TestGoAround(unittest.TestCase):
     def test_can_operate(self):
         self.assertEqual(GoAround.get_operational_combinations(),
-                    [('Descent Low Climb', 'Altitude AAL'),
-                     ('Descent Low Climb', 'Altitude AAL', 'Altitude Radio')])
+                    [('Descent Low Climb', 'Altitude AAL For Flight Phases'),
+                     ('Descent Low Climb', 'Altitude AAL For Flight Phases', 'Altitude Radio')])
 
     def test_go_around_basic(self):
-        dlc = [Section('Descent Low Climb',slice(10,18))]
+        dlc = [Section('Descent Low Climb',slice(10,18),10,18)]
         alt = Parameter('Altitude AAL',\
                         np.ma.array(range(0,4000,500)+\
                                     range(4000,0,-500)+\
@@ -107,9 +106,7 @@ class TestGoAround(unittest.TestCase):
             from analysis_engine.plot_flight import plot_parameter
             plot_parameter(alt.array)
             
-        dlc = [Section('Descent Low Climb',slice( 50,260)),
-               Section('Descent Low Climb',slice(360,570)),
-               Section('Descent Low Climb',slice(670,890))]
+        dlc = buildsections('Descent Low Climb',[50,260],[360,570],[670,890])
         
         ## Merge with analysis_engine refactoring
             #from analysis_engine.plot_flight import plot_parameter
@@ -133,7 +130,7 @@ class TestGoAround(unittest.TestCase):
 
     def test_go_around_no_rad_alt(self):
         # This tests that the go-around works without a radio altimeter.
-        dlc = [Section('Descent Low Climb',slice(10,18))]
+        dlc = [Section('Descent Low Climb',slice(10,18),10,18)]
         alt = Parameter('Altitude AAL',\
                         np.ma.array(range(0,4000,500)+\
                                     range(4000,0,-500)+\
@@ -157,7 +154,7 @@ class TestGoAround(unittest.TestCase):
             plot_parameter(alt_rad.array)
         # The sloping graph has shifted minima. We only need to check one to
         # show it's using the rad alt signal.
-        dlc = [Section('Descent Low Climb',slice( 50,260))]
+        dlc = [Section('Descent Low Climb',slice( 50,260),50,260)]
 
         goa = GoAround()
         goa.derive(dlc,alt,alt_rad)
@@ -170,10 +167,10 @@ class TestGoAround(unittest.TestCase):
 class TestAltitudeInApproach(unittest.TestCase):
     def test_can_operate(self):
         self.assertEqual(AltitudeInApproach.get_operational_combinations(),
-                         [('Approach And Landing', 'Altitude AAL')])
+                         [('Approach', 'Altitude AAL')])
     
     def test_derive(self):
-        approaches = S('Approach And Landing', items=[Section('a', slice(4, 7)),
+        approaches = S('Approach', items=[Section('a', slice(4, 7)),
                                                       Section('b', slice(10, 20))])
         alt_aal = P('Altitude AAL',
                     np.ma.masked_array(range(1950, 0, -200) + \
@@ -193,10 +190,10 @@ class TestAltitudeInApproach(unittest.TestCase):
 class TestAltitudeInFinalApproach(unittest.TestCase):
     def test_can_operate(self):
         self.assertEqual(AltitudeInFinalApproach.get_operational_combinations(),
-                         [('Approach And Landing', 'Altitude AAL')])
+                         [('Approach', 'Altitude AAL')])
     
     def test_derive(self):
-        approaches = S('Approach And Landing',
+        approaches = S('Approach',
                        items=[Section('a', slice(2, 7)),
                               Section('b', slice(10, 20))])
         alt_aal = P('Altitude AAL',
@@ -224,8 +221,8 @@ class TestAltitudeWhenClimbing(unittest.TestCase):
     
     @mock.patch('analysis_engine.key_time_instances.hysteresis')
     def test_derive(self, hysteresis):
-        climbing = S('Climbing', items=[Section('a', slice(4, 10)),
-                                        Section('b', slice(12, 20))])
+        climbing = S('Climbing', items=[Section('a', slice(4, 10), 4, 10),
+                                        Section('b', slice(12, 20), 12, 20)])
         alt_aal = P('Altitude AAL',
                     np.ma.masked_array(range(0, 200, 20) + \
                                        range(0, 200, 20),
@@ -250,29 +247,23 @@ class TestAltitudeWhenDescending(unittest.TestCase):
         self.assertEqual(AltitudeWhenDescending.get_operational_combinations(),
                          [('Descending', 'Altitude AAL')])
     
-    @mock.patch('analysis_engine.key_time_instances.hysteresis')
-    def test_derive(self, hysteresis):
-        descending = S('Descending', items=[Section('a', slice(0, 10)),
-                                            Section('b', slice(12, 20))])
+    def test_derive(self):
+        descending = buildsections('Descending', [0, 10], [11, 20])
         alt_aal = P('Altitude AAL',
                     np.ma.masked_array(range(100, 0, -10) + \
                                        range(100, 0, -10),
                                        mask=[False] * 6 + [True] * 3 + \
                                             [False] * 11))
-        # Do not apply hysteresis to simplify testing.
-        hysteresis.return_value = alt_aal.array
         altitude_when_descending = AltitudeWhenDescending()
         altitude_when_descending.derive(descending, alt_aal)
-        hysteresis.assert_called_once_with(alt_aal.array,
-                                           altitude_when_descending.HYSTERESIS)
         self.assertEqual(list(altitude_when_descending),
-          [KeyTimeInstance(index=5.0, name='50 Ft Descending'),
-           KeyTimeInstance(index=2.5, name='75 Ft Descending'), 
-           KeyTimeInstance(index=19.0, name='10 Ft Descending'),
-           KeyTimeInstance(index=18.0, name='20 Ft Descending'),
-           KeyTimeInstance(index=16.5, name='35 Ft Descending'),
+          [KeyTimeInstance(index=2.5, name='75 Ft Descending'), 
+           KeyTimeInstance(index=5.0, name='50 Ft Descending'),
+           KeyTimeInstance(index=12.5, name='75 Ft Descending'), 
            KeyTimeInstance(index=15.0, name='50 Ft Descending'),
-           KeyTimeInstance(index=12.5, name='75 Ft Descending')])
+           KeyTimeInstance(index=16.5, name='35 Ft Descending'),
+           KeyTimeInstance(index=18.0, name='20 Ft Descending'),
+           KeyTimeInstance(index=19.0, name='10 Ft Descending')])
 
 
 class TestInitialClimbStart(unittest.TestCase):
@@ -284,7 +275,7 @@ class TestInitialClimbStart(unittest.TestCase):
     def test_initial_climb_start_basic(self):
         instance = InitialClimbStart()
         # This just needs the takeoff slice endpoint, so trivial to test
-        instance.derive([Section('Takeoff',slice(0,3.5,None))])
+        instance.derive([Section('Takeoff',slice(0,4,None),0,3.5)])
         expected = [KeyTimeInstance(index=3.5, name='Initial Climb Start')]
         self.assertEqual(instance, expected)
 
@@ -295,7 +286,7 @@ class TestLandingDecelerationEnd(unittest.TestCase):
         self.assertEqual(opts, expected)
 
     def test_landing_end_deceleration(self):
-        landing = [Section('Landing',slice(2,40,None))]
+        landing = [Section('Landing',slice(2,40,None),2,40)]
         speed = np.ma.array([79,77.5,76,73.9,73,70.3,68.8,67.6,66.4,63.4,62.8,
                              61.6,61.9,61,60.1,56.8,53.8,49.6,47.5,46,44.5,43.6,
                              42.7,42.4,41.8,41.5,40.6,39.7,39.4,38.5,37.9,38.5,
@@ -307,22 +298,6 @@ class TestLandingDecelerationEnd(unittest.TestCase):
         self.assertEqual(kpv, expected)
 
 
-class TestLandingPeakDeceleration(unittest.TestCase):
-    def test_can_operate(self):
-        expected = [('Landing', 'Acceleration Longitudinal')]
-        opts = LandingPeakDeceleration.get_operational_combinations()
-        self.assertEqual(opts, expected) 
-        
-    def test_landing_peak_deceleration_basic(self):
-        acc = P('Acceleration Longitudinal',
-                np.ma.array([0,0,-.1,-.1,-.2,-.1,0,0]))
-        landing = [Section('Landing',slice(2,5,None))]
-        kti = LandingPeakDeceleration()
-        kti.derive(landing, acc)
-        expected = [KeyTimeInstance(index=4, name='Landing Peak Deceleration')]
-        self.assertEqual(kti, expected)
-
-
 class TestTakeoffPeakAcceleration(unittest.TestCase):
     def test_can_operate(self):
         self.assertEqual(TakeoffPeakAcceleration.get_operational_combinations(),
@@ -331,7 +306,7 @@ class TestTakeoffPeakAcceleration(unittest.TestCase):
     def test_takeoff_peak_acceleration_basic(self):
         acc = P('Acceleration Longitudinal',
                 np.ma.array([0,0,.1,.1,.2,.1,0,0]))
-        landing = [Section('Takeoff',slice(2,5,None))]
+        landing = [Section('Takeoff',slice(2,5,None),2,5)]
         kti = TakeoffPeakAcceleration()
         kti.derive(landing, acc)
         expected = [KeyTimeInstance(index=4, name='Takeoff Peak Acceleration')]
@@ -347,7 +322,7 @@ class TestLandingStart(unittest.TestCase):
     def test_initial_landing_start_basic(self):
         instance = LandingStart()
         # This just needs the takeoff slice endpoint, so trivial to test
-        instance.derive([Section('Landing',slice(66,77,None))])
+        instance.derive([Section('Landing',slice(66,77,None),66,77)])
         expected = [KeyTimeInstance(index=66, name='Landing Start')]
         self.assertEqual(instance, expected)
 
@@ -358,52 +333,68 @@ class TestLandingTurnOffRunway(unittest.TestCase):
         opts = LandingTurnOffRunway.get_operational_combinations()
         self.assertEqual(opts, expected)        
 
-    def test_initial_landing_turn_off_runway_basic(self):
+    def test_landing_turn_off_runway_basic(self):
         instance = LandingTurnOffRunway()
-        # This just needs the takeoff slice endpoint, so trivial to test
-        head = P('Heading Continuous',np.ma.arange(5))
-        land=[Section('Fast',slice(0,70,None))]
-        fast = [Section('Landing',slice(60,86,None))]
+        head = P('Heading Continuous',np.ma.array([0]*30))
+        fast = buildsection('Fast',0,20)
+        land = buildsection('Landing',10,26)
         instance.derive(head,land,fast)
-        expected = [KeyTimeInstance(index=77, name='Landing Turn Off Runway')]
+        expected = [KeyTimeInstance(index=26, name='Landing Turn Off Runway')]
         self.assertEqual(instance, expected)
 
-    def test_takeoff_turn_onto_runway_curved(self):
+    def test_landing_turn_off_runway_curved(self):
         instance = LandingTurnOffRunway()
-        # This just needs the takeoff slice startpoint, so trivial to test
-        head = P('Heading Continuous',np.ma.array([0]*70+[1,2,3,4,5,6,7,8,9,10]))
-        land = [Section('Landing',slice(60,86,None))]
-        instance.derive(head, land)
-        expected = [KeyTimeInstance(index=68, name='Landing Turn Off Runway')]
+        head = P('Heading Continuous',np.ma.array([0]*70+range(20)))
+        fast = buildsection('Fast',0,65)
+        land = buildsection('Landing',60,87)
+        instance.derive(head, land, fast)
+        expected = [KeyTimeInstance(index=73, name='Landing Turn Off Runway')]
         self.assertEqual(instance, expected)
 
-    def test_takeoff_turn_onto_runway_curved_left(self):
+    def test_landing_turn_off_runway_curved_left(self):
         instance = LandingTurnOffRunway()
-        # This just needs the takeoff slice startpoint, so trivial to test
-        head = P('Heading Continuous',np.ma.array([0]*70+[1,2,3,4,5,6,7,8,9,10])*-3)
-        land = [Section('Landing',slice(60,86,None))]
-        instance.derive(head, land)
-        expected = [KeyTimeInstance(index=68, name='Landing Turn Off Runway')]
+        head = P('Heading Continuous',np.ma.array([0]*70+range(20))*-1.0)
+        fast = buildsection('Fast',0,65)
+        land = buildsection('Landing',60,87)
+        instance.derive(head, land, fast)
+        expected = [KeyTimeInstance(index=73, name='Landing Turn Off Runway')]
         self.assertEqual(instance, expected)
 
 
 class TestLiftoff(unittest.TestCase):
     def test_can_operate(self):
         self.assertEqual(Liftoff.get_operational_combinations(),
-                         [('Rate Of Climb', 'Takeoff')])
+                         [('Rate Of Climb For Flight Phases', 'Airborne')])
 
     def test_liftoff_basic(self):
         # Linearly increasing climb rate with the 5 fpm threshold set between 
         # the 5th and 6th sample points.
-        rate_of_climb = Parameter('Rate Of Climb For Flight Phases', np.ma.arange(10)-0.5)
-        # Takeoff section encloses the test point.
-        takeoff = [Section('Takeoff',slice(0,9,None))]
-        lift = Liftoff()
-        lift.derive(rate_of_climb, takeoff)
+        rate_of_climb = Parameter('Rate Of Climb For Flight Phases', (np.ma.arange(10)-0.5)*40)
+        # Airborne section encloses the test point.
+        airs = buildsection('Airborne', 6, None)
+        lift=Liftoff()
+        lift.derive(rate_of_climb, airs)
         expected = [KeyTimeInstance(index=5.5, name='Liftoff')]
         self.assertEqual(lift, expected)
     
-
+    def test_liftoff_no_roc_detected(self):
+        # Check the backstop setting.
+        rate_of_climb = Parameter('Rate Of Climb For Flight Phases', (np.ma.array([0]*40)))
+        airs = buildsection('Airborne', 6, None)
+        lift=Liftoff()
+        lift.derive(rate_of_climb, airs)
+        expected = [KeyTimeInstance(index=6, name='Liftoff')]
+        self.assertEqual(lift, expected)
+    
+    def test_liftoff_already_airborne(self):
+        rate_of_climb = Parameter('Rate Of Climb For Flight Phases', (np.ma.array([0]*40)))
+        airs = buildsection('Airborne', None, 10)
+        lift=Liftoff()
+        lift.derive(rate_of_climb, airs)
+        expected = []
+        self.assertEqual(lift, expected)
+        
+    
 class TestTakeoffAccelerationStart(unittest.TestCase):
     def test_can_operate(self):
         self.assertEqual(\
@@ -419,7 +410,7 @@ class TestTakeoffAccelerationStart(unittest.TestCase):
                                      42.7,43.6,44.5,46,47.5,49.6,52,53.2,54.7,
                                      57.4,60.7,61.9,64.3,66.1,69.4,70.6,74.2,
                                      74.8])
-        takeoff = [Section('Takeoff',slice(3,len(airspeed_data),None))]
+        takeoff = buildsection('Takeoff',3,len(airspeed_data))
         aspd = P('Airspeed', airspeed_data)
         instance = TakeoffAccelerationStart()
         instance.derive(aspd, takeoff,None)
@@ -436,26 +427,19 @@ class TestTakeoffTurnOntoRunway(unittest.TestCase):
     def test_takeoff_turn_onto_runway_basic(self):
         instance = TakeoffTurnOntoRunway()
         head = P('Heading Continuous',np.ma.arange(5))
-        takeoff = [Section('Takeoff',slice(1.7,3.5,None))]
-        fast = [Section('Fast',slice(2.7,6,None))]
-        instance.derive(head, takeoff)
-        expected = [KeyTimeInstance(index=1.7, name='Takeoff Turn Onto Runway')]
+        takeoff = buildsection('Takeoff',1.7,5.5)
+        fast = buildsection('Fast',3.7,7)
+        instance.derive(head, takeoff, fast)
+        expected = [KeyTimeInstance(index=1, name='Takeoff Turn Onto Runway')]
         self.assertEqual(instance, expected)
 
     def test_takeoff_turn_onto_runway_curved(self):
         instance = TakeoffTurnOntoRunway()
-        head = P('Heading Continuous',np.ma.array([0]*10+[1,2,3,4,5,6,7,8,9,10]))
-        takeoff = [Section('Takeoff',slice(0,20,None))]
-        instance.derive(head, takeoff)
-        expected = [KeyTimeInstance(index=8, name='Takeoff Turn Onto Runway')]
-        self.assertEqual(instance, expected)
-
-    def test_takeoff_turn_onto_runway_curved_left(self):
-        instance = TakeoffTurnOntoRunway()
-        head = P('Heading Continuous',np.ma.array([0]*10+[1,2,3,4,5,6,7,8,9,10])*-2)
-        takeoff = [Section('Takeoff',slice(0,20,None))]
-        instance.derive(head, takeoff)
-        expected = [KeyTimeInstance(index=8, name='Takeoff Turn Onto Runway')]
+        head = P('Heading Continuous',np.ma.array(range(20)+[20]*70))
+        fast = buildsection('Fast',40,90)
+        takeoff = buildsection('Takeoff',4,75)
+        instance.derive(head, takeoff, fast)
+        expected = [KeyTimeInstance(index=21.5, name='Takeoff Turn Onto Runway')]
         self.assertEqual(instance, expected)
 
 
@@ -471,9 +455,7 @@ class TestTopOfClimb(unittest.TestCase):
         alt_data = np.ma.array(range(0,400,50)+[400]*5+range(400,0,-50))
         alt = Parameter('Altitude STD', np.ma.array(alt_data))
         phase = TopOfClimb()
-        in_air = ClimbCruiseDescent()
-        in_air.append(Section(name='Climb Cruise Descent',
-                              slice=slice(0,len(alt.array))))
+        in_air = buildsection('Climb Cruise Descent',0,len(alt.array))
         phase.derive(alt, in_air)
         expected = [KeyTimeInstance(index=8, name='Top Of Climb')]
         self.assertEqual(phase, expected)
@@ -482,9 +464,7 @@ class TestTopOfClimb(unittest.TestCase):
         alt_data = np.ma.array([400]*5+range(400,0,-50))
         alt = Parameter('Altitude STD', np.ma.array(alt_data))
         phase = TopOfClimb()
-        in_air = ClimbCruiseDescent()
-        in_air.append(Section(name='Climb Cruise Descent',
-                              slice=slice(0,len(alt.array))))
+        in_air = buildsection('Climb Cruise Descent',0,len(alt.array))
         phase.derive(alt, in_air)
         expected = []
         self.assertEqual(phase, expected)
@@ -494,9 +474,7 @@ class TestTopOfClimb(unittest.TestCase):
         alt_data = np.ma.array(range(0,400,50)+[400]*5)
         alt = Parameter('Altitude STD', np.ma.array(alt_data))
         phase = TopOfClimb()
-        in_air = ClimbCruiseDescent()
-        in_air.append(Section(name='Climb Cruise Descent',
-                              slice=slice(0,len(alt.array))))
+        in_air = buildsection('Climb Cruise Descent',0,len(alt.array))
         phase.derive(alt, in_air)
         expected = [KeyTimeInstance(index=8, name='Top Of Climb')]
         self.assertEqual(phase, expected)
@@ -515,9 +493,7 @@ class TestTopOfDescent(unittest.TestCase):
         alt_data = np.ma.array(range(0,400,50)+[400]*5+range(400,0,-50))
         alt = Parameter('Altitude STD', np.ma.array(alt_data))
         phase = TopOfDescent()
-        in_air = ClimbCruiseDescent()
-        in_air.append(Section(name='Climb Cruise Descent',
-                              slice=slice(0,len(alt.array))))
+        in_air = buildsection('Climb Cruise Descent',0,len(alt.array))
         phase.derive(alt, in_air)
         expected = [KeyTimeInstance(index=13, name='Top Of Descent')]
         self.assertEqual(phase, expected)
@@ -526,9 +502,7 @@ class TestTopOfDescent(unittest.TestCase):
         alt_data = np.ma.array([400]*5+range(400,0,-50))
         alt = Parameter('Altitude STD', np.ma.array(alt_data))
         phase = TopOfDescent()
-        in_air = ClimbCruiseDescent()
-        in_air.append(Section(name='Climb Cruise Descent',
-                              slice=slice(0,len(alt.array))))
+        in_air = buildsection('Climb Cruise Descent',0,len(alt.array))
         phase.derive(alt, in_air)
         expected = [KeyTimeInstance(index=5, name='Top Of Descent')]
         self.assertEqual(phase, expected)
@@ -538,9 +512,7 @@ class TestTopOfDescent(unittest.TestCase):
         alt_data = np.ma.array(range(0,400,50)+[400]*5)
         alt = Parameter('Altitude STD', np.ma.array(alt_data))
         phase = TopOfDescent()
-        in_air = ClimbCruiseDescent()
-        in_air.append(Section(name='Climb Cruise Descent',
-                              slice=slice(0,len(alt.array))))
+        in_air = buildsection('Climb Cruise Descent',0,len(alt.array))
         phase.derive(alt, in_air)
         expected = []
         self.assertEqual(phase, expected)
@@ -550,15 +522,29 @@ class TestTopOfDescent(unittest.TestCase):
 class TestTouchdown(unittest.TestCase):
     def test_can_operate(self):
         self.assertEqual(Touchdown.get_operational_combinations(),
-                         [('Rate Of Climb', 'Landing')])
+                         [('Rate Of Climb', 'Altitude AAL', 'Airborne', 'Landing')])
 
     def test_touchdown_basic(self):
-        rate_of_climb = Parameter('Rate Of Climb For Flight Phases', np.ma.array([-30,-20,-11,-1,0,0,0]))
-        land = [Section('Landing',slice(1,5))]                        
-        tdown = Touchdown()
-        tdown.derive(rate_of_climb, land)
-        # and the real answer is this KTI
-        expected = [KeyTimeInstance(index=2.1, name='Touchdown')]
-        self.assertEqual(tdown, expected)
+        rate_of_climb = Parameter('Rate Of Climb', np.ma.arange(10)*40 - 380)
+        altitude = Parameter('Altitude AAL', 
+                             np.ma.array(data=[28, 21, 15, 10, 6, 3, 1, 0, 0,  0],
+                                         mask = False))
+        airs = buildsection('Airborne', 1, 8)
+        lands = buildsection('Landing', 2, 9)
+        tdwn=Touchdown()
+        tdwn.derive(rate_of_climb, altitude, airs, lands)
+        expected = [KeyTimeInstance(index=37/6.0, name='Touchdown')]
+        self.assertEqual(tdwn, expected)
     
-    
+    def test_touchdown_doesnt_land(self):
+        rate_of_climb = Parameter('Rate Of Climb', np.ma.arange(10)*40)
+        altitude = Parameter('Altitude AAL', 
+                             np.ma.array(data=[28, 21, 15, 10, 6, 3, 1, 0, 0,  0],
+                                         mask = False))
+        airs = buildsection('Airborne', 10, None)
+        lands = buildsection('Landing', 2, 9)
+        tdwn=Touchdown()
+        tdwn.derive(rate_of_climb, altitude, airs, lands)
+        expected = []
+        self.assertEqual(tdwn, expected)
+        

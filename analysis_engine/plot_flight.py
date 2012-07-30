@@ -4,47 +4,93 @@ import logging
 import matplotlib.pyplot as plt
 import simplekml
 
-from analysis_engine.node import DerivedParameterNode
-from library import rms_noise
+from analysis_engine.node import derived_param_from_hdf, Parameter
+from settings import METRES_TO_FEET
+from library import rms_noise, repair_mask
 from utilities.print_table import indent
 from hdfaccess.file import hdf_file
 
-def add_track(kml, hdf, track_name, lat_name, lon_name, colour):
+logger = logging.getLogger(name=__name__)
+
+def add_track(kml, track_name, lat, lon, colour, alt_param=None):
+    
+    track_config = {'name': track_name}
+    if alt_param:
+        if alt_param.name in ['Altitude AAL', 'Altitude STD']:
+            track_config['altitudemode'] = simplekml.constants.AltitudeMode.absolute
+        elif alt_param.name in ['Altitude Radio', 'Altitude Radio']:
+            track_config['altitudemode'] = simplekml.constants.AltitudeMode.relativetoground
+        track_config['extrude'] = 1
+        
     track_coords = []
-    lat = hdf[lat_name]
-    lon = hdf[lon_name]
     for i in range(len(lat.array)):
-        if lat.array.mask[i] or lon.array.mask[i]:
+        if lat.array.mask[i] or lon.array.mask[i] or (alt_param and alt_param.array.mask[i]):
             pass  # Masked data not worth plotting
         else:
-            track_coords.append((lon.array.data[i],lat.array.data[i]))
-    line = kml.newlinestring(name=track_name, coords=track_coords)
+            if alt_param:
+                track_coords.append((lon.array[i],lat.array[i], (alt_param.array[i]+241)/METRES_TO_FEET))
+            else:
+                track_coords.append((lon.array[i],lat.array[i]))
+                
+    track_config['coords'] = track_coords
+    line = kml.newlinestring(**track_config)
     line.style.linestyle.color = colour
+    line.style.polystyle.color = '66%s' % colour[2:] # set opacity of area fill to 40%
     return
 
-def track_to_kml(hdf_path, kti_list, kpv_list):
+def track_to_kml(hdf_path, kti_list, kpv_list, plot_altitude=None):
     hdf = hdf_file(hdf_path)
+    #if 'Latitude Smoothed' not in hdf or 'Longitude Smoothed' not in hdf:
+        ## unable to plot without these parameters
+        #return
     kml = simplekml.Kml()
-
-    add_track(kml, hdf, 'Recorded', 'Latitude', 'Longitude', 'ff0000ff')
-    add_track(kml, hdf, 'Smoothed', 'Latitude Smoothed', 'Longitude Smoothed', 'ff7fff7f')
+    if plot_altitude:
+        alt = derived_param_from_hdf(hdf, plot_altitude)
+        alt.array = repair_mask(alt.array, frequency=alt.frequency, repair_duration=None)
+    else:
+        alt = None
+              
+    smooth_lat = derived_param_from_hdf(hdf, 'Latitude Smoothed')
+    smooth_lon = derived_param_from_hdf(hdf, 'Longitude Smoothed')
+    lat = derived_param_from_hdf(hdf, 'Latitude')
+    lon = derived_param_from_hdf(hdf, 'Longitude')
+    
+    #add_track(kml, 'Recorded', lat, lon, 'ff0000ff')
+    add_track(kml, 'Smoothed', smooth_lat, smooth_lon, 'ff7fff7f', 
+              alt_param=alt)
 
     for kti in kti_list:
-        kml.newpoint(name=kti.name, coords=[(kti.longitude,kti.latitude)])
+        if kti.name in ['Touchdown', 'Touchdown Recorded']:
+            kti_point_values = {'name': kti.name}
+            altitude = alt.at(kti.index) if plot_altitude else None
+            if altitude:
+                kti_point_values['coords'] = (
+                    (kti.longitude, kti.latitude, (altitude+241)/METRES_TO_FEET),) # TODO: AIRPORT OFFSET HACK REMOVE AFTER USE
+                kti_point_values['altitudemode'] = simplekml.constants.AltitudeMode.absolute
+            else:
+                kti_point_values['coords'] = ((kti.longitude, kti.latitude,),)
+        
+            kml.newpoint(**kti_point_values)
+        
+    #for kpv in kpv_list:
+        #kpv_point_values = {'name': '%s (%s)' % (kpv.name, kpv.value)}
+        #altitude = alt.at(kpv.index) if plot_altitude else None
+        #if altitude:
+            #kpv_point_values['coords'] = (
+                #(smooth_lon.at(kpv.index), smooth_lat.at(kpv.index), (altitude+241)/METRES_TO_FEET), # TODO: AIRPORT OFFSET HACK REMOVE AFTER USE
+            #)
+            #kpv_point_values['altitudemode'] = simplekml.constants.AltitudeMode.absolute
+        #else:
+            #kpv_point_values['coords'] = ((smooth_lon.at(kpv.index), smooth_lat.at(kpv.index)),)
+        
+        #kml.newpoint(**kpv_point_values)
+        
 
-    """
-    # Good but slow addition of the KPVs.
-    lon=hdf['Longitude Smoothed'].array
-    lat=hdf['Latitude Smoothed'].array
-    for kpv in kpv_list:
-        point = kml.newpoint(name=kpv.name, coords=[(lon[kpv.index],lat[kpv.index])])
-        point.style.iconstyle.color = 'ff0000ff'  # Red
-    """
     kml.save(hdf_path+".kml")
-    
+    hdf.close()
     return
 
-def plot_parameter(array, show=True):
+def plot_parameter(array, show=True, label=''):
     """
     For quickly plotting a single parameter to see its shape.
     
@@ -55,7 +101,7 @@ def plot_parameter(array, show=True):
     """
     plt.title("Length: %d | Min: %.2f | Max: %.2f" % (
                len(array), array.min(), array.max()))
-    plt.plot(array)
+    plt.plot(array, label=label)
     if show:
         plt.show()
     return
@@ -197,47 +243,48 @@ def csv_flight_details(hdf_path, kti_list, kpv_list, phase_list, dest_path=None)
     :param dest_path: If None, writes to hdf_path.csv
     """
     rows = []
-    params = ['Airspeed', 'Altitude STD', 'Pitch', 'Roll']
+    params = ['Airspeed', 'Altitude AAL', 'Pitch', 'Roll']
     attrs = ['value', 'datetime', 'latitude', 'longitude'] 
-    header = ['Type', 'Phase Start', 'Index', 'Phase End', 'Name'] + attrs + params
+    header = ['Path', 'Type', 'Phase Start', 'Index', 'Phase End', 'Name'] + attrs + params
 
     with hdf_file(hdf_path) as hdf:
         for value in kti_list:
-            vals = ['Key Time Instance', None, value.index, None, value.name, None,
+            vals = [hdf_path, 'Key Time Instance', None, value.index, None, value.name, None,
                     value.datetime, value.latitude, value.longitude]
             rows.append( vals )
 
         for value in kpv_list:
-            vals = ['Key Point Value', None, value.index, None, value.name, value.value,
+            vals = [hdf_path, 'Key Point Value', None, value.index, None, value.name, value.value,
                     value.datetime]+[None]*2
             rows.append( vals )
 
         for value in phase_list:
-            vals = ['Phase', value.name, value.slice.start]+[None]*6
+            vals = [hdf_path, 'Phase', value.name, value.start_edge]+[None]*6
             rows.append( vals )
-            vals = ['Phase', None, value.slice.stop, value.name]+[None]*5
+            vals = [hdf_path, 'Phase', None, value.stop_edge, value.name]+[None]*5
             rows.append( vals )
 
         for param in params:
             # Create DerivedParameterNode to utilise the .at() method
             p = hdf[param]
-            dp = DerivedParameterNode(name=p.name, array=p.array, 
+            dp = Parameter(name=p.name, array=p.array, 
                                 frequency=p.frequency, offset=p.offset)
             for row in rows:
-                row.append(dp.at(row[2]))
+                row.append(dp.at(row[3]))
 
     # sort rows
     rows = sorted(rows, key=lambda x: x[header.index('Index')])
     # print to CSV
     if not dest_path:
-        dest_path = os.path.splitext(hdf_path)[0] + '_values_at_indexes.csv'
-    with open(dest_path, 'wb') as dest:
+        # dest_path = os.path.splitext(hdf_path)[0] + '_values_at_indexes.csv'
+        dest_path = 'combined_test_output.csv'
+    with open(dest_path, 'ab') as dest:
         writer = csv.writer(dest)
         writer.writerow(header)
         writer.writerows(rows)
     
     # print to Debug I/O
-    logging.info(indent([header] + rows, hasHeader=True, wrapfunc=lambda x:str(x)))
+    logger.info(indent([header] + rows, hasHeader=True, wrapfunc=lambda x:str(x)))
 
 
 if __name__ == '__main__':

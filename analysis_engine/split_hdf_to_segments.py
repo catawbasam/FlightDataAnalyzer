@@ -20,6 +20,9 @@ from hdfaccess.utils import write_segment
 from utilities.filesystem_tools import sha_hash_file
 
 
+logger = logging.getLogger(name=__name__)
+
+
 class AircraftMismatch(ValueError):
     pass
 
@@ -31,7 +34,7 @@ def validate_aircraft(aircraft_info, hdf):
     """
     """
     #if 'Aircraft Ident' in hdf and so on:
-    logging.warning("Validate Aircraft not implemented")
+    logger.warning("Validate Aircraft not implemented")
     if True:
         return True
     else:
@@ -49,8 +52,17 @@ def _segment_type_and_slice(airspeed, frequency, start, stop):
     * 'MID_FLIGHT'
     """
     airspeed_start = start * frequency
-    airspeed_stop = stop * frequency    
-    unmasked_start, unmasked_stop = np.ma.flatnotmasked_edges(airspeed[airspeed_start:airspeed_stop])
+    airspeed_stop = stop * frequency
+    try:
+        unmasked_start, unmasked_stop = \
+            np.ma.flatnotmasked_edges(airspeed[airspeed_start:airspeed_stop])
+    except TypeError:
+        # Raised when flatnotmasked_edges returns None because all data is
+        # masked.
+        segment_type = 'GROUND_ONLY'
+        logger.debug("Airspeed data was entirely masked. Assuming '%s' between"
+                     "'%s' and '%s'." % (segment_type, start, stop))
+        return segment_type, slice(start, stop)
     unmasked_start += airspeed_start
     unmasked_stop += airspeed_start
     
@@ -60,22 +72,22 @@ def _segment_type_and_slice(airspeed, frequency, start, stop):
     threshold_exceedance = np.ma.sum(airspeed[airspeed_start:airspeed_stop] > \
                                      settings.AIRSPEED_THRESHOLD) * frequency
     if threshold_exceedance < 30: # Q: What is a sensible value?
-        logging.debug("Airspeed was below threshold.")
+        logger.debug("Airspeed was below threshold.")
         segment_type = 'GROUND_ONLY'
     elif slow_start and slow_stop:
-        logging.debug("Airspeed started below threshold, rose above and stopped "
+        logger.debug("Airspeed started below threshold, rose above and stopped "
                      "below.")
         segment_type = 'START_AND_STOP'
     elif slow_start:
-        logging.debug("Airspeed started below threshold and stopped above.")
+        logger.debug("Airspeed started below threshold and stopped above.")
         segment_type = 'START_ONLY'
     elif slow_stop:
-        logging.debug("Airspeed started above threshold and stopped below.")
+        logger.debug("Airspeed started above threshold and stopped below.")
         segment_type = 'STOP_ONLY'
     else:
-        logging.debug("Airspeed started and stopped above threshold.")
+        logger.debug("Airspeed started and stopped above threshold.")
         segment_type = 'MID_FLIGHT'
-    logging.info("Segment type is '%s' between '%s' and '%s'.",
+    logger.info("Segment type is '%s' between '%s' and '%s'.",
                  segment_type, start, stop)
     return segment_type, slice(start, stop)
 
@@ -115,6 +127,7 @@ def _get_normalised_split_params(hdf):
     split_params_min = np.ma.min(normalised_params, axis=0)
     return split_params_min, first_split_param.frequency
 
+
 def _rate_of_turn(heading):
     '''
     Create rate of turn from heading.
@@ -124,7 +137,7 @@ def _rate_of_turn(heading):
     '''
     heading.array = repair_mask(straighten_headings(heading.array),
                                 repair_duration=None)
-    rate_of_turn = np.ma.abs(rate_of_change(heading, 1))
+    rate_of_turn = np.ma.abs(rate_of_change(heading, 2))
     rate_of_turn_masked = np.ma.masked_greater(rate_of_turn,
                                                settings.RATE_OF_TURN_SPLITTING_THRESHOLD)    
     return rate_of_turn_masked
@@ -143,15 +156,13 @@ def split_segments(hdf):
     '''
     airspeed = hdf['Airspeed']
     airspeed_array = repair_mask(airspeed.array, repair_duration=None)
-    # mask where airspeed drops below min airspeed, using hysteresis
-    airspeed_array = hysteresis(airspeed_array, settings.HYSTERESIS_FPIAS)
     airspeed_secs = len(airspeed_array) / airspeed.frequency
     slow_array = np.ma.masked_less_equal(airspeed_array,
                                          settings.AIRSPEED_THRESHOLD)
     
     speedy_slices = np.ma.clump_unmasked(slow_array)
     if len(speedy_slices) <= 1:
-        logging.info("There are '%s' sections of data where airspeed is "
+        logger.info("There are '%s' sections of data where airspeed is "
                      "above the splitting threshold. Therefore there can only "
                      "be at maximum one flights worth of data. Creating a single "
                      "segment comprising all data.", len(speedy_slices))
@@ -178,7 +189,7 @@ def split_segments(hdf):
         # Gap between difference values.
         dfc_half_period = (1 / dfc.frequency) / 2
     else:
-        logging.info("'Frame Counter' will not be used for splitting since "
+        logger.info("'Frame Counter' will not be used for splitting since "
                      "'reliable_frame_counter' is False.")
         dfc = None
     
@@ -200,7 +211,7 @@ def split_segments(hdf):
         
         slow_duration = slice_stop_secs - slice_start_secs
         if slow_duration < settings.MINIMUM_SPLIT_DURATION:
-            logging.info("Disregarding period of airspeed below '%s' "
+            logger.info("Disregarding period of airspeed below '%s' "
                           "since '%s' is shorter than MINIMUM_SPLIT_DURATION "
                           "('%s').", settings.AIRSPEED_THRESHOLD, slow_duration,
                           settings.MINIMUM_SPLIT_DURATION)
@@ -216,7 +227,7 @@ def split_segments(hdf):
                 dfc_index = unmasked_edges[0]
                 split_index = round((dfc_index / dfc.frequency) + slice_start_secs + \
                     dfc_half_period)
-                logging.info("'Frame Counter' jumped within slow_slice '%s' "
+                logger.info("'Frame Counter' jumped within slow_slice '%s' "
                              "at index '%s'.", slow_slice, split_index)
                 segments.append(_segment_type_and_slice(airspeed_array,
                                                         airspeed.frequency,
@@ -224,7 +235,7 @@ def split_segments(hdf):
                 start = split_index
                 continue
             else:
-                logging.info("'Frame Counter' did not jump within slow_slice "
+                logger.info("'Frame Counter' did not jump within slow_slice "
                              "'%s'.", slow_slice)
         
         # Split using engine parameters.        
@@ -236,7 +247,7 @@ def split_segments(hdf):
             try:
                 below_min_slice = np.ma.clump_unmasked(split_params_masked)[0]
             except IndexError:
-                logging.info("Average of normalised split parameters did not drop "
+                logger.info("Average of normalised split parameters did not drop "
                              "below MINIMUM_SPLIT_PARAM_VALUE ('%s') within slow_slice '%s'.",
                              settings.MINIMUM_SPLIT_PARAM_VALUE,
                              split_params_slice)
@@ -245,7 +256,7 @@ def split_segments(hdf):
                 param_split_index = split_params_slice.start + \
                     below_min_slice.start + (below_min_duration / 2)
                 split_index = round(param_split_index / split_params_frequency)
-                logging.info("Average of normalised split parameters value was "
+                logger.info("Average of normalised split parameters value was "
                              "below MINIMUM_SPLIT_PARAM_VALUE ('%s') within "
                              "slow_slice '%s' at index '%s'.",
                              settings.MINIMUM_SPLIT_PARAM_VALUE,
@@ -265,7 +276,7 @@ def split_segments(hdf):
             first_stop = stopped_slices[0]
         except IndexError:
             # The aircraft did not stop turning.
-            logging.info("Aircraft did not stop turning during slow_slice "
+            logger.info("Aircraft did not stop turning during slow_slice "
                          "'%s'. Therefore a split will not be made.",
                          slow_slice)
         else:
@@ -278,11 +289,11 @@ def split_segments(hdf):
                                                     start, split_index))
             start = split_index
             continue
-        
-        logging.warning("Splitting methods failed to split within slow_slice "
-                        "'%s'.", slow_slice)
+
         #Q: Raise error here?
-    
+        logger.warning("Splitting methods failed to split within slow_slice "
+                       "'%s'.", slow_slice)
+
     # Add remaining data to a segment.
     segments.append(_segment_type_and_slice(airspeed_array, airspeed.frequency,
                                             start, airspeed_secs))
@@ -315,16 +326,16 @@ def _calculate_start_datetime(hdf, fallback_dt=None):
     for name in ('Year', 'Month', 'Day', 'Hour', 'Minute', 'Second'):
         param = hdf.get(name)
         if param:
-            array = align(hdf[name], onehz, signaltype='Multi-State')
+            array = align(hdf[name], onehz, data_type='Multi-State')
             if len(array) == 0 or np.ma.count(array) == 0:
-                logging.warning("No valid values returned for %s", name)
+                logger.warning("No valid values returned for %s", name)
             else:
                 # values returned, continue
                 dt_arrays.append(array)
                 continue
         if fallback_dt:
             array = [getattr(fallback_dt, name.lower())]
-            logging.info("%s not available, using %d from fallback_dt %s", 
+            logger.info("%s not available, using %d from fallback_dt %s", 
                          name, array[0], fallback_dt)
             dt_arrays.append(array)
             continue
@@ -334,7 +345,6 @@ def _calculate_start_datetime(hdf, fallback_dt=None):
     #TODO: Support limited time ranges - i.e. not in future and only up to 5 years in the past?
     ##if (datetime.now() - timedelta(years=5)).year > dt_arrays[0].average() > datetime.now().year:
         ##raise issue!
-        
         
     length = max([len(array) for array in dt_arrays])
     if length > 1:
@@ -384,9 +394,10 @@ def append_segment_info(hdf_segment_path, segment_type, segment_slice, part,
         try:
             start_datetime = _calculate_start_datetime(hdf, fallback_dt)
         except TimebaseError:
-            logging.warning("Unable to calculate timebase, using epoch 1.1.1970!")
+            logger.warning("Unable to calculate timebase, using epoch 1.1.1970!")
             start_datetime = datetime.fromtimestamp(0)
         stop_datetime = start_datetime + timedelta(seconds=duration)
+        hdf.start_datetime = start_datetime
     
     if segment_type != 'GROUND_ONLY':
         # we went fast, so get the index
@@ -421,37 +432,36 @@ def split_hdf_to_segments(hdf_path, aircraft_info, fallback_dt=None, draw=False)
     :returns: List of Segments
     :rtype: List of Segment recordtypes ('slice type part duration path hash')
     """
-    logging.info("Processing file: %s", hdf_path)
+    logger.info("Processing file: %s", hdf_path)
     if draw:
         plot_essential(hdf_path)
         
     with hdf_file(hdf_path) as hdf:
         # Confirm aircraft tail for the entire datafile
-        logging.info("Validating aircraft matches that recorded in data")
+        logger.info("Validating aircraft matches that recorded in data")
         validate_aircraft(aircraft_info, hdf)
 
         # now we know the Aircraft is correct, go and do the PRE FILE ANALYSIS
         if hooks.PRE_FILE_ANALYSIS:
-            logging.info("Performing PRE_FILE_ANALYSIS analysis: %s", 
+            logger.info("Performing PRE_FILE_ANALYSIS analysis: %s", 
                          hooks.PRE_FILE_ANALYSIS.func_name)
             hooks.PRE_FILE_ANALYSIS(hdf, aircraft_info)
         else:
-            logging.info("No PRE_FILE_ANALYSIS actions to perform")
+            logger.info("No PRE_FILE_ANALYSIS actions to perform")
         
         segment_tuples = split_segments(hdf)
-            
+    
     # process each segment (into a new file) having closed original hdf_path
     segments = []
     for part, segment_tuple in enumerate(segment_tuples, start=1):
         segment_type, segment_slice = segment_tuple
         # write segment to new split file (.001)
-        dest_path = os.path.splitext(hdf_path)[0] + '.%03d' % part + '.hdf5'
-        logging.debug("Writing segment %d: %s", part, dest_path)
-        dest_path = write_segment(hdf_path, segment_slice, dest_path,
-                                  supf_boundary=True)
-        
+        dest_path = os.path.splitext(hdf_path)[0] + '.%03d.hdf5' % part
+        logger.debug("Writing segment %d: %s", part, dest_path)
+        write_segment(hdf_path, segment_slice, dest_path, supf_boundary=True)
         segment = append_segment_info(dest_path, segment_type, segment_slice,
-                                      part, fallback_dt=fallback_dt)
+                                      part, fallback_dt=fallback_dt)        
+        
         segments.append(segment)
         if draw:
             from analysis_engine.plot_flight import plot_essential
@@ -471,7 +481,7 @@ if __name__ == '__main__':
     import pprint
     from utilities.filesystem_tools import copy_file
     logger = logging.getLogger()
-    logger.setLevel(logging.INFO)    
+    logger.setLevel(logging.WARN)    
     
     parser = argparse.ArgumentParser(description="Process a flight.")
     parser.add_argument('file', type=str,

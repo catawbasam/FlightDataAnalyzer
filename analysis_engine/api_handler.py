@@ -1,16 +1,18 @@
 import httplib
 import httplib2
 import logging
+import os
+import simplejson
 import socket
 import time
 import urllib
-try:
-    import simplejson as json
-except ImportError:
-    import json
+
+from analysis_engine import settings
 
 TIMEOUT = 15
 socket.setdefaulttimeout(TIMEOUT)
+
+logger = logging.getLogger(name=__name__)
 
 class APIError(Exception):
     def __init__(self, message, uri=None, method=None, body=None):
@@ -34,7 +36,6 @@ class NotFoundError(APIError):
 
 class UnknownAPIError(APIError): # Q: Name?
     pass
-
 
 
 class APIHandlerHTTP(object):
@@ -70,31 +71,29 @@ class APIHandlerHTTP(object):
         :raises NotFoundError: If server returns 404.
         :raises APIConnectionError: If the server does not respond or returns 401.
         :raises UnknownAPIError: If the server returns 500 or an unexpected status code.
+        :raises JSONDecodeError: If status code is 200, but content is not JSON.
         '''
         # Encode body as GET parameters.
         body = urllib.urlencode(body)
-        http = httplib2.Http(timeout=timeout)
+        disable_validation = not os.path.exists(settings.CA_CERTIFICATE_FILE)
+        http = httplib2.Http(
+            ca_certs=settings.CA_CERTIFICATE_FILE,
+            disable_ssl_certificate_validation=disable_validation,
+            timeout=timeout,
+        )
         try:
             resp, content = http.request(uri, method, body)
         except (httplib2.ServerNotFoundError, socket.error, AttributeError): # DNS..
             raise APIConnectionError(uri, method, body)
         status = int(resp['status'])
-        try:
-            decoded_content = json.loads(content) #TODO: use_decimal=True to improve accuracy?
-        except ValueError:
-            # Only JSON return types supported, any other return means server
-            # is not configured correctly
-            logging.exception("JSON decode error for '%s' - only JSON supported"
-                             " by this API. Server configuration error? %s\nBody: %s",
-                             method, uri, body)
-            raise
+        
         # Test HTTP Status.
         if status != 200:
-            if decoded_content:
-                # Try to get 'error' message from JSON which may not be
-                # available.
-                error_msg = decoded_content['error']
-            else:
+            try:
+                # Try to get 'error' message from JSON, which may not be
+                # available.                
+                error_msg = simplejson.loads(content)['error']
+            except (simplejson.JSONDecodeError, KeyError):
                 error_msg = ''
             if status == httplib.BAD_REQUEST: # 400
                 raise InvalidAPIInputError(error_msg, uri, method, body)
@@ -107,7 +106,15 @@ class APIHandlerHTTP(object):
             else:
                 raise UnknownAPIError(error_msg, uri, method, body)
         
-        return decoded_content
+        try:
+            return simplejson.loads(content) #TODO: use_decimal=True to improve accuracy?
+        except simplejson.JSONDecodeError:
+            # Only JSON return types supported, any other return means server
+            # is not configured correctly
+            logger.exception("JSON decode error for '%s' - only JSON "
+                             "supported by this API. Server configuration "
+                             "error? %s\nBody: %s", method, uri, body)
+            raise
     
     def _attempt_request(self, *args, **kwargs):
         '''
@@ -125,10 +132,10 @@ class APIHandlerHTTP(object):
         '''
         for attempt in range(self.attempts):
             try:
-                logging.info("API Request args: %s | kwargs: %s", args, kwargs)
+                logger.info("API Request args: %s | kwargs: %s", args, kwargs)
                 return self._request(*args, **kwargs)
             except (APIConnectionError, UnknownAPIError) as error:
-                logging.exception("'%s' error in request, retrying in %.2f", 
+                logger.exception("'%s' error in request, retrying in %.2f", 
                                   error, self.delay)
                 time.sleep(self.delay)
         raise error

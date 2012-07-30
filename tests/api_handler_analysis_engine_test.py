@@ -1,18 +1,24 @@
 import httplib2
-import unittest
+import simplejson
 import socket
+import unittest
 
 from mock import Mock, patch
 
-from analysis_engine.api_handler import (APIConnectionError,
-                                         InvalidAPIInputError, NotFoundError,
-                                         UnknownAPIError)
-from analysis_engine.api_handler_http import APIHandlerHTTP
+from analysis_engine.api_handler import (
+    APIConnectionError,
+    APIError,
+    APIHandlerHTTP,
+    InvalidAPIInputError,
+    NotFoundError,
+    UnknownAPIError
+)
+from analysis_engine.api_handler_analysis_engine import AnalysisEngineAPIHandlerHTTP
 
 
 class APIHandlerHTTPTest(unittest.TestCase):
     
-    @patch('analysis_engine.api_handler_http.httplib2.Http.request')
+    @patch('analysis_engine.api_handler.httplib2.Http.request')
     def test__request(self, http_request_patched):
         '''
         Test error handling.
@@ -27,7 +33,7 @@ class APIHandlerHTTPTest(unittest.TestCase):
         # Responded with invalid JSON.
         content = 'invalid JSON'
         http_request_patched.return_value = resp, content
-        self.assertRaises(UnknownAPIError, handler._request, url)
+        self.assertRaises(simplejson.JSONDecodeError, handler._request, url)
         content = "{error: 'Server error.'}"
         resp['status'] = 400 # Bad Request
         self.assertRaises(InvalidAPIInputError, handler._request, url)
@@ -50,15 +56,15 @@ class APIHandlerHTTPTest(unittest.TestCase):
         self.assertEqual(handler._attempt_request(1, x=2), {})
         handler._request.assert_called_once_with(1, x=2)
         # Raises out Exception if it is raised in every attempt.
-        handler._request.side_effect = Exception()
-        self.assertRaises(Exception, handler._attempt_request, 3)
+        handler._request.side_effect = UnknownAPIError('')
+        self.assertRaises(UnknownAPIError, handler._attempt_request, 3)
         self.assertEqual(handler._request.call_args_list,
                          [((1,), {'x': 2})] + [((3,), {})] * 3)
         # Returns value after Exception being raised in earlier attempts.
-        return_values = [{}, Exception(), Exception()]
+        return_values = [{}, UnknownAPIError(''), APIConnectionError('')]
         def side_effect(*args, **kwargs):
             elem = return_values.pop()
-            if isinstance(elem, Exception):
+            if isinstance(elem, APIError):
                 raise elem
             else:
                 return elem
@@ -68,20 +74,27 @@ class APIHandlerHTTPTest(unittest.TestCase):
                 [((1,), {'x': 2})] + [((3,), {})] * 3 + [((4,), {'y': 5})] * 3)
     
     def test_get_nearest_airport(self):
-        handler = APIHandlerHTTP(attempts=3)
+        handler = AnalysisEngineAPIHandlerHTTP(attempts=3)
         handler._request = Mock()
         request_return_value = {
-            "status":200,
-            "airport": {"distance":1.5125406009017226,
-                        "magnetic_variation":"W002241 0106",
-                        "code":{"icao":"EGLL",
-                                "iata":"LHR"},
-                        "name":"London Heathrow",
-                        "longitude":-0.461389,
-                        "location":{"city":"London",
-                                    "country":"United Kingdom"},
-                        "latitude":51.4775,
-                        "id":2383}}
+            "status": 200,
+            "airport": {
+                "distance": 1.5125406009017226,
+                "magnetic_variation": "W002241 0106",
+                "code": {
+                    "icao":"EGLL",
+                    "iata":"LHR"
+                    },
+                "name":"London Heathrow",
+                "longitude":-0.461389,
+                "location": {
+                    "city":"London",
+                    "country":"United Kingdom"
+                    },
+                "latitude":51.4775,
+                "id":2383
+            }
+        }
         handler._request.return_value = request_return_value
         self.assertEqual(handler.get_nearest_airport(14.1, 0.52),
                          request_return_value['airport'])
@@ -92,21 +105,21 @@ class APIHandlerHTTPTest(unittest.TestCase):
         Make an HTTP request rather than mocking the response. Requires the
         BASE_URL server being online.
         '''
-        handler = APIHandlerHTTP(attempts=3)
+        handler = AnalysisEngineAPIHandlerHTTP(attempts=3)
         self.assertEqual(handler.get_nearest_airport(51.4775, -0.461389),
-                         {"distance":1.5125406009017226,
-                          "magnetic_variation":"W002241 0106",
-                          "code":{"icao":"EGLL",
-                                  "iata":"LHR"},
-                          "name":"London Heathrow",
-                          "longitude":-0.461389,
-                          "location":{"city":"London",
-                                      "country":"United Kingdom"},
-                          "latitude":51.4775,
-                          "id":2383})
+                         {'code': {'iata': 'LHR', 'icao': 'EGLL'},
+                          'id': 2383,
+                          'latitude': 51.4775,
+                          'location': {
+                              'city': 'London',
+                              'country': 'United Kingdom'
+                              },
+                          'longitude': -0.461389,
+                          'magnetic_variation': 'W002241 0106',
+                          'name': 'London Heathrow'})
     
     def test_get_nearest_runway(self):
-        handler = APIHandlerHTTP(attempts=3)
+        handler = AnalysisEngineAPIHandlerHTTP(attempts=3)
         handler._request = Mock()
         handler._request.return_value = {'status': 200, 'runway': {'x': 1}}
         self.assertEqual(handler.get_nearest_runway('ICAO', 120),

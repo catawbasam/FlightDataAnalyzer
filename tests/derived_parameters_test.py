@@ -3,12 +3,15 @@ import sys
 from datetime import datetime, timedelta
 import mock
 import numpy as np
+import os
 
 import utilities.masked_array_testutils as ma_test
-from utilities.struct import Struct
-from analysis_engine.settings import GRAVITY_IMPERIAL, HYSTERESIS_FPIAS
-from analysis_engine.node import Attribute, A, KeyTimeInstance, KPV, KTI, Parameter, P, Section, S
+from analysis_engine.settings import GRAVITY_IMPERIAL, METRES_TO_FEET
+from analysis_engine.node import Attribute, A, KeyTimeInstance, KTI, Parameter, P, Section, S
 from analysis_engine.flight_phase import Fast
+from analysis_engine.library import np_ma_masked_zeros_like
+from flight_phase_test import buildsection, buildsections
+from analysis_engine.plot_flight import plot_parameter
 
 from analysis_engine.derived_parameters import (
     AccelerationVertical,
@@ -21,10 +24,10 @@ from analysis_engine.derived_parameters import (
     AirspeedTrue,
     AltitudeAAL,
     AltitudeAALForFlightPhases,
-    AltitudeForFlightPhases,
+    #AltitudeForFlightPhases,
     AltitudeRadio,
     #AltitudeRadioForFlightPhases,
-    AltitudeSTD,
+    #AltitudeSTD,
     AltitudeTail,
     ClimbForFlightPhases,
     Config,
@@ -33,26 +36,35 @@ from analysis_engine.derived_parameters import (
     ControlColumnForceCapt,
     ControlColumnForceFO,
     ControlWheel,
+    DescendForFlightPhases,
+    DistanceTravelled,
+    DistanceToLanding,
     Eng_N1Avg,
     Eng_N1Max,
     Eng_N1Min,
     Eng_N2Avg,
     Eng_N2Max,
     Eng_N2Min,
+    Eng_N3Avg,
+    Eng_N3Max,
+    Eng_N3Min,
     Flap,
     FuelQty,
     GrossWeightSmoothed,
     GroundspeedAlongTrack,
     HeadingContinuous,
+    HeadingIncreasing,
     HeadingTrue,
+    Headwind,
     ILSFrequency,
-    LatitudeStraighten,
-    LongitudeStraighten,
+    LatitudePrepared,
+    LongitudePrepared,
+    Mach,
     Pitch,
     RateOfClimb,
     RateOfClimbForFlightPhases,
     RateOfTurn,
-    Slat,
+    WindAcrossLandingRunway,
 )
 
 debug = sys.gettrace() is not None
@@ -263,54 +275,76 @@ class TestAirspeedForFlightPhases(unittest.TestCase):
         opts = AirspeedForFlightPhases.get_operational_combinations()
         self.assertEqual(opts, expected)
     
-    @mock.patch('analysis_engine.derived_parameters.hysteresis')
-    def test_airspeed_for_phases_basic(self, hysteresis):
-        # Avoiding testing hysteresis.
-        param = mock.Mock()
-        param.array = mock.Mock()
-        hysteresis.return_value = mock.Mock()
-        speed = AirspeedForFlightPhases()
-        speed.derive(param)
-        hysteresis.assert_called_once_with(param.array, HYSTERESIS_FPIAS)
-        self.assertEqual(speed.array, hysteresis.return_value)
-
 
 class TestAirspeedMinusVref(unittest.TestCase):
     def test_can_operate(self):
-        expected = [('Airspeed','Vref')]
+        expected = [('Airspeed','FDR Vref')]
         opts = AirspeedMinusVref.get_operational_combinations()
         self.assertEqual(opts, expected)
+        
+        # ???????????????????????????????????????????????????????????????
+        # THIS MAY NEED TO BE ALTERED SO THAT Vref IS VARIABLE AND NOT FIXED
+        # NEED A DIFFERENT Vref FOR EACH APPROACH ??? DISCUSS WITH DEREK AND
+        # DAVE BEFORE CHANGING
     
     def test_airspeed_for_phases_basic(self):
         speed=P('Airspeed',np.ma.array([200]*128),frequency=1)
-        ref = P('Vref',np.ma.array([120,130]), frequency=1/64.0, offset=3)
+        ref = A('Vref',value=120)
         # Offset is frame-related, not superframe based, so is to some extent
         # meaningless.
         param = AirspeedMinusVref()
         param.get_derived([speed, ref])
-        expected=np.array([80]*64+[70]*64)
+        expected=np.array([80]*128)
         np.testing.assert_array_equal(param.array, expected)
 
 class TestAirspeedTrue(unittest.TestCase):
     def test_can_operate(self):
-        self.assertEqual(AirspeedTrue.get_operational_combinations(), 
-                         [('Airspeed', 'Altitude STD'),
-                          ('Airspeed', 'Altitude STD', 'TAT')])
+        self.assertEqual(AirspeedTrue.get_operational_combinations(), [
+            ('Airspeed', 'Altitude STD'),
+            ('Airspeed', 'Altitude STD', 'TAT'),
+            ('Airspeed', 'Altitude STD', 'Takeoff'),
+            ('Airspeed', 'Altitude STD', 'Landing'),
+            ('Airspeed', 'Altitude STD', 'Groundspeed'),
+            ('Airspeed', 'Altitude STD', 'Acceleration Forwards'),
+            ('Airspeed', 'Altitude STD', 'TAT', 'Takeoff'),
+            ('Airspeed', 'Altitude STD', 'TAT', 'Landing'),
+            ('Airspeed', 'Altitude STD', 'TAT', 'Groundspeed'),
+            ('Airspeed', 'Altitude STD', 'TAT', 'Acceleration Forwards'),
+            ('Airspeed', 'Altitude STD', 'Takeoff', 'Landing'),
+            ('Airspeed', 'Altitude STD', 'Takeoff', 'Groundspeed'),
+            ('Airspeed', 'Altitude STD', 'Takeoff', 'Acceleration Forwards'),
+            ('Airspeed', 'Altitude STD', 'Landing', 'Groundspeed'),
+            ('Airspeed', 'Altitude STD', 'Landing', 'Acceleration Forwards'),
+            ('Airspeed', 'Altitude STD', 'Groundspeed', 'Acceleration Forwards'),
+            ('Airspeed', 'Altitude STD', 'TAT', 'Takeoff', 'Landing'),
+            ('Airspeed', 'Altitude STD', 'TAT', 'Takeoff', 'Groundspeed'),
+            ('Airspeed', 'Altitude STD', 'TAT', 'Takeoff', 'Acceleration Forwards'),
+            ('Airspeed', 'Altitude STD', 'TAT', 'Landing', 'Groundspeed'),
+            ('Airspeed', 'Altitude STD', 'TAT', 'Landing', 'Acceleration Forwards'),
+            ('Airspeed', 'Altitude STD', 'TAT', 'Groundspeed', 'Acceleration Forwards'),
+            ('Airspeed', 'Altitude STD', 'Takeoff', 'Landing', 'Groundspeed'),
+            ('Airspeed', 'Altitude STD', 'Takeoff', 'Landing', 'Acceleration Forwards'),
+            ('Airspeed', 'Altitude STD', 'Takeoff', 'Groundspeed', 'Acceleration Forwards'),
+            ('Airspeed', 'Altitude STD', 'Landing', 'Groundspeed', 'Acceleration Forwards'),
+            ('Airspeed', 'Altitude STD', 'TAT', 'Takeoff', 'Landing', 'Groundspeed'),
+            ('Airspeed', 'Altitude STD', 'TAT', 'Takeoff', 'Landing', 'Acceleration Forwards'),
+            ('Airspeed', 'Altitude STD', 'TAT', 'Takeoff', 'Groundspeed', 'Acceleration Forwards'),
+            ('Airspeed', 'Altitude STD', 'TAT', 'Landing', 'Groundspeed', 'Acceleration Forwards'),
+            ('Airspeed', 'Altitude STD', 'Takeoff', 'Landing', 'Groundspeed', 'Acceleration Forwards'),
+            ('Airspeed', 'Altitude STD', 'TAT', 'Takeoff', 'Landing', 'Groundspeed', 'Acceleration Forwards')
+        ])
         
     def test_tas_basic(self):
         cas = P('Airspeed', np.ma.array([100,200,300]))
         alt = P('Altitude STD', np.ma.array([0,20000,40000]))
-        tat = P('TAT', np.ma.array([20,-10,-40]))
+        tat = P('TAT', np.ma.array([20,-10,-16.2442]))
         tas = AirspeedTrue()
         tas.derive(cas,alt,tat)
-        # Answers without compressibility obtained from
-        # http://www.newbyte.co.il/calc.html.
-        result = [100.864, 278.377, 574.379]
         # Answers with compressibility are:
-        result = [100.634, 273.131, 527.337]
-        self.assertLess(abs(tas.array.data[0]-result[0]),0.01)
-        self.assertLess(abs(tas.array.data[1]-result[1]),0.01)
-        self.assertLess(abs(tas.array.data[2]-result[2]),0.01)
+        result = [100.6341, 273.0303, 552.8481]
+        self.assertLess(abs(tas.array.data[0]-result[0]),0.1)
+        self.assertLess(abs(tas.array.data[1]-result[1]),0.7)
+        self.assertLess(abs(tas.array.data[2]-result[2]),6.0)
         
     def test_tas_masks(self):
         cas = P('Airspeed', np.ma.array([100,200,300]))
@@ -336,96 +370,88 @@ class TestAirspeedTrue(unittest.TestCase):
 
 class TestAltitudeAAL(unittest.TestCase):
     def test_can_operate(self):
-        expected = [('Altitude AAL For Flight Phases',),
-                    ('Rate Of Climb', 'Altitude AAL For Flight Phases'),
-                    ('Altitude AAL For Flight Phases', 'Altitude STD'),
-                    ('Altitude AAL For Flight Phases', 'Altitude Radio'),
-                    ('Altitude AAL For Flight Phases', 'Fast'),
-                    ('Rate Of Climb', 'Altitude AAL For Flight Phases',
-                     'Altitude STD'),
-                    ('Rate Of Climb', 'Altitude AAL For Flight Phases',
-                     'Altitude Radio'), 
-                    ('Rate Of Climb','Altitude AAL For Flight Phases', 'Fast'),
-                    ('Altitude AAL For Flight Phases', 'Altitude STD',
-                     'Altitude Radio'), 
-                    ('Altitude AAL For Flight Phases', 'Altitude STD', 'Fast'), 
-                    ('Altitude AAL For Flight Phases', 'Altitude Radio','Fast'), 
-                    ('Rate Of Climb', 'Altitude AAL For Flight Phases', 
-                     'Altitude STD', 'Altitude Radio'), 
-                    ('Rate Of Climb', 'Altitude AAL For Flight Phases', 
-                     'Altitude STD', 'Fast'), 
-                    ('Rate Of Climb', 'Altitude AAL For Flight Phases', 
-                     'Altitude Radio', 'Fast'), 
-                    ('Altitude AAL For Flight Phases', 'Altitude STD', 
-                     'Altitude Radio', 'Fast'), 
-                    ('Rate Of Climb', 'Altitude AAL For Flight Phases', 
-                     'Altitude STD', 'Altitude Radio', 'Fast')]
         opts = AltitudeAAL.get_operational_combinations()
-        self.assertEqual(opts, expected)
+        self.assertTrue(('Altitude STD','Fast') in opts)
+        self.assertTrue(('Altitude Radio','Altitude STD','Fast') in opts)
         
-    def test_altitude_AAL_basic(self):
-        slow_and_fast_data = np.ma.array(range(70,120,10)+range(140,75,-10))
+    def test_alt_AAL_basic(self):
+        data = np.ma.array([-3,0,30,80,150,260,120,70,20,-5])
+        alt_std = P(array=data+300)
+        alt_rad = P(array=data)
+        fast_data = np.ma.array([100]*10)
+        phase_fast = Fast()
+        phase_fast.derive(Parameter('Airspeed', fast_data))
+        alt_aal = AltitudeAAL()
+        alt_aal.derive(alt_rad, alt_std, phase_fast)
+        expected = np.ma.array([0,0,30,80,150,260,120,70,20,0])
+        np.testing.assert_array_equal(expected, alt_aal.array.data)
+
+    def test_alt_AAL_bounce_rejection(self):
+        data = np.ma.array([-3,0,30,80,150,260,120,70,20,-5,2,5,2,-3,-3])
+        alt_std = P(array=data+300)
+        alt_rad = P(array=data)
+        fast_data = np.ma.array([100]*15)
+        phase_fast = Fast()
+        phase_fast.derive(Parameter('Airspeed', fast_data))
+        alt_aal = AltitudeAAL()
+        alt_aal.derive(alt_rad, alt_std, phase_fast)
+        expected = np.ma.array([0,0,30,80,150,260,120,70,20,0,0,0,0,0,0])
+        np.testing.assert_array_equal(expected, alt_aal.array.data)
+    
+    def test_alt_AAL_no_ralt(self):
+        data = np.ma.array([-3,0,30,80,150,280,120,70,20,-5])
+        alt_std = P(array=data+300)
+        slow_and_fast_data = np.ma.array([70]+[85]*7+[75,70])
         phase_fast = Fast()
         phase_fast.derive(Parameter('Airspeed', slow_and_fast_data))
-        roc = Parameter('Rate Of Climb',np.ma.array([0]*3+[600]*3+[-600]*3+[0]*4))
-        press_data = np.ma.array([0, 0, 0, 60, 120, 200, 
-                                400, 250, 130, 80, 60, 60, 60], dtype=float)
-        altitude = Parameter('Altitude STD', press_data)
-        rad_data = np.ma.array([0, 0, 0, 60, 120, 200, 
-                                200, 200, 80, 20, -1, -2, 0], dtype=float)
-        alt_radio = Parameter('Altitude Radio', rad_data)
         alt_aal = AltitudeAAL()
-        alt_aal.derive(roc, altitude, altitude, alt_radio, phase_fast)
-        expected = np.ma.array(data=[0,0,0.0,12.8571428571,43.4693877551,
-                                     85.3352769679,139.525197834,169.660855596,
-                                     152.614896854,119.01064061,87.7218861501,
-                                     62.2299186786,0],
-                               mask = [[True]+[False]*11+[True]])
-        ma_test.assert_masked_array_approx_equal(alt_aal.array, expected)
+        alt_aal.derive(None, alt_std, phase_fast)
+        expected = np.ma.array([0,0,30,80,150,210,50,0,0,0])
+        np.testing.assert_array_equal(expected, alt_aal.array.data)
     
+    def test_alt_aal_complex(self):
+        testwave = np.ma.cos(np.arange(0,3.14*2*5,0.1))*(-3000)+\
+            np.ma.cos(np.arange(0,3.14*2,0.02))*(-5000)+7996
+        # plot_parameter (testwave)
+        rad_wave = np.copy(testwave)
+        rad_wave[110:140] -= 8765 # The ground is 8,765 ft high at this point.
+        rad_data = np.ma.masked_greater(rad_wave, 2600)
+        # plot_parameter (rad_data)
+        phase_fast = buildsection('Fast',0,len(testwave))
+        alt_aal = AltitudeAAL()
+        alt_aal.derive(P('Altitude Radio', rad_data),
+                       P('Altitude STD', testwave),
+                       phase_fast)
+        # plot_parameter (alt_aal.array)
+        
+        np.testing.assert_equal(alt_aal.array[0], 0.0)
+        np.testing.assert_almost_equal(alt_aal.array[34],7013,decimal=0)
+        np.testing.assert_almost_equal(alt_aal.array[60],3308,decimal=0)
+        np.testing.assert_almost_equal(alt_aal.array[124],217,decimal=0)
+        np.testing.assert_almost_equal(alt_aal.array[191],8965,decimal=0)
+        np.testing.assert_almost_equal(alt_aal.array[254],3288,decimal=0)
+        np.testing.assert_almost_equal(alt_aal.array[313],17,decimal=0)
+        
     
 class TestAltitudeAALForFlightPhases(unittest.TestCase):
     def test_can_operate(self):
-        expected = [('Altitude STD','Fast')]
+        expected = [('Altitude AAL',)]
         opts = AltitudeAALForFlightPhases.get_operational_combinations()
         self.assertEqual(opts, expected)
         
     def test_altitude_AAL_for_flight_phases_basic(self):
-        slow_and_fast_data = np.ma.array(range(59,119,10)+range(119,49,-10))
-        up_and_down_data = slow_and_fast_data * 10
-        phase_fast = Fast()
-        phase_fast.derive(Parameter('Airspeed', slow_and_fast_data))
         alt_4_ph = AltitudeAALForFlightPhases()
-        alt_4_ph.derive(Parameter('Altitude STD', up_and_down_data), phase_fast)
-        expected = np.ma.array([0, 0, 0, 100, 200, 300, 
-                                400, 300, 200, 100, 0, 0, 0],
-                               mask=[[True]*2+[False]*9+[True]*2], dtype=float)
-        ma_test.assert_masked_array_approx_equal(alt_4_ph.array, expected)
-
-    def test_altitude_AAL_for_flight_phases_to_ends_of_array(self):
-        slow_and_fast_data = np.ma.array(range(59,119,10)+range(119,49,-10))
-        up_and_down_data = slow_and_fast_data * 10
-        phase_fast = Fast()
-        phase_fast.derive(Parameter('Airspeed', up_and_down_data))
-        alt_4_ph = AltitudeAALForFlightPhases()
-        alt_4_ph.derive(Parameter('Altitude STD', up_and_down_data), phase_fast)
-        expected = up_and_down_data - 590 #  Result unchanged, and running to the ends of the array.
-        ma_test.assert_masked_array_approx_equal(alt_4_ph.array, expected)
-
-    def test_altitude_AAL_for_flight_phases_masked_at_lift(self):
-        slow_and_fast_data = np.ma.array(range(59,119,10)+range(119,49,-10))
-        up_and_down_data = slow_and_fast_data * 10
-        up_and_down_data[1:4] = np.ma.masked
-        phase_fast = Fast()
-        phase_fast.derive(Parameter('Airspeed', slow_and_fast_data))
-        alt_4_ph = AltitudeAALForFlightPhases()
-        alt_4_ph.derive(Parameter('Altitude STD', up_and_down_data), phase_fast)
-        expected = np.ma.array([0, 0, 0, 100, 200, 300, 
-                                400, 300, 200, 100, 0, 0, 0],
-                               mask=[[True]*2+[False]*9+[True]*2], dtype=float)
-        ma_test.assert_masked_array_approx_equal(alt_4_ph.array, expected)
+        alt_4_ph.derive(Parameter('Altitude AAL', 
+                                  np.ma.array(data=[0,100,200,100,0],
+                                              mask=[0,0,1,1,0])))
+        expected = np.ma.array(data=[0,100,66,33,0],mask=False)
+        # ...because data interpolates across the masked values and integer
+        # values are rounded.
+        ma_test.assert_array_equal(alt_4_ph.array, expected)
 
 
+
+'''
 class TestAltitudeForFlightPhases(unittest.TestCase):
     def test_can_operate(self):
         expected = [('Altitude STD',)]
@@ -451,38 +477,70 @@ class TestAltitudeForFlightPhases(unittest.TestCase):
                              [testwave[-1]-50.0]*21,
                              mask = False)
         np.testing.assert_array_almost_equal(alt_4_ph.array, answer)
+        '''
 
 
-"""
 class TestAltitudeRadio(unittest.TestCase):
+    """
     def test_can_operate(self):
         expected = [('Altitude Radio Sensor', 'Pitch',
                      'Main Gear To Altitude Radio')]
         opts = AltitudeRadio.get_operational_combinations()
         self.assertEqual(opts, expected)
-        
-    def test_altitude_radio(self):
+    """
+    
+    def test_altitude_radio_737_3C(self):
         alt_rad = AltitudeRadio()
-        alt_rad.derive(
-            Parameter('Altitude Radio Sensor', np.ma.ones(10)*10, 1,0.0),
-            Parameter('Pitch', (np.ma.array(range(10))-2)*5, 1,0.0),
-            Attribute('Main Gear To Altitude Radio', 10.0)
-        )
+        alt_rad.derive(Attribute('Frame','737-3C'), 
+                       None,
+                       Parameter('Altitude Radio (A)', 
+                                 np.ma.array([10.0,10.0,10.0,10.0,10.1]), 0.5,  0.0),
+                       Parameter('Altitude Radio (B)',
+                                 np.ma.array([20.0,20.0,20.0,20.0,20.2]), 0.25, 1.0),
+                       Parameter('Altitude Radio (C)',
+                                 np.ma.array([30.0,30.0,30.0,30.0,30.3]), 0.25, 3.0),
+                       None
+                       )
         result = alt_rad.array
-        answer = np.ma.array(data=[11.7364817767,
-                                   10.8715574275,
-                                   10.0,
-                                   9.12844257252,
-                                   8.26351822333,
-                                   7.41180954897,
-                                   6.57979856674,
-                                   5.77381738259,
-                                   5.0,
-                                   4.26423563649],
-                             dtype=np.float, mask=False)
-        np.testing.assert_array_almost_equal(alt_rad.array, answer)
+        answer = np.ma.array(data=[25.0]*7+[25.1,25.25,0.0],
+                             dtype=np.float, mask=[0]*9+[1])
+        ma_test.assert_array_equal(alt_rad.array, answer)
+        self.assertEqual(alt_rad.offset,2.0)
+        self.assertEqual(alt_rad.frequency,0.5)
 
+    def test_altitude_radio_737_5_EFIS(self):
+        alt_rad = AltitudeRadio()
+        alt_rad.derive(Attribute('Frame','737-5'), 
+                       Attribute('Frame Qualifier','Altitude_Radio_EFIS'),
+                       Parameter('Altitude Radio (A)', 
+                                 np.ma.array([10.0,10.0,10.0,10.0,10.1]), 0.5, 0.0),
+                       Parameter('Altitude Radio (B)',
+                                 np.ma.array([20.0,20.0,20.0,20.0,20.2]), 0.5, 1.0),
+                       )
+        result = alt_rad.array
+        answer = np.ma.array(data=[15.0]*7+[15.05,15.15,0.0],
+                             dtype=np.float, mask=[0]*9+[1])
+        ma_test.assert_array_almost_equal(alt_rad.array, answer)
+        self.assertEqual(alt_rad.offset,0.5)
+        self.assertEqual(alt_rad.frequency,1.0)
 
+    def test_altitude_radio_737_5_Analogue(self):
+        alt_rad = AltitudeRadio()
+        alt_rad.derive(Attribute('Frame','737-5'), 
+                       Attribute('Frame Qualifier','Altitude_Radio_ARINC_552'),
+                       Parameter('Altitude Radio (A)', 
+                                 np.ma.array([10.0,10.0,10.0,10.0,10.1]), 0.5, 0.0),
+                       Parameter('Altitude Radio (B)',
+                                 np.ma.array([20.0,20.0,20.0,20.0,20.2]), 0.5, 1.0),
+                       )
+        result = alt_rad.array
+        answer = np.ma.array(data=[15.0]*7+[15.05,15.15,0.0],
+                             dtype=np.float, mask=[0]*9+[1])
+        ma_test.assert_array_almost_equal(alt_rad.array, answer)
+        self.assertEqual(alt_rad.offset,0.5)
+        self.assertEqual(alt_rad.frequency,1.0)
+
+'''
 class TestAltitudeRadioForFlightPhases(unittest.TestCase):
     def test_can_operate(self):
         expected = [('Altitude Radio',)]
@@ -496,27 +554,21 @@ class TestAltitudeRadioForFlightPhases(unittest.TestCase):
         alt_4_ph.derive(Parameter('Altitude Radio', raw_data, 1,0.0))
         expected = np.ma.array([0,0,0],mask=False)
         np.testing.assert_array_equal(alt_4_ph.array, expected)
-"""
+        '''
+
 
 """
-class TestAltitudeSTD(unittest.TestCase):
+class TestAltitudeQNH(unittest.TestCase):
     # Needs airport database entries simulated. TODO.
 
 """    
     
+'''
 class TestAltitudeSTD(unittest.TestCase):
     def test_can_operate(self):
         self.assertEqual(AltitudeSTD.get_operational_combinations(),
-          [('Altitude STD High', 'Altitude STD Low'),
-           ('Altitude STD Rough', 'Inertial Vertical Speed'),
-           ('Altitude STD High', 'Altitude STD Low', 'Altitude STD Rough'),
-           ('Altitude STD High', 'Altitude STD Low', 'Inertial Vertical Speed'),
-           ('Altitude STD High', 'Altitude STD Rough',
-            'Inertial Vertical Speed'),
-           ('Altitude STD Low', 'Altitude STD Rough',
-            'Inertial Vertical Speed'),
-           ('Altitude STD High', 'Altitude STD Low', 'Altitude STD Rough',
-            'Inertial Vertical Speed')])
+          [('Altitude STD Coarse', 'Altitude STD Fine'),
+           ('Altitude STD Coarse', 'Rate Of Climb')])
     
     def test__high_and_low(self):
         high_values = np.ma.array([15000, 16000, 17000, 18000, 19000, 20000,
@@ -572,20 +624,23 @@ class TestAltitudeSTD(unittest.TestCase):
         # All parameters passed in (improbable).
         alt_std.derive(alt_std_high, alt_std_low, alt_std_rough, ivv)
         self.assertEqual(alt_std.array, high_and_low_array)
+        '''
 
 
 class TestAltitudeTail(unittest.TestCase):
     def test_can_operate(self):
-        expected = [('Altitude Radio', 'Pitch','Dist Gear To Tail')]
+        expected = [('Altitude Radio', 'Pitch',
+                     'Ground To Lowest Point Of Tail',
+                     'Main Gear To Lowest Point Of Tail')]
         opts = AltitudeTail.get_operational_combinations()
         self.assertEqual(opts, expected)
         
     def test_altitude_tail(self):
         talt = AltitudeTail()
-        talt.derive(Parameter('Altitude Radio', np.ma.ones(10)*10, 1,0.0),
+        talt.derive(Parameter('Altitude Radio', np.ma.zeros(10), 1,0.0),
                     Parameter('Pitch', np.ma.array(range(10))*2, 1,0.0),
-                    Attribute('Dist Gear To Tail', 35.0)
-                    )
+                    Attribute('Ground To Lowest Point Of Tail', 10.0/METRES_TO_FEET),
+                    Attribute('Main Gear To Lowest Point Of Tail', 35.0/METRES_TO_FEET))
         result = talt.array
         # At 35ft and 18deg nose up, the tail just scrapes the runway with 10ft
         # clearance at the mainwheels...
@@ -602,6 +657,17 @@ class TestAltitudeTail(unittest.TestCase):
                              dtype=np.float, mask=False)
         np.testing.assert_array_almost_equal(result.data, answer.data)
 
+    def test_altitude_tail_after_lift(self):
+        talt = AltitudeTail()
+        talt.derive(Parameter('Altitude Radio', np.ma.array([5])),
+                    Parameter('Pitch', np.ma.array([18])),
+                    Attribute('Ground To Lowest Point Of Tail', 10.0/METRES_TO_FEET),
+                    Attribute('Main Gear To Lowest Point Of Tail', 35.0/METRES_TO_FEET))
+        result = talt.array
+        # Lift 5ft
+        answer = np.ma.array(data=[5.0-0.815594803123],
+                             dtype=np.float, mask=False)
+        np.testing.assert_array_almost_equal(result.data, answer.data)
 
 class TestClimbForFlightPhases(unittest.TestCase):
     def test_can_operate(self):
@@ -610,12 +676,12 @@ class TestClimbForFlightPhases(unittest.TestCase):
         self.assertEqual(opts, expected)
         
     def test_climb_for_flight_phases_basic(self):
-        up_and_down_data = np.ma.array([0,2,5,3,2,5,6,8])
+        up_and_down_data = np.ma.array([0,0,2,5,3,2,5,6,8,0])
         phase_fast = Fast()
-        phase_fast.derive(P('Airspeed', np.ma.array([100]*8)))
+        phase_fast.derive(P('Airspeed', np.ma.array([0]+[100]*8+[0])))
         climb = ClimbForFlightPhases()
         climb.derive(Parameter('Altitude STD', up_and_down_data), phase_fast)
-        expected = np.ma.array([0,2,5,0,0,3,4,6])
+        expected = np.ma.array([0,0,2,5,0,0,3,4,6,0])
         ma_test.assert_masked_array_approx_equal(climb.array, expected)
    
    
@@ -769,6 +835,58 @@ class TestControlWheel(unittest.TestCase):
         cw = ControlWheel()
         cw.derive(self.cwc, self.cwf)
         blend_two_parameters.assert_called_once_with(self.cwc, self.cwf)
+
+
+class TestDescendForFlightPhases(unittest.TestCase):
+    def test_can_operate(self):
+        expected = [('Altitude STD','Airborne')]
+        opts = DescendForFlightPhases.get_operational_combinations()
+        self.assertEqual(opts, expected)
+        
+    def test_descend_for_flight_phases_basic(self):
+        down_and_up_data = np.ma.array([0,0,12,5,3,12,15,10,7,0])
+        phase_fast = Fast()
+        phase_fast.derive(P('Airspeed', np.ma.array([0]+[100]*8+[0])))
+        descend = DescendForFlightPhases()
+        descend.derive(Parameter('Altitude STD', down_and_up_data ), phase_fast)
+        expected = np.ma.array([0,0,0,-7,-9,0,0,-5,-8,0])
+        ma_test.assert_masked_array_approx_equal(descend.array, expected)
+
+        
+class TestDistanceToLanding(unittest.TestCase):
+    
+    def test_can_operate(self):
+        expected = [('Distance Travelled', 'Touchdown')]
+        opts = DistanceToLanding.get_operational_combinations()
+        self.assertEqual(opts, expected)
+    
+    def test_derive(self):
+        distance_travelled = P('Distance Travelled', array=np.ma.arange(0, 100))
+        tdwns = KTI('Touchdown', items=[KeyTimeInstance(90, 'Touchdown'),
+                                        KeyTimeInstance(95, 'Touchdown')])
+        
+        expected_result = np.ma.concatenate((np.ma.arange(95, 0, -1),np.ma.arange(0, 5, 1)))
+        dtl = DistanceToLanding()
+        dtl.derive(distance_travelled, tdwns)
+        ma_test.assert_array_equal(dtl.array, expected_result)
+        
+           
+class TestDistanceTravelled(unittest.TestCase):
+    
+    def test_can_operate(self):
+        expected = [('Groundspeed',)]
+        opts = DistanceTravelled.get_operational_combinations()
+        self.assertEqual(opts, expected)
+
+    @mock.patch('analysis_engine.derived_parameters.integrate')
+    def test_derive(self, integrate_patch):
+        
+        gndspeed = mock.Mock()
+        gndspeed.array = mock.Mock()
+        gndspeed.frequency = mock.Mock()
+        DistanceTravelled().derive(gndspeed)
+        integrate_patch.assert_called_once_with(gndspeed.array, gndspeed.frequency, scale=1.0)
+     
 
 
 class TestEng_N1Avg(unittest.TestCase):
@@ -1073,29 +1191,20 @@ class TestGrossWeightSmoothed(unittest.TestCase):
     def test_gw_formula(self):
         weight = P('Gross Weight',np.ma.array([292,228,164,100],dtype=float),offset=0.0,frequency=1/64.0)
         fuel_flow = P('Eng (*) Fuel Flow',np.ma.array([3600]*256,dtype=float),offset=0.0,frequency=1.0)
-        climb = S(items=[Section('Climbing',slice(None,None)),])
-        descend = S(items=[Section('Descending',slice(None,None)),])
+        climb = buildsection('Climbing',None,None)
+        descend = buildsection('Descending',None,None)
         gws = GrossWeightSmoothed()
         result = gws.get_derived([fuel_flow, weight, climb, descend])
         self.assertEqual(result.array[0], 292.0)
         self.assertEqual(result.array[-1], 37.0)
         
-    def test_gw_synthetic_data(self):
-        weight = P('Gross Weight',np.ma.array([58000,57940,57880,57820],dtype=float),offset=15.0,frequency=1/64.0)
-        fuel_flow = P('Eng (*) Fuel Flow',np.ma.array([0]*30+[3000]*50+[1000]*120+[0]*(4*64-(30+50+120)),dtype=float),offset=0.3,frequency=1)
-        climb = S(items=[Section('Climbing',slice(2,3)),])
-        descend = S(items=[Section('Descending',slice(5,6)),])
-        gws = GrossWeightSmoothed()
-        result = gws.derive(fuel_flow, weight, climb, descend)
-        expected = P('Gross Weight Smoothed', np.ma.array([]), frequency=1, offset=0.3)
-
     def test_gw_formula_with_many_samples(self):
         weight = P('Gross Weight',np.ma.array(data=range(56400,50000,-64), 
                                               mask=False, dtype=float),
                    offset=0.0,frequency=1/64.0)
         fuel_flow = P('Eng (*) Fuel Flow',np.ma.array([3600]*64*100,dtype=float),offset=0.0,frequency=1.0)
-        climb = S(items=[Section('Climbing',slice(None,None)),])
-        descend = S(items=[Section('Descending',slice(None,None)),])
+        climb = buildsection('Climbing',None,None)
+        descend = buildsection('Descending',None,None)
         gws = GrossWeightSmoothed()
         result = gws.get_derived([fuel_flow, weight, climb, descend])
         self.assertEqual(result.array[1], 56400-1)
@@ -1106,8 +1215,8 @@ class TestGrossWeightSmoothed(unittest.TestCase):
                    offset=0.0,frequency=1/64.0)
         fuel_flow = P('Eng (*) Fuel Flow',np.ma.array([3600]*64*7,dtype=float),
                       offset=0.0,frequency=1.0)
-        climb = S(items=[Section('Climbing',slice(None,None)),])
-        descend = S(items=[Section('Descending',slice(None,None)),])
+        climb = buildsection('Climbing',None,None)
+        descend = buildsection('Descending',None,None)
         gws = GrossWeightSmoothed()
         result = gws.get_derived([fuel_flow, weight, climb, descend])
         self.assertEqual(result.array[0], 484.0)
@@ -1119,8 +1228,8 @@ class TestGrossWeightSmoothed(unittest.TestCase):
                    offset=0.0,frequency=1/64.0)
         fuel_flow = P('Eng (*) Fuel Flow',np.ma.array([3600]*64*7,dtype=float),
                       offset=0.0,frequency=1.0)
-        climb = S(items=[Section('Climbing',slice(1,4)),])
-        descend = S(items=[Section('Descending',slice(None,None)),])
+        climb = buildsection('Climbing',1,4)
+        descend = buildsection('Descending',None,None)
         gws = GrossWeightSmoothed()
         result = gws.get_derived([fuel_flow, weight, climb, descend])
         self.assertEqual(result.array[0], 484.0)
@@ -1133,8 +1242,8 @@ class TestGrossWeightSmoothed(unittest.TestCase):
         fuel_flow = P('Eng (*) Fuel Flow',np.ma.array([3600]*64*7,dtype=float),
                       offset=0.0,frequency=1.0)
         gws = GrossWeightSmoothed()
-        climb = S(items=[Section('Climbing',slice(None,None)),])
-        descend = S(items=[Section('Descending',slice(3,5)),])
+        climb = buildsection('Climbing',None,None)
+        descend = buildsection('Descending',3,5)
         gws = GrossWeightSmoothed()
         result = gws.get_derived([fuel_flow, weight, climb, descend])
         self.assertEqual(result.array[0], 484.0)
@@ -1147,8 +1256,8 @@ class TestGrossWeightSmoothed(unittest.TestCase):
         fuel_flow = P('Eng (*) Fuel Flow',np.ma.array([0]*64,dtype=float),
                       offset=0.0,frequency=1.0)
         gws = GrossWeightSmoothed()
-        climb = S(items=[Section('Climbing',slice(None,None)),])
-        descend = S(items=[Section('Descending',slice(None,None)),])
+        climb = buildsection('Climbing',None,None)
+        descend = buildsection('Descending',None,None)
         gws = GrossWeightSmoothed()
         result = gws.get_derived([fuel_flow, weight, climb, descend])
         self.assertEqual(len(gws.array),64)
@@ -1210,59 +1319,73 @@ class TestHeadContinuous(unittest.TestCase):
         np.testing.assert_array_equal(head.array.data, answer.data)
 
 
-class TestLatitudeAndLongitudeStraighten(unittest.TestCase):
+class TestHeadingIncreasing(unittest.TestCase):
     def test_can_operate(self):
-        self.assertEqual(LatitudeStraighten.get_operational_combinations(),
+        expected = [('Heading Continuous',)]
+        opts = HeadingIncreasing.get_operational_combinations()
+        self.assertEqual(opts, expected)
+        
+    def test_heading_increasing(self):
+        head = P('Heading Continuous', array=np.ma.array([0.0,1.0,-2.0]),
+                 frequency=0.5)
+        head_inc=HeadingIncreasing()
+        head_inc.derive(head)
+        expected = np.ma.array([0.0, 1.0, 5.0])
+        ma_test.assert_array_equal(head_inc.array, expected)
+        
+        
+class TestLatitudeAndLongitudePrepared(unittest.TestCase):
+    def test_can_operate(self):
+        self.assertEqual(LatitudePrepared.get_operational_combinations(),
                          [('Latitude','Longitude')])
 
     def test_latitude_smoothing_basic(self):
         lat = P('Latitude',np.ma.array([0,0,1,2,1,0,0],dtype=float))
-        lon = P('Longitude', np.ma.zeros(7,dtype=float))
-        smoother = LatitudeStraighten()
+        lon = P('Longitude', np.ma.array([0,0,0,0,0,0,0.001],dtype=float))
+        smoother = LatitudePrepared()
         smoother.get_derived([lat,lon])
+        # An output warning of smooth cost function closing with cost > 1 is
+        # normal and arises because the data sample is short.
         self.assertGreater(smoother.array[3],0.01)
         self.assertLess(smoother.array[3],0.013)
+        
+    def test_latitude_smoothing_masks_static_data(self):
+        lat = P('Latitude',np.ma.array([0,0,1,2,1,0,0],dtype=float))
+        lon = P('Longitude', np.ma.zeros(7,dtype=float))
+        smoother = LatitudePrepared()
+        smoother.get_derived([lat,lon])
+        self.assertEqual(np.ma.count(smoother.array),0) # No non-masked values.
         
     def test_latitude_smoothing_short_array(self):
         lat = P('Latitude',np.ma.array([0,0],dtype=float))
         lon = P('Longitude', np.ma.zeros(2,dtype=float))
-        smoother = LatitudeStraighten()
+        smoother = LatitudePrepared()
         smoother.get_derived([lat,lon])
         
     def test_longitude_smoothing_basic(self):
         lat = P('Latitude',np.ma.array([0,0,1,2,1,0,0],dtype=float))
         lon = P('Longitude', np.ma.array([0,0,-2,-4,-2,0,0],dtype=float))
-        smoother = LongitudeStraighten()
+        smoother = LongitudePrepared()
         smoother.get_derived([lat,lon])
-        self.assertGreater(smoother.array[3],-0.025)
-        self.assertLess(smoother.array[3],-0.02)
+        # An output warning of smooth cost function closing with cost > 1 is
+        # normal and arises because the data sample is short.
+        self.assertGreater(smoother.array[3],0.011)
+        self.assertLess(smoother.array[3],0.012)
 
 
 class TestHeadingTrue(unittest.TestCase):
     def test_can_operate(self):
         self.assertEqual(HeadingTrue.get_operational_combinations(),
-            [('Heading Continuous', 'Liftoff', 'FDR Takeoff Airport',
-              'FDR Approaches', 'Start Datetime')])
+            [('Heading Continuous', 'Magnetic Variation')])
         
     def test_basic(self):
-        head = P('Heading Continuous', np.ma.arange(25))
-        start_datetime = A('Start Datetime', value=datetime.now())
-        #airbornes = S('Airborne',
-                      #items=[Section('Airborne', slice(5, 10, None)),
-                             #Section('Airborne', slice(10, 15, None))])
-        takeoff_airport = A('FDR Takeoff Airport', value={'magnetic_variation': 5})
-        liftoffs = KTI('Liftoff', items=[KeyTimeInstance(name='Liftoff', index=5)])
-        approaches = A('Approaches',
-                       value=[{'airport':{'magnetic_variation': 20},
-                               'datetime': start_datetime.value + timedelta(seconds=10)},
-                              {'airport':{'magnetic_variation': 30},
-                               'datetime': start_datetime.value + timedelta(seconds=15)},])
-        true_path = HeadingTrue()
-        
-        true_path.derive(head, liftoffs, takeoff_airport, approaches, start_datetime)
-        np.testing.assert_array_equal(true_path.array,
-            [5, 6, 7, 8, 9, 10, 14, 18, 22, 26, 30, 33, 36, 39, 42, 45, 46, 47,
-             48, 49, 50, 51, 52, 53, 54])
+        head = P('Heading Continuous', np.ma.array([0,5,6,355,356]))
+        var = P('Magnetic Variation',np.ma.array([2,3,-8,-7,9]))
+        true = HeadingTrue()
+        true.derive(head, var)
+        expected = P('HeadingTrue', np.ma.array([2.0, 8.0, 358.0, 348.0, 5.0]))
+        ma_test.assert_array_equal(true.array, expected.array)
+                 
 
 class TestILSFrequency(unittest.TestCase):
     def test_can_operate(self):
@@ -1307,33 +1430,36 @@ class TestPitch(unittest.TestCase):
         
     def test_pitch_combination(self):
         pch = Pitch()
-        pch.derive(P('Pitch (1)', np.ma.array(range(5)), 1,0.1),
-                   P('Pitch (2)', np.ma.array(range(5))+10, 1,0.6)
+        pch.derive(P('Pitch (1)', np.ma.array(range(5),dtype=float), 1,0.1),
+                   P('Pitch (2)', np.ma.array(range(5),dtype=float)+10, 1,0.6)
                   )
-        answer = np.ma.array(data=[0,10,1,11,2,12,3,13,4,14],
-                             dtype=np.float, mask=False)
-        np.testing.assert_array_equal(pch.array, answer.data)
+        answer = np.ma.array(data=(range(10)),mask=([0]*9+[1]))/2.0+5.0
+        combo = P('Pitch',answer,frequency=2,offset=0.35)
+        ma_test.assert_array_equal(pch.array, combo.array)
+        self.assertEqual(pch.frequency, combo.frequency)
+        self.assertEqual(pch.offset, combo.offset)
 
     def test_pitch_reverse_combination(self):
         pch = Pitch()
-        pch.derive(P('Pitch (1)', np.ma.array(range(5))+1, 1,0.75),
-                   P('Pitch (2)', np.ma.array(range(5))+10, 1,0.25)
+        pch.derive(P('Pitch (1)', np.ma.array(range(5),dtype=float)+1, 1,0.95),
+                   P('Pitch (2)', np.ma.array(range(5),dtype=float)+10, 1,0.45)
                   )
-        answer = np.ma.array(data=[10,1,11,2,12,3,13,4,14,5],
-                             dtype=np.float, mask=False)
+        answer = np.ma.array(data=(range(10)),mask=([1]+[0]*9))/2.0+5.0
         np.testing.assert_array_equal(pch.array, answer.data)
 
     def test_pitch_error_different_rates(self):
         pch = Pitch()
-        self.assertRaises(ValueError, pch.derive,
-                          P('Pitch (1)', np.ma.array(range(5)), 2,0.1),
-                          P('Pitch (2)', np.ma.array(range(10))+10, 4,0.6))
+        self.assertRaises(AssertionError, pch.derive,
+                          P('Pitch (1)', np.ma.array(range(5),dtype=float), 2,0.1),
+                          P('Pitch (2)', np.ma.array(range(10),dtype=float)+10, 4,0.6))
         
-    def test_pitch_error_different_offsets(self):
+    def test_pitch_different_offsets(self):
         pch = Pitch()
-        self.assertRaises(ValueError, pch.derive,
-                          P('Pitch (1)', np.ma.array(range(5)), 1,0.11),
-                          P('Pitch (2)', np.ma.array(range(5)), 1,0.6))
+        pch.derive(P('Pitch (1)', np.ma.array(range(5),dtype=float), 1,0.11),
+                   P('Pitch (2)', np.ma.array(range(5),dtype=float), 1,0.6))
+        # This originally produced an error, but with amended merge processes
+        # this is not necessary. Simply check the result is the right length.
+        self.assertEqual(len(pch.array),10)
         
 
 class TestRateOfClimb(unittest.TestCase):
@@ -1357,7 +1483,7 @@ class TestRateOfClimb(unittest.TestCase):
         ma_test.assert_masked_array_approx_equal(roc.array, expected)
 
     def test_rate_of_climb_masked(self):
-        # The blocks of masked values have to exceed the repair_nask
+        # The blocks of masked values have to exceed the repair_mask
         # threshold of 10 samples, hence the large arrays.
         az = P('Acceleration Vertical', np.ma.array([1]*100, dtype=np.float))
         az.array[5:20]=np.ma.masked
@@ -1366,11 +1492,11 @@ class TestRateOfClimb(unittest.TestCase):
         alt_rad = P('Altitude Radio', np.ma.array([0]*100, dtype=np.float))
         alt_rad.array[65:80]=np.ma.masked
         roc = RateOfClimb()
-        roc.derive(az, alt_std, alt_rad)
+        roc.derive(az, alt_std, alt_rad, None)
         expected = np.ma.array(data=[0]*100, dtype=np.float,
                              mask=[[False]*5+[True]*15+[False]*15+
                                    [True]*15+[False]*15+
-                                   [True]*15+[False]*15+[False]*5])
+                                   [False]*15+[False]*15+[False]*5])
         ma_test.assert_masked_array_approx_equal(roc.array, expected)
 
     def test_rate_of_climb_alt_std_only(self):
@@ -1436,19 +1562,15 @@ class TestRateOfClimbForFlightPhases(unittest.TestCase):
         
     def test_rate_of_climb_for_flight_phases_basic(self):
         alt_std = P('Altitude STD', np.ma.arange(10))
-        phase_fast = Fast()
-        phase_fast.derive(Parameter('Airspeed', [120]*10))
         roc = RateOfClimbForFlightPhases()
-        roc.derive(alt_std, phase_fast)
+        roc.derive(alt_std)
         expected = np.ma.array(data=[60]*10, dtype=np.float, mask=False)
         np.testing.assert_array_equal(roc.array, expected)
 
     def test_rate_of_climb_for_flight_phases_level_flight(self):
         alt_std = P('Altitude STD', np.ma.array([100]*10))
-        phase_fast = Fast()
-        phase_fast.derive(Parameter('Airspeed', [120]*10))
         roc = RateOfClimbForFlightPhases()
-        roc.derive(alt_std, phase_fast)
+        roc.derive(alt_std)
         expected = np.ma.array(data=[0]*10, dtype=np.float, mask=False)
         np.testing.assert_array_equal(roc.array, expected)
 
@@ -1474,43 +1596,92 @@ class TestRateOfTurn(unittest.TestCase):
         answer = np.ma.array([0,0,0.5,0,-0.5,0,0])
         ma_test.assert_masked_array_approx_equal(rot.array, answer)
         
-        
-class TestSlat(unittest.TestCase):
+class TestRateOfTurn(unittest.TestCase):
     def test_can_operate(self):
-        opts = Slat.get_operational_combinations()
-        self.assertEqual(opts, [('Slat Surface', 'Series', 'Family'),
-                                ])
+        expected = [('Heading Continuous',)]
+        opts = RateOfTurn.get_operational_combinations()
+        self.assertEqual(opts, expected)
+       
+    def test_rate_of_turn(self):
+        rot = RateOfTurn()
+        rot.derive(P('Heading Continuous', np.ma.array(range(10))))
+        answer = np.ma.array(data=[1]*10, dtype=np.float)
+        np.testing.assert_array_equal(rot.array, answer) # Tests data only; NOT mask
+       
+    def test_rate_of_turn_phase_stability(self):
+        params = {'Heading Continuous':Parameter('', np.ma.array([0,0,0,1,0,0,0], 
+                                                               dtype=float))}
+        rot = RateOfTurn()
+        rot.derive(P('Heading Continuous', np.ma.array([0,0,0,1,0,0,0],
+                                                          dtype=float)))
+        answer = np.ma.array([0,0,0.5,0,-0.5,0,0])
+        ma_test.assert_masked_array_approx_equal(rot.array, answer)
         
-    def test_slat_stepped_nearest_5(self):
-        slat = P('Slat Surface', np.ma.array(range(50)))
-        fstep = Slat()
-        fstep.derive(slat, A('Series', None), A('Family', None))
-        self.assertEqual(list(fstep.array[:15]), 
-                         [0,0,0,5,5,5,5,5,10,10,10,10,10,15,15])
-        self.assertEqual(list(fstep.array[-7:]), [45]*5 + [50]*2)
-
-        # test with mask
-        slat = P('Slat Surface', np.ma.array(range(20), mask=[True]*10 + [False]*10))
-        fstep.derive(slat, A('Series', None), A('Family', None))
-        self.assertEqual(list(np.ma.filled(fstep.array, fill_value=-1)),
-                         [-1]*10 + [10,10,10,15,15,15,15,15,20,20])
         
-    def test_slat_using_A330_settings(self):
-        # A330 has slats ( 0, 16, 20, 23),
-        slat = P('Slat Surface', np.ma.array(range(25) + range(-5,0)))
-        slat.array[1] = np.ma.masked
-        fstep = Slat()
-        fstep.derive(slat, A('Series', None), A('Family', 'A330'))
-        self.assertEqual(len(fstep.array), 30)
-        self.assertEqual(
-            list(np.ma.filled(fstep.array, fill_value=-999)), 
-            [0, -999, 0, 0, 0, 0, 0, 0, 0, 
-             16, 16, 16, 16, 16, 16, 16, 16, 16, 16,
-             20, 20, 20, 
-             23, 23, 23, 
-             0, 0, 0, 0, 0])
+class TestMach(unittest.TestCase):
+    def test_can_operate(self):
+        opts = Mach.get_operational_combinations()
+        self.assertEqual(opts, [('Airspeed', 'Altitude STD')])
+        
+    def test_all_cases(self):
+        cas = P('Airspeed', np.ma.array(data=[0, 100, 200, 200, 200, 500, 200],
+                                        mask=[0,0,0,0,1,0,0], dtype=float))
+        alt = P('Altitude STD', np.ma.array(data=[0, 10000, 20000, 30000, 30000, 45000, 20000],
+                                        mask=[0,0,0,0,0,0,1], dtype=float))
+        mach = Mach()
+        mach.derive(cas, alt)
+        expected = np.ma.array(data=[0, 0.182, 0.4402, 0.5407, 0.5407, 1.6825, 45000],
+                                        mask=[0,0,0,0,1,1,1], dtype=float)
+        ma_test.assert_masked_array_approx_equal(mach.array, expected, decimal=2)
+        
 
 if __name__ == '__main__':
     suite = unittest.TestSuite()
     suite.addTest(TestConfig('test_time_taken2'))
     unittest.TextTestRunner(verbosity=2).run(suite)
+
+
+class TestHeadwind(unittest.TestCase):
+    def test_can_operate(self):
+        opts=Headwind.get_operational_combinations()
+        self.assertEqual(opts, [('Wind Speed', 'Wind Direction Continuous', 'Heading True')])
+    
+    def test_real_example(self):
+        ws = P('Wind Speed', np.ma.array([84.0]))
+        wd = P('Wind Direction Continuous', np.ma.array([-21]))
+        head=P('Heading True', np.ma.array([30]))
+        hw = Headwind()
+        hw.derive(ws,wd,head)
+        expected = np.ma.array([52.8629128481863])
+        self.assertAlmostEqual(hw.array.data, expected.data)
+        
+    def test_odd_angles(self):
+        ws = P('Wind Speed', np.ma.array([20.0]*8))
+        wd = P('Wind Direction Continuous', np.ma.array([0, 90, 180, -180, -90, 360, 23, -23], dtype=float))
+        head=P('Heading True', np.ma.array([-180, -90, 0, 180, 270, 360*15, 361*23, 359*23], dtype=float))
+        hw = Headwind()
+        hw.derive(ws,wd,head)
+        expected = np.ma.array([-20]*3+[20]*5)
+        ma_test.assert_almost_equal(hw.array, expected)
+        
+
+
+class TestWindAcrossLandingRunway(unittest.TestCase):
+    def test_can_operate(self):
+        opts=WindAcrossLandingRunway.get_operational_combinations()
+        self.assertEqual(opts, [('Wind Speed', 'Wind Direction Continuous', 'FDR Landing Runway')])
+    
+    def test_real_example(self):
+        ws = P('Wind Speed', np.ma.array([84.0]))
+        wd = P('Wind Direction Continuous', np.ma.array([-21]))
+        land_rwy = A('FDR Landing Runway')
+        land_rwy.value = {'start': {'latitude': 60.18499999999998,
+                                    'longitude': 11.073744}, 
+                          'end': {'latitude': 60.216066999999995,
+                                  'longitude': 11.091663999999993}}
+        
+        walr = WindAcrossLandingRunway()
+        walr.derive(ws,wd,land_rwy)
+        expected = np.ma.array([50.55619778])
+        self.assertAlmostEqual(walr.array.data, expected.data)
+        

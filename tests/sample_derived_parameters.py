@@ -1,5 +1,11 @@
 from analysis_engine.node import DerivedParameterNode, P
 
+"""
+This early code was written before some of the naming conventions were
+established, hence the variable names are not to the POLARIS standard.
+However, the code is used in some of the analysis engine tests, so this file
+needs to be retained intact to maintain test coverage.
+"""
 
 #lfl_params = ['Indicated Airspeed', 
               #'Groundspeed', 
@@ -79,7 +85,7 @@ class SmoothedGroundspeed(DerivedParameterNode):
     
 class SlipOnRunway(DerivedParameterNode):
     def derive(self, horiz_g=P('Horizontal g Across Track'),
-               hdg_rate=P('Heading Rate'), groundspeed=P('Smoothed Groundspeed')):
+               hdg_rate=P('Heading Rate'), groundspeed=P('Groundspeed')):
         return NotImplemented
     
 class VerticalSpeed(DerivedParameterNode):

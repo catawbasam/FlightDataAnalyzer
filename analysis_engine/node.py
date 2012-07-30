@@ -3,25 +3,29 @@ import logging
 import numpy as np
 import re
 import copy
+import math
 
 from abc import ABCMeta
 from collections import namedtuple
 from itertools import product
 from operator import attrgetter
 
-from analysis_engine.library import (align, is_index_within_slice,
+from analysis_engine.library import (align, find_edges, is_index_within_slice,
                                      is_slice_within_slice, slices_above,
                                      slices_below, slices_between,
                                      slices_from_to, slices_overlap,
                                      value_at_index, value_at_time)
 from analysis_engine.recordtype import recordtype
 
+
+logger = logging.getLogger(name=__name__)
+
 # Define named tuples for KPV and KTI and FlightPhase
 KeyPointValue = recordtype('KeyPointValue', 'index value name slice datetime', 
                            field_defaults={'slice':slice(None)}, default=None)
 KeyTimeInstance = recordtype('KeyTimeInstance', 'index name datetime latitude longitude', 
                              default=None)
-Section = namedtuple('Section', 'name slice') #Q: rename mask -> slice/section
+Section = namedtuple('Section', 'name slice start_edge stop_edge') #Q: rename mask -> slice/section
 
 # Ref: django/db/models/options.py:20
 # Calculate the verbose_name by converting from InitialCaps to "lowercase with spaces".
@@ -75,6 +79,7 @@ class Node(object):
 
     name = '' # Optional, default taken from ClassName
     align_to_first_dependency = True
+    data_type = None # Q: What should the default be? Q: Should this dictate the numpy dtype saved to the HDF file or should it be inferred from the array?
         
     def __init__(self, name='', frequency=1, offset=0):
         """
@@ -97,11 +102,23 @@ class Node(object):
             self.name = self.get_name() # usual option
         self.frequency = self.sample_rate = self.hz = frequency # Hz
         self.offset = offset # secs
+        # self._logger will be instantiated on the first logging message.
+        # self._logger = None
         
     def __repr__(self):
         #TODO: Add __class__.__name__?
         return "%s %sHz %.2fsecs" % (self.get_name(), self.frequency, self.offset)
-        
+    
+    @property
+    def node_type(self):
+        '''
+        :returns: Node base class.
+        :rtype: class
+        '''
+        # XXX: May break if we adopt multi-inheritance or a different class 
+        # hierarchy.
+        return self.__class__.__base__
+    
     @classmethod
     def get_name(cls):
         """ class My2BNode -> 'My2B Node'
@@ -234,6 +251,65 @@ def can_operate(cls, available):
         :rtype: None
         """
         raise NotImplementedError("Abstract Method")
+    
+    # Logging
+    ############################################################################
+
+    def _get_logger(self):
+        """
+        Return a logger with name based on module and class name.
+        """
+        # # FIXME: storing logger as Node attribute is causing problems as we
+        # # deepcopy() the Node objects the loggers are copied as well. This
+        # # has side-effects.
+        # # logging.getLogger(logger_name) is using global dictionary, so it
+        # # does not seem to be an expensive operation.
+        # if not self._logger:
+        #     # Set up self._logger
+        #     self._logger = logging.getLogger('%s.%s' % (
+        #         self.__class__.__module__,
+        #         self.__class__.__name__,
+        #     ))
+        # return self._logger
+        return logging.getLogger('%s.%s' % (
+            self.__class__.__module__,
+            self.__class__.__name__,
+        ))
+
+    def debug(self, *args, **kwargs):
+        """
+        Log a debug level message.
+        """
+        logger = self._get_logger()
+        logger.debug(*args, **kwargs)    
+    
+    def error(self, *args, **kwargs):
+        """
+        Log an error level message.
+        """
+        logger = self._get_logger()
+        logger.error(*args, **kwargs)
+    
+    def exception(self, *args, **kwargs):
+        """
+        Log an exception level message.
+        """
+        logger = self._get_logger()
+        logger.exception(*args, **kwargs)            
+    
+    def info(self, *args, **kwargs):
+        """
+        Log an info level message.
+        """
+        logger = self._get_logger()
+        logger.info(*args, **kwargs)
+    
+    def warning(self, *args, **kwargs):
+        """
+        Log a warning level message.
+        """
+        logger = self._get_logger()
+        logger.warning(*args, **kwargs)
 
 
 class DerivedParameterNode(Node):
@@ -243,16 +319,18 @@ class DerivedParameterNode(Node):
     Also used during processing when creating parameters from HDF files as
     dependencies for other Nodes.
     """
-    node_type = 'DerivedParameterNode'
     # The units which the derived parameter's array is measured in. It is in
     # lower case to be consistent with the HDFAccess Parameter class and
     # therefore written as an attribute to the HDF file.
     units = None
+    data_type = None
     
     def __init__(self, name='', array=np.ma.array([]), frequency=1, offset=0,
-                 *args, **kwargs):
+                 data_type=None, *args, **kwargs):
         # create array results placeholder
         self.array = array # np.ma.array derive result goes here!
+        if not self.data_type:
+            self.data_type = data_type
         super(DerivedParameterNode, self).__init__(name=name,
                                                    frequency=frequency, 
                                                    offset=offset, 
@@ -269,7 +347,6 @@ class DerivedParameterNode(Node):
         :rtype: float
         """
 
-        # TODO: Check this DJ-added code please. Included for phases where one time is None (data starts in mid-phase)
         if secs == None:
             return None
         
@@ -308,7 +385,9 @@ class DerivedParameterNode(Node):
     
     def slices_below(self, value):
         '''
-        Get slices where the parameter's array is below value.
+        Get slices where the parameter's array is below value. Note: It is
+        normally recommended to use slices_between and specify the lower
+        bound in preference to slices_below, as this is normally more robust.
         
         :param value: Value to create slices below.
         :type value: float or int
@@ -351,16 +430,44 @@ class DerivedParameterNode(Node):
         :rtype: list of slice'''
         return slices_from_to(self.array, from_, to)[1]
 
+    def slices_to_kti(self, ht, tdwns):
+        '''
+        Provides a slice across a height range ending precisely at the point of
+        touchdown, rather than the less precise altitude aal moment of touchdown.
+        
+        :param self: Reference to the height (normally Altitude AAL) Parameter
+        :param ht: Starting height for the slices
+        :param tdwns: Reference to the Touchdown KTIs
+        '''
+        result = [] # We are going to return a list of slices.
+        _, basics = slices_from_to(self.array, ht, 0)
+        for basic in basics:
+            new_basic = slice(basic.start, min(basic.stop + 20, len(self.array))) # In case the touchdown is behind the basic slice.
+            for tdwn in tdwns:
+                if is_index_within_slice(tdwn.index, new_basic):
+                    result.append(slice(new_basic.start, tdwn.index))
+                    break
+        return result
+
+
 P = Parameter = DerivedParameterNode # shorthand
+
+
+def derived_param_from_hdf(hdf, name):
+    hdf_parameter = hdf[name]
+    return Parameter(name=hdf_parameter.name, array=hdf_parameter.array, 
+                     frequency=hdf_parameter.frequency,
+                     offset=hdf_parameter.offset,
+                     data_type=hdf_parameter.data_type)
 
 
 class SectionNode(Node, list):
     '''
     Derives from list to implement iteration and list methods.
     
-    Is a list of Section namedtuples, each with attributes .name and .slice
+    Is a list of Section namedtuples, each with attributes .name, .slice,
+    .start_edge and .stop_edge
     '''
-    node_type = 'SectionNode'
     def __init__(self, *args, **kwargs):
         '''
         List of slices where this phase is active. Has a frequency and offset.
@@ -373,7 +480,7 @@ class SectionNode(Node, list):
             del kwargs['items']
         super(SectionNode, self).__init__(*args, **kwargs)
 
-    def create_section(self, section_slice, name=''):
+    def create_section(self, section_slice, name='', begin=None, end=None):
         """
         Create a slice of the data.
         
@@ -382,9 +489,11 @@ class SectionNode(Node, list):
         slicing data arrays from.
         """
         if section_slice.start is None or section_slice.stop is None:
-            logging.debug("Section %s created %s with None start or stop.", 
+            logger.debug("Section %s created %s with None start or stop.", 
                           self.get_name(), section_slice)
-        section = Section(name or self.get_name(), section_slice)
+        section = Section(name or self.get_name(), section_slice, 
+                          begin or section_slice.start, 
+                          end or section_slice.stop)
         self.append(section)
         ##return section
         
@@ -408,16 +517,23 @@ class SectionNode(Node, list):
         multiplier = param.frequency / self.frequency
         offset = (self.offset - param.offset) * param.frequency
         for section in self:
-            if section.slice.start is None:
-                converted_start = None
+
+            if section.start_edge is None:
+                converted_start = inner_slice_start = None
             else:
-                converted_start = (section.slice.start * multiplier) + offset
-            if section.slice.stop is None:
-                converted_stop = None
+                converted_start = (section.start_edge * multiplier) + offset
+                inner_slice_start = int(math.ceil(converted_start))
+            
+            if section.stop_edge is None:
+                converted_stop = inner_slice_stop = None
             else:
-                converted_stop = (section.slice.stop * multiplier) + offset
-            converted_slice = slice(converted_start, converted_stop)
-            aligned_node.create_section(converted_slice, section.name)
+                converted_stop = (section.stop_edge * multiplier) + offset
+                inner_slice_stop = int(math.ceil(converted_stop))
+
+            inner_slice = slice(inner_slice_start, inner_slice_stop)
+            aligned_node.create_section(inner_slice, section.name, 
+                                        begin = converted_start,
+                                        end = converted_stop)
         return aligned_node
     
     slice_attrgetters = {'start': attrgetter('slice.start'),
@@ -554,7 +670,7 @@ class SectionNode(Node, list):
         
         :param index: Index to get the next Section from.
         :type index: int or float
-        :param frequency: Frequency of index.
+        :param frequency: Frequency of index argument.
         :type frequency: int or float
         :param use: Use either 'start' or 'stop' of slice.
         :type use: str        
@@ -584,7 +700,7 @@ class SectionNode(Node, list):
         
         :param index: Index to get the previous Section from.
         :type index: int or float
-        :param frequency: Frequency of index.
+        :param frequency: Frequency of index argument.
         :type frequency: int or float
         :param use: Use either 'start' or 'stop' of slice.
         :type use: str
@@ -604,11 +720,28 @@ class SectionNode(Node, list):
                 return elem
         return None
     
+    def get_surrounding(self, index):
+        '''
+        Returns a list of sections where the index is surrounded by the
+        section's slice.
+        
+        :param index: The index being inspected
+        :type index: float
+        :returns: List of surrounding sections
+        :rtype: List of sections
+        '''
+        surrounded = []
+        for section in self:
+            if section.slice.start <= index <= section.slice.stop or\
+               section.slice.start <= index and section.slice.stop == None or\
+               section.slice.start == None and index <= section.slice.stop:
+                surrounded.append(section)
+        return surrounded
+    
 
 class FlightPhaseNode(SectionNode):
     """ Is a Section, but called "phase" for user-friendliness!
     """
-    node_type = 'FlightPhaseNode'
     # create_phase and create_phases are shortcuts for create_section and 
     # create_sections.
     create_phase = SectionNode.create_section
@@ -839,7 +972,6 @@ class FormattedNameNode(Node, list):
 
 
 class KeyTimeInstanceNode(FormattedNameNode):
-    node_type = 'KeyTimeInstanceNode'
     def __init__(self, *args, **kwargs):
         # place holder
         super(KeyTimeInstanceNode, self).__init__(*args, **kwargs)
@@ -863,11 +995,58 @@ class KeyTimeInstanceNode(FormattedNameNode):
         :raises TypeError: If a string formatting argument is of the wrong type.
         '''
         if index is None:
+            # This is treated as an error because conditions where a KTI does
+            # not arise, or where the data is masked at the point of the KTI,
+            # should be handled within the calling procedure.
             raise ValueError("Cannot create at index None")
+        
         name = self.format_name(replace_values, **kwargs)
         kti = KeyTimeInstance(index, name)
         self.append(kti)
         return kti
+    
+    def create_ktis_at_edges(self, array, direction='rising_edges', phase=None,
+                             name=None):
+        '''
+        Create one or more key time instances where a parameter rises or
+        falls. Usually used with discrete parameters, e.g. Event marker
+        pressed, it is suitable for multi-state or analogue parameters such
+        as flap selections.
+        
+        :param array: The input array.
+        :type array: A recorded or derived parameter.
+        :param direction: Keyword argument.
+        :type direction: string
+        :param phase: An optional flight phase (section) argument.
+        
+        Direction has possible fields 'rising_edges', 'falling_edges' or
+        'all_edges'. In the absence of a direction parameter, the default is
+        'rising_edges'.
+        
+        Where phase is supplied, only edges arising within this phase will be
+        triggered.
+        '''
+        
+        # Low level function that finds edges from array and creates KTIs
+        def kti_edges(array, _slice):
+            edge_list = find_edges(array, _slice, direction=direction)
+            for edge_index in edge_list:
+                if name:
+                    # Annotate the transition with the post-change state.
+                    self.create_kti(edge_index, **{name:array[edge_index+1]})
+                else:
+                    self.create_kti(edge_index)
+            return
+        
+        # High level function scans phase blocks or complete array and
+        # presents appropriate arguments for analysis. We test for phase.name
+        # as phase returns False.
+        if phase == None:
+            kti_edges(array, slice(0,len(array)+1))
+        else:
+            for each_period in phase:
+                kti_edges(array, each_period.slice)
+        return    
     
     def get_aligned(self, param):
         '''
@@ -889,8 +1068,6 @@ class KeyTimeInstanceNode(FormattedNameNode):
 
 
 class KeyPointValueNode(FormattedNameNode):
-    node_type = 'KeyPointValueNode'
-    
     def __init__(self, *args, **kwargs):
         super(KeyPointValueNode, self).__init__(*args, **kwargs)
 
@@ -902,7 +1079,7 @@ class KeyPointValueNode(FormattedNameNode):
         appended to self.
         
         :param index: Index of the KeyTimeInstance within the data relative to self.frequency.
-        :type index: int or float # Q: Is float correct?
+        :type index: float (NB data may be interpolated hence use of float here)
         :param value: Value sourced at the index.
         :type value: float
         :param replace_values: Dictionary of string formatting arguments to be applied to self.NAME_FORMAT.
@@ -916,13 +1093,23 @@ class KeyPointValueNode(FormattedNameNode):
         
         TODO: Add examples using interpolation values as kwargs.
         '''
-        if index is None or value is None or value is np.ma.masked:
-            logging.warning("'%s' cannot create KPV for index '%s' and value "
-                            "'%s'.", self.name, index, value)
+        # There are a number of algorithms which return None for valid
+        # computations, so these conditions are only logged as information...
+        if index is None or value is None:
+            logger.info("'%s' cannot create KPV for index '%s' and value "
+                         "'%s'.", self.name, index, value)
+            return
+        #...however where we should have raised an alert but the specific
+        #threshold was masked needs to be a warning as this should not
+        #happen.
+        if value is np.ma.masked:
+            logger.warn("'%s' cannot create KPV at index '%s' as value is masked."%
+                         (self.name, index))
             return
         name = self.format_name(replace_values, **kwargs)
         kpv = KeyPointValue(index, float(value), name)
         self.append(kpv)
+        self.debug("KPV %s" %kpv)
         return kpv
     
     def get_aligned(self, param):
@@ -991,7 +1178,7 @@ class KeyPointValueNode(FormattedNameNode):
         return KeyPointValueNode(name=self.name, frequency=self.frequency,
                                  offset=self.offset, items=ordered_by_value)
     
-    def create_kpvs_at_ktis(self, array, ktis):
+    def create_kpvs_at_ktis(self, array, ktis, suppress_zeros=False):
         '''
         Creates KPVs by sourcing the array at each KTI index. Requires the array
         to be aligned to the KTIs.
@@ -1000,12 +1187,17 @@ class KeyPointValueNode(FormattedNameNode):
         :type array: np.ma.masked_array
         :param ktis: KTIs with indices to source values within the array from.
         :type ktis: KeyTimeInstanceNode
+        :param suppress_zeros: Optional flag to prevent zero values creating a KPV.
+        :type suppress_zeros: Boolean, default=False.
+    
         :returns None:
         :rtype: None
         '''
         for kti in ktis:
             value = value_at_index(array, kti.index)
-            self.create_kpv(kti.index, value)
+            if (not suppress_zeros) or value:
+                self.create_kpv(kti.index, value)
+                
     create_kpvs_at_kpvs = create_kpvs_at_ktis # both will work the same!
     
     def create_kpvs_within_slices(self, array, slices, function, **kwargs):
@@ -1024,9 +1216,91 @@ class KeyPointValueNode(FormattedNameNode):
         '''
         for slice_ in slices:
             if isinstance(slice_, Section): # Use slice within Section.
+                start_edge = slice_.start_edge
+                stop_edge = slice_.stop_edge
+                # Tricky self-modifying code !
                 slice_ = slice_.slice
-            index, value = function(array, slice_)
+            else:
+                start_edge = None
+                stop_edge = None
+            index, value = function(array, slice_, start_edge, stop_edge)
             self.create_kpv(index, value, **kwargs)
+
+    def create_kpvs_from_slices(self, slices, threshold=0.0, mark='midpoint', **kwargs):
+        '''
+        Shortcut for creating KPVs from slices based only on the slice duration.
+        
+        :param slices: Slices from which to create KPVs. Note: as the only
+                       parameter they will default to 1Hz.
+        :type slices: List of slices.
+        :param threshold: Minimum duration for a KPV to be created.
+        :type threshold: float (seconds)
+        :param mark: Optional field to select when to identify the KPV.
+        :type mark: String from 'start', 'midpoint' or 'end'
+ 
+        :returns: None
+        :rtype: None
+        '''
+        for slice_ in slices:
+            if isinstance(slice_, Section): # Use slice within Section.
+                duration = slice_.stop_edge - slice_.start_edge
+                if duration > threshold:
+                    if mark == 'start':
+                        index = slice_.start_edge
+                    elif mark == 'end':
+                        index = slice_.stop_edge
+                    elif mark == 'midpoint':
+                        index = (slice_.stop_edge + slice_.start_edge) / 2.0
+                    else:
+                        raise ValueError,'Unrecognised option in create_kpvs_from_slices'
+                    self.create_kpv(index, duration, **kwargs)
+
+
+    def create_kpvs_from_discretes(self, array, hz, sense='normal', phase=None, min_duration=0.0):
+        '''
+        For discrete parameters, this detects an event and records the
+        duration of each event.
+        
+        :param array: The input parameter, with data and sample rate information.
+        :type array: A recorded or derived discrete parameter. 
+        :param sense: Keyword argument.
+        :param phase: An optional flight phase (section) argument.
+        :param min_duration: An optional minimum duration for the KPV to become valid.
+        :type min_duration: Float (seconds)
+        :name name: Facility for automatically naming the KPV.
+        :type name: String
+        
+        Sense has two options, namely the default 'normal': 0.0=OFF and
+        1.0=ON state. 'reverse': 1.0=OFF and 0.0=ON state.
+    
+        Where phase is supplied, only edges arising within this phase will be
+        triggered.
+        '''
+        
+        def find_events(subarray, start_index, sense):
+            if sense=='normal':
+                events = np.ma.clump_unmasked(np.ma.masked_less(subarray, 0.5))
+            elif sense=='reverse':
+                events = np.ma.clump_unmasked(np.ma.masked_greater(subarray, 0.5))
+            else:
+                raise ValueError,'Unrecognised sense in create_kpvs_for_discretes'
+            
+            for event in events:
+                index = event.start
+                value = (event.stop - event.start) / hz
+                if value >= min_duration:
+                    self.create_kpv(index, value)
+            return
+        
+        # High level function scans phase blocks or complete array and presents
+        # appropriate arguments for analysis.
+        if phase:
+            for each_period in phase:
+                to_scan = array[each_period.slice]
+                find_events(to_scan, each_period.slice.start or 0, sense)
+        else:
+            find_events(array, 0, sense)
+        return    
 
 
 class FlightAttributeNode(Node):
@@ -1035,9 +1309,8 @@ class FlightAttributeNode(Node):
     object (dict, list, integer etc). The class name serves as the name of the
     attribute.
     '''
-    node_type = 'FlightAttributeNode'
     def __init__(self, *args, **kwargs):
-        self._value = None
+        self.value = None
         super(FlightAttributeNode, self).__init__(*args, **kwargs)
         # FlightAttributeNodes inherit frequency and offset attributes from Node,
         # yet these are not relevant to them. TODO: Change inheritance.
@@ -1046,6 +1319,23 @@ class FlightAttributeNode(Node):
     
     def __repr__(self):
         return self.name
+    
+    def __nonzero__(self):
+        """
+        Set the boolean value of the object depending on it's attriubute
+        content.
+        
+        Note: If self.value is a boolean then evaluation of the object is the
+        same as evaluating the content.
+        node.value = True
+        bool(node) == bool(node.value)
+        """
+        if self.value or (self.value == 0 and self.value is not False): 
+            # 0 is a meaningful value. Check self.value is not False
+            # as False == 0.
+            return True
+        else:
+            return False   
     
     def set_flight_attribute(self, value):
         self.value = value
@@ -1139,13 +1429,25 @@ class NodeManager(object):
             #NOTE: Raises "Unbound method" here due to can_operate being overridden without wrapping with @classmethod decorator
             res = self.derived_nodes[name].can_operate(available)
             if not res:
-                logging.debug("Derived Node %s cannot operate with available nodes: %s",
+                logger.debug("Derived Node %s cannot operate with available nodes: %s",
                               name, available)
             return res
         else:  #elif name in unavailable_deps:
-            logging.debug("Node '%s' is unavailable", name)
+            logger.debug("Node '%s' is unavailable", name)
             return False
 
+    def node_type(self, node_name):
+        '''
+        :param node_name: Name of node to retrieve type for.
+        :type node_name: str
+        :returns: Base class of node.
+        :rtype: class
+        :raises KeyError: If the node name cannot be found.
+        '''
+        node_clazz = self.derived_nodes[node_name]
+        # XXX: If we implement multi-inheritance then this may break.
+        return node_clazz.__base__
+        
 
 # The following acronyms are intended to be used as placeholder values
 # for kwargs in Node derive methods. Cannot instantiate Node subclass without 
@@ -1161,7 +1463,21 @@ class Attribute(object):
         self.offset = None
 
     def __nonzero__(self):
-        return self.value != None
+        """
+        Set the boolean value of the object depending on it's attriubute
+        content.
+        
+        Note: If self.value is a boolean then evaluation of the object is the
+        same as evaluating the content.
+        node.value = True
+        bool(node) == bool(node.value)
+        """
+        if self.value or (self.value == 0 and self.value is not False): 
+            # 0 is a meaningful value. Check self.value is not False
+            # as False == 0.
+            return True
+        else:
+            return False
     
     def get_aligned(self, param):
         '''

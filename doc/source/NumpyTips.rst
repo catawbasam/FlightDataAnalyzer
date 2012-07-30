@@ -4,8 +4,6 @@ NumpyTips
 =========
 
 * masking using array[:4] = np.ma.masked
-* 
-
 
 Moving Average:
 <http://argandgahandapandpa.wordpress.com/2011/02/24/python-numpy-moving-average-for-data/>
@@ -18,6 +16,8 @@ Find nearest value
 
 Fill in masked values with nearest neighbour
 <http://stackoverflow.com/questions/3662361/fill-in-missing-values-with-nearest-neighbour-in-python-numpy-masked-arrays>
+
+ 
 
 Slow pattern matching for multi-axis array using apply_along_axis
 

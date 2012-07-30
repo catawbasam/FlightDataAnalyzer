@@ -27,9 +27,12 @@ NODE_MODULES = ['analysis_engine.derived_parameters',
 API_HANDLER = 'analysis_engine.api_handler_analysis_engine.AnalysisEngineAPIHandlerHTTP'
 ##API_HANDLER = 'analysis_engine.api_handler_analysis_engine.AnalysisEngineAPIHandlerDUMMY'
 
+# Base URL for the API for determining nearest airport/runway, etc:
+BASE_URL = 'https://polaris.flightdataservices.com'
 
-# Replace this as required
-BASE_URL = 'http://127.0.0.1'
+# Location of the CA certificates to be used by the HTTP API handler:
+# Note: This is the system-wide default location on Ubuntu.
+CA_CERTIFICATE_FILE = '/etc/ssl/certs/ca-certificates.crt'
 
 # Cache parameters which are used more than n times in HDF
 CACHE_PARAMETER_MIN_USAGE = 4
@@ -63,8 +66,14 @@ SPLIT_PARAMETERS = ('Eng (1) N1', 'Eng (2) N1', 'Eng (3) N1', 'Eng (4) N1',
 ## Parameter Analysis ##
 ########################
 
+# The minimum sensible duration for being airborne, used to reject skips and bounced landings.
+AIRBORNE_THRESHOLD_TIME = 60 # secs
+
 # An airspeed below which you just can't possibly be flying.
 AIRSPEED_THRESHOLD = 80  # kts
+
+# Altitude AAL complementary filter timeconstant
+ALTITUDE_AAL_LAG_TC = 3.0
 
 # Altitude to break flights into separate climb/cruise/descent segments.
 # This is applied to altitude with hysteresis, so break will happen when
@@ -104,6 +113,9 @@ CLIMB_OR_DESCENT_MIN_DURATION = 10  # sec
 # Used when trying determine which pilot is actively using the controls.
 CONTROLS_IN_USE_TOLERANCE = 1
 
+# This strange conversion is for the tail clearance calculation
+FEET_PER_NM = 6076
+
 # Acceleration due to gravity
 GRAVITY_IMPERIAL = 32.2 # ft/sec^2 - used for combining acceleration and height terms
 
@@ -121,15 +133,25 @@ HEADING_TURN_ONTO_RUNWAY = 15.0 # deg
 # This will usually be overwritten by the peak curvature test.
 HEADING_TURN_OFF_RUNWAY = 15.0 # deg
 
-# Threshold for flight phase airspeed hysteresis.
-HYSTERESIS_FPIAS = 10 # kts
+# Holding pattern criteria.
+# Minimum time is 4 minutes, corresponding to one racetrack pattern.
+HOLDING_MIN_TIME = 4*60 #sec
+# Maximum groundspeed over the period in the hold. This segregates true
+# holds, where the effective speed is significantly reduced (that's the point
+# of the hold), from curving departures or approaches.
+HOLDING_MAX_GSPD = 60.0 # kts
 
 # Threshold for flight phase altitude hysteresis.
 HYSTERESIS_FPALT = 200 # ft
 
+# Threshold for flight phase airspeed hysteresis.
+HYSTERESIS_FPIAS = 5 #kts
+
 # Threshold for flight phase altitude hysteresis specifically for separating 
 # Climb Cruise Descent phases.
-HYSTERESIS_FPALT_CCD = 2500 # ft
+HYSTERESIS_FPALT_CCD = 500 # ft
+# Note: Original value was 2,500ft, based upon normal operations, but
+# circuits flown below 2,000ft agl were being processed incorrectly.
 
 # Threshold for radio altimeter hysteresis 
 # (used for flight phase calculations only)
@@ -180,6 +202,16 @@ METRES_PER_DEG_LATITUDE = 111120 # metres/deg
 # Conversion of length units
 METRES_TO_FEET = 1000/25.4/12
 
+# Many flap KPVs require the same naming convention
+NAME_VALUES_FLAP = {'flap': range(1,101,1)}
+NAME_VALUES_CONF = {'conf': range(1,6,1)} # Needs fixing for Conf vales.
+NAME_VALUES_CLIMB = {'altitude': [10000,9000,8000,7000,6000,5000,4000,3500,\
+                                   3000,2500,2000,1500,1000,750,500,400,300,\
+                                   200,150,100,75,50,35,25]}
+NAME_VALUES_DESCENT = {'altitude':[10000,9000,8000,7000,6000,5000,4000,3500,\
+                                   3000,2500,2000,1500,1000,750,500,400,300,\
+                                   200,150,100,75,50,35,25]}
+
 # Rate of climb and descent limits of 800fpm gives good distinction with
 # level flight. Separately defined to allow for future adjustment.
 RATE_OF_CLIMB_FOR_CLIMB_PHASE = 800 # fpm
@@ -196,8 +228,12 @@ RATE_OF_CLIMB_FOR_LIFTOFF = 200 # fpm
 # Rate of climb for touchdown.
 RATE_OF_CLIMB_FOR_TOUCHDOWN = -100 # fpm
 
-# Rate of turn limits for flight and ground.
+# Rate of turn limits for flight. 
+# (Also used for validation of accelerometers on ground).
 RATE_OF_TURN_FOR_FLIGHT_PHASES = 2.5 # deg per second
+
+# Rate of turn limit for taxi event.
+RATE_OF_TURN_FOR_TAXI_TURNS = 8.0 # deg per second
 
 # Duration of masked data to repair by interpolation for flight phase analysis
 REPAIR_DURATION = 10 # seconds 
@@ -208,11 +244,15 @@ RATE_OF_CLIMB_LAG_TC = 3.0 # sec
 # Acceleration forwards at the start of the takeoff roll.
 TAKEOFF_ACCELERATION_THRESHOLD = 0.1 # g
 
+# Height in ft where Altitude AAL switches between Radio and STD sources.
+TRANSITION_ALT_RAD_TO_STD = 100
+
 # The takeoff and landing acceleration algorithm linear estimation period
 TRUCK_OR_TRAILER_INTERVAL = 3 # samples: should be odd.
 
 # The takeoff and landing acceleration algorithm linear estimation period
 TRUCK_OR_TRAILER_PERIOD = 7 # samples
+
 
 
 # Top of Climb / Top of Descent Threshold.
@@ -229,7 +269,7 @@ SLOPE_FOR_TOC_TOD = 600 / float(3*60) # 600fpm in 3 mins
 
 # Import from custom_settings if exists
 try:
-    from analysis_engine.custom_settings import *
+    from analyser_custom_settings import *
     # add any new modules to the list of modules
     from copy import copy
     [NODE_MODULES.extend(v) for k, v in copy(locals()).iteritems() \

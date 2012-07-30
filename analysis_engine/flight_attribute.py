@@ -1,15 +1,11 @@
 from datetime import datetime
 import numpy as np
-import logging
-import itertools
-import operator
 
-from analysis_engine import ___version___
+from analysis_engine import __version__
 from analysis_engine.api_handler import get_api_handler, NotFoundError
 from analysis_engine.library import datetime_of_index, min_value, max_value
 from analysis_engine.node import A, KTI, KPV, FlightAttributeNode, P, S
 from analysis_engine.settings import CONTROLS_IN_USE_TOLERANCE, API_HANDLER
-from scipy.interpolate import interp1d
 
 
 class AnalysisDatetime(FlightAttributeNode):
@@ -27,14 +23,54 @@ class AnalysisDatetime(FlightAttributeNode):
 class Approaches(FlightAttributeNode):
     '''
     All airports which were approached, including the final landing airport.
+    
+    Each Approach And Landing is associated with an airfield and a runway
+    where possible. 
+    
+    The airfield is identified thus:
+
+    if the aircraft lands:
+        the airfield closest to the position recorded at maximum deceleration on
+        the runway (i.e. LandingLatitude, LandingLongitude KPVs)
+    else:
+        the airfield closest to the aircraft position at the lowest point of 
+        approach (i.e. ApproachMinimumLongitude, ApproachMinimumLatitude KPVs)
+
+    The runway is identified thus:
+
+    if the aircraft lands:
+        identify using the runway bearing recorded at maximum deceleration
+        (i.e. the LandingHeading KPV)
+        
+        if there are parallel runways:
+            if the ILS is tuned and localizer data is valid:
+                use the ApproachILSFrequency KPV to identify the runway
+
+            elseif accurate position data is available:
+                use the position (LandingLatitude, LandingLongitude)
+                recorded at maximum deceleration to identify the runway
+
+            else:
+                use "*" to declare the runway not identified.
+                
+    else if the aircraft reaches the final approach phase:
+        identify the runway bearing from the heading at lowest point of the 
+        approach (ApproachMinimumHeading)
+
+        if there are parallel runways:
+            if the ILS is tuned and localizer data is valid:
+                use ApproachILSFrequency to identify the runway
+            else:
+                use "*" to declare the runway not identified.
+    
+    
     '''
     name = 'FDR Approaches'
     @classmethod
     def can_operate(self, available):
         return all([n in available for n in ['Start Datetime',
-                                             'Approach And Landing',
+                                             'Approach',
                                              'Altitude AAL',
-                                             'Approach And Go Around',
                                              'Latitude At Lowest Point On Approach',
                                              'Longitude At Lowest Point On Approach',
                                              'Latitude At Landing',
@@ -50,13 +86,13 @@ class Approaches(FlightAttributeNode):
     
     def _create_approach(self, start_dt, api_handler, approach, approach_type,
                          frequency, lat_kpv_node, lon_kpv_node, hdg_kpv_node,
-                         ilsfreq_kpv_node, precision):
+                         ilsfreq_kpv_node, precision, turnoff_hdg_kpvs):
         approach_datetime = datetime_of_index(start_dt, approach.slice.stop, # Q: Should it be start of approach?
                                               frequency=frequency)        
         lat, lon = self._get_lat_lon(approach.slice,
                                      lat_kpv_node, lon_kpv_node)
         if not lat or not lon:
-            logging.warning("Latitude and/or Longitude KPVs not found "
+            self.warning("Latitude and/or Longitude KPVs not found "
                             "within 'Approach and Landing' phase between "
                             "indices '%d' and '%d'.", approach.slice.start,
                             approach.slice.stop)
@@ -65,7 +101,7 @@ class Approaches(FlightAttributeNode):
         try:
             airport = api_handler.get_nearest_airport(lat, lon)
         except NotFoundError:
-            logging.warning("Airport could not be found with latitude '%f' "
+            self.warning("Airport could not be found with latitude '%f' "
                             "and longitude '%f'.", lat, lon)
             return
         airport_id = airport['id']
@@ -75,10 +111,9 @@ class Approaches(FlightAttributeNode):
         if hdg_kpv_node:
             hdg_kpvs = hdg_kpv_node.get(within_slice=approach.slice)
             if len(hdg_kpvs) == 1:
-                # Note: Modulus as this is a continuous heading!
-                hdg = hdg_kpvs[0].value % 360
+                hdg = hdg_kpvs[0].value
         if not hdg:
-            logging.info("Heading not available for approach between "
+            self.info("Heading not available for approach between "
                          "indices '%d' and '%d'.", approach.slice.start,
                          approach.slice.stop)
             return {'airport': airport,
@@ -106,12 +141,27 @@ class Approaches(FlightAttributeNode):
             if len(runway_info['items']) > 1:
                 # TODO: What to store in approach dictionary.
                 runway = {'identifier': runway_info['ident']}
-                logging.warning("Identified %d Runways, ident %s. Picking the first!", 
-                             len(runway_info['items']), runway_info['ident'])
+                
+                # TODO: Incorporate this experimental code
+                hdg_ldg = [x.value for x in hdg_kpv_node][-1]
+                hdg_toff = [x.value for x in turnoff_hdg_kpvs][-1]
+                delta = hdg_toff - hdg_ldg
+                if delta>180:
+                    delta = delta-360
+                if delta<-180:
+                    delta = delta+360
+                # TODO: Work this code into a form that returns the correct runway.
+                if delta>0:
+                    print "Should pick Left runway"
+                else:
+                    print "Should pick Right runway"
+                ##self.warning("Identified %d Runways, ident %s. Picking the first!", 
+                             ##len(runway_info['items']), runway_info['ident'])
+
             else:
                 runway = runway_info['items'][0]
         except NotFoundError:
-            logging.warning("Runway not found for airport id '%d', heading "
+            self.warning("Runway not found for airport id '%d', heading "
                             "'%f' and kwargs '%s'.", airport_id, hdg, kwargs)
             runway = None
         
@@ -127,47 +177,47 @@ class Approaches(FlightAttributeNode):
                                                          frequency), # NB: Not in API therefore not stored in DB                
                 }    
     
-    def derive(self, start_datetime=A('Start Datetime'),
-               approach_landing=S('Approach And Landing'),
-               landing_hdg_kpvs=KPV('Heading At Landing'), # touch_and_gos=KTI('Touch And Go'),
-               approach_go_around=KTI('Approach And Go Around'),
+    def derive(self, 
                alt_aal = P('Altitude AAL'),
+               approach_sections=S('Approach'),
+               speedy=S('Fast'),
+               landing_hdg_kpvs=KPV('Heading At Landing'),
                landing_lat_kpvs=KPV('Latitude At Landing'),
                landing_lon_kpvs=KPV('Longitude At Landing'),
+               approach_hdg_kpvs=KPV('Heading At Lowest Point On Approach'),
                approach_lat_kpvs=KPV('Latitude At Lowest Point On Approach'),
                approach_lon_kpvs=KPV('Longitude At Lowest Point On Approach'),
-               approach_hdg_kpvs=KPV('Heading At Lowest Point On Approach'),
                approach_ilsfreq_kpvs=KPV('ILS Frequency On Approach'),
-               precision=A('Precise Positioning')):
+               start_datetime=A('Start Datetime'),
+               precision=A('Precise Positioning'),
+               turnoff_hdg_kpvs=KPV('Heading Vacating Runway')):
         '''
         TODO: Document approaches format.
         TODO: Test!
         '''
         api_handler = get_api_handler(API_HANDLER)
         approaches = []
-        
-        for approach_section in approach_landing:
-            approach = self._create_approach(start_datetime.value, api_handler,
-                                             approach_section, 'LANDING',
-                                             approach_landing.frequency,
-                                             landing_lat_kpvs, landing_lon_kpvs,
-                                             landing_hdg_kpvs,
-                                             approach_ilsfreq_kpvs, precision)
-            if approach:
-                approaches.append(approach)
-        
-        for approach_section in approach_go_around:
-            # If Altitude AAL reached 0, the approach type is 'TOUCH_AND_GO'.
-            if np.ma.any(alt_aal.array[approach_section.slice] <= 0):
+
+        for approach_section in approach_sections:
+
+            # If the end is outside a Fast section, it's a landing.
+            # Else If Altitude AAL reached 0, the approach type is 'TOUCH_AND_GO'
+            # Else it's a GO_AROUND.
+
+            if approach_section.slice.stop > speedy[-1].slice.stop:
+                approach_type = 'LANDING'
+            elif np.ma.any(alt_aal.array[approach_section.slice] <= 0):
                 approach_type = 'TOUCH_AND_GO'
             else:
                 approach_type = 'GO_AROUND'
+            
             approach = self._create_approach(start_datetime.value, api_handler,
                                              approach_section, approach_type,
-                                             approach_go_around.frequency,
+                                             alt_aal.frequency,
                                              approach_lat_kpvs, approach_lon_kpvs,
                                              approach_hdg_kpvs,
-                                             approach_ilsfreq_kpvs, precision)
+                                             approach_ilsfreq_kpvs, precision, 
+                                             turnoff_hdg_kpvs)
             if approach:
                 approaches.append(approach)
             
@@ -196,7 +246,7 @@ class DeterminePilot(object):
                                                   roll_captain)
         fo_flying = self._pitch_roll_changed(section.slice, pitch_fo, roll_fo)
         if captain_flying and fo_flying:
-            logging.warning("Cannot determine whether Captain or First "
+            self.warning("Cannot determine whether Captain or First "
                             "Officer was at the controls because both "
                             "controls change during '%s' slice.",
                             section.name)
@@ -206,9 +256,9 @@ class DeterminePilot(object):
         elif fo_flying:
             return 'First Officer'
         else:
-            logging.warning("Both captain and first officer controls "
-                            "do not change during '%s' slice.",
-                            section.name)
+            self.warning("Both captain and first officer controls "
+                         "do not change during '%s' slice.",
+                         section.name)
             return None
     
     def _determine_pilot(self, pitch_captain, roll_captain, pitch_fo, roll_fo,
@@ -267,7 +317,7 @@ class FlightNumber(FlightAttributeNode):
         # Q: Should we validate the flight number?
         _, minvalue = min_value(num.array)
         if minvalue < 0:
-            logging.warning("'%s' only supports unsigned (positive) values",
+            self.warning("'%s' only supports unsigned (positive) values",
                             self.name)
             self.set_flight_attr(None)
             return
@@ -275,12 +325,12 @@ class FlightNumber(FlightAttributeNode):
         # TODO: Fill num.array masked values (as there is no np.ma.bincount) - perhaps with 0.0 and then remove all 0 values?
         # note reverse of value, index from max_value due to bincount usage.
         value, count = max_value(np.bincount(num.array.astype(np.integer)))
-        if count > len(num.array) * 0.6:
-            # this value accounts for at least 60% of the values in the array
+        if count > len(num.array) * 0.45:
+            # this value accounts for at least 45% of the values in the array
             self.set_flight_attr(str(value))
         else:
-            logging.warning("'%s' found low variance in '%s'. Attribute will "
-                            "be set as None.", self.name, num.name)
+            self.warning("Only %d out of %d flight numbers were the same."\
+                            " Flight Number attribute will be set as None.", count, len(num.array))
             self.set_flight_attr(None)
             return
 
@@ -300,7 +350,7 @@ class LandingAirport(FlightAttributeNode):
         last_latitude = landing_latitude.get_last()
         last_longitude = landing_longitude.get_last()
         if not last_latitude or not last_longitude:
-            logging.warning("'Latitude At Landing' and/or 'Longitude At "
+            self.warning("'Latitude At Landing' and/or 'Longitude At "
                             "Landing' KPVs did not exist, therefore '%s' "
                             "cannot query for landing airport.",
                             self.__class__.__name__)
@@ -311,7 +361,7 @@ class LandingAirport(FlightAttributeNode):
             airport = api_handler.get_nearest_airport(last_latitude.value,
                                                       last_longitude.value)
         except NotFoundError:
-            logging.warning("Airport could not be found with latitude '%f' "
+            self.warning("Airport could not be found with latitude '%f' "
                             "and longitude '%f'.", last_latitude.value,
                             last_longitude.value)
             self.set_flight_attr(None)
@@ -327,11 +377,11 @@ class LandingRunway(FlightAttributeNode):
         '''
         'Landing Heading' is the only required parameter.
         '''
-        return all([n in available for n in ['Approach And Landing',
+        return all([n in available for n in ['Approach',
                                              'FDR Landing Airport',
                                              'Heading At Landing']])
         
-    def derive(self, approach_and_landing=S('Approach And Landing'),
+    def derive(self, approach_and_landing=S('Approach'),
                landing_hdg=KPV('Heading At Landing'),
                airport=A('FDR Landing Airport'),
                landing_latitude=KPV('Latitude At Landing'),
@@ -343,14 +393,14 @@ class LandingRunway(FlightAttributeNode):
         See TakeoffRunway for runway information.
         '''
         if not airport.value:
-            logging.warning("'%s' requires '%s' to be set.", self.name,
+            self.warning("'%s' requires '%s' to be set.", self.name,
                             airport.name)
             self.set_flight_attr(None)
             return
         airport_id = airport.value['id']
         landing = approach_and_landing.get_last()
         if not landing:
-            logging.warning("Empty '%s' in '%s'.", landing.name, self.name)
+            self.warning("Empty '%s' in '%s'.", landing.name, self.name)
             self.set_flight_attr(None)
             return
         heading = landing_hdg[-1].value
@@ -376,12 +426,19 @@ class LandingRunway(FlightAttributeNode):
             runway_info = api_handler.get_nearest_runway(airport_id, heading,
                                                          **kwargs)
             if len(runway_info['items']) > 1:
+                if kwargs.has_key('ilsfreq'):
+                    # This is a trap for airports where the ILS data is not
+                    # available, but the aircraft approached with the ILS
+                    # tuned. A good prompt for an omission in the database.
+                    self.warning("Runway not identified for airport x")
+                                 # id '%d'.",
+                                 #"ILS was tuned to '%s'." %airport_id, %kwargs['ilsfreq']) 
                 runway = {'identifier': runway_info['ident']}
             else:
                 runway = runway_info['items'][0]            
             self.set_flight_attr(runway)
         except NotFoundError:
-            logging.warning("Runway not found for airport id '%d', heading "
+            self.warning("Runway not found for airport id '%d', heading "
                             "'%f' and kwargs '%s'.", airport_id, heading,
                             kwargs)
             self.set_flight_attr(None)
@@ -390,8 +447,8 @@ class LandingRunway(FlightAttributeNode):
 class OffBlocksDatetime(FlightAttributeNode):
     "Datetime when moving away from Gate/Blocks"
     name = 'FDR Off Blocks Datetime'
-    def derive(self, turning=P('Turning'), start_datetime=A('Start Datetime')):
-        first_turning = turning.get_first(name='Turning On Ground')
+    def derive(self, turning=S('Turning On Ground'), start_datetime=A('Start Datetime')):
+        first_turning = turning.get_first()
         if first_turning:
             off_blocks_datetime = datetime_of_index(start_datetime.value,
                                                     first_turning.slice.start,
@@ -404,8 +461,8 @@ class OffBlocksDatetime(FlightAttributeNode):
 class OnBlocksDatetime(FlightAttributeNode):
     "Datetime when moving away from Gate/Blocks"
     name = 'FDR On Blocks Datetime'
-    def derive(self, turning=P('Turning'), start_datetime=A('Start Datetime')):
-        last_turning = turning.get_last(name='Turning On Ground')
+    def derive(self, turning=P('Turning On Ground'), start_datetime=A('Start Datetime')):
+        last_turning = turning.get_last()
         if last_turning:
             on_blocks_datetime = datetime_of_index(start_datetime.value,
                                                    last_turning.slice.stop,
@@ -437,7 +494,7 @@ class TakeoffAirport(FlightAttributeNode):
         first_latitude = latitude_at_takeoff.get_first()
         first_longitude = longitude_at_takeoff.get_first()
         if not first_latitude or not first_longitude:
-            logging.warning("Cannot create '%s' attribute without '%s' or "
+            self.warning("Cannot create '%s' attribute without '%s' or "
                             "'%s'.", self.name, latitude_at_takeoff.name,
                             longitude_at_takeoff.name)
             self.set_flight_attr(None)
@@ -447,7 +504,7 @@ class TakeoffAirport(FlightAttributeNode):
             airport = api_handler.get_nearest_airport(first_latitude.value,
                                                       first_longitude.value)
         except NotFoundError:
-            logging.warning("Takeoff Airport could not be found with '%s' "
+            self.warning("Takeoff Airport could not be found with '%s' "
                             "'%f' and '%s' '%f'.", latitude_at_takeoff.name,
                             first_latitude.value, longitude_at_takeoff.name,
                             first_longitude.value)
@@ -505,10 +562,16 @@ class TakeoffGrossWeight(FlightAttributeNode):
             # There is not a 'Gross Weight At Liftoff' KPV. Since it is sourced
             # from 'Gross Weight Smoothed', gross weight at liftoff should not
             # be masked.
-            logging.warning("No '%s' KPVs, '%s' attribute will be None.",
+            self.warning("No '%s' KPVs, '%s' attribute will be None.",
                             liftoff_gross_weight.name, self.name)
             self.set_flight_attr(None)
     
+
+"""
+
+TODO: This code does not identify the pilot correctly. Roll (FO) is the roll
+attitude from the right side instrument, not the Airbus first officer
+sidestick roll input. Needs a rewrite.
 
 class TakeoffPilot(FlightAttributeNode, DeterminePilot):
     "Pilot flying at takeoff, Captain, First Officer or None"
@@ -536,6 +599,7 @@ class TakeoffPilot(FlightAttributeNode, DeterminePilot):
                                              pitch_fo, roll_fo, first_takeoff,
                                              first_autopilot1, first_autopilot2)
         self.set_flight_attr(pilot_flying)
+        """
 
 
 class TakeoffRunway(FlightAttributeNode):
@@ -585,7 +649,7 @@ class TakeoffRunway(FlightAttributeNode):
         }}
         '''
         if not airport.value:
-            logging.warning("'%s' requires '%s' to be set.", self.name,
+            self.warning("'%s' requires '%s' to be set.", self.name,
                             airport.name)
             self.set_flight_attr(None)
             return
@@ -617,7 +681,7 @@ class TakeoffRunway(FlightAttributeNode):
                 runway = runway_info['items'][0]
             self.set_flight_attr(runway)
         except NotFoundError:
-            logging.warning("Runway not found for airport id '%d', heading "
+            self.warning("Runway not found for airport id '%d', heading "
                             "'%f' and kwargs '%s'.", airport_id, hdg_value,
                             kwargs)
             self.set_flight_attr(None)
@@ -638,13 +702,13 @@ class FlightType(FlightAttributeNode):
         
         if liftoffs and not touchdowns:
             # In the air without having touched down.
-            logging.warning("'Liftoff' KTI exists without 'Touchdown'. '%s' "
+            self.warning("'Liftoff' KTI exists without 'Touchdown'. '%s' "
                             "will be 'INCOMPLETE'.", self.name)
             self.set_flight_attr('LIFTOFF_ONLY')
             return
         elif not liftoffs and touchdowns:
             # In the air without having lifted off.
-            logging.warning("'Touchdown' KTI exists without 'Liftoff'. '%s' "
+            self.warning("'Touchdown' KTI exists without 'Liftoff'. '%s' "
                             "will be 'INCOMPLETE'.", self.name)
             self.set_flight_attr('TOUCHDOWN_ONLY')
             return
@@ -654,7 +718,7 @@ class FlightType(FlightAttributeNode):
             first_liftoff = liftoffs.get_first()
             if first_touchdown.index < first_liftoff.index:
                 # Touchdown before having lifted off, data must be INCOMPLETE.
-                logging.warning("'Touchdown' KTI index before 'Liftoff'. '%s' "
+                self.warning("'Touchdown' KTI index before 'Liftoff'. '%s' "
                                 "will be 'INCOMPLETE'.", self.name)
                 self.set_flight_attr('TOUCHDOWN_BEFORE_LIFTOFF')
                 return
@@ -663,7 +727,7 @@ class FlightType(FlightAttributeNode):
                 last_touchdown = touchdowns.get_last()
                 last_touch_and_go = touch_and_gos.get_last()
                 if last_touchdown.index <= last_touch_and_go.index:
-                    logging.warning("A 'Touch And Go' KTI exists after the last "
+                    self.warning("A 'Touch And Go' KTI exists after the last "
                                     "'Touchdown'. '%s' will be 'INCOMPLETE'.",
                                     self.name)
                     self.set_flight_attr('LIFTOFF_ONLY')
@@ -737,15 +801,15 @@ class LandingGrossWeight(FlightAttributeNode):
         else:
             # There is not a 'Gross Weight At Touchdown' KPV. Since it is sourced
             # from 'Gross Weight Smoothed', gross weight at touchdown should not
-            # be masked.
-            logging.warning("No '%s' KPVs, '%s' attribute will be None.",
+            # be masked. Are there no Touchdown KTIs?  
+            self.warning("No '%s' KPVs, '%s' attribute will be None.",
                             touchdown_gross_weight.name, self.name)
             self.set_flight_attr(None)
 
 
 class LandingPilot(FlightAttributeNode, DeterminePilot):
     "Pilot flying at takeoff, Captain, First Officer or None"
-    name = 'FDR Takeoff Pilot'
+    name = 'FDR Landing Pilot'
     @classmethod
     def can_operate(cls, available):
         controls_available = all([n in available for n in ('Pitch (Capt)',
@@ -770,42 +834,6 @@ class LandingPilot(FlightAttributeNode, DeterminePilot):
                                              last_autopilot1, last_autopilot2)
         self.set_flight_attr(pilot_flying)
 
-    
-class V2(FlightAttributeNode):
-    '''
-    Based on weight and flap at time of landing.
-    '''
-    name = 'FDR V2'
-    def derive(self, weight_touchdown=KPV('Gross Weight At Touchdown'),
-               flap_touchdown=KPV('Flap At Touchdown')):
-        '''
-        Do not source from AFR, only set attribute if V2 is recorded/derived.
-        '''
-        weight = weight_touchdown.get_last()
-        flap = flap_touchdown.get_last()
-        if not weight or not flap:
-            # TODO: Log.
-            return
-        return NotImplemented
-         
-         
-class Vapp(FlightAttributeNode):
-    '''
-    Based on weight and flap at time of landing.
-    '''
-    name = 'FDR Vapp'
-    def derive(self, weight_touchdown=KPV('Gross Weight At Touchdown'),
-               flap_touchdown=KPV('Flap At Touchdown')):
-        '''
-        Do not source from AFR, only set attribute if Vapp is recorded/derived.
-        '''
-        weight = weight_touchdown.get_last()
-        flap = flap_touchdown.get_last()
-        if not weight or not flap:
-            # TODO: Log.
-            return
-        return NotImplemented
-
 
 class Version(FlightAttributeNode):
     "Version of code used for analysis"
@@ -816,7 +844,7 @@ class Version(FlightAttributeNode):
         should always derive a flight attribute, 'Start Datetime' is its only
         dependency as it will always be present, though it is unused.
         '''
-        self.set_flight_attr(___version___)
+        self.set_flight_attr(__version__)
 
 
 class Vref(FlightAttributeNode):
@@ -824,9 +852,13 @@ class Vref(FlightAttributeNode):
     Based on weight and flap at time of landing.
     '''
     name = 'FDR Vref'
-    def derive(self, aircraft_model=A('AFR Aircraft Model'),
+
+    def derive(self, 
+               #aircraft_model=A('AFR Aircraft Model'),
                weight_touchdown=KPV('Gross Weight At Touchdown'),
                flap_touchdown=KPV('Flap At Touchdown')):
+        self.set_flight_attr(110.0) # It doesn't get simpler than this ! DJ
+
         '''
         Do not source from AFR, only set attribute if V2 is recorded/derived.
         '''
@@ -842,7 +874,7 @@ class Vref(FlightAttributeNode):
             ##interp = interp1d(enumerate(mapping['Flaps']))
             ##interp(index)
             
-        return NotImplemented
+        ## return NotImplemented
                 
 ##VREF_MAP = 
 ##{'B737-2_800010_00.add':

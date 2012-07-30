@@ -3,18 +3,20 @@ import logging
 from datetime import datetime, timedelta
 from inspect import isclass
 
-from analysis_engine import hooks
-from analysis_engine import settings
-from analysis_engine.library import value_at_index
-from analysis_engine.dependency_graph import dependency_order
-from analysis_engine.node import (Attribute, DerivedParameterNode,
-                                  FlightAttributeNode, 
+import numpy as np
+from analysis_engine import hooks, settings, __version__
+from analysis_engine.dependency_graph import dependency_order, graph_adjacencies
+from analysis_engine.library import np_ma_masked_zeros_like
+from analysis_engine.node import (Attribute, derived_param_from_hdf,
+                                  DerivedParameterNode,
+                                  FlightAttributeNode,
+                                  FlightPhaseNode,
                                   KeyPointValueNode,
                                   KeyTimeInstanceNode, Node,
                                   NodeManager, P, SectionNode)
 from hdfaccess.file import hdf_file
 
-logger = logging.getLogger('ProcessFlightTask')
+logger = logging.getLogger(__name__)
 
 def geo_locate(hdf, kti_list):
     """
@@ -24,15 +26,12 @@ def geo_locate(hdf, kti_list):
        or 'Longitude Smoothed' not in hdf:
         return kti_list
     
-    lat_pos = hdf['Latitude Smoothed']
-    long_pos = hdf['Longitude Smoothed']
-    assert len(lat_pos.array)==len(long_pos.array)
-    assert lat_pos.frequency==long_pos.frequency
-    hz = lat_pos.hz # Shorthand for lat_pos.frequency
+    lat_pos = derived_param_from_hdf(hdf, 'Latitude Smoothed')
+    long_pos = derived_param_from_hdf(hdf, 'Longitude Smoothed')
     
     for kti in kti_list:
-        kti.latitude = value_at_index(lat_pos.array, kti.index*hz)
-        kti.longitude = value_at_index(long_pos.array, kti.index*hz)
+        kti.latitude = lat_pos.at(kti.index)
+        kti.longitude = long_pos.at(kti.index)
     return kti_list
 
 
@@ -69,14 +68,13 @@ def derive_parameters(hdf, node_mgr, process_order):
     section_list = SectionNode()  # 'Node Name' : node()  pass in node.get_accessor()
     flight_attrs = []
     
-    
     nodes_not_implemented = []
     
     for param_name in process_order:
         if param_name in node_mgr.lfl:
             continue
         
-        elif node_mgr.get_attribute(param_name):
+        elif node_mgr.get_attribute(param_name) is not None:
             # add attribute to dictionary of available params
             ###params[param_name] = node_mgr.get_attribute(param_name) #TODO: optimise with only one call to get_attribute
             continue
@@ -89,14 +87,12 @@ def derive_parameters(hdf, node_mgr, process_order):
         for dep_name in node_deps:
             if dep_name in params:  # already calculated KPV/KTI/Phase
                 deps.append(params[dep_name])
-            elif node_mgr.get_attribute(dep_name):
+            elif node_mgr.get_attribute(dep_name) is not None:
                 deps.append(node_mgr.get_attribute(dep_name))
             elif dep_name in hdf:  # LFL/Derived parameter
                 # all parameters (LFL or other) need get_aligned which is
                 # available on DerivedParameterNode
-                p = hdf[dep_name]
-                dp = DerivedParameterNode(name=p.name, array=p.array, 
-                                          frequency=p.frequency, offset=p.offset)
+                dp = derived_param_from_hdf(hdf, dep_name)
                 deps.append(dp)
             else:  # dependency not available
                 deps.append(None)
@@ -120,21 +116,24 @@ def derive_parameters(hdf, node_mgr, process_order):
             nodes_not_implemented.append(node_class.__name__)
             continue
         
-        if node.node_type == 'KeyPointValueNode':
+        if node.node_type is KeyPointValueNode:
             #Q: track node instead of result here??
             params[param_name] = result
             kpv_list.extend(result.get_aligned(P(frequency=1,offset=0)))
-        elif node.node_type == 'KeyTimeInstanceNode':
+        elif node.node_type is KeyTimeInstanceNode:
             params[param_name] = result
             kti_list.extend(result.get_aligned(P(frequency=1,offset=0)))
-        elif node.node_type == 'FlightAttributeNode':
+        elif node.node_type is FlightAttributeNode:
             params[param_name] = result
-            flight_attrs.append(Attribute(result.name, result.value)) # only has one Attribute result
-        elif node.node_type in ('FlightPhaseNode', 'SectionNode'):
+            try:
+                flight_attrs.append(Attribute(result.name, result.value)) # only has one Attribute result
+            except:
+                logging.warning("Flight Attribute Node '%s' returned empty handed."%(param_name))
+        elif node.node_type in (FlightPhaseNode, SectionNode):
             # expect a single slice
             params[param_name] = result
             section_list.extend(result.get_aligned(P(frequency=1,offset=0)))
-        elif node.node_type == 'DerivedParameterNode':
+        elif node.node_type is DerivedParameterNode:
             ### perform any post_processing
             ##if hooks.POST_DERIVED_PARAM_PROCESS:
                 ##process_result = hooks.POST_DERIVED_PARAM_PROCESS(hdf, result)
@@ -147,7 +146,14 @@ def derive_parameters(hdf, node_mgr, process_order):
                 # at 0.25Hz (rounded upwards). If we combine two 0.25Hz
                 # parameters then we will have an array length of 1412.
                 expected_length = hdf.duration * result.frequency
-                length_diff = len(result.array) - expected_length
+                if result.array == None:
+                    array_length = expected_length
+                    # Where a parameter is wholly masked, we fill the HDF
+                    # file with masked zeros to maintain structure.
+                    result.array = np_ma_masked_zeros_like(np.ma.arange(expected_length))
+                else:
+                    array_length = len(result.array)
+                length_diff = array_length - expected_length
                 if length_diff == 0:
                     pass
                 elif 0 < length_diff < 5:
@@ -160,7 +166,7 @@ def derive_parameters(hdf, node_mgr, process_order):
                                      "'%s'. Expected '%s', resulting array "
                                      "length '%s'." % (param_name,
                                                        expected_length,
-                                                       len(result.array)))
+                                                       array_length))
                 
             hdf.set_param(result)
         else:
@@ -265,7 +271,7 @@ def process_flight(hdf_path, aircraft_info, start_datetime=datetime.now(),
                                derived_nodes, aircraft_info,
                                achieved_flight_record)
         # calculate dependency tree
-        process_order, gr_st = dependency_order(node_mgr, draw=draw) 
+        process_order, gr_st = dependency_order(node_mgr, draw=draw)
         if settings.CACHE_PARAMETER_MIN_USAGE:
             # find params used more than
             for node in gr_st.nodes():
@@ -294,6 +300,10 @@ def process_flight(hdf_path, aircraft_info, start_datetime=datetime.now(),
         # timestamp KPVs
         kpv_list = _timestamp(start_datetime, kpv_list)
         
+        # Store version of FlightDataAnalyser and dependency tree in HDF file.
+        hdf.version = __version__
+        hdf.dependency_tree = graph_adjacencies(gr_st)
+        
     ##if draw:
         ### only import if required
         ##from analysis_engine.plot_flight import plot_flight
@@ -309,10 +319,7 @@ if __name__ == '__main__':
     import argparse
     from utilities.filesystem_tools import copy_file
     logger = logging.getLogger()
-    logger.setLevel(logging.INFO)    
-    required_parameters = ['Latitude Smoothed', 'Longitude Smoothed',
-                           'Distance To Landing', 'Eng (*) Fuel Flow',
-                           'Altitude STD']
+    logger.setLevel(logging.DEBUG)    
     parser = argparse.ArgumentParser(description="Process a flight.")
     parser.add_argument('file', type=str,
                         help='Path of file to process.')
@@ -324,4 +331,5 @@ if __name__ == '__main__':
     
     hdf_copy = copy_file(args.file, postfix='_process')
     process_flight(hdf_copy, {'Tail Number': args.tail_number,
-                              'Precise Positioning': True}, draw=args.plot)
+                              'Precise Positioning': True},
+                   draw=args.plot)
