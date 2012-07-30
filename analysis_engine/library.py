@@ -1792,7 +1792,7 @@ def slices_remove_small_gaps(slice_list, time_limit=10, hz=1):
     '''
     sample_limit = time_limit*hz
     if slice_list == None or len(slice_list) < 2:
-        return []
+        return slice_list
     new_list = [slice_list[0]]
     for each_slice in slice_list[1:]:
         if each_slice.start - new_list[-1].stop < sample_limit:

@@ -628,7 +628,7 @@ class AltitudeRadio(DerivedParameterNode):
             self.array, self.frequency, self.offset = \
                 blend_two_parameters(source_B, source_C)
             
-        elif frame_name in ['737-4', '737-4_Analogue', 'CRJ-700-900']:
+        elif frame_name in ['737-3C', '737-4', '737-4_Analogue', 'CRJ-700-900']:
             self.array, self.frequency, self.offset = \
                 blend_two_parameters(source_A, source_B)
         
@@ -1534,7 +1534,7 @@ class GearDown(DerivedParameterNode):
                frame=A('Frame')):
         frame_name = frame.value if frame else None
         
-        if frame_name in ['737-5']:
+        if frame_name in ['737-3C', '737-5']:
             # 737-5 has nose gear sampled alternately with mains. No obvious
             # way to accommodate mismatch of the main gear positions, so
             # assume that the right wheel does the same as the left !
@@ -1549,7 +1549,7 @@ class GearSelectedDown(DerivedParameterNode):
     def derive(self, gear=P('Gear Down'), frame=A('Frame')):
         frame_name = frame.value if frame else None
         
-        if frame_name in ['737-5']:
+        if frame_name in ['737-3C', '737-5']:
             self.array = gear.array
 
         
@@ -1557,7 +1557,7 @@ class GearSelectedUp(DerivedParameterNode):
     def derive(self, gear=P('Gear Down'), frame=A('Frame')):
         frame_name = frame.value if frame else None
         
-        if frame_name in ['737-5']:
+        if frame_name in ['737-3C', '737-5']:
             self.array = 1 - gear.array
 
         
@@ -1651,7 +1651,7 @@ class Groundspeed(DerivedParameterNode):
             # The coding in this frame is unique as it only uses two bits for
             # the first digit of the BCD-encoded groundspeed, limiting the
             # recorded value range to 399 kts. At altitude the aircraft can
-            # exceed this to a fiddle is required to sort this out.
+            # exceed this so a fiddle is required to sort this out.
             altitude = align(alt, source_A) # Caters for different sample rates.
             adjust_A = np.logical_and(source_A.array<200, altitude>8000).data*400
             source_A.array += adjust_A
@@ -1699,7 +1699,7 @@ class FlapSurface(DerivedParameterNode):
                alt_aal=P('Altitude AAL')):
         frame_name = frame.value if frame else None
 
-        if frame_name in ['737-5', '737-6', '757-DHL']:
+        if frame_name in ['737-3C', '737-5', '737-6', '757-DHL']:
             self.array, self.frequency, self.offset = blend_two_parameters(flap_A,
                                                                            flap_B)
 
@@ -2952,20 +2952,41 @@ class ElevatorTrim(DerivedParameterNode): # PitchTrim
 class Spoiler(DerivedParameterNode):
     '''
     '''
-    def derive(self, spoiler_2=P('Spoiler (2)'),
-               spoiler_7=P('Spoiler (7)'),
+    align_to_first_dependency = False
+
+    @classmethod
+    def can_operate(cls, available):
+        # we cannot access the frame_name within this method to determine which
+        # parameter is the requirement
+        if 'Frame' in available and\
+           (('Spoiler (2)' in available and 'Spoiler (7)' in available)\
+            or\
+            ('Spoiler (4)' in available and 'Spoiler (9)' in available)\
+            ):
+            return True
+        
+    def spoiler_737(self, spoiler_a, spoiler_b):
+        '''
+        We indicate the angle of either raised spoiler, ignoring sense of
+        direction as it augments the roll.
+        '''
+        offset = (spoiler_a.offset + spoiler_b.offset) / 2.0
+        array = np.ma.maximum(spoiler_a.array,spoiler_b.array)
+        # Force small angles to indicate zero.
+        array = np.ma.where(array < 2.0, 0.0, array)
+        return array, offset
+        
+    def derive(self, spoiler_2=P('Spoiler (2)'), spoiler_7=P('Spoiler (7)'),
+               spoiler_4=P('Spoiler (4)'), spoiler_9=P('Spoiler (9)'),
                frame = A('Frame')):
         frame_name = frame.value if frame else None
         
+        if frame_name in ['737-3C']:
+            self.array, self.offset = self.spoiler_737(spoiler_4, spoiler_9)
+            
         if frame_name in ['737-5', '737-6']:
-            '''
-            We indicate the angle of either raised spoiler, ignoring sense of
-            direction as it augments the roll.
-            '''
-            self.offset = (spoiler_2.offset + spoiler_7.offset) / 2.0
-            self.array = np.ma.maximum(spoiler_2.array,spoiler_7.array)
-            # Force small angles to indicate zero.
-            self.array = np.ma.where(self.array < 2.0, 0.0, self.array)
+            self.array, self.offset = self.spoiler_737(spoiler_2, spoiler_7)
+                
 
 class Speedbrake(DerivedParameterNode):
     '''

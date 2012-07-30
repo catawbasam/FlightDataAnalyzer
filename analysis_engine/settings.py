@@ -59,9 +59,6 @@ SPLIT_PARAMETERS = ('Eng (1) N1', 'Eng (2) N1', 'Eng (3) N1', 'Eng (4) N1',
                     'Eng (1) NP', 'Eng (2) NP', 'Eng (3) NP', 'Eng (4) NP')
 
 
-
-
-
 ########################
 ## Parameter Analysis ##
 ########################
@@ -177,6 +174,10 @@ INITIAL_APPROACH_THRESHOLD = 3000 # ft
 
 # Threshold for start of initial climb phase
 INITIAL_CLIMB_THRESHOLD = 35 # ft (Radio, where available)
+
+# Conversion from kg to lb. 
+# Thanks to David A. Forbes of Aero Tech Research for the conversion figure. 
+KG_TO_LB = 2.2046226218487757 #lb/kg
 
 # Conversion from knots to ft/sec (used in airspeed rate of change)
 KTS_TO_FPS = 1.68781 #  ft/sec

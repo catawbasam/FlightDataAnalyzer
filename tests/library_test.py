@@ -2373,6 +2373,24 @@ class TestSlicesRemoveSmallGaps(unittest.TestCase):
         newlist=slices_remove_small_gaps(slicelist,hz=2)
         expected=[slice(1,22)]
         self.assertEqual(expected, newlist)
+        
+    def test_slice_return_single_slice(self):
+        slicelist=[slice(5,7)]
+        newlist=slices_remove_small_gaps(slicelist,hz=2)
+        expected=[slice(5,7)]
+        self.assertEqual(expected, newlist)
+
+    def test_slice_return_none(self):
+        slicelist=[None]
+        newlist=slices_remove_small_gaps(slicelist,hz=2)
+        expected=[None]
+        self.assertEqual(expected, newlist)
+        
+    def test_slice_return_empty(self):
+        slicelist=[]
+        newlist=slices_remove_small_gaps(slicelist,hz=2)
+        expected=[]
+        self.assertEqual(expected, newlist)
 
 
 class TestSlicesNot(unittest.TestCase):
