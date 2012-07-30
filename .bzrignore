@@ -42,3 +42,7 @@ test_data/temp/*
 graph*.png
 analysis_engine/custom_settings.py
 analysis_engine/custom_hooks.py
+
+# Profiling results
+*.lprof
+*.pstats

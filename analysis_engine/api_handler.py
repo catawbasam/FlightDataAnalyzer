@@ -80,7 +80,7 @@ class APIHandlerHTTP(object):
             raise APIConnectionError(uri, method, body)
         status = int(resp['status'])
         try:
-            decoded_content = json.loads(content)
+            decoded_content = json.loads(content) #TODO: use_decimal=True to improve accuracy?
         except ValueError:
             # Only JSON return types supported, any other return means server
             # is not configured correctly
@@ -125,6 +125,7 @@ class APIHandlerHTTP(object):
         '''
         for attempt in range(self.attempts):
             try:
+                logging.info("API Request args: %s | kwargs: %s", args, kwargs)
                 return self._request(*args, **kwargs)
             except (APIConnectionError, UnknownAPIError) as error:
                 logging.exception("'%s' error in request, retrying in %.2f", 

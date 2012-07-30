@@ -480,17 +480,16 @@ class TestCalculateTimebase(unittest.TestCase):
         self.assertEqual(start_dt, datetime(2020, 12, 25, 0, 0, 54))
         
     def test_no_valid_datetimes_raises_valueerror(self):
-        years = [None] * 20
-        months = [None] * 20
+        years = [None] * 25
+        months = [None] * 25
         days = [None] * 4 + [24] * 5 + [25] * 16
         hours = [None] * 3 + [23] * 7 + [00] * 15
         mins = [None] * 2 + [59] * 10 + [01] * 13
         secs = [None] * 1 + range(55, 60) + range(19)  # 6th second in next hr
         self.assertRaises(InvalidDatetime, calculate_timebase, years, months, days, hours, mins, secs)
         
-        
     def test_uneven_length_arrays(self):
-        "Tests that the uneven drabs at the end are ignored"
+        "Tests that the uneven drabs raises ValueError"
         # You should always pass in complete arrays at the moment!
         years = [None] * 1 + [2020] * 10  # uneven
         months = [None] * 5 + [12] * 20
@@ -498,8 +497,8 @@ class TestCalculateTimebase(unittest.TestCase):
         hours = [None] * 3 + [23] * 7 + [00] * 1 # uneven
         mins = [None] * 2 + [59] * 10 + [01] * 13
         secs = [None] * 1 + range(55, 60) + range(19)
-        start_dt = calculate_timebase(years, months, days, hours, mins, secs)
-        self.assertEqual(start_dt, datetime(2020,12,24,23,58,54))
+        self.assertRaises(ValueError, calculate_timebase,
+                          years, months, days, hours, mins, secs)
         
     def test_no_change_in_dt_picks_it_as_start(self):
         # also tests using numpy masked arrays
@@ -520,19 +519,10 @@ class TestCalculateTimebase(unittest.TestCase):
         mins = np.load('test_data/minute.npy')
         secs = np.load('test_data/second.npy')
         start_dt = calculate_timebase(years, months, days, hours, mins, secs)
-        self.assertEqual(start_dt, datetime(2011,12,30,8,20,36))
+        self.assertEqual(start_dt, datetime(2011,12,30,8,20,36))     
         
-    def test_real_data_params_no_year(self):
-        years = None
-        months = np.load('test_data/month.npy')
-        days = np.load('test_data/day.npy')
-        hours = np.load('test_data/hour.npy')
-        mins = np.load('test_data/minute.npy')
-        secs = np.load('test_data/second.npy')
-        start_dt = calculate_timebase(years, months, days, hours, mins, secs)
-        self.assertEqual(start_dt, datetime(2012,12,30,8,20,36))        
-        
-    @unittest.skip("Implement if this is a requirement")
+    @unittest.skip("Implement if this is a requirement, currently "
+                   "all parameters are aligned before this is being used.")
     def test_using_offset_for_seconds(self):
         # check offset milliseconds are applied to the timestamps
         self.assertFalse(True)
@@ -1284,6 +1274,59 @@ class TestBlendTwoParameters(unittest.TestCase):
         p2 = P(array=[1]*3, frequency=2, offset=0.2)
         self.assertRaises(AssertionError, blend_two_parameters, p1, p2)
 
+class TestMovingAverage(unittest.TestCase):
+    def test_basic_average(self):
+        res = moving_average(np.ma.array([1,2,3,3,3,2,1]), window=2)
+        # note mask at the start
+        self.assertEqual(list(res), [np.ma.masked, 1.5,  2.5,  3. ,  3. ,  2.5,  1.5])
+        # 7 went in, 7 come out
+        self.assertEqual(len(res), 7) 
+        
+        # mask evenly at start and end
+        res = moving_average(np.ma.arange(20), window=5)
+        self.assertEqual(len(res), 20)
+        self.assertEqual(list(res[:2]), [np.ma.masked, np.ma.masked])
+        self.assertEqual(list(res[-2:]), [np.ma.masked, np.ma.masked])
+        
+    def test_custom_weightings(self):
+        res = moving_average(np.ma.arange(10), window=4, weightings=[0.25]*4)
+        self.assertEqual(list(res), [np.ma.masked, np.ma.masked, 
+                                     1.5,  2.5,  3.5,  4.5,  5.5,  6.5, 7.5, 
+                                     np.ma.masked])
+    
+    def test_masked_edges(self):
+        #Q: Should we shift at the front only or evenly at front and end of array?
+        
+        array = np.ma.array([1,2,3,4,5,5,5,5,5,5,5,5,5,5,5], mask=
+                            [0,0,0,0,0,0,0,0,0,1,1,1,1,0,1])
+        res = moving_average(array, window=10, pad=True)
+        self.assertEqual(len(res), 15)
+        self.assertEqual(list(res.data[:5]), [0]*5)
+        self.assertEqual(list(res.data[-5:]), [0]*5)
+        # test masked edges
+        self.assertEqual(list(res.mask[:5]), [True]*5) # first 5 are masked (upper boundary of window/2)
+        self.assertEqual(list(res.mask[-5:]), [True]*5) # last 5 are masked (lower boundary of window/2 + one masked value)
+        
+        
+
+class TestNearestNeighbourMaskRepair(unittest.TestCase):
+    def test_nn_mask_repair(self):
+        array = np.ma.arange(30)
+        array[20:22] = np.ma.masked
+        res = nearest_neighbour_mask_repair(array)
+        self.assertEqual(len(res), 30)
+        self.assertEqual(list(res[19:23]), [19,19,22,22])
+        
+    def test_nn_mask_repair_with_masked_edges(self):
+        array = np.ma.arange(30)
+        array[:10] = np.ma.masked
+        array[20:22] = np.ma.masked
+        array[-2:] = np.ma.masked
+        res = nearest_neighbour_mask_repair(array)
+        self.assertEqual(len(res), 30)
+        self.assertEqual(list(res[:10]), [10]*10)
+        self.assertEqual(list(res[-3:]), [27,27,27])
+        
 
 class TestNormalise(unittest.TestCase):
     def test_normalise_copy(self):
@@ -1862,58 +1905,7 @@ class TestSubslice(unittest.TestCase):
         self.assertEqual(sub,slice(419,423,1))
 
         #TODO: test negative start, stop and step
-"""
-------------------------------------------------------------
-Time functions replaced by index operations for consistency.
-------------------------------------------------------------
 
-class TestTimeAtValue(unittest.TestCase):
-    
-    # Reminder: time_at_value (array, hz, offset, scan_start, scan_end, threshold):
-
-    def test_time_at_value_basic(self):
-        array = np.ma.arange(4)
-        self.assertEquals (time_at_value(array, 1, 0.0, 0, 3, 1.5), 1.5)
-        
-    def test_time_at_value_backwards(self):
-        array = np.ma.arange(8)
-        self.assertEquals (time_at_value(array, 1, 0.0, 6, 2, 2.5), 2.5)
-
-    def test_time_at_value_right_at_start(self):
-        array = np.ma.arange(4)
-        self.assertEquals (time_at_value(array, 1, 0.0, 1, 3, 1.0), 1.0)
-                           
-    def test_time_at_value_right_at_end(self):
-        array = np.ma.arange(4)
-        self.assertEquals (time_at_value(array, 1, 0.0, 1, 3, 3.0), 3.0)
-        
-    def test_time_at_value_threshold_not_crossed(self):
-        array = np.ma.arange(4)
-        self.assertEquals (time_at_value(array, 1, 0.0, 0, 3, 7.5), None)
-        
-    def test_time_at_value_masked(self):
-        array = np.ma.arange(4)
-        array[1] = np.ma.masked
-        self.assertEquals (time_at_value(array, 1, 0.0, 0, 3, 1.5), None)
-      
-        
-class TestTimeAtValueWrapped(unittest.TestCase):
-    # Reminder: time_at_value_wrapped(parameter, block, value):
-  
-    def test_time_at_value_wrapped_basic(self):
-        test_param = P('TAVW_param',np.ma.array(range(4),dtype=float),1,0.0)
-        test_section = Section('TAVW_section',slice(0,4))
-        self.assertEquals(time_at_value_wrapped(test_param,test_section,2.5),2.5)
-
-    def test_time_at_value_wrapped_backwards(self):
-        test_param = P('TAVW_param',np.ma.array([0,4,0,4]),1,0.0)
-        test_section = Section('TAVW_section',slice(0,4))
-        self.assertEquals(time_at_value_wrapped(test_param,test_section,2,'Backwards'),2.5)
-------------------------------------------------------------
-Time functions replaced by index operations for consistency.
-------------------------------------------------------------
-"""
-        
         
 class TestTrackLinking(unittest.TestCase):
     def test_track_linking_basic(self):
@@ -1932,7 +1924,7 @@ class TestTrackLinking(unittest.TestCase):
 class TestValueAtTime(unittest.TestCase):
 
     # Reminder: value_at_time (array, hz, offset, time_index)
-    
+
     def test_value_at_time_basic(self):
         array = np.ma.arange(4)
         self.assertEquals (value_at_time(array, 1, 0.0, 2.5), 2.5)

@@ -40,6 +40,14 @@ def validate_aircraft(aircraft_info, hdf):
 
 
 def _segment_type_and_slice(airspeed, frequency, start, stop):
+    """
+    segment_type is one of:
+    * 'GROUND_ONLY' (didn't go fast)
+    * 'START_AND_STOP'
+    * 'START_ONLY'
+    * 'STOP_ONLY'
+    * 'MID_FLIGHT'
+    """
     airspeed_start = start * frequency
     airspeed_stop = stop * frequency    
     unmasked_start, unmasked_stop = np.ma.flatnotmasked_edges(airspeed[airspeed_start:airspeed_stop])
@@ -271,8 +279,9 @@ def split_segments(hdf):
             start = split_index
             continue
         
-        logging.info("Splitting methods failed to split within slow_slice "
-                     "'%s'.", slow_slice)
+        logging.warning("Splitting methods failed to split within slow_slice "
+                        "'%s'.", slow_slice)
+        #Q: Raise error here?
     
     # Add remaining data to a segment.
     segments.append(_segment_type_and_slice(airspeed_array, airspeed.frequency,

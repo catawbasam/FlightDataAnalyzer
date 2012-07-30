@@ -456,9 +456,15 @@ class TestFormattedNameNode(unittest.TestCase):
         """ Using all RETURNS options, apply NAME_FORMAT to obtain a complete
         list of KPV names this class will create.
         """
-        formatted_name_node = self.formatted_name_node
-        formatted_name_node.NAME_FORMAT = 'Speed in %(phase)s at %(altitude)d ft'
-        formatted_name_node.NAME_VALUES = {'altitude' : range(100, 701, 300),'phase' : ['ascent', 'descent']}
+        class ExampleNameFormatNode(FormattedNameNode):
+            NAME_FORMAT = 'Speed in %(phase)s at %(altitude)d ft'
+            NAME_VALUES = {'altitude' : range(100, 701, 300),
+                           'phase' : ['ascent', 'descent']}
+            def derive(self, a=P('a',[], 2, 0.4)):
+                pass
+            def get_derived(self):
+                pass
+        formatted_name_node = ExampleNameFormatNode()
         names = formatted_name_node.names()
         
         self.assertEqual(names, ['Speed in ascent at 100 ft',
@@ -472,10 +478,15 @@ class TestFormattedNameNode(unittest.TestCase):
     def test__validate_name(self):
         """ Ensures that created names have a validated option
         """
-        formatted_name_node = self.formatted_name_node
-        formatted_name_node.NAME_FORMAT = 'Speed in %(phase)s at %(altitude)d ft'
-        formatted_name_node.NAME_VALUES = {'altitude' : range(100,1000,100),
-                                'phase' : ['ascent', 'descent']}
+        class ExampleNameFormatNode(FormattedNameNode):
+            NAME_FORMAT = 'Speed in %(phase)s at %(altitude)d ft'
+            NAME_VALUES = {'altitude' : range(100,1000,100),
+                           'phase' : ['ascent', 'descent']}
+            def derive(self, a=P('a',[], 2, 0.4)):
+                pass
+            def get_derived(self):
+                pass
+        formatted_name_node = ExampleNameFormatNode()
         self.assertTrue(formatted_name_node._validate_name('Speed in ascent at 500 ft'))
         self.assertTrue(formatted_name_node._validate_name('Speed in descent at 900 ft'))
         self.assertTrue(formatted_name_node._validate_name('Speed in descent at 100 ft'))
@@ -635,8 +646,15 @@ class TestFormattedNameNode(unittest.TestCase):
         previous_kti = kti_node.get_previous(25, name="Fast")
         self.assertEqual(previous_kti, None)
         previous_kti = kti_node.get_previous(40, frequency=4)
-        self.assertEqual(previous_kti, KeyTimeInstance(2, 'Slowest'))                
-
+        self.assertEqual(previous_kti, KeyTimeInstance(2, 'Slowest'))
+        
+    def test_initial_items_storage(self):
+        node = FormattedNameNode(['a', 'b', 'c'])
+        self.assertEqual(list(node), ['a', 'b', 'c'])
+        node = FormattedNameNode(('a', 'b', 'c'))
+        self.assertEqual(list(node), ['a', 'b', 'c'])
+        node = FormattedNameNode(items=['a', 'b', 'c'])
+        self.assertEqual(list(node), ['a', 'b', 'c'])
 
 class TestKeyPointValueNode(unittest.TestCase):
     
@@ -650,10 +668,13 @@ class TestKeyPointValueNode(unittest.TestCase):
     def test_create_kpv(self):
         """ Tests name format substitution and return type
         """
-        knode = self.knode
-        knode.NAME_FORMAT = 'Speed in %(phase)s at %(altitude)dft'
-        knode.NAME_VALUES = {'phase':['ascent', 'descent'],
+        class KPVNode(KeyPointValueNode):
+            NAME_FORMAT = 'Speed in %(phase)s at %(altitude)dft'
+            NAME_VALUES = {'phase':['ascent', 'descent'],
                              'altitude':[1000,1500],}
+            def derive(self, a=P('a',[], 2, 0.4)):
+                pass
+        knode = KPVNode(frequency=2, offset=0.4)
         
         self.assertEqual(knode.frequency, 2)
         self.assertEqual(knode.offset, 0.4)
@@ -676,8 +697,9 @@ class TestKeyPointValueNode(unittest.TestCase):
         # wrong type raises TypeError
         self.assertRaises(TypeError, knode.create_kpv, 2, '3', 
                           phase='', altitude='')
-        # None index
-        self.assertRaises(ValueError, knode.create_kpv, None, 'b')
+        # None index -- now logs a WARNING and does not raise an error
+        knode.create_kpv(None, 'b')
+        self.assertTrue('b' not in knode)  ## this test isn't quite right...!
         
     def test_create_kpvs_at_ktis(self):
         knode = self.knode
@@ -710,13 +732,16 @@ class TestKeyPointValueNode(unittest.TestCase):
         '''
         TODO: Test offset alignment.
         '''
-        knode = self.knode
-        knode.NAME_FORMAT = 'Speed at %(altitude)dft'
-        knode.NAME_VALUES = {'altitude':[1000,1500]}
+        class KPVNode(KeyPointValueNode):
+            NAME_FORMAT = 'Speed at %(altitude)dft'
+            NAME_VALUES = {'altitude':[1000,1500]}
+            def derive(self, a=P('a',[], 2, 0.4)):
+                pass
+        knode = KPVNode()
         param = Parameter('p', frequency=0.5, offset=1.5)
         knode.create_kpv(10, 12.5, altitude=1000.0)
         knode.create_kpv(24, 12.5, altitude=1000.0)
-        aligned_node = self.knode.get_aligned(param)
+        aligned_node = knode.get_aligned(param)
         self.assertEqual(aligned_node.frequency, param.frequency)
         self.assertEqual(aligned_node.offset, param.offset)
         self.assertEqual(aligned_node,

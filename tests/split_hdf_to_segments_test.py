@@ -185,53 +185,53 @@ class TestSplitSegments(unittest.TestCase):
                           ('START_AND_STOP', slice(12373.0, 15410.0, None)),
                           ('START_AND_STOP', slice(15410.0, 18752.0, None))])    
     
+class mocked_hdf(object):
+    def __init__(self, path):
+        self.path = path
+        if path == 'slow':
+            self.airspeed = np.ma.array(range(10,20)*5)
+        else:
+            self.airspeed = np.ma.array(
+                np.load('test_data/4_3377853_146-301_airspeed.npy'))
+        self.duration = len(self.airspeed)
+        
+    def __enter__(self):
+        return self
+    
+    def __exit__(self, *args):
+        pass
+    
+    def __getitem__(self, key):
+        if key == 'Airspeed':
+            data = self.airspeed
+        
+        if self.path == 'invalid timestamps':
+            if key == 'Year':
+                data = np.ma.array([0] * 60)
+            elif key == 'Month':
+                data = np.ma.array([13] * 60)
+            elif key == 'Day':
+                data = np.ma.array([31] * 60)
+            else:
+                data = np.ma.array(range(1,59))
+        else:
+            if key == 'Year':
+                data = np.ma.array([2020] * 60)
+            elif key == 'Month':
+                data = np.ma.array([12] * 60)
+            elif key == 'Day':
+                data = np.ma.array([25] * 60)
+            else:
+                data = np.ma.array(range(1,59))
+        return P(key, array=data)
+    
     
 class TestSegmentInfo(unittest.TestCase):
-    def setUp(self):
-        import analysis_engine.split_segments as splitseg
-        class mocked_hdf(object):
-            def __init__(self, path):
-                self.path = path
-                if path == 'slow':
-                    self.airspeed = np.ma.array(range(10,20)*5)
-                else:
-                    self.airspeed = np.ma.array(
-                        np.load('test_data/4_3377853_146-301_airspeed.npy'))
-                self.duration = len(self.airspeed)
-                
-            def __enter__(self):
-                return self
-            
-            def __exit__(self, *args):
-                pass
-            
-            def __getitem__(self, key):
-                if key == 'Airspeed':
-                    data = self.airspeed
-                
-                if self.path == 'invalid timestamps':
-                    if key == 'Year':
-                        data = np.ma.array([0] * 60)
-                    elif key == 'Month':
-                        data = np.ma.array([13] * 60)
-                    elif key == 'Day':
-                        data = np.ma.array([31] * 60)
-                    else:
-                        data = np.ma.array(range(1,59))
-                else:
-                    if key == 'Year':
-                        data = np.ma.array([2020] * 60)
-                    elif key == 'Month':
-                        data = np.ma.array([12] * 60)
-                    elif key == 'Day':
-                        data = np.ma.array([25] * 60)
-                    else:
-                        data = np.ma.array(range(1,59))
-                return P(key, array=data)
-            
-        splitseg.hdf_file = mocked_hdf
-        splitseg.sha_hash_file = mock.Mock()
-        splitseg.sha_hash_file.return_value = 'ABCDEFG'
+    @mock.patch('analysis_engine.split_hdf_to_segments.sha_hash_file')
+    @mock.patch('analysis_engine.split_hdf_to_segments.hdf_file', new_callable=mocked_hdf)
+    def setUp(self, sha_hash_file_patch, hdf_file_patch):
+        sha_hash_file_patch = mock.Mock()
+        sha_hash_file_patch.return_value = 'ABCDEFG'
         
     def test_append_segment_info(self):
         # example where it goes fast

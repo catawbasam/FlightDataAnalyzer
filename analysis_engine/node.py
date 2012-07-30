@@ -629,13 +629,21 @@ class FormattedNameNode(Node, list):
     
     def __init__(self, *args, **kwargs):
         '''
+        If the there i not an 'items' kwarg and the first argument is a list 
+        or a tuple, the first argument's items will be extended to the node.
+        
         :param items: Optional keyword argument of initial items to be contained within self.
         :type items: list
         '''
         if 'items' in kwargs:
             self.extend(kwargs['items'])
             del kwargs['items']
-        super(FormattedNameNode, self).__init__(*args, **kwargs)
+            super(FormattedNameNode, self).__init__(*args, **kwargs)
+        elif len(args) and (isinstance(args[0], list) or isinstance(args[0], tuple)):
+            self.extend(args[0])
+            super(FormattedNameNode, self).__init__(*args[1:], **kwargs)
+        else:
+            super(FormattedNameNode, self).__init__(*args, **kwargs)
         
     def __repr__(self):
         return '%s' % list(self)
@@ -905,6 +913,8 @@ class KeyPointValueNode(FormattedNameNode):
         :rtype: KeyTimeInstance named tuple
         :raises KeyError: If a required string formatting key is not provided.
         :raises TypeError: If a string formatting argument is of the wrong type.
+        
+        TODO: Add examples using interpolation values as kwargs.
         '''
         if index is None or value is None or value is np.ma.masked:
             logging.warning("'%s' cannot create KPV for index '%s' and value "

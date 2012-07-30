@@ -1,7 +1,7 @@
 import numpy as np
 import logging
 
-from math import floor, sqrt, sin, cos, atan2, radians
+from math import ceil, floor, sqrt, sin, cos, atan2, radians
 from collections import OrderedDict, namedtuple
 from datetime import datetime, timedelta
 from hashlib import sha256
@@ -235,26 +235,17 @@ def calculate_timebase(years, months, days, hours, mins, secs):
     """
     base_dt = None
     clock_variation = OrderedDict() # Ordered so if all values are the same, max will consistently take the first val
-    
-    #22.02.2012 - below no longer seems to be required.
-    ##length = len(mins)
-    ##if years is None or not len(years):
-        ##logging.warning("Year not supplied, filling in with 1970")
-        ##years = np.repeat([1970], length) # force invalid year
-    ##if months is None or not len(months):
-        ##logging.warning("Month not supplied, filling in with 01")
-        ##months = np.repeat([01], length) # force invalid month
-    ##if days is None or not len(days):
-        ##logging.warning("Day not supplied, filling in with 01")
-        ##days = np.repeat([01], length) # force invalid days
-        
+
+    if not len(years) == len(months) == len(days) == \
+       len(hours) == len(mins) == len(secs):
+        raise ValueError("Arrays must be of same length")
+
     for step, (yr, mth, day, hr, mn, sc) in enumerate(izip(years, months, days, hours, mins, secs)):
-        
+        #TODO: Try using numpy datetime functions for speedup?
         #try:
             #date = np.datetime64('%d-%d-%d' % (yr, mth, day), 'D')
         #except np.core._mx_datetime_parser.RangeError  :
             #continue
-        
         # same for time?
         
         if yr and yr < 100:
@@ -1343,6 +1334,89 @@ def blend_two_parameters (param_one, param_two):
         array = blend_alternate_sensors(param_two.array, param_one.array, padding)
     return array, param_one.frequency * 2, offset
 
+
+def moving_average(array, window=9, weightings=None, pad=True):
+    """
+    Moving average over an array with window of n samples. Weightings allows
+    customisation of the importance of each position's value in the average.
+    
+    Recommend odd lengthed moving windows as the result is positioned
+    centrally in the window offset.
+    
+    :param array: Masked Array
+    :type array: np.ma.array
+    :param window: Size of moving average window to use
+    :type window: Integer
+    :param pad: Pad the returned array to the same length of the input, using masked 0's
+    :type pad: Boolean
+    :param weightings: Apply uneven weightings across the window - the same length as window.
+    :type weightings: array-like object consisting of floats
+    
+    Ref: http://argandgahandapandpa.wordpress.com/2011/02/24/python-numpy-moving-average-for-data/
+    """
+    if weightings is None:
+        weightings = np.repeat(1.0, window) / window
+    elif len(weightings) != window:
+        raise ValueError("weightings argument (len:%d) must equal window (len:%d)" % (
+            len(weightings), window))
+    # repair mask
+    repaired = repair_mask(array, repair_duration=None, raise_duration_exceedance=False)
+    # if start of mask, ignore this section and remask at end
+    start, end = np.ma.notmasked_edges(repaired)
+    stop = end+1
+    # slice array with these edges
+    unmasked_data = repaired.data[start:stop]
+        
+    averaged = np.convolve(unmasked_data, weightings, 'valid')
+    if pad:
+        # mask the new stuff
+        pad_front = np.ma.zeros(window/2 + start)
+        pad_front.mask = True
+        pad_end = np.ma.zeros(len(array)-1 + ceil(window/2.0) - stop)
+        pad_end.mask = True
+        return np.ma.hstack([pad_front, averaged, pad_end])
+    else:
+        return averaged
+    
+def nearest_neighbour_mask_repair(array, copy=True):
+    """
+    WARNING: Currently wraps, so masked items at start will be filled with
+    values from end of array.
+    
+    TODO: Avoid wrapping from start /end and use first value to preceed values.
+    
+    Ref: http://stackoverflow.com/questions/3662361/fill-in-missing-values-with-nearest-neighbour-in-python-numpy-masked-arrays
+    """
+    if copy:
+        array = array.copy()
+    def next_neighbour(start=1):
+        """
+        Generates incrementing positive and negative pairs from start
+        e.g. start = 1
+        yields 1,-1, 2,-2, 3,-3,...
+        """
+        x = start
+        while True:
+            yield x
+            yield -x
+            x += 1
+    # if first or last masked, repair now
+    start, stop = np.ma.notmasked_edges(array)
+    if start > 0:
+        array[:start] = array[start]
+    if stop+1 < len(array):
+        array[stop+1:] = array[stop]
+        
+    neighbours = next_neighbour()
+    a_copy = array.copy()
+    for shift in neighbours:
+        if not np.any(array.mask): 
+            break
+        a_shifted = np.roll(a_copy,shift=shift)
+        idx = ~a_shifted.mask * array.mask
+        array[idx] = a_shifted[idx]
+    return array
+
 def normalise(array, normalise_max=1.0, scale_max=None, copy=True, axis=None):
     """
     Normalise an array between 0 and normalise_max.
@@ -1848,18 +1922,14 @@ def smooth_track(lat, lon):
     if len(lat) <= 5:
         return lat, lon, 0.0 # Polite return of data too short to smooth.
     
-    # This routine used to index through the arrays. By using np.convolve (in
-    # both the iteration and cost functions) the same algorithm runs 350
-    # times faster !!!
-    
     lat_s = np.ma.copy(lat)
     lon_s = np.ma.copy(lon)
     
     # Set up a weighted array that will slide past the data.
     r = 0.7  
     # Values of r alter the speed to converge; 0.7 seems best.
-    slider=np.ma.ones(5)*r/4
-    slider[2]=1-r
+    slider = np.ma.ones(5)*r/4
+    slider[2] = 1-r
 
     cost_0 = 9e+99
     cost = smooth_track_cost_function(lat_s, lon_s, lat, lon)
