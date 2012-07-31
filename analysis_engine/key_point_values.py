@@ -290,6 +290,26 @@ class AirspeedMinusVrefFor5Sec20FtToTouchdownMax(KeyPointValueNode):
                                        max_value) 
 
 
+class AirspeedMinusVrefFor5Sec1000To500FtMin(KeyPointValueNode):
+    def derive(self, speed=P('Airspeed Minus Vref For 5 Sec'), alt_aal=P('Altitude AAL For Flight Phases')):
+        self.create_kpvs_within_slices(speed.array,
+                                       alt_aal.slices_from_to(1000, 500),
+                                       min_value)
+
+
+class AirspeedMinusVrefFor5Sec500To20FtMin(KeyPointValueNode):
+    def derive(self, speed=P('Airspeed Minus Vref For 5 Sec'), alt_aal=P('Altitude AAL For Flight Phases')):
+            self.create_kpvs_within_slices(speed.array,
+                                           alt_aal.slices_from_to(500, 20),
+                                           min_value) 
+
+
+class AirspeedMinusVrefFor5Sec20FtToTouchdownMin(KeyPointValueNode):
+    def derive(self, speed=P('Airspeed Minus Vref For 5 Sec'), alt_aal=P('Altitude AAL For Flight Phases')):
+        self.create_kpvs_within_slices(speed.array,
+                                       alt_aal.slices_from_to(20, 0),
+                                       min_value) 
+
 
 def thrust_reverser_min_speed(land, pwr, tr):
     high_power = np.ma.clump_unmasked(np.ma.masked_less(pwr.array[land.slice],60.0))
