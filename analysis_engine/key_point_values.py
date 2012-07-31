@@ -2339,10 +2339,12 @@ class SpeedbrakesDeployedWithPowerOnDuration(KeyPointValueNode):
     duration this happened for, and allow the analyst to find out the cause.
     '''
     def derive(self, speedbrake=P('Speedbrake'), 
-               power=P('Eng (*) N1 Avg'), airs=S('Airborne')):
+               power=P('Eng (*) N1 Avg'), airs=S('Airborne'),
+               manufacturer=A('Manufacturer')):
         speedbrake_in_flight = mask_outside_slices(speedbrake.array, [s.slice for s in airs])
         speedbrakes_applied_in_flight = np.ma.clump_unmasked(np.ma.masked_less(speedbrake_in_flight,0.5))
-        high_power = np.ma.clump_unmasked(np.ma.masked_less(power.array, 50.0))
+        percent = 60.0 if manufacturer == 'Airbus' else 50.0
+        high_power = np.ma.clump_unmasked(np.ma.masked_less(power.array, percent))
         # Speedbrake and Power => s_and_p
         s_and_ps = slices_and(speedbrakes_applied_in_flight, high_power)
         for s_and_p in s_and_ps:
