@@ -710,13 +710,6 @@ class AirspeedMinusVrefAtTouchdown(KeyPointValueNode):
         self.create_kpvs_at_ktis(airspeed.array, touchdowns)
 
 
-class AirspeedMinusVrefFor5Sec20FtToTouchdownMax(KeyPointValueNode):
-    def derive(self, speed=P('Airspeed Minus Vref For 5 Sec'), alt_aal=P('Altitude AAL For Flight Phases')):
-        self.create_kpvs_within_slices(speed.array,
-                                       alt_aal.slices_from_to(20, 0),
-                                       max_value)
-
-
 class AirspeedMinusVrefBetween2MinutesToTouchdownAndTouchdownMin(KeyPointValueNode):
     #TODO: TESTS
     def derive(self, mins_to_touchdown=KTI('Mins To Touchdown'), 
