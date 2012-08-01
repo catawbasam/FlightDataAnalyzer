@@ -595,13 +595,12 @@ class AltitudeRadio(DerivedParameterNode):
     two valid sensors.
     :type parameter object.
     """
+    align_to_first_dependency = False
     @classmethod
     def can_operate(cls, available):
         if 'Altitude Radio (A)' in available and \
            'Altitude Radio (B)' in available:
             return True
-    
-    align_to_first_dependency = False
     
     def derive(self, frame = A('Frame'),
                frame_qual = A('Frame Qualifier'),
@@ -2992,26 +2991,22 @@ class Speedbrake(DerivedParameterNode):
 class StickShaker(DerivedParameterNode):
     '''
     This accounts for the different types of stick shaker system.
-    '''
+    '''    
+    align_to_first_dependency = False
+    
     @classmethod
     def can_operate(cls, available):
         # we cannot access the frame_name within this method to determine which
         # parameter is the requirement
-        if 'Frame' in available and ('Stick Shaker (L)' in available or 'Shaker Activation' in available):
+        if 'Frame' in available and ('Stick Shaker (L)' in available \
+                                     or 'Shaker Activation' in available):
             return True
     
-    align_to_first_dependency = False
-
-    def derive(self, frame = A('Frame'), 
-               shake = P('Stick Shaker (L)'), 
-               shake_act = P('Shaker Activation')):
-
-        frame_name = frame.value if frame else None
-        
+    def derive(self, shake = P('Stick Shaker (L)'), 
+               shake_act = P('Shaker Activation'), frame=A('Frame')):
         if frame_name in ['CRJ-700-900'] and shake_act:
             self.array, self.frequency, self.offset = \
                 shake_act.array, shake_act.frequency, shake_act.offset
-        
         else:
             # elif frame_name in ['737-5', '757-DHL'] and shake:
             self.array, self.frequency, self.offset = \

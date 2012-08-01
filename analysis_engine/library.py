@@ -1189,7 +1189,7 @@ def hash_array(array):
     checksum.update(array.tostring())
     return checksum.hexdigest()
 
-paramrray, hysteresis):
+def hysteresis(array, hysteresis):
     """
     Applies hysteresis to an array of data. The function applies half the
     required level of hysteresis forwards and then backwards to provide a
