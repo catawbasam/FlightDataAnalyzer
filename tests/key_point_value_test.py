@@ -28,8 +28,8 @@ from analysis_engine.key_point_values import (
     ##AirspeedMinusV235To400FtMin,
     ##AirspeedMinusV2400To1500FtMin,
     AirspeedMinusV2AtLiftoff,
-    AirspeedMinusVref500FtToTouchdownMax,
-    AirspeedMinusVrefAtTouchdown,
+    AirspeedRelative500FtToTouchdownMax,
+    AirspeedRelativeAtTouchdown,
     AirspeedWithFlapMax,
     ##AirspeedWithGearSelectedDownMax,
     AltitudeAtMachMax,
@@ -429,20 +429,20 @@ class TestAirspeedMinusV2AtLiftoff(unittest.TestCase, CreateKPVsAtKTIsTest):
         self.operational_combinations = [('Airspeed Minus V2', 'Liftoff')]
 
 
-class TestAirspeedMinusVref500FtToTouchdownMax(unittest.TestCase,
+class TestAirspeedRelative500FtToTouchdownMax(unittest.TestCase,
                                                CreateKPVsWithinSlicesTest):
     def setUp(self):
-        self.node_class = AirspeedMinusVref500FtToTouchdownMax
-        self.operational_combinations = [('Airspeed Minus Vref',
+        self.node_class = AirspeedRelative500FtToTouchdownMax
+        self.operational_combinations = [('Airspeed Relative',
                                           'Altitude AAL For Flight Phases')]
         self.function = max_value
         self.second_param_method_calls = [('slices_from_to', (500, 0,), {})]
 
 
-class TestAirspeedMinusVrefAtTouchdown(unittest.TestCase, CreateKPVsAtKTIsTest):
+class TestAirspeedRelativeAtTouchdown(unittest.TestCase, CreateKPVsAtKTIsTest):
     def setUp(self):
-        self.node_class = AirspeedMinusVrefAtTouchdown
-        self.operational_combinations = [('Airspeed Minus Vref', 'Touchdown')]
+        self.node_class = AirspeedRelativeAtTouchdown
+        self.operational_combinations = [('Airspeed Relative', 'Touchdown')]
 
     
 class TestAirspeedWithFlapMax(unittest.TestCase):
