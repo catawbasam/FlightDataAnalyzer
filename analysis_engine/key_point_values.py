@@ -2966,7 +2966,7 @@ class DualStickInput(KeyPointValueNode):
         return NotImplemented
 
 
-class EngineBleedValvesAtLiftoff(KeyPointValueNode):
+class EngBleedValvesAtLiftoff(KeyPointValueNode):
     def derive(self, b1=P('Eng (1) Bleed'), b2=P('Eng (2) Bleed'),
                lifts=KTI('Liftoff')):
         # b1 & b2 are integer arrays, but to index them correctly we need to
@@ -2980,12 +2980,17 @@ class EngineBleedValvesAtLiftoff(KeyPointValueNode):
                 self.create_kpv(lift.index, valves)
         
 
-class EngineTorqueTakeoffMax(KeyPointValueNode):
+class EngTorqueTakeoffMax(KeyPointValueNode):
     def derive(self, x=P('Not Yet')):
         return NotImplemented
 
 
-class EngineTorqueAbove10000FtMax(KeyPointValueNode):
+class EngTorqueGoAroundMax(KeyPointValueNode):
+    def derive(self, x=P('Not Yet')):
+        return NotImplemented
+
+
+class EngTorqueAbove10000FtMax(KeyPointValueNode):
     def derive(self, x=P('Not Yet')):
         return NotImplemented
         
