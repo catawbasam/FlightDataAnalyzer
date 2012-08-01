@@ -267,28 +267,393 @@ class AirspeedVacatingRunway(KeyPointValueNode):
     def derive(self, airspeed=P('Airspeed True'), 
                off_rwy=KTI('Landing Turn Off Runway')):
         self.create_kpvs_at_ktis(airspeed.array, off_rwy)
-        
-
-class AirspeedMinusVrefFor5Sec1000To500FtMax(KeyPointValueNode):
-    def derive(self, speed=P('Airspeed Minus Vref For 5 Sec'), alt_aal=P('Altitude AAL For Flight Phases')):
-        self.create_kpvs_within_slices(speed.array,
-                                       alt_aal.slices_from_to(1000, 500),
-                                       max_value)
 
 
-class AirspeedMinusVrefFor5Sec500To20FtMax(KeyPointValueNode):
-    def derive(self, speed=P('Airspeed Minus Vref For 5 Sec'), alt_aal=P('Altitude AAL For Flight Phases')):
-            self.create_kpvs_within_slices(speed.array,
-                                           alt_aal.slices_from_to(500, 20),
-                                           max_value) 
+################################################################################
+# Airspeed Minus V2
 
 
-class AirspeedMinusVrefFor5Sec20FtToTouchdownMax(KeyPointValueNode):
-    def derive(self, speed=P('Airspeed Minus Vref For 5 Sec'), alt_aal=P('Altitude AAL For Flight Phases')):
-        self.create_kpvs_within_slices(speed.array,
-                                       alt_aal.slices_from_to(20, 0),
-                                       max_value) 
+# TODO: Write some unit tests!
+class AirspeedMinusV2AtLiftoff(KeyPointValueNode):
+    '''
+    '''
 
+    name = 'Airspeed Minus V2 At Liftoff'
+
+    def derive(self, spd_v2=P('Airspeed Minus V2'), liftoffs=KTI('Liftoff')):
+        '''
+        '''
+        self.create_kpvs_at_ktis(spd_v2.array, liftoffs)
+
+
+# TODO: Write some unit tests!
+class AirspeedMinusV2At35Ft(KeyPointValueNode):
+    '''
+    '''
+
+    name = 'Airspeed Minus V2 At 35 Ft'
+
+    def derive(self, spd_v2=P('Airspeed Minus V2'), takeoffs=S('Takeoff')):
+        '''
+        '''
+        for takeoff in takeoffs:
+            index = takeoff.end  # Takeoff ends at 35ft!
+            value = spd_v2.array[index]
+            self.create_kpv(index, value)
+
+
+# TODO: Write some unit tests!
+class AirspeedMinusV235To1000FtMax(KeyPointValueNode):
+    '''
+    '''
+
+    name = 'Airspeed Minus V2 35 To 1000 Ft Max'
+
+    def derive(self, spd_v2=P('Airspeed Minus V2'), alt_aal=P('Altitude AAL For Flight Phases')):
+        '''
+        '''
+        self.create_kpvs_within_slices(
+            spd_v2.array,
+            alt_aal.slices_from_to(35, 1000),
+            max_value,
+        )
+
+
+# TODO: Write some unit tests!
+class AirspeedMinusV235To1000FtMin(KeyPointValueNode):
+    '''
+    '''
+
+    name = 'Airspeed Minus V2 35 To 1000 Ft Min'
+
+    def derive(self, spd_v2=P('Airspeed Minus V2'), alt_aal=P('Altitude AAL For Flight Phases')):
+        '''
+        '''
+        self.create_kpvs_within_slices(
+            spd_v2.array,
+            alt_aal.slices_from_to(35, 1000),
+            min_value,
+        )
+
+
+################################################################################
+# Airspeed Relative
+
+
+# TODO: Write some unit tests!
+class AirspeedRelativeAtTouchdown(KeyPointValueNode):
+    '''
+    '''
+
+    def derive(self, spd_rel=P('Airspeed Relative'), touchdowns=KTI('Touchdown')):
+        '''
+        '''
+        self.create_kpvs_at_ktis(spd_rel.array, touchdowns)
+
+
+# TODO: Write some unit tests!
+# TODO: Remove this KPV as not used elsewhere and not in event set?
+class AirspeedRelative500FtToTouchdownMax(KeyPointValueNode):
+    '''
+    '''
+
+    def derive(self, spd_rel=P('Airspeed Relative'), alt_aal=P('Altitude AAL For Flight Phases')):
+        '''
+        '''
+        self.create_kpvs_within_slices(
+            spd_rel.array,
+            alt_aal.slices_from_to(500, 0),
+            max_value,
+        )
+
+
+# TODO: Write some unit tests!
+# TODO: Remove this KPV as not used elsewhere and not in event set?
+class AirspeedRelativeBetween2MinutesToTouchdownAndTouchdownMin(KeyPointValueNode):
+    '''
+    '''
+
+    def derive(self, mins_to_touchdown=KTI('Mins To Touchdown'), airspeed=P('Airspeed Relative')):
+        '''
+        '''
+        for _2_min in mins_to_touchdown.get(name='2 Mins To Touchdown'):
+            # Add two minutes to find touchdown:
+            tdwn = _2_min.index + 2 * 60 * self.frequency
+            index, value = min_value(airspeed.array, slice(_2_min.index, tdwn))
+            self.create_kpv(index, value)
+
+
+# TODO: Write some unit tests!
+class AirspeedRelative1000To500FtMax(KeyPointValueNode):
+    '''
+    '''
+
+    def derive(self, spd_rel=P('Airspeed Relative'), alt_aal=P('Altitude AAL For Flight Phases')):
+        '''
+        '''
+        self.create_kpvs_within_slices(
+            spd_rel.array,
+            alt_aal.slices_from_to(1000, 500),
+            max_value,
+        )
+
+
+# TODO: Write some unit tests!
+class AirspeedRelative1000To500FtMin(KeyPointValueNode):
+    '''
+    '''
+
+    def derive(self, spd_rel=P('Airspeed Relative'), alt_aal=P('Altitude AAL For Flight Phases')):
+        '''
+        '''
+        self.create_kpvs_within_slices(
+            spd_rel.array,
+            alt_aal.slices_from_to(1000, 500),
+            min_value,
+        )
+
+
+# TODO: Write some unit tests!
+class AirspeedRelative500To20FtMax(KeyPointValueNode):
+    '''
+    '''
+
+    def derive(self, spd_rel=P('Airspeed Relative'), alt_aal=P('Altitude AAL For Flight Phases')):
+        '''
+        '''
+        self.create_kpvs_within_slices(
+            spd_rel.array,
+            alt_aal.slices_from_to(500, 20),
+            max_value,
+        )
+
+
+# TODO: Write some unit tests!
+class AirspeedRelative500To20FtMin(KeyPointValueNode):
+    '''
+    '''
+
+    def derive(self, spd_rel=P('Airspeed Relative'), alt_aal=P('Altitude AAL For Flight Phases')):
+        '''
+        '''
+        self.create_kpvs_within_slices(
+            spd_rel.array,
+            alt_aal.slices_from_to(500, 20),
+            min_value,
+        )
+
+
+# TODO: Write some unit tests!
+class AirspeedRelative20FtToTouchdownMax(KeyPointValueNode):
+    '''
+    '''
+
+    def derive(self, spd_rel=P('Airspeed Relative'), alt_aal=P('Altitude AAL For Flight Phases')):
+        '''
+        '''
+        self.create_kpvs_within_slices(
+            spd_rel.array,
+            alt_aal.slices_from_to(20, 0),
+            max_value,
+        )
+
+
+# TODO: Write some unit tests!
+class AirspeedRelative20FtToTouchdownMin(KeyPointValueNode):
+    '''
+    '''
+
+    def derive(self, spd_rel=P('Airspeed Relative'), alt_aal=P('Altitude AAL For Flight Phases')):
+        '''
+        '''
+        self.create_kpvs_within_slices(
+            spd_rel.array,
+            alt_aal.slices_from_to(20, 0),
+            min_value,
+        )
+
+
+# TODO: Write some unit tests!
+class AirspeedRelativeFor3Sec1000To500FtMax(KeyPointValueNode):
+    '''
+    '''
+
+    def derive(self, spd_rel=P('Airspeed Relative For 3 Sec'), alt_aal=P('Altitude AAL For Flight Phases')):
+        '''
+        '''
+        self.create_kpvs_within_slices(
+            spd_rel.array,
+            alt_aal.slices_from_to(1000, 500),
+            max_value,
+        )
+
+
+# TODO: Write some unit tests!
+class AirspeedRelativeFor3Sec1000To500FtMin(KeyPointValueNode):
+    '''
+    '''
+
+    def derive(self, spd_rel=P('Airspeed Relative For 3 Sec'), alt_aal=P('Altitude AAL For Flight Phases')):
+        '''
+        '''
+        self.create_kpvs_within_slices(
+            spd_rel.array,
+            alt_aal.slices_from_to(1000, 500),
+            min_value,
+        )
+
+
+# TODO: Write some unit tests!
+class AirspeedRelativeFor3Sec500To20FtMax(KeyPointValueNode):
+    '''
+    '''
+
+    def derive(self, spd_rel=P('Airspeed Relative For 3 Sec'), alt_aal=P('Altitude AAL For Flight Phases')):
+        '''
+        '''
+        self.create_kpvs_within_slices(
+            spd_rel.array,
+            alt_aal.slices_from_to(500, 20),
+            max_value,
+        )
+
+
+# TODO: Write some unit tests!
+class AirspeedRelativeFor3Sec500To20FtMin(KeyPointValueNode):
+    '''
+    '''
+
+    def derive(self, spd_rel=P('Airspeed Relative For 3 Sec'), alt_aal=P('Altitude AAL For Flight Phases')):
+        '''
+        '''
+        self.create_kpvs_within_slices(
+            spd_rel.array,
+            alt_aal.slices_from_to(500, 20),
+            min_value,
+        )
+
+
+# TODO: Write some unit tests!
+class AirspeedRelativeFor3Sec20FtToTouchdownMax(KeyPointValueNode):
+    '''
+    '''
+
+    def derive(self, spd_rel=P('Airspeed Relative For 3 Sec'), alt_aal=P('Altitude AAL For Flight Phases')):
+        '''
+        '''
+        self.create_kpvs_within_slices(
+            spd_rel.array,
+            alt_aal.slices_from_to(20, 0),
+            max_value,
+        )
+
+
+# TODO: Write some unit tests!
+class AirspeedRelativeFor3Sec20FtToTouchdownMin(KeyPointValueNode):
+    '''
+    '''
+
+    def derive(self, spd_rel=P('Airspeed Relative For 3 Sec'), alt_aal=P('Altitude AAL For Flight Phases')):
+        '''
+        '''
+        self.create_kpvs_within_slices(
+            spd_rel.array,
+            alt_aal.slices_from_to(20, 0),
+            min_value,
+        )
+
+
+# TODO: Write some unit tests!
+class AirspeedRelativeFor5Sec1000To500FtMax(KeyPointValueNode):
+    '''
+    '''
+
+    def derive(self, spd_rel=P('Airspeed Relative For 5 Sec'), alt_aal=P('Altitude AAL For Flight Phases')):
+        '''
+        '''
+        self.create_kpvs_within_slices(
+            spd_rel.array,
+            alt_aal.slices_from_to(1000, 500),
+            max_value,
+        )
+
+
+# TODO: Write some unit tests!
+class AirspeedRelativeFor5Sec1000To500FtMin(KeyPointValueNode):
+    '''
+    '''
+
+    def derive(self, spd_rel=P('Airspeed Relative For 5 Sec'), alt_aal=P('Altitude AAL For Flight Phases')):
+        '''
+        '''
+        self.create_kpvs_within_slices(
+            spd_rel.array,
+            alt_aal.slices_from_to(1000, 500),
+            min_value,
+        )
+
+
+# TODO: Write some unit tests!
+class AirspeedRelativeFor5Sec500To20FtMax(KeyPointValueNode):
+    '''
+    '''
+
+    def derive(self, spd_rel=P('Airspeed Relative For 5 Sec'), alt_aal=P('Altitude AAL For Flight Phases')):
+        '''
+        '''
+        self.create_kpvs_within_slices(
+            spd_rel.array,
+            alt_aal.slices_from_to(500, 20),
+            max_value,
+        )
+
+
+# TODO: Write some unit tests!
+class AirspeedRelativeFor5Sec500To20FtMin(KeyPointValueNode):
+    '''
+    '''
+
+    def derive(self, spd_rel=P('Airspeed Relative For 5 Sec'), alt_aal=P('Altitude AAL For Flight Phases')):
+        '''
+        '''
+        self.create_kpvs_within_slices(
+            spd_rel.array,
+            alt_aal.slices_from_to(500, 20),
+            min_value,
+        )
+
+
+# TODO: Write some unit tests!
+class AirspeedRelativeFor5Sec20FtToTouchdownMax(KeyPointValueNode):
+    '''
+    '''
+
+    def derive(self, spd_rel=P('Airspeed Relative For 5 Sec'), alt_aal=P('Altitude AAL For Flight Phases')):
+        '''
+        '''
+        self.create_kpvs_within_slices(
+            spd_rel.array,
+            alt_aal.slices_from_to(20, 0),
+            max_value,
+        )
+
+
+# TODO: Write some unit tests!
+class AirspeedRelativeFor5Sec20FtToTouchdownMin(KeyPointValueNode):
+    '''
+    '''
+
+    def derive(self, spd_rel=P('Airspeed Relative For 5 Sec'), alt_aal=P('Altitude AAL For Flight Phases')):
+        '''
+        '''
+        self.create_kpvs_within_slices(
+            spd_rel.array,
+            alt_aal.slices_from_to(20, 0),
+            min_value,
+        )
+
+
+################################################################################
 
 
 def thrust_reverser_min_speed(land, pwr, tr):
@@ -603,7 +968,7 @@ class AirspeedCruiseMin(KeyPointValueNode):
 class GenericDescent(KeyPointValueNode):
     NAME_FORMAT = '%(parameter)s At %(altitude)d Ft AAL In Descent'
     NAME_VALUES = {'parameter':['Airspeed',
-                                'Airspeed Minus Vref',
+                                'Airspeed Relative',
                                 'Rate Of Descent',
                                 'Slope To Landing',
                                 'Flap',
@@ -673,59 +1038,6 @@ class AirspeedLevelFlightMax(KeyPointValueNode):
                 self.create_kpv(index, value)
             else:
                 self.debug("Level flight duration too short to create KPV")
-
-
-class AirspeedMinusV2AtLiftoff(KeyPointValueNode):
-    name = 'Airspeed Minus V2 At Liftoff'
-    def derive(self, airspeed=P('Airspeed Minus V2'), liftoffs=KTI('Liftoff')):
-        self.create_kpvs_at_ktis(airspeed.array, liftoffs)
-        
-        
-class AirspeedMinusV2For3Sec35To400FtMin(KeyPointValueNode):
-    name = 'Airspeed Minus V2 For 3 Sec 35 To 400 Ft Min'
-    def derive(self, spd_v2=P('Airspeed Minus V2 For 3 Sec'), alt_aal=P('Altitude AAL For Flight Phases')):
-        self.create_kpvs_within_slices(spd_v2.array,
-                                       alt_aal.slices_from_to(35, 400),
-                                       min_value)
-
-
-class AirspeedMinusV2For5Sec400To1500FtMin(KeyPointValueNode):
-    name = 'Airspeed Minus V2 For 5 Sec 400 To 1500 Ft Min'
-    def derive(self, spd_v2=P('Airspeed Minus V2 For 5 Sec'), alt_aal=P('Altitude AAL For Flight Phases')):
-        self.create_kpvs_within_slices(spd_v2.array,
-                                       alt_aal.slices_from_to(400, 1500),
-                                       min_value)
-
-
-class AirspeedMinusVref500FtToTouchdownMax(KeyPointValueNode):
-    def derive(self, airspeed_minus_vref=P('Airspeed Minus Vref'),
-               alt_aal=P('Altitude AAL For Flight Phases')):
-        self.create_kpvs_within_slices(airspeed_minus_vref.array,
-                                       alt_aal.slices_from_to(500, 0),
-                                       max_value)
-
-
-class AirspeedMinusVrefAtTouchdown(KeyPointValueNode):
-    def derive(self, airspeed=P('Airspeed Minus Vref'), touchdowns=KTI('Touchdown')):
-        self.create_kpvs_at_ktis(airspeed.array, touchdowns)
-
-
-class AirspeedMinusVrefFor5Sec20FtToTouchdownMax(KeyPointValueNode):
-    def derive(self, speed=P('Airspeed Minus Vref For 5 Sec'), alt_aal=P('Altitude AAL For Flight Phases')):
-        self.create_kpvs_within_slices(speed.array,
-                                       alt_aal.slices_from_to(20, 0),
-                                       max_value)
-
-
-class AirspeedMinusVrefBetween2MinutesToTouchdownAndTouchdownMin(KeyPointValueNode):
-    #TODO: TESTS
-    def derive(self, mins_to_touchdown=KTI('Mins To Touchdown'), 
-               airspeed=P('Airspeed Minus Vref')):
-        for _2_min in mins_to_touchdown.get(name='2 Mins To Touchdown'):
-            # add 2 mins to find touchdown
-            tdwn = _2_min.index + 2 * 60 * self.frequency
-            index, value = min_value(airspeed.array, slice(_2_min.index, tdwn))
-            self.create_kpv(index, value)
 
 
 class AltitudeAtTouchdown(KeyPointValueNode):
@@ -2325,10 +2637,12 @@ class SpeedbrakesDeployedWithPowerOnDuration(KeyPointValueNode):
     duration this happened for, and allow the analyst to find out the cause.
     '''
     def derive(self, speedbrake=P('Speedbrake'), 
-               power=P('Eng (*) N1 Avg'), airs=S('Airborne')):
+               power=P('Eng (*) N1 Avg'), airs=S('Airborne'),
+               manufacturer=A('Manufacturer')):
         speedbrake_in_flight = mask_outside_slices(speedbrake.array, [s.slice for s in airs])
         speedbrakes_applied_in_flight = np.ma.clump_unmasked(np.ma.masked_less(speedbrake_in_flight,0.5))
-        high_power = np.ma.clump_unmasked(np.ma.masked_less(power.array, 50.0))
+        percent = 60.0 if manufacturer == 'Airbus' else 50.0
+        high_power = np.ma.clump_unmasked(np.ma.masked_less(power.array, percent))
         # Speedbrake and Power => s_and_p
         s_and_ps = slices_and(speedbrakes_applied_in_flight, high_power)
         for s_and_p in s_and_ps:
