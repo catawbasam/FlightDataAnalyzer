@@ -700,7 +700,7 @@ class TestEngN1TakeoffMax(unittest.TestCase, CreateKPVsWithinSlicesTest):
     def setUp(self):
         self.node_class = EngN1TakeoffMax
         self.function = max_value
-        self.operational_combinations = [('Eng (*) N1 Max', 'TOGA 5 Min Rating')]
+        self.operational_combinations = [('Eng (*) N1 Max', 'Takeoff 5 Min Rating')]
 
 
 """
