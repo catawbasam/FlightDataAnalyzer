@@ -20,7 +20,7 @@ from analysis_engine.derived_parameters import (
     AccelerationAlongTrack,
     AccelerationAcrossTrack,
     AirspeedForFlightPhases,
-    AirspeedMinusVref,
+    AirspeedRelative,
     AirspeedTrue,
     AltitudeAAL,
     AltitudeAALForFlightPhases,
@@ -276,10 +276,10 @@ class TestAirspeedForFlightPhases(unittest.TestCase):
         self.assertEqual(opts, expected)
     
 
-class TestAirspeedMinusVref(unittest.TestCase):
+class TestAirspeedRelative(unittest.TestCase):
     def test_can_operate(self):
         expected = [('Airspeed','FDR Vref')]
-        opts = AirspeedMinusVref.get_operational_combinations()
+        opts = AirspeedRelative.get_operational_combinations()
         self.assertEqual(opts, expected)
         
         # ???????????????????????????????????????????????????????????????
@@ -292,7 +292,7 @@ class TestAirspeedMinusVref(unittest.TestCase):
         ref = A('Vref',value=120)
         # Offset is frame-related, not superframe based, so is to some extent
         # meaningless.
-        param = AirspeedMinusVref()
+        param = AirspeedRelative()
         param.get_derived([speed, ref])
         expected=np.array([80]*128)
         np.testing.assert_array_equal(param.array, expected)

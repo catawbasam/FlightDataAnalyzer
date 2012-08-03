@@ -158,40 +158,110 @@ class AirspeedForFlightPhases(DerivedParameterNode):
             repair_mask(airspeed.array, repair_duration=None),HYSTERESIS_FPIAS)
 
 
+################################################################################
+# Airspeed Minus V2 (Airspeed relative to V2 or a fixed value.)
+
+
+# TODO: Write some unit tests!
+# TODO: Ensure that this derived parameter supports fixed values.
 class AirspeedMinusV2(DerivedParameterNode):
-    #TODO: TESTS
+    '''
+    Airspeed on takeoff relative to:
+
+    - V2    -- Airbus, Boeing, or any other aircraft that has V2.
+    - Fixed -- Prop aircraft, or as required.
+    
+    A fixed value will most likely be zero making this relative airspeed
+    derived parameter the same as the original absolute airspeed parameter.
+    '''
+
     def derive(self, airspeed=P('Airspeed'), v2=P('V2')):
+        '''
+        '''
         self.array = airspeed.array - v2.array
 
 
+# TODO: Write some unit tests!
 class AirspeedMinusV2For3Sec(DerivedParameterNode):
-    #TODO: TESTS
+    '''
+    Airspeed on takeoff relative to V2 over a 3 second window.
+
+    See the derived parameter 'Airspeed Minus V2'.
+    '''
+
     def derive(self, spd_v2=P('Airspeed Minus V2')):
+        '''
+        '''
         self.array = clip(spd_v2.array, 3.0, spd_v2.frequency)
         
 
+# TODO: Write some unit tests!
 class AirspeedMinusV2For5Sec(DerivedParameterNode):
-    #TODO: TESTS
+    '''
+    Airspeed on takeoff relative to V2 over a 5 second window.
+
+    See the derived parameter 'Airspeed Minus V2'.
+    '''
+
     def derive(self, spd_v2=P('Airspeed Minus V2')):
+        '''
+        '''
         self.array = clip(spd_v2.array, 5.0, spd_v2.frequency)
         
 
-class AirspeedMinusVref(DerivedParameterNode):
-    #TODO: TESTS
+################################################################################
+# Airspeed Relative (Airspeed relative to Vapp, Vref or a fixed value.)
+
+
+# TODO: Write some unit tests!
+# TODO: Ensure that this derived parameter supports Vapp and fixed values.
+class AirspeedRelative(DerivedParameterNode):
+    '''
+    Airspeed on approach relative to:
+
+    - Vapp  -- Airbus
+    - Vref  -- Boeing
+    - Fixed -- Prop aircraft, or as required.
+
+    A fixed value will most likely be zero making this relative airspeed
+    derived parameter the same as the original absolute airspeed parameter.
+    '''
+
     def derive(self, airspeed=P('Airspeed'), vref=A('FDR Vref')):
+        '''
+        '''
         self.array = airspeed.array - vref.value
 
 
-class AirspeedMinusVrefFor3Sec(DerivedParameterNode):
-    #TODO: TESTS
-    def derive(self, spd_vref=P('Airspeed Minus Vref')):
+# TODO: Write some unit tests!
+class AirspeedRelativeFor3Sec(DerivedParameterNode):
+    '''
+    Airspeed on approach relative to Vapp/Vref over a 3 second window.
+
+    See the derived parameter 'Airspeed Relative'.
+    '''
+
+    def derive(self, spd_vref=P('Airspeed Relative')):
+        '''
+        '''
         self.array = clip(spd_vref.array, 3.0, spd_vref.frequency)
 
         
-class AirspeedMinusVrefFor5Sec(DerivedParameterNode):
-    #TODO: TESTS
-    def derive(self, spd_vref=P('Airspeed Minus Vref')):
+# TODO: Write some unit tests!
+class AirspeedRelativeFor5Sec(DerivedParameterNode):
+    '''
+    Airspeed on approach relative to Vapp/Vref over a 5 second window.
+
+    See the derived parameter 'Airspeed Relative'.
+    '''
+
+    def derive(self, spd_vref=P('Airspeed Relative')):
+        '''
+        '''
         self.array = clip(spd_vref.array, 5.0, spd_vref.frequency)
+
+
+################################################################################
 
         
 class AirspeedTrue(DerivedParameterNode):
@@ -1025,485 +1095,842 @@ class PackValvesOpen(DerivedParameterNode):
                p2=P('ECS Pack (2) On'), p2h=P('ECS Pack (2) High Flow')):
         # Sum the open engines, allowing 1 for low flow and 1+1 for high flow each side.
         self.array = p1.array*(1+p1h.array)+p2.array*(1+p2h.array)
-        
 
-class Eng_GasTempAvg(DerivedParameterNode):
-    #TODO: TEST
-    name = "Eng (*) Gas Temp Avg"
+
+################################################################################
+# Engine EPR
+
+
+# TODO: Write some unit tests!
+class Eng_EPRAvg(DerivedParameterNode):
+    '''
+    '''
+
+    name = 'Eng (*) EPR Avg'
     @classmethod
     def can_operate(cls, available):
-        # works with any combination of params available
+        '''
+        '''
+        # Works with any combination of parameters available:
         return any([d in available for d in cls.get_dependency_names()])
-        
-    def derive(self, 
-               eng1=P('Eng (1) Gas Temp'),
-               eng2=P('Eng (2) Gas Temp'),
-               eng3=P('Eng (3) Gas Temp'),
-               eng4=P('Eng (4) Gas Temp')):
+
+    def derive(self,
+               eng1=P('Eng (1) EPR'),
+               eng2=P('Eng (2) EPR'),
+               eng3=P('Eng (3) EPR'),
+               eng4=P('Eng (4) EPR')):
+        '''
+        '''
         engines = vstack_params(eng1, eng2, eng3, eng4)
         self.array = np.ma.average(engines, axis=0)
 
 
-class Eng_GasTempMax(DerivedParameterNode):
-    #TODO: TEST
-    name = "Eng (*) Gas Temp Max"
+# TODO: Write some unit tests!
+class Eng_EPRMax(DerivedParameterNode):
+    '''
+    '''
+
+    name = 'Eng (*) EPR Max'
+
     @classmethod
     def can_operate(cls, available):
-        # works with any combination of params available
+        '''
+        '''
+        # Works with any combination of parameters available:
         return any([d in available for d in cls.get_dependency_names()])
-        
-    def derive(self, 
-               eng1=P('Eng (1) Gas Temp'),
-               eng2=P('Eng (2) Gas Temp'),
-               eng3=P('Eng (3) Gas Temp'),
-               eng4=P('Eng (4) Gas Temp')):
+
+    def derive(self,
+               eng1=P('Eng (1) EPR'),
+               eng2=P('Eng (2) EPR'),
+               eng3=P('Eng (3) EPR'),
+               eng4=P('Eng (4) EPR')):
+        '''
+        '''
         engines = vstack_params(eng1, eng2, eng3, eng4)
         self.array = np.ma.max(engines, axis=0)
 
 
-class Eng_GasTempMin(DerivedParameterNode):
-    #TODO: TEST
-    name = "Eng (*) Gas Temp Min"
+# TODO: Write some unit tests!
+class Eng_EPRMin(DerivedParameterNode):
+    '''
+    '''
+
+    name = 'Eng (*) EPR Min'
+
     @classmethod
     def can_operate(cls, available):
-        # works with any combination of params available
+        '''
+        '''
+        # Works with any combination of parameters available:
         return any([d in available for d in cls.get_dependency_names()])
-        
-    def derive(self, 
-               eng1=P('Eng (1) Gas Temp'),
-               eng2=P('Eng (2) Gas Temp'),
-               eng3=P('Eng (3) Gas Temp'),
-               eng4=P('Eng (4) Gas Temp')):
+
+    def derive(self,
+               eng1=P('Eng (1) EPR'),
+               eng2=P('Eng (2) EPR'),
+               eng3=P('Eng (3) EPR'),
+               eng4=P('Eng (4) EPR')):
+        '''
+        '''
         engines = vstack_params(eng1, eng2, eng3, eng4)
         self.array = np.ma.min(engines, axis=0)
 
 
-class Eng_EPRAvg(DerivedParameterNode):
-    #TODO: TEST
-    name = "Eng (*) EPR Avg"
-    @classmethod
-    def can_operate(cls, available):
-        # works with any combination of params available
-        if any([d in available for d in cls.get_dependency_names()]):
-            return True
-    
-    def derive(self, 
-               eng1=P('Eng (1) EPR'),
-               eng2=P('Eng (2) EPR'),
-               eng3=P('Eng (3) EPR'),
-               eng4=P('Eng (4) EPR')):
-        engines = vstack_params(eng1, eng2, eng3, eng4)
-        self.array = np.ma.average(engines, axis=0)
+################################################################################
+# Engine Fuel Flow
 
 
-class Eng_EPRMax(DerivedParameterNode):
-    #TODO: TEST
-    name = "Eng (*) EPR Max"
-    @classmethod
-    def can_operate(cls, available):
-        # works with any combination of params available
-        return any([d in available for d in cls.get_dependency_names()])
-        
-    def derive(self, 
-               eng1=P('Eng (1) EPR'),
-               eng2=P('Eng (2) EPR'),
-               eng3=P('Eng (3) EPR'),
-               eng4=P('Eng (4) EPR')):
-        engines = vstack_params(eng1, eng2, eng3, eng4)
-        self.array = np.ma.max(engines, axis=0)
-
-
+# TODO: Write some unit tests!
 class Eng_FuelFlow(DerivedParameterNode):
-    #TODO: TEST
-    name = "Eng (*) Fuel Flow"
+    '''
+    '''
+
+    name = 'Eng (*) Fuel Flow'
+
     @classmethod
     def can_operate(cls, available):
-        # works with any combination of params available
+        '''
+        '''
+        # Works with any combination of parameters available:
         return any([d in available for d in cls.get_dependency_names()])
-            
-    def derive(self, 
+
+    def derive(self,
                eng1=P('Eng (1) Fuel Flow'),
                eng2=P('Eng (2) Fuel Flow'),
                eng3=P('Eng (3) Fuel Flow'),
                eng4=P('Eng (4) Fuel Flow')):
+        '''
+        '''
         engines = vstack_params(eng1, eng2, eng3, eng4)
         self.array = np.ma.sum(engines, axis=0)
-      
 
-class Eng_N1Avg(DerivedParameterNode):
-    name = "Eng (*) N1 Avg"
+
+################################################################################
+# Engine Gas Temperature
+
+
+# TODO: Write some unit tests!
+class Eng_GasTempAvg(DerivedParameterNode):
+    '''
+    '''
+
+    name = 'Eng (*) Gas Temp Avg'
+
     @classmethod
     def can_operate(cls, available):
-        # works with any combination of params available
+        '''
+        '''
+        # Works with any combination of parameters available:
         return any([d in available for d in cls.get_dependency_names()])
-    
-    def derive(self, 
-               eng1=P('Eng (1) N1'),
-               eng2=P('Eng (2) N1'),
-               eng3=P('Eng (3) N1'),
-               eng4=P('Eng (4) N1')):
+
+    def derive(self,
+               eng1=P('Eng (1) Gas Temp'),
+               eng2=P('Eng (2) Gas Temp'),
+               eng3=P('Eng (3) Gas Temp'),
+               eng4=P('Eng (4) Gas Temp')):
+        '''
+        '''
         engines = vstack_params(eng1, eng2, eng3, eng4)
         self.array = np.ma.average(engines, axis=0)
 
-       
-class Eng_N1Max(DerivedParameterNode):
-    name = "Eng (*) N1 Max"
+
+# TODO: Write some unit tests!
+class Eng_GasTempMax(DerivedParameterNode):
+    '''
+    '''
+
+    name = 'Eng (*) Gas Temp Max'
+
     @classmethod
     def can_operate(cls, available):
-        # works with any combination of params available
+        '''
+        '''
+        # Works with any combination of parameters available:
         return any([d in available for d in cls.get_dependency_names()])
-    
-    def derive(self, 
-               eng1=P('Eng (1) N1'),
-               eng2=P('Eng (2) N1'),
-               eng3=P('Eng (3) N1'),
-               eng4=P('Eng (4) N1')):
+
+    def derive(self,
+               eng1=P('Eng (1) Gas Temp'),
+               eng2=P('Eng (2) Gas Temp'),
+               eng3=P('Eng (3) Gas Temp'),
+               eng4=P('Eng (4) Gas Temp')):
+        '''
+        '''
         engines = vstack_params(eng1, eng2, eng3, eng4)
         self.array = np.ma.max(engines, axis=0)
-        
-        
-class Eng_N1Min(DerivedParameterNode):
-    name = "Eng (*) N1 Min"
+
+
+# TODO: Write some unit tests!
+class Eng_GasTempMin(DerivedParameterNode):
+    '''
+    '''
+
+    name = 'Eng (*) Gas Temp Min'
+
     @classmethod
     def can_operate(cls, available):
-        # works with any combination of params available
+        '''
+        '''
+        # Works with any combination of parameters available:
         return any([d in available for d in cls.get_dependency_names()])
-    
-    def derive(self, 
-               eng1=P('Eng (1) N1'),
-               eng2=P('Eng (2) N1'),
-               eng3=P('Eng (3) N1'),
-               eng4=P('Eng (4) N1')):
+
+    def derive(self,
+               eng1=P('Eng (1) Gas Temp'),
+               eng2=P('Eng (2) Gas Temp'),
+               eng3=P('Eng (3) Gas Temp'),
+               eng4=P('Eng (4) Gas Temp')):
+        '''
+        '''
         engines = vstack_params(eng1, eng2, eng3, eng4)
         self.array = np.ma.min(engines, axis=0)
 
 
-class Eng_N2Avg(DerivedParameterNode):
-    name = "Eng (*) N2 Avg"
+################################################################################
+# Engine N1
+
+
+class Eng_N1Avg(DerivedParameterNode):
+    '''
+    '''
+
+    name = 'Eng (*) N1 Avg'
+
     @classmethod
     def can_operate(cls, available):
-        # works with any combination of params available
+        '''
+        '''
+        # Works with any combination of parameters available:
         return any([d in available for d in cls.get_dependency_names()])
-        
-    def derive(self, 
+
+    def derive(self,
+               eng1=P('Eng (1) N1'),
+               eng2=P('Eng (2) N1'),
+               eng3=P('Eng (3) N1'),
+               eng4=P('Eng (4) N1')):
+        '''
+        '''
+        engines = vstack_params(eng1, eng2, eng3, eng4)
+        self.array = np.ma.average(engines, axis=0)
+
+
+class Eng_N1Max(DerivedParameterNode):
+    '''
+    '''
+
+    name = 'Eng (*) N1 Max'
+
+    @classmethod
+    def can_operate(cls, available):
+        '''
+        '''
+        # Works with any combination of parameters available:
+        return any([d in available for d in cls.get_dependency_names()])
+
+    def derive(self,
+               eng1=P('Eng (1) N1'),
+               eng2=P('Eng (2) N1'),
+               eng3=P('Eng (3) N1'),
+               eng4=P('Eng (4) N1')):
+        '''
+        '''
+        engines = vstack_params(eng1, eng2, eng3, eng4)
+        self.array = np.ma.max(engines, axis=0)
+
+
+class Eng_N1Min(DerivedParameterNode):
+    '''
+    '''
+
+    name = 'Eng (*) N1 Min'
+
+    @classmethod
+    def can_operate(cls, available):
+        '''
+        '''
+        # Works with any combination of parameters available:
+        return any([d in available for d in cls.get_dependency_names()])
+
+    def derive(self,
+               eng1=P('Eng (1) N1'),
+               eng2=P('Eng (2) N1'),
+               eng3=P('Eng (3) N1'),
+               eng4=P('Eng (4) N1')):
+        '''
+        '''
+        engines = vstack_params(eng1, eng2, eng3, eng4)
+        self.array = np.ma.min(engines, axis=0)
+
+
+################################################################################
+# Engine N2
+
+
+class Eng_N2Avg(DerivedParameterNode):
+    '''
+    '''
+
+    name = 'Eng (*) N2 Avg'
+
+    @classmethod
+    def can_operate(cls, available):
+        '''
+        '''
+        # Works with any combination of parameters available:
+        return any([d in available for d in cls.get_dependency_names()])
+
+    def derive(self,
                eng1=P('Eng (1) N2'),
                eng2=P('Eng (2) N2'),
                eng3=P('Eng (3) N2'),
                eng4=P('Eng (4) N2')):
+        '''
+        '''
         engines = vstack_params(eng1, eng2, eng3, eng4)
         self.array = np.ma.average(engines, axis=0)
 
 
 class Eng_N2Max(DerivedParameterNode):
-    name = "Eng (*) N2 Max"
+    '''
+    '''
+
+    name = 'Eng (*) N2 Max'
+
     @classmethod
     def can_operate(cls, available):
-        # works with any combination of params available
+        '''
+        '''
+        # Works with any combination of parameters available:
         return any([d in available for d in cls.get_dependency_names()])
-            
-    def derive(self, 
+
+    def derive(self,
                eng1=P('Eng (1) N2'),
                eng2=P('Eng (2) N2'),
                eng3=P('Eng (3) N2'),
                eng4=P('Eng (4) N2')):
+        '''
+        '''
         engines = vstack_params(eng1, eng2, eng3, eng4)
         self.array = np.ma.max(engines, axis=0)
 
 
 class Eng_N2Min(DerivedParameterNode):
-    name = "Eng (*) N2 Min"
+    '''
+    '''
+
+    name = 'Eng (*) N2 Min'
+
     @classmethod
     def can_operate(cls, available):
-        # works with any combination of params available
+        '''
+        '''
+        # Works with any combination of parameters available:
         return any([d in available for d in cls.get_dependency_names()])
-    
-    def derive(self, 
+
+    def derive(self,
                eng1=P('Eng (1) N2'),
                eng2=P('Eng (2) N2'),
                eng3=P('Eng (3) N2'),
                eng4=P('Eng (4) N2')):
+        '''
+        '''
         engines = vstack_params(eng1, eng2, eng3, eng4)
         self.array = np.ma.min(engines, axis=0)
 
 
+################################################################################
+# Engine N3
+
+
 class Eng_N3Avg(DerivedParameterNode):
-    name = "Eng (*) N3 Avg"
+    '''
+    '''
+
+    name = 'Eng (*) N3 Avg'
+
     @classmethod
     def can_operate(cls, available):
-        # works with any combination of params available
-        if any([d in available for d in cls.get_dependency_names()]):
-            return True
-        
-    def derive(self, 
+        '''
+        '''
+        # Works with any combination of parameters available:
+        return any([d in available for d in cls.get_dependency_names()])
+
+    def derive(self,
                eng1=P('Eng (1) N3'),
                eng2=P('Eng (2) N3'),
                eng3=P('Eng (3) N3'),
                eng4=P('Eng (4) N3')):
+        '''
+        '''
         engines = vstack_params(eng1, eng2, eng3, eng4)
         self.array = np.ma.average(engines, axis=0)
 
 
 class Eng_N3Max(DerivedParameterNode):
-    name = "Eng (*) N3 Max"
+    '''
+    '''
+
+    name = 'Eng (*) N3 Max'
+
     @classmethod
     def can_operate(cls, available):
-        # works with any combination of params available
-        if any([d in available for d in cls.get_dependency_names()]):
-            return True
-    
-    def derive(self, 
+        '''
+        '''
+        # Works with any combination of parameters available:
+        return any([d in available for d in cls.get_dependency_names()])
+
+    def derive(self,
                eng1=P('Eng (1) N3'),
                eng2=P('Eng (2) N3'),
                eng3=P('Eng (3) N3'),
                eng4=P('Eng (4) N3')):
+        '''
+        '''
         engines = vstack_params(eng1, eng2, eng3, eng4)
         self.array = np.ma.max(engines, axis=0)
 
 
 class Eng_N3Min(DerivedParameterNode):
-    name = "Eng (*) N3 Min"
+    '''
+    '''
+
+    name = 'Eng (*) N3 Min'
+
     @classmethod
     def can_operate(cls, available):
-        # works with any combination of params available
-        if any([d in available for d in cls.get_dependency_names()]):
-            return True
-    
-    def derive(self, 
+        '''
+        '''
+        # Works with any combination of parameters available:
+        return any([d in available for d in cls.get_dependency_names()])
+
+    def derive(self,
                eng1=P('Eng (1) N3'),
                eng2=P('Eng (2) N3'),
                eng3=P('Eng (3) N3'),
                eng4=P('Eng (4) N3')):
+        '''
+        '''
         engines = vstack_params(eng1, eng2, eng3, eng4)
         self.array = np.ma.min(engines, axis=0)
 
 
-class Eng_OilTempAvg(DerivedParameterNode):
-    #TODO: TEST
-    name = "Eng (*) Oil Temp Avg"
-    @classmethod
-    def can_operate(cls, available):
-        # works with any combination of params available
-        return any([d in available for d in cls.get_dependency_names()])
-        
-    def derive(self, 
-               eng1=P('Eng (1) Oil Temp'),
-               eng2=P('Eng (2) Oil Temp'),
-               eng3=P('Eng (3) Oil Temp'),
-               eng4=P('Eng (4) Oil Temp')):
-        engines = vstack_params(eng1, eng2, eng3, eng4)
-        self.array = np.ma.average(engines, axis=0)
-        
-
-class Eng_OilTempMin(DerivedParameterNode):
-    #TODO: TEST
-    name = "Eng (*) Oil Temp Min"
-    @classmethod
-    def can_operate(cls, available):
-        # works with any combination of params available
-        return any([d in available for d in cls.get_dependency_names()])
-        
-    def derive(self, 
-               eng1=P('Eng (1) Oil Temp'),
-               eng2=P('Eng (2) Oil Temp'),
-               eng3=P('Eng (3) Oil Temp'),
-               eng4=P('Eng (4) Oil Temp')):
-        engines = vstack_params(eng1, eng2, eng3, eng4)
-        self.array = np.ma.min(engines, axis=0)
+################################################################################
+# Engine Oil Pressure
 
 
-class Eng_OilTempMax(DerivedParameterNode):
-    #TODO: TEST
-    name = "Eng (*) Oil Temp Max"
-    @classmethod
-    def can_operate(cls, available):
-        # works with any combination of params available
-        return any([d in available for d in cls.get_dependency_names()])
-        
-    def derive(self, 
-               eng1=P('Eng (1) Oil Temp'),
-               eng2=P('Eng (2) Oil Temp'),
-               eng3=P('Eng (3) Oil Temp'),
-               eng4=P('Eng (4) Oil Temp')):
-        engines = vstack_params(eng1, eng2, eng3, eng4)
-        self.array = np.ma.max(engines, axis=0)
-
-
+# TODO: Write some unit tests!
 class Eng_OilPressAvg(DerivedParameterNode):
-    #TODO: TEST
-    name = "Eng (*) Oil Press Avg"
+    '''
+    '''
+
+    name = 'Eng (*) Oil Press Avg'
+
     @classmethod
     def can_operate(cls, available):
-        # works with any combination of params available
+        '''
+        '''
+        # Works with any combination of parameters available:
         return any([d in available for d in cls.get_dependency_names()])
-        
-    def derive(self, 
+
+    def derive(self,
                eng1=P('Eng (1) Oil Press'),
                eng2=P('Eng (2) Oil Press'),
                eng3=P('Eng (3) Oil Press'),
                eng4=P('Eng (4) Oil Press')):
+        '''
+        '''
         engines = vstack_params(eng1, eng2, eng3, eng4)
         self.array = np.ma.average(engines, axis=0)
-        
-        
+
+
+# TODO: Write some unit tests!
 class Eng_OilPressMax(DerivedParameterNode):
-    #TODO: TEST
-    #Q: Press or Pressure?
-    name = "Eng (*) Oil Press Max"
+    '''
+    '''
+
+    name = 'Eng (*) Oil Press Max'
+
     @classmethod
     def can_operate(cls, available):
-        # works with any combination of params available
+        '''
+        '''
+        # Works with any combination of parameters available:
         return any([d in available for d in cls.get_dependency_names()])
-        
-    def derive(self, 
+
+    def derive(self,
                eng1=P('Eng (1) Oil Press'),
                eng2=P('Eng (2) Oil Press'),
                eng3=P('Eng (3) Oil Press'),
                eng4=P('Eng (4) Oil Press')):
+        '''
+        '''
         engines = vstack_params(eng1, eng2, eng3, eng4)
         self.array = np.ma.max(engines, axis=0)
 
 
+# TODO: Write some unit tests!
 class Eng_OilPressMin(DerivedParameterNode):
-    #TODO: TEST
+    '''
+    '''
+
     name = 'Eng (*) Oil Press Min'
+
     @classmethod
     def can_operate(cls, available):
-        # works with any combination of params available
+        '''
+        '''
+        # Works with any combination of parameters available:
         return any([d in available for d in cls.get_dependency_names()])
-        
-    def derive(self, 
+
+    def derive(self,
                eng1=P('Eng (1) Oil Press'),
                eng2=P('Eng (2) Oil Press'),
                eng3=P('Eng (3) Oil Press'),
                eng4=P('Eng (4) Oil Press')):
+        '''
+        '''
         engines = vstack_params(eng1, eng2, eng3, eng4)
         self.array = np.ma.min(engines, axis=0)
 
-               
-class Eng_TorqueAvg(DerivedParameterNode):
-    #TODO: TEST
-    name = "Eng (*) Torque Avg"
+
+################################################################################
+# Engine Oil Quantity
+
+
+# TODO: Write some unit tests!
+class Eng_OilQtyAvg(DerivedParameterNode):
+    '''
+    '''
+
+    name = 'Eng (*) Oil Qty Avg'
+
     @classmethod
     def can_operate(cls, available):
-        # works with any combination of params available
+        '''
+        '''
+        # Works with any combination of parameters available:
+        return any([d in available for d in cls.get_dependency_names()])
+
+    def derive(self,
+               eng1=P('Eng (1) Oil Qty'),
+               eng2=P('Eng (2) Oil Qty'),
+               eng3=P('Eng (3) Oil Qty'),
+               eng4=P('Eng (4) Oil Qty')):
+        '''
+        '''
+        engines = vstack_params(eng1, eng2, eng3, eng4)
+        self.array = np.ma.average(engines, axis=0)
+
+
+# TODO: Write some unit tests!
+class Eng_OilQtyMax(DerivedParameterNode):
+    '''
+    '''
+
+    name = 'Eng (*) Oil Qty Max'
+
+    @classmethod
+    def can_operate(cls, available):
+        '''
+        '''
+        # Works with any combination of parameters available:
+        return any([d in available for d in cls.get_dependency_names()])
+
+    def derive(self,
+               eng1=P('Eng (1) Oil Qty'),
+               eng2=P('Eng (2) Oil Qty'),
+               eng3=P('Eng (3) Oil Qty'),
+               eng4=P('Eng (4) Oil Qty')):
+        '''
+        '''
+        engines = vstack_params(eng1, eng2, eng3, eng4)
+        self.array = np.ma.max(engines, axis=0)
+
+
+# TODO: Write some unit tests!
+class Eng_OilQtyMin(DerivedParameterNode):
+    '''
+    '''
+
+    name = 'Eng (*) Oil Qty Min'
+
+    @classmethod
+    def can_operate(cls, available):
+        '''
+        '''
+        # Works with any combination of parameters available:
+        return any([d in available for d in cls.get_dependency_names()])
+
+    def derive(self,
+               eng1=P('Eng (1) Oil Qty'),
+               eng2=P('Eng (2) Oil Qty'),
+               eng3=P('Eng (3) Oil Qty'),
+               eng4=P('Eng (4) Oil Qty')):
+        '''
+        '''
+        engines = vstack_params(eng1, eng2, eng3, eng4)
+        self.array = np.ma.min(engines, axis=0)
+
+
+################################################################################
+# Engine Oil Temperature
+
+
+# TODO: Write some unit tests!
+class Eng_OilTempAvg(DerivedParameterNode):
+    '''
+    '''
+
+    name = 'Eng (*) Oil Temp Avg'
+
+    @classmethod
+    def can_operate(cls, available):
+        '''
+        '''
+        # Works with any combination of parameters available:
+        return any([d in available for d in cls.get_dependency_names()])
+
+    def derive(self,
+               eng1=P('Eng (1) Oil Temp'),
+               eng2=P('Eng (2) Oil Temp'),
+               eng3=P('Eng (3) Oil Temp'),
+               eng4=P('Eng (4) Oil Temp')):
+        '''
+        '''
+        engines = vstack_params(eng1, eng2, eng3, eng4)
+        self.array = np.ma.average(engines, axis=0)
+
+
+# TODO: Write some unit tests!
+class Eng_OilTempMax(DerivedParameterNode):
+    '''
+    '''
+
+    name = 'Eng (*) Oil Temp Max'
+
+    @classmethod
+    def can_operate(cls, available):
+        '''
+        '''
+        # Works with any combination of parameters available:
+        return any([d in available for d in cls.get_dependency_names()])
+
+    def derive(self,
+               eng1=P('Eng (1) Oil Temp'),
+               eng2=P('Eng (2) Oil Temp'),
+               eng3=P('Eng (3) Oil Temp'),
+               eng4=P('Eng (4) Oil Temp')):
+        '''
+        '''
+        engines = vstack_params(eng1, eng2, eng3, eng4)
+        self.array = np.ma.max(engines, axis=0)
+
+
+# TODO: Write some unit tests!
+class Eng_OilTempMin(DerivedParameterNode):
+    '''
+    '''
+
+    name = 'Eng (*) Oil Temp Min'
+
+    @classmethod
+    def can_operate(cls, available):
+        '''
+        '''
+        # Works with any combination of parameters available:
+        return any([d in available for d in cls.get_dependency_names()])
+
+    def derive(self,
+               eng1=P('Eng (1) Oil Temp'),
+               eng2=P('Eng (2) Oil Temp'),
+               eng3=P('Eng (3) Oil Temp'),
+               eng4=P('Eng (4) Oil Temp')):
+        '''
+        '''
+        engines = vstack_params(eng1, eng2, eng3, eng4)
+        self.array = np.ma.min(engines, axis=0)
+
+
+################################################################################
+# Engine Torque
+
+
+# TODO: Write some unit tests!
+class Eng_TorqueAvg(DerivedParameterNode):
+    '''
+    '''
+
+    name = 'Eng (*) Torque Avg'
+
+    @classmethod
+    def can_operate(cls, available):
+        '''
+        '''
+        # Works with any combination of parameters available:
         if any([d in available for d in cls.get_dependency_names()]):
             return True
-        
-    def derive(self, 
+
+    def derive(self,
                eng1=P('Eng (1) Torque'),
                eng2=P('Eng (2) Torque'),
                eng3=P('Eng (3) Torque'),
                eng4=P('Eng (4) Torque')):
+        '''
+        '''
         engines = vstack_params(eng1, eng2, eng3, eng4)
         self.array = np.ma.average(engines, axis=0)
 
 
-class Eng_TorqueMin(DerivedParameterNode):
-    #TODO: TEST
-    name = "Eng (*) Torque Min"
-    @classmethod
-    def can_operate(cls, available):
-        # works with any combination of params available
-        return any([d in available for d in cls.get_dependency_names()])
-        
-    def derive(self, 
-               eng1=P('Eng (1) Torque'),
-               eng2=P('Eng (2) Torque'),
-               eng3=P('Eng (3) Torque'),
-               eng4=P('Eng (4) Torque')):
-        engines = vstack_params(eng1, eng2, eng3, eng4)
-        self.array = np.ma.min(engines, axis=0)
-
-
+# TODO: Write some unit tests!
 class Eng_TorqueMax(DerivedParameterNode):
-    #TODO: TEST
-    name = "Eng (*) Torque Max"
+    '''
+    '''
+
+    name = 'Eng (*) Torque Max'
+
     @classmethod
     def can_operate(cls, available):
-        # works with any combination of params available
+        '''
+        '''
+        # Works with any combination of parameters available:
         return any([d in available for d in cls.get_dependency_names()])
-        
-    def derive(self, 
+
+    def derive(self,
                eng1=P('Eng (1) Torque'),
                eng2=P('Eng (2) Torque'),
                eng3=P('Eng (3) Torque'),
                eng4=P('Eng (4) Torque')):
+        '''
+        '''
         engines = vstack_params(eng1, eng2, eng3, eng4)
         self.array = np.ma.max(engines, axis=0)
 
 
-class Eng_VibN1Max(DerivedParameterNode):
-    # This function condenses all the available first shaft order vibration
-    # measurements into a single consolidated value.
+# TODO: Write some unit tests!
+class Eng_TorqueMin(DerivedParameterNode):
+    '''
+    '''
 
-    #TODO: TEST
+    name = 'Eng (*) Torque Min'
 
-    name = 'Eng (*) Vib N1 Max'
     @classmethod
     def can_operate(cls, available):
-        # works with any combination of params available
+        '''
+        '''
+        # Works with any combination of parameters available:
         return any([d in available for d in cls.get_dependency_names()])
-    
-    def derive(self, 
+
+    def derive(self,
+               eng1=P('Eng (1) Torque'),
+               eng2=P('Eng (2) Torque'),
+               eng3=P('Eng (3) Torque'),
+               eng4=P('Eng (4) Torque')):
+        '''
+        '''
+        engines = vstack_params(eng1, eng2, eng3, eng4)
+        self.array = np.ma.min(engines, axis=0)
+
+
+################################################################################
+# Engine Vibration (N1)
+
+
+# TODO: Write some unit tests!
+class Eng_VibN1Max(DerivedParameterNode):
+    '''
+    This derived parameter condenses all the available first shaft order
+    vibration measurements into a single consolidated value.
+    '''
+
+    name = 'Eng (*) Vib N1 Max'
+
+    @classmethod
+    def can_operate(cls, available):
+        '''
+        '''
+        # Works with any combination of parameters available:
+        return any([d in available for d in cls.get_dependency_names()])
+
+    def derive(self,
                eng1=P('Eng (1) Vib N1'),
                eng2=P('Eng (2) Vib N1'),
                eng3=P('Eng (3) Vib N1'),
                eng4=P('Eng (4) Vib N1'),
-               eng1_fan=P('Eng (1) Vib N1 Fan'),
-               eng1_lpt=P('Eng (1) Vib N1 LPT'),
-               eng2_fan=P('Eng (2) Vib N1 Fan'),
-               eng2_lpt=P('Eng (2) Vib N1 LPT'),
-               ):
-        
-
-        engines = vstack_params(eng1, eng2, eng3, eng4,
-                                eng1_fan, eng1_lpt, eng2_fan, eng2_lpt)
+               fan1=P('Eng (1) Vib N1 Fan'),
+               fan2=P('Eng (2) Vib N1 Fan'),
+               lpt1=P('Eng (1) Vib N1 LPT'),
+               lpt2=P('Eng (2) Vib N1 LPT')):
+        '''
+        '''
+        engines = vstack_params(eng1, eng2, eng3, eng4, fan1, fan2, lpt1, lpt2)
         self.array = np.ma.max(engines, axis=0)
-        
-        
-class Eng_VibN2Max(DerivedParameterNode):
-    # This function condenses all the available second shaft order vibration
-    # measurements into a single consolidated value.
 
-    #TODO: TEST
+
+################################################################################
+# Engine Vibration (N2)
+
+
+# TODO: Write some unit tests!
+class Eng_VibN2Max(DerivedParameterNode):
+    '''
+    This derived parameter condenses all the available second shaft order
+    vibration measurements into a single consolidated value.
+    '''
 
     name = 'Eng (*) Vib N2 Max'
+
     @classmethod
     def can_operate(cls, available):
-        # works with any combination of params available
+        '''
+        '''
+        # Works with any combination of parameters available:
         return any([d in available for d in cls.get_dependency_names()])
-        
-    def derive(self, 
+
+    def derive(self,
                eng1=P('Eng (1) Vib N2'),
                eng2=P('Eng (2) Vib N2'),
                eng3=P('Eng (3) Vib N2'),
                eng4=P('Eng (4) Vib N2'),
-               eng1_hpc=P('Eng (1) Vib N2 HPC'),
-               eng1_hpt=P('Eng (1) Vib N2 HPT'),
-               eng2_hpc=P('Eng (2) Vib N2 HPC'),
-               eng2_hpt=P('Eng (2) Vib N2 HPT')
-               ):
-        engines = vstack_params(eng1, eng2, eng3, eng4,
-                                eng1_hpc, eng1_hpt, eng2_hpc, eng2_hpt)
+               hpc1=P('Eng (1) Vib N2 HPC'),
+               hpc2=P('Eng (2) Vib N2 HPC'),
+               hpt1=P('Eng (1) Vib N2 HPT'),
+               hpt2=P('Eng (2) Vib N2 HPT')):
+        '''
+        '''
+        engines = vstack_params(eng1, eng2, eng3, eng4, hpc1, hpc2, hpt1, hpt2)
         self.array = np.ma.max(engines, axis=0)
 
 
+################################################################################
+# Engine Vibration (N3)
+
+
+# TODO: Write some unit tests!
 class Eng_VibN3Max(DerivedParameterNode):
-    #TODO: TEST
+    '''
+    This derived parameter condenses all the available third shaft order
+    vibration measurements into a single consolidated value.
+    '''
+
     name = 'Eng (*) Vib N3 Max'
+
     @classmethod
     def can_operate(cls, available):
-        # works with any combination of params available
+        '''
+        '''
+        # Works with any combination of parameters available:
         if any([d in available for d in cls.get_dependency_names()]):
             return True
-        
-    def derive(self, 
+
+    def derive(self,
                eng1=P('Eng (1) Vib N3'),
                eng2=P('Eng (2) Vib N3'),
                eng3=P('Eng (3) Vib N3'),
                eng4=P('Eng (4) Vib N3')):
+        '''
+        '''
         engines = vstack_params(eng1, eng2, eng3, eng4)
         self.array = np.ma.max(engines, axis=0)
+
+
+################################################################################
 
 
 class FuelQty(DerivedParameterNode):

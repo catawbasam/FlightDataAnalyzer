@@ -713,20 +713,41 @@ class Takeoff(FlightPhaseNode):
                 self.create_phases([slice(takeoff_begin, takeoff_end)])
 
 
-class TOGA5MinRating(FlightPhaseNode):
-    #TODO: Test
-    """
-    For engines, the period of high power operation is normally 5 minutes
-    from the start of takeoff. Also applies in the case of a go-around.
-    """
-    name = 'TOGA 5 Min Rating'
-    def derive(self, toffs=S('Takeoff'), gas=S('Go Around And Climbout')):
+################################################################################
+# Takeoff/Go-Around Ratings
+
+
+# TODO: Write some unit tests!
+class Takeoff5MinRating(FlightPhaseNode):
+    '''
+    For engines, the period of high power operation is normally 5 minutes from
+    the start of takeoff. Also applies in the case of a go-around.
+    '''
+
+    def derive(self, toffs=S('Takeoff')):
+        '''
+        '''
         for toff in toffs:
             self.create_phase(slice(toff.slice.start, toff.slice.start + 300))
+
+
+# TODO: Write some unit tests!
+class GoAround5MinRating(FlightPhaseNode):
+    '''
+    For engines, the period of high power operation is normally 5 minutes from
+    the start of takeoff. Also applies in the case of a go-around.
+    '''
+
+    def derive(self, gas=S('Go Around And Climbout')):
+        '''
+        '''
         for ga in gas:
             self.create_phase(slice(ga.slice.start, ga.slice.start + 300))
-            
-    
+
+
+################################################################################
+
+
 class TaxiIn(FlightPhaseNode):
     """
     This takes the period from start of data to start of takeoff as the taxi
