@@ -52,38 +52,44 @@ def track_to_kml(hdf_path, kti_list, kpv_list, plot_altitude=None):
               
     smooth_lat = derived_param_from_hdf(hdf, 'Latitude Smoothed')
     smooth_lon = derived_param_from_hdf(hdf, 'Longitude Smoothed')
-    lat = derived_param_from_hdf(hdf, 'Latitude')
-    lon = derived_param_from_hdf(hdf, 'Longitude')
+    add_track(kml, 'Smoothed', smooth_lat, smooth_lon, 'ff7fff7f')
+
+    #lat = derived_param_from_hdf(hdf, 'Latitude Prepared')
+    #lon = derived_param_from_hdf(hdf, 'Longitude Prepared')
+    #add_track(kml, 'Prepared', lat, lon, 'ff0000ff')
     
-    #add_track(kml, 'Recorded', lat, lon, 'ff0000ff')
-    add_track(kml, 'Smoothed', smooth_lat, smooth_lon, 'ff7fff7f', 
-              alt_param=alt)
+    lat_r = derived_param_from_hdf(hdf, 'Latitude')
+    lon_r = derived_param_from_hdf(hdf, 'Longitude')
+    add_track(kml, 'Recorded', lat_r, lon_r, 'ff0000ff')
 
     for kti in kti_list:
-        if kti.name in ['Touchdown', 'Touchdown Recorded']:
-            kti_point_values = {'name': kti.name}
-            altitude = alt.at(kti.index) if plot_altitude else None
-            if altitude:
-                kti_point_values['coords'] = (
-                    (kti.longitude, kti.latitude, (altitude+241)/METRES_TO_FEET),) # TODO: AIRPORT OFFSET HACK REMOVE AFTER USE
-                kti_point_values['altitudemode'] = simplekml.constants.AltitudeMode.absolute
-            else:
-                kti_point_values['coords'] = ((kti.longitude, kti.latitude,),)
-        
-            kml.newpoint(**kti_point_values)
+        #if kti.name in ['Touchdown']:
+        kti_point_values = {'name': kti.name}
+        altitude = alt.at(kti.index) if plot_altitude else None
+        if altitude:
+            kti_point_values['coords'] = ((kti.longitude, kti.latitude,),)
+            kti_point_values['altitudemode'] = simplekml.constants.AltitudeMode.absolute
+        else:
+            kti_point_values['coords'] = ((kti.longitude, kti.latitude,),)
+            kti_point_values['altitudemode'] = simplekml.constants.AltitudeMode.clamptoground 
+    
+        kml.newpoint(**kti_point_values)
         
     #for kpv in kpv_list:
+        #style = simplekml.Style()
+        #style.iconstyle.color = simplekml.Color.red
         #kpv_point_values = {'name': '%s (%s)' % (kpv.name, kpv.value)}
         #altitude = alt.at(kpv.index) if plot_altitude else None
         #if altitude:
             #kpv_point_values['coords'] = (
-                #(smooth_lon.at(kpv.index), smooth_lat.at(kpv.index), (altitude+241)/METRES_TO_FEET), # TODO: AIRPORT OFFSET HACK REMOVE AFTER USE
-            #)
+                #(smooth_lon.at(kpv.index), smooth_lat.at(kpv.index), ) )
             #kpv_point_values['altitudemode'] = simplekml.constants.AltitudeMode.absolute
         #else:
-            #kpv_point_values['coords'] = ((smooth_lon.at(kpv.index), smooth_lat.at(kpv.index)),)
+            #kpv_point_values['coords'] = ((smooth_lon.at(kpv.index), smooth_lat.at(kpv.index),),)
+            #kpv_point_values['altitudemode'] = simplekml.constants.AltitudeMode.clamptoground 
         
-        #kml.newpoint(**kpv_point_values)
+        #pnt = kml.newpoint(**kpv_point_values)
+        #pnt.style = style
         
 
     kml.save(hdf_path+".kml")

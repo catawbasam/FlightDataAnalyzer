@@ -898,6 +898,13 @@ class DescendForFlightPhases(DerivedParameterNode):
                 self.array[air.slice][down] = np.ma.cumsum(deltas[down])
     
     
+class AOA(DerivedParameterNode):
+    name = 'AOA'
+    def derive(self, aoa_l=P('AOA (L)'), aoa_r=P('AOA (R)')):
+        self.array, self.frequency, self.offset = \
+            blend_two_parameters(aoa_l, aoa_r)
+        
+
 class ControlColumn(DerivedParameterNode):
     '''
     The position of the control column blended from the position of the captain
@@ -2153,7 +2160,7 @@ class ILSRange(DerivedParameterNode):
                                             alt_aal.array[this_app.slice])
                 
                 # Touchdown point nominally 1000ft from start of runway
-                datum_2_loc = (start_2_loc - 1000/METRES_TO_FEET) - offset/slope
+                datum_2_loc = (start_2_loc - 1000/METRES_TO_FEET) - offset
                         
                 
             # Adjust all range values to relate to the localizer antenna by
@@ -2187,7 +2194,7 @@ class CoordinatesSmoothed(object):
         else:
             speed = tas.array
             freq = tas.frequency
-    
+        
         if precise.value:
             if first_toff:
                 # Compute a smooth taxi out track.
@@ -2250,7 +2257,9 @@ class CoordinatesSmoothed(object):
         # Use ILS track for approach and landings in all localizer approches
         #-----------------------------------------------------------------------
         
-        if loc_est:
+        if precise.value:
+            pass
+        elif loc_est:
             for this_loc in loc_est:    
                 # Join with ILS bearings (inherently from the localizer) and
                 # revert the ILS track from range and bearing to lat & long
@@ -2342,7 +2351,7 @@ class LatitudeSmoothed(DerivedParameterNode, CoordinatesSmoothed):
     @classmethod
     def can_operate(cls, available):
         # List the minimum required parameters.
-        return True #'Latitude Prepared' in available
+        return 'Heading True' in available and 'Latitude Prepared' in available
      
     units = 'deg'
     
@@ -2390,7 +2399,7 @@ class LongitudeSmoothed(DerivedParameterNode, CoordinatesSmoothed):
     @classmethod
     def can_operate(cls, available):
         # List the minimum required parameters.
-        return 'Longitude Prepared' in available
+        return 'Heading True' in available and 'Longitude Prepared' in available
     
     units = 'deg'
     
