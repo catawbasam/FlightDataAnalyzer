@@ -609,3 +609,18 @@ class TAWSTooLowTerrainWarning(KeyTimeInstanceNode):
             index = too_low_terrain_slice.start
             #value = taws_too_low_terrain.array[too_low_terrain_slice.start]
             self.create_kti(index)
+            
+            
+class LocalizerEstablishedStart(KeyTimeInstanceNode):
+    def derive(self, locs=S('ILS Localizer Established')):
+        for loc in locs:
+            self.create_kti(loc.slice.start)
+
+class LocalizerEstablishedEnd(KeyTimeInstanceNode):
+    def derive(self, locs=S('ILS Localizer Established')):
+        for loc in locs:
+            self.create_kti(loc.slice.stop)
+
+
+
+            

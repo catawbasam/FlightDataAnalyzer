@@ -2400,14 +2400,23 @@ class ILSFrequency(DerivedParameterNode):
     """
     name = "ILS Frequency"
     align_to_first_dependency = False
-    def derive(self, f1=P('ILS (L) Frequency'),f2=P('ILS (R) Frequency')):
-        # Mask invalid frequencies
-        f1_trim = np.ma.masked_outside(f1.array,108.10,111.95)
-        f2_trim = np.ma.masked_outside(f2.array,108.10,111.95)
-        # and mask where the two receivers are not matched
-        self.array = np.ma.array(data = f1_trim.data,
-                                 mask = np.ma.masked_not_equal(f1_trim-f2_trim,0.0).mask)
+    def derive(self, f1=P('ILS (L) Frequency'),f2=P('ILS (R) Frequency'),
+               frame = A('Frame')):
+        frame_name = frame.value if frame else None
         
+        if frame_name in ['737-6']:
+            # On this frame only one ILS frequency recording works
+            self.array = f1.array
+            
+        # In almost all cases we can look for both receivers being tuned together to form a valid signal
+        else:
+            # Mask invalid frequencies
+            f1_trim = np.ma.masked_outside(f1.array,108.10,111.95)
+            f2_trim = np.ma.masked_outside(f2.array,108.10,111.95)
+            # and mask where the two receivers are not matched
+            self.array = np.ma.array(data = f1_trim.data,
+                                     mask = np.ma.masked_not_equal(f1_trim-f2_trim,0.0).mask)
+            
 
 class ILSLocalizer(DerivedParameterNode):
     name = "ILS Localizer"
@@ -2433,7 +2442,7 @@ class ILSRange(DerivedParameterNode):
     Range is computed from the track where available, otherwise estimated
     from available groundspeed or airspeed parameters.
     
-    It is (currently) in feet from the localizer antenna.
+    It is in metres from the localizer antenna.
     """
     
     ##@classmethod
@@ -2458,31 +2467,9 @@ class ILSRange(DerivedParameterNode):
         ils_range = np_ma_masked_zeros_like(gspd.array)
         
         for this_loc in loc_established:
-            # Scan through the recorded approaches to find which matches this
-            # localizer established phase.
-            for approach in app_info.value:
-                # line up an approach slice
-                start = index_of_datetime(start_datetime.value,
-                                          approach['slice_start_datetime'],
-                                          self.frequency)
-                stop = index_of_datetime(start_datetime.value,
-                                         approach['slice_stop_datetime'],
-                                         self.frequency)
-                approach_slice = slice(start, stop)
-                if slices_overlap(this_loc.slice, approach_slice):
-                    # we've found a matching approach where the localiser was established
-                    break
-            else:
-                self.warning("No approach found within slice '%s'.",this_loc)
-                continue
-
-            runway = approach['runway']
-            if not runway:
-                self.warning("Approach runway information not available. "
-                                "No support for Airports without Runways! "
-                                "Details: %s", approach)
-                continue
-            
+            # Find the matching runway details
+            approach, runway = find_app_rwy(self, app_info, start_datetime, this_loc)
+  
             try:
                 start_2_loc, gs_2_loc, end_2_loc, pgs_lat, pgs_lon = \
                     runway_distances(runway)
@@ -2493,53 +2480,24 @@ class ILSRange(DerivedParameterNode):
                 off_cl = np_ma_zeros_like(head.array)
                 continue
 
-            
-            if precise.value:
-                # Convert (prepared) latitude & longitude for the whole phase
-                # into range from the threshold. (threshold = {})
-                if 'localizer' in runway:
-                    threshold = runway['localizer']
-                elif 'end' in runway:
-                    threshold = runway['end']
-                else:
-                    pass
-                    # TODO: Set threshold is where the touchdown happened.
-                    
-                brg, ils_range[this_loc.slice] = \
-                    bearings_and_distances(repair_mask(lat.array[this_loc.slice]),
-                                           repair_mask(lon.array[this_loc.slice]),
-                                           threshold)
-                continue # move onto next loc_established
+            # Use recorded groundspeed where available, otherwise
+            # estimate range using true airspeed. This is because there
+            # are aircraft which record ILS but not groundspeed data. In
+            # either case the speed is referenced to the runway heading
+            # in case of large deviations on the approach or runway.
+            if gspd:
+                speed = gspd.array.data[this_loc.slice] * \
+                np.cos(np.radians(off_cl[this_loc.slice]+\
+                                  drift.array[this_loc.slice]))
+            else:
+                speed = tas.array.data[this_loc.slice] * \
+                np.cos(np.radians(off_cl[this_loc.slice]))
                 
-            #-----------------------------
-            else: # non-precise positioning
-            
-                # Use recorded groundspeed where available, otherwise
-                # estimate range using true airspeed. This is because there
-                # are aircraft which record ILS but not groundspeed data. In
-                # either case the speed is referenced to the runway heading
-                # in case of large deviations on the approach or runway.
-                speed_gs = gspd.array.data[this_loc.slice] * \
-                    np.cos(np.radians(off_cl[this_loc.slice]+\
-                                      drift.array[this_loc.slice]))
-                speed_tas = tas.array.data[this_loc.slice] * \
-                    np.cos(np.radians(off_cl[this_loc.slice]))
-                if gspd:
-                    # It is necessary to use getmaskarray rather than .array.mask
-                    # here because the array may have no masked entries, in which
-                    # case only a single False scalar is returned, which will not
-                    # work with the np.ma.where function.
-                    speed = np.ma.where(np.ma.getmaskarray(\
-                        gspd.array[this_loc.slice]), speed_tas, speed_gs)
-
-                else:
-                    speed = speed_tas
-                    
-                # Estimate range by integrating back from zero at the end of the
-                # phase to high range values at the start of the phase.
-                spd_repaired = repair_mask(speed)
-                ils_range[this_loc.slice] = integrate(
-                    spd_repaired, gspd.frequency, scale=KTS_TO_MPS, direction='reverse')
+            # Estimate range by integrating back from zero at the end of the
+            # phase to high range values at the start of the phase.
+            spd_repaired = repair_mask(speed)
+            ils_range[this_loc.slice] = integrate(
+                spd_repaired, gspd.frequency, scale=KTS_TO_MPS, direction='reverse')
                 
             if 'glideslope' in runway:
                 # The runway has an ILS glideslope antenna
@@ -2553,18 +2511,18 @@ class ILSRange(DerivedParameterNode):
                     self.warning("No glideslope established at same time as localiser")
                     continue
                     
-                # Compute best fit glidepath. The term (1-0.1 x glideslope
+                # Compute best fit glidepath. The term (1-0.13 x glideslope
                 # deviation) caters for the aircraft deviating from the
-                # planned flightpath. 1 dot low is about 10% of a 3 degree
+                # planned flightpath. 1 dot low is about 7% of a 3 degree
                 # glidepath. Not precise, but adequate accuracy for the small
                 # error we are correcting for here, and empyrically checked.
                 
                 corr, slope, offset = coreg(ils_range[this_gs.slice],
-                    alt_aal.array[this_gs.slice]* (1-0.1*glide.array[this_gs.slice]))
+                    alt_aal.array[this_gs.slice]* (1-0.13*glide.array[this_gs.slice]))
 
                 # This should correlate very well, and any drop in this is a
                 # sign of problems elsewhere.
-                if corr < 0.998:
+                if corr < 0.995:
                     print 'Low convergence in computing ILS glideslope offset.'
 
                 # Shift the values in this approach so that the range = 0 at
@@ -2574,17 +2532,13 @@ class ILSRange(DerivedParameterNode):
                 
             else:
                 # Case of an ILS approach using localizer only.
-                for this_app in final_apps: # TODO: final_apps is undefined?
-                    if is_slice_within_slice(this_app.slice, this_loc.slice):
-                        # we'll take the first one!
-                        break
-                else:
-                    # we didn't find a period where the approach was within the localiser
-                    self.warning("Approaches were not fully established with localiser")
-                    continue
-                    
-                corr, slope, offset = coreg(ils_range[this_app.slice], 
-                                            alt_aal.array[this_app.slice])
+
+                #####################################################################
+                # Code written but not tested yet as we haven't found a flight case #
+                #####################################################################
+                
+                corr, slope, offset = coreg(ils_range[this_loc.slice], 
+                                            alt_aal.array[this_loc.slice])
                 
                 # Touchdown point nominally 1000ft from start of runway
                 datum_2_loc = (start_2_loc - 1000/METRES_TO_FEET) - offset
@@ -2597,22 +2551,122 @@ class ILSRange(DerivedParameterNode):
         self.array = ils_range
 
 
+
+
+def find_app_rwy(self, app_info, start_datetime, this_loc):
+    # Scan through the recorded approaches to find which matches this
+    # localizer established phase.
+    for approach in app_info.value:
+        # line up an approach slice
+        start = index_of_datetime(start_datetime.value,
+                                  approach['slice_start_datetime'],
+                                  self.frequency)
+        stop = index_of_datetime(start_datetime.value,
+                                 approach['slice_stop_datetime'],
+                                 self.frequency)
+        approach_slice = slice(start, stop)
+        if slices_overlap(this_loc.slice, approach_slice):
+            # we've found a matching approach where the localiser was established
+            break
+    else:
+        self.warning("No approach found within slice '%s'.",this_loc)
+        return None, None
+
+    runway = approach['runway']
+    if not runway:
+        self.warning("Approach runway information not available.")
+        return approach, None
+                
+    return approach, runway                
+
+def localizer_scale(reference, runway):
+    if 'beam_width' in reference:
+        # Compute the localizer scale factor (degrees per dot)
+        # Half the beam width is 2.5 dots full scale
+        scale = (reference['beam_width']/2.0) / 2.5
+    else:
+        # Normal scaling of a localizer gives 700ft width at the threshold,
+        # so half of this is 350ft=106.68m. This appears to be a single dot
+        # scale (to match beam width values).
+        scale = np.degrees(np.arctan2(106.68, runway_length(runway)))
+    return scale
+
+    
+
 class CoordinatesSmoothed(object):
     '''
     Superclass for SmoothedLatitude and SmoothedLongitude classes as they share
-    the _adjust_track method.
-    '''
-    def _adjust_track(self,lon,lat,loc_est,ils_range,ils_loc,gspd,hdg,head_mag,
-                      tas,precise,toff,app_info,toff_rwy,start_datetime):
-        # Set up a working space.
-        lat_adj = np.ma.array(data=head_mag.array.data, mask=True, copy=True)
-        lon_adj = np.ma.array(data=head_mag.array.data, mask=True, copy=True)
+    the adjust_track methods.
     
+    _adjust_track_pp is used for aircraft with precise positioning, usually
+    GPS based and qualitatively determined by a recorded track that puts the
+    aircraft on the correct runway. In these cases we only apply fine
+    adjustment of the approach and landing path using ILS localizer data to
+    position the aircraft with respect to the runway centreline.
+    
+    _adjust_track_ip is for aircraft with imprecise positioning. In these
+    cases we use all the data available to correct for errors in the recorded
+    position at takeoff, approach and landing.
+    '''
+    def _adjust_track_pp(self,lon,lat,loc_est,ils_range,ils_loc,gspd,hdg,head_mag,
+                      tas,precise,first_toff,app_info,toff_rwy,start_datetime):
+        # Set up a working space.
+        lat_adj = np_ma_masked_zeros_like(head_mag.array)
+        lon_adj = np_ma_masked_zeros_like(head_mag.array)
+        
         #-----------------------------------------------------------------------
-        # Use synthesized track for takeoffs where necessary
+        # Use ILS track for approach and landings in all localizer approches
         #-----------------------------------------------------------------------
         
-        first_toff = toff.get_first()
+        if loc_est:
+            for this_loc in loc_est:    
+                # Find the matching runway details
+                approach, runway = find_app_rwy(self, app_info, start_datetime, this_loc)
+                
+                if 'localizer' in runway:
+                    reference = runway['localizer']
+                else:
+                    self.warning("No localizer for approach runway '%s'.",runway)
+                    # Can't improve matters.
+                    return None, None
+                    
+                scale = localizer_scale(reference, runway)
+                
+                # Adjust the ils data to be degrees from the reference point.
+                bearings = ils_loc.array[this_loc.slice] * scale + \
+                    runway_heading(runway)+180
+                
+                # Tweek the localizer position to be on the start:end centreline
+                localizer_on_cl = ils_localizer_align(runway)
+                
+                # Find distances from the localizer
+                _, distances = bearings_and_distances(lat.array[this_loc.slice], 
+                                                      lon.array[this_loc.slice], 
+                                                      localizer_on_cl)
+                
+                
+                # At last, the conversion of ILS localizer data to latitude and longitude
+                lat_adj[this_loc.slice], lon_adj[this_loc.slice] = \
+                    latitudes_and_longitudes(bearings, distances, localizer_on_cl)
+                
+                # Alignment of the ILS Range causes corrupt first samples.
+                lat_adj[this_loc.slice.start] = np.ma.masked
+                lon_adj[this_loc.slice.start] = np.ma.masked
+                
+            return lat_adj, lon_adj
+        else:
+            return None, None
+    
+    
+    def _adjust_track_ip(self,lon,lat,loc_est,ils_range,ils_loc,gspd,hdg,head_mag,
+                      tas,precise,first_toff,app_info,toff_rwy,start_datetime):
+        # Set up a working space.
+        lat_adj = np_ma_masked_zeros_like(head_mag.array)
+        lon_adj = np_ma_masked_zeros_like(head_mag.array)
+    
+        #------------------------------------
+        # Use synthesized track for takeoffs
+        #------------------------------------
         
         # We compute the ground track using best available data.
         if gspd:
@@ -2622,157 +2676,108 @@ class CoordinatesSmoothed(object):
             speed = tas.array
             freq = tas.frequency
         
-        if precise.value:
-            if first_toff:
-                # Compute a smooth taxi out track.
-                [lat_adj[:first_toff.slice.start], lon_adj[:first_toff.slice.start]] = \
-                    ground_track(lat.array[first_toff.slice.start],
-                                 lon.array[first_toff.slice.start],
-                                 speed[:first_toff.slice.start],
-                                 hdg.array[:first_toff.slice.start],
-                                 freq,
-                                 'takeoff')
-            else:
-                self.warning("Cannot smooth taxi out without a takeoff.")
+        if toff_rwy and first_toff and toff_rwy.value:
+            toff_slice = first_toff.slice
+            
+            # Compute takeoff track from start of runway using integrated
+            # groundspeed, down runway centreline to end of takeoff (35ft
+            # altitude). An initial value of 100m puts the aircraft at a
+            # reasonable position with respect to the runway start.
+            rwy_dist = np.ma.array(                        
+                data = integrate(speed[toff_slice], freq, initial_value=100, 
+                                 scale=KTS_TO_MPS),
+                mask = np.ma.getmaskarray(speed[toff_slice]))
     
-            # Either way, we allow the recorded track to be used for the takeoff unchanged.
-            pass
+            # The start location has been read from the database.
+            start_locn = toff_rwy.value['start']
     
+            # Similarly the runway bearing is derived from the runway endpoints
+            # (this gives better visualisation images than relying upon the
+            # nominal runway heading). This is converted to a numpy masked array
+            # of the length required to cover the takeoff phase.
+            rwy_hdg = runway_heading(toff_rwy.value)
+            rwy_brg = np_ma_ones_like(speed[toff_slice])*rwy_hdg
+            
+            # The track down the runway centreline is then converted to
+            # latitude and longitude.
+            lat_adj[toff_slice], lon_adj[toff_slice] = \
+                latitudes_and_longitudes(rwy_brg, 
+                                         rwy_dist, 
+                                         start_locn)                    
+    
+        #--------------------------------
+        # Use synthesized taxi out track
+        #--------------------------------
+        
+            # Finally we compute a ground track for the taxi out phase.
+            [lat_adj[:toff_slice.start],
+            lon_adj[:toff_slice.start]] = \
+                ground_track(lat_adj.data[toff_slice.start],
+                             lon_adj.data[toff_slice.start],
+                             speed[:toff_slice.start],
+                             hdg.array[:toff_slice.start],
+                             freq, 'takeoff')
         else:
-            #For not precise aircraft, synthesize the takeoff roll as well as the taxi out.
-            if toff_rwy and first_toff and toff_rwy.value:
-                # Compute takeoff track from start of runway using integrated
-                # groundspeed, down runway centreline to end of takeoff (35ft
-                # altitude). An initial value of 100m puts the aircraft at a
-                # reasonable position with respect to the runway start.
-                rwy_dist = np.ma.array(                        
-                    data = integrate(speed[first_toff.slice], freq, initial_value=100, 
-                                     scale=KTS_TO_MPS),
-                    mask = np.ma.getmaskarray(speed[first_toff.slice]))
-        
-                # The start location has been read from the database.
-                start_locn = toff_rwy.value['start']
-        
-                # Similarly the runway bearing is derived from the runway endpoints
-                # (this gives better visualisation images than relying upon the
-                # nominal runway heading). This is converted to a numpy masked array
-                # of the length required to cover the takeoff phase.
-                rwy_hdg = runway_heading(toff_rwy.value)
-                rwy_brg = np_ma_ones_like(speed[first_toff.slice])*rwy_hdg
-                
-                # And finally the track down the runway centreline is
-                # converted to latitude and longitude.
-                lat_adj[first_toff.slice], lon_adj[first_toff.slice] = \
-                    latitudes_and_longitudes(rwy_brg, 
-                                             rwy_dist, 
-                                             start_locn)                    
-        
-                [lat_adj[:first_toff.slice.start],
-                lon_adj[:first_toff.slice.start]] = \
-                    ground_track(lat_adj.data[first_toff.slice.start],
-                                 lon_adj.data[first_toff.slice.start],
-                                 speed[:first_toff.slice.start],
-                                 hdg.array[:first_toff.slice.start],
-                                 freq, 'takeoff')
-            else:
-                [lat_adj,lon_adj] = \
-                    ground_track(0.0,0.0,speed,head_mag.array,freq, 'takeoff')
-                
-                self.warning("Cannot smooth takeoff without runway details.")
-    
+            self.warning("Cannot smooth takeoff without runway details.")
+
         #-----------------------------------------------------------------------
         # Use ILS track for approach and landings in all localizer approches
         #-----------------------------------------------------------------------
         
-        if precise.value:
-            pass
-        elif loc_est:
+        if loc_est:
             for this_loc in loc_est:    
                 # Join with ILS bearings (inherently from the localizer) and
                 # revert the ILS track from range and bearing to lat & long
                 # coordinates.
                 # Scan through the recorded approaches to find which matches this
                 # localizer established phase.
-                for approach in app_info.value:
-                    # line up an approach slice
-                    start = index_of_datetime(start_datetime.value,
-                                              approach['slice_start_datetime'],
-                                              lon.frequency)
-                    stop = index_of_datetime(start_datetime.value,
-                                             approach['slice_stop_datetime'],
-                                             lon.frequency)
-                    approach_slice = slice(start, stop)
-                    if slices_overlap(this_loc.slice, approach_slice):
-                        # we've found a matching approach where the localiser was established
-                        break
-                else:
-                    self.warning("No approach found within slice '%s'.",this_loc)
-                    continue
                 
-                runway = approach['runway']
-                if not runway:
-                    self.error("Approach runway information not available.")
-                    raise NotImplementedError(
-                        "No support for Airports without Runways! Details: %s" % approach)    
-                
+                # Find the matching runway details
+                approach, runway = find_app_rwy(self, app_info, start_datetime, this_loc)
+                                
                 if 'localizer' in runway:
                     reference = runway['localizer']
+                else:
+                    self.warning("No localizer for approach runway '%s'.",runway)
+                    # Return with the takeoff adjustment only.
+                    return lat_adj, lon_adj
+                
+                scale = localizer_scale(reference, runway)
                     
-                    if 'beam_width' in reference:
-                        # Compute the localizer scale factor (degrees per dot)
-                        # Half the beam width is 2 dots full scale
-                        scale = (reference['beam_width']/2.0) / 2.0
-                    else:
-                        # Normal scaling of a localizer gives 700ft width at the
-                        # threshold, so half of this is 350ft=106.68m and will
-                        # give 2 dots full scale
-                        scale=np.degrees(np.arctan2(106.68, runway_length(runway)))\
-                            / 2.0
-                        
-                    # Adjust the ils data to be degrees from the reference point.
-                    bearings = ils_loc.array[this_loc.slice] * scale + \
-                        runway_heading(runway)+180
-                    
-                    # Adjust distance units
-                    distances = ils_range.array[this_loc.slice]
-                    
-                    # Tweek the localizer position to be on the start:end centreline
-                    localizer_on_cl = ils_localizer_align(runway)
-                    
-                    # At last, the conversion of ILS localizer data to latitude and longitude
-                    lat_adj[this_loc.slice], lon_adj[this_loc.slice] = \
-                        latitudes_and_longitudes(bearings, distances, localizer_on_cl)
-                    
-                    # Alignment of the ILS Range causes corrupt first samples.
-                    lat_adj[this_loc.slice.start] = np.ma.masked
-                    lon_adj[this_loc.slice.start] = np.ma.masked
-                    
-                    # Finally, tack the ground track onto the end of the landing run
-                    if approach['type'] == 'LANDING':
-                        # In some cases the bearings and distances computed
-                        # from ILS data may be masked at the end of the
-                        # approach, so we scan back to connect the ground
-                        # track onto the end of the valid data.
-                        index, _ = first_valid_sample(lat_adj[slice(this_loc.slice.stop,this_loc.slice.start,-1)])
-                        join_idx = (this_loc.slice.stop or 0) - index
-                        if len(lat_adj) > join_idx: # We have some room to extend over.
-                            [lat_adj[join_idx:], lon_adj[join_idx:]] = \
-                                ground_track(lat_adj.data[join_idx], lon_adj.data[join_idx],
-                                             speed[join_idx:], hdg.array[join_idx:], 
-                                             freq, 'landing')
+                # Adjust the ils data to be degrees from the reference point.
+                bearings = ils_loc.array[this_loc.slice] * scale + \
+                    runway_heading(runway)+180
+                
+                # Adjust distance units
+                distances = ils_range.array[this_loc.slice]
+                
+                # Tweek the localizer position to be on the start:end centreline
+                localizer_on_cl = ils_localizer_align(runway)
+                
+                # At last, the conversion of ILS localizer data to latitude and longitude
+                lat_adj[this_loc.slice], lon_adj[this_loc.slice] = \
+                    latitudes_and_longitudes(bearings, distances, localizer_on_cl)
+                
+                # Alignment of the ILS Range causes corrupt first samples.
+                lat_adj[this_loc.slice.start] = np.ma.masked
+                lon_adj[this_loc.slice.start] = np.ma.masked
+                
+                # Finally, tack the ground track onto the end of the landing run
+                if approach['type'] == 'LANDING':
+                    # In some cases the bearings and distances computed
+                    # from ILS data may be masked at the end of the
+                    # approach, so we scan back to connect the ground
+                    # track onto the end of the valid data.
+                    index, _ = first_valid_sample(lat_adj[slice(this_loc.slice.stop,this_loc.slice.start,-1)])
+                    join_idx = (this_loc.slice.stop or 0) - index
+                    if len(lat_adj) > join_idx: # We have some room to extend over.
+                        [lat_adj[join_idx:], lon_adj[join_idx:]] = \
+                            ground_track(lat_adj.data[join_idx], lon_adj.data[join_idx],
+                                         speed[join_idx:], hdg.array[join_idx:], 
+                                         freq, 'landing')
 
-        # --- Merge Tracks and return ---
-        if lat_adj != None:
-            lat_adj = track_linking(lat.array, lat_adj)
-            lon_adj = track_linking(lon.array, lon_adj)
-        else:
-            lat_adj = lat.array
-            lon_adj = lon.array
-            
-    
         return lat_adj, lon_adj        
 
-    
 class LatitudeSmoothed(DerivedParameterNode, CoordinatesSmoothed):
     # List the minimum acceptable parameters here
     @classmethod
@@ -2798,26 +2803,23 @@ class LatitudeSmoothed(DerivedParameterNode, CoordinatesSmoothed):
                toff_rwy = A('FDR Takeoff Runway'),
                start_datetime = A('Start Datetime'),
                ):
-        
-        '''
-        if len(app_info.value) != len(loc_est):
-            # TODO: Sort out what we do with multiple approach phases.
-            
-            # Can't smooth appproach data if the ILS was not established,
-            # but apologise if it was and we got in a muddle.
-            if len(loc_est)>0: 
-                self.warning("Cannot use ILS approach data to smooth the approach track because the number of '%s'"
-                                " sections was not equal to the number of approaches.",
-                                loc_est.name)
-            self.array = lat.array
-            return
-            '''
-        
-        self.array, _ = self._adjust_track(lon,lat,loc_est,ils_range,ils_loc,
-                                           gspd,hdg,head_mag,tas,precise,toff,
-                                           app_info,toff_rwy,start_datetime)
 
-        if self.array == None:
+        first_toff = toff.get_first()
+        if precise.value:
+            # Precise Positioning form of adjust track
+            lat_adj, _ = self._adjust_track_pp(lon,lat,loc_est,ils_range,ils_loc,
+                                                  gspd,hdg,head_mag,tas,precise,first_toff,
+                                                  app_info,toff_rwy,start_datetime)
+        else:
+            # Imprecise Positioning form of adjust track
+            lat_adj, _ = self._adjust_track_ip(lon,lat,loc_est,ils_range,ils_loc,
+                                              gspd,hdg,head_mag,tas,precise,first_toff,
+                                              app_info,toff_rwy,start_datetime)
+
+        # --- Merge Tracks and return ---
+        if lat_adj != None:
+            self.array = track_linking(lat.array, lat_adj)
+        else:
             self.array = lat.array
 
         
@@ -2847,20 +2849,24 @@ class LongitudeSmoothed(DerivedParameterNode, CoordinatesSmoothed):
                start_datetime = A('Start Datetime'),
                ):
 
-        '''
-        if len(app_info.value) != len(loc_est) :
-            # Warning issued by the Latitude code. No need to duplicate.
-            self.array = lon.array
-            return
-            '''
+        first_toff = toff.get_first()
+        if precise.value:
+            # Precise Positioning form of adjust track
+            _, lon_adj = self._adjust_track_pp(lon,lat,loc_est,ils_range,ils_loc,
+                                                  gspd,hdg,head_mag,tas,precise,first_toff,
+                                                  app_info,toff_rwy,start_datetime)
+        else:
+            # Imprecise Positioning form of adjust track
+            _, lon_adj = self._adjust_track_ip(lon,lat,loc_est,ils_range,ils_loc,
+                                              gspd,hdg,head_mag,tas,precise,first_toff,
+                                              app_info,toff_rwy,start_datetime)
 
-        _, self.array = self._adjust_track(lon,lat,loc_est,ils_range,ils_loc,
-                                           gspd,hdg,head_mag,tas,precise,toff,
-                                           app_info,toff_rwy,start_datetime)
-        
-        if self.array == None:
+        # --- Merge Tracks and return ---
+        if lon_adj != None:
+            self.array = track_linking(lon.array, lon_adj)
+        else:
             self.array = lon.array
-            
+
             
 class Mach(DerivedParameterNode):
     def derive(self, cas = P('Airspeed'), alt = P('Altitude STD')):
