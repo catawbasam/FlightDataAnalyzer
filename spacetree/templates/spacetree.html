@@ -127,6 +127,9 @@
 <thead>
 <tr>
 <th>Name</th>
+{% if polaris_query %}
+<th>Description</th>
+{% endif %}
 <th>Mandatory</th>
 {% if polaris_query %}
 <th>Database</th>
@@ -138,6 +141,9 @@
 {% for param_name, param in params.iteritems() %}
 <tr>
 <td>{{ param_name }}</td>
+{% if polaris_query %}
+<td>{{ param.description }}</td>
+{% endif %}
 <td><img src="../_assets/img/{% if param.mandatory == True %}tick.png{% else %}cross.png{% endif %}"></td>
 {% if polaris_query %}
 <td><img src="../_assets/img/{% if param.database == True %}tick.png{% else %}cross.png{% endif %}"></td>
