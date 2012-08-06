@@ -463,30 +463,50 @@ class TestLatitudesAndLongitudes(unittest.TestCase):
         # TODO - Test with array and masks (for Brg/Dist also?)
         
 
-class TestBlendAlternateSensors(unittest.TestCase):
-    def test_blend_alternage_sensors_basic(self):
+class TestBlendEquispacedSensors(unittest.TestCase):
+    def test_blend_alternate_sensors_basic(self):
         array_1 = np.ma.array([0, 0, 1, 1],dtype=float)
         array_2 = np.ma.array([5, 5, 6, 6],dtype=float)
-        result = blend_alternate_sensors (array_1, array_2, 'Follow')
+        result = blend_equispaced_sensors (array_1, array_2)
+        np.testing.assert_array_equal(result.data, [2.5,2.5,2.5,2.75,3.25,3.5,3.5,3.5])
+        np.testing.assert_array_equal(result.mask, [False,False,False,False,
+                                                   False,False,False,False])
+    
+    def test_blend_alternate_sensors_masked(self):
+        array_1 = np.ma.array(data = [0, 0, 1, 1, 2, 2],dtype=float,
+                              mask = [0, 1, 0, 0, 0, 1])
+        array_2 = np.ma.array(data = [5, 5, 6, 6, 7, 7],dtype=float,
+                              mask = [0, 0, 1, 0, 0, 1])
+        result = blend_equispaced_sensors (array_1, array_2)
+        np.testing.assert_array_equal(result.data,[2.5,5.0,5.0,5.0,1.0,1.0,
+                                                   1.0,3.75,4.25,7.0,0.0,0.0])
+        np.testing.assert_array_equal(result.mask, [False,False,False,False,False,False,
+                                                   False,False,False,False,True,True])
+    
+class TestBlendNonequispacedSensors(unittest.TestCase):
+    def test_blend_alternate_sensors_basic(self):
+        array_1 = np.ma.array([0, 0, 1, 1],dtype=float)
+        array_2 = np.ma.array([5, 5, 6, 6],dtype=float)
+        result = blend_nonequispaced_sensors (array_1, array_2, 'Follow')
         np.testing.assert_array_equal(result.data, [2.5,2.5,2.5,3,3.5,3.5,3.5,3.5])
         np.testing.assert_array_equal(result.mask, [False,False,False,False,
                                                    False,False,False,True])
 
-    def test_blend_alternage_sensors_mask(self):
+    def test_blend_alternate_sensors_mask(self):
         array_1 = np.ma.array([0, 0, 1, 1],dtype=float)
         array_2 = np.ma.array([5, 5, 6, 6],dtype=float)
         array_1[2] = np.ma.masked
-        result = blend_alternate_sensors (array_1, array_2, 'Follow')
+        result = blend_nonequispaced_sensors (array_1, array_2, 'Follow')
         np.testing.assert_array_equal(result.data[0:3], [2.5,2.5,2.5])
         np.testing.assert_array_equal(result.data[6:8], [3.5,3.5])
         np.testing.assert_array_equal(result.mask, [False,False,False,
                                                     True,True,False,
                                                     False,True])
 
-    def test_blend_alternage_sensors_reverse(self):
+    def test_blend_alternate_sensors_reverse(self):
         array_1 = np.ma.array([0, 0, 1, 1],dtype=float)
         array_2 = np.ma.array([5, 5, 6, 6],dtype=float)
-        result = blend_alternate_sensors (array_1, array_2, 'Precede')
+        result = blend_nonequispaced_sensors (array_1, array_2, 'Precede')
         np.testing.assert_array_equal(result.data, [2.5,2.5,2.5,2.5,3,3.5,3.5,3.5])
         np.testing.assert_array_equal(result.mask, [True,False,False,False,
                                                     False,False,False,False])
@@ -1215,6 +1235,14 @@ class TestIndexAtValue(unittest.TestCase):
         array = np.ma.arange(4)
         self.assertEquals (index_at_value(array, 3.0, slice(1, 4)), 3.0)
         
+    def test_index_at_value_backwards_floating_point_end(self):
+        array = np.ma.arange(4)
+        self.assertEquals (index_at_value(array, 1.0, slice(3.4, 0.5, -1)), 1.0)
+        
+    def test_index_at_value_forwards_floating_point_end(self):
+        array = np.ma.arange(4)
+        self.assertEquals (index_at_value(array, 3.0, slice(0.6, 3.5)), 3.0)
+        
     def test_index_at_value_threshold_not_crossed(self):
         array = np.ma.arange(4)
         self.assertEquals (index_at_value(array, 7.5, slice(0, 3)), None)
@@ -1686,15 +1714,15 @@ class TestMinimumUnmasked(unittest.TestCase):
 
 
 class TestBlendTwoParameters(unittest.TestCase):
-    def test_blend_two_parameters_offset_ordered_forward(self):
+    def test_blend_two_parameters_p2_before_p1_equal_spacing(self):
         p1 = P(array=[0,0,0,1.0], frequency=1, offset=0.9)
         p2 = P(array=[1,2,3,4.0], frequency=1, offset=0.4)
         arr, freq, off = blend_two_parameters(p1, p2)
-        self.assertEqual(arr[1], 0.5)
+        self.assertEqual(arr[1], 0.75)
         self.assertEqual(freq, 2)
-        self.assertAlmostEqual(off, 0.15)
+        self.assertAlmostEqual(off, 0.4)
 
-    def test_blend_two_parameters_offset_ordered_backward(self):
+    def test_blend_two_parameters_offset_p2_before_p1_unequal_spacing(self):
         p1 = P(array=[5,10,7,8.0], frequency=2, offset=0.1)
         p2 = P(array=[1,2,3,4.0], frequency=2, offset=0.0)
         arr, freq, off = blend_two_parameters(p1, p2)
@@ -2344,6 +2372,24 @@ class TestSlicesRemoveSmallGaps(unittest.TestCase):
         slicelist=[slice(1,3), slice(5,7), slice(20,22)]
         newlist=slices_remove_small_gaps(slicelist,hz=2)
         expected=[slice(1,22)]
+        self.assertEqual(expected, newlist)
+        
+    def test_slice_return_single_slice(self):
+        slicelist=[slice(5,7)]
+        newlist=slices_remove_small_gaps(slicelist,hz=2)
+        expected=[slice(5,7)]
+        self.assertEqual(expected, newlist)
+
+    def test_slice_return_none(self):
+        slicelist=[None]
+        newlist=slices_remove_small_gaps(slicelist,hz=2)
+        expected=[None]
+        self.assertEqual(expected, newlist)
+        
+    def test_slice_return_empty(self):
+        slicelist=[]
+        newlist=slices_remove_small_gaps(slicelist,hz=2)
+        expected=[]
         self.assertEqual(expected, newlist)
 
 

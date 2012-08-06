@@ -1792,7 +1792,7 @@ def slices_remove_small_gaps(slice_list, time_limit=10, hz=1):
     '''
     sample_limit = time_limit*hz
     if slice_list == None or len(slice_list) < 2:
-        return []
+        return slice_list
     new_list = [slice_list[0]]
     for each_slice in slice_list[1:]:
         if each_slice.start - new_list[-1].stop < sample_limit:
@@ -2019,12 +2019,13 @@ def minimum_unmasked(array1, array2):
 
 def merge_two_parameters (param_one, param_two):
     '''
-    This process merges two parameter objects. They must be recorded at the same frequency.
-    without smoothing, and then computes the offset and frequency appropriately.
+    Use: merge_two_parameters is intended for discrete and multi-state
+    parameters. Use blend_two_parameters for analogue parameters.
     
-    Note: There is no check for the parameters being equi-spaced.
-    
-    See also blend_two_parameters which compensates for differences between the two sensors.
+    This process merges two parameter objects. They must be recorded at the
+    same frequency. without smoothing, and then computes the offset and
+    frequency appropriately. Note: There is no check for the parameters being
+    equi-spaced.
     
     :param param_one: Parameter object
     :type param_one: Parameter
@@ -2062,21 +2063,59 @@ def merge_sources(*arrays):
         result[:,dim] = array
     return np.ma.ravel(result)
 
-
-def blend_alternate_sensors (array_one, array_two, padding):
+def blend_equispaced_sensors (array_one, array_two):
     '''
     This process merges the data from two sensors where they are sampled
-    alternately. Often pilot and co-pilot attitude and air data signals are
-    stored in alternate locations to provide the required sample rate while
-    allowing errors in either to be identified for investigation purposes.
+    alternately. Where one sensor is invalid, the process substitutes from
+    the other sensor where possible, maintaining a higher level of data
+    validity.
     
-    For FDM, only a single parameter is required, but mismatches in the two 
-    sensors can lead to, taking pitch attitude as an example, apparent "nodding"
-    of the aircraft and errors in the derived pitch rate.
+    :param array_one: sampled data from one signal source
+    :type array_one: masked array
+    :param array_two: sampled data from one signal source
+    :type array_two: masked array
+    :returns: masked array with merging algorithm applied.
+    :rtype: masked array
+    '''
+    assert len(array_one) == len(array_two)
+    both = merge_sources(array_one, array_two)
+    both_mask = np.ma.getmaskarray(both)
+
+    av_other = np_ma_masked_zeros_like(both)
+    av_other[1:-1] = (both[:-2] + both[2:])/2.0
+    av_other[0] = both[1]
+    av_other[-1] = both[-2]
+    av_other_mask = np.ma.getmaskarray(av_other)
     
-    Mismatches can also occur when there are timing differences between the
-    two samples, in which case this averaging process combined with
-    corrections to the offset and sampling interval are effective.
+    best = (both + av_other)/2.0
+    best_mask = np.ma.getmaskarray(best)
+    
+    # We build up the best available data starting from the worst case, where
+    # we have no valid data, so return a masked zero
+    result = np_ma_masked_zeros_like(both)
+    
+    # If the other channel is valid, use the average of the before and after
+    # samples of the other channel.
+    result = np.ma.where(av_other_mask, result, av_other)
+    
+    # Better - if the channel sampled at the right moment is valid, use this.
+    result = np.ma.where(both_mask, result, both)
+    
+    # Best option is this channel averaged with the mean of the other channel
+    # before and after samples.
+    result = np.ma.where(best_mask, result, best)
+            
+    return result
+
+
+
+def blend_nonequispaced_sensors (array_one, array_two, padding):
+    '''
+    Where there are timing differences between the two samples, this
+    averaging process computes the average value between alternate pairs of
+    samples. This has the effect of removing sensor mismatch and providing
+    equispaced data points. The disadvantage is that in the presence of one
+    sensor malfunction, all resulting data is invalid.
     
     :param array_one: sampled data from one signal source
     :type array_one: masked array
@@ -2103,11 +2142,34 @@ def blend_alternate_sensors (array_one, array_two, padding):
 
 def blend_two_parameters (param_one, param_two):
     '''
+    Use: blend_two_parameters is intended for analogue parameters. Use
+    merge_two_parameters for discrete and multi-state parameters.
+
+    This process merges the data from two sensors where they are sampled
+    alternately. Often pilot and co-pilot attitude and air data signals are
+    stored in alternate locations to provide the required sample rate while
+    allowing errors in either to be identified for investigation purposes.
+    
+    For FDM, only a single parameter is required, but mismatches in the two 
+    sensors can lead to, taking pitch attitude as an example, apparent "nodding"
+    of the aircraft and errors in the derived pitch rate.
+
     This process merges two parameter arrays of the same frequency.
     Smoothes and then computes the offset and frequency appropriately.
     
+    Two alternative processes are used, depending upon whether the samples
+    are equispaced or not.
+    
     :param param_one: Parameter object
     :type param_one: Parameter
+    :param param_two: Parameter object
+    :type param_two: Parameter
+    
+    :returns array, frequency, offset
+    :type array: Numpy masked array
+    :type frequency: Float (Hz)
+    :type offset: Float (sec)
+    
     '''
     assert param_one.frequency == param_two.frequency
     
@@ -2149,20 +2211,35 @@ def blend_two_parameters (param_one, param_two):
         return param_one.array, param_one.frequency, param_one.offset
 
     else:
-        offset = (param_one.offset + param_two.offset)/2.0
-        frequency = param_one.frequency * 2.0
-        padding = 'Follow'
         
-        if offset > 1.0/frequency:
-            offset = offset - 1.0/frequency
-            padding = 'Precede'
+        frequency = param_one.frequency * 2.0
+        
+        # Are the parameters equispaced?
+        if abs(param_one.offset - param_two.offset) * frequency == 1.0:
+            # Equispaced process
+            if param_one.offset < param_two.offset:
+                offset = param_one.offset
+                array = blend_equispaced_sensors(param_one.array, param_two.array)
+            else:
+                offset = param_two.offset
+                array = blend_equispaced_sensors(param_two.array, param_one.array)
             
-        if param_one.offset <= param_two.offset:
-            # merged array should be monotonic (always increasing in time)
-            array = blend_alternate_sensors(param_one.array, param_two.array, padding)
         else:
-            array = blend_alternate_sensors(param_two.array, param_one.array, padding)
-        return array, param_one.frequency * 2, offset
+            # Non-equispaced process
+            offset = (param_one.offset + param_two.offset)/2.0
+            padding = 'Follow'
+            
+            if offset > 1.0/frequency:
+                offset = offset - 1.0/frequency
+                padding = 'Precede'
+                
+            if param_one.offset <= param_two.offset:
+                # merged array should be monotonic (always increasing in time)
+                array = blend_nonequispaced_sensors(param_one.array, param_two.array, padding)
+            else:
+                array = blend_nonequispaced_sensors(param_two.array, param_one.array, padding)
+                
+        return array, frequency, offset
 
 def normalise(array, normalise_max=1.0, scale_max=None, copy=True, axis=None):
     """
@@ -2939,7 +3016,7 @@ def index_at_value(array, threshold, _slice=slice(None), endpoint='exact'):
         
     elif step == -1:
         begin = min(int(round(_slice.start or max_index)),max_index)
-        end = max(int(round(_slice.stop or 0)),0)
+        end = max(int(_slice.stop or 0),0)
 
         # More "let's get the logic right and tidy it up afterwards" bit of code...
         if begin >= len(array):

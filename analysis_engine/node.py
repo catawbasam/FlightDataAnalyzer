@@ -1011,9 +1011,10 @@ class KeyTimeInstanceNode(FormattedNameNode):
         :type direction: string
         :param phase: An optional flight phase (section) argument.
         
-        Direction has possible fields 'rising_edges' or 'falling_edges'. In
-        the absence of a direction parameter, the default 'rising_edges' will
-        be retained, and all edges will be triggered.
+        Direction has possible fields 'rising_edges', 'falling_edges' or
+        'all_edges'. In the absence of a direction parameter, the default is
+        'rising_edges'.
+        
         Where phase is supplied, only edges arising within this phase will be
         triggered.
         '''
@@ -1207,13 +1208,35 @@ class KeyPointValueNode(FormattedNameNode):
             if isinstance(slice_, Section): # Use slice within Section.
                 start_edge = slice_.start_edge
                 stop_edge = slice_.stop_edge
-                # Tricky self-modifying code !
                 slice_ = slice_.slice
             else:
                 start_edge = None
                 stop_edge = None
             index, value = function(array, slice_, start_edge, stop_edge)
             self.create_kpv(index, value, **kwargs)
+
+    def create_kpv_outside_slices(self, array, slices, function, **kwargs):
+        '''
+        Shortcut for creating a KPV excluding values within provided slices or
+        sections by retrieving an index and value from function (for instance
+        max_value).
+        
+        :param array: Array to source values from.
+        :type array: np.ma.masked_array
+        :param slices: Slices to exclude from KPV creation.
+        :type slices: SectionNode or list of slices.
+        :param function: Function which will return an index and value from the array.
+        :type function: function
+        :returns: None
+        :rtype: None
+        '''
+        for slice_ in slices:
+            if isinstance(slice_, Section): # Use slice within Section.
+                slice_ = slice_.slice
+            # Exclude the slices we don't want:
+            array[slice_] = np.ma.masked
+        index, value = function(array)
+        self.create_kpv(index, value, **kwargs)
 
     def create_kpvs_from_slices(self, slices, threshold=0.0, mark='midpoint', **kwargs):
         '''
@@ -1245,35 +1268,25 @@ class KeyPointValueNode(FormattedNameNode):
                     self.create_kpv(index, duration, **kwargs)
 
 
-    def create_kpvs_from_discretes(self, array, hz, sense='normal', phase=None, min_duration=0.0):
+    def create_kpvs_from_discretes(self, array, hz, phase=None, min_duration=0.0):
         '''
         For discrete parameters, this detects an event and records the
         duration of each event.
         
         :param array: The input parameter, with data and sample rate information.
         :type array: A recorded or derived discrete parameter. 
-        :param sense: Keyword argument.
         :param phase: An optional flight phase (section) argument.
         :param min_duration: An optional minimum duration for the KPV to become valid.
         :type min_duration: Float (seconds)
         :name name: Facility for automatically naming the KPV.
         :type name: String
         
-        Sense has two options, namely the default 'normal': 0.0=OFF and
-        1.0=ON state. 'reverse': 1.0=OFF and 0.0=ON state.
-    
         Where phase is supplied, only edges arising within this phase will be
         triggered.
         '''
         
-        def find_events(subarray, start_index, sense):
-            if sense=='normal':
-                events = np.ma.clump_unmasked(np.ma.masked_less(subarray, 0.5))
-            elif sense=='reverse':
-                events = np.ma.clump_unmasked(np.ma.masked_greater(subarray, 0.5))
-            else:
-                raise ValueError,'Unrecognised sense in create_kpvs_for_discretes'
-            
+        def find_events(subarray, start_index):
+            events = np.ma.clump_unmasked(np.ma.masked_less(subarray, 0.5))
             for event in events:
                 index = event.start
                 value = (event.stop - event.start) / hz
@@ -1286,10 +1299,10 @@ class KeyPointValueNode(FormattedNameNode):
         if phase:
             for each_period in phase:
                 to_scan = array[each_period.slice]
-                find_events(to_scan, each_period.slice.start or 0, sense)
+                find_events(to_scan, each_period.slice.start or 0)
         else:
-            find_events(array, 0, sense)
-        return    
+            find_events(array, 0)
+        return
 
 
 class FlightAttributeNode(Node):

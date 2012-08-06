@@ -762,21 +762,37 @@ class TestKeyPointValueNode(unittest.TestCase):
                          [KeyPointValue(index=22, value=27, name='Kpv'),
                           KeyPointValue(index=10, value=15, name='Kpv')])
 
+    def test_create_kpv_outside_slices(self):
+        knode = self.knode
+        function = mock.Mock()
+        return_values = [(12, 15)]
+        def side_effect(*args, **kwargs):
+            return return_values.pop()
+        function.side_effect = side_effect
+        slices = [slice(1,10), slice(15, 25)]
+        array = np.ma.arange(10)
+        knode.create_kpv_outside_slices(array, slices, function)
+        self.assertEqual(list(knode),
+                         [KeyPointValue(index=12, value=15, name='Kpv')])
+
     def test_create_kpvs_from_discretes(self):
         knode = self.knode
         param = P('Disc',np.ma.array([0.0]*20, dtype=float))
         param.array[5:8] = 1.0
         param.array[11:17] = 1.0
         knode.create_kpvs_from_discretes(param.array, param.hz)
-        knode.create_kpvs_from_discretes(param.array, param.hz, sense='reverse')
-        knode.create_kpvs_from_discretes(param.array, param.hz, min_duration=3)
-        # Need to add result for min_duration case.
         self.assertEqual(list(knode),
                          [KeyPointValue(index=5, value=3, name='Kpv'),
-                          KeyPointValue(index=11, value=6, name='Kpv'),
-                          KeyPointValue(index=0, value=5, name='Kpv'),
-                          KeyPointValue(index=8, value=3, name='Kpv'),
-                          KeyPointValue(index=17, value=3, name='Kpv')])
+                          KeyPointValue(index=11, value=6, name='Kpv')])
+        
+    def test_create_kpvs_from_discretes_different_frequency(self):
+        knode = self.knode
+        param = P('Disc',np.ma.array([0.0]*20, dtype=float), frequency=2.0)
+        param.array[5:8] = 1.0 # shorter than 3 secs duration - ignored.
+        param.array[11:17] = 1.0
+        knode.create_kpvs_from_discretes(param.array, param.hz, min_duration=3)
+        self.assertEqual(list(knode),
+                         [KeyPointValue(index=11, value=3, name='Kpv')])
     
     def test_get_aligned(self):
         '''
