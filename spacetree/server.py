@@ -26,8 +26,8 @@ from analysis_engine.process_flight import get_derived_nodes
 #from analysis_engine.settings import BASE_URL
 
 
-# Currently only test implements parameter request.
-BASE_URL = 'https://polaris-test.flightdataservices.com'
+# Switch to production when it is updated to include parameter api.
+BASE_URL = 'https://polaris-test.flightdataservices.com' # 'https://polaris.flightdataservices.com'
 
 
 class GetHandler(BaseHTTPRequestHandler):
