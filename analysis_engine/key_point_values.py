@@ -1285,10 +1285,11 @@ class DistancePastGlideslopeAntennaToTouchdown(KeyPointValueNode):
             if is_index_within_sections(land_idx, ils_ldgs)\
                and rwy.value.has_key('start'):
                 # Yes it was, so do the geometry...
-                distance = runway_distance_from_end(rwy.value, point='glideslope')-\
-                    runway_distance_from_end(rwy.value, lat.array[land_idx], lon.array[land_idx])
-                    
-                self.create_kpv(land_idx, distance)
+                gs = runway_distance_from_end(rwy.value, point='glideslope')
+                td = runway_distance_from_end(rwy.value, lat.array[land_idx], lon.array[land_idx])
+                if gs and td:
+                    distance = gs - td
+                    self.create_kpv(land_idx, distance)
 
 
 class DistanceFromRunwayStartToTouchdown(KeyPointValueNode):
@@ -1326,9 +1327,11 @@ class HeadingAtLanding(KeyPointValueNode):
     def derive(self, head=P('Heading Continuous'),
                lands=S('Landing')):
         for land in lands:
-            land_head = np.ma.median(head.array[land.slice])
-            land_index = (land.slice.start + land.slice.stop)/2.0
-            self.create_kpv(land_index, land_head%360.0)
+            # Check the landing slice is robust.
+            if land.slice.start and land.slice.stop:
+                land_head = np.ma.median(head.array[land.slice])
+                land_index = (land.slice.start + land.slice.stop)/2.0
+                self.create_kpv(land_index, land_head%360.0)
 
 
 class HeadingAtLowestPointOnApproach(KeyPointValueNode):
@@ -2427,8 +2430,8 @@ class HeadingDeviationOnLandingAbove100Kts(KeyPointValueNode):
         for land in lands:
             begin = index_at_value(alt.array, 1.0, _slice=land.slice)
             end = index_at_value(airspeed.array, 100.0, _slice=land.slice)
-            if begin > end:
-                break # Landed below 100kts. Can happen!
+            if begin == None or begin > end:
+                break # Corrupt landing slices or landed below 100kts. Can happen!
             else:
                 head_dev = np.ma.ptp(head.array[begin:end+1])
                 self.create_kpv((begin+end)/2, head_dev)

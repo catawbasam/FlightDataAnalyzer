@@ -91,6 +91,7 @@ class DataFrameError(Exception):
     def __str__(self):
         return self.msg
 
+
 class AccelerationVertical(DerivedParameterNode):
     """
     Resolution of three accelerations to compute the vertical
@@ -2507,7 +2508,7 @@ class ILSRange(DerivedParameterNode):
                 start_2_loc, gs_2_loc, end_2_loc, pgs_lat, pgs_lon = \
                     runway_distances(runway)
                 off_cl = head.array - runway_heading(runway)
-            except KeyError:
+            except (KeyError, TypeError):
                 self.warning("Runway did not have required information in "
                                 "'%s', '%s'.", self.name, runway)
                 off_cl = np_ma_zeros_like(head.array)
@@ -2553,7 +2554,6 @@ class ILSRange(DerivedParameterNode):
                 corr, slope, offset = coreg(ils_range[this_gs.slice],
                     alt_aal.array[this_gs.slice]* (1-0.13*glide.array[this_gs.slice]))
 
-                print corr, slope, offset
                 # This should correlate very well, and any drop in this is a
                 # sign of problems elsewhere.
                 if corr < 0.995:
@@ -2781,7 +2781,7 @@ class CoordinatesSmoothed(object):
                 # Find the matching runway details
                 approach, runway = find_app_rwy(self, app_info, start_datetime, this_loc)
                                 
-                if 'localizer' in runway:
+                if runway and 'localizer' in runway:
                     reference = runway['localizer']
                 else:
                     self.warning("No localizer for approach runway '%s'.",runway)
@@ -2814,11 +2814,13 @@ class CoordinatesSmoothed(object):
                     # from ILS data may be masked at the end of the
                     # approach, so we scan back to connect the ground
                     # track onto the end of the valid data.
+                    
                     ##index, _ = first_valid_sample(lat_adj[slice(this_loc.slice.stop,this_loc.slice.start,-1)])
                     ##join_idx = (this_loc.slice.stop or 0) - index
                     
                     join_idx = index_at_value(gspd.array, 40.0, this_loc.slice)
-                    if len(lat_adj) > join_idx: # We have some room to extend over.
+                    
+                    if join_idx and (len(lat_adj) > join_idx): # We have some room to extend over.
                         [lat_adj[join_idx:], lon_adj[join_idx:]] = \
                             ground_track(lat_adj.data[join_idx], lon_adj.data[join_idx],
                                          speed[join_idx:], hdg.array[join_idx:], 
@@ -3317,8 +3319,11 @@ class Vapp(DerivedParameterNode):
         
         def _vapp(weight, flap):
             #TODO: V Speed calculations replace below...
-            return weight/(flap*15) # Silly formula for developing structure only.
-        
+            if flap > 0:
+                return weight/(flap*15) # Silly formula for developing structure only.
+            else:
+                pass
+            
         # Initialize the result space.
         self.array = np_ma_masked_zeros_like(flap.array)
         

@@ -983,13 +983,18 @@ def runway_distance_from_end(runway, *args, **kwds):
     if args:
         new_lat, new_lon = runway_snap(runway, args[0], args[1])
     else:
-        if kwds['point'] in ['localizer', 'glideslope', 'start']:
+        try:
+            # if kwds['point'] in ['localizer', 'glideslope', 'start']:
             new_lat, new_lon = runway_snap(runway, runway[kwds['point']]['latitude'], runway[kwds['point']]['longitude'])
-        else:
-            raise ValueError,'Unrecognised keyword in runway_distance_from_end'
-        
+        except (KeyError, ValueError):
+            logger.warning ('Runway_distance_from_end: Unrecognised or missing'\
+                            ' keyword %s for runway id %s', 
+                            kwds['point'], runway['id'])
+            return None
+
     return _dist(new_lat, new_lon, 
                  runway['end']['latitude'], runway['end']['longitude'])
+        
 
 def runway_distances(runway):
     '''
