@@ -63,17 +63,17 @@ def track_to_kml(hdf_path, kti_list, kpv_list, plot_altitude=None):
     add_track(kml, 'Recorded', lat_r, lon_r, 'ff0000ff')
 
     for kti in kti_list:
-        #if kti.name in ['Touchdown']:
-        kti_point_values = {'name': kti.name}
-        altitude = alt.at(kti.index) if plot_altitude else None
-        if altitude:
-            kti_point_values['coords'] = ((kti.longitude, kti.latitude,),)
-            kti_point_values['altitudemode'] = simplekml.constants.AltitudeMode.absolute
-        else:
-            kti_point_values['coords'] = ((kti.longitude, kti.latitude,),)
-            kti_point_values['altitudemode'] = simplekml.constants.AltitudeMode.clamptoground 
-    
-        kml.newpoint(**kti_point_values)
+        if kti.name in ['Touchdown', 'Localizer Established End']:
+            kti_point_values = {'name': kti.name}
+            altitude = alt.at(kti.index) if plot_altitude else None
+            if altitude:
+                kti_point_values['coords'] = ((kti.longitude, kti.latitude,),)
+                kti_point_values['altitudemode'] = simplekml.constants.AltitudeMode.absolute
+            else:
+                kti_point_values['coords'] = ((kti.longitude, kti.latitude,),)
+                kti_point_values['altitudemode'] = simplekml.constants.AltitudeMode.clamptoground 
+        
+            kml.newpoint(**kti_point_values)
         
     #for kpv in kpv_list:
         #style = simplekml.Style()

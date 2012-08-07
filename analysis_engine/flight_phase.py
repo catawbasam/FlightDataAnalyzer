@@ -44,6 +44,25 @@ from analysis_engine.settings import (
 )
 
 
+class DataFrameError(Exception):
+    '''
+    Error handling for cases where new LFLs require a new flight phase
+    algorithm which has not yet been programmed.
+    '''
+    def __init__(self, phase, frame):
+        '''
+        :param phase: Flight phase where frame specific processing is required.
+        :type phase: String
+        :param frame: Data frame identifier. For this phase, no frame condition evaluates true.
+        :type frame: String
+        '''
+        self.msg = '%s has no procedure for frame %s.'%(param, frame)
+        self.param = param
+        self.frame = frame
+    def __str__(self):
+        return self.msg
+
+
 class Airborne(FlightPhaseNode):
     def derive(self, alt_aal=P('Altitude AAL For Flight Phases'),fast=S('Fast')):
         # Just find out when altitude above airfield is non-zero.
@@ -388,7 +407,10 @@ class GearExtending(FlightPhaseNode):
                 begin = edge
                 end = edge+(5.0*gear_down.frequency)
                 self.create_phase(slice(begin, end))
-
+        else:
+            raise DataFrameError ("Gear Extending", frame_name)
+            
+            
 
 class GearRetracting(FlightPhaseNode):
     def derive(self, gear_down=KTI('Gear Down'), frame=A('Frame'), airs=S('Airborne')):
@@ -404,6 +426,8 @@ class GearRetracting(FlightPhaseNode):
                 begin = edge
                 end = edge+(5.0*gear_down.frequency)
                 self.create_phase(slice(begin, end))
+        else:
+            raise DataFrameError ("Gear Retracting", frame_name)
 
 
 def scan_ils(beam, ils_dots, height, scan_slice):

@@ -437,13 +437,13 @@ class Touchdown(KeyTimeInstanceNode):
         # achieved.
         
         # Time constant
-        tau = 0.1
+        tau = 0.3
         for air in airs:
             t0 = air.slice.stop
             if t0 and is_index_within_sections(t0, lands):
-                # Let's scan from 20ft to 10 seconds after the approximate touchdown moment.
-                startpoint = index_at_value(alt.array, 20.0, slice(t0, t0-200,-1))
-                endpoint = min(t0+20.0*roc.hz, len(roc.array))
+                # Let's scan from 30ft to 10 seconds after the approximate touchdown moment.
+                startpoint = index_at_value(alt.array, 30.0, slice(t0, t0-200,-1))
+                endpoint = min(t0+10.0*roc.hz, len(roc.array))
                 # Make space for the integrand
                 sm_ht = np_ma_zeros_like(roc.array[startpoint:endpoint])
                 # Repair the source data (otherwise we propogate masked data)
@@ -456,19 +456,11 @@ class Touchdown(KeyTimeInstanceNode):
                 for i in range(1, len(sm_ht)):
                     sm_ht[i] = (1.0-tau)*sm_ht[i-1] + tau*my_alt[i-1] + my_roc[i]/60.0/roc.hz
 
-
-                # We start at the end of this section...
-                sm_ht[-1] = alt.array[endpoint]
-                # ...and compute an intertially smoothed height signal
-                for i in range(len(sm_ht)-2, 0, -1):
-                    sm_ht[i] = (1.0-tau)*sm_ht[i+1] + tau*my_alt[i+1] - my_roc[i]/60.0/roc.hz
-
                 """
-                # Test plot for ease of inspection
+                # Plot for ease of inspection during development.
                 plot_parameter(alt.array[startpoint:endpoint], show=False)
                 plot_parameter(roc.array[startpoint:endpoint]/100.0, show=False)
-                plot_parameter(sm_ht, show=False)
-                plot_parameter(ldg_sw.array[startpoint:endpoint])
+                plot_parameter(sm_ht)
                 """
                 
                 # The final step is trivial.

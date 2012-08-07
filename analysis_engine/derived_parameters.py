@@ -16,6 +16,7 @@ from analysis_engine.library import (align,
                                      first_order_washout,
                                      ground_track,
                                      hysteresis,
+                                     index_at_value,
                                      index_of_datetime,
                                      integrate,
                                      ils_localizer_align,
@@ -70,6 +71,25 @@ from data_validation.rate_of_change import validate_rate_of_change
 
 # There is no numpy masked array function for radians, so we just multiply thus:
 deg2rad = radians(1.0)
+
+
+class DataFrameError(Exception):
+    '''
+    Error handling for cases where new LFLs require a derived parameter
+    algorithm which has not yet been programmed.
+    '''
+    def __init__(self, param, frame):
+        '''
+        :param param: Recorded parameter where frame specific processing is required.
+        :type param: String
+        :param frame: Data frame identifier. For this parameter, no frame condition evaluates true.
+        :type frame: String
+        '''
+        self.msg = '%s not in LFL and no procedure for frame %s.'%(param, frame)
+        self.param = param
+        self.frame = frame
+    def __str__(self):
+        return self.msg
 
 class AccelerationVertical(DerivedParameterNode):
     """
@@ -721,9 +741,7 @@ class AltitudeRadio(DerivedParameterNode):
                 blend_two_parameters(source_A, source_C)
             
         else:
-            self.warning("No specified Altitude Radio (*) merging for frame "
-                         "'%s' so using source (A)", frame_name)
-            self.array = source_A.array
+            raise DataFrameError("Altitude Radio", frame_name)
 
 
 class AltitudeSTD(DerivedParameterNode):
@@ -749,6 +767,9 @@ class AltitudeSTD(DerivedParameterNode):
             # Alternate samples (1)&(2) are blended.
             self.array, self.frequency, self.offset = \
                 blend_two_parameters(source_A, source_B)
+
+        else:
+            raise DataFrameError ("Altitude STD", frame_name)
 
 
 class AltitudeQNH(DerivedParameterNode):
@@ -1973,6 +1994,8 @@ class GearDown(DerivedParameterNode):
             # way to accommodate mismatch of the main gear positions, so
             # assume that the right wheel does the same as the left !
             self.array, self.frequency, self.offset = merge_two_parameters(gl, gn)
+        else:
+            raise DataFrameError ("Gear Down", frame_name)
 
 class GearSelectedDown(DerivedParameterNode):
     """
@@ -1985,6 +2008,8 @@ class GearSelectedDown(DerivedParameterNode):
         
         if frame_name in ['737-3C', '737-5']:
             self.array = gear.array
+        else:
+            raise DataFrameError ("Gear Selected Down", frame_name)
 
         
 class GearSelectedUp(DerivedParameterNode):
@@ -1993,8 +2018,10 @@ class GearSelectedUp(DerivedParameterNode):
         
         if frame_name in ['737-3C', '737-5']:
             self.array = 1 - gear.array
+        else:
+            raise DataFrameError ("Gear Selected Up", frame_name)
 
-        
+
 class GrossWeightSmoothed(DerivedParameterNode):
     '''
     Gross weight is usually sampled at a low rate and can be very poor in the
@@ -2094,6 +2121,12 @@ class Groundspeed(DerivedParameterNode):
             self.array, self.frequency, self.offset = \
                 blend_two_parameters(source_A, source_B)
 
+        elif frame_name in ['737-5']:
+            self.array = self.array
+            
+        else:
+            raise DataFrameError ("Groundspeed", frame_name)
+
 
 class FlapLever(DerivedParameterNode):
     """
@@ -2137,7 +2170,7 @@ class FlapSurface(DerivedParameterNode):
             self.array, self.frequency, self.offset = blend_two_parameters(flap_A,
                                                                            flap_B)
 
-        if frame_name in ['L382-Hercules']:
+        elif frame_name in ['L382-Hercules']:
             # Flap is not recorded, so invent one of the correct length.
             flap_herc = np.ma.array(np.zeros_like(alt_aal.array))
             if apps:
@@ -2149,10 +2182,9 @@ class FlapSurface(DerivedParameterNode):
                     flap_herc[scope] = np.ma.where(alt_aal.array[scope]>1000.0,100.0,50.0)
             self.array = np.ma.array(flap_herc)
             self.frequency, self.offset = alt_aal.frequency, alt_aal.offset
-            
-        if frame_name in ['146-301']:
-            # Flap Surface is computed within the LFL
-            pass
+
+        else:
+            raise DataFrameError ("Flap Surface", frame_name)
                    
                             
 class Flap(DerivedParameterNode):
@@ -2408,7 +2440,8 @@ class ILSFrequency(DerivedParameterNode):
             # On this frame only one ILS frequency recording works
             self.array = f1.array
             
-        # In almost all cases we can look for both receivers being tuned together to form a valid signal
+        # In all cases other than those identified above we look for both
+        # receivers being tuned together to form a valid signal
         else:
             # Mask invalid frequencies
             f1_trim = np.ma.masked_outside(f1.array,108.10,111.95)
@@ -2520,6 +2553,7 @@ class ILSRange(DerivedParameterNode):
                 corr, slope, offset = coreg(ils_range[this_gs.slice],
                     alt_aal.array[this_gs.slice]* (1-0.13*glide.array[this_gs.slice]))
 
+                print corr, slope, offset
                 # This should correlate very well, and any drop in this is a
                 # sign of problems elsewhere.
                 if corr < 0.995:
@@ -2530,6 +2564,21 @@ class ILSRange(DerivedParameterNode):
                 # localizer antenna.                  
                 datum_2_loc = gs_2_loc - offset
                 
+                '''
+                It was found when processing 737 Classic data that the slope
+                does not exactly correspond to the expected glideslope angle,
+                and an experiment was carried out to add a groundspeed
+                scaling correction thus:
+                
+                gs_angle = runway['glideslope']['angle']
+                gs_gain = 1.0/(np.tan(radians(gs_angle))*slope*METRES_TO_FEET)
+
+                However, while this correction, which is typically a gain of
+                the order of 5-10%, was found to improve the ground distances
+                slightly it degraded the airborne track so was removed. Quite
+                why the slope is different by this amount remains a mystery.
+                '''
+
             else:
                 # Case of an ILS approach using localizer only.
 
@@ -2543,9 +2592,6 @@ class ILSRange(DerivedParameterNode):
                 # Touchdown point nominally 1000ft from start of runway
                 datum_2_loc = (start_2_loc - 1000/METRES_TO_FEET) - offset
                         
-                
-            # Adjust all range values to relate to the localizer antenna by
-            # adding the landing datum to localizer distance.
             ils_range[this_loc.slice] += datum_2_loc
 
         self.array = ils_range
@@ -2768,8 +2814,10 @@ class CoordinatesSmoothed(object):
                     # from ILS data may be masked at the end of the
                     # approach, so we scan back to connect the ground
                     # track onto the end of the valid data.
-                    index, _ = first_valid_sample(lat_adj[slice(this_loc.slice.stop,this_loc.slice.start,-1)])
-                    join_idx = (this_loc.slice.stop or 0) - index
+                    ##index, _ = first_valid_sample(lat_adj[slice(this_loc.slice.stop,this_loc.slice.start,-1)])
+                    ##join_idx = (this_loc.slice.stop or 0) - index
+                    
+                    join_idx = index_at_value(gspd.array, 40.0, this_loc.slice)
                     if len(lat_adj) > join_idx: # We have some room to extend over.
                         [lat_adj[join_idx:], lon_adj[join_idx:]] = \
                             ground_track(lat_adj.data[join_idx], lon_adj.data[join_idx],
@@ -3209,6 +3257,8 @@ class ThrustReversers(DerivedParameterNode):
                 e2_right_dep.array + e2_right_out.array
             self.array = step_values(all_tr/8.0, [0,0.5,1])
             
+        else:
+            raise DataFrameError ("Thrust Reversers", frame_name)
 
 #------------------------------------------------------------------
 # WIND RELATED PARAMETERS
@@ -3393,6 +3443,10 @@ class ElevatorTrim(DerivedParameterNode): # PitchTrim
 
 class Spoiler(DerivedParameterNode):
     '''
+    Spolier angle in degrees, zero flush with the wing and positive up.
+    
+    Spoiler positions are recorded in different ways on different aircraft,
+    hence the frame specific sections in this class.
     '''
     align_to_first_dependency = False
 
@@ -3429,9 +3483,13 @@ class Spoiler(DerivedParameterNode):
         if frame_name in ['737-5', '737-6']:
             self.array, self.offset = self.spoiler_737(spoiler_2, spoiler_7)
                 
+        else:
+            raise DataFrameError ("Spoiler", frame_name)
 
 class Speedbrake(DerivedParameterNode):
     '''
+    Speedbrake angle in degrees, zero flush with wing. Where clamshell brake
+    is used, degrees of opening.
     '''
     align_to_first_dependency = False
     
@@ -3451,6 +3509,8 @@ class Speedbrake(DerivedParameterNode):
             # Force small angles to indicate zero.
             self.array = np.ma.where(self.array < 2.0, 0.0, self.array)
 
+        else:
+            raise DataFrameError ("Speedbrake", frame_name)
 
 class StickShaker(DerivedParameterNode):
     '''
@@ -3458,9 +3518,7 @@ class StickShaker(DerivedParameterNode):
     '''
     @classmethod
     def can_operate(cls, available):
-        # we cannot access the frame_name within this method to determine which
-        # parameter is the requirement
-        if 'Frame' in available and ('Stick Shaker (L)' in available or 'Shaker Activation' in available):
+        if 'Stick Shaker (L)' in available or 'Shaker Activation' in available:
             return True
     
     align_to_first_dependency = False
@@ -3475,7 +3533,10 @@ class StickShaker(DerivedParameterNode):
             self.array, self.frequency, self.offset = \
                 shake_act.array, shake_act.frequency, shake_act.offset
         
-        else:
-            # elif frame_name in ['737-5', '757-DHL'] and shake:
+        elif frame_name in ['737-5', '757-DHL'] and shake:
             self.array, self.frequency, self.offset = \
                 shake.array, shake.frequency, shake.offset
+
+        else:
+            raise DataFrameError ("Stick Shaker", frame_name)
+        
