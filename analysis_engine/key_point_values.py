@@ -3194,12 +3194,11 @@ class SpeedbrakesDeployedWithPowerOnDuration(KeyPointValueNode):
 
 class SpeedbrakesDeployedWithFlapDuration(KeyPointValueNode):
     '''
-    TODO: Check "With flap" equates to more than flap 0 - or get better suggestion.
     '''
     def derive(self, speedbrake=P('Speedbrake'), flap=P('Flap'), airs=S('Airborne')):
         for air in airs:
             brakes = np.ma.clump_unmasked(np.ma.masked_less(speedbrake.array[air.slice],0.5))
-            with_flap = np.ma.clump_unmasked(np.ma.masked_less(flap.array[air.slice], 0.0))
+            with_flap = np.ma.clump_unmasked(np.ma.masked_less(flap.array[air.slice], 0.5))
             # Speedbrake and Flap => s_and_f
             s_and_fs = slices_and(brakes, with_flap)
             for s_and_f in s_and_fs:
