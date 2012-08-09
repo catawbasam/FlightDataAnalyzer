@@ -179,7 +179,8 @@ def align(slave, master, interval='Subframe', data_type=None):
 
 def bearing_and_distance(lat1, lon1, lat2, lon2):
     """
-    Simplified version of bearings and distances for a single pair of locations.
+    Simplified version of bearings and distances for a single pair of
+    locations. Gives bearing and distance of point 2 from point 1.
     """
     brg, dist = bearings_and_distances(np.ma.array(lat2), np.ma.array(lon2),
                                        {'latitude':lat1, 'longitude':lon1})
