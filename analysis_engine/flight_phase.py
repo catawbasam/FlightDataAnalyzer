@@ -1,4 +1,7 @@
 import numpy as np
+# _ezclump clumps bool arrays into slices. Normally called by clump_masked
+# and clump_unmasked but used here to clump discrete arrays.
+from numpy.ma.extras import _ezclump
 
 from analysis_engine.library import (
     bearing_and_distance,
@@ -56,9 +59,9 @@ class DataFrameError(Exception):
         :param frame: Data frame identifier. For this phase, no frame condition evaluates true.
         :type frame: String
         '''
-        self.msg = '%s has no procedure for frame %s.'%(param, frame)
-        self.param = param
-        self.frame = frame
+        self.msg = '%s has no procedure for frame %s.'%(phase, frame)
+        #self.phase = phase
+        #self.frame = frame
     def __str__(self):
         return self.msg
 
@@ -394,8 +397,13 @@ class GearExtending(FlightPhaseNode):
     is not recorded, so a dummy period of 5 seconds at gear down and
     gear up is included to allow for exceedance of gear transit limits.
     """
-    def derive(self, gear_down=KTI('Gear Down'), frame=A('Frame'), airs=S('Airborne')):
+    def derive(self, gear_down = P('Gear Down'), 
+               gear_warn_l = P('Gear (L) Red Warning'),
+               gear_warn_n = P('Gear (N) Red Warning'),
+               gear_warn_r = P('Gear (R) Red Warning'),
+               frame=A('Frame'), airs=S('Airborne')):
         frame_name = frame.value if frame else None
+	
         if frame_name in ['737-5']:
             edge_list=[]
             for air in airs:
@@ -407,13 +415,30 @@ class GearExtending(FlightPhaseNode):
                 begin = edge
                 end = edge+(5.0*gear_down.frequency)
                 self.create_phase(slice(begin, end))
+        elif frame_name in ['737-3C']:
+            gear_warn = np.ma.logical_or(gear_warn_l.array, gear_warn_r.array)
+            gear_warn = np.ma.logical_or(gear_warn, gear_warn_n.array)
+            slices = _ezclump(gear_warn)
+	    if gear_warn[0] == 0: 
+		gear_moving = slices[1::2] 
+	    else: 
+		gear_moving = slices[::2]             
+            for air in airs:
+                gear_moves = slices_and([air.slice], gear_moving)
+                for gear_move in gear_moves:
+                    if gear_down.array[gear_move.start-1] == 0:
+                        self.create_phase(gear_move)
         else:
             raise DataFrameError ("Gear Extending", frame_name)
             
             
 
 class GearRetracting(FlightPhaseNode):
-    def derive(self, gear_down=KTI('Gear Down'), frame=A('Frame'), airs=S('Airborne')):
+    def derive(self, gear_down = P('Gear Down'), 
+               gear_warn_l = P('Gear (L) Red Warning'),
+               gear_warn_n = P('Gear (N) Red Warning'),
+               gear_warn_r = P('Gear (R) Red Warning'),
+               frame=A('Frame'), airs=S('Airborne')):
         frame_name = frame.value if frame else None
         if frame_name in ['737-5']:
             edge_list=[]
@@ -426,6 +451,19 @@ class GearRetracting(FlightPhaseNode):
                 begin = edge
                 end = edge+(5.0*gear_down.frequency)
                 self.create_phase(slice(begin, end))
+        elif frame_name in ['737-3C']:
+            gear_warn = np.ma.logical_or(gear_warn_l.array, gear_warn_r.array)
+            gear_warn = np.ma.logical_or(gear_warn, gear_warn_n.array)
+            slices = _ezclump(gear_warn)
+	    if gear_warn[0] == 0: 
+		gear_moving = slices[1::2] 
+	    else: 
+		gear_moving = slices[::2]             
+            for air in airs:
+                gear_moves = slices_and([air.slice], gear_moving)
+                for gear_move in gear_moves:
+                    if gear_down.array[gear_move.start-1] == 1:
+                        self.create_phase(gear_move)
         else:
             raise DataFrameError ("Gear Retracting", frame_name)
 

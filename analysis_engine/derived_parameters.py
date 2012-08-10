@@ -233,12 +233,9 @@ class AirspeedMinusV2For5Sec(DerivedParameterNode):
 ################################################################################
 # Airspeed Relative (Airspeed relative to Vapp, Vref or a fixed value.)
 
-
-# TODO: Write some unit tests!
-# TODO: Ensure that this derived parameter supports Vapp and fixed values.
-class AirspeedRelative(DerivedParameterNode):
+class AirspeedReference(DerivedParameterNode):
     '''
-    Airspeed on approach relative to:
+    Airspeed on approach reference value:
 
     - Vapp  -- Airbus
     - Vref  -- Boeing
@@ -247,8 +244,33 @@ class AirspeedRelative(DerivedParameterNode):
     A fixed value will most likely be zero making this relative airspeed
     derived parameter the same as the original absolute airspeed parameter.
     '''
+    def derive (self, spd = P('Airspeed'), param = P('Vapp')):
+        #spd = P('Airspeed'), param = P('Vapp'), attrib = A('FDR Vref')):
+        '''
+        Currently a work in progress. We should use a recorded parameter if
+        it's available, failing that a computed forumla reflecting the
+        aircraft condition and failing that a single value from the achieved
+        flight file.
+        '''
+        if param:
+            self.array = param.array
+        
+        # How do we enter tabulated values here?
+        
+        #elif attrib:
+            #self.array = np_ma_ones_like(spd.array) * attrib.value
+        
+        else:
+            self.array = np_ma_zeros_like(spd.array) 
 
-    def derive(self, airspeed=P('Airspeed'), vref=A('FDR Vref')):
+
+# TODO: Write some unit tests!
+# TODO: Ensure that this derived parameter supports Vapp and fixed values.
+class AirspeedRelative(DerivedParameterNode):
+    '''
+    See AirspeedReference for details.
+    '''
+    def derive(self, airspeed=P('Airspeed'), vref=P('Airspeed Reference')):
         '''
         '''
         self.array = airspeed.array - vref.value
@@ -3485,7 +3507,7 @@ class Spoiler(DerivedParameterNode):
         if frame_name in ['737-3C']:
             self.array, self.offset = self.spoiler_737(spoiler_4, spoiler_9)
             
-        if frame_name in ['737-5', '737-6']:
+        elif frame_name in ['737-5', '737-6']:
             self.array, self.offset = self.spoiler_737(spoiler_2, spoiler_7)
                 
         else:
@@ -3529,7 +3551,8 @@ class StickShaker(DerivedParameterNode):
     align_to_first_dependency = False
 
     def derive(self, frame = A('Frame'), 
-               shake = P('Stick Shaker (L)'), 
+               shake_l = P('Stick Shaker (L)'), 
+               shake_r = P('Stick Shaker (R)'), 
                shake_act = P('Shaker Activation')):
 
         frame_name = frame.value if frame else None
@@ -3538,10 +3561,17 @@ class StickShaker(DerivedParameterNode):
             self.array, self.frequency, self.offset = \
                 shake_act.array, shake_act.frequency, shake_act.offset
         
-        elif frame_name in ['737-5', '757-DHL'] and shake:
-            self.array, self.frequency, self.offset = \
-                shake.array, shake.frequency, shake.offset
+        elif frame_name in ['737-3C', '757-DHL']:
+            self.array = np.ma.logical_or(shake_l.array, shake_r.array)
+            self.frequency , self.offset = shake_l.frequency, shake_l.offset
 
+        elif frame_name in ['737-5'] and shake_l:
+            # Named (L) but in fact (L) and (R) are or'd together at the DAU.
+            self.array, self.frequency, self.offset = \
+                shake_l.array, shake_l.frequency, shake_l.offset
+
+        # Stick shaker not found in 737-6 frame.
+        
         else:
             raise DataFrameError ("Stick Shaker", frame_name)
         

@@ -3,6 +3,7 @@ import numpy as np
 from analysis_engine import settings
 from analysis_engine.settings import (CONTROL_FORCE_THRESHOLD,
                                       FEET_PER_NM,
+                                      HYSTERESIS_FPALT,
                                       NAME_VALUES_FLAP)
 
 from analysis_engine.node import KeyPointValueNode, KPV, KTI, P, S, A
@@ -930,14 +931,20 @@ class Airspeed10000ToLandMax(KeyPointValueNode):
                alt_qnh=P('Altitude QNH'),
                destination=A('FDR Landing Airport'), 
                descent=S('Descent')):
-        # Outside the USA 10,000 ft relates to flight levels, whereas FAA
-        # regulations (and possibly others we don't currently know about)
-        # relate to height above sea level (QNH) hence the options based on
-        # landing airport location.
+        '''
+        Outside the USA 10,000 ft relates to flight levels, whereas FAA
+        regulations (and possibly others we don't currently know about)
+        relate to height above sea level (QNH) hence the options based on
+        landing airport location.
+        
+        In either case, we apply some hysteresis to prevent nuisance
+        retriggering which can arise if the aircraft is sitting on the
+        10,000ft boundary.
+        '''
         if destination and destination.value['location']['country'] == 'United States':
-            alt=alt_qnh.array
+            alt = hysteresis(alt_qnh.array, HYSTERESIS_FPALT)
         else:
-            alt=alt_std.array
+            alt = hysteresis(alt_std.array, HYSTERESIS_FPALT)
         height_bands = np.ma.clump_unmasked(np.ma.masked_greater(alt,10000))
         descent_bands = slices_and(height_bands, [s.slice for s in descent])
         self.create_kpvs_within_slices(airspeed.array, descent_bands, max_value)
@@ -964,9 +971,9 @@ class AirspeedTODTo10000Max(KeyPointValueNode):
                descent=S('Descent')):
         # See comments for Airspeed10000ToLandMax
         if destination and destination.value['location']['country'] == 'United States':
-            alt=alt_qnh.array
+            alt = hysteresis(alt_qnh.array, HYSTERESIS_FPALT)
         else:
-            alt=alt_std.array
+            alt = hysteresis(alt_std.array, HYSTERESIS_FPALT)
         height_bands = np.ma.clump_unmasked(np.ma.masked_less(repair_mask(alt),10000))
         descent_bands = slices_and(height_bands, [s.slice for s in descent])
         self.create_kpvs_within_slices(airspeed.array, descent_bands, max_value)
@@ -1383,14 +1390,6 @@ class HeightLost1000To2000Ft(KeyPointValueNode):
 ################################################################################
 
 
-class HoldingTime(KeyPointValueNode):
-    """
-    Identify time spent in the hold.
-    """
-    def derive(self, holds=S('Holding')):
-        self.create_kpvs_from_slices(holds, mark='end')
-        
-        
 class ILSFrequencyOnApproach(KeyPointValueNode):
     """
     The period when the aircraft was continuously established on the ILS and
@@ -3883,10 +3882,14 @@ class DualStickInput(KeyPointValueNode):
         return NotImplemented
 
 
-# TODO: Implement!
 class TimeHolding(KeyPointValueNode):
-    def derive(self, x=P('Not Yet')):
-        return NotImplemented
+    """
+    Identify time spent in the hold.
+    """
+    def derive(self, holds=S('Holding')):
+        self.create_kpvs_from_slices(holds, mark='end')
+        
+        
 
 
 # TODO: Implement!
