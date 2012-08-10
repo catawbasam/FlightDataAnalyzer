@@ -618,30 +618,48 @@ class AirspeedRelativeFor5Sec20FtToTouchdownMin(KeyPointValueNode):
 
 
 ################################################################################
+# Thrust Reversers
 
 
 def thrust_reverser_min_speed(land, pwr, tr):
-    high_power = np.ma.clump_unmasked(np.ma.masked_less(pwr.array[land.slice],60.0))
-    rev = np.ma.clump_unmasked(np.ma.masked_less(tr.array[land.slice],0.7))
+    '''
+    '''
+    high_power = np.ma.clump_unmasked(np.ma.masked_less(pwr.array[land.slice], 65.0))
+    rev = np.ma.clump_unmasked(np.ma.masked_less(tr.array[land.slice], 0.7))
     return shift_slices(slices_and(high_power, rev), land.slice.start)
 
 
 class AirspeedThrustReversersDeployedMin(KeyPointValueNode):
-    name = 'Airspeed With Thrust Reversers Deployed (Over 60% N1) Min'
-    def derive(self, speed=P('Airspeed True'), tr=P('Thrust Reversers'), 
+    '''
+    '''
+
+    name = 'Airspeed With Thrust Reversers Deployed (Over 65% N1) Min'
+
+    def derive(self, speed=P('Airspeed True'), tr=P('Thrust Reversers'),
                pwr=P('Eng (*) N1 Avg'), lands=S('Landing')):
+        '''
+        '''
         for land in lands:
             high_rev = thrust_reverser_min_speed(land, pwr, tr)
             self.create_kpvs_within_slices(speed.array, high_rev, min_value)
 
 
 class GroundspeedThrustReversersDeployedMin(KeyPointValueNode):
-    name = 'Groundspeed With Thrust Reversers Deployed (Over 60% N1) Min'
-    def derive(self, speed=P('Groundspeed'), tr=P('Thrust Reversers'), 
+    '''
+    '''
+
+    name = 'Groundspeed With Thrust Reversers Deployed (Over 65% N1) Min'
+
+    def derive(self, speed=P('Groundspeed'), tr=P('Thrust Reversers'),
                pwr=P('Eng (*) N1 Max'), lands=S('Landing')):
+        '''
+        '''
         for land in lands:
             high_rev = thrust_reverser_min_speed(land, pwr, tr)
             self.create_kpvs_within_slices(speed.array, high_rev, min_value)
+
+
+################################################################################
 
 
 class AirspeedWithGearDownMax(KeyPointValueNode):
@@ -825,6 +843,10 @@ class AirspeedWithFlapClimbMin(KeyPointValueNode):
         flap_or_conf_max_or_min(self, flap, airspeed, min_value, scope=scope)
 
 
+# TODO: Check that this works properly:
+#
+#       - Used for event definition in 'Approach & Landing' category.
+#       - Could this trigger anywhere in the flight?  Does this make the event definition wrong?
 class AirspeedWithFlapDescentMin(KeyPointValueNode):
     NAME_FORMAT = "Airspeed With Flap %(flap)d in Descent Min"
     NAME_VALUES = NAME_VALUES_FLAP
@@ -844,6 +866,17 @@ class AirspeedWithFlapDescentMax(KeyPointValueNode):
     NAME_VALUES = NAME_VALUES_FLAP
     def derive(self, flap=P('Flap'), airspeed=P('Airspeed'), scope=S('Descent')):
         flap_or_conf_max_or_min(self, flap, airspeed, max_value, scope=scope)
+
+
+# TODO: Check that this works properly:
+#
+#       - Used for event definition in 'Approach & Landing' category.
+#       - 'Airspeed Relative' is only applicable to approaches.
+class AirspeedRelativeWithFlapDescentMin(KeyPointValueNode):
+    NAME_FORMAT = "Airspeed Relative With Flap %(flap)d in Descent Min"
+    NAME_VALUES = NAME_VALUES_FLAP
+    def derive(self, flap=P('Flap'), airspeed=P('Airspeed Relative'), scope=S('Descent')):
+        flap_or_conf_max_or_min(self, flap, airspeed, min_value, scope=scope)
 
 
 class AirspeedBelowAltitudeMax(KeyPointValueNode):
@@ -1811,20 +1844,6 @@ class EngN1CyclesInFinalApproach(KeyPointValueNode):
         '''
         for fapp in fapps:
             self.create_kpv(*cycle_counter(eng_n1_avg.array[fapp.slice], 5.0, 10.0, eng_n1_avg.hz, fapp.slice.start))
-
-
-class EngN1WithThrustReversersDeployedMax(KeyPointValueNode):
-    '''
-    '''
-
-    name = 'Eng N1 With Thrust Reversers Deployed Max'
-
-    def derive(self, pwr=P('Eng (*) N1 Max'), tr=P('Thrust Reversers')):
-        '''
-        '''
-        index = np.ma.argmax(np.ma.where(tr.array==1, pwr.array, np.ma.masked))
-        if index:
-            self.create_kpv(index, pwr.array[index])
 
 
 # NOTE: Was named 'Eng N1 Cooldown Duration'.
