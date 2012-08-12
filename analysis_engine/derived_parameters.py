@@ -517,17 +517,19 @@ class AltitudeAAL(DerivedParameterNode):
                         if alt_vals[n+2] > alt_vals[n+1]:
                             # A down and up section.
                             down_up = slice(alt_idxs[n], alt_idxs[n+2])
-                            # Let's find the lowest rad alt reading 
-                            #(this may not be exactly the highest ground, but 
-                            # it was probably the point of highest concern!)
-                            arg_hg_max = np.ma.argmin(alt_rad.array[down_up]) + alt_idxs[n]
-                            hg_max = alt_std.array[arg_hg_max] - alt_rad.array[arg_hg_max]
-                            if np.ma.count(hg_max):
-                                # The rad alt measured height above a peak...
-                                dips.append(['over_gnd', down_up, alt_std.array[arg_hg_max], hg_max])
+                            if alt_rad:
+                                # Let's find the lowest rad alt reading 
+                                #(this may not be exactly the highest ground, but 
+                                # it was probably the point of highest concern!)
+                                arg_hg_max = np.ma.argmin(alt_rad.array[down_up]) + alt_idxs[n]
+                                hg_max = alt_std.array[arg_hg_max] - alt_rad.array[arg_hg_max]
+                                if np.ma.count(hg_max):
+                                    # The rad alt measured height above a peak...
+                                    dips.append(['over_gnd', down_up, alt_std.array[arg_hg_max], hg_max])
                             else:
-                                # We have no rad alt data
-                                if dips[-1][0]=='high':
+                                # We have no rad alt data.
+                                # TODO: alt_std code needs careful checking. 
+                                if dips !=[] and dips[-1][0]=='high':
                                     # Join this dip onto the previous one
                                     dips[-1][1] = slice(dips[-1][1].start, alt_idxs[n+2])
                                     dips[-1][2] = min(dips[-1][2],alt_vals[n+1])
@@ -549,7 +551,7 @@ class AltitudeAAL(DerivedParameterNode):
                             dips[n][3]=dips[n][4]+1000 # Arbitrary offset in indeterminate case.
                         else:
                             dips[n][3] = dips[n][2]-dips[n+1][2]+dips[n+1][3]
-                    elif n == len(dips):
+                    elif n == len(dips)-1:
                         dips[n][3] = dips[n][2]-dips[n-1][2]+dips[n-1][3]
                     else:
                         # Here is the most commonly used, and somewhat

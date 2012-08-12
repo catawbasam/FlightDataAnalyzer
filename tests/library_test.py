@@ -1021,14 +1021,17 @@ class TestRunwayDistanceFromEnd(unittest.TestCase):
     
     def test_runway_dist_not_recognised(self):
         runway =  {'end': {'latitude': 60.280151, 
-                      'longitude': 5.222579},
-              'start': {'latitude': 60.30662494, 
-                        'longitude': 5.21370074}}
-        self.assertRaises(ValueError, runway_distance_from_end, runway, point='threshold')
+                           'longitude': 5.222579},
+                   'start': {'latitude': 60.30662494, 
+                             'longitude': 5.21370074},
+                   'id':'Test Case'}
+        result = runway_distance_from_end(runway, point='threshold')
+        self.assertEqual(result, None)
          
 class TestRunwayDistances(unittest.TestCase):
-    # This single test case uses data for Bergen and has been checked against
-    # Google Earth measurements for reasonable accuracy.
+    # This single test case used data for Bergen and had reasonable accuracy.
+    # However, since setting up this test the runway has been extended so
+    # DON'T use this for navigation !!!
     def test_runway_distances(self):
         result = []
         runway =  {'end': {'latitude': 60.280151, 
@@ -1050,8 +1053,7 @@ class TestRunwayDistances(unittest.TestCase):
                       'identifier': u'17', 'id': 8193}
         result = runway_distances(runway)
         
-        # Forced failure. the Bergen runway details need amending to remove undershoot areas.
-        self.assertAlmostEqual(result[0],9999, places=0)
+        self.assertAlmostEqual(result[0],3125, places=0)
         # correct:self.assertAlmostEqual(result[0],3125, places=0)
         self.assertAlmostEqual(result[1],2503, places=0)
         self.assertAlmostEqual(result[2],141.0, places=1)
@@ -2009,6 +2011,28 @@ class TestPhaseMasking(unittest.TestCase):
         self.assertRaises(ValueError, create_phase_inside, array, 1,0, 10, 5)
         self.assertRaises(ValueError, create_phase_inside, array, 1,0, 2, -1)
         self.assertRaises(ValueError, create_phase_inside, array, 1,0, 2, 11)
+        
+        
+class TestRateOfChangeArray(unittest.TestCase):
+    # 12/8/12 - introduced to allow array level access to rate of change.
+    # Also, handling short arrays added.
+    def test_case_basic(self):
+        test_array = np.ma.array([0,1,2,3,4], dtype=float)
+        sloped = rate_of_change_array(test_array, 2.0, 1.0)
+        answer = np.ma.array([2,2,2,2,2])
+        ma_test.assert_array_almost_equal(sloped, answer)
+    
+    def test_case_short_data(self):
+        test_array = np.ma.array([0,1,2,3,4], dtype=float)
+        sloped = rate_of_change_array(test_array, 2.0, 10.0)
+        answer = np.ma.array([0,0,0,0,0])
+        ma_test.assert_array_almost_equal(sloped, answer)
+    
+    def test_case_very_short_data(self):
+        test_array = np.ma.array([99], dtype=float)
+        sloped = rate_of_change_array(test_array, 2.0, 10.0)
+        answer = np.ma.array([0])
+        ma_test.assert_array_almost_equal(sloped, answer)
     
 class TestRateOfChange(unittest.TestCase):
     # 13/4/12 Changed timebase to be full width as this is more logical.
