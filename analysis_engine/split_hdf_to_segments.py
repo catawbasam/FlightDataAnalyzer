@@ -335,7 +335,7 @@ def _calculate_start_datetime(hdf, fallback_dt=None):
                 continue
         if fallback_dt:
             array = [getattr(fallback_dt, name.lower())]
-            logger.info("%s not available, using %d from fallback_dt %s", 
+            logger.warning("%s not available, using %d from fallback_dt %s", 
                          name, array[0], fallback_dt)
             dt_arrays.append(array)
             continue
