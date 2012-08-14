@@ -18,6 +18,7 @@ from analysis_engine.flight_phase import (Airborne,
                                           DescentLowClimb,
                                           Fast,
                                           FinalApproach,
+                                          GearRetracting,
                                           GoAroundAndClimbout,
                                           Holding,
                                           ILSLocalizerEstablished,
@@ -696,7 +697,26 @@ class TestFinalApproach(unittest.TestCase):
         fapp.derive(alt_aal)
         self.assertEqual(fapp, expected)
         
+class TestGearRetracting(unittest.TestCase):
+    def test_can_operate(self):
+        expected = [('Gear Down','Gear (L) Red Warning','Gear (N) Red Warning',
+                     'Gear (R) Red Warning','Frame', 'Airborne')]
+        opts = FinalApproach.get_operational_combinations()
+        self.assertEqual(opts, expected)
 
+    def test_737_3C(self):
+        gear_down = Parameter('Gear Down',np.ma.array([1,1,1,0,0,0,0,0,0,0,0,1,1])) 
+        gear_warn_l = Parameter('Gear (L) Red Warning',np.ma.array([0,0,0,1,0,0,0,0,0,1,0,0]))
+        gear_warn_n = Parameter('Gear (N) Red Warning',np.ma.array([0,0,0,0,1,0,0,0,1,0,0,0]))
+        gear_warn_r = Parameter('Gear (R) Red Warning',np.ma.array([0,0,0,0,0,1,0,1,0,0,0,0]))
+        frame = A('Frame', value='737-3C')
+        airs=buildsection('Airborne', 1, 11)
+        gr = GearRetracting()
+        gr.derive(gear_down, gear_warn_l, gear_warn_n, gear_warn_r, frame, airs)
+        expected=buildsection('Gear Retracting', 3, 6)
+        self.assertEqual(gr, expected)
+        
+    
 class TestGoAroundAndClimbout(unittest.TestCase):
     def test_can_operate(self):
         self.assertEqual(GoAroundAndClimbout.get_operational_combinations(),

@@ -170,7 +170,8 @@ def align(slave, master, data_type=None):
 
 def bearing_and_distance(lat1, lon1, lat2, lon2):
     """
-    Simplified version of bearings and distances for a single pair of locations.
+    Simplified version of bearings and distances for a single pair of
+    locations. Gives bearing and distance of point 2 from point 1.
     """
     brg, dist = bearings_and_distances(np.ma.array(lat2), np.ma.array(lon2),
                                        {'latitude':lat1, 'longitude':lon1})
@@ -965,13 +966,18 @@ def runway_distance_from_end(runway, *args, **kwds):
     if args:
         new_lat, new_lon = runway_snap(runway, args[0], args[1])
     else:
-        if kwds['point'] in ['localizer', 'glideslope', 'start']:
+        try:
+            # if kwds['point'] in ['localizer', 'glideslope', 'start']:
             new_lat, new_lon = runway_snap(runway, runway[kwds['point']]['latitude'], runway[kwds['point']]['longitude'])
-        else:
-            raise ValueError,'Unrecognised keyword in runway_distance_from_end'
-        
+        except (KeyError, ValueError):
+            logger.warning ('Runway_distance_from_end: Unrecognised or missing'\
+                            ' keyword %s for runway id %s', 
+                            kwds['point'], runway['id'])
+            return None
+
     return _dist(new_lat, new_lon, 
                  runway['end']['latitude'], runway['end']['longitude'])
+        
 
 def runway_distances(runway):
     '''
@@ -1348,7 +1354,7 @@ def integrate(array, frequency, initial_value=0.0, scale=1.0, direction="forward
     than the repair limit exist, subsequent values in the array will all be 
     masked.
     """
-    result = np.copy(array)
+    result = np.ma.copy(array)
     
     if direction.lower() == 'forwards':
         d = +1
@@ -2517,6 +2523,34 @@ def peak_index(a):
                 return loc+peak
     
     
+def rate_of_change_array(to_diff, hz, width):
+    '''
+    Lower level access to rate of change algorithm. See rate_of_change for description.
+
+    :param to_diff: input data
+    :type to_diff: Numpy masked array
+    :param hz: sample rate for the input data (sec-1)
+    :type hz: float
+    :param width: the differentiation time period (sec)
+    :type width: float
+    
+    :returns: masked array of values with differentiation applied
+
+    '''
+    hw = width * hz / 2.0
+    if hw < 1:
+        raise ValueError, 'Rate of change called with inadequate width.'
+    if len(to_diff) < width:
+        logger.warn("Rate of change called with short data segment. Zero rate returned")
+        return np_ma_zeros_like(to_diff)
+    
+    # Set up an array of masked zeros for extending arrays.
+    slope = np.ma.copy(to_diff)
+    slope[hw:-hw] = (to_diff[2*hw:] - to_diff[:-2*hw])/width
+    slope[:hw] = (to_diff[1:hw+1] - to_diff[0:hw]) * hz
+    slope[-hw:] = (to_diff[-hw:] - to_diff[-hw-1:-1])* hz
+    return slope
+
 def rate_of_change(diff_param, width):
     '''
     @param to_diff: Parameter object with .array attr (masked array)
@@ -2537,17 +2571,8 @@ def rate_of_change(diff_param, width):
     '''
     hz = diff_param.frequency
     to_diff = diff_param.array
+    return rate_of_change_array(to_diff, hz, width)
     
-    hw = width * hz / 2.0
-    if hw < 1:
-        raise ValueError, 'Rate of change called with inadequate width.'
-    
-    # Set up an array of masked zeros for extending arrays.
-    slope = np.ma.copy(to_diff)
-    slope[hw:-hw] = (to_diff[2*hw:] - to_diff[:-2*hw])/width
-    slope[:hw] = (to_diff[1:hw+1] - to_diff[0:hw]) * hz
-    slope[-hw:] = (to_diff[-hw:] - to_diff[-hw-1:-1])* hz
-    return slope
 
 def repair_mask(array, frequency=1, repair_duration=REPAIR_DURATION,
                 raise_duration_exceedance=False):

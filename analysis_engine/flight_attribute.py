@@ -152,11 +152,9 @@ class Approaches(FlightAttributeNode):
                     delta = delta+360
                 # TODO: Work this code into a form that returns the correct runway.
                 if delta>0:
-                    print "Should pick Left runway"
+                    print "Could pick Left runway"
                 else:
-                    print "Should pick Right runway"
-                ##self.warning("Identified %d Runways, ident %s. Picking the first!", 
-                             ##len(runway_info['items']), runway_info['ident'])
+                    print "Could pick Right runway"
 
             else:
                 runway = runway_info['items'][0]

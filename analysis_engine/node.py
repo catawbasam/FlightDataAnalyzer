@@ -1218,13 +1218,35 @@ class KeyPointValueNode(FormattedNameNode):
             if isinstance(slice_, Section): # Use slice within Section.
                 start_edge = slice_.start_edge
                 stop_edge = slice_.stop_edge
-                # Tricky self-modifying code !
                 slice_ = slice_.slice
             else:
                 start_edge = None
                 stop_edge = None
             index, value = function(array, slice_, start_edge, stop_edge)
             self.create_kpv(index, value, **kwargs)
+
+    def create_kpv_outside_slices(self, array, slices, function, **kwargs):
+        '''
+        Shortcut for creating a KPV excluding values within provided slices or
+        sections by retrieving an index and value from function (for instance
+        max_value).
+        
+        :param array: Array to source values from.
+        :type array: np.ma.masked_array
+        :param slices: Slices to exclude from KPV creation.
+        :type slices: SectionNode or list of slices.
+        :param function: Function which will return an index and value from the array.
+        :type function: function
+        :returns: None
+        :rtype: None
+        '''
+        for slice_ in slices:
+            if isinstance(slice_, Section): # Use slice within Section.
+                slice_ = slice_.slice
+            # Exclude the slices we don't want:
+            array[slice_] = np.ma.masked
+        index, value = function(array)
+        self.create_kpv(index, value, **kwargs)
 
     def create_kpvs_from_slices(self, slices, threshold=0.0, mark='midpoint', **kwargs):
         '''

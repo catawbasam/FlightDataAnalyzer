@@ -16,6 +16,8 @@ from analysis_engine.library import (hysteresis,
 
 from analysis_engine.node import P, S, KTI, KeyTimeInstanceNode
 
+from analysis_engine.plot_flight import plot_parameter
+
 from settings import (CLIMB_THRESHOLD,
                       RATE_OF_CLIMB_FOR_LIFTOFF,
                       RATE_OF_CLIMB_FOR_TOUCHDOWN,
@@ -391,7 +393,8 @@ class InitialClimbStart(KeyTimeInstanceNode):
     # initial climb, so this KTI is just at the end of that phase.
     def derive(self, toffs=S('Takeoff')):
         for toff in toffs:
-            self.create_kti(toff.stop_edge)
+            if toff.stop_edge:
+                self.create_kti(toff.stop_edge)
 
 
 class LandingStart(KeyTimeInstanceNode):
@@ -399,7 +402,8 @@ class LandingStart(KeyTimeInstanceNode):
     # (nominally), so this KTI is just at the end of that phase.
     def derive(self, landings=S('Landing')):
         for landing in landings:
-            self.create_kti(landing.slice.start)
+            if landing.slice.start:
+                self.create_kti(landing.slice.start)
 
 
 class TouchAndGo(KeyTimeInstanceNode):
@@ -415,53 +419,62 @@ class TouchAndGo(KeyTimeInstanceNode):
 
 
 class Touchdown(KeyTimeInstanceNode):
-    def derive(self, roc=P('Rate Of Climb'), alt=P('Altitude AAL'), airs=S('Airborne'), lands=S('Landing')):
+    def derive(self, roc=P('Rate Of Climb'), alt=P('Altitude Radio'), airs=S('Airborne'), lands=S('Landing')
+               #, ldg_sw=P('IN AIR')
+               ):
         # We do a local integration of the inertial rate of climb to
         # determine the actual point of landing. This is referenced to the
         # available altitude signal, altitude AAL, which will have been
-        # derived from the best available source. Integration starts from
-        # 20ft and works downwards as we are likely to produce negative end
-        # readings and if only pressure altitude data is available, this
-        # cannot reliably be used integrating backwards from the runway
-        # level. This technique leads on to the rate of descent at landing
-        # KPV which can then accurately determine the landing ROD as we know
-        # precisely the point where the mainwheels touched.
+        # derived from the best available source. Integration starts from 20
+        # seconds after passing 20ft and works backwards. This technique
+        # leads on to the rate of descent at landing KPV which can then
+        # accurately determine the landing ROD as we know precisely the point
+        # where the mainwheels touched.
         
         # One noteworthy point is that we have avoided the use of landing
         # gear switches which (a) are unreliable, (b) are often sampled at
-        # low rates and (c) are provided in different forms on different
-        # aircraft. By using the same formulae for all aircraft, more
-        # consistent comparisons should be achieved.
+        # low rates (c) are provided in different forms on different aircraft
+        # and (d) tend to trigger twice on touchdown. By using the same
+        # formulae for all aircraft, more consistent comparisons should be
+        # achieved.
         
         # Time constant
-        tau = 0.1
+        tau = 0.3
         for air in airs:
             t0 = air.slice.stop
             if t0 and is_index_within_sections(t0, lands):
-                # Let's scan from 20ft to 10 seconds after the approximate touchdown moment.
-                startpoint = index_at_value(alt.array, 20.0, slice(t0, t0-200,-1))
+                # Let's scan from 30ft to 10 seconds after the approximate touchdown moment.
+                startpoint = index_at_value(alt.array, 30.0, slice(t0, t0-200,-1))
                 endpoint = min(t0+10.0*roc.hz, len(roc.array))
                 # Make space for the integrand
                 sm_ht = np_ma_zeros_like(roc.array[startpoint:endpoint])
                 # Repair the source data (otherwise we propogate masked data)
                 my_roc = repair_mask(roc.array[startpoint:endpoint])
                 my_alt = repair_mask(alt.array[startpoint:endpoint])
+
                 # Start at the beginning...
                 sm_ht[0] = alt.array[startpoint]
-                # ...and calculate each with a weighted correction factor.
+                #...and calculate each with a weighted correction factor.
                 for i in range(1, len(sm_ht)):
                     sm_ht[i] = (1.0-tau)*sm_ht[i-1] + tau*my_alt[i-1] + my_roc[i]/60.0/roc.hz
+
+                """
+                # Plot for ease of inspection during development.
+                plot_parameter(alt.array[startpoint:endpoint], show=False)
+                plot_parameter(roc.array[startpoint:endpoint]/100.0, show=False)
+                plot_parameter(sm_ht)
+                """
+                
                 # The final step is trivial.
                 t1 = index_at_value(sm_ht, 0.0)+startpoint
                 if t1:
                     self.create_kti(t1)
-                else:
-                    # Mainly for testing !
-                    raise ValueError,'Disaster in touchdown'
+                
                 
 class TouchdownRecorded(KeyTimeInstanceNode):
-    def derive(self, ldg_sw = P('On Ground Switch')):
-        self.create_ktis_at_edges(ldg_sw.array, direction='rising_edges')
+    def derive(self, ldg_sw = P('IN AIR')):
+        self.create_ktis_at_edges(ldg_sw.array, direction='falling_edges')
+                    
                     
 class LandingTurnOffRunway(KeyTimeInstanceNode):
     # See Takeoff Turn Onto Runway for description.
@@ -469,22 +482,23 @@ class LandingTurnOffRunway(KeyTimeInstanceNode):
                landings=S('Landing'),
                fast=P('Fast')):
         for landing in landings:
-            start_search=fast.get_previous(landing.slice.stop).slice.stop
-
-            if (start_search == None) or (start_search < landing.slice.start):
-                start_search = (landing.slice.start+landing.slice.stop)/2
-            peak_bend = peak_curvature(head.array[slice(
-                start_search,landing.slice.stop)],curve_sense='Bipolar')
-            
-            if peak_bend:
-                landing_turn = start_search + peak_bend
-            else:
-                # No turn, so just use end of landing run.
-                landing_turn = landing.slice.stop
-            
-            self.create_kti(landing_turn)
+            # Check the landing slice is robust.
+            if landing.slice.start and landing.slice.stop:
+                start_search=fast.get_previous(landing.slice.stop).slice.stop
     
+                if (start_search == None) or (start_search < landing.slice.start):
+                    start_search = (landing.slice.start+landing.slice.stop)/2
+                peak_bend = peak_curvature(head.array[slice(
+                    start_search,landing.slice.stop)],curve_sense='Bipolar')
                 
+                if peak_bend:
+                    landing_turn = start_search + peak_bend
+                else:
+                    # No turn, so just use end of landing run.
+                    landing_turn = landing.slice.stop
+                
+                self.create_kti(landing_turn)
+    
 
 class LandingDecelerationEnd(KeyTimeInstanceNode):
     '''
@@ -591,3 +605,18 @@ class TAWSTooLowTerrainWarning(KeyTimeInstanceNode):
             index = too_low_terrain_slice.start
             #value = taws_too_low_terrain.array[too_low_terrain_slice.start]
             self.create_kti(index)
+            
+            
+class LocalizerEstablishedStart(KeyTimeInstanceNode):
+    def derive(self, locs=S('ILS Localizer Established')):
+        for loc in locs:
+            self.create_kti(loc.slice.start)
+
+class LocalizerEstablishedEnd(KeyTimeInstanceNode):
+    def derive(self, locs=S('ILS Localizer Established')):
+        for loc in locs:
+            self.create_kti(loc.slice.stop)
+
+
+
+            

@@ -502,10 +502,9 @@ class TestAltitudeRadio(unittest.TestCase):
                        None
                        )
         result = alt_rad.array
-        answer = np.ma.array(data=[25.0]*7+[25.1,25.25,0.0],
-                             dtype=np.float, mask=[0]*9+[1])
-        ma_test.assert_array_equal(alt_rad.array, answer)
-        self.assertEqual(alt_rad.offset,2.0)
+        answer = np.ma.array(data=[25.0]*7+[25.05,25.175,25.25])
+        ma_test.assert_array_almost_equal(alt_rad.array, answer)
+        self.assertEqual(alt_rad.offset,1.0)
         self.assertEqual(alt_rad.frequency,0.5)
 
     def test_altitude_radio_737_5_EFIS(self):
@@ -518,10 +517,9 @@ class TestAltitudeRadio(unittest.TestCase):
                                  np.ma.array([20.0,20.0,20.0,20.0,20.2]), 0.5, 1.0),
                        )
         result = alt_rad.array
-        answer = np.ma.array(data=[15.0]*7+[15.05,15.15,0.0],
-                             dtype=np.float, mask=[0]*9+[1])
+        answer = np.ma.array(data=[15.0]*7+[15.025,15.1,15.15])
         ma_test.assert_array_almost_equal(alt_rad.array, answer)
-        self.assertEqual(alt_rad.offset,0.5)
+        self.assertEqual(alt_rad.offset,0.0)
         self.assertEqual(alt_rad.frequency,1.0)
 
     def test_altitude_radio_737_5_Analogue(self):
@@ -534,10 +532,9 @@ class TestAltitudeRadio(unittest.TestCase):
                                  np.ma.array([20.0,20.0,20.0,20.0,20.2]), 0.5, 1.0),
                        )
         result = alt_rad.array
-        answer = np.ma.array(data=[15.0]*7+[15.05,15.15,0.0],
-                             dtype=np.float, mask=[0]*9+[1])
+        answer = np.ma.array(data=[15.0]*7+[15.025,15.1,15.15])
         ma_test.assert_array_almost_equal(alt_rad.array, answer)
-        self.assertEqual(alt_rad.offset,0.5)
+        self.assertEqual(alt_rad.offset,0.0)
         self.assertEqual(alt_rad.frequency,1.0)
 
 '''
@@ -1389,7 +1386,7 @@ class TestHeadingTrue(unittest.TestCase):
 
 class TestILSFrequency(unittest.TestCase):
     def test_can_operate(self):
-        expected = [('ILS (L) Frequency','ILS (R) Frequency')]
+        expected = [('ILS (L) Frequency','ILS (R) Frequency','Frame')]
         opts = ILSFrequency.get_operational_combinations()
         self.assertEqual(opts, expected)
         
@@ -1433,8 +1430,8 @@ class TestPitch(unittest.TestCase):
         pch.derive(P('Pitch (1)', np.ma.array(range(5),dtype=float), 1,0.1),
                    P('Pitch (2)', np.ma.array(range(5),dtype=float)+10, 1,0.6)
                   )
-        answer = np.ma.array(data=(range(10)),mask=([0]*9+[1]))/2.0+5.0
-        combo = P('Pitch',answer,frequency=2,offset=0.35)
+        answer = np.ma.array(data=([5.0,5.25,5.75,6.25,6.75,7.25,7.75,8.25,8.75,9.0]))
+        combo = P('Pitch',answer,frequency=2,offset=0.1)
         ma_test.assert_array_equal(pch.array, combo.array)
         self.assertEqual(pch.frequency, combo.frequency)
         self.assertEqual(pch.offset, combo.offset)

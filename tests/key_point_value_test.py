@@ -28,7 +28,7 @@ from analysis_engine.key_point_values import (
     ##AirspeedMinusV235To400FtMin,
     ##AirspeedMinusV2400To1500FtMin,
     AirspeedMinusV2AtLiftoff,
-    AirspeedRelative500FtToTouchdownMax,
+    ##AirspeedRelative500FtToTouchdownMax,
     AirspeedRelativeAtTouchdown,
     AirspeedWithFlapMax,
     ##AirspeedWithGearSelectedDownMax,
@@ -66,7 +66,7 @@ from analysis_engine.key_point_values import (
     ##GroundSpeedOnGroundMax,
     ILSFrequencyOnApproach,
     ILSGlideslopeDeviation1500To1000FtMax,
-    ILSGlideslopeDeviation1000To150FtMax,
+    ILSGlideslopeDeviation1000To250FtMax,
     ##ILSGlideslopeDeviationBelow1000FtMax,
     HeadingAtLanding,
     ## HeadingAtLowPointOnApproach,
@@ -78,19 +78,19 @@ from analysis_engine.key_point_values import (
     ## LongitudeAtLowPointOnApproach,
     LongitudeAtTakeoff,
     ILSLocalizerDeviation1500To1000FtMax,
-    ILSLocalizerDeviation1000To150FtMax,
+    ILSLocalizerDeviation1000To250FtMax,
     MachMax,
-    Pitch1000To100FtMax,
-    Pitch1000To100FtMin,
-    Pitch20FtToTouchdownMin,
+    ##Pitch1000To100FtMax,
+    ##Pitch1000To100FtMin,
+    ##Pitch20FtToTouchdownMin,
     Pitch35To400FtMax,
     Pitch35To400FtMin,
-    Pitch5FtToTouchdownMax,
+    ##Pitch5FtToTouchdownMax,
     PitchAtLiftoff,
     PitchAtTouchdown,
     ##PitchRate35To1500FtMax,
-    PitchRateDuringTakeoffMax,
-    PitchRateDuringTakeoffMin,
+    ##PitchRateDuringTakeoffMax,
+    ##PitchRateDuringTakeoffMin,
     ##PitchDuringFinalApproachMin,
     ##PitchDuringTakeoffMax,
     RateOfDescent500FtToTouchdownMax,
@@ -429,14 +429,14 @@ class TestAirspeedMinusV2AtLiftoff(unittest.TestCase, CreateKPVsAtKTIsTest):
         self.operational_combinations = [('Airspeed Minus V2', 'Liftoff')]
 
 
-class TestAirspeedRelative500FtToTouchdownMax(unittest.TestCase,
-                                               CreateKPVsWithinSlicesTest):
-    def setUp(self):
-        self.node_class = AirspeedRelative500FtToTouchdownMax
-        self.operational_combinations = [('Airspeed Relative',
-                                          'Altitude AAL For Flight Phases')]
-        self.function = max_value
-        self.second_param_method_calls = [('slices_from_to', (500, 0,), {})]
+####class TestAirspeedRelative500FtToTouchdownMax(unittest.TestCase,
+####                                               CreateKPVsWithinSlicesTest):
+####    def setUp(self):
+####        self.node_class = AirspeedRelative500FtToTouchdownMax
+####        self.operational_combinations = [('Airspeed Relative',
+####                                          'Altitude AAL For Flight Phases')]
+####        self.function = max_value
+####        self.second_param_method_calls = [('slices_from_to', (500, 0,), {})]
 
 
 class TestAirspeedRelativeAtTouchdown(unittest.TestCase, CreateKPVsAtKTIsTest):
@@ -700,7 +700,7 @@ class TestEngN1TakeoffMax(unittest.TestCase, CreateKPVsWithinSlicesTest):
     def setUp(self):
         self.node_class = EngN1TakeoffMax
         self.function = max_value
-        self.operational_combinations = [('Eng (*) N1 Max', 'TOGA 5 Min Rating')]
+        self.operational_combinations = [('Eng (*) N1 Max', 'Takeoff 5 Min Rating')]
 
 
 """
@@ -927,9 +927,9 @@ class TestILSGlideslopeDeviationBelow1000FtMax(unittest.TestCase,
         """
 
 
-class TestILSGlideslopeDeviation1000To150FtMax(unittest.TestCase):
+class TestILSGlideslopeDeviation1000To250FtMax(unittest.TestCase):
         
-    def test_ils_glide_1000_150_basic(self):
+    def test_ils_glide_1000_250_basic(self):
         testline = np.ma.array((75 - np.arange(63))*25) # 1875 to 325 ft in 63 steps.
         alt_ph = Parameter('Altitude AAL For Flight Phases', testline)
         
@@ -938,20 +938,20 @@ class TestILSGlideslopeDeviation1000To150FtMax(unittest.TestCase):
         
         gs_estab = buildsection('ILS Glideslope Established', 2,63)
         
-        kpv = ILSGlideslopeDeviation1000To150FtMax()
+        kpv = ILSGlideslopeDeviation1000To250FtMax()
         kpv.derive(ils_gs, alt_ph, gs_estab)
         # 'KeyPointValue', 'index' 'value' 'name'
         self.assertEqual(len(kpv), 1)
         self.assertEqual(kpv[0].index, 36)
         self.assertAlmostEqual(kpv[0].value, 1.89675842)
 
-    def test_ils_glide_1000_150_four_peaks(self):
+    def test_ils_glide_1000_250_four_peaks(self):
         testline = np.ma.array((75 - np.arange(63))*25) # 1875 to 325 ft in 63 steps.
         alt_ph = Parameter('Altitude AAL For Flight Phases', testline)
         testwave = np.ma.array(-0.2-np.sin(np.arange(0,12.6,0.1)))
         ils_gs = Parameter('ILS Glideslope', testwave)
         gs_estab = buildsection('ILS Glideslope Established', 2,56)
-        kpv = ILSGlideslopeDeviation1000To150FtMax()
+        kpv = ILSGlideslopeDeviation1000To250FtMax()
         kpv.derive(ils_gs, alt_ph, gs_estab)
         # 'KeyPointValue', 'index' 'value' 'name'
         self.assertAlmostEqual(kpv[0].value, 0.79992326)
@@ -1111,20 +1111,20 @@ class TestILSLocalizerDeviation1500To1000FtMax(unittest.TestCase):
         self.assertEqual(kpv[1].index, 109)
         
         
-class TestILSLocalizerDeviation1000To150FtMax(unittest.TestCase):
+class TestILSLocalizerDeviation1000To250FtMax(unittest.TestCase):
     def test_can_operate(self):
         expected = [('ILS Localizer','Altitude AAL For Flight Phases',
                      'ILS Localizer Established')]
-        opts = ILSLocalizerDeviation1000To150FtMax.get_operational_combinations()
+        opts = ILSLocalizerDeviation1000To250FtMax.get_operational_combinations()
         self.assertEqual(opts, expected) 
         
-    def test_ils_loc_1000_150_basic(self):
+    def test_ils_loc_1000_250_basic(self):
         testline = np.arange(0,12.6,0.1)
         testwave = (np.cos(testline)*(-1000))+1000
         alt_ph = Parameter('Altitude AAL For Flight Phases', np.ma.array(testwave))
         ils_loc = Parameter('ILS Localizer', np.ma.array(testline))
         loc_est = buildsection('ILS Localizer Established', 30,115)
-        kpv = ILSLocalizerDeviation1000To150FtMax()
+        kpv = ILSLocalizerDeviation1000To250FtMax()
         kpv.derive(ils_loc, alt_ph, loc_est)
         # 'KeyPointValue', 'index value name'
         self.assertEqual(len(kpv), 2)
@@ -1139,29 +1139,29 @@ class TestMachMax(unittest.TestCase, CreateKPVsWithinSlicesTest):
         self.function = max_value
 
 
-class TestPitch1000To100FtMax(unittest.TestCase, CreateKPVsWithinSlicesTest):
-    def setUp(self):
-        self.node_class = Pitch1000To100FtMax
-        self.operational_combinations = [('Pitch', 'Altitude AAL For Flight Phases')]
-        self.function = max_value
-        self.second_param_method_calls = [('slices_from_to', (1000, 100,), {})]
-
-
-class TestPitch1000To100FtMin(unittest.TestCase, CreateKPVsWithinSlicesTest):
-    def setUp(self):
-        self.node_class = Pitch1000To100FtMin
-        self.operational_combinations = [('Pitch', 'Altitude AAL For Flight Phases')]
-        self.function = min_value
-        self.second_param_method_calls = [('slices_from_to', (1000, 100,), {})]
-
-
-class TestPitch20FtToTouchdownMin(unittest.TestCase,
-                                  CreateKPVsWithinSlicesTest):
-    def setUp(self):
-        self.node_class = Pitch20FtToTouchdownMin
-        self.operational_combinations = [('Pitch', 'Altitude AAL For Flight Phases')]
-        self.function = min_value
-        self.second_param_method_calls = [('slices_from_to', (20, 0,), {})]
+####class TestPitch1000To100FtMax(unittest.TestCase, CreateKPVsWithinSlicesTest):
+####    def setUp(self):
+####        self.node_class = Pitch1000To100FtMax
+####        self.operational_combinations = [('Pitch', 'Altitude AAL For Flight Phases')]
+####        self.function = max_value
+####        self.second_param_method_calls = [('slices_from_to', (1000, 100,), {})]
+####
+####
+####class TestPitch1000To100FtMin(unittest.TestCase, CreateKPVsWithinSlicesTest):
+####    def setUp(self):
+####        self.node_class = Pitch1000To100FtMin
+####        self.operational_combinations = [('Pitch', 'Altitude AAL For Flight Phases')]
+####        self.function = min_value
+####        self.second_param_method_calls = [('slices_from_to', (1000, 100,), {})]
+####
+####
+####class TestPitch20FtToTouchdownMin(unittest.TestCase,
+####                                  CreateKPVsWithinSlicesTest):
+####    def setUp(self):
+####        self.node_class = Pitch20FtToTouchdownMin
+####        self.operational_combinations = [('Pitch', 'Altitude AAL For Flight Phases')]
+####        self.function = min_value
+####        self.second_param_method_calls = [('slices_from_to', (20, 0,), {})]
 
 
 class TestPitch35To400FtMax(unittest.TestCase, CreateKPVsWithinSlicesTest):
@@ -1192,12 +1192,12 @@ class TestPitch35To400FtMin(unittest.TestCase, CreateKPVsWithinSlicesTest):
         self.second_param_method_calls = [('slices_from_to', (35, 400,), {})]
 
 
-class TestPitch5FtToTouchdownMax(unittest.TestCase, CreateKPVsWithinSlicesTest):
-    def setUp(self):
-        self.node_class = Pitch5FtToTouchdownMax
-        self.operational_combinations = [('Pitch', 'Altitude AAL For Flight Phases')]
-        self.function = max_value
-        self.second_param_method_calls = [('slices_from_to', (5, 0,), {})]
+####class TestPitch5FtToTouchdownMax(unittest.TestCase, CreateKPVsWithinSlicesTest):
+####    def setUp(self):
+####        self.node_class = Pitch5FtToTouchdownMax
+####        self.operational_combinations = [('Pitch', 'Altitude AAL For Flight Phases')]
+####        self.function = max_value
+####        self.second_param_method_calls = [('slices_from_to', (5, 0,), {})]
 
 
 class TestPitchAtLiftoff(unittest.TestCase, CreateKPVsAtKTIsTest):
@@ -1241,18 +1241,18 @@ class TestPitchRate35To1500FtMax(unittest.TestCase, CreateKPVsWithinSlicesTest):
         """
 
 
-class TestPitchRateDuringTakeoffMax(unittest.TestCase,
-                                    CreateKPVsWithinSlicesTest):
-    def setUp(self):
-        self.node_class = PitchRateDuringTakeoffMax
-        self.operational_combinations = [('Pitch Rate', 'Takeoff')]
-        self.function = max_value
-
-
-class TestPitchRateDuringTakeoffMin(unittest.TestCase):
-    def test_derive(self):
-        node = PitchRateDuringTakeoffMin()
-        self.assertTrue(False)
+####class TestPitchRateDuringTakeoffMax(unittest.TestCase,
+####                                    CreateKPVsWithinSlicesTest):
+####    def setUp(self):
+####        self.node_class = PitchRateDuringTakeoffMax
+####        self.operational_combinations = [('Pitch Rate', 'Takeoff')]
+####        self.function = max_value
+####
+####
+####class TestPitchRateDuringTakeoffMin(unittest.TestCase):
+####    def test_derive(self):
+####        node = PitchRateDuringTakeoffMin()
+####        self.assertTrue(False)
 
 
 class TestRateOfDescent500FtToTouchdownMax(unittest.TestCase,
