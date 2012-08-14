@@ -1230,20 +1230,6 @@ class ControlColumnStiffness(KeyPointValueNode):
                force=P('Control Column Force'),
                disp=P('Control Column'),
                fast=S('Fast')):
-
-        #-------------------------------------------------------------------
-        # TEST OUTPUT TO CSV FILE FOR DEBUGGING ONLY
-        # TODO: REMOVE THIS SECTION BEFORE RELEASE
-        #-------------------------------------------------------------------
-        import csv
-        spam = csv.writer(open('cheese.csv', 'wb'))
-        spam.writerow(['ref','column', 'force'])
-        #-------------------------------------------------------------------
-        # TEST OUTPUT TO CSV FILE FOR DEBUGGING ONLY
-        # TODO: REMOVE THIS SECTION BEFORE RELEASE
-        #-------------------------------------------------------------------
-        
-
         # We only test during high speed operation to avoid "testing" the
         # full and free movements before flight.
         for speedy in fast:

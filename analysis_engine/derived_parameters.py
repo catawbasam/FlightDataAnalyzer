@@ -710,13 +710,12 @@ class AltitudeRadio(DerivedParameterNode):
     two valid sensors.
     :type parameter object.
     """
+    align_to_first_dependency = False
     @classmethod
     def can_operate(cls, available):
         if 'Altitude Radio (A)' in available and \
            'Altitude Radio (B)' in available:
             return True
-    
-    align_to_first_dependency = False
     
     def derive(self, frame = A('Frame'),
                frame_qual = A('Frame Qualifier'),
@@ -794,7 +793,7 @@ class AltitudeSTD(DerivedParameterNode):
                 blend_two_parameters(source_A, source_B)
 
         else:
-            raise DataFrameError ("Altitude STD", frame_name)
+            raise DataFrameError("Altitude STD", frame_name)
 
 
 class AltitudeQNH(DerivedParameterNode):
@@ -2020,7 +2019,7 @@ class GearDown(DerivedParameterNode):
             # assume that the right wheel does the same as the left !
             self.array, self.frequency, self.offset = merge_two_parameters(gl, gn)
         else:
-            raise DataFrameError ("Gear Down", frame_name)
+            raise DataFrameError("Gear Down", frame_name)
 
 class GearSelectedDown(DerivedParameterNode):
     """
@@ -2034,7 +2033,7 @@ class GearSelectedDown(DerivedParameterNode):
         if frame_name in ['737-3C', '737-5']:
             self.array = gear.array
         else:
-            raise DataFrameError ("Gear Selected Down", frame_name)
+            raise DataFrameError("Gear Selected Down", frame_name)
 
         
 class GearSelectedUp(DerivedParameterNode):
@@ -2044,7 +2043,7 @@ class GearSelectedUp(DerivedParameterNode):
         if frame_name in ['737-3C', '737-5']:
             self.array = 1 - gear.array
         else:
-            raise DataFrameError ("Gear Selected Up", frame_name)
+            raise DataFrameError("Gear Selected Up", frame_name)
 
 
 class GrossWeightSmoothed(DerivedParameterNode):
@@ -2150,7 +2149,7 @@ class Groundspeed(DerivedParameterNode):
             self.array = self.array
             
         else:
-            raise DataFrameError ("Groundspeed", frame_name)
+            raise DataFrameError("Groundspeed", frame_name)
 
 
 class FlapLever(DerivedParameterNode):
@@ -2209,7 +2208,7 @@ class FlapSurface(DerivedParameterNode):
             self.frequency, self.offset = alt_aal.frequency, alt_aal.offset
 
         else:
-            raise DataFrameError ("Flap Surface", frame_name)
+            raise DataFrameError("Flap Surface", frame_name)
                    
                             
 class Flap(DerivedParameterNode):
@@ -3284,7 +3283,7 @@ class ThrustReversers(DerivedParameterNode):
             self.array = step_values(all_tr/8.0, [0,0.5,1])
             
         else:
-            raise DataFrameError ("Thrust Reversers", frame_name)
+            raise DataFrameError("Thrust Reversers", frame_name)
 
 #------------------------------------------------------------------
 # WIND RELATED PARAMETERS
@@ -3513,7 +3512,7 @@ class Spoiler(DerivedParameterNode):
             self.array, self.offset = self.spoiler_737(spoiler_2, spoiler_7)
                 
         else:
-            raise DataFrameError ("Spoiler", frame_name)
+            raise DataFrameError("Spoiler", frame_name)
 
 class Speedbrake(DerivedParameterNode):
     '''
@@ -3539,18 +3538,23 @@ class Speedbrake(DerivedParameterNode):
             self.array = np.ma.where(self.array < 2.0, 0.0, self.array)
 
         else:
-            raise DataFrameError ("Speedbrake", frame_name)
+            raise DataFrameError("Speedbrake", frame_name)
 
 class StickShaker(DerivedParameterNode):
     '''
     This accounts for the different types of stick shaker system.
-    '''
+    '''    
+    align_to_first_dependency = False
+    
     @classmethod
     def can_operate(cls, available):
-        if 'Stick Shaker (L)' in available or 'Shaker Activation' in available:
+        # we cannot access the frame_name within this method to determine which
+        # parameter is the requirement
+        if 'Frame' in available and ('Stick Shaker (L)' in available \
+                                     or 'Stick Shaker (R)' in available \
+                                     or 'Shaker Activation' in available):
+            #WARNING: Does not take into account which parameter for which frame
             return True
-    
-    align_to_first_dependency = False
 
     def derive(self, frame = A('Frame'), 
                shake_l = P('Stick Shaker (L)'), 
@@ -3573,7 +3577,6 @@ class StickShaker(DerivedParameterNode):
                 shake_l.array, shake_l.frequency, shake_l.offset
 
         # Stick shaker not found in 737-6 frame.
-        
         else:
-            raise DataFrameError ("Stick Shaker", frame_name)
+            raise DataFrameError("Stick Shaker", frame_name)
         
