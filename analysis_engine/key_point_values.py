@@ -1502,7 +1502,7 @@ class PackValvesOpenAtLiftoff(KeyPointValueNode):
         self.create_kpvs_at_ktis(isol.array, lifts, suppress_zeros=True)
 
 
-class LatitudeAtLanding(KeyPointValueNode):
+class LatitudeAtTouchdown(KeyPointValueNode):
     # Cannot use smoothed position as this causes circular dependancy.
     def derive(self, lat=P('Latitude'), tdwns=KTI('Touchdown')):
         '''
@@ -1512,7 +1512,7 @@ class LatitudeAtLanding(KeyPointValueNode):
         self.create_kpvs_at_ktis(lat.array, tdwns)
             
 
-class LongitudeAtLanding(KeyPointValueNode):
+class LongitudeAtTouchdown(KeyPointValueNode):
     # Cannot use smoothed position as this causes circular dependancy.
     def derive(self, lon=P('Longitude'),tdwns=KTI('Touchdown')):
         '''
