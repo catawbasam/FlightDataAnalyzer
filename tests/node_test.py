@@ -681,7 +681,15 @@ class TestFormattedNameNode(unittest.TestCase):
         self.assertEqual(previous_kti, None)
         previous_kti = kti_node.get_previous(40, frequency=4)
         self.assertEqual(previous_kti, KeyTimeInstance(2, 'Slowest'))
-        
+
+    def test_initial_items_storage(self):
+        node = FormattedNameNode(['a', 'b', 'c'])
+        self.assertEqual(list(node), ['a', 'b', 'c'])
+        node = FormattedNameNode(('a', 'b', 'c'))
+        self.assertEqual(list(node), ['a', 'b', 'c'])
+        node = FormattedNameNode(items=['a', 'b', 'c'])
+        self.assertEqual(list(node), ['a', 'b', 'c'])
+
 
 class TestKeyPointValueNode(unittest.TestCase):
     
@@ -700,7 +708,7 @@ class TestKeyPointValueNode(unittest.TestCase):
                            'altitude': [1000, 1500],}            
             def derive(self, *args, **kwargs):
                 pass
-            
+        
         knode = Speed(frequency=2, offset=0.4)
         self.assertEqual(knode.frequency, 2)
         self.assertEqual(knode.offset, 0.4)
@@ -725,6 +733,10 @@ class TestKeyPointValueNode(unittest.TestCase):
         # wrong type raises TypeError
         self.assertRaises(TypeError, knode.create_kpv, 2, '3', 
                           phase='', altitude='')
+        # None index -- now logs a WARNING and does not raise an error
+        knode.create_kpv(None, 'b')
+        self.assertTrue('b' not in knode)  ## this test isn't quite right...!
+
         
     def test_create_kpvs_at_ktis(self):
         knode = self.knode

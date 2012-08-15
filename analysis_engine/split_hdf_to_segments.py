@@ -43,6 +43,14 @@ def validate_aircraft(aircraft_info, hdf):
 
 
 def _segment_type_and_slice(airspeed, frequency, start, stop):
+    """
+    segment_type is one of:
+    * 'GROUND_ONLY' (didn't go fast)
+    * 'START_AND_STOP'
+    * 'START_ONLY'
+    * 'STOP_ONLY'
+    * 'MID_FLIGHT'
+    """
     airspeed_start = start * frequency
     airspeed_stop = stop * frequency
     try:
@@ -281,10 +289,11 @@ def split_segments(hdf):
                                                     start, split_index))
             start = split_index
             continue
-        
-        logger.info("Splitting methods failed to split within slow_slice "
-                     "'%s'.", slow_slice)
-    
+
+        #Q: Raise error here?
+        logger.warning("Splitting methods failed to split within slow_slice "
+                       "'%s'.", slow_slice)
+
     # Add remaining data to a segment.
     segments.append(_segment_type_and_slice(airspeed_array, airspeed.frequency,
                                             start, airspeed_secs))
@@ -326,7 +335,7 @@ def _calculate_start_datetime(hdf, fallback_dt=None):
                 continue
         if fallback_dt:
             array = [getattr(fallback_dt, name.lower())]
-            logger.info("%s not available, using %d from fallback_dt %s", 
+            logger.warning("%s not available, using %d from fallback_dt %s", 
                          name, array[0], fallback_dt)
             dt_arrays.append(array)
             continue
