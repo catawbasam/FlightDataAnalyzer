@@ -1252,18 +1252,7 @@ class ControlColumnStiffness(KeyPointValueNode):
                 if corr>0.85:  # This checks the data looks sound.
                     when = np.ma.argmax(np.ma.abs(push[move]))
                     self.create_kpv(speedy.slice.start+move.start+when, slope)
-                    
-                    #-------------------------------------------------------------------
-                    # TEST OUTPUT TO CSV FILE FOR DEBUGGING ONLY
-                    # TODO: REMOVE THIS SECTION BEFORE RELEASE
-                    #-------------------------------------------------------------------
-                    n = speedy.slice.start+move.start
-                    for showme in range(0, slice_samples(move)):
-                        spam.writerow([n+showme,column[move][showme],push[move][showme]])
-                     #-------------------------------------------------------------------
-                    # TEST OUTPUT TO CSV FILE FOR DEBUGGING ONLY
-                    # TODO: REMOVE THIS SECTION BEFORE RELEASE
-                    #-------------------------------------------------------------------
+                
                     
 
 
