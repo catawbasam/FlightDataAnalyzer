@@ -107,14 +107,7 @@ def derive_parameters(hdf, node_mgr, process_order):
                           offset=first_dep.offset)
         logger.info("Processing parameter %s", param_name)
         # Derive the resulting value
-        try:
-            result = node.get_derived(deps)
-        except NotImplementedError:
-            ##logger.error("Node %s not implemented", node_class.__name__)
-            #TODO: remove hack below!!!
-            params[param_name] = node # HACK!
-            nodes_not_implemented.append(node_class.__name__)
-            continue
+        result = node.get_derived(deps)
         
         if node.node_type is KeyPointValueNode:
             #Q: track node instead of result here??
@@ -172,8 +165,6 @@ def derive_parameters(hdf, node_mgr, process_order):
         else:
             raise NotImplementedError("Unknown Type %s" % node.__class__)
         continue
-    if nodes_not_implemented:
-        logger.error("Nodes not implemented: %s", nodes_not_implemented)
     return kti_list, kpv_list, section_list, flight_attrs
 
 
