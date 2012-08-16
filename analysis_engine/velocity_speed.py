@@ -42,6 +42,7 @@ class VelocitySpeed(object):
         :type weight: float
         :param setting: Flap/Conf setting to use in lookup
         :type setting: String
+        :raises: ValueError
         :returns: v2 value
         :rtype: float
         '''
@@ -56,6 +57,7 @@ class VelocitySpeed(object):
         :type weight: float
         :param setting: Flap/Conf setting to use in lookup
         :type setting: String
+        :raises: ValueError
         :returns: v2 value
         :rtype: float
         '''
@@ -64,6 +66,9 @@ class VelocitySpeed(object):
                                 setting)
 
     def _get_vspeed(self, lookup, aircraft_weight, setting):
+        '''
+        
+        '''
         if self.weight_unit == 'lb':
             weight = aircraft_weight * KG_TO_LB
         else:
@@ -73,6 +78,7 @@ class VelocitySpeed(object):
 
         if self.interpolate:
             # numpy interpolate
+            # raises ValueError if weight is outside of table weight boundaries
             f = interp.interp1d(lookup['weight'], lookup[setting])
             value = f(weight)
         else:
@@ -169,18 +175,19 @@ def get_vspeed_map(series=None, family=None):
     :returns: associated VelocitySpeed class
     :rtype: VelocitySpeed
     """
-    if series in series_aileron_map:
-        return series_aileron_map[series]
-    elif family in family_aileron_map:
-        return family_aileron_map[family]
+    if series in series_vspeed_map:
+        return series_vspeed_map[series]
+    elif family in family_vspeed_map:
+        return family_vspeed_map[family]
     else:
-        raise KeyError("No aileron mapping for Series '%s' Family '%s'" % (
+        raise KeyError("No vspeed mapping for Series '%s' Family '%s'" % (
             series, family))
 
 #############################################################################
 
 # Notes:
 # - Series config will be used over Family config settings
+# - Familys/series which do not require vspeeds should be entered as None
 
 series_vspeed_map = {
     # this will take precidence over family_vspeed_map
