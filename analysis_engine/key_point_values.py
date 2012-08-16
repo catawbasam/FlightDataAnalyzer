@@ -1932,11 +1932,14 @@ class EngN1500FtToTouchdownMin(KeyPointValueNode):
                alt_aal=P('Altitude AAL For Flight Phases')):
         '''
         '''
-        self.create_kpvs_within_slices(
-            eng_n1_min.array,
-            alt_aal.slices_from_to(500, 0),
-            min_value,
-        )
+        # Ensure that N1 value has been maintained for a minimum of 10 seconds:
+        array = clip(eng_n1_min.array, 10, eng_n1_min.hz, remove='troughs')
+        if array:
+            self.create_kpvs_within_slices(
+                array,
+                alt_aal.slices_from_to(500, 0),
+                min_value,
+            )
 
 
 ################################################################################
