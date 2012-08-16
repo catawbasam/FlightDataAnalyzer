@@ -1152,6 +1152,7 @@ class Eng_EPRAvg(DerivedParameterNode):
     '''
 
     name = 'Eng (*) EPR Avg'
+
     @classmethod
     def can_operate(cls, available):
         '''
@@ -3469,76 +3470,123 @@ class ElevatorTrim(DerivedParameterNode): # PitchTrim
         self.array, self.frequency, self.offset = blend_two_parameters(etl, etr)
 
 
-class Spoiler(DerivedParameterNode):
+################################################################################
+# Speedbrake
+
+
+# TODO: Write some unit tests!
+class Speedbrake(DerivedParameterNode):
     '''
-    Spolier angle in degrees, zero flush with the wing and positive up.
-    
+    Spoiler angle in degrees, zero flush with the wing and positive up.
+
     Spoiler positions are recorded in different ways on different aircraft,
     hence the frame specific sections in this class.
     '''
+
     align_to_first_dependency = False
 
     @classmethod
     def can_operate(cls, available):
-        # we cannot access the frame_name within this method to determine which
-        # parameter is the requirement
-        if 'Frame' in available and\
-           (('Spoiler (2)' in available and 'Spoiler (7)' in available)\
-            or\
-            ('Spoiler (4)' in available and 'Spoiler (9)' in available)\
-            ):
-            return True
-        
+        '''
+        Note: The frame name cannot be accessed within this method to determine
+              which parameters are required.
+        '''
+        x = available
+        return ('Frame' in x and 'Spoiler (2)' in x and 'Spoiler (7)' in x) \
+            or ('Frame' in x and 'Spoiler (4)' in x and 'Spoiler (9)' in x)
+
     def spoiler_737(self, spoiler_a, spoiler_b):
         '''
         We indicate the angle of either raised spoiler, ignoring sense of
         direction as it augments the roll.
         '''
         offset = (spoiler_a.offset + spoiler_b.offset) / 2.0
-        array = np.ma.maximum(spoiler_a.array,spoiler_b.array)
-        # Force small angles to indicate zero.
+        array = np.ma.maximum(spoiler_a.array, spoiler_b.array)
+        # Force small angles to indicate zero:
         array = np.ma.where(array < 2.0, 0.0, array)
         return array, offset
-        
-    def derive(self, spoiler_2=P('Spoiler (2)'), spoiler_7=P('Spoiler (7)'),
-               spoiler_4=P('Spoiler (4)'), spoiler_9=P('Spoiler (9)'),
-               frame = A('Frame')):
+
+    def derive(self,
+            spoiler_2=P('Spoiler (2)'), spoiler_7=P('Spoiler (7)'),
+            spoiler_4=P('Spoiler (4)'), spoiler_9=P('Spoiler (9)'),
+            frame=A('Frame')):
+        '''
+        '''
         frame_name = frame.value if frame else None
-        
+
         if frame_name in ['737-3C']:
             self.array, self.offset = self.spoiler_737(spoiler_4, spoiler_9)
-            
+
         elif frame_name in ['737-5', '737-6']:
             self.array, self.offset = self.spoiler_737(spoiler_2, spoiler_7)
-                
-        else:
-            raise DataFrameError("Spoiler", frame_name)
 
-class Speedbrake(DerivedParameterNode):
+        else:
+            raise DataFrameError('Speedbrake', frame_name)
+
+
+# TODO: Write some unit tests!
+class SpeedbrakeSelection(DerivedParameterNode):
     '''
-    Speedbrake angle in degrees, zero flush with wing. Where clamshell brake
-    is used, degrees of opening.
+    Determines the selected state of the speedbrake.
+
+    Speedbrake Selection Values:
+
+    - 0 -- Stowed
+    - 1 -- Armed / Commanded (Spoilers Down)
+    - 2 -- Deployed / Commanded (Spoilers Up)
     '''
-    align_to_first_dependency = False
-    
-    def derive(self, spoiler_2=P('Spoiler (2)'),
-               spoiler_7=P('Spoiler (7)'),
-               frame = A('Frame')):
+
+    @classmethod
+    def can_operate(cls, available):
+        '''
+        '''
+        x = available
+        return 'Speedbrake Deployed' in x \
+            or ('Frame' in x and 'Speedbrake Handle' in x)
+
+    def derive(self,
+            spd_brk_d=P('Speedbrake Deployed'),
+            spd_brk_h=P('Speedbrake Handle'),
+            frame=A('Frame')):
+        '''
+        '''
         frame_name = frame.value if frame else None
-        
-        if frame_name in ['737-5', '737-6']:
-            '''
-            For the 737-5 frame, we do not have speedbrake handle position recorded,
-            so the use of the speedbrake is identified by both spoilers being
-            extended at the same time.
-            '''
-            self.offset = (spoiler_2.offset + spoiler_7.offset) / 2.0
-            self.array = np.ma.minimum(spoiler_2.array,spoiler_7.array)
-            # Force small angles to indicate zero.
-            self.array = np.ma.where(self.array < 2.0, 0.0, self.array)
+
+        if spd_brk_h and frame.name:
+            
+            if frame_name.startswith('737-'):
+                '''
+                Speedbrake Handle Position:
+
+                    ========    ============
+                    Angle       Notes
+                    ========    ============
+                     0.0        Full Forward
+                     4.0        Armed
+                    24.0
+                    29.0
+                    38.0        In Flight
+                    40.0        Straight Up
+                    48.0        Full Up
+                    ========    ============
+                '''
+                self.array = np.ma.where(2.0 < spd_brk_h.array < 35.0, 1, 0)
+                self.array = np.ma.where(spd_brk_h.array >= 35.0, 2, self.array)
+
+            else:
+                # TODO: Implement for other frames using 'Speedbrake Handle'!
+                return NotImplemented
+
+        elif spd_brk_d:
+            self.array = np.ma.where(spd_brk_d.array > 0, 2, 0)
 
         else:
-            raise DataFrameError("Speedbrake", frame_name)
+            # TODO: Implement using a different parameter?
+            return NotImplemented
+
+
+################################################################################
+
 
 class StickShaker(DerivedParameterNode):
     '''
