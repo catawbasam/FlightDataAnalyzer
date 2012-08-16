@@ -280,5 +280,7 @@ try:
                             if k.endswith('_MODULES') and k!= 'NODE_MODULES']
     NODE_MODULES = list(set(NODE_MODULES))
 except ImportError as err:
-    logger.info("Unable to import analysis_engine custom_settings.py")
+    # logger.info preferred, but stack trace is important when trying to
+    # determine an unexpected ImportError lower down the line.
+    logger.exception("Unable to import analysis_engine custom_settings.py")
     pass

@@ -1,9 +1,10 @@
 import numpy as np
 
-from analysis_engine import settings
-from analysis_engine.settings import (CONTROL_FORCE_THRESHOLD,
+from analysis_engine.settings import (CLIMB_OR_DESCENT_MIN_DURATION,
+                                      CONTROL_FORCE_THRESHOLD,
                                       FEET_PER_NM,
                                       HYSTERESIS_FPALT,
+                                      LEVEL_FLIGHT_MIN_DURATION,
                                       NAME_VALUES_FLAP)
 
 from analysis_engine.node import KeyPointValueNode, KPV, KTI, P, S, A
@@ -1098,7 +1099,7 @@ class AirspeedLevelFlightMax(KeyPointValueNode):
             #TODO: Move LEVEL_FLIGHT_MIN_DURATION to LevelFlight
             #FlightPhaseNode so that only stable level flights are reported.
             duration = (sect.slice.stop - sect.slice.start)/self.frequency
-            if duration > settings.LEVEL_FLIGHT_MIN_DURATION:
+            if duration > LEVEL_FLIGHT_MIN_DURATION:
                 # stable level flight
                 index, value = max_value(airspeed.array, sect.slice)
                 self.create_kpv(index, value)
@@ -2327,7 +2328,7 @@ class RateOfClimbMax(KeyPointValueNode):
         #TODO: Merge with below RateOfDescentMax accepting a flightphase arg
         for climb in climbing:
             duration = climb.slice.stop - climb.slice.start
-            if duration > settings.CLIMB_OR_DESCENT_MIN_DURATION:
+            if duration > CLIMB_OR_DESCENT_MIN_DURATION:
                 index, value = max_value(rate_of_climb.array, climb.slice)
                 self.create_kpv(index, value)
 
@@ -2347,7 +2348,7 @@ class RateOfDescentMax(KeyPointValueNode):
                descending=S('Descending')):
         for descent in descending:
             duration = descent.slice.stop - descent.slice.start
-            if duration > settings.CLIMB_OR_DESCENT_MIN_DURATION:
+            if duration > CLIMB_OR_DESCENT_MIN_DURATION:
                 index, value = min_value(rate_of_climb.array, descent.slice)
                 self.create_kpv(index, value)
 
