@@ -1991,6 +1991,8 @@ class EngN2CyclesInFinalApproach(KeyPointValueNode):
     '''
     '''
 
+    name = 'Eng N2 Cycles In Final Approach'
+
     def derive(self, eng_n2_avg=P('Eng (*) N2 Avg'), fapps=S('Final Approach')):
         '''
         '''
