@@ -8,7 +8,9 @@
 # environment and append customised modules.
 
 
-
+import logging
+logger = logging.getLogger(name=__name__)
+    
 ###################
 ## Configuration ##
 ###################
@@ -278,6 +280,5 @@ try:
                             if k.endswith('_MODULES') and k!= 'NODE_MODULES']
     NODE_MODULES = list(set(NODE_MODULES))
 except ImportError as err:
-    import logging
-    logging.info("Unable to import analysis_engine custom_settings.py")
+    logger.info("Unable to import analysis_engine custom_settings.py")
     pass
