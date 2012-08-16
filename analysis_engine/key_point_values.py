@@ -1,9 +1,10 @@
 import numpy as np
 
-from analysis_engine import settings
-from analysis_engine.settings import (CONTROL_FORCE_THRESHOLD,
+from analysis_engine.settings import (CLIMB_OR_DESCENT_MIN_DURATION,
+                                      CONTROL_FORCE_THRESHOLD,
                                       FEET_PER_NM,
                                       HYSTERESIS_FPALT,
+                                      LEVEL_FLIGHT_MIN_DURATION,
                                       NAME_VALUES_FLAP)
 
 from analysis_engine.node import KeyPointValueNode, KPV, KTI, P, S, A
@@ -1098,7 +1099,7 @@ class AirspeedLevelFlightMax(KeyPointValueNode):
             #TODO: Move LEVEL_FLIGHT_MIN_DURATION to LevelFlight
             #FlightPhaseNode so that only stable level flights are reported.
             duration = (sect.slice.stop - sect.slice.start)/self.frequency
-            if duration > settings.LEVEL_FLIGHT_MIN_DURATION:
+            if duration > LEVEL_FLIGHT_MIN_DURATION:
                 # stable level flight
                 index, value = max_value(airspeed.array, sect.slice)
                 self.create_kpv(index, value)
@@ -1252,18 +1253,7 @@ class ControlColumnStiffness(KeyPointValueNode):
                 if corr>0.85:  # This checks the data looks sound.
                     when = np.ma.argmax(np.ma.abs(push[move]))
                     self.create_kpv(speedy.slice.start+move.start+when, slope)
-                    
-                    #-------------------------------------------------------------------
-                    # TEST OUTPUT TO CSV FILE FOR DEBUGGING ONLY
-                    # TODO: REMOVE THIS SECTION BEFORE RELEASE
-                    #-------------------------------------------------------------------
-                    n = speedy.slice.start+move.start
-                    for showme in range(0, slice_samples(move)):
-                        spam.writerow([n+showme,column[move][showme],push[move][showme]])
-                     #-------------------------------------------------------------------
-                    # TEST OUTPUT TO CSV FILE FOR DEBUGGING ONLY
-                    # TODO: REMOVE THIS SECTION BEFORE RELEASE
-                    #-------------------------------------------------------------------
+                
                     
 
 
@@ -1488,7 +1478,7 @@ class PackValvesOpenAtLiftoff(KeyPointValueNode):
         self.create_kpvs_at_ktis(isol.array, lifts, suppress_zeros=True)
 
 
-class LatitudeAtLanding(KeyPointValueNode):
+class LatitudeAtTouchdown(KeyPointValueNode):
     # Cannot use smoothed position as this causes circular dependancy.
     def derive(self, lat=P('Latitude'), tdwns=KTI('Touchdown')):
         '''
@@ -1498,7 +1488,7 @@ class LatitudeAtLanding(KeyPointValueNode):
         self.create_kpvs_at_ktis(lat.array, tdwns)
             
 
-class LongitudeAtLanding(KeyPointValueNode):
+class LongitudeAtTouchdown(KeyPointValueNode):
     # Cannot use smoothed position as this causes circular dependancy.
     def derive(self, lon=P('Longitude'),tdwns=KTI('Touchdown')):
         '''
@@ -2341,7 +2331,7 @@ class RateOfClimbMax(KeyPointValueNode):
         #TODO: Merge with below RateOfDescentMax accepting a flightphase arg
         for climb in climbing:
             duration = climb.slice.stop - climb.slice.start
-            if duration > settings.CLIMB_OR_DESCENT_MIN_DURATION:
+            if duration > CLIMB_OR_DESCENT_MIN_DURATION:
                 index, value = max_value(rate_of_climb.array, climb.slice)
                 self.create_kpv(index, value)
 
@@ -2361,7 +2351,7 @@ class RateOfDescentMax(KeyPointValueNode):
                descending=S('Descending')):
         for descent in descending:
             duration = descent.slice.stop - descent.slice.start
-            if duration > settings.CLIMB_OR_DESCENT_MIN_DURATION:
+            if duration > CLIMB_OR_DESCENT_MIN_DURATION:
                 index, value = min_value(rate_of_climb.array, descent.slice)
                 self.create_kpv(index, value)
 

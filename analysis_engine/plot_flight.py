@@ -76,7 +76,7 @@ def track_to_kml(hdf_path, kti_list, kpv_list, flight_list, plot_altitude=False)
               
     smooth_lat = derived_param_from_hdf(hdf, 'Latitude Smoothed')
     smooth_lon = derived_param_from_hdf(hdf, 'Longitude Smoothed')
-    add_track(kml, 'Smoothed', smooth_lat, smooth_lon, 'ff7fff7f', hdf[plot_altitude])
+    add_track(kml, 'Smoothed', smooth_lat, smooth_lon, 'ff7fff7f') #, hdf[plot_altitude])
 
     #lat = derived_param_from_hdf(hdf, 'Latitude Prepared')
     #lon = derived_param_from_hdf(hdf, 'Longitude Prepared')
