@@ -2575,16 +2575,19 @@ def rate_of_change(diff_param, width):
     
 
 def repair_mask(array, frequency=1, repair_duration=REPAIR_DURATION,
-                raise_duration_exceedance=False):
+                raise_duration_exceedance=False, copy=False):
     '''
     This repairs short sections of data ready for use by flight phase algorithms
     It is not intended to be used for key point computations, where invalid data
-    should remain masked. Modifies the array in-place.
+    should remain masked. 
+    
+    if copy=True, returns modified copy of array, otherwise modifies the array in-place.
     
     :param repair_duration: If None, any length of masked data will be repaired.
     :param raise_duration_exceedance: If False, no warning is raised if there are masked sections longer than repair_duration. They will remain unrepaired.
     '''
-
+    if copy:
+        array = array.copy()
     if repair_duration:
         repair_samples = repair_duration * frequency
     else:
