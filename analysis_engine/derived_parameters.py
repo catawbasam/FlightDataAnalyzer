@@ -3570,7 +3570,7 @@ class SpeedbrakeSelection(DerivedParameterNode):
                     48.0        Full Up
                     ========    ============
                 '''
-                self.array = np.ma.where(2.0 < spd_brk_h.array < 35.0, 1, 0)
+                self.array = np.ma.where((2.0 < spd_brk_h.array) & (spd_brk_h.array < 35.0), 1, 0)
                 self.array = np.ma.where(spd_brk_h.array >= 35.0, 2, self.array)
 
             else:
