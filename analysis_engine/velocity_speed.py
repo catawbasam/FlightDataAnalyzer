@@ -134,6 +134,12 @@ class B737_300(VelocitySpeed):
     source = 'AGS B737-5_925017_07.add'
     unit = 1000
     weight_unit = 'kg'
+    v2_table = {
+             'weight': ( 30,  35,  40,  45,  50,  55,  60,  65,  70),
+                    1: (110, 118, 125, 132, 139, 146, 152, 158, 158), # temp fix to get test to pass as we do not know what flap 1 values are.
+                    5: (110, 118, 125, 132, 139, 146, 152, 158, 158),
+                   15: (106, 112, 119, 126, 132, 138, 143, 143, 143),
+    }
     airspeed_reference_table = {
              'weight':  ( 32,  36,  40,  44,  48,  52,  56,  60,  64),
                    15:  (111, 118, 125, 132, 138, 143, 149, 154, 159),

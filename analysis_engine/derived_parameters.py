@@ -52,6 +52,7 @@ from analysis_engine.library import (align,
                                      dp_over_p2mach,
                                      dp2tas,
                                      machtat2sat)
+from analysis_engine.velocity_speed import get_vspeed_map
 
 from settings import (AZ_WASHOUT_TC,
                       AT_WASHOUT_TC,
@@ -244,24 +245,74 @@ class AirspeedReference(DerivedParameterNode):
     A fixed value will most likely be zero making this relative airspeed
     derived parameter the same as the original absolute airspeed parameter.
     '''
-    def derive (self, spd = P('Airspeed'), param = P('Vapp')):
-        #spd = P('Airspeed'), param = P('Vapp'), attrib = A('FDR Vref')):
+    @classmethod
+    def can_operate(cls, available):
+        works_with_any = ['Vapp', 'Vref', 'FDR Vapp', 'FDR Vref']
+        existing_values = any([_node in available for _node in works_with_any])
+        
+        x = set(available)
+        base_for_lookup = ['Airspeed', 'Gross Weight Smoothed', 'Series', 'Family', 'Approach']
+        airbus = set(base_for_lookup + ['Config']).issubset(x)
+        boeing = set(base_for_lookup + ['Flap']).issubset(x)
+        return existing_values or airbus or boeing
+
+    def derive (self,
+                spd=P('Airspeed'),
+                gw=P('Gross Weight Smoothed'),
+                flap=P('Flap'),
+                config=P('Config'),
+                vapp=P('Vapp'),
+                vref=P('Vref'),
+                fdr_vapp=A('FDR Vapp'),
+                fdr_vref=A('FDR Vref'),
+                apps=S('Approach'),
+                series=A('Series'),
+                family=A('Family')):
+
         '''
         Currently a work in progress. We should use a recorded parameter if
         it's available, failing that a computed forumla reflecting the
         aircraft condition and failing that a single value from the achieved
-        flight file.
+        flight file. Achieved flight records without a recorded value will be
+        repeated thoughout the flight, calculated values will be calculated
+        for each approach.
+        Rises KeyError if no entires for Family/Series in vspeed lookup map.
         '''
-        if param:
-            self.array = param.array
-        
-        # How do we enter tabulated values here?
-        
-        #elif attrib:
-            #self.array = np_ma_ones_like(spd.array) * attrib.value
-        
+        if vapp:
+            # Vapp is recorded so use this
+            self.array = vapp.array
+        elif vref:
+            # Vref is recorded so use this
+            self.array = vref.array
+        elif spd and (fdr_vapp or fdr_vref):
+            # Vapp/Vref is supplied from FDR so use this
+            fdr_vspeed = fdr_vapp or fdr_vref
+            self.array = np.ma.zeros(len(spd.array), np.double)
+            self.array.mask=True
+            for approach in apps:
+                self.array[approach.slice] = fdr_vspeed.value
         else:
-            self.array = np_ma_zeros_like(spd.array) 
+            # elif apps and spd and gw and (flap or config):
+            # No values recorded or supplied so lookup in vspeed tables
+            setting_param = flap or config
+            self.array = np.ma.zeros(len(spd.array), np.double)
+            self.array.mask=True
+
+            vspeed_class = get_vspeed_map(series.value, family.value)
+
+            if vspeed_class:
+                vspeed_table = vspeed_class() # instansiate VelocitySpeed object
+                # allow up to 2 superframe values to be repaired (64*2=128 + a bit)
+                repaired_gw = repair_mask(gw.array, repair_duration=130, copy=True)
+                for approach in apps:
+                    index = approach.stop_edge
+                    weight = repaired_gw[index]
+                    setting = setting_param.array[index]
+                    vspeed = vspeed_table.airspeed_reference(weight, setting)
+                    self.array[approach.slice] = vspeed
+            else:
+                # aircraft does not use vspeeds
+                pass
 
 
 # TODO: Write some unit tests!
@@ -273,7 +324,7 @@ class AirspeedRelative(DerivedParameterNode):
     def derive(self, airspeed=P('Airspeed'), vref=P('Airspeed Reference')):
         '''
         '''
-        self.array = airspeed.array - vref.value
+        self.array = airspeed.array - vref.array
 
 
 # TODO: Write some unit tests!
@@ -3332,65 +3383,52 @@ class TAT(DerivedParameterNode):
             blend_two_parameters(source_1, source_2)
 
 
-class Vapp(DerivedParameterNode):
-    '''
-    Based on weight and flap at next intended landing.
-    '''
-    name = 'FDR Vapp'
-    def derive(self, flap=P('Flap'), weight=P('Gross Weight Smoothed'),
-               app_lows=KTI('Lowest Point On Approach')):
-        
-        def _vapp(weight, flap):
-            #TODO: V Speed calculations replace below...
-            if flap > 0:
-                return weight/(flap*15) # Silly formula for developing structure only.
-            else:
-                pass
-            
-        # Initialize the result space.
-        self.array = np_ma_masked_zeros_like(flap.array)
-        
-        # Fill the array with the last approach (and landing) Vapp, providing
-        # that the data does have a final landing of course:-
-        if app_lows.get_last():
-            pit_idx = app_lows.get_last().index
-            pit_wt = weight.array[pit_idx]
-            pit_flap = flap.array[pit_idx]
-            self.array[:] = _vapp(pit_wt, pit_flap)
-            
-            # If we made an approach earlier, fill up to the go-around point with
-            # the appropriate V2 value.
-            while app_lows.get_previous(pit_idx):
-                pit_idx = app_lows.get_previous(pit_idx).index
-                pit_wt = weight.array[pit_idx]
-                pit_flap = flap.array[pit_idx]
-                self.array[:pit_idx] = _vapp(pit_wt, pit_flap)
-         
-         
 class V2(DerivedParameterNode):
     '''
-    Based on weight and flap at time of landing.
+    Based on weight and flap at time of Liftoff, first liftoff only.
     '''
-    def derive(self, flap=P('Flap'), weight_liftoff=KPV('Gross Weight At Liftoff')):
-        
-        def _v2(weight, flap):
-            #TODO: V Speed calculations replace below...
-            return 100.0 # Silly formula for developing structure only.
-        
+    @classmethod
+    def can_operate(cls, available):
+        x = set(available)
+        fdr = 'FDR V2' in x
+        base_for_lookup = ['Airspeed', 'Gross Weight At Liftoff', 'Series', 'Family']
+        config = set(base_for_lookup + ['Config']).issubset(x)
+        flap = set(base_for_lookup + ['Flap']).issubset(x)
+        return fdr or config or flap
+
+    def derive(self, 
+               spd=P('Airspeed'),
+               flap=P('Flap'),
+               config=P('Config'),
+               fdr_v2=A('FDR V2'),
+               weight_liftoff=KPV('Gross Weight At Liftoff'),
+               series=A('Series'),
+               family=A('Family')):
+
         # Initialize the result space.
-        self.array = np_ma_masked_zeros_like(flap.array)
-        
-        end=None
-        countdown = range(len(weight_liftoff),0,-1)
-        for each_one in countdown:
-            each = each_one - 1
-            each_weight = weight_liftoff[each].value
-            each_index = weight_liftoff[each].index
-            each_flap = flap.array[each_index]
-            self.array[each_index:end] = _v2(each_weight, each_flap)
-            end = each_index # so the next one will precede this.
-        
-        
+        self.array = np_ma_masked_zeros_like(spd.array)
+        self.array.mask = True
+
+        if fdr_v2:
+            # v2 supplied, use this
+            self.array = fdr_v2.value
+        elif weight_liftoff:
+            vspeed_class = get_vspeed_map(series.value, family.value)
+            setting_param = flap or config
+            if vspeed_class:
+                vspeed_table = vspeed_class()
+                index = weight_liftoff[0].index
+                weight = weight_liftoff[0].value
+                setting = setting_param.array[index]
+                vspeed = vspeed_table.v2(weight, setting)
+                self.array[0:] = vspeed
+            else:
+                # Aircraft doesnt use V2
+                self.array.mask = False
+        else:
+            # no lift off leave zero masked array
+            pass
+
 class WindAcrossLandingRunway(DerivedParameterNode):
     """
     This is the windspeed across the final landing runway, positive wind from left to right.

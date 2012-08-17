@@ -81,10 +81,12 @@ class Node(object):
     align_to_first_dependency = True
     data_type = None # Q: What should the default be? Q: Should this dictate the numpy dtype saved to the HDF file or should it be inferred from the array?
         
-    def __init__(self, name='', frequency=1, offset=0):
+    def __init__(self, name='', frequency=1, offset=0, **kwargs):
         """
         Abstract Node. frequency and offset arguments are populated from the
         first available dependency parameter object.
+        
+        Kwargs get lost - allows "hz" to be ignored when passed with "frequency" 
         
         :param name: Name of parameter
         :type params: str
@@ -93,6 +95,7 @@ class Node(object):
         :param offset: Offset in Frame.
         :type offset: Float
         """
+        assert kwargs.get('hz', frequency) == frequency, "Differing freq to hz"
         #NB: removed check for dependencies to allow initialisation in def derive()
         ##if not self.get_dependency_names():
             ##raise ValueError("Every Node must have a dependency. Node '%s'" % self.__class__.__name__)
