@@ -1,11 +1,13 @@
 {% extends "base.html" %}
 
-{% block title %}Analysis Engine{% endblock %}
+{% block title %}Analysis Engine - Spacetree{% endblock %}
 
 {% block content %}
 
 <div id="container">
-<h1>Analysis Engine</h1>
+<h1>Analysis Engine - Spacetree</h1>
+<p>Learn more about the processing capabilities of your HDF file. </p>
+<p>Tip; use FlightDataConverter to generate your HDF from your Raw Data + LFL document.</p>
 {% if error %}<p class="error"><img src="../_assets/img/exclamation-red.png"> <strong>Error:</strong> {{ error }}</p>{% endif %}
 <form method="POST" action="/spacetree" enctype="multipart/form-data">
 <p><label for="hdf_file">HDF File: </label><input type="file" name="hdf_file" size="40"></p>

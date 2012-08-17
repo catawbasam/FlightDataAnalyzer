@@ -4,6 +4,7 @@ Simple HTTP server for the spacetree and parameter list utilities.
 import httplib2
 import os
 import simplejson
+import sys
 import urllib
 
 from BaseHTTPServer import BaseHTTPRequestHandler, HTTPServer
@@ -94,7 +95,7 @@ class GetHandler(BaseHTTPRequestHandler):
             ##message_parts.append('%s=%s' % (name, value.rstrip()))
         ##message_parts.append('')
         ##message = '\r\n'.join(message_parts)
-        if path.endswith('/index'):
+        if path == '/' or path.endswith('/index'):
             self._index() # file upload page with aircraft info
             return
         elif path.endswith('/parameters'):
@@ -102,6 +103,9 @@ class GetHandler(BaseHTTPRequestHandler):
             return
         elif path.endswith('/spacetree'):
             self._index() # Without an HDF file in POST, redirect to index.
+            return
+        elif path.endswith('/favicon.ico'):
+            self._respond_with_static('_assets/img/' + path)
             return
         elif path.startswith('/_assets'):
             try:
@@ -116,6 +120,15 @@ class GetHandler(BaseHTTPRequestHandler):
     
     def _respond_with_static(self, path):
         file_path = path.lstrip('/')
+        if sys.frozen:
+            # http://www.pyinstaller.org/export/v1.5.1/project/doc/Manual.html?format=raw#accessing-data-files
+            if '_MEIPASS2' in os.environ:
+                # --onefile distribution
+                file_path = os.path.join(os.environ['_MEIPASS2'], file_path)
+            else:
+                # -onedir distribution
+                file_path = os.path.join(os.path.dirname(sys.executable), file_path)
+                
         # try and serve from the current directory
         if file_path.endswith('.js'):
             content_type = 'text/javascript'
@@ -159,8 +172,9 @@ class GetHandler(BaseHTTPRequestHandler):
         polaris_query, params, missing_params = self._fetch_params(param_names)     
         self._respond_with_template('spacetree.html', {
             'missing_params': missing_params,
-            'params': params,
+            'params': sorted(params.items()),
             'polaris_query': polaris_query,
+            'server': BASE_URL,
         })
         return
         
@@ -232,7 +246,7 @@ class GetHandler(BaseHTTPRequestHandler):
         for param_name, param_info in params.iteritems():
             param_info['mandatory'] = param_name in mandatory_params
         missing_params = set(mandatory_params) - set(param_names)
-        return polaris_query, params, missing_params
+        return polaris_query, params, sorted(missing_params)
         
 
 if __name__ == '__main__':

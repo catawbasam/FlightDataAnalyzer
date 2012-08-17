@@ -38,6 +38,10 @@ function init(){
         duration: 800,
         //set animation transition type
         transition: $jit.Trans.Quart.easeInOut,
+	//show just the number of levels specified by levelsToShow.
+	constrained: true,
+	//number of levels to show subtree away from selected
+	levelsToShow: 1,
         //set distance between node and its children
         levelDistance: 50,
         //enable panning
@@ -107,7 +111,7 @@ function init(){
             //add some color to the nodes in the path between the
             //root node and the selected node.
             if (node.selected) {
-                node.data.$color = "#ff7";
+                //node.data.$color = "#ff7";
             }
             else {
 		if (node.data.color) {
