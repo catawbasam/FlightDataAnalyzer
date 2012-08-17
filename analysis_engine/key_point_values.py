@@ -1923,13 +1923,11 @@ class EngN1500FtToTouchdownMin(KeyPointValueNode):
         '''
         '''
         # Ensure that N1 value has been maintained for a minimum of 10 seconds:
-        array = clip(eng_n1_min.array, 10, eng_n1_min.hz, remove='troughs')
-        if array:
-            self.create_kpvs_within_slices(
-                array,
-                alt_aal.slices_from_to(500, 0),
-                min_value,
-            )
+        self.create_kpvs_within_slices(
+            clip(eng_n1_min.array, 10, eng_n1_min.hz, remove='troughs'),
+            alt_aal.slices_from_to(500, 0),
+            min_value,
+        )
 
 
 ################################################################################
@@ -2662,33 +2660,6 @@ class GroundspeedVacatingRunway(KeyPointValueNode):
     def derive(self, gspd=P('Groundspeed'), off_rwy=KTI('Landing Turn Off Runway')):
         self.create_kpvs_at_ktis(gspd.array, off_rwy)
         
-
-
-
-'''
-# These funcitons fail because eng_clipped has only been computed
-# for the period alt_slice, whereas min_value searches for
-# alt_slice WITHIN eng_clipped. Need to be able to offset
-# this function - better than computing eng_clipped for
-# the whole flight.
-
-class LowPowerInFinalApproachFor10Sec(KeyPointValueNode):
-    #TODO: TESTS
-    def derive(self, eng_n1_avg=P('Eng (*) N1 Avg'), fin_apps=S('Final Approach')):
-        for fin_app in fin_apps:
-            eng_clipped = clip(eng_n1_avg.array[fin_app.slice], 10, eng_n1_avg.hz, remove='troughs')
-            self.create_kpv(*min_value(eng_clipped, fin_app.slice))
-
-    
-class LowPowerBelow500FtFor10Sec(KeyPointValueNode):
-    #TODO: TESTS
-    def derive(self, eng_n1_avg=P('Eng (*) N1 Avg'), alt=P('Altitude AAL'), fin_apps=S('Final Approach')):
-        for alt_slice in alt.slices_from_to(500, 0):
-            for fin_app in fin_apps:
-                if slices_overlap(alt_slice, fin_app.slice):
-                   eng_clipped = clip(eng_n1_avg.array[alt_slice], 10, eng_n1_avg.hz, remove='troughs')
-                   self.create_kpv(*min_value(eng_clipped, alt_slice))
-'''
 
 ################################################################################
 # Pitch
