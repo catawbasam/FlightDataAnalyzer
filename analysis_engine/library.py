@@ -95,14 +95,18 @@ def align(slave, master, data_type=None):
         if wm>ws:
             # Increase samples in slave accordingly
             r = wm/ws
-            assert r in [2,4,8,16,32,64,128,256]
+            assert r in [2, 4, 8, 16, 32, 64, 128, 256], \
+                "slave = '%s' @ %sHz; master = '%s' @ %sHz; r=%s" \
+                % (slave.name, slave.hz, master.name, master.hz, r)
             slave_aligned = np.ma.repeat(slave.array, r)
             return slave_aligned
 
         else:
             # Reduce samples in slave.
             r = ws/wm
-            assert r in [2,4,8,16,32,64,128,256]
+            assert r in [2, 4, 8, 16, 32, 64, 128, 256], \
+                "slave = '%s' @ %sHz; master = '%s' @ %sHz; r=%s" \
+                % (slave.name, slave.hz, master.name, master.hz, r)
             slave_aligned=np.ma.empty_like(master.array)
             slave_aligned=slave_array[::r]
             return slave_aligned
@@ -119,8 +123,12 @@ def align(slave, master, data_type=None):
         ws /= slowest
         
     # Check the values are in ranges we have tested
-    assert wm in [1,2,4,8,16,32,64]
-    assert ws in [1,2,4,8,16,32,64]
+    assert wm in [1, 2, 4, 8, 16, 32, 64], \
+        "master = '%s' @ %sHz; wm=%s" \
+        % (master.name, master.hz, wm)
+    assert ws in [1, 2, 4, 8, 16, 32, 64], \
+        "slave = '%s' @ %sHz; ws=%s" \
+        % (slave.name, slave.hz, ws)
            
     # Compute the sample rate ratio:
     r = wm/float(ws)

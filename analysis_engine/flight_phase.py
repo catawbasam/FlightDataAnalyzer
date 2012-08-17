@@ -3,6 +3,8 @@ import numpy as np
 # and clump_unmasked but used here to clump discrete arrays.
 from numpy.ma.extras import _ezclump
 
+from analysis_engine.exceptions import DataFrameError
+
 from analysis_engine.library import (
     bearing_and_distance,
     cycle_finder,
@@ -45,25 +47,6 @@ from analysis_engine.settings import (
     RATE_OF_TURN_FOR_FLIGHT_PHASES,
     RATE_OF_TURN_FOR_TAXI_TURNS
 )
-
-
-class DataFrameError(Exception):
-    '''
-    Error handling for cases where new LFLs require a new flight phase
-    algorithm which has not yet been programmed.
-    '''
-    def __init__(self, phase, frame):
-        '''
-        :param phase: Flight phase where frame specific processing is required.
-        :type phase: String
-        :param frame: Data frame identifier. For this phase, no frame condition evaluates true.
-        :type frame: String
-        '''
-        self.msg = '%s has no procedure for frame %s.'%(phase, frame)
-        #self.phase = phase
-        #self.frame = frame
-    def __str__(self):
-        return self.msg
 
 
 class Airborne(FlightPhaseNode):
@@ -429,7 +412,7 @@ class GearExtending(FlightPhaseNode):
                     if gear_down.array[gear_move.start-1] == 0:
                         self.create_phase(gear_move)
         else:
-            raise DataFrameError ("Gear Extending", frame_name)
+            raise DataFrameError(self.name, frame_name)
 
 
 
@@ -465,7 +448,7 @@ class GearRetracting(FlightPhaseNode):
                     if gear_down.array[gear_move.start-1] == 1:
                         self.create_phase(gear_move)
         else:
-            raise DataFrameError ("Gear Retracting", frame_name)
+            raise DataFrameError(self.name, frame_name)
 
 
 def scan_ils(beam, ils_dots, height, scan_slice):
