@@ -129,9 +129,12 @@ GROUNDSPEED_LAG_TC = 6.0 # seconds
 # This will usually be overwritten by the peak curvature test.
 HEADING_TURN_ONTO_RUNWAY = 15.0 # deg
 
-# Threshold for turn off runway at end of takeoff.
-# This will usually be overwritten by the peak curvature test.
-HEADING_TURN_OFF_RUNWAY = 15.0 # deg
+#Threshold for turn off runway at end of takeoff. This allows for turning
+#onto a rapid exit turnoff, and so we are treating deceleration down the RET
+#as part of the landing phase. Notice that the KTI "Landing Turn Off Runway"
+#will determine the point of turning off the runway centreline in either
+#case, using the peak curvature technique.
+HEADING_TURN_OFF_RUNWAY = 60.0 # deg
 
 # Holding pattern criteria.
 # Minimum time is 4 minutes, corresponding to one racetrack pattern.
