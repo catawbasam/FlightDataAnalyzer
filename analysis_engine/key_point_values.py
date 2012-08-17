@@ -1257,10 +1257,10 @@ class ControlColumnStiffness(KeyPointValueNode):
                     # TEST OUTPUT TO CSV FILE FOR DEBUGGING ONLY
                     # TODO: REMOVE THIS SECTION BEFORE RELEASE
                     #-------------------------------------------------------------------
-                    n = speedy.slice.start+move.start
-                    for showme in range(0, slice_samples(move)):
-                        spam.writerow([n+showme,column[move][showme],push[move][showme]])
-                     #-------------------------------------------------------------------
+                    #n = speedy.slice.start+move.start
+                    #for showme in range(0, slice_samples(move)):
+                      #spam.writerow([n+showme,column[move][showme],push[move][showme]])
+                    #-------------------------------------------------------------------
                     # TEST OUTPUT TO CSV FILE FOR DEBUGGING ONLY
                     # TODO: REMOVE THIS SECTION BEFORE RELEASE
                     #-------------------------------------------------------------------

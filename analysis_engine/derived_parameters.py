@@ -2078,17 +2078,19 @@ class GrossWeightSmoothed(DerivedParameterNode):
         gw_all = []
         for gw_index in gw.array.nonzero()[0]:
             # Keep all the values
-            gw_all.append(gw.array.data[gw_index])
+            gross_wt = gw.array.data[gw_index]
             ff_time = ((gw_index/gw.frequency)+gw.offset-ff.offset)*ff.frequency
-            to_burn_all.append(value_at_index(fuel_to_burn, ff_time))
+            fuel_wt = value_at_index(fuel_to_burn, ff_time)
+            if fuel_wt:
+                gw_all.append(gross_wt)
+                to_burn_all.append(fuel_wt)
             
-            # Skip values which are within Climbing or Descending phases.
-            if any([is_index_within_slice(gw_index, c.slice) for c in climbs]) or \
-               any([is_index_within_slice(gw_index, d.slice) for d in descends]):
-                continue
-            gw_valid.append(gw.array.data[gw_index])
-            ff_time = ((gw_index/gw.frequency)+gw.offset-ff.offset)*ff.frequency
-            to_burn_valid.append(value_at_index(fuel_to_burn, ff_time))
+                # Skip values which are within Climbing or Descending phases.
+                if any([is_index_within_slice(gw_index, c.slice) for c in climbs]) or \
+                   any([is_index_within_slice(gw_index, d.slice) for d in descends]):
+                    continue
+                to_burn_valid.append(fuel_wt)
+                gw_valid.append(gross_wt)
         
         use_valid = len(gw_valid) > 5
         use_all = len(gw_all) > 2
@@ -2942,10 +2944,20 @@ class LongitudeSmoothed(DerivedParameterNode, CoordinatesSmoothed):
 
             
 class Mach(DerivedParameterNode):
-    def derive(self, cas = P('Airspeed'), alt = P('Altitude STD')):
-        dp = cas2dp(cas.array)
-        p = alt2press(alt.array)
-        self.array = dp_over_p2mach(dp/p)
+    '''
+    Provisional routine for blending alternate Mach sources, or computing a
+    value if none is available. Should be frame specific, hence
+    DataFrameError trap.
+    '''
+    def derive(self, cas = P('Airspeed'), alt = P('Altitude STD'),
+               m1 = P('Mach (1)'), m2 = P('Mach (2)')):
+        if m1 and m2:
+            self.array, self.frequency, self.offset = blend_two_parameters(m1, m2)
+        else:
+            dp = cas2dp(cas.array)
+            p = alt2press(alt.array)
+            self.array = dp_over_p2mach(dp/p)
+            
        
 class MagneticVariation(DerivedParameterNode):
     """
