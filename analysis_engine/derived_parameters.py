@@ -1,6 +1,8 @@
 import numpy as np
 from math import floor, radians
 
+from analysis_engine.exceptions import DataFrameError
+
 from analysis_engine.model_information import (get_config_map,
                                                get_flap_map,
                                                get_slat_map)
@@ -71,25 +73,6 @@ from data_validation.rate_of_change import validate_rate_of_change
 
 # There is no numpy masked array function for radians, so we just multiply thus:
 deg2rad = radians(1.0)
-
-
-class DataFrameError(Exception):
-    '''
-    Error handling for cases where new LFLs require a derived parameter
-    algorithm which has not yet been programmed.
-    '''
-    def __init__(self, param, frame):
-        '''
-        :param param: Recorded parameter where frame specific processing is required.
-        :type param: String
-        :param frame: Data frame identifier. For this parameter, no frame condition evaluates true.
-        :type frame: String
-        '''
-        self.msg = '%s not in LFL and no procedure for frame %s.'%(param, frame)
-        self.param = param
-        self.frame = frame
-    def __str__(self):
-        return self.msg
 
 
 class AccelerationVertical(DerivedParameterNode):
@@ -765,12 +748,11 @@ class AltitudeRadio(DerivedParameterNode):
                 blend_two_parameters(source_A, source_C)
             
         else:
-            raise DataFrameError("Altitude Radio", frame_name)
+            raise DataFrameError(self.name, frame_name)
 
 
 class AltitudeSTD(DerivedParameterNode):
     """
-    
     :param frame: The frame attribute, e.g. '737-i'
     :type frame: An attribute
     
@@ -793,7 +775,7 @@ class AltitudeSTD(DerivedParameterNode):
                 blend_two_parameters(source_A, source_B)
 
         else:
-            raise DataFrameError("Altitude STD", frame_name)
+            raise DataFrameError(self.name, frame_name)
 
 
 class AltitudeQNH(DerivedParameterNode):
@@ -2020,7 +2002,7 @@ class GearDown(DerivedParameterNode):
             # assume that the right wheel does the same as the left !
             self.array, self.frequency, self.offset = merge_two_parameters(gl, gn)
         else:
-            raise DataFrameError("Gear Down", frame_name)
+            raise DataFrameError(self.name, frame_name)
 
 class GearSelectedDown(DerivedParameterNode):
     """
@@ -2034,7 +2016,7 @@ class GearSelectedDown(DerivedParameterNode):
         if frame_name in ['737-3C', '737-5']:
             self.array = gear.array
         else:
-            raise DataFrameError("Gear Selected Down", frame_name)
+            raise DataFrameError(self.name, frame_name)
 
         
 class GearSelectedUp(DerivedParameterNode):
@@ -2044,7 +2026,7 @@ class GearSelectedUp(DerivedParameterNode):
         if frame_name in ['737-3C', '737-5']:
             self.array = 1 - gear.array
         else:
-            raise DataFrameError("Gear Selected Up", frame_name)
+            raise DataFrameError(self.name, frame_name)
 
 
 class GrossWeightSmoothed(DerivedParameterNode):
@@ -2150,7 +2132,7 @@ class Groundspeed(DerivedParameterNode):
             self.array = self.array
             
         else:
-            raise DataFrameError("Groundspeed", frame_name)
+            raise DataFrameError(self.name, frame_name)
 
 
 class FlapLever(DerivedParameterNode):
@@ -2209,7 +2191,7 @@ class FlapSurface(DerivedParameterNode):
             self.frequency, self.offset = alt_aal.frequency, alt_aal.offset
 
         else:
-            raise DataFrameError("Flap Surface", frame_name)
+            raise DataFrameError(self.name, frame_name)
                    
                             
 class Flap(DerivedParameterNode):
@@ -3284,7 +3266,7 @@ class ThrustReversers(DerivedParameterNode):
             self.array = step_values(all_tr/8.0, [0,0.5,1])
             
         else:
-            raise DataFrameError("Thrust Reversers", frame_name)
+            raise DataFrameError(self.name, frame_name)
 
 #------------------------------------------------------------------
 # WIND RELATED PARAMETERS
@@ -3521,7 +3503,7 @@ class Speedbrake(DerivedParameterNode):
             self.array, self.offset = self.spoiler_737(spoiler_2, spoiler_7)
 
         else:
-            raise DataFrameError('Speedbrake', frame_name)
+            raise DataFrameError(self.name, frame_name)
 
 
 # TODO: Write some unit tests!
@@ -3626,5 +3608,5 @@ class StickShaker(DerivedParameterNode):
 
         # Stick shaker not found in 737-6 frame.
         else:
-            raise DataFrameError("Stick Shaker", frame_name)
+            raise DataFrameError(self.name, frame_name)
         
