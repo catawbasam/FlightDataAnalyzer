@@ -95,14 +95,18 @@ def align(slave, master, data_type=None):
         if wm>ws:
             # Increase samples in slave accordingly
             r = wm/ws
-            assert r in [2,4,8,16,32,64,128,256]
+            assert r in [2, 4, 8, 16, 32, 64, 128, 256], \
+                "slave = '%s' @ %sHz; master = '%s' @ %sHz; r=%s" \
+                % (slave.name, slave.hz, master.name, master.hz, r)
             slave_aligned = np.ma.repeat(slave.array, r)
             return slave_aligned
 
         else:
             # Reduce samples in slave.
             r = ws/wm
-            assert r in [2,4,8,16,32,64,128,256]
+            assert r in [2, 4, 8, 16, 32, 64, 128, 256], \
+                "slave = '%s' @ %sHz; master = '%s' @ %sHz; r=%s" \
+                % (slave.name, slave.hz, master.name, master.hz, r)
             slave_aligned=np.ma.empty_like(master.array)
             slave_aligned=slave_array[::r]
             return slave_aligned
@@ -119,8 +123,12 @@ def align(slave, master, data_type=None):
         ws /= slowest
         
     # Check the values are in ranges we have tested
-    assert wm in [1,2,4,8,16,32,64]
-    assert ws in [1,2,4,8,16,32,64]
+    assert wm in [1, 2, 4, 8, 16, 32, 64], \
+        "master = '%s' @ %sHz; wm=%s" \
+        % (master.name, master.hz, wm)
+    assert ws in [1, 2, 4, 8, 16, 32, 64], \
+        "slave = '%s' @ %sHz; ws=%s" \
+        % (slave.name, slave.hz, ws)
            
     # Compute the sample rate ratio:
     r = wm/float(ws)
@@ -2575,16 +2583,19 @@ def rate_of_change(diff_param, width):
     
 
 def repair_mask(array, frequency=1, repair_duration=REPAIR_DURATION,
-                raise_duration_exceedance=False):
+                raise_duration_exceedance=False, copy=False):
     '''
     This repairs short sections of data ready for use by flight phase algorithms
     It is not intended to be used for key point computations, where invalid data
-    should remain masked. Modifies the array in-place.
+    should remain masked. 
+    
+    if copy=True, returns modified copy of array, otherwise modifies the array in-place.
     
     :param repair_duration: If None, any length of masked data will be repaired.
     :param raise_duration_exceedance: If False, no warning is raised if there are masked sections longer than repair_duration. They will remain unrepaired.
     '''
-
+    if copy:
+        array = array.copy()
     if repair_duration:
         repair_samples = repair_duration * frequency
     else:

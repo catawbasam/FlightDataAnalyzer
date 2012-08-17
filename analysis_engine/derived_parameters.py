@@ -1,6 +1,8 @@
 import numpy as np
 from math import floor, radians
 
+from analysis_engine.exceptions import DataFrameError
+
 from analysis_engine.model_information import (get_config_map,
                                                get_flap_map,
                                                get_slat_map)
@@ -52,6 +54,7 @@ from analysis_engine.library import (align,
                                      dp_over_p2mach,
                                      dp2tas,
                                      machtat2sat)
+from analysis_engine.velocity_speed import get_vspeed_map
 
 from settings import (AZ_WASHOUT_TC,
                       AT_WASHOUT_TC,
@@ -71,25 +74,6 @@ from data_validation.rate_of_change import validate_rate_of_change
 
 # There is no numpy masked array function for radians, so we just multiply thus:
 deg2rad = radians(1.0)
-
-
-class DataFrameError(Exception):
-    '''
-    Error handling for cases where new LFLs require a derived parameter
-    algorithm which has not yet been programmed.
-    '''
-    def __init__(self, param, frame):
-        '''
-        :param param: Recorded parameter where frame specific processing is required.
-        :type param: String
-        :param frame: Data frame identifier. For this parameter, no frame condition evaluates true.
-        :type frame: String
-        '''
-        self.msg = '%s not in LFL and no procedure for frame %s.'%(param, frame)
-        self.param = param
-        self.frame = frame
-    def __str__(self):
-        return self.msg
 
 
 class AccelerationVertical(DerivedParameterNode):
@@ -244,24 +228,74 @@ class AirspeedReference(DerivedParameterNode):
     A fixed value will most likely be zero making this relative airspeed
     derived parameter the same as the original absolute airspeed parameter.
     '''
-    def derive (self, spd = P('Airspeed'), param = P('Vapp')):
-        #spd = P('Airspeed'), param = P('Vapp'), attrib = A('FDR Vref')):
+    @classmethod
+    def can_operate(cls, available):
+        works_with_any = ['Vapp', 'Vref', 'FDR Vapp', 'FDR Vref']
+        existing_values = any([_node in available for _node in works_with_any])
+        
+        x = set(available)
+        base_for_lookup = ['Airspeed', 'Gross Weight Smoothed', 'Series', 'Family', 'Approach']
+        airbus = set(base_for_lookup + ['Config']).issubset(x)
+        boeing = set(base_for_lookup + ['Flap']).issubset(x)
+        return existing_values or airbus or boeing
+
+    def derive (self,
+                spd=P('Airspeed'),
+                gw=P('Gross Weight Smoothed'),
+                flap=P('Flap'),
+                config=P('Config'),
+                vapp=P('Vapp'),
+                vref=P('Vref'),
+                fdr_vapp=A('FDR Vapp'),
+                fdr_vref=A('FDR Vref'),
+                apps=S('Approach'),
+                series=A('Series'),
+                family=A('Family')):
+
         '''
         Currently a work in progress. We should use a recorded parameter if
         it's available, failing that a computed forumla reflecting the
         aircraft condition and failing that a single value from the achieved
-        flight file.
+        flight file. Achieved flight records without a recorded value will be
+        repeated thoughout the flight, calculated values will be calculated
+        for each approach.
+        Rises KeyError if no entires for Family/Series in vspeed lookup map.
         '''
-        if param:
-            self.array = param.array
-        
-        # How do we enter tabulated values here?
-        
-        #elif attrib:
-            #self.array = np_ma_ones_like(spd.array) * attrib.value
-        
+        if vapp:
+            # Vapp is recorded so use this
+            self.array = vapp.array
+        elif vref:
+            # Vref is recorded so use this
+            self.array = vref.array
+        elif spd and (fdr_vapp or fdr_vref):
+            # Vapp/Vref is supplied from FDR so use this
+            fdr_vspeed = fdr_vapp or fdr_vref
+            self.array = np.ma.zeros(len(spd.array), np.double)
+            self.array.mask=True
+            for approach in apps:
+                self.array[approach.slice] = fdr_vspeed.value
         else:
-            self.array = np_ma_zeros_like(spd.array) 
+            # elif apps and spd and gw and (flap or config):
+            # No values recorded or supplied so lookup in vspeed tables
+            setting_param = flap or config
+            self.array = np.ma.zeros(len(spd.array), np.double)
+            self.array.mask=True
+
+            vspeed_class = get_vspeed_map(series.value, family.value)
+
+            if vspeed_class:
+                vspeed_table = vspeed_class() # instansiate VelocitySpeed object
+                # allow up to 2 superframe values to be repaired (64*2=128 + a bit)
+                repaired_gw = repair_mask(gw.array, repair_duration=130, copy=True)
+                for approach in apps:
+                    index = approach.stop_edge
+                    weight = repaired_gw[index]
+                    setting = setting_param.array[index]
+                    vspeed = vspeed_table.airspeed_reference(weight, setting)
+                    self.array[approach.slice] = vspeed
+            else:
+                # aircraft does not use vspeeds
+                pass
 
 
 # TODO: Write some unit tests!
@@ -273,7 +307,7 @@ class AirspeedRelative(DerivedParameterNode):
     def derive(self, airspeed=P('Airspeed'), vref=P('Airspeed Reference')):
         '''
         '''
-        self.array = airspeed.array - vref.value
+        self.array = airspeed.array - vref.array
 
 
 # TODO: Write some unit tests!
@@ -765,12 +799,11 @@ class AltitudeRadio(DerivedParameterNode):
                 blend_two_parameters(source_A, source_C)
             
         else:
-            raise DataFrameError("Altitude Radio", frame_name)
+            raise DataFrameError(self.name, frame_name)
 
 
 class AltitudeSTD(DerivedParameterNode):
     """
-    
     :param frame: The frame attribute, e.g. '737-i'
     :type frame: An attribute
     
@@ -793,7 +826,7 @@ class AltitudeSTD(DerivedParameterNode):
                 blend_two_parameters(source_A, source_B)
 
         else:
-            raise DataFrameError("Altitude STD", frame_name)
+            raise DataFrameError(self.name, frame_name)
 
 
 class AltitudeQNH(DerivedParameterNode):
@@ -1152,6 +1185,7 @@ class Eng_EPRAvg(DerivedParameterNode):
     '''
 
     name = 'Eng (*) EPR Avg'
+
     @classmethod
     def can_operate(cls, available):
         '''
@@ -2019,7 +2053,7 @@ class GearDown(DerivedParameterNode):
             # assume that the right wheel does the same as the left !
             self.array, self.frequency, self.offset = merge_two_parameters(gl, gn)
         else:
-            raise DataFrameError("Gear Down", frame_name)
+            raise DataFrameError(self.name, frame_name)
 
 class GearSelectedDown(DerivedParameterNode):
     """
@@ -2033,7 +2067,7 @@ class GearSelectedDown(DerivedParameterNode):
         if frame_name in ['737-3C', '737-5']:
             self.array = gear.array
         else:
-            raise DataFrameError("Gear Selected Down", frame_name)
+            raise DataFrameError(self.name, frame_name)
 
         
 class GearSelectedUp(DerivedParameterNode):
@@ -2043,7 +2077,7 @@ class GearSelectedUp(DerivedParameterNode):
         if frame_name in ['737-3C', '737-5']:
             self.array = 1 - gear.array
         else:
-            raise DataFrameError("Gear Selected Up", frame_name)
+            raise DataFrameError(self.name, frame_name)
 
 
 class GrossWeightSmoothed(DerivedParameterNode):
@@ -2078,17 +2112,19 @@ class GrossWeightSmoothed(DerivedParameterNode):
         gw_all = []
         for gw_index in gw.array.nonzero()[0]:
             # Keep all the values
-            gw_all.append(gw.array.data[gw_index])
+            gross_wt = gw.array.data[gw_index]
             ff_time = ((gw_index/gw.frequency)+gw.offset-ff.offset)*ff.frequency
-            to_burn_all.append(value_at_index(fuel_to_burn, ff_time))
+            fuel_wt = value_at_index(fuel_to_burn, ff_time)
+            if fuel_wt:
+                gw_all.append(gross_wt)
+                to_burn_all.append(fuel_wt)
             
-            # Skip values which are within Climbing or Descending phases.
-            if any([is_index_within_slice(gw_index, c.slice) for c in climbs]) or \
-               any([is_index_within_slice(gw_index, d.slice) for d in descends]):
-                continue
-            gw_valid.append(gw.array.data[gw_index])
-            ff_time = ((gw_index/gw.frequency)+gw.offset-ff.offset)*ff.frequency
-            to_burn_valid.append(value_at_index(fuel_to_burn, ff_time))
+                # Skip values which are within Climbing or Descending phases.
+                if any([is_index_within_slice(gw_index, c.slice) for c in climbs]) or \
+                   any([is_index_within_slice(gw_index, d.slice) for d in descends]):
+                    continue
+                to_burn_valid.append(fuel_wt)
+                gw_valid.append(gross_wt)
         
         use_valid = len(gw_valid) > 5
         use_all = len(gw_all) > 2
@@ -2149,7 +2185,7 @@ class Groundspeed(DerivedParameterNode):
             self.array = self.array
             
         else:
-            raise DataFrameError("Groundspeed", frame_name)
+            raise DataFrameError(self.name, frame_name)
 
 
 class FlapLever(DerivedParameterNode):
@@ -2208,7 +2244,7 @@ class FlapSurface(DerivedParameterNode):
             self.frequency, self.offset = alt_aal.frequency, alt_aal.offset
 
         else:
-            raise DataFrameError("Flap Surface", frame_name)
+            raise DataFrameError(self.name, frame_name)
                    
                             
 class Flap(DerivedParameterNode):
@@ -2942,10 +2978,20 @@ class LongitudeSmoothed(DerivedParameterNode, CoordinatesSmoothed):
 
             
 class Mach(DerivedParameterNode):
-    def derive(self, cas = P('Airspeed'), alt = P('Altitude STD')):
-        dp = cas2dp(cas.array)
-        p = alt2press(alt.array)
-        self.array = dp_over_p2mach(dp/p)
+    '''
+    Provisional routine for blending alternate Mach sources, or computing a
+    value if none is available. Should be frame specific, hence
+    DataFrameError trap.
+    '''
+    def derive(self, cas = P('Airspeed'), alt = P('Altitude STD'),
+               m1 = P('Mach (1)'), m2 = P('Mach (2)')):
+        if m1 and m2:
+            self.array, self.frequency, self.offset = blend_two_parameters(m1, m2)
+        else:
+            dp = cas2dp(cas.array)
+            p = alt2press(alt.array)
+            self.array = dp_over_p2mach(dp/p)
+            
        
 class MagneticVariation(DerivedParameterNode):
     """
@@ -3283,7 +3329,7 @@ class ThrustReversers(DerivedParameterNode):
             self.array = step_values(all_tr/8.0, [0,0.5,1])
             
         else:
-            raise DataFrameError("Thrust Reversers", frame_name)
+            raise DataFrameError(self.name, frame_name)
 
 #------------------------------------------------------------------
 # WIND RELATED PARAMETERS
@@ -3332,65 +3378,52 @@ class TAT(DerivedParameterNode):
             blend_two_parameters(source_1, source_2)
 
 
-class Vapp(DerivedParameterNode):
-    '''
-    Based on weight and flap at next intended landing.
-    '''
-    name = 'FDR Vapp'
-    def derive(self, flap=P('Flap'), weight=P('Gross Weight Smoothed'),
-               app_lows=KTI('Lowest Point On Approach')):
-        
-        def _vapp(weight, flap):
-            #TODO: V Speed calculations replace below...
-            if flap > 0:
-                return weight/(flap*15) # Silly formula for developing structure only.
-            else:
-                pass
-            
-        # Initialize the result space.
-        self.array = np_ma_masked_zeros_like(flap.array)
-        
-        # Fill the array with the last approach (and landing) Vapp, providing
-        # that the data does have a final landing of course:-
-        if app_lows.get_last():
-            pit_idx = app_lows.get_last().index
-            pit_wt = weight.array[pit_idx]
-            pit_flap = flap.array[pit_idx]
-            self.array[:] = _vapp(pit_wt, pit_flap)
-            
-            # If we made an approach earlier, fill up to the go-around point with
-            # the appropriate V2 value.
-            while app_lows.get_previous(pit_idx):
-                pit_idx = app_lows.get_previous(pit_idx).index
-                pit_wt = weight.array[pit_idx]
-                pit_flap = flap.array[pit_idx]
-                self.array[:pit_idx] = _vapp(pit_wt, pit_flap)
-         
-         
 class V2(DerivedParameterNode):
     '''
-    Based on weight and flap at time of landing.
+    Based on weight and flap at time of Liftoff, first liftoff only.
     '''
-    def derive(self, flap=P('Flap'), weight_liftoff=KPV('Gross Weight At Liftoff')):
-        
-        def _v2(weight, flap):
-            #TODO: V Speed calculations replace below...
-            return 100.0 # Silly formula for developing structure only.
-        
+    @classmethod
+    def can_operate(cls, available):
+        x = set(available)
+        fdr = 'FDR V2' in x
+        base_for_lookup = ['Airspeed', 'Gross Weight At Liftoff', 'Series', 'Family']
+        config = set(base_for_lookup + ['Config']).issubset(x)
+        flap = set(base_for_lookup + ['Flap']).issubset(x)
+        return fdr or config or flap
+
+    def derive(self, 
+               spd=P('Airspeed'),
+               flap=P('Flap'),
+               config=P('Config'),
+               fdr_v2=A('FDR V2'),
+               weight_liftoff=KPV('Gross Weight At Liftoff'),
+               series=A('Series'),
+               family=A('Family')):
+
         # Initialize the result space.
-        self.array = np_ma_masked_zeros_like(flap.array)
-        
-        end=None
-        countdown = range(len(weight_liftoff),0,-1)
-        for each_one in countdown:
-            each = each_one - 1
-            each_weight = weight_liftoff[each].value
-            each_index = weight_liftoff[each].index
-            each_flap = flap.array[each_index]
-            self.array[each_index:end] = _v2(each_weight, each_flap)
-            end = each_index # so the next one will precede this.
-        
-        
+        self.array = np_ma_masked_zeros_like(spd.array)
+        self.array.mask = True
+
+        if fdr_v2:
+            # v2 supplied, use this
+            self.array = fdr_v2.value
+        elif weight_liftoff:
+            vspeed_class = get_vspeed_map(series.value, family.value)
+            setting_param = flap or config
+            if vspeed_class:
+                vspeed_table = vspeed_class()
+                index = weight_liftoff[0].index
+                weight = weight_liftoff[0].value
+                setting = setting_param.array[index]
+                vspeed = vspeed_table.v2(weight, setting)
+                self.array[0:] = vspeed
+            else:
+                # Aircraft doesnt use V2
+                self.array.mask = False
+        else:
+            # no lift off leave zero masked array
+            pass
+
 class WindAcrossLandingRunway(DerivedParameterNode):
     """
     This is the windspeed across the final landing runway, positive wind from left to right.
@@ -3469,76 +3502,123 @@ class ElevatorTrim(DerivedParameterNode): # PitchTrim
         self.array, self.frequency, self.offset = blend_two_parameters(etl, etr)
 
 
-class Spoiler(DerivedParameterNode):
+################################################################################
+# Speedbrake
+
+
+# TODO: Write some unit tests!
+class Speedbrake(DerivedParameterNode):
     '''
-    Spolier angle in degrees, zero flush with the wing and positive up.
-    
+    Spoiler angle in degrees, zero flush with the wing and positive up.
+
     Spoiler positions are recorded in different ways on different aircraft,
     hence the frame specific sections in this class.
     '''
+
     align_to_first_dependency = False
 
     @classmethod
     def can_operate(cls, available):
-        # we cannot access the frame_name within this method to determine which
-        # parameter is the requirement
-        if 'Frame' in available and\
-           (('Spoiler (2)' in available and 'Spoiler (7)' in available)\
-            or\
-            ('Spoiler (4)' in available and 'Spoiler (9)' in available)\
-            ):
-            return True
-        
+        '''
+        Note: The frame name cannot be accessed within this method to determine
+              which parameters are required.
+        '''
+        x = available
+        return ('Frame' in x and 'Spoiler (2)' in x and 'Spoiler (7)' in x) \
+            or ('Frame' in x and 'Spoiler (4)' in x and 'Spoiler (9)' in x)
+
     def spoiler_737(self, spoiler_a, spoiler_b):
         '''
         We indicate the angle of either raised spoiler, ignoring sense of
         direction as it augments the roll.
         '''
         offset = (spoiler_a.offset + spoiler_b.offset) / 2.0
-        array = np.ma.maximum(spoiler_a.array,spoiler_b.array)
-        # Force small angles to indicate zero.
+        array = np.ma.maximum(spoiler_a.array, spoiler_b.array)
+        # Force small angles to indicate zero:
         array = np.ma.where(array < 2.0, 0.0, array)
         return array, offset
-        
-    def derive(self, spoiler_2=P('Spoiler (2)'), spoiler_7=P('Spoiler (7)'),
-               spoiler_4=P('Spoiler (4)'), spoiler_9=P('Spoiler (9)'),
-               frame = A('Frame')):
+
+    def derive(self,
+            spoiler_2=P('Spoiler (2)'), spoiler_7=P('Spoiler (7)'),
+            spoiler_4=P('Spoiler (4)'), spoiler_9=P('Spoiler (9)'),
+            frame=A('Frame')):
+        '''
+        '''
         frame_name = frame.value if frame else None
-        
+
         if frame_name in ['737-3C']:
             self.array, self.offset = self.spoiler_737(spoiler_4, spoiler_9)
-            
+
         elif frame_name in ['737-5', '737-6']:
             self.array, self.offset = self.spoiler_737(spoiler_2, spoiler_7)
-                
-        else:
-            raise DataFrameError("Spoiler", frame_name)
 
-class Speedbrake(DerivedParameterNode):
+        else:
+            raise DataFrameError(self.name, frame_name)
+
+
+# TODO: Write some unit tests!
+class SpeedbrakeSelection(DerivedParameterNode):
     '''
-    Speedbrake angle in degrees, zero flush with wing. Where clamshell brake
-    is used, degrees of opening.
+    Determines the selected state of the speedbrake.
+
+    Speedbrake Selection Values:
+
+    - 0 -- Stowed
+    - 1 -- Armed / Commanded (Spoilers Down)
+    - 2 -- Deployed / Commanded (Spoilers Up)
     '''
-    align_to_first_dependency = False
-    
-    def derive(self, spoiler_2=P('Spoiler (2)'),
-               spoiler_7=P('Spoiler (7)'),
-               frame = A('Frame')):
+
+    @classmethod
+    def can_operate(cls, available):
+        '''
+        '''
+        x = available
+        return 'Speedbrake Deployed' in x \
+            or ('Frame' in x and 'Speedbrake Handle' in x)
+
+    def derive(self,
+            spd_brk_d=P('Speedbrake Deployed'),
+            spd_brk_h=P('Speedbrake Handle'),
+            frame=A('Frame')):
+        '''
+        '''
         frame_name = frame.value if frame else None
-        
-        if frame_name in ['737-5', '737-6']:
-            '''
-            For the 737-5 frame, we do not have speedbrake handle position recorded,
-            so the use of the speedbrake is identified by both spoilers being
-            extended at the same time.
-            '''
-            self.offset = (spoiler_2.offset + spoiler_7.offset) / 2.0
-            self.array = np.ma.minimum(spoiler_2.array,spoiler_7.array)
-            # Force small angles to indicate zero.
-            self.array = np.ma.where(self.array < 2.0, 0.0, self.array)
+
+        if spd_brk_h and frame.name:
+            
+            if frame_name.startswith('737-'):
+                '''
+                Speedbrake Handle Position:
+
+                    ========    ============
+                    Angle       Notes
+                    ========    ============
+                     0.0        Full Forward
+                     4.0        Armed
+                    24.0
+                    29.0
+                    38.0        In Flight
+                    40.0        Straight Up
+                    48.0        Full Up
+                    ========    ============
+                '''
+                self.array = np.ma.where((2.0 < spd_brk_h.array) & (spd_brk_h.array < 35.0), 1, 0)
+                self.array = np.ma.where(spd_brk_h.array >= 35.0, 2, self.array)
+
+            else:
+                # TODO: Implement for other frames using 'Speedbrake Handle'!
+                return NotImplemented
+
+        elif spd_brk_d:
+            self.array = np.ma.where(spd_brk_d.array > 0, 2, 0)
 
         else:
-            raise DataFrameError("Speedbrake", frame_name)
+            # TODO: Implement using a different parameter?
+            return NotImplemented
+
+
+################################################################################
+
 
 class StickShaker(DerivedParameterNode):
     '''
@@ -3578,5 +3658,5 @@ class StickShaker(DerivedParameterNode):
 
         # Stick shaker not found in 737-6 frame.
         else:
-            raise DataFrameError("Stick Shaker", frame_name)
+            raise DataFrameError(self.name, frame_name)
         
