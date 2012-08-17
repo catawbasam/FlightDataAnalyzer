@@ -216,6 +216,7 @@ class GetHandler(BaseHTTPRequestHandler):
         http = httplib2.Http(disable_ssl_certificate_validation=True)
         body = urllib.urlencode({'parameters': simplejson.dumps(param_names)})
         try:
+            print 'Fetching parameters from: %s' % BASE_URL
             response, content = http.request(BASE_URL + '/api/parameter',
                                              'POST', body)
         except Exception as err:
@@ -236,9 +237,9 @@ class GetHandler(BaseHTTPRequestHandler):
 
 if __name__ == '__main__':
     server = HTTPServer(('localhost', 8080), GetHandler)
-    print 'Starting server, use <Ctrl-C> to stop'
+    print 'Starting server at http://localhost:8080/index (use <Ctrl-C> to stop)'
     try:
         server.serve_forever()
-    except KeyboardInterrupt:  
+    except KeyboardInterrupt:
         print '<Ctrl-C>  received, shutting down server'  
         server.socket.close()  

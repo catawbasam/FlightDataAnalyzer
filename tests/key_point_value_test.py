@@ -28,7 +28,7 @@ from analysis_engine.key_point_values import (
     ##AirspeedMinusV235To400FtMin,
     ##AirspeedMinusV2400To1500FtMin,
     AirspeedMinusV2AtLiftoff,
-    AirspeedRelative500FtToTouchdownMax,
+    ##AirspeedRelative500FtToTouchdownMax,
     AirspeedRelativeAtTouchdown,
     AirspeedWithFlapMax,
     ##AirspeedWithGearSelectedDownMax,
@@ -80,17 +80,17 @@ from analysis_engine.key_point_values import (
     ILSLocalizerDeviation1500To1000FtMax,
     ILSLocalizerDeviation1000To250FtMax,
     MachMax,
-    Pitch1000To100FtMax,
-    Pitch1000To100FtMin,
-    Pitch20FtToTouchdownMin,
+    ##Pitch1000To100FtMax,
+    ##Pitch1000To100FtMin,
+    ##Pitch20FtToTouchdownMin,
     Pitch35To400FtMax,
     Pitch35To400FtMin,
-    Pitch5FtToTouchdownMax,
+    ##Pitch5FtToTouchdownMax,
     PitchAtLiftoff,
     PitchAtTouchdown,
     ##PitchRate35To1500FtMax,
-    PitchRateDuringTakeoffMax,
-    PitchRateDuringTakeoffMin,
+    ##PitchRateDuringTakeoffMax,
+    ##PitchRateDuringTakeoffMin,
     ##PitchDuringFinalApproachMin,
     ##PitchDuringTakeoffMax,
     RateOfDescent500FtToTouchdownMax,
@@ -429,14 +429,14 @@ class TestAirspeedMinusV2AtLiftoff(unittest.TestCase, CreateKPVsAtKTIsTest):
         self.operational_combinations = [('Airspeed Minus V2', 'Liftoff')]
 
 
-class TestAirspeedRelative500FtToTouchdownMax(unittest.TestCase,
-                                               CreateKPVsWithinSlicesTest):
-    def setUp(self):
-        self.node_class = AirspeedRelative500FtToTouchdownMax
-        self.operational_combinations = [('Airspeed Relative',
-                                          'Altitude AAL For Flight Phases')]
-        self.function = max_value
-        self.second_param_method_calls = [('slices_from_to', (500, 0,), {})]
+####class TestAirspeedRelative500FtToTouchdownMax(unittest.TestCase,
+####                                               CreateKPVsWithinSlicesTest):
+####    def setUp(self):
+####        self.node_class = AirspeedRelative500FtToTouchdownMax
+####        self.operational_combinations = [('Airspeed Relative',
+####                                          'Altitude AAL For Flight Phases')]
+####        self.function = max_value
+####        self.second_param_method_calls = [('slices_from_to', (500, 0,), {})]
 
 
 class TestAirspeedRelativeAtTouchdown(unittest.TestCase, CreateKPVsAtKTIsTest):
@@ -1139,29 +1139,29 @@ class TestMachMax(unittest.TestCase, CreateKPVsWithinSlicesTest):
         self.function = max_value
 
 
-class TestPitch1000To100FtMax(unittest.TestCase, CreateKPVsWithinSlicesTest):
-    def setUp(self):
-        self.node_class = Pitch1000To100FtMax
-        self.operational_combinations = [('Pitch', 'Altitude AAL For Flight Phases')]
-        self.function = max_value
-        self.second_param_method_calls = [('slices_from_to', (1000, 100,), {})]
-
-
-class TestPitch1000To100FtMin(unittest.TestCase, CreateKPVsWithinSlicesTest):
-    def setUp(self):
-        self.node_class = Pitch1000To100FtMin
-        self.operational_combinations = [('Pitch', 'Altitude AAL For Flight Phases')]
-        self.function = min_value
-        self.second_param_method_calls = [('slices_from_to', (1000, 100,), {})]
-
-
-class TestPitch20FtToTouchdownMin(unittest.TestCase,
-                                  CreateKPVsWithinSlicesTest):
-    def setUp(self):
-        self.node_class = Pitch20FtToTouchdownMin
-        self.operational_combinations = [('Pitch', 'Altitude AAL For Flight Phases')]
-        self.function = min_value
-        self.second_param_method_calls = [('slices_from_to', (20, 0,), {})]
+####class TestPitch1000To100FtMax(unittest.TestCase, CreateKPVsWithinSlicesTest):
+####    def setUp(self):
+####        self.node_class = Pitch1000To100FtMax
+####        self.operational_combinations = [('Pitch', 'Altitude AAL For Flight Phases')]
+####        self.function = max_value
+####        self.second_param_method_calls = [('slices_from_to', (1000, 100,), {})]
+####
+####
+####class TestPitch1000To100FtMin(unittest.TestCase, CreateKPVsWithinSlicesTest):
+####    def setUp(self):
+####        self.node_class = Pitch1000To100FtMin
+####        self.operational_combinations = [('Pitch', 'Altitude AAL For Flight Phases')]
+####        self.function = min_value
+####        self.second_param_method_calls = [('slices_from_to', (1000, 100,), {})]
+####
+####
+####class TestPitch20FtToTouchdownMin(unittest.TestCase,
+####                                  CreateKPVsWithinSlicesTest):
+####    def setUp(self):
+####        self.node_class = Pitch20FtToTouchdownMin
+####        self.operational_combinations = [('Pitch', 'Altitude AAL For Flight Phases')]
+####        self.function = min_value
+####        self.second_param_method_calls = [('slices_from_to', (20, 0,), {})]
 
 
 class TestPitch35To400FtMax(unittest.TestCase, CreateKPVsWithinSlicesTest):
@@ -1192,12 +1192,12 @@ class TestPitch35To400FtMin(unittest.TestCase, CreateKPVsWithinSlicesTest):
         self.second_param_method_calls = [('slices_from_to', (35, 400,), {})]
 
 
-class TestPitch5FtToTouchdownMax(unittest.TestCase, CreateKPVsWithinSlicesTest):
-    def setUp(self):
-        self.node_class = Pitch5FtToTouchdownMax
-        self.operational_combinations = [('Pitch', 'Altitude AAL For Flight Phases')]
-        self.function = max_value
-        self.second_param_method_calls = [('slices_from_to', (5, 0,), {})]
+####class TestPitch5FtToTouchdownMax(unittest.TestCase, CreateKPVsWithinSlicesTest):
+####    def setUp(self):
+####        self.node_class = Pitch5FtToTouchdownMax
+####        self.operational_combinations = [('Pitch', 'Altitude AAL For Flight Phases')]
+####        self.function = max_value
+####        self.second_param_method_calls = [('slices_from_to', (5, 0,), {})]
 
 
 class TestPitchAtLiftoff(unittest.TestCase, CreateKPVsAtKTIsTest):
@@ -1241,18 +1241,18 @@ class TestPitchRate35To1500FtMax(unittest.TestCase, CreateKPVsWithinSlicesTest):
         """
 
 
-class TestPitchRateDuringTakeoffMax(unittest.TestCase,
-                                    CreateKPVsWithinSlicesTest):
-    def setUp(self):
-        self.node_class = PitchRateDuringTakeoffMax
-        self.operational_combinations = [('Pitch Rate', 'Takeoff')]
-        self.function = max_value
-
-
-class TestPitchRateDuringTakeoffMin(unittest.TestCase):
-    def test_derive(self):
-        node = PitchRateDuringTakeoffMin()
-        self.assertTrue(False)
+####class TestPitchRateDuringTakeoffMax(unittest.TestCase,
+####                                    CreateKPVsWithinSlicesTest):
+####    def setUp(self):
+####        self.node_class = PitchRateDuringTakeoffMax
+####        self.operational_combinations = [('Pitch Rate', 'Takeoff')]
+####        self.function = max_value
+####
+####
+####class TestPitchRateDuringTakeoffMin(unittest.TestCase):
+####    def test_derive(self):
+####        node = PitchRateDuringTakeoffMin()
+####        self.assertTrue(False)
 
 
 class TestRateOfDescent500FtToTouchdownMax(unittest.TestCase,

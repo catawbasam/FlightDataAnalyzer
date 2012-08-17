@@ -393,7 +393,8 @@ class InitialClimbStart(KeyTimeInstanceNode):
     # initial climb, so this KTI is just at the end of that phase.
     def derive(self, toffs=S('Takeoff')):
         for toff in toffs:
-            self.create_kti(toff.stop_edge)
+            if toff.stop_edge:
+                self.create_kti(toff.stop_edge)
 
 
 class LandingStart(KeyTimeInstanceNode):
@@ -401,7 +402,8 @@ class LandingStart(KeyTimeInstanceNode):
     # (nominally), so this KTI is just at the end of that phase.
     def derive(self, landings=S('Landing')):
         for landing in landings:
-            self.create_kti(landing.slice.start)
+            if landing.slice.start:
+                self.create_kti(landing.slice.start)
 
 
 class TouchAndGo(KeyTimeInstanceNode):
@@ -473,28 +475,30 @@ class TouchdownRecorded(KeyTimeInstanceNode):
     def derive(self, ldg_sw = P('IN AIR')):
         self.create_ktis_at_edges(ldg_sw.array, direction='falling_edges')
                     
+                    
 class LandingTurnOffRunway(KeyTimeInstanceNode):
     # See Takeoff Turn Onto Runway for description.
     def derive(self, head=P('Heading Continuous'),
                landings=S('Landing'),
                fast=P('Fast')):
         for landing in landings:
-            start_search=fast.get_previous(landing.slice.stop).slice.stop
-
-            if (start_search == None) or (start_search < landing.slice.start):
-                start_search = (landing.slice.start+landing.slice.stop)/2
-            peak_bend = peak_curvature(head.array[slice(
-                start_search,landing.slice.stop)],curve_sense='Bipolar')
-            
-            if peak_bend:
-                landing_turn = start_search + peak_bend
-            else:
-                # No turn, so just use end of landing run.
-                landing_turn = landing.slice.stop
-            
-            self.create_kti(landing_turn)
+            # Check the landing slice is robust.
+            if landing.slice.start and landing.slice.stop:
+                start_search=fast.get_previous(landing.slice.stop).slice.stop
     
+                if (start_search == None) or (start_search < landing.slice.start):
+                    start_search = (landing.slice.start+landing.slice.stop)/2
+                peak_bend = peak_curvature(head.array[slice(
+                    start_search,landing.slice.stop)],curve_sense='Bipolar')
                 
+                if peak_bend:
+                    landing_turn = start_search + peak_bend
+                else:
+                    # No turn, so just use end of landing run.
+                    landing_turn = landing.slice.stop
+                
+                self.create_kti(landing_turn)
+    
 
 class LandingDecelerationEnd(KeyTimeInstanceNode):
     '''

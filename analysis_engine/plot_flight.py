@@ -3,10 +3,11 @@ import os
 import logging
 import matplotlib.pyplot as plt
 import simplekml
+import numpy as np
 
 from analysis_engine.node import derived_param_from_hdf, Parameter
 from settings import METRES_TO_FEET
-from library import rms_noise, repair_mask
+from library import bearing_and_distance, latitudes_and_longitudes, rms_noise, repair_mask
 from utilities.print_table import indent
 from hdfaccess.file import hdf_file
 
@@ -28,7 +29,7 @@ def add_track(kml, track_name, lat, lon, colour, alt_param=None):
             pass  # Masked data not worth plotting
         else:
             if alt_param:
-                track_coords.append((lon.array[i],lat.array[i], (alt_param.array[i]+241)/METRES_TO_FEET))
+                track_coords.append((lon.array[i],lat.array[i], alt_param.array[i]))
             else:
                 track_coords.append((lon.array[i],lat.array[i]))
                 
@@ -38,7 +39,30 @@ def add_track(kml, track_name, lat, lon, colour, alt_param=None):
     line.style.polystyle.color = '66%s' % colour[2:] # set opacity of area fill to 40%
     return
 
-def track_to_kml(hdf_path, kti_list, kpv_list, plot_altitude=None):
+def draw_centreline(kml, rwy):
+    start_lat = rwy['start']['latitude']
+    start_lon = rwy['start']['longitude']
+    end_lat = rwy['end']['latitude']
+    end_lon = rwy['end']['longitude']
+    brg, dist = bearing_and_distance(end_lat, end_lon, start_lat, start_lon)
+    brgs = np.ma.array([brg])
+    dists = np.ma.array([30000])
+    lat_30k, lon_30k = latitudes_and_longitudes(brgs, dists, rwy['start'])
+    try:
+        angle = np.deg2rad(rwy['glideslope']['angle'])
+    except:
+        angle = np.deg2rad(3.0)
+    end_height = 30000 * np.tan(angle) * METRES_TO_FEET
+    track_config = {'name': 'ILS'}
+    track_coords = []
+    track_coords.append((end_lon,end_lat))
+    track_coords.append((lon_30k.data[0],lat_30k.data[0], end_height))
+    track_config['coords'] = track_coords
+    line = kml.newlinestring(**track_config)
+    
+    return
+
+def track_to_kml(hdf_path, kti_list, kpv_list, flight_list, plot_altitude=False):
     hdf = hdf_file(hdf_path)
     #if 'Latitude Smoothed' not in hdf or 'Longitude Smoothed' not in hdf:
         ## unable to plot without these parameters
@@ -52,7 +76,7 @@ def track_to_kml(hdf_path, kti_list, kpv_list, plot_altitude=None):
               
     smooth_lat = derived_param_from_hdf(hdf, 'Latitude Smoothed')
     smooth_lon = derived_param_from_hdf(hdf, 'Longitude Smoothed')
-    add_track(kml, 'Smoothed', smooth_lat, smooth_lon, 'ff7fff7f')
+    add_track(kml, 'Smoothed', smooth_lat, smooth_lon, 'ff7fff7f') #, hdf[plot_altitude])
 
     #lat = derived_param_from_hdf(hdf, 'Latitude Prepared')
     #lon = derived_param_from_hdf(hdf, 'Longitude Prepared')
@@ -60,37 +84,42 @@ def track_to_kml(hdf_path, kti_list, kpv_list, plot_altitude=None):
     
     lat_r = derived_param_from_hdf(hdf, 'Latitude')
     lon_r = derived_param_from_hdf(hdf, 'Longitude')
-    add_track(kml, 'Recorded', lat_r, lon_r, 'ff0000ff')
+    #add_track(kml, 'Recorded', lat_r, lon_r, 'ff0000ff', hdf[plot_altitude])
 
     for kti in kti_list:
-        if kti.name in ['Touchdown', 'Localizer Established End']:
-            kti_point_values = {'name': kti.name}
-            altitude = alt.at(kti.index) if plot_altitude else None
-            if altitude:
-                kti_point_values['coords'] = ((kti.longitude, kti.latitude,),)
-                kti_point_values['altitudemode'] = simplekml.constants.AltitudeMode.absolute
-            else:
-                kti_point_values['coords'] = ((kti.longitude, kti.latitude,),)
-                kti_point_values['altitudemode'] = simplekml.constants.AltitudeMode.clamptoground 
+        #if kti.name in ['Touchdown', 'Localizer Established End']:
+        kti_point_values = {'name': kti.name}
+        altitude = alt.at(kti.index) if plot_altitude else None
+        if altitude:
+            kti_point_values['coords'] = ((kti.longitude, kti.latitude, altitude),)
+            kti_point_values['altitudemode'] = simplekml.constants.AltitudeMode.relativetoground 
+        else:
+            kti_point_values['coords'] = ((kti.longitude, kti.latitude,),)
+            kti_point_values['altitudemode'] = simplekml.constants.AltitudeMode.clamptoground 
+    
+        kml.newpoint(**kti_point_values)
         
-            kml.newpoint(**kti_point_values)
+    for kpv in kpv_list:
+        style = simplekml.Style()
+        style.iconstyle.color = simplekml.Color.red
+        kpv_point_values = {'name': '%s (%s)' % (kpv.name, kpv.value)}
+        altitude = alt.at(kpv.index) if plot_altitude else None
+        if altitude:
+            kpv_point_values['coords'] = (
+                (smooth_lon.at(kpv.index), smooth_lat.at(kpv.index), altitude,),)
+            kpv_point_values['altitudemode'] = simplekml.constants.AltitudeMode.relativetoground 
+        else:
+            kpv_point_values['coords'] = ((smooth_lon.at(kpv.index), altitude,),)
+            kpv_point_values['altitudemode'] = simplekml.constants.AltitudeMode.clamptoground 
         
-    #for kpv in kpv_list:
-        #style = simplekml.Style()
-        #style.iconstyle.color = simplekml.Color.red
-        #kpv_point_values = {'name': '%s (%s)' % (kpv.name, kpv.value)}
-        #altitude = alt.at(kpv.index) if plot_altitude else None
-        #if altitude:
-            #kpv_point_values['coords'] = (
-                #(smooth_lon.at(kpv.index), smooth_lat.at(kpv.index), ) )
-            #kpv_point_values['altitudemode'] = simplekml.constants.AltitudeMode.absolute
-        #else:
-            #kpv_point_values['coords'] = ((smooth_lon.at(kpv.index), smooth_lat.at(kpv.index),),)
-            #kpv_point_values['altitudemode'] = simplekml.constants.AltitudeMode.clamptoground 
+        pnt = kml.newpoint(**kpv_point_values)
+        pnt.style = style
         
-        #pnt = kml.newpoint(**kpv_point_values)
-        #pnt.style = style
-        
+    for attribute in flight_list:
+        if attribute.name in ['FDR Approaches']:
+            for app in attribute.value:
+                draw_centreline(kml, app['runway'])
+                pass
 
     kml.save(hdf_path+".kml")
     hdf.close()

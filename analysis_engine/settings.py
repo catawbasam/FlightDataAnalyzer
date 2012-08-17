@@ -8,7 +8,9 @@
 # environment and append customised modules.
 
 
-
+import logging
+logger = logging.getLogger(name=__name__)
+    
 ###################
 ## Configuration ##
 ###################
@@ -16,6 +18,7 @@
 # Modules to import all derived Nodes from. Additional modules can be
 # appended to this list in custom_settings.py by creating a similar list of
 # modules with the variable name ending with "_MODULES"
+# e.g. MY_EXTRA_MODULES = ['my_package.extra_attributes', 'my_package.extra_params']
 NODE_MODULES = ['analysis_engine.derived_parameters',
                 'analysis_engine.key_point_values', 
                 'analysis_engine.key_time_instances',
@@ -231,10 +234,10 @@ RATE_OF_CLIMB_FOR_TOUCHDOWN = -100 # fpm
 
 # Rate of turn limits for flight. 
 # (Also used for validation of accelerometers on ground).
-RATE_OF_TURN_FOR_FLIGHT_PHASES = 2.5 # deg per second
+RATE_OF_TURN_FOR_FLIGHT_PHASES = 2.0 # deg per second
 
 # Rate of turn limit for taxi event.
-RATE_OF_TURN_FOR_TAXI_TURNS = 8.0 # deg per second
+RATE_OF_TURN_FOR_TAXI_TURNS = 5.0 # deg per second
 
 # Duration of masked data to repair by interpolation for flight phase analysis
 REPAIR_DURATION = 10 # seconds 
@@ -277,6 +280,7 @@ try:
                             if k.endswith('_MODULES') and k!= 'NODE_MODULES']
     NODE_MODULES = list(set(NODE_MODULES))
 except ImportError as err:
-    import logging
-    logging.info("Unable to import analysis_engine custom_settings.py")
+    # logger.info preferred, but stack trace is important when trying to
+    # determine an unexpected ImportError lower down the line.
+    logger.exception("Unable to import analysis_engine custom_settings.py")
     pass

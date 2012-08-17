@@ -91,6 +91,7 @@ class DataFrameError(Exception):
     def __str__(self):
         return self.msg
 
+
 class AccelerationVertical(DerivedParameterNode):
     """
     Resolution of three accelerations to compute the vertical
@@ -232,12 +233,9 @@ class AirspeedMinusV2For5Sec(DerivedParameterNode):
 ################################################################################
 # Airspeed Relative (Airspeed relative to Vapp, Vref or a fixed value.)
 
-
-# TODO: Write some unit tests!
-# TODO: Ensure that this derived parameter supports Vapp and fixed values.
-class AirspeedRelative(DerivedParameterNode):
+class AirspeedReference(DerivedParameterNode):
     '''
-    Airspeed on approach relative to:
+    Airspeed on approach reference value:
 
     - Vapp  -- Airbus
     - Vref  -- Boeing
@@ -246,8 +244,33 @@ class AirspeedRelative(DerivedParameterNode):
     A fixed value will most likely be zero making this relative airspeed
     derived parameter the same as the original absolute airspeed parameter.
     '''
+    def derive (self, spd = P('Airspeed'), param = P('Vapp')):
+        #spd = P('Airspeed'), param = P('Vapp'), attrib = A('FDR Vref')):
+        '''
+        Currently a work in progress. We should use a recorded parameter if
+        it's available, failing that a computed forumla reflecting the
+        aircraft condition and failing that a single value from the achieved
+        flight file.
+        '''
+        if param:
+            self.array = param.array
+        
+        # How do we enter tabulated values here?
+        
+        #elif attrib:
+            #self.array = np_ma_ones_like(spd.array) * attrib.value
+        
+        else:
+            self.array = np_ma_zeros_like(spd.array) 
 
-    def derive(self, airspeed=P('Airspeed'), vref=A('FDR Vref')):
+
+# TODO: Write some unit tests!
+# TODO: Ensure that this derived parameter supports Vapp and fixed values.
+class AirspeedRelative(DerivedParameterNode):
+    '''
+    See AirspeedReference for details.
+    '''
+    def derive(self, airspeed=P('Airspeed'), vref=P('Airspeed Reference')):
         '''
         '''
         self.array = airspeed.array - vref.value
@@ -494,17 +517,19 @@ class AltitudeAAL(DerivedParameterNode):
                         if alt_vals[n+2] > alt_vals[n+1]:
                             # A down and up section.
                             down_up = slice(alt_idxs[n], alt_idxs[n+2])
-                            # Let's find the lowest rad alt reading 
-                            #(this may not be exactly the highest ground, but 
-                            # it was probably the point of highest concern!)
-                            arg_hg_max = np.ma.argmin(alt_rad.array[down_up]) + alt_idxs[n]
-                            hg_max = alt_std.array[arg_hg_max] - alt_rad.array[arg_hg_max]
-                            if np.ma.count(hg_max):
-                                # The rad alt measured height above a peak...
-                                dips.append(['over_gnd', down_up, alt_std.array[arg_hg_max], hg_max])
+                            if alt_rad:
+                                # Let's find the lowest rad alt reading 
+                                #(this may not be exactly the highest ground, but 
+                                # it was probably the point of highest concern!)
+                                arg_hg_max = np.ma.argmin(alt_rad.array[down_up]) + alt_idxs[n]
+                                hg_max = alt_std.array[arg_hg_max] - alt_rad.array[arg_hg_max]
+                                if np.ma.count(hg_max):
+                                    # The rad alt measured height above a peak...
+                                    dips.append(['over_gnd', down_up, alt_std.array[arg_hg_max], hg_max])
                             else:
-                                # We have no rad alt data
-                                if dips[-1][0]=='high':
+                                # We have no rad alt data.
+                                # TODO: alt_std code needs careful checking. 
+                                if dips !=[] and dips[-1][0]=='high':
                                     # Join this dip onto the previous one
                                     dips[-1][1] = slice(dips[-1][1].start, alt_idxs[n+2])
                                     dips[-1][2] = min(dips[-1][2],alt_vals[n+1])
@@ -526,7 +551,7 @@ class AltitudeAAL(DerivedParameterNode):
                             dips[n][3]=dips[n][4]+1000 # Arbitrary offset in indeterminate case.
                         else:
                             dips[n][3] = dips[n][2]-dips[n+1][2]+dips[n+1][3]
-                    elif n == len(dips):
+                    elif n == len(dips)-1:
                         dips[n][3] = dips[n][2]-dips[n-1][2]+dips[n-1][3]
                     else:
                         # Here is the most commonly used, and somewhat
@@ -685,13 +710,12 @@ class AltitudeRadio(DerivedParameterNode):
     two valid sensors.
     :type parameter object.
     """
+    align_to_first_dependency = False
     @classmethod
     def can_operate(cls, available):
         if 'Altitude Radio (A)' in available and \
            'Altitude Radio (B)' in available:
             return True
-    
-    align_to_first_dependency = False
     
     def derive(self, frame = A('Frame'),
                frame_qual = A('Frame Qualifier'),
@@ -769,7 +793,7 @@ class AltitudeSTD(DerivedParameterNode):
                 blend_two_parameters(source_A, source_B)
 
         else:
-            raise DataFrameError ("Altitude STD", frame_name)
+            raise DataFrameError("Altitude STD", frame_name)
 
 
 class AltitudeQNH(DerivedParameterNode):
@@ -1128,6 +1152,7 @@ class Eng_EPRAvg(DerivedParameterNode):
     '''
 
     name = 'Eng (*) EPR Avg'
+
     @classmethod
     def can_operate(cls, available):
         '''
@@ -1995,7 +2020,7 @@ class GearDown(DerivedParameterNode):
             # assume that the right wheel does the same as the left !
             self.array, self.frequency, self.offset = merge_two_parameters(gl, gn)
         else:
-            raise DataFrameError ("Gear Down", frame_name)
+            raise DataFrameError("Gear Down", frame_name)
 
 class GearSelectedDown(DerivedParameterNode):
     """
@@ -2009,7 +2034,7 @@ class GearSelectedDown(DerivedParameterNode):
         if frame_name in ['737-3C', '737-5']:
             self.array = gear.array
         else:
-            raise DataFrameError ("Gear Selected Down", frame_name)
+            raise DataFrameError("Gear Selected Down", frame_name)
 
         
 class GearSelectedUp(DerivedParameterNode):
@@ -2019,7 +2044,7 @@ class GearSelectedUp(DerivedParameterNode):
         if frame_name in ['737-3C', '737-5']:
             self.array = 1 - gear.array
         else:
-            raise DataFrameError ("Gear Selected Up", frame_name)
+            raise DataFrameError("Gear Selected Up", frame_name)
 
 
 class GrossWeightSmoothed(DerivedParameterNode):
@@ -2125,7 +2150,7 @@ class Groundspeed(DerivedParameterNode):
             self.array = self.array
             
         else:
-            raise DataFrameError ("Groundspeed", frame_name)
+            raise DataFrameError("Groundspeed", frame_name)
 
 
 class FlapLever(DerivedParameterNode):
@@ -2184,7 +2209,7 @@ class FlapSurface(DerivedParameterNode):
             self.frequency, self.offset = alt_aal.frequency, alt_aal.offset
 
         else:
-            raise DataFrameError ("Flap Surface", frame_name)
+            raise DataFrameError("Flap Surface", frame_name)
                    
                             
 class Flap(DerivedParameterNode):
@@ -2507,7 +2532,7 @@ class ILSRange(DerivedParameterNode):
                 start_2_loc, gs_2_loc, end_2_loc, pgs_lat, pgs_lon = \
                     runway_distances(runway)
                 off_cl = head.array - runway_heading(runway)
-            except KeyError:
+            except (KeyError, TypeError):
                 self.warning("Runway did not have required information in "
                                 "'%s', '%s'.", self.name, runway)
                 off_cl = np_ma_zeros_like(head.array)
@@ -2553,7 +2578,6 @@ class ILSRange(DerivedParameterNode):
                 corr, slope, offset = coreg(ils_range[this_gs.slice],
                     alt_aal.array[this_gs.slice]* (1-0.13*glide.array[this_gs.slice]))
 
-                print corr, slope, offset
                 # This should correlate very well, and any drop in this is a
                 # sign of problems elsewhere.
                 if corr < 0.995:
@@ -2781,7 +2805,7 @@ class CoordinatesSmoothed(object):
                 # Find the matching runway details
                 approach, runway = find_app_rwy(self, app_info, start_datetime, this_loc)
                                 
-                if 'localizer' in runway:
+                if runway and 'localizer' in runway:
                     reference = runway['localizer']
                 else:
                     self.warning("No localizer for approach runway '%s'.",runway)
@@ -2814,11 +2838,13 @@ class CoordinatesSmoothed(object):
                     # from ILS data may be masked at the end of the
                     # approach, so we scan back to connect the ground
                     # track onto the end of the valid data.
+                    
                     ##index, _ = first_valid_sample(lat_adj[slice(this_loc.slice.stop,this_loc.slice.start,-1)])
                     ##join_idx = (this_loc.slice.stop or 0) - index
                     
                     join_idx = index_at_value(gspd.array, 40.0, this_loc.slice)
-                    if len(lat_adj) > join_idx: # We have some room to extend over.
+                    
+                    if join_idx and (len(lat_adj) > join_idx): # We have some room to extend over.
                         [lat_adj[join_idx:], lon_adj[join_idx:]] = \
                             ground_track(lat_adj.data[join_idx], lon_adj.data[join_idx],
                                          speed[join_idx:], hdg.array[join_idx:], 
@@ -3258,7 +3284,7 @@ class ThrustReversers(DerivedParameterNode):
             self.array = step_values(all_tr/8.0, [0,0.5,1])
             
         else:
-            raise DataFrameError ("Thrust Reversers", frame_name)
+            raise DataFrameError("Thrust Reversers", frame_name)
 
 #------------------------------------------------------------------
 # WIND RELATED PARAMETERS
@@ -3317,8 +3343,11 @@ class Vapp(DerivedParameterNode):
         
         def _vapp(weight, flap):
             #TODO: V Speed calculations replace below...
-            return weight/(flap*15) # Silly formula for developing structure only.
-        
+            if flap > 0:
+                return weight/(flap*15) # Silly formula for developing structure only.
+            else:
+                pass
+            
         # Initialize the result space.
         self.array = np_ma_masked_zeros_like(flap.array)
         
@@ -3441,90 +3470,143 @@ class ElevatorTrim(DerivedParameterNode): # PitchTrim
         self.array, self.frequency, self.offset = blend_two_parameters(etl, etr)
 
 
-class Spoiler(DerivedParameterNode):
+################################################################################
+# Speedbrake
+
+
+# TODO: Write some unit tests!
+class Speedbrake(DerivedParameterNode):
     '''
-    Spolier angle in degrees, zero flush with the wing and positive up.
-    
+    Spoiler angle in degrees, zero flush with the wing and positive up.
+
     Spoiler positions are recorded in different ways on different aircraft,
     hence the frame specific sections in this class.
     '''
+
     align_to_first_dependency = False
 
     @classmethod
     def can_operate(cls, available):
-        # we cannot access the frame_name within this method to determine which
-        # parameter is the requirement
-        if 'Frame' in available and\
-           (('Spoiler (2)' in available and 'Spoiler (7)' in available)\
-            or\
-            ('Spoiler (4)' in available and 'Spoiler (9)' in available)\
-            ):
-            return True
-        
+        '''
+        Note: The frame name cannot be accessed within this method to determine
+              which parameters are required.
+        '''
+        x = available
+        return ('Frame' in x and 'Spoiler (2)' in x and 'Spoiler (7)' in x) \
+            or ('Frame' in x and 'Spoiler (4)' in x and 'Spoiler (9)' in x)
+
     def spoiler_737(self, spoiler_a, spoiler_b):
         '''
         We indicate the angle of either raised spoiler, ignoring sense of
         direction as it augments the roll.
         '''
         offset = (spoiler_a.offset + spoiler_b.offset) / 2.0
-        array = np.ma.maximum(spoiler_a.array,spoiler_b.array)
-        # Force small angles to indicate zero.
+        array = np.ma.maximum(spoiler_a.array, spoiler_b.array)
+        # Force small angles to indicate zero:
         array = np.ma.where(array < 2.0, 0.0, array)
         return array, offset
-        
-    def derive(self, spoiler_2=P('Spoiler (2)'), spoiler_7=P('Spoiler (7)'),
-               spoiler_4=P('Spoiler (4)'), spoiler_9=P('Spoiler (9)'),
-               frame = A('Frame')):
+
+    def derive(self,
+            spoiler_2=P('Spoiler (2)'), spoiler_7=P('Spoiler (7)'),
+            spoiler_4=P('Spoiler (4)'), spoiler_9=P('Spoiler (9)'),
+            frame=A('Frame')):
+        '''
+        '''
         frame_name = frame.value if frame else None
-        
+
         if frame_name in ['737-3C']:
             self.array, self.offset = self.spoiler_737(spoiler_4, spoiler_9)
-            
-        if frame_name in ['737-5', '737-6']:
+
+        elif frame_name in ['737-5', '737-6']:
             self.array, self.offset = self.spoiler_737(spoiler_2, spoiler_7)
-                
-        else:
-            raise DataFrameError ("Spoiler", frame_name)
 
-class Speedbrake(DerivedParameterNode):
+        else:
+            raise DataFrameError('Speedbrake', frame_name)
+
+
+# TODO: Write some unit tests!
+class SpeedbrakeSelection(DerivedParameterNode):
     '''
-    Speedbrake angle in degrees, zero flush with wing. Where clamshell brake
-    is used, degrees of opening.
+    Determines the selected state of the speedbrake.
+
+    Speedbrake Selection Values:
+
+    - 0 -- Stowed
+    - 1 -- Armed / Commanded (Spoilers Down)
+    - 2 -- Deployed / Commanded (Spoilers Up)
     '''
-    align_to_first_dependency = False
-    
-    def derive(self, spoiler_2=P('Spoiler (2)'),
-               spoiler_7=P('Spoiler (7)'),
-               frame = A('Frame')):
+
+    @classmethod
+    def can_operate(cls, available):
+        '''
+        '''
+        x = available
+        return 'Speedbrake Deployed' in x \
+            or ('Frame' in x and 'Speedbrake Handle' in x)
+
+    def derive(self,
+            spd_brk_d=P('Speedbrake Deployed'),
+            spd_brk_h=P('Speedbrake Handle'),
+            frame=A('Frame')):
+        '''
+        '''
         frame_name = frame.value if frame else None
-        
-        if frame_name in ['737-5', '737-6']:
-            '''
-            For the 737-5 frame, we do not have speedbrake handle position recorded,
-            so the use of the speedbrake is identified by both spoilers being
-            extended at the same time.
-            '''
-            self.offset = (spoiler_2.offset + spoiler_7.offset) / 2.0
-            self.array = np.ma.minimum(spoiler_2.array,spoiler_7.array)
-            # Force small angles to indicate zero.
-            self.array = np.ma.where(self.array < 2.0, 0.0, self.array)
+
+        if spd_brk_h and frame.name:
+            
+            if frame_name.startswith('737-'):
+                '''
+                Speedbrake Handle Position:
+
+                    ========    ============
+                    Angle       Notes
+                    ========    ============
+                     0.0        Full Forward
+                     4.0        Armed
+                    24.0
+                    29.0
+                    38.0        In Flight
+                    40.0        Straight Up
+                    48.0        Full Up
+                    ========    ============
+                '''
+                self.array = np.ma.where((2.0 < spd_brk_h.array) & (spd_brk_h.array < 35.0), 1, 0)
+                self.array = np.ma.where(spd_brk_h.array >= 35.0, 2, self.array)
+
+            else:
+                # TODO: Implement for other frames using 'Speedbrake Handle'!
+                return NotImplemented
+
+        elif spd_brk_d:
+            self.array = np.ma.where(spd_brk_d.array > 0, 2, 0)
 
         else:
-            raise DataFrameError ("Speedbrake", frame_name)
+            # TODO: Implement using a different parameter?
+            return NotImplemented
+
+
+################################################################################
+
 
 class StickShaker(DerivedParameterNode):
     '''
     This accounts for the different types of stick shaker system.
-    '''
+    '''    
+    align_to_first_dependency = False
+    
     @classmethod
     def can_operate(cls, available):
-        if 'Stick Shaker (L)' in available or 'Shaker Activation' in available:
+        # we cannot access the frame_name within this method to determine which
+        # parameter is the requirement
+        if 'Frame' in available and ('Stick Shaker (L)' in available \
+                                     or 'Stick Shaker (R)' in available \
+                                     or 'Shaker Activation' in available):
+            #WARNING: Does not take into account which parameter for which frame
             return True
-    
-    align_to_first_dependency = False
 
     def derive(self, frame = A('Frame'), 
-               shake = P('Stick Shaker (L)'), 
+               shake_l = P('Stick Shaker (L)'), 
+               shake_r = P('Stick Shaker (R)'), 
                shake_act = P('Shaker Activation')):
 
         frame_name = frame.value if frame else None
@@ -3533,10 +3615,16 @@ class StickShaker(DerivedParameterNode):
             self.array, self.frequency, self.offset = \
                 shake_act.array, shake_act.frequency, shake_act.offset
         
-        elif frame_name in ['737-5', '757-DHL'] and shake:
-            self.array, self.frequency, self.offset = \
-                shake.array, shake.frequency, shake.offset
+        elif frame_name in ['737-3C', '757-DHL']:
+            self.array = np.ma.logical_or(shake_l.array, shake_r.array)
+            self.frequency , self.offset = shake_l.frequency, shake_l.offset
 
+        elif frame_name in ['737-5'] and shake_l:
+            # Named (L) but in fact (L) and (R) are or'd together at the DAU.
+            self.array, self.frequency, self.offset = \
+                shake_l.array, shake_l.frequency, shake_l.offset
+
+        # Stick shaker not found in 737-6 frame.
         else:
-            raise DataFrameError ("Stick Shaker", frame_name)
+            raise DataFrameError("Stick Shaker", frame_name)
         
