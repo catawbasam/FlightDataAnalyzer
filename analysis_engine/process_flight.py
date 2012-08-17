@@ -121,7 +121,7 @@ def derive_parameters(hdf, node_mgr, process_order):
             try:
                 flight_attrs.append(Attribute(result.name, result.value)) # only has one Attribute result
             except:
-                logging.warning("Flight Attribute Node '%s' returned empty handed."%(param_name))
+                logger.warning("Flight Attribute Node '%s' returned empty handed."%(param_name))
         elif node.node_type in (FlightPhaseNode, SectionNode):
             # expect a single slice
             params[param_name] = result

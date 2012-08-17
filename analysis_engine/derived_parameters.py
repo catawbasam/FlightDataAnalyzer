@@ -1,6 +1,8 @@
 import numpy as np
 from math import floor, radians
 
+from analysis_engine.exceptions import DataFrameError
+
 from analysis_engine.model_information import (get_config_map,
                                                get_flap_map,
                                                get_slat_map)
@@ -72,25 +74,6 @@ from data_validation.rate_of_change import validate_rate_of_change
 
 # There is no numpy masked array function for radians, so we just multiply thus:
 deg2rad = radians(1.0)
-
-
-class DataFrameError(Exception):
-    '''
-    Error handling for cases where new LFLs require a derived parameter
-    algorithm which has not yet been programmed.
-    '''
-    def __init__(self, param, frame):
-        '''
-        :param param: Recorded parameter where frame specific processing is required.
-        :type param: String
-        :param frame: Data frame identifier. For this parameter, no frame condition evaluates true.
-        :type frame: String
-        '''
-        self.msg = '%s not in LFL and no procedure for frame %s.'%(param, frame)
-        self.param = param
-        self.frame = frame
-    def __str__(self):
-        return self.msg
 
 
 class AccelerationVertical(DerivedParameterNode):
@@ -816,12 +799,11 @@ class AltitudeRadio(DerivedParameterNode):
                 blend_two_parameters(source_A, source_C)
             
         else:
-            raise DataFrameError("Altitude Radio", frame_name)
+            raise DataFrameError(self.name, frame_name)
 
 
 class AltitudeSTD(DerivedParameterNode):
     """
-    
     :param frame: The frame attribute, e.g. '737-i'
     :type frame: An attribute
     
@@ -844,7 +826,7 @@ class AltitudeSTD(DerivedParameterNode):
                 blend_two_parameters(source_A, source_B)
 
         else:
-            raise DataFrameError("Altitude STD", frame_name)
+            raise DataFrameError(self.name, frame_name)
 
 
 class AltitudeQNH(DerivedParameterNode):
@@ -1203,6 +1185,7 @@ class Eng_EPRAvg(DerivedParameterNode):
     '''
 
     name = 'Eng (*) EPR Avg'
+
     @classmethod
     def can_operate(cls, available):
         '''
@@ -2070,7 +2053,7 @@ class GearDown(DerivedParameterNode):
             # assume that the right wheel does the same as the left !
             self.array, self.frequency, self.offset = merge_two_parameters(gl, gn)
         else:
-            raise DataFrameError("Gear Down", frame_name)
+            raise DataFrameError(self.name, frame_name)
 
 class GearSelectedDown(DerivedParameterNode):
     """
@@ -2084,7 +2067,7 @@ class GearSelectedDown(DerivedParameterNode):
         if frame_name in ['737-3C', '737-5']:
             self.array = gear.array
         else:
-            raise DataFrameError("Gear Selected Down", frame_name)
+            raise DataFrameError(self.name, frame_name)
 
         
 class GearSelectedUp(DerivedParameterNode):
@@ -2094,7 +2077,7 @@ class GearSelectedUp(DerivedParameterNode):
         if frame_name in ['737-3C', '737-5']:
             self.array = 1 - gear.array
         else:
-            raise DataFrameError("Gear Selected Up", frame_name)
+            raise DataFrameError(self.name, frame_name)
 
 
 class GrossWeightSmoothed(DerivedParameterNode):
@@ -2129,17 +2112,19 @@ class GrossWeightSmoothed(DerivedParameterNode):
         gw_all = []
         for gw_index in gw.array.nonzero()[0]:
             # Keep all the values
-            gw_all.append(gw.array.data[gw_index])
+            gross_wt = gw.array.data[gw_index]
             ff_time = ((gw_index/gw.frequency)+gw.offset-ff.offset)*ff.frequency
-            to_burn_all.append(value_at_index(fuel_to_burn, ff_time))
+            fuel_wt = value_at_index(fuel_to_burn, ff_time)
+            if fuel_wt:
+                gw_all.append(gross_wt)
+                to_burn_all.append(fuel_wt)
             
-            # Skip values which are within Climbing or Descending phases.
-            if any([is_index_within_slice(gw_index, c.slice) for c in climbs]) or \
-               any([is_index_within_slice(gw_index, d.slice) for d in descends]):
-                continue
-            gw_valid.append(gw.array.data[gw_index])
-            ff_time = ((gw_index/gw.frequency)+gw.offset-ff.offset)*ff.frequency
-            to_burn_valid.append(value_at_index(fuel_to_burn, ff_time))
+                # Skip values which are within Climbing or Descending phases.
+                if any([is_index_within_slice(gw_index, c.slice) for c in climbs]) or \
+                   any([is_index_within_slice(gw_index, d.slice) for d in descends]):
+                    continue
+                to_burn_valid.append(fuel_wt)
+                gw_valid.append(gross_wt)
         
         use_valid = len(gw_valid) > 5
         use_all = len(gw_all) > 2
@@ -2200,7 +2185,7 @@ class Groundspeed(DerivedParameterNode):
             self.array = self.array
             
         else:
-            raise DataFrameError("Groundspeed", frame_name)
+            raise DataFrameError(self.name, frame_name)
 
 
 class FlapLever(DerivedParameterNode):
@@ -2259,7 +2244,7 @@ class FlapSurface(DerivedParameterNode):
             self.frequency, self.offset = alt_aal.frequency, alt_aal.offset
 
         else:
-            raise DataFrameError("Flap Surface", frame_name)
+            raise DataFrameError(self.name, frame_name)
                    
                             
 class Flap(DerivedParameterNode):
@@ -2993,10 +2978,20 @@ class LongitudeSmoothed(DerivedParameterNode, CoordinatesSmoothed):
 
             
 class Mach(DerivedParameterNode):
-    def derive(self, cas = P('Airspeed'), alt = P('Altitude STD')):
-        dp = cas2dp(cas.array)
-        p = alt2press(alt.array)
-        self.array = dp_over_p2mach(dp/p)
+    '''
+    Provisional routine for blending alternate Mach sources, or computing a
+    value if none is available. Should be frame specific, hence
+    DataFrameError trap.
+    '''
+    def derive(self, cas = P('Airspeed'), alt = P('Altitude STD'),
+               m1 = P('Mach (1)'), m2 = P('Mach (2)')):
+        if m1 and m2:
+            self.array, self.frequency, self.offset = blend_two_parameters(m1, m2)
+        else:
+            dp = cas2dp(cas.array)
+            p = alt2press(alt.array)
+            self.array = dp_over_p2mach(dp/p)
+            
        
 class MagneticVariation(DerivedParameterNode):
     """
@@ -3334,7 +3329,7 @@ class ThrustReversers(DerivedParameterNode):
             self.array = step_values(all_tr/8.0, [0,0.5,1])
             
         else:
-            raise DataFrameError("Thrust Reversers", frame_name)
+            raise DataFrameError(self.name, frame_name)
 
 #------------------------------------------------------------------
 # WIND RELATED PARAMETERS
@@ -3507,76 +3502,123 @@ class ElevatorTrim(DerivedParameterNode): # PitchTrim
         self.array, self.frequency, self.offset = blend_two_parameters(etl, etr)
 
 
-class Spoiler(DerivedParameterNode):
+################################################################################
+# Speedbrake
+
+
+# TODO: Write some unit tests!
+class Speedbrake(DerivedParameterNode):
     '''
-    Spolier angle in degrees, zero flush with the wing and positive up.
-    
+    Spoiler angle in degrees, zero flush with the wing and positive up.
+
     Spoiler positions are recorded in different ways on different aircraft,
     hence the frame specific sections in this class.
     '''
+
     align_to_first_dependency = False
 
     @classmethod
     def can_operate(cls, available):
-        # we cannot access the frame_name within this method to determine which
-        # parameter is the requirement
-        if 'Frame' in available and\
-           (('Spoiler (2)' in available and 'Spoiler (7)' in available)\
-            or\
-            ('Spoiler (4)' in available and 'Spoiler (9)' in available)\
-            ):
-            return True
-        
+        '''
+        Note: The frame name cannot be accessed within this method to determine
+              which parameters are required.
+        '''
+        x = available
+        return ('Frame' in x and 'Spoiler (2)' in x and 'Spoiler (7)' in x) \
+            or ('Frame' in x and 'Spoiler (4)' in x and 'Spoiler (9)' in x)
+
     def spoiler_737(self, spoiler_a, spoiler_b):
         '''
         We indicate the angle of either raised spoiler, ignoring sense of
         direction as it augments the roll.
         '''
         offset = (spoiler_a.offset + spoiler_b.offset) / 2.0
-        array = np.ma.maximum(spoiler_a.array,spoiler_b.array)
-        # Force small angles to indicate zero.
+        array = np.ma.maximum(spoiler_a.array, spoiler_b.array)
+        # Force small angles to indicate zero:
         array = np.ma.where(array < 2.0, 0.0, array)
         return array, offset
-        
-    def derive(self, spoiler_2=P('Spoiler (2)'), spoiler_7=P('Spoiler (7)'),
-               spoiler_4=P('Spoiler (4)'), spoiler_9=P('Spoiler (9)'),
-               frame = A('Frame')):
+
+    def derive(self,
+            spoiler_2=P('Spoiler (2)'), spoiler_7=P('Spoiler (7)'),
+            spoiler_4=P('Spoiler (4)'), spoiler_9=P('Spoiler (9)'),
+            frame=A('Frame')):
+        '''
+        '''
         frame_name = frame.value if frame else None
-        
+
         if frame_name in ['737-3C']:
             self.array, self.offset = self.spoiler_737(spoiler_4, spoiler_9)
-            
+
         elif frame_name in ['737-5', '737-6']:
             self.array, self.offset = self.spoiler_737(spoiler_2, spoiler_7)
-                
-        else:
-            raise DataFrameError("Spoiler", frame_name)
 
-class Speedbrake(DerivedParameterNode):
+        else:
+            raise DataFrameError(self.name, frame_name)
+
+
+# TODO: Write some unit tests!
+class SpeedbrakeSelection(DerivedParameterNode):
     '''
-    Speedbrake angle in degrees, zero flush with wing. Where clamshell brake
-    is used, degrees of opening.
+    Determines the selected state of the speedbrake.
+
+    Speedbrake Selection Values:
+
+    - 0 -- Stowed
+    - 1 -- Armed / Commanded (Spoilers Down)
+    - 2 -- Deployed / Commanded (Spoilers Up)
     '''
-    align_to_first_dependency = False
-    
-    def derive(self, spoiler_2=P('Spoiler (2)'),
-               spoiler_7=P('Spoiler (7)'),
-               frame = A('Frame')):
+
+    @classmethod
+    def can_operate(cls, available):
+        '''
+        '''
+        x = available
+        return 'Speedbrake Deployed' in x \
+            or ('Frame' in x and 'Speedbrake Handle' in x)
+
+    def derive(self,
+            spd_brk_d=P('Speedbrake Deployed'),
+            spd_brk_h=P('Speedbrake Handle'),
+            frame=A('Frame')):
+        '''
+        '''
         frame_name = frame.value if frame else None
-        
-        if frame_name in ['737-5', '737-6']:
-            '''
-            For the 737-5 frame, we do not have speedbrake handle position recorded,
-            so the use of the speedbrake is identified by both spoilers being
-            extended at the same time.
-            '''
-            self.offset = (spoiler_2.offset + spoiler_7.offset) / 2.0
-            self.array = np.ma.minimum(spoiler_2.array,spoiler_7.array)
-            # Force small angles to indicate zero.
-            self.array = np.ma.where(self.array < 2.0, 0.0, self.array)
+
+        if spd_brk_h and frame.name:
+            
+            if frame_name.startswith('737-'):
+                '''
+                Speedbrake Handle Position:
+
+                    ========    ============
+                    Angle       Notes
+                    ========    ============
+                     0.0        Full Forward
+                     4.0        Armed
+                    24.0
+                    29.0
+                    38.0        In Flight
+                    40.0        Straight Up
+                    48.0        Full Up
+                    ========    ============
+                '''
+                self.array = np.ma.where((2.0 < spd_brk_h.array) & (spd_brk_h.array < 35.0), 1, 0)
+                self.array = np.ma.where(spd_brk_h.array >= 35.0, 2, self.array)
+
+            else:
+                # TODO: Implement for other frames using 'Speedbrake Handle'!
+                return NotImplemented
+
+        elif spd_brk_d:
+            self.array = np.ma.where(spd_brk_d.array > 0, 2, 0)
 
         else:
-            raise DataFrameError("Speedbrake", frame_name)
+            # TODO: Implement using a different parameter?
+            return NotImplemented
+
+
+################################################################################
+
 
 class StickShaker(DerivedParameterNode):
     '''
@@ -3616,5 +3658,5 @@ class StickShaker(DerivedParameterNode):
 
         # Stick shaker not found in 737-6 frame.
         else:
-            raise DataFrameError("Stick Shaker", frame_name)
+            raise DataFrameError(self.name, frame_name)
         

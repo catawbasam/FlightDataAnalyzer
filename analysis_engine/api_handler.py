@@ -7,7 +7,7 @@ import socket
 import time
 import urllib
 
-from analysis_engine import settings
+from analysis_engine.settings import CA_CERTIFICATE_FILE
 
 TIMEOUT = 15
 socket.setdefaulttimeout(TIMEOUT)
@@ -75,9 +75,9 @@ class APIHandlerHTTP(object):
         '''
         # Encode body as GET parameters.
         body = urllib.urlencode(body)
-        disable_validation = not os.path.exists(settings.CA_CERTIFICATE_FILE)
+        disable_validation = not os.path.exists(CA_CERTIFICATE_FILE)
         http = httplib2.Http(
-            ca_certs=settings.CA_CERTIFICATE_FILE,
+            ca_certs=CA_CERTIFICATE_FILE,
             disable_ssl_certificate_validation=disable_validation,
             timeout=timeout,
         )
