@@ -1878,23 +1878,6 @@ class Eng_N1MaxDurationUnder60PercentAfterTouchdown(KeyPointValueNode):
                 self.create_kpv(eng_stop[0].index, 0.0, eng_num=eng_num)
 
 
-class EngN13000FtToTouchdownMax(KeyPointValueNode):
-    '''
-    '''
-
-    name = 'Eng N1 3000 Ft To Touchdown Max'
-
-    def derive(self, eng_n1_max=P('Eng (*) N1 Max'),
-               alt_aal=P('Altitude AAL For Flight Phases')):
-        '''
-        '''
-        self.create_kpvs_within_slices(
-            eng_n1_max.array,
-            alt_aal.slices_from_to(3000, 0),
-            max_value,
-        )
-
-
 class EngN1500To20FtMax(KeyPointValueNode):
     '''
     '''
@@ -1912,21 +1895,20 @@ class EngN1500To20FtMax(KeyPointValueNode):
         )
 
 
-class EngN1500FtToTouchdownMin(KeyPointValueNode):
+class EngN1500To20FtMin(KeyPointValueNode):
     '''
     '''
 
-    name = 'Eng N1 500 Ft To Touchdown Min'
+    name = 'Eng N1 500 To 20 Ft Min'
 
     def derive(self, eng_n1_min=P('Eng (*) N1 Min'),
                alt_aal=P('Altitude AAL For Flight Phases')):
         '''
         '''
-        # Ensure that N1 value has been maintained for a minimum of 10 seconds:
         self.create_kpvs_within_slices(
             clip(eng_n1_min.array, 10, eng_n1_min.hz, remove='troughs'),
-            alt_aal.slices_from_to(500, 0),
-            min_value,
+            alt_aal.slices_from_to(500, 20),
+            max_value,
         )
 
 
