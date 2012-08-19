@@ -188,7 +188,7 @@ hr.double{
     margin:20px 20px 20px 40px;
     padding:20px;
     position:relative;
-    width:1060px;
+    width:1260px;
     -moz-box-shadow:0 0 10px #cccccc;
     -webkit-box-shadow:0 0 10px #cccccc;
     box-shadow:0 0 10px #cccccc;
@@ -205,7 +205,7 @@ hr.double{
 #center-container{
     width:800px;
     left:300px;
-    background-color:#1a1a1a;
+    background-color:#fff;
     color:#ccc;
 }
 .text{
@@ -245,23 +245,25 @@ hr.double{
 }
 
 .attribute-legend {
-    background-color: blue;
+    background-color: #B88A00;
 }
-
+.lfl-parameter-legend {
+    background-color: #6a6e70;
+}
 .derived-parameter-legend {
-    background-color: green;
+    background-color: #72F4EB;
 }
 
 .flight-phase-legend {
-    background-color: yellow;
+    background-color: brown;
 }
 
 .key-point-value-legend {
-    background-color: purple;
+    background-color: #bed630;
 }
 
 .key-time-instance-legend {
-    background-color: orange;
+    background-color: #fdbb30;
 }
 
 .legend-table

@@ -31,7 +31,6 @@
 <img id="logo" src="../_assets/fds/img/logo/fds.png" width="160" height="60">
 
 <div id="left-container">
-
 <h4>Tree Orientation</h4>
 <table>
     <tr>
@@ -84,14 +83,19 @@
 
 <table class="legend-table">
 <tr>
-<th class="attribute-legend">
+<th class="lfl-parameter-legend">
 </th>
-<td>Attribute</td>
+<td>LFL Parameter</td>
 </tr>
 <tr>
 <th class="derived-parameter-legend">
 </th>
 <td>Derived Parameter</td>
+</tr>
+<tr>
+<th class="attribute-legend">
+</th>
+<td>Flight Attribute</td>
 </tr>
 <tr>
 <th class="flight-phase-legend legend">
@@ -120,6 +124,7 @@
 
 <div id="parameters">
 <h1>Parameters</h1>
+<p>Server: {{server}}</p>
 {% if not polaris_query %}
 <p class="error"><img src="../_assets/img/exclamation-red.png"> <strong>Error:</strong> The POLARIS website could not be accessed.</p>
 {% endif %}
@@ -138,7 +143,7 @@
 </tr>
 </thead>
 <tbody>
-{% for param_name, param in params.iteritems() %}
+{% for (param_name, param) in params %}
 <tr>
 <td>{{ param_name }}</td>
 {% if polaris_query %}
