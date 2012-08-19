@@ -32,6 +32,7 @@ from analysis_engine.settings import (
     AIRBORNE_THRESHOLD_TIME,
     AIRSPEED_THRESHOLD,
     ALTITUDE_FOR_CLB_CRU_DSC,
+    BOUNCED_LANDING_THRESHOLD,
     HEADING_TURN_OFF_RUNWAY,
     HEADING_TURN_ONTO_RUNWAY,
     HOLDING_MAX_GSPD,
@@ -53,12 +54,16 @@ class Airborne(FlightPhaseNode):
     def derive(self, alt_aal=P('Altitude AAL For Flight Phases'),fast=S('Fast')):
         # Just find out when altitude above airfield is non-zero.
         for speedy in fast:
-            start_point = speedy.slice.start
+            # Stop here if the aircraft never went fast.
+            if speedy.slice.start == None and speedy.slice.stop == None:
+                break
+
+            start_point = speedy.slice.start or 0
             stop_point = speedy.slice.stop or len(alt_aal.array)
             # First tidy up the data we're interested in
             work = repair_mask(alt_aal.array[start_point:stop_point])
 
-            # repair_mask may return None if there is inadequate data to process.
+            # Stop here if there is inadequate airborne data to process.
             if work == None:
                 break
 
@@ -172,6 +177,18 @@ class Approach(FlightPhaseNode):
             self.warning('Flight with no valid approach or go-around phase. Probably truncated data')
 
 
+class BouncedLanding(FlightPhaseNode):
+    def derive(self, alt_aal=P('Altitude AAL'), airs=S('Airborne'), fast=S('Fast')):
+        for speedy in fast:
+            for air in airs:
+                if slices_overlap(speedy.slice, air.slice):
+                    scan = alt_aal.array[air.slice.stop:speedy.slice.stop]
+                    ht = max(scan)
+                    if ht > BOUNCED_LANDING_THRESHOLD:
+                        up = np.ma.clump_unmasked(np.ma.masked_less_equal(scan, 0.0))
+                        self.create_phase(shift_slice(slice(up[0].start, up[-1].stop),air.slice.stop))
+                                                
+                        
 class ClimbCruiseDescent(FlightPhaseNode):
     def derive(self, alt_aal=P('Altitude AAL For Flight Phases'), airs=S('Airborne')):
         for air in airs:
@@ -376,10 +393,14 @@ class GearExtending(FlightPhaseNode):
     Gear extending and retracting are section nodes, as they last for a
     finite period.
 
-    For aircraft data such as the 737-5 frame used for testing, the transit
-    is not recorded, so a dummy period of 5 seconds at gear down and
-    gear up is included to allow for exceedance of gear transit limits.
+    For some aircraft no parameters to identify the transit are recorded, so
+    a nominal period of 5 seconds at gear down and gear up is included to
+    allow for exceedance of gear transit limits.
     """
+    @classmethod
+    def can_operate(cls, available):
+        return 'Gear Down' in available
+    
     def derive(self, gear_down = P('Gear Down'), 
                gear_warn_l = P('Gear (L) Red Warning'),
                gear_warn_n = P('Gear (N) Red Warning'),
@@ -417,6 +438,13 @@ class GearExtending(FlightPhaseNode):
 
 
 class GearRetracting(FlightPhaseNode):
+    '''
+    See Gear Extending for comments.
+    '''
+    @classmethod
+    def can_operate(cls, available):
+        return 'Gear Down' in available
+
     def derive(self, gear_down = P('Gear Down'), 
                gear_warn_l = P('Gear (L) Red Warning'),
                gear_warn_n = P('Gear (N) Red Warning'),

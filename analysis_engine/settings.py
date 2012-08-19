@@ -91,6 +91,11 @@ AZ_WASHOUT_TC = 60.0
 # As above for the along-track resolved acceleration term.
 AT_WASHOUT_TC = 60.0
 
+# Minimum threshold for detecting a bounced landing. Bounced landings lower
+# than this will not be identified or held in a database. Note: The event
+# threshold is higher than this.
+BOUNCED_LANDING_THRESHOLD = 2.0
+
 # Force to start checking control stiffness. Intended to be the same setting
 # for all three flying controls.
 CONTROL_FORCE_THRESHOLD = 3.0 # lb

@@ -54,6 +54,7 @@ from analysis_engine.library import (align,
                                      dp_over_p2mach,
                                      dp2tas,
                                      machtat2sat)
+from analysis_engine.velocity_speed import get_vspeed_map
 
 from settings import (AZ_WASHOUT_TC,
                       AT_WASHOUT_TC,
@@ -227,24 +228,78 @@ class AirspeedReference(DerivedParameterNode):
     A fixed value will most likely be zero making this relative airspeed
     derived parameter the same as the original absolute airspeed parameter.
     '''
-    def derive (self, spd = P('Airspeed'), param = P('Vapp')):
-        #spd = P('Airspeed'), param = P('Vapp'), attrib = A('FDR Vref')):
+    @classmethod
+    def can_operate(cls, available):
+        works_with_any = ['Vapp', 'Vref', 'FDR Vapp', 'FDR Vref']
+        existing_values = any([_node in available for _node in works_with_any])
+        
+        x = set(available)
+        base_for_lookup = ['Airspeed', 'Gross Weight Smoothed', 'Series', 'Family', 'Approach']
+        airbus = set(base_for_lookup + ['Config']).issubset(x)
+        boeing = set(base_for_lookup + ['Flap']).issubset(x)
+        return existing_values or airbus or boeing
+
+    def derive (self,
+                spd=P('Airspeed'),
+                gw=P('Gross Weight Smoothed'),
+                flap=P('Flap'),
+                config=P('Config'),
+                vapp=P('Vapp'),
+                vref=P('Vref'),
+                fdr_vapp=A('FDR Vapp'),
+                fdr_vref=A('FDR Vref'),
+                apps=S('Approach'),
+                series=A('Series'),
+                family=A('Family')):
+
         '''
         Currently a work in progress. We should use a recorded parameter if
         it's available, failing that a computed forumla reflecting the
         aircraft condition and failing that a single value from the achieved
-        flight file.
+        flight file. Achieved flight records without a recorded value will be
+        repeated thoughout the flight, calculated values will be calculated
+        for each approach.
+        Rises KeyError if no entires for Family/Series in vspeed lookup map.
         '''
-        if param:
-            self.array = param.array
-        
-        # How do we enter tabulated values here?
-        
-        #elif attrib:
-            #self.array = np_ma_ones_like(spd.array) * attrib.value
-        
+        if vapp:
+            # Vapp is recorded so use this
+            self.array = vapp.array
+        elif vref:
+            # Vref is recorded so use this
+            self.array = vref.array
+        elif spd and (fdr_vapp or fdr_vref):
+            # Vapp/Vref is supplied from FDR so use this
+            fdr_vspeed = fdr_vapp or fdr_vref
+            self.array = np.ma.zeros(len(spd.array), np.double)
+            self.array.mask=True
+            for approach in apps:
+                self.array[approach.slice] = fdr_vspeed.value
         else:
-            self.array = np_ma_zeros_like(spd.array) 
+            # elif apps and spd and gw and (flap or config):
+            # No values recorded or supplied so lookup in vspeed tables
+            setting_param = flap or config
+            
+            # Was:
+            #self.array = np.ma.zeros(len(spd.array), np.double)
+            #self.array.mask=True
+            # Better:
+            self.array = np_ma_masked_zeros_like(spd.array)
+
+            vspeed_class = get_vspeed_map(series.value, family.value)
+
+            if vspeed_class:
+                vspeed_table = vspeed_class() # instansiate VelocitySpeed object
+                # allow up to 2 superframe values to be repaired (64*2=128 + a bit)
+                repaired_gw = repair_mask(gw.array, repair_duration=130, copy=True)
+                for approach in apps:
+                    index = np.ma.argmax(setting_param.array[approach.slice])
+                    weight = repaired_gw[approach.slice][index]
+                    setting = setting_param.array[approach.slice][index]
+                    vspeed = vspeed_table.airspeed_reference(weight, setting)
+                    self.array[approach.slice] = vspeed
+            else:
+                # aircraft does not use vspeeds
+                pass
 
 
 # TODO: Write some unit tests!
@@ -256,7 +311,7 @@ class AirspeedRelative(DerivedParameterNode):
     def derive(self, airspeed=P('Airspeed'), vref=P('Airspeed Reference')):
         '''
         '''
-        self.array = airspeed.array - vref.value
+        self.array = airspeed.array - vref.array
 
 
 # TODO: Write some unit tests!
@@ -500,7 +555,8 @@ class AltitudeAAL(DerivedParameterNode):
                         if alt_vals[n+2] > alt_vals[n+1]:
                             # A down and up section.
                             down_up = slice(alt_idxs[n], alt_idxs[n+2])
-                            if alt_rad:
+                            # Is radio altimeter data both supplied and valid in this range?
+                            if alt_rad and np.ma.count(alt_rad.array[down_up])>0:
                                 # Let's find the lowest rad alt reading 
                                 #(this may not be exactly the highest ground, but 
                                 # it was probably the point of highest concern!)
@@ -510,7 +566,7 @@ class AltitudeAAL(DerivedParameterNode):
                                     # The rad alt measured height above a peak...
                                     dips.append(['over_gnd', down_up, alt_std.array[arg_hg_max], hg_max])
                             else:
-                                # We have no rad alt data.
+                                # We have no rad alt data we can use.
                                 # TODO: alt_std code needs careful checking. 
                                 if dips !=[] and dips[-1][0]=='high':
                                     # Join this dip onto the previous one
@@ -2130,8 +2186,9 @@ class Groundspeed(DerivedParameterNode):
             self.array, self.frequency, self.offset = \
                 blend_two_parameters(source_A, source_B)
 
-        elif frame_name in ['737-5']:
-            self.array = self.array
+        # Superfluous as the dependency tree will skip this.
+        ##elif frame_name in ['737-5']:
+            ##self.array = self.array
             
         else:
             raise DataFrameError(self.name, frame_name)
@@ -2363,17 +2420,31 @@ class HeadingIncreasing(DerivedParameterNode):
     def derive(self, head=P('Heading Continuous')):
         rot = np.ma.ediff1d(head.array, to_begin = 0.0)
         self.array = integrate(np.ma.abs(rot), head.frequency)
-        
+
+
+class HeadingTrueContinuous(DerivedParameterNode):
+    def derive(self, hdg=P('Heading True')):
+        self.array = straighten_headings(hdg.array)
+
 
 class HeadingTrue(DerivedParameterNode):
     """
     Compensates for magnetic variation, which will have been computed previously.
     """
+    @classmethod
+    def can_operate(cls, available):
+        return 'Heading Continuous' in available
+    
     units = 'deg'
     def derive(self, head=P('Heading Continuous'),
                var = P('Magnetic Variation')):
-        self.array = (head.array + var.array)%360.0
-        
+        if var:
+            self.array = (head.array + var.array)%360.0
+        else:
+            # Default to magnetic if we know no better.
+            self.array = head.array
+
+            
         """
         # We copy the masked array to transfer the mask array. All the data
         # values will be overwritten, but the mask will not be affected by
@@ -2496,7 +2567,7 @@ class ILSRange(DerivedParameterNode):
                glide = P('ILS Glideslope'),
                gspd = P('Groundspeed'),
                drift = P('Drift'),
-               head = P('Heading True'),
+               head = P('Heading True Continuous'),
                tas = P('Airspeed True'),
                alt_aal = P('Altitude AAL'),
                loc_established = S('ILS Localizer Established'),
@@ -2818,14 +2889,15 @@ class CoordinatesSmoothed(object):
                 
                 # Finally, tack the ground track onto the end of the landing run
                 if approach['type'] == 'LANDING':
-                    # In some cases the bearings and distances computed
-                    # from ILS data may be masked at the end of the
-                    # approach, so we scan back to connect the ground
-                    # track onto the end of the valid data.
+                    ## In some cases the bearings and distances computed
+                    ## from ILS data may be masked at the end of the
+                    ## approach, so we scan back to connect the ground
+                    ## track onto the end of the valid data.
                     
                     ##index, _ = first_valid_sample(lat_adj[slice(this_loc.slice.stop,this_loc.slice.start,-1)])
                     ##join_idx = (this_loc.slice.stop or 0) - index
                     
+                    # A transition at 40kts is simpler and works reliably.
                     join_idx = index_at_value(gspd.array, 40.0, this_loc.slice)
                     
                     if join_idx and (len(lat_adj) > join_idx): # We have some room to extend over.
@@ -2841,7 +2913,7 @@ class LatitudeSmoothed(DerivedParameterNode, CoordinatesSmoothed):
     @classmethod
     def can_operate(cls, available):
         # List the minimum required parameters.
-        return 'Heading True' in available and 'Latitude Prepared' in available
+        return 'Heading True Continuous' in available and 'Latitude Prepared' in available
      
     units = 'deg'
     
@@ -2852,7 +2924,7 @@ class LatitudeSmoothed(DerivedParameterNode, CoordinatesSmoothed):
                ils_range = P('ILS Range'),
                ils_loc = P('ILS Localizer'),
                gspd = P('Groundspeed'),
-               hdg=P('Heading True'),
+               hdg=P('Heading True Continuous'),
                head_mag=P('Heading Continuous'),
                tas = P('Airspeed True'),
                precise =A('Precise Positioning'),
@@ -2886,7 +2958,7 @@ class LongitudeSmoothed(DerivedParameterNode, CoordinatesSmoothed):
     @classmethod
     def can_operate(cls, available):
         # List the minimum required parameters.
-        return 'Heading True' in available and 'Longitude Prepared' in available
+        return 'Heading True Continuous' in available and 'Longitude Prepared' in available
     
     units = 'deg'
     
@@ -2897,7 +2969,7 @@ class LongitudeSmoothed(DerivedParameterNode, CoordinatesSmoothed):
                ils_range = P('ILS Range'),
                ils_loc = P('ILS Localizer'),
                gspd = P('Groundspeed'),
-               hdg = P('Heading True'),
+               hdg = P('Heading True Continuous'),
                head_mag=P('Heading Continuous'),
                tas = P('Airspeed True'),
                precise =A('Precise Positioning'),
@@ -2928,18 +3000,13 @@ class LongitudeSmoothed(DerivedParameterNode, CoordinatesSmoothed):
             
 class Mach(DerivedParameterNode):
     '''
-    Provisional routine for blending alternate Mach sources, or computing a
-    value if none is available. Should be frame specific, hence
-    DataFrameError trap.
+    Mach derived from air data parameters for aircraft where no suitable Mach
+    data is recorded.
     '''
-    def derive(self, cas = P('Airspeed'), alt = P('Altitude STD'),
-               m1 = P('Mach (1)'), m2 = P('Mach (2)')):
-        if m1 and m2:
-            self.array, self.frequency, self.offset = blend_two_parameters(m1, m2)
-        else:
-            dp = cas2dp(cas.array)
-            p = alt2press(alt.array)
-            self.array = dp_over_p2mach(dp/p)
+    def derive(self, cas = P('Airspeed'), alt = P('Altitude STD')):
+        dp = cas2dp(cas.array)
+        p = alt2press(alt.array)
+        self.array = dp_over_p2mach(dp/p)
             
        
 class MagneticVariation(DerivedParameterNode):
@@ -3297,7 +3364,7 @@ class Headwind(DerivedParameterNode):
     This is the headwind, negative values are tailwind.
     """
     def derive(self, windspeed=P('Wind Speed'), wind_dir=P('Wind Direction Continuous'), 
-               head=P('Heading True')):
+               head=P('Heading True Continuous')):
         rad_scale = radians(1.0)
         self.array = windspeed.array * np.ma.cos((wind_dir.array-head.array)*rad_scale)
                 
@@ -3327,65 +3394,52 @@ class TAT(DerivedParameterNode):
             blend_two_parameters(source_1, source_2)
 
 
-class Vapp(DerivedParameterNode):
-    '''
-    Based on weight and flap at next intended landing.
-    '''
-    name = 'FDR Vapp'
-    def derive(self, flap=P('Flap'), weight=P('Gross Weight Smoothed'),
-               app_lows=KTI('Lowest Point On Approach')):
-        
-        def _vapp(weight, flap):
-            #TODO: V Speed calculations replace below...
-            if flap > 0:
-                return weight/(flap*15) # Silly formula for developing structure only.
-            else:
-                pass
-            
-        # Initialize the result space.
-        self.array = np_ma_masked_zeros_like(flap.array)
-        
-        # Fill the array with the last approach (and landing) Vapp, providing
-        # that the data does have a final landing of course:-
-        if app_lows.get_last():
-            pit_idx = app_lows.get_last().index
-            pit_wt = weight.array[pit_idx]
-            pit_flap = flap.array[pit_idx]
-            self.array[:] = _vapp(pit_wt, pit_flap)
-            
-            # If we made an approach earlier, fill up to the go-around point with
-            # the appropriate V2 value.
-            while app_lows.get_previous(pit_idx):
-                pit_idx = app_lows.get_previous(pit_idx).index
-                pit_wt = weight.array[pit_idx]
-                pit_flap = flap.array[pit_idx]
-                self.array[:pit_idx] = _vapp(pit_wt, pit_flap)
-         
-         
 class V2(DerivedParameterNode):
     '''
-    Based on weight and flap at time of landing.
+    Based on weight and flap at time of Liftoff, first liftoff only.
     '''
-    def derive(self, flap=P('Flap'), weight_liftoff=KPV('Gross Weight At Liftoff')):
-        
-        def _v2(weight, flap):
-            #TODO: V Speed calculations replace below...
-            return 100.0 # Silly formula for developing structure only.
-        
+    @classmethod
+    def can_operate(cls, available):
+        x = set(available)
+        fdr = 'FDR V2' in x
+        base_for_lookup = ['Airspeed', 'Gross Weight At Liftoff', 'Series', 'Family']
+        config = set(base_for_lookup + ['Config']).issubset(x)
+        flap = set(base_for_lookup + ['Flap']).issubset(x)
+        return fdr or config or flap
+
+    def derive(self, 
+               spd=P('Airspeed'),
+               flap=P('Flap'),
+               config=P('Config'),
+               fdr_v2=A('FDR V2'),
+               weight_liftoff=KPV('Gross Weight At Liftoff'),
+               series=A('Series'),
+               family=A('Family')):
+
         # Initialize the result space.
-        self.array = np_ma_masked_zeros_like(flap.array)
-        
-        end=None
-        countdown = range(len(weight_liftoff),0,-1)
-        for each_one in countdown:
-            each = each_one - 1
-            each_weight = weight_liftoff[each].value
-            each_index = weight_liftoff[each].index
-            each_flap = flap.array[each_index]
-            self.array[each_index:end] = _v2(each_weight, each_flap)
-            end = each_index # so the next one will precede this.
-        
-        
+        self.array = np_ma_masked_zeros_like(spd.array)
+        self.array.mask = True
+
+        if fdr_v2:
+            # v2 supplied, use this
+            self.array = fdr_v2.value
+        elif weight_liftoff:
+            vspeed_class = get_vspeed_map(series.value, family.value)
+            setting_param = flap or config
+            if vspeed_class:
+                vspeed_table = vspeed_class()
+                index = weight_liftoff[0].index
+                weight = weight_liftoff[0].value
+                setting = setting_param.array[index]
+                vspeed = vspeed_table.v2(weight, setting)
+                self.array[0:] = vspeed
+            else:
+                # Aircraft doesnt use V2
+                self.array.mask = False
+        else:
+            # no lift off leave zero masked array
+            pass
+
 class WindAcrossLandingRunway(DerivedParameterNode):
     """
     This is the windspeed across the final landing runway, positive wind from left to right.
@@ -3452,16 +3506,17 @@ class Elevator(DerivedParameterNode):
         self.array, self.frequency, self.offset = blend_two_parameters(el, er)
 
 
-class ElevatorTrim(DerivedParameterNode): # PitchTrim
-    '''
-    '''
-    # TODO: TEST
-    name = 'Elevator Trim' # Pitch Trim
+# This should be pitch trim. Left in place in case we find an Elevator Trim (L) !
+##class ElevatorTrim(DerivedParameterNode): # PitchTrim
+    ##'''
+    ##'''
+    ### TODO: TEST
+    ##name = 'Elevator Trim' # Pitch Trim
 
-    def derive(self,
-               etl=P('Elevator Trim (L)'),
-               etr=P('Elevator Trim (R)')):
-        self.array, self.frequency, self.offset = blend_two_parameters(etl, etr)
+    ##def derive(self,
+               ##etl=P('Elevator Trim (L)'),
+               ##etr=P('Elevator Trim (R)')):
+        ##self.array, self.frequency, self.offset = blend_two_parameters(etl, etr)
 
 
 ################################################################################
