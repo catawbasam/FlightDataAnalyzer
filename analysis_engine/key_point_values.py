@@ -1290,7 +1290,7 @@ class DistancePastGlideslopeAntennaToTouchdown(KeyPointValueNode):
             land_idx=tdwns[-1].index
             # Check we did do an ILS approach (i.e. the ILS frequency was correct etc).
             if is_index_within_sections(land_idx, ils_ldgs)\
-               and 'start' in rwy.value:
+               and rwy.value and 'start' in rwy.value:
                 # Yes it was, so do the geometry...
                 gs = runway_distance_from_end(rwy.value, point='glideslope')
                 td = runway_distance_from_end(rwy.value, lat.array[land_idx], lon.array[land_idx])
@@ -1319,7 +1319,7 @@ class DistanceFrom60KtToRunwayEnd(KeyPointValueNode):
         if tdwns!=[]:
             land_idx=tdwns[-1].index
             idx_60 = index_at_value(gspd.array,60.0,slice(land_idx,None))
-            if idx_60 and 'start' in rwy.value:
+            if idx_60 and rwy.value and 'start' in rwy.value:
                 # Only work out the distance if we have a reading at 60kts...
                 distance = runway_distance_from_end(rwy.value, lat.array[idx_60], lon.array[idx_60])
                 self.create_kpv(idx_60, distance) # Metres
