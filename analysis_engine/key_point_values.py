@@ -2636,17 +2636,24 @@ class GroundspeedTaxiingStraightMax(KeyPointValueNode):
     data.
     '''
     def derive(self, gspeed=P('Groundspeed'), taxis=S('Taxiing'), 
-               turns=S('Turning On Ground')):
-        gspd = np.ma.copy(gspeed.array) # Prepare to change mask here.
+            turns=S('Turning On Ground')):
+        gspd = np.ma.copy(gspeed.array)  # Prepare to change mask.
         for turn in turns:
             gspd[turn.slice]=np.ma.masked
         self.create_kpvs_within_slices(gspd, taxis, max_value)
 
 
 class GroundspeedTaxiingTurnsMax(KeyPointValueNode):
-    def derive(self, gspeed=P('Groundspeed'), 
-               turns=S('Turning On Ground')):
-        self.create_kpvs_within_slices(gspeed.array, turns, max_value)
+    '''
+    '''
+
+    def derive(self, gspeed=P('Groundspeed'), taxis=S('Taxiing'),
+            turns=S('Turning On Ground')):
+        '''
+        '''
+        gspd = np.ma.copy(gspeed.array)  # Prepare to change mask.
+        gspd = mask_outside_slices(gspd, [t.slice for t in turns])
+        self.create_kpvs_within_slices(gspd, taxis, max_value)
 
     
 class GroundspeedRTOMax(KeyPointValueNode):
