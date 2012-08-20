@@ -36,7 +36,7 @@ def get_path(relative_path):
     Convert a relative path to the asset path. Accounts for being frozen.
     '''
     file_path = relative_path.lstrip('/')
-    if sys.frozen:
+    if getattr(sys, 'frozen', False):
         # http://www.pyinstaller.org/export/v1.5.1/project/doc/Manual.html?format=raw#accessing-data-files
         if '_MEIPASS2' in os.environ:
             # --onefile distribution
@@ -137,7 +137,7 @@ class GetHandler(BaseHTTPRequestHandler):
     ############################################################################
     
     def _respond_with_static(self, path):
-        file_path = get_path(relative_path)
+        file_path = get_path(path)
         # try and serve from the current directory
         if file_path.endswith('.js'):
             content_type = 'text/javascript'
@@ -260,7 +260,7 @@ class GetHandler(BaseHTTPRequestHandler):
 
 if __name__ == '__main__':
     server = HTTPServer(('localhost', 8080), GetHandler)
-    print 'Starting server at http://localhost:8080/index (use <Ctrl-C> to stop)'
+    print 'Starting server. Browse to http://localhost:8080/ (use <Ctrl-C> to stop)'
     try:
         server.serve_forever()
     except KeyboardInterrupt:
