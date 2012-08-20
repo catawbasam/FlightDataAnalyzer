@@ -1309,7 +1309,11 @@ class KeyPointValueNode(FormattedNameNode):
         
         # High level function scans phase blocks or complete array and presents
         # appropriate arguments for analysis.
-        if phase:
+        
+        # Note the test for "if phase != None" rather than just "if phase"
+        # because phase=[] for phases that are evaluated but have not
+        # occurred in this flight.
+        if phase != None: 
             for each_period in phase:
                 to_scan = array[each_period.slice]
                 find_events(to_scan, each_period.slice.start or 0)

@@ -95,7 +95,7 @@ def align(slave, master, data_type=None):
         if wm>ws:
             # Increase samples in slave accordingly
             r = wm/ws
-            assert r in [2, 4, 8, 16, 32, 64, 128, 256], \
+            assert r in [2, 4, 8, 16, 32, 64, 128, 256, 512], \
                 "slave = '%s' @ %sHz; master = '%s' @ %sHz; r=%s" \
                 % (slave.name, slave.hz, master.name, master.hz, r)
             slave_aligned = np.ma.repeat(slave.array, r)
@@ -104,7 +104,7 @@ def align(slave, master, data_type=None):
         else:
             # Reduce samples in slave.
             r = ws/wm
-            assert r in [2, 4, 8, 16, 32, 64, 128, 256], \
+            assert r in [2, 4, 8, 16, 32, 64, 128, 256, 512], \
                 "slave = '%s' @ %sHz; master = '%s' @ %sHz; r=%s" \
                 % (slave.name, slave.hz, master.name, master.hz, r)
             slave_aligned=np.ma.empty_like(master.array)

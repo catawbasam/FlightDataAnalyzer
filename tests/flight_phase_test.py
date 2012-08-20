@@ -11,6 +11,7 @@ from analysis_engine.key_time_instances import (BottomOfDescent,
 from analysis_engine.plot_flight import plot_parameter
 from analysis_engine.flight_phase import (Airborne,
                                           Approach,
+                                          BouncedLanding,
                                           ClimbCruiseDescent,
                                           Climbing,
                                           Cruise,
@@ -183,6 +184,36 @@ class TestApproach(unittest.TestCase):
                    land, ga)
         expected = buildsections('Approach', [0, 2], [3, 6])
         self.assertEqual(app, expected)
+
+class TestBouncedLanding(unittest.TestCase):
+    def test_bounce_basic(self):
+        fast = buildsection('Fast',2,13)
+        airborne = buildsection('Airborne', 3,10)
+        alt = np.ma.array([0,0,0,2,10,30,10,2,0,0,0,0,0,0])
+        bl = BouncedLanding()
+        bl.derive(Parameter('Altitude AAL', alt), airborne, fast)
+        expected = []
+        self.assertEqual(bl, expected)
+        
+    def test_bounce_with_bounce(self):
+        fast = buildsection('Fast',2,13)
+        airborne = buildsection('Airborne', 3,8)
+        alt = np.ma.array([0,0,0,2,10,30,10,2,0,3,3,0,0,0])
+        bl = BouncedLanding()
+        bl.derive(Parameter('Altitude AAL', alt), airborne, fast)
+        expected = buildsection('Bounced Landing', 9, 11)
+        self.assertEqual(bl, expected)
+        
+    def test_bounce_with_double_bounce(self):
+        fast = buildsection('Fast',2,13)
+        airborne = buildsection('Airborne', 3,8)
+        alt = np.ma.array([0,0,0,2,10,30,10,2,0,3,0,5,0])
+        bl = BouncedLanding()
+        bl.derive(Parameter('Altitude AAL', alt), airborne, fast)
+        expected = buildsection('Bounced Landing', 9, 12)
+        self.assertEqual(bl, expected)
+        
+
 
 
 class TestILSLocalizerEstablished(unittest.TestCase):

@@ -1830,12 +1830,12 @@ if __name__ == '__main__':
 class TestHeadwind(unittest.TestCase):
     def test_can_operate(self):
         opts=Headwind.get_operational_combinations()
-        self.assertEqual(opts, [('Wind Speed', 'Wind Direction Continuous', 'Heading True')])
+        self.assertEqual(opts, [('Wind Speed', 'Wind Direction Continuous', 'Heading True Continuous')])
     
     def test_real_example(self):
         ws = P('Wind Speed', np.ma.array([84.0]))
         wd = P('Wind Direction Continuous', np.ma.array([-21]))
-        head=P('Heading True', np.ma.array([30]))
+        head=P('Heading True Continuous', np.ma.array([30]))
         hw = Headwind()
         hw.derive(ws,wd,head)
         expected = np.ma.array([52.8629128481863])
@@ -1844,7 +1844,7 @@ class TestHeadwind(unittest.TestCase):
     def test_odd_angles(self):
         ws = P('Wind Speed', np.ma.array([20.0]*8))
         wd = P('Wind Direction Continuous', np.ma.array([0, 90, 180, -180, -90, 360, 23, -23], dtype=float))
-        head=P('Heading True', np.ma.array([-180, -90, 0, 180, 270, 360*15, 361*23, 359*23], dtype=float))
+        head=P('Heading True Continuous', np.ma.array([-180, -90, 0, 180, 270, 360*15, 361*23, 359*23], dtype=float))
         hw = Headwind()
         hw.derive(ws,wd,head)
         expected = np.ma.array([-20]*3+[20]*5)

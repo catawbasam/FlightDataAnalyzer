@@ -470,12 +470,7 @@ class Touchdown(KeyTimeInstanceNode):
                 if t1:
                     self.create_kti(t1)
                 
-                
-class TouchdownRecorded(KeyTimeInstanceNode):
-    def derive(self, ldg_sw = P('IN AIR')):
-        self.create_ktis_at_edges(ldg_sw.array, direction='falling_edges')
-                    
-                    
+                                    
 class LandingTurnOffRunway(KeyTimeInstanceNode):
     # See Takeoff Turn Onto Runway for description.
     def derive(self, head=P('Heading Continuous'),

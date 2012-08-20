@@ -73,8 +73,8 @@ class Approaches(FlightAttributeNode):
                                              'Altitude AAL',
                                              'Latitude At Lowest Point On Approach',
                                              'Longitude At Lowest Point On Approach',
-                                             'Latitude At Landing',
-                                             'Longitude At Landing']])
+                                             'Latitude At Touchdown',
+                                             'Longitude At Touchdown']])
         
     def _get_lat_lon(self, approach_slice, lat_kpv_node, lon_kpv_node):
         lat_kpvs = lat_kpv_node.get(within_slice=approach_slice)
@@ -180,8 +180,8 @@ class Approaches(FlightAttributeNode):
                approach_sections=S('Approach'),
                speedy=S('Fast'),
                landing_hdg_kpvs=KPV('Heading At Landing'),
-               landing_lat_kpvs=KPV('Latitude At Landing'),
-               landing_lon_kpvs=KPV('Longitude At Landing'),
+               landing_lat_kpvs=KPV('Latitude At Touchdown'),
+               landing_lon_kpvs=KPV('Longitude At Touchdown'),
                approach_hdg_kpvs=KPV('Heading At Lowest Point On Approach'),
                approach_lat_kpvs=KPV('Latitude At Lowest Point On Approach'),
                approach_lon_kpvs=KPV('Longitude At Lowest Point On Approach'),
@@ -336,8 +336,8 @@ class FlightNumber(FlightAttributeNode):
 class LandingAirport(FlightAttributeNode):
     "Landing Airport including ID and Name"
     name = 'FDR Landing Airport'
-    def derive(self, landing_latitude=KPV('Latitude At Landing'),
-               landing_longitude=KPV('Longitude At Landing')):
+    def derive(self, landing_latitude=KPV('Latitude At Touchdown'),
+               landing_longitude=KPV('Longitude At Touchdown')):
         '''
         See TakeoffAirport for airport dictionary format.
         
@@ -348,7 +348,7 @@ class LandingAirport(FlightAttributeNode):
         last_latitude = landing_latitude.get_last()
         last_longitude = landing_longitude.get_last()
         if not last_latitude or not last_longitude:
-            self.warning("'Latitude At Landing' and/or 'Longitude At "
+            self.warning("'Latitude At Touchdown' and/or 'Longitude At "
                             "Landing' KPVs did not exist, therefore '%s' "
                             "cannot query for landing airport.",
                             self.__class__.__name__)
@@ -382,8 +382,8 @@ class LandingRunway(FlightAttributeNode):
     def derive(self, approach_and_landing=S('Approach'),
                landing_hdg=KPV('Heading At Landing'),
                airport=A('FDR Landing Airport'),
-               landing_latitude=KPV('Latitude At Landing'),
-               landing_longitude=KPV('Longitude At Landing'),
+               landing_latitude=KPV('Latitude At Touchdown'),
+               landing_longitude=KPV('Longitude At Touchdown'),
                approach_ilsfreq=KPV('ILS Frequency On Approach'),
                precision=A('Precise Positioning')
                ):
@@ -473,8 +473,8 @@ class OnBlocksDatetime(FlightAttributeNode):
 class TakeoffAirport(FlightAttributeNode):
     "Takeoff Airport including ID and Name"
     name = 'FDR Takeoff Airport'
-    def derive(self, latitude_at_takeoff=KPV('Latitude At Takeoff'),
-               longitude_at_takeoff=KPV('Longitude At Takeoff')):
+    def derive(self, latitude_at_takeoff=KPV('Latitude At Liftoff'),
+               longitude_at_takeoff=KPV('Longitude At Liftoff')):
         '''
         Requests the nearest airport to the latitude and longitude at liftoff
         from the API and sets it as an attribute.
@@ -610,8 +610,8 @@ class TakeoffRunway(FlightAttributeNode):
 
     def derive(self, airport=A('FDR Takeoff Airport'),
                hdg=KPV('Heading At Takeoff'),
-               latitude_at_takeoff=KPV('Latitude At Takeoff'),
-               longitude_at_takeoff=KPV('Longitude At Takeoff'),
+               latitude_at_takeoff=KPV('Latitude At Liftoff'),
+               longitude_at_takeoff=KPV('Longitude At Liftoff'),
                precision=A('Precise Positioning')):
         '''
         Runway information is in the following format:

@@ -70,64 +70,33 @@ class VelocitySpeed(object):
         
         '''
         if self.weight_unit == 'lb':
-            weight = aircraft_weight * KG_TO_LB
-        else:
+            # Convert to tonnes
+            weight = aircraft_weight / KG_TO_LB
+        elif self.weight_unit == 'kg':
+            # Convert to tonnes
+            weight = aircraft_weight / 1000.0
+        elif self.weight_unit == 't':
             weight = aircraft_weight
-
-        weight = weight / self.unit
+        else:
+            raise ValueError, "Unrecognised weight units"
+        
+        # Sorry - not clear what this means.
+        # ??? weight = weight / self.unit
 
         if self.interpolate:
             # numpy interpolate
             # raises ValueError if weight is outside of table weight boundaries
-            f = interp.interp1d(lookup['weight'], lookup[setting])
-            value = f(weight)
+            try:
+                f = interp.interp1d(lookup['weight'], lookup[setting])
+                value = f(weight)
+            except:
+                value = None
         else:
             # bisect lookup
             value_index = bisect_left(lookup['weight'], weight)
             value = lookup[setting][value_index]
         return value
 
-
-class B767(VelocitySpeed):
-    '''
-    '''
-
-    interpolate = False
-    source = 'DHL 767 Flight Crew Operations Manual'
-    weight_unit = 'kg'
-    unit = 1000
-    v2_table = {
-             'weight':  (100, 110, 120, 130, 140, 150, 160, 170, 180, 190),
-                    5:  (127, 134, 139, 145, 151, 156, 161, 166, 171, 176),
-                   15:  (122, 128, 134, 139, 144, 149, 154, 159, 164, 168),
-                   20:  (118, 124, 129, 134, 140, 144, 149, 154, 159, 164),
-        }
-    airspeed_reference_table = {
-             'weight':  (100, 110, 120, 130, 140, 150, 160, 170, 180, 190),
-                    5:  (114, 121, 128, 134, 141, 147, 153, 158, 164, 169),
-                   15:  (109, 116, 122, 129, 141, 135, 146, 151, 157, 162),
-                   20:  (105, 111, 118, 124, 130, 135, 141, 147, 152, 158),
-        }
-
-class B737_800(VelocitySpeed):
-    '''
-    '''
-
-    interpolate = False
-    source = 'DHL 767 Flight Crew Operations Manual'
-    weight_unit = 't'
-    v2_table = {
-             'weight':  (100, 110, 120, 130, 140, 150, 160, 170, 180, 190),
-                    5:  (127, 134, 139, 145, 151, 156, 161, 166, 171, 176),
-                   15:  (122, 128, 134, 139, 144, 149, 154, 159, 164, 168),
-                   20:  (118, 124, 129, 134, 140, 144, 149, 154, 159, 164),
-        }
-    airspeed_reference_table = {
-             'weight':  (100, 110, 120, 130, 140, 150, 160, 170, 180, 190),
-                    5:  (114, 121, 128, 134, 141, 147, 153, 158, 164, 169),
-                   15:  (109, 116, 122, 129, 141, 135, 146, 151, 157, 162),
-                   20:  (105, 111, 118, 124, 130, 135, 141, 147, 152, 158),
-        }
 
 class B737_300(VelocitySpeed):
     interpolate = True
@@ -148,6 +117,7 @@ class B737_300(VelocitySpeed):
     }
 
 class B737_400(VelocitySpeed):
+    interpolate = True
     source = 'AGS B737-5_925017_07.add'
     unit = 1000
     weight_unit = 'kg'
@@ -159,6 +129,7 @@ class B737_400(VelocitySpeed):
     }
 
 class B737_500(VelocitySpeed):
+    interpolate = True
     source = 'AGS B737-5_925017_07.add'
     unit = 1000
     weight_unit = 'kg'
@@ -168,6 +139,37 @@ class B737_500(VelocitySpeed):
                     30: (105, 111, 117, 123, 129, 135, 140, 144, 149),
                     40: (101, 108, 114, 120, 125, 130, 135, 140, 145),
     }
+    
+class B737_800(VelocitySpeed):
+    '''
+    V2 & Vref for the 737-NG class aircraft is recorded in the data frame, so
+    no compuation is required.
+    '''
+    pass
+    #interpolate = False
+    #source = ''
+    #weight_unit = 'kg'
+
+class B767(VelocitySpeed):
+    '''
+    '''
+    interpolate = False
+    source = 'DHL 767 Flight Crew Operations Manual'
+    weight_unit = 'kg'
+    unit = 1000
+    v2_table = {
+             'weight':  (100, 110, 120, 130, 140, 150, 160, 170, 180, 190),
+                    5:  (127, 134, 139, 145, 151, 156, 161, 166, 171, 176),
+                   15:  (122, 128, 134, 139, 144, 149, 154, 159, 164, 168),
+                   20:  (118, 124, 129, 134, 140, 144, 149, 154, 159, 164),
+        }
+    airspeed_reference_table = {
+             'weight':  (100, 110, 120, 130, 140, 150, 160, 170, 180, 190),
+                    5:  (114, 121, 128, 134, 141, 147, 153, 158, 164, 169),
+                   15:  (109, 116, 122, 129, 141, 135, 146, 151, 157, 162),
+                   20:  (105, 111, 118, 124, 130, 135, 141, 147, 152, 158),
+        }
+
 
 def get_vspeed_map(series=None, family=None):
     """
@@ -200,7 +202,7 @@ series_vspeed_map = {
     'B737-300' : B737_300,
     'B737-400' : B737_400,
     'B737-500' : B737_500,
-    'B737_800' : B737_800,
+    'B737-800' : B737_800,
 }
 
 family_vspeed_map = {

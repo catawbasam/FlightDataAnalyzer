@@ -82,8 +82,8 @@ def track_to_kml(hdf_path, kti_list, kpv_list, flight_list, plot_altitude=False)
     #lon = derived_param_from_hdf(hdf, 'Longitude Prepared')
     #add_track(kml, 'Prepared', lat, lon, 'ff0000ff')
     
-    lat_r = derived_param_from_hdf(hdf, 'Latitude')
-    lon_r = derived_param_from_hdf(hdf, 'Longitude')
+    #lat_r = derived_param_from_hdf(hdf, 'Latitude')
+    #lon_r = derived_param_from_hdf(hdf, 'Longitude')
     #add_track(kml, 'Recorded', lat_r, lon_r, 'ff0000ff', hdf[plot_altitude])
 
     for kti in kti_list:
@@ -109,7 +109,8 @@ def track_to_kml(hdf_path, kti_list, kpv_list, flight_list, plot_altitude=False)
                 (smooth_lon.at(kpv.index), smooth_lat.at(kpv.index), altitude,),)
             kpv_point_values['altitudemode'] = simplekml.constants.AltitudeMode.relativetoground 
         else:
-            kpv_point_values['coords'] = ((smooth_lon.at(kpv.index), altitude,),)
+            kpv_point_values['coords'] = (
+                (smooth_lon.at(kpv.index), smooth_lat.at(kpv.index),),)
             kpv_point_values['altitudemode'] = simplekml.constants.AltitudeMode.clamptoground 
         
         pnt = kml.newpoint(**kpv_point_values)
@@ -118,8 +119,10 @@ def track_to_kml(hdf_path, kti_list, kpv_list, flight_list, plot_altitude=False)
     for attribute in flight_list:
         if attribute.name in ['FDR Approaches']:
             for app in attribute.value:
-                draw_centreline(kml, app['runway'])
-                pass
+                try:
+                    draw_centreline(kml, app['runway'])
+                except:
+                    pass
 
     kml.save(hdf_path+".kml")
     hdf.close()
