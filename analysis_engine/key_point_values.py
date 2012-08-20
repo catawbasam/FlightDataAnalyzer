@@ -20,6 +20,7 @@ from analysis_engine.library import (clip,
                                      index_at_value, 
                                      integrate,
                                      is_index_within_sections,
+                                     mask_inside_slices,
                                      mask_outside_slices,
                                      max_abs_value,
                                      max_continuous_unmasked, 
@@ -35,7 +36,6 @@ from analysis_engine.library import (clip,
                                      slice_samples, 
                                      slices_overlap,
                                      slices_and,
-                                     slices_or,
                                      value_at_index)
 
 
@@ -2502,10 +2502,15 @@ class FlapWithSpeedbrakesDeployedMax(KeyPointValueNode):
         '''
         Speedbrake Selection: 0 = Stowed, 1 = Armed, 2 = Deployed.
         '''
+        array = flap.array
         # Mask all values where speedbrake isn't deployed:
-        flap.array[speedbrake.array < 2] = np.ma.masked
-        skip_slices = slices_or([s.slice for s in airs], [s.slice for s in lands])
-        index, value = max_value(mask_outside_slices(flap.array, skip_slices))
+        array[speedbrake.array < 2] = np.ma.masked
+        # Mask all values where the aircraft isn't airborne:
+        array = mask_outside_slices(array, [s.slice for s in airs])
+        # Mask all values where the aircraft is landing (as we expect speedbrake to be deployed):
+        array = mask_inside_slices(array, [s.slice for s in lands])
+        # Determine the maximum flap value when the speedbrake is deployed:
+        index, value = max_value(array)
         # It is normal for flights to be flown without speedbrake and flap
         # together, so trap this case to avoid nuisance warnings:
         if index and value:
