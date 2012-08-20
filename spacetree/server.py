@@ -31,6 +31,23 @@ from analysis_engine.process_flight import get_derived_nodes
 BASE_URL = 'https://polaris-test.flightdataservices.com' # 'https://polaris.flightdataservices.com'
 
 
+def get_path(relative_path):
+    '''
+    Convert a relative path to the asset path. Accounts for being frozen.
+    '''
+    file_path = relative_path.lstrip('/')
+    if sys.frozen:
+        # http://www.pyinstaller.org/export/v1.5.1/project/doc/Manual.html?format=raw#accessing-data-files
+        if '_MEIPASS2' in os.environ:
+            # --onefile distribution
+            return os.path.join(os.environ['_MEIPASS2'], file_path)
+        else:
+            # -onedir distribution
+            return os.path.join(os.path.dirname(sys.executable), file_path)
+    else:
+        return file_path
+
+
 class GetHandler(BaseHTTPRequestHandler):
     _template_env = Environment(loader=PackageLoader('spacetree', 'templates'))
     
@@ -50,6 +67,7 @@ class GetHandler(BaseHTTPRequestHandler):
         '''
         Respond with rendered template.
         '''
+        print 'Responding with template:', template_path
         template = self._template_env.get_template(template_path)
         self._respond(template.render(**context), **kwargs)
     
@@ -119,16 +137,7 @@ class GetHandler(BaseHTTPRequestHandler):
     ############################################################################
     
     def _respond_with_static(self, path):
-        file_path = path.lstrip('/')
-        if sys.frozen:
-            # http://www.pyinstaller.org/export/v1.5.1/project/doc/Manual.html?format=raw#accessing-data-files
-            if '_MEIPASS2' in os.environ:
-                # --onefile distribution
-                file_path = os.path.join(os.environ['_MEIPASS2'], file_path)
-            else:
-                # -onedir distribution
-                file_path = os.path.join(os.path.dirname(sys.executable), file_path)
-                
+        file_path = get_path(relative_path)
         # try and serve from the current directory
         if file_path.endswith('.js'):
             content_type = 'text/javascript'
@@ -146,7 +155,7 @@ class GetHandler(BaseHTTPRequestHandler):
         :param error: Optional error to display with the form.
         :type error: str
         '''
-        self._respond_with_template('index.html', {
+        self._respond_with_template(get_path('index.html'), {
             'error': error,
         })
     
@@ -170,7 +179,7 @@ class GetHandler(BaseHTTPRequestHandler):
             return        
         param_names = self._generate_json(lfl_params)
         polaris_query, params, missing_params = self._fetch_params(param_names)     
-        self._respond_with_template('spacetree.html', {
+        self._respond_with_template(get_path('spacetree.html'), {
             'missing_params': missing_params,
             'params': sorted(params.items()),
             'polaris_query': polaris_query,
