@@ -48,11 +48,11 @@ def get_path(relative_path):
         return file_path
 
 
-class GetHandler(BaseHTTPRequestHandler):
-    _template_env = Environment(loader=PackageLoader('spacetree', 'templates'))
-    
+class GetHandler(BaseHTTPRequestHandler):    
     # Helper methods
     ############################################################################
+    _template_env = Environment(
+            loader=PackageLoader('spacetree', get_path('templates')))
     
     def _respond(self, body, status=200, content_type='text/html'):
         '''
@@ -155,7 +155,7 @@ class GetHandler(BaseHTTPRequestHandler):
         :param error: Optional error to display with the form.
         :type error: str
         '''
-        self._respond_with_template(get_path('index.html'), {
+        self._respond_with_template('index.html', {
             'error': error,
         })
     
@@ -179,7 +179,7 @@ class GetHandler(BaseHTTPRequestHandler):
             return        
         param_names = self._generate_json(lfl_params)
         polaris_query, params, missing_params = self._fetch_params(param_names)     
-        self._respond_with_template(get_path('spacetree.html'), {
+        self._respond_with_template('spacetree.html', {
             'missing_params': missing_params,
             'params': sorted(params.items()),
             'polaris_query': polaris_query,
