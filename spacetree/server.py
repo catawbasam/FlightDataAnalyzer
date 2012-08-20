@@ -31,11 +31,28 @@ from analysis_engine.process_flight import get_derived_nodes
 BASE_URL = 'https://polaris-test.flightdataservices.com' # 'https://polaris.flightdataservices.com'
 
 
-class GetHandler(BaseHTTPRequestHandler):
-    _template_env = Environment(loader=PackageLoader('spacetree', 'templates'))
-    
+def get_path(relative_path):
+    '''
+    Convert a relative path to the asset path. Accounts for being frozen.
+    '''
+    file_path = relative_path.lstrip('/')
+    if getattr(sys, 'frozen', False):
+        # http://www.pyinstaller.org/export/v1.5.1/project/doc/Manual.html?format=raw#accessing-data-files
+        if '_MEIPASS2' in os.environ:
+            # --onefile distribution
+            return os.path.join(os.environ['_MEIPASS2'], file_path)
+        else:
+            # -onedir distribution
+            return os.path.join(os.path.dirname(sys.executable), file_path)
+    else:
+        return file_path
+
+
+class GetHandler(BaseHTTPRequestHandler):    
     # Helper methods
     ############################################################################
+    _template_env = Environment(
+            loader=PackageLoader('spacetree', get_path('templates')))
     
     def _respond(self, body, status=200, content_type='text/html'):
         '''
@@ -50,6 +67,7 @@ class GetHandler(BaseHTTPRequestHandler):
         '''
         Respond with rendered template.
         '''
+        print 'Responding with template:', template_path
         template = self._template_env.get_template(template_path)
         self._respond(template.render(**context), **kwargs)
     
@@ -119,16 +137,7 @@ class GetHandler(BaseHTTPRequestHandler):
     ############################################################################
     
     def _respond_with_static(self, path):
-        file_path = path.lstrip('/')
-        if sys.frozen:
-            # http://www.pyinstaller.org/export/v1.5.1/project/doc/Manual.html?format=raw#accessing-data-files
-            if '_MEIPASS2' in os.environ:
-                # --onefile distribution
-                file_path = os.path.join(os.environ['_MEIPASS2'], file_path)
-            else:
-                # -onedir distribution
-                file_path = os.path.join(os.path.dirname(sys.executable), file_path)
-                
+        file_path = get_path(path)
         # try and serve from the current directory
         if file_path.endswith('.js'):
             content_type = 'text/javascript'
@@ -251,7 +260,7 @@ class GetHandler(BaseHTTPRequestHandler):
 
 if __name__ == '__main__':
     server = HTTPServer(('localhost', 8080), GetHandler)
-    print 'Starting server at http://localhost:8080/index (use <Ctrl-C> to stop)'
+    print 'Starting server. Browse to http://localhost:8080/ (use <Ctrl-C> to stop)'
     try:
         server.serve_forever()
     except KeyboardInterrupt:
