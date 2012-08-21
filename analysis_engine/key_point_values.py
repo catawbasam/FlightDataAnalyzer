@@ -20,6 +20,7 @@ from analysis_engine.library import (clip,
                                      index_at_value, 
                                      integrate,
                                      is_index_within_sections,
+                                     mask_inside_slices,
                                      mask_outside_slices,
                                      max_abs_value,
                                      max_continuous_unmasked, 
@@ -1290,7 +1291,7 @@ class DistancePastGlideslopeAntennaToTouchdown(KeyPointValueNode):
             land_idx=tdwns[-1].index
             # Check we did do an ILS approach (i.e. the ILS frequency was correct etc).
             if is_index_within_sections(land_idx, ils_ldgs)\
-               and rwy.value.has_key('start'):
+               and rwy.value and 'start' in rwy.value:
                 # Yes it was, so do the geometry...
                 gs = runway_distance_from_end(rwy.value, point='glideslope')
                 td = runway_distance_from_end(rwy.value, lat.array[land_idx], lon.array[land_idx])
@@ -1303,7 +1304,7 @@ class DistanceFromRunwayStartToTouchdown(KeyPointValueNode):
     units = 'm'
     def derive(self, lat=P('Latitude Smoothed'),lon=P('Longitude Smoothed'),
                tdwns=KTI('Touchdown'),rwy=A('FDR Landing Runway')):
-        if rwy.value and rwy.value.has_key('start'):
+        if rwy.value and 'start' in rwy.value:
             land_idx=tdwns[-1].index
             distance = runway_distance_from_end(rwy.value, point='start')-\
                 runway_distance_from_end(rwy.value, lat.array[land_idx], lon.array[land_idx])
@@ -1319,7 +1320,7 @@ class DistanceFrom60KtToRunwayEnd(KeyPointValueNode):
         if tdwns!=[]:
             land_idx=tdwns[-1].index
             idx_60 = index_at_value(gspd.array,60.0,slice(land_idx,None))
-            if idx_60 and rwy.value.has_key('start'):
+            if idx_60 and rwy.value and 'start' in rwy.value:
                 # Only work out the distance if we have a reading at 60kts...
                 distance = runway_distance_from_end(rwy.value, lat.array[idx_60], lon.array[idx_60])
                 self.create_kpv(idx_60, distance) # Metres
@@ -2497,13 +2498,19 @@ class FlapWithSpeedbrakesDeployedMax(KeyPointValueNode):
     '''
     '''
 
-    def derive(self, flap=P('Flap'), speedbrake=P('Speedbrake Selection'), airs=S('Airborne')):
+    def derive(self, flap=P('Flap'), speedbrake=P('Speedbrake Selection'), airs=S('Airborne'), lands=S('Landing')):
         '''
         Speedbrake Selection: 0 = Stowed, 1 = Armed, 2 = Deployed.
         '''
+        array = flap.array
         # Mask all values where speedbrake isn't deployed:
-        flap.array[speedbrake.array < 2] = np.ma.masked
-        index, value = max_value(mask_outside_slices(flap.array, [s.slice for s in airs]))
+        array[speedbrake.array < 2] = np.ma.masked
+        # Mask all values where the aircraft isn't airborne:
+        array = mask_outside_slices(array, [s.slice for s in airs])
+        # Mask all values where the aircraft is landing (as we expect speedbrake to be deployed):
+        array = mask_inside_slices(array, [s.slice for s in lands])
+        # Determine the maximum flap value when the speedbrake is deployed:
+        index, value = max_value(array)
         # It is normal for flights to be flown without speedbrake and flap
         # together, so trap this case to avoid nuisance warnings:
         if index and value:
@@ -2636,17 +2643,24 @@ class GroundspeedTaxiingStraightMax(KeyPointValueNode):
     data.
     '''
     def derive(self, gspeed=P('Groundspeed'), taxis=S('Taxiing'), 
-               turns=S('Turning On Ground')):
-        gspd = np.ma.copy(gspeed.array) # Prepare to change mask here.
+            turns=S('Turning On Ground')):
+        gspd = np.ma.copy(gspeed.array)  # Prepare to change mask.
         for turn in turns:
             gspd[turn.slice]=np.ma.masked
         self.create_kpvs_within_slices(gspd, taxis, max_value)
 
 
 class GroundspeedTaxiingTurnsMax(KeyPointValueNode):
-    def derive(self, gspeed=P('Groundspeed'), 
-               turns=S('Turning On Ground')):
-        self.create_kpvs_within_slices(gspeed.array, turns, max_value)
+    '''
+    '''
+
+    def derive(self, gspeed=P('Groundspeed'), taxis=S('Taxiing'),
+            turns=S('Turning On Ground')):
+        '''
+        '''
+        gspd = np.ma.copy(gspeed.array)  # Prepare to change mask.
+        gspd = mask_outside_slices(gspd, [t.slice for t in turns])
+        self.create_kpvs_within_slices(gspd, taxis, max_value)
 
     
 class GroundspeedRTOMax(KeyPointValueNode):
