@@ -3168,10 +3168,11 @@ class RateOfDescent500FtToTouchdownMax(KeyPointValueNode):
 
 class RateOfDescent20ToTouchdownMax(KeyPointValueNode):
     '''
+    We use the inertial rate of climb to avoid ground effects this low to the runway.
     '''
 
     def derive(self, alt_aal=P('Altitude AAL For Flight Phases'),
-            roc=P('Rate Of Climb'), tdwns=KTI('Touchdown')):
+            roc=P('Rate Of Climb Inertial'), tdwns=KTI('Touchdown')):
         '''
         '''
         self.create_kpvs_within_slices(
@@ -3183,9 +3184,11 @@ class RateOfDescent20ToTouchdownMax(KeyPointValueNode):
         
 class RateOfDescentAtTouchdown(KeyPointValueNode):
     '''
+    We use the inertial rate of climb to avoid ground effects and give an
+    accurate value at the point of touchdown.
     '''
 
-    def derive(self, roc=P('Rate Of Climb'), tdwns=KTI('Touchdown')):
+    def derive(self, roc=P('Rate Of Climb Inertial'), tdwns=KTI('Touchdown')):
         '''
         '''
         self.create_kpvs_at_ktis(roc.array, tdwns)

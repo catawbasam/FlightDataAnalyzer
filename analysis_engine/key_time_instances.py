@@ -330,7 +330,7 @@ class TakeoffPeakAcceleration(KeyTimeInstanceNode):
 
 
 class Liftoff(KeyTimeInstanceNode):
-    def derive(self, roc=P('Rate Of Climb For Flight Phases'), airs=S('Airborne')):
+    def derive(self, roc=P('Rate Of Climb Inertial'), airs=S('Airborne')):
         for air in airs:
             t0 = air.slice.start
             if t0:
@@ -342,34 +342,6 @@ class Liftoff(KeyTimeInstanceNode):
                 else:
                     self.create_kti(t0)
 
-"""
-class ILSLocalizerEstablished(KeyTimeInstanceNode):
-    name = 'ILS Localizer Established'
-
-    def established(self, ils_dots, _slice):
-        
-        # TODO: extract as settings
-        LOCALIZER_ESTABLISHED_THRESHOLD = 1.0
-        LOCALIZER_ESTABLISHED_MINIMUM_TIME = 10 # Seconds
-    
-        # Is the aircraft on the centreline during this phase?
-        # TODO: Rethink the mask and thresholds.
-        centreline = np.ma.masked_greater(np.ma.abs(repair_mask(ils_dots[_slice])),
-                                          LOCALIZER_ESTABLISHED_THRESHOLD)
-        cls = np.ma.clump_unmasked(centreline)
-        for cl in cls:
-            if cl.stop-cl.start > LOCALIZER_ESTABLISHED_MINIMUM_TIME:
-                # Long enough to be established and not just crossing the ILS.
-                return _slice.start+cl.start
-        return None
-            
-    def derive(self, ils_caps=S('ILS Localizer Established'),
-               ils_loc=P('ILS Localizer'), alt_aal=P('Altitude AAL')):
-        for ils_cap in ils_caps:
-            estab_idx = self.established(ils_loc.array, ils_cap.slice)
-            if estab_idx:
-                self.create_kti(estab_idx)
-                """
 
 class LowestPointOnApproach(KeyTimeInstanceNode):
     '''
@@ -419,7 +391,7 @@ class TouchAndGo(KeyTimeInstanceNode):
 
 
 class Touchdown(KeyTimeInstanceNode):
-    def derive(self, roc=P('Rate Of Climb'), alt=P('Altitude Radio'), airs=S('Airborne'), lands=S('Landing')
+    def derive(self, roc=P('Rate Of Climb Inertial'), alt=P('Altitude Radio'), airs=S('Airborne'), lands=S('Landing')
                #, ldg_sw=P('IN AIR')
                ):
         # We do a local integration of the inertial rate of climb to

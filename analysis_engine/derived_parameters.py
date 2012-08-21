@@ -627,108 +627,6 @@ class AltitudeAALForFlightPhases(DerivedParameterNode):
         self.array = repair_mask(alt_aal.array, repair_duration=None)
    
 
-'''
-class AltitudeAALSmoothed(DerivedParameterNode):
-    """
-    A smoothed version of this altitude signal is available that includes
-    inertial smoothing to provide a higher sample rate signal. This may be
-    used for accurate determination of variations during turbulence or bumpy
-    landings.
-    
-    """    
-    name = "Altitude AAL"
-    units = 'ft'
-
-    @classmethod
-    def can_operate(cls, available):
-        #TODO: Improve accuracy of this method. For example, the code does
-        #not cater for the availability of Altitude Radio but Rate Of Climb
-        #not being available.
-        smoothing_params = all([d in available for d in ('Liftoff',
-                                                         'Touchdown',
-                                                         'Takeoff',
-                                                         'Landing',
-                                                         'Rate Of Climb',
-                                                         'Altitude STD',
-                                                         'Altitude Radio',
-                                                         'Airspeed')])
-        fallback = 'Altitude AAL For Flight Phases' in available
-        return smoothing_params or fallback
-    
-    def derive(self, liftoffs=KTI('Liftoff'),
-               touchdowns=KTI('Touchdown'),
-               takeoffs=S('Takeoff'),
-               landings=S('Landing'),
-               roc = P('Rate Of Climb'),
-               alt_std = P('Altitude STD'),
-               alt_rad = P('Altitude Radio'),
-               airspeed = P('Airspeed'),
-               alt_aal_4fp = P('Altitude AAL For Flight Phases'),):
-        if liftoffs and touchdowns and landings and roc and alt_std \
-           and alt_rad and airspeed:
-            # Initialise the array to zero, so that the altitude above the airfield
-            # will be 0ft when the aircraft cannot be airborne.
-            alt_aal = np_ma_zeros_like(alt_std.array) 
-            # Actually creates a masked copy filled with zeros.
-            
-            ordered_ktis = sorted(liftoffs + touchdowns,
-                                  key=attrgetter('index'))
-            
-            for next_index, first_kti in enumerate(ordered_ktis, start=1):
-                # Iterating over pairs of 'Liftoff' and 'Touchdown' KTIs ordered
-                # by index. Expecting Touchdowns followed by Liftoffs.
-                try:
-                    second_kti = ordered_ktis[next_index]
-                except IndexError:
-                    break
-                in_air_slice = slice(first_kti.index, second_kti.index)
-                
-                             
-                # Use pressure altitude to ensure data is filled between
-                # Liftoff and Touchdown KTIs.
-                alt_aal[in_air_slice] = alt_std.array[in_air_slice]
-                peak_index = np.ma.argmax(alt_std.array[in_air_slice]) + \
-                                        in_air_slice.start
-                if first_kti.name == 'Liftoff':
-                    threshold_index = index_at_value(alt_rad.array,
-                                                     TRANSITION_ALT_RAD_TO_STD,
-                                                     _slice=in_air_slice)
-                    join_index = int(threshold_index)
-                    difference = alt_rad.array[join_index] - \
-                        alt_std.array[join_index]
-                    alt_aal[join_index:peak_index] += difference
-                    pre_threshold = slice(in_air_slice.start, join_index)
-                    alt_aal[pre_threshold] = alt_rad.array[pre_threshold]
-                
-                if second_kti.name == 'Touchdown':
-                    reverse_slice = slice(in_air_slice.stop,
-                                          in_air_slice.start, -1)
-                    threshold_index = index_at_value(alt_rad.array,
-                                                     TRANSITION_ALT_RAD_TO_STD,
-                                                     _slice=reverse_slice)
-                    join_index = int(threshold_index)+1
-                    difference = alt_rad.array[join_index] - \
-                        alt_std.array[join_index]
-                    alt_aal[peak_index:join_index] += difference
-                    post_threshold = slice(join_index, in_air_slice.stop)
-                    alt_aal[post_threshold] = alt_rad.array[post_threshold]
-        
-            # Use the complementary smoothing approach
-            roc_lag = first_order_lag(roc.array,
-                                      ALTITUDE_AAL_LAG_TC, roc.hz,
-                                      gain=ALTITUDE_AAL_LAG_TC/60.0)            
-            alt_aal_lag = first_order_lag(alt_aal, ALTITUDE_AAL_LAG_TC, roc.hz)
-            alt_aal = alt_aal_lag + roc_lag
-            # Force result to zero at low speed and on the ground.
-            alt_aal[airspeed.array < AIRSPEED_THRESHOLD] = 0
-            #alt_aal[alt_rad.array < 0] = 0
-            self.array = np.ma.maximum(0.0,alt_aal)
-            
-        else:
-            self.array = np.ma.copy(alt_aal_4fp.array) 
-            '''
-    
-
 class AltitudeRadio(DerivedParameterNode):
     """
     There is a wide variety of radio altimeter installations including linear
@@ -3058,8 +2956,10 @@ class MagneticVariation(DerivedParameterNode):
         
         self.array = interpolate_and_extend(dev)
 
-class RateOfClimb(DerivedParameterNode):
-    """
+class RateOfClimbInertial(DerivedParameterNode):
+    '''
+    See "Rate Of Climb" for pressure altitude based derived parameter.
+    
     This routine derives the rate of climb from the vertical acceleration, the
     Pressure altitude and the Radio altitude.
     
@@ -3084,12 +2984,7 @@ class RateOfClimb(DerivedParameterNode):
     acceleration will be underscaled slightly. As an example the test case
     with a 1ft/sec^2 acceleration results in an increasing rate of climb of
     55 fpm/sec, not 60 as would be theoretically predicted.
-    """
-    # List the minimum acceptable parameters here
-    @classmethod
-    def can_operate(cls, available):
-        # List the minimum required parameters.
-        return 'Altitude STD' in available
+    '''
     
     def derive(self, 
                az = P('Acceleration Vertical'),
@@ -3133,47 +3028,64 @@ class RateOfClimb(DerivedParameterNode):
             
             return (roc_altitude + inertial_roc) * 60.0
 
-        if az and alt_rad:
-            # Make space for the answers
-            self.array = np.ma.masked_all_like(alt_std.array)
-            
-            # Fix minor dropouts
-            az_repair = repair_mask(az.array)
-            alt_rad_repair = repair_mask(alt_rad.array, frequency=alt_rad.frequency, repair_duration=None)
-            alt_std_repair = repair_mask(alt_std.array, frequency=alt_std.frequency)
-            
-            # np.ma.getmaskarray ensures we have complete mask arrays even if
-            # none of the samples are masked (normally returns a single
-            # "False" value. We ignore the rad alt mask because we are only
-            # going to use the radio altimeter values below 100ft, and short
-            # transients will have been repaired. By repairing with the
-            # repair_duration=None option, we ignore the masked saturated
-            # values at high altitude.
-            
-            az_masked = np.ma.array(data = az_repair.data, 
-                                    mask = np.ma.logical_or(
-                                        np.ma.getmaskarray(az_repair),
-                                        np.ma.getmaskarray(alt_std_repair)))
-            
-            # We are going to compute the answers only for ranges where all
-            # the required parameters are available.
-            clumps = np.ma.clump_unmasked(az_masked)
-            for clump in clumps:
-                self.array[clump] = inertial_rate_of_climb(
-                    alt_std_repair[clump], az.frequency,
-                    alt_rad_repair[clump], az_repair[clump])
-            
+
+        # Make space for the answers
+        self.array = np.ma.masked_all_like(alt_std.array)
+        
+        # Fix minor dropouts
+        az_repair = repair_mask(az.array)
+        alt_rad_repair = repair_mask(alt_rad.array, frequency=alt_rad.frequency, repair_duration=None)
+        alt_std_repair = repair_mask(alt_std.array, frequency=alt_std.frequency)
+        
+        # np.ma.getmaskarray ensures we have complete mask arrays even if
+        # none of the samples are masked (normally returns a single
+        # "False" value. We ignore the rad alt mask because we are only
+        # going to use the radio altimeter values below 100ft, and short
+        # transients will have been repaired. By repairing with the
+        # repair_duration=None option, we ignore the masked saturated
+        # values at high altitude.
+        
+        az_masked = np.ma.array(data = az_repair.data, 
+                                mask = np.ma.logical_or(
+                                    np.ma.getmaskarray(az_repair),
+                                    np.ma.getmaskarray(alt_std_repair)))
+        
+        # We are going to compute the answers only for ranges where all
+        # the required parameters are available.
+        clumps = np.ma.clump_unmasked(az_masked)
+        for clump in clumps:
+            self.array[clump] = inertial_rate_of_climb(
+                alt_std_repair[clump], az.frequency,
+                alt_rad_repair[clump], az_repair[clump])
+
+   
+class RateOfClimb(DerivedParameterNode):
+    '''
+    The period for averaging altitude data is a trade-off between transient
+    response and noise rejection. 
+    
+    Some older aircraft have poor resolution, and the 4 second timebase leaves a
+    noisy signal. We have inspected Hercules data, where the resolution is of the
+    order of 9 ft/bit, and data from the BAe 146 where the resolution is 15ft. In
+    these cases the wider timebase with greater smoothing is necessary, albeit at
+    the expense of transient response.
+    
+    For most aircraft however, a period of 4 seconds is used. This has been
+    found to give good results, and is also the value used to compute the
+    recorded Vertical Speed parameter on Airbus A320 series aircraft
+    (although in that case the data is delayed, and the aircraft cannot know
+    the future altitudes!).    
+    '''
+    def derive(self, alt_std = P('Altitude STD'), frame = A('Frame')):
+        frame_name = frame.value if frame else None
+        if frame_name in ['Hercules', '146']:
+            timebase = 8.0
         else:
-            # The period for averaging altitude only data has been chosen
-            # from careful inspection of Hercules data, where the pressure
-            # altitude signal resolution is of the order of 9 ft/bit.
-            # Extension to wider timebases, or averaging with more samples,
-            # smooths the data more but equally more samples are affected by
-            # corrupt source data. So, change the "6" only after careful
-            # consideration.
-            self.array = rate_of_change(alt_std,6)*60
-         
-         
+            timebase = 4.0
+        
+        self.array = rate_of_change(alt_std, timebase)*60.0
+
+
 class RateOfClimbForFlightPhases(DerivedParameterNode):
     """
     A simple and robust rate of climb parameter suitable for identifying
