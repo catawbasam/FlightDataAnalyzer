@@ -1403,7 +1403,6 @@ class HeightLost35To1000Ft(KeyPointValueNode):
                 self.create_kpv(index, value)
 
 
-# TODO: Review whether this is required and remove if not.
 class HeightLost1000To2000Ft(KeyPointValueNode):
     '''
     '''
