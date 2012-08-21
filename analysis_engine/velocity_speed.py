@@ -21,7 +21,6 @@ class VelocitySpeed(object):
     weight_unit = t, kg, lb
     '''
     weight_unit = 'kg'
-    unit = 1
     interpolate = False
     source = ''
 
@@ -71,7 +70,7 @@ class VelocitySpeed(object):
         '''
         if self.weight_unit == 'lb':
             # Convert to tonnes
-            weight = aircraft_weight / KG_TO_LB
+            weight = aircraft_weight / KG_TO_LB / 1000.0
         elif self.weight_unit == 'kg':
             # Convert to tonnes
             weight = aircraft_weight / 1000.0
@@ -100,8 +99,7 @@ class VelocitySpeed(object):
 
 class B737_300(VelocitySpeed):
     interpolate = True
-    source = 'AGS B737-5_925017_07.add'
-    unit = 1000
+    source = 'B737-5_925017_07'
     weight_unit = 'kg'
     v2_table = {
              'weight': ( 30,  35,  40,  45,  50,  55,  60,  65,  70),
@@ -118,8 +116,7 @@ class B737_300(VelocitySpeed):
 
 class B737_400(VelocitySpeed):
     interpolate = True
-    source = 'AGS B737-5_925017_07.add'
-    unit = 1000
+    source = 'B737-5_925017_07'
     weight_unit = 'kg'
     airspeed_reference_table = {
              'weight':  ( 35,  40,  45,  50,  55,  60,  65,  70,  70),
@@ -130,8 +127,7 @@ class B737_400(VelocitySpeed):
 
 class B737_500(VelocitySpeed):
     interpolate = True
-    source = 'AGS B737-5_925017_07.add'
-    unit = 1000
+    source = 'B737-5_925017_07'
     weight_unit = 'kg'
     airspeed_reference_table = {
              'weight':  ( 32,  36,  40,  44,  48,  52,  56,  60,  64),
@@ -139,24 +135,14 @@ class B737_500(VelocitySpeed):
                     30: (105, 111, 117, 123, 129, 135, 140, 144, 149),
                     40: (101, 108, 114, 120, 125, 130, 135, 140, 145),
     }
-    
-class B737_800(VelocitySpeed):
-    '''
-    V2 & Vref for the 737-NG class aircraft is recorded in the data frame, so
-    no compuation is required.
-    '''
-    pass
-    #interpolate = False
-    #source = ''
-    #weight_unit = 'kg'
+
 
 class B767(VelocitySpeed):
     '''
     '''
     interpolate = False
-    source = 'DHL 767 Flight Crew Operations Manual'
+    source = '767 Flight Crew Operations Manual'
     weight_unit = 'kg'
-    unit = 1000
     v2_table = {
              'weight':  (100, 110, 120, 130, 140, 150, 160, 170, 180, 190),
                     5:  (127, 134, 139, 145, 151, 156, 161, 166, 171, 176),
@@ -202,7 +188,7 @@ series_vspeed_map = {
     'B737-300' : B737_300,
     'B737-400' : B737_400,
     'B737-500' : B737_500,
-    'B737-800' : B737_800,
+    'B737-800' : None,
 }
 
 family_vspeed_map = {
