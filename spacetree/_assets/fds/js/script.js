@@ -55,8 +55,8 @@
                 color: '#aaa',
                 height: 0,
                 overridable: true,
-                type: 'rectangle', // NOTE: ellipse looks cool
-                width: 150
+                type: 'rectangle',
+                width: 180
             },
             Edge: {
                 color: '#23a4ff',
@@ -78,12 +78,14 @@
                     st.setRoot(node.id, 'animate');
                     ////}
                 }).css({
+                    boxShadow: '0 0 5px #ccc',
                     color: '#444',
                     cursor: 'pointer',
-                    fontSize: '0.8em',
-                    paddingTop: '13px',
+                    fontSize: '85%',
+                    lineHeight: 1,
+                    padding: '10px',
                     textAlign: 'center'
-                }).html(node.name).height(0).width(175);
+                }).html(node.name).height('auto').width(180);
             },
             onBeforePlotNode: function (node) {
                 if (node.selected) {

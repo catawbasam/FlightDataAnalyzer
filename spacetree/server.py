@@ -267,12 +267,12 @@ class SpacetreeRequestHandler(BaseHTTPRequestHandler):
             return
 
         # Fetch parameters to display in a grid:
-        param_names = self._generate_json(lfl_params)
-        polaris_query, params, missing_params = self._fetch_params(param_names)
+        self._generate_json(lfl_params)
+        polaris_query, params, missing_lfl_params = self._fetch_params(lfl_params)
 
         # Render the spacetree:
         self._respond_with_template('spacetree.html', {
-            'missing_params': missing_params,
+            'missing_lfl_params': missing_lfl_params,
             'params': sorted(params.items()),
             'polaris_query': polaris_query,
             'server': BASE_URL,
@@ -283,6 +283,9 @@ class SpacetreeRequestHandler(BaseHTTPRequestHandler):
 
     def _generate_json(self, lfl_params):
         '''
+        Returns list of parameters used in the spanning tree.
+        
+        Note: LFL parameters not used will not be returned!
         '''
         # Ensure file is a valid HDF file before continuing:
         derived_nodes = get_derived_nodes(settings.NODE_MODULES)
@@ -315,7 +318,7 @@ class SpacetreeRequestHandler(BaseHTTPRequestHandler):
                                achieved_flight_record)
         _graph = graph_nodes(node_mgr)
         gr_all, gr_st, order = process_order(_graph, node_mgr)
-        param_names = gr_st.nodes()
+        spanning_tree_params = gr_st.nodes()
 
         # FIXME: Requires use of lookup_path()?
         # Save the dependency tree to tree.json:
@@ -325,17 +328,23 @@ class SpacetreeRequestHandler(BaseHTTPRequestHandler):
         # FIXME: Requires use of lookup_path()?
         # Save the list of nodes to node_list.json:
         with open('_assets/ajax/node_list.json', 'w') as f:
-            simplejson.dump(param_names, f, indent=4)
+            simplejson.dump(spanning_tree_params, f, indent=4)
 
-        return param_names
+        return spanning_tree_params
 
     ####################################
     # Fetch Parameters via REST API
 
-    def _fetch_params(self, param_names):
+    def _fetch_params(self, lfl_params):
         '''
         Fetch params from server.
+        
+        Q: Server returns all params, even if not in the DB.
         '''
+        # Make a union of both LFL and spanning tree parameters to include them all
+        # FIXME: Requires use of lookup_path()?
+        key_params = open('data/key_parameters', 'r').read().splitlines()
+        param_names = list(set(lfl_params).union(key_params))
         http = httplib2.Http(disable_ssl_certificate_validation=True)
         body = urllib.urlencode({'parameters': simplejson.dumps(param_names)})
         try:
@@ -351,13 +360,11 @@ class SpacetreeRequestHandler(BaseHTTPRequestHandler):
         else:
             polaris_query = True
             params = simplejson.loads(content)['data']
-        # FIXME: Requires use of lookup_path()?
-        with open('data/mandatory_parameters.txt', 'r') as f:
-            mandatory_params = f.read().splitlines()
         for param_name, param_info in params.iteritems():
-            param_info['mandatory'] = param_name in mandatory_params
-        missing_params = set(mandatory_params) - set(param_names)
-        return polaris_query, params, sorted(missing_params)
+            param_info['key'] = param_name in key_params
+            param_info['lfl'] = param_name in lfl_params
+        missing_lfl_params = set(key_params) - set(lfl_params)
+        return polaris_query, params, sorted(missing_lfl_params)
 
 
 ################################################################################

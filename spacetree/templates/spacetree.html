@@ -46,13 +46,13 @@
 <p><input type="text" class="autocomplete" id="nodes"></p>
 
 <h5>Log</h5>
-<textarea class="logger"></textarea>
+<textarea class="logger" wrap="off"></textarea>
 
 </div>
 </section>
 
 <section id="parameters">
-<h2>Parameters</h2>
+<h2>LFL Parameter Analysis</h2>
 <p><strong>Server:</strong> <tt>{{server}}</tt></p>
 {% if not polaris_query %}
 <p class="error"><img src="/_assets/img/exclamation-red.png"> <strong>Error:</strong> The POLARIS website could not be accessed.</p>
@@ -64,10 +64,11 @@
 {% if polaris_query %}
 <th data-width="450">Description</th>
 {% endif %}
-<th data-align="center" data-width="70">Mandatory</th>
+<th data-align="center" data-width="80">LFL Parameter</th>
+<th data-align="center" data-width="80">Key Parameter</th>
 {% if polaris_query %}
-<th data-align="center" data-width="70">Database</th>
-<th data-align="center" data-width="70">Limits</th>
+<th data-align="center" data-width="80">Database</th>
+<th data-align="center" data-width="80">Limits</th>
 {% endif %}
 </tr>
 </thead>
@@ -78,7 +79,8 @@
 {% if polaris_query %}
 <td>{{ param.description }}</td>
 {% endif %}
-<td><img src="../_assets/img/{% if param.mandatory == True %}tick.png{% else %}cross.png{% endif %}"></td>
+<td><img src="../_assets/img/{% if param.lfl == True %}tick.png{% else %}cross.png{% endif %}"></td>
+<td><img src="../_assets/img/{% if param.key == True %}tick.png{% else %}cross.png{% endif %}"></td>
 {% if polaris_query %}
 <td><img src="../_assets/img/{% if param.database == True %}tick.png{% else %}cross.png{% endif %}"></td>
 <td><img src="../_assets/img/{% if param.limits == True %}tick.png{% else %}cross.png{% endif %}"></td>
@@ -89,10 +91,10 @@
 </table>
 <div id="parameter-list-pager"></div>
 
-{% if missing_params %}
-<h3>Missing Parameters</h3>
+{% if missing_lfl_params %}
+<h3>Missing LFL Parameters</h3>
 <ul class="missing">
-{% for parameter in missing_params -%}
+{% for parameter in missing_lfl_params -%}
 <li>{{ parameter }}</li>
 {%- endfor %}
 </ul>
