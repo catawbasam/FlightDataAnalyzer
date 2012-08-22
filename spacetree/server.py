@@ -177,10 +177,10 @@ class GetHandler(BaseHTTPRequestHandler):
         except IOError:
             self._index(error="Please select a valid HDF file.")
             return        
-        param_names = self._generate_json(lfl_params)
-        polaris_query, params, missing_params = self._fetch_params(param_names)     
+        self._generate_json(lfl_params)
+        polaris_query, params, missing_lfl_params = self._fetch_params(lfl_params)
         self._respond_with_template('spacetree.html', {
-            'missing_params': missing_params,
+            'missing_lfl_params': missing_lfl_params,
             'params': sorted(params.items()),
             'polaris_query': polaris_query,
             'server': BASE_URL,
@@ -192,6 +192,11 @@ class GetHandler(BaseHTTPRequestHandler):
     ############################################################################
     
     def _generate_json(self, lfl_params):
+        '''
+        Returns list of parameters used in the spanning tree.
+        
+        Note: LFL parameters not used will not be returned!
+        '''
         # Ensure file is a valid hdf5 file before continuing.
         derived_nodes = get_derived_nodes(settings.NODE_MODULES)
         required_params = derived_nodes.keys()
@@ -225,17 +230,22 @@ class GetHandler(BaseHTTPRequestHandler):
         simplejson.dump(graph_adjacencies(gr_st), open('_assets/ajax/tree.json', 'w'), indent=2)
             
         # save nodes to node_list.json
-        param_names = gr_st.nodes()
-        simplejson.dump(param_names, open('_assets/ajax/node_list.json', 'w'), indent=2)
-        return param_names
+        spanning_tree_params = gr_st.nodes()
+        simplejson.dump(spanning_tree_params, open('_assets/ajax/node_list.json', 'w'), indent=2)
+        return spanning_tree_params
     
     # REST
     ############################################################################
     
-    def _fetch_params(self, param_names):
+    def _fetch_params(self, lfl_params):
         '''
         Fetch params from server.
+        
+        Q: Server returns all params, even if not in the DB.
         '''
+        # make a union of both LFL and spanning tree parameters to include them all
+        key_params = open('key_params', 'r').read().splitlines()
+        param_names = list(set(lfl_params).union(key_params))
         http = httplib2.Http(disable_ssl_certificate_validation=True)
         body = urllib.urlencode({'parameters': simplejson.dumps(param_names)})
         try:
@@ -251,11 +261,12 @@ class GetHandler(BaseHTTPRequestHandler):
             polaris_query = True
             print 'content', content
             params = simplejson.loads(content)['data']
-        mandatory_params = open('mandatory_params', 'r').read().splitlines()
+        
         for param_name, param_info in params.iteritems():
-            param_info['mandatory'] = param_name in mandatory_params
-        missing_params = set(mandatory_params) - set(param_names)
-        return polaris_query, params, sorted(missing_params)
+            param_info['key'] = param_name in key_params
+            param_info['lfl'] = param_name in lfl_params
+        missing_lfl_params = set(key_params) - set(lfl_params)
+        return polaris_query, params, sorted(missing_lfl_params)
         
 
 if __name__ == '__main__':

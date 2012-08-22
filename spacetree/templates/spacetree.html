@@ -123,7 +123,7 @@
 </div>
 
 <div id="parameters">
-<h1>Parameters</h1>
+<h1>LFL Parameter Analysis</h1>
 <p>Server: {{server}}</p>
 {% if not polaris_query %}
 <p class="error"><img src="../_assets/img/exclamation-red.png"> <strong>Error:</strong> The POLARIS website could not be accessed.</p>
@@ -135,7 +135,8 @@
 {% if polaris_query %}
 <th>Description</th>
 {% endif %}
-<th>Mandatory</th>
+<th>LFL Param</th>
+<th>Key Param</th>
 {% if polaris_query %}
 <th>Database</th>
 <th>Limits</th>
@@ -149,7 +150,8 @@
 {% if polaris_query %}
 <td>{{ param.description }}</td>
 {% endif %}
-<td><img src="../_assets/img/{% if param.mandatory == True %}tick.png{% else %}cross.png{% endif %}"></td>
+<td><img src="../_assets/img/{% if param.lfl == True %}tick.png{% else %}cross.png{% endif %}"></td>
+<td><img src="../_assets/img/{% if param.key == True %}tick.png{% else %}cross.png{% endif %}"></td>
 {% if polaris_query %}
 <td><img src="../_assets/img/{% if param.database == True %}tick.png{% else %}cross.png{% endif %}"></td>
 <td><img src="../_assets/img/{% if param.limits == True %}tick.png{% else %}cross.png{% endif %}"></td>
@@ -159,9 +161,9 @@
 </tbody>
 </table>
 <div id="parameter-list-pager"></div>
-{% if missing_params %}
-<p class="error"><strong>Missing parameters:</strong>
-<ul>{% for missing_param in missing_params %}<li class="error">{{ missing_param }}</li>{% endfor %}</ul></p>
+{% if missing_lfl_params %}
+<p class="error"><strong>Missing LFL Parameters:</strong>
+<ul>{% for missing_param in missing_lfl_params %}<li class="error">{{ missing_param }}</li>{% endfor %}</ul></p>
 {% endif %}
 
 
