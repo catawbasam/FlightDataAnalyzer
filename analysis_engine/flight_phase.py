@@ -666,9 +666,10 @@ class LevelFlight(FlightPhaseNode):
             self.create_phases(shift_slices(level_slices, air.slice.start))
 
 
-class OnGround(FlightPhaseNode):
+class Grounded(FlightPhaseNode):
     '''
-    Includes start of takeoff run and part of landing run
+    Includes start of takeoff run and part of landing run.
+    Was "On Ground" but this name conflicts with a recorded 737-6 parameter name.
     '''
     def derive(self, air=S('Airborne'), speed=P('Airspeed For Flight Phases')):
         data_end=len(speed.array)
@@ -827,7 +828,7 @@ class TaxiIn(FlightPhaseNode):
     out, and the end of the landing to the end of the data as taxi in. Could
     be improved to include engines running condition at a later date.
     """
-    def derive(self, gnds=S('On Ground'), lands=S('Landing')):
+    def derive(self, gnds=S('Grounded'), lands=S('Landing')):
         if lands:
             land = lands[-1]
             for gnd in gnds:
@@ -843,7 +844,7 @@ class TaxiOut(FlightPhaseNode):
     out, and the end of the landing to the end of the data as taxi in. Could
     be improved to include engines running condition at a later date.
     """
-    def derive(self, gnds=S('On Ground'), toffs=S('Takeoff')):
+    def derive(self, gnds=S('Grounded'), toffs=S('Takeoff')):
         if toffs:
             toff = toffs[0]
             for gnd in gnds:
@@ -878,7 +879,7 @@ class TurningOnGround(FlightPhaseNode):
     """
     Rate of Turn is greater than +/- RATE_OF_TURN_FOR_TAXI_TURNS on the ground
     """
-    def derive(self, rate_of_turn=P('Rate Of Turn'), ground=S('On Ground')):
+    def derive(self, rate_of_turn=P('Rate Of Turn'), ground=S('Grounded')):
         turning = np.ma.masked_inside(repair_mask(rate_of_turn.array),
                                       -RATE_OF_TURN_FOR_TAXI_TURNS,RATE_OF_TURN_FOR_TAXI_TURNS)
         turn_slices = np.ma.clump_unmasked(turning)

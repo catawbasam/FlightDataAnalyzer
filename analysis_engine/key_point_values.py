@@ -20,6 +20,7 @@ from analysis_engine.library import (clip,
                                      index_at_value, 
                                      integrate,
                                      is_index_within_sections,
+                                     mask_inside_slices,
                                      mask_outside_slices,
                                      max_abs_value,
                                      max_continuous_unmasked, 
@@ -1402,7 +1403,6 @@ class HeightLost35To1000Ft(KeyPointValueNode):
                 self.create_kpv(index, value)
 
 
-# TODO: Review whether this is required and remove if not.
 class HeightLost1000To2000Ft(KeyPointValueNode):
     '''
     '''
@@ -1698,7 +1698,7 @@ class EngGasTempMaximumContinuousPowerMax(KeyPointValueNode):
     def derive(self, eng_egt_max=P('Eng (*) Gas Temp Max'),
                to_ratings=S('Takeoff 5 Min Rating'),
                ga_ratings=S('Go Around 5 Min Rating'),
-               gnd=S('On Ground')):
+               gnd=S('Grounded')):
         '''
         '''
         ratings = to_ratings + ga_ratings + gnd
@@ -1827,7 +1827,7 @@ class EngN1MaximumContinuousPowerMax(KeyPointValueNode):
     def derive(self, eng_n1_max=P('Eng (*) N1 Max'),
                to_ratings=S('Takeoff 5 Min Rating'),
                ga_ratings=S('Go Around 5 Min Rating'),
-               gnd = S('On Ground')):
+               gnd = S('Grounded')):
         '''
         '''
         ratings = to_ratings + ga_ratings + gnd
@@ -1986,7 +1986,7 @@ class EngN2MaximumContinuousPowerMax(KeyPointValueNode):
     def derive(self, eng_n2_max=P('Eng (*) N2 Max'),
                to_ratings=S('Takeoff 5 Min Rating'),
                ga_ratings=S('Go Around 5 Min Rating'),
-               gnd = S('On Ground')):
+               gnd = S('Grounded')):
         '''
         '''
         ratings = to_ratings + ga_ratings + gnd
@@ -2055,7 +2055,7 @@ class EngN3MaximumContinuousPowerMax(KeyPointValueNode):
     def derive(self, eng_n3_max=P('Eng (*) N3 Max'),
                to_ratings=S('Takeoff 5 Min Rating'),
                ga_ratings=S('Go Around 5 Min Rating'),
-               gnd = S('On Ground')):
+               gnd = S('Grounded')):
         '''
         '''
         ratings = to_ratings + ga_ratings + gnd
@@ -2178,7 +2178,7 @@ class EngTorqueMaximumContinuousPowerMax(KeyPointValueNode):
     def derive(self, eng_trq_max=P('Eng (*) Torque Max'),
                to_ratings=S('Takeoff 5 Min Rating'),
                ga_ratings=S('Go Around 5 Min Rating'),
-               gnd = S('On Ground')):
+               gnd = S('Grounded')):
         '''
         '''
         ratings = to_ratings + ga_ratings + gnd
@@ -2497,13 +2497,19 @@ class FlapWithSpeedbrakesDeployedMax(KeyPointValueNode):
     '''
     '''
 
-    def derive(self, flap=P('Flap'), speedbrake=P('Speedbrake Selection'), airs=S('Airborne')):
+    def derive(self, flap=P('Flap'), speedbrake=P('Speedbrake Selection'), airs=S('Airborne'), lands=S('Landing')):
         '''
         Speedbrake Selection: 0 = Stowed, 1 = Armed, 2 = Deployed.
         '''
+        array = flap.array
         # Mask all values where speedbrake isn't deployed:
-        flap.array[speedbrake.array < 2] = np.ma.masked
-        index, value = max_value(mask_outside_slices(flap.array, [s.slice for s in airs]))
+        array[speedbrake.array < 2] = np.ma.masked
+        # Mask all values where the aircraft isn't airborne:
+        array = mask_outside_slices(array, [s.slice for s in airs])
+        # Mask all values where the aircraft is landing (as we expect speedbrake to be deployed):
+        array = mask_inside_slices(array, [s.slice for s in lands])
+        # Determine the maximum flap value when the speedbrake is deployed:
+        index, value = max_value(array)
         # It is normal for flights to be flown without speedbrake and flap
         # together, so trap this case to avoid nuisance warnings:
         if index and value:
@@ -2671,7 +2677,7 @@ class GroundspeedAtTouchdown(KeyPointValueNode):
 
 
 class GroundspeedOnGroundMax(KeyPointValueNode):
-    def derive(self, gspd=P('Groundspeed'), grounds=S('On Ground')):
+    def derive(self, gspd=P('Groundspeed'), grounds=S('Grounded')):
         self.create_kpvs_within_slices(gspd.array, grounds, max_value)
 
 
@@ -3161,10 +3167,11 @@ class RateOfDescent500FtToTouchdownMax(KeyPointValueNode):
 
 class RateOfDescent20ToTouchdownMax(KeyPointValueNode):
     '''
+    We use the inertial rate of climb to avoid ground effects this low to the runway.
     '''
 
     def derive(self, alt_aal=P('Altitude AAL For Flight Phases'),
-            roc=P('Rate Of Climb'), tdwns=KTI('Touchdown')):
+            roc=P('Rate Of Climb Inertial'), tdwns=KTI('Touchdown')):
         '''
         '''
         self.create_kpvs_within_slices(
@@ -3176,9 +3183,11 @@ class RateOfDescent20ToTouchdownMax(KeyPointValueNode):
         
 class RateOfDescentAtTouchdown(KeyPointValueNode):
     '''
+    We use the inertial rate of climb to avoid ground effects and give an
+    accurate value at the point of touchdown.
     '''
 
-    def derive(self, roc=P('Rate Of Climb'), tdwns=KTI('Touchdown')):
+    def derive(self, roc=P('Rate Of Climb Inertial'), tdwns=KTI('Touchdown')):
         '''
         '''
         self.create_kpvs_at_ktis(roc.array, tdwns)

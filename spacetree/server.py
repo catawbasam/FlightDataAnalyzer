@@ -35,7 +35,7 @@ def get_path(relative_path):
     '''
     Convert a relative path to the asset path. Accounts for being frozen.
     '''
-    file_path = relative_path.lstrip('/')
+    file_path = relative_path.lstrip('/').replace('/', os.sep)
     if getattr(sys, 'frozen', False):
         # http://www.pyinstaller.org/export/v1.5.1/project/doc/Manual.html?format=raw#accessing-data-files
         if '_MEIPASS2' in os.environ:
@@ -59,7 +59,7 @@ class GetHandler(BaseHTTPRequestHandler):
         Respond with body setting status and Content-type.
         '''
         self.send_response(status)
-        self.send_header('Content-type', content_type)
+        self.send_header('Content-Type', content_type)
         self.end_headers()
         self.wfile.write(body)
     
@@ -137,15 +137,19 @@ class GetHandler(BaseHTTPRequestHandler):
     ############################################################################
     
     def _respond_with_static(self, path):
+        mode = 'r'
         file_path = get_path(path)
         # try and serve from the current directory
         if file_path.endswith('.js'):
             content_type = 'text/javascript'
         elif file_path.endswith('.css'):
-            content_type = 'text/css'
+            content_type = 'text/css'            
+        elif file_path.endswith('.png'):
+            mode = 'rb'
+            content_type = 'image/png'            
         else:
             content_type = 'text/html'
-        self._respond(open(file_path).read(), 200, content_type)    
+        self._respond(open(file_path, mode).read(), 200, content_type)    
     
     # Page response methods
     ############################################################################
