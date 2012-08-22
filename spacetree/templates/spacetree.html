@@ -1,144 +1,73 @@
-{% extends "base.html" %}
+{% extends 'base.html' %}
 
-{% block title %}Spacetree - Tree Animation{% endblock %}
+{% block title %}Flight Data Parameter Tree{% endblock %}
 
 {% block head %}
-<!-- CSS Files -->
-<link type="text/css" href="../_assets/css/Spacetree.css" rel="stylesheet" />
-<link rel="stylesheet" href="../_assets/css/ui-lightness/jquery-ui-1.8.17.custom.css">
-<link rel="stylesheet" href="../_assets/css/jquery-jqgrid-4.3.1.css">
+<link rel="stylesheet" href="/_assets/lib/css/jquery-ui/1.8.23/jquery-ui.min.css">
+<link rel="stylesheet" href="/_assets/lib/css/jquery-jqgrid/4.4.0/jquery-jqgrid.css">
+<link rel="stylesheet" href="/_assets/lib/css/spacetree.css">
+{% endblock %}
 
-<!--[if IE]><script language="javascript" type="text/javascript" src="js/excanvas.js"></script><![endif]-->
-
-<!-- JIT Library File -->
-<script language="javascript" type="text/javascript" src="../_assets/js/jit.js"></script>
-
-<!-- JQuery -->
-<script language="javascript" type="text/javascript" src="../_assets/js/jquery-1.7.1.min.js"></script>
-<script language="javascript" type="text/javascript" src="../_assets/js/jquery-ui-1.8.17.custom.min.js"></script>
-<script language="javascript" type="text/javascript" src="../_assets/js/jquery-jqgrid-4.3.1/i18n/grid.locale-en.js"></script>
-<script language="javascript" type="text/javascript" src="../_assets/js/jquery-jqgrid-4.3.1.min.js"></script>
-
-<!-- SpacetreeFile -->
-<script language="javascript" type="text/javascript" src="../_assets/js/spacetree.js"></script>
-<script language="javascript" type="text/javascript" src="../_assets/js/spacetree.page.js"></script>
-{% endblock head %}
+{% block script %}
+<script src="/_assets/lib/js/jquery/1.8.0/jquery.min.js"></script>
+<script src="/_assets/lib/js/jquery-ui/1.8.23/jquery-ui.min.js"></script>
+<script src="/_assets/lib/js/jquery-ui/1.8.23/i18n/jquery-ui-i18n.min.js"></script>
+<script src="/_assets/lib/js/jquery-jqgrid/4.4.0/i18n/grid.locale-en.js"></script>
+<script src="/_assets/lib/js/jquery-jqgrid/4.4.0/jquery-jqgrid.min.js"></script>
+<!--[if IE]><script src="/_assets/lib/js/excanvas.js"></script><![endif]-->
+<script src="/_assets/lib/js/jit-yc.js"></script>
+<script src="/_assets/fds/js/script.js"></script>
+{% endblock %}
 
 {% block content %}
-<div id="container">
-<!--<div class="layout-default">-->
-<h1>Spacetree</h1>
-<img id="logo" src="../_assets/fds/img/logo/fds.png" width="160" height="60">
+<h1>Flight Data Parameter Tree</h1>
+<section id="spacetree">
+<h2>Spacetree</h2>
+<div id="spacetree-canvas"></div>
+<div id="spacetree-option">
 
-<div id="left-container">
-<h4>Tree Orientation</h4>
-<table>
-    <tr>
-        <td>
-            <label for="r-left">Left </label>
-        </td>
-        <td>
-            <input type="radio" id="r-left" name="orientation" checked="checked" value="left" />
-        </td>
-    </tr>
-    <tr>
-         <td>
-            <label for="r-top">Top </label>
-         </td>
-         <td>
-            <input type="radio" id="r-top" name="orientation" value="top" />
-         </td>
-    </tr>
-    <tr>
-         <td>
-            <label for="r-bottom">Bottom </label>
-          </td>
-          <td>
-            <input type="radio" id="r-bottom" name="orientation" value="bottom" />
-          </td>
-    </tr>
-    <tr>
-          <td>
-            <label for="r-right">Right </label>
-          </td> 
-          <td> 
-           <input type="radio" id="r-right" name="orientation" value="right" />
-          </td>
-    </tr>
-</table>
+<h5>Legend</h5>
+<ul class="legend">
+<li><span class="lfl-parameter"></span> LFL Parameter</li>
+<li><span class="derived-parameter"></span> Derived Parameter</li>
+<li><span class="flight-attribute"></span> Flight Attribute</li>
+<li><span class="flight-phase"></span> Flight Phase</li>
+<li><span class="key-point-value"></span> Key Point Value</li>
+<li><span class="key-time-instance"></span> Key Time Instance</li>
+</ul>
 
-<table>
-    <tr>
-        <td>
-          <label for="combobox">Select Node</label><!-- TODO: Combobox -->
-        </td>
-        <td>
-	    <div class="ui-widget">
-	      <label for="tags">Tags: </label>
-	      <input id="tags" />
-	    </div>
-	</td>
-    </tr>
-</table>
+<h5>Options</h5>
+<strong>Tree Orientation:</strong>
+<p><label for="r-left"><input type="radio" id="r-left" name="orientation" checked="checked" value="left"> Left</label></p>
+<p><label for="r-top"><input type="radio" id="r-top" name="orientation" value="top"> Top</label></p>
+<p><label for="r-bottom"><input type="radio" id="r-bottom" name="orientation" value="bottom"> Bottom</label></p>
+<p><label for="r-right"><input type="radio" id="r-right" name="orientation" value="right"> Right</label></p>
+<strong>Select Node:</strong>
+<p><input type="text" class="autocomplete" id="nodes"></p>
 
-<table class="legend-table">
-<tr>
-<th class="lfl-parameter-legend">
-</th>
-<td>LFL Parameter</td>
-</tr>
-<tr>
-<th class="derived-parameter-legend">
-</th>
-<td>Derived Parameter</td>
-</tr>
-<tr>
-<th class="attribute-legend">
-</th>
-<td>Flight Attribute</td>
-</tr>
-<tr>
-<th class="flight-phase-legend legend">
-</th>
-<td>Flight Phase</td>
-</tr>
-<tr>
-<th class="key-point-value-legend">
-</th>
-<td>Key Point Value</td>
-</tr>
-<tr>
-<th class="key-time-instance-legend">
-</th>
-<td>Key Time Instance</td>
-</tr>
-</table>
+<h5>Log</h5>
+<textarea class="logger"></textarea>
+
 </div>
+</section>
 
-<div id="center-container">
-    <div id="infovis"></div>    
-</div>
-
-<div id="log"></div>
-</div>
-
-<div id="parameters">
-<h1>Parameters</h1>
-<p>Server: {{server}}</p>
+<section id="parameters">
+<h2>Parameters</h2>
+<p><strong>Server:</strong> <tt>{{server}}</tt></p>
 {% if not polaris_query %}
-<p class="error"><img src="../_assets/img/exclamation-red.png"> <strong>Error:</strong> The POLARIS website could not be accessed.</p>
+<p class="error"><img src="/_assets/img/exclamation-red.png"> <strong>Error:</strong> The POLARIS website could not be accessed.</p>
 {% endif %}
-<table id="parameter-list">
+<table class="autogrid" id="parameter-list" title="Parameter List" data-filter-toolbar="true" data-height="auto" data-pager="#parameter-list-pager">
 <thead>
 <tr>
-<th>Name</th>
+<th data-width="300">Name</th>
 {% if polaris_query %}
-<th>Description</th>
+<th data-width="450">Description</th>
 {% endif %}
-<th>Mandatory</th>
+<th data-align="center" data-width="70">Mandatory</th>
 {% if polaris_query %}
-<th>Database</th>
-<th>Limits</th>
+<th data-align="center" data-width="70">Database</th>
+<th data-align="center" data-width="70">Limits</th>
 {% endif %}
 </tr>
 </thead>
@@ -159,10 +88,15 @@
 </tbody>
 </table>
 <div id="parameter-list-pager"></div>
-{% if missing_params %}
-<p class="error"><strong>Missing parameters:</strong>
-<ul>{% for missing_param in missing_params %}<li class="error">{{ missing_param }}</li>{% endfor %}</ul></p>
-{% endif %}
 
+{% if missing_params %}
+<h3>Missing Parameters</h3>
+<ul class="missing">
+{% for parameter in missing_params -%}
+<li>{{ parameter }}</li>
+{%- endfor %}
+</ul>
+</section>
+{% endif %}
 
 {% endblock %}
