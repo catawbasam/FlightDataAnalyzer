@@ -189,7 +189,7 @@ def plot_flight(hdf_path, kti_list, kpv_list, phase_list):
         sections.append(alt_data)
         sections.append('k-')
         for phase in filter(lambda p: p.name in (
-            'Takeoff', 'Landing', 'Airborne', 'On Ground'), phase_list):
+            'Takeoff', 'Landing', 'Airborne', 'Grounded'), phase_list):
             # Declare the x-axis parameter first...
             sections.append(frame[phase.slice])
             sections.append(alt[phase.slice])
@@ -199,7 +199,7 @@ def plot_flight(hdf_path, kti_list, kpv_list, phase_list):
                 sections.append('g-')
             elif phase.name == 'Airborne':
                 sections.append('b-')
-            elif phase.name == 'On Ground':
+            elif phase.name == 'Grounded':
                 sections.append('k-')
         ax1.plot(*sections)
         

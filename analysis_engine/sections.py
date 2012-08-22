@@ -52,7 +52,7 @@ class LevelBust(SectionNode):
         pass
 
 
-class OnGround(SectionNode):
+class Grounded(SectionNode):
     def derive(self, param=P('Flap')): # TODO: What should the arguments be?
         pass
 

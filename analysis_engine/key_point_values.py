@@ -1698,7 +1698,7 @@ class EngGasTempMaximumContinuousPowerMax(KeyPointValueNode):
     def derive(self, eng_egt_max=P('Eng (*) Gas Temp Max'),
                to_ratings=S('Takeoff 5 Min Rating'),
                ga_ratings=S('Go Around 5 Min Rating'),
-               gnd=S('On Ground')):
+               gnd=S('Grounded')):
         '''
         '''
         ratings = to_ratings + ga_ratings + gnd
@@ -1827,7 +1827,7 @@ class EngN1MaximumContinuousPowerMax(KeyPointValueNode):
     def derive(self, eng_n1_max=P('Eng (*) N1 Max'),
                to_ratings=S('Takeoff 5 Min Rating'),
                ga_ratings=S('Go Around 5 Min Rating'),
-               gnd = S('On Ground')):
+               gnd = S('Grounded')):
         '''
         '''
         ratings = to_ratings + ga_ratings + gnd
@@ -1986,7 +1986,7 @@ class EngN2MaximumContinuousPowerMax(KeyPointValueNode):
     def derive(self, eng_n2_max=P('Eng (*) N2 Max'),
                to_ratings=S('Takeoff 5 Min Rating'),
                ga_ratings=S('Go Around 5 Min Rating'),
-               gnd = S('On Ground')):
+               gnd = S('Grounded')):
         '''
         '''
         ratings = to_ratings + ga_ratings + gnd
@@ -2055,7 +2055,7 @@ class EngN3MaximumContinuousPowerMax(KeyPointValueNode):
     def derive(self, eng_n3_max=P('Eng (*) N3 Max'),
                to_ratings=S('Takeoff 5 Min Rating'),
                ga_ratings=S('Go Around 5 Min Rating'),
-               gnd = S('On Ground')):
+               gnd = S('Grounded')):
         '''
         '''
         ratings = to_ratings + ga_ratings + gnd
@@ -2178,7 +2178,7 @@ class EngTorqueMaximumContinuousPowerMax(KeyPointValueNode):
     def derive(self, eng_trq_max=P('Eng (*) Torque Max'),
                to_ratings=S('Takeoff 5 Min Rating'),
                ga_ratings=S('Go Around 5 Min Rating'),
-               gnd = S('On Ground')):
+               gnd = S('Grounded')):
         '''
         '''
         ratings = to_ratings + ga_ratings + gnd
@@ -2677,7 +2677,7 @@ class GroundspeedAtTouchdown(KeyPointValueNode):
 
 
 class GroundspeedOnGroundMax(KeyPointValueNode):
-    def derive(self, gspd=P('Groundspeed'), grounds=S('On Ground')):
+    def derive(self, gspd=P('Groundspeed'), grounds=S('Grounded')):
         self.create_kpvs_within_slices(gspd.array, grounds, max_value)
 
 

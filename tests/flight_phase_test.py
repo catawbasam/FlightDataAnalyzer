@@ -25,7 +25,7 @@ from analysis_engine.flight_phase import (Airborne,
                                           ILSLocalizerEstablished,
                                           Landing,
                                           LevelFlight,
-                                          OnGround,
+                                          Grounded,
                                           Takeoff,
                                           Taxiing,
                                           TaxiIn,
@@ -660,55 +660,55 @@ class TestFast(unittest.TestCase):
     #so this is not applicable.
         
 
-class TestOnGround(unittest.TestCase):
+class TestGrounded(unittest.TestCase):
     def test_can_operate(self):
-        self.assertEqual(OnGround.get_operational_combinations(), 
+        self.assertEqual(Grounded.get_operational_combinations(), 
                          [('Airspeed For Flight Phases','Airborne')])
 
-    def test_on_ground_phase_basic(self):
+    def test_grounded_phase_basic(self):
         slow_and_fast_data = np.ma.array(range(60,120,10)+[120]*300+range(120,50,-10))
         ias = Parameter('Airspeed For Flight Phases', slow_and_fast_data,1,0)
         air = buildsection('Airborne',2,311)
-        phase_on_ground = OnGround()
-        phase_on_ground.derive(ias, air)
-        expected = buildsections('On Ground',[0,2],[311,313])
-        self.assertEqual(phase_on_ground, expected)
+        phase_grounded = Grounded()
+        phase_grounded.derive(ias, air)
+        expected = buildsections('Grounded',[0,2],[311,313])
+        self.assertEqual(phase_grounded, expected)
         
-    def test_on_ground_all_fast(self):
-        on_ground_data = np.ma.array([120]*10)
-        ias = Parameter('Airspeed For Flight Phases', on_ground_data,1,0)
+    def test_grounded_all_fast(self):
+        grounded_data = np.ma.array([120]*10)
+        ias = Parameter('Airspeed For Flight Phases', grounded_data,1,0)
         air = buildsection('Airborne',None,None)
-        phase_on_ground = OnGround()
-        phase_on_ground.derive(ias, air)
-        expected = buildsection('On Ground',None,None)
-        self.assertEqual(phase_on_ground, expected)
+        phase_grounded = Grounded()
+        phase_grounded.derive(ias, air)
+        expected = buildsection('Grounded',None,None)
+        self.assertEqual(phase_grounded, expected)
 
-    def test_on_ground_all_slow(self):
-        on_ground_data = np.ma.array([12]*10)
-        ias = Parameter('Airspeed For Flight Phases', on_ground_data,1,0)
+    def test_grounded_all_slow(self):
+        grounded_data = np.ma.array([12]*10)
+        ias = Parameter('Airspeed For Flight Phases', grounded_data,1,0)
         air = buildsection('Airborne',None,None)
-        phase_on_ground = OnGround()
-        phase_on_ground.derive(ias, air)
-        expected = buildsection('On Ground',0,10)
-        self.assertEqual(phase_on_ground.get_first(), expected[0])
+        phase_grounded = Grounded()
+        phase_grounded.derive(ias, air)
+        expected = buildsection('Grounded',0,10)
+        self.assertEqual(phase_grounded.get_first(), expected[0])
 
-    def test_on_ground_landing_only(self):
-        on_ground_data = np.ma.arange(110,60,-10)
-        ias = Parameter('Airspeed For Flight Phases', on_ground_data,1,0)
+    def test_grounded_landing_only(self):
+        grounded_data = np.ma.arange(110,60,-10)
+        ias = Parameter('Airspeed For Flight Phases', grounded_data,1,0)
         air = buildsection('Airborne',None,4)
-        phase_on_ground = OnGround()
-        phase_on_ground.derive(ias, air)
-        expected = buildsection('On Ground',4,5)
-        self.assertEqual(phase_on_ground.get_first(), expected[0])
+        phase_grounded = Grounded()
+        phase_grounded.derive(ias, air)
+        expected = buildsection('Grounded',4,5)
+        self.assertEqual(phase_grounded.get_first(), expected[0])
         
-    def test_on_ground_speeding_only(self):
-        on_ground_data = np.ma.arange(60,120,10)
-        ias = Parameter('Airspeed For Flight Phases', on_ground_data,1,0)
+    def test_grounded_speeding_only(self):
+        grounded_data = np.ma.arange(60,120,10)
+        ias = Parameter('Airspeed For Flight Phases', grounded_data,1,0)
         air = buildsection('Airborne',2,None)
-        phase_on_ground = OnGround()
-        phase_on_ground.derive(ias, air)
-        expected = buildsection('On Ground',0,2)
-        self.assertEqual(phase_on_ground.get_first(), expected[0])
+        phase_grounded = Grounded()
+        phase_grounded.derive(ias, air)
+        expected = buildsection('Grounded',0,2)
+        self.assertEqual(phase_grounded.get_first(), expected[0])
 
 
 
@@ -732,7 +732,7 @@ class TestGearRetracting(unittest.TestCase):
     def test_can_operate(self):
         expected = [('Gear Down','Gear (L) Red Warning','Gear (N) Red Warning',
                      'Gear (R) Red Warning','Frame', 'Airborne')]
-        opts = FinalApproach.get_operational_combinations()
+        opts = GearRetracting.get_operational_combinations()
         self.assertEqual(opts, expected)
 
     def test_737_3C(self):
@@ -953,11 +953,11 @@ class TestTakeoff(unittest.TestCase):
 
 class TestTaxiOut(unittest.TestCase):
     def test_can_operate(self):
-        expected = [('On Ground', 'Takeoff')]
+        expected = [('Grounded', 'Takeoff')]
         self.assertEqual(TaxiOut.get_operational_combinations(), expected)
         
     def test_taxi_out(self):
-        gnd = buildsection('On Ground',3,7)
+        gnd = buildsection('Grounded',3,7)
         toff = buildsection('Takeoff', 5,12)
         tout = TaxiOut()
         tout.derive(gnd, toff)
@@ -966,11 +966,11 @@ class TestTaxiOut(unittest.TestCase):
         
 class TestTaxiIn(unittest.TestCase):
     def test_can_operate(self):
-        expected = [('On Ground', 'Landing')]
+        expected = [('Grounded', 'Landing')]
         self.assertEqual(TaxiIn.get_operational_combinations(), expected)
         
     def test_taxi_in(self):
-        gnd = buildsection('On Ground',7,14)
+        gnd = buildsection('Grounded',7,14)
         toff = buildsection('Landing', 5,12)
         t_in = TaxiIn()
         t_in.derive(gnd, toff)
@@ -1019,7 +1019,7 @@ class TestTurningInAir(unittest.TestCase):
         
 class TestTurningOnGround(unittest.TestCase):
     def test_can_operate(self):
-        expected = [('Rate Of Turn', 'On Ground')]
+        expected = [('Rate Of Turn', 'Grounded')]
         self.assertEqual(TurningOnGround.get_operational_combinations(), expected)
         
     def test_turning_on_ground_phase_basic(self):
