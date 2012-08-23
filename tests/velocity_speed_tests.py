@@ -26,47 +26,34 @@ class TestVelocitySpeed(unittest.TestCase):
 
     def test_v2(self):
         self.velocity_speed.interpolate = False
-        self.velocity_speed.unit = 1000
         self.assertEquals(self.velocity_speed.v2(119000, 20), 129)
         self.assertEquals(self.velocity_speed.v2(120000, 20), 129)
         self.assertEquals(self.velocity_speed.v2(121000, 20), 134)
+        self.assertRaises(KeyError, self.velocity_speed.v2, 165000, 14)
 
     def test_v2_interpolated(self):
         self.velocity_speed.interpolate = True
-        self.velocity_speed.unit = 1000
         self.assertEquals(self.velocity_speed.v2(145000, 20), 142)
         self.assertEquals(self.velocity_speed.v2(120000, 20), 129)
         self.assertEquals(self.velocity_speed.v2(165000, 5), 163.5)
         self.assertRaises(ValueError, self.velocity_speed.v2, 94000, 20)
+        self.assertRaises(KeyError, self.velocity_speed.v2, 165000, 14)
 
     def test_airspeed_reference(self):
         self.velocity_speed.interpolate = False
-        self.velocity_speed.unit = 1000
         self.assertEquals(self.velocity_speed.airspeed_reference(119000, 15), 122)
         self.assertEquals(self.velocity_speed.airspeed_reference(120000, 15), 122)
         self.assertEquals(self.velocity_speed.airspeed_reference(121000, 15), 129)
+        self.assertRaises(KeyError, self.velocity_speed.airspeed_reference, 165000, 14)
 
     def test_airspeed_reference_interpolated(self):
         self.velocity_speed.interpolate = True
-        self.velocity_speed.unit = 1000
         self.assertEquals(self.velocity_speed.airspeed_reference(120000, 5), 128)
         self.assertEquals(self.velocity_speed.airspeed_reference(120000, 15), 122)
         self.assertEquals(self.velocity_speed.airspeed_reference(145000, 20), 132.5)
         self.assertRaises(ValueError, self.velocity_speed.airspeed_reference, 94000, 20)
+        self.assertRaises(KeyError, self.velocity_speed.airspeed_reference, 165000, 14)
 
-class TestVelocitySpeedTables(unittest.TestCase):
-
-    def test_all_vspeed_tables(self):
-        vspeed_classes = inspect.getmembers(velocity_speed, lambda mod: inspect.isclass(mod) and issubclass(mod, VelocitySpeed) and mod.__name__ != 'VelocitySpeed')
-        for table_name, table_class in vspeed_classes:
-            self.assertTrue('weight' in table_class.v2_table,
-                            'Weight not in V2 lookup table %s' % table_name)
-            self.assertTrue(len(table_class.v2_table) > 1,
-                            'No rows in V2 lookup table %s' % table_name)
-            self.assertTrue('weight' in table_class.airspeed_reference_table,
-               'Weight not in Vref lookup table %s' % table_name)
-            self.assertTrue(len(table_class.airspeed_reference_table) > 1,
-                            'No rows in Vref lookup table %s' % table_name)
 
 def add_tests(generator):
     def class_decorator(cls):
@@ -88,6 +75,18 @@ def _test_pairs():
            'Weight not in Vref lookup table %s' % table_name)
         self.assertTrue(len(table_class.airspeed_reference_table) > 1,
                         'No rows in Vref lookup table %s' % table_name)
+
+        v2_table_columns = len(table_class.v2_table['weight'])
+        ref_table_columns = len(table_class.airspeed_reference_table['weight'])
+
+        v2_equal_len_rows = [len(row) == v2_table_columns for row in table_class.v2_table.values()]
+        ref_equal_len_rows = [len(row) == ref_table_columns for row in table_class.airspeed_reference_table.values()]
+
+        self.assertTrue(all(v2_equal_len_rows),
+                        'Differing number of entries in each row of v2 table')
+        self.assertTrue(all(ref_equal_len_rows),
+                        'Differing number of entries in each row of reference table')
+
     vspeed_classes = inspect.getmembers(velocity_speed, lambda mod: inspect.isclass(mod) and issubclass(mod, VelocitySpeed) and mod.__name__ != 'VelocitySpeed')
     for table_name, table_class in vspeed_classes:
         yield t, table_name, table_class
