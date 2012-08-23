@@ -1,18 +1,21 @@
-{% extends "base.html" %}
+{% extends 'base.html' %}
 
-{% block title %}Analysis Engine - Spacetree{% endblock %}
+{% block title %}Flight Data Parameter Tree{% endblock %}
 
 {% block content %}
-
-<div id="container">
-<h1>Analysis Engine - Spacetree</h1>
-<p>Learn more about the processing capabilities of your HDF file. </p>
-<p>Tip; use FlightDataConverter to generate your HDF from your Raw Data + LFL document.</p>
-{% if error %}<p class="error"><img src="../_assets/img/exclamation-red.png"> <strong>Error:</strong> {{ error }}</p>{% endif %}
-<form method="POST" action="/spacetree" enctype="multipart/form-data">
-<p><label for="hdf_file">HDF File: </label><input type="file" name="hdf_file" size="40"></p>
-<p><input type="submit"></p>
+<section>
+<h1>Flight Data Parameter Tree</h1>
+<p>Learn more about the processing capabilities of your HDF file.</p>
+<p><strong>Tip:</strong> Use the <em>Flight Data Converter</em> to generate your HDF from your <em>Raw Data</em> and <em>LFL document</em>.</p>
+{% if error %}<p class="error"><strong>Error:</strong> {{ error }}</p>{% endif %}
+<form action="/spacetree" enctype="multipart/form-data" method="POST">
+<p>
+<label for="hdf-file">HDF File:</label>
+<input type="file" id=hdf-file" name="hdf_file" size="40">
+</p>
+<p class="buttons">
+<input type="submit">
+</p>
 </form>
-</div>
-
+</section>
 {% endblock %}

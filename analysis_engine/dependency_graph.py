@@ -145,15 +145,15 @@ def graph_nodes(node_mgr):
     gr_all = nx.DiGraph()
     # create nodes without attributes now as you can only add attributes once
     # (limitation of add_node_attribute())
-    gr_all.add_nodes_from(node_mgr.lfl, color='#72F4EB') # turquoise
+    gr_all.add_nodes_from(node_mgr.lfl, color='#72f4eb') # turquoise
     derived_minus_lfl = dict_filter(node_mgr.derived_nodes, remove=node_mgr.lfl)
     # Group into node types to apply colour. TODO: Make colours less garish.
     colors = {
-        DerivedParameterNode: '#72cdf4', # fds-blue
-        FlightAttributeNode: '#CC33FF', # pink
-        FlightPhaseNode: '#B88A00', # brown
-        KeyPointValueNode: '#bed630', # fds-green
-        KeyTimeInstanceNode: '#fdbb30', # fds-orange
+        DerivedParameterNode: '#72cdf4',  # fds-blue
+        FlightAttributeNode: '#b88a00',  # brown
+        FlightPhaseNode: '#d93737',  # red
+        KeyPointValueNode: '#bed630',  # fds-green
+        KeyTimeInstanceNode: '#fdbb30',  # fds-orange
     }
     gr_all.add_nodes_from(
         [(name, {'color': colors[node.__base__]}) for name, node in derived_minus_lfl.items()])
@@ -168,7 +168,7 @@ def graph_nodes(node_mgr):
             
     # add root - the top level application dependency structure based on required nodes
     # filter only nodes which are at the top of the tree (no predecessors)
-    gr_all.add_node('root', color='Red')
+    gr_all.add_node('root', color='#fff')
     root_edges = [('root', node_name) for node_name in node_mgr.requested \
                   if not gr_all.predecessors(node_name)]
     gr_all.add_edges_from(root_edges) ##, color='red')

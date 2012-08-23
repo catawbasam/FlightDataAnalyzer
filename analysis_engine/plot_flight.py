@@ -137,8 +137,13 @@ def plot_parameter(array, show=True, label=''):
     :param show: Whether to display the figure (and block)
     :type show: Boolean
     """
-    plt.title("Length: %d | Min: %.2f | Max: %.2f" % (
-               len(array), array.min(), array.max()))
+    try:
+        plt.title("Length: %d | Min: %.2f | Max: %.2f" % (
+            len(array), array.min(), array.max()))
+    except AttributeError:
+        # if a non-np.array is passed in, make do
+        plt.title("Length: %d | Min: %.2f | Max: %.2f" % (
+            len(array), min(array), max(array)))
     plt.plot(array, label=label)
     if show:
         plt.show()
