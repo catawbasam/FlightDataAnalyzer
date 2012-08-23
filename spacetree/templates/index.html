@@ -7,7 +7,7 @@
 <h1>Flight Data Parameter Tree</h1>
 <p>Learn more about the processing capabilities of your HDF file.</p>
 <p><strong>Tip:</strong> Use the <em>Flight Data Converter</em> to generate your HDF from your <em>Raw Data</em> and <em>LFL document</em>.</p>
-{% if error %}<p class="error"><img src="/_assets/img/exclamation-red.png"> <strong>Error:</strong> {{ error }}</p>{% endif %}
+{% if error %}<p class="error"><strong>Error:</strong> {{ error }}</p>{% endif %}
 <form action="/spacetree" enctype="multipart/form-data" method="POST">
 <p>
 <label for="hdf-file">HDF File:</label>

@@ -34,6 +34,7 @@
 <li><span class="flight-phase"></span> Flight Phase</li>
 <li><span class="key-point-value"></span> Key Point Value</li>
 <li><span class="key-time-instance"></span> Key Time Instance</li>
+<li><span class="missing-dependency"></span> Missing Dependency</li>
 </ul>
 
 <h5>Options</h5>
@@ -42,8 +43,12 @@
 <p><label for="r-top"><input type="radio" id="r-top" name="orientation" value="top"> Top</label></p>
 <p><label for="r-bottom"><input type="radio" id="r-bottom" name="orientation" value="bottom"> Bottom</label></p>
 <p><label for="r-right"><input type="radio" id="r-right" name="orientation" value="right"> Right</label></p>
-<strong>Select Node:</strong>
-<p><input type="text" class="autocomplete" id="nodes"></p>
+<strong>Selection Mode:</strong>
+<p><label for="s-normal"><input type="radio" id="s-normal" name="selection" checked="checked" value="normal"> Normal</label></p>
+<p><label for="s-root"><input type="radio" id="s-root" name="selection" value="root"> Set as Root</label></p>
+
+<h5>Search</h5>
+<p><input type="text" class="autocomplete" id="spacetree-search" placeholder="Start typing a node name..."></p>
 
 <h5>Log</h5>
 <textarea class="logger" wrap="off"></textarea>
@@ -55,7 +60,7 @@
 <h2>LFL Parameter Analysis</h2>
 <p><strong>Server:</strong> <tt>{{server}}</tt></p>
 {% if not polaris_query %}
-<p class="error"><img src="/_assets/img/exclamation-red.png"> <strong>Error:</strong> The POLARIS website could not be accessed.</p>
+<p class="error"><strong>Error:</strong> POLARIS website could not be queried for parameter details.</p>
 {% endif %}
 <table class="autogrid" id="parameter-list" title="Parameter List" data-filter-toolbar="true" data-height="auto" data-pager="#parameter-list-pager">
 <thead>
@@ -79,11 +84,11 @@
 {% if polaris_query %}
 <td>{{ param.description }}</td>
 {% endif %}
-<td><img src="../_assets/img/{% if param.lfl == True %}tick.png{% else %}cross.png{% endif %}"></td>
-<td><img src="../_assets/img/{% if param.key == True %}tick.png{% else %}cross.png{% endif %}"></td>
+<td><img src="../_assets/lib/img/fugue/{% if param.lfl == True %}tick.png{% else %}cross.png{% endif %}"></td>
+<td><img src="../_assets/lib/img/fugue/{% if param.key == True %}tick.png{% else %}cross.png{% endif %}"></td>
 {% if polaris_query %}
-<td><img src="../_assets/img/{% if param.database == True %}tick.png{% else %}cross.png{% endif %}"></td>
-<td><img src="../_assets/img/{% if param.limits == True %}tick.png{% else %}cross.png{% endif %}"></td>
+<td><img src="../_assets/lib/img/fugue/{% if param.database == True %}tick.png{% else %}cross.png{% endif %}"></td>
+<td><img src="../_assets/lib/img/fugue/{% if param.limits == True %}tick.png{% else %}cross.png{% endif %}"></td>
 {% endif %}
 </tr>
 {% endfor %}

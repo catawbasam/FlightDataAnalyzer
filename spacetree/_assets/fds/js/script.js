@@ -15,8 +15,8 @@
 
     $(function () {
 
+        // Hack to determine what <canvas> support is available:
         var labelType, useGradients, nativeTextSupport, animate;
-
         (function () {
             var ua = navigator.userAgent,
                 iStuff = ua.match(/iPhone/i) || ua.match(/iPad/i),
@@ -31,13 +31,7 @@
             animate = !(iStuff || !nativeCanvasSupport);
         })();
 
-        function log(msg) {
-            var logger = $('#spacetree .logger');
-            logger.val(function (_, value) {
-                return $.trim(value + '\n' + msg);
-            }).scrollTop(logger.prop('scrollHeight'));
-        }
-
+        // Initialise the spacetree:
         var st = new $jit.ST({
             constrained: true,
             duration: 500,
@@ -65,18 +59,22 @@
                 type: 'bezier'
             },
             onBeforeCompute: function (node) {
-                log("Loading '" + node.name + "'");
+                var logger = $('#spacetree .logger'),
+                    msg = "Loading '" + node.name + "'";
+                logger.val(function (_, value) {
+                    return $.trim(value + '\n' + msg);
+                }).scrollTop(logger.prop('scrollHeight'));
             },
             onAfterCompute: $.noop,
             onCreateLabel: function (label, node) {
                 $(label).attr({
                     id: node.id
                 }).click(function () {
-                    ////if (normal.checked) {
-                    ////    st.onClick(node.id);
-                    ////} else {
-                    st.setRoot(node.id, 'animate');
-                    ////}
+                    if ($('#s-normal').prop('checked')) {
+                        st.onClick(node.id);
+                    } else {
+                        st.setRoot(node.id, 'animate');
+                    }
                 }).css({
                     boxShadow: '0 0 5px #ccc',
                     color: '#444',
@@ -84,26 +82,17 @@
                     fontSize: '85%',
                     lineHeight: 1,
                     padding: '10px',
-                    textAlign: 'center'
+                    textAlign: 'center',
+                    textShadow: '0 0 2px #ccc'
                 }).html(node.name).height('auto').width(180);
             },
             onBeforePlotNode: function (node) {
-                if (node.selected) {
-                    ////node.data.$color = '#ff7';
-                } else {
-                    node.data.$color = node.data.color || '#aaa';
-                    ////delete node.data.$color;
-                    ////if (!node.anySubnode('exist')) {
-                    ////    var count = 0;
-                    ////    node.eachSubnode(function(n) { count++; });
-                    ////    node.data.$color = ['#baa', '#caa', '#daa', '#eaa', '#faa'][count];
-                    ////}
-                }
+                node.data.$color = node.data.color || '#aaa';
             },
             onBeforePlotLine: function (adj) {
                 if (adj.nodeFrom.selected && adj.nodeTo.selected) {
-                    adj.data.$color = '#eed';
-                    adj.data.$lineWidth = 3;
+                    adj.data.$color = '#23a4ff';
+                    adj.data.$lineWidth = 2;
                 } else {
                     delete adj.data.$color;
                     delete adj.data.$lineWidth;
@@ -111,8 +100,8 @@
             }
         });
 
-        // Add event handlers to switch spacetree orientation.
-        var orient = $('#r-top,#r-bottom,#r-left,#r-right,#s-normal');
+        // Add event handlers to switch spacetree orientation:
+        var orient = $('#r-top,#r-bottom,#r-left,#r-right');
         orient.change(function () {
             if (!this.checked) return;
             orient.prop('disabled', true);
@@ -123,23 +112,24 @@
             });
         });
 
+        // Fetch the data for the spacetree as JSON:
         $.getJSON('/_assets/ajax/tree.json', function (json) {
             st.loadJSON(json);
             st.toJSON('graph');
             st.compute();
             st.geom.translate(new $jit.Complex(-200, 0), 'current');
-            //st.onClick(st.root);
-            st.onClick('root');
+            // FIXME: Improve initial display as 'root' is messy:
+            st.onClick('root');  // st.onClick(st.root);
         });
 
+        // Fetch the data for the parameter search as JSON:
         $.getJSON('/_assets/ajax/node_list.json', function (node_list) {
-            $('#nodes').autocomplete({
+            $('#spacetree-search').autocomplete({
                 source: node_list,
                 select: function (event, ui) {
-                    // TODO: Make onClick's work, so that on load of json it
-                    //       clicks on 'root' node, and on autocomplete it
-                    //       loads selected node.
-                    st.onClick(ui.item.label);
+                    st.setRoot(ui.item.label, 'replot');
+                    $(this).val('').blur();
+                    return false;
                 }
             });
         });

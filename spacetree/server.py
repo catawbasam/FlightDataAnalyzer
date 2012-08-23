@@ -21,7 +21,7 @@ import webbrowser
 
 from BaseHTTPServer import BaseHTTPRequestHandler, HTTPServer
 from cgi import FieldStorage
-from datetime import datetime
+from datetime import date, datetime
 from jinja2 import Environment, PackageLoader
 from tempfile import mkstemp
 from urlparse import urlparse
@@ -171,7 +171,7 @@ class SpacetreeRequestHandler(BaseHTTPRequestHandler):
         Respond with a rendered template.
         '''
         template = self._template_env.get_template(template_path)
-        self._respond(template.render(**context), **kwargs)
+        self._respond(template.render(**context).encode('utf-8'), **kwargs)
 
     def _respond_with_error(self, status, message):
         '''
@@ -218,7 +218,7 @@ class SpacetreeRequestHandler(BaseHTTPRequestHandler):
             self._index()  # Redirect to index if no HDF file in POST.
             return
         elif path.endswith('/favicon.ico'):
-            self._respond_with_static('_assets/img/' + path)
+            self._respond_with_static('_assets/fds/img/icons/logo/polaris.ico')
             return
         elif path.startswith('/_assets'):
             try:
@@ -238,6 +238,7 @@ class SpacetreeRequestHandler(BaseHTTPRequestHandler):
         '''
         self._respond_with_template('index.html', {
             'error': error,
+            'year': date.today().year,
         })
 
     def _spacetree(self):
@@ -276,6 +277,7 @@ class SpacetreeRequestHandler(BaseHTTPRequestHandler):
             'params': sorted(params.items()),
             'polaris_query': polaris_query,
             'server': BASE_URL,
+            'year': date.today().year,
         })
 
     ####################################
@@ -318,7 +320,7 @@ class SpacetreeRequestHandler(BaseHTTPRequestHandler):
                                achieved_flight_record)
         _graph = graph_nodes(node_mgr)
         gr_all, gr_st, order = process_order(_graph, node_mgr)
-        spanning_tree_params = gr_st.nodes()
+        spanning_tree_params = sorted(gr_st.nodes())
 
         # FIXME: Requires use of lookup_path()?
         # Save the dependency tree to tree.json:

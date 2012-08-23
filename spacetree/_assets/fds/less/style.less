@@ -712,9 +712,34 @@ a {
 // Layout Styles
 // -------------------------------------
 
+// NOTE: Override some label settings!
+.jit-autoadjust-label {
+    font-size: 85%;
+    line-height: 1;
+    padding: 10px;
+}
+
 header, section {
     clear: both;
     margin-bottom: 20px;
+}
+
+footer {
+    border-top: 1px solid @color-border;
+    clear: both;
+    font-size: 85%;
+    height: 20px;
+    margin-top: 20px;
+    padding-top: 20px;
+    .copyright {
+        float: left;
+    }
+    .poweredby {
+        float: right;
+    }
+    img {
+        vertical-align: middle;
+    }
 }
 
 #wrapper {
@@ -746,13 +771,16 @@ header, section {
             margin-right: 5px;
             vertical-align: middle;
             width: 20px;
+            .border-radius(3px);
+            .box-shadow(0 0 5px @color-border);
         }
-        .lfl-parameter     { background-color: @color-fds-grey; }
-        .derived-parameter { background-color: @color-fds-blue; }
-        .flight-attribute  { background-color: #b88a00; }
-        .flight-phase      { background-color: #a52a2a; }
-        .key-point-value   { background-color: @color-fds-green; }
-        .key-time-instance { background-color: @color-fds-orange; }
+        .lfl-parameter      { background-color: #72f4eb;           }  // turquoise
+        .derived-parameter  { background-color: @color-fds-blue;   }
+        .flight-attribute   { background-color: #b88a00;           }  // brown
+        .flight-phase       { background-color: #d93737;           }  // red
+        .key-point-value    { background-color: @color-fds-green;  }
+        .key-time-instance  { background-color: @color-fds-orange; }
+        .missing-dependency { background-color: @color-fds-grey;   }
     }
 }
 
@@ -768,13 +796,6 @@ header, section {
     .box-shadow(inset 0 0 10px @color-border);
 }
 
-// NOTE: Override some label settings!
-.jit-autoadjust-label {
-    font-size: 85%;
-    line-height: 1;
-    padding: 10px;
-}
-
 #spacetree-option {
     float: left;
     height: 800px;
@@ -784,9 +805,10 @@ header, section {
         margin-right: 5px;
         width: auto;
     }
-    #nodes {
-        width: 340px;
-    }
+}
+
+#spacetree-search {
+    width: 340px;
 }
 
 #parameters {
@@ -798,49 +820,10 @@ header, section {
     }
 }
 
-// -------------------------------------
-// Unsorted Styles
-// -------------------------------------
-
-#heading {
-    clear: both;
-}
-
-#details hr {
-    margin: 20px 10px;
-}
-
-#message {
-    max-height: 110px;
-    overflow-y: auto;
-    padding-right: 5px;
-}
-
-#message {
-    > dl, > ol, > ul {
-        margin: 0;
-    }
-}
-
-.text {
-    margin: 7px;
-}
-
-.tip {
-    background-color: #fff;
-    border: 1px solid @color-border;
-    color: #111;
-    font-family: sans-serif;
-    font-size: 10px;
-    opacity: 0.9;
-    padding: 7px;
-    width: 139px;
-    .box-shadow(2px 2px 8px #555);
-    //filter: alpha(opacity=90);
-}
-
 .error {
+    background: url(/_assets/lib/img/fugue/exclamation-red.png) no-repeat 0 50%;
     color: #c00;
+    padding-left: 20px;
 }
 
 // -----------------------------------------------------------------------------
