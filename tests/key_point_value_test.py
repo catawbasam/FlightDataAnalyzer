@@ -201,7 +201,7 @@ class TestAccelerationLateralTaxiingMax(unittest.TestCase,
                                          CreateKPVsWithinSlicesTest):
     def setUp(self):
         self.node_class = AccelerationLateralTaxiingMax
-        self.operational_combinations = [('Acceleration Lateral', 'On Ground')]
+        self.operational_combinations = [('Acceleration Lateral', 'Grounded')]
         self.function = max_value
         """
 
@@ -960,7 +960,7 @@ class TestILSGlideslopeDeviation1000To250FtMax(unittest.TestCase):
 class TestGroundSpeedOnGroundMax(unittest.TestCase, CreateKPVsWithinSlicesTest):
     def setUp(self):
         self.node_class = GroundSpeedOnGroundMax
-        self.operational_combinations = [('Groundspeed', 'On Ground')]
+        self.operational_combinations = [('Groundspeed', 'Grounded')]
         self.function = max_value
 '''
 

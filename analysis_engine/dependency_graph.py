@@ -145,13 +145,13 @@ def graph_nodes(node_mgr):
     gr_all = nx.DiGraph()
     # create nodes without attributes now as you can only add attributes once
     # (limitation of add_node_attribute())
-    gr_all.add_nodes_from(node_mgr.lfl, color='#72F4EB') # turquoise
+    gr_all.add_nodes_from(node_mgr.lfl, color='#72f4eb') # turquoise
     derived_minus_lfl = dict_filter(node_mgr.derived_nodes, remove=node_mgr.lfl)
     # Group into node types to apply colour. TODO: Make colours less garish.
     colors = {
         DerivedParameterNode: '#72cdf4', # fds-blue
-        FlightAttributeNode: '#CC33FF', # pink
-        FlightPhaseNode: '#B88A00', # brown
+        FlightAttributeNode: '#b88a00', # brown
+        FlightPhaseNode: '#a52a2a', # dark red
         KeyPointValueNode: '#bed630', # fds-green
         KeyTimeInstanceNode: '#fdbb30', # fds-orange
     }

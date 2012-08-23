@@ -137,8 +137,13 @@ def plot_parameter(array, show=True, label=''):
     :param show: Whether to display the figure (and block)
     :type show: Boolean
     """
-    plt.title("Length: %d | Min: %.2f | Max: %.2f" % (
-               len(array), array.min(), array.max()))
+    try:
+        plt.title("Length: %d | Min: %.2f | Max: %.2f" % (
+            len(array), array.min(), array.max()))
+    except AttributeError:
+        # if a non-np.array is passed in, make do
+        plt.title("Length: %d | Min: %.2f | Max: %.2f" % (
+            len(array), min(array), max(array)))
     plt.plot(array, label=label)
     if show:
         plt.show()
@@ -189,7 +194,7 @@ def plot_flight(hdf_path, kti_list, kpv_list, phase_list):
         sections.append(alt_data)
         sections.append('k-')
         for phase in filter(lambda p: p.name in (
-            'Takeoff', 'Landing', 'Airborne', 'On Ground'), phase_list):
+            'Takeoff', 'Landing', 'Airborne', 'Grounded'), phase_list):
             # Declare the x-axis parameter first...
             sections.append(frame[phase.slice])
             sections.append(alt[phase.slice])
@@ -199,7 +204,7 @@ def plot_flight(hdf_path, kti_list, kpv_list, phase_list):
                 sections.append('g-')
             elif phase.name == 'Airborne':
                 sections.append('b-')
-            elif phase.name == 'On Ground':
+            elif phase.name == 'Grounded':
                 sections.append('k-')
         ax1.plot(*sections)
         

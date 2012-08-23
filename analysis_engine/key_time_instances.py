@@ -16,8 +16,6 @@ from analysis_engine.library import (hysteresis,
 
 from analysis_engine.node import P, S, KTI, KeyTimeInstanceNode
 
-from analysis_engine.plot_flight import plot_parameter
-
 from settings import (CLIMB_THRESHOLD,
                       RATE_OF_CLIMB_FOR_LIFTOFF,
                       RATE_OF_CLIMB_FOR_TOUCHDOWN,
