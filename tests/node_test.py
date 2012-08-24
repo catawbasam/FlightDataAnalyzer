@@ -790,25 +790,31 @@ class TestKeyPointValueNode(unittest.TestCase):
         self.assertEqual(list(knode),
                          [KeyPointValue(index=12, value=15, name='Kpv')])
 
-    def test_create_kpvs_from_discretes(self):
+    def test_create_kpvs_where_state(self):
         knode = self.knode
-        param = P('Disc',np.ma.array([0.0]*20, dtype=float))
-        param.array[5:8] = 1.0
-        param.array[11:17] = 1.0
-        knode.create_kpvs_from_discretes(param.array, param.hz)
+        array = np.ma.array([0.0] * 20, dtype=float)
+        array[5:8] = 1.0
+        array[11:17] = 1.0
+        mapping = {0: 'Down', 1: 'Up'}
+        param = P('Disc', MappedArray(array, values_mapping=mapping))
+        knode.create_kpvs_where_state('Up', param.array, param.hz)
         self.assertEqual(list(knode),
                          [KeyPointValue(index=5, value=3, name='Kpv'),
                           KeyPointValue(index=11, value=6, name='Kpv')])
-        
-    def test_create_kpvs_from_discretes_different_frequency(self):
+
+    def test_create_kpvs_where_state_different_frequency(self):
         knode = self.knode
-        param = P('Disc',np.ma.array([0.0]*20, dtype=float), frequency=2.0)
-        param.array[5:8] = 1.0 # shorter than 3 secs duration - ignored.
-        param.array[11:17] = 1.0
-        knode.create_kpvs_from_discretes(param.array, param.hz, min_duration=3)
+        array = np.ma.array([0.0] * 20, dtype=float)
+        array[5:8] = 1.0  # shorter than 3 secs duration - ignored.
+        array[11:17] = 1.0
+        mapping = {0: 'Down', 1: 'Up'}
+        param = P('Disc', MappedArray(array, values_mapping=mapping),
+                  frequency=2.0)
+        knode.create_kpvs_where_state('Up', param.array, param.hz,
+                                      min_duration=3)
         self.assertEqual(list(knode),
                          [KeyPointValue(index=11, value=3, name='Kpv')])
-    
+
     def test_get_aligned(self):
         '''
         TODO: Test offset alignment.

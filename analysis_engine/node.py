@@ -1344,45 +1344,50 @@ class KeyPointValueNode(FormattedNameNode):
                         raise ValueError,'Unrecognised option in create_kpvs_from_slices'
                     self.create_kpv(index, duration, **kwargs)
 
-
-    def create_kpvs_from_discretes(self, array, hz, phase=None, min_duration=0.0):
+    def create_kpvs_where_state(self, state, array, hz, phase=None,
+                                min_duration=0.0):
         '''
-        For discrete parameters, this detects an event and records the
-        duration of each event.
-        
-        :param array: The input parameter, with data and sample rate information.
-        :type array: A recorded or derived discrete parameter. 
+        For discrete and multi-state parameters, this detects an event and
+        records the duration of each event.
+
+        :param array: The input parameter, with data and sample rate
+            information.
+        :type array: A recorded or derived multistate (discrete) parameter
         :param phase: An optional flight phase (section) argument.
-        :param min_duration: An optional minimum duration for the KPV to become valid.
+        :param min_duration: An optional minimum duration for the KPV to become
+            valid.
         :type min_duration: Float (seconds)
         :name name: Facility for automatically naming the KPV.
         :type name: String
-        
+
         Where phase is supplied, only edges arising within this phase will be
         triggered.
         '''
-        
-        def find_events(subarray, start_index):
-            events = np.ma.clump_unmasked(np.ma.masked_less(subarray, 0.5))
+        def find_events(state, subarray, start_index):
+            events = np.ma.clump_unmasked(
+                np.ma.masked_not_equal(subarray, state))
             for event in events:
                 index = event.start
                 value = (event.stop - event.start) / hz
                 if value >= min_duration:
                     self.create_kpv(index, value)
             return
-        
+
         # High level function scans phase blocks or complete array and presents
         # appropriate arguments for analysis.
-        
+
         # Note the test for "if phase != None" rather than just "if phase"
         # because phase=[] for phases that are evaluated but have not
         # occurred in this flight.
-        if phase != None: 
+        if phase != None:
             for each_period in phase:
                 to_scan = array[each_period.slice]
-                find_events(to_scan, each_period.slice.start or 0)
+                find_events(state, to_scan, each_period.slice.start or 0)
         else:
-            find_events(array, 0)
+            # FIXME: np.ma.masked_not_equal does not use Python indexing, so it
+            # will not see our mapped values!
+            # "full slice" trick solves this problem
+            find_events(state, array[:], 0)
         return
 
 
