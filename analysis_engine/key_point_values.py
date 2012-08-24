@@ -871,14 +871,10 @@ class AirspeedWithFlapClimbMin(KeyPointValueNode):
         flap_or_conf_max_or_min(self, flap, airspeed, min_value, scope=scope)
 
 
-# TODO: Check that this works properly:
-#
-#       - Used for event definition in 'Approach & Landing' category.
-#       - Could this trigger anywhere in the flight?  Does this make the event definition wrong?
 class AirspeedWithFlapDescentMin(KeyPointValueNode):
     NAME_FORMAT = "Airspeed With Flap %(flap)d in Descent Min"
     NAME_VALUES = NAME_VALUES_FLAP
-    def derive(self, flap=P('Flap'), airspeed=P('Airspeed'), scope=S('Descent')):
+    def derive(self, flap=P('Flap'), airspeed=P('Airspeed'), scope=S('Descent To Flare')):
         flap_or_conf_max_or_min(self, flap, airspeed, min_value, scope=scope)
 
 
@@ -896,14 +892,10 @@ class AirspeedWithFlapDescentMax(KeyPointValueNode):
         flap_or_conf_max_or_min(self, flap, airspeed, max_value, scope=scope)
 
 
-# TODO: Check that this works properly:
-#
-#       - Used for event definition in 'Approach & Landing' category.
-#       - 'Airspeed Relative' is only applicable to approaches.
 class AirspeedRelativeWithFlapDescentMin(KeyPointValueNode):
     NAME_FORMAT = "Airspeed Relative With Flap %(flap)d in Descent Min"
     NAME_VALUES = NAME_VALUES_FLAP
-    def derive(self, flap=P('Flap'), airspeed=P('Airspeed Relative'), scope=S('Descent')):
+    def derive(self, flap=P('Flap'), airspeed=P('Airspeed Relative'), scope=S('Descent To Flare')):
         flap_or_conf_max_or_min(self, flap, airspeed, min_value, scope=scope)
 
 
