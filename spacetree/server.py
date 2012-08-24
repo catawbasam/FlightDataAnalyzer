@@ -96,7 +96,7 @@ if getattr(sys, 'frozen', False):
         
 
 AJAX_DIR = os.path.join(APPDATA_DIR, 'ajax')
-if not os.path.isdir:
+if not os.path.isdir(AJAX_DIR):
     print "Making AJAX directory: %s" % AJAX_DIR
     os.makedirs(AJAX_DIR)
     
