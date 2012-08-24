@@ -1,6 +1,7 @@
 import numpy as np
 
-from analysis_engine.library import (hysteresis, 
+from analysis_engine.library import (find_edges,
+                                     hysteresis, 
                                      index_at_value,
                                      index_closest_value,
                                      integrate,
@@ -22,7 +23,7 @@ from settings import (CLIMB_THRESHOLD,
                       SLOPE_FOR_TOC_TOD,
                       TAKEOFF_ACCELERATION_THRESHOLD
                       )
-
+from analysis_engine.plot_flight import plot_parameter
 
 def find_toc_tod(alt_data, ccd_slice, mode):
     '''
@@ -389,24 +390,22 @@ class TouchAndGo(KeyTimeInstanceNode):
 
 
 class Touchdown(KeyTimeInstanceNode):
-    def derive(self, roc=P('Rate Of Climb Inertial'), alt=P('Altitude Radio'), airs=S('Airborne'), lands=S('Landing')
-               #, ldg_sw=P('IN AIR')
+    def derive(self, roc=P('Rate Of Climb Inertial'), alt=P('Altitude AAL'), 
+               airs=S('Airborne'), lands=S('Landing'), on_gnd=P('Gear On Ground')
                ):
         # We do a local integration of the inertial rate of climb to
-        # determine the actual point of landing. This is referenced to the
+        # estimate the actual point of landing. This is referenced to the
         # available altitude signal, altitude AAL, which will have been
-        # derived from the best available source. Integration starts from 20
-        # seconds after passing 20ft and works backwards. This technique
+        # derived from the best available source. This technique
         # leads on to the rate of descent at landing KPV which can then
-        # accurately determine the landing ROD as we know precisely the point
+        # make the best calculation of the landing ROD as we know more accurately the time 
         # where the mainwheels touched.
         
-        # One noteworthy point is that we have avoided the use of landing
-        # gear switches which (a) are unreliable, (b) are often sampled at
-        # low rates (c) are provided in different forms on different aircraft
-        # and (d) tend to trigger twice on touchdown. By using the same
-        # formulae for all aircraft, more consistent comparisons should be
-        # achieved.
+        # This technique works well with firm landings, where the ROD at
+        # landing is important, but can be inaccurate with very gentle
+        # landings. The Gear On Ground signal is included as a sanity check
+        # to cover these cases, but for aircraft with no weight on wheels
+        # switches, this is ignored..
         
         # Time constant
         tau = 0.3
@@ -428,19 +427,20 @@ class Touchdown(KeyTimeInstanceNode):
                 for i in range(1, len(sm_ht)):
                     sm_ht[i] = (1.0-tau)*sm_ht[i-1] + tau*my_alt[i-1] + my_roc[i]/60.0/roc.hz
 
-                """
                 # Plot for ease of inspection during development.
                 plot_parameter(alt.array[startpoint:endpoint], show=False)
                 plot_parameter(roc.array[startpoint:endpoint]/100.0, show=False)
                 plot_parameter(sm_ht)
-                """
                 
                 # The final step is trivial.
                 t1 = index_at_value(sm_ht, 0.0)+startpoint
+                
+                t2 = find_edges(on_gnd.array, slice(startpoint,endpoint), direction='falling_edges')
+                
                 if t1:
                     self.create_kti(t1)
-                
-                                    
+
+
 class LandingTurnOffRunway(KeyTimeInstanceNode):
     # See Takeoff Turn Onto Runway for description.
     def derive(self, head=P('Heading Continuous'),

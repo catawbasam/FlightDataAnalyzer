@@ -2504,7 +2504,7 @@ def peak_curvature(array, _slice=slice(None), curve_sense='Concave'):
                                                          _slice)
         
         # Here we deal with problem cases.
-        if len(valid_slices) == 0 or len(input_data) < 4:
+        if len(valid_slices) == 0 or (valid_slice.stop - valid_slice.start) < 4:
             # No valid data segments were long enough to process.
             return None
         else:

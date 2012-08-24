@@ -1061,7 +1061,10 @@ class PackValvesOpen(DerivedParameterNode):
     Integer representation of the combined pack configuration.
     
     0 = All closed
-    1+ = One or more valves open and increasing flow rates.
+    1 = One engine low flow
+    2 = Flow level 2
+    3 = Flow level 3
+    4 = Both engines on high flow
     """
     name = "Pack Valves Open"
     align_to_first_dependency = False
@@ -1958,6 +1961,17 @@ class GearDown(DerivedParameterNode):
         else:
             raise DataFrameError(self.name, frame_name)
 
+
+class GearOnGround(DerivedParameterNode):
+    '''
+    Combination of left and right main gear signals.
+    '''
+    align_to_first_dependency = False
+    def derive(self, gl = P('Gear (L) On Ground'), 
+               gr = P('Gear (R) On Ground')):
+        self.array, self.frequency, self.offset = merge_two_parameters(gl, gn)
+
+    
 class GearSelectedDown(DerivedParameterNode):
     """
     Derivation of gear selection for aircraft without this separately
