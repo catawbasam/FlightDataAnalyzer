@@ -4,6 +4,8 @@
 
 '''
 Simple HTTP server for the spacetree and parameter list utilities.
+
+NOTE: Node colours are set within dependency_graph.py
 '''
 
 ################################################################################
@@ -89,13 +91,14 @@ APPDATA_DIR = '_assets/'
 if getattr(sys, 'frozen', False):
     APPDATA_DIR = os.path.join(os.environ.get('APPDATA', '.'), 'FlightDataServices', 'FlightDataParameterTree')
     if not os.path.isdir(APPDATA_DIR):
-        print "Making Application data directory:", APPDATA_DIR
+        print "Making Application data directory: %s" % APPDATA_DIR
         os.makedirs(APPDATA_DIR)
         
 
 AJAX_DIR = os.path.join(APPDATA_DIR, 'ajax')
 if not os.path.isdir:
-    os.makedirs(ajax)
+    print "Making AJAX directory: %s" % AJAX_DIR
+    os.makedirs(AJAX_DIR)
     
 socket.setdefaulttimeout(120)
     
