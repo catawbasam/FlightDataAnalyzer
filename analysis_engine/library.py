@@ -2391,57 +2391,14 @@ def np_ma_masked_zeros_like(array):
                        mask = np_ma_ones_like(array).data)
 
 
-def peak_curvature(array, _slice=slice(None), curve_sense='Concave'):
-    """
-    :param array: Parameter to be examined
-    :type array: Numpy masked array
-    :param _slice: Range of index values to be scanned.
-    :type _slice: Python slice. May be indexed in reverse to scan backwards in time.
-    :param curve_sense: Optional operating mode. Default 'Concave' has
-                        positive curvature (concave upwards when plotted). 
-                        Alternatives 'Convex' for curving downwards and 
-                        'Bi-polar' to detect either sense.
-    :type curve_sense: string
+def truck_and_trailer(data, ttp, overall, trailer, curve_sense, _slice):
+    '''
+    See peak_curvature procedure for details of parameters.
+    '''
+    # Trap for invariant data
+    if np.ma.ptp(data) == 0.0:
+        return 1
     
-    :returns peak_curvature: The index where the curvature first peaks in the required sense.
-    :rtype: integer
-
-    Note: Although the range to be inspected may be restricted by slicing,
-    the peak curvature index relates to the whole array, not just the slice.
-    
-    This routine uses a "Truck and Trailer" algorithm to find where a
-    parameter changes slope. In the case of FDM, we are looking for the point
-    where the airspeed starts to increase (or stops decreasing) on the
-    takeoff and landing phases. This is more robust than looking at
-    longitudinal acceleration and complies with the POLARIS philosophy that
-    we should provide analysis with only airspeed, altitude and heading data
-    available.
-    """
-    data = array[_slice].data
-    gap = TRUCK_OR_TRAILER_INTERVAL
-    if gap%2-1:
-        gap-=1  #  Ensure gap is odd
-    ttp = TRUCK_OR_TRAILER_PERIOD
-    trailer = ttp+gap
-    overall = 2*ttp + gap 
-    # check the array is long enough.
-    if len(data) < overall:
-        if np.ma.ptp(data) == 0.0:
-            return None
-        # Simple Numpy array method for small data sets.
-        if len(data) < 4:
-            return len(data)/2
-        else:
-            curve = data[2:] - 2.0*data[1:-1] + data[:-2]
-            if curve_sense == 'Concave':
-                return np.ma.argmax(curve) + 1
-            elif curve_sense == 'Convex':
-                return np.ma.argmin(curve) + 1
-            elif curve_sense == 'Bipolar':
-                return np.ma.argmin(np.ma.abs(curve)) + 1
-            else:
-                raise NotImplementedError
-
     # Set up working arrays
     x = np.arange(ttp) + 1 #  The x-axis is always short and constant
     sx = np.sum(x)
@@ -2500,6 +2457,72 @@ def peak_curvature(array, _slice=slice(None), curve_sense='Concave'):
         return index*(_slice.step or 1) + (_slice.start or 0)
     else:
         return None
+    
+    
+def peak_curvature(array, _slice=slice(None), curve_sense='Concave'):
+    """
+    :param array: Parameter to be examined
+    :type array: Numpy masked array
+    :param _slice: Range of index values to be scanned.
+    :type _slice: Python slice. May be indexed in reverse to scan backwards in time.
+    :param curve_sense: Optional operating mode. Default 'Concave' has
+                        positive curvature (concave upwards when plotted). 
+                        Alternatives 'Convex' for curving downwards and 
+                        'Bi-polar' to detect either sense.
+    :type curve_sense: string
+    
+    :returns peak_curvature: The index where the curvature first peaks in the required sense.
+    :rtype: integer
+
+    Note: Although the range to be inspected may be restricted by slicing,
+    the peak curvature index relates to the whole array, not just the slice.
+    
+    This routine uses a "Truck and Trailer" algorithm to find where a
+    parameter changes slope. In the case of FDM, we are looking for the point
+    where the airspeed starts to increase (or stops decreasing) on the
+    takeoff and landing phases. This is more robust than looking at
+    longitudinal acceleration and complies with the POLARIS philosophy that
+    we should provide analysis with only airspeed, altitude and heading data
+    available.
+    """
+    gap = TRUCK_OR_TRAILER_INTERVAL
+    if gap%2-1:
+        gap-=1  #  Ensure gap is odd
+    ttp = TRUCK_OR_TRAILER_PERIOD
+    trailer = ttp+gap
+    overall = 2*ttp + gap
+    
+    input_data = array[_slice]
+    valid_slices = np.ma.clump_unmasked(input_data)
+    for valid_slice in valid_slices:
+        # check the contiguous valid data is long enough.
+        if valid_slice.stop - valid_slice.start > overall:
+            data = array[_slice][valid_slice]
+            # The normal path is to go and process this data.
+            return valid_slice.start + truck_and_trailer(data, ttp, overall, 
+                                                         trailer, curve_sense, 
+                                                         _slice)
+        
+        # Here we deal with problem cases.
+        if len(valid_slices) == 0 or len(input_data) < 4:
+            # No valid data segments were long enough to process.
+            return None
+        else:
+            # Simple methods for small data sets.
+            data = input_data[valid_slices[0]]
+            curve = data[2:] - 2.0*data[1:-1] + data[:-2]
+            # Trap for invariant data
+            if np.ma.ptp(data) == 0.0:
+                return 1
+            if curve_sense == 'Concave':
+                return np.ma.argmax(curve) + 1
+            elif curve_sense == 'Convex':
+                return np.ma.argmin(curve) + 1
+            elif curve_sense == 'Bipolar':
+                return np.ma.argmin(np.ma.abs(curve)) + 1
+            else:
+                logger.warn("Short data and unrecognised keyword %s in peak_curvature" %curve_sense)
+
     
 def peak_index(a):
     '''
