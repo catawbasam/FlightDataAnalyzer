@@ -865,35 +865,35 @@ class AirspeedWithFlapMin(KeyPointValueNode):
 
 
 class AirspeedWithFlapClimbMin(KeyPointValueNode):
-    NAME_FORMAT = "Airspeed With Flap %(flap)d in Climb Min"
+    NAME_FORMAT = "Airspeed With Flap %(flap)d In Climb Min"
     NAME_VALUES = NAME_VALUES_FLAP
     def derive(self, flap=P('Flap'), airspeed=P('Airspeed'), scope=S('Climb')):
         flap_or_conf_max_or_min(self, flap, airspeed, min_value, scope=scope)
 
 
 class AirspeedWithFlapDescentMin(KeyPointValueNode):
-    NAME_FORMAT = "Airspeed With Flap %(flap)d in Descent Min"
+    NAME_FORMAT = "Airspeed With Flap %(flap)d In Descent Min"
     NAME_VALUES = NAME_VALUES_FLAP
     def derive(self, flap=P('Flap'), airspeed=P('Airspeed'), scope=S('Descent To Flare')):
         flap_or_conf_max_or_min(self, flap, airspeed, min_value, scope=scope)
 
 
 class AirspeedWithFlapClimbMax(KeyPointValueNode):
-    NAME_FORMAT = "Airspeed With Flap %(flap)d in Climb Max"
+    NAME_FORMAT = "Airspeed With Flap %(flap)d In Climb Max"
     NAME_VALUES = NAME_VALUES_FLAP
     def derive(self, flap=P('Flap'), airspeed=P('Airspeed'), scope=S('Climb')):
         flap_or_conf_max_or_min(self, flap, airspeed, max_value, scope=scope)
 
 
 class AirspeedWithFlapDescentMax(KeyPointValueNode):
-    NAME_FORMAT = "Airspeed With Flap %(flap)d in Descent Max"
+    NAME_FORMAT = "Airspeed With Flap %(flap)d In Descent Max"
     NAME_VALUES = NAME_VALUES_FLAP
     def derive(self, flap=P('Flap'), airspeed=P('Airspeed'), scope=S('Descent')):
         flap_or_conf_max_or_min(self, flap, airspeed, max_value, scope=scope)
 
 
 class AirspeedRelativeWithFlapDescentMin(KeyPointValueNode):
-    NAME_FORMAT = "Airspeed Relative With Flap %(flap)d in Descent Min"
+    NAME_FORMAT = "Airspeed Relative With Flap %(flap)d In Descent Min"
     NAME_VALUES = NAME_VALUES_FLAP
     def derive(self, flap=P('Flap'), airspeed=P('Airspeed Relative'), scope=S('Descent To Flare')):
         flap_or_conf_max_or_min(self, flap, airspeed, min_value, scope=scope)
