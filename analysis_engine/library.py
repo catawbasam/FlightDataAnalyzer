@@ -59,6 +59,9 @@ def align(slave, master, data_type=None):
     :rtype: np.ma.array
     """
     slave_array = slave.array # Optimised access to attribute.
+    if hasattr(slave_array, 'raw'):
+        # MappedArray: we should use raw data
+        slave_array = slave_array.raw
     if len(slave_array) == 0:
         # No elements to align, avoids exception being raised in the loop below.
         return slave_array

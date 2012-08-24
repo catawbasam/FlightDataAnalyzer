@@ -6,7 +6,8 @@ from analysis_engine.exceptions import DataFrameError
 from analysis_engine.model_information import (get_config_map,
                                                get_flap_map,
                                                get_slat_map)
-from analysis_engine.node import A, DerivedParameterNode, KPV, KTI, P, S
+from analysis_engine.node import (
+    A, DerivedParameterNode, MultistateDerivedParameterNode, KPV, KTI, P, S)
 from analysis_engine.library import (align,
                                      bearings_and_distances,
                                      blend_two_parameters,
@@ -1078,7 +1079,7 @@ class PackValvesOpen(DerivedParameterNode):
                p1=P('ECS Pack (1) On'), p1h=P('ECS Pack (1) High Flow'),
                p2=P('ECS Pack (2) On'), p2h=P('ECS Pack (2) High Flow')):
         # Sum the open engines, allowing 1 for low flow and 1+1 for high flow each side.
-        self.array = p1.array*(1+p1h.array)+p2.array*(1+p2h.array)
+        self.array = p1.array.raw*(1+p1h.array.raw)+p2.array.raw*(1+p2h.array.raw)
 
 
 ################################################################################
@@ -3563,11 +3564,15 @@ class SpeedbrakeSelection(DerivedParameterNode):
 ################################################################################
 
 
-class StickShaker(DerivedParameterNode):
+class StickShaker(MultistateDerivedParameterNode):
     '''
     This accounts for the different types of stick shaker system.
     '''    
     align_to_first_dependency = False
+    values_mapping = {
+        0: 'False',
+        1: 'Shake',
+    }
     
     @classmethod
     def can_operate(cls, available):
@@ -3602,4 +3607,3 @@ class StickShaker(DerivedParameterNode):
         # Stick shaker not found in 737-6 frame.
         else:
             raise DataFrameError(self.name, frame_name)
-        

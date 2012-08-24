@@ -87,26 +87,50 @@ class ApproachLowestPoint(KeyTimeInstanceNode):
 
 class AutopilotSelectionEngaged(KeyTimeInstanceNode):
     name = 'AP Selection Engaged'
+
     def derive(self, autopilot=P('AP Engaged'), phase=S('Airborne')):
-        self.create_ktis_at_edges(autopilot.array, direction='rising_edges', phase=phase)
+        self.create_ktis_on_state_change(
+            'On',
+            autopilot.array,
+            change='entering',
+            phase=phase
+        )
 
 
 class AutopilotSelectionDisengaged(KeyTimeInstanceNode):
     name = 'AP Selection Disengaged'
+
     def derive(self, autopilot=P('AP Engaged'), phase=S('Airborne')):
-        self.create_ktis_at_edges(autopilot.array, direction='falling_edges', phase=phase)
+        self.create_ktis_on_state_change(
+            'On',
+            autopilot.array,
+            change='leaving',
+            phase=phase
+        )
 
 
 class AutothrottleSelectionEngaged(KeyTimeInstanceNode):
     name = 'AT Selection Engaged'
+
     def derive(self, autothrottle=P('AT Engaged'), phase=S('Airborne')):
-        self.create_ktis_at_edges(autothrottle.array, direction='rising_edges', phase=phase)
+        self.create_ktis_on_state_change(
+            'Engaged',
+            autothrottle.array,
+            change='entering',
+            phase=phase
+        )
 
 
 class AutothrottleSelectionDisengaged(KeyTimeInstanceNode):
     name = 'AT Selection Disengaged'
+
     def derive(self, autothrottle=P('AT Engaged'), phase=S('Airborne')):
-        self.create_ktis_at_edges(autothrottle.array, direction='falling_edges', phase=phase)
+        self.create_ktis_on_state_change(
+            'Engaged',
+            autothrottle.array,
+            change='leaving',
+            phase=phase
+        )
 
 
 class ClimbStart(KeyTimeInstanceNode):
