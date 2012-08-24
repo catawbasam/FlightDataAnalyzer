@@ -153,7 +153,7 @@ function init(){
     //load json data
 
     //JSON.stringify(new_json,  null, 2);
-    $.getJSON("http://localhost:8080/_assets/ajax/tree.json", function(json) {
+    $.getJSON("http://localhost:8080/ajax/tree.json", function(json) {
     //;    
     //function TreeData (json) {
 
@@ -193,7 +193,7 @@ function init(){
     
     
     //Autocomplete box
-    $.getJSON("http://localhost:8080/_assets/ajax/node_list.json", function(node_list) {
+    $.getJSON("http://localhost:8080/ajax/node_list.json", function(node_list) {
 	$( "#tags" ).autocomplete({
 	    source: node_list,
 	    select: function(event, ui) {

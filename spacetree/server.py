@@ -30,6 +30,17 @@ from analysis_engine.process_flight import get_derived_nodes
 # Switch to production when it is updated to include parameter api.
 BASE_URL = 'https://polaris-test.flightdataservices.com' # 'https://polaris.flightdataservices.com'
 
+APPDATA_DIR = '_assets/'
+if getattr(sys, 'frozen', False):
+    APPDATA_DIR = os.path.join(os.environ.get('APPDATA', '.'), 'FlightDataServices', 'FlightDataParameterTree')
+    if not os.path.isdir(APPDATA_DIR):
+        print "Making Application data directory:", APPDATA_DIR
+        os.makedirs(APPDATA_DIR)
+        
+
+AJAX_DIR = os.path.join(APPDATA_DIR, 'ajax')
+if not os.path.isdir:
+    os.makedirs(ajax)
 
 def get_path(relative_path):
     '''
@@ -86,6 +97,7 @@ class GetHandler(BaseHTTPRequestHandler):
         if self.path.endswith('/spacetree'):
             self._spacetree()
             return
+        self._respond_with_error(404, 'Page Not Found %s' % self.path)
         
     def do_GET(self):
         parsed_url = urlparse(self.path)
@@ -124,6 +136,11 @@ class GetHandler(BaseHTTPRequestHandler):
             return
         elif path.endswith('/favicon.ico'):
             self._respond_with_static('_assets/img/' + path)
+            return
+        elif path.startswith('/ajax/'):
+            ajax_path = os.path.join(AJAX_DIR, os.path.basename(path))
+            print 'ajax path:', ajax_path
+            self._respond_with_static(ajax_path)
             return
         elif path.startswith('/_assets'):
             try:
@@ -201,6 +218,7 @@ class GetHandler(BaseHTTPRequestHandler):
         
         Note: LFL parameters not used will not be returned!
         '''
+        print "Establishing Node dependencies from Analysis Engine"
         # Ensure file is a valid hdf5 file before continuing.
         derived_nodes = get_derived_nodes(settings.NODE_MODULES)
         required_params = derived_nodes.keys()
@@ -231,11 +249,13 @@ class GetHandler(BaseHTTPRequestHandler):
         gr_all, gr_st, order = process_order(_graph, node_mgr)
 
         # save to tree.json
-        simplejson.dump(graph_adjacencies(gr_st), open('_assets/ajax/tree.json', 'w'), indent=2)
+        tree = os.path.join(AJAX_DIR, 'tree.json')
+        simplejson.dump(graph_adjacencies(gr_st), open(tree, 'w'), indent=2)
             
         # save nodes to node_list.json
+        node_list = os.path.join(AJAX_DIR, 'node_list.json')
         spanning_tree_params = gr_st.nodes()
-        simplejson.dump(spanning_tree_params, open('_assets/ajax/node_list.json', 'w'), indent=2)
+        simplejson.dump(spanning_tree_params, open(node_list, 'w'), indent=2)
         return spanning_tree_params
     
     # REST
