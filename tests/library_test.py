@@ -395,8 +395,9 @@ class TestAlign(unittest.TestCase):
         slave.array = np.ma.arange(1411)
         slave.frequency = 0.5
         result = align(slave, master)
-        self.assertTrue(False)
-        #np.testing.assert_array_equal(result.data,expected) - test not implemented
+        expected = master.array / 16.0
+        expected[-16:] = [1410.0]*16
+        np.testing.assert_array_almost_equal(result.data,expected.data, decimal=4)
 
     def test_align_superframe_to_onehz_multistate(self):
         # Slave once per superframe, master at 1Hz, Multi-State
@@ -1965,12 +1966,12 @@ class TestPeakCurvature(unittest.TestCase):
     def test_peak_curvature_flat_data(self):
         array = np.ma.array([34]*40)
         pc = peak_curvature(array)
-        self.assertEqual(pc,None)
+        self.assertEqual(pc,1)
         
     def test_peak_curvature_short_flat_data(self):
         array = np.ma.array([34]*4)
         pc = peak_curvature(array)
-        self.assertEqual(pc,None)
+        self.assertEqual(pc,1)
         
     def test_peak_curvature_bipolar(self):
         array = np.ma.array([0]*40+range(40))
@@ -1996,6 +1997,22 @@ class TestPeakCurvature(unittest.TestCase):
         array = np.ma.array([0]*40+range(40))
         pc = peak_curvature(array, slice(75, 10, -1))
         self.assertEqual(pc, 41.5)
+        
+    def test_peak_curvature_masked_data_no_curve(self):
+        array = np.ma.array([0]*40+range(40))
+        array[:4] = np.ma.masked
+        array[16:] = np.ma.masked
+        pc = peak_curvature(array, slice(0,40))
+        self.assertEqual(pc, 1)
+        
+    def test_peak_curvature_masked_data(self):
+        array = np.ma.array([0]*40+range(40))
+        array[:4] = np.ma.masked
+        array[66:] = np.ma.masked
+        pc = peak_curvature(array, slice(0,78))
+        self.assertEqual(pc, 38.5)
+
+
 
 class TestPeakIndex(unittest.TestCase):
     def test_peak_index_no_data(self):

@@ -18,7 +18,6 @@ from analysis_engine.library import (
     shift_slice, 
     shift_slices,
     slices_from_to,
-    slices_between,
     slices_overlap,
     slices_and,
     slices_or,
@@ -31,7 +30,6 @@ from analysis_engine.node import FlightPhaseNode, A, P, S, KTI
 from analysis_engine.settings import (
     AIRBORNE_THRESHOLD_TIME,
     AIRSPEED_THRESHOLD,
-    ALTITUDE_FOR_CLB_CRU_DSC,
     BOUNCED_LANDING_THRESHOLD,
     HEADING_TURN_OFF_RUNWAY,
     HEADING_TURN_ONTO_RUNWAY,
@@ -312,6 +310,20 @@ class Descent(FlightPhaseNode):
             # Build the slice from what we have found.
             self.create_phase(slice(closest_tod, bod))        
         return 
+
+
+class DescentToFlare(FlightPhaseNode):
+    '''
+    '''
+
+    def derive(self,
+            descents=S('Descent'),
+            alt_aal=P('Altitude AAL For Flight Phases')):
+        '''
+        '''
+        for descent in descents:
+            end = index_at_value(alt_aal.array, 50.0, descent.slice)
+            self.create_phase(slice(descent.slice.start, end))
 
 
 class DescentLowClimb(FlightPhaseNode):

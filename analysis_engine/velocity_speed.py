@@ -28,9 +28,9 @@ class VelocitySpeed(object):
     airspeed_reference_table = {'weight': ()}
 
     def __init__(self):
-        assert('weight' in self.v2_table, 'Weight not in V2 lookup table')
-        assert('weight' in self.airspeed_reference_table,
-               'Weight not in Vref lookup table')
+        assert 'weight' in self.v2_table, 'Weight not in V2 lookup table'
+        assert 'weight' in self.airspeed_reference_table, \
+               'Weight not in Vref lookup table'
 
     def v2(self, weight, setting):
         '''
@@ -56,7 +56,7 @@ class VelocitySpeed(object):
         :type weight: float
         :param setting: Flap/Conf setting to use in lookup
         :type setting: String
-        :raises: ValueError
+        :raises: ValueError, KeyError
         :returns: v2 value
         :rtype: float
         '''
@@ -78,18 +78,13 @@ class VelocitySpeed(object):
             weight = aircraft_weight
         else:
             raise ValueError, "Unrecognised weight units"
-        
-        # Sorry - not clear what this means.
-        # ??? weight = weight / self.unit
 
         if self.interpolate:
             # numpy interpolate
             # raises ValueError if weight is outside of table weight boundaries
-            try:
-                f = interp.interp1d(lookup['weight'], lookup[setting])
-                value = f(weight)
-            except:
-                value = None
+            # raises KeyError if setting is not in lookup table
+            f = interp.interp1d(lookup['weight'], lookup[setting])
+            value = f(weight)
         else:
             # bisect lookup
             value_index = bisect_left(lookup['weight'], weight)
@@ -101,18 +96,12 @@ class B737_300(VelocitySpeed):
     interpolate = True
     source = 'B737-5_925017_07'
     weight_unit = 'kg'
-    #v2_table = {
-             #'weight': ( 30,  35,  40,  45,  50,  55,  60,  65,  70),
-                    #1: (110, 118, 125, 132, 139, 146, 152, 158, 158), # temp fix to get test to pass as we do not know what flap 1 values are.
-                    #5: (110, 118, 125, 132, 139, 146, 152, 158, 158),
-                   #15: (106, 112, 119, 126, 132, 138, 143, 143, 143),
-    #}
     v2_table = {
              'weight': ( 35,  40,  45,  50,  55,  60,  65),
-                    1: (124, 131, 138, 145, 153, 160, 168), # temp fix to get test to pass as we do not know what flap 1 values are.
+                    1: (124, 131, 138, 145, 153, 160, 168),
                     5: (119, 126, 132, 139, 146, 153, 160),
                    15: (113, 120, 126, 132, 139, 145, 152),
-    }    
+    }
     airspeed_reference_table = {
              'weight':  ( 32,  36,  40,  44,  48,  52,  56,  60,  64),
                    15:  (111, 118, 125, 132, 138, 143, 149, 154, 159),
@@ -124,6 +113,10 @@ class B737_400(VelocitySpeed):
     interpolate = True
     source = 'B737-5_925017_07'
     weight_unit = 'kg'
+    v2_table = {
+            'weight': ( 40,  45,  50,  55,  60,  65,  70),
+                   5: (130, 136, 143, 149, 155, 162, 168),
+    }
     airspeed_reference_table = {
              'weight':  ( 35,  40,  45,  50,  55,  60,  65,  70,  70),
                     15: (123, 132, 141, 149, 156, 164, 171, 177, 177),
