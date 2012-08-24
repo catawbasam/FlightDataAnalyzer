@@ -15,9 +15,12 @@ from analysis_engine.node import (
     FormattedNameNode, 
     Node, NodeManager, 
     Parameter, P,
+    MultistateParameter, M,
     powerset,
     SectionNode, Section,
 )
+
+from hdfaccess.parameter import MappedArray
 
 
 class TestAbstractNode(unittest.TestCase):
@@ -1168,3 +1171,48 @@ class TestDerivedParameterNode(unittest.TestCase):
         self.assertEqual(result, expected)
 
 
+class TestMultistateParameterNode(unittest.TestCase):
+    def test_init(self):
+        values_mapping = {1: 'one', 2: 'two', 3: 'three'}
+
+        # init with MaskedArray
+        array = np.ma.MaskedArray([1, 2, 3])
+        p = M('Test Node', array, values_mapping=values_mapping)
+        self.assertEqual(p.array[0], 'one')
+        self.assertEqual(p.array.raw[0], 1)
+
+        # init with MappedArray
+        array = MappedArray([1, 2, 3], values_mapping=values_mapping)
+        p = M('Test Node', array, values_mapping=values_mapping)
+        self.assertEqual(p.array[0], 'one')
+        self.assertEqual(p.array.raw[0], 1)
+
+        # init with list of strings
+        array = ['one', 'two', 'three']
+        p = M('Test Node', array, values_mapping=values_mapping)
+        self.assertEqual(p.array[0], 'one')
+        self.assertEqual(p.array.raw[0], 1)
+
+    def test_setattr_array(self):
+        values_mapping = {1: 'one', 2: 'two', 3: 'three'}
+
+        # init with MaskedArray
+        array = np.ma.MaskedArray([1, 2, 3])
+        p = M('Test Node', array, values_mapping=values_mapping)
+        self.assertEqual(p.array[0], 'one')
+        self.assertEqual(p.array.raw[0], 1)
+
+        # overwrite the array
+        array = np.ma.MaskedArray([3, 2, 1])
+        p.array = array
+        self.assertEqual(p.array[0], 'three')
+        self.assertEqual(p.array.raw[0], 3)
+
+        # overwrite the mapping
+        p.values_mapping = {1: 'ein', 2: 'zwei', 3: 'drei'}
+        self.assertEqual(p.array[0], 'drei')
+        self.assertEqual(p.array.raw[0], 3)
+
+
+if __name__ == '__main__':
+    unittest.main()

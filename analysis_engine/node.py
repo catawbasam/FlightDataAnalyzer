@@ -6,7 +6,7 @@ import copy
 import math
 
 from abc import ABCMeta
-from collections import namedtuple
+from collections import namedtuple, Iterable
 from itertools import product
 from operator import attrgetter
 
@@ -16,6 +16,10 @@ from analysis_engine.library import (align, find_edges, is_index_within_slice,
                                      slices_from_to, slices_overlap,
                                      value_at_index, value_at_time)
 from analysis_engine.recordtype import recordtype
+
+# FIXME: a better place for this class
+
+from hdfaccess.parameter import MappedArray
 
 
 logger = logging.getLogger(name=__name__)
@@ -456,12 +460,72 @@ class DerivedParameterNode(Node):
 P = Parameter = DerivedParameterNode # shorthand
 
 
+class MultistateDerivedParameterNode(Parameter):
+    def __init__(self, name='', array=np.ma.array([]), frequency=1, offset=0,
+                 data_type=None, values_mapping={}, *args, **kwargs):
+        self.values_mapping = values_mapping
+        super(MultistateDerivedParameterNode, self).__init__(
+                name, array, frequency, offset, data_type, *args,
+                **kwargs)
+
+    def __setattr__(self, name, value):
+        '''
+        Prepare self.array
+
+        `value` can be:
+            * a MappedArray: the value is assigned with no change,
+            * a MaskedArray: value is converted to MaskedArray with no change
+              to the raw data
+            * a list: value is interpreted as 'converted' data, so the mapping
+              is reversed. KeyError is raised if the values are not found in
+              the mapping.
+        '''
+        if name not in ('array', 'values_mapping'):
+            return super(MultistateDerivedParameterNode, self). \
+                    __setattr__(name, value)
+
+        if name == 'values_mapping':
+            if hasattr(self, 'array'):
+                self.array.values_mapping = value
+            return object.__setattr__(self, name, value)
+        if isinstance(value, MappedArray):
+            # FIXME: do we want to override the mapping this way?
+            # self.array.values_mapping = value.values_mapping
+            pass
+        elif isinstance(value, np.ma.MaskedArray):
+            value = MappedArray(value, values_mapping=self.values_mapping)
+        elif isinstance(value, Iterable):
+            # We assume a list of mapped values
+            reversed_mapping = {v: k for k, v in self.values_mapping.items()}
+            data = [float(reversed_mapping[v]) for v in value]
+            value = MappedArray(data, values_mapping=self.values_mapping)
+        else:
+            raise ValueError('Invalid argument type assigned to array: %s'
+                             % type(value))
+
+        return object.__setattr__(self, name, value)
+
+
+M = MultistateParameter = MultistateDerivedParameterNode  # shorthand
+
+
 def derived_param_from_hdf(hdf, name):
     hdf_parameter = hdf[name]
-    return Parameter(name=hdf_parameter.name, array=hdf_parameter.array, 
-                     frequency=hdf_parameter.frequency,
-                     offset=hdf_parameter.offset,
-                     data_type=hdf_parameter.data_type)
+    if isinstance(hdf_parameter.array, MappedArray):
+        result = MultistateParameter(
+            name=hdf_parameter.name, array=hdf_parameter.array,
+            frequency=hdf_parameter.frequency, offset=hdf_parameter.offset,
+            data_type=hdf_parameter.data_type
+        )
+        print result.name, result.frequency, hdf_parameter.frequency
+        return result
+
+    else:
+        return Parameter(
+            name=hdf_parameter.name, array=hdf_parameter.array,
+            frequency=hdf_parameter.frequency, offset=hdf_parameter.offset,
+            data_type=hdf_parameter.data_type
+        )
 
 
 class SectionNode(Node, list):
