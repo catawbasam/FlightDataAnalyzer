@@ -4,6 +4,8 @@
 
 '''
 Simple HTTP server for the spacetree and parameter list utilities.
+
+NOTE: Node colours are set within dependency_graph.py
 '''
 
 ################################################################################
@@ -15,6 +17,7 @@ import httplib2
 import logging
 import os
 import simplejson
+import socket
 import sys
 import urllib
 import webbrowser
@@ -84,7 +87,21 @@ FILE_EXT_TYPE_MAP = {
     'png': 'image/png',
 }
 
+APPDATA_DIR = '_assets/'
+if getattr(sys, 'frozen', False):
+    APPDATA_DIR = os.path.join(os.environ.get('APPDATA', '.'), 'FlightDataServices', 'FlightDataParameterTree')
+    if not os.path.isdir(APPDATA_DIR):
+        print "Making Application data directory: %s" % APPDATA_DIR
+        os.makedirs(APPDATA_DIR)
+        
 
+AJAX_DIR = os.path.join(APPDATA_DIR, 'ajax')
+if not os.path.isdir(AJAX_DIR):
+    print "Making AJAX directory: %s" % AJAX_DIR
+    os.makedirs(AJAX_DIR)
+    
+socket.setdefaulttimeout(120)
+    
 ################################################################################
 # Helpers
 
@@ -202,6 +219,7 @@ class SpacetreeRequestHandler(BaseHTTPRequestHandler):
         if self.path.endswith('/spacetree'):
             self._spacetree()
             return
+        self._respond_with_error(404, 'Page Not Found %s' % self.path)
 
     def do_GET(self):
         '''
@@ -219,6 +237,11 @@ class SpacetreeRequestHandler(BaseHTTPRequestHandler):
             return
         elif path.endswith('/favicon.ico'):
             self._respond_with_static('_assets/fds/img/icons/logo/polaris.ico')
+            return
+        elif path.startswith('/ajax/'):
+            ajax_path = os.path.join(AJAX_DIR, os.path.basename(path))
+            print 'ajax path:', ajax_path
+            self._respond_with_static(ajax_path)
             return
         elif path.startswith('/_assets'):
             try:
@@ -289,6 +312,7 @@ class SpacetreeRequestHandler(BaseHTTPRequestHandler):
         
         Note: LFL parameters not used will not be returned!
         '''
+        print "Establishing Node dependencies from Analysis Engine"
         # Ensure file is a valid HDF file before continuing:
         derived_nodes = get_derived_nodes(settings.NODE_MODULES)
         required_params = derived_nodes.keys()
@@ -320,19 +344,18 @@ class SpacetreeRequestHandler(BaseHTTPRequestHandler):
                                achieved_flight_record)
         _graph = graph_nodes(node_mgr)
         gr_all, gr_st, order = process_order(_graph, node_mgr)
-        spanning_tree_params = sorted(gr_st.nodes())
 
-        # FIXME: Requires use of lookup_path()?
         # Save the dependency tree to tree.json:
-        with open('_assets/ajax/tree.json', 'w') as f:
-            simplejson.dump(graph_adjacencies(gr_st), f, indent=4)
-
-        # FIXME: Requires use of lookup_path()?
+        tree = os.path.join(AJAX_DIR, 'tree.json')
+        with open(tree, 'w') as fh:
+            simplejson.dump(graph_adjacencies(gr_st), fh, indent=4)
+            
         # Save the list of nodes to node_list.json:
-        with open('_assets/ajax/node_list.json', 'w') as f:
-            simplejson.dump(spanning_tree_params, f, indent=4)
-
-        return spanning_tree_params
+        node_list = os.path.join(AJAX_DIR, 'node_list.json')
+        spanning_tree_params = sorted(gr_st.nodes())
+        with open(node_list, 'w') as fh:
+            simplejson.dump(spanning_tree_params, fh, indent=4)
+        return 
 
     ####################################
     # Fetch Parameters via REST API
