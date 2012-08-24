@@ -1118,7 +1118,41 @@ class KeyTimeInstanceNode(FormattedNameNode):
             for each_period in phase:
                 kti_edges(array, each_period.slice)
         return    
-    
+
+    def create_ktis_on_state_change(self, state, array, change='entering',
+                                    phase=None):
+        '''
+        Create KTIs from multistate parameters where data reaches and leaves
+        given state.
+
+        Its logic operates on string representation of the multistate
+        parameter, not on the raw data value.
+        '''
+        # Low level function that finds start and stop indices of given state
+        # and creates KTIs
+        def state_changes(state, array, change, _slice=slice(0, -1)):
+            state_periods = np.ma.clump_unmasked(
+                np.ma.masked_not_equal(array[_slice], state))
+            for period in state_periods:
+                if change == 'leaving':
+                    self.create_kti(period.stop)
+                elif change == 'entering':
+                    self.create_kti(period.start)
+                elif change == 'entering_and_leaving':
+                    self.create_kti(period.start)
+                    self.create_kti(period.stop)
+            return
+
+        # High level function scans phase blocks or complete array and
+        # presents appropriate arguments for analysis. We test for phase.name
+        # as phase returns False.
+        if phase == None:
+            state_changes(state, array, change)
+        else:
+            for each_period in phase:
+                state_changes(state, array, change, each_period.slice)
+        return
+
     def get_aligned(self, param):
         '''
         :param param: Node to align this KeyTimeInstanceNode to.

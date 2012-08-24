@@ -997,7 +997,34 @@ class TestKeyTimeInstanceNode(unittest.TestCase):
         kti=self.kti
         test_param = np.ma.array([0])
         self.assertRaises(ValueError, kti.create_ktis_at_edges, test_param, direction='sideways')
-        
+
+    def test_create_ktis_on_state_change_entering(self):
+        kti = self.kti
+        test_param = MappedArray([0, 1, 1, 0, 0, 0, 0, 1, 0],
+                                 values_mapping={0: 'Off', 1: 'On'})
+        kti.create_ktis_on_state_change('On', test_param, change='entering')
+        self.assertEqual(kti, [KeyTimeInstance(index=1, name='Kti'),
+                               KeyTimeInstance(index=7, name='Kti')])
+
+    def test_create_ktis_on_state_change_leaving(self):
+        kti = self.kti
+        test_param = MappedArray([0, 1, 1, 0, 0, 0, 0, 1, 0],
+                                 values_mapping={0: 'Off', 1: 'On'})
+        kti.create_ktis_on_state_change('On', test_param, change='leaving')
+        self.assertEqual(kti, [KeyTimeInstance(index=3, name='Kti'),
+                               KeyTimeInstance(index=8, name='Kti')])
+
+    def test_create_ktis_on_state_change_entering_and_leaving(self):
+        kti = self.kti
+        test_param = MappedArray([0, 1, 1, 0, 0, 0, 0, 1, 0],
+                                 values_mapping={0: 'Off', 1: 'On'})
+        kti.create_ktis_on_state_change('On', test_param,
+                                        change='entering_and_leaving')
+        self.assertEqual(kti, [KeyTimeInstance(index=1, name='Kti'),
+                               KeyTimeInstance(index=3, name='Kti'),
+                               KeyTimeInstance(index=7, name='Kti'),
+                               KeyTimeInstance(index=8, name='Kti')])
+
     def test_get_aligned(self):
         '''
         TODO: Test offset alignment.
