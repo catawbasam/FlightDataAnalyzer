@@ -463,7 +463,12 @@ P = Parameter = DerivedParameterNode # shorthand
 class MultistateDerivedParameterNode(Parameter):
     def __init__(self, name='', array=np.ma.array([]), frequency=1, offset=0,
                  data_type=None, values_mapping={}, *args, **kwargs):
-        self.values_mapping = values_mapping
+
+        if values_mapping:
+            self.values_mapping = values_mapping
+        elif not hasattr(self, 'values_mapping'):
+            self.values_mapping = {}
+
         super(MultistateDerivedParameterNode, self).__init__(
                 name, array, frequency, offset, data_type, *args,
                 **kwargs)
@@ -489,13 +494,12 @@ class MultistateDerivedParameterNode(Parameter):
                 self.array.values_mapping = value
             return object.__setattr__(self, name, value)
         if isinstance(value, MappedArray):
-            # FIXME: do we want to override the mapping this way?
-            # self.array.values_mapping = value.values_mapping
-            pass
+            # enforce own values mapping on the data
+            value.values_mapping = self.values_mapping
         elif isinstance(value, np.ma.MaskedArray):
             value = MappedArray(value, values_mapping=self.values_mapping)
         elif isinstance(value, Iterable):
-            # We assume a list of mapped values
+            # assume a list of mapped values
             reversed_mapping = {v: k for k, v in self.values_mapping.items()}
             data = [float(reversed_mapping[v]) for v in value]
             value = MappedArray(data, values_mapping=self.values_mapping)
@@ -515,9 +519,9 @@ def derived_param_from_hdf(hdf, name):
         result = MultistateParameter(
             name=hdf_parameter.name, array=hdf_parameter.array,
             frequency=hdf_parameter.frequency, offset=hdf_parameter.offset,
-            data_type=hdf_parameter.data_type
+            data_type=hdf_parameter.data_type,
+            values_mapping=hdf_parameter.values_mapping
         )
-        print result.name, result.frequency, hdf_parameter.frequency
         return result
 
     else:
