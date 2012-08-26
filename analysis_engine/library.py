@@ -2400,7 +2400,7 @@ def truck_and_trailer(data, ttp, overall, trailer, curve_sense, _slice):
     '''
     # Trap for invariant data
     if np.ma.ptp(data) == 0.0:
-        return 1
+        return None
     
     # Set up working arrays
     x = np.arange(ttp) + 1 #  The x-axis is always short and constant
@@ -2459,6 +2459,7 @@ def truck_and_trailer(data, ttp, overall, trailer, curve_sense, _slice):
             peak_slice[0].start+(overall/2.0)-0.5
         return index*(_slice.step or 1) + (_slice.start or 0)
     else:
+        # Data curved in wrong sense or too weakly to find corner point.
         return None
     
     
@@ -2502,9 +2503,11 @@ def peak_curvature(array, _slice=slice(None), curve_sense='Concave'):
         if valid_slice.stop - valid_slice.start > overall:
             data = array[_slice][valid_slice]
             # The normal path is to go and process this data.
-            return valid_slice.start + truck_and_trailer(data, ttp, overall, 
-                                                         trailer, curve_sense, 
-                                                         _slice)
+            corner = truck_and_trailer(data, ttp, overall, trailer, curve_sense, _slice)
+            if corner:
+                return corner + valid_slice.start
+            else:
+                return None
         
         # Here we deal with problem cases.
         if len(valid_slices) == 0 or (valid_slice.stop - valid_slice.start) < 4:

@@ -128,7 +128,7 @@ class AccelerationNormalMax(KeyPointValueNode):
     def derive(self, acc_norm=P('Acceleration Normal'), gspd=P('Groundspeed')):
         if gspd:
             self.create_kpvs_within_slices(acc_norm.array,
-                                       gspd.slices_above(5), max_value)
+                                       gspd.slices_above(5.0), max_value)
         else:
             index, value = max_value(acc_norm.array)
             self.create_kpv(index, value)
@@ -176,7 +176,7 @@ def bump(acc, phase):
     # Scan the acceleration array for a short period either side of the
     # moment of interest. Too wide and we risk monitoring flares and
     # post-liftoff motion. Too short and we may miss a local peak.
-    dt=1.0 # Half width of range to scan across for peak acceleration.
+    dt=3.0 # Half width of range to scan across for peak acceleration.
     from_index = max(int(phase.index-dt*acc.hz), 0)
     to_index = min(int(phase.index+dt*acc.hz)+1, len(acc.array))
     bump_accel = acc.array[from_index:to_index]

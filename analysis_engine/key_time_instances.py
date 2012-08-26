@@ -15,7 +15,7 @@ from analysis_engine.library import (find_edges,
                                      max_value, 
                                      peak_curvature)
 
-from analysis_engine.node import P, S, KTI, KeyTimeInstanceNode
+from analysis_engine.node import (M, P, S, KTI, KeyTimeInstanceNode)
 
 from settings import (CLIMB_THRESHOLD,
                       RATE_OF_CLIMB_FOR_LIFTOFF,
@@ -412,58 +412,117 @@ class TouchAndGo(KeyTimeInstanceNode):
                 # wheels on ground
                 self.create_kti(ga.index)
 
+'''
+############################################################################
+'''
+def find_edges_on_state_change(state, array, change='entering', 
+                                phase=None):
+    '''
+    Bastardised from create_ktis as I don't want to create the KTI directly.
+    '''
+    def state_changes(state, array, edge_list, change, _slice=slice(0, -1)):
+        state_periods = np.ma.clump_unmasked(
+            np.ma.masked_not_equal(array[_slice], state))
+        for period in state_periods:
+            if change == 'entering':
+                edge_list.append(period.start - 0.5
+                                 if period.start > 0 else 0.)
+            elif change == 'leaving':
+                edge_list.append(period.stop - 0.5)
+            elif change == 'entering_and_leaving':
+                edge_list.append(period.start - 0.5
+                                 if period.start > 0 else 0.)
+                edge_list.append(period.stop - 0.5)
+        return edge_list
+
+    # High level function scans phase blocks or complete array and
+    # presents appropriate arguments for analysis. We test for phase.name
+    # as phase returns False.
+    edge_list = []
+    if phase == None:
+        state_changes(state, array, edge_list, change)
+    else:
+        for each_period in phase:
+            state_changes(state, array, edge_list, change, each_period.slice)
+    return edge_list
+'''
+############################################################################
+'''
 
 class Touchdown(KeyTimeInstanceNode):
-    def derive(self, roc=P('Rate Of Climb Inertial'), alt=P('Altitude AAL'), 
-               airs=S('Airborne'), lands=S('Landing'), on_gnd=P('Gear On Ground')
+    # List the minimum acceptable parameters here
+    @classmethod
+    def can_operate(cls, available):
+        # List the minimum required parameters.
+        return 'Gear On Ground Discrete' in available or \
+               ('Rate Of Climb Inertial'  in available and\
+                'Altitude AAL'  in available and\
+                'Airborne'  in available and\
+                'Landing' in available)
+     
+    def derive(self, wow = P('Gear On Ground Discrete'), 
+               roc=P('Rate Of Climb Inertial'), alt=P('Altitude AAL'), 
+               airs=S('Airborne'), lands=S('Landing')
                ):
-        # We do a local integration of the inertial rate of climb to
-        # estimate the actual point of landing. This is referenced to the
-        # available altitude signal, altitude AAL, which will have been
-        # derived from the best available source. This technique
-        # leads on to the rate of descent at landing KPV which can then
-        # make the best calculation of the landing ROD as we know more accurately the time 
-        # where the mainwheels touched.
-        
-        # This technique works well with firm landings, where the ROD at
-        # landing is important, but can be inaccurate with very gentle
-        # landings. The Gear On Ground signal is included as a sanity check
-        # to cover these cases, but for aircraft with no weight on wheels
-        # switches, this is ignored..
-        
-        # Time constant
-        tau = 0.3
+        # The preamble here checks that the landing we are looking at is
+        # genuine, that it, it's not just becasue the data stopped in
+        # mid-flight. We reduce the scope of the search for touchdown to
+        # avoid triggering in mid-cruise, and it avoids problems for aircraft
+        # where the gear signal changes state on raising the gear (OK, if
+        # they do a gear-up landing it won't work, but this will be the least
+        # of the problems).
         for air in airs:
             t0 = air.slice.stop
             if t0 and is_index_within_sections(t0, lands):
                 # Let's scan from 30ft to 10 seconds after the approximate touchdown moment.
                 startpoint = index_at_value(alt.array, 30.0, slice(t0, t0-200,-1))
                 endpoint = min(t0+10.0*roc.hz, len(roc.array))
-                # Make space for the integrand
-                sm_ht = np_ma_zeros_like(roc.array[startpoint:endpoint])
-                # Repair the source data (otherwise we propogate masked data)
-                my_roc = repair_mask(roc.array[startpoint:endpoint])
-                my_alt = repair_mask(alt.array[startpoint:endpoint])
 
-                # Start at the beginning...
-                sm_ht[0] = alt.array[startpoint]
-                #...and calculate each with a weighted correction factor.
-                for i in range(1, len(sm_ht)):
-                    sm_ht[i] = (1.0-tau)*sm_ht[i-1] + tau*my_alt[i-1] + my_roc[i]/60.0/roc.hz
-
-                # Plot for ease of inspection during development.
-                plot_parameter(alt.array[startpoint:endpoint], show=False)
-                plot_parameter(roc.array[startpoint:endpoint]/100.0, show=False)
-                plot_parameter(sm_ht)
+                # If we have a wheel sensor, use this. It is often a derived
+                # parameter created by ORing the left and right main gear
+                # signals.
+                if wow:
+                    edges = find_edges_on_state_change('Ground', wow.array[startpoint:endpoint])
+                    self.create_kti(edges[0] + startpoint)
+                    return
                 
-                # The final step is trivial.
-                t1 = index_at_value(sm_ht, 0.0)+startpoint
-                
-                t2 = find_edges(on_gnd.array, slice(startpoint,endpoint), direction='falling_edges')
-                
-                if t1:
-                    self.create_kti(t1)
-
+                if not wow or edges == []:
+                    #For aircraft without weight on wheels swiches, or if
+                    #there is a problem with the switch for this landing, we
+                    #do a local integration of the inertial rate of climb to
+                    #estimate the actual point of landing. This is referenced
+                    #to the # available altitude signal, altitude AAL, which
+                    #will have been # derived from the best available source.
+                    #This technique # leads on to the rate of descent at
+                    #landing KPV which can then # make the best calculation
+                    #of the landing ROD as we know more accurately the time #
+                    #where the mainwheels touched.
+        
+                    # Time constant of 3 seconds.
+                    tau = 1/3.0
+                    # Make space for the integrand
+                    sm_ht = np_ma_zeros_like(roc.array[startpoint:endpoint])
+                    # Repair the source data (otherwise we propogate masked data)
+                    my_roc = repair_mask(roc.array[startpoint:endpoint])
+                    my_alt = repair_mask(alt.array[startpoint:endpoint])
+    
+                    # Start at the beginning...
+                    sm_ht[0] = alt.array[startpoint]
+                    #...and calculate each with a weighted correction factor.
+                    for i in range(1, len(sm_ht)):
+                        sm_ht[i] = (1.0-tau)*sm_ht[i-1] + tau*my_alt[i-1] + my_roc[i]/60.0/roc.hz
+    
+                    t1 = index_at_value(sm_ht, 0.0)+startpoint
+                    if t1:
+                        self.create_kti(t1)
+                    
+                    '''
+                    # Plot for ease of inspection during development.
+                    plot_parameter(alt.array[startpoint:endpoint], show=False)
+                    plot_parameter(roc.array[startpoint:endpoint]/100.0, show=False)
+                    #plot_parameter(on_gnd.array[startpoint:endpoint], show=False)
+                    plot_parameter(sm_ht)
+                    '''
 
 class LandingTurnOffRunway(KeyTimeInstanceNode):
     # See Takeoff Turn Onto Runway for description.
@@ -608,4 +667,22 @@ class LocalizerEstablishedEnd(KeyTimeInstanceNode):
 
 
 
-            
+
+class TestKTI(KeyTimeInstanceNode):
+    '''
+    Test function to operate on "real" hdf data rather than assumed data sets.
+    '''
+    align_to_first_dependency = False
+    
+    values_mapping = { 0: 'KTI_Air',
+                       1: 'KTI_Ground',}
+
+    def derive(self, gn = M('Gear (N) On Ground'), gear = M('Gear On Ground')):
+        print 'KTI Test'
+        for i in [5,14,681, 7220, -1]:
+            print
+            print 'Nose > ',i, gn.array[i], gn.array.raw[i]
+            print 'Main > ',i, gear.array[i], gear.array.raw[i]
+            '''
+            '''
+        pass

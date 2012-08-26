@@ -1966,7 +1966,7 @@ class TestPeakCurvature(unittest.TestCase):
     def test_peak_curvature_flat_data(self):
         array = np.ma.array([34]*40)
         pc = peak_curvature(array)
-        self.assertEqual(pc,1)
+        self.assertEqual(pc,None)
         
     def test_peak_curvature_short_flat_data(self):
         array = np.ma.array([34]*4)

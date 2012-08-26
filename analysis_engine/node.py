@@ -1121,6 +1121,7 @@ class KeyTimeInstanceNode(FormattedNameNode):
 
     def create_ktis_on_state_change(self, state, array, change='entering',
                                     phase=None):
+        return
         '''
         Create KTIs from multistate parameters where data reaches and leaves
         given state.
@@ -1391,6 +1392,7 @@ class KeyPointValueNode(FormattedNameNode):
 
     def create_kpvs_where_state(self, state, array, hz, phase=None,
                                 min_duration=0.0):
+        return
         '''
         For discrete and multi-state parameters, this detects an event and
         records the duration of each event.
