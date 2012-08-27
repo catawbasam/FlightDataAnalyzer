@@ -4,6 +4,7 @@ import sys
 import unittest
 
 from mock import Mock, patch
+from analysis_engine.plot_flight import plot_parameter
 
 from analysis_engine.derived_parameters import Flap
 from analysis_engine.library import align
@@ -12,7 +13,7 @@ from analysis_engine.node import (KeyTimeInstance, KTI, KeyPointValue,
 
 from analysis_engine.key_point_values import (
     ##AccelerationLateralTaxiingMax,
-    AccelerationNormal20FtToGroundMax,
+    AccelerationNormal20FtToFlareMax,
     ##AccelerationNormalAirborneMax,
     ##AccelerationNormalAirborneMin,
     ##AccelerationNormalDuringTakeoffMax,
@@ -32,6 +33,7 @@ from analysis_engine.key_point_values import (
     AirspeedRelativeAtTouchdown,
     AirspeedWithFlapMax,
     ##AirspeedWithGearSelectedDownMax,
+    AltitudeAtLastFlapChangeBeforeLanding,
     AltitudeAtMachMax,
     AltitudeAtSuspectedLevelBust,
     AltitudeAtTouchdown,
@@ -44,8 +46,8 @@ from analysis_engine.key_point_values import (
     ControlColumnStiffness,
     ##EngGasTempMax,
     EngEPR500FtToTouchdownMin,
-    EngN13000FtToTouchdownMax,
-    EngN1500FtToTouchdownMin,
+    ##EngN13000FtToTouchdownMax,
+    ##EngN1500FtToTouchdownMin,
     ##EngN1Max,
     EngN1TakeoffMax,
     ##EngN2Max,
@@ -71,12 +73,12 @@ from analysis_engine.key_point_values import (
     HeadingAtLanding,
     ## HeadingAtLowPointOnApproach,
     ##HeightAtGoAroundMin,
-    LatitudeAtLanding,
+    LatitudeAtTouchdown,
     ## LatitudeAtLowPointOnApproach,
-    LatitudeAtTakeoff,
-    LongitudeAtLanding,
+    LatitudeAtLiftoff,
+    LongitudeAtTouchdown,
     ## LongitudeAtLowPointOnApproach,
-    LongitudeAtTakeoff,
+    LongitudeAtLiftoff,
     ILSLocalizerDeviation1500To1000FtMax,
     ILSLocalizerDeviation1000To250FtMax,
     MachMax,
@@ -238,7 +240,8 @@ class TestAccelerationNormalDuringTakeoffMax(unittest.TestCase,
 class TestAccelerationNormalMax(unittest.TestCase):
     def test_can_operate(self, eng=P()):
         self.assertEqual(AccelerationNormalMax.get_operational_combinations(),
-                         [('Acceleration Normal',)])
+                         [('Acceleration Normal',), 
+                          ('Acceleration Normal','Groundspeed',)])
     
     @patch('analysis_engine.key_point_values.max_value')
     def test_derive(self, max_value):
@@ -257,11 +260,11 @@ class TestAccelerationNormalMax(unittest.TestCase):
 class TestAccelerationNormal20FtToGroundMax(unittest.TestCase,
                                             CreateKPVsWithinSlicesTest):
     def setUp(self):
-        self.node_class = AccelerationNormal20FtToGroundMax
+        self.node_class = AccelerationNormal20FtToFlareMax
         self.operational_combinations = [('Acceleration Normal',
                                           'Altitude AAL For Flight Phases')]
         self.function = max_value
-        self.second_param_method_calls = [('slices_from_to', (20, 0,), {})]
+        self.second_param_method_calls = [('slices_from_to', (20, 5,), {})]
     
     def test_derive(self):
         '''
@@ -270,18 +273,18 @@ class TestAccelerationNormal20FtToGroundMax(unittest.TestCase,
         # Test height range limit
         alt_aal = P('Altitude AAL For Flight Phases', np.ma.arange(48,0,-3))
         acceleration_normal = P('Acceleration Normal', np.ma.array(range(10,18)+range(18,10,-1))/10.0)
-        node = AccelerationNormal20FtToGroundMax()
+        node = AccelerationNormal20FtToFlareMax()
         node.derive(acceleration_normal, alt_aal)
         self.assertEqual(node,
                 [KeyPointValue(index=10, value=1.6,
-                               name='Acceleration Normal 20 Ft To Ground Max')])
+                               name='Acceleration Normal 20 Ft To Flare Max')])
         # Test peak acceleration
         alt_aal = P('Altitude AAL For Flight Phases', np.ma.arange(32,0,-2))
-        node = AccelerationNormal20FtToGroundMax()
+        node = AccelerationNormal20FtToFlareMax()
         node.derive(acceleration_normal, alt_aal)
         self.assertEqual(node,
                 [KeyPointValue(index=8, value=1.8,
-                               name='Acceleration Normal 20 Ft To Ground Max')])
+                               name='Acceleration Normal 20 Ft To Flare Max')])
 
 
 class TestAirspeed1000To500FtMax(unittest.TestCase, CreateKPVsWithinSlicesTest):
@@ -347,6 +350,7 @@ class TestAirspeedAtTouchdown(unittest.TestCase, CreateKPVsAtKTIsTest):
         self.node_class = AirspeedAtTouchdown
         self.operational_combinations = [('Airspeed', 'Touchdown')]
 
+
 class TestAirspeedBelowAltitudeMax(unittest.TestCase):
     def test_derive(self):
         airspeed = P(array=np.ma.arange(20))
@@ -359,9 +363,6 @@ class TestAirspeedBelowAltitudeMax(unittest.TestCase):
                            slice=slice(None, None, None), datetime=None), 
              KeyPointValue(index=15, value=15.0, 
                            name='Airspeed Below 8000 Ft Max', 
-                           slice=slice(None, None, None), datetime=None), 
-             KeyPointValue(index=13, value=13.0, 
-                           name='Airspeed Below 7000 Ft Max', 
                            slice=slice(None, None, None), datetime=None), 
              KeyPointValue(index=9, value=9.0, 
                            name='Airspeed Below 5000 Ft Max', 
@@ -445,6 +446,43 @@ class TestAirspeedRelativeAtTouchdown(unittest.TestCase, CreateKPVsAtKTIsTest):
         self.operational_combinations = [('Airspeed Relative', 'Touchdown')]
 
     
+
+class TestAltitudeAtLastFlapChangeBeforeLanding(unittest.TestCase):
+    def test_can_operate(self):
+        self.assertEqual(AltitudeAtLastFlapChangeBeforeLanding.get_operational_combinations(),
+                          [('Flap', 'Altitude AAL', 'Touchdown')])
+        
+    def test_alt_last_flap_basic(self):
+        alt = 500 - np.ma.arange(10)*50.0 # 500 to 50 in steps of -50.
+        flap = np.ma.array([10,10,10,20,20,20,30,30,30,30])
+        tdwn = KTI(items=[KeyTimeInstance(8)])
+        kpv = AltitudeAtLastFlapChangeBeforeLanding()
+        kpv.derive(P('Flap',flap),P('Altitude AAL', alt), tdwn)
+        expected = [KeyPointValue(index=6, value=200.0, 
+                                  name='Altitude AAL At Last Flap Change Before Landing')]
+        self.assertEqual(expected, kpv)
+
+    def test_alt_last_flap_change(self):
+        alt = 500 - np.ma.arange(10)*50.0 # 500 to 50 in steps of -50.
+        flap = np.ma.array([10,10,10,20,20,10,10,10,10,10])
+        tdwn = KTI(items=[KeyTimeInstance(8)])
+        kpv = AltitudeAtLastFlapChangeBeforeLanding()
+        kpv.derive(P('Flap',flap),P('Altitude AAL', alt), tdwn)
+        expected = [KeyPointValue(index=5, value=250.0, 
+                                  name='Altitude AAL At Last Flap Change Before Landing')]
+        self.assertEqual(expected, kpv)
+
+    def test_alt_last_flap_never_changed(self):
+        alt = 500 - np.ma.arange(10)*50.0 # 500 to 50 in steps of -50.
+        flap = np.ma.array([0]*10)
+        tdwn = KTI(items=[KeyTimeInstance(8)])
+        kpv = AltitudeAtLastFlapChangeBeforeLanding()
+        kpv.derive(P('Flap',flap),P('Altitude AAL', alt), tdwn)
+        expected = []
+        self.assertEqual(expected, kpv)
+
+
+
 class TestAirspeedWithFlapMax(unittest.TestCase):
     def test_can_operate(self):
         self.assertEqual(\
@@ -538,27 +576,29 @@ class TestAltitudeAtSuspectedLevelBust(unittest.TestCase):
     def test_up_down_and_up(self):
         testwave = np.ma.array(1.0+np.sin(np.arange(0,12.6,0.1)))*1000
         alt=Parameter('Altitude STD',testwave)
+        # plot_parameter (testwave)
         kpv=AltitudeAtSuspectedLevelBust()
         kpv.derive(alt)
         expected=[KeyPointValue(index=16, value=999.5736030415051, 
                                 name='Altitude At Suspected Level Bust', 
                                 slice=slice(None, None, None), datetime=None), 
-                  KeyPointValue(index=47, value=-1998.8645994038727, 
+                  KeyPointValue(index=47, value=-1998.4666029387058, 
                                 name='Altitude At Suspected Level Bust', 
                                 slice=slice(None, None, None), datetime=None), 
-                  KeyPointValue(index=79, value=1998.8645994038727, 
+                  KeyPointValue(index=79, value=1994.3775951461494, 
+                                name='Altitude At Suspected Level Bust', 
+                                slice=slice(None, None, None), datetime=None),
+                  KeyPointValue(index=110, value=-933.6683091995028, 
                                 name='Altitude At Suspected Level Bust', 
                                 slice=slice(None, None, None), datetime=None)]
         self.assertEqual(kpv,expected)
         
     def test_too_slow(self):
         testwave = np.ma.array(1.0+np.sin(np.arange(0,12.6,0.1)))*1000
-        alt=Parameter('Altitude STD',testwave,0.2)
+        alt=Parameter('Altitude STD',testwave,0.05)
         kpv=AltitudeAtSuspectedLevelBust()
         kpv.derive(alt)
-        expected=[KeyPointValue(index=16, value=999.5736030415051, 
-                                name='Altitude At Suspected Level Bust', 
-                                slice=slice(None, None, None), datetime=None)]
+        expected=[]
         self.assertEqual(kpv,expected)
     
     
@@ -1051,26 +1091,26 @@ class TestILSFrequencyOnApproach(unittest.TestCase):
         
 class TestLatitudeAtLanding(unittest.TestCase, CreateKPVsAtKTIsTest):
     def setUp(self):
-        self.node_class = LatitudeAtLanding
+        self.node_class = LatitudeAtTouchdown
         self.operational_combinations = [('Latitude',
                                           'Touchdown')]
 
 class TestLongitudeAtLanding(unittest.TestCase, CreateKPVsAtKTIsTest):
     def setUp(self):
-        self.node_class = LongitudeAtLanding
+        self.node_class = LongitudeAtTouchdown
         self.operational_combinations = [('Longitude',
                                           'Touchdown')]
 
 
 class TestLatitudeAtTakeoff(unittest.TestCase, CreateKPVsAtKTIsTest):
     def setUp(self):
-        self.node_class = LatitudeAtTakeoff
+        self.node_class = LatitudeAtLiftoff
         self.operational_combinations = [('Latitude',
                                           'Liftoff')]
 
 class TestLongitudeAtTakeoff(unittest.TestCase, CreateKPVsAtKTIsTest):
     def setUp(self):
-        self.node_class = LongitudeAtTakeoff
+        self.node_class = LongitudeAtLiftoff
         self.operational_combinations = [('Longitude',
                                           'Liftoff')]
 

@@ -6,8 +6,7 @@ from analysis_engine.exceptions import DataFrameError
 from analysis_engine.model_information import (get_config_map,
                                                get_flap_map,
                                                get_slat_map)
-from analysis_engine.node import (
-    A, DerivedParameterNode, MultistateDerivedParameterNode, KPV, KTI, M, P, S)
+from analysis_engine.node import A, DerivedParameterNode, KPV, KTI, P, S
 from analysis_engine.library import (align,
                                      bearings_and_distances,
                                      blend_two_parameters,
@@ -1079,7 +1078,7 @@ class PackValvesOpen(DerivedParameterNode):
                p1=P('ECS Pack (1) On'), p1h=P('ECS Pack (1) High Flow'),
                p2=P('ECS Pack (2) On'), p2h=P('ECS Pack (2) High Flow')):
         # Sum the open engines, allowing 1 for low flow and 1+1 for high flow each side.
-        self.array = p1.array.raw*(1+p1h.array.raw)+p2.array.raw*(1+p2h.array.raw)
+        self.array = p1.array*(1+p1h.array)+p2.array*(1+p2h.array)
 
 
 ################################################################################
@@ -1963,18 +1962,14 @@ class GearDown(DerivedParameterNode):
             raise DataFrameError(self.name, frame_name)
 
 
-class GearOnGround(MultistateDerivedParameterNode):
+class GearOnGround(DerivedParameterNode):
     '''
     Combination of left and right main gear signals.
     '''
     align_to_first_dependency = False
-    
-    values_mapping = { 0: 'Air',
-                       1: 'Ground',}
-
-    def derive(self, gl = M('Gear (L) On Ground'), 
-               gr = M('Gear (R) On Ground')):
-        self.array, self.frequency, self.offset = merge_two_parameters(gl, gr)
+    def derive(self, gl = P('Gear (L) On Ground'), 
+               gr = P('Gear (R) On Ground')):
+        self.array, self.frequency, self.offset = merge_two_parameters(gl, gn)
 
     
 class GearSelectedDown(DerivedParameterNode):
@@ -3015,7 +3010,7 @@ class RateOfClimbInertial(DerivedParameterNode):
             # Uses the complementary smoothing approach
             
             # This is the accelerometer washout term, with considerable gain.
-            # The initialisation "initial_value=az_repair[0]" is very
+            # The initialisation "initial_value=az.array[clump][0]" is very
             # important, as without this the function produces huge spikes at
             # each start of a data period.
             az_washout = first_order_washout (az_repair, 
@@ -3568,15 +3563,11 @@ class SpeedbrakeSelection(DerivedParameterNode):
 ################################################################################
 
 
-class StickShaker(MultistateDerivedParameterNode):
+class StickShaker(DerivedParameterNode):
     '''
     This accounts for the different types of stick shaker system.
     '''    
     align_to_first_dependency = False
-    values_mapping = {
-        0: 'No_Shake',
-        1: 'Shake',
-    }
     
     @classmethod
     def can_operate(cls, available):
@@ -3589,9 +3580,9 @@ class StickShaker(MultistateDerivedParameterNode):
             return True
 
     def derive(self, frame = A('Frame'), 
-               shake_l = M('Stick Shaker (L)'), 
-               shake_r = M('Stick Shaker (R)'), 
-               shake_act = M('Shaker Activation')):
+               shake_l = P('Stick Shaker (L)'), 
+               shake_r = P('Stick Shaker (R)'), 
+               shake_act = P('Shaker Activation')):
 
         frame_name = frame.value if frame else None
         
@@ -3611,56 +3602,4 @@ class StickShaker(MultistateDerivedParameterNode):
         # Stick shaker not found in 737-6 frame.
         else:
             raise DataFrameError(self.name, frame_name)
-
-
-
-
-class TestNose(MultistateDerivedParameterNode):
-    '''
-    Test function to operate on "real" hdf data rather than assumed data sets.
-    '''
-    align_to_first_dependency = False
-    
-    values_mapping = { 0: 'Nose_Air',
-                       1: 'Nose_Ground',}
-
-    def derive(self, gn = M('Gear (N) On Ground')):
-        '''
-        Using the normal form of copy...
         
-        self.array = gn.array
-        
-        ...gave the result below with gn reflecting the Test mappings.
-        5 -- -- --
-        14 Air 0 Air
-        681 None 2 None
-        7220 Air 0 Air
-        -1 -- -- --
-
-        Tried
-        np.ma.copy(gn.array)
-        but this declared gn.array did not have a mask (!)
-        
-        Hence the version below.
-        '''
-        self.array = np.ma.array(gn.array.data, mask=gn.array.mask)
-        print 'Gear (N) On Ground Test'
-        for i in [5,14,681, 7220, -1]:
-            print i, gn.array[i], gn.array.raw[i], self.array[i]
-        pass
-
-
-class TestMain(MultistateDerivedParameterNode):
-    align_to_first_dependency = False
-    
-    values_mapping = { 0: 'Main_Air',
-                       1: 'Main_Ground',}
-
-    def derive(self, gn = M('Gear On Ground')):
-        self.array = np.ma.array(gn.array.data, mask=gn.array.mask)
-        print 'Gear On Ground Test'
-        for i in [5,14,681, 7220, -1]:
-            print i, gn.array[i], gn.array.raw[i], self.array[i]
-        pass
-
-    

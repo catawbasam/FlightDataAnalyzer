@@ -33,11 +33,10 @@
 
         // Initialise the spacetree:
         var st = new $jit.ST({
+            constrained: true,
             duration: 500,
             injectInto: 'spacetree-canvas',
             levelDistance: 50,
-            //show just the number of levels specified by levelsToShow.
-            constrained: true,
             levelsToShow: 1,
             transition: $jit.Trans.Quart.easeInOut,
             Navigation: {
@@ -114,7 +113,7 @@
         });
 
         // Fetch the data for the spacetree as JSON:
-        $.getJSON('/ajax/tree.json', function (json) {
+        $.getJSON('/_assets/ajax/tree.json', function (json) {
             st.loadJSON(json);
             st.toJSON('graph');
             st.compute();
@@ -124,7 +123,7 @@
         });
 
         // Fetch the data for the parameter search as JSON:
-        $.getJSON('/ajax/node_list.json', function (node_list) {
+        $.getJSON('/_assets/ajax/node_list.json', function (node_list) {
             $('#spacetree-search').autocomplete({
                 source: node_list,
                 select: function (event, ui) {

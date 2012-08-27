@@ -59,9 +59,6 @@ def align(slave, master, data_type=None):
     :rtype: np.ma.array
     """
     slave_array = slave.array # Optimised access to attribute.
-    if hasattr(slave_array, 'raw'):
-        # MappedArray: we should use raw data
-        slave_array = slave_array.raw
     if len(slave_array) == 0:
         # No elements to align, avoids exception being raised in the loop below.
         return slave_array
@@ -1972,7 +1969,7 @@ def min_value(array, _slice=slice(None), start_edge=None, stop_edge=None):
     
     :param array: masked array
     :type array: np.ma.array
-    :param _slice: Slice to apply to the array and return max value relative to
+    :param _slice: Slice to apply to the array and return minimum value relative to
     :type _slice: slice
     :param start_edge: Index for precise start timing
     :type start_edge: Float, between _slice.start-1 and slice_start
@@ -2400,7 +2397,7 @@ def truck_and_trailer(data, ttp, overall, trailer, curve_sense, _slice):
     '''
     # Trap for invariant data
     if np.ma.ptp(data) == 0.0:
-        return None
+        return 1
     
     # Set up working arrays
     x = np.arange(ttp) + 1 #  The x-axis is always short and constant
@@ -2459,7 +2456,6 @@ def truck_and_trailer(data, ttp, overall, trailer, curve_sense, _slice):
             peak_slice[0].start+(overall/2.0)-0.5
         return index*(_slice.step or 1) + (_slice.start or 0)
     else:
-        # Data curved in wrong sense or too weakly to find corner point.
         return None
     
     
@@ -2503,11 +2499,9 @@ def peak_curvature(array, _slice=slice(None), curve_sense='Concave'):
         if valid_slice.stop - valid_slice.start > overall:
             data = array[_slice][valid_slice]
             # The normal path is to go and process this data.
-            corner = truck_and_trailer(data, ttp, overall, trailer, curve_sense, _slice)
-            if corner:
-                return corner + valid_slice.start
-            else:
-                return None
+            return valid_slice.start + truck_and_trailer(data, ttp, overall, 
+                                                         trailer, curve_sense, 
+                                                         _slice)
         
         # Here we deal with problem cases.
         if len(valid_slices) == 0 or (valid_slice.stop - valid_slice.start) < 4:
@@ -3148,10 +3142,10 @@ def index_at_value(array, threshold, _slice=slice(None), endpoint='exact'):
         # More "let's get the logic right and tidy it up afterwards" bit of code...
         if begin >= len(array):
             begin = max_index - 1
-        elif int(begin) == begin:
-            # integer slice indexes need reducing because of the way Python
-            # does reverse slices.
-            begin = begin - 1 
+        #elif int(begin) == begin:
+            ## integer slice indexes need reducing because of the way Python
+            ## does reverse slices.
+            #begin = begin - 1 
         elif begin < 0:
             begin = 0
         if end > len(array):

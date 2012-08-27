@@ -9,7 +9,6 @@ from utilities.dict_helpers import dict_filter
 
 from analysis_engine.node import (
     DerivedParameterNode,
-    MultistateDerivedParameterNode,
     FlightAttributeNode,
     FlightPhaseNode,
     KeyPointValueNode,
@@ -150,7 +149,6 @@ def graph_nodes(node_mgr):
     derived_minus_lfl = dict_filter(node_mgr.derived_nodes, remove=node_mgr.lfl)
     # Group into node types to apply colour. TODO: Make colours less garish.
     colors = {
-        MultistateDerivedParameterNode: '#2aa52a', # dark green
         DerivedParameterNode: '#72cdf4',  # fds-blue
         FlightAttributeNode: '#b88a00',  # brown
         FlightPhaseNode: '#d93737',  # red

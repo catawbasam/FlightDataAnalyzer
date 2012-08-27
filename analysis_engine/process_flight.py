@@ -108,7 +108,7 @@ def derive_parameters(hdf, node_mgr, process_order):
         logger.info("Processing parameter %s", param_name)
         # Derive the resulting value
         result = node.get_derived(deps)
-
+        
         if node.node_type is KeyPointValueNode:
             #Q: track node instead of result here??
             params[param_name] = result
@@ -126,7 +126,7 @@ def derive_parameters(hdf, node_mgr, process_order):
             # expect a single slice
             params[param_name] = result
             section_list.extend(result.get_aligned(P(frequency=1,offset=0)))
-        elif issubclass(node.node_type, DerivedParameterNode):
+        elif node.node_type is DerivedParameterNode:
             ### perform any post_processing
             ##if hooks.POST_DERIVED_PARAM_PROCESS:
                 ##process_result = hooks.POST_DERIVED_PARAM_PROCESS(hdf, result)

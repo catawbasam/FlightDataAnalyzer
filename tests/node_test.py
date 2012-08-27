@@ -15,12 +15,9 @@ from analysis_engine.node import (
     FormattedNameNode, 
     Node, NodeManager, 
     Parameter, P,
-    MultistateParameter, M,
     powerset,
     SectionNode, Section,
 )
-
-from hdfaccess.parameter import MappedArray
 
 
 class TestAbstractNode(unittest.TestCase):
@@ -790,31 +787,25 @@ class TestKeyPointValueNode(unittest.TestCase):
         self.assertEqual(list(knode),
                          [KeyPointValue(index=12, value=15, name='Kpv')])
 
-    def test_create_kpvs_where_state(self):
+    def test_create_kpvs_from_discretes(self):
         knode = self.knode
-        array = np.ma.array([0.0] * 20, dtype=float)
-        array[5:8] = 1.0
-        array[11:17] = 1.0
-        mapping = {0: 'Down', 1: 'Up'}
-        param = P('Disc', MappedArray(array, values_mapping=mapping))
-        knode.create_kpvs_where_state('Up', param.array, param.hz)
+        param = P('Disc',np.ma.array([0.0]*20, dtype=float))
+        param.array[5:8] = 1.0
+        param.array[11:17] = 1.0
+        knode.create_kpvs_from_discretes(param.array, param.hz)
         self.assertEqual(list(knode),
                          [KeyPointValue(index=5, value=3, name='Kpv'),
                           KeyPointValue(index=11, value=6, name='Kpv')])
-
-    def test_create_kpvs_where_state_different_frequency(self):
+        
+    def test_create_kpvs_from_discretes_different_frequency(self):
         knode = self.knode
-        array = np.ma.array([0.0] * 20, dtype=float)
-        array[5:8] = 1.0  # shorter than 3 secs duration - ignored.
-        array[11:17] = 1.0
-        mapping = {0: 'Down', 1: 'Up'}
-        param = P('Disc', MappedArray(array, values_mapping=mapping),
-                  frequency=2.0)
-        knode.create_kpvs_where_state('Up', param.array, param.hz,
-                                      min_duration=3)
+        param = P('Disc',np.ma.array([0.0]*20, dtype=float), frequency=2.0)
+        param.array[5:8] = 1.0 # shorter than 3 secs duration - ignored.
+        param.array[11:17] = 1.0
+        knode.create_kpvs_from_discretes(param.array, param.hz, min_duration=3)
         self.assertEqual(list(knode),
                          [KeyPointValue(index=11, value=3, name='Kpv')])
-
+    
     def test_get_aligned(self):
         '''
         TODO: Test offset alignment.
@@ -997,34 +988,7 @@ class TestKeyTimeInstanceNode(unittest.TestCase):
         kti=self.kti
         test_param = np.ma.array([0])
         self.assertRaises(ValueError, kti.create_ktis_at_edges, test_param, direction='sideways')
-
-    def test_create_ktis_on_state_change_entering(self):
-        kti = self.kti
-        test_param = MappedArray([0, 1, 1, 0, 0, 0, 0, 1, 0],
-                                 values_mapping={0: 'Off', 1: 'On'})
-        kti.create_ktis_on_state_change('On', test_param, change='entering')
-        self.assertEqual(kti, [KeyTimeInstance(index=1, name='Kti'),
-                               KeyTimeInstance(index=7, name='Kti')])
-
-    def test_create_ktis_on_state_change_leaving(self):
-        kti = self.kti
-        test_param = MappedArray([0, 1, 1, 0, 0, 0, 0, 1, 0],
-                                 values_mapping={0: 'Off', 1: 'On'})
-        kti.create_ktis_on_state_change('On', test_param, change='leaving')
-        self.assertEqual(kti, [KeyTimeInstance(index=3, name='Kti'),
-                               KeyTimeInstance(index=8, name='Kti')])
-
-    def test_create_ktis_on_state_change_entering_and_leaving(self):
-        kti = self.kti
-        test_param = MappedArray([0, 1, 1, 0, 0, 0, 0, 1, 0],
-                                 values_mapping={0: 'Off', 1: 'On'})
-        kti.create_ktis_on_state_change('On', test_param,
-                                        change='entering_and_leaving')
-        self.assertEqual(kti, [KeyTimeInstance(index=1, name='Kti'),
-                               KeyTimeInstance(index=3, name='Kti'),
-                               KeyTimeInstance(index=7, name='Kti'),
-                               KeyTimeInstance(index=8, name='Kti')])
-
+        
     def test_get_aligned(self):
         '''
         TODO: Test offset alignment.
@@ -1204,48 +1168,3 @@ class TestDerivedParameterNode(unittest.TestCase):
         self.assertEqual(result, expected)
 
 
-class TestMultistateParameterNode(unittest.TestCase):
-    def test_init(self):
-        values_mapping = {1: 'one', 2: 'two', 3: 'three'}
-
-        # init with MaskedArray
-        array = np.ma.MaskedArray([1, 2, 3])
-        p = M('Test Node', array, values_mapping=values_mapping)
-        self.assertEqual(p.array[0], 'one')
-        self.assertEqual(p.array.raw[0], 1)
-
-        # init with MappedArray
-        array = MappedArray([1, 2, 3], values_mapping=values_mapping)
-        p = M('Test Node', array, values_mapping=values_mapping)
-        self.assertEqual(p.array[0], 'one')
-        self.assertEqual(p.array.raw[0], 1)
-
-        # init with list of strings
-        array = ['one', 'two', 'three']
-        p = M('Test Node', array, values_mapping=values_mapping)
-        self.assertEqual(p.array[0], 'one')
-        self.assertEqual(p.array.raw[0], 1)
-
-    def test_setattr_array(self):
-        values_mapping = {1: 'one', 2: 'two', 3: 'three'}
-
-        # init with MaskedArray
-        array = np.ma.MaskedArray([1, 2, 3])
-        p = M('Test Node', array, values_mapping=values_mapping)
-        self.assertEqual(p.array[0], 'one')
-        self.assertEqual(p.array.raw[0], 1)
-
-        # overwrite the array
-        array = np.ma.MaskedArray([3, 2, 1])
-        p.array = array
-        self.assertEqual(p.array[0], 'three')
-        self.assertEqual(p.array.raw[0], 3)
-
-        # overwrite the mapping
-        p.values_mapping = {1: 'ein', 2: 'zwei', 3: 'drei'}
-        self.assertEqual(p.array[0], 'drei')
-        self.assertEqual(p.array.raw[0], 3)
-
-
-if __name__ == '__main__':
-    unittest.main()
