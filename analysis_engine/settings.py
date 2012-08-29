@@ -8,7 +8,9 @@
 # environment and append customised modules.
 
 
-
+import logging
+logger = logging.getLogger(name=__name__)
+    
 ###################
 ## Configuration ##
 ###################
@@ -16,6 +18,7 @@
 # Modules to import all derived Nodes from. Additional modules can be
 # appended to this list in custom_settings.py by creating a similar list of
 # modules with the variable name ending with "_MODULES"
+# e.g. MY_EXTRA_MODULES = ['my_package.extra_attributes', 'my_package.extra_params']
 NODE_MODULES = ['analysis_engine.derived_parameters',
                 'analysis_engine.key_point_values', 
                 'analysis_engine.key_time_instances',
@@ -88,6 +91,11 @@ AZ_WASHOUT_TC = 60.0
 # As above for the along-track resolved acceleration term.
 AT_WASHOUT_TC = 60.0
 
+# Minimum threshold for detecting a bounced landing. Bounced landings lower
+# than this will not be identified or held in a database. Note: The event
+# threshold is higher than this.
+BOUNCED_LANDING_THRESHOLD = 2.0
+
 # Force to start checking control stiffness. Intended to be the same setting
 # for all three flying controls.
 CONTROL_FORCE_THRESHOLD = 3.0 # lb
@@ -126,9 +134,12 @@ GROUNDSPEED_LAG_TC = 6.0 # seconds
 # This will usually be overwritten by the peak curvature test.
 HEADING_TURN_ONTO_RUNWAY = 15.0 # deg
 
-# Threshold for turn off runway at end of takeoff.
-# This will usually be overwritten by the peak curvature test.
-HEADING_TURN_OFF_RUNWAY = 15.0 # deg
+#Threshold for turn off runway at end of takeoff. This allows for turning
+#onto a rapid exit turnoff, and so we are treating deceleration down the RET
+#as part of the landing phase. Notice that the KTI "Landing Turn Off Runway"
+#will determine the point of turning off the runway centreline in either
+#case, using the peak curvature technique.
+HEADING_TURN_OFF_RUNWAY = 60.0 # deg
 
 # Holding pattern criteria.
 # Minimum time is 4 minutes, corresponding to one racetrack pattern.
@@ -231,10 +242,10 @@ RATE_OF_CLIMB_FOR_TOUCHDOWN = -100 # fpm
 
 # Rate of turn limits for flight. 
 # (Also used for validation of accelerometers on ground).
-RATE_OF_TURN_FOR_FLIGHT_PHASES = 2.5 # deg per second
+RATE_OF_TURN_FOR_FLIGHT_PHASES = 2.0 # deg per second
 
 # Rate of turn limit for taxi event.
-RATE_OF_TURN_FOR_TAXI_TURNS = 8.0 # deg per second
+RATE_OF_TURN_FOR_TAXI_TURNS = 5.0 # deg per second
 
 # Duration of masked data to repair by interpolation for flight phase analysis
 REPAIR_DURATION = 10 # seconds 
@@ -277,6 +288,7 @@ try:
                             if k.endswith('_MODULES') and k!= 'NODE_MODULES']
     NODE_MODULES = list(set(NODE_MODULES))
 except ImportError as err:
-    import logging
-    logging.info("Unable to import analysis_engine custom_settings.py")
+    # logger.info preferred, but stack trace is important when trying to
+    # determine an unexpected ImportError lower down the line.
+    logger.exception("Unable to import analysis_engine custom_settings.py")
     pass

@@ -7,7 +7,7 @@ import socket
 import time
 import urllib
 
-from analysis_engine import settings
+from analysis_engine.settings import CA_CERTIFICATE_FILE
 
 TIMEOUT = 15
 socket.setdefaulttimeout(TIMEOUT)
@@ -75,9 +75,9 @@ class APIHandlerHTTP(object):
         '''
         # Encode body as GET parameters.
         body = urllib.urlencode(body)
-        disable_validation = not os.path.exists(settings.CA_CERTIFICATE_FILE)
+        disable_validation = not os.path.exists(CA_CERTIFICATE_FILE)
         http = httplib2.Http(
-            ca_certs=settings.CA_CERTIFICATE_FILE,
+            ca_certs=CA_CERTIFICATE_FILE,
             disable_ssl_certificate_validation=disable_validation,
             timeout=timeout,
         )
@@ -90,7 +90,7 @@ class APIHandlerHTTP(object):
         # Test HTTP Status.
         if status != 200:
             try:
-                # Try to get 'error' message from JSON which may not be
+                # Try to get 'error' message from JSON, which may not be
                 # available.                
                 error_msg = simplejson.loads(content)['error']
             except (simplejson.JSONDecodeError, KeyError):
@@ -107,7 +107,7 @@ class APIHandlerHTTP(object):
                 raise UnknownAPIError(error_msg, uri, method, body)
         
         try:
-            return simplejson.loads(content)
+            return simplejson.loads(content) #TODO: use_decimal=True to improve accuracy?
         except simplejson.JSONDecodeError:
             # Only JSON return types supported, any other return means server
             # is not configured correctly

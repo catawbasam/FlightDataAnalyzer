@@ -73,8 +73,8 @@ class Approaches(FlightAttributeNode):
                                              'Altitude AAL',
                                              'Latitude At Lowest Point On Approach',
                                              'Longitude At Lowest Point On Approach',
-                                             'Latitude At Landing',
-                                             'Longitude At Landing']])
+                                             'Latitude At Touchdown',
+                                             'Longitude At Touchdown']])
         
     def _get_lat_lon(self, approach_slice, lat_kpv_node, lon_kpv_node):
         lat_kpvs = lat_kpv_node.get(within_slice=approach_slice)
@@ -152,11 +152,9 @@ class Approaches(FlightAttributeNode):
                     delta = delta+360
                 # TODO: Work this code into a form that returns the correct runway.
                 if delta>0:
-                    print "Should pick Left runway"
+                    print "Could pick Left runway"
                 else:
-                    print "Should pick Right runway"
-                ##self.warning("Identified %d Runways, ident %s. Picking the first!", 
-                             ##len(runway_info['items']), runway_info['ident'])
+                    print "Could pick Right runway"
 
             else:
                 runway = runway_info['items'][0]
@@ -182,8 +180,8 @@ class Approaches(FlightAttributeNode):
                approach_sections=S('Approach'),
                speedy=S('Fast'),
                landing_hdg_kpvs=KPV('Heading At Landing'),
-               landing_lat_kpvs=KPV('Latitude At Landing'),
-               landing_lon_kpvs=KPV('Longitude At Landing'),
+               landing_lat_kpvs=KPV('Latitude At Touchdown'),
+               landing_lon_kpvs=KPV('Longitude At Touchdown'),
                approach_hdg_kpvs=KPV('Heading At Lowest Point On Approach'),
                approach_lat_kpvs=KPV('Latitude At Lowest Point On Approach'),
                approach_lon_kpvs=KPV('Longitude At Lowest Point On Approach'),
@@ -338,8 +336,8 @@ class FlightNumber(FlightAttributeNode):
 class LandingAirport(FlightAttributeNode):
     "Landing Airport including ID and Name"
     name = 'FDR Landing Airport'
-    def derive(self, landing_latitude=KPV('Latitude At Landing'),
-               landing_longitude=KPV('Longitude At Landing')):
+    def derive(self, landing_latitude=KPV('Latitude At Touchdown'),
+               landing_longitude=KPV('Longitude At Touchdown')):
         '''
         See TakeoffAirport for airport dictionary format.
         
@@ -350,7 +348,7 @@ class LandingAirport(FlightAttributeNode):
         last_latitude = landing_latitude.get_last()
         last_longitude = landing_longitude.get_last()
         if not last_latitude or not last_longitude:
-            self.warning("'Latitude At Landing' and/or 'Longitude At "
+            self.warning("'Latitude At Touchdown' and/or 'Longitude At "
                             "Landing' KPVs did not exist, therefore '%s' "
                             "cannot query for landing airport.",
                             self.__class__.__name__)
@@ -384,8 +382,8 @@ class LandingRunway(FlightAttributeNode):
     def derive(self, approach_and_landing=S('Approach'),
                landing_hdg=KPV('Heading At Landing'),
                airport=A('FDR Landing Airport'),
-               landing_latitude=KPV('Latitude At Landing'),
-               landing_longitude=KPV('Longitude At Landing'),
+               landing_latitude=KPV('Latitude At Touchdown'),
+               landing_longitude=KPV('Longitude At Touchdown'),
                approach_ilsfreq=KPV('ILS Frequency On Approach'),
                precision=A('Precise Positioning')
                ):
@@ -475,8 +473,8 @@ class OnBlocksDatetime(FlightAttributeNode):
 class TakeoffAirport(FlightAttributeNode):
     "Takeoff Airport including ID and Name"
     name = 'FDR Takeoff Airport'
-    def derive(self, latitude_at_takeoff=KPV('Latitude At Takeoff'),
-               longitude_at_takeoff=KPV('Longitude At Takeoff')):
+    def derive(self, latitude_at_takeoff=KPV('Latitude At Liftoff'),
+               longitude_at_takeoff=KPV('Longitude At Liftoff')):
         '''
         Requests the nearest airport to the latitude and longitude at liftoff
         from the API and sets it as an attribute.
@@ -612,8 +610,8 @@ class TakeoffRunway(FlightAttributeNode):
 
     def derive(self, airport=A('FDR Takeoff Airport'),
                hdg=KPV('Heading At Takeoff'),
-               latitude_at_takeoff=KPV('Latitude At Takeoff'),
-               longitude_at_takeoff=KPV('Longitude At Takeoff'),
+               latitude_at_takeoff=KPV('Latitude At Liftoff'),
+               longitude_at_takeoff=KPV('Longitude At Liftoff'),
                precision=A('Precise Positioning')):
         '''
         Runway information is in the following format:
@@ -845,41 +843,3 @@ class Version(FlightAttributeNode):
         dependency as it will always be present, though it is unused.
         '''
         self.set_flight_attr(__version__)
-
-
-class Vref(FlightAttributeNode):
-    '''
-    Based on weight and flap at time of landing.
-    '''
-    name = 'FDR Vref'
-
-    def derive(self, 
-               #aircraft_model=A('AFR Aircraft Model'),
-               weight_touchdown=KPV('Gross Weight At Touchdown'),
-               flap_touchdown=KPV('Flap At Touchdown')):
-        self.set_flight_attr(110.0) # It doesn't get simpler than this ! DJ
-
-        '''
-        Do not source from AFR, only set attribute if V2 is recorded/derived.
-        '''
-        ##weight = weight_touchdown.get_last()
-        ##flap = flap_touchdown.get_last()
-        ##if not weight or not flap:
-            ### TODO: Log.
-            ##return
-        ##try:
-            ##mapping = VREF_MAP[aircraft_model.value]
-            ##index = index_at_value(np.array(mapping['Gross Weights']),
-                                   ##weight.value)
-            ##interp = interp1d(enumerate(mapping['Flaps']))
-            ##interp(index)
-            
-        ## return NotImplemented
-                
-##VREF_MAP = 
-##{'B737-2_800010_00.add':
- ##{'Gross Weights': range(32, 65, 4),
-  ##'Flaps': {15: (111, 118, 125, 132, 138, 143, 149, 154, 159),
-            ##30: (105, 111, 117, 123, 129, 135, 140, 144, 149),
-            ##40: (101, 108, 114, 120, 125, 130, 135, 140, 145)}}}
-    

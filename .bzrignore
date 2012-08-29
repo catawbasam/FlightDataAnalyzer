@@ -43,3 +43,8 @@ test_data/temp/*
 graph*.png
 analysis_engine/custom_settings.py
 analysis_engine/custom_hooks.py
+spacetree/_assets/ajax/*.json
+
+# Profiling results
+*.lprof
+*.pstats
