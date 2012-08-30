@@ -1973,10 +1973,10 @@ class GearOnGround(DerivedParameterNode):
         self.array, self.frequency, self.offset = merge_two_parameters(gl, gn)
 
     
-class GearSelectedDown(DerivedParameterNode):
+class GearDownSelected(DerivedParameterNode):
     """
     Derivation of gear selection for aircraft without this separately
-    recorded. Where Gear Selected Down is recorded, this derived parameter
+    recorded. Where Gear Down Selected is recorded, this derived parameter
     will be skipped automatically.
     """
     def derive(self, gear=P('Gear Down'), frame=A('Frame')):
@@ -1988,7 +1988,7 @@ class GearSelectedDown(DerivedParameterNode):
             raise DataFrameError(self.name, frame_name)
 
         
-class GearSelectedUp(DerivedParameterNode):
+class GearUpSelected(DerivedParameterNode):
     def derive(self, gear=P('Gear Down'), frame=A('Frame')):
         frame_name = frame.value if frame else None
         
@@ -3501,11 +3501,11 @@ class Speedbrake(DerivedParameterNode):
 
 
 # TODO: Write some unit tests!
-class SpeedbrakeSelection(DerivedParameterNode):
+class SpeedbrakeSelected(DerivedParameterNode):
     '''
     Determines the selected state of the speedbrake.
 
-    Speedbrake Selection Values:
+    Speedbrake Selected Values:
 
     - 0 -- Stowed
     - 1 -- Armed / Commanded (Spoilers Down)

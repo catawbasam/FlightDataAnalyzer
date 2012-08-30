@@ -85,8 +85,8 @@ class ApproachLowestPoint(KeyTimeInstanceNode):
                 '''
     
 
-class AutopilotSelectionEngaged(KeyTimeInstanceNode):
-    name = 'AP Selection Engaged'
+class AutopilotEngagedSelection(KeyTimeInstanceNode):
+    name = 'AP Engaged Selection'
 
     def derive(self, autopilot=P('AP Engaged'), phase=S('Airborne')):
         self.create_ktis_on_state_change(
@@ -97,8 +97,8 @@ class AutopilotSelectionEngaged(KeyTimeInstanceNode):
         )
 
 
-class AutopilotSelectionDisengaged(KeyTimeInstanceNode):
-    name = 'AP Selection Disengaged'
+class AutopilotDisengagedSelection(KeyTimeInstanceNode):
+    name = 'AP Disengaged Selection'
 
     def derive(self, autopilot=P('AP Engaged'), phase=S('Airborne')):
         self.create_ktis_on_state_change(
@@ -109,8 +109,8 @@ class AutopilotSelectionDisengaged(KeyTimeInstanceNode):
         )
 
 
-class AutothrottleSelectionEngaged(KeyTimeInstanceNode):
-    name = 'AT Selection Engaged'
+class AutothrottleEngagedSelection(KeyTimeInstanceNode):
+    name = 'AT Engaged Selection'
 
     def derive(self, autothrottle=P('AT Engaged'), phase=S('Airborne')):
         self.create_ktis_on_state_change(
@@ -121,8 +121,8 @@ class AutothrottleSelectionEngaged(KeyTimeInstanceNode):
         )
 
 
-class AutothrottleSelectionDisengaged(KeyTimeInstanceNode):
-    name = 'AT Selection Disengaged'
+class AutothrottleDisengagedSelection(KeyTimeInstanceNode):
+    name = 'AT Disengaged Selection'
 
     def derive(self, autothrottle=P('AT Engaged'), phase=S('Airborne')):
         self.create_ktis_on_state_change(
@@ -259,13 +259,13 @@ class FlapStateChanges(KeyTimeInstanceNode):
         self.create_ktis_at_edges(flap.array, direction='all_edges', name='flap') 
 
 
-class GearSelectionDown(KeyTimeInstanceNode):
-    def derive(self, gear_sel_down=P('Gear Selected Down'), phase=S('Airborne')):
+class GearDownSelection(KeyTimeInstanceNode):
+    def derive(self, gear_sel_down=P('Gear Down Selected'), phase=S('Airborne')):
         self.create_ktis_at_edges(gear_sel_down.array, direction='rising_edges', phase=phase)
         
 
-class GearSelectionUp(KeyTimeInstanceNode):
-    def derive(self, gear_sel_up=P('Gear Selected Up'), phase=S('Airborne')):
+class GearUpSelection(KeyTimeInstanceNode):
+    def derive(self, gear_sel_up=P('Gear Up Selected'), phase=S('Airborne')):
         self.create_ktis_at_edges(gear_sel_up.array, direction='rising_edges', phase=phase)    
 
 

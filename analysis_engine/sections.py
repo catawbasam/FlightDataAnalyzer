@@ -57,7 +57,7 @@ class Grounded(SectionNode):
         pass
 
 
-##class GearSelectedUp(SectionNode):
+##class GearUpSelected(SectionNode):
     ##def derive(self, param=P('Flap')): # TODO: What should the arguments be?
         ##pass
 '''
