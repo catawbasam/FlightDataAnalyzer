@@ -2508,7 +2508,7 @@ class FlapWithSpeedbrakesDeployedMax(KeyPointValueNode):
             self.create_kpv(index, value)
 
 
-class FlareTime20FtToTouchdown(KeyPointValueNode):
+class FlareDuration20FtToTouchdown(KeyPointValueNode):
     #TODO: Tests
     def derive(self, alt_aal=P('Altitude AAL For Flight Phases'), tdowns=KTI('Touchdown'), lands=S('Landing')):
         for tdown in tdowns:
@@ -3016,9 +3016,12 @@ class PitchRate2DegPitchTo35FtAverage(KeyPointValueNode):
 
 # TODO: Write some unit tests!
 # TODO: Remove this KPV?  Not a dependency, not used in event definitions.
-class Time2DegPitchTo35Ft(KeyPointValueNode):
+# NOTE: Class name cannot begin with number - correct name uses '2' not 'Two'!
+class TwoDegPitchTo35FtDuration(KeyPointValueNode):
     '''
     '''
+
+    name = '2 Deg Pitch To 35 Ft Duration'
 
     def derive(self, pitch_rate=P('Pitch Rate'), pitch=P('Pitch'), takeoffs=S('Takeoff')):
         '''
@@ -3481,7 +3484,7 @@ class SpeedbrakesDeployedWithPowerOnInHeightBandsDuration(KeyPointValueNode):
 ################################################################################
 
 
-class DurationStickPusherActivated(KeyPointValueNode):
+class StickPusherActivatedDuration(KeyPointValueNode):
     '''
     We annotate the stick pusher event with the duration of the event.
     TODO: Check that this triggers correctly as stick push events are probably single samples.
@@ -3502,7 +3505,7 @@ class DurationStickPusherActivated(KeyPointValueNode):
             ##self.create_kpv(index, value)
             
             
-class DurationStickShakerActivated(KeyPointValueNode):
+class StickShakerActivatedDuration(KeyPointValueNode):
     '''
     We annotate the stick shaker event with the duration of the event.
     '''
@@ -3566,11 +3569,11 @@ class Tailwind100FtToTouchdownMax(KeyPointValueNode):
 # Warnings: Terrain Awareness & Warning System (TAWS)
 
 
-class DurationTAWSAlert(KeyPointValueNode):
+class TAWSAlertDuration(KeyPointValueNode):
     '''
     '''
 
-    name = 'Duration TAWS Alert'
+    name = 'TAWS Alert Duration'
 
     def derive(self, taws_alert=M('TAWS Alert'), airborne=S('Airborne')):
         '''
@@ -3584,11 +3587,11 @@ class DurationTAWSAlert(KeyPointValueNode):
         )
 
 
-class DurationTAWSSinkRateWarning(KeyPointValueNode):
+class TAWSSinkRateWarningDuration(KeyPointValueNode):
     '''
     '''
 
-    name = 'Duration TAWS Sink Rate Warning'
+    name = 'TAWS Sink Rate Warning Duration'
 
     def derive(self, taws_sink_rate=M('TAWS Sink Rate'), airborne=S('Airborne')):
         '''
@@ -3602,11 +3605,11 @@ class DurationTAWSSinkRateWarning(KeyPointValueNode):
         )
 
 
-class DurationTAWSTooLowFlapWarning(KeyPointValueNode):
+class TAWSTooLowFlapWarningDuration(KeyPointValueNode):
     '''
     '''
 
-    name = 'Duration TAWS Too Low Flap Warning'
+    name = 'TAWS Too Low Flap Warning Duration'
 
     def derive(self, taws_too_low_flap=M('TAWS Too Low Flap'), airborne=S('Airborne')):
         '''
@@ -3620,11 +3623,11 @@ class DurationTAWSTooLowFlapWarning(KeyPointValueNode):
         )
 
 
-class DurationTAWSTerrainWarning(KeyPointValueNode):
+class TAWSTerrainWarningDuration(KeyPointValueNode):
     '''
     '''
 
-    name = 'Duration TAWS Terrain Warning'
+    name = 'TAWS Terrain Warning Duration'
 
     def derive(self, taws_terrain=M('TAWS Terrain'), airborne=S('Airborne')):
         '''
@@ -3638,11 +3641,11 @@ class DurationTAWSTerrainWarning(KeyPointValueNode):
         )
 
 
-class DurationTAWSTerrainPullUpWarning(KeyPointValueNode):
+class TAWSTerrainPullUpWarningDuration(KeyPointValueNode):
     '''
     '''
 
-    name = 'Duration TAWS Terrain Pull Up Warning'
+    name = 'TAWS Terrain Pull Up Warning Duration'
 
     def derive(self, taws_terrain_pull_up=M('TAWS Terrain Ahead Pull Up'),
                airborne=S('Airborne')):
@@ -3657,11 +3660,11 @@ class DurationTAWSTerrainPullUpWarning(KeyPointValueNode):
         )
 
 
-class DurationTAWSGlideslopeWarning(KeyPointValueNode):
+class TAWSGlideslopeWarningDuration(KeyPointValueNode):
     '''
     '''
 
-    name = 'Duration TAWS Glideslope Warning'
+    name = 'TAWS Glideslope Warning Duration'
 
     def derive(self, taws_glideslope=M('TAWS Glideslope'), airborne=S('Airborne')):
         '''
@@ -3675,11 +3678,11 @@ class DurationTAWSGlideslopeWarning(KeyPointValueNode):
         )
 
 
-class DurationTAWSTooLowTerrainWarning(KeyPointValueNode):
+class TAWSTooLowTerrainWarningDuration(KeyPointValueNode):
     '''
     '''
 
-    name = 'Duration TAWS Too Low Terrain Warning'
+    name = 'TAWS Too Low Terrain Warning Duration'
 
     def derive(self, taws_too_low_terrain=M('TAWS Too Low Terrain'), airborne=S('Airborne')):
         '''
@@ -3693,11 +3696,11 @@ class DurationTAWSTooLowTerrainWarning(KeyPointValueNode):
         )
 
 
-class DurationTAWSTooLowGearWarning(KeyPointValueNode):
+class TAWSTooLowGearWarningDuration(KeyPointValueNode):
     '''
     '''
 
-    name = 'Duration TAWS Too Low Gear Warning'
+    name = 'TAWS Too Low Gear Warning Duration'
 
     def derive(self, taws_too_low_gear=M('TAWS Too Low Gear'), airborne=S('Airborne')):
         '''
@@ -3711,11 +3714,11 @@ class DurationTAWSTooLowGearWarning(KeyPointValueNode):
         )
 
 
-class DurationTAWSPullUpWarning(KeyPointValueNode):
+class TAWSPullUpWarningDuration(KeyPointValueNode):
     '''
     '''
 
-    name = 'Duration TAWS Pull Up Warning'
+    name = 'TAWS Pull Up Warning Duration'
 
     def derive(self, taws_pull_up=M('TAWS Pull Up'), airborne=S('Airborne')):
         '''
@@ -3729,11 +3732,11 @@ class DurationTAWSPullUpWarning(KeyPointValueNode):
         )
 
 
-class DurationTAWSDontSinkWarning(KeyPointValueNode):
+class TAWSDontSinkWarningDuration(KeyPointValueNode):
     '''
     '''
 
-    name = 'Duration TAWS Dont Sink Warning'
+    name = 'TAWS Dont Sink Warning Duration'
 
     def derive(self, taws_dont_sink=M('TAWS Dont Sink'), airborne=S('Airborne')):
         '''
@@ -3747,11 +3750,11 @@ class DurationTAWSDontSinkWarning(KeyPointValueNode):
         )
 
 
-class DurationTAWSWindshearWarningBelow1500Ft(KeyPointValueNode):
+class TAWSWindshearWarningBelow1500FtDuration(KeyPointValueNode):
     '''
     '''
 
-    name = 'Duration TAWS Windshear Warning Below 1500 Ft'
+    name = 'TAWS Windshear Warning Below 1500 Ft Duration'
 
     def derive(self, taws_windshear=M('TAWS Windshear Warning'),
             alt_aal=P('Altitude AAL For Flight Phases')):
@@ -3771,11 +3774,11 @@ class DurationTAWSWindshearWarningBelow1500Ft(KeyPointValueNode):
 
 
 # TODO: Implement!
-class DurationTCASRAWarning(KeyPointValueNode):
+class TCASRAWarningDuration(KeyPointValueNode):
     '''
     '''
 
-    name = 'Duration TCAS RA Warning'
+    name = 'TCAS RA Warning Duration'
 
     def derive(self, x=P('Not Yet')):
         '''
@@ -3784,11 +3787,11 @@ class DurationTCASRAWarning(KeyPointValueNode):
 
 
 # TODO: Implement!
-class DurationTCASTAWarning(KeyPointValueNode):
+class TCASTAWarningDuration(KeyPointValueNode):
     '''
     '''
 
-    name = 'Duration TCAS TA Warning'
+    name = 'TCAS TA Warning Duration'
 
     def derive(self, x=P('Not Yet')):
         '''
@@ -3801,7 +3804,7 @@ class DurationTCASTAWarning(KeyPointValueNode):
 
 
 # TODO: Implement!
-class DurationAlphaFloorWarning(KeyPointValueNode):
+class AlphaFloorWarningDuration(KeyPointValueNode):
     '''
     '''
 
@@ -3812,7 +3815,7 @@ class DurationAlphaFloorWarning(KeyPointValueNode):
 
 
 # TODO: Implement!
-class DurationAlternateLawActivated(KeyPointValueNode):
+class AlternateLawActivatedDuration(KeyPointValueNode):
     '''
     '''
 
@@ -3823,7 +3826,7 @@ class DurationAlternateLawActivated(KeyPointValueNode):
 
 
 # TODO: Implement!
-class DurationDirectLawActivated(KeyPointValueNode):
+class DirectLawActivatedDuration(KeyPointValueNode):
     '''
     '''
 
@@ -3848,7 +3851,7 @@ class ThrottleCyclesInFinalApproach(KeyPointValueNode):
                                            lever.hz, fapp.slice.start))
 
 
-class TimeTouchdownToElevatorDown(KeyPointValueNode):
+class TouchdownToElevatorDownDuration(KeyPointValueNode):
     def derive(self, airspeed=P('Airspeed'), elevator=P('Elevator'),
                tdwns=KTI('Touchdown')):
         for tdwn in tdwns:
@@ -3858,7 +3861,7 @@ class TimeTouchdownToElevatorDown(KeyPointValueNode):
                 self.create_kpv(index_elev, e_14)
 
 
-class TimeTouchdownTo60Kts(KeyPointValueNode):
+class TouchdownTo60KtsDuration(KeyPointValueNode):
     """
     Ideally compute using groundspeed, otherwise use airspeed.
     """
@@ -3950,7 +3953,7 @@ class DualStickInput(KeyPointValueNode):
         return NotImplemented
 
 
-class TimeHolding(KeyPointValueNode):
+class HoldingDuration(KeyPointValueNode):
     """
     Identify time spent in the hold.
     """
