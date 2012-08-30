@@ -91,9 +91,13 @@ from analysis_engine.key_point_values import (
     ##PitchRateDuringTakeoffMin,
     ##PitchDuringFinalApproachMin,
     ##PitchDuringTakeoffMax,
-    RateOfDescent500FtToTouchdownMax,
-    RateOfDescent1000To500FtMax,
+    RateOfDescent10000To5000FtMax,
+    RateOfDescent5000To3000FtMax,
+    RateOfDescent3000To2000FtMax,
     RateOfDescent2000To1000FtMax,
+    RateOfDescent1000To500FtMax,
+    RateOfDescent500To20FtMax,
+    RateOfDescent500FtToTouchdownMax,
     RollAbove1000FtMax,
     ##RollAbove1500FtMax,
     ##RollBelow20FtMax,
@@ -1223,17 +1227,39 @@ class TestPitchRate35To1500FtMax(unittest.TestCase, CreateKPVsWithinSlicesTest):
 ####        self.assertTrue(False)
 
 
-class TestRateOfDescent500FtToTouchdownMax(unittest.TestCase,
-                                         CreateKPVsWithinSlicesTest):
+class TestRateOfDescent10000To5000FtMax(unittest.TestCase, CreateKPVsWithinSlicesTest):
     def setUp(self):
-        self.node_class = RateOfDescent500FtToTouchdownMax
+        self.node_class = RateOfDescent10000To5000FtMax
         self.operational_combinations = [('Vertical Speed', 'Altitude AAL For Flight Phases')]
         self.function = min_value
-        self.second_param_method_calls = [('slices_from_to', (500, 0), {})]
+        self.second_param_method_calls = [('slices_from_to', (10000, 5000), {})]
 
 
-class TestRateOfDescent1000To500FtMax(unittest.TestCase,
-                                      CreateKPVsWithinSlicesTest):
+class TestRateOfDescent5000To3000FtMax(unittest.TestCase, CreateKPVsWithinSlicesTest):
+    def setUp(self):
+        self.node_class = RateOfDescent5000To3000FtMax
+        self.operational_combinations = [('Vertical Speed', 'Altitude AAL For Flight Phases')]
+        self.function = min_value
+        self.second_param_method_calls = [('slices_from_to', (5000, 3000), {})]
+
+
+class TestRateOfDescent3000To2000FtMax(unittest.TestCase, CreateKPVsWithinSlicesTest):
+    def setUp(self):
+        self.node_class = RateOfDescent3000To2000FtMax
+        self.operational_combinations = [('Vertical Speed', 'Altitude AAL For Flight Phases')]
+        self.function = min_value
+        self.second_param_method_calls = [('slices_from_to', (3000, 2000), {})]
+
+
+class TestRateOfDescent2000To1000FtMax(unittest.TestCase, CreateKPVsWithinSlicesTest):
+    def setUp(self):
+        self.node_class = RateOfDescent2000To1000FtMax
+        self.operational_combinations = [('Vertical Speed', 'Altitude AAL For Flight Phases')]
+        self.function = min_value
+        self.second_param_method_calls = [('slices_from_to', (2000, 1000), {})]
+
+
+class TestRateOfDescent1000To500FtMax(unittest.TestCase, CreateKPVsWithinSlicesTest):
     def setUp(self):
         self.node_class = RateOfDescent1000To500FtMax
         self.operational_combinations = [('Vertical Speed', 'Altitude AAL For Flight Phases')]
@@ -1241,13 +1267,21 @@ class TestRateOfDescent1000To500FtMax(unittest.TestCase,
         self.second_param_method_calls = [('slices_from_to', (1000, 500), {})]
         
 
-class TestRateOfDescent2000To1000FtMax(unittest.TestCase,
-                                       CreateKPVsWithinSlicesTest):
+class TestRateOfDescent500To20FtMax(unittest.TestCase, CreateKPVsWithinSlicesTest):
     def setUp(self):
-        self.node_class = RateOfDescent2000To1000FtMax
+        self.node_class = RateOfDescent500To20FtMax
         self.operational_combinations = [('Vertical Speed', 'Altitude AAL For Flight Phases')]
         self.function = min_value
-        self.second_param_method_calls = [('slices_from_to', (2000, 1000), {})]
+        self.second_param_method_calls = [('slices_from_to', (500, 20), {})]
+        
+
+# FIXME: Uses slices_to_kti(), not slices_from_to()!
+class TestRateOfDescent500FtToTouchdownMax(unittest.TestCase, CreateKPVsWithinSlicesTest):
+    def setUp(self):
+        self.node_class = RateOfDescent500FtToTouchdownMax
+        self.operational_combinations = [('Vertical Speed', 'Altitude AAL For Flight Phases')]
+        self.function = min_value
+        self.second_param_method_calls = [('slices_from_to', (500, 0), {})]
 
 
 class TestRollAbove1000FtMax(unittest.TestCase, CreateKPVsWithinSlicesTest):
