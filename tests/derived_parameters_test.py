@@ -1509,15 +1509,15 @@ class TestHeadingTrue(unittest.TestCase):
 
 class TestILSFrequency(unittest.TestCase):
     def test_can_operate(self):
-        expected = [('ILS (L) Frequency','ILS (R) Frequency','Frame')]
+        expected = [('ILS-VOR (1) Frequency','ILS-VOR (2) Frequency','Frame')]
         opts = ILSFrequency.get_operational_combinations()
         self.assertEqual(opts, expected)
         
     def test_ils_frequency_in_range(self):
-        f1 = P('ILS (L) Frequency', 
+        f1 = P('ILS-VOR (1) Frequency', 
                np.ma.array([1,2,108.10,108.15,111.95,112.00]),
                offset = 0.1, frequency = 0.5)
-        f2 = P('ILS (R) Frequency', 
+        f2 = P('ILS-VOR (2) Frequency', 
                np.ma.array([1,2,108.10,108.15,111.95,112.00]),
                offset = 1.1, frequency = 0.5)
         ils = ILSFrequency()
@@ -1528,10 +1528,10 @@ class TestILSFrequency(unittest.TestCase):
         ma_test.assert_masked_array_approx_equal(result.array, expected_array)
         
     def test_ils_frequency_matched(self):
-        f1 = P('ILS (L) Frequency', 
+        f1 = P('ILS-VOR (1) Frequency', 
                np.ma.array([108.10]*3+[111.95]*3),
                offset = 0.1, frequency = 0.5)
-        f2 = P('ILS (R) Frequency', 
+        f2 = P('ILS-VOR (2) Frequency', 
                np.ma.array([108.10,111.95]*3),
                offset = 1.1, frequency = 0.5)
         ils = ILSFrequency()

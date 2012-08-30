@@ -1841,8 +1841,8 @@ class Eng_VibN1Max(DerivedParameterNode):
                eng4=P('Eng (4) Vib N1'),
                fan1=P('Eng (1) Vib N1 Fan'),
                fan2=P('Eng (2) Vib N1 Fan'),
-               lpt1=P('Eng (1) Vib N1 LPT'),
-               lpt2=P('Eng (2) Vib N1 LPT')):
+               lpt1=P('Eng (1) Vib N1 Low Press Turbine'),
+               lpt2=P('Eng (2) Vib N1 Low Press Turbine')):
         '''
         '''
         engines = vstack_params(eng1, eng2, eng3, eng4, fan1, fan2, lpt1, lpt2)
@@ -1874,10 +1874,10 @@ class Eng_VibN2Max(DerivedParameterNode):
                eng2=P('Eng (2) Vib N2'),
                eng3=P('Eng (3) Vib N2'),
                eng4=P('Eng (4) Vib N2'),
-               hpc1=P('Eng (1) Vib N2 HPC'),
-               hpc2=P('Eng (2) Vib N2 HPC'),
-               hpt1=P('Eng (1) Vib N2 HPT'),
-               hpt2=P('Eng (2) Vib N2 HPT')):
+               hpc1=P('Eng (1) Vib N2 High Press Compressor'),
+               hpc2=P('Eng (2) Vib N2 High Press Compressor'),
+               hpt1=P('Eng (1) Vib N2 High Press Turbine'),
+               hpt2=P('Eng (2) Vib N2 High Press Turbine')):
         '''
         '''
         engines = vstack_params(eng1, eng2, eng3, eng4, hpc1, hpc2, hpt1, hpt2)
@@ -2418,14 +2418,14 @@ class ILSFrequency(DerivedParameterNode):
     ILS frequency. This allows independent monitoring of the approach by the
     two crew.
     
-    If there is a problem with the system, users can inspect the (L) and (R)
+    If there is a problem with the system, users can inspect the (1) and (2)
     signals separately, although the normal use will show valid ILS data when
     both are tuned to the same frequency.
     
     """
     name = "ILS Frequency"
     align_to_first_dependency = False
-    def derive(self, f1=P('ILS (L) Frequency'),f2=P('ILS (R) Frequency'),
+    def derive(self, f1=P('ILS-VOR (1) Frequency'),f2=P('ILS-VOR (2) Frequency'),
                frame = A('Frame')):
         frame_name = frame.value if frame else None
         
@@ -2447,7 +2447,7 @@ class ILSFrequency(DerivedParameterNode):
 class ILSLocalizer(DerivedParameterNode):
     name = "ILS Localizer"
     align_to_first_dependency = False
-    def derive(self, loc_1=P('ILS (L) Localizer'),loc_2=P('ILS (R) Localizer')):
+    def derive(self, loc_1=P('ILS (1) Localizer'),loc_2=P('ILS (2) Localizer')):
         self.array, self.frequency, self.offset = blend_two_parameters(loc_1, loc_2)
         # TODO: Would like to do this, except the frequencies don't match
         # self.array.mask = np.ma.logical_or(self.array.mask, freq.array.mask)
@@ -2456,7 +2456,7 @@ class ILSLocalizer(DerivedParameterNode):
 class ILSGlideslope(DerivedParameterNode):
     name = "ILS Glideslope"
     align_to_first_dependency = False
-    def derive(self, gs_1=P('ILS (L) Glideslope'),gs_2=P('ILS (R) Glideslope')):
+    def derive(self, gs_1=P('ILS (1) Glideslope'),gs_2=P('ILS (2) Glideslope')):
         self.array, self.frequency, self.offset = blend_two_parameters(gs_1, gs_2)
         # Would like to do this, except the frequemcies don't match
         # self.array.mask = np.ma.logical_or(self.array.mask, freq.array.mask)
@@ -3248,28 +3248,30 @@ class ThrottleLevers(DerivedParameterNode):
             blend_two_parameters(tla1, tla2)
 
 class ThrustReversers(DerivedParameterNode):
-    """
+    '''
     A single parameter with values 0=all stowed, 1=all deployed, 0.5=in transit.
     This saves subsequent algorithms having to check the various flags for each
     engine.
-    """
-    def derive(self, e1_left_dep=P('Eng (1) Thrust Reverser (L) Deployed'),
-               e1_left_out=P('Eng (1) Thrust Reverser (L) Not Stowed'),
-               e1_right_dep=P('Eng (1) Thrust Reverser (R) Deployed'),
-               e1_right_out=P('Eng (1) Thrust Reverser (R) Not Stowed'),
-               e2_left_dep=P('Eng (2) Thrust Reverser (L) Deployed'),
-               e2_left_out=P('Eng (2) Thrust Reverser (L) Not Stowed'),
-               e2_right_dep=P('Eng (2) Thrust Reverser (R) Deployed'),
-               e2_right_out=P('Eng (2) Thrust Reverser (R) Not Stowed'),
-               frame = A('Frame')):
+    '''
+    def derive(self,
+            e1_lft_dep=P('Eng (1) Thrust Reverser (L) Deployed'),
+            e1_lft_out=P('Eng (1) Thrust Reverser (L) Unlocked'),
+            e1_rgt_dep=P('Eng (1) Thrust Reverser (R) Deployed'),
+            e1_rgt_out=P('Eng (1) Thrust Reverser (R) Unlocked'),
+            e2_lft_dep=P('Eng (2) Thrust Reverser (L) Deployed'),
+            e2_lft_out=P('Eng (2) Thrust Reverser (L) Unlocked'),
+            e2_rgt_dep=P('Eng (2) Thrust Reverser (R) Deployed'),
+            e2_rgt_out=P('Eng (2) Thrust Reverser (R) Unlocked'),
+            frame=A('Frame')):
         frame_name = frame.value if frame else None
         
         if frame_name in ['737-5']:
-            all_tr = e1_left_dep.array + e1_left_out.array + \
-                e1_right_dep.array + e1_right_out.array + \
-                e2_left_dep.array + e2_left_out.array + \
-                e2_right_dep.array + e2_right_out.array
-            self.array = step_values(all_tr/8.0, [0,0.5,1])
+            all_tr = \
+                e1_lft_dep.array + e1_lft_out.array + \
+                e1_rgt_dep.array + e1_rgt_out.array + \
+                e2_lft_dep.array + e2_lft_out.array + \
+                e2_rgt_dep.array + e2_rgt_out.array
+            self.array = step_values(all_tr / 8.0, [0, 0.5, 1])
             
         else:
             raise DataFrameError(self.name, frame_name)
