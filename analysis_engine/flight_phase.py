@@ -40,9 +40,9 @@ from analysis_engine.settings import (
     INITIAL_APPROACH_THRESHOLD,
     KTS_TO_MPS,
     LANDING_THRESHOLD_HEIGHT,
-    RATE_OF_CLIMB_FOR_CLIMB_PHASE,
-    RATE_OF_CLIMB_FOR_DESCENT_PHASE,
-    RATE_OF_CLIMB_FOR_LEVEL_FLIGHT,
+    VERTICAL_SPEED_FOR_CLIMB_PHASE,
+    VERTICAL_SPEED_FOR_DESCENT_PHASE,
+    VERTICAL_SPEED_FOR_LEVEL_FLIGHT,
     RATE_OF_TURN_FOR_FLIGHT_PHASES,
     RATE_OF_TURN_FOR_TAXI_TURNS
 )
@@ -240,13 +240,13 @@ class Climb(FlightPhaseNode):
 
 
 class Climbing(FlightPhaseNode):
-    def derive(self, roc=P('Rate Of Climb For Flight Phases'), airs=S('Airborne')):
+    def derive(self, vert_spd=P('Vertical Speed For Flight Phases'), airs=S('Airborne')):
         # Climbing is used for data validity checks and to reinforce regimes.
         for air in airs:
-            climbing = np.ma.masked_less(roc.array[air.slice],
-                                         RATE_OF_CLIMB_FOR_CLIMB_PHASE)
+            climbing = np.ma.masked_less(vert_spd.array[air.slice],
+                                         VERTICAL_SPEED_FOR_CLIMB_PHASE)
             climbing_slices = slices_remove_small_gaps(
-                np.ma.clump_unmasked(climbing),time_limit=30.0, hz=roc.hz)
+                np.ma.clump_unmasked(climbing),time_limit=30.0, hz=vert_spd.hz)
             self.create_phases(shift_slices(climbing_slices, air.slice.start))
 
 
@@ -278,12 +278,12 @@ class Descending(FlightPhaseNode):
     """ 
     Descending faster than 500fpm towards the ground
     """
-    def derive(self, roc=P('Rate Of Climb For Flight Phases'), airs=S('Airborne')):
-        # Rate of climb and descent limits of 500fpm gives good distinction
-        # with level flight.
+    def derive(self, vert_spd=P('Vertical Speed For Flight Phases'), airs=S('Airborne')):
+        # Vertical speed limits of 500fpm gives good distinction with level
+        # flight.
         for air in airs:
-            descending = np.ma.masked_greater(roc.array[air.slice],
-                                              RATE_OF_CLIMB_FOR_DESCENT_PHASE)
+            descending = np.ma.masked_greater(vert_spd.array[air.slice],
+                                              VERTICAL_SPEED_FOR_DESCENT_PHASE)
             desc_slices = np.ma.clump_unmasked(descending)
             self.create_phases(shift_slices(desc_slices, air.slice.start))
 
@@ -667,13 +667,13 @@ class InitialApproach(FlightPhaseNode):
                                                    """
 
 class LevelFlight(FlightPhaseNode):
-    def derive(self, airs=S('Airborne'), roc=P('Rate Of Climb For Flight Phases')):
-        # Rate of climb limit set to identify both level flight and 
-        # end of takeoff / start of landing.
+    def derive(self, airs=S('Airborne'), vert_spd=P('Vertical Speed For Flight Phases')):
+        # Vertical speed limit set to identify both level flight and end of
+        # takeoff / start of landing.
         for air in airs:
-            level_flight = np.ma.masked_outside(roc.array[air.slice], 
-                                                -RATE_OF_CLIMB_FOR_LEVEL_FLIGHT,
-                                                RATE_OF_CLIMB_FOR_LEVEL_FLIGHT)
+            level_flight = np.ma.masked_outside(vert_spd.array[air.slice], 
+                                                -VERTICAL_SPEED_FOR_LEVEL_FLIGHT,
+                                                VERTICAL_SPEED_FOR_LEVEL_FLIGHT)
             level_slices = np.ma.clump_unmasked(level_flight)
             self.create_phases(shift_slices(level_slices, air.slice.start))
 

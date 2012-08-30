@@ -63,8 +63,8 @@ from analysis_engine.derived_parameters import (
     LongitudePrepared,
     Mach,
     Pitch,
-    RateOfClimb,
-    RateOfClimbForFlightPhases,
+    VerticalSpeed,
+    VerticalSpeedForFlightPhases,
     RateOfTurn,
     V2,
     WindAcrossLandingRunway,
@@ -688,7 +688,7 @@ class TestAltitudeSTD(unittest.TestCase):
     def test_can_operate(self):
         self.assertEqual(AltitudeSTD.get_operational_combinations(),
           [('Altitude STD Coarse', 'Altitude STD Fine'),
-           ('Altitude STD Coarse', 'Rate Of Climb')])
+           ('Altitude STD Coarse', 'Vertical Speed')])
     
     def test__high_and_low(self):
         high_values = np.ma.array([15000, 16000, 17000, 18000, 19000, 20000,
@@ -1582,9 +1582,9 @@ class TestPitch(unittest.TestCase):
         self.assertEqual(len(pch.array),10)
         
 
-class TestRateOfClimb(unittest.TestCase):
+class TestVerticalSpeed(unittest.TestCase):
     def test_can_operate(self):
-        opts = RateOfClimb.get_operational_combinations()
+        opts = VerticalSpeed.get_operational_combinations()
         self.assertEqual(len(opts), 8)
         self.assertEqual(opts[0], ('Altitude STD',))
         self.assertTrue(('Altitude STD', 'Altitude Radio') in opts)
@@ -1592,17 +1592,17 @@ class TestRateOfClimb(unittest.TestCase):
                          ('Acceleration Vertical', 'Altitude STD', 
                           'Altitude Radio', 'Airspeed'))
                          
-    def test_rate_of_climb_basic(self):
+    def test_vertical_speed_basic(self):
         az = P('Acceleration Vertical', np.ma.array([1]*10))
         alt_std = P('Altitude STD', np.ma.array([100]*10))
         alt_rad = P('Altitude Radio', np.ma.array([0]*10))
-        roc = RateOfClimb()
-        roc.derive(az, alt_std, alt_rad)
+        vert_spd = VerticalSpeed()
+        vert_spd.derive(az, alt_std, alt_rad)
         expected = np.ma.array(data=[0]*10, dtype=np.float,
                              mask=False)
-        ma_test.assert_masked_array_approx_equal(roc.array, expected)
+        ma_test.assert_masked_array_approx_equal(vert_spd.array, expected)
 
-    def test_rate_of_climb_masked(self):
+    def test_vertical_speed_masked(self):
         # The blocks of masked values have to exceed the repair_mask
         # threshold of 10 samples, hence the large arrays.
         az = P('Acceleration Vertical', np.ma.array([1]*100, dtype=np.float))
@@ -1611,41 +1611,41 @@ class TestRateOfClimb(unittest.TestCase):
         alt_std.array[35:50]=np.ma.masked
         alt_rad = P('Altitude Radio', np.ma.array([0]*100, dtype=np.float))
         alt_rad.array[65:80]=np.ma.masked
-        roc = RateOfClimb()
-        roc.derive(az, alt_std, alt_rad, None)
+        vert_spd = VerticalSpeed()
+        vert_spd.derive(az, alt_std, alt_rad, None)
         expected = np.ma.array(data=[0]*100, dtype=np.float,
                              mask=[[False]*5+[True]*15+[False]*15+
                                    [True]*15+[False]*15+
                                    [False]*15+[False]*15+[False]*5])
-        ma_test.assert_masked_array_approx_equal(roc.array, expected)
+        ma_test.assert_masked_array_approx_equal(vert_spd.array, expected)
 
-    def test_rate_of_climb_alt_std_only(self):
+    def test_vertical_speed_alt_std_only(self):
         az = None
         alt_std = P('Altitude STD', np.ma.arange(100,200,10))
         alt_rad = None
-        roc = RateOfClimb()
-        roc.derive(az, alt_std, alt_rad)
+        vert_spd = VerticalSpeed()
+        vert_spd.derive(az, alt_std, alt_rad)
         expected = np.ma.array(data=[600]*10, dtype=np.float,
                              mask=False) #  10 ft/sec = 600 fpm
-        ma_test.assert_masked_array_approx_equal(roc.array, expected)
+        ma_test.assert_masked_array_approx_equal(vert_spd.array, expected)
 
-    def test_rate_of_climb_bump(self):
+    def test_vertical_speed_bump(self):
         az = P('Acceleration Vertical', np.ma.array([1]*10,dtype=float))
         az.array[2:4] = 1.1
         # (Low acceleration for this test as the sample rate is only 1Hz).
         alt_std = P('Altitude STD', np.ma.array([100]*10,dtype=float))
         alt_rad = P('Altitude Radio', np.ma.array([0]*10,dtype=float))
-        roc = RateOfClimb()
-        roc.derive(az, alt_std, alt_rad)
+        vert_spd = VerticalSpeed()
+        vert_spd.derive(az, alt_std, alt_rad)
         expected = np.ma.array(data=[0, 0, 82.11570, 221.52819, 236.30071,
                                      163.44645,	111.49595, 74.47526, 48.11727,
                                      29.37410],  mask=False)
-        ma_test.assert_masked_array_approx_equal(roc.array, expected)
+        ma_test.assert_masked_array_approx_equal(vert_spd.array, expected)
 
-    def test_rate_of_climb_combined_signals(self):
+    def test_vertical_speed_combined_signals(self):
         # ----------------------------------------------------------------------
         # NOTE: The results of this test are dependent upon the settings
-        # parameters GRAVITY = 32.2, RATE_OF_CLIMB_LAG_TC = 6.0,
+        # parameters GRAVITY = 32.2, VERTICAL_SPEED_LAG_TC = 6.0,
         # AZ_WASHOUT_TC = 60.0. Changes in any of these will result in a test
         # failure and recomputation of the result array will be necessary.
         # ----------------------------------------------------------------------
@@ -1655,7 +1655,7 @@ class TestRateOfClimb(unittest.TestCase):
         # After 2 seconds, increment by 1 ft/s^2
         az.array[2:] += 1/GRAVITY_IMPERIAL
         
-        # This will give a linearly increasing rate of climb 0>28 ft/sec...
+        # This will give a linearly increasing vertical speed 0>28 ft/sec...
         # which integrated (cumcum) gives a parabolic theoretical solution.
         parabola = (np.cumsum(np.arange(0.0,28.0,1)))
 
@@ -1667,32 +1667,32 @@ class TestRateOfClimb(unittest.TestCase):
         parabola *= 1.0 #  Allows you to make the values different for debug.
         alt_rad.array[2:] += parabola
         
-        roc = RateOfClimb()
-        roc.derive(az, alt_std, alt_rad)
-        self.assertEqual(np.argmax(roc.array), 29)
-        self.assertGreater(roc.array[29],1589)
-        self.assertLess(roc.array[29],1590)
+        vert_spd = VerticalSpeed()
+        vert_spd.derive(az, alt_std, alt_rad)
+        self.assertEqual(np.argmax(vert_spd.array), 29)
+        self.assertGreater(vert_spd.array[29],1589)
+        self.assertLess(vert_spd.array[29],1590)
 
 
-class TestRateOfClimbForFlightPhases(unittest.TestCase):
+class TestVerticalSpeedForFlightPhases(unittest.TestCase):
     def test_can_operate(self):
         expected = [('Altitude STD',)]
-        opts = RateOfClimbForFlightPhases.get_operational_combinations()
+        opts = VerticalSpeedForFlightPhases.get_operational_combinations()
         self.assertEqual(opts, expected)
         
-    def test_rate_of_climb_for_flight_phases_basic(self):
+    def test_vertical_speed_for_flight_phases_basic(self):
         alt_std = P('Altitude STD', np.ma.arange(10))
-        roc = RateOfClimbForFlightPhases()
-        roc.derive(alt_std)
+        vert_spd = VerticalSpeedForFlightPhases()
+        vert_spd.derive(alt_std)
         expected = np.ma.array(data=[60]*10, dtype=np.float, mask=False)
-        np.testing.assert_array_equal(roc.array, expected)
+        np.testing.assert_array_equal(vert_spd.array, expected)
 
-    def test_rate_of_climb_for_flight_phases_level_flight(self):
+    def test_vertical_speed_for_flight_phases_level_flight(self):
         alt_std = P('Altitude STD', np.ma.array([100]*10))
-        roc = RateOfClimbForFlightPhases()
-        roc.derive(alt_std)
+        vert_spd = VerticalSpeedForFlightPhases()
+        vert_spd.derive(alt_std)
         expected = np.ma.array(data=[0]*10, dtype=np.float, mask=False)
-        np.testing.assert_array_equal(roc.array, expected)
+        np.testing.assert_array_equal(vert_spd.array, expected)
 
         
 class TestRateOfTurn(unittest.TestCase):

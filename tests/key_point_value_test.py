@@ -93,7 +93,6 @@ from analysis_engine.key_point_values import (
     ##PitchDuringTakeoffMax,
     RateOfDescent500FtToTouchdownMax,
     RateOfDescent1000To500FtMax,
-    ###RateOfDescent1000To50FtMax,
     RateOfDescent2000To1000FtMax,
     RollAbove1000FtMax,
     ##RollAbove1500FtMax,
@@ -1228,7 +1227,7 @@ class TestRateOfDescent500FtToTouchdownMax(unittest.TestCase,
                                          CreateKPVsWithinSlicesTest):
     def setUp(self):
         self.node_class = RateOfDescent500FtToTouchdownMax
-        self.operational_combinations = [('Rate Of Climb', 'Altitude AAL For Flight Phases')]
+        self.operational_combinations = [('Vertical Speed', 'Altitude AAL For Flight Phases')]
         self.function = min_value
         self.second_param_method_calls = [('slices_from_to', (500, 0), {})]
 
@@ -1237,27 +1236,16 @@ class TestRateOfDescent1000To500FtMax(unittest.TestCase,
                                       CreateKPVsWithinSlicesTest):
     def setUp(self):
         self.node_class = RateOfDescent1000To500FtMax
-        self.operational_combinations = [('Rate Of Climb', 'Altitude AAL For Flight Phases')]
+        self.operational_combinations = [('Vertical Speed', 'Altitude AAL For Flight Phases')]
         self.function = min_value
         self.second_param_method_calls = [('slices_from_to', (1000, 500), {})]
         
-
-"""
-class TestRateOfDescent1000To50FtMax(unittest.TestCase,
-                                      CreateKPVsWithinSlicesTest):
-    def setUp(self):
-        self.node_class = RateOfDescent1000To50FtMax
-        self.operational_combinations = [('Rate Of Climb', 'Altitude AAL For Flight Phases')]
-        self.function = min_value
-        self.second_param_method_calls = [('slices_from_to', (1000, 50), {})]
-        """
-
 
 class TestRateOfDescent2000To1000FtMax(unittest.TestCase,
                                        CreateKPVsWithinSlicesTest):
     def setUp(self):
         self.node_class = RateOfDescent2000To1000FtMax
-        self.operational_combinations = [('Rate Of Climb', 'Altitude AAL For Flight Phases')]
+        self.operational_combinations = [('Vertical Speed', 'Altitude AAL For Flight Phases')]
         self.function = min_value
         self.second_param_method_calls = [('slices_from_to', (2000, 1000), {})]
 

@@ -56,9 +56,9 @@ class TestClimbStart(unittest.TestCase):
         self.assertEqual(opts, expected)        
 
     def test_climb_start_basic(self):
-        roc = Parameter('Rate Of Climb', np.ma.array([1200]*8))
+        vert_spd = Parameter('Vertical Speed', np.ma.array([1200]*8))
         climb = Climbing()
-        climb.derive(roc, [Section('Fast',slice(0,8,None),0,8)])
+        climb.derive(vert_spd, [Section('Fast',slice(0,8,None),0,8)])
         alt = Parameter('Altitude AAL', np.ma.array(range(0,1600,220)))
         kpi = ClimbStart()
         kpi.derive(alt, climb)
@@ -68,9 +68,9 @@ class TestClimbStart(unittest.TestCase):
 
 
     def test_climb_start_cant_climb_when_slow(self):
-        roc = Parameter('Rate Of Climb', np.ma.array([1200]*8))
+        vert_spd = Parameter('Vertical Speed', np.ma.array([1200]*8))
         climb = Climbing()
-        climb.derive(roc, []) #  No Fast phase found in this data
+        climb.derive(vert_spd, []) #  No Fast phase found in this data
         alt = Parameter('Altitude AAL', np.ma.array(range(0,1600,220)))
         kpi = ClimbStart()
         kpi.derive(alt, climb)
@@ -364,33 +364,33 @@ class TestLandingTurnOffRunway(unittest.TestCase):
 class TestLiftoff(unittest.TestCase):
     def test_can_operate(self):
         self.assertEqual(Liftoff.get_operational_combinations(),
-                         [('Rate Of Climb For Flight Phases', 'Airborne')])
+                         [('Vertical Speed For Flight Phases', 'Airborne')])
 
     def test_liftoff_basic(self):
         # Linearly increasing climb rate with the 5 fpm threshold set between 
         # the 5th and 6th sample points.
-        rate_of_climb = Parameter('Rate Of Climb For Flight Phases', (np.ma.arange(10)-0.5)*40)
+        vert_spd = Parameter('Vertical Speed For Flight Phases', (np.ma.arange(10)-0.5)*40)
         # Airborne section encloses the test point.
         airs = buildsection('Airborne', 6, None)
         lift=Liftoff()
-        lift.derive(rate_of_climb, airs)
+        lift.derive(vert_spd, airs)
         expected = [KeyTimeInstance(index=5.5, name='Liftoff')]
         self.assertEqual(lift, expected)
     
-    def test_liftoff_no_roc_detected(self):
+    def test_liftoff_no_vert_spd_detected(self):
         # Check the backstop setting.
-        rate_of_climb = Parameter('Rate Of Climb For Flight Phases', (np.ma.array([0]*40)))
+        vert_spd = Parameter('Vertical Speed For Flight Phases', (np.ma.array([0]*40)))
         airs = buildsection('Airborne', 6, None)
         lift=Liftoff()
-        lift.derive(rate_of_climb, airs)
+        lift.derive(vert_spd, airs)
         expected = [KeyTimeInstance(index=6, name='Liftoff')]
         self.assertEqual(lift, expected)
     
     def test_liftoff_already_airborne(self):
-        rate_of_climb = Parameter('Rate Of Climb For Flight Phases', (np.ma.array([0]*40)))
+        vert_spd = Parameter('Vertical Speed For Flight Phases', (np.ma.array([0]*40)))
         airs = buildsection('Airborne', None, 10)
         lift=Liftoff()
-        lift.derive(rate_of_climb, airs)
+        lift.derive(vert_spd, airs)
         expected = []
         self.assertEqual(lift, expected)
         
@@ -522,29 +522,29 @@ class TestTopOfDescent(unittest.TestCase):
 class TestTouchdown(unittest.TestCase):
     def test_can_operate(self):
         self.assertEqual(Touchdown.get_operational_combinations(),
-                         [('Rate Of Climb', 'Altitude AAL', 'Airborne', 'Landing')])
+                         [('Vertical Speed', 'Altitude AAL', 'Airborne', 'Landing')])
 
     def test_touchdown_basic(self):
-        rate_of_climb = Parameter('Rate Of Climb', np.ma.arange(10)*40 - 380)
+        vert_spd = Parameter('Vertical Speed', np.ma.arange(10)*40 - 380)
         altitude = Parameter('Altitude AAL', 
                              np.ma.array(data=[28, 21, 15, 10, 6, 3, 1, 0, 0,  0],
                                          mask = False))
         airs = buildsection('Airborne', 1, 8)
         lands = buildsection('Landing', 2, 9)
         tdwn=Touchdown()
-        tdwn.derive(rate_of_climb, altitude, airs, lands)
+        tdwn.derive(vert_spd, altitude, airs, lands)
         expected = [KeyTimeInstance(index=37/6.0, name='Touchdown')]
         self.assertEqual(tdwn, expected)
     
     def test_touchdown_doesnt_land(self):
-        rate_of_climb = Parameter('Rate Of Climb', np.ma.arange(10)*40)
+        vert_spd = Parameter('Vertical Speed', np.ma.arange(10)*40)
         altitude = Parameter('Altitude AAL', 
                              np.ma.array(data=[28, 21, 15, 10, 6, 3, 1, 0, 0,  0],
                                          mask = False))
         airs = buildsection('Airborne', 10, None)
         lands = buildsection('Landing', 2, 9)
         tdwn=Touchdown()
-        tdwn.derive(rate_of_climb, altitude, airs, lands)
+        tdwn.derive(vert_spd, altitude, airs, lands)
         expected = []
         self.assertEqual(tdwn, expected)
         

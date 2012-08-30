@@ -1075,7 +1075,7 @@ class GenericDescent(KeyPointValueNode):
     def derive(self, alt_aal=P('Altitude AAL For Flight Phases'),
                slope=P('Slope To Landing'), flap=P('Flap'),
                glide=P('ILS Glideslope'),  airspeed=P('Airspeed'),
-               roc=P('Rate Of Climb'), gear=P('Gear Down'),
+               vert_spd=P('Vertical Speed'), gear=P('Gear Down'),
                loc=P('ILS Localizer'),  power=P('Eng (*) N1 Avg'),
                pitch=P('Pitch'),  brake=P('Speedbrake Selected'),
                roll=P('Roll'),  head=P('Heading'), descent=S('Descent')):
@@ -1094,7 +1094,7 @@ class GenericDescent(KeyPointValueNode):
                         parameter='ILS Glideslope', altitude=alt)
                     self.create_kpv(index, value_at_index(airspeed.array, index),
                         parameter='Airspeed', altitude=alt)
-                    self.create_kpv(index, value_at_index(roc.array, index),
+                    self.create_kpv(index, value_at_index(vert_spd.array, index),
                         parameter='Rate Of Descent', altitude=alt)
                     self.create_kpv(index, value_at_index(gear.array, index),
                         parameter='Gear Down', altitude=alt)
@@ -2324,40 +2324,6 @@ class EventMarkerPressed(KeyPointValueNode):
                 self.create_kpv(index, duration)
 
 
-class RateOfClimbMax(KeyPointValueNode):
-    '''
-    .. TODO:: testcases
-    '''
-    def derive(self, rate_of_climb=P('Rate Of Climb'),
-               climbing=S('Climbing')):
-        #TODO: Merge with below RateOfDescentMax accepting a flightphase arg
-        for climb in climbing:
-            duration = climb.slice.stop - climb.slice.start
-            if duration > CLIMB_OR_DESCENT_MIN_DURATION:
-                index, value = max_value(rate_of_climb.array, climb.slice)
-                self.create_kpv(index, value)
-
-
-class RateOfClimb35To1000FtMin(KeyPointValueNode):
-    def derive(self, roc=P('Rate Of Climb'),alt_aal=P('Altitude AAL For Flight Phases')):
-        self.create_kpvs_within_slices(roc.array,
-                                       alt_aal.slices_from_to(35, 1000),
-                                       min_value)
-
-
-class RateOfDescentMax(KeyPointValueNode):
-    '''
-    .. TODO:: testcases
-    '''
-    def derive(self, rate_of_climb=P('Rate Of Climb'),
-               descending=S('Descending')):
-        for descent in descending:
-            duration = descent.slice.stop - descent.slice.start
-            if duration > CLIMB_OR_DESCENT_MIN_DURATION:
-                index, value = min_value(rate_of_climb.array, descent.slice)
-                self.create_kpv(index, value)
-
-
 class HeightOfBouncedLanding(KeyPointValueNode):
     '''
     This measures the peak height of the bounced landing
@@ -3040,10 +3006,61 @@ class TwoDegPitchTo35FtDuration(KeyPointValueNode):
 
 
 ################################################################################
+# Rate of Climb
+
+
+# TODO: Write some unit tests!
+class RateOfClimbMax(KeyPointValueNode):
+    '''
+    '''
+
+    def derive(self, vert_spd=P('Vertical Speed'), climbing=S('Climbing')):
+        '''
+        '''
+        # TODO: Merge with RateOfDescentMax accepting a flight phase argument.
+        for climb in climbing:
+            duration = climb.slice.stop - climb.slice.start
+            if duration > CLIMB_OR_DESCENT_MIN_DURATION:
+                index, value = max_value(vert_spd.array, climb.slice)
+                self.create_kpv(index, value)
+
+
+class RateOfClimb35To1000FtMin(KeyPointValueNode):
+    '''
+    '''
+
+    def derive(self, vert_spd=P('Vertical Speed'),
+            alt_aal=P('Altitude AAL For Flight Phases')):
+        '''
+        '''
+        self.create_kpvs_within_slices(
+            vert_spd.array,
+            alt_aal.slices_from_to(35, 1000),
+            min_value,
+        )
+
+
+################################################################################
 # Rate of Descent
 
 
-# FIXME: All rate of descent KPVs should occur for 3+ seconds.
+# FIXME: Should rate of descent KPVs should occur for 3+ seconds?
+
+
+# TODO: Write some unit tests!
+class RateOfDescentMax(KeyPointValueNode):
+    '''
+    '''
+
+    def derive(self, vert_spd=P('Vertical Speed'), descending=S('Descending')):
+        '''
+        '''
+        # TODO: Merge with RateOfClimbMax accepting a flight phase argument.
+        for descent in descending:
+            duration = descent.slice.stop - descent.slice.start
+            if duration > CLIMB_OR_DESCENT_MIN_DURATION:
+                index, value = min_value(vert_spd.array, descent.slice)
+                self.create_kpv(index, value)
 
 
 class RateOfDescentTopOfDescentTo10000FtMax(KeyPointValueNode):
@@ -3051,13 +3068,13 @@ class RateOfDescentTopOfDescentTo10000FtMax(KeyPointValueNode):
     '''
 
     def derive(self, alt_aal=P('Altitude AAL For Flight Phases'),
-            roc=P('Rate Of Climb'), descents=S('Descent')):
+            vert_spd=P('Vertical Speed'), descents=S('Descent')):
         '''
         '''
         for descent in descents:
             above_10k = np.ma.masked_less(alt_aal.array, 10000)
             drops = np.ma.clump_unmasked(above_10k)
-            self.create_kpvs_within_slices(roc.array, drops, min_value)
+            self.create_kpvs_within_slices(vert_spd.array, drops, min_value)
 
 
 class RateOfDescent10000To5000FtMax(KeyPointValueNode):
@@ -3065,11 +3082,11 @@ class RateOfDescent10000To5000FtMax(KeyPointValueNode):
     '''
 
     def derive(self, alt_aal=P('Altitude AAL For Flight Phases'),
-            roc=P('Rate Of Climb')):
+            vert_spd=P('Vertical Speed')):
         '''
         '''
         self.create_kpvs_within_slices(
-            roc.array,
+            vert_spd.array,
             alt_aal.slices_from_to(10000, 5000),
             min_value,
         )
@@ -3079,11 +3096,11 @@ class RateOfDescent5000To3000FtMax(KeyPointValueNode):
     '''
 
     def derive(self, alt_aal=P('Altitude AAL For Flight Phases'),
-            roc=P('Rate Of Climb')):
+            vert_spd=P('Vertical Speed')):
         '''
         '''
         self.create_kpvs_within_slices(
-            roc.array,
+            vert_spd.array,
             alt_aal.slices_from_to(5000, 3000),
             min_value,
         )
@@ -3093,23 +3110,26 @@ class RateOfDescent3000To2000FtMax(KeyPointValueNode):
     '''
 
     def derive(self, alt_aal=P('Altitude AAL For Flight Phases'),
-            roc=P('Rate Of Climb')):
+            vert_spd=P('Vertical Speed')):
         '''
         '''
-        self.create_kpvs_within_slices(roc.array,
-                                       alt_aal.slices_from_to(3000, 2000),
-                                       min_value)
+        self.create_kpvs_within_slices(
+            vert_spd.array,
+            alt_aal.slices_from_to(3000, 2000),
+            min_value,
+        )
+
 
 class RateOfDescent2000To1000FtMax(KeyPointValueNode):
     '''
     '''
 
     def derive(self, alt_aal=P('Altitude AAL For Flight Phases'),
-            roc=P('Rate Of Climb')):
+            vert_spd=P('Vertical Speed')):
         '''
         '''
         self.create_kpvs_within_slices(
-            roc.array,
+            vert_spd.array,
             alt_aal.slices_from_to(2000, 1000),
             min_value,
         )
@@ -3120,11 +3140,11 @@ class RateOfDescent1000To500FtMax(KeyPointValueNode):
     '''
 
     def derive(self, alt_aal=P('Altitude AAL For Flight Phases'),
-            roc=P('Rate Of Climb')):
+            vert_spd=P('Vertical Speed')):
         '''
         '''
         self.create_kpvs_within_slices(
-            roc.array,
+            vert_spd.array,
             alt_aal.slices_from_to(1000, 500),
             min_value,
         )
@@ -3135,11 +3155,11 @@ class RateOfDescent500FtTo20FtMax(KeyPointValueNode):
     '''
 
     def derive(self, alt_aal=P('Altitude AAL For Flight Phases'),
-            roc=P('Rate Of Climb')):
+            vert_spd=P('Vertical Speed')):
         '''
         '''
         self.create_kpvs_within_slices(
-            roc.array, 
+            vert_spd.array, 
             alt_aal.slices_from_to(500, 20),
             min_value,
         )
@@ -3150,11 +3170,11 @@ class RateOfDescent500FtToTouchdownMax(KeyPointValueNode):
     '''
 
     def derive(self, alt_aal=P('Altitude AAL For Flight Phases'),
-            roc=P('Rate Of Climb'), tdwns=KTI('Touchdown')):
+            vert_spd=P('Vertical Speed'), tdwns=KTI('Touchdown')):
         '''
         '''
         self.create_kpvs_within_slices(
-            roc.array,
+            vert_spd.array,
             alt_aal.slices_to_kti(500, tdwns),
             min_value,
         )
@@ -3162,15 +3182,16 @@ class RateOfDescent500FtToTouchdownMax(KeyPointValueNode):
 
 class RateOfDescent20ToTouchdownMax(KeyPointValueNode):
     '''
-    We use the inertial rate of climb to avoid ground effects this low to the runway.
+    We use the inertial vertical speed to avoid ground effects this low to the
+    runway.
     '''
 
     def derive(self, alt_aal=P('Altitude AAL For Flight Phases'),
-            roc=P('Rate Of Climb Inertial'), tdwns=KTI('Touchdown')):
+            vert_spd=P('Vertical Speed Inertial'), tdwns=KTI('Touchdown')):
         '''
         '''
         self.create_kpvs_within_slices(
-            roc.array, 
+            vert_spd.array, 
             alt_aal.slices_to_kti(20, tdwns),
             min_value,
         )
@@ -3178,14 +3199,14 @@ class RateOfDescent20ToTouchdownMax(KeyPointValueNode):
         
 class RateOfDescentAtTouchdown(KeyPointValueNode):
     '''
-    We use the inertial rate of climb to avoid ground effects and give an
+    We use the inertial vertical speed to avoid ground effects and give an
     accurate value at the point of touchdown.
     '''
 
-    def derive(self, roc=P('Rate Of Climb Inertial'), tdwns=KTI('Touchdown')):
+    def derive(self, vert_spd=P('Vertical Speed Inertial'), tdwns=KTI('Touchdown')):
         '''
         '''
-        self.create_kpvs_at_ktis(roc.array, tdwns)
+        self.create_kpvs_at_ktis(vert_spd.array, tdwns)
 
 
 # TODO: Implement!

@@ -48,16 +48,16 @@ class TestNode(unittest.TestCase):
     def test_get_dependency_names(self):
         """ Check class names or strings return strings
         """            
-        class RateOfClimb(DerivedParameterNode):
+        class ParameterB(DerivedParameterNode):
             def derive(self):
                 pass
         
-        class RateOfDescentHigh(KeyPointValueNode):
-            def derive(self, rod=P('Rate Of Descent'), roc=RateOfClimb):
+        class KeyPointValue123(KeyPointValueNode):
+            def derive(self, aa=P('Parameter A'), bb=ParameterB):
                 pass
             
-        self.assertEqual(RateOfDescentHigh.get_dependency_names(), 
-                         ['Rate Of Descent', 'Rate Of Climb'])
+        self.assertEqual(KeyPointValue123.get_dependency_names(), 
+                         ['Parameter A', 'Parameter B'])
         
     def test_can_operate(self):
         deps = ['a', 'b', 'c']

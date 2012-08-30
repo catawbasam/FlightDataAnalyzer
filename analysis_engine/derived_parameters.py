@@ -69,7 +69,7 @@ from settings import (AZ_WASHOUT_TC,
                       KTS_TO_FPS,
                       KTS_TO_MPS,
                       METRES_TO_FEET,
-                      RATE_OF_CLIMB_LAG_TC)
+                      VERTICAL_SPEED_LAG_TC)
 
 from data_validation.rate_of_change import validate_rate_of_change
 
@@ -795,7 +795,7 @@ class AltitudeSTD(DerivedParameterNode):
         high_and_low = 'Altitude STD Coarse' in available and \
             'Altitude STD Fine' in available
         coarse_and_ivv = 'Altitude STD Coarse' in available and \
-            'Rate Of Climb' in available
+            'Vertical Speed' in available
         return high_and_low or coarse_and_ivv
     
     def _high_and_low(self, alt_std_high, alt_std_low, top=18000, bottom=17000):
@@ -838,7 +838,7 @@ class AltitudeSTD(DerivedParameterNode):
     
     def derive(self, alt_std_coarse=P('Altitude STD Coarse'),
                alt_std_fine=P('Altitude STD Fine'),
-               ivv=P('Rate Of Climb')):
+               ivv=P('Vertical Speed')):
         if alt_std_high and alt_std_low:
             self.array = self._high_and_low(alt_std_coarse, alt_std_fine)
             ##crossover = np.ma.logical_and(average > 17000, average < 18000)
@@ -2971,11 +2971,11 @@ class MagneticVariation(DerivedParameterNode):
         
         self.array = interpolate_and_extend(dev)
 
-class RateOfClimbInertial(DerivedParameterNode):
+class VerticalSpeedInertial(DerivedParameterNode):
     '''
-    See "Rate Of Climb" for pressure altitude based derived parameter.
+    See 'Vertical Speed' for pressure altitude based derived parameter.
     
-    This routine derives the rate of climb from the vertical acceleration, the
+    This routine derives the vertical speed from the vertical acceleration, the
     Pressure altitude and the Radio altitude.
     
     We use pressure altitude rate above 100ft and radio altitude rate below
@@ -2997,7 +2997,7 @@ class RateOfClimbInertial(DerivedParameterNode):
     acceleration term with a longer time constant filter before use. The
     consequence of this is that long period movements with continued
     acceleration will be underscaled slightly. As an example the test case
-    with a 1ft/sec^2 acceleration results in an increasing rate of climb of
+    with a 1ft/sec^2 acceleration results in an increasing vertical speed of
     55 fpm/sec, not 60 as would be theoretically predicted.
     '''
     
@@ -3007,7 +3007,7 @@ class RateOfClimbInertial(DerivedParameterNode):
                alt_rad = P('Altitude Radio'),
                speed=P('Airspeed')):
 
-        def inertial_rate_of_climb(alt_std_repair, frequency, alt_rad_repair, az_repair):
+        def inertial_vertical_speed(alt_std_repair, frequency, alt_rad_repair, az_repair):
             # Uses the complementary smoothing approach
             
             # This is the accelerometer washout term, with considerable gain.
@@ -3019,19 +3019,19 @@ class RateOfClimbInertial(DerivedParameterNode):
                                               gain=GRAVITY_IMPERIAL,
                                               initial_value=az_repair[0])
             inertial_roc = first_order_lag (az_washout, 
-                                            RATE_OF_CLIMB_LAG_TC, 
+                                            VERTICAL_SPEED_LAG_TC, 
                                             frequency, 
-                                            gain=RATE_OF_CLIMB_LAG_TC)
+                                            gain=VERTICAL_SPEED_LAG_TC)
     
             # Both sources of altitude data are differentiated before
             # merging, as we mix height rate values to minimise the effect of
             # changeover of sources.
             roc_alt_std = first_order_washout(alt_std_repair,
-                                              RATE_OF_CLIMB_LAG_TC, frequency,
-                                              gain=1/RATE_OF_CLIMB_LAG_TC)
+                                              VERTICAL_SPEED_LAG_TC, frequency,
+                                              gain=1/VERTICAL_SPEED_LAG_TC)
             roc_alt_rad = first_order_washout(alt_rad_repair,
-                                              RATE_OF_CLIMB_LAG_TC, frequency,
-                                              gain=1/RATE_OF_CLIMB_LAG_TC)
+                                              VERTICAL_SPEED_LAG_TC, frequency,
+                                              gain=1/VERTICAL_SPEED_LAG_TC)
                     
             # Use pressure altitude rate above 100ft and radio altitude rate
             # below 50ft with progressive changeover across that range.
@@ -3069,12 +3069,12 @@ class RateOfClimbInertial(DerivedParameterNode):
         # the required parameters are available.
         clumps = np.ma.clump_unmasked(az_masked)
         for clump in clumps:
-            self.array[clump] = inertial_rate_of_climb(
+            self.array[clump] = inertial_vertical_speed(
                 alt_std_repair[clump], az.frequency,
                 alt_rad_repair[clump], az_repair[clump])
 
    
-class RateOfClimb(DerivedParameterNode):
+class VerticalSpeed(DerivedParameterNode):
     '''
     The period for averaging altitude data is a trade-off between transient
     response and noise rejection. 
@@ -3101,9 +3101,9 @@ class RateOfClimb(DerivedParameterNode):
         self.array = rate_of_change(alt_std, timebase)*60.0
 
 
-class RateOfClimbForFlightPhases(DerivedParameterNode):
+class VerticalSpeedForFlightPhases(DerivedParameterNode):
     """
-    A simple and robust rate of climb parameter suitable for identifying
+    A simple and robust vertical speed parameter suitable for identifying
     flight phases. DO NOT use this for event detection.
     """
     def derive(self, alt_std = P('Altitude STD')):
