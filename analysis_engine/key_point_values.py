@@ -1166,13 +1166,36 @@ class AltitudeAtLiftoff(KeyPointValueNode):
         self.create_kpvs_at_ktis(alt_std.array, liftoffs)
 
 
+class AltitudeAtFirstFlapChangeAfterLiftoff(KeyPointValueNode):
+    '''
+    '''
+
+    name = 'Altitude AAL At First Flap Change After Liftoff'
+
+    def derive(self, flap=P('Flap'), alt_aal=P('Altitude AAL'), airs=S('Airborne')):
+        '''
+        '''
+        for air in airs:
+            # Find where flap changes:
+            change_indexes = np.ma.where(np.ma.diff(flap.array[air.slice]))[0]
+            if len(change_indexes):
+                # Create at first change:
+                index = (air.slice.start or 0) + change_indexes[0]
+                self.create_kpv(index, value_at_index(alt_aal.array, index))
+
+
 class AltitudeAtLastFlapChangeBeforeLanding(KeyPointValueNode):
+    '''
+    '''
+
     name = 'Altitude AAL At Last Flap Change Before Landing'
-    def derive(self, flap=P('Flap'), alt_aal=P('Altitude AAL'), 
-               tdwns=KTI('Touchdown')):
+
+    def derive(self, flap=P('Flap'), alt_aal=P('Altitude AAL'), tdwns=KTI('Touchdown')):
+        '''
+        '''
         for tdwn in tdwns:
             land_flap = flap.array[tdwn.index]
-            last_index = index_at_value(flap.array-land_flap, -0.5, slice(tdwn.index, 0, -1))
+            last_index = index_at_value(flap.array - land_flap, -0.5, slice(tdwn.index, 0, -1))
             alt_last = value_at_index(alt_aal.array, last_index)
             self.create_kpv(last_index, alt_last)
 
@@ -2331,17 +2354,6 @@ class HeightOfBouncedLanding(KeyPointValueNode):
     def derive(self, alt = P('Altitude AAL'), bounced_landing=S('Bounced Landing')):
         self.create_kpvs_within_slices(alt.array, bounced_landing, max_value)
         
-
-class AltitudeAtFirstConfChangeAfterLiftoff(KeyPointValueNode):
-    def derive(self, flap=P('Flap'), alt_aal=P('Altitude AAL'),airs=S('Airborne')):
-        for air in airs:
-            # find where flap changes
-            change_indexes = np.ma.where(np.ma.diff(flap.array[air.slice]))[0]
-            if len(change_indexes):
-                # create at first change
-                index = (air.slice.start or 0) + change_indexes[0]
-                self.create_kpv(index, value_at_index(alt_aal.array, index))
-
 
 class HeadingDeviationOnTakeoffAbove100Kts(KeyPointValueNode):
     """
