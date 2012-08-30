@@ -3006,6 +3006,20 @@ class TwoDegPitchTo35FtDuration(KeyPointValueNode):
 
 
 ################################################################################
+# Vertical Speed (Rate of Climb/Descent) Helpers
+
+
+def vert_spd_phase_max_or_min(vert_spd, phases, function):
+    '''
+    '''
+    for phase in phases:
+        duration = phase.slice.stop - phase.slice.start
+        if duration > CLIMB_OR_DESCENT_MIN_DURATION:
+            index, value = function(vert_spd.array, phase.slice)
+            self.create_kpv(index, value)
+
+
+################################################################################
 # Rate of Climb
 
 
@@ -3017,12 +3031,7 @@ class RateOfClimbMax(KeyPointValueNode):
     def derive(self, vert_spd=P('Vertical Speed'), climbing=S('Climbing')):
         '''
         '''
-        # TODO: Merge with RateOfDescentMax accepting a flight phase argument.
-        for climb in climbing:
-            duration = climb.slice.stop - climb.slice.start
-            if duration > CLIMB_OR_DESCENT_MIN_DURATION:
-                index, value = max_value(vert_spd.array, climb.slice)
-                self.create_kpv(index, value)
+        vert_spd_phase_max_or_min(vert_spd, climbing, max_value)
 
 
 class RateOfClimb35To1000FtMin(KeyPointValueNode):
@@ -3055,12 +3064,7 @@ class RateOfDescentMax(KeyPointValueNode):
     def derive(self, vert_spd=P('Vertical Speed'), descending=S('Descending')):
         '''
         '''
-        # TODO: Merge with RateOfClimbMax accepting a flight phase argument.
-        for descent in descending:
-            duration = descent.slice.stop - descent.slice.start
-            if duration > CLIMB_OR_DESCENT_MIN_DURATION:
-                index, value = min_value(vert_spd.array, descent.slice)
-                self.create_kpv(index, value)
+        vert_spd_phase_max_or_min(vert_spd, descending, min_value)
 
 
 class RateOfDescentTopOfDescentTo10000FtMax(KeyPointValueNode):
