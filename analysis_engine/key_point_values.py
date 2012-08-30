@@ -2366,7 +2366,7 @@ class HeightOfBouncedLanding(KeyPointValueNode):
         self.create_kpvs_within_slices(alt.array, bounced_landing, max_value)
         
 
-class AltitudeAtFirstConfigChangeAfterLiftoff(KeyPointValueNode):
+class AltitudeAtFirstConfChangeAfterLiftoff(KeyPointValueNode):
     def derive(self, flap=P('Flap'), alt_aal=P('Altitude AAL'),airs=S('Airborne')):
         for air in airs:
             # find where flap changes
@@ -3431,7 +3431,7 @@ class SpeedbrakesDeployedWithConfDuration(KeyPointValueNode):
     Conf used here, but not tried or tested. Presuming conf 2 / conf 3 should not be used with speedbrakes.
     '''
 
-    def derive(self, speedbrake=P('Speedbrake Selection'), conf=P('Conf')):
+    def derive(self, speedbrake=P('Speedbrake Selection'), conf=P('Configuration')):
         '''
         Speedbrake Selection: 0 = Stowed, 1 = Armed, 2 = Deployed.
         '''

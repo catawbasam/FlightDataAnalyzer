@@ -32,7 +32,7 @@ from analysis_engine.derived_parameters import (
     #AltitudeSTD,
     AltitudeTail,
     ClimbForFlightPhases,
-    Config,
+    Configuration,
     ControlColumn,
     ControlColumnForce,
     ControlColumnForceCapt,
@@ -289,7 +289,7 @@ class TestAirspeedReference(unittest.TestCase):
         self.default_kwargs = {'spd':False,
                                'gw':None,
                                'flap':None,
-                               'config':None,
+                               'conf':None,
                                'vapp':None,
                                'vref':None,
                                'fdr_vapp':None,
@@ -806,7 +806,7 @@ class TestClimbForFlightPhases(unittest.TestCase):
    
    
 
-class TestConfig(unittest.TestCase):
+class TestConfiguration(unittest.TestCase):
     
     def setUp(self):
         # last state is invalid
@@ -820,21 +820,21 @@ class TestConfig(unittest.TestCase):
     def test_can_operate(self):
         expected = [('Flap','Slat', 'Series', 'Family'),
                     ('Flap','Slat', 'Aileron', 'Series', 'Family')]
-        opts = Config.get_operational_combinations()
+        opts = Configuration.get_operational_combinations()
         self.assertEqual(opts, expected)
         
-    def test_config_for_a330(self):
+    def test_conf_for_a330(self):
         # last state is invalid
-        config = Config()
-        config.derive(self.flap, self.slat, self.ails, 
+        conf = Configuration()
+        conf.derive(self.flap, self.slat, self.ails, 
                       A('','A330-301'), A('','A330'))
-        self.assertEqual(list(np.ma.filled(config.array[:17], fill_value=-999)),
+        self.assertEqual(list(np.ma.filled(conf.array[:17], fill_value=-999)),
                          [0,0,1,1,2,2,3,3,4,4,5,5,6,6,7,7,-999]
                          )
         
     def test_time_taken(self):
         from timeit import Timer
-        timer = Timer(self.test_config_for_a330)
+        timer = Timer(self.test_conf_for_a330)
         time = min(timer.repeat(1, 1))
         print "Time taken %s secs" % time
         self.assertLess(time, 0.1, msg="Took too long")
@@ -1758,7 +1758,7 @@ class TestV2(unittest.TestCase):
     def setUp(self):
         self.default_kwargs = {'spd':False,
                                'flap':None,
-                               'config':None,
+                               'conf':None,
                                'fdr_v2':None,
                                'weight_liftoff':None,
                                'series':None,
@@ -1800,7 +1800,7 @@ class TestV2(unittest.TestCase):
             np.testing.assert_array_equal(param.array, expected)
 
     def test_v2__airbus_lookup(self):
-        # TODO: create airbus lookup test and add config to test hdf file
+        # TODO: create airbus lookup test and add conf to test hdf file
 
         #with hdf_file('test_data/airspeed_reference.hdf5') as hdf:
             #approaches = (Section(name='Approach', slice=slice(3346, 3540, None), start_edge=3345.5, stop_edge=3539.5),
@@ -1823,7 +1823,7 @@ class TestV2(unittest.TestCase):
 
 if __name__ == '__main__':
     suite = unittest.TestSuite()
-    suite.addTest(TestConfig('test_time_taken2'))
+    suite.addTest(TestConfiguration('test_time_taken2'))
     unittest.TextTestRunner(verbosity=2).run(suite)
 
 

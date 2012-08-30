@@ -143,17 +143,17 @@ def get_aileron_map(series=None, family=None):
 
 #############################################################################
 
-"AIRBUS CONFIG SELECTIONS"
+"AIRBUS CONF SELECTIONS"
 
 # Notes:
-# - Series config will be used over Family config settings
-# - If using flap and slat to determine config, only create a tuple of length 2
+# - Series conf will be used over Family conf settings
+# - If using flap and slat to determine conf, only create a tuple of length 2
 
-series_config_map = {
-    # this will take precidence over series_config_map
+series_conf_map = {
+    # this will take precidence over series_conf_map
 }
 
-family_config_map = {
+family_conf_map = {
     'A330' : {
         #state : (slat, flap, aileron)
         0 : ( 0, 0, 0),
@@ -174,9 +174,9 @@ family_config_map = {
 
 
 
-def get_config_map(series=None, family=None):
+def get_conf_map(series=None, family=None):
     """
-    Accessor for fetching config mapping parameters.
+    Accessor for fetching conf mapping parameters.
     
     Return is a dictionary of state : tuple where tuple can contain either 
     (slat, flap) or (slat, flap, aileron) depending on Aircraft requirements.
@@ -186,13 +186,13 @@ def get_config_map(series=None, family=None):
     :param family: Aircraft family e.g. B737
     :type family: String
     :raises: KeyError if no mapping found
-    :returns: config mapping
+    :returns: conf mapping
     :rtype: dict
     """
-    if series in series_config_map:
-        return series_config_map[series]
-    elif family in family_config_map:
-        return family_config_map[family]
+    if series in series_conf_map:
+        return series_conf_map[series]
+    elif family in family_conf_map:
+        return family_conf_map[family]
     else:
-        raise KeyError("No config mapping for Series '%s' Family '%s'" % (
+        raise KeyError("No conf mapping for Series '%s' Family '%s'" % (
             series, family))

@@ -3,7 +3,7 @@ from math import floor, radians
 
 from analysis_engine.exceptions import DataFrameError
 
-from analysis_engine.model_information import (get_config_map,
+from analysis_engine.model_information import (get_conf_map,
                                                get_flap_map,
                                                get_slat_map)
 from analysis_engine.node import (
@@ -236,7 +236,7 @@ class AirspeedReference(DerivedParameterNode):
         
         x = set(available)
         base_for_lookup = ['Airspeed', 'Gross Weight Smoothed', 'Series', 'Family', 'Approach']
-        airbus = set(base_for_lookup + ['Config']).issubset(x)
+        airbus = set(base_for_lookup + ['Configuration']).issubset(x)
         boeing = set(base_for_lookup + ['Flap']).issubset(x)
         return existing_values or airbus or boeing
 
@@ -244,7 +244,7 @@ class AirspeedReference(DerivedParameterNode):
                 spd=P('Airspeed'),
                 gw=P('Gross Weight Smoothed'),
                 flap=P('Flap'),
-                config=P('Config'),
+                conf=P('Configuration'),
                 vapp=P('Vapp'),
                 vref=P('Vref'),
                 fdr_vapp=A('FDR Vapp'),
@@ -276,9 +276,9 @@ class AirspeedReference(DerivedParameterNode):
             for approach in apps:
                 self.array[approach.slice] = fdr_vspeed.value
         else:
-            # elif apps and spd and gw and (flap or config):
+            # elif apps and spd and gw and (flap or conf):
             # No values recorded or supplied so lookup in vspeed tables
-            setting_param = flap or config
+            setting_param = flap or conf
             
             # Was:
             #self.array = np.ma.zeros(len(spd.array), np.double)
@@ -2215,7 +2215,7 @@ class SlopeToLanding(DerivedParameterNode):
         self.array = alt_aal.array / (dist.array * FEET_PER_NM)
     
     
-class Config(DerivedParameterNode):
+class Configuration(DerivedParameterNode):
     """
     Multi-state with the following mapping:
     {
@@ -2232,7 +2232,7 @@ class Config(DerivedParameterNode):
     (b) corresponds to CONF 2*
     
     Note: Does not use the Flap Lever position. This parameter reflects the
-    actual config state of the aircraft rather than the intended state
+    actual configuration state of the aircraft rather than the intended state
     represented by the selected lever position.
     
     Note: Values that do not map directly to a required state are masked with
@@ -2249,15 +2249,15 @@ class Config(DerivedParameterNode):
                series=A('Series'), family=A('Family')):
         #TODO: manu=A('Manufacturer') - we could ensure this is only done for Airbus?
         
-        mapping = get_config_map(series.value, family.value)        
+        mapping = get_conf_map(series.value, family.value)        
         qty_param = len(mapping.itervalues().next())
         if qty_param == 3 and not aileron:
             # potential problem here!
-            self.warning("Aileron not available, so will calculate Config using only slat and flap")
+            self.warning("Aileron not available, so will calculate Configuration using only slat and flap")
             qty_param = 2
         elif qty_param == 2 and aileron:
             # only two items in values tuple
-            self.debug("Aileron available but not required for Config calculation")
+            self.debug("Aileron available but not required for Configuration calculation")
             pass
         
         #TODO: Scale each parameter individually to ensure uniqueness
@@ -3330,14 +3330,14 @@ class V2(DerivedParameterNode):
         x = set(available)
         fdr = 'FDR V2' in x
         base_for_lookup = ['Airspeed', 'Gross Weight At Liftoff', 'Series', 'Family']
-        config = set(base_for_lookup + ['Config']).issubset(x)
+        conf = set(base_for_lookup + ['Configuration']).issubset(x)
         flap = set(base_for_lookup + ['Flap']).issubset(x)
-        return fdr or config or flap
+        return fdr or conf or flap
 
     def derive(self, 
                spd=P('Airspeed'),
                flap=P('Flap'),
-               config=P('Config'),
+               conf=P('Configuration'),
                fdr_v2=A('FDR V2'),
                weight_liftoff=KPV('Gross Weight At Liftoff'),
                series=A('Series'),
@@ -3352,7 +3352,7 @@ class V2(DerivedParameterNode):
             self.array = fdr_v2.value
         elif weight_liftoff:
             vspeed_class = get_vspeed_map(series.value, family.value)
-            setting_param = flap or config
+            setting_param = flap or conf
             if vspeed_class:
                 vspeed_table = vspeed_class()
                 index = weight_liftoff[0].index
