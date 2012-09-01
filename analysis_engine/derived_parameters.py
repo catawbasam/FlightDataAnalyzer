@@ -681,7 +681,7 @@ class AltitudeRadio(DerivedParameterNode):
             self.array, self.frequency, self.offset = \
                 blend_two_parameters(source_B, source_C)
             
-        elif frame_name in ['737-3C', '737-4', '737-4_Analogue', 'CRJ-700-900']:
+        elif frame_name in ['737-4', '737-4_Analogue', 'CRJ-700-900']:
             self.array, self.frequency, self.offset = \
                 blend_two_parameters(source_A, source_B)
         
@@ -695,13 +695,6 @@ class AltitudeRadio(DerivedParameterNode):
             else:
                 raise ValueError,'737-5 frame Altitude Radio qualifier not recognised.'
 
-        elif frame_name in ['757-DHL']:
-            # Altitude Radio (A) comes from the Right altimeter, and is
-            # sampled in word 26 of the frame. Altitude Radio (C) comes from
-            # the Centre altimeter, is sample in word 104. Altitude Radio (B)
-            # comes from the EFIS system, and includes excessive latency so
-            # is not used.
-                blend_two_parameters(source_A, source_C)
             
         else:
             raise DataFrameError(self.name, frame_name)
@@ -1972,7 +1965,6 @@ class GearOnGround(MultistateDerivedParameterNode):
     Combination of left and right main gear signals.
     '''
     align_to_first_dependency = False
-<<<<<<< TREE
     
     values_mapping = { 1: 'Ground',
                        0: 'Air'}
@@ -2012,36 +2004,6 @@ class GearSelectedUp(MultistateDerivedParameterNode):
 
     def derive(self, gear=P('Gear Down')):
         self.array = 1 - gear.array
-=======
-    def derive(self, gl = P('Gear (L) On Ground'), 
-               gr = P('Gear (R) On Ground')):
-        self.array, self.frequency, self.offset = merge_two_parameters(gl, gn)
-
-    
-class GearDownSelected(DerivedParameterNode):
-    """
-    Derivation of gear selection for aircraft without this separately
-    recorded. Where Gear Down Selected is recorded, this derived parameter
-    will be skipped automatically.
-    """
-    def derive(self, gear=P('Gear Down'), frame=A('Frame')):
-        frame_name = frame.value if frame else None
-        
-        if frame_name in ['737-3C', '737-5']:
-            self.array = gear.array
-        else:
-            raise DataFrameError(self.name, frame_name)
-
-        
-class GearUpSelected(DerivedParameterNode):
-    def derive(self, gear=P('Gear Down'), frame=A('Frame')):
-        frame_name = frame.value if frame else None
-        
-        if frame_name in ['737-3C', '737-5']:
-            self.array = 1 - gear.array
-        else:
-            raise DataFrameError(self.name, frame_name)
->>>>>>> MERGE-SOURCE
 
 
 class GrossWeightSmoothed(DerivedParameterNode):
@@ -2476,12 +2438,9 @@ class ILSFrequency(DerivedParameterNode):
     """
     name = "ILS Frequency"
     align_to_first_dependency = False
-<<<<<<< TREE
+
     def derive(self, f1=P('ILS (1) Frequency'),f2=P('ILS (2) Frequency'),
                f1v=P('ILS-VOR (1) Frequency'), f2v=P('ILS-VOR (2) Frequency'),
-=======
-    def derive(self, f1=P('ILS-VOR (1) Frequency'),f2=P('ILS-VOR (2) Frequency'),
->>>>>>> MERGE-SOURCE
                frame = A('Frame')):
 
         frame_name = frame.value if frame else None
@@ -3704,58 +3663,3 @@ class VOR2Frequency(DerivedParameterNode):
     def derive(self, f=P('ILS-VOR (2) Frequency')):
         self.array = filter_vor_ils_frequencies(f.array, 'VOR')
 
-
-"""
-class NoseUpMainDown(MultistateDerivedParameterNode):
-    '''
-    Test function to operate on "real" hdf data rather than assumed data sets.
-    '''
-    align_to_first_dependency = False
-    
-    values_mapping = { 0: 'Three Wheels On Ground',
-                       1: 'Nose In Air',
-                       2: 'All Wheels In Air'}
-
-    def derive(self, gn = M('Gear (N) On Ground'), gm=M('Gear On Ground')):
-        
-        all_ground = np.ma.where(
-            np.ma.logical_and(
-                gn.array==gn.array.state['Ground_Nose_LFL'],
-                gm.array==gm.array.state['Ground']), 
-            'Three Wheels On Ground', np.ma.masked)
-
-        ground_and_takeoff = np.ma.where(
-            np.ma.logical_and(
-                gn.array==gn.array.state['Air_Nose_LFL'],
-                gm.array==gm.array.state['Ground']),
-            'Nose In Air', all_ground)
-        
-        all_phases = np.ma.where(
-            np.ma.logical_and(
-                gn.array==gn.array.state['Air_Nose_LFL'],
-                gm.array==gm.array.state['Air']), 
-            'All Wheels In Air', ground_and_takeoff)
-        
-        print 'Three State Test'
-        for i in [5,14,684,1000, 7220, -1]:
-            print i, all_phases[i]
-
-        self.array = all_phases         
-
-
-class TestMain(MultistateDerivedParameterNode):
-    align_to_first_dependency = False
-    
-    values_mapping = { 1: 'Main_Air',
-                       0: 'Main_Ground',}
-
-    def derive(self, gm = M('Gear On Ground'), gd = M('Gear On Ground Discrete'), ias=P('Airspeed')):
-        #self.array = np.ma.array(gm.array.data, mask=gm.array.mask)
-        self.array = gm.array
-        
-        print '-'*25
-        print 'Gear On Ground Test'
-        for i in [5,14,1000, 7220, -1]:
-            print i, gm.array[i], gm.array.raw[i], gd.array[i], self.array[i], ias.array[i]
-        
-"""

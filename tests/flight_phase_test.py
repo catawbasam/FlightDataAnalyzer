@@ -21,11 +21,12 @@ from analysis_engine.flight_phase import (Airborne,
                                           FinalApproach,
                                           GearRetracting,
                                           GoAroundAndClimbout,
+                                          Grounded,
                                           Holding,
                                           ILSLocalizerEstablished,
                                           Landing,
                                           LevelFlight,
-                                          Grounded,
+                                          Mobile,
                                           Takeoff,
                                           Taxiing,
                                           TaxiIn,
@@ -663,7 +664,7 @@ class TestFast(unittest.TestCase):
 class TestGrounded(unittest.TestCase):
     def test_can_operate(self):
         self.assertEqual(Grounded.get_operational_combinations(), 
-                         [('Airspeed For Flight Phases','Airborne')])
+                         [('Airborne', 'Airspeed For Flight Phases')])
 
     def test_grounded_phase_basic(self):
         slow_and_fast_data = np.ma.array(range(60,120,10)+[120]*300+range(120,50,-10))
@@ -881,6 +882,36 @@ class TestLanding(unittest.TestCase):
         expected = buildsection('Landing', 0.75, 22.5)
         self.assertEqual(landing, expected)
         
+class TestMobile(unittest.TestCase):
+    def test_can_operate(self):
+        expected = [('Rate Of Turn',),('Rate Of Turn','Groundspeed')]
+        opts = Mobile.get_operational_combinations()
+        self.assertEqual(opts, expected)
+        
+    def test_rot_only(self):
+        rot = np.ma.array([0,0,5,5,5,0,0])
+        move = Mobile()
+        move.derive(P('Rate Of Turn',rot), None)
+        expected = buildsection('Mobile', 2, 4)
+        self.assertEqual(move, expected)
+        
+    def test_gspd_first(self):
+        rot = np.ma.array([0,0,0,5,5,0,0])
+        gspd= np.ma.array([0,6,6,6,0,0,0])
+        move = Mobile()
+        move.derive(P('Rate Of Turn',rot),
+                    P('Groundspeed',gspd))
+        expected = buildsection('Mobile', 1, 4)
+        self.assertEqual(move, expected)
+
+    def test_gspd_last(self):
+        rot = np.ma.array([0,0,5,5,0,0,0])
+        gspd= np.ma.array([0,0,0,6,6,6,0])
+        move = Mobile()
+        move.derive(P('Rate Of Turn',rot),
+                    P('Groundspeed',gspd))
+        expected = buildsection('Mobile', 2, 5)
+        self.assertEqual(move, expected)
         
 """
 class TestLevelFlight(unittest.TestCase):

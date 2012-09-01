@@ -78,7 +78,7 @@ class VelocitySpeed(object):
             weight = aircraft_weight
         else:
             raise ValueError, "Unrecognised weight units"
-
+        
         if self.interpolate:
             # numpy interpolate
             # raises ValueError if weight is outside of table weight boundaries

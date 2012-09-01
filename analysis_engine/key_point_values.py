@@ -33,7 +33,8 @@ from analysis_engine.library import (clip,
                                      rate_of_change,
                                      runway_distance_from_end,
                                      shift_slices,
-                                     slice_samples, 
+                                     slice_samples,
+                                     slices_not,
                                      slices_overlap,
                                      slices_and,
                                      value_at_index)
@@ -125,13 +126,8 @@ class AccelerationNormalMax(KeyPointValueNode):
         '''
         return 'Acceleration Normal' in available
     
-    def derive(self, acc_norm=P('Acceleration Normal'), gspd=P('Groundspeed')):
-        if gspd:
-            self.create_kpvs_within_slices(acc_norm.array,
-                                       gspd.slices_above(5.0), max_value)
-        else:
-            index, value = max_value(acc_norm.array)
-            self.create_kpv(index, value)
+    def derive(self, acc_norm=P('Acceleration Normal'), moves = S('Mobile')):
+        self.create_kpvs_within_slices(acc_norm.array, moves, max_value)
         
         
 class AccelerationNormalAirborneFlapsUpMax(KeyPointValueNode):
@@ -1195,10 +1191,14 @@ class AltitudeAtLastFlapChangeBeforeLanding(KeyPointValueNode):
         '''
         for tdwn in tdwns:
             land_flap = flap.array[tdwn.index]
-            last_index = index_at_value(flap.array - land_flap, -0.5, slice(tdwn.index, 0, -1))
-            alt_last = value_at_index(alt_aal.array, last_index)
-            self.create_kpv(last_index, alt_last)
-
+            flap_move = abs(flap.array-land_flap)
+            rough_index = index_at_value(flap_move, 0.5, slice(tdwn.index, 0, -1))
+            # index_at_value tries to be precise, but in this case we really just want the index at the new flap setting.
+            if rough_index:
+                last_index = np.round(rough_index) 
+                alt_last = value_at_index(alt_aal.array, last_index)
+                self.create_kpv(last_index, alt_last)
+                
 
 class AltitudeAtMachMax(KeyPointValueNode):
     name = 'Altitude At Mach Max'
@@ -1568,11 +1568,6 @@ class LatitudeAtLowestPointOnApproach(KeyPointValueNode):
     def derive(self, lat=P('Latitude'), 
                low_points=KTI('Lowest Point On Approach')):
         self.create_kpvs_at_ktis(lat.array, low_points)
-    """
-    def derive(self, lat=P('Latitude'), 
-               lands=KTI('Approach And Landing Lowest Point')):
-        self.create_kpvs_at_ktis(lat.array, lands)
-        """    
 
 
 class LongitudeAtLowestPointOnApproach(KeyPointValueNode):
@@ -1580,11 +1575,6 @@ class LongitudeAtLowestPointOnApproach(KeyPointValueNode):
     def derive(self, lon=P('Longitude'), 
                low_points=KTI('Lowest Point On Approach')):
         self.create_kpvs_at_ktis(lon.array, low_points)
-    """
-    def derive(self, lon=P('Longitude'), 
-               lands=KTI('Approach And Landing Lowest Point')):
-        self.create_kpvs_at_ktis(lon.array, lands)
-        """
 
 
 class MachMax(KeyPointValueNode):
@@ -1614,12 +1604,13 @@ class MagneticVariationAtLanding(KeyPointValueNode):
 
 
 # FIXME: Need to handle at least four engines here!
+# Alignment should be resolved by align method, not use of integers.
 class EngBleedValvesAtLiftoff(KeyPointValueNode):
     '''
     '''
 
     def derive(self, lifts=KTI('Liftoff'),
-               b1=P('Eng (1) Bleed'), b2=P('Eng (2) Bleed')):
+               b1=M('Eng (1) Bleed'), b2=M('Eng (2) Bleed')):
         '''
         '''
         # b1 & b2 are integer arrays, but to index them correctly we need to
@@ -1721,12 +1712,19 @@ class EngGasTempMaximumContinuousPowerMax(KeyPointValueNode):
     def derive(self, eng_egt_max=P('Eng (*) Gas Temp Max'),
                to_ratings=S('Takeoff 5 Min Rating'),
                ga_ratings=S('Go Around 5 Min Rating'),
-               gnd=S('Grounded')):
+               air=S('Airborne')):
         '''
+        We assume maximum continuous power applies whenever takeoff or
+        go-around power settings are not in force. So, by collecting all the
+        high power periods and inverting these from the start of the first
+        airborne section to the end of the last, we have the required periods
+        of flight.
         '''
-        ratings = to_ratings + ga_ratings + gnd
-        self.create_kpv_outside_slices(eng_egt_max.array, ratings, max_value)
-
+        high_power_ratings = [x.slice for x in to_ratings] + [y.slice for y in ga_ratings]
+        max_cont_rating = slices_not(high_power_ratings, 
+                                     begin_at=min([z.slice.start for z in air]), 
+                                     end_at=max([z.slice.stop for z in air]))
+        self.create_kpvs_within_slices(eng_egt_max.array, max_cont_rating, max_value)
 
 ########################################
 # Engine Start Conditions
@@ -1926,7 +1924,7 @@ class Eng_N1MaxDurationUnder60PercentAfterTouchdown(KeyPointValueNode):
                 self.create_kpv(eng_stop[0].index, 0.0, eng_num=eng_num)
 
 
-class EngN1500To20FtMax(KeyPointValueNode):
+class EngN1500FtTo20FtMax(KeyPointValueNode):
     '''
     '''
 
@@ -1943,7 +1941,7 @@ class EngN1500To20FtMax(KeyPointValueNode):
         )
 
 
-class EngN1500To20FtMin(KeyPointValueNode):
+class EngN1500FtTo20FtMin(KeyPointValueNode):
     '''
     '''
 
@@ -2526,46 +2524,6 @@ class AltitudeAtSuspectedLevelBust(KeyPointValueNode):
         bust = 300 # ft
         bust_time = 3*60 # 3 mins
         
-        alt_hyst = hysteresis(alt_std.array, bust)
-        hyst_rate = np.ma.ediff1d(alt_hyst, to_end=0.0)
-        # Given application of hysteresis and taking differences, we can be
-        # sure of zero values where data is constant.
-        changes = np.ma.clump_unmasked(np.ma.masked_equal(hyst_rate, 0.0))
-        
-        if len(changes) < 3:
-            return # You can't have a level bust if you just go up and down.
-        
-        for num in range(len(changes)-1):
-            begin = changes[num].stop
-            end = changes[num+1].start
-            if hyst_rate[begin-1] * hyst_rate[end] < 0.0:
-                duration = (end-begin)/alt_std.frequency
-                
-                if duration < bust_time:
-                    alt_before = alt_std.array[changes[num].start]
-                    alt_after = alt_std.array[changes[num+1].stop-1]
-                    peak_idx = np.ma.argmax(
-                        np.ma.abs(alt_std.array[begin:end]-
-                                  alt_std.array[begin]))\
-                        + begin
-                    
-                    alt_peak = alt_std.array[peak_idx]
-                    
-                    if alt_peak>(alt_before+alt_after)/2:
-                        overshoot = min(alt_peak-alt_before,
-                                        alt_peak-alt_after)
-                        
-                    else:
-                        # Strictly this is an undershoot, but keeping the
-                        # name the same saves a line of code
-                        overshoot = max(alt_peak-alt_before,
-                                        alt_peak-alt_after)
-                        
-                    self.create_kpv(peak_idx,overshoot)
-                    
-            
-
-        """
         idxs, peaks = cycle_finder(alt_std.array, min_step=bust)
 
         if idxs == None:
@@ -2578,17 +2536,14 @@ class AltitudeAtSuspectedLevelBust(KeyPointValueNode):
                 if duration < bust_time:
                     a=alt_std.array[idxs[num]] # One before the peak of interest
                     b=alt_std.array[idxs[num+1]] # The peak of interst
-                    c=alt_std.array[idxs[num+2]] # The next one
+                    c=alt_std.array[idxs[num+2]-1] # The next one (index reduced to avoid running beyond end of data)
                     if b>(a+c)/2:
                         overshoot = min(b-a,b-c)
                         self.create_kpv(idx,overshoot)
                     else:
                         undershoot = max(b-a,b-c)
                         self.create_kpv(idx,undershoot)
-                        """
-                        
 
-        
 
 class FuelQtyAtLiftoff(KeyPointValueNode):
     def derive(self, fuel_qty=P('Fuel Qty'), liftoffs=KTI('Liftoff')):
@@ -2945,36 +2900,20 @@ class PitchRate20FtToTouchdownMin(KeyPointValueNode):
 class PitchRate2DegPitchTo35FtMax(KeyPointValueNode):
     '''
     '''
-
-    def derive(self, pitch_rate=P('Pitch Rate'), pitch=P('Pitch'), takeoffs=S('Takeoff')):
+    def derive(self, pitch_rate=P('Pitch Rate'), lifts=S('Two Deg Pitch To 35 Ft')):
         '''
         '''
-        for takeoff in takeoffs:
-            reversed_slice = slice(takeoff.slice.stop, takeoff.slice.start, -1)
-            pitch_2_deg_idx = index_at_value(pitch.array, 2, reversed_slice,
-                    endpoint='closing')  # XXX: - takeoff.slice.start
-            index, value = max_value(pitch_rate.array,
-                    slice(pitch_2_deg_idx, takeoff.slice.stop))
-            self.create_kpv(index, value)
-
+        self.create_kpvs_within_slices(pitch_rate.array, lifts, max_value)
+        
 
 # TODO: Write some unit tests!
 class PitchRate2DegPitchTo35FtMin(KeyPointValueNode):
     '''
     '''
-
-    def derive(self, pitch_rate=P('Pitch Rate'), pitch=P('Pitch'), takeoffs=S('Takeoff')):
+    def derive(self, pitch_rate=P('Pitch Rate'), lifts=S('Two Deg Pitch To 35 Ft')):
         '''
         '''
-        for takeoff in takeoffs:
-            # Endpoint closing allows for the case where the aircraft is at
-            # more than 2 deg of pitch at takeoff.
-            reversed_slice = slice(takeoff.slice.stop, takeoff.slice.start, -1)
-            pitch_2_deg_idx = index_at_value(pitch.array, 2, reversed_slice,
-                    endpoint='closing')  # XXX: - takeoff.slice.start
-            index, value = min_value(pitch_rate.array,
-                    slice(pitch_2_deg_idx, takeoff.slice.stop))
-            self.create_kpv(index, value)
+        self.create_kpvs_within_slices(pitch_rate.array, lifts, min_value)
 
 
 # TODO: Write some unit tests!
@@ -2982,22 +2921,15 @@ class PitchRate2DegPitchTo35FtMin(KeyPointValueNode):
 class PitchRate2DegPitchTo35FtAverage(KeyPointValueNode):
     '''
     '''
-
-    def derive(self, pitch_rate=P('Pitch Rate'), pitch=P('Pitch'), takeoffs=S('Takeoff')):
+    def derive(self, pitch=P('Pitch'), lifts=S('Two Deg Pitch To 35 Ft')):
         '''
         '''
-        for takeoff in takeoffs:
-            # Endpoint closing allows for the case where the aircraft is at
-            # more than 2 deg of pitch at takeoff.
-            reversed_slice = slice(takeoff.slice.stop, takeoff.slice.start, -1)
-            pitch_2_deg_idx = index_at_value(pitch.array, 2, reversed_slice,
-                    endpoint='closing')  # XXX: - takeoff.slice.start
-            begin = pitch_2_deg_idx
-            end = takeoff.slice.stop
-            pitch_35_ft = value_at_index(pitch.array, end)
-            value = (pitch_35_ft - 2.0) / (end - begin) * pitch_rate.frequency
-            index = (begin + end) / 2.0
-            self.create_kpv(index, value)
+        for lift in lifts:
+            pitch_max = value_at_index(pitch.array, lift.stop_edge)
+            pitch_rate_avg = (pitch_max - 2.0)/ \
+                ((lift.stop_edge - lift.start_edge) / pitch.frequency)
+            mid_index = (lift.stop_edge + lift.start_edge) / 2.0
+            self.create_kpv(mid_index, pitch_rate_avg)
 
 
 # TODO: Write some unit tests!
@@ -3006,21 +2938,15 @@ class PitchRate2DegPitchTo35FtAverage(KeyPointValueNode):
 class TwoDegPitchTo35FtDuration(KeyPointValueNode):
     '''
     '''
-
     name = '2 Deg Pitch To 35 Ft Duration'
 
-    def derive(self, pitch_rate=P('Pitch Rate'), pitch=P('Pitch'), takeoffs=S('Takeoff')):
+    def derive(self, pitch=P('Pitch'), lifts=S('Two Deg Pitch To 35 Ft')):
         '''
         '''
-        for takeoff in takeoffs:
-            # Endpoint closing allows for the case where the aircraft is at
-            # more than 2 deg of pitch at takeoff.
-            reversed_slice = slice(takeoff.slice.stop, takeoff.slice.start, -1)
-            pitch_2_deg_idx = index_at_value(pitch.array, 2, reversed_slice,
-                    endpoint='closing')  # XXX: - takeoff.slice.start
-            begin = pitch_2_deg_idx
-            end = takeoff.slice.stop
-            value = (end - begin) / pitch_rate.frequency
+        for lift in lifts:
+            begin = lift.start_edge
+            end = lift.stop_edge
+            value = (end - begin) / pitch.frequency
             index = (begin + end) / 2.0
             self.create_kpv(index, value)
 
@@ -3036,7 +2962,7 @@ def vert_spd_phase_max_or_min(vert_spd, phases, function):
         duration = phase.slice.stop - phase.slice.start
         if duration > CLIMB_OR_DESCENT_MIN_DURATION:
             index, value = function(vert_spd.array, phase.slice)
-            self.create_kpv(index, value)
+            return index + phase.slice.start, value
 
 
 ################################################################################
@@ -3051,7 +2977,8 @@ class RateOfClimbMax(KeyPointValueNode):
     def derive(self, vert_spd=P('Vertical Speed'), climbing=S('Climbing')):
         '''
         '''
-        vert_spd_phase_max_or_min(vert_spd, climbing, max_value)
+        index, value = vert_spd_phase_max_or_min(vert_spd, climbing, max_value)
+        self.create_kpv(index, value)
 
 
 class RateOfClimb35To1000FtMin(KeyPointValueNode):
@@ -3084,8 +3011,8 @@ class RateOfDescentMax(KeyPointValueNode):
     def derive(self, vert_spd=P('Vertical Speed'), descending=S('Descending')):
         '''
         '''
-        vert_spd_phase_max_or_min(vert_spd, descending, min_value)
-
+        index, value = vert_spd_phase_max_or_min(vert_spd, descending, min_value)
+        self.create_kpv(index, value)
 
 class RateOfDescentTopOfDescentTo10000FtMax(KeyPointValueNode):
     '''
@@ -3174,7 +3101,7 @@ class RateOfDescent1000To500FtMax(KeyPointValueNode):
         )
 
 
-class RateOfDescent500FtTo20FtMax(KeyPointValueNode):
+class RateOfDescent500To20FtMax(KeyPointValueNode):
     '''
     '''
 

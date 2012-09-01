@@ -62,6 +62,11 @@ def align(slave, master, data_type=None):
     if hasattr(slave_array, 'raw'):
         # MappedArray: we should use raw data
         slave_array = slave_array.raw
+        if data_type == None:
+            data_type='multi-state' # Force the data type in case it has not been set inadvertently.
+        else:
+            raise ValueError, "multi-state parameter identified incorrectly for %s" %slave.name
+
     if len(slave_array) == 0:
         # No elements to align, avoids exception being raised in the loop below.
         return slave_array
@@ -1950,7 +1955,7 @@ def max_abs_value(array, _slice=slice(None), start_edge=None, stop_edge=None):
     
     :param array: masked array
     :type array: np.ma.array
-    :param _slice: Slice to apply to the array and return max value relative to
+    :param _slice: Slice to apply to the array and return max absolute value relative to
     :type _slice: slice
     :param start_edge: Index for precise start timing
     :type start_edge: Float, between _slice.start-1 and slice_start
@@ -2011,7 +2016,7 @@ def min_value(array, _slice=slice(None), start_edge=None, stop_edge=None):
     
     :param array: masked array
     :type array: np.ma.array
-    :param _slice: Slice to apply to the array and return max value relative to
+    :param _slice: Slice to apply to the array and return min value relative to
     :type _slice: slice
     :param start_edge: Index for precise start timing
     :type start_edge: Float, between _slice.start-1 and slice_start
@@ -2542,11 +2547,23 @@ def peak_curvature(array, _slice=slice(None), curve_sense='Concave'):
         if valid_slice.stop - valid_slice.start > overall:
             data = array[_slice][valid_slice]
             # The normal path is to go and process this data.
+            
+            # Standard version (see option below)...
             corner = truck_and_trailer(data, ttp, overall, trailer, curve_sense, _slice)
             if corner:
                 return corner + valid_slice.start
             else:
                 return None
+        
+            '''
+            # Version developed to cater for one edge case where data stopped 
+            on runway. May not be appropriate to adopt more widely but left 
+            here to avoid reinventing the wheel in case it's a better solution.
+            
+            return valid_slice.start + truck_and_trailer(data, ttp, overall, 
+                                                         trailer, curve_sense, 
+                                                         _slice)
+                                                         '''
         
         # Here we deal with problem cases.
         if len(valid_slices) == 0 or (valid_slice.stop - valid_slice.start) < 4:
@@ -3187,10 +3204,6 @@ def index_at_value(array, threshold, _slice=slice(None), endpoint='exact'):
         # More "let's get the logic right and tidy it up afterwards" bit of code...
         if begin >= len(array):
             begin = max_index - 1
-        elif int(begin) == begin:
-            # integer slice indexes need reducing because of the way Python
-            # does reverse slices.
-            begin = begin - 1 
         elif begin < 0:
             begin = 0
         if end > len(array):

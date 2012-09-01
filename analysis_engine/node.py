@@ -631,6 +631,7 @@ class SectionNode(Node, list):
         '''
         aligned_node = self.__class__(frequency=param.frequency,
                                       offset=param.offset)
+        
         multiplier = param.frequency / self.frequency
         offset = (self.offset - param.offset) * param.frequency
         for section in self:

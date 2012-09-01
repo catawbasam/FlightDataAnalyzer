@@ -31,6 +31,8 @@ from analysis_engine.settings import (
     AIRBORNE_THRESHOLD_TIME,
     AIRSPEED_THRESHOLD,
     BOUNCED_LANDING_THRESHOLD,
+    GROUNDSPEED_FOR_MOBILE,
+    HEADING_RATE_FOR_MOBILE,
     HEADING_TURN_OFF_RUNWAY,
     HEADING_TURN_ONTO_RUNWAY,
     HOLDING_MAX_GSPD,
@@ -698,14 +700,45 @@ class Grounded(FlightPhaseNode):
         self.create_phases(gnd_phases)
 
 
+class Mobile(FlightPhaseNode):
+    """
+    This finds the first and last signs of movement to provide endpoints to
+    the taxi phases. As Rate Of Turn is derived directly from heading, this
+    phase is guaranteed to be operable for very basic aircraft.
+    """
+    @classmethod
+    def can_operate(cls, available):
+        return 'Rate Of Turn' in available
+    
+    def derive(self, rot=P('Rate Of Turn'), gspd=P('Groundspeed')):
+        move = np.ma.flatnotmasked_edges(np.ma.masked_less\
+                                         (np.ma.abs(rot.array),
+                                          HEADING_RATE_FOR_MOBILE))
+        
+        if gspd:
+            move_gspd = np.ma.flatnotmasked_edges(np.ma.masked_less\
+                                                  (np.ma.abs(gspd.array),
+                                                   GROUNDSPEED_FOR_MOBILE))
+            #moving is a numpy array so needs to be converted to a list of one slice
+            move[0] = min(move[0], move_gspd[0])
+            move[1] = max(move[1], move_gspd[1])
+            
+        moves = [slice(move[0], move[1])]
+        self.create_phases(moves)
+        
+
 class Landing(FlightPhaseNode):
     """
     This flight phase starts at 50 ft in the approach and ends as the
     aircraft turns off the runway. Subsequent KTIs and KPV computations
     identify the specific moments and values of interest within this phase.
+
+    We use Altitude AAL (not "for Flight Phases") to avoid small errors
+    introduced by hysteresis, which is applied to avoid hunting in level
+    flight conditions, and thereby make sure the 50ft startpoint is exact.
     """
     def derive(self, head=P('Heading Continuous'),
-               alt_aal=P('Altitude AAL For Flight Phases'), fast=S('Fast')):
+               alt_aal=P('Altitude AAL'), fast=S('Fast')):
 
         for speedy in fast:
             # See takeoff phase for comments on how the algorithm works.
@@ -743,10 +776,14 @@ class Takeoff(FlightPhaseNode):
     """
     This flight phase starts as the aircraft turns onto the runway and ends
     as it climbs through 35ft. Subsequent KTIs and KPV computations identify
-    the specific moments and values of interest within this phase.
+    the specific moments and values of interest within this phase. 
+    
+    We use Altitude AAL (not "for Flight Phases") to avoid small errors
+    introduced by hysteresis, which is applied to avoid hunting in level
+    flight conditions, and make sure the 35ft endpoint is exact.
     """
     def derive(self, head=P('Heading Continuous'),
-               alt_aal=P('Altitude AAL For Flight Phases'),
+               alt_aal=P('Altitude AAL'),
                fast=S('Fast')):
 
         # Note: This algorithm works across the entire data array, and
@@ -898,3 +935,19 @@ class TurningOnGround(FlightPhaseNode):
         for turn_slice in turn_slices:
             if any([is_slice_within_slice(turn_slice, gnd.slice) for gnd in ground]):
                 self.create_phase(turn_slice, name="Turning On Ground")
+
+
+class TwoDegPitchTo35Ft(FlightPhaseNode):
+    """
+    """
+    def derive(self, pitch=P('Pitch'), takeoffs=S('Takeoff')):
+        for takeoff in takeoffs:
+            reversed_slice = slice(takeoff.slice.stop, takeoff.slice.start, -1)
+            # Endpoint closing allows for the case where the aircraft is at
+            # more than 2 deg of pitch at takeoff.
+            pitch_2_deg_idx = index_at_value(pitch.array, 2.0, reversed_slice, 
+                                             endpoint='closing')
+            self.create_section(slice(pitch_2_deg_idx, takeoff.slice.stop),
+                                name='Two Deg Pitch To 35 Ft', 
+                                begin=pitch_2_deg_idx,
+                                end=takeoff.stop_edge)
