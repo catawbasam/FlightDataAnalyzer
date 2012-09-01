@@ -715,6 +715,9 @@ class Mobile(FlightPhaseNode):
                                          (np.ma.abs(rot.array),
                                           HEADING_RATE_FOR_MOBILE))
         
+        if move==None:
+            return # for the case where nothing happened
+        
         if gspd:
             move_gspd = np.ma.flatnotmasked_edges(np.ma.masked_less\
                                                   (np.ma.abs(gspd.array),

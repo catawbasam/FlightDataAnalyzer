@@ -199,8 +199,8 @@ class GoAroundFlapRetracted(KeyTimeInstanceNode):
         
 
 class GoAroundGearRetracted(KeyTimeInstanceNode):
-    def derive(self, gear=P('Gear Down'), gas=S('Go Around And Climbout')):
-        self.create_ktis_at_edges(gear.array, direction='falling_edges', phase=gas)
+    def derive(self, gear=M('Gear Down'), gas=S('Go Around And Climbout')):
+        self.create_ktis_on_state_change('Up', gear.array, change='entering', phase=gas)
         
 
 class TopOfClimb(KeyTimeInstanceNode):

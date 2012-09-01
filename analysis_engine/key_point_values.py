@@ -1720,6 +1720,8 @@ class EngGasTempMaximumContinuousPowerMax(KeyPointValueNode):
         airborne section to the end of the last, we have the required periods
         of flight.
         '''
+        if air==[]:
+            return
         high_power_ratings = [x.slice for x in to_ratings] + [y.slice for y in ga_ratings]
         max_cont_rating = slices_not(high_power_ratings, 
                                      begin_at=min([z.slice.start for z in air]), 
@@ -2976,9 +2978,16 @@ class RateOfClimbMax(KeyPointValueNode):
 
     def derive(self, vert_spd=P('Vertical Speed'), climbing=S('Climbing')):
         '''
+        In cases where the aircraft does not leave the ground, we get a
+        descending phase that equates to an empty list, which is not
+        iterable.
+
         '''
-        index, value = vert_spd_phase_max_or_min(vert_spd, climbing, max_value)
-        self.create_kpv(index, value)
+        try:
+            index, value = vert_spd_phase_max_or_min(vert_spd, climbing, max_value)
+            self.create_kpv(index, value)
+        except:
+            pass
 
 
 class RateOfClimb35To1000FtMin(KeyPointValueNode):
@@ -3010,9 +3019,16 @@ class RateOfDescentMax(KeyPointValueNode):
 
     def derive(self, vert_spd=P('Vertical Speed'), descending=S('Descending')):
         '''
+        In cases where the aircraft does not leave the ground, we get a
+        descending phase that equates to an empty list, which is not
+        iterable.
         '''
-        index, value = vert_spd_phase_max_or_min(vert_spd, descending, min_value)
-        self.create_kpv(index, value)
+        try:
+            index, value = vert_spd_phase_max_or_min(vert_spd, descending, min_value)
+            self.create_kpv(index, value)
+        except:
+            pass
+
 
 class RateOfDescentTopOfDescentTo10000FtMax(KeyPointValueNode):
     '''

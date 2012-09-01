@@ -3118,13 +3118,13 @@ class VerticalSpeed(DerivedParameterNode):
     '''
     def derive(self, alt_std = P('Altitude STD'), frame = A('Frame')):
         frame_name = frame.value if frame else None
+        
         if frame_name in ['Hercules', '146']:
             timebase = 8.0
         else:
             timebase = 4.0
-        
         self.array = rate_of_change(alt_std, timebase)*60.0
-
+        
 
 class VerticalSpeedForFlightPhases(DerivedParameterNode):
     """
