@@ -109,11 +109,11 @@ class TestAirborne(unittest.TestCase):
         self.assertEqual(opts, expected)
 
     def test_airborne_phase_basic(self):
-        rate_of_climb_data = np.ma.array(range(0,400,50)+
+        vert_spd_data = np.ma.array(range(0,400,50)+
                                          range(400,-450,-50)+
                                          range(-450,50,50))
-        rate_of_climb = Parameter('Rate Of Climb For Flight Phases', np.ma.array(rate_of_climb_data))
-        altitude = Parameter('Altitude AAL For Flight Phases', integrate(rate_of_climb_data, 1, 0, 1.0/60.0))
+        vert_spd = Parameter('Vertical Speed For Flight Phases', np.ma.array(vert_spd_data))
+        altitude = Parameter('Altitude AAL For Flight Phases', integrate(vert_spd_data, 1, 0, 1.0/60.0))
         fast = SectionNode('Fast', items=[Section('Fast',slice(1,29,None),1,29)])
         air = Airborne()
         air.derive(altitude, fast)
@@ -429,18 +429,18 @@ class TestClimbFromBottomOfDescent(unittest.TestCase):
 
 class TestClimbing(unittest.TestCase):
     def test_can_operate(self):
-        expected = [('Rate Of Climb For Flight Phases', 'Airborne')]
+        expected = [('Vertical Speed For Flight Phases', 'Airborne')]
         opts = Climbing.get_operational_combinations()
         self.assertEqual(opts, expected)
 
     def test_climbing_basic(self):
-        rate_of_climb_data = np.ma.array(range(500,1200,100)+
+        vert_spd_data = np.ma.array(range(500,1200,100)+
                                          range(1200,-1200,-200)+
                                          range(-1200,500,100))
-        rate_of_climb = Parameter('Rate Of Climb For Flight Phases', np.ma.array(rate_of_climb_data))
+        vert_spd = Parameter('Vertical Speed For Flight Phases', np.ma.array(vert_spd_data))
         air = buildsection('Airborne',2,8)
         up = Climbing()
-        up.derive(rate_of_climb, air)
+        up.derive(vert_spd, air)
         expected = buildsection('Climbing', 3, 8)
         self.assertEqual(up, expected)
 
@@ -560,15 +560,15 @@ class TestDescentLowClimb(unittest.TestCase):
 
 class TestDescending(unittest.TestCase):
     def test_can_operate(self):
-        expected = [('Rate Of Climb For Flight Phases', 'Airborne')]
+        expected = [('Vertical Speed For Flight Phases', 'Airborne')]
         opts = Descending.get_operational_combinations()
         self.assertEqual(opts, expected)
 
     def test_descending_basic(self):
-        roc = Parameter('Rate Of Climb For Flight Phases',np.ma.array([0,1000,-600,-800,0]))
+        vert_spd = Parameter('Vertical Speed For Flight Phases',np.ma.array([0,1000,-600,-800,0]))
         air = buildsection('Airborne',2,8)
         phase = Descending()
-        phase.derive(roc, air)
+        phase.derive(vert_spd, air)
         expected = buildsection('Descending',2,4)
         self.assertEqual(phase, expected)
 
@@ -885,31 +885,31 @@ class TestLanding(unittest.TestCase):
 """
 class TestLevelFlight(unittest.TestCase):
     def test_can_operate(self):
-        expected = [('Rate Of Climb For Flight Phases','Airborne')]
+        expected = [('Vertical Speed For Flight Phases','Airborne')]
         opts = LevelFlight.get_operational_combinations()
         self.assertEqual(opts, expected)
 
     def test_level_flight_phase_basic(self):
-        rate_of_climb_data = np.ma.array(range(0,400,50)+range(400,-450,-50)+
+        vert_spd_data = np.ma.array(range(0,400,50)+range(400,-450,-50)+
                                          range(-450,50,50))
-        rate_of_climb = Parameter('Rate Of Climb For Flight Phases', np.ma.array(rate_of_climb_data))
+        vert_spd = Parameter('Vertical Speed For Flight Phases', np.ma.array(vert_spd_data))
         airborne = SectionNode('Airborne',
                                items=[Section('Airborne',slice(0,36,None))])
         level = LevelFlight()
-        level.derive(rate_of_climb, airborne)
+        level.derive(vert_spd, airborne)
         expected = [Section(name='Level Flight', slice=slice(0, 7, None)),
                     Section(name='Level Flight', slice=slice(10, 23, None)), 
                     Section(name='Level Flight', slice=slice(28, 35, None))]
         self.assertEqual(level, expected)
         
     def test_level_flight_phase_not_airborne_basic(self):
-        rate_of_climb_data = np.ma.array(range(0,400,50)+range(400,-450,-50)+
+        vert_spd_data = np.ma.array(range(0,400,50)+range(400,-450,-50)+
                                          range(-450,50,50))
-        rate_of_climb = Parameter('Rate Of Climb For Flight Phases', np.ma.array(rate_of_climb_data))
+        vert_spd = Parameter('Vertical Speed For Flight Phases', np.ma.array(vert_spd_data))
         airborne = SectionNode('Airborne',
                                items=[Section('Airborne',slice(8,30,None))])
         level = LevelFlight()
-        level.derive(rate_of_climb, airborne)
+        level.derive(vert_spd, airborne)
         expected = [Section(name='Level Flight', slice=slice(10, 23, None)), 
                     Section(name='Level Flight', slice=slice(28, 30, None))]
         self.assertEqual(level, expected)

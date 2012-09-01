@@ -31,7 +31,6 @@ from analysis_engine.key_point_values import (
     ##AirspeedRelative500FtToTouchdownMax,
     AirspeedRelativeAtTouchdown,
     AirspeedWithFlapMax,
-    ##AirspeedWithGearSelectedDownMax,
     AltitudeAtMachMax,
     AltitudeAtSuspectedLevelBust,
     AltitudeAtTouchdown,
@@ -55,7 +54,6 @@ from analysis_engine.key_point_values import (
     EngVibN2Max,
     HeadingAtTakeoff,
     Eng_N1MaxDurationUnder60PercentAfterTouchdown,
-    ##FlapAtGearSelectedDown,
     FlapAtLiftoff,
     FlapAtTouchdown,
     FuelQtyAtLiftoff,
@@ -93,10 +91,13 @@ from analysis_engine.key_point_values import (
     ##PitchRateDuringTakeoffMin,
     ##PitchDuringFinalApproachMin,
     ##PitchDuringTakeoffMax,
-    RateOfDescent500FtToTouchdownMax,
-    RateOfDescent1000To500FtMax,
-    ###RateOfDescent1000To50FtMax,
+    RateOfDescent10000To5000FtMax,
+    RateOfDescent5000To3000FtMax,
+    RateOfDescent3000To2000FtMax,
     RateOfDescent2000To1000FtMax,
+    RateOfDescent1000To500FtMax,
+    RateOfDescent500To20FtMax,
+    RateOfDescent500FtToTouchdownMax,
     RollAbove1000FtMax,
     ##RollAbove1500FtMax,
     ##RollBelow20FtMax,
@@ -487,28 +488,6 @@ class TestAirspeedWithFlapMax(unittest.TestCase):
            KeyPointValue(index=17, value=17, name='Airspeed With Flap 40 Max')])
 
 
-"""
-class TestAirspeedWithGearSelectedDownMax(unittest.TestCase):
-    def test_can_operate(self):
-        self.assertEqual(\
-            AirspeedWithGearSelectedDownMax.get_operational_combinations(),
-            [('Airspeed', 'Gear Selected Down')])
-    
-    def test_derive(self):
-        airspeed = P('Airspeed', np.ma.masked_array(np.ma.arange(0,10),
-                                   mask=[False] * 4 + [True] * 1 + [False] * 5))
-        gear_sel_down = P('Gear Selected Down',
-                          np.ma.masked_array([0,1,1,1,1,0,0,0,0,0],
-                                   mask=[False] * 3 + [True] * 1 + [False] * 6))
-        airspeed_with_gear_max = AirspeedWithGearSelectedDownMax()
-        airspeed_with_gear_max.derive(airspeed, gear_sel_down)
-        self.assertEqual(airspeed_with_gear_max,
-          [KeyPointValue(index=2, value=2,
-                         name='Airspeed With Gear Selected Down Max',
-                         slice=slice(None, None, None), datetime=None)])
-                         """
-
-
 class TestAltitudeAtTouchdown(unittest.TestCase, CreateKPVsAtKTIsTest):
     def setUp(self):
         self.node_class = AltitudeAtTouchdown
@@ -845,13 +824,6 @@ class TestEng_N1MaxDurationUnder60PercentAfterTouchdown(unittest.TestCase):
         # Eng (2) should not be in the results as it did not have an Eng Stop KTI
         ##self.assertTrue('Eng (2)' in max_dur[1].name)
         self.assertEqual(len(max_dur), 1)
-
-"""
-class TestFlapAtGearSelectedDown(unittest.TestCase, CreateKPVsAtKTIsTest):
-    def setUp(self):
-        self.node_class = FlapAtGearSelectedDown
-        self.operational_combinations = [('Flap', 'Gear Selected Down')]
-        """
 
 
 class TestFlapAtLiftoff(unittest.TestCase, CreateKPVsAtKTIsTest):
@@ -1255,42 +1227,61 @@ class TestPitchRate35To1500FtMax(unittest.TestCase, CreateKPVsWithinSlicesTest):
 ####        self.assertTrue(False)
 
 
-class TestRateOfDescent500FtToTouchdownMax(unittest.TestCase,
-                                         CreateKPVsWithinSlicesTest):
+class TestRateOfDescent10000To5000FtMax(unittest.TestCase, CreateKPVsWithinSlicesTest):
     def setUp(self):
-        self.node_class = RateOfDescent500FtToTouchdownMax
-        self.operational_combinations = [('Rate Of Climb', 'Altitude AAL For Flight Phases')]
+        self.node_class = RateOfDescent10000To5000FtMax
+        self.operational_combinations = [('Vertical Speed', 'Altitude AAL For Flight Phases')]
         self.function = min_value
-        self.second_param_method_calls = [('slices_from_to', (500, 0), {})]
+        self.second_param_method_calls = [('slices_from_to', (10000, 5000), {})]
 
 
-class TestRateOfDescent1000To500FtMax(unittest.TestCase,
-                                      CreateKPVsWithinSlicesTest):
+class TestRateOfDescent5000To3000FtMax(unittest.TestCase, CreateKPVsWithinSlicesTest):
+    def setUp(self):
+        self.node_class = RateOfDescent5000To3000FtMax
+        self.operational_combinations = [('Vertical Speed', 'Altitude AAL For Flight Phases')]
+        self.function = min_value
+        self.second_param_method_calls = [('slices_from_to', (5000, 3000), {})]
+
+
+class TestRateOfDescent3000To2000FtMax(unittest.TestCase, CreateKPVsWithinSlicesTest):
+    def setUp(self):
+        self.node_class = RateOfDescent3000To2000FtMax
+        self.operational_combinations = [('Vertical Speed', 'Altitude AAL For Flight Phases')]
+        self.function = min_value
+        self.second_param_method_calls = [('slices_from_to', (3000, 2000), {})]
+
+
+class TestRateOfDescent2000To1000FtMax(unittest.TestCase, CreateKPVsWithinSlicesTest):
+    def setUp(self):
+        self.node_class = RateOfDescent2000To1000FtMax
+        self.operational_combinations = [('Vertical Speed', 'Altitude AAL For Flight Phases')]
+        self.function = min_value
+        self.second_param_method_calls = [('slices_from_to', (2000, 1000), {})]
+
+
+class TestRateOfDescent1000To500FtMax(unittest.TestCase, CreateKPVsWithinSlicesTest):
     def setUp(self):
         self.node_class = RateOfDescent1000To500FtMax
-        self.operational_combinations = [('Rate Of Climb', 'Altitude AAL For Flight Phases')]
+        self.operational_combinations = [('Vertical Speed', 'Altitude AAL For Flight Phases')]
         self.function = min_value
         self.second_param_method_calls = [('slices_from_to', (1000, 500), {})]
         
 
-"""
-class TestRateOfDescent1000To50FtMax(unittest.TestCase,
-                                      CreateKPVsWithinSlicesTest):
+class TestRateOfDescent500To20FtMax(unittest.TestCase, CreateKPVsWithinSlicesTest):
     def setUp(self):
-        self.node_class = RateOfDescent1000To50FtMax
-        self.operational_combinations = [('Rate Of Climb', 'Altitude AAL For Flight Phases')]
+        self.node_class = RateOfDescent500To20FtMax
+        self.operational_combinations = [('Vertical Speed', 'Altitude AAL For Flight Phases')]
         self.function = min_value
-        self.second_param_method_calls = [('slices_from_to', (1000, 50), {})]
-        """
+        self.second_param_method_calls = [('slices_from_to', (500, 20), {})]
+        
 
-
-class TestRateOfDescent2000To1000FtMax(unittest.TestCase,
-                                       CreateKPVsWithinSlicesTest):
+# FIXME: Uses slices_to_kti(), not slices_from_to()!
+class TestRateOfDescent500FtToTouchdownMax(unittest.TestCase, CreateKPVsWithinSlicesTest):
     def setUp(self):
-        self.node_class = RateOfDescent2000To1000FtMax
-        self.operational_combinations = [('Rate Of Climb', 'Altitude AAL For Flight Phases')]
+        self.node_class = RateOfDescent500FtToTouchdownMax
+        self.operational_combinations = [('Vertical Speed', 'Altitude AAL For Flight Phases')]
         self.function = min_value
-        self.second_param_method_calls = [('slices_from_to', (2000, 1000), {})]
+        self.second_param_method_calls = [('slices_from_to', (500, 0), {})]
 
 
 class TestRollAbove1000FtMax(unittest.TestCase, CreateKPVsWithinSlicesTest):

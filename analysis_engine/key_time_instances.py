@@ -18,8 +18,8 @@ from analysis_engine.library import (find_edges,
 from analysis_engine.node import (M, P, S, KTI, KeyTimeInstanceNode)
 
 from settings import (CLIMB_THRESHOLD,
-                      RATE_OF_CLIMB_FOR_LIFTOFF,
-                      RATE_OF_CLIMB_FOR_TOUCHDOWN,
+                      VERTICAL_SPEED_FOR_LIFTOFF,
+                      VERTICAL_SPEED_FOR_TOUCHDOWN,
                       SLOPE_FOR_TOC_TOD,
                       TAKEOFF_ACCELERATION_THRESHOLD
                       )
@@ -85,8 +85,8 @@ class ApproachLowestPoint(KeyTimeInstanceNode):
                 '''
     
 
-class AutopilotSelectionEngaged(KeyTimeInstanceNode):
-    name = 'AP Selection Engaged'
+class AutopilotEngagedSelection(KeyTimeInstanceNode):
+    name = 'AP Engaged Selection'
 
     def derive(self, autopilot=P('AP Engaged'), phase=S('Airborne')):
         self.create_ktis_on_state_change(
@@ -97,8 +97,8 @@ class AutopilotSelectionEngaged(KeyTimeInstanceNode):
         )
 
 
-class AutopilotSelectionDisengaged(KeyTimeInstanceNode):
-    name = 'AP Selection Disengaged'
+class AutopilotDisengagedSelection(KeyTimeInstanceNode):
+    name = 'AP Disengaged Selection'
 
     def derive(self, autopilot=P('AP Engaged'), phase=S('Airborne')):
         self.create_ktis_on_state_change(
@@ -109,8 +109,8 @@ class AutopilotSelectionDisengaged(KeyTimeInstanceNode):
         )
 
 
-class AutothrottleSelectionEngaged(KeyTimeInstanceNode):
-    name = 'AT Selection Engaged'
+class AutothrottleEngagedSelection(KeyTimeInstanceNode):
+    name = 'AT Engaged Selection'
 
     def derive(self, autothrottle=P('AT Engaged'), phase=S('Airborne')):
         self.create_ktis_on_state_change(
@@ -121,8 +121,8 @@ class AutothrottleSelectionEngaged(KeyTimeInstanceNode):
         )
 
 
-class AutothrottleSelectionDisengaged(KeyTimeInstanceNode):
-    name = 'AT Selection Disengaged'
+class AutothrottleDisengagedSelection(KeyTimeInstanceNode):
+    name = 'AT Disengaged Selection'
 
     def derive(self, autothrottle=P('AT Engaged'), phase=S('Airborne')):
         self.create_ktis_on_state_change(
@@ -353,13 +353,13 @@ class TakeoffPeakAcceleration(KeyTimeInstanceNode):
 
 
 class Liftoff(KeyTimeInstanceNode):
-    def derive(self, roc=P('Rate Of Climb Inertial'), airs=S('Airborne')):
+    def derive(self, vert_spd=P('Vertical Speed Inertial'), airs=S('Airborne')):
         for air in airs:
             t0 = air.slice.start
             if t0:
-                back_2 = (t0 - 2.0*roc.frequency)
-                on_2 = (t0 + 2.0*roc.frequency) + 1 # For indexing
-                index = index_at_value(roc.array, RATE_OF_CLIMB_FOR_LIFTOFF, slice(back_2,on_2))
+                back_2 = (t0 - 2.0*vert_spd.frequency)
+                on_2 = (t0 + 2.0*vert_spd.frequency) + 1 # For indexing
+                index = index_at_value(vert_spd.array, VERTICAL_SPEED_FOR_LIFTOFF, slice(back_2,on_2))
                 if index:
                     self.create_kti(index)
                 else:
@@ -446,6 +446,7 @@ def find_edges_on_state_change(state, array, change='entering',
 
 
 class Touchdown(KeyTimeInstanceNode):
+<<<<<<< TREE
     # List the minimum acceptable parameters here
     @classmethod
     def can_operate(cls, available):
@@ -459,7 +460,12 @@ class Touchdown(KeyTimeInstanceNode):
     def derive(self, wow = P('Gear On Ground'), 
                roc=P('Rate Of Climb Inertial'), alt=P('Altitude AAL'), 
                airs=S('Airborne'), lands=S('Landing')
+=======
+    def derive(self, vert_spd=P('Vertical Speed Inertial'), alt=P('Altitude AAL'), 
+               airs=S('Airborne'), lands=S('Landing'), on_gnd=P('Gear On Ground')
+>>>>>>> MERGE-SOURCE
                ):
+<<<<<<< TREE
         # The preamble here checks that the landing we are looking at is
         # genuine, that it, it's not just becasue the data stopped in
         # mid-flight. We reduce the scope of the search for touchdown to
@@ -467,11 +473,30 @@ class Touchdown(KeyTimeInstanceNode):
         # where the gear signal changes state on raising the gear (OK, if
         # they do a gear-up landing it won't work, but this will be the least
         # of the problems).
+=======
+        # We do a local integration of the inertial vertical speed to
+        # estimate the actual point of landing. This is referenced to the
+        # available altitude signal, altitude AAL, which will have been
+        # derived from the best available source. This technique
+        # leads on to the rate of descent at touchdown KPV which can then
+        # make the best calculation of the landing ROD as we know more accurately the time 
+        # where the mainwheels touched.
+        
+        # This technique works well with firm landings, where the ROD at
+        # landing is important, but can be inaccurate with very gentle
+        # landings. The Gear On Ground signal is included as a sanity check
+        # to cover these cases, but for aircraft with no weight on wheels
+        # switches, this is ignored..
+        
+        # Time constant
+        tau = 0.3
+>>>>>>> MERGE-SOURCE
         for air in airs:
             t0 = air.slice.stop
             if t0 and is_index_within_sections(t0, lands):
                 # Let's scan from 30ft to 10 seconds after the approximate touchdown moment.
                 startpoint = index_at_value(alt.array, 30.0, slice(t0, t0-200,-1))
+<<<<<<< TREE
                 endpoint = min(t0+10.0*roc.hz, len(roc.array))
 
                 # If we have a wheel sensor, use this. It is often a derived
@@ -520,6 +545,34 @@ class Touchdown(KeyTimeInstanceNode):
                     #plot_parameter(on_gnd.array[startpoint:endpoint], show=False)
                     plot_parameter(sm_ht)
                     '''
+=======
+                endpoint = min(t0+10.0*vert_spd.hz, len(vert_spd.array))
+                # Make space for the integrand
+                sm_ht = np_ma_zeros_like(vert_spd.array[startpoint:endpoint])
+                # Repair the source data (otherwise we propogate masked data)
+                my_vert_spd = repair_mask(vert_spd.array[startpoint:endpoint])
+                my_alt = repair_mask(alt.array[startpoint:endpoint])
+
+                # Start at the beginning...
+                sm_ht[0] = alt.array[startpoint]
+                #...and calculate each with a weighted correction factor.
+                for i in range(1, len(sm_ht)):
+                    sm_ht[i] = (1.0-tau)*sm_ht[i-1] + tau*my_alt[i-1] + my_vert_spd[i]/60.0/vert_spd.hz
+
+                # Plot for ease of inspection during development.
+                plot_parameter(alt.array[startpoint:endpoint], show=False)
+                plot_parameter(vert_spd.array[startpoint:endpoint]/100.0, show=False)
+                plot_parameter(sm_ht)
+                
+                # The final step is trivial.
+                t1 = index_at_value(sm_ht, 0.0)+startpoint
+                
+                t2 = find_edges(on_gnd.array, slice(startpoint,endpoint), direction='falling_edges')
+                
+                if t1:
+                    self.create_kti(t1)
+
+>>>>>>> MERGE-SOURCE
 
 class LandingTurnOffRunway(KeyTimeInstanceNode):
     # See Takeoff Turn Onto Runway for description.

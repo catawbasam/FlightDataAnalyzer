@@ -3,7 +3,7 @@ from math import floor, radians
 
 from analysis_engine.exceptions import DataFrameError
 
-from analysis_engine.model_information import (get_config_map,
+from analysis_engine.model_information import (get_conf_map,
                                                get_flap_map,
                                                get_slat_map)
 from analysis_engine.node import (
@@ -70,7 +70,7 @@ from settings import (AZ_WASHOUT_TC,
                       KTS_TO_FPS,
                       KTS_TO_MPS,
                       METRES_TO_FEET,
-                      RATE_OF_CLIMB_LAG_TC)
+                      VERTICAL_SPEED_LAG_TC)
 
 from data_validation.rate_of_change import validate_rate_of_change
 
@@ -237,7 +237,7 @@ class AirspeedReference(DerivedParameterNode):
         
         x = set(available)
         base_for_lookup = ['Airspeed', 'Gross Weight Smoothed', 'Series', 'Family', 'Approach']
-        airbus = set(base_for_lookup + ['Config']).issubset(x)
+        airbus = set(base_for_lookup + ['Configuration']).issubset(x)
         boeing = set(base_for_lookup + ['Flap']).issubset(x)
         return existing_values or airbus or boeing
 
@@ -245,7 +245,7 @@ class AirspeedReference(DerivedParameterNode):
                 spd=P('Airspeed'),
                 gw=P('Gross Weight Smoothed'),
                 flap=P('Flap'),
-                config=P('Config'),
+                conf=P('Configuration'),
                 vapp=P('Vapp'),
                 vref=P('Vref'),
                 fdr_vapp=A('FDR Vapp'),
@@ -277,9 +277,9 @@ class AirspeedReference(DerivedParameterNode):
             for approach in apps:
                 self.array[approach.slice] = fdr_vspeed.value
         else:
-            # elif apps and spd and gw and (flap or config):
+            # elif apps and spd and gw and (flap or conf):
             # No values recorded or supplied so lookup in vspeed tables
-            setting_param = flap or config
+            setting_param = flap or conf
             
             # Was:
             #self.array = np.ma.zeros(len(spd.array), np.double)
@@ -796,7 +796,7 @@ class AltitudeSTD(DerivedParameterNode):
         high_and_low = 'Altitude STD Coarse' in available and \
             'Altitude STD Fine' in available
         coarse_and_ivv = 'Altitude STD Coarse' in available and \
-            'Rate Of Climb' in available
+            'Vertical Speed' in available
         return high_and_low or coarse_and_ivv
     
     def _high_and_low(self, alt_std_high, alt_std_low, top=18000, bottom=17000):
@@ -839,7 +839,7 @@ class AltitudeSTD(DerivedParameterNode):
     
     def derive(self, alt_std_coarse=P('Altitude STD Coarse'),
                alt_std_fine=P('Altitude STD Fine'),
-               ivv=P('Rate Of Climb')):
+               ivv=P('Vertical Speed')):
         if alt_std_high and alt_std_low:
             self.array = self._high_and_low(alt_std_coarse, alt_std_fine)
             ##crossover = np.ma.logical_and(average > 17000, average < 18000)
@@ -1842,8 +1842,8 @@ class Eng_VibN1Max(DerivedParameterNode):
                eng4=P('Eng (4) Vib N1'),
                fan1=P('Eng (1) Vib N1 Fan'),
                fan2=P('Eng (2) Vib N1 Fan'),
-               lpt1=P('Eng (1) Vib N1 LPT'),
-               lpt2=P('Eng (2) Vib N1 LPT')):
+               lpt1=P('Eng (1) Vib N1 Low Press Turbine'),
+               lpt2=P('Eng (2) Vib N1 Low Press Turbine')):
         '''
         '''
         engines = vstack_params(eng1, eng2, eng3, eng4, fan1, fan2, lpt1, lpt2)
@@ -1875,10 +1875,10 @@ class Eng_VibN2Max(DerivedParameterNode):
                eng2=P('Eng (2) Vib N2'),
                eng3=P('Eng (3) Vib N2'),
                eng4=P('Eng (4) Vib N2'),
-               hpc1=P('Eng (1) Vib N2 HPC'),
-               hpc2=P('Eng (2) Vib N2 HPC'),
-               hpt1=P('Eng (1) Vib N2 HPT'),
-               hpt2=P('Eng (2) Vib N2 HPT')):
+               hpc1=P('Eng (1) Vib N2 High Press Compressor'),
+               hpc2=P('Eng (2) Vib N2 High Press Compressor'),
+               hpt1=P('Eng (1) Vib N2 High Press Turbine'),
+               hpt2=P('Eng (2) Vib N2 High Press Turbine')):
         '''
         '''
         engines = vstack_params(eng1, eng2, eng3, eng4, hpc1, hpc2, hpt1, hpt2)
@@ -1972,6 +1972,7 @@ class GearOnGround(MultistateDerivedParameterNode):
     Combination of left and right main gear signals.
     '''
     align_to_first_dependency = False
+<<<<<<< TREE
     
     values_mapping = { 1: 'Ground',
                        0: 'Air'}
@@ -2011,6 +2012,36 @@ class GearSelectedUp(MultistateDerivedParameterNode):
 
     def derive(self, gear=P('Gear Down')):
         self.array = 1 - gear.array
+=======
+    def derive(self, gl = P('Gear (L) On Ground'), 
+               gr = P('Gear (R) On Ground')):
+        self.array, self.frequency, self.offset = merge_two_parameters(gl, gn)
+
+    
+class GearDownSelected(DerivedParameterNode):
+    """
+    Derivation of gear selection for aircraft without this separately
+    recorded. Where Gear Down Selected is recorded, this derived parameter
+    will be skipped automatically.
+    """
+    def derive(self, gear=P('Gear Down'), frame=A('Frame')):
+        frame_name = frame.value if frame else None
+        
+        if frame_name in ['737-3C', '737-5']:
+            self.array = gear.array
+        else:
+            raise DataFrameError(self.name, frame_name)
+
+        
+class GearUpSelected(DerivedParameterNode):
+    def derive(self, gear=P('Gear Down'), frame=A('Frame')):
+        frame_name = frame.value if frame else None
+        
+        if frame_name in ['737-3C', '737-5']:
+            self.array = 1 - gear.array
+        else:
+            raise DataFrameError(self.name, frame_name)
+>>>>>>> MERGE-SOURCE
 
 
 class GrossWeightSmoothed(DerivedParameterNode):
@@ -2230,7 +2261,7 @@ class SlopeToLanding(DerivedParameterNode):
         self.array = alt_aal.array / (dist.array * FEET_PER_NM)
     
     
-class Config(DerivedParameterNode):
+class Configuration(DerivedParameterNode):
     """
     Multi-state with the following mapping:
     {
@@ -2247,7 +2278,7 @@ class Config(DerivedParameterNode):
     (b) corresponds to CONF 2*
     
     Note: Does not use the Flap Lever position. This parameter reflects the
-    actual config state of the aircraft rather than the intended state
+    actual configuration state of the aircraft rather than the intended state
     represented by the selected lever position.
     
     Note: Values that do not map directly to a required state are masked with
@@ -2264,15 +2295,15 @@ class Config(DerivedParameterNode):
                series=A('Series'), family=A('Family')):
         #TODO: manu=A('Manufacturer') - we could ensure this is only done for Airbus?
         
-        mapping = get_config_map(series.value, family.value)        
+        mapping = get_conf_map(series.value, family.value)        
         qty_param = len(mapping.itervalues().next())
         if qty_param == 3 and not aileron:
             # potential problem here!
-            self.warning("Aileron not available, so will calculate Config using only slat and flap")
+            self.warning("Aileron not available, so will calculate Configuration using only slat and flap")
             qty_param = 2
         elif qty_param == 2 and aileron:
             # only two items in values tuple
-            self.debug("Aileron available but not required for Config calculation")
+            self.debug("Aileron available but not required for Configuration calculation")
             pass
         
         #TODO: Scale each parameter individually to ensure uniqueness
@@ -2438,15 +2469,19 @@ class ILSFrequency(DerivedParameterNode):
     ILS frequency. This allows independent monitoring of the approach by the
     two crew.
     
-    If there is a problem with the system, users can inspect the (L) and (R)
+    If there is a problem with the system, users can inspect the (1) and (2)
     signals separately, although the normal use will show valid ILS data when
     both are tuned to the same frequency.
     
     """
     name = "ILS Frequency"
     align_to_first_dependency = False
+<<<<<<< TREE
     def derive(self, f1=P('ILS (1) Frequency'),f2=P('ILS (2) Frequency'),
                f1v=P('ILS-VOR (1) Frequency'), f2v=P('ILS-VOR (2) Frequency'),
+=======
+    def derive(self, f1=P('ILS-VOR (1) Frequency'),f2=P('ILS-VOR (2) Frequency'),
+>>>>>>> MERGE-SOURCE
                frame = A('Frame')):
 
         frame_name = frame.value if frame else None
@@ -3002,11 +3037,11 @@ class MagneticVariation(DerivedParameterNode):
         
         self.array = interpolate_and_extend(dev)
 
-class RateOfClimbInertial(DerivedParameterNode):
+class VerticalSpeedInertial(DerivedParameterNode):
     '''
-    See "Rate Of Climb" for pressure altitude based derived parameter.
+    See 'Vertical Speed' for pressure altitude based derived parameter.
     
-    This routine derives the rate of climb from the vertical acceleration, the
+    This routine derives the vertical speed from the vertical acceleration, the
     Pressure altitude and the Radio altitude.
     
     We use pressure altitude rate above 100ft and radio altitude rate below
@@ -3028,7 +3063,7 @@ class RateOfClimbInertial(DerivedParameterNode):
     acceleration term with a longer time constant filter before use. The
     consequence of this is that long period movements with continued
     acceleration will be underscaled slightly. As an example the test case
-    with a 1ft/sec^2 acceleration results in an increasing rate of climb of
+    with a 1ft/sec^2 acceleration results in an increasing vertical speed of
     55 fpm/sec, not 60 as would be theoretically predicted.
     '''
     
@@ -3038,7 +3073,7 @@ class RateOfClimbInertial(DerivedParameterNode):
                alt_rad = P('Altitude Radio'),
                speed=P('Airspeed')):
 
-        def inertial_rate_of_climb(alt_std_repair, frequency, alt_rad_repair, az_repair):
+        def inertial_vertical_speed(alt_std_repair, frequency, alt_rad_repair, az_repair):
             # Uses the complementary smoothing approach
             
             # This is the accelerometer washout term, with considerable gain.
@@ -3050,19 +3085,19 @@ class RateOfClimbInertial(DerivedParameterNode):
                                               gain=GRAVITY_IMPERIAL,
                                               initial_value=az_repair[0])
             inertial_roc = first_order_lag (az_washout, 
-                                            RATE_OF_CLIMB_LAG_TC, 
+                                            VERTICAL_SPEED_LAG_TC, 
                                             frequency, 
-                                            gain=RATE_OF_CLIMB_LAG_TC)
+                                            gain=VERTICAL_SPEED_LAG_TC)
     
             # Both sources of altitude data are differentiated before
             # merging, as we mix height rate values to minimise the effect of
             # changeover of sources.
             roc_alt_std = first_order_washout(alt_std_repair,
-                                              RATE_OF_CLIMB_LAG_TC, frequency,
-                                              gain=1/RATE_OF_CLIMB_LAG_TC)
+                                              VERTICAL_SPEED_LAG_TC, frequency,
+                                              gain=1/VERTICAL_SPEED_LAG_TC)
             roc_alt_rad = first_order_washout(alt_rad_repair,
-                                              RATE_OF_CLIMB_LAG_TC, frequency,
-                                              gain=1/RATE_OF_CLIMB_LAG_TC)
+                                              VERTICAL_SPEED_LAG_TC, frequency,
+                                              gain=1/VERTICAL_SPEED_LAG_TC)
                     
             # Use pressure altitude rate above 100ft and radio altitude rate
             # below 50ft with progressive changeover across that range.
@@ -3100,12 +3135,12 @@ class RateOfClimbInertial(DerivedParameterNode):
         # the required parameters are available.
         clumps = np.ma.clump_unmasked(az_masked)
         for clump in clumps:
-            self.array[clump] = inertial_rate_of_climb(
+            self.array[clump] = inertial_vertical_speed(
                 alt_std_repair[clump], az.frequency,
                 alt_rad_repair[clump], az_repair[clump])
 
    
-class RateOfClimb(DerivedParameterNode):
+class VerticalSpeed(DerivedParameterNode):
     '''
     The period for averaging altitude data is a trade-off between transient
     response and noise rejection. 
@@ -3132,9 +3167,9 @@ class RateOfClimb(DerivedParameterNode):
         self.array = rate_of_change(alt_std, timebase)*60.0
 
 
-class RateOfClimbForFlightPhases(DerivedParameterNode):
+class VerticalSpeedForFlightPhases(DerivedParameterNode):
     """
-    A simple and robust rate of climb parameter suitable for identifying
+    A simple and robust vertical speed parameter suitable for identifying
     flight phases. DO NOT use this for event detection.
     """
     def derive(self, alt_std = P('Altitude STD')):
@@ -3279,28 +3314,30 @@ class ThrottleLevers(DerivedParameterNode):
             blend_two_parameters(tla1, tla2)
 
 class ThrustReversers(DerivedParameterNode):
-    """
+    '''
     A single parameter with values 0=all stowed, 1=all deployed, 0.5=in transit.
     This saves subsequent algorithms having to check the various flags for each
     engine.
-    """
-    def derive(self, e1_left_dep=P('Eng (1) Thrust Reverser (L) Deployed'),
-               e1_left_out=P('Eng (1) Thrust Reverser (L) Not Stowed'),
-               e1_right_dep=P('Eng (1) Thrust Reverser (R) Deployed'),
-               e1_right_out=P('Eng (1) Thrust Reverser (R) Not Stowed'),
-               e2_left_dep=P('Eng (2) Thrust Reverser (L) Deployed'),
-               e2_left_out=P('Eng (2) Thrust Reverser (L) Not Stowed'),
-               e2_right_dep=P('Eng (2) Thrust Reverser (R) Deployed'),
-               e2_right_out=P('Eng (2) Thrust Reverser (R) Not Stowed'),
-               frame = A('Frame')):
+    '''
+    def derive(self,
+            e1_lft_dep=P('Eng (1) Thrust Reverser (L) Deployed'),
+            e1_lft_out=P('Eng (1) Thrust Reverser (L) Unlocked'),
+            e1_rgt_dep=P('Eng (1) Thrust Reverser (R) Deployed'),
+            e1_rgt_out=P('Eng (1) Thrust Reverser (R) Unlocked'),
+            e2_lft_dep=P('Eng (2) Thrust Reverser (L) Deployed'),
+            e2_lft_out=P('Eng (2) Thrust Reverser (L) Unlocked'),
+            e2_rgt_dep=P('Eng (2) Thrust Reverser (R) Deployed'),
+            e2_rgt_out=P('Eng (2) Thrust Reverser (R) Unlocked'),
+            frame=A('Frame')):
         frame_name = frame.value if frame else None
         
         if frame_name in ['737-5']:
-            all_tr = e1_left_dep.array + e1_left_out.array + \
-                e1_right_dep.array + e1_right_out.array + \
-                e2_left_dep.array + e2_left_out.array + \
-                e2_right_dep.array + e2_right_out.array
-            self.array = step_values(all_tr/8.0, [0,0.5,1])
+            all_tr = \
+                e1_lft_dep.array + e1_lft_out.array + \
+                e1_rgt_dep.array + e1_rgt_out.array + \
+                e2_lft_dep.array + e2_lft_out.array + \
+                e2_rgt_dep.array + e2_rgt_out.array
+            self.array = step_values(all_tr / 8.0, [0, 0.5, 1])
             
         else:
             raise DataFrameError(self.name, frame_name)
@@ -3361,14 +3398,14 @@ class V2(DerivedParameterNode):
         x = set(available)
         fdr = 'FDR V2' in x
         base_for_lookup = ['Airspeed', 'Gross Weight At Liftoff', 'Series', 'Family']
-        config = set(base_for_lookup + ['Config']).issubset(x)
+        conf = set(base_for_lookup + ['Configuration']).issubset(x)
         flap = set(base_for_lookup + ['Flap']).issubset(x)
-        return fdr or config or flap
+        return fdr or conf or flap
 
     def derive(self, 
                spd=P('Airspeed'),
                flap=P('Flap'),
-               config=P('Config'),
+               conf=P('Configuration'),
                fdr_v2=A('FDR V2'),
                weight_liftoff=KPV('Gross Weight At Liftoff'),
                series=A('Series'),
@@ -3383,7 +3420,7 @@ class V2(DerivedParameterNode):
             self.array = fdr_v2.value
         elif weight_liftoff:
             vspeed_class = get_vspeed_map(series.value, family.value)
-            setting_param = flap or config
+            setting_param = flap or conf
             if vspeed_class:
                 vspeed_table = vspeed_class()
                 index = weight_liftoff[0].index
@@ -3536,7 +3573,7 @@ class SpeedbrakeSelection(MultistateDerivedParameterNode):
     '''
     Determines the selected state of the speedbrake.
 
-    Speedbrake Selection Values:
+    Speedbrake Selected Values:
 
     - 0 -- Stowed
     - 1 -- Armed / Commanded (Spoilers Down)

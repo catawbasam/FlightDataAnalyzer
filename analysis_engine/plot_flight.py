@@ -211,16 +211,16 @@ def plot_flight(hdf_path, kti_list, kpv_list, phase_list):
         #---------- Axis 2 ----------
         ax2 = fig.add_subplot(4,1,2)
         #ax2 = fig.add_subplot(4,1,2,sharex=ax1)
-        roc = hdf.get('Rate Of Climb For Flight Phases', hdf['Altitude STD']).array
-        roc_data = hdf.get('Rate Of Climb', hdf['Altitude STD']).array
+        vert_spd = hdf.get('Vertical Speed For Flight Phases', hdf['Altitude STD']).array
+        vert_spd_data = hdf.get('Vertical Speed', hdf['Altitude STD']).array
         sections = []
-        sections.append(roc_data)
+        sections.append(vert_spd_data)
         sections.append('k-')
         for phase in filter(lambda p: p.name in (
             'Takeoff', 'Level Flight', 'Descending'), phase_list):
             # Declare the x-axis parameter first...
             sections.append(frame[phase.slice]-frame[0])
-            sections.append(roc[phase.slice])
+            sections.append(vert_spd[phase.slice])
             if phase.name == 'Takeoff':
                 sections.append('g-')
             elif phase.name == 'Level Flight':

@@ -165,7 +165,7 @@ HYSTERESIS_FPALT_CCD = 500 # ft
 # (used for flight phase calculations only)
 HYSTERESIS_FP_RAD_ALT = 5 # ft
 
-# Threshold for flight phase rate of climb hysteresis.
+# Threshold for flight phase vertical speed hysteresis.
 # We're going to ignore changes smaller than this to avoid repeatedly changing
 # phase if the aircraft is climbing/descending close to a threshold level.
 HYSTERESIS_FPROC = 40 # fpm / RMS altitude noise
@@ -224,21 +224,24 @@ NAME_VALUES_DESCENT = {'altitude':[10000,9000,8000,7000,6000,5000,4000,3500,\
                                    3000,2500,2000,1500,1000,750,500,400,300,\
                                    200,150,100,75,50,35,25]}
 
-# Rate of climb and descent limits of 800fpm gives good distinction with
+# Vertical speed limits of 800 fpm and -500 fpm gives good distinction with
 # level flight. Separately defined to allow for future adjustment.
-RATE_OF_CLIMB_FOR_CLIMB_PHASE = 800 # fpm
-RATE_OF_CLIMB_FOR_DESCENT_PHASE = -500 # fpm
+VERTICAL_SPEED_FOR_CLIMB_PHASE = 800  # fpm
+VERTICAL_SPEED_FOR_DESCENT_PHASE = -500  # fpm
 
-# Rate of climb and descent limits of 300 fpm to identify airborne after takeoff
-# and end of descent, when relying solely upon pressure altitude data.
-RATE_OF_CLIMB_FOR_LEVEL_FLIGHT = 300 # fpm
+# Vertical speed limits of 300 fpm to identify airborne after takeoff and end
+# of descent, when relying solely upon pressure altitude data.
+VERTICAL_SPEED_FOR_LEVEL_FLIGHT = 300  # fpm
 
-# Rate of climb for liftoff. This builds upon the intertially smoothed rate of
-# climb computation to identify accurately the point of liftoff.
-RATE_OF_CLIMB_FOR_LIFTOFF = 200 # fpm
+# Vertical speed for liftoff. This builds upon the intertially smoothed
+# vertical speed computation to identify accurately the point of liftoff.
+VERTICAL_SPEED_FOR_LIFTOFF = 200  # fpm
 
-# Rate of climb for touchdown.
-RATE_OF_CLIMB_FOR_TOUCHDOWN = -100 # fpm
+# Vertical speed for touchdown.
+VERTICAL_SPEED_FOR_TOUCHDOWN = -100  # fpm
+
+# Vertical speed complementary filter timeconstant
+VERTICAL_SPEED_LAG_TC = 3.0  # sec
 
 # Rate of turn limits for flight. 
 # (Also used for validation of accelerometers on ground).
@@ -249,9 +252,6 @@ RATE_OF_TURN_FOR_TAXI_TURNS = 5.0 # deg per second
 
 # Duration of masked data to repair by interpolation for flight phase analysis
 REPAIR_DURATION = 10 # seconds 
-
-# Rate of Climb complementary filter timeconstant
-RATE_OF_CLIMB_LAG_TC = 3.0 # sec
 
 # Acceleration forwards at the start of the takeoff roll.
 TAKEOFF_ACCELERATION_THRESHOLD = 0.1 # g
