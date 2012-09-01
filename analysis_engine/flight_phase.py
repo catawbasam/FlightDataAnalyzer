@@ -18,7 +18,6 @@ from analysis_engine.library import (
     shift_slice, 
     shift_slices,
     slices_from_to,
-    slices_between,
     slices_overlap,
     slices_and,
     slices_or,
@@ -26,12 +25,11 @@ from analysis_engine.library import (
     slices_remove_small_gaps
 )
 
-from analysis_engine.node import FlightPhaseNode, A, P, S, KTI
+from analysis_engine.node import FlightPhaseNode, A, P, S, KTI, M
 
 from analysis_engine.settings import (
     AIRBORNE_THRESHOLD_TIME,
     AIRSPEED_THRESHOLD,
-    ALTITUDE_FOR_CLB_CRU_DSC,
     BOUNCED_LANDING_THRESHOLD,
     HEADING_TURN_OFF_RUNWAY,
     HEADING_TURN_ONTO_RUNWAY,
@@ -314,6 +312,20 @@ class Descent(FlightPhaseNode):
         return 
 
 
+class DescentToFlare(FlightPhaseNode):
+    '''
+    '''
+
+    def derive(self,
+            descents=S('Descent'),
+            alt_aal=P('Altitude AAL For Flight Phases')):
+        '''
+        '''
+        for descent in descents:
+            end = index_at_value(alt_aal.array, 50.0, descent.slice)
+            self.create_phase(slice(descent.slice.start, end))
+
+
 class DescentLowClimb(FlightPhaseNode):
     def derive(self, alt_aal=P('Altitude AAL For Flight Phases'),
                descend=P('Descend For Flight Phases'),
@@ -401,7 +413,7 @@ class GearExtending(FlightPhaseNode):
     def can_operate(cls, available):
         return 'Gear Down' in available
     
-    def derive(self, gear_down = P('Gear Down'), 
+    def derive(self, gear_down = M('Gear Down'), 
                gear_warn_l = P('Gear (L) Red Warning'),
                gear_warn_n = P('Gear (N) Red Warning'),
                gear_warn_r = P('Gear (R) Red Warning'),
@@ -411,7 +423,7 @@ class GearExtending(FlightPhaseNode):
         if frame_name in ['737-5']:
             edge_list=[]
             for air in airs:
-                edge_list.append(find_edges(gear_down.array, air.slice))
+                edge_list.append(find_edges(gear_down.array.raw, air.slice))
             # We now have a list of lists and this trick flattens the result.
             for edge in sum(edge_list,[]):
                 # We have no transition state, so allow 5 seconds for the
@@ -445,16 +457,16 @@ class GearRetracting(FlightPhaseNode):
     def can_operate(cls, available):
         return 'Gear Down' in available
 
-    def derive(self, gear_down = P('Gear Down'), 
+    def derive(self, gear_down = M('Gear Down'), 
                gear_warn_l = P('Gear (L) Red Warning'),
                gear_warn_n = P('Gear (N) Red Warning'),
                gear_warn_r = P('Gear (R) Red Warning'),
                frame=A('Frame'), airs=S('Airborne')):
         frame_name = frame.value if frame else None
-        if frame_name in ['737-5']:
+        if frame_name in ['737-5', '737-6']:
             edge_list=[]
             for air in airs:
-                edge_list.append(find_edges(gear_down.array, air.slice, direction='falling_edges'))
+                edge_list.append(find_edges(gear_down.array.raw, air.slice, direction='falling_edges'))
             # We now have a list of lists and this trick flattens the result.
             for edge in sum(edge_list,[]):
                 # We have no transition state, so allow 5 seconds for the
@@ -727,22 +739,6 @@ class Landing(FlightPhaseNode):
             self.create_phases([slice(landing_begin, landing_end)])
 
 
-class TwoDegPitchTo35Ft(FlightPhaseNode):
-    """
-    """
-    def derive(self, pitch=P('Pitch'), takeoffs=S('Takeoff')):
-        for takeoff in takeoffs:
-            reversed_slice = slice(takeoff.slice.stop, takeoff.slice.start, -1)
-            # Endpoint closing allows for the case where the aircraft is at
-            # more than 2 deg of pitch at takeoff.
-            pitch_2_deg_idx = index_at_value(pitch.array, 2.0, reversed_slice, 
-                                             endpoint='closing')
-            self.create_section(slice(pitch_2_deg_idx, takeoff.slice.stop),
-                                name='Two Deg Pitch To 35 Ft', 
-                                begin=pitch_2_deg_idx,
-                                end=takeoff.stop_edge)
-    
-    
 class Takeoff(FlightPhaseNode):
     """
     This flight phase starts as the aircraft turns onto the runway and ends
@@ -800,7 +796,7 @@ class Takeoff(FlightPhaseNode):
             #-------------------------------------------------------------------
             # Create a phase for this takeoff
             if takeoff_begin and takeoff_end:
-                self.create_phase(slice(takeoff_begin, takeoff_end), end=takeoff_end)
+                self.create_phases([slice(takeoff_begin, takeoff_end)])
 
 
 ################################################################################

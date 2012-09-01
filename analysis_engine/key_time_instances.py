@@ -260,13 +260,13 @@ class FlapStateChanges(KeyTimeInstanceNode):
 
 
 class GearSelectionDown(KeyTimeInstanceNode):
-    def derive(self, gear_sel_down=P('Gear Selected Down'), phase=S('Airborne')):
-        self.create_ktis_at_edges(gear_sel_down.array, direction='rising_edges', phase=phase)
+    def derive(self, gear_sel_down=M('Gear Selected Down'), phase=S('Airborne')):
+        self.create_ktis_on_state_change('Down', gear_sel_down.array, change='entering', phase=phase)    
         
 
 class GearSelectionUp(KeyTimeInstanceNode):
-    def derive(self, gear_sel_up=P('Gear Selected Up'), phase=S('Airborne')):
-        self.create_ktis_at_edges(gear_sel_up.array, direction='rising_edges', phase=phase)    
+    def derive(self, gear_sel_up=M('Gear Selected Up'), phase=S('Airborne')):
+        self.create_ktis_on_state_change('Up', gear_sel_up.array, change='entering', phase=phase)    
 
 
 class TakeoffTurnOntoRunway(KeyTimeInstanceNode):
@@ -412,13 +412,11 @@ class TouchAndGo(KeyTimeInstanceNode):
                 # wheels on ground
                 self.create_kti(ga.index)
 
-'''
-############################################################################
-'''
+
 def find_edges_on_state_change(state, array, change='entering', 
                                 phase=None):
     '''
-    Bastardised from create_ktis as I don't want to create the KTI directly.
+    Derived from original create_ktis for cases where we don't want to create a KTI directly.
     '''
     def state_changes(state, array, edge_list, change, _slice=slice(0, -1)):
         state_periods = np.ma.clump_unmasked(
@@ -445,9 +443,7 @@ def find_edges_on_state_change(state, array, change='entering',
         for each_period in phase:
             state_changes(state, array, edge_list, change, each_period.slice)
     return edge_list
-'''
-############################################################################
-'''
+
 
 class Touchdown(KeyTimeInstanceNode):
     # List the minimum acceptable parameters here
@@ -460,7 +456,7 @@ class Touchdown(KeyTimeInstanceNode):
                 'Airborne'  in available and\
                 'Landing' in available)
      
-    def derive(self, wow = P('Gear On Ground Discrete'), 
+    def derive(self, wow = P('Gear On Ground'), 
                roc=P('Rate Of Climb Inertial'), alt=P('Altitude AAL'), 
                airs=S('Airborne'), lands=S('Landing')
                ):

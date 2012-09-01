@@ -6,13 +6,15 @@ from analysis_engine.exceptions import DataFrameError
 from analysis_engine.model_information import (get_config_map,
                                                get_flap_map,
                                                get_slat_map)
-from analysis_engine.node import A, DerivedParameterNode, KPV, KTI, P, S
+from analysis_engine.node import (
+    A, DerivedParameterNode, MultistateDerivedParameterNode, KPV, KTI, M, P, S)
 from analysis_engine.library import (align,
                                      bearings_and_distances,
                                      blend_two_parameters,
                                      clip,
                                      coreg,
                                      cycle_finder,
+                                     filter_vor_ils_frequencies,
                                      first_valid_sample,
                                      first_order_lag,
                                      first_order_washout,
@@ -1078,7 +1080,7 @@ class PackValvesOpen(DerivedParameterNode):
                p1=P('ECS Pack (1) On'), p1h=P('ECS Pack (1) High Flow'),
                p2=P('ECS Pack (2) On'), p2h=P('ECS Pack (2) High Flow')):
         # Sum the open engines, allowing 1 for low flow and 1+1 for high flow each side.
-        self.array = p1.array*(1+p1h.array)+p2.array*(1+p2h.array)
+        self.array = p1.array.raw*(1+p1h.array.raw)+p2.array.raw*(1+p2h.array.raw)
 
 
 ################################################################################
@@ -1941,19 +1943,22 @@ class FuelQty(DerivedParameterNode):
         self.array = np.ma.sum(stacked_params, axis=0)
 
 
-class GearDown(DerivedParameterNode):
+class GearDown(MultistateDerivedParameterNode):
     """
     A simple binary parameter, 0 = gear not down, 1 = gear down.
     Highly aircraft dependent, so likely to be extended.
     """
     align_to_first_dependency = False
-    def derive(self, gl=P('Gear (L) Down'),
-               gn=P('Gear (N) Down'),
-               gr=P('Gear (R) Down'),
+    values_mapping = { 0: 'Up',
+                       1: 'Down',}
+
+    def derive(self, gl=M('Gear (L) Down'),
+               gn=M('Gear (N) Down'),
+               gr=M('Gear (R) Down'),
                frame=A('Frame')):
         frame_name = frame.value if frame else None
         
-        if frame_name in ['737-3C', '737-5']:
+        if frame_name.startswith('737-'):
             # 737-5 has nose gear sampled alternately with mains. No obvious
             # way to accommodate mismatch of the main gear positions, so
             # assume that the right wheel does the same as the left !
@@ -1962,39 +1967,50 @@ class GearDown(DerivedParameterNode):
             raise DataFrameError(self.name, frame_name)
 
 
-class GearOnGround(DerivedParameterNode):
+class GearOnGround(MultistateDerivedParameterNode):
     '''
     Combination of left and right main gear signals.
     '''
     align_to_first_dependency = False
-    def derive(self, gl = P('Gear (L) On Ground'), 
-               gr = P('Gear (R) On Ground')):
-        self.array, self.frequency, self.offset = merge_two_parameters(gl, gn)
+    
+    values_mapping = { 1: 'Ground',
+                       0: 'Air'}
+
+    def derive(self, gl = M('Gear (L) On Ground'), 
+               gr = M('Gear (R) On Ground'), frame=A('Frame')):
+
+        frame_name = frame.value if frame else None
+        
+        if frame_name.startswith('737-'):
+            self.array, self.frequency, self.offset = merge_two_parameters(gl, gr)
+        else:
+            raise DataFrameError(self.name, frame_name)
 
     
-class GearSelectedDown(DerivedParameterNode):
+class GearSelectedDown(MultistateDerivedParameterNode):
     """
     Derivation of gear selection for aircraft without this separately
     recorded. Where Gear Selected Down is recorded, this derived parameter
     will be skipped automatically.
     """
-    def derive(self, gear=P('Gear Down'), frame=A('Frame')):
-        frame_name = frame.value if frame else None
-        
-        if frame_name in ['737-3C', '737-5']:
-            self.array = gear.array
-        else:
-            raise DataFrameError(self.name, frame_name)
+    values_mapping = { 1: 'Down',
+                       0: 'Up',}
+
+    def derive(self, gear=P('Gear Down')):
+        self.array = gear.array
 
         
-class GearSelectedUp(DerivedParameterNode):
-    def derive(self, gear=P('Gear Down'), frame=A('Frame')):
-        frame_name = frame.value if frame else None
-        
-        if frame_name in ['737-3C', '737-5']:
-            self.array = 1 - gear.array
-        else:
-            raise DataFrameError(self.name, frame_name)
+class GearSelectedUp(MultistateDerivedParameterNode):
+    """
+    Derivation of gear selection for aircraft without this separately
+    recorded. Where Gear Selected Down is recorded, this derived parameter
+    will be skipped automatically.
+    """
+    values_mapping = { 1: 'Up',
+                       0: 'Down',}
+
+    def derive(self, gear=P('Gear Down')):
+        self.array = 1 - gear.array
 
 
 class GrossWeightSmoothed(DerivedParameterNode):
@@ -2411,6 +2427,11 @@ class HeadingTrue(DerivedParameterNode):
 
 
 class ILSFrequency(DerivedParameterNode):
+    @classmethod
+    def can_operate(cls, available):
+        return ('ILS (1) Frequency' in available and 'ILS (2) Frequency' in available)\
+               or\
+               ('ILS-VOR (1) Frequency' in available and'ILS-VOR (2) Frequency' in available)
     """
     This code is based upon the normal operation of an Instrument Landing
     System whereby the left and right receivers are tuned to the same runway
@@ -2424,29 +2445,40 @@ class ILSFrequency(DerivedParameterNode):
     """
     name = "ILS Frequency"
     align_to_first_dependency = False
-    def derive(self, f1=P('ILS (L) Frequency'),f2=P('ILS (R) Frequency'),
+    def derive(self, f1=P('ILS (1) Frequency'),f2=P('ILS (2) Frequency'),
+               f1v=P('ILS-VOR (1) Frequency'), f2v=P('ILS-VOR (2) Frequency'),
                frame = A('Frame')):
+
         frame_name = frame.value if frame else None
         
-        if frame_name in ['737-6']:
-            # On this frame only one ILS frequency recording works
+        # On some frames only one ILS frequency recording works
+        if frame_name in ['737-6'] and \
+           (np.ma.count(f2.array) == 0 or np.ma.ptp(f2.array) == 0.0):
             self.array = f1.array
             
         # In all cases other than those identified above we look for both
         # receivers being tuned together to form a valid signal
         else:
+            if f1 and f2:
+                first = f1.array
+                second = f2.array
+            else:
+                first = f1v.array
+                second = f2v.array
+                
             # Mask invalid frequencies
-            f1_trim = np.ma.masked_outside(f1.array,108.10,111.95)
-            f2_trim = np.ma.masked_outside(f2.array,108.10,111.95)
+            f1_trim = filter_vor_ils_frequencies(first, 'ILS')
+            f2_trim = filter_vor_ils_frequencies(second, 'ILS')
+
             # and mask where the two receivers are not matched
             self.array = np.ma.array(data = f1_trim.data,
                                      mask = np.ma.masked_not_equal(f1_trim-f2_trim,0.0).mask)
-            
+
 
 class ILSLocalizer(DerivedParameterNode):
     name = "ILS Localizer"
     align_to_first_dependency = False
-    def derive(self, loc_1=P('ILS (L) Localizer'),loc_2=P('ILS (R) Localizer')):
+    def derive(self, loc_1=P('ILS (1) Localizer'),loc_2=P('ILS (2) Localizer')):
         self.array, self.frequency, self.offset = blend_two_parameters(loc_1, loc_2)
         # TODO: Would like to do this, except the frequencies don't match
         # self.array.mask = np.ma.logical_or(self.array.mask, freq.array.mask)
@@ -2455,7 +2487,7 @@ class ILSLocalizer(DerivedParameterNode):
 class ILSGlideslope(DerivedParameterNode):
     name = "ILS Glideslope"
     align_to_first_dependency = False
-    def derive(self, gs_1=P('ILS (L) Glideslope'),gs_2=P('ILS (R) Glideslope')):
+    def derive(self, gs_1=P('ILS (1) Glideslope'),gs_2=P('ILS (2) Glideslope')):
         self.array, self.frequency, self.offset = blend_two_parameters(gs_1, gs_2)
         # Would like to do this, except the frequemcies don't match
         # self.array.mask = np.ma.logical_or(self.array.mask, freq.array.mask)
@@ -3010,7 +3042,7 @@ class RateOfClimbInertial(DerivedParameterNode):
             # Uses the complementary smoothing approach
             
             # This is the accelerometer washout term, with considerable gain.
-            # The initialisation "initial_value=az.array[clump][0]" is very
+            # The initialisation "initial_value=az_repair[0]" is very
             # important, as without this the function produces huge spikes at
             # each start of a data period.
             az_washout = first_order_washout (az_repair, 
@@ -3500,7 +3532,7 @@ class Speedbrake(DerivedParameterNode):
 
 
 # TODO: Write some unit tests!
-class SpeedbrakeSelection(DerivedParameterNode):
+class SpeedbrakeSelection(MultistateDerivedParameterNode):
     '''
     Determines the selected state of the speedbrake.
 
@@ -3518,6 +3550,11 @@ class SpeedbrakeSelection(DerivedParameterNode):
         x = available
         return 'Speedbrake Deployed' in x \
             or ('Frame' in x and 'Speedbrake Handle' in x)
+
+    values_mapping = { 0: 'Stowed',
+                       1: 'Armed/Cmd Dn',
+                       2: 'Deployed/Cmd Up'}
+
 
     def derive(self,
             spd_brk_d=P('Speedbrake Deployed'),
@@ -3545,29 +3582,38 @@ class SpeedbrakeSelection(DerivedParameterNode):
                     48.0        Full Up
                     ========    ============
                 '''
-                self.array = np.ma.where((2.0 < spd_brk_h.array) & (spd_brk_h.array < 35.0), 1, 0)
-                self.array = np.ma.where(spd_brk_h.array >= 35.0, 2, self.array)
+                self.array = np.ma.where((2.0 < spd_brk_h.array) & (spd_brk_h.array < 35.0),
+                                         'Armed/Cmd Dn', 'Stowed')
+                self.array = np.ma.where(spd_brk_h.array >= 35.0, 
+                                         'Deployed/Cmd Up', self.array)
 
             else:
                 # TODO: Implement for other frames using 'Speedbrake Handle'!
                 return NotImplemented
 
         elif spd_brk_d:
-            self.array = np.ma.where(spd_brk_d.array > 0, 2, 0)
+            self.array = np.ma.where(spd_brk_d.array > 0,'Deployed/Cmd Up', 'Stowed')
 
         else:
             # TODO: Implement using a different parameter?
-            return NotImplemented
+            raise DataFrameError(self.name, frame_name)
 
 
 ################################################################################
 
 
-class StickShaker(DerivedParameterNode):
+class StickShaker(MultistateDerivedParameterNode):
     '''
-    This accounts for the different types of stick shaker system.
+    This accounts for the different types of stick shaker system. Where two
+    systems are recorded the results are OR'd to make a single parameter
+    which operates in response to either system triggering. Hence the removal
+    of automatic alignment of the signals.
     '''    
     align_to_first_dependency = False
+    values_mapping = {
+        0: 'No_Shake',
+        1: 'Shake',
+    }
     
     @classmethod
     def can_operate(cls, available):
@@ -3580,9 +3626,9 @@ class StickShaker(DerivedParameterNode):
             return True
 
     def derive(self, frame = A('Frame'), 
-               shake_l = P('Stick Shaker (L)'), 
-               shake_r = P('Stick Shaker (R)'), 
-               shake_act = P('Shaker Activation')):
+               shake_l = M('Stick Shaker (L)'), 
+               shake_r = M('Stick Shaker (R)'), 
+               shake_act = M('Shaker Activation')):
 
         frame_name = frame.value if frame else None
         
@@ -3602,4 +3648,77 @@ class StickShaker(DerivedParameterNode):
         # Stick shaker not found in 737-6 frame.
         else:
             raise DataFrameError(self.name, frame_name)
+
+
+class VOR1Frequency(DerivedParameterNode):
+    """
+    Extraction of VOR tuned frequencies from receiver (1).
+    """
+    name = "VOR (1) Frequency"
+    def derive(self, f=P('ILS-VOR (1) Frequency')):
+        self.array = filter_vor_ils_frequencies(f.array, 'VOR')
+
+
+class VOR2Frequency(DerivedParameterNode):
+    """
+    Extraction of VOR tuned frequencies from receiver (1).
+    """
+    name = "VOR (2) Frequency"
+    def derive(self, f=P('ILS-VOR (2) Frequency')):
+        self.array = filter_vor_ils_frequencies(f.array, 'VOR')
+
+
+"""
+class NoseUpMainDown(MultistateDerivedParameterNode):
+    '''
+    Test function to operate on "real" hdf data rather than assumed data sets.
+    '''
+    align_to_first_dependency = False
+    
+    values_mapping = { 0: 'Three Wheels On Ground',
+                       1: 'Nose In Air',
+                       2: 'All Wheels In Air'}
+
+    def derive(self, gn = M('Gear (N) On Ground'), gm=M('Gear On Ground')):
         
+        all_ground = np.ma.where(
+            np.ma.logical_and(
+                gn.array==gn.array.state['Ground_Nose_LFL'],
+                gm.array==gm.array.state['Ground']), 
+            'Three Wheels On Ground', np.ma.masked)
+
+        ground_and_takeoff = np.ma.where(
+            np.ma.logical_and(
+                gn.array==gn.array.state['Air_Nose_LFL'],
+                gm.array==gm.array.state['Ground']),
+            'Nose In Air', all_ground)
+        
+        all_phases = np.ma.where(
+            np.ma.logical_and(
+                gn.array==gn.array.state['Air_Nose_LFL'],
+                gm.array==gm.array.state['Air']), 
+            'All Wheels In Air', ground_and_takeoff)
+        
+        print 'Three State Test'
+        for i in [5,14,684,1000, 7220, -1]:
+            print i, all_phases[i]
+
+        self.array = all_phases         
+
+
+class TestMain(MultistateDerivedParameterNode):
+    align_to_first_dependency = False
+    
+    values_mapping = { 1: 'Main_Air',
+                       0: 'Main_Ground',}
+
+    def derive(self, gm = M('Gear On Ground'), gd = M('Gear On Ground Discrete'), ias=P('Airspeed')):
+        #self.array = np.ma.array(gm.array.data, mask=gm.array.mask)
+        self.array = gm.array
+        
+        print '-'*25
+        print 'Gear On Ground Test'
+        for i in [5,14,1000, 7220, -1]:
+            print i, gm.array[i], gm.array.raw[i], gd.array[i], self.array[i], ias.array[i]
+        
+"""

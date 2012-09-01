@@ -38,7 +38,7 @@ BASE_URL = 'https://polaris.flightdataservices.com'
 CA_CERTIFICATE_FILE = '/etc/ssl/certs/ca-certificates.crt'
 
 # Cache parameters which are used more than n times in HDF
-CACHE_PARAMETER_MIN_USAGE = 4
+CACHE_PARAMETER_MIN_USAGE = 0
 
 #############################
 ## Splitting into Segments ##
