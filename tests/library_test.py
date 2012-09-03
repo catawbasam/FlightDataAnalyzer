@@ -807,6 +807,51 @@ class TestDatetimeOfIndex(unittest.TestCase):
         dt = datetime_of_index(start_datetime, index, frequency=frequency)
         self.assertEqual(dt, start_datetime + timedelta(seconds=40))
 
+class TestFilterVorIlsFrequencies(unittest.TestCase):
+    def test_low_end_ils(self):
+        array = np.ma.arange(107.9,109.0,.05)
+        result = filter_vor_ils_frequencies(array, 'ILS')
+        expected = [1,1,1,1,0,0,1,1,0,0,1,1,0,0,1,1,0,0,1,1,0,0]
+        np.testing.assert_array_equal(result.mask, expected)
+        np.testing.assert_array_equal(result.data, array.data)
+ 
+    def test_high_end_ils(self):
+        array = np.ma.arange(111.50,112.35,.05)
+        result = filter_vor_ils_frequencies(array, 'ILS')
+        expected = [0,0,1,1,0,0,1,1,0,0,1,1,1,1,1,1,1]
+        np.testing.assert_array_equal(result.mask, expected)
+        np.testing.assert_array_equal(result.data, array.data)
+    
+    def test_low_end_vor(self):
+        array = np.ma.arange(107.9,109.0,.05)
+        result = filter_vor_ils_frequencies(array, 'VOR')
+        expected = [1,1,0,0,1,1,0,0,1,1,0,0,1,1,0,0,1,1,0,0,1,1]
+        np.testing.assert_array_equal(result.mask, expected)
+        np.testing.assert_array_equal(result.data, array.data)
+ 
+    def test_high_end_vor(self):
+        array = np.ma.arange(117.50,118.35,.05)
+        result = filter_vor_ils_frequencies(array, 'VOR')
+        expected = [1,1,0,0,1,1,0,0,1,1,1,1,1,1,1,1,1]
+        np.testing.assert_array_equal(result.mask, expected)
+        np.testing.assert_array_equal(result.data, array.data)
+    
+    def test_mask_propogation(self):
+        array = np.ma.array([110.35]*5, mask=[0,1,1,0,0])
+        result = filter_vor_ils_frequencies(array, 'ILS')
+        expected = [0,1,1,0,0]
+        np.testing.assert_array_equal(result.mask, expected)
+
+    def test_unknown_navaid(self):
+        array = np.ma.array([108.0])
+        self.assertRaises(ValueError, filter_vor_ils_frequencies, array, 'DME')
+
+    def test_real_value(self):
+        array = np.ma.array([117.40000000000001]) # Taken from converted data file.
+        result = filter_vor_ils_frequencies(array, 'VOR')
+        expected = 117.40
+        self.assertEqual(result.data[0], expected)
+    
 class TestFindEdges(unittest.TestCase):
     # Reminder: find_edges(array, _slice, direction='rising_edges')                    
     
@@ -1966,7 +2011,7 @@ class TestPeakCurvature(unittest.TestCase):
     def test_peak_curvature_flat_data(self):
         array = np.ma.array([34]*40)
         pc = peak_curvature(array)
-        self.assertEqual(pc,1)
+        self.assertEqual(pc,None)
         
     def test_peak_curvature_short_flat_data(self):
         array = np.ma.array([34]*4)

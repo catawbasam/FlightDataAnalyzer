@@ -18,7 +18,6 @@ from analysis_engine.library import (align, find_edges, is_index_within_slice,
 from analysis_engine.recordtype import recordtype
 
 # FIXME: a better place for this class
-
 from hdfaccess.parameter import MappedArray
 
 
@@ -459,11 +458,50 @@ class DerivedParameterNode(Node):
 
 P = Parameter = DerivedParameterNode # shorthand
 
+def multistate_string_to_integer(string_array, mapping):
+    """
+    Converts (['one', 'two'], {1:'one', 2:'two'}) to [1, 2]
+    
+    Works on the masked array's data, therefore maintains the mask and
+    converts all masked and non-masked values.
+    
+    Note: If string_array is of mixed dtype (dtype == object),
+    floats/integers will be converted in int_array even if not in the
+    mapping.
+    
+    :param string_array: Array to be converted
+    :type string_array: np.ma.array(dtype=string,object,...)
+    :param mapping: mapping of values to convert {from_this : to_this}
+    :type mapping: dict
+    :returns: Integer array
+    :rtype: np.ma.array(dtype=int)
+    """
+    if not len(string_array):
+        return string_array
 
-class MultistateDerivedParameterNode(Parameter):
+    output_array = string_array.copy()
+    # values need converting using mapping
+    for int_value, str_value in mapping.iteritems():
+        output_array.data[string_array.data == str_value] = int_value
+    output_array.fill_value = 999999  #NB: only 999 will be stored by dtype
+    # apply fill_value to all masked values
+    output_array.data[np.ma.where(output_array.mask)] = output_array.fill_value
+    try:
+        int_array = output_array.astype(int)
+    except ValueError as err:
+        msg = "No value in values_mapping found for %s" % str(err).split("'")[-2]
+        raise ValueError(msg)
+    return int_array
+
+
+class MultistateDerivedParameterNode(DerivedParameterNode):
+    '''
+    MappedArray stored as array will be of integer dtype
+    '''
     def __init__(self, name='', array=np.ma.array([]), frequency=1, offset=0,
                  data_type=None, values_mapping={}, *args, **kwargs):
-
+        
+        #Q: if no values_mapping set to None?
         if values_mapping:
             self.values_mapping = values_mapping
         elif not hasattr(self, 'values_mapping'):
@@ -484,6 +522,8 @@ class MultistateDerivedParameterNode(Parameter):
             * a list: value is interpreted as 'converted' data, so the mapping
               is reversed. KeyError is raised if the values are not found in
               the mapping.
+              
+        Raises ValueError if incomplete mapping for array string values.
         '''
         if name not in ('array', 'values_mapping'):
             return super(MultistateDerivedParameterNode, self). \
@@ -497,11 +537,17 @@ class MultistateDerivedParameterNode(Parameter):
             # enforce own values mapping on the data
             value.values_mapping = self.values_mapping
         elif isinstance(value, np.ma.MaskedArray):
-            value = MappedArray(value, values_mapping=self.values_mapping)
+            if value.dtype == int:
+                # NB: Removed allowance for float!
+                int_array = value
+            else:
+                # can be of type string or object (mixed)
+                int_array = multistate_string_to_integer(value, self.values_mapping)
+            value = MappedArray(int_array, values_mapping=self.values_mapping)
         elif isinstance(value, Iterable):
             # assume a list of mapped values
             reversed_mapping = {v: k for k, v in self.values_mapping.items()}
-            data = [float(reversed_mapping[v]) for v in value]
+            data = [int(reversed_mapping[v]) for v in value]
             value = MappedArray(data, values_mapping=self.values_mapping)
         else:
             raise ValueError('Invalid argument type assigned to array: %s'
@@ -510,13 +556,13 @@ class MultistateDerivedParameterNode(Parameter):
         return object.__setattr__(self, name, value)
 
 
-M = MultistateParameter = MultistateDerivedParameterNode  # shorthand
+M = MultistateDerivedParameterNode  # shorthand
 
 
 def derived_param_from_hdf(hdf, name):
     hdf_parameter = hdf[name]
     if isinstance(hdf_parameter.array, MappedArray):
-        result = MultistateParameter(
+        result = MultistateDerivedParameterNode(
             name=hdf_parameter.name, array=hdf_parameter.array,
             frequency=hdf_parameter.frequency, offset=hdf_parameter.offset,
             data_type=hdf_parameter.data_type,
@@ -585,6 +631,7 @@ class SectionNode(Node, list):
         '''
         aligned_node = self.__class__(frequency=param.frequency,
                                       offset=param.offset)
+        
         multiplier = param.frequency / self.frequency
         offset = (self.offset - param.offset) * param.frequency
         for section in self:
@@ -1121,6 +1168,7 @@ class KeyTimeInstanceNode(FormattedNameNode):
 
     def create_ktis_on_state_change(self, state, array, change='entering',
                                     phase=None):
+        return
         '''
         Create KTIs from multistate parameters where data reaches and leaves
         given state.
@@ -1391,6 +1439,7 @@ class KeyPointValueNode(FormattedNameNode):
 
     def create_kpvs_where_state(self, state, array, hz, phase=None,
                                 min_duration=0.0):
+        return
         '''
         For discrete and multi-state parameters, this detects an event and
         records the duration of each event.

@@ -459,7 +459,7 @@ class OffBlocksDatetime(FlightAttributeNode):
 class OnBlocksDatetime(FlightAttributeNode):
     "Datetime when moving away from Gate/Blocks"
     name = 'FDR On Blocks Datetime'
-    def derive(self, turning=P('Turning On Ground'), start_datetime=A('Start Datetime')):
+    def derive(self, turning=S('Turning On Ground'), start_datetime=A('Start Datetime')):
         last_turning = turning.get_last()
         if last_turning:
             on_blocks_datetime = datetime_of_index(start_datetime.value,

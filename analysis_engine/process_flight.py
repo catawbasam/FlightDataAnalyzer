@@ -107,6 +107,7 @@ def derive_parameters(hdf, node_mgr, process_order):
                           offset=first_dep.offset)
         logger.info("Processing parameter %s", param_name)
         # Derive the resulting value
+
         result = node.get_derived(deps)
 
         if node.node_type is KeyPointValueNode:
