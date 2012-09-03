@@ -3,7 +3,7 @@
 '''
 we do not take into account temperature, altitude 
 
-Need to ensure flap/config settings reflect those held for family/series in
+Need to ensure flap/conf settings reflect those held for family/series in
 model_information.
 '''
 
@@ -78,7 +78,7 @@ class VelocitySpeed(object):
             weight = aircraft_weight
         else:
             raise ValueError, "Unrecognised weight units"
-
+        
         if self.interpolate:
             # numpy interpolate
             # raises ValueError if weight is outside of table weight boundaries
@@ -179,7 +179,7 @@ def get_vspeed_map(series=None, family=None):
 #############################################################################
 
 # Notes:
-# - Series config will be used over Family config settings
+# - Series vspeeds will be used over Family vspeeds settings
 # - Familys/series which do not require vspeeds should be entered as None
 
 series_vspeed_map = {

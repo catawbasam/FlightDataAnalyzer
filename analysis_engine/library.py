@@ -62,6 +62,11 @@ def align(slave, master, data_type=None):
     if hasattr(slave_array, 'raw'):
         # MappedArray: we should use raw data
         slave_array = slave_array.raw
+        if data_type == None:
+            data_type='multi-state' # Force the data type in case it has not been set inadvertently.
+        else:
+            raise ValueError, "multi-state parameter identified incorrectly for %s" %slave.name
+
     if len(slave_array) == 0:
         # No elements to align, avoids exception being raised in the loop below.
         return slave_array
@@ -693,6 +698,45 @@ def clip(array, period, hz=1.0, remove='peaks'):
             break # No need to process the rest of the array.
     return a
     """
+
+
+def filter_vor_ils_frequencies(array, navaid):
+    '''
+    This function passes valid ils or vor frequency data and masks all other data.
+    
+    To quote from Flightgear ~(where the clearest explanation can be found)
+    "The VOR uses frequencies in the the Very High Frequency (VHF) range, it
+    uses channels between 108.0 MHz and 117.95 MHz. It is spaced with 0.05
+    MHz intervals (so 115.00; 115.05; 115.10 etc). The range 108...112 is
+    shared with ILS frequencies. To differentiate between them VOR has an
+    even number on the 0.1 MHz frequency and the ILS has an uneven number on
+    the 0,1 MHz frequency.
+
+    So 108.0; 108.05; 108.20; 108.25; 108.40; 108.45 would be VOR stations. 
+    and 108.10; 108.15; 108.30; 108.35; 108.50; 108.55 would be ILS stations. 
+
+    :param array: Masked array of radio frequencies in MHz
+    :type array: Floating point Numpy masked array
+    :param navaid: Type of navigation aid
+    :type period: string, 'ILS' or 'VOR' only accepted.
+    
+    :returns: Numpy masked array. The requested navaid type frequencies will be passed as valid. All other frequencies will be masked.
+    '''
+    vor_range = np.ma.masked_outside(array, 108.0, 117.95)
+    ils_range = np.ma.masked_greater(vor_range, 111.95)
+
+    # This finds the four sequential frequencies, so fours has values: 
+    #   0 = .Even0, 1 = .Even5, 2 = .Odd0, 3 = .Odd5
+    # The round function is essential as using floating point values leads to inexact values.
+    fours = np.ma.round(array*20)%4
+
+    # Remove frequencies outside the operating range.
+    if navaid == 'ILS':
+        return np.ma.masked_where(fours<2.0,ils_range)
+    elif navaid == 'VOR':
+        return np.ma.masked_where(fours>1.0,vor_range)
+    else:
+        raise ValueError, 'Navaid of unrecognised type %s' %navaid
 
 def find_edges(array, _slice, direction='rising_edges'):
     '''
@@ -1911,7 +1955,7 @@ def max_abs_value(array, _slice=slice(None), start_edge=None, stop_edge=None):
     
     :param array: masked array
     :type array: np.ma.array
-    :param _slice: Slice to apply to the array and return max value relative to
+    :param _slice: Slice to apply to the array and return max absolute value relative to
     :type _slice: slice
     :param start_edge: Index for precise start timing
     :type start_edge: Float, between _slice.start-1 and slice_start
@@ -1972,7 +2016,7 @@ def min_value(array, _slice=slice(None), start_edge=None, stop_edge=None):
     
     :param array: masked array
     :type array: np.ma.array
-    :param _slice: Slice to apply to the array and return max value relative to
+    :param _slice: Slice to apply to the array and return min value relative to
     :type _slice: slice
     :param start_edge: Index for precise start timing
     :type start_edge: Float, between _slice.start-1 and slice_start
@@ -2400,7 +2444,7 @@ def truck_and_trailer(data, ttp, overall, trailer, curve_sense, _slice):
     '''
     # Trap for invariant data
     if np.ma.ptp(data) == 0.0:
-        return 1
+        return None
     
     # Set up working arrays
     x = np.arange(ttp) + 1 #  The x-axis is always short and constant
@@ -2459,6 +2503,7 @@ def truck_and_trailer(data, ttp, overall, trailer, curve_sense, _slice):
             peak_slice[0].start+(overall/2.0)-0.5
         return index*(_slice.step or 1) + (_slice.start or 0)
     else:
+        # Data curved in wrong sense or too weakly to find corner point.
         return None
     
     
@@ -2502,9 +2547,23 @@ def peak_curvature(array, _slice=slice(None), curve_sense='Concave'):
         if valid_slice.stop - valid_slice.start > overall:
             data = array[_slice][valid_slice]
             # The normal path is to go and process this data.
+            
+            # Standard version (see option below)...
+            corner = truck_and_trailer(data, ttp, overall, trailer, curve_sense, _slice)
+            if corner:
+                return corner + valid_slice.start
+            else:
+                return None
+        
+            '''
+            # Version developed to cater for one edge case where data stopped 
+            on runway. May not be appropriate to adopt more widely but left 
+            here to avoid reinventing the wheel in case it's a better solution.
+            
             return valid_slice.start + truck_and_trailer(data, ttp, overall, 
                                                          trailer, curve_sense, 
                                                          _slice)
+                                                         '''
         
         # Here we deal with problem cases.
         if len(valid_slices) == 0 or (valid_slice.stop - valid_slice.start) < 4:
@@ -3145,10 +3204,6 @@ def index_at_value(array, threshold, _slice=slice(None), endpoint='exact'):
         # More "let's get the logic right and tidy it up afterwards" bit of code...
         if begin >= len(array):
             begin = max_index - 1
-        elif int(begin) == begin:
-            # integer slice indexes need reducing because of the way Python
-            # does reverse slices.
-            begin = begin - 1 
         elif begin < 0:
             begin = 0
         if end > len(array):

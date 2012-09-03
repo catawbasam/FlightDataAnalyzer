@@ -3,17 +3,18 @@ from math import floor, radians
 
 from analysis_engine.exceptions import DataFrameError
 
-from analysis_engine.model_information import (get_config_map,
+from analysis_engine.model_information import (get_conf_map,
                                                get_flap_map,
                                                get_slat_map)
 from analysis_engine.node import (
-    A, DerivedParameterNode, MultistateDerivedParameterNode, KPV, KTI, P, S)
+    A, DerivedParameterNode, MultistateDerivedParameterNode, KPV, KTI, M, P, S)
 from analysis_engine.library import (align,
                                      bearings_and_distances,
                                      blend_two_parameters,
                                      clip,
                                      coreg,
                                      cycle_finder,
+                                     filter_vor_ils_frequencies,
                                      first_valid_sample,
                                      first_order_lag,
                                      first_order_washout,
@@ -69,7 +70,7 @@ from settings import (AZ_WASHOUT_TC,
                       KTS_TO_FPS,
                       KTS_TO_MPS,
                       METRES_TO_FEET,
-                      RATE_OF_CLIMB_LAG_TC)
+                      VERTICAL_SPEED_LAG_TC)
 
 from data_validation.rate_of_change import validate_rate_of_change
 
@@ -236,7 +237,7 @@ class AirspeedReference(DerivedParameterNode):
         
         x = set(available)
         base_for_lookup = ['Airspeed', 'Gross Weight Smoothed', 'Series', 'Family', 'Approach']
-        airbus = set(base_for_lookup + ['Config']).issubset(x)
+        airbus = set(base_for_lookup + ['Configuration']).issubset(x)
         boeing = set(base_for_lookup + ['Flap']).issubset(x)
         return existing_values or airbus or boeing
 
@@ -244,7 +245,7 @@ class AirspeedReference(DerivedParameterNode):
                 spd=P('Airspeed'),
                 gw=P('Gross Weight Smoothed'),
                 flap=P('Flap'),
-                config=P('Config'),
+                conf=P('Configuration'),
                 vapp=P('Vapp'),
                 vref=P('Vref'),
                 fdr_vapp=A('FDR Vapp'),
@@ -276,9 +277,9 @@ class AirspeedReference(DerivedParameterNode):
             for approach in apps:
                 self.array[approach.slice] = fdr_vspeed.value
         else:
-            # elif apps and spd and gw and (flap or config):
+            # elif apps and spd and gw and (flap or conf):
             # No values recorded or supplied so lookup in vspeed tables
-            setting_param = flap or config
+            setting_param = flap or conf
             
             # Was:
             #self.array = np.ma.zeros(len(spd.array), np.double)
@@ -680,7 +681,7 @@ class AltitudeRadio(DerivedParameterNode):
             self.array, self.frequency, self.offset = \
                 blend_two_parameters(source_B, source_C)
             
-        elif frame_name in ['737-3C', '737-4', '737-4_Analogue', 'CRJ-700-900']:
+        elif frame_name in ['737-4', '737-4_Analogue', 'CRJ-700-900']:
             self.array, self.frequency, self.offset = \
                 blend_two_parameters(source_A, source_B)
         
@@ -694,13 +695,6 @@ class AltitudeRadio(DerivedParameterNode):
             else:
                 raise ValueError,'737-5 frame Altitude Radio qualifier not recognised.'
 
-        elif frame_name in ['757-DHL']:
-            # Altitude Radio (A) comes from the Right altimeter, and is
-            # sampled in word 26 of the frame. Altitude Radio (C) comes from
-            # the Centre altimeter, is sample in word 104. Altitude Radio (B)
-            # comes from the EFIS system, and includes excessive latency so
-            # is not used.
-                blend_two_parameters(source_A, source_C)
             
         else:
             raise DataFrameError(self.name, frame_name)
@@ -795,7 +789,7 @@ class AltitudeSTD(DerivedParameterNode):
         high_and_low = 'Altitude STD Coarse' in available and \
             'Altitude STD Fine' in available
         coarse_and_ivv = 'Altitude STD Coarse' in available and \
-            'Rate Of Climb' in available
+            'Vertical Speed' in available
         return high_and_low or coarse_and_ivv
     
     def _high_and_low(self, alt_std_high, alt_std_low, top=18000, bottom=17000):
@@ -838,7 +832,7 @@ class AltitudeSTD(DerivedParameterNode):
     
     def derive(self, alt_std_coarse=P('Altitude STD Coarse'),
                alt_std_fine=P('Altitude STD Fine'),
-               ivv=P('Rate Of Climb')):
+               ivv=P('Vertical Speed')):
         if alt_std_high and alt_std_low:
             self.array = self._high_and_low(alt_std_coarse, alt_std_fine)
             ##crossover = np.ma.logical_and(average > 17000, average < 18000)
@@ -1841,8 +1835,8 @@ class Eng_VibN1Max(DerivedParameterNode):
                eng4=P('Eng (4) Vib N1'),
                fan1=P('Eng (1) Vib N1 Fan'),
                fan2=P('Eng (2) Vib N1 Fan'),
-               lpt1=P('Eng (1) Vib N1 LPT'),
-               lpt2=P('Eng (2) Vib N1 LPT')):
+               lpt1=P('Eng (1) Vib N1 Low Press Turbine'),
+               lpt2=P('Eng (2) Vib N1 Low Press Turbine')):
         '''
         '''
         engines = vstack_params(eng1, eng2, eng3, eng4, fan1, fan2, lpt1, lpt2)
@@ -1874,10 +1868,10 @@ class Eng_VibN2Max(DerivedParameterNode):
                eng2=P('Eng (2) Vib N2'),
                eng3=P('Eng (3) Vib N2'),
                eng4=P('Eng (4) Vib N2'),
-               hpc1=P('Eng (1) Vib N2 HPC'),
-               hpc2=P('Eng (2) Vib N2 HPC'),
-               hpt1=P('Eng (1) Vib N2 HPT'),
-               hpt2=P('Eng (2) Vib N2 HPT')):
+               hpc1=P('Eng (1) Vib N2 High Press Compressor'),
+               hpc2=P('Eng (2) Vib N2 High Press Compressor'),
+               hpt1=P('Eng (1) Vib N2 High Press Turbine'),
+               hpt2=P('Eng (2) Vib N2 High Press Turbine')):
         '''
         '''
         engines = vstack_params(eng1, eng2, eng3, eng4, hpc1, hpc2, hpt1, hpt2)
@@ -1942,19 +1936,22 @@ class FuelQty(DerivedParameterNode):
         self.array = np.ma.sum(stacked_params, axis=0)
 
 
-class GearDown(DerivedParameterNode):
+class GearDown(MultistateDerivedParameterNode):
     """
     A simple binary parameter, 0 = gear not down, 1 = gear down.
     Highly aircraft dependent, so likely to be extended.
     """
     align_to_first_dependency = False
-    def derive(self, gl=P('Gear (L) Down'),
-               gn=P('Gear (N) Down'),
-               gr=P('Gear (R) Down'),
+    values_mapping = { 0: 'Up',
+                       1: 'Down',}
+
+    def derive(self, gl=M('Gear (L) Down'),
+               gn=M('Gear (N) Down'),
+               gr=M('Gear (R) Down'),
                frame=A('Frame')):
         frame_name = frame.value if frame else None
         
-        if frame_name in ['737-3C', '737-5']:
+        if frame_name.startswith('737-'):
             # 737-5 has nose gear sampled alternately with mains. No obvious
             # way to accommodate mismatch of the main gear positions, so
             # assume that the right wheel does the same as the left !
@@ -1963,39 +1960,50 @@ class GearDown(DerivedParameterNode):
             raise DataFrameError(self.name, frame_name)
 
 
-class GearOnGround(DerivedParameterNode):
+class GearOnGround(MultistateDerivedParameterNode):
     '''
     Combination of left and right main gear signals.
     '''
     align_to_first_dependency = False
-    def derive(self, gl = P('Gear (L) On Ground'), 
-               gr = P('Gear (R) On Ground')):
-        self.array, self.frequency, self.offset = merge_two_parameters(gl, gn)
+    
+    values_mapping = { 1: 'Ground',
+                       0: 'Air'}
+
+    def derive(self, gl = M('Gear (L) On Ground'), 
+               gr = M('Gear (R) On Ground'), frame=A('Frame')):
+
+        frame_name = frame.value if frame else None
+        
+        if frame_name.startswith('737-'):
+            self.array, self.frequency, self.offset = merge_two_parameters(gl, gr)
+        else:
+            raise DataFrameError(self.name, frame_name)
 
     
-class GearSelectedDown(DerivedParameterNode):
+class GearSelectedDown(MultistateDerivedParameterNode):
     """
     Derivation of gear selection for aircraft without this separately
     recorded. Where Gear Selected Down is recorded, this derived parameter
     will be skipped automatically.
     """
-    def derive(self, gear=P('Gear Down'), frame=A('Frame')):
-        frame_name = frame.value if frame else None
-        
-        if frame_name in ['737-3C', '737-5']:
-            self.array = gear.array
-        else:
-            raise DataFrameError(self.name, frame_name)
+    values_mapping = { 1: 'Down',
+                       0: 'Up',}
+
+    def derive(self, gear=P('Gear Down')):
+        self.array = gear.array
 
         
-class GearSelectedUp(DerivedParameterNode):
-    def derive(self, gear=P('Gear Down'), frame=A('Frame')):
-        frame_name = frame.value if frame else None
-        
-        if frame_name in ['737-3C', '737-5']:
-            self.array = 1 - gear.array
-        else:
-            raise DataFrameError(self.name, frame_name)
+class GearSelectedUp(MultistateDerivedParameterNode):
+    """
+    Derivation of gear selection for aircraft without this separately
+    recorded. Where Gear Selected Down is recorded, this derived parameter
+    will be skipped automatically.
+    """
+    values_mapping = { 1: 'Up',
+                       0: 'Down',}
+
+    def derive(self, gear=P('Gear Down')):
+        self.array = 1 - gear.array
 
 
 class GrossWeightSmoothed(DerivedParameterNode):
@@ -2215,7 +2223,7 @@ class SlopeToLanding(DerivedParameterNode):
         self.array = alt_aal.array / (dist.array * FEET_PER_NM)
     
     
-class Config(DerivedParameterNode):
+class Configuration(DerivedParameterNode):
     """
     Multi-state with the following mapping:
     {
@@ -2232,7 +2240,7 @@ class Config(DerivedParameterNode):
     (b) corresponds to CONF 2*
     
     Note: Does not use the Flap Lever position. This parameter reflects the
-    actual config state of the aircraft rather than the intended state
+    actual configuration state of the aircraft rather than the intended state
     represented by the selected lever position.
     
     Note: Values that do not map directly to a required state are masked with
@@ -2249,15 +2257,15 @@ class Config(DerivedParameterNode):
                series=A('Series'), family=A('Family')):
         #TODO: manu=A('Manufacturer') - we could ensure this is only done for Airbus?
         
-        mapping = get_config_map(series.value, family.value)        
+        mapping = get_conf_map(series.value, family.value)        
         qty_param = len(mapping.itervalues().next())
         if qty_param == 3 and not aileron:
             # potential problem here!
-            self.warning("Aileron not available, so will calculate Config using only slat and flap")
+            self.warning("Aileron not available, so will calculate Configuration using only slat and flap")
             qty_param = 2
         elif qty_param == 2 and aileron:
             # only two items in values tuple
-            self.debug("Aileron available but not required for Config calculation")
+            self.debug("Aileron available but not required for Configuration calculation")
             pass
         
         #TODO: Scale each parameter individually to ensure uniqueness
@@ -2412,42 +2420,59 @@ class HeadingTrue(DerivedParameterNode):
 
 
 class ILSFrequency(DerivedParameterNode):
+    @classmethod
+    def can_operate(cls, available):
+        return ('ILS (1) Frequency' in available and 'ILS (2) Frequency' in available)\
+               or\
+               ('ILS-VOR (1) Frequency' in available and'ILS-VOR (2) Frequency' in available)
     """
     This code is based upon the normal operation of an Instrument Landing
     System whereby the left and right receivers are tuned to the same runway
     ILS frequency. This allows independent monitoring of the approach by the
     two crew.
     
-    If there is a problem with the system, users can inspect the (L) and (R)
+    If there is a problem with the system, users can inspect the (1) and (2)
     signals separately, although the normal use will show valid ILS data when
     both are tuned to the same frequency.
     
     """
     name = "ILS Frequency"
     align_to_first_dependency = False
-    def derive(self, f1=P('ILS (L) Frequency'),f2=P('ILS (R) Frequency'),
+
+    def derive(self, f1=P('ILS (1) Frequency'),f2=P('ILS (2) Frequency'),
+               f1v=P('ILS-VOR (1) Frequency'), f2v=P('ILS-VOR (2) Frequency'),
                frame = A('Frame')):
+
         frame_name = frame.value if frame else None
         
-        if frame_name in ['737-6']:
-            # On this frame only one ILS frequency recording works
+        # On some frames only one ILS frequency recording works
+        if frame_name in ['737-6'] and \
+           (np.ma.count(f2.array) == 0 or np.ma.ptp(f2.array) == 0.0):
             self.array = f1.array
             
         # In all cases other than those identified above we look for both
         # receivers being tuned together to form a valid signal
         else:
+            if f1 and f2:
+                first = f1.array
+                second = f2.array
+            else:
+                first = f1v.array
+                second = f2v.array
+                
             # Mask invalid frequencies
-            f1_trim = np.ma.masked_outside(f1.array,108.10,111.95)
-            f2_trim = np.ma.masked_outside(f2.array,108.10,111.95)
+            f1_trim = filter_vor_ils_frequencies(first, 'ILS')
+            f2_trim = filter_vor_ils_frequencies(second, 'ILS')
+
             # and mask where the two receivers are not matched
             self.array = np.ma.array(data = f1_trim.data,
                                      mask = np.ma.masked_not_equal(f1_trim-f2_trim,0.0).mask)
-            
+
 
 class ILSLocalizer(DerivedParameterNode):
     name = "ILS Localizer"
     align_to_first_dependency = False
-    def derive(self, loc_1=P('ILS (L) Localizer'),loc_2=P('ILS (R) Localizer')):
+    def derive(self, loc_1=P('ILS (1) Localizer'),loc_2=P('ILS (2) Localizer')):
         self.array, self.frequency, self.offset = blend_two_parameters(loc_1, loc_2)
         # TODO: Would like to do this, except the frequencies don't match
         # self.array.mask = np.ma.logical_or(self.array.mask, freq.array.mask)
@@ -2456,7 +2481,7 @@ class ILSLocalizer(DerivedParameterNode):
 class ILSGlideslope(DerivedParameterNode):
     name = "ILS Glideslope"
     align_to_first_dependency = False
-    def derive(self, gs_1=P('ILS (L) Glideslope'),gs_2=P('ILS (R) Glideslope')):
+    def derive(self, gs_1=P('ILS (1) Glideslope'),gs_2=P('ILS (2) Glideslope')):
         self.array, self.frequency, self.offset = blend_two_parameters(gs_1, gs_2)
         # Would like to do this, except the frequemcies don't match
         # self.array.mask = np.ma.logical_or(self.array.mask, freq.array.mask)
@@ -2971,11 +2996,11 @@ class MagneticVariation(DerivedParameterNode):
         
         self.array = interpolate_and_extend(dev)
 
-class RateOfClimbInertial(DerivedParameterNode):
+class VerticalSpeedInertial(DerivedParameterNode):
     '''
-    See "Rate Of Climb" for pressure altitude based derived parameter.
+    See 'Vertical Speed' for pressure altitude based derived parameter.
     
-    This routine derives the rate of climb from the vertical acceleration, the
+    This routine derives the vertical speed from the vertical acceleration, the
     Pressure altitude and the Radio altitude.
     
     We use pressure altitude rate above 100ft and radio altitude rate below
@@ -2997,7 +3022,7 @@ class RateOfClimbInertial(DerivedParameterNode):
     acceleration term with a longer time constant filter before use. The
     consequence of this is that long period movements with continued
     acceleration will be underscaled slightly. As an example the test case
-    with a 1ft/sec^2 acceleration results in an increasing rate of climb of
+    with a 1ft/sec^2 acceleration results in an increasing vertical speed of
     55 fpm/sec, not 60 as would be theoretically predicted.
     '''
     
@@ -3007,11 +3032,11 @@ class RateOfClimbInertial(DerivedParameterNode):
                alt_rad = P('Altitude Radio'),
                speed=P('Airspeed')):
 
-        def inertial_rate_of_climb(alt_std_repair, frequency, alt_rad_repair, az_repair):
+        def inertial_vertical_speed(alt_std_repair, frequency, alt_rad_repair, az_repair):
             # Uses the complementary smoothing approach
             
             # This is the accelerometer washout term, with considerable gain.
-            # The initialisation "initial_value=az.array[clump][0]" is very
+            # The initialisation "initial_value=az_repair[0]" is very
             # important, as without this the function produces huge spikes at
             # each start of a data period.
             az_washout = first_order_washout (az_repair, 
@@ -3019,19 +3044,19 @@ class RateOfClimbInertial(DerivedParameterNode):
                                               gain=GRAVITY_IMPERIAL,
                                               initial_value=az_repair[0])
             inertial_roc = first_order_lag (az_washout, 
-                                            RATE_OF_CLIMB_LAG_TC, 
+                                            VERTICAL_SPEED_LAG_TC, 
                                             frequency, 
-                                            gain=RATE_OF_CLIMB_LAG_TC)
+                                            gain=VERTICAL_SPEED_LAG_TC)
     
             # Both sources of altitude data are differentiated before
             # merging, as we mix height rate values to minimise the effect of
             # changeover of sources.
             roc_alt_std = first_order_washout(alt_std_repair,
-                                              RATE_OF_CLIMB_LAG_TC, frequency,
-                                              gain=1/RATE_OF_CLIMB_LAG_TC)
+                                              VERTICAL_SPEED_LAG_TC, frequency,
+                                              gain=1/VERTICAL_SPEED_LAG_TC)
             roc_alt_rad = first_order_washout(alt_rad_repair,
-                                              RATE_OF_CLIMB_LAG_TC, frequency,
-                                              gain=1/RATE_OF_CLIMB_LAG_TC)
+                                              VERTICAL_SPEED_LAG_TC, frequency,
+                                              gain=1/VERTICAL_SPEED_LAG_TC)
                     
             # Use pressure altitude rate above 100ft and radio altitude rate
             # below 50ft with progressive changeover across that range.
@@ -3069,12 +3094,12 @@ class RateOfClimbInertial(DerivedParameterNode):
         # the required parameters are available.
         clumps = np.ma.clump_unmasked(az_masked)
         for clump in clumps:
-            self.array[clump] = inertial_rate_of_climb(
+            self.array[clump] = inertial_vertical_speed(
                 alt_std_repair[clump], az.frequency,
                 alt_rad_repair[clump], az_repair[clump])
 
    
-class RateOfClimb(DerivedParameterNode):
+class VerticalSpeed(DerivedParameterNode):
     '''
     The period for averaging altitude data is a trade-off between transient
     response and noise rejection. 
@@ -3093,17 +3118,17 @@ class RateOfClimb(DerivedParameterNode):
     '''
     def derive(self, alt_std = P('Altitude STD'), frame = A('Frame')):
         frame_name = frame.value if frame else None
+        
         if frame_name in ['Hercules', '146']:
             timebase = 8.0
         else:
             timebase = 4.0
-        
         self.array = rate_of_change(alt_std, timebase)*60.0
+        
 
-
-class RateOfClimbForFlightPhases(DerivedParameterNode):
+class VerticalSpeedForFlightPhases(DerivedParameterNode):
     """
-    A simple and robust rate of climb parameter suitable for identifying
+    A simple and robust vertical speed parameter suitable for identifying
     flight phases. DO NOT use this for event detection.
     """
     def derive(self, alt_std = P('Altitude STD')):
@@ -3248,28 +3273,30 @@ class ThrottleLevers(DerivedParameterNode):
             blend_two_parameters(tla1, tla2)
 
 class ThrustReversers(DerivedParameterNode):
-    """
+    '''
     A single parameter with values 0=all stowed, 1=all deployed, 0.5=in transit.
     This saves subsequent algorithms having to check the various flags for each
     engine.
-    """
-    def derive(self, e1_left_dep=P('Eng (1) Thrust Reverser (L) Deployed'),
-               e1_left_out=P('Eng (1) Thrust Reverser (L) Not Stowed'),
-               e1_right_dep=P('Eng (1) Thrust Reverser (R) Deployed'),
-               e1_right_out=P('Eng (1) Thrust Reverser (R) Not Stowed'),
-               e2_left_dep=P('Eng (2) Thrust Reverser (L) Deployed'),
-               e2_left_out=P('Eng (2) Thrust Reverser (L) Not Stowed'),
-               e2_right_dep=P('Eng (2) Thrust Reverser (R) Deployed'),
-               e2_right_out=P('Eng (2) Thrust Reverser (R) Not Stowed'),
-               frame = A('Frame')):
+    '''
+    def derive(self,
+            e1_lft_dep=P('Eng (1) Thrust Reverser (L) Deployed'),
+            e1_lft_out=P('Eng (1) Thrust Reverser (L) Unlocked'),
+            e1_rgt_dep=P('Eng (1) Thrust Reverser (R) Deployed'),
+            e1_rgt_out=P('Eng (1) Thrust Reverser (R) Unlocked'),
+            e2_lft_dep=P('Eng (2) Thrust Reverser (L) Deployed'),
+            e2_lft_out=P('Eng (2) Thrust Reverser (L) Unlocked'),
+            e2_rgt_dep=P('Eng (2) Thrust Reverser (R) Deployed'),
+            e2_rgt_out=P('Eng (2) Thrust Reverser (R) Unlocked'),
+            frame=A('Frame')):
         frame_name = frame.value if frame else None
         
         if frame_name in ['737-5']:
-            all_tr = e1_left_dep.array + e1_left_out.array + \
-                e1_right_dep.array + e1_right_out.array + \
-                e2_left_dep.array + e2_left_out.array + \
-                e2_right_dep.array + e2_right_out.array
-            self.array = step_values(all_tr/8.0, [0,0.5,1])
+            all_tr = \
+                e1_lft_dep.array + e1_lft_out.array + \
+                e1_rgt_dep.array + e1_rgt_out.array + \
+                e2_lft_dep.array + e2_lft_out.array + \
+                e2_rgt_dep.array + e2_rgt_out.array
+            self.array = step_values(all_tr / 8.0, [0, 0.5, 1])
             
         else:
             raise DataFrameError(self.name, frame_name)
@@ -3330,14 +3357,14 @@ class V2(DerivedParameterNode):
         x = set(available)
         fdr = 'FDR V2' in x
         base_for_lookup = ['Airspeed', 'Gross Weight At Liftoff', 'Series', 'Family']
-        config = set(base_for_lookup + ['Config']).issubset(x)
+        conf = set(base_for_lookup + ['Configuration']).issubset(x)
         flap = set(base_for_lookup + ['Flap']).issubset(x)
-        return fdr or config or flap
+        return fdr or conf or flap
 
     def derive(self, 
                spd=P('Airspeed'),
                flap=P('Flap'),
-               config=P('Config'),
+               conf=P('Configuration'),
                fdr_v2=A('FDR V2'),
                weight_liftoff=KPV('Gross Weight At Liftoff'),
                series=A('Series'),
@@ -3352,7 +3379,7 @@ class V2(DerivedParameterNode):
             self.array = fdr_v2.value
         elif weight_liftoff:
             vspeed_class = get_vspeed_map(series.value, family.value)
-            setting_param = flap or config
+            setting_param = flap or conf
             if vspeed_class:
                 vspeed_table = vspeed_class()
                 index = weight_liftoff[0].index
@@ -3501,11 +3528,11 @@ class Speedbrake(DerivedParameterNode):
 
 
 # TODO: Write some unit tests!
-class SpeedbrakeSelection(DerivedParameterNode):
+class SpeedbrakeSelection(MultistateDerivedParameterNode):
     '''
     Determines the selected state of the speedbrake.
 
-    Speedbrake Selection Values:
+    Speedbrake Selected Values:
 
     - 0 -- Stowed
     - 1 -- Armed / Commanded (Spoilers Down)
@@ -3519,6 +3546,11 @@ class SpeedbrakeSelection(DerivedParameterNode):
         x = available
         return 'Speedbrake Deployed' in x \
             or ('Frame' in x and 'Speedbrake Handle' in x)
+
+    values_mapping = { 0: 'Stowed',
+                       1: 'Armed/Cmd Dn',
+                       2: 'Deployed/Cmd Up'}
+
 
     def derive(self,
             spd_brk_d=P('Speedbrake Deployed'),
@@ -3546,19 +3578,21 @@ class SpeedbrakeSelection(DerivedParameterNode):
                     48.0        Full Up
                     ========    ============
                 '''
-                self.array = np.ma.where((2.0 < spd_brk_h.array) & (spd_brk_h.array < 35.0), 1, 0)
-                self.array = np.ma.where(spd_brk_h.array >= 35.0, 2, self.array)
+                self.array = np.ma.where((2.0 < spd_brk_h.array) & (spd_brk_h.array < 35.0),
+                                         'Armed/Cmd Dn', 'Stowed')
+                self.array = np.ma.where(spd_brk_h.array >= 35.0, 
+                                         'Deployed/Cmd Up', self.array)
 
             else:
                 # TODO: Implement for other frames using 'Speedbrake Handle'!
                 return NotImplemented
 
         elif spd_brk_d:
-            self.array = np.ma.where(spd_brk_d.array > 0, 2, 0)
+            self.array = np.ma.where(spd_brk_d.array > 0,'Deployed/Cmd Up', 'Stowed')
 
         else:
             # TODO: Implement using a different parameter?
-            return NotImplemented
+            raise DataFrameError(self.name, frame_name)
 
 
 ################################################################################
@@ -3566,11 +3600,14 @@ class SpeedbrakeSelection(DerivedParameterNode):
 
 class StickShaker(MultistateDerivedParameterNode):
     '''
-    This accounts for the different types of stick shaker system.
+    This accounts for the different types of stick shaker system. Where two
+    systems are recorded the results are OR'd to make a single parameter
+    which operates in response to either system triggering. Hence the removal
+    of automatic alignment of the signals.
     '''    
     align_to_first_dependency = False
     values_mapping = {
-        0: 'False',
+        0: 'No_Shake',
         1: 'Shake',
     }
     
@@ -3585,9 +3622,9 @@ class StickShaker(MultistateDerivedParameterNode):
             return True
 
     def derive(self, frame = A('Frame'), 
-               shake_l = P('Stick Shaker (L)'), 
-               shake_r = P('Stick Shaker (R)'), 
-               shake_act = P('Shaker Activation')):
+               shake_l = M('Stick Shaker (L)'), 
+               shake_r = M('Stick Shaker (R)'), 
+               shake_act = M('Shaker Activation')):
 
         frame_name = frame.value if frame else None
         
@@ -3607,3 +3644,22 @@ class StickShaker(MultistateDerivedParameterNode):
         # Stick shaker not found in 737-6 frame.
         else:
             raise DataFrameError(self.name, frame_name)
+
+
+class VOR1Frequency(DerivedParameterNode):
+    """
+    Extraction of VOR tuned frequencies from receiver (1).
+    """
+    name = "VOR (1) Frequency"
+    def derive(self, f=P('ILS-VOR (1) Frequency')):
+        self.array = filter_vor_ils_frequencies(f.array, 'VOR')
+
+
+class VOR2Frequency(DerivedParameterNode):
+    """
+    Extraction of VOR tuned frequencies from receiver (1).
+    """
+    name = "VOR (2) Frequency"
+    def derive(self, f=P('ILS-VOR (2) Frequency')):
+        self.array = filter_vor_ils_frequencies(f.array, 'VOR')
+

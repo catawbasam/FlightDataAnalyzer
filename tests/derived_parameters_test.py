@@ -32,7 +32,7 @@ from analysis_engine.derived_parameters import (
     #AltitudeSTD,
     AltitudeTail,
     ClimbForFlightPhases,
-    Config,
+    Configuration,
     ControlColumn,
     ControlColumnForce,
     ControlColumnForceCapt,
@@ -63,8 +63,8 @@ from analysis_engine.derived_parameters import (
     LongitudePrepared,
     Mach,
     Pitch,
-    RateOfClimb,
-    RateOfClimbForFlightPhases,
+    VerticalSpeed,
+    VerticalSpeedForFlightPhases,
     RateOfTurn,
     V2,
     WindAcrossLandingRunway,
@@ -289,7 +289,7 @@ class TestAirspeedReference(unittest.TestCase):
         self.default_kwargs = {'spd':False,
                                'gw':None,
                                'flap':None,
-                               'config':None,
+                               'conf':None,
                                'vapp':None,
                                'vref':None,
                                'fdr_vapp':None,
@@ -688,7 +688,7 @@ class TestAltitudeSTD(unittest.TestCase):
     def test_can_operate(self):
         self.assertEqual(AltitudeSTD.get_operational_combinations(),
           [('Altitude STD Coarse', 'Altitude STD Fine'),
-           ('Altitude STD Coarse', 'Rate Of Climb')])
+           ('Altitude STD Coarse', 'Vertical Speed')])
     
     def test__high_and_low(self):
         high_values = np.ma.array([15000, 16000, 17000, 18000, 19000, 20000,
@@ -806,7 +806,7 @@ class TestClimbForFlightPhases(unittest.TestCase):
    
    
 
-class TestConfig(unittest.TestCase):
+class TestConfiguration(unittest.TestCase):
     
     def setUp(self):
         # last state is invalid
@@ -820,21 +820,21 @@ class TestConfig(unittest.TestCase):
     def test_can_operate(self):
         expected = [('Flap','Slat', 'Series', 'Family'),
                     ('Flap','Slat', 'Aileron', 'Series', 'Family')]
-        opts = Config.get_operational_combinations()
+        opts = Configuration.get_operational_combinations()
         self.assertEqual(opts, expected)
         
-    def test_config_for_a330(self):
+    def test_conf_for_a330(self):
         # last state is invalid
-        config = Config()
-        config.derive(self.flap, self.slat, self.ails, 
+        conf = Configuration()
+        conf.derive(self.flap, self.slat, self.ails, 
                       A('','A330-301'), A('','A330'))
-        self.assertEqual(list(np.ma.filled(config.array[:17], fill_value=-999)),
+        self.assertEqual(list(np.ma.filled(conf.array[:17], fill_value=-999)),
                          [0,0,1,1,2,2,3,3,4,4,5,5,6,6,7,7,-999]
                          )
         
     def test_time_taken(self):
         from timeit import Timer
-        timer = Timer(self.test_config_for_a330)
+        timer = Timer(self.test_conf_for_a330)
         time = min(timer.repeat(1, 1))
         print "Time taken %s secs" % time
         self.assertLess(time, 0.1, msg="Took too long")
@@ -1509,15 +1509,15 @@ class TestHeadingTrue(unittest.TestCase):
 
 class TestILSFrequency(unittest.TestCase):
     def test_can_operate(self):
-        expected = [('ILS (L) Frequency','ILS (R) Frequency','Frame')]
+        expected = [('ILS-VOR (1) Frequency','ILS-VOR (2) Frequency','Frame')]
         opts = ILSFrequency.get_operational_combinations()
         self.assertEqual(opts, expected)
         
     def test_ils_frequency_in_range(self):
-        f1 = P('ILS (L) Frequency', 
+        f1 = P('ILS-VOR (1) Frequency', 
                np.ma.array([1,2,108.10,108.15,111.95,112.00]),
                offset = 0.1, frequency = 0.5)
-        f2 = P('ILS (R) Frequency', 
+        f2 = P('ILS-VOR (2) Frequency', 
                np.ma.array([1,2,108.10,108.15,111.95,112.00]),
                offset = 1.1, frequency = 0.5)
         ils = ILSFrequency()
@@ -1528,10 +1528,10 @@ class TestILSFrequency(unittest.TestCase):
         ma_test.assert_masked_array_approx_equal(result.array, expected_array)
         
     def test_ils_frequency_matched(self):
-        f1 = P('ILS (L) Frequency', 
+        f1 = P('ILS-VOR (1) Frequency', 
                np.ma.array([108.10]*3+[111.95]*3),
                offset = 0.1, frequency = 0.5)
-        f2 = P('ILS (R) Frequency', 
+        f2 = P('ILS-VOR (2) Frequency', 
                np.ma.array([108.10,111.95]*3),
                offset = 1.1, frequency = 0.5)
         ils = ILSFrequency()
@@ -1582,9 +1582,9 @@ class TestPitch(unittest.TestCase):
         self.assertEqual(len(pch.array),10)
         
 
-class TestRateOfClimb(unittest.TestCase):
+class TestVerticalSpeed(unittest.TestCase):
     def test_can_operate(self):
-        opts = RateOfClimb.get_operational_combinations()
+        opts = VerticalSpeed.get_operational_combinations()
         self.assertEqual(len(opts), 8)
         self.assertEqual(opts[0], ('Altitude STD',))
         self.assertTrue(('Altitude STD', 'Altitude Radio') in opts)
@@ -1592,17 +1592,17 @@ class TestRateOfClimb(unittest.TestCase):
                          ('Acceleration Vertical', 'Altitude STD', 
                           'Altitude Radio', 'Airspeed'))
                          
-    def test_rate_of_climb_basic(self):
+    def test_vertical_speed_basic(self):
         az = P('Acceleration Vertical', np.ma.array([1]*10))
         alt_std = P('Altitude STD', np.ma.array([100]*10))
         alt_rad = P('Altitude Radio', np.ma.array([0]*10))
-        roc = RateOfClimb()
-        roc.derive(az, alt_std, alt_rad)
+        vert_spd = VerticalSpeed()
+        vert_spd.derive(az, alt_std, alt_rad)
         expected = np.ma.array(data=[0]*10, dtype=np.float,
                              mask=False)
-        ma_test.assert_masked_array_approx_equal(roc.array, expected)
+        ma_test.assert_masked_array_approx_equal(vert_spd.array, expected)
 
-    def test_rate_of_climb_masked(self):
+    def test_vertical_speed_masked(self):
         # The blocks of masked values have to exceed the repair_mask
         # threshold of 10 samples, hence the large arrays.
         az = P('Acceleration Vertical', np.ma.array([1]*100, dtype=np.float))
@@ -1611,41 +1611,41 @@ class TestRateOfClimb(unittest.TestCase):
         alt_std.array[35:50]=np.ma.masked
         alt_rad = P('Altitude Radio', np.ma.array([0]*100, dtype=np.float))
         alt_rad.array[65:80]=np.ma.masked
-        roc = RateOfClimb()
-        roc.derive(az, alt_std, alt_rad, None)
+        vert_spd = VerticalSpeed()
+        vert_spd.derive(az, alt_std, alt_rad, None)
         expected = np.ma.array(data=[0]*100, dtype=np.float,
                              mask=[[False]*5+[True]*15+[False]*15+
                                    [True]*15+[False]*15+
                                    [False]*15+[False]*15+[False]*5])
-        ma_test.assert_masked_array_approx_equal(roc.array, expected)
+        ma_test.assert_masked_array_approx_equal(vert_spd.array, expected)
 
-    def test_rate_of_climb_alt_std_only(self):
+    def test_vertical_speed_alt_std_only(self):
         az = None
         alt_std = P('Altitude STD', np.ma.arange(100,200,10))
         alt_rad = None
-        roc = RateOfClimb()
-        roc.derive(az, alt_std, alt_rad)
+        vert_spd = VerticalSpeed()
+        vert_spd.derive(az, alt_std, alt_rad)
         expected = np.ma.array(data=[600]*10, dtype=np.float,
                              mask=False) #  10 ft/sec = 600 fpm
-        ma_test.assert_masked_array_approx_equal(roc.array, expected)
+        ma_test.assert_masked_array_approx_equal(vert_spd.array, expected)
 
-    def test_rate_of_climb_bump(self):
+    def test_vertical_speed_bump(self):
         az = P('Acceleration Vertical', np.ma.array([1]*10,dtype=float))
         az.array[2:4] = 1.1
         # (Low acceleration for this test as the sample rate is only 1Hz).
         alt_std = P('Altitude STD', np.ma.array([100]*10,dtype=float))
         alt_rad = P('Altitude Radio', np.ma.array([0]*10,dtype=float))
-        roc = RateOfClimb()
-        roc.derive(az, alt_std, alt_rad)
+        vert_spd = VerticalSpeed()
+        vert_spd.derive(az, alt_std, alt_rad)
         expected = np.ma.array(data=[0, 0, 82.11570, 221.52819, 236.30071,
                                      163.44645,	111.49595, 74.47526, 48.11727,
                                      29.37410],  mask=False)
-        ma_test.assert_masked_array_approx_equal(roc.array, expected)
+        ma_test.assert_masked_array_approx_equal(vert_spd.array, expected)
 
-    def test_rate_of_climb_combined_signals(self):
+    def test_vertical_speed_combined_signals(self):
         # ----------------------------------------------------------------------
         # NOTE: The results of this test are dependent upon the settings
-        # parameters GRAVITY = 32.2, RATE_OF_CLIMB_LAG_TC = 6.0,
+        # parameters GRAVITY = 32.2, VERTICAL_SPEED_LAG_TC = 6.0,
         # AZ_WASHOUT_TC = 60.0. Changes in any of these will result in a test
         # failure and recomputation of the result array will be necessary.
         # ----------------------------------------------------------------------
@@ -1655,7 +1655,7 @@ class TestRateOfClimb(unittest.TestCase):
         # After 2 seconds, increment by 1 ft/s^2
         az.array[2:] += 1/GRAVITY_IMPERIAL
         
-        # This will give a linearly increasing rate of climb 0>28 ft/sec...
+        # This will give a linearly increasing vertical speed 0>28 ft/sec...
         # which integrated (cumcum) gives a parabolic theoretical solution.
         parabola = (np.cumsum(np.arange(0.0,28.0,1)))
 
@@ -1667,32 +1667,32 @@ class TestRateOfClimb(unittest.TestCase):
         parabola *= 1.0 #  Allows you to make the values different for debug.
         alt_rad.array[2:] += parabola
         
-        roc = RateOfClimb()
-        roc.derive(az, alt_std, alt_rad)
-        self.assertEqual(np.argmax(roc.array), 29)
-        self.assertGreater(roc.array[29],1589)
-        self.assertLess(roc.array[29],1590)
+        vert_spd = VerticalSpeed()
+        vert_spd.derive(az, alt_std, alt_rad)
+        self.assertEqual(np.argmax(vert_spd.array), 29)
+        self.assertGreater(vert_spd.array[29],1589)
+        self.assertLess(vert_spd.array[29],1590)
 
 
-class TestRateOfClimbForFlightPhases(unittest.TestCase):
+class TestVerticalSpeedForFlightPhases(unittest.TestCase):
     def test_can_operate(self):
         expected = [('Altitude STD',)]
-        opts = RateOfClimbForFlightPhases.get_operational_combinations()
+        opts = VerticalSpeedForFlightPhases.get_operational_combinations()
         self.assertEqual(opts, expected)
         
-    def test_rate_of_climb_for_flight_phases_basic(self):
+    def test_vertical_speed_for_flight_phases_basic(self):
         alt_std = P('Altitude STD', np.ma.arange(10))
-        roc = RateOfClimbForFlightPhases()
-        roc.derive(alt_std)
+        vert_spd = VerticalSpeedForFlightPhases()
+        vert_spd.derive(alt_std)
         expected = np.ma.array(data=[60]*10, dtype=np.float, mask=False)
-        np.testing.assert_array_equal(roc.array, expected)
+        np.testing.assert_array_equal(vert_spd.array, expected)
 
-    def test_rate_of_climb_for_flight_phases_level_flight(self):
+    def test_vertical_speed_for_flight_phases_level_flight(self):
         alt_std = P('Altitude STD', np.ma.array([100]*10))
-        roc = RateOfClimbForFlightPhases()
-        roc.derive(alt_std)
+        vert_spd = VerticalSpeedForFlightPhases()
+        vert_spd.derive(alt_std)
         expected = np.ma.array(data=[0]*10, dtype=np.float, mask=False)
-        np.testing.assert_array_equal(roc.array, expected)
+        np.testing.assert_array_equal(vert_spd.array, expected)
 
         
 class TestRateOfTurn(unittest.TestCase):
@@ -1758,7 +1758,7 @@ class TestV2(unittest.TestCase):
     def setUp(self):
         self.default_kwargs = {'spd':False,
                                'flap':None,
-                               'config':None,
+                               'conf':None,
                                'fdr_v2':None,
                                'weight_liftoff':None,
                                'series':None,
@@ -1800,7 +1800,7 @@ class TestV2(unittest.TestCase):
             np.testing.assert_array_equal(param.array, expected)
 
     def test_v2__airbus_lookup(self):
-        # TODO: create airbus lookup test and add config to test hdf file
+        # TODO: create airbus lookup test and add conf to test hdf file
 
         #with hdf_file('test_data/airspeed_reference.hdf5') as hdf:
             #approaches = (Section(name='Approach', slice=slice(3346, 3540, None), start_edge=3345.5, stop_edge=3539.5),
@@ -1823,7 +1823,7 @@ class TestV2(unittest.TestCase):
 
 if __name__ == '__main__':
     suite = unittest.TestSuite()
-    suite.addTest(TestConfig('test_time_taken2'))
+    suite.addTest(TestConfiguration('test_time_taken2'))
     unittest.TextTestRunner(verbosity=2).run(suite)
 
 
