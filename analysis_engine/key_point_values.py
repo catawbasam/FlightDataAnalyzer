@@ -2902,7 +2902,7 @@ class PitchRate20FtToTouchdownMin(KeyPointValueNode):
 class PitchRate2DegPitchTo35FtMax(KeyPointValueNode):
     '''
     '''
-    def derive(self, pitch_rate=P('Pitch Rate'), lifts=S('Two Deg Pitch To 35 Ft')):
+    def derive(self, pitch_rate=P('Pitch Rate'), lifts=S('2 Deg Pitch To 35 Ft')):
         '''
         '''
         self.create_kpvs_within_slices(pitch_rate.array, lifts, max_value)
@@ -2912,7 +2912,7 @@ class PitchRate2DegPitchTo35FtMax(KeyPointValueNode):
 class PitchRate2DegPitchTo35FtMin(KeyPointValueNode):
     '''
     '''
-    def derive(self, pitch_rate=P('Pitch Rate'), lifts=S('Two Deg Pitch To 35 Ft')):
+    def derive(self, pitch_rate=P('Pitch Rate'), lifts=S('2 Deg Pitch To 35 Ft')):
         '''
         '''
         self.create_kpvs_within_slices(pitch_rate.array, lifts, min_value)
@@ -2923,7 +2923,7 @@ class PitchRate2DegPitchTo35FtMin(KeyPointValueNode):
 class PitchRate2DegPitchTo35FtAverage(KeyPointValueNode):
     '''
     '''
-    def derive(self, pitch=P('Pitch'), lifts=S('Two Deg Pitch To 35 Ft')):
+    def derive(self, pitch=P('Pitch'), lifts=S('2 Deg Pitch To 35 Ft')):
         '''
         '''
         for lift in lifts:
@@ -2936,13 +2936,13 @@ class PitchRate2DegPitchTo35FtAverage(KeyPointValueNode):
 
 # TODO: Write some unit tests!
 # TODO: Remove this KPV?  Not a dependency, not used in event definitions.
-# NOTE: Class name cannot begin with number - correct name uses '2' not 'Two'!
+# NOTE: Python class name restriction: '2 Deg Pitch To 35 Ft Duration'
 class TwoDegPitchTo35FtDuration(KeyPointValueNode):
     '''
     '''
     name = '2 Deg Pitch To 35 Ft Duration'
 
-    def derive(self, pitch=P('Pitch'), lifts=S('Two Deg Pitch To 35 Ft')):
+    def derive(self, pitch=P('Pitch'), lifts=S('2 Deg Pitch To 35 Ft')):
         '''
         '''
         for lift in lifts:

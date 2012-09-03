@@ -940,6 +940,7 @@ class TurningOnGround(FlightPhaseNode):
                 self.create_phase(turn_slice, name="Turning On Ground")
 
 
+# NOTE: Python class name restriction: '2 Deg Pitch To 35 Ft'
 class TwoDegPitchTo35Ft(FlightPhaseNode):
     """
     """
@@ -951,6 +952,6 @@ class TwoDegPitchTo35Ft(FlightPhaseNode):
             pitch_2_deg_idx = index_at_value(pitch.array, 2.0, reversed_slice, 
                                              endpoint='closing')
             self.create_section(slice(pitch_2_deg_idx, takeoff.slice.stop),
-                                name='Two Deg Pitch To 35 Ft', 
+                                name='2 Deg Pitch To 35 Ft', 
                                 begin=pitch_2_deg_idx,
                                 end=takeoff.stop_edge)
