@@ -44,7 +44,7 @@ from analysis_engine.key_point_values import (
     ##EngGasTempMax,
     EngEPR500FtToTouchdownMin,
     ##EngN13000To20FtMax,
-    EngN1500FtTo20FtMin,
+    EngN1500To20FtMin,
     ##EngN1Max,
     EngN1TakeoffMax,
     ##EngN2Max,
@@ -651,10 +651,10 @@ class TestEngEPR500FtToTouchdownMin(unittest.TestCase,
         self.second_param_method_calls = [('slices_from_to', (500, 0,), {})]
 
 
-class TestEngN1500FtTo20FtMin(unittest.TestCase,
+class TestEngN1500To20FtMin(unittest.TestCase,
                                    CreateKPVsWithinSlicesTest):
     def setUp(self):
-        self.node_class = EngN1500FtTo20FtMin
+        self.node_class = EngN1500To20FtMin
         self.operational_combinations = [('Eng (*) N1 Min', 'Altitude AAL For Flight Phases')]
         self.function = min_value
         self.second_param_method_calls = [('slices_from_to', (500, 0,), {})]

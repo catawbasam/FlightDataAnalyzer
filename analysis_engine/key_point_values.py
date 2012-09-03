@@ -1926,7 +1926,7 @@ class Eng_N1MaxDurationUnder60PercentAfterTouchdown(KeyPointValueNode):
                 self.create_kpv(eng_stop[0].index, 0.0, eng_num=eng_num)
 
 
-class EngN1500FtTo20FtMax(KeyPointValueNode):
+class EngN1500To20FtMax(KeyPointValueNode):
     '''
     '''
 
@@ -1943,7 +1943,7 @@ class EngN1500FtTo20FtMax(KeyPointValueNode):
         )
 
 
-class EngN1500FtTo20FtMin(KeyPointValueNode):
+class EngN1500To20FtMin(KeyPointValueNode):
     '''
     '''
 
