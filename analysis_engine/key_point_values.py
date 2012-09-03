@@ -2957,14 +2957,14 @@ class TwoDegPitchTo35FtDuration(KeyPointValueNode):
 # Vertical Speed (Rate of Climb/Descent) Helpers
 
 
-def vert_spd_phase_max_or_min(vert_spd, phases, function):
+def vert_spd_phase_max_or_min(obj, vert_spd, phases, function):
     '''
     '''
     for phase in phases:
         duration = phase.slice.stop - phase.slice.start
         if duration > CLIMB_OR_DESCENT_MIN_DURATION:
             index, value = function(vert_spd.array, phase.slice)
-            return index + phase.slice.start, value
+            obj.create_kpv(phase.slice.start + index, value)
 
 
 ################################################################################
@@ -2983,11 +2983,7 @@ class RateOfClimbMax(KeyPointValueNode):
         iterable.
 
         '''
-        try:
-            index, value = vert_spd_phase_max_or_min(vert_spd, climbing, max_value)
-            self.create_kpv(index, value)
-        except:
-            pass
+        vert_spd_phase_max_or_min(self, vert_spd, climbing, max_value)
 
 
 class RateOfClimb35To1000FtMin(KeyPointValueNode):
@@ -3023,11 +3019,7 @@ class RateOfDescentMax(KeyPointValueNode):
         descending phase that equates to an empty list, which is not
         iterable.
         '''
-        try:
-            index, value = vert_spd_phase_max_or_min(vert_spd, descending, min_value)
-            self.create_kpv(index, value)
-        except:
-            pass
+        vert_spd_phase_max_or_min(self, vert_spd, descending, min_value)
 
 
 class RateOfDescentTopOfDescentTo10000FtMax(KeyPointValueNode):
