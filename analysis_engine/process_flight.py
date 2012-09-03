@@ -316,11 +316,15 @@ if __name__ == '__main__':
                         help='Path of file to process.')
     parser.add_argument('-tail', dest='tail_number', type=str, default='G-ABCD',
                         help='Aircraft Tail Number for processing.')
+    parser.add_argument('-frame', dest='frame', type=str, default=None,
+                        help='Data frame name.')
     parser.add_argument('-p', dest='plot', action='store_true',
                         default=False, help='Plot flight onto a graph.')
     args = parser.parse_args()
     
     hdf_copy = copy_file(args.file, postfix='_process')
     process_flight(hdf_copy, {'Tail Number': args.tail_number,
-                              'Precise Positioning': True},
+                              'Precise Positioning': True,
+                              'Frame': args.frame,
+                              },
                    draw=args.plot)

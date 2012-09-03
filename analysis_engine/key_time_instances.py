@@ -23,7 +23,6 @@ from settings import (CLIMB_THRESHOLD,
                       SLOPE_FOR_TOC_TOD,
                       TAKEOFF_ACCELERATION_THRESHOLD
                       )
-from analysis_engine.plot_flight import plot_parameter
 
 def find_toc_tod(alt_data, ccd_slice, mode):
     '''
@@ -452,9 +451,10 @@ class Touchdown(KeyTimeInstanceNode):
                     sm_ht[i] = (1.0-tau)*sm_ht[i-1] + tau*my_alt[i-1] + my_roc[i]/60.0/roc.hz
 
                 # Plot for ease of inspection during development.
-                plot_parameter(alt.array[startpoint:endpoint], show=False)
-                plot_parameter(roc.array[startpoint:endpoint]/100.0, show=False)
-                plot_parameter(sm_ht)
+                ##from analysis_engine.plot_flight import plot_parameter
+                ##plot_parameter(alt.array[startpoint:endpoint], show=False)
+                ##plot_parameter(roc.array[startpoint:endpoint]/100.0, show=False)
+                ##plot_parameter(sm_ht)
                 
                 # The final step is trivial.
                 t1 = index_at_value(sm_ht, 0.0)+startpoint
