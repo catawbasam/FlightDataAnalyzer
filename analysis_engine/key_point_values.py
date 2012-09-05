@@ -1,15 +1,22 @@
 import numpy as np
 
-from analysis_engine.settings import (CLIMB_OR_DESCENT_MIN_DURATION,
+from analysis_engine.settings import (ACCEL_NORM_OFFSET_LIMIT,
+                                      CLIMB_OR_DESCENT_MIN_DURATION,
                                       CONTROL_FORCE_THRESHOLD,
                                       FEET_PER_NM,
+                                      GRAVITY_METRIC,
                                       HYSTERESIS_FPALT,
+                                      KTS_TO_MPS,
                                       LEVEL_FLIGHT_MIN_DURATION,
+                                      MU_GOOD,
+                                      MU_MEDIUM,
+                                      MU_POOR,
                                       NAME_VALUES_FLAP)
 
 from analysis_engine.node import KeyPointValueNode, KPV, KTI, P, S, A, M
 
-from analysis_engine.library import (clip, 
+from analysis_engine.library import (braking_action,
+                                     clip, 
                                      coreg, 
                                      cycle_counter,
                                      cycle_finder,
@@ -17,8 +24,9 @@ from analysis_engine.library import (clip,
                                      find_edges,
                                      hysteresis,
                                      ils_glideslope_align,
-                                     index_at_value, 
+                                     index_at_value,
                                      integrate,
+                                     is_index_within_slice,
                                      is_index_within_sections,
                                      mask_inside_slices,
                                      mask_outside_slices,
@@ -40,6 +48,29 @@ from analysis_engine.library import (clip,
                                      value_at_index)
 
 
+class AccelerationNormalOffset(KeyPointValueNode):
+    """
+    This KPV computes the normal accelerometer datum offset. This allows for
+    offsets that are sometimes found in these sensors which remain in service
+    although outside the permitted accuracy of the signal.
+    """
+    def derive(self, acc=P('Acceleration Normal'), taxis=S('Taxiing')):
+        total_sum = 0.0
+        total_count = 0
+        for taxi in taxis:
+            unmasked_data = np.ma.compressed(acc.array[taxi.slice])
+            count = len(unmasked_data)
+            if count:
+                total_count += count
+                total_sum += np.sum(unmasked_data)
+                index = taxi.slice.stop
+        if total_count>20:
+            delta = total_sum/float(total_count) - 1.0
+            if abs(delta) < ACCEL_NORM_OFFSET_LIMIT:
+                self.create_kpv(index, delta + 1.0)
+            
+        
+    
 class AccelerationLateralMax(KeyPointValueNode):
     @classmethod
     def can_operate(cls, available):
@@ -104,12 +135,12 @@ class DecelerationLongitudinalPeakLanding(KeyPointValueNode):
     '''
     def derive(self, landing=S('Landing'),
                accel=P('Acceleration Longitudinal')):
-        self.create_kpvs_within_slices(accel.array, landing, min_value)
+        self.create_kpvs_within_slices(-accel.array, landing, min_value)
 
         
 class AccelerationNormal20FtToFlareMax(KeyPointValueNode):
     #name = 'Acceleration Normal 20 Ft To Flare Max' # not required?
-    def derive(self, acceleration_normal=P('Acceleration Normal'),
+    def derive(self, acceleration_normal=P('Acceleration Normal Offset Removed'),
                alt_aal=P('Altitude AAL For Flight Phases')):
         self.create_kpvs_within_slices(acceleration_normal.array,
                                        alt_aal.slices_from_to(20, 5),
@@ -126,12 +157,12 @@ class AccelerationNormalMax(KeyPointValueNode):
         '''
         return 'Acceleration Normal' in available
     
-    def derive(self, acc_norm=P('Acceleration Normal'), moves = S('Mobile')):
+    def derive(self, acc_norm=P('Acceleration Normal Offset Removed'), moves = S('Mobile')):
         self.create_kpvs_within_slices(acc_norm.array, moves, max_value)
         
         
 class AccelerationNormalAirborneFlapsUpMax(KeyPointValueNode):
-    def derive(self, accel=P('Acceleration Normal'), flap=P('Flap'), 
+    def derive(self, accel=P('Acceleration Normal Offset Removed'), flap=P('Flap'), 
                airborne=S('Airborne')):
         # Mask data where the flaps are down
         acc_flap_up = np.ma.masked_where(flap.array>0.0, accel.array)
@@ -139,7 +170,7 @@ class AccelerationNormalAirborneFlapsUpMax(KeyPointValueNode):
 
 
 class AccelerationNormalAirborneFlapsUpMin(KeyPointValueNode):
-    def derive(self, accel=P('Acceleration Normal'), flap=P('Flap'), 
+    def derive(self, accel=P('Acceleration Normal Offset Removed'), flap=P('Flap'), 
                airborne=S('Airborne')):
         # Mask data where the flaps are down
         acc_flap_up = np.ma.masked_where(flap.array>0.0, accel.array)
@@ -147,7 +178,7 @@ class AccelerationNormalAirborneFlapsUpMin(KeyPointValueNode):
 
 
 class AccelerationNormalAirborneFlapsDownMax(KeyPointValueNode):
-    def derive(self, accel=P('Acceleration Normal'), flap=P('Flap'), 
+    def derive(self, accel=P('Acceleration Normal Offset Removed'), flap=P('Flap'), 
                airborne=S('Airborne')):
         # Mask data where the flaps are up
         acc_flap_up = np.ma.masked_where(flap.array==0.0, accel.array)
@@ -155,7 +186,7 @@ class AccelerationNormalAirborneFlapsDownMax(KeyPointValueNode):
 
 
 class AccelerationNormalAirborneFlapsDownMin(KeyPointValueNode):
-    def derive(self, accel=P('Acceleration Normal'), flap=P('Flap'), 
+    def derive(self, accel=P('Acceleration Normal Offset Removed'), flap=P('Flap'), 
                airborne=S('Airborne')):
         # Mask data where the flaps are up
         acc_flap_up = np.ma.masked_where(flap.array==0.0, accel.array)
@@ -163,7 +194,7 @@ class AccelerationNormalAirborneFlapsDownMin(KeyPointValueNode):
 
 
 class AccelerationNormalLiftoffTo35FtMax(KeyPointValueNode):
-    def derive(self, acc=P('Acceleration Normal'), takeoffs=S('Takeoff')):
+    def derive(self, acc=P('Acceleration Normal Offset Removed'), takeoffs=S('Takeoff')):
         self.create_kpvs_within_slices(acc.array, takeoffs, max_value)
 
 #-----------------------------------------------------------------------
@@ -185,7 +216,7 @@ class AccelerationNormalAtLiftoff(KeyPointValueNode):
     This is a measure of the normal acceleration at the point of liftoff, and
     is related to the pitch rate at takeoff.
     '''
-    def derive(self, acc=P('Acceleration Normal'), lifts=KTI('Liftoff')):
+    def derive(self, acc=P('Acceleration Normal Offset Removed'), lifts=KTI('Liftoff')):
         for lift in lifts:
             self.create_kpv(*bump(acc, lift))
 
@@ -195,7 +226,7 @@ class AccelerationNormalAtTouchdown(KeyPointValueNode):
     This is the peak acceleration at landing, often used to identify hard
     landings for maintenance purposes.
     '''
-    def derive(self, acc=P('Acceleration Normal'), tdwns=KTI('Touchdown')):
+    def derive(self, acc=P('Acceleration Normal Offset Removed'), tdwns=KTI('Touchdown')):
         for tdwn in tdwns:
             self.create_kpv(*bump(acc, tdwn))
 
@@ -774,11 +805,19 @@ class AltitudeAtLowestPointOnApproach(KeyPointValueNode):
         self.create_kpvs_at_ktis(height, low_points)
         '''
 
-
 class AirspeedAtTouchdown(KeyPointValueNode):
     def derive(self, airspeed=P('Airspeed'), touchdowns=KTI('Touchdown')):
         self.create_kpvs_at_ktis(airspeed.array, touchdowns)
 
+
+class AirspeedTrueAtTouchdown(KeyPointValueNode):
+    '''
+    This KPV relates to Groundspeed At Touchdown to illustrate headwinds and
+    tailwinds. We also have 'Tailwind 100 Ft To Touchdown Max' to cater for
+    safety event triggers.
+    '''
+    def derive(self, airspeed=P('Airspeed True'), touchdowns=KTI('Touchdown')):
+        self.create_kpvs_at_ktis(airspeed.array, touchdowns)
 
 
 class AirspeedMax(KeyPointValueNode):
@@ -1298,7 +1337,8 @@ class ControlColumnStiffness(KeyPointValueNode):
 
 class DistancePastGlideslopeAntennaToTouchdown(KeyPointValueNode):
     units = 'm'
-    def derive(self,  lat=P('Latitude Smoothed'),lon=P('Longitude Smoothed'),
+    def derive(self,  lat_tdn=KPV('Latitude At Touchdown'),
+               lon_tdn=KPV('Longitude At Touchdown'),
                tdwns=KTI('Touchdown'),rwy=A('FDR Landing Runway'),
                ils_ldgs=S('ILS Localizer Established')):
 
@@ -1309,7 +1349,7 @@ class DistancePastGlideslopeAntennaToTouchdown(KeyPointValueNode):
                and rwy.value and 'start' in rwy.value:
                 # Yes it was, so do the geometry...
                 gs = runway_distance_from_end(rwy.value, point='glideslope')
-                td = runway_distance_from_end(rwy.value, lat.array[land_idx], lon.array[land_idx])
+                td = runway_distance_from_end(rwy.value, lat_tdn[-1].value, lon_tdn[-1].value)
                 if gs and td:
                     distance = gs - td
                     self.create_kpv(land_idx, distance)
@@ -1332,7 +1372,125 @@ class DistanceFromRunwayStartToTouchdown(KeyPointValueNode):
             distance_to_tdn = runway_distance_from_end(rwy.value, lat_tdn[-1].value, lon_tdn[-1].value)
             if distance_to_tdn < distance_to_start: # sanity check
                 self.create_kpv(tdwns[-1].index, distance_to_start-distance_to_tdn)
+
     
+class DistanceFromTouchdownToRunwayEnd(KeyPointValueNode):
+    '''
+    Finds the distance from the touchdown point to the end of the runway
+    hardstanding. This only operates for the last landing, and previous touch
+    and goes will not be recorded.
+    '''
+    align_to_first_dependency = False
+    units = 'm'
+    def derive(self, lat_tdn=KPV('Latitude At Touchdown'),
+               lon_tdn=KPV('Longitude At Touchdown'),
+               tdwns=KTI('Touchdown'),
+               rwy=A('FDR Landing Runway')):
+        if rwy.value:
+            distance_to_tdn = runway_distance_from_end(rwy.value, 
+                                                       lat_tdn[-1].value, 
+                                                       lon_tdn[-1].value)
+            self.create_kpv(tdwns[-1].index, distance_to_tdn)
+    
+"""
+class DistanceUnderMediumBrakingToRunwayEnd(KeyPointValueNode):
+    '''
+    Finds the distance from the 0.1g ltouchdown point to the end of the runway
+    hardstanding. This only operates for the last landing, and previous touch
+    and goes will not be recorded.
+    '''
+    units = 'm'
+    def derive(self, gspd=P('Groundspeed'), landings=S('Landing'),
+               lat=P('Latitude Smoothed'),lon=P('Longitude Smoothed'),
+               rwy=A('FDR Landing Runway')):
+        if rwy.value:
+            for landing in landings:
+                index, braking_distance = braking_action(gspd, landing, 
+                                                               MU_MEDIUM)
+                limit_index = index + landing.slice.start
+                distance_at_limit = runway_distance_from_end(\
+                    rwy.value, lat.array[limit_index], lon.array[limit_index])
+                distance_at_stop = distance_at_limit - braking_distance
+                self.create_kpv(limit_index, distance_at_stop)
+    
+class DistanceUnderPoorBrakingToRunwayEnd(KeyPointValueNode):
+    units = 'm'
+    def derive(self, gspd=P('Groundspeed'), landings=S('Landing'),
+               lat=P('Latitude Smoothed'),lon=P('Longitude Smoothed'),
+               rwy=A('FDR Landing Runway')):
+        if rwy.value:
+            for landing in landings:
+                index, braking_distance = braking_action(gspd, landing,
+                                                               MU_POOR)
+                limit_index = index + landing.slice.start
+                distance_at_limit = runway_distance_from_end(\
+                    rwy.value, lat.array[limit_index], lon.array[limit_index])
+                distance_at_stop = distance_at_limit - braking_distance
+                self.create_kpv(limit_index, distance_at_stop)
+    
+class DistanceUnderGoodBrakingToRunwayEnd(KeyPointValueNode):
+    units = 'm'
+    def derive(self, gspd=P('Groundspeed'), landings=S('Landing'),
+               lat=P('Latitude Smoothed'),lon=P('Longitude Smoothed'),
+               rwy=A('FDR Landing Runway')):
+        if rwy.value:
+            for landing in landings:
+                index, braking_distance = braking_action(gspd, landing,
+                                                               MU_GOOD)
+                limit_index = index + landing.slice.start
+                distance_at_limit = runway_distance_from_end(\
+                    rwy.value, lat.array[limit_index], lon.array[limit_index])
+                distance_at_stop = distance_at_limit - braking_distance
+                self.create_kpv(limit_index, distance_at_stop)
+    
+
+class MinimumMuToBrakeOnRunway(KeyPointValueNode):
+    def derive(self, gspd=P('Groundspeed'), tdwns=S('Touchdown'),
+               lat=P('Latitude Smoothed'),lon=P('Longitude Smoothed'),
+               rwy=A('FDR Landing Runway')):
+        if rwy.value:
+            for tdwn in tdwns:
+                index = tdwn.index
+                tdn_lat = value_at_index(lat.array, index)
+                tdn_lon = value_at_index(lon.array, index)
+                distance_at_tdn = runway_distance_from_end(rwy.value, tdn_lat, tdn_lon)
+                speed = value_at_index(gspd.array, index) * KTS_TO_MPS
+                mu = (speed*speed) / (2.0 * GRAVITY_METRIC * distance_at_tdn)
+                self.create_kpv(index, mu)
+"""
+
+class DecelerationToStopOnRunway(KeyPointValueNode):
+    def derive(self, gspd=P('Groundspeed'), tdwns=S('Touchdown'), landings=S('Landing'),
+               lat_tdn=KPV('Latitude At Touchdown'),
+               lon_tdn=KPV('Longitude At Touchdown'),
+               rwy=A('FDR Landing Runway'),
+               ils_gs_apps=S('ILS Glideslope Established'),
+               ils_loc_apps=S('ILS Localizer Established'),
+               precise=A('Precise Positioning')):
+        if not rwy.value:
+            return
+        index = tdwns[-1].index
+        for landing in landings:
+            if not is_index_within_slice(index, landing.slice):
+                continue
+            # Was this an ILS approach where the glideslope was captured?
+            ils_approach = False
+            for ils_loc_app in ils_loc_apps:
+                if not slices_overlap(ils_loc_app.slice, landing.slice):
+                    continue
+                for ils_gs_app in ils_gs_apps:
+                    if slices_overlap(ils_loc_app.slice, ils_gs_app.slice):
+                        ils_approach = True
+            # So for captured ILS approaches or aircraft with precision location we can compute the deceleration required.
+            if precise.value or ils_approach:
+                distance_at_tdn = runway_distance_from_end(rwy.value, lat_tdn[-1].value, lon_tdn[-1].value)
+                dist = integrate(gspd.array[index:landing.slice.stop], gspd.hz, scale=KTS_TO_MPS)
+                speed = gspd.array[index:landing.slice.stop]*KTS_TO_MPS
+                mu = (speed*speed) / (2.0 * GRAVITY_METRIC * (distance_at_tdn - dist))
+                limit_point = np.ma.argmax(mu)
+                limit_mu = mu[limit_point]
+                self.create_kpv(limit_point + index, limit_mu)
+
     
 class DistanceFrom60KtToRunwayEnd(KeyPointValueNode):
     units = 'm'

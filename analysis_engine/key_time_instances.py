@@ -1,6 +1,7 @@
 import numpy as np
 
-from analysis_engine.library import (find_edges,
+from analysis_engine.library import (braking_action,
+                                     find_edges,
                                      hysteresis, 
                                      index_at_value,
                                      index_closest_value,
@@ -18,12 +19,16 @@ from analysis_engine.library import (find_edges,
 from analysis_engine.node import (M, P, S, KTI, KeyTimeInstanceNode)
 
 from settings import (CLIMB_THRESHOLD,
+                      GRAVITY_METRIC,
+                      KTS_TO_MPS,
+                      MU_GOOD,
+                      MU_MEDIUM,
+                      MU_POOR,
                       VERTICAL_SPEED_FOR_LIFTOFF,
                       VERTICAL_SPEED_FOR_TOUCHDOWN,
                       SLOPE_FOR_TOC_TOD,
                       TAKEOFF_ACCELERATION_THRESHOLD
                       )
-from analysis_engine.plot_flight import plot_parameter
 
 def find_toc_tod(alt_data, ccd_slice, mode):
     '''
@@ -63,11 +68,11 @@ class BottomOfDescent(KeyTimeInstanceNode):
         # point of the dip.
         for this_dlc in dlc:
             kti = np.ma.argmin(alt_std.array[this_dlc.slice])
-            self.create_kti(kti + this_dlc.slice.start)
+            self.create_kti(kti + this_dlc.start_edge)
         # For descents to landing, end where the aircraft is no longer airborne.
         for air in airs:
             if air.slice.stop:
-                self.create_kti(air.slice.stop)
+                self.create_kti(air.stop_edge)
         
            
 '''
@@ -190,7 +195,7 @@ class GoAround(KeyTimeInstanceNode):
                 pit = np.ma.argmin(alt_rad.array[dlc.slice])
             else:
                 pit = np.ma.argmin(alt_aal.array[dlc.slice])
-            self.create_kti(pit+dlc.slice.start)
+            self.create_kti(pit+dlc.start_edge)
 
 
 class GoAroundFlapRetracted(KeyTimeInstanceNode):
@@ -380,7 +385,7 @@ class LowestPointOnApproach(KeyTimeInstanceNode):
         height = minimum_unmasked(alt_aal.array, alt_rad.array)
         for app in apps:
             index = np.ma.argmin(height[app.slice])
-            self.create_kti(index+app.slice.start)
+            self.create_kti(index+app.start_edge)
             
 
 class InitialClimbStart(KeyTimeInstanceNode):
@@ -397,8 +402,8 @@ class LandingStart(KeyTimeInstanceNode):
     # (nominally), so this KTI is just at the end of that phase.
     def derive(self, landings=S('Landing')):
         for landing in landings:
-            if landing.slice.start:
-                self.create_kti(landing.slice.start)
+            if landing.start_edge:
+                self.create_kti(landing.start_edge)
 
 
 class TouchAndGo(KeyTimeInstanceNode):
@@ -469,57 +474,64 @@ class Touchdown(KeyTimeInstanceNode):
         # of the problems).
         for air in airs:
             t0 = air.slice.stop
-            if t0 and is_index_within_sections(t0, lands):
-                # Let's scan from 30ft to 10 seconds after the approximate touchdown moment.
-                startpoint = index_at_value(alt.array, 30.0, slice(t0, t0-200,-1))
-                endpoint = min(t0+10.0*roc.hz, len(roc.array))
+            for land in lands:
+                if t0 and is_index_within_slice(t0, land.slice):
+                    """
+                    # Let's scan from 30ft to 10 seconds after the approximate touchdown moment.
+                    startpoint = index_at_value(alt.array, 30.0, slice(t0, t0-200,-1))
+                    endpoint = min(t0+10.0*roc.hz, len(roc.array))
+                    """
 
-                # If we have a wheel sensor, use this. It is often a derived
-                # parameter created by ORing the left and right main gear
-                # signals.
-                if wow:
-                    edges = find_edges_on_state_change('Ground', wow.array[startpoint:endpoint])
-                    if edges != []:
-                        self.create_kti(edges[0] + startpoint)
-                    return
-                
-                if not wow or edges == []:
-                    #For aircraft without weight on wheels swiches, or if
-                    #there is a problem with the switch for this landing, we
-                    #do a local integration of the inertial rate of climb to
-                    #estimate the actual point of landing. This is referenced
-                    #to the # available altitude signal, altitude AAL, which
-                    #will have been # derived from the best available source.
-                    #This technique # leads on to the rate of descent at
-                    #landing KPV which can then # make the best calculation
-                    #of the landing ROD as we know more accurately the time #
-                    #where the mainwheels touched.
-        
-                    # Time constant of 3 seconds.
-                    tau = 1/3.0
-                    # Make space for the integrand
-                    sm_ht = np_ma_zeros_like(roc.array[startpoint:endpoint])
-                    # Repair the source data (otherwise we propogate masked data)
-                    my_roc = repair_mask(roc.array[startpoint:endpoint])
-                    my_alt = repair_mask(alt.array[startpoint:endpoint])
-    
-                    # Start at the beginning...
-                    sm_ht[0] = alt.array[startpoint]
-                    #...and calculate each with a weighted correction factor.
-                    for i in range(1, len(sm_ht)):
-                        sm_ht[i] = (1.0-tau)*sm_ht[i-1] + tau*my_alt[i-1] + my_roc[i]/60.0/roc.hz
-    
-                    t1 = index_at_value(sm_ht, 0.0)+startpoint
-                    if t1:
-                        self.create_kti(t1)
+                    # If we have a wheel sensor, use this. It is often a derived
+                    # parameter created by ORing the left and right main gear
+                    # signals.
+                    if wow:
+                        edges = find_edges_on_state_change('Ground', wow.array[land.slice])
+                        if edges != []:
+                            self.create_kti(edges[0] + land.slice.start)
+                        return
                     
-                    '''
-                    # Plot for ease of inspection during development.
-                    plot_parameter(alt.array[startpoint:endpoint], show=False)
-                    plot_parameter(roc.array[startpoint:endpoint]/100.0, show=False)
-                    #plot_parameter(on_gnd.array[startpoint:endpoint], show=False)
-                    plot_parameter(sm_ht)
-                    '''
+                    if not wow or edges == []:
+                        #For aircraft without weight on wheels swiches, or if
+                        #there is a problem with the switch for this landing, we
+                        #do a local integration of the inertial rate of climb to
+                        #estimate the actual point of landing. This is referenced
+                        #to the # available altitude signal, altitude AAL, which
+                        #will have been # derived from the best available source.
+                        #This technique # leads on to the rate of descent at
+                        #landing KPV which can then # make the best calculation
+                        #of the landing ROD as we know more accurately the time #
+                        #where the mainwheels touched.
+            
+                        # Time constant of 6 seconds.
+                        tau = 1/6.0
+                        # Make space for the integrand
+                        startpoint = land.start_edge
+                        endpoint = land.stop_edge
+                        sm_ht = np_ma_zeros_like(roc.array[startpoint:endpoint])
+                        # Repair the source data (otherwise we propogate masked data)
+                        my_roc = repair_mask(roc.array[startpoint:endpoint])
+                        my_alt = repair_mask(alt.array[startpoint:endpoint])
+        
+                        # Start at the beginning...
+                        sm_ht[0] = alt.array[startpoint]
+                        #...and calculate each with a weighted correction factor.
+                        for i in range(1, len(sm_ht)):
+                            sm_ht[i] = (1.0-tau)*sm_ht[i-1] + tau*my_alt[i-1] + my_roc[i]/60.0/roc.hz
+        
+                        t1 = index_at_value(sm_ht, 0.0)+startpoint
+                        if t1:
+                            self.create_kti(t1)
+                        
+                        
+                        '''
+                        # Plot for ease of inspection during development.
+                        from analysis_engine.plot_flight import plot_parameter
+                        plot_parameter(alt.array[startpoint:endpoint], show=False)
+                        plot_parameter(roc.array[startpoint:endpoint]/100.0, show=False)
+                        #plot_parameter(on_gnd.array[startpoint:endpoint], show=False)
+                        plot_parameter(sm_ht)
+                        '''
 
 
 class LandingTurnOffRunway(KeyTimeInstanceNode):
@@ -563,7 +575,34 @@ class LandingDecelerationEnd(KeyTimeInstanceNode):
             if end_decel:
                 self.create_kti(end_decel)
             else:
-                self.create_kti(landing.slice.stop)
+                self.create_kti(landing.stop_edge)
+
+
+'''
+Landing stopping distance limit points.
+
+The two points computed here are the places on the runway where, using brakes
+only on a surface with medium or poor braking action the aircraft would stop
+furthest down the runway.
+
+class LandingStopLimitPointPoorBraking(KeyTimeInstanceNode):
+    def derive(self, gspd=P('Groundspeed'), landings=S('Landing')):
+        for landing in landings:
+            limit_point, _ = braking_action(gspd, landing, 0.05)
+            self.create_kti(landing.slice.start + limit_point)
+
+class LandingStopLimitPointMediumBraking(KeyTimeInstanceNode):
+    def derive(self, gspd=P('Groundspeed'), landings=S('Landing')):
+        for landing in landings:
+            limit_point, _ = braking_action(gspd, landing, MU_MEDIUM)
+            self.create_kti(landing.slice.start + limit_point)
+
+class LandingStopLimitPointGoodBraking(KeyTimeInstanceNode):
+    def derive(self, gspd=P('Groundspeed'), landings=S('Landing')):
+        for landing in landings:
+            limit_point, _ = braking_action(gspd, landing, MU_GOOD)
+            self.create_kti(landing.slice.start + limit_point)
+'''
 
 
 class AltitudeWhenClimbing(KeyTimeInstanceNode):

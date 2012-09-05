@@ -87,35 +87,39 @@ def track_to_kml(hdf_path, kti_list, kpv_list, flight_list, plot_altitude=False)
     #add_track(kml, 'Recorded', lat_r, lon_r, 'ff0000ff', hdf[plot_altitude])
 
     for kti in kti_list:
-        #if kti.name in ['Touchdown', 'Localizer Established End']:
-        kti_point_values = {'name': kti.name}
-        altitude = alt.at(kti.index) if plot_altitude else None
-        if altitude:
-            kti_point_values['coords'] = ((kti.longitude, kti.latitude, altitude),)
-            kti_point_values['altitudemode'] = simplekml.constants.AltitudeMode.relativetoground 
-        else:
-            kti_point_values['coords'] = ((kti.longitude, kti.latitude,),)
-            kti_point_values['altitudemode'] = simplekml.constants.AltitudeMode.clamptoground 
-    
-        kml.newpoint(**kti_point_values)
+        if kti.name in ['Touchdown',
+                        'Landing Stop Limit Point Poor Braking',
+                        'Landing Stop Limit Point Medium Braking',
+                        'Landing Stop Limit Point Good Braking']:
+            kti_point_values = {'name': kti.name}
+            altitude = alt.at(kti.index) if plot_altitude else None
+            if altitude:
+                kti_point_values['coords'] = ((kti.longitude, kti.latitude, altitude),)
+                kti_point_values['altitudemode'] = simplekml.constants.AltitudeMode.relativetoground 
+            else:
+                kti_point_values['coords'] = ((kti.longitude, kti.latitude,),)
+                kti_point_values['altitudemode'] = simplekml.constants.AltitudeMode.clamptoground 
         
+            kml.newpoint(**kti_point_values)
+            
     for kpv in kpv_list:
-        style = simplekml.Style()
-        style.iconstyle.color = simplekml.Color.red
-        kpv_point_values = {'name': '%s (%s)' % (kpv.name, kpv.value)}
-        altitude = alt.at(kpv.index) if plot_altitude else None
-        if altitude:
-            kpv_point_values['coords'] = (
-                (smooth_lon.at(kpv.index), smooth_lat.at(kpv.index), altitude,),)
-            kpv_point_values['altitudemode'] = simplekml.constants.AltitudeMode.relativetoground 
-        else:
-            kpv_point_values['coords'] = (
-                (smooth_lon.at(kpv.index), smooth_lat.at(kpv.index),),)
-            kpv_point_values['altitudemode'] = simplekml.constants.AltitudeMode.clamptoground 
-        
-        pnt = kml.newpoint(**kpv_point_values)
-        pnt.style = style
-        
+        if kpv.name in ['Deceleration To Stop On Runway']:
+            style = simplekml.Style()
+            style.iconstyle.color = simplekml.Color.red
+            kpv_point_values = {'name': '%s (%s)' % (kpv.name, kpv.value)}
+            altitude = alt.at(kpv.index) if plot_altitude else None
+            if altitude:
+                kpv_point_values['coords'] = (
+                    (smooth_lon.at(kpv.index), smooth_lat.at(kpv.index), altitude,),)
+                kpv_point_values['altitudemode'] = simplekml.constants.AltitudeMode.relativetoground 
+            else:
+                kpv_point_values['coords'] = (
+                    (smooth_lon.at(kpv.index), smooth_lat.at(kpv.index),),)
+                kpv_point_values['altitudemode'] = simplekml.constants.AltitudeMode.clamptoground 
+            
+            pnt = kml.newpoint(**kpv_point_values)
+            pnt.style = style
+            
     for attribute in flight_list:
         if attribute.name in ['FDR Approaches']:
             for app in attribute.value:

@@ -9,8 +9,13 @@ from itertools import izip
 ##from scipy.optimize import fmin, fmin_bfgs, fmin_tnc
 # TODO: Inform Enthought that fmin_l_bfgs_b dies in a dark hole at _lbfgsb.setulb
 
-from settings import (KTS_TO_MPS, METRES_TO_FEET, REPAIR_DURATION, 
-                      TRUCK_OR_TRAILER_INTERVAL, TRUCK_OR_TRAILER_PERIOD)
+from settings import (GRAVITY_METRIC,
+                      KTS_TO_MPS, 
+                      METRES_TO_FEET, 
+                      REPAIR_DURATION, 
+                      TRUCK_OR_TRAILER_INTERVAL, 
+                      TRUCK_OR_TRAILER_PERIOD)
+
 # There is no numpy masked array function for radians, so we just multiply thus:
 deg2rad = radians(1.0)
 
@@ -245,6 +250,20 @@ def bearings_and_distances(latitudes, longitudes, reference):
 
     return brg_array, dist_array
 
+"""
+Landing stopping distances.
+
+def braking_action(gspd, landing, mu):
+    dist = integrate(gspd.array[landing.slice], gspd.hz, scale=KTS_TO_MPS)
+    #decelerate = np.power(gspd.array[landing.slice]*KTS_TO_MPS,2.0)\
+        #/(2.0*GRAVITY_METRIC*mu)
+    mu = np.power(gspd.array[landing.slice]*KTS_TO_MPS,2.0)\
+        /(2.0*GRAVITY_METRIC*dist)
+    limit_point = np.ma.argmax(mu)
+    ##limit_point = np.ma.argmax(dist+decelerate)
+    ##braking_distance = dist[limit_point] + decelerate[limit_point]
+    return limit_point, mu[limit_point]
+"""
 
 def calculate_timebase(years, months, days, hours, mins, secs):
     """
@@ -1000,6 +1019,10 @@ def runway_distance_from_end(runway, *args, **kwds):
     end is taken. This is a convenient startingpoint for measuring runway
     landing distances.
     
+    Note: If high accuracy is required, compute the latitude and longitude
+    using the value_at_index function rather than just indexing into the
+    latitude and longitude array.
+    
     :param runway: Runway location details dictionary.
     :type runway: Dictionary containing:
     ['start']['latitude'] runway start position
@@ -1011,6 +1034,7 @@ def runway_distance_from_end(runway, *args, **kwds):
     :type lat: float
     :param lon: Longitude of the point of interest
     :type lon: float
+    
     **kwds if supplied are a point in the runway dictionary
     :param point: dictionary name of the point of reference, e.g. 'glideslope'
     :type point: String

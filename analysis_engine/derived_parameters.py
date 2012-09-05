@@ -78,13 +78,25 @@ from data_validation.rate_of_change import validate_rate_of_change
 deg2rad = radians(1.0)
 
 
+class AccelerationNormalOffsetRemoved(DerivedParameterNode):
+    """
+    This process attempts to remove datum errors in the normal accelerometer.
+    """
+    def derive(self, acc=P('Acceleration Normal'), 
+               offset = KPV('Acceleration Normal Offset')):
+        if offset:
+            self.array = acc.array - offset[0].value + 1.0
+        else:
+            self.array = acc.array
+    
+    
 class AccelerationVertical(DerivedParameterNode):
     """
     Resolution of three accelerations to compute the vertical
     acceleration (perpendicular to the earth surface). Result is in g,
     retaining the 1.0 datum and positive upwards.
     """
-    def derive(self, acc_norm=P('Acceleration Normal'), 
+    def derive(self, acc_norm=P('Acceleration Normal Offset Removed'), 
                acc_lat=P('Acceleration Lateral'), 
                acc_long=P('Acceleration Longitudinal'), 
                pitch=P('Pitch'), roll=P('Roll')):
@@ -104,7 +116,7 @@ class AccelerationForwards(DerivedParameterNode):
     
     Forwards = +ve, Constant sensor errors not washed out.
     """
-    def derive(self, acc_norm=P('Acceleration Normal'), 
+    def derive(self, acc_norm=P('Acceleration Normal Offset Removed'), 
                acc_long=P('Acceleration Longitudinal'), 
                pitch=P('Pitch')):
         pitch_rad = pitch.array*deg2rad
@@ -146,7 +158,7 @@ class AccelerationSideways(DerivedParameterNode):
     acceleration, that is, in the direction perpendicular to the aircraft centreline
     when projected onto the earth's surface. Right = +ve.
     """
-    def derive(self, acc_norm=P('Acceleration Normal'), 
+    def derive(self, acc_norm=P('Acceleration Normal Offset Removed'), 
                acc_lat=P('Acceleration Lateral'),
                acc_long=P('Acceleration Longitudinal'), 
                pitch=P('Pitch'), roll=P('Roll')):
@@ -727,6 +739,7 @@ class AltitudeSTD(DerivedParameterNode):
             raise DataFrameError(self.name, frame_name)
 
 
+'''
 class AltitudeQNH(DerivedParameterNode):
     """
     Altitude Parameter to account for transition altitudes for airports
@@ -772,7 +785,7 @@ class AltitudeQNH(DerivedParameterNode):
         """
         
         self.array = alt_qnh
-
+'''
 
 '''
 class AltitudeSTD(DerivedParameterNode):
@@ -889,7 +902,7 @@ class Autothrottle(DerivedParameterNode):
 
     Not required for 737-5 frame as AT Engaged is recorded directly.
     """
-    '''
+'''
  
         
 class AltitudeTail(DerivedParameterNode):
