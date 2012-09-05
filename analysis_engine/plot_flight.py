@@ -87,21 +87,18 @@ def track_to_kml(hdf_path, kti_list, kpv_list, flight_list, plot_altitude=False)
     #add_track(kml, 'Recorded', lat_r, lon_r, 'ff0000ff', hdf[plot_altitude])
 
     for kti in kti_list:
-        if kti.name in ['Touchdown',
-                        'Landing Stop Limit Point Poor Braking',
-                        'Landing Stop Limit Point Medium Braking',
-                        'Landing Stop Limit Point Good Braking']:
-            kti_point_values = {'name': kti.name}
-            altitude = alt.at(kti.index) if plot_altitude else None
-            if altitude:
-                kti_point_values['coords'] = ((kti.longitude, kti.latitude, altitude),)
-                kti_point_values['altitudemode'] = simplekml.constants.AltitudeMode.relativetoground 
-            else:
-                kti_point_values['coords'] = ((kti.longitude, kti.latitude,),)
-                kti_point_values['altitudemode'] = simplekml.constants.AltitudeMode.clamptoground 
+        #if kti.name in ['Touchdown']:
+        kti_point_values = {'name': kti.name}
+        altitude = alt.at(kti.index) if plot_altitude else None
+        if altitude:
+            kti_point_values['coords'] = ((kti.longitude, kti.latitude, altitude),)
+            kti_point_values['altitudemode'] = simplekml.constants.AltitudeMode.relativetoground 
+        else:
+            kti_point_values['coords'] = ((kti.longitude, kti.latitude,),)
+            kti_point_values['altitudemode'] = simplekml.constants.AltitudeMode.clamptoground 
+    
+        kml.newpoint(**kti_point_values)
         
-            kml.newpoint(**kti_point_values)
-            
     for kpv in kpv_list:
         if kpv.name in ['Deceleration To Stop On Runway']:
             style = simplekml.Style()

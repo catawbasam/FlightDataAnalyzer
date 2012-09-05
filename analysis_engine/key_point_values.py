@@ -15,8 +15,7 @@ from analysis_engine.settings import (ACCEL_NORM_OFFSET_LIMIT,
 
 from analysis_engine.node import KeyPointValueNode, KPV, KTI, P, S, A, M
 
-from analysis_engine.library import (braking_action,
-                                     clip, 
+from analysis_engine.library import (clip, 
                                      coreg, 
                                      cycle_counter,
                                      cycle_finder,

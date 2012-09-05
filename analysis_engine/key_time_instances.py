@@ -1,7 +1,6 @@
 import numpy as np
 
-from analysis_engine.library import (braking_action,
-                                     find_edges,
+from analysis_engine.library import (find_edges,
                                      hysteresis, 
                                      index_at_value,
                                      index_closest_value,
