@@ -189,6 +189,20 @@ def align(slave, master, data_type=None):
     return slave_aligned
 
 
+def ambiguous_runway(rwy):
+    # There are a number of runway related KPVs that we only create if we
+    # know the actual runway we landed on. Where there is ambiguity the
+    # runway attribute may be truncated, or the identifier, if present, will
+    # end in a "*" character.
+    if rwy == None:
+        return True
+    if rwy.value == None:
+        return True
+    if not rwy.value.has_key('identifier'):
+        return True
+    return rwy.value['identifier'].endswith('*')
+   
+
 def bearing_and_distance(lat1, lon1, lat2, lon2):
     """
     Simplified version of bearings and distances for a single pair of
@@ -672,8 +686,20 @@ def clip(array, period, hz=1.0, remove='peaks'):
     if remove not in ['peaks', 'troughs']:
         raise ValueError('Clip called with unrecognised removal mode')
     
-    # Preparation of convenient numbers and data to process
+    # Width is the number of samples to be computed, allowing for delay period before and after.
     width = len(array) - 2*delay
+    
+    # If the clip period is longer than the array, width is zero or negative,
+    # so we just return the highest or lowest value.
+    if width <= 0:
+        result = np_ma_ones_like(array)
+        if remove == 'peaks':
+            result *= np.ma.min(array)
+        else:
+            result *= np.ma.max(array)
+        return result
+    
+    # OK - normal operation here. We repair the mask to avoid propogating invalid samples unreasonably.
     source = repair_mask(array, frequency=hz, repair_duration=period-(1/hz))
     if source != None and np.ma.count(source): # Because np.ma.count(source)=1 if source = None
         result = np.ma.copy(source)
@@ -998,6 +1024,11 @@ def _dist(lat1_d, lon1_d, lat2_d, lon2_d):
     """
     Haversine formula for calculating distances between coordinates.
     """
+    if (lat1_d == 0.0 and lon1_d == 0.0) or (lat2_d == 0.0 and lon2_d == 0.0):
+        # Being asked for a distance from nowhere point on the Atlantic. 
+        # Decline to get sucked into this trap !
+        return None
+    
     lat1 = radians(lat1_d)
     lon1 = radians(lon1_d)
     lat2 = radians(lat2_d)
@@ -1021,7 +1052,9 @@ def runway_distance_from_end(runway, *args, **kwds):
     
     Note: If high accuracy is required, compute the latitude and longitude
     using the value_at_index function rather than just indexing into the
-    latitude and longitude array.
+    latitude and longitude array. Alternatively use KPVs 'Latitude At
+    Touchdown' and 'Longitude At Touchdown' which are the most accurate
+    locations we have available for touchdown.
     
     :param runway: Runway location details dictionary.
     :type runway: Dictionary containing:
@@ -1054,8 +1087,11 @@ def runway_distance_from_end(runway, *args, **kwds):
                             kwds['point'], runway['id'])
             return None
 
-    return _dist(new_lat, new_lon, 
-                 runway['end']['latitude'], runway['end']['longitude'])
+    if new_lat and new_lon:
+        return _dist(new_lat, new_lon, 
+                     runway['end']['latitude'], runway['end']['longitude'])
+    else:
+        return None
         
 
 def runway_distances(runway):
@@ -1186,13 +1222,18 @@ def runway_snap(runway, lat, lon):
     b = _dist(lat, lon, start_lat, start_lon)
     d = _dist(start_lat, start_lon, end_lat, end_lon)
     
-    r = (1.0+(a**2 - b**2)/d**2)/2.0
+    if a and b and d:
+        r = (1.0+(a**2 - b**2)/d**2)/2.0
+        
+        # The projected glideslope antenna position is given by this formula
+        new_lat = end_lat + r*(start_lat - end_lat)
+        new_lon = end_lon + r*(start_lon - end_lon)
+        
+        return new_lat, new_lon
     
-    # The projected glideslope antenna position is given by this formula
-    new_lat = end_lat + r*(start_lat - end_lat)
-    new_lon = end_lon + r*(start_lon - end_lon)
+    else:
+        return None, None
     
-    return new_lat, new_lon
 
     
 def ground_track(lat_fix, lon_fix, gspd, hdg, frequency, mode):
@@ -1259,7 +1300,7 @@ def ground_track(lat_fix, lon_fix, gspd, hdg, frequency, mode):
     east = integrate(delta_east, frequency, scale=KTS_TO_MPS, direction=direction)
     
     bearing = np.ma.array(np.rad2deg(np.arctan2(east, north)))
-    distance = np.ma.array(np.sqrt(north**2 + east**2))
+    distance = np.ma.array(np.ma.sqrt(north**2 + east**2))
     distance.mask = result.mask
     
     lat, lon = latitudes_and_longitudes(bearing, distance, 
@@ -2424,7 +2465,9 @@ def np_ma_zeros_like(array):
     replaced should the Numpy library be extended in future.
     
     :param array: array of length to be replicated.
-    :type array: A Numpy array - can be masked or not.
+    :type array: A Numpy masked array - can be masked or not.
+    
+    TODO: Confirm operation with normal Numpy array. The reference to array.data probably fails.
     
     :returns: Numpy masked array of unmasked zero values, length same as input array.
     """
@@ -2654,7 +2697,7 @@ def rate_of_change_array(to_diff, hz, width):
     :returns: masked array of values with differentiation applied
 
     '''
-    hw = width * hz / 2.0
+    hw = int(width * hz / 2.0)
     if hw < 1:
         raise ValueError, 'Rate of change called with inadequate width.'
     if len(to_diff) < width:
@@ -2692,7 +2735,7 @@ def rate_of_change(diff_param, width):
     
 
 def repair_mask(array, frequency=1, repair_duration=REPAIR_DURATION,
-                raise_duration_exceedance=False, copy=False):
+                raise_duration_exceedance=False, copy=False, extrapolate=False):
     '''
     This repairs short sections of data ready for use by flight phase algorithms
     It is not intended to be used for key point computations, where invalid data
@@ -2702,6 +2745,7 @@ def repair_mask(array, frequency=1, repair_duration=REPAIR_DURATION,
     
     :param repair_duration: If None, any length of masked data will be repaired.
     :param raise_duration_exceedance: If False, no warning is raised if there are masked sections longer than repair_duration. They will remain unrepaired.
+    :param extrapolate: If True, data is extrapolated at the start and end of the array.
     '''
     if copy:
         array = array.copy()
@@ -2721,9 +2765,17 @@ def repair_mask(array, frequency=1, repair_duration=REPAIR_DURATION,
             else:
                 continue # Too long to repair
         elif section.start == 0:
-            continue # Can't interpolate if we don't know the first sample
+            if extrapolate:
+                array.data[section] = array.data[section.stop]
+                array.mask[section] = False
+            else:continue # Can't interpolate if we don't know the first sample
+        
         elif section.stop == len(array):
-            continue # Can't interpolate if we don't know the last sample
+            if extrapolate:
+                array.data[section] = array.data[section.start-1]
+                array.mask[section] = False
+            else:
+                continue # Can't interpolate if we don't know the last sample
         else:
             array.data[section] = np.interp(np.arange(length) + 1,
                                             [0, length + 1],
@@ -3119,8 +3171,8 @@ def smooth_track(lat, lon):
         cost_0 = cost
         cost = smooth_track_cost_function(lat_s, lon_s, lat, lon)
 
-    if cost>0.100:
-        logger.warn("Smooth Track Cost Function closed with cost %d",cost)
+    if cost>0.1:
+        logger.warn("Smooth Track Cost Function closed with cost %f.3",cost)
     
     return lat_last, lon_last, cost_0
 

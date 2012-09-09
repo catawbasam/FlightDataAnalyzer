@@ -38,8 +38,8 @@ class TestApproaches(unittest.TestCase):
          'Altitude AAL',
          'Latitude At Lowest Point On Approach',
          'Longitude At Lowest Point On Approach',
-         'Latitude At Touchdown',
-         'Longitude At Touchdown']
+         'Latitude At Landing',
+         'Longitude At Landing']
         # Can operate with all required parameters.
         self.assertTrue(Approaches.can_operate(\
             ['Start Datetime',
@@ -47,16 +47,16 @@ class TestApproaches(unittest.TestCase):
              'Altitude AAL',
              'Latitude At Lowest Point On Approach',
              'Longitude At Lowest Point On Approach',
-             'Latitude At Touchdown',
-             'Longitude At Touchdown']))
+             'Latitude At Landing',
+             'Longitude At Landing']))
         # Can operate with landing lat lng.
         self.assertFalse(Approaches.can_operate(\
             ['Start Datetime',
              'Approach',
              'Altitude AAL',
              'Latitude At Lowest Point On Approach',
-             'Latitude At Touchdown',
-             'Longitude At Touchdown']))
+             'Latitude At Landing',
+             'Longitude At Landing']))
         # Can operate with some optional parameters.
         self.assertTrue(Approaches.can_operate(\
             ['Start Datetime',
@@ -64,8 +64,8 @@ class TestApproaches(unittest.TestCase):
              'Altitude AAL',
              'Latitude At Lowest Point On Approach',
              'Longitude At Lowest Point On Approach',
-             'Latitude At Touchdown',
-             'Longitude At Touchdown',
+             'Latitude At Landing',
+             'Longitude At Landing',
              'Heading At Lowest Point On Approach']))
         # Can operate with everything.
         self.assertTrue(Approaches.can_operate(\
@@ -74,8 +74,8 @@ class TestApproaches(unittest.TestCase):
              'Altitude AAL',
              'Latitude At Lowest Point On Approach',
              'Longitude At Lowest Point On Approach',
-             'Latitude At Touchdown',
-             'Longitude At Touchdown',
+             'Latitude At Landing',
+             'Longitude At Landing',
              'Heading At Lowest Point On Approach',
              'Heading At Landing',
              'Heading Vacating Runway',
@@ -104,17 +104,17 @@ class TestApproaches(unittest.TestCase):
              'Touch And Go',
              'Go Around',
              'Latitude At Lowest Point On Approach',
-             'Longitude At Touchdown']))
+             'Longitude At Landing']))
     
     def test__get_lat_lon(self):
         # Landing KPVs.
         approaches = Approaches()
         approach_slice = slice(3,10)
-        landing_lat_kpvs = KPV('Latitude At Touchdown',
+        landing_lat_kpvs = KPV('Latitude At Landing',
                                items=[KeyPointValue(1, 13, 'b'),
                                       KeyPointValue(5, 10, 'b'),
                                       KeyPointValue(17, 14, 'b')])
-        landing_lon_kpvs = KPV('Longitude At Touchdown',
+        landing_lon_kpvs = KPV('Longitude At Landing',
                                items=[KeyPointValue(1, -1, 'b'),
                                       KeyPointValue(5, -2, 'b'),
                                       KeyPointValue(17, 2, 'b')])
@@ -199,9 +199,9 @@ class TestApproaches(unittest.TestCase):
         start_datetime = A('Start Datetime', value=datetime(1970, 1,1))
         approach_and_landing = S('Approach and Landing',
                                  items=[Section('a', slice(0,10), 0, 10)])
-        landing_lat_kpvs = KPV('Latitude At Touchdown',
+        landing_lat_kpvs = KPV('Latitude At Landing',
                                items=[KeyPointValue(5, 10, 'b')])
-        landing_lon_kpvs = KPV('Longitude At Touchdown',
+        landing_lon_kpvs = KPV('Longitude At Landing',
                                items=[KeyPointValue(5, -2, 'b')])
         landing_hdg_kpvs = KPV('Heading At Landing',
                                items=[KeyPointValue(15, 60, 'a')])
@@ -590,7 +590,7 @@ class TestFlightNumber(unittest.TestCase):
 class TestLandingAirport(unittest.TestCase):
     def test_can_operate(self):
         self.assertEqual(LandingAirport.get_operational_combinations(),
-                         [('Latitude At Touchdown', 'Longitude At Touchdown')])
+                         [('Latitude At Landing', 'Longitude At Landing')])
     
     @patch('analysis_engine.api_handler_analysis_engine.AnalysisEngineAPIHandlerHTTP.get_nearest_airport')
     def test_derive_airport_not_found(self, get_nearest_airport):
@@ -598,10 +598,10 @@ class TestLandingAirport(unittest.TestCase):
         Attribute is not set when airport is not found.
         '''
         get_nearest_airport.side_effect = NotFoundError('Not Found.')
-        latitude = KPV('Latitude At Touchdown',
+        latitude = KPV('Latitude At Landing',
                        items=[KeyPointValue(12, 0.5, 'a'),
                               KeyPointValue(32, 0.9, 'a'),])
-        longitude = KPV('Longitude At Touchdown',
+        longitude = KPV('Longitude At Landing',
                         items=[KeyPointValue(12, 7.1, 'a'),
                                KeyPointValue(32, 8.4, 'a')])
         landing_airport = LandingAirport()
@@ -616,10 +616,10 @@ class TestLandingAirport(unittest.TestCase):
         Attribute is set when airport is found.
         '''
         airport_info = {'id': 123}
-        latitude = KPV('Latitude At Touchdown',
+        latitude = KPV('Latitude At Landing',
                        items=[KeyPointValue(12, 0.5, 'a'),
                               KeyPointValue(32, 0.9, 'a'),])
-        longitude = KPV('Longitude At Touchdown',
+        longitude = KPV('Longitude At Landing',
                         items=[KeyPointValue(12, 7.1, 'a'),
                                KeyPointValue(32, 8.4, 'a')])
         landing_airport = LandingAirport()
@@ -766,8 +766,8 @@ class TestLandingRunway(unittest.TestCase):
         self.assertEqual(combinations[-1], ('Approach',
                                             'Heading At Landing',
                                             'FDR Landing Airport',
-                                            'Latitude At Touchdown',
-                                            'Longitude At Touchdown',
+                                            'Latitude At Landing',
+                                            'Longitude At Landing',
                                             'ILS Frequency On Approach',
                                             'Precise Positioning'))
     
@@ -813,9 +813,9 @@ class TestLandingRunway(unittest.TestCase):
         # Airport, Landing Heading, Latitude, Longitude and Precision
         # arguments. Latitude and Longitude are only passed with all these
         # parameters available and Precise Positioning is True.
-        latitude = KPV('Latitude At Touchdown',
+        latitude = KPV('Latitude At Landing',
                        items=[KeyPointValue(15, 1.2, 'DATA')])
-        longitude = KPV('Latitude At Touchdown',
+        longitude = KPV('Latitude At Landing',
                         items=[KeyPointValue(15, 3.2, 'DATA')])
         precision = A('Precision')
         precision.value = False

@@ -7,6 +7,8 @@ import unittest
 from math import sqrt
 from datetime import datetime
 
+from analysis_engine.flight_attribute import LandingRunway
+
 # A set of masked array test utilities from Pierre GF Gerard-Marchant
 # http://www.java2s.com/Open-Source/Python/Math/Numerical-Python/numpy/numpy/ma/testutils.py.htm
 import utilities.masked_array_testutils as ma_test
@@ -415,7 +417,32 @@ class TestAlign(unittest.TestCase):
         expected = np.ma.array([1] * 64 + [2] * 64 + [3] * 64 + [4] * 64)
         np.testing.assert_array_equal(result.data, expected)
     
-    
+
+class TestAmbiguousRunway(unittest.TestCase):
+    def test_valid(self):
+        landing_runway = LandingRunway()
+        landing_runway.set_flight_attr({'identifier': '27L'})
+        self.assertFalse(ambiguous_runway(landing_runway))
+
+    def test_invalid_unresolved_runways(self):
+        landing_runway = LandingRunway()
+        landing_runway.set_flight_attr({'identifier': '27*'})
+        self.assertTrue(ambiguous_runway(landing_runway))
+        
+    def test_invalid_no_runway_A(self):
+        self.assertTrue(ambiguous_runway(None))
+        
+    def test_invalid_no_runway_B(self):
+        landing_runway = LandingRunway()
+        landing_runway.set_flight_attr(None)
+        self.assertTrue(ambiguous_runway(landing_runway))
+             
+    def test_invalid_no_runway_C(self):
+        landing_runway = LandingRunway()
+        landing_runway.set_flight_attr({})
+        self.assertTrue(ambiguous_runway(landing_runway))
+             
+        
 class TestBearingsAndDistances(unittest.TestCase):
     def test_known_distance(self):
         fareham = {'latitude':50.856146,'longitude':-1.183182}
@@ -742,6 +769,13 @@ class TestClip(unittest.TestCase):
         array = np.ma.array(data=[1,2,3],mask=[1,1,1])
         result = clip(array, 3)
         np.testing.assert_array_equal(result.mask, array.mask)
+
+    def test_clip_short_data(self):
+        an_array = np.ma.array([9,8,7,6,5,4,3,2,1,2,3,4,5,6,7,8])
+        result = clip(an_array, 30, remove='troughs')
+        expected = np.array([9,9,9,9,9,9,9,9,9,9,9,9,9,9,9,9])
+        np.testing.assert_array_almost_equal(result, expected)
+
 
 class TestCycleCounter(unittest.TestCase):
     def test_cycle_counter(self):
@@ -2263,6 +2297,11 @@ class TestRepairMask(unittest.TestCase):
         res = repair_mask(array)
         ma_test.assert_masked_array_approx_equal(res, array)
 
+    def test_extrapolate(self):
+        array = np.ma.array([2,4,6,7,5,3,1],mask=[1,1,0,0,1,1,1])
+        res = repair_mask(array, extrapolate=True)
+        expected = np.ma.array([6,6,6,7,7,7,7],mask=[0,0,0,0,0,0,0])
+        ma_test.assert_array_equal(res, expected)
 
 class TestRoundToNearest(unittest.TestCase):
     def test_round_to_nearest(self):
