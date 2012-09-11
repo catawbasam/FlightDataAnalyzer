@@ -2574,7 +2574,9 @@ def truck_and_trailer(data, ttp, overall, trailer, curve_sense, _slice):
         return None
     
     
-def peak_curvature(array, _slice=slice(None), curve_sense='Concave'):
+def peak_curvature(array, _slice=slice(None), curve_sense='Concave',
+                   gap = TRUCK_OR_TRAILER_INTERVAL,
+                   ttp = TRUCK_OR_TRAILER_PERIOD):
     """
     :param array: Parameter to be examined
     :type array: Numpy masked array
@@ -2600,10 +2602,10 @@ def peak_curvature(array, _slice=slice(None), curve_sense='Concave'):
     we should provide analysis with only airspeed, altitude and heading data
     available.
     """
-    gap = TRUCK_OR_TRAILER_INTERVAL
+    #gap = TRUCK_OR_TRAILER_INTERVAL
     if gap%2-1:
         gap-=1  #  Ensure gap is odd
-    ttp = TRUCK_OR_TRAILER_PERIOD
+    #ttp = TRUCK_OR_TRAILER_PERIOD
     trailer = ttp+gap
     overall = 2*ttp + gap
     
@@ -2642,13 +2644,13 @@ def peak_curvature(array, _slice=slice(None), curve_sense='Concave'):
             curve = data[2:] - 2.0*data[1:-1] + data[:-2]
             # Trap for invariant data
             if np.ma.ptp(data) == 0.0:
-                return 1
+                return 1 + valid_slice.start
             if curve_sense == 'Concave':
-                return np.ma.argmax(curve) + 1
+                return np.ma.argmax(curve) + 1 + valid_slice.start
             elif curve_sense == 'Convex':
-                return np.ma.argmin(curve) + 1
+                return np.ma.argmin(curve) + 1 + valid_slice.start
             elif curve_sense == 'Bipolar':
-                return np.ma.argmin(np.ma.abs(curve)) + 1
+                return np.ma.argmin(np.ma.abs(curve)) + 1 + valid_slice.start
             else:
                 logger.warn("Short data and unrecognised keyword %s in peak_curvature" %curve_sense)
 

@@ -4013,57 +4013,86 @@ class TAWSWindshearWarningBelow1500FtDuration(KeyPointValueNode):
 # TODO: Implement!
 class TCASRAWarningDuration(KeyPointValueNode):
     '''
+    This is simply the number of seconds during which the TCAS RA was set.
     '''
-
     name = 'TCAS RA Warning Duration'
-
     def derive(self, tcas=M('TCAS Combined Control'), airs=S('Airborne')):
         '''
-        '''
-        for air in airs:
-            ups = np.ma.clump_unmasked(np.ma.masked_not_equal(tcas.array, 4))
-            # ups = np.ma.clump_unmasked(np.ma.masked_not_equal(tcas.array, 'Up Advisory Corrective'))
-            self.create_kpvs_from_slice_durations(ups)
-            
-            downs= np.ma.clump_unmasked(np.ma.masked_not_equal(tcas.array, 5))
-            # downs= np.ma.clump_unmasked(np.ma.masked_not_equal(tcas.array, 'Down Advisory Corrective'))
-            self.create_kpvs_from_slice_durations(downs)
-
-class TCASRAReactionDuration(KeyPointValueNode):
-    '''
-    '''
-    name = 'TCAS RA Reaction Duration'
-    def derive(self, acc=P('Acceleration Normal'), 
-               tcas=M('TCAS Combined Control'), airs=S('Airborne')):
-        '''
+        We would like to do this:
+           ups = np.ma.clump_unmasked(np.ma.masked_not_equal(tcas.array, 'Up Advisory Corrective'))
+        but Numpy can't handle text strings.
         '''
         for air in airs:
             ras = np.ma.clump_unmasked(np.ma.masked_outside(tcas.array, 4, 5))
-            # We assume that the reaction takes place during the TCAS RA
-            # period, and allow 10 seconds before for the algorithm to find
-            # the turning point.
-            for ra in ras:
-                startpoint = ra.start - 1*acc.frequency
-                endpoint = ra.stop + 20*acc.frequency
-                react_index = peak_curvature(acc.array,
-                                             _slice=slice(startpoint, endpoint),
-                                             curve_sense='Bipolar')
-                react_duration = (react_index - ra.start)/acc.frequency
-                self.create_kpv(react_index, react_duration)
+            self.create_kpvs_from_slice_durations(ras)
+
+
+class TCASRAReactionDelay(KeyPointValueNode):
+    '''
+    The point of 
+    '''
+    name = 'TCAS RA Reaction Delay'
+    def derive(self, acc=P('Acceleration Normal Offset Removed'), 
+               tcas=M('TCAS Combined Control'), airs=S('Airborne')):
+        ras = np.ma.clump_unmasked(np.ma.masked_outside(tcas.array, 4, 5))
+        # We assume that the reaction takes place during the TCAS RA
+        # period.
+        for ra in ras:
+            i, p = cycle_finder(acc.array[ra]-1.0, 0.15)
+            indexes = np.array(i)
+            peaks = np.array(p)
+            slopes = np.ma.where(indexes>17, abs(peaks/indexes), 0.0)
+            start_to_peak = slice(ra.start, ra.start + i[np.argmax(slopes)])
+            react_index = peak_curvature(acc.array,
+                                         _slice=start_to_peak,
+                                         curve_sense='Bipolar') - ra.start
+            self.create_kpv(ra.start + react_index, react_index/acc.frequency)
+        
+
+class TCASRAInitialReaction(KeyPointValueNode):
+    '''
+    Here we calculate the strength of initial reaction, in terms of the rate
+    of onset of g. When this is in the correct sense, it is positive while an
+    initial movement in the wrong sense will be negative.
+    '''
+    name = 'TCAS RA Initial Reaction'
+    def derive(self, acc=P('Acceleration Normal Offset Removed'), 
+               pitch=P('Pitch'),elev=P('Elevator'),
+               tcas=M('TCAS Combined Control'), airs=S('Airborne')):
+        '''
+        '''
+        ras = np.ma.clump_unmasked(np.ma.masked_outside(tcas.array, 4, 5))
+        # We assume that the reaction takes place during the TCAS RA
+        # period.
+        for ra in ras:
+            i, p = cycle_finder(acc.array[ra]-1.0, 0.1)
+            indexes = np.array(i)
+            peaks = np.array(p)
+            slopes = np.ma.where(indexes>17, abs(peaks/indexes), 0.0)
+            s_max = np.argmax(slopes)
+            if s_max == 0:
+                slope = peaks[0]/indexes[0]
+            else:
+                slope = (peaks[s_max]-peaks[s_max-1])/ \
+                    (indexes[s_max]-indexes[s_max-1])
+            slope *= acc.frequency
+            
+            if tcas.array[ra.start] == 5: 
+                # Down advisory, so negative is good.
+                slope = -slope
+            self.create_kpv(ra.start, slope)
     
     
+"""
 # TODO: Implement!
 class TCASTAWarningDuration(KeyPointValueNode):
     '''
+    On the 737-5 & -3C frames, there is no useable indication of TA. This KPV therefore awaits suitable recorded data.
     '''
-
     name = 'TCAS TA Warning Duration'
-
-    def derive(self, x=P('Not Yet')):
-        '''
-        '''
+    def derive(self, tcas=M('TCAS Combined Control')):
         return NotImplemented
-
+"""
 
 ################################################################################
 # Warnings: Alpha Floor, Alternate Law, Direct Law
