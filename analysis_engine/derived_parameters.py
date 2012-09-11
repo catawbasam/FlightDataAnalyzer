@@ -78,13 +78,25 @@ from data_validation.rate_of_change import validate_rate_of_change
 deg2rad = radians(1.0)
 
 
+class AccelerationNormalOffsetRemoved(DerivedParameterNode):
+    """
+    This process attempts to remove datum errors in the normal accelerometer.
+    """
+    def derive(self, acc=P('Acceleration Normal'), 
+               offset = KPV('Acceleration Normal Offset')):
+        if offset:
+            self.array = acc.array - offset[0].value + 1.0
+        else:
+            self.array = acc.array
+    
+    
 class AccelerationVertical(DerivedParameterNode):
     """
     Resolution of three accelerations to compute the vertical
     acceleration (perpendicular to the earth surface). Result is in g,
     retaining the 1.0 datum and positive upwards.
     """
-    def derive(self, acc_norm=P('Acceleration Normal'), 
+    def derive(self, acc_norm=P('Acceleration Normal Offset Removed'), 
                acc_lat=P('Acceleration Lateral'), 
                acc_long=P('Acceleration Longitudinal'), 
                pitch=P('Pitch'), roll=P('Roll')):
@@ -104,7 +116,7 @@ class AccelerationForwards(DerivedParameterNode):
     
     Forwards = +ve, Constant sensor errors not washed out.
     """
-    def derive(self, acc_norm=P('Acceleration Normal'), 
+    def derive(self, acc_norm=P('Acceleration Normal Offset Removed'), 
                acc_long=P('Acceleration Longitudinal'), 
                pitch=P('Pitch')):
         pitch_rad = pitch.array*deg2rad
@@ -146,7 +158,7 @@ class AccelerationSideways(DerivedParameterNode):
     acceleration, that is, in the direction perpendicular to the aircraft centreline
     when projected onto the earth's surface. Right = +ve.
     """
-    def derive(self, acc_norm=P('Acceleration Normal'), 
+    def derive(self, acc_norm=P('Acceleration Normal Offset Removed'), 
                acc_lat=P('Acceleration Lateral'),
                acc_long=P('Acceleration Longitudinal'), 
                pitch=P('Pitch'), roll=P('Roll')):
@@ -184,9 +196,20 @@ class AirspeedMinusV2(DerivedParameterNode):
 
     def derive(self, airspeed=P('Airspeed'), v2=P('V2')):
         '''
+        Where V2 is recorded, a low permitted rate of change of 1.0 kt/sec
+        (specified in the Parameter Operating Limit section of the POLARIS
+        database) forces all false data to be masked, leaving only the
+        required valid data. By repairing the mask with duration = None, the
+        valid data is extended. For example, 737-3C data only records V2 on
+        the runway and it needs to be extended to permit V-V2 KPVs to be
+        recorded during the climbout.
         '''
-        self.array = airspeed.array - v2.array
-
+        repaired_v2 = repair_mask(v2.array, 
+                                  copy = True, 
+                                  repair_duration=None, 
+                                  extrapolate=True)
+        self.array = airspeed.array - repaired_v2
+        
 
 # TODO: Write some unit tests!
 class AirspeedMinusV2For3Sec(DerivedParameterNode):
@@ -475,17 +498,19 @@ class AltitudeAAL(DerivedParameterNode):
                     alt_result[ralt_section] = alt_rad_aal[ralt_section]
                     
                     for baro_section in baro_sections:
-                        up_diff = None
                         begin_index = baro_section.start
-                        alt_diff = alt_std-alt_rad
-    
+                        
                         if ralt_section.stop == baro_section.start:
-                            slip, up_diff =  first_valid_sample(alt_diff[begin_index:begin_index+60])
-                            if slip>0:
+                            alt_diff = alt_std[begin_index:begin_index+60]-alt_rad[begin_index:begin_index+60]
+                            slip, up_diff =  first_valid_sample(alt_diff)
+                            if slip != None:
                                 # alt_std is invalid at the point of handover so stretch the radio signal until we can handover.
                                 fix_slice = slice(begin_index,begin_index+slip) 
                                 alt_result[fix_slice] = alt_rad[fix_slice]
                                 begin_index += slip
+                            else:
+                                up_diff = 0.0
+                                
                             alt_result[begin_index:] = alt_std[begin_index:] - up_diff
             else:
                 alt_result = alt_std - high_gnd
@@ -502,14 +527,16 @@ class AltitudeAAL(DerivedParameterNode):
         
         
         
-    def derive(self, alt_rad = P('Altitude Radio'),
-               alt_std = P('Altitude STD'),
+    def derive(self, alt_std = P('Altitude STD'),
+               alt_rad = P('Altitude Radio'),
                speedies = S('Fast')):
        
-        # Altitude Radio is taken as the prime reference to ensure the
+        # Altitude Radio was taken as the prime reference to ensure the
         # minimum ground clearance passing peaks is accurately reflected.
-        # (Comment: This may give a problem with aircraft that do not have a
-        # radio altimeter; not yet tested).
+        # However, when the Altitude Radio signal is sampled at a lower rate
+        # than the Altitude STD, this results in a lower sample rate for a
+        # primary analysis parameter, and this is why Altitude STD is now the
+        # primary reference.
         
         # alt_aal will be zero on the airfield, so initialise to zero.
         alt_aal = np_ma_zeros_like(alt_std.array)
@@ -727,6 +754,7 @@ class AltitudeSTD(DerivedParameterNode):
             raise DataFrameError(self.name, frame_name)
 
 
+'''
 class AltitudeQNH(DerivedParameterNode):
     """
     Altitude Parameter to account for transition altitudes for airports
@@ -772,7 +800,7 @@ class AltitudeQNH(DerivedParameterNode):
         """
         
         self.array = alt_qnh
-
+'''
 
 '''
 class AltitudeSTD(DerivedParameterNode):
@@ -889,7 +917,7 @@ class Autothrottle(DerivedParameterNode):
 
     Not required for 737-5 frame as AT Engaged is recorded directly.
     """
-    '''
+'''
  
         
 class AltitudeTail(DerivedParameterNode):
