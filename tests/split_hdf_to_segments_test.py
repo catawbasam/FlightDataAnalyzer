@@ -164,7 +164,7 @@ class TestSplitSegments(unittest.TestCase):
         # TODO: Test engine parameters.
     
     @unittest.skipIf(not os.path.isfile(os.path.join(test_data_path, 
-                                                     "1_7295949_737-3C.hdf5"),
+                                                     "1_7295949_737-3C.hdf5")),
                      "Test file not present")
     def test_split_segments_737_3C(self):
         '''Splits on both DFC Jump and Engine parameters.'''
@@ -179,7 +179,7 @@ class TestSplitSegments(unittest.TestCase):
                           ('START_AND_STOP', slice(15410.0, 18752.0, None))])
     
     @unittest.skipIf(not os.path.isfile(os.path.join(test_data_path,
-                                                     "4_3377853_146-301.hdf5"),
+                                                     "4_3377853_146-301.hdf5")),
                      "Test file not present")
     def test_split_segments_146_300(self):
         hdf = hdf_file(os.path.join(test_data_path, "4_3377853_146-301.hdf5"))

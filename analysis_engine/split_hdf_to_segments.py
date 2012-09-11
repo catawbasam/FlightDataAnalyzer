@@ -116,7 +116,7 @@ def _get_normalised_split_params(hdf):
             param.array = align(param, first_split_param)
         else:
             first_split_param = param
-            params.append(param)
+        params.append(param)
     
     if not first_split_param:
         return None, None
