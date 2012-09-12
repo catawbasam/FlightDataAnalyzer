@@ -422,7 +422,7 @@ class GearExtending(FlightPhaseNode):
                frame=A('Frame'), airs=S('Airborne')):
         frame_name = frame.value if frame else None
 
-        if frame_name in ['737-5']:
+        if frame_name in ['737-5', '737-6']:
             edge_list=[]
             for air in airs:
                 edge_list.append(find_edges(gear_down.array.raw, air.slice))

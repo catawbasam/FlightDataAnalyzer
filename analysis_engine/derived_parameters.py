@@ -2003,11 +2003,11 @@ class GearOnGround(MultistateDerivedParameterNode):
                gr = M('Gear (R) On Ground'), frame=A('Frame')):
 
         frame_name = frame.value if frame else None
+        '''
+        Not needed on 737-4 as this frame records Gear On Ground directly.
+        '''
         
-        if frame_name in ['737-4']:
-            # Planned to merge the 4Hz coincident data but on LN-KHB it records nothing.
-            self.array = np.ma.logical_or(gl.array, gr.array)
-        elif frame_name.startswith('737-'):
+        if frame_name.startswith('737-'):
             self.array, self.frequency, self.offset = merge_two_parameters(gl, gr)
         else:
             raise DataFrameError(self.name, frame_name)
