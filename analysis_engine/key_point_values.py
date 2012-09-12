@@ -1371,7 +1371,6 @@ class DistanceFromRunwayStartToTouchdown(KeyPointValueNode):
     This only operates for the last landing, and previous touch and goes will
     not be recorded.
     '''
-    align_to_first_dependency = False
     units = 'm'
     def derive(self, lat_tdn=KPV('Latitude At Touchdown'),
                lon_tdn=KPV('Longitude At Touchdown'),
@@ -1395,7 +1394,6 @@ class DistanceFromTouchdownToRunwayEnd(KeyPointValueNode):
     hardstanding. This only operates for the last landing, and previous touch
     and goes will not be recorded.
     '''
-    align_to_first_dependency = False
     units = 'm'
     def derive(self, lat_tdn=KPV('Latitude At Touchdown'),
                lon_tdn=KPV('Longitude At Touchdown'),
