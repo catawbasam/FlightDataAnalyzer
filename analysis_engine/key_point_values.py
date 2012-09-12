@@ -63,11 +63,10 @@ class AccelerationNormalOffset(KeyPointValueNode):
             if count:
                 total_count += count
                 total_sum += np.sum(unmasked_data)
-                index = taxi.slice.stop
         if total_count>20:
             delta = total_sum/float(total_count) - 1.0
             if abs(delta) < ACCEL_NORM_OFFSET_LIMIT:
-                self.create_kpv(index, delta + 1.0)
+                self.create_kpv(0, delta + 1.0)
             
         
     
@@ -3213,7 +3212,7 @@ def vert_spd_phase_max_or_min(vert_spd, phases, function):
         duration = phase.slice.stop - phase.slice.start
         if duration > CLIMB_OR_DESCENT_MIN_DURATION:
             index, value = function(vert_spd.array, phase.slice)
-            return index + phase.slice.start, value
+            return index, value
 
 
 ################################################################################
@@ -4039,14 +4038,16 @@ class TCASRAReactionDelay(KeyPointValueNode):
         # period.
         for ra in ras:
             i, p = cycle_finder(acc.array[ra]-1.0, 0.15)
-            indexes = np.array(i)
-            peaks = np.array(p)
-            slopes = np.ma.where(indexes>17, abs(peaks/indexes), 0.0)
-            start_to_peak = slice(ra.start, ra.start + i[np.argmax(slopes)])
-            react_index = peak_curvature(acc.array,
-                                         _slice=start_to_peak,
-                                         curve_sense='Bipolar') - ra.start
-            self.create_kpv(ra.start + react_index, react_index/acc.frequency)
+            # i, p will be None if the data is too short or invalid and so no cycles can be found.
+            if i:
+                indexes = np.array(i)
+                peaks = np.array(p)
+                slopes = np.ma.where(indexes>17, abs(peaks/indexes), 0.0)
+                start_to_peak = slice(ra.start, ra.start + i[np.argmax(slopes)])
+                react_index = peak_curvature(acc.array,
+                                             _slice=start_to_peak,
+                                             curve_sense='Bipolar') - ra.start
+                self.create_kpv(ra.start + react_index, react_index/acc.frequency)
         
 
 class TCASRAInitialReaction(KeyPointValueNode):
@@ -4066,21 +4067,22 @@ class TCASRAInitialReaction(KeyPointValueNode):
         # period.
         for ra in ras:
             i, p = cycle_finder(acc.array[ra]-1.0, 0.1)
-            indexes = np.array(i)
-            peaks = np.array(p)
-            slopes = np.ma.where(indexes>17, abs(peaks/indexes), 0.0)
-            s_max = np.argmax(slopes)
-            if s_max == 0:
-                slope = peaks[0]/indexes[0]
-            else:
-                slope = (peaks[s_max]-peaks[s_max-1])/ \
-                    (indexes[s_max]-indexes[s_max-1])
-            slope *= acc.frequency
-            
-            if tcas.array[ra.start] == 5: 
-                # Down advisory, so negative is good.
-                slope = -slope
-            self.create_kpv(ra.start, slope)
+            if i:
+                indexes = np.array(i)
+                peaks = np.array(p)
+                slopes = np.ma.where(indexes>17, abs(peaks/indexes), 0.0)
+                s_max = np.argmax(slopes)
+                if s_max == 0:
+                    slope = peaks[0]/indexes[0]
+                else:
+                    slope = (peaks[s_max]-peaks[s_max-1])/ \
+                        (indexes[s_max]-indexes[s_max-1])
+                slope *= acc.frequency
+                
+                if tcas.array[ra.start] == 5: 
+                    # Down advisory, so negative is good.
+                    slope = -slope
+                self.create_kpv(ra.start, slope)
     
     
 """
