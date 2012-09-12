@@ -63,11 +63,10 @@ class AccelerationNormalOffset(KeyPointValueNode):
             if count:
                 total_count += count
                 total_sum += np.sum(unmasked_data)
-                index = taxi.slice.stop
         if total_count>20:
             delta = total_sum/float(total_count) - 1.0
             if abs(delta) < ACCEL_NORM_OFFSET_LIMIT:
-                self.create_kpv(index, delta + 1.0)
+                self.create_kpv(0, delta + 1.0)
             
         
     
