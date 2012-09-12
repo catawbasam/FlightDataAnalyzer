@@ -16,6 +16,7 @@ from analysis_engine.settings import (ACCEL_NORM_OFFSET_LIMIT,
 from analysis_engine.node import KeyPointValueNode, KPV, KTI, P, S, A, M
 
 from analysis_engine.library import (ambiguous_runway,
+                                     bearings_and_distances,
                                      clip, 
                                      coreg, 
                                      cycle_counter,
@@ -45,6 +46,7 @@ from analysis_engine.library import (ambiguous_runway,
                                      slices_not,
                                      slices_overlap,
                                      slices_and,
+                                     touchdown_inertial,
                                      value_at_index)
 
 
@@ -67,7 +69,7 @@ class AccelerationNormalOffset(KeyPointValueNode):
         if total_count>20:
             delta = total_sum/float(total_count) - 1.0
             if abs(delta) < ACCEL_NORM_OFFSET_LIMIT:
-                self.create_kpv(index, delta + 1.0)
+                self.create_kpv(0, delta + 1.0)
             
         
     
@@ -203,11 +205,16 @@ def bump(acc, phase):
     # Scan the acceleration array for a short period either side of the
     # moment of interest. Too wide and we risk monitoring flares and
     # post-liftoff motion. Too short and we may miss a local peak.
+
     dt=3.0 # Half width of range to scan across for peak acceleration.
     from_index = max(int(phase.index-dt*acc.hz), 0)
     to_index = min(int(phase.index+dt*acc.hz)+1, len(acc.array))
     bump_accel = acc.array[from_index:to_index]
-    bump_index = np.ma.argmax(bump_accel)
+
+    # Taking the absoulte value makes no difference for normal acceleration
+    # tests, but seeks the peak left or right for lateral tests.
+    bump_index = np.ma.argmax(np.ma.abs(bump_accel))
+    
     peak = bump_accel[bump_index]
     return from_index + bump_index, peak
     
@@ -1537,6 +1544,7 @@ class DecelerateToStopOnRunwayDuration(KeyPointValueNode):
     available to the pilot.
     '''
     def derive(self, gspd=P('Groundspeed'), tdwns=S('Touchdown'), landings=S('Landing'),
+               lat = P('Latitude Smoothed'), lon = P('Longitude Smoothed'),
                lat_tdn=KPV('Latitude At Touchdown'),
                lon_tdn=KPV('Longitude At Touchdown'),
                rwy=A('FDR Landing Runway'),
@@ -1559,10 +1567,14 @@ class DecelerateToStopOnRunwayDuration(KeyPointValueNode):
                         ils_approach = True
             # So for captured ILS approaches or aircraft with precision location we can compute the deceleration required.
             if precise.value or ils_approach:
-                distance_at_tdn = runway_distance_from_end(rwy.value, lat_tdn[-1].value, lon_tdn[-1].value)
-                dist = integrate(gspd.array[index:landing.slice.stop], gspd.hz, scale=KTS_TO_MPS)
                 speed = gspd.array[index:landing.slice.stop]*KTS_TO_MPS
-                time_to_end = (distance_at_tdn - dist)/speed
+                if precise.value:
+                    _, dist_to_end = bearings_and_distances(lat.array[index:landing.slice.stop], lon.array[index:landing.slice.stop], rwy.value['end'])
+                    time_to_end = dist_to_end / speed
+                else:
+                    distance_at_tdn = runway_distance_from_end(rwy.value, lat_tdn[-1].value, lon_tdn[-1].value)
+                    dist_from_td = integrate(gspd.array[index:landing.slice.stop], gspd.hz, scale=KTS_TO_MPS)
+                    time_to_end = (distance_at_tdn - dist_from_td)/speed
                 limit_point = np.ma.argmin(time_to_end)
                 limit_time = time_to_end[limit_point]
                 self.create_kpv(limit_point + index, limit_time)
@@ -2188,8 +2200,7 @@ class EngN1500FtTo20FtMax(KeyPointValueNode):
         self.create_kpvs_within_slices(
             eng_n1_max.array,
             alt_aal.slices_from_to(500, 20),
-            max_value,
-        )
+            max_value)
 
 
 class EngN1500FtTo20FtMin(KeyPointValueNode):
@@ -2203,10 +2214,9 @@ class EngN1500FtTo20FtMin(KeyPointValueNode):
         '''
         '''
         self.create_kpvs_within_slices(
-            clip(eng_n1_min.array, 10, eng_n1_min.hz, remove='troughs'),
+            eng_n1_min.array,
             alt_aal.slices_from_to(500, 20),
-            max_value,
-        )
+            min_value)
 
 
 ################################################################################
@@ -2790,6 +2800,9 @@ class AltitudeAtSuspectedLevelBust(KeyPointValueNode):
                     c=alt_std.array[idxs[num+2]-1] # The next one (index reduced to avoid running beyond end of data)
                     if b>(a+c)/2:
                         overshoot = min(b-a,b-c)
+                        if overshoot > 5000:
+                            # This happens normally on short sectors
+                            continue
                         self.create_kpv(idx,overshoot)
                     else:
                         undershoot = max(b-a,b-c)
@@ -3419,10 +3432,14 @@ class RateOfDescentAtTouchdown(KeyPointValueNode):
     accurate value at the point of touchdown.
     '''
 
-    def derive(self, vert_spd=P('Vertical Speed Inertial'), tdwns=KTI('Touchdown')):
+    def derive(self, vert_spd=P('Vertical Speed Inertial'),
+               lands = S('Landing'), 
+               alt = P('Altitude AAL')):
         '''
         '''
-        self.create_kpvs_at_ktis(vert_spd.array, tdwns)
+        for land in lands:
+            index, rod = touchdown_inertial(land, vert_spd, alt)
+            self.create_kpv(index, rod)
 
 
 # TODO: Implement!
@@ -4034,13 +4051,15 @@ class TCASRAReactionDelay(KeyPointValueNode):
     name = 'TCAS RA Reaction Delay'
     def derive(self, acc=P('Acceleration Normal Offset Removed'), 
                tcas=M('TCAS Combined Control'), airs=S('Airborne')):
-        ras = np.ma.clump_unmasked(np.ma.masked_outside(tcas.array, 4, 5))
-        # We assume that the reaction takes place during the TCAS RA
-        # period.
-        for ra in ras:
-            i, p = cycle_finder(acc.array[ra]-1.0, 0.15)
-            # i, p will be None if the data is too short or invalid and so no cycles can be found.
-            if i:
+        for air in airs:
+            ras = np.ma.clump_unmasked(np.ma.masked_outside(tcas.array[air.slice], 4, 5))
+            # We assume that the reaction takes place during the TCAS RA
+            # period.
+            for ra in ras:
+                i, p = cycle_finder(acc.array[ra]-1.0, 0.15)
+                # i, p will be None if the data is too short or invalid and so no cycles can be found.
+                if i == None:
+                    continue
                 indexes = np.array(i)
                 peaks = np.array(p)
                 slopes = np.ma.where(indexes>17, abs(peaks/indexes), 0.0)
@@ -4049,8 +4068,8 @@ class TCASRAReactionDelay(KeyPointValueNode):
                                              _slice=start_to_peak,
                                              curve_sense='Bipolar') - ra.start
                 self.create_kpv(ra.start + react_index, react_index/acc.frequency)
-        
-
+            
+    
 class TCASRAInitialReaction(KeyPointValueNode):
     '''
     Here we calculate the strength of initial reaction, in terms of the rate
@@ -4063,12 +4082,14 @@ class TCASRAInitialReaction(KeyPointValueNode):
                tcas=M('TCAS Combined Control'), airs=S('Airborne')):
         '''
         '''
-        ras = np.ma.clump_unmasked(np.ma.masked_outside(tcas.array, 4, 5))
-        # We assume that the reaction takes place during the TCAS RA
-        # period.
-        for ra in ras:
-            i, p = cycle_finder(acc.array[ra]-1.0, 0.1)
-            if i:
+        for air in airs:
+            ras = np.ma.clump_unmasked(np.ma.masked_outside(tcas.array[air.slice], 4, 5))
+            # We assume that the reaction takes place during the TCAS RA
+            # period.
+            for ra in ras:
+                i, p = cycle_finder(acc.array[ra]-1.0, 0.1)
+                if i == None:
+                    continue
                 indexes = np.array(i)
                 peaks = np.array(p)
                 slopes = np.ma.where(indexes>17, abs(peaks/indexes), 0.0)

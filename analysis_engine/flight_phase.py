@@ -606,8 +606,12 @@ class ILSGlideslopeEstablished(FlightPhaseNode):
                 gs_est = scan_ils('glideslope', ils_gs.array, alt_aal.array, ils_loc_est.slice)
                 # If the glideslope signal is corrupt or there is no
                 # glidepath (not fitted or out of service) there may be no
-                # glideslope established phase.
+                # glideslope established phase, or the proportion of unmasked values may be small.
                 if gs_est:
+                    good_data = np.ma.count(ils_gs.array[gs_est])
+                    all_data = len(ils_gs.array[gs_est])
+                    if good_data/all_data < 0.7:
+                        continue
                     self.create_phase(gs_est)
 
 

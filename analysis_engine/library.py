@@ -592,8 +592,11 @@ def cycle_finder(array, min_step=0.0, include_ends=True):
     
     # Optional inclusion of end points
     if include_ends:
-        idxs = np.insert(idxs, 0, 0)
-        vals = np.insert(vals,0,array.data[0])
+        # We can only extend over the range of valid data, so find the first
+        # and last valid samples.
+        first, last = np.ma.flatnotmasked_edges(array)
+        idxs = np.insert(idxs, 0, first)
+        vals = np.insert(vals,0,array.data[first])
         # If the end two are in line, scrub the middle one.
         try:
             if (vals[2]-vals[1])*(vals[1]-vals[0])>=0.0:
@@ -602,7 +605,7 @@ def cycle_finder(array, min_step=0.0, include_ends=True):
         except:
             pass # If there are few vals in the array, there's nothing to tidy up.
         idxs = np.append(idxs, len(array))
-        vals = np.append(vals,array.data[-1])
+        vals = np.append(vals,array.data[last])
         try:
             if (vals[-3]-vals[-2])*(vals[-2]-vals[-1])>=0.0:
                 idxs = np.delete(idxs, -2)
@@ -1199,6 +1202,26 @@ def runway_heading(runway):
     except:
         return None
 
+def runway_snap_dict(runway, lat, lon):
+    """
+    This function snaps any location onto the closest point on the runway centreline.
+    
+    :param runway: Dictionary containing the runway start and end points.
+    :type dict
+    :param lat: Latitude of the point to snap
+    :type lat: float
+    :param lon: Longitude of the point to snap
+    :type lon: float
+    
+    :returns dictionary {['latitude'],['longitude']}
+    :type dict.
+    """
+    lat, lon = runway_snap(runway, lat, lon)
+    to_return = {}
+    to_return['latitude'] = lat
+    to_return['longitude'] = lon
+    return to_return
+    
 def runway_snap(runway, lat, lon):
     """
     This function snaps any location onto the closest point on the runway centreline.
@@ -2768,7 +2791,7 @@ def repair_mask(array, frequency=1, repair_duration=REPAIR_DURATION,
                 continue # Too long to repair
         elif section.start == 0:
             if extrapolate:
-                array.data[section] = array.data[section.stop]
+                array.data[section] = array.data[section.stop-1]
                 array.mask[section] = False
             else:continue # Can't interpolate if we don't know the first sample
         
@@ -3066,7 +3089,54 @@ def step_values(array, steps):
         # all values above the last
         stepped_array[low < array] = level
     return np.ma.array(stepped_array, mask=array.mask)
-            
+
+def touchdown_inertial(land, roc, alt):
+    """
+    For aircraft without weight on wheels swiches, or if there is a problem
+    with the switch for this landing, we do a local integration of the
+    inertial rate of climb to estimate the actual point of landing. This is
+    referenced to the available altitude signal, altitude AAL, which will
+    have been derived from the best available source. This technique leads on
+    to the rate of descent at landing KPV which can then make the best
+    calculation of the landing ROD as we know more accurately the time where
+    the mainwheels touched.
+    
+    :param land: Landing period
+    :type land: slice
+    :param roc: inertial rate of climb
+    :type roc: Numpy masked array
+    :param alt: altitude aal
+    :type alt: Numpy masked array
+    
+    :returns: index, rod
+    :param index: index within landing period
+    :type index: integer
+    :param rod: rate of descent at touchdown
+    :type rod: float, units fpm
+    """
+    
+    # Time constant of 6 seconds.
+    tau = 1/6.0
+    # Make space for the integrand
+    startpoint = land.start_edge
+    endpoint = land.stop_edge
+    sm_ht = np_ma_zeros_like(roc.array[startpoint:endpoint])
+    # Repair the source data (otherwise we propogate masked data)
+    my_roc = repair_mask(roc.array[startpoint:endpoint])
+    my_alt = repair_mask(alt.array[startpoint:endpoint])
+        
+    # Start at the beginning...
+    sm_ht[0] = alt.array[startpoint]
+    #...and calculate each with a weighted correction factor.
+    for i in range(1, len(sm_ht)):
+        sm_ht[i] = (1.0-tau)*sm_ht[i-1] + tau*my_alt[i-1] + my_roc[i]/60.0/roc.hz
+        
+    # Find where the smoothed height touches zero and hence the rod at this
+    # point. Note that this may differ slightly from the touchdown measured
+    # using wheel switches.
+    index = index_at_value(sm_ht, 0.0)
+    roc_tdn = my_roc[index]
+    return index, roc_tdn
 
 def track_linking(pos, local_pos):
     """
