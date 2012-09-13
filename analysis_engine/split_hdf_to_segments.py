@@ -9,9 +9,8 @@ from analysis_engine.datastructures import Segment
 from analysis_engine.node import P
 from analysis_engine.plot_flight import plot_essential
 from analysis_engine.library import (align, calculate_timebase, hash_array,
-                                     hysteresis, normalise,
-                                     repair_mask, rate_of_change,
-                                     straighten_headings,
+                                     min_value, normalise, repair_mask,
+                                     rate_of_change, straighten_headings,
                                      vstack_params)
 
 from hdfaccess.file import hdf_file
@@ -138,8 +137,9 @@ def _rate_of_turn(heading):
     heading.array = repair_mask(straighten_headings(heading.array),
                                 repair_duration=None)
     rate_of_turn = np.ma.abs(rate_of_change(heading, 2))
-    rate_of_turn_masked = np.ma.masked_greater(rate_of_turn,
-                                               settings.RATE_OF_TURN_SPLITTING_THRESHOLD)    
+    rate_of_turn_masked = \
+        np.ma.masked_greater(rate_of_turn,
+                             settings.RATE_OF_TURN_SPLITTING_THRESHOLD)    
     return rate_of_turn_masked
 
 
@@ -164,16 +164,17 @@ def split_segments(hdf):
     if len(speedy_slices) <= 1:
         logger.info("There are '%s' sections of data where airspeed is "
                      "above the splitting threshold. Therefore there can only "
-                     "be at maximum one flights worth of data. Creating a single "
-                     "segment comprising all data.", len(speedy_slices))
+                     "be at maximum one flights worth of data. Creating a "
+                     "single segment comprising all data.", len(speedy_slices))
         # Use the first and last available unmasked values to determine segment
         # type.
         return [_segment_type_and_slice(airspeed_array, airspeed.frequency, 0,
                                         airspeed_secs)]
+    
     slow_slices = np.ma.clump_masked(slow_array)
     
     heading = hdf['Heading']
-    rate_of_turn = _rate_of_turn(heading)    
+    rate_of_turn = _rate_of_turn(heading)
     
     split_params_min, \
     split_params_frequency = _get_normalised_split_params(hdf)
@@ -184,13 +185,15 @@ def split_segments(hdf):
         # Mask 'Frame Counter' incrementing by 1.
         dfc_diff = np.ma.masked_equal(dfc_diff, 1)
         # Mask 'Frame Counter' overflow where the Frame Counter transitions from
-        # 4095 to 0. Q: This used to be 4094, are there some Frame Counters which increment from 1 rather than 0 or something else?
+        # 4095 to 0.
+        # Q: This used to be 4094, are there some Frame Counters which increment
+        # from 1 rather than 0 or something else?
         dfc_diff = np.ma.masked_equal(dfc_diff, -4095)
         # Gap between difference values.
         dfc_half_period = (1 / dfc.frequency) / 2
     else:
         logger.info("'Frame Counter' will not be used for splitting since "
-                     "'reliable_frame_counter' is False.")
+                    "'reliable_frame_counter' is False.")
         dfc = None
     
     segments = []
@@ -212,9 +215,9 @@ def split_segments(hdf):
         slow_duration = slice_stop_secs - slice_start_secs
         if slow_duration < settings.MINIMUM_SPLIT_DURATION:
             logger.info("Disregarding period of airspeed below '%s' "
-                          "since '%s' is shorter than MINIMUM_SPLIT_DURATION "
-                          "('%s').", settings.AIRSPEED_THRESHOLD, slow_duration,
-                          settings.MINIMUM_SPLIT_DURATION)
+                        "since '%s' is shorter than MINIMUM_SPLIT_DURATION "
+                        "('%s').", settings.AIRSPEED_THRESHOLD, slow_duration,
+                        settings.MINIMUM_SPLIT_DURATION)
             continue
         
         # Split using 'Frame Counter'.
@@ -225,8 +228,8 @@ def split_segments(hdf):
             if unmasked_edges is not None:
                 # Split on the first DFC jump.
                 dfc_index = unmasked_edges[0]
-                split_index = round((dfc_index / dfc.frequency) + slice_start_secs + \
-                    dfc_half_period)
+                split_index = round((dfc_index / dfc.frequency) + \
+                                    slice_start_secs + dfc_half_period)
                 logger.info("'Frame Counter' jumped within slow_slice '%s' "
                              "at index '%s'.", slow_slice, split_index)
                 segments.append(_segment_type_and_slice(airspeed_array,
@@ -240,32 +243,53 @@ def split_segments(hdf):
         
         # Split using engine parameters.        
         if split_params_min is not None:
-            split_params_slice = slice(slice_start_secs * split_params_frequency,
-                                       slice_stop_secs * split_params_frequency)
-            split_params_masked = np.ma.masked_greater(split_params_min[split_params_slice],
-                                                       settings.MINIMUM_SPLIT_PARAM_VALUE)
-            try:
-                below_min_slice = np.ma.clump_unmasked(split_params_masked)[0]
-            except IndexError:
-                logger.info("Average of normalised split parameters did not drop "
-                             "below MINIMUM_SPLIT_PARAM_VALUE ('%s') within slow_slice '%s'.",
-                             settings.MINIMUM_SPLIT_PARAM_VALUE,
-                             split_params_slice)
-            else:
-                below_min_duration = below_min_slice.stop - below_min_slice.start
-                param_split_index = split_params_slice.start + \
-                    below_min_slice.start + (below_min_duration / 2)
-                split_index = round(param_split_index / split_params_frequency)
-                logger.info("Average of normalised split parameters value was "
-                             "below MINIMUM_SPLIT_PARAM_VALUE ('%s') within "
-                             "slow_slice '%s' at index '%s'.",
-                             settings.MINIMUM_SPLIT_PARAM_VALUE,
-                             slow_slice, split_index)    
+            split_params_slice = \
+                slice(slice_start_secs * split_params_frequency,
+                      slice_stop_secs * split_params_frequency)
+            split_index, split_value = min_value(split_params_min,
+                                                 _slice=split_params_slice)
+            split_index = round(split_index / split_params_frequency)
+            if split_value is not None and \
+               split_value < settings.MINIMUM_SPLIT_PARAM_VALUE:
+                logger.info("Minimum of normalised split parameters ('%s') was "
+                            "below MINIMUM_SPLIT_PARAM_VALUE ('%s') within "
+                            "slow_slice '%s' at index '%s'.",
+                            split_value, settings.MINIMUM_SPLIT_PARAM_VALUE,
+                            slow_slice, split_index)
                 segments.append(_segment_type_and_slice(airspeed_array,
                                                         airspeed.frequency,
                                                         start, split_index))
                 start = split_index
                 continue
+            else:
+                logger.info("Minimum of normalised split parameters ('%s') was "
+                            "not below MINIMUM_SPLIT_PARAM_VALUE ('%s') within "
+                            "slow_slice '%s' at index '%s'.",
+                            split_value, settings.MINIMUM_SPLIT_PARAM_VALUE,
+                            slow_slice, split_index)
+            ##split_params_masked = \
+                ##np.ma.masked_greater(split_params_min[split_params_slice],
+                                     ##settings.MINIMUM_SPLIT_PARAM_VALUE)
+            ##try:
+                ##below_min_slice = np.ma.clump_unmasked(split_params_masked)[0]
+            ##except IndexError:
+                ##logger.info("Minimum of normalised split parameters did not "
+                            ##"drop below MINIMUM_SPLIT_PARAM_VALUE ('%s') "
+                            ##"within slow_slice '%s'.",
+                            ##settings.MINIMUM_SPLIT_PARAM_VALUE,
+                            ##split_params_slice)
+            ##else:
+                ##below_min_duration = \
+                    ##below_min_slice.stop - below_min_slice.start
+                ##param_split_index = split_params_slice.start + \
+                    ##below_min_slice.start + (below_min_duration / 2)
+                ##split_index = round(param_split_index / split_params_frequency)
+                ##logger.info("Minimum of normalised split parameters value was "
+                            ##"below MINIMUM_SPLIT_PARAM_VALUE ('%s') within "
+                            ##"slow_slice '%s' at index '%s'.",
+                            ##settings.MINIMUM_SPLIT_PARAM_VALUE,
+                            ##slow_slice, split_index)    
+                
         
         # Split using rate of turn. Q: Should this be considered in other
         # splitting methods.
@@ -282,10 +306,12 @@ def split_segments(hdf):
         else:
             # Split half-way within the stop slice.
             stop_duration = first_stop.stop - first_stop.start
-            rot_split_index = rot_slice.start + first_stop.start + (stop_duration / 2)
+            rot_split_index = \
+                rot_slice.start + first_stop.start + (stop_duration / 2)
             # Get the absolute split index at 1Hz.
             split_index = round(rot_split_index / heading.frequency)
-            segments.append(_segment_type_and_slice(airspeed_array, airspeed.frequency,
+            segments.append(_segment_type_and_slice(airspeed_array,
+                                                    airspeed.frequency,
                                                     start, split_index))
             start = split_index
             continue
@@ -326,7 +352,7 @@ def _calculate_start_datetime(hdf, fallback_dt=None):
     for name in ('Year', 'Month', 'Day', 'Hour', 'Minute', 'Second'):
         param = hdf.get(name)
         if param:
-            array = align(hdf[name], onehz, data_type='Multi-State')
+            array = align(param, onehz, data_type='Multi-State')
             if len(array) == 0 or np.ma.count(array) == 0:
                 logger.warning("No valid values returned for %s", name)
             else:
@@ -342,7 +368,8 @@ def _calculate_start_datetime(hdf, fallback_dt=None):
         else:
             raise TimebaseError("Required parameter '%s' not available" % name)
         
-    #TODO: Support limited time ranges - i.e. not in future and only up to 5 years in the past?
+    # TODO: Support limited time ranges - i.e. not in future and only up to 10
+    # years in the past?
     ##if (datetime.now() - timedelta(years=5)).year > dt_arrays[0].average() > datetime.now().year:
         ##raise issue!
         
@@ -355,7 +382,7 @@ def _calculate_start_datetime(hdf, fallback_dt=None):
                 arr = np.repeat(arr, length)
                 dt_arrays[n] = arr
             elif len(arr) != length:
-                raise ValueError("After align, all array should be the same length")
+                raise ValueError("After align, all arrays should be the same length")
             else:
                 pass
         
@@ -394,18 +421,22 @@ def append_segment_info(hdf_segment_path, segment_type, segment_slice, part,
         try:
             start_datetime = _calculate_start_datetime(hdf, fallback_dt)
         except TimebaseError:
-            logger.warning("Unable to calculate timebase, using epoch 1.1.1970!")
+            logger.warning("Unable to calculate timebase, using epoch "
+                           "1.1.1970!")
             start_datetime = datetime.fromtimestamp(0)
         stop_datetime = start_datetime + timedelta(seconds=duration)
         hdf.start_datetime = start_datetime
     
     if segment_type != 'GROUND_ONLY':
         # we went fast, so get the index
-        spd_above_threshold = np.ma.where(airspeed > settings.AIRSPEED_THRESHOLD)
+        spd_above_threshold = \
+            np.ma.where(airspeed > settings.AIRSPEED_THRESHOLD)
         go_fast_index = spd_above_threshold[0][0]
-        go_fast_datetime = start_datetime + timedelta(seconds=int(go_fast_index))
+        go_fast_datetime = \
+            start_datetime + timedelta(seconds=int(go_fast_index))
         # Identification of raw data airspeed hash (including all spikes etc)
-        airspeed_hash = hash_array(airspeed.data[airspeed.data > settings.AIRSPEED_THRESHOLD])
+        airspeed_hash = hash_array(airspeed.data[airspeed.data > 
+                                                 settings.AIRSPEED_THRESHOLD])
     else:
         go_fast_index = None
         go_fast_datetime = None
