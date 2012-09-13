@@ -3830,7 +3830,7 @@ class TAWSAlertDuration(KeyPointValueNode):
         '''
         '''
         self.create_kpvs_where_state(
-            'Alert',
+            'Warning',
             taws_alert.array,
             taws_alert.hz,
             phase=airborne,
@@ -3921,7 +3921,7 @@ class TAWSGlideslopeWarningDuration(KeyPointValueNode):
         '''
         '''
         self.create_kpvs_where_state(
-            'True',
+            'Warning',
             taws_glideslope.array,
             taws_glideslope.hz,
             phase=airborne,
@@ -3993,7 +3993,7 @@ class TAWSDontSinkWarningDuration(KeyPointValueNode):
         '''
         '''
         self.create_kpvs_where_state(
-            'True',
+            'Warning',
             taws_dont_sink.array,
             taws_dont_sink.hz,
             phase=airborne,
@@ -4013,7 +4013,7 @@ class TAWSWindshearWarningBelow1500FtDuration(KeyPointValueNode):
         '''
         for descent in alt_aal.slices_from_to(1500, 0):
             self.create_kpvs_where_state(
-                'True',
+                'Warning',
                 taws_windshear.array[descent],
                 taws_windshear.hz,
                 min_duration=2,
