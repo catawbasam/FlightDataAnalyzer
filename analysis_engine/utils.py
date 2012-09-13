@@ -12,7 +12,7 @@ from analysis_engine.process_flight import dependency_order, get_derived_nodes
 from analysis_engine.settings import NODE_MODULES
 
 
-def trimmer(hdf_path, node_names, dest):
+def derived_trimmer(hdf_path, node_names, dest):
     '''
     Trims an HDF file of parameters which are not dependencies of nodes in
     node_names.
@@ -40,7 +40,7 @@ def trimmer(hdf_path, node_names, dest):
 if __name__ == '__main__':
     command_parser = argparse.ArgumentParser()
     command_parser.add_argument('command',
-                            help="utils command to run, options: 'trimmer'.")
+                                help="utils command to run, options: 'trimmer'.")
     args = command_parser.parse_args(sys.argv[1:2])
     if args.command == 'trimmer':
         trimmer_parser = argparse.ArgumentParser()
@@ -49,8 +49,8 @@ if __name__ == '__main__':
         trimmer_parser.add_argument('out_path')
         print sys.argv[2:]
         trimmer_args = trimmer_parser.parse_args(args=sys.argv[2:])
-        trimmer(trimmer_args.source_path, trimmer_args.node_names,
-                trimmer_args.out_path)
+        derived_trimmer(trimmer_args.source_path, trimmer_args.node_names,
+                        trimmer_args.out_path)
     else:
         parser.error("'%s' is not a known command." % args.command)
 

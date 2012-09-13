@@ -170,16 +170,16 @@ class TestSplitSegments(unittest.TestCase):
         segment_tuples = split_segments(hdf)
         self.assertEqual(segment_tuples,
                          [('START_AND_STOP', slice(0, 3168.0, None)),
-                          ('START_AND_STOP', slice(3168.0, 5992.0, None)),
-                          ('START_AND_STOP', slice(5992.0, 9504.0, None)),
-                          ('START_AND_STOP', slice(9504.0, 12356.0, None)),
-                          ('START_AND_STOP', slice(12356.0, 15387.0, None)),
-                          ('START_AND_STOP', slice(15387.0, 18752.0, None))])
+                          ('START_AND_STOP', slice(3168.0, 6260.0, None)),
+                          ('START_AND_STOP', slice(6260.0, 9504.0, None)),
+                          ('START_AND_STOP', slice(9504.0, 12680.0, None)),
+                          ('START_AND_STOP', slice(12680.0, 15571.0, None)),
+                          ('START_AND_STOP', slice(15571.0, 18752.0, None))])
     
-    def test_split_segments_file_1(self):
+    def test_split_segments_data_1(self):
         '''Splits on both DFC Jump and Engine parameters.'''
         hdf = hdf_file(os.path.join(test_data_path,
-                                    "LN-KHB_____20120906_325007_M_NAX_2_.COP.hdf"))
+                                    "split_segments_1.hdf5"))
         segment_tuples = split_segments(hdf)
         self.assertEqual(segment_tuples,
                          [('START_AND_STOP', slice(0, 9952.0, None)),
