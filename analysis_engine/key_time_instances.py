@@ -13,7 +13,8 @@ from analysis_engine.library import (find_edges,
                                      slices_above,
                                      slices_overlap,
                                      max_value, 
-                                     peak_curvature)
+                                     peak_curvature,
+                                     touchdown_inertial)
 
 from analysis_engine.node import (M, P, S, KTI, KeyTimeInstanceNode)
 
@@ -94,7 +95,7 @@ class AutopilotEngagedSelection(KeyTimeInstanceNode):
 
     def derive(self, autopilot=P('AP Engaged'), phase=S('Airborne')):
         self.create_ktis_on_state_change(
-            'On',
+            'Engaged',
             autopilot.array,
             change='entering',
             phase=phase
@@ -106,7 +107,7 @@ class AutopilotDisengagedSelection(KeyTimeInstanceNode):
 
     def derive(self, autopilot=P('AP Engaged'), phase=S('Airborne')):
         self.create_ktis_on_state_change(
-            'On',
+            'Engaged',
             autopilot.array,
             change='leaving',
             phase=phase
@@ -491,37 +492,8 @@ class Touchdown(KeyTimeInstanceNode):
                         return
                     
                     if not wow or edges == []:
-                        #For aircraft without weight on wheels swiches, or if
-                        #there is a problem with the switch for this landing, we
-                        #do a local integration of the inertial rate of climb to
-                        #estimate the actual point of landing. This is referenced
-                        #to the # available altitude signal, altitude AAL, which
-                        #will have been # derived from the best available source.
-                        #This technique # leads on to the rate of descent at
-                        #landing KPV which can then # make the best calculation
-                        #of the landing ROD as we know more accurately the time #
-                        #where the mainwheels touched.
-            
-                        # Time constant of 6 seconds.
-                        tau = 1/6.0
-                        # Make space for the integrand
-                        startpoint = land.start_edge
-                        endpoint = land.stop_edge
-                        sm_ht = np_ma_zeros_like(roc.array[startpoint:endpoint])
-                        # Repair the source data (otherwise we propogate masked data)
-                        my_roc = repair_mask(roc.array[startpoint:endpoint])
-                        my_alt = repair_mask(alt.array[startpoint:endpoint])
-        
-                        # Start at the beginning...
-                        sm_ht[0] = alt.array[startpoint]
-                        #...and calculate each with a weighted correction factor.
-                        for i in range(1, len(sm_ht)):
-                            sm_ht[i] = (1.0-tau)*sm_ht[i-1] + tau*my_alt[i-1] + my_roc[i]/60.0/roc.hz
-        
-                        t1 = index_at_value(sm_ht, 0.0)+startpoint
-                        if t1:
-                            self.create_kti(t1)
-                        
+                        index, _ = touchdown_inertial(land, roc, alt)
+                        self.create_kti(index + land.start_edge)
                         
                         '''
                         # Plot for ease of inspection during development.
@@ -531,6 +503,7 @@ class Touchdown(KeyTimeInstanceNode):
                         #plot_parameter(on_gnd.array[startpoint:endpoint], show=False)
                         plot_parameter(sm_ht)
                         '''
+
 
 
 class LandingTurnOffRunway(KeyTimeInstanceNode):

@@ -100,7 +100,7 @@ def track_to_kml(hdf_path, kti_list, kpv_list, flight_list, plot_altitude=False)
         kml.newpoint(**kti_point_values)
         
     for kpv in kpv_list:
-        if kpv.name in ['Deceleration To Stop On Runway']:
+        if kpv.name in ['TCAS RA Warning Duration']:
             style = simplekml.Style()
             style.iconstyle.color = simplekml.Color.red
             kpv_point_values = {'name': '%s (%s)' % (kpv.name, kpv.value)}
