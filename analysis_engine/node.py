@@ -1184,7 +1184,8 @@ class KeyTimeInstanceNode(FormattedNameNode):
             # TODO: to improve performance reverse the state into numeric value
             # and look it up in array.raw instead
             state_periods = np.ma.clump_unmasked(
-                np.ma.masked_not_equal(array[_slice], state))
+                np.ma.masked_not_equal(array[_slice].raw,
+                                       array.get_state_value(state)))
             for period in state_periods:
                 if change == 'entering':
                     self.create_kti(period.start - 0.5
@@ -1484,7 +1485,6 @@ class KeyPointValueNode(FormattedNameNode):
 
     def create_kpvs_where_state(self, state, array, hz, phase=None,
                                 min_duration=0.0):
-        return
         '''
         For discrete and multi-state parameters, this detects an event and
         records the duration of each event.
@@ -1509,7 +1509,8 @@ class KeyPointValueNode(FormattedNameNode):
             # TODO: to improve performance reverse the state into numeric value
             # and look it up in array.raw instead
             events = np.ma.clump_unmasked(
-                np.ma.masked_not_equal(subarray, state))
+                np.ma.masked_not_equal(subarray.raw,
+                                       subarray.get_state_value(state)))
             for event in events:
                 index = event.start
                 value = (event.stop - event.start) / hz
