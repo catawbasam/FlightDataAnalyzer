@@ -267,30 +267,7 @@ def split_segments(hdf):
                             "slow_slice '%s' at index '%s'.",
                             split_value, settings.MINIMUM_SPLIT_PARAM_VALUE,
                             slow_slice, split_index)
-            ##split_params_masked = \
-                ##np.ma.masked_greater(split_params_min[split_params_slice],
-                                     ##settings.MINIMUM_SPLIT_PARAM_VALUE)
-            ##try:
-                ##below_min_slice = np.ma.clump_unmasked(split_params_masked)[0]
-            ##except IndexError:
-                ##logger.info("Minimum of normalised split parameters did not "
-                            ##"drop below MINIMUM_SPLIT_PARAM_VALUE ('%s') "
-                            ##"within slow_slice '%s'.",
-                            ##settings.MINIMUM_SPLIT_PARAM_VALUE,
-                            ##split_params_slice)
-            ##else:
-                ##below_min_duration = \
-                    ##below_min_slice.stop - below_min_slice.start
-                ##param_split_index = split_params_slice.start + \
-                    ##below_min_slice.start + (below_min_duration / 2)
-                ##split_index = round(param_split_index / split_params_frequency)
-                ##logger.info("Minimum of normalised split parameters value was "
-                            ##"below MINIMUM_SPLIT_PARAM_VALUE ('%s') within "
-                            ##"slow_slice '%s' at index '%s'.",
-                            ##settings.MINIMUM_SPLIT_PARAM_VALUE,
-                            ##slow_slice, split_index)    
                 
-        
         # Split using rate of turn. Q: Should this be considered in other
         # splitting methods.
         rot_slice = slice(slice_start_secs * heading.frequency,
