@@ -267,7 +267,7 @@ def split_segments(hdf):
                             "slow_slice '%s' at index '%s'.",
                             split_value, settings.MINIMUM_SPLIT_PARAM_VALUE,
                             slow_slice, split_index)
-                
+        
         # Split using rate of turn. Q: Should this be considered in other
         # splitting methods.
         rot_slice = slice(slice_start_secs * heading.frequency,
