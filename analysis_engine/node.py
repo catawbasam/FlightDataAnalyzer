@@ -1168,7 +1168,6 @@ class KeyTimeInstanceNode(FormattedNameNode):
 
     def create_ktis_on_state_change(self, state, array, change='entering',
                                     phase=None):
-        return
         '''
         Create KTIs from multistate parameters where data reaches and leaves
         given state.

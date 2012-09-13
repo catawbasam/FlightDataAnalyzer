@@ -4078,7 +4078,6 @@ class TCASRAInitialReaction(KeyPointValueNode):
     '''
     name = 'TCAS RA Initial Reaction'
     def derive(self, acc=P('Acceleration Normal Offset Removed'), 
-               pitch=P('Pitch'),elev=P('Elevator'),
                tcas=M('TCAS Combined Control'), airs=S('Airborne')):
         '''
         '''
@@ -4093,15 +4092,22 @@ class TCASRAInitialReaction(KeyPointValueNode):
                 i, p = cycle_finder(acc.array[ra]-1.0, 0.1)
                 if i == None:
                     continue
+                # Convert to Numpy arrays for ease of arithmetic
                 indexes = np.array(i)
                 peaks = np.array(p)
                 slopes = np.ma.where(indexes>17, abs(peaks/indexes), 0.0)
                 s_max = np.argmax(slopes)
+                
+                # So we look for the steepest slope to the peak, which
+                # ignores little early peaks or slightly high later peaks.
+                # From inspection of many traces, this is the best way to
+                # distinguish the peak of interest.
                 if s_max == 0:
                     slope = peaks[0]/indexes[0]
                 else:
                     slope = (peaks[s_max]-peaks[s_max-1])/ \
                         (indexes[s_max]-indexes[s_max-1])
+                # Units of g/sec:
                 slope *= acc.frequency
                 
                 if tcas.array[ra.start] == 5: 
@@ -4110,16 +4116,32 @@ class TCASRAInitialReaction(KeyPointValueNode):
                 self.create_kpv(ra.start, slope)
     
     
-"""
-# TODO: Implement!
-class TCASTAWarningDuration(KeyPointValueNode):
+class TCASRAToAPDisengageDuration(KeyPointValueNode):
     '''
-    On the 737-5 & -3C frames, there is no useable indication of TA. This KPV therefore awaits suitable recorded data.
+    Here we calculate the time between the onset of the RA and disconnection
+    of the autopilot.
     '''
-    name = 'TCAS TA Warning Duration'
-    def derive(self, tcas=M('TCAS Combined Control')):
-        return NotImplemented
-"""
+    name = 'TCAS RA To AP Disengaged Duration'
+    def derive(self, ap_offs=KTI('AP Disengaged Selection'),
+               tcas=M('TCAS Combined Control'), airs=S('Airborne')):
+        '''
+        '''
+        for air in airs:
+            ras_local = np.ma.clump_unmasked(np.ma.masked_outside(tcas.array[air.slice], 4, 5))
+            ras = shift_slices(ras_local, air.slice.start)
+            # We assume that the reaction takes place during the TCAS RA
+            # period.
+            for ra in ras:
+                for ap_off in ap_offs:
+                    if is_index_within_sections(ap_off, ra):
+                        index = ap_off.index
+                        onset = ra.slice.start
+                        duration = (index - onset)/ap_offs.frequency
+                        self.create_kpv(index, duration)
+
+    
+    
+
 
 ################################################################################
 # Warnings: Alpha Floor, Alternate Law, Direct Law
