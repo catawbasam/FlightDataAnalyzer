@@ -4049,10 +4049,13 @@ class TCASRAReactionDelay(KeyPointValueNode):
     def derive(self, acc=P('Acceleration Normal Offset Removed'), 
                tcas=M('TCAS Combined Control'), airs=S('Airborne')):
         for air in airs:
-            ras = np.ma.clump_unmasked(np.ma.masked_outside(tcas.array[air.slice], 4, 5))
+            ras_local = np.ma.clump_unmasked(np.ma.masked_outside(tcas.array[air.slice], 4, 5))
+            ras = shift_slices(ras_local, air.slice.start)
             # We assume that the reaction takes place during the TCAS RA
             # period.
             for ra in ras:
+                if np.ma.count(acc.array[ra]) == 0:
+                    continue
                 i, p = cycle_finder(acc.array[ra]-1.0, 0.15)
                 # i, p will be None if the data is too short or invalid and so no cycles can be found.
                 if i == None:
@@ -4065,7 +4068,7 @@ class TCASRAReactionDelay(KeyPointValueNode):
                                              _slice=start_to_peak,
                                              curve_sense='Bipolar') - ra.start
                 self.create_kpv(ra.start + react_index, react_index/acc.frequency)
-            
+        
     
 class TCASRAInitialReaction(KeyPointValueNode):
     '''
@@ -4080,10 +4083,13 @@ class TCASRAInitialReaction(KeyPointValueNode):
         '''
         '''
         for air in airs:
-            ras = np.ma.clump_unmasked(np.ma.masked_outside(tcas.array[air.slice], 4, 5))
+            ras_local = np.ma.clump_unmasked(np.ma.masked_outside(tcas.array[air.slice], 4, 5))
+            ras = shift_slices(ras_local, air.slice.start)
             # We assume that the reaction takes place during the TCAS RA
             # period.
             for ra in ras:
+                if np.ma.count(acc.array[ra]) == 0:
+                    continue
                 i, p = cycle_finder(acc.array[ra]-1.0, 0.1)
                 if i == None:
                     continue

@@ -695,6 +695,8 @@ class AltitudeRadio(DerivedParameterNode):
         frame_name = frame.value if frame else None
         frame_qualifier = frame_qual.value if frame_qual else None
         
+        # 737-1 & 737-i has Altitude Radio recorded.
+        
         if frame_name in ['737-3C', '757-DHL']:
             # 737-3C comment:
             # Alternate samples (A) for this frame have latency of over 1
@@ -2004,7 +2006,8 @@ class GearOnGround(MultistateDerivedParameterNode):
 
         frame_name = frame.value if frame else None
         '''
-        Not needed on 737-4 as this frame records Gear On Ground directly.
+        Not needed on 737-4 or 737-i as these frames record Gear On Ground
+        directly.
         '''
         
         if frame_name.startswith('737-'):
@@ -2186,7 +2189,7 @@ class FlapSurface(DerivedParameterNode):
                alt_aal=P('Altitude AAL')):
         frame_name = frame.value if frame else None
 
-        if frame_name in ['737-3C', '737-4', '737-5', '737-6', '757-DHL']:
+        if frame_name.startswith('737') or frame_name in ['757-DHL']:
             self.array, self.frequency, self.offset = blend_two_parameters(flap_A,
                                                                            flap_B)
 
@@ -3325,7 +3328,7 @@ class ThrustReversers(DerivedParameterNode):
             frame=A('Frame')):
         frame_name = frame.value if frame else None
         
-        if frame_name in ['737-5']:
+        if frame_name in ['737-5', '737-i']:
             all_tr = \
                 e1_lft_dep.array + e1_lft_out.array + \
                 e1_rgt_dep.array + e1_rgt_out.array + \
@@ -3667,7 +3670,7 @@ class StickShaker(MultistateDerivedParameterNode):
             self.array, self.frequency, self.offset = \
                 shake_act.array, shake_act.frequency, shake_act.offset
         
-        elif frame_name in ['737-3C', '737-4', '757-DHL']:
+        elif frame_name in ['737-1', '737-3C', '737-4', '737-i', '757-DHL']:
             self.array = np.ma.logical_or(shake_l.array, shake_r.array)
             self.frequency , self.offset = shake_l.frequency, shake_l.offset
 
