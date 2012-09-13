@@ -247,8 +247,10 @@ def split_segments(hdf):
                 slice(slice_start_secs * split_params_frequency,
                       slice_stop_secs * split_params_frequency)
             split_index, split_value = min_value(split_params_min,
-                                           _slice=split_params_slice)
-            if split_value and split_value < settings.MINIMUM_SPLIT_PARAM_VALUE:
+                                                 _slice=split_params_slice)
+            split_index = round(split_index / split_params_frequency)
+            if split_value is not None and \
+               split_value < settings.MINIMUM_SPLIT_PARAM_VALUE:
                 logger.info("Minimum of normalised split parameters ('%s') was "
                             "below MINIMUM_SPLIT_PARAM_VALUE ('%s') within "
                             "slow_slice '%s' at index '%s'.",
@@ -267,7 +269,7 @@ def split_segments(hdf):
                             slow_slice, split_index)
             ##split_params_masked = \
                 ##np.ma.masked_greater(split_params_min[split_params_slice],
-                                     ##)
+                                     ##settings.MINIMUM_SPLIT_PARAM_VALUE)
             ##try:
                 ##below_min_slice = np.ma.clump_unmasked(split_params_masked)[0]
             ##except IndexError:

@@ -18,6 +18,7 @@ test_data_path = os.path.join(os.path.dirname(os.path.abspath(__file__)),
 
 class TestSplitSegments(unittest.TestCase):
     def test_split_segments(self): 
+        # TODO: Test engine param splitting.
         # Mock hdf
         airspeed_array = np.ma.concatenate([np.ma.arange(200),
                                             np.ma.arange(200, 0, -1)])
@@ -169,11 +170,23 @@ class TestSplitSegments(unittest.TestCase):
         segment_tuples = split_segments(hdf)
         self.assertEqual(segment_tuples,
                          [('START_AND_STOP', slice(0, 3168.0, None)),
-                          ('START_AND_STOP', slice(3168.0, 6013.0, None)),
-                          ('START_AND_STOP', slice(6013.0, 9504.0, None)),
-                          ('START_AND_STOP', slice(9504.0, 12376.0, None)),
-                          ('START_AND_STOP', slice(12376.0, 15414.0, None)),
-                          ('START_AND_STOP', slice(15414.0, 18752.0, None))])
+                          ('START_AND_STOP', slice(3168.0, 5992.0, None)),
+                          ('START_AND_STOP', slice(5992.0, 9504.0, None)),
+                          ('START_AND_STOP', slice(9504.0, 12356.0, None)),
+                          ('START_AND_STOP', slice(12356.0, 15387.0, None)),
+                          ('START_AND_STOP', slice(15387.0, 18752.0, None))])
+    
+    def test_split_segments_file_1(self):
+        '''Splits on both DFC Jump and Engine parameters.'''
+        hdf = hdf_file(os.path.join(test_data_path,
+                                    "LN-KHB_____20120906_325007_M_NAX_2_.COP.hdf"))
+        segment_tuples = split_segments(hdf)
+        self.assertEqual(segment_tuples,
+                         [('START_AND_STOP', slice(0, 9952.0, None)),
+                          ('START_AND_STOP', slice(9952.0, 21751.0, None)),
+                          ('START_AND_STOP', slice(21751.0, 24665.0, None)),
+                          ('START_AND_STOP', slice(24665.0, 27894.0, None)),
+                          ('START_AND_STOP', slice(27894.0, 31424.0, None))])
     
     @unittest.skipIf(not os.path.isfile(os.path.join(test_data_path,
                                                      "4_3377853_146-301.hdf5")),
