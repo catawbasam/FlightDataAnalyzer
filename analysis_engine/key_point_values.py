@@ -3830,7 +3830,7 @@ class TAWSAlertDuration(KeyPointValueNode):
         '''
         '''
         self.create_kpvs_where_state(
-            'Warning',
+            'Alert',
             taws_alert.array,
             taws_alert.hz,
             phase=airborne,
@@ -4133,7 +4133,7 @@ class TCASRAToAPDisengageDuration(KeyPointValueNode):
             # period.
             for ra in ras:
                 for ap_off in ap_offs:
-                    if is_index_within_sections(ap_off, ra):
+                    if is_index_within_slice(ap_off.index, ra):
                         index = ap_off.index
                         onset = ra.slice.start
                         duration = (index - onset)/ap_offs.frequency
