@@ -3921,7 +3921,7 @@ class TAWSGlideslopeWarningDuration(KeyPointValueNode):
         '''
         '''
         self.create_kpvs_where_state(
-            'True',
+            'Warning',
             taws_glideslope.array,
             taws_glideslope.hz,
             phase=airborne,
@@ -3993,7 +3993,7 @@ class TAWSDontSinkWarningDuration(KeyPointValueNode):
         '''
         '''
         self.create_kpvs_where_state(
-            'True',
+            'Warning',
             taws_dont_sink.array,
             taws_dont_sink.hz,
             phase=airborne,
@@ -4013,7 +4013,7 @@ class TAWSWindshearWarningBelow1500FtDuration(KeyPointValueNode):
         '''
         for descent in alt_aal.slices_from_to(1500, 0):
             self.create_kpvs_where_state(
-                'True',
+                'Warning',
                 taws_windshear.array[descent],
                 taws_windshear.hz,
                 min_duration=2,
@@ -4049,10 +4049,13 @@ class TCASRAReactionDelay(KeyPointValueNode):
     def derive(self, acc=P('Acceleration Normal Offset Removed'), 
                tcas=M('TCAS Combined Control'), airs=S('Airborne')):
         for air in airs:
-            ras = np.ma.clump_unmasked(np.ma.masked_outside(tcas.array[air.slice], 4, 5))
+            ras_local = np.ma.clump_unmasked(np.ma.masked_outside(tcas.array[air.slice], 4, 5))
+            ras = shift_slices(ras_local, air.slice.start)
             # We assume that the reaction takes place during the TCAS RA
             # period.
             for ra in ras:
+                if np.ma.count(acc.array[ra]) == 0:
+                    continue
                 i, p = cycle_finder(acc.array[ra]-1.0, 0.15)
                 # i, p will be None if the data is too short or invalid and so no cycles can be found.
                 if i == None:
@@ -4065,7 +4068,7 @@ class TCASRAReactionDelay(KeyPointValueNode):
                                              _slice=start_to_peak,
                                              curve_sense='Bipolar') - ra.start
                 self.create_kpv(ra.start + react_index, react_index/acc.frequency)
-            
+        
     
 class TCASRAInitialReaction(KeyPointValueNode):
     '''
@@ -4075,27 +4078,36 @@ class TCASRAInitialReaction(KeyPointValueNode):
     '''
     name = 'TCAS RA Initial Reaction'
     def derive(self, acc=P('Acceleration Normal Offset Removed'), 
-               pitch=P('Pitch'),elev=P('Elevator'),
                tcas=M('TCAS Combined Control'), airs=S('Airborne')):
         '''
         '''
         for air in airs:
-            ras = np.ma.clump_unmasked(np.ma.masked_outside(tcas.array[air.slice], 4, 5))
+            ras_local = np.ma.clump_unmasked(np.ma.masked_outside(tcas.array[air.slice], 4, 5))
+            ras = shift_slices(ras_local, air.slice.start)
             # We assume that the reaction takes place during the TCAS RA
             # period.
             for ra in ras:
+                if np.ma.count(acc.array[ra]) == 0:
+                    continue
                 i, p = cycle_finder(acc.array[ra]-1.0, 0.1)
                 if i == None:
                     continue
+                # Convert to Numpy arrays for ease of arithmetic
                 indexes = np.array(i)
                 peaks = np.array(p)
                 slopes = np.ma.where(indexes>17, abs(peaks/indexes), 0.0)
                 s_max = np.argmax(slopes)
+                
+                # So we look for the steepest slope to the peak, which
+                # ignores little early peaks or slightly high later peaks.
+                # From inspection of many traces, this is the best way to
+                # distinguish the peak of interest.
                 if s_max == 0:
                     slope = peaks[0]/indexes[0]
                 else:
                     slope = (peaks[s_max]-peaks[s_max-1])/ \
                         (indexes[s_max]-indexes[s_max-1])
+                # Units of g/sec:
                 slope *= acc.frequency
                 
                 if tcas.array[ra.start] == 5: 
@@ -4104,16 +4116,32 @@ class TCASRAInitialReaction(KeyPointValueNode):
                 self.create_kpv(ra.start, slope)
     
     
-"""
-# TODO: Implement!
-class TCASTAWarningDuration(KeyPointValueNode):
+class TCASRAToAPDisengageDuration(KeyPointValueNode):
     '''
-    On the 737-5 & -3C frames, there is no useable indication of TA. This KPV therefore awaits suitable recorded data.
+    Here we calculate the time between the onset of the RA and disconnection
+    of the autopilot.
     '''
-    name = 'TCAS TA Warning Duration'
-    def derive(self, tcas=M('TCAS Combined Control')):
-        return NotImplemented
-"""
+    name = 'TCAS RA To AP Disengaged Duration'
+    def derive(self, ap_offs=KTI('AP Disengaged Selection'),
+               tcas=M('TCAS Combined Control'), airs=S('Airborne')):
+        '''
+        '''
+        for air in airs:
+            ras_local = np.ma.clump_unmasked(np.ma.masked_outside(tcas.array[air.slice], 4, 5))
+            ras = shift_slices(ras_local, air.slice.start)
+            # We assume that the reaction takes place during the TCAS RA
+            # period.
+            for ra in ras:
+                for ap_off in ap_offs:
+                    if is_index_within_slice(ap_off.index, ra):
+                        index = ap_off.index
+                        onset = ra.slice.start
+                        duration = (index - onset)/ap_offs.frequency
+                        self.create_kpv(index, duration)
+
+    
+    
+
 
 ################################################################################
 # Warnings: Alpha Floor, Alternate Law, Direct Law

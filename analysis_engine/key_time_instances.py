@@ -95,7 +95,7 @@ class AutopilotEngagedSelection(KeyTimeInstanceNode):
 
     def derive(self, autopilot=P('AP Engaged'), phase=S('Airborne')):
         self.create_ktis_on_state_change(
-            'On',
+            'Engaged',
             autopilot.array,
             change='entering',
             phase=phase
@@ -107,7 +107,7 @@ class AutopilotDisengagedSelection(KeyTimeInstanceNode):
 
     def derive(self, autopilot=P('AP Engaged'), phase=S('Airborne')):
         self.create_ktis_on_state_change(
-            'On',
+            'Engaged',
             autopilot.array,
             change='leaving',
             phase=phase

@@ -4,7 +4,7 @@ import h5py
 
 from mock import Mock, patch
 
-from analysis_engine.utils import trimmer
+from analysis_engine.utils import derived_trimmer
 
 class TestTrimmer(unittest.TestCase):
     '''
@@ -17,9 +17,9 @@ class TestTrimmer(unittest.TestCase):
     @patch('analysis_engine.utils.strip_hdf')
     @patch('analysis_engine.utils.NodeManager')
     @patch('analysis_engine.utils.NODE_MODULES')
-    def test_trimmer_mocked(self, node_modules, node_mgr, strip_hdf,
-                            dependency_order, get_derived_nodes, datetime,
-                            file_patched):
+    def test_derived_trimmer_mocked(self, node_modules, node_mgr, strip_hdf,
+                                    dependency_order, get_derived_nodes,
+                                    datetime, file_patched):
         '''
         Mocks the majority of inputs and outputs. 
         '''
@@ -36,7 +36,7 @@ class TestTrimmer(unittest.TestCase):
         in_path = 'in.hdf5'
         out_path = 'out.hdf5'
         dependency_order.return_value = (Mock(), Mock())
-        dest = trimmer(in_path, ['IVV', 'DME'], out_path)
+        dest = derived_trimmer(in_path, ['IVV', 'DME'], out_path)
         file_patched.assert_called_once_with(in_path, 'r')
         get_derived_nodes.assert_called_once_with(node_modules)
         filtered_nodes = {'IVV': derived_nodes['IVV'],

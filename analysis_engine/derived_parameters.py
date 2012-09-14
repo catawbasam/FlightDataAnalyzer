@@ -695,6 +695,8 @@ class AltitudeRadio(DerivedParameterNode):
         frame_name = frame.value if frame else None
         frame_qualifier = frame_qual.value if frame_qual else None
         
+        # 737-1 & 737-i has Altitude Radio recorded.
+        
         if frame_name in ['737-3C', '757-DHL']:
             # 737-3C comment:
             # Alternate samples (A) for this frame have latency of over 1
@@ -1081,18 +1083,17 @@ class DistanceTravelled(DerivedParameterNode):
         self.array = integrate(gspd.array, gspd.frequency, scale=1.0/3600.0)
         
         
-class PackValvesOpen(DerivedParameterNode):
+class PackValvesOpen(MultistateDerivedParameterNode):
     """
     Integer representation of the combined pack configuration.
-    
-    0 = All closed
-    1 = One engine low flow
-    2 = Flow level 2
-    3 = Flow level 3
-    4 = Both engines on high flow
     """
     name = "Pack Valves Open"
     align_to_first_dependency = False
+    values_mapping = {0 : 'All closed',
+                      1 : 'One engine low flow',
+                      2 : 'Flow level 2',
+                      3 : 'Flow level 3',
+                      4 : 'Both engines high flow'}
 
     @classmethod
     def can_operate(cls, available):
@@ -1103,7 +1104,10 @@ class PackValvesOpen(DerivedParameterNode):
                p1=P('ECS Pack (1) On'), p1h=P('ECS Pack (1) High Flow'),
                p2=P('ECS Pack (2) On'), p2h=P('ECS Pack (2) High Flow')):
         # Sum the open engines, allowing 1 for low flow and 1+1 for high flow each side.
-        self.array = p1.array.raw*(1+p1h.array.raw)+p2.array.raw*(1+p2h.array.raw)
+        flow = p1.array.raw + +p2.array.raw
+        if p1h and p2h:
+            flow = p1.array.raw*(1+p1h.array.raw)+p2.array.raw*(1+p2h.array.raw)
+        self.array = flow
 
 
 ################################################################################
@@ -1968,8 +1972,8 @@ class FuelQty(DerivedParameterNode):
 
 class GearDown(MultistateDerivedParameterNode):
     """
-    A simple binary parameter, 0 = gear not down, 1 = gear down.
-    Highly aircraft dependent, so likely to be extended.
+    This Multi-State parameter uses "majority voting" to decide whether the
+    gear is up or down.
     """
     align_to_first_dependency = False
     values_mapping = { 0: 'Up',
@@ -1977,17 +1981,9 @@ class GearDown(MultistateDerivedParameterNode):
 
     def derive(self, gl=M('Gear (L) Down'),
                gn=M('Gear (N) Down'),
-               gr=M('Gear (R) Down'),
-               frame=A('Frame')):
-        frame_name = frame.value if frame else None
-        
-        if frame_name.startswith('737-'):
-            # 737-5 has nose gear sampled alternately with mains. No obvious
-            # way to accommodate mismatch of the main gear positions, so
-            # assume that the right wheel does the same as the left !
-            self.array, self.frequency, self.offset = merge_two_parameters(gl, gn)
-        else:
-            raise DataFrameError(self.name, frame_name)
+               gr=M('Gear (R) Down')):
+        wheels_down = gl.array.raw + gn.array.raw + gr.array.raw
+        self.array = np.ma.where(wheels_down>1.5,1,0)
 
 
 class GearOnGround(MultistateDerivedParameterNode):
@@ -2003,11 +1999,12 @@ class GearOnGround(MultistateDerivedParameterNode):
                gr = M('Gear (R) On Ground'), frame=A('Frame')):
 
         frame_name = frame.value if frame else None
+        '''
+        Not needed on 737-4 or 737-i as these frames record Gear On Ground
+        directly.
+        '''
         
-        if frame_name in ['737-4']:
-            # Planned to merge the 4Hz coincident data but on LN-KHB it records nothing.
-            self.array = np.ma.logical_or(gl.array, gr.array)
-        elif frame_name.startswith('737-'):
+        if frame_name.startswith('737-'):
             self.array, self.frequency, self.offset = merge_two_parameters(gl, gr)
         else:
             raise DataFrameError(self.name, frame_name)
@@ -2186,7 +2183,7 @@ class FlapSurface(DerivedParameterNode):
                alt_aal=P('Altitude AAL')):
         frame_name = frame.value if frame else None
 
-        if frame_name in ['737-3C', '737-4', '737-5', '737-6', '757-DHL']:
+        if frame_name.startswith('737') or frame_name in ['757-DHL']:
             self.array, self.frequency, self.offset = blend_two_parameters(flap_A,
                                                                            flap_B)
 
@@ -3325,7 +3322,7 @@ class ThrustReversers(DerivedParameterNode):
             frame=A('Frame')):
         frame_name = frame.value if frame else None
         
-        if frame_name in ['737-5']:
+        if frame_name in ['737-5', '737-i']:
             all_tr = \
                 e1_lft_dep.array + e1_lft_out.array + \
                 e1_rgt_dep.array + e1_rgt_out.array + \
@@ -3667,7 +3664,7 @@ class StickShaker(MultistateDerivedParameterNode):
             self.array, self.frequency, self.offset = \
                 shake_act.array, shake_act.frequency, shake_act.offset
         
-        elif frame_name in ['737-3C', '737-4', '757-DHL']:
+        elif frame_name in ['737-1', '737-3C', '737-4', '737-i', '757-DHL']:
             self.array = np.ma.logical_or(shake_l.array, shake_r.array)
             self.frequency , self.offset = shake_l.frequency, shake_l.offset
 
