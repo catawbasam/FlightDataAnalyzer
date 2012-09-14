@@ -267,29 +267,6 @@ def split_segments(hdf):
                             "slow_slice '%s' at index '%s'.",
                             split_value, settings.MINIMUM_SPLIT_PARAM_VALUE,
                             slow_slice, split_index)
-            ##split_params_masked = \
-                ##np.ma.masked_greater(split_params_min[split_params_slice],
-                                     ##settings.MINIMUM_SPLIT_PARAM_VALUE)
-            ##try:
-                ##below_min_slice = np.ma.clump_unmasked(split_params_masked)[0]
-            ##except IndexError:
-                ##logger.info("Minimum of normalised split parameters did not "
-                            ##"drop below MINIMUM_SPLIT_PARAM_VALUE ('%s') "
-                            ##"within slow_slice '%s'.",
-                            ##settings.MINIMUM_SPLIT_PARAM_VALUE,
-                            ##split_params_slice)
-            ##else:
-                ##below_min_duration = \
-                    ##below_min_slice.stop - below_min_slice.start
-                ##param_split_index = split_params_slice.start + \
-                    ##below_min_slice.start + (below_min_duration / 2)
-                ##split_index = round(param_split_index / split_params_frequency)
-                ##logger.info("Minimum of normalised split parameters value was "
-                            ##"below MINIMUM_SPLIT_PARAM_VALUE ('%s') within "
-                            ##"slow_slice '%s' at index '%s'.",
-                            ##settings.MINIMUM_SPLIT_PARAM_VALUE,
-                            ##slow_slice, split_index)    
-                
         
         # Split using rate of turn. Q: Should this be considered in other
         # splitting methods.
@@ -368,10 +345,11 @@ def _calculate_start_datetime(hdf, fallback_dt=None):
         else:
             raise TimebaseError("Required parameter '%s' not available" % name)
         
-    # TODO: Support limited time ranges - i.e. not in future and only up to 10
-    # years in the past?
-    ##if (datetime.now() - timedelta(years=5)).year > dt_arrays[0].average() > datetime.now().year:
-        ##raise issue!
+    ## TODO: Support limited time ranges - i.e. not in future and only up to 10
+    ## years in the past?
+    #if (datetime.now() - timedelta(years=10)).year > dt_arrays[0].average() \
+       #> datetime.now().year:
+        #raise issue!
         
     length = max([len(array) for array in dt_arrays])
     if length > 1:
@@ -388,11 +366,24 @@ def _calculate_start_datetime(hdf, fallback_dt=None):
         
     # establish timebase for start of data
     try:
-        return calculate_timebase(*dt_arrays)
+        timebase = calculate_timebase(*dt_arrays)
     except (KeyError, ValueError) as err:
         raise TimebaseError("Error with timestamp values: %s" % err)
     
+    if settings.MAX_TIMEBASE_AGE:
+        # Only allow recent timebases.
+        now = datetime.now()
+        if timebase < (now - timedelta(days=settings.MAX_TIMEBASE_AGE)):
+            self.logger.error("Timebase older than '%d' days.",
+                              settings.MAX_TIMEBASE_AGE)
+            return fallback_dt # XXX: fallback_dt may also be old.
+    if timebase > now:
+        self.logger.error('Timebase is in the future.')
+        return fallback_dt # XXX: fallback_dt may also be in future.
+    
+    return timebase
         
+
 def append_segment_info(hdf_segment_path, segment_type, segment_slice, part,
                         fallback_dt=None):
     """
@@ -447,7 +438,8 @@ def append_segment_info(hdf_segment_path, segment_type, segment_slice, part,
     return segment
 
 
-def split_hdf_to_segments(hdf_path, aircraft_info, fallback_dt=None, draw=False):
+def split_hdf_to_segments(hdf_path, aircraft_info, fallback_dt=None,
+                          draw=False):
     """
     Main method - analyses an HDF file for flight segments and splits each
     flight into a new segment appropriately.
@@ -491,8 +483,9 @@ def split_hdf_to_segments(hdf_path, aircraft_info, fallback_dt=None, draw=False)
         logger.debug("Writing segment %d: %s", part, dest_path)
         write_segment(hdf_path, segment_slice, dest_path, supf_boundary=True)
         segment = append_segment_info(dest_path, segment_type, segment_slice,
-                                      part, fallback_dt=fallback_dt)        
-        
+                                      part, fallback_dt=fallback_dt)
+        if fallback_dt:
+            fallback_dt += segment.start_dt - segment.stop_dt
         segments.append(segment)
         if draw:
             from analysis_engine.plot_flight import plot_essential

@@ -30,6 +30,9 @@ class TestSplitSegments(unittest.TestCase):
         heading_frequency = 1
         heading_array.mask = True
         
+        eng_array = None
+        eng_frequency = 1
+        
         dfc_array = np.ma.arange(0, 200, 2)
         
         hdf = mock.Mock()
@@ -48,6 +51,9 @@ class TestSplitSegments(unittest.TestCase):
                 # TODO: Give heading specific data.
                 return Parameter('Heading', array=heading_array,
                                  frequency=heading_frequency)
+            elif key == 'Eng (1) N1' and eng_array is not None:
+                return Parameter('Eng (1) N1', array=eng_array,
+                                 frequency=eng_frequency)
             else:
                 raise KeyError
         hdf.__getitem__ = hdf_getitem
@@ -118,6 +124,7 @@ class TestSplitSegments(unittest.TestCase):
         # DFC jumps exactly half way.
         dfc_array = np.ma.concatenate([np.ma.arange(0, 100),
                                        np.ma.arange(200, 300)])
+        
         segment_tuples = split_segments(hdf)
         self.assertEqual(len(segment_tuples), 2)
         segment_type, segment_slice = segment_tuples[0]
@@ -129,12 +136,29 @@ class TestSplitSegments(unittest.TestCase):
         self.assertEqual(segment_slice.start, 398)
         self.assertEqual(segment_slice.stop, airspeed_secs)
         
+        
+        # Split using engine params where DFC does not jump.
+        eng_array = np.ma.concatenate([np.ma.arange(0, 100, 0.5),
+                                       np.ma.arange(100, 0, -0.5),
+                                       np.ma.arange(0, 100, 0.5),
+                                       np.ma.arange(100, 0, -0.5),])
+        segment_tuples = split_segments(hdf)
+        segment_type, segment_slice = segment_tuples[0]
+        self.assertEqual(segment_type, 'START_AND_STOP')
+        self.assertEqual(segment_slice.start, 0)
+        self.assertEqual(segment_slice.stop, 398.0)
+        segment_type, segment_slice = segment_tuples[1]
+        self.assertEqual(segment_type, 'START_AND_STOP')
+        self.assertEqual(segment_slice.start, 398.0)
+        self.assertEqual(segment_slice.stop, airspeed_secs)        
+        
         # Split using Turning where DFC does not jump.
         dfc_array = np.ma.concatenate([np.ma.arange(4000, 4096),
                                        np.ma.arange(0, 105)])
         heading_array = np.ma.concatenate([np.ma.arange(390, 0, -1),
                                            np.ma.zeros(10),
                                            np.ma.arange(400, 800)])
+        eng_array = None
         segment_tuples = split_segments(hdf)
         segment_type, segment_slice = segment_tuples[0]
         self.assertEqual(segment_type, 'START_AND_STOP')
