@@ -1083,18 +1083,17 @@ class DistanceTravelled(DerivedParameterNode):
         self.array = integrate(gspd.array, gspd.frequency, scale=1.0/3600.0)
         
         
-class PackValvesOpen(DerivedParameterNode):
+class PackValvesOpen(MultistateDerivedParameterNode):
     """
     Integer representation of the combined pack configuration.
-    
-    0 = All closed
-    1 = One engine low flow
-    2 = Flow level 2
-    3 = Flow level 3
-    4 = Both engines on high flow
     """
     name = "Pack Valves Open"
     align_to_first_dependency = False
+    values_mapping = {0 : 'All closed',
+                      1 : 'One engine low flow',
+                      2 : 'Flow level 2',
+                      3 : 'Flow level 3',
+                      4 : 'Both engines high flow'}
 
     @classmethod
     def can_operate(cls, available):
@@ -1105,7 +1104,10 @@ class PackValvesOpen(DerivedParameterNode):
                p1=P('ECS Pack (1) On'), p1h=P('ECS Pack (1) High Flow'),
                p2=P('ECS Pack (2) On'), p2h=P('ECS Pack (2) High Flow')):
         # Sum the open engines, allowing 1 for low flow and 1+1 for high flow each side.
-        self.array = p1.array.raw*(1+p1h.array.raw)+p2.array.raw*(1+p2h.array.raw)
+        flow = p1.array.raw + +p2.array.raw
+        if p1h and p2h:
+            flow = p1.array.raw*(1+p1h.array.raw)+p2.array.raw*(1+p2h.array.raw)
+        self.array = flow
 
 
 ################################################################################
@@ -1970,8 +1972,8 @@ class FuelQty(DerivedParameterNode):
 
 class GearDown(MultistateDerivedParameterNode):
     """
-    A simple binary parameter, 0 = gear not down, 1 = gear down.
-    Highly aircraft dependent, so likely to be extended.
+    This Multi-State parameter uses "majority voting" to decide whether the
+    gear is up or down.
     """
     align_to_first_dependency = False
     values_mapping = { 0: 'Up',
@@ -1979,17 +1981,9 @@ class GearDown(MultistateDerivedParameterNode):
 
     def derive(self, gl=M('Gear (L) Down'),
                gn=M('Gear (N) Down'),
-               gr=M('Gear (R) Down'),
-               frame=A('Frame')):
-        frame_name = frame.value if frame else None
-        
-        if frame_name.startswith('737-'):
-            # 737-5 has nose gear sampled alternately with mains. No obvious
-            # way to accommodate mismatch of the main gear positions, so
-            # assume that the right wheel does the same as the left !
-            self.array, self.frequency, self.offset = merge_two_parameters(gl, gn)
-        else:
-            raise DataFrameError(self.name, frame_name)
+               gr=M('Gear (R) Down')):
+        wheels_down = gl.array.raw + gn.array.raw + gr.array.raw
+        self.array = np.ma.where(wheels_down>1.5,1,0)
 
 
 class GearOnGround(MultistateDerivedParameterNode):
