@@ -296,6 +296,10 @@ SLOPE_FOR_TOC_TOD = 600 / float(3*60) # 600fpm in 3 mins
 ##############################################################################
 # KPV Name Values
 
+# These are some common frequently used name values defined here to be used in
+# multiple key point values or key time instances for consistency.
+
+
 NAME_VALUES_ENGINES = {
     'number': [1, 2, 3, 4],
 }
