@@ -2207,7 +2207,6 @@ class EngN1CyclesInFinalApproach(KeyPointValueNode):
 
 
 # NOTE: Was named 'Eng N1 Cooldown Duration'.
-# TODO: Eng_Stop KTI
 # TODO: Similar KPV for duration between engine under 60 percent and engine shutdown
 class Eng_N1MaxDurationUnder60PercentAfterTouchdown(KeyPointValueNode):
     '''
