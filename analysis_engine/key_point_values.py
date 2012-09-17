@@ -721,72 +721,150 @@ class GroundspeedThrustReversersDeployedMin(KeyPointValueNode):
 
 
 ################################################################################
+# Landing Gear
+
+
+########################################
+# 'Gear Down' Multistate
 
 
 class AirspeedWithGearDownMax(KeyPointValueNode):
-    def derive(self, airspeed=P('Airspeed'), gear=P('Gear Down'), 
-               airs=S('Airborne')):
+    '''
+    '''
+
+    def derive(self, airspeed=P('Airspeed'), gear=M('Gear Down'),
+            airs=S('Airborne')):
+        '''
+        '''
+        state = gear.array.state['Up']
         for air in airs:
-            downs = np.ma.clump_unmasked(np.ma.masked_equal(gear.array[air.slice], 0.0))
+            air_start = int(air.slice.start or 0)
+            downs = np.ma.masked_equal(gear.array.raw[air.slice], state)
+            downs = np.ma.clump_unmasked(downs)
             for down in downs:
-                index = np.ma.argmax(airspeed.array[air.slice][down])
-                value = airspeed.array[air.slice][down][index]
-                self.create_kpv(int((air.slice.start or 0))+down.start+index, value)
+                chunk = airspeed.array[air.slice][down]
+                index = np.ma.argmax(chunk)
+                value = chunk[index]
+                self.create_kpv(air_start + down.start + index, value)
 
 
 class MachWithGearDownMax(KeyPointValueNode):
-    def derive(self, mach=P('Mach'), gear=P('Gear Down'), 
-               airs=S('Airborne')):
+    '''
+    '''
+
+    def derive(self, mach=P('Mach'), gear=M('Gear Down'), airs=S('Airborne')):
+        '''
+        '''
+        state = gear.array.state['Up']
         for air in airs:
-            downs = np.ma.clump_unmasked(np.ma.masked_equal(gear.array[air.slice], 0.0))
+            air_start = int(air.slice.start or 0)
+            downs = np.ma.masked_equal(gear.array.raw[air.slice], state)
+            downs = np.ma.clump_unmasked(downs)
             for down in downs:
-                index = np.ma.argmax(mach.array[air.slice][down])
-                value = mach.array[air.slice][down][index]
-                self.create_kpv(int((air.slice.start or 0))+down.start+index, value)
+                chunk = mach.array[air.slice][down]
+                index = np.ma.argmax(chunk)
+                value = chunk[index]
+                self.create_kpv(air_start + down.start + index, value)
 
 
-class AirspeedAtGearUpSelection(KeyPointValueNode):
-    def derive(self, airspeed=P('Airspeed'), gear_sel_up=KTI('Gear Up Selection')):
-        self.create_kpvs_at_ktis(airspeed.array, gear_sel_up)
-
-
-class AirspeedAtGearDownSelection(KeyPointValueNode):
-    def derive(self, airspeed=P('Airspeed'), gear_sel_down=KTI('Gear Down Selection')):
-        self.create_kpvs_at_ktis(airspeed.array, gear_sel_down)
+########################################
+# Gear Retracting/Extending Section
 
 
 class AirspeedAsGearRetractingMax(KeyPointValueNode):
+    '''
+    '''
+
     def derive(self, airspeed=P('Airspeed'), gear_ret=S('Gear Retracting')):
+        '''
+        '''
         self.create_kpvs_within_slices(airspeed.array, gear_ret, max_value)
 
 
 class AirspeedAsGearExtendingMax(KeyPointValueNode):
+    '''
+    '''
+
     def derive(self, airspeed=P('Airspeed'), gear_ext=S('Gear Extending')):
+        '''
+        '''
         self.create_kpvs_within_slices(airspeed.array, gear_ext, max_value)
 
 
 class MachAsGearRetractingMax(KeyPointValueNode):
+    '''
+    '''
+
     def derive(self, mach=P('Mach'), gear_ret=S('Gear Retracting')):
+        '''
+        '''
         self.create_kpvs_within_slices(mach.array, gear_ret, max_value)
 
 
 class MachAsGearExtendingMax(KeyPointValueNode):
+    '''
+    '''
+
     def derive(self, mach=P('Mach'), gear_ext=S('Gear Extending')):
+        '''
+        '''
         self.create_kpvs_within_slices(mach.array, gear_ext, max_value)
 
-        
+
+########################################
+# Gear Up/Down Selection KTI
+
+
+class AirspeedAtGearUpSelection(KeyPointValueNode):
+    '''
+    '''
+
+    def derive(self, airspeed=P('Airspeed'),
+            gear_up_sel=KTI('Gear Up Selection')):
+        '''
+        '''
+        self.create_kpvs_at_ktis(airspeed.array, gear_up_sel)
+
+
+class AirspeedAtGearDownSelection(KeyPointValueNode):
+    '''
+    '''
+
+    def derive(self, airspeed=P('Airspeed'),
+            gear_dn_sel=KTI('Gear Down Selection')):
+        '''
+        '''
+        self.create_kpvs_at_ktis(airspeed.array, gear_dn_sel)
+
+
 class AltitudeAtGearUpSelection(KeyPointValueNode):
+    '''
+    '''
+
     name = 'Altitude AAL At Gear Up Selection'
-    def derive(self, alt_aal=P('Altitude AAL'), gear_sel_up=KTI('Gear Up Selection')):
-        self.create_kpvs_at_ktis(alt_aal.array, gear_sel_up)
+
+    def derive(self, alt_aal=P('Altitude AAL'),
+            gear_up_sel=KTI('Gear Up Selection')):
+        '''
+        '''
+        self.create_kpvs_at_ktis(alt_aal.array, gear_up_sel)
 
 
 class AltitudeAtGearDownSelection(KeyPointValueNode):
-    name = 'Altitude AAL At Gear Down Selection'
-    def derive(self, alt_aal=P('Altitude AAL'), gear_sel_down=KTI('Gear Down Selection')):
-        self.create_kpvs_at_ktis(alt_aal.array, gear_sel_down)
+    '''
+    '''
 
-#-------------------------------------------------------------------------------
+    name = 'Altitude AAL At Gear Down Selection'
+
+    def derive(self, alt_aal=P('Altitude AAL'),
+            gear_dn_sel=KTI('Gear Down Selection')):
+        '''
+        '''
+        self.create_kpvs_at_ktis(alt_aal.array, gear_dn_sel)
+
+
+################################################################################
+
 
 class AirspeedAtLiftoff(KeyPointValueNode):
     '''
@@ -1116,9 +1194,9 @@ class GenericDescent(KeyPointValueNode):
     def derive(self, alt_aal=P('Altitude AAL For Flight Phases'),
                slope=P('Slope To Landing'), flap=P('Flap'),
                glide=P('ILS Glideslope'),  airspeed=P('Airspeed'),
-               vert_spd=P('Vertical Speed'), gear=P('Gear Down'),
+               vert_spd=P('Vertical Speed'), gear=M('Gear Down'),
                loc=P('ILS Localizer'),  power=P('Eng (*) N1 Avg'),
-               pitch=P('Pitch'),  brake=P('Speedbrake Selected'),
+               pitch=P('Pitch'),  brake=M('Speedbrake Selected'),
                roll=P('Roll'),  head=P('Heading'), descent=S('Descent')):
         '''
         '''
@@ -1137,7 +1215,7 @@ class GenericDescent(KeyPointValueNode):
                         parameter='Airspeed', altitude=alt)
                     self.create_kpv(index, value_at_index(vert_spd.array, index),
                         parameter='Rate Of Descent', altitude=alt)
-                    self.create_kpv(index, value_at_index(gear.array, index),
+                    self.create_kpv(index, value_at_index(gear.array.raw, index),
                         parameter='Gear Down', altitude=alt)
                     self.create_kpv(index, value_at_index(loc.array, index),
                         parameter='ILS Localizer', altitude=alt)
@@ -1145,7 +1223,7 @@ class GenericDescent(KeyPointValueNode):
                         parameter='Power', altitude=alt)
                     self.create_kpv(index, value_at_index(pitch.array, index),
                         parameter='Pitch', altitude=alt)
-                    self.create_kpv(index, value_at_index(brake.array, index),
+                    self.create_kpv(index, value_at_index(brake.array.raw, index),
                         parameter='Speedbrake', altitude=alt)
                     self.create_kpv(index, value_at_index(roll.array, index),
                         parameter='Roll', altitude=alt)
@@ -1765,8 +1843,8 @@ class IsolationValveOpenAtLiftoff(KeyPointValueNode):
 
         
 class PackValvesOpenAtLiftoff(KeyPointValueNode):
-    def derive(self, isol=P('Pack Valves Open'), lifts=KTI('Liftoff')):
-        self.create_kpvs_at_ktis(isol.array, lifts, suppress_zeros=True)
+    def derive(self, pack=M('Pack Valves Open'), lifts=KTI('Liftoff')):
+        self.create_kpvs_at_ktis(pack.array.raw, lifts, suppress_zeros=True)
 
 
 class LatitudeAtLanding(KeyPointValueNode):
@@ -2710,8 +2788,9 @@ class FlapAtGearDownSelection(KeyPointValueNode):
 
 
 class FlapWithGearUpMax(KeyPointValueNode):
-    def derive(self, flap=P('Flap'), gear_down=P('Gear Down')):
-        gear_up = np.ma.masked_equal(gear_down.array, 1)
+    def derive(self, flap=P('Flap'), gear=M('Gear Down')):
+        state = gear.array.state['Down']
+        gear_up = np.ma.masked_equal(gear.array.raw, state)
         gear_up_slices = np.ma.clump_unmasked(gear_up)
         self.create_kpvs_within_slices(flap.array, gear_up_slices, max_value)
 
@@ -2731,13 +2810,12 @@ class FlapWithSpeedbrakesDeployedMax(KeyPointValueNode):
     '''
     '''
 
-    def derive(self, flap=P('Flap'), speedbrake=P('Speedbrake Selected'), airs=S('Airborne'), lands=S('Landing')):
+    def derive(self, flap=P('Flap'), speedbrake=M('Speedbrake Selected'), airs=S('Airborne'), lands=S('Landing')):
         '''
-        Speedbrake Selected: 0 = Stowed, 1 = Armed, 2 = Deployed.
         '''
-        array = flap.array
         # Mask all values where speedbrake isn't deployed:
-        array[speedbrake.array < 2] = np.ma.masked
+        deployed = speedbrake.array.state['Deployed/Cmd Up']
+        array = np.ma.masked_where(speedbrake.array.raw != deployed, flap.array, copy=True)
         # Mask all values where the aircraft isn't airborne:
         array = mask_outside_slices(array, [s.slice for s in airs])
         # Mask all values where the aircraft is landing (as we expect speedbrake to be deployed):
@@ -3586,13 +3664,13 @@ class SpeedbrakesDeployed1000To20FtDuration(KeyPointValueNode):
     '''
     '''
 
-    def derive(self, speedbrake=P('Speedbrake Selected'),
+    def derive(self, speedbrake=M('Speedbrake Selected'),
             alt_aal=P('Altitude AAL For Flight Phases')):
         '''
-        Speedbrake Selected: 0 = Stowed, 1 = Armed, 2 = Deployed.
         '''
+        deployed = speedbrake.array.state['Deployed/Cmd Up']
         for descent in alt_aal.slices_from_to(1000, 20):
-            event = np.ma.masked_less(speedbrake.array[descent], 2)
+            event = np.ma.masked_not_equal(speedbrake.array.raw[descent], deployed)
             value = np.ma.count(event) / speedbrake.frequency
             if value:
                 index = descent.stop
@@ -3604,13 +3682,13 @@ class SpeedbrakesDeployedInGoAroundDuration(KeyPointValueNode):
     '''
     '''
 
-    def derive(self, speedbrake=P('Speedbrake Selected'),
+    def derive(self, speedbrake=M('Speedbrake Selected'),
             gas=S('Go Around And Climbout')):
         '''
-        Speedbrake Selected: 0 = Stowed, 1 = Armed, 2 = Deployed.
         '''
+        deployed = speedbrake.array.state['Deployed/Cmd Up']
         for ga in gas:
-            event = np.ma.masked_less(speedbrake.array[ga.slice], 2)
+            event = np.ma.masked_not_equal(speedbrake.array.raw[ga.slice], deployed)
             value = np.ma.count(event) / speedbrake.frequency
             if value:
                 # Probably open at the start of the go-around, so when were they closed?
@@ -3627,14 +3705,14 @@ class SpeedbrakesDeployedWithPowerOnDuration(KeyPointValueNode):
     duration this happened for, and allow the analyst to find out the cause.
     '''
 
-    def derive(self, speedbrake=P('Speedbrake Selected'),
+    def derive(self, speedbrake=M('Speedbrake Selected'),
             power=P('Eng (*) N1 Avg'), airs=S('Airborne'),
             manufacturer=A('Manufacturer')):
         '''
-        Speedbrake Selected: 0 = Stowed, 1 = Armed, 2 = Deployed.
         '''
-        speedbrake_in_flight = mask_outside_slices(speedbrake.array, [s.slice for s in airs])
-        speedbrakes_applied_in_flight = np.ma.clump_unmasked(np.ma.masked_less(speedbrake_in_flight, 2))
+        deployed = speedbrake.array.state['Deployed/Cmd Up']
+        speedbrake_in_flight = mask_outside_slices(speedbrake.array.raw, [s.slice for s in airs])
+        speedbrakes_applied_in_flight = np.ma.clump_unmasked(np.ma.masked_not_equal(speedbrake_in_flight, deployed))
         percent = 60.0 if manufacturer == 'Airbus' else 50.0
         high_power = np.ma.clump_unmasked(np.ma.masked_less(power.array, percent))
         # Speedbrake and Power => s_and_p
@@ -3651,13 +3729,13 @@ class SpeedbrakesDeployedWithFlapDuration(KeyPointValueNode):
     '''
     '''
 
-    def derive(self, speedbrake=P('Speedbrake Selected'), flap=P('Flap'),
+    def derive(self, speedbrake=M('Speedbrake Selected'), flap=P('Flap'),
             airs=S('Airborne')):
         '''
-        Speedbrake Selected: 0 = Stowed, 1 = Armed, 2 = Deployed.
         '''
+        deployed = speedbrake.array.state['Deployed/Cmd Up']
         for air in airs:
-            brakes = np.ma.clump_unmasked(np.ma.masked_less(speedbrake.array[air.slice], 2))
+            brakes = np.ma.clump_unmasked(np.ma.masked_not_equal(speedbrake.array.raw[air.slice], deployed))
             with_flap = np.ma.clump_unmasked(np.ma.masked_less(flap.array[air.slice], 0.5))
             # Speedbrake and Flap => s_and_f
             s_and_fs = slices_and(brakes, with_flap)
@@ -3674,11 +3752,11 @@ class SpeedbrakesDeployedWithConfDuration(KeyPointValueNode):
     Conf used here, but not tried or tested. Presuming conf 2 / conf 3 should not be used with speedbrakes.
     '''
 
-    def derive(self, speedbrake=P('Speedbrake Selected'), conf=P('Configuration')):
+    def derive(self, speedbrake=M('Speedbrake Selected'), conf=P('Configuration')):
         '''
-        Speedbrake Selected: 0 = Stowed, 1 = Armed, 2 = Deployed.
         '''
-        pos = np.ma.masked_where(speedbrake.array < 2, conf.array, copy=True)
+        deployed = speedbrake.array.state['Deployed/Cmd Up']
+        pos = np.ma.masked_where(speedbrake.array != deployed, conf.array, copy=True)
         pos = np.ma.masked_where(conf.array >= 2.0, pos)
         clumps = np.ma.clump_unmasked(pos)
         for clump in clumps:
@@ -3701,18 +3779,18 @@ class SpeedbrakesDeployedWithPowerOnInHeightBandsDuration(KeyPointValueNode):
         'lower': [20000, 6000, 0],
     }
 
-    def derive(self, speedbrake=P('Speedbrake Selected'), power=P('Eng (*) N1 Avg'),
+    def derive(self, speedbrake=M('Speedbrake Selected'), power=P('Eng (*) N1 Avg'),
            alt_aal=P('Altitude AAL For Flight Phases'), airs=S('Airborne')):
         '''
-        Speedbrake Selected: 0 = Stowed, 1 = Armed, 2 = Deployed.
         '''
+        deployed = speedbrake.array.state['Deployed/Cmd Up']
         for eng_speed in self.NAME_VALUES['eng_n1']:
             for up in self.NAME_VALUES['upper']:
                 for low in self.NAME_VALUES['lower']:
                     if up <= low:
                         break
-                    speedbrake_in_band = mask_outside_slices(speedbrake.array, alt_aal.slices_between(up, low))
-                    speedbrakes_applied_in_flight = np.ma.clump_unmasked(np.ma.masked_less(speedbrake_in_band, 2))
+                    speedbrake_in_band = mask_outside_slices(speedbrake.array.raw, alt_aal.slices_between(up, low))
+                    speedbrakes_applied_in_flight = np.ma.clump_unmasked(np.ma.masked_not_equal(speedbrake_in_band, deployed))
                     high_power = np.ma.clump_unmasked(np.ma.masked_less(power.array, eng_speed))
                     # Speedbrake and Power => s_and_p
                     s_and_ps = slices_and(speedbrakes_applied_in_flight, high_power)

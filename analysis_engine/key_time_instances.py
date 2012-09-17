@@ -264,13 +264,13 @@ class FlapStateChanges(KeyTimeInstanceNode):
         self.create_ktis_at_edges(flap.array, direction='all_edges', name='flap') 
 
 
-class GearSelectionDown(KeyTimeInstanceNode):
-    def derive(self, gear_sel_down=M('Gear Selected Down'), phase=S('Airborne')):
+class GearDownSelection(KeyTimeInstanceNode):
+    def derive(self, gear_sel_down=M('Gear Down Selected'), phase=S('Airborne')):
         self.create_ktis_on_state_change('Down', gear_sel_down.array, change='entering', phase=phase)    
         
 
-class GearSelectionUp(KeyTimeInstanceNode):
-    def derive(self, gear_sel_up=M('Gear Selected Up'), phase=S('Airborne')):
+class GearUpSelection(KeyTimeInstanceNode):
+    def derive(self, gear_sel_up=M('Gear Up Selected'), phase=S('Airborne')):
         self.create_ktis_on_state_change('Up', gear_sel_up.array, change='entering', phase=phase)    
 
 
@@ -461,7 +461,7 @@ class Touchdown(KeyTimeInstanceNode):
                 'Airborne'  in available and\
                 'Landing' in available)
      
-    def derive(self, wow = M('Gear On Ground'), 
+    def derive(self, wow=M('Gear On Ground'), 
                roc=P('Vertical Speed Inertial'), alt=P('Altitude AAL'), 
                airs=S('Airborne'), lands=S('Landing')
                ):
