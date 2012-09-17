@@ -9,8 +9,13 @@ from itertools import izip
 ##from scipy.optimize import fmin, fmin_bfgs, fmin_tnc
 # TODO: Inform Enthought that fmin_l_bfgs_b dies in a dark hole at _lbfgsb.setulb
 
-from settings import (KTS_TO_MPS, METRES_TO_FEET, REPAIR_DURATION, 
-                      TRUCK_OR_TRAILER_INTERVAL, TRUCK_OR_TRAILER_PERIOD)
+from settings import (GRAVITY_METRIC,
+                      KTS_TO_MPS, 
+                      METRES_TO_FEET, 
+                      REPAIR_DURATION, 
+                      TRUCK_OR_TRAILER_INTERVAL, 
+                      TRUCK_OR_TRAILER_PERIOD)
+
 # There is no numpy masked array function for radians, so we just multiply thus:
 deg2rad = radians(1.0)
 
@@ -184,6 +189,20 @@ def align(slave, master, data_type=None):
     return slave_aligned
 
 
+def ambiguous_runway(rwy):
+    # There are a number of runway related KPVs that we only create if we
+    # know the actual runway we landed on. Where there is ambiguity the
+    # runway attribute may be truncated, or the identifier, if present, will
+    # end in a "*" character.
+    if rwy == None:
+        return True
+    if rwy.value == None:
+        return True
+    if not rwy.value.has_key('identifier'):
+        return True
+    return rwy.value['identifier'].endswith('*')
+   
+
 def bearing_and_distance(lat1, lon1, lat2, lon2):
     """
     Simplified version of bearings and distances for a single pair of
@@ -245,6 +264,20 @@ def bearings_and_distances(latitudes, longitudes, reference):
 
     return brg_array, dist_array
 
+"""
+Landing stopping distances.
+
+def braking_action(gspd, landing, mu):
+    dist = integrate(gspd.array[landing.slice], gspd.hz, scale=KTS_TO_MPS)
+    #decelerate = np.power(gspd.array[landing.slice]*KTS_TO_MPS,2.0)\
+        #/(2.0*GRAVITY_METRIC*mu)
+    mu = np.power(gspd.array[landing.slice]*KTS_TO_MPS,2.0)\
+        /(2.0*GRAVITY_METRIC*dist)
+    limit_point = np.ma.argmax(mu)
+    ##limit_point = np.ma.argmax(dist+decelerate)
+    ##braking_distance = dist[limit_point] + decelerate[limit_point]
+    return limit_point, mu[limit_point]
+"""
 
 def calculate_timebase(years, months, days, hours, mins, secs):
     """
@@ -559,8 +592,11 @@ def cycle_finder(array, min_step=0.0, include_ends=True):
     
     # Optional inclusion of end points
     if include_ends:
-        idxs = np.insert(idxs, 0, 0)
-        vals = np.insert(vals,0,array.data[0])
+        # We can only extend over the range of valid data, so find the first
+        # and last valid samples.
+        first, last = np.ma.flatnotmasked_edges(array)
+        idxs = np.insert(idxs, 0, first)
+        vals = np.insert(vals,0,array.data[first])
         # If the end two are in line, scrub the middle one.
         try:
             if (vals[2]-vals[1])*(vals[1]-vals[0])>=0.0:
@@ -569,7 +605,7 @@ def cycle_finder(array, min_step=0.0, include_ends=True):
         except:
             pass # If there are few vals in the array, there's nothing to tidy up.
         idxs = np.append(idxs, len(array))
-        vals = np.append(vals,array.data[-1])
+        vals = np.append(vals,array.data[last])
         try:
             if (vals[-3]-vals[-2])*(vals[-2]-vals[-1])>=0.0:
                 idxs = np.delete(idxs, -2)
@@ -653,8 +689,20 @@ def clip(array, period, hz=1.0, remove='peaks'):
     if remove not in ['peaks', 'troughs']:
         raise ValueError('Clip called with unrecognised removal mode')
     
-    # Preparation of convenient numbers and data to process
+    # Width is the number of samples to be computed, allowing for delay period before and after.
     width = len(array) - 2*delay
+    
+    # If the clip period is longer than the array, width is zero or negative,
+    # so we just return the highest or lowest value.
+    if width <= 0:
+        result = np_ma_ones_like(array)
+        if remove == 'peaks':
+            result *= np.ma.min(array)
+        else:
+            result *= np.ma.max(array)
+        return result
+    
+    # OK - normal operation here. We repair the mask to avoid propogating invalid samples unreasonably.
     source = repair_mask(array, frequency=hz, repair_duration=period-(1/hz))
     if source != None and np.ma.count(source): # Because np.ma.count(source)=1 if source = None
         result = np.ma.copy(source)
@@ -979,6 +1027,11 @@ def _dist(lat1_d, lon1_d, lat2_d, lon2_d):
     """
     Haversine formula for calculating distances between coordinates.
     """
+    if (lat1_d == 0.0 and lon1_d == 0.0) or (lat2_d == 0.0 and lon2_d == 0.0):
+        # Being asked for a distance from nowhere point on the Atlantic. 
+        # Decline to get sucked into this trap !
+        return None
+    
     lat1 = radians(lat1_d)
     lon1 = radians(lon1_d)
     lat2 = radians(lat2_d)
@@ -1000,6 +1053,12 @@ def runway_distance_from_end(runway, *args, **kwds):
     end is taken. This is a convenient startingpoint for measuring runway
     landing distances.
     
+    Note: If high accuracy is required, compute the latitude and longitude
+    using the value_at_index function rather than just indexing into the
+    latitude and longitude array. Alternatively use KPVs 'Latitude At
+    Touchdown' and 'Longitude At Touchdown' which are the most accurate
+    locations we have available for touchdown.
+    
     :param runway: Runway location details dictionary.
     :type runway: Dictionary containing:
     ['start']['latitude'] runway start position
@@ -1011,6 +1070,7 @@ def runway_distance_from_end(runway, *args, **kwds):
     :type lat: float
     :param lon: Longitude of the point of interest
     :type lon: float
+    
     **kwds if supplied are a point in the runway dictionary
     :param point: dictionary name of the point of reference, e.g. 'glideslope'
     :type point: String
@@ -1030,8 +1090,11 @@ def runway_distance_from_end(runway, *args, **kwds):
                             kwds['point'], runway['id'])
             return None
 
-    return _dist(new_lat, new_lon, 
-                 runway['end']['latitude'], runway['end']['longitude'])
+    if new_lat and new_lon:
+        return _dist(new_lat, new_lon, 
+                     runway['end']['latitude'], runway['end']['longitude'])
+    else:
+        return None
         
 
 def runway_distances(runway):
@@ -1139,6 +1202,26 @@ def runway_heading(runway):
     except:
         return None
 
+def runway_snap_dict(runway, lat, lon):
+    """
+    This function snaps any location onto the closest point on the runway centreline.
+    
+    :param runway: Dictionary containing the runway start and end points.
+    :type dict
+    :param lat: Latitude of the point to snap
+    :type lat: float
+    :param lon: Longitude of the point to snap
+    :type lon: float
+    
+    :returns dictionary {['latitude'],['longitude']}
+    :type dict.
+    """
+    lat, lon = runway_snap(runway, lat, lon)
+    to_return = {}
+    to_return['latitude'] = lat
+    to_return['longitude'] = lon
+    return to_return
+    
 def runway_snap(runway, lat, lon):
     """
     This function snaps any location onto the closest point on the runway centreline.
@@ -1162,13 +1245,18 @@ def runway_snap(runway, lat, lon):
     b = _dist(lat, lon, start_lat, start_lon)
     d = _dist(start_lat, start_lon, end_lat, end_lon)
     
-    r = (1.0+(a**2 - b**2)/d**2)/2.0
+    if a and b and d:
+        r = (1.0+(a**2 - b**2)/d**2)/2.0
+        
+        # The projected glideslope antenna position is given by this formula
+        new_lat = end_lat + r*(start_lat - end_lat)
+        new_lon = end_lon + r*(start_lon - end_lon)
+        
+        return new_lat, new_lon
     
-    # The projected glideslope antenna position is given by this formula
-    new_lat = end_lat + r*(start_lat - end_lat)
-    new_lon = end_lon + r*(start_lon - end_lon)
+    else:
+        return None, None
     
-    return new_lat, new_lon
 
     
 def ground_track(lat_fix, lon_fix, gspd, hdg, frequency, mode):
@@ -1235,7 +1323,7 @@ def ground_track(lat_fix, lon_fix, gspd, hdg, frequency, mode):
     east = integrate(delta_east, frequency, scale=KTS_TO_MPS, direction=direction)
     
     bearing = np.ma.array(np.rad2deg(np.arctan2(east, north)))
-    distance = np.ma.array(np.sqrt(north**2 + east**2))
+    distance = np.ma.array(np.ma.sqrt(north**2 + east**2))
     distance.mask = result.mask
     
     lat, lon = latitudes_and_longitudes(bearing, distance, 
@@ -2400,7 +2488,9 @@ def np_ma_zeros_like(array):
     replaced should the Numpy library be extended in future.
     
     :param array: array of length to be replicated.
-    :type array: A Numpy array - can be masked or not.
+    :type array: A Numpy masked array - can be masked or not.
+    
+    TODO: Confirm operation with normal Numpy array. The reference to array.data probably fails.
     
     :returns: Numpy masked array of unmasked zero values, length same as input array.
     """
@@ -2507,7 +2597,9 @@ def truck_and_trailer(data, ttp, overall, trailer, curve_sense, _slice):
         return None
     
     
-def peak_curvature(array, _slice=slice(None), curve_sense='Concave'):
+def peak_curvature(array, _slice=slice(None), curve_sense='Concave',
+                   gap = TRUCK_OR_TRAILER_INTERVAL,
+                   ttp = TRUCK_OR_TRAILER_PERIOD):
     """
     :param array: Parameter to be examined
     :type array: Numpy masked array
@@ -2533,10 +2625,10 @@ def peak_curvature(array, _slice=slice(None), curve_sense='Concave'):
     we should provide analysis with only airspeed, altitude and heading data
     available.
     """
-    gap = TRUCK_OR_TRAILER_INTERVAL
+    #gap = TRUCK_OR_TRAILER_INTERVAL
     if gap%2-1:
         gap-=1  #  Ensure gap is odd
-    ttp = TRUCK_OR_TRAILER_PERIOD
+    #ttp = TRUCK_OR_TRAILER_PERIOD
     trailer = ttp+gap
     overall = 2*ttp + gap
     
@@ -2575,13 +2667,13 @@ def peak_curvature(array, _slice=slice(None), curve_sense='Concave'):
             curve = data[2:] - 2.0*data[1:-1] + data[:-2]
             # Trap for invariant data
             if np.ma.ptp(data) == 0.0:
-                return 1
+                return 1 + valid_slice.start
             if curve_sense == 'Concave':
-                return np.ma.argmax(curve) + 1
+                return np.ma.argmax(curve) + 1 + valid_slice.start
             elif curve_sense == 'Convex':
-                return np.ma.argmin(curve) + 1
+                return np.ma.argmin(curve) + 1 + valid_slice.start
             elif curve_sense == 'Bipolar':
-                return np.ma.argmin(np.ma.abs(curve)) + 1
+                return np.ma.argmin(np.ma.abs(curve)) + 1 + valid_slice.start
             else:
                 logger.warn("Short data and unrecognised keyword %s in peak_curvature" %curve_sense)
 
@@ -2630,7 +2722,7 @@ def rate_of_change_array(to_diff, hz, width):
     :returns: masked array of values with differentiation applied
 
     '''
-    hw = width * hz / 2.0
+    hw = int(width * hz / 2.0)
     if hw < 1:
         raise ValueError, 'Rate of change called with inadequate width.'
     if len(to_diff) < width:
@@ -2668,7 +2760,7 @@ def rate_of_change(diff_param, width):
     
 
 def repair_mask(array, frequency=1, repair_duration=REPAIR_DURATION,
-                raise_duration_exceedance=False, copy=False):
+                raise_duration_exceedance=False, copy=False, extrapolate=False):
     '''
     This repairs short sections of data ready for use by flight phase algorithms
     It is not intended to be used for key point computations, where invalid data
@@ -2678,6 +2770,7 @@ def repair_mask(array, frequency=1, repair_duration=REPAIR_DURATION,
     
     :param repair_duration: If None, any length of masked data will be repaired.
     :param raise_duration_exceedance: If False, no warning is raised if there are masked sections longer than repair_duration. They will remain unrepaired.
+    :param extrapolate: If True, data is extrapolated at the start and end of the array.
     '''
     if copy:
         array = array.copy()
@@ -2697,9 +2790,17 @@ def repair_mask(array, frequency=1, repair_duration=REPAIR_DURATION,
             else:
                 continue # Too long to repair
         elif section.start == 0:
-            continue # Can't interpolate if we don't know the first sample
+            if extrapolate:
+                array.data[section] = array.data[section.stop-1]
+                array.mask[section] = False
+            else:continue # Can't interpolate if we don't know the first sample
+        
         elif section.stop == len(array):
-            continue # Can't interpolate if we don't know the last sample
+            if extrapolate:
+                array.data[section] = array.data[section.start-1]
+                array.mask[section] = False
+            else:
+                continue # Can't interpolate if we don't know the last sample
         else:
             array.data[section] = np.interp(np.arange(length) + 1,
                                             [0, length + 1],
@@ -2988,7 +3089,54 @@ def step_values(array, steps):
         # all values above the last
         stepped_array[low < array] = level
     return np.ma.array(stepped_array, mask=array.mask)
-            
+
+def touchdown_inertial(land, roc, alt):
+    """
+    For aircraft without weight on wheels swiches, or if there is a problem
+    with the switch for this landing, we do a local integration of the
+    inertial rate of climb to estimate the actual point of landing. This is
+    referenced to the available altitude signal, altitude AAL, which will
+    have been derived from the best available source. This technique leads on
+    to the rate of descent at landing KPV which can then make the best
+    calculation of the landing ROD as we know more accurately the time where
+    the mainwheels touched.
+    
+    :param land: Landing period
+    :type land: slice
+    :param roc: inertial rate of climb
+    :type roc: Numpy masked array
+    :param alt: altitude aal
+    :type alt: Numpy masked array
+    
+    :returns: index, rod
+    :param index: index within landing period
+    :type index: integer
+    :param rod: rate of descent at touchdown
+    :type rod: float, units fpm
+    """
+    
+    # Time constant of 6 seconds.
+    tau = 1/6.0
+    # Make space for the integrand
+    startpoint = land.start_edge
+    endpoint = land.stop_edge
+    sm_ht = np_ma_zeros_like(roc.array[startpoint:endpoint])
+    # Repair the source data (otherwise we propogate masked data)
+    my_roc = repair_mask(roc.array[startpoint:endpoint])
+    my_alt = repair_mask(alt.array[startpoint:endpoint])
+        
+    # Start at the beginning...
+    sm_ht[0] = alt.array[startpoint]
+    #...and calculate each with a weighted correction factor.
+    for i in range(1, len(sm_ht)):
+        sm_ht[i] = (1.0-tau)*sm_ht[i-1] + tau*my_alt[i-1] + my_roc[i]/60.0/roc.hz
+        
+    # Find where the smoothed height touches zero and hence the rod at this
+    # point. Note that this may differ slightly from the touchdown measured
+    # using wheel switches.
+    index = index_at_value(sm_ht, 0.0)
+    roc_tdn = my_roc[index]
+    return index, roc_tdn
 
 def track_linking(pos, local_pos):
     """
@@ -3095,8 +3243,8 @@ def smooth_track(lat, lon):
         cost_0 = cost
         cost = smooth_track_cost_function(lat_s, lon_s, lat, lon)
 
-    if cost>0.100:
-        logger.warn("Smooth Track Cost Function closed with cost %d",cost)
+    if cost>0.1:
+        logger.warn("Smooth Track Cost Function closed with cost %f.3",cost)
     
     return lat_last, lon_last, cost_0
 

@@ -1168,7 +1168,6 @@ class KeyTimeInstanceNode(FormattedNameNode):
 
     def create_ktis_on_state_change(self, state, array, change='entering',
                                     phase=None):
-        return
         '''
         Create KTIs from multistate parameters where data reaches and leaves
         given state.
@@ -1185,7 +1184,8 @@ class KeyTimeInstanceNode(FormattedNameNode):
             # TODO: to improve performance reverse the state into numeric value
             # and look it up in array.raw instead
             state_periods = np.ma.clump_unmasked(
-                np.ma.masked_not_equal(array[_slice], state))
+                np.ma.masked_not_equal(array[_slice].raw,
+                                       array.get_state_value(state)))
             for period in state_periods:
                 if change == 'entering':
                     self.create_kti(period.start - 0.5
@@ -1360,6 +1360,20 @@ class KeyPointValueNode(FormattedNameNode):
                 
     create_kpvs_at_kpvs = create_kpvs_at_ktis # both will work the same!
     
+    def kpv_from_slice(self, slice_, function, array):
+        '''
+        Basic function called by higher level create_kpv functions.
+        '''
+        if isinstance(slice_, Section): # Use slice within Section.
+            start_edge = slice_.start_edge
+            stop_edge = slice_.stop_edge
+            slice_ = slice_.slice
+        else:
+            start_edge = None
+            stop_edge = None
+        index, value = function(array, slice_, start_edge, stop_edge)
+        return index, value
+
     def create_kpvs_within_slices(self, array, slices, function, **kwargs):
         '''
         Shortcut for creating KPVs from a number of slices by retrieving an
@@ -1375,15 +1389,38 @@ class KeyPointValueNode(FormattedNameNode):
         :rtype: None
         '''
         for slice_ in slices:
-            if isinstance(slice_, Section): # Use slice within Section.
-                start_edge = slice_.start_edge
-                stop_edge = slice_.stop_edge
-                slice_ = slice_.slice
-            else:
-                start_edge = None
-                stop_edge = None
-            index, value = function(array, slice_, start_edge, stop_edge)
+            index, value = self.kpv_from_slice(slice_, function, array)
             self.create_kpv(index, value, **kwargs)
+
+    def create_kpv_from_slices(self, array, slices, function, **kwargs):
+        '''
+        Shortcut for creating a single KPVs from multiple slices.
+        
+        :param array: Array of source data.
+        :type array: np.ma.masked_array
+        :param slices: Slices from which to create KPVs.
+        :type slices: SectionNode or list of slices.
+        :param function: Function which will return an index and value from the array.
+        :type function: function (max_value and min_value only recognised here)
+        :returns: None
+        :rtype: None
+        '''
+        index = None
+        value = None
+        for slice_ in slices:
+            i, v = self.kpv_from_slice(slice_, function, array)
+            if i==None or v==None:
+                continue
+            if value == None:
+                value = v
+                index = i
+            elif function([value, v]).index: # v is the larger or smaller
+                value = v
+                index = i
+            
+        if index==None or value==None:
+            return
+        self.create_kpv(index, value, **kwargs)
 
     def create_kpv_outside_slices(self, array, slices, function, **kwargs):
         '''
@@ -1408,7 +1445,7 @@ class KeyPointValueNode(FormattedNameNode):
         index, value = function(array)
         self.create_kpv(index, value, **kwargs)
 
-    def create_kpvs_from_slices(self, slices, threshold=0.0, mark='midpoint', **kwargs):
+    def create_kpvs_from_slice_durations(self, slices, threshold=0.0, mark='midpoint', **kwargs):
         '''
         Shortcut for creating KPVs from slices based only on the slice duration.
         
@@ -1434,12 +1471,24 @@ class KeyPointValueNode(FormattedNameNode):
                     elif mark == 'midpoint':
                         index = (slice_.stop_edge + slice_.start_edge) / 2.0
                     else:
-                        raise ValueError,'Unrecognised option in create_kpvs_from_slices'
+                        raise ValueError,'Unrecognised option in create_kpvs_from_slice_durations'
                     self.create_kpv(index, duration, **kwargs)
+            else:
+                duration = slice_.stop - slice_.start
+                if duration > threshold:
+                    if mark == 'start':
+                        index = slice_.start
+                    elif mark == 'end':
+                        index = slice_.stop
+                    elif mark == 'midpoint':
+                        index = (slice_.stop + slice_.start) / 2.0
+                    else:
+                        raise ValueError,'Unrecognised option in create_kpvs_from_slice_durations'
+                    self.create_kpv(index, duration, **kwargs)
+                
 
     def create_kpvs_where_state(self, state, array, hz, phase=None,
                                 min_duration=0.0):
-        return
         '''
         For discrete and multi-state parameters, this detects an event and
         records the duration of each event.
@@ -1464,7 +1513,8 @@ class KeyPointValueNode(FormattedNameNode):
             # TODO: to improve performance reverse the state into numeric value
             # and look it up in array.raw instead
             events = np.ma.clump_unmasked(
-                np.ma.masked_not_equal(subarray, state))
+                np.ma.masked_not_equal(subarray.raw,
+                                       subarray.get_state_value(state)))
             for event in events:
                 index = event.start
                 value = (event.stop - event.start) / hz

@@ -422,18 +422,9 @@ class GearExtending(FlightPhaseNode):
                frame=A('Frame'), airs=S('Airborne')):
         frame_name = frame.value if frame else None
 
-        if frame_name in ['737-5']:
-            edge_list=[]
-            for air in airs:
-                edge_list.append(find_edges(gear_down.array.raw, air.slice))
-            # We now have a list of lists and this trick flattens the result.
-            for edge in sum(edge_list,[]):
-                # We have no transition state, so allow 5 seconds for the
-                # gear to extend.
-                begin = edge
-                end = edge+(5.0*gear_down.frequency)
-                self.create_phase(slice(begin, end))
-        elif frame_name in ['737-3C']:
+        # Aircraft with red warning captions to show travelling
+
+        if frame_name in ['737-1', '737-3C']:
             gear_warn = np.ma.logical_or(gear_warn_l.array, gear_warn_r.array)
             gear_warn = np.ma.logical_or(gear_warn, gear_warn_n.array)
             slices = _ezclump(gear_warn)
@@ -446,6 +437,21 @@ class GearExtending(FlightPhaseNode):
                 for gear_move in gear_moves:
                     if gear_down.array[gear_move.start-1] == 0:
                         self.create_phase(gear_move)
+        
+        # Aircraft without red warning captions for travelling
+
+        elif frame_name in ['737-5', '737-6', '737-i']:
+            edge_list=[]
+            for air in airs:
+                edge_list.append(find_edges(gear_down.array.raw, air.slice))
+            # We now have a list of lists and this trick flattens the result.
+            for edge in sum(edge_list,[]):
+                # We have no transition state, so allow 5 seconds for the
+                # gear to extend.
+                begin = edge
+                end = edge+(5.0*gear_down.frequency)
+                self.create_phase(slice(begin, end))
+                
         else:
             raise DataFrameError(self.name, frame_name)
 
@@ -465,18 +471,10 @@ class GearRetracting(FlightPhaseNode):
                gear_warn_r = P('Gear (R) Red Warning'),
                frame=A('Frame'), airs=S('Airborne')):
         frame_name = frame.value if frame else None
-        if frame_name in ['737-5', '737-6']:
-            edge_list=[]
-            for air in airs:
-                edge_list.append(find_edges(gear_down.array.raw, air.slice, direction='falling_edges'))
-            # We now have a list of lists and this trick flattens the result.
-            for edge in sum(edge_list,[]):
-                # We have no transition state, so allow 5 seconds for the
-                # gear to retract.
-                begin = edge
-                end = edge+(5.0*gear_down.frequency)
-                self.create_phase(slice(begin, end))
-        elif frame_name in ['737-3C']:
+
+        # Aircraft with red warning captions to show travelling
+
+        if frame_name in ['737-1', '737-3C']:
             gear_warn = np.ma.logical_or(gear_warn_l.array, gear_warn_r.array)
             gear_warn = np.ma.logical_or(gear_warn, gear_warn_n.array)
             slices = _ezclump(gear_warn)
@@ -489,6 +487,20 @@ class GearRetracting(FlightPhaseNode):
                 for gear_move in gear_moves:
                     if gear_down.array[gear_move.start-1] == 1:
                         self.create_phase(gear_move)
+        
+        # Aircraft without red warning captions for travelling
+
+        elif frame_name in ['737-5', '737-6', '737-i']:
+            edge_list=[]
+            for air in airs:
+                edge_list.append(find_edges(gear_down.array.raw, air.slice, direction='falling_edges'))
+            # We now have a list of lists and this trick flattens the result.
+            for edge in sum(edge_list,[]):
+                # We have no transition state, so allow 5 seconds for the
+                # gear to retract.
+                begin = edge
+                end = edge+(5.0*gear_down.frequency)
+                self.create_phase(slice(begin, end))
         else:
             raise DataFrameError(self.name, frame_name)
 
@@ -606,8 +618,12 @@ class ILSGlideslopeEstablished(FlightPhaseNode):
                 gs_est = scan_ils('glideslope', ils_gs.array, alt_aal.array, ils_loc_est.slice)
                 # If the glideslope signal is corrupt or there is no
                 # glidepath (not fitted or out of service) there may be no
-                # glideslope established phase.
+                # glideslope established phase, or the proportion of unmasked values may be small.
                 if gs_est:
+                    good_data = np.ma.count(ils_gs.array[gs_est])
+                    all_data = len(ils_gs.array[gs_est])
+                    if good_data/all_data < 0.7:
+                        continue
                     self.create_phase(gs_est)
 
 

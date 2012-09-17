@@ -113,10 +113,18 @@ def derive_parameters(hdf, node_mgr, process_order):
         if node.node_type is KeyPointValueNode:
             #Q: track node instead of result here??
             params[param_name] = result
-            kpv_list.extend(result.get_aligned(P(frequency=1,offset=0)))
+            one_hz = result.get_aligned(P(frequency=1,offset=0))
+            if 0 > one_hz.index > hdf.duration:
+                raise IndexError("KPV '%s' index %.2f is not between 0 and %d" % (
+                    one_hz.get_name(), one_hz.index, hdf.duration))
+            kpv_list.extend(one_hz)
         elif node.node_type is KeyTimeInstanceNode:
             params[param_name] = result
-            kti_list.extend(result.get_aligned(P(frequency=1,offset=0)))
+            one_hz = result.get_aligned(P(frequency=1,offset=0))
+            if 0 > one_hz.index > hdf.duration:
+                raise IndexError("KTI '%s' index %.2f is not between 0 and %d" % (
+                    one_hz.get_name(), one_hz.index, hdf.duration))
+            kti_list.extend(one_hz)
         elif node.node_type is FlightAttributeNode:
             params[param_name] = result
             try:
@@ -124,15 +132,14 @@ def derive_parameters(hdf, node_mgr, process_order):
             except:
                 logger.warning("Flight Attribute Node '%s' returned empty handed."%(param_name))
         elif node.node_type in (FlightPhaseNode, SectionNode):
-            # expect a single slice
             params[param_name] = result
-            section_list.extend(result.get_aligned(P(frequency=1,offset=0)))
+            one_hz = result.get_aligned(P(frequency=1,offset=0))
+            if 0 > one_hz.slice.start > hdf.duration or \
+               0 > one_hz.slice.stop > hdf.duration:
+                raise IndexError("Section '%s' (%.2f, %.2f) does not lie between 0 and %d" % (
+                    one_hz.get_name(), one_hz.start, one_hz.stop, hdf.duration))
+            section_list.extend(one_hz)
         elif issubclass(node.node_type, DerivedParameterNode):
-            ### perform any post_processing
-            ##if hooks.POST_DERIVED_PARAM_PROCESS:
-                ##process_result = hooks.POST_DERIVED_PARAM_PROCESS(hdf, result)
-                ##if process_result:
-                    ##result = process_result
             if hdf.duration:
                 # check that the right number of results were returned
                 # Allow a small tolerance. For example if duration in seconds
@@ -317,11 +324,15 @@ if __name__ == '__main__':
                         help='Path of file to process.')
     parser.add_argument('-tail', dest='tail_number', type=str, default='G-ABCD',
                         help='Aircraft Tail Number for processing.')
+    parser.add_argument('-frame', dest='frame', type=str, default=None,
+                        help='Data frame name.')
     parser.add_argument('-p', dest='plot', action='store_true',
                         default=False, help='Plot flight onto a graph.')
     args = parser.parse_args()
     
     hdf_copy = copy_file(args.file, postfix='_process')
     process_flight(hdf_copy, {'Tail Number': args.tail_number,
-                              'Precise Positioning': True},
+                              'Precise Positioning': True,
+                              'Frame': args.frame,
+                              },
                    draw=args.plot)

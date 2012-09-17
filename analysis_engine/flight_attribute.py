@@ -73,8 +73,8 @@ class Approaches(FlightAttributeNode):
                                              'Altitude AAL',
                                              'Latitude At Lowest Point On Approach',
                                              'Longitude At Lowest Point On Approach',
-                                             'Latitude At Touchdown',
-                                             'Longitude At Touchdown']])
+                                             'Latitude At Landing',
+                                             'Longitude At Landing']])
         
     def _get_lat_lon(self, approach_slice, lat_kpv_node, lon_kpv_node):
         lat_kpvs = lat_kpv_node.get(within_slice=approach_slice)
@@ -180,12 +180,12 @@ class Approaches(FlightAttributeNode):
                approach_sections=S('Approach'),
                speedy=S('Fast'),
                landing_hdg_kpvs=KPV('Heading At Landing'),
-               landing_lat_kpvs=KPV('Latitude At Touchdown'),
-               landing_lon_kpvs=KPV('Longitude At Touchdown'),
+               landing_lat_kpvs=KPV('Latitude At Landing'),
+               landing_lon_kpvs=KPV('Longitude At Landing'),
                approach_hdg_kpvs=KPV('Heading At Lowest Point On Approach'),
                approach_lat_kpvs=KPV('Latitude At Lowest Point On Approach'),
                approach_lon_kpvs=KPV('Longitude At Lowest Point On Approach'),
-               approach_ilsfreq_kpvs=KPV('ILS Frequency On Approach'),
+               ilsfreq_kpvs=KPV('ILS Frequency On Approach'),
                start_datetime=A('Start Datetime'),
                precision=A('Precise Positioning'),
                turnoff_hdg_kpvs=KPV('Heading Vacating Runway')):
@@ -201,21 +201,34 @@ class Approaches(FlightAttributeNode):
             # If the end is outside a Fast section, it's a landing.
             # Else If Altitude AAL reached 0, the approach type is 'TOUCH_AND_GO'
             # Else it's a GO_AROUND.
+            
+            # Where we land, the landing KPV data set is used, otherwise we
+            # go with the lowest point on the approach KPVs.
 
             if approach_section.slice.stop > speedy[-1].slice.stop:
                 approach_type = 'LANDING'
-            elif np.ma.any(alt_aal.array[approach_section.slice] <= 0):
-                approach_type = 'TOUCH_AND_GO'
+                approach = self._create_approach(start_datetime.value, api_handler,
+                                                 approach_section, approach_type,
+                                                 alt_aal.frequency,
+                                                 landing_lat_kpvs, landing_lon_kpvs,
+                                                 landing_hdg_kpvs,
+                                                 ilsfreq_kpvs, precision, 
+                                                 turnoff_hdg_kpvs)
+
             else:
-                approach_type = 'GO_AROUND'
+                if np.ma.any(alt_aal.array[approach_section.slice] <= 0):
+                    approach_type = 'TOUCH_AND_GO'
+                else:
+                    approach_type = 'GO_AROUND'
             
-            approach = self._create_approach(start_datetime.value, api_handler,
-                                             approach_section, approach_type,
-                                             alt_aal.frequency,
-                                             approach_lat_kpvs, approach_lon_kpvs,
-                                             approach_hdg_kpvs,
-                                             approach_ilsfreq_kpvs, precision, 
-                                             turnoff_hdg_kpvs)
+                approach = self._create_approach(start_datetime.value, api_handler,
+                                                 approach_section, approach_type,
+                                                 alt_aal.frequency,
+                                                 approach_lat_kpvs, approach_lon_kpvs,
+                                                 approach_hdg_kpvs,
+                                                 ilsfreq_kpvs, precision, 
+                                                 turnoff_hdg_kpvs)
+
             if approach:
                 approaches.append(approach)
             
@@ -336,8 +349,8 @@ class FlightNumber(FlightAttributeNode):
 class LandingAirport(FlightAttributeNode):
     "Landing Airport including ID and Name"
     name = 'FDR Landing Airport'
-    def derive(self, landing_latitude=KPV('Latitude At Touchdown'),
-               landing_longitude=KPV('Longitude At Touchdown')):
+    def derive(self, landing_latitude=KPV('Latitude At Landing'),
+               landing_longitude=KPV('Longitude At Landing')):
         '''
         See TakeoffAirport for airport dictionary format.
         
@@ -348,7 +361,7 @@ class LandingAirport(FlightAttributeNode):
         last_latitude = landing_latitude.get_last()
         last_longitude = landing_longitude.get_last()
         if not last_latitude or not last_longitude:
-            self.warning("'Latitude At Touchdown' and/or 'Longitude At "
+            self.warning("'Latitude At Landing' and/or 'Longitude At "
                             "Landing' KPVs did not exist, therefore '%s' "
                             "cannot query for landing airport.",
                             self.__class__.__name__)
@@ -382,8 +395,8 @@ class LandingRunway(FlightAttributeNode):
     def derive(self, approach_and_landing=S('Approach'),
                landing_hdg=KPV('Heading At Landing'),
                airport=A('FDR Landing Airport'),
-               landing_latitude=KPV('Latitude At Touchdown'),
-               landing_longitude=KPV('Longitude At Touchdown'),
+               landing_latitude=KPV('Latitude At Landing'),
+               landing_longitude=KPV('Longitude At Landing'),
                approach_ilsfreq=KPV('ILS Frequency On Approach'),
                precision=A('Precise Positioning')
                ):

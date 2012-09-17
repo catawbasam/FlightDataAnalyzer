@@ -66,6 +66,13 @@ SPLIT_PARAMETERS = ('Eng (1) N1', 'Eng (2) N1', 'Eng (3) N1', 'Eng (4) N1',
 ## Parameter Analysis ##
 ########################
 
+# The limit of compensation for normal accelerometer errors. For example, to
+# allow for an accelerometer to lie in the range 0.8g to 1.2g, enter a value
+# of 0.2. An accelerometer with an average reading of 1.205g during the taxi
+# phases (in and out) will not be corrected, and all the acceleration KPVs
+# will carry that offset.
+ACCEL_NORM_OFFSET_LIMIT = 0.3 #g
+
 # The minimum sensible duration for being airborne, used to reject skips and bounced landings.
 AIRBORNE_THRESHOLD_TIME = 60 # secs
 
@@ -212,6 +219,11 @@ LANDING_THRESHOLD_HEIGHT = 50 # (Radio, where available)
 # Level flight minimum duration
 LEVEL_FLIGHT_MIN_DURATION = 60  # sec
 
+# Maximum age of a Segment's timebase in days. If a calculated timebase is
+# older or in the future, fallback_dt will be used instead. A value of None
+# allows any
+MAX_TIMEBASE_AGE = 365 * 10
+
 # Conversion from degrees of latitude to metres. I know it's approximate, but
 # good enough for the uses we have here. To convert deg longitude, allow for
 # the cos(latitude) reduction in distance as we get away from the equator.
@@ -219,6 +231,13 @@ METRES_PER_DEG_LATITUDE = 111120 # metres/deg
 
 # Conversion of length units
 METRES_TO_FEET = 1000/25.4/12
+
+# Mu values for good, medium and poor braking action (Boeing definition).
+MU_GOOD = 0.2
+MU_MEDIUM = 0.1
+MU_POOR = 0.05 # dimensionless.
+
+
 
 # Many flap KPVs require the same naming convention
 NAME_VALUES_FLAP = {'flap': range(1,101,1)}
