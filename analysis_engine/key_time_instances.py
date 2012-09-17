@@ -24,6 +24,9 @@ from settings import (CLIMB_THRESHOLD,
                       MU_GOOD,
                       MU_MEDIUM,
                       MU_POOR,
+                      NAME_VALUES_CLIMB,
+                      NAME_VALUES_DESCENT,
+                      NAME_VALUES_FLAP,
                       VERTICAL_SPEED_FOR_LIFTOFF,
                       VERTICAL_SPEED_FOR_TOUCHDOWN,
                       SLOPE_FOR_TOC_TOD,
@@ -256,7 +259,7 @@ class TopOfDescent(KeyTimeInstanceNode):
 
 class FlapStateChanges(KeyTimeInstanceNode):
     NAME_FORMAT = 'Flap %(flap)d Set'
-    NAME_VALUES = {'flap': range(0, 101, 1)}
+    NAME_VALUES = NAME_VALUES_FLAP
     
     def derive(self, flap=P('Flap')):
         # Mark all flap changes, and annotate with the new flap position.
@@ -582,16 +585,14 @@ class AltitudeWhenClimbing(KeyTimeInstanceNode):
     Creates KTIs at certain altitudes when the aircraft is climbing.
     '''
     NAME_FORMAT = '%(altitude)d Ft Climbing'
-    ALTITUDES = [10, 20, 35, 50, 75, 100, 150, 200, 300, 400, 500, 750, 1000,
-                 1500, 2000, 2500, 3000, 3500, 4000, 5000, 6000, 7000, 8000, 
-                 9000, 10000]
-    NAME_VALUES = {'altitude': ALTITUDES}
+    NAME_VALUES = NAME_VALUES_CLIMB
+
     HYSTERESIS = 0 # Was 10 Q: Better as setting? A: Remove this as we want the true altitudes - DJ
     
     def derive(self, climbing=S('Climbing'), alt_aal=P('Altitude AAL')):
         alt_array = hysteresis(alt_aal.array, self.HYSTERESIS)
         for climb in climbing:
-            for alt_threshold in self.ALTITUDES:
+            for alt_threshold in self.NAME_VALUES['altitude']:
                 # Will trigger a single KTI per height (if threshold is crossed)
                 # per climbing phase.
                 index = index_at_value(alt_array, alt_threshold, climb.slice)
@@ -605,15 +606,14 @@ class AltitudeWhenDescending(KeyTimeInstanceNode):
     Creates KTIs at certain heights when the aircraft is descending.
     '''
     NAME_FORMAT = '%(altitude)d Ft Descending'
-    ALTITUDES = [10000,9000,8000,7000,6000,5000,4000,3500,3000,2500,2000,1500,\
-                 1000,750,500,400,300,200,150,100,75,50,35,20,10]
-    NAME_VALUES = {'altitude': ALTITUDES}
+    NAME_VALUES = NAME_VALUES_DESCENT
+
     HYSTERESIS = 0 # Was 10 Q: Better as setting?
     
     def derive(self, descending=S('Descending'), alt_aal=P('Altitude AAL')):
         alt_array = alt_aal.array
         for descend in descending:
-            for alt_threshold in self.ALTITUDES:
+            for alt_threshold in self.NAME_VALUES['altitude']:
                 # Will trigger a single KTI per height (if threshold is
                 # crossed) per descending phase. The altitude array is
                 # scanned backwards to make sure we trap the last instance at

@@ -11,6 +11,8 @@ from analysis_engine.settings import (ACCEL_NORM_OFFSET_LIMIT,
                                       MU_GOOD,
                                       MU_MEDIUM,
                                       MU_POOR,
+                                      NAME_VALUES_DESCENT,
+                                      NAME_VALUES_ENGINE,
                                       NAME_VALUES_FLAP)
 
 from analysis_engine.node import KeyPointValueNode, KPV, KTI, P, S, A, M
@@ -963,8 +965,6 @@ def flap_or_conf_max_or_min(self, conflap, airspeed, function, scope=None):
 class AirspeedWithFlapMax(KeyPointValueNode):
     NAME_FORMAT = "Airspeed With Flap %(flap)d Max"
     NAME_VALUES = NAME_VALUES_FLAP
-    # Allows for Hercules with 50% and 100% flap
-    
     # Note: It is essential that Flap is the first paramter here to prevent
     # the flap values, which match the detent settings, from being
     # interpolated.
@@ -1180,10 +1180,8 @@ class GenericDescent(KeyPointValueNode):
             'Slope To Landing', 'Flap', 'Gear Down', 'Speedbrake',
             'ILS Glideslope', 'ILS Localizer', 'Power', 'Pitch', 'Roll',
             'Heading'],
-        'altitude': [10000, 9000, 8000, 7000, 6000, 5000, 4000, 3500, 3000,
-            2500, 2000, 1500, 1000, 750, 500, 400, 300, 200, 150, 100, 75,
-            50, 35, 20, 10],
     }
+    NAME_VALUES.update(NAME_VALUES_DESCENT)
 
     @classmethod
     def can_operate(cls, available):
@@ -2218,8 +2216,8 @@ class Eng_N1MaxDurationUnder60PercentAfterTouchdown(KeyPointValueNode):
     Note: Assumes that all Engines are recorded at the same frequency.
     '''
 
-    NAME_FORMAT = 'Eng (%(eng_num)d) N1 Max Duration Under 60 Percent After Touchdown'
-    NAME_VALUES = {'eng_num': [1, 2, 3, 4]}
+    NAME_FORMAT = 'Eng (%(number)d) N1 Max Duration Under 60 Percent After Touchdown'
+    NAME_VALUES = NAME_VALUES_ENGINE
 
     @classmethod
     def can_operate(cls, available):
@@ -4310,9 +4308,9 @@ class TouchdownTo60KtsDuration(KeyPointValueNode):
 
 
 class WindSpeedInDescent(KeyPointValueNode):
-    NAME_FORMAT = 'Windspeed At %(altitude)d Ft AAL In Descent'
-    NAME_VALUES = {'parameter':['Wind Speed'],
-                   'altitude':[2000,1500,1000,500,100,50]}
+    NAME_FORMAT = 'Wind Speed At %(altitude)d Ft AAL In Descent'
+    NAME_VALUES = {'altitude': [2000, 1500, 1000, 500, 100, 50]}
+
     def derive(self, wspd=P('Wind Speed'),
                alt_aal=P('Altitude AAL For Flight Phases')):
         for this_descent_slice in alt_aal.slices_from_to(2100, 0):
@@ -4321,15 +4319,13 @@ class WindSpeedInDescent(KeyPointValueNode):
                 if index:
                     speed = value_at_index(wspd.array, index)
                     if speed:
-                        self.create_kpv(index, speed, 
-                                        parameter='Wind Speed', 
-                                        altitude=alt)
+                        self.create_kpv(index, speed, altitude=alt)
                     
 
 class WindDirectionInDescent(KeyPointValueNode):
     NAME_FORMAT = 'Wind Direction At %(altitude)d Ft AAL In Descent'
-    NAME_VALUES = {'parameter':['Wind Direction Continuous'],
-                   'altitude':[2000,1500,1000,500,100,50]}
+    NAME_VALUES = {'altitude': [2000, 1500, 1000, 500, 100, 50]}
+
     def derive(self, wdir=P('Wind Direction Continuous'),
                alt_aal=P('Altitude AAL For Flight Phases')):
         for this_descent_slice in alt_aal.slices_from_to(2100, 0):
@@ -4340,9 +4336,7 @@ class WindDirectionInDescent(KeyPointValueNode):
                     # before 'risking' the %360 function.
                     direction = value_at_index(wdir.array, index)
                     if direction:
-                        self.create_kpv(index, direction%360.0,
-                                        parameter='Wind Direction Continuous', 
-                                        altitude=alt)
+                        self.create_kpv(index, direction % 360.0, altitude=alt)
 
 
 class WindAcrossLandingRunwayAt50Ft(KeyPointValueNode):
