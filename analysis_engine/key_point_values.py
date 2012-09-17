@@ -3509,15 +3509,15 @@ class RateOfDescentAtTouchdown(KeyPointValueNode):
             self.create_kpv(index, rod)
 
 
-# TODO: Implement!
-class RateOfDescentOverGrossWeightLimitAtTouchdown(KeyPointValueNode):
-    '''
-    '''
-
-    def derive(self, x=P('Not Yet')):
-        '''
-        '''
-        return NotImplemented
+##### TODO: Implement!
+####class RateOfDescentOverGrossWeightLimitAtTouchdown(KeyPointValueNode):
+####    '''
+####    '''
+####
+####    def derive(self, x=P('Not Yet')):
+####        '''
+####        '''
+####        return NotImplemented
 
 
 ################################################################################
@@ -4226,37 +4226,37 @@ class TCASRAToAPDisengageDuration(KeyPointValueNode):
 # Warnings: Alpha Floor, Alternate Law, Direct Law
 
 
-# TODO: Implement!
-class AlphaFloorWarningDuration(KeyPointValueNode):
-    '''
-    '''
-
-    def derive(self, x=P('Not Yet')):
-        '''
-        '''
-        return NotImplemented
-
-
-# TODO: Implement!
-class AlternateLawActivatedDuration(KeyPointValueNode):
-    '''
-    '''
-
-    def derive(self, x=P('Not Yet')):
-        '''
-        '''
-        return NotImplemented
-
-
-# TODO: Implement!
-class DirectLawActivatedDuration(KeyPointValueNode):
-    '''
-    '''
-
-    def derive(self, x=P('Not Yet')):
-        '''
-        '''
-        return NotImplemented
+##### TODO: Implement!
+####class AlphaFloorWarningDuration(KeyPointValueNode):
+####    '''
+####    '''
+####
+####    def derive(self, x=P('Not Yet')):
+####        '''
+####        '''
+####        return NotImplemented
+####
+####
+##### TODO: Implement!
+####class AlternateLawActivatedDuration(KeyPointValueNode):
+####    '''
+####    '''
+####
+####    def derive(self, x=P('Not Yet')):
+####        '''
+####        '''
+####        return NotImplemented
+####
+####
+##### TODO: Implement!
+####class DirectLawActivatedDuration(KeyPointValueNode):
+####    '''
+####    '''
+####
+####    def derive(self, x=P('Not Yet')):
+####        '''
+####        '''
+####        return NotImplemented
 
 
 ################################################################################
@@ -4368,12 +4368,6 @@ class ZeroFuelWeight(KeyPointValueNode):
     def derive(self, fuel=P('Fuel Qty'), gw=P('Gross Weight')):
         zfw=np.ma.median(gw.array-fuel.array)
         self.create_kpv(0,zfw)
-        
-        
-# TODO: Implement!
-class DualStickInput(KeyPointValueNode):
-    def derive(self, x=P('Not Yet')):
-        return NotImplemented
 
 
 class HoldingDuration(KeyPointValueNode):
@@ -4382,12 +4376,16 @@ class HoldingDuration(KeyPointValueNode):
     """
     def derive(self, holds=S('Holding')):
         self.create_kpvs_from_slice_durations(holds, mark='end')
-        
-        
 
 
-# TODO: Implement!
-class ControlForcesTimesThree(KeyPointValueNode):
-    def derive(self, x=P('Not Yet')):
-        return NotImplemented
+##### TODO: Implement!
+####class DualStickInput(KeyPointValueNode):
+####    def derive(self, x=P('Not Yet')):
+####        return NotImplemented
+####
+####
+##### TODO: Implement!
+####class ControlForcesTimesThree(KeyPointValueNode):
+####    def derive(self, x=P('Not Yet')):
+####        return NotImplemented
 
