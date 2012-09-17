@@ -2401,6 +2401,7 @@ class HeadingContinuous(DerivedParameterNode):
         self.array = repair_mask(straighten_headings(head_mag.array))
 
 
+# TODO: Absorb this derived parameter into the 'Holding' flight phase.
 class HeadingIncreasing(DerivedParameterNode):
     """
     This parameter is computed to allow holding patterns to be identified. As
