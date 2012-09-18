@@ -2709,6 +2709,8 @@ class CoordinatesSmoothed(object):
         
         if loc_est:
             for this_loc in loc_est:    
+                if runway==None:
+                    continue
                 # Find the matching runway details
                 approach, runway = find_app_rwy(self, app_info, start_datetime, this_loc)
                 
@@ -2826,6 +2828,8 @@ class CoordinatesSmoothed(object):
                 # localizer established phase.
                 
                 # Find the matching runway details
+                if runway==None:
+                    continue
                 approach, runway = find_app_rwy(self, app_info, start_datetime, this_loc)
                                 
                 if runway and 'localizer' in runway:
