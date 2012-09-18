@@ -306,7 +306,7 @@ NAME_VALUES_ENGINE = {
 
 
 NAME_VALUES_FLAP = {
-    'flap': range(1, 46) + [50, 100],  # NOTE: 1-45° and 50%/100% for C-130
+    'flap': range(0, 46) + [50, 100],  # NOTE: 1-45° and 50%/100% for C-130
 }
 
 
