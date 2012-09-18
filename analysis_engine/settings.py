@@ -300,7 +300,7 @@ SLOPE_FOR_TOC_TOD = 600 / float(3*60) # 600fpm in 3 mins
 # multiple key point values or key time instances for consistency.
 
 
-NAME_VALUES_ENGINES = {
+NAME_VALUES_ENGINE = {
     'number': [1, 2, 3, 4],
 }
 
