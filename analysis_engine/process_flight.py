@@ -138,7 +138,7 @@ def derive_parameters(hdf, node_mgr, process_order):
                 if slice_.start and not (0 <= slice_.start <= hdf.duration) or \
                    slice_.stop and not (0 <= slice_.stop <= hdf.duration):
                     raise IndexError("Section '%s' (%.2f, %.2f) does not lie between 0 and %d" % (
-                        one_hz.name, one_hz.start, one_hz.stop, hdf.duration))
+                        one_hz.name, one_hz.start or 0, one_hz.stop or hdf.duration, hdf.duration))
                 section_list.append(one_hz)
         elif issubclass(node.node_type, DerivedParameterNode):
             if hdf.duration:
