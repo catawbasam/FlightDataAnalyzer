@@ -374,11 +374,11 @@ def _calculate_start_datetime(hdf, fallback_dt=None):
         # Only allow recent timebases.
         now = datetime.now()
         if timebase < (now - timedelta(days=settings.MAX_TIMEBASE_AGE)):
-            self.logger.error("Timebase older than '%d' days.",
-                              settings.MAX_TIMEBASE_AGE)
+            logger.error("Timebase '%s' older than '%d' days.", timebase,
+                         settings.MAX_TIMEBASE_AGE)
             return fallback_dt # XXX: fallback_dt may also be old.
     if timebase > now:
-        self.logger.error('Timebase is in the future.')
+        logger.error("Timebase '%s' is in the future.", timebase)
         return fallback_dt # XXX: fallback_dt may also be in future.
     
     return timebase

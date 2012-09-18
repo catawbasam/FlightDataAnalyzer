@@ -415,10 +415,10 @@ class GearExtending(FlightPhaseNode):
     def can_operate(cls, available):
         return 'Gear Down' in available
     
-    def derive(self, gear_down = M('Gear Down'), 
-               gear_warn_l = P('Gear (L) Red Warning'),
-               gear_warn_n = P('Gear (N) Red Warning'),
-               gear_warn_r = P('Gear (R) Red Warning'),
+    def derive(self, gear_down=M('Gear Down'), 
+               gear_warn_l=P('Gear (L) Red Warning'),
+               gear_warn_n=P('Gear (N) Red Warning'),
+               gear_warn_r=P('Gear (R) Red Warning'),
                frame=A('Frame'), airs=S('Airborne')):
         frame_name = frame.value if frame else None
 
@@ -435,7 +435,8 @@ class GearExtending(FlightPhaseNode):
             for air in airs:
                 gear_moves = slices_and([air.slice], gear_moving)
                 for gear_move in gear_moves:
-                    if gear_down.array[gear_move.start-1] == 0:
+                    if gear_down.array[gear_move.start - 1] == \
+                            gear_down.array.state['Up']:
                         self.create_phase(gear_move)
         
         # Aircraft without red warning captions for travelling
@@ -465,10 +466,10 @@ class GearRetracting(FlightPhaseNode):
     def can_operate(cls, available):
         return 'Gear Down' in available
 
-    def derive(self, gear_down = M('Gear Down'), 
-               gear_warn_l = P('Gear (L) Red Warning'),
-               gear_warn_n = P('Gear (N) Red Warning'),
-               gear_warn_r = P('Gear (R) Red Warning'),
+    def derive(self, gear_down=M('Gear Down'), 
+               gear_warn_l=P('Gear (L) Red Warning'),
+               gear_warn_n=P('Gear (N) Red Warning'),
+               gear_warn_r=P('Gear (R) Red Warning'),
                frame=A('Frame'), airs=S('Airborne')):
         frame_name = frame.value if frame else None
 
@@ -485,7 +486,8 @@ class GearRetracting(FlightPhaseNode):
             for air in airs:
                 gear_moves = slices_and([air.slice], gear_moving)
                 for gear_move in gear_moves:
-                    if gear_down.array[gear_move.start-1] == 1:
+                    if gear_down.array[gear_move.start - 1] == \
+                            gear_down.array.state['Down']:
                         self.create_phase(gear_move)
         
         # Aircraft without red warning captions for travelling
@@ -956,6 +958,7 @@ class TurningOnGround(FlightPhaseNode):
                 self.create_phase(turn_slice, name="Turning On Ground")
 
 
+# NOTE: Python class name restriction: '2 Deg Pitch To 35 Ft'
 class TwoDegPitchTo35Ft(FlightPhaseNode):
     """
     """
@@ -967,6 +970,6 @@ class TwoDegPitchTo35Ft(FlightPhaseNode):
             pitch_2_deg_idx = index_at_value(pitch.array, 2.0, reversed_slice, 
                                              endpoint='closing')
             self.create_section(slice(pitch_2_deg_idx, takeoff.slice.stop),
-                                name='Two Deg Pitch To 35 Ft', 
+                                name='2 Deg Pitch To 35 Ft', 
                                 begin=pitch_2_deg_idx,
                                 end=takeoff.stop_edge)

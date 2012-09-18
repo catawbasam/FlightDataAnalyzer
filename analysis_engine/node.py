@@ -1409,6 +1409,8 @@ class KeyPointValueNode(FormattedNameNode):
         value = None
         for slice_ in slices:
             i, v = self.kpv_from_slice(slice_, function, array)
+            if i==None or v==None:
+                continue
             if value == None:
                 value = v
                 index = i
@@ -1416,6 +1418,8 @@ class KeyPointValueNode(FormattedNameNode):
                 value = v
                 index = i
             
+        if index==None or value==None:
+            return
         self.create_kpv(index, value, **kwargs)
 
     def create_kpv_outside_slices(self, array, slices, function, **kwargs):
