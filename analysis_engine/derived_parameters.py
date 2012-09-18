@@ -1058,7 +1058,7 @@ class ControlWheel(DerivedParameterNode):
 class DistanceToLanding(DerivedParameterNode):
     """
     Ground distance to cover before touchdown.
-    
+
     Note: This parameter gets closer to zero approaching the final touchdown,
     but then increases as the aircraft decelerates on the runway.
     """
@@ -1071,42 +1071,57 @@ class DistanceToLanding(DerivedParameterNode):
             self.array = np.ma.abs(dist_flown_at_tdwn - dist.array)
         else:
             self.array = np.zeros_like(dist.array)
-            self.array.mask=True        
+            self.array.mask = True
 
 
 class DistanceTravelled(DerivedParameterNode):
-    """
-    Distance travelled in Nautical Miles. Calculated using integral of Groundspeed"
-    """
+    '''
+    Distance travelled in Nautical Miles. Calculated using integral of
+    Groundspeed.
+    '''
     units = 'nm'
     def derive(self, gspd=P('Groundspeed')):
-        self.array = integrate(gspd.array, gspd.frequency, scale=1.0/3600.0)
-        
-        
+        self.array = integrate(gspd.array, gspd.frequency, scale=1.0 / 3600.0)
+
+
+################################################################################
+# Pack Valves
+
+
 class PackValvesOpen(MultistateDerivedParameterNode):
-    """
+    '''
     Integer representation of the combined pack configuration.
-    """
-    name = "Pack Valves Open"
+    '''
+
+    name = 'Pack Valves Open'
+
     align_to_first_dependency = False
-    values_mapping = {0 : 'All closed',
-                      1 : 'One engine low flow',
-                      2 : 'Flow level 2',
-                      3 : 'Flow level 3',
-                      4 : 'Both engines high flow'}
+    values_mapping = {
+        0: 'All closed',
+        1: 'One engine low flow',
+        2: 'Flow level 2',
+        3: 'Flow level 3',
+        4: 'Both engines high flow',
+    }
 
     @classmethod
     def can_operate(cls, available):
-        # works with any combination of params available
+        '''
+        '''
+        # Works with any combination of parameters available:
         return any([d in available for d in cls.get_dependency_names()])
 
-    def derive(self, 
-               p1=P('ECS Pack (1) On'), p1h=P('ECS Pack (1) High Flow'),
-               p2=P('ECS Pack (2) On'), p2h=P('ECS Pack (2) High Flow')):
-        # Sum the open engines, allowing 1 for low flow and 1+1 for high flow each side.
+    def derive(self,
+            p1=P('ECS Pack (1) On'), p1h=P('ECS Pack (1) High Flow'),
+            p2=P('ECS Pack (2) On'), p2h=P('ECS Pack (2) High Flow')):
+        '''
+        '''
+        # Sum the open engines, allowing 1 for low flow and 1+1 for high flow
+        # each side.
         flow = p1.array.raw + +p2.array.raw
         if p1h and p2h:
-            flow = p1.array.raw*(1+p1h.array.raw)+p2.array.raw*(1+p2h.array.raw)
+            flow = p1.array.raw * (1 + p1h.array.raw) \
+                 + p2.array.raw * (1 + p2h.array.raw)
         self.array = flow
 
 
@@ -1970,70 +1985,96 @@ class FuelQty(DerivedParameterNode):
         self.array = np.ma.sum(stacked_params, axis=0)
 
 
+################################################################################
+# Landing Gear
+
+
 class GearDown(MultistateDerivedParameterNode):
-    """
+    '''
     This Multi-State parameter uses "majority voting" to decide whether the
     gear is up or down.
-    """
-    align_to_first_dependency = False
-    values_mapping = { 0: 'Up',
-                       1: 'Down',}
+    '''
 
-    def derive(self, gl=M('Gear (L) Down'),
-               gn=M('Gear (N) Down'),
-               gr=M('Gear (R) Down')):
+    align_to_first_dependency = False
+    values_mapping = {
+        0: 'Up',
+        1: 'Down',
+    }
+
+    def derive(self,
+            gl=M('Gear (L) Down'),
+            gn=M('Gear (N) Down'),
+            gr=M('Gear (R) Down')):
+        '''
+        '''
         wheels_down = gl.array.raw + gn.array.raw + gr.array.raw
-        self.array = np.ma.where(wheels_down>1.5,1,0)
+        self.array = np.ma.where(wheels_down > 1.5, 1, 0)
 
 
 class GearOnGround(MultistateDerivedParameterNode):
     '''
     Combination of left and right main gear signals.
     '''
+
     align_to_first_dependency = False
-    
-    values_mapping = { 1: 'Ground',
-                       0: 'Air'}
+    values_mapping = {
+        0: 'Air',
+        1: 'Ground',
+    }
 
-    def derive(self, gl = M('Gear (L) On Ground'), 
-               gr = M('Gear (R) On Ground'), frame=A('Frame')):
-
+    def derive(self,
+            gl=M('Gear (L) On Ground'),
+            gr=M('Gear (R) On Ground'),
+            frame=A('Frame')):
+        '''
+        Note that this is not needed on the following frames which record this
+        parameter directly: 737-4, 737-i
+        '''
         frame_name = frame.value if frame else None
-        '''
-        Not needed on 737-4 or 737-i as these frames record Gear On Ground
-        directly.
-        '''
-        
+
         if frame_name.startswith('737-'):
             self.array, self.frequency, self.offset = merge_two_parameters(gl, gr)
         else:
             raise DataFrameError(self.name, frame_name)
 
-    
-class GearSelectedDown(MultistateDerivedParameterNode):
-    """
-    Derivation of gear selection for aircraft without this separately
-    recorded. Where Gear Selected Down is recorded, this derived parameter
-    will be skipped automatically.
-    """
-    values_mapping = { 1: 'Down',
-                       0: 'Up',}
+
+class GearDownSelected(MultistateDerivedParameterNode):
+    '''
+    Derivation of gear selection for aircraft without this separately recorded.
+    Where 'Gear Down Selected' is recorded, this derived parameter will be
+    skipped automatically.
+    '''
+
+    values_mapping = {
+        0: 'Up',
+        1: 'Down',
+    }
 
     def derive(self, gear=P('Gear Down')):
+        '''
+        '''
         self.array = gear.array
 
-        
-class GearSelectedUp(MultistateDerivedParameterNode):
-    """
-    Derivation of gear selection for aircraft without this separately
-    recorded. Where Gear Selected Down is recorded, this derived parameter
-    will be skipped automatically.
-    """
-    values_mapping = { 1: 'Up',
-                       0: 'Down',}
+
+class GearUpSelected(MultistateDerivedParameterNode):
+    '''
+    Derivation of gear selection for aircraft without this separately recorded.
+    Where 'Gear Up Selected' is recorded, this derived parameter will be
+    skipped automatically.
+    '''
+
+    values_mapping = {
+        0: 'Down',
+        1: 'Up',
+    }
 
     def derive(self, gear=P('Gear Down')):
+        '''
+        '''
         self.array = 1 - gear.array
+
+
+################################################################################
 
 
 class GrossWeightSmoothed(DerivedParameterNode):
@@ -2183,7 +2224,7 @@ class FlapSurface(DerivedParameterNode):
                alt_aal=P('Altitude AAL')):
         frame_name = frame.value if frame else None
 
-        if frame_name.startswith('737') or frame_name in ['757-DHL']:
+        if frame_name.startswith('737-') or frame_name in ['757-DHL']:
             self.array, self.frequency, self.offset = blend_two_parameters(flap_A,
                                                                            flap_B)
 
@@ -2360,6 +2401,7 @@ class HeadingContinuous(DerivedParameterNode):
         self.array = repair_mask(straighten_headings(head_mag.array))
 
 
+# TODO: Absorb this derived parameter into the 'Holding' flight phase.
 class HeadingIncreasing(DerivedParameterNode):
     """
     This parameter is computed to allow holding patterns to be identified. As
@@ -2828,8 +2870,6 @@ class CoordinatesSmoothed(object):
                 # localizer established phase.
                 
                 # Find the matching runway details
-                if runway==None:
-                    continue
                 approach, runway = find_app_rwy(self, app_info, start_datetime, this_loc)
                                 
                 if runway and 'localizer' in runway:
@@ -3564,7 +3604,7 @@ class Speedbrake(DerivedParameterNode):
 
 
 # TODO: Write some unit tests!
-class SpeedbrakeSelection(MultistateDerivedParameterNode):
+class SpeedbrakeSelected(MultistateDerivedParameterNode):
     '''
     Determines the selected state of the speedbrake.
 
@@ -3575,6 +3615,12 @@ class SpeedbrakeSelection(MultistateDerivedParameterNode):
     - 2 -- Deployed / Commanded (Spoilers Up)
     '''
 
+    values_mapping = {
+        0: 'Stowed',
+        1: 'Armed/Cmd Dn',
+        2: 'Deployed/Cmd Up',
+    }
+
     @classmethod
     def can_operate(cls, available):
         '''
@@ -3582,10 +3628,6 @@ class SpeedbrakeSelection(MultistateDerivedParameterNode):
         x = available
         return 'Speedbrake Deployed' in x \
             or ('Frame' in x and 'Speedbrake Handle' in x)
-
-    values_mapping = { 0: 'Stowed',
-                       1: 'Armed/Cmd Dn',
-                       2: 'Deployed/Cmd Up'}
 
 
     def derive(self,
@@ -3597,10 +3639,10 @@ class SpeedbrakeSelection(MultistateDerivedParameterNode):
         frame_name = frame.value if frame else None
 
         if spd_brk_h and frame.name:
-            
+
             if frame_name.startswith('737-'):
                 '''
-                Speedbrake Handle Position:
+                Speedbrake Handle Positions:
 
                     ========    ============
                     Angle       Notes
@@ -3614,17 +3656,21 @@ class SpeedbrakeSelection(MultistateDerivedParameterNode):
                     48.0        Full Up
                     ========    ============
                 '''
-                self.array = np.ma.where((2.0 < spd_brk_h.array) & (spd_brk_h.array < 35.0),
-                                         'Armed/Cmd Dn', 'Stowed')
-                self.array = np.ma.where(spd_brk_h.array >= 35.0, 
-                                         'Deployed/Cmd Up', self.array)
+                self.array = np.ma.where(
+                    (2.0 < spd_brk_h.array) & (spd_brk_h.array < 35.0),
+                    'Armed/Cmd Dn', 'Stowed')
+                self.array = np.ma.where(
+                    spd_brk_h.array >= 35.0,
+                    'Deployed/Cmd Up', self.array)
 
             else:
                 # TODO: Implement for other frames using 'Speedbrake Handle'!
                 return NotImplemented
 
         elif spd_brk_d:
-            self.array = np.ma.where(spd_brk_d.array > 0,'Deployed/Cmd Up', 'Stowed')
+            self.array = np.ma.where(
+                spd_brk_d.array > 0,
+                'Deployed/Cmd Up', 'Stowed')
 
         else:
             # TODO: Implement using a different parameter?
@@ -3632,42 +3678,46 @@ class SpeedbrakeSelection(MultistateDerivedParameterNode):
 
 
 ################################################################################
+# Stick Shaker
 
 
 class StickShaker(MultistateDerivedParameterNode):
     '''
     This accounts for the different types of stick shaker system. Where two
-    systems are recorded the results are OR'd to make a single parameter
-    which operates in response to either system triggering. Hence the removal
-    of automatic alignment of the signals.
-    '''    
+    systems are recorded the results are OR'd to make a single parameter which
+    operates in response to either system triggering. Hence the removal of
+    automatic alignment of the signals.
+    '''
+
     align_to_first_dependency = False
     values_mapping = {
         0: 'No_Shake',
         1: 'Shake',
     }
-    
+
     @classmethod
     def can_operate(cls, available):
-        # we cannot access the frame_name within this method to determine which
-        # parameter is the requirement
-        if 'Frame' in available and ('Stick Shaker (L)' in available \
-                                     or 'Stick Shaker (R)' in available \
-                                     or 'Shaker Activation' in available):
-            #WARNING: Does not take into account which parameter for which frame
-            return True
+        '''
+        '''
+        # NOTE: Does not take into account which parameter for which frame!
+        return 'Frame' in available and (
+            'Stick Shaker (L)' in available or \
+            'Stick Shaker (R)' in available or \
+            'Shaker Activation' in available \
+        )
 
-    def derive(self, frame = A('Frame'), 
-               shake_l = M('Stick Shaker (L)'), 
-               shake_r = M('Stick Shaker (R)'), 
-               shake_act = M('Shaker Activation')):
-
+    def derive(self, frame=A('Frame'),
+            shake_l=M('Stick Shaker (L)'),
+            shake_r=M('Stick Shaker (R)'),
+            shake_act=M('Shaker Activation')):
+        '''
+        '''
         frame_name = frame.value if frame else None
-        
+
         if frame_name in ['CRJ-700-900'] and shake_act:
             self.array, self.frequency, self.offset = \
                 shake_act.array, shake_act.frequency, shake_act.offset
-        
+
         elif frame_name in ['737-1', '737-3C', '737-4', '737-i', '757-DHL']:
             self.array = np.ma.logical_or(shake_l.array, shake_r.array)
             self.frequency , self.offset = shake_l.frequency, shake_l.offset
@@ -3680,6 +3730,9 @@ class StickShaker(MultistateDerivedParameterNode):
         # Stick shaker not found in 737-6 frame.
         else:
             raise DataFrameError(self.name, frame_name)
+
+
+################################################################################
 
 
 class VOR1Frequency(DerivedParameterNode):
