@@ -116,14 +116,14 @@ def derive_parameters(hdf, node_mgr, process_order):
             for one_hz in result.get_aligned(P(frequency=1, offset=0)) or []:
                 if not (0 <= one_hz.index <= hdf.duration):
                     raise IndexError("KPV '%s' index %.2f is not between 0 and %d" % (
-                        one_hz.get_name(), one_hz.index, hdf.duration))
+                        one_hz.name, one_hz.index, hdf.duration))
                 kpv_list.append(one_hz)
         elif node.node_type is KeyTimeInstanceNode:
             params[param_name] = result
             for one_hz in result.get_aligned(P(frequency=1, offset=0)) or []:
                 if not (0 <= one_hz.index <= hdf.duration):
                     raise IndexError("KTI '%s' index %.2f is not between 0 and %d" % (
-                        one_hz.get_name(), one_hz.index, hdf.duration))
+                        one_hz.name, one_hz.index, hdf.duration))
                 kti_list.append(one_hz)
         elif node.node_type is FlightAttributeNode:
             params[param_name] = result
@@ -138,7 +138,7 @@ def derive_parameters(hdf, node_mgr, process_order):
                 if slice_.start and not (0 <= slice_.start <= hdf.duration) or \
                    slice_.stop and not (0 <= slice_.stop <= hdf.duration):
                     raise IndexError("Section '%s' (%.2f, %.2f) does not lie between 0 and %d" % (
-                        one_hz.name(), one_hz.start, one_hz.stop, hdf.duration))
+                        one_hz.name, slice_.start or 0, slice_.stop or hdf.duration, hdf.duration))
                 section_list.append(one_hz)
         elif issubclass(node.node_type, DerivedParameterNode):
             if hdf.duration:
