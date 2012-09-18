@@ -133,23 +133,13 @@ def derive_parameters(hdf, node_mgr, process_order):
                 logger.warning("Flight Attribute Node '%s' returned empty handed."%(param_name))
         elif node.node_type in (FlightPhaseNode, SectionNode):
             params[param_name] = result
-<<<<<<< TREE
-            one_hz = result.get_aligned(P(frequency=1,offset=0))
-            if one_hz != [] and \
-               (0 > one_hz[0].slice.start > hdf.duration or \
-               0 > one_hz[-1].slice.stop > hdf.duration):
-                raise IndexError("Section '%s' (%.2f, %.2f) does not lie between 0 and %d" % (
-                    one_hz.get_name(), one_hz[0].slice.start, one_hz[-1].slice.stop, hdf.duration))
-            section_list.extend(one_hz)
-=======
             for one_hz in result.get_aligned(P(frequency=1, offset=0)) or []:
                 slice_ = one_hz.slice
                 if slice_.start and not (0 <= slice_.start <= hdf.duration) or \
                    slice_.stop and not (0 <= slice_.stop <= hdf.duration):
                     raise IndexError("Section '%s' (%.2f, %.2f) does not lie between 0 and %d" % (
-                        one_hz.get_name(), one_hz.start, one_hz.stop, hdf.duration))
+                        one_hz.name(), one_hz.start, one_hz.stop, hdf.duration))
                 section_list.append(one_hz)
->>>>>>> MERGE-SOURCE
         elif issubclass(node.node_type, DerivedParameterNode):
             if hdf.duration:
                 # check that the right number of results were returned
