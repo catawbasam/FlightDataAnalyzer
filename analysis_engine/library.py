@@ -9,6 +9,8 @@ from itertools import izip
 ##from scipy.optimize import fmin, fmin_bfgs, fmin_tnc
 # TODO: Inform Enthought that fmin_l_bfgs_b dies in a dark hole at _lbfgsb.setulb
 
+from hdfaccess.parameter import MappedArray
+
 from settings import (GRAVITY_METRIC,
                       KTS_TO_MPS, 
                       METRES_TO_FEET, 
@@ -64,13 +66,15 @@ def align(slave, master, data_type=None):
     :rtype: np.ma.array
     """
     slave_array = slave.array # Optimised access to attribute.
-    if hasattr(slave_array, 'raw'):
-        # MappedArray: we should use raw data
+
+    if isinstance(slave_array, MappedArray):  # Multi-state array.
         slave_array = slave_array.raw
-        if data_type == None:
-            data_type='multi-state' # Force the data type in case it has not been set inadvertently.
-        else:
-            raise ValueError, "multi-state parameter identified incorrectly for %s" %slave.name
+        data_type = 'multi-state'
+    elif isinstance(slave_array, np.ma.MaskedArray):
+        data_type = 'analogue'
+    else:
+        raise ValueError('Cannot align slave array of unknown type: '
+            'Slave: %s, Master: %s.', slave.name, master.name)
 
     if len(slave_array) == 0:
         # No elements to align, avoids exception being raised in the loop below.
@@ -163,7 +167,7 @@ def align(slave, master, data_type=None):
         # Cunningly, if we are working with discrete or multi-state parameters, 
         # by reverting to 1,0 or 0,1 coefficients we gather the closest value
         # in time to the master parameter.
-        if data_type and data_type.lower() in ('discrete', 'multi-state', 'non-aligned'):
+        if data_type and data_type.lower() in ('multi-state', 'non-aligned'):
             b = round(b)
             
         # Either way, a is the residual part.    
