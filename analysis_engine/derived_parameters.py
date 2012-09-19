@@ -9,11 +9,17 @@ from analysis_engine.model_information import (get_conf_map,
 from analysis_engine.node import (
     A, DerivedParameterNode, MultistateDerivedParameterNode, KPV, KTI, M, P, S)
 from analysis_engine.library import (align,
+                                     alt2press,
+                                     alt2sat,
                                      bearings_and_distances,
                                      blend_two_parameters,
+                                     cas2dp,
+                                     cas_alt2mach,
                                      clip,
                                      coreg,
                                      cycle_finder,
+                                     dp2tas,
+                                     dp_over_p2mach,
                                      filter_vor_ils_frequencies,
                                      first_valid_sample,
                                      first_order_lag,
@@ -27,8 +33,8 @@ from analysis_engine.library import (align,
                                      interpolate_and_extend,
                                      is_index_within_slice,
                                      is_slice_within_slice,
-                                     last_valid_sample,
                                      latitudes_and_longitudes,
+                                     machtat2sat,
                                      merge_two_parameters,
                                      np_ma_ones_like,
                                      np_ma_masked_zeros_like,
@@ -40,9 +46,7 @@ from analysis_engine.library import (align,
                                      runway_distances,
                                      runway_heading,
                                      runway_length,
-                                     runway_snap,
                                      runway_snap_dict,
-                                     slices_and,
                                      slices_not,
                                      slices_overlap,
                                      smooth_track,
@@ -50,21 +54,13 @@ from analysis_engine.library import (align,
                                      straighten_headings,
                                      track_linking,
                                      value_at_index,
-                                     vstack_params,
-                                     alt2press,
-                                     alt2sat,
-                                     cas2dp,
-                                     cas_alt2mach,
-                                     dp_over_p2mach,
-                                     dp2tas,
-                                     machtat2sat)
+                                     vstack_params)
 from analysis_engine.velocity_speed import get_vspeed_map
 
 from settings import (AZ_WASHOUT_TC,
                       AT_WASHOUT_TC,
                       FEET_PER_NM,
                       GROUNDSPEED_LAG_TC,
-                      HYSTERESIS_FPALT_CCD,
                       HYSTERESIS_FPIAS,
                       HYSTERESIS_FPROC,
                       GRAVITY_IMPERIAL,
@@ -73,8 +69,6 @@ from settings import (AZ_WASHOUT_TC,
                       KTS_TO_MPS,
                       METRES_TO_FEET,
                       VERTICAL_SPEED_LAG_TC)
-
-from data_validation.rate_of_change import validate_rate_of_change
 
 # There is no numpy masked array function for radians, so we just multiply thus:
 deg2rad = radians(1.0)
@@ -2751,10 +2745,12 @@ class CoordinatesSmoothed(object):
         
         if loc_est:
             for this_loc in loc_est:    
-                if runway==None:
-                    continue
                 # Find the matching runway details
-                approach, runway = find_app_rwy(self, app_info, start_datetime, this_loc)
+                approach, runway = find_app_rwy(self, app_info, start_datetime,
+                                                this_loc)
+                
+                if runway==None:
+                    continue                
                 
                 if 'localizer' in runway:
                     reference = runway['localizer']

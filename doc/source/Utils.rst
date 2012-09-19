@@ -6,11 +6,14 @@ Utils
 trimmer
 -------
 
-It is generally a good principle to keep large binary files outside of a repository's version control system,
-otherwise the history of the repository will grow and become unmanageable.
+It is generally a good principle to keep large binary files outside of a
+repository's version control system, otherwise the history of the repository
+will grow and become unmanageable.
 
-derived_trimmer() is a function within AnalysisEngine.analysis.utils which is designed
-to help avoid this problem when preparing HDF test data. derived_trimmer() takes
+*trimmer* is a utility within AnalysisEngine.analysis_engine.utils which is
+designed to help avoid this problem when preparing HDF test data.
+
+derived_trimmer() takes
 the following as arguments:
 
  * Input HDF file path which contains parameters.

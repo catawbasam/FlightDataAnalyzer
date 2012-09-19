@@ -75,6 +75,7 @@ def recordtype(typename, field_names, verbose=False, **default_kwds):
     if default_kwds:
         raise ValueError('Invalid keyword arguments: %s' % default_kwds)
     # Create and fill-in the class template
+    # The following variables are used within the class template namespace.
     numfields = len(field_names)
     argtxt = ', '.join(field_names)
     reprtxt = ', '.join('%s=%%r' % f for f in field_names)

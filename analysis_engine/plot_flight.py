@@ -7,7 +7,7 @@ import numpy as np
 
 from analysis_engine.node import derived_param_from_hdf, Parameter
 from settings import METRES_TO_FEET
-from library import bearing_and_distance, latitudes_and_longitudes, rms_noise, repair_mask
+from library import bearing_and_distance, latitudes_and_longitudes, repair_mask
 from utilities.print_table import indent
 from hdfaccess.file import hdf_file
 
@@ -58,7 +58,7 @@ def draw_centreline(kml, rwy):
     track_coords.append((end_lon,end_lat))
     track_coords.append((lon_30k.data[0],lat_30k.data[0], end_height))
     track_config['coords'] = track_coords
-    line = kml.newlinestring(**track_config)
+    kml.newlinestring(**track_config)
     
     return
 

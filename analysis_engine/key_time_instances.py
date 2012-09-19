@@ -1,17 +1,10 @@
 import numpy as np
 
-from analysis_engine.library import (find_edges,
-                                     hysteresis, 
+from analysis_engine.library import (hysteresis, 
                                      index_at_value,
-                                     index_closest_value,
-                                     integrate,
                                      is_index_within_slice,
-                                     is_index_within_sections,
                                      minimum_unmasked,
-                                     np_ma_zeros_like,
-                                     repair_mask,
                                      slices_above,
-                                     slices_overlap,
                                      max_value, 
                                      peak_curvature,
                                      touchdown_inertial)
@@ -19,19 +12,12 @@ from analysis_engine.library import (find_edges,
 from analysis_engine.node import (M, P, S, KTI, KeyTimeInstanceNode)
 
 from settings import (CLIMB_THRESHOLD,
-                      GRAVITY_METRIC,
-                      KTS_TO_MPS,
-                      MU_GOOD,
-                      MU_MEDIUM,
-                      MU_POOR,
                       NAME_VALUES_CLIMB,
                       NAME_VALUES_DESCENT,
                       NAME_VALUES_FLAP,
                       VERTICAL_SPEED_FOR_LIFTOFF,
-                      VERTICAL_SPEED_FOR_TOUCHDOWN,
                       SLOPE_FOR_TOC_TOD,
-                      TAKEOFF_ACCELERATION_THRESHOLD
-                      )
+                      TAKEOFF_ACCELERATION_THRESHOLD)
 
 def find_toc_tod(alt_data, ccd_slice, mode):
     '''
