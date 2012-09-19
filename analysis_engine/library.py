@@ -9,9 +9,7 @@ from itertools import izip
 ##from scipy.optimize import fmin, fmin_bfgs, fmin_tnc
 # TODO: Inform Enthought that fmin_l_bfgs_b dies in a dark hole at _lbfgsb.setulb
 
-from settings import (GRAVITY_METRIC,
-                      KTS_TO_MPS, 
-                      METRES_TO_FEET, 
+from settings import (KTS_TO_MPS, 
                       REPAIR_DURATION, 
                       TRUCK_OR_TRAILER_INTERVAL, 
                       TRUCK_OR_TRAILER_PERIOD)
@@ -618,7 +616,6 @@ def cycle_finder(array, min_step=0.0, include_ends=True):
     while len(dvals) > 0 and np.min(abs(dvals)) < min_step:
         sort_idx = np.argmin(abs(dvals))
         last = len(dvals)
-        step = dvals[sort_idx]
         if sort_idx == 0:
             idxs = np.delete(idxs, 0)
             vals = np.delete(vals, 0)

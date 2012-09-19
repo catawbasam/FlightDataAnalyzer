@@ -52,5 +52,5 @@ if __name__ == '__main__':
         derived_trimmer(trimmer_args.source_path, trimmer_args.node_names,
                         trimmer_args.out_path)
     else:
-        parser.error("'%s' is not a known command." % args.command)
+        trimmer_parser.error("'%s' is not a known command." % args.command)
 
