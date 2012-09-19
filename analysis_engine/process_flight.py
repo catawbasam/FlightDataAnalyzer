@@ -68,8 +68,6 @@ def derive_parameters(hdf, node_mgr, process_order):
     section_list = SectionNode()  # 'Node Name' : node()  pass in node.get_accessor()
     flight_attrs = []
     
-    nodes_not_implemented = []
-    
     for param_name in process_order:
         if param_name in node_mgr.lfl:
             continue
@@ -107,38 +105,40 @@ def derive_parameters(hdf, node_mgr, process_order):
                           offset=first_dep.offset)
         logger.info("Processing parameter %s", param_name)
         # Derive the resulting value
-        try:
-            result = node.get_derived(deps)
-        except NotImplementedError:
-            ##logger.error("Node %s not implemented", node_class.__name__)
-            #TODO: remove hack below!!!
-            params[param_name] = node # HACK!
-            nodes_not_implemented.append(node_class.__name__)
-            continue
-        
+
+        result = node.get_derived(deps)
+
         if node.node_type is KeyPointValueNode:
             #Q: track node instead of result here??
             params[param_name] = result
-            kpv_list.extend(result.get_aligned(P(frequency=1,offset=0)))
+            for one_hz in result.get_aligned(P(frequency=1, offset=0)) or []:
+                if not (0 <= one_hz.index <= hdf.duration):
+                    raise IndexError("KPV '%s' index %.2f is not between 0 and %d" % (
+                        one_hz.name, one_hz.index, hdf.duration))
+                kpv_list.append(one_hz)
         elif node.node_type is KeyTimeInstanceNode:
             params[param_name] = result
-            kti_list.extend(result.get_aligned(P(frequency=1,offset=0)))
+            for one_hz in result.get_aligned(P(frequency=1, offset=0)) or []:
+                if not (0 <= one_hz.index <= hdf.duration):
+                    raise IndexError("KTI '%s' index %.2f is not between 0 and %d" % (
+                        one_hz.name, one_hz.index, hdf.duration))
+                kti_list.append(one_hz)
         elif node.node_type is FlightAttributeNode:
             params[param_name] = result
             try:
                 flight_attrs.append(Attribute(result.name, result.value)) # only has one Attribute result
             except:
-                logging.warning("Flight Attribute Node '%s' returned empty handed."%(param_name))
+                logger.warning("Flight Attribute Node '%s' returned empty handed."%(param_name))
         elif node.node_type in (FlightPhaseNode, SectionNode):
-            # expect a single slice
             params[param_name] = result
-            section_list.extend(result.get_aligned(P(frequency=1,offset=0)))
-        elif node.node_type is DerivedParameterNode:
-            ### perform any post_processing
-            ##if hooks.POST_DERIVED_PARAM_PROCESS:
-                ##process_result = hooks.POST_DERIVED_PARAM_PROCESS(hdf, result)
-                ##if process_result:
-                    ##result = process_result
+            for one_hz in result.get_aligned(P(frequency=1, offset=0)) or []:
+                slice_ = one_hz.slice
+                if slice_.start and not (0 <= slice_.start <= hdf.duration) or \
+                   slice_.stop and not (0 <= slice_.stop <= hdf.duration):
+                    raise IndexError("Section '%s' (%.2f, %.2f) does not lie between 0 and %d" % (
+                        one_hz.name, slice_.start or 0, slice_.stop or hdf.duration, hdf.duration))
+                section_list.append(one_hz)
+        elif issubclass(node.node_type, DerivedParameterNode):
             if hdf.duration:
                 # check that the right number of results were returned
                 # Allow a small tolerance. For example if duration in seconds
@@ -172,8 +172,6 @@ def derive_parameters(hdf, node_mgr, process_order):
         else:
             raise NotImplementedError("Unknown Type %s" % node.__class__)
         continue
-    if nodes_not_implemented:
-        logger.error("Nodes not implemented: %s", nodes_not_implemented)
     return kti_list, kpv_list, section_list, flight_attrs
 
 
@@ -325,11 +323,15 @@ if __name__ == '__main__':
                         help='Path of file to process.')
     parser.add_argument('-tail', dest='tail_number', type=str, default='G-ABCD',
                         help='Aircraft Tail Number for processing.')
+    parser.add_argument('-frame', dest='frame', type=str, default=None,
+                        help='Data frame name.')
     parser.add_argument('-p', dest='plot', action='store_true',
                         default=False, help='Plot flight onto a graph.')
     args = parser.parse_args()
     
     hdf_copy = copy_file(args.file, postfix='_process')
     process_flight(hdf_copy, {'Tail Number': args.tail_number,
-                              'Precise Positioning': True},
+                              'Precise Positioning': True,
+                              'Frame': args.frame,
+                              },
                    draw=args.plot)

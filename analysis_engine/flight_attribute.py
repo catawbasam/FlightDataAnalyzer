@@ -152,11 +152,9 @@ class Approaches(FlightAttributeNode):
                     delta = delta+360
                 # TODO: Work this code into a form that returns the correct runway.
                 if delta>0:
-                    print "Should pick Left runway"
+                    print "Could pick Left runway"
                 else:
-                    print "Should pick Right runway"
-                ##self.warning("Identified %d Runways, ident %s. Picking the first!", 
-                             ##len(runway_info['items']), runway_info['ident'])
+                    print "Could pick Right runway"
 
             else:
                 runway = runway_info['items'][0]
@@ -187,7 +185,7 @@ class Approaches(FlightAttributeNode):
                approach_hdg_kpvs=KPV('Heading At Lowest Point On Approach'),
                approach_lat_kpvs=KPV('Latitude At Lowest Point On Approach'),
                approach_lon_kpvs=KPV('Longitude At Lowest Point On Approach'),
-               approach_ilsfreq_kpvs=KPV('ILS Frequency On Approach'),
+               ilsfreq_kpvs=KPV('ILS Frequency On Approach'),
                start_datetime=A('Start Datetime'),
                precision=A('Precise Positioning'),
                turnoff_hdg_kpvs=KPV('Heading Vacating Runway')):
@@ -203,21 +201,34 @@ class Approaches(FlightAttributeNode):
             # If the end is outside a Fast section, it's a landing.
             # Else If Altitude AAL reached 0, the approach type is 'TOUCH_AND_GO'
             # Else it's a GO_AROUND.
+            
+            # Where we land, the landing KPV data set is used, otherwise we
+            # go with the lowest point on the approach KPVs.
 
             if approach_section.slice.stop > speedy[-1].slice.stop:
                 approach_type = 'LANDING'
-            elif np.ma.any(alt_aal.array[approach_section.slice] <= 0):
-                approach_type = 'TOUCH_AND_GO'
+                approach = self._create_approach(start_datetime.value, api_handler,
+                                                 approach_section, approach_type,
+                                                 alt_aal.frequency,
+                                                 landing_lat_kpvs, landing_lon_kpvs,
+                                                 landing_hdg_kpvs,
+                                                 ilsfreq_kpvs, precision, 
+                                                 turnoff_hdg_kpvs)
+
             else:
-                approach_type = 'GO_AROUND'
+                if np.ma.any(alt_aal.array[approach_section.slice] <= 0):
+                    approach_type = 'TOUCH_AND_GO'
+                else:
+                    approach_type = 'GO_AROUND'
             
-            approach = self._create_approach(start_datetime.value, api_handler,
-                                             approach_section, approach_type,
-                                             alt_aal.frequency,
-                                             approach_lat_kpvs, approach_lon_kpvs,
-                                             approach_hdg_kpvs,
-                                             approach_ilsfreq_kpvs, precision, 
-                                             turnoff_hdg_kpvs)
+                approach = self._create_approach(start_datetime.value, api_handler,
+                                                 approach_section, approach_type,
+                                                 alt_aal.frequency,
+                                                 approach_lat_kpvs, approach_lon_kpvs,
+                                                 approach_hdg_kpvs,
+                                                 ilsfreq_kpvs, precision, 
+                                                 turnoff_hdg_kpvs)
+
             if approach:
                 approaches.append(approach)
             
@@ -461,7 +472,7 @@ class OffBlocksDatetime(FlightAttributeNode):
 class OnBlocksDatetime(FlightAttributeNode):
     "Datetime when moving away from Gate/Blocks"
     name = 'FDR On Blocks Datetime'
-    def derive(self, turning=P('Turning On Ground'), start_datetime=A('Start Datetime')):
+    def derive(self, turning=S('Turning On Ground'), start_datetime=A('Start Datetime')):
         last_turning = turning.get_last()
         if last_turning:
             on_blocks_datetime = datetime_of_index(start_datetime.value,
@@ -475,8 +486,8 @@ class OnBlocksDatetime(FlightAttributeNode):
 class TakeoffAirport(FlightAttributeNode):
     "Takeoff Airport including ID and Name"
     name = 'FDR Takeoff Airport'
-    def derive(self, latitude_at_takeoff=KPV('Latitude At Takeoff'),
-               longitude_at_takeoff=KPV('Longitude At Takeoff')):
+    def derive(self, latitude_at_takeoff=KPV('Latitude At Liftoff'),
+               longitude_at_takeoff=KPV('Longitude At Liftoff')):
         '''
         Requests the nearest airport to the latitude and longitude at liftoff
         from the API and sets it as an attribute.
@@ -612,8 +623,8 @@ class TakeoffRunway(FlightAttributeNode):
 
     def derive(self, airport=A('FDR Takeoff Airport'),
                hdg=KPV('Heading At Takeoff'),
-               latitude_at_takeoff=KPV('Latitude At Takeoff'),
-               longitude_at_takeoff=KPV('Longitude At Takeoff'),
+               latitude_at_takeoff=KPV('Latitude At Liftoff'),
+               longitude_at_takeoff=KPV('Longitude At Liftoff'),
                precision=A('Precise Positioning')):
         '''
         Runway information is in the following format:
@@ -845,41 +856,3 @@ class Version(FlightAttributeNode):
         dependency as it will always be present, though it is unused.
         '''
         self.set_flight_attr(__version__)
-
-
-class Vref(FlightAttributeNode):
-    '''
-    Based on weight and flap at time of landing.
-    '''
-    name = 'FDR Vref'
-
-    def derive(self, 
-               #aircraft_model=A('AFR Aircraft Model'),
-               weight_touchdown=KPV('Gross Weight At Touchdown'),
-               flap_touchdown=KPV('Flap At Touchdown')):
-        self.set_flight_attr(110.0) # It doesn't get simpler than this ! DJ
-
-        '''
-        Do not source from AFR, only set attribute if V2 is recorded/derived.
-        '''
-        ##weight = weight_touchdown.get_last()
-        ##flap = flap_touchdown.get_last()
-        ##if not weight or not flap:
-            ### TODO: Log.
-            ##return
-        ##try:
-            ##mapping = VREF_MAP[aircraft_model.value]
-            ##index = index_at_value(np.array(mapping['Gross Weights']),
-                                   ##weight.value)
-            ##interp = interp1d(enumerate(mapping['Flaps']))
-            ##interp(index)
-            
-        ## return NotImplemented
-                
-##VREF_MAP = 
-##{'B737-2_800010_00.add':
- ##{'Gross Weights': range(32, 65, 4),
-  ##'Flaps': {15: (111, 118, 125, 132, 138, 143, 149, 154, 159),
-            ##30: (105, 111, 117, 123, 129, 135, 140, 144, 149),
-            ##40: (101, 108, 114, 120, 125, 130, 135, 140, 145)}}}
-    

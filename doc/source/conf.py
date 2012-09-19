@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 #
-# Analysis Engine documentation build configuration file, created by
+# FlightDataAnalyser documentation build configuration file, created by
 # sphinx-quickstart on Tue Jan 10 16:00:11 2012.
 #
 # This file is execfile()d with the current directory set to its containing dir.
@@ -184,7 +184,7 @@ latex_elements = {
 # Grouping the document tree into LaTeX files. List of tuples
 # (source start file, target name, title, author, documentclass [howto/manual]).
 latex_documents = [
-  ('index', 'AnalysisEngine.tex', u'Analysis Engine Documentation',
+  ('index', 'AnalysisEngine.tex', u'Flight Data Analyser Documentation',
    u'Flight Data Services Ltd', 'manual'),
 ]
 
@@ -228,8 +228,8 @@ man_pages = [
 # (source start file, target name, title, author,
 #  dir menu entry, description, category)
 texinfo_documents = [
-  ('index', 'AnalysisEngine', u'Analysis Engine Documentation',
-   u'Flight Data Services Ltd', 'AnalysisEngine', 'One line description of project.',
+  ('index', 'FlightDataAnalyser', u'Flight Data Analyser Documentation',
+   u'Flight Data Services Ltd', 'FlightDataAnalyser', 'One line description of project.',
    'Miscellaneous'),
 ]
 

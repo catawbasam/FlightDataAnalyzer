@@ -6,7 +6,7 @@ import copy
 import math
 
 from abc import ABCMeta
-from collections import namedtuple
+from collections import namedtuple, Iterable
 from itertools import product
 from operator import attrgetter
 
@@ -16,6 +16,9 @@ from analysis_engine.library import (align, find_edges, is_index_within_slice,
                                      slices_from_to, slices_overlap,
                                      value_at_index, value_at_time)
 from analysis_engine.recordtype import recordtype
+
+# FIXME: a better place for this class
+from hdfaccess.parameter import MappedArray
 
 
 logger = logging.getLogger(name=__name__)
@@ -81,10 +84,12 @@ class Node(object):
     align_to_first_dependency = True
     data_type = None # Q: What should the default be? Q: Should this dictate the numpy dtype saved to the HDF file or should it be inferred from the array?
         
-    def __init__(self, name='', frequency=1, offset=0):
+    def __init__(self, name='', frequency=1, offset=0, **kwargs):
         """
         Abstract Node. frequency and offset arguments are populated from the
         first available dependency parameter object.
+        
+        Kwargs get lost - allows "hz" to be ignored when passed with "frequency" 
         
         :param name: Name of parameter
         :type params: str
@@ -93,6 +98,7 @@ class Node(object):
         :param offset: Offset in Frame.
         :type offset: Float
         """
+        assert kwargs.get('hz', frequency) == frequency, "Differing freq to hz"
         #NB: removed check for dependencies to allow initialisation in def derive()
         ##if not self.get_dependency_names():
             ##raise ValueError("Every Node must have a dependency. Node '%s'" % self.__class__.__name__)
@@ -452,13 +458,124 @@ class DerivedParameterNode(Node):
 
 P = Parameter = DerivedParameterNode # shorthand
 
+def multistate_string_to_integer(string_array, mapping):
+    """
+    Converts (['one', 'two'], {1:'one', 2:'two'}) to [1, 2]
+    
+    Works on the masked array's data, therefore maintains the mask and
+    converts all masked and non-masked values.
+    
+    Note: If string_array is of mixed dtype (dtype == object),
+    floats/integers will be converted in int_array even if not in the
+    mapping.
+    
+    :param string_array: Array to be converted
+    :type string_array: np.ma.array(dtype=string,object,...)
+    :param mapping: mapping of values to convert {from_this : to_this}
+    :type mapping: dict
+    :returns: Integer array
+    :rtype: np.ma.array(dtype=int)
+    """
+    if not len(string_array):
+        return string_array
+
+    output_array = string_array.copy()
+    # values need converting using mapping
+    for int_value, str_value in mapping.iteritems():
+        output_array.data[string_array.data == str_value] = int_value
+    output_array.fill_value = 999999  #NB: only 999 will be stored by dtype
+    # apply fill_value to all masked values
+    output_array.data[np.ma.where(output_array.mask)] = output_array.fill_value
+    try:
+        int_array = output_array.astype(int)
+    except ValueError as err:
+        msg = "No value in values_mapping found for %s" % str(err).split("'")[-2]
+        raise ValueError(msg)
+    return int_array
+
+
+class MultistateDerivedParameterNode(DerivedParameterNode):
+    '''
+    MappedArray stored as array will be of integer dtype
+    '''
+    def __init__(self, name='', array=np.ma.array([]), frequency=1, offset=0,
+                 data_type=None, values_mapping={}, *args, **kwargs):
+        
+        #Q: if no values_mapping set to None?
+        if values_mapping:
+            self.values_mapping = values_mapping
+        elif not hasattr(self, 'values_mapping'):
+            self.values_mapping = {}
+
+        super(MultistateDerivedParameterNode, self).__init__(
+                name, array, frequency, offset, data_type, *args,
+                **kwargs)
+
+    def __setattr__(self, name, value):
+        '''
+        Prepare self.array
+
+        `value` can be:
+            * a MappedArray: the value is assigned with no change,
+            * a MaskedArray: value is converted to MaskedArray with no change
+              to the raw data
+            * a list: value is interpreted as 'converted' data, so the mapping
+              is reversed. KeyError is raised if the values are not found in
+              the mapping.
+              
+        Raises ValueError if incomplete mapping for array string values.
+        '''
+        if name not in ('array', 'values_mapping'):
+            return super(MultistateDerivedParameterNode, self). \
+                    __setattr__(name, value)
+
+        if name == 'values_mapping':
+            if hasattr(self, 'array'):
+                self.array.values_mapping = value
+            return object.__setattr__(self, name, value)
+        if isinstance(value, MappedArray):
+            # enforce own values mapping on the data
+            value.values_mapping = self.values_mapping
+        elif isinstance(value, np.ma.MaskedArray):
+            if value.dtype == int:
+                # NB: Removed allowance for float!
+                int_array = value
+            else:
+                # can be of type string or object (mixed)
+                int_array = multistate_string_to_integer(value, self.values_mapping)
+            value = MappedArray(int_array, values_mapping=self.values_mapping)
+        elif isinstance(value, Iterable):
+            # assume a list of mapped values
+            reversed_mapping = {v: k for k, v in self.values_mapping.items()}
+            data = [int(reversed_mapping[v]) for v in value]
+            value = MappedArray(data, values_mapping=self.values_mapping)
+        else:
+            raise ValueError('Invalid argument type assigned to array: %s'
+                             % type(value))
+
+        return object.__setattr__(self, name, value)
+
+
+M = MultistateDerivedParameterNode  # shorthand
+
 
 def derived_param_from_hdf(hdf, name):
     hdf_parameter = hdf[name]
-    return Parameter(name=hdf_parameter.name, array=hdf_parameter.array, 
-                     frequency=hdf_parameter.frequency,
-                     offset=hdf_parameter.offset,
-                     data_type=hdf_parameter.data_type)
+    if isinstance(hdf_parameter.array, MappedArray):
+        result = MultistateDerivedParameterNode(
+            name=hdf_parameter.name, array=hdf_parameter.array,
+            frequency=hdf_parameter.frequency, offset=hdf_parameter.offset,
+            data_type=hdf_parameter.data_type,
+            values_mapping=hdf_parameter.values_mapping
+        )
+        return result
+
+    else:
+        return Parameter(
+            name=hdf_parameter.name, array=hdf_parameter.array,
+            frequency=hdf_parameter.frequency, offset=hdf_parameter.offset,
+            data_type=hdf_parameter.data_type
+        )
 
 
 class SectionNode(Node, list):
@@ -514,6 +631,7 @@ class SectionNode(Node, list):
         '''
         aligned_node = self.__class__(frequency=param.frequency,
                                       offset=param.offset)
+        
         multiplier = param.frequency / self.frequency
         offset = (self.offset - param.offset) * param.frequency
         for section in self:
@@ -762,13 +880,21 @@ class FormattedNameNode(Node, list):
     
     def __init__(self, *args, **kwargs):
         '''
+        If the there i not an 'items' kwarg and the first argument is a list 
+        or a tuple, the first argument's items will be extended to the node.
+        
         :param items: Optional keyword argument of initial items to be contained within self.
         :type items: list
         '''
         if 'items' in kwargs:
             self.extend(kwargs['items'])
             del kwargs['items']
-        super(FormattedNameNode, self).__init__(*args, **kwargs)
+            super(FormattedNameNode, self).__init__(*args, **kwargs)
+        elif len(args) and (isinstance(args[0], list) or isinstance(args[0], tuple)):
+            self.extend(args[0])
+            super(FormattedNameNode, self).__init__(*args[1:], **kwargs)
+        else:
+            super(FormattedNameNode, self).__init__(*args, **kwargs)
         
     def __repr__(self):
         return '%s' % list(self)
@@ -1011,9 +1137,10 @@ class KeyTimeInstanceNode(FormattedNameNode):
         :type direction: string
         :param phase: An optional flight phase (section) argument.
         
-        Direction has possible fields 'rising_edges' or 'falling_edges'. In
-        the absence of a direction parameter, the default 'rising_edges' will
-        be retained, and all edges will be triggered.
+        Direction has possible fields 'rising_edges', 'falling_edges' or
+        'all_edges'. In the absence of a direction parameter, the default is
+        'rising_edges'.
+        
         Where phase is supplied, only edges arising within this phase will be
         triggered.
         '''
@@ -1038,7 +1165,49 @@ class KeyTimeInstanceNode(FormattedNameNode):
             for each_period in phase:
                 kti_edges(array, each_period.slice)
         return    
-    
+
+    def create_ktis_on_state_change(self, state, array, change='entering',
+                                    phase=None):
+        '''
+        Create KTIs from multistate parameters where data reaches and leaves
+        given state.
+
+        Its logic operates on string representation of the multistate
+        parameter, not on the raw data value.
+
+        ..todo: instead of working on the strings in numpy, we need to find the
+            numeric value by reversing the mapping.
+        '''
+        # Low level function that finds start and stop indices of given state
+        # and creates KTIs
+        def state_changes(state, array, change, _slice=slice(0, -1)):
+            # TODO: to improve performance reverse the state into numeric value
+            # and look it up in array.raw instead
+            state_periods = np.ma.clump_unmasked(
+                np.ma.masked_not_equal(array[_slice].raw,
+                                       array.get_state_value(state)))
+            for period in state_periods:
+                if change == 'entering':
+                    self.create_kti(period.start - 0.5
+                                    if period.start > 0 else 0.)
+                elif change == 'leaving':
+                    self.create_kti(period.stop - 0.5)
+                elif change == 'entering_and_leaving':
+                    self.create_kti(period.start - 0.5
+                                    if period.start > 0 else 0.)
+                    self.create_kti(period.stop - 0.5)
+            return
+
+        # High level function scans phase blocks or complete array and
+        # presents appropriate arguments for analysis. We test for phase.name
+        # as phase returns False.
+        if phase == None:
+            state_changes(state, array, change)
+        else:
+            for each_period in phase:
+                state_changes(state, array, change, each_period.slice)
+        return
+
     def get_aligned(self, param):
         '''
         :param param: Node to align this KeyTimeInstanceNode to.
@@ -1081,6 +1250,8 @@ class KeyPointValueNode(FormattedNameNode):
         :rtype: KeyTimeInstance named tuple
         :raises KeyError: If a required string formatting key is not provided.
         :raises TypeError: If a string formatting argument is of the wrong type.
+        
+        TODO: Add examples using interpolation values as kwargs.
         '''
         # There are a number of algorithms which return None for valid
         # computations, so these conditions are only logged as information...
@@ -1189,6 +1360,20 @@ class KeyPointValueNode(FormattedNameNode):
                 
     create_kpvs_at_kpvs = create_kpvs_at_ktis # both will work the same!
     
+    def kpv_from_slice(self, slice_, function, array):
+        '''
+        Basic function called by higher level create_kpv functions.
+        '''
+        if isinstance(slice_, Section): # Use slice within Section.
+            start_edge = slice_.start_edge
+            stop_edge = slice_.stop_edge
+            slice_ = slice_.slice
+        else:
+            start_edge = None
+            stop_edge = None
+        index, value = function(array, slice_, start_edge, stop_edge)
+        return index, value
+
     def create_kpvs_within_slices(self, array, slices, function, **kwargs):
         '''
         Shortcut for creating KPVs from a number of slices by retrieving an
@@ -1204,18 +1389,63 @@ class KeyPointValueNode(FormattedNameNode):
         :rtype: None
         '''
         for slice_ in slices:
-            if isinstance(slice_, Section): # Use slice within Section.
-                start_edge = slice_.start_edge
-                stop_edge = slice_.stop_edge
-                # Tricky self-modifying code !
-                slice_ = slice_.slice
-            else:
-                start_edge = None
-                stop_edge = None
-            index, value = function(array, slice_, start_edge, stop_edge)
+            index, value = self.kpv_from_slice(slice_, function, array)
             self.create_kpv(index, value, **kwargs)
 
-    def create_kpvs_from_slices(self, slices, threshold=0.0, mark='midpoint', **kwargs):
+    def create_kpv_from_slices(self, array, slices, function, **kwargs):
+        '''
+        Shortcut for creating a single KPVs from multiple slices.
+        
+        :param array: Array of source data.
+        :type array: np.ma.masked_array
+        :param slices: Slices from which to create KPVs.
+        :type slices: SectionNode or list of slices.
+        :param function: Function which will return an index and value from the array.
+        :type function: function (max_value and min_value only recognised here)
+        :returns: None
+        :rtype: None
+        '''
+        index = None
+        value = None
+        for slice_ in slices:
+            i, v = self.kpv_from_slice(slice_, function, array)
+            if i==None or v==None:
+                continue
+            if value == None:
+                value = v
+                index = i
+            elif function([value, v]).index: # v is the larger or smaller
+                value = v
+                index = i
+            
+        if index==None or value==None:
+            return
+        self.create_kpv(index, value, **kwargs)
+
+    def create_kpv_outside_slices(self, array, slices, function, **kwargs):
+        '''
+        Shortcut for creating a KPV excluding values within provided slices or
+        sections by retrieving an index and value from function (for instance
+        max_value).
+        
+        :param array: Array to source values from.
+        :type array: np.ma.masked_array
+        :param slices: Slices to exclude from KPV creation.
+        :type slices: SectionNode or list of slices.
+        :param function: Function which will return an index and value from the array.
+        :type function: function
+        :returns: None
+        :rtype: None
+        '''
+        for slice_ in slices:
+            if isinstance(slice_, Section): # Use slice within Section.
+                slice_ = slice_.slice
+            # Exclude the slices we don't want:
+            array[slice_] = np.ma.masked
+        index, value = function(array)
+        self.create_kpv(index, value, **kwargs)
+
+    def create_kpvs_from_slice_durations(self, slices, threshold=0.0, mark='midpoint', **kwargs):
         '''
         Shortcut for creating KPVs from slices based only on the slice duration.
         
@@ -1241,55 +1471,73 @@ class KeyPointValueNode(FormattedNameNode):
                     elif mark == 'midpoint':
                         index = (slice_.stop_edge + slice_.start_edge) / 2.0
                     else:
-                        raise ValueError,'Unrecognised option in create_kpvs_from_slices'
+                        raise ValueError,'Unrecognised option in create_kpvs_from_slice_durations'
                     self.create_kpv(index, duration, **kwargs)
+            else:
+                duration = slice_.stop - slice_.start
+                if duration > threshold:
+                    if mark == 'start':
+                        index = slice_.start
+                    elif mark == 'end':
+                        index = slice_.stop
+                    elif mark == 'midpoint':
+                        index = (slice_.stop + slice_.start) / 2.0
+                    else:
+                        raise ValueError,'Unrecognised option in create_kpvs_from_slice_durations'
+                    self.create_kpv(index, duration, **kwargs)
+                
 
-
-    def create_kpvs_from_discretes(self, array, hz, sense='normal', phase=None, min_duration=0.0):
+    def create_kpvs_where_state(self, state, array, hz, phase=None,
+                                min_duration=0.0):
         '''
-        For discrete parameters, this detects an event and records the
-        duration of each event.
-        
-        :param array: The input parameter, with data and sample rate information.
-        :type array: A recorded or derived discrete parameter. 
-        :param sense: Keyword argument.
+        For discrete and multi-state parameters, this detects an event and
+        records the duration of each event.
+
+        :param array: The input parameter, with data and sample rate
+            information.
+        :type array: A recorded or derived multistate (discrete) parameter
         :param phase: An optional flight phase (section) argument.
-        :param min_duration: An optional minimum duration for the KPV to become valid.
+        :param min_duration: An optional minimum duration for the KPV to become
+            valid.
         :type min_duration: Float (seconds)
         :name name: Facility for automatically naming the KPV.
         :type name: String
-        
-        Sense has two options, namely the default 'normal': 0.0=OFF and
-        1.0=ON state. 'reverse': 1.0=OFF and 0.0=ON state.
-    
+
         Where phase is supplied, only edges arising within this phase will be
         triggered.
+
+        ..todo: instead of working on the strings in numpy, we need to find the
+            numeric value by reversing the mapping.
         '''
-        
-        def find_events(subarray, start_index, sense):
-            if sense=='normal':
-                events = np.ma.clump_unmasked(np.ma.masked_less(subarray, 0.5))
-            elif sense=='reverse':
-                events = np.ma.clump_unmasked(np.ma.masked_greater(subarray, 0.5))
-            else:
-                raise ValueError,'Unrecognised sense in create_kpvs_for_discretes'
-            
+        def find_events(state, subarray, start_index):
+            # TODO: to improve performance reverse the state into numeric value
+            # and look it up in array.raw instead
+            events = np.ma.clump_unmasked(
+                np.ma.masked_not_equal(subarray.raw,
+                                       subarray.get_state_value(state)))
             for event in events:
                 index = event.start
                 value = (event.stop - event.start) / hz
                 if value >= min_duration:
                     self.create_kpv(index, value)
             return
-        
+
         # High level function scans phase blocks or complete array and presents
         # appropriate arguments for analysis.
-        if phase:
+
+        # Note the test for "if phase != None" rather than just "if phase"
+        # because phase=[] for phases that are evaluated but have not
+        # occurred in this flight.
+        if phase != None:
             for each_period in phase:
                 to_scan = array[each_period.slice]
-                find_events(to_scan, each_period.slice.start or 0, sense)
+                find_events(state, to_scan, each_period.slice.start or 0)
         else:
-            find_events(array, 0, sense)
-        return    
+            # FIXME: np.ma.masked_not_equal does not use Python indexing, so it
+            # will not see our mapped values!
+            # "full slice" trick solves this problem
+            find_events(state, array[:], 0)
+        return
 
 
 class FlightAttributeNode(Node):

@@ -11,6 +11,7 @@ from analysis_engine.key_time_instances import (BottomOfDescent,
 from analysis_engine.plot_flight import plot_parameter
 from analysis_engine.flight_phase import (Airborne,
                                           Approach,
+                                          BouncedLanding,
                                           ClimbCruiseDescent,
                                           Climbing,
                                           Cruise,
@@ -18,12 +19,14 @@ from analysis_engine.flight_phase import (Airborne,
                                           DescentLowClimb,
                                           Fast,
                                           FinalApproach,
+                                          GearRetracting,
                                           GoAroundAndClimbout,
+                                          Grounded,
                                           Holding,
                                           ILSLocalizerEstablished,
                                           Landing,
                                           LevelFlight,
-                                          OnGround,
+                                          Mobile,
                                           Takeoff,
                                           Taxiing,
                                           TaxiIn,
@@ -107,11 +110,11 @@ class TestAirborne(unittest.TestCase):
         self.assertEqual(opts, expected)
 
     def test_airborne_phase_basic(self):
-        rate_of_climb_data = np.ma.array(range(0,400,50)+
+        vert_spd_data = np.ma.array(range(0,400,50)+
                                          range(400,-450,-50)+
                                          range(-450,50,50))
-        rate_of_climb = Parameter('Rate Of Climb For Flight Phases', np.ma.array(rate_of_climb_data))
-        altitude = Parameter('Altitude AAL For Flight Phases', integrate(rate_of_climb_data, 1, 0, 1.0/60.0))
+        vert_spd = Parameter('Vertical Speed For Flight Phases', np.ma.array(vert_spd_data))
+        altitude = Parameter('Altitude AAL For Flight Phases', integrate(vert_spd_data, 1, 0, 1.0/60.0))
         fast = SectionNode('Fast', items=[Section('Fast',slice(1,29,None),1,29)])
         air = Airborne()
         air.derive(altitude, fast)
@@ -182,6 +185,36 @@ class TestApproach(unittest.TestCase):
                    land, ga)
         expected = buildsections('Approach', [0, 2], [3, 6])
         self.assertEqual(app, expected)
+
+class TestBouncedLanding(unittest.TestCase):
+    def test_bounce_basic(self):
+        fast = buildsection('Fast',2,13)
+        airborne = buildsection('Airborne', 3,10)
+        alt = np.ma.array([0,0,0,2,10,30,10,2,0,0,0,0,0,0])
+        bl = BouncedLanding()
+        bl.derive(Parameter('Altitude AAL', alt), airborne, fast)
+        expected = []
+        self.assertEqual(bl, expected)
+        
+    def test_bounce_with_bounce(self):
+        fast = buildsection('Fast',2,13)
+        airborne = buildsection('Airborne', 3,8)
+        alt = np.ma.array([0,0,0,2,10,30,10,2,0,3,3,0,0,0])
+        bl = BouncedLanding()
+        bl.derive(Parameter('Altitude AAL', alt), airborne, fast)
+        expected = buildsection('Bounced Landing', 9, 11)
+        self.assertEqual(bl, expected)
+        
+    def test_bounce_with_double_bounce(self):
+        fast = buildsection('Fast',2,13)
+        airborne = buildsection('Airborne', 3,8)
+        alt = np.ma.array([0,0,0,2,10,30,10,2,0,3,0,5,0])
+        bl = BouncedLanding()
+        bl.derive(Parameter('Altitude AAL', alt), airborne, fast)
+        expected = buildsection('Bounced Landing', 9, 12)
+        self.assertEqual(bl, expected)
+        
+
 
 
 class TestILSLocalizerEstablished(unittest.TestCase):
@@ -397,18 +430,18 @@ class TestClimbFromBottomOfDescent(unittest.TestCase):
 
 class TestClimbing(unittest.TestCase):
     def test_can_operate(self):
-        expected = [('Rate Of Climb For Flight Phases', 'Airborne')]
+        expected = [('Vertical Speed For Flight Phases', 'Airborne')]
         opts = Climbing.get_operational_combinations()
         self.assertEqual(opts, expected)
 
     def test_climbing_basic(self):
-        rate_of_climb_data = np.ma.array(range(500,1200,100)+
+        vert_spd_data = np.ma.array(range(500,1200,100)+
                                          range(1200,-1200,-200)+
                                          range(-1200,500,100))
-        rate_of_climb = Parameter('Rate Of Climb For Flight Phases', np.ma.array(rate_of_climb_data))
+        vert_spd = Parameter('Vertical Speed For Flight Phases', np.ma.array(vert_spd_data))
         air = buildsection('Airborne',2,8)
         up = Climbing()
-        up.derive(rate_of_climb, air)
+        up.derive(vert_spd, air)
         expected = buildsection('Climbing', 3, 8)
         self.assertEqual(up, expected)
 
@@ -528,15 +561,15 @@ class TestDescentLowClimb(unittest.TestCase):
 
 class TestDescending(unittest.TestCase):
     def test_can_operate(self):
-        expected = [('Rate Of Climb For Flight Phases', 'Airborne')]
+        expected = [('Vertical Speed For Flight Phases', 'Airborne')]
         opts = Descending.get_operational_combinations()
         self.assertEqual(opts, expected)
 
     def test_descending_basic(self):
-        roc = Parameter('Rate Of Climb For Flight Phases',np.ma.array([0,1000,-600,-800,0]))
+        vert_spd = Parameter('Vertical Speed For Flight Phases',np.ma.array([0,1000,-600,-800,0]))
         air = buildsection('Airborne',2,8)
         phase = Descending()
-        phase.derive(roc, air)
+        phase.derive(vert_spd, air)
         expected = buildsection('Descending',2,4)
         self.assertEqual(phase, expected)
 
@@ -628,55 +661,55 @@ class TestFast(unittest.TestCase):
     #so this is not applicable.
         
 
-class TestOnGround(unittest.TestCase):
+class TestGrounded(unittest.TestCase):
     def test_can_operate(self):
-        self.assertEqual(OnGround.get_operational_combinations(), 
-                         [('Airspeed For Flight Phases','Airborne')])
+        self.assertEqual(Grounded.get_operational_combinations(), 
+                         [('Airborne', 'Airspeed For Flight Phases')])
 
-    def test_on_ground_phase_basic(self):
+    def test_grounded_phase_basic(self):
         slow_and_fast_data = np.ma.array(range(60,120,10)+[120]*300+range(120,50,-10))
         ias = Parameter('Airspeed For Flight Phases', slow_and_fast_data,1,0)
         air = buildsection('Airborne',2,311)
-        phase_on_ground = OnGround()
-        phase_on_ground.derive(ias, air)
-        expected = buildsections('On Ground',[0,2],[311,313])
-        self.assertEqual(phase_on_ground, expected)
+        phase_grounded = Grounded()
+        phase_grounded.derive(ias, air)
+        expected = buildsections('Grounded',[0,2],[311,313])
+        self.assertEqual(phase_grounded, expected)
         
-    def test_on_ground_all_fast(self):
-        on_ground_data = np.ma.array([120]*10)
-        ias = Parameter('Airspeed For Flight Phases', on_ground_data,1,0)
+    def test_grounded_all_fast(self):
+        grounded_data = np.ma.array([120]*10)
+        ias = Parameter('Airspeed For Flight Phases', grounded_data,1,0)
         air = buildsection('Airborne',None,None)
-        phase_on_ground = OnGround()
-        phase_on_ground.derive(ias, air)
-        expected = buildsection('On Ground',None,None)
-        self.assertEqual(phase_on_ground, expected)
+        phase_grounded = Grounded()
+        phase_grounded.derive(ias, air)
+        expected = buildsection('Grounded',None,None)
+        self.assertEqual(phase_grounded, expected)
 
-    def test_on_ground_all_slow(self):
-        on_ground_data = np.ma.array([12]*10)
-        ias = Parameter('Airspeed For Flight Phases', on_ground_data,1,0)
+    def test_grounded_all_slow(self):
+        grounded_data = np.ma.array([12]*10)
+        ias = Parameter('Airspeed For Flight Phases', grounded_data,1,0)
         air = buildsection('Airborne',None,None)
-        phase_on_ground = OnGround()
-        phase_on_ground.derive(ias, air)
-        expected = buildsection('On Ground',0,10)
-        self.assertEqual(phase_on_ground.get_first(), expected[0])
+        phase_grounded = Grounded()
+        phase_grounded.derive(ias, air)
+        expected = buildsection('Grounded',0,10)
+        self.assertEqual(phase_grounded.get_first(), expected[0])
 
-    def test_on_ground_landing_only(self):
-        on_ground_data = np.ma.arange(110,60,-10)
-        ias = Parameter('Airspeed For Flight Phases', on_ground_data,1,0)
+    def test_grounded_landing_only(self):
+        grounded_data = np.ma.arange(110,60,-10)
+        ias = Parameter('Airspeed For Flight Phases', grounded_data,1,0)
         air = buildsection('Airborne',None,4)
-        phase_on_ground = OnGround()
-        phase_on_ground.derive(ias, air)
-        expected = buildsection('On Ground',4,5)
-        self.assertEqual(phase_on_ground.get_first(), expected[0])
+        phase_grounded = Grounded()
+        phase_grounded.derive(ias, air)
+        expected = buildsection('Grounded',4,5)
+        self.assertEqual(phase_grounded.get_first(), expected[0])
         
-    def test_on_ground_speeding_only(self):
-        on_ground_data = np.ma.arange(60,120,10)
-        ias = Parameter('Airspeed For Flight Phases', on_ground_data,1,0)
+    def test_grounded_speeding_only(self):
+        grounded_data = np.ma.arange(60,120,10)
+        ias = Parameter('Airspeed For Flight Phases', grounded_data,1,0)
         air = buildsection('Airborne',2,None)
-        phase_on_ground = OnGround()
-        phase_on_ground.derive(ias, air)
-        expected = buildsection('On Ground',0,2)
-        self.assertEqual(phase_on_ground.get_first(), expected[0])
+        phase_grounded = Grounded()
+        phase_grounded.derive(ias, air)
+        expected = buildsection('Grounded',0,2)
+        self.assertEqual(phase_grounded.get_first(), expected[0])
 
 
 
@@ -696,7 +729,26 @@ class TestFinalApproach(unittest.TestCase):
         fapp.derive(alt_aal)
         self.assertEqual(fapp, expected)
         
+class TestGearRetracting(unittest.TestCase):
+    def test_can_operate(self):
+        expected = [('Gear Down','Gear (L) Red Warning','Gear (N) Red Warning',
+                     'Gear (R) Red Warning','Frame', 'Airborne')]
+        opts = GearRetracting.get_operational_combinations()
+        self.assertEqual(opts, expected)
 
+    def test_737_3C(self):
+        gear_down = Parameter('Gear Down',np.ma.array([1,1,1,0,0,0,0,0,0,0,0,1,1])) 
+        gear_warn_l = Parameter('Gear (L) Red Warning',np.ma.array([0,0,0,1,0,0,0,0,0,1,0,0]))
+        gear_warn_n = Parameter('Gear (N) Red Warning',np.ma.array([0,0,0,0,1,0,0,0,1,0,0,0]))
+        gear_warn_r = Parameter('Gear (R) Red Warning',np.ma.array([0,0,0,0,0,1,0,1,0,0,0,0]))
+        frame = A('Frame', value='737-3C')
+        airs=buildsection('Airborne', 1, 11)
+        gr = GearRetracting()
+        gr.derive(gear_down, gear_warn_l, gear_warn_n, gear_warn_r, frame, airs)
+        expected=buildsection('Gear Retracting', 3, 6)
+        self.assertEqual(gr, expected)
+        
+    
 class TestGoAroundAndClimbout(unittest.TestCase):
     def test_can_operate(self):
         self.assertEqual(GoAroundAndClimbout.get_operational_combinations(),
@@ -830,35 +882,65 @@ class TestLanding(unittest.TestCase):
         expected = buildsection('Landing', 0.75, 22.5)
         self.assertEqual(landing, expected)
         
+class TestMobile(unittest.TestCase):
+    def test_can_operate(self):
+        expected = [('Rate Of Turn',),('Rate Of Turn','Groundspeed')]
+        opts = Mobile.get_operational_combinations()
+        self.assertEqual(opts, expected)
+        
+    def test_rot_only(self):
+        rot = np.ma.array([0,0,5,5,5,0,0])
+        move = Mobile()
+        move.derive(P('Rate Of Turn',rot), None)
+        expected = buildsection('Mobile', 2, 4)
+        self.assertEqual(move, expected)
+        
+    def test_gspd_first(self):
+        rot = np.ma.array([0,0,0,5,5,0,0])
+        gspd= np.ma.array([0,6,6,6,0,0,0])
+        move = Mobile()
+        move.derive(P('Rate Of Turn',rot),
+                    P('Groundspeed',gspd))
+        expected = buildsection('Mobile', 1, 4)
+        self.assertEqual(move, expected)
+
+    def test_gspd_last(self):
+        rot = np.ma.array([0,0,5,5,0,0,0])
+        gspd= np.ma.array([0,0,0,6,6,6,0])
+        move = Mobile()
+        move.derive(P('Rate Of Turn',rot),
+                    P('Groundspeed',gspd))
+        expected = buildsection('Mobile', 2, 5)
+        self.assertEqual(move, expected)
         
 """
 class TestLevelFlight(unittest.TestCase):
     def test_can_operate(self):
-        expected = [('Rate Of Climb For Flight Phases','Airborne')]
+        expected = [('Vertical Speed For Flight Phases','Airborne')]
         opts = LevelFlight.get_operational_combinations()
         self.assertEqual(opts, expected)
 
     def test_level_flight_phase_basic(self):
-        rate_of_climb_data = np.ma.array(range(0,400,50)+range(400,-450,-50)+
+        vert_spd_data = np.ma.array(range(0,400,50)+range(400,-450,-50)+
                                          range(-450,50,50))
-        rate_of_climb = Parameter('Rate Of Climb For Flight Phases', np.ma.array(rate_of_climb_data))
+        vert_spd = Parameter('Vertical Speed For Flight Phases', np.ma.array(vert_spd_data))
         airborne = SectionNode('Airborne',
                                items=[Section('Airborne',slice(0,36,None))])
         level = LevelFlight()
-        level.derive(rate_of_climb, airborne)
+        level.derive(vert_spd, airborne)
         expected = [Section(name='Level Flight', slice=slice(0, 7, None)),
                     Section(name='Level Flight', slice=slice(10, 23, None)), 
                     Section(name='Level Flight', slice=slice(28, 35, None))]
         self.assertEqual(level, expected)
         
     def test_level_flight_phase_not_airborne_basic(self):
-        rate_of_climb_data = np.ma.array(range(0,400,50)+range(400,-450,-50)+
+        vert_spd_data = np.ma.array(range(0,400,50)+range(400,-450,-50)+
                                          range(-450,50,50))
-        rate_of_climb = Parameter('Rate Of Climb For Flight Phases', np.ma.array(rate_of_climb_data))
+        vert_spd = Parameter('Vertical Speed For Flight Phases', np.ma.array(vert_spd_data))
         airborne = SectionNode('Airborne',
                                items=[Section('Airborne',slice(8,30,None))])
         level = LevelFlight()
-        level.derive(rate_of_climb, airborne)
+        level.derive(vert_spd, airborne)
         expected = [Section(name='Level Flight', slice=slice(10, 23, None)), 
                     Section(name='Level Flight', slice=slice(28, 30, None))]
         self.assertEqual(level, expected)
@@ -902,11 +984,11 @@ class TestTakeoff(unittest.TestCase):
 
 class TestTaxiOut(unittest.TestCase):
     def test_can_operate(self):
-        expected = [('On Ground', 'Takeoff')]
+        expected = [('Grounded', 'Takeoff')]
         self.assertEqual(TaxiOut.get_operational_combinations(), expected)
         
     def test_taxi_out(self):
-        gnd = buildsection('On Ground',3,7)
+        gnd = buildsection('Grounded',3,7)
         toff = buildsection('Takeoff', 5,12)
         tout = TaxiOut()
         tout.derive(gnd, toff)
@@ -915,11 +997,11 @@ class TestTaxiOut(unittest.TestCase):
         
 class TestTaxiIn(unittest.TestCase):
     def test_can_operate(self):
-        expected = [('On Ground', 'Landing')]
+        expected = [('Grounded', 'Landing')]
         self.assertEqual(TaxiIn.get_operational_combinations(), expected)
         
     def test_taxi_in(self):
-        gnd = buildsection('On Ground',7,14)
+        gnd = buildsection('Grounded',7,14)
         toff = buildsection('Landing', 5,12)
         t_in = TaxiIn()
         t_in.derive(gnd, toff)
@@ -968,7 +1050,7 @@ class TestTurningInAir(unittest.TestCase):
         
 class TestTurningOnGround(unittest.TestCase):
     def test_can_operate(self):
-        expected = [('Rate Of Turn', 'On Ground')]
+        expected = [('Rate Of Turn', 'Grounded')]
         self.assertEqual(TurningOnGround.get_operational_combinations(), expected)
         
     def test_turning_on_ground_phase_basic(self):

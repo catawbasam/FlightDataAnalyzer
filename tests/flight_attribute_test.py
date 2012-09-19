@@ -903,7 +903,7 @@ class TestOnBlocksDatetime(unittest.TestCase):
 
 class TestTakeoffAirport(unittest.TestCase):
     def test_can_operate(self):
-        self.assertEqual([('Latitude At Takeoff', 'Longitude At Takeoff')],
+        self.assertEqual([('Latitude At Liftoff', 'Longitude At Liftoff')],
                          TakeoffAirport.get_operational_combinations())
         
     @patch('analysis_engine.api_handler_analysis_engine.AnalysisEngineAPIHandlerHTTP.get_nearest_airport')
@@ -912,10 +912,10 @@ class TestTakeoffAirport(unittest.TestCase):
         Attribute is not set when airport is not found.
         '''
         get_nearest_airport.side_effect = NotFoundError('Not Found.')
-        latitude = KPV(name='Latitude At Takeoff',
+        latitude = KPV(name='Latitude At Liftoff',
                        items=[KeyPointValue(index=1, value=4.0),
                               KeyPointValue(index=2, value=6.0)])
-        longitude = KPV(name='Longitude At Takeoff',
+        longitude = KPV(name='Longitude At Liftoff',
                         items=[KeyPointValue(index=1, value=3.0),
                                KeyPointValue(index=2, value=9.0)])
         takeoff_airport = TakeoffAirport()
@@ -931,10 +931,10 @@ class TestTakeoffAirport(unittest.TestCase):
         '''
         airport_info = {'id': 123}
         get_nearest_airport.return_value = airport_info
-        latitude = KPV(name='Latitude At Takeoff',
+        latitude = KPV(name='Latitude At Liftoff',
                        items=[KeyPointValue(index=1, value=4.0),
                               KeyPointValue(index=2, value=6.0)])
-        longitude = KPV(name='Longitude At Takeoff',
+        longitude = KPV(name='Longitude At Liftoff',
                         items=[KeyPointValue(index=1, value=3.0),
                                KeyPointValue(index=2, value=9.0)])
         takeoff_airport = TakeoffAirport()
@@ -1071,17 +1071,17 @@ class TestTakeoffRunway(unittest.TestCase):
         '''
         expected = \
         [('FDR Takeoff Airport', 'Heading At Takeoff'),
-         ('FDR Takeoff Airport', 'Heading At Takeoff', 'Latitude At Takeoff'),
-         ('FDR Takeoff Airport', 'Heading At Takeoff', 'Longitude At Takeoff'),
+         ('FDR Takeoff Airport', 'Heading At Takeoff', 'Latitude At Liftoff'),
+         ('FDR Takeoff Airport', 'Heading At Takeoff', 'Longitude At Liftoff'),
          ('FDR Takeoff Airport', 'Heading At Takeoff', 'Precise Positioning'),
-         ('FDR Takeoff Airport', 'Heading At Takeoff', 'Latitude At Takeoff',
-          'Longitude At Takeoff'),
-         ('FDR Takeoff Airport', 'Heading At Takeoff', 'Latitude At Takeoff', 
+         ('FDR Takeoff Airport', 'Heading At Takeoff', 'Latitude At Liftoff',
+          'Longitude At Liftoff'),
+         ('FDR Takeoff Airport', 'Heading At Takeoff', 'Latitude At Liftoff', 
           'Precise Positioning'),
-         ('FDR Takeoff Airport', 'Heading At Takeoff', 'Longitude At Takeoff', 
+         ('FDR Takeoff Airport', 'Heading At Takeoff', 'Longitude At Liftoff', 
           'Precise Positioning'),
-         ('FDR Takeoff Airport', 'Heading At Takeoff', 'Latitude At Takeoff',
-          'Longitude At Takeoff', 'Precise Positioning')]
+         ('FDR Takeoff Airport', 'Heading At Takeoff', 'Latitude At Liftoff',
+          'Longitude At Liftoff', 'Precise Positioning')]
         self.assertEqual(TakeoffRunway.get_operational_combinations(),
                          expected)
     
@@ -1102,10 +1102,10 @@ class TestTakeoffRunway(unittest.TestCase):
         # Airport, Heading At Takeoff, Liftoff, Latitude, Longitude and Precision
         # arguments. Latitude and Longitude are only passed with all these
         # parameters available and Precise Positioning is True.
-        latitude = KPV(name='Latitude At Takeoff',
+        latitude = KPV(name='Latitude At Liftoff',
                        items=[KeyPointValue(index=1, value=4.0),
                               KeyPointValue(index=2, value=6.0)])
-        longitude = KPV(name='Longitude At Takeoff',
+        longitude = KPV(name='Longitude At Liftoff',
                         items=[KeyPointValue(index=1, value=3.0),
                                KeyPointValue(index=2, value=9.0)])
         precision = A('Precision')

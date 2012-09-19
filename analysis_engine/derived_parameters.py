@@ -1,29 +1,40 @@
 import numpy as np
 from math import floor, radians
 
-from analysis_engine.model_information import (get_config_map,
+from analysis_engine.exceptions import DataFrameError
+
+from analysis_engine.model_information import (get_conf_map,
                                                get_flap_map,
                                                get_slat_map)
-from analysis_engine.node import A, DerivedParameterNode, KPV, KTI, P, S
+from analysis_engine.node import (
+    A, DerivedParameterNode, MultistateDerivedParameterNode, KPV, KTI, M, P, S)
 from analysis_engine.library import (align,
+                                     alt2press,
+                                     alt2sat,
                                      bearings_and_distances,
                                      blend_two_parameters,
+                                     cas2dp,
+                                     cas_alt2mach,
                                      clip,
                                      coreg,
                                      cycle_finder,
+                                     dp2tas,
+                                     dp_over_p2mach,
+                                     filter_vor_ils_frequencies,
                                      first_valid_sample,
                                      first_order_lag,
                                      first_order_washout,
                                      ground_track,
                                      hysteresis,
+                                     index_at_value,
                                      index_of_datetime,
                                      integrate,
                                      ils_localizer_align,
                                      interpolate_and_extend,
                                      is_index_within_slice,
                                      is_slice_within_slice,
-                                     last_valid_sample,
                                      latitudes_and_longitudes,
+                                     machtat2sat,
                                      merge_two_parameters,
                                      np_ma_ones_like,
                                      np_ma_masked_zeros_like,
@@ -35,7 +46,7 @@ from analysis_engine.library import (align,
                                      runway_distances,
                                      runway_heading,
                                      runway_length,
-                                     slices_and,
+                                     runway_snap_dict,
                                      slices_not,
                                      slices_overlap,
                                      smooth_track,
@@ -43,20 +54,13 @@ from analysis_engine.library import (align,
                                      straighten_headings,
                                      track_linking,
                                      value_at_index,
-                                     vstack_params,
-                                     alt2press,
-                                     alt2sat,
-                                     cas2dp,
-                                     cas_alt2mach,
-                                     dp_over_p2mach,
-                                     dp2tas,
-                                     machtat2sat)
+                                     vstack_params)
+from analysis_engine.velocity_speed import get_vspeed_map
 
 from settings import (AZ_WASHOUT_TC,
                       AT_WASHOUT_TC,
                       FEET_PER_NM,
                       GROUNDSPEED_LAG_TC,
-                      HYSTERESIS_FPALT_CCD,
                       HYSTERESIS_FPIAS,
                       HYSTERESIS_FPROC,
                       GRAVITY_IMPERIAL,
@@ -64,20 +68,31 @@ from settings import (AZ_WASHOUT_TC,
                       KTS_TO_FPS,
                       KTS_TO_MPS,
                       METRES_TO_FEET,
-                      RATE_OF_CLIMB_LAG_TC)
-
-from data_validation.rate_of_change import validate_rate_of_change
+                      VERTICAL_SPEED_LAG_TC)
 
 # There is no numpy masked array function for radians, so we just multiply thus:
 deg2rad = radians(1.0)
 
+
+class AccelerationNormalOffsetRemoved(DerivedParameterNode):
+    """
+    This process attempts to remove datum errors in the normal accelerometer.
+    """
+    def derive(self, acc=P('Acceleration Normal'), 
+               offset = KPV('Acceleration Normal Offset')):
+        if offset:
+            self.array = acc.array - offset[0].value + 1.0
+        else:
+            self.array = acc.array
+    
+    
 class AccelerationVertical(DerivedParameterNode):
     """
     Resolution of three accelerations to compute the vertical
     acceleration (perpendicular to the earth surface). Result is in g,
     retaining the 1.0 datum and positive upwards.
     """
-    def derive(self, acc_norm=P('Acceleration Normal'), 
+    def derive(self, acc_norm=P('Acceleration Normal Offset Removed'), 
                acc_lat=P('Acceleration Lateral'), 
                acc_long=P('Acceleration Longitudinal'), 
                pitch=P('Pitch'), roll=P('Roll')):
@@ -97,7 +112,7 @@ class AccelerationForwards(DerivedParameterNode):
     
     Forwards = +ve, Constant sensor errors not washed out.
     """
-    def derive(self, acc_norm=P('Acceleration Normal'), 
+    def derive(self, acc_norm=P('Acceleration Normal Offset Removed'), 
                acc_long=P('Acceleration Longitudinal'), 
                pitch=P('Pitch')):
         pitch_rad = pitch.array*deg2rad
@@ -139,7 +154,7 @@ class AccelerationSideways(DerivedParameterNode):
     acceleration, that is, in the direction perpendicular to the aircraft centreline
     when projected onto the earth's surface. Right = +ve.
     """
-    def derive(self, acc_norm=P('Acceleration Normal'), 
+    def derive(self, acc_norm=P('Acceleration Normal Offset Removed'), 
                acc_lat=P('Acceleration Lateral'),
                acc_long=P('Acceleration Longitudinal'), 
                pitch=P('Pitch'), roll=P('Roll')):
@@ -158,40 +173,197 @@ class AirspeedForFlightPhases(DerivedParameterNode):
             repair_mask(airspeed.array, repair_duration=None),HYSTERESIS_FPIAS)
 
 
+################################################################################
+# Airspeed Minus V2 (Airspeed relative to V2 or a fixed value.)
+
+
+# TODO: Write some unit tests!
+# TODO: Ensure that this derived parameter supports fixed values.
 class AirspeedMinusV2(DerivedParameterNode):
-    #TODO: TESTS
+    '''
+    Airspeed on takeoff relative to:
+
+    - V2    -- Airbus, Boeing, or any other aircraft that has V2.
+    - Fixed -- Prop aircraft, or as required.
+    
+    A fixed value will most likely be zero making this relative airspeed
+    derived parameter the same as the original absolute airspeed parameter.
+    '''
+
     def derive(self, airspeed=P('Airspeed'), v2=P('V2')):
-        self.array = airspeed.array - v2.array
+        '''
+        Where V2 is recorded, a low permitted rate of change of 1.0 kt/sec
+        (specified in the Parameter Operating Limit section of the POLARIS
+        database) forces all false data to be masked, leaving only the
+        required valid data. By repairing the mask with duration = None, the
+        valid data is extended. For example, 737-3C data only records V2 on
+        the runway and it needs to be extended to permit V-V2 KPVs to be
+        recorded during the climbout.
+        '''
+        repaired_v2 = repair_mask(v2.array, 
+                                  copy = True, 
+                                  repair_duration=None, 
+                                  extrapolate=True)
+        self.array = airspeed.array - repaired_v2
+        
 
-
+# TODO: Write some unit tests!
 class AirspeedMinusV2For3Sec(DerivedParameterNode):
-    #TODO: TESTS
+    '''
+    Airspeed on takeoff relative to V2 over a 3 second window.
+
+    See the derived parameter 'Airspeed Minus V2'.
+    '''
+
     def derive(self, spd_v2=P('Airspeed Minus V2')):
+        '''
+        '''
         self.array = clip(spd_v2.array, 3.0, spd_v2.frequency)
         
 
+# TODO: Write some unit tests!
 class AirspeedMinusV2For5Sec(DerivedParameterNode):
-    #TODO: TESTS
+    '''
+    Airspeed on takeoff relative to V2 over a 5 second window.
+
+    See the derived parameter 'Airspeed Minus V2'.
+    '''
+
     def derive(self, spd_v2=P('Airspeed Minus V2')):
+        '''
+        '''
         self.array = clip(spd_v2.array, 5.0, spd_v2.frequency)
         
 
-class AirspeedMinusVref(DerivedParameterNode):
-    #TODO: TESTS
-    def derive(self, airspeed=P('Airspeed'), vref=A('FDR Vref')):
-        self.array = airspeed.array - vref.value
+################################################################################
+# Airspeed Relative (Airspeed relative to Vapp, Vref or a fixed value.)
+
+class AirspeedReference(DerivedParameterNode):
+    '''
+    Airspeed on approach reference value:
+
+    - Vapp  -- Airbus
+    - Vref  -- Boeing
+    - Fixed -- Prop aircraft, or as required.
+
+    A fixed value will most likely be zero making this relative airspeed
+    derived parameter the same as the original absolute airspeed parameter.
+    '''
+    @classmethod
+    def can_operate(cls, available):
+        works_with_any = ['Vapp', 'Vref', 'FDR Vapp', 'FDR Vref']
+        existing_values = any([_node in available for _node in works_with_any])
+        
+        x = set(available)
+        base_for_lookup = ['Airspeed', 'Gross Weight Smoothed', 'Series', 'Family', 'Approach']
+        airbus = set(base_for_lookup + ['Configuration']).issubset(x)
+        boeing = set(base_for_lookup + ['Flap']).issubset(x)
+        return existing_values or airbus or boeing
+
+    def derive (self,
+                spd=P('Airspeed'),
+                gw=P('Gross Weight Smoothed'),
+                flap=P('Flap'),
+                conf=P('Configuration'),
+                vapp=P('Vapp'),
+                vref=P('Vref'),
+                fdr_vapp=A('FDR Vapp'),
+                fdr_vref=A('FDR Vref'),
+                apps=S('Approach'),
+                series=A('Series'),
+                family=A('Family')):
+
+        '''
+        Currently a work in progress. We should use a recorded parameter if
+        it's available, failing that a computed forumla reflecting the
+        aircraft condition and failing that a single value from the achieved
+        flight file. Achieved flight records without a recorded value will be
+        repeated thoughout the flight, calculated values will be calculated
+        for each approach.
+        Rises KeyError if no entires for Family/Series in vspeed lookup map.
+        '''
+        if vapp:
+            # Vapp is recorded so use this
+            self.array = vapp.array
+        elif vref:
+            # Vref is recorded so use this
+            self.array = vref.array
+        elif spd and (fdr_vapp or fdr_vref):
+            # Vapp/Vref is supplied from FDR so use this
+            fdr_vspeed = fdr_vapp or fdr_vref
+            self.array = np.ma.zeros(len(spd.array), np.double)
+            self.array.mask=True
+            for approach in apps:
+                self.array[approach.slice] = fdr_vspeed.value
+        else:
+            # elif apps and spd and gw and (flap or conf):
+            # No values recorded or supplied so lookup in vspeed tables
+            setting_param = flap or conf
+            
+            # Was:
+            #self.array = np.ma.zeros(len(spd.array), np.double)
+            #self.array.mask=True
+            # Better:
+            self.array = np_ma_masked_zeros_like(spd.array)
+
+            vspeed_class = get_vspeed_map(series.value, family.value)
+
+            if vspeed_class:
+                vspeed_table = vspeed_class() # instansiate VelocitySpeed object
+                # allow up to 2 superframe values to be repaired (64*2=128 + a bit)
+                repaired_gw = repair_mask(gw.array, repair_duration=130, copy=True)
+                for approach in apps:
+                    index = np.ma.argmax(setting_param.array[approach.slice])
+                    weight = repaired_gw[approach.slice][index]
+                    setting = setting_param.array[approach.slice][index]
+                    vspeed = vspeed_table.airspeed_reference(weight, setting)
+                    self.array[approach.slice] = vspeed
+            else:
+                # aircraft does not use vspeeds
+                pass
 
 
-class AirspeedMinusVrefFor3Sec(DerivedParameterNode):
-    #TODO: TESTS
-    def derive(self, spd_vref=P('Airspeed Minus Vref')):
+# TODO: Write some unit tests!
+# TODO: Ensure that this derived parameter supports Vapp and fixed values.
+class AirspeedRelative(DerivedParameterNode):
+    '''
+    See AirspeedReference for details.
+    '''
+    def derive(self, airspeed=P('Airspeed'), vref=P('Airspeed Reference')):
+        '''
+        '''
+        self.array = airspeed.array - vref.array
+
+
+# TODO: Write some unit tests!
+class AirspeedRelativeFor3Sec(DerivedParameterNode):
+    '''
+    Airspeed on approach relative to Vapp/Vref over a 3 second window.
+
+    See the derived parameter 'Airspeed Relative'.
+    '''
+
+    def derive(self, spd_vref=P('Airspeed Relative')):
+        '''
+        '''
         self.array = clip(spd_vref.array, 3.0, spd_vref.frequency)
 
         
-class AirspeedMinusVrefFor5Sec(DerivedParameterNode):
-    #TODO: TESTS
-    def derive(self, spd_vref=P('Airspeed Minus Vref')):
+# TODO: Write some unit tests!
+class AirspeedRelativeFor5Sec(DerivedParameterNode):
+    '''
+    Airspeed on approach relative to Vapp/Vref over a 5 second window.
+
+    See the derived parameter 'Airspeed Relative'.
+    '''
+
+    def derive(self, spd_vref=P('Airspeed Relative')):
+        '''
+        '''
         self.array = clip(spd_vref.array, 5.0, spd_vref.frequency)
+
+
+################################################################################
 
         
 class AirspeedTrue(DerivedParameterNode):
@@ -322,17 +494,19 @@ class AltitudeAAL(DerivedParameterNode):
                     alt_result[ralt_section] = alt_rad_aal[ralt_section]
                     
                     for baro_section in baro_sections:
-                        up_diff = None
                         begin_index = baro_section.start
-                        alt_diff = alt_std-alt_rad
-    
+                        
                         if ralt_section.stop == baro_section.start:
-                            slip, up_diff =  first_valid_sample(alt_diff[begin_index:begin_index+60])
-                            if slip>0:
+                            alt_diff = alt_std[begin_index:begin_index+60]-alt_rad[begin_index:begin_index+60]
+                            slip, up_diff =  first_valid_sample(alt_diff)
+                            if slip != None:
                                 # alt_std is invalid at the point of handover so stretch the radio signal until we can handover.
                                 fix_slice = slice(begin_index,begin_index+slip) 
                                 alt_result[fix_slice] = alt_rad[fix_slice]
                                 begin_index += slip
+                            else:
+                                up_diff = 0.0
+                                
                             alt_result[begin_index:] = alt_std[begin_index:] - up_diff
             else:
                 alt_result = alt_std - high_gnd
@@ -349,14 +523,16 @@ class AltitudeAAL(DerivedParameterNode):
         
         
         
-    def derive(self, alt_rad = P('Altitude Radio'),
-               alt_std = P('Altitude STD'),
+    def derive(self, alt_std = P('Altitude STD'),
+               alt_rad = P('Altitude Radio'),
                speedies = S('Fast')):
        
-        # Altitude Radio is taken as the prime reference to ensure the
+        # Altitude Radio was taken as the prime reference to ensure the
         # minimum ground clearance passing peaks is accurately reflected.
-        # (Comment: This may give a problem with aircraft that do not have a
-        # radio altimeter; not yet tested).
+        # However, when the Altitude Radio signal is sampled at a lower rate
+        # than the Altitude STD, this results in a lower sample rate for a
+        # primary analysis parameter, and this is why Altitude STD is now the
+        # primary reference.
         
         # alt_aal will be zero on the airfield, so initialise to zero.
         alt_aal = np_ma_zeros_like(alt_std.array)
@@ -404,17 +580,20 @@ class AltitudeAAL(DerivedParameterNode):
                         if alt_vals[n+2] > alt_vals[n+1]:
                             # A down and up section.
                             down_up = slice(alt_idxs[n], alt_idxs[n+2])
-                            # Let's find the lowest rad alt reading 
-                            #(this may not be exactly the highest ground, but 
-                            # it was probably the point of highest concern!)
-                            arg_hg_max = np.ma.argmin(alt_rad.array[down_up]) + alt_idxs[n]
-                            hg_max = alt_std.array[arg_hg_max] - alt_rad.array[arg_hg_max]
-                            if np.ma.count(hg_max):
-                                # The rad alt measured height above a peak...
-                                dips.append(['over_gnd', down_up, alt_std.array[arg_hg_max], hg_max])
+                            # Is radio altimeter data both supplied and valid in this range?
+                            if alt_rad and np.ma.count(alt_rad.array[down_up])>0:
+                                # Let's find the lowest rad alt reading 
+                                #(this may not be exactly the highest ground, but 
+                                # it was probably the point of highest concern!)
+                                arg_hg_max = np.ma.argmin(alt_rad.array[down_up]) + alt_idxs[n]
+                                hg_max = alt_std.array[arg_hg_max] - alt_rad.array[arg_hg_max]
+                                if np.ma.count(hg_max):
+                                    # The rad alt measured height above a peak...
+                                    dips.append(['over_gnd', down_up, alt_std.array[arg_hg_max], hg_max])
                             else:
-                                # We have no rad alt data
-                                if dips[-1][0]=='high':
+                                # We have no rad alt data we can use.
+                                # TODO: alt_std code needs careful checking. 
+                                if dips !=[] and dips[-1][0]=='high':
                                     # Join this dip onto the previous one
                                     dips[-1][1] = slice(dips[-1][1].start, alt_idxs[n+2])
                                     dips[-1][2] = min(dips[-1][2],alt_vals[n+1])
@@ -436,7 +615,7 @@ class AltitudeAAL(DerivedParameterNode):
                             dips[n][3]=dips[n][4]+1000 # Arbitrary offset in indeterminate case.
                         else:
                             dips[n][3] = dips[n][2]-dips[n+1][2]+dips[n+1][3]
-                    elif n == len(dips):
+                    elif n == len(dips)-1:
                         dips[n][3] = dips[n][2]-dips[n-1][2]+dips[n-1][3]
                     else:
                         # Here is the most commonly used, and somewhat
@@ -473,108 +652,6 @@ class AltitudeAALForFlightPhases(DerivedParameterNode):
         self.array = repair_mask(alt_aal.array, repair_duration=None)
    
 
-'''
-class AltitudeAALSmoothed(DerivedParameterNode):
-    """
-    A smoothed version of this altitude signal is available that includes
-    inertial smoothing to provide a higher sample rate signal. This may be
-    used for accurate determination of variations during turbulence or bumpy
-    landings.
-    
-    """    
-    name = "Altitude AAL"
-    units = 'ft'
-
-    @classmethod
-    def can_operate(cls, available):
-        #TODO: Improve accuracy of this method. For example, the code does
-        #not cater for the availability of Altitude Radio but Rate Of Climb
-        #not being available.
-        smoothing_params = all([d in available for d in ('Liftoff',
-                                                         'Touchdown',
-                                                         'Takeoff',
-                                                         'Landing',
-                                                         'Rate Of Climb',
-                                                         'Altitude STD',
-                                                         'Altitude Radio',
-                                                         'Airspeed')])
-        fallback = 'Altitude AAL For Flight Phases' in available
-        return smoothing_params or fallback
-    
-    def derive(self, liftoffs=KTI('Liftoff'),
-               touchdowns=KTI('Touchdown'),
-               takeoffs=S('Takeoff'),
-               landings=S('Landing'),
-               roc = P('Rate Of Climb'),
-               alt_std = P('Altitude STD'),
-               alt_rad = P('Altitude Radio'),
-               airspeed = P('Airspeed'),
-               alt_aal_4fp = P('Altitude AAL For Flight Phases'),):
-        if liftoffs and touchdowns and landings and roc and alt_std \
-           and alt_rad and airspeed:
-            # Initialise the array to zero, so that the altitude above the airfield
-            # will be 0ft when the aircraft cannot be airborne.
-            alt_aal = np_ma_zeros_like(alt_std.array) 
-            # Actually creates a masked copy filled with zeros.
-            
-            ordered_ktis = sorted(liftoffs + touchdowns,
-                                  key=attrgetter('index'))
-            
-            for next_index, first_kti in enumerate(ordered_ktis, start=1):
-                # Iterating over pairs of 'Liftoff' and 'Touchdown' KTIs ordered
-                # by index. Expecting Touchdowns followed by Liftoffs.
-                try:
-                    second_kti = ordered_ktis[next_index]
-                except IndexError:
-                    break
-                in_air_slice = slice(first_kti.index, second_kti.index)
-                
-                             
-                # Use pressure altitude to ensure data is filled between
-                # Liftoff and Touchdown KTIs.
-                alt_aal[in_air_slice] = alt_std.array[in_air_slice]
-                peak_index = np.ma.argmax(alt_std.array[in_air_slice]) + \
-                                        in_air_slice.start
-                if first_kti.name == 'Liftoff':
-                    threshold_index = index_at_value(alt_rad.array,
-                                                     TRANSITION_ALT_RAD_TO_STD,
-                                                     _slice=in_air_slice)
-                    join_index = int(threshold_index)
-                    difference = alt_rad.array[join_index] - \
-                        alt_std.array[join_index]
-                    alt_aal[join_index:peak_index] += difference
-                    pre_threshold = slice(in_air_slice.start, join_index)
-                    alt_aal[pre_threshold] = alt_rad.array[pre_threshold]
-                
-                if second_kti.name == 'Touchdown':
-                    reverse_slice = slice(in_air_slice.stop,
-                                          in_air_slice.start, -1)
-                    threshold_index = index_at_value(alt_rad.array,
-                                                     TRANSITION_ALT_RAD_TO_STD,
-                                                     _slice=reverse_slice)
-                    join_index = int(threshold_index)+1
-                    difference = alt_rad.array[join_index] - \
-                        alt_std.array[join_index]
-                    alt_aal[peak_index:join_index] += difference
-                    post_threshold = slice(join_index, in_air_slice.stop)
-                    alt_aal[post_threshold] = alt_rad.array[post_threshold]
-        
-            # Use the complementary smoothing approach
-            roc_lag = first_order_lag(roc.array,
-                                      ALTITUDE_AAL_LAG_TC, roc.hz,
-                                      gain=ALTITUDE_AAL_LAG_TC/60.0)            
-            alt_aal_lag = first_order_lag(alt_aal, ALTITUDE_AAL_LAG_TC, roc.hz)
-            alt_aal = alt_aal_lag + roc_lag
-            # Force result to zero at low speed and on the ground.
-            alt_aal[airspeed.array < AIRSPEED_THRESHOLD] = 0
-            #alt_aal[alt_rad.array < 0] = 0
-            self.array = np.ma.maximum(0.0,alt_aal)
-            
-        else:
-            self.array = np.ma.copy(alt_aal_4fp.array) 
-            '''
-    
-
 class AltitudeRadio(DerivedParameterNode):
     """
     There is a wide variety of radio altimeter installations including linear
@@ -595,13 +672,12 @@ class AltitudeRadio(DerivedParameterNode):
     two valid sensors.
     :type parameter object.
     """
+    align_to_first_dependency = False
     @classmethod
     def can_operate(cls, available):
         if 'Altitude Radio (A)' in available and \
            'Altitude Radio (B)' in available:
             return True
-    
-    align_to_first_dependency = False
     
     def derive(self, frame = A('Frame'),
                frame_qual = A('Frame Qualifier'),
@@ -612,6 +688,8 @@ class AltitudeRadio(DerivedParameterNode):
         
         frame_name = frame.value if frame else None
         frame_qualifier = frame_qual.value if frame_qual else None
+        
+        # 737-1 & 737-i has Altitude Radio recorded.
         
         if frame_name in ['737-3C', '757-DHL']:
             # 737-3C comment:
@@ -630,7 +708,7 @@ class AltitudeRadio(DerivedParameterNode):
             
         elif frame_name in ['737-4', '737-4_Analogue', 'CRJ-700-900']:
             self.array, self.frequency, self.offset = \
-                merge_two_parameters(source_A, source_B)
+                blend_two_parameters(source_A, source_B)
         
         elif frame_name in ['737-5']:
             if frame_qualifier and 'Altitude_Radio_EFIS' in frame_qualifier or\
@@ -642,23 +720,13 @@ class AltitudeRadio(DerivedParameterNode):
             else:
                 raise ValueError,'737-5 frame Altitude Radio qualifier not recognised.'
 
-        elif frame_name in ['757-DHL']:
-            # Altitude Radio (A) comes from the Right altimeter, and is
-            # sampled in word 26 of the frame. Altitude Radio (C) comes from
-            # the Centre altimeter, is sample in word 104. Altitude Radio (B)
-            # comes from the EFIS system, and includes excessive latency so
-            # is not used.
-                blend_two_parameters(source_A, source_C)
             
         else:
-            self.warning("No specified Altitude Radio (*) merging for frame "
-                         "'%s' so using source (A)", frame_name)
-            self.array = source_A.array
+            raise DataFrameError(self.name, frame_name)
 
 
 class AltitudeSTD(DerivedParameterNode):
     """
-    
     :param frame: The frame attribute, e.g. '737-i'
     :type frame: An attribute
     
@@ -680,7 +748,11 @@ class AltitudeSTD(DerivedParameterNode):
             self.array, self.frequency, self.offset = \
                 blend_two_parameters(source_A, source_B)
 
+        else:
+            raise DataFrameError(self.name, frame_name)
 
+
+'''
 class AltitudeQNH(DerivedParameterNode):
     """
     Altitude Parameter to account for transition altitudes for airports
@@ -726,7 +798,7 @@ class AltitudeQNH(DerivedParameterNode):
         """
         
         self.array = alt_qnh
-
+'''
 
 '''
 class AltitudeSTD(DerivedParameterNode):
@@ -743,7 +815,7 @@ class AltitudeSTD(DerivedParameterNode):
         high_and_low = 'Altitude STD Coarse' in available and \
             'Altitude STD Fine' in available
         coarse_and_ivv = 'Altitude STD Coarse' in available and \
-            'Rate Of Climb' in available
+            'Vertical Speed' in available
         return high_and_low or coarse_and_ivv
     
     def _high_and_low(self, alt_std_high, alt_std_low, top=18000, bottom=17000):
@@ -786,7 +858,7 @@ class AltitudeSTD(DerivedParameterNode):
     
     def derive(self, alt_std_coarse=P('Altitude STD Coarse'),
                alt_std_fine=P('Altitude STD Fine'),
-               ivv=P('Rate Of Climb')):
+               ivv=P('Vertical Speed')):
         if alt_std_high and alt_std_low:
             self.array = self._high_and_low(alt_std_coarse, alt_std_fine)
             ##crossover = np.ma.logical_and(average > 17000, average < 18000)
@@ -843,7 +915,7 @@ class Autothrottle(DerivedParameterNode):
 
     Not required for 737-5 frame as AT Engaged is recorded directly.
     """
-    '''
+'''
  
         
 class AltitudeTail(DerivedParameterNode):
@@ -898,6 +970,13 @@ class DescendForFlightPhases(DerivedParameterNode):
                 self.array[air.slice][down] = np.ma.cumsum(deltas[down])
     
     
+class AOA(DerivedParameterNode):
+    name = 'AOA'
+    def derive(self, aoa_l=P('AOA (L)'), aoa_r=P('AOA (R)')):
+        self.array, self.frequency, self.offset = \
+            blend_two_parameters(aoa_l, aoa_r)
+        
+
 class ControlColumn(DerivedParameterNode):
     '''
     The position of the control column blended from the position of the captain
@@ -973,7 +1052,7 @@ class ControlWheel(DerivedParameterNode):
 class DistanceToLanding(DerivedParameterNode):
     """
     Ground distance to cover before touchdown.
-    
+
     Note: This parameter gets closer to zero approaching the final touchdown,
     but then increases as the aircraft decelerates on the runway.
     """
@@ -986,517 +1065,895 @@ class DistanceToLanding(DerivedParameterNode):
             self.array = np.ma.abs(dist_flown_at_tdwn - dist.array)
         else:
             self.array = np.zeros_like(dist.array)
-            self.array.mask=True        
+            self.array.mask = True
 
 
 class DistanceTravelled(DerivedParameterNode):
-    """
-    Distance travelled in Nautical Miles. Calculated using integral of Groundspeed"
-    """
+    '''
+    Distance travelled in Nautical Miles. Calculated using integral of
+    Groundspeed.
+    '''
     units = 'nm'
     def derive(self, gspd=P('Groundspeed')):
-        self.array = integrate(gspd.array, gspd.frequency, scale=1.0/3600.0)
-        
-        
-class PackValvesOpen(DerivedParameterNode):
-    """
+        self.array = integrate(gspd.array, gspd.frequency, scale=1.0 / 3600.0)
+
+
+################################################################################
+# Pack Valves
+
+
+class PackValvesOpen(MultistateDerivedParameterNode):
+    '''
     Integer representation of the combined pack configuration.
-    
-    0 = All closed
-    1+ = One or more valves open and increasing flow rates.
-    """
-    name = "Pack Valves Open"
+    '''
+
+    name = 'Pack Valves Open'
+
     align_to_first_dependency = False
+    values_mapping = {
+        0: 'All closed',
+        1: 'One engine low flow',
+        2: 'Flow level 2',
+        3: 'Flow level 3',
+        4: 'Both engines high flow',
+    }
 
     @classmethod
     def can_operate(cls, available):
-        # works with any combination of params available
+        '''
+        '''
+        # Works with any combination of parameters available:
         return any([d in available for d in cls.get_dependency_names()])
 
-    def derive(self, 
-               p1=P('ECS Pack (1) On'), p1h=P('ECS Pack (1) High Flow'),
-               p2=P('ECS Pack (2) On'), p2h=P('ECS Pack (2) High Flow')):
-        # Sum the open engines, allowing 1 for low flow and 1+1 for high flow each side.
-        self.array = p1.array*(1+p1h.array)+p2.array*(1+p2h.array)
-        
+    def derive(self,
+            p1=P('ECS Pack (1) On'), p1h=P('ECS Pack (1) High Flow'),
+            p2=P('ECS Pack (2) On'), p2h=P('ECS Pack (2) High Flow')):
+        '''
+        '''
+        # Sum the open engines, allowing 1 for low flow and 1+1 for high flow
+        # each side.
+        flow = p1.array.raw + +p2.array.raw
+        if p1h and p2h:
+            flow = p1.array.raw * (1 + p1h.array.raw) \
+                 + p2.array.raw * (1 + p2h.array.raw)
+        self.array = flow
 
-class Eng_GasTempAvg(DerivedParameterNode):
-    #TODO: TEST
-    name = "Eng (*) Gas Temp Avg"
+
+################################################################################
+# Engine EPR
+
+
+# TODO: Write some unit tests!
+class Eng_EPRAvg(DerivedParameterNode):
+    '''
+    '''
+
+    name = 'Eng (*) EPR Avg'
+
     @classmethod
     def can_operate(cls, available):
-        # works with any combination of params available
+        '''
+        '''
+        # Works with any combination of parameters available:
         return any([d in available for d in cls.get_dependency_names()])
-        
-    def derive(self, 
-               eng1=P('Eng (1) Gas Temp'),
-               eng2=P('Eng (2) Gas Temp'),
-               eng3=P('Eng (3) Gas Temp'),
-               eng4=P('Eng (4) Gas Temp')):
+
+    def derive(self,
+               eng1=P('Eng (1) EPR'),
+               eng2=P('Eng (2) EPR'),
+               eng3=P('Eng (3) EPR'),
+               eng4=P('Eng (4) EPR')):
+        '''
+        '''
         engines = vstack_params(eng1, eng2, eng3, eng4)
         self.array = np.ma.average(engines, axis=0)
 
 
-class Eng_GasTempMax(DerivedParameterNode):
-    #TODO: TEST
-    name = "Eng (*) Gas Temp Max"
+# TODO: Write some unit tests!
+class Eng_EPRMax(DerivedParameterNode):
+    '''
+    '''
+
+    name = 'Eng (*) EPR Max'
+
     @classmethod
     def can_operate(cls, available):
-        # works with any combination of params available
+        '''
+        '''
+        # Works with any combination of parameters available:
         return any([d in available for d in cls.get_dependency_names()])
-        
-    def derive(self, 
-               eng1=P('Eng (1) Gas Temp'),
-               eng2=P('Eng (2) Gas Temp'),
-               eng3=P('Eng (3) Gas Temp'),
-               eng4=P('Eng (4) Gas Temp')):
+
+    def derive(self,
+               eng1=P('Eng (1) EPR'),
+               eng2=P('Eng (2) EPR'),
+               eng3=P('Eng (3) EPR'),
+               eng4=P('Eng (4) EPR')):
+        '''
+        '''
         engines = vstack_params(eng1, eng2, eng3, eng4)
         self.array = np.ma.max(engines, axis=0)
 
 
-class Eng_GasTempMin(DerivedParameterNode):
-    #TODO: TEST
-    name = "Eng (*) Gas Temp Min"
+# TODO: Write some unit tests!
+class Eng_EPRMin(DerivedParameterNode):
+    '''
+    '''
+
+    name = 'Eng (*) EPR Min'
+
     @classmethod
     def can_operate(cls, available):
-        # works with any combination of params available
+        '''
+        '''
+        # Works with any combination of parameters available:
         return any([d in available for d in cls.get_dependency_names()])
-        
-    def derive(self, 
-               eng1=P('Eng (1) Gas Temp'),
-               eng2=P('Eng (2) Gas Temp'),
-               eng3=P('Eng (3) Gas Temp'),
-               eng4=P('Eng (4) Gas Temp')):
+
+    def derive(self,
+               eng1=P('Eng (1) EPR'),
+               eng2=P('Eng (2) EPR'),
+               eng3=P('Eng (3) EPR'),
+               eng4=P('Eng (4) EPR')):
+        '''
+        '''
         engines = vstack_params(eng1, eng2, eng3, eng4)
         self.array = np.ma.min(engines, axis=0)
 
 
-class Eng_EPRAvg(DerivedParameterNode):
-    #TODO: TEST
-    name = "Eng (*) EPR Avg"
-    @classmethod
-    def can_operate(cls, available):
-        # works with any combination of params available
-        if any([d in available for d in cls.get_dependency_names()]):
-            return True
-    
-    def derive(self, 
-               eng1=P('Eng (1) EPR'),
-               eng2=P('Eng (2) EPR'),
-               eng3=P('Eng (3) EPR'),
-               eng4=P('Eng (4) EPR')):
-        engines = vstack_params(eng1, eng2, eng3, eng4)
-        self.array = np.ma.average(engines, axis=0)
+################################################################################
+# Engine Fuel Flow
 
 
-class Eng_EPRMax(DerivedParameterNode):
-    #TODO: TEST
-    name = "Eng (*) EPR Max"
-    @classmethod
-    def can_operate(cls, available):
-        # works with any combination of params available
-        return any([d in available for d in cls.get_dependency_names()])
-        
-    def derive(self, 
-               eng1=P('Eng (1) EPR'),
-               eng2=P('Eng (2) EPR'),
-               eng3=P('Eng (3) EPR'),
-               eng4=P('Eng (4) EPR')):
-        engines = vstack_params(eng1, eng2, eng3, eng4)
-        self.array = np.ma.max(engines, axis=0)
-
-
+# TODO: Write some unit tests!
 class Eng_FuelFlow(DerivedParameterNode):
-    #TODO: TEST
-    name = "Eng (*) Fuel Flow"
+    '''
+    '''
+
+    name = 'Eng (*) Fuel Flow'
+
     @classmethod
     def can_operate(cls, available):
-        # works with any combination of params available
+        '''
+        '''
+        # Works with any combination of parameters available:
         return any([d in available for d in cls.get_dependency_names()])
-            
-    def derive(self, 
+
+    def derive(self,
                eng1=P('Eng (1) Fuel Flow'),
                eng2=P('Eng (2) Fuel Flow'),
                eng3=P('Eng (3) Fuel Flow'),
                eng4=P('Eng (4) Fuel Flow')):
+        '''
+        '''
         engines = vstack_params(eng1, eng2, eng3, eng4)
         self.array = np.ma.sum(engines, axis=0)
-      
 
-class Eng_N1Avg(DerivedParameterNode):
-    name = "Eng (*) N1 Avg"
+
+################################################################################
+# Engine Gas Temperature
+
+
+# TODO: Write some unit tests!
+class Eng_GasTempAvg(DerivedParameterNode):
+    '''
+    '''
+
+    name = 'Eng (*) Gas Temp Avg'
+
     @classmethod
     def can_operate(cls, available):
-        # works with any combination of params available
+        '''
+        '''
+        # Works with any combination of parameters available:
         return any([d in available for d in cls.get_dependency_names()])
-    
-    def derive(self, 
-               eng1=P('Eng (1) N1'),
-               eng2=P('Eng (2) N1'),
-               eng3=P('Eng (3) N1'),
-               eng4=P('Eng (4) N1')):
+
+    def derive(self,
+               eng1=P('Eng (1) Gas Temp'),
+               eng2=P('Eng (2) Gas Temp'),
+               eng3=P('Eng (3) Gas Temp'),
+               eng4=P('Eng (4) Gas Temp')):
+        '''
+        '''
         engines = vstack_params(eng1, eng2, eng3, eng4)
         self.array = np.ma.average(engines, axis=0)
 
-       
-class Eng_N1Max(DerivedParameterNode):
-    name = "Eng (*) N1 Max"
+
+# TODO: Write some unit tests!
+class Eng_GasTempMax(DerivedParameterNode):
+    '''
+    '''
+
+    name = 'Eng (*) Gas Temp Max'
+
     @classmethod
     def can_operate(cls, available):
-        # works with any combination of params available
+        '''
+        '''
+        # Works with any combination of parameters available:
         return any([d in available for d in cls.get_dependency_names()])
-    
-    def derive(self, 
-               eng1=P('Eng (1) N1'),
-               eng2=P('Eng (2) N1'),
-               eng3=P('Eng (3) N1'),
-               eng4=P('Eng (4) N1')):
+
+    def derive(self,
+               eng1=P('Eng (1) Gas Temp'),
+               eng2=P('Eng (2) Gas Temp'),
+               eng3=P('Eng (3) Gas Temp'),
+               eng4=P('Eng (4) Gas Temp')):
+        '''
+        '''
         engines = vstack_params(eng1, eng2, eng3, eng4)
         self.array = np.ma.max(engines, axis=0)
-        
-        
-class Eng_N1Min(DerivedParameterNode):
-    name = "Eng (*) N1 Min"
+
+
+# TODO: Write some unit tests!
+class Eng_GasTempMin(DerivedParameterNode):
+    '''
+    '''
+
+    name = 'Eng (*) Gas Temp Min'
+
     @classmethod
     def can_operate(cls, available):
-        # works with any combination of params available
+        '''
+        '''
+        # Works with any combination of parameters available:
         return any([d in available for d in cls.get_dependency_names()])
-    
-    def derive(self, 
-               eng1=P('Eng (1) N1'),
-               eng2=P('Eng (2) N1'),
-               eng3=P('Eng (3) N1'),
-               eng4=P('Eng (4) N1')):
+
+    def derive(self,
+               eng1=P('Eng (1) Gas Temp'),
+               eng2=P('Eng (2) Gas Temp'),
+               eng3=P('Eng (3) Gas Temp'),
+               eng4=P('Eng (4) Gas Temp')):
+        '''
+        '''
         engines = vstack_params(eng1, eng2, eng3, eng4)
         self.array = np.ma.min(engines, axis=0)
 
 
-class Eng_N2Avg(DerivedParameterNode):
-    name = "Eng (*) N2 Avg"
+################################################################################
+# Engine N1
+
+
+class Eng_N1Avg(DerivedParameterNode):
+    '''
+    '''
+
+    name = 'Eng (*) N1 Avg'
+
     @classmethod
     def can_operate(cls, available):
-        # works with any combination of params available
+        '''
+        '''
+        # Works with any combination of parameters available:
         return any([d in available for d in cls.get_dependency_names()])
-        
-    def derive(self, 
+
+    def derive(self,
+               eng1=P('Eng (1) N1'),
+               eng2=P('Eng (2) N1'),
+               eng3=P('Eng (3) N1'),
+               eng4=P('Eng (4) N1')):
+        '''
+        '''
+        engines = vstack_params(eng1, eng2, eng3, eng4)
+        self.array = np.ma.average(engines, axis=0)
+
+
+class Eng_N1Max(DerivedParameterNode):
+    '''
+    '''
+
+    name = 'Eng (*) N1 Max'
+
+    @classmethod
+    def can_operate(cls, available):
+        '''
+        '''
+        # Works with any combination of parameters available:
+        return any([d in available for d in cls.get_dependency_names()])
+
+    def derive(self,
+               eng1=P('Eng (1) N1'),
+               eng2=P('Eng (2) N1'),
+               eng3=P('Eng (3) N1'),
+               eng4=P('Eng (4) N1')):
+        '''
+        '''
+        engines = vstack_params(eng1, eng2, eng3, eng4)
+        self.array = np.ma.max(engines, axis=0)
+
+
+class Eng_N1Min(DerivedParameterNode):
+    '''
+    '''
+
+    name = 'Eng (*) N1 Min'
+
+    @classmethod
+    def can_operate(cls, available):
+        '''
+        '''
+        # Works with any combination of parameters available:
+        return any([d in available for d in cls.get_dependency_names()])
+
+    def derive(self,
+               eng1=P('Eng (1) N1'),
+               eng2=P('Eng (2) N1'),
+               eng3=P('Eng (3) N1'),
+               eng4=P('Eng (4) N1')):
+        '''
+        '''
+        engines = vstack_params(eng1, eng2, eng3, eng4)
+        self.array = np.ma.min(engines, axis=0)
+
+
+################################################################################
+# Engine N2
+
+
+class Eng_N2Avg(DerivedParameterNode):
+    '''
+    '''
+
+    name = 'Eng (*) N2 Avg'
+
+    @classmethod
+    def can_operate(cls, available):
+        '''
+        '''
+        # Works with any combination of parameters available:
+        return any([d in available for d in cls.get_dependency_names()])
+
+    def derive(self,
                eng1=P('Eng (1) N2'),
                eng2=P('Eng (2) N2'),
                eng3=P('Eng (3) N2'),
                eng4=P('Eng (4) N2')):
+        '''
+        '''
         engines = vstack_params(eng1, eng2, eng3, eng4)
         self.array = np.ma.average(engines, axis=0)
 
 
 class Eng_N2Max(DerivedParameterNode):
-    name = "Eng (*) N2 Max"
+    '''
+    '''
+
+    name = 'Eng (*) N2 Max'
+
     @classmethod
     def can_operate(cls, available):
-        # works with any combination of params available
+        '''
+        '''
+        # Works with any combination of parameters available:
         return any([d in available for d in cls.get_dependency_names()])
-            
-    def derive(self, 
+
+    def derive(self,
                eng1=P('Eng (1) N2'),
                eng2=P('Eng (2) N2'),
                eng3=P('Eng (3) N2'),
                eng4=P('Eng (4) N2')):
+        '''
+        '''
         engines = vstack_params(eng1, eng2, eng3, eng4)
         self.array = np.ma.max(engines, axis=0)
 
 
 class Eng_N2Min(DerivedParameterNode):
-    name = "Eng (*) N2 Min"
+    '''
+    '''
+
+    name = 'Eng (*) N2 Min'
+
     @classmethod
     def can_operate(cls, available):
-        # works with any combination of params available
+        '''
+        '''
+        # Works with any combination of parameters available:
         return any([d in available for d in cls.get_dependency_names()])
-    
-    def derive(self, 
+
+    def derive(self,
                eng1=P('Eng (1) N2'),
                eng2=P('Eng (2) N2'),
                eng3=P('Eng (3) N2'),
                eng4=P('Eng (4) N2')):
+        '''
+        '''
         engines = vstack_params(eng1, eng2, eng3, eng4)
         self.array = np.ma.min(engines, axis=0)
 
 
+################################################################################
+# Engine N3
+
+
 class Eng_N3Avg(DerivedParameterNode):
-    name = "Eng (*) N3 Avg"
+    '''
+    '''
+
+    name = 'Eng (*) N3 Avg'
+
     @classmethod
     def can_operate(cls, available):
-        # works with any combination of params available
-        if any([d in available for d in cls.get_dependency_names()]):
-            return True
-        
-    def derive(self, 
+        '''
+        '''
+        # Works with any combination of parameters available:
+        return any([d in available for d in cls.get_dependency_names()])
+
+    def derive(self,
                eng1=P('Eng (1) N3'),
                eng2=P('Eng (2) N3'),
                eng3=P('Eng (3) N3'),
                eng4=P('Eng (4) N3')):
+        '''
+        '''
         engines = vstack_params(eng1, eng2, eng3, eng4)
         self.array = np.ma.average(engines, axis=0)
 
 
 class Eng_N3Max(DerivedParameterNode):
-    name = "Eng (*) N3 Max"
+    '''
+    '''
+
+    name = 'Eng (*) N3 Max'
+
     @classmethod
     def can_operate(cls, available):
-        # works with any combination of params available
-        if any([d in available for d in cls.get_dependency_names()]):
-            return True
-    
-    def derive(self, 
+        '''
+        '''
+        # Works with any combination of parameters available:
+        return any([d in available for d in cls.get_dependency_names()])
+
+    def derive(self,
                eng1=P('Eng (1) N3'),
                eng2=P('Eng (2) N3'),
                eng3=P('Eng (3) N3'),
                eng4=P('Eng (4) N3')):
+        '''
+        '''
         engines = vstack_params(eng1, eng2, eng3, eng4)
         self.array = np.ma.max(engines, axis=0)
 
 
 class Eng_N3Min(DerivedParameterNode):
-    name = "Eng (*) N3 Min"
+    '''
+    '''
+
+    name = 'Eng (*) N3 Min'
+
     @classmethod
     def can_operate(cls, available):
-        # works with any combination of params available
-        if any([d in available for d in cls.get_dependency_names()]):
-            return True
-    
-    def derive(self, 
+        '''
+        '''
+        # Works with any combination of parameters available:
+        return any([d in available for d in cls.get_dependency_names()])
+
+    def derive(self,
                eng1=P('Eng (1) N3'),
                eng2=P('Eng (2) N3'),
                eng3=P('Eng (3) N3'),
                eng4=P('Eng (4) N3')):
+        '''
+        '''
         engines = vstack_params(eng1, eng2, eng3, eng4)
         self.array = np.ma.min(engines, axis=0)
 
 
-class Eng_OilTempAvg(DerivedParameterNode):
-    #TODO: TEST
-    name = "Eng (*) Oil Temp Avg"
-    @classmethod
-    def can_operate(cls, available):
-        # works with any combination of params available
-        return any([d in available for d in cls.get_dependency_names()])
-        
-    def derive(self, 
-               eng1=P('Eng (1) Oil Temp'),
-               eng2=P('Eng (2) Oil Temp'),
-               eng3=P('Eng (3) Oil Temp'),
-               eng4=P('Eng (4) Oil Temp')):
-        engines = vstack_params(eng1, eng2, eng3, eng4)
-        self.array = np.ma.average(engines, axis=0)
-        
-
-class Eng_OilTempMin(DerivedParameterNode):
-    #TODO: TEST
-    name = "Eng (*) Oil Temp Min"
-    @classmethod
-    def can_operate(cls, available):
-        # works with any combination of params available
-        return any([d in available for d in cls.get_dependency_names()])
-        
-    def derive(self, 
-               eng1=P('Eng (1) Oil Temp'),
-               eng2=P('Eng (2) Oil Temp'),
-               eng3=P('Eng (3) Oil Temp'),
-               eng4=P('Eng (4) Oil Temp')):
-        engines = vstack_params(eng1, eng2, eng3, eng4)
-        self.array = np.ma.min(engines, axis=0)
+################################################################################
+# Engine Oil Pressure
 
 
-class Eng_OilTempMax(DerivedParameterNode):
-    #TODO: TEST
-    name = "Eng (*) Oil Temp Max"
-    @classmethod
-    def can_operate(cls, available):
-        # works with any combination of params available
-        return any([d in available for d in cls.get_dependency_names()])
-        
-    def derive(self, 
-               eng1=P('Eng (1) Oil Temp'),
-               eng2=P('Eng (2) Oil Temp'),
-               eng3=P('Eng (3) Oil Temp'),
-               eng4=P('Eng (4) Oil Temp')):
-        engines = vstack_params(eng1, eng2, eng3, eng4)
-        self.array = np.ma.max(engines, axis=0)
-
-
+# TODO: Write some unit tests!
 class Eng_OilPressAvg(DerivedParameterNode):
-    #TODO: TEST
-    name = "Eng (*) Oil Press Avg"
+    '''
+    '''
+
+    name = 'Eng (*) Oil Press Avg'
+
     @classmethod
     def can_operate(cls, available):
-        # works with any combination of params available
+        '''
+        '''
+        # Works with any combination of parameters available:
         return any([d in available for d in cls.get_dependency_names()])
-        
-    def derive(self, 
+
+    def derive(self,
                eng1=P('Eng (1) Oil Press'),
                eng2=P('Eng (2) Oil Press'),
                eng3=P('Eng (3) Oil Press'),
                eng4=P('Eng (4) Oil Press')):
+        '''
+        '''
         engines = vstack_params(eng1, eng2, eng3, eng4)
         self.array = np.ma.average(engines, axis=0)
-        
-        
+
+
+# TODO: Write some unit tests!
 class Eng_OilPressMax(DerivedParameterNode):
-    #TODO: TEST
-    #Q: Press or Pressure?
-    name = "Eng (*) Oil Press Max"
+    '''
+    '''
+
+    name = 'Eng (*) Oil Press Max'
+
     @classmethod
     def can_operate(cls, available):
-        # works with any combination of params available
+        '''
+        '''
+        # Works with any combination of parameters available:
         return any([d in available for d in cls.get_dependency_names()])
-        
-    def derive(self, 
+
+    def derive(self,
                eng1=P('Eng (1) Oil Press'),
                eng2=P('Eng (2) Oil Press'),
                eng3=P('Eng (3) Oil Press'),
                eng4=P('Eng (4) Oil Press')):
+        '''
+        '''
         engines = vstack_params(eng1, eng2, eng3, eng4)
         self.array = np.ma.max(engines, axis=0)
 
 
+# TODO: Write some unit tests!
 class Eng_OilPressMin(DerivedParameterNode):
-    #TODO: TEST
+    '''
+    '''
+
     name = 'Eng (*) Oil Press Min'
+
     @classmethod
     def can_operate(cls, available):
-        # works with any combination of params available
+        '''
+        '''
+        # Works with any combination of parameters available:
         return any([d in available for d in cls.get_dependency_names()])
-        
-    def derive(self, 
+
+    def derive(self,
                eng1=P('Eng (1) Oil Press'),
                eng2=P('Eng (2) Oil Press'),
                eng3=P('Eng (3) Oil Press'),
                eng4=P('Eng (4) Oil Press')):
+        '''
+        '''
         engines = vstack_params(eng1, eng2, eng3, eng4)
         self.array = np.ma.min(engines, axis=0)
 
-               
-class Eng_TorqueAvg(DerivedParameterNode):
-    #TODO: TEST
-    name = "Eng (*) Torque Avg"
+
+################################################################################
+# Engine Oil Quantity
+
+
+# TODO: Write some unit tests!
+class Eng_OilQtyAvg(DerivedParameterNode):
+    '''
+    '''
+
+    name = 'Eng (*) Oil Qty Avg'
+
     @classmethod
     def can_operate(cls, available):
-        # works with any combination of params available
+        '''
+        '''
+        # Works with any combination of parameters available:
+        return any([d in available for d in cls.get_dependency_names()])
+
+    def derive(self,
+               eng1=P('Eng (1) Oil Qty'),
+               eng2=P('Eng (2) Oil Qty'),
+               eng3=P('Eng (3) Oil Qty'),
+               eng4=P('Eng (4) Oil Qty')):
+        '''
+        '''
+        engines = vstack_params(eng1, eng2, eng3, eng4)
+        self.array = np.ma.average(engines, axis=0)
+
+
+# TODO: Write some unit tests!
+class Eng_OilQtyMax(DerivedParameterNode):
+    '''
+    '''
+
+    name = 'Eng (*) Oil Qty Max'
+
+    @classmethod
+    def can_operate(cls, available):
+        '''
+        '''
+        # Works with any combination of parameters available:
+        return any([d in available for d in cls.get_dependency_names()])
+
+    def derive(self,
+               eng1=P('Eng (1) Oil Qty'),
+               eng2=P('Eng (2) Oil Qty'),
+               eng3=P('Eng (3) Oil Qty'),
+               eng4=P('Eng (4) Oil Qty')):
+        '''
+        '''
+        engines = vstack_params(eng1, eng2, eng3, eng4)
+        self.array = np.ma.max(engines, axis=0)
+
+
+# TODO: Write some unit tests!
+class Eng_OilQtyMin(DerivedParameterNode):
+    '''
+    '''
+
+    name = 'Eng (*) Oil Qty Min'
+
+    @classmethod
+    def can_operate(cls, available):
+        '''
+        '''
+        # Works with any combination of parameters available:
+        return any([d in available for d in cls.get_dependency_names()])
+
+    def derive(self,
+               eng1=P('Eng (1) Oil Qty'),
+               eng2=P('Eng (2) Oil Qty'),
+               eng3=P('Eng (3) Oil Qty'),
+               eng4=P('Eng (4) Oil Qty')):
+        '''
+        '''
+        engines = vstack_params(eng1, eng2, eng3, eng4)
+        self.array = np.ma.min(engines, axis=0)
+
+
+################################################################################
+# Engine Oil Temperature
+
+
+# TODO: Write some unit tests!
+class Eng_OilTempAvg(DerivedParameterNode):
+    '''
+    '''
+
+    name = 'Eng (*) Oil Temp Avg'
+
+    @classmethod
+    def can_operate(cls, available):
+        '''
+        '''
+        # Works with any combination of parameters available:
+        return any([d in available for d in cls.get_dependency_names()])
+
+    def derive(self,
+               eng1=P('Eng (1) Oil Temp'),
+               eng2=P('Eng (2) Oil Temp'),
+               eng3=P('Eng (3) Oil Temp'),
+               eng4=P('Eng (4) Oil Temp')):
+        '''
+        '''
+        engines = vstack_params(eng1, eng2, eng3, eng4)
+        self.array = np.ma.average(engines, axis=0)
+
+
+# TODO: Write some unit tests!
+class Eng_OilTempMax(DerivedParameterNode):
+    '''
+    '''
+
+    name = 'Eng (*) Oil Temp Max'
+
+    @classmethod
+    def can_operate(cls, available):
+        '''
+        '''
+        # Works with any combination of parameters available:
+        return any([d in available for d in cls.get_dependency_names()])
+
+    def derive(self,
+               eng1=P('Eng (1) Oil Temp'),
+               eng2=P('Eng (2) Oil Temp'),
+               eng3=P('Eng (3) Oil Temp'),
+               eng4=P('Eng (4) Oil Temp')):
+        '''
+        '''
+        engines = vstack_params(eng1, eng2, eng3, eng4)
+        self.array = np.ma.max(engines, axis=0)
+
+
+# TODO: Write some unit tests!
+class Eng_OilTempMin(DerivedParameterNode):
+    '''
+    '''
+
+    name = 'Eng (*) Oil Temp Min'
+
+    @classmethod
+    def can_operate(cls, available):
+        '''
+        '''
+        # Works with any combination of parameters available:
+        return any([d in available for d in cls.get_dependency_names()])
+
+    def derive(self,
+               eng1=P('Eng (1) Oil Temp'),
+               eng2=P('Eng (2) Oil Temp'),
+               eng3=P('Eng (3) Oil Temp'),
+               eng4=P('Eng (4) Oil Temp')):
+        '''
+        '''
+        engines = vstack_params(eng1, eng2, eng3, eng4)
+        self.array = np.ma.min(engines, axis=0)
+
+
+################################################################################
+# Engine Torque
+
+
+# TODO: Write some unit tests!
+class Eng_TorqueAvg(DerivedParameterNode):
+    '''
+    '''
+
+    name = 'Eng (*) Torque Avg'
+
+    @classmethod
+    def can_operate(cls, available):
+        '''
+        '''
+        # Works with any combination of parameters available:
         if any([d in available for d in cls.get_dependency_names()]):
             return True
-        
-    def derive(self, 
+
+    def derive(self,
                eng1=P('Eng (1) Torque'),
                eng2=P('Eng (2) Torque'),
                eng3=P('Eng (3) Torque'),
                eng4=P('Eng (4) Torque')):
+        '''
+        '''
         engines = vstack_params(eng1, eng2, eng3, eng4)
         self.array = np.ma.average(engines, axis=0)
 
 
-class Eng_TorqueMin(DerivedParameterNode):
-    #TODO: TEST
-    name = "Eng (*) Torque Min"
-    @classmethod
-    def can_operate(cls, available):
-        # works with any combination of params available
-        return any([d in available for d in cls.get_dependency_names()])
-        
-    def derive(self, 
-               eng1=P('Eng (1) Torque'),
-               eng2=P('Eng (2) Torque'),
-               eng3=P('Eng (3) Torque'),
-               eng4=P('Eng (4) Torque')):
-        engines = vstack_params(eng1, eng2, eng3, eng4)
-        self.array = np.ma.min(engines, axis=0)
-
-
+# TODO: Write some unit tests!
 class Eng_TorqueMax(DerivedParameterNode):
-    #TODO: TEST
-    name = "Eng (*) Torque Max"
+    '''
+    '''
+
+    name = 'Eng (*) Torque Max'
+
     @classmethod
     def can_operate(cls, available):
-        # works with any combination of params available
+        '''
+        '''
+        # Works with any combination of parameters available:
         return any([d in available for d in cls.get_dependency_names()])
-        
-    def derive(self, 
+
+    def derive(self,
                eng1=P('Eng (1) Torque'),
                eng2=P('Eng (2) Torque'),
                eng3=P('Eng (3) Torque'),
                eng4=P('Eng (4) Torque')):
+        '''
+        '''
         engines = vstack_params(eng1, eng2, eng3, eng4)
         self.array = np.ma.max(engines, axis=0)
 
 
-class Eng_VibN1Max(DerivedParameterNode):
-    # This function condenses all the available first shaft order vibration
-    # measurements into a single consolidated value.
+# TODO: Write some unit tests!
+class Eng_TorqueMin(DerivedParameterNode):
+    '''
+    '''
 
-    #TODO: TEST
+    name = 'Eng (*) Torque Min'
 
-    name = 'Eng (*) Vib N1 Max'
     @classmethod
     def can_operate(cls, available):
-        # works with any combination of params available
+        '''
+        '''
+        # Works with any combination of parameters available:
         return any([d in available for d in cls.get_dependency_names()])
-    
-    def derive(self, 
+
+    def derive(self,
+               eng1=P('Eng (1) Torque'),
+               eng2=P('Eng (2) Torque'),
+               eng3=P('Eng (3) Torque'),
+               eng4=P('Eng (4) Torque')):
+        '''
+        '''
+        engines = vstack_params(eng1, eng2, eng3, eng4)
+        self.array = np.ma.min(engines, axis=0)
+
+
+################################################################################
+# Engine Vibration (N1)
+
+
+# TODO: Write some unit tests!
+class Eng_VibN1Max(DerivedParameterNode):
+    '''
+    This derived parameter condenses all the available first shaft order
+    vibration measurements into a single consolidated value.
+    '''
+
+    name = 'Eng (*) Vib N1 Max'
+
+    @classmethod
+    def can_operate(cls, available):
+        '''
+        '''
+        # Works with any combination of parameters available:
+        return any([d in available for d in cls.get_dependency_names()])
+
+    def derive(self,
                eng1=P('Eng (1) Vib N1'),
                eng2=P('Eng (2) Vib N1'),
                eng3=P('Eng (3) Vib N1'),
                eng4=P('Eng (4) Vib N1'),
-               eng1_fan=P('Eng (1) Vib N1 Fan'),
-               eng1_lpt=P('Eng (1) Vib N1 LPT'),
-               eng2_fan=P('Eng (2) Vib N1 Fan'),
-               eng2_lpt=P('Eng (2) Vib N1 LPT'),
-               ):
-        
-
-        engines = vstack_params(eng1, eng2, eng3, eng4,
-                                eng1_fan, eng1_lpt, eng2_fan, eng2_lpt)
+               fan1=P('Eng (1) Vib N1 Fan'),
+               fan2=P('Eng (2) Vib N1 Fan'),
+               lpt1=P('Eng (1) Vib N1 Low Press Turbine'),
+               lpt2=P('Eng (2) Vib N1 Low Press Turbine')):
+        '''
+        '''
+        engines = vstack_params(eng1, eng2, eng3, eng4, fan1, fan2, lpt1, lpt2)
         self.array = np.ma.max(engines, axis=0)
-        
-        
-class Eng_VibN2Max(DerivedParameterNode):
-    # This function condenses all the available second shaft order vibration
-    # measurements into a single consolidated value.
 
-    #TODO: TEST
+
+################################################################################
+# Engine Vibration (N2)
+
+
+# TODO: Write some unit tests!
+class Eng_VibN2Max(DerivedParameterNode):
+    '''
+    This derived parameter condenses all the available second shaft order
+    vibration measurements into a single consolidated value.
+    '''
 
     name = 'Eng (*) Vib N2 Max'
+
     @classmethod
     def can_operate(cls, available):
-        # works with any combination of params available
+        '''
+        '''
+        # Works with any combination of parameters available:
         return any([d in available for d in cls.get_dependency_names()])
-        
-    def derive(self, 
+
+    def derive(self,
                eng1=P('Eng (1) Vib N2'),
                eng2=P('Eng (2) Vib N2'),
                eng3=P('Eng (3) Vib N2'),
                eng4=P('Eng (4) Vib N2'),
-               eng1_hpc=P('Eng (1) Vib N2 HPC'),
-               eng1_hpt=P('Eng (1) Vib N2 HPT'),
-               eng2_hpc=P('Eng (2) Vib N2 HPC'),
-               eng2_hpt=P('Eng (2) Vib N2 HPT')
-               ):
-        engines = vstack_params(eng1, eng2, eng3, eng4,
-                                eng1_hpc, eng1_hpt, eng2_hpc, eng2_hpt)
+               hpc1=P('Eng (1) Vib N2 High Press Compressor'),
+               hpc2=P('Eng (2) Vib N2 High Press Compressor'),
+               hpt1=P('Eng (1) Vib N2 High Press Turbine'),
+               hpt2=P('Eng (2) Vib N2 High Press Turbine')):
+        '''
+        '''
+        engines = vstack_params(eng1, eng2, eng3, eng4, hpc1, hpc2, hpt1, hpt2)
         self.array = np.ma.max(engines, axis=0)
 
 
+################################################################################
+# Engine Vibration (N3)
+
+
+# TODO: Write some unit tests!
 class Eng_VibN3Max(DerivedParameterNode):
-    #TODO: TEST
+    '''
+    This derived parameter condenses all the available third shaft order
+    vibration measurements into a single consolidated value.
+    '''
+
     name = 'Eng (*) Vib N3 Max'
+
     @classmethod
     def can_operate(cls, available):
-        # works with any combination of params available
+        '''
+        '''
+        # Works with any combination of parameters available:
         if any([d in available for d in cls.get_dependency_names()]):
             return True
-        
-    def derive(self, 
+
+    def derive(self,
                eng1=P('Eng (1) Vib N3'),
                eng2=P('Eng (2) Vib N3'),
                eng3=P('Eng (3) Vib N3'),
                eng4=P('Eng (4) Vib N3')):
+        '''
+        '''
         engines = vstack_params(eng1, eng2, eng3, eng4)
         self.array = np.ma.max(engines, axis=0)
+
+
+################################################################################
 
 
 class FuelQty(DerivedParameterNode):
@@ -1522,45 +1979,98 @@ class FuelQty(DerivedParameterNode):
         self.array = np.ma.sum(stacked_params, axis=0)
 
 
-class GearDown(DerivedParameterNode):
-    """
-    A simple binary parameter, 0 = gear not down, 1 = gear down.
-    Highly aircraft dependent, so likely to be extended.
-    """
+################################################################################
+# Landing Gear
+
+
+class GearDown(MultistateDerivedParameterNode):
+    '''
+    This Multi-State parameter uses "majority voting" to decide whether the
+    gear is up or down.
+    '''
+
     align_to_first_dependency = False
-    def derive(self, gl=P('Gear (L) Down'),
-               gn=P('Gear (N) Down'),
-               gr=P('Gear (R) Down'),
-               frame=A('Frame')):
-        frame_name = frame.value if frame else None
-        
-        if frame_name in ['737-5']:
-            # 737-5 has nose gear sampled alternately with mains. No obvious
-            # way to accommodate mismatch of the main gear positions, so
-            # assume that the right wheel does the same as the left !
-            self.array, self.frequency, self.offset = merge_two_parameters(gl, gn)
+    values_mapping = {
+        0: 'Up',
+        1: 'Down',
+    }
 
-class GearSelectedDown(DerivedParameterNode):
-    """
-    Derivation of gear selection for aircraft without this separately
-    recorded. Where Gear Selected Down is recorded, this derived parameter
-    will be skipped automatically.
-    """
-    def derive(self, gear=P('Gear Down'), frame=A('Frame')):
-        frame_name = frame.value if frame else None
-        
-        if frame_name in ['737-5']:
-            self.array = gear.array
+    def derive(self,
+            gl=M('Gear (L) Down'),
+            gn=M('Gear (N) Down'),
+            gr=M('Gear (R) Down')):
+        '''
+        '''
+        wheels_down = gl.array.raw + gn.array.raw + gr.array.raw
+        self.array = np.ma.where(wheels_down > 1.5, 1, 0)
 
-        
-class GearSelectedUp(DerivedParameterNode):
-    def derive(self, gear=P('Gear Down'), frame=A('Frame')):
-        frame_name = frame.value if frame else None
-        
-        if frame_name in ['737-5']:
-            self.array = 1 - gear.array
 
-        
+class GearOnGround(MultistateDerivedParameterNode):
+    '''
+    Combination of left and right main gear signals.
+    '''
+
+    align_to_first_dependency = False
+    values_mapping = {
+        0: 'Air',
+        1: 'Ground',
+    }
+
+    def derive(self,
+            gl=M('Gear (L) On Ground'),
+            gr=M('Gear (R) On Ground'),
+            frame=A('Frame')):
+        '''
+        Note that this is not needed on the following frames which record this
+        parameter directly: 737-4, 737-i
+        '''
+        frame_name = frame.value if frame else None
+
+        if frame_name.startswith('737-'):
+            self.array, self.frequency, self.offset = merge_two_parameters(gl, gr)
+        else:
+            raise DataFrameError(self.name, frame_name)
+
+
+class GearDownSelected(MultistateDerivedParameterNode):
+    '''
+    Derivation of gear selection for aircraft without this separately recorded.
+    Where 'Gear Down Selected' is recorded, this derived parameter will be
+    skipped automatically.
+    '''
+
+    values_mapping = {
+        0: 'Up',
+        1: 'Down',
+    }
+
+    def derive(self, gear=P('Gear Down')):
+        '''
+        '''
+        self.array = gear.array
+
+
+class GearUpSelected(MultistateDerivedParameterNode):
+    '''
+    Derivation of gear selection for aircraft without this separately recorded.
+    Where 'Gear Up Selected' is recorded, this derived parameter will be
+    skipped automatically.
+    '''
+
+    values_mapping = {
+        0: 'Down',
+        1: 'Up',
+    }
+
+    def derive(self, gear=P('Gear Down')):
+        '''
+        '''
+        self.array = 1 - gear.array
+
+
+################################################################################
+
+
 class GrossWeightSmoothed(DerivedParameterNode):
     '''
     Gross weight is usually sampled at a low rate and can be very poor in the
@@ -1593,17 +2103,19 @@ class GrossWeightSmoothed(DerivedParameterNode):
         gw_all = []
         for gw_index in gw.array.nonzero()[0]:
             # Keep all the values
-            gw_all.append(gw.array.data[gw_index])
+            gross_wt = gw.array.data[gw_index]
             ff_time = ((gw_index/gw.frequency)+gw.offset-ff.offset)*ff.frequency
-            to_burn_all.append(value_at_index(fuel_to_burn, ff_time))
+            fuel_wt = value_at_index(fuel_to_burn, ff_time)
+            if fuel_wt:
+                gw_all.append(gross_wt)
+                to_burn_all.append(fuel_wt)
             
-            # Skip values which are within Climbing or Descending phases.
-            if any([is_index_within_slice(gw_index, c.slice) for c in climbs]) or \
-               any([is_index_within_slice(gw_index, d.slice) for d in descends]):
-                continue
-            gw_valid.append(gw.array.data[gw_index])
-            ff_time = ((gw_index/gw.frequency)+gw.offset-ff.offset)*ff.frequency
-            to_burn_valid.append(value_at_index(fuel_to_burn, ff_time))
+                # Skip values which are within Climbing or Descending phases.
+                if any([is_index_within_slice(gw_index, c.slice) for c in climbs]) or \
+                   any([is_index_within_slice(gw_index, d.slice) for d in descends]):
+                    continue
+                to_burn_valid.append(fuel_wt)
+                gw_valid.append(gross_wt)
         
         use_valid = len(gw_valid) > 5
         use_all = len(gw_all) > 2
@@ -1651,7 +2163,7 @@ class Groundspeed(DerivedParameterNode):
             # The coding in this frame is unique as it only uses two bits for
             # the first digit of the BCD-encoded groundspeed, limiting the
             # recorded value range to 399 kts. At altitude the aircraft can
-            # exceed this to a fiddle is required to sort this out.
+            # exceed this so a fiddle is required to sort this out.
             altitude = align(alt, source_A) # Caters for different sample rates.
             adjust_A = np.logical_and(source_A.array<200, altitude>8000).data*400
             source_A.array += adjust_A
@@ -1659,6 +2171,13 @@ class Groundspeed(DerivedParameterNode):
             source_B.array += adjust_B
             self.array, self.frequency, self.offset = \
                 blend_two_parameters(source_A, source_B)
+
+        # Superfluous as the dependency tree will skip this.
+        ##elif frame_name in ['737-5']:
+            ##self.array = self.array
+            
+        else:
+            raise DataFrameError(self.name, frame_name)
 
 
 class FlapLever(DerivedParameterNode):
@@ -1699,11 +2218,11 @@ class FlapSurface(DerivedParameterNode):
                alt_aal=P('Altitude AAL')):
         frame_name = frame.value if frame else None
 
-        if frame_name in ['737-5', '737-6', '757-DHL']:
+        if frame_name.startswith('737-') or frame_name in ['757-DHL']:
             self.array, self.frequency, self.offset = blend_two_parameters(flap_A,
                                                                            flap_B)
 
-        if frame_name in ['L382-Hercules']:
+        elif frame_name in ['L382-Hercules']:
             # Flap is not recorded, so invent one of the correct length.
             flap_herc = np.ma.array(np.zeros_like(alt_aal.array))
             if apps:
@@ -1715,10 +2234,9 @@ class FlapSurface(DerivedParameterNode):
                     flap_herc[scope] = np.ma.where(alt_aal.array[scope]>1000.0,100.0,50.0)
             self.array = np.ma.array(flap_herc)
             self.frequency, self.offset = alt_aal.frequency, alt_aal.offset
-            
-        if frame_name in ['146-301']:
-            # Flap Surface is computed within the LFL
-            pass
+
+        else:
+            raise DataFrameError(self.name, frame_name)
                    
                             
 class Flap(DerivedParameterNode):
@@ -1770,7 +2288,7 @@ class SlopeToLanding(DerivedParameterNode):
         self.array = alt_aal.array / (dist.array * FEET_PER_NM)
     
     
-class Config(DerivedParameterNode):
+class Configuration(DerivedParameterNode):
     """
     Multi-state with the following mapping:
     {
@@ -1787,7 +2305,7 @@ class Config(DerivedParameterNode):
     (b) corresponds to CONF 2*
     
     Note: Does not use the Flap Lever position. This parameter reflects the
-    actual config state of the aircraft rather than the intended state
+    actual configuration state of the aircraft rather than the intended state
     represented by the selected lever position.
     
     Note: Values that do not map directly to a required state are masked with
@@ -1804,15 +2322,15 @@ class Config(DerivedParameterNode):
                series=A('Series'), family=A('Family')):
         #TODO: manu=A('Manufacturer') - we could ensure this is only done for Airbus?
         
-        mapping = get_config_map(series.value, family.value)        
+        mapping = get_conf_map(series.value, family.value)        
         qty_param = len(mapping.itervalues().next())
         if qty_param == 3 and not aileron:
             # potential problem here!
-            self.warning("Aileron not available, so will calculate Config using only slat and flap")
+            self.warning("Aileron not available, so will calculate Configuration using only slat and flap")
             qty_param = 2
         elif qty_param == 2 and aileron:
             # only two items in values tuple
-            self.debug("Aileron available but not required for Config calculation")
+            self.debug("Aileron available but not required for Configuration calculation")
             pass
         
         #TODO: Scale each parameter individually to ensure uniqueness
@@ -1877,6 +2395,7 @@ class HeadingContinuous(DerivedParameterNode):
         self.array = repair_mask(straighten_headings(head_mag.array))
 
 
+# TODO: Absorb this derived parameter into the 'Holding' flight phase.
 class HeadingIncreasing(DerivedParameterNode):
     """
     This parameter is computed to allow holding patterns to be identified. As
@@ -1888,17 +2407,31 @@ class HeadingIncreasing(DerivedParameterNode):
     def derive(self, head=P('Heading Continuous')):
         rot = np.ma.ediff1d(head.array, to_begin = 0.0)
         self.array = integrate(np.ma.abs(rot), head.frequency)
-        
+
+
+class HeadingTrueContinuous(DerivedParameterNode):
+    def derive(self, hdg=P('Heading True')):
+        self.array = straighten_headings(hdg.array)
+
 
 class HeadingTrue(DerivedParameterNode):
     """
     Compensates for magnetic variation, which will have been computed previously.
     """
+    @classmethod
+    def can_operate(cls, available):
+        return 'Heading Continuous' in available
+    
     units = 'deg'
     def derive(self, head=P('Heading Continuous'),
                var = P('Magnetic Variation')):
-        self.array = (head.array + var.array)%360.0
-        
+        if var:
+            self.array = (head.array + var.array)%360.0
+        else:
+            # Default to magnetic if we know no better.
+            self.array = head.array
+
+            
         """
         # We copy the masked array to transfer the mask array. All the data
         # values will be overwritten, but the mask will not be affected by
@@ -1953,32 +2486,59 @@ class HeadingTrue(DerivedParameterNode):
 
 
 class ILSFrequency(DerivedParameterNode):
+    @classmethod
+    def can_operate(cls, available):
+        return ('ILS (1) Frequency' in available and 'ILS (2) Frequency' in available)\
+               or\
+               ('ILS-VOR (1) Frequency' in available and'ILS-VOR (2) Frequency' in available)
     """
     This code is based upon the normal operation of an Instrument Landing
     System whereby the left and right receivers are tuned to the same runway
     ILS frequency. This allows independent monitoring of the approach by the
     two crew.
     
-    If there is a problem with the system, users can inspect the (L) and (R)
+    If there is a problem with the system, users can inspect the (1) and (2)
     signals separately, although the normal use will show valid ILS data when
     both are tuned to the same frequency.
     
     """
     name = "ILS Frequency"
     align_to_first_dependency = False
-    def derive(self, f1=P('ILS (L) Frequency'),f2=P('ILS (R) Frequency')):
-        # Mask invalid frequencies
-        f1_trim = np.ma.masked_outside(f1.array,108.10,111.95)
-        f2_trim = np.ma.masked_outside(f2.array,108.10,111.95)
-        # and mask where the two receivers are not matched
-        self.array = np.ma.array(data = f1_trim.data,
-                                 mask = np.ma.masked_not_equal(f1_trim-f2_trim,0.0).mask)
+
+    def derive(self, f1=P('ILS (1) Frequency'),f2=P('ILS (2) Frequency'),
+               f1v=P('ILS-VOR (1) Frequency'), f2v=P('ILS-VOR (2) Frequency'),
+               frame = A('Frame')):
+
+        frame_name = frame.value if frame else None
         
+        # On some frames only one ILS frequency recording works
+        if frame_name in ['737-6'] and \
+           (np.ma.count(f2.array) == 0 or np.ma.ptp(f2.array) == 0.0):
+            self.array = f1.array
+            
+        # In all cases other than those identified above we look for both
+        # receivers being tuned together to form a valid signal
+        else:
+            if f1 and f2:
+                first = f1.array
+                second = f2.array
+            else:
+                first = f1v.array
+                second = f2v.array
+                
+            # Mask invalid frequencies
+            f1_trim = filter_vor_ils_frequencies(first, 'ILS')
+            f2_trim = filter_vor_ils_frequencies(second, 'ILS')
+
+            # and mask where the two receivers are not matched
+            self.array = np.ma.array(data = f1_trim.data,
+                                     mask = np.ma.masked_not_equal(f1_trim-f2_trim,0.0).mask)
+
 
 class ILSLocalizer(DerivedParameterNode):
     name = "ILS Localizer"
     align_to_first_dependency = False
-    def derive(self, loc_1=P('ILS (L) Localizer'),loc_2=P('ILS (R) Localizer')):
+    def derive(self, loc_1=P('ILS (1) Localizer'),loc_2=P('ILS (2) Localizer')):
         self.array, self.frequency, self.offset = blend_two_parameters(loc_1, loc_2)
         # TODO: Would like to do this, except the frequencies don't match
         # self.array.mask = np.ma.logical_or(self.array.mask, freq.array.mask)
@@ -1987,7 +2547,7 @@ class ILSLocalizer(DerivedParameterNode):
 class ILSGlideslope(DerivedParameterNode):
     name = "ILS Glideslope"
     align_to_first_dependency = False
-    def derive(self, gs_1=P('ILS (L) Glideslope'),gs_2=P('ILS (R) Glideslope')):
+    def derive(self, gs_1=P('ILS (1) Glideslope'),gs_2=P('ILS (2) Glideslope')):
         self.array, self.frequency, self.offset = blend_two_parameters(gs_1, gs_2)
         # Would like to do this, except the frequemcies don't match
         # self.array.mask = np.ma.logical_or(self.array.mask, freq.array.mask)
@@ -1999,7 +2559,7 @@ class ILSRange(DerivedParameterNode):
     Range is computed from the track where available, otherwise estimated
     from available groundspeed or airspeed parameters.
     
-    It is (currently) in feet from the localizer antenna.
+    It is in metres from the localizer antenna.
     """
     
     ##@classmethod
@@ -2010,6 +2570,8 @@ class ILSRange(DerivedParameterNode):
                lon = P('Longitude Prepared'),
                glide = P('ILS Glideslope'),
                gspd = P('Groundspeed'),
+               drift = P('Drift'),
+               head = P('Heading True Continuous'),
                tas = P('Airspeed True'),
                alt_aal = P('Altitude AAL'),
                loc_established = S('ILS Localizer Established'),
@@ -2022,79 +2584,38 @@ class ILSRange(DerivedParameterNode):
         ils_range = np_ma_masked_zeros_like(gspd.array)
         
         for this_loc in loc_established:
-            # Scan through the recorded approaches to find which matches this
-            # localizer established phase.
-            for approach in app_info.value:
-                # line up an approach slice
-                start = index_of_datetime(start_datetime.value,
-                                          approach['slice_start_datetime'],
-                                          self.frequency)
-                stop = index_of_datetime(start_datetime.value,
-                                         approach['slice_stop_datetime'],
-                                         self.frequency)
-                approach_slice = slice(start, stop)
-                if slices_overlap(this_loc.slice, approach_slice):
-                    # we've found a matching approach where the localiser was established
-                    break
-            else:
-                self.warning("No approach found within slice '%s'.",this_loc)
-                continue
-
-            runway = approach['runway']
-            if not runway:
-                self.warning("Approach runway information not available. "
-                                "No support for Airports without Runways! "
-                                "Details: %s", approach)
-                continue
-            
-            if precise.value:
-                # Convert (prepared) latitude & longitude for the whole phase
-                # into range from the threshold. (threshold = {})
-                if 'localizer' in runway:
-                    threshold = runway['localizer']
-                elif 'end' in runway:
-                    threshold = runway['end']
-                else:
-                    pass
-                    # TODO: Set threshold is where the touchdown happened.
-                    
-                brg, ils_range[this_loc.slice] = \
-                    bearings_and_distances(repair_mask(lat.array[this_loc.slice]),
-                                           repair_mask(lon.array[this_loc.slice]),
-                                           threshold)
-                continue # move onto next loc_established
-                
-            #-----------------------------
-            else: # non-precise positioning
-            
-                # Use recorded groundspeed where available, otherwise estimate
-                # range using true airspeed. This is because there are aircraft
-                # which record ILS but not groundspeed data.
-                if gspd:
-                    # It is necessary to use getmaskarray rather than .array.mask
-                    # here because the array may have no masked entries, in which
-                    # case only a single False scalar is returned, which will not
-                    # work with the np.ma.where function.
-                    speed = np.ma.where(np.ma.getmaskarray(gspd.array[this_loc.slice]), \
-                                        tas.array.data[this_loc.slice], \
-                                        gspd.array.data[this_loc.slice]) 
-                else:
-                    speed = tas.array.data[this_loc.slice]
-                    
-                # Estimate range by integrating back from zero at the end of the
-                # phase to high range values at the start of the phase.
-                spd_repaired = repair_mask(speed)
-                ils_range[this_loc.slice] = integrate(
-                    spd_repaired, gspd.frequency, scale=KTS_TO_MPS, direction='reverse')
-            
+            # Find the matching runway details
+            approach, runway = find_app_rwy(self, app_info, start_datetime, this_loc)
+  
             try:
                 start_2_loc, gs_2_loc, end_2_loc, pgs_lat, pgs_lon = \
-                    runway_distances(runway)  
-            except KeyError:
+                    runway_distances(runway)
+                off_cl = head.array - runway_heading(runway)
+            except (KeyError, TypeError):
                 self.warning("Runway did not have required information in "
                                 "'%s', '%s'.", self.name, runway)
+                off_cl = np_ma_zeros_like(head.array)
                 continue
 
+            # Use recorded groundspeed where available, otherwise
+            # estimate range using true airspeed. This is because there
+            # are aircraft which record ILS but not groundspeed data. In
+            # either case the speed is referenced to the runway heading
+            # in case of large deviations on the approach or runway.
+            if gspd:
+                speed = gspd.array.data[this_loc.slice] * \
+                np.cos(np.radians(off_cl[this_loc.slice]+\
+                                  drift.array[this_loc.slice]))
+            else:
+                speed = tas.array.data[this_loc.slice] * \
+                np.cos(np.radians(off_cl[this_loc.slice]))
+                
+            # Estimate range by integrating back from zero at the end of the
+            # phase to high range values at the start of the phase.
+            spd_repaired = repair_mask(speed)
+            ils_range[this_loc.slice] = integrate(
+                spd_repaired, gspd.frequency, scale=KTS_TO_MPS, direction='reverse')
+                
             if 'glideslope' in runway:
                 # The runway has an ILS glideslope antenna
                 
@@ -2107,17 +2628,18 @@ class ILSRange(DerivedParameterNode):
                     self.warning("No glideslope established at same time as localiser")
                     continue
                     
-                # Compute best fit glidepath. The term (1-.13 x glideslope
+                # Compute best fit glidepath. The term (1-0.13 x glideslope
                 # deviation) caters for the aircraft deviating from the
-                # planned flightpath. 1 dot low is about 0.76 deg, or 13% of
-                # a 3 degree glidepath. Not precise, but adequate accuracy
-                # for the small error we are correcting for here.
+                # planned flightpath. 1 dot low is about 7% of a 3 degree
+                # glidepath. Not precise, but adequate accuracy for the small
+                # error we are correcting for here, and empyrically checked.
+                
                 corr, slope, offset = coreg(ils_range[this_gs.slice],
                     alt_aal.array[this_gs.slice]* (1-0.13*glide.array[this_gs.slice]))
-                
+
                 # This should correlate very well, and any drop in this is a
                 # sign of problems elsewhere.
-                if corr < 0.998:
+                if corr < 0.995:
                     print 'Low convergence in computing ILS glideslope offset.'
 
                 # Shift the values in this approach so that the range = 0 at
@@ -2125,47 +2647,155 @@ class ILSRange(DerivedParameterNode):
                 # localizer antenna.                  
                 datum_2_loc = gs_2_loc - offset
                 
+                '''
+                It was found when processing 737 Classic data that the slope
+                does not exactly correspond to the expected glideslope angle,
+                and an experiment was carried out to add a groundspeed
+                scaling correction thus:
+                
+                gs_angle = runway['glideslope']['angle']
+                gs_gain = 1.0/(np.tan(radians(gs_angle))*slope*METRES_TO_FEET)
+
+                However, while this correction, which is typically a gain of
+                the order of 5-10%, was found to improve the ground distances
+                slightly it degraded the airborne track so was removed. Quite
+                why the slope is different by this amount remains a mystery.
+                '''
+
             else:
                 # Case of an ILS approach using localizer only.
-                for this_app in final_apps: # TODO: final_apps is undefined?
-                    if is_slice_within_slice(this_app.slice, this_loc.slice):
-                        # we'll take the first one!
-                        break
-                else:
-                    # we didn't find a period where the approach was within the localiser
-                    self.warning("Approaches were not fully established with localiser")
-                    continue
-                    
-                corr, slope, offset = coreg(ils_range[this_app.slice], 
-                                            alt_aal.array[this_app.slice])
+
+                #####################################################################
+                # Code written but not tested yet as we haven't found a flight case #
+                #####################################################################
+                
+                corr, slope, offset = coreg(ils_range[this_loc.slice], 
+                                            alt_aal.array[this_loc.slice])
                 
                 # Touchdown point nominally 1000ft from start of runway
-                datum_2_loc = (start_2_loc - 1000/METRES_TO_FEET) - offset/slope
+                datum_2_loc = (start_2_loc - 1000/METRES_TO_FEET) - offset
                         
-                
-            # Adjust all range values to relate to the localizer antenna by
-            # adding the landing datum to localizer distance.
             ils_range[this_loc.slice] += datum_2_loc
 
         self.array = ils_range
 
+def find_app_rwy(self, app_info, start_datetime, this_loc):
+    # Scan through the recorded approaches to find which matches this
+    # localizer established phase.
+    for approach in app_info.value:
+        # line up an approach slice
+        start = index_of_datetime(start_datetime.value,
+                                  approach['slice_start_datetime'],
+                                  self.frequency)
+        stop = index_of_datetime(start_datetime.value,
+                                 approach['slice_stop_datetime'],
+                                 self.frequency)
+        approach_slice = slice(start, stop)
+        if slices_overlap(this_loc.slice, approach_slice):
+            # we've found a matching approach where the localiser was established
+            break
+    else:
+        self.warning("No approach found within slice '%s'.",this_loc)
+        return None, None
+
+    runway = approach['runway']
+    if not runway:
+        self.warning("Approach runway information not available.")
+        return approach, None
+                
+    return approach, runway                
+
+def localizer_scale(reference, runway):
+    if 'beam_width' in reference:
+        # Compute the localizer scale factor (degrees per dot)
+        # Half the beam width is 2.5 dots full scale
+        scale = (reference['beam_width']/2.0) / 2.5
+    else:
+        # Normal scaling of a localizer gives 700ft width at the threshold,
+        # so half of this is 350ft=106.68m. This appears to be a single dot
+        # scale (to match beam width values).
+        scale = np.degrees(np.arctan2(106.68, runway_length(runway)))
+    return scale
+    
 
 class CoordinatesSmoothed(object):
     '''
     Superclass for SmoothedLatitude and SmoothedLongitude classes as they share
-    the _adjust_track method.
-    '''
-    def _adjust_track(self,lon,lat,loc_est,ils_range,ils_loc,gspd,hdg,head_mag,
-                      tas,precise,toff,app_info,toff_rwy,start_datetime):
-        # Set up a working space.
-        lat_adj = np.ma.array(data=head_mag.array.data, mask=True, copy=True)
-        lon_adj = np.ma.array(data=head_mag.array.data, mask=True, copy=True)
+    the adjust_track methods.
     
+    _adjust_track_pp is used for aircraft with precise positioning, usually
+    GPS based and qualitatively determined by a recorded track that puts the
+    aircraft on the correct runway. In these cases we only apply fine
+    adjustment of the approach and landing path using ILS localizer data to
+    position the aircraft with respect to the runway centreline.
+    
+    _adjust_track_ip is for aircraft with imprecise positioning. In these
+    cases we use all the data available to correct for errors in the recorded
+    position at takeoff, approach and landing.
+    '''
+    def _adjust_track_pp(self,lon,lat,loc_est,ils_range,ils_loc,gspd,hdg,head_mag,
+                      tas,precise,first_toff,app_info,toff_rwy,start_datetime):
+        # Set up a working space.
+        lat_adj = np_ma_masked_zeros_like(head_mag.array)
+        lon_adj = np_ma_masked_zeros_like(head_mag.array)
+        
         #-----------------------------------------------------------------------
-        # Use synthesized track for takeoffs where necessary
+        # Use ILS track for approach and landings in all localizer approches
         #-----------------------------------------------------------------------
         
-        first_toff = toff.get_first()
+        if loc_est:
+            for this_loc in loc_est:    
+                # Find the matching runway details
+                approach, runway = find_app_rwy(self, app_info, start_datetime,
+                                                this_loc)
+                
+                if runway==None:
+                    continue                
+                
+                if 'localizer' in runway:
+                    reference = runway['localizer']
+                else:
+                    self.warning("No localizer for approach runway '%s'.",runway)
+                    # Can't improve matters.
+                    return None, None
+                    
+                scale = localizer_scale(reference, runway)
+                
+                # Adjust the ils data to be degrees from the reference point.
+                bearings = ils_loc.array[this_loc.slice] * scale + \
+                    runway_heading(runway)+180
+                
+                # Tweek the localizer position to be on the start:end centreline
+                localizer_on_cl = ils_localizer_align(runway)
+                
+                # Find distances from the localizer
+                _, distances = bearings_and_distances(lat.array[this_loc.slice], 
+                                                      lon.array[this_loc.slice], 
+                                                      localizer_on_cl)
+                
+                
+                # At last, the conversion of ILS localizer data to latitude and longitude
+                lat_adj[this_loc.slice], lon_adj[this_loc.slice] = \
+                    latitudes_and_longitudes(bearings, distances, localizer_on_cl)
+                
+                # Alignment of the ILS Range causes corrupt first samples.
+                lat_adj[this_loc.slice.start] = np.ma.masked
+                lon_adj[this_loc.slice.start] = np.ma.masked
+                
+            return lat_adj, lon_adj
+        else:
+            return None, None
+    
+    
+    def _adjust_track_ip(self,lon,lat,loc_est,ils_range,ils_loc,gspd,hdg,head_mag,
+                      tas,precise,first_toff,app_info,toff_rwy,start_datetime):
+        # Set up a working space.
+        lat_adj = np_ma_masked_zeros_like(head_mag.array)
+        lon_adj = np_ma_masked_zeros_like(head_mag.array)
+    
+        #------------------------------------
+        # Use synthesized track for takeoffs
+        #------------------------------------
         
         # We compute the ground track using best available data.
         if gspd:
@@ -2174,65 +2804,55 @@ class CoordinatesSmoothed(object):
         else:
             speed = tas.array
             freq = tas.frequency
+        
+        if toff_rwy and first_toff and toff_rwy.value:
+            toff_slice = first_toff.slice
+            
+            # Compute takeoff track from start of runway using integrated
+            # groundspeed, down runway centreline to end of takeoff (35ft
+            # altitude). An initial value of 100m puts the aircraft at a
+            # reasonable position with respect to the runway start.
+            rwy_dist = np.ma.array(                        
+                data = integrate(speed[toff_slice], freq, initial_value=100, 
+                                 scale=KTS_TO_MPS),
+                mask = np.ma.getmaskarray(speed[toff_slice]))
     
-        if precise.value:
-            if first_toff:
-                # Compute a smooth taxi out track.
-                [lat_adj[:first_toff.slice.start], lon_adj[:first_toff.slice.start]] = \
-                    ground_track(lat.array[first_toff.slice.start],
-                                 lon.array[first_toff.slice.start],
-                                 speed[:first_toff.slice.start],
-                                 hdg.array[:first_toff.slice.start],
-                                 freq,
-                                 'takeoff')
-            else:
-                self.warning("Cannot smooth taxi out without a takeoff.")
+            # The start location is taken from the poor recorded latitude and
+            # longitude and moved onto the runway centreline in the absence
+            # of any better information.
+            start_locn = runway_snap_dict(toff_rwy.value, 
+                                     lat.array[toff_slice.start], 
+                                     lon.array[toff_slice.start])
     
-            # Either way, we allow the recorded track to be used for the takeoff unchanged.
-            pass
+            # Similarly the runway bearing is derived from the runway endpoints
+            # (this gives better visualisation images than relying upon the
+            # nominal runway heading). This is converted to a numpy masked array
+            # of the length required to cover the takeoff phase.
+            rwy_hdg = runway_heading(toff_rwy.value)
+            rwy_brg = np_ma_ones_like(speed[toff_slice])*rwy_hdg
+            
+            # The track down the runway centreline is then converted to
+            # latitude and longitude.
+            lat_adj[toff_slice], lon_adj[toff_slice] = \
+                latitudes_and_longitudes(rwy_brg, 
+                                         rwy_dist, 
+                                         start_locn)                    
     
+        #--------------------------------
+        # Use synthesized taxi out track
+        #--------------------------------
+        
+            # Finally we compute a ground track for the taxi out phase.
+            [lat_adj[:toff_slice.start],
+            lon_adj[:toff_slice.start]] = \
+                ground_track(lat_adj.data[toff_slice.start],
+                             lon_adj.data[toff_slice.start],
+                             speed[:toff_slice.start],
+                             hdg.array[:toff_slice.start],
+                             freq, 'takeoff')
         else:
-            #For not precise aircraft, synthesize the takeoff roll as well as the taxi out.
-            if toff_rwy and first_toff and toff_rwy.value:
-                # Compute takeoff track from start of runway using integrated
-                # groundspeed, down runway centreline to end of takeoff (35ft
-                # altitude). An initial value of 100m puts the aircraft at a
-                # reasonable position with respect to the runway start.
-                rwy_dist = np.ma.array(                        
-                    data = integrate(speed[first_toff.slice], freq, initial_value=100, 
-                                     scale=KTS_TO_MPS),
-                    mask = np.ma.getmaskarray(speed[first_toff.slice]))
-        
-                # The start location has been read from the database.
-                start_locn = toff_rwy.value['start']
-        
-                # Similarly the runway bearing is derived from the runway endpoints
-                # (this gives better visualisation images than relying upon the
-                # nominal runway heading). This is converted to a numpy masked array
-                # of the length required to cover the takeoff phase.
-                rwy_hdg = runway_heading(toff_rwy.value)
-                rwy_brg = np_ma_ones_like(speed[first_toff.slice])*rwy_hdg
-                
-                # And finally the track down the runway centreline is
-                # converted to latitude and longitude.
-                lat_adj[first_toff.slice], lon_adj[first_toff.slice] = \
-                    latitudes_and_longitudes(rwy_brg, 
-                                             rwy_dist, 
-                                             start_locn)                    
-        
-                [lat_adj[:first_toff.slice.start],
-                lon_adj[:first_toff.slice.start]] = \
-                    ground_track(lat_adj.data[first_toff.slice.start],
-                                 lon_adj.data[first_toff.slice.start],
-                                 speed[:first_toff.slice.start],
-                                 hdg.array[:first_toff.slice.start],
-                                 freq, 'takeoff')
-            else:
-                [lat_adj,lon_adj] = \
-                    ground_track(0.0,0.0,speed,head_mag.array,freq, 'takeoff')
-                
-                self.warning("Cannot smooth takeoff without runway details.")
-    
+            self.warning("Cannot smooth takeoff without runway details.")
+
         #-----------------------------------------------------------------------
         # Use ILS track for approach and landings in all localizer approches
         #-----------------------------------------------------------------------
@@ -2244,92 +2864,66 @@ class CoordinatesSmoothed(object):
                 # coordinates.
                 # Scan through the recorded approaches to find which matches this
                 # localizer established phase.
-                for approach in app_info.value:
-                    # line up an approach slice
-                    start = index_of_datetime(start_datetime.value,
-                                              approach['slice_start_datetime'],
-                                              lon.frequency)
-                    stop = index_of_datetime(start_datetime.value,
-                                             approach['slice_stop_datetime'],
-                                             lon.frequency)
-                    approach_slice = slice(start, stop)
-                    if slices_overlap(this_loc.slice, approach_slice):
-                        # we've found a matching approach where the localiser was established
-                        break
-                else:
-                    self.warning("No approach found within slice '%s'.",this_loc)
-                    continue
                 
-                runway = approach['runway']
-                if not runway:
-                    self.error("Approach runway information not available.")
-                    raise NotImplementedError(
-                        "No support for Airports without Runways! Details: %s" % approach)    
-                
-                if 'localizer' in runway:
+                # Find the matching runway details
+                approach, runway = find_app_rwy(self, app_info, start_datetime, this_loc)
+                                
+                if runway and 'localizer' in runway:
                     reference = runway['localizer']
+                else:
+                    self.warning("No localizer for approach runway '%s'.",runway)
+                    # Return with the takeoff adjustment only.
+                    return lat_adj, lon_adj
+                
+                scale = localizer_scale(reference, runway)
                     
-                    if 'beam_width' in reference:
-                        # Compute the localizer scale factor (degrees per dot)
-                        # Half the beam width is 2 dots full scale
-                        scale = (reference['beam_width']/2.0) / 2.0
-                    else:
-                        # Normal scaling of a localizer gives 700ft width at the
-                        # threshold, so half of this is 350ft=106.68m and will
-                        # give 2 dots full scale
-                        scale=np.degrees(np.arctan2(106.68, runway_length(runway)))\
-                            / 2.0
-                        
-                    # Adjust the ils data to be degrees from the reference point.
-                    bearings = ils_loc.array[this_loc.slice] * scale + \
-                        runway_heading(runway)+180
+                # Adjust the ils data to be degrees from the reference point.
+                bearings = ils_loc.array[this_loc.slice] * scale + \
+                    runway_heading(runway)+180
+                
+                # Adjust distance units
+                distances = ils_range.array[this_loc.slice]
+                
+                # Tweek the localizer position to be on the start:end centreline
+                localizer_on_cl = ils_localizer_align(runway)
+                
+                # At last, the conversion of ILS localizer data to latitude and longitude
+                lat_adj[this_loc.slice], lon_adj[this_loc.slice] = \
+                    latitudes_and_longitudes(bearings, distances, localizer_on_cl)
+                
+                # Alignment of the ILS Range causes corrupt first samples.
+                lat_adj[this_loc.slice.start] = np.ma.masked
+                lon_adj[this_loc.slice.start] = np.ma.masked
+                
+                # Finally, tack the ground track onto the end of the landing run
+                if approach['type'] == 'LANDING':
+                    ## In some cases the bearings and distances computed
+                    ## from ILS data may be masked at the end of the
+                    ## approach, so we scan back to connect the ground
+                    ## track onto the end of the valid data.
                     
-                    # Adjust distance units
-                    distances = ils_range.array[this_loc.slice]
+                    ##index, _ = first_valid_sample(lat_adj[slice(this_loc.slice.stop,this_loc.slice.start,-1)])
+                    ##join_idx = (this_loc.slice.stop or 0) - index
                     
-                    # Tweek the localizer position to be on the start:end centreline
-                    localizer_on_cl = ils_localizer_align(runway)
+                    # A transition at 40kts is simpler and works reliably.
+                    join_idx = index_at_value(gspd.array, 40.0, this_loc.slice)
                     
-                    # At last, the conversion of ILS localizer data to latitude and longitude
-                    lat_adj[this_loc.slice], lon_adj[this_loc.slice] = \
-                        latitudes_and_longitudes(bearings, distances, localizer_on_cl)
-                    
-                    # Alignment of the ILS Range causes corrupt first samples.
-                    lat_adj[this_loc.slice.start] = np.ma.masked
-                    lon_adj[this_loc.slice.start] = np.ma.masked
-                    
-                    # Finally, tack the ground track onto the end of the landing run
-                    if approach['type'] == 'LANDING':
-                        # In some cases the bearings and distances computed
-                        # from ILS data may be masked at the end of the
-                        # approach, so we scan back to connect the ground
-                        # track onto the end of the valid data.
-                        index, _ = first_valid_sample(lat_adj[slice(this_loc.slice.stop,this_loc.slice.start,-1)])
-                        join_idx = (this_loc.slice.stop or 0) - index
-                        if len(lat_adj) > join_idx: # We have some room to extend over.
-                            [lat_adj[join_idx:], lon_adj[join_idx:]] = \
-                                ground_track(lat_adj.data[join_idx], lon_adj.data[join_idx],
-                                             speed[join_idx:], hdg.array[join_idx:], 
-                                             freq, 'landing')
+                    if join_idx and (len(lat_adj) > join_idx): # We have some room to extend over.
+                        [lat_adj[join_idx:], lon_adj[join_idx:]] = \
+                            ground_track(lat_adj.data[join_idx], lon_adj.data[join_idx],
+                                         speed[join_idx:], hdg.array[join_idx:], 
+                                         freq, 'landing')
 
-        # --- Merge Tracks and return ---
-        if lat_adj != None:
-            lat_adj = track_linking(lat.array, lat_adj)
-            lon_adj = track_linking(lon.array, lon_adj)
+            return lat_adj, lon_adj
         else:
-            lat_adj = lat.array
-            lon_adj = lon.array
-            
-    
-        return lat_adj, lon_adj        
+            return None, None
 
-    
 class LatitudeSmoothed(DerivedParameterNode, CoordinatesSmoothed):
     # List the minimum acceptable parameters here
     @classmethod
     def can_operate(cls, available):
         # List the minimum required parameters.
-        return True #'Latitude Prepared' in available
+        return 'Heading True Continuous' in available and 'Latitude Prepared' in available
      
     units = 'deg'
     
@@ -2340,7 +2934,7 @@ class LatitudeSmoothed(DerivedParameterNode, CoordinatesSmoothed):
                ils_range = P('ILS Range'),
                ils_loc = P('ILS Localizer'),
                gspd = P('Groundspeed'),
-               hdg=P('Heading True'),
+               hdg=P('Heading True Continuous'),
                head_mag=P('Heading Continuous'),
                tas = P('Airspeed True'),
                precise =A('Precise Positioning'),
@@ -2349,26 +2943,23 @@ class LatitudeSmoothed(DerivedParameterNode, CoordinatesSmoothed):
                toff_rwy = A('FDR Takeoff Runway'),
                start_datetime = A('Start Datetime'),
                ):
-        
-        '''
-        if len(app_info.value) != len(loc_est):
-            # TODO: Sort out what we do with multiple approach phases.
-            
-            # Can't smooth appproach data if the ILS was not established,
-            # but apologise if it was and we got in a muddle.
-            if len(loc_est)>0: 
-                self.warning("Cannot use ILS approach data to smooth the approach track because the number of '%s'"
-                                " sections was not equal to the number of approaches.",
-                                loc_est.name)
-            self.array = lat.array
-            return
-            '''
-        
-        self.array, _ = self._adjust_track(lon,lat,loc_est,ils_range,ils_loc,
-                                           gspd,hdg,head_mag,tas,precise,toff,
-                                           app_info,toff_rwy,start_datetime)
 
-        if self.array == None:
+        first_toff = toff.get_first()
+        if precise.value:
+            # Precise Positioning form of adjust track
+            lat_adj, _ = self._adjust_track_pp(lon,lat,loc_est,ils_range,ils_loc,
+                                                  gspd,hdg,head_mag,tas,precise,first_toff,
+                                                  app_info,toff_rwy,start_datetime)
+        else:
+            # Imprecise Positioning form of adjust track
+            lat_adj, _ = self._adjust_track_ip(lon,lat,loc_est,ils_range,ils_loc,
+                                              gspd,hdg,head_mag,tas,precise,first_toff,
+                                              app_info,toff_rwy,start_datetime)
+
+        # --- Merge Tracks and return ---
+        if lat_adj != None:
+            self.array = track_linking(lat.array, lat_adj)
+        else:
             self.array = lat.array
 
         
@@ -2377,7 +2968,7 @@ class LongitudeSmoothed(DerivedParameterNode, CoordinatesSmoothed):
     @classmethod
     def can_operate(cls, available):
         # List the minimum required parameters.
-        return 'Longitude Prepared' in available
+        return 'Heading True Continuous' in available and 'Longitude Prepared' in available
     
     units = 'deg'
     
@@ -2388,7 +2979,7 @@ class LongitudeSmoothed(DerivedParameterNode, CoordinatesSmoothed):
                ils_range = P('ILS Range'),
                ils_loc = P('ILS Localizer'),
                gspd = P('Groundspeed'),
-               hdg = P('Heading True'),
+               hdg = P('Heading True Continuous'),
                head_mag=P('Heading Continuous'),
                tas = P('Airspeed True'),
                precise =A('Precise Positioning'),
@@ -2398,26 +2989,35 @@ class LongitudeSmoothed(DerivedParameterNode, CoordinatesSmoothed):
                start_datetime = A('Start Datetime'),
                ):
 
-        '''
-        if len(app_info.value) != len(loc_est) :
-            # Warning issued by the Latitude code. No need to duplicate.
-            self.array = lon.array
-            return
-            '''
+        first_toff = toff.get_first()
+        if precise.value:
+            # Precise Positioning form of adjust track
+            _, lon_adj = self._adjust_track_pp(lon,lat,loc_est,ils_range,ils_loc,
+                                                  gspd,hdg,head_mag,tas,precise,first_toff,
+                                                  app_info,toff_rwy,start_datetime)
+        else:
+            # Imprecise Positioning form of adjust track
+            _, lon_adj = self._adjust_track_ip(lon,lat,loc_est,ils_range,ils_loc,
+                                              gspd,hdg,head_mag,tas,precise,first_toff,
+                                              app_info,toff_rwy,start_datetime)
 
-        _, self.array = self._adjust_track(lon,lat,loc_est,ils_range,ils_loc,
-                                           gspd,hdg,head_mag,tas,precise,toff,
-                                           app_info,toff_rwy,start_datetime)
-        
-        if self.array == None:
+        # --- Merge Tracks and return ---
+        if lon_adj != None:
+            self.array = track_linking(lon.array, lon_adj)
+        else:
             self.array = lon.array
-            
+
             
 class Mach(DerivedParameterNode):
+    '''
+    Mach derived from air data parameters for aircraft where no suitable Mach
+    data is recorded.
+    '''
     def derive(self, cas = P('Airspeed'), alt = P('Altitude STD')):
         dp = cas2dp(cas.array)
         p = alt2press(alt.array)
         self.array = dp_over_p2mach(dp/p)
+            
        
 class MagneticVariation(DerivedParameterNode):
     """
@@ -2468,9 +3068,11 @@ class MagneticVariation(DerivedParameterNode):
         
         self.array = interpolate_and_extend(dev)
 
-class RateOfClimb(DerivedParameterNode):
-    """
-    This routine derives the rate of climb from the vertical acceleration, the
+class VerticalSpeedInertial(DerivedParameterNode):
+    '''
+    See 'Vertical Speed' for pressure altitude based derived parameter.
+    
+    This routine derives the vertical speed from the vertical acceleration, the
     Pressure altitude and the Radio altitude.
     
     We use pressure altitude rate above 100ft and radio altitude rate below
@@ -2492,14 +3094,9 @@ class RateOfClimb(DerivedParameterNode):
     acceleration term with a longer time constant filter before use. The
     consequence of this is that long period movements with continued
     acceleration will be underscaled slightly. As an example the test case
-    with a 1ft/sec^2 acceleration results in an increasing rate of climb of
+    with a 1ft/sec^2 acceleration results in an increasing vertical speed of
     55 fpm/sec, not 60 as would be theoretically predicted.
-    """
-    # List the minimum acceptable parameters here
-    @classmethod
-    def can_operate(cls, available):
-        # List the minimum required parameters.
-        return 'Altitude STD' in available
+    '''
     
     def derive(self, 
                az = P('Acceleration Vertical'),
@@ -2507,11 +3104,11 @@ class RateOfClimb(DerivedParameterNode):
                alt_rad = P('Altitude Radio'),
                speed=P('Airspeed')):
 
-        def inertial_rate_of_climb(alt_std_repair, frequency, alt_rad_repair, az_repair):
+        def inertial_vertical_speed(alt_std_repair, frequency, alt_rad_repair, az_repair):
             # Uses the complementary smoothing approach
             
             # This is the accelerometer washout term, with considerable gain.
-            # The initialisation "initial_value=az.array[clump][0]" is very
+            # The initialisation "initial_value=az_repair[0]" is very
             # important, as without this the function produces huge spikes at
             # each start of a data period.
             az_washout = first_order_washout (az_repair, 
@@ -2519,19 +3116,19 @@ class RateOfClimb(DerivedParameterNode):
                                               gain=GRAVITY_IMPERIAL,
                                               initial_value=az_repair[0])
             inertial_roc = first_order_lag (az_washout, 
-                                            RATE_OF_CLIMB_LAG_TC, 
+                                            VERTICAL_SPEED_LAG_TC, 
                                             frequency, 
-                                            gain=RATE_OF_CLIMB_LAG_TC)
+                                            gain=VERTICAL_SPEED_LAG_TC)
     
             # Both sources of altitude data are differentiated before
             # merging, as we mix height rate values to minimise the effect of
             # changeover of sources.
             roc_alt_std = first_order_washout(alt_std_repair,
-                                              RATE_OF_CLIMB_LAG_TC, frequency,
-                                              gain=1/RATE_OF_CLIMB_LAG_TC)
+                                              VERTICAL_SPEED_LAG_TC, frequency,
+                                              gain=1/VERTICAL_SPEED_LAG_TC)
             roc_alt_rad = first_order_washout(alt_rad_repair,
-                                              RATE_OF_CLIMB_LAG_TC, frequency,
-                                              gain=1/RATE_OF_CLIMB_LAG_TC)
+                                              VERTICAL_SPEED_LAG_TC, frequency,
+                                              gain=1/VERTICAL_SPEED_LAG_TC)
                     
             # Use pressure altitude rate above 100ft and radio altitude rate
             # below 50ft with progressive changeover across that range.
@@ -2543,50 +3140,67 @@ class RateOfClimb(DerivedParameterNode):
             
             return (roc_altitude + inertial_roc) * 60.0
 
-        if az and alt_rad:
-            # Make space for the answers
-            self.array = np.ma.masked_all_like(alt_std.array)
-            
-            # Fix minor dropouts
-            az_repair = repair_mask(az.array)
-            alt_rad_repair = repair_mask(alt_rad.array, frequency=alt_rad.frequency, repair_duration=None)
-            alt_std_repair = repair_mask(alt_std.array, frequency=alt_std.frequency)
-            
-            # np.ma.getmaskarray ensures we have complete mask arrays even if
-            # none of the samples are masked (normally returns a single
-            # "False" value. We ignore the rad alt mask because we are only
-            # going to use the radio altimeter values below 100ft, and short
-            # transients will have been repaired. By repairing with the
-            # repair_duration=None option, we ignore the masked saturated
-            # values at high altitude.
-            
-            az_masked = np.ma.array(data = az_repair.data, 
-                                    mask = np.ma.logical_or(
-                                        np.ma.getmaskarray(az_repair),
-                                        np.ma.getmaskarray(alt_std_repair)))
-            
-            # We are going to compute the answers only for ranges where all
-            # the required parameters are available.
-            clumps = np.ma.clump_unmasked(az_masked)
-            for clump in clumps:
-                self.array[clump] = inertial_rate_of_climb(
-                    alt_std_repair[clump], az.frequency,
-                    alt_rad_repair[clump], az_repair[clump])
-            
+
+        # Make space for the answers
+        self.array = np.ma.masked_all_like(alt_std.array)
+        
+        # Fix minor dropouts
+        az_repair = repair_mask(az.array)
+        alt_rad_repair = repair_mask(alt_rad.array, frequency=alt_rad.frequency, repair_duration=None)
+        alt_std_repair = repair_mask(alt_std.array, frequency=alt_std.frequency)
+        
+        # np.ma.getmaskarray ensures we have complete mask arrays even if
+        # none of the samples are masked (normally returns a single
+        # "False" value. We ignore the rad alt mask because we are only
+        # going to use the radio altimeter values below 100ft, and short
+        # transients will have been repaired. By repairing with the
+        # repair_duration=None option, we ignore the masked saturated
+        # values at high altitude.
+        
+        az_masked = np.ma.array(data = az_repair.data, 
+                                mask = np.ma.logical_or(
+                                    np.ma.getmaskarray(az_repair),
+                                    np.ma.getmaskarray(alt_std_repair)))
+        
+        # We are going to compute the answers only for ranges where all
+        # the required parameters are available.
+        clumps = np.ma.clump_unmasked(az_masked)
+        for clump in clumps:
+            self.array[clump] = inertial_vertical_speed(
+                alt_std_repair[clump], az.frequency,
+                alt_rad_repair[clump], az_repair[clump])
+
+   
+class VerticalSpeed(DerivedParameterNode):
+    '''
+    The period for averaging altitude data is a trade-off between transient
+    response and noise rejection. 
+    
+    Some older aircraft have poor resolution, and the 4 second timebase leaves a
+    noisy signal. We have inspected Hercules data, where the resolution is of the
+    order of 9 ft/bit, and data from the BAe 146 where the resolution is 15ft. In
+    these cases the wider timebase with greater smoothing is necessary, albeit at
+    the expense of transient response.
+    
+    For most aircraft however, a period of 4 seconds is used. This has been
+    found to give good results, and is also the value used to compute the
+    recorded Vertical Speed parameter on Airbus A320 series aircraft
+    (although in that case the data is delayed, and the aircraft cannot know
+    the future altitudes!).    
+    '''
+    def derive(self, alt_std = P('Altitude STD'), frame = A('Frame')):
+        frame_name = frame.value if frame else None
+        
+        if frame_name in ['Hercules', '146']:
+            timebase = 8.0
         else:
-            # The period for averaging altitude only data has been chosen
-            # from careful inspection of Hercules data, where the pressure
-            # altitude signal resolution is of the order of 9 ft/bit.
-            # Extension to wider timebases, or averaging with more samples,
-            # smooths the data more but equally more samples are affected by
-            # corrupt source data. So, change the "6" only after careful
-            # consideration.
-            self.array = rate_of_change(alt_std,6)*60
-         
-         
-class RateOfClimbForFlightPhases(DerivedParameterNode):
+            timebase = 4.0
+        self.array = rate_of_change(alt_std, timebase)*60.0
+        
+
+class VerticalSpeedForFlightPhases(DerivedParameterNode):
     """
-    A simple and robust rate of climb parameter suitable for identifying
+    A simple and robust vertical speed parameter suitable for identifying
     flight phases. DO NOT use this for event detection.
     """
     def derive(self, alt_std = P('Altitude STD')):
@@ -2644,27 +3258,6 @@ class CoordinatesStraighten(object):
                 array[track] = coord1_s_track
         return array
         
-"""
-================================================================================
-TODO: Add a function into FlightDataConverter to handle this type of signed data.
-Relates to 757-DHL frame only (so far).
-Temporary code to handle latitude and longitude stored with degrees minutes
-and seconds, with a separate sign bit. Without validation the smoothing
-process fails, because the first latitude sample = 0 and the next sample is
-52deg, giving (0-52)^2 as a cost function. Subsequent track calculations
-disintegrate!
-"""
-class Longitude(DerivedParameterNode):
-    def derive(self, lon_deg=P('Longitude Degrees'), sign=P('Longitude Sign')):
-        lon_signed = lon_deg.array * (1.0-2.0*sign.array)
-        self.array = validate_rate_of_change(lon_signed, 0.3, lon_deg.hz, copy=False)
-class Latitude(DerivedParameterNode):
-    def derive(self, lat_deg=P('Latitude Degrees'), sign=P('Latitude Sign')):
-        lat_signed = lat_deg.array * (1.0-2.0*sign.array)
-        self.array = validate_rate_of_change(lat_signed, 0.3, lat_deg.hz, copy=False)       
-"""
-================================================================================
-"""
         
 class LongitudePrepared(DerivedParameterNode, CoordinatesStraighten):
     """
@@ -2752,29 +3345,33 @@ class ThrottleLevers(DerivedParameterNode):
             blend_two_parameters(tla1, tla2)
 
 class ThrustReversers(DerivedParameterNode):
-    """
+    '''
     A single parameter with values 0=all stowed, 1=all deployed, 0.5=in transit.
     This saves subsequent algorithms having to check the various flags for each
     engine.
-    """
-    def derive(self, e1_left_dep=P('Eng (1) Thrust Reverser (L) Deployed'),
-               e1_left_out=P('Eng (1) Thrust Reverser (L) Not Stowed'),
-               e1_right_dep=P('Eng (1) Thrust Reverser (R) Deployed'),
-               e1_right_out=P('Eng (1) Thrust Reverser (R) Not Stowed'),
-               e2_left_dep=P('Eng (2) Thrust Reverser (L) Deployed'),
-               e2_left_out=P('Eng (2) Thrust Reverser (L) Not Stowed'),
-               e2_right_dep=P('Eng (2) Thrust Reverser (R) Deployed'),
-               e2_right_out=P('Eng (2) Thrust Reverser (R) Not Stowed'),
-               frame = A('Frame')):
+    '''
+    def derive(self,
+            e1_lft_dep=P('Eng (1) Thrust Reverser (L) Deployed'),
+            e1_lft_out=P('Eng (1) Thrust Reverser (L) Unlocked'),
+            e1_rgt_dep=P('Eng (1) Thrust Reverser (R) Deployed'),
+            e1_rgt_out=P('Eng (1) Thrust Reverser (R) Unlocked'),
+            e2_lft_dep=P('Eng (2) Thrust Reverser (L) Deployed'),
+            e2_lft_out=P('Eng (2) Thrust Reverser (L) Unlocked'),
+            e2_rgt_dep=P('Eng (2) Thrust Reverser (R) Deployed'),
+            e2_rgt_out=P('Eng (2) Thrust Reverser (R) Unlocked'),
+            frame=A('Frame')):
         frame_name = frame.value if frame else None
         
-        if frame_name in ['737-5']:
-            all_tr = e1_left_dep.array + e1_left_out.array + \
-                e1_right_dep.array + e1_right_out.array + \
-                e2_left_dep.array + e2_left_out.array + \
-                e2_right_dep.array + e2_right_out.array
-            self.array = step_values(all_tr/8.0, [0,0.5,1])
+        if frame_name in ['737-5', '737-i']:
+            all_tr = \
+                e1_lft_dep.array + e1_lft_out.array + \
+                e1_rgt_dep.array + e1_rgt_out.array + \
+                e2_lft_dep.array + e2_lft_out.array + \
+                e2_rgt_dep.array + e2_rgt_out.array
+            self.array = step_values(all_tr / 8.0, [0, 0.5, 1])
             
+        else:
+            raise DataFrameError(self.name, frame_name)
 
 #------------------------------------------------------------------
 # WIND RELATED PARAMETERS
@@ -2793,7 +3390,7 @@ class Headwind(DerivedParameterNode):
     This is the headwind, negative values are tailwind.
     """
     def derive(self, windspeed=P('Wind Speed'), wind_dir=P('Wind Direction Continuous'), 
-               head=P('Heading True')):
+               head=P('Heading True Continuous')):
         rad_scale = radians(1.0)
         self.array = windspeed.array * np.ma.cos((wind_dir.array-head.array)*rad_scale)
                 
@@ -2823,63 +3420,52 @@ class TAT(DerivedParameterNode):
             blend_two_parameters(source_1, source_2)
 
 
-class Vapp(DerivedParameterNode):
-    '''
-    Based on weight and flap at next intended landing.
-    '''
-    name = 'FDR Vapp'
-    def derive(self, flap=P('Flap'), weight=P('Gross Weight Smoothed'),
-               app_lows=KTI('Lowest Point On Approach')):
-        
-        def _vapp(weight, flap):
-            #TODO: V Speed calculations replace below...
-            return weight/(flap*15) # Silly formula for developing structure only.
-        
-        # Initialize the result space.
-        self.array = np_ma_masked_zeros_like(flap.array)
-        
-        # Fill the array with the last approach (and landing) Vapp, providing
-        # that the data does have a final landing of course:-
-        if app_lows.get_last():
-            pit_idx = app_lows.get_last().index
-            pit_wt = weight.array[pit_idx]
-            pit_flap = flap.array[pit_idx]
-            self.array[:] = _vapp(pit_wt, pit_flap)
-            
-            # If we made an approach earlier, fill up to the go-around point with
-            # the appropriate V2 value.
-            while app_lows.get_previous(pit_idx):
-                pit_idx = app_lows.get_previous(pit_idx).index
-                pit_wt = weight.array[pit_idx]
-                pit_flap = flap.array[pit_idx]
-                self.array[:pit_idx] = _vapp(pit_wt, pit_flap)
-         
-         
 class V2(DerivedParameterNode):
     '''
-    Based on weight and flap at time of landing.
+    Based on weight and flap at time of Liftoff, first liftoff only.
     '''
-    def derive(self, flap=P('Flap'), weight_liftoff=KPV('Gross Weight At Liftoff')):
-        
-        def _v2(weight, flap):
-            #TODO: V Speed calculations replace below...
-            return 100.0 # Silly formula for developing structure only.
-        
+    @classmethod
+    def can_operate(cls, available):
+        x = set(available)
+        fdr = 'FDR V2' in x
+        base_for_lookup = ['Airspeed', 'Gross Weight At Liftoff', 'Series', 'Family']
+        conf = set(base_for_lookup + ['Configuration']).issubset(x)
+        flap = set(base_for_lookup + ['Flap']).issubset(x)
+        return fdr or conf or flap
+
+    def derive(self, 
+               spd=P('Airspeed'),
+               flap=P('Flap'),
+               conf=P('Configuration'),
+               fdr_v2=A('FDR V2'),
+               weight_liftoff=KPV('Gross Weight At Liftoff'),
+               series=A('Series'),
+               family=A('Family')):
+
         # Initialize the result space.
-        self.array = np_ma_masked_zeros_like(flap.array)
-        
-        end=None
-        countdown = range(len(weight_liftoff),0,-1)
-        for each_one in countdown:
-            each = each_one - 1
-            each_weight = weight_liftoff[each].value
-            each_index = weight_liftoff[each].index
-            each_flap = flap.array[each_index]
-            self.array[each_index:end] = _v2(each_weight, each_flap)
-            end = each_index # so the next one will precede this.
-        
-        
-        
+        self.array = np_ma_masked_zeros_like(spd.array)
+        self.array.mask = True
+
+        if fdr_v2:
+            # v2 supplied, use this
+            self.array = fdr_v2.value
+        elif weight_liftoff:
+            vspeed_class = get_vspeed_map(series.value, family.value)
+            setting_param = flap or conf
+            if vspeed_class:
+                vspeed_table = vspeed_class()
+                index = weight_liftoff[0].index
+                weight = weight_liftoff[0].value
+                setting = setting_param.array[index]
+                vspeed = vspeed_table.v2(weight, setting)
+                self.array[0:] = vspeed
+            else:
+                # Aircraft doesnt use V2
+                self.array.mask = False
+        else:
+            # no lift off leave zero masked array
+            pass
+
 class WindAcrossLandingRunway(DerivedParameterNode):
     """
     This is the windspeed across the final landing runway, positive wind from left to right.
@@ -2946,82 +3532,219 @@ class Elevator(DerivedParameterNode):
         self.array, self.frequency, self.offset = blend_two_parameters(el, er)
 
 
-class ElevatorTrim(DerivedParameterNode): # PitchTrim
-    '''
-    '''
-    # TODO: TEST
-    name = 'Elevator Trim' # Pitch Trim
+# This should be pitch trim. Left in place in case we find an Elevator Trim (L) !
+##class ElevatorTrim(DerivedParameterNode): # PitchTrim
+    ##'''
+    ##'''
+    ### TODO: TEST
+    ##name = 'Elevator Trim' # Pitch Trim
 
-    def derive(self,
-               etl=P('Elevator Trim (L)'),
-               etr=P('Elevator Trim (R)')):
-        self.array, self.frequency, self.offset = blend_two_parameters(etl, etr)
+    ##def derive(self,
+               ##etl=P('Elevator Trim (L)'),
+               ##etr=P('Elevator Trim (R)')):
+        ##self.array, self.frequency, self.offset = blend_two_parameters(etl, etr)
 
 
-class Spoiler(DerivedParameterNode):
-    '''
-    '''
-    def derive(self, spoiler_2=P('Spoiler (2)'),
-               spoiler_7=P('Spoiler (7)'),
-               frame = A('Frame')):
-        frame_name = frame.value if frame else None
-        
-        if frame_name in ['737-5', '737-6']:
-            '''
-            We indicate the angle of either raised spoiler, ignoring sense of
-            direction as it augments the roll.
-            '''
-            self.offset = (spoiler_2.offset + spoiler_7.offset) / 2.0
-            self.array = np.ma.maximum(spoiler_2.array,spoiler_7.array)
-            # Force small angles to indicate zero.
-            self.array = np.ma.where(self.array < 2.0, 0.0, self.array)
+################################################################################
+# Speedbrake
 
+
+# TODO: Write some unit tests!
 class Speedbrake(DerivedParameterNode):
     '''
+    Spoiler angle in degrees, zero flush with the wing and positive up.
+
+    Spoiler positions are recorded in different ways on different aircraft,
+    hence the frame specific sections in this class.
     '''
+
     align_to_first_dependency = False
-    
-    def derive(self, spoiler_2=P('Spoiler (2)'),
-               spoiler_7=P('Spoiler (7)'),
-               frame = A('Frame')):
-        frame_name = frame.value if frame else None
-        
-        if frame_name in ['737-5', '737-6']:
-            '''
-            For the 737-5 frame, we do not have speedbrake handle position recorded,
-            so the use of the speedbrake is identified by both spoilers being
-            extended at the same time.
-            '''
-            self.offset = (spoiler_2.offset + spoiler_7.offset) / 2.0
-            self.array = np.ma.minimum(spoiler_2.array,spoiler_7.array)
-            # Force small angles to indicate zero.
-            self.array = np.ma.where(self.array < 2.0, 0.0, self.array)
 
-
-class StickShaker(DerivedParameterNode):
-    '''
-    This accounts for the different types of stick shaker system.
-    '''
     @classmethod
     def can_operate(cls, available):
-        # we cannot access the frame_name within this method to determine which
-        # parameter is the requirement
-        if 'Frame' in available and ('Stick Shaker (L)' in available or 'Shaker Activation' in available):
-            return True
-    
-    align_to_first_dependency = False
+        '''
+        Note: The frame name cannot be accessed within this method to determine
+              which parameters are required.
+        '''
+        x = available
+        return ('Frame' in x and 'Spoiler (2)' in x and 'Spoiler (7)' in x) \
+            or ('Frame' in x and 'Spoiler (4)' in x and 'Spoiler (9)' in x)
 
-    def derive(self, frame = A('Frame'), 
-               shake = P('Stick Shaker (L)'), 
-               shake_act = P('Shaker Activation')):
+    def spoiler_737(self, spoiler_a, spoiler_b):
+        '''
+        We indicate the angle of either raised spoiler, ignoring sense of
+        direction as it augments the roll.
+        '''
+        offset = (spoiler_a.offset + spoiler_b.offset) / 2.0
+        array = np.ma.maximum(spoiler_a.array, spoiler_b.array)
+        # Force small angles to indicate zero:
+        array = np.ma.where(array < 2.0, 0.0, array)
+        return array, offset
 
+    def derive(self,
+            spoiler_2=P('Spoiler (2)'), spoiler_7=P('Spoiler (7)'),
+            spoiler_4=P('Spoiler (4)'), spoiler_9=P('Spoiler (9)'),
+            frame=A('Frame')):
+        '''
+        '''
         frame_name = frame.value if frame else None
-        
+
+        if frame_name in ['737-3C']:
+            self.array, self.offset = self.spoiler_737(spoiler_4, spoiler_9)
+
+        elif frame_name in ['737-4', '737-5', '737-6']:
+            self.array, self.offset = self.spoiler_737(spoiler_2, spoiler_7)
+
+        else:
+            raise DataFrameError(self.name, frame_name)
+
+
+# TODO: Write some unit tests!
+class SpeedbrakeSelected(MultistateDerivedParameterNode):
+    '''
+    Determines the selected state of the speedbrake.
+
+    Speedbrake Selected Values:
+
+    - 0 -- Stowed
+    - 1 -- Armed / Commanded (Spoilers Down)
+    - 2 -- Deployed / Commanded (Spoilers Up)
+    '''
+
+    values_mapping = {
+        0: 'Stowed',
+        1: 'Armed/Cmd Dn',
+        2: 'Deployed/Cmd Up',
+    }
+
+    @classmethod
+    def can_operate(cls, available):
+        '''
+        '''
+        x = available
+        return 'Speedbrake Deployed' in x \
+            or ('Frame' in x and 'Speedbrake Handle' in x)
+
+
+    def derive(self,
+            spd_brk_d=P('Speedbrake Deployed'),
+            spd_brk_h=P('Speedbrake Handle'),
+            frame=A('Frame')):
+        '''
+        '''
+        frame_name = frame.value if frame else None
+
+        if spd_brk_h and frame.name:
+
+            if frame_name.startswith('737-'):
+                '''
+                Speedbrake Handle Positions:
+
+                    ========    ============
+                    Angle       Notes
+                    ========    ============
+                     0.0        Full Forward
+                     4.0        Armed
+                    24.0
+                    29.0
+                    38.0        In Flight
+                    40.0        Straight Up
+                    48.0        Full Up
+                    ========    ============
+                '''
+                self.array = np.ma.where(
+                    (2.0 < spd_brk_h.array) & (spd_brk_h.array < 35.0),
+                    'Armed/Cmd Dn', 'Stowed')
+                self.array = np.ma.where(
+                    spd_brk_h.array >= 35.0,
+                    'Deployed/Cmd Up', self.array)
+
+            else:
+                # TODO: Implement for other frames using 'Speedbrake Handle'!
+                return NotImplemented
+
+        elif spd_brk_d:
+            self.array = np.ma.where(
+                spd_brk_d.array > 0,
+                'Deployed/Cmd Up', 'Stowed')
+
+        else:
+            # TODO: Implement using a different parameter?
+            raise DataFrameError(self.name, frame_name)
+
+
+################################################################################
+# Stick Shaker
+
+
+class StickShaker(MultistateDerivedParameterNode):
+    '''
+    This accounts for the different types of stick shaker system. Where two
+    systems are recorded the results are OR'd to make a single parameter which
+    operates in response to either system triggering. Hence the removal of
+    automatic alignment of the signals.
+    '''
+
+    align_to_first_dependency = False
+    values_mapping = {
+        0: 'No_Shake',
+        1: 'Shake',
+    }
+
+    @classmethod
+    def can_operate(cls, available):
+        '''
+        '''
+        # NOTE: Does not take into account which parameter for which frame!
+        return 'Frame' in available and (
+            'Stick Shaker (L)' in available or \
+            'Stick Shaker (R)' in available or \
+            'Shaker Activation' in available \
+        )
+
+    def derive(self, frame=A('Frame'),
+            shake_l=M('Stick Shaker (L)'),
+            shake_r=M('Stick Shaker (R)'),
+            shake_act=M('Shaker Activation')):
+        '''
+        '''
+        frame_name = frame.value if frame else None
+
         if frame_name in ['CRJ-700-900'] and shake_act:
             self.array, self.frequency, self.offset = \
                 shake_act.array, shake_act.frequency, shake_act.offset
-        
-        else:
-            # elif frame_name in ['737-5', '757-DHL'] and shake:
+
+        elif frame_name in ['737-1', '737-3C', '737-4', '737-i', '757-DHL']:
+            self.array = np.ma.logical_or(shake_l.array, shake_r.array)
+            self.frequency , self.offset = shake_l.frequency, shake_l.offset
+
+        elif frame_name in ['737-5'] and shake_l:
+            # Named (L) but in fact (L) and (R) are or'd together at the DAU.
             self.array, self.frequency, self.offset = \
-                shake.array, shake.frequency, shake.offset
+                shake_l.array, shake_l.frequency, shake_l.offset
+
+        # Stick shaker not found in 737-6 frame.
+        else:
+            raise DataFrameError(self.name, frame_name)
+
+
+################################################################################
+
+
+class VOR1Frequency(DerivedParameterNode):
+    """
+    Extraction of VOR tuned frequencies from receiver (1).
+    """
+    name = "VOR (1) Frequency"
+    def derive(self, f=P('ILS-VOR (1) Frequency')):
+        self.array = filter_vor_ils_frequencies(f.array, 'VOR')
+
+
+class VOR2Frequency(DerivedParameterNode):
+    """
+    Extraction of VOR tuned frequencies from receiver (1).
+    """
+    name = "VOR (2) Frequency"
+    def derive(self, f=P('ILS-VOR (2) Frequency')):
+        self.array = filter_vor_ils_frequencies(f.array, 'VOR')
+
