@@ -75,14 +75,15 @@ def recordtype(typename, field_names, verbose=False, **default_kwds):
     if default_kwds:
         raise ValueError('Invalid keyword arguments: %s' % default_kwds)
     # Create and fill-in the class template
-    #numfields = len(field_names)
-    #argtxt = ', '.join(field_names)
-    #reprtxt = ', '.join('%s=%%r' % f for f in field_names)
-    #dicttxt = ', '.join('%r: self.%s' % (f,f) for f in field_names)
-    #tupletxt = repr(tuple('self.%s' % f for f in field_names)).replace("'",'')
-    #inittxt = '; '.join('self.%s=%s' % (f,f) for f in field_names)
-    #itertxt = '; '.join('yield self.%s' % f for f in field_names)
-    #eqtxt   = ' and '.join('self.%s==other.%s' % (f,f) for f in field_names)
+    # The following variables are used within the class template namespace.
+    numfields = len(field_names)
+    argtxt = ', '.join(field_names)
+    reprtxt = ', '.join('%s=%%r' % f for f in field_names)
+    dicttxt = ', '.join('%r: self.%s' % (f,f) for f in field_names)
+    tupletxt = repr(tuple('self.%s' % f for f in field_names)).replace("'",'')
+    inittxt = '; '.join('self.%s=%s' % (f,f) for f in field_names)
+    itertxt = '; '.join('yield self.%s' % f for f in field_names)
+    eqtxt   = ' and '.join('self.%s==other.%s' % (f,f) for f in field_names)
     template = dedent('''
         class %(typename)s(object):
             '%(typename)s(%(argtxt)s)'

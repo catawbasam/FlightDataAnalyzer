@@ -38,19 +38,30 @@ def derived_trimmer(hdf_path, node_names, dest):
 
 
 if __name__ == '__main__':
-    command_parser = argparse.ArgumentParser()
+    parser = argparse.ArgumentParser()
+    subparser = parser.add_subparsers(dest='command',
+                                      description="Utility command, currently "
+                                      "only 'trimmer' is supported",
+                                      help='Additional help')
+    trimmer_parser = subparser.add_parser('trimmer')
+    trimmer_parser.add_argument('input_file_path', help='Input hdf filename.')  
+    trimmer_parser.add_argument('output_file_path', help='Output hdf filename.')
+    trimmer_parser.add_argument('nodes', nargs='+')    
+    
+    
+    
     command_parser.add_argument('command',
                                 help="utils command to run, options: 'trimmer'.")
-    args = command_parser.parse_args(sys.argv[1:2])
+    args = command_parser.parse_args()
     if args.command == 'trimmer':
-        trimmer_parser = argparse.ArgumentParser()
-        trimmer_parser.add_argument('source_path')
-        trimmer_parser.add_argument('node_names', nargs='+')
-        trimmer_parser.add_argument('out_path')
-        print sys.argv[2:]
-        trimmer_args = trimmer_parser.parse_args(args=sys.argv[2:])
-        derived_trimmer(trimmer_args.source_path, trimmer_args.node_names,
-                        trimmer_args.out_path)
+        if not os.path.isfile(args.input_file_path):
+            parser.error("Input file path '%s' does not exist." %
+                         args.input_file_path)
+        if os.path.exists(args.output_file_path):
+            parser.error("Output file path '%s' already exists." %
+                         args.output_file_path)
+        derived_trimmer(trimmer_args.input_file_path, trimmer_args.nodes,
+                        trimmer_args.output_file_path)
     else:
         trimmer_parser.error("'%s' is not a known command." % args.command)
 
