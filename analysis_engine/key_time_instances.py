@@ -491,7 +491,7 @@ class Touchdown(KeyTimeInstanceNode):
                     if wow:
                         edges = find_edges_on_state_change('Ground', wow.array[land.slice])
                         if edges != []:
-                            self.create_kti(edges[0] + land.slice.start)
+                            self.create_kti(edges[0] + (land.slice.start or 0))
                         return
                     
                     if not wow or edges == []:
