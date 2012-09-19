@@ -3,8 +3,6 @@ import sys
 import logging 
 import networkx as nx # pip install networkx or /opt/epd/bin/easy_install networkx
 
-from collections import defaultdict
-
 from utilities.dict_helpers import dict_filter
 
 from analysis_engine.node import (

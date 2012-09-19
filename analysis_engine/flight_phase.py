@@ -51,7 +51,8 @@ from analysis_engine.settings import (
 
 
 class Airborne(FlightPhaseNode):
-    def derive(self, alt_aal=P('Altitude AAL For Flight Phases'),fast=S('Fast')):
+    def derive(self, alt_aal=P('Altitude AAL For Flight Phases'),
+               fast=S('Fast')):
         # Just find out when altitude above airfield is non-zero.
         for speedy in fast:
             # Stop here if the aircraft never went fast.
