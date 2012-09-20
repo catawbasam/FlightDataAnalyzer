@@ -145,7 +145,6 @@ Node: Raw5 	Pre: ['P8'] 	Succ: [] 	Neighbors: [] 	Edges: []
 Node: Start Datetime 	Pre: [] 	Succ: [] 	Neighbors: [] 	Edges: []
 """
 
-        
     def test_dependency_with_lowlevel_dependencies_requested(self):
         """ Simulate requesting a Raw Parameter as a dependency. This requires
         the requested node to be removed when it is not at the top of the
@@ -174,12 +173,10 @@ Node: Start Datetime 	Pre: [] 	Succ: [] 	Neighbors: [] 	Edges: []
         self.assertFalse('Floating' in order)
         self.assertFalse('root' in order) #don't include the root!
 
-
     def test_sample_parameter_module(self):
         """Tests many options:
         can_operate on SmoothedTrack works with 
         """
-        
         required_nodes = ['Smoothed Track', 'Moment Of Takeoff', 'Vertical Speed', 'Slip On Runway']
         lfl_params = ['Indicated Airspeed', 
               'Groundspeed', 
@@ -209,7 +206,6 @@ Node: Start Datetime 	Pre: [] 	Succ: [] 	Neighbors: [] 	Edges: []
         self.assertEqual(len(nodes.requested), 4)
         self.assertEqual(len(nodes.derived_nodes), 13)
         # remove some lfl params to see inactive nodes
-        
         
     def test_invalid_requirement_raises(self):
         lfl_params = []

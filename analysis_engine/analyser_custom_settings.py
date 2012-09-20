@@ -1,1 +1,0 @@
-BASE_URL = 'https://polaris-test.flightdataservices.com'

@@ -156,7 +156,8 @@ def graph_nodes(node_mgr):
         KeyTimeInstanceNode: '#fdbb30',  # fds-orange
     }
     gr_all.add_nodes_from(
-        [(name, {'color': colors[node.__base__]}) for name, node in derived_minus_lfl.items()])
+        [(name, {'color': colors[node.__base__]}) \
+         for name, node in derived_minus_lfl.items()])
     
     # build list of dependencies
     derived_deps = set()  # list of derived dependencies
@@ -168,6 +169,7 @@ def graph_nodes(node_mgr):
             
     # add root - the top level application dependency structure based on required nodes
     # filter only nodes which are at the top of the tree (no predecessors)
+    # TODO: Ask Chris about this causing problems with the trimmer.
     gr_all.add_node('root', color='#fff')
     root_edges = [('root', node_name) for node_name in node_mgr.requested \
                   if not gr_all.predecessors(node_name)]
@@ -188,7 +190,7 @@ def graph_nodes(node_mgr):
     available_nodes = set(node_mgr.keys())
     # Missing dependencies.
     missing_derived_dep = list(derived_deps - available_nodes)
-    # Missing dependencies which are required.
+    # Missing dependencies which are requested.
     missing_required = list(set(node_mgr.requested) - available_nodes)
     
     if missing_derived_dep:

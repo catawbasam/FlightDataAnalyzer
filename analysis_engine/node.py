@@ -1608,8 +1608,8 @@ class NodeManager(object):
         :param start_datetime: datetime of start of data file
         :type start_datetime: datetime
         :param lfl: List of parameter names in data file defined by the LFL.
-        :type lfl: list
-        :type requested: list
+        :type lfl: [str]
+        :type requested: [str]
         :type derived_nodes: dict
         :type aircraft_info: dict
         :type achieved_flight_record: dict
