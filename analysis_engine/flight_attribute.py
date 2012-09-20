@@ -823,10 +823,10 @@ class LandingPilot(FlightAttributeNode, DeterminePilot):
     name = 'FDR Landing Pilot'
     @classmethod
     def can_operate(cls, available):
-        controls_available = all([n in available for n in ('Pitch (Capt)',
-                                                           'Pitch (FO)',
-                                                           'Roll (Capt)',
-                                                           'Roll (FO)',
+        controls_available = all([n in available for n in ('Sidestick Pitch (Capt)',
+                                                           'Sidestick Pitch (FO)',
+                                                           'Sidestick Roll (Capt)',
+                                                           'Sidestick Roll (FO)',
                                                            'Landing')])
         autopilot_available = 'Autopilot Engaged 1 At Touchdown' in available \
                           and 'Autopilot Engaged 2 At Touchdown' in available

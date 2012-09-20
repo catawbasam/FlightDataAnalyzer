@@ -684,7 +684,9 @@ class AltitudeRadio(DerivedParameterNode):
                source_A = P('Altitude Radio (A)'),
                source_B = P('Altitude Radio (B)'),
                source_C = P('Altitude Radio (C)'),
-               source_D = P('Altitude Radio (D)')):
+               source_D = P('Altitude Radio (D)'),
+               source_L = P('Altitude Radio EFIS (L)'),
+               source_R = P('Altitude Radio EFIS (R)')):
         
         frame_name = frame.value if frame else None
         frame_qualifier = frame_qual.value if frame_qual else None
@@ -706,9 +708,13 @@ class AltitudeRadio(DerivedParameterNode):
             self.array, self.frequency, self.offset = \
                 blend_two_parameters(source_B, source_C)
             
-        elif frame_name in ['737-4', '737-4_Analogue', 'CRJ-700-900']:
-            self.array, self.frequency, self.offset = \
-                blend_two_parameters(source_A, source_B)
+        elif frame_name in ['737-4', '737-4_Analogue']:
+            if frame_qualifier and 'Altitude_Radio_EFIS' in frame_qualifier:
+                self.array, self.frequency, self.offset = \
+                    blend_two_parameters(source_L, source_R)
+            else:
+                self.array, self.frequency, self.offset = \
+                    blend_two_parameters(source_A, source_B)
         
         elif frame_name in ['737-5']:
             if frame_qualifier and 'Altitude_Radio_EFIS' in frame_qualifier or\
@@ -720,6 +726,10 @@ class AltitudeRadio(DerivedParameterNode):
             else:
                 raise ValueError,'737-5 frame Altitude Radio qualifier not recognised.'
 
+        elif frame_name in ['CRJ-700-900']:
+            self.array, self.frequency, self.offset = \
+                blend_two_parameters(source_A, source_B)
+        
             
         else:
             raise DataFrameError(self.name, frame_name)
@@ -3344,12 +3354,17 @@ class ThrottleLevers(DerivedParameterNode):
         self.array, self.frequency, self.offset = \
             blend_two_parameters(tla1, tla2)
 
-class ThrustReversers(DerivedParameterNode):
+class ThrustReversers(MultistateDerivedParameterNode):
     '''
-    A single parameter with values 0=all stowed, 1=all deployed, 0.5=in transit.
-    This saves subsequent algorithms having to check the various flags for each
-    engine.
+    A single parameter with multistate mapping as below.
     '''
+
+    values_mapping = {
+        0: 'Stowed',
+        1: 'In Transit',
+        2: 'Deployed',
+    }
+
     def derive(self,
             e1_lft_dep=P('Eng (1) Thrust Reverser (L) Deployed'),
             e1_lft_out=P('Eng (1) Thrust Reverser (L) Unlocked'),
@@ -3362,13 +3377,17 @@ class ThrustReversers(DerivedParameterNode):
             frame=A('Frame')):
         frame_name = frame.value if frame else None
         
-        if frame_name in ['737-5', '737-i']:
+        if frame_name in ['737-4', '737-5', '737-i']:
             all_tr = \
-                e1_lft_dep.array + e1_lft_out.array + \
-                e1_rgt_dep.array + e1_rgt_out.array + \
-                e2_lft_dep.array + e2_lft_out.array + \
-                e2_rgt_dep.array + e2_rgt_out.array
-            self.array = step_values(all_tr / 8.0, [0, 0.5, 1])
+                e1_lft_dep.array.raw + e1_lft_out.array.raw + \
+                e1_rgt_dep.array.raw + e1_rgt_out.array.raw + \
+                e2_lft_dep.array.raw + e2_lft_out.array.raw + \
+                e2_rgt_dep.array.raw + e2_rgt_out.array.raw
+            
+            result = np_ma_ones_like(e1_lft_dep.array.raw)
+            result = np.ma.where(all_tr==0, 0, result)
+            result = np.ma.where(all_tr==8, 2, result)
+            self.array = result
             
         else:
             raise DataFrameError(self.name, frame_name)
