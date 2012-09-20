@@ -139,8 +139,6 @@ class APIHandlerHTTP(object):
                                   error, self.delay)
                 time.sleep(self.delay)
         raise error
-    
-
 
 
 def get_api_handler(handler_path, *args, **kwargs):
