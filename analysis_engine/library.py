@@ -6,8 +6,8 @@ from collections import OrderedDict, namedtuple
 from datetime import datetime, timedelta
 from hashlib import sha256
 from itertools import izip
-##from scipy.optimize import fmin, fmin_bfgs, fmin_tnc
-# TODO: Inform Enthought that fmin_l_bfgs_b dies in a dark hole at _lbfgsb.setulb
+
+from hdfaccess.parameter import MappedArray
 
 from settings import (KTS_TO_MPS, 
                       REPAIR_DURATION, 
@@ -62,13 +62,15 @@ def align(slave, master, data_type=None):
     :rtype: np.ma.array
     """
     slave_array = slave.array # Optimised access to attribute.
-    if hasattr(slave_array, 'raw'):
-        # MappedArray: we should use raw data
+
+    if isinstance(slave_array, MappedArray):  # Multi-state array.
         slave_array = slave_array.raw
-        if data_type == None:
-            data_type='multi-state' # Force the data type in case it has not been set inadvertently.
-        else:
-            raise ValueError, "multi-state parameter identified incorrectly for %s" %slave.name
+        data_type = 'multi-state'
+    elif isinstance(slave_array, np.ma.MaskedArray):
+        data_type = 'analogue'
+    else:
+        raise ValueError('Cannot align slave array of unknown type: '
+            'Slave: %s, Master: %s.', slave.name, master.name)
 
     if len(slave_array) == 0:
         # No elements to align, avoids exception being raised in the loop below.
@@ -161,7 +163,7 @@ def align(slave, master, data_type=None):
         # Cunningly, if we are working with discrete or multi-state parameters, 
         # by reverting to 1,0 or 0,1 coefficients we gather the closest value
         # in time to the master parameter.
-        if data_type and data_type.lower() in ('discrete', 'multi-state', 'non-aligned'):
+        if data_type and data_type.lower() in ('multi-state', 'non-aligned'):
             b = round(b)
             
         # Either way, a is the residual part.    
@@ -2756,6 +2758,34 @@ def rate_of_change(diff_param, width):
     return rate_of_change_array(to_diff, hz, width)
     
 
+def rate_of_change_array(to_diff, hz, width):
+    '''
+    Lower level access to rate of change algorithm. See rate_of_change for description.
+
+    :param to_diff: input data
+    :type to_diff: Numpy masked array
+    :param hz: sample rate for the input data (sec-1)
+    :type hz: float
+    :param width: the differentiation time period (sec)
+    :type width: float
+   
+    :returns: masked array of values with differentiation applied
+
+    '''
+    hw = width * hz / 2.0
+    if hw < 1:
+        raise ValueError, 'Rate of change called with inadequate width.'
+    if len(to_diff) < width:
+        logger.warn("Rate of change called with short data segment. Zero rate returned")
+        return np_ma_zeros_like(to_diff)
+   
+    # Set up an array of masked zeros for extending arrays.
+    slope = np.ma.copy(to_diff)
+    slope[hw:-hw] = (to_diff[2*hw:] - to_diff[:-2*hw])/width
+    slope[:hw] = (to_diff[1:hw+1] - to_diff[0:hw]) * hz
+    slope[-hw:] = (to_diff[-hw:] - to_diff[-hw-1:-1])* hz
+    return slope
+    
 def repair_mask(array, frequency=1, repair_duration=REPAIR_DURATION,
                 raise_duration_exceedance=False, copy=False, extrapolate=False):
     '''
