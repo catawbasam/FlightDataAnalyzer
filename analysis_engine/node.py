@@ -371,11 +371,20 @@ class DerivedParameterNode(Node):
         :returns: A copy of self aligned to the input parameter.
         :rtype: DerivedParameterNode
         '''
-        aligned_array = align(self, param)
-        aligned_param = DerivedParameterNode(name=self.name,
-                                             frequency=param.frequency,
-                                             offset=param.offset)
-        aligned_param.array = aligned_array
+        # Create temporary new aligned parameter of correct type:
+        aligned_param = self.__class__(
+            name=self.name,
+            frequency=param.frequency,
+            offset=param.offset,
+        )
+
+        # Align the array for the temporary parameter:
+        aligned_param.array = align(self, param)
+        
+        # Ensure that we copy attributes required for multi-states:
+        if hasattr(self, 'values_mapping'):
+            aligned_param.values_mapping = self.values_mapping
+
         return aligned_param 
     
     def slices_above(self, value):
