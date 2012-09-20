@@ -324,7 +324,6 @@ def process_flight(hdf_path, aircraft_info, start_datetime=datetime.now(),
 if __name__ == '__main__':
     import argparse
     from utilities.filesystem_tools import copy_file
-    logging.StreamHandler
     logger = logging.getLogger()
     logger.setLevel(logging.DEBUG)
     logger.addHandler(logging.StreamHandler(stream=sys.stdout))
