@@ -781,22 +781,6 @@ class TestKeyPointValueNode(unittest.TestCase):
                          [KeyPointValue(index=22, value=27, name='Kpv'),
                           KeyPointValue(index=10, value=15, name='Kpv')])
 
-    def test_create_kpv_from_slices(self):
-        # Test sketched out by DJ, but I have no idea how to run Mock, so this badly needs fixing !
-        # Main point is to return a single answer from multiple slices.
-        knode = self.knode
-        function = mock.Mock()
-        return_values = [(10, 15), (22, 27)]
-        def side_effect(*args, **kwargs):
-            return return_values.pop()
-        function.side_effect = side_effect
-        slices = [slice(1,10), slice(15, 25)]
-        array = np.ma.arange(30) + 15
-        knode.create_kpv_from_slices(array, slices, function)
-        self.assertEqual(list(knode),
-                         [KeyPointValue(index=24, value=37, name='Kpv')])
-        
-
     def test_create_kpv_outside_slices(self):
         knode = self.knode
         function = mock.Mock()
@@ -952,8 +936,17 @@ class TestKeyPointValueNode(unittest.TestCase):
         self.assertEqual(kpv_node_returned6, [])
         kpv_node_returned7 = kpv_node.get_ordered_by_value(slice(500,600))
         self.assertEqual(kpv_node_returned7, [])
-
     
+    def test__get_slices(self):
+        section_node = SectionNode(items=[Section('A', slice(10, 20), 10, 20),
+                                          Section('B', slice(30, 40), 30, 40)])
+        slices = KeyPointValueNode._get_slices(section_node)
+        self.assertEqual(slices, [s.slice for s in section_node])
+        input_slices = [slice(10, 20), slice(10, 20)]
+        self.assertEqual(KeyPointValueNode._get_slices(input_slices),
+                         input_slices)
+
+
 class TestKeyTimeInstanceNode(unittest.TestCase):
     def setUp(self):
         class KTI(KeyTimeInstanceNode):

@@ -326,7 +326,7 @@ if __name__ == '__main__':
     from utilities.filesystem_tools import copy_file
     logging.StreamHandler
     logger = logging.getLogger()
-    logger.setLevel(logging.DEBUG)
+    logger.setLevel(logging.INFO)
     logger.addHandler(logging.StreamHandler(stream=sys.stdout))
     parser = argparse.ArgumentParser(description="Process a flight.")
     parser.add_argument('file', type=str,
