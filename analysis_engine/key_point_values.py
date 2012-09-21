@@ -2821,7 +2821,8 @@ class FlapWithSpeedbrakesDeployedMax(KeyPointValueNode):
 
 class FlareDuration20FtToTouchdown(KeyPointValueNode):
     #TODO: Tests
-    def derive(self, alt_aal=P('Altitude AAL For Flight Phases'), tdowns=KTI('Touchdown'), lands=S('Landing')):
+    def derive(self, alt_aal=P('Altitude AAL For Flight Phases'),
+               tdowns=KTI('Touchdown'), lands=S('Landing')):
         for tdown in tdowns:
             this_landing = lands.get_surrounding(tdown.index)[0]
             if this_landing:

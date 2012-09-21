@@ -59,6 +59,7 @@ from analysis_engine.derived_parameters import (
     HeadingTrue,
     Headwind,
     ILSFrequency,
+    ILSRange,
     LatitudePrepared,
     LongitudePrepared,
     Mach,
@@ -1540,6 +1541,25 @@ class TestILSFrequency(unittest.TestCase):
             data=[108.10,99,108.10,111.95,99,111.95], 
              mask=[False,True,False,False,True,False])
         ma_test.assert_masked_array_approx_equal(result.array, expected_array)
+
+
+class TestILSRange(unittest.TestCase):
+    def test_can_operate(self):
+        expected = [('Latitude Prepared',
+                     'Longitude Prepared',
+                     'ILS Glideslope',
+                     'Groundspeed',
+                     'Drift',
+                     'Heading True Continuous',
+                     'Airspeed True',
+                     'Altitude AAL',
+                     'ILS Localizer Established',
+                     'ILS Glideslope Established',
+                     'Precise Positioning',
+                     'FDR Approaches',
+                     'Start Datetime')]
+        opts = ILSRange.get_operational_combinations()
+        self.assertEqual(opts, expected)
         
         
 class TestPitch(unittest.TestCase):

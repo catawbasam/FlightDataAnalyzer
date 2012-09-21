@@ -2571,11 +2571,6 @@ class ILSRange(DerivedParameterNode):
     
     It is in metres from the localizer antenna.
     """
-    
-    ##@classmethod
-    ##def can_operate(cls, available):
-        ##return True
-    
     def derive(self, lat=P('Latitude Prepared'),
                lon = P('Longitude Prepared'),
                glide = P('ILS Glideslope'),
@@ -2588,14 +2583,14 @@ class ILSRange(DerivedParameterNode):
                gs_established = S('ILS Glideslope Established'),
                precise = A('Precise Positioning'),
                app_info = A('FDR Approaches'),
-               #final_apps = S('Final Approach'),
                start_datetime = A('Start Datetime')
                ):
         ils_range = np_ma_masked_zeros_like(gspd.array)
         
         for this_loc in loc_established:
             # Find the matching runway details
-            approach, runway = find_app_rwy(self, app_info, start_datetime, this_loc)
+            approach, runway = find_app_rwy(self, app_info, start_datetime,
+                                            this_loc)
   
             try:
                 start_2_loc, gs_2_loc, end_2_loc, pgs_lat, pgs_lon = \
@@ -2603,7 +2598,7 @@ class ILSRange(DerivedParameterNode):
                 off_cl = head.array - runway_heading(runway)
             except (KeyError, TypeError):
                 self.warning("Runway did not have required information in "
-                                "'%s', '%s'.", self.name, runway)
+                             "'%s', '%s'.", self.name, runway)
                 off_cl = np_ma_zeros_like(head.array)
                 continue
 
@@ -2624,7 +2619,8 @@ class ILSRange(DerivedParameterNode):
             # phase to high range values at the start of the phase.
             spd_repaired = repair_mask(speed)
             ils_range[this_loc.slice] = integrate(
-                spd_repaired, gspd.frequency, scale=KTS_TO_MPS, direction='reverse')
+                spd_repaired, gspd.frequency, scale=KTS_TO_MPS,
+                direction='reverse')
                 
             if 'glideslope' in runway:
                 # The runway has an ILS glideslope antenna
@@ -2635,7 +2631,8 @@ class ILSRange(DerivedParameterNode):
                 else:
                     # we didn't find a period where the glideslope was
                     # established at the same time as the localiser
-                    self.warning("No glideslope established at same time as localiser")
+                    self.warning("No glideslope established at same time as "
+                                 "localiser")
                     continue
                     
                 # Compute best fit glidepath. The term (1-0.13 x glideslope
@@ -2645,12 +2642,13 @@ class ILSRange(DerivedParameterNode):
                 # error we are correcting for here, and empyrically checked.
                 
                 corr, slope, offset = coreg(ils_range[this_gs.slice],
-                    alt_aal.array[this_gs.slice]* (1-0.13*glide.array[this_gs.slice]))
+                    alt_aal.array[this_gs.slice] * (1-0.13*glide.array[this_gs.slice]))
 
                 # This should correlate very well, and any drop in this is a
                 # sign of problems elsewhere.
                 if corr < 0.995:
-                    print 'Low convergence in computing ILS glideslope offset.'
+                    self.warning('Low convergence in computing ILS '
+                                 'glideslope offset.')
 
                 # Shift the values in this approach so that the range = 0 at
                 # 0ft on the projected ILS slope, then reference back to the

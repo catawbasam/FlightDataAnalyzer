@@ -1,14 +1,9 @@
-import unittest
 import numpy as np
+import os
+import unittest
 
-from analysis_engine.node import (A, KPV, KTI, KeyTimeInstance, Parameter, P,
-                                  Section, SectionNode, S)
+from utilities.filesystem_tools import copy_file
 
-from analysis_engine.key_time_instances import (BottomOfDescent,
-                                         TopOfClimb, 
-                                         TopOfDescent
-                                         )
-from analysis_engine.plot_flight import plot_parameter
 from analysis_engine.flight_phase import (Airborne,
                                           Approach,
                                           BouncedLanding,
@@ -23,9 +18,9 @@ from analysis_engine.flight_phase import (Airborne,
                                           GoAroundAndClimbout,
                                           Grounded,
                                           Holding,
+                                          ILSGlideslopeEstablished,
                                           ILSLocalizerEstablished,
                                           Landing,
-                                          LevelFlight,
                                           Mobile,
                                           Takeoff,
                                           Taxiing,
@@ -34,10 +29,14 @@ from analysis_engine.flight_phase import (Airborne,
                                           TurningInAir,
                                           TurningOnGround
                                           )
+from analysis_engine.key_time_instances import (TopOfClimb, 
+                                                TopOfDescent)
+from analysis_engine.library import integrate
+from analysis_engine.node import (A, KTI, KeyTimeInstance, Parameter, P,
+                                  Section, SectionNode)
+from analysis_engine.process_flight import process_flight
 
-from analysis_engine.library import hysteresis, integrate, repair_mask
-
-from analysis_engine.settings import AIRSPEED_THRESHOLD, HYSTERESIS_FPALT_CCD
+from analysis_engine.settings import AIRSPEED_THRESHOLD
 
 '''
 Three little routines to make building Sections for testing easier.
@@ -113,7 +112,6 @@ class TestAirborne(unittest.TestCase):
         vert_spd_data = np.ma.array(range(0,400,50)+
                                          range(400,-450,-50)+
                                          range(-450,50,50))
-        vert_spd = Parameter('Vertical Speed For Flight Phases', np.ma.array(vert_spd_data))
         altitude = Parameter('Altitude AAL For Flight Phases', integrate(vert_spd_data, 1, 0, 1.0/60.0))
         fast = SectionNode('Fast', items=[Section('Fast',slice(1,29,None),1,29)])
         air = Airborne()
@@ -215,7 +213,35 @@ class TestBouncedLanding(unittest.TestCase):
         self.assertEqual(bl, expected)
         
 
-
+class TestILSGlideslopeEstablished(unittest.TestCase):
+    def test_can_operate(self):
+        expected=[('ILS Glideslope', 'ILS Localizer Established',
+                   'Altitude AAL')]
+        opts = ILSGlideslopeEstablished.get_operational_combinations()
+        self.assertEqual(opts, expected)
+    
+    
+    def test_derive(self):
+        hdf_copy = copy_file(os.path.join('test_data', 'coreg.hdf5'),
+                             postfix='_test_copy')
+        result = process_flight(hdf_copy, {
+            'engine': {'classification': 'JET',
+                       'quantity': 2},
+            'frame': {'doubled': False, 'name': '737-3C'},
+            'id': 1,
+            'identifier': '1000',
+            'model': {'family': 'B737 NG',
+                      'interpolate_vspeeds': True,
+                      'manufacturer': 'Boeing',
+                      'model': 'B737-86N',
+                      'precise_positioning': True,
+                      'series': 'B737-800'},
+            'recorder': {'name': 'SAGEM', 'serial': '123456'},
+            'tail_number': 'G-DEMA'})
+        phases = result['phases']
+        sections = phases.get(name='ILS Glideslope Established')
+        sections
+    
 
 class TestILSLocalizerEstablished(unittest.TestCase):
     def test_can_operate(self):
@@ -465,8 +491,6 @@ class TestCruise(unittest.TestCase):
         # Use the same test data for flight phases and measured altitude.
         alt_p = Parameter('Altitude STD', alt_data)
         # Transform the "recorded" altitude into the CCD input data.
-        ccd_p = Parameter('Altitude For Climb Cruise Descent', 
-                          hysteresis(repair_mask(alt_data), HYSTERESIS_FPALT_CCD))
         ccd = ClimbCruiseDescent()
         ccd.derive(alt_p, buildsection('Airborne',0,len(alt_data)))
         toc = TopOfClimb()
@@ -848,7 +872,6 @@ class TestLanding(unittest.TestCase):
 
     def test_landing_basic(self):
         head = np.ma.array([20]*8+[10,0])
-        ias  = np.ma.array([110]*4+[80,50,30,20,10,10])
         alt_aal = np.ma.array([80,40,20,5]+[0]*6)
         phase_fast = buildsection('Fast',0,5)
         landing = Landing()
@@ -860,7 +883,6 @@ class TestLanding(unittest.TestCase):
         
     def test_landing_turnoff(self):
         head = np.ma.array([20]*15+range(20,0,-2))
-        ias  = np.ma.array([110]*4+[80,50,40,30,20]+[10]*21)
         alt_aal = np.ma.array([80,40,20,5]+[0]*26)
         phase_fast = buildsection('Fast',0,5)
         landing = Landing()
@@ -872,7 +894,6 @@ class TestLanding(unittest.TestCase):
         
     def test_landing_turnoff_left(self):
         head = np.ma.array([20]*15+range(20,0,-2))*-1.0
-        ias  = np.ma.array([110]*4+[80,50,40,30,20]+[10]*21)
         alt_aal = np.ma.array([80,40,20,5]+[0]*26)
         phase_fast = buildsection('Fast',0,5)
         landing = Landing()
@@ -954,7 +975,6 @@ class TestTakeoff(unittest.TestCase):
 
     def test_takeoff_basic(self):
         head = np.ma.array([ 0,0,10,20,20,20,20,20,20,20,20])
-        ias  = np.ma.array([10,10,10,10,10,40,70,90,105,110,110])
         alt_aal = np.ma.array([0,0,0,0,0,0,0,0,10,30,70])
         phase_fast = buildsection('Fast', 6.5, 10)
         takeoff = Takeoff()
@@ -971,7 +991,6 @@ class TestTakeoff(unittest.TestCase):
         slice an empty takeoff phase is produced.
         '''
         head = np.ma.array([ 0,0,10,20,20,20,20,20,20,20,20])
-        ias  = np.ma.array([10,10,10,10,10,40,70,90,105,110,110])
         alt_aal = np.ma.array([0,0,0,0,0,0,0,0,10,30,70])
         phase_fast = buildsection('Fast', None, None)
         takeoff = Takeoff()
