@@ -314,7 +314,7 @@ def process_flight(hdf_path, aircraft_info, start_datetime=datetime.now(),
         if hooks.PRE_FLIGHT_ANALYSIS:
             logger.info("Performing PRE_FLIGHT_ANALYSIS actions: %s", 
                          hooks.PRE_FLIGHT_ANALYSIS.func_name)
-            hooks.PRE_FLIGHT_ANALYSIS(hdf, aircraft_info, process_order)
+            hooks.PRE_FLIGHT_ANALYSIS(hdf, hdf_path, aircraft_info, process_order)
         else:
             logger.info("No PRE_FLIGHT_ANALYSIS actions to perform")
         
