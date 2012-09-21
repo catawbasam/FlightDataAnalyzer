@@ -403,7 +403,7 @@ def coreg(y, indep_var=None, force_zero=False):
     """
     n = len(y)
     if n < 2:
-        raise ValueError, 'Function coreg called with data of length 1 or null'
+        raise ValueError, 'Function coreg called with data of length %s' % n
     if indep_var == None:
         x = np.ma.arange(n, dtype=float)
     else:

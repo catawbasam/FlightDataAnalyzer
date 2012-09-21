@@ -14,7 +14,7 @@ from analysis_engine.node import (Attribute, derived_param_from_hdf,
                                   FlightPhaseNode,
                                   KeyPointValueNode,
                                   KeyTimeInstanceNode, Node,
-                                  NodeManager, P, SectionNode)
+                                  NodeManager, P, Section, SectionNode)
 from hdfaccess.file import hdf_file
 
 logger = logging.getLogger(__name__)
@@ -68,6 +68,7 @@ def derive_parameters(hdf, node_mgr, process_order):
     kti_list = KeyTimeInstanceNode()
     section_list = SectionNode()  # 'Node Name' : node()  pass in node.get_accessor()
     flight_attrs = []
+    duration = hdf.duration
     
     for param_name in process_order:
         if param_name in node_mgr.lfl:
@@ -112,47 +113,68 @@ def derive_parameters(hdf, node_mgr, process_order):
         if node.node_type is KeyPointValueNode:
             #Q: track node instead of result here??
             params[param_name] = result
-            for one_hz in result.get_aligned(P(frequency=1, offset=0)) or []:
-                if not (0 <= one_hz.index <= hdf.duration):
-                    raise IndexError("KPV '%s' index %.2f is not between 0 and %d",
-                        one_hz.name, one_hz.index, hdf.duration)
+            for one_hz in result.get_aligned(P(frequency=1, offset=0)):
+                if not (0 <= one_hz.index <= duration):
+                    raise IndexError(
+                        "KPV '%s' index %.2f is not between 0 and %d" %
+                        (one_hz.name, one_hz.index, duration))
                 kpv_list.append(one_hz)
         elif node.node_type is KeyTimeInstanceNode:
             params[param_name] = result
-            for one_hz in result.get_aligned(P(frequency=1, offset=0)) or []:
-                if not (0 <= one_hz.index <= hdf.duration):
-                    raise IndexError("KTI '%s' index %.2f is not between 0 and %d",
-                        one_hz.name, one_hz.index, hdf.duration)
+            for one_hz in result.get_aligned(P(frequency=1, offset=0)):
+                if not (0 <= one_hz.index <= duration):
+                    raise IndexError(
+                        "KTI '%s' index %.2f is not between 0 and %d" %
+                        (one_hz.name, one_hz.index, duration))
                 kti_list.append(one_hz)
         elif node.node_type is FlightAttributeNode:
             params[param_name] = result
             try:
                 flight_attrs.append(Attribute(result.name, result.value)) # only has one Attribute result
             except:
-                logger.warning("Flight Attribute Node '%s' returned empty handed."%(param_name))
+                logger.warning("Flight Attribute Node '%s' returned empty "
+                               "handed.", param_name)
         elif issubclass(node.node_type, SectionNode):
-            params[param_name] = result
-            for one_hz in result.get_aligned(P(frequency=1, offset=0)) or []:
-                slice_ = one_hz.slice
-                if slice_.start and not (0 <= slice_.start <= hdf.duration) or \
-                   slice_.stop and not (0 <= slice_.stop <= hdf.duration + 1):
-                    raise IndexError("Section '%s' (%.2f, %.2f) does not lie between 0 and %d",
-                        one_hz.name, slice_.start or 0, slice_.stop or hdf.duration, hdf.duration)
-                if one_hz.start_edge and not 0 <= one_hz.start_edge <= hdf.duration:
-                    raise IndexError("Section '%s' start_edge (%.2f) does not lie between 0 and %d",
-                        one_hz.name, one_hz.start_edge, hdf.duration)
-                if one_hz.stop_edge and not 0 <= one_hz.stop_edge <= hdf.duration + 1:
-                    raise IndexError("Section '%s' stop_edge (%.2f) does not lie between 0 and %d",
-                        one_hz.name, one_hz.stop_edge, hdf.duration)
+            aligned_section = result.get_aligned(P(frequency=1, offset=0))
+            for index, one_hz in enumerate(aligned_section):
+                # SectionNodes allow slice starts and stops being None which
+                # signifies the beginning and end of the data. To avoid TypeErrors
+                # in subsequent derive methods which perform arithmetic on section
+                # slice start and stops, replace with 0 or hdf.duration.
+                start = 0 if one_hz.slice.start is None else one_hz.slice.start
+                stop = \
+                    duration if one_hz.slice.stop is None else one_hz.slice.stop
+                start_edge = \
+                    0 if one_hz.start_edge is None else one_hz.start_edge
+                stop_edge = \
+                    duration if one_hz.stop_edge is None else one_hz.stop_edge
+                slice_ = slice(start, stop)
+                one_hz = aligned_section[index] = Section(one_hz.name, slice_,
+                                                          start_edge, stop_edge)
+                
+                if not (0 <= start <= duration) or \
+                   not (0 <= stop <= duration + 1):
+                    raise IndexError(
+                        "Section '%s' (%.2f, %.2f) does not lie between 0 and "
+                        "%d" % (one_hz.name, start, stop, duration))
+                if not 0 <= start_edge <= duration:
+                    raise IndexError(
+                        "Section '%s' start_edge (%.2f) does not lie between 0 "
+                        "and %d" % (one_hz.name, start_edge, duration))
+                if not 0 <= stop_edge <= duration + 1:
+                    raise IndexError(
+                        "Section '%s' stop_edge (%.2f) does not lie between 0 "
+                        "and %d" % (one_hz.name, stop_edge, duration))
                 section_list.append(one_hz)
+            params[param_name] = aligned_section
         elif issubclass(node.node_type, DerivedParameterNode):
-            if hdf.duration:
+            if duration:
                 # check that the right number of results were returned
                 # Allow a small tolerance. For example if duration in seconds
                 # is 2822, then there will be an array length of  1411 at 0.5Hz and 706
                 # at 0.25Hz (rounded upwards). If we combine two 0.25Hz
                 # parameters then we will have an array length of 1412.
-                expected_length = hdf.duration * result.frequency
+                expected_length = duration * result.frequency
                 if result.array == None:
                     array_length = expected_length
                     # Where a parameter is wholly masked, we fill the HDF
@@ -164,9 +186,10 @@ def derive_parameters(hdf, node_mgr, process_order):
                 if length_diff == 0:
                     pass
                 elif 0 < length_diff < 5:
-                    logger.warning("Cutting excess data for parameter '%s'. Expected length was "
-                                    "'%s' while resulting array length was '%s'.",
-                                    param_name, expected_length, len(result.array))
+                    logger.warning("Cutting excess data for parameter '%s'. "
+                                   "Expected length was '%s' while resulting "
+                                   "array length was '%s'.", param_name,
+                                   expected_length, len(result.array))
                     result.array = result.array[:expected_length]
                 else:
                     raise ValueError("Array length mismatch for parameter "
