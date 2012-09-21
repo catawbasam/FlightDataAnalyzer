@@ -224,7 +224,7 @@ class TestILSGlideslopeEstablished(unittest.TestCase):
     def test_derive(self):
         hdf_copy = copy_file(os.path.join('test_data', 'coreg.hdf5'),
                              postfix='_test_copy')
-        process_flight(hdf_copy, {
+        result = process_flight(hdf_copy, {
             'engine': {'classification': 'JET',
                        'quantity': 2},
             'frame': {'doubled': False, 'name': '737-3C'},
@@ -238,6 +238,9 @@ class TestILSGlideslopeEstablished(unittest.TestCase):
                       'series': 'B737-800'},
             'recorder': {'name': 'SAGEM', 'serial': '123456'},
             'tail_number': 'G-DEMA'})
+        phases = result['phases']
+        sections = phases.get(name='ILS Glideslope Established')
+        sections
     
 
 class TestILSLocalizerEstablished(unittest.TestCase):
