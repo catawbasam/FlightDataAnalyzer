@@ -152,7 +152,7 @@ class AccelerationNormalMax(KeyPointValueNode):
         reasonably say that we are not interested in anything while the
         aircraft is stationary.
         '''
-        return 'Acceleration Normal' in available
+        return 'Acceleration Normal Offset Removed' in available
     
     def derive(self, acc_norm=P('Acceleration Normal Offset Removed'), moves = S('Mobile')):
         self.create_kpv_from_slices(acc_norm.array, moves, max_value)
@@ -2754,7 +2754,7 @@ class HeadingVacatingRunway(KeyPointValueNode):
             # We try to extend the index by five seconds to make a clear
             # heading change. The KTI is at the point of turnoff at which
             # moment the heading change can be very small.
-            index = min(off_rwy.index+5, len(head.array))
+            index = min(off_rwy.index+5, len(head.array) - 1)
             value = head.array[index]%360.0
             self.create_kpv(index, value)
             
@@ -2834,7 +2834,9 @@ class FlareDuration20FtToTouchdown(KeyPointValueNode):
 
 class FlareDistance20FtToTouchdown(KeyPointValueNode):
     #TODO: Tests
-    def derive(self, alt_aal=P('Altitude AAL For Flight Phases'), tdowns=KTI('Touchdown'), lands=S('Landing'), gspd=P('Groundspeed')):
+    def derive(self, alt_aal=P('Altitude AAL For Flight Phases'),
+               tdowns=KTI('Touchdown'), lands=S('Landing'),
+               gspd=P('Groundspeed')):
         for tdown in tdowns:
             this_landing = lands.get_surrounding(tdown.index)[0]
             if this_landing:

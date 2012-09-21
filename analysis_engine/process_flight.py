@@ -1,4 +1,5 @@
 import logging
+import sys
 
 from datetime import datetime, timedelta
 from inspect import isclass
@@ -257,7 +258,8 @@ def process_flight(hdf_path, aircraft_info, start_datetime=datetime.now(),
     logger.info("Processing: %s", hdf_path)
     # go through modules to get derived nodes
     derived_nodes = get_derived_nodes(settings.NODE_MODULES)
-    required_params = list(set(required_params).intersection(set(derived_nodes)))
+    required_params = \
+        list(set(required_params).intersection(set(derived_nodes)))
     # if required_params isn't set, try using ALL derived_nodes!
     if not required_params:
         logger.info("No required_params declared, using all derived nodes")
@@ -323,7 +325,8 @@ if __name__ == '__main__':
     import argparse
     from utilities.filesystem_tools import copy_file
     logger = logging.getLogger()
-    logger.setLevel(logging.DEBUG)    
+    logger.setLevel(logging.INFO)
+    logger.addHandler(logging.StreamHandler(stream=sys.stdout))
     parser = argparse.ArgumentParser(description="Process a flight.")
     parser.add_argument('file', type=str,
                         help='Path of file to process.')

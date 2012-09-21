@@ -99,17 +99,12 @@ class Node(object):
         :type offset: Float
         """
         assert kwargs.get('hz', frequency) == frequency, "Differing freq to hz"
-        #NB: removed check for dependencies to allow initialisation in def derive()
-        ##if not self.get_dependency_names():
-            ##raise ValueError("Every Node must have a dependency. Node '%s'" % self.__class__.__name__)
         if name:
             self.name = name + '' # for ease of testing, checks name is string ;-)
         else:
             self.name = self.get_name() # usual option
         self.frequency = self.sample_rate = self.hz = frequency # Hz
         self.offset = offset # secs
-        # self._logger will be instantiated on the first logging message.
-        # self._logger = None
         
     def __repr__(self):
         #TODO: Add __class__.__name__?
@@ -180,8 +175,6 @@ def can_operate(cls, available):
         dependencies_powerset = powerset(cls.get_dependency_names())
         return [args for args in dependencies_powerset if cls.can_operate(args)]
     
-    # removed abstract wrapper to allow initialisation within def derive(KTI('a'))
-    ##@abstractmethod #TODO: Review removal.
     def get_aligned(self, align_to_param):
         """
         Return a version of self which is aligned to the incoming argument.
@@ -217,8 +210,6 @@ def can_operate(cls, available):
                 self.__class__.__name__, res))
         return self
         
-    # removed abstract wrapper to allow initialisation within def derive(KTI('a'))
-    ##@abstractmethod #TODO: Review removal.
     def derive(self, **kwargs):
         """
         Accepts keyword arguments where the default determines the derive
@@ -352,10 +343,8 @@ class DerivedParameterNode(Node):
         :returns: The interpolated value of the array at time secs.
         :rtype: float
         """
-
-        if secs == None:
+        if secs is None:
             return None
-        
         try:
             # get seconds from timedelta
             secs = float(secs.total_seconds)
@@ -621,7 +610,6 @@ class SectionNode(Node, list):
                           begin or section_slice.start, 
                           end or section_slice.stop)
         self.append(section)
-        ##return section
         
     def create_sections(self, section_slices, name=''):
         for sect in section_slices:
@@ -863,7 +851,8 @@ class SectionNode(Node, list):
                section.slice.start <= index and section.slice.stop == None or\
                section.slice.start == None and index <= section.slice.stop:
                 surrounded.append(section)
-        return surrounded
+        return self.__class__(name=self.name, frequency=self.frequency,
+                              offset=self.offset, items=surrounded)     
     
 
 class FlightPhaseNode(SectionNode):
@@ -914,17 +903,17 @@ class FormattedNameNode(Node, list):
         :returns: The product of all NAME_VALUES name combinations
         :rtype: list
         """
-        # cache option below disabled until required (will have to change from 
-        # classmethod).
-        ##if hasattr(self, 'names'):
-            ##return self.names
+        # XXX: cache option below disabled until required. Should we create this
+        # on init and remove the property instead?
+        ##if hasattr(cls, 'names'):
+            ##return cls.names
         if not cls.NAME_FORMAT and not cls.NAME_VALUES:
             return [cls.get_name()]
         names = []
         for a in product(*cls.NAME_VALUES.values()): 
             name = cls.NAME_FORMAT % dict(zip(cls.NAME_VALUES.keys(), a))
             names.append(name)
-        ##self.names = names  #cache
+        ##cls.names = names  #cache
         return names
     
     def _validate_name(self, name):
@@ -990,7 +979,7 @@ class FormattedNameNode(Node, list):
         :rtype: self.__class__
         '''
         condition = self._get_condition(within_slice=within_slice, name=name)
-        matching = filter(condition, self) if condition else self # Q: Should this return self.__class__?
+        matching = filter(condition, self) if condition else self
         return self.__class__(name=self.name, frequency=self.frequency,
                               offset=self.offset, items=matching)
     
@@ -1095,7 +1084,7 @@ class FormattedNameNode(Node, list):
         for elem in reversed(ordered):
             if elem.index < index:
                 return elem
-        return None        
+        return None
 
 
 class KeyTimeInstanceNode(FormattedNameNode):
@@ -1239,6 +1228,19 @@ class KeyTimeInstanceNode(FormattedNameNode):
 class KeyPointValueNode(FormattedNameNode):
     def __init__(self, *args, **kwargs):
         super(KeyPointValueNode, self).__init__(*args, **kwargs)
+    
+    @staticmethod
+    def _get_slices(slices):
+        '''
+        If slices is a list of Sections, return the slices from within the
+        Sections.
+        
+        :param slices: Either a list of Sections or a list of slices.
+        :type slices: [Section] or [slice]
+        :returns: A list of slices.
+        :rtype: [slices]
+        '''
+        return [s.slice if isinstance(s, Section) else s for s in slices]
 
     def create_kpv(self, index, value, replace_values={}, **kwargs):
         '''
@@ -1268,9 +1270,9 @@ class KeyPointValueNode(FormattedNameNode):
             logger.info("'%s' cannot create KPV for index '%s' and value "
                          "'%s'.", self.name, index, value)
             return
-        #...however where we should have raised an alert but the specific
-        #threshold was masked needs to be a warning as this should not
-        #happen.
+        # ...however where we should have raised an alert but the specific
+        # threshold was masked needs to be a warning as this should not
+        # happen.
         if value is np.ma.masked:
             logger.warn("'%s' cannot create KPV at index '%s' as value is masked."%
                          (self.name, index))
@@ -1369,20 +1371,6 @@ class KeyPointValueNode(FormattedNameNode):
                 
     create_kpvs_at_kpvs = create_kpvs_at_ktis # both will work the same!
     
-    def kpv_from_slice(self, slice_, function, array):
-        '''
-        Basic function called by higher level create_kpv functions.
-        '''
-        if isinstance(slice_, Section): # Use slice within Section.
-            start_edge = slice_.start_edge
-            stop_edge = slice_.stop_edge
-            slice_ = slice_.slice
-        else:
-            start_edge = None
-            stop_edge = None
-        index, value = function(array, slice_, start_edge, stop_edge)
-        return index, value
-
     def create_kpvs_within_slices(self, array, slices, function, **kwargs):
         '''
         Shortcut for creating KPVs from a number of slices by retrieving an
@@ -1397,13 +1385,14 @@ class KeyPointValueNode(FormattedNameNode):
         :returns: None
         :rtype: None
         '''
+        slices = self._get_slices(slices)
         for slice_ in slices:
-            index, value = self.kpv_from_slice(slice_, function, array)
+            index, value = function(array, slice_)
             self.create_kpv(index, value, **kwargs)
 
     def create_kpv_from_slices(self, array, slices, function, **kwargs):
         '''
-        Shortcut for creating a single KPVs from multiple slices.
+        Shortcut for creating a single KPV from multiple slices.
         
         :param array: Array of source data.
         :type array: np.ma.masked_array
@@ -1414,21 +1403,12 @@ class KeyPointValueNode(FormattedNameNode):
         :returns: None
         :rtype: None
         '''
-        index = None
-        value = None
-        for slice_ in slices:
-            i, v = self.kpv_from_slice(slice_, function, array)
-            if i==None or v==None:
-                continue
-            if value == None:
-                value = v
-                index = i
-            elif function([value, v]).index: # v is the larger or smaller
-                value = v
-                index = i
-            
-        if index==None or value==None:
-            return
+        slices = self._get_slices(slices)
+        arrays = []
+        for _slice in slices:
+            arrays.append(array[_slice])
+        joined_array = np.ma.concatenate(arrays)
+        index, value = function(joined_array)
         self.create_kpv(index, value, **kwargs)
 
     def create_kpv_outside_slices(self, array, slices, function, **kwargs):
@@ -1446,6 +1426,7 @@ class KeyPointValueNode(FormattedNameNode):
         :returns: None
         :rtype: None
         '''
+        slices = self._get_slices(slices)
         for slice_ in slices:
             if isinstance(slice_, Section): # Use slice within Section.
                 slice_ = slice_.slice
@@ -1469,6 +1450,7 @@ class KeyPointValueNode(FormattedNameNode):
         :returns: None
         :rtype: None
         '''
+        slices = self._get_slices(slices)
         for slice_ in slices:
             if isinstance(slice_, Section): # Use slice within Section.
                 duration = slice_.stop_edge - slice_.start_edge
@@ -1608,8 +1590,8 @@ class NodeManager(object):
         :param start_datetime: datetime of start of data file
         :type start_datetime: datetime
         :param lfl: List of parameter names in data file defined by the LFL.
-        :type lfl: list
-        :type requested: list
+        :type lfl: [str]
+        :type requested: [str]
         :type derived_nodes: dict
         :type aircraft_info: dict
         :type achieved_flight_record: dict
@@ -1672,13 +1654,14 @@ class NodeManager(object):
              or name == 'Start Datetime':
             return True
         elif name in self.derived_nodes:
-            #NOTE: Raises "Unbound method" here due to can_operate being overridden without wrapping with @classmethod decorator
+            # NOTE: Raises "Unbound method" here due to can_operate being
+            # overridden without wrapping with @classmethod decorator
             res = self.derived_nodes[name].can_operate(available)
             if not res:
                 logger.debug("Derived Node %s cannot operate with available nodes: %s",
                               name, available)
             return res
-        else:  #elif name in unavailable_deps:
+        else:
             logger.debug("Node '%s' is unavailable", name)
             return False
 
