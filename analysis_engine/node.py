@@ -1407,6 +1407,9 @@ class KeyPointValueNode(FormattedNameNode):
         arrays = []
         for _slice in slices:
             arrays.append(array[_slice])
+        # Trap for empty arrays or no slices to scan.
+        if arrays == []:
+            return
         joined_array = np.ma.concatenate(arrays)
         index, value = function(joined_array)
         self.create_kpv(index, value, **kwargs)
