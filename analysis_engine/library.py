@@ -2758,34 +2758,6 @@ def rate_of_change(diff_param, width):
     return rate_of_change_array(to_diff, hz, width)
     
 
-def rate_of_change_array(to_diff, hz, width):
-    '''
-    Lower level access to rate of change algorithm. See rate_of_change for description.
-
-    :param to_diff: input data
-    :type to_diff: Numpy masked array
-    :param hz: sample rate for the input data (sec-1)
-    :type hz: float
-    :param width: the differentiation time period (sec)
-    :type width: float
-   
-    :returns: masked array of values with differentiation applied
-
-    '''
-    hw = width * hz / 2.0
-    if hw < 1:
-        raise ValueError, 'Rate of change called with inadequate width.'
-    if len(to_diff) < width:
-        logger.warn("Rate of change called with short data segment. Zero rate returned")
-        return np_ma_zeros_like(to_diff)
-   
-    # Set up an array of masked zeros for extending arrays.
-    slope = np.ma.copy(to_diff)
-    slope[hw:-hw] = (to_diff[2*hw:] - to_diff[:-2*hw])/width
-    slope[:hw] = (to_diff[1:hw+1] - to_diff[0:hw]) * hz
-    slope[-hw:] = (to_diff[-hw:] - to_diff[-hw-1:-1])* hz
-    return slope
-    
 def repair_mask(array, frequency=1, repair_duration=REPAIR_DURATION,
                 raise_duration_exceedance=False, copy=False, extrapolate=False):
     '''
