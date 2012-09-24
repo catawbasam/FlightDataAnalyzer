@@ -11,7 +11,6 @@ from analysis_engine.library import np_ma_masked_zeros_like
 from analysis_engine.node import (Attribute, derived_param_from_hdf,
                                   DerivedParameterNode,
                                   FlightAttributeNode,
-                                  FlightPhaseNode,
                                   KeyPointValueNode,
                                   KeyTimeInstanceNode, Node,
                                   NodeManager, P, Section, SectionNode)
