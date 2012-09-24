@@ -33,6 +33,7 @@ def validate_aircraft(aircraft_info, hdf):
     """
     """
     #if 'Aircraft Ident' in hdf and so on:
+    # TODO: Implement validate_aircraft.
     logger.warning("Validate Aircraft not implemented")
     if True:
         return True

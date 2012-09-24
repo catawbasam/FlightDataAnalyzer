@@ -1,7 +1,5 @@
 import unittest
 
-import h5py
-
 from mock import Mock, patch
 
 from analysis_engine.utils import derived_trimmer

@@ -33,6 +33,10 @@ Section = namedtuple('Section', 'name slice start_edge stop_edge') #Q: rename ma
 # Ref: django/db/models/options.py:20
 # Calculate the verbose_name by converting from InitialCaps to "lowercase with spaces".
 def get_verbose_name(class_name):
+    '''
+    :type class_name: str
+    :rtype: str
+    '''
     if re.match('^_\d.*$', class_name):
         # Remove initial underscore to allow class names starting with numbers
         # e.g. '_1000FtInClimb' will become '1000 Ft In Climb'
@@ -45,6 +49,8 @@ def powerset(iterable):
     """
     Ref: http://docs.python.org/library/itertools.html#recipes
     powerset([1,2,3]) --> () (1,) (2,) (3,) (1,2) (1,3) (2,3) (1,2,3)
+    
+    :rtype: itertools.chain
     """
     from itertools import chain, combinations
     s = list(iterable)
@@ -107,6 +113,9 @@ class Node(object):
         self.offset = offset # secs
         
     def __repr__(self):
+        '''
+        :rtype: str
+        '''
         #TODO: Add __class__.__name__?
         return "%s %sHz %.2fsecs" % (self.get_name(), self.frequency, self.offset)
     
@@ -123,12 +132,16 @@ class Node(object):
     @classmethod
     def get_name(cls):
         """ class My2BNode -> 'My2B Node'
+        
+        :rtype: str
         """
         return cls.name or get_verbose_name(cls.__name__).title()
     
     @classmethod
     def get_dependency_names(cls):
-        """ Returns list of dependency names
+        """
+        :returns: A list of dependency names.
+        :rtype: [str]
         """
         # TypeError:'ABCMeta' object is not iterable?
         # this probably means dependencies for this class isn't a list!
@@ -140,14 +153,13 @@ class Node(object):
         """
         Compares the string names of all dependencies against those available.
         
-        Returns true if dependencies is a subset of available. For more
-        specific operational requirements, override appropriately.
-        
         This is a classmethod, so please remember to use the
-        @classmethod decorator! (if you forget - it will break)
+        @classmethod decorator when overriding! (if you forget - it will break)
         
         :param available: Available parameters from the dependency tree
         :type available: list of strings
+        :returns: True if dependencies is a subset of available. For more specific operational requirements, override appropriately.
+        :rtype: bool
         
         Sample overrides for "Any deps available":
 @classmethod
@@ -162,22 +174,21 @@ def can_operate(cls, available):
             
         """
         # ensure all names are strings
-        if all([x in available for x in cls.get_dependency_names()]):
-            return True
-        else:
-            return False
+        return all([x in available for x in cls.get_dependency_names()])
         
     @classmethod
     def get_operational_combinations(cls):
         """
-        Compute every operational combination of dependencies.
+        :returns: Every operational combination of dependencies.
+        :rtype: [str]
         """
         dependencies_powerset = powerset(cls.get_dependency_names())
         return [args for args in dependencies_powerset if cls.can_operate(args)]
     
     def get_aligned(self, align_to_param):
         """
-        Return a version of self which is aligned to the incoming argument.
+        :returns: version of self which is aligned to the incoming argument.
+        :rtype: self.__class__
         """
         raise NotImplementedError("Abstract Method")
     
@@ -188,6 +199,8 @@ def can_operate(cls, available):
         
         :param args: List of available Parameter objects
         :type args: list
+        :returns: self after having aligned dependencies and called derive.
+        :rtype: self
         """
         if self.align_to_first_dependency:
             try:
@@ -254,7 +267,7 @@ def can_operate(cls, available):
 
     def _get_logger(self):
         """
-        Return a logger with name based on module and class name.
+        :returns: A logger with name based on module and class name.
         """
         # # FIXME: storing logger as Node attribute is causing problems as we
         # # deepcopy() the Node objects the loggers are copied as well. This
@@ -276,6 +289,8 @@ def can_operate(cls, available):
     def debug(self, *args, **kwargs):
         """
         Log a debug level message.
+        
+        :rtype: None
         """
         logger = self._get_logger()
         logger.debug(*args, **kwargs)    
@@ -283,6 +298,8 @@ def can_operate(cls, available):
     def error(self, *args, **kwargs):
         """
         Log an error level message.
+        
+        :rtype: None
         """
         logger = self._get_logger()
         logger.error(*args, **kwargs)
@@ -290,6 +307,8 @@ def can_operate(cls, available):
     def exception(self, *args, **kwargs):
         """
         Log an exception level message.
+        
+        :rtype: None
         """
         logger = self._get_logger()
         logger.exception(*args, **kwargs)            
@@ -297,6 +316,8 @@ def can_operate(cls, available):
     def info(self, *args, **kwargs):
         """
         Log an info level message.
+        
+        :rtype: None
         """
         logger = self._get_logger()
         logger.info(*args, **kwargs)
@@ -304,6 +325,8 @@ def can_operate(cls, available):
     def warning(self, *args, **kwargs):
         """
         Log a warning level message.
+        
+        :rtype: None
         """
         logger = self._get_logger()
         logger.warning(*args, **kwargs)
@@ -415,14 +438,15 @@ class DerivedParameterNode(Node):
         return slices_between(self.array, min_, max_)[1]
     
     def slices_from_to(self, from_, to):
-        '''Get slices of the parameter's array where values are between from_
+        '''
+        Get slices of the parameter's array where values are between from_
         and to, and either ascending or descending depending on whether from_ 
         is greater than or less than to. For instance,
         param.slices_from_to(1000, 1500) is ascending and requires will only 
         return slices where values are between 1000 and 1500 if
-        the value in the array at the start of the slice is less than the value at
-        the stop. The opposite condition would be applied if the arguments are
-        descending, e.g. slices_from_to(array, 1500, 1000).
+        the value in the array at the start of the slice is less than the value
+        at the stop. The opposite condition would be applied if the arguments
+        are descending, e.g. slices_from_to(array, 1500, 1000).
         
         :param array:
         :type array: np.ma.masked_array
@@ -431,7 +455,8 @@ class DerivedParameterNode(Node):
         :param to: Value to.
         :type to: float or int
         :returns: Slices of the array where values are between from_ and to and either ascending or descending depending on comparing from_ and to.
-        :rtype: list of slice'''
+        :rtype: list of slice
+        '''
         return slices_from_to(self.array, from_, to)[1]
 
     def slices_to_kti(self, ht, tdwns):
@@ -520,8 +545,10 @@ class MultistateDerivedParameterNode(DerivedParameterNode):
             * a list: value is interpreted as 'converted' data, so the mapping
               is reversed. KeyError is raised if the values are not found in
               the mapping.
-              
-        Raises ValueError if incomplete mapping for array string values.
+        
+        :type name: str
+        :type value: MappedArray or MaskedArray or []
+        :raises ValueError: if incomplete mapping for array string values.
         '''
         if name not in ('array', 'values_mapping'):
             return super(MultistateDerivedParameterNode, self). \
@@ -558,6 +585,15 @@ M = MultistateDerivedParameterNode  # shorthand
 
 
 def derived_param_from_hdf(hdf, name):
+    '''
+    Loads and wraps an HDF parameter with either DerivedParameterNode or
+    MultistateDerivedParameterNode classes.
+    
+    :type hdf: hdf_file
+    :param name: Parameter name to load from the HDF file.
+    :type name: str
+    :rtype: DerivedParameterNode or MultistateDerivedParameterNode
+    '''
     hdf_parameter = hdf[name]
     if isinstance(hdf_parameter.array, MappedArray):
         result = MultistateDerivedParameterNode(
@@ -602,6 +638,12 @@ class SectionNode(Node, list):
         NOTE: Sections with slice start/ends of None can cause errors later
         when creating KPV/KTIs from a slice. However, they are valid for
         slicing data arrays from.
+        
+        :type section_slice: slice
+        :type name: str
+        :type begin: int or float
+        :type end: int or float
+        :rtype: None
         """
         if section_slice.start is None or section_slice.stop is None:
             logger.debug("Section %s created %s with None start or stop.", 
@@ -612,6 +654,10 @@ class SectionNode(Node, list):
         self.append(section)
         
     def create_sections(self, section_slices, name=''):
+        '''
+        :type section_slices: [slice]
+        :type name: str
+        '''
         for sect in section_slices:
             self.create_section(sect, name=name)
         
@@ -856,8 +902,9 @@ class SectionNode(Node, list):
     
 
 class FlightPhaseNode(SectionNode):
-    """ Is a Section, but called "phase" for user-friendliness!
-    """
+    '''
+    Is a Section, but called "phase" for user-friendliness!
+    '''
     # create_phase and create_phases are shortcuts for create_section and 
     # create_sections.
     create_phase = SectionNode.create_section
@@ -865,20 +912,20 @@ class FlightPhaseNode(SectionNode):
 
 
 class FormattedNameNode(Node, list):
-    """
+    '''
     NAME_FORMAT example: 
     'Speed in %(phase)s at %(altitude)d ft'
 
     NAME_VALUES example:
     {'phase'    : ['ascent', 'descent'],
      'altitude' : [1000,1500],}
-    """
+    '''
     NAME_FORMAT = ""
     NAME_VALUES = {}
     
     def __init__(self, *args, **kwargs):
         '''
-        If the there i not an 'items' kwarg and the first argument is a list 
+        If the there is not an 'items' kwarg and the first argument is a list 
         or a tuple, the first argument's items will be extended to the node.
         
         :param items: Optional keyword argument of initial items to be contained within self.
@@ -918,12 +965,12 @@ class FormattedNameNode(Node, list):
     
     def _validate_name(self, name):
         """
-        :raises ValueError: If name is not a combination of self.NAME_FORMAT and self.NAME_VALUES.
+        Test that name is a valid combination of NAME_FORMAT and NAME_VALUES.
+        
+        :type name: str
+        :rtype: bool
         """
-        if name in self.names():
-            return True
-        else:
-            raise ValueError("invalid name '%s'" % name)
+        return name in self.names()
     
     def format_name(self, replace_values={}, **kwargs):
         """
@@ -932,8 +979,11 @@ class FormattedNameNode(Node, list):
         
         Interpolation values not in FORMAT_NAME are ignored.        
         
+        :type replace_values: dict
         :raises KeyError: if required interpolation/replace value not provided.
         :raises TypeError: if interpolation value is of wrong type.
+        :raises ValueError: If name is not a combination of self.NAME_FORMAT and self.NAME_VALUES.
+        :rtype: str
         """
         if not replace_values and not kwargs and not self.NAME_FORMAT:
             # have not defined name format to use, so create using name of node
@@ -942,7 +992,8 @@ class FormattedNameNode(Node, list):
         rvals.update(kwargs)
         name = self.NAME_FORMAT % rvals  # common error is to use { inplace of (
         # validate name is allowed
-        self._validate_name(name)
+        if not self._validate_name(name):
+            raise ValueError("invalid name '%s'" % name)
         return name # return as a confirmation it was successful
     
     def _get_condition(self, within_slice=None, name=None):
@@ -1546,6 +1597,9 @@ class FlightAttributeNode(Node):
         self.offset = None
     
     def __repr__(self):
+        '''
+        :rtype: str
+        '''
         return self.name
     
     def __nonzero__(self):
@@ -1558,13 +1612,9 @@ class FlightAttributeNode(Node):
         node.value = True
         bool(node) == bool(node.value)
         """
-        if self.value or (self.value == 0 and self.value is not False): 
-            # 0 is a meaningful value. Check self.value is not False
-            # as False == 0.
-            return True
-        else:
-            return False   
-    
+        # 0 is a meaningful value. Check self.value is not False as False == 0.        
+        return bool(self.value or (self.value == 0 and self.value is not False)) 
+            
     def set_flight_attribute(self, value):
         self.value = value
     set_flight_attr = set_flight_attribute
@@ -1572,6 +1622,9 @@ class FlightAttributeNode(Node):
     def get_aligned(self, param):
         """
         Cannot align a flight attribute.
+        
+        :returns: self
+        :rtype: FlightAttributeNode
         """
         return self
 
@@ -1686,6 +1739,9 @@ class Attribute(object):
         return "Attribute '%s' : %s" % (self.name, self.value)
     
     def __init__(self, name, value=None):
+        '''
+        :type name: str
+        '''
         self.name = name
         self.value = value
         self.frequency = self.hz = self.sample_rate = None
@@ -1700,19 +1756,20 @@ class Attribute(object):
         same as evaluating the content.
         node.value = True
         bool(node) == bool(node.value)
+        
+        :rtype: bool
         """
-        if self.value or (self.value == 0 and self.value is not False): 
-            # 0 is a meaningful value. Check self.value is not False
-            # as False == 0.
-            return True
-        else:
-            return False
+        # 0 is a meaningful value. Check self.value is not False as False == 0.        
+        return bool(self.value or (self.value == 0 and self.value is not False))
     
     def get_aligned(self, param):
         '''
         Attributes do not contain data which can be aligned to other parameters.
         Q: If attributes start storing indices rather than time, this will
         require implementing.
+        
+        :returns: self
+        :rtype: FlightAttributeNode        
         '''
         return self
 

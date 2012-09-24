@@ -194,13 +194,8 @@ def ambiguous_runway(rwy):
     # know the actual runway we landed on. Where there is ambiguity the
     # runway attribute may be truncated, or the identifier, if present, will
     # end in a "*" character.
-    if rwy == None:
-        return True
-    if rwy.value == None:
-        return True
-    if not rwy.value.has_key('identifier'):
-        return True
-    return rwy.value['identifier'].endswith('*')
+    return (rwy is None or rwy.value is None or not 'identifier' in rwy.value or 
+            rwy.value['identifier'].endswith('*'))
    
 
 def bearing_and_distance(lat1, lon1, lat2, lon2):

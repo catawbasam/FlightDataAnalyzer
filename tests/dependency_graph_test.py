@@ -4,8 +4,7 @@ import networkx as nx
 
 from datetime import datetime
 
-from analysis_engine.node import (A, DerivedParameterNode, KPV, KTI, Node,
-                           NodeManager, P, Parameter, Section, S)
+from analysis_engine.node import (DerivedParameterNode, Node, NodeManager, P)
 from analysis_engine.process_flight import get_derived_nodes
 from analysis_engine.dependency_graph import (
     dependency_order, 

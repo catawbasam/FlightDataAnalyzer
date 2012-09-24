@@ -16,7 +16,9 @@ from analysis_engine.node import (Attribute, derived_param_from_hdf,
                                   NodeManager, P, Section, SectionNode)
 from hdfaccess.file import hdf_file
 
+
 logger = logging.getLogger(__name__)
+
 
 def geo_locate(hdf, kti_list):
     """

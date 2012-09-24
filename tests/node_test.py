@@ -9,7 +9,6 @@ from datetime import datetime
 from analysis_engine.node import (
     Attribute,
     DerivedParameterNode,
-    get_verbose_name,
     KeyPointValueNode, KeyPointValue, 
     KeyTimeInstanceNode, KeyTimeInstance, KTI,
     FlightAttributeNode,
@@ -407,7 +406,7 @@ class TestSectionNode(unittest.TestCase):
         last_b_section_within_slice = section_node.get_last(within_slice=
                                                             slice(15, 40),
                                                             name='b')
-        self.assertEqual(items[2], last_section_within_slice)
+        self.assertEqual(items[2], last_b_section_within_slice)
     
     def test_get_ordered_by_index(self):
         items = [Section('a', slice(4,10),4,10),
@@ -531,7 +530,7 @@ class TestFormattedNameNode(unittest.TestCase):
         self.assertTrue(formatted_name_node._validate_name('Speed in ascent at 500 ft'))
         self.assertTrue(formatted_name_node._validate_name('Speed in descent at 900 ft'))
         self.assertTrue(formatted_name_node._validate_name('Speed in descent at 100 ft'))
-        self.assertRaises(ValueError, formatted_name_node._validate_name, 'Speed in ascent at -10 ft')       
+        self.assertFalse(formatted_name_node._validate_name('Speed in ascent at -10 ft'))
         
     def test_get_first(self):
         # Test empty Node first.

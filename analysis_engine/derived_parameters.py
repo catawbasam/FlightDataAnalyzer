@@ -521,8 +521,6 @@ class AltitudeAAL(DerivedParameterNode):
             # without rad alts will indicate negative altitudes as they land.
             return np.ma.maximum(alt_result, 0.0)
         
-        
-        
     def derive(self, alt_std = P('Altitude STD'),
                alt_rad = P('Altitude Radio'),
                speedies = S('Fast')):
@@ -540,14 +538,18 @@ class AltitudeAAL(DerivedParameterNode):
         for speedy in speedies:
             quick = speedy.slice
             if speedy.slice == slice(None,None,None):
+                # XXX: This will no longer work since we are replacing None
+                #      start and stop with 0 and hdf.duration. An alternative
+                #      would be to make duration available as an attribute.
                 self.array = alt_aal
                 break
             
-            alt_idxs, alt_vals = cycle_finder(alt_std.array[quick], min_step=100.0)
-            if alt_idxs==None:
+            alt_idxs, alt_vals = cycle_finder(alt_std.array[quick],
+                                              min_step=100.0)
+            if alt_idxs is None:
                 break # In the case where speedy was trivially short
             
-            alt_idxs += quick.start or 0 # Reference to start of arrays for simplicity hereafter.
+            alt_idxs += quick.start # Reference to start of arrays for simplicity hereafter.
             
             n=0
             dips=[]
@@ -573,7 +575,8 @@ class AltitudeAAL(DerivedParameterNode):
             while n < n_vals-1:
                 if alt_vals[n+1] > alt_vals[n]:
                     # Just a rising section
-                    dips.append(['land', slice(alt_idxs[n],alt_idxs[n+1]), alt_vals[n], alt_vals[n]])
+                    dips.append(['land', slice(alt_idxs[n],alt_idxs[n+1]),
+                                 alt_vals[n], alt_vals[n]])
                     n = n+1
                 else:
                     if n+2 < n_vals:
@@ -629,12 +632,15 @@ class AltitudeAAL(DerivedParameterNode):
 
             for dip in dips:
                 if alt_rad:
-                    alt_aal[dip[1]] = self.compute_aal(dip[0],alt_std.array[dip[1]], 
-                                                       dip[2], dip[3], alt_rad.array[dip[1]], )
+                    alt_aal[dip[1]] = self.compute_aal(dip[0],
+                                                       alt_std.array[dip[1]], 
+                                                       dip[2], dip[3],
+                                                       alt_rad.array[dip[1]])
                 else:
-                    alt_aal[dip[1]] = self.compute_aal(dip[0],alt_std.array[dip[1]],
+                    alt_aal[dip[1]] = self.compute_aal(dip[0],
+                                                       alt_std.array[dip[1]],
                                                        dip[2], dip[3])
-            
+        
         self.array = alt_aal
 
     
@@ -648,7 +654,6 @@ class AltitudeAALForFlightPhases(DerivedParameterNode):
     # interpolated values in an event.
     
     def derive(self, alt_aal=P('Altitude AAL')):
-        
         self.array = repair_mask(alt_aal.array, repair_duration=None)
    
 
@@ -675,9 +680,8 @@ class AltitudeRadio(DerivedParameterNode):
     align_to_first_dependency = False
     @classmethod
     def can_operate(cls, available):
-        if 'Altitude Radio (A)' in available and \
-           'Altitude Radio (B)' in available:
-            return True
+        return ('Altitude Radio (A)' in available and
+                'Altitude Radio (B)' in available)
     
     def derive(self, frame = A('Frame'),
                frame_qual = A('Frame Qualifier'),
@@ -729,8 +733,6 @@ class AltitudeRadio(DerivedParameterNode):
         elif frame_name in ['CRJ-700-900']:
             self.array, self.frequency, self.offset = \
                 blend_two_parameters(source_A, source_B)
-        
-            
         else:
             raise DataFrameError(self.name, frame_name)
 
@@ -757,7 +759,6 @@ class AltitudeSTD(DerivedParameterNode):
             # Alternate samples (1)&(2) are blended.
             self.array, self.frequency, self.offset = \
                 blend_two_parameters(source_A, source_B)
-
         else:
             raise DataFrameError(self.name, frame_name)
 
@@ -947,7 +948,8 @@ class AltitudeTail(DerivedParameterNode):
         # Now apply the offset
         gear2tail = dist_gear_to_tail.value * METRES_TO_FEET
         ground2tail = ground_to_tail.value * METRES_TO_FEET
-        self.array = (alt_rad.array + ground2tail - np.ma.sin(pitch_rad)*gear2tail)
+        self.array = \
+            (alt_rad.array + ground2tail - np.ma.sin(pitch_rad)*gear2tail)
 
 
 class ClimbForFlightPhases(DerivedParameterNode):
@@ -1797,8 +1799,7 @@ class Eng_TorqueAvg(DerivedParameterNode):
         '''
         '''
         # Works with any combination of parameters available:
-        if any([d in available for d in cls.get_dependency_names()]):
-            return True
+        return any([d in available for d in cls.get_dependency_names()])
 
     def derive(self,
                eng1=P('Eng (1) Torque'),
@@ -1949,8 +1950,7 @@ class Eng_VibN3Max(DerivedParameterNode):
         '''
         '''
         # Works with any combination of parameters available:
-        if any([d in available for d in cls.get_dependency_names()]):
-            return True
+        return any([d in available for d in cls.get_dependency_names()])
 
     def derive(self,
                eng1=P('Eng (1) Vib N3'),
@@ -2105,7 +2105,8 @@ class GrossWeightSmoothed(DerivedParameterNode):
                fast = S('Fast')
                ):
         flow = repair_mask(ff.array)
-        fuel_to_burn = np.ma.array(integrate (flow/3600.0, ff.frequency,  direction='reverse'))
+        fuel_to_burn = np.ma.array(integrate (flow/3600.0, ff.frequency,
+                                              direction='reverse'))
 
         to_burn_valid = []
         to_burn_all = []
@@ -2133,9 +2134,11 @@ class GrossWeightSmoothed(DerivedParameterNode):
         
         if use_valid or use_all:
             if use_valid:
-                corr, slope, offset = coreg(np.ma.array(gw_valid), indep_var=np.ma.array(to_burn_valid))
+                corr, slope, offset = coreg(np.ma.array(gw_valid),
+                                            indep_var=np.ma.array(to_burn_valid))
             elif use_all:
-                corr, slope, offset = coreg(np.ma.array(gw_all), indep_var=np.ma.array(to_burn_all))
+                corr, slope, offset = coreg(np.ma.array(gw_all),
+                                            indep_var=np.ma.array(to_burn_all))
             if corr < 0.5:
                 offset = gw_all[0] - to_burn_all[0]
         elif len(gw_all) == 1:
@@ -2911,7 +2914,7 @@ class CoordinatesSmoothed(object):
                     ## track onto the end of the valid data.
                     
                     ##index, _ = first_valid_sample(lat_adj[slice(this_loc.slice.stop,this_loc.slice.start,-1)])
-                    ##join_idx = (this_loc.slice.stop or 0) - index
+                    ##join_idx = (this_loc.slice.stop) - index
                     
                     # A transition at 40kts is simpler and works reliably.
                     join_idx = index_at_value(gspd.array, 40.0, this_loc.slice)
