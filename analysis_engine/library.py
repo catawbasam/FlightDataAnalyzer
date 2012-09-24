@@ -194,13 +194,8 @@ def ambiguous_runway(rwy):
     # know the actual runway we landed on. Where there is ambiguity the
     # runway attribute may be truncated, or the identifier, if present, will
     # end in a "*" character.
-    if rwy == None:
-        return True
-    if rwy.value == None:
-        return True
-    if not rwy.value.has_key('identifier'):
-        return True
-    return rwy.value['identifier'].endswith('*')
+    return (rwy is None or rwy.value is None or not 'identifier' in rwy.value or 
+            rwy.value['identifier'].endswith('*'))
    
 
 def bearing_and_distance(lat1, lon1, lat2, lon2):
@@ -403,7 +398,7 @@ def coreg(y, indep_var=None, force_zero=False):
     """
     n = len(y)
     if n < 2:
-        raise ValueError, 'Function coreg called with data of length 1 or null'
+        raise ValueError, 'Function coreg called with data of length %s' % n
     if indep_var == None:
         x = np.ma.arange(n, dtype=float)
     else:

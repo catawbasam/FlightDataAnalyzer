@@ -12,6 +12,7 @@ from analysis_engine.library import (
     first_valid_sample,
     index_at_value,
     index_closest_value,
+    is_index_within_slice,
     is_slice_within_slice,
     rate_of_change,
     repair_mask, 
@@ -626,6 +627,7 @@ class ILSGlideslopeEstablished(FlightPhaseNode):
                     good_data = np.ma.count(ils_gs.array[gs_est])
                     all_data = len(ils_gs.array[gs_est])
                     if good_data/all_data < 0.7:
+                        self.warning('ILS glideslope signal poor quality in approach - considered not established.')
                         continue
                     self.create_phase(gs_est)
 
@@ -858,6 +860,26 @@ class Takeoff(FlightPhaseNode):
                 self.create_phases([slice(takeoff_begin, takeoff_end)])
 
 
+class TakeoffRoll(FlightPhaseNode):
+    '''
+    Sub-phase primarily for use by the correlation tests
+    '''
+    def derive(self, lifts = S('Liftoff'), toffs = S('TakeOff')):
+        for toff in toffs:
+            for lift in lifts:
+                if is_index_within_slice(lift.index, toff.slice):
+                    self.create_phase(slice(toff.slice.start, lift.index))
+                    
+class TakeoffRotation(FlightPhaseNode):
+    '''
+    '''
+    def derive(self, lifts = S('Liftoff')):
+        lift_index = lifts.get_first().index
+        start = lift_index - 4
+        end = lift_index + 4
+        self.create_phase(slice(start, end))
+        
+    
 ################################################################################
 # Takeoff/Go-Around Ratings
 

@@ -532,8 +532,10 @@ class TestDuration(unittest.TestCase):
     def test_derive(self):
         duration = Duration()
         duration.set_flight_attr = Mock()
-        takeoff_dt = A('FDR Takeoff Datetime', value=datetime(1970, 1, 1, 0, 1, 0))
-        landing_dt = A('FDR Landing Datetime', value=datetime(1970, 1, 1, 0, 2, 30))
+        takeoff_dt = A('FDR Takeoff Datetime',
+                       value=datetime(1970, 1, 1, 0, 1, 0))
+        landing_dt = A('FDR Landing Datetime',
+                       value=datetime(1970, 1, 1, 0, 2, 30))
         duration.derive(takeoff_dt, landing_dt)
         duration.set_flight_attr.assert_called_once_with(90)
 
@@ -581,7 +583,8 @@ class TestFlightNumber(unittest.TestCase):
         
         flight_number_param= P(
             'Flight Number',
-            array=np.ma.array([2,555.6,444,444,444,444,444,444,888,444,444,444,444,444,444,444,444,7777,9100]))
+            array=np.ma.array([2,555.6,444,444,444,444,444,444,888,444,444,444,
+                               444,444,444,444,444,7777,9100]))
         flight_number.set_flight_attr = Mock()
         flight_number.derive(flight_number_param)
         flight_number.set_flight_attr.assert_called_with('444')

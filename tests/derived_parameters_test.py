@@ -1,18 +1,16 @@
-import unittest
-import sys
-from datetime import datetime, timedelta
 import mock
 import numpy as np
-import os
+import sys
+import unittest
 
-import utilities.masked_array_testutils as ma_test
-from analysis_engine.settings import GRAVITY_IMPERIAL, METRES_TO_FEET
-from analysis_engine.node import Attribute, A, KPV, KeyTimeInstance, KTI, Parameter, P, Section, S
-from analysis_engine.flight_phase import Approach, Fast
-from analysis_engine.library import np_ma_masked_zeros_like
-from flight_phase_test import buildsection, buildsections
-from analysis_engine.plot_flight import plot_parameter
 from hdfaccess.file import hdf_file
+import utilities.masked_array_testutils as ma_test
+
+from analysis_engine.flight_phase import Fast
+from analysis_engine.node import Attribute, A, KPV, KeyTimeInstance, KTI, Parameter, P, Section, S
+from analysis_engine.settings import GRAVITY_IMPERIAL, METRES_TO_FEET
+
+from flight_phase_test import buildsection
 
 from analysis_engine.derived_parameters import (
     AccelerationVertical,
@@ -59,6 +57,7 @@ from analysis_engine.derived_parameters import (
     HeadingTrue,
     Headwind,
     ILSFrequency,
+    ILSRange,
     LatitudePrepared,
     LongitudePrepared,
     Mach,
@@ -624,7 +623,6 @@ class TestAltitudeRadio(unittest.TestCase):
                                  np.ma.array([30.0,30.0,30.0,30.0,30.3]), 0.25, 3.0),
                        None
                        )
-        result = alt_rad.array
         answer = np.ma.array(data=[25.0]*7+[25.05,25.175,25.25])
         ma_test.assert_array_almost_equal(alt_rad.array, answer)
         self.assertEqual(alt_rad.offset,1.0)
@@ -639,7 +637,6 @@ class TestAltitudeRadio(unittest.TestCase):
                        Parameter('Altitude Radio (B)',
                                  np.ma.array([20.0,20.0,20.0,20.0,20.2]), 0.5, 1.0),
                        )
-        result = alt_rad.array
         answer = np.ma.array(data=[15.0]*7+[15.025,15.1,15.15])
         ma_test.assert_array_almost_equal(alt_rad.array, answer)
         self.assertEqual(alt_rad.offset,0.0)
@@ -654,7 +651,6 @@ class TestAltitudeRadio(unittest.TestCase):
                        Parameter('Altitude Radio (B)',
                                  np.ma.array([20.0,20.0,20.0,20.0,20.2]), 0.5, 1.0),
                        )
-        result = alt_rad.array
         answer = np.ma.array(data=[15.0]*7+[15.025,15.1,15.15])
         ma_test.assert_array_almost_equal(alt_rad.array, answer)
         self.assertEqual(alt_rad.offset,0.0)
@@ -1379,7 +1375,7 @@ class TestGrossWeightSmoothed(unittest.TestCase):
         climb = buildsection('Climbing',None,None)
         descend = buildsection('Descending',None,None)
         gws = GrossWeightSmoothed()
-        result = gws.get_derived([fuel_flow, weight, climb, descend])
+        gws.get_derived([fuel_flow, weight, climb, descend])
         self.assertEqual(len(gws.array),64)
         self.assertEqual(gws.frequency, fuel_flow.frequency)
         self.assertEqual(gws.offset, fuel_flow.offset)
@@ -1540,6 +1536,25 @@ class TestILSFrequency(unittest.TestCase):
             data=[108.10,99,108.10,111.95,99,111.95], 
              mask=[False,True,False,False,True,False])
         ma_test.assert_masked_array_approx_equal(result.array, expected_array)
+
+
+class TestILSRange(unittest.TestCase):
+    def test_can_operate(self):
+        expected = [('Latitude Prepared',
+                     'Longitude Prepared',
+                     'ILS Glideslope',
+                     'Groundspeed',
+                     'Drift',
+                     'Heading True Continuous',
+                     'Airspeed True',
+                     'Altitude AAL',
+                     'ILS Localizer Established',
+                     'ILS Glideslope Established',
+                     'Precise Positioning',
+                     'FDR Approaches',
+                     'Start Datetime')]
+        opts = ILSRange.get_operational_combinations()
+        self.assertEqual(opts, expected)
         
         
 class TestPitch(unittest.TestCase):
@@ -1708,8 +1723,6 @@ class TestRateOfTurn(unittest.TestCase):
         np.testing.assert_array_equal(rot.array, answer) # Tests data only; NOT mask
        
     def test_rate_of_turn_phase_stability(self):
-        params = {'Heading Continuous':Parameter('', np.ma.array([0,0,0,1,0,0,0], 
-                                                               dtype=float))}
         rot = RateOfTurn()
         rot.derive(P('Heading Continuous', np.ma.array([0,0,0,1,0,0,0],
                                                           dtype=float)))
@@ -1729,8 +1742,6 @@ class TestRateOfTurn(unittest.TestCase):
         np.testing.assert_array_equal(rot.array, answer) # Tests data only; NOT mask
        
     def test_rate_of_turn_phase_stability(self):
-        params = {'Heading Continuous':Parameter('', np.ma.array([0,0,0,1,0,0,0], 
-                                                               dtype=float))}
         rot = RateOfTurn()
         rot.derive(P('Heading Continuous', np.ma.array([0,0,0,1,0,0,0],
                                                           dtype=float)))

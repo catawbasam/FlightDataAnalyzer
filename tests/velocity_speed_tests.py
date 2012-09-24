@@ -2,7 +2,6 @@
 #coding:utf-8
 
 import inspect
-import mock
 import unittest
 
 from analysis_engine import velocity_speed

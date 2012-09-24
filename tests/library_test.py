@@ -13,10 +13,9 @@ from analysis_engine.flight_attribute import LandingRunway
 # http://www.java2s.com/Open-Source/Python/Math/Numerical-Python/numpy/numpy/ma/testutils.py.htm
 import utilities.masked_array_testutils as ma_test
 
-from analysis_engine.node import (A, KeyPointValue, KeyTimeInstance, KPV, KTI,
-                                  P, S, Section)
 from analysis_engine.library import *
-from analysis_engine.plot_flight import plot_parameter
+from analysis_engine.node import (P, S)
+from analysis_engine.settings import METRES_TO_FEET
 
 test_data_path = os.path.join(os.path.dirname(os.path.abspath(__file__)),
                               'test_data')
@@ -506,9 +505,8 @@ class TestLatitudesAndLongitudes(unittest.TestCase):
         lat,lon = latitudes_and_longitudes(pompey_brg, pompey_dist, fareham)
         self.assertAlmostEqual(lat,[50.79569963])
         self.assertAlmostEqual(lon,[-1.06358672])
-        
         # TODO - Test with array and masks (for Brg/Dist also?)
-        
+
 
 class TestBlendEquispacedSensors(unittest.TestCase):
     def test_blend_alternate_sensors_basic(self):
@@ -529,7 +527,8 @@ class TestBlendEquispacedSensors(unittest.TestCase):
                                                    1.0,3.75,4.25,7.0,0.0,0.0])
         np.testing.assert_array_equal(result.mask, [False,False,False,False,False,False,
                                                    False,False,False,False,True,True])
-    
+
+
 class TestBlendNonequispacedSensors(unittest.TestCase):
     def test_blend_alternate_sensors_basic(self):
         array_1 = np.ma.array([0, 0, 1, 1],dtype=float)
@@ -614,6 +613,7 @@ class TestCalculateTimebase(unittest.TestCase):
         mins = np.load(os.path.join(test_data_path, 'minute.npy'))
         secs = np.load(os.path.join(test_data_path, 'second.npy'))
         start_dt = calculate_timebase(years, months, days, hours, mins, secs)
+        self.assertEqual(start_dt, datetime(2011, 12, 30, 8, 20, 36))
         
     def test_real_data_params_no_year(self):
         months = np.load(os.path.join(test_data_path, 'month.npy'))
@@ -623,15 +623,15 @@ class TestCalculateTimebase(unittest.TestCase):
         secs = np.load(os.path.join(test_data_path, 'second.npy'))
         years = np.array([2012]*len(months)) # fixed year
         start_dt = calculate_timebase(years, months, days, hours, mins, secs)
-        self.assertEqual(start_dt, datetime(2012,12,30,8,20,36))
+        self.assertEqual(start_dt, datetime(2012, 12, 30, 8, 20, 36))
         
     @unittest.skip("Implement if this is a requirement, currently "
                    "all parameters are aligned before this is being used.")
     def test_using_offset_for_seconds(self):
-        # check offset milliseconds are applied to the timestamps
+        # TODO: check offset milliseconds are applied to the timestamps
         self.assertFalse(True)
-        
-        
+
+
 class TestConvertTwoDigitToFourDigitYear(unittest.TestCase):
     def test_convert_two_digit_to_four_digit_year(self):
         # WARNING - this test will fail next year(!)
@@ -640,8 +640,8 @@ class TestConvertTwoDigitToFourDigitYear(unittest.TestCase):
         self.assertEquals(convert_two_digit_to_four_digit_year(12), 2012) # will break next year
         self.assertEquals(convert_two_digit_to_four_digit_year(11), 2011)
         self.assertEquals(convert_two_digit_to_four_digit_year(1), 2001)
-        
-        
+
+
 class TestCoReg(unittest.TestCase):
     def test_correlation_basic(self):
         x=np.ma.array([0,1,2,4,5,7], dtype=float)
@@ -800,7 +800,7 @@ class TestCycleCounter(unittest.TestCase):
         end_index, n_cycles = cycle_counter(array, 3.0, 10, 1.0, 0)
         self.assertEqual(n_cycles, None)
         self.assertEqual(end_index, None)
-        
+
 
 class TestCycleFinder(unittest.TestCase):
     def test_cycle_finder_basic(self):
@@ -913,7 +913,7 @@ class TestFindEdges(unittest.TestCase):
         expected = [3.5]
         self.assertEqual(expected, result)
                          
-    def test_find_edges_falling(self):
+    def test_find_edges_all(self):
         array=np.ma.array([1,1,0,0,2,2,0,0,-1-1])
         result = find_edges(array, slice(0,10), direction='all_edges')
         expected = [1.5,3.5,5.5,7.5]
@@ -921,7 +921,8 @@ class TestFindEdges(unittest.TestCase):
         
     def test_find_edges_failure(self):
         array=np.ma.array([1])
-        self.assertRaises(ValueError, find_edges, array, slice(0,1), direction='anything')
+        self.assertRaises(ValueError, find_edges, array, slice(0,1),
+                          direction='anything')
                     
                     
 class TestFirstOrderLag(unittest.TestCase):
@@ -967,7 +968,8 @@ class TestFirstOrderLag(unittest.TestCase):
         array = np.ma.zeros(5)
         array[3] = np.ma.masked
         result = first_order_lag (array, 1.0, 1.0, initial_value = 1.0)
-        ma_test.assert_mask_eqivalent(result.mask, [0,0,0,1,0], err_msg='Masks are not equal')
+        ma_test.assert_mask_eqivalent(result.mask, [0,0,0,1,0],
+                                      err_msg='Masks are not equal')
 
 class TestFirstOrderWashout(unittest.TestCase):
 
@@ -1009,7 +1011,8 @@ class TestFirstOrderWashout(unittest.TestCase):
 
     def test_firstorderwashout_gain(self):
         array = np.ma.ones(20)
-        result = first_order_washout (array, 1.0, 1.0, gain = 10.0, initial_value = 0.0)
+        result = first_order_washout (array, 1.0, 1.0, gain = 10.0,
+                                      initial_value = 0.0)
         # With a short time constant and more samples, the end result will
         # reach the input level (1.0) multiplied by the gain.
         self.assertAlmostEquals(result.data[0], 6.6666667)
@@ -1024,10 +1027,10 @@ class TestFirstOrderWashout(unittest.TestCase):
         array = np.ma.zeros(5)
         array[3] = np.ma.masked
         result = first_order_washout (array, 1.0, 1.0, initial_value = 1.0)
-        ma_test.assert_mask_eqivalent(result.mask, [0,0,0,1,0], err_msg='Masks are not equal')
-    
-    
-    
+        ma_test.assert_mask_eqivalent(result.mask, [0,0,0,1,0],
+                                      err_msg='Masks are not equal')
+
+
 class TestFirstValidSample(unittest.TestCase):
     def test_first_valid_sample(self):
         result = first_valid_sample(np.ma.array(data=[11,12,13,14],mask=[1,0,1,0]))
@@ -1052,7 +1055,8 @@ class TestFirstValidSample(unittest.TestCase):
     def test_first_valid_sample_underrun(self):
         result = first_valid_sample(np.ma.array(data=[11,12,13,14],mask=[1,0,1,0]),-2)
         self.assertEqual(result, (None, None))
-        
+
+
 class TestLastValidSample(unittest.TestCase):
     def test_last_valid_sample(self):
         result = last_valid_sample(np.ma.array(data=[11,12,13,14],mask=[1,0,1,0]))
@@ -1073,7 +1077,8 @@ class TestLastValidSample(unittest.TestCase):
     def test_last_valid_sample_overrun(self):
         result = last_valid_sample(np.ma.array(data=[11,12,13,14],mask=[1,0,1,0]),9)
         self.assertEqual(result, (None, None))
-        
+
+
 class TestRunwayDistanceFromEnd(unittest.TestCase):
     def test_null(self):
         runway =  {'end': {'latitude': 60.280151, 
@@ -1125,7 +1130,8 @@ class TestRunwayDistanceFromEnd(unittest.TestCase):
                    'id':'Test Case'}
         result = runway_distance_from_end(runway, point='threshold')
         self.assertEqual(result, None)
-         
+
+
 class TestRunwayDistances(unittest.TestCase):
     # This single test case used data for Bergen and had reasonable accuracy.
     # However, since setting up this test the runway has been extended so
@@ -1302,6 +1308,7 @@ class TestHysteresis(unittest.TestCase):
         pass
     """
 
+
 class TestIndexAtValue(unittest.TestCase):
     
     # Reminder: index_at_value (array, section, threshold):
@@ -1413,6 +1420,7 @@ class TestIndexClosestValue(unittest.TestCase):
         array = np.ma.array([3,2,1,4,5,6,7])
         self.assertEqual(index_closest_value(array, -9, slice(5,1,-1)), 2)
 
+
 class TestInterpolateAndExtend(unittest.TestCase):
     def test_interpolate_and_extend_basic(self):
         array = np.ma.array(data=[0,0,2,0,0,3.5,0],
@@ -1452,8 +1460,7 @@ class TestInterpolateAndExtend(unittest.TestCase):
         expected = np.ma.array([5, 10, 15, 20])
         result = interpolate_and_extend(array)
         np.testing.assert_array_equal(result, expected)
-        
-        
+
 
 class TestIndexOfDatetime(unittest.TestCase):
     def test_index_of_datetime(self):
@@ -1517,6 +1524,7 @@ class TestIsIndexWithinSlice(unittest.TestCase):
         self.assertTrue(is_index_within_slice(10, slice(8,None)))
         self.assertTrue(is_index_within_slice(10, slice(None, 12)))
 
+
 class TestILSLocalizerAlign(unittest.TestCase):
     def test_ils_localizer_align(self):
         runway =  {'end': {'latitude': 60.280151, 
@@ -1528,7 +1536,7 @@ class TestILSLocalizerAlign(unittest.TestCase):
         result = ils_localizer_align(runway)
         self.assertEqual(result['longitude'],5.2229505710057404)
         self.assertEqual(result['latitude'],60.27904301842346)
-        
+
 
 class TestIntegrate (unittest.TestCase):
     # Reminder: integrate(array, frequency, initial_value=0.0, scale=1.0, direction="forwards"):
@@ -1582,7 +1590,7 @@ class TestIsSliceWithinSlice(unittest.TestCase):
                                               slice(None, None)))
         self.assertTrue(is_slice_within_slice(slice(None, 15),
                                               slice(None, None)))
-        
+
 
 class TestMaskInsideSlices(unittest.TestCase):
     def test_mask_inside_slices(self):
@@ -1635,7 +1643,6 @@ class TestMaxContinuousUnmasked(unittest.TestCase):
         self.assertEqual(_max.stop-_max.start, 2)
         self.assertEqual(_max.start, 25)
         self.assertEqual(_max.stop, 27)
-                
 
 
 class TestMaskOutsideSlices(unittest.TestCase):
@@ -1751,7 +1758,6 @@ class TestMergeTwoParameters(unittest.TestCase):
         p1 = P(array=[0]*4, frequency=1, offset=0.0)
         p2 = P(array=[1]*3, frequency=2, offset=0.2)
         self.assertRaises(AssertionError, merge_two_parameters, p1, p2)
-
 
 
 class TestMinValue(unittest.TestCase):
@@ -1907,8 +1913,7 @@ class TestMovingAverage(unittest.TestCase):
         # test masked edges
         self.assertEqual(list(res.mask[:5]), [True]*5) # first 5 are masked (upper boundary of window/2)
         self.assertEqual(list(res.mask[-5:]), [True]*5) # last 5 are masked (lower boundary of window/2 + one masked value)
-        
-        
+
 
 class TestNearestNeighbourMaskRepair(unittest.TestCase):
     def test_nn_mask_repair(self):
@@ -1975,7 +1980,7 @@ class TestNormalise(unittest.TestCase):
         arr[9] = np.ma.masked
         # mask the max value
         # Q: This does not modify the array in place, yet res is not used?
-        res = normalise(arr)
+        normalise(arr)
         index, value = max_value(arr)
         self.assertEqual(index, 8)
         self.assertEqual(value, 8)
@@ -2092,7 +2097,6 @@ class TestPeakCurvature(unittest.TestCase):
         self.assertEqual(pc, 38.5)
 
 
-
 class TestPeakIndex(unittest.TestCase):
     def test_peak_index_no_data(self):
         self.assertRaises(ValueError, peak_index, [])
@@ -2200,7 +2204,8 @@ class TestRateOfChangeArray(unittest.TestCase):
         sloped = rate_of_change_array(test_array, 2.0, 10.0)
         answer = np.ma.array([0])
         ma_test.assert_array_almost_equal(sloped, answer)
-    
+
+
 class TestRateOfChange(unittest.TestCase):
     # 13/4/12 Changed timebase to be full width as this is more logical.
     # Reminder: was: rate_of_change(to_diff, half_width, hz) - half width in seconds.
@@ -2302,6 +2307,7 @@ class TestRepairMask(unittest.TestCase):
         res = repair_mask(array, extrapolate=True)
         expected = np.ma.array([6,6,6,7,7,7,7],mask=[0,0,0,0,0,0,0])
         ma_test.assert_array_equal(res, expected)
+
 
 class TestRoundToNearest(unittest.TestCase):
     def test_round_to_nearest(self):
@@ -2422,6 +2428,7 @@ class TestShiftSlices(unittest.TestCase):
         self.assertEqual(shift_slices(a,0), a)
         self.assertEqual(shift_slices(a,None), a)
 
+
 class TestSlicesAbove(unittest.TestCase):
     def test_slices_above(self):
         array = np.ma.concatenate([np.ma.arange(10), np.ma.arange(10)])
@@ -2444,6 +2451,7 @@ class TestSlicesBetween(unittest.TestCase):
         array.mask = [True] * 10 + [False] * 10
         repaired_array, slices = slices_between(array, 5, 15)
         self.assertEqual(slices, [slice(10, 15)])
+
 
 class TestSliceSamples(unittest.TestCase):
     def test_slice_samples(self):
@@ -2470,6 +2478,7 @@ class TestSliceSamples(unittest.TestCase):
         test_slice=slice(5,None,20)
         self.assertEqual(slice_samples(test_slice), 0)
 
+
 class TestSlicesFromTo(unittest.TestCase):
     def test_slices_from_to(self):
         array = np.ma.arange(20)
@@ -2493,7 +2502,8 @@ class TestSlicesFromTo(unittest.TestCase):
         array = np.ma.array([25,20,15,10,5,0,0,0,0])
         _, slices = slices_from_to(array, 17, 0)
         self.assertEqual(slices, [slice(2,5,None)])
-        
+
+
 class TestSlicesOverlap(unittest.TestCase):
     def test_slices_overlap(self):
         # overlap
@@ -2529,7 +2539,8 @@ class TestSlicesOverlap(unittest.TestCase):
         
         # step negative
         self.assertRaises(ValueError, slices_overlap, first, slice(1,2,-1))
-        
+
+
 class TestSlicesOverlay(unittest.TestCase):
     def test_slices_and(self):
         # overlay
@@ -2627,6 +2638,7 @@ class TestSlicesNot(unittest.TestCase):
         # Single point slices get discarded by shift slices function.
         self.assertEqual(slices_not(slice_list), [])
 
+
 class TestSlicesOr(unittest.TestCase):
     def test_slices_or_with_overlap(self):
         slice_list_a = [slice(10,13)]
@@ -2703,7 +2715,7 @@ class TestStraightenHeadings(unittest.TestCase):
         expected=np.ma.array(data=[0]*10+[6]*8+[0]*4+[10,5,0,-5,-10]+[0]*4,
                          mask=[True]*10+[False]*8+[True]*4+[False]*5+[True]*4)
         ma_test.assert_masked_array_approx_equal(straighten_headings(data), expected)
-            
+
 
 class TestSmoothTrack(unittest.TestCase):
     def test_smooth_track_latitude(self):
@@ -2836,7 +2848,7 @@ class TestSubslice(unittest.TestCase):
 
         #TODO: test negative start, stop and step
 
-        
+
 class TestTrackLinking(unittest.TestCase):
     def test_track_linking_basic(self):
         pos = np.ma.array(data=[0]*16,mask=False)
@@ -2852,9 +2864,9 @@ class TestTrackLinking(unittest.TestCase):
                                mask = False)
         np.testing.assert_array_equal(expected,result)
         # plot_parameter(expected)
-        
-class TestValueAtTime(unittest.TestCase):
 
+
+class TestValueAtTime(unittest.TestCase):
     # Reminder: value_at_time (array, hz, offset, time_index)
 
     def test_value_at_time_basic(self):
@@ -2909,8 +2921,8 @@ class TestValueAtDatetime(unittest.TestCase):
                                   value_datetime)
         value_at_time.assert_called_once_with(array, hz, offset, seconds)
         self.assertEqual(value, value_at_time.return_value)
-        
-        
+
+
 class TestValueAtIndex(unittest.TestCase):
 
     # Reminder: value_at_time (array, index) This function is thoroughly
@@ -3031,6 +3043,7 @@ class TestAlt2Press_Ratio(unittest.TestCase):
         Truth = np.power(1.0-25000./145442.,5.255876)
         self.assertAlmostEqual(Value, Truth)
 
+
 class TestCas2Dp(unittest.TestCase):
     
     # Many AeroCalc tests using different units removed as we are
@@ -3089,6 +3102,7 @@ class TestDp2Cas(unittest.TestCase):
         Truth = np.ma.array(data=[244.0, 1000.0], mask=[False,True])
         ma_test.assert_almost_equal(Value,Truth,decimal=2)
 
+
 class TestDp2Tas(unittest.TestCase):
 
     def test_01(self):
@@ -3120,7 +3134,8 @@ class TestDp2Tas(unittest.TestCase):
         Value = dp2tas(153.5469, 45000.0, -56.5)
         Truth = 608.8925
         self.assertAlmostEqual(Value, Truth, delta = 1)
- 
+
+
 class TestMachTat2Sat(unittest.TestCase):
 
     def test_01(self):
@@ -3132,7 +3147,7 @@ class TestMachTat2Sat(unittest.TestCase):
         self.assertAlmostEqual(Value[0], Truth, delta = 1e-5)
         self.assertAlmostEqual(Value.data[1], 1.0, delta = 1e-5)
 
-    
+
 class TestAlt2Sat(unittest.TestCase):
 
     def test_01(self):
@@ -3140,6 +3155,7 @@ class TestAlt2Sat(unittest.TestCase):
         Value = alt2sat(np.ma.array([0.0, 15000.0, 45000.0]))
         Truth = np.ma.array(data=[15.0, -14.718, -56.5])
         ma_test.assert_almost_equal(Value,Truth)
+
 
 class Test_dp_over_p2mach(unittest.TestCase):
 

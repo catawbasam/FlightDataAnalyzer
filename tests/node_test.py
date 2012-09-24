@@ -9,7 +9,6 @@ from datetime import datetime
 from analysis_engine.node import (
     Attribute,
     DerivedParameterNode,
-    get_verbose_name,
     KeyPointValueNode, KeyPointValue, 
     KeyTimeInstanceNode, KeyTimeInstance, KTI,
     FlightAttributeNode,
@@ -407,7 +406,7 @@ class TestSectionNode(unittest.TestCase):
         last_b_section_within_slice = section_node.get_last(within_slice=
                                                             slice(15, 40),
                                                             name='b')
-        self.assertEqual(items[2], last_section_within_slice)
+        self.assertEqual(items[2], last_b_section_within_slice)
     
     def test_get_ordered_by_index(self):
         items = [Section('a', slice(4,10),4,10),
@@ -531,7 +530,7 @@ class TestFormattedNameNode(unittest.TestCase):
         self.assertTrue(formatted_name_node._validate_name('Speed in ascent at 500 ft'))
         self.assertTrue(formatted_name_node._validate_name('Speed in descent at 900 ft'))
         self.assertTrue(formatted_name_node._validate_name('Speed in descent at 100 ft'))
-        self.assertRaises(ValueError, formatted_name_node._validate_name, 'Speed in ascent at -10 ft')       
+        self.assertFalse(formatted_name_node._validate_name('Speed in ascent at -10 ft'))
         
     def test_get_first(self):
         # Test empty Node first.
@@ -795,7 +794,6 @@ class TestKeyPointValueNode(unittest.TestCase):
         knode.create_kpv_from_slices(array, slices, function)
         self.assertEqual(list(knode),
                          [KeyPointValue(index=24, value=37, name='Kpv')])
-        
 
     def test_create_kpv_outside_slices(self):
         knode = self.knode
@@ -952,8 +950,17 @@ class TestKeyPointValueNode(unittest.TestCase):
         self.assertEqual(kpv_node_returned6, [])
         kpv_node_returned7 = kpv_node.get_ordered_by_value(slice(500,600))
         self.assertEqual(kpv_node_returned7, [])
-
     
+    def test__get_slices(self):
+        section_node = SectionNode(items=[Section('A', slice(10, 20), 10, 20),
+                                          Section('B', slice(30, 40), 30, 40)])
+        slices = KeyPointValueNode._get_slices(section_node)
+        self.assertEqual(slices, [s.slice for s in section_node])
+        input_slices = [slice(10, 20), slice(10, 20)]
+        self.assertEqual(KeyPointValueNode._get_slices(input_slices),
+                         input_slices)
+
+
 class TestKeyTimeInstanceNode(unittest.TestCase):
     def setUp(self):
         class KTI(KeyTimeInstanceNode):
