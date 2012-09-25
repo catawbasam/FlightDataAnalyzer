@@ -694,7 +694,7 @@ class AltitudeRadio(DerivedParameterNode):
         
         frame_name = frame.value if frame else None
         frame_qualifier = frame_qual.value if frame_qual else None
-        
+
         # 737-1 & 737-i has Altitude Radio recorded.
         
         if frame_name in ['737-3C', '757-DHL']:
@@ -720,7 +720,7 @@ class AltitudeRadio(DerivedParameterNode):
                 self.array, self.frequency, self.offset = \
                     blend_two_parameters(source_A, source_B)
         
-        elif frame_name in ['737-5']:
+        elif frame_name in ('737-5', '737-5_NON-EIS'):
             if frame_qualifier and 'Altitude_Radio_EFIS' in frame_qualifier or\
                frame_qualifier and 'Altitude_Radio_ARINC_552' in frame_qualifier:
                 self.array, self.frequency, self.offset = \
