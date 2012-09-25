@@ -1115,9 +1115,9 @@ class TestDerivedParameterNode(unittest.TestCase):
         self.assertEqual(result.offset, unaligned_param.offset)
         
     def test_get_derived_discrete_align(self):
-        """
-        Ensure that interpolations does not occur
-        """
+        '''
+        Ensure that interpolations do not occur.
+        '''
         class Flap(DerivedParameterNode):
             data_type = 'Multi-state'
             

@@ -38,36 +38,30 @@ from analysis_engine.process_flight import process_flight
 
 from analysis_engine.settings import AIRSPEED_THRESHOLD
 
+
 '''
 Three little routines to make building Sections for testing easier.
 '''
 def builditem(name, begin, end):
-    if begin==None:
-        ib = None
-    else:
-        ib = begin
-    if end==None:
-        ie = None
-    else:
-        ie = end
     '''
     This code more accurately represents the aligned section values, but is
     not suitable for test cases where the data does not get aligned.
     
-    if begin==None:
+    if begin is None:
         ib = None
     else:
         ib = int(begin)
         if ib < begin:
             ib += 1
-    if end==None:
+    if end is None:
         ie = None
     else:
         ie = int(end)
         if ie < end:
             ie += 1
             '''
-    return Section(name, slice(ib, ie, None), begin, end)
+    return Section(name, slice(begin, end, None), begin, end)
+
 
 def buildsection(name, begin, end):
     '''
@@ -84,6 +78,7 @@ def buildsection(name, begin, end):
     result = builditem(name, begin, end)
     return SectionNode(name, items=[result])
 
+
 def buildsections(*args):
     '''
     Like buildsection, this is used to build SectionNodes for test purposes.
@@ -99,6 +94,7 @@ def buildsections(*args):
         new_section = builditem(name, a[0], a[1])
         built_list.append(new_section)
     return SectionNode(name, items=built_list)
+
 
 class TestAirborne(unittest.TestCase):
     # Based closely on the level flight condition, but taking only the
@@ -638,46 +634,46 @@ class TestFast(unittest.TestCase):
                          [('Airspeed For Flight Phases',)])
 
     def test_fast_phase_basic(self):
-        slow_and_fast_data = np.ma.array(range(60,120,10)+[120]*300+range(120,50,-10))
+        slow_and_fast_data = np.ma.array(range(60, 120, 10) + [120] * 300 + \
+                                         range(120, 50, -10))
         ias = Parameter('Airspeed For Flight Phases', slow_and_fast_data,1,0)
         phase_fast = Fast()
         phase_fast.derive(ias)
         if AIRSPEED_THRESHOLD == 80:
-            expected = buildsection('Fast',2,311)
+            expected = buildsection('Fast', 2, 311)
         if AIRSPEED_THRESHOLD == 70:
-            expected = buildsection('Fast',1,312)
+            expected = buildsection('Fast', 1, 312)
         self.assertEqual(phase_fast, expected)
         
     def test_fast_all_fast(self):
-        fast_data = np.ma.array([120]*10)
-        ias = Parameter('Airspeed For Flight Phases', fast_data,1,0)
+        fast_data = np.ma.array([120] * 10)
+        ias = Parameter('Airspeed For Flight Phases', fast_data, 1, 0)
         phase_fast = Fast()
         phase_fast.derive(ias)
-        expected = buildsection('Fast',None,None)
+        expected = buildsection('Fast', None, None)
         self.assertEqual(phase_fast, expected)
 
     def test_fast_all_slow(self):
-        fast_data = np.ma.array([12]*10)
-        ias = Parameter('Airspeed For Flight Phases', fast_data,1,0)
+        fast_data = np.ma.array([12] * 10)
+        ias = Parameter('Airspeed For Flight Phases', fast_data, 1, 0)
         phase_fast = Fast()
         phase_fast.derive(ias)
-        expected = buildsection('Fast',None,None)
-        self.assertEqual(phase_fast, expected)
+        self.assertEqual(phase_fast, [])
 
     def test_fast_slowing_only(self):
-        fast_data = np.ma.arange(110,60,-10)
-        ias = Parameter('Airspeed For Flight Phases', fast_data,1,0)
+        fast_data = np.ma.arange(110, 60, -10)
+        ias = Parameter('Airspeed For Flight Phases', fast_data, 1, 0)
         phase_fast = Fast()
         phase_fast.derive(ias)
-        expected = buildsection('Fast',None,4)
+        expected = buildsection('Fast', None, 4)
         self.assertEqual(phase_fast, expected)
         
     def test_fast_speeding_only(self):
-        fast_data = np.ma.arange(60,120,10)
-        ias = Parameter('Airspeed For Flight Phases', fast_data,1,0)
+        fast_data = np.ma.arange(60, 120, 10)
+        ias = Parameter('Airspeed For Flight Phases', fast_data, 1, 0)
         phase_fast = Fast()
         phase_fast.derive(ias)
-        expected = buildsection('Fast',2,None)
+        expected = buildsection('Fast', 2, None)
         self.assertEqual(phase_fast, expected)
 
     #def test_fast_phase_with_masked_data(self): # These tests were removed.
@@ -691,30 +687,31 @@ class TestGrounded(unittest.TestCase):
                          [('Airborne', 'Airspeed For Flight Phases')])
 
     def test_grounded_phase_basic(self):
-        slow_and_fast_data = np.ma.array(range(60,120,10)+[120]*300+range(120,50,-10))
-        ias = Parameter('Airspeed For Flight Phases', slow_and_fast_data,1,0)
-        air = buildsection('Airborne',2,311)
+        slow_and_fast_data = \
+            np.ma.array(range(60, 120, 10) + [120] * 300 + range(120, 50, -10))
+        ias = Parameter('Airspeed For Flight Phases', slow_and_fast_data, 1, 0)
+        air = buildsection('Airborne', 2, 311)
         phase_grounded = Grounded()
         phase_grounded.derive(ias, air)
-        expected = buildsections('Grounded',[0,2],[311,313])
+        expected = buildsections('Grounded', [0, 2], [311, 313])
         self.assertEqual(phase_grounded, expected)
         
     def test_grounded_all_fast(self):
-        grounded_data = np.ma.array([120]*10)
-        ias = Parameter('Airspeed For Flight Phases', grounded_data,1,0)
-        air = buildsection('Airborne',None,None)
+        grounded_data = np.ma.array([120] * 10)
+        ias = Parameter('Airspeed For Flight Phases', grounded_data, 1, 0)
+        air = buildsection('Airborne', None, None)
         phase_grounded = Grounded()
         phase_grounded.derive(ias, air)
-        expected = buildsection('Grounded',None,None)
+        expected = buildsection('Grounded', None, None)
         self.assertEqual(phase_grounded, expected)
 
     def test_grounded_all_slow(self):
         grounded_data = np.ma.array([12]*10)
-        ias = Parameter('Airspeed For Flight Phases', grounded_data,1,0)
-        air = buildsection('Airborne',None,None)
+        ias = Parameter('Airspeed For Flight Phases', grounded_data, 1, 0)
+        air = buildsection('Airborne', None, None)
         phase_grounded = Grounded()
         phase_grounded.derive(ias, air)
-        expected = buildsection('Grounded',0,10)
+        expected = buildsection('Grounded', 0, 10)
         self.assertEqual(phase_grounded.get_first(), expected[0])
 
     def test_grounded_landing_only(self):
@@ -752,19 +749,31 @@ class TestFinalApproach(unittest.TestCase):
         fapp=FinalApproach()
         fapp.derive(alt_aal)
         self.assertEqual(fapp, expected)
-        
+
+
 class TestGearRetracting(unittest.TestCase):
     def test_can_operate(self):
-        expected = [('Gear Down','Gear (L) Red Warning','Gear (N) Red Warning',
-                     'Gear (R) Red Warning','Frame', 'Airborne')]
         opts = GearRetracting.get_operational_combinations()
-        self.assertEqual(opts, expected)
+        self.assertTrue(all(['Gear Down' for o in opts]))
+        expected = [('Gear Down', 'Gear (L) Red Warning',),
+                    ('Gear Down', 'Gear (N) Red Warning',),
+                    ('Gear Down', 'Gear (R) Red Warning',),
+                    ('Gear Down', 'Frame',),
+                    ('Gear Down', 'Airborne',),
+                    ('Gear Down', 'Gear (L) Red Warning',
+                     'Gear (N) Red Warning', 'Gear (R) Red Warning', 'Frame',
+                     'Airborne'),]
+        self.assertTrue([e in opts for e in expected])
 
     def test_737_3C(self):
-        gear_down = Parameter('Gear Down',np.ma.array([1,1,1,0,0,0,0,0,0,0,0,1,1])) 
-        gear_warn_l = Parameter('Gear (L) Red Warning',np.ma.array([0,0,0,1,0,0,0,0,0,1,0,0]))
-        gear_warn_n = Parameter('Gear (N) Red Warning',np.ma.array([0,0,0,0,1,0,0,0,1,0,0,0]))
-        gear_warn_r = Parameter('Gear (R) Red Warning',np.ma.array([0,0,0,0,0,1,0,1,0,0,0,0]))
+        gear_down = Parameter('Gear Down',
+                              np.ma.array([1,1,1,0,0,0,0,0,0,0,0,1,1])) 
+        gear_warn_l = Parameter('Gear (L) Red Warning',
+                                np.ma.array([0,0,0,1,0,0,0,0,0,1,0,0]))
+        gear_warn_n = Parameter('Gear (N) Red Warning',
+                                np.ma.array([0,0,0,0,1,0,0,0,1,0,0,0]))
+        gear_warn_r = Parameter('Gear (R) Red Warning',
+                                np.ma.array([0,0,0,0,0,1,0,1,0,0,0,0]))
         frame = A('Frame', value='737-3C')
         airs=buildsection('Airborne', 1, 11)
         gr = GearRetracting()
@@ -868,7 +877,7 @@ class TestHolding(unittest.TestCase):
 class TestLanding(unittest.TestCase):
     def test_can_operate(self):
         self.assertEqual(Landing.get_operational_combinations(),
-            [('Heading Continuous', 'Altitude AAL For Flight Phases', 'Fast')])
+                         [('Heading Continuous', 'Altitude AAL', 'Fast')])
 
     def test_landing_basic(self):
         head = np.ma.array([20]*8+[10,0])
@@ -971,7 +980,7 @@ class TestLevelFlight(unittest.TestCase):
 class TestTakeoff(unittest.TestCase):
     def test_can_operate(self):
         self.assertEqual(Takeoff.get_operational_combinations(),
-            [('Heading Continuous', 'Altitude AAL For Flight Phases', 'Fast')])
+                         [('Heading Continuous', 'Altitude AAL', 'Fast')])
 
     def test_takeoff_basic(self):
         head = np.ma.array([ 0,0,10,20,20,20,20,20,20,20,20])

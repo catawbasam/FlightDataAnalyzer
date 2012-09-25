@@ -30,10 +30,12 @@ def find_toc_tod(alt_data, ccd_slice, mode):
     peak_index = np.ma.argmax(alt_data[ccd_slice])
     
     if mode == 'Climb':
-        section = slice(ccd_slice.start, ccd_slice.start+peak_index+1, None)
+        section = slice(ccd_slice.start, ccd_slice.start + peak_index + 1,
+                        None)
         slope = SLOPE_FOR_TOC_TOD
     else:
-        section = slice((ccd_slice.start or 0)+peak_index, ccd_slice.stop, None)
+        section = slice((ccd_slice.start or 0) + peak_index, ccd_slice.stop,
+                        None)
         slope = -SLOPE_FOR_TOC_TOD
         
     # Quit if there is nothing to do here.
@@ -210,7 +212,7 @@ class TopOfClimb(KeyTimeInstanceNode):
                 # altitude data does not have an increasing section, so quit.
                 break
             # If the data started in mid-flight the ccd slice will start with None
-            if ccd_slice.start == None:
+            if ccd_slice.start is None:
                 break
             # if this is the first point in the slice, it's come from
             # data that is already in the cruise, so we'll ignore this as well
@@ -233,7 +235,7 @@ class TopOfDescent(KeyTimeInstanceNode):
                 # altitude data does not have a decreasing section, so quit.
                 break
             # If this slice ended in mid-cruise, the ccd slice will end in None.
-            if ccd_slice.stop == None:
+            if ccd_slice.stop is None:
                 break
             # if this is the last point in the slice, it's come from
             # data that ends in the cruise, so we'll ignore this too.
@@ -276,7 +278,7 @@ class TakeoffTurnOntoRunway(KeyTimeInstanceNode):
             # use the midpoint. This avoids identifying the heading
             # change immediately after liftoff as a turn onto the runway.
             start_search=fast.get_next(toff.slice.start).slice.start
-            if (start_search == None) or (start_search > toff.slice.stop):
+            if (start_search is None) or (start_search > toff.slice.stop):
                 start_search = (toff.slice.start+toff.slice.stop)/2
             peak_bend = peak_curvature(head.array,slice(
                 start_search,toff.slice.start,-1),curve_sense='Bipolar')
@@ -318,7 +320,7 @@ class TakeoffAccelerationStart(KeyTimeInstanceNode):
                                                TAKEOFF_ACCELERATION_THRESHOLD,
                                                takeoff.slice)
             
-            if start_accel == None:
+            if start_accel is None:
                 # A quite respectable "backstop" is from the rate of change
                 # of airspeed. We use this if the acceleration is not
                 # available or if, for any reason, the previous computation
@@ -329,7 +331,7 @@ class TakeoffAccelerationStart(KeyTimeInstanceNode):
                 else:
                     pass
 
-            if start_accel != None:
+            if start_accel is not None:
                 self.create_kti(start_accel)
 
 
@@ -431,7 +433,7 @@ def find_edges_on_state_change(state, array, change='entering',
     # presents appropriate arguments for analysis. We test for phase.name
     # as phase returns False.
     edge_list = []
-    if phase == None:
+    if phase is None:
         state_changes(state, array, edge_list, change)
     else:
         for each_period in phase:
@@ -505,7 +507,7 @@ class LandingTurnOffRunway(KeyTimeInstanceNode):
             if landing.slice.start and landing.slice.stop:
                 start_search=fast.get_previous(landing.slice.stop).slice.stop
     
-                if (start_search == None) or (start_search < landing.slice.start):
+                if (start_search is None) or (start_search < landing.slice.start):
                     start_search = (landing.slice.start+landing.slice.stop)/2
                 peak_bend = peak_curvature(head.array[slice(
                     start_search,landing.slice.stop)],curve_sense='Bipolar')

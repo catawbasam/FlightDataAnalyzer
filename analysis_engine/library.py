@@ -21,6 +21,7 @@ logger = logging.getLogger(name=__name__)
 
 Value = namedtuple('Value', 'index value')
 
+
 class InvalidDatetime(ValueError):
     pass
 
@@ -360,6 +361,7 @@ def convert_two_digit_to_four_digit_year(yr):
     else:
         return century + yr
 
+
 def coreg(y, indep_var=None, force_zero=False):
     """
     Combined correlation and regression line calculation. 
@@ -399,7 +401,7 @@ def coreg(y, indep_var=None, force_zero=False):
     n = len(y)
     if n < 2:
         raise ValueError, 'Function coreg called with data of length %s' % n
-    if indep_var == None:
+    if indep_var is None:
         x = np.ma.arange(n, dtype=float)
     else:
         x = indep_var
@@ -434,7 +436,8 @@ def coreg(y, indep_var=None, force_zero=False):
         c = sy/n_ - m*sx/n_
     
     return p, m, c
-    
+
+
 def create_phase_inside(array, hz, offset, phase_start, phase_end):
     '''
     This function masks all values of the reference array outside of the phase
@@ -454,6 +457,7 @@ def create_phase_inside(array, hz, offset, phase_start, phase_end):
     '''
     return _create_phase_mask(array,  hz, offset, phase_start, phase_end, 'inside')
 
+
 def create_phase_outside(array, hz, offset, phase_start, phase_end):
     '''
     This function masks all values of the reference array inside of the phase
@@ -472,6 +476,7 @@ def create_phase_outside(array, hz, offset, phase_start, phase_end):
     :returns: input array with samples outside phase_start and phase_end masked.
     '''
     return _create_phase_mask(array, hz, offset, phase_start, phase_end, 'outside')
+
 
 def _create_phase_mask(array, hz, offset, a, b, which_side):
     # Create Numpy array of same size as array data
@@ -523,17 +528,15 @@ def cycle_counter(array, min_step, cycle_time, hz, array_offset):
     :param array_offset: Index to start of array
     :type array_offset: integer
     
-    :returns max_index: index of the array element at the end of the highest number of cycles
-    :type max_iundex: integer
-    :returns max_cycles: the highest number of cycles in the array.
-    :type max_cycles: float (counts a half cycle for each change over min_step)
+    :returns: A tuple containing the index of the array element at the end of the highest number of cycles and the highest number of cycles in the array.
+    :rtype: (integer, float (counts a half cycle for each change over min_step))
     
     Note - Where two events with the same cycle count arise in the same
     array, the latter is recorded as it is normally the later in the flight
     that will be most hazardous.
     '''
     idxs, vals = cycle_finder(array, min_step=min_step)
-    if idxs == None:
+    if idxs is None:
         return None, None
     
     half_cycle_times = np.ediff1d(idxs) / hz
@@ -545,22 +548,23 @@ def cycle_counter(array, min_step, cycle_time, hz, array_offset):
             index = idxs[num+1]
         else:
             if 0 < half_cycles >= max_half_cycles:
-               max_half_cycles = half_cycles
-               max_index = index
-               half_cycles = 0
+                max_half_cycles = half_cycles
+                max_index = index
+                half_cycles = 0
                
     if 0 < half_cycles >= max_half_cycles:
-       max_half_cycles = half_cycles
-       max_index = index
+        max_half_cycles = half_cycles
+        max_index = index
     
     if max_half_cycles <= 1: # Ignore single direction movements.
         return None, None
-    return array_offset+max_index, max_half_cycles/2.0 
-    
+    return array_offset + max_index, max_half_cycles / 2.0 
+
     
 def cycle_finder(array, min_step=0.0, include_ends=True):
     '''
-    Simple implementation of a peak detection algorithm with small cycle remover.
+    Simple implementation of a peak detection algorithm with small cycle 
+    remover.
 
     :param array: time series data 
     :type array: Numpy masked array
@@ -569,7 +573,7 @@ def cycle_finder(array, min_step=0.0, include_ends=True):
     :param include_ends: Decides whether the first and last points of the array are to be included as possible turning points
     :type include_ends: logical
     
-    :returns: List of peak indexes, List of peak values.
+    :returns: A tuple containing the list of peak indexes, and the list of peak values.
     '''
     
     if len(array) == 0:
@@ -578,37 +582,41 @@ def cycle_finder(array, min_step=0.0, include_ends=True):
     
     # Find the peaks and troughs by difference products which change sign.
     x = np.ma.ediff1d(array, to_begin=0.0)
-    # Stripping out only the nonzero values ensures we don't get confused with invariant data
-    y = np.ma.nonzero(x)
-    z = x[y[0]] # y is a tuple of indices so this recovers the values of interest
-    peak = -z[:-1]*z[1:] # Here we compute the change in direction
-    idxs = y[0][np.nonzero(np.ma.maximum(peak,0.0))] # And these are the indeces where the direction changed
+    # Stripping out only the nonzero values ensures we don't get confused with
+    # invariant data.
+    y = np.ma.nonzero(x)[0]
+    z = x[y] # np.ma.nonzero returns a tuple of indices
+    peak = -z[:-1] * z[1:] # Here we compute the change in direction.
+    # And these are the indeces where the direction changed.
+    idxs = y[np.nonzero(np.ma.maximum(peak, 0.0))] 
     vals = array.data[idxs] # So these are the local peak and trough values.
     
-    # Optional inclusion of end points
+    # Optional inclusion of end points.
     if include_ends:
         # We can only extend over the range of valid data, so find the first
         # and last valid samples.
         first, last = np.ma.flatnotmasked_edges(array)
         idxs = np.insert(idxs, 0, first)
-        vals = np.insert(vals,0,array.data[first])
+        vals = np.insert(vals, 0, array.data[first])
         # If the end two are in line, scrub the middle one.
         try:
-            if (vals[2]-vals[1])*(vals[1]-vals[0])>=0.0:
+            if (vals[2] - vals[1]) * (vals[1] - vals[0]) >= 0.0:
                 idxs = np.delete(idxs, 1)
                 vals = np.delete(vals, 1)
         except:
-            pass # If there are few vals in the array, there's nothing to tidy up.
+            # If there are few vals in the array, there's nothing to tidy up.
+            pass
         idxs = np.append(idxs, len(array))
-        vals = np.append(vals,array.data[last])
+        vals = np.append(vals, array.data[last])
         try:
-            if (vals[-3]-vals[-2])*(vals[-2]-vals[-1])>=0.0:
+            if (vals[-3] - vals[-2]) * (vals[-2] - vals[-1]) >= 0.0:
                 idxs = np.delete(idxs, -2)
                 vals = np.delete(vals, -2)
         except:
             pass # as before.
 
-    # This section progressively removes reversals smaller than the step size of interest, hence the arrays shrink until just the desired answer is left.
+    # This section progressively removes reversals smaller than the step size of
+    # interest, hence the arrays shrink until just the desired answer is left.
     dvals = np.ediff1d(vals)
     while len(dvals) > 0 and np.min(abs(dvals)) < min_step:
         sort_idx = np.argmin(abs(dvals))
@@ -620,18 +628,19 @@ def cycle_finder(array, min_step=0.0, include_ends=True):
         elif sort_idx == last-1:
             idxs = np.delete(idxs, last)
             vals = np.delete(vals, last)
-            dvals = np.delete(dvals, last-1) # One fewer dval than val
+            dvals = np.delete(dvals, last-1) # One fewer dval than val.
         else:
-            idxs = np.delete(idxs, slice(sort_idx,sort_idx+2))
-            vals = np.delete(vals, slice(sort_idx,sort_idx+2))
-            dvals[sort_idx-1] += dvals[sort_idx] + dvals[sort_idx+1]
-            dvals = np.delete(dvals, slice(sort_idx,sort_idx+2))
+            idxs = np.delete(idxs, slice(sort_idx, sort_idx + 2))
+            vals = np.delete(vals, slice(sort_idx, sort_idx + 2))
+            dvals[sort_idx - 1] += dvals[sort_idx] + dvals[sort_idx + 1]
+            dvals = np.delete(dvals, slice(sort_idx, sort_idx + 2))
     if len(dvals) == 0:
         # All the changes have disappeared, so return None rather than a
         # single residual array value.
         return None, None
     else:
         return idxs, vals
+
 
 def datetime_of_index(start_datetime, index, frequency=1):
     '''
@@ -650,7 +659,7 @@ def datetime_of_index(start_datetime, index, frequency=1):
     index_in_seconds = index / frequency
     offset = timedelta(seconds=index_in_seconds)
     return start_datetime + offset
-    
+
 
 # Previously known as Duration
 def clip(array, period, hz=1.0, remove='peaks'):
@@ -671,7 +680,6 @@ def clip(array, period, hz=1.0, remove='peaks'):
     :param remove: type of data to clip.
     :type remove: string, default to 'peaks' option 'troughs'
     '''
-
     if hz <= 0.01:
         raise ValueError('Duration called with sample rate outside permitted range')
 
@@ -698,7 +706,7 @@ def clip(array, period, hz=1.0, remove='peaks'):
     
     # OK - normal operation here. We repair the mask to avoid propogating invalid samples unreasonably.
     source = repair_mask(array, frequency=hz, repair_duration=period-(1/hz))
-    if source != None and np.ma.count(source): # Because np.ma.count(source)=1 if source = None
+    if source is not None and np.ma.count(source): # Because np.ma.count(source)=1 if source = None
         result = np.ma.copy(source)
     
         for step in range(2*delay+1):
@@ -780,6 +788,7 @@ def filter_vor_ils_frequencies(array, navaid):
     else:
         raise ValueError, 'Navaid of unrecognised type %s' %navaid
 
+
 def find_edges(array, _slice, direction='rising_edges'):
     '''
     Edge finding low level routine, called by create_ktis_at_edges (and
@@ -820,6 +829,7 @@ def find_edges(array, _slice, direction='rising_edges'):
     edge_list = edges[0] + int(_slice.start or 0) - 0.5
     return list(edge_list)
 
+
 def first_valid_sample(array, start_index=None):
     '''
     Returns the first valid sample of data from a point in an array.
@@ -834,7 +844,7 @@ def first_valid_sample(array, start_index=None):
     :returns value: the value of first valid sample.
     :type index: Float or None
     '''
-    if start_index == None:
+    if start_index is None:
         start_index = 0
     # Trap for start_index < 0 ensures we don't stray into the far end of the array.    
     elif start_index < 0 or start_index > len(array):
@@ -862,7 +872,7 @@ def last_valid_sample(array, end_index=None):
     :returns value: the value of last valid sample.
     :type index: Float or None
     '''
-    if end_index == None: 
+    if end_index is None: 
         end_index = len(array)
     elif end_index > len(array):
         return None, None
@@ -873,7 +883,6 @@ def last_valid_sample(array, end_index=None):
         return index, array[index]
     else:
         return None, None
-
 
 
 def first_order_lag(param, time_constant, hz, gain=1.0, initial_value=None):
@@ -926,6 +935,7 @@ def first_order_lag(param, time_constant, hz, gain=1.0, initial_value=None):
     
     return masked_first_order_filter(y_term, x_term, param, initial_value)
 
+
 def masked_first_order_filter(y_term, x_term, param, initial_value):
     """
     This provides access to the scipy filter function processed across the
@@ -952,7 +962,7 @@ def masked_first_order_filter(y_term, x_term, param, initial_value):
     good_parts = np.ma.clump_unmasked(param)
     for good_part in good_parts:
         
-        if initial_value == None:
+        if initial_value is None:
             initial_value = param[good_part.start]
         # Tested version here...
         answer, z_final = lfilter(x_term, y_term, param[good_part], zi=z_initial*initial_value)
@@ -969,7 +979,8 @@ def masked_first_order_filter(y_term, x_term, param, initial_value):
         result[bad_part] = np.ma.masked
         
     return result
-    
+
+
 def first_order_washout(param, time_constant, hz, gain=1.0, initial_value=None):
     '''
     Computes the transfer function
@@ -1040,6 +1051,7 @@ def _dist(lat1_d, lon1_d, lat2_d, lon2_d):
         sin(dlon/2) * sin(dlon/2) * cos(lat1) * cos(lat2)
     return 2 * atan2(sqrt(a), sqrt(1-a)) * 6371000
 
+
 def runway_distance_from_end(runway, *args, **kwds):
     """
     Distance from the end of the runway to any point. The point is first
@@ -1089,7 +1101,7 @@ def runway_distance_from_end(runway, *args, **kwds):
                      runway['end']['latitude'], runway['end']['longitude'])
     else:
         return None
-        
+
 
 def runway_distances(runway):
     '''
@@ -1142,6 +1154,7 @@ def runway_distances(runway):
     
     return start_2_loc, gs_2_loc, end_2_loc, pgs_lat, pgs_lon  # Runway distances to start, glideslope and end.
 
+
 def runway_length(runway):
     '''
     Calculation of only the length for runways with no glideslope details
@@ -1170,7 +1183,8 @@ def runway_length(runway):
         return _dist(start_lat, start_lon, end_lat, end_lon)
     except:
         return None
-    
+
+
 def runway_heading(runway):
     '''
     Computation of the runway heading from endpoints.
@@ -1196,6 +1210,7 @@ def runway_heading(runway):
     except:
         return None
 
+
 def runway_snap_dict(runway, lat, lon):
     """
     This function snaps any location onto the closest point on the runway centreline.
@@ -1215,7 +1230,8 @@ def runway_snap_dict(runway, lat, lon):
     to_return['latitude'] = lat
     to_return['longitude'] = lon
     return to_return
-    
+
+
 def runway_snap(runway, lat, lon):
     """
     This function snaps any location onto the closest point on the runway centreline.
@@ -1250,9 +1266,8 @@ def runway_snap(runway, lat, lon):
     
     else:
         return None, None
-    
 
-    
+
 def ground_track(lat_fix, lon_fix, gspd, hdg, frequency, mode):
     """
     Computation of the ground track assuming no slipping.
@@ -1268,7 +1283,6 @@ def ground_track(lat_fix, lon_fix, gspd, hdg, frequency, mode):
     :type frequency: Float (units = Hz)
     :param mode: type of calculation to be completed.
     :type mode: String, either 'takeoff' or 'landing' accepted.
-
 
     :returns
     :param lat_track: Latitude of computed ground track
@@ -1323,7 +1337,8 @@ def ground_track(lat_fix, lon_fix, gspd, hdg, frequency, mode):
     lat, lon = latitudes_and_longitudes(bearing, distance, 
                                         {'latitude':lat_fix, 'longitude':lon_fix})
     return lat, lon
-         
+
+
 def hash_array(array):
     '''
     Creates a sha256 hash from the array's tostring() method.
@@ -1331,6 +1346,7 @@ def hash_array(array):
     checksum = sha256()
     checksum.update(array.tostring())
     return checksum.hexdigest()
+
 
 def hysteresis(array, hysteresis):
     """
@@ -1381,6 +1397,7 @@ def hysteresis(array, hysteresis):
     # At the end of the process we reinstate the mask, although the data
     # values may have affected the result.
     return np.ma.array(result, mask=array.mask)
+
 
 def ils_glideslope_align(runway):
     '''
@@ -1437,7 +1454,6 @@ def ils_localizer_align(runway):
     ['latitude'] ILS localizer position aligned to start and end of runway
     ['longitude']
     '''
-    
     ##start_lat = runway['start']['latitude']
     ##start_lon = runway['start']['longitude']
     ##end_lat = runway['end']['latitude']
@@ -1460,7 +1476,7 @@ def ils_localizer_align(runway):
     
     return {'latitude':new_lat, 'longitude':new_lon}
 
-    
+
 def integrate(array, frequency, initial_value=0.0, scale=1.0, direction="forwards"):
     """
     Trapezoidal integration
@@ -1516,7 +1532,8 @@ def integrate(array, frequency, initial_value=0.0, scale=1.0, direction="forward
     result[::d] = np.ma.cumsum(to_int[::d] * s)
     
     return result
-    
+
+
 def interpolate_and_extend(array):
     """ 
     This will replace all masked values in an array with linearly
@@ -1558,8 +1575,8 @@ def interpolate_and_extend(array):
             array[a:b] = join[1:-1]
             
     return array
-    
-    
+
+
 def interleave(param_1, param_2):
     """
     Interleaves two parameters (usually from different sources) into one
@@ -1588,7 +1605,7 @@ def interleave(param_1, param_2):
         merged_array = np.ma.column_stack((param_2.array,param_1.array))
         
     return np.ma.ravel(merged_array)
-            
+
 """
 Superceded by blend routines.
 
@@ -1692,6 +1709,7 @@ def interpolate_params(*params):
     return masked_array, out_frequency, out_offset
 """
 
+
 def index_of_datetime(start_datetime, index_datetime, frequency):
     '''
     :param start_datetime: Start datetime of data file.
@@ -1704,6 +1722,7 @@ def index_of_datetime(start_datetime, index_datetime, frequency):
     '''
     difference = index_datetime - start_datetime
     return difference.total_seconds() * frequency
+
 
 def is_index_within_slice(index, _slice):
     '''
@@ -1720,6 +1739,7 @@ def is_index_within_slice(index, _slice):
         return index >= _slice.start
     return _slice.start <= index < _slice.stop
 
+
 def is_index_within_sections(index, section):
     '''
     :type index: int or float
@@ -1732,6 +1752,7 @@ def is_index_within_sections(index, section):
         if is_index_within_slice(index, item.slice):
             return True
     return False
+
 
 def is_slice_within_slice(inner_slice, outer_slice):
     '''
@@ -1758,6 +1779,7 @@ def is_slice_within_slice(inner_slice, outer_slice):
         stop_within = outer_slice.start <= inner_slice.stop <= outer_slice.stop
         return start_within and stop_within
 
+
 def slices_overlap(first_slice, second_slice):
     '''
     Logical check for an overlap existing between two slices.
@@ -1770,21 +1792,20 @@ def slices_overlap(first_slice, second_slice):
     
     :returns boolean
     '''
-    if first_slice.step != None and first_slice.step < 1 \
-       or second_slice.step != None and second_slice.step < 1:
+    if first_slice.step is not None and first_slice.step < 1 \
+       or second_slice.step is not None and second_slice.step < 1:
         raise ValueError("Negative step not supported")
-    return ((first_slice.start < second_slice.stop) or \
-            (second_slice.stop == None)\
-            ) and \
-           ((second_slice.start < first_slice.stop) or \
-            (first_slice.stop == None)
-            )
+    return ((first_slice.start < second_slice.stop) or 
+            (second_slice.stop is None)) and \
+           ((second_slice.start < first_slice.stop) or
+            (first_slice.stop is None))
 
 def slices_and(first_list, second_list):
     '''
     This is a simple AND function to allow two slice lists to be merged.
     
-    Note: This currently has a trap for reverse slices, although this could be extended.
+    Note: This currently has a trap for reverse slices, although this could be
+    extended.
     
     :param first_list: First list of slices
     :type first_list: List of slices
@@ -1796,13 +1817,15 @@ def slices_and(first_list, second_list):
     result_list = []
     for first_slice in first_list:
         for second_slice in second_list:
-            if (first_slice.step != None and first_slice.step < 0) or \
-               (second_slice.step != None and second_slice.step < 0):
+            if (first_slice.step is not None and first_slice.step < 0) or \
+               (second_slice.step is not None and second_slice.step < 0):
                 raise ValueError, 'slices_and will not work with reverse slices'
             if slices_overlap(first_slice, second_slice):
-                result_list.append(slice(max(first_slice.start, second_slice.start),
-                                         min(first_slice.stop, second_slice.stop)))
+                result_list.append(
+                    slice(max(first_slice.start, second_slice.start),
+                          min(first_slice.stop, second_slice.stop)))
     return result_list
+
 
 def slices_not(slice_list, begin_at=None, end_at=None):
     '''
@@ -1817,33 +1840,30 @@ def slices_not(slice_list, begin_at=None, end_at=None):
     
     :returns: list of slices. If begin or end is specified, the range will extend to these points. Otherwise the scope is within the end slices.
     '''
-    if slice_list==[] or slice_list==None:
+    if not slice_list:
         return [slice(begin_at, end_at)]
     
     a = min([s.start for s in slice_list])
     b = min([s.stop for s in slice_list])
-    if b != None:
-        startpoint = min(a,b)
-    else:
-        startpoint = a
-        
-    if begin_at != None  and begin_at < startpoint:
+    startpoint = a if b is None else min(a,b)
+    
+    if begin_at is not None and begin_at < startpoint:
         startpoint = begin_at
-    if startpoint == None:
+    if startpoint is None:
         startpoint = 0
     
     c = max([s.start for s in slice_list])
     d = max([s.stop for s in slice_list])
     endpoint = max(c,d)
-    if end_at != None and end_at > endpoint:
+    if end_at is not None and end_at > endpoint:
         endpoint = end_at
 
     workspace = np.ma.zeros(endpoint)
     for each_slice in slice_list:
-        workspace[each_slice]=1
+        workspace[each_slice] = 1
     workspace=np.ma.masked_equal(workspace, 1)
     return shift_slices(np.ma.clump_unmasked(workspace[startpoint:endpoint]), startpoint)
-    
+
 
 def slices_or(*slice_lists, **kwargs):
     '''
@@ -1865,22 +1885,14 @@ def slices_or(*slice_lists, **kwargs):
     b = None
     for slice_list in slice_lists:
         for each_slice in slice_list:
-            if each_slice==[]:
+            if not each_slice:
                 break
             
-            if each_slice.start == None:
-                break
-            if a == None:
-                a = each_slice.start
-            else:
-                a = min(a, each_slice.start)
+            a = each_slice.start if a is None else min(a, each_slice.start)
     
-            if each_slice.stop == None:
+            if each_slice.stop is None:
                 break
-            if b == None:
-                b = each_slice.stop
-            else:
-                b = max(b, each_slice.stop)
+            b = each_slice.stop if b is None else max(b, each_slice.stop)
 
     if kwargs.has_key('begin_at'):
         startpoint = kwargs['begin_at']
@@ -1900,6 +1912,7 @@ def slices_or(*slice_lists, **kwargs):
         workspace=np.ma.masked_equal(workspace, 1)
         return shift_slices(np.ma.clump_masked(workspace[startpoint:endpoint]), startpoint)
 
+
 def slices_remove_small_gaps(slice_list, time_limit=10, hz=1):
     '''
     Routine to remove small gaps in a list of slices. Typically when a list
@@ -1917,7 +1930,7 @@ def slices_remove_small_gaps(slice_list, time_limit=10, hz=1):
     :returns: slice list.
     '''
     sample_limit = time_limit*hz
-    if slice_list == None or len(slice_list) < 2:
+    if slice_list is None or len(slice_list) < 2:
         return slice_list
     new_list = [slice_list[0]]
     for each_slice in slice_list[1:]:
@@ -1928,7 +1941,6 @@ def slices_remove_small_gaps(slice_list, time_limit=10, hz=1):
     return new_list
 
 
-    
 """
 def section_contains_kti(section, kti):
     '''
@@ -1938,6 +1950,7 @@ def section_contains_kti(section, kti):
         return False
     return section.slice.start <= kti[0].index <= section.slice.stop
 """
+
 
 def latitudes_and_longitudes(bearings, distances, reference):
     """
@@ -1977,6 +1990,7 @@ def latitudes_and_longitudes(bearings, distances, reference):
     lon_array = np.ma.array(data = np.rad2deg(lon),mask = joined_mask)
     return lat_array, lon_array
 
+
 def mask_inside_slices(array, slices):
     '''
     Mask slices within array.
@@ -1993,6 +2007,7 @@ def mask_inside_slices(array, slices):
         mask[slice_] = True
     return np.ma.array(array, mask=np.ma.mask_or(mask, array.mask))
 
+
 def mask_outside_slices(array, slices):
     '''
     Mask areas outside of slices within array.
@@ -2008,6 +2023,7 @@ def mask_outside_slices(array, slices):
     for slice_ in slices:
         mask[slice_] = False
     return np.ma.array(array, mask=np.ma.mask_or(mask, array.mask))
+
 
 def max_continuous_unmasked(array, _slice=slice(None)):
     """
@@ -2026,6 +2042,7 @@ def max_continuous_unmasked(array, _slice=slice(None)):
             _max = clump
     offset = _slice.start or 0
     return slice(_max.start + offset, _max.stop + offset)
+
 
 def max_abs_value(array, _slice=slice(None), start_edge=None, stop_edge=None):
     """
@@ -2060,7 +2077,7 @@ def max_abs_value(array, _slice=slice(None), start_edge=None, stop_edge=None):
             value = edge_value
     return Value(index, value_at_index(array, index)) # Recover sign of the value.
 
-    
+
 def max_value(array, _slice=slice(None), start_edge=None, stop_edge=None):
     """
     Get the maximum value in the array and its index relative to the array and
@@ -2120,8 +2137,8 @@ def min_value(array, _slice=slice(None), start_edge=None, stop_edge=None):
             index = stop_edge
             value = edge_value
     return Value(index, value)
-            
-            
+
+
 def minimum_unmasked(array1, array2):
     """
     Get the minimum value between two arrays. Differs from the Numpy minimum
@@ -2142,6 +2159,7 @@ def minimum_unmasked(array1, array2):
     
     return np.ma.where(neither_masked, np.ma.minimum(array1, array2),
                        np.ma.where(a1_good, array1, array2))
+
 
 def merge_two_parameters(param_one, param_two):
     '''
@@ -2189,6 +2207,7 @@ def merge_sources(*arrays):
         result[:,dim] = array
     return np.ma.ravel(result)
 
+
 def blend_equispaced_sensors(array_one, array_two):
     '''
     This process merges the data from two sensors where they are sampled
@@ -2234,7 +2253,6 @@ def blend_equispaced_sensors(array_one, array_two):
     return result
 
 
-
 def blend_nonequispaced_sensors(array_one, array_two, padding):
     '''
     Where there are timing differences between the two samples, this
@@ -2265,6 +2283,7 @@ def blend_nonequispaced_sensors(array_one, array_two, padding):
         av_pairs[0] = av_pairs[1]
         av_pairs[0] = np.ma.masked
     return av_pairs
+
 
 def blend_two_parameters(param_one, param_two):
     '''
@@ -2337,7 +2356,6 @@ def blend_two_parameters(param_one, param_two):
         return param_one.array, param_one.frequency, param_one.offset
 
     else:
-        
         frequency = param_one.frequency * 2.0
         
         # Are the parameters equispaced?
@@ -2410,7 +2428,8 @@ def moving_average(array, window=9, weightings=None, pad=True):
         return np.ma.hstack([pad_front, averaged, pad_end])
     else:
         return averaged
-    
+
+
 def nearest_neighbour_mask_repair(array, copy=True):
     """
     WARNING: Currently wraps, so masked items at start will be filled with
@@ -2450,6 +2469,7 @@ def nearest_neighbour_mask_repair(array, copy=True):
         array[idx] = a_shifted[idx]
     return array
 
+
 def normalise(array, normalise_max=1.0, scale_max=None, copy=True, axis=None):
     """
     Normalise an array between 0 and normalise_max.
@@ -2475,6 +2495,7 @@ def normalise(array, normalise_max=1.0, scale_max=None, copy=True, axis=None):
     ##array *= normalise_max / array.max() # original single axis version
     return array
 
+
 def np_ma_zeros_like(array):
     """
     The Numpy masked array library does not have equivalents for some array
@@ -2489,6 +2510,7 @@ def np_ma_zeros_like(array):
     :returns: Numpy masked array of unmasked zero values, length same as input array.
     """
     return np.ma.array(np.zeros_like(array.data), mask=False)
+
 
 def np_ma_ones_like(array):
     """
@@ -2730,6 +2752,7 @@ def rate_of_change_array(to_diff, hz, width):
     slope[-hw:] = (to_diff[-hw:] - to_diff[-hw-1:-1])* hz
     return slope
 
+
 def rate_of_change(diff_param, width):
     '''
     @param to_diff: Parameter object with .array attr (masked array)
@@ -2847,7 +2870,8 @@ def rms_noise(array):
         return None
     else:
         return sqrt(np.ma.mean(np.ma.power(local_diff[1:-1],2)))  # RMS in one line !
-    
+
+
 def shift_slice(this_slice, offset):
     """
     This function shifts a slice by an offset. The need for this arises when
@@ -2855,23 +2879,18 @@ def shift_slice(this_slice, offset):
     calculation.
     """
     if offset:
-        if this_slice.start != None:
-            a = this_slice.start + offset
-        else:
-            a = None
-        if this_slice.stop != None:
-            b = this_slice.stop + offset
-        else:
-            b = None
+        a = None if this_slice.start is None else this_slice.start + offset
+        b = None if this_slice.stop is None else this_slice.stop + offset
         c = this_slice.step
         
-        if a==None or b==None or (b-a)>1:
+        if a is None or b is None or (b-a)>1:
             # This traps single sample slices which can arise due to rounding of
             # the iterpolated slices.
             return(slice(a,b,c))
     else:
         return this_slice
-    
+
+
 def shift_slices(slicelist, offset):
     """
     This function shifts a list of slices by a common offset, retaining only
@@ -2887,6 +2906,7 @@ def shift_slices(slicelist, offset):
     else:
         return slicelist
 
+
 def slice_duration(_slice, hz):
     '''
     Gets the duration of a slice in taking the frequency into account. While
@@ -2901,7 +2921,11 @@ def slice_duration(_slice, hz):
     :returns: Duration of _slice in seconds.
     :rtype: float
     '''
-    return (_slice.stop - _slice.start) / hz
+    if _slice.stop is None:
+        raise ValueError("Slice stop '%s' is unsupported by slice_duration.",
+                         _slice.stop)
+    return (_slice.stop - (_slice.start or 0)) / hz
+
 
 def slice_samples(_slice):
     '''
@@ -2912,17 +2936,13 @@ def slice_samples(_slice):
     :returns: Number of samples in _slice.
     :rtype: integer
     '''
-    if _slice.step == None:
-        step = 1
-    else:
-        step = _slice.step
+    step = 1 if _slice.step is None else _slice.step
         
-    if _slice.start == None or _slice.stop == None:
+    if _slice.start is None or _slice.stop is None:
         return 0
     else:
         return (abs(_slice.stop - _slice.start) - 1) / abs(step) + 1
 
-    
 
 def slices_above(array, value):
     '''
@@ -2945,6 +2965,7 @@ def slices_above(array, value):
     slices = np.ma.clump_unmasked(band)
     return repaired_array, slices
 
+
 def slices_below(array, value):
     '''
     Get slices where the array is below value. Repairs the mask to avoid a 
@@ -2965,6 +2986,7 @@ def slices_below(array, value):
     band = np.ma.masked_greater(repaired_array, value)
     slices = np.ma.clump_unmasked(band)
     return repaired_array, slices
+
 
 def slices_between(array, min_, max_):
     '''
@@ -3000,6 +3022,7 @@ def slices_between(array, min_, max_):
     # is needed here for minor data corruptions.
     slices = np.ma.clump_unmasked(band)
     return repaired_array, slices
+
 
 def slices_from_to(array, from_, to):
     '''
@@ -3074,7 +3097,7 @@ def step_values(array, steps):
     stepped_array = np.zeros_like(array.data)
     low = None
     for level, high in zip(steps, stepping_points):
-        if low == None:
+        if low is None:
             stepped_array[(-high < array) & (array <= high)] = level
         else:
             stepped_array[(low < array) & (array <= high)] = level
@@ -3083,6 +3106,7 @@ def step_values(array, steps):
         # all values above the last
         stepped_array[low < array] = level
     return np.ma.array(stepped_array, mask=array.mask)
+
 
 def touchdown_inertial(land, roc, alt):
     """
@@ -3131,6 +3155,7 @@ def touchdown_inertial(land, roc, alt):
     index = index_at_value(sm_ht, 0.0)
     roc_tdn = my_roc[index]
     return index, roc_tdn
+
 
 def track_linking(pos, local_pos):
     """
@@ -3186,7 +3211,8 @@ def track_linking(pos, local_pos):
             fix = np.linspace(fix_a, fix_b, num=b-a+2)[1:-1]
         local_pos[a:b] = pos[a:b] + fix
     return local_pos
- 
+
+
 def smooth_track_cost_function(lat_s, lon_s, lat, lon):
     # Summing the errors from the recorded data is easy.
     from_data = np.sum((lat_s - lat)**2)+np.sum((lon_s - lon)**2)
@@ -3198,6 +3224,7 @@ def smooth_track_cost_function(lat_s, lon_s, lat, lon):
     
     cost = from_data + 100*from_straight
     return cost
+
 
 def smooth_track(lat, lon):
     """
@@ -3263,6 +3290,7 @@ def straighten_headings(heading_array, copy=True):
         heading_array[clump][1:] = np.cumsum(diff) + head_prev
     return heading_array
 
+
 def subslice(orig, new):
     """
     a = slice(2,10,2)
@@ -3280,13 +3308,12 @@ def subslice(orig, new):
         start = orig.start
     else:
         start = (orig.start or 0) + (new.start or orig.start or 0) * (orig.step or 1)
-
-    if new.stop == None:
-        stop = orig.stop
-    else:
-        stop = (orig.start or 0) + (new.stop or orig.stop or 0) * (orig.step or 1) # the bit after "+" isn't quite right!!
+    
+    stop = orig.stop if new.stop is None else \
+        (orig.start or 0) + (new.stop or orig.stop or 0) * (orig.step or 1) # the bit after "+" isn't quite right!!
 
     return slice(start, stop, None if step == 1 else step)
+
 
 def index_closest_value(array, threshold, _slice=slice(None)):
     '''
@@ -3295,7 +3322,8 @@ def index_closest_value(array, threshold, _slice=slice(None)):
     index_at_value for further details.
     '''
     return index_at_value(array, threshold, _slice, endpoint='closing')
-    
+
+
 def index_at_value(array, threshold, _slice=slice(None), endpoint='exact'):
     '''
     This function seeks the moment when the parameter in question first crosses 
@@ -3403,6 +3431,7 @@ def index_at_value(array, threshold, _slice=slice(None), endpoint='exact'):
 
     return (begin + step * (n+r))
 
+
 def _value(array, _slice, operator):
     """
     Applies logic of min_value and max_value across the array slice.
@@ -3415,6 +3444,7 @@ def _value(array, _slice, operator):
         return Value(index, value)
     else:
         return Value(None, None)
+
 
 def value_at_time(array, hz, offset, time_index):
     '''
@@ -3444,6 +3474,7 @@ def value_at_time(array, hz, offset, time_index):
 
     return value_at_index(array, location_in_array)
 
+
 def value_at_datetime(start_datetime, array, hz, offset, value_datetime):
     '''
     Finds the value of the data in array at the time given by value_datetime.
@@ -3464,6 +3495,7 @@ def value_at_datetime(start_datetime, array, hz, offset, value_datetime):
     value_timedelta = value_datetime - start_datetime
     seconds = value_timedelta.total_seconds()
     return value_at_time(array, hz, offset, seconds)
+
 
 def value_at_index(array, index):
     '''

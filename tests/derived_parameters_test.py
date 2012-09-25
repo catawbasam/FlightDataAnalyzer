@@ -73,8 +73,9 @@ debug = sys.gettrace() is not None
 
 class TestAccelerationVertical(unittest.TestCase):
     def test_can_operate(self):
-        expected = [('Acceleration Normal', 'Acceleration Lateral', 
-                    'Acceleration Longitudinal', 'Pitch', 'Roll')]
+        expected = [('Acceleration Normal Offset Removed',
+                     'Acceleration Lateral', 'Acceleration Longitudinal',
+                     'Pitch', 'Roll')]
         opts = AccelerationVertical.get_operational_combinations()
         self.assertEqual(opts, expected)
         
@@ -83,11 +84,11 @@ class TestAccelerationVertical(unittest.TestCase):
         acc_vert = AccelerationVertical(frequency=8)
                         
         acc_vert.get_derived([
-            Parameter('Acceleration Normal', np.ma.ones(8),8),
-            Parameter('Acceleration Lateral', np.ma.zeros(4),4),
-            Parameter('Acceleration Longitudinal', np.ma.zeros(4),4),
-            Parameter('Pitch', np.ma.zeros(2),2),
-            Parameter('Roll', np.ma.zeros(2),2)
+            Parameter('Acceleration Normal Offset Removed', np.ma.ones(8), 8),
+            Parameter('Acceleration Lateral', np.ma.zeros(4), 4),
+            Parameter('Acceleration Longitudinal', np.ma.zeros(4), 4),
+            Parameter('Pitch', np.ma.zeros(2), 2),
+            Parameter('Roll', np.ma.zeros(2), 2),
         ])
         
         ma_test.assert_masked_array_approx_equal(acc_vert.array,
@@ -97,47 +98,47 @@ class TestAccelerationVertical(unittest.TestCase):
         acc_vert = AccelerationVertical(frequency=8)
 
         acc_vert.get_derived([
-            P('Acceleration Normal',np.ma.ones(8)*0.8660254,8),
-            P('Acceleration Lateral',np.ma.zeros(4),4),
-            P('Acceleration Longitudinal',np.ma.ones(4)*0.5,4),
-            P('Pitch',np.ma.ones(2)*30.0,2),
-            P('Roll',np.ma.zeros(2),2)
+            P('Acceleration Normal',np.ma.ones(8) * 0.8660254,8),
+            P('Acceleration Lateral',np.ma.zeros(4), 4),
+            P('Acceleration Longitudinal',np.ma.ones(4) * 0.5,4),
+            P('Pitch',np.ma.ones(2) * 30.0,2),
+            P('Roll',np.ma.zeros(2), 2)
         ])
 
         ma_test.assert_masked_array_approx_equal(acc_vert.array,
-                                                 np.ma.array([1]*8))
+                                                 np.ma.array([1] * 8))
 
     def test_acceleration_vertical_pitch_up_roll_right(self):
         acc_vert = AccelerationVertical(frequency=8)
 
         acc_vert.get_derived([
-            P('Acceleration Normal',np.ma.ones(8)*0.8,8),
-            P('Acceleration Lateral',np.ma.ones(4)*(-0.2),4),
-            P('Acceleration Longitudinal',np.ma.ones(4)*0.3,4),
-            P('Pitch',np.ma.ones(2)*30.0,2),
-            P('Roll',np.ma.ones(2)*20,2)])
+            P('Acceleration Normal', np.ma.ones(8) * 0.8, 8),
+            P('Acceleration Lateral', np.ma.ones(4) * (-0.2), 4),
+            P('Acceleration Longitudinal', np.ma.ones(4) * 0.3, 4),
+            P('Pitch',np.ma.ones(2) * 30.0, 2),
+            P('Roll',np.ma.ones(2) * 20, 2)])
 
         ma_test.assert_masked_array_approx_equal(acc_vert.array,
-                                                 np.ma.array([0.86027777]*8))
+                                                 np.ma.array([0.86027777] * 8))
 
     def test_acceleration_vertical_roll_right(self):
         acc_vert = AccelerationVertical(frequency=8)
 
         acc_vert.get_derived([
-            P('Acceleration Normal',np.ma.ones(8)*0.7071068,8),
-            P('Acceleration Lateral',np.ma.ones(4)*(-0.7071068),4),
-            P('Acceleration Longitudinal',np.ma.zeros(4),4),
-            P('Pitch',np.ma.zeros(2),2),
-            P('Roll',np.ma.ones(2)*45,2)
+            P('Acceleration Normal', np.ma.ones(8) * 0.7071068, 8),
+            P('Acceleration Lateral', np.ma.ones(4) * -0.7071068, 4),
+            P('Acceleration Longitudinal', np.ma.zeros(4), 4),
+            P('Pitch', np.ma.zeros(2), 2),
+            P('Roll', np.ma.ones(2) * 45, 2),
         ])
 
         ma_test.assert_masked_array_approx_equal(acc_vert.array,
-                                                 np.ma.array([1]*8))
+                                                 np.ma.array([1] * 8))
 
 
 class TestAccelerationForwards(unittest.TestCase):
     def test_can_operate(self):
-        expected = [('Acceleration Normal',
+        expected = [('Acceleration Normal Offset Removed',
                     'Acceleration Longitudinal', 'Pitch')]
         opts = AccelerationForwards.get_operational_combinations()
         self.assertEqual(opts, expected)
@@ -147,30 +148,30 @@ class TestAccelerationForwards(unittest.TestCase):
         acc_fwd = AccelerationForwards(frequency=4)
                         
         acc_fwd.get_derived([
-            Parameter('Acceleration Normal', np.ma.ones(8),8),
-            Parameter('Acceleration Longitudinal', np.ma.ones(4)*0.1,4),
-            Parameter('Pitch', np.ma.zeros(2),2)
+            Parameter('Acceleration Normal Offset Removed', np.ma.ones(8), 8),
+            Parameter('Acceleration Longitudinal', np.ma.ones(4) * 0.1,4),
+            Parameter('Pitch', np.ma.zeros(2), 2)
         ])
         
         ma_test.assert_masked_array_approx_equal(acc_fwd.array,
-                                                 np.ma.array([0.1]*8))
+                                                 np.ma.array([0.1] * 8))
         
     def test_acceleration_forward_pitch_up(self):
         acc_fwd = AccelerationForwards(frequency=4)
 
         acc_fwd.get_derived([
-            P('Acceleration Normal',np.ma.ones(8)*0.8660254,8),
-            P('Acceleration Longitudinal',np.ma.ones(4)*0.5,4),
-            P('Pitch',np.ma.ones(2)*30.0,2)
+            P('Acceleration Normal', np.ma.ones(8) * 0.8660254, 8),
+            P('Acceleration Longitudinal', np.ma.ones(4) * 0.5, 4),
+            P('Pitch', np.ma.ones(2) * 30.0, 2)
         ])
 
         ma_test.assert_masked_array_approx_equal(acc_fwd.array,
-                                                 np.ma.array([0]*8))
+                                                 np.ma.array([0] * 8))
 
 
 class TestAccelerationSideways(unittest.TestCase):
     def test_can_operate(self):
-        expected = [('Acceleration Normal', 'Acceleration Lateral', 
+        expected = [('Acceleration Normal Offset Removed', 'Acceleration Lateral', 
                     'Acceleration Longitudinal', 'Pitch', 'Roll')]
         opts = AccelerationSideways.get_operational_combinations()
         self.assertEqual(opts, expected)
@@ -180,7 +181,7 @@ class TestAccelerationSideways(unittest.TestCase):
         acc_lat = AccelerationSideways(frequency=8)
                         
         acc_lat.get_derived([
-            Parameter('Acceleration Normal', np.ma.ones(8),8),
+            Parameter('Acceleration Normal Offset Removed', np.ma.ones(8),8),
             Parameter('Acceleration Lateral', np.ma.ones(4)*0.05,4),
             Parameter('Acceleration Longitudinal', np.ma.zeros(4),4),
             Parameter('Pitch', np.ma.zeros(2),2),
@@ -299,13 +300,18 @@ class TestAirspeedReference(unittest.TestCase):
 
 
     def test_can_operate(self):
-        # TODO: test expected combinations are in get_operational_combinations
-        expected = [('Airspeed', 'FDR Vref')]
+        expected = [('Vapp',),
+                    ('Vref',),
+                    ('FDR Vapp',),
+                    ('FDR Vref',),
+                    ('Airspeed', 'Gross Weight Smoothed', 'Series',
+                     'Family', 'Approach', 'Flap',),
+                    ('Airspeed', 'Gross Weight Smoothed', 'Series',
+                     'Family', 'Approach', 'Configuration',)]
         opts = AirspeedReference.get_operational_combinations()
-        self.assertEqual(opts, expected)
+        self.assertTrue([e in opts for e in expected])
 
     def test_airspeed_reference__fdr_vapp(self):
-
         kwargs = self.default_kwargs.copy()
         kwargs['spd'] = P('Airspeed', np.ma.array([200]*128), frequency=1)
         kwargs['fdr_vapp'] = A('FDR Vapp', value=120)
@@ -400,7 +406,7 @@ class TestAirspeedReference(unittest.TestCase):
 
 class TestAirspeedRelative(unittest.TestCase):
     def test_can_operate(self):
-        expected = [('Airspeed','FDR Vref')]
+        expected = [('Airspeed', 'Airspeed Reference')]
         opts = AirspeedRelative.get_operational_combinations()
         self.assertEqual(opts, expected)
         
@@ -437,122 +443,137 @@ class TestAirspeedTrue(unittest.TestCase):
             ('Airspeed', 'Altitude STD', 'Takeoff', 'Acceleration Forwards'),
             ('Airspeed', 'Altitude STD', 'Landing', 'Groundspeed'),
             ('Airspeed', 'Altitude STD', 'Landing', 'Acceleration Forwards'),
-            ('Airspeed', 'Altitude STD', 'Groundspeed', 'Acceleration Forwards'),
+            ('Airspeed', 'Altitude STD', 'Groundspeed', 
+             'Acceleration Forwards'),
             ('Airspeed', 'Altitude STD', 'TAT', 'Takeoff', 'Landing'),
             ('Airspeed', 'Altitude STD', 'TAT', 'Takeoff', 'Groundspeed'),
-            ('Airspeed', 'Altitude STD', 'TAT', 'Takeoff', 'Acceleration Forwards'),
+            ('Airspeed', 'Altitude STD', 'TAT', 'Takeoff', 
+             'Acceleration Forwards'),
             ('Airspeed', 'Altitude STD', 'TAT', 'Landing', 'Groundspeed'),
-            ('Airspeed', 'Altitude STD', 'TAT', 'Landing', 'Acceleration Forwards'),
-            ('Airspeed', 'Altitude STD', 'TAT', 'Groundspeed', 'Acceleration Forwards'),
+            ('Airspeed', 'Altitude STD', 'TAT', 'Landing', 
+             'Acceleration Forwards'),
+            ('Airspeed', 'Altitude STD', 'TAT', 'Groundspeed', 
+             'Acceleration Forwards'),
             ('Airspeed', 'Altitude STD', 'Takeoff', 'Landing', 'Groundspeed'),
-            ('Airspeed', 'Altitude STD', 'Takeoff', 'Landing', 'Acceleration Forwards'),
-            ('Airspeed', 'Altitude STD', 'Takeoff', 'Groundspeed', 'Acceleration Forwards'),
-            ('Airspeed', 'Altitude STD', 'Landing', 'Groundspeed', 'Acceleration Forwards'),
-            ('Airspeed', 'Altitude STD', 'TAT', 'Takeoff', 'Landing', 'Groundspeed'),
-            ('Airspeed', 'Altitude STD', 'TAT', 'Takeoff', 'Landing', 'Acceleration Forwards'),
-            ('Airspeed', 'Altitude STD', 'TAT', 'Takeoff', 'Groundspeed', 'Acceleration Forwards'),
-            ('Airspeed', 'Altitude STD', 'TAT', 'Landing', 'Groundspeed', 'Acceleration Forwards'),
-            ('Airspeed', 'Altitude STD', 'Takeoff', 'Landing', 'Groundspeed', 'Acceleration Forwards'),
-            ('Airspeed', 'Altitude STD', 'TAT', 'Takeoff', 'Landing', 'Groundspeed', 'Acceleration Forwards')
+            ('Airspeed', 'Altitude STD', 'Takeoff', 'Landing', 
+             'Acceleration Forwards'),
+            ('Airspeed', 'Altitude STD', 'Takeoff', 'Groundspeed', 
+             'Acceleration Forwards'),
+            ('Airspeed', 'Altitude STD', 'Landing', 'Groundspeed', 
+             'Acceleration Forwards'),
+            ('Airspeed', 'Altitude STD', 'TAT', 'Takeoff', 'Landing', 
+             'Groundspeed'),
+            ('Airspeed', 'Altitude STD', 'TAT', 'Takeoff', 'Landing', 
+             'Acceleration Forwards'),
+            ('Airspeed', 'Altitude STD', 'TAT', 'Takeoff', 'Groundspeed', 
+             'Acceleration Forwards'),
+            ('Airspeed', 'Altitude STD', 'TAT', 'Landing', 'Groundspeed', 
+             'Acceleration Forwards'),
+            ('Airspeed', 'Altitude STD', 'Takeoff', 'Landing', 'Groundspeed', 
+             'Acceleration Forwards'),
+            ('Airspeed', 'Altitude STD', 'TAT', 'Takeoff', 'Landing', 
+             'Groundspeed', 'Acceleration Forwards')
         ])
         
     def test_tas_basic(self):
-        cas = P('Airspeed', np.ma.array([100,200,300]))
-        alt = P('Altitude STD', np.ma.array([0,20000,40000]))
-        tat = P('TAT', np.ma.array([20,-10,-16.2442]))
+        cas = P('Airspeed', np.ma.array([100, 200, 300]))
+        alt = P('Altitude STD', np.ma.array([0, 20000, 40000]))
+        tat = P('TAT', np.ma.array([20, -10, -16.2442]))
         tas = AirspeedTrue()
-        tas.derive(cas,alt,tat)
+        tas.derive(cas, alt, tat)
         # Answers with compressibility are:
         result = [100.6341, 273.0303, 552.8481]
-        self.assertLess(abs(tas.array.data[0]-result[0]),0.1)
-        self.assertLess(abs(tas.array.data[1]-result[1]),0.7)
-        self.assertLess(abs(tas.array.data[2]-result[2]),6.0)
+        self.assertLess(abs(tas.array.data[0] - result[0]), 0.1)
+        self.assertLess(abs(tas.array.data[1] - result[1]), 0.7)
+        self.assertLess(abs(tas.array.data[2] - result[2]), 6.0)
         
     def test_tas_masks(self):
-        cas = P('Airspeed', np.ma.array([100,200,300]))
-        alt = P('Altitude STD', np.ma.array([0,20000,40000]))
-        tat = P('TAT', np.ma.array([20,-10,-40]))
+        cas = P('Airspeed', np.ma.array([100, 200, 300]))
+        alt = P('Altitude STD', np.ma.array([0, 20000, 40000]))
+        tat = P('TAT', np.ma.array([20, -10, -40]))
         tas = AirspeedTrue()
-        cas.array[0]=np.ma.masked
-        alt.array[1]=np.ma.masked
-        tat.array[2]=np.ma.masked
-        tas.derive(cas,alt,tat)
-        np.testing.assert_array_equal(tas.array.mask,[True]*3)
+        cas.array[0] = np.ma.masked
+        alt.array[1] = np.ma.masked
+        tat.array[2] = np.ma.masked
+        tas.derive(cas, alt, tat)
+        np.testing.assert_array_equal(tas.array.mask, [True] * 3)
         
     def test_tas_no_tat(self):
-        cas = P('Airspeed', np.ma.array([100,200,300]))
-        alt = P('Altitude STD', np.ma.array([0,10000,20000]))
+        cas = P('Airspeed', np.ma.array([100, 200, 300]))
+        alt = P('Altitude STD', np.ma.array([0, 10000, 20000]))
         tas = AirspeedTrue()
-        tas.derive(cas,alt,None)
+        tas.derive(cas, alt, None)
         result = [100.000, 231.575, 400.097]
-        self.assertLess(abs(tas.array.data[0]-result[0]),0.01)
-        self.assertLess(abs(tas.array.data[1]-result[1]),0.01)
-        self.assertLess(abs(tas.array.data[2]-result[2]),0.01)
+        self.assertLess(abs(tas.array.data[0] - result[0]), 0.01)
+        self.assertLess(abs(tas.array.data[1] - result[1]), 0.01)
+        self.assertLess(abs(tas.array.data[2] - result[2]), 0.01)
         
 
 class TestAltitudeAAL(unittest.TestCase):
     def test_can_operate(self):
         opts = AltitudeAAL.get_operational_combinations()
-        self.assertTrue(('Altitude STD','Fast') in opts)
-        self.assertTrue(('Altitude Radio','Altitude STD','Fast') in opts)
+        self.assertTrue(('Altitude STD', 'Fast') in opts)
+        self.assertTrue(('Altitude STD', 'Altitude Radio', 'Fast') in opts)
         
-    def test_alt_AAL_basic(self):
-        data = np.ma.array([-3,0,30,80,150,260,120,70,20,-5])
-        alt_std = P(array=data+300)
+    def test_alt_aal_basic(self):
+        data = np.ma.array([-3, 0, 30, 80, 150, 260, 120, 70, 20, -5])
+        alt_std = P(array=data + 300)
         alt_rad = P(array=data)
-        fast_data = np.ma.array([100]*10)
+        fast_data = np.ma.array([100] * 10)
         phase_fast = Fast()
         phase_fast.derive(Parameter('Airspeed', fast_data))
         alt_aal = AltitudeAAL()
-        alt_aal.derive(alt_rad, alt_std, phase_fast)
-        expected = np.ma.array([0,0,30,80,150,260,120,70,20,0])
+        alt_aal.derive(alt_std, alt_rad, phase_fast)
+        expected = np.ma.array([0, 0, 30, 80, 150, 260, 120, 70, 20, 0])
         np.testing.assert_array_equal(expected, alt_aal.array.data)
 
-    def test_alt_AAL_bounce_rejection(self):
-        data = np.ma.array([-3,0,30,80,150,260,120,70,20,-5,2,5,2,-3,-3])
-        alt_std = P(array=data+300)
+    def test_alt_aal_bounce_rejection(self):
+        data = np.ma.array([-3, 0, 30, 80, 150, 260, 120, 70, 20, -5, 2, 5, 2,
+                            -3, -3])
+        alt_std = P(array=data + 300)
         alt_rad = P(array=data)
-        fast_data = np.ma.array([100]*15)
+        fast_data = np.ma.array([100] * 15)
         phase_fast = Fast()
         phase_fast.derive(Parameter('Airspeed', fast_data))
         alt_aal = AltitudeAAL()
-        alt_aal.derive(alt_rad, alt_std, phase_fast)
-        expected = np.ma.array([0,0,30,80,150,260,120,70,20,0,0,0,0,0,0])
+        alt_aal.derive(alt_std, alt_rad, phase_fast)
+        expected = np.ma.array([0, 0, 30, 80, 150, 260, 120, 70, 20, 0, 0, 0, 0,
+                                0, 0])
         np.testing.assert_array_equal(expected, alt_aal.array.data)
     
-    def test_alt_AAL_no_ralt(self):
-        data = np.ma.array([-3,0,30,80,150,280,120,70,20,-5])
-        alt_std = P(array=data+300)
-        slow_and_fast_data = np.ma.array([70]+[85]*7+[75,70])
+    def test_alt_aal_no_ralt(self):
+        data = np.ma.array([-3, 0, 30, 80, 150, 280, 120, 70, 20, -5])
+        alt_std = P(array=data + 300)
+        slow_and_fast_data = np.ma.array([70] + [85] * 7 + [75, 70])
         phase_fast = Fast()
         phase_fast.derive(Parameter('Airspeed', slow_and_fast_data))
         alt_aal = AltitudeAAL()
-        alt_aal.derive(None, alt_std, phase_fast)
-        expected = np.ma.array([0,0,30,80,150,210,50,0,0,0])
+        alt_aal.derive(alt_std, None,  phase_fast)
+        expected = np.ma.array([0, 0, 30, 80, 150, 210, 50, 0, 0, 0])
         np.testing.assert_array_equal(expected, alt_aal.array.data)
     
     def test_alt_aal_complex(self):
-        testwave = np.ma.cos(np.arange(0,3.14*2*5,0.1))*(-3000)+\
-            np.ma.cos(np.arange(0,3.14*2,0.02))*(-5000)+7996
+        testwave = np.ma.cos(np.arange(0, 3.14 * 2 * 5, 0.1)) * -3000 + \
+            np.ma.cos(np.arange(0, 3.14 * 2, 0.02)) * -5000 + 7996
         # plot_parameter (testwave)
         rad_wave = np.copy(testwave)
         rad_wave[110:140] -= 8765 # The ground is 8,765 ft high at this point.
         rad_data = np.ma.masked_greater(rad_wave, 2600)
         # plot_parameter (rad_data)
-        phase_fast = buildsection('Fast',0,len(testwave))
+        phase_fast = buildsection('Fast', 0, len(testwave))
         alt_aal = AltitudeAAL()
-        alt_aal.derive(P('Altitude Radio', rad_data),
-                       P('Altitude STD', testwave),
+        alt_aal.derive(P('Altitude STD', testwave),
+                       P('Altitude Radio', rad_data),
                        phase_fast)
         # plot_parameter (alt_aal.array)
         
         np.testing.assert_equal(alt_aal.array[0], 0.0)
-        np.testing.assert_almost_equal(alt_aal.array[34],7013,decimal=0)
-        np.testing.assert_almost_equal(alt_aal.array[60],3308,decimal=0)
-        np.testing.assert_almost_equal(alt_aal.array[124],217,decimal=0)
-        np.testing.assert_almost_equal(alt_aal.array[191],8965,decimal=0)
-        np.testing.assert_almost_equal(alt_aal.array[254],3288,decimal=0)
-        np.testing.assert_almost_equal(alt_aal.array[313],17,decimal=0)
+        np.testing.assert_almost_equal(alt_aal.array[34], 7013, decimal=0)
+        np.testing.assert_almost_equal(alt_aal.array[60], 3308, decimal=0)
+        np.testing.assert_almost_equal(alt_aal.array[124], 217, decimal=0)
+        np.testing.assert_almost_equal(alt_aal.array[191], 8965, decimal=0)
+        np.testing.assert_almost_equal(alt_aal.array[254], 3288, decimal=0)
+        np.testing.assert_almost_equal(alt_aal.array[313], 17, decimal=0)
         
     
 class TestAltitudeAALForFlightPhases(unittest.TestCase):
@@ -955,7 +976,7 @@ class TestControlWheel(unittest.TestCase):
 
 class TestDescendForFlightPhases(unittest.TestCase):
     def test_can_operate(self):
-        expected = [('Altitude STD','Airborne')]
+        expected = [('Altitude STD', 'Fast')]
         opts = DescendForFlightPhases.get_operational_combinations()
         self.assertEqual(opts, expected)
         
@@ -1492,7 +1513,8 @@ class TestLatitudeAndLongitudePrepared(unittest.TestCase):
 class TestHeadingTrue(unittest.TestCase):
     def test_can_operate(self):
         self.assertEqual(HeadingTrue.get_operational_combinations(),
-            [('Heading Continuous', 'Magnetic Variation')])
+            [('Heading Continuous',),
+             ('Heading Continuous', 'Magnetic Variation')])
         
     def test_basic(self):
         head = P('Heading Continuous', np.ma.array([0,5,6,355,356]))
@@ -1505,9 +1527,12 @@ class TestHeadingTrue(unittest.TestCase):
 
 class TestILSFrequency(unittest.TestCase):
     def test_can_operate(self):
-        expected = [('ILS-VOR (1) Frequency','ILS-VOR (2) Frequency','Frame')]
+        expected = [('ILS (1) Frequency', 'ILS (2) Frequency',),
+                    ('ILS-VOR (1) Frequency', 'ILS-VOR (2) Frequency',),
+                    ('ILS (1) Frequency', 'ILS (2) Frequency',
+                     'ILS-VOR (1) Frequency', 'ILS-VOR (2) Frequency',)]
         opts = ILSFrequency.get_operational_combinations()
-        self.assertEqual(opts, expected)
+        self.assertTrue([e in opts for e in expected])
         
     def test_ils_frequency_in_range(self):
         f1 = P('ILS-VOR (1) Frequency', 
@@ -1599,13 +1624,8 @@ class TestPitch(unittest.TestCase):
 
 class TestVerticalSpeed(unittest.TestCase):
     def test_can_operate(self):
-        opts = VerticalSpeed.get_operational_combinations()
-        self.assertEqual(len(opts), 8)
-        self.assertEqual(opts[0], ('Altitude STD',))
-        self.assertTrue(('Altitude STD', 'Altitude Radio') in opts)
-        self.assertEqual(opts[-1],
-                         ('Acceleration Vertical', 'Altitude STD', 
-                          'Altitude Radio', 'Airspeed'))
+        self.assertEqual(VerticalSpeed.get_operational_combinations(),
+                         [('Altitude STD', 'Frame')])
                          
     def test_vertical_speed_basic(self):
         az = P('Acceleration Vertical', np.ma.array([1]*10))
@@ -1777,9 +1797,13 @@ class TestV2(unittest.TestCase):
 
     def test_can_operate(self):
         # TODO: test expected combinations are in get_operational_combinations
-        expected = [('Airspeed', 'FDR Vref')]
+        expected = [('FDR V2',),
+                    ('Airspeed', 'Gross Weight At Liftoff', 'Series', 'Family',
+                     'Configuration',),
+                    ('Airspeed', 'Gross Weight At Liftoff', 'Series', 'Family',
+                     'Flap',),]
         opts = V2.get_operational_combinations()
-        self.assertEqual(opts, expected)
+        self.assertTrue([e in opts for e in expected])
 
     def test_v2__fdr_v2(self):
 
@@ -1832,12 +1856,6 @@ class TestV2(unittest.TestCase):
         self.assertTrue(False, msg='Test Not implemented')
 
 
-if __name__ == '__main__':
-    suite = unittest.TestSuite()
-    suite.addTest(TestConfiguration('test_time_taken2'))
-    unittest.TextTestRunner(verbosity=2).run(suite)
-
-
 class TestHeadwind(unittest.TestCase):
     def test_can_operate(self):
         opts=Headwind.get_operational_combinations()
@@ -1882,3 +1900,8 @@ class TestWindAcrossLandingRunway(unittest.TestCase):
         expected = np.ma.array([50.55619778])
         self.assertAlmostEqual(walr.array.data, expected.data)
         
+
+if __name__ == '__main__':
+    suite = unittest.TestSuite()
+    suite.addTest(TestConfiguration('test_time_taken2'))
+    unittest.TextTestRunner(verbosity=2).run(suite)
