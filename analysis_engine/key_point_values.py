@@ -1408,7 +1408,8 @@ class ControlColumnStiffness(KeyPointValueNode):
                     coreg(push[move], indep_var=column[move], force_zero=True)
                 if corr>0.85:  # This checks the data looks sound.
                     when = np.ma.argmax(np.ma.abs(push[move]))
-                    self.create_kpv((speedy.slice.start or 0)+move.start+when, slope)
+                    self.create_kpv(
+                        (speedy.slice.start or 0) + move.start + when, slope)
 
 
 class DistancePastGlideslopeAntennaToTouchdown(KeyPointValueNode):
@@ -2489,7 +2490,7 @@ class EngOilTemp15MinuteMax(KeyPointValueNode):
         # There have been cases where there were no valid oil temperature
         # measurements throughout the flight, in which case there's no point
         # testing for a maximum.
-        if oil_15 != None:
+        if oil_15 is not None:
             self.create_kpv(*max_value(oil_15))
 
 
@@ -2734,7 +2735,7 @@ class HeadingDeviationOnLandingAbove100Kts(KeyPointValueNode):
         for land in lands:
             begin = index_at_value(alt.array, 1.0, _slice=land.slice)
             end = index_at_value(airspeed.array, 100.0, _slice=land.slice)
-            if begin == None or begin > end:
+            if begin is None or begin > end:
                 break # Corrupt landing slices or landed below 100kts. Can happen!
             else:
                 head_dev = np.ma.ptp(head.array[begin:end+1])
@@ -2829,8 +2830,12 @@ class FlareDuration20FtToTouchdown(KeyPointValueNode):
                 # Scan backwards from touchdown to the start of the landing
                 # which is defined as 50ft, so will include passing through
                 # 20ft AAL.
-                idx_20 = index_at_value(alt_aal.array, 20.0, _slice=slice(tdown.index,this_landing.start_edge,-1))
-                self.create_kpv(tdown.index, (tdown.index-idx_20)/alt_aal.frequency)
+                idx_20 = index_at_value(alt_aal.array, 20.0,
+                                        _slice=slice(tdown.index,
+                                                     this_landing.start_edge,
+                                                     -1))
+                self.create_kpv(tdown.index,
+                                (tdown.index - idx_20) / alt_aal.frequency)
 
 
 class FlareDistance20FtToTouchdown(KeyPointValueNode):
@@ -2841,7 +2846,10 @@ class FlareDistance20FtToTouchdown(KeyPointValueNode):
         for tdown in tdowns:
             this_landing = lands.get_surrounding(tdown.index)[0]
             if this_landing:
-                idx_20 = index_at_value(alt_aal.array, 20.0, _slice=slice(tdown.index,this_landing.slice.start-1,-1))
+                idx_20 = index_at_value(alt_aal.array, 20.0,
+                                        _slice=slice(tdown.index,
+                                                     this_landing.slice.start-1,
+                                                     -1))
                 # Integrate returns an array, so we need to take the max
                 # value to yield the KTP value.
                 if idx_20:
@@ -2856,7 +2864,7 @@ class AltitudeAtSuspectedLevelBust(KeyPointValueNode):
         
         idxs, peaks = cycle_finder(alt_std.array, min_step=bust)
 
-        if idxs == None:
+        if idxs is None:
             return
         for num, idx in enumerate(idxs[1:-1]):
             begin = index_at_value(np.ma.abs(alt_std.array-peaks[num+1]), bust, _slice=slice(idx,None,-1))
@@ -4129,7 +4137,7 @@ class TCASRAReactionDelay(KeyPointValueNode):
                 i, p = cycle_finder(acc.array[ra] - 1.0, 0.15)
                 # i, p will be None if the data is too short or invalid and so
                 # no cycles can be found.
-                if i == None:
+                if i is None:
                     continue
                 indexes = np.array(i)
                 peaks = np.array(p)
@@ -4163,7 +4171,7 @@ class TCASRAInitialReaction(KeyPointValueNode):
                 if np.ma.count(acc.array[ra]) == 0:
                     continue
                 i, p = cycle_finder(acc.array[ra] - 1.0, 0.1)
-                if i == None:
+                if i is None:
                     continue
                 # Convert to Numpy arrays for ease of arithmetic
                 indexes = np.array(i)

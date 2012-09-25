@@ -6,6 +6,7 @@ we do not take into account temperature, altitude
 Need to ensure flap/conf settings reflect those held for family/series in
 model_information.
 '''
+import logging
 
 from bisect import bisect_left
 import scipy.interpolate as interp
@@ -14,6 +15,7 @@ from settings import (
     KG_TO_LB
 )
 
+logger = logging.getLogger(__name__)
 
 class VelocitySpeed(object):
     '''
@@ -51,12 +53,13 @@ class VelocitySpeed(object):
         '''
         lookup v2 value using interpolation if set
         converts value to kg if weight_unit in lb
+        returns None if weight is outside of table range or no entries in table
+        for Flap/Conf setting
 
         :param weight: Weight of aircraft
         :type weight: float
         :param setting: Flap/Conf setting to use in lookup
         :type setting: String
-        :raises: ValueError, KeyError
         :returns: v2 value
         :rtype: float
         '''
@@ -78,11 +81,21 @@ class VelocitySpeed(object):
             weight = aircraft_weight
         else:
             raise ValueError, "Unrecognised weight units"
-        
+
+        if setting not in lookup:
+            logger.warning("Vspeed table '%s' does not have entries for '%s'",
+                           self.__class__.__name__,
+                           setting)
+            return None
+
+        if weight not in range(lookup['weight'][0], lookup['weight'][-1]):
+            logger.warning("Weight of '%s' is outside of table range for '%s'",
+                           weight,
+                           self.__class__.__name__)
+            return None
+
         if self.interpolate:
             # numpy interpolate
-            # raises ValueError if weight is outside of table weight boundaries
-            # raises KeyError if setting is not in lookup table
             f = interp.interp1d(lookup['weight'], lookup[setting])
             value = f(weight)
         else:

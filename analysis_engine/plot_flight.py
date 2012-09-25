@@ -1,20 +1,22 @@
+import argparse
 import csv
-import os
 import logging
 import matplotlib.pyplot as plt
-import simplekml
 import numpy as np
+import os
+import simplekml
 
 from analysis_engine.node import derived_param_from_hdf, Parameter
-from settings import METRES_TO_FEET
-from library import bearing_and_distance, latitudes_and_longitudes, repair_mask
-from utilities.print_table import indent
 from hdfaccess.file import hdf_file
+from library import bearing_and_distance, latitudes_and_longitudes, repair_mask
+from settings import METRES_TO_FEET
+from utilities.print_table import indent
+
 
 logger = logging.getLogger(name=__name__)
 
+
 def add_track(kml, track_name, lat, lon, colour, alt_param=None):
-    
     track_config = {'name': track_name}
     if alt_param:
         if alt_param.name in ['Altitude AAL', 'Altitude STD']:
@@ -39,6 +41,7 @@ def add_track(kml, track_name, lat, lon, colour, alt_param=None):
     line.style.polystyle.color = '66%s' % colour[2:] # set opacity of area fill to 40%
     return
 
+
 def draw_centreline(kml, rwy):
     start_lat = rwy['start']['latitude']
     start_lon = rwy['start']['longitude']
@@ -59,8 +62,8 @@ def draw_centreline(kml, rwy):
     track_coords.append((lon_30k.data[0],lat_30k.data[0], end_height))
     track_config['coords'] = track_coords
     kml.newlinestring(**track_config)
-    
     return
+
 
 def track_to_kml(hdf_path, kti_list, kpv_list, flight_list, plot_altitude=False):
     hdf = hdf_file(hdf_path)
@@ -129,6 +132,7 @@ def track_to_kml(hdf_path, kti_list, kpv_list, flight_list, plot_altitude=False)
     hdf.close()
     return
 
+
 def plot_parameter(array, show=True, label=''):
     """
     For quickly plotting a single parameter to see its shape.
@@ -149,6 +153,7 @@ def plot_parameter(array, show=True, label=''):
     if show:
         plt.show()
     return
+
 
 def plot_essential(hdf_path):
     """
@@ -175,9 +180,9 @@ def plot_essential(hdf_path):
         ax3.plot(hdf['Altitude STD'].array, 'g-')
         ax4 = fig.add_subplot(4,1,4,sharex=ax2)
         ax4.plot(hdf['Head True'].array, 'b-')    
-   
-   
-def plot_flight(hdf_path, kti_list, kpv_list, phase_list):
+
+
+def plot_flight(hdf_path, kti_list, kpv_list, phase_list, aircraft_info):
     """
     """
     fig = plt.figure() ##figsize=(10,8))
@@ -187,7 +192,8 @@ def plot_flight(hdf_path, kti_list, kpv_list, phase_list):
         #---------- Axis 1 ----------
         ax1 = fig.add_subplot(4,1,1)
         alt_data = hdf['Altitude STD'].array
-        alt = hdf.get('Altitude AAL For Flight Phases',hdf['Altitude STD']).array
+        alt = hdf.get('Altitude AAL For Flight Phases',
+                      hdf['Altitude STD']).array
         frame = hdf['Time'].array
         #frame = hdf.get('Frame Counter',hdf['Altitude STD']).array
         
@@ -280,6 +286,7 @@ def _index_or_slice(x):
     except (TypeError, AttributeError):
         return x.slice.start
 
+
 def csv_flight_details(hdf_path, kti_list, kpv_list, phase_list, dest_path=None):
     """
     Currently writes to csv and prints to a table.
@@ -331,7 +338,22 @@ def csv_flight_details(hdf_path, kti_list, kpv_list, phase_list, dest_path=None)
     logger.info(indent([header] + rows, hasHeader=True, wrapfunc=lambda x:str(x)))
 
 
+
+
+
 if __name__ == '__main__':
     import sys
-    hdf_path = sys.argv[1]
-    plot_flight(hdf_path, [], [], [])
+    
+    parser = argparse.ArgumentParser(description="Plot a flight.")
+    parser.add_argument('file', type=str,
+                        help='Path of file to process.')
+    parser.add_argument('-tail', dest='tail_number', type=str, default='G-ABCD',
+                        help='Aircraft Tail Number for processing.')
+    parser.add_argument('-frame', dest='frame', type=str, default=None,
+                        help='Data frame name.')
+    args = parser.parse_args()    
+       
+    plot_flight(args.file, [], [], [], {
+        'Tail Number': args.tail_number,
+        'Precise Positioning': True,
+        'Frame': args.frame})

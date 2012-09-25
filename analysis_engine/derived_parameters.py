@@ -255,7 +255,8 @@ class AirspeedReference(DerivedParameterNode):
         existing_values = any([_node in available for _node in works_with_any])
         
         x = set(available)
-        base_for_lookup = ['Airspeed', 'Gross Weight Smoothed', 'Series', 'Family', 'Approach']
+        base_for_lookup = ['Airspeed', 'Gross Weight Smoothed', 'Series',
+                           'Family', 'Approach']
         airbus = set(base_for_lookup + ['Configuration']).issubset(x)
         boeing = set(base_for_lookup + ['Flap']).issubset(x)
         return existing_values or airbus or boeing
@@ -272,7 +273,6 @@ class AirspeedReference(DerivedParameterNode):
                 apps=S('Approach'),
                 series=A('Series'),
                 family=A('Family')):
-
         '''
         Currently a work in progress. We should use a recorded parameter if
         it's available, failing that a computed forumla reflecting the
@@ -476,55 +476,68 @@ class AltitudeAAL(DerivedParameterNode):
 
     @classmethod
     def can_operate(cls, available):
-        return all([d in available for d in ('Altitude STD', 'Fast')])
+        return 'Altitude STD' in available and 'Fast' in available
     
-    def compute_aal(self, mode, alt_std, low_hb, high_gnd, *args):
+    def compute_aal(self, mode, alt_std, low_hb, high_gnd, alt_rad=None):
+        
         alt_result = np_ma_zeros_like(alt_std)
 
-        if len(args) == 1:
-            alt_rad = args[0]
-            alt_rad_aal = np.ma.maximum(alt_rad, 0.0)
-            if mode == 'land':
-                ralt_sections = np.ma.clump_unmasked(
-                    np.ma.masked_outside(alt_rad_aal, 0.0, 100.0))
-            
-                baro_sections = slices_not(ralt_sections, begin_at=0, end_at=len(alt_std))
-
-                for ralt_section in ralt_sections:
-                    alt_result[ralt_section] = alt_rad_aal[ralt_section]
-                    
-                    for baro_section in baro_sections:
-                        begin_index = baro_section.start
-                        
-                        if ralt_section.stop == baro_section.start:
-                            alt_diff = alt_std[begin_index:begin_index+60]-alt_rad[begin_index:begin_index+60]
-                            slip, up_diff =  first_valid_sample(alt_diff)
-                            if slip != None:
-                                # alt_std is invalid at the point of handover so stretch the radio signal until we can handover.
-                                fix_slice = slice(begin_index,begin_index+slip) 
-                                alt_result[fix_slice] = alt_rad[fix_slice]
-                                begin_index += slip
-                            else:
-                                up_diff = 0.0
-                                
-                            alt_result[begin_index:] = alt_std[begin_index:] - up_diff
-            else:
-                alt_result = alt_std - high_gnd
-
-            return alt_result
-
-        else:
+        def shift_alt_std():
+            '''
+            Return Altitude STD shifted relative to 0 for cases where we do not
+            have a reliable Altitude Radio.
+            '''
             pit = np.ma.min(alt_std)
             alt_result = alt_std - pit
-            
-            # This backstop trap for negative values is necessary as aircraft
-            # without rad alts will indicate negative altitudes as they land.
             return np.ma.maximum(alt_result, 0.0)
+
+        if alt_rad is None:
+            # This backstop trap for negative values is necessary as aircraft
+            # without rad alts will indicate negative altitudes as they land.            
+            return shift_alt_std()
+        
+        if mode != 'land':
+            return alt_std - high_gnd
+        
+        alt_rad_aal = np.ma.maximum(alt_rad, 0.0)
+        ralt_sections = np.ma.clump_unmasked(
+            np.ma.masked_outside(alt_rad_aal, 0.0, 100.0))
+        
+        if not ralt_sections:
+            # Altitude Radio did not drop below 100.
+            return shift_alt_std()
+    
+        baro_sections = slices_not(ralt_sections, begin_at=0,
+                                   end_at=len(alt_std))
+
+        for ralt_section in ralt_sections:
+            alt_result[ralt_section] = alt_rad_aal[ralt_section]
+            
+            for baro_section in baro_sections:
+                begin_index = baro_section.start
+                
+                if ralt_section.stop == baro_section.start:
+                    alt_diff = alt_std[begin_index:begin_index + 60] - \
+                        alt_rad[begin_index:begin_index + 60]
+                    slip, up_diff = first_valid_sample(alt_diff)
+                    if slip is None:
+                        up_diff = 0.0
+                    else:
+                        # alt_std is invalid at the point of handover
+                        # so stretch the radio signal until we can
+                        # handover.
+                        fix_slice = slice(begin_index,
+                                          begin_index + slip) 
+                        alt_result[fix_slice] = alt_rad[fix_slice]
+                        begin_index += slip
+                        
+                    alt_result[begin_index:] = \
+                        alt_std[begin_index:] - up_diff
+        return alt_result
         
     def derive(self, alt_std = P('Altitude STD'),
                alt_rad = P('Altitude Radio'),
                speedies = S('Fast')):
-       
         # Altitude Radio was taken as the prime reference to ensure the
         # minimum ground clearance passing peaks is accurately reflected.
         # However, when the Altitude Radio signal is sampled at a lower rate
@@ -537,10 +550,7 @@ class AltitudeAAL(DerivedParameterNode):
   
         for speedy in speedies:
             quick = speedy.slice
-            if speedy.slice == slice(None,None,None):
-                # XXX: This will no longer work since we are replacing None
-                #      start and stop with 0 and hdf.duration. An alternative
-                #      would be to make duration available as an attribute.
+            if speedy.slice == slice(None, None, None):
                 self.array = alt_aal
                 break
             
@@ -549,77 +559,126 @@ class AltitudeAAL(DerivedParameterNode):
             if alt_idxs is None:
                 break # In the case where speedy was trivially short
             
-            alt_idxs += quick.start # Reference to start of arrays for simplicity hereafter.
+            # Reference to start of arrays for simplicity hereafter.
+            alt_idxs += quick.start
             
-            n=0
-            dips=[]
-            # List of lists, with each sublist containing:
+            n = 0
+            dips = []
+            # List of dicts, with each sublist containing:
             
-            # Type of item 'land' or 'over_gnd' or 'high'
+            # 'type' of item 'land' or 'over_gnd' or 'high'
             
-            # The slice for this part of the data
-            # if 'land' the land section comes at the beginning of the slice (i.e. takeoff slices are normal, landing slices are reversed)
+            # 'slice' for this part of the data
+            # if 'type' is 'land' the land section comes at the beginning of the
+            # slice (i.e. takeoff slices are normal, landing slices are
+            # reversed)
             # 'over_gnd' or 'air' are normal slices.
 
-            # Altitude STD as:
+            # 'alt_std' as:
             # 'land' = the pressure altitude on the ground
-            # 'over_gnd' = the pressure altitude when flying closest to the ground
+            # 'over_gnd' = the pressure altitude when flying closest to the
+            #              ground
             # 'air' = the lowest pressure altitude in this slice
 
-            # The height of the highest ground in this area
+            # 'highest_ground' in this area
             # 'land' = the pressure altitude on the ground
-            # 'over_gnd' = the pressure altitude minus the radio altitude when flying closest to the ground
-            # 'air' = None (the aircraft was too high for the radio altimeter to register valid data
+            # 'over_gnd' = the pressure altitude minus the radio altitude when
+            #              flying closest to the ground
+            # 'air' = None (the aircraft was too high for the radio altimeter to
+            #         register valid data
             
             n_vals = len(alt_vals)
-            while n < n_vals-1:
-                if alt_vals[n+1] > alt_vals[n]:
-                    # Just a rising section
-                    dips.append(['land', slice(alt_idxs[n],alt_idxs[n+1]),
-                                 alt_vals[n], alt_vals[n]])
-                    n = n+1
-                else:
-                    if n+2 < n_vals:
-                        if alt_vals[n+2] > alt_vals[n+1]:
-                            # A down and up section.
-                            down_up = slice(alt_idxs[n], alt_idxs[n+2])
-                            # Is radio altimeter data both supplied and valid in this range?
-                            if alt_rad and np.ma.count(alt_rad.array[down_up])>0:
-                                # Let's find the lowest rad alt reading 
-                                #(this may not be exactly the highest ground, but 
-                                # it was probably the point of highest concern!)
-                                arg_hg_max = np.ma.argmin(alt_rad.array[down_up]) + alt_idxs[n]
-                                hg_max = alt_std.array[arg_hg_max] - alt_rad.array[arg_hg_max]
-                                if np.ma.count(hg_max):
-                                    # The rad alt measured height above a peak...
-                                    dips.append(['over_gnd', down_up, alt_std.array[arg_hg_max], hg_max])
-                            else:
-                                # We have no rad alt data we can use.
-                                # TODO: alt_std code needs careful checking. 
-                                if dips !=[] and dips[-1][0]=='high':
-                                    # Join this dip onto the previous one
-                                    dips[-1][1] = slice(dips[-1][1].start, alt_idxs[n+2])
-                                    dips[-1][2] = min(dips[-1][2],alt_vals[n+1])
-                                else:
-                                    dips.append(['high', down_up, alt_vals[n+1], None])
-                            n = n+2
-                        else:
-                            raise ValueError, 'Problem in Altitude AAL where data should dip, has a peak.'
+            while n < n_vals - 1:
+                alt = alt_vals[n]
+                alt_idx = alt_idxs[n]
+                next_alt = alt_vals[n + 1]
+                next_alt_idx = alt_idxs[n + 1]
+                
+                if next_alt > alt:
+                    # Rising section.
+                    dips.append({
+                        'type': 'land',
+                        'slice': slice(alt_idx, next_alt_idx),
+                        'alt_std': alt,
+                        'highest_ground': alt,
+                    })
+                    n += 1
+                    continue
+                
+                if not (n + 2 < n_vals):
+                    # Falling section. Slice it backwards to use the same code
+                    # as for takeoffs.
+                    dips.append({
+                        'type': 'land',
+                        'slice': slice(next_alt_idx - 1, alt_idx - 1, -1),
+                        'alt_std': next_alt,
+                        'highest_ground': next_alt,
+                    })
+                    n += 1                    
+                    continue
+                
+                if alt_vals[n + 2] > next_alt:
+                    # A down and up section.
+                    down_up = slice(alt_idx, alt_idxs[n + 2])
+                    # Is radio altimeter data both supplied and valid in this
+                    # range?
+                    if alt_rad and np.ma.count(alt_rad.array[down_up]) > 0:
+                        # Let's find the lowest rad alt reading 
+                        # (this may not be exactly the highest ground, but 
+                        # it was probably the point of highest concern!)
+                        arg_hg_max = \
+                            np.ma.argmin(alt_rad.array[down_up]) + \
+                            alt_idxs[n]
+                        hg_max = alt_std.array[arg_hg_max] - \
+                            alt_rad.array[arg_hg_max]
+                        if np.ma.count(hg_max):
+                            # The rad alt measured height above a peak...
+                            dips.append({
+                                'type': 'over_gnd',
+                                'slice': down_up,
+                                'alt_std': alt_std.array[arg_hg_max],
+                                'highest_ground': hg_max,
+                            })
                     else:
-                        # Just a falling section. Slice it backwards to use the same code as for takeoffs.
-                        dips.append(['land', slice(alt_idxs[n+1]-1,alt_idxs[n]-1, -1), alt_vals[n+1], alt_vals[n+1]])
-                        n = n+1
+                        # We have no rad alt data we can use.
+                        # TODO: alt_std code needs careful checking.
+                        prev_dip = dips[-1]
+                        if dips and prev_dip['type'] == 'high':
+                            # Join this dip onto the previous one
+                            prev_dip['slice'] = \
+                                slice(prev_dip['slice'].start,
+                                      alt_idxs[n + 2])
+                            prev_dip['alt_std'] = \
+                                min(prev_dip['alt_std'],
+                                    next_alt)
+                        else:
+                            dips.append({
+                                'type': 'high',
+                                'slice': down_up,
+                                'alt_std': next_alt,
+                                'highest_ground': None,
+                            })
+                    n += 2
+                else:
+                    raise ValueError('Problem in Altitude AAL where data '
+                                     'should dip, but instead has a peak.')
 
-
-            for n, item in enumerate(dips):
-                if item[0] == 'high':
+            for n, dip in enumerate(dips):
+                if dip['type'] == 'high':
                     if n == 0:
                         if len(dips) == 1:
-                            dips[n][3]=dips[n][4]+1000 # Arbitrary offset in indeterminate case.
+                            # Arbitrary offset in indeterminate case.
+                            dip['alt_std'] = dip['highest_ground'] + 1000 
                         else:
-                            dips[n][3] = dips[n][2]-dips[n+1][2]+dips[n+1][3]
-                    elif n == len(dips)-1:
-                        dips[n][3] = dips[n][2]-dips[n-1][2]+dips[n-1][3]
+                            next_dip = dips[n + 1]
+                            dip['highest_ground'] = \
+                                dip['alt_std'] - next_dip['alt_std'] + \
+                                next_dip['highest_ground']
+                    elif n == len(dips) - 1:
+                        prev_dip = dips[n - 1]
+                        dip['highest_ground'] = \
+                            dip['alt_std'] - prev_dip['alt_std'] + \
+                            prev_dip['highest_ground']
                     else:
                         # Here is the most commonly used, and somewhat
                         # arbitrary code. For a dip where no radio
@@ -628,22 +687,28 @@ class AltitudeAAL(DerivedParameterNode):
                         # elevation in the preceding and following sections
                         # is practical, a little optimistic perhaps, but
                         # useable until we find a case otherwise.
-                        dips[n][3] = min(dips[n-1][3], dips[n+1][3])
+                        next_dip = dips[n + 1]
+                        prev_dip = dips[n - 1]
+                        dip['highest_ground'] = min(prev_dip['highest_ground'],
+                                                    next_dip['highest_ground'])
 
             for dip in dips:
                 if alt_rad:
-                    alt_aal[dip[1]] = self.compute_aal(dip[0],
-                                                       alt_std.array[dip[1]], 
-                                                       dip[2], dip[3],
-                                                       alt_rad.array[dip[1]])
+                    alt_aal[dip['slice']] = \
+                        self.compute_aal(dip['type'],
+                                         alt_std.array[dip['slice']],
+                                         dip['alt_std'],
+                                         dip['highest_ground'],
+                                         alt_rad=alt_rad.array[dip['slice']])
                 else:
-                    alt_aal[dip[1]] = self.compute_aal(dip[0],
-                                                       alt_std.array[dip[1]],
-                                                       dip[2], dip[3])
+                    alt_aal[dip['slice']] = \
+                        self.compute_aal(dip['type'],
+                                         alt_std.array[dip['slice']],
+                                         dip['alt_std'], dip['highest_ground'])
         
         self.array = alt_aal
 
-    
+
 class AltitudeAALForFlightPhases(DerivedParameterNode):
     name = 'Altitude AAL For Flight Phases'
     units = 'ft'
@@ -1115,7 +1180,7 @@ class PackValvesOpen(MultistateDerivedParameterNode):
         '''
         '''
         # Works with any combination of parameters available:
-        return any([d in available for d in cls.get_dependency_names()])
+        return any(d in available for d in cls.get_dependency_names())
 
     def derive(self,
             p1=P('ECS Pack (1) On'), p1h=P('ECS Pack (1) High Flow'),
@@ -1147,7 +1212,7 @@ class Eng_EPRAvg(DerivedParameterNode):
         '''
         '''
         # Works with any combination of parameters available:
-        return any([d in available for d in cls.get_dependency_names()])
+        return any(d in available for d in cls.get_dependency_names())
 
     def derive(self,
                eng1=P('Eng (1) EPR'),
@@ -1172,7 +1237,7 @@ class Eng_EPRMax(DerivedParameterNode):
         '''
         '''
         # Works with any combination of parameters available:
-        return any([d in available for d in cls.get_dependency_names()])
+        return any(d in available for d in cls.get_dependency_names())
 
     def derive(self,
                eng1=P('Eng (1) EPR'),
@@ -1197,7 +1262,7 @@ class Eng_EPRMin(DerivedParameterNode):
         '''
         '''
         # Works with any combination of parameters available:
-        return any([d in available for d in cls.get_dependency_names()])
+        return any(d in available for d in cls.get_dependency_names())
 
     def derive(self,
                eng1=P('Eng (1) EPR'),
@@ -1226,7 +1291,7 @@ class Eng_FuelFlow(DerivedParameterNode):
         '''
         '''
         # Works with any combination of parameters available:
-        return any([d in available for d in cls.get_dependency_names()])
+        return any(d in available for d in cls.get_dependency_names())
 
     def derive(self,
                eng1=P('Eng (1) Fuel Flow'),
@@ -1255,7 +1320,7 @@ class Eng_GasTempAvg(DerivedParameterNode):
         '''
         '''
         # Works with any combination of parameters available:
-        return any([d in available for d in cls.get_dependency_names()])
+        return any(d in available for d in cls.get_dependency_names())
 
     def derive(self,
                eng1=P('Eng (1) Gas Temp'),
@@ -1280,7 +1345,7 @@ class Eng_GasTempMax(DerivedParameterNode):
         '''
         '''
         # Works with any combination of parameters available:
-        return any([d in available for d in cls.get_dependency_names()])
+        return any(d in available for d in cls.get_dependency_names())
 
     def derive(self,
                eng1=P('Eng (1) Gas Temp'),
@@ -1305,7 +1370,7 @@ class Eng_GasTempMin(DerivedParameterNode):
         '''
         '''
         # Works with any combination of parameters available:
-        return any([d in available for d in cls.get_dependency_names()])
+        return any(d in available for d in cls.get_dependency_names())
 
     def derive(self,
                eng1=P('Eng (1) Gas Temp'),
@@ -1333,7 +1398,7 @@ class Eng_N1Avg(DerivedParameterNode):
         '''
         '''
         # Works with any combination of parameters available:
-        return any([d in available for d in cls.get_dependency_names()])
+        return any(d in available for d in cls.get_dependency_names())
 
     def derive(self,
                eng1=P('Eng (1) N1'),
@@ -1357,7 +1422,7 @@ class Eng_N1Max(DerivedParameterNode):
         '''
         '''
         # Works with any combination of parameters available:
-        return any([d in available for d in cls.get_dependency_names()])
+        return any(d in available for d in cls.get_dependency_names())
 
     def derive(self,
                eng1=P('Eng (1) N1'),
@@ -1381,7 +1446,7 @@ class Eng_N1Min(DerivedParameterNode):
         '''
         '''
         # Works with any combination of parameters available:
-        return any([d in available for d in cls.get_dependency_names()])
+        return any(d in available for d in cls.get_dependency_names())
 
     def derive(self,
                eng1=P('Eng (1) N1'),
@@ -1409,7 +1474,7 @@ class Eng_N2Avg(DerivedParameterNode):
         '''
         '''
         # Works with any combination of parameters available:
-        return any([d in available for d in cls.get_dependency_names()])
+        return any(d in available for d in cls.get_dependency_names())
 
     def derive(self,
                eng1=P('Eng (1) N2'),
@@ -1433,7 +1498,7 @@ class Eng_N2Max(DerivedParameterNode):
         '''
         '''
         # Works with any combination of parameters available:
-        return any([d in available for d in cls.get_dependency_names()])
+        return any(d in available for d in cls.get_dependency_names())
 
     def derive(self,
                eng1=P('Eng (1) N2'),
@@ -1457,7 +1522,7 @@ class Eng_N2Min(DerivedParameterNode):
         '''
         '''
         # Works with any combination of parameters available:
-        return any([d in available for d in cls.get_dependency_names()])
+        return any(d in available for d in cls.get_dependency_names())
 
     def derive(self,
                eng1=P('Eng (1) N2'),
@@ -1485,7 +1550,7 @@ class Eng_N3Avg(DerivedParameterNode):
         '''
         '''
         # Works with any combination of parameters available:
-        return any([d in available for d in cls.get_dependency_names()])
+        return any(d in available for d in cls.get_dependency_names())
 
     def derive(self,
                eng1=P('Eng (1) N3'),
@@ -1509,7 +1574,7 @@ class Eng_N3Max(DerivedParameterNode):
         '''
         '''
         # Works with any combination of parameters available:
-        return any([d in available for d in cls.get_dependency_names()])
+        return any(d in available for d in cls.get_dependency_names())
 
     def derive(self,
                eng1=P('Eng (1) N3'),
@@ -1533,7 +1598,7 @@ class Eng_N3Min(DerivedParameterNode):
         '''
         '''
         # Works with any combination of parameters available:
-        return any([d in available for d in cls.get_dependency_names()])
+        return any(d in available for d in cls.get_dependency_names())
 
     def derive(self,
                eng1=P('Eng (1) N3'),
@@ -1562,7 +1627,7 @@ class Eng_OilPressAvg(DerivedParameterNode):
         '''
         '''
         # Works with any combination of parameters available:
-        return any([d in available for d in cls.get_dependency_names()])
+        return any(d in available for d in cls.get_dependency_names())
 
     def derive(self,
                eng1=P('Eng (1) Oil Press'),
@@ -1587,7 +1652,7 @@ class Eng_OilPressMax(DerivedParameterNode):
         '''
         '''
         # Works with any combination of parameters available:
-        return any([d in available for d in cls.get_dependency_names()])
+        return any(d in available for d in cls.get_dependency_names())
 
     def derive(self,
                eng1=P('Eng (1) Oil Press'),
@@ -1612,7 +1677,7 @@ class Eng_OilPressMin(DerivedParameterNode):
         '''
         '''
         # Works with any combination of parameters available:
-        return any([d in available for d in cls.get_dependency_names()])
+        return any(d in available for d in cls.get_dependency_names())
 
     def derive(self,
                eng1=P('Eng (1) Oil Press'),
@@ -1641,7 +1706,7 @@ class Eng_OilQtyAvg(DerivedParameterNode):
         '''
         '''
         # Works with any combination of parameters available:
-        return any([d in available for d in cls.get_dependency_names()])
+        return any(d in available for d in cls.get_dependency_names())
 
     def derive(self,
                eng1=P('Eng (1) Oil Qty'),
@@ -1666,7 +1731,7 @@ class Eng_OilQtyMax(DerivedParameterNode):
         '''
         '''
         # Works with any combination of parameters available:
-        return any([d in available for d in cls.get_dependency_names()])
+        return any(d in available for d in cls.get_dependency_names())
 
     def derive(self,
                eng1=P('Eng (1) Oil Qty'),
@@ -1691,7 +1756,7 @@ class Eng_OilQtyMin(DerivedParameterNode):
         '''
         '''
         # Works with any combination of parameters available:
-        return any([d in available for d in cls.get_dependency_names()])
+        return any(d in available for d in cls.get_dependency_names())
 
     def derive(self,
                eng1=P('Eng (1) Oil Qty'),
@@ -1720,7 +1785,7 @@ class Eng_OilTempAvg(DerivedParameterNode):
         '''
         '''
         # Works with any combination of parameters available:
-        return any([d in available for d in cls.get_dependency_names()])
+        return any(d in available for d in cls.get_dependency_names())
 
     def derive(self,
                eng1=P('Eng (1) Oil Temp'),
@@ -1745,7 +1810,7 @@ class Eng_OilTempMax(DerivedParameterNode):
         '''
         '''
         # Works with any combination of parameters available:
-        return any([d in available for d in cls.get_dependency_names()])
+        return any(d in available for d in cls.get_dependency_names())
 
     def derive(self,
                eng1=P('Eng (1) Oil Temp'),
@@ -1770,7 +1835,7 @@ class Eng_OilTempMin(DerivedParameterNode):
         '''
         '''
         # Works with any combination of parameters available:
-        return any([d in available for d in cls.get_dependency_names()])
+        return any(d in available for d in cls.get_dependency_names())
 
     def derive(self,
                eng1=P('Eng (1) Oil Temp'),
@@ -1799,7 +1864,7 @@ class Eng_TorqueAvg(DerivedParameterNode):
         '''
         '''
         # Works with any combination of parameters available:
-        return any([d in available for d in cls.get_dependency_names()])
+        return any(d in available for d in cls.get_dependency_names())
 
     def derive(self,
                eng1=P('Eng (1) Torque'),
@@ -1824,7 +1889,7 @@ class Eng_TorqueMax(DerivedParameterNode):
         '''
         '''
         # Works with any combination of parameters available:
-        return any([d in available for d in cls.get_dependency_names()])
+        return any(d in available for d in cls.get_dependency_names())
 
     def derive(self,
                eng1=P('Eng (1) Torque'),
@@ -1849,7 +1914,7 @@ class Eng_TorqueMin(DerivedParameterNode):
         '''
         '''
         # Works with any combination of parameters available:
-        return any([d in available for d in cls.get_dependency_names()])
+        return any(d in available for d in cls.get_dependency_names())
 
     def derive(self,
                eng1=P('Eng (1) Torque'),
@@ -1880,7 +1945,7 @@ class Eng_VibN1Max(DerivedParameterNode):
         '''
         '''
         # Works with any combination of parameters available:
-        return any([d in available for d in cls.get_dependency_names()])
+        return any(d in available for d in cls.get_dependency_names())
 
     def derive(self,
                eng1=P('Eng (1) Vib N1'),
@@ -1915,7 +1980,7 @@ class Eng_VibN2Max(DerivedParameterNode):
         '''
         '''
         # Works with any combination of parameters available:
-        return any([d in available for d in cls.get_dependency_names()])
+        return any(d in available for d in cls.get_dependency_names())
 
     def derive(self,
                eng1=P('Eng (1) Vib N2'),
@@ -1950,7 +2015,7 @@ class Eng_VibN3Max(DerivedParameterNode):
         '''
         '''
         # Works with any combination of parameters available:
-        return any([d in available for d in cls.get_dependency_names()])
+        return any(d in available for d in cls.get_dependency_names())
 
     def derive(self,
                eng1=P('Eng (1) Vib N3'),
@@ -1975,7 +2040,7 @@ class FuelQty(DerivedParameterNode):
     @classmethod
     def can_operate(cls, available):
         # works with any combination of params available
-        return any([d in available for d in cls.get_dependency_names()])
+        return any(d in available for d in cls.get_dependency_names())
     
     def derive(self, 
                fuel_qty1=P('Fuel Qty (1)'),
@@ -2144,7 +2209,7 @@ class GrossWeightSmoothed(DerivedParameterNode):
         elif len(gw_all) == 1:
             offset = gw_all[0] - to_burn_all[0]
             
-        if offset == None:
+        if offset is None:
             self.warning("Cannot smooth Gross Weight. Using the original data")
             self.frequency = ff.frequency
             self.offset = ff.offset
@@ -2499,11 +2564,6 @@ class HeadingTrue(DerivedParameterNode):
 
 
 class ILSFrequency(DerivedParameterNode):
-    @classmethod
-    def can_operate(cls, available):
-        return ('ILS (1) Frequency' in available and 'ILS (2) Frequency' in available)\
-               or\
-               ('ILS-VOR (1) Frequency' in available and'ILS-VOR (2) Frequency' in available)
     """
     This code is based upon the normal operation of an Instrument Landing
     System whereby the left and right receivers are tuned to the same runway
@@ -2517,6 +2577,13 @@ class ILSFrequency(DerivedParameterNode):
     """
     name = "ILS Frequency"
     align_to_first_dependency = False
+    
+    @classmethod
+    def can_operate(cls, available):
+        return ('ILS (1) Frequency' in available and 
+                'ILS (2) Frequency' in available) or \
+               ('ILS-VOR (1) Frequency' in available and
+                'ILS-VOR (2) Frequency' in available)    
 
     def derive(self, f1=P('ILS (1) Frequency'),f2=P('ILS (2) Frequency'),
                f1v=P('ILS-VOR (1) Frequency'), f2v=P('ILS-VOR (2) Frequency'),
@@ -2760,7 +2827,7 @@ class CoordinatesSmoothed(object):
                 approach, runway = find_app_rwy(self, app_info, start_datetime,
                                                 this_loc)
                 
-                if runway==None:
+                if runway is None:
                     continue                
                 
                 if 'localizer' in runway:
@@ -2968,10 +3035,8 @@ class LatitudeSmoothed(DerivedParameterNode, CoordinatesSmoothed):
                                               app_info,toff_rwy,start_datetime)
 
         # --- Merge Tracks and return ---
-        if lat_adj != None:
-            self.array = track_linking(lat.array, lat_adj)
-        else:
-            self.array = lat.array
+        self.array = lat.array if lat_adj is None else track_linking(lat.array,
+                                                                     lat_adj)
 
         
 class LongitudeSmoothed(DerivedParameterNode, CoordinatesSmoothed):
@@ -3013,12 +3078,10 @@ class LongitudeSmoothed(DerivedParameterNode, CoordinatesSmoothed):
                                               app_info,toff_rwy,start_datetime)
 
         # --- Merge Tracks and return ---
-        if lon_adj != None:
-            self.array = track_linking(lon.array, lon_adj)
-        else:
-            self.array = lon.array
+        self.array = lon.array if lon_adj is None else track_linking(lon.array,
+                                                                     lon_adj)
 
-            
+
 class Mach(DerivedParameterNode):
     '''
     Mach derived from air data parameters for aircraft where no suitable Mach
@@ -3448,10 +3511,11 @@ class V2(DerivedParameterNode):
     def can_operate(cls, available):
         x = set(available)
         fdr = 'FDR V2' in x
-        base_for_lookup = ['Airspeed', 'Gross Weight At Liftoff', 'Series', 'Family']
-        conf = set(base_for_lookup + ['Configuration']).issubset(x)
-        flap = set(base_for_lookup + ['Flap']).issubset(x)
-        return fdr or conf or flap
+        base_for_lookup = ['Airspeed', 'Gross Weight At Liftoff', 'Series',
+                           'Family']
+        airbus = set(base_for_lookup + ['Configuration']).issubset(x)
+        boeing = set(base_for_lookup + ['Flap']).issubset(x)
+        return fdr or airbus or boeing
 
     def derive(self, 
                spd=P('Airspeed'),

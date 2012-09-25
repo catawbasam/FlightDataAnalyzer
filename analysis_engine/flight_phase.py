@@ -57,7 +57,7 @@ class Airborne(FlightPhaseNode):
         # Just find out when altitude above airfield is non-zero.
         for speedy in fast:
             # Stop here if the aircraft never went fast.
-            if speedy.slice.start == None and speedy.slice.stop == None:
+            if speedy.slice.start is None and speedy.slice.stop is None:
                 break
 
             start_point = speedy.slice.start or 0
@@ -66,19 +66,19 @@ class Airborne(FlightPhaseNode):
             work = repair_mask(alt_aal.array[start_point:stop_point])
 
             # Stop here if there is inadequate airborne data to process.
-            if work == None:
+            if work is None:
                 break
 
             airs = np.ma.clump_unmasked(np.ma.masked_less_equal(work,0.0))
             # Make sure we propogate None ends to data which starts or ends in midflight.
             for air in airs:
                 begin = air.start
-                if begin == 0 or speedy.slice.start == None:
+                if begin == 0 or speedy.slice.start is None:
                     begin = None
                 end = air.stop
-                if end == len(alt_aal.array) - (start_point or 0) or speedy.slice.stop == None:
+                if end == len(alt_aal.array) - (start_point or 0) or speedy.slice.stop is None:
                     end = None
-                if begin == None or end == None:
+                if begin is None or end is None:
                     self.create_phase(shift_slice(slice(begin,end),start_point))
                 else:
                     if ((end-begin)/alt_aal.hz) > AIRBORNE_THRESHOLD_TIME:
@@ -196,7 +196,7 @@ class ClimbCruiseDescent(FlightPhaseNode):
         for air in airs:
             pk_idxs, pk_vals = cycle_finder(alt_aal.array[air.slice],
                                             min_step=HYSTERESIS_FPALT_CCD)
-            if pk_vals != None:
+            if pk_vals is not None:
                 n=0
                 pk_idxs += air.slice.start or 0
                 n_vals = len(pk_vals)
@@ -235,7 +235,7 @@ class Climb(FlightPhaseNode):
                 if (eot < this_toc and
                     (this_toc < closest_toc
                      or
-                     closest_toc == None)):
+                     closest_toc is None)):
                     closest_toc = this_toc
             # Build the slice from what we have found.
             self.create_phase(slice(eot, closest_toc))        
@@ -368,9 +368,9 @@ class Fast(FlightPhaseNode):
     '''
 
     def derive(self, airspeed=P('Airspeed For Flight Phases')):
-        # Did the aircraft go fast enough to possibly become airborne?
-
         """
+        Did the aircraft go fast enough to possibly become airborne?
+        
         # We use the same technique as in index_at_value where transition of
         # the required threshold is detected by summing shifted difference
         # arrays. This has the particular advantage that we can reject
@@ -380,23 +380,16 @@ class Fast(FlightPhaseNode):
             (airspeed.array[1:-1]-AIRSPEED_THRESHOLD)
         test_array = np.ma.masked_outside(value_passing_array, 0.0, -100.0)
         """
-
-        fast_samples = np.ma.clump_unmasked(np.ma.masked_less(airspeed.array, AIRSPEED_THRESHOLD))
-
-        if fast_samples == []:
-            # Did not go fast enough, so no phase created.
-            new_list = [slice(None, None)]
-
-
-        else:
-            new_list = []
-            for fast_sample in fast_samples:
-                if abs(airspeed.array[fast_sample.start]-AIRSPEED_THRESHOLD) > 20:
-                    fast_sample = slice(None, fast_sample.stop)
-                if abs(airspeed.array[fast_sample.stop-1]-AIRSPEED_THRESHOLD) > 20:
-                    fast_sample = slice(fast_sample.start, None)
-                new_list.append(fast_sample)
-        self.create_phases(new_list)
+        fast_samples = np.ma.clump_unmasked(
+            np.ma.masked_less(airspeed.array, AIRSPEED_THRESHOLD))
+        for fast_sample in fast_samples:
+            start = fast_sample.start
+            stop = fast_sample.stop
+            if abs(airspeed.array[start] - AIRSPEED_THRESHOLD) > 20:
+                start = None
+            if abs(airspeed.array[stop - 1] - AIRSPEED_THRESHOLD) > 20:
+                stop = None
+            self.create_phase(slice(start, stop))
 
 
 class FinalApproach(FlightPhaseNode):
@@ -474,10 +467,11 @@ class GearRetracting(FlightPhaseNode):
                gear_warn_r=P('Gear (R) Red Warning'),
                frame=A('Frame'), airs=S('Airborne')):
         frame_name = frame.value if frame else None
-
         # Aircraft with red warning captions to show travelling
 
         if frame_name in ['737-1', '737-3C']:
+            if not all((gear_warn_l, gear_warn_n, gear_warn_r, frame, airs)):
+                raise DataFrameError(self.name, frame_name)
             gear_warn = np.ma.logical_or(gear_warn_l.array, gear_warn_r.array)
             gear_warn = np.ma.logical_or(gear_warn, gear_warn_n.array)
             slices = _ezclump(gear_warn)
@@ -489,15 +483,16 @@ class GearRetracting(FlightPhaseNode):
                 gear_moves = slices_and([air.slice], gear_moving)
                 for gear_move in gear_moves:
                     if gear_down.array[gear_move.start - 1] == \
-                            gear_down.array.state['Down']:
+                       gear_down.array.state['Down']:
                         self.create_phase(gear_move)
         
         # Aircraft without red warning captions for travelling
 
         elif frame_name in ['737-5', '737-6', '737-i']:
-            edge_list=[]
+            edge_list = []
             for air in airs:
-                edge_list.append(find_edges(gear_down.array.raw, air.slice, direction='falling_edges'))
+                edge_list.append(find_edges(gear_down.array.raw, air.slice,
+                                            direction='falling_edges'))
             # We now have a list of lists and this trick flattens the result.
             for edge in sum(edge_list,[]):
                 # We have no transition state, so allow 5 seconds for the
@@ -525,11 +520,14 @@ def scan_ils(beam, ils_dots, height, scan_slice):
 
     # Scan for going through 200ft, or in the case of a go-around, the lowest
     # point - hence 'closing' condition.
-    idx_200 = index_at_value(height, 200, slice(scan_slice.stop, scan_slice.start, -1), endpoint='closing')
+    idx_200 = index_at_value(height, 200, slice(scan_slice.stop,
+                                                scan_slice.start, -1),
+                             endpoint='closing')
 
     # Now work back to 2.5 dots when the indication is first visible.
-    dots_25 = index_at_value(np.ma.abs(ils_dots), 2.5, slice(idx_200, scan_slice.start, -1))
-    if dots_25 == None:
+    dots_25 = index_at_value(np.ma.abs(ils_dots), 2.5,
+                             slice(idx_200, scan_slice.start, -1))
+    if dots_25 is None:
         dots_25 = scan_slice.start
 
     # And now work forwards to the point of "Capture", defined as the first
@@ -539,14 +537,14 @@ def scan_ils(beam, ils_dots, height, scan_slice):
         ils_capture_idx = dots_25
     else:
         ils_capture_idx = index_at_value(np.ma.abs(ils_dots), 1.0, slice(dots_25, idx_200, +1))
-        if ils_capture_idx == None:
+        if ils_capture_idx is None:
             # Did we start with the ILS captured?
             if np.ma.abs(ils_dots[dots_25]) < 1.0:
                 ils_capture_idx = dots_25
 
     if beam == 'localizer':
         ils_end_idx = index_at_value(np.ma.abs(ils_dots), 2.5, slice(idx_200, None))
-        if ils_end_idx == None:
+        if ils_end_idx is None:
             # Can either never have captured, or data can end at less than 2.5 dots.
             countback_idx, last_loc = first_valid_sample(ils_dots[::-1])
             if abs(last_loc) < 2.5:
@@ -569,8 +567,9 @@ class ILSLocalizerEstablished(FlightPhaseNode):
     def derive(self, ils_loc=P('ILS Localizer'), 
                alt_aal=P('Altitude AAL For Flight Phases'), apps=S('Approach')):
         for app in apps:
-            ils_app = scan_ils('localizer',ils_loc.array,alt_aal.array,app.slice)
-            if ils_app != None:
+            ils_app = scan_ils('localizer', ils_loc.array, alt_aal.array,
+                               app.slice)
+            if ils_app is not None:
                 self.create_phase(ils_app)
 
 
@@ -710,7 +709,7 @@ class Grounded(FlightPhaseNode):
         data_end=len(speed.array)
         gnd_phases = slices_not([a.slice for a in air], 
                                 begin_at=0, end_at=data_end)
-        if gnd_phases == [] or gnd_phases == None:
+        if not gnd_phases:
             # Either all on ground or all in flight.
             median_speed = np.ma.median(speed.array)
             if median_speed > AIRSPEED_THRESHOLD:
@@ -736,7 +735,7 @@ class Mobile(FlightPhaseNode):
                                          (np.ma.abs(rot.array),
                                           HEADING_RATE_FOR_MOBILE))
         
-        if move==None:
+        if move is None:
             return # for the case where nothing happened
         
         if gspd:
@@ -770,8 +769,8 @@ class Landing(FlightPhaseNode):
             # AARRGG - How can we check if this is at the end of the data
             # without having to go back and test against the airspeed array?
             # TODO: Improve endpoint checks. DJ
-            if speedy.slice.stop >= len(alt_aal.array) or \
-               speedy.slice.stop == None:
+            if (speedy.slice.stop is None or \
+                speedy.slice.stop >= len(alt_aal.array)):
                 break
 
             landing_run = speedy.slice.stop
@@ -789,7 +788,7 @@ class Landing(FlightPhaseNode):
             landing_end = index_at_value(np.ma.abs(head.array-datum),
                                          HEADING_TURN_OFF_RUNWAY,
                                          slice(landing_run, last))
-            if landing_end == None:
+            if landing_end is None:
                 # The data ran out before the aircraft left the runway so use all we have.
                 landing_end = len(head.array)-1
 
@@ -820,7 +819,7 @@ class Takeoff(FlightPhaseNode):
             # We know a takeoff should come at the start of the phase,
             # however if the aircraft is already airborne, we can skip the
             # takeoff stuff.
-            if speedy.slice.start == None:
+            if speedy.slice.start is None:
                 break
 
             # The aircraft is part way down it's takeoff run at the start of 
@@ -960,10 +959,12 @@ class TurningInAir(FlightPhaseNode):
     """
     def derive(self, rate_of_turn=P('Rate Of Turn'), airborne=S('Airborne')):
         turning = np.ma.masked_inside(repair_mask(rate_of_turn.array),
-                                      -RATE_OF_TURN_FOR_FLIGHT_PHASES,RATE_OF_TURN_FOR_FLIGHT_PHASES)
+                                      -RATE_OF_TURN_FOR_FLIGHT_PHASES,
+                                      RATE_OF_TURN_FOR_FLIGHT_PHASES)
         turn_slices = np.ma.clump_unmasked(turning)
         for turn_slice in turn_slices:
-            if any([is_slice_within_slice(turn_slice, air.slice) for air in airborne]):
+            if any([is_slice_within_slice(turn_slice, air.slice)
+                    for air in airborne]):
                 # If the slice is within any airborne section.
                 self.create_phase(turn_slice, name="Turning In Air")
 
@@ -977,7 +978,8 @@ class TurningOnGround(FlightPhaseNode):
                                       -RATE_OF_TURN_FOR_TAXI_TURNS,RATE_OF_TURN_FOR_TAXI_TURNS)
         turn_slices = np.ma.clump_unmasked(turning)
         for turn_slice in turn_slices:
-            if any([is_slice_within_slice(turn_slice, gnd.slice) for gnd in ground]):
+            if any([is_slice_within_slice(turn_slice, gnd.slice)
+                    for gnd in ground]):
                 self.create_phase(turn_slice, name="Turning On Ground")
 
 

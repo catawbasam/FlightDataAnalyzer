@@ -68,13 +68,13 @@ class Approaches(FlightAttributeNode):
     name = 'FDR Approaches'
     @classmethod
     def can_operate(self, available):
-        return all([n in available for n in ['Start Datetime',
-                                             'Approach',
-                                             'Altitude AAL',
-                                             'Latitude At Lowest Point On Approach',
-                                             'Longitude At Lowest Point On Approach',
-                                             'Latitude At Landing',
-                                             'Longitude At Landing']])
+        return all(n in available for n in ['Start Datetime',
+                                            'Approach',
+                                            'Altitude AAL',
+                                            'Latitude At Lowest Point On Approach',
+                                            'Longitude At Lowest Point On Approach',
+                                            'Latitude At Landing',
+                                            'Longitude At Landing'])
         
     def _get_lat_lon(self, approach_slice, lat_kpv_node, lon_kpv_node):
         lat_kpvs = lat_kpv_node.get(within_slice=approach_slice)
@@ -388,9 +388,9 @@ class LandingRunway(FlightAttributeNode):
         '''
         'Landing Heading' is the only required parameter.
         '''
-        return all([n in available for n in ['Approach',
-                                             'FDR Landing Airport',
-                                             'Heading At Landing']])
+        return all(n in available for n in ['Approach',
+                                            'FDR Landing Airport',
+                                            'Heading At Landing'])
         
     def derive(self, approach_and_landing=S('Approach'),
                landing_hdg=KPV('Heading At Landing'),
@@ -414,7 +414,11 @@ class LandingRunway(FlightAttributeNode):
             self.warning("Empty '%s' in '%s'.", landing.name, self.name)
             self.set_flight_attr(None)
             return
-        heading = landing_hdg[-1].value
+        last_landing_hdg = landing_hdg.get_last()
+        if not last_landing_hdg:
+            self.warning("'%s' KPV does not exist.",
+                         landing_hdg.__class__.__name__)
+        heading = last_landing_hdg.value
             
         # 'Last Approach And Landing' assumed to be Landing. Q: May not be true
         # for partial data?
@@ -704,7 +708,7 @@ class FlightType(FlightAttributeNode):
     
     @classmethod
     def can_operate(self, available):
-        return all([n in available for n in ['Fast', 'Liftoff', 'Touchdown']])
+        return all(n in available for n in ['Fast', 'Liftoff', 'Touchdown'])
     
     def derive(self, afr_type=A('AFR Type'), fast=S('Fast'),
                liftoffs=KTI('Liftoff'), touchdowns=KTI('Touchdown'),

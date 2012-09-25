@@ -165,7 +165,7 @@ class Node(object):
 @classmethod
 def can_operate(cls, available):
     # works with any combination of params available
-    return any([d in available for d in cls.get_dependency_names()])
+    return any(d in available for d in cls.get_dependency_names())
 
 @classmethod
 def can_operate(cls, available):
@@ -174,7 +174,7 @@ def can_operate(cls, available):
             
         """
         # ensure all names are strings
-        return all([x in available for x in cls.get_dependency_names()])
+        return all(x in available for x in cls.get_dependency_names())
         
     @classmethod
     def get_operational_combinations(cls):
@@ -894,8 +894,8 @@ class SectionNode(Node, list):
         surrounded = []
         for section in self:
             if section.slice.start <= index <= section.slice.stop or\
-               section.slice.start <= index and section.slice.stop == None or\
-               section.slice.start == None and index <= section.slice.stop:
+               section.slice.start <= index and section.slice.stop is None or\
+               section.slice.start is None and index <= section.slice.stop:
                 surrounded.append(section)
         return self.__class__(name=self.name, frequency=self.frequency,
                               offset=self.offset, items=surrounded)     
@@ -1208,8 +1208,8 @@ class KeyTimeInstanceNode(FormattedNameNode):
         # High level function scans phase blocks or complete array and
         # presents appropriate arguments for analysis. We test for phase.name
         # as phase returns False.
-        if phase == None:
-            kti_edges(array, slice(0,len(array)+1))
+        if phase is None:
+            kti_edges(array, slice(0, len(array) + 1))
         else:
             for each_period in phase:
                 kti_edges(array, each_period.slice)
@@ -1255,7 +1255,7 @@ class KeyTimeInstanceNode(FormattedNameNode):
         # High level function scans phase blocks or complete array and
         # presents appropriate arguments for analysis. We test for phase.name
         # as phase returns False.
-        if phase == None:
+        if phase is None:
             state_changes(state, array, change)
         else:
             for each_period in phase:
@@ -1575,18 +1575,18 @@ class KeyPointValueNode(FormattedNameNode):
         # High level function scans phase blocks or complete array and presents
         # appropriate arguments for analysis.
 
-        # Note the test for "if phase != None" rather than just "if phase"
+        # Note the test for "if phase is None" rather than just "if phase"
         # because phase=[] for phases that are evaluated but have not
         # occurred in this flight.
-        if phase != None:
-            for each_period in phase:
-                to_scan = array[each_period.slice]
-                find_events(state, to_scan, each_period.slice.start or 0)
-        else:
+        if phase is None:
             # FIXME: np.ma.masked_not_equal does not use Python indexing, so it
             # will not see our mapped values!
             # "full slice" trick solves this problem
             find_events(state, array[:], 0)
+        else:
+            for each_period in phase:
+                to_scan = array[each_period.slice]
+                find_events(state, to_scan, each_period.slice.start or 0)
         return
 
 

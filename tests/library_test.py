@@ -4,8 +4,8 @@ import numpy as np
 import os
 import unittest
 
-from math import sqrt
 from datetime import datetime
+from math import sqrt
 
 from analysis_engine.flight_attribute import LandingRunway
 
@@ -415,6 +415,12 @@ class TestAlign(unittest.TestCase):
         result = align(slave, onehz, data_type='Multi-state')
         expected = np.ma.array([1] * 64 + [2] * 64 + [3] * 64 + [4] * 64)
         np.testing.assert_array_equal(result.data, expected)
+
+
+class TestCasAlt2Mach(unittest.TestCase):
+    def test_cas_alt2mach(self):
+        # TODO
+        self.assertTrue(False)
     
 
 class TestAmbiguousRunway(unittest.TestCase):
@@ -777,27 +783,89 @@ class TestClip(unittest.TestCase):
         np.testing.assert_array_almost_equal(result, expected)
 
 
+class TestCreatePhaseInside(unittest.TestCase):
+    def test_phase_inside_basic(self):
+        # Reminder: create_phase_inside(reference, a, b)
+        array = np.ma.arange(8)
+        result = create_phase_inside(array, 1.0,0.0,2,5)
+        answer = np.ma.array(data = [0,1,2,3,4,5,6,7],
+                             mask = [1,1,0,0,0,0,1,1])
+        ma_test.assert_masked_array_approx_equal(result, answer)
+        
+    def test_phase_inside_reversed(self):
+        # Reminder: create_phase_inside(reference, a, b)
+        array = np.ma.arange(8)
+        result = create_phase_inside(array, 1.0,0.1,5,2) # 2,5 > 5,2
+        answer = np.ma.array(data = [0,1,2,3,4,5,6,7],
+                             mask = [1,1,0,0,0,1,1,1])
+        ma_test.assert_masked_array_approx_equal(result, answer)
+        
+    def test_phase_inside_positive_offset(self):
+        # Reminder: create_phase_inside(reference, a, b)
+        array = np.ma.arange(8)
+        result = create_phase_inside(array, 1.0,0.1,2,5)
+        answer = np.ma.array(data = [0,1,2,3,4,5,6,7],
+                             mask = [1,1,0,0,0,1,1,1])
+        ma_test.assert_masked_array_approx_equal(result, answer)
+        
+    def test_phase_inside_negative_offset(self):
+        # Reminder: create_phase_inside(reference, a, b)
+        array = np.ma.arange(8)
+        result = create_phase_inside(array, 1.0,-0.1,2,5)
+        answer = np.ma.array(data = [0,1,2,3,4,5,6,7],
+                             mask = [1,1,1,0,0,0,1,1])
+        ma_test.assert_masked_array_approx_equal(result, answer)
+        
+    def test_phase_inside_low_rate(self):
+        # Reminder: create_phase_inside(reference, a, b)
+        array = np.ma.arange(8)*4
+        result = create_phase_inside(array, 0.25,0.0,12,25)
+        answer = np.ma.array(data = [0,4,8,12,16,20,24,28],
+                             mask = [1,1,1,0,0,0,0,1])
+        ma_test.assert_masked_array_approx_equal(result, answer)
+
+
+class TestCreatePhaseOutside(unittest.TestCase):
+    def test_phase_outside_low_rate(self):
+        # Reminder: create_phase_inside(reference, a, b)
+        array = np.ma.arange(8)*4
+        result = create_phase_outside(array, 0.25,0.0,7,21)
+        answer = np.ma.array(data = [0,4,8,12,16,20,24,28],
+                             mask = [0,0,1,1,1,1,0,0])
+        ma_test.assert_masked_array_approx_equal(result, answer)
+        
+    def test_phase_inside_errors(self):
+        # Reminder: create_phase_inside(reference, a, b)
+        array = np.ma.arange(8)
+        self.assertRaises(ValueError, create_phase_inside, array, 1, 0, -1, 5)
+        self.assertRaises(ValueError, create_phase_inside, array, 1, 0, 10, 5)
+        self.assertRaises(ValueError, create_phase_inside, array, 1, 0, 2, -1)
+        self.assertRaises(ValueError, create_phase_inside, array, 1, 0, 2, 11)
+
+
 class TestCycleCounter(unittest.TestCase):
     def test_cycle_counter(self):
-        array = np.ma.sin(np.ma.arange(100)*0.7+3)+np.ma.sin(np.ma.arange(100)*0.82)
+        array = np.ma.sin(np.ma.arange(100) * 0.7 + 3) + \
+            np.ma.sin(np.ma.arange(100) * 0.82)
         end_index, n_cycles = cycle_counter(array, 3.0, 10, 1.0, 0)
         self.assertEqual(n_cycles, 3)
         self.assertEqual(end_index, 91)
 
     def test_cycle_counter_with_offset(self):
-        array = np.ma.sin(np.ma.arange(100)*0.7+3)+np.ma.sin(np.ma.arange(100)*0.82)
+        array = np.ma.sin(np.ma.arange(100) * 0.7 + 3) + \
+            np.ma.sin(np.ma.arange(100) * 0.82)
         end_index, n_cycles = cycle_counter(array, 3.0, 10, 1.0, 1234)
-        self.assertEqual(end_index, 1234+91)
+        self.assertEqual(end_index, 1234 + 91)
         
     def test_cycle_counter_too_slow(self):
-        array = np.ma.sin(np.ma.arange(100)*0.7+3)+np.ma.sin(np.ma.arange(100)*0.82)
+        array = np.ma.sin(np.ma.arange(100) * 0.7 + 3) + \
+            np.ma.sin(np.ma.arange(100) * 0.82)
         end_index, n_cycles = cycle_counter(array, 3.0, 1, 1.0, 0)
         self.assertEqual(n_cycles, None)
         self.assertEqual(end_index, None)
         
     def test_cycle_counter_empty(self):
-        array=np.ma.array([])
-        end_index, n_cycles = cycle_counter(array, 3.0, 10, 1.0, 0)
+        end_index, n_cycles = cycle_counter(np.ma.array([]), 3.0, 10, 1.0, 0)
         self.assertEqual(n_cycles, None)
         self.assertEqual(end_index, None)
 
@@ -885,7 +953,8 @@ class TestFilterVorIlsFrequencies(unittest.TestCase):
         result = filter_vor_ils_frequencies(array, 'VOR')
         expected = 117.40
         self.assertEqual(result.data[0], expected)
-    
+
+
 class TestFindEdges(unittest.TestCase):
     # Reminder: find_edges(array, _slice, direction='rising_edges')                    
     
@@ -970,6 +1039,7 @@ class TestFirstOrderLag(unittest.TestCase):
         result = first_order_lag (array, 1.0, 1.0, initial_value = 1.0)
         ma_test.assert_mask_eqivalent(result.mask, [0,0,0,1,0],
                                       err_msg='Masks are not equal')
+
 
 class TestFirstOrderWashout(unittest.TestCase):
 
@@ -1079,108 +1149,6 @@ class TestLastValidSample(unittest.TestCase):
         self.assertEqual(result, (None, None))
 
 
-class TestRunwayDistanceFromEnd(unittest.TestCase):
-    def test_null(self):
-        runway =  {'end': {'latitude': 60.280151, 
-                      'longitude': 5.222579}, 
-              'localizer': {'latitude': 60.2789, 
-                            'longitude': 5.223}, 
-              'glideslope': {'latitude': 60.300981,
-                             'longitude': 5.214092, 
-                             'threshold_distance': 1161}, 
-              'start': {'latitude': 60.30662494, 
-                        'longitude': 5.21370074}}
-        result = runway_distance_from_end(runway, 60.280151, 5.222579)
-        expected = 0.0
-        self.assertEqual(result, expected)
-    
-    def test_runway_dist_by_coordinates(self):
-        runway =  {'end': {'latitude': 60.280151, 
-                      'longitude': 5.222579}, 
-              'localizer': {'latitude': 60.2789, 
-                            'longitude': 5.223}, 
-              'glideslope': {'latitude': 60.300981,
-                             'longitude': 5.214092, 
-                             'threshold_distance': 1161}, 
-              'start': {'latitude': 60.30662494, 
-                        'longitude': 5.21370074}}
-        result = runway_distance_from_end(runway, 60.30662494, 5.21370074)
-        expected = 2984.0
-        self.assertAlmostEqual(result, expected, places=0)
-        
-    def test_runway_dist_by_identifier(self):
-        runway =  {'end': {'latitude': 60.280151, 
-                      'longitude': 5.222579}, 
-              'localizer': {'latitude': 60.2789, 
-                            'longitude': 5.223}, 
-              'glideslope': {'latitude': 60.300981,
-                             'longitude': 5.214092, 
-                             'threshold_distance': 1161}, 
-              'start': {'latitude': 60.30662494, 
-                        'longitude': 5.21370074}}
-        result = runway_distance_from_end(runway, point='start')
-        expected = 2984.0
-        self.assertAlmostEqual(result, expected, places=0)
-    
-    def test_runway_dist_not_recognised(self):
-        runway =  {'end': {'latitude': 60.280151, 
-                           'longitude': 5.222579},
-                   'start': {'latitude': 60.30662494, 
-                             'longitude': 5.21370074},
-                   'id':'Test Case'}
-        result = runway_distance_from_end(runway, point='threshold')
-        self.assertEqual(result, None)
-
-
-class TestRunwayDistances(unittest.TestCase):
-    # This single test case used data for Bergen and had reasonable accuracy.
-    # However, since setting up this test the runway has been extended so
-    # DON'T use this for navigation !!!
-    def test_runway_distances(self):
-        result = []
-        runway =  {'end': {'latitude': 60.280151, 
-                              'longitude': 5.222579}, 
-                      'localizer': {'latitude': 60.2789, 
-                                    'frequency': u'109900M', 
-                                    'longitude': 5.223, 
-                                    'heading': 173, 
-                                    'beam_width': 4.5}, 
-                      'glideslope': {'latitude': 60.300981, 
-                                     'frequency': u'333800M', 
-                                     'angle': 3.1, 
-                                     'longitude': 5.214092, 
-                                     'threshold_distance': 1161}, 
-                      'start': {'latitude': 60.30662494, 
-                                'longitude': 5.21370074}, 
-                      'strip': {'width': 147, 'length': 9810, 
-                                'id': 4097, 'surface': u'ASP'}, 
-                      'identifier': u'17', 'id': 8193}
-        result = runway_distances(runway)
-        
-        self.assertAlmostEqual(result[0],3125, places=0)
-        # correct:self.assertAlmostEqual(result[0],3125, places=0)
-        self.assertAlmostEqual(result[1],2503, places=0)
-        self.assertAlmostEqual(result[2],141.0, places=1)
-        # Optional glideslope antenna projected position...
-        self.assertAlmostEqual(result[3],60.3, places=1)
-        self.assertAlmostEqual(result[4],5.22, places=2)
-
-
-class TestRunwayHeading(unittest.TestCase):
-    # This single test case uses data for Bergen and has been checked against
-    # Google Earth measurements for reasonable accuracy.
-    def test_runway_heading(self):
-        runway =  {'end': {'latitude': 60.280151, 
-                              'longitude': 5.222579}, 
-                      'localizer': {'latitude': 60.2789, 
-                                    'longitude': 5.223, 
-                                    'heading': 999}, 
-                      'start': {'latitude': 60.30662494, 
-                                'longitude': 5.21370074}, 
-}
-        rwy_hdg = runway_heading(runway)
-        self.assertLess(abs(rwy_hdg - 170.6), 0.3)
-        
 class TestGroundTrack(unittest.TestCase):
     def test_ground_track_basic(self):
         gspd = np.ma.array([60,60,60,60,60,60,60])
@@ -1525,6 +1493,11 @@ class TestIsIndexWithinSlice(unittest.TestCase):
         self.assertTrue(is_index_within_slice(10, slice(None, 12)))
 
 
+class TestILSGlideslopeAlign(unittest.TestCase):
+    def test_ils_glideslope_align(self):
+        self.assertFalse(True)
+
+
 class TestILSLocalizerAlign(unittest.TestCase):
     def test_ils_localizer_align(self):
         runway =  {'end': {'latitude': 60.280151, 
@@ -1590,6 +1563,11 @@ class TestIsSliceWithinSlice(unittest.TestCase):
                                               slice(None, None)))
         self.assertTrue(is_slice_within_slice(slice(None, 15),
                                               slice(None, None)))
+
+
+class TestMaskedFirstOrderFilter(unittest.TestCase):
+    def test_masked_first_order_filter(self):
+        self.assertTrue(False)
 
 
 class TestMaskInsideSlices(unittest.TestCase):
@@ -2126,63 +2104,6 @@ class TestPeakIndex(unittest.TestCase):
         peak=np.sin(np.arange(10)/3.)
         self.assertEqual(peak_index(peak),4.7141807866121832)
         
-class TestPhaseMasking(unittest.TestCase):
-    def test_phase_inside_basic(self):
-        # Reminder: create_phase_inside(reference, a, b)
-        array = np.ma.arange(8)
-        result = create_phase_inside(array, 1.0,0.0,2,5)
-        answer = np.ma.array(data = [0,1,2,3,4,5,6,7],
-                             mask = [1,1,0,0,0,0,1,1])
-        ma_test.assert_masked_array_approx_equal(result, answer)
-        
-    def test_phase_inside_reversed(self):
-        # Reminder: create_phase_inside(reference, a, b)
-        array = np.ma.arange(8)
-        result = create_phase_inside(array, 1.0,0.1,5,2) # 2,5 > 5,2
-        answer = np.ma.array(data = [0,1,2,3,4,5,6,7],
-                             mask = [1,1,0,0,0,1,1,1])
-        ma_test.assert_masked_array_approx_equal(result, answer)
-        
-    def test_phase_inside_positive_offset(self):
-        # Reminder: create_phase_inside(reference, a, b)
-        array = np.ma.arange(8)
-        result = create_phase_inside(array, 1.0,0.1,2,5)
-        answer = np.ma.array(data = [0,1,2,3,4,5,6,7],
-                             mask = [1,1,0,0,0,1,1,1])
-        ma_test.assert_masked_array_approx_equal(result, answer)
-        
-    def test_phase_inside_negative_offset(self):
-        # Reminder: create_phase_inside(reference, a, b)
-        array = np.ma.arange(8)
-        result = create_phase_inside(array, 1.0,-0.1,2,5)
-        answer = np.ma.array(data = [0,1,2,3,4,5,6,7],
-                             mask = [1,1,1,0,0,0,1,1])
-        ma_test.assert_masked_array_approx_equal(result, answer)
-        
-    def test_phase_inside_low_rate(self):
-        # Reminder: create_phase_inside(reference, a, b)
-        array = np.ma.arange(8)*4
-        result = create_phase_inside(array, 0.25,0.0,12,25)
-        answer = np.ma.array(data = [0,4,8,12,16,20,24,28],
-                             mask = [1,1,1,0,0,0,0,1])
-        ma_test.assert_masked_array_approx_equal(result, answer)
-        
-    def test_phase_outside_low_rate(self):
-        # Reminder: create_phase_inside(reference, a, b)
-        array = np.ma.arange(8)*4
-        result = create_phase_outside(array, 0.25,0.0,7,21)
-        answer = np.ma.array(data = [0,4,8,12,16,20,24,28],
-                             mask = [0,0,1,1,1,1,0,0])
-        ma_test.assert_masked_array_approx_equal(result, answer)
-        
-    def test_phase_inside_errors(self):
-        # Reminder: create_phase_inside(reference, a, b)
-        array = np.ma.arange(8)
-        self.assertRaises(ValueError, create_phase_inside, array, 1,0, -1, 5)
-        self.assertRaises(ValueError, create_phase_inside, array, 1,0, 10, 5)
-        self.assertRaises(ValueError, create_phase_inside, array, 1,0, 2, -1)
-        self.assertRaises(ValueError, create_phase_inside, array, 1,0, 2, 11)
-        
         
 class TestRateOfChangeArray(unittest.TestCase):
     # 12/8/12 - introduced to allow array level access to rate of change.
@@ -2352,7 +2273,137 @@ class TestRMSNoise(unittest.TestCase):
         result = rms_noise(array)
         expected = None
         self.assertAlmostEqual(result, expected)
+
+
+class TestRunwayDistanceFromEnd(unittest.TestCase):
+    def test_null(self):
+        runway =  {'end': {'latitude': 60.280151, 
+                      'longitude': 5.222579}, 
+              'localizer': {'latitude': 60.2789, 
+                            'longitude': 5.223}, 
+              'glideslope': {'latitude': 60.300981,
+                             'longitude': 5.214092, 
+                             'threshold_distance': 1161}, 
+              'start': {'latitude': 60.30662494, 
+                        'longitude': 5.21370074}}
+        result = runway_distance_from_end(runway, 60.280151, 5.222579)
+        expected = 0.0
+        self.assertEqual(result, expected)
+    
+    def test_runway_dist_by_coordinates(self):
+        runway =  {'end': {'latitude': 60.280151, 
+                      'longitude': 5.222579}, 
+              'localizer': {'latitude': 60.2789, 
+                            'longitude': 5.223}, 
+              'glideslope': {'latitude': 60.300981,
+                             'longitude': 5.214092, 
+                             'threshold_distance': 1161}, 
+              'start': {'latitude': 60.30662494, 
+                        'longitude': 5.21370074}}
+        result = runway_distance_from_end(runway, 60.30662494, 5.21370074)
+        expected = 2984.0
+        self.assertAlmostEqual(result, expected, places=0)
         
+    def test_runway_dist_by_identifier(self):
+        runway =  {'end': {'latitude': 60.280151, 
+                      'longitude': 5.222579}, 
+              'localizer': {'latitude': 60.2789, 
+                            'longitude': 5.223}, 
+              'glideslope': {'latitude': 60.300981,
+                             'longitude': 5.214092, 
+                             'threshold_distance': 1161}, 
+              'start': {'latitude': 60.30662494, 
+                        'longitude': 5.21370074}}
+        result = runway_distance_from_end(runway, point='start')
+        expected = 2984.0
+        self.assertAlmostEqual(result, expected, places=0)
+    
+    def test_runway_dist_not_recognised(self):
+        runway =  {'end': {'latitude': 60.280151, 
+                           'longitude': 5.222579},
+                   'start': {'latitude': 60.30662494, 
+                             'longitude': 5.21370074},
+                   'id':'Test Case'}
+        result = runway_distance_from_end(runway, point='threshold')
+        self.assertEqual(result, None)
+
+
+class TestRunwayDistances(unittest.TestCase):
+    # This single test case used data for Bergen and had reasonable accuracy.
+    # However, since setting up this test the runway has been extended so
+    # DON'T use this for navigation !!!
+    def test_runway_distances(self):
+        result = []
+        runway =  {'end': {'latitude': 60.280151, 
+                              'longitude': 5.222579}, 
+                      'localizer': {'latitude': 60.2789, 
+                                    'frequency': u'109900M', 
+                                    'longitude': 5.223, 
+                                    'heading': 173, 
+                                    'beam_width': 4.5}, 
+                      'glideslope': {'latitude': 60.300981, 
+                                     'frequency': u'333800M', 
+                                     'angle': 3.1, 
+                                     'longitude': 5.214092, 
+                                     'threshold_distance': 1161}, 
+                      'start': {'latitude': 60.30662494, 
+                                'longitude': 5.21370074}, 
+                      'strip': {'width': 147, 'length': 9810, 
+                                'id': 4097, 'surface': u'ASP'}, 
+                      'identifier': u'17', 'id': 8193}
+        result = runway_distances(runway)
+        
+        self.assertAlmostEqual(result[0],3125, places=0)
+        # correct:self.assertAlmostEqual(result[0],3125, places=0)
+        self.assertAlmostEqual(result[1],2503, places=0)
+        self.assertAlmostEqual(result[2],141.0, places=1)
+        # Optional glideslope antenna projected position...
+        self.assertAlmostEqual(result[3],60.3, places=1)
+        self.assertAlmostEqual(result[4],5.22, places=2)
+
+
+class TestRunwayHeading(unittest.TestCase):
+    # This single test case uses data for Bergen and has been checked against
+    # Google Earth measurements for reasonable accuracy.
+    def test_runway_heading(self):
+        runway =  {'end': {'latitude': 60.280151, 
+                              'longitude': 5.222579}, 
+                      'localizer': {'latitude': 60.2789, 
+                                    'longitude': 5.223, 
+                                    'heading': 999}, 
+                      'start': {'latitude': 60.30662494, 
+                                'longitude': 5.21370074}}
+        rwy_hdg = runway_heading(runway)
+        self.assertLess(abs(rwy_hdg - 170.6), 0.3)
+
+
+class TestRunwayLength(unittest.TestCase):
+    @mock.patch('analysis_engine.library._dist')
+    def test_runway_length(self, _dist):
+        _dist.return_value = 100
+        length = runway_length({'start': {'latitude': 10, 'longitude': 20},
+                                'end': {'latitude': 30, 'longitude': 40}})
+        _dist.assert_called_with(10, 20, 30, 40)
+        self.assertEqual(length, 100)
+
+
+class TestRunwaySnap(unittest.TestCase):
+    def test_runway_snap(self):
+        self.assertTrue(False)
+
+
+class TestRunwaySnapDict(unittest.TestCase):
+    @mock.patch('analysis_engine.library.runway_snap')
+    def test_runway_snap_dict(self, runway_snap):
+        runway_snap.return_value = (70, 80)
+        runway = {'start': {'latitude': 10, 'longitude': 20},
+                  'end': {'latitude': 30, 'longitude': 40}}
+        lat = 50
+        lon = 60
+        coords = runway_snap_dict(runway, lat, lon)
+        runway_snap.assert_called_with(runway, lat, lon)
+        self.assertEqual(coords, {'latitude': 70, 'longitude': 80})
+
         
 """
 class TestSectionContainsKti(unittest.TestCase):
@@ -2427,6 +2478,20 @@ class TestShiftSlices(unittest.TestCase):
         a = [slice(4, 7, None), slice(17, 12, -1)]
         self.assertEqual(shift_slices(a,0), a)
         self.assertEqual(shift_slices(a,None), a)
+
+
+class TestSliceDuration(unittest.TestCase):
+    def test_slice_duration(self):
+        duration = slice_duration(slice(10, 20), 2)
+        self.assertEqual(duration, 5)
+        duration = slice_duration(slice(None, 20), 0.5)
+        self.assertEqual(duration, 40)
+        self.assertRaises(ValueError, slice_duration, slice(20, None), 1)
+
+
+class TestSlicesAnd(unittest.TestCase):
+    def test_slices_and(self):
+        slices_and
 
 
 class TestSlicesAbove(unittest.TestCase):
@@ -2530,7 +2595,6 @@ class TestSlicesOverlap(unittest.TestCase):
         self.assertTrue(slices_overlap(second, both_none))
         self.assertTrue(slices_overlap(both_none, first))
         self.assertTrue(slices_overlap(both_none, second))
-        
         
         # no overlap
         no_overlap = slice(25,40)
@@ -2740,8 +2804,8 @@ class TestSmoothTrack(unittest.TestCase):
         end = clock()      
         print end-start      
         self.assertLess (end-start,1.0)
-            
-        
+
+
 class TestSubslice(unittest.TestCase):
     def test_subslice(self):
         # test basic
@@ -2849,6 +2913,11 @@ class TestSubslice(unittest.TestCase):
         #TODO: test negative start, stop and step
 
 
+class TestTouchdownInertial(unittest.TestCase):
+    def test_touchdown_inertial(self):
+        self.assertTrue(False)
+
+
 class TestTrackLinking(unittest.TestCase):
     def test_track_linking_basic(self):
         pos = np.ma.array(data=[0]*16,mask=False)
@@ -2864,6 +2933,11 @@ class TestTrackLinking(unittest.TestCase):
                                mask = False)
         np.testing.assert_array_equal(expected,result)
         # plot_parameter(expected)
+
+
+class TestTruckAndTrailer(unittest.TestCase):
+    def test_truck_and_trailer(self):
+        self.assertTrue(False)
 
 
 class TestValueAtTime(unittest.TestCase):
@@ -2977,33 +3051,25 @@ class TestVstackParams(unittest.TestCase):
 #-----------------------------------------------------------------------------
 class TestAlt2Press(unittest.TestCase):
     def test_01(self):
-
         # Truth values from NASA RP 1046
-
         Value = alt2press(np.ma.array([5000]))
         Truth = 843.0725884 # mBar
         self.assertAlmostEqual(Value, Truth)
 
     def test_02(self):
-
         # Truth values from aerospaceweb
-
         Value = alt2press(25000)
         Truth = 376.0087326
         self.assertAlmostEqual(Value, Truth, delta = 1e-5)
 
     def test_03(self):
-
         # Truth values from aerospaceweb
-
         Value = alt2press(45000)
         Truth = 147.4755452
         self.assertAlmostEqual(Value, Truth, delta = 1e-5)
 
     def test_04(self):
-
         # Truth values from NASA RP 1046
-
         Value = alt2press(25000*METRES_TO_FEET)
         Truth = 25.492
         # Wide tolerance as we're not going to be using this for 
@@ -3011,34 +3077,27 @@ class TestAlt2Press(unittest.TestCase):
         self.assertAlmostEqual(Value, Truth, delta = 1e-0)
 
 
-class TestAlt2Press_Ratio(unittest.TestCase):
-
+class TestAlt2PressRatio(unittest.TestCase):
     def test_01(self):
         Value = alt2press_ratio(0)
         self.assertEqual(Value, 1.0)
 
     def test_02(self):
-        
         # Truth values from NASA RP 1046
-
         Value = alt2press_ratio(-1000)
         Truth = 2193.82 / 2116.22
         self.assertAlmostEqual(Value, Truth, delta = 1e-5)
 
     def test_03(self):
-
         # Truth values from NASA RP 1046
-
         Value = alt2press_ratio(20000*METRES_TO_FEET)
         Truth = 5474.87 / 101325
         self.assertAlmostEqual(Value, Truth, delta = 1e-5)
 
     def test_04(self):
-
         # Typical value at 25,000 ft
         # From Aerospace.web
         # ratio = (1 - h/145442)^(5.255876)
-
         Value = alt2press_ratio(25000)
         Truth = np.power(1.0-25000./145442.,5.255876)
         self.assertAlmostEqual(Value, Truth)
@@ -3157,7 +3216,7 @@ class TestAlt2Sat(unittest.TestCase):
         ma_test.assert_almost_equal(Value,Truth)
 
 
-class Test_dp_over_p2mach(unittest.TestCase):
+class TestDpOverP2mach(unittest.TestCase):
 
     def test_01(self):
 

@@ -97,7 +97,7 @@ def derive_parameters(hdf, node_mgr, process_order):
                 deps.append(dp)
             else:  # dependency not available
                 deps.append(None)
-        if all([d == None for d in deps]):
+        if all([d is None for d in deps]):
             raise RuntimeError("No dependencies available - Nodes cannot "
                                "operate without ANY dependencies available! "
                                "Node: %s" % node_class.__name__)
@@ -176,7 +176,7 @@ def derive_parameters(hdf, node_mgr, process_order):
                 # at 0.25Hz (rounded upwards). If we combine two 0.25Hz
                 # parameters then we will have an array length of 1412.
                 expected_length = duration * result.frequency
-                if result.array == None:
+                if result.array is None:
                     array_length = expected_length
                     # Where a parameter is wholly masked, we fill the HDF
                     # file with masked zeros to maintain structure.
@@ -297,8 +297,8 @@ def process_flight(hdf_path, aircraft_info, start_datetime=datetime.now(),
     # open HDF for reading
     with hdf_file(hdf_path) as hdf:
         # Track nodes. Assume that all params in HDF are from LFL(!)
-        node_mgr = NodeManager(start_datetime, hdf.valid_param_names(), required_params, 
-                               derived_nodes, aircraft_info,
+        node_mgr = NodeManager(start_datetime, hdf.valid_param_names(),
+                               required_params, derived_nodes, aircraft_info,
                                achieved_flight_record)
         # calculate dependency tree
         process_order, gr_st = dependency_order(node_mgr, draw=draw)
