@@ -237,6 +237,7 @@ class TestILSGlideslopeEstablished(unittest.TestCase):
         phases = result['phases']
         sections = phases.get(name='ILS Glideslope Established')
         sections
+        self.assertTrue(False, msg='Test not implemented.')
     
 
 class TestILSLocalizerEstablished(unittest.TestCase):

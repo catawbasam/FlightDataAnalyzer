@@ -479,15 +479,22 @@ class AltitudeAAL(DerivedParameterNode):
         return 'Altitude STD' in available and 'Fast' in available
     
     def compute_aal(self, mode, alt_std, low_hb, high_gnd, alt_rad=None):
+        
         alt_result = np_ma_zeros_like(alt_std)
 
-        if alt_rad is None:
-            # Return Altitude STD shifted relative to 0.
+        def shift_alt_std():
+            '''
+            Return Altitude STD shifted relative to 0 for cases where we do not
+            have a reliable Altitude Radio.
+            '''
             pit = np.ma.min(alt_std)
             alt_result = alt_std - pit
-            # This backstop trap for negative values is necessary as aircraft
-            # without rad alts will indicate negative altitudes as they land.
             return np.ma.maximum(alt_result, 0.0)
+
+        if alt_rad is None:
+            # This backstop trap for negative values is necessary as aircraft
+            # without rad alts will indicate negative altitudes as they land.            
+            return shift_alt_std()
         
         if mode != 'land':
             return alt_std - high_gnd
@@ -495,6 +502,10 @@ class AltitudeAAL(DerivedParameterNode):
         alt_rad_aal = np.ma.maximum(alt_rad, 0.0)
         ralt_sections = np.ma.clump_unmasked(
             np.ma.masked_outside(alt_rad_aal, 0.0, 100.0))
+        
+        if not ralt_sections:
+            # Altitude Radio did not drop below 100.
+            return shift_alt_std()
     
         baro_sections = slices_not(ralt_sections, begin_at=0,
                                    end_at=len(alt_std))
@@ -515,8 +526,8 @@ class AltitudeAAL(DerivedParameterNode):
                         # alt_std is invalid at the point of handover
                         # so stretch the radio signal until we can
                         # handover.
-                        fix_slice = \
-                            slice(begin_index,begin_index + slip) 
+                        fix_slice = slice(begin_index,
+                                          begin_index + slip) 
                         alt_result[fix_slice] = alt_rad[fix_slice]
                         begin_index += slip
                         
@@ -548,91 +559,126 @@ class AltitudeAAL(DerivedParameterNode):
             if alt_idxs is None:
                 break # In the case where speedy was trivially short
             
-            alt_idxs += quick.start # Reference to start of arrays for simplicity hereafter.
+            # Reference to start of arrays for simplicity hereafter.
+            alt_idxs += quick.start
             
             n = 0
             dips = []
-            # List of lists, with each sublist containing:
+            # List of dicts, with each sublist containing:
             
-            # Type of item 'land' or 'over_gnd' or 'high'
+            # 'type' of item 'land' or 'over_gnd' or 'high'
             
-            # The slice for this part of the data
-            # if 'land' the land section comes at the beginning of the slice (i.e. takeoff slices are normal, landing slices are reversed)
+            # 'slice' for this part of the data
+            # if 'type' is 'land' the land section comes at the beginning of the
+            # slice (i.e. takeoff slices are normal, landing slices are
+            # reversed)
             # 'over_gnd' or 'air' are normal slices.
 
-            # Altitude STD as:
+            # 'alt_std' as:
             # 'land' = the pressure altitude on the ground
-            # 'over_gnd' = the pressure altitude when flying closest to the ground
+            # 'over_gnd' = the pressure altitude when flying closest to the
+            #              ground
             # 'air' = the lowest pressure altitude in this slice
 
-            # The height of the highest ground in this area
+            # 'highest_ground' in this area
             # 'land' = the pressure altitude on the ground
-            # 'over_gnd' = the pressure altitude minus the radio altitude when flying closest to the ground
-            # 'air' = None (the aircraft was too high for the radio altimeter to register valid data
+            # 'over_gnd' = the pressure altitude minus the radio altitude when
+            #              flying closest to the ground
+            # 'air' = None (the aircraft was too high for the radio altimeter to
+            #         register valid data
             
             n_vals = len(alt_vals)
             while n < n_vals - 1:
+                alt = alt_vals[n]
+                alt_idx = alt_idxs[n]
+                next_alt = alt_vals[n + 1]
+                next_alt_idx = alt_idxs[n + 1]
                 
-                if alt_vals[n + 1] > alt_vals[n]:
-                    # Just a rising section
-                    dips.append(['land', slice(alt_idxs[n],alt_idxs[n + 1]),
-                                 alt_vals[n], alt_vals[n]])
+                if next_alt > alt:
+                    # Rising section.
+                    dips.append({
+                        'type': 'land',
+                        'slice': slice(alt_idx, next_alt_idx),
+                        'alt_std': alt,
+                        'highest_ground': alt,
+                    })
                     n += 1
                     continue
                 
-                if n + 2 < n_vals:
-                    if alt_vals[n + 2] > alt_vals[n + 1]:
-                        # A down and up section.
-                        down_up = slice(alt_idxs[n], alt_idxs[n+2])
-                        # Is radio altimeter data both supplied and valid in this range?
-                        if alt_rad and np.ma.count(alt_rad.array[down_up])>0:
-                            # Let's find the lowest rad alt reading 
-                            #(this may not be exactly the highest ground, but 
-                            # it was probably the point of highest concern!)
-                            arg_hg_max = \
-                                np.ma.argmin(alt_rad.array[down_up]) + \
-                                alt_idxs[n]
-                            hg_max = alt_std.array[arg_hg_max] - alt_rad.array[arg_hg_max]
-                            if np.ma.count(hg_max):
-                                # The rad alt measured height above a peak...
-                                dips.append(['over_gnd', down_up,
-                                             alt_std.array[arg_hg_max],
-                                             hg_max])
-                        else:
-                            # We have no rad alt data we can use.
-                            # TODO: alt_std code needs careful checking. 
-                            if dips != [] and dips[-1][0] == 'high':
-                                # Join this dip onto the previous one
-                                dips[-1][1] = slice(dips[-1][1].start,
-                                                    alt_idxs[n + 2])
-                                dips[-1][2] = min(dips[-1][2],
-                                                  alt_vals[n + 1])
-                            else:
-                                dips.append(['high', down_up,
-                                             alt_vals[n + 1], None])
-                        n += 2
+                if not (n + 2 < n_vals):
+                    # Falling section. Slice it backwards to use the same code
+                    # as for takeoffs.
+                    dips.append({
+                        'type': 'land',
+                        'slice': slice(next_alt_idx - 1, alt_idx - 1, -1),
+                        'alt_std': next_alt,
+                        'highest_ground': next_alt,
+                    })
+                    n += 1                    
+                    continue
+                
+                if alt_vals[n + 2] > next_alt:
+                    # A down and up section.
+                    down_up = slice(alt_idx, alt_idxs[n + 2])
+                    # Is radio altimeter data both supplied and valid in this
+                    # range?
+                    if alt_rad and np.ma.count(alt_rad.array[down_up]) > 0:
+                        # Let's find the lowest rad alt reading 
+                        # (this may not be exactly the highest ground, but 
+                        # it was probably the point of highest concern!)
+                        arg_hg_max = \
+                            np.ma.argmin(alt_rad.array[down_up]) + \
+                            alt_idxs[n]
+                        hg_max = alt_std.array[arg_hg_max] - \
+                            alt_rad.array[arg_hg_max]
+                        if np.ma.count(hg_max):
+                            # The rad alt measured height above a peak...
+                            dips.append({
+                                'type': 'over_gnd',
+                                'slice': down_up,
+                                'alt_std': alt_std.array[arg_hg_max],
+                                'highest_ground': hg_max,
+                            })
                     else:
-                        raise ValueError('Problem in Altitude AAL where '
-                                         'data should dip, has a peak.')
+                        # We have no rad alt data we can use.
+                        # TODO: alt_std code needs careful checking.
+                        prev_dip = dips[-1]
+                        if dips and prev_dip['type'] == 'high':
+                            # Join this dip onto the previous one
+                            prev_dip['slice'] = \
+                                slice(prev_dip['slice'].start,
+                                      alt_idxs[n + 2])
+                            prev_dip['alt_std'] = \
+                                min(prev_dip['alt_std'],
+                                    next_alt)
+                        else:
+                            dips.append({
+                                'type': 'high',
+                                'slice': down_up,
+                                'alt_std': next_alt,
+                                'highest_ground': None,
+                            })
+                    n += 2
                 else:
-                    # Just a falling section. Slice it backwards to use the
-                    # same code as for takeoffs.
-                    dips.append(['land', slice(alt_idxs[n + 1] - 1, 
-                                               alt_idxs[n] - 1, -1),
-                                 alt_vals[n + 1], alt_vals[n + 1]])
-                    n += 1
+                    raise ValueError('Problem in Altitude AAL where data '
+                                     'should dip, but instead has a peak.')
 
-            for n, item in enumerate(dips):
-                if item[0] == 'high':
+            for n, dip in enumerate(dips):
+                if dip['type'] == 'high':
                     if n == 0:
                         if len(dips) == 1:
-                            dips[n][3] = dips[n][4] + 1000 # Arbitrary offset in indeterminate case.
+                            # Arbitrary offset in indeterminate case.
+                            dip['alt_std'] = dip['highest_ground'] + 1000 
                         else:
-                            dips[n][3] = \
-                                dips[n][2] - dips[n + 1][2] + dips[n + 1][3]
-                    elif n == len(dips)-1:
-                        dips[n][3] = dips[n][2] - dips[n - 1][2] + \
-                            dips[n - 1][3]
+                            next_dip = dips[n + 1]
+                            dip['highest_ground'] = \
+                                dip['alt_std'] - next_dip['alt_std'] + \
+                                next_dip['highest_ground']
+                    elif n == len(dips) - 1:
+                        prev_dip = dips[n - 1]
+                        dip['highest_ground'] = \
+                            dip['alt_std'] - prev_dip['alt_std'] + \
+                            prev_dip['highest_ground']
                     else:
                         # Here is the most commonly used, and somewhat
                         # arbitrary code. For a dip where no radio
@@ -641,17 +687,24 @@ class AltitudeAAL(DerivedParameterNode):
                         # elevation in the preceding and following sections
                         # is practical, a little optimistic perhaps, but
                         # useable until we find a case otherwise.
-                        dips[n][3] = min(dips[n - 1][3], dips[n + 1][3])
+                        next_dip = dips[n + 1]
+                        prev_dip = dips[n - 1]
+                        dip['highest_ground'] = min(prev_dip['highest_ground'],
+                                                    next_dip['highest_ground'])
 
             for dip in dips:
                 if alt_rad:
-                    alt_aal[dip[1]] = \
-                        self.compute_aal(dip[0], alt_std.array[dip[1]], dip[2],
-                                         dip[3], alt_rad=alt_rad.array[dip[1]])
+                    alt_aal[dip['slice']] = \
+                        self.compute_aal(dip['type'],
+                                         alt_std.array[dip['slice']],
+                                         dip['alt_std'],
+                                         dip['highest_ground'],
+                                         alt_rad=alt_rad.array[dip['slice']])
                 else:
-                    alt_aal[dip[1]] = self.compute_aal(dip[0],
-                                                       alt_std.array[dip[1]],
-                                                       dip[2], dip[3])
+                    alt_aal[dip['slice']] = \
+                        self.compute_aal(dip['type'],
+                                         alt_std.array[dip['slice']],
+                                         dip['alt_std'], dip['highest_ground'])
         
         self.array = alt_aal
 

@@ -1,13 +1,16 @@
 import mock
 import numpy as np
+import os
 import sys
 import unittest
 
 from hdfaccess.file import hdf_file
-import utilities.masked_array_testutils as ma_test
+from utilities import masked_array_testutils as ma_test
+from utilities.filesystem_tools import copy_file
 
 from analysis_engine.flight_phase import Fast
 from analysis_engine.node import Attribute, A, KPV, KeyTimeInstance, KTI, Parameter, P, Section, S
+from analysis_engine.process_flight import process_flight
 from analysis_engine.settings import GRAVITY_IMPERIAL, METRES_TO_FEET
 
 from flight_phase_test import buildsection
@@ -574,6 +577,33 @@ class TestAltitudeAAL(unittest.TestCase):
         np.testing.assert_almost_equal(alt_aal.array[191], 8965, decimal=0)
         np.testing.assert_almost_equal(alt_aal.array[254], 3288, decimal=0)
         np.testing.assert_almost_equal(alt_aal.array[313], 17, decimal=0)
+    
+    def test_alt_aal_faulty_alt_rad(self):
+        '''
+        When 'Altitude Radio' does not reach 0 after touchdown due to an arinc
+        signal being recorded, 'Altitude AAL' did not fill the second half of
+        its array. Since the array is initialised as zeroes
+        '''
+        hdf_copy = copy_file(os.path.join('test_data',
+                                          'alt_aal_faulty_alt_rad.hdf5'),
+                             postfix='_test_copy')
+        result = process_flight(hdf_copy, {
+            'engine': {'classification': 'JET',
+                       'quantity': 2},
+            'frame': {'doubled': False, 'name': '737-3C'},
+            'id': 1,
+            'identifier': '1000',
+            'model': {'family': 'B737 NG',
+                      'interpolate_vspeeds': True,
+                      'manufacturer': 'Boeing',
+                      'model': 'B737-86N',
+                      'precise_positioning': True,
+                      'series': 'B737-800'},
+            'recorder': {'name': 'SAGEM', 'serial': '123456'},
+            'tail_number': 'G-DEMA'})
+        with hdf_file(hdf_copy) as hdf:
+            alt_aal = hdf['Altitude AAL']
+            self.assertTrue(False, msg='Test not implemented.')
         
     
 class TestAltitudeAALForFlightPhases(unittest.TestCase):
