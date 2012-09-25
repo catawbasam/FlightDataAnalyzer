@@ -3441,7 +3441,7 @@ class ThrustReversers(MultistateDerivedParameterNode):
             frame=A('Frame')):
         frame_name = frame.value if frame else None
         
-        if frame_name in ['737-4', '737-5', '737-i']:
+        if frame_name in ['737-4', '737-5', '737-5_NON-EIS', '737-i']:
             all_tr = \
                 e1_lft_dep.array.raw + e1_lft_out.array.raw + \
                 e1_rgt_dep.array.raw + e1_rgt_out.array.raw + \
@@ -3676,7 +3676,7 @@ class Speedbrake(DerivedParameterNode):
         if frame_name in ['737-3C']:
             self.array, self.offset = self.spoiler_737(spoiler_4, spoiler_9)
 
-        elif frame_name in ['737-4', '737-5', '737-6']:
+        elif frame_name in ['737-4', '737-5', '737-5_NON-EIS', '737-6']:
             self.array, self.offset = self.spoiler_737(spoiler_2, spoiler_7)
 
         else:
@@ -3802,7 +3802,7 @@ class StickShaker(MultistateDerivedParameterNode):
             self.array = np.ma.logical_or(shake_l.array, shake_r.array)
             self.frequency , self.offset = shake_l.frequency, shake_l.offset
 
-        elif frame_name in ['737-5'] and shake_l:
+        elif frame_name in ['737-5', '737-5_NON-EIS'] and shake_l:
             # Named (L) but in fact (L) and (R) are or'd together at the DAU.
             self.array, self.frequency, self.offset = \
                 shake_l.array, shake_l.frequency, shake_l.offset
