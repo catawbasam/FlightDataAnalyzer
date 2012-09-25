@@ -7,7 +7,6 @@ from datetime import datetime, timedelta
 from analysis_engine import hooks, settings
 from analysis_engine.datastructures import Segment
 from analysis_engine.node import P
-from analysis_engine.plot_flight import plot_essential
 from analysis_engine.library import (align, calculate_timebase, hash_array,
                                      min_value, normalise, repair_mask,
                                      rate_of_change, straighten_headings,
@@ -458,6 +457,7 @@ def split_hdf_to_segments(hdf_path, aircraft_info, fallback_dt=None,
     """
     logger.info("Processing file: %s", hdf_path)
     if draw:
+        from analysis_engine.plot_flight import plot_essential
         plot_essential(hdf_path)
         
     with hdf_file(hdf_path) as hdf:
@@ -489,7 +489,6 @@ def split_hdf_to_segments(hdf_path, aircraft_info, fallback_dt=None,
             fallback_dt += segment.start_dt - segment.stop_dt
         segments.append(segment)
         if draw:
-            from analysis_engine.plot_flight import plot_essential
             plot_essential(dest_path)
             
     if draw:

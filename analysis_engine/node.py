@@ -1229,22 +1229,27 @@ class KeyTimeInstanceNode(FormattedNameNode):
         '''
         # Low level function that finds start and stop indices of given state
         # and creates KTIs
-        def state_changes(state, array, change, _slice=slice(0, -1)):
+        def state_changes(state, array, change, _slice=None):
             # TODO: to improve performance reverse the state into numeric value
             # and look it up in array.raw instead
+            if _slice is None:
+                _slice = slice(0, len(array))
             state_periods = np.ma.clump_unmasked(
                 np.ma.masked_not_equal(array[_slice].raw,
                                        array.get_state_value(state)))
+            slice_len = len(array[_slice])
             for period in state_periods:
-                if change == 'entering':
-                    self.create_kti(period.start - 0.5
-                                    if period.start > 0 else 0.)
-                elif change == 'leaving':
-                    self.create_kti(period.stop - 0.5)
-                elif change == 'entering_and_leaving':
-                    self.create_kti(period.start - 0.5
-                                    if period.start > 0 else 0.)
-                    self.create_kti(period.stop - 0.5)
+                # Calculate the location in the array
+                start = period.start + _slice.start
+                stop = period.stop + _slice.start
+                if change in ('entering', 'entering_and_leaving') \
+                        and period.start > 0:
+                    # We don't create the KTI at the beginning of the data, as
+                    # it is not a "state change"
+                    self.create_kti(start - 0.5)
+                if change in ('leaving', 'entering_and_leaving') \
+                        and period.stop < slice_len:
+                    self.create_kti(stop - 0.5)
             return
 
         # High level function scans phase blocks or complete array and

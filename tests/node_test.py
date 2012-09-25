@@ -780,6 +780,21 @@ class TestKeyPointValueNode(unittest.TestCase):
                          [KeyPointValue(index=22, value=27, name='Kpv'),
                           KeyPointValue(index=10, value=15, name='Kpv')])
 
+    def test_create_kpv_from_slices(self):
+        # Test sketched out by DJ, but I have no idea how to run Mock, so this badly needs fixing !
+        # Main point is to return a single answer from multiple slices.
+        knode = self.knode
+        function = mock.Mock()
+        def side_effect(*args, **kwargs):
+            return_values = [(10, 15), (22, 27)]
+            return return_values.pop()
+        function.side_effect = side_effect
+        slices = [slice(1,10), slice(15, 25)]
+        array = np.ma.arange(30) + 15
+        knode.create_kpv_from_slices(array, slices, function)
+        self.assertEqual(list(knode),
+                         [KeyPointValue(index=24, value=37, name='Kpv')])
+
     def test_create_kpv_outside_slices(self):
         knode = self.knode
         function = mock.Mock()
@@ -1009,6 +1024,24 @@ class TestKeyTimeInstanceNode(unittest.TestCase):
         kti=self.kti
         test_param = np.ma.array([0])
         self.assertRaises(ValueError, kti.create_ktis_at_edges, test_param, direction='sideways')
+
+    def test_create_ktis_on_state_change_borders_entering(self):
+        # The KTIs should not be created on borders of the data (start and end)
+        kti = self.kti
+        test_param = MappedArray([1, 1, 0, 0, 0, 0, 1],
+                                 values_mapping={0: 'Off', 1: 'On'})
+        kti.create_ktis_on_state_change('On', test_param,
+                                        change='entering')
+        self.assertEqual(kti, [KeyTimeInstance(index=5.5, name='Kti')])
+
+    def test_create_ktis_on_state_change_borders_leaving(self):
+        # The KTIs should not be created on borders of the data (start and end)
+        kti = self.kti
+        test_param = MappedArray([1, 1, 0, 0, 0, 0, 1],
+                                 values_mapping={0: 'Off', 1: 'On'})
+        kti.create_ktis_on_state_change('On', test_param,
+                                        change='leaving')
+        self.assertEqual(kti, [KeyTimeInstance(index=1.5, name='Kti')])
 
     def test_create_ktis_on_state_change_entering(self):
         kti = self.kti
