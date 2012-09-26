@@ -813,19 +813,15 @@ class TestKeyPointValueNode(unittest.TestCase):
                           KeyPointValue(index=10, value=15, name='Kpv')])
 
     def test_create_kpv_from_slices(self):
-        # Test sketched out by DJ, but I have no idea how to run Mock, so this badly needs fixing !
-        # Main point is to return a single answer from multiple slices.
         knode = self.knode
         function = mock.Mock()
-        def side_effect(*args, **kwargs):
-            return_values = [(10, 15), (22, 27)]
-            return return_values.pop()
-        function.side_effect = side_effect
+        function.return_value = (1, 10)
         slices = [slice(1,10), slice(15, 25)]
         array = np.ma.arange(30) + 15
         knode.create_kpv_from_slices(array, slices, function)
         self.assertEqual(list(knode),
-                         [KeyPointValue(index=24, value=37, name='Kpv')])
+                         [KeyPointValue(index=1, value=10, name='Kpv')])
+        # TODO: Test function was called with joined array.
 
     def test_create_kpv_outside_slices(self):
         knode = self.knode

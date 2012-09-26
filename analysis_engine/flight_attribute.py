@@ -68,13 +68,14 @@ class Approaches(FlightAttributeNode):
     name = 'FDR Approaches'
     @classmethod
     def can_operate(self, available):
-        return all(n in available for n in ['Start Datetime',
-                                            'Approach',
-                                            'Altitude AAL',
-                                            'Latitude At Lowest Point On Approach',
-                                            'Longitude At Lowest Point On Approach',
-                                            'Latitude At Landing',
-                                            'Longitude At Landing'])
+        return all(n in available for n in [
+            'Start Datetime',
+            'Approach',
+            'Altitude AAL',
+            'Latitude At Lowest Point On Approach',
+            'Longitude At Lowest Point On Approach',
+            'Latitude At Landing',
+            'Longitude At Landing'])
         
     def _get_lat_lon(self, approach_slice, lat_kpv_node, lon_kpv_node):
         lat_kpvs = lat_kpv_node.get(within_slice=approach_slice)
@@ -120,12 +121,10 @@ class Approaches(FlightAttributeNode):
                     'runway': None,
                     'type': approach_type,
                     'datetime': approach_datetime,
-                    'slice_start_datetime': datetime_of_index(start_dt,
-                                                              approach.slice.start,
-                                                              frequency), # NB: Not in API therefore not stored in DB
-                    'slice_stop_datetime': datetime_of_index(start_dt,
-                                                             approach.slice.stop,
-                                                             frequency), # NB: Not in API therefore not stored in DB
+                    'slice_start_datetime': datetime_of_index(
+                        start_dt, approach.slice.start, frequency), # NB: Not in API therefore not stored in DB
+                    'slice_stop_datetime': datetime_of_index(
+                        start_dt, approach.slice.stop, frequency), # NB: Not in API therefore not stored in DB
                     }
         # ILS Frequency.
         kwargs = {}
@@ -137,7 +136,8 @@ class Approaches(FlightAttributeNode):
             # Only use lat and lon if 'Precise Positioning' is True.
             kwargs.update(latitude=lat, longitude=lon)
         try:
-            runway_info = api_handler.get_nearest_runway(airport_id, hdg, **kwargs)
+            runway_info = api_handler.get_nearest_runway(airport_id, hdg,
+                                                         **kwargs)
             if len(runway_info['items']) > 1:
                 # TODO: What to store in approach dictionary.
                 runway = {'identifier': runway_info['ident']}
@@ -207,10 +207,13 @@ class Approaches(FlightAttributeNode):
 
             if approach_section.slice.stop > speedy[-1].slice.stop:
                 approach_type = 'LANDING'
-                approach = self._create_approach(start_datetime.value, api_handler,
-                                                 approach_section, approach_type,
+                approach = self._create_approach(start_datetime.value,
+                                                 api_handler,
+                                                 approach_section,
+                                                 approach_type,
                                                  alt_aal.frequency,
-                                                 landing_lat_kpvs, landing_lon_kpvs,
+                                                 landing_lat_kpvs,
+                                                 landing_lon_kpvs,
                                                  landing_hdg_kpvs,
                                                  ilsfreq_kpvs, precision, 
                                                  turnoff_hdg_kpvs)
@@ -221,10 +224,13 @@ class Approaches(FlightAttributeNode):
                 else:
                     approach_type = 'GO_AROUND'
             
-                approach = self._create_approach(start_datetime.value, api_handler,
-                                                 approach_section, approach_type,
+                approach = self._create_approach(start_datetime.value,
+                                                 api_handler,
+                                                 approach_section,
+                                                 approach_type,
                                                  alt_aal.frequency,
-                                                 approach_lat_kpvs, approach_lon_kpvs,
+                                                 approach_lat_kpvs,
+                                                 approach_lon_kpvs,
                                                  approach_hdg_kpvs,
                                                  ilsfreq_kpvs, precision, 
                                                  turnoff_hdg_kpvs)
@@ -341,7 +347,8 @@ class FlightNumber(FlightAttributeNode):
             self.set_flight_attr(str(value))
         else:
             self.warning("Only %d out of %d flight numbers were the same."\
-                            " Flight Number attribute will be set as None.", count, len(num.array))
+                         " Flight Number attribute will be set as None.",
+                         count, len(num.array))
             self.set_flight_attr(None)
             return
 
@@ -462,7 +469,8 @@ class LandingRunway(FlightAttributeNode):
 class OffBlocksDatetime(FlightAttributeNode):
     "Datetime when moving away from Gate/Blocks"
     name = 'FDR Off Blocks Datetime'
-    def derive(self, turning=S('Turning On Ground'), start_datetime=A('Start Datetime')):
+    def derive(self, turning=S('Turning On Ground'),
+               start_datetime=A('Start Datetime')):
         first_turning = turning.get_first()
         if first_turning:
             off_blocks_datetime = datetime_of_index(start_datetime.value,
@@ -476,7 +484,8 @@ class OffBlocksDatetime(FlightAttributeNode):
 class OnBlocksDatetime(FlightAttributeNode):
     "Datetime when moving away from Gate/Blocks"
     name = 'FDR On Blocks Datetime'
-    def derive(self, turning=S('Turning On Ground'), start_datetime=A('Start Datetime')):
+    def derive(self, turning=S('Turning On Ground'),
+               start_datetime=A('Start Datetime')):
         last_turning = turning.get_last()
         if last_turning:
             on_blocks_datetime = datetime_of_index(start_datetime.value,
@@ -827,18 +836,20 @@ class LandingPilot(FlightAttributeNode, DeterminePilot):
     name = 'FDR Landing Pilot'
     @classmethod
     def can_operate(cls, available):
-        controls_available = all([n in available for n in ('Sidestick Pitch (Capt)',
-                                                           'Sidestick Pitch (FO)',
-                                                           'Sidestick Roll (Capt)',
-                                                           'Sidestick Roll (FO)',
-                                                           'Landing')])
+        controls_available = all([n in available for n in (
+            'Sidestick Pitch (Capt)',
+            'Sidestick Pitch (FO)',
+            'Sidestick Roll (Capt)',
+            'Sidestick Roll (FO)',
+            'Landing')])
         autopilot_available = 'Autopilot Engaged 1 At Touchdown' in available \
-                          and 'Autopilot Engaged 2 At Touchdown' in available
+            and 'Autopilot Engaged 2 At Touchdown' in available
         return controls_available or autopilot_available
     
-    def derive(self, pitch_captain=P('Pitch (Capt)'),
-               roll_captain=P('Roll (Capt)'), pitch_fo=P('Pitch (FO)'),
-               roll_fo=P('Roll (FO)'), landings=S('Landing'),
+    def derive(self, pitch_captain=P('Sidestick Pitch (Capt)'),
+               roll_captain=P('Sidestick Roll (Capt)'),
+               pitch_fo=P('Sidestick Pitch (FO)'),
+               roll_fo=P('Sidestick Roll (FO)'), landings=S('Landing'),
                autopilot1=KPV('Autopilot Engaged 1 At Touchdown'),
                autopilot2=KPV('Autopilot Engaged 2 At Touchdown')):
         last_landing = landings.get_last()

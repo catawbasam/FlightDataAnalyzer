@@ -2432,41 +2432,42 @@ class TestSectionContainsKti(unittest.TestCase):
         
 class TestShiftSlice(unittest.TestCase):
     def test_shift_slice(self):
-        a = slice(1,3,None)
+        a = slice(1, 3, None)
         b = 10
-        self.assertEqual(shift_slice(a,b),slice(11,13,None))
+        self.assertEqual(shift_slice(a, b), slice(11, 13, None))
 
     def test_shift_slice_too_short(self):
-        a = slice(3.3,3.4,None)
+        a = slice(3.3, 3.4, None)
         b = 6
-        self.assertEqual(shift_slice(a,b),None)
+        self.assertEqual(shift_slice(a, b), None)
 
     def test_shift_slice_transfer_none(self):
-        a = slice(30.3,None)
+        a = slice(30.3, None)
         b = 3
-        self.assertEqual(shift_slice(a,b),slice(33.3,None))
+        self.assertEqual(shift_slice(a, b), slice(33.3, None))
 
     def test_shift_slice_transfer_none_reversed(self):
-        a = slice(None,23.8)
+        a = slice(None, 23.8)
         b = 4.2
-        self.assertEqual(shift_slice(a,b),slice(None, 28.0))
+        self.assertEqual(shift_slice(a, b), slice(None, 28.0))
 
     def test_shift_slice_no_shift(self):
-        a = slice(2, 5,None)
-        self.assertEqual(shift_slice(a,0),a)
-        self.assertEqual(shift_slice(a,None),a)
+        a = slice(2, 5, None)
+        self.assertEqual(shift_slice(a, 0), a)
+        self.assertEqual(shift_slice(a, None), a)
 
 
 class TestShiftSlices(unittest.TestCase):
     def test_shift_slices(self):
-        a = [slice(1,3,None)]
+        a = [slice(1, 3, None)]
         b = 10
-        self.assertEqual(shift_slices(a,b),[slice(11,13,None)])
+        self.assertEqual(shift_slices(a, b), [slice(11, 13, None)])
 
     def test_shift_slices_incl_none(self):
-        a = [slice(1,3,None),None,slice(2,4,2)]
+        a = [slice(1, 3, None), None, slice(2, 4, 2)]
         b = 10
-        self.assertEqual(shift_slices(a,b),[slice(11,13,None),slice(12,14,2)])
+        self.assertEqual(shift_slices(a, b), [slice(11, 13, None),
+                                              slice(12, 14, 2)])
         
     def test_shift_slices_real_data(self):
         a = [slice(0, 1, None), slice(599, 933, None), 
@@ -2476,8 +2477,8 @@ class TestShiftSlices(unittest.TestCase):
 
     def test_shift_slices_no_shift(self):
         a = [slice(4, 7, None), slice(17, 12, -1)]
-        self.assertEqual(shift_slices(a,0), a)
-        self.assertEqual(shift_slices(a,None), a)
+        self.assertEqual(shift_slices(a, 0), a)
+        self.assertEqual(shift_slices(a, None), a)
 
 
 class TestSliceDuration(unittest.TestCase):
@@ -2564,9 +2565,9 @@ class TestSlicesFromTo(unittest.TestCase):
         Common usage it to end in 0 for ...to landing. This test covers this
         specific case.
         '''
-        array = np.ma.array([25,20,15,10,5,0,0,0,0])
+        array = np.ma.array([25, 20, 15, 10, 5, 0, 0, 0, 0])
         _, slices = slices_from_to(array, 17, 0)
-        self.assertEqual(slices, [slice(2,5,None)])
+        self.assertEqual(slices, [slice(2, 5, None)])
 
 
 class TestSlicesOverlap(unittest.TestCase):
@@ -2608,59 +2609,59 @@ class TestSlicesOverlap(unittest.TestCase):
 class TestSlicesOverlay(unittest.TestCase):
     def test_slices_and(self):
         # overlay
-        first = [slice(10,20)]
-        second = [slice(15,25)]
-        self.assertEqual(slices_and(first, second), [slice(15,20)])
+        first = [slice(10, 20)]
+        second = [slice(15, 25)]
+        self.assertEqual(slices_and(first, second), [slice(15, 20)])
         
         # no overlap
         no_overlap = slice(25,40)
         self.assertEqual(slices_and(second, [no_overlap]), [])
         
         # step negative
-        self.assertRaises(ValueError, slices_and, first, [slice(1,2,-1)])
+        self.assertRaises(ValueError, slices_and, first, [slice(1, 2, -1)])
         
         # complex with all four permutations
-        first = [slice(5,15),slice(20,25),slice(30,40)]
-        second = [slice(10,35),slice(45,50)]
-        result = [slice(10,15), slice(20,25), slice(30,35)]
+        first = [slice(5, 15), slice(20, 25), slice(30, 40)]
+        second = [slice(10, 35), slice(45, 50)]
+        result = [slice(10, 15), slice(20, 25), slice(30, 35)]
         self.assertEqual(slices_and(first,second),result)
 
 
 class TestSlicesRemoveSmallGaps(unittest.TestCase):
     def test_slice_removal(self):
-        slicelist=[slice(1,3), slice(5,7), slice(20,22)]
-        newlist=slices_remove_small_gaps(slicelist)
-        expected=[slice(1,7), slice(20,22)]
+        slicelist = [slice(1, 3), slice(5, 7), slice(20, 22)]
+        newlist = slices_remove_small_gaps(slicelist)
+        expected = [slice(1, 7), slice(20, 22)]
         self.assertEqual(expected, newlist)
 
     def test_slice_removal_big_time(self):
-        slicelist=[slice(1,3), slice(5,7), slice(20,22)]
-        newlist=slices_remove_small_gaps(slicelist,time_limit=15)
-        expected=[slice(1,22)]
+        slicelist = [slice(1, 3), slice(5, 7), slice(20, 22)]
+        newlist = slices_remove_small_gaps(slicelist,time_limit=15)
+        expected = [slice(1, 22)]
         self.assertEqual(expected, newlist)
 
     def test_slice_removal_big_freq(self):
-        slicelist=[slice(1,3), slice(5,7), slice(20,22)]
-        newlist=slices_remove_small_gaps(slicelist,hz=2)
-        expected=[slice(1,22)]
+        slicelist = [slice(1, 3), slice(5, 7), slice(20, 22)]
+        newlist = slices_remove_small_gaps(slicelist, hz=2)
+        expected = [slice(1, 22)]
         self.assertEqual(expected, newlist)
         
     def test_slice_return_single_slice(self):
-        slicelist=[slice(5,7)]
-        newlist=slices_remove_small_gaps(slicelist,hz=2)
-        expected=[slice(5,7)]
+        slicelist = [slice(5, 7)]
+        newlist = slices_remove_small_gaps(slicelist, hz=2)
+        expected = [slice(5, 7)]
         self.assertEqual(expected, newlist)
 
     def test_slice_return_none(self):
-        slicelist=[None]
-        newlist=slices_remove_small_gaps(slicelist,hz=2)
-        expected=[None]
+        slicelist = [None]
+        newlist = slices_remove_small_gaps(slicelist, hz=2)
+        expected = [None]
         self.assertEqual(expected, newlist)
         
     def test_slice_return_empty(self):
-        slicelist=[]
-        newlist=slices_remove_small_gaps(slicelist,hz=2)
-        expected=[]
+        slicelist = []
+        newlist=slices_remove_small_gaps(slicelist, hz=2)
+        expected = []
         self.assertEqual(expected, newlist)
 
 

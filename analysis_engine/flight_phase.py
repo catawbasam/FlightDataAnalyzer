@@ -560,7 +560,10 @@ def scan_ils(beam, ils_dots, height, scan_slice):
 
     # And now work forwards to the point of "Capture", defined as the first
     # time the ILS goes below 1 dot.
-    if first_valid_sample(np.ma.abs(ils_dots[slice(dots_25, idx_200, 1)]))[1] < 1.0:
+    if int(dots_25) == int(idx_200):
+        ils_capture_idx = dots_25
+    elif first_valid_sample(
+        np.ma.abs(ils_dots[dots_25:idx_200]))[1] < 1.0:
         # Aircraft came into the approach phase already on the centreline.
         ils_capture_idx = dots_25
     else:

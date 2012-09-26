@@ -447,22 +447,19 @@ class Touchdown(KeyTimeInstanceNode):
     def can_operate(cls, available):
         # List the minimum required parameters.
         return 'Gear On Ground' in available or \
-               ('Vertical Speed Inertial' in available and
-                'Altitude AAL' in available and
-                'Airborne' in available and
-                'Landing' in available)
+               all(x in available for x in ('Vertical Speed Inertial',
+                                            'Altitude AAL',
+                                            'Airborne',
+                                            'Landing',))
      
-    def derive(self, wow=M('Gear On Ground'), 
-               roc=P('Vertical Speed Inertial'), alt=P('Altitude AAL'), 
-               airs=S('Airborne'), lands=S('Landing')
-               ):
+    def derive(self, wow=M('Gear On Ground'), roc=P('Vertical Speed Inertial'),
+               alt=P('Altitude AAL'), airs=S('Airborne'), lands=S('Landing')):
         # The preamble here checks that the landing we are looking at is
-        # genuine, that it, it's not just because the data stopped in
-        # mid-flight. We reduce the scope of the search for touchdown to
-        # avoid triggering in mid-cruise, and it avoids problems for aircraft
-        # where the gear signal changes state on raising the gear (OK, if
-        # they do a gear-up landing it won't work, but this will be the least
-        # of the problems).
+        # genuine, it's not just because the data stopped in mid-flight. We
+        # reduce the scope of the search for touchdown to avoid triggering in
+        # mid-cruise, and it avoids problems for aircraft where the gear
+        # signal changes state on raising the gear (OK, if they do a gear-up
+        # landing it won't work, but this will be the least of the problems).
         for air in airs:
             t0 = air.slice.stop
             for land in lands:
@@ -510,7 +507,7 @@ class LandingTurnOffRunway(KeyTimeInstanceNode):
                 if (start_search is None) or (start_search < landing.slice.start):
                     start_search = (landing.slice.start+landing.slice.stop)/2
                 peak_bend = peak_curvature(head.array[slice(
-                    start_search,landing.slice.stop)],curve_sense='Bipolar')
+                    start_search,landing.slice.stop)], curve_sense='Bipolar')
                 
                 if peak_bend:
                     landing_turn = start_search + peak_bend

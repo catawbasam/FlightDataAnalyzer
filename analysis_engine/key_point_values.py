@@ -2320,6 +2320,9 @@ class Eng_N1MaxDurationUnder60PercentAfterTouchdown(KeyPointValueNode):
                tdwn=KTI('Touchdown')):
         '''
         '''
+        # TODO: 'Eng (*) Stop' has not been implemented as required by this 
+        #       class.
+        return
         for eng_num, eng in enumerate((eng1, eng2, eng3, eng4), start=1):
             if eng is None:
                 continue  # Engine is not available on this aircraft.
@@ -3508,8 +3511,8 @@ class RateOfDescent10000To5000FtMax(KeyPointValueNode):
     '''
     '''
 
-    def derive(self, alt_aal=P('Altitude AAL For Flight Phases'),
-            vert_spd=P('Vertical Speed')):
+    def derive(self, vert_spd=P('Vertical Speed'),
+               alt_aal=P('Altitude AAL For Flight Phases')):
         '''
         '''
         self.create_kpvs_within_slices(
@@ -3522,8 +3525,8 @@ class RateOfDescent5000To3000FtMax(KeyPointValueNode):
     '''
     '''
 
-    def derive(self, alt_aal=P('Altitude AAL For Flight Phases'),
-               vert_spd=P('Vertical Speed')):
+    def derive(self, vert_spd=P('Vertical Speed'),
+               alt_aal=P('Altitude AAL For Flight Phases')):
         '''
         '''
         self.create_kpvs_within_slices(
@@ -3536,8 +3539,8 @@ class RateOfDescent3000To2000FtMax(KeyPointValueNode):
     '''
     '''
 
-    def derive(self, alt_aal=P('Altitude AAL For Flight Phases'),
-               vert_spd=P('Vertical Speed')):
+    def derive(self, vert_spd=P('Vertical Speed'),
+               alt_aal=P('Altitude AAL For Flight Phases')):
         '''
         '''
         self.create_kpvs_within_slices(
@@ -3551,8 +3554,8 @@ class RateOfDescent2000To1000FtMax(KeyPointValueNode):
     '''
     '''
 
-    def derive(self, alt_aal=P('Altitude AAL For Flight Phases'),
-            vert_spd=P('Vertical Speed')):
+    def derive(self, vert_spd=P('Vertical Speed'),
+               alt_aal=P('Altitude AAL For Flight Phases')):
         '''
         '''
         self.create_kpvs_within_slices(
@@ -3566,8 +3569,8 @@ class RateOfDescent1000To500FtMax(KeyPointValueNode):
     '''
     '''
 
-    def derive(self, alt_aal=P('Altitude AAL For Flight Phases'),
-               vert_spd=P('Vertical Speed')):
+    def derive(self, vert_spd=P('Vertical Speed'),
+               alt_aal=P('Altitude AAL For Flight Phases')):
         '''
         '''
         self.create_kpvs_within_slices(
@@ -3581,8 +3584,8 @@ class RateOfDescent500To20FtMax(KeyPointValueNode):
     '''
     '''
 
-    def derive(self, alt_aal=P('Altitude AAL For Flight Phases'),
-               vert_spd=P('Vertical Speed')):
+    def derive(self, vert_spd=P('Vertical Speed'),
+               alt_aal=P('Altitude AAL For Flight Phases')):
         '''
         '''
         self.create_kpvs_within_slices(
@@ -3596,8 +3599,9 @@ class RateOfDescent500FtToTouchdownMax(KeyPointValueNode):
     '''
     '''
 
-    def derive(self, alt_aal=P('Altitude AAL For Flight Phases'),
-               vert_spd=P('Vertical Speed'), tdwns=KTI('Touchdown')):
+    def derive(self, vert_spd=P('Vertical Speed'),
+               alt_aal=P('Altitude AAL For Flight Phases'),
+               tdwns=KTI('Touchdown')):
         '''
         '''
         self.create_kpvs_within_slices(

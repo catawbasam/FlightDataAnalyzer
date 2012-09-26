@@ -419,8 +419,8 @@ class TestAirspeedRelative(unittest.TestCase):
         # DAVE BEFORE CHANGING
     
     def test_airspeed_for_phases_basic(self):
-        speed=P('Airspeed',np.ma.array([200]*128),frequency=1)
-        ref = A('Vref',value=120)
+        speed=P('Airspeed', np.ma.array([200] * 128))
+        ref = P('Airspeed Relative', np.ma.array([120] * 128))
         # Offset is frame-related, not superframe based, so is to some extent
         # meaningless.
         param = AirspeedRelative()
@@ -1036,8 +1036,8 @@ class TestDistanceToLanding(unittest.TestCase):
         dtl = DistanceToLanding()
         dtl.derive(distance_travelled, tdwns)
         ma_test.assert_array_equal(dtl.array, expected_result)
-        
-           
+
+
 class TestDistanceTravelled(unittest.TestCase):
     
     def test_can_operate(self):
@@ -1046,14 +1046,13 @@ class TestDistanceTravelled(unittest.TestCase):
         self.assertEqual(opts, expected)
 
     @mock.patch('analysis_engine.derived_parameters.integrate')
-    def test_derive(self, integrate_patch):
-        
+    def test_derive(self, integrate):
         gndspeed = mock.Mock()
         gndspeed.array = mock.Mock()
         gndspeed.frequency = mock.Mock()
         DistanceTravelled().derive(gndspeed)
-        integrate_patch.assert_called_once_with(gndspeed.array, gndspeed.frequency, scale=1.0)
-     
+        integrate.assert_called_once_with(gndspeed.array, gndspeed.frequency,
+                                          scale=1.0 / 3600)
 
 
 class TestEng_N1Avg(unittest.TestCase):
@@ -1658,85 +1657,20 @@ class TestVerticalSpeed(unittest.TestCase):
                          [('Altitude STD', 'Frame')])
                          
     def test_vertical_speed_basic(self):
-        az = P('Acceleration Vertical', np.ma.array([1]*10))
         alt_std = P('Altitude STD', np.ma.array([100]*10))
-        alt_rad = P('Altitude Radio', np.ma.array([0]*10))
         vert_spd = VerticalSpeed()
-        vert_spd.derive(az, alt_std, alt_rad)
+        vert_spd.derive(alt_std, None)
         expected = np.ma.array(data=[0]*10, dtype=np.float,
                              mask=False)
         ma_test.assert_masked_array_approx_equal(vert_spd.array, expected)
-
-    def test_vertical_speed_masked(self):
-        # The blocks of masked values have to exceed the repair_mask
-        # threshold of 10 samples, hence the large arrays.
-        az = P('Acceleration Vertical', np.ma.array([1]*100, dtype=np.float))
-        az.array[5:20]=np.ma.masked
-        alt_std = P('Altitude STD', np.ma.array([100]*100, dtype=np.float))
-        alt_std.array[35:50]=np.ma.masked
-        alt_rad = P('Altitude Radio', np.ma.array([0]*100, dtype=np.float))
-        alt_rad.array[65:80]=np.ma.masked
-        vert_spd = VerticalSpeed()
-        vert_spd.derive(az, alt_std, alt_rad, None)
-        expected = np.ma.array(data=[0]*100, dtype=np.float,
-                             mask=[[False]*5+[True]*15+[False]*15+
-                                   [True]*15+[False]*15+
-                                   [False]*15+[False]*15+[False]*5])
-        ma_test.assert_masked_array_approx_equal(vert_spd.array, expected)
-
+    
     def test_vertical_speed_alt_std_only(self):
-        az = None
-        alt_std = P('Altitude STD', np.ma.arange(100,200,10))
-        alt_rad = None
+        alt_std = P('Altitude STD', np.ma.arange(100, 200, 10))
         vert_spd = VerticalSpeed()
-        vert_spd.derive(az, alt_std, alt_rad)
-        expected = np.ma.array(data=[600]*10, dtype=np.float,
-                             mask=False) #  10 ft/sec = 600 fpm
+        vert_spd.derive(alt_std, None)
+        expected = np.ma.array(data=[600] * 10, dtype=np.float,
+                               mask=False) #  10 ft/sec = 600 fpm
         ma_test.assert_masked_array_approx_equal(vert_spd.array, expected)
-
-    def test_vertical_speed_bump(self):
-        az = P('Acceleration Vertical', np.ma.array([1]*10,dtype=float))
-        az.array[2:4] = 1.1
-        # (Low acceleration for this test as the sample rate is only 1Hz).
-        alt_std = P('Altitude STD', np.ma.array([100]*10,dtype=float))
-        alt_rad = P('Altitude Radio', np.ma.array([0]*10,dtype=float))
-        vert_spd = VerticalSpeed()
-        vert_spd.derive(az, alt_std, alt_rad)
-        expected = np.ma.array(data=[0, 0, 82.11570, 221.52819, 236.30071,
-                                     163.44645,	111.49595, 74.47526, 48.11727,
-                                     29.37410],  mask=False)
-        ma_test.assert_masked_array_approx_equal(vert_spd.array, expected)
-
-    def test_vertical_speed_combined_signals(self):
-        # ----------------------------------------------------------------------
-        # NOTE: The results of this test are dependent upon the settings
-        # parameters GRAVITY = 32.2, VERTICAL_SPEED_LAG_TC = 6.0,
-        # AZ_WASHOUT_TC = 60.0. Changes in any of these will result in a test
-        # failure and recomputation of the result array will be necessary.
-        # ----------------------------------------------------------------------
-        
-        # Initialise to 1g
-        az = P('Acceleration Vertical', np.ma.array([1]*30,dtype=float))
-        # After 2 seconds, increment by 1 ft/s^2
-        az.array[2:] += 1/GRAVITY_IMPERIAL
-        
-        # This will give a linearly increasing vertical speed 0>28 ft/sec...
-        # which integrated (cumcum) gives a parabolic theoretical solution.
-        parabola = (np.cumsum(np.arange(0.0,28.0,1)))
-
-        # The pressure altitude datum could be anything. Set 99ft for fun.
-        alt_std = P('Altitude STD', np.ma.array([99]*30,dtype=float))
-        # and add the increasing parabola 
-        alt_std.array[2:] += parabola 
-        alt_rad = P('Altitude Radio', np.ma.array([0]*30,dtype=float))
-        parabola *= 1.0 #  Allows you to make the values different for debug.
-        alt_rad.array[2:] += parabola
-        
-        vert_spd = VerticalSpeed()
-        vert_spd.derive(az, alt_std, alt_rad)
-        self.assertEqual(np.argmax(vert_spd.array), 29)
-        self.assertGreater(vert_spd.array[29],1589)
-        self.assertLess(vert_spd.array[29],1590)
 
 
 class TestVerticalSpeedForFlightPhases(unittest.TestCase):

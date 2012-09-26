@@ -335,10 +335,10 @@ class TestLandingTurnOffRunway(unittest.TestCase):
 
     def test_landing_turn_off_runway_basic(self):
         instance = LandingTurnOffRunway()
-        head = P('Heading Continuous',np.ma.array([0]*30))
-        fast = buildsection('Fast',0,20)
-        land = buildsection('Landing',10,26)
-        instance.derive(head,land,fast)
+        head = P('Heading Continuous', np.ma.array([0]*30))
+        fast = buildsection('Fast', 0, 20)
+        land = buildsection('Landing', 10, 26)
+        instance.derive(head, land, fast)
         expected = [KeyTimeInstance(index=26, name='Landing Turn Off Runway')]
         self.assertEqual(instance, expected)
 
@@ -364,12 +364,13 @@ class TestLandingTurnOffRunway(unittest.TestCase):
 class TestLiftoff(unittest.TestCase):
     def test_can_operate(self):
         self.assertEqual(Liftoff.get_operational_combinations(),
-                         [('Vertical Speed For Flight Phases', 'Airborne')])
+                         [('Vertical Speed Inertial', 'Airborne')])
 
     def test_liftoff_basic(self):
         # Linearly increasing climb rate with the 5 fpm threshold set between 
         # the 5th and 6th sample points.
-        vert_spd = Parameter('Vertical Speed For Flight Phases', (np.ma.arange(10)-0.5)*40)
+        vert_spd = Parameter('Vertical Speed Inertial',
+                             (np.ma.arange(10) - 0.5) * 40)
         # Airborne section encloses the test point.
         airs = buildsection('Airborne', 6, None)
         lift=Liftoff()
@@ -379,7 +380,8 @@ class TestLiftoff(unittest.TestCase):
     
     def test_liftoff_no_vert_spd_detected(self):
         # Check the backstop setting.
-        vert_spd = Parameter('Vertical Speed For Flight Phases', (np.ma.array([0]*40)))
+        vert_spd = Parameter('Vertical Speed Inertial',
+                             (np.ma.array([0] * 40)))
         airs = buildsection('Airborne', 6, None)
         lift=Liftoff()
         lift.derive(vert_spd, airs)
@@ -387,7 +389,8 @@ class TestLiftoff(unittest.TestCase):
         self.assertEqual(lift, expected)
     
     def test_liftoff_already_airborne(self):
-        vert_spd = Parameter('Vertical Speed For Flight Phases', (np.ma.array([0]*40)))
+        vert_spd = Parameter('Vertical Speed Inertial',
+                             (np.ma.array([0] * 40)))
         airs = buildsection('Airborne', None, 10)
         lift=Liftoff()
         lift.derive(vert_spd, airs)
@@ -414,7 +417,8 @@ class TestTakeoffAccelerationStart(unittest.TestCase):
         aspd = P('Airspeed', airspeed_data)
         instance = TakeoffAccelerationStart()
         instance.derive(aspd, takeoff,None)
-        expected = [KeyTimeInstance(index=15.083333333333361, name='Takeoff Acceleration Start')]
+        expected = [KeyTimeInstance(index=15.083333333333361,
+                                    name='Takeoff Acceleration Start')]
         self.assertEqual(instance, expected)
 
     
@@ -521,8 +525,15 @@ class TestTopOfDescent(unittest.TestCase):
         
 class TestTouchdown(unittest.TestCase):
     def test_can_operate(self):
-        self.assertEqual(Touchdown.get_operational_combinations(),
-                         [('Vertical Speed', 'Altitude AAL', 'Airborne', 'Landing')])
+        opts = Touchdown.get_operational_combinations()
+        self.assertTrue(('Gear On Ground',) in opts)
+        self.assertTrue(('Vertical Speed Inertial',
+                         'Altitude AAL',
+                         'Airborne',
+                         'Landing',) in opts)
+        
+                         #[('Vertical Speed', 'Altitude AAL', 'Airborne',
+                           #'Landing')])
 
     def test_touchdown_basic(self):
         vert_spd = Parameter('Vertical Speed', np.ma.arange(10)*40 - 380)

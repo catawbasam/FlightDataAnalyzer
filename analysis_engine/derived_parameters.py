@@ -2980,7 +2980,7 @@ class CoordinatesSmoothed(object):
                     ## approach, so we scan back to connect the ground
                     ## track onto the end of the valid data.
                     
-                    ##index, _ = first_valid_sample(lat_adj[slice(this_loc.slice.stop,this_loc.slice.start,-1)])
+                    ##index, _ = first_valid_sample(lat_adj[this_loc.slice.stop:this_loc.slice.start:-1])
                     ##join_idx = (this_loc.slice.stop) - index
                     
                     # A transition at 40kts is simpler and works reliably.
@@ -3262,14 +3262,14 @@ class VerticalSpeed(DerivedParameterNode):
     (although in that case the data is delayed, and the aircraft cannot know
     the future altitudes!).    
     '''
-    def derive(self, alt_std = P('Altitude STD'), frame = A('Frame')):
+    def derive(self, alt_std=P('Altitude STD'), frame=A('Frame')):
         frame_name = frame.value if frame else None
         
         if frame_name in ['Hercules', '146']:
             timebase = 8.0
         else:
             timebase = 4.0
-        self.array = rate_of_change(alt_std, timebase)*60.0
+        self.array = rate_of_change(alt_std, timebase) * 60.0
         
 
 class VerticalSpeedForFlightPhases(DerivedParameterNode):
@@ -3281,7 +3281,7 @@ class VerticalSpeedForFlightPhases(DerivedParameterNode):
         # This uses a scaled hysteresis parameter. See settings for more detail.
         threshold = HYSTERESIS_FPROC * max(1, rms_noise(alt_std.array))  
         # The max(1, prevents =0 case when testing with artificial data.
-        self.array = hysteresis(rate_of_change(alt_std,6)*60,threshold)
+        self.array = hysteresis(rate_of_change(alt_std, 6) * 60, threshold)
 
 
 class Relief(DerivedParameterNode):

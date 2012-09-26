@@ -1475,12 +1475,9 @@ class KeyPointValueNode(FormattedNameNode):
         :returns: None
         :rtype: None
         '''
-        slices = self._get_slices(slices)
-        arrays = []
-        for _slice in slices:
-            arrays.append(array[_slice])
+        arrays = [array[s] for s in self._get_slices(slices)]
         # Trap for empty arrays or no slices to scan.
-        if arrays == []:
+        if not arrays:
             return
         joined_array = np.ma.concatenate(arrays)
         index, value = function(joined_array)

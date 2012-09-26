@@ -830,7 +830,7 @@ def find_edges(array, _slice, direction='rising_edges'):
     return list(edge_list)
 
 
-def first_valid_sample(array, start_index=None):
+def first_valid_sample(array, start_index=0):
     '''
     Returns the first valid sample of data from a point in an array.
     
@@ -844,10 +844,8 @@ def first_valid_sample(array, start_index=None):
     :returns value: the value of first valid sample.
     :type index: Float or None
     '''
-    if start_index is None:
-        start_index = 0
     # Trap for start_index < 0 ensures we don't stray into the far end of the array.    
-    elif start_index < 0 or start_index > len(array):
+    if start_index < 0 or start_index > len(array):
         return None, None
     
     clumps = np.ma.clump_unmasked(array[start_index:])

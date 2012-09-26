@@ -701,22 +701,23 @@ class TestLandingPilot(unittest.TestCase):
     def test_can_operate(self):
         opts = LandingPilot.get_operational_combinations()
         # Only controls in use parameters.
-        self.assertTrue(('Pitch (Capt)', 'Roll (Capt)', 'Pitch (FO)',
-                         'Roll (FO)', 'Landing') in opts)
+        self.assertTrue(('Sidestick Pitch (Capt)', 'Sidestick Roll (Capt)',
+                         'Sidestick Pitch (FO)', 'Sidestick Roll (FO)',
+                         'Landing') in opts)
         # Only Autopilot.
         self.assertTrue(('Autopilot Engaged 1 At Touchdown',
                          'Autopilot Engaged 2 At Touchdown') in opts)
         # Combinations.
-        self.assertTrue(('Pitch (Capt)', 'Roll (Capt)', 'Pitch (FO)',
-                         'Roll (FO)', 'Landing',
-                         'Autopilot Engaged 1 At Touchdown') in opts)
-        self.assertTrue(('Pitch (Capt)', 'Roll (Capt)', 'Landing',
-                         'Autopilot Engaged 1 At Touchdown',
+        self.assertTrue(('Sidestick Pitch (Capt)', 'Sidestick Roll (Capt)',
+                         'Sidestick Pitch (FO)', 'Sidestick Roll (FO)',
+                         'Landing', 'Autopilot Engaged 1 At Touchdown') in opts)
+        self.assertTrue(('Sidestick Pitch (Capt)', 'Sidestick Roll (Capt)',
+                         'Landing', 'Autopilot Engaged 1 At Touchdown',
                          'Autopilot Engaged 2 At Touchdown' in opts))
         # All.
-        self.assertTrue(('Pitch (Capt)', 'Roll (Capt)', 'Pitch (FO)',
-                         'Roll (FO)', 'Landing', 
-                         'Autopilot Engaged 1 At Touchdown',
+        self.assertTrue(('Sidestick Pitch (Capt)', 'Sidestick Roll (Capt)',
+                         'Sidestick Pitch (FO)', 'Sidestick Roll (FO)',
+                         'Landing', 'Autopilot Engaged 1 At Touchdown',
                          'Autopilot Engaged 2 At Touchdown') in opts)
         
     def test_derive(self):
@@ -844,12 +845,6 @@ class TestOffBlocksDatetime(unittest.TestCase):
         off_blocks_datetime.set_flight_attr = Mock()
         off_blocks_datetime.derive(turning, start_datetime)
         off_blocks_datetime.set_flight_attr.assert_called_once_with(None)
-        # Only 'Turning In Air'.
-        turning = S('Turning', items=[KeyPointValue(name='Turning In Air',
-                                                    slice=slice(0, 100))])
-        off_blocks_datetime.set_flight_attr = Mock()
-        off_blocks_datetime.derive(turning, start_datetime)
-        off_blocks_datetime.set_flight_attr.assert_called_once_with(None)
         # 'Turning On Ground'.
         turning = S('Turning On Ground', items=[KeyPointValue(name='Turning On Ground',
                                                     slice=slice(20, 60))])
@@ -860,8 +855,6 @@ class TestOffBlocksDatetime(unittest.TestCase):
         
         turning = S('Turning', items=[KeyPointValue(name='Turning On Ground',
                                                     slice=slice(10, 20)),
-                                      KeyPointValue(name='Turning In Air',
-                                                    slice=slice(20, 60)),
                                       KeyPointValue(name='Turning On Ground',
                                                     slice=slice(70, 90))])
         off_blocks_datetime.set_flight_attr = Mock()
@@ -873,21 +866,16 @@ class TestOffBlocksDatetime(unittest.TestCase):
 class TestOnBlocksDatetime(unittest.TestCase):
     def test_derive_without_turning(self):
         # Empty 'Turning'.
-        turning = S('Turning')
+        turning = S('Turning On Ground')
         start_datetime = A(name='Start Datetime', value=datetime.now())
         off_blocks_datetime = OnBlocksDatetime()
         off_blocks_datetime.set_flight_attr = Mock()
         off_blocks_datetime.derive(turning, start_datetime)
         off_blocks_datetime.set_flight_attr.assert_called_once_with(None)
-        # Only 'Turning In Air'.
-        turning = S('Turning', items=[KeyPointValue(name='Turning In Air',
-                                                    slice=slice(0, 100))])
-        off_blocks_datetime.set_flight_attr = Mock()
-        off_blocks_datetime.derive(turning, start_datetime)
-        off_blocks_datetime.set_flight_attr.assert_called_once_with(None)
         # 'Turning On Ground'.
-        turning = S('Turning', items=[KeyPointValue(name='Turning On Ground',
-                                                    slice=slice(20, 60))])
+        turning = S('Turning On Ground',
+                    items=[KeyPointValue(name='Turning On Ground',
+                                         slice=slice(20, 60))])
         off_blocks_datetime.set_flight_attr = Mock()
         off_blocks_datetime.derive(turning, start_datetime)
         off_blocks_datetime.set_flight_attr.assert_called_once_with(
