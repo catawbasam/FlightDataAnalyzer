@@ -342,8 +342,6 @@ def csv_flight_details(hdf_path, kti_list, kpv_list, phase_list, dest_path=None)
 
 
 if __name__ == '__main__':
-    import sys
-    
     parser = argparse.ArgumentParser(description="Plot a flight.")
     parser.add_argument('file', type=str,
                         help='Path of file to process.')

@@ -462,7 +462,16 @@ class TestSectionNode(unittest.TestCase):
         section = section_node.get_previous(23, within_slice=slice(0, 12))
         self.assertEqual(items[0], section)
         section = section_node.get_previous(40, frequency=2)
-        self.assertEqual(items[0], section)    
+        self.assertEqual(items[0], section)
+    
+    def test_get_slices(self):
+        section_node = self.section_node_class(frequency=1, offset=0.5)
+        slices = section_node.get_slices()
+        self.assertEqual(slices, [])
+        section_node.create_section(slice(2, 4))
+        section_node.create_section(slice(5, 7))
+        slices = section_node.get_slices()
+        self.assertEqual(slices, [slice(2, 4), slice(5, 7)])    
 
     def test_get_surrounding(self):
         node = SectionNode()
@@ -486,6 +495,14 @@ class TestFormattedNameNode(unittest.TestCase):
                 pass
         self.formatted_name_node = ExampleNameFormatNode()
         
+        class Speed(FormattedNameNode):
+            NAME_FORMAT = '%(speed)s'
+            NAME_VALUES = {'speed' : ['Slowest', 'Fast', 'Warp 10']}
+            def derive(self, *args, **kwargs):
+                pass
+        
+        self.speed_class = Speed
+        
         
     def test_no_name_uses_node_name(self):
         names = self.formatted_name_node.names()
@@ -500,13 +517,13 @@ class TestFormattedNameNode(unittest.TestCase):
         Using all RETURNS options, apply NAME_FORMAT to obtain a complete
         list of KPV names this class will create.
         """
-        class Speed(FormattedNameNode):
+        class SpeedInPhaseAtAltitude(FormattedNameNode):
             NAME_FORMAT = 'Speed in %(phase)s at %(altitude)d ft'
             NAME_VALUES = {'altitude': range(100, 701, 300),
                            'phase': ['ascent', 'descent']}            
             def derive(self, *args, **kwargs):
                 pass
-        formatted_name_node = Speed()
+        formatted_name_node = SpeedInPhaseAtAltitude()
         names = formatted_name_node.names()
         
         self.assertEqual(names, ['Speed in ascent at 100 ft',
@@ -514,32 +531,48 @@ class TestFormattedNameNode(unittest.TestCase):
                                  'Speed in ascent at 700 ft',
                                  'Speed in descent at 100 ft',
                                  'Speed in descent at 400 ft',
-                                 'Speed in descent at 700 ft',
-                                 ])
+                                 'Speed in descent at 700 ft',])
     
     def test__validate_name(self):
         """ Ensures that created names have a validated option
         """
         class Speed(FormattedNameNode):
             NAME_FORMAT = 'Speed in %(phase)s at %(altitude)d ft'
-            NAME_VALUES = {'altitude' : range(100,1000,100),
+            NAME_VALUES = {'altitude' : range(100, 1000),
                            'phase' : ['ascent', 'descent']}          
             def derive(self, *args, **kwargs):
                 pass
         formatted_name_node = Speed()
-        self.assertTrue(formatted_name_node._validate_name('Speed in ascent at 500 ft'))
-        self.assertTrue(formatted_name_node._validate_name('Speed in descent at 900 ft'))
-        self.assertTrue(formatted_name_node._validate_name('Speed in descent at 100 ft'))
-        self.assertFalse(formatted_name_node._validate_name('Speed in ascent at -10 ft'))
+        self.assertTrue(
+            formatted_name_node._validate_name('Speed in ascent at 500 ft'))
+        self.assertTrue(
+            formatted_name_node._validate_name('Speed in descent at 900 ft'))
+        self.assertTrue(
+            formatted_name_node._validate_name('Speed in descent at 100 ft'))
+        self.assertFalse(
+            formatted_name_node._validate_name('Speed in ascent at -10 ft'))
+    
+    def test_get(self):
+        class AltitudeWhenDescending(FormattedNameNode):
+            NAME_FORMAT = '%(altitude)d Ft Descending'
+            NAME_VALUES = {'altitude' : range(50, 100),}          
+            def derive(self, *args, **kwargs):
+                pass        
+        alt_desc = AltitudeWhenDescending(items=[
+            KeyTimeInstance(100, '50 Ft Descending')])
+        desc_50ft = alt_desc.get(name='50 Ft Descending')
+        self.assertEqual(desc_50ft[0], alt_desc[0])
+        # Raises ValueError when name is not valid.
+        self.assertRaises(ValueError, alt_desc.get, None, '200 Ft Descending')
         
     def test_get_first(self):
         # Test empty Node first.
         empty_kti_node = KeyTimeInstanceNode()
         self.assertEqual(empty_kti_node.get_last(), None)
-        kti_node = KeyTimeInstanceNode(items=[KeyTimeInstance(12, 'Slowest'), 
-                                              KeyTimeInstance(342, 'Slowest'), 
-                                              KeyTimeInstance(2, 'Slowest'), 
-                                              KeyTimeInstance(50, 'Fast')])
+        kti_node = self.speed_class(items=[KeyTimeInstance(12, 'Slowest'), 
+                                           KeyTimeInstance(342, 'Slowest'), 
+                                           KeyTimeInstance(2, 'Slowest'), 
+                                           KeyTimeInstance(50, 'Fast')])
         
         # no slice
         kti1 = kti_node.get_first()
@@ -556,7 +589,7 @@ class TestFormattedNameNode(unittest.TestCase):
         kti5 = kti_node.get_first(slice(10,400), 'Slowest')
         self.assertEqual(kti5.index, 12)
         # does not exist
-        kti6 = kti_node.get_first(name='Not Here')
+        kti6 = kti_node.get_first(name='Warp 10')
         self.assertEqual(kti6, None)
         kti7 = kti_node.get_first(slice(500,600))
         self.assertEqual(kti7, None)
@@ -565,11 +598,10 @@ class TestFormattedNameNode(unittest.TestCase):
         # Test empty Node first.
         empty_kti_node = KeyTimeInstanceNode()
         self.assertEqual(empty_kti_node.get_last(), None)
-        kti_node = KeyTimeInstanceNode(items=[KeyTimeInstance(12, 'Slowest'), 
-                                              KeyTimeInstance(342, 'Slowest'), 
-                                              KeyTimeInstance(2, 'Slowest'), 
-                                              KeyTimeInstance(50, 'Fast')])
-        
+        kti_node = self.speed_class(items=[KeyTimeInstance(12, 'Slowest'), 
+                                           KeyTimeInstance(342, 'Slowest'), 
+                                           KeyTimeInstance(2, 'Slowest'), 
+                                           KeyTimeInstance(50, 'Fast')])
         # no slice
         kti1 = kti_node.get_last()
         self.assertEqual(kti1.index, 342)
@@ -585,16 +617,16 @@ class TestFormattedNameNode(unittest.TestCase):
         kti5 = kti_node.get_last(slice(10,400), 'Slowest')
         self.assertEqual(kti5.index, 342)
         # does not exist
-        kti6 = kti_node.get_last(name='Not Here')
+        kti6 = kti_node.get_last(name='Warp 10')
         self.assertEqual(kti6, None)
         kti7 = kti_node.get_last(slice(500,600))
         self.assertEqual(kti7, None)
     
     def test_get_named(self):
-        kti_node = KeyTimeInstanceNode(items=[KeyTimeInstance(12, 'Slowest'), 
-                                              KeyTimeInstance(342, 'Slowest'), 
-                                              KeyTimeInstance(2, 'Slowest'), 
-                                              KeyTimeInstance(50, 'Fast')])
+        kti_node = self.speed_class(items=[KeyTimeInstance(12, 'Slowest'), 
+                                           KeyTimeInstance(342, 'Slowest'), 
+                                           KeyTimeInstance(2, 'Slowest'), 
+                                           KeyTimeInstance(50, 'Fast')])
         kti_node_returned1 = kti_node.get(name='Slowest')
         self.assertEqual(kti_node_returned1,
                          [KeyTimeInstance(12, 'Slowest'),
@@ -609,7 +641,7 @@ class TestFormattedNameNode(unittest.TestCase):
                          [KeyTimeInstance(12, 'Slowest'),
                           KeyTimeInstance(342, 'Slowest')])
         # does not exist
-        kti_node_returned4 = kti_node.get(name='Not Here')
+        kti_node_returned4 = kti_node.get(name='Warp 10')
         self.assertEqual(kti_node_returned4, [])
         kti_node_returned5 = kti_node.get(name='Slowest',
                                           within_slice=slice(500,600))
@@ -617,14 +649,14 @@ class TestFormattedNameNode(unittest.TestCase):
 
     
     def test_get_ordered_by_index(self):
-        kti_node = KeyTimeInstanceNode(items=[KeyTimeInstance(12, 'Slowest'), 
-                                              KeyTimeInstance(342, 'Slowest'), 
-                                              KeyTimeInstance(2, 'Slowest'), 
-                                              KeyTimeInstance(50, 'Fast')])
+        kti_node = self.speed_class(items=[KeyTimeInstance(12, 'Slowest'), 
+                                           KeyTimeInstance(342, 'Slowest'), 
+                                           KeyTimeInstance(2, 'Slowest'), 
+                                           KeyTimeInstance(50, 'Fast')])
         
         # no slice
         kti_node_returned1 = kti_node.get_ordered_by_index()
-        self.assertTrue(isinstance(kti_node_returned1, KeyTimeInstanceNode))
+        self.assertTrue(isinstance(kti_node_returned1, self.speed_class))
         self.assertEqual(kti_node.name, kti_node_returned1.name)
         self.assertEqual(kti_node.frequency, kti_node_returned1.frequency)
         self.assertEqual(kti_node.offset, kti_node_returned1.offset)
@@ -651,16 +683,16 @@ class TestFormattedNameNode(unittest.TestCase):
                          [KeyTimeInstance(12, 'Slowest'),
                           KeyTimeInstance(342, 'Slowest')])
         # does not exist
-        kti_node_returned6 = kti_node.get_ordered_by_index(name='Not Here')
+        kti_node_returned6 = kti_node.get_ordered_by_index(name='Warp 10')
         self.assertEqual(kti_node_returned6, [])
         kti_node_returned7 = kti_node.get_ordered_by_index(slice(500,600))
         self.assertEqual(kti_node_returned7, [])
     
     def test_get_next(self):
-        kti_node = KeyTimeInstanceNode(items=[KeyTimeInstance(12, 'Slowest'), 
-                                              KeyTimeInstance(342, 'Slowest'), 
-                                              KeyTimeInstance(2, 'Slowest'), 
-                                              KeyTimeInstance(50, 'Fast')])
+        kti_node = self.speed_class(items=[KeyTimeInstance(12, 'Slowest'), 
+                                           KeyTimeInstance(342, 'Slowest'), 
+                                           KeyTimeInstance(2, 'Slowest'), 
+                                           KeyTimeInstance(50, 'Fast')])
         next_kti = kti_node.get_next(35)
         self.assertEqual(next_kti, KeyTimeInstance(50, 'Fast'))
         next_kti = kti_node.get_next(35, name="Slowest")
@@ -673,10 +705,10 @@ class TestFormattedNameNode(unittest.TestCase):
         self.assertEqual(next_kti, KeyTimeInstance(12, 'Slowest'))        
         
     def test_get_previous(self):
-        kti_node = KeyTimeInstanceNode(items=[KeyTimeInstance(12, 'Slowest'), 
-                                              KeyTimeInstance(342, 'Slowest'), 
-                                              KeyTimeInstance(2, 'Slowest'), 
-                                              KeyTimeInstance(50, 'Fast')])
+        kti_node = self.speed_class(items=[KeyTimeInstance(12, 'Slowest'), 
+                                           KeyTimeInstance(342, 'Slowest'), 
+                                           KeyTimeInstance(2, 'Slowest'), 
+                                           KeyTimeInstance(50, 'Fast')])
         previous_kti = kti_node.get_previous(56)
         self.assertEqual(previous_kti, KeyTimeInstance(50, 'Fast'))
         previous_kti = kti_node.get_previous(410, name="Slowest")
@@ -955,7 +987,7 @@ class TestKeyPointValueNode(unittest.TestCase):
         section_node = SectionNode(items=[Section('A', slice(10, 20), 10, 20),
                                           Section('B', slice(30, 40), 30, 40)])
         slices = KeyPointValueNode._get_slices(section_node)
-        self.assertEqual(slices, [s.slice for s in section_node])
+        self.assertEqual(slices, section_node.get_slices())
         input_slices = [slice(10, 20), slice(10, 20)]
         self.assertEqual(KeyPointValueNode._get_slices(input_slices),
                          input_slices)

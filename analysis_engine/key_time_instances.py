@@ -447,9 +447,9 @@ class Touchdown(KeyTimeInstanceNode):
     def can_operate(cls, available):
         # List the minimum required parameters.
         return 'Gear On Ground' in available or \
-               ('Vertical Speed Inertial'  in available and\
-                'Altitude AAL'  in available and\
-                'Airborne'  in available and\
+               ('Vertical Speed Inertial' in available and
+                'Altitude AAL' in available and
+                'Airborne' in available and
                 'Landing' in available)
      
     def derive(self, wow=M('Gear On Ground'), 
@@ -457,7 +457,7 @@ class Touchdown(KeyTimeInstanceNode):
                airs=S('Airborne'), lands=S('Landing')
                ):
         # The preamble here checks that the landing we are looking at is
-        # genuine, that it, it's not just becasue the data stopped in
+        # genuine, that it, it's not just because the data stopped in
         # mid-flight. We reduce the scope of the search for touchdown to
         # avoid triggering in mid-cruise, and it avoids problems for aircraft
         # where the gear signal changes state on raising the gear (OK, if
@@ -477,7 +477,8 @@ class Touchdown(KeyTimeInstanceNode):
                     # parameter created by ORing the left and right main gear
                     # signals.
                     if wow:
-                        edges = find_edges_on_state_change('Ground', wow.array[land.slice])
+                        edges = find_edges_on_state_change(
+                            'Ground', wow.array[land.slice])
                         if edges != []:
                             self.create_kti(edges[0] + (land.slice.start or 0))
                         return
@@ -494,7 +495,6 @@ class Touchdown(KeyTimeInstanceNode):
                         #plot_parameter(on_gnd.array[startpoint:endpoint], show=False)
                         plot_parameter(sm_ht)
                         '''
-
 
 
 class LandingTurnOffRunway(KeyTimeInstanceNode):
@@ -585,8 +585,7 @@ class AltitudeWhenClimbing(KeyTimeInstanceNode):
                 # per climbing phase.
                 index = index_at_value(alt_array, alt_threshold, climb.slice)
                 if index:
-                    pass
-                    #self.create_kti(index, altitude=alt_threshold)
+                    self.create_kti(index, altitude=alt_threshold)
 
 
 class AltitudeWhenDescending(KeyTimeInstanceNode):
@@ -608,16 +607,15 @@ class AltitudeWhenDescending(KeyTimeInstanceNode):
                 # each height.
                 index = index_at_value(alt_array, alt_threshold, 
                                        slice(descend.slice.stop,
-                                             descend.slice.start,-1))
+                                             descend.slice.start, -1))
                 if index:
-                    pass
-                    #self.create_kti(index, altitude=alt_threshold)
+                    self.create_kti(index, altitude=alt_threshold)
 
 
 class MinsToTouchdown(KeyTimeInstanceNode):
     #TODO: TESTS
     NAME_FORMAT = "%(time)d Mins To Touchdown"
-    NAME_VALUES = {'time': [5,4,3,2,1]}
+    NAME_VALUES = {'time': [5, 4, 3, 2, 1]}
     
     def derive(self, touchdowns=KTI('Touchdown')):
         #Q: is it sensible to create KTIs that overlap with a previous touchdown?
@@ -632,7 +630,7 @@ class MinsToTouchdown(KeyTimeInstanceNode):
 class SecsToTouchdown(KeyTimeInstanceNode):
     #TODO: TESTS
     NAME_FORMAT = "%(time)d Secs To Touchdown"
-    NAME_VALUES = {'time': [90,30]}
+    NAME_VALUES = {'time': [90, 30]}
     
     def derive(self, touchdowns=KTI('Touchdown')):
         #Q: is it sensible to create KTIs that overlap with a previous touchdown?

@@ -898,7 +898,14 @@ class SectionNode(Node, list):
                section.slice.start is None and index <= section.slice.stop:
                 surrounded.append(section)
         return self.__class__(name=self.name, frequency=self.frequency,
-                              offset=self.offset, items=surrounded)     
+                              offset=self.offset, items=surrounded)
+    
+    def get_slices(self):
+        '''
+        :returns: A list of slices from sections.
+        :rtype: [slice]
+        '''
+        return [section.slice for section in self]
     
 
 class FlightPhaseNode(SectionNode):
@@ -1008,12 +1015,17 @@ class FormattedNameNode(Node, list):
         :returns: Either a condition function or None.
         :rtype: func or None
         '''
+        
         if within_slice and name:
             return lambda e: is_index_within_slice(e.index, within_slice) and \
                    e.name == name
         elif within_slice:
             return lambda e: is_index_within_slice(e.index, within_slice)
         elif name:
+            if name not in self.names():
+                raise ValueError("Attempted to filter by invalid name '%s' "
+                                 "within '%s'." % (name,
+                                                   self.__class__.__name__))            
             return lambda e: e.name == name
         else:
             return None
@@ -1021,6 +1033,10 @@ class FormattedNameNode(Node, list):
     def get(self, within_slice=None, name=None):
         '''
         Gets elements either within_slice or with name.
+        
+        Q: Could we get by name values rather than formatted name? For example
+        .get(name_values={'altitude': 20}) rather than
+        .get(name='20 Ft Descending').
         
         :param within_slice: Only return elements within this slice.
         :type within_slice: slice
