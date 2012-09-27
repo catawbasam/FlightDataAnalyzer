@@ -559,3 +559,154 @@ class TestTouchdown(unittest.TestCase):
         expected = []
         self.assertEqual(tdwn, expected)
         
+
+class TestAutopilotDisengagedSelection(unittest.TestCase):
+    def test_can_operate(self):
+        self.assertTrue(False, msg='Test not implemented.')
+        
+    def test_derive(self):
+        self.assertTrue(False, msg='Test not implemented.')
+
+
+class TestAutopilotEngagedSelection(unittest.TestCase):
+    def test_can_operate(self):
+        self.assertTrue(False, msg='Test not implemented.')
+        
+    def test_derive(self):
+        self.assertTrue(False, msg='Test not implemented.')
+
+
+class TestAutothrottleDisengagedSelection(unittest.TestCase):
+    def test_can_operate(self):
+        self.assertTrue(False, msg='Test not implemented.')
+        
+    def test_derive(self):
+        self.assertTrue(False, msg='Test not implemented.')
+
+
+class TestAutothrottleEngagedSelection(unittest.TestCase):
+    def test_can_operate(self):
+        self.assertTrue(False, msg='Test not implemented.')
+        
+    def test_derive(self):
+        self.assertTrue(False, msg='Test not implemented.')
+
+
+class TestEng_Stop(unittest.TestCase):
+    def test_can_operate(self):
+        self.assertTrue(False, msg='Test not implemented.')
+        
+    def test_derive(self):
+        self.assertTrue(False, msg='Test not implemented.')
+
+
+class TestEnterHold(unittest.TestCase):
+    def test_can_operate(self):
+        self.assertTrue(False, msg='Test not implemented.')
+        
+    def test_derive(self):
+        self.assertTrue(False, msg='Test not implemented.')
+
+
+class TestExitHold(unittest.TestCase):
+    def test_can_operate(self):
+        self.assertTrue(False, msg='Test not implemented.')
+        
+    def test_derive(self):
+        self.assertTrue(False, msg='Test not implemented.')
+
+
+class TestFlapStateChanges(unittest.TestCase):
+    def test_can_operate(self):
+        self.assertTrue(False, msg='Test not implemented.')
+        
+    def test_derive(self):
+        self.assertTrue(False, msg='Test not implemented.')
+
+
+class TestGearDownSelection(unittest.TestCase):
+    def test_can_operate(self):
+        self.assertTrue(False, msg='Test not implemented.')
+        
+    def test_derive(self):
+        self.assertTrue(False, msg='Test not implemented.')
+
+
+class TestGearUpSelection(unittest.TestCase):
+    def test_can_operate(self):
+        self.assertTrue(False, msg='Test not implemented.')
+        
+    def test_derive(self):
+        self.assertTrue(False, msg='Test not implemented.')
+
+
+class TestGoAroundFlapRetracted(unittest.TestCase):
+    def test_can_operate(self):
+        self.assertTrue(False, msg='Test not implemented.')
+        
+    def test_derive(self):
+        self.assertTrue(False, msg='Test not implemented.')
+
+
+class TestGoAroundGearRetracted(unittest.TestCase):
+    def test_can_operate(self):
+        self.assertTrue(False, msg='Test not implemented.')
+        
+    def test_derive(self):
+        self.assertTrue(False, msg='Test not implemented.')
+
+
+class TestLocalizerEstablishedEnd(unittest.TestCase):
+    def test_can_operate(self):
+        self.assertTrue(False, msg='Test not implemented.')
+        
+    def test_derive(self):
+        self.assertTrue(False, msg='Test not implemented.')
+
+
+class TestLocalizerEstablishedStart(unittest.TestCase):
+    def test_can_operate(self):
+        self.assertTrue(False, msg='Test not implemented.')
+        
+    def test_derive(self):
+        self.assertTrue(False, msg='Test not implemented.')
+
+
+class TestLowestPointOnApproach(unittest.TestCase):
+    def test_can_operate(self):
+        self.assertTrue(False, msg='Test not implemented.')
+        
+    def test_derive(self):
+        self.assertTrue(False, msg='Test not implemented.')
+
+
+class TestMinsToTouchdown(unittest.TestCase):
+    def test_can_operate(self):
+        self.assertTrue(False, msg='Test not implemented.')
+        
+    def test_derive(self):
+        self.assertTrue(False, msg='Test not implemented.')
+
+
+class TestSecsToTouchdown(unittest.TestCase):
+    def test_can_operate(self):
+        self.assertTrue(False, msg='Test not implemented.')
+        
+    def test_derive(self):
+        self.assertTrue(False, msg='Test not implemented.')
+
+
+class TestTAWSTooLowTerrainWarning(unittest.TestCase):
+    def test_can_operate(self):
+        self.assertTrue(False, msg='Test not implemented.')
+        
+    def test_derive(self):
+        self.assertTrue(False, msg='Test not implemented.')
+
+
+class TestTouchAndGo(unittest.TestCase):
+    def test_can_operate(self):
+        self.assertTrue(False, msg='Test not implemented.')
+        
+    def test_derive(self):
+        self.assertTrue(False, msg='Test not implemented.')

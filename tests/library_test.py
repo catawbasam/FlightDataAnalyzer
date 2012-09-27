@@ -564,6 +564,11 @@ class TestBlendNonequispacedSensors(unittest.TestCase):
                                                     False,False,False,False])
 
 
+class TestBump(unittest.TestCase):
+    def test_bump(self):
+        self.assertTrue(False, msg='Test not implemented.')
+
+
 class TestCalculateTimebase(unittest.TestCase):
     def test_calculate_timebase(self):
         # 6th second is the first valid datetime(2020,12,25,23,59,0)

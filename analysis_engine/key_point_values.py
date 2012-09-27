@@ -16,6 +16,7 @@ from analysis_engine.node import KeyPointValueNode, KPV, KTI, P, S, A, M
 
 from analysis_engine.library import (ambiguous_runway,
                                      bearings_and_distances,
+                                     bump,
                                      clip, 
                                      coreg, 
                                      cycle_counter,
@@ -196,25 +197,7 @@ class AccelerationNormalLiftoffTo35FtMax(KeyPointValueNode):
                takeoffs=S('Takeoff')):
         self.create_kpvs_within_slices(acc.array, takeoffs, max_value)
 
-#-----------------------------------------------------------------------
 
-def bump(acc, phase):
-    # Scan the acceleration array for a short period either side of the
-    # moment of interest. Too wide and we risk monitoring flares and
-    # post-liftoff motion. Too short and we may miss a local peak.
-
-    dt=3.0 # Half width of range to scan across for peak acceleration.
-    from_index = max(int(phase.index-dt*acc.hz), 0)
-    to_index = min(int(phase.index+dt*acc.hz)+1, len(acc.array))
-    bump_accel = acc.array[from_index:to_index]
-
-    # Taking the absoulte value makes no difference for normal acceleration
-    # tests, but seeks the peak left or right for lateral tests.
-    bump_index = np.ma.argmax(np.ma.abs(bump_accel))
-    
-    peak = bump_accel[bump_index]
-    return from_index + bump_index, peak
-    
 class AccelerationNormalAtLiftoff(KeyPointValueNode):
     '''
     This is a measure of the normal acceleration at the point of liftoff, and

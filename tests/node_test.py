@@ -828,7 +828,8 @@ class TestKeyPointValueNode(unittest.TestCase):
         knode.create_kpv_from_slices(array, slices, min_value)
         self.assertEqual(list(knode),
                          [KeyPointValue(index=5, value=20, name='Kpv')])
-        # TODO: Test function was called with joined array.
+        self.assertRaises(ValueError, knode.create_kpv_from_slices,
+                          array, [slice(5, 10, 3)], min_value)
 
     def test_create_kpv_outside_slices(self):
         knode = self.knode

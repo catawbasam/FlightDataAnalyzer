@@ -1472,17 +1472,22 @@ class KeyPointValueNode(FormattedNameNode):
         :param slices: Slices from which to create KPVs.
         :type slices: SectionNode or list of slices.
         :param function: Function which will return an index and value from the array.
-        :type function: function (max_value and min_value only recognised here)
+        :type function: function
+        :raises ValueError: If a slice has a step which is not either 1 or None.
         :returns: None
         :rtype: None
         '''
-        arrays = [array[s] for s in self._get_slices(slices)]
+        slices = self._get_slices(slices)
+        if not all(s.step in (1, None) for s in slices):
+            raise ValueError('Slices must have a step of 1 in '
+                             'create_kpv_from_slices.')
+        arrays = [array[s] for s in slices]
         # Trap for empty arrays or no slices to scan.
         if not arrays:
             return
         joined_array = np.ma.concatenate(arrays)
         index, value = function(joined_array)
-        # Find index of joined_array within the original.
+        # Find where the joined_array index is in the original array.
         for _slice in slices:
             slice_duration = (_slice.stop - _slice.start)
             if index < slice_duration:

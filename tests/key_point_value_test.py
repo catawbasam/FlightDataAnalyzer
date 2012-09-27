@@ -11,6 +11,7 @@ from analysis_engine.node import (KeyTimeInstance, KTI, KeyPointValue,
                                   Parameter, P, Section)
 
 from analysis_engine.key_point_values import (
+    AccelerationLateralAtTouchdown,
     AccelerationNormal20FtToFlareMax,
     AccelerationNormalMax,
     Airspeed1000To500FtMax,
@@ -1347,10 +1348,20 @@ class TestZeroFuelWeight(unittest.TestCase):
 
 class TestAccelerationLateralAtTouchdown(unittest.TestCase):
     def test_can_operate(self):
-        self.assertTrue(False, msg='Test not implemented.')
+        self.assertEqual(
+            AccelerationLateralAtTouchdown.get_operational_combinations(),
+            [('Acceleration Lateral', 'Touchdown',)])
         
-    def test_derive(self):
-        self.assertTrue(False, msg='Test not implemented.')
+    @patch('analysis_engine.key_point_values.bump')
+    def test_derive(self, bump):
+        values = [(1, 2,), (3, 4,)]
+        bump.side_effect = lambda *args, **kwargs: values.pop()
+        node = AccelerationLateralAtTouchdown()
+        acc_lat = Mock()
+        tdwn = [Section('Touchdown', slice(10, 20), 10, 20),
+                Section('Touchdown', slice(30, 40), 30, 40),]
+        node.derive(acc_lat, tdwn)
+        bump.assert_called_with(bump,)
 
 
 class TestAccelerationLateralMax(unittest.TestCase):

@@ -275,6 +275,24 @@ def braking_action(gspd, landing, mu):
     return limit_point, mu[limit_point]
 """
 
+def bump(acc, phase):
+    # Scan the acceleration array for a short period either side of the
+    # moment of interest. Too wide and we risk monitoring flares and
+    # post-liftoff motion. Too short and we may miss a local peak.
+
+    dt = 3.0 # Half width of range to scan across for peak acceleration.
+    from_index = max(int(phase.index - dt * acc.hz), 0)
+    to_index = min(int(phase.index + dt * acc.hz)+1, len(acc.array))
+    bump_accel = acc.array[from_index:to_index]
+
+    # Taking the absoulte value makes no difference for normal acceleration
+    # tests, but seeks the peak left or right for lateral tests.
+    bump_index = np.ma.argmax(np.ma.abs(bump_accel))
+    
+    peak = bump_accel[bump_index]
+    return from_index + bump_index, peak
+
+
 def calculate_timebase(years, months, days, hours, mins, secs):
     """
     Calculates the timestamp most common in the array of timestamps. Returns
