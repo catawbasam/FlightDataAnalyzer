@@ -942,7 +942,8 @@ class FormattedNameNode(Node, list):
             self.extend(kwargs['items'])
             del kwargs['items']
             super(FormattedNameNode, self).__init__(*args, **kwargs)
-        elif len(args) and (isinstance(args[0], list) or isinstance(args[0], tuple)):
+        elif len(args) and (isinstance(args[0], list) or isinstance(args[0],
+                                                                    tuple)):
             self.extend(args[0])
             super(FormattedNameNode, self).__init__(*args[1:], **kwargs)
         else:
@@ -1260,12 +1261,12 @@ class KeyTimeInstanceNode(FormattedNameNode):
                 start = period.start + _slice.start
                 stop = period.stop + _slice.start
                 if change in ('entering', 'entering_and_leaving') \
-                        and period.start > 0:
+                   and period.start > 0:
                     # We don't create the KTI at the beginning of the data, as
                     # it is not a "state change"
                     self.create_kti(start - 0.5)
                 if change in ('leaving', 'entering_and_leaving') \
-                        and period.stop < slice_len:
+                   and period.stop < slice_len:
                     self.create_kti(stop - 0.5)
             return
 
@@ -1347,8 +1348,8 @@ class KeyPointValueNode(FormattedNameNode):
         # threshold was masked needs to be a warning as this should not
         # happen.
         if value is np.ma.masked:
-            logger.warn("'%s' cannot create KPV at index '%s' as value is masked."%
-                         (self.name, index))
+            logger.warn("'%s' cannot create KPV at index '%s' as value is "
+                        "masked." % (self.name, index))
             return
         name = self.format_name(replace_values, **kwargs)
         kpv = KeyPointValue(index, float(value), name)
@@ -1489,9 +1490,11 @@ class KeyPointValueNode(FormattedNameNode):
         index, value = function(joined_array)
         # Find where the joined_array index is in the original array.
         for _slice in slices:
-            slice_duration = (_slice.stop - _slice.start)
+            start = _slice.start or 0
+            stop = _slice.stop or len(array)
+            slice_duration = (start - stop)
             if index < slice_duration:
-                index += _slice.start
+                index += start or 0
                 break
             index -= slice_duration
         self.create_kpv(index, value, **kwargs)

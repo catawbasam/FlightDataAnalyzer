@@ -47,26 +47,71 @@ from analysis_engine.library import (ambiguous_runway,
                                      value_at_index)
 
 
-class AccelerationNormalOffset(KeyPointValueNode):
-    """
-    This KPV computes the normal accelerometer datum offset. This allows for
-    offsets that are sometimes found in these sensors which remain in service
-    although outside the permitted accuracy of the signal.
-    """
-    def derive(self, acc=P('Acceleration Normal'), taxis=S('Taxiing')):
-        total_sum = 0.0
-        total_count = 0
-        for taxi in taxis:
-            unmasked_data = np.ma.compressed(acc.array[taxi.slice])
-            count = len(unmasked_data)
-            if count:
-                total_count += count
-                total_sum += np.sum(unmasked_data)
-        if total_count>20:
-            delta = total_sum/float(total_count) - 1.0
-            if abs(delta) < ACCEL_NORM_OFFSET_LIMIT:
-                self.create_kpv(0, delta + 1.0)
+# Superclasses
+################################################################################
+
+
+class FlapOrConfigurationMaxOrMin(object):
+    '''
+    Abstract superclass.
+    '''
+    def flap_or_conf_max_or_min(self, conflap, airspeed, function, scope=None):
+        '''
+        Generic flap and conf event creation process.
+        :param conflap: Conf or Flap data, restricted to detent settings.
+        :type conflap: Numpy masked array, in conf values (floating point) or flap (degrees or %).
+        :param airspeed: airspeed parameter
+        :type airspeed: Numpy masked array
+        :param function: function to be applied to the airspeed values
+        :type function: 'max_value' or 'min_value'
+        :param scope: Periods to restrict period to be monitored. Essential for minimum speed checks, otherwise all the results relate to taxi periods!
+        :type scope: optional list of slices.
+        
+        :returns: Nothing. KPVs are created within the routine.
+        '''
+        if scope == []:
+            return # Can't have an event if the scope is empty.
+        
+        if scope:
+            scope_array = np_ma_masked_zeros_like(airspeed.array)
+            for valid in scope:
+                scope_array.mask[
+                    int(valid.slice.start or 0):
+                    int(valid.slice.stop or len(scope_array)) + 1] = False
+                
+        for conflap_setting in np.ma.unique(conflap.array):
+            if conflap_setting == 0.0 or \
+               np.ma.is_masked(conflap_setting):
+                # ignore masked values
+                continue
+            spd_with_conflap = np.ma.copy(airspeed.array)
+            # apply flap mask
+            spd_with_conflap.mask = np.ma.mask_or(airspeed.array.mask,
+                                                  conflap.array.mask)
+            spd_with_conflap[conflap.array != conflap_setting] = np.ma.masked
+            if scope:
+                spd_with_conflap.mask = np.ma.mask_or(spd_with_conflap.mask,
+                                                      scope_array.mask)
+            #TODO: Check logical OR is sensible for all values (probably ok as
+            #airspeed will always be higher than max flap setting!)
+            index, value = function(spd_with_conflap)
             
+            # Check we have a result to record. Note that most flap setting will
+            # not be used in the climb, hence this is normal operation.
+            if index and value:
+                if conflap.name == 'Flap':
+                    self.create_kpv(index, value, flap=conflap_setting)
+                else:
+                    self.create_kpv(index, value, conf=conflap_setting)
+
+
+class AccelerationLateralAtTouchdown(KeyPointValueNode):
+    '''
+    Programmed at Goodyear office as a demonstration.
+    '''
+    def derive(self, acc=P('Acceleration Lateral'), tdwns=KTI('Touchdown')):
+        for tdwn in tdwns:
+            self.create_kpv(*bump(acc, tdwn))
         
     
 class AccelerationLateralMax(KeyPointValueNode):
@@ -121,8 +166,8 @@ class AccelerationLongitudinalPeakTakeoff(KeyPointValueNode):
     This may be of interest where takeoff performance is an issue, though not
     normally monitored as a safety event.
     '''
-    def derive(self, takeoff=S('Takeoff'),
-               accel=P('Acceleration Longitudinal')):
+    def derive(self, accel=P('Acceleration Longitudinal'),
+               takeoff=S('Takeoff')):
         self.create_kpv_from_slices(accel.array, takeoff, max_value)
 
 
@@ -144,21 +189,6 @@ class AccelerationNormal20FtToFlareMax(KeyPointValueNode):
                                        alt_aal.slices_from_to(20, 5),
                                        max_value)
 
-
-class AccelerationNormalMax(KeyPointValueNode):
-    @classmethod
-    def can_operate(cls, available):
-        '''
-        This KPV has no inherent flight phase associated with it, but we can
-        reasonably say that we are not interested in anything while the
-        aircraft is stationary.
-        '''
-        return 'Acceleration Normal Offset Removed' in available
-    
-    def derive(self, acc_norm=P('Acceleration Normal Offset Removed'),
-               moves=S('Mobile')):
-        self.create_kpv_from_slices(acc_norm.array, moves, max_value)
-        
         
 class AccelerationNormalAirborneFlapsUpMax(KeyPointValueNode):
     def derive(self, accel=P('Acceleration Normal Offset Removed'),
@@ -192,12 +222,6 @@ class AccelerationNormalAirborneFlapsDownMin(KeyPointValueNode):
         self.create_kpv_from_slices(acc_flap_up, airborne, min_value)
 
 
-class AccelerationNormalLiftoffTo35FtMax(KeyPointValueNode):
-    def derive(self, acc=P('Acceleration Normal Offset Removed'),
-               takeoffs=S('Takeoff')):
-        self.create_kpvs_within_slices(acc.array, takeoffs, max_value)
-
-
 class AccelerationNormalAtLiftoff(KeyPointValueNode):
     '''
     This is a measure of the normal acceleration at the point of liftoff, and
@@ -220,14 +244,46 @@ class AccelerationNormalAtTouchdown(KeyPointValueNode):
             self.create_kpv(*bump(acc, tdwn))
 
 
+class AccelerationNormalLiftoffTo35FtMax(KeyPointValueNode):
+    def derive(self, acc=P('Acceleration Normal Offset Removed'),
+               takeoffs=S('Takeoff')):
+        self.create_kpvs_within_slices(acc.array, takeoffs, max_value)
 
-class AccelerationLateralAtTouchdown(KeyPointValueNode):
-    '''
-    Programmed at Goodyear office as a demonstration.
-    '''
-    def derive(self, acc=P('Acceleration Lateral'), tdwns=KTI('Touchdown')):
-        for tdwn in tdwns:
-            self.create_kpv(*bump(acc, tdwn))
+
+class AccelerationNormalMax(KeyPointValueNode):
+    @classmethod
+    def can_operate(cls, available):
+        '''
+        This KPV has no inherent flight phase associated with it, but we can
+        reasonably say that we are not interested in anything while the
+        aircraft is stationary.
+        '''
+        return 'Acceleration Normal Offset Removed' in available
+    
+    def derive(self, acc_norm=P('Acceleration Normal Offset Removed'),
+               moves=S('Mobile')):
+        self.create_kpv_from_slices(acc_norm.array, moves, max_value)
+
+
+class AccelerationNormalOffset(KeyPointValueNode):
+    """
+    This KPV computes the normal accelerometer datum offset. This allows for
+    offsets that are sometimes found in these sensors which remain in service
+    although outside the permitted accuracy of the signal.
+    """
+    def derive(self, acc=P('Acceleration Normal'), taxis=S('Taxiing')):
+        total_sum = 0.0
+        total_count = 0
+        for taxi in taxis:
+            unmasked_data = np.ma.compressed(acc.array[taxi.slice])
+            count = len(unmasked_data)
+            if count:
+                total_count += count
+                total_sum += np.sum(unmasked_data)
+        if total_count>20:
+            delta = total_sum/float(total_count) - 1.0
+            if abs(delta) < ACCEL_NORM_OFFSET_LIMIT:
+                self.create_kpv(0, delta + 1.0)
 
 
 #-----------------------------------------------------------------------
@@ -321,7 +377,6 @@ class AirspeedVacatingRunway(KeyPointValueNode):
 # Airspeed Minus V2
 
 
-# TODO: Write some unit tests!
 class AirspeedMinusV2AtLiftoff(KeyPointValueNode):
     '''
     '''
@@ -334,7 +389,6 @@ class AirspeedMinusV2AtLiftoff(KeyPointValueNode):
         self.create_kpvs_at_ktis(spd_v2.array, liftoffs)
 
 
-# TODO: Write some unit tests!
 class AirspeedMinusV2At35Ft(KeyPointValueNode):
     '''
     '''
@@ -350,7 +404,6 @@ class AirspeedMinusV2At35Ft(KeyPointValueNode):
             self.create_kpv(index, value)
 
 
-# TODO: Write some unit tests!
 class AirspeedMinusV235To1000FtMax(KeyPointValueNode):
     '''
     '''
@@ -368,7 +421,6 @@ class AirspeedMinusV235To1000FtMax(KeyPointValueNode):
         )
 
 
-# TODO: Write some unit tests!
 class AirspeedMinusV235To1000FtMin(KeyPointValueNode):
     '''
     '''
@@ -390,7 +442,6 @@ class AirspeedMinusV235To1000FtMin(KeyPointValueNode):
 # Airspeed Relative
 
 
-# TODO: Write some unit tests!
 class AirspeedRelativeAtTouchdown(KeyPointValueNode):
     '''
     '''
@@ -402,7 +453,6 @@ class AirspeedRelativeAtTouchdown(KeyPointValueNode):
         self.create_kpvs_at_ktis(spd_rel.array, touchdowns)
 
 
-# TODO: Write some unit tests!
 class AirspeedRelative1000To500FtMax(KeyPointValueNode):
     '''
     '''
@@ -418,7 +468,6 @@ class AirspeedRelative1000To500FtMax(KeyPointValueNode):
         )
 
 
-# TODO: Write some unit tests!
 class AirspeedRelative1000To500FtMin(KeyPointValueNode):
     '''
     '''
@@ -434,7 +483,6 @@ class AirspeedRelative1000To500FtMin(KeyPointValueNode):
         )
 
 
-# TODO: Write some unit tests!
 class AirspeedRelative500To20FtMax(KeyPointValueNode):
     '''
     '''
@@ -450,7 +498,6 @@ class AirspeedRelative500To20FtMax(KeyPointValueNode):
         )
 
 
-# TODO: Write some unit tests!
 class AirspeedRelative500To20FtMin(KeyPointValueNode):
     '''
     '''
@@ -466,7 +513,6 @@ class AirspeedRelative500To20FtMin(KeyPointValueNode):
         )
 
 
-# TODO: Write some unit tests!
 class AirspeedRelative20FtToTouchdownMax(KeyPointValueNode):
     '''
     '''
@@ -482,7 +528,6 @@ class AirspeedRelative20FtToTouchdownMax(KeyPointValueNode):
         )
 
 
-# TODO: Write some unit tests!
 class AirspeedRelative20FtToTouchdownMin(KeyPointValueNode):
     '''
     '''
@@ -498,7 +543,6 @@ class AirspeedRelative20FtToTouchdownMin(KeyPointValueNode):
         )
 
 
-# TODO: Write some unit tests!
 class AirspeedRelativeFor3Sec1000To500FtMax(KeyPointValueNode):
     '''
     '''
@@ -514,7 +558,6 @@ class AirspeedRelativeFor3Sec1000To500FtMax(KeyPointValueNode):
         )
 
 
-# TODO: Write some unit tests!
 class AirspeedRelativeFor3Sec1000To500FtMin(KeyPointValueNode):
     '''
     '''
@@ -530,7 +573,6 @@ class AirspeedRelativeFor3Sec1000To500FtMin(KeyPointValueNode):
         )
 
 
-# TODO: Write some unit tests!
 class AirspeedRelativeFor3Sec500To20FtMax(KeyPointValueNode):
     '''
     '''
@@ -546,7 +588,6 @@ class AirspeedRelativeFor3Sec500To20FtMax(KeyPointValueNode):
         )
 
 
-# TODO: Write some unit tests!
 class AirspeedRelativeFor3Sec500To20FtMin(KeyPointValueNode):
     '''
     '''
@@ -562,7 +603,6 @@ class AirspeedRelativeFor3Sec500To20FtMin(KeyPointValueNode):
         )
 
 
-# TODO: Write some unit tests!
 class AirspeedRelativeFor3Sec20FtToTouchdownMax(KeyPointValueNode):
     '''
     '''
@@ -578,7 +618,6 @@ class AirspeedRelativeFor3Sec20FtToTouchdownMax(KeyPointValueNode):
         )
 
 
-# TODO: Write some unit tests!
 class AirspeedRelativeFor3Sec20FtToTouchdownMin(KeyPointValueNode):
     '''
     '''
@@ -594,7 +633,6 @@ class AirspeedRelativeFor3Sec20FtToTouchdownMin(KeyPointValueNode):
         )
 
 
-# TODO: Write some unit tests!
 class AirspeedRelativeFor5Sec1000To500FtMax(KeyPointValueNode):
     '''
     '''
@@ -610,7 +648,6 @@ class AirspeedRelativeFor5Sec1000To500FtMax(KeyPointValueNode):
         )
 
 
-# TODO: Write some unit tests!
 class AirspeedRelativeFor5Sec1000To500FtMin(KeyPointValueNode):
     '''
     '''
@@ -626,7 +663,6 @@ class AirspeedRelativeFor5Sec1000To500FtMin(KeyPointValueNode):
         )
 
 
-# TODO: Write some unit tests!
 class AirspeedRelativeFor5Sec500To20FtMax(KeyPointValueNode):
     '''
     '''
@@ -642,7 +678,6 @@ class AirspeedRelativeFor5Sec500To20FtMax(KeyPointValueNode):
         )
 
 
-# TODO: Write some unit tests!
 class AirspeedRelativeFor5Sec500To20FtMin(KeyPointValueNode):
     '''
     '''
@@ -658,7 +693,6 @@ class AirspeedRelativeFor5Sec500To20FtMin(KeyPointValueNode):
         )
 
 
-# TODO: Write some unit tests!
 class AirspeedRelativeFor5Sec20FtToTouchdownMax(KeyPointValueNode):
     '''
     '''
@@ -674,7 +708,6 @@ class AirspeedRelativeFor5Sec20FtToTouchdownMax(KeyPointValueNode):
         )
 
 
-# TODO: Write some unit tests!
 class AirspeedRelativeFor5Sec20FtToTouchdownMin(KeyPointValueNode):
     '''
     '''
@@ -746,7 +779,7 @@ class AirspeedWithGearDownMax(KeyPointValueNode):
     '''
 
     def derive(self, airspeed=P('Airspeed'), gear=M('Gear Down'),
-            airs=S('Airborne')):
+               airs=S('Airborne')):
         '''
         '''
         state = gear.array.state['Up']
@@ -850,32 +883,6 @@ class AirspeedAtGearDownSelection(KeyPointValueNode):
         self.create_kpvs_at_ktis(airspeed.array, gear_dn_sel)
 
 
-class AltitudeAtGearUpSelection(KeyPointValueNode):
-    '''
-    '''
-
-    name = 'Altitude AAL At Gear Up Selection'
-
-    def derive(self, alt_aal=P('Altitude AAL'),
-            gear_up_sel=KTI('Gear Up Selection')):
-        '''
-        '''
-        self.create_kpvs_at_ktis(alt_aal.array, gear_up_sel)
-
-
-class AltitudeAtGearDownSelection(KeyPointValueNode):
-    '''
-    '''
-
-    name = 'Altitude AAL At Gear Down Selection'
-
-    def derive(self, alt_aal=P('Altitude AAL'),
-            gear_dn_sel=KTI('Gear Down Selection')):
-        '''
-        '''
-        self.create_kpvs_at_ktis(alt_aal.array, gear_dn_sel)
-
-
 ################################################################################
 
 
@@ -927,56 +934,8 @@ class AirspeedMax3Sec(KeyPointValueNode):
         self.create_kpvs_within_slices(clip(speed.array, 3.0, speed.hz), airs,
                                        max_value)
 
-def flap_or_conf_max_or_min(self, conflap, airspeed, function, scope=None):
-    '''
-    Generic flap and conf event creation process.
-    :param conflap: Conf or Flap data, restricted to detent settings.
-    :type conflap: Numpy masked array, in conf values (floating point) or flap (degrees or %).
-    :param airspeed: airspeed parameter
-    :type airspeed: Numpy masked array
-    :param function: function to be applied to the airspeed values
-    :type function: 'max_value' or 'min_value'
-    :param scope: Periods to restrict period to be monitored. Essential for minimum speed checks, otherwise all the results relate to taxi periods!
-    :type scope: optional list of slices.
-    
-    :returns: Nothing. KPVs are created within the routine.
-    '''
-    if scope==[]:
-        return # Can't have an event if the scope is empty.
-    
-    if scope:
-        scope_array = np_ma_masked_zeros_like(airspeed.array)
-        for valid in scope:
-            scope_array.mask[int(valid.slice.start or 0):\
-                             int(valid.slice.stop or len(scope_array))+1]=False
-            
-    for conflap_setting in np.ma.unique(conflap.array):
-        if conflap_setting == 0.0 or \
-           np.ma.is_masked(conflap_setting):
-            # ignore masked values
-            continue
-        spd_with_conflap = np.ma.copy(airspeed.array)
-        # apply flap mask
-        spd_with_conflap.mask = np.ma.mask_or(airspeed.array.mask,
-                                              conflap.array.mask)
-        spd_with_conflap[conflap.array != conflap_setting] = np.ma.masked
-        if scope:
-            spd_with_conflap.mask = np.ma.mask_or(spd_with_conflap.mask,
-                                                  scope_array.mask)
-        #TODO: Check logical OR is sensible for all values (probably ok as
-        #airspeed will always be higher than max flap setting!)
-        index, value = function(spd_with_conflap)
-        
-        # Check we have a result to record. Note that most flap setting will
-        # not be used in the climb, hence this is normal operation.
-        if index and value:
-            if conflap.name=='Flap':
-                self.create_kpv(index, value, flap=conflap_setting)
-            else:
-                self.create_kpv(index, value, conf=conflap_setting)
 
-
-class AirspeedWithFlapMax(KeyPointValueNode):
+class AirspeedWithFlapMax(KeyPointValueNode, FlapOrConfigurationMaxOrMin):
     NAME_FORMAT = "Airspeed With Flap %(flap)d Max"
     NAME_VALUES = NAME_VALUES_FLAP
     # Note: It is essential that Flap is the first paramter here to prevent
@@ -985,55 +944,66 @@ class AirspeedWithFlapMax(KeyPointValueNode):
     def derive(self, flap=P('Flap'), airspeed=P('Airspeed'), fast=S('Fast')):
         # Fast scope traps flap changes very late on the approach and raising
         # flaps before 80kn on the landing run.
-        flap_or_conf_max_or_min(self, flap, airspeed, max_value, scope=fast)
+        self.flap_or_conf_max_or_min(self, flap, airspeed, max_value,
+                                     scope=fast)
 
 
-class AirspeedWithFlapMin(KeyPointValueNode):
+class AirspeedWithFlapMin(KeyPointValueNode, FlapOrConfigurationMaxOrMin):
     NAME_FORMAT = "Airspeed With Flap %(flap)d Min"
     NAME_VALUES = NAME_VALUES_FLAP
     def derive(self, flap=P('Flap'), airspeed=P('Airspeed'),
                airborne=S('Airborne')):
         # Airborne scope avoids deceleration on the runway "corrupting" the
         # minimum airspeed with landing flap.
-        flap_or_conf_max_or_min(self, flap, airspeed, min_value, scope=airborne)
+        self.flap_or_conf_max_or_min(self, flap, airspeed, min_value,
+                                     scope=airborne)
 
 
-class AirspeedWithFlapClimbMin(KeyPointValueNode):
+class AirspeedWithFlapClimbMin(KeyPointValueNode, FlapOrConfigurationMaxOrMin):
     NAME_FORMAT = "Airspeed With Flap %(flap)d In Climb Min"
     NAME_VALUES = NAME_VALUES_FLAP
     def derive(self, flap=P('Flap'), airspeed=P('Airspeed'), scope=S('Climb')):
-        flap_or_conf_max_or_min(self, flap, airspeed, min_value, scope=scope)
+        self.flap_or_conf_max_or_min(self, flap, airspeed, min_value, 
+                                     scope=scope)
 
 
-class AirspeedWithFlapDescentMin(KeyPointValueNode):
+class AirspeedWithFlapDescentMin(KeyPointValueNode,
+                                 FlapOrConfigurationMaxOrMin):
     NAME_FORMAT = "Airspeed With Flap %(flap)d In Descent Min"
     NAME_VALUES = NAME_VALUES_FLAP
     def derive(self, flap=P('Flap'), airspeed=P('Airspeed'),
                scope=S('Descent To Flare')):
-        flap_or_conf_max_or_min(self, flap, airspeed, min_value, scope=scope)
+        self.flap_or_conf_max_or_min(self, flap, airspeed, min_value,
+                                     scope=scope)
 
 
-class AirspeedWithFlapClimbMax(KeyPointValueNode):
+class AirspeedWithFlapClimbMax(KeyPointValueNode,
+                               FlapOrConfigurationMaxOrMin):
     NAME_FORMAT = "Airspeed With Flap %(flap)d In Climb Max"
     NAME_VALUES = NAME_VALUES_FLAP
     def derive(self, flap=P('Flap'), airspeed=P('Airspeed'), scope=S('Climb')):
-        flap_or_conf_max_or_min(self, flap, airspeed, max_value, scope=scope)
+        self.flap_or_conf_max_or_min(self, flap, airspeed, max_value,
+                                     scope=scope)
 
 
-class AirspeedWithFlapDescentMax(KeyPointValueNode):
+class AirspeedWithFlapDescentMax(KeyPointValueNode,
+                                 FlapOrConfigurationMaxOrMin):
     NAME_FORMAT = "Airspeed With Flap %(flap)d In Descent Max"
     NAME_VALUES = NAME_VALUES_FLAP
     def derive(self, flap=P('Flap'), airspeed=P('Airspeed'),
                scope=S('Descent')):
-        flap_or_conf_max_or_min(self, flap, airspeed, max_value, scope=scope)
+        self.flap_or_conf_max_or_min(self, flap, airspeed, max_value,
+                                     scope=scope)
 
 
-class AirspeedRelativeWithFlapDescentMin(KeyPointValueNode):
+class AirspeedRelativeWithFlapDescentMin(KeyPointValueNode,
+                                         FlapOrConfigurationMaxOrMin):
     NAME_FORMAT = "Airspeed Relative With Flap %(flap)d In Descent Min"
     NAME_VALUES = NAME_VALUES_FLAP
     def derive(self, flap=P('Flap'), airspeed=P('Airspeed Relative'),
                scope=S('Descent To Flare')):
-        flap_or_conf_max_or_min(self, flap, airspeed, min_value, scope=scope)
+        self.flap_or_conf_max_or_min(self, flap, airspeed, min_value,
+                                     scope=scope)
 
 
 class AirspeedBelowAltitudeMax(KeyPointValueNode):
@@ -1150,9 +1120,8 @@ class AirspeedRTOMax(KeyPointValueNode):
     name = 'Airspeed RTO Max'
     def derive(self, airspeed=P('Airspeed'),
                rejected_takeoffs=S('Rejected Takeoff')):
-        for rejected_takeoff in rejected_takeoffs:
-            self.create_kpvs_within_slices(airspeed.array, 
-                                           rejected_takeoff.slice, max_value)
+        self.create_kpvs_within_slices(airspeed.array, rejected_takeoffs,
+                                       max_value)
 
 
 class AirspeedTODTo10000Max(KeyPointValueNode):
@@ -1282,9 +1251,8 @@ class AltitudeAtGoAroundMin(KeyPointValueNode):
     def can_operate(cls, available):
         return 'Go Around' in available and 'Altitude AAL' in available
     
-    def derive(self, alt_rad=P('Altitude Radio'),
-               alt_aal=P('Altitude AAL'),
-               gas=KTI('Go Around')):
+    def derive(self, alt_aal=P('Altitude AAL'), gas=KTI('Go Around'),
+               alt_rad=P('Altitude Radio')):
         for ga in gas:
             if alt_rad:
                 pit = alt_rad.array[ga.index]
@@ -1346,7 +1314,8 @@ class AltitudeAtLastFlapChangeBeforeLanding(KeyPointValueNode):
             flap_move = abs(flap.array-land_flap)
             rough_index = index_at_value(flap_move, 0.5, slice(tdwn.index, 0,
                                                                -1))
-            # index_at_value tries to be precise, but in this case we really just want the index at the new flap setting.
+            # index_at_value tries to be precise, but in this case we really
+            # just want the index at the new flap setting.
             if rough_index:
                 last_index = np.round(rough_index) 
                 alt_last = value_at_index(alt_aal.array, last_index)
