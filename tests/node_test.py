@@ -1199,8 +1199,8 @@ class TestDerivedParameterNode(unittest.TestCase):
         '''
         Ensure that interpolations do not occur.
         '''
-        class Flap(DerivedParameterNode):
-            data_type = 'Multi-state'
+        class Flap(MultistateDerivedParameterNode):
+            values_mapping = {1: 'one', 2: 'two', 3: 'three'}
             
         master_param = Parameter(array=np.ma.array([5,6,7]), 
                                  frequency=1, offset=0.4, data_type=None)
@@ -1208,7 +1208,7 @@ class TestDerivedParameterNode(unittest.TestCase):
         slave_flap = Flap(array=np.ma.array([1,2,3]),frequency=1, offset=0)
         res = slave_flap.get_aligned(master_param)
         # note it has not interpolated to 1.4, 2.4, 3.4 forward
-        self.assertEqual(list(res.array), [1,2,3]) 
+        self.assertEqual(list(res.array.raw), [1,2,3]) 
         
     def test_parameter_at(self):
         # using a plain range as the parameter array, the results are equal to 
@@ -1386,7 +1386,6 @@ class TestMultistateDerivedParameterNode(unittest.TestCase):
         # check hdf has mapping and integer values stored
         with hdf_file(self.hdf_path) as hdf:
             saved = hdf['multi']
-            print saved.array.__repr__()
             self.assertEqual(list(np.ma.filled(saved.array, 999)), 
                              [  3, 999, 999,   3,   4,   0,   1,   2, 999, 999])
             self.assertEqual(saved.array.data.dtype, np.int)        
