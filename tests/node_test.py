@@ -1385,7 +1385,6 @@ class TestMultistateDerivedParameterNode(unittest.TestCase):
         # check hdf has mapping and integer values stored
         with hdf_file(self.hdf_path) as hdf:
             saved = hdf['multi']
-            print saved.array.__repr__()
             self.assertEqual(list(np.ma.filled(saved.array, 999)), 
                              [  3, 999, 999,   3,   4,   0,   1,   2, 999, 999])
             self.assertEqual(saved.array.data.dtype, np.int)        
