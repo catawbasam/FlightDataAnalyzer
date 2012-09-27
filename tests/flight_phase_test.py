@@ -1076,7 +1076,8 @@ class TestTurningInAir(unittest.TestCase):
         turning_in_air.derive(rate_of_turn, airborne)
         expected = buildsections('Turning In Air',[0, 4],[17,21])
         self.assertEqual(turning_in_air, expected)
-        
+
+
 class TestTurningOnGround(unittest.TestCase):
     def test_can_operate(self):
         expected = [('Rate Of Turn', 'Grounded')]
@@ -1112,3 +1113,67 @@ class TestTurningOnGround(unittest.TestCase):
         turning_on_ground.derive(rate_of_turn, airborne)
         expected = buildsections('Turning On Ground',[0, 4])
         self.assertEqual(turning_on_ground, expected)
+
+
+class TestDescentToFlare(unittest.TestCase):
+    def test_can_operate(self):
+        self.assertTrue(False, msg='Test not implemented.')
+        
+    def test_derive(self):
+        self.assertTrue(False, msg='Test not implemented.')
+
+
+class TestGearExtending(unittest.TestCase):
+    def test_can_operate(self):
+        self.assertTrue(False, msg='Test not implemented.')
+        
+    def test_derive(self):
+        self.assertTrue(False, msg='Test not implemented.')
+
+
+class TestGoAround5MinRating(unittest.TestCase):
+    def test_can_operate(self):
+        self.assertTrue(False, msg='Test not implemented.')
+        
+    def test_derive(self):
+        self.assertTrue(False, msg='Test not implemented.')
+
+
+class TestLevelFlight(unittest.TestCase):
+    def test_can_operate(self):
+        self.assertTrue(False, msg='Test not implemented.')
+        
+    def test_derive(self):
+        self.assertTrue(False, msg='Test not implemented.')
+
+
+class TestTakeoff5MinRating(unittest.TestCase):
+    def test_can_operate(self):
+        self.assertTrue(False, msg='Test not implemented.')
+        
+    def test_derive(self):
+        self.assertTrue(False, msg='Test not implemented.')
+
+
+class TestTakeoffRoll(unittest.TestCase):
+    def test_can_operate(self):
+        self.assertTrue(False, msg='Test not implemented.')
+        
+    def test_derive(self):
+        self.assertTrue(False, msg='Test not implemented.')
+
+
+class TestTakeoffRotation(unittest.TestCase):
+    def test_can_operate(self):
+        self.assertTrue(False, msg='Test not implemented.')
+        
+    def test_derive(self):
+        self.assertTrue(False, msg='Test not implemented.')
+
+
+class TestTwoDegPitchTo35Ft(unittest.TestCase):
+    def test_can_operate(self):
+        self.assertTrue(False, msg='Test not implemented.')
+        
+    def test_derive(self):
+        self.assertTrue(False, msg='Test not implemented.')

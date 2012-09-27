@@ -132,7 +132,7 @@ class DecelerationLongitudinalPeakLanding(KeyPointValueNode):
     '''
     def derive(self, landing=S('Landing'),
                accel=P('Acceleration Longitudinal')):
-        self.create_kpv_from_slices(-accel.array, landing, min_value)
+        self.create_kpv_from_slices(-accel.array, landing, max_value)
 
         
 class AccelerationNormal20FtToFlareMax(KeyPointValueNode):
@@ -2320,15 +2320,13 @@ class Eng_N1MaxDurationUnder60PercentAfterTouchdown(KeyPointValueNode):
                tdwn=KTI('Touchdown')):
         '''
         '''
-        # TODO: 'Eng (*) Stop' has not been implemented as required by this 
-        #       class.
-        return
         for eng_num, eng in enumerate((eng1, eng2, eng3, eng4), start=1):
             if eng is None:
                 continue  # Engine is not available on this aircraft.
             eng_stop = engines_stop.get(name='Eng (%d) Stop' % eng_num)
             if not eng_stop:
-                # XXX: Should we measure until the end of the flight anyway? (Probably not.)
+                # XXX: Should we measure until the end of the flight anyway?
+                # (Probably not.)
                 self.debug('Engine %d did not stop on this flight, cannot '
                            'measure KPV', eng_num)
                 continue
@@ -3635,8 +3633,7 @@ class RateOfDescentAtTouchdown(KeyPointValueNode):
     '''
 
     def derive(self, vert_spd=P('Vertical Speed Inertial'),
-               lands = S('Landing'), 
-               alt = P('Altitude AAL')):
+               lands = S('Landing'), alt = P('Altitude AAL')):
         '''
         '''
         for land in lands:

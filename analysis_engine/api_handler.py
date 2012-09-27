@@ -153,10 +153,10 @@ def get_api_handler(handler_path, *args, **kwargs):
     :type kwargs: dict
     '''
     import_path_split = handler_path.split('.')
-    class_name = import_path_split[-1]
-    module_path = '.'.join(import_path_split[:-1])
+    class_name = import_path_split.pop()
+    module_path = '.'.join(import_path_split)
     handler_module = __import__(module_path, globals(), locals(),
-                               fromlist=[class_name])
+                                fromlist=[class_name])
     handler_class = getattr(handler_module, class_name)
     return handler_class(*args, **kwargs)
 

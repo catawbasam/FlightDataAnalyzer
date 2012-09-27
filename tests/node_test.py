@@ -6,6 +6,7 @@ import unittest
 from random import shuffle
 from datetime import datetime
 
+from analysis_engine.library import min_value
 from analysis_engine.node import (
     Attribute,
     DerivedParameterNode,
@@ -736,6 +737,14 @@ class TestKeyPointValueNode(unittest.TestCase):
             def derive(self, a=P('a',[], 2, 0.4)):
                 pass
         self.knode = KPV(frequency=2, offset=0.4)
+        
+        class Speed(KeyPointValueNode):
+            NAME_FORMAT = '%(speed)s'
+            NAME_VALUES = {'speed' : ['Slowest', 'Fast', 'Warp 10']}
+            def derive(self, *args, **kwargs):
+                pass
+        
+        self.speed_class = Speed        
 
     def test_create_kpv(self):
         """ Tests name format substitution and return type
@@ -814,13 +823,11 @@ class TestKeyPointValueNode(unittest.TestCase):
 
     def test_create_kpv_from_slices(self):
         knode = self.knode
-        function = mock.Mock()
-        function.return_value = (1, 10)
-        slices = [slice(1,10), slice(15, 25)]
+        slices = [slice(20, 30), slice(5, 10)]
         array = np.ma.arange(30) + 15
-        knode.create_kpv_from_slices(array, slices, function)
+        knode.create_kpv_from_slices(array, slices, min_value)
         self.assertEqual(list(knode),
-                         [KeyPointValue(index=1, value=10, name='Kpv')])
+                         [KeyPointValue(index=5, value=20, name='Kpv')])
         # TODO: Test function was called with joined array.
 
     def test_create_kpv_outside_slices(self):
@@ -885,11 +892,10 @@ class TestKeyPointValueNode(unittest.TestCase):
         # Test empty Node first.
         empty_kpv_node = KeyPointValueNode()
         self.assertEqual(empty_kpv_node.get_min(), None)
-        kpv_node = KeyPointValueNode(items=[KeyPointValue(12, 30, 'Slowest'), 
-                                            KeyPointValue(342, 60, 'Slowest'), 
-                                            KeyPointValue(2, 14, 'Slowest'), 
-                                            KeyPointValue(50, 369, 'Fast')])
-        
+        kpv_node = self.speed_class(items=[KeyPointValue(12, 30, 'Slowest'), 
+                                           KeyPointValue(342, 60, 'Slowest'), 
+                                           KeyPointValue(2, 14, 'Slowest'), 
+                                           KeyPointValue(50, 369, 'Fast')])
         # no slice
         kpv1 = kpv_node.get_min()
         self.assertEqual(kpv1.value, 14)
@@ -905,7 +911,7 @@ class TestKeyPointValueNode(unittest.TestCase):
         kpv5 = kpv_node.get_min(slice(10,400), 'Slowest')
         self.assertEqual(kpv5.value, 30)
         # does not exist
-        kpv6 = kpv_node.get_min(name='Not Here')
+        kpv6 = kpv_node.get_min(name='Warp 10')
         self.assertEqual(kpv6, None)
         kpv7 = kpv_node.get_min(slice(500,600))
         self.assertEqual(kpv7, None)
@@ -914,10 +920,10 @@ class TestKeyPointValueNode(unittest.TestCase):
         # Test empty Node first.
         empty_kpv_node = KeyPointValueNode()
         self.assertEqual(empty_kpv_node.get_max(), None)
-        kpv_node = KeyPointValueNode(items=[KeyPointValue(12, 30, 'Slowest'), 
-                                            KeyPointValue(342, 60, 'Slowest'), 
-                                            KeyPointValue(2, 14, 'Slowest'), 
-                                            KeyPointValue(50, 369, 'Fast')])
+        kpv_node = self.speed_class(items=[KeyPointValue(12, 30, 'Slowest'), 
+                                           KeyPointValue(342, 60, 'Slowest'), 
+                                           KeyPointValue(2, 14, 'Slowest'), 
+                                           KeyPointValue(50, 369, 'Fast')])
         
         # no slice
         kpv1 = kpv_node.get_max()
@@ -934,16 +940,16 @@ class TestKeyPointValueNode(unittest.TestCase):
         kpv5 = kpv_node.get_max(slice(10,400), 'Slowest')
         self.assertEqual(kpv5.value, 60)
         # does not exist
-        kpv6 = kpv_node.get_max(name='Not Here')
+        kpv6 = kpv_node.get_max(name='Warp 10')
         self.assertEqual(kpv6, None)
         kpv7 = kpv_node.get_max(slice(500,600))
         self.assertEqual(kpv7, None)
     
     def test_get_ordered_by_value(self):
-        kpv_node = KeyPointValueNode(items=[KeyPointValue(12, 30, 'Slowest'), 
-                                            KeyPointValue(342, 60, 'Slowest'), 
-                                            KeyPointValue(2, 14, 'Slowest'), 
-                                            KeyPointValue(50, 369, 'Fast')])
+        kpv_node = self.speed_class(items=[KeyPointValue(12, 30, 'Slowest'), 
+                                           KeyPointValue(342, 60, 'Slowest'), 
+                                           KeyPointValue(2, 14, 'Slowest'), 
+                                           KeyPointValue(50, 369, 'Fast')])
         
         # no slice
         kpv_node_returned1 = kpv_node.get_ordered_by_value()
@@ -974,7 +980,7 @@ class TestKeyPointValueNode(unittest.TestCase):
                          [KeyPointValue(12, 30, 'Slowest'), 
                           KeyPointValue(342, 60, 'Slowest')])
         # does not exist
-        kpv_node_returned6 = kpv_node.get_ordered_by_value(name='Not Here')
+        kpv_node_returned6 = kpv_node.get_ordered_by_value(name='Warp 10')
         self.assertEqual(kpv_node_returned6, [])
         kpv_node_returned7 = kpv_node.get_ordered_by_value(slice(500,600))
         self.assertEqual(kpv_node_returned7, [])
@@ -1028,12 +1034,24 @@ class TestKeyTimeInstanceNode(unittest.TestCase):
         self.assertEqual(kti,[KeyTimeInstance(index=0.5, name='Kti'),
                               KeyTimeInstance(index=6.5, name='Kti')])
     
+    
+    def test_create_ktis_at_edges_replace_values(self):
+        class EngineNumber(KeyTimeInstanceNode):
+            NAME_FORMAT = 'Eng (%(number)d)'
+            NAME_VALUES = {'number': [1, 2]}
+        kti = EngineNumber()
+        test_param = np.ma.array([0, 0, 0, 1, 1, 1, 0, 0, 0])
+        kti.create_ktis_at_edges(test_param, direction='all_edges',
+                                 replace_values={'number': 1})
+        self.assertEqual(kti,[KeyTimeInstance(index=2.5, name='Eng (1)'),
+                              KeyTimeInstance(index=5.5, name='Eng (1)')])        
+    
     def test_create_ktis_at_edges_either(self):
         kti=self.kti
         test_param = np.ma.array([0,0,0,1,1,1,0,0,0])
         kti.create_ktis_at_edges(test_param, direction='all_edges')
         self.assertEqual(kti,[KeyTimeInstance(index=2.5, name='Kti'),
-                          KeyTimeInstance(index=5.5, name='Kti')])
+                              KeyTimeInstance(index=5.5, name='Kti')])
         
     def test_create_ktis_at_edges_rising(self):
         kti=self.kti
@@ -1051,7 +1069,8 @@ class TestKeyTimeInstanceNode(unittest.TestCase):
     def test_create_ktis_at_edges_fails(self):
         kti=self.kti
         test_param = np.ma.array([0])
-        self.assertRaises(ValueError, kti.create_ktis_at_edges, test_param, direction='sideways')
+        self.assertRaises(ValueError, kti.create_ktis_at_edges, test_param,
+                          direction='sideways')
 
     def test_create_ktis_on_state_change_borders_entering(self):
         # The KTIs should not be created on borders of the data (start and end)

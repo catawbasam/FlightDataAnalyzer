@@ -1200,3 +1200,19 @@ class TestFlightType(unittest.TestCase):
                          None)
         type_node.set_flight_attr.assert_called_once_with('LIFTOFF_ONLY')
 
+
+class TestAnalysisDatetime(unittest.TestCase):
+    def test_can_operate(self):
+        self.assertTrue(False, msg='Test not implemented.')
+        
+    def test_derive(self):
+        self.assertTrue(False, msg='Test not implemented.')
+
+
+class TestVersion(unittest.TestCase):
+    def test_can_operate(self):
+        self.assertTrue(False, msg='Test not implemented.')
+        
+    def test_derive(self):
+        self.assertTrue(False, msg='Test not implemented.')
+

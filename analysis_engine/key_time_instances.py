@@ -14,10 +14,11 @@ from analysis_engine.node import (M, P, S, KTI, KeyTimeInstanceNode)
 from settings import (CLIMB_THRESHOLD,
                       NAME_VALUES_CLIMB,
                       NAME_VALUES_DESCENT,
+                      NAME_VALUES_ENGINE,
                       NAME_VALUES_FLAP,
-                      VERTICAL_SPEED_FOR_LIFTOFF,
                       SLOPE_FOR_TOC_TOD,
-                      TAKEOFF_ACCELERATION_THRESHOLD)
+                      TAKEOFF_ACCELERATION_THRESHOLD,
+                      VERTICAL_SPEED_FOR_LIFTOFF,)
 
 def find_toc_tod(alt_data, ccd_slice, mode):
     '''
@@ -140,11 +141,29 @@ class ClimbStart(KeyTimeInstanceNode):
                 self.create_kti(initial_climb_index)
 
 
-class EngAllStop(KeyTimeInstanceNode):
+class Eng_Stop(KeyTimeInstanceNode):
+    NAME_FORMAT = 'Eng (%(number)d) Stop'
+    NAME_VALUES = {'number': NAME_VALUES_ENGINE}
+    
+    @classmethod
+    def can_operate(cls, available):
+        return 'Eng (*) N2 Min' in available and \
+               any(x in available for x in ('Eng (1) N2',
+                                            'Eng (2) N2',
+                                            'Eng (3) N2',
+                                            'Eng (4) N2',))
+    
     name = 'Eng (*) Stop'
-    def derive(self, eng_n2=P('Eng (*) N2 Min')):
-        power = np.ma.where(eng_n2.array > 30.0,1,0)
-        self.create_ktis_at_edges(power, direction='falling_edges')
+    def derive(self,
+               eng_1_n2=P('Eng (1) N2'),
+               eng_2_n2=P('Eng (2) N2'),
+               eng_3_n2=P('Eng (3) N2'),
+               eng_4_n2=P('Eng (4) N2')):
+        for number, eng_n2 in enumerate([eng_1_n2, eng_2_n2, eng_3_n2,
+                                         eng_4_n2,], start=1):
+            power = np.ma.where(eng_n2.array > 30.0, 1, 0)
+            self.create_ktis_at_edges(power, direction='falling_edges',
+                                      replace_values={'number': number})
 
 
 class EnterHold(KeyTimeInstanceNode):
@@ -251,8 +270,10 @@ class FlapStateChanges(KeyTimeInstanceNode):
     
     def derive(self, flap=P('Flap')):
         # Mark all flap changes, and annotate with the new flap position.
-        # Could include "phase=airborne" if we want to eliminate ground flap changes.
-        self.create_ktis_at_edges(flap.array, direction='all_edges', name='flap') 
+        # Could include "phase=airborne" if we want to eliminate ground flap
+        # changes.
+        self.create_ktis_at_edges(flap.array, direction='all_edges',
+                                  name='flap') 
 
 
 class GearDownSelection(KeyTimeInstanceNode):

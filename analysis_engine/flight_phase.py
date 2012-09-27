@@ -318,7 +318,7 @@ class Descending(FlightPhaseNode):
 
 class Descent(FlightPhaseNode):
     def derive(self, 
-               tod_set=KTI('Top Of Descent'), 
+               tod_set=KTI('Top Of Descent'),
                bod_set=KTI('Bottom Of Descent')):
         # First we extract the kti index values into simple lists.
         tod_list = []

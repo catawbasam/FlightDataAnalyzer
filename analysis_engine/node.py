@@ -1189,7 +1189,7 @@ class KeyTimeInstanceNode(FormattedNameNode):
         return kti
     
     def create_ktis_at_edges(self, array, direction='rising_edges', phase=None,
-                             name=None):
+                             name=None, replace_values={}):
         '''
         Create one or more key time instances where a parameter rises or
         falls. Usually used with discrete parameters, e.g. Event marker
@@ -1216,9 +1216,10 @@ class KeyTimeInstanceNode(FormattedNameNode):
             for edge_index in edge_list:
                 if name:
                     # Annotate the transition with the post-change state.
-                    self.create_kti(edge_index, **{name:array[edge_index+1]})
+                    self.create_kti(edge_index, replace_values=replace_values,
+                                    **{name:array[edge_index+1]})
                 else:
-                    self.create_kti(edge_index)
+                    self.create_kti(edge_index, replace_values=replace_values)
             return
         
         # High level function scans phase blocks or complete array and
@@ -1481,6 +1482,13 @@ class KeyPointValueNode(FormattedNameNode):
             return
         joined_array = np.ma.concatenate(arrays)
         index, value = function(joined_array)
+        # Find index of joined_array within the original.
+        for _slice in slices:
+            slice_duration = (_slice.stop - _slice.start)
+            if index < slice_duration:
+                index += _slice.start
+                break
+            index -= slice_duration
         self.create_kpv(index, value, **kwargs)
 
     def create_kpv_outside_slices(self, array, slices, function, **kwargs):
