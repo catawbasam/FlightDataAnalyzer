@@ -944,7 +944,7 @@ class AirspeedWithFlapMax(KeyPointValueNode, FlapOrConfigurationMaxOrMin):
     def derive(self, flap=P('Flap'), airspeed=P('Airspeed'), fast=S('Fast')):
         # Fast scope traps flap changes very late on the approach and raising
         # flaps before 80kn on the landing run.
-        self.flap_or_conf_max_or_min(self, flap, airspeed, max_value,
+        self.flap_or_conf_max_or_min(flap, airspeed, max_value,
                                      scope=fast)
 
 
@@ -955,7 +955,7 @@ class AirspeedWithFlapMin(KeyPointValueNode, FlapOrConfigurationMaxOrMin):
                airborne=S('Airborne')):
         # Airborne scope avoids deceleration on the runway "corrupting" the
         # minimum airspeed with landing flap.
-        self.flap_or_conf_max_or_min(self, flap, airspeed, min_value,
+        self.flap_or_conf_max_or_min(flap, airspeed, min_value,
                                      scope=airborne)
 
 
@@ -963,7 +963,7 @@ class AirspeedWithFlapClimbMin(KeyPointValueNode, FlapOrConfigurationMaxOrMin):
     NAME_FORMAT = "Airspeed With Flap %(flap)d In Climb Min"
     NAME_VALUES = NAME_VALUES_FLAP
     def derive(self, flap=P('Flap'), airspeed=P('Airspeed'), scope=S('Climb')):
-        self.flap_or_conf_max_or_min(self, flap, airspeed, min_value, 
+        self.flap_or_conf_max_or_min(flap, airspeed, min_value, 
                                      scope=scope)
 
 
@@ -973,7 +973,7 @@ class AirspeedWithFlapDescentMin(KeyPointValueNode,
     NAME_VALUES = NAME_VALUES_FLAP
     def derive(self, flap=P('Flap'), airspeed=P('Airspeed'),
                scope=S('Descent To Flare')):
-        self.flap_or_conf_max_or_min(self, flap, airspeed, min_value,
+        self.flap_or_conf_max_or_min(flap, airspeed, min_value,
                                      scope=scope)
 
 
@@ -982,7 +982,7 @@ class AirspeedWithFlapClimbMax(KeyPointValueNode,
     NAME_FORMAT = "Airspeed With Flap %(flap)d In Climb Max"
     NAME_VALUES = NAME_VALUES_FLAP
     def derive(self, flap=P('Flap'), airspeed=P('Airspeed'), scope=S('Climb')):
-        self.flap_or_conf_max_or_min(self, flap, airspeed, max_value,
+        self.flap_or_conf_max_or_min(flap, airspeed, max_value,
                                      scope=scope)
 
 
@@ -992,7 +992,7 @@ class AirspeedWithFlapDescentMax(KeyPointValueNode,
     NAME_VALUES = NAME_VALUES_FLAP
     def derive(self, flap=P('Flap'), airspeed=P('Airspeed'),
                scope=S('Descent')):
-        self.flap_or_conf_max_or_min(self, flap, airspeed, max_value,
+        self.flap_or_conf_max_or_min(flap, airspeed, max_value,
                                      scope=scope)
 
 
@@ -1002,7 +1002,7 @@ class AirspeedRelativeWithFlapDescentMin(KeyPointValueNode,
     NAME_VALUES = NAME_VALUES_FLAP
     def derive(self, flap=P('Flap'), airspeed=P('Airspeed Relative'),
                scope=S('Descent To Flare')):
-        self.flap_or_conf_max_or_min(self, flap, airspeed, min_value,
+        self.flap_or_conf_max_or_min(flap, airspeed, min_value,
                                      scope=scope)
 
 
