@@ -69,7 +69,7 @@ class Airborne(FlightPhaseNode):
             if work is None:
                 break
 
-            airs = np.ma.clump_unmasked(np.ma.masked_less_equal(work,0.0))
+            airs = np.ma.clump_unmasked(np.ma.masked_less_equal(work, 0.0))
             # Make sure we propogate None ends to data which starts or ends in
             # midflight.
             for air in airs:
@@ -196,16 +196,20 @@ class BouncedLanding(FlightPhaseNode):
         for speedy in fast:
             for air in airs:
                 if slices_overlap(speedy.slice, air.slice):
-                    scan = alt_aal.array[air.slice.stop:speedy.slice.stop]
+                    start = air.slice.stop
+                    stop = speedy.slice.stop
+                    if start == stop:
+                        stop += 1
+                    scan = alt_aal.array[start:stop]
                     ht = max(scan)
                     if ht > BOUNCED_LANDING_THRESHOLD:
                         up = np.ma.clump_unmasked(np.ma.masked_less_equal(scan,
                                                                           0.0))
                         self.create_phase(shift_slice(slice(up[0].start,
                                                             up[-1].stop),
-                                                      air.slice.stop))
-                                                
-                        
+                                                      start))
+
+
 class ClimbCruiseDescent(FlightPhaseNode):
     def derive(self, alt_aal=P('Altitude AAL For Flight Phases'),
                airs=S('Airborne')):
@@ -282,7 +286,8 @@ class Cruise(FlightPhaseNode):
                ccds=S('Climb Cruise Descent'),
                tocs=KTI('Top Of Climb'),
                tods=KTI('Top Of Descent')):
-        # We may have many phases, tops of climb and tops of descent at this time.
+        # We may have many phases, tops of climb and tops of descent at this
+        # time.
         # The problem is that they need not be in tidy order as the lists may
         # not be of equal lengths.
         for ccd in ccds:
@@ -650,7 +655,8 @@ class ILSGlideslopeEstablished(FlightPhaseNode):
         # follow a glidepath without a localizer, seek flight safety guidance
         # elsewhere.
         for ils_loc_est in ils_loc_ests:
-            # Only look for glideslope established if the localizer was established.
+            # Only look for glideslope established if the localizer was
+            # established.
             if ils_loc_est.slice.start and ils_loc_est.slice.stop:
                 gs_est = scan_ils('glideslope', ils_gs.array, alt_aal.array,
                                   ils_loc_est.slice)
@@ -961,14 +967,15 @@ class TaxiIn(FlightPhaseNode):
     be improved to include engines running condition at a later date.
     """
     def derive(self, gnds=S('Grounded'), lands=S('Landing')):
-        if lands:
-            land = lands[-1]
-            for gnd in gnds:
-                if slices_overlap(gnd.slice, land.slice):
-                    taxi_start = land.slice.stop
-                    taxi_stop = gnd.slice.stop
-                    self.create_phase(slice(taxi_start, taxi_stop),
-                                      name="Taxi In")
+        land = lands.get_last()
+        if not land:
+            return
+        for gnd in gnds:
+            if slices_overlap(gnd.slice, land.slice):
+                taxi_start = land.slice.stop
+                taxi_stop = gnd.slice.stop
+                self.create_phase(slice(taxi_start, taxi_stop),
+                                  name="Taxi In")
 
 
 class TaxiOut(FlightPhaseNode):

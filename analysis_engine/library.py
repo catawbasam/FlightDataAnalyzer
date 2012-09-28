@@ -2893,24 +2893,33 @@ def shift_slice(this_slice, offset):
     This function shifts a slice by an offset. The need for this arises when
     a phase condition has been used to limit the scope of another phase
     calculation.
+    
+    :type this_slice: slice
+    :type offset: int or float
+    :rtype: slice
     """
-    if offset:
-        a = None if this_slice.start is None else this_slice.start + offset
-        b = None if this_slice.stop is None else this_slice.stop + offset
-        c = this_slice.step
-        
-        if a is None or b is None or (b-a)>1:
-            # This traps single sample slices which can arise due to rounding of
-            # the iterpolated slices.
-            return(slice(a,b,c))
-    else:
+    if not offset:
         return this_slice
+    
+    start = None if this_slice.start is None else this_slice.start + offset
+    stop = None if this_slice.stop is None else this_slice.stop + offset
+        
+    ##if start is None or stop is None or (stop - start) > 1:
+        ### This traps single sample slices which can arise due to rounding of
+        ### the iterpolated slices.
+    return slice(start, stop, this_slice.step)
+        
 
 
 def shift_slices(slicelist, offset):
     """
     This function shifts a list of slices by a common offset, retaining only
     the valid (not None) slices.
+    
+    :type slicelist: [slice]
+    :type offset: int or float
+    :rtype [slice]
+    
     """
     if offset:
         newlist = []

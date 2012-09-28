@@ -1427,26 +1427,26 @@ class ControlColumnStiffness(KeyPointValueNode):
 
 class DistancePastGlideslopeAntennaToTouchdown(KeyPointValueNode):
     units = 'm'
-    def derive(self,  lat_tdn=KPV('Latitude At Touchdown'),
+    def derive(self, lat_tdn=KPV('Latitude At Touchdown'),
                lon_tdn=KPV('Longitude At Touchdown'),
                tdwns=KTI('Touchdown'),rwy=A('FDR Landing Runway'),
                ils_ldgs=S('ILS Localizer Established')):
 
         if ambiguous_runway(rwy):
             return
-
-        if tdwns!=[]:
-            land_idx=tdwns[-1].index
-            # Check we did do an ILS approach (i.e. the ILS frequency was correct etc).
-            if is_index_within_sections(land_idx, ils_ldgs):
-                # OK, now do the geometry...
-                gs = runway_distance_from_end(rwy.value, point='glideslope')
-                td = runway_distance_from_end(rwy.value,
-                                                       lat_tdn[-1].value,
-                                                       lon_tdn[-1].value)
-                if gs and td:
-                    distance = gs - td
-                    self.create_kpv(land_idx, distance)
+        last_tdwn = tdwns.get_last()
+        if not last_tdwn:
+            return
+        land_idx = last_tdwn.index
+        # Check we did do an ILS approach (i.e. the ILS frequency was correct etc).
+        if is_index_within_sections(land_idx, ils_ldgs):
+            # OK, now do the geometry...
+            gs = runway_distance_from_end(rwy.value, point='glideslope')
+            td = runway_distance_from_end(rwy.value, lat_tdn.get_last().value,
+                                          lon_tdn.get_last().value)
+            if gs and td:
+                distance = gs - td
+                self.create_kpv(land_idx, distance)
 
 
 class DistanceFromRunwayStartToTouchdown(KeyPointValueNode):
@@ -1466,10 +1466,11 @@ class DistanceFromRunwayStartToTouchdown(KeyPointValueNode):
 
         distance_to_start = runway_distance_from_end(rwy.value, point='start')
         distance_to_tdn = runway_distance_from_end(rwy.value,
-                                                   lat_tdn[-1].value,
-                                                   lon_tdn[-1].value)
+                                                   lat_tdn.get_last().value,
+                                                   lon_tdn.get_last().value)
         if distance_to_tdn < distance_to_start: # sanity check
-            self.create_kpv(tdwns[-1].index, distance_to_start-distance_to_tdn)
+            self.create_kpv(tdwns.get_last().index,
+                            distance_to_start-distance_to_tdn)
 
 
 class DistanceFromTouchdownToRunwayEnd(KeyPointValueNode):
@@ -1488,9 +1489,9 @@ class DistanceFromTouchdownToRunwayEnd(KeyPointValueNode):
             return
 
         distance_to_tdn = runway_distance_from_end(rwy.value, 
-                                                   lat_tdn[-1].value, 
-                                                   lon_tdn[-1].value)
-        self.create_kpv(tdwns[-1].index, distance_to_tdn)
+                                                   lat_tdn.get_last().value, 
+                                                   lon_tdn.get_last().value)
+        self.create_kpv(tdwns.get_last().index, distance_to_tdn)
     
 """
 class DistanceUnderMediumBrakingToRunwayEnd(KeyPointValueNode):
@@ -1585,7 +1586,7 @@ class DecelerationToStopOnRunway(KeyPointValueNode):
                precise=A('Precise Positioning')):
         if ambiguous_runway(rwy):
             return
-        index = tdwns[-1].index
+        index = tdwns.get_last().index
         for landing in landings:
             if not is_index_within_slice(index, landing.slice):
                 continue
@@ -1601,10 +1602,11 @@ class DecelerationToStopOnRunway(KeyPointValueNode):
 
             # So for captured ILS approaches or aircraft with precision location we can compute the deceleration required.
             if precise.value or ils_approach:
-                distance_at_tdn = runway_distance_from_end(rwy.value, 
-                                                           lat_tdn[-1].value, 
-                                                           lon_tdn[-1].value)
-                speed = gspd.array[index]*KTS_TO_MPS
+                distance_at_tdn = \
+                    runway_distance_from_end(rwy.value, 
+                                             lat_tdn.get_last().value, 
+                                             lon_tdn.get_last().value)
+                speed = gspd.array[index] * KTS_TO_MPS
                 mu = (speed*speed) / (2.0 * GRAVITY_METRIC * (distance_at_tdn))
                 self.create_kpv(index, mu)
 
@@ -1635,7 +1637,10 @@ class DecelerateToStopOnRunwayDuration(KeyPointValueNode):
                precise=A('Precise Positioning')):
         if ambiguous_runway(rwy):
             return
-        index = tdwns[-1].index
+        last_tdwn = tdwns.get_last()
+        if not last_tdwn:
+            return
+        index = last_tdwn.index
         for landing in landings:
             if not is_index_within_slice(index, landing.slice):
                 continue
@@ -1658,11 +1663,12 @@ class DecelerateToStopOnRunwayDuration(KeyPointValueNode):
                     time_to_end = dist_to_end / speed
                 else:
                     distance_at_tdn = runway_distance_from_end(
-                        rwy.value, lat_tdn[-1].value, lon_tdn[-1].value)
+                        rwy.value, lat_tdn.get_last().value,
+                        lon_tdn.get_last().value)
                     dist_from_td = integrate(
                         gspd.array[index:landing.slice.stop], gspd.hz,
                         scale=KTS_TO_MPS)
-                    time_to_end = (distance_at_tdn - dist_from_td)/speed
+                    time_to_end = (distance_at_tdn - dist_from_td) / speed
                 limit_point = np.ma.argmin(time_to_end)
                 limit_time = time_to_end[limit_point]
                 self.create_kpv(limit_point + index, limit_time)
@@ -1675,16 +1681,17 @@ class DistanceFrom60KtToRunwayEnd(KeyPointValueNode):
                tdwns=KTI('Touchdown'),rwy=A('FDR Landing Runway')):
         if ambiguous_runway(rwy):
             return
-
-        if tdwns!=[]:
-            land_idx=tdwns[-1].index
-            idx_60 = index_at_value(gspd.array, 60.0, slice(land_idx, None))
-            if idx_60 and rwy.value and 'start' in rwy.value:
-                # Only work out the distance if we have a reading at 60kts...
-                distance = runway_distance_from_end(rwy.value,
-                                                    lat.array[idx_60],
-                                                    lon.array[idx_60])
-                self.create_kpv(idx_60, distance) # Metres
+        last_tdwn = tdwns.get_last()
+        if not last_tdwn:
+            return
+        land_idx = last_tdwn.index
+        idx_60 = index_at_value(gspd.array, 60.0, slice(land_idx, None))
+        if idx_60 and rwy.value and 'start' in rwy.value:
+            # Only work out the distance if we have a reading at 60kts...
+            distance = runway_distance_from_end(rwy.value,
+                                                lat.array[idx_60],
+                                                lon.array[idx_60])
+            self.create_kpv(idx_60, distance) # Metres
         
 
 class HeadingAtLanding(KeyPointValueNode):
@@ -1699,8 +1706,8 @@ class HeadingAtLanding(KeyPointValueNode):
             # Check the landing slice is robust.
             if land.slice.start and land.slice.stop:
                 land_head = np.ma.median(head.array[land.slice])
-                land_index = (land.slice.start + land.slice.stop)/2.0
-                self.create_kpv(land_index, land_head%360.0)
+                land_index = (land.slice.start + land.slice.stop) / 2.0
+                self.create_kpv(land_index, land_head % 360.0)
 
 
 class HeadingAtLowestPointOnApproach(KeyPointValueNode):
@@ -2286,7 +2293,7 @@ class Eng_N1MaxDurationUnder60PercentAfterTouchdown(KeyPointValueNode):
             eng_below_60 = np.ma.masked_greater(eng_array, 60)
             # Measure duration between final touchdown and engine stop:
             touchdown_to_stop_slice = max_continuous_unmasked(
-                eng_below_60, slice(tdwn[-1].index, eng_stop[0].index))
+                eng_below_60, slice(tdwn.get_last().index, eng_stop[0].index))
             if touchdown_to_stop_slice:
                 # TODO: Future storage of slice: self.slice = touchdown_to_stop_slice
                 touchdown_to_stop_duration = (touchdown_to_stop_slice.stop - \
@@ -2756,9 +2763,20 @@ class HeadingDeviationOnTakeoffAbove100Kts(KeyPointValueNode):
                pitch=P('Pitch'), toffs=S('Takeoff')):
         for toff in toffs:
             start = index_at_value(airspeed.array, 100.0, _slice=toff.slice)
+            if not start:
+                self.warning("'%s' did not transition through 100 in '%s' "
+                             "slice '%s'.", airspeed.name, toffs.name,
+                             toff.slice)
+                continue
             stop = index_at_value(pitch.array, 5.0, _slice=toff.slice)
+            if not stop:
+                self.warning("'%s' did not transition through 5 in '%s' "
+                             "slice '%s'.", pitch.name, toffs.name,
+                             toff.slice)
+                continue
+            
             head_dev = np.ma.ptp(head.array[start:stop])
-            self.create_kpv((start+stop)/2, head_dev)
+            self.create_kpv((start + stop) / 2, head_dev)
     
 
 class HeadingDeviation500To20Ft(KeyPointValueNode):

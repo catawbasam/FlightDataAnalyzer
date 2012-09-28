@@ -143,15 +143,15 @@ class Approaches(FlightAttributeNode):
                 runway = {'identifier': runway_info['ident']}
                 
                 # TODO: Incorporate this experimental code
-                hdg_ldg = [x.value for x in hdg_kpv_node][-1]
-                hdg_toff = [x.value for x in turnoff_hdg_kpvs][-1]
+                hdg_ldg = hdg_kpv_node.get_last().value
+                hdg_toff = hdg_kpv_node.get_last().value
                 delta = hdg_toff - hdg_ldg
-                if delta>180:
-                    delta = delta-360
-                if delta<-180:
-                    delta = delta+360
+                if delta > 180:
+                    delta = delta - 360
+                if delta < -180:
+                    delta = delta + 360
                 # TODO: Work this code into a form that returns the correct runway.
-                if delta>0:
+                if delta > 0:
                     print "Could pick Left runway"
                 else:
                     print "Could pick Right runway"
@@ -205,7 +205,7 @@ class Approaches(FlightAttributeNode):
             # Where we land, the landing KPV data set is used, otherwise we
             # go with the lowest point on the approach KPVs.
 
-            if approach_section.slice.stop > speedy[-1].slice.stop:
+            if approach_section.slice.stop > speedy.get_last().slice.stop:
                 approach_type = 'LANDING'
                 approach = self._create_approach(start_datetime.value,
                                                  api_handler,
