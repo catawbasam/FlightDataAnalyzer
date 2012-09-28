@@ -825,6 +825,10 @@ class TestKeyPointValueNode(unittest.TestCase):
         knode = self.knode
         slices = [slice(20, 30), slice(5, 10)]
         array = np.ma.arange(30) + 15
+        array.mask = True
+        knode.create_kpv_from_slices(array, slices, min_value)
+        self.assertEqual(knode, [])
+        array.mask = False
         knode.create_kpv_from_slices(array, slices, min_value)
         self.assertEqual(list(knode),
                          [KeyPointValue(index=5, value=20, name='Kpv')])

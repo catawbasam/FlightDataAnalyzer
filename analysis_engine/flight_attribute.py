@@ -418,13 +418,15 @@ class LandingRunway(FlightAttributeNode):
         airport_id = airport.value['id']
         landing = approach_and_landing.get_last()
         if not landing:
-            self.warning("Empty '%s' in '%s'.", landing.name, self.name)
+            self.warning("Empty '%s' in '%s'.", approach_and_landing.name,
+                         self.name)
             self.set_flight_attr(None)
             return
         last_landing_hdg = landing_hdg.get_last()
         if not last_landing_hdg:
             self.warning("'%s' KPV does not exist.",
                          landing_hdg.__class__.__name__)
+            return
         heading = last_landing_hdg.value
             
         # 'Last Approach And Landing' assumed to be Landing. Q: May not be true

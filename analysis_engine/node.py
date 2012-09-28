@@ -1488,6 +1488,9 @@ class KeyPointValueNode(FormattedNameNode):
             return
         joined_array = np.ma.concatenate(arrays)
         index, value = function(joined_array)
+        if index is None:
+            
+            return
         # Find where the joined_array index is in the original array.
         for _slice in slices:
             start = _slice.start or 0
