@@ -418,15 +418,17 @@ def coreg(y, indep_var=None, force_zero=False):
     """
     n = len(y)
     if n < 2:
-        raise ValueError, 'Function coreg called with data of length %s' % n
+        raise ValueError('Function coreg called with data of length %s' % n)
     if indep_var is None:
         x = np.ma.arange(n, dtype=float)
     else:
         x = indep_var
         if len(x) != n:
-            raise ValueError, 'Function coreg called with arrays of differing length'
+            raise ValueError('Function coreg called with arrays of differing '
+                             'length')
     if x.ptp() == 0.0 or y.ptp() == 0.0:
-        # raise ValueError, 'Function coreg called with invariant independent variable'
+        # raise ValueError('Function coreg called with invariant independent '
+        #                  'variable')
         return 0.0, 0.0, 0.0
     
     # Need to propagate masks into both arrays equally.
@@ -509,11 +511,11 @@ def _create_phase_mask(array, hz, offset, a, b, which_side):
     if ia < (a-offset)*hz:
         ia += 1
     if ia < 0 or ia > length:
-        raise ValueError, 'Phase mask index out of range'
+        raise ValueError('Phase mask index out of range')
             
     ib = int((b-offset)*hz) + 1
     if ib < 0 or ib > length:
-        raise ValueError, 'Phase mask index out of range'
+        raise ValueError('Phase mask index out of range')
 
     # Populate the arrays to be False where the flight phase is valid.
     # Adjustments ensure phase is intact and not overwritten by True data.
@@ -796,15 +798,15 @@ def filter_vor_ils_frequencies(array, navaid):
     # This finds the four sequential frequencies, so fours has values: 
     #   0 = .Even0, 1 = .Even5, 2 = .Odd0, 3 = .Odd5
     # The round function is essential as using floating point values leads to inexact values.
-    fours = np.ma.round(array*20)%4
+    fours = np.ma.round(array * 20) % 4
 
     # Remove frequencies outside the operating range.
     if navaid == 'ILS':
-        return np.ma.masked_where(fours<2.0,ils_range)
+        return np.ma.masked_where(fours < 2.0, ils_range)
     elif navaid == 'VOR':
-        return np.ma.masked_where(fours>1.0,vor_range)
+        return np.ma.masked_where(fours > 1.0, vor_range)
     else:
-        raise ValueError, 'Navaid of unrecognised type %s' %navaid
+        raise ValueError('Navaid of unrecognised type %s' % navaid)
 
 
 def find_edges(array, _slice, direction='rising_edges'):
@@ -831,13 +833,13 @@ def find_edges(array, _slice, direction='rising_edges'):
     deltas = np.ma.ediff1d(array[_slice], to_begin=array[_slice][0])
     deltas[0]=0 # Ignore the first value 
     if direction == 'rising_edges':
-        edges = np.ma.nonzero(np.ma.maximum(deltas,0))
+        edges = np.ma.nonzero(np.ma.maximum(deltas, 0))
     elif direction == 'falling_edges':
-        edges = np.ma.nonzero(np.ma.minimum(deltas,0))
+        edges = np.ma.nonzero(np.ma.minimum(deltas, 0))
     elif direction == 'all_edges':
         edges = np.ma.nonzero(deltas)
     else:
-        raise ValueError, 'Edge direction not recognised'
+        raise ValueError('Edge direction not recognised')
     
     # edges is a tuple catering for multi-dimensional arrays, but we
     # are only interested in 1-D arrays, hence selection of the first
@@ -937,7 +939,7 @@ def first_order_lag(param, time_constant, hz, gain=1.0, initial_value=None):
     
     # Trap the condition for stability
     if tc < 0.5:
-        raise ValueError, 'Lag timeconstant too small'
+        raise ValueError('Lag timeconstant too small')
     
     x_term = []
     x_term.append (gain / (1.0 + 2.0*tc)) #b[0]
@@ -1029,7 +1031,7 @@ def first_order_washout(param, time_constant, hz, gain=1.0, initial_value=None):
     
     # Trap the condition for stability
     if tc < 0.5:
-        raise ValueError, 'Lag timeconstant too small'
+        raise ValueError('Lag timeconstant too small')
     
     x_term = []
     x_term.append (gain*2.0*tc  / (1.0 + 2.0*tc)) #b[0]
@@ -1315,7 +1317,8 @@ def ground_track(lat_fix, lon_fix, gspd, hdg, frequency, mode):
     # We are going to extend the lat/lon_fix point by the length of the gspd/hdg arrays.
     # First check that the gspd/hdg arrays are sensible.
     if len(gspd) != len(hdg):
-        raise ValueError, 'Ground_track requires equi-length groundspeed and heading arrays'
+        raise ValueError('Ground_track requires equi-length groundspeed and '
+                         'heading arrays')
     
     # Dummy masked array to join the invalid data arrays
     result=np.ma.array(np.zeros_like(gspd))    
@@ -1337,21 +1340,25 @@ def ground_track(lat_fix, lon_fix, gspd, hdg, frequency, mode):
     elif mode == 'landing':
         direction = 'forwards'
     else:
-        raise ValueError,'Ground_track only recognises takeoff or landing modes'
+        raise ValueError('Ground_track only recognises takeoff or landing '
+                         'modes')
     
-    hdg_rad = hdg*deg2rad
-    delta_north = gspd*np.ma.cos(hdg_rad)
-    delta_east = gspd*np.ma.sin(hdg_rad)
+    hdg_rad = hdg * deg2rad
+    delta_north = gspd * np.ma.cos(hdg_rad)
+    delta_east = gspd * np.ma.sin(hdg_rad)
     
-    north = integrate(delta_north, frequency, scale=KTS_TO_MPS, direction=direction)
-    east = integrate(delta_east, frequency, scale=KTS_TO_MPS, direction=direction)
+    north = integrate(delta_north, frequency, scale=KTS_TO_MPS,
+                      direction=direction)
+    east = integrate(delta_east, frequency, scale=KTS_TO_MPS,
+                     direction=direction)
     
     bearing = np.ma.array(np.rad2deg(np.arctan2(east, north)))
     distance = np.ma.array(np.ma.sqrt(north**2 + east**2))
     distance.mask = result.mask
     
     lat, lon = latitudes_and_longitudes(bearing, distance, 
-                                        {'latitude':lat_fix, 'longitude':lon_fix})
+                                        {'latitude':lat_fix,
+                                         'longitude':lon_fix})
     return lat, lon
 
 
@@ -1537,8 +1544,8 @@ def integrate(array, frequency, initial_value=0.0, scale=1.0, direction="forward
     else:
         raise ValueError("Invalid direction '%s'" % direction)
         
-    k = (scale*0.5)/frequency
-    to_int = k*(array + np.roll(array,d))
+    k = (scale * 0.5)/frequency
+    to_int = k * (array + np.roll(array, d))
     if direction == 'forwards':
         to_int[0] = initial_value
     else:
@@ -1587,7 +1594,7 @@ def interpolate_and_extend(array):
         elif b == last:
             array[a:] = array[a-1]
         else:
-            join = np.linspace(array[a-1], array[b], num=b-a+2)
+            join = np.linspace(array[a - 1], array[b], num=b - a + 2)
             array[a:b] = join[1:-1]
             
     return array
@@ -1606,19 +1613,21 @@ def interleave(param_1, param_2):
     """
     # Check the conditions for merging are met
     if param_1.frequency != param_2.frequency:
-        raise ValueError, 'Attempt to interleave parameters at differing sample rates'
+        raise ValueError('Attempt to interleave parameters at differing sample '
+                         'rates')
 
     dt = param_2.offset - param_1.offset
     # Note that dt may suffer from rounding errors, 
     # hence rounding the value before comparison.
-    if 2*abs(round(dt,6)) != 1/param_1.frequency: 
-                raise ValueError, 'Attempt to interleave parameters that are not correctly aligned'
+    if 2 * abs(round(dt, 6)) != 1 / param_1.frequency: 
+                raise ValueError('Attempt to interleave parameters that are '
+                                 'not correctly aligned')
     
     merged_array = np.ma.zeros((2, len(param_1.array)))
     if dt > 0:
-        merged_array = np.ma.column_stack((param_1.array,param_2.array))
+        merged_array = np.ma.column_stack((param_1.array, param_2.array))
     else:
-        merged_array = np.ma.column_stack((param_2.array,param_1.array))
+        merged_array = np.ma.column_stack((param_2.array, param_1.array))
         
     return np.ma.ravel(merged_array)
 
@@ -1646,7 +1655,7 @@ def interleave_uneven_spacing(param_1, param_2):
     '''
     # Check the conditions for merging are met
     if param_1.frequency != param_2.frequency:
-        raise ValueError, 'Attempt to interleave parameters at differing sample rates'
+        raise ValueError('Attempt to interleave parameters at differing sample rates')
 
     mean_offset = (param_2.offset + param_1.offset) / 2.0
     #result_offset = mean_offset - 1.0/(2.0 * param_1.frequency)
@@ -1835,7 +1844,7 @@ def slices_and(first_list, second_list):
         for second_slice in second_list:
             if (first_slice.step is not None and first_slice.step < 0) or \
                (second_slice.step is not None and second_slice.step < 0):
-                raise ValueError, 'slices_and will not work with reverse slices'
+                raise ValueError('slices_and will not work with reverse slices')
             if slices_overlap(first_slice, second_slice):
                 result_list.append(
                     slice(max(first_slice.start, second_slice.start),
@@ -2720,7 +2729,7 @@ def peak_index(a):
     
     '''
     if len(a) == 0:
-        raise ValueError, 'No data to scan for peak'
+        raise ValueError('No data to scan for peak')
     elif len(a) == 1:
         return 0
     elif len(a) == 2:
@@ -2756,9 +2765,10 @@ def rate_of_change_array(to_diff, hz, width):
     '''
     hw = int(width * hz / 2.0)
     if hw < 1:
-        raise ValueError, 'Rate of change called with inadequate width.'
+        raise ValueError('Rate of change called with inadequate width.')
     if len(to_diff) < width:
-        logger.warn("Rate of change called with short data segment. Zero rate returned")
+        logger.warn("Rate of change called with short data segment. Zero rate "
+                    "returned")
         return np_ma_zeros_like(to_diff)
     
     # Set up an array of masked zeros for extending arrays.
@@ -2904,10 +2914,12 @@ def shift_slice(this_slice, offset):
     start = None if this_slice.start is None else this_slice.start + offset
     stop = None if this_slice.stop is None else this_slice.stop + offset
         
-    ##if start is None or stop is None or (stop - start) > 1:
+    if start is None or stop is None or (stop - start) >= 1:
         ### This traps single sample slices which can arise due to rounding of
         ### the iterpolated slices.
-    return slice(start, stop, this_slice.step)
+        return slice(start, stop, this_slice.step)
+    else:
+        return None
         
 
 
@@ -3409,10 +3421,10 @@ def index_at_value(array, threshold, _slice=slice(None), endpoint='exact'):
         left, right = slice(begin,end+1,step), slice(begin-1,end,step)
         
     else:
-        raise ValueError, 'Step length not 1 in index_at_value'
+        raise ValueError('Step length not 1 in index_at_value')
     
     if begin == end:
-        raise ValueError, 'No range for seek function to scan across'
+        raise ValueError('No range for seek function to scan across')
     elif abs(begin - end) < 2:
         # Requires at least two values to find if the array crosses a
         # threshold.
@@ -3623,7 +3635,7 @@ def cas2dp(cas_kt):
     compressibility)
     """
     if np.ma.max(cas_kt) > 661.48:
-        raise ValueError, 'Supersonic airspeed compuations not included'
+        raise ValueError('Supersonic airspeed compuations not included')
     cas_mps = np.ma.masked_greater(cas_kt, 661.48) * KTS_TO_MPS
     p = P0*100 # pascal not mBar inside the calculation
     return P0 * (((Rhoref * cas_mps*cas_mps)/(7.* p) + 1.)**3.5 - 1.)

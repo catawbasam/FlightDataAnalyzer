@@ -162,10 +162,10 @@ def split_segments(hdf):
     
     speedy_slices = np.ma.clump_unmasked(slow_array)
     if len(speedy_slices) <= 1:
-        logger.info("There are '%s' sections of data where airspeed is "
-                     "above the splitting threshold. Therefore there can only "
-                     "be at maximum one flights worth of data. Creating a "
-                     "single segment comprising all data.", len(speedy_slices))
+        logger.info("There are '%d' sections of data where airspeed is "
+                    "above the splitting threshold. Therefore there can only "
+                    "be at maximum one flights worth of data. Creating a "
+                    "single segment comprising all data.", len(speedy_slices))
         # Use the first and last available unmasked values to determine segment
         # type.
         return [_segment_type_and_slice(airspeed_array, airspeed.frequency, 0,
@@ -231,7 +231,7 @@ def split_segments(hdf):
                 split_index = round((dfc_index / dfc.frequency) + \
                                     slice_start_secs + dfc_half_period)
                 logger.info("'Frame Counter' jumped within slow_slice '%s' "
-                             "at index '%s'.", slow_slice, split_index)
+                             "at index '%d'.", slow_slice, split_index)
                 segments.append(_segment_type_and_slice(airspeed_array,
                                                         airspeed.frequency,
                                                         start, split_index))
@@ -253,7 +253,7 @@ def split_segments(hdf):
                split_value < settings.MINIMUM_SPLIT_PARAM_VALUE:
                 logger.info("Minimum of normalised split parameters ('%s') was "
                             "below MINIMUM_SPLIT_PARAM_VALUE ('%s') within "
-                            "slow_slice '%s' at index '%s'.",
+                            "slow_slice '%s' at index '%d'.",
                             split_value, settings.MINIMUM_SPLIT_PARAM_VALUE,
                             slow_slice, split_index)
                 segments.append(_segment_type_and_slice(airspeed_array,
@@ -264,7 +264,7 @@ def split_segments(hdf):
             else:
                 logger.info("Minimum of normalised split parameters ('%s') was "
                             "not below MINIMUM_SPLIT_PARAM_VALUE ('%s') within "
-                            "slow_slice '%s' at index '%s'.",
+                            "slow_slice '%s' at index '%d'.",
                             split_value, settings.MINIMUM_SPLIT_PARAM_VALUE,
                             slow_slice, split_index)
         
@@ -278,8 +278,8 @@ def split_segments(hdf):
         except IndexError:
             # The aircraft did not stop turning.
             logger.info("Aircraft did not stop turning during slow_slice "
-                         "'%s'. Therefore a split will not be made.",
-                         slow_slice)
+                        "'%s'. Therefore a split will not be made.",
+                        slow_slice)
         else:
             # Split half-way within the stop slice.
             stop_duration = first_stop.stop - first_stop.start
@@ -360,7 +360,8 @@ def _calculate_start_datetime(hdf, fallback_dt=None):
                 arr = np.repeat(arr, length)
                 dt_arrays[n] = arr
             elif len(arr) != length:
-                raise ValueError("After align, all arrays should be the same length")
+                raise ValueError("After align, all arrays should be the same "
+                                 "length")
             else:
                 pass
         

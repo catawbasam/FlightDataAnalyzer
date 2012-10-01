@@ -41,7 +41,7 @@ def find_toc_tod(alt_data, ccd_slice, mode):
         
     # Quit if there is nothing to do here.
     if section.start == section.stop:
-        raise ValueError, 'No range of data for top of climb or descent check'
+        raise ValueError('No range of data for top of climb or descent check')
         
     # Establish a simple monotonic timebase
     timebase = np.arange(len(alt_data[section]))
