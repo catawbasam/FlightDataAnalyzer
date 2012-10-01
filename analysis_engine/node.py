@@ -344,7 +344,8 @@ class DerivedParameterNode(Node):
     # lower case to be consistent with the HDFAccess Parameter class and
     # therefore written as an attribute to the HDF file.
     units = None
-    data_type = None
+    data_type = 'Derived'
+    lfl = False
     
     def __init__(self, name='', array=np.ma.array([]), frequency=1, offset=0,
                  data_type=None, *args, **kwargs):
@@ -522,6 +523,8 @@ class MultistateDerivedParameterNode(DerivedParameterNode):
     '''
     MappedArray stored as array will be of integer dtype
     '''
+    data_type = 'Derived Multi-state'
+    
     def __init__(self, name='', array=np.ma.array([]), frequency=1, offset=0,
                  data_type=None, values_mapping={}, *args, **kwargs):
         
