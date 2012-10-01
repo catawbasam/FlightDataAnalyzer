@@ -4029,6 +4029,23 @@ class Tailwind100FtToTouchdownMax(KeyPointValueNode):
 # Warnings: Terrain Awareness & Warning System (TAWS)
 
 
+class TAWSGeneralDuration(KeyPointValueNode):
+    '''
+    '''
+
+    name = 'TAWS General Duration'
+
+    def derive(self, taws_general=M('TAWS General'), airborne=S('Airborne')):
+        '''
+        '''
+        self.create_kpvs_where_state(
+            'Warning',
+            taws_general.array,
+            taws_general.hz,
+            phase=airborne
+        )
+
+
 class TAWSAlertDuration(KeyPointValueNode):
     '''
     '''
@@ -4042,8 +4059,7 @@ class TAWSAlertDuration(KeyPointValueNode):
             'Alert',
             taws_alert.array,
             taws_alert.hz,
-            phase=airborne,
-            min_duration=2,
+            phase=airborne
         )
 
 
@@ -4061,8 +4077,7 @@ class TAWSSinkRateWarningDuration(KeyPointValueNode):
             'Warning',
             taws_sink_rate.array,
             taws_sink_rate.hz,
-            phase=airborne,
-            min_duration=2,
+            phase=airborne
         )
 
 
@@ -4081,7 +4096,6 @@ class TAWSTooLowFlapWarningDuration(KeyPointValueNode):
             taws_too_low_flap.array,
             taws_too_low_flap.hz,
             phase=airborne,
-            min_duration=2,
         )
 
 
@@ -4098,8 +4112,7 @@ class TAWSTerrainWarningDuration(KeyPointValueNode):
             'Warning',
             taws_terrain.array,
             taws_terrain.hz,
-            phase=airborne,
-            min_duration=2,
+            phase=airborne
         )
 
 
@@ -4118,7 +4131,6 @@ class TAWSTerrainPullUpWarningDuration(KeyPointValueNode):
             taws_terrain_pull_up.array,
             taws_terrain_pull_up.hz,
             phase=airborne,
-            min_duration=2,
         )
 
 
@@ -4137,7 +4149,6 @@ class TAWSGlideslopeWarningDuration(KeyPointValueNode):
             taws_glideslope.array,
             taws_glideslope.hz,
             phase=airborne,
-            min_duration=2,
         )
 
 
@@ -4156,7 +4167,6 @@ class TAWSTooLowTerrainWarningDuration(KeyPointValueNode):
             taws_too_low_terrain.array,
             taws_too_low_terrain.hz,
             phase=airborne,
-            min_duration=2,
         )
 
 
@@ -4175,7 +4185,6 @@ class TAWSTooLowGearWarningDuration(KeyPointValueNode):
             taws_too_low_gear.array,
             taws_too_low_gear.hz,
             phase=airborne,
-            min_duration=2,
         )
 
 
@@ -4193,7 +4202,6 @@ class TAWSPullUpWarningDuration(KeyPointValueNode):
             taws_pull_up.array,
             taws_pull_up.hz,
             phase=airborne,
-            min_duration=2,
         )
 
 
@@ -4212,7 +4220,6 @@ class TAWSDontSinkWarningDuration(KeyPointValueNode):
             taws_dont_sink.array,
             taws_dont_sink.hz,
             phase=airborne,
-            min_duration=2,
         )
 
 
@@ -4231,7 +4238,6 @@ class TAWSWindshearWarningBelow1500FtDuration(KeyPointValueNode):
                 'Warning',
                 taws_windshear.array[descent],
                 taws_windshear.hz,
-                min_duration=2,
             )
 
 
