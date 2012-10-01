@@ -71,8 +71,9 @@ def get_param_kwarg_names(method):
     """
     args, varargs, varkw, defaults = inspect.getargspec(method)
     if not defaults or args[:-len(defaults)] != ['self'] or varargs:
-        raise ValueError("Node '%s' must have kwargs, cannot accept no kwargs or any args other than 'self'. args:'%s' *args:'%s'" % (
-            method.im_class.get_name(), args[1:], varargs))
+        raise ValueError("Node '%s' must have kwargs, cannot accept no kwargs "
+                         "or any args other than 'self'. args:'%s' *args:'%s'"
+                         % (method.im_class.get_name(), args[1:], varargs))
     if varkw:
         # One day, could insert all available params as kwargs - but cannot
         # guarentee requirements will work
@@ -1553,7 +1554,9 @@ class KeyPointValueNode(FormattedNameNode):
                     elif mark == 'midpoint':
                         index = (slice_.stop_edge + slice_.start_edge) / 2.0
                     else:
-                        raise ValueError,'Unrecognised option in create_kpvs_from_slice_durations'
+                        raise ValueError("Unrecognised mark '%s' in "
+                                         "create_kpvs_from_slice_durations" %
+                                         mark)
                     self.create_kpv(index, duration, **kwargs)
             else:
                 duration = slice_.stop - slice_.start
@@ -1565,7 +1568,9 @@ class KeyPointValueNode(FormattedNameNode):
                     elif mark == 'midpoint':
                         index = (slice_.stop + slice_.start) / 2.0
                     else:
-                        raise ValueError,'Unrecognised option in create_kpvs_from_slice_durations'
+                        raise ValueError("Unrecognised mark '%s' in "
+                                         "create_kpvs_from_slice_durations" %
+                                         mark)
                     self.create_kpv(index, duration, **kwargs)
                 
 

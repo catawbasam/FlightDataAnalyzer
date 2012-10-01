@@ -2939,7 +2939,7 @@ class FlareDistance20FtToTouchdown(KeyPointValueNode):
 class AltitudeAtSuspectedLevelBust(KeyPointValueNode):
     def derive(self, alt_std=P('Altitude STD')):
         bust = 300 # ft
-        bust_time = 3*60 # 3 mins
+        bust_time = 3 * 60 # 3 mins
         
         idxs, peaks = cycle_finder(alt_std.array, min_step=bust)
 
@@ -2954,8 +2954,10 @@ class AltitudeAtSuspectedLevelBust(KeyPointValueNode):
                 duration = (end - begin) / alt_std.frequency
                 if duration < bust_time:
                     a=alt_std.array[idxs[num]] # One before the peak of interest
-                    b=alt_std.array[idxs[num + 1]] # The peak of interst
-                    c=alt_std.array[idxs[num + 2] - 1] # The next one (index reduced to avoid running beyond end of data)
+                    b=alt_std.array[idxs[num + 1]] # The peak of interest
+                    # The next one (index reduced to avoid running beyond end of
+                    # data)
+                    c=alt_std.array[idxs[num + 2] - 1] 
                     if b>(a+c)/2:
                         overshoot = min(b - a, b - c)
                         if overshoot > 5000:

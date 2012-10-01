@@ -80,7 +80,8 @@ class VelocitySpeed(object):
         elif self.weight_unit == 't':
             weight = aircraft_weight
         else:
-            raise ValueError, "Unrecognised weight units"
+            raise ValueError("Unrecognised weight units '%s'" %
+                             self.weight_unit)
 
         if setting not in lookup:
             logger.warning("Vspeed table '%s' does not have entries for '%s'",

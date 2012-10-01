@@ -542,7 +542,7 @@ def scan_ils(beam, ils_dots, height, scan_slice):
     :type beam: str
     '''
     if beam not in ['localizer', 'glideslope']:
-        raise ValueError,'Unrecognised beam type in scan_ils'
+        raise ValueError('Unrecognised beam type in scan_ils')
 
     # Let's check to see if we have anything to work with...
     if np.ma.count(ils_dots[scan_slice]) < 5:

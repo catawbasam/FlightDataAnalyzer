@@ -360,7 +360,8 @@ def _calculate_start_datetime(hdf, fallback_dt=None):
                 arr = np.repeat(arr, length)
                 dt_arrays[n] = arr
             elif len(arr) != length:
-                raise ValueError("After align, all arrays should be the same length")
+                raise ValueError("After align, all arrays should be the same "
+                                 "length")
             else:
                 pass
         
