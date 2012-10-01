@@ -909,7 +909,7 @@ class TakeoffRoll(FlightPhaseNode):
     '''
     Sub-phase primarily for use by the correlation tests
     '''
-    def derive(self, lifts = S('Liftoff'), toffs = S('TakeOff')):
+    def derive(self, lifts = S('Liftoff'), toffs = S('Takeoff')):
         for toff in toffs:
             for lift in lifts:
                 if is_index_within_slice(lift.index, toff.slice):
@@ -1035,6 +1035,9 @@ class TurningOnGround(FlightPhaseNode):
 class TwoDegPitchTo35Ft(FlightPhaseNode):
     """
     """
+    
+    name='2 Deg Pitch To 35 Ft'
+    
     def derive(self, pitch=P('Pitch'), takeoffs=S('Takeoff')):
         for takeoff in takeoffs:
             reversed_slice = slice(takeoff.slice.stop, takeoff.slice.start, -1)
@@ -1043,6 +1046,5 @@ class TwoDegPitchTo35Ft(FlightPhaseNode):
             pitch_2_deg_idx = index_at_value(pitch.array, 2.0, reversed_slice, 
                                              endpoint='closing')
             self.create_section(slice(pitch_2_deg_idx, takeoff.slice.stop),
-                                name='2 Deg Pitch To 35 Ft', 
                                 begin=pitch_2_deg_idx,
                                 end=takeoff.stop_edge)
