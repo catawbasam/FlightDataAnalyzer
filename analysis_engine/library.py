@@ -427,7 +427,7 @@ def coreg(y, indep_var=None, force_zero=False):
             raise ValueError, 'Function coreg called with arrays of differing length'
     if x.ptp() == 0.0 or y.ptp() == 0.0:
         # raise ValueError, 'Function coreg called with invariant independent variable'
-        return 0.0, 0.0, 0.0
+        return None, None, None
     
     # Need to propagate masks into both arrays equally.
     mask = np.ma.logical_or(x.mask, y.mask)
