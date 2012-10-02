@@ -71,8 +71,9 @@ def get_param_kwarg_names(method):
     """
     args, varargs, varkw, defaults = inspect.getargspec(method)
     if not defaults or args[:-len(defaults)] != ['self'] or varargs:
-        raise ValueError("Node '%s' must have kwargs, cannot accept no kwargs or any args other than 'self'. args:'%s' *args:'%s'" % (
-            method.im_class.get_name(), args[1:], varargs))
+        raise ValueError("Node '%s' must have kwargs, cannot accept no kwargs "
+                         "or any args other than 'self'. args:'%s' *args:'%s'"
+                         % (method.im_class.get_name(), args[1:], varargs))
     if varkw:
         # One day, could insert all available params as kwargs - but cannot
         # guarentee requirements will work
@@ -343,7 +344,8 @@ class DerivedParameterNode(Node):
     # lower case to be consistent with the HDFAccess Parameter class and
     # therefore written as an attribute to the HDF file.
     units = None
-    data_type = None
+    data_type = 'Derived'
+    lfl = False
     
     def __init__(self, name='', array=np.ma.array([]), frequency=1, offset=0,
                  data_type=None, *args, **kwargs):
@@ -521,6 +523,8 @@ class MultistateDerivedParameterNode(DerivedParameterNode):
     '''
     MappedArray stored as array will be of integer dtype
     '''
+    data_type = 'Derived Multi-state'
+    
     def __init__(self, name='', array=np.ma.array([]), frequency=1, offset=0,
                  data_type=None, values_mapping={}, *args, **kwargs):
         
@@ -1526,15 +1530,23 @@ class KeyPointValueNode(FormattedNameNode):
         index, value = function(array)
         self.create_kpv(index, value, **kwargs)
 
-    def create_kpvs_from_slice_durations(self, slices, threshold=0.0, mark='midpoint', **kwargs):
+    def create_kpvs_from_slice_durations(self, slices, min_duration=0.0, mark='midpoint', **kwargs):
         '''
         Shortcut for creating KPVs from slices based only on the slice duration.
-        
+                
+        Note: The min_duration should not be used as short duration events
+        are filtered by the time threshold in the Analysis Specification, and
+        leaving a zero default allows KPVs to be accumulated below the event
+        threshold limit and these are useful for changing thresholds in the
+        future. The facility is only intended for systems with continuous
+        nuisance levels of operation which would swamp the database if not
+        filtered before creating the KPV.
+
         :param slices: Slices from which to create KPVs. Note: as the only
                        parameter they will default to 1Hz.
         :type slices: List of slices.
-        :param threshold: Minimum duration for a KPV to be created.
-        :type threshold: float (seconds)
+        :param min_duration: Minimum duration for a KPV to be created.
+        :type min_duration: float (seconds)
         :param mark: Optional field to select when to identify the KPV.
         :type mark: String from 'start', 'midpoint' or 'end'
  
@@ -1545,7 +1557,7 @@ class KeyPointValueNode(FormattedNameNode):
         for slice_ in slices:
             if isinstance(slice_, Section): # Use slice within Section.
                 duration = slice_.stop_edge - slice_.start_edge
-                if duration > threshold:
+                if duration > min_duration:
                     if mark == 'start':
                         index = slice_.start_edge
                     elif mark == 'end':
@@ -1553,11 +1565,13 @@ class KeyPointValueNode(FormattedNameNode):
                     elif mark == 'midpoint':
                         index = (slice_.stop_edge + slice_.start_edge) / 2.0
                     else:
-                        raise ValueError,'Unrecognised option in create_kpvs_from_slice_durations'
+                        raise ValueError("Unrecognised mark '%s' in "
+                                         "create_kpvs_from_slice_durations" %
+                                         mark)
                     self.create_kpv(index, duration, **kwargs)
             else:
                 duration = slice_.stop - slice_.start
-                if duration > threshold:
+                if duration > min_duration:
                     if mark == 'start':
                         index = slice_.start
                     elif mark == 'end':
@@ -1565,7 +1579,9 @@ class KeyPointValueNode(FormattedNameNode):
                     elif mark == 'midpoint':
                         index = (slice_.stop + slice_.start) / 2.0
                     else:
-                        raise ValueError,'Unrecognised option in create_kpvs_from_slice_durations'
+                        raise ValueError("Unrecognised mark '%s' in "
+                                         "create_kpvs_from_slice_durations" %
+                                         mark)
                     self.create_kpv(index, duration, **kwargs)
                 
 
@@ -1574,6 +1590,14 @@ class KeyPointValueNode(FormattedNameNode):
         '''
         For discrete and multi-state parameters, this detects an event and
         records the duration of each event.
+        
+        Note: The min_duration should not be used as short duration events
+        are filtered by the time threshold in the Analysis Specification, and
+        leaving a zero default allows KPVs to be accumulated below the event
+        threshold limit and these are useful for changing thresholds in the
+        future. The facility is only intended for systems with continuous
+        nuisance levels of operation which would swamp the database if not
+        filtered before creating the KPV.
 
         :param array: The input parameter, with data and sample rate
             information.

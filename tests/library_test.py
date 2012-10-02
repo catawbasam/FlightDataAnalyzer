@@ -2442,7 +2442,7 @@ class TestShiftSlice(unittest.TestCase):
         self.assertEqual(shift_slice(a, b), slice(11, 13, None))
 
     def test_shift_slice_too_short(self):
-        a = slice(3.3, 3.4, None)
+        a = slice(3.3, 3.4)
         b = 6
         self.assertEqual(shift_slice(a, b), None)
 
@@ -2457,9 +2457,13 @@ class TestShiftSlice(unittest.TestCase):
         self.assertEqual(shift_slice(a, b), slice(None, 28.0))
 
     def test_shift_slice_no_shift(self):
-        a = slice(2, 5, None)
+        a = slice(2, 5)
         self.assertEqual(shift_slice(a, 0), a)
         self.assertEqual(shift_slice(a, None), a)
+    
+    def test_shift_slice_len_1(self):
+        self.assertEqual(shift_slice(slice(82, 83), 413),
+                         slice(495, 496))
 
 
 class TestShiftSlices(unittest.TestCase):

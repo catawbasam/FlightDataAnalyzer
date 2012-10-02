@@ -367,5 +367,6 @@ if __name__ == '__main__':
     process_flight(hdf_copy, {'Tail Number': args.tail_number,
                               'Precise Positioning': True,
                               'Frame': args.frame,
+                              'Frame Qualifier': 'Altitude_Radio_EFIS',
                               },
                    draw=args.plot)

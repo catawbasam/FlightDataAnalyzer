@@ -80,7 +80,8 @@ class VelocitySpeed(object):
         elif self.weight_unit == 't':
             weight = aircraft_weight
         else:
-            raise ValueError, "Unrecognised weight units"
+            raise ValueError("Unrecognised weight units '%s'" %
+                             self.weight_unit)
 
         if setting not in lookup:
             logger.warning("Vspeed table '%s' does not have entries for '%s'",
@@ -88,7 +89,8 @@ class VelocitySpeed(object):
                            setting)
             return None
 
-        if weight not in range(lookup['weight'][0], lookup['weight'][-1]):
+        if weight < lookup['weight'][0] or \
+           weight > lookup['weight'][-1]:
             logger.warning("Weight of '%s' is outside of table range for '%s'",
                            weight,
                            self.__class__.__name__)

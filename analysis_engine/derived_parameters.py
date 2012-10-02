@@ -2337,7 +2337,36 @@ class Flap(DerivedParameterNode):
         else:
             self.array = step_values(flap.array, flap_steps)
         
-            
+  
+'''
+class SlatSurface(DerivedParameterNode):
+    """
+    """
+    s1f = M('Slat (1) Fully Extended'),
+    s1t = M('Slat (1) In Transit'),
+    s1m = M('Slat (1) Mid Extended'),
+
+    s1f = M('Slat (1) Fully Extended'),
+    s1t = M('Slat (1) In Transit'),
+    s1m = M('Slat (1) Mid Extended'),
+
+    s1f = M('Slat (1) Fully Extended'),
+    s1t = M('Slat (1) In Transit'),
+    s1m = M('Slat (1) Mid Extended'),
+
+    s1f = M('Slat (1) Fully Extended'),
+    s1t = M('Slat (1) In Transit'),
+    s1m = M('Slat (1) Mid Extended'),
+
+    s1f = M('Slat (1) Fully Extended'),
+    s1t = M('Slat (1) In Transit'),
+    s1m = M('Slat (1) Mid Extended'),
+    
+    s1f = M('Slat (1) Fully Extended'),
+    s1t = M('Slat (1) In Transit'),
+    s1m = M('Slat (1) Mid Extended'),
+'''
+
 class Slat(DerivedParameterNode):
     """
     Steps raw Slat angle into detents.
@@ -3044,7 +3073,9 @@ class LongitudeSmoothed(DerivedParameterNode, CoordinatesSmoothed):
     @classmethod
     def can_operate(cls, available):
         # List the minimum required parameters.
-        return 'Heading True Continuous' in available and 'Longitude Prepared' in available
+        return 'Heading True Continuous' in available and \
+               'Longitude Prepared' in available and \
+               'Takeoff' in available
     
     units = 'deg'
     
