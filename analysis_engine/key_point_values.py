@@ -1322,6 +1322,32 @@ class AltitudeAtLastFlapChangeBeforeLanding(KeyPointValueNode):
                 self.create_kpv(last_index, alt_last)
                 
 
+class AltitudeAtGearUpSelection(KeyPointValueNode):
+    '''
+    '''
+
+    name = 'Altitude AAL At Gear Up Selection'
+
+    def derive(self, alt_aal=P('Altitude AAL'),
+            gear_up_sel=KTI('Gear Up Selection')):
+        '''
+        '''
+        self.create_kpvs_at_ktis(alt_aal.array, gear_up_sel)
+
+
+class AltitudeAtGearDownSelection(KeyPointValueNode):
+    '''
+    '''
+
+    name = 'Altitude AAL At Gear Down Selection'
+
+    def derive(self, alt_aal=P('Altitude AAL'),
+            gear_dn_sel=KTI('Gear Down Selection')):
+        '''
+        '''
+        self.create_kpvs_at_ktis(alt_aal.array, gear_dn_sel)
+
+
 class AltitudeAtMachMax(KeyPointValueNode):
     name = 'Altitude At Mach Max'
     def derive(self, alt_std=P('Altitude STD'), max_mach=KPV('Mach Max')):
