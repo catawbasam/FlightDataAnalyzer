@@ -20,39 +20,41 @@ from hdfaccess.file import hdf_file
 logger = logging.getLogger(__name__)
 
 
-def geo_locate(hdf, kti_list):
-    """
+def geo_locate(hdf, items):
+    '''
     Translate KeyTimeInstance into GeoKeyTimeInstance namedtuples
-    """
+    '''
     if 'Latitude Smoothed' not in hdf \
        or 'Longitude Smoothed' not in hdf:
-        return kti_list
+        logger.warning("Could not geo-locate as either 'Latitude Smoothed' or "
+                       "'Longitude Smoothed' were not found within the hdf.")
+        return items
     
     lat_pos = derived_param_from_hdf(hdf, 'Latitude Smoothed')
     long_pos = derived_param_from_hdf(hdf, 'Longitude Smoothed')
     
-    for kti in kti_list:
-        kti.latitude = lat_pos.at(kti.index)
-        kti.longitude = long_pos.at(kti.index)
-    return kti_list
+    for item in items:
+        item.latitude = lat_pos.at(item.index)
+        item.longitude = long_pos.at(item.index)
+    return items
 
 
 def _timestamp(start_datetime, item_list):
-    """
+    '''
     Adds item.datetime (from timedelta of item.index + start_datetime)
     
     :param start_datetime: Origin timestamp used as a base to the index
     :type start_datetime: datetime
     :param item_list: list of objects with a .index attribute
     :type item_list: list
-    """
+    '''
     for item in item_list:
         item.datetime = start_datetime + timedelta(seconds=float(item.index))
     return item_list
 
 
 def derive_parameters(hdf, node_mgr, process_order):
-    """
+    '''
     Derives the parameter values and if limits are available, applies
     parameter validation upon each param before storing the resulting masked
     array back into the hdf file.
@@ -63,7 +65,7 @@ def derive_parameters(hdf, node_mgr, process_order):
     :type node_mgr: NodeManager
     :param process_order: Parameter / Node class names in the required order to be processed
     :type process_order: list of strings
-    """
+    '''
     params = {} # store all derived params that aren't masked arrays
     kpv_list = KeyPointValueNode() # duplicate storage, but maintaining types
     kti_list = KeyTimeInstanceNode()
@@ -208,8 +210,9 @@ def derive_parameters(hdf, node_mgr, process_order):
 
 
 def get_derived_nodes(module_names):
-    """ Get all nodes into a dictionary
-    """
+    '''
+    Get all nodes into a dictionary.
+    '''
     def isclassandsubclass(value, classinfo):
         return isclass(value) and issubclass(value, classinfo)
 
@@ -241,7 +244,7 @@ def get_derived_nodes(module_names):
 
 def process_flight(hdf_path, aircraft_info, start_datetime=datetime.now(),
                    achieved_flight_record={}, required_params=[], draw=False):
-    """
+    '''
     For development, the definitive API is located here:
         "PolarisTaskManagement.test.tasks_mask.process_flight"
         
@@ -279,7 +282,7 @@ def process_flight(hdf_path, aircraft_info, start_datetime=datetime.now(),
         'kpv':[KeyPointValue('index value name slice')]
     }
     
-    """
+    '''
     logger.info("Processing: %s", hdf_path)
     # go through modules to get derived nodes
     derived_nodes = get_derived_nodes(settings.NODE_MODULES)
@@ -327,8 +330,9 @@ def process_flight(hdf_path, aircraft_info, start_datetime=datetime.now(),
         # geo locate KTIs
         kti_list = geo_locate(hdf, kti_list)
         kti_list = _timestamp(start_datetime, kti_list)
-
-        # timestamp KPVs
+        
+        # geo locate KPVs
+        kpv_list = geo_locate(hdf, kpv_list)
         kpv_list = _timestamp(start_datetime, kpv_list)
         
         # Store version of FlightDataAnalyser and dependency tree in HDF file.
