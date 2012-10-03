@@ -1519,72 +1519,6 @@ class DistanceFromTouchdownToRunwayEnd(KeyPointValueNode):
                                                    lon_tdn.get_last().value)
         self.create_kpv(tdwns.get_last().index, distance_to_tdn)
     
-"""
-class DistanceUnderMediumBrakingToRunwayEnd(KeyPointValueNode):
-    '''
-    Finds the distance from the 0.1g ltouchdown point to the end of the runway
-    hardstanding. This only operates for the last landing, and previous touch
-    and goes will not be recorded.
-    '''
-    units = 'm'
-    def derive(self, gspd=P('Groundspeed'), landings=S('Landing'),
-               lat=P('Latitude Smoothed'),lon=P('Longitude Smoothed'),
-               rwy=A('FDR Landing Runway')):
-        if rwy.value:
-            for landing in landings:
-                index, braking_distance = braking_action(gspd, landing, 
-                                                               MU_MEDIUM)
-                limit_index = index + landing.slice.start
-                distance_at_limit = runway_distance_from_end(\
-                    rwy.value, lat.array[limit_index], lon.array[limit_index])
-                distance_at_stop = distance_at_limit - braking_distance
-                self.create_kpv(limit_index, distance_at_stop)
-    
-class DistanceUnderPoorBrakingToRunwayEnd(KeyPointValueNode):
-    units = 'm'
-    def derive(self, gspd=P('Groundspeed'), landings=S('Landing'),
-               lat=P('Latitude Smoothed'),lon=P('Longitude Smoothed'),
-               rwy=A('FDR Landing Runway')):
-        if rwy.value:
-            for landing in landings:
-                index, braking_distance = braking_action(gspd, landing,
-                                                               MU_POOR)
-                limit_index = index + landing.slice.start
-                distance_at_limit = runway_distance_from_end(\
-                    rwy.value, lat.array[limit_index], lon.array[limit_index])
-                distance_at_stop = distance_at_limit - braking_distance
-                self.create_kpv(limit_index, distance_at_stop)
-    
-class DistanceUnderGoodBrakingToRunwayEnd(KeyPointValueNode):
-    units = 'm'
-    def derive(self, gspd=P('Groundspeed'), landings=S('Landing'),
-               lat=P('Latitude Smoothed'),lon=P('Longitude Smoothed'),
-               rwy=A('FDR Landing Runway')):
-        if rwy.value:
-            for landing in landings:
-                index, braking_distance = braking_action(gspd, landing,
-                                                               MU_GOOD)
-                limit_index = index + landing.slice.start
-                distance_at_limit = runway_distance_from_end(\
-                    rwy.value, lat.array[limit_index], lon.array[limit_index])
-                distance_at_stop = distance_at_limit - braking_distance
-                self.create_kpv(limit_index, distance_at_stop)
-    
-
-class MinimumMuToBrakeOnRunway(KeyPointValueNode):
-    def derive(self, gspd=P('Groundspeed'), tdwns=S('Touchdown'),
-               lat=P('Latitude Smoothed'),lon=P('Longitude Smoothed'),
-               rwy=A('FDR Landing Runway')):
-        if rwy.value:
-            for tdwn in tdwns:
-                index = tdwn.index
-                tdn_lat = value_at_index(lat.array, index)
-                tdn_lon = value_at_index(lon.array, index)
-                distance_at_tdn = runway_distance_from_end(rwy.value, tdn_lat, tdn_lon)
-                speed = value_at_index(gspd.array, index) * KTS_TO_MPS
-                mu = (speed*speed) / (2.0 * GRAVITY_METRIC * distance_at_tdn)
-                self.create_kpv(index, mu)
-"""
 
 class DecelerationToStopOnRunway(KeyPointValueNode):
     '''
@@ -1660,15 +1594,15 @@ class DecelerateToStopOnRunwayDuration(KeyPointValueNode):
                rwy=A('FDR Landing Runway'),
                ils_gs_apps=S('ILS Glideslope Established'),
                ils_loc_apps=S('ILS Localizer Established'),
-               precise=A('Precise Positioning')):
+               precise=A('Precise Positioning'),
+               turnoff=KTI('Landing Turn Off Runway')):
         if ambiguous_runway(rwy):
             return
         last_tdwn = tdwns.get_last()
         if not last_tdwn:
             return
-        index = last_tdwn.index
         for landing in landings:
-            if not is_index_within_slice(index, landing.slice):
+            if not is_index_within_slice(last_tdwn.index, landing.slice):
                 continue
             # Was this an ILS approach where the glideslope was captured?
             ils_approach = False
@@ -1678,26 +1612,33 @@ class DecelerateToStopOnRunwayDuration(KeyPointValueNode):
                 for ils_gs_app in ils_gs_apps:
                     if slices_overlap(ils_loc_app.slice, ils_gs_app.slice):
                         ils_approach = True
+            # When did we turn off the runway?
+            last_turnoff = turnoff.get_last()
+            if not is_index_within_slice(last_turnoff.index, landing.slice):
+                continue
+            # So the period of interest is...
+            land_roll = slice(last_tdwn.index, last_turnoff.index)
             # So for captured ILS approaches or aircraft with precision location we can compute the deceleration required.
             if precise.value or ils_approach:
-                speed = gspd.array[index:landing.slice.stop] * KTS_TO_MPS
+                speed = gspd.array[land_roll] * KTS_TO_MPS
                 if precise.value:
                     _, dist_to_end = bearings_and_distances(
-                        lat.array[index:landing.slice.stop],
-                        lon.array[index:landing.slice.stop],
+                        lat.array[land_roll],
+                        lon.array[land_roll],
                         rwy.value['end'])
                     time_to_end = dist_to_end / speed
                 else:
                     distance_at_tdn = runway_distance_from_end(
                         rwy.value, lat_tdn.get_last().value,
                         lon_tdn.get_last().value)
-                    dist_from_td = integrate(
-                        gspd.array[index:landing.slice.stop], gspd.hz,
-                        scale=KTS_TO_MPS)
+                    dist_from_td = integrate(gspd.array[land_roll], 
+                                             gspd.hz, scale=KTS_TO_MPS)
                     time_to_end = (distance_at_tdn - dist_from_td) / speed
                 limit_point = np.ma.argmin(time_to_end)
+                if limit_point < 0.0: # Some error conditions lead to rogue negative results.
+                    continue
                 limit_time = time_to_end[limit_point]
-                self.create_kpv(limit_point + index, limit_time)
+                self.create_kpv(limit_point + last_tdwn.index, limit_time)
 
     
 class DistanceFrom60KtToRunwayEnd(KeyPointValueNode):
