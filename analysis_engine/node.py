@@ -24,9 +24,11 @@ from hdfaccess.parameter import MappedArray
 logger = logging.getLogger(name=__name__)
 
 # Define named tuples for KPV and KTI and FlightPhase
-KeyPointValue = recordtype('KeyPointValue', 'index value name slice datetime', 
+KeyPointValue = recordtype('KeyPointValue',
+                           'index value name slice datetime latitude longitude', 
                            field_defaults={'slice':slice(None)}, default=None)
-KeyTimeInstance = recordtype('KeyTimeInstance', 'index name datetime latitude longitude', 
+KeyTimeInstance = recordtype('KeyTimeInstance',
+                             'index name datetime latitude longitude', 
                              default=None)
 Section = namedtuple('Section', 'name slice start_edge stop_edge') #Q: rename mask -> slice/section
 
