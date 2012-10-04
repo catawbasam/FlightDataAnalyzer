@@ -1007,14 +1007,15 @@ class AltitudeTail(DerivedParameterNode):
     def derive(self, alt_rad=P('Altitude Radio'), pitch=P('Pitch'),
                ground_to_tail=A('Ground To Lowest Point Of Tail'),
                dist_gear_to_tail=A('Main Gear To Lowest Point Of Tail')):
-        # Align the pitch attitude samples to the Radio Altimeter samples,
-        # ready for combining them.
         pitch_rad = pitch.array*deg2rad
         # Now apply the offset
         gear2tail = dist_gear_to_tail.value * METRES_TO_FEET
         ground2tail = ground_to_tail.value * METRES_TO_FEET
-        self.array = \
-            (alt_rad.array + ground2tail - np.ma.sin(pitch_rad)*gear2tail)
+        # Prepare to add back in the negative rad alt reading as the aircraft
+        # settles on its oleos
+        min_rad = np.ma.min(alt_rad.array)
+        self.array = (alt_rad.array + ground2tail - 
+                      np.ma.sin(pitch_rad)*gear2tail - min_rad)
 
 
 class ClimbForFlightPhases(DerivedParameterNode):

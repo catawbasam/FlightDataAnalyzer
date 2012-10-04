@@ -825,9 +825,11 @@ class Landing(FlightPhaseNode):
                                            LANDING_THRESHOLD_HEIGHT,
                                            slice(first, landing_run))
 
-            # The turn off the runway must lie within five minutes of the
-            # landing.
-            last = landing_run + (300 * head.frequency)
+            # The turn off the runway must lie within eight minutes of the
+            # landing. (We did use 5 mins, but found some landings on long
+            # runways where the turnoff did not happen for over 6 minutes
+            # after touchdown).
+            last = landing_run + (480 * head.frequency)
 
             # A crude estimate is given by the angle of turn
             landing_end = index_at_value(np.ma.abs(head.array-datum),

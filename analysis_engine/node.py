@@ -1328,7 +1328,7 @@ class KeyPointValueNode(FormattedNameNode):
         a name from applying a combination of replace_values and kwargs as 
         string formatting arguments to self.NAME_FORMAT. The KeyPointValue is
         appended to self.
-        
+
         :param index: Index of the KeyTimeInstance within the data relative to self.frequency.
         :type index: float (NB data may be interpolated hence use of float here)
         :param value: Value sourced at the index.
@@ -1341,28 +1341,46 @@ class KeyPointValueNode(FormattedNameNode):
         :rtype: KeyTimeInstance named tuple
         :raises KeyError: If a required string formatting key is not provided.
         :raises TypeError: If a string formatting argument is of the wrong type.
-        
+
         TODO: Add examples using interpolation values as kwargs.
         '''
         # There are a number of algorithms which return None for valid
-        # computations, so these conditions are only logged as information...
+        # computations, so these conditions are only logged as info...
         if index is None or value is None:
-            logger.info("'%s' cannot create KPV for index '%s' and value "
-                         "'%s'.", self.name, index, value)
+            msg = "'%s' cannot create KPV for index '%s' and value '%s'."
+            logger.info(msg, self.name, index, value)
             return
+
         # ...however where we should have raised an alert but the specific
         # threshold was masked needs to be a warning as this should not
         # happen.
         if value is np.ma.masked:
-            logger.warn("'%s' cannot create KPV at index '%s' as value is "
-                        "masked." % (self.name, index))
+            msg = "'%s' cannot create KPV at index '%s': Value is masked."
+            logger.warn(msg, self.name, index)
             return
+
+        value = float(value)
+
+        # We also should not create KPVs with infinite values as they don't
+        # really mean anything and cannot provide useful information.
+        if math.isinf(value):
+            msg = "'%s' cannot create KPV at index '%s': Value is infinite."
+            logger.error(msg, self.name, index)
+            return
+
+        # And we also shouldn't create KPVs where the value is not a number as
+        # it causes other things to fail and should not happen anyway.
+        if math.isnan(value):
+            msg = "'%s' cannot create KPV at index '%s': Value is NaN."
+            logger.error(msg, self.name, index)
+            return
+
         name = self.format_name(replace_values, **kwargs)
-        kpv = KeyPointValue(index, float(value), name)
+        kpv = KeyPointValue(index, value, name)
         self.append(kpv)
-        self.debug("KPV %s" %kpv)
+        self.debug('KPV %s' % kpv)
         return kpv
-    
+
     def get_aligned(self, param):
         '''
         :param param: Node to align this KeyPointValueNode to.
