@@ -300,6 +300,13 @@ def process_flight(hdf_path, aircraft_info, start_datetime=datetime.now(),
         
     # open HDF for reading
     with hdf_file(hdf_path) as hdf:
+        if hooks.PRE_FLIGHT_ANALYSIS:
+            logger.info("Performing PRE_FLIGHT_ANALYSIS actions: %s", 
+                         hooks.PRE_FLIGHT_ANALYSIS.func_name)
+            hooks.PRE_FLIGHT_ANALYSIS(hdf, aircraft_info)
+        else:
+            logger.info("No PRE_FLIGHT_ANALYSIS actions to perform")        
+        
         # Track nodes. Assume that all params in HDF are from LFL(!)
         node_mgr = NodeManager(start_datetime, hdf.valid_param_names(),
                                required_params, derived_nodes, aircraft_info,
@@ -313,15 +320,8 @@ def process_flight(hdf_path, aircraft_info, start_datetime=datetime.now(),
                     qty = len(gr_st.predecessors(node))
                     if qty > settings.CACHE_PARAMETER_MIN_USAGE:
                         hdf.cache_param_list.append(node)
-            logging.info("HDF set to cache parameters: %s", hdf.cache_param_list)
-            
-                    
-        if hooks.PRE_FLIGHT_ANALYSIS:
-            logger.info("Performing PRE_FLIGHT_ANALYSIS actions: %s", 
-                         hooks.PRE_FLIGHT_ANALYSIS.func_name)
-            hooks.PRE_FLIGHT_ANALYSIS(hdf, aircraft_info, process_order)
-        else:
-            logger.info("No PRE_FLIGHT_ANALYSIS actions to perform")
+            logging.info("HDF set to cache parameters: %s",
+                         hdf.cache_param_list)
         
         # derive parameters
         kti_list, kpv_list, section_list, flight_attrs = derive_parameters(
