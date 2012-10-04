@@ -2340,6 +2340,12 @@ def blend_two_parameters(param_one, param_two):
     :type offset: Float (sec)
     
     '''
+    if param_one == None:
+        return param_two.array, param_two.frequency, param_two.offset
+
+    if param_two == None:
+        return param_one.array, param_one.frequency, param_one.offset
+
     assert param_one.frequency == param_two.frequency
     
     # A common problem is that one sensor may be unserviceable, and has been
