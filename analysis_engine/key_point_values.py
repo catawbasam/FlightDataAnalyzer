@@ -1571,7 +1571,7 @@ class DecelerationToStopOnRunway(KeyPointValueNode):
                 self.create_kpv(index, mu)
 
 
-class DecelerateToStopOnRunwayDuration(KeyPointValueNode):
+class RunwayOverrunWithoutSlowingDuration(KeyPointValueNode):
     '''
     This determines the minimum time that the aircraft will take to reach the
     end of the runway without further braking. It takes into account the
