@@ -219,7 +219,7 @@ class GoAroundGearRetracted(KeyTimeInstanceNode):
         
 
 class TopOfClimb(KeyTimeInstanceNode):
-    def derive(self, alt_std=P('Altitude STD'), 
+    def derive(self, alt_std=P('Altitude STD Smoothed'), 
                ccd=S('Climb Cruise Descent')):
         # This checks for the top of climb in each 
         # Climb/Cruise/Descent period of the flight.
@@ -242,7 +242,7 @@ class TopOfClimb(KeyTimeInstanceNode):
 
 
 class TopOfDescent(KeyTimeInstanceNode):
-    def derive(self, alt_std=P('Altitude STD'), 
+    def derive(self, alt_std=P('Altitude STD Smoothed'), 
                ccd=S('Climb Cruise Descent')):
         # This checks for the top of descent in each 
         # Climb/Cruise/Descent period of the flight.

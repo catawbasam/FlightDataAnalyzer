@@ -117,7 +117,7 @@ class TestGoAround(unittest.TestCase):
                    #Parameter('Altitude Radio For Flight Phases',alt))
             
         #climb = ClimbForFlightPhases()
-        #climb.derive(Parameter('Altitude STD', alt), 
+        #climb.derive(Parameter('Altitude STD Smoothed', alt), 
                      #[Section('Fast',slice(0,len(alt),None))])
         
         goa = GoAround()

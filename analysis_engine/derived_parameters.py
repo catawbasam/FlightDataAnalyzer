@@ -36,6 +36,7 @@ from analysis_engine.library import (align,
                                      latitudes_and_longitudes,
                                      machtat2sat,
                                      merge_two_parameters,
+                                     moving_average,
                                      np_ma_ones_like,
                                      np_ma_masked_zeros_like,
                                      np_ma_zeros_like,
@@ -476,7 +477,7 @@ class AltitudeAAL(DerivedParameterNode):
 
     @classmethod
     def can_operate(cls, available):
-        return 'Altitude STD' in available and 'Fast' in available
+        return 'Altitude STD Smoothed' in available and 'Fast' in available
     
     def compute_aal(self, mode, alt_std, low_hb, high_gnd, alt_rad=None):
         
@@ -484,7 +485,7 @@ class AltitudeAAL(DerivedParameterNode):
 
         def shift_alt_std():
             '''
-            Return Altitude STD shifted relative to 0 for cases where we do not
+            Return Altitude STD Smoothed shifted relative to 0 for cases where we do not
             have a reliable Altitude Radio.
             '''
             pit = np.ma.min(alt_std)
@@ -535,14 +536,14 @@ class AltitudeAAL(DerivedParameterNode):
                         alt_std[begin_index:] - up_diff
         return alt_result
         
-    def derive(self, alt_std = P('Altitude STD'),
+    def derive(self, alt_std = P('Altitude STD Smoothed'),
                alt_rad = P('Altitude Radio'),
                speedies = S('Fast')):
         # Altitude Radio was taken as the prime reference to ensure the
         # minimum ground clearance passing peaks is accurately reflected.
         # However, when the Altitude Radio signal is sampled at a lower rate
-        # than the Altitude STD, this results in a lower sample rate for a
-        # primary analysis parameter, and this is why Altitude STD is now the
+        # than the Altitude STD Smoothed, this results in a lower sample rate for a
+        # primary analysis parameter, and this is why Altitude STD Smoothed is now the
         # primary reference.
         
         # alt_aal will be zero on the airfield, so initialise to zero.
@@ -802,30 +803,31 @@ class AltitudeRadio(DerivedParameterNode):
             raise DataFrameError(self.name, frame_name)
 
 
-class AltitudeSTD(DerivedParameterNode):
+class AltitudeSTDSmoothed(DerivedParameterNode):
     """
     :param frame: The frame attribute, e.g. '737-i'
     :type frame: An attribute
     
-    :returns Altitude STD as the mean between two valid sensors.
+    :returns Altitude STD Smoothed as a local average where the original source is unacceptable, but unchanged otherwise.
     :type parameter object.
     """
-    name = "Altitude STD"
+    name = "Altitude STD Smoothed"
     units = 'ft'
     align_to_first_dependency = False
     
-    def derive(self, frame = A('Frame'),
-               source_A = P('Altitude STD (1)'),
-               source_B = P('Altitude STD (2)')):
+    def derive(self, alt = P('Altitude STD'), frame = A('Frame')):
         
         frame_name = frame.value if frame else None
         
-        if frame_name in ['CRJ-700-900']:
-            # Alternate samples (1)&(2) are blended.
-            self.array, self.frequency, self.offset = \
-                blend_two_parameters(source_A, source_B)
+        if frame_name in ['737-6']:
+            # The altitude signal is measured in steps of 32 ft so needs
+            # smoothing. A 5-point Gaussian distribution was selected as a
+            # balance between smoothing effectiveness and excessive
+            # manipulation of the data.
+            gauss = [0.054488683, 0.244201343, 0.402619948, 0.244201343, 0.054488683]
+            self.array = moving_average(alt.array, window=5, weightings=gauss)
         else:
-            raise DataFrameError(self.name, frame_name)
+            self.array = alt.array
 
 
 '''
@@ -1023,7 +1025,7 @@ class ClimbForFlightPhases(DerivedParameterNode):
     This computes climb segments, and resets to zero as soon as the aircraft
     descends. Very useful for measuring climb after an aborted approach etc.
     """
-    def derive(self, alt_std=P('Altitude STD'), airs=S('Fast')):
+    def derive(self, alt_std=P('Altitude STD Smoothed'), airs=S('Fast')):
         self.array = np.ma.zeros(len(alt_std.array))
         repair_mask(alt_std.array) # Remove small sections of corrupt data
         for air in airs:
@@ -1038,7 +1040,7 @@ class DescendForFlightPhases(DerivedParameterNode):
     This computes descent segments, and resets to zero as soon as the aircraft
     climbs Used for measuring descents, e.g. following a suspected level bust.
     """
-    def derive(self, alt_std=P('Altitude STD'), airs=S('Fast')):
+    def derive(self, alt_std=P('Altitude STD Smoothed'), airs=S('Fast')):
         self.array = np.ma.zeros(len(alt_std.array))
         repair_mask(alt_std.array) # Remove small sections of corrupt data
         for air in airs:
@@ -3206,7 +3208,7 @@ class VerticalSpeedInertial(DerivedParameterNode):
     
     def derive(self, 
                az = P('Acceleration Vertical'),
-               alt_std = P('Altitude STD'),
+               alt_std = P('Altitude STD Smoothed'),
                alt_rad = P('Altitude Radio'),
                speed=P('Airspeed')):
 
@@ -3294,7 +3296,7 @@ class VerticalSpeed(DerivedParameterNode):
     (although in that case the data is delayed, and the aircraft cannot know
     the future altitudes!).    
     '''
-    def derive(self, alt_std=P('Altitude STD'), frame=A('Frame')):
+    def derive(self, alt_std=P('Altitude STD Smoothed'), frame=A('Frame')):
         frame_name = frame.value if frame else None
         
         if frame_name in ['Hercules', '146']:
@@ -3309,7 +3311,7 @@ class VerticalSpeedForFlightPhases(DerivedParameterNode):
     A simple and robust vertical speed parameter suitable for identifying
     flight phases. DO NOT use this for event detection.
     """
-    def derive(self, alt_std = P('Altitude STD')):
+    def derive(self, alt_std = P('Altitude STD Smoothed')):
         # This uses a scaled hysteresis parameter. See settings for more detail.
         threshold = HYSTERESIS_FPROC * max(1, rms_noise(alt_std.array))  
         # The max(1, prevents =0 case when testing with artificial data.

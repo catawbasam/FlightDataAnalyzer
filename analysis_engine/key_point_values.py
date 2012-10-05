@@ -1092,7 +1092,7 @@ class Airspeed10000ToLandMax(KeyPointValueNode):
     '''
     name = 'Airspeed Below 10000 Ft In Descent Max'
     def derive(self, airspeed=P('Airspeed'),
-               alt_std=P('Altitude STD'),
+               alt_std=P('Altitude STD Smoothed'),
                alt_qnh=P('Altitude QNH'),
                destination=A('FDR Landing Airport'), 
                descent=S('Descent')):
@@ -1130,7 +1130,7 @@ class AirspeedTODTo10000Max(KeyPointValueNode):
     '''
     name = 'Airspeed Top Of Descent To 10000 Ft Max'
     def derive(self, airspeed=P('Airspeed'),
-               alt_std=P('Altitude STD'), 
+               alt_std=P('Altitude STD Smoothed'), 
                alt_qnh=P('Altitude QNH'),
                destination = A('FDR Landing Airport'), 
                descent=S('Descent')):
@@ -1242,7 +1242,7 @@ class AirspeedLevelFlightMax(KeyPointValueNode):
 
 
 class AltitudeAtTouchdown(KeyPointValueNode):
-    def derive(self, alt_std=P('Altitude STD'), touchdowns=KTI('Touchdown')):
+    def derive(self, alt_std=P('Altitude STD Smoothed'), touchdowns=KTI('Touchdown')):
         self.create_kpvs_at_ktis(alt_std.array, touchdowns)
 
 
@@ -1276,7 +1276,7 @@ class AltitudeGoAroundGearRetracted(KeyPointValueNode):
 
 
 class AltitudeAtLiftoff(KeyPointValueNode):
-    def derive(self, alt_std=P('Altitude STD'), liftoffs=KTI('Liftoff')):
+    def derive(self, alt_std=P('Altitude STD Smoothed'), liftoffs=KTI('Liftoff')):
         self.create_kpvs_at_ktis(alt_std.array, liftoffs)
 
 
@@ -1350,14 +1350,14 @@ class AltitudeAtGearDownSelection(KeyPointValueNode):
 
 class AltitudeAtMachMax(KeyPointValueNode):
     name = 'Altitude At Mach Max'
-    def derive(self, alt_std=P('Altitude STD'), max_mach=KPV('Mach Max')):
+    def derive(self, alt_std=P('Altitude STD Smoothed'), max_mach=KPV('Mach Max')):
         # Aligns Altitude to Mach to ensure we have the most accurate
         # altitude reading at the point of Maximum Mach
         self.create_kpvs_at_kpvs(alt_std.array, max_mach)
 
 
 class AltitudeWithFlapsMax(KeyPointValueNode):
-    def derive(self, flap=P('Flap'), alt_std=P('Altitude STD'),
+    def derive(self, flap=P('Flap'), alt_std=P('Altitude STD Smoothed'),
                airs=S('Airborne')):
         '''
         The exceedance being detected here is the altitude reached with flaps
@@ -1383,7 +1383,7 @@ class AltitudeFlapExtensionMax(KeyPointValueNode):
 
         
 class AltitudeMax(KeyPointValueNode):
-    def derive(self, alt_std=P('Altitude STD'), airs=S('Airborne')):
+    def derive(self, alt_std=P('Altitude STD Smoothed'), airs=S('Airborne')):
         self.create_kpvs_within_slices(alt_std.array, airs, max_value)
 
 
@@ -1965,7 +1965,7 @@ class EngEPRToFL100Max(KeyPointValueNode):
     name = 'Eng EPR Up To FL100 Max'
 
     def derive(self, eng_epr_max=P('Eng (*) EPR Max'), 
-               alt_std=P('Altitude STD')):
+               alt_std=P('Altitude STD Smoothed')):
         '''
         '''
         self.create_kpvs_within_slices(
@@ -1983,7 +1983,7 @@ class EngEPRAboveFL100Max(KeyPointValueNode):
     name = 'Eng EPR Above FL100 Max'
 
     def derive(self, eng_epr_max=P('Eng (*) EPR Max'), 
-               alt_std=P('Altitude STD')):
+               alt_std=P('Altitude STD Smoothed')):
         '''
         '''
         self.create_kpvs_within_slices(
@@ -2569,7 +2569,7 @@ class EngTorqueToFL100Max(KeyPointValueNode):
     name = 'Eng Torque Up To FL100 Max'
 
     def derive(self, eng_trq_max=P('Eng (*) Torque Max'),
-               alt_std=P('Altitude STD')):
+               alt_std=P('Altitude STD Smoothed')):
         '''
         '''
         self.create_kpvs_within_slices(
@@ -2587,7 +2587,7 @@ class EngTorqueAboveFL100Max(KeyPointValueNode):
     name = 'Eng Torque Above FL100 Max'
 
     def derive(self, eng_trq_max=P('Eng (*) Torque Max'),
-               alt_std=P('Altitude STD')):
+               alt_std=P('Altitude STD Smoothed')):
         '''
         '''
         self.create_kpvs_within_slices(
@@ -2904,7 +2904,7 @@ class FlareDistance20FtToTouchdown(KeyPointValueNode):
 
 
 class AltitudeAtSuspectedLevelBust(KeyPointValueNode):
-    def derive(self, alt_std=P('Altitude STD')):
+    def derive(self, alt_std=P('Altitude STD Smoothed')):
         bust = 300 # ft
         bust_time = 3 * 60 # 3 mins
         
