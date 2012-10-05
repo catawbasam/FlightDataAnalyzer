@@ -3576,7 +3576,8 @@ class V2(DerivedParameterNode):
                 weight = weight_liftoff[0].value
                 setting = setting_param.array[index]
                 vspeed = vspeed_table.v2(weight, setting)
-                self.array[0:] = vspeed
+                if vspeed is not None:
+                    self.array[0:] = vspeed
             else:
                 # Aircraft doesnt use V2
                 self.array.mask = False

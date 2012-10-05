@@ -84,10 +84,11 @@ class VelocitySpeed(object):
                              self.weight_unit)
 
         if setting not in lookup:
-            logger.warning("Vspeed table '%s' does not have entries for '%s'",
+            msg = "Vspeed table '%s' does not have entries for '%s'" % (
                            self.__class__.__name__,
                            setting)
-            return None
+            logger.error(msg)
+            raise KeyError(msg)
 
         if weight < lookup['weight'][0] or \
            weight > lookup['weight'][-1]:
