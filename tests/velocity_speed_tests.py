@@ -28,7 +28,7 @@ class TestVelocitySpeed(unittest.TestCase):
         self.assertEquals(self.velocity_speed.v2(119000, 20), 129)
         self.assertEquals(self.velocity_speed.v2(120000, 20), 129)
         self.assertEquals(self.velocity_speed.v2(121000, 20), 134)
-        self.assertEquals(self.velocity_speed.v2(165000, 14), None)
+        self.assertRaises(KeyError, self.velocity_speed.v2, 165000, 14)
 
     def test_v2_interpolated(self):
         self.velocity_speed.interpolate = True
@@ -36,14 +36,14 @@ class TestVelocitySpeed(unittest.TestCase):
         self.assertEquals(self.velocity_speed.v2(120000, 20), 129)
         self.assertEquals(self.velocity_speed.v2(165000, 5), 163.5)
         self.assertEquals(self.velocity_speed.v2(94000, 20), None)
-        self.assertEquals(self.velocity_speed.v2(165000, 14), None)
+        self.assertRaises(KeyError, self.velocity_speed.v2, 165000, 14)
 
     def test_airspeed_reference(self):
         self.velocity_speed.interpolate = False
         self.assertEquals(self.velocity_speed.airspeed_reference(119000, 15), 122)
         self.assertEquals(self.velocity_speed.airspeed_reference(120000, 15), 122)
         self.assertEquals(self.velocity_speed.airspeed_reference(121000, 15), 129)
-        self.assertEquals(self.velocity_speed.airspeed_reference(121000, 14), None)
+        self.assertRaises(KeyError, self.velocity_speed.airspeed_reference, 121000, 14)
 
     def test_airspeed_reference_interpolated(self):
         self.velocity_speed.interpolate = True
@@ -51,7 +51,7 @@ class TestVelocitySpeed(unittest.TestCase):
         self.assertEquals(self.velocity_speed.airspeed_reference(120000, 15), 122)
         self.assertEquals(self.velocity_speed.airspeed_reference(145000, 20), 132.5)
         self.assertEquals(self.velocity_speed.airspeed_reference(94000, 20), None)
-        self.assertEquals(self.velocity_speed.airspeed_reference(165000, 14), None)
+        self.assertRaises(KeyError, self.velocity_speed.airspeed_reference, 165000, 14)
 
 
 def add_tests(generator):
