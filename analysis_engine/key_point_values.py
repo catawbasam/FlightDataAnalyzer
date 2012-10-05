@@ -2907,6 +2907,7 @@ class AltitudeAtSuspectedLevelBust(KeyPointValueNode):
     def derive(self, alt_std=P('Altitude STD Smoothed')):
         bust = 300 # ft
         bust_time = 3 * 60 # 3 mins
+        bust_length = bust_time * alt_std.frequency
         
         idxs, peaks = cycle_finder(alt_std.array, min_step=bust)
 
@@ -2925,14 +2926,23 @@ class AltitudeAtSuspectedLevelBust(KeyPointValueNode):
                     # The next one (index reduced to avoid running beyond end of
                     # data)
                     c=alt_std.array[idxs[num + 2] - 1] 
+                    idx_from = max(0, idxs[num + 1]-bust_length)
+                    idx_to = min(len(alt_std.array), idxs[num + 1]+bust_length)
                     if b>(a+c)/2:
-                        overshoot = min(b - a, b - c)
+                        # Include a scan over the preceding and following
+                        # bust_time in case the preceding or following peaks
+                        # were outside this timespan.
+                        alt_a = np.ma.min(alt_std.array[idx_from:idxs[num + 1]])
+                        alt_c = np.ma.min(alt_std.array[idxs[num + 1]:idx_to])
+                        overshoot = min(b-a, b-alt_a, b-alt_c, b-c)
                         if overshoot > 5000:
                             # This happens normally on short sectors
                             continue
                         self.create_kpv(idx, overshoot)
                     else:
-                        undershoot = max(b - a, b - c)
+                        alt_a = np.ma.max(alt_std.array[idx_from:idxs[num + 1]])
+                        alt_c = np.ma.max(alt_std.array[idxs[num + 1]:idx_to])
+                        undershoot = max(b-a, b-alt_a, b-alt_c, b-c)
                         self.create_kpv(idx, undershoot)
 
 
@@ -3942,13 +3952,6 @@ class StickShakerActivatedDuration(KeyPointValueNode):
             stick_shaker.hz,
             airs
         )
-
-        ##shakes = np.ma.clump_unmasked(
-            ##np.ma.masked_equal(stick_shaker.array, 0.0))
-        ##for shake in shakes:
-            ##index = shake.start
-            ##value = (shake.stop - shake.start) / stick_shaker.hz
-            ##self.create_kpv(index, value)
 
 
 class TailClearanceOnTakeoffMin(KeyPointValueNode):
