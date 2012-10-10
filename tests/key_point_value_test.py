@@ -623,7 +623,39 @@ class TestAltitudeAtSuspectedLevelBust(unittest.TestCase):
         kpv.derive(alt)
         expected=[]
         self.assertEqual(kpv,expected)
-    
+
+    def test_straight_up_and_down(self):
+        testwave = np.ma.array(range(0,10000,50)+range(10000,0,-50))
+        alt=Parameter('Altitude STD',testwave,1)
+        kpv=AltitudeAtSuspectedLevelBust()
+        kpv.derive(alt)
+        expected=[]
+        self.assertEqual(kpv,expected)
+        
+    def test_up_and_down_with_overshoot(self):
+        testwave = np.ma.array(range(0,10000,50)+range(10000,9000,-50)+[9000]*200+range(9000,0,-50))
+        alt=Parameter('Altitude STD',testwave,1)
+        kpv=AltitudeAtSuspectedLevelBust()
+        kpv.derive(alt)
+        expected=[KeyPointValue(index=200, value=1000, 
+                                name='Altitude At Suspected Level Bust', 
+                                slice=slice(None, None, None), datetime=None)] 
+        self.assertEqual(kpv,expected)
+
+    def test_up_and_down_with_undershoot(self):
+        testwave = np.ma.array(range(0,10000,50)+
+                               [10000]*200+
+                               range(10000,9000,-50)+
+                               range(9000,20000,50)+
+                               range(20000,0,-50))
+        alt=Parameter('Altitude STD',testwave,1)
+        kpv=AltitudeAtSuspectedLevelBust()
+        kpv.derive(alt)
+        expected=[KeyPointValue(index=420, value=-1000, 
+                                name='Altitude At Suspected Level Bust', 
+                                slice=slice(None, None, None), datetime=None)]
+        self.assertEqual(kpv,expected)
+              
     
 """
 class TestAPEngaged1AtLiftoff(unittest.TestCase, CreateKPVsAtKTIsTest):

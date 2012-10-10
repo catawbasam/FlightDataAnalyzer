@@ -1645,7 +1645,7 @@ class KeyPointValueNode(FormattedNameNode):
                 index = event.start
                 value = (event.stop - event.start) / hz
                 if value >= min_duration:
-                    self.create_kpv(index, value)
+                    self.create_kpv(index + start_index, value)
             return
 
         # High level function scans phase blocks or complete array and presents
