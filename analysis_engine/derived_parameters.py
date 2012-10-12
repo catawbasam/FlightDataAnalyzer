@@ -3490,6 +3490,18 @@ class ThrustReversers(MultistateDerivedParameterNode):
         else:
             raise DataFrameError(self.name, frame_name)
 
+
+class TurbulenceRMSG(DerivedParameterNode):
+    """
+    Simple RMS g measurement of turbulence over a 10-second period
+    """
+    name = 'Turbulence RMS g'
+    def derive(self, acc=P('Acceleration Vertical')):
+        acc_sq = (acc.array - 1.0)**2.0
+        mean_sq = moving_average(acc_sq, window=acc.frequency*10.0)
+        self.array = np.ma.sqrt(mean_sq)
+
+
 #------------------------------------------------------------------
 # WIND RELATED PARAMETERS
 #------------------------------------------------------------------
