@@ -4433,6 +4433,29 @@ class TouchdownTo60KtsDuration(KeyPointValueNode):
                 t__60kt = (index_60kt - tdwn.index) / freq
                 self.create_kpv(index_60kt, t__60kt)
             
+            
+class TurbulenceInApproachMax(KeyPointValueNode):
+    def derive(self, turb = P('Turbulence RMS g'), apps=S('Approach')):
+        for app in apps:
+            index = np.ma.argmax(turb.array[app.slice]) + app.slice.start
+            value = turb.array[index]
+            self.create_kpv(index, value)
+            
+
+class TurbulenceInCruiseMax(KeyPointValueNode):
+    def derive(self, turb = P('Turbulence RMS g'), cruises=S('Cruise')):
+        for cruise in cruises:
+            index = np.ma.argmax(turb.array[cruise.slice]) + cruise.slice.start
+            value = turb.array[index]
+            self.create_kpv(index, value)
+
+
+class TurbulenceInFlightMax(KeyPointValueNode):
+    def derive(self, turb = P('Turbulence RMS g'), airs=S('Airborne')):
+        for air in airs:
+            index = np.ma.argmax(turb.array[air.slice]) + air.slice.start
+            value = turb.array[index]
+            self.create_kpv(index, value)
 
 
 class WindSpeedInDescent(KeyPointValueNode):
