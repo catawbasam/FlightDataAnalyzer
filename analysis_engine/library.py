@@ -2771,7 +2771,7 @@ def rate_of_change_array(to_diff, hz, width):
     hw = int(width * hz / 2.0)
     if hw < 1:
         raise ValueError('Rate of change called with inadequate width.')
-    if len(to_diff) < width:
+    if len(to_diff) < hw:
         logger.warn("Rate of change called with short data segment. Zero rate "
                     "returned")
         return np_ma_zeros_like(to_diff)
