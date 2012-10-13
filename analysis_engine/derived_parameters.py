@@ -3497,10 +3497,14 @@ class TurbulenceRMSG(DerivedParameterNode):
     """
     name = 'Turbulence RMS g'
     def derive(self, acc=P('Acceleration Vertical')):
-        acc_sq = (acc.array - 1.0)**2.0
-        mean_sq = moving_average(acc_sq, window=int(acc.frequency*5+1))
-        self.array = np.ma.sqrt(mean_sq)
-
+        width=int(acc.frequency*5+1)
+        mean = moving_average(acc.array, window=width)
+        acc_sq = (acc.array)**2.0
+        n__sum_sq = moving_average(acc_sq, window=width)
+        # Rescaling required as moving average is over width samples, whereas
+        # we have only width - 1 gaps; fences and fence posts again !
+        core = (n__sum_sq - mean**2.0)*width/(width-1.0)
+        self.array = np.ma.sqrt(core)
 
 #------------------------------------------------------------------
 # WIND RELATED PARAMETERS
