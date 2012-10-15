@@ -68,6 +68,7 @@ from analysis_engine.derived_parameters import (
     VerticalSpeed,
     VerticalSpeedForFlightPhases,
     RateOfTurn,
+    TurbulenceRMSG,
     V2,
     WindAcrossLandingRunway,
 )
@@ -2353,6 +2354,17 @@ class TestThrustReversers(unittest.TestCase):
     def test_derive(self):
         self.assertTrue(False, msg='Test not implemented.')
 
+class TestTurbulence(unittest.TestCase):
+    def test_can_operate(self):
+        self.assertTrue(False, msg='Test not implemented.')
+
+    def test_derive(self):
+        accel = np.ma.array([1]*40+[2]+[1]*40)
+        turb = TurbulenceRMSG()
+        turb.derive(P('Acceleration Vertical', accel, frequency=8))
+        expected = np.array([0]*20+[0.156173762]*41+[0]*20)
+        np.testing.assert_array_almost_equal(expected, turb.array.data)
+        
 
 class TestVOR1Frequency(unittest.TestCase):
     def test_can_operate(self):
