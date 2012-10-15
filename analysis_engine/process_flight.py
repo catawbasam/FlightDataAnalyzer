@@ -336,7 +336,7 @@ def process_flight(hdf_path, aircraft_info, start_datetime=datetime.now(),
         kpv_list = _timestamp(start_datetime, kpv_list)
         
         # Store version of FlightDataAnalyser and dependency tree in HDF file.
-        hdf.version = __version__
+        hdf.analysis_version = __version__
         hdf.dependency_tree = graph_adjacencies(gr_st)
         
     ##if draw:
