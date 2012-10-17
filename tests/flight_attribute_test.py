@@ -4,6 +4,7 @@ import unittest
 from datetime import datetime, timedelta
 from mock import Mock, patch
 
+from analysis_engine import __version__
 from analysis_engine.api_handler import NotFoundError
 from analysis_engine.node import (A, KeyPointValue, KeyTimeInstance, KPV, KTI,
                                   P, S, Section)
@@ -29,18 +30,12 @@ from analysis_engine.flight_attribute import (
     TakeoffFuel,
     TakeoffGrossWeight,
     TakeoffRunway,
+    Version,
 )
 
 
 class TestApproaches(unittest.TestCase):
     def test_can_operate(self):
-        ['Start Datetime',
-         'Approach',
-         'Altitude AAL',
-         'Latitude At Lowest Point On Approach',
-         'Longitude At Lowest Point On Approach',
-         'Latitude At Landing',
-         'Longitude At Landing']
         # Can operate with all required parameters.
         self.assertTrue(Approaches.can_operate(\
             ['Start Datetime',
@@ -1229,8 +1224,12 @@ class TestAnalysisDatetime(unittest.TestCase):
 
 class TestVersion(unittest.TestCase):
     def test_can_operate(self):
-        self.assertTrue(False, msg='Test not implemented.')
+        self.assertEqual(Version.get_operational_combinations(),
+                         [('Start Datetime',)])
         
     def test_derive(self):
-        self.assertTrue(False, msg='Test not implemented.')
+        version = Version()
+        version.set_flight_attr = Mock()
+        version.derive()
+        version.set_flight_attr.assert_called_once_wth(__version__)
 
