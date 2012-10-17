@@ -228,6 +228,63 @@ class TestAlign(unittest.TestCase):
                                      True ,False,False,False])
         ma_test.assert_masked_array_approx_equal(result, answer)
 
+
+    def test_align_atr_problem_replicated(self):
+        # AeroTech Research data showed up a specific problem simuated by this test.
+    
+        def zero_ends_error(array, air_time):
+            result = np_ma_masked_zeros_like(array)
+            result[air_time] = repair_mask(array[air_time])
+            return result
+    
+        class DumParam():
+            def __init__(self):
+                self.data_type = None
+                self.offset = None
+                self.frequency = 1
+                self.array = []
+        master = DumParam()
+        master.array = np.ma.array([1.0]*48) # 6 seconds
+        master.frequency = 8
+        master.offset = 0.00390625
+        slave = DumParam()
+        slave.array = np.ma.array([12,12,669684.84,668877.65,12,12],dtype=float)
+        slave.array[2:4] = np.ma.masked
+        slave.frequency = 1
+        slave.offset = 0.66796875
+        result = zero_ends_error(align(slave, master),slice(6,42))
+        answer = np.ma.array(data = [12.0]*48,
+                             mask = [True]*6+[False]*8+[True]*24+[False]*4+[True]*6)
+        ma_test.assert_masked_array_approx_equal(result, answer)
+      
+    def test_align_atr_problem_corrected(self):
+        # AeroTech Research data showed up a specific problem simuated by this test.
+
+        def zero_ends_correct(array, air_time):
+            result = np_ma_masked_zeros_like(array)
+            result[air_time] = repair_mask(array[air_time], frequency=8)
+            return result
+
+        class DumParam():
+            def __init__(self):
+                self.data_type = None
+                self.offset = None
+                self.frequency = 1
+                self.array = []
+        master = DumParam()
+        master.array = np.ma.array([1.0]*48) # 6 seconds
+        master.frequency = 8
+        master.offset = 0.00390625
+        slave = DumParam()
+        slave.array = np.ma.array([12,12,669684.84,668877.65,12,12],dtype=float)
+        slave.array[2:4] = np.ma.masked
+        slave.frequency = 1
+        slave.offset = 0.66796875
+        result = zero_ends_correct(align(slave, master),slice(6,42))
+        answer = np.ma.array(data = [12.0]*48,
+                             mask = [True]*6+[False]*36+[True]*6)
+        ma_test.assert_masked_array_approx_equal(result, answer)
+                             
     def test_align_increasing_hz_extreme(self):
         # Master at higher frequency than slave
         class DumParam():
