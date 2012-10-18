@@ -5,6 +5,8 @@ from analysis_engine.library import (hysteresis,
                                      is_index_within_slice,
                                      minimum_unmasked,
                                      slices_above,
+                                     slices_not,
+                                     slices_and,
                                      max_value, 
                                      peak_curvature,
                                      touchdown_inertial)
@@ -213,7 +215,7 @@ class GoAroundFlapRetracted(KeyTimeInstanceNode):
         self.create_ktis_at_edges(flap.array, direction='falling_edges', phase=gas)
         
 
-class GoAroundGearRetracted(KeyTimeInstanceNode):
+class GoAroundGearSelectedUp(KeyTimeInstanceNode):
     def derive(self, gear=M('Gear Down'), gas=S('Go Around And Climbout')):
         self.create_ktis_on_state_change('Up', gear.array, change='entering', phase=gas)
         
@@ -282,8 +284,21 @@ class GearDownSelection(KeyTimeInstanceNode):
         
 
 class GearUpSelection(KeyTimeInstanceNode):
-    def derive(self, gear_sel_up=M('Gear Up Selected'), phase=S('Airborne')):
-        self.create_ktis_on_state_change('Up', gear_sel_up.array, change='entering', phase=phase)    
+    '''
+    This covers normal gear up selections, not during a go-around. 
+    See "Go Around Gear Retracted" for Go-Around case.
+    '''
+    def derive(self, gear_sel_up=M('Gear Up Selected'), airs=S('Airborne'),
+               gas=S('Go Around And Climbout')):
+        air_slices = airs.get_slices()
+        ga_slices = gas.get_slices()
+        air_not_ga = slices_and(air_slices,
+                                slices_not(ga_slices, 
+                                           begin_at=air_slices[0].start,
+                                           end_at = air_slices[-1].stop))
+        good_phases = S() # s = SectionNode()
+        good_phases.create_sections(air_not_ga)
+        self.create_ktis_on_state_change('Up', gear_sel_up.array, change='entering', phase=airs)    
 
 
 class TakeoffTurnOntoRunway(KeyTimeInstanceNode):

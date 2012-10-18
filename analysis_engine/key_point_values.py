@@ -1268,11 +1268,29 @@ class AltitudeGoAroundFlapRetracted(KeyPointValueNode):
         self.create_kpvs_at_ktis(alt_aal.array,gafr)
 
 
-class AltitudeGoAroundGearRetracted(KeyPointValueNode):
+class AltitudeAGAGearSelectedUp(KeyPointValueNode):
+    
+    name = 'Altitude Above Go Around Minimum Gear Selected Up'
+    
     # gagr pinpoints the gear retraction instance within the 500ft go-around window.
+
     def derive(self, alt_aal=P('Altitude AAL'), 
-               gagr=KTI('Go Around Gear Retracted')):
-        self.create_kpvs_at_ktis(alt_aal.array,gagr)
+               gas=S('Go Around And Climbout'),
+               gear_ups = KTI('Go Around Gear Selected Up')):
+        for ga in gas:
+            # Find the index and height at this go-around minimum.
+            pit_index = np.ma.argmin(alt_aal.array[ga.slice])
+            pit = alt_aal.array[ga.slice.start + pit_index]
+            for gear_up in gear_ups:
+                # Check this gear selected up matches the go-around in question
+                if is_index_within_slice(gear_up.index, ga.slice):
+                    # Did we raise the gear after the minimum height?
+                    if gear_up.index > pit_index:
+                        gear_up_ht = alt_aal.array[gear_up.index] - pit
+                    else:
+                        # Show zero if selected up before minimum height
+                        gear_up_ht = 0.0
+                    self.create_kpv(gear_up.index,gear_up_ht)
 
 
 class AltitudeAtLiftoff(KeyPointValueNode):
