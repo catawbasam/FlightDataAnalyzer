@@ -8,6 +8,15 @@ from analysis_engine.node import A, KTI, KPV, FlightAttributeNode, P, S
 from analysis_engine.settings import CONTROLS_IN_USE_TOLERANCE, API_HANDLER
 
 
+# Exceptions
+################################################################################
+
+class InvalidFlightType(Exception):
+    def __init__(self, flight_type):
+        self.flight_type = flight_type
+        super(InvalidFlightType, self).__init__(flight_type)
+
+
 class AnalysisDatetime(FlightAttributeNode):
     "Datetime flight was analysed (local datetime)"
     name = 'FDR Analysis Datetime'
@@ -717,6 +726,22 @@ class FlightType(FlightAttributeNode):
     "Type of flight flown"
     name = 'FDR Flight Type'
     
+    class Type(object):
+        '''
+        Type of flight.
+        '''
+        COMMERCIAL = 'COMMERCIAL'
+        COMPLETE = 'COMPLETE'
+        INCOMPLETE = 'INCOMPLETE'
+        ENGINE_RUN_UP = 'ENGINE_RUN_UP'
+        GROUND_RUN = 'GROUND_RUN'
+        REJECTED_TAKEOFF = 'REJECTED_TAKEOFF'
+        TEST = 'TEST'
+        TRAINING = 'TRAINING'
+        FERRY = 'FERRY'
+        POSITIONING = 'POSITIONING'
+        LINE_TRAINING = 'LINE_TRAINING'
+    
     @classmethod
     def can_operate(self, available):
         return all(n in available for n in ['Fast', 'Liftoff', 'Touchdown'])
@@ -724,55 +749,60 @@ class FlightType(FlightAttributeNode):
     def derive(self, afr_type=A('AFR Type'), fast=S('Fast'),
                liftoffs=KTI('Liftoff'), touchdowns=KTI('Touchdown'),
                touch_and_gos=S('Touch And Go'), groundspeed=P('Groundspeed')):
+        '''
+        TODO: Detect MID_FLIGHT.
+        '''
         afr_type = afr_type.value if afr_type else None
         
         if liftoffs and not touchdowns:
             # In the air without having touched down.
-            self.warning("'Liftoff' KTI exists without 'Touchdown'. '%s' "
-                            "will be 'INCOMPLETE'.", self.name)
-            self.set_flight_attr('LIFTOFF_ONLY')
-            return
+            self.warning("'Liftoff' KTI exists without 'Touchdown'.")
+            raise InvalidFlightType('LIFTOFF_ONLY')
+            #self.set_flight_attr('LIFTOFF_ONLY')
+            #return
         elif not liftoffs and touchdowns:
             # In the air without having lifted off.
-            self.warning("'Touchdown' KTI exists without 'Liftoff'. '%s' "
-                            "will be 'INCOMPLETE'.", self.name)
-            self.set_flight_attr('TOUCHDOWN_ONLY')
-            return
+            self.warning("'Touchdown' KTI exists without 'Liftoff'.")
+            raise InvalidFlightType('TOUCHDOWN_ONLY')
+            #self.set_flight_attr('TOUCHDOWN_ONLY')
+            #return
         
         if liftoffs and touchdowns:
             first_touchdown = touchdowns.get_first()
             first_liftoff = liftoffs.get_first()
             if first_touchdown.index < first_liftoff.index:
                 # Touchdown before having lifted off, data must be INCOMPLETE.
-                self.warning("'Touchdown' KTI index before 'Liftoff'. '%s' "
-                                "will be 'INCOMPLETE'.", self.name)
-                self.set_flight_attr('TOUCHDOWN_BEFORE_LIFTOFF')
-                return
+                self.warning("'Touchdown' KTI index before 'Liftoff'.")
+                raise InvalidFlightType('TOUCHDOWN_BEFORE_LIFTOFF')
+                #self.set_flight_attr('TOUCHDOWN_BEFORE_LIFTOFF')
+                #return
             last_touchdown = touchdowns.get_last()
             if touch_and_gos:
                 last_touchdown = touchdowns.get_last()
                 last_touch_and_go = touch_and_gos.get_last()
                 if last_touchdown.index <= last_touch_and_go.index:
                     self.warning("A 'Touch And Go' KTI exists after the last "
-                                    "'Touchdown'. '%s' will be 'INCOMPLETE'.",
-                                    self.name)
-                    self.set_flight_attr('LIFTOFF_ONLY')
-                    return
+                                 "'Touchdown'.")
+                    raise InvalidFlightType('LIFTOFF_ONLY')
+                    #self.set_flight_attr('LIFTOFF_ONLY')
+                    #return
             
-            if afr_type in ['FERRY', 'LINE_TRAINING', 'POSITIONING' 'TEST',
-                            'TRAINING']:
+            if afr_type in [FlightType.Type.FERRY,
+                            FlightType.Type.LINE_TRAINING,
+                            FlightType.Type.POSITIONING,
+                            FlightType.Type.TEST,
+                            FlightType.Type.TRAINING]:
                 flight_type = afr_type
             else:
-                flight_type = 'COMPLETE'
-            self.set_flight_attr(flight_type)
+                flight_type = FlightType.Type.COMPLETE
         elif fast:
-            self.set_flight_attr('REJECTED_TAKEOFF')
+            flight_type = FlightType.Type.REJECTED_TAKEOFF
         elif groundspeed and groundspeed.array.ptp() > 10:
             # The aircraft moved on the ground.
-            self.set_flight_attr('GROUND_RUN')
+            flight_type = FlightType.Type.GROUND_RUN
         else:
-            self.set_flight_attr('ENGINE_RUN_UP')
-
+            flight_type = FlightType.Type.ENGINE_RUN_UP
+        self.set_flight_attr(flight_type)
 
 #Q: Not sure if we can identify Destination from the data?
 ##class DestinationAirport(FlightAttributeNode):

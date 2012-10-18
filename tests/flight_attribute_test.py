@@ -4,6 +4,7 @@ import unittest
 from datetime import datetime, timedelta
 from mock import Mock, patch
 
+from analysis_engine import __version__
 from analysis_engine.api_handler import NotFoundError
 from analysis_engine.node import (A, KeyPointValue, KeyTimeInstance, KPV, KTI,
                                   P, S, Section)
@@ -15,6 +16,7 @@ from analysis_engine.flight_attribute import (
     FlightID, 
     FlightNumber,
     FlightType, 
+    InvalidFlightType,
     LandingAirport, 
     LandingDatetime, 
     LandingFuel, 
@@ -28,18 +30,12 @@ from analysis_engine.flight_attribute import (
     TakeoffFuel,
     TakeoffGrossWeight,
     TakeoffRunway,
+    Version,
 )
 
 
 class TestApproaches(unittest.TestCase):
     def test_can_operate(self):
-        ['Start Datetime',
-         'Approach',
-         'Altitude AAL',
-         'Latitude At Lowest Point On Approach',
-         'Longitude At Lowest Point On Approach',
-         'Latitude At Landing',
-         'Longitude At Landing']
         # Can operate with all required parameters.
         self.assertTrue(Approaches.can_operate(\
             ['Start Datetime',
@@ -1089,7 +1085,8 @@ class TestTakeoffRunway(unittest.TestCase):
         takeoff_heading.create_kpv(1, 20.0)
         takeoff_runway.derive(airport, takeoff_heading)
         get_nearest_runway.assert_called_with(25, 20.0)
-        takeoff_runway.set_flight_attr.assert_called_once_with(runway_info['items'][0])
+        takeoff_runway.set_flight_attr.assert_called_once_with(
+            runway_info['items'][0])
         # Airport, Heading At Takeoff, Liftoff, Latitude, Longitude and Precision
         # arguments. Latitude and Longitude are only passed with all these
         # parameters available and Precise Positioning is True.
@@ -1105,7 +1102,8 @@ class TestTakeoffRunway(unittest.TestCase):
                               precision)
         get_nearest_runway.assert_called_with(25, 20.0, latitude=4.0,
                                               longitude=3.0)
-        takeoff_runway.set_flight_attr.assert_called_with(runway_info['items'][0])
+        takeoff_runway.set_flight_attr.assert_called_with(
+            runway_info['items'][0])
         # When Precise Positioning's value is False, Latitude and Longitude
         # are not used.
         precision.value = False
@@ -1113,7 +1111,8 @@ class TestTakeoffRunway(unittest.TestCase):
                               precision)
         get_nearest_runway.assert_called_with(25, 20.0, latitude=4.0,
                                               longitude=3.0)
-        takeoff_runway.set_flight_attr.assert_called_with(runway_info['items'][0])
+        takeoff_runway.set_flight_attr.assert_called_with(
+            runway_info['items'][0])
 
 
 class TestFlightType(unittest.TestCase):
@@ -1140,65 +1139,79 @@ class TestFlightType(unittest.TestCase):
         liftoffs = KTI('Liftoff', items=[KeyTimeInstance(5, 'a')])
         touchdowns = KTI('Touchdown', items=[KeyTimeInstance(10, 'x')])
         type_node.derive(None, fast, liftoffs, touchdowns, None, None)
-        type_node.set_flight_attr.assert_called_once_with('COMPLETE')
+        type_node.set_flight_attr.assert_called_once_with(
+            FlightType.Type.COMPLETE)
         # Would be 'COMPLETE', but 'AFR Type' overrides it.
-        afr_type = A('AFR Type', value='FERRY')
+        afr_type = A('AFR Type', value=FlightType.Type.FERRY)
         type_node.set_flight_attr = Mock()
         type_node.derive(afr_type, fast, liftoffs, touchdowns, None, None)
-        type_node.set_flight_attr.assert_called_once_with('FERRY')
+        type_node.set_flight_attr.assert_called_once_with(FlightType.Type.FERRY)
         # Liftoff missing.
         empty_liftoffs = KTI('Liftoff')
         type_node.set_flight_attr = Mock()
-        type_node.derive(None, fast, empty_liftoffs, touchdowns, None, None)
-        type_node.set_flight_attr.assert_called_once_with('TOUCHDOWN_ONLY')
+        try:
+            type_node.derive(None, fast, empty_liftoffs, touchdowns, None, None)
+        except InvalidFlightType as err:
+            self.assertEqual(err.flight_type, 'TOUCHDOWN_ONLY')
         # Touchdown missing.
         empty_touchdowns = KTI('Touchdown')
         type_node.set_flight_attr = Mock()
-        type_node.derive(None, fast, liftoffs, empty_touchdowns, None, None)
-        type_node.set_flight_attr.assert_called_once_with('LIFTOFF_ONLY')
+        try:
+            type_node.derive(None, fast, liftoffs, empty_touchdowns, None, None)
+        except InvalidFlightType as err:
+            self.assertEqual(err.flight_type, 'LIFTOFF_ONLY')
+        
         # Liftoff and Touchdown missing, only Fast.
         type_node.set_flight_attr = Mock()
         type_node.derive(None, fast, empty_liftoffs, empty_touchdowns, None,
                          None)
-        type_node.set_flight_attr.assert_called_once_with('REJECTED_TAKEOFF')
+        type_node.set_flight_attr.assert_called_once_with(
+            FlightType.Type.REJECTED_TAKEOFF)
         # Liftoff, Touchdown and Fast missing.
         empty_fast = fast = S('Fast')
         type_node.set_flight_attr = Mock()
         type_node.derive(None, empty_fast, empty_liftoffs, empty_touchdowns,
                          None, None)
-        type_node.set_flight_attr.assert_called_once_with('ENGINE_RUN_UP')
+        type_node.set_flight_attr.assert_called_once_with(
+            FlightType.Type.ENGINE_RUN_UP)
         # Liftoff, Touchdown and Fast missing, Groundspeed changes.
         groundspeed = P('Groundspeed', np.ma.arange(20))
         type_node.set_flight_attr = Mock()
         type_node.derive(None, empty_fast, empty_liftoffs, empty_touchdowns,
                          None, groundspeed)
-        type_node.set_flight_attr.assert_called_once_with('GROUND_RUN')
+        type_node.set_flight_attr.assert_called_once_with(
+            FlightType.Type.GROUND_RUN)
         # Liftoff, Touchdown and Fast missing, Groundspeed stays the same.
         groundspeed = P('Groundspeed', np.ma.masked_array([0] * 20))
         type_node.set_flight_attr = Mock()
         type_node.derive(None, empty_fast, empty_liftoffs, empty_touchdowns,
                          None, groundspeed)
-        type_node.set_flight_attr.assert_called_once_with('ENGINE_RUN_UP',)
+        type_node.set_flight_attr.assert_called_once_with(
+            FlightType.Type.ENGINE_RUN_UP)
         # Liftoff after Touchdown.
         late_liftoffs = KTI('Liftoff', items=[KeyTimeInstance(20, 'a')])
         type_node.set_flight_attr = Mock()
-        type_node.derive(None, fast, late_liftoffs, touchdowns, None, None)
-        type_node.set_flight_attr.assert_called_once_with(\
-            'TOUCHDOWN_BEFORE_LIFTOFF')
+        try:
+            type_node.derive(None, fast, late_liftoffs, touchdowns, None, None)
+        except InvalidFlightType as err:
+            self.assertEqual(err.flight_type, 'TOUCHDOWN_BEFORE_LIFTOFF')
         # Touch and Go before Touchdown.
-        afr_type = A('AFR Type', value='TRAINING')
+        afr_type = A('AFR Type', value=FlightType.Type.TRAINING)
         touch_and_gos = KTI('Touch and Gos', items=[KeyTimeInstance(7, 'a')])
         type_node.set_flight_attr = Mock()
         type_node.derive(afr_type, fast, liftoffs, touchdowns, touch_and_gos,
                          None)
-        type_node.set_flight_attr.assert_called_once_with('TRAINING')
+        type_node.set_flight_attr.assert_called_once_with(
+            FlightType.Type.TRAINING)
         # Touch and Go after Touchdown.
-        afr_type = A('AFR Type', value='TRAINING')
+        afr_type = A('AFR Type', value=FlightType.Type.TRAINING)
         touch_and_gos = KTI('Touch and Gos', items=[KeyTimeInstance(15, 'a')])
         type_node.set_flight_attr = Mock()
-        type_node.derive(afr_type, fast, liftoffs, touchdowns, touch_and_gos,
-                         None)
-        type_node.set_flight_attr.assert_called_once_with('LIFTOFF_ONLY')
+        try:
+            type_node.derive(afr_type, fast, liftoffs, touchdowns,
+                             touch_and_gos, None)
+        except InvalidFlightType as err:
+            self.assertEqual(err.flight_type, 'LIFTOFF_ONLY')        
 
 
 class TestAnalysisDatetime(unittest.TestCase):
@@ -1211,8 +1224,12 @@ class TestAnalysisDatetime(unittest.TestCase):
 
 class TestVersion(unittest.TestCase):
     def test_can_operate(self):
-        self.assertTrue(False, msg='Test not implemented.')
+        self.assertEqual(Version.get_operational_combinations(),
+                         [('Start Datetime',)])
         
     def test_derive(self):
-        self.assertTrue(False, msg='Test not implemented.')
+        version = Version()
+        version.set_flight_attr = Mock()
+        version.derive()
+        version.set_flight_attr.assert_called_once_wth(__version__)
 
