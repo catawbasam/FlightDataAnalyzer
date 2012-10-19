@@ -3,7 +3,7 @@ import numpy as np
 import sys
 import unittest
 
-from analysis_engine.node import (KeyTimeInstance, Parameter, P, Section, S)
+from analysis_engine.node import (KeyTimeInstance, Parameter, P, Section, S, M)
 
 from analysis_engine.flight_phase import Climbing
 
@@ -11,6 +11,7 @@ from analysis_engine.key_time_instances import (AltitudeWhenClimbing,
                                                 AltitudeWhenDescending,
                                                 BottomOfDescent,
                                                 ClimbStart,
+                                                GearUpSelection,
                                                 GoAround,
                                                 InitialClimbStart,
                                                 LandingDecelerationEnd,
@@ -635,11 +636,28 @@ class TestGearDownSelection(unittest.TestCase):
 class TestGearUpSelection(unittest.TestCase):
     def test_can_operate(self):
         self.assertTrue(False, msg='Test not implemented.')
+
+    def test_normal_operation(self):
+        gup = M('Gear Up Selected', ['Down','Down','Down','Up','Up','Down','Down'], 
+                values_mapping={0: 'Down', 1: 'Up'})
+        airs = buildsection('Airborne', 0, 7)
+        gas = buildsection('Go Around', 6, 7)
+        gear_up = GearUpSelection()
+        gear_up.derive(gup, airs, gas)
+        self.assertTrue(gear_up[0].index, 2.5)
         
-    def test_derive(self):
-        self.assertTrue(False, msg='Test not implemented.')
-
-
+    def test_during_ga(self):
+        gup = M('Gear Up Selected', ['Down','Down','Down','Up','Up','Down','Down'], 
+                values_mapping={0: 'Down', 1: 'Up'})
+        airs = buildsection('Airborne', 0, 7)
+        gas = buildsection('Go Around', 2, 4)
+        gear_up = GearUpSelection()
+        gear_up.derive(gup, airs, gas)
+        if gear_up == []:
+            self.assertTrue(True)
+        else:
+            self.assertTrue(False)
+        
 class TestGoAroundFlapRetracted(unittest.TestCase):
     def test_can_operate(self):
         self.assertTrue(False, msg='Test not implemented.')
@@ -710,3 +728,5 @@ class TestTouchAndGo(unittest.TestCase):
         
     def test_derive(self):
         self.assertTrue(False, msg='Test not implemented.')
+        
+
