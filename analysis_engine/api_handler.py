@@ -143,7 +143,7 @@ class APIHandlerHTTP(object):
 
 def get_api_handler(handler_path, *args, **kwargs):
     '''
-    Returns an instance of the class specified by the hanlder_path.
+    Returns an instance of the class specified by the handler_path.
     
     :param handler_path: Path to handler module, e.g. project.module.APIHandler
     :type handler_path: string
