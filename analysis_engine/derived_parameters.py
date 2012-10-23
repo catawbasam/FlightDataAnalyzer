@@ -561,7 +561,7 @@ class AltitudeAAL(DerivedParameterNode):
                 break # In the case where speedy was trivially short
             
             # Reference to start of arrays for simplicity hereafter.
-            alt_idxs += quick.start
+            alt_idxs += quick.start or 0
             
             n = 0
             dips = []
