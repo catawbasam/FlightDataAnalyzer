@@ -3205,7 +3205,9 @@ class VerticalSpeedInertial(DerivedParameterNode):
     with a 1ft/sec^2 acceleration results in an increasing vertical speed of
     55 fpm/sec, not 60 as would be theoretically predicted.
     '''
-    
+
+    units = 'fpm'
+
     def derive(self, 
                az = P('Acceleration Vertical'),
                alt_std = P('Altitude STD Smoothed'),
@@ -3296,6 +3298,9 @@ class VerticalSpeed(DerivedParameterNode):
     (although in that case the data is delayed, and the aircraft cannot know
     the future altitudes!).    
     '''
+
+    units = 'fpm'
+
     def derive(self, alt_std=P('Altitude STD Smoothed'), frame=A('Frame')):
         frame_name = frame.value if frame else None
         
@@ -3311,6 +3316,9 @@ class VerticalSpeedForFlightPhases(DerivedParameterNode):
     A simple and robust vertical speed parameter suitable for identifying
     flight phases. DO NOT use this for event detection.
     """
+
+    units = 'fpm'
+
     def derive(self, alt_std = P('Altitude STD Smoothed')):
         # This uses a scaled hysteresis parameter. See settings for more detail.
         threshold = HYSTERESIS_FPROC * max(1, rms_noise(alt_std.array))  
