@@ -69,6 +69,7 @@ from settings import (AZ_WASHOUT_TC,
                       KTS_TO_FPS,
                       KTS_TO_MPS,
                       METRES_TO_FEET,
+                      METRES_TO_NM,
                       VERTICAL_SPEED_LAG_TC)
 
 # There is no numpy masked array function for radians, so we just multiply thus:
@@ -2665,8 +2666,38 @@ class ILSGlideslope(DerivedParameterNode):
         # self.array.mask = np.ma.logical_or(self.array.mask, freq.array.mask)
        
 
-class ILSRange(DerivedParameterNode):
-    name = "ILS Range"
+class ILSGlideslopeRange(DerivedParameterNode):
+    name = "ILS Glideslope Range"
+    """
+    Glideslope Range is derived from the Localizer Range. The units are
+    converted to nautical miles ready for plotting and the datum is offset to
+    the ILS Glideslope Antenna position.
+    """
+    def derive(self, loc_rng=P('ILS Localizer Range'),
+               app_info = A('FDR Approaches'),
+               start_datetime = A('Start Datetime')
+               ):
+        ranges = np.ma.clump_unmasked(loc_rng.array)
+        for this_loc in ranges:
+            approach, runway = find_app_rwy(self, app_info, 
+                                            start_datetime,
+                                            this_loc)
+
+        ils_range = np_ma_masked_zeros_like(gspd.array)
+
+        try:
+            start_2_loc, gs_2_loc, end_2_loc, pgs_lat, pgs_lon = \
+                runway_distances(runway)
+        except (KeyError, TypeError):
+            self.warning("Runway did not have required information in "
+                         "'%s', '%s'.", self.name, runway)
+            continue
+        return (loc_rng - gs_2_loc) * METRES_TO_NM
+        
+        
+
+class ILSLocalizerRange(DerivedParameterNode):
+    name = "ILS Localizer Range"
     """
     Range is computed from the track where available, otherwise estimated
     from available groundspeed or airspeed parameters.

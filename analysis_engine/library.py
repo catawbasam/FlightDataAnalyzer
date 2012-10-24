@@ -426,14 +426,15 @@ def coreg(y, indep_var=None, force_zero=False):
         if len(x) != n:
             raise ValueError('Function coreg called with arrays of differing '
                              'length')
-    if x.ptp() == 0.0 or y.ptp() == 0.0:
-        # raise ValueError, 'Function coreg called with invariant independent variable'
-        return None, None, None
 
     # Need to propagate masks into both arrays equally.
     mask = np.ma.logical_or(x.mask, y.mask)
     x_ = np.ma.array(data=x.data,mask=mask)
     y_ = np.ma.array(data=y.data,mask=mask)
+
+    if x_.ptp() == 0.0 or y_.ptp() == 0.0:
+        # raise ValueError, 'Function coreg called with invariant independent variable'
+        return None, None, None
 
     # n_ is the number of useful data pairs for analysis.
     n_ = np.ma.count(x_)

@@ -743,6 +743,12 @@ class TestCoReg(unittest.TestCase):
         self.assertEqual(coreg(x, indep_var=y), (None, None, None))
         self.assertEqual(coreg(y, indep_var=x), (None, None, None))
     
+    def test_correlation_constant_arrays_when_masked(self):
+        x=np.ma.array([0,0,1,2,3,0], dtype=float)
+        y=np.ma.array([1,2,3,4,5,6], mask=[0,0,1,1,1,0])
+        self.assertEqual(coreg(x, indep_var=y), (None, None, None))
+        self.assertEqual(coreg(y, indep_var=x), (None, None, None))
+    
     def test_correlation_monotonic_independent_variable(self):
         y=np.ma.array([2,4,5,3,6,8], dtype=float)
         correlate, slope, offset = coreg(y)
