@@ -823,7 +823,8 @@ class TestLandingRunway(unittest.TestCase):
         landing_runway.derive(approach_and_landing, landing_hdg, airport, latitude,
                               longitude, approach_ilsfreq, precision)
         get_nearest_runway.assert_called_with(25, 20.0, ilsfreq=330150)
-        landing_runway.set_flight_attr.assert_called_once_with(runway_info['items'][0])
+        landing_runway.set_flight_attr.assert_called_once_with(
+            runway_info['items'][0])
         precision.value = True
         landing_runway.set_flight_attr = Mock()
         landing_runway.derive(approach_and_landing, landing_hdg, airport,
@@ -846,7 +847,7 @@ class TestOffBlocksDatetime(unittest.TestCase):
                                                     slice=slice(20, 60))])
         off_blocks_datetime.set_flight_attr = Mock()
         off_blocks_datetime.derive(turning, start_datetime)
-        off_blocks_datetime.set_flight_attr.assert_called_once_with(\
+        off_blocks_datetime.set_flight_attr.assert_called_once_with(
             start_datetime.value + timedelta(seconds=20))
         
         turning = S('Turning', items=[KeyPointValue(name='Turning On Ground',

@@ -172,17 +172,18 @@ class Approaches(FlightAttributeNode):
                             "'%f' and kwargs '%s'.", airport_id, hdg, kwargs)
             runway = None
         
-        return {'airport': airport,
-                'runway': runway,
-                'type': approach_type,
-                'datetime': approach_datetime,
-                'slice_start_datetime': datetime_of_index(start_dt,
-                                                          approach.slice.start,
-                                                          frequency), # NB: Not in API therefore not stored in DB
-                'slice_stop_datetime': datetime_of_index(start_dt,
-                                                         approach.slice.stop,
-                                                         frequency), # NB: Not in API therefore not stored in DB                
-                }    
+        return {
+            'airport': airport,
+            'runway': runway,
+            'type': approach_type,
+            'datetime': approach_datetime,
+            'slice_start_datetime': datetime_of_index(start_dt,
+                                                      approach.slice.start,
+                                                      frequency), # NB: Not in API therefore not stored in DB
+            'slice_stop_datetime': datetime_of_index(start_dt,
+                                                     approach.slice.stop,
+                                                     frequency), # NB: Not in API therefore not stored in DB                
+        }
     
     def derive(self, 
                alt_aal = P('Altitude AAL'),
@@ -776,7 +777,7 @@ class FlightType(FlightAttributeNode):
                 raise InvalidFlightType('TOUCHDOWN_BEFORE_LIFTOFF')
                 #self.set_flight_attr('TOUCHDOWN_BEFORE_LIFTOFF')
                 #return
-            last_touchdown = touchdowns.get_last()
+            last_touchdown = touchdowns.get_last() # TODO: Delete line.
             if touch_and_gos:
                 last_touchdown = touchdowns.get_last()
                 last_touch_and_go = touch_and_gos.get_last()
