@@ -2688,11 +2688,11 @@ class ILSGlideslopeRange(DerivedParameterNode):
         try:
             start_2_loc, gs_2_loc, end_2_loc, pgs_lat, pgs_lon = \
                 runway_distances(runway)
+            return (loc_rng - gs_2_loc) * METRES_TO_NM
         except (KeyError, TypeError):
             self.warning("Runway did not have required information in "
                          "'%s', '%s'.", self.name, runway)
-            continue
-        return (loc_rng - gs_2_loc) * METRES_TO_NM
+            return
         
         
 
