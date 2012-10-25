@@ -62,7 +62,9 @@ from analysis_engine.derived_parameters import (
     ILSFrequency,
     ILSRange,
     LatitudePrepared,
+    LatitudeSmoothed,
     LongitudePrepared,
+    LongitudeSmoothed,
     Mach,
     Pitch,
     VerticalSpeed,
@@ -2214,22 +2216,25 @@ class TestILSLocalizer(unittest.TestCase):
 class TestLatitudePrepared(unittest.TestCase):
     def test_can_operate(self):
         self.assertTrue(False, msg='Test not implemented.')
-        
+    
     def test_derive(self):
         self.assertTrue(False, msg='Test not implemented.')
 
 
 class TestLatitudeSmoothed(unittest.TestCase):
     def test_can_operate(self):
-        self.assertTrue(False, msg='Test not implemented.')
-        
+        self.assertEqual(LatitudeSmoothed.get_operational_combinations(),
+                         [('Latitude Smoothed',)])   
+    
     def test_derive(self):
         self.assertTrue(False, msg='Test not implemented.')
 
 
 class TestLongitudeSmoothed(unittest.TestCase):
     def test_can_operate(self):
-        self.assertTrue(False, msg='Test not implemented.')
+        self.assertEqual(LongitudeSmoothed.get_operational_combinations(),
+                         [('Longitude Smoothed',)])
+        self.assertTrue(False, msg='Test not implemented.')    
         
     def test_derive(self):
         self.assertTrue(False, msg='Test not implemented.')
