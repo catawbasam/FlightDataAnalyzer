@@ -60,7 +60,7 @@ from analysis_engine.derived_parameters import (
     HeadingTrue,
     Headwind,
     ILSFrequency,
-    ILSRange,
+    ILSLocalizerRange,
     LatitudePrepared,
     LatitudeSmoothed,
     LongitudePrepared,
@@ -1612,7 +1612,7 @@ class TestILSFrequency(unittest.TestCase):
         ma_test.assert_masked_array_approx_equal(result.array, expected_array)
 
 
-class TestILSRange(unittest.TestCase):
+class TestILSLocalizerRange(unittest.TestCase):
     def test_can_operate(self):
         expected = [('Latitude Prepared',
                      'Longitude Prepared',
@@ -1627,9 +1627,12 @@ class TestILSRange(unittest.TestCase):
                      'Precise Positioning',
                      'FDR Approaches',
                      'Start Datetime')]
-        opts = ILSRange.get_operational_combinations()
+        opts = ILSLocalizerRange.get_operational_combinations()
         self.assertEqual(opts, expected)
-        
+    
+    def test_derive(self):
+        self.assertTrue(False, msg='Test not implemented.')
+
         
 class TestPitch(unittest.TestCase):
     def test_can_operate(self):
@@ -2223,8 +2226,9 @@ class TestLatitudePrepared(unittest.TestCase):
 
 class TestLatitudeSmoothed(unittest.TestCase):
     def test_can_operate(self):
-        self.assertEqual(LatitudeSmoothed.get_operational_combinations(),
-                         [('Latitude Smoothed',)])   
+        combinations = LatitudeSmoothed.get_operational_combinations()
+        self.assertTrue(('Latitude Prepared',) in combinations)
+        self.assertTrue(all('Latitude Prepared') in c for c in combinations)
     
     def test_derive(self):
         self.assertTrue(False, msg='Test not implemented.')
@@ -2232,9 +2236,9 @@ class TestLatitudeSmoothed(unittest.TestCase):
 
 class TestLongitudeSmoothed(unittest.TestCase):
     def test_can_operate(self):
-        self.assertEqual(LongitudeSmoothed.get_operational_combinations(),
-                         [('Longitude Smoothed',)])
-        self.assertTrue(False, msg='Test not implemented.')    
+        combinations = LongitudeSmoothed.get_operational_combinations()
+        self.assertTrue(('Longitude Prepared',) in combinations)
+        self.assertTrue(all('Longitude Prepared') in c for c in combinations)
         
     def test_derive(self):
         self.assertTrue(False, msg='Test not implemented.')
