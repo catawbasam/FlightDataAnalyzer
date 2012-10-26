@@ -169,7 +169,7 @@ class Approaches(FlightAttributeNode):
                 runway = runway_info['items'][0]
         except NotFoundError:
             self.warning("Runway not found for airport id '%d', heading "
-                            "'%f' and kwargs '%s'.", airport_id, hdg, kwargs)
+                         "'%f' and kwargs '%s'.", airport_id, hdg, kwargs)
             runway = None
         
         return {
