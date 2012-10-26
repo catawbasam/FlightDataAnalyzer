@@ -3746,13 +3746,16 @@ class Speedbrake(DerivedParameterNode):
 
     def spoiler_737(self, spoiler_a, spoiler_b):
         '''
-        We indicate the angle of either raised spoiler, ignoring sense of
-        direction as it augments the roll.
+        We indicate the angle of the lower of the two raised spoilers, as
+        this represents the drag element. Differential deployment is used to
+        augments roll control, so the higher of the two spoilers is relating
+        to roll control. Small values are ignored as these arise from control
+        trim settings.
         '''
         offset = (spoiler_a.offset + spoiler_b.offset) / 2.0
-        array = np.ma.maximum(spoiler_a.array, spoiler_b.array)
+        array = np.ma.minimum(spoiler_a.array, spoiler_b.array)
         # Force small angles to indicate zero:
-        array = np.ma.where(array < 2.0, 0.0, array)
+        array = np.ma.where(array < 3.0, 0.0, array)
         return array, offset
 
     def derive(self,
