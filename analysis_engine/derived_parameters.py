@@ -3161,7 +3161,7 @@ class LongitudeSmoothed(DerivedParameterNode, CoordinatesSmoothed):
             if all(imprecise_args):
                 # Imprecise Positioning form of adjust track
                 _, lon_adj = self._adjust_track_ip(*imprecise_args)
-                self.array = track_linking(lon.array, l_adj)
+                self.array = track_linking(lon.array, lon_adj)
                 return
         
         # Fallback to using Latitude Prepared.
