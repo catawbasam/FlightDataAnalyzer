@@ -152,6 +152,11 @@ class B737_500(VelocitySpeed):
     }
 
 
+"""
+
+This table is available but should never be needed as the 737 NG family of
+aircraft record V2 and VREF in the data frame.
+
 class B737_700(VelocitySpeed):
     interpolate = True
     source = 'B737-5_925017_07'
@@ -169,7 +174,7 @@ class B737_700(VelocitySpeed):
         30: (111, 117, 123, 129, 134, 140, 144, 149, 153),
         40: (108, 114, 120, 126, 132, 137, 142, 147, 151),
     }
-
+"""
 
 class B767(VelocitySpeed):
     '''
