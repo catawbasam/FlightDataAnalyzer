@@ -814,7 +814,6 @@ class AltitudeSTDSmoothed(DerivedParameterNode):
     """
     name = "Altitude STD Smoothed"
     units = 'ft'
-    align_to_first_dependency = False
     
     def derive(self, alt = P('Altitude STD'), frame = A('Frame')):
         
@@ -827,9 +826,13 @@ class AltitudeSTDSmoothed(DerivedParameterNode):
             # manipulation of the data.
             gauss = [0.054488683, 0.244201343, 0.402619948, 0.244201343, 0.054488683]
             self.array = moving_average(alt.array, window=5, weightings=gauss)
+        elif frame_name in ['E135-145']:
+            # Here two sources are sampled alternately, so this form of
+            # weighting merges the two to create a smoothed average.
+            self.array = moving_average(alt.array, window=3, 
+                                        weightings=[0.25,0.5,0.25], pad=True)
         else:
             self.array = alt.array
-
 
 
 class AltitudeQNH(DerivedParameterNode):
