@@ -1872,17 +1872,34 @@ class LatitudeAtLanding(KeyPointValueNode):
     accurately.
     '''
     # Cannot use smoothed position as this causes circular dependancy.
-    def derive(self, lat=P('Latitude'), tdwns=KTI('Touchdown')):
-        self.create_kpvs_at_ktis(lat.array, tdwns)
+    @classmethod
+    def can_operate(cls, available):
+        return 'Touchdown' in available
     
+    def derive(self, lat=P('Latitude'), tdwns=KTI('Touchdown')):
+        if lat:
+            self.create_kpvs_at_ktis(lat.array, tdwns)
+        else:
+            # TODO: Remove this Edinburgh fixed location
+            self.create_kpv(tdwns[0].index, 55.9549)
+   
+class LongitudeAtLanding(KeyPointValueNode):
+    @classmethod
+    def can_operate(cls, available):
+        return 'Touchdown' in available
+    
+    # Cannot use smoothed position as this causes circular dependancy.
+    def derive(self, lon=P('Longitude'),tdwns=KTI('Touchdown')):
+        if lon:
+            self.create_kpvs_at_ktis(lon.array, tdwns)
+        else:
+            # TODO: Remove this Edinburgh fixed location
+            self.create_kpv(tdwns[0].index, -3.3580)
+
+
 class LatitudeAtTouchdown(KeyPointValueNode):
     def derive(self, lat=P('Latitude Smoothed'), tdwns=KTI('Touchdown')):
         self.create_kpvs_at_ktis(lat.array, tdwns)
-
-class LongitudeAtLanding(KeyPointValueNode):
-    # Cannot use smoothed position as this causes circular dependancy.
-    def derive(self, lon=P('Longitude'),tdwns=KTI('Touchdown')):
-        self.create_kpvs_at_ktis(lon.array, tdwns)
 
 class LongitudeAtTouchdown(KeyPointValueNode):
     def derive(self, lon=P('Longitude Smoothed'),tdwns=KTI('Touchdown')):
@@ -1890,12 +1907,20 @@ class LongitudeAtTouchdown(KeyPointValueNode):
 
 
 class LatitudeAtLiftoff(KeyPointValueNode):
+    @classmethod
+    def can_operate(cls, available):
+        return 'Liftoff' in available
+    
     def derive(self, lat=P('Latitude'),
                liftoffs=KTI('Liftoff')):
         # OK, At the risk of causing confusion, we use the liftoff instant to
         # identify the takeoff airport. Strictly, takeoff is a process taking
         # time and distance, whereas liftoff is an instant in time and space.
-        self.create_kpvs_at_ktis(lat.array, liftoffs)
+        if lat:
+            self.create_kpvs_at_ktis(lat.array, liftoffs)
+        else:
+            # TODO: Remove this Manchester fixed location
+            self.create_kpv(liftoffs[0].index, 53.34476)
 
 
 class LongitudeAtLiftoff(KeyPointValueNode):
@@ -1903,21 +1928,29 @@ class LongitudeAtLiftoff(KeyPointValueNode):
     While storing this is redundant due to geo-locating KeyPointValues, it is
     used in multiple Nodes to simplify their implementation.
     '''    
+    @classmethod
+    def can_operate(cls, available):
+        return 'Liftoff' in available
+    
     def derive(self, lon=P('Longitude'),
                liftoffs=KTI('Liftoff')):
-        self.create_kpvs_at_ktis(lon.array, liftoffs)
+        if lon:
+            self.create_kpvs_at_ktis(lon.array, liftoffs)
+        else:
+            # TODO: Remove this Manchester fixed location
+            self.create_kpv(liftoffs[0].index, -2.2935)
 
 
 class LatitudeAtLowestPointOnApproach(KeyPointValueNode):
     # Cannot use smoothed position as this causes circular dependancy.
-    def derive(self, lat=P('Latitude'), 
+    def derive(self, lat=P('Latitude Prepared'), 
                low_points=KTI('Lowest Point On Approach')):
         self.create_kpvs_at_ktis(lat.array, low_points)
 
 
 class LongitudeAtLowestPointOnApproach(KeyPointValueNode):
     # Cannot use smoothed position as this causes circular dependancy.
-    def derive(self, lon=P('Longitude'), 
+    def derive(self, lon=P('Longitude Prepared'), 
                low_points=KTI('Lowest Point On Approach')):
         self.create_kpvs_at_ktis(lon.array, low_points)
 
@@ -3945,7 +3978,7 @@ class StickPusherActivatedDuration(KeyPointValueNode):
     '''
     def derive(self, stick_push=M('Stick Pusher'), airs=S('Airborne')):
         self.create_kpvs_where_state(
-            'True',
+            'Push',
             stick_push.array,
             stick_push.hz,
             airs

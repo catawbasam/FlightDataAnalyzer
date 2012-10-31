@@ -20,6 +20,20 @@ from analysis_engine.settings import METRES_TO_FEET
 test_data_path = os.path.join(os.path.dirname(os.path.abspath(__file__)),
                               'test_data')
 
+class TestAirTrack(unittest.TestCase):
+    def test_air_track_basic(self):
+        spd = np.ma.array([260,260,260,260,260,260,260], dtype=float)
+        hdg = np.ma.array([0,0,0,90,90,90,270], dtype=float)
+        lat, lon = air_track(0.0, 0.0, 0.0035, 0.0035, spd, hdg, 1.0)
+        np.testing.assert_array_almost_equal(0.0035, lat[-1])
+        np.testing.assert_array_almost_equal(0.0035, lon[-1])
+    def test_air_track_arrays_too_short(self):
+        spd = np.ma.array([60,60])
+        hdg = np.ma.array([0,0])
+        lat, lon = air_track(0.0, 0.0, 1.0, 1.0, spd, hdg, 1.0)
+        self.assertEqual(lat, None)
+        self.assertEqual(lon, None)
+
 
 class TestAlign(unittest.TestCase):
     

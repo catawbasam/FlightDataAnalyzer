@@ -85,9 +85,9 @@ def track_to_kml(hdf_path, kti_list, kpv_list, flight_list, plot_altitude=False)
     #lon = derived_param_from_hdf(hdf, 'Longitude Prepared')
     #add_track(kml, 'Prepared', lat, lon, 'ff0000ff')
     
-    lat_r = derived_param_from_hdf(hdf, 'Latitude')
-    lon_r = derived_param_from_hdf(hdf, 'Longitude')
-    add_track(kml, 'Recorded', lat_r, lon_r, 'ff0000ff')
+    #lat_r = derived_param_from_hdf(hdf, 'Latitude')
+    #lon_r = derived_param_from_hdf(hdf, 'Longitude')
+    #add_track(kml, 'Recorded', lat_r, lon_r, 'ff0000ff')
 
     for kti in kti_list:
         #if kti.name in ['Touchdown']:

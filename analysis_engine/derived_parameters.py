@@ -8,7 +8,8 @@ from analysis_engine.model_information import (get_conf_map,
                                                get_slat_map)
 from analysis_engine.node import (
     A, DerivedParameterNode, MultistateDerivedParameterNode, KPV, KTI, M, P, S)
-from analysis_engine.library import (align,
+from analysis_engine.library import (air_track,
+                                     align,
                                      alt2press,
                                      alt2sat,
                                      bearings_and_distances,
@@ -796,7 +797,7 @@ class AltitudeRadio(DerivedParameterNode):
             else:
                 raise ValueError,'737-5 frame Altitude Radio qualifier not recognised.'
 
-        elif frame_name in ['CRJ-700-900']:
+        elif frame_name in ['CRJ-700-900', 'E135-145']:
             self.array, self.frequency, self.offset = \
                 blend_two_parameters(source_A, source_B)
         else:
@@ -830,7 +831,7 @@ class AltitudeSTDSmoothed(DerivedParameterNode):
             self.array = alt.array
 
 
-'''
+
 class AltitudeQNH(DerivedParameterNode):
     """
     Altitude Parameter to account for transition altitudes for airports
@@ -860,23 +861,29 @@ class AltitudeQNH(DerivedParameterNode):
         peak = np.ma.argmax(alt_aal.array)
         alt_qnh = np.ma.copy(alt_aal.array)
 
-        """
         # Add the elevation of the takeoff airport (above sea level) to the
         # climb portion. If this fails, make sure it's inhibited.
         try:
-            alt_qnh[:peak]+=toff.value['elevation']
+            #alt_qnh[:peak]+=toff.value['elevation']
+
+            #TODO: Remove this fixed Manchester elevation
+            alt_qnh[:peak]+=256
+
         except:
             alt_qnh[:peak]=np.ma.masked
         
         # Same for the downward leg of the journey.
         try:
-            alt_qnh[peak:]+=land.value['elevation']
+            #alt_qnh[peak:]+=land.value['elevation']
+            
+            #TODO: Remove this fixed Edinburgh elevation
+            alt_qnh[peak:]+=135
+        
         except:
             alt_qnh[peak:]=np.ma.masked
-        """
         
         self.array = alt_qnh
-'''
+
 
 '''
 class AltitudeSTD(DerivedParameterNode):
@@ -1156,6 +1163,13 @@ class DistanceTravelled(DerivedParameterNode):
     units = 'nm'
     def derive(self, gspd=P('Groundspeed')):
         self.array = integrate(gspd.array, gspd.frequency, scale=1.0 / 3600.0)
+
+
+class Drift(DerivedParameterNode):
+    def derive(self, drift_1=P('Drift (1)'), drift_2=P('Drift (2)')):
+        self.array, self.frequency, self.offset = \
+            blend_two_parameters(drift_1, drift_2)
+        
 
 
 ################################################################################
@@ -2321,6 +2335,11 @@ class FlapSurface(DerivedParameterNode):
                    
                             
 class Flap(DerivedParameterNode):
+    @classmethod
+    def can_operate(cls, available):
+        return ('Flap Surface' in available) and \
+               ('Series' in available or \
+                'Family' in available)
     """
     Steps raw Flap angle from surface into detents.
     """
@@ -3428,26 +3447,63 @@ class CoordinatesStraighten(object):
         
         
 class LongitudePrepared(DerivedParameterNode, CoordinatesStraighten):
-    """
-    This removes the jumps in longitude arising from the poor resolution of
-    the recorded signal.
-    """
+    @classmethod
+    def can_operate(cls, available):
+        return ('Longitude' in available and 'Latitude' in available) or\
+               ('Airspeed True' in available and \
+                'Heading True' in available and \
+                'Latitude At Liftoff' in available and \
+                'Longitude At Liftoff' in available and \
+                'Latitude At Landing' in available and \
+                'Longitude At Landing' in available) 
+    
     def derive(self,
-               lon=P('Longitude'),
-               lat=P('Latitude')):
+               lon=P('Longitude'),lat=P('Latitude'),
+               tas=P('Airspeed True'), hdg=P('Heading True'),
+               lat_lift=KPV('Latitude At Liftoff'),
+               lon_lift=KPV('Longitude At Liftoff'),
+               lat_land=KPV('Latitude At Landing'),
+               lon_land=KPV('Longitude At Landing')):
 
-        self.array = self._smooth_coordinates(lon, lat)
-
+        if lat and lon:
+            """
+            This removes the jumps in longitude arising from the poor resolution of
+            the recorded signal.
+            """
+            self.array = self._smooth_coordinates(lon, lat)
+        else:
+            _, lon_array = air_track(lat_lift.get_first().value, lon_lift.get_first().value, 
+                                     lat_land.get_last().value, lon_land.get_last().value, 
+                                     tas.array, hdg.array, tas.frequency)
+            self.array = lon_array
     
 class LatitudePrepared(DerivedParameterNode, CoordinatesStraighten):
-    """
-    This removes the jumps in latitude arising from the poor resolution of
-    the recorded signal.
-    """
-    def derive(self, 
-               lat=P('Latitude'), 
-               lon=P('Longitude')):
-        self.array = self._smooth_coordinates(lat, lon)
+    @classmethod
+    def can_operate(cls, available):
+        return ('Latitude' in available and 'Longitude' in available) or\
+               ('Airspeed True' in available and \
+                'Heading True' in available and \
+                'Latitude At Liftoff' in available and \
+                'Longitude At Liftoff' in available and \
+                'Latitude At Landing' in available and \
+                'Longitude At Landing' in available) 
+    
+    # Note order of lat & lon to ensure latitude is alignment master.
+    def derive(self,
+               lat=P('Latitude'),lon=P('Longitude'),
+               tas=P('Airspeed True'), hdg=P('Heading True'),
+               lat_lift=KPV('Latitude At Liftoff'),
+               lon_lift=KPV('Longitude At Liftoff'),
+               lat_land=KPV('Latitude At Landing'),
+               lon_land=KPV('Longitude At Landing')):
+
+        if lat and lon:
+            self.array = self._smooth_coordinates(lat, lon)
+        else:
+            lat_array, _ = air_track(lat_lift.get_first().value, lon_lift.get_first().value, 
+                                     lat_land.get_last().value, lon_land.get_last().value, 
+                                     tas.array, hdg.array, tas.frequency)
+            self.array = lat_array
 
 
 class RateOfTurn(DerivedParameterNode):

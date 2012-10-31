@@ -468,7 +468,8 @@ class GearExtending(FlightPhaseNode):
         
         # Aircraft without red warning captions for travelling
 
-        elif frame_name in ['737-5', '737-5_NON-EIS', '737-6', '737-i']:
+        elif frame_name in ['737-5', '737-5_NON-EIS', '737-6', '737-i',
+                            'E135-145']:
             edge_list=[]
             for air in airs:
                 edge_list.append(find_edges(gear_down.array.raw, air.slice))
@@ -520,7 +521,8 @@ class GearRetracting(FlightPhaseNode):
         
         # Aircraft without red warning captions for travelling
 
-        elif frame_name in ['737-5', '737-5_NON-EIS', '737-6', '737-i']:
+        elif frame_name in ['737-5', '737-5_NON-EIS', '737-6', '737-i', 
+                            'E135-145']:
             edge_list = []
             for air in airs:
                 edge_list.append(find_edges(gear_down.array.raw, air.slice,
