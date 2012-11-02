@@ -2083,6 +2083,32 @@ class TestNpMaMaskedZerosLike(unittest.TestCase):
         np.testing.assert_array_equal(result.data, [0, 0, 0])
         np.testing.assert_array_equal(result.mask, [1, 1, 1])
 
+
+class TestOffsetSelect(unittest.TestCase):
+    def test_simple_minimum(self):
+        e1=P('e1', np.ma.array([1]), offset=0.2)
+        off = offset_select('first', [e1])
+        self.assertEqual(off, 0.2)
+
+    def test_simple_maximum(self):
+        e1=P('e1', np.ma.array([1]), offset=0.2)
+        e2=P('e2', np.ma.array([2]), offset=0.5)
+        off = offset_select('last', [e1, e2])
+        self.assertEqual(off, 0.5)
+        
+    def test_simple_mean(self):
+        e1=P('e1', np.ma.array([1]), offset=0.2)
+        e2=P('e2', np.ma.array([2]), offset=0.6)
+        off = offset_select('mean', [e1, e2])
+        self.assertEqual(off, 0.4)
+        
+    def test_complex_mean(self):
+        e1=P('e1', np.ma.array([1]), offset=0.2)
+        e2=P('e2', np.ma.array([2]), offset=0.6)
+        e4=P('e4', np.ma.array([4]), offset=0.1)
+        off = offset_select('mean', [None, e1, e4, e2])
+        self.assertEqual(off, 0.3)
+        
         
 class TestPeakCurvature(unittest.TestCase):
     # Note: The results from the first two tests are in a range format as the

@@ -893,6 +893,36 @@ def filter_vor_ils_frequencies(array, navaid):
         raise ValueError('Navaid of unrecognised type %s' % navaid)
 
 
+def find_app_rwy(self, app_info, start_datetime, this_loc):
+    """
+    This function scans through the recorded approaches to find which matches
+    the current localizer established phase. This is required because we
+    cater for multiple ILS approaches on a single flight.
+    """
+    for approach in app_info.value:
+        # line up an approach slice
+        start = index_of_datetime(start_datetime.value,
+                                  approach['slice_start_datetime'],
+                                  self.frequency)
+        stop = index_of_datetime(start_datetime.value,
+                                 approach['slice_stop_datetime'],
+                                 self.frequency)
+        approach_slice = slice(start, stop)
+        if slices_overlap(this_loc.slice, approach_slice):
+            # we've found a matching approach where the localiser was established
+            break
+    else:
+        self.warning("No approach found within slice '%s'.",this_loc)
+        return None, None
+
+    runway = approach['runway']
+    if not runway:
+        self.warning("Approach runway information not available.")
+        return approach, None
+                
+    return approach, runway     
+
+
 def find_edges(array, _slice, direction='rising_edges'):
     '''
     Edge finding low level routine, called by create_ktis_at_edges (and
@@ -2100,6 +2130,22 @@ def latitudes_and_longitudes(bearings, distances, reference):
     return lat_array, lon_array
 
 
+def localizer_scale(reference, runway):
+    """
+    Compute the ILS localizer scaling factor from runway or nominal data.
+    """
+    if 'beam_width' in reference:
+        # Compute the localizer scale factor (degrees per dot)
+        # Half the beam width is 2.5 dots full scale
+        scale = (reference['beam_width']/2.0) / 2.5
+    else:
+        # Normal scaling of a localizer gives 700ft width at the threshold,
+        # so half of this is 350ft=106.68m. This appears to be a single dot
+        # scale (to match beam width values).
+        scale = np.degrees(np.arctan2(106.68, runway_length(runway)))
+    return scale
+
+
 def mask_inside_slices(array, slices):
     '''
     Mask slices within array.
@@ -2727,7 +2773,40 @@ def truck_and_trailer(data, ttp, overall, trailer, curve_sense, _slice):
         # Data curved in wrong sense or too weakly to find corner point.
         return None
     
+def offset_select(mode, param_list):
+    """
+    This little piece of code finds the offset from a list of possibly empty
+    parameters. This is used in the collated engine parameters where
+    allowance is made for four engines, but only two or three may be
+    installed and we don't know which order the parameters are recorded in.
     
+    :param mode: which type of offset to compute.
+    :type mode: string 'mean', 'first', 'last'
+    
+    :return: offset
+    :type: float
+    """
+    least = None
+    for p in param_list:
+        if p:
+            if not least:
+                least = p.offset
+                most = p.offset
+                total = p.offset
+                count = 1
+            else:
+                least = min(least, p.offset)
+                most = max(most, p.offset)
+                total = total + p.offset
+                count += 1
+    if mode == 'mean':
+        return total / float(count)
+    if mode == 'first':
+        return least
+    if mode == 'last':
+        return most
+    raise ValueError ("offset_select called with unrecognised mode")
+
 def peak_curvature(array, _slice=slice(None), curve_sense='Concave',
                    gap = TRUCK_OR_TRAILER_INTERVAL,
                    ttp = TRUCK_OR_TRAILER_PERIOD):

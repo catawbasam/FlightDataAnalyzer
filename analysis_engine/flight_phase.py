@@ -1009,8 +1009,8 @@ class Taxiing(FlightPhaseNode):
 
 class TurningInAir(FlightPhaseNode):
     """
-    Rate of Turn is greater than +/- RATE_OF_TURN_FOR_FLIGHT_PHASES in the air
-    """
+    Rate of Turn is greater than +/- RATE_OF_TURN_FOR_FLIGHT_PHASES (%.2f) in the air
+    """ % RATE_OF_TURN_FOR_FLIGHT_PHASES
     def derive(self, rate_of_turn=P('Rate Of Turn'), airborne=S('Airborne')):
         turning = np.ma.masked_inside(repair_mask(rate_of_turn.array),
                                       -RATE_OF_TURN_FOR_FLIGHT_PHASES,
@@ -1025,8 +1025,8 @@ class TurningInAir(FlightPhaseNode):
 
 class TurningOnGround(FlightPhaseNode):
     """
-    Rate of Turn is greater than +/- RATE_OF_TURN_FOR_TAXI_TURNS on the ground
-    """
+    Rate of Turn is greater than +/- RATE_OF_TURN_FOR_TAXI_TURNS (%.2f) on the ground
+    """ % RATE_OF_TURN_FOR_TAXI_TURNS
     def derive(self, rate_of_turn=P('Rate Of Turn'), ground=S('Grounded')):
         turning = np.ma.masked_inside(repair_mask(rate_of_turn.array),
                                       -RATE_OF_TURN_FOR_TAXI_TURNS,RATE_OF_TURN_FOR_TAXI_TURNS)
@@ -1037,10 +1037,10 @@ class TurningOnGround(FlightPhaseNode):
                 self.create_phase(turn_slice, name="Turning On Ground")
 
 
-# NOTE: Python class name restriction: '2 Deg Pitch To 35 Ft'
 class TwoDegPitchTo35Ft(FlightPhaseNode):
     """
     """
+    # NOTE: Python class name restriction: '2DegPitchTo35Ft' not permitted. 
     
     name='2 Deg Pitch To 35 Ft'
     

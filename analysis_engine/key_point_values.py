@@ -1,6 +1,7 @@
 import numpy as np
 
-from analysis_engine.settings import (ACCEL_NORM_OFFSET_LIMIT,
+from analysis_engine.settings import (ACCEL_LAT_OFFSET_LIMIT,
+                                      ACCEL_NORM_OFFSET_LIMIT,
                                       CLIMB_OR_DESCENT_MIN_DURATION,
                                       CONTROL_FORCE_THRESHOLD,
                                       FEET_PER_NM,
@@ -284,6 +285,26 @@ class AccelerationNormalOffset(KeyPointValueNode):
             delta = total_sum/float(total_count) - 1.0
             if abs(delta) < ACCEL_NORM_OFFSET_LIMIT:
                 self.create_kpv(0, delta + 1.0)
+                
+                
+class AccelerationLateralOffset(KeyPointValueNode):
+    """
+    This KPV computes the lateral accelerometer datum offset, as for
+    AccelerationNormalOffset.
+    """
+    def derive(self, acc=P('Acceleration Lateral'), taxis=S('Taxiing')):
+        total_sum = 0.0
+        total_count = 0
+        for taxi in taxis:
+            unmasked_data = np.ma.compressed(acc.array[taxi.slice])
+            count = len(unmasked_data)
+            if count:
+                total_count += count
+                total_sum += np.sum(unmasked_data)
+        if total_count>20:
+            delta = total_sum/float(total_count) - 1.0
+            if abs(delta) < ACCEL_LAT_OFFSET_LIMIT:
+                self.create_kpv(0, delta + 1.0)
 
 
 #-----------------------------------------------------------------------
@@ -317,7 +338,9 @@ class AirspeedAt35FtInTakeoff(KeyPointValueNode):
     def derive(self, airspeed=P('Airspeed'), takeoff=S('Takeoff')):
         first_toff = takeoff.get_first()
         if first_toff:
-            index = first_toff.slice.stop
+            # stop_edge is the precise endpoint of the takeoff at 35ft, NOT
+            # rounded to the nearest integer index.
+            index = first_toff.stop_edge
             self.create_kpv(index, value_at_index(airspeed.array, index))
 
 
@@ -2772,10 +2795,10 @@ class HeightOfBouncedLanding(KeyPointValueNode):
 class HeadingDeviationOnTakeoffAbove100Kts(KeyPointValueNode):
     """
     The heading deviation is measured as the peak-to-peak deviation between
-    100kts and 5 deg nose pitch up, at which time the weight is clearly off
-    the wheel (we avoid using weight on nosewheel as this is often not
-    recorded).
-    The value is annotated half way between the end conditions.
+    100kts airspeed and 5 deg nose pitch up, at which time the weight is
+    clearly off the wheel (we avoid using weight on nosewheel as this is
+    often not recorded). The value is annotated half way between the end
+    conditions.
     """
     def derive(self, head=P('Heading Continuous'), airspeed=P('Airspeed'),
                pitch=P('Pitch'), toffs=S('Takeoff')):
@@ -2793,6 +2816,8 @@ class HeadingDeviationOnTakeoffAbove100Kts(KeyPointValueNode):
                              toff.slice)
                 continue
             
+            # Numpy Peak To Peak function used to detect overall swing during
+            # this period.
             head_dev = np.ma.ptp(head.array[start:stop])
             self.create_kpv((start + stop) / 2, head_dev)
     
@@ -3844,9 +3869,12 @@ class SpeedbrakesDeployedInGoAroundDuration(KeyPointValueNode):
 # TODO: Write some unit tests!
 class SpeedbrakesDeployedWithPowerOnDuration(KeyPointValueNode):
     '''
-    Each time the aircraft is flown with more than 50% N1 average power and
-    the speedbrakes are open, something odd is going on! Let's record the
-    duration this happened for, and allow the analyst to find out the cause.
+    Each time the aircraft is flown with high power and the speedbrakes open,
+    something unusual is happening. We record the duration this happened for,
+    and allow the analyst to find out the cause.
+    
+    The threshold for high power is 50% N1 for most aircraft, but 60% for
+    Airbus types, to align with the Airbus AFPS.
     '''
 
     def derive(self, speedbrake=M('Speedbrake Selected'),
