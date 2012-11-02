@@ -110,7 +110,7 @@ class AccelerationLateralAtTouchdown(KeyPointValueNode):
     '''
     Programmed at Goodyear office as a demonstration.
     '''
-    def derive(self, acc=P('Acceleration Lateral'), tdwns=KTI('Touchdown')):
+    def derive(self, acc=P('Acceleration Lateral Offset Removed'), tdwns=KTI('Touchdown')):
         for tdwn in tdwns:
             self.create_kpv(*bump(acc, tdwn))
         
@@ -123,9 +123,9 @@ class AccelerationLateralMax(KeyPointValueNode):
         reasonably say that we are not interested in anything while the
         aircraft is stationary.
         '''
-        return 'Acceleration Lateral' in available
+        return 'Acceleration Lateral Offset Removed' in available
     
-    def derive(self, acc_lat=P('Acceleration Lateral'), gspd=P('Groundspeed')):
+    def derive(self, acc_lat=P('Acceleration Lateral Offset Removed'), gspd=P('Groundspeed')):
         if gspd:
             self.create_kpvs_within_slices(acc_lat.array,
                                        gspd.slices_above(5), max_abs_value)
@@ -141,7 +141,7 @@ class AccelerationLateralTaxiingStraightMax(KeyPointValueNode):
     identified by masking the turning phases and then testing the resulting
     data.
     '''
-    def derive(self, acc_lat=P('Acceleration Lateral'), taxis=S('Taxiing'), 
+    def derive(self, acc_lat=P('Acceleration Lateral Offset Removed'), taxis=S('Taxiing'), 
                turns=S('Turning On Ground')):
         accel = np.ma.copy(acc_lat.array) # Prepare to change mask here.
         for turn in turns:
@@ -157,7 +157,7 @@ class AccelerationLateralTaxiingTurnsMax(KeyPointValueNode):
     preference to groundspeed as this parameter is available on older
     aircraft and is directly related to comfort.
     '''
-    def derive(self, acc_lat=P('Acceleration Lateral'), 
+    def derive(self, acc_lat=P('Acceleration Lateral Offset Removed'), 
                turns=S('Turning On Ground')):
         self.create_kpvs_within_slices(acc_lat.array, turns, max_abs_value)
 
@@ -302,9 +302,9 @@ class AccelerationLateralOffset(KeyPointValueNode):
                 total_count += count
                 total_sum += np.sum(unmasked_data)
         if total_count>20:
-            delta = total_sum/float(total_count) - 1.0
+            delta = total_sum/float(total_count)
             if abs(delta) < ACCEL_LAT_OFFSET_LIMIT:
-                self.create_kpv(0, delta + 1.0)
+                self.create_kpv(0, delta)
 
 
 #-----------------------------------------------------------------------
