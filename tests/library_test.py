@@ -14,7 +14,7 @@ from analysis_engine.flight_attribute import LandingRunway
 import utilities.masked_array_testutils as ma_test
 
 from analysis_engine.library import *
-from analysis_engine.node import (P, S)
+from analysis_engine.node import (P, S, M)
 from analysis_engine.settings import METRES_TO_FEET
 
 test_data_path = os.path.join(os.path.dirname(os.path.abspath(__file__)),
@@ -2068,6 +2068,54 @@ class TestNpMaZerosLike(unittest.TestCase):
         expected = np.ma.array([0,0,0])
         ma_test.assert_array_equal(expected, result)
 
+
+class TestNpMaConcatenate(unittest.TestCase, M):
+    def test_concatenation_of_numeric_arrays(self):
+        a1 = np.ma.arange(0,4)
+        a2 = np.ma.arange(4,8)
+        answer = np.ma.arange(8)
+        ma_test.assert_array_equal(np_ma_concatenate([a1,a2]),answer)
+        
+    def test_rejection_of_differing_arrays(self):
+        a1 = M(name = 'a1',
+               array = np.ma.array(data=[1,0,1,0],
+                                   mask=False),
+               data_type = 'Derived Multi-state',
+               values_mapping = {0: 'Zero', 1: 'One'}
+               )
+        a2 = M(name = 'a2',
+               array = np.ma.array(data=[0,0,1,1],
+                                   mask=False),
+               data_type = 'Derived Multi-state',
+               values_mapping = {0: 'No', 1: 'Yes'}
+               )
+        self.assertRaises(ValueError, np_ma_concatenate, [a1.array,a2.array])
+
+    def test_concatenation_of_similar_arrays(self):
+        a1 = M(name = 'a1',
+               array = np.ma.array(data=[1,0,1,0],
+                                   mask=False),
+               data_type = 'Derived Multi-state',
+               values_mapping = {0: 'No', 1: 'Yes'}
+               )
+        a2 = M(name = 'a2',
+               array = np.ma.array(data=['No','No','Yes','Yes'],
+                                   mask=False),
+               data_type = 'Derived Multi-state',
+               values_mapping = {0: 'No', 1: 'Yes'}
+               )
+        result = np_ma_concatenate([a1.array,a2.array])
+        self.assertEqual(result,['Yes','No','Yes','No','No','No','Yes','Yes'])
+        self.assertEqual(result.raw,[0,0,1,1,0,0,1,1])
+
+    def test_single_file(self):
+        a=np.ma.arange(5)
+        result = np_ma_concatenate([a])
+        self.assertEqual(len(result), 5)
+        ma_test.assert_array_equal(result,a)
+        
+    def test_empty_list(self):
+        self.assertEqual(np_ma_concatenate([]),None)
 
 
 class TestNpMaOnesLike(unittest.TestCase):

@@ -2656,6 +2656,32 @@ def normalise(array, normalise_max=1.0, scale_max=None, copy=True, axis=None):
     ##array *= normalise_max / array.max() # original single axis version
     return array
 
+def np_ma_concatenate(arrays):
+    """
+    Derivative of the normal concatenate function which handles mapped discrete arrays.
+    :param arrays: list of arrays, which may have mapped values.
+    :type arrays: list of numpy masked arrays
+    
+    :returns: single numpy masked array, which may have mapped values.
+    
+    :raises: ValueError if mapped arrays carry different mappings.
+    """
+    if len(arrays) == 0:
+        return None # Nothing to concatenate !
+
+    if hasattr(arrays[0], 'values_mapping'):
+        # Handle mapped arrays here.
+        mapping = arrays[0].values_mapping
+        for each_array in arrays[1:len(arrays)+1]:
+            if each_array.values_mapping != mapping:
+                raise ValueError('Attempt to concatenate differing multistate arrays')
+        array = np.ma.concatenate(arrays)
+        array.values_mapping = mapping
+        return array
+    else:
+        # Numeric only arrays.
+        return np.ma.concatenate(arrays)
+    
 
 def np_ma_zeros_like(array):
     """
