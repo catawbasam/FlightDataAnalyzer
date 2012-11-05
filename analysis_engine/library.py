@@ -639,6 +639,8 @@ def cycle_counter(array, min_step, cycle_time, hz, array_offset):
     array, the latter is recorded as it is normally the later in the flight
     that will be most hazardous.
     '''
+    if not np.ma.count(array):
+        return None, None
     idxs, vals = cycle_finder(array, min_step=min_step)
     if idxs is None:
         return None, None
