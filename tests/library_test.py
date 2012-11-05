@@ -2104,9 +2104,10 @@ class TestNpMaConcatenate(unittest.TestCase, M):
                data_type = 'Derived Multi-state',
                values_mapping = {0: 'No', 1: 'Yes'}
                )
-        result = np_ma_concatenate([a1.array,a2.array])
-        self.assertEqual(result,['Yes','No','Yes','No','No','No','Yes','Yes'])
-        self.assertEqual(result.raw,[0,0,1,1,0,0,1,1])
+        result = np_ma_concatenate([a1.array, a2.array])
+        self.assertEqual([x for x in result],
+                         ['Yes','No','Yes','No','No','No','Yes','Yes'])
+        self.assertEqual(list(result.raw), [1,0,1,0,0,0,1,1])
 
     def test_single_file(self):
         a=np.ma.arange(5)
