@@ -385,17 +385,29 @@ class TakeoffPeakAcceleration(KeyTimeInstanceNode):
 
 
 class Liftoff(KeyTimeInstanceNode):
+    @classmethod
+    def can_operate(cls, available):
+        return 'Airborne' in available
+    
     def derive(self, vert_spd=P('Vertical Speed Inertial'), airs=S('Airborne')):
         for air in airs:
             t0 = air.slice.start
-            if t0:
+            if t0 == None:
+                continue
+            
+            if vert_spd:
                 back_2 = (t0 - 2.0*vert_spd.frequency)
                 on_2 = (t0 + 2.0*vert_spd.frequency) + 1 # For indexing
                 index = index_at_value(vert_spd.array, VERTICAL_SPEED_FOR_LIFTOFF, slice(back_2,on_2))
                 if index:
                     self.create_kti(index)
                 else:
+                    # An improved index was not identified.
                     self.create_kti(t0)
+            else:
+                # No vertical speed parameter available
+                self.create_kti(t0)
+                
 
 
 class LowestPointOnApproach(KeyTimeInstanceNode):
@@ -483,11 +495,10 @@ class Touchdown(KeyTimeInstanceNode):
     def can_operate(cls, available):
         # List the minimum required parameters.
         return 'Gear On Ground' in available or \
-               all(x in available for x in ('Vertical Speed Inertial',
-                                            'Altitude AAL',
+               all(x in available for x in ('Altitude AAL',
                                             'Airborne',
                                             'Landing',))
-     
+
     def derive(self, wow=M('Gear On Ground'), roc=P('Vertical Speed Inertial'),
                alt=P('Altitude AAL'), airs=S('Airborne'), lands=S('Landing')):
         # The preamble here checks that the landing we are looking at is
@@ -514,12 +525,14 @@ class Touchdown(KeyTimeInstanceNode):
                             'Ground', wow.array[land.slice])
                         if edges != []:
                             self.create_kti(edges[0] + (land.slice.start or 0))
-                        return
+                            return
                     
                     if not wow or edges == []:
-                        index, _ = touchdown_inertial(land, roc, alt)
-                        self.create_kti(index + land.start_edge)
-                        
+                        if roc:
+                            index, _ = touchdown_inertial(land, roc, alt)
+                            self.create_kti(index + land.start_edge)
+                        else:
+                            self.create_kti(index_at_value(alt.array, 0.0, land.slice))
                         '''
                         # Plot for ease of inspection during development.
                         from analysis_engine.plot_flight import plot_parameter

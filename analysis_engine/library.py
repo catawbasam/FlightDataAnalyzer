@@ -25,6 +25,90 @@ Value = namedtuple('Value', 'index value')
 class InvalidDatetime(ValueError):
     pass
 
+def air_track(lat_start, lon_start, lat_end, lon_end, spd, hdg, frequency):
+    """
+    Computation of the air track for cases where recorded latitude and longitude 
+    are not available but the origin and destination airport locations are known.
+    
+    Note that as the data will be "stretched" to match the origin and
+    destination coordinates, either groundspeed or airspeed may be used, as
+    the stretching function effectively determines the average wind.
+    
+    :param lat_start: Fixed latitude point at the origin.
+    :type lat_start: float, latitude degrees.
+    :param lon_start: Fixed longitude point at the origin.
+    :type lon_start: float, longitude degrees.
+    :param lat_end: Fixed latitude point at the destination.
+    :type lat_end: float, latitude degrees.
+    :param lon_end: Fixed longitude point at the destination.
+    :type lon_end: float, longitude degrees.
+    :param spd: Speed (air or ground) in knots
+    :type gspd: Numpy masked array.
+    :param hdg: Heading (ideally true) in degrees.
+    :type hdg: Numpy masked array.
+    :param frequency: Frequency of the groundspeed and heading data
+    :type frequency: Float (units = Hz)
+
+    :returns
+    :param lat_track: Latitude of computed ground track
+    :type lat_track: Numpy masked array
+    :param lon_track: Longitude of computed ground track
+    :type lon_track: Numpy masked array.    
+    
+    :error conditions
+    :Fewer than 5 valid data points, returns None, None
+    :Invalid mode fails with ValueError
+    :Mismatched array lengths fails with ValueError
+    """
+    
+    # First check that the gspd/hdg arrays are sensible.
+    if len(spd) != len(hdg):
+        raise ValueError('Ground_track requires equi-length speed and '
+                         'heading arrays')
+    
+    # It's not worth doing anything if there is too little data
+    if np.ma.count(spd) < 5:
+        return None, None
+
+    # Prepare arrays for the outputs
+    lat = np_ma_masked_zeros_like(spd)    
+    lon = np_ma_masked_zeros_like(spd)    
+    
+    repair_mask(spd, repair_duration=None)
+    repair_mask(hdg, repair_duration=None)
+    
+    valid_slice = np.ma.clump_unmasked(spd)[0]
+    
+    hdg_rad = hdg[valid_slice] * deg2rad
+    spd_north = spd[valid_slice] * np.ma.cos(hdg_rad)
+    spd_east = spd[valid_slice] * np.ma.sin(hdg_rad)
+    
+    # Compute displacements in metres north and east of the starting point.
+    north = integrate(spd_north, frequency, scale=KTS_TO_MPS)
+    east = integrate(spd_east, frequency, scale=KTS_TO_MPS)
+    
+    brg, dist = bearing_and_distance(lat_start, lon_start, lat_end, lon_end)
+    north_final = dist * np.cos(brg * deg2rad)
+    east_final = dist * np.sin(brg * deg2rad)
+    
+    # The delta U north and east (dun & due) correct for the integration over
+    # (N-1) sample intervals.
+    dun = (north_final - north[-1]) / ((len(north)-1) * KTS_TO_MPS)
+    due = (east_final - east[-1]) / ((len(east)-1) * KTS_TO_MPS)
+    
+    north = integrate(spd_north+dun, frequency, scale=KTS_TO_MPS)
+    east = integrate(spd_east+due, frequency, scale=KTS_TO_MPS)
+
+    bearings = np.ma.array(np.rad2deg(np.arctan2(east, north)))
+    distances = np.ma.array(np.ma.sqrt(north**2 + east**2))
+   
+    lat[valid_slice],lon[valid_slice] = latitudes_and_longitudes(bearings, distances, 
+                                                                 {'latitude':lat_start,
+                                                                  'longitude':lon_start})
+    
+    repair_mask(lat, repair_duration=None, extrapolate=True)
+    repair_mask(lon, repair_duration=None, extrapolate=True)
+    return lat, lon
 
 def align(slave, master, data_type=None):
     """
@@ -555,6 +639,8 @@ def cycle_counter(array, min_step, cycle_time, hz, array_offset):
     array, the latter is recorded as it is normally the later in the flight
     that will be most hazardous.
     '''
+    if not np.ma.count(array):
+        return None, None
     idxs, vals = cycle_finder(array, min_step=min_step)
     if idxs is None:
         return None, None
@@ -807,6 +893,36 @@ def filter_vor_ils_frequencies(array, navaid):
         return np.ma.masked_where(fours > 1.0, vor_range)
     else:
         raise ValueError('Navaid of unrecognised type %s' % navaid)
+
+
+def find_app_rwy(self, app_info, start_datetime, this_loc):
+    """
+    This function scans through the recorded approaches to find which matches
+    the current localizer established phase. This is required because we
+    cater for multiple ILS approaches on a single flight.
+    """
+    for approach in app_info.value:
+        # line up an approach slice
+        start = index_of_datetime(start_datetime.value,
+                                  approach['slice_start_datetime'],
+                                  self.frequency)
+        stop = index_of_datetime(start_datetime.value,
+                                 approach['slice_stop_datetime'],
+                                 self.frequency)
+        approach_slice = slice(start, stop)
+        if slices_overlap(this_loc.slice, approach_slice):
+            # we've found a matching approach where the localiser was established
+            break
+    else:
+        self.warning("No approach found within slice '%s'.",this_loc)
+        return None, None
+
+    runway = approach['runway']
+    if not runway:
+        self.warning("Approach runway information not available.")
+        return approach, None
+                
+    return approach, runway     
 
 
 def find_edges(array, _slice, direction='rising_edges'):
@@ -2016,6 +2132,22 @@ def latitudes_and_longitudes(bearings, distances, reference):
     return lat_array, lon_array
 
 
+def localizer_scale(reference, runway):
+    """
+    Compute the ILS localizer scaling factor from runway or nominal data.
+    """
+    if 'beam_width' in reference:
+        # Compute the localizer scale factor (degrees per dot)
+        # Half the beam width is 2.5 dots full scale
+        scale = (reference['beam_width']/2.0) / 2.5
+    else:
+        # Normal scaling of a localizer gives 700ft width at the threshold,
+        # so half of this is 350ft=106.68m. This appears to be a single dot
+        # scale (to match beam width values).
+        scale = np.degrees(np.arctan2(106.68, runway_length(runway)))
+    return scale
+
+
 def mask_inside_slices(array, slices):
     '''
     Mask slices within array.
@@ -2527,6 +2659,32 @@ def normalise(array, normalise_max=1.0, scale_max=None, copy=True, axis=None):
     ##array *= normalise_max / array.max() # original single axis version
     return array
 
+def np_ma_concatenate(arrays):
+    """
+    Derivative of the normal concatenate function which handles mapped discrete arrays.
+    :param arrays: list of arrays, which may have mapped values.
+    :type arrays: list of numpy masked arrays
+    
+    :returns: single numpy masked array, which may have mapped values.
+    
+    :raises: ValueError if mapped arrays carry different mappings.
+    """
+    if len(arrays) == 0:
+        return None # Nothing to concatenate !
+
+    if hasattr(arrays[0], 'values_mapping'):
+        # Handle mapped arrays here.
+        mapping = arrays[0].values_mapping
+        for each_array in arrays[1:len(arrays)+1]:
+            if each_array.values_mapping != mapping:
+                raise ValueError('Attempt to concatenate differing multistate arrays')
+        array = np.ma.concatenate(arrays)
+        array.values_mapping = mapping
+        return array
+    else:
+        # Numeric only arrays.
+        return np.ma.concatenate(arrays)
+    
 
 def np_ma_zeros_like(array):
     """
@@ -2644,7 +2802,40 @@ def truck_and_trailer(data, ttp, overall, trailer, curve_sense, _slice):
         # Data curved in wrong sense or too weakly to find corner point.
         return None
     
+def offset_select(mode, param_list):
+    """
+    This little piece of code finds the offset from a list of possibly empty
+    parameters. This is used in the collated engine parameters where
+    allowance is made for four engines, but only two or three may be
+    installed and we don't know which order the parameters are recorded in.
     
+    :param mode: which type of offset to compute.
+    :type mode: string 'mean', 'first', 'last'
+    
+    :return: offset
+    :type: float
+    """
+    least = None
+    for p in param_list:
+        if p:
+            if not least:
+                least = p.offset
+                most = p.offset
+                total = p.offset
+                count = 1
+            else:
+                least = min(least, p.offset)
+                most = max(most, p.offset)
+                total = total + p.offset
+                count += 1
+    if mode == 'mean':
+        return total / float(count)
+    if mode == 'first':
+        return least
+    if mode == 'last':
+        return most
+    raise ValueError ("offset_select called with unrecognised mode")
+
 def peak_curvature(array, _slice=slice(None), curve_sense='Concave',
                    gap = TRUCK_OR_TRAILER_INTERVAL,
                    ttp = TRUCK_OR_TRAILER_PERIOD):
@@ -2774,7 +2965,7 @@ def rate_of_change_array(to_diff, hz, width=2.0):
     if hw < 1:
         raise ValueError('Rate of change called with inadequate width.')
     if len(to_diff) <= 2*hw:
-        logger.warn("Rate of change called with short data segment. Zero rate "
+        logger.info("Rate of change called with short data segment. Zero rate "
                     "returned")
         return np_ma_zeros_like(to_diff)
     
@@ -2843,7 +3034,9 @@ def repair_mask(array, frequency=1, repair_duration=REPAIR_DURATION,
                 continue # Too long to repair
         elif section.start == 0:
             if extrapolate:
-                array.data[section] = array.data[section.stop - 1]
+                # TODO: Does it make sense to subtract 1 from the section stop??
+                #array.data[section] = array.data[section.stop - 1]
+                array.data[section] = array.data[section.stop]
                 array.mask[section] = False
             else:
                 continue # Can't interpolate if we don't know the first sample

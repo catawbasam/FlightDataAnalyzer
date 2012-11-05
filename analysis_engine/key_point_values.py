@@ -1,6 +1,7 @@
 import numpy as np
 
-from analysis_engine.settings import (ACCEL_NORM_OFFSET_LIMIT,
+from analysis_engine.settings import (ACCEL_LAT_OFFSET_LIMIT,
+                                      ACCEL_NORM_OFFSET_LIMIT,
                                       CLIMB_OR_DESCENT_MIN_DURATION,
                                       CONTROL_FORCE_THRESHOLD,
                                       FEET_PER_NM,
@@ -109,7 +110,7 @@ class AccelerationLateralAtTouchdown(KeyPointValueNode):
     '''
     Programmed at Goodyear office as a demonstration.
     '''
-    def derive(self, acc=P('Acceleration Lateral'), tdwns=KTI('Touchdown')):
+    def derive(self, acc=P('Acceleration Lateral Offset Removed'), tdwns=KTI('Touchdown')):
         for tdwn in tdwns:
             self.create_kpv(*bump(acc, tdwn))
         
@@ -122,9 +123,9 @@ class AccelerationLateralMax(KeyPointValueNode):
         reasonably say that we are not interested in anything while the
         aircraft is stationary.
         '''
-        return 'Acceleration Lateral' in available
+        return 'Acceleration Lateral Offset Removed' in available
     
-    def derive(self, acc_lat=P('Acceleration Lateral'), gspd=P('Groundspeed')):
+    def derive(self, acc_lat=P('Acceleration Lateral Offset Removed'), gspd=P('Groundspeed')):
         if gspd:
             self.create_kpvs_within_slices(acc_lat.array,
                                        gspd.slices_above(5), max_abs_value)
@@ -140,7 +141,7 @@ class AccelerationLateralTaxiingStraightMax(KeyPointValueNode):
     identified by masking the turning phases and then testing the resulting
     data.
     '''
-    def derive(self, acc_lat=P('Acceleration Lateral'), taxis=S('Taxiing'), 
+    def derive(self, acc_lat=P('Acceleration Lateral Offset Removed'), taxis=S('Taxiing'), 
                turns=S('Turning On Ground')):
         accel = np.ma.copy(acc_lat.array) # Prepare to change mask here.
         for turn in turns:
@@ -156,7 +157,7 @@ class AccelerationLateralTaxiingTurnsMax(KeyPointValueNode):
     preference to groundspeed as this parameter is available on older
     aircraft and is directly related to comfort.
     '''
-    def derive(self, acc_lat=P('Acceleration Lateral'), 
+    def derive(self, acc_lat=P('Acceleration Lateral Offset Removed'), 
                turns=S('Turning On Ground')):
         self.create_kpvs_within_slices(acc_lat.array, turns, max_abs_value)
 
@@ -284,6 +285,26 @@ class AccelerationNormalOffset(KeyPointValueNode):
             delta = total_sum/float(total_count) - 1.0
             if abs(delta) < ACCEL_NORM_OFFSET_LIMIT:
                 self.create_kpv(0, delta + 1.0)
+                
+                
+class AccelerationLateralOffset(KeyPointValueNode):
+    """
+    This KPV computes the lateral accelerometer datum offset, as for
+    AccelerationNormalOffset.
+    """
+    def derive(self, acc=P('Acceleration Lateral'), taxis=S('Taxiing')):
+        total_sum = 0.0
+        total_count = 0
+        for taxi in taxis:
+            unmasked_data = np.ma.compressed(acc.array[taxi.slice])
+            count = len(unmasked_data)
+            if count:
+                total_count += count
+                total_sum += np.sum(unmasked_data)
+        if total_count>20:
+            delta = total_sum/float(total_count)
+            if abs(delta) < ACCEL_LAT_OFFSET_LIMIT:
+                self.create_kpv(0, delta)
 
 
 #-----------------------------------------------------------------------
@@ -317,7 +338,9 @@ class AirspeedAt35FtInTakeoff(KeyPointValueNode):
     def derive(self, airspeed=P('Airspeed'), takeoff=S('Takeoff')):
         first_toff = takeoff.get_first()
         if first_toff:
-            index = first_toff.slice.stop
+            # stop_edge is the precise endpoint of the takeoff at 35ft, NOT
+            # rounded to the nearest integer index.
+            index = first_toff.stop_edge
             self.create_kpv(index, value_at_index(airspeed.array, index))
 
 
@@ -1872,17 +1895,34 @@ class LatitudeAtLanding(KeyPointValueNode):
     accurately.
     '''
     # Cannot use smoothed position as this causes circular dependancy.
-    def derive(self, lat=P('Latitude'), tdwns=KTI('Touchdown')):
-        self.create_kpvs_at_ktis(lat.array, tdwns)
+    @classmethod
+    def can_operate(cls, available):
+        return 'Touchdown' in available
     
+    def derive(self, lat=P('Latitude'), tdwns=KTI('Touchdown')):
+        if lat:
+            self.create_kpvs_at_ktis(lat.array, tdwns)
+        else:
+            # TODO: Remove this Edinburgh fixed location
+            self.create_kpv(tdwns[0].index, 55.9549)
+   
+class LongitudeAtLanding(KeyPointValueNode):
+    @classmethod
+    def can_operate(cls, available):
+        return 'Touchdown' in available
+    
+    # Cannot use smoothed position as this causes circular dependancy.
+    def derive(self, lon=P('Longitude'),tdwns=KTI('Touchdown')):
+        if lon:
+            self.create_kpvs_at_ktis(lon.array, tdwns)
+        else:
+            # TODO: Remove this Edinburgh fixed location
+            self.create_kpv(tdwns[0].index, -3.3580)
+
+
 class LatitudeAtTouchdown(KeyPointValueNode):
     def derive(self, lat=P('Latitude Smoothed'), tdwns=KTI('Touchdown')):
         self.create_kpvs_at_ktis(lat.array, tdwns)
-
-class LongitudeAtLanding(KeyPointValueNode):
-    # Cannot use smoothed position as this causes circular dependancy.
-    def derive(self, lon=P('Longitude'),tdwns=KTI('Touchdown')):
-        self.create_kpvs_at_ktis(lon.array, tdwns)
 
 class LongitudeAtTouchdown(KeyPointValueNode):
     def derive(self, lon=P('Longitude Smoothed'),tdwns=KTI('Touchdown')):
@@ -1890,12 +1930,20 @@ class LongitudeAtTouchdown(KeyPointValueNode):
 
 
 class LatitudeAtLiftoff(KeyPointValueNode):
+    @classmethod
+    def can_operate(cls, available):
+        return 'Liftoff' in available
+    
     def derive(self, lat=P('Latitude'),
                liftoffs=KTI('Liftoff')):
         # OK, At the risk of causing confusion, we use the liftoff instant to
         # identify the takeoff airport. Strictly, takeoff is a process taking
         # time and distance, whereas liftoff is an instant in time and space.
-        self.create_kpvs_at_ktis(lat.array, liftoffs)
+        if lat:
+            self.create_kpvs_at_ktis(lat.array, liftoffs)
+        else:
+            # TODO: Remove this Manchester fixed location
+            self.create_kpv(liftoffs[0].index, 53.34476)
 
 
 class LongitudeAtLiftoff(KeyPointValueNode):
@@ -1903,21 +1951,29 @@ class LongitudeAtLiftoff(KeyPointValueNode):
     While storing this is redundant due to geo-locating KeyPointValues, it is
     used in multiple Nodes to simplify their implementation.
     '''    
+    @classmethod
+    def can_operate(cls, available):
+        return 'Liftoff' in available
+    
     def derive(self, lon=P('Longitude'),
                liftoffs=KTI('Liftoff')):
-        self.create_kpvs_at_ktis(lon.array, liftoffs)
+        if lon:
+            self.create_kpvs_at_ktis(lon.array, liftoffs)
+        else:
+            # TODO: Remove this Manchester fixed location
+            self.create_kpv(liftoffs[0].index, -2.2935)
 
 
 class LatitudeAtLowestPointOnApproach(KeyPointValueNode):
     # Cannot use smoothed position as this causes circular dependancy.
-    def derive(self, lat=P('Latitude'), 
+    def derive(self, lat=P('Latitude Prepared'), 
                low_points=KTI('Lowest Point On Approach')):
         self.create_kpvs_at_ktis(lat.array, low_points)
 
 
 class LongitudeAtLowestPointOnApproach(KeyPointValueNode):
     # Cannot use smoothed position as this causes circular dependancy.
-    def derive(self, lon=P('Longitude'), 
+    def derive(self, lon=P('Longitude Prepared'), 
                low_points=KTI('Lowest Point On Approach')):
         self.create_kpvs_at_ktis(lon.array, low_points)
 
@@ -2739,10 +2795,10 @@ class HeightOfBouncedLanding(KeyPointValueNode):
 class HeadingDeviationOnTakeoffAbove100Kts(KeyPointValueNode):
     """
     The heading deviation is measured as the peak-to-peak deviation between
-    100kts and 5 deg nose pitch up, at which time the weight is clearly off
-    the wheel (we avoid using weight on nosewheel as this is often not
-    recorded).
-    The value is annotated half way between the end conditions.
+    100kts airspeed and 5 deg nose pitch up, at which time the weight is
+    clearly off the wheel (we avoid using weight on nosewheel as this is
+    often not recorded). The value is annotated half way between the end
+    conditions.
     """
     def derive(self, head=P('Heading Continuous'), airspeed=P('Airspeed'),
                pitch=P('Pitch'), toffs=S('Takeoff')):
@@ -2760,6 +2816,8 @@ class HeadingDeviationOnTakeoffAbove100Kts(KeyPointValueNode):
                              toff.slice)
                 continue
             
+            # Numpy Peak To Peak function used to detect overall swing during
+            # this period.
             head_dev = np.ma.ptp(head.array[start:stop])
             self.create_kpv((start + stop) / 2, head_dev)
     
@@ -3811,9 +3869,12 @@ class SpeedbrakesDeployedInGoAroundDuration(KeyPointValueNode):
 # TODO: Write some unit tests!
 class SpeedbrakesDeployedWithPowerOnDuration(KeyPointValueNode):
     '''
-    Each time the aircraft is flown with more than 50% N1 average power and
-    the speedbrakes are open, something odd is going on! Let's record the
-    duration this happened for, and allow the analyst to find out the cause.
+    Each time the aircraft is flown with high power and the speedbrakes open,
+    something unusual is happening. We record the duration this happened for,
+    and allow the analyst to find out the cause.
+    
+    The threshold for high power is 50% N1 for most aircraft, but 60% for
+    Airbus types, to align with the Airbus AFPS.
     '''
 
     def derive(self, speedbrake=M('Speedbrake Selected'),
@@ -3945,7 +4006,7 @@ class StickPusherActivatedDuration(KeyPointValueNode):
     '''
     def derive(self, stick_push=M('Stick Pusher'), airs=S('Airborne')):
         self.create_kpvs_where_state(
-            'True',
+            'Push',
             stick_push.array,
             stick_push.hz,
             airs

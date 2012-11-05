@@ -462,6 +462,7 @@ def split_hdf_to_segments(hdf_path, aircraft_info, fallback_dt=None,
         plot_essential(hdf_path)
         
     with hdf_file(hdf_path) as hdf:
+        superframe_present = hdf.superframe_present
         # Confirm aircraft tail for the entire datafile
         logger.info("Validating aircraft matches that recorded in data")
         validate_aircraft(aircraft_info, hdf)
@@ -483,7 +484,7 @@ def split_hdf_to_segments(hdf_path, aircraft_info, fallback_dt=None,
         # write segment to new split file (.001)
         dest_path = os.path.splitext(hdf_path)[0] + '.%03d.hdf5' % part
         logger.debug("Writing segment %d: %s", part, dest_path)
-        write_segment(hdf_path, segment_slice, dest_path, supf_boundary=True)
+        write_segment(hdf_path, segment_slice, dest_path, supf_boundary=superframe_present)
         segment = append_segment_info(dest_path, segment_type, segment_slice,
                                       part, fallback_dt=fallback_dt)
         if fallback_dt:

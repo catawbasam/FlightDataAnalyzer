@@ -14,11 +14,25 @@ from analysis_engine.flight_attribute import LandingRunway
 import utilities.masked_array_testutils as ma_test
 
 from analysis_engine.library import *
-from analysis_engine.node import (P, S)
+from analysis_engine.node import (P, S, M)
 from analysis_engine.settings import METRES_TO_FEET
 
 test_data_path = os.path.join(os.path.dirname(os.path.abspath(__file__)),
                               'test_data')
+
+class TestAirTrack(unittest.TestCase):
+    def test_air_track_basic(self):
+        spd = np.ma.array([260,260,260,260,260,260,260], dtype=float)
+        hdg = np.ma.array([0,0,0,90,90,90,270], dtype=float)
+        lat, lon = air_track(0.0, 0.0, 0.0035, 0.0035, spd, hdg, 1.0)
+        np.testing.assert_array_almost_equal(0.0035, lat[-1])
+        np.testing.assert_array_almost_equal(0.0035, lon[-1])
+    def test_air_track_arrays_too_short(self):
+        spd = np.ma.array([60,60])
+        hdg = np.ma.array([0,0])
+        lat, lon = air_track(0.0, 0.0, 1.0, 1.0, spd, hdg, 1.0)
+        self.assertEqual(lat, None)
+        self.assertEqual(lon, None)
 
 
 class TestAlign(unittest.TestCase):
@@ -2055,6 +2069,55 @@ class TestNpMaZerosLike(unittest.TestCase):
         ma_test.assert_array_equal(expected, result)
 
 
+class TestNpMaConcatenate(unittest.TestCase, M):
+    def test_concatenation_of_numeric_arrays(self):
+        a1 = np.ma.arange(0,4)
+        a2 = np.ma.arange(4,8)
+        answer = np.ma.arange(8)
+        ma_test.assert_array_equal(np_ma_concatenate([a1,a2]),answer)
+        
+    def test_rejection_of_differing_arrays(self):
+        a1 = M(name = 'a1',
+               array = np.ma.array(data=[1,0,1,0],
+                                   mask=False),
+               data_type = 'Derived Multi-state',
+               values_mapping = {0: 'Zero', 1: 'One'}
+               )
+        a2 = M(name = 'a2',
+               array = np.ma.array(data=[0,0,1,1],
+                                   mask=False),
+               data_type = 'Derived Multi-state',
+               values_mapping = {0: 'No', 1: 'Yes'}
+               )
+        self.assertRaises(ValueError, np_ma_concatenate, [a1.array,a2.array])
+
+    def test_concatenation_of_similar_arrays(self):
+        a1 = M(name = 'a1',
+               array = np.ma.array(data=[1,0,1,0],
+                                   mask=False),
+               data_type = 'Derived Multi-state',
+               values_mapping = {0: 'No', 1: 'Yes'}
+               )
+        a2 = M(name = 'a2',
+               array = np.ma.array(data=['No','No','Yes','Yes'],
+                                   mask=False),
+               data_type = 'Derived Multi-state',
+               values_mapping = {0: 'No', 1: 'Yes'}
+               )
+        result = np_ma_concatenate([a1.array, a2.array])
+        self.assertEqual([x for x in result],
+                         ['Yes','No','Yes','No','No','No','Yes','Yes'])
+        self.assertEqual(list(result.raw), [1,0,1,0,0,0,1,1])
+
+    def test_single_file(self):
+        a=np.ma.arange(5)
+        result = np_ma_concatenate([a])
+        self.assertEqual(len(result), 5)
+        ma_test.assert_array_equal(result,a)
+        
+    def test_empty_list(self):
+        self.assertEqual(np_ma_concatenate([]),None)
+
 
 class TestNpMaOnesLike(unittest.TestCase):
     def test_zeros_like_basic(self):
@@ -2069,6 +2132,32 @@ class TestNpMaMaskedZerosLike(unittest.TestCase):
         np.testing.assert_array_equal(result.data, [0, 0, 0])
         np.testing.assert_array_equal(result.mask, [1, 1, 1])
 
+
+class TestOffsetSelect(unittest.TestCase):
+    def test_simple_minimum(self):
+        e1=P('e1', np.ma.array([1]), offset=0.2)
+        off = offset_select('first', [e1])
+        self.assertEqual(off, 0.2)
+
+    def test_simple_maximum(self):
+        e1=P('e1', np.ma.array([1]), offset=0.2)
+        e2=P('e2', np.ma.array([2]), offset=0.5)
+        off = offset_select('last', [e1, e2])
+        self.assertEqual(off, 0.5)
+        
+    def test_simple_mean(self):
+        e1=P('e1', np.ma.array([1]), offset=0.2)
+        e2=P('e2', np.ma.array([2]), offset=0.6)
+        off = offset_select('mean', [e1, e2])
+        self.assertEqual(off, 0.4)
+        
+    def test_complex_mean(self):
+        e1=P('e1', np.ma.array([1]), offset=0.2)
+        e2=P('e2', np.ma.array([2]), offset=0.6)
+        e4=P('e4', np.ma.array([4]), offset=0.1)
+        off = offset_select('mean', [None, e1, e4, e2])
+        self.assertEqual(off, 0.3)
+        
         
 class TestPeakCurvature(unittest.TestCase):
     # Note: The results from the first two tests are in a range format as the
