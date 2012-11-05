@@ -639,6 +639,8 @@ def cycle_counter(array, min_step, cycle_time, hz, array_offset):
     array, the latter is recorded as it is normally the later in the flight
     that will be most hazardous.
     '''
+    if not np.ma.count(array):
+        return None, None
     idxs, vals = cycle_finder(array, min_step=min_step)
     if idxs is None:
         return None, None
@@ -2572,7 +2574,8 @@ def moving_average(array, window=9, weightings=None, pad=True):
         raise ValueError("weightings argument (len:%d) must equal window (len:%d)" % (
             len(weightings), window))
     # repair mask
-    repaired = repair_mask(array, repair_duration=None, raise_duration_exceedance=False)
+    repaired = repair_mask(array, repair_duration=None,
+                           raise_duration_exceedance=False)
     # if start of mask, ignore this section and remask at end
     start, end = np.ma.notmasked_edges(repaired)
     stop = end+1
@@ -3010,6 +3013,8 @@ def repair_mask(array, frequency=1, repair_duration=REPAIR_DURATION,
     :param raise_duration_exceedance: If False, no warning is raised if there are masked sections longer than repair_duration. They will remain unrepaired.
     :param extrapolate: If True, data is extrapolated at the start and end of the array.
     '''
+    if not np.ma.count(array):
+        raise ValueError("Array cannot be repaired as it is entirely masked")
     if copy:
         array = array.copy()
     if repair_duration:
@@ -3023,19 +3028,22 @@ def repair_mask(array, frequency=1, repair_duration=REPAIR_DURATION,
         if repair_samples and (length) > repair_samples:
             if raise_duration_exceedance:
                 raise ValueError("Length of masked section '%s' exceeds "
-                                 "repair_samples '%s'." % (length,
-                                                           repair_samples))
+                                 "repair duration '%s'." % (length * frequency,
+                                                            repair_duration))
             else:
                 continue # Too long to repair
         elif section.start == 0:
             if extrapolate:
+                # TODO: Does it make sense to subtract 1 from the section stop??
+                #array.data[section] = array.data[section.stop - 1]
                 array.data[section] = array.data[section.stop]
                 array.mask[section] = False
-            else:continue # Can't interpolate if we don't know the first sample
+            else:
+                continue # Can't interpolate if we don't know the first sample
         
         elif section.stop == len(array):
             if extrapolate:
-                array.data[section] = array.data[section.start-1]
+                array.data[section] = array.data[section.start - 1]
                 array.mask[section] = False
             else:
                 continue # Can't interpolate if we don't know the last sample
