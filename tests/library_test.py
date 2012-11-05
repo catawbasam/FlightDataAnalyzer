@@ -2416,6 +2416,12 @@ class TestRMSNoise(unittest.TestCase):
         expected = sqrt(107.75/7.0)
         self.assertAlmostEqual(result, expected)
         
+    def test_rms_noise_ignores_slope(self):
+        array = np.ma.arange(20)
+        result = rms_noise(array)
+        expected = 0.0
+        self.assertAlmostEqual(result, expected)
+        
     def test_rms_noise_masked(self):
         array = np.ma.array([0,0,0,1,0,0,0])
         array[3]=np.ma.masked
@@ -2429,6 +2435,20 @@ class TestRMSNoise(unittest.TestCase):
         result = rms_noise(array)
         expected = None
         self.assertAlmostEqual(result, expected)
+
+    def test_rms_noise_with_ignore_three(self):
+        # This ignores three values, the 45 and the adjacent "minima"
+        array = np.ma.array([0,0,1,0,0,45,0,0,1,0,0])
+        result = rms_noise(array, ignore_pc=30)
+        expected = sqrt(1.5/3.0)
+        self.assertAlmostEqual(result, expected)
+
+    def test_rms_noise_with_ignore_one(self):
+        # This ignores only the 45 value
+        array = np.ma.array([0,0,1,0,0,45,0,0,1,0,0])
+        result = rms_noise(array, ignore_pc=10)
+        expected = 11.2666
+        self.assertAlmostEqual(result, expected, places=3)
 
 
 class TestRunwayDistanceFromEnd(unittest.TestCase):

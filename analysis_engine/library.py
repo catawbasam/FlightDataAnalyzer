@@ -3066,12 +3066,15 @@ def round_to_nearest(array, step):
     return np.ma.round(array / step) * step
 
 
-def rms_noise(array):
+def rms_noise(array, ignore_pc=None):
     '''
     :param array: input parameter to measure noise level
     :type array: numpy masked array
+    :param ignore_pc: percent to ignore (see below)
+    :type integer: % value in range 0-100
+    
     :returns: RMS noise level
-    :type: Float
+    :type: Float, units same as array
     
     :exception: Should all the difference terms include masked values, this
     function will return None.
@@ -3079,6 +3082,11 @@ def rms_noise(array):
     This computes the rms noise for each sample compared with its neighbours.
     In this way, a steady cruise at 30,000 ft will yield no noise, as will a
     steady climb or descent.
+    
+    The rms noise may be used to examine parameter reasonableness, in which
+    case the occasional spike is not considered background noise levels. The
+    ignore_pc value allows the highest spike readings to be ignored and the
+    rms is then the level for the normal operation of the parameter.
     '''
     # The difference between one sample and the ample to the left is computed
     # using the ediff1d algorithm, then by rolling it right we get the answer
@@ -3087,10 +3095,15 @@ def rms_noise(array):
     diff_right = np.ma.array(data=np.roll(diff_left.data,1), 
                              mask=np.roll(diff_left.mask,1))
     local_diff = (diff_left - diff_right)/2.0
-    if np.ma.count(local_diff[1:-1]) == 0:
+    diffs = local_diff[1:-1]
+    if np.ma.count(diffs) == 0:
         return None
+    elif ignore_pc == None:
+        to_rms = diffs
     else:
-        return sqrt(np.ma.mean(np.ma.power(local_diff[1:-1],2)))  # RMS in one line !
+        monitor = slice(0, len(diffs) * (1-ignore_pc/100.0))
+        to_rms = np.ma.sort(np.ma.abs(diffs))[monitor]
+    return sqrt(np.ma.mean(np.ma.power(to_rms,2))) # RMS in one line !
 
 
 def shift_slice(this_slice, offset):
