@@ -1851,7 +1851,7 @@ def interpolate_params(*params):
 """
 
 
-def index_of_datetime(start_datetime, index_datetime, frequency):
+def index_of_datetime(start_datetime, index_datetime, frequency, offset=0):
     '''
     :param start_datetime: Start datetime of data file.
     :type start_datetime: datetime
@@ -1859,10 +1859,12 @@ def index_of_datetime(start_datetime, index_datetime, frequency):
     :type index_datetime: datetime
     :param frequency: Frequency of index.
     :type frequency: float or int
+    :param offset: Optional offset of the parameter.
+    :type offset: float
     :returns: The index of index_datetime relative to start_datetime and frequency.
     '''
     difference = index_datetime - start_datetime
-    return difference.total_seconds() * frequency
+    return (difference.total_seconds() * frequency) - (offset * frequency)
 
 
 def is_index_within_slice(index, _slice):
