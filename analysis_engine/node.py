@@ -1733,13 +1733,17 @@ class NodeManager(object):
         :type aircraft_info: dict
         :type achieved_flight_record: dict
         """
+        # Function to filter out empty attributes so that they do not
+        # incorrectly appear in the dependency tree:
+        non_empty = lambda x: {k: v for k, v in x.items() if v is not None}
+
         self.start_datetime = start_datetime
         self.lfl = lfl
         self.requested = requested
         self.derived_nodes = derived_nodes
         # Attributes:
-        self.aircraft_info = aircraft_info
-        self.achieved_flight_record = achieved_flight_record
+        self.aircraft_info = non_empty(aircraft_info)
+        self.achieved_flight_record = non_empty(achieved_flight_record)
         
     def keys(self):
         """
