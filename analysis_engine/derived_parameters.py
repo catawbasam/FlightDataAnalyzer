@@ -401,8 +401,7 @@ class AirspeedRelativeFor3Sec(DerivedParameterNode):
         except ValueError:
             self.warning("'%s' is completely masked within '%s'. Output array "
                          "will also be masked.", spd_vref.name, self.name)
-            self.array = np.ma.zeros_like(spd_vref.array)
-            self.array.mask = True
+            self.array = np_ma_zeros_like(spd_vref.array, mask=True)
 
         
 # TODO: Write some unit tests!
@@ -423,8 +422,7 @@ class AirspeedRelativeFor5Sec(DerivedParameterNode):
         except ValueError:
             self.warning("'%s' is completely masked within '%s'. Output array "
                          "will also be masked.", spd_vref.name, self.name)
-            self.array = np.ma.zeros_like(spd_vref.array)
-            self.array.mask = True
+            self.array = np_ma_zeros_like(spd_vref.array, mask=True)
 
 
 ################################################################################

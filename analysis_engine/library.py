@@ -2692,7 +2692,7 @@ def np_ma_concatenate(arrays):
         return np.ma.concatenate(arrays)
     
 
-def np_ma_zeros_like(array):
+def np_ma_zeros_like(array, mask=False):
     """
     The Numpy masked array library does not have equivalents for some array
     creation functions. These are provided with similar names which may be
@@ -2705,7 +2705,7 @@ def np_ma_zeros_like(array):
     
     :returns: Numpy masked array of unmasked zero values, length same as input array.
     """
-    return np.ma.array(np.zeros_like(array.data), mask=False)
+    return np.ma.array(np.zeros_like(array.data), mask=mask)
 
 
 def np_ma_ones_like(array):
