@@ -797,7 +797,8 @@ def clip(array, period, hz=1.0, remove='peaks'):
     if remove not in ['peaks', 'troughs']:
         raise ValueError('Clip called with unrecognised removal mode')
     
-    # Width is the number of samples to be computed, allowing for delay period before and after.
+    # Width is the number of samples to be computed, allowing for delay
+    # period before and after.
     width = len(array) - 2*delay
     
     # If the clip period is longer than the array, width is zero or negative,
@@ -810,16 +811,19 @@ def clip(array, period, hz=1.0, remove='peaks'):
             result *= np.ma.max(array)
         return result
     
-    # OK - normal operation here. We repair the mask to avoid propogating invalid samples unreasonably.
+    # OK - normal operation here. We repair the mask to avoid propogating
+    # invalid samples unreasonably.
     source = repair_mask(array, frequency=hz, repair_duration=period-(1/hz))
     if source is not None and np.ma.count(source): # Because np.ma.count(source)=1 if source = None
         result = np.ma.copy(source)
     
         for step in range(2*delay+1):
             if remove == 'peaks':
-                result[delay:-delay] = np.ma.minimum(result[delay:-delay], source[step:step+width])
+                result[delay:-delay] = np.ma.minimum(result[delay:-delay],
+                                                     source[step:step+width])
             else:
-                result[delay:-delay] = np.ma.maximum(result[delay:-delay], source[step:step+width])
+                result[delay:-delay] = np.ma.maximum(result[delay:-delay],
+                                                     source[step:step+width])
     
         # Stretch the ends out and return the answer.
         result[:delay] = result[delay]
