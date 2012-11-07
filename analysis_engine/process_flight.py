@@ -67,8 +67,8 @@ def derive_parameters(hdf, node_mgr, process_order):
     :type process_order: list of strings
     '''
     params = {} # store all derived params that aren't masked arrays
-    kpv_list = KeyPointValueNode() # duplicate storage, but maintaining types
-    kti_list = KeyTimeInstanceNode()
+    kpv_list = KeyPointValueNode(restrict_names=False) # duplicate storage, but maintaining types
+    kti_list = KeyTimeInstanceNode(restrict_names=False)
     section_list = SectionNode()  # 'Node Name' : node()  pass in node.get_accessor()
     flight_attrs = []
     duration = hdf.duration

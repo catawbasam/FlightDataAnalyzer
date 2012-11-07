@@ -954,6 +954,8 @@ class FormattedNameNode(Node, list):
             super(FormattedNameNode, self).__init__(*args[1:], **kwargs)
         else:
             super(FormattedNameNode, self).__init__(*args, **kwargs)
+
+        self.restrict_names = kwargs.get('restrict_names', True)
         
     def __repr__(self):
         return '%s' % list(self)
@@ -1029,7 +1031,7 @@ class FormattedNameNode(Node, list):
         elif within_slice:
             return lambda e: is_index_within_slice(e.index, within_slice)
         elif name:
-            if name not in self.names():
+            if self.restrict_names and name not in self.names():
                 raise ValueError("Attempted to filter by invalid name '%s' "
                                  "within '%s'." % (name,
                                                    self.__class__.__name__))            
