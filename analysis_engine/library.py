@@ -639,6 +639,8 @@ def cycle_counter(array, min_step, cycle_time, hz, array_offset):
     array, the latter is recorded as it is normally the later in the flight
     that will be most hazardous.
     '''
+    if not np.ma.count(array):
+        return None, None
     idxs, vals = cycle_finder(array, min_step=min_step)
     if idxs is None:
         return None, None
@@ -795,7 +797,8 @@ def clip(array, period, hz=1.0, remove='peaks'):
     if remove not in ['peaks', 'troughs']:
         raise ValueError('Clip called with unrecognised removal mode')
     
-    # Width is the number of samples to be computed, allowing for delay period before and after.
+    # Width is the number of samples to be computed, allowing for delay
+    # period before and after.
     width = len(array) - 2*delay
     
     # If the clip period is longer than the array, width is zero or negative,
@@ -808,16 +811,19 @@ def clip(array, period, hz=1.0, remove='peaks'):
             result *= np.ma.max(array)
         return result
     
-    # OK - normal operation here. We repair the mask to avoid propogating invalid samples unreasonably.
+    # OK - normal operation here. We repair the mask to avoid propogating
+    # invalid samples unreasonably.
     source = repair_mask(array, frequency=hz, repair_duration=period-(1/hz))
     if source is not None and np.ma.count(source): # Because np.ma.count(source)=1 if source = None
         result = np.ma.copy(source)
     
         for step in range(2*delay+1):
             if remove == 'peaks':
-                result[delay:-delay] = np.ma.minimum(result[delay:-delay], source[step:step+width])
+                result[delay:-delay] = np.ma.minimum(result[delay:-delay],
+                                                     source[step:step+width])
             else:
-                result[delay:-delay] = np.ma.maximum(result[delay:-delay], source[step:step+width])
+                result[delay:-delay] = np.ma.maximum(result[delay:-delay],
+                                                     source[step:step+width])
     
         # Stretch the ends out and return the answer.
         result[:delay] = result[delay]
@@ -1849,7 +1855,7 @@ def interpolate_params(*params):
 """
 
 
-def index_of_datetime(start_datetime, index_datetime, frequency):
+def index_of_datetime(start_datetime, index_datetime, frequency, offset=0):
     '''
     :param start_datetime: Start datetime of data file.
     :type start_datetime: datetime
@@ -1857,10 +1863,12 @@ def index_of_datetime(start_datetime, index_datetime, frequency):
     :type index_datetime: datetime
     :param frequency: Frequency of index.
     :type frequency: float or int
+    :param offset: Optional offset of the parameter.
+    :type offset: float
     :returns: The index of index_datetime relative to start_datetime and frequency.
     '''
     difference = index_datetime - start_datetime
-    return difference.total_seconds() * frequency
+    return (difference.total_seconds() * frequency) - (offset * frequency)
 
 
 def is_index_within_slice(index, _slice):
@@ -2572,7 +2580,8 @@ def moving_average(array, window=9, weightings=None, pad=True):
         raise ValueError("weightings argument (len:%d) must equal window (len:%d)" % (
             len(weightings), window))
     # repair mask
-    repaired = repair_mask(array, repair_duration=None, raise_duration_exceedance=False)
+    repaired = repair_mask(array, repair_duration=None,
+                           raise_duration_exceedance=False)
     # if start of mask, ignore this section and remask at end
     start, end = np.ma.notmasked_edges(repaired)
     stop = end+1
@@ -2683,7 +2692,7 @@ def np_ma_concatenate(arrays):
         return np.ma.concatenate(arrays)
     
 
-def np_ma_zeros_like(array):
+def np_ma_zeros_like(array, mask=False):
     """
     The Numpy masked array library does not have equivalents for some array
     creation functions. These are provided with similar names which may be
@@ -2696,7 +2705,7 @@ def np_ma_zeros_like(array):
     
     :returns: Numpy masked array of unmasked zero values, length same as input array.
     """
-    return np.ma.array(np.zeros_like(array.data), mask=False)
+    return np.ma.array(np.zeros_like(array.data), mask=mask)
 
 
 def np_ma_ones_like(array):
@@ -2798,7 +2807,8 @@ def truck_and_trailer(data, ttp, overall, trailer, curve_sense, _slice):
     else:
         # Data curved in wrong sense or too weakly to find corner point.
         return None
-    
+
+
 def offset_select(mode, param_list):
     """
     This little piece of code finds the offset from a list of possibly empty
@@ -2832,6 +2842,7 @@ def offset_select(mode, param_list):
     if mode == 'last':
         return most
     raise ValueError ("offset_select called with unrecognised mode")
+
 
 def peak_curvature(array, _slice=slice(None), curve_sense='Concave',
                    gap = TRUCK_OR_TRAILER_INTERVAL,
@@ -2913,7 +2924,7 @@ def peak_curvature(array, _slice=slice(None), curve_sense='Concave',
             else:
                 logger.warn("Short data and unrecognised keyword %s in peak_curvature" %curve_sense)
 
-    
+
 def peak_index(a):
     '''
     Scans an array and returns the peak, where possible computing the local
@@ -2942,8 +2953,8 @@ def peak_index(a):
             else:
                 peak=(a[loc-1]-a[loc+1])/denominator
                 return loc+peak
-    
-    
+
+
 def rate_of_change_array(to_diff, hz, width=2.0):
     '''
     Lower level access to rate of change algorithm. See rate_of_change for description.
@@ -2995,7 +3006,7 @@ def rate_of_change(diff_param, width):
     hz = diff_param.frequency
     to_diff = diff_param.array
     return rate_of_change_array(to_diff, hz, width)
-    
+
 
 def repair_mask(array, frequency=1, repair_duration=REPAIR_DURATION,
                 raise_duration_exceedance=False, copy=False, extrapolate=False):
@@ -3010,6 +3021,8 @@ def repair_mask(array, frequency=1, repair_duration=REPAIR_DURATION,
     :param raise_duration_exceedance: If False, no warning is raised if there are masked sections longer than repair_duration. They will remain unrepaired.
     :param extrapolate: If True, data is extrapolated at the start and end of the array.
     '''
+    if not np.ma.count(array):
+        raise ValueError("Array cannot be repaired as it is entirely masked")
     if copy:
         array = array.copy()
     if repair_duration:
@@ -3023,19 +3036,22 @@ def repair_mask(array, frequency=1, repair_duration=REPAIR_DURATION,
         if repair_samples and (length) > repair_samples:
             if raise_duration_exceedance:
                 raise ValueError("Length of masked section '%s' exceeds "
-                                 "repair_samples '%s'." % (length,
-                                                           repair_samples))
+                                 "repair duration '%s'." % (length * frequency,
+                                                            repair_duration))
             else:
                 continue # Too long to repair
         elif section.start == 0:
             if extrapolate:
+                # TODO: Does it make sense to subtract 1 from the section stop??
+                #array.data[section] = array.data[section.stop - 1]
                 array.data[section] = array.data[section.stop]
                 array.mask[section] = False
-            else:continue # Can't interpolate if we don't know the first sample
+            else:
+                continue # Can't interpolate if we don't know the first sample
         
         elif section.stop == len(array):
             if extrapolate:
-                array.data[section] = array.data[section.start-1]
+                array.data[section] = array.data[section.start - 1]
                 array.mask[section] = False
             else:
                 continue # Can't interpolate if we don't know the last sample
@@ -3047,7 +3063,7 @@ def repair_mask(array, frequency=1, repair_duration=REPAIR_DURATION,
             array.mask[section] = False
             
     return array
-   
+
 
 def round_to_nearest(array, step):
     """
@@ -3066,12 +3082,15 @@ def round_to_nearest(array, step):
     return np.ma.round(array / step) * step
 
 
-def rms_noise(array):
+def rms_noise(array, ignore_pc=None):
     '''
     :param array: input parameter to measure noise level
     :type array: numpy masked array
+    :param ignore_pc: percent to ignore (see below)
+    :type integer: % value in range 0-100
+    
     :returns: RMS noise level
-    :type: Float
+    :type: Float, units same as array
     
     :exception: Should all the difference terms include masked values, this
     function will return None.
@@ -3079,6 +3098,11 @@ def rms_noise(array):
     This computes the rms noise for each sample compared with its neighbours.
     In this way, a steady cruise at 30,000 ft will yield no noise, as will a
     steady climb or descent.
+    
+    The rms noise may be used to examine parameter reasonableness, in which
+    case the occasional spike is not considered background noise levels. The
+    ignore_pc value allows the highest spike readings to be ignored and the
+    rms is then the level for the normal operation of the parameter.
     '''
     # The difference between one sample and the ample to the left is computed
     # using the ediff1d algorithm, then by rolling it right we get the answer
@@ -3087,10 +3111,15 @@ def rms_noise(array):
     diff_right = np.ma.array(data=np.roll(diff_left.data,1), 
                              mask=np.roll(diff_left.mask,1))
     local_diff = (diff_left - diff_right)/2.0
-    if np.ma.count(local_diff[1:-1]) == 0:
+    diffs = local_diff[1:-1]
+    if np.ma.count(diffs) == 0:
         return None
+    elif ignore_pc == None:
+        to_rms = diffs
     else:
-        return sqrt(np.ma.mean(np.ma.power(local_diff[1:-1],2)))  # RMS in one line !
+        monitor = slice(0, len(diffs) * (1-ignore_pc/100.0))
+        to_rms = np.ma.sort(np.ma.abs(diffs))[monitor]
+    return sqrt(np.ma.mean(np.ma.power(to_rms,2))) # RMS in one line !
 
 
 def shift_slice(this_slice, offset):
