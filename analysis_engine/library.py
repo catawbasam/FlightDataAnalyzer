@@ -2803,7 +2803,8 @@ def truck_and_trailer(data, ttp, overall, trailer, curve_sense, _slice):
     else:
         # Data curved in wrong sense or too weakly to find corner point.
         return None
-    
+
+
 def offset_select(mode, param_list):
     """
     This little piece of code finds the offset from a list of possibly empty
@@ -2837,6 +2838,7 @@ def offset_select(mode, param_list):
     if mode == 'last':
         return most
     raise ValueError ("offset_select called with unrecognised mode")
+
 
 def peak_curvature(array, _slice=slice(None), curve_sense='Concave',
                    gap = TRUCK_OR_TRAILER_INTERVAL,
@@ -2918,7 +2920,7 @@ def peak_curvature(array, _slice=slice(None), curve_sense='Concave',
             else:
                 logger.warn("Short data and unrecognised keyword %s in peak_curvature" %curve_sense)
 
-    
+
 def peak_index(a):
     '''
     Scans an array and returns the peak, where possible computing the local
@@ -2947,8 +2949,8 @@ def peak_index(a):
             else:
                 peak=(a[loc-1]-a[loc+1])/denominator
                 return loc+peak
-    
-    
+
+
 def rate_of_change_array(to_diff, hz, width=2.0):
     '''
     Lower level access to rate of change algorithm. See rate_of_change for description.
@@ -3000,7 +3002,7 @@ def rate_of_change(diff_param, width):
     hz = diff_param.frequency
     to_diff = diff_param.array
     return rate_of_change_array(to_diff, hz, width)
-    
+
 
 def repair_mask(array, frequency=1, repair_duration=REPAIR_DURATION,
                 raise_duration_exceedance=False, copy=False, extrapolate=False):
@@ -3057,7 +3059,7 @@ def repair_mask(array, frequency=1, repair_duration=REPAIR_DURATION,
             array.mask[section] = False
             
     return array
-   
+
 
 def round_to_nearest(array, step):
     """
