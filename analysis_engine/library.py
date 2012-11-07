@@ -984,8 +984,9 @@ def first_valid_sample(array, start_index=0):
     :returns value: the value of first valid sample.
     :type index: Float or None
     '''
-    # Trap for start_index < 0 ensures we don't stray into the far end of the array.    
-    if start_index < 0 or start_index > len(array):
+    # Trap to ensure we don't stray into the far end of the array and that the
+    # sliced array is not empty.
+    if not 0 <= start_index < len(array):
         return None, None
     
     clumps = np.ma.clump_unmasked(array[start_index:])
