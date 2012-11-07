@@ -144,30 +144,28 @@ def derive_parameters(hdf, node_mgr, process_order):
                 # signifies the beginning and end of the data. To avoid TypeErrors
                 # in subsequent derive methods which perform arithmetic on section
                 # slice start and stops, replace with 0 or hdf.duration.
-                start = 0 if one_hz.slice.start is None else one_hz.slice.start
-                stop = \
-                    duration if one_hz.slice.stop is None else one_hz.slice.stop
-                start_edge = \
-                    0 if one_hz.start_edge is None else one_hz.start_edge
-                stop_edge = \
-                    duration if one_hz.stop_edge is None else one_hz.stop_edge
+                fallback = lambda x, y: x if x is not None else y
+
+                duration = fallback(duration, 0)
+
+                start = fallback(one_hz.slice.start, 0)
+                stop = fallback(one_hz.slice.stop, duration)
+                start_edge = fallback(one_hz.start_edge, 0)
+                stop_edge = fallback(one_hz.stop_edge, duration)
+
                 slice_ = slice(start, stop)
-                one_hz = aligned_section[index] = Section(one_hz.name, slice_,
-                                                          start_edge, stop_edge)
+                one_hz = Section(one_hz.name, slice_, start_edge, stop_edge)
+                aligned_section[index] = one_hz
                 
-                if not (0 <= start <= duration) or \
-                   not (0 <= stop <= duration + 1):
-                    raise IndexError(
-                        "Section '%s' (%.2f, %.2f) does not lie between 0 and "
-                        "%d" % (one_hz.name, start, stop, duration))
+                if not (0 <= start <= duration and 0 <= stop <= duration + 1):
+                    msg = "Section '%s' (%.2f, %.2f) not between 0 and %d"
+                    raise IndexError(msg % (one_hz.name, start, stop, duration))
                 if not 0 <= start_edge <= duration:
-                    raise IndexError(
-                        "Section '%s' start_edge (%.2f) does not lie between 0 "
-                        "and %d" % (one_hz.name, start_edge, duration))
+                    msg = "Section '%s' start_edge (%.2f) not between 0 and %d"
+                    raise IndexError(msg % (one_hz.name, start_edge, duration))
                 if not 0 <= stop_edge <= duration + 1:
-                    raise IndexError(
-                        "Section '%s' stop_edge (%.2f) does not lie between 0 "
-                        "and %d" % (one_hz.name, stop_edge, duration))
+                    msg = "Section '%s' stop_edge (%.2f) not between 0 and %d"
+                    raise IndexError(msg % (one_hz.name, stop_edge, duration))
                 section_list.append(one_hz)
             params[param_name] = aligned_section
         elif issubclass(node.node_type, DerivedParameterNode):
