@@ -3135,12 +3135,7 @@ class CoordinatesSmoothed(object):
                                  scale=KTS_TO_MPS),
                 mask = np.ma.getmaskarray(speed[toff_slice]))
     
-            # The start location is taken from the poor recorded latitude and
-            # longitude and moved onto the runway centreline in the absence
-            # of any better information.
-            start_locn = runway_snap_dict(toff_rwy.value, 
-                                     lat.array[toff_slice.start], 
-                                     lon.array[toff_slice.start])
+            start_locn = toff_rwy.value['start']
     
             # Similarly the runway bearing is derived from the runway endpoints
             # (this gives better visualisation images than relying upon the
