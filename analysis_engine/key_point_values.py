@@ -1270,6 +1270,13 @@ class AltitudeAtTouchdown(KeyPointValueNode):
 
 
 class AltitudeAtGoAroundMin(KeyPointValueNode):
+    '''
+    The altitude above the local airfield level at the minimum altitude point
+    of the go-around.
+    
+    Note: This may be less than the radio altimeter reading at this point if
+    there is higher ground in the area of the go-around minimum point.
+    '''
     @classmethod
     def can_operate(cls, available):
         return 'Go Around' in available and 'Altitude AAL' in available
@@ -1277,12 +1284,15 @@ class AltitudeAtGoAroundMin(KeyPointValueNode):
     def derive(self, alt_aal=P('Altitude AAL'), gas=KTI('Go Around'),
                alt_rad=P('Altitude Radio')):
         for ga in gas:
-            if alt_rad:
-                pit = alt_rad.array[ga.index]
-            else:
-                pit = alt_aal.array[ga.index]
-            self.create_kpv(ga.index, pit)
-
+            self.create_kpv(ga.index, alt_aal.array[ga.index])
+            
+            ## Original code allowed for reporting radio altitdue 
+            ##if alt_rad:
+                ##pit = alt_rad.array[ga.index]
+            ##else:
+                ##pit = alt_aal.array[ga.index]
+            ##self.create_kpv(ga.index, pit)
+            
 
 class AltitudeGoAroundFlapRetracted(KeyPointValueNode):
     # gafr pinpoints the flap retraction instance within the 500ft go-around window.
