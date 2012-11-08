@@ -318,6 +318,7 @@ class AirspeedReference(DerivedParameterNode):
                apps=S('Approach'),
                series=A('Series'),
                family=A('Family')):
+
         '''
         Currently a work in progress. We should use a recorded parameter if
         it's available, failing that a computed forumla reflecting the
@@ -625,7 +626,7 @@ class AltitudeAAL(DerivedParameterNode):
                 break
             
             alt_idxs, alt_vals = cycle_finder(alt_std.array[quick],
-                                              min_step=100.0)
+                                              min_step=5000.0)
             if alt_idxs is None:
                 break # In the case where speedy was trivially short
             
@@ -952,7 +953,9 @@ class AltitudeQNH(DerivedParameterNode):
             #alt_qnh[peak:]+=land.value['elevation']
             
             #TODO: Remove this fixed Edinburgh elevation - based on Google elevation data.
-            alt_qnh[peak:]+=99
+            # alt_qnh[peak:]+=99
+            #TODO: Remove this fixed Gardermoen elevation - based on Google elevation data.
+            alt_qnh[peak:]+=655
         
         except:
             alt_qnh[peak:]=np.ma.masked
@@ -3143,9 +3146,10 @@ class CoordinatesSmoothed(object):
             # The start location is taken from the poor recorded latitude and
             # longitude and moved onto the runway centreline in the absence
             # of any better information.
-            start_locn = runway_snap_dict(toff_rwy.value, 
-                                     lat.array[toff_slice.start], 
-                                     lon.array[toff_slice.start])
+            ##start_locn = runway_snap_dict(toff_rwy.value, 
+                                     ##lat.array[toff_slice.start], 
+                                     ##lon.array[toff_slice.start])
+            start_locn = toff_rwy.value['start']
     
             # Similarly the runway bearing is derived from the runway endpoints
             # (this gives better visualisation images than relying upon the

@@ -463,6 +463,7 @@ def split_hdf_to_segments(hdf_path, aircraft_info, fallback_dt=None,
         
     with hdf_file(hdf_path) as hdf:
         superframe_present = hdf.superframe_present
+
         # Confirm aircraft tail for the entire datafile
         logger.info("Validating aircraft matches that recorded in data")
         validate_aircraft(aircraft_info, hdf)
