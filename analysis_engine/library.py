@@ -698,7 +698,7 @@ def cycle_finder(array, min_step=0.0, include_ends=True):
     vals = array.data[idxs] # So these are the local peak and trough values.
     
     # Optional inclusion of end points.
-    if include_ends:
+    if include_ends and np.ma.count(array):
         # We can only extend over the range of valid data, so find the first
         # and last valid samples.
         first, last = np.ma.flatnotmasked_edges(array)
@@ -797,7 +797,8 @@ def clip(array, period, hz=1.0, remove='peaks'):
     if remove not in ['peaks', 'troughs']:
         raise ValueError('Clip called with unrecognised removal mode')
     
-    # Width is the number of samples to be computed, allowing for delay period before and after.
+    # Width is the number of samples to be computed, allowing for delay
+    # period before and after.
     width = len(array) - 2*delay
     
     # If the clip period is longer than the array, width is zero or negative,
@@ -810,16 +811,19 @@ def clip(array, period, hz=1.0, remove='peaks'):
             result *= np.ma.max(array)
         return result
     
-    # OK - normal operation here. We repair the mask to avoid propogating invalid samples unreasonably.
+    # OK - normal operation here. We repair the mask to avoid propogating
+    # invalid samples unreasonably.
     source = repair_mask(array, frequency=hz, repair_duration=period-(1/hz))
     if source is not None and np.ma.count(source): # Because np.ma.count(source)=1 if source = None
         result = np.ma.copy(source)
     
         for step in range(2*delay+1):
             if remove == 'peaks':
-                result[delay:-delay] = np.ma.minimum(result[delay:-delay], source[step:step+width])
+                result[delay:-delay] = np.ma.minimum(result[delay:-delay],
+                                                     source[step:step+width])
             else:
-                result[delay:-delay] = np.ma.maximum(result[delay:-delay], source[step:step+width])
+                result[delay:-delay] = np.ma.maximum(result[delay:-delay],
+                                                     source[step:step+width])
     
         # Stretch the ends out and return the answer.
         result[:delay] = result[delay]
@@ -2688,7 +2692,7 @@ def np_ma_concatenate(arrays):
         return np.ma.concatenate(arrays)
     
 
-def np_ma_zeros_like(array):
+def np_ma_zeros_like(array, mask=False):
     """
     The Numpy masked array library does not have equivalents for some array
     creation functions. These are provided with similar names which may be
@@ -2701,7 +2705,7 @@ def np_ma_zeros_like(array):
     
     :returns: Numpy masked array of unmasked zero values, length same as input array.
     """
-    return np.ma.array(np.zeros_like(array.data), mask=False)
+    return np.ma.array(np.zeros_like(array.data), mask=mask)
 
 
 def np_ma_ones_like(array):
@@ -2803,7 +2807,8 @@ def truck_and_trailer(data, ttp, overall, trailer, curve_sense, _slice):
     else:
         # Data curved in wrong sense or too weakly to find corner point.
         return None
-    
+
+
 def offset_select(mode, param_list):
     """
     This little piece of code finds the offset from a list of possibly empty
@@ -2837,6 +2842,7 @@ def offset_select(mode, param_list):
     if mode == 'last':
         return most
     raise ValueError ("offset_select called with unrecognised mode")
+
 
 def peak_curvature(array, _slice=slice(None), curve_sense='Concave',
                    gap = TRUCK_OR_TRAILER_INTERVAL,
@@ -2918,7 +2924,7 @@ def peak_curvature(array, _slice=slice(None), curve_sense='Concave',
             else:
                 logger.warn("Short data and unrecognised keyword %s in peak_curvature" %curve_sense)
 
-    
+
 def peak_index(a):
     '''
     Scans an array and returns the peak, where possible computing the local
@@ -2947,8 +2953,8 @@ def peak_index(a):
             else:
                 peak=(a[loc-1]-a[loc+1])/denominator
                 return loc+peak
-    
-    
+
+
 def rate_of_change_array(to_diff, hz, width=2.0):
     '''
     Lower level access to rate of change algorithm. See rate_of_change for description.
@@ -3000,7 +3006,7 @@ def rate_of_change(diff_param, width):
     hz = diff_param.frequency
     to_diff = diff_param.array
     return rate_of_change_array(to_diff, hz, width)
-    
+
 
 def repair_mask(array, frequency=1, repair_duration=REPAIR_DURATION,
                 raise_duration_exceedance=False, copy=False, extrapolate=False):
@@ -3057,7 +3063,7 @@ def repair_mask(array, frequency=1, repair_duration=REPAIR_DURATION,
             array.mask[section] = False
             
     return array
-   
+
 
 def round_to_nearest(array, step):
     """
@@ -3111,7 +3117,7 @@ def rms_noise(array, ignore_pc=None):
     elif ignore_pc == None:
         to_rms = diffs
     else:
-        monitor = slice(0, len(diffs) * (1-ignore_pc/100.0))
+        monitor = slice(0, len(diffs) * ceil(1-ignore_pc/100.0))
         to_rms = np.ma.sort(np.ma.abs(diffs))[monitor]
     return sqrt(np.ma.mean(np.ma.power(to_rms,2))) # RMS in one line !
 

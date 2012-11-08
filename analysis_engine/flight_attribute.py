@@ -705,10 +705,14 @@ class TakeoffRunway(FlightAttributeNode):
                 kwargs.update(latitude=first_latitude.value,
                               longitude=first_longitude.value)
         
-        hdg_value = hdg[0].value
+        if hdg:
+            hdg_value = hdg[0].value
+        else:
+            hdg_value = None
+            
         api_handler = get_api_handler(API_HANDLER)
         try:
-            runway_info = api_handler.get_nearest_runway(airport_id, hdg_value,
+            runway_info = api_handler.get_nearest_runway(airport_id, hdg[0].value,
                                                     **kwargs)
             if len(runway_info['items']) > 1:
                 # TODO: This will probably break nodes which are dependent.
