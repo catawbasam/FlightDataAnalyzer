@@ -333,7 +333,7 @@ NAME_VALUES_CLIMB = {
 
 
 NAME_VALUES_DESCENT = {
-        'altitude': NAME_VALUES_CLIMB['altitude'][::-1],
+    'altitude': NAME_VALUES_CLIMB['altitude'][::-1],
 }
 
 

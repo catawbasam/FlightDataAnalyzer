@@ -145,7 +145,7 @@ class ClimbStart(KeyTimeInstanceNode):
 
 class Eng_Stop(KeyTimeInstanceNode):
     NAME_FORMAT = 'Eng (%(number)d) Stop'
-    NAME_VALUES = {'number': NAME_VALUES_ENGINE}
+    NAME_VALUES = NAME_VALUES_ENGINE
     
     @classmethod
     def can_operate(cls, available):
