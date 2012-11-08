@@ -183,8 +183,8 @@ class AccelerationAlongTrack(DerivedParameterNode):
 class AccelerationSideways(DerivedParameterNode):
     """
     Resolution of three body axis accelerations to compute the lateral
-    acceleration, that is, in the direction perpendicular to the aircraft centreline
-    when projected onto the earth's surface. Right = +ve.
+    acceleration, that is, in the direction perpendicular to the aircraft
+    centreline when projected onto the earth's surface. Right = +ve.
     """
 
     units = 'g'
@@ -196,10 +196,10 @@ class AccelerationSideways(DerivedParameterNode):
         pitch_rad = pitch.array*deg2rad
         roll_rad = roll.array*deg2rad
         # Simple Numpy algorithm working on masked arrays
-        resolved_in_pitch = acc_long.array * np.ma.sin(pitch_rad) \
-                            + acc_norm.array * np.ma.cos(pitch_rad)
-        self.array = resolved_in_pitch * np.ma.sin(roll_rad) \
-                     + acc_lat.array * np.ma.cos(roll_rad)
+        resolved_in_pitch = (acc_long.array * np.ma.sin(pitch_rad)
+                             + acc_norm.array * np.ma.cos(pitch_rad))
+        self.array = (resolved_in_pitch * np.ma.sin(roll_rad)
+                      + acc_lat.array * np.ma.cos(roll_rad))
 
 
 class AirspeedForFlightPhases(DerivedParameterNode):
@@ -208,7 +208,7 @@ class AirspeedForFlightPhases(DerivedParameterNode):
 
     def derive(self, airspeed=P('Airspeed')):
         self.array = hysteresis(
-            repair_mask(airspeed.array, repair_duration=None),HYSTERESIS_FPIAS)
+            repair_mask(airspeed.array, repair_duration=None), HYSTERESIS_FPIAS)
 
 
 ################################################################################
@@ -241,7 +241,7 @@ class AirspeedMinusV2(DerivedParameterNode):
         recorded during the climbout.
         '''
         repaired_v2 = repair_mask(v2.array, 
-                                  copy = True, 
+                                  copy=True, 
                                   repair_duration=None, 
                                   extrapolate=True)
         self.array = airspeed.array - repaired_v2
@@ -355,8 +355,10 @@ class AirspeedReference(DerivedParameterNode):
 
             if vspeed_class:
                 vspeed_table = vspeed_class() # instansiate VelocitySpeed object
-                # allow up to 2 superframe values to be repaired (64*2=128 + a bit)
-                repaired_gw = repair_mask(gw.array, repair_duration=130, copy=True)
+                # allow up to 2 superframe values to be repaired 
+                # (64*2=128 + a bit)
+                repaired_gw = repair_mask(gw.array, repair_duration=130,
+                                          copy=True)
                 for approach in apps:
                     index = np.ma.argmax(setting_param.array[approach.slice])
                     weight = repaired_gw[approach.slice][index]
@@ -470,7 +472,7 @@ class AirspeedTrue(DerivedParameterNode):
             sat = machtat2sat(mach, tat)
             tas = dp2tas(dp, alt_std, sat)
             combined_mask= np.logical_or(
-                np.logical_or(cas_p.array.mask,alt_std_p.array.mask),
+                np.logical_or(cas_p.array.mask, alt_std_p.array.mask),
                 tas.mask)
         else:
             dp = cas2dp(cas)
@@ -478,7 +480,8 @@ class AirspeedTrue(DerivedParameterNode):
             tas = dp2tas(dp, alt_std, sat)
             combined_mask= np.logical_or(cas_p.array.mask,alt_std_p.array.mask)
             
-        tas_from_airspeed = np.ma.masked_less(np.ma.array(data=tas, mask=combined_mask),50)
+        tas_from_airspeed = np.ma.masked_less(
+            np.ma.array(data=tas, mask=combined_mask), 50)
         tas_valids = np.ma.clump_unmasked(tas_from_airspeed)
         
         if gspd:
@@ -496,9 +499,10 @@ class AirspeedTrue(DerivedParameterNode):
                             tas_from_airspeed[scope] = gspd.array[scope] + wind
                         else:
                             tas_from_airspeed[scope] = \
-                                integrate(acc_fwd.array[scope], acc_fwd.frequency, 
+                                integrate(acc_fwd.array[scope],
+                                          acc_fwd.frequency, 
                                           initial_value=tas_0,
-                                          scale=GRAVITY_IMPERIAL/KTS_TO_FPS, 
+                                          scale=GRAVITY_IMPERIAL / KTS_TO_FPS, 
                                           direction='backwards')
                         
             # Then see if we can do the same for the landing phase:
@@ -513,9 +517,10 @@ class AirspeedTrue(DerivedParameterNode):
                             tas_from_airspeed[scope] = gspd.array[scope] + wind
                         else:
                             tas_from_airspeed[scope] = \
-                                integrate(acc_fwd.array[scope], acc_fwd.frequency,
+                                integrate(acc_fwd.array[scope],
+                                          acc_fwd.frequency,
                                           initial_value=tas_0, 
-                                          scale=GRAVITY_IMPERIAL/KTS_TO_FPS)
+                                          scale=GRAVITY_IMPERIAL / KTS_TO_FPS)
                     
         self.array = tas_from_airspeed
         
@@ -582,8 +587,8 @@ class AltitudeAAL(DerivedParameterNode):
                 begin_index = baro_section.start
                 
                 if ralt_section.stop == baro_section.start:
-                    alt_diff = alt_std[begin_index:begin_index + 60] - \
-                        alt_rad[begin_index:begin_index + 60]
+                    alt_diff = (alt_std[begin_index:begin_index + 60] -
+                                alt_rad[begin_index:begin_index + 60])
                     slip, up_diff = first_valid_sample(alt_diff)
                     if slip is None:
                         up_diff = 0.0
