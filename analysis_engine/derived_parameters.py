@@ -953,7 +953,7 @@ class AltitudeQNH(DerivedParameterNode):
             #TODO: Remove this fixed Gardermoen elevation - based on Google elevation data.
             #alt_qnh[peak:]+=655
             #TODO: Remove Dave's suggested elevation.
-            alt_qnh[:peak]+=660
+            alt_qnh[peak:]+=660
         
         except:
             alt_qnh[peak:]=np.ma.masked
