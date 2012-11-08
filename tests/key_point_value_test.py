@@ -2859,9 +2859,9 @@ class TestLatitudeAtLanding(unittest.TestCase, NodeTest):
         ]
 
     def test_derive_with_latitude(self):
-        lat = P('Latitude') 
+        lat = P(name='Latitude')
         lat.array = Mock()
-        tdwns = KTI('Touchdown')
+        tdwns = KTI(name='Touchdown')
         afr_land_rwy = None
         afr_land_apt = None
         node = self.node_class()
@@ -2873,8 +2873,8 @@ class TestLatitudeAtLanding(unittest.TestCase, NodeTest):
 
     def test_derive_with_afr_land_rwy(self):
         lat = None
-        tdwns = KTI('Touchdown', items=[KeyTimeInstance(0)])
-        afr_land_rwy = A('AFR Landing Runway', {
+        tdwns = KTI(name='Touchdown', items=[KeyTimeInstance(index=0)])
+        afr_land_rwy = A(name='AFR Landing Runway', value={
             'start': {'latitude': 0, 'longitude': 0},
             'end': {'latitude': 1, 'longitude': 1},
         })
@@ -2889,9 +2889,9 @@ class TestLatitudeAtLanding(unittest.TestCase, NodeTest):
 
     def test_derive_with_afr_land_apt(self):
         lat = None
-        tdwns = KTI('Touchdown', items=[KeyTimeInstance(0)])
+        tdwns = KTI(name='Touchdown', items=[KeyTimeInstance(index=0)])
         afr_land_rwy = None
-        afr_land_apt = A('AFR Landing Airport', {
+        afr_land_apt = A(name='AFR Landing Airport', value={
             'latitude': 1,
             'longitude': 1,
         })
@@ -2916,9 +2916,9 @@ class TestLatitudeAtTakeoff(unittest.TestCase, NodeTest):
         ]
 
     def test_derive_with_latitude(self):
-        lat = P('Latitude') 
+        lat = P(name='Latitude')
         lat.array = Mock()
-        liftoffs = KTI('Liftoff')
+        liftoffs = KTI(name='Liftoff')
         afr_toff_rwy = None
         afr_toff_apt = None
         node = self.node_class()
@@ -2930,8 +2930,8 @@ class TestLatitudeAtTakeoff(unittest.TestCase, NodeTest):
 
     def test_derive_with_afr_toff_rwy(self):
         lat = None
-        liftoffs = KTI('Liftoff', items=[KeyTimeInstance(0)])
-        afr_toff_rwy = A('AFR Takeoff Runway', {
+        liftoffs = KTI(name='Liftoff', items=[KeyTimeInstance(index=0)])
+        afr_toff_rwy = A(name='AFR Takeoff Runway', value={
             'start': {'latitude': 0, 'longitude': 0},
             'end': {'latitude': 1, 'longitude': 1},
         })
@@ -2946,9 +2946,9 @@ class TestLatitudeAtTakeoff(unittest.TestCase, NodeTest):
 
     def test_derive_with_afr_toff_apt(self):
         lat = None
-        liftoffs = KTI('Liftoff', items=[KeyTimeInstance(0)])
+        liftoffs = KTI(name='Liftoff', items=[KeyTimeInstance(index=0)])
         afr_toff_rwy = None
-        afr_toff_apt = A('AFR Takeoff Airport', {
+        afr_toff_apt = A(name='AFR Takeoff Airport', value={
             'latitude': 1,
             'longitude': 1,
         })
@@ -2994,9 +2994,9 @@ class TestLongitudeAtLanding(unittest.TestCase, NodeTest):
         ]
 
     def test_derive_with_longitude(self):
-        lon = P('Latitude') 
+        lon = P(name='Latitude')
         lon.array = Mock()
-        tdwns = KTI('Touchdown')
+        tdwns = KTI(name='Touchdown')
         afr_land_rwy = None
         afr_land_apt = None
         node = self.node_class()
@@ -3008,8 +3008,8 @@ class TestLongitudeAtLanding(unittest.TestCase, NodeTest):
 
     def test_derive_with_afr_land_rwy(self):
         lon = None
-        tdwns = KTI('Touchdown', items=[KeyTimeInstance(0)])
-        afr_land_rwy = A('AFR Landing Runway', {
+        tdwns = KTI(name='Touchdown', items=[KeyTimeInstance(index=0)])
+        afr_land_rwy = A(name='AFR Landing Runway', value={
             'start': {'latitude': 0, 'longitude': 0},
             'end': {'latitude': 1, 'longitude': 1},
         })
@@ -3024,9 +3024,9 @@ class TestLongitudeAtLanding(unittest.TestCase, NodeTest):
 
     def test_derive_with_afr_land_apt(self):
         lon = None
-        tdwns = KTI('Touchdown', items=[KeyTimeInstance(0)])
+        tdwns = KTI(name='Touchdown', items=[KeyTimeInstance(index=0)])
         afr_land_rwy = None
-        afr_land_apt = A('AFR Landing Airport', {
+        afr_land_apt = A(name='AFR Landing Airport', value={
             'latitude': 1,
             'longitude': 1,
         })
@@ -3053,9 +3053,9 @@ class TestLongitudeAtTakeoff(unittest.TestCase, NodeTest):
         ]
 
     def test_derive_with_longitude(self):
-        lon = P('Longitude') 
+        lon = P(name='Longitude')
         lon.array = Mock()
-        liftoffs = KTI('Liftoff')
+        liftoffs = KTI(name='Liftoff')
         afr_toff_rwy = None
         afr_toff_apt = None
         node = self.node_class()
@@ -3067,8 +3067,8 @@ class TestLongitudeAtTakeoff(unittest.TestCase, NodeTest):
 
     def test_derive_with_afr_toff_rwy(self):
         lon = None
-        liftoffs = KTI('Liftoff', items=[KeyTimeInstance(0)])
-        afr_toff_rwy = A('AFR Takeoff Runway', {
+        liftoffs = KTI(name='Liftoff', items=[KeyTimeInstance(index=0)])
+        afr_toff_rwy = A(name='AFR Takeoff Runway', value={
             'start': {'latitude': 0, 'longitude': 0},
             'end': {'latitude': 1, 'longitude': 1},
         })
@@ -3083,9 +3083,9 @@ class TestLongitudeAtTakeoff(unittest.TestCase, NodeTest):
 
     def test_derive_with_afr_toff_apt(self):
         lon = None
-        liftoffs = KTI('Liftoff', items=[KeyTimeInstance(0)])
+        liftoffs = KTI(name='Liftoff', items=[KeyTimeInstance(index=0)])
         afr_toff_rwy = None
-        afr_toff_apt = A('AFR Takeoff Airport', {
+        afr_toff_apt = A(name='AFR Takeoff Airport', value={
             'latitude': 1,
             'longitude': 1,
         })
