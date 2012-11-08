@@ -5,10 +5,19 @@ import unittest
 
 from mock import Mock, patch
 
+from utilities.geometry import midpoint
+
 from analysis_engine.derived_parameters import Flap
 from analysis_engine.library import align
-from analysis_engine.node import (KeyTimeInstance, KTI, KeyPointValue, 
-                                  Parameter, P, Section)
+from analysis_engine.node import (
+    KTI,
+    P,
+    Attribute,
+    KeyPointValue, 
+    KeyTimeInstance,
+    Parameter,
+    Section,
+)
 
 from analysis_engine.key_point_values import (
     AccelerationLateralAtTouchdown,
@@ -100,7 +109,6 @@ from analysis_engine.key_point_values import (
     AltitudeAutothrottleEngaged,    
     AltitudeFlapExtensionMax,
     AltitudeGoAroundFlapRetracted,
-    AltitudeGoAroundGearRetracted,
     AltitudeMax,
     ControlColumnStiffness,
     EngEPR500FtToTouchdownMin,
@@ -2286,14 +2294,6 @@ class TestAltitudeGoAroundFlapRetracted(unittest.TestCase,
                                           'Go Around Flap Retracted',)]
 
 
-class TestAltitudeGoAroundGearRetracted(unittest.TestCase,
-                                        CreateKPVsAtKTIsTest):
-    def setUp(self):
-        self.node_class = AltitudeGoAroundGearRetracted
-        self.operational_combinations = [('Altitude AAL',
-                                          'Go Around Gear Retracted',)]
-
-
 class TestAltitudeMinsToTouchdown(unittest.TestCase):
     def test_can_operate(self):
         self.assertTrue(False, msg='Test not implemented.')
@@ -2846,36 +2846,131 @@ class TestIsolationValveOpenAtLiftoff(unittest.TestCase):
         self.assertTrue(False, msg='Test not implemented.')
 
 
-class TestLatitudeAtLanding(unittest.TestCase):
-    def test_can_operate(self):
-        self.assertTrue(False, msg='Test not implemented.')
+class TestLatitudeAtLanding(unittest.TestCase, NodeTest):
+    def setUp(self):
+        self.node_class = LatitudeAtLanding
+        self.operational_combinations = [
+            ('Latitude', 'Touchdown'),
+            ('Touchdown', 'AFR Landing Airport'),
+            ('Touchdown', 'AFR Landing Runway'),
+            ('Latitude', 'Touchdown', 'AFR Landing Airport'),
+            ('Latitude', 'Touchdown', 'AFR Landing Runway'),
+            ('Touchdown', 'AFR Landing Airport', 'AFR Landing Runway'),
+            ('Latitude', 'Touchdown', 'AFR Landing Airport', 'AFR Landing Runway'),
+        ]
 
-    def test_derive(self):
-        self.assertTrue(False, msg='Test not implemented.')
+    def test_derive_with_latitude(self):
+        lat = P('Latitude') 
+        lat.array = Mock()
+        tdwns = KTI('Touchdown')
+        afr_land_rwy = None
+        afr_land_apt = None
+        node = self.node_class()
+        node.create_kpv = Mock()
+        node.create_kpvs_at_ktis = Mock()
+        node.derive(lat, tdwns, afr_land_rwy, afr_land_apt)
+        node.create_kpvs_at_ktis.assert_called_once_with(lat.array, tdwns)
+        assert not node.create_kpv.called, 'method should not have been called'
+
+    def test_derive_with_afr_land_rwy(self):
+        lat = None
+        tdwns = KTI('Touchdown', items=[KeyTimeInstance(0)])
+        afr_land_rwy = Attribute('AFR Landing Runway', {
+            'start': {'latitude': 0, 'longitude': 0},
+            'end': {'latitude': 1, 'longitude': 1},
+        })
+        afr_land_apt = None
+        node = self.node_class()
+        node.create_kpv = Mock()
+        node.create_kpvs_at_ktis = Mock()
+        node.derive(lat, tdwns, afr_land_apt, afr_land_rwy)
+        lat_m, lon_m = midpoint(0, 0, 1, 1)
+        node.create_kpv.assert_called_once_with(tdwns[-1].index, lat_m)
+        assert not node.create_kpvs_at_ktis.called, 'method should not have been called'
+
+    def test_derive_with_afr_land_apt(self):
+        lat = None
+        tdwns = KTI('Touchdown', items=[KeyTimeInstance(0)])
+        afr_land_rwy = None
+        afr_land_apt = Attribute('AFR Landing Airport', {
+            'latitude': 1,
+            'longitude': 1,
+        })
+        node = self.node_class()
+        node.create_kpv = Mock()
+        node.create_kpvs_at_ktis = Mock()
+        node.derive(lat, tdwns, afr_land_apt, afr_land_rwy)
+        node.create_kpv.assert_called_once_with(tdwns[-1].index, 1)
+        assert not node.create_kpvs_at_ktis.called, 'method should not have been called'
+
+class TestLatitudeAtTakeoff(unittest.TestCase, NodeTest):
+    def setUp(self):
+        self.node_class = LatitudeAtTakeoff
+        self.operational_combinations = [
+            ('Latitude', 'Liftoff'),
+            ('Liftoff', 'AFR Takeoff Airport'),
+            ('Liftoff', 'AFR Takeoff Runway'),
+            ('Latitude', 'Liftoff', 'AFR Takeoff Airport'),
+            ('Latitude', 'Liftoff', 'AFR Takeoff Runway'),
+            ('Liftoff', 'AFR Takeoff Airport', 'AFR Takeoff Runway'),
+            ('Latitude', 'Liftoff', 'AFR Takeoff Airport', 'AFR Takeoff Runway'),
+        ]
+
+    def test_derive_with_latitude(self):
+        lat = P('Latitude') 
+        lat.array = Mock()
+        liftoffs = KTI('Liftoff')
+        afr_toff_rwy = None
+        afr_toff_apt = None
+        node = self.node_class()
+        node.create_kpv = Mock()
+        node.create_kpvs_at_ktis = Mock()
+        node.derive(lat, liftoffs, afr_toff_rwy, afr_toff_apt)
+        node.create_kpvs_at_ktis.assert_called_once_with(lat.array, liftoffs)
+        assert not node.create_kpv.called, 'method should not have been called'
+
+    def test_derive_with_afr_toff_rwy(self):
+        lat = None
+        liftoffs = KTI('Liftoff', items=[KeyTimeInstance(0)])
+        afr_toff_rwy = Attribute('AFR Takeoff Runway', {
+            'start': {'latitude': 0, 'longitude': 0},
+            'end': {'latitude': 1, 'longitude': 1},
+        })
+        afr_toff_apt = None
+        node = self.node_class()
+        node.create_kpv = Mock()
+        node.create_kpvs_at_ktis = Mock()
+        node.derive(lat, liftoffs, afr_toff_apt, afr_toff_rwy)
+        lat_m, lon_m = midpoint(0, 0, 1, 1)
+        node.create_kpv.assert_called_once_with(liftoffs[0].index, lat_m)
+        assert not node.create_kpvs_at_ktis.called, 'method should not have been called'
+
+    def test_derive_with_afr_toff_apt(self):
+        lat = None
+        liftoffs = KTI('Liftoff', items=[KeyTimeInstance(0)])
+        afr_toff_rwy = None
+        afr_toff_apt = Attribute('AFR Takeoff Airport', {
+            'latitude': 1,
+            'longitude': 1,
+        })
+        node = self.node_class()
+        node.create_kpv = Mock()
+        node.create_kpvs_at_ktis = Mock()
+        node.derive(lat, liftoffs, afr_toff_apt, afr_toff_rwy)
+        node.create_kpv.assert_called_once_with(liftoffs[0].index, 1)
+        assert not node.create_kpvs_at_ktis.called, 'method should not have been called'
 
 
-class TestLatitudeAtTakeoff(unittest.TestCase):
-    def test_can_operate(self):
-        self.assertTrue(False, msg='Test not implemented.')
-
-    def test_derive(self):
-        self.assertTrue(False, msg='Test not implemented.')
+class TestLatitudeAtTouchdown(unittest.TestCase, CreateKPVsAtKTIsTest):
+    def setUp(self):
+        self.node_class = LatitudeAtTouchdown
+        self.operational_combinations = [('Latitude Smoothed', 'Touchdown')]
 
 
-class TestLatitudeAtTouchdown(unittest.TestCase):
-    def test_can_operate(self):
-        self.assertTrue(False, msg='Test not implemented.')
-
-    def test_derive(self):
-        self.assertTrue(False, msg='Test not implemented.')
-
-
-class TestLatitudeAtLiftoff(unittest.TestCase):
-    def test_can_operate(self):
-        self.assertTrue(False, msg='Test not implemented.')
-
-    def test_derive(self):
-        self.assertTrue(False, msg='Test not implemented.')
+class TestLatitudeAtLiftoff(unittest.TestCase, CreateKPVsAtKTIsTest):
+    def setUp(self):
+        self.node_class = LatitudeAtLiftoff
+        self.operational_combinations = [('Latitude Smoothed', 'Liftoff')]
 
 
 class TestLatitudeAtLowestPointOnApproach(unittest.TestCase):
@@ -2886,36 +2981,133 @@ class TestLatitudeAtLowestPointOnApproach(unittest.TestCase):
         self.assertTrue(False, msg='Test not implemented.')
 
 
-class TestLongitudeAtLanding(unittest.TestCase):
-    def test_can_operate(self):
-        self.assertTrue(False, msg='Test not implemented.')
+class TestLongitudeAtLanding(unittest.TestCase, NodeTest):
+    def setUp(self):
+        self.node_class = LongitudeAtLanding
+        self.operational_combinations = [
+            ('Longitude', 'Touchdown'),
+            ('Touchdown', 'AFR Landing Airport'),
+            ('Touchdown', 'AFR Landing Runway'),
+            ('Longitude', 'Touchdown', 'AFR Landing Airport'),
+            ('Longitude', 'Touchdown', 'AFR Landing Runway'),
+            ('Touchdown', 'AFR Landing Airport', 'AFR Landing Runway'),
+            ('Longitude', 'Touchdown', 'AFR Landing Airport', 'AFR Landing Runway'),
+        ]
 
-    def test_derive(self):
-        self.assertTrue(False, msg='Test not implemented.')
+    def test_derive_with_longitude(self):
+        lon = P('Latitude') 
+        lon.array = Mock()
+        tdwns = KTI('Touchdown')
+        afr_land_rwy = None
+        afr_land_apt = None
+        node = self.node_class()
+        node.create_kpv = Mock()
+        node.create_kpvs_at_ktis = Mock()
+        node.derive(lon, tdwns, afr_land_rwy, afr_land_apt)
+        node.create_kpvs_at_ktis.assert_called_once_with(lon.array, tdwns)
+        assert not node.create_kpv.called, 'method should not have been called'
+
+    def test_derive_with_afr_land_rwy(self):
+        lon = None
+        tdwns = KTI('Touchdown', items=[KeyTimeInstance(0)])
+        afr_land_rwy = Attribute('AFR Landing Runway', {
+            'start': {'latitude': 0, 'longitude': 0},
+            'end': {'latitude': 1, 'longitude': 1},
+        })
+        afr_land_apt = None
+        node = self.node_class()
+        node.create_kpv = Mock()
+        node.create_kpvs_at_ktis = Mock()
+        node.derive(lon, tdwns, afr_land_apt, afr_land_rwy)
+        lat_m, lon_m = midpoint(0, 0, 1, 1)
+        node.create_kpv.assert_called_once_with(tdwns[-1].index, lon_m)
+        assert not node.create_kpvs_at_ktis.called, 'method should not have been called'
+
+    def test_derive_with_afr_land_apt(self):
+        lon = None
+        tdwns = KTI('Touchdown', items=[KeyTimeInstance(0)])
+        afr_land_rwy = None
+        afr_land_apt = Attribute('AFR Landing Airport', {
+            'latitude': 1,
+            'longitude': 1,
+        })
+        node = self.node_class()
+        node.create_kpv = Mock()
+        node.create_kpvs_at_ktis = Mock()
+        node.derive(lon, tdwns, afr_land_apt, afr_land_rwy)
+        node.create_kpv.assert_called_once_with(tdwns[-1].index, 1)
+        assert not node.create_kpvs_at_ktis.called, 'method should not have been called'
 
 
-class TestLongitudeAtTakeoff(unittest.TestCase):
-    def test_can_operate(self):
-        self.assertTrue(False, msg='Test not implemented.')
 
-    def test_derive(self):
-        self.assertTrue(False, msg='Test not implemented.')
+class TestLongitudeAtTakeoff(unittest.TestCase, NodeTest):
+    def setUp(self):
+        self.node_class = LongitudeAtTakeoff
+        self.operational_combinations = [
+            ('Longitude', 'Liftoff'),
+            ('Liftoff', 'AFR Takeoff Airport'),
+            ('Liftoff', 'AFR Takeoff Runway'),
+            ('Longitude', 'Liftoff', 'AFR Takeoff Airport'),
+            ('Longitude', 'Liftoff', 'AFR Takeoff Runway'),
+            ('Liftoff', 'AFR Takeoff Airport', 'AFR Takeoff Runway'),
+            ('Longitude', 'Liftoff', 'AFR Takeoff Airport', 'AFR Takeoff Runway'),
+        ]
+
+    def test_derive_with_longitude(self):
+        lon = P('Longitude') 
+        lon.array = Mock()
+        liftoffs = KTI('Liftoff')
+        afr_toff_rwy = None
+        afr_toff_apt = None
+        node = self.node_class()
+        node.create_kpv = Mock()
+        node.create_kpvs_at_ktis = Mock()
+        node.derive(lon, liftoffs, afr_toff_rwy, afr_toff_apt)
+        node.create_kpvs_at_ktis.assert_called_once_with(lon.array, liftoffs)
+        assert not node.create_kpv.called, 'method should not have been called'
+
+    def test_derive_with_afr_toff_rwy(self):
+        lon = None
+        liftoffs = KTI('Liftoff', items=[KeyTimeInstance(0)])
+        afr_toff_rwy = Attribute('AFR Takeoff Runway', {
+            'start': {'latitude': 0, 'longitude': 0},
+            'end': {'latitude': 1, 'longitude': 1},
+        })
+        afr_toff_apt = None
+        node = self.node_class()
+        node.create_kpv = Mock()
+        node.create_kpvs_at_ktis = Mock()
+        node.derive(lon, liftoffs, afr_toff_apt, afr_toff_rwy)
+        lat_m, lon_m = midpoint(0, 0, 1, 1)
+        node.create_kpv.assert_called_once_with(liftoffs[0].index, lon_m)
+        assert not node.create_kpvs_at_ktis.called, 'method should not have been called'
+
+    def test_derive_with_afr_toff_apt(self):
+        lon = None
+        liftoffs = KTI('Liftoff', items=[KeyTimeInstance(0)])
+        afr_toff_rwy = None
+        afr_toff_apt = Attribute('AFR Takeoff Airport', {
+            'latitude': 1,
+            'longitude': 1,
+        })
+        node = self.node_class()
+        node.create_kpv = Mock()
+        node.create_kpvs_at_ktis = Mock()
+        node.derive(lon, liftoffs, afr_toff_apt, afr_toff_rwy)
+        node.create_kpv.assert_called_once_with(liftoffs[0].index, 1)
+        assert not node.create_kpvs_at_ktis.called, 'method should not have been called'
 
 
-class TestLongitudeAtTouchdown(unittest.TestCase):
-    def test_can_operate(self):
-        self.assertTrue(False, msg='Test not implemented.')
-
-    def test_derive(self):
-        self.assertTrue(False, msg='Test not implemented.')
+class TestLongitudeAtTouchdown(unittest.TestCase, CreateKPVsAtKTIsTest):
+    def setUp(self):
+        self.node_class = LongitudeAtTouchdown
+        self.operational_combinations = [('Longitude Smoothed', 'Touchdown')]
 
 
-class TestLongitudeAtLiftoff(unittest.TestCase):
-    def test_can_operate(self):
-        self.assertTrue(False, msg='Test not implemented.')
-
-    def test_derive(self):
-        self.assertTrue(False, msg='Test not implemented.')
+class TestLongitudeAtLiftoff(unittest.TestCase, CreateKPVsAtKTIsTest):
+    def setUp(self):
+        self.node_class = LongitudeAtLiftoff
+        self.operational_combinations = [('Longitude Smoothed', 'Liftoff')]
 
 
 class TestLongitudeAtLowestPointOnApproach(unittest.TestCase):
