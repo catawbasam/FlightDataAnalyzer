@@ -937,8 +937,8 @@ class AltitudeQNH(DerivedParameterNode):
         try:
             #alt_qnh[:peak]+=toff.value['elevation']
 
-            #TODO: Remove this fixed Manchester elevation - based on Google elevation data.
-            alt_qnh[:peak]+=198
+            #TODO: Remove this fixed Gardermoen elevation - based on Google elevation data.
+            alt_qnh[:peak]+=660
 
         except:
             alt_qnh[:peak]=np.ma.masked
@@ -950,7 +950,7 @@ class AltitudeQNH(DerivedParameterNode):
             #TODO: Remove this fixed Edinburgh elevation - based on Google elevation data.
             # alt_qnh[peak:]+=99
             #TODO: Remove this fixed Gardermoen elevation - based on Google elevation data.
-            alt_qnh[peak:]+=655
+            alt_qnh[peak:]+=660
         
         except:
             alt_qnh[peak:]=np.ma.masked
