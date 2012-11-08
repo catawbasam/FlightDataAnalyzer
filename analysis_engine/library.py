@@ -698,7 +698,7 @@ def cycle_finder(array, min_step=0.0, include_ends=True):
     vals = array.data[idxs] # So these are the local peak and trough values.
     
     # Optional inclusion of end points.
-    if include_ends:
+    if include_ends and np.ma.count(array):
         # We can only extend over the range of valid data, so find the first
         # and last valid samples.
         first, last = np.ma.flatnotmasked_edges(array)
@@ -3118,7 +3118,7 @@ def rms_noise(array, ignore_pc=None):
     elif ignore_pc == None:
         to_rms = diffs
     else:
-        monitor = slice(0, len(diffs) * (1-ignore_pc/100.0))
+        monitor = slice(0, len(diffs) * ceil(1-ignore_pc/100.0))
         to_rms = np.ma.sort(np.ma.abs(diffs))[monitor]
     return sqrt(np.ma.mean(np.ma.power(to_rms,2))) # RMS in one line !
 
