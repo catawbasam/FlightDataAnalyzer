@@ -28,6 +28,7 @@ from analysis_engine.derived_parameters import (
     AltitudeAAL,
     AltitudeAALForFlightPhases,
     #AltitudeForFlightPhases,
+    AltitudeQNH,
     AltitudeRadio,
     #AltitudeRadioForFlightPhases,
     #AltitudeSTD,
@@ -662,6 +663,49 @@ class TestAltitudeForFlightPhases(unittest.TestCase):
                              mask = False)
         np.testing.assert_array_almost_equal(alt_4_ph.array, answer)
         '''
+
+
+class TestAltitudeQNH(unittest.TestCase):
+
+    def test_can_operate(self):
+        self.assertEqual(AltitudeQNH.get_operational_combinations(), [
+            ('Altitude AAL', 'FDR Landing Runway', 'FDR Landing Airport', 'FDR Takeoff Runway', 'FDR Takeoff Airport'),
+            ('Altitude AAL', 'FDR Landing Runway', 'FDR Landing Airport', 'FDR Takeoff Runway'),
+            ('Altitude AAL', 'FDR Landing Runway', 'FDR Landing Airport', 'FDR Takeoff Airport'),
+            ('Altitude AAL', 'FDR Landing Runway', 'FDR Takeoff Runway', 'FDR Takeoff Airport'),
+            ('Altitude AAL', 'FDR Landing Airport', 'FDR Takeoff Runway', 'FDR Takeoff Airport'),
+            ('Altitude AAL', 'FDR Landing Runway', 'FDR Takeoff Runway'),
+            ('Altitude AAL', 'FDR Landing Runway', 'FDR Takeoff Airport'),
+            ('Altitude AAL', 'FDR Landing Airport', 'FDR Takeoff Runway'),
+            ('Altitude AAL', 'FDR Landing Airport', 'FDR Takeoff Airport'),
+        ])
+
+    def test_altitude_qnh__land_rwy__land_apt__toff_rwy__toff_apt(self):
+        self.assertTrue(False, msg='Test not implemented.')
+
+    def test_altitude_qnh__land_rwy__land_apt__toff_rwy(self):
+        self.assertTrue(False, msg='Test not implemented.')
+
+    def test_altitude_qnh__land_rwy__land_apt__toff_apt(self):
+        self.assertTrue(False, msg='Test not implemented.')
+
+    def test_altitude_qnh__land_rwy__toff_rwy__toff_apt(self):
+        self.assertTrue(False, msg='Test not implemented.')
+
+    def test_altitude_qnh__land_apt__toff_rwy__toff_apt(self):
+        self.assertTrue(False, msg='Test not implemented.')
+
+    def test_altitude_qnh__land_rwy__toff_rwy(self):
+        self.assertTrue(False, msg='Test not implemented.')
+
+    def test_altitude_qnh__land_rwy__toff_apt(self):
+        self.assertTrue(False, msg='Test not implemented.')
+
+    def test_altitude_qnh__land_apt__toff_rwy(self):
+        self.assertTrue(False, msg='Test not implemented.')
+
+    def test_altitude_qnh__land_apt__toff_apt(self):
+        self.assertTrue(False, msg='Test not implemented.')
 
 
 class TestAltitudeRadio(unittest.TestCase):

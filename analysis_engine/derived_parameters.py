@@ -29,7 +29,6 @@ from analysis_engine.library import (air_track,
                                      ground_track,
                                      hysteresis,
                                      index_at_value,
-                                     index_of_datetime,
                                      integrate,
                                      ils_localizer_align,
                                      interpolate_and_extend,
@@ -50,10 +49,8 @@ from analysis_engine.library import (air_track,
                                      round_to_nearest,
                                      runway_distances,
                                      runway_heading,
-                                     runway_length,
                                      runway_snap_dict,
                                      slices_not,
-                                     slices_overlap,
                                      smooth_track,
                                      step_values,
                                      straighten_headings,
@@ -63,13 +60,10 @@ from analysis_engine.library import (air_track,
 from analysis_engine.velocity_speed import get_vspeed_map
 
 from settings import (AZ_WASHOUT_TC,
-                      AT_WASHOUT_TC,
                       FEET_PER_NM,
-                      GROUNDSPEED_LAG_TC,
                       HYSTERESIS_FPIAS,
                       HYSTERESIS_FPROC,
                       GRAVITY_IMPERIAL,
-                      GRAVITY_METRIC,
                       KTS_TO_FPS,
                       KTS_TO_MPS,
                       METRES_TO_FEET,
@@ -909,63 +903,98 @@ class AltitudeSTDSmoothed(DerivedParameterNode):
 
 
 class AltitudeQNH(DerivedParameterNode):
-    """
-    Altitude Parameter to account for transition altitudes for airports
-    between "altitude above mean sea level" and "pressure altitude relative
-    to FL100". Ideally use the BARO selection switch when recorded, else the
-    Airport elevation where provided, else guess based on location (USA =
-    18,000ft, Europe = 3,000ft)
+    '''
+    Altitude parameter to account for transition altitudes for airports between
+    "altitude above mean sea level" and "pressure altitude relative to FL100".
+    Ideally use the BARO selection switch when recorded, else the Airport
+    elevation where provided, else guess based on location (USA = 18,000ft,
+    Europe = 3,000ft).
 
-    TODO: Complete this code when airport elevations are included in the database.
-    
-    This altitude Parameter is for events based upon height above sea level,
-    not standard altitude or airfield elevation. For example, in the US the
+    This altitude parameter is for events based upon height above sea level,
+    not standard altitude or airfield elevation. For example, in the USA the
     speed high below 10,000ft is based on height above sea level. Ideally use
     the BARO selection switch when recorded, else based upon the transition
     height for the departing airport in the climb and the arrival airport in
     the descent. If no such data is available, transition at 18,000 ft (USA
     standard). because there is no European standard transition height.
-    """
+    '''
 
     name = 'Altitude QNH'
     units = 'ft'
-    
-    def derive(self, alt_aal=P('Altitude AAL'), 
-               land = A('FDR Landing Airport'),
-               toff = A('FDR Takeoff Airport')):
-        # Break the "journey" at the midpoint.
-        peak = np.ma.argmax(alt_aal.array)
+
+    @classmethod
+    def can_operate(cls, available):
+        '''
+        We attempt to adjust Altitude AAL by adding elevation at takeoff and
+        landing. We need to know the takeoff and landing runway to get the most
+        precise elevation, falling back to the airport elevation if they are
+        not available.
+        '''
+        one_of = lambda *names: any(name in available for name in names)
+        return all((
+            'Altitude AAL' in available,
+            one_of('FDR Landing Runway', 'FDR Landing Airport'),
+            one_of('FDR Takeoff Runway', 'FDR Takeoff Airport'),
+        ))
+
+    def derive(self, alt_aal=P('Altitude AAL'),
+            l_apt=A('FDR Landing Airport'), l_rwy=A('FDR Landing Runway'),
+            t_apt=A('FDR Takeoff Airport'), t_rwy=A('FDR Takeoff Runway')):
+        '''
+        '''
         alt_qnh = np.ma.copy(alt_aal.array)
 
-        # Add the elevation of the takeoff airport (above sea level) to the
-        # climb portion. If this fails, make sure it's inhibited.
-        try:
-            #alt_qnh[:peak]+=toff.value['elevation']
+        # Attempt to determine elevation at takeoff:
+        t_elev = None
+        if t_elev is None and t_rwy:
+            t_elev = self._calc_rwy_elev(t_rwy.value)
+        if t_elev is None and t_apt:
+            t_elev = self._calc_apt_elev(t_apt.value)
 
-            #TODO: Remove this fixed Manchester elevation - based on Google elevation data.
-            #alt_qnh[:peak]+=198
-            #TODO: Remove Dave's suggested elevation.
-            alt_qnh[:peak]+=660
-            
+        # Attempt to determine elevation at landing:
+        l_elev = None
+        if l_elev is None and l_rwy:
+            l_elev = self._calc_rwy_elev(l_rwy.value)
+        if l_elev is None and l_apt:
+            l_elev = self._calc_apt_elev(l_apt.value)
 
-        except:
-            alt_qnh[:peak]=np.ma.masked
-        
-        # Same for the downward leg of the journey.
+        # Break the "journey" at the "midpoint" - actually max altitude aal:
+        peak = np.ma.argmax(alt_aal.array)
+
         try:
-            #alt_qnh[peak:]+=land.value['elevation']
-            
-            #TODO: Remove this fixed Edinburgh elevation - based on Google elevation data.
-            # alt_qnh[peak:]+=99
-            #TODO: Remove this fixed Gardermoen elevation - based on Google elevation data.
-            #alt_qnh[peak:]+=655
-            #TODO: Remove Dave's suggested elevation.
-            alt_qnh[:peak]+=660
-        
+            # Add the elevation at takeoff to the climb portion of the array:
+            alt_qnh[:peak] += t_elev
         except:
-            alt_qnh[peak:]=np.ma.masked
-        
+            # Mask out the start of the array if no suitable elevation:
+            alt_qnh[:peak] = np.ma.masked
+
+        try:
+            # Add the elevation at landing to the descent portion of the array:
+            alt_qnh[peak:] += l_elev
+        except:
+            # Mask out the end of the array if no suitable elevation:
+            alt_qnh[peak:] = np.ma.masked
+
         self.array = alt_qnh
+
+    @staticmethod
+    def _calc_apt_elev(apt):
+        '''
+        '''
+        return apt.get('elevation')
+
+    @staticmethod
+    def _calc_rwy_elev(rwy):
+        '''
+        '''
+        elev_s = rwy.get('start', {}).get('elevation')
+        elev_e = rwy.get('end', {}).get('elevation')
+        if elev_s is None:
+            return elev_e
+        if elev_e is None:
+            return elev_s
+        # FIXME: Determine based on liftoff/touchdown coordinates?
+        return (elev_e + elev_s) / 2
 
 
 '''
@@ -2940,7 +2969,6 @@ class ILSLocalizerRange(DerivedParameterNode):
                alt_aal = P('Altitude AAL'),
                loc_established = S('ILS Localizer Established'),
                gs_established = S('ILS Glideslope Established'),
-               precise = A('Precise Positioning'),
                app_info = A('FDR Approaches'),
                start_datetime = A('Start Datetime')
                ):
@@ -3286,11 +3314,12 @@ class LatitudeSmoothed(DerivedParameterNode, CoordinatesSmoothed):
                toff_rwy = A('FDR Takeoff Runway'),
                start_datetime = A('Start Datetime'),
                ):
+        precise = bool(getattr(precise, 'value', False))
 
         precise_args = (
             lon, lat, loc_est, ils_loc, head_mag, app_info, start_datetime)            
         
-        if precise.value and all(precise_args):
+        if precise and all(precise_args):
             # Precise Positioning form of adjust track
             lat_adj, _ = self._adjust_track_pp(*precise_args)
             self.array = track_linking(lat.array, lat_adj)
@@ -3339,11 +3368,12 @@ class LongitudeSmoothed(DerivedParameterNode, CoordinatesSmoothed):
                toff_rwy = A('FDR Takeoff Runway'),
                start_datetime = A('Start Datetime'),
                ):
+        precise = bool(getattr(precise, 'value', False))
             
         precise_args = (
             lon, lat, loc_est, ils_loc, head_mag, app_info, start_datetime)            
         
-        if precise.value and all(precise_args):
+        if precise and all(precise_args):
             # Precise Positioning form of adjust track
             _, lon_adj = self._adjust_track_pp(*precise_args)
             self.array = track_linking(lon.array, lon_adj)
@@ -3644,16 +3674,16 @@ class LongitudePrepared(DerivedParameterNode, CoordinatesStraighten):
         return ('Longitude' in available and 'Latitude' in available) or\
                ('Airspeed True' in available and \
                 'Heading True' in available and \
-                'Latitude At Liftoff' in available and \
-                'Longitude At Liftoff' in available and \
+                'Latitude At Takeoff' in available and \
+                'Longitude At Takeoff' in available and \
                 'Latitude At Landing' in available and \
                 'Longitude At Landing' in available) 
     
     def derive(self,
                lon=P('Longitude'),lat=P('Latitude'),
                tas=P('Airspeed True'), hdg=P('Heading True'),
-               lat_lift=KPV('Latitude At Liftoff'),
-               lon_lift=KPV('Longitude At Liftoff'),
+               lat_lift=KPV('Latitude At Takeoff'),
+               lon_lift=KPV('Longitude At Takeoff'),
                lat_land=KPV('Latitude At Landing'),
                lon_land=KPV('Longitude At Landing')):
 
@@ -3681,8 +3711,8 @@ class LatitudePrepared(DerivedParameterNode, CoordinatesStraighten):
         return ('Latitude' in available and 'Longitude' in available) or\
                ('Airspeed True' in available and \
                 'Heading True' in available and \
-                'Latitude At Liftoff' in available and \
-                'Longitude At Liftoff' in available and \
+                'Latitude At Takeoff' in available and \
+                'Longitude At Takeoff' in available and \
                 'Latitude At Landing' in available and \
                 'Longitude At Landing' in available) 
     
@@ -3690,8 +3720,8 @@ class LatitudePrepared(DerivedParameterNode, CoordinatesStraighten):
     def derive(self,
                lat=P('Latitude'),lon=P('Longitude'),
                tas=P('Airspeed True'), hdg=P('Heading True'),
-               lat_lift=KPV('Latitude At Liftoff'),
-               lon_lift=KPV('Longitude At Liftoff'),
+               lat_lift=KPV('Latitude At Takeoff'),
+               lon_lift=KPV('Longitude At Takeoff'),
                lat_land=KPV('Latitude At Landing'),
                lon_land=KPV('Longitude At Landing')):
 

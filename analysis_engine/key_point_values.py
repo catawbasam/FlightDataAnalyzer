@@ -1,5 +1,7 @@
 import numpy as np
 
+from utilities.geometry import midpoint
+
 from analysis_engine.settings import (ACCEL_LAT_OFFSET_LIMIT,
                                       ACCEL_NORM_OFFSET_LIMIT,
                                       CLIMB_OR_DESCENT_MIN_DURATION,
@@ -1878,114 +1880,317 @@ class ILSLocalizerDeviation1000To250FtMax(KeyPointValueNode):
         ils_bands = slices_and(alt_bands, ils_ests.get_slices())
         self.create_kpvs_within_slices(ils_loc.array,ils_bands,max_abs_value)  
 
-        
+
 class IsolationValveOpenAtLiftoff(KeyPointValueNode):
     def derive(self, isol=P('Isolation Valve Open'), lifts=KTI('Liftoff')):
         self.create_kpvs_at_ktis(isol.array, lifts, suppress_zeros=True)
 
-        
+
 class PackValvesOpenAtLiftoff(KeyPointValueNode):
     def derive(self, pack=M('Pack Valves Open'), lifts=KTI('Liftoff')):
         self.create_kpvs_at_ktis(pack.array.raw, lifts, suppress_zeros=True)
 
 
+################################################################################
+# Latitude/Longitude
+
+
+########################################
+# Helpers
+
+
+def calculate_runway_midpoint(rwy):
+    '''
+    '''
+    rwy_s = rwy.get('start', {})
+    rwy_e = rwy.get('end', {})
+    lat_s = rwy_s.get('latitude')
+    lat_e = rwy_e.get('latitude')
+    lon_s = rwy_s.get('longitude')
+    lon_e = rwy_e.get('longitude')
+    if lat_s is None or lon_s is None:
+        return (lat_e, lon_e)
+    if lat_e is None or lon_e is None:
+        return (lat_s, lon_s)
+    return midpoint(lat_s, lon_s, lat_e, lon_e)
+
+
+########################################
+# Latitude/Longitude @ Takeoff/Landing
+
+
 class LatitudeAtLanding(KeyPointValueNode):
     '''
     Latitude and Longitude at Landing and Touchdown.
-    
+
     The position of the landing is recorded in the form of KPVs as this is
     used in a number of places. From the touchdown moments, the raw latitude
     and longitude data is used to create the *AtLanding parameters, and these
     are in turn used to compute the landing attributes.
-    
+
     Once the landing attributes (especially the runway details) are known,
     the positional data can be smoothed using ILS data or (if this is a
     non-precision approach) the known touchdown aiming point. With more
     accurate positional data the touchdown point can be computed more
     accurately.
+
+    Note: Cannot use smoothed position as this causes circular dependancy.
     '''
-    # Cannot use smoothed position as this causes circular dependancy.
+
     @classmethod
     def can_operate(cls, available):
-        return 'Touchdown' in available
-    
-    def derive(self, lat=P('Latitude'), tdwns=KTI('Touchdown')):
+        '''
+        '''
+        one_of = lambda *names: any(name in available for name in names)
+        return 'Touchdown' in available and any((
+            'Latitude' in available,
+            one_of('AFR Landing Runway', 'AFR Landing Airport'),
+        ))
+
+    def derive(self,
+            lat=P('Latitude'),
+            tdwns=KTI('Touchdown'),
+            land_afr_apt=A('AFR Landing Airport'),
+            land_afr_rwy=A('AFR Landing Runway')):
+        '''
+        '''
+        # 1. Attempt to use latitude parameter if available:
         if lat:
             self.create_kpvs_at_ktis(lat.array, tdwns)
-        else:
-            # TODO: Remove this Edinburgh fixed location
-            self.create_kpv(tdwns[0].index, 55.9549)
-   
+            return
+
+        value = None
+
+        # 2a. Attempt to use latitude of runway midpoint:
+        if value is None and land_afr_rwy:
+            lat_m, lon_m = calculate_runway_midpoint(land_afr_rwy.value)
+            value = lat_m
+
+        # 2b. Attempt to use latitude of airport:
+        if value is None and land_afr_apt:
+            value = land_afr_apt.value.get('latitude')
+
+        if value is not None:
+            self.create_kpv(tdwns[-1].index, value)
+            return
+
+        raise Exception('Unable to determine a latitude at landing.')
+
+
 class LongitudeAtLanding(KeyPointValueNode):
+    '''
+    Note: Cannot use smoothed position as this causes circular dependancy.
+    '''
+
     @classmethod
     def can_operate(cls, available):
-        return 'Touchdown' in available
-    
-    # Cannot use smoothed position as this causes circular dependancy.
-    def derive(self, lon=P('Longitude'),tdwns=KTI('Touchdown')):
+        '''
+        '''
+        one_of = lambda *names: any(name in available for name in names)
+        return 'Touchdown' in available and any((
+            'Longitude' in available,
+            one_of('AFR Landing Runway', 'AFR Landing Airport'),
+        ))
+
+    def derive(self,
+            lon=P('Longitude'),
+            tdwns=KTI('Touchdown'),
+            land_afr_apt=A('AFR Landing Airport'),
+            land_afr_rwy=A('AFR Landing Runway')):
+        '''
+        '''
+        # 1. Attempt to use longitude parameter if available:
         if lon:
             self.create_kpvs_at_ktis(lon.array, tdwns)
-        else:
-            # TODO: Remove this Edinburgh fixed location
-            self.create_kpv(tdwns[0].index, -3.3580)
+            return
+
+        value = None
+
+        # 2a. Attempt to use longitude of runway midpoint:
+        if value is None and land_afr_rwy:
+            lat_m, lon_m = calculate_runway_midpoint(land_afr_rwy.value)
+            value = lon_m
+
+        # 2b. Attempt to use longitude of airport:
+        if value is None and land_afr_apt:
+            value = land_afr_apt.value.get('longitude')
+
+        if value is not None:
+            self.create_kpv(tdwns[-1].index, value)
+            return
+
+        raise Exception('Unable to determine a longitude at landing.')
+
+
+class LatitudeAtTakeoff(KeyPointValueNode):
+    '''
+    While storing this is redundant due to geo-locating KPVs, it is used in
+    multiple nodes to simplify their implementation.
+
+    Note: Cannot use smoothed position as this causes circular dependancy.
+    '''
+
+    @classmethod
+    def can_operate(cls, available):
+        '''
+        '''
+        one_of = lambda *names: any(name in available for name in names)
+        return 'Liftoff' in available and any((
+            'Latitude' in available,
+            one_of('AFR Takeoff Runway', 'AFR Takeoff Airport'),
+        ))
+
+    def derive(self,
+            lat=P('Latitude'),
+            liftoffs=KTI('Liftoff'),
+            toff_afr_apt=A('AFR Takeoff Airport'),
+            toff_afr_rwy=A('AFR Takeoff Runway')):
+        '''
+        '''
+        # 1. Attempt to use latitude parameter if available:
+        if lat:
+            self.create_kpvs_at_ktis(lat.array, liftoffs)
+            return
+
+        value = None
+
+        # 2a. Attempt to use latitude of runway midpoint:
+        if value is None and toff_afr_rwy:
+            lat_m, lon_m = calculate_runway_midpoint(toff_afr_rwy.value)
+            value = lat_m
+
+        # 2b. Attempt to use latitude of airport:
+        if value is None and toff_afr_apt:
+            value = toff_afr_apt.value.get('latitude')
+
+        if value is not None:
+            self.create_kpv(liftoffs[0].index, value)
+            return
+
+        raise Exception('Unable to determine a latitude at takeoff.')
+
+
+class LongitudeAtTakeoff(KeyPointValueNode):
+    '''
+    While storing this is redundant due to geo-locating KPVs, it is used in
+    multiple nodes to simplify their implementation.
+
+    Note: Cannot use smoothed position as this causes circular dependancy.
+    '''
+
+    @classmethod
+    def can_operate(cls, available):
+        '''
+        '''
+        one_of = lambda *names: any(name in available for name in names)
+        return 'Liftoff' in available and any((
+            'Longitude' in available,
+            one_of('AFR Takeoff Runway', 'AFR Takeoff Airport'),
+        ))
+
+    def derive(self,
+            lon=P('Longitude'),
+            liftoffs=KTI('Liftoff'),
+            toff_afr_apt=A('AFR Takeoff Airport'),
+            toff_afr_rwy=A('AFR Takeoff Runway')):
+        '''
+        '''
+        # 1. Attempt to use longitude parameter if available:
+        if lon:
+            self.create_kpvs_at_ktis(lon.array, liftoffs)
+            return
+
+        value = None
+
+        # 2a. Attempt to use longitude of runway midpoint:
+        if value is None and toff_afr_rwy:
+            lat_m, lon_m = calculate_runway_midpoint(toff_afr_rwy.value)
+            value = lon_m
+
+        # 2b. Attempt to use longitude of airport:
+        if value is None and toff_afr_apt:
+            value = toff_afr_apt.value.get('longitude')
+
+        if value is not None:
+            self.create_kpv(liftoffs[0].index, value)
+            return
+
+        raise Exception('Unable to determine a longitude at takeoff.')
+
+
+########################################
+# Latitude/Longitude @ Liftoff/Touchdown
 
 
 class LatitudeAtTouchdown(KeyPointValueNode):
+    '''
+    '''
+
     def derive(self, lat=P('Latitude Smoothed'), tdwns=KTI('Touchdown')):
+        '''
+        '''
         self.create_kpvs_at_ktis(lat.array, tdwns)
 
+
 class LongitudeAtTouchdown(KeyPointValueNode):
-    def derive(self, lon=P('Longitude Smoothed'),tdwns=KTI('Touchdown')):
+    '''
+    '''
+
+    def derive(self, lon=P('Longitude Smoothed'), tdwns=KTI('Touchdown')):
+        '''
+        '''
         self.create_kpvs_at_ktis(lon.array, tdwns)
 
 
 class LatitudeAtLiftoff(KeyPointValueNode):
-    @classmethod
-    def can_operate(cls, available):
-        return 'Liftoff' in available
-    
-    def derive(self, lat=P('Latitude'),
-               liftoffs=KTI('Liftoff')):
-        # OK, At the risk of causing confusion, we use the liftoff instant to
-        # identify the takeoff airport. Strictly, takeoff is a process taking
-        # time and distance, whereas liftoff is an instant in time and space.
-        if lat:
-            self.create_kpvs_at_ktis(lat.array, liftoffs)
-        else:
-            # TODO: Remove this Manchester fixed location
-            self.create_kpv(liftoffs[0].index, 53.34476)
+    '''
+    '''
+
+    def derive(self, lat=P('Latitude Smoothed'), liftoffs=KTI('Liftoff')):
+        '''
+        '''
+        self.create_kpvs_at_ktis(lat.array, liftoffs)
 
 
 class LongitudeAtLiftoff(KeyPointValueNode):
     '''
-    While storing this is redundant due to geo-locating KeyPointValues, it is
-    used in multiple Nodes to simplify their implementation.
-    '''    
-    @classmethod
-    def can_operate(cls, available):
-        return 'Liftoff' in available
-    
-    def derive(self, lon=P('Longitude'),
-               liftoffs=KTI('Liftoff')):
-        if lon:
-            self.create_kpvs_at_ktis(lon.array, liftoffs)
-        else:
-            # TODO: Remove this Manchester fixed location
-            self.create_kpv(liftoffs[0].index, -2.2935)
+    '''
+
+    def derive(self, lon=P('Longitude Smoothed'), liftoffs=KTI('Liftoff')):
+        '''
+        '''
+        self.create_kpvs_at_ktis(lon.array, liftoffs)
+
+
+########################################
+# Latitude/Longitude @ Lowest Point
 
 
 class LatitudeAtLowestPointOnApproach(KeyPointValueNode):
-    # Cannot use smoothed position as this causes circular dependancy.
-    def derive(self, lat=P('Latitude Prepared'), 
-               low_points=KTI('Lowest Point On Approach')):
+    '''
+    Note: Cannot use smoothed position as this causes circular dependancy.
+    '''
+
+    def derive(self, lat=P('Latitude Prepared'),
+            low_points=KTI('Lowest Point On Approach')):
+        '''
+        '''
         self.create_kpvs_at_ktis(lat.array, low_points)
 
 
 class LongitudeAtLowestPointOnApproach(KeyPointValueNode):
-    # Cannot use smoothed position as this causes circular dependancy.
-    def derive(self, lon=P('Longitude Prepared'), 
-               low_points=KTI('Lowest Point On Approach')):
+    '''
+    Note: Cannot use smoothed position as this causes circular dependancy.
+    '''
+
+    def derive(self, lon=P('Longitude Prepared'),
+            low_points=KTI('Lowest Point On Approach')):
+        '''
+        '''
         self.create_kpvs_at_ktis(lon.array, low_points)
+
+
+################################################################################
 
 
 class MachMax(KeyPointValueNode):

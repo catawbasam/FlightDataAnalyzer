@@ -125,7 +125,13 @@ from analysis_engine.key_point_values import (
     ILSLocalizerDeviation1500To1000FtMax,
     ILSLocalizerDeviation1000To250FtMax,    
     LatitudeAtLanding,
+    LatitudeAtLiftoff,
+    LatitudeAtTakeoff,
+    LatitudeAtTouchdown,
     LongitudeAtLanding,
+    LongitudeAtLiftoff,
+    LongitudeAtTakeoff,
+    LongitudeAtTouchdown,
     MachMax,
     Pitch35To400FtMax,
     Pitch35To400FtMin,
@@ -1111,14 +1117,6 @@ class TestHeadingAtLanding(unittest.TestCase):
 
 
 """
-class TestHeadingAtLowPointOnApproach(unittest.TestCase, CreateKPVsAtKTIsTest):
-    def setUp(self):
-        self.node_class = HeadingAtLowPointOnApproach
-        self.operational_combinations = [('Heading Continuous',
-                                          'Approach And Landing Lowest')]
-"""
-
-"""
 class TestHeightAtGoAroundMin(unittest.TestCase, CreateKPVsAtKTIsTest):
     def setUp(self):
         self.node_class = HeightAtGoAroundMin
@@ -1144,34 +1142,6 @@ class TestILSFrequencyOnApproach(unittest.TestCase):
                                   name='ILS Frequency On Approach')]
         self.assertEqual(kpv, expected)
 
-        
-class TestLatitudeAtLanding(unittest.TestCase, CreateKPVsAtKTIsTest):
-    def setUp(self):
-        self.node_class = LatitudeAtLanding
-        self.operational_combinations = [('Latitude',
-                                          'Touchdown')]
-
-
-class TestLongitudeAtLanding(unittest.TestCase, CreateKPVsAtKTIsTest):
-    def setUp(self):
-        self.node_class = LongitudeAtLanding
-        self.operational_combinations = [('Longitude',
-                                          'Touchdown')]
-
-"""
-class TestLatitudeAtLowPointOnApproach(unittest.TestCase, CreateKPVsAtKTIsTest):
-    def setUp(self):
-        self.node_class = LatitudeAtLowPointOnApproach
-        self.operational_combinations = [('Latitude Smoothed',
-                                          'Approach And Landing Lowest')]
-
-
-class TestLongitudeAtLowPointOnApproach(unittest.TestCase, CreateKPVsAtKTIsTest):
-    def setUp(self):
-        self.node_class = LongitudeAtLowPointOnApproach
-        self.operational_combinations = [('Longitude Smoothed',
-                                          'Approach And Landing Lowest')]
-"""
 
 class TestILSLocalizerDeviation1500To1000FtMax(unittest.TestCase):
     def test_can_operate(self):
@@ -2876,18 +2846,18 @@ class TestIsolationValveOpenAtLiftoff(unittest.TestCase):
         self.assertTrue(False, msg='Test not implemented.')
 
 
-class TestLatitudeAtLiftoff(unittest.TestCase):
+class TestLatitudeAtLanding(unittest.TestCase):
     def test_can_operate(self):
         self.assertTrue(False, msg='Test not implemented.')
-        
+
     def test_derive(self):
         self.assertTrue(False, msg='Test not implemented.')
 
 
-class TestLatitudeAtLowestPointOnApproach(unittest.TestCase):
+class TestLatitudeAtTakeoff(unittest.TestCase):
     def test_can_operate(self):
         self.assertTrue(False, msg='Test not implemented.')
-        
+
     def test_derive(self):
         self.assertTrue(False, msg='Test not implemented.')
 
@@ -2895,23 +2865,39 @@ class TestLatitudeAtLowestPointOnApproach(unittest.TestCase):
 class TestLatitudeAtTouchdown(unittest.TestCase):
     def test_can_operate(self):
         self.assertTrue(False, msg='Test not implemented.')
-        
+
     def test_derive(self):
         self.assertTrue(False, msg='Test not implemented.')
 
 
-class TestLongitudeAtLiftoff(unittest.TestCase):
+class TestLatitudeAtLiftoff(unittest.TestCase):
     def test_can_operate(self):
         self.assertTrue(False, msg='Test not implemented.')
-        
+
     def test_derive(self):
         self.assertTrue(False, msg='Test not implemented.')
 
 
-class TestLongitudeAtLowestPointOnApproach(unittest.TestCase):
+class TestLatitudeAtLowestPointOnApproach(unittest.TestCase):
     def test_can_operate(self):
         self.assertTrue(False, msg='Test not implemented.')
-        
+
+    def test_derive(self):
+        self.assertTrue(False, msg='Test not implemented.')
+
+
+class TestLongitudeAtLanding(unittest.TestCase):
+    def test_can_operate(self):
+        self.assertTrue(False, msg='Test not implemented.')
+
+    def test_derive(self):
+        self.assertTrue(False, msg='Test not implemented.')
+
+
+class TestLongitudeAtTakeoff(unittest.TestCase):
+    def test_can_operate(self):
+        self.assertTrue(False, msg='Test not implemented.')
+
     def test_derive(self):
         self.assertTrue(False, msg='Test not implemented.')
 
@@ -2919,7 +2905,23 @@ class TestLongitudeAtLowestPointOnApproach(unittest.TestCase):
 class TestLongitudeAtTouchdown(unittest.TestCase):
     def test_can_operate(self):
         self.assertTrue(False, msg='Test not implemented.')
-        
+
+    def test_derive(self):
+        self.assertTrue(False, msg='Test not implemented.')
+
+
+class TestLongitudeAtLiftoff(unittest.TestCase):
+    def test_can_operate(self):
+        self.assertTrue(False, msg='Test not implemented.')
+
+    def test_derive(self):
+        self.assertTrue(False, msg='Test not implemented.')
+
+
+class TestLongitudeAtLowestPointOnApproach(unittest.TestCase):
+    def test_can_operate(self):
+        self.assertTrue(False, msg='Test not implemented.')
+
     def test_derive(self):
         self.assertTrue(False, msg='Test not implemented.')
 
