@@ -1901,6 +1901,11 @@ class PackValvesOpenAtLiftoff(KeyPointValueNode):
 
 def calculate_runway_midpoint(rwy):
     '''
+    Attempts to calculate the runway midpoint data provided in the AFR.
+
+    1. If there are no runway start coordinates, use the runway end coordinates
+    2. If there are no runway end coordinates, use the runway start coordinates
+    3. Attempt to calculate the midpoint of the great circle path between them.
     '''
     rwy_s = rwy.get('start', {})
     rwy_e = rwy.get('end', {})
@@ -1974,11 +1979,25 @@ class LatitudeAtLanding(KeyPointValueNode):
             self.create_kpv(tdwns[-1].index, value)
             return
 
+        # XXX: Is there something else we can do here other than fail?
         raise Exception('Unable to determine a latitude at landing.')
 
 
 class LongitudeAtLanding(KeyPointValueNode):
     '''
+    Latitude and Longitude at Landing and Touchdown.
+
+    The position of the landing is recorded in the form of KPVs as this is
+    used in a number of places. From the touchdown moments, the raw latitude
+    and longitude data is used to create the *AtLanding parameters, and these
+    are in turn used to compute the landing attributes.
+
+    Once the landing attributes (especially the runway details) are known,
+    the positional data can be smoothed using ILS data or (if this is a
+    non-precision approach) the known touchdown aiming point. With more
+    accurate positional data the touchdown point can be computed more
+    accurately.
+
     Note: Cannot use smoothed position as this causes circular dependancy.
     '''
 
@@ -2019,13 +2038,22 @@ class LongitudeAtLanding(KeyPointValueNode):
             self.create_kpv(tdwns[-1].index, value)
             return
 
+        # XXX: Is there something else we can do here other than fail?
         raise Exception('Unable to determine a longitude at landing.')
 
 
 class LatitudeAtTakeoff(KeyPointValueNode):
     '''
-    While storing this is redundant due to geo-locating KPVs, it is used in
-    multiple nodes to simplify their implementation.
+    Latitude and Longitude at Takeoff and Liftoff.
+
+    The position of the takeoff is recorded in the form of KPVs as this is
+    used in a number of places. From the liftoff moments, the raw latitude
+    and longitude data is used to create the *AtTakeoff parameters, and these
+    are in turn used to compute the takeoff attributes.
+
+    Once the takeoff attributes (especially the runway details) are known,
+    the positional data can be smoothed the known liftoff point. With more
+    accurate positional data the liftoff point can be computed more accurately.
 
     Note: Cannot use smoothed position as this causes circular dependancy.
     '''
@@ -2067,13 +2095,22 @@ class LatitudeAtTakeoff(KeyPointValueNode):
             self.create_kpv(liftoffs[0].index, value)
             return
 
+        # XXX: Is there something else we can do here other than fail?
         raise Exception('Unable to determine a latitude at takeoff.')
 
 
 class LongitudeAtTakeoff(KeyPointValueNode):
     '''
-    While storing this is redundant due to geo-locating KPVs, it is used in
-    multiple nodes to simplify their implementation.
+    Latitude and Longitude at Takeoff and Liftoff.
+
+    The position of the takeoff is recorded in the form of KPVs as this is
+    used in a number of places. From the liftoff moments, the raw latitude
+    and longitude data is used to create the *AtTakeoff parameters, and these
+    are in turn used to compute the takeoff attributes.
+
+    Once the takeoff attributes (especially the runway details) are known,
+    the positional data can be smoothed the known liftoff point. With more
+    accurate positional data the liftoff point can be computed more accurately.
 
     Note: Cannot use smoothed position as this causes circular dependancy.
     '''
@@ -2115,6 +2152,7 @@ class LongitudeAtTakeoff(KeyPointValueNode):
             self.create_kpv(liftoffs[0].index, value)
             return
 
+        # XXX: Is there something else we can do here other than fail?
         raise Exception('Unable to determine a longitude at takeoff.')
 
 
@@ -2124,6 +2162,18 @@ class LongitudeAtTakeoff(KeyPointValueNode):
 
 class LatitudeAtTouchdown(KeyPointValueNode):
     '''
+    Latitude and Longitude at Landing and Touchdown.
+
+    The position of the landing is recorded in the form of KPVs as this is
+    used in a number of places. From the touchdown moments, the raw latitude
+    and longitude data is used to create the *AtLanding parameters, and these
+    are in turn used to compute the landing attributes.
+
+    Once the landing attributes (especially the runway details) are known,
+    the positional data can be smoothed using ILS data or (if this is a
+    non-precision approach) the known touchdown aiming point. With more
+    accurate positional data the touchdown point can be computed more
+    accurately.
     '''
 
     def derive(self, lat=P('Latitude Smoothed'), tdwns=KTI('Touchdown')):
@@ -2134,6 +2184,18 @@ class LatitudeAtTouchdown(KeyPointValueNode):
 
 class LongitudeAtTouchdown(KeyPointValueNode):
     '''
+    Latitude and Longitude at Landing and Touchdown.
+
+    The position of the landing is recorded in the form of KPVs as this is
+    used in a number of places. From the touchdown moments, the raw latitude
+    and longitude data is used to create the *AtLanding parameters, and these
+    are in turn used to compute the landing attributes.
+
+    Once the landing attributes (especially the runway details) are known,
+    the positional data can be smoothed using ILS data or (if this is a
+    non-precision approach) the known touchdown aiming point. With more
+    accurate positional data the touchdown point can be computed more
+    accurately.
     '''
 
     def derive(self, lon=P('Longitude Smoothed'), tdwns=KTI('Touchdown')):
@@ -2144,6 +2206,16 @@ class LongitudeAtTouchdown(KeyPointValueNode):
 
 class LatitudeAtLiftoff(KeyPointValueNode):
     '''
+    Latitude and Longitude at Takeoff and Liftoff.
+
+    The position of the takeoff is recorded in the form of KPVs as this is
+    used in a number of places. From the liftoff moments, the raw latitude
+    and longitude data is used to create the *AtTakeoff parameters, and these
+    are in turn used to compute the takeoff attributes.
+
+    Once the takeoff attributes (especially the runway details) are known,
+    the positional data can be smoothed the known liftoff point. With more
+    accurate positional data the liftoff point can be computed more accurately.
     '''
 
     def derive(self, lat=P('Latitude Smoothed'), liftoffs=KTI('Liftoff')):
@@ -2154,6 +2226,16 @@ class LatitudeAtLiftoff(KeyPointValueNode):
 
 class LongitudeAtLiftoff(KeyPointValueNode):
     '''
+    Latitude and Longitude at Takeoff and Liftoff.
+
+    The position of the takeoff is recorded in the form of KPVs as this is
+    used in a number of places. From the liftoff moments, the raw latitude
+    and longitude data is used to create the *AtTakeoff parameters, and these
+    are in turn used to compute the takeoff attributes.
+
+    Once the takeoff attributes (especially the runway details) are known,
+    the positional data can be smoothed the known liftoff point. With more
+    accurate positional data the liftoff point can be computed more accurately.
     '''
 
     def derive(self, lon=P('Longitude Smoothed'), liftoffs=KTI('Liftoff')):
