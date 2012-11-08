@@ -306,18 +306,19 @@ class AirspeedReference(DerivedParameterNode):
         boeing = set(base_for_lookup + ['Flap']).issubset(x)
         return existing_values or airbus or boeing
 
-    def derive (self,
-                spd=P('Airspeed'),
-                gw=P('Gross Weight Smoothed'),
-                flap=P('Flap'),
-                conf=P('Configuration'),
-                vapp=P('Vapp'),
-                vref=P('VREF'),
-                fdr_vapp=A('FDR Vapp'),
-                fdr_vref=A('FDR Vref'),
-                apps=S('Approach'),
-                series=A('Series'),
-                family=A('Family')):
+    def derive(self,
+               spd=P('Airspeed'),
+               gw=P('Gross Weight Smoothed'),
+               flap=P('Flap'),
+               conf=P('Configuration'),
+               vapp=P('Vapp'),
+               vref=P('Vref'),
+               fdr_vapp=A('FDR Vapp'),
+               fdr_vref=A('FDR Vref'),
+               apps=S('Approach'),
+               series=A('Series'),
+               family=A('Family')):
+
         '''
         Currently a work in progress. We should use a recorded parameter if
         it's available, failing that a computed forumla reflecting the
@@ -396,7 +397,12 @@ class AirspeedRelativeFor3Sec(DerivedParameterNode):
     def derive(self, spd_vref=P('Airspeed Relative')):
         '''
         '''
-        self.array = clip(spd_vref.array, 3.0, spd_vref.frequency)
+        try:
+            self.array = clip(spd_vref.array, 3.0, spd_vref.frequency)
+        except ValueError:
+            self.warning("'%s' is completely masked within '%s'. Output array "
+                         "will also be masked.", spd_vref.name, self.name)
+            self.array = np_ma_zeros_like(spd_vref.array, mask=True)
 
         
 # TODO: Write some unit tests!
@@ -412,7 +418,12 @@ class AirspeedRelativeFor5Sec(DerivedParameterNode):
     def derive(self, spd_vref=P('Airspeed Relative')):
         '''
         '''
-        self.array = clip(spd_vref.array, 5.0, spd_vref.frequency)
+        try:
+            self.array = clip(spd_vref.array, 5.0, spd_vref.frequency)
+        except ValueError:
+            self.warning("'%s' is completely masked within '%s'. Output array "
+                         "will also be masked.", spd_vref.name, self.name)
+            self.array = np_ma_zeros_like(spd_vref.array, mask=True)
 
 
 ################################################################################
