@@ -134,6 +134,7 @@ class AutothrottleDisengagedSelection(KeyTimeInstanceNode):
 
 class Transmit(KeyTimeInstanceNode):
 
+    @classmethod
     def can_operate(cls, available):
         return any(d in available for d in cls.get_dependency_names())
 
