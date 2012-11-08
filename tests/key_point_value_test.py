@@ -10,12 +10,9 @@ from utilities.geometry import midpoint
 from analysis_engine.derived_parameters import Flap
 from analysis_engine.library import align
 from analysis_engine.node import (
-    KTI,
-    P,
-    Attribute,
+    A, KPV, KTI, P, S,
     KeyPointValue, 
     KeyTimeInstance,
-    Parameter,
     Section,
 )
 
@@ -169,8 +166,10 @@ test_data_path = os.path.join(os.path.dirname(os.path.abspath(__file__)),
 
 class NodeTest(object):
     def test_can_operate(self):
-        self.assertEqual(self.node_class.get_operational_combinations(),
-                         self.operational_combinations)
+        self.assertEqual(
+            self.node_class.get_operational_combinations(),
+            self.operational_combinations,
+        )
 
 
 class CreateKPVsAtKPVsTest(NodeTest):
@@ -386,8 +385,8 @@ class TestAirspeed1000To500FtMax(unittest.TestCase, CreateKPVsWithinSlicesTest):
     def test_airspeed_1000_500_basic(self):
         testline = np.arange(0, 12.6, 0.1)
         testwave = (np.cos(testline) * -100) + 100
-        spd = Parameter('Airspeed', np.ma.array(testwave))
-        alt_ph = Parameter('Altitude AAL For Flight Phases', 
+        spd = P('Airspeed', np.ma.array(testwave))
+        alt_ph = P('Altitude AAL For Flight Phases', 
                            np.ma.array(testwave) * 10)
         kpv = Airspeed1000To500FtMax()
         kpv.derive(spd, alt_ph)
@@ -477,7 +476,7 @@ class TestAirspeedMax(unittest.TestCase, CreateKPVsWithinSlicesTest):
     def test_airspeed_max_basic(self):
         testline = np.arange(0,12.6,0.1)
         testwave = (np.cos(testline)*(-100))+100
-        spd = Parameter('Airspeed', np.ma.array(testwave))
+        spd = P('Airspeed', np.ma.array(testwave))
         waves=np.ma.clump_unmasked(np.ma.masked_less(testwave,80))
         airs=[]
         for wave in waves:
@@ -605,7 +604,7 @@ class TestAltitudeMax(unittest.TestCase, CreateKPVsWithinSlicesTest):
 
 class TestAltitudeAtSuspectedLevelBust(unittest.TestCase):
     def test_handling_no_data(self):
-        alt=Parameter('Altitude STD',np.ma.array([0,1000,1000,1000,1000]))
+        alt=P('Altitude STD',np.ma.array([0,1000,1000,1000,1000]))
         kpv=AltitudeAtSuspectedLevelBust()
         kpv.derive(alt)
         expected=[]
@@ -613,7 +612,7 @@ class TestAltitudeAtSuspectedLevelBust(unittest.TestCase):
         
     def test_up_down_and_up(self):
         testwave = np.ma.array(1.0+np.sin(np.arange(0,12.6,0.1)))*1000
-        alt=Parameter('Altitude STD',testwave)
+        alt=P('Altitude STD',testwave)
         kpv=AltitudeAtSuspectedLevelBust()
         kpv.derive(alt)
         expected=[KeyPointValue(index=16, value=999.5736030415051, 
@@ -632,7 +631,7 @@ class TestAltitudeAtSuspectedLevelBust(unittest.TestCase):
         
     def test_too_slow(self):
         testwave = np.ma.array(1.0+np.sin(np.arange(0,12.6,0.1)))*1000
-        alt=Parameter('Altitude STD',testwave,0.02)
+        alt=P('Altitude STD',testwave,0.02)
         kpv=AltitudeAtSuspectedLevelBust()
         kpv.derive(alt)
         expected=[]
@@ -640,7 +639,7 @@ class TestAltitudeAtSuspectedLevelBust(unittest.TestCase):
 
     def test_straight_up_and_down(self):
         testwave = np.ma.array(range(0,10000,50)+range(10000,0,-50))
-        alt=Parameter('Altitude STD',testwave,1)
+        alt=P('Altitude STD',testwave,1)
         kpv=AltitudeAtSuspectedLevelBust()
         kpv.derive(alt)
         expected=[]
@@ -648,7 +647,7 @@ class TestAltitudeAtSuspectedLevelBust(unittest.TestCase):
         
     def test_up_and_down_with_overshoot(self):
         testwave = np.ma.array(range(0,10000,50)+range(10000,9000,-50)+[9000]*200+range(9000,0,-50))
-        alt=Parameter('Altitude STD',testwave,1)
+        alt=P('Altitude STD',testwave,1)
         kpv=AltitudeAtSuspectedLevelBust()
         kpv.derive(alt)
         expected=[KeyPointValue(index=200, value=1000, 
@@ -662,7 +661,7 @@ class TestAltitudeAtSuspectedLevelBust(unittest.TestCase):
                                range(10000,9000,-50)+
                                range(9000,20000,50)+
                                range(20000,0,-50))
-        alt=Parameter('Altitude STD',testwave,1)
+        alt=P('Altitude STD',testwave,1)
         kpv=AltitudeAtSuspectedLevelBust()
         kpv.derive(alt)
         expected=[KeyPointValue(index=420, value=-1000, 
@@ -729,20 +728,20 @@ class TestControlColumnStiffness(unittest.TestCase):
                          [('Control Column Force','Control Column','Fast')])
 
     def test_control_column_stiffness_too_few_samples(self):
-        cc_disp = Parameter('Control Column', 
+        cc_disp = P('Control Column', 
                             np.ma.array([0,.3,1,2,2.5,1.4,0,0]))
-        cc_force = Parameter('Control Column Force',
+        cc_force = P('Control Column Force',
                              np.ma.array([0,2,4,7,8,5,2,1]))
         phase_fast = Fast()
-        phase_fast.derive(Parameter('Airspeed', np.ma.array([100]*10)))
+        phase_fast.derive(P('Airspeed', np.ma.array([100]*10)))
         stiff = ControlColumnStiffness()
         stiff.derive(cc_force,cc_disp,phase_fast)
         self.assertEqual(stiff, [])
         
     def test_control_column_stiffness_max(self):
         testwave = np.ma.array((1.0 - np.cos(np.arange(0,6.3,0.1)))/2.0)
-        cc_disp = Parameter('Control Column', testwave * 10.0)
-        cc_force = Parameter('Control Column Force', testwave * 27.0)
+        cc_disp = P('Control Column', testwave * 10.0)
+        cc_force = P('Control Column Force', testwave * 27.0)
         phase_fast = buildsection('Fast',0,63)
         stiff = ControlColumnStiffness()
         stiff.derive(cc_force,cc_disp,phase_fast)
@@ -997,10 +996,10 @@ class TestILSGlideslopeDeviation1500To1000FtMax(unittest.TestCase):
         
     def test_ils_glide_1500_1000_basic(self):
         testline = np.ma.array((75 - np.arange(63))*25) # 1875 to 325 ft in 63 steps.
-        alt_ph = Parameter('Altitude AAL For Flight Phases', testline)
+        alt_ph = P('Altitude AAL For Flight Phases', testline)
         
         testwave = np.ma.array(1.0 - np.cos(np.arange(0,6.3,0.1)))
-        ils_gs = Parameter('ILS Glideslope', testwave)
+        ils_gs = P('ILS Glideslope', testwave)
         
         gs_estab = buildsection('ILS Glideslope Established', 2,63)
         
@@ -1013,9 +1012,9 @@ class TestILSGlideslopeDeviation1500To1000FtMax(unittest.TestCase):
 
     def test_ils_glide_1500_1000_four_peaks(self):
         testline = np.ma.array((75 - np.arange(63))*25) # 1875 to 325 ft in 63 steps.
-        alt_ph = Parameter('Altitude AAL For Flight Phases', testline)
+        alt_ph = P('Altitude AAL For Flight Phases', testline)
         testwave = np.ma.array(-0.2-np.sin(np.arange(0,12.6,0.1)))
-        ils_gs = Parameter('ILS Glideslope', testwave)
+        ils_gs = P('ILS Glideslope', testwave)
         gs_estab = buildsection('ILS Glideslope Established', 2,56)
         kpv = ILSGlideslopeDeviation1500To1000FtMax()
         kpv.derive(ils_gs, alt_ph, gs_estab)
@@ -1037,10 +1036,10 @@ class TestILSGlideslopeDeviation1000To250FtMax(unittest.TestCase):
         
     def test_ils_glide_1000_250_basic(self):
         testline = np.ma.array((75 - np.arange(63))*25) # 1875 to 325 ft in 63 steps.
-        alt_ph = Parameter('Altitude AAL For Flight Phases', testline)
+        alt_ph = P('Altitude AAL For Flight Phases', testline)
         
         testwave = np.ma.array(1.0 - np.cos(np.arange(0,6.3,0.1)))
-        ils_gs = Parameter('ILS Glideslope', testwave)
+        ils_gs = P('ILS Glideslope', testwave)
         
         gs_estab = buildsection('ILS Glideslope Established', 2,63)
         
@@ -1053,9 +1052,9 @@ class TestILSGlideslopeDeviation1000To250FtMax(unittest.TestCase):
 
     def test_ils_glide_1000_250_four_peaks(self):
         testline = np.ma.array((75 - np.arange(63))*25) # 1875 to 325 ft in 63 steps.
-        alt_ph = Parameter('Altitude AAL For Flight Phases', testline)
+        alt_ph = P('Altitude AAL For Flight Phases', testline)
         testwave = np.ma.array(-0.2-np.sin(np.arange(0,12.6,0.1)))
-        ils_gs = Parameter('ILS Glideslope', testwave)
+        ils_gs = P('ILS Glideslope', testwave)
         gs_estab = buildsection('ILS Glideslope Established', 2,56)
         kpv = ILSGlideslopeDeviation1000To250FtMax()
         kpv.derive(ils_gs, alt_ph, gs_estab)
@@ -1161,9 +1160,9 @@ class TestILSLocalizerDeviation1500To1000FtMax(unittest.TestCase):
     def test_ils_loc_1500_1000_basic(self):
         testline = np.arange(0,12.6,0.1)
         testwave = (np.cos(testline)*(-1000))+1000
-        alt_ph = Parameter('Altitude AAL For Flight Phases',
+        alt_ph = P('Altitude AAL For Flight Phases',
                            np.ma.array(testwave))
-        ils_loc = Parameter('ILS Localizer', np.ma.array(testline))
+        ils_loc = P('ILS Localizer', np.ma.array(testline))
         loc_est = buildsection('ILS Localizer Established', 30,115)
         kpv = ILSLocalizerDeviation1500To1000FtMax()
         kpv.derive(ils_loc, alt_ph, loc_est)
@@ -1183,9 +1182,9 @@ class TestILSLocalizerDeviation1000To250FtMax(unittest.TestCase):
     def test_ils_loc_1000_250_basic(self):
         testline = np.arange(0,12.6,0.1)
         testwave = (np.cos(testline)*(-1000))+1000
-        alt_ph = Parameter('Altitude AAL For Flight Phases',
+        alt_ph = P('Altitude AAL For Flight Phases',
                            np.ma.array(testwave))
-        ils_loc = Parameter('ILS Localizer', np.ma.array(testline))
+        ils_loc = P('ILS Localizer', np.ma.array(testline))
         loc_est = buildsection('ILS Localizer Established', 30,115)
         kpv = ILSLocalizerDeviation1000To250FtMax()
         kpv.derive(ils_loc, alt_ph, loc_est)
@@ -1238,8 +1237,8 @@ class TestPitch35To400FtMax(unittest.TestCase, CreateKPVsWithinSlicesTest):
     def test_pitch_35_400_basic(self):
         pch = [0,2,4,7,9,8,6,3,-1]
         alt = [100,101,102,103,700,105,104,103,102]
-        alt_ph = Parameter('Altitude AAL For Flight Phases', np.ma.array(alt))
-        pitch = Parameter('Pitch', np.ma.array(pch))
+        alt_ph = P('Altitude AAL For Flight Phases', np.ma.array(alt))
+        pitch = P('Pitch', np.ma.array(pch))
         kpv = Pitch35To400FtMax()
         kpv.derive(pitch, alt_ph)
         # 'KeyPointValue', 'index value name'
@@ -2875,7 +2874,7 @@ class TestLatitudeAtLanding(unittest.TestCase, NodeTest):
     def test_derive_with_afr_land_rwy(self):
         lat = None
         tdwns = KTI('Touchdown', items=[KeyTimeInstance(0)])
-        afr_land_rwy = Attribute('AFR Landing Runway', {
+        afr_land_rwy = A('AFR Landing Runway', {
             'start': {'latitude': 0, 'longitude': 0},
             'end': {'latitude': 1, 'longitude': 1},
         })
@@ -2892,7 +2891,7 @@ class TestLatitudeAtLanding(unittest.TestCase, NodeTest):
         lat = None
         tdwns = KTI('Touchdown', items=[KeyTimeInstance(0)])
         afr_land_rwy = None
-        afr_land_apt = Attribute('AFR Landing Airport', {
+        afr_land_apt = A('AFR Landing Airport', {
             'latitude': 1,
             'longitude': 1,
         })
@@ -2932,7 +2931,7 @@ class TestLatitudeAtTakeoff(unittest.TestCase, NodeTest):
     def test_derive_with_afr_toff_rwy(self):
         lat = None
         liftoffs = KTI('Liftoff', items=[KeyTimeInstance(0)])
-        afr_toff_rwy = Attribute('AFR Takeoff Runway', {
+        afr_toff_rwy = A('AFR Takeoff Runway', {
             'start': {'latitude': 0, 'longitude': 0},
             'end': {'latitude': 1, 'longitude': 1},
         })
@@ -2949,7 +2948,7 @@ class TestLatitudeAtTakeoff(unittest.TestCase, NodeTest):
         lat = None
         liftoffs = KTI('Liftoff', items=[KeyTimeInstance(0)])
         afr_toff_rwy = None
-        afr_toff_apt = Attribute('AFR Takeoff Airport', {
+        afr_toff_apt = A('AFR Takeoff Airport', {
             'latitude': 1,
             'longitude': 1,
         })
@@ -3010,7 +3009,7 @@ class TestLongitudeAtLanding(unittest.TestCase, NodeTest):
     def test_derive_with_afr_land_rwy(self):
         lon = None
         tdwns = KTI('Touchdown', items=[KeyTimeInstance(0)])
-        afr_land_rwy = Attribute('AFR Landing Runway', {
+        afr_land_rwy = A('AFR Landing Runway', {
             'start': {'latitude': 0, 'longitude': 0},
             'end': {'latitude': 1, 'longitude': 1},
         })
@@ -3027,7 +3026,7 @@ class TestLongitudeAtLanding(unittest.TestCase, NodeTest):
         lon = None
         tdwns = KTI('Touchdown', items=[KeyTimeInstance(0)])
         afr_land_rwy = None
-        afr_land_apt = Attribute('AFR Landing Airport', {
+        afr_land_apt = A('AFR Landing Airport', {
             'latitude': 1,
             'longitude': 1,
         })
@@ -3069,7 +3068,7 @@ class TestLongitudeAtTakeoff(unittest.TestCase, NodeTest):
     def test_derive_with_afr_toff_rwy(self):
         lon = None
         liftoffs = KTI('Liftoff', items=[KeyTimeInstance(0)])
-        afr_toff_rwy = Attribute('AFR Takeoff Runway', {
+        afr_toff_rwy = A('AFR Takeoff Runway', {
             'start': {'latitude': 0, 'longitude': 0},
             'end': {'latitude': 1, 'longitude': 1},
         })
@@ -3086,7 +3085,7 @@ class TestLongitudeAtTakeoff(unittest.TestCase, NodeTest):
         lon = None
         liftoffs = KTI('Liftoff', items=[KeyTimeInstance(0)])
         afr_toff_rwy = None
-        afr_toff_apt = Attribute('AFR Takeoff Airport', {
+        afr_toff_apt = A('AFR Takeoff Airport', {
             'latitude': 1,
             'longitude': 1,
         })
