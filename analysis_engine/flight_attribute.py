@@ -30,7 +30,6 @@ class AnalysisDatetime(FlightAttributeNode):
 
 
 # TODO: Document format of the approaches attribute.
-# TODO: Write some unit tests!
 class Approaches(FlightAttributeNode):
     '''
     All airports which were approached, including the final landing airport.
@@ -82,17 +81,17 @@ class Approaches(FlightAttributeNode):
         '''
         '''
         return all(n in available for n in [
+            'Altitude AAL',
+            'Approach',
             'Fast',
             'Start Datetime',
-            'Approach',
-            'Altitude AAL',
-        ])  # FIXME
+        ])
 
     def derive(self,
-            alt_aal=P('Altitude AAL'),
             approach_sections=S('Approach'),
-            land_afr_apt=A('AFR Landing Airport'),
-            land_afr_rwy=A('AFR Landing Runway'),
+            alt_aal=P('Altitude AAL'),
+            fast=S('Fast'),
+            start_datetime=A('Start Datetime'),
             land_hdg=KPV('Heading At Landing'),
             land_lat=KPV('Latitude At Landing'),
             land_lon=KPV('Longitude At Landing'),
@@ -100,8 +99,8 @@ class Approaches(FlightAttributeNode):
             appr_lat=KPV('Latitude At Lowest Point On Approach'),
             appr_lon=KPV('Longitude At Lowest Point On Approach'),
             appr_ilsfreq=KPV('ILS Frequency On Approach'),
-            start_datetime=A('Start Datetime'),
-            fast=S('Fast'),
+            land_afr_apt=A('AFR Landing Airport'),
+            land_afr_rwy=A('AFR Landing Runway'),
             precision=A('Precise Positioning')):
         '''
         '''
@@ -411,10 +410,9 @@ class LandingAirport(FlightAttributeNode):
         1. Find the nearest airport to the coordinates at landing.
         2. Use the airport data provided in the achieved flight record.
         '''
-        all_of = lambda *names: any(name in available for name in names)
-        return any((
-            all_of('Latitude At Landing', 'Longitude At Landing'),
-            'AFR Landing Airport' in available,
+        return 'AFR Landing Airport' in available or all((
+            'Latitude At Landing' in available,
+            'Longitude At Landing' in available,
         ))
 
     def derive(self,
@@ -473,33 +471,21 @@ class LandingRunway(FlightAttributeNode):
         2. Precisely using airport, heading and coordinates at landing.
         2. Use the runway data provided in the achieved flight record.
         '''
-        imprecise = all((
+        minimum = all((
             'FDR Landing Airport' in available,
             'Heading At Landing' in available,
         ))
 
-        precise = all((
-            'FDR Landing Airport' in available,
-            'Heading At Landing' in available,
-        )) and (all((
-            'Approach' in available,
-            'Latitude At Landing' in available,
-            'Longitude At Landing' in available,
-        )) or all((
-            'Approach' in available,
-            'ILS Frequency On Approach' in available,
-        )))
-
         fallback = 'AFR Landing Runway' in available
 
-        return imprecise or precise or fallback
+        return minimum or fallback
 
     def derive(self,
             land_fdr_apt=A('FDR Landing Airport'),
             land_afr_rwy=A('AFR Landing Runway'),
+            land_hdg=KPV('Heading At Landing'),
             land_lat=KPV('Latitude At Landing'),
             land_lon=KPV('Longitude At Landing'),
-            land_hdg=KPV('Heading At Landing'),
             precision=A('Precise Positioning'),
             approaches=S('Approach'),
             ilsfreq_on_app=KPV('ILS Frequency On Approach')):
@@ -528,7 +514,7 @@ class LandingRunway(FlightAttributeNode):
                 raise ValueError
         except (AttributeError, ValueError):
             self.warning('No approaches... Fallback to AFR Landing Runway.')
-            fallback = True
+            # Don't set fallback - can still attempt to use heading only...
 
         # 1. If we have airport and heading, look for the nearest runway:
         if not fallback:
@@ -546,7 +532,7 @@ class LandingRunway(FlightAttributeNode):
             # precise. Inertial recordings are too inaccurate to pinpoint the
             # correct runway and we use ILS frequencies if possible to get a
             # more exact match.
-            if precise and land_lat and land_lon:
+            if precise and landing and land_lat and land_lon:
                 lat = land_lat.get_last(within_slice=landing.slice)
                 lon = land_lon.get_last(within_slice=landing.slice)
                 if lat and lon:
@@ -635,10 +621,9 @@ class TakeoffAirport(FlightAttributeNode):
         1. Find the nearest airport to the coordinates at takeoff.
         2. Use the airport data provided in the achieved flight record.
         '''
-        all_of = lambda *names: any(name in available for name in names)
-        return any((
-            all_of('Latitude At Takeoff', 'Longitude At Takeoff'),
-            'AFR Takeoff Airport' in available,
+        return 'AFR Takeoff Airport' in available or all((
+            'Latitude At Takeoff' in available,
+            'Longitude At Takeoff' in available,
         ))
 
     def derive(self,
@@ -784,30 +769,23 @@ class TakeoffRunway(FlightAttributeNode):
 
         1. Imprecisely using airport and heading at takeoff.
         2. Precisely using airport, heading and coordinates at takeoff.
-        2. Use the runway data provided in the achieved flight record.
+        3. Use the runway data provided in the achieved flight record.
         '''
-        imprecise = all((
+        minimum = all((
             'FDR Takeoff Airport' in available,
             'Heading At Takeoff' in available,
-        ))
-
-        precise = all((
-            'FDR Takeoff Airport' in available,
-            'Heading At Takeoff' in available,
-            'Latitude At Takeoff' in available,
-            'Longitude At Takeoff' in available,
         ))
 
         fallback = 'AFR Takeoff Runway' in available
 
-        return imprecise or precise or fallback
+        return minimum or fallback
 
     def derive(self,
             toff_fdr_apt=A('FDR Takeoff Airport'),
             toff_afr_rwy=A('AFR Takeoff Runway'),
+            toff_hdg=KPV('Heading At Takeoff'),
             toff_lat=KPV('Latitude At Takeoff'),
             toff_lon=KPV('Longitude At Takeoff'),
-            toff_hdg=KPV('Heading At Takeoff'),
             precision=A('Precise Positioning')):
         '''
         '''
