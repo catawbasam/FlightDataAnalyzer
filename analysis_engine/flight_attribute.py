@@ -29,49 +29,54 @@ class AnalysisDatetime(FlightAttributeNode):
         self.set_flight_attr(datetime.now())
 
 
-# TODO: Document format of the approaches attribute.
 class Approaches(FlightAttributeNode):
     '''
-    All airports which were approached, including the final landing airport.
+    Details of all approaches that were made including landing.
 
-    Each Approach And Landing is associated with an airfield and a runway
-    where possible.
+    If possible we attempt to determine the airport and runway associated with
+    each approach.
 
-    The airfield is identified thus:
+    We also attempt to determine an approach type which may be one of the
+    following:
 
-    if the aircraft lands:
-        the airfield closest to the position recorded at maximum deceleration on
-        the runway (i.e. LandingLatitude, LandingLongitude KPVs)
-    else:
-        the airfield closest to the aircraft position at the lowest point of
-        approach (i.e. ApproachMinimumLongitude, ApproachMinimumLatitude KPVs)
+    - Landing
+    - Touch & Go
+    - Go Around
 
-    The runway is identified thus:
+    The date and time at the start and end of the approach is also determined.
 
-    if the aircraft lands:
-        identify using the runway bearing recorded at maximum deceleration
-        (i.e. the LandingHeading KPV)
+    When determining the airport and runway, we use the heading, latitude and
+    longitude at:
+    
+    a. landing for landing approaches, and
+    b. the lowest point on the approach for any other approaches.
 
-        if there are parallel runways:
-            if the ILS is tuned and localizer data is valid:
-                use the ApproachILSFrequency KPV to identify the runway
+    If we are unable to determine the airport and runway for a landing
+    approach, it is also possible to fall back to the achieved flight record.
 
-            elseif accurate position data is available:
-                use the position (LandingLatitude, LandingLongitude)
-                recorded at maximum deceleration to identify the runway
+    A list of approach details are returned in the following format::
 
-            else:
-                use "*" to declare the runway not identified.
-
-    else if the aircraft reaches the final approach phase:
-        identify the runway bearing from the heading at lowest point of the
-        approach (ApproachMinimumHeading)
-
-        if there are parallel runways:
-            if the ILS is tuned and localizer data is valid:
-                use ApproachILSFrequency to identify the runway
-            else:
-                use "*" to declare the runway not identified.
+        [
+            {
+                'airport': {...},  # See output provided by Airport API.
+                'runway': {...},   # See output provided by Airport API.
+                'type': 'LANDING',
+                'datetime': datetime(1970, 1, 1, 0, 0, 0),
+            },
+            {
+                'airport': {...},  # See output provided by Airport API.
+                'runway': {...},   # See output provided by Airport API.
+                'type': 'GO_AROUND',
+                'datetime': datetime(1970, 1, 1, 0, 0, 0),
+            },
+            {
+                'airport': {...},  # See output provided by Airport API.
+                'runway': {...},   # See output provided by Airport API.
+                'type': 'TOUCH_AND_GO',
+                'datetime': datetime(1970, 1, 1, 0, 0, 0),
+            },
+            ...
+        ]
     '''
 
     name = 'FDR Approaches'
@@ -396,9 +401,6 @@ class LandingAirport(FlightAttributeNode):
     possible, otherwise falling back to information provided in the achieved
     flight record.
     '''
-    #### XXX: Latitude and longitude are sourced from the end of the last final
-    #### XXX: approach in the data.
-    #### XXX: Q: What if the data is not complete? last_final
 
     name = 'FDR Landing Airport'
 
@@ -469,7 +471,7 @@ class LandingRunway(FlightAttributeNode):
 
         1. Imprecisely using airport and heading at landing.
         2. Precisely using airport, heading and coordinates at landing.
-        2. Use the runway data provided in the achieved flight record.
+        3. Use the runway data provided in the achieved flight record.
         '''
         minimum = all((
             'FDR Landing Airport' in available,
