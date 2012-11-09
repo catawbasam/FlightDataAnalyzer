@@ -904,19 +904,18 @@ class AltitudeSTDSmoothed(DerivedParameterNode):
 
 class AltitudeQNH(DerivedParameterNode):
     '''
-    Altitude parameter to account for transition altitudes for airports between
-    "altitude above mean sea level" and "pressure altitude relative to FL100".
-    Ideally use the BARO selection switch when recorded, else the Airport
-    elevation where provided, else guess based on location (USA = 18,000ft,
-    Europe = 3,000ft).
+    This altitude is above mean sea level. From the takeoff airfield to the
+    highest altitude above airfield, the altitude QNH is referenced to the
+    takeoff airfield elevation, and from that point onwards it is referenced
+    to the landing airfield elevation.
 
-    This altitude parameter is for events based upon height above sea level,
-    not standard altitude or airfield elevation. For example, in the USA the
-    speed high below 10,000ft is based on height above sea level. Ideally use
-    the BARO selection switch when recorded, else based upon the transition
-    height for the departing airport in the climb and the arrival airport in
-    the descent. If no such data is available, transition at 18,000 ft (USA
-    standard). because there is no European standard transition height.
+    We can determine the elevation in the following ways:
+
+    1. Take the average elevation between the start and end of the runway.
+    2. Take the general elevation of the airfield.
+
+    If we are unable to determine the elevation, we may mask out part or all of
+    the data.
     '''
 
     name = 'Altitude QNH'
