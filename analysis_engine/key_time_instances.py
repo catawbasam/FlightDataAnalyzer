@@ -142,7 +142,7 @@ class Transmit(KeyTimeInstanceNode):
             sat_com1=P('Key Satcom (1)'), sat_com2=P('Key Satcom (2)'),
             vhf1=P('Key VHF (1)'), vhf2=P('Key VHF (2)'), vhf3=P('Key VHF (3)')):
 
-        transmit_params = [hf1, hf2, hf3, sat_com1, sat_com2, vhf1, vhf2, vhf3]
+        transmit_params = [hf1, hf2, sat_com1, sat_com2, vhf1, vhf2, vhf3]
         for param in transmit_params:
             if param:
                 self.create_ktis_on_state_change(

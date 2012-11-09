@@ -1355,7 +1355,7 @@ class AltitudeAtGearUpSelection(KeyPointValueNode):
     name = 'Altitude AAL At Gear Up Selection'
 
     def derive(self, alt_aal=P('Altitude AAL'),
-            gear_up_sels=KTI('Gear Up Selection')):
+            gear_up_sel=KTI('Gear Up Selection')):
         '''
         Gear up selections after takeoff, not following a go-around (when it
         is normal to retract gear at significant height).
