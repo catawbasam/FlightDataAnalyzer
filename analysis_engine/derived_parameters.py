@@ -3060,7 +3060,8 @@ class CoordinatesSmoothed(object):
                          lon_adj.data[toff_slice.start],
                          speed[:toff_slice.start],
                          hdg.array[:toff_slice.start],
-                         freq, 'takeoff')
+                         freq, 
+                         'takeoff')
     
     def taxi_in_track(self, this_loc, gspd, lat_adj, hdg, lon_adj, freq, speed):
         '''
@@ -3072,9 +3073,12 @@ class CoordinatesSmoothed(object):
         
         if join_idx and (len(lat_adj) > join_idx): # We have some room to extend over.
             [lat_adj[join_idx:], lon_adj[join_idx:]] = \
-                ground_track(lat_adj.data[join_idx], lon_adj.data[join_idx],
-                             speed[join_idx:], hdg.array[join_idx:], 
-                             freq, 'landing')
+                ground_track(lat_adj.data[join_idx],
+                             lon_adj.data[join_idx],
+                             speed[join_idx:], 
+                             hdg.array[join_idx:], 
+                             freq, 
+                             'landing')
 
     def _adjust_track_pp(self, lon, lat, loc_est, ils_loc, head_mag, hdg, gspd,
                          app_info, first_toff, toff_rwy, start_datetime):
