@@ -113,6 +113,7 @@ class AccelerationVertical(DerivedParameterNode):
                acc_lat=P('Acceleration Lateral'), 
                acc_long=P('Acceleration Longitudinal'), 
                pitch=P('Pitch'), roll=P('Roll')):
+        # FIXME: FloatingPointError: underflow encountered in multiply
         pitch_rad = pitch.array*deg2rad
         roll_rad = roll.array*deg2rad
         resolved_in_roll = acc_norm.array*np.ma.cos(roll_rad)\

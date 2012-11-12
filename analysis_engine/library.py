@@ -3900,6 +3900,7 @@ def dp2tas(dp, alt_ft, sat):
     P = alt2press(alt_ft)
     press_ratio = alt2press_ratio(alt_ft)
     temp_ratio = (sat + 273.15) / 288.15
+    # FIXME: FloatingPointError: underflow encountered in multiply
     density_ratio = press_ratio / temp_ratio
     Rho = Rhoref * density_ratio
     tas = _dp2speed(dp, P, Rho)
@@ -3929,5 +3930,6 @@ def _alt2press_ratio_gradient(H):
     return np.ma.power(1 - H/145442.0, 5.255876)
 
 def _alt2press_ratio_isothermal(H):
+    # FIXME: FloatingPointError: overflow encountered in exp
     return 0.223361 * np.ma.exp((36089.0-H)/20806.0)
 
