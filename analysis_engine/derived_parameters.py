@@ -1,5 +1,5 @@
 import numpy as np
-from math import floor, radians
+from math import ceil, floor, radians
 
 from analysis_engine.exceptions import DataFrameError
 
@@ -902,6 +902,7 @@ class AltitudeSTDSmoothed(DerivedParameterNode):
             self.array = alt.array
 
 
+# TODO: Account for 'Touch & Go' - need to adjust QNH for additional airfields!
 class AltitudeQNH(DerivedParameterNode):
     '''
     This altitude is above mean sea level. From the takeoff airfield to the
@@ -932,11 +933,12 @@ class AltitudeQNH(DerivedParameterNode):
         one_of = lambda *names: any(name in available for name in names)
         return all((
             'Altitude AAL' in available,
+            'Altitude Peak' in available,
             one_of('FDR Landing Runway', 'FDR Landing Airport'),
             one_of('FDR Takeoff Runway', 'FDR Takeoff Airport'),
         ))
 
-    def derive(self, alt_aal=P('Altitude AAL'),
+    def derive(self, alt_aal=P('Altitude AAL'), alt_peak=KTI('Altitude Peak'),
             l_apt=A('FDR Landing Airport'), l_rwy=A('FDR Landing Runway'),
             t_apt=A('FDR Takeoff Airport'), t_rwy=A('FDR Takeoff Runway')):
         '''
@@ -957,8 +959,14 @@ class AltitudeQNH(DerivedParameterNode):
         if l_elev is None and l_apt:
             l_elev = self._calc_apt_elev(l_apt.value)
 
-        # Break the "journey" at the "midpoint" - actually max altitude aal:
-        peak = np.ma.argmax(alt_aal.array)
+        # Break the "journey" at the "midpoint" - actually max altitude aal -
+        # and be sure to account for rise/fall in the data and stick the peak
+        # in the correct half:
+        peak = alt_peak.get_first()  # NOTE: Fix for multiple approaches...
+        fall = alt_aal.array[peak.index - 1] > alt_aal.array[peak.index + 1]
+        peak = peak.index + int(fall)
+
+        smooth = True
 
         try:
             # Add the elevation at takeoff to the climb portion of the array:
@@ -966,6 +974,7 @@ class AltitudeQNH(DerivedParameterNode):
         except:
             # Mask out the start of the array if no suitable elevation:
             alt_qnh[:peak] = np.ma.masked
+            smooth = False
 
         try:
             # Add the elevation at landing to the descent portion of the array:
@@ -973,6 +982,19 @@ class AltitudeQNH(DerivedParameterNode):
         except:
             # Mask out the end of the array if no suitable elevation:
             alt_qnh[peak:] = np.ma.masked
+            smooth = False
+
+        # Attempt to smooth out any ugly transitions due to differences in
+        # pressure so that we don't get horrible bumps in visualisation:
+        if smooth:
+            delta = np.ma.ptp(alt_qnh[peak - 1:peak + 1])
+            width = ceil(delta * alt_aal.frequency / 3)
+            window = slice(peak - width, peak + width + 1)
+            alt_qnh[window] = np.ma.masked
+            repair_mask(
+                array=alt_qnh,
+                repair_duration=window.stop - window.start,
+            )
 
         self.array = alt_qnh
 

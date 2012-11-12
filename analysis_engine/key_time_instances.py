@@ -7,6 +7,7 @@ from analysis_engine.library import (hysteresis,
                                      slices_above,
                                      slices_not,
                                      slices_and,
+                                     max_abs_value, 
                                      max_value, 
                                      peak_curvature,
                                      touchdown_inertial)
@@ -67,8 +68,22 @@ class BottomOfDescent(KeyTimeInstanceNode):
         for air in airs:
             if air.slice.stop:
                 self.create_kti(air.stop_edge)
-        
-           
+
+
+# TODO: Determine an altitude peak per climb.
+class AltitudePeak(KeyTimeInstanceNode):
+    '''
+    Determines the peak value of altitude above airfield level which is used to
+    correctly determine the splitting point when deriving the Altitude QNH
+    parameter.
+    '''
+
+    def derive(self, alt_aal=P('Altitude AAL')):
+        '''
+        '''
+        self.create_kti(np.ma.argmax(np.ma.abs(np.ma.diff(alt_aal.array))))
+
+
 '''
 Redundant, as either a go-around, or landing
 
