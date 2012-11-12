@@ -1196,7 +1196,7 @@ class GenericDescent(KeyPointValueNode):
 
     NAME_FORMAT = '%(parameter)s At %(altitude)d Ft AAL In Descent'
     NAME_VALUES = {
-        'parameter': ['Airspeed', 'Airspeed Relative', 'Rate Of Descent',
+        'parameter': ['Airspeed', 'Airspeed Relative', 'Vertical Speed',
             'Slope To Landing', 'Flap', 'Gear Down', 'Speedbrake',
             'ILS Glideslope', 'ILS Localizer', 'Power', 'Pitch', 'Roll',
             'Heading'],
@@ -1303,31 +1303,6 @@ class AltitudeGoAroundFlapRetracted(KeyPointValueNode):
         self.create_kpvs_at_ktis(alt_aal.array,gafr)
 
 
-class AltitudeAGAGearSelectedUp(KeyPointValueNode):
-    
-    name = 'Altitude Above Go Around Minimum Gear Selected Up'
-    
-    # gagr pinpoints the gear retraction instance within the 500ft go-around window.
-
-    def derive(self, alt_aal=P('Altitude AAL'), 
-               gas=S('Go Around And Climbout'),
-               gear_ups = KTI('Go Around Gear Selected Up')):
-        for ga in gas:
-            # Find the index and height at this go-around minimum.
-            pit_index = np.ma.argmin(alt_aal.array[ga.slice])
-            pit = alt_aal.array[ga.slice.start + pit_index]
-            for gear_up in gear_ups:
-                # Check this gear selected up matches the go-around in question
-                if is_index_within_slice(gear_up.index, ga.slice):
-                    # Did we raise the gear after the minimum height?
-                    if gear_up.index > pit_index:
-                        gear_up_ht = alt_aal.array[gear_up.index] - pit
-                    else:
-                        # Show zero if selected up before minimum height
-                        gear_up_ht = 0.0
-                    self.create_kpv(gear_up.index,gear_up_ht)
-
-
 class AltitudeAtLiftoff(KeyPointValueNode):
     def derive(self, alt_std=P('Altitude STD Smoothed'), liftoffs=KTI('Liftoff')):
         self.create_kpvs_at_ktis(alt_std.array, liftoffs)
@@ -1373,7 +1348,7 @@ class AltitudeAtLastFlapChangeBeforeLanding(KeyPointValueNode):
                 last_index = np.round(rough_index) 
                 alt_last = value_at_index(alt_aal.array, last_index)
                 self.create_kpv(last_index, alt_last)
-                
+
 
 class AltitudeAtGearUpSelection(KeyPointValueNode):
     '''
@@ -1384,8 +1359,35 @@ class AltitudeAtGearUpSelection(KeyPointValueNode):
     def derive(self, alt_aal=P('Altitude AAL'),
             gear_up_sel=KTI('Gear Up Selection')):
         '''
+        Gear up selections after takeoff, not following a go-around (when it
+        is normal to retract gear at significant height).
         '''
         self.create_kpvs_at_ktis(alt_aal.array, gear_up_sel)
+
+
+class AltitudeAtGAGearUpSelection(KeyPointValueNode):
+    
+    name = 'Altitude Above Go Around Minimum At Gear Up Selection'
+    
+    # gagr pinpoints the gear retraction instance within the 500ft go-around window.
+
+    def derive(self, alt_aal=P('Altitude AAL'), 
+               gas=S('Go Around And Climbout'),
+               gear_ups = KTI('Go Around Gear Selected Up')):
+        for ga in gas:
+            # Find the index and height at this go-around minimum.
+            pit_index = np.ma.argmin(alt_aal.array[ga.slice])
+            pit = alt_aal.array[ga.slice.start + pit_index]
+            for gear_up in gear_ups:
+                # Check this gear selected up matches the go-around in question
+                if is_index_within_slice(gear_up.index, ga.slice):
+                    # Did we raise the gear after the minimum height?
+                    if gear_up.index > pit_index:
+                        gear_up_ht = alt_aal.array[gear_up.index] - pit
+                    else:
+                        # Show zero if selected up before minimum height
+                        gear_up_ht = 0.0
+                    self.create_kpv(gear_up.index,gear_up_ht)
 
 
 class AltitudeAtGearDownSelection(KeyPointValueNode):

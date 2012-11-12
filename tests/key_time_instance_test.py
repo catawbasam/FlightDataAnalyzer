@@ -750,3 +750,9 @@ class TestTouchAndGo(unittest.TestCase):
         self.assertTrue(False, msg='Test not implemented.')
         
 
+class TestTransmit(unittest.TestCase):
+    def test_can_operate(self):
+        self.assertTrue(False, msg='Test not implemented.')
+        
+    def test_derive(self):
+        self.assertTrue(False, msg='Test not implemented.')

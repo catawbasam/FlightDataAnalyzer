@@ -3471,7 +3471,7 @@ def track_linking(pos, local_pos):
             fix = np.linspace(fix_a, fix_b, num=b-a)
         else:
             fix = np.linspace(fix_a, fix_b, num=b-a+2)[1:-1]
-        local_pos[a:b] = pos[a:b] + fix
+        local_pos[block] = pos[block] + fix
     return local_pos
 
 
