@@ -707,24 +707,24 @@ class TakeoffRunway(FlightAttributeNode):
         
         if hdg:
             hdg_value = hdg[0].value
+            api_handler = get_api_handler(API_HANDLER)
+            try:
+                runway_info = api_handler.get_nearest_runway(airport_id, hdg[0].value,
+                                                        **kwargs)
+                if len(runway_info['items']) > 1:
+                    # TODO: This will probably break nodes which are dependent.
+                    runway = {'identifier': runway_info['ident']}
+                else:
+                    runway = runway_info['items'][0]
+                self.set_flight_attr(runway)
+            except NotFoundError:
+                self.warning("Runway not found for airport id '%d', heading "
+                                "'%f' and kwargs '%s'.", airport_id, hdg_value,
+                                kwargs)
+                self.set_flight_attr(None)
         else:
-            hdg_value = None
-            
-        api_handler = get_api_handler(API_HANDLER)
-        try:
-            runway_info = api_handler.get_nearest_runway(airport_id, hdg[0].value,
-                                                    **kwargs)
-            if len(runway_info['items']) > 1:
-                # TODO: This will probably break nodes which are dependent.
-                runway = {'identifier': runway_info['ident']}
-            else:
-                runway = runway_info['items'][0]
-            self.set_flight_attr(runway)
-        except NotFoundError:
-            self.warning("Runway not found for airport id '%d', heading "
-                            "'%f' and kwargs '%s'.", airport_id, hdg_value,
-                            kwargs)
             self.set_flight_attr(None)
+            
 
 
 class FlightType(FlightAttributeNode):

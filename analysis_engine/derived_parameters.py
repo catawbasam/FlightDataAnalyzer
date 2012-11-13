@@ -233,12 +233,22 @@ class AirspeedMinusV2(DerivedParameterNode):
         the runway and it needs to be extended to permit V-V2 KPVs to be
         recorded during the climbout.
         '''
-        repaired_v2 = repair_mask(v2.array, 
-                                  copy=True, 
-                                  repair_duration=None, 
-                                  extrapolate=True)
-        self.array = airspeed.array - repaired_v2
-        
+        # If the data starts in mid-flight, there may be no valid V2 values.
+        if np.ma.count(v2.array):
+            repaired_v2 = repair_mask(v2.array, 
+                                      copy=True, 
+                                      repair_duration=None, 
+                                      extrapolate=True)
+            self.array = airspeed.array - repaired_v2
+        else:
+            self.array = np_ma_masked_zeros_like(airspeed.array)
+
+            #param.invalid = 1
+            #param.array.mask = True
+            #hdf.set_param(param, save_data=False, save_mask=True)
+            #logger.info("Marked param '%s' as invalid as ptp %.2f "\
+                        #"did not exceed minimum change %.2f",
+                        #ptp, min_change)
 
 # TODO: Write some unit tests!
 class AirspeedMinusV2For3Sec(DerivedParameterNode):
@@ -2822,9 +2832,11 @@ class ILSFrequency(DerivedParameterNode):
         frame_name = frame.value if frame else None
         
         # On some frames only one ILS frequency recording works
-        if frame_name in ['737-6'] and \
-           (np.ma.count(f2.array) == 0 or np.ma.ptp(f2.array) == 0.0):
-            self.array = f1.array
+        if False:
+            pass
+        ##if frame_name in ['737-6'] and \
+           ##(np.ma.count(f2.array) == 0 or np.ma.ptp(f2.array) == 0.0):
+            ##self.array = f1.array
             
         # In all cases other than those identified above we look for both
         # receivers being tuned together to form a valid signal
