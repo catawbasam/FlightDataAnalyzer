@@ -2,12 +2,16 @@ import numpy as np
 import unittest
 
 from datetime import datetime, timedelta
-from mock import Mock, patch
+from mock import Mock, call, patch
 
 from analysis_engine import __version__
 from analysis_engine.api_handler import NotFoundError
-from analysis_engine.node import (A, KeyPointValue, KeyTimeInstance, KPV, KTI,
-                                  P, S, Section)
+from analysis_engine.node import (
+    A, KPV, KTI, P, S,
+    KeyPointValue,
+    KeyTimeInstance,
+    Section,
+)
 from analysis_engine.settings import CONTROLS_IN_USE_TOLERANCE
 from analysis_engine.flight_attribute import (
     Approaches, 
@@ -34,322 +38,133 @@ from analysis_engine.flight_attribute import (
 )
 
 
-class TestApproaches(unittest.TestCase):
+class NodeTest(object):
     def test_can_operate(self):
-        # Can operate with all required parameters.
-        self.assertTrue(Approaches.can_operate(\
-            ['Start Datetime',
-             'Approach',
-             'Altitude AAL',
-             'Latitude At Lowest Point On Approach',
-             'Longitude At Lowest Point On Approach',
-             'Latitude At Landing',
-             'Longitude At Landing']))
-        # Can operate with landing lat lng.
-        self.assertFalse(Approaches.can_operate(\
-            ['Start Datetime',
-             'Approach',
-             'Altitude AAL',
-             'Latitude At Lowest Point On Approach',
-             'Latitude At Landing',
-             'Longitude At Landing']))
-        # Can operate with some optional parameters.
-        self.assertTrue(Approaches.can_operate(\
-            ['Start Datetime',
-             'Approach',
-             'Altitude AAL',
-             'Latitude At Lowest Point On Approach',
-             'Longitude At Lowest Point On Approach',
-             'Latitude At Landing',
-             'Longitude At Landing',
-             'Heading At Lowest Point On Approach']))
-        # Can operate with everything.
-        self.assertTrue(Approaches.can_operate(\
-            ['Start Datetime',
-             'Approach',
-             'Altitude AAL',
-             'Latitude At Lowest Point On Approach',
-             'Longitude At Lowest Point On Approach',
-             'Latitude At Landing',
-             'Longitude At Landing',
-             'Heading At Lowest Point On Approach',
-             'Heading At Landing',
-             'Heading Vacating Runway',
-             'Fast',
-             'Precise Positioning',
-             'ILS Frequency On Approach']))        
-        # Cannot operate missing latitude.
-        self.assertFalse(Approaches.can_operate(\
-            ['Start Datetime',
-             'Approach',
-             'Heading At Landing',
-             'Touch And Go',
-             'Go Around',
-             'Longitude At Lowest Point On Approach']))
-        # Cannot operate missing Approach and Landing.
-        self.assertFalse(Approaches.can_operate(\
-            ['Start Datetime',
-             'Heading At Landing',
-             'Latitude At Lowest Point On Approach',
-             'Longitude At Lowest Point On Approach']))
-        # Cannot operate with differing sources of lat lng.
-        self.assertFalse(Approaches.can_operate(\
-            ['Start Datetime',
-             'Approach',
-             'Heading At Landing',
-             'Touch And Go',
-             'Go Around',
-             'Latitude At Lowest Point On Approach',
-             'Longitude At Landing']))
-    
-    def test__get_lat_lon(self):
-        # Landing KPVs.
-        approaches = Approaches()
-        approach_slice = slice(3,10)
-        landing_lat_kpvs = KPV('Latitude At Landing',
-                               items=[KeyPointValue(1, 13, 'b'),
-                                      KeyPointValue(5, 10, 'b'),
-                                      KeyPointValue(17, 14, 'b')])
-        landing_lon_kpvs = KPV('Longitude At Landing',
-                               items=[KeyPointValue(1, -1, 'b'),
-                                      KeyPointValue(5, -2, 'b'),
-                                      KeyPointValue(17, 2, 'b')])
-        lat, lon = approaches._get_lat_lon(approach_slice, landing_lat_kpvs,
-                                           landing_lon_kpvs)
-        self.assertEqual(lat, 10)
-        self.assertEqual(lon, -2)
-        # Approach KPVs.
-        approach_slice = slice(10,15)
-        approach_lat_kpvs = KPV('Latitude At Lowest Point On Approach',
-                                items=[KeyPointValue(12, 4, 'b')])
-        approach_lon_kpvs = KPV('Longitude At Lowest Point On Approach',
-                                items=[KeyPointValue(12, 3, 'b')])
-        lat, lon = approaches._get_lat_lon(approach_slice, approach_lat_kpvs,
-                                           approach_lon_kpvs)
-        self.assertEqual(lat, 4)
-        self.assertEqual(lon, 3)
-        approach_slice = slice(20,40)
-        lat, lon = approaches._get_lat_lon(approach_slice, landing_lat_kpvs,
-                                           landing_lon_kpvs)
-        self.assertEqual(lat, None)
-        self.assertEqual(lon, None)
-    
-    def test__get_approach_type(self):
-        approaches = Approaches()
-        # Heading At Landing KPVs.
-        landing_hdg_kpvs = KPV('Heading At Landing',
-                               items=[KeyPointValue(9, 21, 'a')])
-        approach_slice = slice(7, 10)
-        approach_type = approaches._get_approach_type(approach_slice,
-                                                      landing_hdg_kpvs, None,
-                                                      None)
-        self.assertEqual(approach_type, 'LANDING')
-        # Touch and Go KTIs.
-        touch_and_gos = KTI('Touch And Go', items=[KeyTimeInstance(12, 'a'),
-                                                   KeyTimeInstance(16, 'a')])
-        approach_slice = slice(8,14)
-        approach_type = approaches._get_approach_type(approach_slice, None,
-                                                      touch_and_gos, None)
-        self.assertEqual(approach_type, 'TOUCH_AND_GO')
-        # Go Around KTIs.
-        go_arounds = KTI('Go Arounds', items=[KeyTimeInstance(12, 'a'),
-                                              KeyTimeInstance(16, 'a')])
-        approach_type = approaches._get_approach_type(approach_slice, None,
-                                                      None, go_arounds)
-        self.assertEqual(approach_type, 'GO_AROUND')
-        # Heading At Landing and Touch And Gos, Heading preferred.
-        approach_type = approaches._get_approach_type(approach_slice,
-                                                      landing_hdg_kpvs,
-                                                      touch_and_gos, None)
-        self.assertEqual(approach_type, 'LANDING')
-        # Heading At Landing and Go Arounds. Heading preferred.
-        approach_type = approaches._get_approach_type(approach_slice,
-                                                      landing_hdg_kpvs,
-                                                      None, go_arounds)
-        self.assertEqual(approach_type, 'LANDING')
-        # Touch And Gos and Go Arounds. Touch And Gos preferred.
-        approach_type = approaches._get_approach_type(approach_slice,
-                                                      None, touch_and_gos,
-                                                      go_arounds)
-        self.assertEqual(approach_type, 'TOUCH_AND_GO')
-        # All 3, Heading preferred.
-        approach_type = approaches._get_approach_type(approach_slice,
-                                                      landing_hdg_kpvs,
-                                                      touch_and_gos, go_arounds)
-        self.assertEqual(approach_type, 'LANDING')
-        # No KPVs/KTIs within slice.
-        approach_slice = slice(100, 200)
-        approach_type = approaches._get_approach_type(approach_slice,
-                                                      landing_hdg_kpvs,
-                                                      touch_and_gos, go_arounds)
-        self.assertEqual(approach_type, None)
-        
-    
-    @patch('analysis_engine.api_handler_analysis_engine.AnalysisEngineAPIHandlerHTTP.get_nearest_airport')
+        if getattr(self, 'check_operational_combination_length_only', False):
+            self.assertEqual(
+                len(self.node_class.get_operational_combinations()),
+                self.operational_combination_length,
+            )
+        else:
+            self.assertEqual(
+                self.node_class.get_operational_combinations(),
+                self.operational_combinations,
+            )
+
+
+class TestApproaches(unittest.TestCase, NodeTest):
+    def setUp(self):
+        self.node_class = Approaches
+        self.operational_combination_length = 1024
+        self.check_operational_combination_length_only = True
+
     @patch('analysis_engine.api_handler_analysis_engine.AnalysisEngineAPIHandlerHTTP.get_nearest_runway')
-    def test_derive(self, get_nearest_runway, get_nearest_airport):
-        approaches = Approaches()
+    @patch('analysis_engine.api_handler_analysis_engine.AnalysisEngineAPIHandlerHTTP.get_nearest_airport')
+    @patch('analysis_engine.api_handler_analysis_engine.AnalysisEngineAPIHandlerHTTP')
+    def test_derive(self, api, get_nearest_airport, get_nearest_runway):
+
+        api = api()
+
+        def _fake_approach(t, a, b):
+            return {
+                'airport': None,
+                'runway': None,
+                'type': t,
+                'datetime': datetime(1970, 1, 1, 0, 0, b),
+                'slice_start_datetime': datetime(1970, 1, 1, 0, 0, a),
+                'slice_stop_datetime': datetime(1970, 1, 1, 0, 0, b),
+            }
+
+        approaches = self.node_class()
         approaches.set_flight_attr = Mock()
-        # No approach type due to missing 'Touch And Go', 'Go Around' and
-        # 'Heading At Landing' KTI/KPVs.
-        start_datetime = A('Start Datetime', value=datetime(1970, 1,1))
-        approach_and_landing = S('Approach and Landing',
-                                 items=[Section('a', slice(0,10), 0, 10)])
-        landing_lat_kpvs = KPV('Latitude At Landing',
-                               items=[KeyPointValue(5, 10, 'b')])
-        landing_lon_kpvs = KPV('Longitude At Landing',
-                               items=[KeyPointValue(5, -2, 'b')])
-        landing_hdg_kpvs = KPV('Heading At Landing',
-                               items=[KeyPointValue(15, 60, 'a')])
-        go_arounds = KTI('Go Around', items=[KeyTimeInstance(25, 'Go Around')])
-        touch_and_gos = KTI('Touch And Go',
-                            items=[KeyTimeInstance(35, 'Touch And Go')])
-        approaches.derive(start_datetime, approach_and_landing,
-                          landing_hdg_kpvs, touch_and_gos, go_arounds,
-                          landing_lat_kpvs, landing_lon_kpvs, None, None, None,
-                          None, None)
+        approaches._lookup_airport_and_runway = Mock()
+        approaches._lookup_airport_and_runway.return_value = []
+
+        alt_aal = P(name='Altitude AAL', array=np.ma.array([
+            10, 5, 0, 0, 5, 10, 20, 30, 40, 50,      # Touch & Go
+            50, 45, 30, 35, 30, 30, 35, 40, 40, 40,  # Go Around
+            30, 20, 10, 0, 0, 0, 0, 0, 0, 0,         # Landing
+        ]))
+
+        land_afr_apt = A(name='AFR Landing Airport', value={'id': 25})
+        land_afr_rwy = A(name='AFR Landing Runway', value={'ident': '09L'})
+
+        precise = A(name='Precise Positioning')
+        start_dt = A(name='Start Datetime', value=datetime(1970, 1, 1))
+
+        approach_sections = S(name='Approach', items=[
+            Section(name='Approach', slice=slice(0, 5), start_edge=0, stop_edge=5),
+            Section(name='Approach', slice=slice(10, 15), start_edge=10, stop_edge=15),
+            Section(name='Approach', slice=slice(20, 25), start_edge=20, stop_edge=25),
+        ])
+        fast = S(name='Fast', items=[
+            Section(name='Fast', slice=slice(0, 22), start_edge=0, stop_edge=22.5),
+        ])
+
+        land_hdg = KPV(name='Heading At Landing', items=[
+            KeyPointValue(index=15, value=60),
+        ])
+        land_lat = KPV(name='Latitude At Landing', items=[
+            KeyPointValue(index=5, value=10),
+        ])
+        land_lon = KPV(name='Longitude At Landing', items=[
+            KeyPointValue(index=5, value=-2),
+        ])
+        appr_hdg = KPV(name='Heading At Low Point On Approach', items=[
+            KeyPointValue(index=5, value=25),
+            KeyPointValue(index=12, value=35),
+        ])
+        appr_lat = KPV(name='Latitude At Lowest Point On Approach', items=[
+            KeyPointValue(index=5, value=8),
+        ])
+        appr_lon = KPV(name='Longitude At Lowest Point On Approach', items=[
+            KeyPointValue(index=5, value=4),
+        ])
+        appr_ils_freq = KPV(name='ILS Frequency on Approach', items=[
+            KeyPointValue(name=5, value=330150),
+        ])
+
+        # No approaches if no approach sections in the flight:
+        approaches.derive(S(name='Approach', items=[]), alt_aal, fast, start_dt)
         approaches.set_flight_attr.assert_called_once_with([])
-        # Go Around KTI exists within slice.
-        get_nearest_airport.return_value = {'id': 1}
-        go_arounds = KTI('Go Around', items=[KeyTimeInstance(5, 'Go Around')])
-        approaches.set_flight_attr = Mock()
-        approaches.derive(start_datetime, approach_and_landing,
-                          landing_hdg_kpvs, touch_and_gos, go_arounds,
-                          landing_lat_kpvs, landing_lon_kpvs, None, None, None,
-                          None, None)
-        expected_datetime = datetime(1970, 1, 1, 0, 0,
-                                     approach_and_landing[0].slice.stop) # 10 seconds offset.
-        approaches.set_flight_attr.assert_called_once_with(\
-            [{'airport': 1, 'type': 'GO_AROUND', 'runway': None,
-              'datetime': expected_datetime}])
-        get_nearest_airport.assert_called_once_with(10, -2)
-        # Touch And Go KTI exists within the slice.
-        touch_and_gos = KTI('Touch And Go',
-                            items=[KeyTimeInstance(5, 'Touch And Go')])
-        go_arounds = KTI('Go Around', items=[KeyTimeInstance(25, 'Go Around')])
-        approaches.set_flight_attr = Mock()
-        approaches.derive(start_datetime, approach_and_landing,
-                          landing_hdg_kpvs, touch_and_gos, go_arounds,
-                          landing_lat_kpvs, landing_lon_kpvs, None, None, None,
-                          None, None)
-        expected_datetime = datetime(1970, 1, 1, 0, 0,
-                                     approach_and_landing[0].slice.stop) # 10 seconds offset.
-        approaches.set_flight_attr.assert_called_once_with(\
-            [{'airport': 1, 'type': 'TOUCH_AND_GO', 'runway': None, 'datetime':
-              expected_datetime}])
-        get_nearest_airport.assert_called_with(10, -2)
-        # Use 'Heading At Low Point Of Approach' to query for runway.
-        get_nearest_runway.return_value = {'identifier': '06L'}
-        approach_hdg_kpvs = KPV('Heading At Low Point Of Approach',
-                                items=[KeyPointValue(5, 25, 'a'),
-                                       KeyPointValue(12, 35, 'b')])
-        approaches.set_flight_attr = Mock()
-        approaches.derive(start_datetime, approach_and_landing,
-                          landing_hdg_kpvs, touch_and_gos, go_arounds,
-                          landing_lat_kpvs, landing_lon_kpvs, None, None,
-                          approach_hdg_kpvs, None, None)
-        approaches.set_flight_attr.assert_called_once_with(\
-            [{'airport': 1, 'type': 'TOUCH_AND_GO', 'runway': '06L',
-              'datetime': expected_datetime}])
-        get_nearest_airport.assert_called_with(10, -2)
-        get_nearest_runway.assert_called_once_with(1, 25)
-        # Landing Heading KPV exists within slice.
-        touch_and_gos = KTI('Touch And Go',
-                            items=[KeyTimeInstance(35, 'Touch And Go')])
-        landing_hdg_kpvs = KPV('Heading At Landing',
-                               items=[KeyPointValue(5, 60, 'a')])
-        approaches.set_flight_attr = Mock()
-        approaches.derive(start_datetime, approach_and_landing,
-                          landing_hdg_kpvs, touch_and_gos, go_arounds,
-                          landing_lat_kpvs, landing_lon_kpvs, None, None, None,
-                          None, None)
-        approaches.set_flight_attr.assert_called_once_with(\
-            [{'airport': 1, 'type': 'LANDING', 'runway': '06L',
-              'datetime': expected_datetime}])
-        get_nearest_airport.assert_called_with(10, -2)
-        get_nearest_runway.assert_called_with(1, 60)
-        # Do not use Latitude and Longitude when requesting runway if Precise
-        # precisioning is False.
-        precision = A('Precise Positioning', value=False)
-        approaches.set_flight_attr = Mock()
-        approaches.derive(start_datetime, approach_and_landing,
-                          landing_hdg_kpvs, touch_and_gos, go_arounds,
-                          landing_lat_kpvs, landing_lon_kpvs, None, None, None,
-                          None, precision)
-        approaches.set_flight_attr.assert_called_once_with(\
-            [{'airport': 1, 'type': 'LANDING', 'runway': '06L',
-              'datetime': expected_datetime}])
-        get_nearest_airport.assert_called_with(10, -2)
-        get_nearest_runway.assert_called_with(1, 60)
-        # Pass Latitude and Longitude into get_nearest_runway if 'Precise
-        # Positioning' is True.
-        precision.value = True
-        approaches.set_flight_attr = Mock()
-        approaches.derive(start_datetime, approach_and_landing,
-                          landing_hdg_kpvs, touch_and_gos, go_arounds,
-                          landing_lat_kpvs, landing_lon_kpvs, None, None, None,
-                          None, precision)
-        approaches.set_flight_attr.assert_called_once_with(\
-            [{'airport': 1, 'type': 'LANDING', 'runway': '06L',
-              'datetime': expected_datetime}])
-        get_nearest_airport.assert_called_with(10, -2)
-        get_nearest_runway.assert_called_with(1, 60, latitude=10, longitude=-2)
-        # Use Approach Lat Lon KPVs if available.
-        approach_lat_kpvs = KPV('Latitude At Lowest Point On Approach',
-                                items=[KeyPointValue(5, 8, 'b')])
-        approach_lon_kpvs = KPV('Longitude At Lowest Point On Approach',
-                                items=[KeyPointValue(5, 4, 'b')])
-        approaches.set_flight_attr = Mock()
-        approaches.derive(start_datetime, approach_and_landing,
-                          landing_hdg_kpvs, touch_and_gos, go_arounds, None,
-                          None, approach_lat_kpvs, approach_lon_kpvs, None,
-                          None, precision)
-        get_nearest_runway.assert_called_with(1, 60, latitude=8, longitude=4)
-        approaches.set_flight_attr.assert_called_once_with(\
-            [{'airport': 1, 'type': 'LANDING', 'runway': '06L',
-              'datetime': expected_datetime}])
-        # Prefer Landing Lat Lon KPVs if both Landing and Approach are provided.
-        approaches.set_flight_attr = Mock()
-        approaches.derive(start_datetime, approach_and_landing,
-                          landing_hdg_kpvs, touch_and_gos, go_arounds,
-                          landing_lat_kpvs, landing_lon_kpvs, approach_lat_kpvs,
-                          approach_lon_kpvs, None, None, precision)
-        approaches.set_flight_attr.assert_called_once_with(\
-            [{'airport': 1, 'type': 'LANDING', 'runway': '06L',
-              'datetime': expected_datetime}])
-        get_nearest_runway.assert_called_with(1, 60, latitude=10, longitude=-2)
-        # Use 'ILS Frequency On Approach' to query for runway if available.
-        precision.value = False
-        approach_ilsfreq_kpvs = KPV('ILS Frequency on Approach',
-                                    items=[KeyPointValue(5, 330150, 'b')])
-        approaches.set_flight_attr = Mock()
-        approaches.derive(start_datetime, approach_and_landing,
-                          landing_hdg_kpvs, touch_and_gos, go_arounds,
-                          landing_lat_kpvs, landing_lon_kpvs, approach_lat_kpvs,
-                          approach_lon_kpvs, None, approach_ilsfreq_kpvs,
-                          precision)
-        approaches.set_flight_attr.assert_called_once_with(\
-            [{'airport': 1, 'type': 'LANDING', 'runway': '06L',
-              'datetime': expected_datetime}])
-        get_nearest_runway.assert_called_with(1, 60, ilsfreq=330150)
-        # Airport cannot be found.
-        get_nearest_airport.side_effect = NotFoundError('', '')
-        approaches.set_flight_attr = Mock()
-        approaches.derive(start_datetime, approach_and_landing,
-                          landing_hdg_kpvs, touch_and_gos, go_arounds,
-                          landing_lat_kpvs, landing_lon_kpvs, approach_lat_kpvs,
-                          approach_lon_kpvs, None, approach_ilsfreq_kpvs,
-                          precision)
-        approaches.set_flight_attr.assert_called_once_with([])
-        # Runway cannot be found.
-        get_nearest_runway.side_effect = NotFoundError('', '')
-        approaches.set_flight_attr = Mock()
-        approaches.derive(start_datetime, approach_and_landing,
-                          landing_hdg_kpvs, touch_and_gos, go_arounds,
-                          landing_lat_kpvs, landing_lon_kpvs, approach_lat_kpvs,
-                          approach_lon_kpvs, None, approach_ilsfreq_kpvs,
-                          precision)
-        approaches.set_flight_attr.assert_called_once_with([])
+        approaches.set_flight_attr.reset_mock()
+        # Test the different approach types:
+        land_afr_apt_none = A(name='AFR Landing Airport', value=None)
+        land_afr_rwy_none = A(name='AFR Landing Runway', value=None)
+        approaches.derive(approach_sections, alt_aal, fast, start_dt, land_afr_apt=land_afr_apt_none, land_afr_rwy=land_afr_rwy_none)
+        approaches.set_flight_attr.assert_called_once_with([
+            _fake_approach('TOUCH_AND_GO', 0, 5),
+            _fake_approach('GO_AROUND', 10, 15),
+            _fake_approach('LANDING', 20, 25),
+        ])
+        approaches.set_flight_attr.reset_mock()
+        approaches._lookup_airport_and_runway.assert_has_calls([
+            call(approach=approach_sections[0], appr_hdg=[], appr_lat=[], appr_lon=[], appr_ilsfreq=[], precise=False, api=api),
+            call(approach=approach_sections[1], appr_hdg=[], appr_lat=[], appr_lon=[], appr_ilsfreq=[], precise=False, api=api),
+            call(approach=approach_sections[2], appr_hdg=[], appr_lat=[], appr_lon=[], appr_ilsfreq=[], precise=False, api=api, land_afr_apt=land_afr_apt_none, land_afr_rwy=land_afr_rwy_none, hint='landing'),
+        ])
+        approaches._lookup_airport_and_runway.reset_mock()
+        # Test that landing lat/lon/hdg used for landing only, else use approach lat/lon/hdg:
+        approaches.derive(approach_sections, alt_aal, fast, start_dt, land_hdg, land_lat, land_lon, appr_hdg, appr_lat, appr_lon, land_afr_apt=land_afr_apt_none, land_afr_rwy=land_afr_rwy_none)
+        approaches.set_flight_attr.assert_called_once_with([
+            _fake_approach('TOUCH_AND_GO', 0, 5),
+            _fake_approach('GO_AROUND', 10, 15),
+            _fake_approach('LANDING', 20, 25),
+        ])
+        approaches.set_flight_attr.reset_mock()
+        approaches._lookup_airport_and_runway.assert_has_calls([
+            call(approach=approach_sections[0], appr_hdg=appr_hdg, appr_lat=appr_lat, appr_lon=appr_lon, appr_ilsfreq=[], precise=False, api=api),
+            call(approach=approach_sections[1], appr_hdg=appr_hdg, appr_lat=appr_lat, appr_lon=appr_lon, appr_ilsfreq=[], precise=False, api=api),
+            call(approach=approach_sections[2], appr_hdg=land_hdg, appr_lat=land_lat, appr_lon=land_lon, appr_ilsfreq=[], precise=False, api=api, land_afr_apt=land_afr_apt_none, land_afr_rwy=land_afr_rwy_none, hint='landing'),
+        ])
+        approaches._lookup_airport_and_runway.reset_mock()
+
+        # FIXME: Finish implementing these tests to check that using the API
+        #        works correctly and any fall back values are used as
+        #        appropriate.
+
+    def test_derive_afr_fallback(self):
+        self.assertTrue(False, msg='Test not implemented.')
 
 
 class TestDeterminePilot(unittest.TestCase):
@@ -584,50 +399,102 @@ class TestFlightNumber(unittest.TestCase):
         flight_number.set_flight_attr = Mock()
         flight_number.derive(flight_number_param)
         flight_number.set_flight_attr.assert_called_with('444')
-        
-        
-class TestLandingAirport(unittest.TestCase):
-    def test_can_operate(self):
-        self.assertEqual(LandingAirport.get_operational_combinations(),
-                         [('Latitude At Landing', 'Longitude At Landing')])
-    
+
+
+class TestLandingAirport(unittest.TestCase, NodeTest):
+    def setUp(self):
+        self.node_class = LandingAirport
+        self.operational_combinations = [
+            ('AFR Landing Airport',),
+            ('Latitude At Landing', 'Longitude At Landing'),
+            ('Latitude At Landing', 'AFR Landing Airport'),
+            ('Longitude At Landing', 'AFR Landing Airport'),
+            ('Latitude At Landing', 'Longitude At Landing', 'AFR Landing Airport'),
+        ]
+
     @patch('analysis_engine.api_handler_analysis_engine.AnalysisEngineAPIHandlerHTTP.get_nearest_airport')
     def test_derive_airport_not_found(self, get_nearest_airport):
         '''
         Attribute is not set when airport is not found.
         '''
         get_nearest_airport.side_effect = NotFoundError('Not Found.')
-        latitude = KPV('Latitude At Landing',
-                       items=[KeyPointValue(12, 0.5, 'a'),
-                              KeyPointValue(32, 0.9, 'a'),])
-        longitude = KPV('Longitude At Landing',
-                        items=[KeyPointValue(12, 7.1, 'a'),
-                               KeyPointValue(32, 8.4, 'a')])
-        landing_airport = LandingAirport()
-        landing_airport.set_flight_attr = Mock()
-        landing_airport.derive(latitude, longitude)
+        lat = KPV(name='Latitude At Landing', items=[
+            KeyPointValue(index=12, value=0.5),
+            KeyPointValue(index=32, value=0.9),
+        ])
+        lon = KPV(name='Longitude At Landing', items=[
+            KeyPointValue(index=12, value=7.1),
+            KeyPointValue(index=32, value=8.4),
+        ])
+        afr_apt = A(name='AFR Landing Airport', value={'id': 25})
+        apt = self.node_class()
+        apt.set_flight_attr = Mock()
+        # Check that no attribute is created if not found via API:
+        apt.derive(lat, lon, None)
+        apt.set_flight_attr.assert_called_once_with(None)
+        apt.set_flight_attr.reset_mock()
         get_nearest_airport.assert_called_once_with(0.9, 8.4)
-        landing_airport.set_flight_attr.assert_called_once_with(None)
-    
+        get_nearest_airport.reset_mock()
+        # Check that the AFR airport was used if not found via API:
+        apt.derive(lat, lon, afr_apt)
+        apt.set_flight_attr.assert_called_once_with(afr_apt.value)
+        apt.set_flight_attr.reset_mock()
+        get_nearest_airport.assert_called_once_with(0.9, 8.4)
+        get_nearest_airport.reset_mock()
+
     @patch('analysis_engine.api_handler_analysis_engine.AnalysisEngineAPIHandlerHTTP.get_nearest_airport')
     def test_derive_airport_found(self, get_nearest_airport):
         '''
         Attribute is set when airport is found.
         '''
-        airport_info = {'id': 123}
-        latitude = KPV('Latitude At Landing',
-                       items=[KeyPointValue(12, 0.5, 'a'),
-                              KeyPointValue(32, 0.9, 'a'),])
-        longitude = KPV('Longitude At Landing',
-                        items=[KeyPointValue(12, 7.1, 'a'),
-                               KeyPointValue(32, 8.4, 'a')])
-        landing_airport = LandingAirport()
-        landing_airport.set_flight_attr = Mock()
-        get_nearest_airport.return_value = airport_info
-        landing_airport.set_flight_attr = Mock()
-        landing_airport.derive(latitude, longitude)
+        info = {'id': 123}
+        get_nearest_airport.return_value = info
+        lat = KPV(name='Latitude At Landing', items=[
+            KeyPointValue(index=12, value=0.5),
+            KeyPointValue(index=32, value=0.9),
+        ])
+        lon = KPV(name='Longitude At Landing', items=[
+            KeyPointValue(index=12, value=7.1),
+            KeyPointValue(index=32, value=8.4),
+        ])
+        afr_apt = A(name='AFR Landing Airport', value={'id': 25})
+        apt = self.node_class()
+        apt.set_flight_attr = Mock()
+        # Check that the airport returned via API is used for the attribute:
+        apt.derive(lat, lon, afr_apt)
+        apt.set_flight_attr.assert_called_once_with(info)
+        apt.set_flight_attr.reset_mock()
         get_nearest_airport.assert_called_once_with(0.9, 8.4)
-        landing_airport.set_flight_attr.assert_called_once_with(airport_info)
+        get_nearest_airport.reset_mock()
+
+    @patch('analysis_engine.api_handler_analysis_engine.AnalysisEngineAPIHandlerHTTP.get_nearest_airport')
+    def test_derive_afr_fallback(self, get_nearest_airport):
+        info = {'id': '50'}
+        get_nearest_airport.return_value = info
+        lat = KPV(name='Latitude At Landing', items=[
+            KeyPointValue(index=12, value=0.5),
+            KeyPointValue(index=32, value=0.9),
+        ])
+        lon = KPV(name='Longitude At Landing', items=[
+            KeyPointValue(index=12, value=7.1),
+            KeyPointValue(index=32, value=8.4),
+        ])
+        afr_apt = A(name='AFR Landing Airport', value={'id': 25})
+        apt = self.node_class()
+        apt.set_flight_attr = Mock()
+        # Check that the AFR airport was used and the API wasn't called:
+        apt.derive(None, None, afr_apt)
+        apt.set_flight_attr.assert_called_once_with(afr_apt.value)
+        apt.set_flight_attr.reset_mock()
+        assert not get_nearest_airport.called, 'method should not have been called'
+        apt.derive(lat, None, afr_apt)
+        apt.set_flight_attr.assert_called_once_with(afr_apt.value)
+        apt.set_flight_attr.reset_mock()
+        assert not get_nearest_airport.called, 'method should not have been called'
+        apt.derive(None, lon, afr_apt)
+        apt.set_flight_attr.assert_called_once_with(afr_apt.value)
+        apt.set_flight_attr.reset_mock()
+        assert not get_nearest_airport.called, 'method should not have been called'
 
 
 class TestLandingDatetime(unittest.TestCase):
@@ -753,84 +620,282 @@ class TestLandingPilot(unittest.TestCase):
             landing_pilot._determine_pilot.return_value)
 
 
-class TestLandingRunway(unittest.TestCase):
-    def test_can_operate(self):
-        '''
-        There may be a neater way to test this, but at least it's verbose.
-        '''
-        combinations = LandingRunway.get_operational_combinations()
-        self.assertEqual(len(combinations), 16)
-        self.assertEqual(combinations[0], ('Approach',
-                                           'Heading At Landing',
-                                           'FDR Landing Airport'))
-        self.assertEqual(combinations[-1], ('Approach',
-                                            'Heading At Landing',
-                                            'FDR Landing Airport',
-                                            'Latitude At Landing',
-                                            'Longitude At Landing',
-                                            'ILS Frequency On Approach',
-                                            'Precise Positioning'))
-    
+class TestLandingRunway(unittest.TestCase, NodeTest):
+    def setUp(self):
+        self.node_class = LandingRunway
+        self.operational_combinations = [
+            ('AFR Landing Runway',),
+            ('FDR Landing Airport', 'AFR Landing Runway'),
+            ('FDR Landing Airport', 'Heading At Landing'),
+            ('AFR Landing Runway', 'Heading At Landing'),
+            ('AFR Landing Runway', 'Latitude At Landing'),
+            ('AFR Landing Runway', 'Longitude At Landing'),
+            ('AFR Landing Runway', 'Precise Positioning'),
+            ('AFR Landing Runway', 'Approach'),
+            ('AFR Landing Runway', 'ILS Frequency On Approach'),
+            ('FDR Landing Airport', 'AFR Landing Runway', 'Heading At Landing'),
+            ('FDR Landing Airport', 'AFR Landing Runway', 'Latitude At Landing'),
+            ('FDR Landing Airport', 'AFR Landing Runway', 'Longitude At Landing'),
+            ('FDR Landing Airport', 'AFR Landing Runway', 'Precise Positioning'),
+            ('FDR Landing Airport', 'AFR Landing Runway', 'Approach'),
+            ('FDR Landing Airport', 'AFR Landing Runway', 'ILS Frequency On Approach'),
+            ('FDR Landing Airport', 'Heading At Landing', 'Latitude At Landing'),
+            ('FDR Landing Airport', 'Heading At Landing', 'Longitude At Landing'),
+            ('FDR Landing Airport', 'Heading At Landing', 'Precise Positioning'),
+            ('FDR Landing Airport', 'Heading At Landing', 'Approach'),
+            ('FDR Landing Airport', 'Heading At Landing', 'ILS Frequency On Approach'),
+            ('AFR Landing Runway', 'Heading At Landing', 'Latitude At Landing'),
+            ('AFR Landing Runway', 'Heading At Landing', 'Longitude At Landing'),
+            ('AFR Landing Runway', 'Heading At Landing', 'Precise Positioning'),
+            ('AFR Landing Runway', 'Heading At Landing', 'Approach'),
+            ('AFR Landing Runway', 'Heading At Landing', 'ILS Frequency On Approach'),
+            ('AFR Landing Runway', 'Latitude At Landing', 'Longitude At Landing'),
+            ('AFR Landing Runway', 'Latitude At Landing', 'Precise Positioning'),
+            ('AFR Landing Runway', 'Latitude At Landing', 'Approach'),
+            ('AFR Landing Runway', 'Latitude At Landing', 'ILS Frequency On Approach'),
+            ('AFR Landing Runway', 'Longitude At Landing', 'Precise Positioning'),
+            ('AFR Landing Runway', 'Longitude At Landing', 'Approach'),
+            ('AFR Landing Runway', 'Longitude At Landing', 'ILS Frequency On Approach'),
+            ('AFR Landing Runway', 'Precise Positioning', 'Approach'),
+            ('AFR Landing Runway', 'Precise Positioning', 'ILS Frequency On Approach'),
+            ('AFR Landing Runway', 'Approach', 'ILS Frequency On Approach'),
+            ('FDR Landing Airport', 'AFR Landing Runway', 'Heading At Landing', 'Latitude At Landing'),
+            ('FDR Landing Airport', 'AFR Landing Runway', 'Heading At Landing', 'Longitude At Landing'),
+            ('FDR Landing Airport', 'AFR Landing Runway', 'Heading At Landing', 'Precise Positioning'),
+            ('FDR Landing Airport', 'AFR Landing Runway', 'Heading At Landing', 'Approach'),
+            ('FDR Landing Airport', 'AFR Landing Runway', 'Heading At Landing', 'ILS Frequency On Approach'),
+            ('FDR Landing Airport', 'AFR Landing Runway', 'Latitude At Landing', 'Longitude At Landing'),
+            ('FDR Landing Airport', 'AFR Landing Runway', 'Latitude At Landing', 'Precise Positioning'),
+            ('FDR Landing Airport', 'AFR Landing Runway', 'Latitude At Landing', 'Approach'),
+            ('FDR Landing Airport', 'AFR Landing Runway', 'Latitude At Landing', 'ILS Frequency On Approach'),
+            ('FDR Landing Airport', 'AFR Landing Runway', 'Longitude At Landing', 'Precise Positioning'),
+            ('FDR Landing Airport', 'AFR Landing Runway', 'Longitude At Landing', 'Approach'),
+            ('FDR Landing Airport', 'AFR Landing Runway', 'Longitude At Landing', 'ILS Frequency On Approach'),
+            ('FDR Landing Airport', 'AFR Landing Runway', 'Precise Positioning', 'Approach'),
+            ('FDR Landing Airport', 'AFR Landing Runway', 'Precise Positioning', 'ILS Frequency On Approach'),
+            ('FDR Landing Airport', 'AFR Landing Runway', 'Approach', 'ILS Frequency On Approach'),
+            ('FDR Landing Airport', 'Heading At Landing', 'Latitude At Landing', 'Longitude At Landing'),
+            ('FDR Landing Airport', 'Heading At Landing', 'Latitude At Landing', 'Precise Positioning'),
+            ('FDR Landing Airport', 'Heading At Landing', 'Latitude At Landing', 'Approach'),
+            ('FDR Landing Airport', 'Heading At Landing', 'Latitude At Landing', 'ILS Frequency On Approach'),
+            ('FDR Landing Airport', 'Heading At Landing', 'Longitude At Landing', 'Precise Positioning'),
+            ('FDR Landing Airport', 'Heading At Landing', 'Longitude At Landing', 'Approach'),
+            ('FDR Landing Airport', 'Heading At Landing', 'Longitude At Landing', 'ILS Frequency On Approach'),
+            ('FDR Landing Airport', 'Heading At Landing', 'Precise Positioning', 'Approach'),
+            ('FDR Landing Airport', 'Heading At Landing', 'Precise Positioning', 'ILS Frequency On Approach'),
+            ('FDR Landing Airport', 'Heading At Landing', 'Approach', 'ILS Frequency On Approach'),
+            ('AFR Landing Runway', 'Heading At Landing', 'Latitude At Landing', 'Longitude At Landing'),
+            ('AFR Landing Runway', 'Heading At Landing', 'Latitude At Landing', 'Precise Positioning'),
+            ('AFR Landing Runway', 'Heading At Landing', 'Latitude At Landing', 'Approach'),
+            ('AFR Landing Runway', 'Heading At Landing', 'Latitude At Landing', 'ILS Frequency On Approach'),
+            ('AFR Landing Runway', 'Heading At Landing', 'Longitude At Landing', 'Precise Positioning'),
+            ('AFR Landing Runway', 'Heading At Landing', 'Longitude At Landing', 'Approach'),
+            ('AFR Landing Runway', 'Heading At Landing', 'Longitude At Landing', 'ILS Frequency On Approach'),
+            ('AFR Landing Runway', 'Heading At Landing', 'Precise Positioning', 'Approach'),
+            ('AFR Landing Runway', 'Heading At Landing', 'Precise Positioning', 'ILS Frequency On Approach'),
+            ('AFR Landing Runway', 'Heading At Landing', 'Approach', 'ILS Frequency On Approach'),
+            ('AFR Landing Runway', 'Latitude At Landing', 'Longitude At Landing', 'Precise Positioning'),
+            ('AFR Landing Runway', 'Latitude At Landing', 'Longitude At Landing', 'Approach'),
+            ('AFR Landing Runway', 'Latitude At Landing', 'Longitude At Landing', 'ILS Frequency On Approach'),
+            ('AFR Landing Runway', 'Latitude At Landing', 'Precise Positioning', 'Approach'),
+            ('AFR Landing Runway', 'Latitude At Landing', 'Precise Positioning', 'ILS Frequency On Approach'),
+            ('AFR Landing Runway', 'Latitude At Landing', 'Approach', 'ILS Frequency On Approach'),
+            ('AFR Landing Runway', 'Longitude At Landing', 'Precise Positioning', 'Approach'),
+            ('AFR Landing Runway', 'Longitude At Landing', 'Precise Positioning', 'ILS Frequency On Approach'),
+            ('AFR Landing Runway', 'Longitude At Landing', 'Approach', 'ILS Frequency On Approach'),
+            ('AFR Landing Runway', 'Precise Positioning', 'Approach', 'ILS Frequency On Approach'),
+            ('FDR Landing Airport', 'AFR Landing Runway', 'Heading At Landing', 'Latitude At Landing', 'Longitude At Landing'),
+            ('FDR Landing Airport', 'AFR Landing Runway', 'Heading At Landing', 'Latitude At Landing', 'Precise Positioning'),
+            ('FDR Landing Airport', 'AFR Landing Runway', 'Heading At Landing', 'Latitude At Landing', 'Approach'),
+            ('FDR Landing Airport', 'AFR Landing Runway', 'Heading At Landing', 'Latitude At Landing', 'ILS Frequency On Approach'),
+            ('FDR Landing Airport', 'AFR Landing Runway', 'Heading At Landing', 'Longitude At Landing', 'Precise Positioning'),
+            ('FDR Landing Airport', 'AFR Landing Runway', 'Heading At Landing', 'Longitude At Landing', 'Approach'),
+            ('FDR Landing Airport', 'AFR Landing Runway', 'Heading At Landing', 'Longitude At Landing', 'ILS Frequency On Approach'),
+            ('FDR Landing Airport', 'AFR Landing Runway', 'Heading At Landing', 'Precise Positioning', 'Approach'),
+            ('FDR Landing Airport', 'AFR Landing Runway', 'Heading At Landing', 'Precise Positioning', 'ILS Frequency On Approach'),
+            ('FDR Landing Airport', 'AFR Landing Runway', 'Heading At Landing', 'Approach', 'ILS Frequency On Approach'),
+            ('FDR Landing Airport', 'AFR Landing Runway', 'Latitude At Landing', 'Longitude At Landing', 'Precise Positioning'),
+            ('FDR Landing Airport', 'AFR Landing Runway', 'Latitude At Landing', 'Longitude At Landing', 'Approach'),
+            ('FDR Landing Airport', 'AFR Landing Runway', 'Latitude At Landing', 'Longitude At Landing', 'ILS Frequency On Approach'),
+            ('FDR Landing Airport', 'AFR Landing Runway', 'Latitude At Landing', 'Precise Positioning', 'Approach'),
+            ('FDR Landing Airport', 'AFR Landing Runway', 'Latitude At Landing', 'Precise Positioning', 'ILS Frequency On Approach'),
+            ('FDR Landing Airport', 'AFR Landing Runway', 'Latitude At Landing', 'Approach', 'ILS Frequency On Approach'),
+            ('FDR Landing Airport', 'AFR Landing Runway', 'Longitude At Landing', 'Precise Positioning', 'Approach'),
+            ('FDR Landing Airport', 'AFR Landing Runway', 'Longitude At Landing', 'Precise Positioning', 'ILS Frequency On Approach'),
+            ('FDR Landing Airport', 'AFR Landing Runway', 'Longitude At Landing', 'Approach', 'ILS Frequency On Approach'),
+            ('FDR Landing Airport', 'AFR Landing Runway', 'Precise Positioning', 'Approach', 'ILS Frequency On Approach'),
+            ('FDR Landing Airport', 'Heading At Landing', 'Latitude At Landing', 'Longitude At Landing', 'Precise Positioning'),
+            ('FDR Landing Airport', 'Heading At Landing', 'Latitude At Landing', 'Longitude At Landing', 'Approach'),
+            ('FDR Landing Airport', 'Heading At Landing', 'Latitude At Landing', 'Longitude At Landing', 'ILS Frequency On Approach'),
+            ('FDR Landing Airport', 'Heading At Landing', 'Latitude At Landing', 'Precise Positioning', 'Approach'),
+            ('FDR Landing Airport', 'Heading At Landing', 'Latitude At Landing', 'Precise Positioning', 'ILS Frequency On Approach'),
+            ('FDR Landing Airport', 'Heading At Landing', 'Latitude At Landing', 'Approach', 'ILS Frequency On Approach'),
+            ('FDR Landing Airport', 'Heading At Landing', 'Longitude At Landing', 'Precise Positioning', 'Approach'),
+            ('FDR Landing Airport', 'Heading At Landing', 'Longitude At Landing', 'Precise Positioning', 'ILS Frequency On Approach'),
+            ('FDR Landing Airport', 'Heading At Landing', 'Longitude At Landing', 'Approach', 'ILS Frequency On Approach'),
+            ('FDR Landing Airport', 'Heading At Landing', 'Precise Positioning', 'Approach', 'ILS Frequency On Approach'),
+            ('AFR Landing Runway', 'Heading At Landing', 'Latitude At Landing', 'Longitude At Landing', 'Precise Positioning'),
+            ('AFR Landing Runway', 'Heading At Landing', 'Latitude At Landing', 'Longitude At Landing', 'Approach'),
+            ('AFR Landing Runway', 'Heading At Landing', 'Latitude At Landing', 'Longitude At Landing', 'ILS Frequency On Approach'),
+            ('AFR Landing Runway', 'Heading At Landing', 'Latitude At Landing', 'Precise Positioning', 'Approach'),
+            ('AFR Landing Runway', 'Heading At Landing', 'Latitude At Landing', 'Precise Positioning', 'ILS Frequency On Approach'),
+            ('AFR Landing Runway', 'Heading At Landing', 'Latitude At Landing', 'Approach', 'ILS Frequency On Approach'),
+            ('AFR Landing Runway', 'Heading At Landing', 'Longitude At Landing', 'Precise Positioning', 'Approach'),
+            ('AFR Landing Runway', 'Heading At Landing', 'Longitude At Landing', 'Precise Positioning', 'ILS Frequency On Approach'),
+            ('AFR Landing Runway', 'Heading At Landing', 'Longitude At Landing', 'Approach', 'ILS Frequency On Approach'),
+            ('AFR Landing Runway', 'Heading At Landing', 'Precise Positioning', 'Approach', 'ILS Frequency On Approach'),
+            ('AFR Landing Runway', 'Latitude At Landing', 'Longitude At Landing', 'Precise Positioning', 'Approach'),
+            ('AFR Landing Runway', 'Latitude At Landing', 'Longitude At Landing', 'Precise Positioning', 'ILS Frequency On Approach'),
+            ('AFR Landing Runway', 'Latitude At Landing', 'Longitude At Landing', 'Approach', 'ILS Frequency On Approach'),
+            ('AFR Landing Runway', 'Latitude At Landing', 'Precise Positioning', 'Approach', 'ILS Frequency On Approach'),
+            ('AFR Landing Runway', 'Longitude At Landing', 'Precise Positioning', 'Approach', 'ILS Frequency On Approach'),
+            ('FDR Landing Airport', 'AFR Landing Runway', 'Heading At Landing', 'Latitude At Landing', 'Longitude At Landing', 'Precise Positioning'),
+            ('FDR Landing Airport', 'AFR Landing Runway', 'Heading At Landing', 'Latitude At Landing', 'Longitude At Landing', 'Approach'),
+            ('FDR Landing Airport', 'AFR Landing Runway', 'Heading At Landing', 'Latitude At Landing', 'Longitude At Landing', 'ILS Frequency On Approach'),
+            ('FDR Landing Airport', 'AFR Landing Runway', 'Heading At Landing', 'Latitude At Landing', 'Precise Positioning', 'Approach'),
+            ('FDR Landing Airport', 'AFR Landing Runway', 'Heading At Landing', 'Latitude At Landing', 'Precise Positioning', 'ILS Frequency On Approach'),
+            ('FDR Landing Airport', 'AFR Landing Runway', 'Heading At Landing', 'Latitude At Landing', 'Approach', 'ILS Frequency On Approach'),
+            ('FDR Landing Airport', 'AFR Landing Runway', 'Heading At Landing', 'Longitude At Landing', 'Precise Positioning', 'Approach'),
+            ('FDR Landing Airport', 'AFR Landing Runway', 'Heading At Landing', 'Longitude At Landing', 'Precise Positioning', 'ILS Frequency On Approach'),
+            ('FDR Landing Airport', 'AFR Landing Runway', 'Heading At Landing', 'Longitude At Landing', 'Approach', 'ILS Frequency On Approach'),
+            ('FDR Landing Airport', 'AFR Landing Runway', 'Heading At Landing', 'Precise Positioning', 'Approach', 'ILS Frequency On Approach'),
+            ('FDR Landing Airport', 'AFR Landing Runway', 'Latitude At Landing', 'Longitude At Landing', 'Precise Positioning', 'Approach'),
+            ('FDR Landing Airport', 'AFR Landing Runway', 'Latitude At Landing', 'Longitude At Landing', 'Precise Positioning', 'ILS Frequency On Approach'),
+            ('FDR Landing Airport', 'AFR Landing Runway', 'Latitude At Landing', 'Longitude At Landing', 'Approach', 'ILS Frequency On Approach'),
+            ('FDR Landing Airport', 'AFR Landing Runway', 'Latitude At Landing', 'Precise Positioning', 'Approach', 'ILS Frequency On Approach'),
+            ('FDR Landing Airport', 'AFR Landing Runway', 'Longitude At Landing', 'Precise Positioning', 'Approach', 'ILS Frequency On Approach'),
+            ('FDR Landing Airport', 'Heading At Landing', 'Latitude At Landing', 'Longitude At Landing', 'Precise Positioning', 'Approach'),
+            ('FDR Landing Airport', 'Heading At Landing', 'Latitude At Landing', 'Longitude At Landing', 'Precise Positioning', 'ILS Frequency On Approach'),
+            ('FDR Landing Airport', 'Heading At Landing', 'Latitude At Landing', 'Longitude At Landing', 'Approach', 'ILS Frequency On Approach'),
+            ('FDR Landing Airport', 'Heading At Landing', 'Latitude At Landing', 'Precise Positioning', 'Approach', 'ILS Frequency On Approach'),
+            ('FDR Landing Airport', 'Heading At Landing', 'Longitude At Landing', 'Precise Positioning', 'Approach', 'ILS Frequency On Approach'),
+            ('AFR Landing Runway', 'Heading At Landing', 'Latitude At Landing', 'Longitude At Landing', 'Precise Positioning', 'Approach'),
+            ('AFR Landing Runway', 'Heading At Landing', 'Latitude At Landing', 'Longitude At Landing', 'Precise Positioning', 'ILS Frequency On Approach'),
+            ('AFR Landing Runway', 'Heading At Landing', 'Latitude At Landing', 'Longitude At Landing', 'Approach', 'ILS Frequency On Approach'),
+            ('AFR Landing Runway', 'Heading At Landing', 'Latitude At Landing', 'Precise Positioning', 'Approach', 'ILS Frequency On Approach'),
+            ('AFR Landing Runway', 'Heading At Landing', 'Longitude At Landing', 'Precise Positioning', 'Approach', 'ILS Frequency On Approach'),
+            ('AFR Landing Runway', 'Latitude At Landing', 'Longitude At Landing', 'Precise Positioning', 'Approach', 'ILS Frequency On Approach'),
+            ('FDR Landing Airport', 'AFR Landing Runway', 'Heading At Landing', 'Latitude At Landing', 'Longitude At Landing', 'Precise Positioning', 'Approach'),
+            ('FDR Landing Airport', 'AFR Landing Runway', 'Heading At Landing', 'Latitude At Landing', 'Longitude At Landing', 'Precise Positioning', 'ILS Frequency On Approach'),
+            ('FDR Landing Airport', 'AFR Landing Runway', 'Heading At Landing', 'Latitude At Landing', 'Longitude At Landing', 'Approach', 'ILS Frequency On Approach'),
+            ('FDR Landing Airport', 'AFR Landing Runway', 'Heading At Landing', 'Latitude At Landing', 'Precise Positioning', 'Approach', 'ILS Frequency On Approach'),
+            ('FDR Landing Airport', 'AFR Landing Runway', 'Heading At Landing', 'Longitude At Landing', 'Precise Positioning', 'Approach', 'ILS Frequency On Approach'),
+            ('FDR Landing Airport', 'AFR Landing Runway', 'Latitude At Landing', 'Longitude At Landing', 'Precise Positioning', 'Approach', 'ILS Frequency On Approach'),
+            ('FDR Landing Airport', 'Heading At Landing', 'Latitude At Landing', 'Longitude At Landing', 'Precise Positioning', 'Approach', 'ILS Frequency On Approach'),
+            ('AFR Landing Runway', 'Heading At Landing', 'Latitude At Landing', 'Longitude At Landing', 'Precise Positioning', 'Approach', 'ILS Frequency On Approach'),
+            ('FDR Landing Airport', 'AFR Landing Runway', 'Heading At Landing', 'Latitude At Landing', 'Longitude At Landing', 'Precise Positioning', 'Approach', 'ILS Frequency On Approach'),
+        ]
+
     @patch('analysis_engine.api_handler_analysis_engine.AnalysisEngineAPIHandlerHTTP.get_nearest_runway')
     def test_derive(self, get_nearest_runway):
-        ##runway_info = {'ident': '27L', 'runways': [{'length': 20}]}
-        runway_info = {
-            'ident': '27L', 
-            'items':[ 
-                {
-                    "end":{"latitude":58.211678,"longitude":8.095269},
-                    "localizer":{"latitude":58.212397,"beam_width":4.5,"frequency":"110300M","heading":36,"longitude":8.096228},
-                    "glideslope":{"latitude":58.198664,"frequency":"335000M","angle":3.4,"longitude":8.080164,"threshold_distance":720},
-                    "start":{"latitude":58.196703,"longitude":8.075406},
-                    "strip":{"width":147,"length":6660,"id":4064,"surface":"ASP"},
-                    "identifier":"27L",
-                    "id":8127,
-                }
-            ]}
-        
-        get_nearest_runway.return_value = runway_info
-        landing_runway = LandingRunway()
-        landing_runway.set_flight_attr = Mock()
-        # Airport and Heading At Landing arguments.
-        airport = A('Landing Airport')
-        airport.value = {'id':25}
-        landing_hdg = KPV('Heading At Landing',
-                          items=[KeyPointValue(15, 20.0, 'a')])
-        approach_and_landing = S('Approach and Landing',
-                                 items=[Section('b', slice(14, 20), 14, 20)])
-        
-        landing_runway.derive(approach_and_landing, landing_hdg, airport)
-        get_nearest_runway.assert_called_once_with(25, 20.0)
-        landing_runway.set_flight_attr.assert_called_once_with(runway_info['items'][0])
-        approach_ilsfreq = KPV('ILS Frequency On Approach',
-                               items=[KeyPointValue(15, 330150, 'a')])
-        landing_runway.set_flight_attr = Mock()
-        landing_runway.derive(approach_and_landing, landing_hdg, airport,
-                              None, None, approach_ilsfreq, None)
-        get_nearest_runway.assert_called_with(25, 20.0, ilsfreq=330150)
-        landing_runway.set_flight_attr.assert_called_once_with(runway_info['items'][0])
-        
-        # Airport, Landing Heading, Latitude, Longitude and Precision
-        # arguments. Latitude and Longitude are only passed with all these
-        # parameters available and Precise Positioning is True.
-        latitude = KPV('Latitude At Landing',
-                       items=[KeyPointValue(15, 1.2, 'DATA')])
-        longitude = KPV('Latitude At Landing',
-                        items=[KeyPointValue(15, 3.2, 'DATA')])
-        precision = A('Precision')
-        precision.value = False
-        landing_runway.set_flight_attr = Mock()
-        landing_runway.derive(approach_and_landing, landing_hdg, airport, latitude,
-                              longitude, approach_ilsfreq, precision)
-        get_nearest_runway.assert_called_with(25, 20.0, ilsfreq=330150)
-        landing_runway.set_flight_attr.assert_called_once_with(
-            runway_info['items'][0])
-        precision.value = True
-        landing_runway.set_flight_attr = Mock()
-        landing_runway.derive(approach_and_landing, landing_hdg, airport,
-                              latitude, longitude, approach_ilsfreq, precision)
-        get_nearest_runway.assert_called_with(25, 20.0, ilsfreq=330150,
-                                              latitude=1.2, longitude=3.2)
+        info = {
+            'end': {'latitude': 58.211678, 'longitude': 8.095269},
+            'glideslope': {'latitude': 58.198664, 'frequency': '335000M', 'angle': 3.4, 'longitude': 8.080164, 'threshold_distance': 720},
+            'id': 8127,
+            'identifier': '27L',
+            'localizer': {'latitude': 58.212397, 'beam_width': 4.5, 'frequency': '110300M', 'heading': 36, 'longitude': 8.096228},
+            'start': {'latitude': 58.196703, 'longitude': 8.075406},
+            'strip': {'width': 147, 'length': 6660, 'id': 4064, 'surface': 'ASP'},
+        }
+        get_nearest_runway.return_value = info
+        fdr_apt = A(name='FDR Landing Airport', value={'id': 25})
+        afr_apt = None
+        lat = KPV(name='Latitude At Landing', items=[
+            KeyPointValue(index=16, value=4.0),
+            KeyPointValue(index=18, value=6.0),
+        ])
+        lon = KPV(name='Longitude At Landing', items=[
+            KeyPointValue(index=16, value=3.0),
+            KeyPointValue(index=18, value=9.0),
+        ])
+        hdg = KPV(name='Heading At Landing', items=[
+            KeyPointValue(index=16, value=60.0),
+            KeyPointValue(index=18, value=20.0),
+        ])
+        precise = A(name='Precise Positioning')
+        approaches = S(name='Approach', items=[
+            Section(name='Approach', slice=slice(14, 20), start_edge=14, stop_edge=20),
+        ])
+        ilsfreq_on_app = KPV(name='ILS Frequency On Approach', items=[
+            KeyPointValue(index=18, value=330150),
+        ])
+        rwy = self.node_class()
+        rwy.set_flight_attr = Mock()
+        # Test with bare minimum information:
+        rwy.derive(fdr_apt, afr_apt, hdg)
+        rwy.set_flight_attr.assert_called_once_with(info)
+        rwy.set_flight_attr.reset_mock()
+        get_nearest_runway.assert_called_once_with(25, 20.0, hint='landing')
+        get_nearest_runway.reset_mock()
+        # Test with ILS frequency:
+        rwy.derive(fdr_apt, afr_apt, hdg, None, None, None, approaches, ilsfreq_on_app)
+        rwy.set_flight_attr.assert_called_once_with(info)
+        rwy.set_flight_attr.reset_mock()
+        get_nearest_runway.assert_called_once_with(25, 20.0, ilsfreq=330150, hint='landing')
+        get_nearest_runway.reset_mock()
+        # Test for aircraft where positioning is not precise:
+        precise.value = True
+        rwy.derive(fdr_apt, afr_apt, hdg, lat, lon, precise, approaches, ilsfreq_on_app)
+        rwy.set_flight_attr.assert_called_with(info)
+        rwy.set_flight_attr.reset_mock()
+        get_nearest_runway.assert_called_once_with(25, 20.0, latitude=6.0, longitude=9.0, ilsfreq=330150)
+        get_nearest_runway.reset_mock()
+        # Test for aircraft where positioning is not precise:
+        precise.value = False
+        rwy.derive(fdr_apt, afr_apt, hdg, lat, lon, precise, approaches, ilsfreq_on_app)
+        rwy.set_flight_attr.assert_called_with(info)
+        rwy.set_flight_attr.reset_mock()
+        get_nearest_runway.assert_called_once_with(25, 20.0, ilsfreq=330150, hint='landing')
+        get_nearest_runway.reset_mock()
+
+    @patch('analysis_engine.api_handler_analysis_engine.AnalysisEngineAPIHandlerHTTP.get_nearest_runway')
+    def test_derive_afr_fallback(self, get_nearest_runway):
+        info = {'ident': '09L'}
+        def runway_side_effect(apt, hdg, *args, **kwargs):
+            if hdg == 90.0:
+                return info
+            raise NotFoundError('No runway found.')
+        get_nearest_runway.side_effect = runway_side_effect
+        fdr_apt = A(name='FDR Landing Airport', value={'id': 50})
+        afr_rwy = A(name='AFR Landing Runway', value={'ident': '27R'})
+        hdg_a = KPV(name='Heading At Landing', items=[
+            KeyPointValue(index=1, value=360.0),
+            KeyPointValue(index=2, value=270.0),
+        ])
+        hdg_b = KPV(name='Heading At Landing', items=[
+            KeyPointValue(index=1, value=180.0),
+            KeyPointValue(index=2, value=90.0),
+        ])
+        rwy = self.node_class()
+        rwy.set_flight_attr = Mock()
+        # Check that the AFR airport was used and the API wasn't called:
+        rwy.derive(None, None, None)
+        rwy.set_flight_attr.assert_called_once_with(None)
+        rwy.set_flight_attr.reset_mock()
+        assert not get_nearest_runway.called, 'method should not have been called'
+        rwy.derive(fdr_apt, afr_rwy, None)
+        rwy.set_flight_attr.assert_called_once_with(afr_rwy.value)
+        rwy.set_flight_attr.reset_mock()
+        assert not get_nearest_runway.called, 'method should not have been called'
+        rwy.derive(None, afr_rwy, hdg_a)
+        rwy.set_flight_attr.assert_called_once_with(afr_rwy.value)
+        rwy.set_flight_attr.reset_mock()
+        assert not get_nearest_runway.called, 'method should not have been called'
+        rwy.derive(None, afr_rwy, None)
+        rwy.set_flight_attr.assert_called_once_with(afr_rwy.value)
+        rwy.set_flight_attr.reset_mock()
+        assert not get_nearest_runway.called, 'method should not have been called'
+        # Check wrong heading triggers AFR:
+        rwy.derive(fdr_apt, afr_rwy, hdg_a)
+        rwy.set_flight_attr.assert_called_once_with(afr_rwy.value)
+        rwy.set_flight_attr.reset_mock()
+        get_nearest_runway.assert_called_once_with(fdr_apt.value['id'], hdg_a.get_last().value, hint='landing')
+        get_nearest_runway.reset_mock()
+        rwy.derive(fdr_apt, afr_rwy, hdg_b)
+        rwy.set_flight_attr.assert_called_once_with(info)
+        rwy.set_flight_attr.reset_mock()
+        get_nearest_runway.assert_called_once_with(fdr_apt.value['id'], hdg_b.get_last().value, hint='landing')
+        get_nearest_runway.reset_mock()
 
 
 class TestOffBlocksDatetime(unittest.TestCase):
@@ -889,47 +954,100 @@ class TestOnBlocksDatetime(unittest.TestCase):
             start_datetime.value + timedelta(seconds=90))
 
 
-class TestTakeoffAirport(unittest.TestCase):
-    def test_can_operate(self):
-        self.assertEqual([('Latitude At Liftoff', 'Longitude At Liftoff')],
-                         TakeoffAirport.get_operational_combinations())
-        
+class TestTakeoffAirport(unittest.TestCase, NodeTest):
+    def setUp(self):
+        self.node_class = TakeoffAirport
+        self.operational_combinations = [
+            ('AFR Takeoff Airport',),
+            ('Latitude At Takeoff', 'Longitude At Takeoff'),
+            ('Latitude At Takeoff', 'AFR Takeoff Airport'),
+            ('Longitude At Takeoff', 'AFR Takeoff Airport'),
+            ('Latitude At Takeoff', 'Longitude At Takeoff', 'AFR Takeoff Airport'),
+        ]
+
     @patch('analysis_engine.api_handler_analysis_engine.AnalysisEngineAPIHandlerHTTP.get_nearest_airport')
     def test_derive_airport_not_found(self, get_nearest_airport):
         '''
         Attribute is not set when airport is not found.
         '''
         get_nearest_airport.side_effect = NotFoundError('Not Found.')
-        latitude = KPV(name='Latitude At Liftoff',
-                       items=[KeyPointValue(index=1, value=4.0),
-                              KeyPointValue(index=2, value=6.0)])
-        longitude = KPV(name='Longitude At Liftoff',
-                        items=[KeyPointValue(index=1, value=3.0),
-                               KeyPointValue(index=2, value=9.0)])
-        takeoff_airport = TakeoffAirport()
-        takeoff_airport.set_flight_attr = Mock()
-        takeoff_airport.derive(latitude, longitude)
+        lat = KPV(name='Latitude At Takeoff', items=[
+            KeyPointValue(index=12, value=4.0),
+            KeyPointValue(index=32, value=6.0),
+        ])
+        lon = KPV(name='Longitude At Takeoff', items=[
+            KeyPointValue(index=12, value=3.0),
+            KeyPointValue(index=32, value=9.0),
+        ])
+        afr_apt = A(name='AFR Takeoff Airport', value={'id': 25})
+        apt = self.node_class()
+        apt.set_flight_attr = Mock()
+        # Check that no attribute is created if not found via API:
+        apt.derive(lat, lon, None)
+        apt.set_flight_attr.assert_called_once_with(None)
+        apt.set_flight_attr.reset_mock()
         get_nearest_airport.assert_called_once_with(4.0, 3.0)
-        takeoff_airport.set_flight_attr.assert_called_once_with(None)
-    
+        get_nearest_airport.reset_mock()
+        # Check that the AFR airport was used if not found via API:
+        apt.derive(lat, lon, afr_apt)
+        apt.set_flight_attr.assert_called_once_with(afr_apt.value)
+        apt.set_flight_attr.reset_mock()
+        get_nearest_airport.assert_called_once_with(4.0, 3.0)
+        get_nearest_airport.reset_mock()
+
     @patch('analysis_engine.api_handler_analysis_engine.AnalysisEngineAPIHandlerHTTP.get_nearest_airport')
     def test_derive_airport_found(self, get_nearest_airport):
         '''
         Attribute is set when airport is found.
         '''
-        airport_info = {'id': 123}
-        get_nearest_airport.return_value = airport_info
-        latitude = KPV(name='Latitude At Liftoff',
-                       items=[KeyPointValue(index=1, value=4.0),
-                              KeyPointValue(index=2, value=6.0)])
-        longitude = KPV(name='Longitude At Liftoff',
-                        items=[KeyPointValue(index=1, value=3.0),
-                               KeyPointValue(index=2, value=9.0)])
-        takeoff_airport = TakeoffAirport()
-        takeoff_airport.set_flight_attr = Mock()
-        takeoff_airport.derive(latitude, longitude)
+        info = {'id': 123}
+        get_nearest_airport.return_value = info
+        lat = KPV(name='Latitude At Takeoff', items=[
+            KeyPointValue(index=12, value=4.0),
+            KeyPointValue(index=32, value=6.0),
+        ])
+        lon = KPV(name='Longitude At Takeoff', items=[
+            KeyPointValue(index=12, value=3.0),
+            KeyPointValue(index=32, value=9.0),
+        ])
+        afr_apt = A(name='AFR Takeoff Airport', value={'id': 25})
+        apt = self.node_class()
+        apt.set_flight_attr = Mock()
+        # Check that the airport returned via API is used for the attribute:
+        apt.derive(lat, lon, afr_apt)
+        apt.set_flight_attr.assert_called_once_with(info)
+        apt.set_flight_attr.reset_mock()
         get_nearest_airport.assert_called_once_with(4.0, 3.0)
-        takeoff_airport.set_flight_attr.assert_called_once_with(airport_info)
+        get_nearest_airport.reset_mock()
+
+    @patch('analysis_engine.api_handler_analysis_engine.AnalysisEngineAPIHandlerHTTP.get_nearest_airport')
+    def test_derive_afr_fallback(self, get_nearest_airport):
+        info = {'id': '50'}
+        get_nearest_airport.return_value = info
+        lat = KPV(name='Latitude At Takeoff', items=[
+            KeyPointValue(index=12, value=4.0),
+            KeyPointValue(index=32, value=6.0),
+        ])
+        lon = KPV(name='Longitude At Takeoff', items=[
+            KeyPointValue(index=12, value=3.0),
+            KeyPointValue(index=32, value=9.0),
+        ])
+        afr_apt = A(name='AFR Takeoff Airport', value={'id': 25})
+        apt = self.node_class()
+        apt.set_flight_attr = Mock()
+        # Check that the AFR airport was used and the API wasn't called:
+        apt.derive(None, None, afr_apt)
+        apt.set_flight_attr.assert_called_once_with(afr_apt.value)
+        apt.set_flight_attr.reset_mock()
+        assert not get_nearest_airport.called, 'method should not have been called'
+        apt.derive(lat, None, afr_apt)
+        apt.set_flight_attr.assert_called_once_with(afr_apt.value)
+        apt.set_flight_attr.reset_mock()
+        assert not get_nearest_airport.called, 'method should not have been called'
+        apt.derive(None, lon, afr_apt)
+        apt.set_flight_attr.assert_called_once_with(afr_apt.value)
+        apt.set_flight_attr.reset_mock()
+        assert not get_nearest_airport.called, 'method should not have been called'
 
 
 class TestTakeoffDatetime(unittest.TestCase):
@@ -1052,68 +1170,144 @@ class TestTakeoffPilot(unittest.TestCase):
 '''
 
 
-class TestTakeoffRunway(unittest.TestCase):
-    def test_can_operate(self):
-        '''
-        There may be a neater way to test this, but at least it's verbose.
-        '''
-        expected = \
-        [('FDR Takeoff Airport', 'Heading At Takeoff'),
-         ('FDR Takeoff Airport', 'Heading At Takeoff', 'Latitude At Liftoff'),
-         ('FDR Takeoff Airport', 'Heading At Takeoff', 'Longitude At Liftoff'),
-         ('FDR Takeoff Airport', 'Heading At Takeoff', 'Precise Positioning'),
-         ('FDR Takeoff Airport', 'Heading At Takeoff', 'Latitude At Liftoff',
-          'Longitude At Liftoff'),
-         ('FDR Takeoff Airport', 'Heading At Takeoff', 'Latitude At Liftoff', 
-          'Precise Positioning'),
-         ('FDR Takeoff Airport', 'Heading At Takeoff', 'Longitude At Liftoff', 
-          'Precise Positioning'),
-         ('FDR Takeoff Airport', 'Heading At Takeoff', 'Latitude At Liftoff',
-          'Longitude At Liftoff', 'Precise Positioning')]
-        self.assertEqual(TakeoffRunway.get_operational_combinations(),
-                         expected)
-    
+class TestTakeoffRunway(unittest.TestCase, NodeTest):
+    def setUp(self):
+        self.node_class = TakeoffRunway
+        self.operational_combinations = [
+            ('AFR Takeoff Runway',),
+            ('FDR Takeoff Airport', 'AFR Takeoff Runway'),
+            ('FDR Takeoff Airport', 'Heading At Takeoff'),
+            ('AFR Takeoff Runway', 'Heading At Takeoff'),
+            ('AFR Takeoff Runway', 'Latitude At Takeoff'),
+            ('AFR Takeoff Runway', 'Longitude At Takeoff'),
+            ('AFR Takeoff Runway', 'Precise Positioning'),
+            ('FDR Takeoff Airport', 'AFR Takeoff Runway', 'Heading At Takeoff'),
+            ('FDR Takeoff Airport', 'AFR Takeoff Runway', 'Latitude At Takeoff'),
+            ('FDR Takeoff Airport', 'AFR Takeoff Runway', 'Longitude At Takeoff'),
+            ('FDR Takeoff Airport', 'AFR Takeoff Runway', 'Precise Positioning'),
+            ('FDR Takeoff Airport', 'Heading At Takeoff', 'Latitude At Takeoff'),
+            ('FDR Takeoff Airport', 'Heading At Takeoff', 'Longitude At Takeoff'),
+            ('FDR Takeoff Airport', 'Heading At Takeoff', 'Precise Positioning'),
+            ('AFR Takeoff Runway', 'Heading At Takeoff', 'Latitude At Takeoff'),
+            ('AFR Takeoff Runway', 'Heading At Takeoff', 'Longitude At Takeoff'),
+            ('AFR Takeoff Runway', 'Heading At Takeoff', 'Precise Positioning'),
+            ('AFR Takeoff Runway', 'Latitude At Takeoff', 'Longitude At Takeoff'),
+            ('AFR Takeoff Runway', 'Latitude At Takeoff', 'Precise Positioning'),
+            ('AFR Takeoff Runway', 'Longitude At Takeoff', 'Precise Positioning'),
+            ('FDR Takeoff Airport', 'AFR Takeoff Runway', 'Heading At Takeoff', 'Latitude At Takeoff'),
+            ('FDR Takeoff Airport', 'AFR Takeoff Runway', 'Heading At Takeoff', 'Longitude At Takeoff'),
+            ('FDR Takeoff Airport', 'AFR Takeoff Runway', 'Heading At Takeoff', 'Precise Positioning'),
+            ('FDR Takeoff Airport', 'AFR Takeoff Runway', 'Latitude At Takeoff', 'Longitude At Takeoff'),
+            ('FDR Takeoff Airport', 'AFR Takeoff Runway', 'Latitude At Takeoff', 'Precise Positioning'),
+            ('FDR Takeoff Airport', 'AFR Takeoff Runway', 'Longitude At Takeoff', 'Precise Positioning'),
+            ('FDR Takeoff Airport', 'Heading At Takeoff', 'Latitude At Takeoff', 'Longitude At Takeoff'),
+            ('FDR Takeoff Airport', 'Heading At Takeoff', 'Latitude At Takeoff', 'Precise Positioning'),
+            ('FDR Takeoff Airport', 'Heading At Takeoff', 'Longitude At Takeoff', 'Precise Positioning'),
+            ('AFR Takeoff Runway', 'Heading At Takeoff', 'Latitude At Takeoff', 'Longitude At Takeoff'),
+            ('AFR Takeoff Runway', 'Heading At Takeoff', 'Latitude At Takeoff', 'Precise Positioning'),
+            ('AFR Takeoff Runway', 'Heading At Takeoff', 'Longitude At Takeoff', 'Precise Positioning'),
+            ('AFR Takeoff Runway', 'Latitude At Takeoff', 'Longitude At Takeoff', 'Precise Positioning'),
+            ('FDR Takeoff Airport', 'AFR Takeoff Runway', 'Heading At Takeoff', 'Latitude At Takeoff', 'Longitude At Takeoff'),
+            ('FDR Takeoff Airport', 'AFR Takeoff Runway', 'Heading At Takeoff', 'Latitude At Takeoff', 'Precise Positioning'),
+            ('FDR Takeoff Airport', 'AFR Takeoff Runway', 'Heading At Takeoff', 'Longitude At Takeoff', 'Precise Positioning'),
+            ('FDR Takeoff Airport', 'AFR Takeoff Runway', 'Latitude At Takeoff', 'Longitude At Takeoff', 'Precise Positioning'),
+            ('FDR Takeoff Airport', 'Heading At Takeoff', 'Latitude At Takeoff', 'Longitude At Takeoff', 'Precise Positioning'),
+            ('AFR Takeoff Runway', 'Heading At Takeoff', 'Latitude At Takeoff', 'Longitude At Takeoff', 'Precise Positioning'),
+            ('FDR Takeoff Airport', 'AFR Takeoff Runway', 'Heading At Takeoff', 'Latitude At Takeoff', 'Longitude At Takeoff', 'Precise Positioning'),
+        ]
+
     @patch('analysis_engine.api_handler_analysis_engine.AnalysisEngineAPIHandlerHTTP.get_nearest_runway')
     def test_derive(self, get_nearest_runway):
-        runway_info = {'ident': '27L', 'items': [{'length': 20}]}
-        get_nearest_runway.return_value = runway_info
-        takeoff_runway = TakeoffRunway()
-        takeoff_runway.set_flight_attr = Mock()
-        # Airport and Heading At Takeoff arguments.
-        airport = A('Takeoff Airport')
-        airport.value = {'id':25}
-        takeoff_heading = KPV('Heading At Takeoff')
-        takeoff_heading.create_kpv(1, 20.0)
-        takeoff_runway.derive(airport, takeoff_heading)
-        get_nearest_runway.assert_called_with(25, 20.0)
-        takeoff_runway.set_flight_attr.assert_called_once_with(
-            runway_info['items'][0])
-        # Airport, Heading At Takeoff, Liftoff, Latitude, Longitude and Precision
-        # arguments. Latitude and Longitude are only passed with all these
-        # parameters available and Precise Positioning is True.
-        latitude = KPV(name='Latitude At Liftoff',
-                       items=[KeyPointValue(index=1, value=4.0),
-                              KeyPointValue(index=2, value=6.0)])
-        longitude = KPV(name='Longitude At Liftoff',
-                        items=[KeyPointValue(index=1, value=3.0),
-                               KeyPointValue(index=2, value=9.0)])
-        precision = A('Precision')
-        precision.value = True
-        takeoff_runway.derive(airport, takeoff_heading, latitude, longitude,
-                              precision)
-        get_nearest_runway.assert_called_with(25, 20.0, latitude=4.0,
-                                              longitude=3.0)
-        takeoff_runway.set_flight_attr.assert_called_with(
-            runway_info['items'][0])
-        # When Precise Positioning's value is False, Latitude and Longitude
-        # are not used.
-        precision.value = False
-        takeoff_runway.derive(airport, takeoff_heading, latitude, longitude,
-                              precision)
-        get_nearest_runway.assert_called_with(25, 20.0, latitude=4.0,
-                                              longitude=3.0)
-        takeoff_runway.set_flight_attr.assert_called_with(
-            runway_info['items'][0])
+        info = {'ident': '27L', 'length': 20}
+        get_nearest_runway.return_value = info
+        fdr_apt = A(name='FDR Takeoff Airport', value={'id': 25})
+        afr_apt = None
+        lat = KPV(name='Latitude At Takeoff', items=[
+            KeyPointValue(index=1, value=4.0),
+            KeyPointValue(index=2, value=6.0),
+        ])
+        lon = KPV(name='Longitude At Takeoff', items=[
+            KeyPointValue(index=1, value=3.0),
+            KeyPointValue(index=2, value=9.0),
+        ])
+        hdg = KPV(name='Heading At Takeoff', items=[
+            KeyPointValue(index=1, value=20.0),
+            KeyPointValue(index=2, value=60.0),
+        ])
+        precise = A(name='Precise Positioning')
+        rwy = self.node_class()
+        rwy.set_flight_attr = Mock()
+        # Test with bare minimum information:
+        rwy.derive(fdr_apt, afr_apt, hdg)
+        rwy.set_flight_attr.assert_called_once_with(info)
+        rwy.set_flight_attr.reset_mock()
+        get_nearest_runway.assert_called_once_with(25, 20.0, hint='takeoff')
+        get_nearest_runway.reset_mock()
+        # Test for aircraft where positioning is not precise:
+        precise.value = True
+        rwy.derive(fdr_apt, afr_apt, hdg, lat, lon, precise)
+        rwy.set_flight_attr.assert_called_once_with(info)
+        rwy.set_flight_attr.reset_mock()
+        get_nearest_runway.assert_called_once_with(25, 20.0, latitude=4.0, longitude=3.0)
+        get_nearest_runway.reset_mock()
+        # Test for aircraft where positioning is not precise:
+        # NOTE: Latitude and longitude are still used for determining the
+        #       takeoff runway, even when positioning is not precise!
+        precise.value = False
+        rwy.derive(fdr_apt, afr_apt, hdg, lat, lon, precise)
+        rwy.set_flight_attr.assert_called_once_with(info)
+        rwy.set_flight_attr.reset_mock()
+        get_nearest_runway.assert_called_once_with(25, 20.0, latitude=4.0, longitude=3.0,  hint='takeoff')
+        get_nearest_runway.reset_mock()
+
+    @patch('analysis_engine.api_handler_analysis_engine.AnalysisEngineAPIHandlerHTTP.get_nearest_runway')
+    def test_derive_afr_fallback(self, get_nearest_runway):
+        info = {'ident': '09L'}
+        def runway_side_effect(apt, hdg, *args, **kwargs):
+            if hdg == 90.0:
+                return info
+            raise NotFoundError('No runway found.')
+        get_nearest_runway.side_effect = runway_side_effect
+        fdr_apt = A(name='FDR Takeoff Airport', value={'id': 50})
+        afr_rwy = A(name='AFR Takeoff Runway', value={'ident': '27R'})
+        hdg_a = KPV(name='Heading At Takeoff', items=[
+            KeyPointValue(index=1, value=270.0),
+            KeyPointValue(index=2, value=360.0),
+        ])
+        hdg_b = KPV(name='Heading At Takeoff', items=[
+            KeyPointValue(index=1, value=90.0),
+            KeyPointValue(index=2, value=180.0),
+        ])
+        rwy = self.node_class()
+        rwy.set_flight_attr = Mock()
+        # Check that the AFR airport was used and the API wasn't called:
+        rwy.derive(None, None, None)
+        rwy.set_flight_attr.assert_called_once_with(None)
+        rwy.set_flight_attr.reset_mock()
+        assert not get_nearest_runway.called, 'method should not have been called'
+        rwy.derive(fdr_apt, afr_rwy, None)
+        rwy.set_flight_attr.assert_called_once_with(afr_rwy.value)
+        rwy.set_flight_attr.reset_mock()
+        assert not get_nearest_runway.called, 'method should not have been called'
+        rwy.derive(None, afr_rwy, hdg_a)
+        rwy.set_flight_attr.assert_called_once_with(afr_rwy.value)
+        rwy.set_flight_attr.reset_mock()
+        assert not get_nearest_runway.called, 'method should not have been called'
+        rwy.derive(None, afr_rwy, None)
+        rwy.set_flight_attr.assert_called_once_with(afr_rwy.value)
+        rwy.set_flight_attr.reset_mock()
+        assert not get_nearest_runway.called, 'method should not have been called'
+        # Check wrong heading triggers AFR:
+        rwy.derive(fdr_apt, afr_rwy, hdg_a)
+        rwy.set_flight_attr.assert_called_once_with(afr_rwy.value)
+        rwy.set_flight_attr.reset_mock()
+        get_nearest_runway.assert_called_once_with(fdr_apt.value['id'], hdg_a.get_first().value, hint='takeoff')
+        get_nearest_runway.reset_mock()
+        rwy.derive(fdr_apt, afr_rwy, hdg_b)
+        rwy.set_flight_attr.assert_called_once_with(info)
+        rwy.set_flight_attr.reset_mock()
+        get_nearest_runway.assert_called_once_with(fdr_apt.value['id'], hdg_b.get_first().value, hint='takeoff')
+        get_nearest_runway.reset_mock()
 
 
 class TestFlightType(unittest.TestCase):
@@ -1198,7 +1392,7 @@ class TestFlightType(unittest.TestCase):
             self.assertEqual(err.flight_type, 'TOUCHDOWN_BEFORE_LIFTOFF')
         # Touch and Go before Touchdown.
         afr_type = A('AFR Type', value=FlightType.Type.TRAINING)
-        touch_and_gos = KTI('Touch and Gos', items=[KeyTimeInstance(7, 'a')])
+        touch_and_gos = KTI('Touch And Go', items=[KeyTimeInstance(7, 'a')])
         type_node.set_flight_attr = Mock()
         type_node.derive(afr_type, fast, liftoffs, touchdowns, touch_and_gos,
                          None)
@@ -1206,7 +1400,7 @@ class TestFlightType(unittest.TestCase):
             FlightType.Type.TRAINING)
         # Touch and Go after Touchdown.
         afr_type = A('AFR Type', value=FlightType.Type.TRAINING)
-        touch_and_gos = KTI('Touch and Gos', items=[KeyTimeInstance(15, 'a')])
+        touch_and_gos = KTI('Touch And Go', items=[KeyTimeInstance(15, 'a')])
         type_node.set_flight_attr = Mock()
         try:
             type_node.derive(afr_type, fast, liftoffs, touchdowns,
@@ -1234,3 +1428,6 @@ class TestVersion(unittest.TestCase):
         version.derive()
         version.set_flight_attr.assert_called_once_wth(__version__)
 
+
+##############################################################################
+# vim:et:ft=python:nowrap:sts=4:sw=4:ts=4

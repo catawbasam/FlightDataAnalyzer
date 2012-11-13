@@ -7,7 +7,8 @@ from analysis_engine.node import (KeyTimeInstance, Parameter, P, Section, S, M)
 
 from analysis_engine.flight_phase import Climbing
 
-from analysis_engine.key_time_instances import (AltitudeWhenClimbing,
+from analysis_engine.key_time_instances import (AltitudePeak,
+                                                AltitudeWhenClimbing,
                                                 AltitudeWhenDescending,
                                                 BottomOfDescent,
                                                 ClimbStart,
@@ -30,6 +31,25 @@ from analysis_engine.key_time_instances import (AltitudeWhenClimbing,
 from flight_phase_test import buildsection, buildsections
 
 debug = sys.gettrace() is not None
+
+
+class TestAltitudePeak(unittest.TestCase):
+    def setUp(self):
+        self.alt_aal = P(name='Altitude AAL', array=np.ma.array([
+            0, 1, 2, 3, 4, 5, 6, 7, 8, 9,
+            5, 5, 4, 4, 3, 3, 2, 2, 1, 1,
+        ]))
+
+    def test_can_operate(self):
+        expected = [('Altitude AAL',)]
+        self.assertEqual(AltitudePeak.get_operational_combinations(), expected)
+
+    def test_derive(self):
+        alt_peak = AltitudePeak()
+        alt_peak.derive(self.alt_aal)
+        expected = [KeyTimeInstance(name='Altitude Peak', index=9)]
+        self.assertEqual(alt_peak, expected)
+
 
 class TestBottomOfDescent(unittest.TestCase):
     def test_can_operate(self):

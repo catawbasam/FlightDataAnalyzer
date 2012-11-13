@@ -1,21 +1,52 @@
+# -*- coding: utf-8 -*-
+##############################################################################
+
+'''
+'''
+
+##############################################################################
+# Imports
+
+
 import httplib
 import httplib2
 import logging
 import os
-import simplejson
+import simplejson as json
 import socket
 import time
 import urllib
 
 from analysis_engine.settings import CA_CERTIFICATE_FILE
 
+
+##############################################################################
+# Constants
+
+
 TIMEOUT = 15
-socket.setdefaulttimeout(TIMEOUT)
+socket.setdefaulttimeout(TIMEOUT)  # Force the default socket timeout.
+
+
+##############################################################################
+# Globals
+
 
 logger = logging.getLogger(name=__name__)
 
+
+##############################################################################
+# Exceptions
+
+
 class APIError(Exception):
+    '''
+    A generic exception class for an error when calling an API.
+    '''
+
     def __init__(self, message, uri=None, method=None, body=None):
+        '''
+        '''
         super(APIError, self).__init__(message)
         self.uri = uri
         self.method = method
@@ -23,42 +54,58 @@ class APIError(Exception):
 
 
 class APIConnectionError(APIError):
+    '''
+    An exception to be raised when unable to connect to an API.
+    '''
     pass
 
 
 class InvalidAPIInputError(APIError):
+    '''
+    An exception to be raised when input to an API in not valid.
+    '''
     pass
 
 
 class NotFoundError(APIError):
+    '''
+    An exception to be raised when something could not be found via the API.
+    '''
     pass
 
 
-class UnknownAPIError(APIError): # Q: Name?
+class UnknownAPIError(APIError):
+    '''
+    An exception to be raised when some unexpected API error occurred.
+    '''
     pass
+
+
+##############################################################################
+# HTTP API Handler
 
 
 class APIHandlerHTTP(object):
     '''
     Restful HTTP API Handler.
     '''
+
     def __init__(self, attempts=3, delay=2):
         '''
-        :param attempts: Attempts to retry the same request before raising an exception.
+        Initialises an HTTP API handler.
+
+        :param attempts: Number of retry attempts before raising an exception.
         :type attempts: int
-        :param delay: Time to sleep between API requests.
+        :param delay: Time to wait between retrying requests.
         :type delay: int or float
         '''
-        if attempts >= 1:
-            self.attempts = attempts
-        else:
-            raise ValueError('APIHandlerHTTP must attempt requests at least once.')
-        self.delay = delay
-    
+        self.attempts = max(attempts, 1)
+        self.delay = abs(delay)
+
     def _request(self, uri, method='GET', body='', timeout=TIMEOUT):
         '''
         Makes a request to a URL and attempts to return the decoded content.
-        
+
         :param uri: URI to request.
         :type uri: str
         :param method: Method of request.
@@ -69,11 +116,14 @@ class APIHandlerHTTP(object):
         :type body: str, dict or tuple
         :raises InvalidAPIInputError: If server returns 400.
         :raises NotFoundError: If server returns 404.
-        :raises APIConnectionError: If the server does not respond or returns 401.
-        :raises UnknownAPIError: If the server returns 500 or an unexpected status code.
-        :raises JSONDecodeError: If status code is 200, but content is not JSON.
+        :raises APIConnectionError: If the server does not respond or returns
+                401.
+        :raises UnknownAPIError: If the server returns 500 or an unexpected
+                status code.
+        :raises JSONDecodeError: If status code is 200, but content is not
+                JSON.
         '''
-        # Encode body as GET parameters.
+        # Prepare the request object:
         body = urllib.urlencode(body)
         disable_validation = not os.path.exists(CA_CERTIFICATE_FILE)
         http = httplib2.Http(
@@ -81,47 +131,48 @@ class APIHandlerHTTP(object):
             disable_ssl_certificate_validation=disable_validation,
             timeout=timeout,
         )
+
+        # Attempt to make the API request:
         try:
-            resp, content = http.request(uri, method, body)
-        except (httplib2.ServerNotFoundError, socket.error, AttributeError): # DNS..
+            response, content = http.request(uri, method, body)
+        except (httplib2.ServerNotFoundError, socket.error, AttributeError):
+            # Usually a result of errors with DNS...
             raise APIConnectionError(uri, method, body)
-        status = int(resp['status'])
-        
-        # Test HTTP Status.
-        if status != 200:
+
+        # Check the status code of the response:
+        status = int(response['status'])
+        if not status == httplib.OK:
+            # Try to get an 'error' message from JSON if available:
             try:
-                # Try to get 'error' message from JSON, which may not be
-                # available.                
-                error_msg = simplejson.loads(content)['error']
-            except (simplejson.JSONDecodeError, KeyError):
-                error_msg = ''
-            if status == httplib.BAD_REQUEST: # 400
-                raise InvalidAPIInputError(error_msg, uri, method, body)
-            elif status == httplib.UNAUTHORIZED: # 401
-                raise APIConnectionError(error_msg, uri, method, body)
-            elif status == httplib.NOT_FOUND: # 404
-                raise NotFoundError(error_msg, uri, method, body)
-            elif status == httplib.INTERNAL_SERVER_ERROR: # 500
-                raise UnknownAPIError(error_msg, uri, method, body)
-            else:
-                raise UnknownAPIError(error_msg, uri, method, body)
-        
+                message = json.loads(content)['error']
+            except (json.JSONDecodeError, KeyError):
+                message = ''
+            # Try to get an 'error' message from JSON if available:
+            raise {
+                httplib.BAD_REQUEST: InvalidAPIInputError,
+                httplib.UNAUTHORIZED: APIConnectionError,
+                httplib.NOT_FOUND: NotFoundError,
+                httplib.INTERNAL_SERVER_ERROR: UnknownAPIError,
+            }.get(status, UnknownAPIError)(message, uri, method, body)
+
+        # Attempt to decode the response:
         try:
-            return simplejson.loads(content) #TODO: use_decimal=True to improve accuracy?
-        except simplejson.JSONDecodeError:
+            # TODO: Set use_decimal to improve accuracy?
+            return json.loads(content)
+        except json.JSONDecodeError:
             # Only JSON return types supported, any other return means server
             # is not configured correctly
             logger.exception("JSON decode error for '%s' - only JSON "
                              "supported by this API. Server configuration "
                              "error? %s\nBody: %s", method, uri, body)
             raise
-    
+
     def _attempt_request(self, *args, **kwargs):
         '''
         Attempt the request the number of times specified by self.attempts.
         If the specified number of attempts have failed, raise the exception
         last raised.
-        
+
         :param args: Arguments passed into self._request.
         :type args: list
         :param kwargs: Keyword arguments passed into self._request.
@@ -130,21 +181,27 @@ class APIHandlerHTTP(object):
         :returns: Decoded JSON object if successful.
         :rtype: dict
         '''
+        error = None
         for attempt in range(self.attempts):
             try:
-                logger.info("API Request args: %s | kwargs: %s", args, kwargs)
+                logger.info('API Request args: %s | kwargs: %s', args, kwargs)
                 return self._request(*args, **kwargs)
             except (APIConnectionError, UnknownAPIError) as error:
-                logger.exception("'%s' error in request, retrying in %.2f", 
-                                  error, self.delay)
+                msg = "'%s' error in request, retrying in %.2f seconds..."
+                logger.exception(msg, error, self.delay)
                 time.sleep(self.delay)
-        raise error
+        if isinstance(error, Exception):
+            raise error
+
+
+##############################################################################
+# API Handler Lookup Function
 
 
 def get_api_handler(handler_path, *args, **kwargs):
     '''
     Returns an instance of the class specified by the handler_path.
-    
+
     :param handler_path: Path to handler module, e.g. project.module.APIHandler
     :type handler_path: string
     :param args: Handler class instantiation args.
@@ -161,3 +218,5 @@ def get_api_handler(handler_path, *args, **kwargs):
     return handler_class(*args, **kwargs)
 
 
+##############################################################################
+# vim:et:ft=python:nowrap:sts=4:sw=4:ts=4

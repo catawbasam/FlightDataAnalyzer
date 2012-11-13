@@ -217,8 +217,8 @@ class TestNodeManager(unittest.TestCase):
         mock_node.can_operate = mock.Mock(return_value=True)
         mock_inop = mock.Mock('can_operate') # inoperable node
         mock_inop.can_operate = mock.Mock(return_value=False)
-        aci = {'n':1, 'o':2, 'p':3}
-        afr = {'l':4, 'm':5}
+        aci = {'n':1, 'o':2, 'p':3, 'u': None}
+        afr = {'l':4, 'm':5, 'v': None}
         mgr = NodeManager(None, ['a', 'b', 'c', 'x'], ['a', 'x'], 
                           {'x': mock_inop, # note: derived node is not operational, but is already available in LFL - so this should return true!
                            'y': mock_node, 'z': mock_inop},
@@ -231,8 +231,10 @@ class TestNodeManager(unittest.TestCase):
         # have all it's dependencies set. 'x' should return from the LFL!
         self.assertTrue(mgr.operational('x', []))
         self.assertTrue(mgr.operational('y', ['a']))
-        self.assertTrue(mgr.operational('n', ['a'])) # achieved flight record
-        self.assertTrue(mgr.operational('p', ['a'])) # aircraft info
+        self.assertTrue(mgr.operational('l', ['a'])) # achieved flight record
+        self.assertTrue(mgr.operational('n', ['a'])) # aircraft info
+        self.assertFalse(mgr.operational('v', ['a'])) # achieved flight record
+        self.assertFalse(mgr.operational('u', ['a'])) # aircraft info
         self.assertFalse(mgr.operational('z', ['a', 'b']))
         self.assertEqual(mgr.keys(), ['Start Datetime'] + list('abclmnopxyz'))
         

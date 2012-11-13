@@ -984,8 +984,9 @@ def first_valid_sample(array, start_index=0):
     :returns value: the value of first valid sample.
     :type index: Float or None
     '''
-    # Trap for start_index < 0 ensures we don't stray into the far end of the array.    
-    if start_index < 0 or start_index > len(array):
+    # Trap to ensure we don't stray into the far end of the array and that the
+    # sliced array is not empty.
+    if not 0 <= start_index < len(array):
         return None, None
     
     clumps = np.ma.clump_unmasked(array[start_index:])
@@ -3920,6 +3921,7 @@ def dp2tas(dp, alt_ft, sat):
     P = alt2press(alt_ft)
     press_ratio = alt2press_ratio(alt_ft)
     temp_ratio = (sat + 273.15) / 288.15
+    # FIXME: FloatingPointError: underflow encountered in multiply
     density_ratio = press_ratio / temp_ratio
     Rho = Rhoref * density_ratio
     tas = _dp2speed(dp, P, Rho)
@@ -3949,5 +3951,6 @@ def _alt2press_ratio_gradient(H):
     return np.ma.power(1 - H/145442.0, 5.255876)
 
 def _alt2press_ratio_isothermal(H):
+    # FIXME: FloatingPointError: overflow encountered in exp
     return 0.223361 * np.ma.exp((36089.0-H)/20806.0)
 

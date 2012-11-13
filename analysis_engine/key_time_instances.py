@@ -7,6 +7,7 @@ from analysis_engine.library import (hysteresis,
                                      slices_above,
                                      slices_not,
                                      slices_and,
+                                     max_abs_value, 
                                      max_value, 
                                      peak_curvature,
                                      touchdown_inertial)
@@ -67,8 +68,22 @@ class BottomOfDescent(KeyTimeInstanceNode):
         for air in airs:
             if air.slice.stop:
                 self.create_kti(air.stop_edge)
-        
-           
+
+
+# TODO: Determine an altitude peak per climb.
+class AltitudePeak(KeyTimeInstanceNode):
+    '''
+    Determines the peak value of altitude above airfield level which is used to
+    correctly determine the splitting point when deriving the Altitude QNH
+    parameter.
+    '''
+
+    def derive(self, alt_aal=P('Altitude AAL')):
+        '''
+        '''
+        self.create_kti(np.ma.argmax(np.ma.abs(np.ma.diff(alt_aal.array))))
+
+
 '''
 Redundant, as either a go-around, or landing
 
@@ -165,7 +180,7 @@ class ClimbStart(KeyTimeInstanceNode):
 
 class Eng_Stop(KeyTimeInstanceNode):
     NAME_FORMAT = 'Eng (%(number)d) Stop'
-    NAME_VALUES = {'number': NAME_VALUES_ENGINE}
+    NAME_VALUES = NAME_VALUES_ENGINE
     
     @classmethod
     def can_operate(cls, available):
@@ -312,10 +327,12 @@ class GearUpSelection(KeyTimeInstanceNode):
                gas=S('Go Around And Climbout')):
         air_slices = airs.get_slices()
         ga_slices = gas.get_slices()
-        air_not_ga = slices_and(air_slices,
-                                slices_not(ga_slices, 
-                                           begin_at=air_slices[0].start,
-                                           end_at = air_slices[-1].stop))
+        if not air_slices or not ga_slices:
+            return
+        air_not_ga = slices_and(air_slices, slices_not(ga_slices,
+            begin_at=air_slices[0].start,
+            end_at=air_slices[-1].stop,
+        ))
         good_phases = S() # s = SectionNode()
         good_phases.create_sections(air_not_ga)
         self.create_ktis_on_state_change('Up', gear_sel_up.array, change='entering', phase=airs)    
@@ -440,7 +457,7 @@ class LowestPointOnApproach(KeyTimeInstanceNode):
     approach attribute, and thereafter compute the smoothed track.
     '''
     def derive(self, alt_aal=P('Altitude AAL'), alt_rad=P('Altitude Radio'),
-               apps = S('Approach'), lands=S('Landing')):
+               apps=S('Approach'), lands=S('Landing')):
         height = minimum_unmasked(alt_aal.array, alt_rad.array)
         for app in apps:
             index = np.ma.argmin(height[app.slice])

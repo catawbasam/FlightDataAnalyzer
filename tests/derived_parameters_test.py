@@ -1,14 +1,16 @@
-import mock
 import numpy as np
 import os
 import sys
 import unittest
+
+from mock import Mock, call, patch
 
 from hdfaccess.file import hdf_file
 from utilities import masked_array_testutils as ma_test
 from utilities.filesystem_tools import copy_file
 
 from analysis_engine.flight_phase import Fast
+from analysis_engine.library import repair_mask
 from analysis_engine.node import Attribute, A, KPV, KeyTimeInstance, KTI, Parameter, P, Section, S
 from analysis_engine.process_flight import process_flight
 from analysis_engine.settings import METRES_TO_FEET
@@ -28,6 +30,7 @@ from analysis_engine.derived_parameters import (
     AltitudeAAL,
     AltitudeAALForFlightPhases,
     #AltitudeForFlightPhases,
+    AltitudeQNH,
     AltitudeRadio,
     #AltitudeRadioForFlightPhases,
     #AltitudeSTD,
@@ -76,6 +79,21 @@ from analysis_engine.derived_parameters import (
 )
 
 debug = sys.gettrace() is not None
+
+
+class NodeTest(object):
+    def test_can_operate(self):
+        if getattr(self, 'check_operational_combination_length_only', False):
+            self.assertEqual(
+                len(self.node_class.get_operational_combinations()),
+                self.operational_combination_length,
+            )
+        else:
+            self.assertEqual(
+                self.node_class.get_operational_combinations(),
+                self.operational_combinations,
+            )
+
 
 class TestAccelerationVertical(unittest.TestCase):
     def test_can_operate(self):
@@ -664,6 +682,132 @@ class TestAltitudeForFlightPhases(unittest.TestCase):
         '''
 
 
+class TestAltitudeQNH(unittest.TestCase, NodeTest):
+    def setUp(self):
+        self.node_class = AltitudeQNH
+        self.operational_combinations = [
+            ('Altitude AAL', 'Altitude Peak', 'FDR Landing Airport', 'FDR Takeoff Airport'),
+            ('Altitude AAL', 'Altitude Peak', 'FDR Landing Airport', 'FDR Takeoff Runway'),
+            ('Altitude AAL', 'Altitude Peak', 'FDR Landing Runway', 'FDR Takeoff Airport'),
+            ('Altitude AAL', 'Altitude Peak', 'FDR Landing Runway', 'FDR Takeoff Runway'),
+            ('Altitude AAL', 'Altitude Peak', 'FDR Landing Airport', 'FDR Landing Runway', 'FDR Takeoff Airport'),
+            ('Altitude AAL', 'Altitude Peak', 'FDR Landing Airport', 'FDR Landing Runway', 'FDR Takeoff Runway'),
+            ('Altitude AAL', 'Altitude Peak', 'FDR Landing Airport', 'FDR Takeoff Airport', 'FDR Takeoff Runway'),
+            ('Altitude AAL', 'Altitude Peak', 'FDR Landing Runway', 'FDR Takeoff Airport', 'FDR Takeoff Runway'),
+            ('Altitude AAL', 'Altitude Peak', 'FDR Landing Airport', 'FDR Landing Runway', 'FDR Takeoff Airport', 'FDR Takeoff Runway'),
+        ]
+        data = [np.ma.arange(0, 1000, step=30)]
+        data.append(data[0][::-1] + 50)
+        self.alt_aal = P(name='Altitude AAL', array=np.ma.concatenate(data))
+        self.alt_peak = KTI(name='Altitude Peak', items=[KeyTimeInstance(name='Altitude Peak', index=len(self.alt_aal.array) / 2)])
+        self.land_fdr_apt = A(name='FDR Landing Airport', value={'id': 10, 'elevation': 100})
+        self.land_fdr_rwy = A(name='FDR Landing Runway', value={'ident': '27L', 'start': {'elevation': 90}, 'end': {'elevation': 110}})
+        self.toff_fdr_apt = A(name='FDR Takeoff Airport', value={'id': 20, 'elevation': 50})
+        self.toff_fdr_rwy = A(name='FDR Takeoff Runway', value={'ident': '09R', 'start': {'elevation': 40}, 'end': {'elevation': 60}})
+
+        self.expected = []
+        peak = self.alt_peak[0].index
+
+        # Ensure that we have a sensible drop at the splitting point...
+        self.alt_aal.array[peak + 1] += 30
+        self.alt_aal.array[peak] -= 30
+
+        # 1. All masked, data same as Altitude AAL:
+        data = np.ma.copy(self.alt_aal.array)
+        data.mask = True
+        self.expected.append(data)
+        # 2. None masked, data Altitude AAL, +50 ft t/o, +100 ft ldg:
+        data = np.ma.array([50, 80, 110, 140, 170, 200, 230, 260, 290, 320,
+            350, 351, 352, 354, 355, 357, 358, 360, 361, 363, 364, 366, 367,
+            368, 370, 371, 373, 374, 376, 377, 379, 380, 382, 383, 385, 386,
+            387, 389, 390, 392, 393, 395, 396, 398, 399, 401, 402, 403, 405,
+            406, 408, 409, 411, 412, 414, 415, 417, 418, 420, 390, 360, 330,
+            300, 270, 240, 210, 180, 150])
+        data.mask = False
+        self.expected.append(data)
+        # 3. Data Altitude AAL, +50 ft t/o; ldg masked:
+        data = np.ma.copy(self.alt_aal.array)
+        data[:peak] += 50
+        data[peak:] = np.ma.masked
+        self.expected.append(data)
+        # 4. Data Altitude AAL, +100 ft ldg; t/o masked:
+        data = np.ma.copy(self.alt_aal.array)
+        data[:peak] = np.ma.masked
+        data[peak:] += 100
+        self.expected.append(data)
+
+    def test_derive__function_calls(self):
+        alt_qnh = self.node_class()
+        alt_qnh._calc_apt_elev = Mock()
+        alt_qnh._calc_rwy_elev = Mock()
+        # Check no airport/runway information results in a fully masked copy of Altitude AAL:
+        alt_qnh.derive(self.alt_aal, self.alt_peak)
+        assert not alt_qnh._calc_apt_elev.called, 'method should not have been called'
+        assert not alt_qnh._calc_rwy_elev.called, 'method should not have been called'
+        alt_qnh._calc_apt_elev.reset_mock()
+        alt_qnh._calc_rwy_elev.reset_mock()
+        # Check everything works calling with runway details:
+        alt_qnh.derive(self.alt_aal, self.alt_peak, None, self.land_fdr_rwy, None, self.toff_fdr_rwy)
+        assert not alt_qnh._calc_apt_elev.called, 'method should not have been called'
+        alt_qnh._calc_rwy_elev.assert_has_calls([
+            call(self.toff_fdr_rwy.value),
+            call(self.land_fdr_rwy.value),
+        ])
+        alt_qnh._calc_apt_elev.reset_mock()
+        alt_qnh._calc_rwy_elev.reset_mock()
+        # Check everything works calling with airport details:
+        alt_qnh.derive(self.alt_aal, self.alt_peak, self.land_fdr_apt, None, self.toff_fdr_apt, None)
+        alt_qnh._calc_apt_elev.assert_has_calls([
+            call(self.toff_fdr_apt.value),
+            call(self.land_fdr_apt.value),
+        ])
+        assert not alt_qnh._calc_rwy_elev.called, 'method should not have been called'
+        alt_qnh._calc_apt_elev.reset_mock()
+        alt_qnh._calc_rwy_elev.reset_mock()
+        # Check everything works calling with runway and airport details:
+        alt_qnh.derive(self.alt_aal, self.alt_peak, self.land_fdr_apt, self.land_fdr_rwy, self.toff_fdr_apt, self.toff_fdr_rwy)
+        assert not alt_qnh._calc_apt_elev.called, 'method should not have been called'
+        alt_qnh._calc_rwy_elev.assert_has_calls([
+            call(self.toff_fdr_rwy.value),
+            call(self.land_fdr_rwy.value),
+        ])
+        alt_qnh._calc_apt_elev.reset_mock()
+        alt_qnh._calc_rwy_elev.reset_mock()
+
+    def test_derive__output(self):
+        alt_qnh = self.node_class()
+        # Check no airport/runway information results in a fully masked copy of Altitude AAL:
+        alt_qnh.derive(self.alt_aal, self.alt_peak)
+        ma_test.assert_masked_array_approx_equal(alt_qnh.array, self.expected[0])
+        self.assertEqual(alt_qnh.offset, self.alt_aal.offset)
+        self.assertEqual(alt_qnh.frequency, self.alt_aal.frequency)
+        # Check everything works calling with runway details:
+        alt_qnh.derive(self.alt_aal, self.alt_peak, None, self.land_fdr_rwy, None, self.toff_fdr_rwy)
+        ma_test.assert_masked_array_approx_equal(alt_qnh.array, self.expected[1])
+        self.assertEqual(alt_qnh.offset, self.alt_aal.offset)
+        self.assertEqual(alt_qnh.frequency, self.alt_aal.frequency)
+        # Check everything works calling with airport details:
+        alt_qnh.derive(self.alt_aal, self.alt_peak, self.land_fdr_apt, None, self.toff_fdr_apt, None)
+        ma_test.assert_masked_array_approx_equal(alt_qnh.array, self.expected[1])
+        self.assertEqual(alt_qnh.offset, self.alt_aal.offset)
+        self.assertEqual(alt_qnh.frequency, self.alt_aal.frequency)
+        # Check everything works calling with runway and airport details:
+        alt_qnh.derive(self.alt_aal, self.alt_peak, self.land_fdr_apt, self.land_fdr_rwy, self.toff_fdr_apt, self.toff_fdr_rwy)
+        ma_test.assert_masked_array_approx_equal(alt_qnh.array, self.expected[1])
+        self.assertEqual(alt_qnh.offset, self.alt_aal.offset)
+        self.assertEqual(alt_qnh.frequency, self.alt_aal.frequency)
+        # Check second half masked when no elevation at landing:
+        alt_qnh.derive(self.alt_aal, self.alt_peak, None, None, self.toff_fdr_apt, self.toff_fdr_rwy)
+        ma_test.assert_masked_array_approx_equal(alt_qnh.array, self.expected[2])
+        self.assertEqual(alt_qnh.offset, self.alt_aal.offset)
+        self.assertEqual(alt_qnh.frequency, self.alt_aal.frequency)
+        # Check first half masked when no elevation at takeoff:
+        alt_qnh.derive(self.alt_aal, self.alt_peak, self.land_fdr_apt, self.land_fdr_rwy, None, None)
+        ma_test.assert_masked_array_approx_equal(alt_qnh.array, self.expected[3])
+        self.assertEqual(alt_qnh.offset, self.alt_aal.offset)
+        self.assertEqual(alt_qnh.frequency, self.alt_aal.frequency)
+
+
 class TestAltitudeRadio(unittest.TestCase):
     """
     def test_can_operate(self):
@@ -764,7 +908,7 @@ class TestAltitudeSTD(unittest.TestCase):
                                                  20000, 19000, 17980, 17375, 16500],
                                                 mask=[False] * 8 + 2 * [True]))
     
-    @mock.patch('analysis_engine.derived_parameters.first_order_lag')
+    @patch('analysis_engine.derived_parameters.first_order_lag')
     def test__rough_and_ivv(self, first_order_lag):
         alt_std = AltitudeSTD()
         alt_std_rough = Parameter('Altitude STD Rough',
@@ -782,7 +926,7 @@ class TestAltitudeSTD(unittest.TestCase):
     def test_derive(self):
         alt_std = AltitudeSTD()
         # alt_std_high and alt_std_low passed in.
-        alt_std._high_and_low = mock.Mock()
+        alt_std._high_and_low = Mock()
         high_and_low_array = 3
         alt_std._high_and_low.return_value = high_and_low_array
         alt_std_high = 1
@@ -792,7 +936,7 @@ class TestAltitudeSTD(unittest.TestCase):
         self.assertEqual(alt_std.array, high_and_low_array)
         # alt_std_rough and ivv passed in.
         rough_and_ivv_array = 6
-        alt_std._rough_and_ivv = mock.Mock()
+        alt_std._rough_and_ivv = Mock()
         alt_std._rough_and_ivv.return_value = rough_and_ivv_array
         alt_std_rough = 4        
         ivv = 5
@@ -911,7 +1055,7 @@ class TestControlColumn(unittest.TestCase):
         opts = ControlColumn.get_operational_combinations()
         self.assertEqual(opts, expected)
 
-    @mock.patch('analysis_engine.derived_parameters.blend_two_parameters')
+    @patch('analysis_engine.derived_parameters.blend_two_parameters')
     def test_control_column(self, blend_two_parameters):
         blend_two_parameters.return_value = [None, None, None]
         cc = ControlColumn()
@@ -1007,7 +1151,7 @@ class TestControlWheel(unittest.TestCase):
         opts = ControlWheel.get_operational_combinations()
         self.assertEqual(opts, expected)
 
-    @mock.patch('analysis_engine.derived_parameters.blend_two_parameters')
+    @patch('analysis_engine.derived_parameters.blend_two_parameters')
     def test_control_wheel(self, blend_two_parameters):
         blend_two_parameters.return_value = [None, None, None]
         cw = ControlWheel()
@@ -1056,11 +1200,11 @@ class TestDistanceTravelled(unittest.TestCase):
         opts = DistanceTravelled.get_operational_combinations()
         self.assertEqual(opts, expected)
 
-    @mock.patch('analysis_engine.derived_parameters.integrate')
+    @patch('analysis_engine.derived_parameters.integrate')
     def test_derive(self, integrate):
-        gndspeed = mock.Mock()
-        gndspeed.array = mock.Mock()
-        gndspeed.frequency = mock.Mock()
+        gndspeed = Mock()
+        gndspeed.array = Mock()
+        gndspeed.frequency = Mock()
         DistanceTravelled().derive(gndspeed)
         integrate.assert_called_once_with(gndspeed.array, gndspeed.frequency,
                                           scale=1.0 / 3600)
@@ -2238,6 +2382,14 @@ class TestLatitudeSmoothed(unittest.TestCase):
         combinations = LatitudeSmoothed.get_operational_combinations()
         self.assertTrue(('Latitude Prepared',) in combinations)
         self.assertTrue(all('Latitude Prepared') in c for c in combinations)
+    
+    def test_derive(self):
+        self.assertTrue(False, msg='Test not implemented.')
+
+
+class TestLongitudePrepared(unittest.TestCase):
+    def test_can_operate(self):
+        self.assertTrue(False, msg='Test not implemented.')
     
     def test_derive(self):
         self.assertTrue(False, msg='Test not implemented.')
