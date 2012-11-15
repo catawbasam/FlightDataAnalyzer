@@ -4020,7 +4020,7 @@ class Roll400To1000FtMax(KeyPointValueNode):
         '''
         self.create_kpvs_within_slices(
             roll.array,
-            alt_aal.slices_from_to(500, 1500),
+            alt_aal.slices_from_to(400, 1000),
             max_abs_value,
         )
 
