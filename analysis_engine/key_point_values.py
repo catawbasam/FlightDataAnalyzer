@@ -399,7 +399,109 @@ class AirspeedVacatingRunway(KeyPointValueNode):
 
 
 ################################################################################
-# Airspeed Minus V2
+# Airspeed
+
+
+########################################
+# Airspeed: Climbing
+
+
+class Airspeed1000To8000FtMax(KeyPointValueNode):
+    '''
+    '''
+
+    def derive(self, airspeed=P('Airspeed'),
+               alt_aal=P('Altitude AAL For Flight Phases')):
+        '''
+        '''
+        self.create_kpv_from_slices(
+            airspeed.array,
+            alt_aal.slices_from_to(1000, 8000),
+            max_value,
+        )
+
+
+class Airspeed8000To10000FtMax(KeyPointValueNode):
+    '''
+    '''
+
+    def derive(self, airspeed=P('Airspeed'),
+               alt_aal=P('Altitude AAL For Flight Phases')):
+        '''
+        '''
+        self.create_kpv_from_slices(
+            airspeed.array,
+            alt_aal.slices_from_to(8000, 10000),
+            max_value,
+        )
+
+
+########################################
+# Airspeed: Descending
+
+
+class Airspeed10000To8000FtMax(KeyPointValueNode):
+    '''
+    '''
+
+    def derive(self, airspeed=P('Airspeed'),
+               alt_aal=P('Altitude AAL For Flight Phases')):
+        '''
+        '''
+        self.create_kpv_from_slices(
+            airspeed.array,
+            alt_aal.slices_from_to(10000, 8000),
+            max_value,
+        )
+
+
+class Airspeed8000To5000FtMax(KeyPointValueNode):
+    '''
+    '''
+
+    def derive(self, airspeed=P('Airspeed'),
+               alt_aal=P('Altitude AAL For Flight Phases')):
+        '''
+        '''
+        self.create_kpv_from_slices(
+            airspeed.array,
+            alt_aal.slices_from_to(8000, 5000),
+            max_value,
+        )
+
+
+class Airspeed5000To3000FtMax(KeyPointValueNode):
+    '''
+    '''
+
+    def derive(self, airspeed=P('Airspeed'),
+               alt_aal=P('Altitude AAL For Flight Phases')):
+        '''
+        '''
+        self.create_kpv_from_slices(
+            airspeed.array,
+            alt_aal.slices_from_to(5000, 3000),
+            max_value,
+        )
+
+
+class Airspeed3000To1000FtMax(KeyPointValueNode):
+    '''
+    '''
+
+    def derive(self, airspeed=P('Airspeed'),
+               alt_aal=P('Altitude AAL For Flight Phases')):
+        '''
+        '''
+        self.create_kpv_from_slices(
+            airspeed.array,
+            alt_aal.slices_from_to(3000, 1000),
+            max_value,
+        )
+
+
+########################################
+# Airspeed: Minus V2
 
 
 class AirspeedMinusV2AtLiftoff(KeyPointValueNode):
@@ -463,8 +565,8 @@ class AirspeedMinusV235To1000FtMin(KeyPointValueNode):
         )
 
 
-################################################################################
-# Airspeed Relative
+########################################
+# Airspeed: Relative
 
 
 class AirspeedRelativeAtTouchdown(KeyPointValueNode):
@@ -1049,66 +1151,6 @@ class AirspeedBelowAltitudeMax(KeyPointValueNode):
                 max_value,
                 altitude=altitude,
             )
-
-
-class AirspeedBetween1000And3000FtMax(KeyPointValueNode):
-    '''
-    '''
-
-    def derive(self, airspeed=P('Airspeed'),
-               alt_aal=P('Altitude AAL For Flight Phases')):
-        '''
-        '''
-        self.create_kpv_from_slices(
-            airspeed.array,
-            alt_aal.slices_between(1000, 3000),
-            max_value,
-        )
-
-
-class AirspeedBetween3000And5000FtMax(KeyPointValueNode):
-    '''
-    '''
-
-    def derive(self, airspeed=P('Airspeed'),
-               alt_aal=P('Altitude AAL For Flight Phases')):
-        '''
-        '''
-        self.create_kpv_from_slices(
-            airspeed.array,
-            alt_aal.slices_between(3000, 5000),
-            max_value,
-        )
-
-
-class AirspeedBetween5000And8000FtMax(KeyPointValueNode):
-    '''
-    '''
-
-    def derive(self, airspeed=P('Airspeed'),
-               alt_aal=P('Altitude AAL For Flight Phases')):
-        '''
-        '''
-        self.create_kpv_from_slices(
-            airspeed.array,
-            alt_aal.slices_between(5000, 8000),
-            max_value,
-        )
-
-
-class AirspeedBetween8000And10000FtMax(KeyPointValueNode):
-    '''
-    '''
-
-    def derive(self, airspeed=P('Airspeed'),
-               alt_aal=P('Altitude AAL For Flight Phases')):
-        '''
-        '''
-        self.create_kpv_from_slices(
-            airspeed.array,
-            alt_aal.slices_between(8000, 10000),
-            max_value,
-        )
 
 
 class Airspeed10000ToLandMax(KeyPointValueNode):
