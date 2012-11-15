@@ -1,5 +1,4 @@
-
-""" 
+"""
 2012.01.12
 ----------
 Created referencing previous code and checked over by FDS engine room.
@@ -17,57 +16,56 @@ Created referencing previous code and checked over by FDS engine room.
 series_flap_map = {
     'ATR72-200'  : ( 0, 15, 30, 45), # TODO: Review max for -200 (28deg) -210 (33deg)
     'ATR72-500'  : ( 0, 15, 28, 33), # Q: Confirm values
+    'DHC-8 Series 100': ( 0,  5, 15, 35),
+    'DHC-8 Series 200': ( 0,  5, 15, 35),   #A13NM TODO Check -200 flap settings
+    'DHC-8 Series 300': ( 0,  5, 10, 15, 35),  #A13NM
+    'DHC-8 Series 400': ( 0,  5, 10, 15, 35),  #A13NM
+    'ATR42-200'      : ( 0, 15, 30, 45),   #A53EU -200, -300
+    'ATR42-300'      : ( 0, 15, 30, 45),   #A53EU -200, -300
+    'ATR42-500'      : ( 0, 15, 25, 35),   #A53EU, -500
 }
 
 family_flap_map = {
-    'A300'       : ( 0, 15, 20, 40),  # A35EU 
-    #'A300'       : ( 0,  8, 15, 25), #!!!!!! (AGK),A35EU
-    'A310'       : ( 0, 15, 20, 40),  #A35EU
-    'A318'       : ( 0, 10, 15, 20, 40),   #A28NM
-    'A319'       : ( 0, 10, 15, 20, 40),   #A28NM
-    'A320'       : ( 0, 10, 15, 20, 35),   #A28NM
-    'A321'       : ( 0, 10, 14, 21, 25),   #A28NM
-    'A330'       : ( 0,  8, 14, 22, 32),   #A46NM
-    'ATR42'      : ( 0, 15, 30, 45),   #A53EU -200, -300, 
-    'ATR42'      : ( 0, 15, 25, 35),   #A53EU, -500
-    'ATR72'      : ( 0, 15, 30),   #A53EU
-    'BAE 146'    : ( 0, 18, 24, 30, 33),   #A49EU
+    'A300'        : ( 0, 15, 20, 40),  # A35EU
+    #'A300'        : ( 0,  8, 15, 25), #!!!!!! (AGK),A35EU
+    'A310'        : ( 0, 15, 20, 40),  #A35EU
+    'A318'        : ( 0, 10, 15, 20, 40),   #A28NM
+    'A319'        : ( 0, 10, 15, 20, 40),   #A28NM
+    'A320'        : ( 0, 10, 15, 20, 35),   #A28NM
+    'A321'        : ( 0, 10, 14, 21, 25),   #A28NM
+    'A330'        : ( 0,  8, 14, 22, 32),   #A46NM
+    'BAE 146'     : ( 0, 18, 24, 30, 33),   #A49EU
     'B737 Classic': ( 0,  1,  2,  5, 10, 15, 25, 30, 40),   #A16WE
     'B737 NG'     : ( 0,  1,  2,  5, 10, 15, 25, 30, 40),   #A16WE
     'B747'        : ( 0,  1,  5, 10, 20, 25, 30),   #A20WE
     'B757'        : ( 0,  1,  5, 15, 20, 25, 30),   #A2NM
     'B767'        : ( 0,  1,  5, 15, 20, 25, 30),   #A1NM
     'B777'        : ( 0,  1,  5, 15, 20, 25, 30),   #T00001SE
-    'CL604'      : ( 0,  20, 30, 45),   #A21EA
-    'CL850'      : ( 0,  8, 20, 30, 45),   #A21EA
-    'CRJ200'     : ( 0,  8, 20, 30, 45),   #A21EA  Some variants of the -200 do not have the flap 8 setting
-    'CRJ700'     : ( 0,  1,  8, 20, 30, 45),   #A21EA 
-    'CRJ900'     : ( 0,  1,  8, 20, 30, 45),   #A21EA
-    'DHC 8'      : ( 0,  5, 15, 35),   #DHC 8 -100, -200, A13NM TODO Check -200 flap settings
-    'DHC 8'      : ( 0,  5, 10, 15, 35),  #DHC 8 -300, -400 A13NM
-    'E135'       : ( 0,  9, 18, 22, 45),   #Flap 18 not available on all aircarft - T00011AT
-    'E145'       : ( 0,  9, 18, 22, 45),   #Flap 18 not available on all aircraft - T00011AT
-    'E170'       : ( 0,  5, 10, 20, 35),   #Flap lever = 1, 2, 3, 4, 5, full - A57NM
-    'E190'       : ( 0,  7, 10, 20, 37),   #Flap lever = 1, 2, 3, 4, 5, full - A57NM
-    'ED48A200'   : ( 0, 10, 15, 20, 40),
-    'F7X'        : ( 0,  9, 20, 40),   #A59NM, Flap selections, SF0 (clean), SF1 (9 degs), SF2 (flap20), SF3 (40 degs)
-    'GIV'        : ( 0, 10, 20, 39),   #A12EA
-    'GV'         : ( 0, 10, 20, 39),   #A12EA
-    'G550'       : ( 0, 10, 20, 39),   #A12EA
-    'GLOBAL'     : ( 0,  1,  8, 20, 30, 45),   #T00003NY
-    'L382'       : ( 0, 50, 100),   #100% = 36 degs A1SO
-    'MD11'       : ( 0, 15, 22, 25, 28, 35, 50),   #A22WE
-    # TODO: Confirm MD80 or MD82? These flap settings apply to MD 81,82,83,87
-    # and 88. MD80 is the series number and not a specific aircraft. There are
+    'CL604'       : ( 0,  20, 30, 45),   #A21EA
+    'CL850'       : ( 0,  8, 20, 30, 45),   #A21EA
+    'CRJ 100/200' : ( 0,  8, 20, 30, 45),   #A21EA  Some variants of the -200 do not have the flap 8 setting
+    'CRJ 700'     : ( 0,  1,  8, 20, 30, 45),   #A21EA
+    'CRJ 900'     : ( 0,  1,  8, 20, 30, 45),   #A21EA
+    'ERJ-135/145' : ( 0,  9, 18, 22, 45),   #Flap 18 not available on all aircarft - T00011AT
+    'ERJ-170/175' : ( 0,  5, 10, 20, 35),   #Flap lever = 1, 2, 3, 4, 5, full - A57NM
+    'ERJ-190/195' : ( 0,  7, 10, 20, 37),   #Flap lever = 1, 2, 3, 4, 5, full - A57NM
+    'ED48A200'    : ( 0, 10, 15, 20, 40),
+    'F7X'         : ( 0,  9, 20, 40),   #A59NM, Flap selections, SF0 (clean), SF1 (9 degs), SF2 (flap20), SF3 (40 degs)
+    'G-IV'         : ( 0, 10, 20, 39),   #A12EA
+    'G-V'          : ( 0, 10, 20, 39),   #A12EA
+    'G550'        : ( 0, 10, 20, 39),   #A12EA
+    'GLOBAL'      : ( 0,  1,  8, 20, 30, 45),   #T00003NY
+    'L382'        : ( 0, 50, 100),   #100% = 36 degs A1SO
+    'MD-11'        : ( 0, 15, 22, 25, 28, 35, 50),   #A22WE
+    'DC-9'        : ( 0, 11, 15, 28, 40),  # These flap settings apply to MD 81,82,83,87 and 88. There are
     # variable flap positions between 0 and 11 and again between 15 and 24.
-    'MD80'       : ( 0, 11, 15, 28, 40),
     'RJ85'       : ( 0, 18, 24, 30, 33),   #A49EU
 }
 
 def get_flap_map(series=None, family=None):
     """
     Accessor for fetching flap mapping parameters.
-    
+
     :param series: Aircraft series e.g. B737-300
     :type series: String
     :param family: Aircraft family e.g. B737
@@ -99,7 +97,7 @@ family_slat_map = {
 def get_slat_map(series=None, family=None):
     """
     Accessor for fetching slat mapping parameters.
-    
+
     :param series: Aircraft series e.g. B737-300
     :type series: String
     :param family: Aircraft family e.g. B737
@@ -122,7 +120,7 @@ def get_slat_map(series=None, family=None):
 "AILERON SELECTIONS"
 
 series_aileron_map = {
-    
+
 }
 
 family_aileron_map = {
@@ -132,7 +130,7 @@ family_aileron_map = {
 def get_aileron_map(series=None, family=None):
     """
     Accessor for fetching aileron mapping parameters.
-    
+
     :param series: Aircraft series e.g. B737-300
     :type series: String
     :param family: Aircraft family e.g. B737
@@ -185,10 +183,10 @@ family_conf_map = {
 def get_conf_map(series=None, family=None):
     """
     Accessor for fetching conf mapping parameters.
-    
-    Return is a dictionary of state : tuple where tuple can contain either 
+
+    Return is a dictionary of state : tuple where tuple can contain either
     (slat, flap) or (slat, flap, aileron) depending on Aircraft requirements.
-    
+
     :param series: Aircraft series e.g. B737-300
     :type series: String
     :param family: Aircraft family e.g. B737
