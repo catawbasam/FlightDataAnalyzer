@@ -1594,7 +1594,8 @@ class TestILSLocalizerAlign(unittest.TestCase):
 
 
 class TestIntegrate (unittest.TestCase):
-    # Reminder: integrate(array, frequency, initial_value=0.0, scale=1.0, direction="forwards"):
+    # Reminder: integrate(array, frequency, initial_value=0.0, scale=1.0, 
+    #                     direction="forwards", contiguous=False)):
     def test_integration_basic(self):
         result = integrate([10,0], 1.0)
         np.testing.assert_array_equal(result, [0.0,5.0])
@@ -1625,6 +1626,21 @@ class TestIntegrate (unittest.TestCase):
         step_1 = integrate(testwave, 1.0, scale=0.01, initial_value=-1.0)
         step_2 = integrate(step_1, 1.0, scale=0.01)
         self.assertLess(np.max(np.abs(step_2+testwave)), 0.001)
+        
+    def test_contiguous_option(self):
+        data = np.ma.array(data = [1,1,1,1,0,2,2,2,3,3,3],
+                           mask = [1,0,0,1,1,0,0,0,1,1,0])
+        result = integrate(data,1.0, initial_value=5, contiguous=True)
+        np.testing.assert_array_equal(result.data, [0,0,0,0,0,0,5,7,7,7,7])
+        np.testing.assert_array_equal(result.mask, [1,1,1,1,1,1,0,0,1,1,1])
+
+    def test_contiguous_reversed(self):
+        data = np.ma.array(data = [1,1,1,1,0,2,2,2,3,3,3],
+                           mask = [1,0,0,1,1,0,0,0,1,1,0])
+        result = integrate(data,1.0, initial_value=4, 
+                           direction='reverse', contiguous=True)
+        np.testing.assert_array_equal(result.data, [6,6,6,6,6,6,4,0,0,0,0])
+        np.testing.assert_array_equal(result.mask, [1,1,1,1,1,0,0,1,1,1,1])
 
 
 class TestIsSliceWithinSlice(unittest.TestCase):

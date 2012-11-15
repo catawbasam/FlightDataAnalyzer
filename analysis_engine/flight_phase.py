@@ -426,7 +426,7 @@ class Fast(FlightPhaseNode):
 
 class FinalApproach(FlightPhaseNode):
     def derive(self, alt_aal=P('Altitude AAL For Flight Phases')):
-        self.create_phases(alt_aal.slices_from_to(500, 0))
+        self.create_phases(alt_aal.slices_from_to(1000, 50))
 
 
 class GearExtending(FlightPhaseNode):
@@ -551,6 +551,12 @@ def scan_ils(beam, ils_dots, height, scan_slice):
                                                 scan_slice.start, -1),
                              endpoint='closing')
 
+    # In some error cases the height can be all zero or masked, leaving the
+    # end of the scan as the result. This is invalid so we return empty
+    # handed.
+    if idx_200 == scan_slice.start:
+        return None
+    
     # Now work back to 2.5 dots when the indication is first visible.
     dots_25 = index_at_value(np.ma.abs(ils_dots), 2.5,
                              slice(idx_200, scan_slice.start, -1))

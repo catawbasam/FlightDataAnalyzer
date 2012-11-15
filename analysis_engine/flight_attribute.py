@@ -257,7 +257,7 @@ class Approaches(FlightAttributeNode):
             try:
                 runway = api.get_nearest_runway(airport, heading, **kwargs)
             except NotFoundError:
-                msg = u'No runway found for airport #%d @ %.1f° with %s.'
+                msg = u'No runway found for airport #%d @ %.1fÂ° with %s.'
                 self.warning(msg, airport, heading, kwargs)
                 # No runway was found, so fall through and try AFR.
                 if 'ilsfreq' in kwargs:
@@ -551,7 +551,7 @@ class LandingRunway(FlightAttributeNode):
             try:
                 runway = api.get_nearest_runway(airport, heading, **kwargs)
             except NotFoundError:
-                msg = u'No runway found for airport #%d @ %.1f° with %s.'
+                msg = u'No runway found for airport #%d @ %.1fÂ° with %s.'
                 self.warning(msg, airport, heading, kwargs)
                 # No runway was found, so fall through and try AFR.
                 if 'ilsfreq' in kwargs:
@@ -836,7 +836,7 @@ class TakeoffRunway(FlightAttributeNode):
             try:
                 runway = api.get_nearest_runway(airport, heading, **kwargs)
             except NotFoundError:
-                msg = u'No runway found for airport #%d @ %.1f° with %s.'
+                msg = u'No runway found for airport #%d @ %.1fÂ° with %s.'
                 self.warning(msg, airport, heading, kwargs)
                 # No runway was found, so fall through and try AFR.
             else:
