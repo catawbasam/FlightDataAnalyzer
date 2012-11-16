@@ -32,15 +32,19 @@ from analysis_engine.key_point_values import (
     AccelerationNormalLiftoffTo35FtMax,
     AccelerationNormalMax,
     AccelerationNormalOffset,
+    Airspeed10000To8000FtMax,
     Airspeed10000ToLandMax,
     Airspeed1000To500FtMax,
     Airspeed1000To500FtMin,
-    Airspeed2000To30FtMin,
+    Airspeed1000To8000FtMax,
+    Airspeed3000To1000FtMax,
     Airspeed35To1000FtMax,
     Airspeed35To1000FtMin,
-    Airspeed400To1500FtMin,
+    Airspeed5000To3000FtMax,
     Airspeed500To20FtMax,
     Airspeed500To20FtMin,
+    Airspeed8000To10000FtMax,
+    Airspeed8000To5000FtMax,
     AirspeedAsGearExtendingMax,
     AirspeedAsGearRetractingMax,
     AirspeedAt35FtInTakeoff,
@@ -50,10 +54,6 @@ from analysis_engine.key_point_values import (
     AirspeedAtTouchdown,
     AirspeedBelowAltitudeMax,
     AirspeedBetween90SecToTouchdownAndTouchdownMax,
-    AirspeedBetween1000And3000FtMax,
-    AirspeedBetween3000And5000FtMax,
-    AirspeedBetween5000And8000FtMax,
-    AirspeedBetween8000And10000FtMax,
     AirspeedCruiseMax,
     AirspeedCruiseMin,
     AirspeedLevelFlightMax,
@@ -61,13 +61,14 @@ from analysis_engine.key_point_values import (
     AirspeedMinusV235To1000FtMax,
     AirspeedMinusV235To1000FtMin,
     AirspeedMinusV2AtLiftoff,
-    AirspeedRelativeAtTouchdown,
+    AirspeedRTOMax,
     AirspeedRelative1000To500FtMax,
     AirspeedRelative1000To500FtMin,
     AirspeedRelative20FtToTouchdownMax,
     AirspeedRelative20FtToTouchdownMin,
     AirspeedRelative500To20FtMax,
     AirspeedRelative500To20FtMin,        
+    AirspeedRelativeAtTouchdown,
     AirspeedRelativeFor3Sec1000To500FtMax,
     AirspeedRelativeFor3Sec1000To500FtMin,
     AirspeedRelativeFor3Sec20FtToTouchdownMax,
@@ -81,17 +82,16 @@ from analysis_engine.key_point_values import (
     AirspeedRelativeFor5Sec500To20FtMax,
     AirspeedRelativeFor5Sec500To20FtMin,
     AirspeedRelativeWithFlapDescentMin,
-    AirspeedRTOMax,
-    AirspeedThrustReversersDeployedMin,
     AirspeedTODTo10000Max,
+    AirspeedThrustReversersDeployedMin,
     AirspeedTrueAtTouchdown,
     AirspeedVacatingRunway,
-    AirspeedWithFlapMax,
-    AirspeedWithFlapMin,
     AirspeedWithFlapClimbMax,
     AirspeedWithFlapClimbMin,
     AirspeedWithFlapDescentMax,
     AirspeedWithFlapDescentMin,
+    AirspeedWithFlapMax,
+    AirspeedWithFlapMin,
     AirspeedWithGearDownMax,
     AltitudeAtFirstFlapChangeAfterLiftoff,
     AltitudeAtGoAroundMin,
@@ -397,46 +397,6 @@ class TestAirspeed1000To500FtMax(unittest.TestCase, CreateKPVsWithinSlicesTest):
         self.assertEqual(kpv[1].value, 99.557430201194919)
 
 
-class TestAirspeed2000To30FtMin(unittest.TestCase, CreateKPVsWithinSlicesTest):
-    def setUp(self):
-        self.node_class = Airspeed2000To30FtMin
-        self.operational_combinations = [('Airspeed',
-                                          'Altitude AAL For Flight Phases')]
-        self.function = min_value
-        self.second_param_method_calls = [('slices_from_to', (2000, 30,), {})]
-
-
-class TestAirspeed400To1500FtMin(unittest.TestCase, CreateKPVsWithinSlicesTest):
-    def setUp(self):
-        self.node_class = Airspeed400To1500FtMin
-        self.operational_combinations = [('Airspeed',
-                                          'Altitude AAL For Flight Phases')]
-        self.function = min_value
-        self.second_param_method_calls = [('slices_from_to', (400, 1500,), {})]
-
-
-"""
-class TestAirspeed50To1000FtMax(unittest.TestCase, CreateKPVsWithinSlicesTest):
-    def setUp(self):
-        self.node_class = Airspeed50To1000FtMax
-        self.operational_combinations = [('Airspeed',
-                                          'Altitude AAL For Flight Phases')]
-        self.function = max_value
-        self.second_param_method_calls = [('slices_from_to', (50, 1000,), {})]
-"""
-
-
-"""
-class TestAirspeed500To50FtMax(unittest.TestCase, CreateKPVsWithinSlicesTest):
-    def setUp(self):
-        self.node_class = Airspeed50To1000FtMax
-        self.operational_combinations = [('Airspeed',
-                                          'Altitude AAL For Flight Phases')]
-        self.function = max_value
-        self.second_param_method_calls = [('slices_from_to', (500, 50,), {})]
-"""
-
-
 class TestAirspeedAtTouchdown(unittest.TestCase, CreateKPVsAtKTIsTest):
     def setUp(self):
         self.node_class = AirspeedAtTouchdown
@@ -495,44 +455,10 @@ class TestAirspeedMax(unittest.TestCase, CreateKPVsWithinSlicesTest):
         self.assertLess(kpv[1].value, 200)
 
 
-"""
-class TestAirspeedMinusV235To400FtMin(unittest.TestCase,
-                                      CreateKPVsWithinSlicesTest):
-    def setUp(self):
-        self.node_class = AirspeedMinusV235To400FtMin
-        self.operational_combinations = [('Airspeed Minus V2',
-                                          'Altitude AAL For Flight Phases')]
-        self.function = min_value
-        self.second_param_method_calls = [('slices_from_to', (35, 400,), {})]
-        """
-
-
-"""
-class TestAirspeedMinusV2400To1500FtMin(unittest.TestCase,
-                                        CreateKPVsWithinSlicesTest):
-    def setUp(self):
-        self.node_class = AirspeedMinusV2400To1500FtMin
-        self.operational_combinations = [('Airspeed Minus V2',
-                                          'Altitude AAL For Flight Phases')]
-        self.function = min_value
-        self.second_param_method_calls = [('slices_from_to', (400, 1500), {})]
-        """
-        
-
 class TestAirspeedMinusV2AtLiftoff(unittest.TestCase, CreateKPVsAtKTIsTest):
     def setUp(self):
         self.node_class = AirspeedMinusV2AtLiftoff
         self.operational_combinations = [('Airspeed Minus V2', 'Liftoff')]
-
-
-####class TestAirspeedRelative500FtToTouchdownMax(unittest.TestCase,
-####                                               CreateKPVsWithinSlicesTest):
-####    def setUp(self):
-####        self.node_class = AirspeedRelative500FtToTouchdownMax
-####        self.operational_combinations = [('Airspeed Relative',
-####                                          'Altitude AAL For Flight Phases')]
-####        self.function = max_value
-####        self.second_param_method_calls = [('slices_from_to', (500, 0,), {})]
 
 
 class TestAirspeedRelativeAtTouchdown(unittest.TestCase, CreateKPVsAtKTIsTest):
@@ -1684,6 +1610,54 @@ class TestAirspeed10000ToLandMax(unittest.TestCase):
         self.assertTrue(False, msg='Test not implemented.')
 
 
+class TestAirspeed1000To8000FtMax(unittest.TestCase, CreateKPVFromSlicesTest):
+    def setUp(self):
+        self.node_class = Airspeed1000To8000FtMax
+        self.operational_combinations = [('Airspeed', 'Altitude AAL For Flight Phases',)]
+        self.function = max_value
+        self.second_param_method_calls = [('slices_between', (1000, 8000), {})]
+
+
+class TestAirspeed8000To10000FtMax(unittest.TestCase, CreateKPVFromSlicesTest):
+    def setUp(self):
+        self.node_class = Airspeed8000To10000FtMax
+        self.operational_combinations = [('Airspeed', 'Altitude AAL For Flight Phases',)]
+        self.function = max_value
+        self.second_param_method_calls = [('slices_between', (8000, 10000), {})]
+
+
+class TestAirspeed10000To8000FtMax(unittest.TestCase, CreateKPVFromSlicesTest):
+    def setUp(self):
+        self.node_class = Airspeed10000To8000FtMax
+        self.operational_combinations = [('Airspeed', 'Altitude AAL For Flight Phases',)]
+        self.function = max_value
+        self.second_param_method_calls = [('slices_between', (10000, 8000), {})]
+
+
+class TestAirspeed8000To5000FtMax(unittest.TestCase, CreateKPVFromSlicesTest):
+    def setUp(self):
+        self.node_class = Airspeed8000To5000FtMax
+        self.operational_combinations = [('Airspeed', 'Altitude AAL For Flight Phases',)]
+        self.function = max_value
+        self.second_param_method_calls = [('slices_between', (8000, 5000), {})]
+
+
+class TestAirspeed5000To3000FtMax(unittest.TestCase, CreateKPVFromSlicesTest):
+    def setUp(self):
+        self.node_class = Airspeed5000To3000FtMax
+        self.operational_combinations = [('Airspeed', 'Altitude AAL For Flight Phases',)]
+        self.function = max_value
+        self.second_param_method_calls = [('slices_between', (5000, 3000), {})]
+
+
+class TestAirspeed3000To1000FtMax(unittest.TestCase, CreateKPVFromSlicesTest):
+    def setUp(self):
+        self.node_class = Airspeed3000To1000FtMax
+        self.operational_combinations = [('Airspeed', 'Altitude AAL For Flight Phases',)]
+        self.function = max_value
+        self.second_param_method_calls = [('slices_between', (3000, 1000), {})]
+
+
 class TestAirspeed1000To500FtMin(unittest.TestCase,
                                  CreateKPVsWithinSlicesTest):
     def setUp(self):
@@ -1780,46 +1754,6 @@ class TestAirspeedAtLiftoff(unittest.TestCase,
     def setUp(self):
         self.node_class = AirspeedAtLiftoff
         self.operational_combinations = [('Airspeed', 'Liftoff',)]
-
-
-class TestAirspeedBetween1000And3000FtMax(unittest.TestCase,
-                                          CreateKPVFromSlicesTest):
-    def setUp(self):
-        self.node_class = AirspeedBetween1000And3000FtMax
-        self.operational_combinations = [('Airspeed',
-                                          'Altitude AAL For Flight Phases',)]
-        self.function = max_value
-        self.second_param_method_calls = [('slices_between', (1000, 3000), {})]
-
-
-class TestAirspeedBetween3000And5000FtMax(unittest.TestCase,
-                                          CreateKPVFromSlicesTest):
-    def setUp(self):
-        self.node_class = AirspeedBetween3000And5000FtMax
-        self.operational_combinations = [('Airspeed',
-                                          'Altitude AAL For Flight Phases',)]
-        self.function = max_value
-        self.second_param_method_calls = [('slices_between', (3000, 5000), {})]
-
-
-class TestAirspeedBetween5000And8000FtMax(unittest.TestCase,
-                                          CreateKPVFromSlicesTest):
-    def setUp(self):
-        self.node_class = AirspeedBetween5000And8000FtMax
-        self.operational_combinations = [('Airspeed',
-                                          'Altitude AAL For Flight Phases',)]
-        self.function = max_value
-        self.second_param_method_calls = [('slices_between', (5000, 8000), {})]
-
-
-class TestAirspeedBetween8000And10000FtMax(unittest.TestCase,
-                                           CreateKPVFromSlicesTest):
-    def setUp(self):
-        self.node_class = AirspeedBetween8000And10000FtMax
-        self.operational_combinations = [('Airspeed',
-                                          'Altitude AAL For Flight Phases',)]
-        self.function = max_value
-        self.second_param_method_calls = [('slices_between', (8000, 10000), {})]
 
 
 class TestAirspeedBetween90SecToTouchdownAndTouchdownMax(unittest.TestCase):
