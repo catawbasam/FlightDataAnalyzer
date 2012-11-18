@@ -546,7 +546,7 @@ class Touchdown(KeyTimeInstanceNode):
         # landing it won't work, but this will be the least of the problems).
         for air in airs:
             t0 = air.slice.stop
-            for land in lands:
+            for land in (lands or []):
                 if t0 and is_index_within_slice(t0, land.slice):
                     """
                     # Let's scan from 30ft to 10 seconds after the approximate touchdown moment.
@@ -592,14 +592,27 @@ class LandingTurnOffRunway(KeyTimeInstanceNode):
     
                 if (start_search is None) or (start_search < landing.slice.start):
                     start_search = (landing.slice.start+landing.slice.stop)/2
-                peak_bend = peak_curvature(head.array[slice(
-                    start_search,landing.slice.stop)], curve_sense='Bipolar')
+                
+                head_landing = head.array[slice(start_search,landing.slice.stop)]                
+                
+                peak_bend = peak_curvature(head_landing, curve_sense='Bipolar')
+                
+                fifteen_deg = index_at_value(np.ma.abs(head_landing-head_landing[0]),
+                                             15.0)
                 
                 if peak_bend:
                     landing_turn = start_search + peak_bend
                 else:
-                    # No turn, so just use end of landing run.
-                    landing_turn = landing.slice.stop
+                    if fifteen_deg and fifteen_deg < peak_bend:
+
+                        print
+                        print '#### Using 15 deg in preference to peak_bend'
+                        print
+                        
+                        landing_turn = start_search + landing_turn
+                    else:
+                        # No turn, so just use end of landing run.
+                        landing_turn = landing.slice.stop
                 
                 self.create_kti(landing_turn)
     

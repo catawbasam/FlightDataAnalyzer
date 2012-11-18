@@ -26,7 +26,11 @@ def add_track(kml, track_name, lat, lon, colour, alt_param=None):
         track_config['extrude'] = 1
         
     track_coords = []
-    for i in range(len(lat.array)):
+    scope_lon = np.ma.flatnotmasked_edges(lon.array)
+    scope_lat = np.ma.flatnotmasked_edges(lat.array)
+    begin = max(scope_lon[0], scope_lat[0])+1
+    end = min(scope_lon[1], scope_lat[1])-1
+    for i in range(begin, end):
         if lat.array.mask[i] or lon.array.mask[i] or (alt_param and alt_param.array.mask[i]):
             pass  # Masked data not worth plotting
         else:
@@ -85,25 +89,25 @@ def track_to_kml(hdf_path, kti_list, kpv_list, flight_list, plot_altitude=False)
     #lon = derived_param_from_hdf(hdf, 'Longitude Prepared')
     #add_track(kml, 'Prepared', lat, lon, 'ff0000ff')
     
-    #lat_r = derived_param_from_hdf(hdf, 'Latitude')
-    #lon_r = derived_param_from_hdf(hdf, 'Longitude')
-    #add_track(kml, 'Recorded', lat_r, lon_r, 'ff0000ff')
+    lat_r = derived_param_from_hdf(hdf, 'Latitude')
+    lon_r = derived_param_from_hdf(hdf, 'Longitude')
+    add_track(kml, 'Recorded', lat_r, lon_r, 'ff0000ff')
 
     for kti in kti_list:
-        #if kti.name in ['Touchdown']:
         kti_point_values = {'name': kti.name}
-        altitude = alt.at(kti.index) if plot_altitude else None
-        if altitude:
-            kti_point_values['coords'] = ((kti.longitude, kti.latitude, altitude),)
-            kti_point_values['altitudemode'] = simplekml.constants.AltitudeMode.relativetoground 
-        else:
-            kti_point_values['coords'] = ((kti.longitude, kti.latitude,),)
-            kti_point_values['altitudemode'] = simplekml.constants.AltitudeMode.clamptoground 
-    
-        kml.newpoint(**kti_point_values)
+        if kti.name in ['Touchdown', 'Landing Turn Off Runway', 'Localizer Established End']:
+            altitude = alt.at(kti.index) if plot_altitude else None
+            if altitude:
+                kti_point_values['coords'] = ((kti.longitude, kti.latitude, altitude),)
+                kti_point_values['altitudemode'] = simplekml.constants.AltitudeMode.relativetoground 
+            else:
+                kti_point_values['coords'] = ((kti.longitude, kti.latitude,),)
+                kti_point_values['altitudemode'] = simplekml.constants.AltitudeMode.clamptoground 
+        
+            kml.newpoint(**kti_point_values)
         
     for kpv in kpv_list:
-        if kpv.name in ['Turbulence In Flight Max','Turbulence In Cruise Max','Turbulence In Approach Max',]:
+        if kpv.name in ['Put KPV name here',]:
             style = simplekml.Style()
             style.iconstyle.color = simplekml.Color.red
             kpv_point_values = {'name': '%s (%s)' % (kpv.name, kpv.value)}

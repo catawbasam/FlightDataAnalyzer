@@ -1,4 +1,6 @@
 import numpy as np
+from scipy import optimize
+
 import logging
 
 from math import ceil, floor, sqrt, sin, cos, atan2, radians
@@ -712,7 +714,7 @@ def cycle_finder(array, min_step=0.0, include_ends=True):
         except:
             # If there are few vals in the array, there's nothing to tidy up.
             pass
-        idxs = np.append(idxs, len(array))
+        idxs = np.append(idxs, last)
         vals = np.append(vals, array.data[last])
         try:
             if (vals[-3] - vals[-2]) * (vals[-2] - vals[-1]) >= 0.0:
@@ -1418,7 +1420,7 @@ def ground_track(lat_fix, lon_fix, gspd, hdg, frequency, mode):
     :type gspd: Numpy masked array.
     :param hdg: True heading in degrees.
     :type hdg: Numpy masked array.
-    :param frequency: Frequency of the groundspeed and heading data
+    :param frequency: Frequency of the groundspeed and heading data (used for integration scaling).
     :type frequency: Float (units = Hz)
     :param mode: type of calculation to be completed.
     :type mode: String, either 'takeoff' or 'landing' accepted.
@@ -1482,6 +1484,137 @@ def ground_track(lat_fix, lon_fix, gspd, hdg, frequency, mode):
                                          'longitude':lon_fix})
     return lat, lon
 
+
+def ground_track_precise(lat_fix, lon_fix, lat, lon, speed, hdg, frequency, mode):
+    """
+    Computation of the ground track assuming no slipping.
+    :param lat_fix: Fixed latitude point at one end of the data.
+    :type lat_fix: float, latitude degrees.
+    :param lon_fix: Fixed longitude point at the same time as lat_fix.
+    :type lat_fix: float, longitude degrees.
+    
+    :param lat: Latitude for the duration of the ground track.
+    :type lat: Numpy masked array, latitude degrees.
+    :param lon: Longitude for the duration of the ground track.
+    :type lat: Numpy masked array, longitude degrees.
+    
+    :param gspd: Groundspeed in knots.
+    :type gspd: Numpy masked array.
+    :param hdg: True heading in degrees.
+    :type hdg: Numpy masked array.
+
+    :param frequency: Frequency of the array data (required for integration scaling).
+    :type frequency: Float (units = Hz)
+    :param mode: type of calculation to be completed.
+    :type mode: String, either 'takeoff' or 'landing' accepted.
+
+    :returns
+    :param lat_track: Latitude of computed ground track
+    :type lat_track: Numpy masked array
+    :param lon_track: Longitude of computed ground track
+    :type lon_track: Numpy masked array.    
+    
+    :error conditions
+    :Fewer than 5 valid data points, returns None, None
+    :Invalid mode fails with ValueError
+    :Mismatched array lengths fails with ValueError
+    """
+    def compute_weighting_vectors(speed, midpoints, weights, track_slice):
+        # Compute the speed weighted error
+        speed_weighting = np_ma_masked_zeros_like(speed)
+        heading_offset = np_ma_masked_zeros_like(speed)
+        
+        for idx, point in enumerate(midpoints):
+            if idx == 0 or idx == len(midpoints)-1:
+                speed_weighting[point] = 1.0
+                heading_offset[point] = 0.0
+            else:
+                # We like to think of the weights as two vectors, but the
+                # optimization process forces a single dimension hence the
+                # clunky code below.
+                speed_weighting[point] = weights.reshape((2,-1))[0, idx-1]
+                heading_offset[point] = weights.reshape((2,-1))[1, idx-1]
+    
+        speed_weighting = interpolate_and_extend(speed_weighting)
+        speed_weighting[:track_slice.start] = 0.0
+        speed_weighting[track_slice.stop:] = 0.0
+ 
+        heading_offset = interpolate_and_extend(heading_offset)
+        heading_offset[:track_slice.start] = 0.0
+        heading_offset[track_slice.stop:] = 0.0
+        
+        
+        
+        #plt.plot(speed_weighting)
+        #plt.show()
+        
+        #plt.plot(heading_offset)
+        #plt.show()
+        
+        return speed_weighting, heading_offset
+    
+    def compute_error(weights):
+        speed_weighting, heading_offsets = compute_weighting_vectors(speed, midpoints, weights, track_slice)
+        lat_est, lon_est = ground_track(lat_fix, lon_fix, 
+                                        speed * speed_weighting, 
+                                        hdg + heading_offsets, 
+                                        frequency, mode)
+        # Although we compute the whole track (it's easy) we only compute the
+        # error over the track_slice range to ignore the static ends of the
+        # data, which often contain spurious data.
+        error = np.ma.sum((lat[track_slice]-lat_est[track_slice])**2.0 + \
+                          (lon[track_slice]-lon_est[track_slice])**2.0)
+        print error
+        return error
+    
+    # We are going to extend the lat/lon_fix point by the length of the gspd/hdg arrays.
+    # First check that the gspd/hdg arrays are sensible.
+    if (len(speed) != len(hdg)) or (len(speed) != len(lat)) or (len(speed) != len(lon)):
+        raise ValueError('Ground_track_precise requires equi-length arrays')
+
+    # Compute the rate of turn and find peaks
+    track_ends = np.ma.flatnotmasked_edges(np.ma.masked_less(speed, 1.0))
+    track_slice=slice(track_ends[0],track_ends[1])
+    rot = np.ma.abs(rate_of_change_array(hdg[track_slice], frequency))
+    peaks = cycle_finder(rot, min_step=3.0)
+    peak_index = peaks[0][1::2]
+    
+    # Identify the midpoints between peaks (and between the end peaks and start and stop of the data)
+    midpoints = np.array(peaks[0][0])
+    midpoints = np.append(midpoints, (peaks[0][0] + peaks[0][1])/2)
+    midpoints = np.append(midpoints, (peak_index[1:] + peak_index[:-1])/2)
+    midpoints = np.append(midpoints, (peaks[0][-2] + peaks[0][-1])/2)
+    midpoints = np.append(midpoints, peaks[0][-1])
+    
+    # Initialize the weights for no change.
+    #   weights[0,:] = multiplication speed weights based on one
+    #   weights[1,:] = addition heading weights based on zero
+    weights = np.ma.ones((2, len(midpoints)-2))
+    #weights[1,:] = 0.0
+    
+    # Then iterate until optimised solution has been found. We use a dull
+    # algorithm for reliability, rather than the more exciting forms which
+    # can go astray and give less predictable results.
+    weights_opt = optimize.fmin(compute_error, weights)
+    high_wt = np.max(weights_opt)
+    
+    print weights_opt.reshape((2,-1))
+    print [weights_opt.reshape((2,-1))[0,i]*(midpoints[i+1]-midpoints[i]) for i in range(len(weights_opt)/2)]
+    
+    if high_wt < 9999:
+        # Return the answer
+        speed_weighting, heading_offset = compute_weighting_vectors(speed, midpoints, weights_opt, track_slice)
+        lat_est, lon_est = ground_track(lat_fix, lon_fix,
+                                        speed * speed_weighting,
+                                        hdg + heading_offset,
+                                        frequency, mode)
+        import matplotlib.pyplot as plt
+        plt.plot(lat_est, lon_est)
+        plt.plot(lat[track_slice], lon[track_slice])
+        plt.show()
+        return lat_est, lon_est, high_wt
+    else:
+        return lat, lon, high_wt # Return unchanged data if the attempt to optimise went haywire.
 
 def hash_array(array):
     '''
@@ -2742,6 +2875,18 @@ def np_ma_ones_like(array):
     return np_ma_zeros_like(array) + 1.0
 
 
+def np_ma_ones(length):
+    """
+    Creates a masked array filled with ones.
+    
+    :param length: length of the array to be created.
+    :type length: integer.
+    
+    :returns: Numpy masked array of unmasked 1.0 float values, length as specified.
+    """
+    return np_ma_zeros_like(np.ma.arange(length)) + 1.0
+
+
 def np_ma_masked_zeros_like(array):
     """
     Creates a masked array filled with masked values. The unmasked data
@@ -2927,8 +3072,11 @@ def peak_curvature(array, _slice=slice(None), curve_sense='Concave',
                                                          '''
         
         # Here we deal with problem cases.
-        if len(valid_slices) == 0 or (valid_slice.stop - valid_slice.start) < 4:
-            # No valid data segments were long enough to process.
+        if len(valid_slices) == 0 or \
+           (valid_slice.stop - valid_slice.start) < 4 or\
+           np.ma.ptp(input_data[valid_slice]) == 0:
+            # No valid data segments were long enough to process, or had any
+            # variation to scan.
             return None
         else:
             # Simple methods for small data sets.

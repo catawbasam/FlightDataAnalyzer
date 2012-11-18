@@ -27,6 +27,7 @@ from analysis_engine.library import (air_track,
                                      first_order_lag,
                                      first_order_washout,
                                      ground_track,
+                                     ground_track_precise,
                                      hysteresis,
                                      index_at_value,
                                      integrate,
@@ -3123,8 +3124,42 @@ class CoordinatesSmoothed(object):
     cases we use all the data available to correct for errors in the recorded
     position at takeoff, approach and landing.
     '''
+    def taxi_out_track_pp(self, toff_slice, lat, lon, lat_adj, lon_adj, speed, hdg, freq):
+        '''
+        Compute a groundspeed and heading based taxi out track.
+        '''
+        [lat_adj[:toff_slice.start],
+        lon_adj[:toff_slice.start]],
+        wt = ground_track_precise(lat.data[toff_slice.start],
+                                  lon.data[toff_slice.start],
+                                  lat[:toff_slice.start],
+                                  lon[:toff_slice.start],
+                                  speed[:toff_slice.start],
+                                  hdg.array[:toff_slice.start],
+                                  freq, 
+                                  'takeoff')
 
-    def taxi_out_track(self, lat_adj, toff_slice, lon_adj, hdg, freq, speed):
+    def taxi_in_track_pp(self, this_loc, lat, lon, lat_adj, lon_adj, speed, hdg, freq):
+        '''
+        Compute a groundspeed and heading based taxi in track.
+        '''
+        # We transition at the end of the localizer computed phase to avoid
+        # any wavy tracks between the two computations.
+        join_idx = this_loc.slice.stop
+        
+        if join_idx and (len(lat_adj) > join_idx): # We have some room to extend over.
+            [lat_adj[join_idx:], 
+             lon_adj[join_idx:]],
+            wt = ground_track_precise(lat.data[join_idx],
+                                      lon.data[join_idx],
+                                      lat.data[join_idx:],
+                                      lon.data[join_idx:],                         
+                                      speed[join_idx:],
+                                      hdg.array[join_idx:],
+                                      freq, 
+                                      'landing')
+                
+    def taxi_out_track(self, toff_slice, lat_adj, lon_adj, speed, hdg, freq):
         '''
         Compute a groundspeed and heading based taxi out track.
         TODO: Include lat & lon corrections for precise positioning tracks.
@@ -3138,16 +3173,17 @@ class CoordinatesSmoothed(object):
                          freq, 
                          'takeoff')
     
-    def taxi_in_track(self, this_loc, gspd, lat_adj, hdg, lon_adj, freq, speed):
+    def taxi_in_track(self, this_loc, lat_adj, lon_adj, speed, hdg, freq):
         '''
         Compute a groundspeed and heading based taxi in track.
         TODO: Include lat & lon corrections for precise positioning tracks.
         '''
         # A transition at 40kts is simpler and works reliably.
-        join_idx = index_at_value(gspd.array, 40.0, this_loc.slice)
+        join_idx = index_at_value(speed, 40.0, this_loc.slice)
         
         if join_idx and (len(lat_adj) > join_idx): # We have some room to extend over.
-            [lat_adj[join_idx:], lon_adj[join_idx:]] = \
+            [lat_adj[join_idx:], 
+             lon_adj[join_idx:]] = \
                 ground_track(lat_adj.data[join_idx],
                              lon_adj.data[join_idx],
                              speed[join_idx:], 
@@ -3171,10 +3207,7 @@ class CoordinatesSmoothed(object):
         if toff_rwy and first_toff and toff_rwy.value:
             toff_slice = first_toff.slice
             
-            lat_adj[toff_slice][0] = lat.array[toff_slice][0]
-            lon_adj[toff_slice][0] = lon.array[toff_slice][0]
- 
-            self.taxi_out_track(lat_adj, toff_slice, lon_adj, hdg, freq, speed)
+            self.taxi_out_track_pp(toff_slice, lat.array, lon.array, lat_adj, lon_adj, speed, hdg, freq)
 
         #-----------------------------------------------------------------------
         # Use ILS track for approach and landings in all localizer approches
@@ -3220,7 +3253,7 @@ class CoordinatesSmoothed(object):
                 lat_adj[this_loc.slice.start] = np.ma.masked
                 lon_adj[this_loc.slice.start] = np.ma.masked
 
-                self.taxi_in_track(this_loc, gspd, lat_adj, hdg, lon_adj, freq, speed)
+                self.taxi_in_track_pp(this_loc, lat.array, lon.array, lat_adj, lon_adj, speed, hdg, freq)
                 
             return lat_adj, lon_adj
         else:
@@ -3278,7 +3311,7 @@ class CoordinatesSmoothed(object):
         # Use synthesized taxi out track
         #--------------------------------
         
-            self.taxi_out_track(lat_adj, toff_slice, lon_adj, hdg, freq, speed)
+            self.taxi_out_track(lat_adj, toff_slice, lon_adj, speed, hdg, freq)
         else:
             self.warning("Cannot smooth takeoff without runway details.")
 
@@ -3329,7 +3362,7 @@ class CoordinatesSmoothed(object):
                 lon_adj[this_loc.slice.start] = np.ma.masked
                 
                 if approach['type'] == 'LANDING':
-                    self.taxi_in_track(this_loc, gspd, lat_adj, hdg, lon_adj, freq, speed)
+                    self.taxi_in_track(this_loc, lat_adj, lon_adj, speed, hdg, freq)
 
             return lat_adj, lon_adj
         else:
