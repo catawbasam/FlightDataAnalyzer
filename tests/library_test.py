@@ -1435,6 +1435,10 @@ class TestIndexAtValue(unittest.TestCase):
         array = np.ma.arange(4)
         self.assertEquals (index_at_value(array, 7.5, slice(0, 3)), None)
         
+    def test_index_at_value_threshold_closing(self):
+        array = np.ma.arange(4)
+        self.assertEquals (index_at_value(array, 99, slice(1, None), endpoint='closing'), 3)
+        
     def test_index_at_value_masked(self):
         array = np.ma.arange(4)
         array[1] = np.ma.masked

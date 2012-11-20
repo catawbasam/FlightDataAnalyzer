@@ -1589,29 +1589,35 @@ def ground_track_precise(lat_fix, lon_fix, lat, lon, speed, hdg, frequency, mode
     # Initialize the weights for no change.
     #   weights[0,:] = multiplication speed weights based on one
     #   weights[1,:] = addition heading weights based on zero
-    weights = np.ma.ones((2, len(midpoints)-2))
+    weight_length = len(midpoints)-2
+    weights = np.ma.ones((2, weight_length))
     #weights[1,:] = 0.0
+    speed_bound = (0.8,1.25)
+    head_bound = (-5,5)
+    boundaries = [speed_bound]*weight_length + [head_bound]*weight_length
     
     # Then iterate until optimised solution has been found. We use a dull
     # algorithm for reliability, rather than the more exciting forms which
     # can go astray and give less predictable results.
-    weights_opt = optimize.fmin(compute_error, weights)
-    high_wt = np.max(weights_opt)
+    # weights_opt = optimize.fmin(compute_error, weights)
+    weights_opt = optimize.fmin_l_bfgs_b(compute_error, weights, fprime=None, approx_grad=True, bounds=boundaries)
     
-    print weights_opt.reshape((2,-1))
-    print [weights_opt.reshape((2,-1))[0,i]*(midpoints[i+1]-midpoints[i]) for i in range(len(weights_opt)/2)]
+    high_wt = np.max(weights_opt[0])
+    
+    print weights_opt[0].reshape((2,-1))
+    print [weights_opt[0].reshape((2,-1))[0,i]*(midpoints[i+1]-midpoints[i]) for i in range(len(weights_opt[0])/2)]
     
     if high_wt < 9999:
         # Return the answer
-        speed_weighting, heading_offset = compute_weighting_vectors(speed, midpoints, weights_opt, track_slice)
+        speed_weighting, heading_offset = compute_weighting_vectors(speed, midpoints, weights_opt[0], track_slice)
         lat_est, lon_est = ground_track(lat_fix, lon_fix,
                                         speed * speed_weighting,
                                         hdg + heading_offset,
                                         frequency, mode)
-        import matplotlib.pyplot as plt
-        plt.plot(lat_est, lon_est)
-        plt.plot(lat[track_slice], lon[track_slice])
-        plt.show()
+        ##import matplotlib.pyplot as plt
+        ##plt.plot(lat_est, lon_est)
+        ##plt.plot(lat[track_slice], lon[track_slice])
+        ##plt.show()
         return lat_est, lon_est, high_wt
     else:
         return lat, lon, high_wt # Return unchanged data if the attempt to optimise went haywire.
@@ -3841,8 +3847,8 @@ def index_at_value(array, threshold, _slice=slice(None), endpoint='exact'):
             i=begin
             while (closing_array [i+step]<=closing_array [i]):
                 i += step
-                if i==end:
-                    return end
+                if i == end-1:
+                    return end-1
             return i
         else:
             return None
