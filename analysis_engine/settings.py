@@ -33,7 +33,7 @@ NODE_MODULES = ['analysis_engine.derived_parameters',
 
 # API Handler
 API_HANDLER = 'analysis_engine.api_handler_analysis_engine.AnalysisEngineAPIHandlerHTTP'
-##API_HANDLER = 'analysis_engine.api_handler_analysis_engine.AnalysisEngineAPIHandlerDUMMY'
+##API_HANDLER = 'analysis_engine.api_handler_analysis_engine.AnalysisEngineAPIHandlerDummy'
 
 # Base URL for the API for determining nearest airport/runway, etc:
 BASE_URL = 'https://polaris.flightdataservices.com'
@@ -333,7 +333,7 @@ NAME_VALUES_CLIMB = {
 
 
 NAME_VALUES_DESCENT = {
-        'altitude': NAME_VALUES_CLIMB['altitude'][::-1],
+    'altitude': NAME_VALUES_CLIMB['altitude'][::-1],
 }
 
 

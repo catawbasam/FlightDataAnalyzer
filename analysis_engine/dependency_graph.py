@@ -196,7 +196,7 @@ def graph_nodes(node_mgr):
     if missing_derived_dep:
         logger.warning("Found %s dependencies which don't exist in LFL "
                         "nor Node modules.", len(missing_derived_dep))
-        logger.info("The missing dependencies: %s", missing_derived_dep)
+        logger.debug("The missing dependencies: %s", missing_derived_dep)
     if missing_required:
         raise ValueError("Missing required parameters: %s" % missing_required)
 
@@ -217,7 +217,7 @@ def process_order(gr_all, node_mgr):
     :rtype: 
     """
     process_order = dependencies3(gr_all, 'root', node_mgr)
-    logger.info("Processing order of %d nodes is: %s", len(process_order), process_order)
+    logger.debug("Processing order of %d nodes is: %s", len(process_order), process_order)
     
     for n, node in enumerate(process_order):
         gr_all.node[node]['label'] = '%d: %s' % (n, node)

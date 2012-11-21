@@ -984,8 +984,9 @@ def first_valid_sample(array, start_index=0):
     :returns value: the value of first valid sample.
     :type index: Float or None
     '''
-    # Trap for start_index < 0 ensures we don't stray into the far end of the array.    
-    if start_index < 0 or start_index > len(array):
+    # Trap to ensure we don't stray into the far end of the array and that the
+    # sliced array is not empty.
+    if not 0 <= start_index < len(array):
         return None, None
     
     clumps = np.ma.clump_unmasked(array[start_index:])
@@ -1620,7 +1621,8 @@ def ils_localizer_align(runway):
     return {'latitude':new_lat, 'longitude':new_lon}
 
 
-def integrate(array, frequency, initial_value=0.0, scale=1.0, direction="forwards"):
+def integrate(array, frequency, initial_value=0.0, scale=1.0, 
+              direction="forwards", contiguous=False):
     """
     Trapezoidal integration
     
@@ -1637,6 +1639,8 @@ def integrate(array, frequency, initial_value=0.0, scale=1.0, direction="forward
     :type scale: float
     :param direction: Optional integration sense, default = 'forwards'
     :type direction: String - ['forwards', 'backwards', 'reverse']
+    :param contiguous: Option to restrict the output to the single longest contiguous section of data
+    :type contiguous: Logical
     
     Note: Reverse integration does not include a change of sign, so positive 
     values have a negative slope following integration using this function.
@@ -1650,8 +1654,25 @@ def integrate(array, frequency, initial_value=0.0, scale=1.0, direction="forward
     than the repair limit exist, subsequent values in the array will all be 
     masked.
     """
+    if np.ma.count(array)==0:
+        return np_ma_masked_zeros_like(array)
+    
     result = np.ma.copy(array)
     
+    if contiguous:
+        blocks = np.ma.clump_unmasked(array)
+        longest_index = None
+        longest_slice = 0
+        for n, block in enumerate(blocks):
+            slice_length = block.stop-block.start
+            if slice_length > longest_slice:
+                longest_slice = slice_length
+                longest_index = n
+        integrand = np_ma_masked_zeros_like(array)
+        integrand[blocks[longest_index]] = array[blocks[longest_index]]
+    else:
+        integrand = array
+        
     if direction.lower() == 'forwards':
         d = +1
         s = +1
@@ -1665,11 +1686,12 @@ def integrate(array, frequency, initial_value=0.0, scale=1.0, direction="forward
         raise ValueError("Invalid direction '%s'" % direction)
         
     k = (scale * 0.5)/frequency
-    to_int = k * (array + np.roll(array, d))
+    to_int = k * (integrand + np.roll(integrand, d))
+    edges = np.ma.flatnotmasked_edges(to_int)
     if direction == 'forwards':
-        to_int[0] = initial_value
+        to_int[edges[0]] = initial_value
     else:
-        to_int[-1] = initial_value * s 
+        to_int[edges[1]] = initial_value * s 
         # Note: Sign of initial value will be reversed twice for backwards case.
         
     result[::d] = np.ma.cumsum(to_int[::d] * s)
@@ -3470,7 +3492,7 @@ def track_linking(pos, local_pos):
             fix = np.linspace(fix_a, fix_b, num=b-a)
         else:
             fix = np.linspace(fix_a, fix_b, num=b-a+2)[1:-1]
-        local_pos[a:b] = pos[a:b] + fix
+        local_pos[block] = pos[block] + fix
     return local_pos
 
 
@@ -3899,6 +3921,7 @@ def dp2tas(dp, alt_ft, sat):
     P = alt2press(alt_ft)
     press_ratio = alt2press_ratio(alt_ft)
     temp_ratio = (sat + 273.15) / 288.15
+    # FIXME: FloatingPointError: underflow encountered in multiply
     density_ratio = press_ratio / temp_ratio
     Rho = Rhoref * density_ratio
     tas = _dp2speed(dp, P, Rho)
@@ -3928,5 +3951,6 @@ def _alt2press_ratio_gradient(H):
     return np.ma.power(1 - H/145442.0, 5.255876)
 
 def _alt2press_ratio_isothermal(H):
+    # FIXME: FloatingPointError: overflow encountered in exp
     return 0.223361 * np.ma.exp((36089.0-H)/20806.0)
 

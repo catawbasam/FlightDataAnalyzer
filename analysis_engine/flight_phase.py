@@ -426,7 +426,7 @@ class Fast(FlightPhaseNode):
 
 class FinalApproach(FlightPhaseNode):
     def derive(self, alt_aal=P('Altitude AAL For Flight Phases')):
-        self.create_phases(alt_aal.slices_from_to(500, 0))
+        self.create_phases(alt_aal.slices_from_to(1000, 50))
 
 
 class GearExtending(FlightPhaseNode):
@@ -440,50 +440,46 @@ class GearExtending(FlightPhaseNode):
     """
     @classmethod
     def can_operate(cls, available):
-        return 'Gear Down' in available
-    
-    def derive(self, gear_down=M('Gear Down'), 
+        return 'Gear Down' in available and 'Airborne' in available
+
+    def derive(self, gear_down=M('Gear Down'),
                gear_warn_l=P('Gear (L) Red Warning'),
                gear_warn_n=P('Gear (N) Red Warning'),
                gear_warn_r=P('Gear (R) Red Warning'),
                frame=A('Frame'), airs=S('Airborne')):
-        frame_name = frame.value if frame else None
-
-        # Aircraft with red warning captions to show travelling
-
-        if frame_name in ['737-1', '737-3C']:
+        if any((gear_warn_l, gear_warn_n, gear_warn_r)):
+            # Aircraft with red warning captions to show travelling
+            if not all((gear_warn_l, gear_warn_n, gear_warn_r)):
+                frame_name = frame.value if frame else None
+                # some, but not all are available. Q: allow for any combination
+                # rather than raising exception
+                raise DataFrameError(self.name, frame_name)
             gear_warn = np.ma.logical_or(gear_warn_l.array, gear_warn_r.array)
             gear_warn = np.ma.logical_or(gear_warn, gear_warn_n.array)
             slices = _ezclump(gear_warn)
-            if gear_warn[0] == 0: 
-                gear_moving = slices[1::2] 
-            else: 
-                gear_moving = slices[::2]             
+            if gear_warn[0] == 0:
+                gear_moving = slices[1::2]
+            else:
+                gear_moving = slices[::2]
             for air in airs:
                 gear_moves = slices_and([air.slice], gear_moving)
                 for gear_move in gear_moves:
                     if gear_down.array[gear_move.start - 1] == \
                             gear_down.array.state['Up']:
                         self.create_phase(gear_move)
-        
-        # Aircraft without red warning captions for travelling
 
-        elif frame_name in ['737-5', '737-5_NON-EIS', '737-6', '737-i',
-                            'E135-145']:
-            edge_list=[]
+        else:
+            # Aircraft without red warning captions for travelling
+            edge_list = []
             for air in airs:
                 edge_list.append(find_edges(gear_down.array.raw, air.slice))
             # We now have a list of lists and this trick flattens the result.
-            for edge in sum(edge_list,[]):
+            for edge in sum(edge_list, []):
                 # We have no transition state, so allow 5 seconds for the
                 # gear to extend.
                 begin = edge
-                end = edge+(5.0*gear_down.frequency)
+                end = edge + (5.0 * gear_down.frequency)
                 self.create_phase(slice(begin, end))
-                
-        else:
-            raise DataFrameError(self.name, frame_name)
-
 
 
 class GearRetracting(FlightPhaseNode):
@@ -492,50 +488,46 @@ class GearRetracting(FlightPhaseNode):
     '''
     @classmethod
     def can_operate(cls, available):
-        return 'Gear Down' in available
+        return 'Gear Down' in available and 'Airborne' in available
 
-    def derive(self, gear_down=M('Gear Down'), 
+    def derive(self, gear_down=M('Gear Down'),
                gear_warn_l=P('Gear (L) Red Warning'),
                gear_warn_n=P('Gear (N) Red Warning'),
                gear_warn_r=P('Gear (R) Red Warning'),
                frame=A('Frame'), airs=S('Airborne')):
-        frame_name = frame.value if frame else None
-        # Aircraft with red warning captions to show travelling
-
-        if frame_name in ['737-1', '737-3C']:
-            if not all((gear_warn_l, gear_warn_n, gear_warn_r, frame, airs)):
+        if any((gear_warn_l, gear_warn_n, gear_warn_r)):
+            # Aircraft with red warning captions to show travelling
+            if not all((gear_warn_l, gear_warn_n, gear_warn_r)):
+                frame_name = frame.value if frame else None
+                # some, but not all are available. Q: allow for any combination
+                # rather than raising exception
                 raise DataFrameError(self.name, frame_name)
             gear_warn = np.ma.logical_or(gear_warn_l.array, gear_warn_r.array)
             gear_warn = np.ma.logical_or(gear_warn, gear_warn_n.array)
             slices = _ezclump(gear_warn)
-            if gear_warn[0] == 0: 
-                gear_moving = slices[1::2] 
-            else: 
-                gear_moving = slices[::2]             
+            if gear_warn[0] == 0:
+                gear_moving = slices[1::2]
+            else:
+                gear_moving = slices[::2]
             for air in airs:
                 gear_moves = slices_and([air.slice], gear_moving)
                 for gear_move in gear_moves:
                     if gear_down.array[gear_move.start - 1] == \
                        gear_down.array.state['Down']:
                         self.create_phase(gear_move)
-        
-        # Aircraft without red warning captions for travelling
-
-        elif frame_name in ['737-5', '737-5_NON-EIS', '737-6', '737-i', 
-                            'E135-145']:
+        else:
+            # Aircraft without red warning captions for travelling
             edge_list = []
             for air in airs:
                 edge_list.append(find_edges(gear_down.array.raw, air.slice,
                                             direction='falling_edges'))
             # We now have a list of lists and this trick flattens the result.
-            for edge in sum(edge_list,[]):
+            for edge in sum(edge_list, []):
                 # We have no transition state, so allow 5 seconds for the
                 # gear to retract.
                 begin = edge
                 end = edge + (5.0 * gear_down.frequency)
                 self.create_phase(slice(begin, end))
-        else:
-            raise DataFrameError(self.name, frame_name)
 
 
 def scan_ils(beam, ils_dots, height, scan_slice):
@@ -559,6 +551,12 @@ def scan_ils(beam, ils_dots, height, scan_slice):
                                                 scan_slice.start, -1),
                              endpoint='closing')
 
+    # In some error cases the height can be all zero or masked, leaving the
+    # end of the scan as the result. This is invalid so we return empty
+    # handed.
+    if idx_200 == scan_slice.start:
+        return None
+    
     # Now work back to 2.5 dots when the indication is first visible.
     dots_25 = index_at_value(np.ma.abs(ils_dots), 2.5,
                              slice(idx_200, scan_slice.start, -1))
@@ -668,8 +666,8 @@ class ILSGlideslopeEstablished(FlightPhaseNode):
                 # values may be small.
                 if gs_est:
                     good_data = np.ma.count(ils_gs.array[gs_est])
-                    all_data = len(ils_gs.array[gs_est])
-                    if good_data/all_data < 0.7:
+                    all_data = len(ils_gs.array[gs_est]) or 1
+                    if good_data / all_data < 0.7:
                         self.warning('ILS glideslope signal poor quality in '
                                      'approach - considered not established.')
                         continue

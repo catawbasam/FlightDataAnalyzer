@@ -5,10 +5,16 @@ import unittest
 
 from mock import Mock, patch
 
+from utilities.geometry import midpoint
+
 from analysis_engine.derived_parameters import Flap
 from analysis_engine.library import align
-from analysis_engine.node import (KeyTimeInstance, KTI, KeyPointValue, 
-                                  Parameter, P, Section)
+from analysis_engine.node import (
+    A, KPV, KTI, P, S,
+    KeyPointValue, 
+    KeyTimeInstance,
+    Section,
+)
 
 from analysis_engine.key_point_values import (
     AccelerationLateralAtTouchdown,
@@ -26,15 +32,19 @@ from analysis_engine.key_point_values import (
     AccelerationNormalLiftoffTo35FtMax,
     AccelerationNormalMax,
     AccelerationNormalOffset,
+    Airspeed10000To8000FtMax,
     Airspeed10000ToLandMax,
     Airspeed1000To500FtMax,
     Airspeed1000To500FtMin,
-    Airspeed2000To30FtMin,
+    Airspeed1000To8000FtMax,
+    Airspeed3000To1000FtMax,
     Airspeed35To1000FtMax,
     Airspeed35To1000FtMin,
-    Airspeed400To1500FtMin,
+    Airspeed5000To3000FtMax,
     Airspeed500To20FtMax,
     Airspeed500To20FtMin,
+    Airspeed8000To10000FtMax,
+    Airspeed8000To5000FtMax,
     AirspeedAsGearExtendingMax,
     AirspeedAsGearRetractingMax,
     AirspeedAt35FtInTakeoff,
@@ -44,10 +54,6 @@ from analysis_engine.key_point_values import (
     AirspeedAtTouchdown,
     AirspeedBelowAltitudeMax,
     AirspeedBetween90SecToTouchdownAndTouchdownMax,
-    AirspeedBetween1000And3000FtMax,
-    AirspeedBetween3000And5000FtMax,
-    AirspeedBetween5000And8000FtMax,
-    AirspeedBetween8000And10000FtMax,
     AirspeedCruiseMax,
     AirspeedCruiseMin,
     AirspeedLevelFlightMax,
@@ -55,13 +61,14 @@ from analysis_engine.key_point_values import (
     AirspeedMinusV235To1000FtMax,
     AirspeedMinusV235To1000FtMin,
     AirspeedMinusV2AtLiftoff,
-    AirspeedRelativeAtTouchdown,
+    AirspeedRTOMax,
     AirspeedRelative1000To500FtMax,
     AirspeedRelative1000To500FtMin,
     AirspeedRelative20FtToTouchdownMax,
     AirspeedRelative20FtToTouchdownMin,
     AirspeedRelative500To20FtMax,
     AirspeedRelative500To20FtMin,        
+    AirspeedRelativeAtTouchdown,
     AirspeedRelativeFor3Sec1000To500FtMax,
     AirspeedRelativeFor3Sec1000To500FtMin,
     AirspeedRelativeFor3Sec20FtToTouchdownMax,
@@ -75,17 +82,16 @@ from analysis_engine.key_point_values import (
     AirspeedRelativeFor5Sec500To20FtMax,
     AirspeedRelativeFor5Sec500To20FtMin,
     AirspeedRelativeWithFlapDescentMin,
-    AirspeedRTOMax,
-    AirspeedThrustReversersDeployedMin,
     AirspeedTODTo10000Max,
+    AirspeedThrustReversersDeployedMin,
     AirspeedTrueAtTouchdown,
     AirspeedVacatingRunway,
-    AirspeedWithFlapMax,
-    AirspeedWithFlapMin,
     AirspeedWithFlapClimbMax,
     AirspeedWithFlapClimbMin,
     AirspeedWithFlapDescentMax,
     AirspeedWithFlapDescentMin,
+    AirspeedWithFlapMax,
+    AirspeedWithFlapMin,
     AirspeedWithGearDownMax,
     AltitudeAtFirstFlapChangeAfterLiftoff,
     AltitudeAtGoAroundMin,
@@ -100,7 +106,6 @@ from analysis_engine.key_point_values import (
     AltitudeAutothrottleEngaged,    
     AltitudeFlapExtensionMax,
     AltitudeGoAroundFlapRetracted,
-    AltitudeGoAroundGearRetracted,
     AltitudeMax,
     ControlColumnStiffness,
     EngEPR500FtToTouchdownMin,
@@ -125,7 +130,13 @@ from analysis_engine.key_point_values import (
     ILSLocalizerDeviation1500To1000FtMax,
     ILSLocalizerDeviation1000To250FtMax,    
     LatitudeAtLanding,
+    LatitudeAtLiftoff,
+    LatitudeAtTakeoff,
+    LatitudeAtTouchdown,
     LongitudeAtLanding,
+    LongitudeAtLiftoff,
+    LongitudeAtTakeoff,
+    LongitudeAtTouchdown,
     MachMax,
     Pitch35To400FtMax,
     Pitch35To400FtMin,
@@ -155,8 +166,10 @@ test_data_path = os.path.join(os.path.dirname(os.path.abspath(__file__)),
 
 class NodeTest(object):
     def test_can_operate(self):
-        self.assertEqual(self.node_class.get_operational_combinations(),
-                         self.operational_combinations)
+        self.assertEqual(
+            self.node_class.get_operational_combinations(),
+            self.operational_combinations,
+        )
 
 
 class CreateKPVsAtKPVsTest(NodeTest):
@@ -372,8 +385,8 @@ class TestAirspeed1000To500FtMax(unittest.TestCase, CreateKPVsWithinSlicesTest):
     def test_airspeed_1000_500_basic(self):
         testline = np.arange(0, 12.6, 0.1)
         testwave = (np.cos(testline) * -100) + 100
-        spd = Parameter('Airspeed', np.ma.array(testwave))
-        alt_ph = Parameter('Altitude AAL For Flight Phases', 
+        spd = P('Airspeed', np.ma.array(testwave))
+        alt_ph = P('Altitude AAL For Flight Phases', 
                            np.ma.array(testwave) * 10)
         kpv = Airspeed1000To500FtMax()
         kpv.derive(spd, alt_ph)
@@ -382,46 +395,6 @@ class TestAirspeed1000To500FtMax(unittest.TestCase, CreateKPVsWithinSlicesTest):
         self.assertEqual(kpv[0].value, 91.250101656055278)
         self.assertEqual(kpv[1].index, 110)
         self.assertEqual(kpv[1].value, 99.557430201194919)
-
-
-class TestAirspeed2000To30FtMin(unittest.TestCase, CreateKPVsWithinSlicesTest):
-    def setUp(self):
-        self.node_class = Airspeed2000To30FtMin
-        self.operational_combinations = [('Airspeed',
-                                          'Altitude AAL For Flight Phases')]
-        self.function = min_value
-        self.second_param_method_calls = [('slices_from_to', (2000, 30,), {})]
-
-
-class TestAirspeed400To1500FtMin(unittest.TestCase, CreateKPVsWithinSlicesTest):
-    def setUp(self):
-        self.node_class = Airspeed400To1500FtMin
-        self.operational_combinations = [('Airspeed',
-                                          'Altitude AAL For Flight Phases')]
-        self.function = min_value
-        self.second_param_method_calls = [('slices_from_to', (400, 1500,), {})]
-
-
-"""
-class TestAirspeed50To1000FtMax(unittest.TestCase, CreateKPVsWithinSlicesTest):
-    def setUp(self):
-        self.node_class = Airspeed50To1000FtMax
-        self.operational_combinations = [('Airspeed',
-                                          'Altitude AAL For Flight Phases')]
-        self.function = max_value
-        self.second_param_method_calls = [('slices_from_to', (50, 1000,), {})]
-"""
-
-
-"""
-class TestAirspeed500To50FtMax(unittest.TestCase, CreateKPVsWithinSlicesTest):
-    def setUp(self):
-        self.node_class = Airspeed50To1000FtMax
-        self.operational_combinations = [('Airspeed',
-                                          'Altitude AAL For Flight Phases')]
-        self.function = max_value
-        self.second_param_method_calls = [('slices_from_to', (500, 50,), {})]
-"""
 
 
 class TestAirspeedAtTouchdown(unittest.TestCase, CreateKPVsAtKTIsTest):
@@ -463,7 +436,7 @@ class TestAirspeedMax(unittest.TestCase, CreateKPVsWithinSlicesTest):
     def test_airspeed_max_basic(self):
         testline = np.arange(0,12.6,0.1)
         testwave = (np.cos(testline)*(-100))+100
-        spd = Parameter('Airspeed', np.ma.array(testwave))
+        spd = P('Airspeed', np.ma.array(testwave))
         waves=np.ma.clump_unmasked(np.ma.masked_less(testwave,80))
         airs=[]
         for wave in waves:
@@ -482,44 +455,10 @@ class TestAirspeedMax(unittest.TestCase, CreateKPVsWithinSlicesTest):
         self.assertLess(kpv[1].value, 200)
 
 
-"""
-class TestAirspeedMinusV235To400FtMin(unittest.TestCase,
-                                      CreateKPVsWithinSlicesTest):
-    def setUp(self):
-        self.node_class = AirspeedMinusV235To400FtMin
-        self.operational_combinations = [('Airspeed Minus V2',
-                                          'Altitude AAL For Flight Phases')]
-        self.function = min_value
-        self.second_param_method_calls = [('slices_from_to', (35, 400,), {})]
-        """
-
-
-"""
-class TestAirspeedMinusV2400To1500FtMin(unittest.TestCase,
-                                        CreateKPVsWithinSlicesTest):
-    def setUp(self):
-        self.node_class = AirspeedMinusV2400To1500FtMin
-        self.operational_combinations = [('Airspeed Minus V2',
-                                          'Altitude AAL For Flight Phases')]
-        self.function = min_value
-        self.second_param_method_calls = [('slices_from_to', (400, 1500), {})]
-        """
-        
-
 class TestAirspeedMinusV2AtLiftoff(unittest.TestCase, CreateKPVsAtKTIsTest):
     def setUp(self):
         self.node_class = AirspeedMinusV2AtLiftoff
         self.operational_combinations = [('Airspeed Minus V2', 'Liftoff')]
-
-
-####class TestAirspeedRelative500FtToTouchdownMax(unittest.TestCase,
-####                                               CreateKPVsWithinSlicesTest):
-####    def setUp(self):
-####        self.node_class = AirspeedRelative500FtToTouchdownMax
-####        self.operational_combinations = [('Airspeed Relative',
-####                                          'Altitude AAL For Flight Phases')]
-####        self.function = max_value
-####        self.second_param_method_calls = [('slices_from_to', (500, 0,), {})]
 
 
 class TestAirspeedRelativeAtTouchdown(unittest.TestCase, CreateKPVsAtKTIsTest):
@@ -591,7 +530,7 @@ class TestAltitudeMax(unittest.TestCase, CreateKPVsWithinSlicesTest):
 
 class TestAltitudeAtSuspectedLevelBust(unittest.TestCase):
     def test_handling_no_data(self):
-        alt=Parameter('Altitude STD',np.ma.array([0,1000,1000,1000,1000]))
+        alt=P('Altitude STD',np.ma.array([0,1000,1000,1000,1000]))
         kpv=AltitudeAtSuspectedLevelBust()
         kpv.derive(alt)
         expected=[]
@@ -599,7 +538,7 @@ class TestAltitudeAtSuspectedLevelBust(unittest.TestCase):
         
     def test_up_down_and_up(self):
         testwave = np.ma.array(1.0+np.sin(np.arange(0,12.6,0.1)))*1000
-        alt=Parameter('Altitude STD',testwave)
+        alt=P('Altitude STD',testwave)
         kpv=AltitudeAtSuspectedLevelBust()
         kpv.derive(alt)
         expected=[KeyPointValue(index=16, value=999.5736030415051, 
@@ -618,7 +557,7 @@ class TestAltitudeAtSuspectedLevelBust(unittest.TestCase):
         
     def test_too_slow(self):
         testwave = np.ma.array(1.0+np.sin(np.arange(0,12.6,0.1)))*1000
-        alt=Parameter('Altitude STD',testwave,0.02)
+        alt=P('Altitude STD',testwave,0.02)
         kpv=AltitudeAtSuspectedLevelBust()
         kpv.derive(alt)
         expected=[]
@@ -626,7 +565,7 @@ class TestAltitudeAtSuspectedLevelBust(unittest.TestCase):
 
     def test_straight_up_and_down(self):
         testwave = np.ma.array(range(0,10000,50)+range(10000,0,-50))
-        alt=Parameter('Altitude STD',testwave,1)
+        alt=P('Altitude STD',testwave,1)
         kpv=AltitudeAtSuspectedLevelBust()
         kpv.derive(alt)
         expected=[]
@@ -634,7 +573,7 @@ class TestAltitudeAtSuspectedLevelBust(unittest.TestCase):
         
     def test_up_and_down_with_overshoot(self):
         testwave = np.ma.array(range(0,10000,50)+range(10000,9000,-50)+[9000]*200+range(9000,0,-50))
-        alt=Parameter('Altitude STD',testwave,1)
+        alt=P('Altitude STD',testwave,1)
         kpv=AltitudeAtSuspectedLevelBust()
         kpv.derive(alt)
         expected=[KeyPointValue(index=200, value=1000, 
@@ -648,7 +587,7 @@ class TestAltitudeAtSuspectedLevelBust(unittest.TestCase):
                                range(10000,9000,-50)+
                                range(9000,20000,50)+
                                range(20000,0,-50))
-        alt=Parameter('Altitude STD',testwave,1)
+        alt=P('Altitude STD',testwave,1)
         kpv=AltitudeAtSuspectedLevelBust()
         kpv.derive(alt)
         expected=[KeyPointValue(index=420, value=-1000, 
@@ -715,20 +654,20 @@ class TestControlColumnStiffness(unittest.TestCase):
                          [('Control Column Force','Control Column','Fast')])
 
     def test_control_column_stiffness_too_few_samples(self):
-        cc_disp = Parameter('Control Column', 
+        cc_disp = P('Control Column', 
                             np.ma.array([0,.3,1,2,2.5,1.4,0,0]))
-        cc_force = Parameter('Control Column Force',
+        cc_force = P('Control Column Force',
                              np.ma.array([0,2,4,7,8,5,2,1]))
         phase_fast = Fast()
-        phase_fast.derive(Parameter('Airspeed', np.ma.array([100]*10)))
+        phase_fast.derive(P('Airspeed', np.ma.array([100]*10)))
         stiff = ControlColumnStiffness()
         stiff.derive(cc_force,cc_disp,phase_fast)
         self.assertEqual(stiff, [])
         
     def test_control_column_stiffness_max(self):
         testwave = np.ma.array((1.0 - np.cos(np.arange(0,6.3,0.1)))/2.0)
-        cc_disp = Parameter('Control Column', testwave * 10.0)
-        cc_force = Parameter('Control Column Force', testwave * 27.0)
+        cc_disp = P('Control Column', testwave * 10.0)
+        cc_force = P('Control Column Force', testwave * 27.0)
         phase_fast = buildsection('Fast',0,63)
         stiff = ControlColumnStiffness()
         stiff.derive(cc_force,cc_disp,phase_fast)
@@ -983,10 +922,10 @@ class TestILSGlideslopeDeviation1500To1000FtMax(unittest.TestCase):
         
     def test_ils_glide_1500_1000_basic(self):
         testline = np.ma.array((75 - np.arange(63))*25) # 1875 to 325 ft in 63 steps.
-        alt_ph = Parameter('Altitude AAL For Flight Phases', testline)
+        alt_ph = P('Altitude AAL For Flight Phases', testline)
         
         testwave = np.ma.array(1.0 - np.cos(np.arange(0,6.3,0.1)))
-        ils_gs = Parameter('ILS Glideslope', testwave)
+        ils_gs = P('ILS Glideslope', testwave)
         
         gs_estab = buildsection('ILS Glideslope Established', 2,63)
         
@@ -999,9 +938,9 @@ class TestILSGlideslopeDeviation1500To1000FtMax(unittest.TestCase):
 
     def test_ils_glide_1500_1000_four_peaks(self):
         testline = np.ma.array((75 - np.arange(63))*25) # 1875 to 325 ft in 63 steps.
-        alt_ph = Parameter('Altitude AAL For Flight Phases', testline)
+        alt_ph = P('Altitude AAL For Flight Phases', testline)
         testwave = np.ma.array(-0.2-np.sin(np.arange(0,12.6,0.1)))
-        ils_gs = Parameter('ILS Glideslope', testwave)
+        ils_gs = P('ILS Glideslope', testwave)
         gs_estab = buildsection('ILS Glideslope Established', 2,56)
         kpv = ILSGlideslopeDeviation1500To1000FtMax()
         kpv.derive(ils_gs, alt_ph, gs_estab)
@@ -1023,10 +962,10 @@ class TestILSGlideslopeDeviation1000To250FtMax(unittest.TestCase):
         
     def test_ils_glide_1000_250_basic(self):
         testline = np.ma.array((75 - np.arange(63))*25) # 1875 to 325 ft in 63 steps.
-        alt_ph = Parameter('Altitude AAL For Flight Phases', testline)
+        alt_ph = P('Altitude AAL For Flight Phases', testline)
         
         testwave = np.ma.array(1.0 - np.cos(np.arange(0,6.3,0.1)))
-        ils_gs = Parameter('ILS Glideslope', testwave)
+        ils_gs = P('ILS Glideslope', testwave)
         
         gs_estab = buildsection('ILS Glideslope Established', 2,63)
         
@@ -1039,9 +978,9 @@ class TestILSGlideslopeDeviation1000To250FtMax(unittest.TestCase):
 
     def test_ils_glide_1000_250_four_peaks(self):
         testline = np.ma.array((75 - np.arange(63))*25) # 1875 to 325 ft in 63 steps.
-        alt_ph = Parameter('Altitude AAL For Flight Phases', testline)
+        alt_ph = P('Altitude AAL For Flight Phases', testline)
         testwave = np.ma.array(-0.2-np.sin(np.arange(0,12.6,0.1)))
-        ils_gs = Parameter('ILS Glideslope', testwave)
+        ils_gs = P('ILS Glideslope', testwave)
         gs_estab = buildsection('ILS Glideslope Established', 2,56)
         kpv = ILSGlideslopeDeviation1000To250FtMax()
         kpv.derive(ils_gs, alt_ph, gs_estab)
@@ -1111,14 +1050,6 @@ class TestHeadingAtLanding(unittest.TestCase):
 
 
 """
-class TestHeadingAtLowPointOnApproach(unittest.TestCase, CreateKPVsAtKTIsTest):
-    def setUp(self):
-        self.node_class = HeadingAtLowPointOnApproach
-        self.operational_combinations = [('Heading Continuous',
-                                          'Approach And Landing Lowest')]
-"""
-
-"""
 class TestHeightAtGoAroundMin(unittest.TestCase, CreateKPVsAtKTIsTest):
     def setUp(self):
         self.node_class = HeightAtGoAroundMin
@@ -1144,34 +1075,6 @@ class TestILSFrequencyOnApproach(unittest.TestCase):
                                   name='ILS Frequency On Approach')]
         self.assertEqual(kpv, expected)
 
-        
-class TestLatitudeAtLanding(unittest.TestCase, CreateKPVsAtKTIsTest):
-    def setUp(self):
-        self.node_class = LatitudeAtLanding
-        self.operational_combinations = [('Latitude',
-                                          'Touchdown')]
-
-
-class TestLongitudeAtLanding(unittest.TestCase, CreateKPVsAtKTIsTest):
-    def setUp(self):
-        self.node_class = LongitudeAtLanding
-        self.operational_combinations = [('Longitude',
-                                          'Touchdown')]
-
-"""
-class TestLatitudeAtLowPointOnApproach(unittest.TestCase, CreateKPVsAtKTIsTest):
-    def setUp(self):
-        self.node_class = LatitudeAtLowPointOnApproach
-        self.operational_combinations = [('Latitude Smoothed',
-                                          'Approach And Landing Lowest')]
-
-
-class TestLongitudeAtLowPointOnApproach(unittest.TestCase, CreateKPVsAtKTIsTest):
-    def setUp(self):
-        self.node_class = LongitudeAtLowPointOnApproach
-        self.operational_combinations = [('Longitude Smoothed',
-                                          'Approach And Landing Lowest')]
-"""
 
 class TestILSLocalizerDeviation1500To1000FtMax(unittest.TestCase):
     def test_can_operate(self):
@@ -1183,9 +1086,9 @@ class TestILSLocalizerDeviation1500To1000FtMax(unittest.TestCase):
     def test_ils_loc_1500_1000_basic(self):
         testline = np.arange(0,12.6,0.1)
         testwave = (np.cos(testline)*(-1000))+1000
-        alt_ph = Parameter('Altitude AAL For Flight Phases',
+        alt_ph = P('Altitude AAL For Flight Phases',
                            np.ma.array(testwave))
-        ils_loc = Parameter('ILS Localizer', np.ma.array(testline))
+        ils_loc = P('ILS Localizer', np.ma.array(testline))
         loc_est = buildsection('ILS Localizer Established', 30,115)
         kpv = ILSLocalizerDeviation1500To1000FtMax()
         kpv.derive(ils_loc, alt_ph, loc_est)
@@ -1205,9 +1108,9 @@ class TestILSLocalizerDeviation1000To250FtMax(unittest.TestCase):
     def test_ils_loc_1000_250_basic(self):
         testline = np.arange(0,12.6,0.1)
         testwave = (np.cos(testline)*(-1000))+1000
-        alt_ph = Parameter('Altitude AAL For Flight Phases',
+        alt_ph = P('Altitude AAL For Flight Phases',
                            np.ma.array(testwave))
-        ils_loc = Parameter('ILS Localizer', np.ma.array(testline))
+        ils_loc = P('ILS Localizer', np.ma.array(testline))
         loc_est = buildsection('ILS Localizer Established', 30,115)
         kpv = ILSLocalizerDeviation1000To250FtMax()
         kpv.derive(ils_loc, alt_ph, loc_est)
@@ -1260,8 +1163,8 @@ class TestPitch35To400FtMax(unittest.TestCase, CreateKPVsWithinSlicesTest):
     def test_pitch_35_400_basic(self):
         pch = [0,2,4,7,9,8,6,3,-1]
         alt = [100,101,102,103,700,105,104,103,102]
-        alt_ph = Parameter('Altitude AAL For Flight Phases', np.ma.array(alt))
-        pitch = Parameter('Pitch', np.ma.array(pch))
+        alt_ph = P('Altitude AAL For Flight Phases', np.ma.array(alt))
+        pitch = P('Pitch', np.ma.array(pch))
         kpv = Pitch35To400FtMax()
         kpv.derive(pitch, alt_ph)
         # 'KeyPointValue', 'index value name'
@@ -1707,6 +1610,54 @@ class TestAirspeed10000ToLandMax(unittest.TestCase):
         self.assertTrue(False, msg='Test not implemented.')
 
 
+class TestAirspeed1000To8000FtMax(unittest.TestCase, CreateKPVFromSlicesTest):
+    def setUp(self):
+        self.node_class = Airspeed1000To8000FtMax
+        self.operational_combinations = [('Airspeed', 'Altitude AAL For Flight Phases',)]
+        self.function = max_value
+        self.second_param_method_calls = [('slices_between', (1000, 8000), {})]
+
+
+class TestAirspeed8000To10000FtMax(unittest.TestCase, CreateKPVFromSlicesTest):
+    def setUp(self):
+        self.node_class = Airspeed8000To10000FtMax
+        self.operational_combinations = [('Airspeed', 'Altitude AAL For Flight Phases',)]
+        self.function = max_value
+        self.second_param_method_calls = [('slices_between', (8000, 10000), {})]
+
+
+class TestAirspeed10000To8000FtMax(unittest.TestCase, CreateKPVFromSlicesTest):
+    def setUp(self):
+        self.node_class = Airspeed10000To8000FtMax
+        self.operational_combinations = [('Airspeed', 'Altitude AAL For Flight Phases',)]
+        self.function = max_value
+        self.second_param_method_calls = [('slices_between', (10000, 8000), {})]
+
+
+class TestAirspeed8000To5000FtMax(unittest.TestCase, CreateKPVFromSlicesTest):
+    def setUp(self):
+        self.node_class = Airspeed8000To5000FtMax
+        self.operational_combinations = [('Airspeed', 'Altitude AAL For Flight Phases',)]
+        self.function = max_value
+        self.second_param_method_calls = [('slices_between', (8000, 5000), {})]
+
+
+class TestAirspeed5000To3000FtMax(unittest.TestCase, CreateKPVFromSlicesTest):
+    def setUp(self):
+        self.node_class = Airspeed5000To3000FtMax
+        self.operational_combinations = [('Airspeed', 'Altitude AAL For Flight Phases',)]
+        self.function = max_value
+        self.second_param_method_calls = [('slices_between', (5000, 3000), {})]
+
+
+class TestAirspeed3000To1000FtMax(unittest.TestCase, CreateKPVFromSlicesTest):
+    def setUp(self):
+        self.node_class = Airspeed3000To1000FtMax
+        self.operational_combinations = [('Airspeed', 'Altitude AAL For Flight Phases',)]
+        self.function = max_value
+        self.second_param_method_calls = [('slices_between', (3000, 1000), {})]
+
+
 class TestAirspeed1000To500FtMin(unittest.TestCase,
                                  CreateKPVsWithinSlicesTest):
     def setUp(self):
@@ -1803,46 +1754,6 @@ class TestAirspeedAtLiftoff(unittest.TestCase,
     def setUp(self):
         self.node_class = AirspeedAtLiftoff
         self.operational_combinations = [('Airspeed', 'Liftoff',)]
-
-
-class TestAirspeedBetween1000And3000FtMax(unittest.TestCase,
-                                          CreateKPVFromSlicesTest):
-    def setUp(self):
-        self.node_class = AirspeedBetween1000And3000FtMax
-        self.operational_combinations = [('Airspeed',
-                                          'Altitude AAL For Flight Phases',)]
-        self.function = max_value
-        self.second_param_method_calls = [('slices_between', (1000, 3000), {})]
-
-
-class TestAirspeedBetween3000And5000FtMax(unittest.TestCase,
-                                          CreateKPVFromSlicesTest):
-    def setUp(self):
-        self.node_class = AirspeedBetween3000And5000FtMax
-        self.operational_combinations = [('Airspeed',
-                                          'Altitude AAL For Flight Phases',)]
-        self.function = max_value
-        self.second_param_method_calls = [('slices_between', (3000, 5000), {})]
-
-
-class TestAirspeedBetween5000And8000FtMax(unittest.TestCase,
-                                          CreateKPVFromSlicesTest):
-    def setUp(self):
-        self.node_class = AirspeedBetween5000And8000FtMax
-        self.operational_combinations = [('Airspeed',
-                                          'Altitude AAL For Flight Phases',)]
-        self.function = max_value
-        self.second_param_method_calls = [('slices_between', (5000, 8000), {})]
-
-
-class TestAirspeedBetween8000And10000FtMax(unittest.TestCase,
-                                           CreateKPVFromSlicesTest):
-    def setUp(self):
-        self.node_class = AirspeedBetween8000And10000FtMax
-        self.operational_combinations = [('Airspeed',
-                                          'Altitude AAL For Flight Phases',)]
-        self.function = max_value
-        self.second_param_method_calls = [('slices_between', (8000, 10000), {})]
 
 
 class TestAirspeedBetween90SecToTouchdownAndTouchdownMax(unittest.TestCase):
@@ -2314,14 +2225,6 @@ class TestAltitudeGoAroundFlapRetracted(unittest.TestCase,
         self.node_class = AltitudeGoAroundFlapRetracted
         self.operational_combinations = [('Altitude AAL',
                                           'Go Around Flap Retracted',)]
-
-
-class TestAltitudeGoAroundGearRetracted(unittest.TestCase,
-                                        CreateKPVsAtKTIsTest):
-    def setUp(self):
-        self.node_class = AltitudeGoAroundGearRetracted
-        self.operational_combinations = [('Altitude AAL',
-                                          'Go Around Gear Retracted',)]
 
 
 class TestAltitudeMinsToTouchdown(unittest.TestCase):
@@ -2876,50 +2779,274 @@ class TestIsolationValveOpenAtLiftoff(unittest.TestCase):
         self.assertTrue(False, msg='Test not implemented.')
 
 
-class TestLatitudeAtLiftoff(unittest.TestCase):
-    def test_can_operate(self):
-        self.assertTrue(False, msg='Test not implemented.')
-        
-    def test_derive(self):
-        self.assertTrue(False, msg='Test not implemented.')
+class TestLatitudeAtLanding(unittest.TestCase, NodeTest):
+    def setUp(self):
+        self.node_class = LatitudeAtLanding
+        self.operational_combinations = [
+            ('Latitude', 'Touchdown'),
+            ('Touchdown', 'AFR Landing Airport'),
+            ('Touchdown', 'AFR Landing Runway'),
+            ('Latitude', 'Touchdown', 'AFR Landing Airport'),
+            ('Latitude', 'Touchdown', 'AFR Landing Runway'),
+            ('Touchdown', 'AFR Landing Airport', 'AFR Landing Runway'),
+            ('Latitude', 'Touchdown', 'AFR Landing Airport', 'AFR Landing Runway'),
+        ]
+
+    def test_derive_with_latitude(self):
+        lat = P(name='Latitude')
+        lat.array = Mock()
+        tdwns = KTI(name='Touchdown')
+        afr_land_rwy = None
+        afr_land_apt = None
+        node = self.node_class()
+        node.create_kpv = Mock()
+        node.create_kpvs_at_ktis = Mock()
+        node.derive(lat, tdwns, afr_land_rwy, afr_land_apt)
+        node.create_kpvs_at_ktis.assert_called_once_with(lat.array, tdwns)
+        assert not node.create_kpv.called, 'method should not have been called'
+
+    def test_derive_with_afr_land_rwy(self):
+        lat = None
+        tdwns = KTI(name='Touchdown', items=[KeyTimeInstance(index=0)])
+        afr_land_rwy = A(name='AFR Landing Runway', value={
+            'start': {'latitude': 0, 'longitude': 0},
+            'end': {'latitude': 1, 'longitude': 1},
+        })
+        afr_land_apt = None
+        node = self.node_class()
+        node.create_kpv = Mock()
+        node.create_kpvs_at_ktis = Mock()
+        node.derive(lat, tdwns, afr_land_apt, afr_land_rwy)
+        lat_m, lon_m = midpoint(0, 0, 1, 1)
+        node.create_kpv.assert_called_once_with(tdwns[-1].index, lat_m)
+        assert not node.create_kpvs_at_ktis.called, 'method should not have been called'
+
+    def test_derive_with_afr_land_apt(self):
+        lat = None
+        tdwns = KTI(name='Touchdown', items=[KeyTimeInstance(index=0)])
+        afr_land_rwy = None
+        afr_land_apt = A(name='AFR Landing Airport', value={
+            'latitude': 1,
+            'longitude': 1,
+        })
+        node = self.node_class()
+        node.create_kpv = Mock()
+        node.create_kpvs_at_ktis = Mock()
+        node.derive(lat, tdwns, afr_land_apt, afr_land_rwy)
+        node.create_kpv.assert_called_once_with(tdwns[-1].index, 1)
+        assert not node.create_kpvs_at_ktis.called, 'method should not have been called'
+
+class TestLatitudeAtTakeoff(unittest.TestCase, NodeTest):
+    def setUp(self):
+        self.node_class = LatitudeAtTakeoff
+        self.operational_combinations = [
+            ('Latitude', 'Liftoff'),
+            ('Liftoff', 'AFR Takeoff Airport'),
+            ('Liftoff', 'AFR Takeoff Runway'),
+            ('Latitude', 'Liftoff', 'AFR Takeoff Airport'),
+            ('Latitude', 'Liftoff', 'AFR Takeoff Runway'),
+            ('Liftoff', 'AFR Takeoff Airport', 'AFR Takeoff Runway'),
+            ('Latitude', 'Liftoff', 'AFR Takeoff Airport', 'AFR Takeoff Runway'),
+        ]
+
+    def test_derive_with_latitude(self):
+        lat = P(name='Latitude')
+        lat.array = Mock()
+        liftoffs = KTI(name='Liftoff')
+        afr_toff_rwy = None
+        afr_toff_apt = None
+        node = self.node_class()
+        node.create_kpv = Mock()
+        node.create_kpvs_at_ktis = Mock()
+        node.derive(lat, liftoffs, afr_toff_rwy, afr_toff_apt)
+        node.create_kpvs_at_ktis.assert_called_once_with(lat.array, liftoffs)
+        assert not node.create_kpv.called, 'method should not have been called'
+
+    def test_derive_with_afr_toff_rwy(self):
+        lat = None
+        liftoffs = KTI(name='Liftoff', items=[KeyTimeInstance(index=0)])
+        afr_toff_rwy = A(name='AFR Takeoff Runway', value={
+            'start': {'latitude': 0, 'longitude': 0},
+            'end': {'latitude': 1, 'longitude': 1},
+        })
+        afr_toff_apt = None
+        node = self.node_class()
+        node.create_kpv = Mock()
+        node.create_kpvs_at_ktis = Mock()
+        node.derive(lat, liftoffs, afr_toff_apt, afr_toff_rwy)
+        lat_m, lon_m = midpoint(0, 0, 1, 1)
+        node.create_kpv.assert_called_once_with(liftoffs[0].index, lat_m)
+        assert not node.create_kpvs_at_ktis.called, 'method should not have been called'
+
+    def test_derive_with_afr_toff_apt(self):
+        lat = None
+        liftoffs = KTI(name='Liftoff', items=[KeyTimeInstance(index=0)])
+        afr_toff_rwy = None
+        afr_toff_apt = A(name='AFR Takeoff Airport', value={
+            'latitude': 1,
+            'longitude': 1,
+        })
+        node = self.node_class()
+        node.create_kpv = Mock()
+        node.create_kpvs_at_ktis = Mock()
+        node.derive(lat, liftoffs, afr_toff_apt, afr_toff_rwy)
+        node.create_kpv.assert_called_once_with(liftoffs[0].index, 1)
+        assert not node.create_kpvs_at_ktis.called, 'method should not have been called'
+
+
+class TestLatitudeAtTouchdown(unittest.TestCase, CreateKPVsAtKTIsTest):
+    def setUp(self):
+        self.node_class = LatitudeAtTouchdown
+        self.operational_combinations = [('Latitude Smoothed', 'Touchdown')]
+
+
+class TestLatitudeAtLiftoff(unittest.TestCase, CreateKPVsAtKTIsTest):
+    def setUp(self):
+        self.node_class = LatitudeAtLiftoff
+        self.operational_combinations = [('Latitude Smoothed', 'Liftoff')]
 
 
 class TestLatitudeAtLowestPointOnApproach(unittest.TestCase):
     def test_can_operate(self):
         self.assertTrue(False, msg='Test not implemented.')
-        
+
     def test_derive(self):
         self.assertTrue(False, msg='Test not implemented.')
 
 
-class TestLatitudeAtTouchdown(unittest.TestCase):
-    def test_can_operate(self):
-        self.assertTrue(False, msg='Test not implemented.')
-        
-    def test_derive(self):
-        self.assertTrue(False, msg='Test not implemented.')
+class TestLongitudeAtLanding(unittest.TestCase, NodeTest):
+    def setUp(self):
+        self.node_class = LongitudeAtLanding
+        self.operational_combinations = [
+            ('Longitude', 'Touchdown'),
+            ('Touchdown', 'AFR Landing Airport'),
+            ('Touchdown', 'AFR Landing Runway'),
+            ('Longitude', 'Touchdown', 'AFR Landing Airport'),
+            ('Longitude', 'Touchdown', 'AFR Landing Runway'),
+            ('Touchdown', 'AFR Landing Airport', 'AFR Landing Runway'),
+            ('Longitude', 'Touchdown', 'AFR Landing Airport', 'AFR Landing Runway'),
+        ]
+
+    def test_derive_with_longitude(self):
+        lon = P(name='Latitude')
+        lon.array = Mock()
+        tdwns = KTI(name='Touchdown')
+        afr_land_rwy = None
+        afr_land_apt = None
+        node = self.node_class()
+        node.create_kpv = Mock()
+        node.create_kpvs_at_ktis = Mock()
+        node.derive(lon, tdwns, afr_land_rwy, afr_land_apt)
+        node.create_kpvs_at_ktis.assert_called_once_with(lon.array, tdwns)
+        assert not node.create_kpv.called, 'method should not have been called'
+
+    def test_derive_with_afr_land_rwy(self):
+        lon = None
+        tdwns = KTI(name='Touchdown', items=[KeyTimeInstance(index=0)])
+        afr_land_rwy = A(name='AFR Landing Runway', value={
+            'start': {'latitude': 0, 'longitude': 0},
+            'end': {'latitude': 1, 'longitude': 1},
+        })
+        afr_land_apt = None
+        node = self.node_class()
+        node.create_kpv = Mock()
+        node.create_kpvs_at_ktis = Mock()
+        node.derive(lon, tdwns, afr_land_apt, afr_land_rwy)
+        lat_m, lon_m = midpoint(0, 0, 1, 1)
+        node.create_kpv.assert_called_once_with(tdwns[-1].index, lon_m)
+        assert not node.create_kpvs_at_ktis.called, 'method should not have been called'
+
+    def test_derive_with_afr_land_apt(self):
+        lon = None
+        tdwns = KTI(name='Touchdown', items=[KeyTimeInstance(index=0)])
+        afr_land_rwy = None
+        afr_land_apt = A(name='AFR Landing Airport', value={
+            'latitude': 1,
+            'longitude': 1,
+        })
+        node = self.node_class()
+        node.create_kpv = Mock()
+        node.create_kpvs_at_ktis = Mock()
+        node.derive(lon, tdwns, afr_land_apt, afr_land_rwy)
+        node.create_kpv.assert_called_once_with(tdwns[-1].index, 1)
+        assert not node.create_kpvs_at_ktis.called, 'method should not have been called'
 
 
-class TestLongitudeAtLiftoff(unittest.TestCase):
-    def test_can_operate(self):
-        self.assertTrue(False, msg='Test not implemented.')
-        
-    def test_derive(self):
-        self.assertTrue(False, msg='Test not implemented.')
+
+class TestLongitudeAtTakeoff(unittest.TestCase, NodeTest):
+    def setUp(self):
+        self.node_class = LongitudeAtTakeoff
+        self.operational_combinations = [
+            ('Longitude', 'Liftoff'),
+            ('Liftoff', 'AFR Takeoff Airport'),
+            ('Liftoff', 'AFR Takeoff Runway'),
+            ('Longitude', 'Liftoff', 'AFR Takeoff Airport'),
+            ('Longitude', 'Liftoff', 'AFR Takeoff Runway'),
+            ('Liftoff', 'AFR Takeoff Airport', 'AFR Takeoff Runway'),
+            ('Longitude', 'Liftoff', 'AFR Takeoff Airport', 'AFR Takeoff Runway'),
+        ]
+
+    def test_derive_with_longitude(self):
+        lon = P(name='Longitude')
+        lon.array = Mock()
+        liftoffs = KTI(name='Liftoff')
+        afr_toff_rwy = None
+        afr_toff_apt = None
+        node = self.node_class()
+        node.create_kpv = Mock()
+        node.create_kpvs_at_ktis = Mock()
+        node.derive(lon, liftoffs, afr_toff_rwy, afr_toff_apt)
+        node.create_kpvs_at_ktis.assert_called_once_with(lon.array, liftoffs)
+        assert not node.create_kpv.called, 'method should not have been called'
+
+    def test_derive_with_afr_toff_rwy(self):
+        lon = None
+        liftoffs = KTI(name='Liftoff', items=[KeyTimeInstance(index=0)])
+        afr_toff_rwy = A(name='AFR Takeoff Runway', value={
+            'start': {'latitude': 0, 'longitude': 0},
+            'end': {'latitude': 1, 'longitude': 1},
+        })
+        afr_toff_apt = None
+        node = self.node_class()
+        node.create_kpv = Mock()
+        node.create_kpvs_at_ktis = Mock()
+        node.derive(lon, liftoffs, afr_toff_apt, afr_toff_rwy)
+        lat_m, lon_m = midpoint(0, 0, 1, 1)
+        node.create_kpv.assert_called_once_with(liftoffs[0].index, lon_m)
+        assert not node.create_kpvs_at_ktis.called, 'method should not have been called'
+
+    def test_derive_with_afr_toff_apt(self):
+        lon = None
+        liftoffs = KTI(name='Liftoff', items=[KeyTimeInstance(index=0)])
+        afr_toff_rwy = None
+        afr_toff_apt = A(name='AFR Takeoff Airport', value={
+            'latitude': 1,
+            'longitude': 1,
+        })
+        node = self.node_class()
+        node.create_kpv = Mock()
+        node.create_kpvs_at_ktis = Mock()
+        node.derive(lon, liftoffs, afr_toff_apt, afr_toff_rwy)
+        node.create_kpv.assert_called_once_with(liftoffs[0].index, 1)
+        assert not node.create_kpvs_at_ktis.called, 'method should not have been called'
+
+
+class TestLongitudeAtTouchdown(unittest.TestCase, CreateKPVsAtKTIsTest):
+    def setUp(self):
+        self.node_class = LongitudeAtTouchdown
+        self.operational_combinations = [('Longitude Smoothed', 'Touchdown')]
+
+
+class TestLongitudeAtLiftoff(unittest.TestCase, CreateKPVsAtKTIsTest):
+    def setUp(self):
+        self.node_class = LongitudeAtLiftoff
+        self.operational_combinations = [('Longitude Smoothed', 'Liftoff')]
 
 
 class TestLongitudeAtLowestPointOnApproach(unittest.TestCase):
     def test_can_operate(self):
         self.assertTrue(False, msg='Test not implemented.')
-        
-    def test_derive(self):
-        self.assertTrue(False, msg='Test not implemented.')
 
-
-class TestLongitudeAtTouchdown(unittest.TestCase):
-    def test_can_operate(self):
-        self.assertTrue(False, msg='Test not implemented.')
-        
     def test_derive(self):
         self.assertTrue(False, msg='Test not implemented.')
 
