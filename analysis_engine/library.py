@@ -3293,7 +3293,7 @@ def rms_noise(array, ignore_pc=None):
     elif ignore_pc == None:
         to_rms = diffs
     else:
-        monitor = slice(0, len(diffs) * ceil(1-ignore_pc/100.0))
+        monitor = slice(0, floor(len(diffs) * (1-ignore_pc/100.0)))
         to_rms = np.ma.sort(np.ma.abs(diffs))[monitor]
     return sqrt(np.ma.mean(np.ma.power(to_rms,2))) # RMS in one line !
 
