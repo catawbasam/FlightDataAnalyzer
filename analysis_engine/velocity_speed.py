@@ -134,7 +134,7 @@ class B737_400(VelocitySpeed):
                    5: (130, 136, 143, 149, 155, 162, 168),
     }
     airspeed_reference_table = {
-             'weight':  ( 35,  40,  45,  50,  55,  60,  65,  70,  70),
+             'weight':  ( 35,  40,  45,  50,  55,  60,  65,  70,  70),  # duplicate column?
                     15: (123, 132, 141, 149, 156, 164, 171, 177, 177),
                     30: (111, 119, 127, 134, 141, 147, 154, 159, 159),
                     40: (109, 116, 124, 130, 137, 143, 149, 155, 155),
@@ -225,9 +225,9 @@ def get_vspeed_map(series=None, family=None):
 series_vspeed_map = {
     # this will take precidence over family_vspeed_map
     'B737-300' : B737_300,
+    'B737-300(QC)' : B737_300,
     'B737-400' : B737_400,
     'B737-500' : B737_500,
-    'B737-800' : None,
 }
 
 family_vspeed_map = {
