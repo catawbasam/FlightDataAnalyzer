@@ -840,11 +840,12 @@ class AltitudeRadio(DerivedParameterNode):
 
         # 737-1 & 737-i has Altitude Radio recorded.
         
-        if frame_name in ['737-3C', '757-DHL']:
-            # 737-3C comment:
+        if frame_name in ['737-3A', '737-3B', '737-3C', '757-DHL']:
+            # 737-3* comment:
             # Alternate samples (A) for this frame have latency of over 1
             # second, so do not contribute to the height measurements
             # available. For this reason we only blend the two good sensors.
+            # - discovered with 737-3C and 3A/3B have same LFL for this param.
             
             # 757-DHL comment:
             # Altitude Radio (B) comes from the Right altimeter, and is
@@ -4172,7 +4173,7 @@ class Speedbrake(DerivedParameterNode):
         '''
         frame_name = frame.value if frame else None
 
-        if frame_name in ['737-3C']:
+        if frame_name in ['737-3A', '737-3B', '737-3C']:
             self.array, self.offset = self.spoiler_737(spoiler_4, spoiler_9)
 
         elif frame_name in ['737-4', '737-5', '737-5_NON-EIS', '737-6']:
@@ -4297,7 +4298,7 @@ class StickShaker(MultistateDerivedParameterNode):
             self.array, self.frequency, self.offset = \
                 shake_act.array, shake_act.frequency, shake_act.offset
 
-        elif frame_name in ['737-1', '737-3C', '737-4', '737-i', '757-DHL']:
+        elif frame_name in ['737-1', '737-3A', '737-3B', '737-3C', '737-4', '737-i', '757-DHL']:
             self.array = np.ma.logical_or(shake_l.array, shake_r.array)
             self.frequency , self.offset = shake_l.frequency, shake_l.offset
 
