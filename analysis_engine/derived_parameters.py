@@ -2848,8 +2848,8 @@ class ILSFrequency(DerivedParameterNode):
             f2_trim = filter_vor_ils_frequencies(second, 'ILS')
 
             # and mask where the two receivers are not matched
-            self.array = np.ma.array(data = f1_trim.data,
-                                     mask = np.ma.masked_not_equal(f1_trim-f2_trim,0.0).mask)
+            mask = np.ma.masked_not_equal(f1_trim - f2_trim, 0.0).mask
+            self.array = np.ma.array(data=f1_trim.data, mask=mask)
 
 
 class ILSLocalizer(DerivedParameterNode):
