@@ -2403,21 +2403,31 @@ class GearOnGround(MultistateDerivedParameterNode):
         0: 'Air',
         1: 'Ground',
     }
+    
+    @classmethod
+    def can_operate(cls, available):
+        '''
+        '''
+        return any(d in available for d in cls.get_dependency_names())
+
 
     def derive(self,
             gl=M('Gear (L) On Ground'),
-            gr=M('Gear (R) On Ground'),
-            frame=A('Frame')):
+            gr=M('Gear (R) On Ground')):
         '''
         Note that this is not needed on the following frames which record this
         parameter directly: 737-4, 737-i
         '''
-        frame_name = frame.value if frame else None
-
-        if frame_name.startswith('737-'):
+        ##frame_name = frame.value if frame else ''
+        ##if frame_name.startswith('737-'):
+        
+        if gl and gr:
             self.array, self.frequency, self.offset = merge_two_parameters(gl, gr)
-        else:
-            raise DataFrameError(self.name, frame_name)
+        elif gl:
+            self.array, self.frequency, self.offset = gl.array, gl.frequency, gl.offset
+        else: # gr
+            self.array, self.frequency, self.offset = gr.array, gr.frequency, gr.offset
+        
 
 
 class GearDownSelected(MultistateDerivedParameterNode):
