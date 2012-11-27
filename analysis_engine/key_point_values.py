@@ -3451,14 +3451,14 @@ class FlareDuration20FtToTouchdown(KeyPointValueNode):
     def derive(self, alt_aal=P('Altitude AAL For Flight Phases'),
                tdowns=KTI('Touchdown'), lands=S('Landing')):
         for tdown in tdowns:
-            this_landing = lands.get_surrounding(tdown.index)[0]
+            this_landing = lands.get_surrounding(tdown.index)
             if this_landing:
                 # Scan backwards from touchdown to the start of the landing
                 # which is defined as 50ft, so will include passing through
                 # 20ft AAL.
                 idx_20 = index_at_value(alt_aal.array, 20.0,
                                         _slice=slice(tdown.index,
-                                                     this_landing.start_edge,
+                                                     this_landing[0].start_edge,
                                                      -1))
                 self.create_kpv(tdown.index,
                                 (tdown.index - idx_20) / alt_aal.frequency)
@@ -3470,11 +3470,11 @@ class FlareDistance20FtToTouchdown(KeyPointValueNode):
                tdowns=KTI('Touchdown'), lands=S('Landing'),
                gspd=P('Groundspeed')):
         for tdown in tdowns:
-            this_landing = lands.get_surrounding(tdown.index)[0]
+            this_landing = lands.get_surrounding(tdown.index)
             if this_landing:
                 idx_20 = index_at_value(
                     alt_aal.array, 20.0,
-                    _slice=slice(tdown.index, this_landing.slice.start - 1, -1))
+                    _slice=slice(tdown.index, this_landing[0].slice.start - 1, -1))
                 # Integrate returns an array, so we need to take the max
                 # value to yield the KTP value.
                 if idx_20:

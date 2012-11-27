@@ -3590,7 +3590,7 @@ def touchdown_inertial(land, roc, alt):
     # point. Note that this may differ slightly from the touchdown measured
     # using wheel switches.
     index = index_at_value(sm_ht, 0.0)
-    roc_tdn = my_roc[index]
+    roc_tdn = my_roc[index]  #WARNING: If index is None, roc_tdn will not filter array
     return index, roc_tdn
 
 
@@ -3782,7 +3782,7 @@ def index_at_value(array, threshold, _slice=slice(None), endpoint='exact'):
     while 'closing' seeks the last point where the array is closing on the 
     threshold.
     :returns: interpolated time when the array values crossed the threshold. (One value only).
-    :returns type: float
+    :returns type: Float or None
     '''
     step = _slice.step or 1
     max_index = len(array)

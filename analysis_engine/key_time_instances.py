@@ -567,7 +567,8 @@ class Touchdown(KeyTimeInstanceNode):
                     if not wow or edges == []:
                         if roc:
                             index, _ = touchdown_inertial(land, roc, alt)
-                            self.create_kti(index + land.start_edge)
+                            if index is not None:
+                                self.create_kti(index + land.start_edge)
                         else:
                             self.create_kti(index_at_value(alt.array, 0.0, land.slice))
                         '''
