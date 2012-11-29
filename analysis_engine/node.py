@@ -535,6 +535,8 @@ class MultistateDerivedParameterNode(DerivedParameterNode):
             self.values_mapping = values_mapping
         elif not hasattr(self, 'values_mapping'):
             self.values_mapping = {}
+            
+        self.state = {v: k for k, v in self.values_mapping.iteritems()}
 
         super(MultistateDerivedParameterNode, self).__init__(
                 name, array, frequency, offset, data_type, *args,
