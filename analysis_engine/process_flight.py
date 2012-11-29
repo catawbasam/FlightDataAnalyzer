@@ -372,3 +372,4 @@ if __name__ == '__main__':
                               'Frame Qualifier': 'Altitude_Radio_EFIS',
                               },
                    draw=args.plot)
+    logger.info("Wrote results to new hdf: %s", hdf_copy)

@@ -2382,15 +2382,21 @@ class GearDown(MultistateDerivedParameterNode):
         0: 'Up',
         1: 'Down',
     }
-
+    
+    @classmethod
+    def can_operate(cls, available):
+        '''
+        '''
+        return any(d in available for d in cls.get_dependency_names())
+    
     def derive(self,
-            gl=M('Gear (L) Down'),
-            gn=M('Gear (N) Down'),
-            gr=M('Gear (R) Down')):
-        '''
-        '''
-        wheels_down = gl.array.raw + gn.array.raw + gr.array.raw
-        self.array = np.ma.where(wheels_down > 1.5, 1, 0)
+               gl=M('Gear (L) Down'),
+               gn=M('Gear (N) Down'),
+               gr=M('Gear (R) Down')):
+        # Join all available gear parameters and use whichever are available.
+        v = vstack_params(gl, gn, gr)
+        wheels_down = v.sum(axis=0) >= (v.shape[0] / 2.0)
+        self.array = np.ma.where(wheels_down, self.state['Down'], self.state['Up'])
 
 
 class GearOnGround(MultistateDerivedParameterNode):
@@ -2442,10 +2448,10 @@ class GearDownSelected(MultistateDerivedParameterNode):
         1: 'Down',
     }
 
-    def derive(self, gear=P('Gear Down')):
+    def derive(self, gear=M('Gear Down')):
         '''
         '''
-        self.array = gear.array
+        self.array = gear.array.raw
 
 
 class GearUpSelected(MultistateDerivedParameterNode):
@@ -2460,10 +2466,10 @@ class GearUpSelected(MultistateDerivedParameterNode):
         1: 'Up',
     }
 
-    def derive(self, gear=P('Gear Down')):
+    def derive(self, gear=M('Gear Down')):
         '''
         '''
-        self.array = 1 - gear.array
+        self.array = 1 - gear.array.raw
 
 
 ################################################################################
