@@ -4221,14 +4221,25 @@ class SpeedbrakeSelected(MultistateDerivedParameterNode):
 
 
     def derive(self,
-            spd_brk_d=P('Speedbrake Deployed'),
-            spd_brk_h=P('Speedbrake Handle'),
+            deployed=M('Speedbrake Deployed'),
+            armed=M('Speedbrake Armed'),
+            handle=P('Speedbrake Handle'),
             frame=A('Frame')):
         '''
         '''
         frame_name = frame.value if frame else None
-
-        if spd_brk_h and frame.name:
+        
+        if deployed:
+            # set initial state to 'Stowed'
+            array = np.ma.zeros(len(deployed.array))
+            if armed:
+                # If we have Armed, set this first
+                array[armed.array == 'Armed'] = 1
+            # deployed will overide some armed states
+            array[deployed.array == 'Deployed'] = 2
+            self.array = array # (only call __set_attr__ once)
+            
+        elif handle and frame_name:
 
             if frame_name.startswith('737-'):
                 '''
@@ -4247,22 +4258,18 @@ class SpeedbrakeSelected(MultistateDerivedParameterNode):
                     ========    ============
                 '''
                 self.array = np.ma.where(
-                    (2.0 < spd_brk_h.array) & (spd_brk_h.array < 35.0),
+                    (2.0 < handle.array) & (handle.array < 35.0),
                     'Armed/Cmd Dn', 'Stowed')
                 self.array = np.ma.where(
-                    spd_brk_h.array >= 35.0,
+                    handle.array >= 35.0,
                     'Deployed/Cmd Up', self.array)
 
             else:
                 # TODO: Implement for other frames using 'Speedbrake Handle'!
-                return NotImplemented
+                raise DataFrameError(self.name, frame_name)
 
-        elif spd_brk_d:
-            self.array = np.ma.where(
-                spd_brk_d.array > 0,
-                'Deployed/Cmd Up', 'Stowed')
 
-        else:
+        else: # (NB: This won't be reached due to can_operate)
             # TODO: Implement using a different parameter?
             raise DataFrameError(self.name, frame_name)
 
