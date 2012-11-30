@@ -3659,7 +3659,7 @@ def smooth_track_cost_function(lat_s, lon_s, lat, lon):
     from_straight = np.sum(np.convolve(lat_s,slider,'valid')**2) + \
         np.sum(np.convolve(lon_s,slider,'valid')**2)
     
-    cost = from_data + 100*from_straight
+    cost = from_data + 1000*from_straight
     return cost
 
 
