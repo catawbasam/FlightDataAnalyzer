@@ -2976,7 +2976,6 @@ class ILSGlideslopeRange(DerivedParameterNode):
     def derive(self, loc_rng=P('ILS Localizer Range'),
                approach_info = A('FDR Approaches'),
                approaches = S('Approaches'),
-               start_datetime = A('Start Datetime')
                ):
         self.array = np_ma_masked_zeros_like(loc_rng.array)
         #Q: Should this use S('ILS Glideslope Established')?
@@ -3011,24 +3010,23 @@ class ILSLocalizerRange(DerivedParameterNode):
     unit = 'm'
 
     def derive(self, lat=P('Latitude Prepared'),
-               lon = P('Longitude Prepared'),
-               glide = P('ILS Glideslope'),
-               gspd = P('Groundspeed'),
-               drift = P('Drift'),
-               head = P('Heading True Continuous'),
-               tas = P('Airspeed True'),
-               alt_aal = P('Altitude AAL'),
-               loc_established = S('ILS Localizer Established'),
-               gs_established = S('ILS Glideslope Established'),
-               app_info = A('FDR Approaches'),
-               start_datetime = A('Start Datetime')
+               lon=P('Longitude Prepared'),
+               glide=P('ILS Glideslope'),
+               gspd=P('Groundspeed'),
+               drift=P('Drift'),
+               head=P('Heading True Continuous'),
+               tas=P('Airspeed True'),
+               alt_aal=P('Altitude AAL'),
+               loc_est=S('ILS Localizer Established'),
+               gs_est=S('ILS Glideslope Established'),
+               app_info=A('FDR Approaches'),
                ):
         ils_range = np_ma_masked_zeros_like(gspd.array)
         
-        for this_loc in loc_established:
+        for this_loc in loc_est:
             # Find the matching runway details
-            approach, runway = find_app_rwy(self, app_info, start_datetime,
-                                            this_loc)
+            approach, runway = find_app_rwy(app_info, this_loc,
+                                            loc_est.frequency)
   
             try:
                 start_2_loc, gs_2_loc, end_2_loc, pgs_lat, pgs_lon = \
@@ -3063,7 +3061,7 @@ class ILSLocalizerRange(DerivedParameterNode):
             if 'glideslope' in runway:
                 # The runway has an ILS glideslope antenna
                 
-                for this_gs in gs_established:                    
+                for this_gs in gs_est:                    
                     if is_slice_within_slice(this_gs.slice, this_loc.slice):
                         break
                 else:
@@ -3209,7 +3207,7 @@ class CoordinatesSmoothed(object):
                              'landing')
 
     def _adjust_track_pp(self, lon, lat, loc_est, ils_loc, head_mag, hdg, gspd,
-                         app_info, first_toff, toff_rwy, start_datetime):
+                         app_info, first_toff, toff_rwy):
         # Set up a working space.
         lat_adj = np_ma_masked_zeros_like(head_mag.array)
         lon_adj = np_ma_masked_zeros_like(head_mag.array)
@@ -3233,8 +3231,8 @@ class CoordinatesSmoothed(object):
         if loc_est:
             for this_loc in loc_est:    
                 # Find the matching runway details
-                approach, runway = find_app_rwy(self, app_info, start_datetime,
-                                                this_loc)
+                approach, runway = find_app_rwy(app_info, this_loc,
+                                                loc_est.frequency)
                 
                 if runway is None:
                     continue                
@@ -3278,7 +3276,7 @@ class CoordinatesSmoothed(object):
     
     
     def _adjust_track_ip(self,lon,lat,loc_est,ils_range,ils_loc,gspd,hdg,head_mag,
-                         tas,first_toff,app_info,toff_rwy,start_datetime):
+                         tas,first_toff,app_info,toff_rwy):
         
         # Set up a working space.
         lat_adj = np_ma_masked_zeros_like(head_mag.array)
@@ -3345,8 +3343,8 @@ class CoordinatesSmoothed(object):
                 # localizer established phase.
                 
                 # Find the matching runway details
-                approach, runway = find_app_rwy(self, app_info, start_datetime,
-                                                this_loc)
+                approach, runway = find_app_rwy(app_info, this_loc,
+                                                loc_est.frequency)
                                 
                 if runway and 'localizer' in runway:
                     reference = runway['localizer']
@@ -3422,7 +3420,6 @@ class LatitudeSmoothed(DerivedParameterNode, CoordinatesSmoothed):
                toff = S('Takeoff'),
                app_info = A('FDR Approaches'),
                toff_rwy = A('FDR Takeoff Runway'),
-               start_datetime = A('Start Datetime'),
                ):
         precise = bool(getattr(precise, 'value', False))
 
@@ -3433,7 +3430,7 @@ class LatitudeSmoothed(DerivedParameterNode, CoordinatesSmoothed):
 
         precise_args = (
             lon, lat, loc_est, ils_loc, head_mag, hdg, gspd, 
-            app_info, first_toff, toff_rwy, start_datetime)            
+            app_info, first_toff, toff_rwy)
         
         if precise and all(precise_args):
             # Precise Positioning form of adjust track
@@ -3443,7 +3440,7 @@ class LatitudeSmoothed(DerivedParameterNode, CoordinatesSmoothed):
         
         imprecise_args = (
             lon, lat, loc_est, ils_range, ils_loc, gspd, hdg, head_mag, tas,
-            first_toff, app_info, toff_rwy, start_datetime)
+            first_toff, app_info, toff_rwy)
             
         if all(imprecise_args):
             # Imprecise Positioning form of adjust track
@@ -3480,7 +3477,6 @@ class LongitudeSmoothed(DerivedParameterNode, CoordinatesSmoothed):
                toff = S('Takeoff'),
                app_info = A('FDR Approaches'),
                toff_rwy = A('FDR Takeoff Runway'),
-               start_datetime = A('Start Datetime'),
                ):
         precise = bool(getattr(precise, 'value', False))
             
@@ -3491,7 +3487,7 @@ class LongitudeSmoothed(DerivedParameterNode, CoordinatesSmoothed):
 
         precise_args = (
             lon, lat, loc_est, ils_loc, head_mag, hdg, gspd, 
-            app_info, first_toff, toff_rwy, start_datetime)            
+            app_info, first_toff, toff_rwy)
         
         if precise and all(precise_args):
             # Precise Positioning form of adjust track
@@ -3501,7 +3497,7 @@ class LongitudeSmoothed(DerivedParameterNode, CoordinatesSmoothed):
         
         imprecise_args = (
             lon, lat, loc_est, ils_range, ils_loc, gspd, hdg, head_mag, tas,
-            first_toff, app_info, toff_rwy, start_datetime)
+            first_toff, app_info, toff_rwy)
        
         if all(imprecise_args):
             # Imprecise Positioning form of adjust track
