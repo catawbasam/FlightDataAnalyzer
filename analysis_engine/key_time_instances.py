@@ -327,15 +327,18 @@ class GearUpSelection(KeyTimeInstanceNode):
                gas=S('Go Around And Climbout')):
         air_slices = airs.get_slices()
         ga_slices = gas.get_slices()
-        if not air_slices or not ga_slices:
+        if not air_slices:
             return
         air_not_ga = slices_and(air_slices, slices_not(ga_slices,
             begin_at=air_slices[0].start,
             end_at=air_slices[-1].stop,
         ))
-        good_phases = S() # s = SectionNode()
+        good_phases = S(name='Airborne but not in Go Arounds',
+                        frequency=gear_sel_up.frequency,
+                        offset=gear_sel_up.offset)
         good_phases.create_sections(air_not_ga)
-        self.create_ktis_on_state_change('Up', gear_sel_up.array, change='entering', phase=airs)    
+        self.create_ktis_on_state_change('Up', gear_sel_up.array, 
+                                         change='entering', phase=good_phases)  
 
 
 class TakeoffTurnOntoRunway(KeyTimeInstanceNode):
