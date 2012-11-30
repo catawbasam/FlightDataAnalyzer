@@ -3175,7 +3175,7 @@ class CoordinatesSmoothed(object):
                                       hdg.array[join_idx:],
                                       freq, 
                                       'landing')
-                
+             
     def taxi_out_track(self, toff_slice, lat_adj, lon_adj, speed, hdg, freq):
         '''
         Compute a groundspeed and heading based taxi out track.
@@ -3328,7 +3328,7 @@ class CoordinatesSmoothed(object):
         # Use synthesized taxi out track
         #--------------------------------
         
-            self.taxi_out_track(lat_adj, toff_slice, lon_adj, speed, hdg, freq)
+            self.taxi_out_track(toff_slice, lat_adj, lon_adj, speed, hdg, freq)
         else:
             self.warning("Cannot smooth takeoff without runway details.")
 
