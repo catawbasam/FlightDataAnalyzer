@@ -223,7 +223,7 @@ class Approaches(FlightAttributeNode):
             return output
 
         try:
-            airport = int(output['airport'].value['id'])
+            airport_id = int(output['airport']['id'])
         except (AttributeError, KeyError, TypeError, ValueError):
             self.warning('Invalid airport... Fallback to AFR.')
             fallback = True
@@ -255,10 +255,10 @@ class Approaches(FlightAttributeNode):
                 del kwargs['longitude']
 
             try:
-                runway = api.get_nearest_runway(airport, heading, **kwargs)
+                runway = api.get_nearest_runway(airport_id, heading, **kwargs)
             except NotFoundError:
                 msg = 'No runway found for airport #%d @ %03.1f deg with %s.'
-                self.warning(msg, airport, heading, kwargs)
+                self.warning(msg, airport_id, heading, kwargs)
                 # No runway was found, so fall through and try AFR.
                 if 'ilsfreq' in kwargs:
                     # This is a trap for airports where the ILS data is not

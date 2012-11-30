@@ -2000,6 +2000,9 @@ class ILSFrequencyOnApproach(KeyPointValueNode):
     def derive(self, ils_frq=P('ILS Frequency'),
                loc_ests=S('ILS Localizer Established')):
         
+        if not ils_frq:
+            return # Where the entire array is masked.
+        
         for loc_est in loc_ests:
             # For the final period of operation of the ILS during this
             # approach, the ILS frequency was:
