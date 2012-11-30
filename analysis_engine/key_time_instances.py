@@ -153,16 +153,23 @@ class Transmit(KeyTimeInstanceNode):
     def can_operate(cls, available):
         return any(d in available for d in cls.get_dependency_names())
 
-    def derive(self, hf1=P('Key HF (1)'), hf2=P('Key HF (2)'),
-            sat_com1=P('Key Satcom (1)'), sat_com2=P('Key Satcom (2)'),
-            vhf1=P('Key VHF (1)'), vhf2=P('Key VHF (2)'), vhf3=P('Key VHF (3)')):
-
-        transmit_params = [hf1, hf2, sat_com1, sat_com2, vhf1, vhf2, vhf3]
-        for param in transmit_params:
-            if param:
+    def derive(self,
+            hf=P('Key HF'),
+            hf1=P('Key HF (1)'),
+            hf2=P('Key HF (2)'),
+            hf3=P('Key HF (3)'),
+            sc=P('Key Satcom'),
+            sc1=P('Key Satcom (1)'),
+            sc2=P('Key Satcom (2)'),
+            vhf=P('Key VHF'),
+            vhf1=P('Key VHF (1)'),
+            vhf2=P('Key VHF (2)'),
+            vhf3=P('Key VHF (3)')):
+        for p in [hf, hf1, hf2, hf3, sc, sc1, sc2, vhf, vhf1, vhf2, vhf3]:
+            if p:
                 self.create_ktis_on_state_change(
                     'Keyed',
-                    param.array,
+                    p.array,
                     change='entering'
                 )
 
