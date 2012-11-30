@@ -4225,7 +4225,8 @@ class Speedbrake(DerivedParameterNode):
         if frame_name in ['737-3A', '737-3B', '737-3C']:
             self.array, self.offset = self.spoiler_737(spoiler_4, spoiler_9)
 
-        elif frame_name in ['737-4', '737-5', '737-5_NON-EIS', '737-6']:
+        elif frame_name in ['737-4', '737-5', '737-5_NON-EIS', '737-6',
+                            '737-6_NON-EIS']:
             self.array, self.offset = self.spoiler_737(spoiler_2, spoiler_7)
 
         else:
