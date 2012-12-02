@@ -1515,53 +1515,40 @@ def ground_track_precise(lat_fix, lon_fix, lat, lon, speed, hdg, frequency, mode
     :Invalid mode fails with ValueError
     :Mismatched array lengths fails with ValueError
     """
-    def compute_weighting_vectors(speed, midpoints, weights, track_slice):
+    def gtp_weighting_vector(speed, midpoints, weights, track_slice):
         # Compute the speed weighted error
         speed_weighting = np_ma_masked_zeros_like(speed)
-        heading_offset = np_ma_masked_zeros_like(speed)
-        
+
+        speed_weighting[0] = 1.0
         for idx, point in enumerate(midpoints):
-            if idx == 0 or idx == len(midpoints)-1:
-                speed_weighting[point] = 1.0
-                heading_offset[point] = 0.0
-            else:
-                # We like to think of the weights as two vectors, but the
-                # optimization process forces a single dimension hence the
-                # clunky code below.
-                speed_weighting[point] = weights.reshape((2,-1))[0, idx-1]
-                heading_offset[point] = weights.reshape((2,-1))[1, idx-1]
+            speed_weighting[track_slice.start+point] = weights[idx]
+        speed_weighting[-1] = 1.0
     
         speed_weighting = interpolate_and_extend(speed_weighting)
+        # We ignore the ends of the taxi phase where the aircraft is on stand.
         speed_weighting[:track_slice.start] = 0.0
         speed_weighting[track_slice.stop:] = 0.0
- 
-        heading_offset = interpolate_and_extend(heading_offset)
-        heading_offset[:track_slice.start] = 0.0
-        heading_offset[track_slice.stop:] = 0.0
         
-        
-        
-        #plt.plot(speed_weighting)
-        #plt.show()
-        
-        #plt.plot(heading_offset)
-        #plt.show()
-        
-        return speed_weighting, heading_offset
+        return speed_weighting
     
-    def compute_error(weights):
-        speed_weighting, heading_offsets = compute_weighting_vectors(speed, midpoints, weights, track_slice)
+    def gtp_compute_error(weights):
+        speed_weighting  = gtp_weighting_vector(speed, midpoints, weights, track_slice)
         lat_est, lon_est = ground_track(lat_fix, lon_fix, 
                                         speed * speed_weighting, 
-                                        hdg + heading_offsets, 
-                                        frequency, mode)
+                                        hdg, frequency, mode)
         # Although we compute the whole track (it's easy) we only compute the
         # error over the track_slice range to ignore the static ends of the
         # data, which often contain spurious data.
-        error = np.ma.sum((lat[track_slice]-lat_est[track_slice])**2.0 + \
-                          (lon[track_slice]-lon_est[track_slice])**2.0)
-        print error
-        return error
+        errors = np.arange(len(midpoints), dtype=float)
+        width = 10
+        for n, midpoint in enumerate(midpoints):
+            scan = slice(max(midpoint-width, track_slice.start), 
+                         min(midpoint+width+1, track_slice.stop))
+            x_track_errors = ((lon[scan]-lon_est[scan])*np.cos(np.radians(hdg[scan])) -
+                              (lat[scan]-lat_est[scan])*np.sin(np.radians(hdg[scan])))
+            errors[n] = np.sum(x_track_errors**2.0) \
+                * 1.0E09 # Just to make the numbers easy to read !
+        return sum(errors)
     
     # We are going to extend the lat/lon_fix point by the length of the gspd/hdg arrays.
     # First check that the gspd/hdg arrays are sensible.
@@ -1569,54 +1556,62 @@ def ground_track_precise(lat_fix, lon_fix, lat, lon, speed, hdg, frequency, mode
         raise ValueError('Ground_track_precise requires equi-length arrays')
 
     # Compute the rate of turn and find peaks
-    track_ends = np.ma.flatnotmasked_edges(np.ma.masked_less(speed, 1.0))
-    track_slice=slice(track_ends[0],track_ends[1])
+    track_edges = np.ma.flatnotmasked_edges(np.ma.masked_less(speed, 1.0))
+    if mode == 'landing':
+        track_slice=slice(0, track_edges[1])
+        # "Freeze" the aircraft at the gate to stop it drifting.
+        gspd[track_edges[1]:] = 0.0
+        hdg[track_edges[1]:] = hdg[track_edges[1]-1]
+    elif mode == 'takeoff':
+        track_slice=slice(track_edges[0], len(speed))
+        gspd[:track_edges[0]] = 0.0
+        hdg[:track_edges[0]] = hdg[track_edges[0]]
+    else:
+        raise 'unknown mode in gtp_compute_error'
+        
     rot = np.ma.abs(rate_of_change_array(hdg[track_slice], frequency))
     peaks = cycle_finder(rot, min_step=3.0)
     peak_index = peaks[0][1::2]
     
     # Identify the midpoints between peaks (and between the end peaks and start and stop of the data)
-    midpoints = np.array(peaks[0][0])
-    midpoints = np.append(midpoints, (peaks[0][0] + peaks[0][1])/2)
-    midpoints = np.append(midpoints, (peak_index[1:] + peak_index[:-1])/2)
-    midpoints = np.append(midpoints, (peaks[0][-2] + peaks[0][-1])/2)
-    midpoints = np.append(midpoints, peaks[0][-1])
+    midpoints = np.array(peaks[0][0]/2)
+    midpoints = np.append(midpoints, (peak_index[0:-1]+peak_index[1:])/2)
+    midpoints = np.append(midpoints, (peaks[0][-2]+(track_ends[1]-track_ends[0]))/2)
     
     # Initialize the weights for no change.
     #   weights[0,:] = multiplication speed weights based on one
-    #   weights[1,:] = addition heading weights based on zero
-    weight_length = len(midpoints)-2
-    weights = np.ma.ones((2, weight_length))
-    #weights[1,:] = 0.0
-    speed_bound = (0.8,1.25)
-    head_bound = (-5,5)
-    boundaries = [speed_bound]*weight_length + [head_bound]*weight_length
+    weight_length = len(midpoints)
+    weights = np.ma.ones(weight_length)
+    speed_bound = (0.5,1.5) # Restict the variation in speeds to 50%.
+    boundaries = [speed_bound]*weight_length
     
     # Then iterate until optimised solution has been found. We use a dull
     # algorithm for reliability, rather than the more exciting forms which
     # can go astray and give less predictable results.
-    # weights_opt = optimize.fmin(compute_error, weights)
-    weights_opt = optimize.fmin_l_bfgs_b(compute_error, weights, fprime=None, approx_grad=True, bounds=boundaries)
+    weights_opt = optimize.fmin_l_bfgs_b(gtp_compute_error, weights, 
+                                         fprime=None, 
+                                         approx_grad=True, epsilon=1.0E-5, 
+                                         bounds=boundaries, maxfun=50)
+    """
+    fmin_l_bfgs_b license: This software is freely available, but we expect that all publications describing work using this software, or all commercial products using it, quote at least one of the references given below. This software is released under the BSD License.
+    R. H. Byrd, P. Lu and J. Nocedal. A Limited Memory Algorithm for Bound Constrained Optimization, (1995), SIAM Journal on Scientific and Statistical Computing, 16, 5, pp. 1190-1208.
+    C. Zhu, R. H. Byrd and J. Nocedal. L-BFGS-B: Algorithm 778: L-BFGS-B, FORTRAN routines for large scale bound constrained optimization (1997), ACM Transactions on Mathematical Software, 23, 4, pp. 550 - 560.
+    J.L. Morales and J. Nocedal. L-BFGS-B: Remark on Algorithm 778: L-BFGS-B, FORTRAN routines for large scale bound constrained optimization (2011), ACM Transactions on Mathematical Software, 38, 1.
+    """
     
-    high_wt = np.max(weights_opt[0])
+    print weights_opt[0]
     
-    print weights_opt[0].reshape((2,-1))
-    print [weights_opt[0].reshape((2,-1))[0,i]*(midpoints[i+1]-midpoints[i]) for i in range(len(weights_opt[0])/2)]
-    
-    if high_wt < 9999:
-        # Return the answer
-        speed_weighting, heading_offset = compute_weighting_vectors(speed, midpoints, weights_opt[0], track_slice)
-        lat_est, lon_est = ground_track(lat_fix, lon_fix,
-                                        speed * speed_weighting,
-                                        hdg + heading_offset,
-                                        frequency, mode)
-        ##import matplotlib.pyplot as plt
-        ##plt.plot(lat_est, lon_est)
-        ##plt.plot(lat[track_slice], lon[track_slice])
-        ##plt.show()
-        return lat_est, lon_est, high_wt
-    else:
-        return lat, lon, high_wt # Return unchanged data if the attempt to optimise went haywire.
+    speed_weighting = gtp_weighting_vector(speed, midpoints, weights_opt[0], track_slice)
+    lat_est, lon_est = ground_track(lat_fix, lon_fix,
+                                    speed * speed_weighting,
+                                    hdg,
+                                    frequency, mode)
+    ###Uncomment these lines to see how the fit matches the recorded data.
+    ##import matplotlib.pyplot as plt
+    ##plt.plot(lon_est, lat_est)
+    ##plt.plot(lon[track_slice], lat[track_slice])
+    ##plt.show()
+    return lat_est, lon_est
 
 def hash_array(array):
     '''

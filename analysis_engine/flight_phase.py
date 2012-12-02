@@ -666,7 +666,7 @@ class ILSGlideslopeEstablished(FlightPhaseNode):
                 if gs_est:
                     good_data = np.ma.count(ils_gs.array[gs_est])
                     all_data = len(ils_gs.array[gs_est]) or 1
-                    if good_data / all_data < 0.7:
+                    if (float(good_data)/all_data) < 0.7:
                         self.warning('ILS glideslope signal poor quality in '
                                      'approach - considered not established.')
                         continue

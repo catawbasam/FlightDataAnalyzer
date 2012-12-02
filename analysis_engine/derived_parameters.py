@@ -12,6 +12,7 @@ from analysis_engine.library import (air_track,
                                      align,
                                      alt2press,
                                      alt2sat,
+                                     bearing_and_distance,
                                      bearings_and_distances,
                                      blend_two_parameters,
                                      cas2dp,
@@ -50,6 +51,7 @@ from analysis_engine.library import (air_track,
                                      round_to_nearest,
                                      runway_distances,
                                      runway_heading,
+                                     runway_snap_dict,
                                      slices_not,
                                      smooth_track,
                                      step_values,
@@ -3143,16 +3145,15 @@ class CoordinatesSmoothed(object):
         '''
         Compute a groundspeed and heading based taxi out track.
         '''
-        [lat_adj[:toff_slice.start],
-        lon_adj[:toff_slice.start]],
-        wt = ground_track_precise(lat.data[toff_slice.start],
-                                  lon.data[toff_slice.start],
-                                  lat[:toff_slice.start],
-                                  lon[:toff_slice.start],
-                                  speed[:toff_slice.start],
-                                  hdg.array[:toff_slice.start],
-                                  freq, 
-                                  'takeoff')
+        lat_out, lon_out = ground_track_precise(lat.data[toff_slice.start],
+                                                lon.data[toff_slice.start],
+                                                lat[:toff_slice.start],
+                                                lon[:toff_slice.start],
+                                                speed[:toff_slice.start],
+                                                hdg.array[:toff_slice.start],
+                                                freq, 
+                                                'takeoff')
+        return lat_out, lon_out
 
     def taxi_in_track_pp(self, this_loc, lat, lon, lat_adj, lon_adj, speed, hdg, freq):
         '''
@@ -3163,30 +3164,31 @@ class CoordinatesSmoothed(object):
         join_idx = this_loc.slice.stop
         
         if join_idx and (len(lat_adj) > join_idx): # We have some room to extend over.
-            [lat_adj[join_idx:], 
-             lon_adj[join_idx:]],
-            wt = ground_track_precise(lat.data[join_idx],
-                                      lon.data[join_idx],
-                                      lat.data[join_idx:],
-                                      lon.data[join_idx:],                         
-                                      speed[join_idx:],
-                                      hdg.array[join_idx:],
-                                      freq, 
-                                      'landing')
-             
+            lat_in, lon_in = ground_track_precise(lat.data[join_idx],
+                                                  lon.data[join_idx],
+                                                  lat.data[join_idx:],
+                                                  lon.data[join_idx:],                         
+                                                  speed[join_idx:],
+                                                  hdg.array[join_idx:],
+                                                  freq, 
+                                       'landing')
+            return lat_in, lon_in
+        else:
+            return None, None
+    
     def taxi_out_track(self, toff_slice, lat_adj, lon_adj, speed, hdg, freq):
         '''
         Compute a groundspeed and heading based taxi out track.
         TODO: Include lat & lon corrections for precise positioning tracks.
         '''
-        [lat_adj[:toff_slice.start],
-        lon_adj[:toff_slice.start]] = \
+        lat_out, lon_out = \
             ground_track(lat_adj.data[toff_slice.start],
                          lon_adj.data[toff_slice.start],
                          speed[:toff_slice.start],
                          hdg.array[:toff_slice.start],
                          freq, 
                          'takeoff')
+        return lat_out, lon_out
     
     def taxi_in_track(self, this_loc, lat_adj, lon_adj, speed, hdg, freq):
         '''
@@ -3197,14 +3199,20 @@ class CoordinatesSmoothed(object):
         join_idx = index_at_value(speed, 40.0, this_loc.slice)
         
         if join_idx and (len(lat_adj) > join_idx): # We have some room to extend over.
-            [lat_adj[join_idx:], 
-             lon_adj[join_idx:]] = \
+            lat_in, lon_in = \
                 ground_track(lat_adj.data[join_idx],
                              lon_adj.data[join_idx],
                              speed[join_idx:], 
                              hdg.array[join_idx:], 
                              freq, 
                              'landing')
+            lat_adj[join_idx:] = lat_in
+            lon_adj[join_idx:] = lon_in
+            
+            return lat_adj[this_loc.slice.stop:], lon_adj[this_loc.slice.stop:]
+        else:
+            return None, None
+    
 
     def _adjust_track_pp(self, lon, lat, loc_est, ils_loc, head_mag, hdg, gspd,
                          app_info, first_toff, toff_rwy):
@@ -3222,7 +3230,13 @@ class CoordinatesSmoothed(object):
         if toff_rwy and first_toff and toff_rwy.value:
             toff_slice = first_toff.slice
             
-            self.taxi_out_track_pp(toff_slice, lat.array, lon.array, lat_adj, lon_adj, speed, hdg, freq)
+            lat_out, lon_out = self.taxi_out_track_pp(toff_slice, 
+                                                      lat.array, lon.array, 
+                                                      lat_adj, lon_adj, 
+                                                      speed, hdg, freq)
+
+            lat_adj[:toff_slice.start] = lat_out
+            lon_adj[:toff_slice.start] = lon_out
 
         #-----------------------------------------------------------------------
         # Use ILS track for approach and landings in all localizer approches
@@ -3268,7 +3282,11 @@ class CoordinatesSmoothed(object):
                 lat_adj[this_loc.slice.start] = np.ma.masked
                 lon_adj[this_loc.slice.start] = np.ma.masked
 
-                self.taxi_in_track_pp(this_loc, lat.array, lon.array, lat_adj, lon_adj, speed, hdg, freq)
+                lat_in, lon_in = self.taxi_in_track_pp(this_loc, lat.array, lon.array, lat_adj, lon_adj, speed, hdg, freq)
+                
+                if lat_in != None: # To trap the None, None return case
+                    lat_adj[this_loc.slice.stop:] = lat_in
+                    lon_adj[this_loc.slice.stop:] = lon_in
                 
             return lat_adj, lon_adj
         else:
@@ -3297,16 +3315,29 @@ class CoordinatesSmoothed(object):
         if toff_rwy and first_toff and toff_rwy.value:
             toff_slice = first_toff.slice
             
+            start_locn_recorded = runway_snap_dict(toff_rwy.value,lat.array[toff_slice.start], lon.array[toff_slice.start])
+            start_locn_default = toff_rwy.value['start']
+            _,distance = bearing_and_distance(start_locn_recorded['latitude'], start_locn_recorded['longitude'],
+                                              start_locn_default['latitude'],  start_locn_default['longitude'])
+            
+            if distance < 200:
+                # We may have a reasonable start location, so let's use that
+                start_locn = start_locn_recorded
+                initial_displacement = 0.0
+            else:
+                # The recorded start point is way off, default to 100m down the track.
+                start_locn = start_locn_default
+                initial_displacement = 100.0
+ 
             # Compute takeoff track from start of runway using integrated
             # groundspeed, down runway centreline to end of takeoff (35ft
             # altitude). An initial value of 100m puts the aircraft at a
             # reasonable position with respect to the runway start.
             rwy_dist = np.ma.array(                        
-                data = integrate(speed[toff_slice], freq, initial_value=100, 
+                data = integrate(speed[toff_slice], freq, 
+                                 initial_value=initial_displacement, 
                                  scale=KTS_TO_MPS),
                 mask = np.ma.getmaskarray(speed[toff_slice]))
-    
-            start_locn = toff_rwy.value['start']
     
             # Similarly the runway bearing is derived from the runway endpoints
             # (this gives better visualisation images than relying upon the
@@ -3326,7 +3357,11 @@ class CoordinatesSmoothed(object):
         # Use synthesized taxi out track
         #--------------------------------
         
-            self.taxi_out_track(toff_slice, lat_adj, lon_adj, speed, hdg, freq)
+            lat_out, lon_out = self.taxi_out_track(toff_slice, lat_adj, lon_adj, speed, hdg, freq)
+
+            lat_adj[:toff_slice.start] = lat_out
+            lon_adj[:toff_slice.start] = lon_out
+
         else:
             self.warning("Cannot smooth takeoff without runway details.")
 
@@ -3377,7 +3412,11 @@ class CoordinatesSmoothed(object):
                 lon_adj[this_loc.slice.start] = np.ma.masked
                 
                 if approach['type'] == 'LANDING':
-                    self.taxi_in_track(this_loc, lat_adj, lon_adj, speed, hdg, freq)
+                    lat_in, lon_in = self.taxi_in_track(this_loc, lat_adj, lon_adj, speed, hdg, freq)
+                    
+                    if lat_in != None: # To trap the None, None return case
+                        lat_adj[this_loc.slice.stop:] = lat_in
+                        lon_adj[this_loc.slice.stop:] = lon_in
 
             return lat_adj, lon_adj
         else:
@@ -3794,7 +3833,7 @@ class LongitudePrepared(DerivedParameterNode, CoordinatesStraighten):
                 'Longitude At Landing' in available) 
     
     def derive(self,
-               lon=P('Longitude'),lat=P('Latitude'),
+               lat=P('Latitude'), lon=P('Longitude'),
                tas=P('Airspeed True'), hdg=P('Heading True'),
                lat_lift=KPV('Latitude At Takeoff'),
                lon_lift=KPV('Longitude At Takeoff'),

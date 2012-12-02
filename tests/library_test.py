@@ -1306,7 +1306,9 @@ class TestGroundTrackPrecise(unittest.TestCase):
                 hdg_data.append(float(row['Heading_True_Continuous']))
                 gspd_data.append(float(row['Groundspeed']))
             self.lat = np.ma.array(lat_data)
+            self.lat[230:232] = np.ma.masked
             self.lon = np.ma.array(lon_data)
+            self.lon[230:232] = np.ma.masked
             self.hdg = np.ma.array(hdg_data)
             self.gspd = np.ma.array(gspd_data)
 
