@@ -3145,8 +3145,8 @@ class CoordinatesSmoothed(object):
         '''
         Compute a groundspeed and heading based taxi out track.
         '''
-        lat_out, lon_out = ground_track_precise(lat.data[toff_slice.start],
-                                                lon.data[toff_slice.start],
+        lat_out, lon_out = ground_track_precise(lat[toff_slice.start],
+                                                lon[toff_slice.start],
                                                 lat[:toff_slice.start],
                                                 lon[:toff_slice.start],
                                                 speed[:toff_slice.start],
@@ -3164,10 +3164,10 @@ class CoordinatesSmoothed(object):
         join_idx = this_loc.slice.stop
         
         if join_idx and (len(lat_adj) > join_idx): # We have some room to extend over.
-            lat_in, lon_in = ground_track_precise(lat.data[join_idx],
-                                                  lon.data[join_idx],
-                                                  lat.data[join_idx:],
-                                                  lon.data[join_idx:],                         
+            lat_in, lon_in = ground_track_precise(lat[join_idx],
+                                                  lon[join_idx],
+                                                  lat[join_idx:],
+                                                  lon[join_idx:],                         
                                                   speed[join_idx:],
                                                   hdg.array[join_idx:],
                                                   freq, 
@@ -3182,8 +3182,8 @@ class CoordinatesSmoothed(object):
         TODO: Include lat & lon corrections for precise positioning tracks.
         '''
         lat_out, lon_out = \
-            ground_track(lat_adj.data[toff_slice.start],
-                         lon_adj.data[toff_slice.start],
+            ground_track(lat_adj[toff_slice.start],
+                         lon_adj[toff_slice.start],
                          speed[:toff_slice.start],
                          hdg.array[:toff_slice.start],
                          freq, 
@@ -3200,8 +3200,8 @@ class CoordinatesSmoothed(object):
         
         if join_idx and (len(lat_adj) > join_idx): # We have some room to extend over.
             lat_in, lon_in = \
-                ground_track(lat_adj.data[join_idx],
-                             lon_adj.data[join_idx],
+                ground_track(lat_adj[join_idx],
+                             lon_adj[join_idx],
                              speed[join_idx:], 
                              hdg.array[join_idx:], 
                              freq, 

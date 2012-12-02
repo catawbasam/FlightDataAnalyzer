@@ -1542,13 +1542,17 @@ def ground_track_precise(lat_fix, lon_fix, lat, lon, speed, hdg, frequency, mode
         errors = np.arange(len(midpoints), dtype=float)
         width = 10
         for n, midpoint in enumerate(midpoints):
-            scan = slice(max(midpoint-width, track_slice.start), 
-                         min(midpoint+width+1, track_slice.stop))
+            scan = slice(max(midpoint-width, 0)+track_slice.start, 
+                         min(midpoint+width+1+track_slice.start, track_slice.stop))
             x_track_errors = ((lon[scan]-lon_est[scan])*np.cos(np.radians(hdg[scan])) -
                               (lat[scan]-lat_est[scan])*np.sin(np.radians(hdg[scan])))
-            errors[n] = np.sum(x_track_errors**2.0) \
+            errors[n] = np.nansum(x_track_errors**2.0) \
                 * 1.0E09 # Just to make the numbers easy to read !
-        return sum(errors)
+            
+        error = np.nansum(errors) # Treats nan as zero, in case masked values present.    
+        print error
+        
+        return error
     
     # We are going to extend the lat/lon_fix point by the length of the gspd/hdg arrays.
     # First check that the gspd/hdg arrays are sensible.
@@ -1560,15 +1564,16 @@ def ground_track_precise(lat_fix, lon_fix, lat, lon, speed, hdg, frequency, mode
     if mode == 'landing':
         track_slice=slice(0, track_edges[1])
         # "Freeze" the aircraft at the gate to stop it drifting.
-        gspd[track_edges[1]:] = 0.0
+        speed[track_edges[1]:] = 0.0
         hdg[track_edges[1]:] = hdg[track_edges[1]-1]
     elif mode == 'takeoff':
         track_slice=slice(track_edges[0], len(speed))
-        gspd[:track_edges[0]] = 0.0
+        speed[:track_edges[0]] = 0.0
         hdg[:track_edges[0]] = hdg[track_edges[0]]
     else:
         raise 'unknown mode in gtp_compute_error'
         
+    track_slice_length = track_slice.stop - track_slice.start
     rot = np.ma.abs(rate_of_change_array(hdg[track_slice], frequency))
     peaks = cycle_finder(rot, min_step=3.0)
     peak_index = peaks[0][1::2]
@@ -1576,7 +1581,7 @@ def ground_track_precise(lat_fix, lon_fix, lat, lon, speed, hdg, frequency, mode
     # Identify the midpoints between peaks (and between the end peaks and start and stop of the data)
     midpoints = np.array(peaks[0][0]/2)
     midpoints = np.append(midpoints, (peak_index[0:-1]+peak_index[1:])/2)
-    midpoints = np.append(midpoints, (peaks[0][-2]+(track_ends[1]-track_ends[0]))/2)
+    midpoints = np.append(midpoints, (peaks[0][-2]+track_slice_length)/2)
     
     # Initialize the weights for no change.
     #   weights[0,:] = multiplication speed weights based on one
@@ -1591,7 +1596,7 @@ def ground_track_precise(lat_fix, lon_fix, lat, lon, speed, hdg, frequency, mode
     weights_opt = optimize.fmin_l_bfgs_b(gtp_compute_error, weights, 
                                          fprime=None, 
                                          approx_grad=True, epsilon=1.0E-5, 
-                                         bounds=boundaries, maxfun=50)
+                                         bounds=boundaries, maxfun=20)
     """
     fmin_l_bfgs_b license: This software is freely available, but we expect that all publications describing work using this software, or all commercial products using it, quote at least one of the references given below. This software is released under the BSD License.
     R. H. Byrd, P. Lu and J. Nocedal. A Limited Memory Algorithm for Bound Constrained Optimization, (1995), SIAM Journal on Scientific and Statistical Computing, 16, 5, pp. 1190-1208.
