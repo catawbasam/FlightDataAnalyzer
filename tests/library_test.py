@@ -1289,6 +1289,48 @@ class TestGroundTrack(unittest.TestCase):
         np.testing.assert_array_almost_equal(expected_lon, lon)
 
 
+class TestGtpWeightingVector(unittest.TestCase):
+    def test_weighting_vector_basic(self):
+        speed = np.ma.array([10.0]*8)
+        turn_ends = [2,5]
+        weights = [0.8,1.4]
+        speed_weighting = gtp_weighting_vector(speed, turn_ends, weights)
+        expected = np.ma.array([1.0,0.9,0.8,1.0,1.2,1.4,1.2,1.0])
+        np.testing.assert_array_almost_equal(speed_weighting , expected)
+        
+class TestGtpComputeError(unittest.TestCase):
+    # Precise positioning ground track error computation.
+    def test_gtp_error_basic(self):
+        # Recorded data goes north, heading is northeast.
+        weights = [1.0,2.0]
+        straights = [slice(0,10)]
+        turn_ends = [0,10]
+        lat = np.ma.arange(0,3E-5,3E-6)
+        lon = np.ma.array([0.0]*10)
+        speed = np.ma.array([1.0]*10)
+        hdg = np.ma.array([45.0]*10)
+        frequency = 1.0
+        mode = 'landing'
+        args = (straights, turn_ends, lat, lon, speed, hdg, frequency, mode, 'final_answer')
+        la, lo, error = gtp_compute_error(weights, *args)
+        self.assertLess(error,1.3)
+        self.assertGreater(error,1.2)
+
+    def test_gtp_error_null(self):
+        # Recorded data and heading are northeast.
+        weights = [1.0,2.0]
+        straights = [slice(0,10)]
+        turn_ends = [0,10]
+        lat = np.ma.arange(0,3E-5,3E-6)
+        lon = lat
+        speed = np.ma.array([1.0]*10)
+        hdg = np.ma.array([45.0]*10)
+        frequency = 1.0
+        mode = 'takeoff'
+        args = (straights, turn_ends, lat, lon, speed, hdg, frequency, mode, 'iterate')
+        error = gtp_compute_error(weights, *args)
+        self.assertAlmostEqual(error,0.0)
+
 class TestGroundTrackPrecise(unittest.TestCase):
     # Precise Positioning version of Ground Track
     def setUp(self):
@@ -1313,13 +1355,12 @@ class TestGroundTrackPrecise(unittest.TestCase):
             self.gspd = np.ma.array(gspd_data)
 
     def test_ppgt_basic(self):
-        new_lat, new_lon, wt = ground_track_precise(self.lat[0], self.lon[0], 
-                                                    self.lat, self.lon, 
+        la, lo, wt = ground_track_precise(self.lat, self.lon, 
                                                     self.gspd, self.hdg, 
                                                     1.0, 'landing')
         
-        self.assertLess(wt,1.1)
-        self.assertGreater(wt,1.0)
+        self.assertLess(wt,1000)
+        self.assertGreater(wt,900)
 
 
 class TestHashArray(unittest.TestCase):
