@@ -63,22 +63,21 @@ class Airborne(FlightPhaseNode):
             start_point = speedy.slice.start or 0
             stop_point = speedy.slice.stop or len(alt_aal.array)
             # First tidy up the data we're interested in
-            work = repair_mask(alt_aal.array[start_point:stop_point])
+            working_alt = repair_mask(alt_aal.array[start_point:stop_point])
 
             # Stop here if there is inadequate airborne data to process.
-            if work is None:
+            if working_alt is None:
                 break
 
-            airs = np.ma.clump_unmasked(np.ma.masked_less_equal(work, 0.0))
+            airs = np.ma.clump_unmasked(np.ma.masked_less_equal(working_alt, 0.0))
             # Make sure we propogate None ends to data which starts or ends in
             # midflight.
             for air in airs:
                 begin = air.start
-                if begin == 0 or speedy.slice.start is None:
+                if begin == 0: # Was in the air at start of data
                     begin = None
                 end = air.stop
-                if end == len(alt_aal.array) - (start_point or 0) or \
-                   speedy.slice.stop is None:
+                if end >= stop_point: # Was in the air at end of data
                     end = None
                 if begin is None or end is None:
                     self.create_phase(shift_slice(slice(begin, end),
@@ -667,7 +666,7 @@ class ILSGlideslopeEstablished(FlightPhaseNode):
                 if gs_est:
                     good_data = np.ma.count(ils_gs.array[gs_est])
                     all_data = len(ils_gs.array[gs_est]) or 1
-                    if good_data / all_data < 0.7:
+                    if (float(good_data)/all_data) < 0.7:
                         self.warning('ILS glideslope signal poor quality in '
                                      'approach - considered not established.')
                         continue

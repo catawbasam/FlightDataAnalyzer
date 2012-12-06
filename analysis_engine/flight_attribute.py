@@ -59,21 +59,27 @@ class Approaches(FlightAttributeNode):
         [
             {
                 'airport': {...},  # See output provided by Airport API.
-                'runway': {...},   # See output provided by Airport API.
+                'runway': {...},   # See output provided by Runway API.
                 'type': 'LANDING',
                 'datetime': datetime(1970, 1, 1, 0, 0, 0),
+                'slice_start': 100,
+                'slice_stop': 200,
             },
             {
                 'airport': {...},  # See output provided by Airport API.
-                'runway': {...},   # See output provided by Airport API.
+                'runway': {...},   # See output provided by Runway API.
                 'type': 'GO_AROUND',
                 'datetime': datetime(1970, 1, 1, 0, 0, 0),
+                'slice_start': 100,
+                'slice_stop': 200,
             },
             {
                 'airport': {...},  # See output provided by Airport API.
-                'runway': {...},   # See output provided by Airport API.
+                'runway': {...},   # See output provided by Runway API.
                 'type': 'TOUCH_AND_GO',
                 'datetime': datetime(1970, 1, 1, 0, 0, 0),
+                'slice_start': 100,
+                'slice_stop': 200,
             },
             ...
         ]
@@ -112,8 +118,7 @@ class Approaches(FlightAttributeNode):
         approaches = []
 
         precise = bool(getattr(precision, 'value', False))
-        start = start_datetime.value
-        frequency = alt_aal.frequency
+        frequency = float(approach_sections.frequency)
 
         default_kwargs = dict(
             api=get_api_handler(API_HANDLER),
@@ -166,14 +171,10 @@ class Approaches(FlightAttributeNode):
                 'airport': None,
                 'runway': None,
                 'type': approach_type,
-                # XXX: Should this be the start of approach?
-                'datetime':
-                    datetime_of_index(start, section.slice.stop, frequency),
-                # NOTE: Not in the API, thus not stored in the database:
-                'slice_start_datetime':
-                    datetime_of_index(start, section.slice.start, frequency),
-                'slice_stop_datetime':
-                    datetime_of_index(start, section.slice.stop, frequency),
+                'datetime': datetime_of_index(start_datetime.value,
+                    section.slice.start, frequency),
+                'slice_start': section.slice.start / frequency,
+                'slice_stop': section.slice.stop / frequency,
 
             }
             approach.update(self._lookup_airport_and_runway(**kwargs))
@@ -223,8 +224,8 @@ class Approaches(FlightAttributeNode):
             return output
 
         try:
-            airport = int(output['airport'].value['id'])
-        except (AttributeError, KeyError, TypeError, ValueError):
+            airport_id = int(output['airport']['id'])
+        except (KeyError, TypeError, ValueError):
             self.warning('Invalid airport... Fallback to AFR.')
             fallback = True
 
@@ -255,10 +256,10 @@ class Approaches(FlightAttributeNode):
                 del kwargs['longitude']
 
             try:
-                runway = api.get_nearest_runway(airport, heading, **kwargs)
+                runway = api.get_nearest_runway(airport_id, heading, **kwargs)
             except NotFoundError:
-                msg = u'No runway found for airport #%d @ %.1fÂ° with %s.'
-                self.warning(msg, airport, heading, kwargs)
+                msg = 'No runway found for airport #%d @ %03.1f deg with %s.'
+                self.warning(msg, airport_id, heading, kwargs)
                 # No runway was found, so fall through and try AFR.
                 if 'ilsfreq' in kwargs:
                     # This is a trap for airports where the ILS data is not
@@ -551,7 +552,7 @@ class LandingRunway(FlightAttributeNode):
             try:
                 runway = api.get_nearest_runway(airport, heading, **kwargs)
             except NotFoundError:
-                msg = u'No runway found for airport #%d @ %.1fÂ° with %s.'
+                msg = 'No runway found for airport #%d @ %03.1f deg with %s.'
                 self.warning(msg, airport, heading, kwargs)
                 # No runway was found, so fall through and try AFR.
                 if 'ilsfreq' in kwargs:
@@ -836,7 +837,7 @@ class TakeoffRunway(FlightAttributeNode):
             try:
                 runway = api.get_nearest_runway(airport, heading, **kwargs)
             except NotFoundError:
-                msg = u'No runway found for airport #%d @ %.1fÂ° with %s.'
+                msg = 'No runway found for airport #%d @ %03.1f deg with %s.'
                 self.warning(msg, airport, heading, kwargs)
                 # No runway was found, so fall through and try AFR.
             else:

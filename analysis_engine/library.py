@@ -1,4 +1,6 @@
 import numpy as np
+from scipy import optimize
+
 import logging
 
 from math import ceil, floor, sqrt, sin, cos, atan2, radians
@@ -9,7 +11,7 @@ from itertools import izip
 
 from hdfaccess.parameter import MappedArray
 
-from settings import (KTS_TO_MPS, 
+from settings import (KTS_TO_MPS,
                       REPAIR_DURATION, 
                       TRUCK_OR_TRAILER_INTERVAL, 
                       TRUCK_OR_TRAILER_PERIOD)
@@ -712,7 +714,7 @@ def cycle_finder(array, min_step=0.0, include_ends=True):
         except:
             # If there are few vals in the array, there's nothing to tidy up.
             pass
-        idxs = np.append(idxs, len(array))
+        idxs = np.append(idxs, last)
         vals = np.append(vals, array.data[last])
         try:
             if (vals[-3] - vals[-2]) * (vals[-2] - vals[-1]) >= 0.0:
@@ -899,7 +901,7 @@ def filter_vor_ils_frequencies(array, navaid):
         raise ValueError('Navaid of unrecognised type %s' % navaid)
 
 
-def find_app_rwy(self, app_info, start_datetime, this_loc):
+def find_app_rwy(app_info, this_loc, this_loc_freq):
     """
     This function scans through the recorded approaches to find which matches
     the current localizer established phase. This is required because we
@@ -907,23 +909,19 @@ def find_app_rwy(self, app_info, start_datetime, this_loc):
     """
     for approach in app_info.value:
         # line up an approach slice
-        start = index_of_datetime(start_datetime.value,
-                                  approach['slice_start_datetime'],
-                                  self.frequency)
-        stop = index_of_datetime(start_datetime.value,
-                                 approach['slice_stop_datetime'],
-                                 self.frequency)
+        start = approach['slice_start'] * this_loc_freq
+        stop = approach['slice_stop'] * this_loc_freq
         approach_slice = slice(start, stop)
         if slices_overlap(this_loc.slice, approach_slice):
             # we've found a matching approach where the localiser was established
             break
     else:
-        self.warning("No approach found within slice '%s'.",this_loc)
+        logger.warning("No approach found within slice '%s'.",this_loc)
         return None, None
 
     runway = approach['runway']
     if not runway:
-        self.warning("Approach runway information not available.")
+        logger.warning("Approach runway information not available.")
         return approach, None
                 
     return approach, runway     
@@ -1418,7 +1416,7 @@ def ground_track(lat_fix, lon_fix, gspd, hdg, frequency, mode):
     :type gspd: Numpy masked array.
     :param hdg: True heading in degrees.
     :type hdg: Numpy masked array.
-    :param frequency: Frequency of the groundspeed and heading data
+    :param frequency: Frequency of the groundspeed and heading data (used for integration scaling).
     :type frequency: Float (units = Hz)
     :param mode: type of calculation to be completed.
     :type mode: String, either 'takeoff' or 'landing' accepted.
@@ -1482,6 +1480,187 @@ def ground_track(lat_fix, lon_fix, gspd, hdg, frequency, mode):
                                          'longitude':lon_fix})
     return lat, lon
 
+def gtp_weighting_vector(speed, straight_ends, weights):
+    # Compute the speed weighted error
+    speed_weighting = np_ma_masked_zeros_like(speed)
+
+    for idx, point in enumerate(straight_ends):
+        index = point
+        if index == len(speed_weighting):
+            index =- 1
+        speed_weighting[index] = weights[idx]
+
+    # We ensure the endpoint scaling is unchanged, to avoid a sudden jump in speed.
+    speed_weighting[0] = 1.0
+    speed_weighting[-1] = 1.0
+    speed_weighting = interpolate_and_extend(speed_weighting)
+    
+    return speed_weighting
+
+def gtp_compute_error(weights, *args):
+    straights = args[0]
+    straight_ends = args[1]
+    lat = args[2]
+    lon = args[3]
+    speed = args[4]
+    hdg = args[5]
+    frequency = args[6]
+    mode = args[7]
+    return_arg_set = args[8]
+    
+    speed_weighting  = gtp_weighting_vector(speed, straight_ends, weights)
+    if mode == 'takeoff':
+        lat_est, lon_est = ground_track(lat[-1], lon[-1], 
+                                        speed * speed_weighting,
+                                        hdg, frequency, mode)
+    else:
+        lat_est, lon_est = ground_track(lat[0], lon[0], 
+                                        speed * speed_weighting,
+                                        hdg, frequency, mode)
+    
+    # Although we compute the whole track (it's easy) we only compute the
+    # error over the track_slice range to ignore the static ends of the
+    # data, which often contain spurious data.
+    errors = np.arange(len(straights), dtype=float)
+    width = 10
+    for n, straight in enumerate(straights):
+        x_track_errors = ((lon[straight]-lon_est[straight])*np.cos(np.radians(hdg[straight])) -
+                          (lat[straight]-lat_est[straight])*np.sin(np.radians(hdg[straight])))
+        errors[n] = np.nansum(x_track_errors**2.0) \
+            * 1.0E09 # Just to make the numbers easy to read !
+        
+    error = np.nansum(errors) # Treats nan as zero, in case masked values present.    
+    print error
+    
+    # The optimization process expects a single error term in response, but
+    # it is convenient to use this function to return the latitude and
+    # longitude as well when asking for the final result, hence two
+    # alternative endings to this story.
+    if return_arg_set == 'iterate':
+        return error
+    else:
+        return lat_est, lon_est, error
+
+def ground_track_precise(lat, lon, speed, hdg, frequency, mode):
+    """
+    Computation of the ground track.
+    :param lat: Latitude for the duration of the ground track.
+    :type lat: Numpy masked array, latitude degrees.
+    :param lon: Longitude for the duration of the ground track.
+    :type lat: Numpy masked array, longitude degrees.
+    
+    :param gspd: Groundspeed for the duration of the ground track.
+    :type gspd: Numpy masked array in knots.
+    :param hdg: True heading for the duration of the ground track.
+    :type hdg: Numpy masked array in degrees.
+
+    :param frequency: Frequency of the array data (required for integration scaling).
+    :type frequency: Float (units = Hz)
+    :param mode: type of calculation to be completed.
+    :type mode: String, either 'takeoff' or 'landing' accepted.
+
+    :returns
+    :param lat_track: Latitude of computed ground track
+    :type lat_track: Numpy masked array
+    :param lon_track: Longitude of computed ground track
+    :type lon_track: Numpy masked array.    
+    
+    :error conditions
+    :Fewer than 5 valid data points, returns None, None
+    :Invalid mode fails with ValueError
+    :Mismatched array lengths fails with ValueError
+    """
+    
+    # We are going to extend the lat/lon_fix point by the length of the gspd/hdg arrays.
+    # First check that the gspd/hdg arrays are sensible.
+    if (len(speed) != len(hdg)) or (len(speed) != len(lat)) or (len(speed) != len(lon)):
+        raise ValueError('Ground_track_precise requires equi-length arrays')
+
+    # We are going to use the period from the runway to the last point where
+    # the speed was over 1kn, to stop the aircraft appearing to wander about
+    # on the stand.
+    track_edges = np.ma.flatnotmasked_edges(np.ma.masked_less(speed, 1.0))
+    if mode == 'landing':
+        track_slice=slice(0, track_edges[1])
+    elif mode == 'takeoff':
+        track_slice=slice(track_edges[0], len(speed))
+    else:
+        raise 'unknown mode in gtp_compute_error'
+        
+    track_slice_length = track_slice.stop - track_slice.start
+    rot = np.ma.abs(rate_of_change_array(hdg[track_slice], frequency))
+    straights = np.ma.clump_unmasked(np.ma.masked_greater(rot, 2.0)) # 2deg/sec
+    straight_ends = []
+    for straight in straights:
+        straight_ends.append(straight.start)
+        straight_ends.append(straight.stop)
+    # We aren't interested in the first and last
+    _=straight_ends.pop(0)
+    _=straight_ends.pop()
+    
+    # Initialize the weights for no change.
+    weight_length = len(straight_ends)
+    weights = np.ma.ones(weight_length)
+    speed_bound = (0.5,1.5) # Restict the variation in speeds to 50%.
+    boundaries = [speed_bound]*weight_length
+    
+    # Then iterate until optimised solution has been found. We use a dull
+    # algorithm for reliability, rather than the more exciting forms which
+    # can go astray and give less predictable results.
+    weights_opt = optimize.fmin_l_bfgs_b(gtp_compute_error, weights, 
+                                         fprime=None, 
+                                         args = (straights,
+                                                 straight_ends, 
+                                                 lat[track_slice], 
+                                                 lon[track_slice], 
+                                                 speed[track_slice], 
+                                                 hdg[track_slice], 
+                                                 frequency, 
+                                                 mode, 'iterate'),
+                                         approx_grad=True, epsilon=1.0E-4, 
+                                         bounds=boundaries, maxfun=15)
+    """
+    fmin_l_bfgs_b license: This software is freely available, but we expect that all publications describing work using this software, or all commercial products using it, quote at least one of the references given below. This software is released under the BSD License.
+    R. H. Byrd, P. Lu and J. Nocedal. A Limited Memory Algorithm for Bound Constrained Optimization, (1995), SIAM Journal on Scientific and Statistical Computing, 16, 5, pp. 1190-1208.
+    C. Zhu, R. H. Byrd and J. Nocedal. L-BFGS-B: Algorithm 778: L-BFGS-B, FORTRAN routines for large scale bound constrained optimization (1997), ACM Transactions on Mathematical Software, 23, 4, pp. 550 - 560.
+    J.L. Morales and J. Nocedal. L-BFGS-B: Remark on Algorithm 778: L-BFGS-B, FORTRAN routines for large scale bound constrained optimization (2011), ACM Transactions on Mathematical Software, 38, 1.
+    """
+    
+    '''
+    Outputs for debugging and inspecting operation of the optimization algorithm.
+    print weights_opt[0]
+
+    for num, weighting in enumerate(weights_opt[0]):
+        if weighting == speed_bound[0] or weighting == speed_bound[1]:
+            ref = straight_ends[num]
+            print 'Mode=',mode, ' Wt[',num, ']=',weighting, 'Index',ref, 'Hdg',hdg[ref], 'Gs',speed[ref]
+ 
+    # This plot shows how the fitted straight sections match the recorded data.
+    import matplotlib.pyplot as plt
+    for straight in straights:
+        plt.plot(lon_est[straight], lat_est[straight])
+    plt.plot(lon[track_slice], lat[track_slice])
+    plt.show()
+    '''
+    args = (straights, straight_ends, lat[track_slice], lon[track_slice],
+            speed[track_slice], hdg[track_slice], frequency, mode, 'final_answer')
+    lat_est, lon_est, wt = gtp_compute_error(weights_opt[0], *args)
+    
+    # Build arrays to return both the computed track and the static location
+    # of the aircraft at the gate to match the calling array size.
+    lat_return = np_ma_ones_like(lat) 
+    lon_return = np_ma_ones_like(lat)
+    if mode == 'takeoff':
+        lat_return[track_edges[0]:] = lat_est
+        lat_return[:track_edges[0]] = lat_est[0]
+        lon_return[track_edges[0]:] = lon_est
+        lon_return[:track_edges[0]] = lon_est[0]
+    else:
+        lat_return[:track_edges[1]] = lat_est
+        lat_return[track_edges[1]:] = lat_est[-1]
+        lon_return[:track_edges[1]] = lon_est
+        lon_return[track_edges[1]:] = lon_est[-1]
+    return lat_return, lon_return, wt
 
 def hash_array(array):
     '''
@@ -2742,6 +2921,18 @@ def np_ma_ones_like(array):
     return np_ma_zeros_like(array) + 1.0
 
 
+def np_ma_ones(length):
+    """
+    Creates a masked array filled with ones.
+    
+    :param length: length of the array to be created.
+    :type length: integer.
+    
+    :returns: Numpy masked array of unmasked 1.0 float values, length as specified.
+    """
+    return np_ma_zeros_like(np.ma.arange(length)) + 1.0
+
+
 def np_ma_masked_zeros_like(array):
     """
     Creates a masked array filled with masked values. The unmasked data
@@ -2927,8 +3118,11 @@ def peak_curvature(array, _slice=slice(None), curve_sense='Concave',
                                                          '''
         
         # Here we deal with problem cases.
-        if len(valid_slices) == 0 or (valid_slice.stop - valid_slice.start) < 4:
-            # No valid data segments were long enough to process.
+        if len(valid_slices) == 0 or \
+           (valid_slice.stop - valid_slice.start) < 4 or\
+           np.ma.ptp(input_data[valid_slice]) == 0:
+            # No valid data segments were long enough to process, or had any
+            # variation to scan.
             return None
         else:
             # Simple methods for small data sets.
@@ -3139,7 +3333,7 @@ def rms_noise(array, ignore_pc=None):
     elif ignore_pc == None:
         to_rms = diffs
     else:
-        monitor = slice(0, len(diffs) * ceil(1-ignore_pc/100.0))
+        monitor = slice(0, floor(len(diffs) * (1-ignore_pc/100.0)))
         to_rms = np.ma.sort(np.ma.abs(diffs))[monitor]
     return sqrt(np.ma.mean(np.ma.power(to_rms,2))) # RMS in one line !
 
@@ -3436,7 +3630,7 @@ def touchdown_inertial(land, roc, alt):
     # point. Note that this may differ slightly from the touchdown measured
     # using wheel switches.
     index = index_at_value(sm_ht, 0.0)
-    roc_tdn = my_roc[index]
+    roc_tdn = my_roc[index]  #WARNING: If index is None, roc_tdn will not filter array
     return index, roc_tdn
 
 
@@ -3505,7 +3699,7 @@ def smooth_track_cost_function(lat_s, lon_s, lat, lon):
     from_straight = np.sum(np.convolve(lat_s,slider,'valid')**2) + \
         np.sum(np.convolve(lon_s,slider,'valid')**2)
     
-    cost = from_data + 100*from_straight
+    cost = from_data + 1000*from_straight
     return cost
 
 
@@ -3628,7 +3822,7 @@ def index_at_value(array, threshold, _slice=slice(None), endpoint='exact'):
     while 'closing' seeks the last point where the array is closing on the 
     threshold.
     :returns: interpolated time when the array values crossed the threshold. (One value only).
-    :returns type: float
+    :returns type: Float or None
     '''
     step = _slice.step or 1
     max_index = len(array)
@@ -3693,8 +3887,8 @@ def index_at_value(array, threshold, _slice=slice(None), endpoint='exact'):
             i=begin
             while (closing_array [i+step]<=closing_array [i]):
                 i += step
-                if i==end:
-                    return end
+                if i == end-1:
+                    return end-1
             return i
         else:
             return None
