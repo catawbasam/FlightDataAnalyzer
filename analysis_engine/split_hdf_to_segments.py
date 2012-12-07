@@ -155,7 +155,13 @@ def split_segments(hdf):
     TODO: Use L3UQAR num power ups for difficult cases?
     '''
     airspeed = hdf['Airspeed']
-    airspeed_array = repair_mask(airspeed.array, repair_duration=None)
+    try:
+        airspeed_array = repair_mask(airspeed.array, repair_duration=None)
+    except ValueError:
+        # Airspeed array is masked, most likely under min threshold so it did 
+        # not go fast.
+        return [('GROUND_ONLY', slice(0, hdf.duration))]
+    
     airspeed_secs = len(airspeed_array) / airspeed.frequency
     slow_array = np.ma.masked_less_equal(airspeed_array,
                                          settings.AIRSPEED_THRESHOLD)

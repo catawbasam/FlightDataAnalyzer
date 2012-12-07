@@ -333,9 +333,15 @@ def process_flight(hdf_path, aircraft_info, start_datetime=datetime.now(),
         kpv_list = geo_locate(hdf, kpv_list)
         kpv_list = _timestamp(start_datetime, kpv_list)
         
-        # Store version of FlightDataAnalyser and dependency tree in HDF file.
+        # Store version of FlightDataAnalyser
         hdf.analysis_version = __version__
+        # Store dependency tree
         hdf.dependency_tree = graph_adjacencies(gr_st)
+        # Store aircraft info
+        ##hdf.aircraft_tail = ... NB: Remove from downsample!
+        hdf.set_attr('aircraft_info', aircraft_info)
+        hdf.set_attr('achieved_flight_record', achieved_flight_record)
+        
         
     ##if draw:
         ### only import if required
