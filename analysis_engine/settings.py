@@ -36,7 +36,7 @@ API_HANDLER = 'analysis_engine.api_handler_analysis_engine.AnalysisEngineAPIHand
 ##API_HANDLER = 'analysis_engine.api_handler_analysis_engine.AnalysisEngineAPIHandlerDummy'
 
 # Base URL for the API for determining nearest airport/runway, etc:
-BASE_URL = 'https://polaris.flightdataservices.com'
+BASE_URL = 'https://polaris-test.flightdataservices.com'
 
 # Location of the CA certificates to be used by the HTTP API handler:
 # Note: This is the system-wide default location on Ubuntu.

@@ -962,7 +962,7 @@ class TestCycleFinder(unittest.TestCase):
     def test_cycle_finder_default(self):
         array = np.ma.array([0,1,3.8,1,0.3,1,2,3,2,1,2,3,4,3,2])
         idxs, vals = cycle_finder(array)
-        np.testing.assert_array_equal(idxs, [ 0, 2, 4, 7, 9,12,15])
+        np.testing.assert_array_equal(idxs, [ 0, 2, 4, 7, 9,12,14])
         np.testing.assert_array_equal(vals, [ 0., 3.8, 0.3, 3., 1., 4., 2.])
         
     def test_cycle_finder_null(self):
@@ -980,7 +980,7 @@ class TestCycleFinder(unittest.TestCase):
     def test_cycle_finder_removals(self):
         array = np.ma.array([0,1,2,1,2,3,2,1,2,3,4,5,4,5,6])
         idxs, vals = cycle_finder(array, min_step=1.5)
-        np.testing.assert_array_equal(idxs, [0,5,7,15])
+        np.testing.assert_array_equal(idxs, [0,5,7,14])
         np.testing.assert_array_equal(vals, [0,3,1,6])
 
 class TestDatetimeOfIndex(unittest.TestCase):
@@ -1289,6 +1289,80 @@ class TestGroundTrack(unittest.TestCase):
         np.testing.assert_array_almost_equal(expected_lon, lon)
 
 
+class TestGtpWeightingVector(unittest.TestCase):
+    def test_weighting_vector_basic(self):
+        speed = np.ma.array([10.0]*8)
+        turn_ends = [2,5]
+        weights = [0.8,1.4]
+        speed_weighting = gtp_weighting_vector(speed, turn_ends, weights)
+        expected = np.ma.array([1.0,0.9,0.8,1.0,1.2,1.4,1.2,1.0])
+        np.testing.assert_array_almost_equal(speed_weighting , expected)
+        
+class TestGtpComputeError(unittest.TestCase):
+    # Precise positioning ground track error computation.
+    def test_gtp_error_basic(self):
+        # Recorded data goes north, heading is northeast.
+        weights = [1.0,2.0]
+        straights = [slice(0,10)]
+        turn_ends = [0,10]
+        lat = np.ma.arange(0,3E-5,3E-6)
+        lon = np.ma.array([0.0]*10)
+        speed = np.ma.array([1.0]*10)
+        hdg = np.ma.array([45.0]*10)
+        frequency = 1.0
+        mode = 'landing'
+        args = (straights, turn_ends, lat, lon, speed, hdg, frequency, mode, 'final_answer')
+        la, lo, error = gtp_compute_error(weights, *args)
+        self.assertLess(error,1.3)
+        self.assertGreater(error,1.2)
+
+    def test_gtp_error_null(self):
+        # Recorded data and heading are northeast.
+        weights = [1.0,2.0]
+        straights = [slice(0,10)]
+        turn_ends = [0,10]
+        lat = np.ma.arange(0,3E-5,3E-6)
+        lon = lat
+        speed = np.ma.array([1.0]*10)
+        hdg = np.ma.array([45.0]*10)
+        frequency = 1.0
+        mode = 'takeoff'
+        args = (straights, turn_ends, lat, lon, speed, hdg, frequency, mode, 'iterate')
+        error = gtp_compute_error(weights, *args)
+        self.assertAlmostEqual(error,0.0)
+
+class TestGroundTrackPrecise(unittest.TestCase):
+    # Precise Positioning version of Ground Track
+    def setUp(self):
+        lat_data=[]
+        lon_data=[]
+        hdg_data=[]
+        gspd_data=[]
+        duration_test_data_path = os.path.join(test_data_path,
+                                               'precise_ground_track_test_data.csv')
+        with open(duration_test_data_path, 'rb') as csvfile:
+            self.reader = csv.DictReader(csvfile)
+            for row in self.reader:
+                lat_data.append(float(row['Latitude']))
+                lon_data.append(float(row['Longitude']))
+                hdg_data.append(float(row['Heading_True_Continuous']))
+                gspd_data.append(float(row['Groundspeed']))
+            self.lat = np.ma.array(lat_data)
+            self.lat[230:232] = np.ma.masked
+            self.lon = np.ma.array(lon_data)
+            self.lon[230:232] = np.ma.masked
+            self.hdg = np.ma.array(hdg_data)
+            self.gspd = np.ma.array(gspd_data)
+
+    def test_ppgt_basic(self):
+        la, lo, wt = ground_track_precise(self.lat, self.lon, 
+                                                    self.gspd, self.hdg, 
+                                                    1.0, 'landing')
+        
+        self.assertLess(wt,1000)
+        self.assertGreater(wt,900)
+
+
 class TestHashArray(unittest.TestCase):
     def test_hash_array(self):
         '''
@@ -1403,6 +1477,10 @@ class TestIndexAtValue(unittest.TestCase):
     def test_index_at_value_threshold_not_crossed(self):
         array = np.ma.arange(4)
         self.assertEquals (index_at_value(array, 7.5, slice(0, 3)), None)
+        
+    def test_index_at_value_threshold_closing(self):
+        array = np.ma.arange(4)
+        self.assertEquals (index_at_value(array, 99, slice(1, None), endpoint='closing'), 3)
         
     def test_index_at_value_masked(self):
         array = np.ma.arange(4)
@@ -2176,6 +2254,18 @@ class TestOffsetSelect(unittest.TestCase):
         
         
 class TestPeakCurvature(unittest.TestCase):
+    # Also known as the "Truck and Trailer" algorithm, this detects the peak
+    # curvature point in an array.
+    
+    # The simple way to find peak curvature would be to take the second
+    # differential of the parameter and seek minima, however this is a poor
+    # technique as differentiation is a noisy process. To cater for noise in
+    # the data, this algorithm provides a more robust analysis using least
+    # squares fits to two blocks of data (the "Truck" and the "Trailer")
+    # separated by a small gap. The point where the two have greatest
+    # difference in slope corresponds to the point of greatest curvature
+    # between them.
+    
     # Note: The results from the first two tests are in a range format as the
     # artificial data results in multiple maxima.
 
@@ -2206,7 +2296,7 @@ class TestPeakCurvature(unittest.TestCase):
     def test_peak_curvature_short_flat_data(self):
         array = np.ma.array([34]*4)
         pc = peak_curvature(array)
-        self.assertEqual(pc,1)
+        self.assertEqual(pc,None)
         
     def test_peak_curvature_bipolar(self):
         array = np.ma.array([0]*40+range(40))
@@ -2238,7 +2328,7 @@ class TestPeakCurvature(unittest.TestCase):
         array[:4] = np.ma.masked
         array[16:] = np.ma.masked
         pc = peak_curvature(array, slice(0,40))
-        self.assertEqual(pc, 1)
+        self.assertEqual(pc, None)
         
     def test_peak_curvature_masked_data(self):
         array = np.ma.array([0]*40+range(40))
@@ -2247,6 +2337,18 @@ class TestPeakCurvature(unittest.TestCase):
         pc = peak_curvature(array, slice(0,78))
         self.assertEqual(pc, 38.5)
 
+    def test_high_speed_turnoff_case(self):
+        hdg_data=[]
+        data_path = os.path.join(test_data_path,
+                                 'runway_high_speed_turnoff_test.csv')
+        with open(data_path, 'rb') as csvfile:
+            reader = csv.DictReader(csvfile)
+            for row in reader:
+                hdg_data.append(float(row['Heading']))
+            array = np.ma.array(hdg_data)
+        
+        pc=peak_curvature(array, curve_sense='Bipolar')
+        self.assertLess(pc, 50)
 
 class TestPeakIndex(unittest.TestCase):
     def test_peak_index_no_data(self):
@@ -3133,10 +3235,9 @@ class TestTrackLinking(unittest.TestCase):
         # plot_parameter(expected)
 
 
-class TestTruckAndTrailer(unittest.TestCase):
-    def test_truck_and_trailer(self):
-        self.assertTrue(False)
-
+"""
+For the Truck and Trailer algorithm, see TestPeakCurvature above.
+"""
 
 class TestValueAtTime(unittest.TestCase):
     # Reminder: value_at_time (array, hz, offset, time_index)

@@ -70,9 +70,9 @@ class TestApproaches(unittest.TestCase, NodeTest):
                 'airport': None,
                 'runway': None,
                 'type': t,
-                'datetime': datetime(1970, 1, 1, 0, 0, b),
-                'slice_start_datetime': datetime(1970, 1, 1, 0, 0, a),
-                'slice_stop_datetime': datetime(1970, 1, 1, 0, 0, b),
+                'datetime': datetime(1970, 1, 1, 0, 0, a),
+                'slice_start': a,
+                'slice_stop': b,
             }
 
         approaches = self.node_class()

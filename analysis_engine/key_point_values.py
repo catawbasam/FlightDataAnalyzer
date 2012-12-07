@@ -2005,10 +2005,12 @@ class ILSFrequencyOnApproach(KeyPointValueNode):
             # approach, the ILS frequency was:
             freq=np.ma.median(ils_frq.array[loc_est.slice])
             # Note median picks the value most commonly recorded, so allows
-            # for some masked values and perhaps one or two rogue values.
-
-            # Identify the KPV as relating to the start of this ILS approach
-            self.create_kpv(loc_est.slice.start, freq)
+            # for some masked values and perhaps one or two rogue values. If,
+            # however, all the ILS frequency data is masked, no KPV is
+            # created.
+            if freq:
+                # Identify the KPV as relating to the start of this ILS approach
+                self.create_kpv(loc_est.slice.start, freq)
 
 
 class ILSGlideslopeDeviation1500To1000FtMax(KeyPointValueNode):

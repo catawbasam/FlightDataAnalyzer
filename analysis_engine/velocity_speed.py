@@ -84,7 +84,7 @@ class VelocitySpeed(object):
                              self.weight_unit)
 
         if setting not in lookup:
-            msg = "Vspeed table '%s' does not have entries for '%s'" % (
+            msg = "Vspeed table '%s' does not have v_speed entry for '%s' flap." % (
                            self.__class__.__name__,
                            setting)
             logger.error(msg)

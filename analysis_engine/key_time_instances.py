@@ -153,16 +153,23 @@ class Transmit(KeyTimeInstanceNode):
     def can_operate(cls, available):
         return any(d in available for d in cls.get_dependency_names())
 
-    def derive(self, hf1=P('Key HF (1)'), hf2=P('Key HF (2)'),
-            sat_com1=P('Key Satcom (1)'), sat_com2=P('Key Satcom (2)'),
-            vhf1=P('Key VHF (1)'), vhf2=P('Key VHF (2)'), vhf3=P('Key VHF (3)')):
-
-        transmit_params = [hf1, hf2, sat_com1, sat_com2, vhf1, vhf2, vhf3]
-        for param in transmit_params:
-            if param:
+    def derive(self,
+            hf=P('Key HF'),
+            hf1=P('Key HF (1)'),
+            hf2=P('Key HF (2)'),
+            hf3=P('Key HF (3)'),
+            sc=P('Key Satcom'),
+            sc1=P('Key Satcom (1)'),
+            sc2=P('Key Satcom (2)'),
+            vhf=P('Key VHF'),
+            vhf1=P('Key VHF (1)'),
+            vhf2=P('Key VHF (2)'),
+            vhf3=P('Key VHF (3)')):
+        for p in [hf, hf1, hf2, hf3, sc, sc1, sc2, vhf, vhf1, vhf2, vhf3]:
+            if p:
                 self.create_ktis_on_state_change(
                     'Keyed',
-                    param.array,
+                    p.array,
                     change='entering'
                 )
 
@@ -549,7 +556,7 @@ class Touchdown(KeyTimeInstanceNode):
         # landing it won't work, but this will be the least of the problems).
         for air in airs:
             t0 = air.slice.stop
-            for land in lands:
+            for land in (lands or []):
                 if t0 and is_index_within_slice(t0, land.slice):
                     """
                     # Let's scan from 30ft to 10 seconds after the approximate touchdown moment.
@@ -596,14 +603,27 @@ class LandingTurnOffRunway(KeyTimeInstanceNode):
     
                 if (start_search is None) or (start_search < landing.slice.start):
                     start_search = (landing.slice.start+landing.slice.stop)/2
-                peak_bend = peak_curvature(head.array[slice(
-                    start_search,landing.slice.stop)], curve_sense='Bipolar')
+                
+                head_landing = head.array[slice(start_search,landing.slice.stop)]                
+                
+                peak_bend = peak_curvature(head_landing, curve_sense='Bipolar')
+                
+                fifteen_deg = index_at_value(np.ma.abs(head_landing-head_landing[0]),
+                                             15.0)
                 
                 if peak_bend:
                     landing_turn = start_search + peak_bend
                 else:
-                    # No turn, so just use end of landing run.
-                    landing_turn = landing.slice.stop
+                    if fifteen_deg and fifteen_deg < peak_bend:
+
+                        print
+                        print '#### Using 15 deg in preference to peak_bend'
+                        print
+                        
+                        landing_turn = start_search + landing_turn
+                    else:
+                        # No turn, so just use end of landing run.
+                        landing_turn = landing.slice.stop
                 
                 self.create_kti(landing_turn)
     
