@@ -1,7 +1,10 @@
 import numpy as np
+import csv
+
 import os
 import sys
 import unittest
+import datetime
 
 from mock import Mock, call, patch
 
@@ -23,6 +26,7 @@ from analysis_engine.derived_parameters import (
     AccelerationSideways,
     AccelerationAlongTrack,
     AccelerationAcrossTrack,
+    Aileron,
     AirspeedForFlightPhases,
     AirspeedReference,
     AirspeedRelative,
@@ -42,9 +46,11 @@ from analysis_engine.derived_parameters import (
     ControlColumnForceCapt,
     ControlColumnForceFO,
     ControlWheel,
+    CoordinatesSmoothed,
     DescendForFlightPhases,
     DistanceTravelled,
     DistanceToLanding,
+    Elevator,
     Eng_N1Avg,
     Eng_N1Max,
     Eng_N1Min,
@@ -72,6 +78,7 @@ from analysis_engine.derived_parameters import (
     Pitch,
     VerticalSpeed,
     VerticalSpeedForFlightPhases,
+    VisualApproachRange,
     RateOfTurn,
     TurbulenceRMSG,
     V2,
@@ -1508,7 +1515,7 @@ class TestFuelQty(unittest.TestCase):
            ('Fuel Qty (2)', 'Fuel Qty (3)'), ('Fuel Qty (1)', 'Fuel Qty (2)',
                                               'Fuel Qty (3)')])
     
-    def test_derive(self):
+    def test_three_tanks(self):
         fuel_qty1 = P('Fuel Qty (1)', 
                       array=np.ma.array([1,2,3], mask=[False, False, False]))
         fuel_qty2 = P('Fuel Qty (2)', 
@@ -1517,13 +1524,28 @@ class TestFuelQty(unittest.TestCase):
         fuel_qty3 = P('Fuel Qty (3)',
                       array=np.ma.array([3,6,9], mask=[False, True, False]))
         fuel_qty_node = FuelQty()
-        fuel_qty_node.derive(fuel_qty1, fuel_qty2, fuel_qty3)
+        fuel_qty_node.derive(fuel_qty1, fuel_qty2, fuel_qty3, None)
         np.testing.assert_array_equal(fuel_qty_node.array,
                                       np.ma.array([6, 12, 18]))
         # Works without all parameters.
-        fuel_qty_node.derive(fuel_qty1, None, None)
+        fuel_qty_node.derive(fuel_qty1, None, None, None)
         np.testing.assert_array_equal(fuel_qty_node.array,
                                       np.ma.array([1, 2, 3]))
+
+    def test_four_tanks(self):
+        fuel_qty1 = P('Fuel Qty (1)', 
+                      array=np.ma.array([1,2,3], mask=[False, False, False]))
+        fuel_qty2 = P('Fuel Qty (2)', 
+                      array=np.ma.array([2,4,6], mask=[False, False, False]))
+        # Mask will be interpolated by repair_mask.
+        fuel_qty3 = P('Fuel Qty (3)',
+                      array=np.ma.array([3,6,9], mask=[False, True, False]))
+        fuel_qty_a = P('Fuel Qty (Aux)',
+                      array=np.ma.array([11,12,13], mask=[False, False, False]))
+        fuel_qty_node = FuelQty()
+        fuel_qty_node.derive(fuel_qty1, fuel_qty2, fuel_qty3, fuel_qty_a)
+        np.testing.assert_array_equal(fuel_qty_node.array,
+                                      np.ma.array([17, 24, 31]))
 
 
 class TestGrossWeightSmoothed(unittest.TestCase):
@@ -1767,26 +1789,12 @@ class TestILSFrequency(unittest.TestCase):
 
 class TestILSLocalizerRange(unittest.TestCase):
     def test_can_operate(self):
-        expected = [('Latitude Prepared',
-                     'Longitude Prepared',
-                     'ILS Glideslope',
-                     'Groundspeed',
-                     'Drift',
-                     'Heading True Continuous',
-                     'Airspeed True',
-                     'Altitude AAL',
-                     'ILS Localizer Established',
-                     'ILS Glideslope Established',
-                     'Precise Positioning',
-                     'FDR Approaches',
-                     'Start Datetime')]
-        opts = ILSLocalizerRange.get_operational_combinations()
-        self.assertEqual(opts, expected)
-    
+        self.assertTrue(False, msg='Test not implemented.')
+        
     def test_derive(self):
         self.assertTrue(False, msg='Test not implemented.')
 
-        
+
 class TestPitch(unittest.TestCase):
     def test_can_operate(self):
         expected = [('Pitch (1)', 'Pitch (2)')]
@@ -2061,9 +2069,40 @@ class TestAileron(unittest.TestCase):
     def test_can_operate(self):
         self.assertTrue(False, msg='Test not implemented.')
         
-    def test_derive(self):
+    def test_normal_two_sensors(self):
+        left = P('Aileron (L)', np.ma.array([1.0]*2+[2.0]*2), frequency=0.5, offset = 0.1)
+        right = P('Aileron (R)', np.ma.array([2.0]*2+[1.0]*2), frequency=0.5, offset = 1.1)
+        aileron = Aileron()
+        aileron.derive(left, right)
+        expected_data = np.ma.array([1.5]*3+[1.75]*2+[1.5]*3)
+        np.testing.assert_array_equal(aileron.array, expected_data)
+        self.assertEqual(aileron.frequency, 1.0)
+        self.assertEqual(aileron.offset, 0.1)
+
+    def test_left_only(self):
+        left = P('Aileron (L)', np.ma.array([1.0]*2+[2.0]*2), frequency=0.5, offset = 0.1)
+        aileron = Aileron()
+        aileron.derive(left, None)
+        expected_data = left.array
+        np.testing.assert_array_equal(aileron.array, expected_data)
+        self.assertEqual(aileron.frequency, 0.5)
+        self.assertEqual(aileron.offset, 0.1)
+    
+    def test_right_only(self):
+        right = P('Aileron (R)', np.ma.array([3.0]*2+[2.0]*2), frequency=2.0, offset = 0.3)
+        aileron = Aileron()
+        aileron.derive(None, right)
+        expected_data = right.array
+        np.testing.assert_array_equal(aileron.array, expected_data)
+        self.assertEqual(aileron.frequency, 2.0)
+        self.assertEqual(aileron.offset, 0.3)
+        
+
+    def test_four_parts(self):
+        # The aileron code allows for four sensors, split inboard and outboard. This still needs tests written.
         self.assertTrue(False, msg='Test not implemented.')
 
+        
 
 class TestAileronTrim(unittest.TestCase):
     def test_can_operate(self):
@@ -2117,8 +2156,33 @@ class TestElevator(unittest.TestCase):
     def test_can_operate(self):
         self.assertTrue(False, msg='Test not implemented.')
         
-    def test_derive(self):
-        self.assertTrue(False, msg='Test not implemented.')
+    def test_normal_two_sensors(self):
+        left = P('Elevator (L)', np.ma.array([1.0]*2+[2.0]*2), frequency=0.5, offset = 0.1)
+        right = P('Elevator (R)', np.ma.array([2.0]*2+[1.0]*2), frequency=0.5, offset = 1.1)
+        elevator = Elevator()
+        elevator.derive(left, right)
+        expected_data = np.ma.array([1.5]*3+[1.75]*2+[1.5]*3)
+        np.testing.assert_array_equal(elevator.array, expected_data)
+        self.assertEqual(elevator.frequency, 1.0)
+        self.assertEqual(elevator.offset, 0.1)
+
+    def test_left_only(self):
+        left = P('Elevator (L)', np.ma.array([1.0]*2+[2.0]*2), frequency=0.5, offset = 0.1)
+        elevator = Elevator()
+        elevator.derive(left, None)
+        expected_data = left.array
+        np.testing.assert_array_equal(elevator.array, expected_data)
+        self.assertEqual(elevator.frequency, 0.5)
+        self.assertEqual(elevator.offset, 0.1)
+    
+    def test_right_only(self):
+        right = P('Elevator (R)', np.ma.array([3.0]*2+[2.0]*2), frequency=2.0, offset = 0.3)
+        elevator = Elevator()
+        elevator.derive(None, right)
+        expected_data = right.array
+        np.testing.assert_array_equal(elevator.array, expected_data)
+        self.assertEqual(elevator.frequency, 2.0)
+        self.assertEqual(elevator.offset, 0.3)
 
 
 class TestEng_EPRAvg(unittest.TestCase):
@@ -2535,6 +2599,86 @@ class TestTurbulence(unittest.TestCase):
         expected = np.array([0]*20+[0.156173762]*41+[0]*20)
         np.testing.assert_array_almost_equal(expected, turb.array.data)
         
+class TestVisualApproachRange(unittest.TestCase):
+    def setUp(self):
+        test_data_path = os.path.join(os.path.dirname(os.path.abspath(__file__)),
+                                      'test_data')        
+        self.app_info=[]
+        self.app_info.append(
+            {'runway': {'end': {'latitude': 43.65164, 
+                                'elevation': -3, 
+                                'longitude': 7.204074}, 
+                        'start': {'latitude': 43.668008, 
+                                  'elevation': 16, 
+                                  'longitude': 7.226582}, 
+                        'magnetic_heading': 223.5, 
+                        'strip': {'width': 147, 
+                                  'length': 8995, 
+                                  'id': 2226, 
+                                  'surface': 'ASP'}, 
+                        'identifier': '22*', 
+                        'id': 4452}, 
+             'airport': {'distance': 0.5243389615338375, 
+                         'magnetic_variation': 'E000374 0106', 
+                         'code': {'icao': 'LFMN', 
+                                  'iata': 'NCE'}, 
+                         'elevation': 3, 
+                         'name': 'Nice Cote D Azur', 
+                         'longitude': 7.21587, 
+                         'location': {'city': u"Nice/C\xf4Te D'Azur", 
+                                      'country': 'France'}, 
+                                      'latitude': 43.6584, 
+                                      'id': 3021},
+             'slice_start': 10.0, 
+             'type': 'LANDING', 
+             'slice_stop': 120.0,            
+            })
+        gspd_data=[]
+        drift_data=[]
+        hdg_data=[]
+        tas_data=[]
+        alt_data=[]
+        vis_range_test_data_path = os.path.join(test_data_path,
+                                                'visual_range_test_data.csv')
+        with open(vis_range_test_data_path, 'rb') as csvfile:
+            self.reader = csv.DictReader(csvfile)
+            for row in self.reader:
+                gspd_data.append(float(row['Groundspeed']))
+                drift_data.append(float(row['Drift']))
+                hdg_data.append(float(row['Heading_True_Continuous']))
+                tas_data.append(float(row['Airspeed_True']))
+                alt_data.append(float(row['Altitude_AAL']))
+            self.gspd_np = np.ma.array(gspd_data)
+            self.drift_np = np.ma.array(drift_data)
+            self.hdg_np = np.ma.array(hdg_data)
+            self.tas_np = np.ma.array(tas_data)
+            self.alt_np = np.ma.array(alt_data)
+        return
+
+    def test_can_operate(self):
+        expected = [('ILS Glideslope',
+                     'Groundspeed',
+                     'Drift',
+                     'Heading True Continuous',
+                     'Airspeed True',
+                     'Altitude AAL',
+                     'ILS Localizer Established',
+                     'ILS Glideslope Established',
+                     'Precise Positioning',
+                     'FDR Approaches')]
+        opts = ILSLocalizerRange.get_operational_combinations()
+        self.assertEqual(opts, expected)
+
+    def test_visual_range_basic(self):
+        vr = VisualApproachRange()
+        vr.derive(P('Groundspeed', self.gspd_np),
+                  P('Drift', self.drift_np),
+                  P('Heading True Continuous', self.hdg_np),
+                  P('Airspeed True', self.tas_np),
+                  P('Altitude AAL', self.alt_np),
+                  A('FDR Approaches', self.app_info))
+        self.assertEqual(int(vr.array[-2]),1011)
+                         
 
 class TestVOR1Frequency(unittest.TestCase):
     def test_can_operate(self):
@@ -2566,6 +2710,126 @@ class TestWindDirectionContinuous(unittest.TestCase):
         
     def test_derive(self):
         self.assertTrue(False, msg='Test not implemented.')
+
+
+class TestCoordinatesSmoothed(unittest.TestCase):
+    def setUp(self):
+        self.approaches = A(name = 'Approaches',
+                            value=[{'ILS frequency': 108.55,
+                                    'ILS glideslope established': slice(3200, 3390, None),
+                                    'ILS localizer established': slice(3199, 3445, None),
+                                    'airport': {'code': {'iata': 'KDH', 'icao': 'OAKN'},
+                                                'distance': 2.483270162497824,
+                                                'elevation': 3301,
+                                                'id': 3279,
+                                                'latitude': 31.5058,
+                                                'location': {'country': 'Afghanistan'},
+                                                'longitude': 65.8478,
+                                                'magnetic_variation': 'E001590 0506',
+                                                'name': 'Kandahar'},
+                                    'datetime': datetime.datetime(2012, 12, 9, 18, 20, 54, 504000),
+                                    'runway': {'end': {'elevation': 3294,
+                                                       'latitude': 31.497511,
+                                                       'longitude': 65.833933},
+                                               'id': 44,
+                                               'identifier': '23',
+                                               'magnetic_heading': 232.9,
+                                               'start': {'elevation': 3320,
+                                                         'latitude': 31.513997,
+                                                         'longitude': 65.861714},
+                                               'strip': {'id': 22,
+                                                         'length': 10532,
+                                                         'surface': 'ASP',
+                                                         'width': 147}},
+                                    'slice_start': 3198.0,
+                                    'slice_stop': 3422.0,
+                                    'type': 'GO_AROUND'},
+                                   {'ILS frequency': 111.3,
+                                    'ILS glideslope established': slice(13034, 13262, None),
+                                    'ILS localizer established': slice(12929, 13347, None),
+                                    'Landing Turn Off Runway': 13362.455208333333,
+                                    'airport': {'code': {'iata': 'DXB', 'icao': 'OMDB'},
+                                                'distance': 1.6842014290716794,
+                                                'id': 3302,
+                                                'latitude': 25.2528,
+                                                'location': {'city': 'Dubai',
+                                                             'country': 'United Arab Emirates'},
+                                                'longitude': 55.3644,
+                                                'magnetic_variation': 'E001315 0706',
+                                                'name': 'Dubai Intl'},
+                                    'datetime': datetime.datetime(2012, 12, 9, 21, 3, 4, 504000),
+                                    'runway': {'end': {'latitude': 25.262131, 'longitude': 55.347572},
+                                               'glideslope': {'angle': 3.0,
+                                                              'latitude': 25.246333,
+                                                              'longitude': 55.378417,
+                                                              'threshold_distance': 1508},
+                                               'id': 22,
+                                               'identifier': '30L',
+                                               'localizer': {'beam_width': 4.5,
+                                                             'frequency': 111300.0,
+                                                             'heading': 300,
+                                                             'latitude': 25.263139,
+                                                             'longitude': 55.345722},
+                                               'magnetic_heading': 299.7,
+                                               'start': {'latitude': 25.243322, 'longitude': 55.381519},
+                                               'strip': {'id': 11,
+                                                         'length': 13124,
+                                                         'surface': 'ASP',
+                                                         'width': 150}},
+                                    'slice_start': 12928.0,
+                                    'slice_stop': 13440.0,
+                                    'type': 'LANDING'}])
+                              
+        self.toff = Section(name='Takeoff', 
+                       slice=slice(372, 414, None), 
+                       start_edge=371.32242063492066, 
+                       stop_edge=413.12204760355382)
+        
+        self.toff_rwy = A(name = 'FDR Takeoff Runway',
+                          value = {'end': {'elevation': 4843, 
+                                           'latitude': 34.957972, 
+                                           'longitude': 69.272944},
+                                   'id': 41,
+                                   'identifier': '03',
+                                   'magnetic_heading': 26.0,
+                                   'start': {'elevation': 4862, 
+                                             'latitude': 34.934306, 
+                                             'longitude': 69.257},
+                                   'strip': {'id': 21, 
+                                             'length': 9852, 
+                                             'surface': 'CON', 
+                                             'width': 179}})
+             
+        self.precision = A(name='Precise Positioning',
+                           value = False)
+        
+        return
+
+    def test__adjust_track(self):
+        hdf_test_file = os.path.join('test_data',
+                                     'flight_with_go_around_and_landing.hdf5')
+        with hdf_file(hdf_test_file) as hdf:
+            lon = hdf['Longitude']
+            lat = hdf['Latitude']
+            ils_loc =hdf['ILS Localizer']
+            app_range = hdf['ILS Localizer Range']
+            gspd = hdf['Groundspeed']
+            hdg = hdf['Heading True Continuous']
+            tas = hdf['Airspeed True']
+        
+        cs = CoordinatesSmoothed()    
+        lat_new, lon_new = cs._adjust_track(lon, lat, ils_loc, app_range, hdg, gspd, tas, 
+                                            self.toff, self.toff_rwy, self.approaches, self.precision)
+        
+        chunks = np.ma.clump_unmasked(lat_new)
+        self.assertEqual(len(chunks),2)
+        
+
+        import matplotlib.pyplot as plt
+        plt.plot(lat_new, lon_new)
+        plt.show()
+        plt.plot(lon.array, lat.array)
+        plt.show()
 
 
 if __name__ == '__main__':

@@ -14,7 +14,7 @@ from analysis_engine.flight_attribute import LandingRunway
 import utilities.masked_array_testutils as ma_test
 
 from analysis_engine.library import *
-from analysis_engine.node import (P, S, M)
+from analysis_engine.node import (A, P, S, M)
 from analysis_engine.settings import METRES_TO_FEET
 
 test_data_path = os.path.join(os.path.dirname(os.path.abspath(__file__)),
@@ -584,7 +584,40 @@ class TestLatitudesAndLongitudes(unittest.TestCase):
         self.assertAlmostEqual(lon,[-1.06358672])
         # TODO - Test with array and masks (for Brg/Dist also?)
 
-
+class TestLocalizerScale(unittest.TestCase):
+    def test_basic_operation(self):
+        rwy = A(name='test',
+                value=[{'runway': {'end': 
+                                   {'latitude': 25.262131, 
+                                    'longitude': 55.347572},
+                                   'localizer': {'beam_width': 4.5,
+                                                 'frequency': 111300.0},
+                                   'start': {'latitude': 25.243322, 
+                                             'longitude': 55.381519},
+                                   }}])
+        result = localizer_scale(rwy.value[0])
+        expected = 0.9
+        self.assertAlmostEqual(result, 0.9)
+        
+    def test_no_beam_width(self):
+        rwy = A(name='test',
+                value=[{'runway': {'end': 
+                                   {'latitude': 25.262131, 
+                                    'longitude': 55.347572},
+                                   'start': {'latitude': 25.243322, 
+                                             'longitude': 55.381519},
+                                   }}])
+        result = localizer_scale(rwy.value[0])
+        self.assertGreater(result, 1.5)
+        self.assertLess(result, 1.6)
+        
+    def test_no_beam_width_or_length(self):
+        rwy = A(name='test',
+                value=[None])
+        result = localizer_scale(rwy.value[0])
+        self.assertGreater(result, 2.4)
+        self.assertLess(result, 2.6)
+     
 class TestBlendEquispacedSensors(unittest.TestCase):
     def test_blend_alternate_sensors_basic(self):
         array_1 = np.ma.array([0, 0, 1, 1],dtype=float)
@@ -1229,6 +1262,10 @@ class TestLastValidSample(unittest.TestCase):
     def test_last_valid_sample_overrun(self):
         result = last_valid_sample(np.ma.array(data=[11,12,13,14],mask=[1,0,1,0]),9)
         self.assertEqual(result, (None, None))
+    
+    def test_last_valid_sample_masked(self):
+        result = last_valid_sample(np.ma.array(data=[11,12,13,14],mask=[0,0,0,1]))
+        self.assertEqual(result, (2,13))
 
 
 class TestGroundTrack(unittest.TestCase):
@@ -1670,6 +1707,15 @@ class TestILSLocalizerAlign(unittest.TestCase):
         self.assertEqual(result['longitude'],5.2229505710057404)
         self.assertEqual(result['latitude'],60.27904301842346)
 
+    def test_ils_localizer_missing(self):
+        runway =  {'end': {'latitude': 60.280151, 
+                              'longitude': 5.222579}, 
+                      'start': {'latitude': 60.30662494, 
+                                'longitude': 5.21370074}}
+        result = ils_localizer_align(runway)
+        self.assertEqual(result['longitude'],5.222579)
+        self.assertEqual(result['latitude'],60.280151)
+
 
 class TestIntegrate (unittest.TestCase):
     # Reminder: integrate(array, frequency, initial_value=0.0, scale=1.0, 
@@ -1719,6 +1765,14 @@ class TestIntegrate (unittest.TestCase):
                            direction='reverse', contiguous=True)
         np.testing.assert_array_equal(result.data, [6,6,6,6,6,6,4,0,0,0,0])
         np.testing.assert_array_equal(result.mask, [1,1,1,1,1,0,0,1,1,1,1])
+
+    def test_integration_masked_tail(self):
+        # This test was added to assess the effect of masked values rolling back into the integrand.
+        data = np.ma.array(data = [1,1,2,2],
+                           mask = [0,0,0,1])
+        result = integrate(data,1.0)
+        np.testing.assert_array_equal(result.data, [0,1,2,2])
+        np.testing.assert_array_equal(result.mask, [0,0,0,1])
 
 
 class TestIsSliceWithinSlice(unittest.TestCase):
@@ -2658,7 +2712,7 @@ class TestRunwayDistances(unittest.TestCase):
 
 
 class TestRunwayHeading(unittest.TestCase):
-    # This single test case uses data for Bergen and has been checked against
+    # This test case uses data for Bergen and has been checked against
     # Google Earth measurements for reasonable accuracy.
     def test_runway_heading(self):
         runway =  {'end': {'latitude': 60.280151, 
@@ -2671,7 +2725,18 @@ class TestRunwayHeading(unittest.TestCase):
         rwy_hdg = runway_heading(runway)
         self.assertLess(abs(rwy_hdg - 170.6), 0.3)
 
-
+    # This case illustrates use of an Attribute.
+    def test_dubai(self):
+        rwy = A(name='test',
+                value=[{'runway': {'end': {'latitude': 25.262131, 
+                                           'longitude': 55.347572},
+                                   'start': {'latitude': 25.243322, 
+                                             'longitude': 55.381519},
+                                   }}])
+        result = runway_heading(rwy.value[0]['runway'])
+        self.assertGreater(result, 298)
+        self.assertLess(result, 302)
+    
 class TestRunwayLength(unittest.TestCase):
     @mock.patch('analysis_engine.library._dist')
     def test_runway_length(self, _dist):
@@ -2684,7 +2749,48 @@ class TestRunwayLength(unittest.TestCase):
 
 class TestRunwaySnap(unittest.TestCase):
     def test_runway_snap(self):
-        self.assertTrue(False)
+        runway =  {'end': {'latitude': 60.280151, 
+                              'longitude': 5.222579},
+                      'start': {'latitude': 60.30662494, 
+                                'longitude': 5.21370074}}
+        lat, lon = runway_snap(runway, 60.29, 5.23)
+        self.assertEqual(lat,60.289141034411045)
+        self.assertEqual(lon,5.219564115819171)
+
+    def test_runway_snap_a(self):
+        runway =  {'end': {'latitude': 60.2, 
+                              'longitude': 5.2}, 
+                      'start': {'latitude': 60.3, 
+                                'longitude': 5.25}}
+        lat, lon = runway_snap(runway, 60.2, 5.2)
+        self.assertEqual(lat,60.2)
+        self.assertEqual(lon,5.2)
+        
+    def test_runway_snap_b(self):
+        runway =  {'end': {'latitude': 60.2, 
+                              'longitude': 5.2}, 
+                      'start': {'latitude': 60.3, 
+                                'longitude': 5.25}}
+        lat, lon = runway_snap(runway, 60.3, 5.25)
+        self.assertEqual(lat,60.3)
+        self.assertEqual(lon,5.25)
+        
+    def test_runway_snap_d(self):
+        runway =  {'end': {'latitude': 60.2, 
+                              'longitude': 5.2}, 
+                      'start': {'latitude': 60.2, 
+                                'longitude': 5.2}}
+        lat, lon = runway_snap(runway, 60.3, 5.25)
+        self.assertEqual(lat,None)
+        self.assertEqual(lon,None)
+
+    def test_snap_no_runway(self):
+        runway =  {}
+        lat, lon = runway_snap(runway, 60.3, 5.25)
+        self.assertEqual(lat,None)
+        self.assertEqual(lon,None)
+
+
 
 
 class TestRunwaySnapDict(unittest.TestCase):

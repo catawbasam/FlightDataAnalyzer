@@ -6,7 +6,11 @@ import numpy as np
 
 from analysis_engine import __version__
 from analysis_engine.api_handler import get_api_handler, NotFoundError
-from analysis_engine.library import datetime_of_index, min_value, max_value
+from analysis_engine.library import (datetime_of_index, 
+                                     is_index_within_slice,
+                                     min_value, 
+                                     max_value, 
+                                     slices_overlap)
 from analysis_engine.node import A, KTI, KPV, FlightAttributeNode, P, S
 from analysis_engine.settings import CONTROLS_IN_USE_TOLERANCE, API_HANDLER
 
@@ -64,6 +68,9 @@ class Approaches(FlightAttributeNode):
                 'datetime': datetime(1970, 1, 1, 0, 0, 0),
                 'slice_start': 100,
                 'slice_stop': 200,
+                'ILS localizer established': slice(start, stop),
+                'ILS glideslope established': slice(start, stop),
+                'ILS frequency', 109.05
             },
             {
                 'airport': {...},  # See output provided by Airport API.
@@ -72,6 +79,8 @@ class Approaches(FlightAttributeNode):
                 'datetime': datetime(1970, 1, 1, 0, 0, 0),
                 'slice_start': 100,
                 'slice_stop': 200,
+                'ILS localizer established': slice(start, stop),
+                'ILS frequency', 109.05
             },
             {
                 'airport': {...},  # See output provided by Airport API.
@@ -109,10 +118,13 @@ class Approaches(FlightAttributeNode):
             appr_hdg=KPV('Heading At Lowest Point On Approach'),
             appr_lat=KPV('Latitude At Lowest Point On Approach'),
             appr_lon=KPV('Longitude At Lowest Point On Approach'),
+            loc_ests=S('ILS Localizer Established'),
+            gs_ests=S('ILS Glideslope Established'),
             appr_ilsfreq=KPV('ILS Frequency On Approach'),
             land_afr_apt=A('AFR Landing Airport'),
             land_afr_rwy=A('AFR Landing Runway'),
-            precision=A('Precise Positioning')):
+            precision=A('Precise Positioning'),
+            turnoffs=KTI('Landing Turn Off Runway')):
         '''
         '''
         approaches = []
@@ -144,7 +156,7 @@ class Approaches(FlightAttributeNode):
             # Prepare arguments for looking up the airport and runway:
             kwargs = default_kwargs.copy()
             kwargs.update(approach=section)
-
+            
             # Pass latitude, longitude and heading depending whether this
             # approach is a landing or not.
             #
@@ -180,6 +192,23 @@ class Approaches(FlightAttributeNode):
             approach.update(self._lookup_airport_and_runway(**kwargs))
             approaches.append(approach)
 
+            # Add further details to save hunting when we need them later.
+            for gs_est in gs_ests:
+                if slices_overlap(section.slice, gs_est.slice):
+                    approach['ILS glideslope established'] = gs_est.slice
+
+            for loc_est in loc_ests:
+                if slices_overlap(section.slice, loc_est.slice):
+                    approach['ILS localizer established'] = loc_est.slice
+                    
+            for ils_freq in appr_ilsfreq:
+                if is_index_within_slice(ils_freq.index, section.slice):
+                    approach['ILS frequency'] = ils_freq.value
+                    
+            for turnoff in turnoffs:
+                if is_index_within_slice(turnoff.index, section.slice):
+                    approach['Landing Turn Off Runway'] = turnoff.index
+                    
         self.set_flight_attr(approaches)
 
     def _lookup_airport_and_runway(self, api, approach, precise,

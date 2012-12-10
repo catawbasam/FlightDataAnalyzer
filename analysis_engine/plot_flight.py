@@ -89,13 +89,13 @@ def track_to_kml(hdf_path, kti_list, kpv_list, flight_list, plot_altitude=False)
     #lon = derived_param_from_hdf(hdf, 'Longitude Prepared')
     #add_track(kml, 'Prepared', lat, lon, 'ff0000ff')
     
-    lat_r = derived_param_from_hdf(hdf, 'Latitude')
-    lon_r = derived_param_from_hdf(hdf, 'Longitude')
-    add_track(kml, 'Recorded', lat_r, lon_r, 'ff0000ff')
+    #lat_r = derived_param_from_hdf(hdf, 'Latitude')
+    #lon_r = derived_param_from_hdf(hdf, 'Longitude')
+    #add_track(kml, 'Recorded', lat_r, lon_r, 'ff0000ff')
 
     for kti in kti_list:
         kti_point_values = {'name': kti.name}
-        if kti.name in ['Touchdown', 'Landing Turn Off Runway', 'Localizer Established End']:
+        if kti.name in ['Touchdown']:
             altitude = alt.at(kti.index) if plot_altitude else None
             if altitude:
                 kti_point_values['coords'] = ((kti.longitude, kti.latitude, altitude),)
