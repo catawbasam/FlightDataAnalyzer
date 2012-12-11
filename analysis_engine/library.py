@@ -3250,6 +3250,7 @@ def repair_mask(array, frequency=1, repair_duration=REPAIR_DURATION,
     :param repair_duration: If None, any length of masked data will be repaired.
     :param raise_duration_exceedance: If False, no warning is raised if there are masked sections longer than repair_duration. They will remain unrepaired.
     :param extrapolate: If True, data is extrapolated at the start and end of the array.
+    :raises ValueError: If the entire array is masked.
     '''
     if not np.ma.count(array):
         raise ValueError("Array cannot be repaired as it is entirely masked")

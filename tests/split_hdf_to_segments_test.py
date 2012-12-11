@@ -10,7 +10,7 @@ from analysis_engine.split_hdf_to_segments import (
 from analysis_engine.node import P,  Parameter
 
 from hdfaccess.file import hdf_file
-
+from utilities.filesystem_tools import copy_file
 
 test_data_path = os.path.join(os.path.dirname(os.path.abspath(__file__)),
                               'test_data')
@@ -26,9 +26,9 @@ class TestSplitSegments(unittest.TestCase):
         airspeed_frequency = 2
         airspeed_secs = len(airspeed_array) / airspeed_frequency
         
-        heading_array = np.ma.zeros(len(airspeed_array) / 4)
+        heading_array = np.ma.zeros(len(airspeed_array) / 2)
         heading_frequency = 1
-        heading_array.mask = True
+        heading_array.mask = False
         
         eng_array = None
         eng_frequency = 1
@@ -202,8 +202,10 @@ class TestSplitSegments(unittest.TestCase):
     
     def test_split_segments_data_1(self):
         '''Splits on both DFC Jump and Engine parameters.'''
-        hdf = hdf_file(os.path.join(test_data_path,
-                                    "split_segments_1.hdf5"))
+        hdf_path = os.path.join(test_data_path, "split_segments_1.hdf5")
+        temp_path = copy_file(hdf_path)
+        hdf = hdf_file(temp_path)
+        
         segment_tuples = split_segments(hdf)
         self.assertEqual(segment_tuples,
                          [('START_AND_STOP', slice(0, 9952.0, None)),

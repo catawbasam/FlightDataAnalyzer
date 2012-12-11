@@ -371,9 +371,10 @@ class AirspeedReference(DerivedParameterNode):
                 vspeed_table = vspeed_class() # instansiate VelocitySpeed object
                 # allow up to 2 superframe values to be repaired 
                 # (64*2=128 + a bit)
+
                 try:
                     repaired_gw = repair_mask(gw.array, repair_duration=130,
-                                          copy=True)
+                                          copy=True, extrapolate=True)
                 except:
                     repaired_gw = np_ma_masked_zeros_like(gw.array)
                     
@@ -641,7 +642,10 @@ class AltitudeAAL(DerivedParameterNode):
             if speedy.slice == slice(None, None, None):
                 self.array = alt_aal
                 break
+<<<<<<< TREE
             
+=======
+>>>>>>> MERGE-SOURCE
             # We set the minimum height for detecting flights to the smaller
             # of 5,000 ft or 90% of the height range covered. This ensures
             # that low altitude "hops" are still treated as complete flights
@@ -650,6 +654,14 @@ class AltitudeAAL(DerivedParameterNode):
             dh = min(np.ma.ptp(alt_std.array[quick])*0.9, 5000.0)
             alt_idxs, alt_vals = cycle_finder(alt_std.array[quick],
                                               min_step=dh)
+<<<<<<< TREE
+=======
+            
+            ## Old code; in practice, if we have entered this section we must 
+            ## have gone flying (is this true - check RTO case)
+            ##if alt_idxs is None:
+                ##break # In the case where speedy was trivially short
+>>>>>>> MERGE-SOURCE
             
             # Reference to start of arrays for simplicity hereafter.
             alt_idxs += quick.start or 0
@@ -2957,8 +2969,8 @@ class ILSFrequency(DerivedParameterNode):
             f2_trim = filter_vor_ils_frequencies(second, 'ILS')
 
             # and mask where the two receivers are not matched
-            self.array = np.ma.array(data = f1_trim.data,
-                                     mask = np.ma.masked_not_equal(f1_trim-f2_trim,0.0).mask)
+            mask = np.ma.masked_not_equal(f1_trim - f2_trim, 0.0).mask
+            self.array = np.ma.array(data=f1_trim.data, mask=mask)
 
 
 class ILSLocalizer(DerivedParameterNode):
