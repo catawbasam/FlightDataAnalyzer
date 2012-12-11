@@ -1684,6 +1684,19 @@ class ControlColumnStiffness(KeyPointValueNode):
                         (speedy.slice.start or 0) + move.start + when, slope)
 
 
+class DistanceFromLiftoffToRunwayEnd(KeyPointValueNode):
+    def derive(self, lat_lift=KPV('Latitude At Liftoff'),
+               lon_lift=KPV('Longitude At Liftoff'),
+               rwy=A('FDR Takeoff Runway')):
+        if ambiguous_runway(rwy):
+            return
+        toff_end = runway_distance_from_end(rwy.value, lat_lift.value, lon_lift.value)
+        length = runway_length(rwy.value)
+        self.create_kpv(lat_lift.index, toff_end/length)
+
+
+
+
 class DistancePastGlideslopeAntennaToTouchdown(KeyPointValueNode):
     units = 'm'
     def derive(self, lat_tdn=KPV('Latitude At Touchdown'),
