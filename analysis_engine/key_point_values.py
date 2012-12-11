@@ -583,6 +583,10 @@ class Airspeed500To20FtMin(KeyPointValueNode):
             min_value,
         )
 
+class AirspeedAtTOGA(KeyPointValueNode):
+    def derive(self, airspeed=P('Airspeed'), toga=P('Takeoff And Go Around'),
+               takeoff=S('Takeoff')):
+        self.create_kpvs_where_state('TOGA', toga.array, toga.hz, phase=takeoff)
 
 class AirspeedAtTouchdown(KeyPointValueNode):
     '''

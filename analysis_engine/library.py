@@ -1547,7 +1547,7 @@ def gtp_compute_error(weights, *args):
             * 1.0E09 # Just to make the numbers easy to read !
         
     error = np.nansum(errors) # Treats nan as zero, in case masked values present.    
-    print error
+    ##print error
     
     # The optimization process expects a single error term in response, but
     # it is convenient to use this function to return the latitude and
