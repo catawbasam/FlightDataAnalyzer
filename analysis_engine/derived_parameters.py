@@ -642,10 +642,7 @@ class AltitudeAAL(DerivedParameterNode):
             if speedy.slice == slice(None, None, None):
                 self.array = alt_aal
                 break
-<<<<<<< TREE
-            
-=======
->>>>>>> MERGE-SOURCE
+
             # We set the minimum height for detecting flights to the smaller
             # of 5,000 ft or 90% of the height range covered. This ensures
             # that low altitude "hops" are still treated as complete flights
@@ -654,15 +651,7 @@ class AltitudeAAL(DerivedParameterNode):
             dh = min(np.ma.ptp(alt_std.array[quick])*0.9, 5000.0)
             alt_idxs, alt_vals = cycle_finder(alt_std.array[quick],
                                               min_step=dh)
-<<<<<<< TREE
-=======
-            
-            ## Old code; in practice, if we have entered this section we must 
-            ## have gone flying (is this true - check RTO case)
-            ##if alt_idxs is None:
-                ##break # In the case where speedy was trivially short
->>>>>>> MERGE-SOURCE
-            
+
             # Reference to start of arrays for simplicity hereafter.
             alt_idxs += quick.start or 0
             
