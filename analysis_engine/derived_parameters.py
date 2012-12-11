@@ -2995,38 +2995,34 @@ class ILSGlideslope(DerivedParameterNode):
         # self.array.mask = np.ma.logical_or(self.array.mask, freq.array.mask)
        
 
-class ILSGlideslopeRange(DerivedParameterNode):
+class AimingPointRange(DerivedParameterNode):
     """
-    Glideslope Range is derived from the Localizer Range. The units are
+    Aiming Point Range is derived from the Approach Range. The units are
     converted to nautical miles ready for plotting and the datum is offset to
-    the ILS Glideslope Antenna position.
+    either the ILS Glideslope Antenna position where an ILS is installed or
+    the nominal threshold position where there is no ILS installation.
     """
 
     name = "ILS Glideslope Range"
     unit = 'nm'
 
     def derive(self, app_rng=P('Approach Range'),
-               approach_info = A('FDR Approaches'),
-               approaches = S('Approaches'),
+               approaches = A('FDR Approaches'),
                ):
-        self.array = np_ma_masked_zeros_like(loc_rng.array)
-        #Q: Should this use S('ILS Glideslope Established')?
-        for approach, approach_section in zip(approach_info.value, approaches):
+        self.array = np_ma_masked_zeros_like(app_rng.array)
+        
+        for approach in approaches:
             runway = approach.get('runway')
             if not runway:
                 # no runway to establish distance to glideslope antenna
                 continue
             try:
-                gs_2_loc = runway_distances(runway)[1]
-            except KeyError as err:
-                self.exception("Runway did not have required key '%s' in "
-                               "'%s', '%s'.", err, self.name, runway)
-                pass
-            if gs_2_loc:
-                s = approach_section.slice
-                self.array[s] = (app_rng.array[s] - gs_2_loc) / METRES_TO_NM 
-            else:
-                continue
+                extend = runway_distances(runway)[1] # gs_2_loc
+            except (KeyError, TypeError):
+                extend = runway_length(runway) - 1000 / METRES_TO_FEET
+                
+            s = slice(approach['slice_start'], approach['slice_stop'])
+            self.array[s] = (app_rng.array[s] - extend) / METRES_TO_NM 
 
 
 class CoordinatesSmoothed(object):

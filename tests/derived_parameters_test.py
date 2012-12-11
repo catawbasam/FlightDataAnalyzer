@@ -642,7 +642,22 @@ class TestAltitudeAAL(unittest.TestCase):
             alt_aal = hdf['Altitude AAL']
             self.assertTrue(False, msg='Test not implemented.')
         
-    
+class TestAimingPointRange(unittest.TestCase):
+    def test_basic_scaling(self):
+        approaches = A(name = 'FDR Approaches',
+                       value=[{'runway': {'end': {'elevation': 3294,
+                                                  'latitude': 31.497511,
+                                                  'longitude': 65.833933},
+                                          'start': {'elevation': 3320,
+                                                    'latitude': 31.513997,
+                                                    'longitude': 65.861714},
+                               'slice_start': 3.0,
+                               'slice_stop': 8.0}}])
+        app_rng=P('Approach Range',array=np.ma.arange(10000,-2000,-1000))
+        apr = AimingPointRange()
+        apr.derive(app_rng, appproaches)
+        self.assertEqual(apr.array[0],np.ma.masked)
+        
 class TestAltitudeAALForFlightPhases(unittest.TestCase):
     def test_can_operate(self):
         expected = [('Altitude AAL',)]
