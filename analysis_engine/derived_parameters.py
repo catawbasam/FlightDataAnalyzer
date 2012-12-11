@@ -366,7 +366,7 @@ class AirspeedReference(DerivedParameterNode):
                 # allow up to 2 superframe values to be repaired 
                 # (64*2=128 + a bit)
                 repaired_gw = repair_mask(gw.array, repair_duration=130,
-                                          copy=True)
+                                          copy=True, extrapolate=True)
                 for approach in apps:
                     index = np.ma.argmax(setting_param.array[approach.slice])
                     weight = repaired_gw[approach.slice][index]
@@ -631,11 +631,19 @@ class AltitudeAAL(DerivedParameterNode):
             if speedy.slice == slice(None, None, None):
                 self.array = alt_aal
                 break
-            
+            # We set the minimum height for detecting flights to the smaller
+            # of 5,000 ft or 90% of the height range covered. This ensures
+            # that low altitude "hops" are still treated as complete flights
+            # while more complex flights are processed as climbs and descents
+            # of 5000 ft or more.
+            dh = min(np.ma.ptp(alt_std.array[quick])*0.9, 5000.0)
             alt_idxs, alt_vals = cycle_finder(alt_std.array[quick],
-                                              min_step=5000.0)
-            if alt_idxs is None:
-                break # In the case where speedy was trivially short
+                                              min_step=dh)
+            
+            ## Old code; in practice, if we have entered this section we must 
+            ## have gone flying (is this true - check RTO case)
+            ##if alt_idxs is None:
+                ##break # In the case where speedy was trivially short
             
             # Reference to start of arrays for simplicity hereafter.
             alt_idxs += quick.start or 0
