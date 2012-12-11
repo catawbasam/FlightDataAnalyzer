@@ -39,6 +39,7 @@ from analysis_engine.derived_parameters import (
     #AltitudeRadioForFlightPhases,
     #AltitudeSTD,
     AltitudeTail,
+    ApproachRange,
     ClimbForFlightPhases,
     Configuration,
     ControlColumn,
@@ -69,7 +70,7 @@ from analysis_engine.derived_parameters import (
     HeadingTrue,
     Headwind,
     ILSFrequency,
-    ILSLocalizerRange,
+    #ILSLocalizerRange,
     LatitudePrepared,
     LatitudeSmoothed,
     LongitudePrepared,
@@ -78,7 +79,7 @@ from analysis_engine.derived_parameters import (
     Pitch,
     VerticalSpeed,
     VerticalSpeedForFlightPhases,
-    VisualApproachRange,
+    #VisualApproachRange,
     RateOfTurn,
     TurbulenceRMSG,
     V2,
@@ -2714,7 +2715,7 @@ class TestWindDirectionContinuous(unittest.TestCase):
 
 class TestCoordinatesSmoothed(unittest.TestCase):
     def setUp(self):
-        self.approaches = A(name = 'Approaches',
+        self.approaches = A(name = 'FDR Approaches',
                             value=[{'ILS frequency': 108.55,
                                     'ILS glideslope established': slice(3200, 3390, None),
                                     'ILS localizer established': slice(3199, 3445, None),
@@ -2800,12 +2801,9 @@ class TestCoordinatesSmoothed(unittest.TestCase):
                                              'surface': 'CON', 
                                              'width': 179}})
              
-        self.precision = A(name='Precise Positioning',
-                           value = False)
-        
         return
 
-    def test__adjust_track(self):
+    def test__adjust_track_precise(self):
         hdf_test_file = os.path.join('test_data',
                                      'flight_with_go_around_and_landing.hdf5')
         with hdf_file(hdf_test_file) as hdf:
@@ -2816,21 +2814,199 @@ class TestCoordinatesSmoothed(unittest.TestCase):
             gspd = hdf['Groundspeed']
             hdg = hdf['Heading True Continuous']
             tas = hdf['Airspeed True']
+
+        precision = A(name='Precise Positioning', value = True)
         
         cs = CoordinatesSmoothed()    
         lat_new, lon_new = cs._adjust_track(lon, lat, ils_loc, app_range, hdg, gspd, tas, 
-                                            self.toff, self.toff_rwy, self.approaches, self.precision)
+                                            self.toff, self.toff_rwy, self.approaches, precision)
+        
+        chunks = np.ma.clump_unmasked(lat_new)
+        self.assertEqual(len(chunks),3)
+        self.assertEqual(chunks,[slice(44, 372, None), 
+                                 slice(3200, 3445, None), 
+                                 slice(12930, 13424, None)])
+        
+    def test__adjust_track_imprecise(self):
+        hdf_test_file = os.path.join('test_data',
+                                     'flight_with_go_around_and_landing.hdf5')
+        with hdf_file(hdf_test_file) as hdf:
+            lon = hdf['Longitude']
+            lat = hdf['Latitude']
+            ils_loc =hdf['ILS Localizer']
+            app_range = hdf['ILS Localizer Range']
+            gspd = hdf['Groundspeed']
+            hdg = hdf['Heading True Continuous']
+            tas = hdf['Airspeed True']
+
+        precision = A(name='Precise Positioning', value = False)
+        
+        cs = CoordinatesSmoothed()    
+        lat_new, lon_new = cs._adjust_track(lon, lat, ils_loc, app_range, hdg, gspd, tas, 
+                                            self.toff, self.toff_rwy, self.approaches, precision)
         
         chunks = np.ma.clump_unmasked(lat_new)
         self.assertEqual(len(chunks),2)
+        self.assertEqual(chunks,[slice(44,414),slice(12930,13424)])
         
 
-        import matplotlib.pyplot as plt
-        plt.plot(lat_new, lon_new)
-        plt.show()
-        plt.plot(lon.array, lat.array)
-        plt.show()
+        #import matplotlib.pyplot as plt
+        #plt.plot(lat_new, lon_new)
+        #plt.show()
+        #plt.plot(lon.array, lat.array)
+        #plt.show()
 
+    def test__adjust_track_visual(self):
+        hdf_test_file = os.path.join('test_data',
+                                     'flight_with_go_around_and_landing.hdf5')
+        with hdf_file(hdf_test_file) as hdf:
+            lon = hdf['Longitude']
+            lat = hdf['Latitude']
+            ils_loc =hdf['ILS Localizer']
+            app_range = hdf['ILS Localizer Range']
+            gspd = hdf['Groundspeed']
+            hdg = hdf['Heading True Continuous']
+            tas = hdf['Airspeed True']
+
+        precision = A(name='Precise Positioning', value = False)
+        self.approaches.value[0].pop('ILS localizer established')
+        self.approaches.value[1].pop('ILS localizer established')
+        # Don't need to pop the glideslopes as these won't be looked for.
+        cs = CoordinatesSmoothed()    
+        lat_new, lon_new = cs._adjust_track(lon, lat, ils_loc, app_range, hdg, gspd, tas, 
+                                            self.toff, self.toff_rwy, self.approaches, precision)
+        
+        chunks = np.ma.clump_unmasked(lat_new)
+        self.assertEqual(len(chunks),2)
+        self.assertEqual(chunks,[slice(44,414),slice(12930,13424)])
+
+
+class TestApproachRange(unittest.TestCase):
+    def setUp(self):
+        self.approaches = A(name = 'FDR Approaches',
+                            value=[{'ILS frequency': 108.55,
+                                    'ILS glideslope established': slice(3200, 3390, None),
+                                    'ILS localizer established': slice(3199, 3445, None),
+                                    'airport': {'code': {'iata': 'KDH', 'icao': 'OAKN'},
+                                                'distance': 2.483270162497824,
+                                                'elevation': 3301,
+                                                'id': 3279,
+                                                'latitude': 31.5058,
+                                                'location': {'country': 'Afghanistan'},
+                                                'longitude': 65.8478,
+                                                'magnetic_variation': 'E001590 0506',
+                                                'name': 'Kandahar'},
+                                    'datetime': datetime.datetime(2012, 12, 9, 18, 20, 54, 504000),
+                                    'runway': {'end': {'elevation': 3294,
+                                                       'latitude': 31.497511,
+                                                       'longitude': 65.833933},
+                                               'id': 44,
+                                               'identifier': '23',
+                                               'magnetic_heading': 232.9,
+                                               'start': {'elevation': 3320,
+                                                         'latitude': 31.513997,
+                                                         'longitude': 65.861714},
+                                               'strip': {'id': 22,
+                                                         'length': 10532,
+                                                         'surface': 'ASP',
+                                                         'width': 147}},
+                                    'slice_start': 3198.0,
+                                    'slice_stop': 3422.0,
+                                    'type': 'GO_AROUND'},
+                                   {'ILS frequency': 111.3,
+                                    'ILS glideslope established': slice(13034, 13262, None),
+                                    'ILS localizer established': slice(12929, 13347, None),
+                                    'Landing Turn Off Runway': 13362.455208333333,
+                                    'airport': {'code': {'iata': 'DXB', 'icao': 'OMDB'},
+                                                'distance': 1.6842014290716794,
+                                                'id': 3302,
+                                                'latitude': 25.2528,
+                                                'location': {'city': 'Dubai',
+                                                             'country': 'United Arab Emirates'},
+                                                'longitude': 55.3644,
+                                                'magnetic_variation': 'E001315 0706',
+                                                'name': 'Dubai Intl'},
+                                    'datetime': datetime.datetime(2012, 12, 9, 21, 3, 4, 504000),
+                                    'runway': {'end': {'latitude': 25.262131, 'longitude': 55.347572},
+                                               'glideslope': {'angle': 3.0,
+                                                              'latitude': 25.246333,
+                                                              'longitude': 55.378417,
+                                                              'threshold_distance': 1508},
+                                               'id': 22,
+                                               'identifier': '30L',
+                                               'localizer': {'beam_width': 4.5,
+                                                             'frequency': 111300.0,
+                                                             'heading': 300,
+                                                             'latitude': 25.263139,
+                                                             'longitude': 55.345722},
+                                               'magnetic_heading': 299.7,
+                                               'start': {'latitude': 25.243322, 'longitude': 55.381519},
+                                               'strip': {'id': 11,
+                                                         'length': 13124,
+                                                         'surface': 'ASP',
+                                                         'width': 150}},
+                                    'slice_start': 12928.0,
+                                    'slice_stop': 13440.0,
+                                    'type': 'LANDING'}])
+                              
+        self.toff = Section(name='Takeoff', 
+                       slice=slice(372, 414, None), 
+                       start_edge=371.32242063492066, 
+                       stop_edge=413.12204760355382)
+        
+        self.toff_rwy = A(name = 'FDR Takeoff Runway',
+                          value = {'end': {'elevation': 4843, 
+                                           'latitude': 34.957972, 
+                                           'longitude': 69.272944},
+                                   'id': 41,
+                                   'identifier': '03',
+                                   'magnetic_heading': 26.0,
+                                   'start': {'elevation': 4862, 
+                                             'latitude': 34.934306, 
+                                             'longitude': 69.257},
+                                   'strip': {'id': 21, 
+                                             'length': 9852, 
+                                             'surface': 'CON', 
+                                             'width': 179}})
+             
+        return
+
+    def test_range_basic(self):
+        hdf_test_file = os.path.join('test_data',
+                                     'flight_with_go_around_and_landing.hdf5')
+        with hdf_file(hdf_test_file) as hdf:
+            hdg = hdf['Heading True Continuous']
+            tas = hdf['Airspeed True']
+            alt = hdf['Altitude AAL']
+            glide = hdf['ILS Glideslope']
+        
+        ar = ApproachRange()    
+        ar.derive(None, None, glide, hdg, tas, alt, self.approaches)
+        result = ar.array
+        chunks = np.ma.clump_unmasked(result)
+        self.assertEqual(len(chunks),2)
+        self.assertEqual(chunks,[slice(3198, 3422, None), 
+                                 slice(12928, 13423, None)])
+        
+    def test_range_full_param_set(self):
+        hdf_test_file = os.path.join('test_data',
+                                     'flight_with_go_around_and_landing.hdf5')
+        with hdf_file(hdf_test_file) as hdf:
+            hdg = hdf['Heading True Continuous']
+            tas = hdf['Airspeed True']
+            alt = hdf['Altitude AAL']
+            glide = hdf['ILS Glideslope']
+            gspd = hdf['Groundspeed']
+            drift = hdf['Drift']
+        
+        ar = ApproachRange()    
+        ar.derive(gspd, drift, glide, hdg, tas, alt, self.approaches)
+        result = ar.array
+        chunks = np.ma.clump_unmasked(result)
+        self.assertEqual(len(chunks),2)
+        self.assertEqual(chunks,[slice(3198, 3422, None), 
+                                 slice(12928, 13423, None)])
+        
 
 if __name__ == '__main__':
     suite = unittest.TestSuite()

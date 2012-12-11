@@ -193,21 +193,25 @@ class Approaches(FlightAttributeNode):
             approaches.append(approach)
 
             # Add further details to save hunting when we need them later.
-            for gs_est in gs_ests:
-                if slices_overlap(section.slice, gs_est.slice):
-                    approach['ILS glideslope established'] = gs_est.slice
+            if gs_ests:
+                for gs_est in gs_ests:
+                    if slices_overlap(section.slice, gs_est.slice):
+                        approach['ILS glideslope established'] = gs_est.slice
 
-            for loc_est in loc_ests:
-                if slices_overlap(section.slice, loc_est.slice):
-                    approach['ILS localizer established'] = loc_est.slice
-                    
-            for ils_freq in appr_ilsfreq:
-                if is_index_within_slice(ils_freq.index, section.slice):
-                    approach['ILS frequency'] = ils_freq.value
-                    
-            for turnoff in turnoffs:
-                if is_index_within_slice(turnoff.index, section.slice):
-                    approach['Landing Turn Off Runway'] = turnoff.index
+            if loc_ests:
+                for loc_est in loc_ests:
+                    if slices_overlap(section.slice, loc_est.slice):
+                        approach['ILS localizer established'] = loc_est.slice
+                        
+            if appr_ilsfreq:
+                for ils_freq in appr_ilsfreq:
+                    if is_index_within_slice(ils_freq.index, section.slice):
+                        approach['ILS frequency'] = ils_freq.value
+                        
+            if turnoffs:
+                for turnoff in turnoffs:
+                    if is_index_within_slice(turnoff.index, section.slice):
+                        approach['Landing Turn Off Runway'] = turnoff.index
                     
         self.set_flight_attr(approaches)
 

@@ -248,11 +248,13 @@ METRES_TO_FEET = 1000/25.4/12
 # Conversion from metres to nautical miles.
 METRES_TO_NM = 1852.0
 
+'''
+See experimental KTP LandingStopLimitPointPoorBraking et seq.
 # Mu values for good, medium and poor braking action (Boeing definition).
 MU_GOOD = 0.2
 MU_MEDIUM = 0.1
 MU_POOR = 0.05 # dimensionless.
-
+'''
 # Vertical speed limits of 800 fpm and -500 fpm gives good distinction with
 # level flight. Separately defined to allow for future adjustment.
 VERTICAL_SPEED_FOR_CLIMB_PHASE = 800  # fpm

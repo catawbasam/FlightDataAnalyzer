@@ -1597,6 +1597,9 @@ def ground_track_precise(lat, lon, speed, hdg, frequency, mode):
     # the speed was over 1kn, to stop the aircraft appearing to wander about
     # on the stand.
     track_edges = np.ma.flatnotmasked_edges(np.ma.masked_less(speed, 1.0))
+    # Increment to allow for Python indexing, but don't step over the edge.
+    track_edges[1] = min(track_edges[1]+1, len(speed))
+    
     if mode == 'landing':
         track_slice=slice(0, track_edges[1])
     elif mode == 'takeoff':
@@ -1643,8 +1646,13 @@ def ground_track_precise(lat, lon, speed, hdg, frequency, mode):
     J.L. Morales and J. Nocedal. L-BFGS-B: Remark on Algorithm 778: L-BFGS-B, FORTRAN routines for large scale bound constrained optimization (2011), ACM Transactions on Mathematical Software, 38, 1.
     """
     
+    args = (straights, straight_ends, lat[track_slice], lon[track_slice],
+            speed[track_slice], hdg[track_slice], frequency, mode, 'final_answer')
+    lat_est, lon_est, wt = gtp_compute_error(weights_opt[0], *args)
+    
+    
     '''
-    Outputs for debugging and inspecting operation of the optimization algorithm.
+    # Outputs for debugging and inspecting operation of the optimization algorithm.
     print weights_opt[0]
 
     for num, weighting in enumerate(weights_opt[0]):
@@ -1659,24 +1667,16 @@ def ground_track_precise(lat, lon, speed, hdg, frequency, mode):
     plt.plot(lon[track_slice], lat[track_slice])
     plt.show()
     '''
-    args = (straights, straight_ends, lat[track_slice], lon[track_slice],
-            speed[track_slice], hdg[track_slice], frequency, mode, 'final_answer')
-    lat_est, lon_est, wt = gtp_compute_error(weights_opt[0], *args)
     
-    # Build arrays to return both the computed track and the static location
-    # of the aircraft at the gate to match the calling array size.
-    lat_return = np_ma_ones_like(lat) 
-    lon_return = np_ma_ones_like(lat)
+    # Build arrays to return the computed track.
+    lat_return = np_ma_masked_zeros_like(lat)
+    lon_return = np_ma_masked_zeros_like(lat)
     if mode == 'takeoff':
         lat_return[track_edges[0]:] = lat_est
-        lat_return[:track_edges[0]] = lat_est[0]
         lon_return[track_edges[0]:] = lon_est
-        lon_return[:track_edges[0]] = lon_est[0]
     else:
         lat_return[:track_edges[1]] = lat_est
-        lat_return[track_edges[1]:] = lat_est[-1]
         lon_return[:track_edges[1]] = lon_est
-        lon_return[track_edges[1]:] = lon_est[-1]
     return lat_return, lon_return, wt
 
 def hash_array(array):
@@ -1871,15 +1871,18 @@ def integrate(array, frequency, initial_value=0.0, scale=1.0,
         
     k = (scale * 0.5)/frequency
     to_int = k * (integrand + np.roll(integrand, d))
-    if contiguous:
-        edges = np.ma.flatnotmasked_edges(to_int)
-    else:
-        edges = [0, -1]
+    edges = np.ma.flatnotmasked_edges(to_int)
     if direction == 'forwards':
-        to_int[edges[0]] = initial_value
+        if edges[0] == 1:
+            to_int[0] = initial_value
+        else:
+            to_int[edges[0]] = initial_value
     else:
-        to_int[edges[1]] = initial_value * s 
-        # Note: Sign of initial value will be reversed twice for backwards case.
+        if edges[1] == -1:
+            to_int[-1] = initial_value * s
+        else:
+            to_int[edges[1]] = initial_value * s
+            # Note: Sign of initial value will be reversed twice for backwards case.
         
     result[::d] = np.ma.cumsum(to_int[::d] * s)
     
@@ -2356,14 +2359,14 @@ def localizer_scale(runway):
         scale = (runway['runway']['localizer']['beam_width']/2.0) / 2.5
     except:
         try:
-            length = runway_length(runway['runway'])
+            length = runway_length(runway)
         except:
             length = 8000 / METRES_TO_FEET # Typical length
             
         # Normal scaling of a localizer gives 700ft width at the threshold,
-        # so half of this is 350ft=106.68m. This appears to be a single dot
-        # scale (to match beam width values).
-        scale = np.degrees(np.arctan2(106.68, length))
+        # so half of this is 350ft=106.68m. This appears to be full 2-dots
+        # scale.
+        scale = np.degrees(np.arctan2(106.68, length)) / 2.0
     return scale
 
 def mask_inside_slices(array, slices):
@@ -3414,6 +3417,34 @@ def slice_duration(_slice, hz):
                          _slice.stop)
     return (_slice.stop - (_slice.start or 0)) / hz
 
+def slice_multiply(_slice, f):
+    '''
+    :param _slice: Slice to rescale
+    :type _slice: slice
+    :param f: Rescale factor
+    :type f: float
+    
+    :returns: slice rescaled by factor f
+    :rtype: integer
+    '''
+    return slice(int(_slice.start*f) if _slice.start else None, 
+                 int(_slice.stop*f) if _slice.stop else None,
+                 int(_slice.step*f) if _slice.step else None)
+
+def slices_multiply(_slices, f):
+    '''
+    :param _slices: List of slices to rescale
+    :type _slice: slice
+    :param f: Rescale factor
+    :type f: float
+    
+    :returns: List of slices rescaled by factor f
+    :rtype: integer
+    '''
+    result=[]
+    for s in _slices:
+        result.append(slice_multiply(s,f))
+    return result
 
 def slice_samples(_slice):
     '''

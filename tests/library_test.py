@@ -2974,7 +2974,23 @@ class TestSlicesFromTo(unittest.TestCase):
         _, slices = slices_from_to(array, 17, 0)
         self.assertEqual(slices, [slice(2, 5, None)])
 
-
+class TestSliceMultiply(unittest.TestCase):
+    def test_slice_multiply(self):
+        self.assertEqual(slice_multiply(slice(1,2,3),2),
+                         slice(2,4,6))
+        self.assertEqual(slice_multiply(slice(None,None,None),1),
+                         slice(None,None,None))
+        self.assertEqual(slice_multiply(slice(1,2,None),0.5),
+                         slice(0,1,None))
+        self.assertEqual(slice_multiply(slice(1,2,0.5),-2),
+                         slice(-2,-4,-1))
+        
+class TestSlicesMultiply(unittest.TestCase):
+    def test_slices_multiply(self):
+        slices = [slice(1,2,3),slice(None,None,None),slice(1,2,None)]
+        result = [slice(3,6,9),slice(None,None,None),slice(3,6,None)]
+        self.assertEqual(slices_multiply(slices,3),result)
+        
 class TestSlicesOverlap(unittest.TestCase):
     def test_slices_overlap(self):
         # overlap
