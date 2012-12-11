@@ -39,6 +39,7 @@ from analysis_engine.derived_parameters import (
     #AltitudeRadioForFlightPhases,
     #AltitudeSTD,
     AltitudeTail,
+    AimingPointRange,
     ApproachRange,
     ClimbForFlightPhases,
     Configuration,
@@ -650,13 +651,16 @@ class TestAimingPointRange(unittest.TestCase):
                                                   'longitude': 65.833933},
                                           'start': {'elevation': 3320,
                                                     'latitude': 31.513997,
-                                                    'longitude': 65.861714},
+                                                    'longitude': 65.861714}},
                                'slice_start': 3.0,
-                               'slice_stop': 8.0}}])
-        app_rng=P('Approach Range',array=np.ma.arange(10000,-2000,-1000))
+                               'slice_stop': 8.0}])
+        app_rng=P('Approach Range',array=np.ma.arange(10000.0,-2000.0,-1000.0))
         apr = AimingPointRange()
-        apr.derive(app_rng, appproaches)
-        self.assertEqual(apr.array[0],np.ma.masked)
+        apr.derive(app_rng, approaches)
+        # convoluted way to check masked outside slice !
+        self.assertEqual(apr.array[0].mask,np.ma.masked.mask)
+        self.assertAlmostEqual(apr.array[4],1.67,places=2)
+        
         
 class TestAltitudeAALForFlightPhases(unittest.TestCase):
     def test_can_operate(self):
