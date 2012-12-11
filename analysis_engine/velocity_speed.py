@@ -7,6 +7,7 @@ Need to ensure flap/conf settings reflect those held for family/series in
 model_information.
 '''
 import logging
+import numpy as np
 
 from bisect import bisect_left
 import scipy.interpolate as interp
@@ -91,7 +92,8 @@ class VelocitySpeed(object):
             raise KeyError(msg)
 
         if weight < lookup['weight'][0] or \
-           weight > lookup['weight'][-1]:
+           weight > lookup['weight'][-1] or \
+           weight is np.ma.masked:
             logger.warning("Weight of '%s' is outside of table range for '%s'",
                            weight,
                            self.__class__.__name__)

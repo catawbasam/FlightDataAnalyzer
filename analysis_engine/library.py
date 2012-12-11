@@ -12,6 +12,7 @@ from itertools import izip
 from hdfaccess.parameter import MappedArray
 
 from settings import (KTS_TO_MPS,
+                      METRES_TO_FEET,
                       REPAIR_DURATION, 
                       TRUCK_OR_TRAILER_INTERVAL, 
                       TRUCK_OR_TRAILER_PERIOD)
@@ -900,7 +901,6 @@ def filter_vor_ils_frequencies(array, navaid):
     else:
         raise ValueError('Navaid of unrecognised type %s' % navaid)
 
-
 def find_app_rwy(app_info, this_loc, this_loc_freq):
     """
     This function scans through the recorded approaches to find which matches
@@ -925,7 +925,6 @@ def find_app_rwy(app_info, this_loc, this_loc_freq):
         return approach, None
                 
     return approach, runway     
-
 
 def find_edges(array, _slice, direction='rising_edges'):
     '''
@@ -1168,6 +1167,19 @@ def first_order_washout(param, time_constant, hz, gain=1.0, initial_value=None):
 def _dist(lat1_d, lon1_d, lat2_d, lon2_d):
     """
     Haversine formula for calculating distances between coordinates.
+    
+    :param lat1_d: latitude of first point
+    :type lat1_d: float, units = degrees latitude
+    :param lon1_d: longitude of first point
+    :type lon1_d: float, units = degrees longitude
+    :param lat2_d: latitude of second point
+    :type lat2_d: float, units = degrees latitude
+    :param lon2_d: longitude of second point
+    :type lon2_d: float, units = degrees longitude
+    
+    :return _dist: distance between the two points
+    :type _dist: float (units=metres)
+ 
     """
     if (lat1_d == 0.0 and lon1_d == 0.0) or (lat2_d == 0.0 and lon2_d == 0.0):
         # Being asked for a distance from nowhere point on the Atlantic. 
@@ -1182,8 +1194,6 @@ def _dist(lat1_d, lon1_d, lat2_d, lon2_d):
     dlat = lat2-lat1
     dlon = lon2-lon1
 
-    ##a = sin(dlat/2) * sin(dlat/2) + cos(lat2) \
-        ##* (lat2) * (dlon/2) * sin(dlon/2)
     a = sin(dlat/2) * sin(dlat/2) + \
         sin(dlon/2) * sin(dlon/2) * cos(lat1) * cos(lat2)
     return 2 * atan2(sqrt(a), sqrt(1-a)) * 6371000
@@ -1308,7 +1318,7 @@ def runway_length(runway):
         
     :return
     :param start_end: distance from start of runway to end
-    :type start_loc: float, units = feet.
+    :type start_loc: float, units = metres.
     '''
     
     try:
@@ -1343,7 +1353,7 @@ def runway_heading(runway):
         brg, dist = bearings_and_distances(np.ma.array(end_lat),
                                            np.ma.array(end_lon),
                                            runway['start'])
-        return brg.data
+        return float(brg.data)
     except:
         return None
 
@@ -1383,16 +1393,23 @@ def runway_snap(runway, lat, lon):
     :returns new_lat, new_lon: Amended position now on runway centreline.
     :type float, float.
     """
-    start_lat = runway['start']['latitude']
-    start_lon = runway['start']['longitude']
-    end_lat = runway['end']['latitude']
-    end_lon = runway['end']['longitude']
+    try:
+        start_lat = runway['start']['latitude']
+        start_lon = runway['start']['longitude']
+        end_lat = runway['end']['latitude']
+        end_lon = runway['end']['longitude']
+    except:
+        # Can't do the sums without endpoints.
+        return None, None
     
     a = _dist(lat, lon, end_lat, end_lon)
     b = _dist(lat, lon, start_lat, start_lon)
     d = _dist(start_lat, start_lon, end_lat, end_lon)
     
-    if a and b and d:
+    if not a or not b:
+        return lat, lon
+    
+    if d:
         r = (1.0+(a**2 - b**2)/d**2)/2.0
         
         # The projected glideslope antenna position is given by this formula
@@ -1580,6 +1597,9 @@ def ground_track_precise(lat, lon, speed, hdg, frequency, mode):
     # the speed was over 1kn, to stop the aircraft appearing to wander about
     # on the stand.
     track_edges = np.ma.flatnotmasked_edges(np.ma.masked_less(speed, 1.0))
+    # Increment to allow for Python indexing, but don't step over the edge.
+    track_edges[1] = min(track_edges[1]+1, len(speed))
+    
     if mode == 'landing':
         track_slice=slice(0, track_edges[1])
     elif mode == 'takeoff':
@@ -1626,8 +1646,13 @@ def ground_track_precise(lat, lon, speed, hdg, frequency, mode):
     J.L. Morales and J. Nocedal. L-BFGS-B: Remark on Algorithm 778: L-BFGS-B, FORTRAN routines for large scale bound constrained optimization (2011), ACM Transactions on Mathematical Software, 38, 1.
     """
     
+    args = (straights, straight_ends, lat[track_slice], lon[track_slice],
+            speed[track_slice], hdg[track_slice], frequency, mode, 'final_answer')
+    lat_est, lon_est, wt = gtp_compute_error(weights_opt[0], *args)
+    
+    
     '''
-    Outputs for debugging and inspecting operation of the optimization algorithm.
+    # Outputs for debugging and inspecting operation of the optimization algorithm.
     print weights_opt[0]
 
     for num, weighting in enumerate(weights_opt[0]):
@@ -1642,24 +1667,16 @@ def ground_track_precise(lat, lon, speed, hdg, frequency, mode):
     plt.plot(lon[track_slice], lat[track_slice])
     plt.show()
     '''
-    args = (straights, straight_ends, lat[track_slice], lon[track_slice],
-            speed[track_slice], hdg[track_slice], frequency, mode, 'final_answer')
-    lat_est, lon_est, wt = gtp_compute_error(weights_opt[0], *args)
     
-    # Build arrays to return both the computed track and the static location
-    # of the aircraft at the gate to match the calling array size.
-    lat_return = np_ma_ones_like(lat) 
-    lon_return = np_ma_ones_like(lat)
+    # Build arrays to return the computed track.
+    lat_return = np_ma_masked_zeros_like(lat)
+    lon_return = np_ma_masked_zeros_like(lat)
     if mode == 'takeoff':
         lat_return[track_edges[0]:] = lat_est
-        lat_return[:track_edges[0]] = lat_est[0]
         lon_return[track_edges[0]:] = lon_est
-        lon_return[:track_edges[0]] = lon_est[0]
     else:
         lat_return[:track_edges[1]] = lat_est
-        lat_return[track_edges[1]:] = lat_est[-1]
         lon_return[:track_edges[1]] = lon_est
-        lon_return[track_edges[1]:] = lon_est[-1]
     return lat_return, lon_return, wt
 
 def hash_array(array):
@@ -1777,26 +1794,14 @@ def ils_localizer_align(runway):
     ['latitude'] ILS localizer position aligned to start and end of runway
     ['longitude']
     '''
-    ##start_lat = runway['start']['latitude']
-    ##start_lon = runway['start']['longitude']
-    ##end_lat = runway['end']['latitude']
-    ##end_lon = runway['end']['longitude']
-    ##lzr_lat = runway['localizer']['latitude']
-    ##lzr_lon = runway['localizer']['longitude']
-    
-    ##a = _dist(lzr_lat, lzr_lon, end_lat, end_lon)
-    ##b = _dist(lzr_lat, lzr_lon, start_lat, start_lon)
-    ##d = _dist(start_lat, start_lon, end_lat, end_lon)
-    
-    ##r = (1.0+(a**2 - b**2)/d**2)/2.0
-    
-    ### The projected localizer antenna position is given by this formula
-    ##new_lat = end_lat + r*(start_lat - end_lat)
-    ##new_lon = end_lon + r*(start_lon - end_lon)
-    new_lat, new_lon = runway_snap(runway, 
+    try:
+        new_lat, new_lon = runway_snap(runway, 
                                    runway['localizer']['latitude'],
                                    runway['localizer']['longitude'])
-    
+    except:
+        new_lat, new_lon = runway['end']['latitude'], runway['end']['longitude']
+        logger.warning('Localizer not found for this runway, so endpoint substituted')
+        
     return {'latitude':new_lat, 'longitude':new_lon}
 
 
@@ -1868,10 +1873,16 @@ def integrate(array, frequency, initial_value=0.0, scale=1.0,
     to_int = k * (integrand + np.roll(integrand, d))
     edges = np.ma.flatnotmasked_edges(to_int)
     if direction == 'forwards':
-        to_int[edges[0]] = initial_value
+        if edges[0] == 1:
+            to_int[0] = initial_value
+        else:
+            to_int[edges[0]] = initial_value
     else:
-        to_int[edges[1]] = initial_value * s 
-        # Note: Sign of initial value will be reversed twice for backwards case.
+        if edges[1] == -1:
+            to_int[-1] = initial_value * s
+        else:
+            to_int[edges[1]] = initial_value * s
+            # Note: Sign of initial value will be reversed twice for backwards case.
         
     result[::d] = np.ma.cumsum(to_int[::d] * s)
     
@@ -2338,22 +2349,25 @@ def latitudes_and_longitudes(bearings, distances, reference):
     lon_array = np.ma.array(data = np.rad2deg(lon),mask = joined_mask)
     return lat_array, lon_array
 
-
-def localizer_scale(reference, runway):
+def localizer_scale(runway):
     """
     Compute the ILS localizer scaling factor from runway or nominal data.
     """
-    if 'beam_width' in reference:
+    try:
         # Compute the localizer scale factor (degrees per dot)
         # Half the beam width is 2.5 dots full scale
-        scale = (reference['beam_width']/2.0) / 2.5
-    else:
+        scale = (runway['runway']['localizer']['beam_width']/2.0) / 2.5
+    except:
+        try:
+            length = runway_length(runway)
+        except:
+            length = 8000 / METRES_TO_FEET # Typical length
+            
         # Normal scaling of a localizer gives 700ft width at the threshold,
-        # so half of this is 350ft=106.68m. This appears to be a single dot
-        # scale (to match beam width values).
-        scale = np.degrees(np.arctan2(106.68, runway_length(runway)))
+        # so half of this is 350ft=106.68m. This appears to be full 2-dots
+        # scale.
+        scale = np.degrees(np.arctan2(106.68, length)) / 2.0
     return scale
-
 
 def mask_inside_slices(array, slices):
     '''
@@ -3404,6 +3418,34 @@ def slice_duration(_slice, hz):
                          _slice.stop)
     return (_slice.stop - (_slice.start or 0)) / hz
 
+def slice_multiply(_slice, f):
+    '''
+    :param _slice: Slice to rescale
+    :type _slice: slice
+    :param f: Rescale factor
+    :type f: float
+    
+    :returns: slice rescaled by factor f
+    :rtype: integer
+    '''
+    return slice(int(_slice.start*f) if _slice.start else None, 
+                 int(_slice.stop*f) if _slice.stop else None,
+                 int(_slice.step*f) if _slice.step else None)
+
+def slices_multiply(_slices, f):
+    '''
+    :param _slices: List of slices to rescale
+    :type _slice: slice
+    :param f: Rescale factor
+    :type f: float
+    
+    :returns: List of slices rescaled by factor f
+    :rtype: integer
+    '''
+    result=[]
+    for s in _slices:
+        result.append(slice_multiply(s,f))
+    return result
 
 def slice_samples(_slice):
     '''
