@@ -3886,8 +3886,8 @@ class TAT(DerivedParameterNode):
     align_to_first_dependency = False
     
     def derive(self, 
-               source_1 = P('ADC (1) TAT'),
-               source_2 = P('ADC (2) TAT')):
+               source_1 = P('TAT (1)'),
+               source_2 = P('TAT (2)')):
         
         # Alternate samples (1)&(2) are blended.
         self.array, self.frequency, self.offset = \
