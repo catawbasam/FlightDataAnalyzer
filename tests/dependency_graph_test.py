@@ -192,7 +192,7 @@ Node: Start Datetime 	Pre: [] 	Succ: [] 	Neighbors: [] 	Edges: []
             # for IDE test runners
             derived = get_derived_nodes(['sample_derived_parameters'])
         nodes = NodeManager(datetime.now(), lfl_params, required_nodes, derived, {}, {})
-        order, _ = dependency_order(nodes)
+        order, _ = dependency_order(nodes, draw=False)
         pos = order.index
         self.assertTrue(len(order))
         self.assertTrue(pos('Vertical Speed') > pos('Pressure Altitude'))
