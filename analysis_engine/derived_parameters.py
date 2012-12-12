@@ -331,15 +331,16 @@ class AirspeedReference(DerivedParameterNode):
                apps=S('Approach'),
                series=A('Series'),
                family=A('Family')):
-        '''
-        Currently a work in progress. We should use a recorded parameter if
-        it's available, failing that a computed forumla reflecting the
-        aircraft condition and failing that a single value from the achieved
-        flight file. Achieved flight records without a recorded value will be
-        repeated thoughout the flight, calculated values will be calculated
-        for each approach.
-        Rises KeyError if no entires for Family/Series in vspeed lookup map.
-        '''
+        # docstring no longer accurate?
+        ##'''
+        ##Currently a work in progress. We should use a recorded parameter if
+        ##it's available, failing that a computed forumla reflecting the
+        ##aircraft condition and failing that a single value from the achieved
+        ##flight file. Achieved flight records without a recorded value will be
+        ##repeated thoughout the flight, calculated values will be calculated
+        ##for each approach.
+        ##Rises KeyError if no entires for Family/Series in vspeed lookup map.
+        ##'''
         if vapp:
             # Vapp is recorded so use this
             self.array = vapp.array
@@ -2604,10 +2605,6 @@ class Groundspeed(DerivedParameterNode):
             source_B.array += adjust_B
             self.array, self.frequency, self.offset = \
                 blend_two_parameters(source_A, source_B)
-
-        # Superfluous as the dependency tree will skip this.
-        ##elif frame_name in ['737-5']:
-            ##self.array = self.array
             
         else:
             raise DataFrameError(self.name, frame_name)
@@ -2630,11 +2627,7 @@ class FlapLever(DerivedParameterNode):
             self.array = round_to_nearest(flap.array, 5.0)
         else:
             self.array = step_values(flap.array, flap_steps)
-        
-            
-'''
-:TODO: Resolve the processing of different base sets of data
-'''
+
 
 class FlapSurface(DerivedParameterNode):
     """

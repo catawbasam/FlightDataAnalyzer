@@ -30,12 +30,19 @@ class InvalidDatetime(ValueError):
 
 
 def all_of(names, available):
+    '''
+    Returns True if all of the names are within the available list.
+    i.e. names is a subset of available
+    '''
     return all(name in available for name in names)
 
-def one_of(names, available):
+def any_of(names, available):
+    '''
+    Returns True if any of the names are within the available list.
+    
+    NB: Was called "one_of" but that implies ONLY one name is available.
+    '''
     return any(name in available for name in names)
-# Alias
-any_of = one_of
     
 
 def air_track(lat_start, lon_start, lat_end, lon_end, spd, hdg, frequency):

@@ -1744,7 +1744,7 @@ class DistanceFromTouchdownToRunwayEnd(KeyPointValueNode):
                tdwns=KTI('Touchdown'),
                rwy=A('FDR Landing Runway')):
         
-        if ambiguous_runway(rwy):
+        if ambiguous_runway(rwy) or not tdwns:
             return
 
         distance_to_tdn = runway_distance_from_end(rwy.value, 
