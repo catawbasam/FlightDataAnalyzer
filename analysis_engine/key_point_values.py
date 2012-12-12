@@ -25,6 +25,7 @@ from analysis_engine.library import (ambiguous_runway,
                                      cycle_counter,
                                      cycle_finder,
                                      find_edges,
+                                     find_edges_on_state_change,
                                      hysteresis,
                                      index_at_value,
                                      integrate,
@@ -36,7 +37,8 @@ from analysis_engine.library import (ambiguous_runway,
                                      max_continuous_unmasked, 
                                      max_value,
                                      min_value, 
-                                     repair_mask, 
+                                     repair_mask,
+                                     runway_length,
                                      np_ma_masked_zeros_like,
                                      peak_curvature,
                                      rate_of_change,
@@ -583,10 +585,6 @@ class Airspeed500To20FtMin(KeyPointValueNode):
             min_value,
         )
 
-class AirspeedAtTOGA(KeyPointValueNode):
-    def derive(self, airspeed=P('Airspeed'), toga=P('Takeoff And Go Around'),
-               takeoff=S('Takeoff')):
-        self.create_kpvs_where_state('TOGA', toga.array, toga.hz, phase=takeoff)
 
 class AirspeedAtTouchdown(KeyPointValueNode):
     '''
@@ -1688,19 +1686,6 @@ class ControlColumnStiffness(KeyPointValueNode):
                         (speedy.slice.start or 0) + move.start + when, slope)
 
 
-class DistanceFromLiftoffToRunwayEnd(KeyPointValueNode):
-    def derive(self, lat_lift=KPV('Latitude At Liftoff'),
-               lon_lift=KPV('Longitude At Liftoff'),
-               rwy=A('FDR Takeoff Runway')):
-        if ambiguous_runway(rwy):
-            return
-        toff_end = runway_distance_from_end(rwy.value, lat_lift.value, lon_lift.value)
-        length = runway_length(rwy.value)
-        self.create_kpv(lat_lift.index, toff_end/length)
-
-
-
-
 class DistancePastGlideslopeAntennaToTouchdown(KeyPointValueNode):
     units = 'm'
     def derive(self, lat_tdn=KPV('Latitude At Touchdown'),
@@ -1737,7 +1722,7 @@ class DistanceFromRunwayStartToTouchdown(KeyPointValueNode):
                tdwns=KTI('Touchdown'),
                rwy=A('FDR Landing Runway')):
 
-        if ambiguous_runway(rwy):
+        if ambiguous_runway(rwy) or not lat_tdn:
             return
 
         distance_to_start = runway_distance_from_end(rwy.value, point='start')
@@ -1761,7 +1746,7 @@ class DistanceFromTouchdownToRunwayEnd(KeyPointValueNode):
                tdwns=KTI('Touchdown'),
                rwy=A('FDR Landing Runway')):
         
-        if ambiguous_runway(rwy):
+        if ambiguous_runway(rwy) or not lat_tdn:
             return
 
         distance_to_tdn = runway_distance_from_end(rwy.value, 
@@ -1811,7 +1796,7 @@ class DecelerationToStopOnRunway(KeyPointValueNode):
                         ils_approach = True
 
             # So for captured ILS approaches or aircraft with precision location we can compute the deceleration required.
-            if precise.value or ils_approach:
+            if (precise.value or ils_approach) and lat_tdn != []:
                 distance_at_tdn = \
                     runway_distance_from_end(rwy.value, 
                                              lat_tdn.get_last().value, 

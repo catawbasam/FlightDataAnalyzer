@@ -967,6 +967,67 @@ def find_edges(array, _slice, direction='rising_edges'):
     return list(edge_list)
 
 
+def find_edges_on_state_change(state, array, change='entering', 
+                                phase=None):
+    '''
+    Version of find_edges tailored to suit multi-state parameters.
+    
+    :param state: multistate parameter condition e.g. 'Ground'
+    :type state: text, from the states for that parameter.
+    :param array: the multistate parameter array
+    :type array: numpy masked array with state attributes.
+    
+    :param change: condition for detecting edge. Default 'entering', 'leaving' and 'entering_and_leaving' alternatives
+    :type change: text
+    :param phase: flight phase within which edges will be detected.
+    :type phase: list of slices, default=None
+    
+    :returns: list of indexes
+    
+    :error condition: raises ValueError if either change or state not recognised
+    '''
+    def state_changes(state, array, edge_list, change, _slice=slice(0, -1)):
+
+        length = len(array[_slice])
+        # The offset allows for phase slices and puts the 
+        offset = _slice.start - 0.5
+        state_periods = np.ma.clump_unmasked(
+            np.ma.masked_not_equal(array[_slice], array.state[state]))
+        
+        for period in state_periods:
+            if change == 'entering':
+                if period.start > 0:
+                    edge_list.append(period.start + offset)
+                    
+            elif change == 'leaving':
+                if period.stop < length:
+                    edge_list.append(period.stop + offset)
+
+            elif change == 'entering_and_leaving':
+                if period.start > 0:
+                    edge_list.append(period.start + offset)
+                if period.stop < length:
+                    edge_list.append(period.stop + offset)
+            else:
+                raise  ValueError("Change '%s'in find_edges_on_state_change not recognised" % change)
+        
+        return edge_list
+
+    # High level function scans phase blocks or complete array and
+    # presents appropriate arguments for analysis. We test for phase.name
+    # as phase returns False.
+    if not state in {v:k for k, v in array.values_mapping.items()}:
+        raise ValueError("State '%s' not recognised in find_edges_on_state_change" %state)
+    
+    edge_list = []
+    if phase is None:
+        state_changes(state, array, edge_list, change)
+    else:
+        for each_period in phase:
+            state_changes(state, array, edge_list, change, each_period.slice)
+    return edge_list
+
+
 def first_valid_sample(array, start_index=0):
     '''
     Returns the first valid sample of data from a point in an array.

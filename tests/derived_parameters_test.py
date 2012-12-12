@@ -13,7 +13,6 @@ from utilities import masked_array_testutils as ma_test
 from utilities.filesystem_tools import copy_file
 
 from analysis_engine.flight_phase import Fast
-from analysis_engine.library import repair_mask
 from analysis_engine.node import Attribute, A, KPV, KeyTimeInstance, KTI, Parameter, P, Section, S
 from analysis_engine.process_flight import process_flight
 from analysis_engine.settings import METRES_TO_FEET
@@ -343,8 +342,8 @@ class TestAirspeedReference(unittest.TestCase):
     def test_can_operate(self):
         expected = [('Vapp',),
                     ('Vref',),
-                    ('FDR Vapp',),
-                    ('FDR Vref',),
+                    ('AFR Vapp',),
+                    ('AFR Vref',),
                     ('Airspeed', 'Gross Weight Smoothed', 'Series',
                      'Family', 'Approach', 'Flap',),
                     ('Airspeed', 'Gross Weight Smoothed', 'Series',
@@ -355,7 +354,7 @@ class TestAirspeedReference(unittest.TestCase):
     def test_airspeed_reference__fdr_vapp(self):
         kwargs = self.default_kwargs.copy()
         kwargs['spd'] = P('Airspeed', np.ma.array([200]*128), frequency=1)
-        kwargs['fdr_vapp'] = A('FDR Vapp', value=120)
+        kwargs['afr_vapp'] = A('AFR Vapp', value=120)
 
         param = AirspeedReference()
         param.derive(**kwargs)
@@ -367,7 +366,7 @@ class TestAirspeedReference(unittest.TestCase):
     def test_airspeed_reference__fdr_vref(self):
         kwargs = self.default_kwargs.copy()
         kwargs['spd'] = P('Airspeed', np.ma.array([200]*128), frequency=1)
-        kwargs['fdr_vref'] = A('FDR Vref', value=120)
+        kwargs['afr_vref'] = A('AFR Vref', value=120)
 
         param = AirspeedReference()
         param.derive(**kwargs)
@@ -1965,7 +1964,7 @@ class TestV2(unittest.TestCase):
 
     def test_can_operate(self):
         # TODO: test expected combinations are in get_operational_combinations
-        expected = [('FDR V2',),
+        expected = [('AFR V2',),
                     ('Airspeed', 'Gross Weight At Liftoff', 'Series', 'Family',
                      'Configuration',),
                     ('Airspeed', 'Gross Weight At Liftoff', 'Series', 'Family',
@@ -1977,7 +1976,7 @@ class TestV2(unittest.TestCase):
 
         kwargs = self.default_kwargs.copy()
         kwargs['spd'] = P('Airspeed', np.ma.array([200]*128), frequency=1)
-        kwargs['fdr_v2'] = A('FDR V2', value=120)
+        kwargs['afr_v2'] = A('AFR V2', value=120)
 
         param = V2()
         param.derive(**kwargs)

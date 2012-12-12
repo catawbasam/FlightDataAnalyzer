@@ -309,7 +309,7 @@ class AirspeedReference(DerivedParameterNode):
 
     @classmethod
     def can_operate(cls, available):
-        works_with_any = ['Vapp', 'Vref', 'FDR Vapp', 'FDR Vref']
+        works_with_any = ['Vapp', 'Vref', 'AFR Vapp', 'AFR Vref']
         existing_values = any([_node in available for _node in works_with_any])
         
         x = set(available)
@@ -326,12 +326,11 @@ class AirspeedReference(DerivedParameterNode):
                conf=P('Configuration'),
                vapp=P('Vapp'),
                vref=P('Vref'),
-               fdr_vapp=A('FDR Vapp'),
-               fdr_vref=A('FDR Vref'),
+               afr_vapp=A('AFR Vapp'),
+               afr_vref=A('AFR Vref'),
                apps=S('Approach'),
                series=A('Series'),
                family=A('Family')):
-
         '''
         Currently a work in progress. We should use a recorded parameter if
         it's available, failing that a computed forumla reflecting the
@@ -347,13 +346,13 @@ class AirspeedReference(DerivedParameterNode):
         elif vref:
             # Vref is recorded so use this
             self.array = vref.array
-        elif spd and (fdr_vapp or fdr_vref):
+        elif spd and (afr_vapp or afr_vref):
             # Vapp/Vref is supplied from FDR so use this
-            fdr_vspeed = fdr_vapp or fdr_vref
+            afr_vspeed = afr_vapp or afr_vref
             self.array = np.ma.zeros(len(spd.array), np.double)
-            self.array.mask=True
+            self.array.mask = True
             for approach in apps:
-                self.array[approach.slice] = fdr_vspeed.value
+                self.array[approach.slice] = afr_vspeed.value
         else:
             # elif apps and spd and gw and (flap or conf):
             # No values recorded or supplied so lookup in vspeed tables
@@ -3891,8 +3890,8 @@ class TAT(DerivedParameterNode):
     align_to_first_dependency = False
     
     def derive(self, 
-               source_1 = P('ADC (1) TAT'),
-               source_2 = P('ADC (2) TAT')):
+               source_1 = P('TAT (1)'),
+               source_2 = P('TAT (2)')):
         
         # Alternate samples (1)&(2) are blended.
         self.array, self.frequency, self.offset = \
@@ -3909,18 +3908,18 @@ class V2(DerivedParameterNode):
     @classmethod
     def can_operate(cls, available):
         x = set(available)
-        fdr = 'FDR V2' in x
+        afr = 'AFR V2' in x
         base_for_lookup = ['Airspeed', 'Gross Weight At Liftoff', 'Series',
                            'Family']
         airbus = set(base_for_lookup + ['Configuration']).issubset(x)
         boeing = set(base_for_lookup + ['Flap']).issubset(x)
-        return fdr or airbus or boeing
+        return afr or airbus or boeing
 
     def derive(self, 
                spd=P('Airspeed'),
                flap=P('Flap'),
                conf=P('Configuration'),
-               fdr_v2=A('FDR V2'),
+               afr_v2=A('AFR V2'),
                weight_liftoff=KPV('Gross Weight At Liftoff'),
                series=A('Series'),
                family=A('Family')):
@@ -3929,9 +3928,9 @@ class V2(DerivedParameterNode):
         self.array = np_ma_masked_zeros_like(spd.array)
         self.array.mask = True
 
-        if fdr_v2:
+        if afr_v2:
             # v2 supplied, use this
-            self.array = fdr_v2.value
+            self.array = afr_v2.value
         elif weight_liftoff:
             vspeed_class = get_vspeed_map(series.value, family.value)
             setting_param = flap or conf
