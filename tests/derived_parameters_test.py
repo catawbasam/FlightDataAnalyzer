@@ -1990,7 +1990,8 @@ class TestV2(unittest.TestCase):
     def test_v2__boeing_lookup(self):
         gw = KPV('Gross Weight At Liftoff')
         gw.create_kpv(451, 54192.06)
-        with hdf_file('test_data/airspeed_reference.hdf5') as hdf:
+        test_hdf = copy_file('test_data/airspeed_reference.hdf5')
+        with hdf_file(test_hdf) as hdf:
             args = [
                 P(**hdf['Airspeed'].__dict__),
                 P(**hdf['Flap'].__dict__),

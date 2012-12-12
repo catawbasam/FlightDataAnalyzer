@@ -28,6 +28,16 @@ Value = namedtuple('Value', 'index value')
 class InvalidDatetime(ValueError):
     pass
 
+
+def all_of(names, available):
+    return all(name in available for name in names)
+
+def one_of(names, available):
+    return any(name in available for name in names)
+# Alias
+any_of = one_of
+    
+
 def air_track(lat_start, lon_start, lat_end, lon_end, spd, hdg, frequency):
     """
     Computation of the air track for cases where recorded latitude and longitude 

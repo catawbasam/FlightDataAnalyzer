@@ -20,6 +20,23 @@ from analysis_engine.settings import METRES_TO_FEET
 test_data_path = os.path.join(os.path.dirname(os.path.abspath(__file__)),
                               'test_data')
 
+
+class TestOneOf(unittest.TestCase):
+    def test_one_of(self):
+        available = ['Altitude AAL', 'Airspeed', 'Groundspeed']
+        self.assertTrue(one_of(['Airspeed', 'Groundspeed'], available))
+        self.assertTrue(one_of(['NOT PRESENT', 'Groundspeed'], available))
+        self.assertTrue(one_of(['Groundspeed'], available))
+        self.assertFalse(one_of(['NOT PRESENT', 'ALSO NOT THERE'], available))
+
+class TestAllOf(unittest.TestCase):
+    def test_all_of(self):
+        available = ['Altitude AAL', 'Airspeed', 'Groundspeed']
+        self.assertTrue(all_of(['Airspeed', 'Groundspeed'], available))
+        self.assertFalse(all_of(['NOT PRESENT', 'Groundspeed'], available))
+        self.assertTrue(all_of(['Groundspeed'], available))
+        self.assertFalse(all_of(['NOT PRESENT', 'ALSO NOT THERE'], available))
+
 class TestAirTrack(unittest.TestCase):
     def test_air_track_basic(self):
         spd = np.ma.array([260,260,260,260,260,260,260], dtype=float)

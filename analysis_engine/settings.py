@@ -21,7 +21,7 @@ logger = logging.getLogger(name=__name__)
 
 
 # Modules to import all derived Nodes from. Additional modules can be
-# appended to this list in custom_settings.py by creating a similar list of
+# appended to this list in analyzer_custom_settings.py by creating a similar list of
 # modules with the variable name ending with "_MODULES"
 # e.g. MY_EXTRA_MODULES = ['my_package.extra_attributes', 'my_package.extra_params']
 NODE_MODULES = ['analysis_engine.derived_parameters',
