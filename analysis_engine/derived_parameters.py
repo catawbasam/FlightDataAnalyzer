@@ -943,8 +943,14 @@ class AltitudeQNH(DerivedParameterNode):
     1. Take the average elevation between the start and end of the runway.
     2. Take the general elevation of the airfield.
 
-    If we are unable to determine the elevation, we may mask out part or all of
-    the data.
+    If we can only determine the takeoff elevation, the landing elevation
+    will using the same value as the error will be the difference in pressure
+    altitude between the takeoff and landing airports on the day which is
+    likely to be less than forcing it to 0. Therefore landing elevation is
+    used if the takeoff elevation cannot be determined.
+
+    If we are unable to determine either the takeoff or landing elevations,
+    we use the Altitude AAL parameter.    
     '''
 
     name = 'Altitude QNH'
@@ -952,41 +958,49 @@ class AltitudeQNH(DerivedParameterNode):
 
     @classmethod
     def can_operate(cls, available):
+        return 'Altitude AAL' in available and 'Altitude Peak' in available
+
+    def derive(self, alt_aal=P('Altitude AAL'), alt_peak=KTI('Altitude Peak'),
+            l_apt=A('FDR Landing Airport'), l_rwy=A('FDR Landing Runway'),
+            t_apt=A('FDR Takeoff Airport'), t_rwy=A('FDR Takeoff Runway')):
         '''
         We attempt to adjust Altitude AAL by adding elevation at takeoff and
         landing. We need to know the takeoff and landing runway to get the most
         precise elevation, falling back to the airport elevation if they are
         not available.
         '''
-        one_of = lambda *names: any(name in available for name in names)
-        return all((
-            'Altitude AAL' in available,
-            'Altitude Peak' in available,
-            one_of('FDR Landing Runway', 'FDR Landing Airport'),
-            one_of('FDR Takeoff Runway', 'FDR Takeoff Airport'),
-        ))
-
-    def derive(self, alt_aal=P('Altitude AAL'), alt_peak=KTI('Altitude Peak'),
-            l_apt=A('FDR Landing Airport'), l_rwy=A('FDR Landing Runway'),
-            t_apt=A('FDR Takeoff Airport'), t_rwy=A('FDR Takeoff Runway')):
-        '''
-        '''
-        alt_qnh = np.ma.copy(alt_aal.array)
+        alt_qnh = np.ma.copy(alt_aal.array)  # copy only required for test case
 
         # Attempt to determine elevation at takeoff:
         t_elev = None
-        if t_elev is None and t_rwy:
+        if t_rwy:
             t_elev = self._calc_rwy_elev(t_rwy.value)
         if t_elev is None and t_apt:
             t_elev = self._calc_apt_elev(t_apt.value)
 
         # Attempt to determine elevation at landing:
         l_elev = None
-        if l_elev is None and l_rwy:
+        if l_rwy:
             l_elev = self._calc_rwy_elev(l_rwy.value)
         if l_elev is None and l_apt:
             l_elev = self._calc_apt_elev(l_apt.value)
 
+        if t_elev is None and l_elev is None:
+            self.warning("No Takeoff or Landing elevation, using Altitude AAL")
+            self.array = alt_qnh
+            return  # BAIL OUT!
+        elif t_elev is None:
+            self.warning("No Takeoff elevation, using %dft at Landing", l_elev)
+            smooth = False
+            t_elev = l_elev
+        elif l_elev is None:
+            self.warning("No Landing elevation, using %dft at Takeoff", t_elev)
+            smooth = False
+            l_elev = t_elev
+        else:
+            # both have valid values
+            smooth = True
+        
         # Break the "journey" at the "midpoint" - actually max altitude aal -
         # and be sure to account for rise/fall in the data and stick the peak
         # in the correct half:
@@ -994,27 +1008,16 @@ class AltitudeQNH(DerivedParameterNode):
         fall = alt_aal.array[peak.index - 1] > alt_aal.array[peak.index + 1]
         peak = peak.index + int(fall)
 
-        smooth = True
+        # Add the elevation at takeoff to the climb portion of the array:
+        alt_qnh[:peak] += t_elev
 
-        try:
-            # Add the elevation at takeoff to the climb portion of the array:
-            alt_qnh[:peak] += t_elev
-        except:
-            # Mask out the start of the array if no suitable elevation:
-            alt_qnh[:peak] = np.ma.masked
-            smooth = False
-
-        try:
-            # Add the elevation at landing to the descent portion of the array:
-            alt_qnh[peak:] += l_elev
-        except:
-            # Mask out the end of the array if no suitable elevation:
-            alt_qnh[peak:] = np.ma.masked
-            smooth = False
+        # Add the elevation at landing to the descent portion of the array:
+        alt_qnh[peak:] += l_elev
 
         # Attempt to smooth out any ugly transitions due to differences in
         # pressure so that we don't get horrible bumps in visualisation:
         if smooth:
+            # step jump transforms into linear slope
             delta = np.ma.ptp(alt_qnh[peak - 1:peak + 1])
             width = ceil(delta * alt_aal.frequency / 3)
             window = slice(peak - width, peak + width + 1)
