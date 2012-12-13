@@ -4272,20 +4272,6 @@ class ApproachRange(DerivedParameterNode):
             # What is the heading with respect to the runway centreline for this approach?
             off_cl = (head.array[this_app_slice] - \
                       runway_heading(approach['runway'])) % 360.0
-  
-            # reg_slice is the slice of data over which we will apply a
-            # regression process to identify the touchdown point from the
-            # height and distance arrays.
-            if 'ILS glideslope established' in approach:
-                reg_slice = slice_multiply(approach['ILS glideslope established'],freq)
-
-            else:
-                _,app_slices = slices_between(alt_aal.array[this_app_slice], 100, 500)
-                # Computed locally, so app_slices do not need rescaling.
-                if len(app_slices) == 1:
-                    reg_slice = shift_slice(app_slices[0], this_app_slice.start)
-                else:
-                    pass #  TODO: Need to think how to handle this error.
                 
             # Use recorded groundspeed where available, otherwise
             # estimate range using true airspeed. This is because there
@@ -4309,10 +4295,13 @@ class ApproachRange(DerivedParameterNode):
             # phase to high range values at the start of the phase.
             spd_repaired = repair_mask(speed, extrapolate=True)
             app_range[this_app_slice] = integrate(spd_repaired, freq, 
-                                                     scale=KTS_TO_MPS, 
-                                                     direction='reverse')
-
+                                                  scale=KTS_TO_MPS, 
             if 'ILS glideslope established' in approach:
+                # reg_slice is the slice of data over which we will apply a
+                # regression process to identify the touchdown point from the
+                # height and distance arrays.
+                reg_slice = slice_multiply(
+                    approach['ILS glideslope established'], freq)
                 # Compute best fit glidepath. The term (1-0.13 x glideslope
                 # deviation) caters for the aircraft deviating from the
                 # planned flightpath. 1 dot low is about 7% of a 3 degree
@@ -4326,6 +4315,14 @@ class ApproachRange(DerivedParameterNode):
                     self.warning('Low convergence in computing ILS '
                                  'glideslope offset.')
             else:
+                _,app_slices = slices_between(alt_aal.array[this_app_slice],
+                                              100, 500)
+                # Computed locally, so app_slices do not need rescaling.
+                if len(app_slices) == 1:
+                    reg_slice = shift_slice(app_slices[0], this_app_slice.start)
+                else:
+                    pass #  TODO: Need to think how to handle this error.                
+                
                 corr, slope, offset = coreg(app_range[reg_slice],
                                             alt_aal.array[reg_slice])
                 # This should still correlate pretty well.
