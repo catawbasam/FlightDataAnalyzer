@@ -712,10 +712,17 @@ class TestAltitudeQNH(unittest.TestCase, NodeTest):
     def setUp(self):
         self.node_class = AltitudeQNH
         self.operational_combinations = [
+            ('Altitude AAL', 'Altitude Peak'),
+            ('Altitude AAL', 'Altitude Peak', 'FDR Landing Airport'),
+            ('Altitude AAL', 'Altitude Peak', 'FDR Landing Runway'),
+            ('Altitude AAL', 'Altitude Peak', 'FDR Takeoff Airport'),
+            ('Altitude AAL', 'Altitude Peak', 'FDR Takeoff Runway'),
+            ('Altitude AAL', 'Altitude Peak', 'FDR Landing Airport', 'FDR Landing Runway'),
             ('Altitude AAL', 'Altitude Peak', 'FDR Landing Airport', 'FDR Takeoff Airport'),
             ('Altitude AAL', 'Altitude Peak', 'FDR Landing Airport', 'FDR Takeoff Runway'),
             ('Altitude AAL', 'Altitude Peak', 'FDR Landing Runway', 'FDR Takeoff Airport'),
             ('Altitude AAL', 'Altitude Peak', 'FDR Landing Runway', 'FDR Takeoff Runway'),
+            ('Altitude AAL', 'Altitude Peak', 'FDR Takeoff Airport', 'FDR Takeoff Runway'),
             ('Altitude AAL', 'Altitude Peak', 'FDR Landing Airport', 'FDR Landing Runway', 'FDR Takeoff Airport'),
             ('Altitude AAL', 'Altitude Peak', 'FDR Landing Airport', 'FDR Landing Runway', 'FDR Takeoff Runway'),
             ('Altitude AAL', 'Altitude Peak', 'FDR Landing Airport', 'FDR Takeoff Airport', 'FDR Takeoff Runway'),
@@ -738,9 +745,8 @@ class TestAltitudeQNH(unittest.TestCase, NodeTest):
         self.alt_aal.array[peak + 1] += 30
         self.alt_aal.array[peak] -= 30
 
-        # 1. All masked, data same as Altitude AAL:
+        # 1. Data same as Altitude AAL, no mask applied:
         data = np.ma.copy(self.alt_aal.array)
-        data.mask = True
         self.expected.append(data)
         # 2. None masked, data Altitude AAL, +50 ft t/o, +100 ft ldg:
         data = np.ma.array([50, 80, 110, 140, 170, 200, 230, 260, 290, 320,
@@ -751,30 +757,28 @@ class TestAltitudeQNH(unittest.TestCase, NodeTest):
             300, 270, 240, 210, 180, 150])
         data.mask = False
         self.expected.append(data)
-        # 3. Data Altitude AAL, +50 ft t/o; ldg masked:
+        # 3. Data Altitude AAL, +50 ft t/o; ldg assumes t/o elevation:
         data = np.ma.copy(self.alt_aal.array)
-        data[:peak] += 50
-        data[peak:] = np.ma.masked
+        data += 50
         self.expected.append(data)
-        # 4. Data Altitude AAL, +100 ft ldg; t/o masked:
+        # 4. Data Altitude AAL, +100 ft ldg; t/o assumes ldg elevation:
         data = np.ma.copy(self.alt_aal.array)
-        data[:peak] = np.ma.masked
-        data[peak:] += 100
+        data += 100
         self.expected.append(data)
 
     def test_derive__function_calls(self):
         alt_qnh = self.node_class()
-        alt_qnh._calc_apt_elev = Mock()
-        alt_qnh._calc_rwy_elev = Mock()
+        alt_qnh._calc_apt_elev = Mock(return_value=0)
+        alt_qnh._calc_rwy_elev = Mock(return_value=0)
         # Check no airport/runway information results in a fully masked copy of Altitude AAL:
         alt_qnh.derive(self.alt_aal, self.alt_peak)
-        assert not alt_qnh._calc_apt_elev.called, 'method should not have been called'
-        assert not alt_qnh._calc_rwy_elev.called, 'method should not have been called'
+        self.assertFalse(alt_qnh._calc_apt_elev.called, 'method should not have been called')
+        self.assertFalse(alt_qnh._calc_rwy_elev.called, 'method should not have been called')
         alt_qnh._calc_apt_elev.reset_mock()
         alt_qnh._calc_rwy_elev.reset_mock()
         # Check everything works calling with runway details:
         alt_qnh.derive(self.alt_aal, self.alt_peak, None, self.land_fdr_rwy, None, self.toff_fdr_rwy)
-        assert not alt_qnh._calc_apt_elev.called, 'method should not have been called'
+        self.assertFalse(alt_qnh._calc_apt_elev.called, 'method should not have been called')
         alt_qnh._calc_rwy_elev.assert_has_calls([
             call(self.toff_fdr_rwy.value),
             call(self.land_fdr_rwy.value),
@@ -787,12 +791,12 @@ class TestAltitudeQNH(unittest.TestCase, NodeTest):
             call(self.toff_fdr_apt.value),
             call(self.land_fdr_apt.value),
         ])
-        assert not alt_qnh._calc_rwy_elev.called, 'method should not have been called'
+        self.assertFalse(alt_qnh._calc_rwy_elev.called, 'method should not have been called')
         alt_qnh._calc_apt_elev.reset_mock()
         alt_qnh._calc_rwy_elev.reset_mock()
         # Check everything works calling with runway and airport details:
         alt_qnh.derive(self.alt_aal, self.alt_peak, self.land_fdr_apt, self.land_fdr_rwy, self.toff_fdr_apt, self.toff_fdr_rwy)
-        assert not alt_qnh._calc_apt_elev.called, 'method should not have been called'
+        self.assertFalse(alt_qnh._calc_apt_elev.called, 'method should not have been called')
         alt_qnh._calc_rwy_elev.assert_has_calls([
             call(self.toff_fdr_rwy.value),
             call(self.land_fdr_rwy.value),
@@ -1986,7 +1990,8 @@ class TestV2(unittest.TestCase):
     def test_v2__boeing_lookup(self):
         gw = KPV('Gross Weight At Liftoff')
         gw.create_kpv(451, 54192.06)
-        with hdf_file('test_data/airspeed_reference.hdf5') as hdf:
+        test_hdf = copy_file('test_data/airspeed_reference.hdf5')
+        with hdf_file(test_hdf) as hdf:
             args = [
                 P(**hdf['Airspeed'].__dict__),
                 P(**hdf['Flap'].__dict__),

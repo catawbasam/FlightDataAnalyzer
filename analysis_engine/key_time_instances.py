@@ -1,6 +1,7 @@
 import numpy as np
 
-from analysis_engine.library import (hysteresis, 
+from analysis_engine.library import (find_edges_on_state_change,
+                                     hysteresis, 
                                      index_at_value,
                                      is_index_within_slice,
                                      minimum_unmasked,
@@ -502,38 +503,6 @@ class TouchAndGo(KeyTimeInstanceNode):
             if alt_AAL.array[ga.index] == 0.0:
                 # wheels on ground
                 self.create_kti(ga.index)
-
-
-def find_edges_on_state_change(state, array, change='entering', 
-                                phase=None):
-    '''
-    Derived from original create_ktis for cases where we don't want to create a KTI directly.
-    '''
-    def state_changes(state, array, edge_list, change, _slice=slice(0, -1)):
-        state_periods = np.ma.clump_unmasked(
-            np.ma.masked_not_equal(array[_slice], array.state[state]))
-        for period in state_periods:
-            if change == 'entering':
-                edge_list.append(period.start - 0.5
-                                 if period.start > 0 else 0.)
-            elif change == 'leaving':
-                edge_list.append(period.stop - 0.5)
-            elif change == 'entering_and_leaving':
-                edge_list.append(period.start - 0.5
-                                 if period.start > 0 else 0.)
-                edge_list.append(period.stop - 0.5)
-        return edge_list
-
-    # High level function scans phase blocks or complete array and
-    # presents appropriate arguments for analysis. We test for phase.name
-    # as phase returns False.
-    edge_list = []
-    if phase is None:
-        state_changes(state, array, edge_list, change)
-    else:
-        for each_period in phase:
-            state_changes(state, array, edge_list, change, each_period.slice)
-    return edge_list
 
 
 class Touchdown(KeyTimeInstanceNode):

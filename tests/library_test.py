@@ -16,9 +16,27 @@ import utilities.masked_array_testutils as ma_test
 from analysis_engine.library import *
 from analysis_engine.node import (A, P, S, M)
 from analysis_engine.settings import METRES_TO_FEET
+from flight_phase_test import buildsection, buildsections
 
 test_data_path = os.path.join(os.path.dirname(os.path.abspath(__file__)),
                               'test_data')
+
+
+class TestAllOf(unittest.TestCase):
+    def test_all_of(self):
+        available = ['Altitude AAL', 'Airspeed', 'Groundspeed']
+        self.assertTrue(all_of(['Airspeed', 'Groundspeed'], available))
+        self.assertFalse(all_of(['NOT PRESENT', 'Groundspeed'], available))
+        self.assertTrue(all_of(['Groundspeed'], available))
+        self.assertFalse(all_of(['NOT PRESENT', 'ALSO NOT THERE'], available))
+
+class TestAnyOf(unittest.TestCase):
+    def test_any_of(self):
+        available = ['Altitude AAL', 'Airspeed', 'Groundspeed']
+        self.assertTrue(any_of(['Airspeed', 'Groundspeed'], available))
+        self.assertTrue(any_of(['NOT PRESENT', 'Groundspeed'], available))
+        self.assertTrue(any_of(['Groundspeed'], available))
+        self.assertFalse(any_of(['NOT PRESENT', 'ALSO NOT THERE'], available))
 
 class TestAirTrack(unittest.TestCase):
     def test_air_track_basic(self):
@@ -1108,7 +1126,45 @@ class TestFindEdges(unittest.TestCase):
         self.assertRaises(ValueError, find_edges, array, slice(0,1),
                           direction='anything')
                     
-                    
+class TestFindEdgesOnStateChange(unittest.TestCase):
+    # Reminder...
+    # find_edges_on_state_change(state, array, change='entering', phase=None)                    
+    class Switch(M):
+        values_mapping = {0: 'off', 1: 'on'}
+
+    def test_basic(self):
+        multi = self.Switch(array=np.ma.array([0,0,1,1,0,0,1,1,0,0]))
+        edges = find_edges_on_state_change('on', multi.array)
+        expected = [1.5,5.5]
+        self.assertEqual(edges, expected)
+
+    def test_leaving(self):
+        multi = self.Switch(array=np.ma.array([0,0,1,1,0,0,1,1,0,0]))
+        edges = find_edges_on_state_change('off', multi.array, change='leaving')
+        expected = [1.5,5.5]
+        self.assertEqual(edges, expected)
+
+    def test_entering_and_leaving(self):
+        multi = self.Switch(array=np.ma.array([0,0,1,1,0,0,1,1,0,0]))
+        edges = find_edges_on_state_change('on', multi.array, change='entering_and_leaving')
+        expected = [1.5,3.5,5.5,7.5]
+        self.assertEqual(edges, expected)
+        
+    def test_phases(self):
+        multi = self.Switch(array=np.ma.array([0,0,1,1,0,0,1,1,0,0]))
+        phase_list = buildsections('Test', [1,5],[0,5],[1,8],[4,9])
+        edges = find_edges_on_state_change('on', multi.array, phase=phase_list)
+        expected = [1.5,1.5,1.5,5.5,5.5]
+        self.assertEqual(edges, expected)
+
+    def test_misunderstood_edge(self):
+        multi = self.Switch(array=np.ma.array([0,0,1,1,0,0,1,1,0,0]))
+        self.assertRaises(ValueError, find_edges_on_state_change, 'on', multi.array, change='humbug')
+
+    def test_misunderstood_state(self):
+        multi = self.Switch(array=np.ma.array([0,1]))
+        self.assertRaises(ValueError, find_edges_on_state_change, 'ha!', multi.array)
+
 class TestFirstOrderLag(unittest.TestCase):
 
     # first_order_lag (in_param, time_constant, hz, gain = 1.0, initial_value = 0.0)
