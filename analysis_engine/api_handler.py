@@ -23,8 +23,9 @@ from analysis_engine.settings import CA_CERTIFICATE_FILE
 ##############################################################################
 # Globals
 
-
 logger = logging.getLogger(name=__name__)
+
+TIMEOUT = 15
 
 
 ##############################################################################
@@ -123,17 +124,19 @@ class APIHandlerHTTP(object):
             disable_ssl_certificate_validation=disable_validation,
             timeout=timeout,
         )
-
+        
         # Attempt to make the API request:
-        socket_timeout = socket.getdefaulttimeout()
-        socket.setdefaulttimeout(timeout)
+        if timeout:
+            socket_timeout = socket.getdefaulttimeout()
+            socket.setdefaulttimeout(timeout)
         try:
             response, content = http.request(uri, method, body)
         except (httplib2.ServerNotFoundError, socket.error, AttributeError):
             # Usually a result of errors with DNS...
             raise APIConnectionError(uri, method, body)
         finally:
-            socket.setdefaulttimeout(socket_timeout)
+            if timeout:
+                socket.setdefaulttimeout(socket_timeout)
 
         # Check the status code of the response:
         status = int(response['status'])

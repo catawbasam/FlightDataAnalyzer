@@ -4296,6 +4296,8 @@ class ApproachRange(DerivedParameterNode):
             spd_repaired = repair_mask(speed, extrapolate=True)
             app_range[this_app_slice] = integrate(spd_repaired, freq, 
                                                   scale=KTS_TO_MPS, 
+                                                  direction='reverse')
+
             if 'ILS glideslope established' in approach:
                 # reg_slice is the slice of data over which we will apply a
                 # regression process to identify the touchdown point from the
