@@ -4212,7 +4212,8 @@ class StickShaker(MultistateDerivedParameterNode):
             self.array, self.frequency, self.offset = \
                 shake_act.array, shake_act.frequency, shake_act.offset
 
-        elif frame_name in ['737-1', '737-3A', '737-3B', '737-3C', '737-4', '737-i', '757-DHL']:
+        elif frame_name in ['737-1', '737-3A', '737-3B', '737-3C', '737-4',
+                            '737-i', '757-DHL']:
             self.array = np.ma.logical_or(shake_l.array, shake_r.array)
             self.frequency , self.offset = shake_l.frequency, shake_l.offset
 
@@ -4239,7 +4240,8 @@ class ApproachRange(DerivedParameterNode):
     """
     @classmethod
     def can_operate(cls, available):
-        a = set(['Heading True Continuous','Airspeed True','Altitude AAL','FDR Approaches'])
+        a = set(['Heading True Continuous','Airspeed True','Altitude AAL',
+                 'FDR Approaches'])
         x = set(available)
         return not (a - x)
      
@@ -4320,10 +4322,14 @@ class ApproachRange(DerivedParameterNode):
                 _,app_slices = slices_between(alt_aal.array[this_app_slice],
                                               100, 500)
                 # Computed locally, so app_slices do not need rescaling.
-                if len(app_slices) == 1:
-                    reg_slice = shift_slice(app_slices[0], this_app_slice.start)
-                else:
-                    pass #  TODO: Need to think how to handle this error.                
+                if len(app_slices) != 1:
+                    # TODO: Should we handle this case?
+                    self.warning(
+                        'Altitude AAL is not between 100-500 ft during an '
+                        'approach slice. %s will not be calculated for this '
+                        'section.', self.name)
+                    continue
+                reg_slice = shift_slice(app_slices[0], this_app_slice.start)         
                 
                 corr, slope, offset = coreg(app_range[reg_slice],
                                             alt_aal.array[reg_slice])
