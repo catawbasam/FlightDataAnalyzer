@@ -4323,8 +4323,7 @@ class ApproachRange(DerivedParameterNode):
                                               100, 500)
                 # Computed locally, so app_slices do not need rescaling.
                 if len(app_slices) != 1:
-                    # TODO: Should we handle this case?
-                    self.warning(
+                    self.info(
                         'Altitude AAL is not between 100-500 ft during an '
                         'approach slice. %s will not be calculated for this '
                         'section.', self.name)
