@@ -2380,18 +2380,29 @@ class FuelQty(DerivedParameterNode):
                fuel_qty2=P('Fuel Qty (2)'),
                fuel_qty3=P('Fuel Qty (3)'),
                fuel_qty_aux=P('Fuel Qty (Aux)')):
-        # Repair array masks to ensure that the summed values are not too small
-        # because they do not include masked values.
-        if fuel_qty_aux:
-            for param in filter(bool, [fuel_qty1, fuel_qty2, fuel_qty3, fuel_qty_aux]):
+        params = []
+        for param in (fuel_qty1, fuel_qty2, fuel_qty3, fuel_qty_aux):
+            if not param:
+                continue
+            # Repair array masks to ensure that the summed values are not too small
+            # because they do not include masked values.
+            try:
                 param.array = repair_mask(param.array)
-            stacked_params = vstack_params(fuel_qty1, fuel_qty2, fuel_qty3, fuel_qty_aux)
-        else:
-            for param in filter(bool, [fuel_qty1, fuel_qty2, fuel_qty3]):
-                param.array = repair_mask(param.array)
-            stacked_params = vstack_params(fuel_qty1, fuel_qty2, fuel_qty3)
+            except ValueError as err:
+                # Q: Should we be creating a summed Fuel Qty parameter when
+                # omitting a masked parameter? The resulting array will contain
+                # values lower than expected. The same problem will occur if
+                # a parameter has been marked invalid, though we will not
+                # be aware of the problem within a derive method.
+                self.warning('Skipping %s while calculating %s: %s. Summed '
+                             'fuel quantity will be lower than expected.',
+                             param, self, err)
+            else:
+                params.append(param)
+        
+        stacked_params = vstack_params(*params)
         self.array = np.ma.sum(stacked_params, axis=0)
-        self.offset = offset_select('mean', [fuel_qty1, fuel_qty2, fuel_qty3, fuel_qty_aux])
+        self.offset = offset_select('mean', params)
 
 
 ################################################################################

@@ -1534,9 +1534,15 @@ class TestFuelQty(unittest.TestCase):
     def test_can_operate(self):
         self.assertEqual(FuelQty.get_operational_combinations(),
           [('Fuel Qty (1)',), ('Fuel Qty (2)',), ('Fuel Qty (3)',),
-           ('Fuel Qty (1)', 'Fuel Qty (2)'), ('Fuel Qty (1)', 'Fuel Qty (3)'),
-           ('Fuel Qty (2)', 'Fuel Qty (3)'), ('Fuel Qty (1)', 'Fuel Qty (2)',
-                                              'Fuel Qty (3)')])
+           ('Fuel Qty (Aux)',), ('Fuel Qty (1)', 'Fuel Qty (2)'),
+           ('Fuel Qty (1)', 'Fuel Qty (3)'), ('Fuel Qty (1)', 'Fuel Qty (Aux)'),
+           ('Fuel Qty (2)', 'Fuel Qty (3)'), ('Fuel Qty (2)', 'Fuel Qty (Aux)'),
+           ('Fuel Qty (3)', 'Fuel Qty (Aux)'),
+           ('Fuel Qty (1)', 'Fuel Qty (2)', 'Fuel Qty (3)'),
+           ('Fuel Qty (1)', 'Fuel Qty (2)', 'Fuel Qty (Aux)'),
+           ('Fuel Qty (1)', 'Fuel Qty (3)', 'Fuel Qty (Aux)'),
+           ('Fuel Qty (2)', 'Fuel Qty (3)', 'Fuel Qty (Aux)'),
+           ('Fuel Qty (1)', 'Fuel Qty (2)', 'Fuel Qty (3)', 'Fuel Qty (Aux)')])
     
     def test_three_tanks(self):
         fuel_qty1 = P('Fuel Qty (1)', 
@@ -1569,6 +1575,17 @@ class TestFuelQty(unittest.TestCase):
         fuel_qty_node.derive(fuel_qty1, fuel_qty2, fuel_qty3, fuel_qty_a)
         np.testing.assert_array_equal(fuel_qty_node.array,
                                       np.ma.array([17, 24, 31]))
+    
+    def test_masked_tank(self):
+        fuel_qty1 = P('Fuel Qty (1)', 
+                      array=np.ma.array([1,2,3], mask=[False, False, False]))
+        fuel_qty2 = P('Fuel Qty (2)', 
+                      array=np.ma.array([2,4,6], mask=[True, True, True]))
+        # Mask will be interpolated by repair_mask.
+        fuel_qty_node = FuelQty()
+        fuel_qty_node.derive(fuel_qty1, fuel_qty2, None, None)
+        np.testing.assert_array_equal(fuel_qty_node.array,
+                                      np.ma.array([1, 2, 3]))    
 
 
 class TestGrossWeightSmoothed(unittest.TestCase):
