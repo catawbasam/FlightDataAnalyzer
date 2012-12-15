@@ -413,6 +413,7 @@ class Fast(FlightPhaseNode):
         """
         fast_samples = np.ma.clump_unmasked(
             np.ma.masked_less(airspeed.array, AIRSPEED_THRESHOLD))
+        
         for fast_sample in fast_samples:
             start = fast_sample.start
             stop = fast_sample.stop

@@ -179,14 +179,14 @@ class AccelerationLongitudinalPeakTakeoff(KeyPointValueNode):
         self.create_kpv_from_slices(accel.array, takeoff, max_value)
 
 
-class DecelerationLongitudinalPeakLanding(KeyPointValueNode):
+class AccelerationLongitudinalPeakLanding(KeyPointValueNode):
     '''
     This is an indication of severe braking and/or use of reverse thrust or
     reverse pitch.
     '''
     def derive(self, landing=S('Landing'),
                accel=P('Acceleration Longitudinal')):
-        self.create_kpv_from_slices(-accel.array, landing, max_value)
+        self.create_kpv_from_slices(accel.array, landing, max_value)
 
         
 class AccelerationNormal20FtToFlareMax(KeyPointValueNode):
@@ -1409,7 +1409,7 @@ class GenericDescent(KeyPointValueNode):
                vert_spd=P('Vertical Speed'), gear=M('Gear Down'),
                loc=P('ILS Localizer'),  power=P('Eng (*) N1 Avg'),
                pitch=P('Pitch'),  brake=M('Speedbrake Selected'),
-               roll=P('Roll'),  head=P('Heading'), descent=S('Descent')):
+               roll=P('Roll'),  head=P('Heading Continuous'), descent=S('Descent')):
         '''
         '''
         for this_descent in descent.get_slices():
@@ -1693,7 +1693,7 @@ class DistancePastGlideslopeAntennaToTouchdown(KeyPointValueNode):
                tdwns=KTI('Touchdown'),rwy=A('FDR Landing Runway'),
                ils_ldgs=S('ILS Localizer Established')):
 
-        if ambiguous_runway(rwy):
+        if ambiguous_runway(rwy) or not lat_tdn or not lon_tdn:
             return
         last_tdwn = tdwns.get_last()
         if not last_tdwn:
@@ -1722,7 +1722,7 @@ class DistanceFromRunwayStartToTouchdown(KeyPointValueNode):
                tdwns=KTI('Touchdown'),
                rwy=A('FDR Landing Runway')):
 
-        if ambiguous_runway(rwy) or not lat_tdn:
+        if ambiguous_runway(rwy) or not lat_tdn or not lon_tdn:
             return
 
         distance_to_start = runway_distance_from_end(rwy.value, point='start')
@@ -1746,7 +1746,7 @@ class DistanceFromTouchdownToRunwayEnd(KeyPointValueNode):
                tdwns=KTI('Touchdown'),
                rwy=A('FDR Landing Runway')):
         
-        if ambiguous_runway(rwy) or not lat_tdn:
+        if ambiguous_runway(rwy) or not lat_tdn or not lon_tdn:
             return
 
         distance_to_tdn = runway_distance_from_end(rwy.value, 
@@ -2641,6 +2641,23 @@ class EngGasTempMaximumContinuousPowerMax(KeyPointValueNode):
                                      end_at=max([z.slice.stop for z in air]))
         self.create_kpvs_within_slices(eng_egt_max.array, max_cont_rating,
                                        max_value)
+
+
+class EngGasTempInFlightMin(KeyPointValueNode):
+    '''
+    To detect a possible engine shutdown in flight, we look for the minium
+    gas temperature recorded during the flight. The event will then be
+    computed later, testing against a suitable minimum value for a running
+    engine.
+    '''
+    def derive(self, eng_temp_min=P('Eng_GasTempMin'),
+               airs=S('Airborne')):
+        for air in airs:
+            index = np.ma.argmin(eng_temp_min)
+            value = eng_temp_min[index]
+            self.create_kpv(index, value)
+        
+    
 
 ########################################
 # Engine Start Conditions
@@ -4879,6 +4896,7 @@ class TCASRAReactionDelay(KeyPointValueNode):
                     continue
                 indexes = np.array(i)
                 peaks = np.array(p)
+                # Look beyond 2 seconds to find slope from point of initiation.
                 slopes = np.ma.where(indexes > 17, abs(peaks / indexes), 0.0)
                 start_to_peak = slice(ra.start, ra.start + i[np.argmax(slopes)])
                 react_index = peak_curvature(acc.array, _slice=start_to_peak,
@@ -5032,6 +5050,76 @@ class ThrottleCyclesInFinalApproach(KeyPointValueNode):
                                            lever.hz, fapp.slice.start))
 
 
+class ThrustAsymmeteryN1WithReverseThrust(KeyPointValueNode):
+    '''
+    Thrust asymmetry may be based on N1 or EPR hence the name construction.
+    '''
+    
+    name = 'Thrust Asymmetery N1 With Reverse Thrust'
+    
+    def derive(self, max_n1=P('Eng N1 Max'),
+               min_n1=P('Eng N1 Min'),
+               rev_th=M('Reverse Thrust')):
+        split = max_n1 - min_n1
+        revs = np.ma.clump_unmasked(np.ma.masked_where(rev_th == 'Deployed', split))
+        for rev in revs:
+            idx = np.ma.argmax(split[rev]) + tofrevf.start
+            self.create_kpv(idx, split[idx])
+
+
+class ThrustAsymmeteryN1OnApproach(KeyPointValueNode):
+    '''
+    Thrust asymmetry may be based on N1 or EPR hence the name construction.
+    '''
+    
+    name = 'Thrust Asymmetery N1 On Approach'
+    
+    def derive(self, max_n1=P('Eng N1 Max'),
+               min_n1=P('Eng N1 Min'),
+               apps=S('Approach')):
+        split = max_n1 - min_n1
+        for app in apps:
+            idx = np.ma.argmax(split[app]) + app.start
+            self.create_kpv(idx, split[idx])
+
+
+
+class TouchdownToThrustReversersDeployedDuration(KeyPointValueNode):
+    '''
+    '''
+    def derive(self, tr=M('Thrust Reversers'),
+               lands = S('Landing'), tdwns=KTI('Touchdown')):
+        '''
+        '''
+        deploys = find_edges_on_state_change('Deployed', tr.array, phase=lands)
+        for land in lands:
+            for deploy in deploys:
+                if not is_index_within_slice(deploy, land.slice):
+                    continue
+                for tdwn in tdwns:
+                    if not is_index_within_slice(tdwn.index, land.slice):
+                        continue
+                    self.create_kpv(deploy, (deploy-tdwn.index)/tr.hz)
+                        
+ 
+class TouchdownToSpoilersDeployedDuration(KeyPointValueNode):
+    '''
+    '''
+    def derive(self, brake=M('SpeedbrakeSelected'),
+               lands = S('Landing'), tdwns=KTI('Touchdown')):
+        '''
+        '''
+        deploys = find_edges_on_state_change('Deployed/Cmd Up', brake.array, phase=lands)
+        for land in lands:
+            for deploy in deploys:
+                if not is_index_within_slice(deploy, land.slice):
+                    continue
+                for tdwn in tdwns:
+                    if not is_index_within_slice(tdwn.index, land.slice):
+                        continue
+                    self.create_kpv(deploy, (deploy-tdwn.index)/tr.hz)
+                        
+ 
 class TouchdownToElevatorDownDuration(KeyPointValueNode):
     def derive(self, airspeed=P('Airspeed'), elevator=P('Elevator'),
                tdwns=KTI('Touchdown')):

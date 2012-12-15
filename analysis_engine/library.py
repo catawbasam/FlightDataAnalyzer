@@ -32,10 +32,10 @@ class InvalidDatetime(ValueError):
 def all_of(names, available):
     return all(name in available for name in names)
 
-def one_of(names, available):
+def any_of(names, available):
     return any(name in available for name in names)
-# Alias
-any_of = one_of
+
+one_of = any_of  # TODO: Remove this alias?
     
 
 def air_track(lat_start, lon_start, lat_end, lon_end, spd, hdg, frequency):
@@ -1629,6 +1629,7 @@ def gtp_compute_error(weights, *args):
     else:
         return lat_est, lon_est, error
 
+
 def ground_track_precise(lat, lon, speed, hdg, frequency, mode):
     """
     Computation of the ground track.
@@ -1709,7 +1710,7 @@ def ground_track_precise(lat, lon, speed, hdg, frequency, mode):
                                                  frequency, 
                                                  mode, 'iterate'),
                                          approx_grad=True, epsilon=1.0E-4, 
-                                         bounds=boundaries, maxfun=15)
+                                         bounds=boundaries, maxfun=10)
     """
     fmin_l_bfgs_b license: This software is freely available, but we expect that all publications describing work using this software, or all commercial products using it, quote at least one of the references given below. This software is released under the BSD License.
     R. H. Byrd, P. Lu and J. Nocedal. A Limited Memory Algorithm for Bound Constrained Optimization, (1995), SIAM Journal on Scientific and Statistical Computing, 16, 5, pp. 1190-1208.
@@ -1722,7 +1723,7 @@ def ground_track_precise(lat, lon, speed, hdg, frequency, mode):
     lat_est, lon_est, wt = gtp_compute_error(weights_opt[0], *args)
     
     
-    '''
+    """
     # Outputs for debugging and inspecting operation of the optimization algorithm.
     print weights_opt[0]
 
@@ -1737,7 +1738,7 @@ def ground_track_precise(lat, lon, speed, hdg, frequency, mode):
         plt.plot(lon_est[straight], lat_est[straight])
     plt.plot(lon[track_slice], lat[track_slice])
     plt.show()
-    '''
+    """
     
     # Build arrays to return the computed track.
     lat_return = np_ma_masked_zeros_like(lat)
@@ -1749,6 +1750,7 @@ def ground_track_precise(lat, lon, speed, hdg, frequency, mode):
         lat_return[:track_edges[1]] = lat_est
         lon_return[:track_edges[1]] = lon_est
     return lat_return, lon_return, wt
+
 
 def hash_array(array):
     '''
@@ -2384,10 +2386,12 @@ def section_contains_kti(section, kti):
 
 def latitudes_and_longitudes(bearings, distances, reference):
     """
-    Returns the bearings and distances of a track with respect to a fixed point.
+    Returns the latitudes and longitudes of a track given true bearing and
+    distances with respect to a fixed point.
     
     Usage: 
-    lat[], lon[] = latitudes_and_longitudes(brg[], dist[], {'latitude':lat_ref, 'longitude', lon_ref})
+    lat[], lon[] = latitudes_and_longitudes(brg[], dist[], 
+                   {'latitude':lat_ref, 'longitude', lon_ref})
     
     :param bearings: The bearings of the track in degrees.
     :type bearings: Numpy masked array.
@@ -2401,7 +2405,7 @@ def latitudes_and_longitudes(bearings, distances, reference):
 
     Navigation formulae have been derived from the scripts at 
     http://www.movable-type.co.uk/scripts/latlong.html
-    Copyright 2002-2011 Chris Veness, and altered by Flight dAta Services to 
+    Copyright 2002-2011 Chris Veness, and altered by Flight Data Services to 
     suit the POLARIS project.
     """
     lat_ref = radians(reference['latitude'])
@@ -3310,13 +3314,15 @@ def rate_of_change(diff_param, width):
 
 
 def repair_mask(array, frequency=1, repair_duration=REPAIR_DURATION,
-                raise_duration_exceedance=False, copy=False, extrapolate=False):
+                raise_duration_exceedance=False, copy=False, extrapolate=False, 
+                zero_if_masked=False):
     '''
     This repairs short sections of data ready for use by flight phase algorithms
     It is not intended to be used for key point computations, where invalid data
     should remain masked. 
     
     if copy=True, returns modified copy of array, otherwise modifies the array in-place.
+    if zero_if_masked=True, returns an unmasked zero-filled array if all incoming data is masked.
     
     :param repair_duration: If None, any length of masked data will be repaired.
     :param raise_duration_exceedance: If False, no warning is raised if there are masked sections longer than repair_duration. They will remain unrepaired.
@@ -3324,7 +3330,10 @@ def repair_mask(array, frequency=1, repair_duration=REPAIR_DURATION,
     :raises ValueError: If the entire array is masked.
     '''
     if not np.ma.count(array):
-        raise ValueError("Array cannot be repaired as it is entirely masked")
+        if zero_if_masked:
+            return np_ma_zeros_like(array)
+        else:
+            raise ValueError("Array cannot be repaired as it is entirely masked")
     if copy:
         array = array.copy()
     if repair_duration:
@@ -3640,9 +3649,9 @@ def slices_from_to(array, from_, to):
     # Midpoint conditions added to lambda to prevent data that just dips into
     # a band triggering.
     if from_ > to:
-        condition = lambda s: rep_array[s.start] > rep_array[(s.start+s.stop)/2] > rep_array[s.stop-1]
+        condition = lambda s: rep_array[s.start] >= rep_array[(s.start+s.stop)/2] >= rep_array[s.stop-1]
     elif from_ < to:
-        condition = lambda s: rep_array[s.start] < rep_array[(s.start+s.stop)/2] < rep_array[s.stop-1]
+        condition = lambda s: rep_array[s.start] <= rep_array[(s.start+s.stop)/2] <= rep_array[s.stop-1]
     else:
         raise ValueError('From and to values should not be equal.')
     filtered_slices = filter(condition, slices)

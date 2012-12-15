@@ -3029,6 +3029,26 @@ class TestSlicesFromTo(unittest.TestCase):
         array = np.ma.array([25, 20, 15, 10, 5, 0, 0, 0, 0])
         _, slices = slices_from_to(array, 17, 0)
         self.assertEqual(slices, [slice(2, 5, None)])
+        
+    def test_slices_from_to_short_up(self):
+        '''
+        A problem was found with very short resulting arrays, which this test covers.
+        '''
+        array = np.ma.array([1,3,5,7])
+        _, slices = slices_from_to(array, 2, 6)
+        self.assertEqual(slices[0], slice(1,3,None))
+        _, slices = slices_from_to(array, 2, 4)
+        self.assertEqual(slices[0], slice(1,2,None))
+
+    def test_slices_from_to_short_down(self):
+        '''
+        A problem was found with very short resulting arrays, which this test covers.
+        '''
+        array = np.ma.array([7,5,3,1])
+        _, slices = slices_from_to(array, 6, 2)
+        self.assertEqual(slices[0], slice(1,3,None))
+        _, slices = slices_from_to(array, 6, 4)
+        self.assertEqual(slices[0], slice(1,2,None))
 
 class TestSliceMultiply(unittest.TestCase):
     def test_slice_multiply(self):

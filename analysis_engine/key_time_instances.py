@@ -377,9 +377,9 @@ class TakeoffAccelerationStart(KeyTimeInstanceNode):
     '''
     The start of the takeoff roll is ideally computed from the forwards
     acceleration down the runway, but a quite respectable "backstop" is
-    available from the point where the airspeed starts to increase. This
-    allows for aircraft either with a faulty sensor, or no longitudinal
-    accelerometer.
+    available from the point where the airspeed starts to increase (providing
+    this is from an analogue source). This allows for aircraft either with a
+    faulty sensor, or no longitudinal accelerometer.
     '''
     # List the minimum acceptable parameters here
     @classmethod

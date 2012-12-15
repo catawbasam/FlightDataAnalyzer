@@ -2804,10 +2804,10 @@ class TestCoordinatesSmoothed(unittest.TestCase):
                                     'slice_stop': 13440.0,
                                     'type': 'LANDING'}])
                               
-        self.toff = Section(name='Takeoff', 
-                       slice=slice(372, 414, None), 
-                       start_edge=371.32242063492066, 
-                       stop_edge=413.12204760355382)
+        self.toff = [Section(name='Takeoff', 
+                             slice=slice(372, 414, None), 
+                             start_edge=371.32242063492066, 
+                             stop_edge=413.12204760355382)]
         
         self.toff_rwy = A(name = 'FDR Takeoff Runway',
                           value = {'end': {'elevation': 4843, 
