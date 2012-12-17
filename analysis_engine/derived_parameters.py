@@ -332,15 +332,16 @@ class AirspeedReference(DerivedParameterNode):
                apps=S('Approach'),
                series=A('Series'),
                family=A('Family')):
-        '''
-        Currently a work in progress. We should use a recorded parameter if
-        it's available, failing that a computed forumla reflecting the
-        aircraft condition and failing that a single value from the achieved
-        flight file. Achieved flight records without a recorded value will be
-        repeated thoughout the flight, calculated values will be calculated
-        for each approach.
-        Rises KeyError if no entires for Family/Series in vspeed lookup map.
-        '''
+        # docstring no longer accurate?
+        ##'''
+        ##Currently a work in progress. We should use a recorded parameter if
+        ##it's available, failing that a computed forumla reflecting the
+        ##aircraft condition and failing that a single value from the achieved
+        ##flight file. Achieved flight records without a recorded value will be
+        ##repeated thoughout the flight, calculated values will be calculated
+        ##for each approach.
+        ##Rises KeyError if no entires for Family/Series in vspeed lookup map.
+        ##'''
         if vapp:
             # Vapp is recorded so use this
             self.array = vapp.array
@@ -2405,20 +2406,29 @@ class FuelQty(DerivedParameterNode):
                fuel_qty2=P('Fuel Qty (2)'),
                fuel_qty3=P('Fuel Qty (3)'),
                fuel_qty_aux=P('Fuel Qty (Aux)')):
-        # Repair array masks to ensure that the summed values are not too
-        # small because they do not include masked values. If all the data is
-        # masked, we assume the data comes from a tank that is not installed
-        # on that aircraft, so substitute zero.
-        if fuel_qty_aux:
-            for param in filter(bool, [fuel_qty1, fuel_qty2, fuel_qty3, fuel_qty_aux]):
-                param.array = repair_mask(param.array, zero_if_masked=True)
-            stacked_params = vstack_params(fuel_qty1, fuel_qty2, fuel_qty3, fuel_qty_aux)
-        else:
-            for param in filter(bool, [fuel_qty1, fuel_qty2, fuel_qty3]):
-                param.array = repair_mask(param.array, zero_if_masked=True)
-            stacked_params = vstack_params(fuel_qty1, fuel_qty2, fuel_qty3)
+        params = []
+        for param in (fuel_qty1, fuel_qty2, fuel_qty3, fuel_qty_aux):
+            if not param:
+                continue
+            # Repair array masks to ensure that the summed values are not too small
+            # because they do not include masked values.
+            try:
+                param.array = repair_mask(param.array)
+            except ValueError as err:
+                # Q: Should we be creating a summed Fuel Qty parameter when
+                # omitting a masked parameter? The resulting array will contain
+                # values lower than expected. The same problem will occur if
+                # a parameter has been marked invalid, though we will not
+                # be aware of the problem within a derive method.
+                self.warning('Skipping %s while calculating %s: %s. Summed '
+                             'fuel quantity will be lower than expected.',
+                             param, self, err)
+            else:
+                params.append(param)
+        
+        stacked_params = vstack_params(*params)
         self.array = np.ma.sum(stacked_params, axis=0)
-        self.offset = offset_select('mean', [fuel_qty1, fuel_qty2, fuel_qty3, fuel_qty_aux])
+        self.offset = offset_select('mean', params)
 
 
 ################################################################################
@@ -2632,10 +2642,6 @@ class Groundspeed(DerivedParameterNode):
             source_B.array += adjust_B
             self.array, self.frequency, self.offset = \
                 blend_two_parameters(source_A, source_B)
-
-        # Superfluous as the dependency tree will skip this.
-        ##elif frame_name in ['737-5']:
-            ##self.array = self.array
             
         else:
             raise DataFrameError(self.name, frame_name)
@@ -2658,11 +2664,7 @@ class FlapLever(DerivedParameterNode):
             self.array = round_to_nearest(flap.array, 5.0)
         else:
             self.array = step_values(flap.array, flap_steps)
-        
-            
-'''
-:TODO: Resolve the processing of different base sets of data
-'''
+
 
 class FlapSurface(DerivedParameterNode):
     """
@@ -4284,7 +4286,8 @@ class StickShaker(MultistateDerivedParameterNode):
             self.array, self.frequency, self.offset = \
                 shake_act.array, shake_act.frequency, shake_act.offset
 
-        elif frame_name in ['737-1', '737-3A', '737-3B', '737-3C', '737-4', '737-i', '757-DHL']:
+        elif frame_name in ['737-1', '737-3A', '737-3B', '737-3C', '737-4',
+                            '737-i', '757-DHL']:
             self.array = np.ma.logical_or(shake_l.array, shake_r.array)
             self.frequency , self.offset = shake_l.frequency, shake_l.offset
 
@@ -4311,7 +4314,8 @@ class ApproachRange(DerivedParameterNode):
     """
     @classmethod
     def can_operate(cls, available):
-        a = set(['Heading True Continuous','Airspeed True','Altitude AAL','FDR Approaches'])
+        a = set(['Heading True Continuous','Airspeed True','Altitude AAL',
+                 'FDR Approaches'])
         x = set(available)
         return not (a - x)
      
@@ -4344,20 +4348,6 @@ class ApproachRange(DerivedParameterNode):
             # What is the heading with respect to the runway centreline for this approach?
             off_cl = (head.array[this_app_slice] - \
                       runway_heading(approach['runway'])) % 360.0
-  
-            # reg_slice is the slice of data over which we will apply a
-            # regression process to identify the touchdown point from the
-            # height and distance arrays.
-            if 'ILS glideslope established' in approach:
-                reg_slice = slice_multiply(approach['ILS glideslope established'],freq)
-
-            else:
-                _,app_slices = slices_between(alt_aal.array[this_app_slice], 100, 500)
-                # Computed locally, so app_slices do not need rescaling.
-                if len(app_slices) == 1:
-                    reg_slice = shift_slice(app_slices[0], this_app_slice.start)
-                else:
-                    pass #  TODO: Need to think how to handle this error.
                 
             # Use recorded groundspeed where available, otherwise
             # estimate range using true airspeed. This is because there
@@ -4381,10 +4371,15 @@ class ApproachRange(DerivedParameterNode):
             # phase to high range values at the start of the phase.
             spd_repaired = repair_mask(speed, extrapolate=True)
             app_range[this_app_slice] = integrate(spd_repaired, freq, 
-                                                     scale=KTS_TO_MPS, 
-                                                     direction='reverse')
+                                                  scale=KTS_TO_MPS, 
+                                                  direction='reverse')
 
             if 'ILS glideslope established' in approach:
+                # reg_slice is the slice of data over which we will apply a
+                # regression process to identify the touchdown point from the
+                # height and distance arrays.
+                reg_slice = slice_multiply(
+                    approach['ILS glideslope established'], freq)
                 # Compute best fit glidepath. The term (1-0.13 x glideslope
                 # deviation) caters for the aircraft deviating from the
                 # planned flightpath. 1 dot low is about 7% of a 3 degree
@@ -4398,6 +4393,17 @@ class ApproachRange(DerivedParameterNode):
                     self.warning('Low convergence in computing ILS '
                                  'glideslope offset.')
             else:
+                _,app_slices = slices_between(alt_aal.array[this_app_slice],
+                                              100, 500)
+                # Computed locally, so app_slices do not need rescaling.
+                if len(app_slices) != 1:
+                    self.info(
+                        'Altitude AAL is not between 100-500 ft during an '
+                        'approach slice. %s will not be calculated for this '
+                        'section.', self.name)
+                    continue
+                reg_slice = shift_slice(app_slices[0], this_app_slice.start)         
+                
                 corr, slope, offset = coreg(app_range[reg_slice],
                                             alt_aal.array[reg_slice])
                 # This should still correlate pretty well.
