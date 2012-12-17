@@ -1617,7 +1617,11 @@ def ground_track_precise(lat, lon, speed, hdg, frequency, mode):
     # We aren't interested in the first and last
     _=straight_ends.pop(0)
     _=straight_ends.pop()
-    
+
+    # unable to proceed if we have no straight ends
+    if not len(straight_ends):
+        raise ValueError('Ground_track_precise requires 3 or more straights')
+
     # Initialize the weights for no change.
     weight_length = len(straight_ends)
     weights = np.ma.ones(weight_length)
