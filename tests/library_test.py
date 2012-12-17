@@ -3032,24 +3032,38 @@ class TestSlicesFromTo(unittest.TestCase):
         
     def test_slices_from_to_short_up(self):
         '''
-        A problem was found with very short resulting arrays, which this test covers.
+        A problem was found with very short resulting arrays, which this test
+        covers. In fact, very short cases (one or two valid samples) still
+        cause a problem as the from_to process calls a lower routine which
+        masks data outside the range leaving you uncertain which direction
+        the band was passing through.
         '''
         array = np.ma.array([1,3,5,7])
         _, slices = slices_from_to(array, 2, 6)
         self.assertEqual(slices[0], slice(1,3,None))
         _, slices = slices_from_to(array, 2, 4)
         self.assertEqual(slices[0], slice(1,2,None))
+        array = np.ma.array([7,5,3,1])
+        _, slices = slices_from_to(array, 2, 6)
+        self.assertEqual(slices, [])
+        _, slices = slices_from_to(array, 2, 4)
+        self.assertEqual(slices, [])
 
     def test_slices_from_to_short_down(self):
         '''
-        A problem was found with very short resulting arrays, which this test covers.
+        See above.
         '''
         array = np.ma.array([7,5,3,1])
         _, slices = slices_from_to(array, 6, 2)
         self.assertEqual(slices[0], slice(1,3,None))
         _, slices = slices_from_to(array, 6, 4)
         self.assertEqual(slices[0], slice(1,2,None))
-
+        array = np.ma.array([1,3,5,7])
+        _, slices = slices_from_to(array, 6, 2)
+        self.assertEqual(slices, [])
+        _, slices = slices_from_to(array, 6, 4)
+        self.assertEqual(slices, [])
+        
 class TestSliceMultiply(unittest.TestCase):
     def test_slice_multiply(self):
         self.assertEqual(slice_multiply(slice(1,2,3),2),

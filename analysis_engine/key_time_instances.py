@@ -246,9 +246,13 @@ class GoAround(KeyTimeInstanceNode):
                alt_aal=P('Altitude AAL For Flight Phases'),
                alt_rad=P('Altitude Radio')):
         for dlc in dlcs:
-            if alt_rad:
+            # The try:except structure is used to cater for both cases where
+            # a radio altimeter is not fitted, and where the altimeter data
+            # is out of range, hence masked, at the lowest point of the
+            # go-around.
+            try:
                 pit = np.ma.argmin(alt_rad.array[dlc.slice])
-            else:
+            except:
                 pit = np.ma.argmin(alt_aal.array[dlc.slice])
             self.create_kti(pit+dlc.start_edge)
 

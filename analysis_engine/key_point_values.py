@@ -3101,13 +3101,19 @@ class EngOilTempMax(KeyPointValueNode):
 
 class EngOilTemp15MinuteMax(KeyPointValueNode):
     '''
+    Maximum oil temperature sustained for 15 minutes.
     '''
 
     name = 'Eng Oil Temp 15 Minutes Max'
 
     def derive(self, oil_temp=P('Eng (*) Oil Temp Max')):
         '''
+        Some aircraft don't have oil temp sensors fitted. This trap may be
+        superceded by masking the Eng (*) Oil Temp Max parameter in future.
         '''
+        if np.ma.count(oil_temp.array) == 0:
+            return
+        
         oil_15 = clip(oil_temp.array, 15 * 60, oil_temp.hz)
         # There have been cases where there were no valid oil temperature
         # measurements throughout the flight, in which case there's no point

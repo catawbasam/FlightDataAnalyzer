@@ -849,7 +849,6 @@ class AltitudeRadio(DerivedParameterNode):
                source_A = P('Altitude Radio (A)'),
                source_B = P('Altitude Radio (B)'),
                source_C = P('Altitude Radio (C)'),
-               source_D = P('Altitude Radio (D)'),
                source_L = P('Altitude Radio EFIS (L)'),
                source_R = P('Altitude Radio EFIS (R)')):
         
@@ -883,14 +882,14 @@ class AltitudeRadio(DerivedParameterNode):
                     blend_two_parameters(source_A, source_B)
         
         elif frame_name in ('737-5', '737-5_NON-EIS'):
-            if frame_qualifier and 'Altitude_Radio_EFIS' in frame_qualifier or\
-               frame_qualifier and 'Altitude_Radio_ARINC_552' in frame_qualifier:
-                self.array, self.frequency, self.offset = \
-                    blend_two_parameters(source_A, source_B)
-            elif frame_qualifier and 'Altitude_Radio_None' in frame_qualifier:
-                pass # Some old 737 aircraft have no rad alt recorded.
-            else:
-                raise ValueError,'737-5 frame Altitude Radio qualifier not recognised.'
+            ##if frame_qualifier and 'Altitude_Radio_EFIS' in frame_qualifier or\
+               ##frame_qualifier and 'Altitude_Radio_ARINC_552' in frame_qualifier:
+            self.array, self.frequency, self.offset = \
+                blend_two_parameters(source_A, source_B)
+            ##elif frame_qualifier and 'Altitude_Radio_None' in frame_qualifier:
+                ##pass # Some old 737 aircraft have no rad alt recorded.
+            ##else:
+                ##raise ValueError,'737-5 frame Altitude Radio qualifier not recognised.'
 
         elif frame_name in ['CRJ-700-900', 'E135-145']:
             self.array, self.frequency, self.offset = \
@@ -2103,11 +2102,16 @@ class Eng_OilTempAvg(DerivedParameterNode):
                eng2=P('Eng (2) Oil Temp'),
                eng3=P('Eng (3) Oil Temp'),
                eng4=P('Eng (4) Oil Temp')):
-        '''
-        '''
         engines = vstack_params(eng1, eng2, eng3, eng4)
-        self.array = np.ma.average(engines, axis=0)
-        self.offset = offset_select('mean', [eng1, eng2, eng3, eng4])
+        avg_array = np.ma.average(engines, axis=0)
+
+        if np.ma.count(avg_array) != 0:
+            self.array = avg_array
+            self.offset = offset_select('mean', [eng1, eng2, eng3, eng4])
+        else:
+            # Some aircraft have no oil temperature sensors installed, so
+            # quit now if there is no valid result.
+            self.array = np_ma_masked_zeros_like(avg_array)
 
 
 # TODO: Write some unit tests!
@@ -2131,11 +2135,16 @@ class Eng_OilTempMax(DerivedParameterNode):
                eng2=P('Eng (2) Oil Temp'),
                eng3=P('Eng (3) Oil Temp'),
                eng4=P('Eng (4) Oil Temp')):
-        '''
-        '''
         engines = vstack_params(eng1, eng2, eng3, eng4)
-        self.array = np.ma.max(engines, axis=0)
-        self.offset = offset_select('mean', [eng1, eng2, eng3, eng4])
+        max_array = np.ma.max(engines, axis=0)
+        
+        if np.ma.count(avg_array) != 0:
+            self.array = max_array
+            self.offset = offset_select('mean', [eng1, eng2, eng3, eng4])
+        else:
+            # Some aircraft have no oil temperature sensors installed, so
+            # quit now if there is no valid result.
+            self.array = np_ma_masked_zeros_like(max_array)
 
 
 # TODO: Write some unit tests!
@@ -2163,8 +2172,16 @@ class Eng_OilTempMin(DerivedParameterNode):
         '''
         '''
         engines = vstack_params(eng1, eng2, eng3, eng4)
-        self.array = np.ma.min(engines, axis=0)
-        self.offset = offset_select('mean', [eng1, eng2, eng3, eng4])
+        min_array = np.ma.min(engines, axis=0)
+        
+        if np.ma.count(avg_array) != 0:
+            self.array = min_array
+            self.offset = offset_select('mean', [eng1, eng2, eng3, eng4])
+        else:
+            # Some aircraft have no oil temperature sensors installed, so
+            # quit now if there is no valid result.
+            self.array = np_ma_masked_zeros_like(min_array)
+
 
 
 ################################################################################
@@ -3114,7 +3131,7 @@ class CoordinatesSmoothed(object):
             freq = tas.frequency
 
         try:
-            toff_slice = slice_multiply(toff.slice, freq)
+            toff_slice = slice_multiply(toff[0].slice, freq)
         except:
             toff_slice = None
 
@@ -3238,7 +3255,10 @@ class CoordinatesSmoothed(object):
                 
                 # Remember where the ILS took us, in preparation for joining the taxi in.
                 ils_join, _ = last_valid_sample(lat_adj[this_loc_slice])
-                ils_join_offset = this_loc_slice.start + ils_join
+                if ils_join:
+                    ils_join_offset = this_loc_slice.start + ils_join
+                else:
+                    ils_join_offset = None
               
             else:
                 # No localizer in this approach
@@ -3344,7 +3364,7 @@ class LatitudeSmoothed(DerivedParameterNode, CoordinatesSmoothed):
 
         cs = CoordinatesSmoothed()
         lat_adj, lon_adj = cs._adjust_track(lon, lat, ils_loc, app_range, hdg,
-                                            gspd, tas, toff[0], toff_rwy, 
+                                            gspd, tas, toff, toff_rwy, 
                                             approaches, precision)
         self.array = track_linking(lat.array, lat_adj)
         
@@ -3384,7 +3404,7 @@ class LongitudeSmoothed(DerivedParameterNode, CoordinatesSmoothed):
             hdg = head_mag
         cs = CoordinatesSmoothed()
         lat_adj, lon_adj = cs._adjust_track(lon, lat, ils_loc, app_range, hdg,
-                                            gspd, tas, toff[0], toff_rwy, 
+                                            gspd, tas, toff, toff_rwy, 
                                             approaches, precision)
         self.array = track_linking(lon.array, lon_adj)        
 
