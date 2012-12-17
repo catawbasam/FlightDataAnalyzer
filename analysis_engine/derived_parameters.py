@@ -2139,7 +2139,7 @@ class Eng_OilTempMax(DerivedParameterNode):
         engines = vstack_params(eng1, eng2, eng3, eng4)
         max_array = np.ma.max(engines, axis=0)
         
-        if np.ma.count(avg_array) != 0:
+        if np.ma.count(max_array) != 0:
             self.array = max_array
             self.offset = offset_select('mean', [eng1, eng2, eng3, eng4])
         else:
@@ -2175,7 +2175,7 @@ class Eng_OilTempMin(DerivedParameterNode):
         engines = vstack_params(eng1, eng2, eng3, eng4)
         min_array = np.ma.min(engines, axis=0)
         
-        if np.ma.count(avg_array) != 0:
+        if np.ma.count(min_array) != 0:
             self.array = min_array
             self.offset = offset_select('mean', [eng1, eng2, eng3, eng4])
         else:
