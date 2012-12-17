@@ -1,6 +1,7 @@
 import numpy as np
 
-from analysis_engine.library import (hysteresis, 
+from analysis_engine.library import (find_edges_on_state_change,
+                                     hysteresis, 
                                      index_at_value,
                                      is_index_within_slice,
                                      minimum_unmasked,
@@ -245,9 +246,13 @@ class GoAround(KeyTimeInstanceNode):
                alt_aal=P('Altitude AAL For Flight Phases'),
                alt_rad=P('Altitude Radio')):
         for dlc in dlcs:
-            if alt_rad:
+            # The try:except structure is used to cater for both cases where
+            # a radio altimeter is not fitted, and where the altimeter data
+            # is out of range, hence masked, at the lowest point of the
+            # go-around.
+            try:
                 pit = np.ma.argmin(alt_rad.array[dlc.slice])
-            else:
+            except:
                 pit = np.ma.argmin(alt_aal.array[dlc.slice])
             self.create_kti(pit+dlc.start_edge)
 
@@ -376,9 +381,9 @@ class TakeoffAccelerationStart(KeyTimeInstanceNode):
     '''
     The start of the takeoff roll is ideally computed from the forwards
     acceleration down the runway, but a quite respectable "backstop" is
-    available from the point where the airspeed starts to increase. This
-    allows for aircraft either with a faulty sensor, or no longitudinal
-    accelerometer.
+    available from the point where the airspeed starts to increase (providing
+    this is from an analogue source). This allows for aircraft either with a
+    faulty sensor, or no longitudinal accelerometer.
     '''
     # List the minimum acceptable parameters here
     @classmethod
@@ -502,38 +507,6 @@ class TouchAndGo(KeyTimeInstanceNode):
             if alt_AAL.array[ga.index] == 0.0:
                 # wheels on ground
                 self.create_kti(ga.index)
-
-
-def find_edges_on_state_change(state, array, change='entering', 
-                                phase=None):
-    '''
-    Derived from original create_ktis for cases where we don't want to create a KTI directly.
-    '''
-    def state_changes(state, array, edge_list, change, _slice=slice(0, -1)):
-        state_periods = np.ma.clump_unmasked(
-            np.ma.masked_not_equal(array[_slice], array.state[state]))
-        for period in state_periods:
-            if change == 'entering':
-                edge_list.append(period.start - 0.5
-                                 if period.start > 0 else 0.)
-            elif change == 'leaving':
-                edge_list.append(period.stop - 0.5)
-            elif change == 'entering_and_leaving':
-                edge_list.append(period.start - 0.5
-                                 if period.start > 0 else 0.)
-                edge_list.append(period.stop - 0.5)
-        return edge_list
-
-    # High level function scans phase blocks or complete array and
-    # presents appropriate arguments for analysis. We test for phase.name
-    # as phase returns False.
-    edge_list = []
-    if phase is None:
-        state_changes(state, array, edge_list, change)
-    else:
-        for each_period in phase:
-            state_changes(state, array, edge_list, change, each_period.slice)
-    return edge_list
 
 
 class Touchdown(KeyTimeInstanceNode):

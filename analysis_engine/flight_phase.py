@@ -32,6 +32,7 @@ from analysis_engine.settings import (
     AIRBORNE_THRESHOLD_TIME,
     AIRSPEED_THRESHOLD,
     BOUNCED_LANDING_THRESHOLD,
+    DESCENT_LOW_CLIMB_THRESHOLD,
     GROUNDSPEED_FOR_MOBILE,
     HEADING_RATE_FOR_MOBILE,
     HEADING_TURN_OFF_RUNWAY,
@@ -360,29 +361,21 @@ class DescentToFlare(FlightPhaseNode):
 
 class DescentLowClimb(FlightPhaseNode):
     def derive(self, alt_aal=P('Altitude AAL For Flight Phases'),
-               descend=P('Descend For Flight Phases'),
-               climb=P('Climb For Flight Phases'),
-               fast=S('Fast')):
+               airs=S('Airborne')):
         my_list=[]
-
-        # Select periods below the initial approach threshold, restricted to
-        # periods fast enough to be airborne.
-        for speedy in fast:
-            dlc = np.ma.masked_greater(alt_aal.array[speedy.slice],
+        for air in airs:
+            dlc = np.ma.masked_greater(alt_aal.array[air.slice], 
                                        INITIAL_APPROACH_THRESHOLD)
-            dlc_list = shift_slices(np.ma.clump_unmasked(dlc),
-                                    speedy.slice.start)
-
-            for this_dlc in dlc_list:
-                down_idx = np.ma.argmin(descend.array[this_dlc])
-                down = descend.array[this_dlc][down_idx]
-                up_idx = np.ma.argmax(climb.array[this_dlc])
-                up = climb.array[this_dlc][up_idx]
-                # OK, we want a descent of more than 500ft followed by a climb
-                # of more than 500ft.
-                if down < -500 and up > 500 and up_idx > down_idx:
-                    my_list.append(this_dlc)
-            self.create_phases(my_list)
+            for this_dlc in np.ma.clump_unmasked(dlc):
+                pk_idxs, pk_vals = cycle_finder(dlc[this_dlc],
+                                                min_step=DESCENT_LOW_CLIMB_THRESHOLD)
+                if pk_vals==None or len(pk_vals)<3:
+                    continue
+                for n in range(1,len(pk_vals)-1):
+                    if (pk_vals[n-1]-pk_vals[n]) >  DESCENT_LOW_CLIMB_THRESHOLD and \
+                       (pk_vals[n+1]-pk_vals[n]) >  DESCENT_LOW_CLIMB_THRESHOLD :
+                        self.create_phase(shift_slice(slice(pk_idxs[n-1], pk_idxs[n+1]), 
+                                                      air.slice.start+this_dlc.start))
 
 
 class Fast(FlightPhaseNode):
@@ -413,6 +406,7 @@ class Fast(FlightPhaseNode):
         """
         fast_samples = np.ma.clump_unmasked(
             np.ma.masked_less(airspeed.array, AIRSPEED_THRESHOLD))
+        
         for fast_sample in fast_samples:
             start = fast_sample.start
             stop = fast_sample.stop

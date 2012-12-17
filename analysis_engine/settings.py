@@ -21,7 +21,7 @@ logger = logging.getLogger(name=__name__)
 
 
 # Modules to import all derived Nodes from. Additional modules can be
-# appended to this list in custom_settings.py by creating a similar list of
+# appended to this list in analyzer_custom_settings.py by creating a similar list of
 # modules with the variable name ending with "_MODULES"
 # e.g. MY_EXTRA_MODULES = ['my_package.extra_attributes', 'my_package.extra_params']
 NODE_MODULES = ['analysis_engine.derived_parameters',
@@ -137,6 +137,10 @@ CLIMB_OR_DESCENT_MIN_DURATION = 10  # sec
 # Tolerance of controls (Pitch/Roll (Captain/FO)) when in use in degrees.
 # Used when trying determine which pilot is actively using the controls.
 CONTROLS_IN_USE_TOLERANCE = 1
+
+# Change in altitude to create a descent low climb phase, from which
+# approaches, go-around and touch-and-go phases and instances derive.
+DESCENT_LOW_CLIMB_THRESHOLD = 500 #ft
 
 # This strange conversion is for the tail clearance calculation
 FEET_PER_NM = 6076

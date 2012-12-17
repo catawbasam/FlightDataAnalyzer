@@ -13,7 +13,6 @@ from utilities import masked_array_testutils as ma_test
 from utilities.filesystem_tools import copy_file
 
 from analysis_engine.flight_phase import Fast
-from analysis_engine.library import repair_mask
 from analysis_engine.node import Attribute, A, KPV, KeyTimeInstance, KTI, Parameter, P, Section, S
 from analysis_engine.process_flight import process_flight
 from analysis_engine.settings import METRES_TO_FEET
@@ -39,6 +38,7 @@ from analysis_engine.derived_parameters import (
     #AltitudeRadioForFlightPhases,
     #AltitudeSTD,
     AltitudeTail,
+    AimingPointRange,
     ApproachRange,
     ClimbForFlightPhases,
     Configuration,
@@ -342,8 +342,8 @@ class TestAirspeedReference(unittest.TestCase):
     def test_can_operate(self):
         expected = [('Vapp',),
                     ('Vref',),
-                    ('FDR Vapp',),
-                    ('FDR Vref',),
+                    ('AFR Vapp',),
+                    ('AFR Vref',),
                     ('Airspeed', 'Gross Weight Smoothed', 'Series',
                      'Family', 'Approach', 'Flap',),
                     ('Airspeed', 'Gross Weight Smoothed', 'Series',
@@ -354,7 +354,7 @@ class TestAirspeedReference(unittest.TestCase):
     def test_airspeed_reference__fdr_vapp(self):
         kwargs = self.default_kwargs.copy()
         kwargs['spd'] = P('Airspeed', np.ma.array([200]*128), frequency=1)
-        kwargs['fdr_vapp'] = A('FDR Vapp', value=120)
+        kwargs['afr_vapp'] = A('AFR Vapp', value=120)
 
         param = AirspeedReference()
         param.derive(**kwargs)
@@ -366,7 +366,7 @@ class TestAirspeedReference(unittest.TestCase):
     def test_airspeed_reference__fdr_vref(self):
         kwargs = self.default_kwargs.copy()
         kwargs['spd'] = P('Airspeed', np.ma.array([200]*128), frequency=1)
-        kwargs['fdr_vref'] = A('FDR Vref', value=120)
+        kwargs['afr_vref'] = A('AFR Vref', value=120)
 
         param = AirspeedReference()
         param.derive(**kwargs)
@@ -642,7 +642,25 @@ class TestAltitudeAAL(unittest.TestCase):
             alt_aal = hdf['Altitude AAL']
             self.assertTrue(False, msg='Test not implemented.')
         
-    
+class TestAimingPointRange(unittest.TestCase):
+    def test_basic_scaling(self):
+        approaches = A(name = 'FDR Approaches',
+                       value=[{'runway': {'end': {'elevation': 3294,
+                                                  'latitude': 31.497511,
+                                                  'longitude': 65.833933},
+                                          'start': {'elevation': 3320,
+                                                    'latitude': 31.513997,
+                                                    'longitude': 65.861714}},
+                               'slice_start': 3.0,
+                               'slice_stop': 8.0}])
+        app_rng=P('Approach Range',array=np.ma.arange(10000.0,-2000.0,-1000.0))
+        apr = AimingPointRange()
+        apr.derive(app_rng, approaches)
+        # convoluted way to check masked outside slice !
+        self.assertEqual(apr.array[0].mask,np.ma.masked.mask)
+        self.assertAlmostEqual(apr.array[4],1.67,places=2)
+        
+        
 class TestAltitudeAALForFlightPhases(unittest.TestCase):
     def test_can_operate(self):
         expected = [('Altitude AAL',)]
@@ -694,10 +712,17 @@ class TestAltitudeQNH(unittest.TestCase, NodeTest):
     def setUp(self):
         self.node_class = AltitudeQNH
         self.operational_combinations = [
+            ('Altitude AAL', 'Altitude Peak'),
+            ('Altitude AAL', 'Altitude Peak', 'FDR Landing Airport'),
+            ('Altitude AAL', 'Altitude Peak', 'FDR Landing Runway'),
+            ('Altitude AAL', 'Altitude Peak', 'FDR Takeoff Airport'),
+            ('Altitude AAL', 'Altitude Peak', 'FDR Takeoff Runway'),
+            ('Altitude AAL', 'Altitude Peak', 'FDR Landing Airport', 'FDR Landing Runway'),
             ('Altitude AAL', 'Altitude Peak', 'FDR Landing Airport', 'FDR Takeoff Airport'),
             ('Altitude AAL', 'Altitude Peak', 'FDR Landing Airport', 'FDR Takeoff Runway'),
             ('Altitude AAL', 'Altitude Peak', 'FDR Landing Runway', 'FDR Takeoff Airport'),
             ('Altitude AAL', 'Altitude Peak', 'FDR Landing Runway', 'FDR Takeoff Runway'),
+            ('Altitude AAL', 'Altitude Peak', 'FDR Takeoff Airport', 'FDR Takeoff Runway'),
             ('Altitude AAL', 'Altitude Peak', 'FDR Landing Airport', 'FDR Landing Runway', 'FDR Takeoff Airport'),
             ('Altitude AAL', 'Altitude Peak', 'FDR Landing Airport', 'FDR Landing Runway', 'FDR Takeoff Runway'),
             ('Altitude AAL', 'Altitude Peak', 'FDR Landing Airport', 'FDR Takeoff Airport', 'FDR Takeoff Runway'),
@@ -720,9 +745,8 @@ class TestAltitudeQNH(unittest.TestCase, NodeTest):
         self.alt_aal.array[peak + 1] += 30
         self.alt_aal.array[peak] -= 30
 
-        # 1. All masked, data same as Altitude AAL:
+        # 1. Data same as Altitude AAL, no mask applied:
         data = np.ma.copy(self.alt_aal.array)
-        data.mask = True
         self.expected.append(data)
         # 2. None masked, data Altitude AAL, +50 ft t/o, +100 ft ldg:
         data = np.ma.array([50, 80, 110, 140, 170, 200, 230, 260, 290, 320,
@@ -733,30 +757,28 @@ class TestAltitudeQNH(unittest.TestCase, NodeTest):
             300, 270, 240, 210, 180, 150])
         data.mask = False
         self.expected.append(data)
-        # 3. Data Altitude AAL, +50 ft t/o; ldg masked:
+        # 3. Data Altitude AAL, +50 ft t/o; ldg assumes t/o elevation:
         data = np.ma.copy(self.alt_aal.array)
-        data[:peak] += 50
-        data[peak:] = np.ma.masked
+        data += 50
         self.expected.append(data)
-        # 4. Data Altitude AAL, +100 ft ldg; t/o masked:
+        # 4. Data Altitude AAL, +100 ft ldg; t/o assumes ldg elevation:
         data = np.ma.copy(self.alt_aal.array)
-        data[:peak] = np.ma.masked
-        data[peak:] += 100
+        data += 100
         self.expected.append(data)
 
     def test_derive__function_calls(self):
         alt_qnh = self.node_class()
-        alt_qnh._calc_apt_elev = Mock()
-        alt_qnh._calc_rwy_elev = Mock()
+        alt_qnh._calc_apt_elev = Mock(return_value=0)
+        alt_qnh._calc_rwy_elev = Mock(return_value=0)
         # Check no airport/runway information results in a fully masked copy of Altitude AAL:
         alt_qnh.derive(self.alt_aal, self.alt_peak)
-        assert not alt_qnh._calc_apt_elev.called, 'method should not have been called'
-        assert not alt_qnh._calc_rwy_elev.called, 'method should not have been called'
+        self.assertFalse(alt_qnh._calc_apt_elev.called, 'method should not have been called')
+        self.assertFalse(alt_qnh._calc_rwy_elev.called, 'method should not have been called')
         alt_qnh._calc_apt_elev.reset_mock()
         alt_qnh._calc_rwy_elev.reset_mock()
         # Check everything works calling with runway details:
         alt_qnh.derive(self.alt_aal, self.alt_peak, None, self.land_fdr_rwy, None, self.toff_fdr_rwy)
-        assert not alt_qnh._calc_apt_elev.called, 'method should not have been called'
+        self.assertFalse(alt_qnh._calc_apt_elev.called, 'method should not have been called')
         alt_qnh._calc_rwy_elev.assert_has_calls([
             call(self.toff_fdr_rwy.value),
             call(self.land_fdr_rwy.value),
@@ -769,12 +791,12 @@ class TestAltitudeQNH(unittest.TestCase, NodeTest):
             call(self.toff_fdr_apt.value),
             call(self.land_fdr_apt.value),
         ])
-        assert not alt_qnh._calc_rwy_elev.called, 'method should not have been called'
+        self.assertFalse(alt_qnh._calc_rwy_elev.called, 'method should not have been called')
         alt_qnh._calc_apt_elev.reset_mock()
         alt_qnh._calc_rwy_elev.reset_mock()
         # Check everything works calling with runway and airport details:
         alt_qnh.derive(self.alt_aal, self.alt_peak, self.land_fdr_apt, self.land_fdr_rwy, self.toff_fdr_apt, self.toff_fdr_rwy)
-        assert not alt_qnh._calc_apt_elev.called, 'method should not have been called'
+        self.assertFalse(alt_qnh._calc_apt_elev.called, 'method should not have been called')
         alt_qnh._calc_rwy_elev.assert_has_calls([
             call(self.toff_fdr_rwy.value),
             call(self.land_fdr_rwy.value),
@@ -1512,9 +1534,15 @@ class TestFuelQty(unittest.TestCase):
     def test_can_operate(self):
         self.assertEqual(FuelQty.get_operational_combinations(),
           [('Fuel Qty (1)',), ('Fuel Qty (2)',), ('Fuel Qty (3)',),
-           ('Fuel Qty (1)', 'Fuel Qty (2)'), ('Fuel Qty (1)', 'Fuel Qty (3)'),
-           ('Fuel Qty (2)', 'Fuel Qty (3)'), ('Fuel Qty (1)', 'Fuel Qty (2)',
-                                              'Fuel Qty (3)')])
+           ('Fuel Qty (Aux)',), ('Fuel Qty (1)', 'Fuel Qty (2)'),
+           ('Fuel Qty (1)', 'Fuel Qty (3)'), ('Fuel Qty (1)', 'Fuel Qty (Aux)'),
+           ('Fuel Qty (2)', 'Fuel Qty (3)'), ('Fuel Qty (2)', 'Fuel Qty (Aux)'),
+           ('Fuel Qty (3)', 'Fuel Qty (Aux)'),
+           ('Fuel Qty (1)', 'Fuel Qty (2)', 'Fuel Qty (3)'),
+           ('Fuel Qty (1)', 'Fuel Qty (2)', 'Fuel Qty (Aux)'),
+           ('Fuel Qty (1)', 'Fuel Qty (3)', 'Fuel Qty (Aux)'),
+           ('Fuel Qty (2)', 'Fuel Qty (3)', 'Fuel Qty (Aux)'),
+           ('Fuel Qty (1)', 'Fuel Qty (2)', 'Fuel Qty (3)', 'Fuel Qty (Aux)')])
     
     def test_three_tanks(self):
         fuel_qty1 = P('Fuel Qty (1)', 
@@ -1547,6 +1575,17 @@ class TestFuelQty(unittest.TestCase):
         fuel_qty_node.derive(fuel_qty1, fuel_qty2, fuel_qty3, fuel_qty_a)
         np.testing.assert_array_equal(fuel_qty_node.array,
                                       np.ma.array([17, 24, 31]))
+    
+    def test_masked_tank(self):
+        fuel_qty1 = P('Fuel Qty (1)', 
+                      array=np.ma.array([1,2,3], mask=[False, False, False]))
+        fuel_qty2 = P('Fuel Qty (2)', 
+                      array=np.ma.array([2,4,6], mask=[True, True, True]))
+        # Mask will be interpolated by repair_mask.
+        fuel_qty_node = FuelQty()
+        fuel_qty_node.derive(fuel_qty1, fuel_qty2, None, None)
+        np.testing.assert_array_equal(fuel_qty_node.array,
+                                      np.ma.array([1, 2, 3]))    
 
 
 class TestGrossWeightSmoothed(unittest.TestCase):
@@ -1946,7 +1985,7 @@ class TestV2(unittest.TestCase):
 
     def test_can_operate(self):
         # TODO: test expected combinations are in get_operational_combinations
-        expected = [('FDR V2',),
+        expected = [('AFR V2',),
                     ('Airspeed', 'Gross Weight At Liftoff', 'Series', 'Family',
                      'Configuration',),
                     ('Airspeed', 'Gross Weight At Liftoff', 'Series', 'Family',
@@ -1958,7 +1997,7 @@ class TestV2(unittest.TestCase):
 
         kwargs = self.default_kwargs.copy()
         kwargs['spd'] = P('Airspeed', np.ma.array([200]*128), frequency=1)
-        kwargs['fdr_v2'] = A('FDR V2', value=120)
+        kwargs['afr_v2'] = A('AFR V2', value=120)
 
         param = V2()
         param.derive(**kwargs)
@@ -1968,7 +2007,8 @@ class TestV2(unittest.TestCase):
     def test_v2__boeing_lookup(self):
         gw = KPV('Gross Weight At Liftoff')
         gw.create_kpv(451, 54192.06)
-        with hdf_file('test_data/airspeed_reference.hdf5') as hdf:
+        test_hdf = copy_file('test_data/airspeed_reference.hdf5')
+        with hdf_file(test_hdf) as hdf:
             args = [
                 P(**hdf['Airspeed'].__dict__),
                 P(**hdf['Flap'].__dict__),
@@ -2781,10 +2821,10 @@ class TestCoordinatesSmoothed(unittest.TestCase):
                                     'slice_stop': 13440.0,
                                     'type': 'LANDING'}])
                               
-        self.toff = Section(name='Takeoff', 
-                       slice=slice(372, 414, None), 
-                       start_edge=371.32242063492066, 
-                       stop_edge=413.12204760355382)
+        self.toff = [Section(name='Takeoff', 
+                             slice=slice(372, 414, None), 
+                             start_edge=371.32242063492066, 
+                             stop_edge=413.12204760355382)]
         
         self.toff_rwy = A(name = 'FDR Takeoff Runway',
                           value = {'end': {'elevation': 4843, 
