@@ -1699,8 +1699,8 @@ def ground_track_precise(lat, lon, speed, hdg, frequency, mode):
     _=straight_ends.pop()
 
     # unable to proceed if we have no straight ends
-    if not len(straight_ends):
-        raise ValueError('Ground_track_precise requires 3 or more straights')
+    if len(straight_ends) <= 2:
+        raise ValueError('Ground_track_precise needs at least two curved sections to operate.')
 
     # Initialize the weights for no change.
     weight_length = len(straight_ends)
