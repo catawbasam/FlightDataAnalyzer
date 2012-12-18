@@ -297,6 +297,9 @@ class AccelerationLateralOffset(KeyPointValueNode):
     """
     This KPV computes the lateral accelerometer datum offset, as for
     AccelerationNormalOffset.
+    
+    TODO: Taxi in straight lines only
+    
     """
     def derive(self, acc=P('Acceleration Lateral'), taxis=S('Taxiing')):
         total_sum = 0.0
@@ -3321,10 +3324,10 @@ class HeightOfBouncedLanding(KeyPointValueNode):
         self.create_kpvs_within_slices(alt.array, bounced_landing, max_value)
         
 
-class HeadingDeviationOnTakeoffAbove100Kts(KeyPointValueNode):
+class HeadingDeviationOnTakeoffAbove80Kts(KeyPointValueNode):
     """
     The heading deviation is measured as the peak-to-peak deviation between
-    100kts airspeed and 5 deg nose pitch up, at which time the weight is
+    80kts airspeed and 5 deg nose pitch up, at which time the weight is
     clearly off the wheel (we avoid using weight on nosewheel as this is
     often not recorded). The value is annotated half way between the end
     conditions.
@@ -3332,7 +3335,7 @@ class HeadingDeviationOnTakeoffAbove100Kts(KeyPointValueNode):
     def derive(self, head=P('Heading Continuous'), airspeed=P('Airspeed'),
                pitch=P('Pitch'), toffs=S('Takeoff')):
         for toff in toffs:
-            start = index_at_value(airspeed.array, 100.0, _slice=toff.slice)
+            start = index_at_value(airspeed.array, 80.0, _slice=toff.slice)
             if not start:
                 self.warning("'%s' did not transition through 100 in '%s' "
                              "slice '%s'.", airspeed.name, toffs.name,

@@ -588,11 +588,6 @@ class LandingTurnOffRunway(KeyTimeInstanceNode):
                     landing_turn = start_search + peak_bend
                 else:
                     if fifteen_deg and fifteen_deg < peak_bend:
-
-                        print
-                        print '#### Using 15 deg in preference to peak_bend'
-                        print
-                        
                         landing_turn = start_search + landing_turn
                     else:
                         # No turn, so just use end of landing run.

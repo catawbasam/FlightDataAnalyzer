@@ -1839,28 +1839,16 @@ def ils_glideslope_align(runway):
     :returns dictionary containing:
     ['latitude'] ILS glideslope position aligned to start and end of runway
     ['longitude']
+    
+    :error: if there is no glideslope antenna in the database for this runway, returns None
     '''
-    
-    ##start_lat = runway['start']['latitude']
-    ##start_lon = runway['start']['longitude']
-    ##end_lat = runway['end']['latitude']
-    ##end_lon = runway['end']['longitude']
-    ##gs_lat = runway['glideslope']['latitude']
-    ##gs_lon = runway['glideslope']['longitude']
-    
-    ##a = _dist(gs_lat, gs_lon, end_lat, end_lon)
-    ##b = _dist(gs_lat, gs_lon, start_lat, start_lon)
-    ##d = _dist(start_lat, start_lon, end_lat, end_lon)
-    
-    ##r = (1.0+(a**2 - b**2)/d**2)/2.0
-    
-    ### The projected glideslope antenna position is given by this formula
-    ##new_lat = end_lat + r*(start_lat - end_lat)
-    ##new_lon = end_lon + r*(start_lon - end_lon)
-    new_lat, new_lon = runway_snap(runway, 
-                                   runway['glideslope']['latitude'],
-                                   runway['glideslope']['longitude'])
-    return {'latitude':new_lat, 'longitude':new_lon}
+    try:
+        new_lat, new_lon = runway_snap(runway, 
+                                       runway['glideslope']['latitude'],
+                                       runway['glideslope']['longitude'])
+        return {'latitude':new_lat, 'longitude':new_lon}
+    except KeyError:
+        return None
 
 
 def ils_localizer_align(runway):
@@ -1883,7 +1871,7 @@ def ils_localizer_align(runway):
         new_lat, new_lon = runway_snap(runway, 
                                    runway['localizer']['latitude'],
                                    runway['localizer']['longitude'])
-    except:
+    except KeyError:
         new_lat, new_lon = runway['end']['latitude'], runway['end']['longitude']
         logger.warning('Localizer not found for this runway, so endpoint substituted')
         
@@ -2289,6 +2277,10 @@ def slices_not(slice_list, begin_at=None, end_at=None):
     
     a = min([s.start for s in slice_list])
     b = min([s.stop for s in slice_list])
+    c = max([s.step for s in slice_list])
+    if c>1:
+        raise ValueError("slices_not does not cater for non-unity steps")
+    
     startpoint = a if b is None else min(a,b)
     
     if begin_at is not None and begin_at < startpoint:
@@ -2448,6 +2440,9 @@ def localizer_scale(runway):
         try:
             length = runway_length(runway)
         except:
+            pass
+        
+        if length == None:
             length = 8000 / METRES_TO_FEET # Typical length
             
         # Normal scaling of a localizer gives 700ft width at the threshold,
@@ -3961,38 +3956,16 @@ def index_at_value(array, threshold, _slice=slice(None), endpoint='exact'):
     '''
     step = _slice.step or 1
     max_index = len(array)
+
     # Arrange the limits of our scan, ensuring that we stay inside the array.
     if step == 1:
         begin = max(int(round(_slice.start or 0)),0)
         end = min(int(round(_slice.stop or max_index)),max_index)
-
-        # A "let's get the logic right and tidy it up afterwards" bit of code...
-        # TODO: Refactor this algorithm
-        if begin >= len(array):
-            begin = max_index
-        elif begin < 0:
-            begin = 0
-        if end > len(array):
-            end = max_index
-        elif end < 0:
-            end = 0
-            
         left, right = slice(begin,end-1,step), slice(begin+1,end,step)
         
     elif step == -1:
         begin = min(int(round(_slice.start or max_index)),max_index)
         end = max(int(_slice.stop or 0),0)
-
-        # More "let's get the logic right and tidy it up afterwards" bit of code...
-        if begin >= len(array):
-            begin = max_index - 1
-        elif begin < 0:
-            begin = 0
-        if end > len(array):
-            end = max_index
-        elif end < 0:
-            end = 0
-            
         left, right = slice(begin,end+1,step), slice(begin-1,end,step)
         
     else:
