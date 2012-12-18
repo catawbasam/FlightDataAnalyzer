@@ -126,7 +126,7 @@ class Holding(FlightPhaseNode):
     def derive(self, alt_aal=P('Altitude AAL For Flight Phases'),
                hdg=P('Heading Increasing'), 
                lat=P('Latitude Smoothed'), lon=P('Longitude Smoothed')):
-        _, height_bands = slices_from_to(alt_aal.array, 20000, 5000)
+        _, height_bands = slices_from_to(alt_aal.array, 20000, 3000)
         # Three minutes should include two turn segments.
         turn_rate = rate_of_change(hdg, 3 * 60) 
         for height_band in height_bands:
@@ -573,14 +573,16 @@ def scan_ils(beam, ils_dots, height, scan_slice):
                 ils_capture_idx = dots_25
 
     if beam == 'localizer':
+        # We ended either where the aircraft left the beam or when the
+        # approach or go-around phase ended.
         ils_end_idx = index_at_value(np.ma.abs(ils_dots), 2.5,
-                                     slice(idx_200, None))
+                                     slice(idx_200, scan_slice.stop))
         if ils_end_idx is None:
             # Can either never have captured, or data can end at less than 2.5
             # dots.
-            countback_idx, last_loc = first_valid_sample(ils_dots[::-1])
+            countback_idx, last_loc = first_valid_sample(ils_dots[scan_slice.stop::-1])
             if abs(last_loc) < 2.5:
-                ils_end_idx = len(ils_dots) - countback_idx -1
+                ils_end_idx = scan_slice.stop - countback_idx
     elif beam == 'glideslope':
         ils_end_idx = idx_200
     else:
