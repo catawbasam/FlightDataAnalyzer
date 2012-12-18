@@ -3261,12 +3261,12 @@ class CoordinatesSmoothed(object):
                 lat_adj[this_loc_slice.start] = np.ma.masked
                 lon_adj[this_loc_slice.start] = np.ma.masked
                 
-                # Remember where the ILS took us, in preparation for joining the taxi in.
-                ils_join, _ = last_valid_sample(lat_adj[this_loc_slice])
-                if ils_join:
-                    ils_join_offset = this_loc_slice.start + ils_join
-                else:
-                    ils_join_offset = None
+                ils_join_offset = None
+                if approach['type'] == 'LANDING':
+                    # Remember where we lost the ILS, in preparation for the taxi in.
+                    ils_join, _ = last_valid_sample(lat_adj[this_loc_slice])
+                    if ils_join:
+                        ils_join_offset = this_loc_slice.start + ils_join
               
             else:
                 # No localizer in this approach

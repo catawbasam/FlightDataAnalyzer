@@ -85,17 +85,19 @@ def track_to_kml(hdf_path, kti_list, kpv_list, flight_list, plot_altitude=False)
     smooth_lon = derived_param_from_hdf(hdf, 'Longitude Smoothed')
     add_track(kml, 'Smoothed', smooth_lat, smooth_lon, 'ff7fff7f') #, hdf[plot_altitude])
 
-    lat = derived_param_from_hdf(hdf, 'Latitude Prepared')
-    lon = derived_param_from_hdf(hdf, 'Longitude Prepared')
-    add_track(kml, 'Prepared', lat, lon, 'ff0000ff')
+    #lat = derived_param_from_hdf(hdf, 'Latitude Prepared')
+    #lon = derived_param_from_hdf(hdf, 'Longitude Prepared')
+    #add_track(kml, 'Prepared', lat, lon, 'ff0000ff')
     
     lat_r = derived_param_from_hdf(hdf, 'Latitude')
     lon_r = derived_param_from_hdf(hdf, 'Longitude')
-    add_track(kml, 'Recorded', lat_r, lon_r, 'ff0000ff')
+    add_track(kml, 'Recorded Track', lat_r, lon_r, 'ff0000ff')
 
     for kti in kti_list:
         kti_point_values = {'name': kti.name}
-        if kti.name not in ['Transmit']:
+        if kti.name not in ['Transmit'] \
+           and not kti.name.endswith('Descending')\
+           and not kti.name.endswith('Climbing'):
             altitude = alt.at(kti.index) if plot_altitude else None
             if altitude:
                 kti_point_values['coords'] = ((kti.longitude, kti.latitude, altitude),)
@@ -107,7 +109,16 @@ def track_to_kml(hdf_path, kti_list, kpv_list, flight_list, plot_altitude=False)
             kml.newpoint(**kti_point_values)
         
     for kpv in kpv_list:
-        if kpv.name not in ['Put KPV name here',]:
+        if kpv.name.startswith('CAA') or \
+           kpv.name.startswith('Distance') or \
+           kpv.name in ['Wind Across Landing Runway At 50 Ft',
+                        'Touchdown To Thrust Reversers Deployed Duration',
+                        'Touchdown To 60 Kts Duration',
+                        'Runway Overrun Without Slowing Duration',
+                        'Groundspeed With Thrust Reversers Deployed (Over 65% N1) Min',
+                        'Groundspeed Vacating Runway',
+                        'Deceleration To Stop On Runway',
+                        ]:
             style = simplekml.Style()
             style.iconstyle.color = simplekml.Color.red
             kpv_point_values = {'name': '%s (%s)' % (kpv.name, kpv.value)}
