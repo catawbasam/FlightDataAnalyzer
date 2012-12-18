@@ -3065,8 +3065,9 @@ class CoordinatesSmoothed(object):
         '''
         Compute a groundspeed and heading based taxi out track.
         '''
-        lat_out, lon_out, wt = ground_track_precise(lat, lon, speed, hdg, freq, 
-                                                    'takeoff')
+
+        lat_out, lon_out, wt = ground_track_precise(lat, lon, speed, hdg,
+                                                    freq, 'takeoff')
         return lat_out, lon_out
 
     def taxi_in_track_pp(self, lat, lon, speed, hdg, freq):
@@ -3074,7 +3075,7 @@ class CoordinatesSmoothed(object):
         Compute a groundspeed and heading based taxi in track.
         '''
         lat_in, lon_in, wt = ground_track_precise(lat, lon, speed, hdg, freq, 
-                                                  'landing')
+                                              'landing')
         return lat_in, lon_in
         
     def taxi_out_track(self, toff_slice, lat_adj, lon_adj, speed, hdg, freq):
@@ -3138,12 +3139,17 @@ class CoordinatesSmoothed(object):
             toff_slice = None
 
         if toff_slice and precise:
-            lat_out, lon_out = self.taxi_out_track_pp(lat.array[:toff_slice.start], 
-                                                      lon.array[:toff_slice.start], 
-                                                      speed[:toff_slice.start],
-                                                      hdg.array[:toff_slice.start],
-                                                      freq)
-            
+            try:
+                lat_out, lon_out = self.taxi_out_track_pp(lat.array[:toff_slice.start], 
+                                                          lon.array[:toff_slice.start], 
+                                                          speed[:toff_slice.start],
+                                                          hdg.array[:toff_slice.start],
+                                                          freq)
+            except ValueError as err:
+                self.exception("'%s'. Using non smoothed coordinates for Taxi Out",
+                             self.__class__.__name__)
+                lat_out = lat.array[:toff_slice.start]
+                lon_out = lon.array[:toff_slice.start]
             lat_adj[:toff_slice.start] = lat_out
             lon_adj[:toff_slice.start] = lon_out
 
@@ -3299,11 +3305,17 @@ class CoordinatesSmoothed(object):
                         # Set up the point of handover
                         lat.array[join_idx] = lat_adj[join_idx]
                         lon.array[join_idx] = lon_adj[join_idx]
-                        lat_in, lon_in = self.taxi_in_track_pp(lat.array[join_idx:],
-                                                               lon.array[join_idx:],
-                                                               speed[join_idx:],
-                                                               hdg.array[join_idx:],
-                                                               freq)
+                        try:
+                            lat_in, lon_in = self.taxi_in_track_pp(lat.array[join_idx:],
+                                                                   lon.array[join_idx:],
+                                                                   speed[join_idx:],
+                                                                   hdg.array[join_idx:],
+                                                                   freq)
+                        except ValueError as ex:
+                            self.exception("'%s'. Using non smoothed coordinates for Taxi In",
+                                         self.__class__.__name__)
+                            lat_in = lat.array[join_idx:]
+                            lon_in = lon.array[join_idx:]
                     else:
                         lat_in, lon_in = self.taxi_in_track(join_idx,
                                                             lat_adj, 
@@ -3364,9 +3376,8 @@ class LatitudeSmoothed(DerivedParameterNode, CoordinatesSmoothed):
         if hdg == None:
             hdg = head_mag
 
-        cs = CoordinatesSmoothed()
-        lat_adj, lon_adj = cs._adjust_track(lon, lat, ils_loc, app_range, hdg,
-                                            gspd, tas, toff, toff_rwy, 
+        lat_adj, lon_adj = self._adjust_track(lon, lat, ils_loc, app_range, hdg,
+                                            gspd, tas, toff, toff_rwy,
                                             approaches, precision)
         self.array = track_linking(lat.array, lat_adj)
         
@@ -3404,11 +3415,10 @@ class LongitudeSmoothed(DerivedParameterNode, CoordinatesSmoothed):
         
         if hdg == None:
             hdg = head_mag
-        cs = CoordinatesSmoothed()
-        lat_adj, lon_adj = cs._adjust_track(lon, lat, ils_loc, app_range, hdg,
-                                            gspd, tas, toff, toff_rwy, 
+        lat_adj, lon_adj = self._adjust_track(lon, lat, ils_loc, app_range, hdg,
+                                            gspd, tas, toff, toff_rwy,
                                             approaches, precision)
-        self.array = track_linking(lon.array, lon_adj)        
+        self.array = track_linking(lon.array, lon_adj)
 
 class Mach(DerivedParameterNode):
     '''
