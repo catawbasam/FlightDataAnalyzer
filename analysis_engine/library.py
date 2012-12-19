@@ -3964,9 +3964,10 @@ def index_at_value(array, threshold, _slice=slice(None), endpoint='exact'):
         left, right = slice(begin,end-1,step), slice(begin+1,end,step)
         
     elif step == -1:
-        begin = min(int(round(_slice.start or max_index)),max_index-1)
+        begin = min(int(round(_slice.start or max_index)),max_index)
         end = max(int(_slice.stop or 0),0)
-        left, right = slice(begin,end+1,step), slice(begin-1,end,step)
+        left = slice(begin,end,step)
+        right = slice(begin-1,end-1 if end>0 else None,step)
         
     else:
         raise ValueError('Step length not 1 in index_at_value')

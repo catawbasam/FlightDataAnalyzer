@@ -1528,7 +1528,7 @@ class TestHysteresis(unittest.TestCase):
 
 class TestIndexAtValue(unittest.TestCase):
     
-    # Reminder: index_at_value (array, section, threshold):
+    # Reminder: index_at_value (array, threshold, _slice=slice(None), endpoint='exact')
 
     def test_index_at_value_basic(self):
         array = np.ma.arange(4)
@@ -1558,6 +1558,10 @@ class TestIndexAtValue(unittest.TestCase):
     def test_index_at_value_right_at_end(self):
         array = np.ma.arange(4)
         self.assertEquals (index_at_value(array, 3.0, slice(1, 4)), 3.0)
+
+    def test_index_at_value_backwards_to_end(self):
+        array = np.ma.arange(8)
+        self.assertEquals (index_at_value(array, 0, slice(5, 0, -1)), 0)
         
     def test_index_at_value_backwards_floating_point_end(self):
         array = np.ma.arange(4)
