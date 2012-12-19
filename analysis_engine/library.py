@@ -3964,7 +3964,7 @@ def index_at_value(array, threshold, _slice=slice(None), endpoint='exact'):
         left, right = slice(begin,end-1,step), slice(begin+1,end,step)
         
     elif step == -1:
-        begin = min(int(round(_slice.start or max_index)),max_index)
+        begin = min(int(round(_slice.start or max_index)),max_index-1)
         end = max(int(_slice.stop or 0),0)
         left, right = slice(begin,end+1,step), slice(begin-1,end,step)
         
@@ -4233,12 +4233,15 @@ def alt2sat(alt_ft):
     """ Convert altitude to temperature using lapse rate"""
     return np.ma.where(alt_ft <= H1, 15.0 + L0 * alt_ft, -56.5)
     
-def machtat2sat(mach, tat, recovery_factor=0.9):
+def machtat2sat(mach, tat, recovery_factor=0.995):
     """
-    Return the ambient temp, given the mach number, indicated temperature and
-    the temperature probe's recovery factor. Default recovery factor is fine
-    for most cases, and allows for inherited test case which used a lower
-    value.
+    Return the ambient temp, given the mach number, indicated temperature and the
+    temperature probe's recovery factor. 
+    
+    Recovery factor is taken from the BF Goodrich Model 101 and 102 Total
+    Temperature Sensors data sheet. As "...the world's leading supplier of
+    total temperature sensors" it is likely that a sensor of this type, or
+    comparable, will be installed on monitored aircraft.
     """
     # Default fill of zero produces runtime divide by zero errors in Numpy. 
     # Hence force fill to >0.
