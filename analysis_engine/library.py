@@ -254,6 +254,10 @@ def align(slave, master, data_type=None):
     
     # Here we create a masked array to hold the returned values that will have 
     # the same sample rate and timing offset as the master
+    len_aligned = int(len(slave_array) * r)
+    if len_aligned != (len(slave_array)*r):
+        raise ValueError("Array length problem in align. Probable cause is flight cutting not at superframe boundary")
+    
     slave_aligned = np.ma.empty(len(slave_array) * r)
 
     # Each sample in the master parameter may need different combination parameters
