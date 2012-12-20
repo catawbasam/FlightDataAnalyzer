@@ -95,6 +95,26 @@ class TestAlign(unittest.TestCase):
                                        4.6, 5.6, 6.6000000000000005])
         np.testing.assert_array_equal(result.mask, False)
                 
+    def test_align_value_error_raised(self):
+        class DumParam():
+            def __init__(self):
+                self.data_type = None
+                self.offset = None
+                self.frequency = None
+                self.array = []
+                
+        first = DumParam()
+        first.frequency = 1
+        first.offset = 0.1
+        first.array = np.ma.array(range(3))
+        
+        second = DumParam()
+        second.frequency = 2
+        second.offset = 0.2
+        second.array = np.ma.array(range(5))
+        
+        self.assertRaises(ValueError, align, second, first)
+                    
     def test_align_discrete(self):
         class DumParam():
             def __init__(self):
@@ -432,23 +452,23 @@ class TestAlign(unittest.TestCase):
         expected = [1]*16+[3]*16+[6]*16+[9]*16
         np.testing.assert_array_equal(result.data,expected)
 
-        def test_align_superframe_slave_extreme(self):
-            class DumParam():
-                def __init__(self):
-                    self.data_type = None
-                    self.offset = None
-                    self.frequency = 1
-                    self.offset = 0.0
-                    self.array = []
-            master = DumParam()
-            master.array = np.ma.arange(1024)
-            master.frequency = 8
-            slave = DumParam()
-            slave.array = np.ma.array([1,2])
-            slave.frequency = 1/64.0
-            result = align(slave, master)
-            expected = [1]*512+[2]*512
-            np.testing.assert_array_equal(result.data,expected)
+    def test_align_superframe_slave_extreme(self):
+        class DumParam():
+            def __init__(self):
+                self.data_type = None
+                self.offset = None
+                self.frequency = 1
+                self.offset = 0.0
+                self.array = []
+        master = DumParam()
+        master.array = np.ma.arange(1024)
+        master.frequency = 8
+        slave = DumParam()
+        slave.array = np.ma.array([1,2])
+        slave.frequency = 1/64.0
+        result = align(slave, master)
+        expected = [1]*512+[2]*512
+        np.testing.assert_array_equal(result.data,expected)
 
 
     def test_align_superframes_both(self):

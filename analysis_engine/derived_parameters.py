@@ -736,7 +736,8 @@ class AltitudeAAL(DerivedParameterNode):
                     else:
                         # We have no rad alt data we can use.
                         # TODO: alt_std code needs careful checking.
-                        prev_dip = dips[-1]
+                        if dips:
+                            prev_dip = dips[-1]
                         if dips and prev_dip['type'] == 'high':
                             # Join this dip onto the previous one
                             prev_dip['slice'] = \
