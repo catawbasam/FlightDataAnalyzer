@@ -74,7 +74,7 @@ def derive_parameters(hdf, node_mgr, process_order):
     duration = hdf.duration
     
     for param_name in process_order:
-        if param_name in node_mgr.lfl:
+        if param_name in node_mgr.hdf_keys:
             continue
         
         elif node_mgr.get_attribute(param_name) is not None:
@@ -92,7 +92,7 @@ def derive_parameters(hdf, node_mgr, process_order):
                 deps.append(params[dep_name])
             elif node_mgr.get_attribute(dep_name) is not None:
                 deps.append(node_mgr.get_attribute(dep_name))
-            elif dep_name in node_mgr.lfl:  # LFL/Derived parameter
+            elif dep_name in node_mgr.hdf_keys:  # LFL/Derived parameter
                 # all parameters (LFL or other) need get_aligned which is
                 # available on DerivedParameterNode
                 dp = derived_param_from_hdf(hdf, dep_name)

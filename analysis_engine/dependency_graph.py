@@ -144,8 +144,8 @@ def graph_nodes(node_mgr):
     gr_all = nx.DiGraph()
     # create nodes without attributes now as you can only add attributes once
     # (limitation of add_node_attribute())
-    gr_all.add_nodes_from(node_mgr.lfl, color='#72f4eb') # turquoise
-    derived_minus_lfl = dict_filter(node_mgr.derived_nodes, remove=node_mgr.lfl)
+    gr_all.add_nodes_from(node_mgr.hdf_keys, color='#72f4eb') # turquoise
+    derived_minus_lfl = dict_filter(node_mgr.derived_nodes, remove=node_mgr.hdf_keys)
     # Group into node types to apply colour. TODO: Make colours less garish.
     colors = {
         MultistateDerivedParameterNode: '#2aa52a', # dark green
@@ -186,7 +186,7 @@ def graph_nodes(node_mgr):
     # reference to another derived parameter or a parameter not available on
     # this LFL
     # Set of all derived and LFL Nodes.
-    ##available_nodes = set(node_mgr.derived_nodes.keys()).union(set(node_mgr.lfl))
+    ##available_nodes = set(node_mgr.derived_nodes.keys()).union(set(node_mgr.hdf_keys))
     available_nodes = set(node_mgr.keys())
     # Missing dependencies.
     missing_derived_dep = list(derived_deps - available_nodes)
