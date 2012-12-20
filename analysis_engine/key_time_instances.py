@@ -246,9 +246,13 @@ class GoAround(KeyTimeInstanceNode):
                alt_aal=P('Altitude AAL For Flight Phases'),
                alt_rad=P('Altitude Radio')):
         for dlc in dlcs:
-            if alt_rad:
+            # The try:except structure is used to cater for both cases where
+            # a radio altimeter is not fitted, and where the altimeter data
+            # is out of range, hence masked, at the lowest point of the
+            # go-around.
+            try:
                 pit = np.ma.argmin(alt_rad.array[dlc.slice])
-            else:
+            except:
                 pit = np.ma.argmin(alt_aal.array[dlc.slice])
             self.create_kti(pit+dlc.start_edge)
 
@@ -377,9 +381,9 @@ class TakeoffAccelerationStart(KeyTimeInstanceNode):
     '''
     The start of the takeoff roll is ideally computed from the forwards
     acceleration down the runway, but a quite respectable "backstop" is
-    available from the point where the airspeed starts to increase. This
-    allows for aircraft either with a faulty sensor, or no longitudinal
-    accelerometer.
+    available from the point where the airspeed starts to increase (providing
+    this is from an analogue source). This allows for aircraft either with a
+    faulty sensor, or no longitudinal accelerometer.
     '''
     # List the minimum acceptable parameters here
     @classmethod
@@ -584,11 +588,6 @@ class LandingTurnOffRunway(KeyTimeInstanceNode):
                     landing_turn = start_search + peak_bend
                 else:
                     if fifteen_deg and fifteen_deg < peak_bend:
-
-                        print
-                        print '#### Using 15 deg in preference to peak_bend'
-                        print
-                        
                         landing_turn = start_search + landing_turn
                     else:
                         # No turn, so just use end of landing run.

@@ -43,6 +43,7 @@ def any_of(names, available):
     NB: Was called "one_of" but that implies ONLY one name is available.
     '''
     return any(name in available for name in names)
+
     
 
 def air_track(lat_start, lon_start, lat_end, lon_end, spd, hdg, frequency):
@@ -1636,6 +1637,7 @@ def gtp_compute_error(weights, *args):
     else:
         return lat_est, lon_est, error
 
+
 def ground_track_precise(lat, lon, speed, hdg, frequency, mode):
     """
     Computation of the ground track.
@@ -1695,7 +1697,11 @@ def ground_track_precise(lat, lon, speed, hdg, frequency, mode):
     # We aren't interested in the first and last
     _=straight_ends.pop(0)
     _=straight_ends.pop()
-    
+
+    # unable to proceed if we have no straight ends
+    if len(straight_ends) <= 2:
+        raise ValueError('Ground_track_precise needs at least two curved sections to operate.')
+
     # Initialize the weights for no change.
     weight_length = len(straight_ends)
     weights = np.ma.ones(weight_length)
@@ -1716,7 +1722,7 @@ def ground_track_precise(lat, lon, speed, hdg, frequency, mode):
                                                  frequency, 
                                                  mode, 'iterate'),
                                          approx_grad=True, epsilon=1.0E-4, 
-                                         bounds=boundaries, maxfun=15)
+                                         bounds=boundaries, maxfun=10)
     """
     fmin_l_bfgs_b license: This software is freely available, but we expect that all publications describing work using this software, or all commercial products using it, quote at least one of the references given below. This software is released under the BSD License.
     R. H. Byrd, P. Lu and J. Nocedal. A Limited Memory Algorithm for Bound Constrained Optimization, (1995), SIAM Journal on Scientific and Statistical Computing, 16, 5, pp. 1190-1208.
@@ -1729,7 +1735,7 @@ def ground_track_precise(lat, lon, speed, hdg, frequency, mode):
     lat_est, lon_est, wt = gtp_compute_error(weights_opt[0], *args)
     
     
-    '''
+    """
     # Outputs for debugging and inspecting operation of the optimization algorithm.
     print weights_opt[0]
 
@@ -1744,7 +1750,7 @@ def ground_track_precise(lat, lon, speed, hdg, frequency, mode):
         plt.plot(lon_est[straight], lat_est[straight])
     plt.plot(lon[track_slice], lat[track_slice])
     plt.show()
-    '''
+    """
     
     # Build arrays to return the computed track.
     lat_return = np_ma_masked_zeros_like(lat)
@@ -1756,6 +1762,7 @@ def ground_track_precise(lat, lon, speed, hdg, frequency, mode):
         lat_return[:track_edges[1]] = lat_est
         lon_return[:track_edges[1]] = lon_est
     return lat_return, lon_return, wt
+
 
 def hash_array(array):
     '''
@@ -1832,28 +1839,16 @@ def ils_glideslope_align(runway):
     :returns dictionary containing:
     ['latitude'] ILS glideslope position aligned to start and end of runway
     ['longitude']
+    
+    :error: if there is no glideslope antenna in the database for this runway, returns None
     '''
-    
-    ##start_lat = runway['start']['latitude']
-    ##start_lon = runway['start']['longitude']
-    ##end_lat = runway['end']['latitude']
-    ##end_lon = runway['end']['longitude']
-    ##gs_lat = runway['glideslope']['latitude']
-    ##gs_lon = runway['glideslope']['longitude']
-    
-    ##a = _dist(gs_lat, gs_lon, end_lat, end_lon)
-    ##b = _dist(gs_lat, gs_lon, start_lat, start_lon)
-    ##d = _dist(start_lat, start_lon, end_lat, end_lon)
-    
-    ##r = (1.0+(a**2 - b**2)/d**2)/2.0
-    
-    ### The projected glideslope antenna position is given by this formula
-    ##new_lat = end_lat + r*(start_lat - end_lat)
-    ##new_lon = end_lon + r*(start_lon - end_lon)
-    new_lat, new_lon = runway_snap(runway, 
-                                   runway['glideslope']['latitude'],
-                                   runway['glideslope']['longitude'])
-    return {'latitude':new_lat, 'longitude':new_lon}
+    try:
+        new_lat, new_lon = runway_snap(runway, 
+                                       runway['glideslope']['latitude'],
+                                       runway['glideslope']['longitude'])
+        return {'latitude':new_lat, 'longitude':new_lon}
+    except KeyError:
+        return None
 
 
 def ils_localizer_align(runway):
@@ -1876,7 +1871,7 @@ def ils_localizer_align(runway):
         new_lat, new_lon = runway_snap(runway, 
                                    runway['localizer']['latitude'],
                                    runway['localizer']['longitude'])
-    except:
+    except KeyError:
         new_lat, new_lon = runway['end']['latitude'], runway['end']['longitude']
         logger.warning('Localizer not found for this runway, so endpoint substituted')
         
@@ -2282,6 +2277,10 @@ def slices_not(slice_list, begin_at=None, end_at=None):
     
     a = min([s.start for s in slice_list])
     b = min([s.stop for s in slice_list])
+    c = max([s.step for s in slice_list])
+    if c>1:
+        raise ValueError("slices_not does not cater for non-unity steps")
+    
     startpoint = a if b is None else min(a,b)
     
     if begin_at is not None and begin_at < startpoint:
@@ -2391,10 +2390,12 @@ def section_contains_kti(section, kti):
 
 def latitudes_and_longitudes(bearings, distances, reference):
     """
-    Returns the bearings and distances of a track with respect to a fixed point.
+    Returns the latitudes and longitudes of a track given true bearing and
+    distances with respect to a fixed point.
     
     Usage: 
-    lat[], lon[] = latitudes_and_longitudes(brg[], dist[], {'latitude':lat_ref, 'longitude', lon_ref})
+    lat[], lon[] = latitudes_and_longitudes(brg[], dist[], 
+                   {'latitude':lat_ref, 'longitude', lon_ref})
     
     :param bearings: The bearings of the track in degrees.
     :type bearings: Numpy masked array.
@@ -2408,7 +2409,7 @@ def latitudes_and_longitudes(bearings, distances, reference):
 
     Navigation formulae have been derived from the scripts at 
     http://www.movable-type.co.uk/scripts/latlong.html
-    Copyright 2002-2011 Chris Veness, and altered by Flight dAta Services to 
+    Copyright 2002-2011 Chris Veness, and altered by Flight Data Services to 
     suit the POLARIS project.
     """
     lat_ref = radians(reference['latitude'])
@@ -2439,6 +2440,9 @@ def localizer_scale(runway):
         try:
             length = runway_length(runway)
         except:
+            pass
+        
+        if length == None:
             length = 8000 / METRES_TO_FEET # Typical length
             
         # Normal scaling of a localizer gives 700ft width at the threshold,
@@ -3317,13 +3321,15 @@ def rate_of_change(diff_param, width):
 
 
 def repair_mask(array, frequency=1, repair_duration=REPAIR_DURATION,
-                raise_duration_exceedance=False, copy=False, extrapolate=False):
+                raise_duration_exceedance=False, copy=False, extrapolate=False, 
+                zero_if_masked=False):
     '''
     This repairs short sections of data ready for use by flight phase algorithms
     It is not intended to be used for key point computations, where invalid data
     should remain masked. 
     
     if copy=True, returns modified copy of array, otherwise modifies the array in-place.
+    if zero_if_masked=True, returns an unmasked zero-filled array if all incoming data is masked.
     
     :param repair_duration: If None, any length of masked data will be repaired.
     :param raise_duration_exceedance: If False, no warning is raised if there are masked sections longer than repair_duration. They will remain unrepaired.
@@ -3331,7 +3337,10 @@ def repair_mask(array, frequency=1, repair_duration=REPAIR_DURATION,
     :raises ValueError: If the entire array is masked.
     '''
     if not np.ma.count(array):
-        raise ValueError("Array cannot be repaired as it is entirely masked")
+        if zero_if_masked:
+            return np_ma_zeros_like(array)
+        else:
+            raise ValueError("Array cannot be repaired as it is entirely masked")
     if copy:
         array = array.copy()
     if repair_duration:
@@ -3647,9 +3656,9 @@ def slices_from_to(array, from_, to):
     # Midpoint conditions added to lambda to prevent data that just dips into
     # a band triggering.
     if from_ > to:
-        condition = lambda s: rep_array[s.start] > rep_array[(s.start+s.stop)/2] > rep_array[s.stop-1]
+        condition = lambda s: rep_array[s.start] >= rep_array[(s.start+s.stop)/2] >= rep_array[s.stop-1]
     elif from_ < to:
-        condition = lambda s: rep_array[s.start] < rep_array[(s.start+s.stop)/2] < rep_array[s.stop-1]
+        condition = lambda s: rep_array[s.start] <= rep_array[(s.start+s.stop)/2] <= rep_array[s.stop-1]
     else:
         raise ValueError('From and to values should not be equal.')
     filtered_slices = filter(condition, slices)
@@ -3947,39 +3956,18 @@ def index_at_value(array, threshold, _slice=slice(None), endpoint='exact'):
     '''
     step = _slice.step or 1
     max_index = len(array)
+
     # Arrange the limits of our scan, ensuring that we stay inside the array.
     if step == 1:
         begin = max(int(round(_slice.start or 0)),0)
         end = min(int(round(_slice.stop or max_index)),max_index)
-
-        # A "let's get the logic right and tidy it up afterwards" bit of code...
-        # TODO: Refactor this algorithm
-        if begin >= len(array):
-            begin = max_index
-        elif begin < 0:
-            begin = 0
-        if end > len(array):
-            end = max_index
-        elif end < 0:
-            end = 0
-            
         left, right = slice(begin,end-1,step), slice(begin+1,end,step)
         
     elif step == -1:
         begin = min(int(round(_slice.start or max_index)),max_index)
         end = max(int(_slice.stop or 0),0)
-
-        # More "let's get the logic right and tidy it up afterwards" bit of code...
-        if begin >= len(array):
-            begin = max_index - 1
-        elif begin < 0:
-            begin = 0
-        if end > len(array):
-            end = max_index
-        elif end < 0:
-            end = 0
-            
-        left, right = slice(begin,end+1,step), slice(begin-1,end,step)
+        left = slice(begin,end,step)
+        right = slice(begin-1,end-1 if end>0 else None,step)
         
     else:
         raise ValueError('Step length not 1 in index_at_value')
@@ -4246,12 +4234,15 @@ def alt2sat(alt_ft):
     """ Convert altitude to temperature using lapse rate"""
     return np.ma.where(alt_ft <= H1, 15.0 + L0 * alt_ft, -56.5)
     
-def machtat2sat(mach, tat, recovery_factor=0.9):
+def machtat2sat(mach, tat, recovery_factor=0.995):
     """
-    Return the ambient temp, given the mach number, indicated temperature and
-    the temperature probe's recovery factor. Default recovery factor is fine
-    for most cases, and allows for inherited test case which used a lower
-    value.
+    Return the ambient temp, given the mach number, indicated temperature and the
+    temperature probe's recovery factor. 
+    
+    Recovery factor is taken from the BF Goodrich Model 101 and 102 Total
+    Temperature Sensors data sheet. As "...the world's leading supplier of
+    total temperature sensors" it is likely that a sensor of this type, or
+    comparable, will be installed on monitored aircraft.
     """
     # Default fill of zero produces runtime divide by zero errors in Numpy. 
     # Hence force fill to >0.

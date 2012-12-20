@@ -626,16 +626,16 @@ class TestLocalizerScale(unittest.TestCase):
                                              'longitude': 55.381519},
                                    }}])
         result = localizer_scale(rwy.value[0])
-        self.assertGreater(result, 1.5)
-        self.assertLess(result, 1.6)
+        self.assertGreater(result, 1.2)
+        self.assertLess(result, 1.3)
         
     def test_no_beam_width_or_length(self):
         rwy = A(name='test',
                 value=[None])
         result = localizer_scale(rwy.value[0])
-        self.assertGreater(result, 2.4)
-        self.assertLess(result, 2.6)
-     
+        self.assertGreater(result, 1.2)
+        self.assertLess(result, 1.3)
+        
 class TestBlendEquispacedSensors(unittest.TestCase):
     def test_blend_alternate_sensors_basic(self):
         array_1 = np.ma.array([0, 0, 1, 1],dtype=float)
@@ -1528,7 +1528,7 @@ class TestHysteresis(unittest.TestCase):
 
 class TestIndexAtValue(unittest.TestCase):
     
-    # Reminder: index_at_value (array, section, threshold):
+    # Reminder: index_at_value (array, threshold, _slice=slice(None), endpoint='exact')
 
     def test_index_at_value_basic(self):
         array = np.ma.arange(4)
@@ -1558,6 +1558,10 @@ class TestIndexAtValue(unittest.TestCase):
     def test_index_at_value_right_at_end(self):
         array = np.ma.arange(4)
         self.assertEquals (index_at_value(array, 3.0, slice(1, 4)), 3.0)
+
+    def test_index_at_value_backwards_to_end(self):
+        array = np.ma.arange(8)
+        self.assertEquals (index_at_value(array, 0, slice(5, 0, -1)), 0)
         
     def test_index_at_value_backwards_floating_point_end(self):
         array = np.ma.arange(4)
@@ -1627,7 +1631,7 @@ class TestIndexClosestValue(unittest.TestCase):
 
     def test_index_closest_value_at_end(self):
         array = np.ma.array([1,2,3,4,5,6,7])
-        self.assertEqual(index_closest_value(array, 99, slice(0,6)), 6)
+        self.assertEqual(index_closest_value(array, 99, slice(0,6)), 5)
 
     def test_index_closest_value_negative(self):
         array = np.ma.array([3,2,1,4,5,6,7])
@@ -1748,7 +1752,23 @@ class TestIsIndexWithinSlice(unittest.TestCase):
 
 class TestILSGlideslopeAlign(unittest.TestCase):
     def test_ils_glideslope_align(self):
-        self.assertFalse(True)
+        runway =  {'end': {'latitude': 60.280151, 
+                           'longitude': 5.222579}, 
+                   'glideslope': {'latitude': 60.303809, 
+                                 'longitude': 5.216247}, 
+                   'start': {'latitude': 60.30662494, 
+                             'longitude': 5.21370074}}
+        result = ils_glideslope_align(runway)
+        self.assertEqual(result['longitude'],5.214688131165883)
+        self.assertEqual(result['latitude'],60.30368065424106)
+        
+    def test_ils_glideslope_missing(self):
+        runway =  {'end': {'latitude': 60.280151, 
+                           'longitude': 5.222579}, 
+                'start': {'latitude': 60.30662494, 
+                          'longitude': 5.21370074}}
+        result = ils_glideslope_align(runway)
+        self.assertEqual(result,None)
 
 
 class TestILSLocalizerAlign(unittest.TestCase):
@@ -1854,7 +1874,12 @@ class TestIsSliceWithinSlice(unittest.TestCase):
 class TestMaskedFirstOrderFilter(unittest.TestCase):
     def test_masked_first_order_filter(self):
         self.assertTrue(False)
-
+        '''
+        DJ: Why do we need this function? See first_order_lag and
+        first_order_washout which handle masked values already.
+        '''
+        
+        
 
 class TestMaskInsideSlices(unittest.TestCase):
     def test_mask_inside_slices(self):
@@ -2458,7 +2483,8 @@ class TestPeakCurvature(unittest.TestCase):
             array = np.ma.array(hdg_data)
         
         pc=peak_curvature(array, curve_sense='Bipolar')
-        self.assertLess(pc, 50)
+        self.assertLess(pc, 85)
+        self.assertGreater(pc, 75)
 
 class TestPeakIndex(unittest.TestCase):
     def test_peak_index_no_data(self):
@@ -2934,7 +2960,9 @@ class TestShiftSlices(unittest.TestCase):
         a = [slice(0, 1, None), slice(599, 933, None), 
              slice(1988, 1992, None), slice(2018, 2073, None)]
         b = 548.65
-        self.assertEqual(len(shift_slices(a,b)),3)
+        self.assertEqual(len(shift_slices(a,b)),4)
+        self.assertEqual(shift_slices(a,b)[0].stop,549.65)
+        self.assertEqual(shift_slices(a,b)[-1].start,2566.65)
 
     def test_shift_slices_no_shift(self):
         a = [slice(4, 7, None), slice(17, 12, -1)]
@@ -3029,7 +3057,41 @@ class TestSlicesFromTo(unittest.TestCase):
         array = np.ma.array([25, 20, 15, 10, 5, 0, 0, 0, 0])
         _, slices = slices_from_to(array, 17, 0)
         self.assertEqual(slices, [slice(2, 5, None)])
+        
+    def test_slices_from_to_short_up(self):
+        '''
+        A problem was found with very short resulting arrays, which this test
+        covers. In fact, very short cases (one or two valid samples) still
+        cause a problem as the from_to process calls a lower routine which
+        masks data outside the range leaving you uncertain which direction
+        the band was passing through.
+        '''
+        array = np.ma.array([1,3,5,7])
+        _, slices = slices_from_to(array, 2, 6)
+        self.assertEqual(slices[0], slice(1,3,None))
+        _, slices = slices_from_to(array, 2, 4)
+        self.assertEqual(slices[0], slice(1,2,None))
+        array = np.ma.array([7,5,3,1])
+        _, slices = slices_from_to(array, 2, 6)
+        self.assertEqual(slices, [])
+        _, slices = slices_from_to(array, 2, 4)
+        self.assertEqual(slices, [])
 
+    def test_slices_from_to_short_down(self):
+        '''
+        See above.
+        '''
+        array = np.ma.array([7,5,3,1])
+        _, slices = slices_from_to(array, 6, 2)
+        self.assertEqual(slices[0], slice(1,3,None))
+        _, slices = slices_from_to(array, 6, 4)
+        self.assertEqual(slices[0], slice(1,2,None))
+        array = np.ma.array([1,3,5,7])
+        _, slices = slices_from_to(array, 6, 2)
+        self.assertEqual(slices, [])
+        _, slices = slices_from_to(array, 6, 4)
+        self.assertEqual(slices, [])
+        
 class TestSliceMultiply(unittest.TestCase):
     def test_slice_multiply(self):
         self.assertEqual(slice_multiply(slice(1,2,3),2),
@@ -3176,9 +3238,10 @@ class TestSlicesNot(unittest.TestCase):
     def test_slices_misordered(self):
         slice_list = [slice(25,16,-1),slice(10,13)]
         self.assertEqual(slices_not(slice_list), [slice(13,17)])
+        
+    def test_slices_not_error(self):
         slice_list = [slice(1,5,2)]
-        # Single point slices get discarded by shift slices function.
-        self.assertEqual(slices_not(slice_list), [])
+        self.assertRaises(ValueError, slices_not, slice_list)
 
 
 class TestSlicesOr(unittest.TestCase):
