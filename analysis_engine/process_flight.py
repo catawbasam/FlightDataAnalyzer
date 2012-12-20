@@ -201,6 +201,8 @@ def derive_parameters(hdf, node_mgr, process_order):
                                                        array_length))
                 
             hdf.set_param(result)
+            # Keep hdf_keys up to date.
+            node_mgr.hdf_keys.append(param_name)
         else:
             raise NotImplementedError("Unknown Type %s" % node.__class__)
         continue
