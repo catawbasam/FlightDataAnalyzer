@@ -2148,16 +2148,16 @@ def index_of_datetime(start_datetime, index_datetime, frequency, offset=0):
     '''
     :param start_datetime: Start datetime of data file.
     :type start_datetime: datetime
-    :param index_datetime: Datetime to calculate the index of.
+    :param index_datetime: Datetime of which to calculate the index.
     :type index_datetime: datetime
     :param frequency: Frequency of index.
     :type frequency: float or int
-    :param offset: Optional offset of the parameter.
+    :param offset: Optional offset of the parameter in seconds.
     :type offset: float
     :returns: The index of index_datetime relative to start_datetime and frequency.
     '''
     difference = index_datetime - start_datetime
-    return (difference.total_seconds() * frequency) - (offset * frequency)
+    return (difference.total_seconds() - offset) * frequency
 
 
 def is_index_within_slice(index, _slice):
