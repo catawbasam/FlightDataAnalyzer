@@ -437,6 +437,10 @@ class TakeoffPeakAcceleration(KeyTimeInstanceNode):
 
 
 class Liftoff(KeyTimeInstanceNode):
+    '''
+    This checks for the moment when the inertial rate of climb increases
+    through 200fpm, within 2 seconds of the nominal liftoff point.
+    '''
     @classmethod
     def can_operate(cls, available):
         return 'Airborne' in available

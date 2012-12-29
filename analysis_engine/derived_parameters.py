@@ -3273,7 +3273,9 @@ class CoordinatesSmoothed(object):
                 # No localizer in this approach
                 
                 if precise:
-                    pass
+                    # Without an ILS we can do no better than copy the prepared arrray data forwards.
+                    lat_adj[this_app_slice] = lat.array[this_app_slice]
+                    lon_adj[this_app_slice] = lon.array[this_app_slice]
                 else:
                     # Adjust distance units
                     distances = app_range.array[this_app_slice]
@@ -3325,8 +3327,8 @@ class CoordinatesSmoothed(object):
                                                             hdg, 
                                                             freq)
                     
-                lat_adj[join_idx:] = lat_in
-                lon_adj[join_idx:] = lon_in
+                    lat_adj[join_idx:] = lat_in
+                    lon_adj[join_idx:] = lon_in
    
         return lat_adj, lon_adj
 
@@ -3336,7 +3338,7 @@ class LatitudeSmoothed(DerivedParameterNode, CoordinatesSmoothed):
     From a prepared Latitude parameter, which may have been created by
     straightening out a recorded latitude data set, or from an estimate using
     heading and true airspeed, we now match the data to the available runway
-    data. (Airspeed is used in preference to groundspeed so that the
+    data. (Airspeed is included as an alternative to groundspeed so that the
     algorithm has wider applicability).
     
     Where possible we use ILS data to make the landing data as accurate as
@@ -3345,6 +3347,12 @@ class LatitudeSmoothed(DerivedParameterNode, CoordinatesSmoothed):
     
     Once these sections have been created, the parts are 'stitched' together
     to make a complete latitude trace.
+    
+    The first parameter in the derive method is heading_continuous, which is
+    always available and which should always have a sample rate of 1Hz. This
+    ensures that the resulting computations yield a smoothed track with 1Hz
+    spacing, even if the recorded latitude and longitude have only 0.25Hz
+    sample rate.
     """
         
     # List the minimum acceptable parameters here
@@ -3359,12 +3367,12 @@ class LatitudeSmoothed(DerivedParameterNode, CoordinatesSmoothed):
     
     units = 'deg'
     
-    def derive(self, lon = P('Longitude Prepared'),
+    def derive(self, head_mag=P('Heading Continuous'),
+               lon = P('Longitude Prepared'),
                lat = P('Latitude Prepared'),
                ils_loc = P('ILS Localizer'),
                app_range = P('Approach Range'),
                hdg = P('Heading True Continuous'),
-               head_mag=P('Heading Continuous'),
                gspd = P('Groundspeed'),
                tas = P('Airspeed True'),
                precise =A('Precise Positioning'),
@@ -3399,12 +3407,12 @@ class LongitudeSmoothed(DerivedParameterNode, CoordinatesSmoothed):
     
     units = 'deg'
     
-    def derive(self, lat = P('Latitude Prepared'),
+    def derive(self, head_mag=P('Heading Continuous'),
+               lat = P('Latitude Prepared'),
                lon = P('Longitude Prepared'),
                ils_loc = P('ILS Localizer'),
                app_range = P('Approach Range'),
                hdg = P('Heading True Continuous'),
-               head_mag=P('Heading Continuous'),
                gspd = P('Groundspeed'),
                tas = P('Airspeed True'),
                precise =A('Precise Positioning'),
@@ -3705,9 +3713,11 @@ class LongitudePrepared(DerivedParameterNode, CoordinatesStraighten):
                 'Latitude At Landing' in available and \
                 'Longitude At Landing' in available) 
     
-    def derive(self,
+    # Note hdg is alignment master to force 1Hz operation when latitude &
+    # longitude are only recorded at 0.25Hz.
+    def derive(self, hdg=P('Heading True'),
                lat=P('Latitude'), lon=P('Longitude'),
-               tas=P('Airspeed True'), hdg=P('Heading True'),
+               tas=P('Airspeed True'), 
                lat_lift=KPV('Latitude At Takeoff'),
                lon_lift=KPV('Longitude At Takeoff'),
                lat_land=KPV('Latitude At Landing'),
@@ -3742,10 +3752,11 @@ class LatitudePrepared(DerivedParameterNode, CoordinatesStraighten):
                 'Latitude At Landing' in available and \
                 'Longitude At Landing' in available) 
     
-    # Note order of lat & lon to ensure latitude is alignment master.
-    def derive(self,
+    # Note hdg is alignment master to force 1Hz operation when latitude &
+    # longitude are only recorded at 0.25Hz.
+    def derive(self, hdg=P('Heading True'),
                lat=P('Latitude'),lon=P('Longitude'),
-               tas=P('Airspeed True'), hdg=P('Heading True'),
+               tas=P('Airspeed True'), 
                lat_lift=KPV('Latitude At Takeoff'),
                lon_lift=KPV('Longitude At Takeoff'),
                lat_land=KPV('Latitude At Landing'),
@@ -3882,7 +3893,7 @@ class ThrustReversers(MultistateDerivedParameterNode):
         frame_name = frame.value if frame else None
         
         if frame_name in ['737-4', '737-5', '737-5_NON-EIS', 
-                          '737-6_NON-EIS', '737-i']:
+                          '737-6_NON-EIS', '737-i', '737-300_PTI']:
             all_tr = \
                 e1_lft_dep.array.raw + e1_lft_out.array.raw + \
                 e1_rgt_dep.array.raw + e1_rgt_out.array.raw + \
