@@ -106,8 +106,7 @@ def derive_parameters(hdf, node_mgr, process_order):
         first_dep = next((d for d in deps if d is not None))
 
         # initialise node
-        node = node_class(frequency=first_dep.frequency,
-                          offset=first_dep.offset)
+        node = node_class()
         logger.info("Processing parameter %s", param_name)
         # Derive the resulting value
 
