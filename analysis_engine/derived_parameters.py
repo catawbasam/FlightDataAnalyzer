@@ -943,6 +943,11 @@ class AltitudeSTDSmoothed(DerivedParameterNode):
     name = "Altitude STD Smoothed"
     units = 'ft'
     
+    @classmethod
+    def can_operate(cls, available):
+        if 'Altitude STD' in available:
+            return True
+    
     def derive(self, alt = P('Altitude STD'), frame = A('Frame')):
         
         frame_name = frame.value if frame else None
@@ -2690,10 +2695,16 @@ class Groundspeed(DerivedParameterNode):
     units = 'kts'
     align_to_first_dependency = False
     
-    def derive(self, frame = A('Frame'),
+    @classmethod
+    def can_operate(cls, available):
+        return all_of(('Altitude STD','Groundspeed (1)','Groundspeed (2)'),
+                      available)
+        
+    def derive(self,
                alt = P('Altitude STD'),
                source_A = P('Groundspeed (1)'),
-               source_B = P('Groundspeed (2)')):
+               source_B = P('Groundspeed (2)'),
+               frame = A('Frame')):
         
         frame_name = frame.value if frame else None
         
@@ -3687,6 +3698,11 @@ class VerticalSpeed(DerivedParameterNode):
     '''
 
     units = 'fpm'
+    
+    @classmethod
+    def can_operate(cls, available):
+        if 'Altitude STD Smoothed' in available:
+            return True
 
     def derive(self, alt_std=P('Altitude STD Smoothed'), frame=A('Frame')):
         frame_name = frame.value if frame else None
