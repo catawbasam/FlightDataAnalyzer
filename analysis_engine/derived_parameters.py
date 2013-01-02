@@ -87,6 +87,10 @@ class AccelerationLateralOffsetRemoved(DerivedParameterNode):
     """
     This process attempts to remove datum errors in the lateral accelerometer.
     """
+    @classmethod
+    def can_operate(cls, available):
+        return 'Acceleration Lateral' in available
+    
     units = 'g'
     
     def derive(self, acc=P('Acceleration Lateral'), 
@@ -101,6 +105,10 @@ class AccelerationNormalOffsetRemoved(DerivedParameterNode):
     """
     This process attempts to remove datum errors in the normal accelerometer.
     """
+    @classmethod
+    def can_operate(cls, available):
+        return 'Acceleration Normal' in available
+    
     units = 'g'
     
     def derive(self, acc=P('Acceleration Normal'), 
@@ -2630,10 +2638,18 @@ class GrossWeightSmoothed(DerivedParameterNode):
                 gw_all.append(gross_wt)
                 to_burn_all.append(fuel_wt)
             
-                # Skip values which are within Climbing or Descending phases.
-                if any([is_index_within_slice(gw_index, c.slice) for c in climbs]) or \
-                   any([is_index_within_slice(gw_index, d.slice) for d in descends]):
+                # Ignore taxi phases where the data may be meaningless, and
+                # this inherently removes extrapolated data at the end of the
+                # flight.
+                if not any([is_index_within_slice(gw_index, 
+                                                  slice_multiply(f.slice,gw.frequency)) for f in fast]):
                     continue
+
+                # Skip values which are within Climbing or Descending phases.
+                if any([is_index_within_slice(gw_index, slice_multiply(c.slice,gw.frequency)) for c in climbs]) or \
+                   any([is_index_within_slice(gw_index, slice_multiply(d.slice,gw.frequency)) for d in descends]):
+                    continue
+
                 to_burn_valid.append(fuel_wt)
                 gw_valid.append(gross_wt)
         
@@ -3444,7 +3460,11 @@ class LongitudeSmoothed(DerivedParameterNode, CoordinatesSmoothed):
     """
     See Latitude Smoothed for notes.
     """
-    # List the minimum acceptable parameters here
+    
+    units = 'deg'
+    ##align_frequency = 1.0
+    ##align_offset = 0.0
+    
     @classmethod
     def can_operate(cls, available):
         return 'Latitude Prepared' in available and \
@@ -3453,8 +3473,6 @@ class LongitudeSmoothed(DerivedParameterNode, CoordinatesSmoothed):
                'Heading Continuous' in available and \
                'Airspeed True' in available and \
                'FDR Approaches' in available
-    
-    units = 'deg'
     
     def derive(self, lat = P('Latitude Prepared'),
                lon = P('Longitude Prepared'),
