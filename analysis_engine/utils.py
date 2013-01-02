@@ -34,7 +34,7 @@ def derived_trimmer(hdf_path, node_names, dest):
         _graph = graph_nodes(node_mgr)
         for node_name in node_names:
             deps = dependencies3(_graph, node_name, node_mgr)
-            params.extend(filter(lambda d: d in node_mgr.lfl, deps))
+            params.extend(filter(lambda d: d in node_mgr.hdf_keys, deps))
     return strip_hdf(hdf_path, params, dest) 
 
 

@@ -680,7 +680,6 @@ class TestFast(unittest.TestCase):
     #def test_fast_phase_with_masked_data(self): # These tests were removed.
     #We now use Airspeed For Flight Phases which has a repair mask function,
     #so this is not applicable.
-        
 
 class TestGrounded(unittest.TestCase):
     def test_can_operate(self):

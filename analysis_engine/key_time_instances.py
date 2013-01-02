@@ -1,6 +1,7 @@
 import numpy as np
 
-from analysis_engine.library import (find_edges_on_state_change,
+from analysis_engine.library import (coreg,
+                                     find_edges_on_state_change,
                                      hysteresis, 
                                      index_at_value,
                                      is_index_within_slice,
@@ -246,9 +247,13 @@ class GoAround(KeyTimeInstanceNode):
                alt_aal=P('Altitude AAL For Flight Phases'),
                alt_rad=P('Altitude Radio')):
         for dlc in dlcs:
-            if alt_rad:
+            # The try:except structure is used to cater for both cases where
+            # a radio altimeter is not fitted, and where the altimeter data
+            # is out of range, hence masked, at the lowest point of the
+            # go-around.
+            try:
                 pit = np.ma.argmin(alt_rad.array[dlc.slice])
-            else:
+            except:
                 pit = np.ma.argmin(alt_aal.array[dlc.slice])
             self.create_kti(pit+dlc.start_edge)
 
@@ -377,9 +382,9 @@ class TakeoffAccelerationStart(KeyTimeInstanceNode):
     '''
     The start of the takeoff roll is ideally computed from the forwards
     acceleration down the runway, but a quite respectable "backstop" is
-    available from the point where the airspeed starts to increase. This
-    allows for aircraft either with a faulty sensor, or no longitudinal
-    accelerometer.
+    available from the point where the airspeed starts to increase (providing
+    this is from an analogue source). This allows for aircraft either with a
+    faulty sensor, or no longitudinal accelerometer.
     '''
     # List the minimum acceptable parameters here
     @classmethod
@@ -405,15 +410,18 @@ class TakeoffAccelerationStart(KeyTimeInstanceNode):
                                                takeoff.slice)
             
             if start_accel is None:
-                # A quite respectable "backstop" is from the rate of change
-                # of airspeed. We use this if the acceleration is not
-                # available or if, for any reason, the previous computation
-                # failed.
-                pc = peak_curvature(speed.array[takeoff.slice])
-                if pc:
-                    start_accel = pc + takeoff.slice.start
-                else:
-                    pass
+                '''
+                A quite respectable "backstop" is from the rate of change of
+                airspeed. We use this if the acceleration is not available or
+                if, for any reason, the previous computation failed.
+                Originally we used the peak_curvature algorithm to identify
+                where the airspeed started to increase, but when values lower
+                than a threshold were masked this ceased to work (the "knee"
+                is masked out) and so the extrapolated airspeed was adopted.
+                '''
+                #pc = peak_curvature(speed.array[takeoff.slice])
+                p,m,c = coreg(speed.array[takeoff.slice])
+                start_accel = takeoff.slice.start -c/m
 
             if start_accel is not None:
                 self.create_kti(start_accel)
@@ -433,6 +441,10 @@ class TakeoffPeakAcceleration(KeyTimeInstanceNode):
 
 
 class Liftoff(KeyTimeInstanceNode):
+    '''
+    This checks for the moment when the inertial rate of climb increases
+    through 200fpm, within 2 seconds of the nominal liftoff point.
+    '''
     @classmethod
     def can_operate(cls, available):
         return 'Airborne' in available
@@ -506,6 +518,12 @@ class TouchAndGo(KeyTimeInstanceNode):
 
 
 class Touchdown(KeyTimeInstanceNode):
+    '''
+    Touchdown is notoriously difficult to identify precisely, and a
+    suggestion from a Boeing engineer was to add a longitudinal acceleration
+    term as there is always an instantaneous drag when the mainwheels touch.
+    Just more development still to do!
+    '''
     # List the minimum acceptable parameters here
     @classmethod
     def can_operate(cls, available):
@@ -546,8 +564,8 @@ class Touchdown(KeyTimeInstanceNode):
                     if not wow or edges == []:
                         if roc:
                             index, _ = touchdown_inertial(land, roc, alt)
-                            if index is not None:
-                                self.create_kti(index + land.start_edge)
+                            if index:
+                                self.create_kti(index)
                         else:
                             self.create_kti(index_at_value(alt.array, 0.0, land.slice))
                         '''
@@ -584,11 +602,6 @@ class LandingTurnOffRunway(KeyTimeInstanceNode):
                     landing_turn = start_search + peak_bend
                 else:
                     if fifteen_deg and fifteen_deg < peak_bend:
-
-                        print
-                        print '#### Using 15 deg in preference to peak_bend'
-                        print
-                        
                         landing_turn = start_search + landing_turn
                     else:
                         # No turn, so just use end of landing run.
@@ -615,33 +628,6 @@ class LandingDecelerationEnd(KeyTimeInstanceNode):
                 self.create_kti(end_decel)
             else:
                 self.create_kti(landing.stop_edge)
-
-
-'''
-Landing stopping distance limit points.
-
-The two points computed here are the places on the runway where, using brakes
-only on a surface with medium or poor braking action the aircraft would stop
-furthest down the runway.
-
-class LandingStopLimitPointPoorBraking(KeyTimeInstanceNode):
-    def derive(self, gspd=P('Groundspeed'), landings=S('Landing')):
-        for landing in landings:
-            limit_point, _ = braking_action(gspd, landing, 0.05)
-            self.create_kti(landing.slice.start + limit_point)
-
-class LandingStopLimitPointMediumBraking(KeyTimeInstanceNode):
-    def derive(self, gspd=P('Groundspeed'), landings=S('Landing')):
-        for landing in landings:
-            limit_point, _ = braking_action(gspd, landing, MU_MEDIUM)
-            self.create_kti(landing.slice.start + limit_point)
-
-class LandingStopLimitPointGoodBraking(KeyTimeInstanceNode):
-    def derive(self, gspd=P('Groundspeed'), landings=S('Landing')):
-        for landing in landings:
-            limit_point, _ = braking_action(gspd, landing, MU_GOOD)
-            self.create_kti(landing.slice.start + limit_point)
-'''
 
 
 class AltitudeWhenClimbing(KeyTimeInstanceNode):
@@ -715,23 +701,27 @@ class SecsToTouchdown(KeyTimeInstanceNode):
                 index = touchdown.index - (t * self.frequency)
                 self.create_kti(index, time=t)
 
+            
+#################################################################
+# ILS Established Markers (primarily for development)
 
-class TAWSTooLowTerrainWarning(KeyTimeInstanceNode):
-    name = 'TAWS Too Low Terrain Warning'
-    def derive(self, taws_too_low_terrain=P('TAWS Too Low Terrain')):
-        slices = slices_above(taws_too_low_terrain.array, 1)[1]
-        for too_low_terrain_slice in slices:
-            index = too_low_terrain_slice.start
-            #value = taws_too_low_terrain.array[too_low_terrain_slice.start]
-            self.create_kti(index)
-            
-            
 class LocalizerEstablishedStart(KeyTimeInstanceNode):
-    def derive(self, locs=S('ILS Localizer Established')):
-        for loc in locs:
-            self.create_kti(loc.slice.start)
+    def derive(self, ilss=S('ILS Localizer Established')):
+        for ils in ilss:
+            self.create_kti(ils.slice.start)
 
 class LocalizerEstablishedEnd(KeyTimeInstanceNode):
-    def derive(self, locs=S('ILS Localizer Established')):
-        for loc in locs:
-            self.create_kti(loc.slice.stop)
+    def derive(self, ilss=S('ILS Localizer Established')):
+        for ils in ilss:
+            self.create_kti(ils.slice.stop)
+            
+class GlideslopeEstablishedStart(KeyTimeInstanceNode):
+    def derive(self, ilss=S('ILS Glideslope Established')):
+        for ils in ilss:
+            self.create_kti(ils.slice.start)
+
+
+class GlideslopeEstablishedEnd(KeyTimeInstanceNode):
+    def derive(self, ilss=S('ILS Glideslope Established')):
+        for ils in ilss:
+            self.create_kti(ils.slice.stop)

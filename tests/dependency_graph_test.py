@@ -201,10 +201,10 @@ Node: Start Datetime 	Pre: [] 	Succ: [] 	Neighbors: [] 	Edges: []
         self.assertTrue(pos('Horizontal g Across Track') > pos('Roll'))
         self.assertFalse('Mach' in order) # Mach wasn't requested!
         self.assertFalse('Radio Altimeter' in order)
-        self.assertEqual(len(nodes.lfl), 12)
+        self.assertEqual(len(nodes.hdf_keys), 12)
         self.assertEqual(len(nodes.requested), 4)
         self.assertEqual(len(nodes.derived_nodes), 13)
-        # remove some lfl params to see inactive nodes
+        # remove some hdf params to see inactive nodes
         
     def test_invalid_requirement_raises(self):
         lfl_params = []

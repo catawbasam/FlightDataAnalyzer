@@ -1610,7 +1610,7 @@ class KeyPointValueNode(FormattedNameNode):
                 
 
     def create_kpvs_where_state(self, state, array, hz, phase=None,
-                                min_duration=0.0):
+                                min_duration=0.0, exclude_leading_edge=False):
         '''
         For discrete and multi-state parameters, this detects an event and
         records the duration of each event.
@@ -1630,6 +1630,9 @@ class KeyPointValueNode(FormattedNameNode):
         :param min_duration: An optional minimum duration for the KPV to become
             valid.
         :type min_duration: Float (seconds)
+        :param exclude_leading_edge: excludes conditions where the array starts 
+                      in the state of interest, retaining edge-triggered cases.
+        :param exclude_leading_edge: boolean, default False.
         :name name: Facility for automatically naming the KPV.
         :type name: String
 
@@ -1647,6 +1650,8 @@ class KeyPointValueNode(FormattedNameNode):
                                        subarray.get_state_value(state)))
             for event in events:
                 index = event.start
+                if index==0 and exclude_leading_edge:
+                    continue
                 value = (event.stop - event.start) / hz
                 if value >= min_duration:
                     self.create_kpv(index + start_index, value)
@@ -1720,18 +1725,18 @@ class FlightAttributeNode(Node):
 class NodeManager(object):
     def __repr__(self):
         return 'NodeManager: x%d nodes in total' % (
-            len(self.lfl) + len(self.requested) + len(self.derived_nodes) + 
+            len(self.hdf_keys) + len(self.requested) + len(self.derived_nodes) + 
             len(self.aircraft_info) + len(self.achieved_flight_record))
     
-    def __init__(self, start_datetime, lfl, requested, derived_nodes,
+    def __init__(self, start_datetime, hdf_keys, requested, derived_nodes,
                  aircraft_info, achieved_flight_record):
         """
         Storage of parameter keys and access to derived nodes.
         
         :param start_datetime: datetime of start of data file
         :type start_datetime: datetime
-        :param lfl: List of parameter names in data file defined by the LFL.
-        :type lfl: [str]
+        :param hdf_keys: List of parameter names in data file defined by the LFL.
+        :type hdf_keys: [str]
         :type requested: [str]
         :type derived_nodes: dict
         :type aircraft_info: dict
@@ -1742,7 +1747,7 @@ class NodeManager(object):
         non_empty = lambda x: {k: v for k, v in x.items() if v is not None}
 
         self.start_datetime = start_datetime
-        self.lfl = lfl
+        self.hdf_keys = hdf_keys
         self.requested = requested
         self.derived_nodes = derived_nodes
         # Attributes:
@@ -1754,10 +1759,10 @@ class NodeManager(object):
         :returns: Ordered list of all Node names stored within the manager.
         :rtype: list of str
         """
-        return sorted(list(set(['Start Datetime'] \
-                               + self.lfl \
-                               + self.derived_nodes.keys() \
-                               + self.aircraft_info.keys() \
+        return sorted(list(set(['Start Datetime']
+                               + self.hdf_keys
+                               + self.derived_nodes.keys()
+                               + self.aircraft_info.keys()
                                + self.achieved_flight_record.keys())))
 
     def get_attribute(self, name):
@@ -1792,7 +1797,7 @@ class NodeManager(object):
         :returns: Result of Operational test on parameter.
         :rtype: bool
         """
-        if name in self.lfl \
+        if name in self.hdf_keys \
              or self.aircraft_info.get(name) is not None \
              or self.achieved_flight_record.get(name) is not None \
              or name == 'root'\

@@ -862,6 +862,17 @@ class TestKeyPointValueNode(unittest.TestCase):
                          [KeyPointValue(index=5, value=3, name='Kpv'),
                           KeyPointValue(index=11, value=6, name='Kpv')])
 
+    def test_create_kpvs_where_state_excluding_front_edge(self):
+        knode = self.knode
+        array = np.ma.array([0.0] * 20, dtype=float)
+        array[:8] = 1.0
+        array[11:17] = 1.0
+        mapping = {0: 'Down', 1: 'Up'}
+        param = P('Disc', MappedArray(array, values_mapping=mapping))
+        knode.create_kpvs_where_state('Up', param.array, param.hz, exclude_leading_edge=True)
+        self.assertEqual(list(knode),
+                         [KeyPointValue(index=11, value=6, name='Kpv')])
+
     def test_create_kpvs_where_state_different_frequency(self):
         knode = self.knode
         array = np.ma.array([0.0] * 20, dtype=float)
