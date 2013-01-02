@@ -220,7 +220,6 @@ def can_operate(cls, available):
         :returns: self after having aligned dependencies and called derive.
         :rtype: self
         """
-        master_param = None # renamed from first_dep
         dependencies_to_align = [d for d in args if d is not None and d.frequency]
         if dependencies_to_align and self.align:
             
@@ -248,36 +247,7 @@ def can_operate(cls, available):
                 if arg in dependencies_to_align:
                     # override argument in list in-place
                     args[index] = arg.get_aligned(self)
-            
-            
-            ##if self.align_to_frequency:
-                ##first_dep = Node(frequency=self.align_to_frequency)
-            ##else:
-                ##first_dep = dependencies_to_align.pop(0)
-            ##self.frequency = first_dep.frequency
-            ##self.offset = first_dep.offset
-                
-            ##if (dependencies_to_align and
-                ##(self.align_to_first_dependency or self.align_to_frequency)):
-                ##for index, arg in enumerate(args):
-                    ##if arg in dependencies_to_align:
-                        ### override argument in list in-place
-                        ##args[index] = arg.get_aligned(first_dep)
-            
-            
-            #if self.align_to_first_dependency:
-                #first_dep = dependencies_to_align.pop(0)
-                ##i, first_dep = next(((n, a) for n, a in enumerate(args) if \
-                ##a is not None and a.frequency))
-            #elif self.align_to_frequency:
-                #first_dep = Node(frequency=self.align_to_frequency)
-            #if first_dep:
-                #self.frequency = first_dep.frequency
-                #self.offset = first_dep.offset                
-                #for index, arg in enumerate(args):
-                    #if arg in dependencies_to_align:
-                        ## override argument in list in-place
-                        #args[index] = arg.get_aligned(first_dep)
+
         res = self.derive(*args)
         if res is NotImplemented:
             raise NotImplementedError("Class '%s' derive method is not implemented." % \
