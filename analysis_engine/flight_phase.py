@@ -851,6 +851,11 @@ class LandingRoll(FlightPhaseNode):
     
     "CAA to go with T/D to 60 knots with the T/D defined as less than 2 deg
     pitch (after main gear T/D)."
+    
+    The complex index_at_value ensures that if the aircraft does not flare to
+    2 deg, we still capture the highest attitude as the start of the landing
+    roll, and the landing roll starts as the aircraft passes 2 deg the last
+    time, i.e. as the nosewheel comes down and not as the flare starts.
     '''
     def derive(self, pitch=P('Pitch'), gspd=P('Groundspeed'), 
                aspd=P('Airspeed True'), lands=S('Landing')):
@@ -859,8 +864,10 @@ class LandingRoll(FlightPhaseNode):
         else:
             speed=aspd.array
         for land in lands:
-            begin = index_at_value(pitch.array, 2.0, land.slice)
             end = index_at_value(speed, 60.0, land.slice)
+            begin = index_at_value(pitch.array, 2.0, 
+                                   slice(end,land.slice.start,-1),
+                                   endpoint='nearest')
             self.create_phase(slice(begin, end), begin=begin, end=end)
     
     

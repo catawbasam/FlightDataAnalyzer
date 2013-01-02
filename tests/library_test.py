@@ -1650,7 +1650,17 @@ class TestIndexAtValue(unittest.TestCase):
         array[23]=np.ma.masked
         array[26]=np.ma.masked
         self.assertEqual(index_at_value(array, 24, slice(20,30)), 24.5)
+        
+    def test_index_at_value_nearest(self):
+        array = np.ma.array([0,1,2,1,2,3,2,1])
+        self.assertEquals (index_at_value(array, 3.1, slice(1, 8), endpoint='nearest'), 5.0)
+        # For comparison...
+        self.assertEquals (index_at_value(array, 3.1, slice(1, 8), endpoint='exact'), None)
+        self.assertEquals (index_at_value(array, 3.1, slice(1, 8), endpoint='closing'), 2.0)
 
+    def test_index_at_value_nearest_backwards(self):
+        array = np.ma.array([0,1,2,3,2,1,2,1])
+        self.assertEquals (index_at_value(array, 3.1, slice(7, 0, -1), endpoint='nearest'), 3.0)
 
 class TestIndexClosestValue(unittest.TestCase):
     def test_index_closest_value(self):

@@ -3981,7 +3981,8 @@ def index_at_value(array, threshold, _slice=slice(None), endpoint='exact'):
     :param endpoint: type of end condition being sought.
     :type endpoint: string 'exact' requires array to pass through the threshold,
     while 'closing' seeks the last point where the array is closing on the 
-    threshold.
+    threshold and 'nearest' seeks the point nearest to the threshold.
+
     :returns: interpolated time when the array values crossed the threshold. (One value only).
     :returns type: Float or None
     '''
@@ -4034,6 +4035,9 @@ def index_at_value(array, threshold, _slice=slice(None), endpoint='exact'):
                 if i == end-1:
                     return end-1
             return i
+        elif endpoint=='nearest':
+            closing_array = abs(array-threshold)
+            return begin + step * np.ma.argmin(closing_array[_slice])
         else:
             return None
 
