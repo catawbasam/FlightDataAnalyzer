@@ -1336,6 +1336,20 @@ def runway_distance_from_end(runway, *args, **kwds):
     else:
         return None
 
+def runway_deviation(array, runway):
+    '''
+    Computes an array of heading deviations from the selected runway centreline.
+    
+    :param array: array of TRUE heading values
+    :type array: Numpy masked array (usually already sliced to relate to the landing in question).
+    :param runway: runway details.
+    :type runway: dict (runway.value if this is taken from an attribute).
+    
+    :returns dev: array of heading deviations
+    :type dev: Numpy masked array.
+    '''
+    dev = (array - runway_heading(runway))%360
+    return np.ma.where(dev>180.0, dev-360.0, dev)
 
 def runway_distances(runway):
     '''
@@ -1675,6 +1689,9 @@ def ground_track_precise(lat, lon, speed, hdg, frequency, mode):
     :Invalid mode fails with ValueError
     :Mismatched array lengths fails with ValueError
     """
+    # Build arrays to return the computed track.
+    lat_return = np_ma_masked_zeros_like(lat)
+    lon_return = np_ma_masked_zeros_like(lat)
     
     # We are going to extend the lat/lon_fix point by the length of the gspd/hdg arrays.
     # First check that the gspd/hdg arrays are sensible.
@@ -1685,6 +1702,11 @@ def ground_track_precise(lat, lon, speed, hdg, frequency, mode):
     # the speed was over 1kn, to stop the aircraft appearing to wander about
     # on the stand.
     track_edges = np.ma.flatnotmasked_edges(np.ma.masked_less(speed, 1.0))
+    
+    # In cases where the data starts with no useful groundspeed data, throw in the towel now.
+    if track_edges==None:
+        return lat_return, lon_return, 0.0
+    
     # Increment to allow for Python indexing, but don't step over the edge.
     track_edges[1] = min(track_edges[1]+1, len(speed))
     
@@ -1693,10 +1715,10 @@ def ground_track_precise(lat, lon, speed, hdg, frequency, mode):
     elif mode == 'takeoff':
         track_slice=slice(track_edges[0], len(speed))
     else:
-        raise 'unknown mode in gtp_compute_error'
+        raise 'unknown mode in ground_track_precise'
         
     track_slice_length = track_slice.stop - track_slice.start
-    rot = np.ma.abs(rate_of_change_array(hdg[track_slice], frequency))
+    rot = np.ma.abs(rate_of_change_array(hdg[track_slice], frequency, width=8.0))
     straights = np.ma.clump_unmasked(np.ma.masked_greater(rot, 2.0)) # 2deg/sec
     straight_ends = []
     for straight in straights:
@@ -1761,9 +1783,6 @@ def ground_track_precise(lat, lon, speed, hdg, frequency, mode):
     plt.show()
     """
     
-    # Build arrays to return the computed track.
-    lat_return = np_ma_masked_zeros_like(lat)
-    lon_return = np_ma_masked_zeros_like(lat)
     if mode == 'takeoff':
         lat_return[track_edges[0]:] = lat_est
         lon_return[track_edges[0]:] = lon_est
@@ -3769,8 +3788,11 @@ def touchdown_inertial(land, roc, alt):
     # point. Note that this may differ slightly from the touchdown measured
     # using wheel switches.
     index = index_at_value(sm_ht, 0.0)
-    roc_tdn = my_roc[index]  #WARNING: If index is None, roc_tdn will not filter array
-    return index, roc_tdn
+    if index:
+        roc_tdn = my_roc[index]
+        return index + startpoint, roc_tdn
+    else:
+        return None, None
 
 
 def track_linking(pos, local_pos):
@@ -3985,7 +4007,8 @@ def index_at_value(array, threshold, _slice=slice(None), endpoint='exact'):
         raise ValueError('Step length not 1 in index_at_value')
     
     if begin == end:
-        raise ValueError('No range for seek function to scan across')
+        logger.warning('No range for seek function to scan across')
+        return None
     elif abs(begin - end) < 2:
         # Requires at least two values to find if the array crosses a
         # threshold.

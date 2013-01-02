@@ -1610,7 +1610,7 @@ class KeyPointValueNode(FormattedNameNode):
                 
 
     def create_kpvs_where_state(self, state, array, hz, phase=None,
-                                min_duration=0.0):
+                                min_duration=0.0, exclude_leading_edge=False):
         '''
         For discrete and multi-state parameters, this detects an event and
         records the duration of each event.
@@ -1630,6 +1630,9 @@ class KeyPointValueNode(FormattedNameNode):
         :param min_duration: An optional minimum duration for the KPV to become
             valid.
         :type min_duration: Float (seconds)
+        :param exclude_leading_edge: excludes conditions where the array starts 
+                      in the state of interest, retaining edge-triggered cases.
+        :param exclude_leading_edge: boolean, default False.
         :name name: Facility for automatically naming the KPV.
         :type name: String
 
@@ -1647,6 +1650,8 @@ class KeyPointValueNode(FormattedNameNode):
                                        subarray.get_state_value(state)))
             for event in events:
                 index = event.start
+                if index==0 and exclude_leading_edge:
+                    continue
                 value = (event.stop - event.start) / hz
                 if value >= min_duration:
                     self.create_kpv(index + start_index, value)

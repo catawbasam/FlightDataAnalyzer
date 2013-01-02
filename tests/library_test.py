@@ -2833,7 +2833,19 @@ class TestRunwayDistances(unittest.TestCase):
         self.assertAlmostEqual(result[3],60.3, places=1)
         self.assertAlmostEqual(result[4],5.22, places=2)
 
+class TestRunwayDeviation(unittest.TestCase):
+    # Reminder: def runway_deviation(array, runway):
+    def test_runway_deviation(self):
+        runway =  {'end': {'latitude': 60.280151, 
+                           'longitude': 5.222579}, 
+                   'start': {'latitude': 60.30662494, 
+                             'longitude': 5.21370074}}
+        head=np.ma.array([170.568, 180.568, 160.568, 3050.568, -1269.432])
+        expected=np.ma.array([0.0, 10.0, -10.0, 0.0, 0.0])
+        result = runway_deviation(head, runway)
+        np.testing.assert_array_almost_equal(result, expected, decimal=2)
 
+    
 class TestRunwayHeading(unittest.TestCase):
     # This test case uses data for Bergen and has been checked against
     # Google Earth measurements for reasonable accuracy.

@@ -96,6 +96,11 @@ class GoAroundAndClimbout(FlightPhaseNode):
     lowest point of the go-around, and that it lies below the 3000ft
     approach thresholds. The function here is to expand the phase 500ft in
     either direction.
+    
+    TODO:
+    A future development may see this reworked to use cycle finder (see
+    Altitude AAL) which can be tailored to accommodate small reversals in
+    altitude.
     '''
     def derive(self, descend=P('Descend For Flight Phases'),
                climb = P('Climb For Flight Phases'),
@@ -106,7 +111,7 @@ class GoAroundAndClimbout(FlightPhaseNode):
             back_up = descend.array - descend.array[ga.index - 1]
             ga_start = index_closest_value(back_up, 500,
                                            slice(ga.index,None, -1))
-            ga_stop = index_closest_value(climb.array, 500,
+            ga_stop = index_closest_value(climb.array, 2000,
                                           slice(ga.index, None))
             ga_slice.append(slice(ga_start, ga_stop))
         self.create_phases(ga_slice)
@@ -838,6 +843,27 @@ class Landing(FlightPhaseNode):
             self.create_phases([slice(landing_begin, landing_end)])
 
 
+class LandingRoll(FlightPhaseNode):
+    '''
+    FDS developed this node to support the UK CAA Significant Seven
+    programme. This phase is used when computing KPVs relating to the
+    deceleration phase of the landing. 
+    
+    "CAA to go with T/D to 60 knots with the T/D defined as less than 2 deg
+    pitch (after main gear T/D)."
+    '''
+    def derive(self, pitch=P('Pitch'), gspd=P('Groundspeed'), 
+               aspd=P('Airspeed True'), lands=S('Landing')):
+        if gspd:
+            speed=gspd.array
+        else:
+            speed=aspd.array
+        for land in lands:
+            begin = index_at_value(pitch.array, 2.0, land.slice)
+            end = index_at_value(speed, 60.0, land.slice)
+            self.create_phase(slice(begin, end), begin=begin, end=end)
+    
+    
 class Takeoff(FlightPhaseNode):
     """
     This flight phase starts as the aircraft turns onto the runway and ends
@@ -904,13 +930,21 @@ class Takeoff(FlightPhaseNode):
 
 class TakeoffRoll(FlightPhaseNode):
     '''
-    Sub-phase primarily for use by the correlation tests
+    Sub-phase originally written for the correlation tests but has found use
+    in the takeoff KPVs where we are interested in the movement down the
+    runway, not the turnon or liftoff.
     '''
-    def derive(self, lifts = S('Liftoff'), toffs = S('Takeoff')):
+    def derive(self, toffs=S('Takeoff'), 
+               acc_starts=KTI('Takeoff Acceleration Start'),
+               pitch=P('Pitch')):
         for toff in toffs:
-            for lift in lifts:
-                if is_index_within_slice(lift.index, toff.slice):
-                    self.create_phase(slice(toff.slice.start, lift.index))
+            begin = toff.slice.start # Default if acceleration term not available.
+            if acc_starts: # We don't bother with this for data validation, hence the conditional
+                for acc_start in acc_starts:
+                    if is_index_within_slice(acc_start.index, toff.slice):
+                        begin = acc_start.index
+            two_deg_idx = index_at_value(pitch.array, 2.0, toff.slice)
+            self.create_phase(slice(begin, two_deg_idx))
 
 
 class TakeoffRotation(FlightPhaseNode):
