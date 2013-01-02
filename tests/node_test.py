@@ -202,22 +202,23 @@ class TestNode(unittest.TestCase):
         self.assertEqual(node.offset, 0.5)
         node.derive.assert_called_with(1, 2)
         
-        class AlignedToFrequencyNode(Node):
+        class AlignedToFrequencyOffsetNode(Node):
             align = True
             align_frequency = 4
+            align_offset = 0
             def derive(self, kwarg1=param1, kwarg2=param2):
                 pass
-        node = AlignedToFrequencyNode()
+        node = AlignedToFrequencyOffsetNode()
         node.derive = mock.Mock()
         node.derive.return_value = None
         param1, param2 = get_mock_params()
         derived_parameter = node.get_derived([param1, param2])
         self.assertEqual(param1.get_aligned.call_args[0][0].frequency, 4)
-        self.assertEqual(param1.get_aligned.call_args[0][0].offset, 0.5)
+        self.assertEqual(param1.get_aligned.call_args[0][0].offset, 0)
         self.assertEqual(param2.get_aligned.call_args[0][0].frequency, 4)
-        self.assertEqual(param2.get_aligned.call_args[0][0].offset, 0.5)
+        self.assertEqual(param2.get_aligned.call_args[0][0].offset, 0)
         self.assertEqual(node.frequency, 4)
-        self.assertEqual(node.offset, 0.5)
+        self.assertEqual(node.offset, 0)
         
         
         
