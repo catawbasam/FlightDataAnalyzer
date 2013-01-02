@@ -4,6 +4,10 @@ from scipy import optimize
 import logging
 
 from math import ceil, floor, sqrt, sin, cos, atan2, radians
+from math import acos,asin,tan  
+from math import degrees as deg, radians as rad  
+from datetime import date,datetime,time  
+
 from collections import OrderedDict, namedtuple
 from datetime import datetime, timedelta
 from hashlib import sha256
@@ -254,6 +258,10 @@ def align(slave, master, data_type=None):
     
     # Here we create a masked array to hold the returned values that will have 
     # the same sample rate and timing offset as the master
+    len_aligned = int(len(slave_array) * r)
+    if len_aligned != (len(slave_array)*r):
+        raise ValueError("Array length problem in align. Probable cause is flight cutting not at superframe boundary")
+    
     slave_aligned = np.ma.empty(len(slave_array) * r)
 
     # Each sample in the master parameter may need different combination parameters
@@ -1328,6 +1336,20 @@ def runway_distance_from_end(runway, *args, **kwds):
     else:
         return None
 
+def runway_deviation(array, runway):
+    '''
+    Computes an array of heading deviations from the selected runway centreline.
+    
+    :param array: array of TRUE heading values
+    :type array: Numpy masked array (usually already sliced to relate to the landing in question).
+    :param runway: runway details.
+    :type runway: dict (runway.value if this is taken from an attribute).
+    
+    :returns dev: array of heading deviations
+    :type dev: Numpy masked array.
+    '''
+    dev = (array - runway_heading(runway))%360
+    return np.ma.where(dev>180.0, dev-360.0, dev)
 
 def runway_distances(runway):
     '''
@@ -1667,6 +1689,9 @@ def ground_track_precise(lat, lon, speed, hdg, frequency, mode):
     :Invalid mode fails with ValueError
     :Mismatched array lengths fails with ValueError
     """
+    # Build arrays to return the computed track.
+    lat_return = np_ma_masked_zeros_like(lat)
+    lon_return = np_ma_masked_zeros_like(lat)
     
     # We are going to extend the lat/lon_fix point by the length of the gspd/hdg arrays.
     # First check that the gspd/hdg arrays are sensible.
@@ -1677,6 +1702,11 @@ def ground_track_precise(lat, lon, speed, hdg, frequency, mode):
     # the speed was over 1kn, to stop the aircraft appearing to wander about
     # on the stand.
     track_edges = np.ma.flatnotmasked_edges(np.ma.masked_less(speed, 1.0))
+    
+    # In cases where the data starts with no useful groundspeed data, throw in the towel now.
+    if track_edges==None:
+        return lat_return, lon_return, 0.0
+    
     # Increment to allow for Python indexing, but don't step over the edge.
     track_edges[1] = min(track_edges[1]+1, len(speed))
     
@@ -1685,10 +1715,10 @@ def ground_track_precise(lat, lon, speed, hdg, frequency, mode):
     elif mode == 'takeoff':
         track_slice=slice(track_edges[0], len(speed))
     else:
-        raise 'unknown mode in gtp_compute_error'
+        raise 'unknown mode in ground_track_precise'
         
     track_slice_length = track_slice.stop - track_slice.start
-    rot = np.ma.abs(rate_of_change_array(hdg[track_slice], frequency))
+    rot = np.ma.abs(rate_of_change_array(hdg[track_slice], frequency, width=8.0))
     straights = np.ma.clump_unmasked(np.ma.masked_greater(rot, 2.0)) # 2deg/sec
     straight_ends = []
     for straight in straights:
@@ -1700,7 +1730,8 @@ def ground_track_precise(lat, lon, speed, hdg, frequency, mode):
 
     # unable to proceed if we have no straight ends
     if len(straight_ends) <= 2:
-        raise ValueError('Ground_track_precise needs at least two curved sections to operate.')
+        logger.warning('Ground_track_precise needs at least two curved sections to operate.')
+        return None, None, None
 
     # Initialize the weights for no change.
     weight_length = len(straight_ends)
@@ -1752,9 +1783,6 @@ def ground_track_precise(lat, lon, speed, hdg, frequency, mode):
     plt.show()
     """
     
-    # Build arrays to return the computed track.
-    lat_return = np_ma_masked_zeros_like(lat)
-    lon_return = np_ma_masked_zeros_like(lat)
     if mode == 'takeoff':
         lat_return[track_edges[0]:] = lat_est
         lon_return[track_edges[0]:] = lon_est
@@ -3760,8 +3788,11 @@ def touchdown_inertial(land, roc, alt):
     # point. Note that this may differ slightly from the touchdown measured
     # using wheel switches.
     index = index_at_value(sm_ht, 0.0)
-    roc_tdn = my_roc[index]  #WARNING: If index is None, roc_tdn will not filter array
-    return index, roc_tdn
+    if index:
+        roc_tdn = my_roc[index]
+        return index + startpoint, roc_tdn
+    else:
+        return None, None
 
 
 def track_linking(pos, local_pos):
@@ -3964,7 +3995,10 @@ def index_at_value(array, threshold, _slice=slice(None), endpoint='exact'):
         left, right = slice(begin,end-1,step), slice(begin+1,end,step)
         
     elif step == -1:
-        begin = min(int(round(_slice.start or max_index)),max_index)
+        begin = min(int(round(_slice.start or max_index)),max_index-1)
+        # Indexing from the end of the array results in an array length
+        # mismatch. There is a failing test to cover this case which may work
+        # with array[:end:-1] construct, but using slices appears insoluble.
         end = max(int(_slice.stop or 0),0)
         left = slice(begin,end,step)
         right = slice(begin-1,end-1 if end>0 else None,step)
@@ -3973,7 +4007,8 @@ def index_at_value(array, threshold, _slice=slice(None), endpoint='exact'):
         raise ValueError('Step length not 1 in index_at_value')
     
     if begin == end:
-        raise ValueError('No range for seek function to scan across')
+        logger.warning('No range for seek function to scan across')
+        return None
     elif abs(begin - end) < 2:
         # Requires at least two values to find if the array crosses a
         # threshold.
@@ -4260,3 +4295,94 @@ def _alt2press_ratio_isothermal(H):
     # FIXME: FloatingPointError: overflow encountered in exp
     return 0.223361 * np.ma.exp((36089.0-H)/20806.0)
 
+def is_day(when, latitude, longitude, twilight='civil'):
+    """
+    This simple function takes the date, time and location of any point on
+    the earth and return True for day and False for night.
+
+    :param when: Date and time in datetime format
+    :param longitude: Longitude in decimal degrees, east is positive  
+    :param latitude: Latitude in decimal degrees, north is positive
+    :param twilight: optional twilight setting. Default='civil', None, 'nautical' or 'astronomical'.
+    
+    :raises ValueError if twilight not recognised.
+    
+    :returns boolean True = daytime (including twilight), False = nighttime.
+    
+    This function is drawn from Jean Meeus' Astronomial Algorithms as
+    implemented by Michel J. Anders. In accordance with his Collective
+    Commons license, the reworked function is being released under the OSL
+    3.0 license by FDS as a part of the POLARIS project.
+    
+    For FDM purposes, the actual time of sunrise and sunset is of no
+    interest, so function 12.6 is adapted to give just the day/night
+    decision, with allowance for different, generally recognised, twilight
+    tolerances.
+    
+    FAA Regulation FAR 1.1 defines night as: "Night means the time between
+    the end of evening civil twilight and the beginning of morning civil
+    twilight, as published in the American Air Almanac, converted to local
+    time.
+
+    EASA EU OPS 1 Annex 1 item (76) states: 'night' means the period between
+    the end of evening civil twilight and the beginning of morning civil
+    twilight or such other period between sunset and sunrise as may be
+    porescribed by the appropriate authority, as defined by the Member State;
+    
+    CAA regulations confusingly define night as 30 minutes either side of
+    sunset and sunrise, then include a civil twilight table in the AIP.
+    
+    With these references, it was decided to make civil twilight the default.
+    """
+    day = when.toordinal()-(734124-40529)  
+    t=when.time()  
+    time= (t.hour + t.minute/60.0 + t.second/3600.0)/24.0  
+    # Julian Day
+    Jday     = day+2415019.5 + time
+    # Julian Century
+    Jcent    = (Jday-2451545.0)/36525  # (24.1)
+    # Siderial time at Greenwich (11.4)
+    Gstime = (280.46061837 + 360.98564736629*(Jday-2451545.0) + (0.0003879331-Jcent/38710000) * Jcent * Jcent)%360.0
+    # Geom Mean Long Sun (deg)
+    Mlong    = (280.46645+Jcent*(36000.76983+Jcent*0.0003032))%360 # 24.2 
+    # Geom Mean Anom Sun (deg)
+    Manom    = 357.52910+Jcent*(35999.05030-Jcent*(0.0001559+0.00000048*Jcent)) # 24.3
+    # Eccent Earth Orbit
+    Eccent   = 0.016708617-Jcent*(0.000042037+0.0000001236*Jcent) # 24.4 (significantly changed from web version) 
+    # Sun Eq of Ctr
+    Seqcent  = sin(rad(Manom))*(1.914600-Jcent*(0.004817+0.000014*Jcent))+sin(rad(2*Manom))*(0.019993-0.000101*Jcent)+sin(rad(3*Manom))*0.000290 # p152 
+    # Sun True Long (deg)
+    Struelong= Mlong+Seqcent # Theta on p152  
+    # Mean Obliq Ecliptic (deg)
+    Mobliq   = 23+(26+((21.448-Jcent*(46.815+Jcent*(0.00059-Jcent*0.001813))))/60)/60  # 21.2
+    # Obliq Corr (deg)
+    obliq    = Mobliq + 0.00256*cos(rad(125.04-1934.136*Jcent))  # 24.8
+    # Sun App Long (deg)
+    Sapplong = Struelong-0.00569-0.00478*sin(rad(125.04-1934.136*Jcent)) # Omega, Lambda p 152.  
+    # Sun Declin (deg)
+    declination = deg(asin(sin(rad(obliq))*sin(rad(Sapplong)))) # 24.7
+    # Sun Rt Ascen (deg)
+    rightasc = deg(atan2(cos(rad(Mobliq))*sin(rad(Sapplong)),cos(rad(Sapplong))))
+    
+    elevation = deg(asin(sin(rad(latitude))*sin(rad(declination)) + 
+                    cos(rad(latitude))*cos(rad(declination))*cos(rad(Gstime+longitude-rightasc))))
+
+    # Solar diamteter gives an adjustment of 0.833 deg, as the rim of the sun appears before the centre of the disk.
+    if twilight == None:
+        limit = -0.8333 # Allows for diameter of sun's disk
+    # For civil twilight, allow 6 deg
+    elif twilight == 'civil':
+        limit = -6.0
+    # For nautical twilight, allow 12 deg
+    elif twilight == 'nautical':
+            limit = -12.0
+    # For astronomical twilight, allow 18 deg
+    elif twilight == 'astronomical':
+            limit = -18.0
+    else:
+        raise ValueError ('is_day called with unrecognised twilight zone')
+            
+    if elevation > limit:
+        return True # It is Day
+    else:
+        return False # It is Night

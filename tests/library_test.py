@@ -52,9 +52,7 @@ class TestAirTrack(unittest.TestCase):
         self.assertEqual(lat, None)
         self.assertEqual(lon, None)
 
-
 class TestAlign(unittest.TestCase):
-    
     def test_align_returns_same_array_if_aligned(self):
         slave = P('slave', np.ma.array(range(10)))
         master = P('master', np.ma.array(range(30)))
@@ -95,6 +93,26 @@ class TestAlign(unittest.TestCase):
                                        4.6, 5.6, 6.6000000000000005])
         np.testing.assert_array_equal(result.mask, False)
                 
+    def test_align_value_error_raised(self):
+        class DumParam():
+            def __init__(self):
+                self.data_type = None
+                self.offset = None
+                self.frequency = None
+                self.array = []
+                
+        first = DumParam()
+        first.frequency = 1
+        first.offset = 0.1
+        first.array = np.ma.array(range(3))
+        
+        second = DumParam()
+        second.frequency = 2
+        second.offset = 0.2
+        second.array = np.ma.array(range(5))
+        
+        self.assertRaises(ValueError, align, second, first)
+                    
     def test_align_discrete(self):
         class DumParam():
             def __init__(self):
@@ -432,23 +450,23 @@ class TestAlign(unittest.TestCase):
         expected = [1]*16+[3]*16+[6]*16+[9]*16
         np.testing.assert_array_equal(result.data,expected)
 
-        def test_align_superframe_slave_extreme(self):
-            class DumParam():
-                def __init__(self):
-                    self.data_type = None
-                    self.offset = None
-                    self.frequency = 1
-                    self.offset = 0.0
-                    self.array = []
-            master = DumParam()
-            master.array = np.ma.arange(1024)
-            master.frequency = 8
-            slave = DumParam()
-            slave.array = np.ma.array([1,2])
-            slave.frequency = 1/64.0
-            result = align(slave, master)
-            expected = [1]*512+[2]*512
-            np.testing.assert_array_equal(result.data,expected)
+    def test_align_superframe_slave_extreme(self):
+        class DumParam():
+            def __init__(self):
+                self.data_type = None
+                self.offset = None
+                self.frequency = 1
+                self.offset = 0.0
+                self.array = []
+        master = DumParam()
+        master.array = np.ma.arange(1024)
+        master.frequency = 8
+        slave = DumParam()
+        slave.array = np.ma.array([1,2])
+        slave.frequency = 1/64.0
+        result = align(slave, master)
+        expected = [1]*512+[2]*512
+        np.testing.assert_array_equal(result.data,expected)
 
 
     def test_align_superframes_both(self):
@@ -1559,7 +1577,21 @@ class TestIndexAtValue(unittest.TestCase):
         array = np.ma.arange(4)
         self.assertEquals (index_at_value(array, 3.0, slice(1, 4)), 3.0)
 
-    def test_index_at_value_backwards_to_end(self):
+    #==================================================================
+    # Indexing from the end of the array results in an array length
+    # mismatch. There is a failing test to cover this case which may work
+    # with array[:end:-1] construct, but using slices appears insoluble.
+    def test_index_at_value_backwards_from_the_very_end(self):
+        array = np.ma.arange(8)
+        # this test should pass - see fiddled code
+        # self.assertEquals (index_at_value(array, 8, slice(8, 3, -1)), 8)
+        self.assertEqual(True, False)
+    def test_index_at_value_backwards_from_end_minus_one(self):
+        array = np.ma.arange(8)
+        self.assertEquals (index_at_value(array, 7, slice(8, 3, -1)), 7)
+    #==================================================================
+        
+    def test_index_at_value_backwards_to_start(self):
         array = np.ma.arange(8)
         self.assertEquals (index_at_value(array, 0, slice(5, 0, -1)), 0)
         
@@ -1683,6 +1715,15 @@ class TestInterpolateAndExtend(unittest.TestCase):
                             mask=[0,1,1,0],
                             dtype=float)
         expected = np.ma.array([5, 10, 15, 20])
+        result = interpolate_and_extend(array)
+        np.testing.assert_array_equal(result, expected)
+
+    def test_interpolate_and_extend_masked_end(self):
+        array = np.ma.array(data=[5,0,0,20],
+                            mask=[1,0,1,0],
+                            dtype=float)
+        # array[0] = np.nan
+        expected = np.ma.array([0, 0, 10, 20])
         result = interpolate_and_extend(array)
         np.testing.assert_array_equal(result, expected)
 
@@ -2792,7 +2833,19 @@ class TestRunwayDistances(unittest.TestCase):
         self.assertAlmostEqual(result[3],60.3, places=1)
         self.assertAlmostEqual(result[4],5.22, places=2)
 
+class TestRunwayDeviation(unittest.TestCase):
+    # Reminder: def runway_deviation(array, runway):
+    def test_runway_deviation(self):
+        runway =  {'end': {'latitude': 60.280151, 
+                           'longitude': 5.222579}, 
+                   'start': {'latitude': 60.30662494, 
+                             'longitude': 5.21370074}}
+        head=np.ma.array([170.568, 180.568, 160.568, 3050.568, -1269.432])
+        expected=np.ma.array([0.0, 10.0, -10.0, 0.0, 0.0])
+        result = runway_deviation(head, runway)
+        np.testing.assert_array_almost_equal(result, expected, decimal=2)
 
+    
 class TestRunwayHeading(unittest.TestCase):
     # This test case uses data for Bergen and has been checked against
     # Google Earth measurements for reasonable accuracy.
@@ -3767,6 +3820,72 @@ class TestDpOverP2mach(unittest.TestCase):
         Truth = np.ma.array(data=[0.8, 0.999, 1.0], mask=[False, False, True])
         ma_test.assert_almost_equal(Value,Truth, decimal=3)
 
+class TestIsDay(unittest.TestCase):
+    import datetime
+    
+    # Solstice times for 2012 at Stonehenge.
+    # Sunset on Wednesday 20th June 2012 is at 2126 hrs (9.26pm BST)
+    # Sunrise on Thursday 21st June 2012 is at 0452 hrs (4.52am BST)
+    def test_sunset(self):
+        self.assertEqual(is_day(datetime(2012,6,20,20,25), 51.1789, -1.8264, twilight=None), True)
+        self.assertEqual(is_day(datetime(2012,6,20,20,27), 51.1789, -1.8264, twilight=None), False)
+            
+    def test_sunrise(self):
+        self.assertEqual(is_day(datetime(2012,6,21,03,51), 51.1789, -1.8264, twilight=None), False)
+        self.assertEqual(is_day(datetime(2012,6,21,03,53), 51.1789, -1.8264, twilight=None), True)
+ 
+    def test_location_west(self):
+        # Sunrise over the Goodyear, Az, office on New Year is 07:33 + 7 hours from UTC
+        self.assertEqual(is_day(datetime(2013,1,1,14,32), 33.449291, -112.359015, twilight=None), False)
+        self.assertEqual(is_day(datetime(2013,1,1,14,34), 33.449291, -112.359015, twilight=None), True)
+
+    def test_location_east(self):
+        # Sunrise over Sydney Harbour Bridge is 3 Jan 2013 05:49 -11 hours from UTC
+        self.assertEqual(is_day(datetime(2013,1,2,18,48), -33.85, 151.21, twilight=None), False)
+        self.assertEqual(is_day(datetime(2013,1,2,18,50), -33.85, 151.21, twilight=None), True)
+
+    def test_midnight_sun(self):
+        # July in Bodo is light all night
+        self.assertEqual(is_day(datetime(2013,6,21,0,0),  67.280356,  14.404916, twilight=None), True)
+        
+    def test_midday_gloom(self):
+        # July in Ross Island can be miserable :o(
+        self.assertEqual(is_day(datetime(2013,6,21,0,0), -77.52474, 166.960313, twilight=None), False)
+
+    def test_twilight_libreville(self):
+        # Sunrise on 4 Jun 2012 at Libreville is 06:16. There will be a
+        # partial eclipse on that day visible from Libreville, if you're
+        # interested. Twilight is almost directly proportional to rotation as
+        # this is right on the equator, hence 6 deg = 24 mins.
+        self.assertEqual(is_day(datetime(2013,6,4,05,17), 0.454927, 9.411872, twilight=None), True)
+        self.assertEqual(is_day(datetime(2013,6,4,05,15), 0.454927, 9.411872, twilight=None), False)
+        self.assertEqual(is_day(datetime(2013,6,4,04,54), 0.454927, 9.411872, twilight='civil'), True)
+        self.assertEqual(is_day(datetime(2013,6,4,04,52), 0.454927, 9.411872), False)
+        self.assertEqual(is_day(datetime(2013,6,4,04,29), 0.454927, 9.411872, twilight='nautical'), True)
+        self.assertEqual(is_day(datetime(2013,6,4,04,05), 0.454927, 9.411872, twilight='astronomical'), True)
+
+    def test_uk_aip(self):
+        # These cases are taken from the United Kingdom AIP, page GEN 2.7.1 dated 13 Dec 2012.
+        #Carlisle winter morning
+        lat = 54.0 + 56.0/60.0 + 15.0/3600.0
+        lon = (2.0 + 48.0/60.0 + 33.0/3600.0) * -1.0
+        self.assertEqual(is_day(datetime(2012,1,15,7,43), lat, lon), False)
+        self.assertEqual(is_day(datetime(2012,1,15,7,45), lat, lon), True)
+
+        # Lands End summer evening
+        lat = 50.0 + 6.0/60.0 + 5.0/3600.0
+        lon = (5.0 + 40.0/60.0 + 14.0/3600.0) * -1.0
+        self.assertEqual(is_day(datetime(2012,6,18,21,21), lat, lon), False)
+        self.assertEqual(is_day(datetime(2012,6,18,21,19), lat, lon), True)
+       
+        # Scatsta summer morning
+        lat = 60.0 + 25.0/60.0 + 58.0/3600.0
+        lon = (1.0 + 17.0/60.0 + 46.0/3600.0) * -1.0
+        self.assertEqual(is_day(datetime(2012,6,4,1,10), lat, lon), False)
+        self.assertEqual(is_day(datetime(2012,6,4,1,12), lat, lon), True)
+
+
+     
 
 if __name__ == '__main__':
     suite = unittest.TestSuite()
