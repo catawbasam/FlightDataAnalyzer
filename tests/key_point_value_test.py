@@ -56,6 +56,7 @@ from analysis_engine.key_point_values import (
     AirspeedBetween90SecToTouchdownAndTouchdownMax,
     AirspeedCruiseMax,
     AirspeedCruiseMin,
+    AirspeedGustsDuringFinalApproach,
     AirspeedLevelFlightMax,
     AirspeedMax,
     AirspeedMinusV235To1000FtMax,
@@ -509,6 +510,16 @@ class TestAirspeedWithFlapMax(unittest.TestCase):
            KeyPointValue(index=15, value=15, name='Airspeed With Flap 30 Max'),
            KeyPointValue(index=17, value=17, name='Airspeed With Flap 40 Max')])
 
+
+class TestAirspeedGustsDuringFinalApproach(unittest.TestCase):
+    # This function interpolates twice, hence the more complex test case.
+    def test_basic(self):
+        spd = P('Airspeed', np.ma.array([180,140,100]), frequency=0.5, offset=0.0)
+        alt = P('Altitude Radio', np.ma.array([45,35,25,15,5,0]), frequency=1.0, offset=0.0)
+        kpv=AirspeedGustsDuringFinalApproach()
+        kpv.get_derived([spd,alt])
+        self.assertEqual(kpv[0].value, 40)
+        self.assertEqual(kpv[0].index, 1.25)
 
 class TestAltitudeAtTouchdown(unittest.TestCase, CreateKPVsAtKTIsTest):
     def setUp(self):
@@ -2691,7 +2702,7 @@ class TestHeadingAtLowestPointOnApproach(unittest.TestCase):
         self.assertTrue(False, msg='Test not implemented.')
 
 
-class TestHeadingDeviation500To20Ft(unittest.TestCase):
+class TestHeadingExcursion500To20Ft(unittest.TestCase):
     def test_can_operate(self):
         self.assertTrue(False, msg='Test not implemented.')
         
@@ -2699,7 +2710,7 @@ class TestHeadingDeviation500To20Ft(unittest.TestCase):
         self.assertTrue(False, msg='Test not implemented.')
 
 
-class TestHeadingDeviationOnLandingAbove100Kts(unittest.TestCase):
+class TestHeadingExcursionOnLandingAbove100Kts(unittest.TestCase):
     def test_can_operate(self):
         self.assertTrue(False, msg='Test not implemented.')
         
@@ -2707,7 +2718,7 @@ class TestHeadingDeviationOnLandingAbove100Kts(unittest.TestCase):
         self.assertTrue(False, msg='Test not implemented.')
 
 
-class TestHeadingDeviationOnTakeoffAbove100Kts(unittest.TestCase):
+class TestHeadingExcursionOnTakeoffAbove100Kts(unittest.TestCase):
     def test_can_operate(self):
         self.assertTrue(False, msg='Test not implemented.')
         
@@ -2715,7 +2726,7 @@ class TestHeadingDeviationOnTakeoffAbove100Kts(unittest.TestCase):
         self.assertTrue(False, msg='Test not implemented.')
 
 
-class TestHeadingDeviationTouchdownPlus4SecTo60Kts(unittest.TestCase):
+class TestHeadingExcursionTouchdownPlus4SecTo60Kts(unittest.TestCase):
     def test_can_operate(self):
         self.assertTrue(False, msg='Test not implemented.')
         

@@ -21,6 +21,7 @@ from analysis_engine.library import (ambiguous_runway,
                                      bearings_and_distances,
                                      bump,
                                      clip, 
+                                     clump_multistate,
                                      coreg, 
                                      cycle_counter,
                                      cycle_finder,
@@ -38,13 +39,17 @@ from analysis_engine.library import (ambiguous_runway,
                                      max_value,
                                      min_value, 
                                      repair_mask,
+                                     runway_heading,
                                      runway_length,
                                      np_ma_masked_zeros_like,
                                      peak_curvature,
                                      rate_of_change,
+                                     runway_deviation,
                                      runway_distance_from_end,
+                                     shift_slice,
                                      shift_slices,
                                      slice_samples,
+                                     slices_from_to,
                                      slices_not,
                                      slices_overlap,
                                      slices_and,
@@ -60,7 +65,7 @@ class FlapOrConfigurationMaxOrMin(object):
     '''
     Abstract superclass.
     '''
-    def flap_or_conf_max_or_min(self, conflap, airspeed, function, scope=None):
+    def flap_or_conf_max_or_min(self, conflap, airspeed, function, scope=None, include_zero=False):
         '''
         Generic flap and conf event creation process.
         :param conflap: Conf or Flap data, restricted to detent settings.
@@ -71,6 +76,8 @@ class FlapOrConfigurationMaxOrMin(object):
         :type function: 'max_value' or 'min_value'
         :param scope: Periods to restrict period to be monitored. Essential for minimum speed checks, otherwise all the results relate to taxi periods!
         :type scope: optional list of slices.
+        :param include_zero: option to include zero flap settings. Used for monitoring AOA with clean configuration.
+        :type include_zero: boolean, default = False.
         
         :returns: Nothing. KPVs are created within the routine.
         '''
@@ -85,10 +92,13 @@ class FlapOrConfigurationMaxOrMin(object):
                     int(valid.slice.stop or len(scope_array)) + 1] = False
                 
         for conflap_setting in np.ma.unique(conflap.array):
-            if conflap_setting == 0.0 or \
-               np.ma.is_masked(conflap_setting):
+            if np.ma.is_masked(conflap_setting):
                 # ignore masked values
                 continue
+            if conflap_setting == 0.0 and \
+               include_zero == False:
+                continue
+            
             spd_with_conflap = np.ma.copy(airspeed.array)
             # apply flap mask
             spd_with_conflap.mask = np.ma.mask_or(airspeed.array.mask,
@@ -111,7 +121,7 @@ class FlapOrConfigurationMaxOrMin(object):
 
 
 ################################################################################
-
+# Acceleration
 
 class AccelerationLateralAtTouchdown(KeyPointValueNode):
     '''
@@ -121,6 +131,19 @@ class AccelerationLateralAtTouchdown(KeyPointValueNode):
         for tdwn in tdwns:
             self.create_kpv(*bump(acc, tdwn))
         
+            
+class AccelerationLateralDuringLanding(KeyPointValueNode):
+    '''
+    FDS developed this KPV to support the UK CAA Significant Seven programme.
+    "Excursions - Landing (Lateral)."
+    '''
+    
+    def derive(self, acc=P('Acceleration Lateral Offset Removed'), 
+               land_rolls=S('Landing Roll'), rwy=A('FDR Landing Runway')):
+        if ambiguous_runway(rwy):
+            return
+        self.create_kpv_from_slices(acc.array, land_rolls, max_abs_value)
+
     
 class AccelerationLateralMax(KeyPointValueNode):
     @classmethod
@@ -140,6 +163,17 @@ class AccelerationLateralMax(KeyPointValueNode):
             index, value = max_value(acc_lat.array)
             self.create_kpv(index, value)
     
+    
+class AccelerationLateralTakeoffMax(KeyPointValueNode):
+    '''
+    FDS developed this KPV to support the UK CAA Significant Seven programme.
+    "Excursions - Take-Off (Lateral)"
+    '''
+    def derive(self, acc_lat=P('Acceleration Lateral Offset Removed'), 
+               to_rolls=S('Takeoff Roll')):
+        self.create_kpvs_within_slices(acc_lat.array, to_rolls, max_abs_value)
+
+
 
 class AccelerationLateralTaxiingStraightMax(KeyPointValueNode):
     '''
@@ -296,16 +330,17 @@ class AccelerationNormalOffset(KeyPointValueNode):
 class AccelerationLateralOffset(KeyPointValueNode):
     """
     This KPV computes the lateral accelerometer datum offset, as for
-    AccelerationNormalOffset.
-    
-    TODO: Taxi in straight lines only
-    
+    AccelerationNormalOffset. The more complex slicing statement ensures we
+    only accumulate error estimates when taxiing in a straight line.
     """
-    def derive(self, acc=P('Acceleration Lateral'), taxis=S('Taxiing')):
+    def derive(self, acc=P('Acceleration Lateral'), 
+               taxis=S('Taxiing'), turns=S('Turning On Ground')):
         total_sum = 0.0
         total_count = 0
-        for taxi in taxis:
-            unmasked_data = np.ma.compressed(acc.array[taxi.slice])
+        straights = slices_and([s.slice for s in list(taxis)],
+                               slices_not([s.slice for s in list(turns)]))
+        for straight in straights:
+            unmasked_data = np.ma.compressed(acc.array[straight])
             count = len(unmasked_data)
             if count:
                 total_count += count
@@ -371,6 +406,50 @@ class AirspeedCruiseMin(KeyPointValueNode):
         '''
         '''
         self.create_kpv_from_slices(airspeed.array, cruises, min_value)
+
+
+class AirspeedGustsDuringFinalApproach(KeyPointValueNode):
+    '''
+    FDS developed this KPV to support the UK CAA Significant Seven programme.
+    Excursions - Landing (Lateral). Gusts during flare/final approach. This
+    is tricky. Try Speed variation >15kt 30RA to 10RA. KPV looks at peak to
+    peak values to get change in airspeed. Event uses interpolated RALT
+    samples and looks at the airspeed samples that fall between RALT = 30ft
+    and 10ft. DW suggested that the airspeed samples should also be
+    interpolated in order to be able to estimate airspeed as to close to the
+    ends of the RALT range as possible.
+    '''
+    def derive(self, aspd=P('Airspeed'), gspd=P('Groundspeed'),
+               alt_rad=P('Altitude Radio'), airs=S('Airborne')):
+        _, fin_apps = slices_from_to(alt_rad.array, 30, 10)
+        descents = slices_and([s.slice for s in airs], fin_apps)
+        for descent in descents:
+            # Ensure we encompass the range of interest.
+            scope = slice(descent.start-5, descent.stop+5)
+            # We'd like to use groundspeed to compute the wind gust, but
+            # variations in airspeed are a suitable backstop.
+            if gspd:
+                speed = aspd.array[scope]-gspd.array[scope]
+            else:
+                speed = aspd.array[scope]-aspd.array[scope][0]
+            
+            # Precise indexing is used as this is only a short segment. Note
+            # that the _idx values are floating point interpolations of the
+            # radio altimeter signal, and the speed array is also
+            # interpolated.
+            start_idx = index_at_value(alt_rad.array, 30.0, scope)
+            stop_idx = index_at_value(alt_rad.array, 10.0, scope)
+            new_app = shift_slice(descent, -scope.start)
+            peak = max_value(speed, new_app, 
+                             start_edge=start_idx-scope.start, 
+                             stop_edge=stop_idx-scope.start)
+            trough = min_value(speed, new_app,
+                               start_edge=start_idx-scope.start, 
+                               stop_edge=stop_idx-scope.start)
+            if peak.value and trough.value:
+                value = peak.value - trough.value
+                index = ((peak.index + trough.index) / 2.0) + scope.start
+                self.create_kpv(index, value)
 
 
 ########################################
@@ -1108,6 +1187,31 @@ class AirspeedBelowAltitudeMax(KeyPointValueNode):
                 altitude=altitude,
             )
 
+################################################################################
+# Angle of Attack
+
+class AOAWithFlapMax(KeyPointValueNode, FlapOrConfigurationMaxOrMin):
+    '''
+    FDS developed this KPV to support the UK CAA Significant Seven programme.
+    "Loss of Control. Pitch/Angle of Attack vs stall angles"
+    
+    This is an adaptation of the airspeed algorithm, used to determine peak
+    AOA vs flap. It may not be possible to obtain stalling angle of attack
+    figures to set event thresholds, but a threshold based on in-service data
+    may suffice.
+    '''
+
+    NAME_FORMAT = 'AOA With Flap %(flap)d Max'
+    NAME_VALUES = NAME_VALUES_FLAP
+
+    def derive(self, flap=P('Flap'), aoa=P('AOA'), scope=S('Fast')):
+        '''
+        '''
+        # Fast scope traps flap changes very late on the approach and raising
+        # flaps before 80kn on the landing run.
+        self.flap_or_conf_max_or_min(flap, aoa, max_value, 
+                                     scope=scope, include_zero=True)
+
 
 ################################################################################
 # Airspeed With Flap
@@ -1214,13 +1318,13 @@ class AirspeedRelativeWithFlapDescentMin(KeyPointValueNode, FlapOrConfigurationM
 # Thrust Reversers
 
 
-def thrust_reverser_min_speed(land, pwr, tr):
+def thrust_reversers_working(land, pwr, tr):
     '''
+    Thrust reversers are deployed and average N1 over 65%.
     '''
     high_power = np.ma.clump_unmasked(np.ma.masked_less(pwr.array[land.slice],
                                                         65.0))
-    rev = np.ma.clump_unmasked(np.ma.masked_less(tr.array[land.slice], 0.7))
-    return shift_slices(slices_and(high_power, rev), land.slice.start)
+    return clump_multistate(tr.array, 'Deployed', high_power)
 
 
 class AirspeedThrustReversersDeployedMin(KeyPointValueNode):
@@ -1229,13 +1333,153 @@ class AirspeedThrustReversersDeployedMin(KeyPointValueNode):
 
     name = 'Airspeed With Thrust Reversers Deployed (Over 65% N1) Min'
 
-    def derive(self, speed=P('Airspeed True'), tr=P('Thrust Reversers'),
+    def derive(self, speed=P('Airspeed True'), tr=M('Thrust Reversers'),
                pwr=P('Eng (*) N1 Avg'), lands=S('Landing')):
         '''
         '''
         for land in lands:
-            high_rev = thrust_reverser_min_speed(land, pwr, tr)
+            high_rev = thrust_reversers_working(land, pwr, tr)
             self.create_kpvs_within_slices(speed.array, high_rev, min_value)
+
+class ThrustAsymmetryWithReverseThrust(KeyPointValueNode):
+    '''
+    FDS developed this KPV to support the UK CAA Significant Seven programme.
+    "Excursions - Landing (Lateral) Asymmetric reverse thrust."
+    '''
+    def derive(self, ta=P('Thrust Asymmetry'), tr=M('Thrust Reversers'), 
+               lands=S('Landing')):
+        to_scan = clump_multistate(tr.array, 'Stowed', 
+                                   [s.slice for s in lands],
+                                   condition=False)
+        self.create_kpv_from_slices(to_scan, ta.array, max_value)
+
+
+class ThrustWithReverseThrustInTransit(KeyPointValueNode):
+    '''
+    FDS developed this KPV to support the UK CAA Significant Seven programme.
+    "Excursions - Landing (Lateral) Asymmetric selection or achieved."
+    '''
+    def derive(self, pwr=P('Eng (*) N1 Avg'), tr=M('Thrust Reversers'), 
+               lands=S('Landing')):
+        to_scan = clump_multistate(tr.array, 'In Transit', 
+                                   [s.slice for s in lands])
+        self.create_kpv_from_slices(pwr.array, to_scan, max_value)
+
+
+class TouchdownToThrustReversersDeployedDuration(KeyPointValueNode):
+    '''
+    FDS developed this KPV to support the UK CAA Significant Seven programme.
+    "Excursions - Landing (Lateral) Reverse thrust delay - time delay. 
+    Selection more than 3sec after main wheel t/d."
+    
+    Note: 3 second threshold may be applied to derive an event from this KPV.
+    '''
+    def derive(self, tr=M('Thrust Reversers'),
+               lands = S('Landing'), tdwns=KTI('Touchdown')):
+        for land in lands:
+            deploys = clump_multistate(tr.array, 'Deployed', land.slice)
+            if deploys == []:
+                continue
+            deploy = deploys[0].start # Only interested in first opening of reversers on this landing.
+            for tdwn in tdwns:
+                if not is_index_within_slice(tdwn.index, land.slice):
+                    continue
+                self.create_kpv(deploy, (deploy-tdwn.index)/tr.hz)
+
+
+class TouchdownToSpoilersDeployedDuration(KeyPointValueNode):
+    '''
+    FDS developed this KPV to support the UK CAA Significant Seven programme.
+    "Excursions - Landing (Lateral) Late spoiler deployment - time delay".
+    '''
+    def derive(self, brake=M('Speedbrake Selected'),
+               lands = S('Landing'), tdwns=KTI('Touchdown')):
+        '''
+        '''
+        deploys = find_edges_on_state_change('Deployed/Cmd Up', brake.array, phase=lands)
+        for land in lands:
+            for deploy in deploys:
+                if not is_index_within_slice(deploy, land.slice):
+                    continue
+                for tdwn in tdwns:
+                    if not is_index_within_slice(tdwn.index, land.slice):
+                        continue
+                    self.create_kpv(deploy, (deploy-tdwn.index)/brake.hz)
+
+
+################################################################################
+# Takeoff and Use of TOGA
+
+class GroundspeedAtTOGA(KeyPointValueNode):
+    '''
+    FDS developed this KPV to support the UK CAA Significant Seven programme.
+    "Excursions - Take-Off (Longitudinal), Selection of TOGA late in take-off
+    roll."
+    
+    This KPV measures the groundspeed at the point of TOGA selection,
+    irrespective of whether this is late (or early!).
+    
+    [Note: Takeoff phase is used as this includes turning onto the runway
+    whereas Takeoff Roll only starts after the aircraft is accelerating.]
+    '''
+    
+    def derive(self, gspd=P('Groundspeed'), toga=M('Takeoff And Go Around'),
+               takeoff=S('Takeoff')):
+        indexes = find_edges_on_state_change('TOGA', toga.array, phase=takeoff)
+        for index in indexes:
+            speed = value_at_index(gspd.array, index) # interpolates as required
+            self.create_kpv(index, speed)
+
+
+class TOGASelectedInFlightNotGoAroundDuration(KeyPointValueNode):
+    '''
+    FDS developed this KPV to support the UK CAA Significant Seven programme.
+    "Loss of Control - Unexpected TOGA power selection in flight (except for
+    a go-around)"
+    '''
+    def derive(self, toga=M('Takeoff And Go Around'), gas=S('Go Around And Climbout'),
+               airs=S('Airborne')):
+
+        to_scan=slices_and([s.slice for s in airs],
+                           slices_not([s.slice for s in gas], 
+                                       begin_at=airs[0].slice.start, 
+                                       end_at=airs[-1].slice.stop))
+
+        # The elegant create_kpvs_where_state function requires the phase
+        # information as a section object, hence a couple of lines of glue.
+        # TODO: Make create_kpvs_where_state accept list of slices.
+        not_ga=S()
+        not_ga.create_sections(to_scan, 'Airborne Not Go Around')
+        
+        self.create_kpvs_where_state('TOGA', toga.array, toga.hz, 
+                                     phase=not_ga, exclude_leading_edge=True)
+               
+                           
+
+class LiftoffToClimbPitchDuration(KeyPointValueNode):
+    '''
+    FDS developed this KPV to support the UK CAA Significant Seven programme.
+    "Excursions - Take-Off (Longitudinal), Slow climb out after rotation and
+    slow rotation."
+    
+    This KPV originally used a threshold of 12.5 deg nose up, as suggested by
+    the CAA, however it was found that some corporate operators do not
+    achieve this attitude, so a lower threshold of 10deg was adopted.
+    
+    An endpoint of a minute after liftoff was added to avoid triggering well
+    after the period of interest, and a pre-liftoff extension included for
+    cases which rotate quickly and reach 10deg before liftoff !
+    '''
+    
+    def derive(self, pitch=P('Pitch'),lifts=KTI('Liftoff')):
+        for lift in lifts:
+            pitch_up_idx = index_at_value(pitch.array, 10.0, 
+                                          _slice=slice(lift.index-5*pitch.hz, 
+                                                       lift.index+60.0*pitch.hz))
+            if pitch_up_idx:
+                duration = (pitch_up_idx - lift.index)/pitch.hz
+                self.create_kpv(pitch_up_idx, duration)
+
 
 
 class GroundspeedThrustReversersDeployedMin(KeyPointValueNode):
@@ -1249,7 +1493,7 @@ class GroundspeedThrustReversersDeployedMin(KeyPointValueNode):
         '''
         '''
         for land in lands:
-            high_rev = thrust_reverser_min_speed(land, pwr, tr)
+            high_rev = thrust_reversers_working(land, pwr, tr)
             self.create_kpvs_within_slices(speed.array, high_rev, min_value)
 
 
@@ -1370,22 +1614,22 @@ class AirspeedAtGearDownSelection(KeyPointValueNode):
         self.create_kpvs_at_ktis(airspeed.array, gear_dn_sel)
 
 
+##################################
+# Braking
+
+class BrakePressureInTakeoffRollMax(KeyPointValueNode):
+    '''
+    FDS developed this KPV to support the UK CAA Significant Seven programme.
+    "Excursions - Take off (Lateral)". Primary Brake pressure during ground
+    roll. Could also be applicable to longitudinal excursions on take-off.
+    This is to capture scenarios where the brake is accidentally used when
+    using the rudder (dragging toes on pedals)."
+    '''
+    def derive(self, bp=P('Brake Pressure'), rolls=S('Takeoff Roll')):
+        self.create_kpvs_within_slices(bp.array, rolls, max_value)
+        
+
 ################################################################################
-
-
-'''
-Redundant, as this will either be a go-around, with its minimum, or a landing
-
-class AltitudeAtLowestPointOnApproach(KeyPointValueNode):
-    """
-    The approach phase has been found already. Here we take the height at
-    the lowest point reached in the approach.
-    """
-    def derive(self, alt_aal=P('Altitude AAL'), alt_rad=P('Altitude Radio'), 
-               low_points=KTI('Lowest Point On Approach')):
-        height = minimum_unmasked(alt_aal.array, alt_rad.array)
-        self.create_kpvs_at_ktis(height, low_points)
-        '''
 
 class GenericDescent(KeyPointValueNode):
     '''
@@ -1454,37 +1698,6 @@ class AltitudeAtTouchdown(KeyPointValueNode):
         self.create_kpvs_at_ktis(alt_std.array, touchdowns)
 
 
-class AltitudeAtGoAroundMin(KeyPointValueNode):
-    '''
-    The altitude above the local airfield level at the minimum altitude point
-    of the go-around.
-    
-    Note: This may be less than the radio altimeter reading at this point if
-    there is higher ground in the area of the go-around minimum point.
-    '''
-    @classmethod
-    def can_operate(cls, available):
-        return 'Go Around' in available and 'Altitude AAL' in available
-    
-    def derive(self, alt_aal=P('Altitude AAL'), gas=KTI('Go Around'),
-               alt_rad=P('Altitude Radio')):
-        for ga in gas:
-            self.create_kpv(ga.index, alt_aal.array[ga.index])
-            
-            ## Original code allowed for reporting radio altitdue 
-            ##if alt_rad:
-                ##pit = alt_rad.array[ga.index]
-            ##else:
-                ##pit = alt_aal.array[ga.index]
-            ##self.create_kpv(ga.index, pit)
-            
-
-class AltitudeGoAroundFlapRetracted(KeyPointValueNode):
-    # gafr pinpoints the flap retraction instance within the 500ft go-around window.
-    def derive(self, alt_aal=P('Altitude AAL'), 
-               gafr=KTI('Go Around Flap Retracted')):
-        self.create_kpvs_at_ktis(alt_aal.array,gafr)
-
 
 class AltitudeAtLiftoff(KeyPointValueNode):
     def derive(self, alt_std=P('Altitude STD Smoothed'), liftoffs=KTI('Liftoff')):
@@ -1547,30 +1760,6 @@ class AltitudeAtGearUpSelection(KeyPointValueNode):
         '''
         self.create_kpvs_at_ktis(alt_aal.array, gear_up_sel)
 
-
-class AltitudeAtGAGearUpSelection(KeyPointValueNode):
-    
-    name = 'Altitude Above Go Around Minimum At Gear Up Selection'
-    
-    # gagr pinpoints the gear retraction instance within the 500ft go-around window.
-
-    def derive(self, alt_aal=P('Altitude AAL'), 
-               gas=S('Go Around And Climbout'),
-               gear_ups = KTI('Go Around Gear Selected Up')):
-        for ga in gas:
-            # Find the index and height at this go-around minimum.
-            pit_index = np.ma.argmin(alt_aal.array[ga.slice])
-            pit = alt_aal.array[ga.slice.start + pit_index]
-            for gear_up in gear_ups:
-                # Check this gear selected up matches the go-around in question
-                if is_index_within_slice(gear_up.index, ga.slice):
-                    # Did we raise the gear after the minimum height?
-                    if gear_up.index > pit_index:
-                        gear_up_ht = alt_aal.array[gear_up.index] - pit
-                    else:
-                        # Show zero if selected up before minimum height
-                        gear_up_ht = 0.0
-                    self.create_kpv(gear_up.index,gear_up_ht)
 
 
 class AltitudeAtGearDownSelection(KeyPointValueNode):
@@ -1654,6 +1843,15 @@ class AltitudeAutothrottleDisengaged(KeyPointValueNode):
         self.create_kpvs_at_ktis(alt_aal.array, at_dis)
         
 
+class AutopilotOffInCruiseDuration(KeyPointValueNode):
+    '''
+    This monitors the duration for which all autopilot channels are
+    disengaged in the cruise.
+    '''
+    def derive(self, autopilot=M('AP Engaged'), cruise=S('Cruise')):
+        self.create_kpvs_where_state('-', autopilot.array, 
+                                     autopilot.hz, phase=cruise)
+               
 class ControlColumnStiffness(KeyPointValueNode):
     """
     The control force and displacement of the flying controls should follow a
@@ -1688,6 +1886,82 @@ class ControlColumnStiffness(KeyPointValueNode):
                     self.create_kpv(
                         (speedy.slice.start or 0) + move.start + when, slope)
 
+################################################################################
+# Runway Distances at Takeoff
+
+class DistanceFromLiftoffToRunwayEnd(KeyPointValueNode):
+    '''
+    FDS developed this KPV to support the UK CAA Significant Seven programme.
+    "Excursions - Take-Off (Longitudinal), Runway remaining at rotation"
+    '''
+    
+    units = 'm'
+    
+    def derive(self, lat_lift=KPV('Latitude At Liftoff'),
+               lon_lift=KPV('Longitude At Liftoff'),
+               rwy=A('FDR Takeoff Runway')):
+        if ambiguous_runway(rwy) or not lat_lift:
+            return
+        toff_end = runway_distance_from_end(rwy.value, 
+                                            lat_lift[0].value, 
+                                            lon_lift[0].value)
+        self.create_kpv(lat_lift[0].index, toff_end)
+
+
+class DistanceFromRotationToRunwayEnd(KeyPointValueNode):
+    '''
+    FDS developed this KPV to support the UK CAA Significant Seven programme.
+    "Excursions - Take-Off (Longitudinal), Runway remaining at rotation"
+    '''
+    
+    def derive(self, lat=P('Latitude Smoothed'),
+               lon=P('Longitude Smoothed'),
+               rwy=A('FDR Takeoff Runway'),
+               toff_rolls=S('Takeoff Roll')):
+          
+        if ambiguous_runway(rwy):
+            return
+        for roll in toff_rolls:
+            rot_idx = roll.stop_edge
+            rot_end = runway_distance_from_end(rwy.value, 
+                                                lat.array[rot_idx], 
+                                                lon.array[rot_idx])
+            self.create_kpv(rot_idx, rot_end)
+
+class DecelerationToAbortTakeoffAtRotation(KeyPointValueNode):
+    '''
+    FDS developed this KPV to support the UK CAA Significant Seven programme.
+    "Excursions - Take-Off (Longitudinal), Runway remaining at rotation"
+    '''
+    
+    units = 'g'
+    
+    def derive(self, lat=P('Latitude Smoothed'),
+               lon=P('Longitude Smoothed'),
+               gspd=P('Groundspeed'),
+               aspd=P('Airspeed True'),
+               rwy=A('FDR Takeoff Runway'),
+               toff_rolls=S('Takeoff Roll')):
+          
+        if ambiguous_runway(rwy):
+            return
+        if gspd:
+            speed=gspd.array
+        else:
+            speed=aspd.array
+        for roll in toff_rolls:
+            rot_idx = roll.stop_edge 
+            rot_end = runway_distance_from_end(rwy.value, 
+                                               lat.array[rot_idx], 
+                                               lon.array[rot_idx])
+            
+            lift_speed = value_at_index(speed, rot_idx) * KTS_TO_MPS
+            mu = (lift_speed**2.0) / (2.0 * GRAVITY_METRIC * rot_end)
+            self.create_kpv(rot_idx, mu)
+            
+            
+################################################################################
+# Runway Distances at Landing
 
 class DistancePastGlideslopeAntennaToTouchdown(KeyPointValueNode):
     units = 'm'
@@ -1758,7 +2032,7 @@ class DistanceFromTouchdownToRunwayEnd(KeyPointValueNode):
         self.create_kpv(tdwns.get_last().index, distance_to_tdn)
     
 
-class DecelerationToStopOnRunway(KeyPointValueNode):
+class DecelerationFromTouchdownToStopOnRunway(KeyPointValueNode):
     '''
     This determines the average level of deceleration required to stop the
     aircraft before reaching the end of the runway. It takes into account the
@@ -1804,7 +2078,7 @@ class DecelerationToStopOnRunway(KeyPointValueNode):
                     runway_distance_from_end(rwy.value, 
                                              lat_tdn.get_last().value, 
                                              lon_tdn.get_last().value)
-                speed = gspd.array[index] * KTS_TO_MPS
+                speed = value_at_index(gspd.array,index) * KTS_TO_MPS
                 mu = (speed*speed) / (2.0 * GRAVITY_METRIC * (distance_at_tdn))
                 self.create_kpv(index, mu)
 
@@ -1879,7 +2153,7 @@ class RunwayOverrunWithoutSlowingDuration(KeyPointValueNode):
                 self.create_kpv(limit_point + last_tdwn.index, limit_time)
 
     
-class DistanceFrom60KtToRunwayEnd(KeyPointValueNode):
+class DistanceOnLandingFrom60KtToRunwayEnd(KeyPointValueNode):
     units = 'm'
     def derive(self, gspd=P('Groundspeed'),
                lat=P('Latitude Smoothed'),lon=P('Longitude Smoothed'),
@@ -2067,6 +2341,28 @@ class ILSLocalizerDeviation1000To250FtMax(KeyPointValueNode):
         ils_bands = slices_and(alt_bands, ils_ests.get_slices())
         self.create_kpvs_within_slices(ils_loc.array,ils_bands,max_abs_value)  
 
+
+class ILSLocalizerDeviationAtTouchdown(KeyPointValueNode):
+    '''
+    FDS developed this KPV to support the UK CAA Significant Seven programme.
+    Excursions - Landing (Lateral) Lateral deviation at touchdown from
+    Localiser Tricky to determine how close to runway edge using localiser
+    parameter as there are variable runway widths and different localiser
+    beam centreline error margins for different approach categories. ILS
+    Localizer Deviation At Touchdown Measurements at <2 deg pitch after main
+    gear TD."
+    '''
+    name = 'ILS Localizer Deviation At Touchdown'
+    def derive(self, ils_loc=P('ILS Localizer'), 
+               ils_ests=S('ILS Localizer Established'),
+               lands=S('Landing Roll')):
+        for ils_est in ils_ests:
+            for land in lands:
+                index=land.start_edge
+                if is_index_within_slice(index, ils_est.slice):
+                    deviation=value_at_index(ils_loc.array, index)
+                    self.create_kpv(index, deviation)
+                
 
 class IsolationValveOpenAtLiftoff(KeyPointValueNode):
     def derive(self, isol=P('Isolation Valve Open'), lifts=KTI('Liftoff')):
@@ -2648,16 +2944,19 @@ class EngGasTempMaximumContinuousPowerMax(KeyPointValueNode):
 
 class EngGasTempInFlightMin(KeyPointValueNode):
     '''
+    FDS developed this KPV to support the UK CAA Significant Seven programme.
+    "Loss of Control. In flight engine shut down."
+    
     To detect a possible engine shutdown in flight, we look for the minium
     gas temperature recorded during the flight. The event will then be
     computed later, testing against a suitable minimum value for a running
     engine.
     '''
-    def derive(self, eng_temp_min=P('Eng_GasTempMin'),
+    def derive(self, eng_temp_min=P('Eng (*) Gas Temp Min'),
                airs=S('Airborne')):
         for air in airs:
-            index = np.ma.argmin(eng_temp_min)
-            value = eng_temp_min[index]
+            index = np.ma.argmin(eng_temp_min.array)
+            value = eng_temp_min.array[index]
             self.create_kpv(index, value)
         
     
@@ -3325,58 +3624,99 @@ class HeightOfBouncedLanding(KeyPointValueNode):
         
 
 class HeadingDeviationOnTakeoffAbove80Kts(KeyPointValueNode):
+    
+    name = 'Heading Deviation From CL On Takeoff Above 80 Kts'
+    
     """
-    The heading deviation is measured as the peak-to-peak deviation between
-    80kts airspeed and 5 deg nose pitch up, at which time the weight is
-    clearly off the wheel (we avoid using weight on nosewheel as this is
-    often not recorded). The value is annotated half way between the end
-    conditions.
+    FDS developed this KPV to support the UK CAA Significant Seven programme.
+    "Excursions - Take off (Lateral). Heading changes on runway before rotation
+    commenced. During rotation on some types, the a/c may be allowed to
+    weathercock into wind."
+
+    The heading deviation is measured as the largest deviation from the
+    runway centreline between 80kts airspeed and 5 deg nose pitch up, at
+    which time the weight is clearly coming off the mainwheels (we avoid
+    using weight on nosewheel as this is often not recorded).
     """
-    def derive(self, head=P('Heading Continuous'), airspeed=P('Airspeed'),
-               pitch=P('Pitch'), toffs=S('Takeoff')):
+    def derive(self, head=P('Heading True Continuous'), airspeed=P('Airspeed'),
+               pitch=P('Pitch'), toffs=S('Takeoff'), rwy=A('FDR Takeoff Runway')):
+        
+        if ambiguous_runway(rwy):
+            return
         for toff in toffs:
             start = index_at_value(airspeed.array, 80.0, _slice=toff.slice)
             if not start:
-                self.warning("'%s' did not transition through 100 in '%s' "
+                self.warning("'%s' did not transition through 80 kts in '%s' "
                              "slice '%s'.", airspeed.name, toffs.name,
                              toff.slice)
                 continue
             stop = index_at_value(pitch.array, 5.0, _slice=toff.slice)
             if not stop:
-                self.warning("'%s' did not transition through 5 in '%s' "
+                self.warning("'%s' did not transition through 5 deg in '%s' "
                              "slice '%s'.", pitch.name, toffs.name,
                              toff.slice)
                 continue
-            
-            # Numpy Peak To Peak function used to detect overall swing during
-            # this period.
-            head_dev = np.ma.ptp(head.array[start:stop])
-            self.create_kpv((start + stop) / 2, head_dev)
-    
+            scan=slice(start, stop)
+            dev=runway_deviation(head.array[scan], rwy.value)
+            arg_max_dev = np.ma.argmax(np.ma.abs(dev))
+            val_max_dev = dev[arg_max_dev]
+            self.create_kpv(arg_max_dev+start, val_max_dev)
 
-class HeadingDeviation500To20Ft(KeyPointValueNode):
+
+class HeadingDeviationAtTOGA(KeyPointValueNode):
+    
+    name = 'Heading Deviation From CL On Takeoff At TOGA'
+    
+    """
+    FDS developed this KPV to support the UK CAA Significant Seven programme.
+    "Excursions - Take off (Lateral). TOGA pressed before a/c aligned."
+    """
+    def derive(self, head=P('Heading True Continuous'), toga=M('Takeoff And Go Around'),
+               takeoff=S('Takeoff'), rwy=A('FDR Takeoff Runway')):
+
+        if ambiguous_runway(rwy):
+            return
+
+        indexes = find_edges_on_state_change('TOGA', toga.array, phase=takeoff)
+        for index in indexes:
+            brg=value_at_index(head.array, index)
+            dev = runway_deviation(brg, rwy.value)
+            self.create_kpv(index, dev)
+
+
+class HeadingExcursion500To20Ft(KeyPointValueNode):
     def derive(self, head=P('Heading Continuous'),
                alt_aal=P('Altitude AAL For Flight Phases')):
         for band in alt_aal.slices_from_to(500, 20):
             dev = np.ma.ptp(head.array[band])
             self.create_kpv(band.stop, dev)
+            
+            
+class HeadingDeviationOnLandingAt50Ft(KeyPointValueNode):
+    
+    name = 'Heading Deviation From CL On Landing at 50 Ft'
+    
+    """
+    FDS developed this KPV to support the UK CAA Significant Seven programme.
+    "Excursions - Take off (Lateral). Crosswind. Could look at the difference
+    between a/c heading and R/W heading at 50ft."
+    """
+    def derive(self, head=P('Heading True Continuous'), landings=S('Landing'), 
+               rwy=A('FDR Landing Runway')):
+
+        if ambiguous_runway(rwy):
+            return
+
+        land=landings[-1] # Only have runway details for final landing.
+        
+        brg=value_at_index(head.array, land.start_edge) # By definition, landing starts at 50ft.
+        dev = runway_deviation(brg, rwy.value)
+        self.create_kpv(land.start_edge, dev)
         
 
-class HeadingDeviationTouchdownPlus4SecTo60Kts(KeyPointValueNode):
-    def derive(self, head=P('Heading Continuous'), tdwns=KTI('Touchdown'),
-               airspeed=P('Airspeed')):
-        for tdwn in tdwns:
-            begin = tdwn.index + 4.0*head.frequency
-            end = index_at_value(airspeed.array, 60.0, slice(begin,None))
-            if end:
-                # We found a suitable endpoint, so create a KPV...
-                dev = np.ma.ptp(head.array[begin:end+1])
-                self.create_kpv(end, dev)
-
-
-class HeadingDeviationOnLandingAbove100Kts(KeyPointValueNode):
+class HeadingExcursionOnLandingAbove100Kts(KeyPointValueNode):
     """
-    See heading deviation on takeoff comments. For landing the Altitude AAL
+    See heading excursion on takeoff comments. For landing the Altitude AAL
     is used to detect start of landing, again to avoid variation from the use
     of different aircraft recording configurations.
     """
@@ -3392,6 +3732,37 @@ class HeadingDeviationOnLandingAbove100Kts(KeyPointValueNode):
                 self.create_kpv((begin+end)/2, head_dev)
             
             
+class HeadingExcursionTouchdownPlus4SecTo60Kts(KeyPointValueNode):
+    def derive(self, head=P('Heading Continuous'), tdwns=KTI('Touchdown'),
+               airspeed=P('Airspeed')):
+        for tdwn in tdwns:
+            begin = tdwn.index + 4.0*head.frequency
+            end = index_at_value(airspeed.array, 60.0, slice(begin,None))
+            if end:
+                # We found a suitable endpoint, so create a KPV...
+                dev = np.ma.ptp(head.array[begin:end+1])
+                self.create_kpv(end, dev)
+
+
+class HeadingDeviation2DegPitchTo60Kts(KeyPointValueNode):
+    """
+    FDS developed this KPV to support the UK CAA Significant Seven programme.
+    "Excursions - Landing (Lateral) Heading changes on runways."
+    """
+    
+    name = 'Heading Deviation From CL On Landing 2 Deg Pitch To 60 Kts'
+
+    def derive(self, head=P('Heading True Continuous'), land_rolls=S('Landing Roll'),
+               rwy=A('FDR Landing Runway')):
+
+        if ambiguous_runway(rwy):
+            return
+
+        final_landing=land_rolls[-1].slice
+        dev = runway_deviation(head.array, rwy.value)
+        self.create_kpv_from_slices(dev, [final_landing], max_abs_value)
+
+
 class HeadingVacatingRunway(KeyPointValueNode):
     '''
     Heading vacating runway is only used to try to identify handed
@@ -3511,7 +3882,14 @@ class FlareDistance20FtToTouchdown(KeyPointValueNode):
                     self.create_kpv(tdown.index, dist)
 
 
-class AltitudeAtSuspectedLevelBust(KeyPointValueNode):
+class AltitudeOvershootAtSuspectedLevelBust(KeyPointValueNode):
+    '''
+    FDS refined this KPV as part of the UK CAA Significant Seven programme.
+
+    "Airborne Conflict (Mid-Air Collision) Level Busts (>300ft from an
+    assigned level) It would be useful if this included overshoots of cleared
+    level, i.e. a reversal of more than 300ft".
+    '''
     def derive(self, alt_std=P('Altitude STD Smoothed')):
         bust = 300 # ft
         bust_time = 3 * 60 # 3 mins
@@ -3632,6 +4010,25 @@ class GroundspeedVacatingRunway(KeyPointValueNode):
 ################################################################################
 # Pitch
 
+class PitchMaxAfterFlapRetraction(KeyPointValueNode):
+    '''
+    FDS added this KPV during the UK CAA Significant Seven programme. "Loss
+    of Control Pitch. FDS recommend addition of a maximum pitch attitude KPV,
+    as this will make a good backstop to identify a number of events, such as
+    control malfunctions, which from experience are often not detected by
+    'normal' event algorithms. 
+    
+    Normal pitch maxima occur during takeoff and in some cases over 2,000ft
+    but flap retraction is a good condition to apply to avoid these normal
+    maxima.
+    '''
+    def derive(self, flap=P('Flap'), pitch=P('Pitch'), airs=S('Airborne')):
+        scope=[]
+        for air in airs:
+            clean = np.ma.clump_unmasked(np.ma.masked_greater(flap.array[air.slice],0.0))
+            scope.append(slice(air.slice.start+clean[0].start, air.slice.stop))
+        self.create_kpvs_within_slices(pitch.array, scope, max_value)
+        
 
 class PitchAtLiftoff(KeyPointValueNode):
     '''
@@ -3641,6 +4038,7 @@ class PitchAtLiftoff(KeyPointValueNode):
         '''
         '''
         self.create_kpvs_at_ktis(pitch.array, liftoffs)
+
 
 
 class PitchAtTouchdown(KeyPointValueNode):
@@ -4026,6 +4424,22 @@ class RateOfClimb35To1000FtMin(KeyPointValueNode):
             min_value,
         )
 
+class RateOfClimbBelow10000FtMax(KeyPointValueNode):
+    '''
+    FDS developed this KPV to support the UK CAA Significant Seven programme.
+    "Airborne Conflict (Mid-Air Collision) Excessive rates of climb/descent
+    (>3,000FPM) within a TMA (defined as < 10,000ft)"
+    '''
+    def derive(self, vert_spd=P('Vertical Speed'),
+               alt_aal=P('Altitude AAL For Flight Phases')):
+
+        self.create_kpvs_within_slices(
+            vert_spd.array,
+            alt_aal.slices_from_to(0, 10000),
+            max_value,
+        )
+
+
 
 ################################################################################
 # Rate of Descent
@@ -4060,6 +4474,22 @@ class RateOfDescentTopOfDescentTo10000FtMax(KeyPointValueNode):
             above_10k = np.ma.masked_less(alt_aal.array, 10000)
             drops = np.ma.clump_unmasked(above_10k)
             self.create_kpvs_within_slices(vert_spd.array, drops, min_value)
+
+
+class RateOfDescentBelow10000FtMax(KeyPointValueNode):
+    '''
+    FDS developed this KPV to support the UK CAA Significant Seven programme.
+    "Airborne Conflict (Mid-Air Collision) Excessive rates of climb/descent
+    (>3,000FPM) within a TMA (defined as < 10,000ft)"
+    '''
+    def derive(self, vert_spd=P('Vertical Speed'),
+               alt_aal=P('Altitude AAL For Flight Phases')):
+
+        self.create_kpvs_within_slices(
+            vert_spd.array,
+            alt_aal.slices_from_to(10000, 0),
+            min_value,
+        )
 
 
 class RateOfDescent10000To5000FtMax(KeyPointValueNode):
@@ -4195,7 +4625,8 @@ class RateOfDescentAtTouchdown(KeyPointValueNode):
         '''
         for land in lands:
             index, rod = touchdown_inertial(land, vert_spd, alt)
-            self.create_kpv(index, rod)
+            if index:
+                self.create_kpv(index, rod)
 
 
 ##### TODO: Implement!
@@ -4320,9 +4751,12 @@ class Roll20FtToLandingMax(KeyPointValueNode):
 
 class RollCyclesInFinalApproach(KeyPointValueNode):
     '''
-    Counts the number of half-cycles of roll attitude that exceed 5 deg from
+    Counts the number of cycles of roll attitude that exceed 5 deg from
     peak to peak and with a maximum cycle period of 10 seconds during the
     final approach phase.
+    
+    The algorithm counts each half-cycle, so an "N" figure would give a value
+    of 1.5 cycles.
     '''
 
     def derive(self, roll=P('Roll'), fapps=S('Final Approach')):
@@ -4333,12 +4767,53 @@ class RollCyclesInFinalApproach(KeyPointValueNode):
                                            roll.hz, fapp.slice.start))
 
 
+class RollCyclesNotInFinalApproach(KeyPointValueNode):
+    '''
+    FDS developed this KPV to support the UK CAA Significant Seven programme.
+    "Loss of Control - PIO. CAA limit > 20 deg total variation side to side".
+    
+    FDS cautioned 20 deg was excessive and evaluated different levels over 10
+    sec time period with a view to settling the levels for production use.
+    Having run a hundred sample flights using thresholds from 2 to 20 deg, 5
+    deg was selected on the basis that this balanced enough data for trend
+    analysis (a KPV was recorded for about one flight in three) without
+    excessive counting of minor cycles. It was also convenient that this
+    matched the existing threshold used by FDS for final approach analysis.
+
+    Note: The algorithm counts each half-cycle, so an "N" figure would give a
+    value of 1.5 cycles.
+    '''
+
+    def derive(self, roll=P('Roll'), airs=S('Airborne'), fapps=S('Final Approach')):
+        '''
+        '''
+        not_fas = slices_and([s.slice for s in airs], 
+                            slices_not([s.slice for s in fapps]))
+        for not_fa in not_fas:
+            self.create_kpv(*cycle_counter(roll.array[not_fa.slice], 5.0, 10.0,
+                                           roll.hz, not_fa.slice.start))
+
+
 ################################################################################
 # Rudder
+
+class RudderExcursionDuringTakeoff(KeyPointValueNode):
+    '''
+    FDS developed this KPV to support the UK CAA Significant Seven programme.
+    "Excursions - Take-Off (Lateral) Rudder kick/oscillations. Difficult due
+    gusts and effect of buildings."    
+    '''
+    def derive(self, rudder=P('Rudder'), to_rolls=S('Takeoff Roll')):
+        self.create_kpvs_within_slices(rudder.array, to_rolls, max_abs_value)
 
 
 class RudderReversalAbove50Ft(KeyPointValueNode):
     '''
+    FDS developed this KPV to support the UK CAA Significant Seven programme.
+    "Excursions - Landing (Lateral) Rudder kick/oscillations Often there
+    during landing, therefore need to determine what is abnormal, which may
+    be difficult."
+
     Looks for sharp rudder reversal. Excludes operation below 50ft as this is
     normal use of the rudder to kick off drift. Uses the standard cycle
     counting process but looking for only one pair of half-cycles.
@@ -4374,27 +4849,6 @@ class SpeedbrakesDeployed1000To20FtDuration(KeyPointValueNode):
             value = np.ma.count(event) / speedbrake.frequency
             if value:
                 index = descent.stop
-                self.create_kpv(index, value)
-
-
-# TODO: Write some unit tests!
-class SpeedbrakesDeployedInGoAroundDuration(KeyPointValueNode):
-    '''
-    '''
-
-    def derive(self, speedbrake=M('Speedbrake Selected'),
-            gas=S('Go Around And Climbout')):
-        '''
-        '''
-        deployed = speedbrake.array.state['Deployed/Cmd Up']
-        for ga in gas:
-            event = np.ma.masked_not_equal(speedbrake.array.raw[ga.slice],
-                                           deployed)
-            value = np.ma.count(event) / speedbrake.frequency
-            if value:
-                # Probably open at the start of the go-around, so when were they closed?
-                when = np.ma.clump_unmasked(event)
-                index = when[-1].stop
                 self.create_kpv(index, value)
 
 
@@ -4622,8 +5076,45 @@ class TailClearanceOnApproach(KeyPointValueNode):
                 self.create_kpv(sample, alt_tail.array[sample])
 
 
+class TerrainClearanceAbove3000FtMin(KeyPointValueNode):
+    '''
+    FDS developed this KPV to support the UK CAA Significant Seven programme.
+    "Controlled Flight Into Terrain (CFIT) At/Below Minimum terrain clearance
+    on approach/departure >3000ft AFE and <1000ft AGL"
+
+    Solution: Compute minimum terrain clearance while Altitude AAL over
+    3000ft. Note: For most flights, Altitude Radio will be over 2,500ft at
+    this time, so masked, hence no kpv will be created.
+    '''
+    def derive(self, alt_aal=P('Altitude AAL For Flight Phases'),
+               alt_rad=P('Altitude Radio')):
+        self.create_kpvs_within_slices(alt_rad.array,
+                                       alt_aal.slices_above(3000.0),
+                                       min_value)
+
+
 ################################################################################
 # Tailwind
+
+class TailwindLiftoffTo100FtMax(KeyPointValueNode):
+    '''
+    FDS developed this KPV to support the UK CAA Significant Seven programme.
+    "Excursions - Take-Off (Longitudinal), Tailwind - Needs to be recorded
+    just after take-off.
+    
+    CAA comment: Some operators will have purchased (AFM) a 15kt tailwind limit for
+    take-off. But this should only be altered to 15 kt if it has been
+    purchased.
+    
+    This event masks the tailwind array to that headwind conditions do not
+    raise any KPV.
+    '''
+
+    def derive(self, tailwind=P('Tailwind'),
+            alt_aal=P('Altitude AAL For Flight Phases')):
+        self.create_kpvs_within_slices(np.ma.masked_less_equal(tailwind.array, 0.0),
+                                       alt_aal.slices_from_to(0, 100),
+                                       max_value)
 
 
 class Tailwind100FtToTouchdownMax(KeyPointValueNode):
@@ -4636,9 +5127,55 @@ class Tailwind100FtToTouchdownMax(KeyPointValueNode):
             alt_aal=P('Altitude AAL For Flight Phases')):
         '''
         '''
-        self.create_kpvs_within_slices(np.ma.masked_less(tailwind.array, 0.0),
+        self.create_kpvs_within_slices(np.ma.masked_less_equal(tailwind.array, 0.0),
                                        alt_aal.slices_from_to(100, 0),
                                        max_value)
+
+
+################################################################################
+# Warnings: Takeoff Configuration Warning
+
+class TakeoffConfigWarningDuration(KeyPointValueNode):
+    '''
+    FDS developed this KPV to support the UK CAA Significant Seven programme.
+    "Excursions - Take-Off (Longitudinal), Take-off config warning during
+    takeoff roll."
+    '''
+    def derive (self, conf_warn=M('Takeoff Config Warning'),
+                toff_rolls = S('Takeoff Roll')):
+        
+        self.create_kpvs_where_state(
+            'Warning',
+            conf_warn.array,
+            conf_warn.hz,
+            phase=toff_rolls
+        )
+
+
+class MasterWarningInTakeoffDuration(KeyPointValueNode):
+    '''
+    FDS developed this KPV to support the UK CAA Significant Seven programme.
+    "Excursions - Take-Off (Longitudinal), Master Caution or Master Warning
+    triggered during takeoff. The idea of this is to inform the analyst of
+    any possible distractions to the pilot"
+    '''
+    def derive (self, warn=M('Master Warning'), 
+                toff_rolls = S('Takeoff Roll')):
+        
+        self.create_kpvs_where_state('Warning', warn.array, 
+                                     warn.hz, phase=toff_rolls)
+
+
+class MasterCautionInTakeoffDuration(KeyPointValueNode):
+    '''
+    FDS developed this KPV to support the UK CAA Significant Seven programme.
+    "Master Warning In Takeoff Duration".
+    '''
+    def derive (self, caution=M('Master Caution'), 
+                toff_rolls=S('Takeoff Roll')):
+        
+        self.create_kpvs_where_state('Caution', caution.array, 
+                                     caution.hz, phase=toff_rolls)
 
 
 ################################################################################
@@ -4874,10 +5411,15 @@ class TCASRAWarningDuration(KeyPointValueNode):
 
             ups = np.ma.masked_not_equal(tcas.array, 'Up Advisory Corrective')
             ups = np.ma.clump_unmasked(ups)
+        
+        hence the unweildy code below, used in all TCAS KPVs...
+        
+        ras_local = np.ma.clump_unmasked(np.ma.masked_outside(tcas.array, 4, 5))[air.slice]
+
         '''
         for air in airs:
-            ras = np.ma.clump_unmasked(np.ma.masked_outside(tcas.array, 4, 5))
-            self.create_kpvs_from_slice_durations(ras)
+            ras_local = np.ma.clump_unmasked(np.ma.masked_outside(tcas.array, 4, 5))[air.slice]
+            self.create_kpvs_from_slice_durations(ras_local)
 
 
 class TCASRAReactionDelay(KeyPointValueNode):
@@ -4891,8 +5433,7 @@ class TCASRAReactionDelay(KeyPointValueNode):
         '''
         '''
         for air in airs:
-            ras_local = np.ma.masked_outside(tcas.array[air.slice], 4, 5)
-            ras_local = np.ma.clump_unmasked(ras_local)
+            ras_local = np.ma.clump_unmasked(np.ma.masked_outside(tcas.array, 4, 5))[air.slice]
             ras = shift_slices(ras_local, air.slice.start)
             # Assume that the reaction takes place during the TCAS RA period:
             for ra in ras:
@@ -4928,8 +5469,7 @@ class TCASRAInitialReaction(KeyPointValueNode):
         '''
         '''
         for air in airs:
-            ras_local = np.ma.masked_outside(tcas.array[air.slice], 4, 5)
-            ras_local = np.ma.clump_unmasked(ras_local)
+            ras_local = np.ma.clump_unmasked(np.ma.masked_outside(tcas.array, 4, 5))[air.slice]
             ras = shift_slices(ras_local, air.slice.start)
             # We assume that the reaction takes place during the TCAS RA
             # period.
@@ -4976,8 +5516,7 @@ class TCASRAToAPDisengageDuration(KeyPointValueNode):
         '''
         '''
         for air in airs:
-            ras_local = np.ma.masked_outside(tcas.array[air.slice], 4, 5)
-            ras_local = np.ma.clump_unmasked(ras_local)
+            ras_local = np.ma.clump_unmasked(np.ma.masked_outside(tcas.array, 4, 5))[air.slice]
             ras = shift_slices(ras_local, air.slice.start)
             # Assume that the reaction takes place during the TCAS RA period:
             for ra in ras:
@@ -5058,77 +5597,96 @@ class ThrottleCyclesInFinalApproach(KeyPointValueNode):
             self.create_kpv(*cycle_counter(lever.array[fapp.slice], 10.0, 10.0, 
                                            lever.hz, fapp.slice.start))
 
+################################################################################
+# Thrust Asymmetry in different conditions
 
-class ThrustAsymmeteryN1WithReverseThrust(KeyPointValueNode):
+class ThrustAsymmetryOnTakeoff(KeyPointValueNode):
     '''
-    Thrust asymmetry may be based on N1 or EPR hence the name construction.
+    FDS developed this KPV to support the UK CAA Significant Seven programme.
+    "Excursions - Take off (Lateral)" & "Loss of Control Significant torque
+    or thrust split during T/O or G/A"
     '''
+    def derive(self, ta=P('Thrust Asymmetry'), rolls=S('Takeoff Roll')):
+        self.create_kpvs_within_slices(ta.array, rolls, max_value)
+        
+
+class ThrustAsymmetryInFlight(KeyPointValueNode):
+    '''
+    FDS developed this KPV to support the UK CAA Significant Seven programme.
+    "Loss of Control Asymmetric thrust - may be due to an a/t fault"
+    '''
+    def derive(self, ta=P('Thrust Asymmetry'),
+               airs=S('Airborne')):
+        self.create_kpvs_within_slices(ta.array, airs, max_value)
+
+
+class ThrustAsymmetryWithReverseThrustMax(KeyPointValueNode):
+    '''
+    FDS developed this KPV to support the UK CAA Significant Seven programme.
+    "Excursions - Landing (Lateral) - Asymmetric reverse thrust".
     
-    name = 'Thrust Asymmetery N1 With Reverse Thrust'
-    
-    def derive(self, max_n1=P('Eng N1 Max'),
-               min_n1=P('Eng N1 Min'),
-               rev_th=M('Reverse Thrust')):
-        split = max_n1 - min_n1
-        revs = np.ma.clump_unmasked(np.ma.masked_where(rev_th == 'Deployed', split))
+    A good KPV for providing measures on every flight, and preferred to the
+    ThrustAsymmetryWithReverseThrustDuration which will normally not record
+    any value.
+    '''
+    def derive(self, ta=P('Thrust Asymmetry'), rev_th=M('Thrust Reversers')):
+        revs = np.ma.clump_unmasked(np.ma.masked_where(rev_th == 'Deployed', ta.array))
         for rev in revs:
-            idx = np.ma.argmax(split[rev]) + tofrevf.start
-            self.create_kpv(idx, split[idx])
+            idx = np.ma.argmax(ta.array[rev]) + rev.start
+            self.create_kpv(idx, ta.array[idx])
 
 
-class ThrustAsymmeteryN1OnApproach(KeyPointValueNode):
+class ThrustAsymmetryWithReverseThrustDuration(KeyPointValueNode):
     '''
-    Thrust asymmetry may be based on N1 or EPR hence the name construction.
+    Durations of thrust asymmetry over 10% with reverse thrust operating.
+    Included for customers with existing events using this approach.
     '''
     
-    name = 'Thrust Asymmetery N1 On Approach'
-    
-    def derive(self, max_n1=P('Eng N1 Max'),
-               min_n1=P('Eng N1 Min'),
-               apps=S('Approach')):
-        split = max_n1 - min_n1
+    #####################################
+    #### SET GREATER TO ALLOW TESING ####
+    #####################################
+
+    def derive(self, ta=P('Thrust Asymmetry'), rev_th=M('Thrust Reversers')):
+        revs = np.ma.clump_unmasked(np.ma.masked_where(rev_th == 'Deployed', ta.array))
+        for rev in revs:
+            big_asym = shift_slices(
+                np.ma.clump_unmasked(
+                    np.ma.masked_greater(ta.array[app.slice], 10.0)),
+                rev.start)
+            self.create_kpvs_from_slice_durations(big_asym)
+
+
+class ThrustAsymmetryOnApproachMax(KeyPointValueNode):
+    '''
+    Peak thrust asymmetry on approach. A good KPV for providing measures on
+    every flight, and preferred to the ThrustAsymmetryOnApproachDuration
+    which will normally not record any value.
+    '''
+    def derive(self,ta=P('Thrust Asymmetry'), apps=S('Approach')):
         for app in apps:
-            idx = np.ma.argmax(split[app]) + app.start
-            self.create_kpv(idx, split[idx])
+            idx = np.ma.argmax(ta.array[app.slice]) + app.slice.start
+            self.create_kpv(idx, ta.array[idx])
 
 
+class ThrustAsymmetryOnApproachDuration(KeyPointValueNode):
+    '''
+    Durations of thrust asymmetry over 10%. Included for customers with
+    existing events using this approach.
+    '''
 
-class TouchdownToThrustReversersDeployedDuration(KeyPointValueNode):
-    '''
-    '''
-    def derive(self, tr=M('Thrust Reversers'),
-               lands = S('Landing'), tdwns=KTI('Touchdown')):
-        '''
-        '''
-        deploys = find_edges_on_state_change('Deployed', tr.array, phase=lands)
-        for land in lands:
-            for deploy in deploys:
-                if not is_index_within_slice(deploy, land.slice):
-                    continue
-                for tdwn in tdwns:
-                    if not is_index_within_slice(tdwn.index, land.slice):
-                        continue
-                    self.create_kpv(deploy, (deploy-tdwn.index)/tr.hz)
-                        
- 
-class TouchdownToSpoilersDeployedDuration(KeyPointValueNode):
-    '''
-    '''
-    def derive(self, brake=M('SpeedbrakeSelected'),
-               lands = S('Landing'), tdwns=KTI('Touchdown')):
-        '''
-        '''
-        deploys = find_edges_on_state_change('Deployed/Cmd Up', brake.array, phase=lands)
-        for land in lands:
-            for deploy in deploys:
-                if not is_index_within_slice(deploy, land.slice):
-                    continue
-                for tdwn in tdwns:
-                    if not is_index_within_slice(tdwn.index, land.slice):
-                        continue
-                    self.create_kpv(deploy, (deploy-tdwn.index)/tr.hz)
-                        
- 
+    #####################################
+    #### SET GREATER TO ALLOW TESING ####
+    #####################################
+
+    def derive(self,ta=P('Thrust Asymmetry'), apps=S('Approach')):
+        for app in apps:
+            big_asym = shift_slices(
+                np.ma.clump_unmasked(
+                    np.ma.masked_greater(ta.array[app.slice], 10.0)),
+                app.slice.start)
+            self.create_kpvs_from_slice_durations(big_asym)
+            
+
 class TouchdownToElevatorDownDuration(KeyPointValueNode):
     def derive(self, airspeed=P('Airspeed'), elevator=P('Elevator'),
                tdwns=KTI('Touchdown')):
@@ -5147,7 +5705,7 @@ class TouchdownTo60KtsDuration(KeyPointValueNode):
     @classmethod
     def can_operate(cls, available):
         return 'Airspeed' in available and 'Touchdown' in available
-    
+
     def derive(self, airspeed=P('Airspeed'), groundspeed=P('Groundspeed'), 
                tdwns=KTI('Touchdown')):
         
@@ -5244,6 +5802,11 @@ class WindDirectionInDescent(KeyPointValueNode):
 
 
 class WindAcrossLandingRunwayAt50Ft(KeyPointValueNode):
+    '''
+    FDS developed this KPV to support the UK CAA Significant Seven programme.
+    "Excursions - Landing (Lateral). Crosswind - needs to be recorded just
+    before landing, say at 50ft.
+    '''
     def derive(self, walr = P('Wind Across Landing Runway'),
                lands = S('Landing')):
         for land in lands:
@@ -5285,4 +5848,132 @@ class HoldingDuration(KeyPointValueNode):
 ####class ControlForcesTimesThree(KeyPointValueNode):
 ####    def derive(self, x=P('Not Yet')):
 ####        return NotImplemented
+
+################################################################################
+# Go Around Related KPVs 
+
+#See also: EngGasTempGoAroundMax, EngN1GoAroundMax, EngN2GoAroundMax,
+#EngN3GoAroundMax, EngTorqueGoAroundMax
+
+class TOGASelectedInGoAroundDuration(KeyPointValueNode):
+    '''
+    FDS developed this KPV to support the UK CAA Significant Seven programme.
+    "Loss of Control - TOGA power selection in flight (Go-arounds need to be
+    kept as a separate case)."
+    '''
+    def derive(self, toga=M('Takeoff And Go Around'), gas=S('Go Around And Climbout')):
+        self.create_kpvs_where_state('TOGA', toga.array, toga.hz, phase=gas)
+               
+                           
+class AltitudeAtGoAroundMin(KeyPointValueNode):
+    '''
+    The altitude above the local airfield level at the minimum altitude point
+    of the go-around.
+    
+    Note: This may be less than the radio altimeter reading at this point if
+    there is higher ground in the area of the go-around minimum point.
+    '''
+    @classmethod
+    def can_operate(cls, available):
+        return 'Go Around' in available and 'Altitude AAL' in available
+    
+    def derive(self, alt_aal=P('Altitude AAL'), gas=KTI('Go Around'),
+               alt_rad=P('Altitude Radio')):
+        for ga in gas:
+            self.create_kpv(ga.index, alt_aal.array[ga.index])
+            
+ 
+class AltitudeGoAroundFlapRetracted(KeyPointValueNode):
+    # gafr pinpoints the flap retraction instance within the 500ft go-around window.
+    def derive(self, alt_aal=P('Altitude AAL'), 
+               gafr=KTI('Go Around Flap Retracted')):
+        self.create_kpvs_at_ktis(alt_aal.array,gafr)
+
+
+class AltitudeAtGoAroundGearUpSelection(KeyPointValueNode):
+    
+    name = 'Altitude Above Go Around Minimum At Gear Up Selection'
+    
+    # gagr pinpoints the gear retraction instance within the 500ft go-around window.
+
+    def derive(self, alt_aal=P('Altitude AAL'), 
+               gas=S('Go Around And Climbout'),
+               gear_ups = KTI('Go Around Gear Selected Up')):
+        for ga in gas:
+            # Find the index and height at this go-around minimum.
+            pit_index = np.ma.argmin(alt_aal.array[ga.slice])
+            pit = alt_aal.array[ga.slice.start + pit_index]
+            for gear_up in gear_ups:
+                # Check this gear selected up matches the go-around in question
+                if is_index_within_slice(gear_up.index, ga.slice):
+                    # Did we raise the gear after the minimum height?
+                    if gear_up.index > pit_index:
+                        gear_up_ht = alt_aal.array[gear_up.index] - pit
+                    else:
+                        # Show zero if selected up before minimum height
+                        gear_up_ht = 0.0
+                    self.create_kpv(gear_up.index,gear_up_ht)
+
+# TODO: Write some unit tests!
+class SpeedbrakesDeployedInGoAroundDuration(KeyPointValueNode):
+    '''
+    FDS developed this KPV to support the UK CAA Significant Seven programme.
+    "Loss of Control Mis-handled G/A - ...Speedbrake retraction."
+    '''
+    def derive(self, speedbrake=M('Speedbrake Selected'),
+            gas=S('Go Around And Climbout')):
+        '''
+        '''
+        deployed = speedbrake.array.state['Deployed/Cmd Up']
+        for ga in gas:
+            event = np.ma.masked_not_equal(speedbrake.array.raw[ga.slice],
+                                           deployed)
+            value = np.ma.count(event) / speedbrake.frequency
+            if value:
+                # Probably open at the start of the go-around, so when were they closed?
+                when = np.ma.clump_unmasked(event)
+                index = when[-1].stop
+                self.create_kpv(index, value)
+
+class ThrustAsymmetryInGoAround(KeyPointValueNode):
+    '''
+    FDS developed this KPV to support the UK CAA Significant Seven programme.
+    "Loss of Control Significant torque or thrust split during T/O or G/A"
+    '''
+    def derive(self, ta=P('Thrust Asymmetry'),
+               gas=S('Go Around And Climbout')):
+        self.create_kpvs_within_slices(ta.array, gas, max_value)
+
+
+class PitchInGoAroundMax(KeyPointValueNode):
+    '''
+    FDS developed this KPV to support the UK CAA Significant Seven programme.
+    "Loss of Control Mis-handled G/A - ...Rotation to 12 deg pitch..."
+    '''
+    def derive(self, pitch=P('Pitch'),
+               gas=S('Go Around And Climbout')):
+        self.create_kpvs_within_slices(pitch.array, gas, max_value)
+
+
+class VerticalSpeedInGoAroundMax(KeyPointValueNode):
+    '''
+    FDS developed this KPV to support the UK CAA Significant Seven programme.
+    "Loss of Control Mis-handled G/A." Concern here is excessive rates of
+    climb following enthusiastic application of power and pitch up.
+    '''
+    def derive(self, vs=P('Vertical Speed'),
+               gas=S('Go Around And Climbout')):
+        self.create_kpvs_within_slices(vs.array, gas, max_value)
+
+
+class AOAInGoAroundMax(KeyPointValueNode):
+    '''
+    FDS developed this KPV to support the UK CAA Significant Seven programme.
+    "Loss of Control Mis-handled G/A"
+    '''
+    name = 'AOA In Go Around Max'
+    def derive(self, aoa=P('AOA'), gas=S('Go Around And Climbout')):
+        self.create_kpvs_within_slices(aoa.array, gas, max_value)
+
+
 

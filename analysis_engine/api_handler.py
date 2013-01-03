@@ -126,17 +126,15 @@ class APIHandlerHTTP(object):
         )
         
         # Attempt to make the API request:
-        if timeout:
-            socket_timeout = socket.getdefaulttimeout()
-            socket.setdefaulttimeout(timeout)
+        socket_timeout = socket.getdefaulttimeout()
+        socket.setdefaulttimeout(timeout)
         try:
             response, content = http.request(uri, method, body)
         except (httplib2.ServerNotFoundError, socket.error, AttributeError):
             # Usually a result of errors with DNS...
             raise APIConnectionError(uri, method, body)
         finally:
-            if timeout:
-                socket.setdefaulttimeout(socket_timeout)
+            socket.setdefaulttimeout(socket_timeout)
 
         # Check the status code of the response:
         status = int(response['status'])

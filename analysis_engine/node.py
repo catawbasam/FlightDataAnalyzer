@@ -87,11 +87,26 @@ def get_param_kwarg_names(method):
 # Abstract Node Classes
 # =====================
 class Node(object):
+    '''
+    Note about aligning options
+    ---------------------------
+
+    if align = True then:
+    * Magic happens: the derive method dependencies are aligned to the 
+      class frequency/offset. If either are not declared, the missing attributes
+      are taken from the first available dependency.
+    
+    if align = False then: 
+    * The Node will inherit the first dependency's frequency/offset but
+      self.frequency and self.offset can be overidden within the derive method.
+    '''
     __metaclass__ = ABCMeta
 
-    name = '' # Optional, default taken from ClassName
-    align_to_first_dependency = True
-    data_type = None # Q: What should the default be? Q: Should this dictate the numpy dtype saved to the HDF file or should it be inferred from the array?
+    name = ''  # Optional, default taken from ClassName
+    align = True
+    align_frequency = None  # Force frequency of Node by overriding
+    align_offset = None  # Force offset of Node by overriding
+    data_type = None  # Q: What should the default be? Q: Should this dictate the numpy dtype saved to the HDF file or should it be inferred from the array?
         
     def __init__(self, name='', frequency=1, offset=0, **kwargs):
         """
@@ -205,18 +220,37 @@ def can_operate(cls, available):
         :returns: self after having aligned dependencies and called derive.
         :rtype: self
         """
-        if self.align_to_first_dependency:
-            try:
-                i, first_param = next(((n, a) for n, a in enumerate(args) if \
-                                       a is not None and a.frequency))
-            except StopIteration:
-                pass
+        dependencies_to_align = [d for d in args if d is not None and d.frequency]
+        if dependencies_to_align and self.align:
+            
+            if self.align_frequency and self.align_offset is not None:
+                # align to the class declared frequency and offset
+                self.frequency = self.align_frequency
+                self.offset = self.align_offset
+            elif self.align_frequency:
+                # align to class frequency, but set offset to first dependency
+                self.frequency = self.align_frequency
+                self.offset = dependencies_to_align[0].offset
+            elif self.align_offset is not None:
+                # align to class offset, but set frequency to first dependency
+                self.frequency = dependencies_to_align[0].frequency
+                self.offset = self.align_offset
             else:
-                for n, param in enumerate(args):
-                    # if param is set and it's after the first dependency
-                    if param and n > i:
-                         # override argument in list in-place
-                        args[n] = param.get_aligned(first_param)
+                # This is the class' default behaviour:
+                # align both frequency and offset to the first parameter
+                alignment_param = dependencies_to_align.pop(0)
+                self.frequency = alignment_param.frequency
+                self.offset = alignment_param.offset
+            
+            # align the dependencies
+            for index, arg in enumerate(args):
+                if arg in dependencies_to_align:
+                    # override argument in list in-place
+                    args[index] = arg.get_aligned(self)
+        elif dependencies_to_align:
+            self.frequency = dependencies_to_align[0].frequency
+            self.offset = dependencies_to_align[0].offset
+
         res = self.derive(*args)
         if res is NotImplemented:
             raise NotImplementedError("Class '%s' derive method is not implemented." % \
@@ -1610,19 +1644,11 @@ class KeyPointValueNode(FormattedNameNode):
                 
 
     def create_kpvs_where_state(self, state, array, hz, phase=None,
-                                min_duration=0.0):
+                                min_duration=0.0, exclude_leading_edge=False):
         '''
-        For discrete and multi-state parameters, this detects an event and
-        records the duration of each event.
+        For discrete and multi-state parameters, this detects a specified
+        state and records the duration of each event.
         
-        Note: The min_duration should not be used as short duration events
-        are filtered by the time threshold in the Analysis Specification, and
-        leaving a zero default allows KPVs to be accumulated below the event
-        threshold limit and these are useful for changing thresholds in the
-        future. The facility is only intended for systems with continuous
-        nuisance levels of operation which would swamp the database if not
-        filtered before creating the KPV.
-
         :param array: The input parameter, with data and sample rate
             information.
         :type array: A recorded or derived multistate (discrete) parameter
@@ -1630,11 +1656,22 @@ class KeyPointValueNode(FormattedNameNode):
         :param min_duration: An optional minimum duration for the KPV to become
             valid.
         :type min_duration: Float (seconds)
+        :param exclude_leading_edge: excludes conditions where the array starts 
+                      in the state of interest, retaining edge-triggered cases.
+        :param exclude_leading_edge: boolean, default False.
         :name name: Facility for automatically naming the KPV.
         :type name: String
 
         Where phase is supplied, only edges arising within this phase will be
         triggered.
+
+        Note: The min_duration should not be used as short duration events
+        are filtered by the time threshold in the Analysis Specification, and
+        leaving a zero default allows KPVs to be accumulated below the event
+        threshold limit and these are useful for changing thresholds in the
+        future. The facility is only intended for systems with continuous
+        nuisance levels of operation which would swamp the database if not
+        filtered before creating the KPV.
 
         ..todo: instead of working on the strings in numpy, we need to find the
             numeric value by reversing the mapping.
@@ -1647,6 +1684,8 @@ class KeyPointValueNode(FormattedNameNode):
                                        subarray.get_state_value(state)))
             for event in events:
                 index = event.start
+                if index==0 and exclude_leading_edge:
+                    continue
                 value = (event.stop - event.start) / hz
                 if value >= min_duration:
                     self.create_kpv(index + start_index, value)
