@@ -1351,7 +1351,7 @@ class ThrustAsymmetryWithReverseThrust(KeyPointValueNode):
         to_scan = clump_multistate(tr.array, 'Stowed', 
                                    [s.slice for s in lands],
                                    condition=False)
-        self.create_kpv_from_slices(to_scan, ta.array, max_value)
+        self.create_kpv_from_slices(ta.array, to_scan, max_value)
 
 
 class ThrustWithReverseThrustInTransit(KeyPointValueNode):
