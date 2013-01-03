@@ -2702,7 +2702,7 @@ class TestHeadingAtLowestPointOnApproach(unittest.TestCase):
         self.assertTrue(False, msg='Test not implemented.')
 
 
-class TestHeadingDeviation500To20Ft(unittest.TestCase):
+class TestHeadingExcursion500To20Ft(unittest.TestCase):
     def test_can_operate(self):
         self.assertTrue(False, msg='Test not implemented.')
         
@@ -2710,7 +2710,7 @@ class TestHeadingDeviation500To20Ft(unittest.TestCase):
         self.assertTrue(False, msg='Test not implemented.')
 
 
-class TestHeadingDeviationOnLandingAbove100Kts(unittest.TestCase):
+class TestHeadingExcursionOnLandingAbove100Kts(unittest.TestCase):
     def test_can_operate(self):
         self.assertTrue(False, msg='Test not implemented.')
         
@@ -2718,7 +2718,7 @@ class TestHeadingDeviationOnLandingAbove100Kts(unittest.TestCase):
         self.assertTrue(False, msg='Test not implemented.')
 
 
-class TestHeadingDeviationOnTakeoffAbove100Kts(unittest.TestCase):
+class TestHeadingExcursionOnTakeoffAbove100Kts(unittest.TestCase):
     def test_can_operate(self):
         self.assertTrue(False, msg='Test not implemented.')
         
@@ -2726,7 +2726,7 @@ class TestHeadingDeviationOnTakeoffAbove100Kts(unittest.TestCase):
         self.assertTrue(False, msg='Test not implemented.')
 
 
-class TestHeadingDeviationTouchdownPlus4SecTo60Kts(unittest.TestCase):
+class TestHeadingExcursionTouchdownPlus4SecTo60Kts(unittest.TestCase):
     def test_can_operate(self):
         self.assertTrue(False, msg='Test not implemented.')
         

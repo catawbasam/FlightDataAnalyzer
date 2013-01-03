@@ -21,6 +21,7 @@ from analysis_engine.library import (ambiguous_runway,
                                      bearings_and_distances,
                                      bump,
                                      clip, 
+                                     clump_multistate,
                                      coreg, 
                                      cycle_counter,
                                      cycle_finder,
@@ -1200,7 +1201,7 @@ class AOAWithFlapMax(KeyPointValueNode, FlapOrConfigurationMaxOrMin):
     may suffice.
     '''
 
-    NAME_FORMAT = 'Angle of Attack With Flap %(flap)d Max'
+    NAME_FORMAT = 'AOA With Flap %(flap)d Max'
     NAME_VALUES = NAME_VALUES_FLAP
 
     def derive(self, flap=P('Flap'), aoa=P('AOA'), scope=S('Fast')):
@@ -1323,19 +1324,7 @@ def thrust_reversers_working(land, pwr, tr):
     '''
     high_power = np.ma.clump_unmasked(np.ma.masked_less(pwr.array[land.slice],
                                                         65.0))
-
-    #--------------------------------------------------------------------------------
-    # TODO: There must be a better way to test this array against the deployed state!
-    dummy = np.ma.arange(land.slice.stop-land.slice.start)
-    for i in dummy:
-        if tr.array[land.slice.start + i]=='Deployed':
-            dummy[i] = 1
-        else:
-            dummy[i] = 0
-    deployed_slices = np.ma.clump_unmasked(np.ma.masked_equal(dummy, 0))
-    #--------------------------------------------------------------------------------
-    
-    return shift_slices(slices_and(high_power, deployed_slices), land.slice.start)
+    return clump_multistate(tr.array, 'Deployed', high_power)
 
 
 class AirspeedThrustReversersDeployedMin(KeyPointValueNode):
@@ -1359,20 +1348,10 @@ class ThrustAsymmetryWithReverseThrust(KeyPointValueNode):
     '''
     def derive(self, ta=P('Thrust Asymmetry'), tr=M('Thrust Reversers'), 
                lands=S('Landing')):
-        for land in lands:
-            #--------------------------------------------------------------------------------
-            # TODO: There must be a better way to test this array! 
-            # This time not stowed in case there is mismatch during deployment
-            dummy = np.ma.arange(land.slice.stop-land.slice.start)
-            for i in dummy:
-                if tr.array[land.slice.start + i]!='Stowed':
-                    dummy[i] = 1
-                else:
-                    dummy[i] = 0
-            not_stowed_slices = np.ma.clump_unmasked(np.ma.masked_equal(dummy, 0))
-            #--------------------------------------------------------------------------------
-            to_scan = shift_slices(not_stowed_slices, land.slice.start)
-            self.create_kpv_from_slices(to_scan, ta.array, max_value)
+        to_scan = clump_multistate(tr.array, 'Stowed', 
+                                   [s.slice for s in lands],
+                                   condition=False)
+        self.create_kpv_from_slices(to_scan, ta.array, max_value)
 
 
 class ThrustWithReverseThrustInTransit(KeyPointValueNode):
@@ -1382,20 +1361,9 @@ class ThrustWithReverseThrustInTransit(KeyPointValueNode):
     '''
     def derive(self, pwr=P('Eng (*) N1 Avg'), tr=M('Thrust Reversers'), 
                lands=S('Landing')):
-        for land in lands:
-            #--------------------------------------------------------------------------------
-            # TODO: There must be a better way to test this array! 
-            # This time not stowed in case there is mismatch during deployment
-            dummy = np.ma.arange(land.slice.stop-land.slice.start)
-            for i in dummy:
-                if tr.array[land.slice.start + i]=='In Transit':
-                    dummy[i] = 1
-                else:
-                    dummy[i] = 0
-            in_transit_slices = np.ma.clump_unmasked(np.ma.masked_equal(dummy, 0))
-            #--------------------------------------------------------------------------------
-            to_scan = shift_slices(in_transit_slices, land.slice.start)
-            self.create_kpv_from_slices(pwr.array, to_scan, max_value)
+        to_scan = clump_multistate(tr.array, 'In Transit', 
+                                   [s.slice for s in lands])
+        self.create_kpv_from_slices(pwr.array, to_scan, max_value)
 
 
 class TouchdownToThrustReversersDeployedDuration(KeyPointValueNode):
@@ -1406,24 +1374,17 @@ class TouchdownToThrustReversersDeployedDuration(KeyPointValueNode):
     
     Note: 3 second threshold may be applied to derive an event from this KPV.
     '''
-    def derive(self, tr=M('Thrust Reversers'), lands=S('Landing'), tdwns=KTI('Touchdown')):
+    def derive(self, tr=M('Thrust Reversers'),
+               lands = S('Landing'), tdwns=KTI('Touchdown')):
         for land in lands:
-            #--------------------------------------------------------------------------------
-            # TODO: There must be a better way to test this array! 
-            # This time not stowed in case there is mismatch during deployment
-            dummy = np.ma.arange(land.slice.stop-land.slice.start)
-            for i in dummy:
-                if tr.array[land.slice.start + i]=='Stowed':
-                    dummy[i] = 1
-                else:
-                    dummy[i] = 0
-            not_stowed_slice = np.ma.clump_unmasked(np.ma.masked_equal(dummy, 0))
-            first_movement_index=not_stowed_slice[0].start + land.slice.start
-            #--------------------------------------------------------------------------------
+            deploys = clump_multistate(tr.array, 'Deployed', land.slice)
+            if deploys == []:
+                continue
+            deploy = deploys[0].start # Only interested in first opening of reversers on this landing.
             for tdwn in tdwns:
-                if is_index_within_slice(tdwn.index, land.slice):
-                    duration = first_movement_index - tdwn.index
-                    self.create_kpv(first_movement_index, duration)
+                if not is_index_within_slice(tdwn.index, land.slice):
+                    continue
+                self.create_kpv(deploy, (deploy-tdwn.index)/tr.hz)
 
 
 class TouchdownToSpoilersDeployedDuration(KeyPointValueNode):
@@ -3714,7 +3675,7 @@ class HeadingDeviationAtTOGA(KeyPointValueNode):
             self.create_kpv(index, dev)
 
 
-class HeadingDeviation500To20Ft(KeyPointValueNode):
+class HeadingExcursion500To20Ft(KeyPointValueNode):
     def derive(self, head=P('Heading Continuous'),
                alt_aal=P('Altitude AAL For Flight Phases')):
         for band in alt_aal.slices_from_to(500, 20):
@@ -3742,13 +3703,11 @@ class HeadingDeviationOnLandingAt50Ft(KeyPointValueNode):
         brg=value_at_index(head.array, land.start_edge) # By definition, landing starts at 50ft.
         dev = runway_deviation(brg, rwy.value)
         self.create_kpv(land.start_edge, dev)
-
-
         
 
-class HeadingDeviationOnLandingAbove100Kts(KeyPointValueNode):
+class HeadingExcursionOnLandingAbove100Kts(KeyPointValueNode):
     """
-    See heading deviation on takeoff comments. For landing the Altitude AAL
+    See heading excursion on takeoff comments. For landing the Altitude AAL
     is used to detect start of landing, again to avoid variation from the use
     of different aircraft recording configurations.
     """
@@ -3764,7 +3723,7 @@ class HeadingDeviationOnLandingAbove100Kts(KeyPointValueNode):
                 self.create_kpv((begin+end)/2, head_dev)
             
             
-class HeadingDeviationTouchdownPlus4SecTo60Kts(KeyPointValueNode):
+class HeadingExcursionTouchdownPlus4SecTo60Kts(KeyPointValueNode):
     def derive(self, head=P('Heading Continuous'), tdwns=KTI('Touchdown'),
                airspeed=P('Airspeed')):
         for tdwn in tdwns:
@@ -4042,7 +4001,7 @@ class GroundspeedVacatingRunway(KeyPointValueNode):
 ################################################################################
 # Pitch
 
-class PitchMaxAfterTakeoff(KeyPointValueNode):
+class PitchMaxAfterFlapRetraction(KeyPointValueNode):
     '''
     FDS added this KPV during the UK CAA Significant Seven programme. "Loss
     of Control Pitch. FDS recommend addition of a maximum pitch attitude KPV,
@@ -4054,7 +4013,7 @@ class PitchMaxAfterTakeoff(KeyPointValueNode):
     but flap retraction is a good condition to apply to avoid these normal
     maxima.
     '''
-    def derive(self, pitch=P('Pitch'), airs=S('Airborne'), flap=P('Flap')):
+    def derive(self, flap=P('Flap'), pitch=P('Pitch'), airs=S('Airborne')):
         scope=[]
         for air in airs:
             clean = np.ma.clump_unmasked(np.ma.masked_greater(flap.array[air.slice],0.0))
@@ -5675,36 +5634,6 @@ class ThrustAsymmetryOnApproach(KeyPointValueNode):
             idx = np.ma.argmax(ta.array[app.slice]) + app.slice.start
             self.create_kpv(idx, ta.array[idx])
 
-
-class TouchdownToThrustReversersDeployedDuration(KeyPointValueNode):
-    '''
-    '''
-    def derive(self, tr=M('Thrust Reversers'),
-               lands = S('Landing'), tdwns=KTI('Touchdown')):
-        '''
-        '''
-        for land in lands:
-            #deploys = find_edges_on_state_change('Deployed', tr.array, phase=lands)
-            #--------------------------------------------------------------------------------
-            # TODO: There must be a better way to test this array against the deployed state!
-            dummy = np.ma.arange(land.slice.stop-land.slice.start)
-            for i in dummy:
-                if tr.array[land.slice.start + i]=='Deployed':
-                    dummy[i] = 1
-                else:
-                    dummy[i] = 0
-            deploys = shift_slices(np.ma.clump_unmasked(np.ma.masked_equal(dummy, 0)), land.slice.start)
-            #--------------------------------------------------------------------------------
-        
-            for deploy_slice in deploys:
-                deploy=deploy_slice.start # Only interested in opening reversers.
-                if not is_index_within_slice(deploy, land.slice):
-                    continue
-                for tdwn in tdwns:
-                    if not is_index_within_slice(tdwn.index, land.slice):
-                        continue
-                    self.create_kpv(deploy, (deploy-tdwn.index)/tr.hz)
- 
 
 class TouchdownToElevatorDownDuration(KeyPointValueNode):
     def derive(self, airspeed=P('Airspeed'), elevator=P('Elevator'),

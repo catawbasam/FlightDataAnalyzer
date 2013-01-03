@@ -888,6 +888,69 @@ def clip(array, period, hz=1.0, remove='peaks'):
     return a
     """
 
+def clump_multistate(array, state, _slices, condition=True):
+    '''
+    This tests a multistate array and returns a classic POLARIS list of slices.
+    
+    :param array: data to scan
+    :type array: multistate numpy masked array
+    :param state: state to be tested
+    :type state: string
+    :param _slices: slice or list of slices over which to scan the array.
+    :type _slices: slice list
+    :param condition: selection of true or false (i.e. inverse) test to apply.
+    :type condition: boolean
+    
+    :returns: list of slices.
+    '''
+    def add_clump(clumps, _slice, start, stop):
+        #Note that the resulting clumps are expanded by half an index so that
+        #where significant the errors in timing are minimized. A clamp to avoid
+        #-0.5 values is included, but as we don't know the length of the calling
+        #array here, a limit on the maximum case is impractical.
+        if _slice.start == 0 and start == 0:
+            begin = 0
+        else:
+            begin = start-0.5
+        new_slice = slice(begin, stop+0.5)
+        clumps.append(shift_slice(new_slice,_slice.start))
+        return
+    
+    if not state in array.state:
+        return None
+
+    try:
+        iter_this = iter(_slices)
+    except TypeError:
+        iter_this = [_slices]
+        
+    clumps = []
+
+    for _slice in iter_this:
+        
+        if condition==True:
+            array_tuple = np.ma.nonzero(array[_slice]==state)
+        else:
+            array_tuple = np.ma.nonzero(np.ma.logical_not(array[_slice]==state))
+        
+        start = None
+        stop = None
+        
+        for x in array_tuple[0]:
+            if start==None:
+                start = x
+                stop = x + 1
+            elif x==stop:
+                stop+=1
+            else:
+                add_clump(clumps, _slice, start, stop)
+                start=x
+                stop=x+1
+        if stop:
+            add_clump(clumps, _slice, start, stop)
+                            
+    return clumps
+
 
 def filter_vor_ils_frequencies(array, navaid):
     '''
