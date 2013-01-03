@@ -96,9 +96,9 @@ class Node(object):
       class frequency/offset. If either are not declared, the missing attributes
       are taken from the first available dependency.
     
-    if align = False then:
-    * The Node must declare its own self.frequency and self.offset in the derive
-      method.
+    if align = False then: 
+    * The Node will inherit the first dependency's frequency/offset but
+      self.frequency and self.offset can be overidden within the derive method.
     '''
     __metaclass__ = ABCMeta
 
@@ -247,6 +247,9 @@ def can_operate(cls, available):
                 if arg in dependencies_to_align:
                     # override argument in list in-place
                     args[index] = arg.get_aligned(self)
+        elif dependencies_to_align:
+            self.frequency = dependencies_to_align[0].frequency
+            self.offset = dependencies_to_align[0].offset
 
         res = self.derive(*args)
         if res is NotImplemented:
