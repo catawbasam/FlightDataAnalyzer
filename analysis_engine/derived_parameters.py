@@ -1185,26 +1185,6 @@ class AltitudeSTD(DerivedParameterNode):
             '''
 
 
-'''
-class Autopilot(DerivedParameterNode):
-    name = 'AP Engaged'
-    """
-    Placeholder for combining multi-channel AP modes into a single consistent status.
-    
-    Not required for 737-5 frame as AP Engaged is recorded directly.
-    """
-       
-
-class Autothrottle(DerivedParameterNode):
-    name = 'AT Engaged'
-    """
-    Placeholder for combining multi-channel AP modes into a single consistent status.
-
-    Not required for 737-5 frame as AT Engaged is recorded directly.
-    """
-'''
- 
-        
 class AltitudeTail(DerivedParameterNode):
     """
     This function allows for the distance between the radio altimeter antenna
@@ -1230,6 +1210,50 @@ class AltitudeTail(DerivedParameterNode):
         min_rad = np.ma.min(alt_rad.array)
         self.array = (alt_rad.array + ground2tail - 
                       np.ma.sin(pitch_rad)*gear2tail - min_rad)
+
+class AutopilotEngaged(MultistateDerivedParameterNode):
+    '''
+    This function assumes that either autopilot is capable of controlling the aircraft.
+    
+    This function will be extended to be multi-state parameter with states
+    Off/Single/Dual as a first step towards monitoring autoland function.
+    '''
+    
+    align=False
+    
+    values_mapping = {0: '-', 1: 'Engaged'}
+
+    @classmethod
+    def can_operate(cls, available):
+        return any(d in available for d in cls.get_dependency_names())
+
+    def derive(self, ap1=M('Autopilot (1) Engaged'), 
+               ap2=M('Autopilot (2) Engaged'),
+               ap3=M('Autopilot (3) Engaged')):
+
+
+        if ap3 == None:
+            # Only got a duplex autopilot.
+            self.array = np.ma.max(ap1.array.raw, ap2.array.raw)
+            self.offset = offset_select('mean', [ap1, ap2])
+        else:
+            self.array = np.ma.max(ap1.array.raw, ap2.array.raw, ap3.array.raw)
+            self.offset = offset_select('mean', [ap1, ap2, ap3])
+     
+        self.frequency = ap1.frequency
+
+
+'''
+class Autothrottle(DerivedParameterNode):
+    name = 'AT Engaged'
+    """
+    Placeholder for combining multi-channel AP modes into a single consistent status.
+
+    Not required for 737-5 frame as AT Engaged is recorded directly.
+    """
+'''
+ 
+        
 
 
 class ClimbForFlightPhases(DerivedParameterNode):
@@ -1477,7 +1501,7 @@ class PackValvesOpen(MultistateDerivedParameterNode):
         '''
         # Sum the open engines, allowing 1 for low flow and 1+1 for high flow
         # each side.
-        flow = p1.array.raw + +p2.array.raw
+        flow = p1.array.raw + p2.array.raw
         if p1h and p2h:
             flow = p1.array.raw * (1 + p1h.array.raw) \
                  + p2.array.raw * (1 + p2h.array.raw)

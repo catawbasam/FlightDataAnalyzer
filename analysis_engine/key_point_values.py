@@ -1843,6 +1843,15 @@ class AltitudeAutothrottleDisengaged(KeyPointValueNode):
         self.create_kpvs_at_ktis(alt_aal.array, at_dis)
         
 
+class AutopilotOffInCruiseDuration(KeyPointValueNode):
+    '''
+    This monitors the duration for which all autopilot channels are
+    disengaged in the cruise.
+    '''
+    def derive(self, autopilot=M('AP Engaged'), cruise=S('Cruise')):
+        self.create_kpvs_where_state('-', autopilot.array, 
+                                     autopilot.hz, phase=cruise)
+               
 class ControlColumnStiffness(KeyPointValueNode):
     """
     The control force and displacement of the flying controls should follow a
@@ -5611,10 +5620,14 @@ class ThrustAsymmetryInFlight(KeyPointValueNode):
         self.create_kpvs_within_slices(ta.array, airs, max_value)
 
 
-class ThrustAsymmetryWithReverseThrust(KeyPointValueNode):
+class ThrustAsymmetryWithReverseThrustMax(KeyPointValueNode):
     '''
     FDS developed this KPV to support the UK CAA Significant Seven programme.
     "Excursions - Landing (Lateral) - Asymmetric reverse thrust".
+    
+    A good KPV for providing measures on every flight, and preferred to the
+    ThrustAsymmetryWithReverseThrustDuration which will normally not record
+    any value.
     '''
     def derive(self, ta=P('Thrust Asymmetry'), rev_th=M('Thrust Reversers')):
         revs = np.ma.clump_unmasked(np.ma.masked_where(rev_th == 'Deployed', ta.array))
@@ -5623,17 +5636,56 @@ class ThrustAsymmetryWithReverseThrust(KeyPointValueNode):
             self.create_kpv(idx, ta.array[idx])
 
 
-class ThrustAsymmetryOnApproach(KeyPointValueNode):
+class ThrustAsymmetryWithReverseThrustDuration(KeyPointValueNode):
     '''
+    Durations of thrust asymmetry over 10% with reverse thrust operating.
+    Included for customers with existing events using this approach.
     '''
     
-    name = 'Thrust Asymmetry On Approach'
-    
+    #####################################
+    #### SET GREATER TO ALLOW TESING ####
+    #####################################
+
+    def derive(self, ta=P('Thrust Asymmetry'), rev_th=M('Thrust Reversers')):
+        revs = np.ma.clump_unmasked(np.ma.masked_where(rev_th == 'Deployed', ta.array))
+        for rev in revs:
+            big_asym = shift_slices(
+                np.ma.clump_unmasked(
+                    np.ma.masked_greater(ta.array[app.slice], 10.0)),
+                rev.start)
+            self.create_kpvs_from_slice_durations(big_asym)
+
+
+class ThrustAsymmetryOnApproachMax(KeyPointValueNode):
+    '''
+    Peak thrust asymmetry on approach. A good KPV for providing measures on
+    every flight, and preferred to the ThrustAsymmetryOnApproachDuration
+    which will normally not record any value.
+    '''
     def derive(self,ta=P('Thrust Asymmetry'), apps=S('Approach')):
         for app in apps:
             idx = np.ma.argmax(ta.array[app.slice]) + app.slice.start
             self.create_kpv(idx, ta.array[idx])
 
+
+class ThrustAsymmetryOnApproachDuration(KeyPointValueNode):
+    '''
+    Durations of thrust asymmetry over 10%. Included for customers with
+    existing events using this approach.
+    '''
+
+    #####################################
+    #### SET GREATER TO ALLOW TESING ####
+    #####################################
+
+    def derive(self,ta=P('Thrust Asymmetry'), apps=S('Approach')):
+        for app in apps:
+            big_asym = shift_slices(
+                np.ma.clump_unmasked(
+                    np.ma.masked_greater(ta.array[app.slice], 10.0)),
+                app.slice.start)
+            self.create_kpvs_from_slice_durations(big_asym)
+            
 
 class TouchdownToElevatorDownDuration(KeyPointValueNode):
     def derive(self, airspeed=P('Airspeed'), elevator=P('Elevator'),

@@ -1643,17 +1643,9 @@ class KeyPointValueNode(FormattedNameNode):
     def create_kpvs_where_state(self, state, array, hz, phase=None,
                                 min_duration=0.0, exclude_leading_edge=False):
         '''
-        For discrete and multi-state parameters, this detects an event and
-        records the duration of each event.
+        For discrete and multi-state parameters, this detects a specified
+        state and records the duration of each event.
         
-        Note: The min_duration should not be used as short duration events
-        are filtered by the time threshold in the Analysis Specification, and
-        leaving a zero default allows KPVs to be accumulated below the event
-        threshold limit and these are useful for changing thresholds in the
-        future. The facility is only intended for systems with continuous
-        nuisance levels of operation which would swamp the database if not
-        filtered before creating the KPV.
-
         :param array: The input parameter, with data and sample rate
             information.
         :type array: A recorded or derived multistate (discrete) parameter
@@ -1669,6 +1661,14 @@ class KeyPointValueNode(FormattedNameNode):
 
         Where phase is supplied, only edges arising within this phase will be
         triggered.
+
+        Note: The min_duration should not be used as short duration events
+        are filtered by the time threshold in the Analysis Specification, and
+        leaving a zero default allows KPVs to be accumulated below the event
+        threshold limit and these are useful for changing thresholds in the
+        future. The facility is only intended for systems with continuous
+        nuisance levels of operation which would swamp the database if not
+        filtered before creating the KPV.
 
         ..todo: instead of working on the strings in numpy, we need to find the
             numeric value by reversing the mapping.

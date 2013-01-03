@@ -104,7 +104,7 @@ class ApproachLowestPoint(KeyTimeInstanceNode):
 class AutopilotEngagedSelection(KeyTimeInstanceNode):
     name = 'AP Engaged Selection'
 
-    def derive(self, autopilot=P('AP Engaged'), phase=S('Airborne')):
+    def derive(self, autopilot=M('AP Engaged'), phase=S('Airborne')):
         self.create_ktis_on_state_change(
             'Engaged',
             autopilot.array,
@@ -116,7 +116,7 @@ class AutopilotEngagedSelection(KeyTimeInstanceNode):
 class AutopilotDisengagedSelection(KeyTimeInstanceNode):
     name = 'AP Disengaged Selection'
 
-    def derive(self, autopilot=P('AP Engaged'), phase=S('Airborne')):
+    def derive(self, autopilot=M('AP Engaged'), phase=S('Airborne')):
         self.create_ktis_on_state_change(
             'Engaged',
             autopilot.array,

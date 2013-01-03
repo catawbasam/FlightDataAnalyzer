@@ -160,6 +160,31 @@ class Holding(FlightPhaseNode):
 
 class Approach(FlightPhaseNode):
     """
+    This separates out the approach phase exclusing the landing.
+    """
+    def derive (self, apps=S('Approach And Landing'), lands=S('Landing')):
+        app_slices = []
+        begin=None
+        end=None
+        land_slices = []
+        for app in apps:
+            app_slices.append(app.slice)
+            if begin==None:
+                begin=app.slice.start
+                end=app.slice.stop
+            else:
+                begin=min(begin, app.slice.start)
+                end=max(end, app.slice.stop)
+        for land in lands:
+            land_slices.append(land.slice)
+        self.create_phases(slices_and(app_slices, 
+                                      slices_not(land_slices, 
+                                                 begin_at=begin, 
+                                                 end_at=end)))
+        
+        
+class ApproachAndLanding(FlightPhaseNode):
+    """
     This phase is used to identify an approach which may or may not include
     in a landing. It includes go-arounds, touch-and-go's and of course
     successful landings.
