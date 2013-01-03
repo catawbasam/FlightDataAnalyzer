@@ -31,7 +31,21 @@ class TestAbstractNode(unittest.TestCase):
     
     def test_node(self):
         pass
-    
+
+def _get_mock_params():
+    param1 = mock.Mock()
+    param1.name = 'PARAM1'
+    param1.frequency = 2
+    param1.offset = 0.5
+    param1.get_aligned = mock.Mock()
+    param1.get_aligned.return_value = 1
+    param2 = mock.Mock()
+    param2.name = 'PARAM2'
+    param2.frequency = 0.5
+    param2.offset = 1
+    param2.get_aligned = mock.Mock()
+    param2.get_aligned.return_value = 2
+    return param1, param2
 
 class TestNode(unittest.TestCase):
     
@@ -130,26 +144,14 @@ class TestNode(unittest.TestCase):
             # test derive method with this combination
             res = c.derive(*deps)
             self.assertEqual(res[:2], ('A', 'B'))
-            
-    def test_get_derived(self):
-        def get_mock_params():
-            param1 = mock.Mock()
-            param1.name = 'PARAM1'
-            param1.frequency = 2
-            param1.offset = 0.5
-            param1.get_aligned = mock.Mock()
-            param1.get_aligned.return_value = 1
-            param2 = mock.Mock()
-            param2.name = 'PARAM2'
-            param2.frequency = 0.5
-            param2.offset = 1
-            param2.get_aligned = mock.Mock()
-            param2.get_aligned.return_value = 2
-            return param1, param2
-        param1, param2 = get_mock_params()
+
+    def test_get_derived_default(self):
+        param1, param2 = _get_mock_params()
+
         class TestNode(Node):
             def derive(self, kwarg1=param1, kwarg2=param2):
                 pass
+
         node = TestNode()
         node.derive = mock.Mock()
         node.derive.return_value = None
@@ -160,68 +162,83 @@ class TestNode(unittest.TestCase):
         # check param1 is returned unchanged and param2 get_aligned is called
         # (returns '2')
         node.derive.assert_called_once_with(param1, 2)
-        param1, param2 = get_mock_params()
+        param1, param2 = _get_mock_params()
         param3 = FlightAttributeNode('Attr')
         node.derive = mock.Mock()
         node.derive.return_value = None
         node.get_derived([param3, param2])
         node.derive.assert_called_once_with(param3, param2)
-        # NotImplemented
+
+    def test_get_derived_not_implemented(self):
+        param1, param2 = _get_mock_params()
+
         class NotImplementedNode(Node):
             def derive(self, kwarg1=param1, kwarg2=param2):
                 return NotImplemented
+
         not_implemented_node = NotImplementedNode()
         self.assertRaises(NotImplementedError, not_implemented_node.get_derived,
                           [param1, param2])
-        # align_to_first_dependency = False
+
+    def test_get_derived_unaligned(self):
+        param1, param2 = _get_mock_params()
+
         class UnalignedNode(Node):
             align = False
             def derive(self, kwarg1=param1, kwarg2=param2):
                 pass
+
         node = UnalignedNode()
-        param1, param2 = get_mock_params()
-        node.get_derived([param1, param2])
+        derived_parameter = node.get_derived([param1, param2])
         self.assertEqual(param1.method_calls, [])
         self.assertEqual(param2.method_calls, [])
-        # align_to_first_dependency = False
+        # Check that the default 1hz frequency and 0 offset are not used
+        self.assertEqual(derived_parameter.frequency, 2)
+        self.assertEqual(derived_parameter.offset, 0.5)
+
+    def test_get_derived_align_to_frequency(self):
+        param1, param2 = _get_mock_params()
+
         class AlignedToFrequencyNode(Node):
             align = True
             align_frequency = 4
             def derive(self, kwarg1=param1, kwarg2=param2):
                 pass
+
         node = AlignedToFrequencyNode()
         node.derive = mock.Mock()
         node.derive.return_value = None
-        param1, param2 = get_mock_params()
         derived_parameter = node.get_derived([param1, param2])
         self.assertEqual(param1.get_aligned.call_args[0][0].frequency, 4)
         self.assertEqual(param1.get_aligned.call_args[0][0].offset, 0.5)
         self.assertEqual(param2.get_aligned.call_args[0][0].frequency, 4)
         self.assertEqual(param2.get_aligned.call_args[0][0].offset, 0.5)
-        self.assertEqual(node.frequency, 4)
-        self.assertEqual(node.offset, 0.5)
+        self.assertEqual(derived_parameter.frequency, 4)
+        self.assertEqual(derived_parameter.offset, 0.5)
         node.derive.assert_called_with(1, 2)
-        
+
+    def test_get_derived_align_to_frequency_offset(self):
+        param1, param2 = _get_mock_params()
+
         class AlignedToFrequencyOffsetNode(Node):
             align = True
             align_frequency = 4
             align_offset = 0
             def derive(self, kwarg1=param1, kwarg2=param2):
                 pass
+
         node = AlignedToFrequencyOffsetNode()
         node.derive = mock.Mock()
         node.derive.return_value = None
-        param1, param2 = get_mock_params()
         derived_parameter = node.get_derived([param1, param2])
         self.assertEqual(param1.get_aligned.call_args[0][0].frequency, 4)
         self.assertEqual(param1.get_aligned.call_args[0][0].offset, 0)
         self.assertEqual(param2.get_aligned.call_args[0][0].frequency, 4)
         self.assertEqual(param2.get_aligned.call_args[0][0].offset, 0)
-        self.assertEqual(node.frequency, 4)
-        self.assertEqual(node.offset, 0)
-        
-        
-        
+        self.assertEqual(derived_parameter.frequency, 4)
+        self.assertEqual(derived_parameter.offset, 0)
+
+
 class TestFlightAttributeNode(unittest.TestCase):
     def test_nonzero_flight_attr_node(self):
         'If no value is set, object evaluates to False - else True'
