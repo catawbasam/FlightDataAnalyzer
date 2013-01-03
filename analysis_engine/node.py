@@ -87,11 +87,26 @@ def get_param_kwarg_names(method):
 # Abstract Node Classes
 # =====================
 class Node(object):
+    '''
+    Note about aligning options
+    ---------------------------
+
+    if align = True then:
+    * Magic happens: the derive method dependencies are aligned to the 
+      class frequency/offset. If either are not declared, the missing attributes
+      are taken from the first available dependency.
+    
+    if align = False then:
+    * The Node must declare its own self.frequency and self.offset in the derive
+      method.
+    '''
     __metaclass__ = ABCMeta
 
-    name = '' # Optional, default taken from ClassName
-    align_to_first_dependency = True
-    data_type = None # Q: What should the default be? Q: Should this dictate the numpy dtype saved to the HDF file or should it be inferred from the array?
+    name = ''  # Optional, default taken from ClassName
+    align = True
+    align_frequency = None  # Force frequency of Node by overriding
+    align_offset = None  # Force offset of Node by overriding
+    data_type = None  # Q: What should the default be? Q: Should this dictate the numpy dtype saved to the HDF file or should it be inferred from the array?
         
     def __init__(self, name='', frequency=1, offset=0, **kwargs):
         """
@@ -205,18 +220,34 @@ def can_operate(cls, available):
         :returns: self after having aligned dependencies and called derive.
         :rtype: self
         """
-        if self.align_to_first_dependency:
-            try:
-                i, first_param = next(((n, a) for n, a in enumerate(args) if \
-                                       a is not None and a.frequency))
-            except StopIteration:
-                pass
+        dependencies_to_align = [d for d in args if d is not None and d.frequency]
+        if dependencies_to_align and self.align:
+            
+            if self.align_frequency and self.align_offset is not None:
+                # align to the class declared frequency and offset
+                self.frequency = self.align_frequency
+                self.offset = self.align_offset
+            elif self.align_frequency:
+                # align to class frequency, but set offset to first dependency
+                self.frequency = self.align_frequency
+                self.offset = dependencies_to_align[0].offset
+            elif self.align_offset is not None:
+                # align to class offset, but set frequency to first dependency
+                self.frequency = dependencies_to_align[0].frequency
+                self.offset = self.align_offset
             else:
-                for n, param in enumerate(args):
-                    # if param is set and it's after the first dependency
-                    if param and n > i:
-                         # override argument in list in-place
-                        args[n] = param.get_aligned(first_param)
+                # This is the class' default behaviour:
+                # align both frequency and offset to the first parameter
+                alignment_param = dependencies_to_align.pop(0)
+                self.frequency = alignment_param.frequency
+                self.offset = alignment_param.offset
+            
+            # align the dependencies
+            for index, arg in enumerate(args):
+                if arg in dependencies_to_align:
+                    # override argument in list in-place
+                    args[index] = arg.get_aligned(self)
+
         res = self.derive(*args)
         if res is NotImplemented:
             raise NotImplementedError("Class '%s' derive method is not implemented." % \

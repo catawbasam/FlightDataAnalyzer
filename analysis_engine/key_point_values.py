@@ -3675,7 +3675,7 @@ class HeadingDeviationAtTOGA(KeyPointValueNode):
             self.create_kpv(index, dev)
 
 
-class HeadingDeviation500To20Ft(KeyPointValueNode):
+class HeadingExcursion500To20Ft(KeyPointValueNode):
     def derive(self, head=P('Heading Continuous'),
                alt_aal=P('Altitude AAL For Flight Phases')):
         for band in alt_aal.slices_from_to(500, 20):
@@ -3703,13 +3703,11 @@ class HeadingDeviationOnLandingAt50Ft(KeyPointValueNode):
         brg=value_at_index(head.array, land.start_edge) # By definition, landing starts at 50ft.
         dev = runway_deviation(brg, rwy.value)
         self.create_kpv(land.start_edge, dev)
-
-
         
 
-class HeadingDeviationOnLandingAbove100Kts(KeyPointValueNode):
+class HeadingExcursionOnLandingAbove100Kts(KeyPointValueNode):
     """
-    See heading deviation on takeoff comments. For landing the Altitude AAL
+    See heading excursion on takeoff comments. For landing the Altitude AAL
     is used to detect start of landing, again to avoid variation from the use
     of different aircraft recording configurations.
     """
@@ -3725,7 +3723,7 @@ class HeadingDeviationOnLandingAbove100Kts(KeyPointValueNode):
                 self.create_kpv((begin+end)/2, head_dev)
             
             
-class HeadingDeviationTouchdownPlus4SecTo60Kts(KeyPointValueNode):
+class HeadingExcursionTouchdownPlus4SecTo60Kts(KeyPointValueNode):
     def derive(self, head=P('Heading Continuous'), tdwns=KTI('Touchdown'),
                airspeed=P('Airspeed')):
         for tdwn in tdwns:

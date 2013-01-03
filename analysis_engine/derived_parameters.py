@@ -870,7 +870,7 @@ class AltitudeRadio(DerivedParameterNode):
     """
 
     units = 'ft'
-    align_to_first_dependency = False
+    align = False
 
     @classmethod
     def can_operate(cls, available):
@@ -1283,7 +1283,7 @@ class ControlColumn(DerivedParameterNode):
     The position of the control column blended from the position of the captain
     and first officer's control columns.
     '''
-    align_to_first_dependency = False
+    align = False
     units = 'deg'
 
     def derive(self,
@@ -1361,7 +1361,7 @@ class ControlWheel(DerivedParameterNode):
     and first officer's control wheels.
     '''
 
-    align_to_first_dependency = False
+    align = False
     units = 'deg'
     
     def derive(self,
@@ -1453,7 +1453,7 @@ class PackValvesOpen(MultistateDerivedParameterNode):
 
     name = 'Pack Valves Open'
 
-    align_to_first_dependency = False
+    align = False
 
     values_mapping = {
         0: 'All closed',
@@ -1496,7 +1496,7 @@ class Eng_EPRAvg(DerivedParameterNode):
 
     name = 'Eng (*) EPR Avg'
 
-    align_to_first_dependency = False
+    align = False
 
     @classmethod
     def can_operate(cls, available):
@@ -1524,7 +1524,7 @@ class Eng_EPRMax(DerivedParameterNode):
 
     name = 'Eng (*) EPR Max'
 
-    align_to_first_dependency = False
+    align = False
 
     @classmethod
     def can_operate(cls, available):
@@ -1552,7 +1552,7 @@ class Eng_EPRMin(DerivedParameterNode):
 
     name = 'Eng (*) EPR Min'
 
-    align_to_first_dependency = False
+    align = False
 
     @classmethod
     def can_operate(cls, available):
@@ -1584,7 +1584,7 @@ class Eng_FuelFlow(DerivedParameterNode):
 
     name = 'Eng (*) Fuel Flow'
 
-    align_to_first_dependency = False
+    align = False
 
     @classmethod
     def can_operate(cls, available):
@@ -1617,7 +1617,7 @@ class Eng_GasTempAvg(DerivedParameterNode):
     name = 'Eng (*) Gas Temp Avg'
     units = 'C'
 
-    align_to_first_dependency = False
+    align = False
 
     @classmethod
     def can_operate(cls, available):
@@ -1646,7 +1646,7 @@ class Eng_GasTempMax(DerivedParameterNode):
     name = 'Eng (*) Gas Temp Max'
     units = 'C'
 
-    align_to_first_dependency = False
+    align = False
 
     @classmethod
     def can_operate(cls, available):
@@ -1675,7 +1675,7 @@ class Eng_GasTempMin(DerivedParameterNode):
     name = 'Eng (*) Gas Temp Min'
     units = 'C'
 
-    align_to_first_dependency = False
+    align = False
 
     @classmethod
     def can_operate(cls, available):
@@ -1707,7 +1707,7 @@ class Eng_N1Avg(DerivedParameterNode):
     name = 'Eng (*) N1 Avg'
     units = '%'
 
-    align_to_first_dependency = False
+    align = False
 
     @classmethod
     def can_operate(cls, available):
@@ -1737,7 +1737,7 @@ class Eng_N1Max(DerivedParameterNode):
 
     name = 'Eng (*) N1 Max'
     
-    align_to_first_dependency = False
+    align = False
 
     @classmethod
     def can_operate(cls, available):
@@ -1768,7 +1768,7 @@ class Eng_N1Min(DerivedParameterNode):
     name = 'Eng (*) N1 Min'
     units = '%'
 
-    align_to_first_dependency = False
+    align = False
 
     @classmethod
     def can_operate(cls, available):
@@ -1800,7 +1800,7 @@ class Eng_N2Avg(DerivedParameterNode):
     name = 'Eng (*) N2 Avg'
     units = '%'
 
-    align_to_first_dependency = False
+    align = False
 
     @classmethod
     def can_operate(cls, available):
@@ -1828,7 +1828,7 @@ class Eng_N2Max(DerivedParameterNode):
     name = 'Eng (*) N2 Max'
     units = '%'
 
-    align_to_first_dependency = False
+    align = False
 
     @classmethod
     def can_operate(cls, available):
@@ -1856,7 +1856,7 @@ class Eng_N2Min(DerivedParameterNode):
     name = 'Eng (*) N2 Min'
     units = '%'
 
-    align_to_first_dependency = False
+    align = False
 
     @classmethod
     def can_operate(cls, available):
@@ -1888,7 +1888,7 @@ class Eng_N3Avg(DerivedParameterNode):
     name = 'Eng (*) N3 Avg'
     units = '%'
 
-    align_to_first_dependency = False
+    align = False
 
     @classmethod
     def can_operate(cls, available):
@@ -1916,7 +1916,7 @@ class Eng_N3Max(DerivedParameterNode):
     name = 'Eng (*) N3 Max'
     units = '%'
 
-    align_to_first_dependency = False
+    align = False
 
     @classmethod
     def can_operate(cls, available):
@@ -1944,7 +1944,7 @@ class Eng_N3Min(DerivedParameterNode):
     name = 'Eng (*) N3 Min'
     units = '%'
 
-    align_to_first_dependency = False
+    align = False
 
     @classmethod
     def can_operate(cls, available):
@@ -1977,7 +1977,7 @@ class Eng_OilPressAvg(DerivedParameterNode):
     name = 'Eng (*) Oil Press Avg'
     units = 'psi'
 
-    align_to_first_dependency = False
+    align = False
 
     @classmethod
     def can_operate(cls, available):
@@ -2005,7 +2005,7 @@ class Eng_OilPressMax(DerivedParameterNode):
 
     name = 'Eng (*) Oil Press Max'
 
-    align_to_first_dependency = False
+    align = False
 
     @classmethod
     def can_operate(cls, available):
@@ -2034,7 +2034,7 @@ class Eng_OilPressMin(DerivedParameterNode):
     name = 'Eng (*) Oil Press Min'
     units = 'psi'
 
-    align_to_first_dependency = False
+    align = False
 
     @classmethod
     def can_operate(cls, available):
@@ -2065,7 +2065,7 @@ class Eng_OilQtyAvg(DerivedParameterNode):
 
     name = 'Eng (*) Oil Qty Avg'
 
-    align_to_first_dependency = False
+    align = False
 
     @classmethod
     def can_operate(cls, available):
@@ -2093,7 +2093,7 @@ class Eng_OilQtyMax(DerivedParameterNode):
 
     name = 'Eng (*) Oil Qty Max'
 
-    align_to_first_dependency = False
+    align = False
 
     @classmethod
     def can_operate(cls, available):
@@ -2121,7 +2121,7 @@ class Eng_OilQtyMin(DerivedParameterNode):
 
     name = 'Eng (*) Oil Qty Min'
 
-    align_to_first_dependency = False
+    align = False
 
     @classmethod
     def can_operate(cls, available):
@@ -2153,7 +2153,7 @@ class Eng_OilTempAvg(DerivedParameterNode):
     name = 'Eng (*) Oil Temp Avg'
     units = 'C'
 
-    align_to_first_dependency = False
+    align = False
 
     @classmethod
     def can_operate(cls, available):
@@ -2186,7 +2186,7 @@ class Eng_OilTempMax(DerivedParameterNode):
 
     name = 'Eng (*) Oil Temp Max'
 
-    align_to_first_dependency = False
+    align = False
 
     @classmethod
     def can_operate(cls, available):
@@ -2220,7 +2220,7 @@ class Eng_OilTempMin(DerivedParameterNode):
     name = 'Eng (*) Oil Temp Min'
     units = 'C'
 
-    align_to_first_dependency = False
+    align = False
 
     @classmethod
     def can_operate(cls, available):
@@ -2261,7 +2261,7 @@ class Eng_TorqueAvg(DerivedParameterNode):
     name = 'Eng (*) Torque Avg'
     units = '%'
 
-    align_to_first_dependency = False
+    align = False
 
     @classmethod
     def can_operate(cls, available):
@@ -2290,7 +2290,7 @@ class Eng_TorqueMax(DerivedParameterNode):
     name = 'Eng (*) Torque Max'
     units = '%'
   
-    align_to_first_dependency = False
+    align = False
 
     @classmethod
     def can_operate(cls, available):
@@ -2318,7 +2318,7 @@ class Eng_TorqueMin(DerivedParameterNode):
 
     name = 'Eng (*) Torque Min'
 
-    align_to_first_dependency = False
+    align = False
 
     @classmethod
     def can_operate(cls, available):
@@ -2352,7 +2352,7 @@ class Eng_VibN1Max(DerivedParameterNode):
 
     name = 'Eng (*) Vib N1 Max'
 
-    align_to_first_dependency = False
+    align = False
 
     @classmethod
     def can_operate(cls, available):
@@ -2390,7 +2390,7 @@ class Eng_VibN2Max(DerivedParameterNode):
 
     name = 'Eng (*) Vib N2 Max'
 
-    align_to_first_dependency = False
+    align = False
 
     @classmethod
     def can_operate(cls, available):
@@ -2428,7 +2428,7 @@ class Eng_VibN3Max(DerivedParameterNode):
 
     name = 'Eng (*) Vib N3 Max'
 
-    align_to_first_dependency = False
+    align = False
 
     @classmethod
     def can_operate(cls, available):
@@ -2458,7 +2458,7 @@ class FuelQty(DerivedParameterNode):
     Sum of fuel in left, right and middle tanks where available.
     '''
 
-    align_to_first_dependency = False
+    align = False
 
     @classmethod
     def can_operate(cls, available):
@@ -2505,7 +2505,7 @@ class GearDown(MultistateDerivedParameterNode):
     gear is up or down.
     '''
 
-    align_to_first_dependency = False
+    align = False
     values_mapping = {
         0: 'Up',
         1: 'Down',
@@ -2532,7 +2532,7 @@ class GearOnGround(MultistateDerivedParameterNode):
     Combination of left and right main gear signals.
     '''
 
-    align_to_first_dependency = False
+    align = False
     values_mapping = {
         0: 'Air',
         1: 'Ground',
@@ -2618,7 +2618,7 @@ class GrossWeightSmoothed(DerivedParameterNode):
     data. We avoid using the recorded fuel weight in this calculation,
     however it is used in the Zero Fuel Weight calculation.
     '''
-    align_to_first_dependency = False
+    align = False
     
     def derive(self, ff = P('Eng (*) Fuel Flow'),
                gw = P('Gross Weight'),
@@ -2693,7 +2693,7 @@ class Groundspeed(DerivedParameterNode):
     :type parameter object.
     """
     units = 'kts'
-    align_to_first_dependency = False
+    align = False
     
     @classmethod
     def can_operate(cls, available):
@@ -2748,7 +2748,7 @@ class FlapSurface(DerivedParameterNode):
     """
     Gather the recorded flap parameters and convert into a single analogue.
     """
-    align_to_first_dependency = False
+    align = False
     units = 'deg'
 
     @classmethod
@@ -3031,7 +3031,7 @@ class ILSFrequency(DerivedParameterNode):
     
     name = "ILS Frequency"
     units='MHz'
-    align_to_first_dependency = False
+    align = False
     
     @classmethod
     def can_operate(cls, available):
@@ -3076,7 +3076,7 @@ class ILSLocalizer(DerivedParameterNode):
     
     name = "ILS Localizer"
     units = 'dots'
-    align_to_first_dependency = False
+    align = False
 
     def derive(self, loc_1=P('ILS (1) Localizer'),loc_2=P('ILS (2) Localizer')):
         self.array, self.frequency, self.offset = blend_two_parameters(loc_1, loc_2)
@@ -3086,7 +3086,7 @@ class ILSGlideslope(DerivedParameterNode):
 
     name = "ILS Glideslope"
     units = 'dots'
-    align_to_first_dependency = False
+    align = False
 
     def derive(self, gs_1=P('ILS (1) Glideslope'),gs_2=P('ILS (2) Glideslope')):
         self.array, self.frequency, self.offset = blend_two_parameters(gs_1, gs_2)
@@ -3871,7 +3871,7 @@ class Pitch(DerivedParameterNode):
     Combination of pitch signals from two sources where required.
     """
     units = 'deg'
-    align_to_first_dependency = False
+    align = False
     def derive(self, p1=P('Pitch (1)'), p2=P('Pitch (2)')):
         self.array, self.frequency, self.offset = \
             blend_two_parameters(p1, p2)
@@ -3900,7 +3900,7 @@ class Roll(DerivedParameterNode):
     Combination of roll signals from two sources where required.
     """
     units = 'deg'
-    align_to_first_dependency = False
+    align = False
     def derive(self, r1=P('Roll (1)'), r2=P('Roll (2)')):
         self.array, self.frequency, self.offset = \
             blend_two_parameters(r1, r2)
@@ -4105,7 +4105,7 @@ class TAT(DerivedParameterNode):
     """
     name = "TAT"
     units = 'C'
-    align_to_first_dependency = False
+    align = False
     
     def derive(self, 
                source_1 = P('TAT (1)'),
@@ -4267,7 +4267,7 @@ class Speedbrake(DerivedParameterNode):
     '''
 
     units = 'deg'
-    align_to_first_dependency = False
+    align = False
 
     @classmethod
     def can_operate(cls, available):
@@ -4405,7 +4405,7 @@ class StickShaker(MultistateDerivedParameterNode):
     automatic alignment of the signals.
     '''
 
-    align_to_first_dependency = False
+    align = False
     values_mapping = {
         0: 'No_Shake',
         1: 'Shake',
