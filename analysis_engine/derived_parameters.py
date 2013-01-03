@@ -632,9 +632,9 @@ class AltitudeAAL(DerivedParameterNode):
         # Altitude Radio was taken as the prime reference to ensure the
         # minimum ground clearance passing peaks is accurately reflected.
         # However, when the Altitude Radio signal is sampled at a lower rate
-        # than the Altitude STD Smoothed, this results in a lower sample rate for a
-        # primary analysis parameter, and this is why Altitude STD Smoothed is now the
-        # primary reference.
+        # than the Altitude STD Smoothed, this results in a lower sample rate
+        # for a primary analysis parameter, and this is why Altitude STD
+        # Smoothed is now the primary reference.
         
         # alt_aal will be zero on the airfield, so initialise to zero.
         alt_aal = np_ma_zeros_like(alt_std.array)
