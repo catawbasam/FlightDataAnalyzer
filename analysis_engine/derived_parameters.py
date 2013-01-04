@@ -3163,7 +3163,6 @@ class AimingPointRange(DerivedParameterNode):
     the nominal threshold position where there is no ILS installation.
     """
 
-    name = "ILS Glideslope Range"
     unit = 'nm'
 
     def derive(self, app_rng=P('Approach Range'),
@@ -4522,7 +4521,6 @@ class ApproachRange(DerivedParameterNode):
     an approach.
     """
     
-    name = "Approach Range"
     unit = 'm'
 
     @classmethod
