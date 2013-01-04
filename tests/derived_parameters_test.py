@@ -48,7 +48,7 @@ from analysis_engine.derived_parameters import (
     ControlColumnForceFO,
     ControlWheel,
     CoordinatesSmoothed,
-    DayOrNight,
+    Daylight,
     DescendForFlightPhases,
     DistanceTravelled,
     DistanceToLanding,
@@ -313,9 +313,11 @@ class TestAirspeedForFlightPhases(unittest.TestCase):
 
 
 class TestAirspeedMinusV2(unittest.TestCase):
+    @unittest.skip('Test Not Implemented')
     def test_can_operate(self):
         self.assertTrue(False, msg='Test not implemented.')
         
+    @unittest.skip('Test Not Implemented')
     def test_derive(self):
         self.assertTrue(False, msg='Test not implemented.')
 
@@ -333,8 +335,8 @@ class TestAirspeedReference(unittest.TestCase):
                                'conf':None,
                                'vapp':None,
                                'vref':None,
-                               'fdr_vapp':None,
-                               'fdr_vref':None,
+                               'afr_vapp':None,
+                               'afr_vref':None,
                                'apps':apps,
                                'series':None,
                                'family':None}
@@ -421,6 +423,7 @@ class TestAirspeedReference(unittest.TestCase):
             expected = np.ma.load('test_data/boeing_reference_speed.ma')
             np.testing.assert_array_equal(param.array, expected.array)
 
+    @unittest.skip('Airbus Reference Lookup not Implemented')
     def test_airspeed_reference__airbus_lookup(self):
         #with hdf_file('test_data/airspeed_reference.hdf5') as hdf:
             #approaches = (Section(name='Approach', slice=slice(3346, 3540, None), start_edge=3345.5, stop_edge=3539.5),
@@ -1190,30 +1193,39 @@ class TestControlWheel(unittest.TestCase):
         blend_two_parameters.assert_called_once_with(self.cwc, self.cwf)
 
 
-class TestDayOrNight(unittest.TestCase):
-    def test_basic(self):
-        start_dt = A('Start Datetime',
-                       value=datetime.datetime(2012,6,20,20,25))
-        lat=P('Latitude', np.ma.array([51.1789]*64))
-        lon=P('Longitude', np.ma.array([-1.8264]*64))
-        don=DayOrNight()
-        don.derive(start_dt, lat, lon)
-        expected = 'Day'
-        self.assertEqual(don.array[0], expected)
+class TestDaylight(unittest.TestCase):
+    def test_can_operate(self):
+        expected = [('Latitude Smoothed', 'Longitude Smoothed', 
+                     'Start Datetime', 'HDF Duration')]
+        opts = Daylight.get_operational_combinations()
+        self.assertEqual(opts, expected)
+    
+    def test_daylight_aligning(self):
+        lat = P('Latitude', np.ma.array([51.1789]*128), offset=0.1)
+        lon = P('Longitude', np.ma.array([-1.8264]*128))
+        start_dt = A('Start Datetime', datetime.datetime(2012,6,20, 20,25))
+        dur = A('HDF Duration', 128)
+        
+        don = Daylight()
+        don.get_derived((lat, lon, start_dt, dur))
+        self.assertEqual(list(don.array), [np.ma.masked, 'Day'])
+        self.assertEqual(don.frequency, 1/64.0)
+        self.assertEqual(don.offset, 0)
 
     def test_father_christmas(self):
         # Starting on the far side of the world, he flies all round
         # delivering parcels mostly by night (in the northern lands).
-        start_dt = A('Start Datetime',
-                       value=datetime.datetime(2012,12,25,01,00))
-        lat=P('Latitude', np.arange(60,64,1/64.0))
-        lon=P('Longitude', np.arange(-180,180,90/64.0))
-        don=DayOrNight()
-        don.derive(start_dt, lat, lon)
+        lat=P('Latitude', np.ma.arange(60,64,1/64.0))
+        lon=P('Longitude', np.ma.arange(-180,180,90/64.0))
+        start_dt = A('Start Datetime', datetime.datetime(2012,12,25,01,00))
+        dur = A('HDF Duration', 256)
+        
+        don = Daylight()
+        don.get_derived((lat, lon, start_dt, dur))
         expected = ['Day', 'Night', 'Night', 'Night']
-        self.assertEqual(don.array, expected)
-    
-    
+        np.testing.assert_array_equal(don.array, expected)
+
+
 class TestDescendForFlightPhases(unittest.TestCase):
     def test_can_operate(self):
         expected = [('Altitude STD', 'Fast')]
@@ -1266,9 +1278,11 @@ class TestDistanceTravelled(unittest.TestCase):
 
 
 class TestEng_EPRMax(unittest.TestCase):
+    @unittest.skip('Test Not Implemented')
     def test_can_operate(self):
         self.assertTrue(False, msg='Test not implemented.')
         
+    @unittest.skip('Test Not Implemented')
     def test_derive(self):
         self.assertTrue(False, msg='Test not implemented.')
 
@@ -1529,7 +1543,7 @@ class TestFlap(unittest.TestCase):
         flap.array[57] = np.ma.masked
         flap.array[58] = np.ma.masked
         fstep = Flap()
-        fstep.derive(flap, A('Series', None), A('Family', 'MD80'))
+        fstep.derive(flap, A('Series', None), A('Family', 'DC-9'))
         self.assertEqual(len(fstep.array), 59)
         self.assertEqual(
             list(np.ma.filled(fstep.array, fill_value=-999)), 
@@ -1853,9 +1867,11 @@ class TestILSFrequency(unittest.TestCase):
 
 
 class TestILSLocalizerRange(unittest.TestCase):
+    @unittest.skip('Test Not Implemented')
     def test_can_operate(self):
         self.assertTrue(False, msg='Test not implemented.')
         
+    @unittest.skip('Test Not Implemented')
     def test_derive(self):
         self.assertTrue(False, msg='Test not implemented.')
 
@@ -2048,6 +2064,7 @@ class TestV2(unittest.TestCase):
             expected = np.array([144.868884]*5888)
             np.testing.assert_array_equal(param.array, expected)
 
+    @unittest.skip('Airbus V2 not Implemented')
     def test_v2__airbus_lookup(self):
         # TODO: create airbus lookup test and add conf to test hdf file
 
@@ -2116,22 +2133,27 @@ class TestWindAcrossLandingRunway(unittest.TestCase):
         
 
 class TestAOA(unittest.TestCase):
+    @unittest.skip('Test Not Implemented')
     def test_can_operate(self):
         self.assertTrue(False, msg='Test not implemented.')
         
+    @unittest.skip('Test Not Implemented')
     def test_derive(self):
         self.assertTrue(False, msg='Test not implemented.')
 
 
 class TestAccelerationNormalOffsetRemoved(unittest.TestCase):
+    @unittest.skip('Test Not Implemented')
     def test_can_operate(self):
         self.assertTrue(False, msg='Test not implemented.')
         
+    @unittest.skip('Test Not Implemented')
     def test_derive(self):
         self.assertTrue(False, msg='Test not implemented.')
 
 
 class TestAileron(unittest.TestCase):
+    @unittest.skip('Test Not Implemented')
     def test_can_operate(self):
         self.assertTrue(False, msg='Test not implemented.')
         
@@ -2163,7 +2185,7 @@ class TestAileron(unittest.TestCase):
         self.assertEqual(aileron.frequency, 2.0)
         self.assertEqual(aileron.offset, 0.3)
         
-
+    @unittest.skip('Test Not Implemented')
     def test_four_parts(self):
         # The aileron code allows for four sensors, split inboard and outboard. This still needs tests written.
         self.assertTrue(False, msg='Test not implemented.')
@@ -2171,54 +2193,67 @@ class TestAileron(unittest.TestCase):
         
 
 class TestAileronTrim(unittest.TestCase):
+    @unittest.skip('Test Not Implemented')
     def test_can_operate(self):
         self.assertTrue(False, msg='Test not implemented.')
         
+    @unittest.skip('Test Not Implemented')
     def test_derive(self):
         self.assertTrue(False, msg='Test not implemented.')
 
 
 class TestAirspeedMinusV2For3Sec(unittest.TestCase):
+    @unittest.skip('Test Not Implemented')
     def test_can_operate(self):
         self.assertTrue(False, msg='Test not implemented.')
         
+    @unittest.skip('Test Not Implemented')
     def test_derive(self):
         self.assertTrue(False, msg='Test not implemented.')
 
 
 class TestAirspeedMinusV2For5Sec(unittest.TestCase):
+    @unittest.skip('Test Not Implemented')
     def test_can_operate(self):
         self.assertTrue(False, msg='Test not implemented.')
         
+    @unittest.skip('Test Not Implemented')
     def test_derive(self):
         self.assertTrue(False, msg='Test not implemented.')
 
 
 class TestAirspeedRelativeFor3Sec(unittest.TestCase):
+    @unittest.skip('Test Not Implemented')
     def test_can_operate(self):
         self.assertTrue(False, msg='Test not implemented.')
         
+    @unittest.skip('Test Not Implemented')
     def test_derive(self):
         self.assertTrue(False, msg='Test not implemented.')
 
 
 class TestAirspeedRelativeFor5Sec(unittest.TestCase):
+    @unittest.skip('Test Not Implemented')
     def test_can_operate(self):
         self.assertTrue(False, msg='Test not implemented.')
         
+    @unittest.skip('Test Not Implemented')
     def test_derive(self):
         self.assertTrue(False, msg='Test not implemented.')
 
 
 class TestAltitudeSTD(unittest.TestCase):
+    @unittest.skip('Test Not Implemented')
     def test_can_operate(self):
         self.assertTrue(False, msg='Test not implemented.')
         
+    @unittest.skip('Test Not Implemented')
     def test_derive(self):
         self.assertTrue(False, msg='Test not implemented.')
 
 
 class TestElevator(unittest.TestCase):
+    @unittest.skip('Test Not Implemented')
     def test_can_operate(self):
         self.assertTrue(False, msg='Test not implemented.')
         
@@ -2252,257 +2287,321 @@ class TestElevator(unittest.TestCase):
 
 
 class TestEng_EPRAvg(unittest.TestCase):
+    @unittest.skip('Test Not Implemented')
     def test_can_operate(self):
         self.assertTrue(False, msg='Test not implemented.')
         
+    @unittest.skip('Test Not Implemented')
     def test_derive(self):
         self.assertTrue(False, msg='Test not implemented.')
 
 
 class TestEng_EPRMin(unittest.TestCase):
+    @unittest.skip('Test Not Implemented')
     def test_can_operate(self):
         self.assertTrue(False, msg='Test not implemented.')
         
+    @unittest.skip('Test Not Implemented')
     def test_derive(self):
         self.assertTrue(False, msg='Test not implemented.')
 
 
 class TestEng_FuelFlow(unittest.TestCase):
+    @unittest.skip('Test Not Implemented')
     def test_can_operate(self):
         self.assertTrue(False, msg='Test not implemented.')
         
+    @unittest.skip('Test Not Implemented')
     def test_derive(self):
         self.assertTrue(False, msg='Test not implemented.')
 
 
 class TestEng_GasTempAvg(unittest.TestCase):
+    @unittest.skip('Test Not Implemented')
     def test_can_operate(self):
         self.assertTrue(False, msg='Test not implemented.')
         
+    @unittest.skip('Test Not Implemented')
     def test_derive(self):
         self.assertTrue(False, msg='Test not implemented.')
 
 
 class TestEng_GasTempMax(unittest.TestCase):
+    @unittest.skip('Test Not Implemented')
     def test_can_operate(self):
         self.assertTrue(False, msg='Test not implemented.')
         
+    @unittest.skip('Test Not Implemented')
     def test_derive(self):
         self.assertTrue(False, msg='Test not implemented.')
 
 
 class TestEng_GasTempMin(unittest.TestCase):
+    @unittest.skip('Test Not Implemented')
     def test_can_operate(self):
         self.assertTrue(False, msg='Test not implemented.')
         
+    @unittest.skip('Test Not Implemented')
     def test_derive(self):
         self.assertTrue(False, msg='Test not implemented.')
 
 
 class TestEng_OilPressAvg(unittest.TestCase):
+    @unittest.skip('Test Not Implemented')
     def test_can_operate(self):
         self.assertTrue(False, msg='Test not implemented.')
         
+    @unittest.skip('Test Not Implemented')
     def test_derive(self):
         self.assertTrue(False, msg='Test not implemented.')
 
 
 class TestEng_OilPressMax(unittest.TestCase):
+    @unittest.skip('Test Not Implemented')
     def test_can_operate(self):
         self.assertTrue(False, msg='Test not implemented.')
         
+    @unittest.skip('Test Not Implemented')
     def test_derive(self):
         self.assertTrue(False, msg='Test not implemented.')
 
 
 class TestEng_OilPressMin(unittest.TestCase):
+    @unittest.skip('Test Not Implemented')
     def test_can_operate(self):
         self.assertTrue(False, msg='Test not implemented.')
         
+    @unittest.skip('Test Not Implemented')
     def test_derive(self):
         self.assertTrue(False, msg='Test not implemented.')
 
 
 class TestEng_OilQtyAvg(unittest.TestCase):
+    @unittest.skip('Test Not Implemented')
     def test_can_operate(self):
         self.assertTrue(False, msg='Test not implemented.')
         
+    @unittest.skip('Test Not Implemented')
     def test_derive(self):
         self.assertTrue(False, msg='Test not implemented.')
 
 
 class TestEng_OilQtyMax(unittest.TestCase):
+    @unittest.skip('Test Not Implemented')
     def test_can_operate(self):
         self.assertTrue(False, msg='Test not implemented.')
         
+    @unittest.skip('Test Not Implemented')
     def test_derive(self):
         self.assertTrue(False, msg='Test not implemented.')
 
 
 class TestEng_OilQtyMin(unittest.TestCase):
+    @unittest.skip('Test Not Implemented')
     def test_can_operate(self):
         self.assertTrue(False, msg='Test not implemented.')
         
+    @unittest.skip('Test Not Implemented')
     def test_derive(self):
         self.assertTrue(False, msg='Test not implemented.')
 
 
 class TestEng_OilTempAvg(unittest.TestCase):
+    @unittest.skip('Test Not Implemented')
     def test_can_operate(self):
         self.assertTrue(False, msg='Test not implemented.')
         
+    @unittest.skip('Test Not Implemented')
     def test_derive(self):
         self.assertTrue(False, msg='Test not implemented.')
 
 
 class TestEng_OilTempMax(unittest.TestCase):
+    @unittest.skip('Test Not Implemented')
     def test_can_operate(self):
         self.assertTrue(False, msg='Test not implemented.')
         
+    @unittest.skip('Test Not Implemented')
     def test_derive(self):
         self.assertTrue(False, msg='Test not implemented.')
 
 
 class TestEng_OilTempMin(unittest.TestCase):
+    @unittest.skip('Test Not Implemented')
     def test_can_operate(self):
         self.assertTrue(False, msg='Test not implemented.')
         
+    @unittest.skip('Test Not Implemented')
     def test_derive(self):
         self.assertTrue(False, msg='Test not implemented.')
 
 
 class TestEng_TorqueAvg(unittest.TestCase):
+    @unittest.skip('Test Not Implemented')
     def test_can_operate(self):
         self.assertTrue(False, msg='Test not implemented.')
         
+    @unittest.skip('Test Not Implemented')
     def test_derive(self):
         self.assertTrue(False, msg='Test not implemented.')
 
 
 class TestEng_TorqueMax(unittest.TestCase):
+    @unittest.skip('Test Not Implemented')
     def test_can_operate(self):
         self.assertTrue(False, msg='Test not implemented.')
         
+    @unittest.skip('Test Not Implemented')
     def test_derive(self):
         self.assertTrue(False, msg='Test not implemented.')
 
 
 class TestEng_TorqueMin(unittest.TestCase):
+    @unittest.skip('Test Not Implemented')
     def test_can_operate(self):
         self.assertTrue(False, msg='Test not implemented.')
         
+    @unittest.skip('Test Not Implemented')
     def test_derive(self):
         self.assertTrue(False, msg='Test not implemented.')
 
 
 class TestEng_VibN1Max(unittest.TestCase):
+    @unittest.skip('Test Not Implemented')
     def test_can_operate(self):
         self.assertTrue(False, msg='Test not implemented.')
         
+    @unittest.skip('Test Not Implemented')
     def test_derive(self):
         self.assertTrue(False, msg='Test not implemented.')
 
 
 class TestEng_VibN2Max(unittest.TestCase):
+    @unittest.skip('Test Not Implemented')
     def test_can_operate(self):
         self.assertTrue(False, msg='Test not implemented.')
         
+    @unittest.skip('Test Not Implemented')
     def test_derive(self):
         self.assertTrue(False, msg='Test not implemented.')
 
 
 class TestEng_VibN3Max(unittest.TestCase):
+    @unittest.skip('Test Not Implemented')
     def test_can_operate(self):
         self.assertTrue(False, msg='Test not implemented.')
         
+    @unittest.skip('Test Not Implemented')
     def test_derive(self):
         self.assertTrue(False, msg='Test not implemented.')
 
 
 class TestFlapLever(unittest.TestCase):
+    @unittest.skip('Test Not Implemented')
     def test_can_operate(self):
         self.assertTrue(False, msg='Test not implemented.')
         
+    @unittest.skip('Test Not Implemented')
     def test_derive(self):
         self.assertTrue(False, msg='Test not implemented.')
 
 
 class TestFlapSurface(unittest.TestCase):
+    @unittest.skip('Test Not Implemented')
     def test_can_operate(self):
         self.assertTrue(False, msg='Test not implemented.')
         
+    @unittest.skip('Test Not Implemented')
     def test_derive(self):
         self.assertTrue(False, msg='Test not implemented.')
 
 
 class TestGearDown(unittest.TestCase):
+    @unittest.skip('Test Not Implemented')
     def test_can_operate(self):
         self.assertTrue(False, msg='Test not implemented.')
         
+    @unittest.skip('Test Not Implemented')
     def test_derive(self):
         self.assertTrue(False, msg='Test not implemented.')
 
 
 class TestGearDownSelected(unittest.TestCase):
+    @unittest.skip('Test Not Implemented')
     def test_can_operate(self):
         self.assertTrue(False, msg='Test not implemented.')
         
+    @unittest.skip('Test Not Implemented')
     def test_derive(self):
         self.assertTrue(False, msg='Test not implemented.')
 
 
 class TestGearOnGround(unittest.TestCase):
+    @unittest.skip('Test Not Implemented')
     def test_can_operate(self):
         self.assertTrue(False, msg='Test not implemented.')
         
+    @unittest.skip('Test Not Implemented')
     def test_derive(self):
         self.assertTrue(False, msg='Test not implemented.')
 
 
 class TestGearUpSelected(unittest.TestCase):
+    @unittest.skip('Test Not Implemented')
     def test_can_operate(self):
         self.assertTrue(False, msg='Test not implemented.')
         
+    @unittest.skip('Test Not Implemented')
     def test_derive(self):
         self.assertTrue(False, msg='Test not implemented.')
 
 
 class TestHeadingContinuous(unittest.TestCase):
+    @unittest.skip('Test Not Implemented')
     def test_can_operate(self):
         self.assertTrue(False, msg='Test not implemented.')
         
+    @unittest.skip('Test Not Implemented')
     def test_derive(self):
         self.assertTrue(False, msg='Test not implemented.')
 
 
 class TestHeadingTrueContinuous(unittest.TestCase):
+    @unittest.skip('Test Not Implemented')
     def test_can_operate(self):
         self.assertTrue(False, msg='Test not implemented.')
         
+    @unittest.skip('Test Not Implemented')
     def test_derive(self):
         self.assertTrue(False, msg='Test not implemented.')
 
 
 class TestILSGlideslope(unittest.TestCase):
+    @unittest.skip('Test Not Implemented')
     def test_can_operate(self):
         self.assertTrue(False, msg='Test not implemented.')
         
+    @unittest.skip('Test Not Implemented')
     def test_derive(self):
         self.assertTrue(False, msg='Test not implemented.')
 
 
 class TestILSLocalizer(unittest.TestCase):
+    @unittest.skip('Test Not Implemented')
     def test_can_operate(self):
         self.assertTrue(False, msg='Test not implemented.')
         
+    @unittest.skip('Test Not Implemented')
     def test_derive(self):
         self.assertTrue(False, msg='Test not implemented.')
 
 
 class TestLatitudePrepared(unittest.TestCase):
+    @unittest.skip('Test Not Implemented')
     def test_can_operate(self):
         self.assertTrue(False, msg='Test not implemented.')
-    
+        
+    @unittest.skip('Test Not Implemented')
     def test_derive(self):
         self.assertTrue(False, msg='Test not implemented.')
 
@@ -2513,14 +2612,17 @@ class TestLatitudeSmoothed(unittest.TestCase):
         self.assertTrue(('Latitude Prepared',) in combinations)
         self.assertTrue(all('Latitude Prepared') in c for c in combinations)
     
+    @unittest.skip('Test Not Implemented')
     def test_derive(self):
         self.assertTrue(False, msg='Test not implemented.')
 
 
 class TestLongitudePrepared(unittest.TestCase):
+    @unittest.skip('Test Not Implemented')
     def test_can_operate(self):
         self.assertTrue(False, msg='Test not implemented.')
-    
+        
+    @unittest.skip('Test Not Implemented')
     def test_derive(self):
         self.assertTrue(False, msg='Test not implemented.')
 
@@ -2531,130 +2633,162 @@ class TestLongitudeSmoothed(unittest.TestCase):
         self.assertTrue(('Longitude Prepared',) in combinations)
         self.assertTrue(all('Longitude Prepared') in c for c in combinations)
         
+    @unittest.skip('Test Not Implemented')
     def test_derive(self):
         self.assertTrue(False, msg='Test not implemented.')
 
 
 class TestMagneticVariation(unittest.TestCase):
+    @unittest.skip('Test Not Implemented')
     def test_can_operate(self):
         self.assertTrue(False, msg='Test not implemented.')
         
+    @unittest.skip('Test Not Implemented')
     def test_derive(self):
         self.assertTrue(False, msg='Test not implemented.')
 
 
 class TestPackValvesOpen(unittest.TestCase):
+    @unittest.skip('Test Not Implemented')
     def test_can_operate(self):
         self.assertTrue(False, msg='Test not implemented.')
         
+    @unittest.skip('Test Not Implemented')
     def test_derive(self):
         self.assertTrue(False, msg='Test not implemented.')
 
 
 class TestPitchRate(unittest.TestCase):
+    @unittest.skip('Test Not Implemented')
     def test_can_operate(self):
         self.assertTrue(False, msg='Test not implemented.')
         
+    @unittest.skip('Test Not Implemented')
     def test_derive(self):
         self.assertTrue(False, msg='Test not implemented.')
 
 
 class TestRelief(unittest.TestCase):
+    @unittest.skip('Test Not Implemented')
     def test_can_operate(self):
         self.assertTrue(False, msg='Test not implemented.')
         
+    @unittest.skip('Test Not Implemented')
     def test_derive(self):
         self.assertTrue(False, msg='Test not implemented.')
 
 
 class TestRoll(unittest.TestCase):
+    @unittest.skip('Test Not Implemented')
     def test_can_operate(self):
         self.assertTrue(False, msg='Test not implemented.')
         
+    @unittest.skip('Test Not Implemented')
     def test_derive(self):
         self.assertTrue(False, msg='Test not implemented.')
 
 
 class TestRollRate(unittest.TestCase):
+    @unittest.skip('Test Not Implemented')
     def test_can_operate(self):
         self.assertTrue(False, msg='Test not implemented.')
         
+    @unittest.skip('Test Not Implemented')
     def test_derive(self):
         self.assertTrue(False, msg='Test not implemented.')
 
 
 class TestSlat(unittest.TestCase):
+    @unittest.skip('Test Not Implemented')
     def test_can_operate(self):
         self.assertTrue(False, msg='Test not implemented.')
         
+    @unittest.skip('Test Not Implemented')
     def test_derive(self):
         self.assertTrue(False, msg='Test not implemented.')
 
 
 class TestSlopeToLanding(unittest.TestCase):
+    @unittest.skip('Test Not Implemented')
     def test_can_operate(self):
         self.assertTrue(False, msg='Test not implemented.')
         
+    @unittest.skip('Test Not Implemented')
     def test_derive(self):
         self.assertTrue(False, msg='Test not implemented.')
 
 
 class TestSpeedbrake(unittest.TestCase):
+    @unittest.skip('Test Not Implemented')
     def test_can_operate(self):
         self.assertTrue(False, msg='Test not implemented.')
         
+    @unittest.skip('Test Not Implemented')
     def test_derive(self):
         self.assertTrue(False, msg='Test not implemented.')
 
 
 class TestSpeedbrakeSelected(unittest.TestCase):
+    @unittest.skip('Test Not Implemented')
     def test_can_operate(self):
         self.assertTrue(False, msg='Test not implemented.')
         
+    @unittest.skip('Test Not Implemented')
     def test_derive(self):
         self.assertTrue(False, msg='Test not implemented.')
 
 
 class TestStickShaker(unittest.TestCase):
+    @unittest.skip('Test Not Implemented')
     def test_can_operate(self):
         self.assertTrue(False, msg='Test not implemented.')
         
+    @unittest.skip('Test Not Implemented')
     def test_derive(self):
         self.assertTrue(False, msg='Test not implemented.')
 
 
 class TestTAT(unittest.TestCase):
+    @unittest.skip('Test Not Implemented')
     def test_can_operate(self):
         self.assertTrue(False, msg='Test not implemented.')
         
+    @unittest.skip('Test Not Implemented')
     def test_derive(self):
         self.assertTrue(False, msg='Test not implemented.')
 
 
 class TestTailwind(unittest.TestCase):
+    @unittest.skip('Test Not Implemented')
     def test_can_operate(self):
         self.assertTrue(False, msg='Test not implemented.')
         
+    @unittest.skip('Test Not Implemented')
     def test_derive(self):
         self.assertTrue(False, msg='Test not implemented.')
 
 
 class TestThrottleLevers(unittest.TestCase):
+    @unittest.skip('Test Not Implemented')
     def test_can_operate(self):
         self.assertTrue(False, msg='Test not implemented.')
         
+    @unittest.skip('Test Not Implemented')
     def test_derive(self):
         self.assertTrue(False, msg='Test not implemented.')
 
 
 class TestThrustReversers(unittest.TestCase):
+    @unittest.skip('Test Not Implemented')
     def test_can_operate(self):
         self.assertTrue(False, msg='Test not implemented.')
         
+    @unittest.skip('Test Not Implemented')
     def test_derive(self):
         self.assertTrue(False, msg='Test not implemented.')
 
 class TestTurbulence(unittest.TestCase):
+    @unittest.skip('Test Not Implemented')
     def test_can_operate(self):
         self.assertTrue(False, msg='Test not implemented.')
 
@@ -2747,33 +2881,41 @@ class TestVisualApproachRange(unittest.TestCase):
                          
 
 class TestVOR1Frequency(unittest.TestCase):
+    @unittest.skip('Test Not Implemented')
     def test_can_operate(self):
         self.assertTrue(False, msg='Test not implemented.')
         
+    @unittest.skip('Test Not Implemented')
     def test_derive(self):
         self.assertTrue(False, msg='Test not implemented.')
 
 
 class TestVOR2Frequency(unittest.TestCase):
+    @unittest.skip('Test Not Implemented')
     def test_can_operate(self):
         self.assertTrue(False, msg='Test not implemented.')
         
+    @unittest.skip('Test Not Implemented')
     def test_derive(self):
         self.assertTrue(False, msg='Test not implemented.')
 
 
 class TestVerticalSpeedInertial(unittest.TestCase):
+    @unittest.skip('Test Not Implemented')
     def test_can_operate(self):
         self.assertTrue(False, msg='Test not implemented.')
         
+    @unittest.skip('Test Not Implemented')
     def test_derive(self):
         self.assertTrue(False, msg='Test not implemented.')
 
 
 class TestWindDirectionContinuous(unittest.TestCase):
+    @unittest.skip('Test Not Implemented')
     def test_can_operate(self):
         self.assertTrue(False, msg='Test not implemented.')
         
+    @unittest.skip('Test Not Implemented')
     def test_derive(self):
         self.assertTrue(False, msg='Test not implemented.')
 

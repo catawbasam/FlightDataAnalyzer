@@ -35,7 +35,7 @@ from analysis_engine.library import (air_track,
                                      index_at_value,
                                      integrate,
                                      ils_localizer_align,
-                                     interpolate_and_extend,
+                                     interpolate,
                                      is_day,
                                      is_index_within_slice,
                                      is_slice_within_slice,
@@ -1277,38 +1277,41 @@ class ClimbForFlightPhases(DerivedParameterNode):
                 self.array[air.slice][up] = np.ma.cumsum(deltas[up])    
 
 
-class DayOrNight(MultistateDerivedParameterNode):
-    """
-    This reports 'Day' or 'Night' to reflect the level of light available.
-    """
+class Daylight(MultistateDerivedParameterNode):
+    '''
+    Makes use of 64 second superframe boundaries.
     
-    values_mapping = {0: 'Day', 1: 'Night'}
+    '''
+    align = True
+    align_frequency = 1/64.0
+    align_offset = 0.0
+    
+    values_mapping = {
+        0 : 'Night',
+        1 : 'Day'
+        }
 
-    align = False
-
-    def derive(self, start_datetime=A('Start Datetime'), 
-               lat=P('Latitude Smoothed'), lon=P('Longitude Smothed')):
-
-        frequency = 1/64.0 
-        # Reduces computational workload, and the function is not accurate to less than a minute.
-        
-        ratio = lat.frequency/frequency
-        superframes=int(len(lat.array)/ratio)
-        don = []
-
-        for index in range(superframes):
-            datetime = datetime_of_index(start_datetime.value,
-                                         index,
-                                         frequency)
-            day = is_day(datetime, lat.array[index*ratio], lon.array[index*ratio])
-            if day:
-                don.append(0)
+    def derive(self, 
+               latitude=P('Latitude Smoothed'),
+               longitude=P('Longitude Smoothed'),
+               start_datetime=A('Start Datetime'),
+               duration=A('HDF Duration')):
+        # Set default to 'Day'
+        array_len = duration.value * self.frequency
+        self.array = np.ma.ones(array_len)
+        for step in xrange(0, int(array_len)):
+            curr_dt = datetime_of_index(start_datetime.value, step, 1)
+            lat = latitude.array[step]
+            lon = longitude.array[step]
+            if lat and lon:
+                if not is_day(curr_dt, lat, lon):
+                    # Replace values with Night
+                    self.array[step] = 0
+                else:
+                    pass  # leave array as 1
             else:
-                don.append(1)
-                
-        self.array = np.ma.array(don)
-        self.frequency = frequency
-        self.offset = 0.0
+                # either is masked or recording 0.0 which is invalid too
+                self.array[step] = np.ma.masked
     
             
 class DescendForFlightPhases(DerivedParameterNode):
@@ -2854,9 +2857,7 @@ class Flap(DerivedParameterNode):
 
     @classmethod
     def can_operate(cls, available):
-        return ('Flap Surface' in available) and \
-               ('Series' in available or \
-                'Family' in available)
+        return all_of(('Flap Surface', 'Series', 'Family'), available)
     
     def derive(self, flap=P('Flap Surface'),
                series=A('Series'), family=A('Family')):
@@ -3612,7 +3613,7 @@ class MagneticVariation(DerivedParameterNode):
             return x - floor(x/180.0 + 0.5)*180.0        
         
         # Make a masked copy of the heading array, then insert deviations at
-        # just the points we know. "interpolate_and_extend" is designed to
+        # just the points we know. "interpolate" is designed to
         # replace the masked values with linearly interpolated values between
         # two known points, and extrapolate to the ends of the array. It also
         # substitutes a zero array in case neither is available.
@@ -3633,7 +3634,7 @@ class MagneticVariation(DerivedParameterNode):
             except:
                 dev[landing_heading.index] = 0.0
         
-        self.array = interpolate_and_extend(dev)
+        self.array = interpolate(dev)
 
 class VerticalSpeedInertial(DerivedParameterNode):
     '''
