@@ -15,7 +15,8 @@ from itertools import izip
 
 from hdfaccess.parameter import MappedArray
 
-from settings import (KTS_TO_MPS,
+from settings import (CURRENT_YEAR,
+                      KTS_TO_MPS,
                       METRES_TO_FEET,
                       REPAIR_DURATION, 
                       TRUCK_OR_TRAILER_INTERVAL, 
@@ -135,7 +136,19 @@ def air_track(lat_start, lon_start, lat_end, lon_end, spd, hdg, frequency):
     repair_mask(lon, repair_duration=None, extrapolate=True)
     return lat, lon
 
-def align(slave, master, data_type=None):
+
+def is_power2(number):
+    """
+    States if a number is a power of two. Forces floats to Int.
+    Ref: http://code.activestate.com/recipes/577514-chek-if-a-number-is-a-power-of-two/
+    """
+    if number % 1:
+        return False
+    num = int(number)
+    return num > 0 and ((num & (num - 1)) == 0)
+
+
+def align(slave, master, interpolate=True):
     """
     This function takes two parameters which will have been sampled at
     different rates and with different measurement offsets in time, and
@@ -145,26 +158,24 @@ def align(slave, master, data_type=None):
     
     The values of the returned array will be those of the slave parameter,
     aligned to the master and adjusted by linear interpolation. The initial
-    or final values will be extended from the first or last values if they
-    lie outside the timebase of the slave parameter (i.e. we do not
-    extrapolate). The offset and hz for the returned masked array will be
-    those of the master parameter.
+    or final values will be masked zeros if they lie outside the timebase of
+    the slave parameter (i.e. we do not extrapolate). The offset and hz for
+    the returned masked array will be those of the master parameter.
     
-    The slave's data_type is used to determine the method of interpolation.
+    MappedArray slave parameters (discrete/multi-state) will not be
+    interpolated, even if interpolate=True.
+    
     Anything other than discrete or multi-state will result in interpolation
-    of the data across each sample period. The exception to this case is for
-    initial configuration of a recorded data LFL, in which case interpolation
-    can be confusing so an option to maintain non-aligned status is included.
+    of the data across each sample period.
  
-    WARNING! Not tested with ascii data_type.
+    WARNING! Not tested with ASCII arrays.
     
     :param slave: The parameter to be aligned to the master
     :type slave: Parameter objects
     :param master: The master parameter
     :type master: Parameter objects
-    :param data_type: Overrides the slave data_type for interpolation method.
-    :type data_type: string, default to None, but accepted options are:
-    "discrete", "multi-state" and "non-aligned".
+    :param interpolate: Whether to interpolate parameters (multistates exempt)
+    :type interpolate: Bool
     
     :raises AssertionError: If the arrays and sample rates do not equate to the same overall data duration.
     
@@ -172,12 +183,12 @@ def align(slave, master, data_type=None):
     :rtype: np.ma.array
     """
     slave_array = slave.array # Optimised access to attribute.
-
     if isinstance(slave_array, MappedArray):  # Multi-state array.
+        # force disable interpolate!
         slave_array = slave_array.raw
-        data_type = 'multi-state'
+        interpolate = False
     elif isinstance(slave_array, np.ma.MaskedArray):
-        data_type = 'analogue'
+        pass  # expected
     else:
         raise ValueError('Cannot align slave array of unknown type: '
             'Slave: %s, Master: %s.', slave.name, master.name)
@@ -189,116 +200,104 @@ def align(slave, master, data_type=None):
         # No alignment is required, return the slave's array unchanged.
         return slave_array
     
-    if data_type is None and slave.data_type:
-        data_type = slave.data_type
-    
-    # Get the timing offsets, comprised of word location and possible latency.
-    tp = master.offset
-    ts = slave.offset
-
     # Get the sample rates for the two parameters
     wm = master.frequency
     ws = slave.frequency
-    slowest = min(wm,ws)
+    slowest = min(wm, ws)
     
-    #---------------------------------------------------------------------------
-    # Section to handle superframe parameters, in master, slave or both.
-    # Note: We do not interpolate at these low sample rates.
-    #---------------------------------------------------------------------------
-    if slowest < 0.25:
-        # One or both parameters is in a superframe. Handle without
-        # interpolation as these parameters are recorded at too low a rate
-        # for interpolation to be meaningful.
-        if wm==ws:
-            # All we need do is copy the data across as they are at the same
-            # sample rate.
-            slave_aligned=np.ma.copy(slave.array)
-            return slave_aligned
-
-        if wm>ws:
-            # Increase samples in slave accordingly
-            r = wm/ws
-            assert r in [2, 4, 8, 16, 32, 64, 128, 256, 512], \
-                "slave = '%s' @ %sHz; master = '%s' @ %sHz; r=%s" \
-                % (slave.name, slave.hz, master.name, master.hz, r)
-            slave_aligned = np.ma.repeat(slave.array, r)
-            return slave_aligned
-
-        else:
-            # Reduce samples in slave.
-            r = ws/wm
-            assert r in [2, 4, 8, 16, 32, 64, 128, 256, 512], \
-                "slave = '%s' @ %sHz; master = '%s' @ %sHz; r=%s" \
-                % (slave.name, slave.hz, master.name, master.hz, r)
-            slave_aligned=np.ma.empty_like(master.array)
-            slave_aligned=slave_array[::r]
-            return slave_aligned
-    #---------------------------------------------------------------------------
-            
-
-    # Express the timing disparity in terms of the slave paramter sample interval
-    delta = (tp-ts)*slave.frequency
+    # The timing offsets comprise of word location and possible latency.
+    # Express the timing disparity in terms of the slave parameter sample interval
+    delta = (master.offset - slave.offset) * slave.frequency
 
     # If the slowest sample rate is less than 1 Hz, we extend the period and
     # so achieve a lowest rate of one per period.
-    if slowest<1:
+    if slowest < 1:
         wm /= slowest
         ws /= slowest
         
     # Check the values are in ranges we have tested
-    assert wm in [1, 2, 4, 8, 16, 32, 64], \
-        "master = '%s' @ %sHz; wm=%s" \
-        % (master.name, master.hz, wm)
-    assert ws in [1, 2, 4, 8, 16, 32, 64], \
-        "slave = '%s' @ %sHz; ws=%s" \
-        % (slave.name, slave.hz, ws)
+    assert is_power2(wm), \
+           "master = '%s' @ %sHz; wm=%s" % (master.name, master.hz, wm)
+    assert is_power2(ws), \
+           "slave = '%s' @ %sHz; ws=%s" % (slave.name, slave.hz, ws)
            
     # Compute the sample rate ratio:
-    r = wm/float(ws)
+    r = wm / float(ws)
     
     # Here we create a masked array to hold the returned values that will have 
     # the same sample rate and timing offset as the master
     len_aligned = int(len(slave_array) * r)
-    if len_aligned != (len(slave_array)*r):
+    if len_aligned != (len(slave_array) * r):
         raise ValueError("Array length problem in align. Probable cause is flight cutting not at superframe boundary")
     
-    slave_aligned = np.ma.empty(len(slave_array) * r)
+    if interpolate:
+        _dtype = float
+    else:
+        _dtype = int
+    slave_aligned = np.ma.zeros(len(slave_array) * r, dtype=_dtype)
+    
+    # Where offsets are equal, the slave_array recorded values remain
+    # unchanged and interpolation is performed between these values.
+    # - and we do not interpolate mapped arrays!
+    if not delta and interpolate:
+        slave_aligned.mask = True
+        if master.frequency > slave.frequency:
+            # populate values and interpolate
+            slave_aligned[0::r] = slave_array[0::1]
+            # Interpolate and do not extrapolate masked ends or gaps
+            # bigger than the duration between slave samples (i.e. where
+            # original slave data is masked).
+            # If array is fully masked, return array of masked zeros
+            dur_between_slave_samples = 1.0 / slave.frequency
+            return repair_mask(slave_aligned, frequency=master.frequency,
+                               repair_duration=dur_between_slave_samples,
+                               zero_if_masked=True)
+
+        else:
+            # step through slave taking the required samples
+            slave_aligned[0::wm] = slave_array[0::ws]
+            return slave_aligned    
 
     # Each sample in the master parameter may need different combination parameters
     for i in range(int(wm)):
-        bracket=(i/r+delta)
+        bracket = (i / r) + delta
         # Interpolate between the hth and (h+1)th samples of the slave array
-        h=int(floor(bracket))
-        h1 = h+1
+        h = int(floor(bracket))
+        h1 = h + 1
 
         # Compute the linear interpolation coefficients, b & a
-        b = bracket-h
+        b = bracket - h
         
-        # Cunningly, if we are working with discrete or multi-state parameters, 
-        # by reverting to 1,0 or 0,1 coefficients we gather the closest value
-        # in time to the master parameter.
-        if data_type and data_type.lower() in ('multi-state', 'non-aligned'):
+        # Cunningly, if we are interpolating (working with mapped arrays e.g.
+        # discrete or multi-state parameters), by reverting to 1,0 or 0,1
+        # coefficients we gather the closest value in time to the master
+        # parameter.
+        if not interpolate:
             b = round(b)
             
         # Either way, a is the residual part.    
-        a=1-b
-        
-        if h<0:
-            slave_aligned[i+wm::wm]=a*slave_array[h+ws:-ws:ws]+b*slave_array[h1+ws::ws]
+        a = 1 - b
+
+        # slave_array values do not exist in aligned array            
+        if h < 0:
+            slave_aligned[i+wm::wm] = a*slave_array[h+ws:-ws:ws] + b*slave_array[h1+ws::ws]
             # We can't interpolate the inital values as we are outside the 
-            # range of the slave parameters. Take the first value and extend to 
-            # the end of the data.
-            slave_aligned[i] = slave_array[0]
-        elif h1>=ws:
-            slave_aligned[i:-wm:wm]=a*slave_array[h:-ws:ws]+b*slave_array[h1::ws]
+            # range of the slave parameters. 
+            # Treat ends as "padding"; Value of 0 and Masked.
+            slave_aligned[i] = 0
+            slave_aligned[i] = np.ma.masked
+        elif h1 >= ws:
+            slave_aligned[i:-wm:wm] = a*slave_array[h:-ws:ws] + b*slave_array[h1::ws]
             # At the other end, we run out of slave parameter values so need to
-            # extend to the end of the array.
-            slave_aligned[i-wm] = slave_array[-1]
+            # pad to the end of the array.
+            # Treat ends as "padding"; Value of 0 and Masked.
+            slave_aligned[i-wm] = 0
+            slave_aligned[i-wm] = np.ma.masked
         else:
             # Sheer bliss. We can compute slave_aligned across the whole
             # range of the data without having to take special care at the
             # ends of the array.
-            slave_aligned[i::wm]=a*slave_array[h::ws]+b*slave_array[h1::ws]
+            slave_aligned[i::wm] = a*slave_array[h::ws] + b*slave_array[h1::ws]
 
     return slave_aligned
 
@@ -479,8 +478,7 @@ def calculate_timebase(years, months, days, hours, mins, secs):
         # No valid datestamps found
         raise InvalidDatetime("No valid datestamps found")
 
-# calculate here to avoid repitition
-CURRENT_YEAR = str(datetime.now().year)
+
 def convert_two_digit_to_four_digit_year(yr):
     """
     Everything below the current year is assume to be in the current
@@ -678,10 +676,10 @@ def cycle_counter(array, min_step, cycle_time, hz, array_offset):
     that will be most hazardous.
     '''
     if not np.ma.count(array):
-        return None, None
+        return Value(None, None)
     idxs, vals = cycle_finder(array, min_step=min_step)
     if idxs is None:
-        return None, None
+        return Value(None, None)
     
     half_cycle_times = np.ediff1d(idxs) / hz
     half_cycles = 0
@@ -701,8 +699,8 @@ def cycle_counter(array, min_step, cycle_time, hz, array_offset):
         max_index = index
     
     if max_half_cycles <= 1: # Ignore single direction movements.
-        return None, None
-    return array_offset + max_index, max_half_cycles / 2.0 
+        return Value(None, None)
+    return Value(array_offset + max_index, max_half_cycles / 2.0)
 
     
 def cycle_finder(array, min_step=0.0, include_ends=True):
@@ -1143,14 +1141,14 @@ def first_valid_sample(array, start_index=0):
     # Trap to ensure we don't stray into the far end of the array and that the
     # sliced array is not empty.
     if not 0 <= start_index < len(array):
-        return None, None
+        return Value(None, None)
     
     clumps = np.ma.clump_unmasked(array[start_index:])
     if clumps:
         index = clumps[0].start + start_index
-        return index, array[index]
+        return Value(index, array[index])
     else:
-        return None, None
+        return Value(None, None)
 
 
 def last_valid_sample(array, end_index=None):
@@ -1170,14 +1168,14 @@ def last_valid_sample(array, end_index=None):
     if end_index is None: 
         end_index = len(array)
     elif end_index > len(array):
-        return None, None
+        return Value(None, None)
     
     clumps = np.ma.clump_unmasked(array[:end_index+1])
     if clumps:
         index = clumps[-1].stop - 1
-        return index, array[index]
+        return Value(index, array[index])
     else:
-        return None, None
+        return Value(None, None)
 
 
 def first_order_lag(param, time_constant, hz, gain=1.0, initial_value=None):
@@ -1683,7 +1681,7 @@ def gtp_weighting_vector(speed, straight_ends, weights):
     # We ensure the endpoint scaling is unchanged, to avoid a sudden jump in speed.
     speed_weighting[0] = 1.0
     speed_weighting[-1] = 1.0
-    speed_weighting = interpolate_and_extend(speed_weighting)
+    speed_weighting = interpolate(speed_weighting)
     
     return speed_weighting
 
@@ -2062,11 +2060,11 @@ def integrate(array, frequency, initial_value=0.0, scale=1.0,
     return result
 
 
-def interpolate_and_extend(array):
+def interpolate(array, extrapolate=True):
     """ 
     This will replace all masked values in an array with linearly
     interpolated values between unmasked point pairs, and extrapolate first
-    and last unmasked values to the ends of the array.
+    and last unmasked values to the ends of the array by default.
     
     See Derived Parameter Node 'Magnetic Deviation' for the prime example of
     use.
@@ -2074,19 +2072,20 @@ def interpolate_and_extend(array):
     In the special case where all source data is masked, the algorithm
     returns an unmasked array of zeros. 
     
-    :param array: Array of data to be interpolated 
+    :param array: Array of data with masked values to be interpolated over.
     :type array: numpy masked array
+    :param extrapolate: Option to extrapolate the first and last masked values
+    :type extrapolate: Bool
     
     :returns interpolated: array of all valid data
     :type interpolated: Numpy masked array, with all masks False.
     """
-    
     # Where do we need to use the raw data?
     blocks = np.ma.clump_masked(array)
     last = len(array)
     if len(blocks)==1:
         if blocks[0].start == 0 and blocks[0].stop == last:
-            logger.warn('No unmasked data in interpolate_and_extend')
+            logger.warn('No unmasked data to interpolate')
             return np_ma_zeros_like(array)
     
     for block in blocks:
@@ -2095,9 +2094,17 @@ def interpolate_and_extend(array):
         b = block.stop
 
         if a == 0:
-            array[:b] = array[b]
+            if extrapolate:
+                array[:b] = array[b]
+            else:
+                # leave masked values at start untouched
+                continue
         elif b == last:
-            array[a:] = array[a-1]
+            if extrapolate:
+                array[a:] = array[a-1]
+            else:
+                # leave masked values at end untouched
+                continue
         else:
             join = np.linspace(array[a - 1], array[b], num=b - a + 2)
             array[a:b] = join[1:-1]
@@ -3446,9 +3453,8 @@ def repair_mask(array, frequency=1, repair_duration=REPAIR_DURATION,
     It is not intended to be used for key point computations, where invalid data
     should remain masked. 
     
-    if copy=True, returns modified copy of array, otherwise modifies the array in-place.
-    if zero_if_masked=True, returns an unmasked zero-filled array if all incoming data is masked.
-    
+    :param copy: If True, returns modified copy of array, otherwise modifies the array in-place.
+    :param zero_if_masked: If True, returns a fully masked zero-filled array if all incoming data is masked.    
     :param repair_duration: If None, any length of masked data will be repaired.
     :param raise_duration_exceedance: If False, no warning is raised if there are masked sections longer than repair_duration. They will remain unrepaired.
     :param extrapolate: If True, data is extrapolated at the start and end of the array.
@@ -3456,7 +3462,7 @@ def repair_mask(array, frequency=1, repair_duration=REPAIR_DURATION,
     '''
     if not np.ma.count(array):
         if zero_if_masked:
-            return np_ma_zeros_like(array)
+            return np_ma_zeros_like(array, mask=True)
         else:
             raise ValueError("Array cannot be repaired as it is entirely masked")
     if copy:
@@ -3880,9 +3886,9 @@ def touchdown_inertial(land, roc, alt):
     index = index_at_value(sm_ht, 0.0)
     if index:
         roc_tdn = my_roc[index]
-        return index + startpoint, roc_tdn
+        return Value(index + startpoint, roc_tdn)
     else:
-        return None, None
+        return Value(None, None)
 
 
 def track_linking(pos, local_pos):
@@ -4421,22 +4427,24 @@ def is_day(when, latitude, longitude, twilight='civil'):
     EASA EU OPS 1 Annex 1 item (76) states: 'night' means the period between
     the end of evening civil twilight and the beginning of morning civil
     twilight or such other period between sunset and sunrise as may be
-    porescribed by the appropriate authority, as defined by the Member State;
+    prescribed by the appropriate authority, as defined by the Member State;
     
     CAA regulations confusingly define night as 30 minutes either side of
     sunset and sunrise, then include a civil twilight table in the AIP.
     
     With these references, it was decided to make civil twilight the default.
     """
-    day = when.toordinal()-(734124-40529)  
-    t=when.time()  
-    time= (t.hour + t.minute/60.0 + t.second/3600.0)/24.0  
+    if latitude is np.ma.masked or longitude is np.ma.masked:
+        return np.ma.masked
+    day = when.toordinal() - (734124-40529)  
+    t = when.time()  
+    time = (t.hour + t.minute/60.0 + t.second/3600.0)/24.0  
     # Julian Day
     Jday     = day+2415019.5 + time
     # Julian Century
     Jcent    = (Jday-2451545.0)/36525  # (24.1)
     # Siderial time at Greenwich (11.4)
-    Gstime = (280.46061837 + 360.98564736629*(Jday-2451545.0) + (0.0003879331-Jcent/38710000) * Jcent * Jcent)%360.0
+    Gstime   = (280.46061837 + 360.98564736629*(Jday-2451545.0) + (0.0003879331-Jcent/38710000) * Jcent * Jcent)%360.0
     # Geom Mean Long Sun (deg)
     Mlong    = (280.46645+Jcent*(36000.76983+Jcent*0.0003032))%360 # 24.2 
     # Geom Mean Anom Sun (deg)
@@ -4461,7 +4469,8 @@ def is_day(when, latitude, longitude, twilight='civil'):
     elevation = deg(asin(sin(rad(latitude))*sin(rad(declination)) + 
                     cos(rad(latitude))*cos(rad(declination))*cos(rad(Gstime+longitude-rightasc))))
 
-    # Solar diamteter gives an adjustment of 0.833 deg, as the rim of the sun appears before the centre of the disk.
+    # Solar diamteter gives an adjustment of 0.833 deg, as the rim of the sun
+    # appears before the centre of the disk.
     if twilight == None:
         limit = -0.8333 # Allows for diameter of sun's disk
     # For civil twilight, allow 6 deg
@@ -4474,7 +4483,7 @@ def is_day(when, latitude, longitude, twilight='civil'):
     elif twilight == 'astronomical':
             limit = -18.0
     else:
-        raise ValueError ('is_day called with unrecognised twilight zone')
+        raise ValueError('is_day called with unrecognised twilight zone')
             
     if elevation > limit:
         return True # It is Day

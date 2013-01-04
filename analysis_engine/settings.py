@@ -45,6 +45,10 @@ CA_CERTIFICATE_FILE = '/etc/ssl/certs/ca-certificates.crt'
 # Cache parameters which are used more than n times in HDF
 CACHE_PARAMETER_MIN_USAGE = 0
 
+# Calculate the current year as 'YYYY' here once to avoid repitition
+from datetime import datetime
+CURRENT_YEAR = str(datetime.now().year)
+
 
 ##############################################################################
 # Segment Splitting

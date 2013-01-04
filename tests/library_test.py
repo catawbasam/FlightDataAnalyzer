@@ -51,6 +51,14 @@ class TestAirTrack(unittest.TestCase):
         lat, lon = air_track(0.0, 0.0, 1.0, 1.0, spd, hdg, 1.0)
         self.assertEqual(lat, None)
         self.assertEqual(lon, None)
+        
+        
+class TestIsPower2(unittest.TestCase):
+    def test_is_power2(self):
+        self.assertEqual([i for i in xrange(2000) if is_power2(i)],
+                         [1, 2, 4, 8, 16, 32, 64, 128, 256, 512, 1024])
+        self.assertFalse(is_power2(-2))
+        self.assertFalse(is_power2(2.2))
 
 class TestAlign(unittest.TestCase):
     def test_align_returns_same_array_if_aligned(self):
@@ -91,7 +99,9 @@ class TestAlign(unittest.TestCase):
         np.testing.assert_array_equal(result.data,
                                       [0.0, 0.6, 1.6, 2.6, 3.6,
                                        4.6, 5.6, 6.6000000000000005])
-        np.testing.assert_array_equal(result.mask, False)
+        # first value is masked as it cannot be calculated
+        np.testing.assert_array_equal(result.mask, 
+                    [ True, False, False, False, False, False, False, False])
                 
     def test_align_value_error_raised(self):
         class DumParam():
@@ -114,48 +124,42 @@ class TestAlign(unittest.TestCase):
         self.assertRaises(ValueError, align, second, first)
                     
     def test_align_discrete(self):
-        class DumParam():
-            def __init__(self):
-                self.data_type = None
-                self.offset = None
-                self.frequency = None
-                self.array = []
-                
-        first = DumParam()
-        first.frequency = 1
-        first.offset = 0.0
-        first.array = np.ma.array([0,0,1,1,0,1,0,1],dtype=float)
+        first = P(frequency=1, offset=0.0, 
+                  array=np.ma.array([0,0,1,1,0,1,0,1], dtype=float))
+        second = M(frequency=1, offset=0.7,
+                   array=np.ma.array([0,0,1,1,0,1,0,1], dtype=float))
         
-        second = DumParam()
-        second.frequency = 1
-        second.offset = 0.7
-        second.array = np.ma.array([0,0,1,1,0,1,0,1],dtype=float)
-        
-        result = align(second, first, data_type='Discrete') #  sounds more natural so order reversed 20/11/11
+        result = align(second, first)
         np.testing.assert_array_equal(result.data, [0,0,0,1,1,0,1,0])
-        np.testing.assert_array_equal(result.mask, False)
+        np.testing.assert_array_equal(result.mask,
+                    [ True, False, False, False, False, False, False, False])
                         
     def test_align_multi_state(self):
-        class DumParam():
-            def __init__(self):
-                self.data_type = None
-                self.offset = None
-                self.frequency = None
-                self.array = []
-                
-        first = DumParam()
-        first.frequency = 1
-        first.offset = 0.6
-        first.array = np.ma.array([11,12,13,14,15],dtype=float)
+        first = P(frequency=1, offset=0.6, 
+                  array=np.ma.array([11,12,13,14,15], dtype=float))
+        second = M(frequency=1, offset=0.0,
+                   array=np.ma.array([0,1,2,3,4], dtype=float))
         
-        second = DumParam()
-        second.frequency = 1
-        second.offset = 0.0
-        second.array = np.ma.array([0,1,2,3,4],dtype=float)
+        result = align(second, first)
+        np.testing.assert_array_equal(result.data, [1, 2, 3, 4, 0])
+        np.testing.assert_array_equal(result.mask, [0, 0, 0, 0, 1])
         
-        result = align(second, first, data_type='Discrete') #  sounds more natural so order reversed 20/11/11
-        np.testing.assert_array_equal(result.data, [1,2,3,4,4])
-        np.testing.assert_array_equal(result.mask, False)
+    def test_align_parameters_without_interpolation(self):
+        # Both are parameters, but interpolation forced off
+        first = P(frequency=2, offset=0.2, 
+                  array=np.ma.array([11,12,13,14,15], dtype=float))
+        second = P(frequency=1, offset=0.0,
+                   array=np.ma.array([1, 2, 3, 4, 5], dtype=float))
+        
+        result = align(second, first, interpolate=False)
+        # Slave at 2Hz 0.2 offset explained:
+        # 0.2 offset: 1 taken from 0.0 second already recorded
+        # 0.7 offset: 2 taken from 1.0 second (1.0 is closer than 0.0 second)
+        # 1.2 offset: 2 taken from 1.0 second (1.0 is closer than 2.0 second)
+        # 1.7 offset: 3 taken from 2.0 second (2.0 is closest to 1.7 second)
+        # ...
+        np.testing.assert_array_equal(result.data, [1, 2, 2, 3, 3, 4, 4, 5, 0, 0])
+        np.testing.assert_array_equal(result.mask, [0, 0, 0, 0, 0, 0, 0, 0, 1, 1])
     
     def test_align_same_hz_delayed(self):
         # Both arrays at 1Hz, master behind slave in time
@@ -165,19 +169,16 @@ class TestAlign(unittest.TestCase):
                 self.offset = None
                 self.frequency = 1
                 self.array = []
-        master = DumParam()
-        master.array = np.ma.array([0,1,2,3],dtype=float)
-        # It is necessary to force the data type, as otherwise the array is cast
-        # as integer and the result comes out rounded down as well.
-        master.frequency = 1
-        master.offset = 0.5
-        slave = DumParam()
-        slave.array = np.ma.array([10,11,12,13],dtype=float)
-        slave.frequency = 1
-        slave.offset = 0.2
+        master = P(array=np.ma.array([0,1,2,3], dtype=float),
+                   frequency=1,
+                   offset=0.5)
+        slave = P(array=np.ma.array([10,11,12,13], dtype=float),
+                  frequency=1,
+                  offset=0.2)
         result = align(slave, master)
-        np.testing.assert_array_almost_equal(result.data, [10.3,11.3,12.3,13.0])
-        np.testing.assert_array_equal(result.mask, False)
+        # last sample should be masked
+        np.testing.assert_array_almost_equal(result.data, [10.3,11.3,12.3,0])
+        np.testing.assert_array_equal(result.mask, [0, 0, 0, 1])
         
     def test_align_same_hz_advanced(self):
         # Both arrays at 1Hz, master ahead of slave in time
@@ -187,98 +188,118 @@ class TestAlign(unittest.TestCase):
                 self.offset = None
                 self.frequency = 1
                 self.array = []
-        master = DumParam()
-        master.array = np.ma.array([0,1,2,3],dtype=float)
-        master.frequency = 1
-        master.offset = 0.2
-        slave = DumParam()
-        slave.array = np.ma.array([10,11,12,13],dtype=float)
-        slave.frequency = 1
-        slave.offset = 0.5
+        master = P(array=np.ma.array([0,1,2,3],dtype=float),
+                   frequency=1,
+                   offset=0.2)
+        slave = P(array=np.ma.array([10,11,12,13],dtype=float),
+                  frequency=1,
+                  offset=0.5)
         result = align(slave, master)
-        np.testing.assert_array_almost_equal(result.data, [10.0,10.7,11.7,12.7])
-        np.testing.assert_array_equal(result.mask, False)
+        np.testing.assert_array_almost_equal(result.data, [0,10.7,11.7,12.7])
+        np.testing.assert_array_equal(result.mask, [1, 0, 0, 0])
         
     def test_align_increasing_hz_delayed(self):
         # Master at higher frequency than slave
-        class DumParam():
-            def __init__(self):
-                self.data_type = None
-                self.offset = None
-                self.frequency = 1
-                self.array = []
-        master = DumParam()
-        master.array = np.ma.array([0,1,2,3,4,6,6,7],dtype=float)
-        # It is necessary to force the data type, as otherwise the array is cast
-        # as integer and the result comes out rounded down as well.
-        master.frequency = 4
-        master.offset = 0.15
-        slave = DumParam()
-        slave.array = np.ma.array([10,11,12,13],dtype=float)
-        slave.frequency = 2
-        slave.offset = 0.1
+        master = P(array=np.ma.array([0,1,2,3,4,6,6,7],dtype=float),
+                   frequency=4,
+                   offset=0.15)
+        slave = P(array=np.ma.array([10,11,12,13],dtype=float),
+                  frequency=2,
+                  offset=0.1)
         result = align(slave, master)
         np.testing.assert_array_almost_equal(result.data, [10.1,10.6,11.1,11.6,
-                                                           12.1,12.6,13.0,13.0])
-        np.testing.assert_array_equal(result.mask, False)
+                                                           12.1,12.6, 0, 0])
+        np.testing.assert_array_equal(result.mask, [0,0,0,0,0,0,1,1])
         
     def test_align_increasing_hz_advanced(self):
         # Master at higher frequency than slave
-        class DumParam():
-            def __init__(self):
-                self.data_type = None
-                self.offset = None
-                self.frequency = 1
-                self.array = []
-        master = DumParam()
-        master.array = np.ma.array([0,1,2,3,4,6,6,7,
-                                   0,1,2,3,4,6,6,7],dtype=float)
-        # It is necessary to force the data type, as otherwise the array is cast
-        # as integer and the result comes out rounded down as well.
-        master.frequency = 8
-        master.offset = 0.1
-        slave = DumParam()
-        slave.array = np.ma.array([10,11,12,13],dtype=float)
-        slave.frequency = 2
-        slave.offset = 0.15
+        master = P(array=np.ma.array([0,1,2,3,4,6,6,7,
+                                      0,1,2,3,4,6,6,7],dtype=float),
+                   frequency=8,
+                   offset=0.1)
+        slave = P(array=np.ma.array([10,11,12,13],dtype=float),
+                  frequency=2,
+                  offset=0.15)
         result = align(slave, master)
-        np.testing.assert_array_almost_equal(result.data, [10.0,10.15,10.4,10.65,
+        # First sample of slave hasn't been sampled at initial master (at 0.1
+        # seconds) so is masked
+        
+        # Last three samples of aligned slave have no final value to
+        # extrapolate to so are also masked.
+        np.testing.assert_array_almost_equal(result.data, [ 0.0,10.15,10.4,10.65,
                                                            10.9,11.15,11.4,11.65,
                                                            11.9,12.15,12.4,12.65,
-                                                           12.9,13.0 ,13.0,13.0 ])
+                                                           12.9, 0.0 , 0.0,0.0 ])
         
     def test_align_mask_propogation(self):
+        """
+        This is a "pretty bad case scenario" for masking. We essentially "lose"
+        the valid last recorded sample of 13 as we cannot interpolate
+        across it to the end of the data.
+       
+        The first value masked as slave offset means it is sampled after the
+        Master's first.
+        
+        The 3rd sample (12) is masked so values from 11 through 13 are
+        masked.
+        
+        The last sample (13) is offset with invalid data to the left and
+        padded data to the right, so there are no valid samples either side
+        of the recorded sample to interpolate an aligned value, so this is
+        also masked.
+        """
         # Master at higher frequency than slave
-        class DumParam():
-            def __init__(self):
-                self.data_type = None
-                self.offset = None
-                self.frequency = 1
-                self.array = []
-        master = DumParam()
-        master.array = np.ma.array([0,1,2,3,4,6,6,7,
-                                   0,1,2,3,4,6,6,7],dtype=float)
-        # It is necessary to force the data type, as otherwise the array is cast
-        # as integer and the result comes out rounded down as well.
-        master.frequency = 8
-        master.offset = 0.1
-        slave = DumParam()
-        slave.array = np.ma.array([10,11,12,13],dtype=float)
-        slave.array[2] = np.ma.masked
-        slave.frequency = 2
-        slave.offset = 0.15
+        master = P(array=np.ma.array([0,1,2,3,4,6,6,7,
+                                   0,1,2,3,4,6,6,7],dtype=float),
+                   frequency=8,
+                   offset=0.1)
+        slave = P(array=np.ma.array([10,11,12,13], 
+                               mask=[ 0, 0, 1, 0],
+                               dtype=float),
+                  frequency=2,
+                  offset=0.15)
+
         result = align(slave, master)
         answer = np.ma.array(data = [10.0,10.15,10.4,10.65,
                                      10.9,0,0,0,
                                      0,0,0,0,
                                      0,13.0,13.0,13.0],
-                             mask = [False,False,False,False,
+                             mask = [True,False,False,False,
                                      False, True, True, True,
                                      True , True, True, True,
-                                     True ,False,False,False])
+                                     True , True, True, True])
         ma_test.assert_masked_array_approx_equal(result, answer)
 
+    def test_align_mask_propogation_same_offsets(self):
+        # Master at higher frequency than slave, but using repair_mask
+        master = P(array=np.ma.array([0,1,2,3,4,6,6,7,
+                                   0,1,2,3,4,6,6,7],dtype=float),
+                   frequency=8,
+                   offset=0.2)
+        slave = P(array=np.ma.array([10,11,12,13], 
+                               mask=[ 0, 0, 1, 0],
+                               dtype=float),
+                  frequency=2,
+                  offset=0.2)
 
+        result = align(slave, master)
+        answer = np.ma.array(data = [
+            # good, interpolated to 11
+            10.00, 10.25, 10.50, 10.75,
+            # good, unreliable
+            11.00,  0.00,  0.00,  0.00,
+            # masked, unreliable
+            12.00,  0.00,  0.00,  0.00,
+            # good, no extrapolation AKA masked padding
+            13.00,  0.00,  0.00,  0.00],
+                             mask = [
+            False,False,False,False,
+            False, True, True, True,
+            True , True, True, True,
+            False, True, True, True])
+        ma_test.assert_masked_array_approx_equal(result, answer)
+        
+        
     def test_align_atr_problem_replicated(self):
         # AeroTech Research data showed up a specific problem simuated by this test.
     
@@ -337,55 +358,47 @@ class TestAlign(unittest.TestCase):
                              
     def test_align_increasing_hz_extreme(self):
         # Master at higher frequency than slave
-        class DumParam():
-            def __init__(self):
-                self.data_type = None
-                self.offset = None
-                self.frequency = 1
-                self.array = []
-        master = DumParam()
-        master.array = np.ma.array([0,1,2,3,4,6,6,7,
-                                   0,1,2,3,4,6,6,7],dtype=float)
-        # It is necessary to force the data type, as otherwise the array is cast
-        # as integer and the result comes out rounded down as well.
-        master.frequency = 8
-        master.offset = 0.1
-        slave = DumParam()
-        slave.array = np.ma.array([10,11],dtype=float)
-        slave.frequency = 1
-        slave.offset = 0.95
+        master = P(array=np.ma.array([0,1,2,3,4,6,6,7,
+                                      0,1,2,3,4,6,6,7],dtype=float),
+                   frequency=8,
+                   offset = 0.1)
+        slave = P(array=np.ma.array([10,11],dtype=float),
+                  frequency=1,
+                  offset=0.95)
         result = align(slave, master)
-        np.testing.assert_array_almost_equal(result.data,[10.0 ,10.0  ,10.0,10.0  ,
-                                                          10.0 ,10.0  ,10.0,10.025,
-                                                          10.15,10.275,10.4,10.525,
-                                                          10.65,10.775,10.9,11.0  ])
-        np.testing.assert_array_equal(result.mask, False)
+        expected = [ 0.0 ,  0.0  ,  0.0,  0.0  ,
+                     0.0 ,  0.0  ,  0.0, 10.025,
+                    10.15, 10.275, 10.4, 10.525,
+                    10.65, 10.775, 10.9,  0.0  ]
+        np.testing.assert_array_almost_equal(result.data, expected)
+        np.testing.assert_array_equal(result.mask, 
+                    [True,  True,  True,  True,
+                     True,  True,  True,  False,
+                     False, False, False, False,
+                     False, False, False, True  ])
 
     def test_align_across_frame_increasing(self):
-        # Master at higher frequency than slave
-        class DumParam():
-            def __init__(self):
-                self.data_type = None
-                self.offset = None
-                self.frequency = 1
-                self.array = []
-        master = DumParam()
-        master.array = np.ma.zeros(64, dtype=float)
-        # It is necessary to force the data type, as otherwise the array is cast
-        # as integer and the result comes out rounded down as well.
-        master.frequency = 8
-        master.offset = 0.1
-        slave = DumParam()
-        slave.array = np.ma.array([10,11],dtype=float)
-        slave.frequency = 0.25
-        slave.offset = 3.95
+        master = P(array=np.ma.zeros(64, dtype=float),
+                   frequency=8,
+                   offset=0.1)
+        slave = P(array=np.ma.array([10,11], dtype=float),
+                   frequency=0.25,
+                   offset=3.95)
         result = align(slave, master)
         # Build the correct answer...
-        answer=np.ma.ones(64)*10
-        answer[31] = answer[31] + 0.00625
+        answer = np.ma.ones(64)
+        # data is masked up to first slave sample
+        answer[:31] = 0
+        answer[:31] = np.ma.masked
+        # increment between 10 and 11
+        answer[31:] *= 10
+        answer[31] += 0.00625
         for i in range(31):
             answer [31+i+1] = answer[31+i] + 1/32.0
-        answer[-1] = 11.0
+        # last value is after the slave offset therefore masked
+        answer[-1] = 0
+        answer[-1] = np.ma.masked
+        
         # ...and check the resulting array in one hit.
         ma_test.assert_masked_array_approx_equal(result, answer)
         
@@ -447,86 +460,87 @@ class TestAlign(unittest.TestCase):
         slave.array = np.ma.array([1,3,6,9])
         slave.frequency = 1/8.0
         result = align(slave, master)
-        expected = [1]*16+[3]*16+[6]*16+[9]*16
+        expected = [
+        1.    ,  1.125 ,  1.25  ,  1.375 ,  1.5   ,  1.625 ,  1.75  ,
+        1.875 ,  2.    ,  2.125 ,  2.25  ,  2.375 ,  2.5   ,  2.625 ,
+        2.75  ,  2.875 ,  3.    ,  3.1875,  3.375 ,  3.5625,  3.75  ,
+        3.9375,  4.125 ,  4.3125,  4.5   ,  4.6875,  4.875 ,  5.0625,
+        5.25  ,  5.4375,  5.625 ,  5.8125,  6.    ,  6.1875,  6.375 ,
+        6.5625,  6.75  ,  6.9375,  7.125 ,  7.3125,  7.5   ,  7.6875,
+        7.875 ,  8.0625,  8.25  ,  8.4375,  8.625 ,  8.8125,  9.    ,
+        0.    ,  0.    ,  0.    ,  0.    ,  0.    ,  0.    ,  0.    ,
+        0.    ,  0.    ,  0.    ,  0.    ,  0.    ,  0.    ,  0.    ,  0.    ]
         np.testing.assert_array_equal(result.data,expected)
 
     def test_align_superframe_slave_extreme(self):
-        class DumParam():
-            def __init__(self):
-                self.data_type = None
-                self.offset = None
-                self.frequency = 1
-                self.offset = 0.0
-                self.array = []
-        master = DumParam()
-        master.array = np.ma.arange(1024)
-        master.frequency = 8
-        slave = DumParam()
-        slave.array = np.ma.array([1,2])
-        slave.frequency = 1/64.0
+        master = P(array=np.ma.arange(1024), frequency=8)
+        slave = P(array=np.ma.array([0, 512]), frequency=1/64.0)
         result = align(slave, master)
-        expected = [1]*512+[2]*512
+        expected = range(0, 513) + [0]*511
         np.testing.assert_array_equal(result.data,expected)
 
 
     def test_align_superframes_both(self):
-        class DumParam():
-            def __init__(self):
-                self.data_type = None
-                self.offset = None
-                self.frequency = 1
-                self.offset = 0.0
-                self.array = []
-        master = DumParam()
-        master.array = np.ma.arange(16)
-        master.frequency = 1/8.0
-        slave = DumParam()
-        slave.array = np.ma.arange(4)+100
-        slave.frequency = 1/32.0
+        master = P(array = np.ma.arange(16),
+                   frequency = 1/8.0)
+        slave = P(array=np.ma.array([100, 104, 108, 112]),
+                  frequency = 1/32.0)
         result = align(slave, master)
-        expected = [100]*4+[101]*4+[102]*4+[103]*4
+        expected = range(100, 113) + [0] * 3
         np.testing.assert_array_equal(result.data,expected)
         
     def test_align_8_hz_half_hz(self):
-        class DumParam():
-            def __init__(self):
-                self.data_type = None
-                self.offset = None
-                self.frequency = 1
-                self.offset = 0.0
-                self.array = []
-                
-        master = DumParam()
-        master.array = np.ma.arange(22576)
-        master.frequency = 8.0
-        slave = DumParam()
-        slave.array = np.ma.arange(1411)
-        slave.frequency = 0.5
+        # Same offset, so every 16th sample (ratio between master and slave) 
+        # will be that from the slave array.
+        master = P(array=np.ma.arange(22576),
+                   frequency=8.0)
+        slave = P(array=np.ma.arange(1411),
+                  frequency=0.5)
         result = align(slave, master)
-        expected = master.array / 16.0
-        expected[-16:] = [1410.0]*16
-        np.testing.assert_array_almost_equal(result.data,expected.data, decimal=4)
+        expected_16th_samples = np.ma.arange(1411)
+        # all slave values are in the result
+        np.testing.assert_array_equal(result[::16], expected_16th_samples)
+        # last 15 samples are masked
+        np.testing.assert_array_equal(result.mask[-15:], [True]*15)
+        # test a chunk is interpolated
+        np.testing.assert_array_equal(result.data[:16], np.arange(16, dtype=float)/16)
 
     def test_align_superframe_to_onehz_multistate(self):
         # Slave once per superframe, master at 1Hz, Multi-State
-        class DumParam():
-            def __init__(self):
-                self.data_type = None
-                self.offset = None
-                self.frequency = 1
-                self.array = []
-        onehz = P(frequency = 1)
-        slave = DumParam()
-        slave.array = np.ma.array([1, 2, 3, 4], dtype=float)
-        slave.frequency = 1.0 / 64
-        result = align(slave, onehz, data_type='Multi-state')
-        expected = np.ma.array([1] * 64 + [2] * 64 + [3] * 64 + [4] * 64)
+        onehz = M(frequency=1, offset=0.0, 
+                  array=np.ma.array([0,0,1,1,0,1,0,1], dtype=float))
+        slave = P(frequency=1.0/64, offset=0.0,
+                   array=np.ma.array([1, 65, 129, 193], dtype=float))
+        result = align(slave, onehz)
+        expected = np.ma.array(range(1, 194) + [0] * 63)
         np.testing.assert_array_equal(result.data, expected)
+        
+    def test_align_fully_masked_array(self):
+        # fully masked arrays are passed in at higher frequency but fully masked
+        # build masked array
+        expected = np.ma.zeros(16)
+        expected.mask = True
+        
+        # Test with same offset - returns all 0s
+        master = P(frequency=8, offset=0.02)
+        slave = P(frequency=2, offset=0.02, 
+                  array=np.ma.array([10, 11, 12, 13], mask=True))
+        result = align(slave, master)
+        np.testing.assert_array_equal(result.data, expected.data)
+        np.testing.assert_array_equal(result.mask, expected.mask)
+
+        # Example with different offset - returns all 0s
+        master = P(frequency=8, offset=0.05)
+        slave = P(frequency=2, offset=0.01, 
+                  array=np.ma.array([10, 11, 12, 13], mask=True))
+        result = align(slave, master)
+        np.testing.assert_array_equal(result.data, expected.data)
+        np.testing.assert_array_equal(result.mask, expected.mask)
 
 
 class TestCasAlt2Mach(unittest.TestCase):
+    @unittest.skip('Not Implemented')
     def test_cas_alt2mach(self):
-        # TODO
         self.assertTrue(False)
     
 
@@ -705,6 +719,7 @@ class TestBlendNonequispacedSensors(unittest.TestCase):
 
 
 class TestBump(unittest.TestCase):
+    @unittest.skip('Not Implemented')
     def test_bump(self):
         instant = KTI(items=[KeyTimeInstance(6.5, 'Test KTI')])
         accel = P('Test', 
@@ -793,6 +808,7 @@ class TestCalculateTimebase(unittest.TestCase):
 
 
 class TestConvertTwoDigitToFourDigitYear(unittest.TestCase):
+    @mock.patch("analysis_engine.library.CURRENT_YEAR", new='2012')
     def test_convert_two_digit_to_four_digit_year(self):
         # WARNING - this test will fail next year(!)
         self.assertEquals(convert_two_digit_to_four_digit_year(99), 1999)
@@ -932,9 +948,9 @@ class TestClip(unittest.TestCase):
         np.testing.assert_array_almost_equal(result, expected)
 
     def test_clip_all_masked(self):
+        # raises ValueError when it comes to repairing mask
         array = np.ma.array(data=[1,2,3],mask=[1,1,1])
-        result = clip(array, 3)
-        np.testing.assert_array_equal(result.mask, array.mask)
+        self.assertRaises(ValueError, clip, array, 3)
 
     def test_clip_short_data(self):
         an_array = np.ma.array([9,8,7,6,5,4,3,2,1,2,3,4,5,6,7,8])
@@ -1745,53 +1761,64 @@ class TestIndexClosestValue(unittest.TestCase):
         self.assertEqual(index_closest_value(array, -9, slice(5,1,-1)), 2)
 
 
-class TestInterpolateAndExtend(unittest.TestCase):
-    def test_interpolate_and_extend_basic(self):
+class TestInterpolate(unittest.TestCase):
+    def test_interpolate_basic(self):
         array = np.ma.array(data=[0,0,2,0,0,3.5,0],
                             mask=[1,1,0,1,1,0,1],
                             dtype=float)
         expected = np.ma.array([2,2,2,2.5,3,3.5,3.5])
-        result = interpolate_and_extend(array)
+        result = interpolate(array)
         np.testing.assert_array_equal(result, expected)
         
-    def test_interpolate_and_extend_four_parts(self):
+    def test_interpolate_four_parts(self):
         array = np.ma.array(data=[2,0,2,0,2,0,2],
                             mask=[1,0,1,0,1,0,1])
         expected = np.ma.array([0]*7)
-        result = interpolate_and_extend(array)
+        result = interpolate(array)
         np.testing.assert_array_equal(result, expected)
         
-    def test_interpolate_and_extend_nothing_to_do_none_masked(self):
+    def test_interpolate_nothing_to_do_none_masked(self):
         array = np.ma.array(data=[0,0,2,0,0,3.5,0],
                             mask=[0,0,0,0,0,0,0],
                             dtype=float)
-        result = interpolate_and_extend(array)
+        result = interpolate(array)
         np.testing.assert_array_equal(result, array)
         
-    def test_interpolate_and_extend_nothing_to_do_all_masked(self):
+    def test_interpolate_nothing_to_do_all_masked(self):
         array = np.ma.array(data=[0,0,2,0,0,3.5,0],
                             mask=[1,1,1,1,1,1,1],
                             dtype=float)
         expected = np.ma.array(data=[0,0,0,0,0,0,0],
                             mask=False, dtype=float)
-        result = interpolate_and_extend(array)
+        result = interpolate(array)
         np.testing.assert_array_equal(result, expected)
 
-    def test_interpolate_and_extend_no_ends(self):
+    def test_interpolate_no_ends(self):
         array = np.ma.array(data=[5,0,0,20],
                             mask=[0,1,1,0],
                             dtype=float)
         expected = np.ma.array([5, 10, 15, 20])
-        result = interpolate_and_extend(array)
+        result = interpolate(array)
         np.testing.assert_array_equal(result, expected)
 
-    def test_interpolate_and_extend_masked_end(self):
+    def test_interpolate_masked_end(self):
         array = np.ma.array(data=[5,0,0,20],
                             mask=[1,0,1,0],
                             dtype=float)
         # array[0] = np.nan
-        expected = np.ma.array([0, 0, 10, 20])
-        result = interpolate_and_extend(array)
+        expected = np.ma.array([0, 0, 10, 20], 
+                          mask=[0, 0, 0, 0])
+        result = interpolate(array)
+        np.testing.assert_array_equal(result, expected)
+        
+    def test_interpolate_without_extrapolate(self):
+        array = np.ma.array(data=[1, 0, 0, 0, 5, 0, 0, 0, 13, 0, 0, 0, 9, 0, 0, 1],
+                            mask=[0, 1, 1, 1, 0, 1, 1, 1,  0, 1, 1, 1, 0, 1, 1, 1],
+                            dtype=float)
+        #                       1  -interp- 5 -interp-   13  -interp-    9 -untouched-
+        expected = np.ma.array([1, 2, 3, 4, 5, 7, 9, 11, 13, 12, 11, 10, 9, 0, 0, 1],
+                          mask=[0, 0, 0, 0, 0, 0, 0,  0,  0,  0,  0,  0, 0, 1, 1, 1])
+        result = interpolate(array, extrapolate=False)
         np.testing.assert_array_equal(result, expected)
 
 
@@ -1977,15 +2004,6 @@ class TestIsSliceWithinSlice(unittest.TestCase):
                                               slice(None, None)))
         self.assertTrue(is_slice_within_slice(slice(None, 15),
                                               slice(None, None)))
-
-
-class TestMaskedFirstOrderFilter(unittest.TestCase):
-    def test_masked_first_order_filter(self):
-        self.assertTrue(False)
-        '''
-        DJ: Why do we need this function? See first_order_lag and
-        first_order_washout which handle masked values already.
-        '''
         
         
 
@@ -2747,6 +2765,17 @@ class TestRepairMask(unittest.TestCase):
         res = repair_mask(array, extrapolate=True)
         expected = np.ma.array([6,6,6,7,7,7,7],mask=[0,0,0,0,0,0,0])
         ma_test.assert_array_equal(res, expected)
+        
+    def test_fully_masked_array(self):
+        array = np.ma.array(range(10), mask=[1]*10)
+        # fully masked raises ValueError
+        self.assertRaises(ValueError, repair_mask, array)
+        # fully masked returns a masked zero array
+        res = repair_mask(array, zero_if_masked=True)
+        expected = np.ma.zeros(10)
+        expected.mask = True
+        ma_test.assert_array_equal(res.data, expected.data)
+        ma_test.assert_array_equal(res.mask, expected.mask)
 
 
 class TestRoundToNearest(unittest.TestCase):
@@ -3575,6 +3604,7 @@ class TestSubslice(unittest.TestCase):
 
 
 class TestTouchdownInertial(unittest.TestCase):
+    @unittest.skip("Not Implemented")
     def test_touchdown_inertial(self):
         self.assertTrue(False)
 
