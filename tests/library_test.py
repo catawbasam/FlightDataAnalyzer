@@ -514,12 +514,33 @@ class TestAlign(unittest.TestCase):
         result = align(slave, onehz)
         expected = np.ma.array(range(1, 194) + [0] * 63)
         np.testing.assert_array_equal(result.data, expected)
+        
+    def test_align_fully_masked_array(self):
+        # fully masked arrays are passed in at higher frequency but fully masked
+        # build masked array
+        expected = np.ma.zeros(16)
+        expected.mask = True
+        
+        # Test with same offset - returns all 0s
+        master = P(frequency=8, offset=0.02)
+        slave = P(frequency=2, offset=0.02, 
+                  array=np.ma.array([10, 11, 12, 13], mask=True))
+        result = align(slave, master)
+        np.testing.assert_array_equal(result.data, expected.data)
+        np.testing.assert_array_equal(result.mask, expected.mask)
+
+        # Example with different offset - returns all 0s
+        master = P(frequency=8, offset=0.05)
+        slave = P(frequency=2, offset=0.01, 
+                  array=np.ma.array([10, 11, 12, 13], mask=True))
+        result = align(slave, master)
+        np.testing.assert_array_equal(result.data, expected.data)
+        np.testing.assert_array_equal(result.mask, expected.mask)
 
 
 class TestCasAlt2Mach(unittest.TestCase):
     @unittest.skip('Not Implemented')
     def test_cas_alt2mach(self):
-        # TODO
         self.assertTrue(False)
     
 
@@ -2735,6 +2756,17 @@ class TestRepairMask(unittest.TestCase):
         res = repair_mask(array, extrapolate=True)
         expected = np.ma.array([6,6,6,7,7,7,7],mask=[0,0,0,0,0,0,0])
         ma_test.assert_array_equal(res, expected)
+        
+    def test_fully_masked_array(self):
+        array = np.ma.array(range(10), mask=[1]*10)
+        # fully masked raises ValueError
+        self.assertRaises(ValueError, repair_mask, array)
+        # fully masked returns a masked zero array
+        res = repair_mask(array, zero_if_masked=True)
+        expected = np.ma.zeros(10)
+        expected.mask = True
+        ma_test.assert_array_equal(res.data, expected.data)
+        ma_test.assert_array_equal(res.mask, expected.mask)
 
 
 class TestRoundToNearest(unittest.TestCase):

@@ -30,8 +30,8 @@ def geo_locate(hdf, items):
                        "'Longitude Smoothed' were not found within the hdf.")
         return items
     
-    lat_pos = derived_param_from_hdf(hdf, 'Latitude Smoothed')
-    long_pos = derived_param_from_hdf(hdf, 'Longitude Smoothed')
+    lat_pos = derived_param_from_hdf(hdf['Latitude Smoothed'])
+    long_pos = derived_param_from_hdf(hdf['Longitude Smoothed'])
     
     for item in items:
         item.latitude = lat_pos.at(item.index)
@@ -93,9 +93,6 @@ def derive_parameters(hdf, node_mgr, process_order):
             elif node_mgr.get_attribute(dep_name) is not None:
                 deps.append(node_mgr.get_attribute(dep_name))
             elif dep_name in node_mgr.hdf_keys:  # LFL/Derived parameter
-                # all parameters (LFL or other) need get_aligned which is
-                # available on DerivedParameterNode
-                dp = derived_param_from_hdf(hdf, dep_name)
                 deps.append(dp)
             else:  # dependency not available
                 deps.append(None)

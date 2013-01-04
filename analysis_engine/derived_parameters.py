@@ -4129,10 +4129,20 @@ class Headwind(DerivedParameterNode):
 
     units = 'kts'
     
-    def derive(self, windspeed=P('Wind Speed'), toffs=S('Takeoff'),
+    @classmethod
+    def can_operate(cls, available):
+        if all_of(('Wind Speed',
+                   'Wind Direction Continuous', 
+                   'Heading True Continuous'), available):
+            return True
+    
+    def derive(self, windspeed=P('Wind Speed'), 
                wind_dir=P('Wind Direction Continuous'), 
-               head=P('Heading True Continuous'), alt_aal=P('Altitude AAL'), 
-               gspd=P('Groundspeed'), aspd=P('Airspeed True')):
+               head=P('Heading True Continuous'), 
+               toffs=S('Takeoff'),               
+               alt_aal=P('Altitude AAL'), 
+               gspd=P('Groundspeed'), 
+               aspd=P('Airspeed True')):
         
         rad_scale = radians(1.0)
         headwind = windspeed.array * np.ma.cos((wind_dir.array-head.array)*rad_scale)
@@ -4141,7 +4151,7 @@ class Headwind(DerivedParameterNode):
         # first hundred feet after takeoff. Note this is done in a
         # deliberately crude manner so that the different computations may be
         # identified easily by the analyst.
-        if gspd and aspd:
+        if gspd and aspd and alt_aal and toffs:
             # We merge takeoff slices with altitude slices to extend the takeoff phase to 100ft.
             for climb in slices_or(alt_aal.slices_from_to(0, 100),
                                    [s.slice for s in toffs]):

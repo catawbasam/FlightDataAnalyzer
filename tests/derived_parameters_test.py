@@ -12,7 +12,7 @@ from hdfaccess.file import hdf_file
 from utilities import masked_array_testutils as ma_test
 from utilities.filesystem_tools import copy_file
 
-from analysis_engine.flight_phase import Fast
+from analysis_engine.flight_phase import Fast, Mobile
 from analysis_engine.node import Attribute, A, KPV, KeyTimeInstance, KTI, Parameter, P, Section, S
 from analysis_engine.process_flight import process_flight
 from analysis_engine.settings import METRES_TO_FEET
@@ -26,6 +26,7 @@ from analysis_engine.derived_parameters import (
     AccelerationAlongTrack,
     AccelerationAcrossTrack,
     Aileron,
+    AimingPointRange,
     AirspeedForFlightPhases,
     AirspeedReference,
     AirspeedRelative,
@@ -80,7 +81,6 @@ from analysis_engine.derived_parameters import (
     Pitch,
     VerticalSpeed,
     VerticalSpeedForFlightPhases,
-    #VisualApproachRange,
     RateOfTurn,
     TurbulenceRMSG,
     V2,
@@ -124,8 +124,9 @@ class TestAccelerationVertical(unittest.TestCase):
             Parameter('Roll', np.ma.zeros(2), 2),
         ])
         
-        ma_test.assert_masked_array_approx_equal(acc_vert.array,
-                                                 np.ma.array([1]*8))
+        #                                     x   interp  x  pitch/roll masked
+        expected = np.ma.array([1] * 8, mask=[0, 0, 0, 0, 0,   1, 1, 1])
+        ma_test.assert_masked_array_approx_equal(acc_vert.array, expected)
         
     def test_acceleration_vertical_pitch_up(self):
         acc_vert = AccelerationVertical(frequency=8)
@@ -138,8 +139,9 @@ class TestAccelerationVertical(unittest.TestCase):
             P('Roll',np.ma.zeros(2), 2)
         ])
 
-        ma_test.assert_masked_array_approx_equal(acc_vert.array,
-                                                 np.ma.array([1] * 8))
+        #                                     x   interp  x  pitch/roll masked
+        expected = np.ma.array([1] * 8, mask=[0, 0, 0, 0, 0,   1, 1, 1])
+        ma_test.assert_masked_array_approx_equal(acc_vert.array, expected)
 
     def test_acceleration_vertical_pitch_up_roll_right(self):
         acc_vert = AccelerationVertical(frequency=8)
@@ -150,9 +152,9 @@ class TestAccelerationVertical(unittest.TestCase):
             P('Acceleration Longitudinal', np.ma.ones(4) * 0.3, 4),
             P('Pitch',np.ma.ones(2) * 30.0, 2),
             P('Roll',np.ma.ones(2) * 20, 2)])
-
-        ma_test.assert_masked_array_approx_equal(acc_vert.array,
-                                                 np.ma.array([0.86027777] * 8))
+        
+        expected = np.ma.array([0.86027777] * 8, mask=[0, 0, 0, 0, 0,   1, 1, 1])
+        ma_test.assert_masked_array_approx_equal(acc_vert.array, expected)
 
     def test_acceleration_vertical_roll_right(self):
         acc_vert = AccelerationVertical(frequency=8)
@@ -164,9 +166,9 @@ class TestAccelerationVertical(unittest.TestCase):
             P('Pitch', np.ma.zeros(2), 2),
             P('Roll', np.ma.ones(2) * 45, 2),
         ])
-
-        ma_test.assert_masked_array_approx_equal(acc_vert.array,
-                                                 np.ma.array([1] * 8))
+        #                                     x   interp  x  pitch/roll masked
+        expected = np.ma.array([1] * 8, mask=[0, 0, 0, 0, 0,   1, 1, 1])
+        ma_test.assert_masked_array_approx_equal(acc_vert.array, expected)
 
 
 class TestAccelerationForwards(unittest.TestCase):
@@ -185,9 +187,8 @@ class TestAccelerationForwards(unittest.TestCase):
             Parameter('Acceleration Longitudinal', np.ma.ones(4) * 0.1,4),
             Parameter('Pitch', np.ma.zeros(2), 2)
         ])
-        
-        ma_test.assert_masked_array_approx_equal(acc_fwd.array,
-                                                 np.ma.array([0.1] * 8))
+        expected = np.ma.array([0.1] * 8, mask=[0, 0, 0, 0, 0,   1, 1, 1])
+        ma_test.assert_masked_array_approx_equal(acc_fwd.array, expected)
         
     def test_acceleration_forward_pitch_up(self):
         acc_fwd = AccelerationForwards(frequency=4)
@@ -198,8 +199,8 @@ class TestAccelerationForwards(unittest.TestCase):
             P('Pitch', np.ma.ones(2) * 30.0, 2)
         ])
 
-        ma_test.assert_masked_array_approx_equal(acc_fwd.array,
-                                                 np.ma.array([0] * 8))
+        expected = np.ma.array([0] * 8, mask=[0, 0, 0, 0, 0,   1, 1, 1])
+        ma_test.assert_masked_array_approx_equal(acc_fwd.array, expected)
 
 
 class TestAccelerationSideways(unittest.TestCase):
@@ -220,8 +221,9 @@ class TestAccelerationSideways(unittest.TestCase):
             Parameter('Pitch', np.ma.zeros(2),2),
             Parameter('Roll', np.ma.zeros(2),2)
         ])
-        ma_test.assert_masked_array_approx_equal(acc_lat.array,
-                                                 np.ma.array([0.05]*8))
+        #                                     x   interp  x  pitch/roll masked
+        expected = np.ma.array([0.05] * 8, mask=[0, 0, 0, 0, 0,   1, 1, 1])
+        ma_test.assert_masked_array_approx_equal(acc_lat.array, expected)
         
     def test_acceleration_sideways_pitch_up(self):
         acc_lat = AccelerationSideways(frequency=8)
@@ -233,8 +235,9 @@ class TestAccelerationSideways(unittest.TestCase):
             P('Pitch',np.ma.ones(2)*30.0,2),
             P('Roll',np.ma.zeros(2),2)
         ])
-        ma_test.assert_masked_array_approx_equal(acc_lat.array,
-                                                 np.ma.array([0]*8))
+        #                                     x   interp  x  pitch/roll masked
+        expected = np.ma.array([0] * 8, mask=[0, 0, 0, 0, 0,   1, 1, 1])
+        ma_test.assert_masked_array_approx_equal(acc_lat.array, expected)
 
     def test_acceleration_sideways_roll_right(self):
         acc_lat = AccelerationSideways(frequency=8)
@@ -246,8 +249,9 @@ class TestAccelerationSideways(unittest.TestCase):
             P('Pitch',np.ma.zeros(2),2),
             P('Roll',np.ma.ones(2)*45,2)
         ])
-        ma_test.assert_masked_array_approx_equal(acc_lat.array,
-                                                 np.ma.array([0]*8))
+        #                                     x   interp  x  pitch/roll masked
+        expected = np.ma.array([0] * 8, mask=[0, 0, 0, 0, 0,   1, 1, 1])
+        ma_test.assert_masked_array_approx_equal(acc_lat.array, expected)
 
         
 class TestAccelerationAcrossTrack(unittest.TestCase):
@@ -263,8 +267,8 @@ class TestAccelerationAcrossTrack(unittest.TestCase):
             Parameter('Acceleration Forwards', np.ma.ones(8), 8),
             Parameter('Acceleration Sideways', np.ma.ones(4)*0.1, 4),
             Parameter('Drift', np.ma.zeros(2), 2)])
-        ma_test.assert_masked_array_approx_equal(acc_across.array,
-                                                 np.ma.array([0.1]*8))
+        expected = np.ma.array([0.1] * 8, mask=[0, 0, 0, 0, 0,   1, 1, 1])
+        ma_test.assert_masked_array_approx_equal(acc_across.array, expected)
         
     def test_acceleration_across_resolved(self):
         acc_across = AccelerationAcrossTrack()
@@ -273,9 +277,8 @@ class TestAccelerationAcrossTrack(unittest.TestCase):
             P('Acceleration Sideways',np.ma.ones(4)*0.5,4),
             P('Drift',np.ma.ones(2)*30.0,2)])
 
-        ma_test.assert_masked_array_approx_equal(acc_across.array,
-                                                 np.ma.array([0]*8))
-
+        expected = np.ma.array([0] * 8, mask=[0, 0, 0, 0, 0,   1, 1, 1])
+        ma_test.assert_masked_array_approx_equal(acc_across.array, expected)
 
 class TestAccelerationAlongTrack(unittest.TestCase):
     def test_can_operate(self):
@@ -291,18 +294,17 @@ class TestAccelerationAlongTrack(unittest.TestCase):
             Parameter('Acceleration Sideways', np.ma.ones(4)*0.1,4),
             Parameter('Drift', np.ma.zeros(2),2)])
         
-        ma_test.assert_masked_array_approx_equal(acc_along.array,
-                                                 np.ma.array([0.2]*8))
+        expected = np.ma.array([0.2] * 8, mask=[0, 0, 0, 0, 0,   1, 1, 1])
+        ma_test.assert_masked_array_approx_equal(acc_along.array, expected)
         
     def test_acceleration_along_resolved(self):
-        acc_across = AccelerationAlongTrack()
-        acc_across.get_derived([
+        acc_along = AccelerationAlongTrack()
+        acc_along.get_derived([
             P('Acceleration Forwards',np.ma.ones(8)*0.1,8),
             P('Acceleration Sideways',np.ma.ones(4)*0.2,4),
             P('Drift',np.ma.ones(2)*10.0,2)])
-
-        ma_test.assert_masked_array_approx_equal(acc_across.array,
-                                                 np.ma.array([0.13321041]*8))
+        expected = np.ma.array([0.13321041] * 8, mask=[0, 0, 0, 0, 0,   1, 1, 1])
+        ma_test.assert_masked_array_approx_equal(acc_along.array, expected)
 
 
 class TestAirspeedForFlightPhases(unittest.TestCase):
@@ -402,7 +404,8 @@ class TestAirspeedReference(unittest.TestCase):
         np.testing.assert_array_equal(param.array, expected)
 
     def test_airspeed_reference__boeing_lookup(self):
-        with hdf_file('test_data/airspeed_reference.hdf5') as hdf:
+        test_hdf = copy_file('test_data/airspeed_reference.hdf5')
+        with hdf_file(test_hdf) as hdf:
             approaches = (Section(name='Approach', slice=slice(3346, 3540), start_edge=3345.5, stop_edge=3539.5),
                           Section(name='Approach', slice=slice(5502, 5795), start_edge=5501.5, stop_edge=5794.5))
             args = [
@@ -422,6 +425,8 @@ class TestAirspeedReference(unittest.TestCase):
             param.get_derived(args)
             expected = np.ma.load('test_data/boeing_reference_speed.ma')
             np.testing.assert_array_equal(param.array, expected.array)
+        if os.path.isfile(test_hdf):
+            os.remove(test_hdf)
 
     @unittest.skip('Airbus Reference Lookup not Implemented')
     def test_airspeed_reference__airbus_lookup(self):
@@ -556,8 +561,8 @@ class TestAirspeedTrue(unittest.TestCase):
 class TestAltitudeAAL(unittest.TestCase):
     def test_can_operate(self):
         opts = AltitudeAAL.get_operational_combinations()
-        self.assertTrue(('Altitude STD', 'Fast') in opts)
-        self.assertTrue(('Altitude STD', 'Altitude Radio', 'Fast') in opts)
+        self.assertTrue(('Altitude STD Smoothed', 'Fast') in opts)
+        self.assertTrue(('Altitude STD Smoothed', 'Altitude Radio', 'Fast') in opts)
         
     def test_alt_aal_basic(self):
         data = np.ma.array([-3, 0, 30, 80, 150, 260, 120, 70, 20, -5])
@@ -619,6 +624,7 @@ class TestAltitudeAAL(unittest.TestCase):
         np.testing.assert_almost_equal(alt_aal.array[254], 3288, decimal=0)
         np.testing.assert_almost_equal(alt_aal.array[313], 17, decimal=0)
     
+    @unittest.skip('Test Not Implemented')
     def test_alt_aal_faulty_alt_rad(self):
         '''
         When 'Altitude Radio' does not reach 0 after touchdown due to an arinc
@@ -1027,7 +1033,7 @@ class TestAltitudeTail(unittest.TestCase):
 
 class TestClimbForFlightPhases(unittest.TestCase):
     def test_can_operate(self):
-        expected = [('Altitude STD','Fast')]
+        expected = [('Altitude STD Smoothed','Fast')]
         opts = ClimbForFlightPhases.get_operational_combinations()
         self.assertEqual(opts, expected)
         
@@ -1036,7 +1042,7 @@ class TestClimbForFlightPhases(unittest.TestCase):
         phase_fast = Fast()
         phase_fast.derive(P('Airspeed', np.ma.array([0]+[100]*8+[0])))
         climb = ClimbForFlightPhases()
-        climb.derive(Parameter('Altitude STD', up_and_down_data), phase_fast)
+        climb.derive(Parameter('Altitude STD Smoothed', up_and_down_data), phase_fast)
         expected = np.ma.array([0,0,2,5,0,0,3,4,6,0])
         ma_test.assert_masked_array_approx_equal(climb.array, expected)
    
@@ -1073,7 +1079,7 @@ class TestConfiguration(unittest.TestCase):
         timer = Timer(self.test_conf_for_a330)
         time = min(timer.repeat(1, 1))
         print "Time taken %s secs" % time
-        self.assertLess(time, 0.1, msg="Took too long")
+        self.assertLess(time, 0.2, msg="Took too long")
 
 
 class TestControlColumn(unittest.TestCase):
@@ -1228,7 +1234,7 @@ class TestDaylight(unittest.TestCase):
 
 class TestDescendForFlightPhases(unittest.TestCase):
     def test_can_operate(self):
-        expected = [('Altitude STD', 'Fast')]
+        expected = [('Altitude STD Smoothed', 'Fast')]
         opts = DescendForFlightPhases.get_operational_combinations()
         self.assertEqual(opts, expected)
         
@@ -1237,7 +1243,7 @@ class TestDescendForFlightPhases(unittest.TestCase):
         phase_fast = Fast()
         phase_fast.derive(P('Airspeed', np.ma.array([0]+[100]*8+[0])))
         descend = DescendForFlightPhases()
-        descend.derive(Parameter('Altitude STD', down_and_up_data ), phase_fast)
+        descend.derive(Parameter('Altitude STD Smoothed', down_and_up_data ), phase_fast)
         expected = np.ma.array([0,0,0,-7,-9,0,0,-5,-8,0])
         ma_test.assert_masked_array_approx_equal(descend.array, expected)
 
@@ -1707,12 +1713,14 @@ class TestGrossWeightSmoothed(unittest.TestCase):
 
 
 class TestGroundspeedAlongTrack(unittest.TestCase):
+    @unittest.skip('Commented out until new computation of sliding motion')
     def test_can_operate(self):
         expected = [('Groundspeed','Acceleration Along Track', 'Altitude AAL',
                      'ILS Glideslope')]
         opts = GroundspeedAlongTrack.get_operational_combinations()
         self.assertEqual(opts, expected)
 
+    @unittest.skip('Commented out until new computation of sliding motion')
     def test_groundspeed_along_track_basic(self):
         gat = GroundspeedAlongTrack()
         gspd = P('Groundspeed',np.ma.array(data=[100]*2+[120]*18), frequency=1)
@@ -1724,6 +1732,7 @@ class TestGroundspeedAlongTrack(unittest.TestCase):
         self.assertLess(gat.array[5],56.5)
         self.assertGreater(gat.array[6],56.5)
         
+    @unittest.skip('Commented out until new computation of sliding motion')
     def test_groundspeed_along_track_accel_term(self):
         gat = GroundspeedAlongTrack()
         gspd = P('Groundspeed',np.ma.array(data=[100]*200), frequency=1)
@@ -1776,9 +1785,29 @@ class TestHeadingIncreasing(unittest.TestCase):
         
 class TestLatitudeAndLongitudePrepared(unittest.TestCase):
     def test_can_operate(self):
-        self.assertEqual(LatitudePrepared.get_operational_combinations(),
-                         [('Latitude','Longitude')])
-
+        combinations = LatitudePrepared.get_operational_combinations()
+        # Longitude should be the same list
+        self.assertEqual(combinations, LongitudePrepared.get_operational_combinations())
+        # only lat long
+        self.assertTrue(('Latitude','Longitude') in combinations)
+        # with lat long and all the rest
+        self.assertTrue(('Latitude',
+                         'Longitude',
+                         'Heading True',
+                         'Airspeed True',
+                         'Latitude At Takeoff',
+                         'Longitude At Takeoff',
+                         'Latitude At Landing',
+                         'Longitude At Landing') in combinations)
+        
+        # without lat long
+        self.assertTrue(('Heading True',
+                         'Airspeed True',
+                         'Latitude At Takeoff',
+                         'Longitude At Takeoff',
+                         'Latitude At Landing',
+                         'Longitude At Landing') in combinations)
+        
     def test_latitude_smoothing_basic(self):
         lat = P('Latitude',np.ma.array([0,0,1,2,1,0,0],dtype=float))
         lon = P('Longitude', np.ma.array([0,0,0,0,0,0,0.001],dtype=float))
@@ -1919,10 +1948,11 @@ class TestPitch(unittest.TestCase):
 class TestVerticalSpeed(unittest.TestCase):
     def test_can_operate(self):
         self.assertEqual(VerticalSpeed.get_operational_combinations(),
-                         [('Altitude STD', 'Frame')])
+                         [('Altitude STD Smoothed',),
+                           ('Altitude STD Smoothed', 'Frame')])
                          
     def test_vertical_speed_basic(self):
-        alt_std = P('Altitude STD', np.ma.array([100]*10))
+        alt_std = P('Altitude STD Smoothed', np.ma.array([100]*10))
         vert_spd = VerticalSpeed()
         vert_spd.derive(alt_std, None)
         expected = np.ma.array(data=[0]*10, dtype=np.float,
@@ -1930,7 +1960,7 @@ class TestVerticalSpeed(unittest.TestCase):
         ma_test.assert_masked_array_approx_equal(vert_spd.array, expected)
     
     def test_vertical_speed_alt_std_only(self):
-        alt_std = P('Altitude STD', np.ma.arange(100, 200, 10))
+        alt_std = P('Altitude STD Smoothed', np.ma.arange(100, 200, 10))
         vert_spd = VerticalSpeed()
         vert_spd.derive(alt_std, None)
         expected = np.ma.array(data=[600] * 10, dtype=np.float,
@@ -1940,19 +1970,19 @@ class TestVerticalSpeed(unittest.TestCase):
 
 class TestVerticalSpeedForFlightPhases(unittest.TestCase):
     def test_can_operate(self):
-        expected = [('Altitude STD',)]
+        expected = [('Altitude STD Smoothed',)]
         opts = VerticalSpeedForFlightPhases.get_operational_combinations()
         self.assertEqual(opts, expected)
         
     def test_vertical_speed_for_flight_phases_basic(self):
-        alt_std = P('Altitude STD', np.ma.arange(10))
+        alt_std = P('Altitude STD Smoothed', np.ma.arange(10))
         vert_spd = VerticalSpeedForFlightPhases()
         vert_spd.derive(alt_std)
         expected = np.ma.array(data=[60]*10, dtype=np.float, mask=False)
         np.testing.assert_array_equal(vert_spd.array, expected)
 
     def test_vertical_speed_for_flight_phases_level_flight(self):
-        alt_std = P('Altitude STD', np.ma.array([100]*10))
+        alt_std = P('Altitude STD Smoothed', np.ma.array([100]*10))
         vert_spd = VerticalSpeedForFlightPhases()
         vert_spd.derive(alt_std)
         expected = np.ma.array(data=[0]*10, dtype=np.float, mask=False)
@@ -2019,7 +2049,7 @@ class TestV2(unittest.TestCase):
         self.default_kwargs = {'spd':False,
                                'flap':None,
                                'conf':None,
-                               'fdr_v2':None,
+                               'afr_v2':None,
                                'weight_liftoff':None,
                                'series':None,
                                'family':None}
@@ -2063,6 +2093,8 @@ class TestV2(unittest.TestCase):
             param.get_derived(args)
             expected = np.array([144.868884]*5888)
             np.testing.assert_array_equal(param.array, expected)
+        if os.path.isfile(test_hdf):
+            os.remove(test_hdf)
 
     @unittest.skip('Airbus V2 not Implemented')
     def test_v2__airbus_lookup(self):
@@ -2090,7 +2122,7 @@ class TestV2(unittest.TestCase):
 class TestHeadwind(unittest.TestCase):
     def test_can_operate(self):
         opts=Headwind.get_operational_combinations()
-        self.assertEqual(opts, [('Wind Speed', 'Wind Direction Continuous', 'Heading True Continuous')])
+        self.assertTrue(('Wind Speed', 'Wind Direction Continuous', 'Heading True Continuous') in opts)
     
     def test_real_example(self):
         ws = P('Wind Speed', np.ma.array([84.0]))
@@ -2609,7 +2641,6 @@ class TestLatitudePrepared(unittest.TestCase):
 class TestLatitudeSmoothed(unittest.TestCase):
     def test_can_operate(self):
         combinations = LatitudeSmoothed.get_operational_combinations()
-        self.assertTrue(('Latitude Prepared',) in combinations)
         self.assertTrue(all('Latitude Prepared') in c for c in combinations)
     
     @unittest.skip('Test Not Implemented')
@@ -2630,7 +2661,6 @@ class TestLongitudePrepared(unittest.TestCase):
 class TestLongitudeSmoothed(unittest.TestCase):
     def test_can_operate(self):
         combinations = LongitudeSmoothed.get_operational_combinations()
-        self.assertTrue(('Longitude Prepared',) in combinations)
         self.assertTrue(all('Longitude Prepared') in c for c in combinations)
         
     @unittest.skip('Test Not Implemented')
@@ -2799,7 +2829,7 @@ class TestTurbulence(unittest.TestCase):
         expected = np.array([0]*20+[0.156173762]*41+[0]*20)
         np.testing.assert_array_almost_equal(expected, turb.array.data)
         
-class TestVisualApproachRange(unittest.TestCase):
+class TestAimingPointRange(unittest.TestCase):
     def setUp(self):
         test_data_path = os.path.join(os.path.dirname(os.path.abspath(__file__)),
                                       'test_data')        
@@ -2866,11 +2896,11 @@ class TestVisualApproachRange(unittest.TestCase):
                      'ILS Glideslope Established',
                      'Precise Positioning',
                      'FDR Approaches')]
-        opts = ILSLocalizerRange.get_operational_combinations()
+        opts = AimingPointRange.get_operational_combinations()
         self.assertEqual(opts, expected)
 
     def test_visual_range_basic(self):
-        vr = VisualApproachRange()
+        vr = AimingPointRange()
         vr.derive(P('Groundspeed', self.gspd_np),
                   P('Drift', self.drift_np),
                   P('Heading True Continuous', self.hdg_np),
@@ -3021,12 +3051,16 @@ class TestCoordinatesSmoothed(unittest.TestCase):
             gspd = hdf['Groundspeed']
             hdg = hdf['Heading True Continuous']
             tas = hdf['Airspeed True']
+            rot = hdf['Rate Of Turn']
 
         precision = A(name='Precise Positioning', value = True)
+        mobile = Mobile()
+        mobile.get_derived((rot, gspd))
         
         cs = CoordinatesSmoothed()    
-        lat_new, lon_new = cs._adjust_track(lon, lat, ils_loc, app_range, hdg, gspd, tas, 
-                                            self.toff, self.toff_rwy, self.approaches, precision)
+        lat_new, lon_new = cs._adjust_track(
+            lon, lat, ils_loc, app_range, hdg, gspd, tas, 
+            self.toff, self.toff_rwy, self.approaches, mobile, precision)
         
         chunks = np.ma.clump_unmasked(lat_new)
         self.assertEqual(len(chunks),3)
@@ -3045,12 +3079,16 @@ class TestCoordinatesSmoothed(unittest.TestCase):
             gspd = hdf['Groundspeed']
             hdg = hdf['Heading True Continuous']
             tas = hdf['Airspeed True']
+            rot = hdf['Rate Of Turn']
 
         precision = A(name='Precise Positioning', value = False)
         
+        mobile = Mobile()
+        mobile.get_derived((rot, gspd))
         cs = CoordinatesSmoothed()    
-        lat_new, lon_new = cs._adjust_track(lon, lat, ils_loc, app_range, hdg, gspd, tas, 
-                                            self.toff, self.toff_rwy, self.approaches, precision)
+        lat_new, lon_new = cs._adjust_track(
+            lon, lat, ils_loc, app_range, hdg, gspd, tas, 
+            self.toff, self.toff_rwy, self.approaches, mobile, precision)
         
         chunks = np.ma.clump_unmasked(lat_new)
         self.assertEqual(len(chunks),2)
@@ -3074,14 +3112,19 @@ class TestCoordinatesSmoothed(unittest.TestCase):
             gspd = hdf['Groundspeed']
             hdg = hdf['Heading True Continuous']
             tas = hdf['Airspeed True']
+            rot = hdf['Rate Of Turn']
 
         precision = A(name='Precise Positioning', value = False)
+        mobile = Mobile()
+        mobile.get_derived((rot, gspd))
+        
         self.approaches.value[0].pop('ILS localizer established')
         self.approaches.value[1].pop('ILS localizer established')
         # Don't need to pop the glideslopes as these won't be looked for.
-        cs = CoordinatesSmoothed()    
-        lat_new, lon_new = cs._adjust_track(lon, lat, ils_loc, app_range, hdg, gspd, tas, 
-                                            self.toff, self.toff_rwy, self.approaches, precision)
+        cs = CoordinatesSmoothed()
+        lat_new, lon_new = cs._adjust_track(
+            lon, lat, ils_loc, app_range, hdg, gspd, tas, 
+            self.toff, self.toff_rwy, self.approaches, mobile, precision)
         
         chunks = np.ma.clump_unmasked(lat_new)
         self.assertEqual(len(chunks),2)

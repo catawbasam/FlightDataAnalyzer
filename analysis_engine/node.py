@@ -215,6 +215,8 @@ def can_operate(cls, available):
         Accessor for derive method which first aligns all parameters to the
         first to ensure parameter data and indices are consistent.
         
+        node.get_derived( ( hdf['Airspeed'], hdf['Altitude AAL'], .. ) )
+        
         :param args: List of available Parameter objects
         :type args: list
         :returns: self after having aligned dependencies and called derive.
@@ -243,10 +245,20 @@ def can_operate(cls, available):
                 self.offset = alignment_param.offset
             
             # align the dependencies
-            for index, arg in enumerate(args):
+            aligned_args = []
+            for arg in args:
                 if arg in dependencies_to_align:
-                    # override argument in list in-place
-                    args[index] = arg.get_aligned(self)
+                    try:
+                        aligned_arg = arg.get_aligned(self)
+                    except AttributeError:
+                        # If parameter came from an HDF its missing get_aligned
+                        arg = derived_param_from_hdf(arg)
+                        aligned_arg = arg.get_aligned(self)
+                    aligned_args.append(aligned_arg)
+                else:
+                    aligned_args.append(arg)
+            args = aligned_args
+            
         elif dependencies_to_align:
             self.frequency = dependencies_to_align[0].frequency
             self.offset = dependencies_to_align[0].offset
@@ -383,7 +395,7 @@ class DerivedParameterNode(Node):
     data_type = 'Derived'
     lfl = False
     
-    def __init__(self, name='', array=np.ma.array([]), frequency=1, offset=0,
+    def __init__(self, name='', array=np.ma.array([], dtype=float), frequency=1, offset=0,
                  data_type=None, *args, **kwargs):
         # create array results placeholder
         self.array = array # np.ma.array derive result goes here!
@@ -429,7 +441,8 @@ class DerivedParameterNode(Node):
         )
 
         # Align the array for the temporary parameter:
-        aligned_param.array = align(self, param)
+        a = align(self, param)
+        aligned_param.array = a
         
         # Ensure that we copy attributes required for multi-states:
         if hasattr(self, 'values_mapping'):
@@ -561,7 +574,7 @@ class MultistateDerivedParameterNode(DerivedParameterNode):
     '''
     data_type = 'Derived Multi-state'
     
-    def __init__(self, name='', array=np.ma.array([]), frequency=1, offset=0,
+    def __init__(self, name='', array=np.ma.array([], dtype=int), frequency=1, offset=0,
                  data_type=None, values_mapping={}, *args, **kwargs):
         
         #Q: if no values_mapping set to None?
@@ -608,6 +621,7 @@ class MultistateDerivedParameterNode(DerivedParameterNode):
                 # NB: Removed allowance for float!
                 int_array = value
             else:
+                #TODO: Perform more checks to ensure content of value is string
                 # can be of type string or object (mixed)
                 int_array = multistate_string_to_integer(value, self.values_mapping)
             value = MappedArray(int_array, values_mapping=self.values_mapping)
@@ -626,17 +640,14 @@ class MultistateDerivedParameterNode(DerivedParameterNode):
 M = MultistateDerivedParameterNode  # shorthand
 
 
-def derived_param_from_hdf(hdf, name):
+def derived_param_from_hdf(hdf_parameter):
     '''
     Loads and wraps an HDF parameter with either DerivedParameterNode or
     MultistateDerivedParameterNode classes.
     
-    :type hdf: hdf_file
-    :param name: Parameter name to load from the HDF file.
-    :type name: str
+    :type hdf_parameter: Parameter from an HDF file
     :rtype: DerivedParameterNode or MultistateDerivedParameterNode
     '''
-    hdf_parameter = hdf[name]
     if isinstance(hdf_parameter.array, MappedArray):
         result = MultistateDerivedParameterNode(
             name=hdf_parameter.name, array=hdf_parameter.array,
@@ -1200,6 +1211,14 @@ class FormattedNameNode(Node, list):
 
 
 class KeyTimeInstanceNode(FormattedNameNode):
+    '''
+    For testing purposes, you can create a KeyTimeInstanceNode initialised
+    with sample KeyTimeInstances as follows:
+    
+    from analysis_engine.node import KTI, KeyTimeInstance
+    k = KTI(items=[KeyTimeInstance(12, 'Airspeed At 20ft'), KeyTimeInstance(15, 'Airspeed At 10ft')])
+
+    '''
     def __init__(self, *args, **kwargs):
         # place holder
         super(KeyTimeInstanceNode, self).__init__(*args, **kwargs)
@@ -1918,6 +1937,8 @@ class Attribute(object):
 
 A = Attribute
 P = Parameter
+# NB: Names can be confusing as they are aliases of the Nodes but are
+# acronyms of the RecordTypes they store!
 S = SectionNode
 KPV = KeyPointValueNode
 KTI = KeyTimeInstanceNode

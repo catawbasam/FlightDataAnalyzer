@@ -230,7 +230,11 @@ def align(slave, master, interpolate=True):
     if len_aligned != (len(slave_array) * r):
         raise ValueError("Array length problem in align. Probable cause is flight cutting not at superframe boundary")
     
-    slave_aligned = np.ma.zeros(len(slave_array) * r)
+    if interpolate:
+        _dtype = float
+    else:
+        _dtype = int
+    slave_aligned = np.ma.zeros(len(slave_array) * r, dtype=_dtype)
     
     # Where offsets are equal, the slave_array recorded values remain
     # unchanged and interpolation is performed between these values.
@@ -240,12 +244,15 @@ def align(slave, master, interpolate=True):
         if master.frequency > slave.frequency:
             # populate values and interpolate
             slave_aligned[0::r] = slave_array[0::1]
-            # interpolate and do not extrapolate masked ends or gaps
+            # Interpolate and do not extrapolate masked ends or gaps
             # bigger than the duration between slave samples (i.e. where
-            # original slave data is masked)
+            # original slave data is masked).
+            # If array is fully masked, return array of masked zeros
             dur_between_slave_samples = 1.0 / slave.frequency
             return repair_mask(slave_aligned, frequency=master.frequency,
-                               repair_duration=dur_between_slave_samples)
+                               repair_duration=dur_between_slave_samples,
+                               zero_if_masked=True)
+
         else:
             # step through slave taking the required samples
             slave_aligned[0::wm] = slave_array[0::ws]
@@ -3437,9 +3444,8 @@ def repair_mask(array, frequency=1, repair_duration=REPAIR_DURATION,
     It is not intended to be used for key point computations, where invalid data
     should remain masked. 
     
-    if copy=True, returns modified copy of array, otherwise modifies the array in-place.
-    if zero_if_masked=True, returns an unmasked zero-filled array if all incoming data is masked.
-    
+    :param copy: If True, returns modified copy of array, otherwise modifies the array in-place.
+    :param zero_if_masked: If True, returns a fully masked zero-filled array if all incoming data is masked.    
     :param repair_duration: If None, any length of masked data will be repaired.
     :param raise_duration_exceedance: If False, no warning is raised if there are masked sections longer than repair_duration. They will remain unrepaired.
     :param extrapolate: If True, data is extrapolated at the start and end of the array.
@@ -3447,7 +3453,7 @@ def repair_mask(array, frequency=1, repair_duration=REPAIR_DURATION,
     '''
     if not np.ma.count(array):
         if zero_if_masked:
-            return np_ma_zeros_like(array)
+            return np_ma_zeros_like(array, mask=True)
         else:
             raise ValueError("Array cannot be repaired as it is entirely masked")
     if copy:
@@ -4419,6 +4425,8 @@ def is_day(when, latitude, longitude, twilight='civil'):
     
     With these references, it was decided to make civil twilight the default.
     """
+    if latitude is np.ma.masked or longitude is np.ma.masked:
+        return np.ma.masked
     day = when.toordinal() - (734124-40529)  
     t = when.time()  
     time = (t.hour + t.minute/60.0 + t.second/3600.0)/24.0  
