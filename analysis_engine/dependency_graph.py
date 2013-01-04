@@ -254,8 +254,8 @@ def dependency_order(node_mgr, draw=not_windows):
     :type node_mgr: NodeManager
     :param draw: Will draw the graph. Green nodes are available LFL params, Blue are operational derived, Black are not required derived, Red are active top level requested params, Grey are inactive params. Edges are labelled with processing order.
     :type draw: boolean
-    :returns: List of Nodes determining the order for processing.
-    :rtype: list of strings
+    :returns: List of Nodes determining the order for processing and the spanning tree graph.
+    :rtype: (list of strings, dict)
     """
     _graph = graph_nodes(node_mgr)
     gr_all, gr_st, order = process_order(_graph, node_mgr)

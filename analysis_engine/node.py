@@ -1769,13 +1769,15 @@ class NodeManager(object):
             len(self.hdf_keys) + len(self.requested) + len(self.derived_nodes) + 
             len(self.aircraft_info) + len(self.achieved_flight_record))
     
-    def __init__(self, start_datetime, hdf_keys, requested, derived_nodes,
-                 aircraft_info, achieved_flight_record):
+    def __init__(self, start_datetime, hdf_duration, hdf_keys, requested,
+                 derived_nodes, aircraft_info, achieved_flight_record):
         """
         Storage of parameter keys and access to derived nodes.
         
         :param start_datetime: datetime of start of data file
         :type start_datetime: datetime
+        :param hdf_duration: duration of the data within the HDF file in seconds
+        :type hdf_duration: int
         :param hdf_keys: List of parameter names in data file defined by the LFL.
         :type hdf_keys: [str]
         :type requested: [str]
@@ -1788,6 +1790,7 @@ class NodeManager(object):
         non_empty = lambda x: {k: v for k, v in x.items() if v is not None}
 
         self.start_datetime = start_datetime
+        self.hdf_duration = hdf_duration
         self.hdf_keys = hdf_keys
         self.requested = requested
         self.derived_nodes = derived_nodes
@@ -1800,7 +1803,7 @@ class NodeManager(object):
         :returns: Ordered list of all Node names stored within the manager.
         :rtype: list of str
         """
-        return sorted(list(set(['Start Datetime']
+        return sorted(list(set(['Start Datetime', 'HDF Duration']
                                + self.hdf_keys
                                + self.derived_nodes.keys()
                                + self.aircraft_info.keys()
@@ -1819,6 +1822,8 @@ class NodeManager(object):
         """
         if name == 'Start Datetime':
             return Attribute(name, value=self.start_datetime)
+        elif name == 'HDF Duration':
+            return Attribute(name, value=self.hdf_duration)
         elif name in self.aircraft_info:
             return Attribute(name, value=self.aircraft_info[name])
         elif name in self.achieved_flight_record:
@@ -1841,8 +1846,7 @@ class NodeManager(object):
         if name in self.hdf_keys \
              or self.aircraft_info.get(name) is not None \
              or self.achieved_flight_record.get(name) is not None \
-             or name == 'root'\
-             or name == 'Start Datetime':
+             or name in ('root', 'Start Datetime', 'HDF Duration'):
             return True
         elif name in self.derived_nodes:
             # NOTE: Raises "Unbound method" here due to can_operate being

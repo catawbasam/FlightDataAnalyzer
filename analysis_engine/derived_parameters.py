@@ -96,7 +96,7 @@ class AccelerationLateralOffsetRemoved(DerivedParameterNode):
     units = 'g'
     
     def derive(self, acc=P('Acceleration Lateral'), 
-               offset = KPV('Acceleration Lateral Offset')):
+               offset=KPV('Acceleration Lateral Offset')):
         if offset:
             self.array = acc.array - offset[0].value
         else:
@@ -114,7 +114,7 @@ class AccelerationNormalOffsetRemoved(DerivedParameterNode):
     units = 'g'
     
     def derive(self, acc=P('Acceleration Normal'), 
-               offset = KPV('Acceleration Normal Offset')):
+               offset=KPV('Acceleration Normal Offset')):
         if offset:
             self.array = acc.array - offset[0].value + 1.0 # 1.0 to reset datum.
         else:
@@ -137,7 +137,7 @@ class AccelerationVertical(DerivedParameterNode):
         # FIXME: FloatingPointError: underflow encountered in multiply
         pitch_rad = pitch.array*deg2rad
         roll_rad = roll.array*deg2rad
-        resolved_in_roll = acc_norm.array*np.ma.cos(roll_rad)\
+        resolved_in_roll = acc_norm.array * np.ma.cos(roll_rad)\
             - acc_lat.array * np.ma.sin(roll_rad)
         self.array = resolved_in_roll * np.ma.cos(pitch_rad) \
                      + acc_long.array * np.ma.sin(pitch_rad)
@@ -157,7 +157,7 @@ class AccelerationForwards(DerivedParameterNode):
     def derive(self, acc_norm=P('Acceleration Normal Offset Removed'), 
                acc_long=P('Acceleration Longitudinal'), 
                pitch=P('Pitch')):
-        pitch_rad = pitch.array*deg2rad
+        pitch_rad = pitch.array * deg2rad
         self.array = acc_long.array * np.ma.cos(pitch_rad)\
                      - acc_norm.array * np.ma.sin(pitch_rad)
 
@@ -209,8 +209,8 @@ class AccelerationSideways(DerivedParameterNode):
                acc_lat=P('Acceleration Lateral'),
                acc_long=P('Acceleration Longitudinal'), 
                pitch=P('Pitch'), roll=P('Roll')):
-        pitch_rad = pitch.array*deg2rad
-        roll_rad = roll.array*deg2rad
+        pitch_rad = pitch.array * deg2rad
+        roll_rad = roll.array * deg2rad
         # Simple Numpy algorithm working on masked arrays
         resolved_in_pitch = (acc_long.array * np.ma.sin(pitch_rad)
                              + acc_norm.array * np.ma.cos(pitch_rad))
@@ -272,6 +272,7 @@ class AirspeedMinusV2(DerivedParameterNode):
             #logger.info("Marked param '%s' as invalid as ptp %.2f "\
                         #"did not exceed minimum change %.2f",
                         #ptp, min_change)
+
 
 # TODO: Write some unit tests!
 class AirspeedMinusV2For3Sec(DerivedParameterNode):
@@ -665,9 +666,9 @@ class AltitudeAAL(DerivedParameterNode):
         # Altitude Radio was taken as the prime reference to ensure the
         # minimum ground clearance passing peaks is accurately reflected.
         # However, when the Altitude Radio signal is sampled at a lower rate
-        # than the Altitude STD Smoothed, this results in a lower sample rate for a
-        # primary analysis parameter, and this is why Altitude STD Smoothed is now the
-        # primary reference.
+        # than the Altitude STD Smoothed, this results in a lower sample rate
+        # for a primary analysis parameter, and this is why Altitude STD
+        # Smoothed is now the primary reference.
         
         # alt_aal will be zero on the airfield, so initialise to zero.
         alt_aal = np_ma_zeros_like(alt_std.array)
@@ -1203,7 +1204,7 @@ class AltitudeTail(DerivedParameterNode):
     def derive(self, alt_rad=P('Altitude Radio'), pitch=P('Pitch'),
                ground_to_tail=A('Ground To Lowest Point Of Tail'),
                dist_gear_to_tail=A('Main Gear To Lowest Point Of Tail')):
-        pitch_rad = pitch.array*deg2rad
+        pitch_rad = pitch.array * deg2rad
         # Now apply the offset
         gear2tail = dist_gear_to_tail.value * METRES_TO_FEET
         ground2tail = ground_to_tail.value * METRES_TO_FEET
@@ -1211,7 +1212,7 @@ class AltitudeTail(DerivedParameterNode):
         # settles on its oleos
         min_rad = np.ma.min(alt_rad.array)
         self.array = (alt_rad.array + ground2tail - 
-                      np.ma.sin(pitch_rad)*gear2tail - min_rad)
+                      np.ma.sin(pitch_rad) * gear2tail - min_rad)
 
 class AutopilotEngaged(MultistateDerivedParameterNode):
     '''
@@ -1643,7 +1644,7 @@ class Eng_FuelFlow(DerivedParameterNode):
     '''
 
     name = 'Eng (*) Fuel Flow'
-
+    units = 'lbs/h'
     align = False
 
     @classmethod
@@ -1796,7 +1797,7 @@ class Eng_N1Max(DerivedParameterNode):
     '''
 
     name = 'Eng (*) N1 Max'
-    
+    units = '%'
     align = False
 
     @classmethod
@@ -1827,7 +1828,6 @@ class Eng_N1Min(DerivedParameterNode):
 
     name = 'Eng (*) N1 Min'
     units = '%'
-
     align = False
 
     @classmethod
@@ -2036,7 +2036,6 @@ class Eng_OilPressAvg(DerivedParameterNode):
 
     name = 'Eng (*) Oil Press Avg'
     units = 'psi'
-
     align = False
 
     @classmethod
@@ -2064,7 +2063,7 @@ class Eng_OilPressMax(DerivedParameterNode):
     '''
 
     name = 'Eng (*) Oil Press Max'
-
+    units = 'psi'
     align = False
 
     @classmethod
@@ -2245,6 +2244,7 @@ class Eng_OilTempMax(DerivedParameterNode):
     '''
 
     name = 'Eng (*) Oil Temp Max'
+    units = 'C'
 
     align = False
 
@@ -2377,6 +2377,7 @@ class Eng_TorqueMin(DerivedParameterNode):
     '''
 
     name = 'Eng (*) Torque Min'
+    units = '%'
 
     align = False
 
@@ -2678,6 +2679,7 @@ class GrossWeightSmoothed(DerivedParameterNode):
     data. We avoid using the recorded fuel weight in this calculation,
     however it is used in the Zero Fuel Weight calculation.
     '''
+    units = 'lbs'
     align = False
     
     def derive(self, ff = P('Eng (*) Fuel Flow'),
@@ -2789,7 +2791,6 @@ class FlapLever(DerivedParameterNode):
     """
     Steps raw Flap angle from lever into detents.
     """
-
     units = 'deg'
 
     def derive(self, flap=P('Flap Lever'), series=A('Series'), family=A('Family')):
@@ -4520,16 +4521,17 @@ class ApproachRange(DerivedParameterNode):
     measurements in metres from the reference point where the aircraft is on
     an approach.
     """
+    
+    name = "Approach Range"
+    unit = 'm'
+
     @classmethod
     def can_operate(cls, available):
         a = set(['Heading True Continuous','Airspeed True','Altitude AAL',
                  'FDR Approaches'])
         x = set(available)
         return not (a - x)
-     
-    name = "Approach Range"
-    unit = 'm'
-
+    
     def derive(self, gspd=P('Groundspeed'),
                drift=P('Drift'),
                glide=P('ILS Glideslope'),

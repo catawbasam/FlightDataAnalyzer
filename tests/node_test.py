@@ -274,7 +274,7 @@ class TestNodeManager(unittest.TestCase):
         mock_inop.can_operate = mock.Mock(return_value=False)
         aci = {'n':1, 'o':2, 'p':3, 'u': None}
         afr = {'l':4, 'm':5, 'v': None}
-        mgr = NodeManager(None, ['a', 'b', 'c', 'x'], ['a', 'x'], 
+        mgr = NodeManager(None, 10, ['a', 'b', 'c', 'x'], ['a', 'x'], 
                           {'x': mock_inop, # note: derived node is not operational, but is already available in LFL - so this should return true!
                            'y': mock_node, 'z': mock_inop},
                           aci, afr)
@@ -291,12 +291,16 @@ class TestNodeManager(unittest.TestCase):
         self.assertFalse(mgr.operational('v', ['a'])) # achieved flight record
         self.assertFalse(mgr.operational('u', ['a'])) # aircraft info
         self.assertFalse(mgr.operational('z', ['a', 'b']))
-        self.assertEqual(mgr.keys(), ['Start Datetime'] + list('abclmnopxyz'))
+        self.assertEqual(mgr.keys(),
+                         ['HDF Duration', 'Start Datetime'] + 
+                         list('abclmnopxyz'))
         
     def test_get_attribute(self):
         aci = {'a': 'a_value', 'b': None}
         afr = {'x': 'x_value', 'y': None}
-        mgr = NodeManager(None, [],[],{},aci, afr)
+        start_datetime = datetime.now()
+        hdf_duration = 100
+        mgr = NodeManager(start_datetime, hdf_duration, [], [], {}, aci, afr)
         # test aircraft info
         a = mgr.get_attribute('a')
         self.assertEqual(a.__repr__(), Attribute('a', 'a_value').__repr__())
@@ -311,10 +315,16 @@ class TestNodeManager(unittest.TestCase):
         self.assertFalse(y)
         z = mgr.get_attribute('z')
         self.assertFalse(z)
+        start_datetime_node = mgr.get_attribute('Start Datetime')
+        self.assertEqual(start_datetime_node.name, 'Start Datetime')
+        self.assertEqual(start_datetime_node.value, start_datetime)
+        hdf_duration_node = mgr.get_attribute('HDF Duration')
+        self.assertEqual(hdf_duration_node.name, 'HDF Duration')
+        self.assertEqual(hdf_duration_node.value, hdf_duration)
         
     def test_get_start_datetime(self):
         dt = datetime(2020,12,25)
-        mgr = NodeManager(dt, [],[],{},{},{})
+        mgr = NodeManager(dt, 10, [],[],{},{},{})
         self.assertTrue('Start Datetime' in mgr.keys())
         start_dt = mgr.get_attribute('Start Datetime')
         self.assertEqual(start_dt.name, 'Start Datetime')
