@@ -14,7 +14,7 @@ from analysis_engine.flight_attribute import LandingRunway
 import utilities.masked_array_testutils as ma_test
 
 from analysis_engine.library import *
-from analysis_engine.node import (A, P, S, M)
+from analysis_engine.node import (A, P, S, M, KTI, KeyTimeInstance)
 from analysis_engine.settings import METRES_TO_FEET
 from flight_phase_test import buildsection, buildsections
 
@@ -706,7 +706,16 @@ class TestBlendNonequispacedSensors(unittest.TestCase):
 
 class TestBump(unittest.TestCase):
     def test_bump(self):
-        self.assertTrue(False, msg='Test not implemented.')
+        instant = KTI(items=[KeyTimeInstance(6.5, 'Test KTI')])
+        accel = P('Test', 
+                  np.ma.array([2,0,0,0,1,0,0,0,0,0,0,0,0,3],
+                              dtype=float),
+                  frequency=2.0,
+                  offset=0.0)
+        # Did we index the bump correctly?
+        self.assertEqual(bump(accel, instant[0])[0],4.0)
+        # and did we find the right peak and miss the traps?
+        self.assertEqual(bump(accel, instant[0])[1],1.0)
 
 
 class TestCalculateTimebase(unittest.TestCase):
