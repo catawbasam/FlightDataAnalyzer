@@ -48,6 +48,7 @@ from analysis_engine.derived_parameters import (
     ControlColumnForceFO,
     ControlWheel,
     CoordinatesSmoothed,
+    DayOrNight,
     DescendForFlightPhases,
     DistanceTravelled,
     DistanceToLanding,
@@ -1189,6 +1190,30 @@ class TestControlWheel(unittest.TestCase):
         blend_two_parameters.assert_called_once_with(self.cwc, self.cwf)
 
 
+class TestDayOrNight(unittest.TestCase):
+    def test_basic(self):
+        start_dt = A('Start Datetime',
+                       value=datetime.datetime(2012,6,20,20,25))
+        lat=P('Latitude', np.ma.array([51.1789]*64))
+        lon=P('Longitude', np.ma.array([-1.8264]*64))
+        don=DayOrNight()
+        don.derive(start_dt, lat, lon)
+        expected = 'Day'
+        self.assertEqual(don.array[0], expected)
+
+    def test_father_christmas(self):
+        # Starting on the far side of the world, he flies all round
+        # delivering parcels mostly by night (in the northern lands).
+        start_dt = A('Start Datetime',
+                       value=datetime.datetime(2012,12,25,01,00))
+        lat=P('Latitude', np.arange(60,64,1/64.0))
+        lon=P('Longitude', np.arange(-180,180,90/64.0))
+        don=DayOrNight()
+        don.derive(start_dt, lat, lon)
+        expected = ['Day', 'Night', 'Night', 'Night']
+        self.assertEqual(don.array, expected)
+    
+    
 class TestDescendForFlightPhases(unittest.TestCase):
     def test_can_operate(self):
         expected = [('Altitude STD', 'Fast')]

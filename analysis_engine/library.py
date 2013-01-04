@@ -2349,6 +2349,24 @@ def slices_and(first_list, second_list):
                           min(first_slice.stop, second_slice.stop)))
     return result_list
 
+def slices_and_not(first, second):
+    '''
+    It is surprisingly common to need one condition but not a second.
+    Airborne but not Approach And Landing, for example. This little routine
+    makes this simple.
+
+    :param first: First Section - values to be included
+    :type first: Section
+    :param second: Second Section - values to be excluded
+    :type second: Section
+    
+    :returns: List of slices in the first but outside the second lists.
+    '''
+    return slices_and([s.slice for s in first], 
+                      slices_not([s.slice for s in second],
+                                 begin_at=min([s.slice.start for s in first]),
+                                 end_at=max([s.slice.stop for s in first])))
+
 
 def slices_not(slice_list, begin_at=None, end_at=None):
     '''
@@ -3319,11 +3337,11 @@ def peak_curvature(array, _slice=slice(None), curve_sense='Concave',
             if np.ma.ptp(data) == 0.0:
                 return 1 + valid_slice.start
             if curve_sense == 'Concave':
-                return np.ma.argmax(curve) + 1 + valid_slice.start
+                return np.ma.argmax(curve) + 1 + valid_slice.start + _slice.start
             elif curve_sense == 'Convex':
-                return np.ma.argmin(curve) + 1 + valid_slice.start
+                return np.ma.argmin(curve) + 1 + valid_slice.start + _slice.start
             elif curve_sense == 'Bipolar':
-                return np.ma.argmin(np.ma.abs(curve)) + 1 + valid_slice.start
+                return np.ma.argmin(np.ma.abs(curve)) + 1 + valid_slice.start + _slice.start
             else:
                 logger.warn("Short data and unrecognised keyword %s in peak_curvature" %curve_sense)
 

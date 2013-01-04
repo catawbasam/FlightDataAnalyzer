@@ -49,6 +49,7 @@ from analysis_engine.library import (ambiguous_runway,
                                      shift_slice,
                                      shift_slices,
                                      slice_samples,
+                                     slices_and_not,
                                      slices_from_to,
                                      slices_not,
                                      slices_overlap,
@@ -1341,6 +1342,18 @@ class AirspeedThrustReversersDeployedMin(KeyPointValueNode):
             high_rev = thrust_reversers_working(land, pwr, tr)
             self.create_kpvs_within_slices(speed.array, high_rev, min_value)
 
+
+class AirspeedThrustReversersSelected(KeyPointValueNode):
+    '''
+    This gives the indicated airspeed where the thrust reversers were selected.
+    '''
+    def derive(self, speed=P('Airspeed'), tr=M('Thrust Reversers'), lands=S('Landing')):
+        to_scan = clump_multistate(tr.array, 'Stowed', 
+                                   [s.slice for s in lands],
+                                   condition=False)
+        self.create_kpv_from_slices(speed.array, to_scan, max_value)
+
+
 class ThrustAsymmetryWithReverseThrust(KeyPointValueNode):
     '''
     FDS developed this KPV to support the UK CAA Significant Seven programme.
@@ -1351,7 +1364,7 @@ class ThrustAsymmetryWithReverseThrust(KeyPointValueNode):
         to_scan = clump_multistate(tr.array, 'Stowed', 
                                    [s.slice for s in lands],
                                    condition=False)
-        self.create_kpv_from_slices(to_scan, ta.array, max_value)
+        self.create_kpv_from_slices(ta.array, to_scan, max_value)
 
 
 class ThrustWithReverseThrustInTransit(KeyPointValueNode):
@@ -1405,6 +1418,21 @@ class TouchdownToSpoilersDeployedDuration(KeyPointValueNode):
                     if not is_index_within_slice(tdwn.index, land.slice):
                         continue
                     self.create_kpv(deploy, (deploy-tdwn.index)/brake.hz)
+
+
+class GroundspeedThrustReversersDeployedMin(KeyPointValueNode):
+    '''
+    '''
+
+    name = 'Groundspeed With Thrust Reversers Deployed (Over 65% N1) Min'
+
+    def derive(self, speed=P('Groundspeed'), tr=P('Thrust Reversers'),
+               pwr=P('Eng (*) N1 Max'), lands=S('Landing')):
+        '''
+        '''
+        for land in lands:
+            high_rev = thrust_reversers_working(land, pwr, tr)
+            self.create_kpvs_within_slices(speed.array, high_rev, min_value)
 
 
 ################################################################################
@@ -1479,22 +1507,6 @@ class LiftoffToClimbPitchDuration(KeyPointValueNode):
             if pitch_up_idx:
                 duration = (pitch_up_idx - lift.index)/pitch.hz
                 self.create_kpv(pitch_up_idx, duration)
-
-
-
-class GroundspeedThrustReversersDeployedMin(KeyPointValueNode):
-    '''
-    '''
-
-    name = 'Groundspeed With Thrust Reversers Deployed (Over 65% N1) Min'
-
-    def derive(self, speed=P('Groundspeed'), tr=P('Thrust Reversers'),
-               pwr=P('Eng (*) N1 Max'), lands=S('Landing')):
-        '''
-        '''
-        for land in lands:
-            high_rev = thrust_reversers_working(land, pwr, tr)
-            self.create_kpvs_within_slices(speed.array, high_rev, min_value)
 
 
 ################################################################################
@@ -1629,6 +1641,22 @@ class BrakePressureInTakeoffRollMax(KeyPointValueNode):
         self.create_kpvs_within_slices(bp.array, rolls, max_value)
         
 
+class DelayedBrakingAfterTouchdown(KeyPointValueNode):
+    '''
+    This parameter was requested by one customer, who asked us to adopt the
+    Airbus AFPS implementation.
+    '''
+    def derive(self, lands=S('Landing'), gs=P('Groundspeed'), tdwns=KTI('Touchdown')):
+        for land in lands:
+            for tdwn in tdwns:
+                if is_index_within_slice(tdwn.index, land.slice):
+                    gs_td = value_at_index(gs.array, tdwn.index)
+                    minus_10 = index_at_value(gs.array, gs_td-10.0, land.slice)
+                    minus_60 = index_at_value(gs.array, gs_td-60.0, land.slice)
+                    dt = (minus_60 - minus_10) / gs.frequency
+                    self.create_kpv((minus_10+minus_60)/2.0, dt)
+
+    
 ################################################################################
 
 class GenericDescent(KeyPointValueNode):
@@ -2320,6 +2348,29 @@ class ILSGlideslopeDeviation1000To250FtMax(KeyPointValueNode):
                                        max_abs_value)  
 
 
+class ILSGlideslopeDeviation1000To500FtMax(KeyPointValueNode):
+    name = 'ILS Glideslope Deviation 1000 To 500 Ft Max'
+    def derive(self, ils_glideslope=P('ILS Glideslope'),
+               alt_aal = P('Altitude AAL For Flight Phases'),
+               gs_ests=S('ILS Glideslope Established')):
+        # For commented version, see ILSGlideslopeDeviation1500To1000FtMax
+        alt_bands = alt_aal.slices_from_to(1000, 500)
+        ils_bands = slices_and(alt_bands, gs_ests.get_slices())
+        self.create_kpvs_within_slices(ils_glideslope.array, ils_bands,
+                                       max_abs_value)  
+
+class ILSGlideslopeDeviation500To150FtMax(KeyPointValueNode):
+    name = 'ILS Glideslope Deviation 500 To 150 Ft Max'
+    def derive(self, ils_glideslope=P('ILS Glideslope'),
+               alt_aal = P('Altitude AAL For Flight Phases'),
+               gs_ests=S('ILS Glideslope Established')):
+        # For commented version, see ILSGlideslopeDeviation1500To1000FtMax
+        alt_bands = alt_aal.slices_from_to(500, 150)
+        ils_bands = slices_and(alt_bands, gs_ests.get_slices())
+        self.create_kpvs_within_slices(ils_glideslope.array, ils_bands,
+                                       max_abs_value)  
+
+
 class ILSLocalizerDeviation1500To1000FtMax(KeyPointValueNode):
     name = 'ILS Localizer Deviation 1500 To 1000 Ft Max'
     def derive(self, ils_loc=P('ILS Localizer'),
@@ -2338,6 +2389,27 @@ class ILSLocalizerDeviation1000To250FtMax(KeyPointValueNode):
                ils_ests=S('ILS Localizer Established')):
         # For commented version, see ILSGlideslopeDeviation1500To1000FtMax
         alt_bands = alt_aal.slices_from_to(1000, 250)
+        ils_bands = slices_and(alt_bands, ils_ests.get_slices())
+        self.create_kpvs_within_slices(ils_loc.array,ils_bands,max_abs_value)  
+
+
+class ILSLocalizerDeviation1000To500FtMax(KeyPointValueNode):
+    name = 'ILS Localizer Deviation 1000 To 500 Ft Max'
+    def derive(self, ils_loc=P('ILS Localizer'),
+               alt_aal = P('Altitude AAL For Flight Phases'),
+               ils_ests=S('ILS Localizer Established')):
+        # For commented version, see ILSGlideslopeDeviation1500To1000FtMax
+        alt_bands = alt_aal.slices_from_to(1000, 500)
+        ils_bands = slices_and(alt_bands, ils_ests.get_slices())
+        self.create_kpvs_within_slices(ils_loc.array,ils_bands,max_abs_value)  
+
+class ILSLocalizerDeviation500To150FtMax(KeyPointValueNode):
+    name = 'ILS Localizer Deviation 500 To 150 Ft Max'
+    def derive(self, ils_loc=P('ILS Localizer'),
+               alt_aal = P('Altitude AAL For Flight Phases'),
+               ils_ests=S('ILS Localizer Established')):
+        # For commented version, see ILSGlideslopeDeviation1500To1000FtMax
+        alt_bands = alt_aal.slices_from_to(500, 150)
         ils_bands = slices_and(alt_bands, ils_ests.get_slices())
         self.create_kpvs_within_slices(ils_loc.array,ils_bands,max_abs_value)  
 
@@ -2727,32 +2799,32 @@ class LongitudeAtLiftoff(KeyPointValueNode):
         self.create_kpvs_at_ktis(lon.array, liftoffs)
 
 
-########################################
-# Latitude/Longitude @ Lowest Point
+#########################################
+## Latitude/Longitude @ Lowest Point
 
 
-class LatitudeAtLowestPointOnApproach(KeyPointValueNode):
-    '''
-    Note: Cannot use smoothed position as this causes circular dependancy.
-    '''
+#class LatitudeAtLowestPointOnApproach(KeyPointValueNode):
+    #'''
+    #Note: Cannot use smoothed position as this causes circular dependancy.
+    #'''
 
-    def derive(self, lat=P('Latitude Prepared'),
-            low_points=KTI('Lowest Point On Approach')):
-        '''
-        '''
-        self.create_kpvs_at_ktis(lat.array, low_points)
+    #def derive(self, lat=P('Latitude Prepared'),
+            #low_points=KTI('Lowest Point On Approach')):
+        #'''
+        #'''
+        #self.create_kpvs_at_ktis(lat.array, low_points)
 
 
-class LongitudeAtLowestPointOnApproach(KeyPointValueNode):
-    '''
-    Note: Cannot use smoothed position as this causes circular dependancy.
-    '''
+#class LongitudeAtLowestPointOnApproach(KeyPointValueNode):
+    #'''
+    #Note: Cannot use smoothed position as this causes circular dependancy.
+    #'''
 
-    def derive(self, lon=P('Longitude Prepared'),
-            low_points=KTI('Lowest Point On Approach')):
-        '''
-        '''
-        self.create_kpvs_at_ktis(lon.array, low_points)
+    #def derive(self, lon=P('Longitude Prepared'),
+            #low_points=KTI('Lowest Point On Approach')):
+        #'''
+        #'''
+        #self.create_kpvs_at_ktis(lon.array, low_points)
 
 
 ################################################################################
@@ -2955,7 +3027,7 @@ class EngGasTempInFlightMin(KeyPointValueNode):
     def derive(self, eng_temp_min=P('Eng (*) Gas Temp Min'),
                airs=S('Airborne')):
         for air in airs:
-            index = np.ma.argmin(eng_temp_min.array)
+            index = np.ma.argmin(eng_temp_min.array[air.slice]) + air.slice.start
             value = eng_temp_min.array[index]
             self.create_kpv(index, value)
         
@@ -3336,7 +3408,66 @@ class EngN3MaximumContinuousPowerMax(KeyPointValueNode):
 
 
 ################################################################################
+# Engine Throttles
+
+class ThrustReductionOnLanding(KeyPointValueNode):
+    '''
+    This is a strange parameter with units of positive height and negative
+    time, designed to suit legacy events.
+    
+    The original algorithm used reduction through 18deg throttle angle, but
+    in cases where little power is being applied it was found that the
+    throttle lever may not reach this setting. Also, this implies an
+    aircraft-dependent threshold which would be difficult to maintain, and
+    requires consistent throttle lever sensor rigging which may not be
+    reliable on some types.
+    
+    For these reasons the algorithm has been adapted to use the peak
+    curvature technique, scanning from 5 seconds before the start of the
+    landing (passing 50ft) to the minimum throttle setting prior to
+    application of reverse thrust.
+    '''
+    
+    units=''
+    
+    def derive(self, alt=P('Altitude AAL'), tla=P('Throttle Levers'), 
+               lands=S('Landing'), tdwns=KTI('Touchdown')):
+        
+        for land in lands:
+            for tdwn in tdwns:
+                if not is_index_within_slice(tdwn.index, land.slice):
+                    continue
+                
+                # Seek the throttle lowpoint before thrust reverse is applied.
+                retard_idx = index_at_value(tla.array, 0.0, 
+                                            land.slice, 
+                                            endpoint='closing')
+                
+                # the range of interest is therefore...
+                scan=slice(land.slice.start - 5/alt.hz, 
+                           retard_idx)
+
+                # Now see where the power is reduced.
+                reduce_idx = peak_curvature(tla.array, scan,
+                                            curve_sense='Convex',
+                                            gap=1,ttp=3)
+                
+                if reduce_idx:
+                    dt = (reduce_idx - tdwn.index) / alt.hz
+                
+                    if dt<0:
+                        # If before touchdown, measure the height at this moment
+                        value = value_at_index(alt.array, reduce_idx)
+                    else:
+                        # If after, measure the time. Negative values allow the KPV to discriminate the two phases.
+                        value = -dt
+    
+                    self.create_kpv(reduce_idx, value)
+
+
+################################################################################
 # Engine Oil Pressure
+
 
 
 # TODO: Write some unit tests!
@@ -4784,14 +4915,16 @@ class RollCyclesNotInFinalApproach(KeyPointValueNode):
     value of 1.5 cycles.
     '''
 
-    def derive(self, roll=P('Roll'), airs=S('Airborne'), fapps=S('Final Approach')):
+    def derive(self, roll=P('Roll'), airs=S('Airborne'), 
+               fapps=S('Final Approach'), lands=S('Landing')):
         '''
         '''
-        not_fas = slices_and([s.slice for s in airs], 
-                            slices_not([s.slice for s in fapps]))
+        not_fas = slices_and_not(airs, fapps)
+        # TODO: Fix this
+        # not_fas = slices_and_not(not_fas, lands)
         for not_fa in not_fas:
-            self.create_kpv(*cycle_counter(roll.array[not_fa.slice], 5.0, 10.0,
-                                           roll.hz, not_fa.slice.start))
+            self.create_kpv(*cycle_counter(roll.array[not_fa], 5.0, 10.0,
+                                           roll.hz, not_fa.start))
 
 
 ################################################################################
@@ -5286,6 +5419,9 @@ class TAWSTerrainPullUpWarningDuration(KeyPointValueNode):
             phase=airborne,
         )
 
+"""
+
+Basic TAWS glideslope KPV, superceded by three stages in the descent.
 
 class TAWSGlideslopeWarningDuration(KeyPointValueNode):
     '''
@@ -5303,6 +5439,61 @@ class TAWSGlideslopeWarningDuration(KeyPointValueNode):
             taws_glideslope.hz,
             phase=airborne,
         )
+"""
+
+class TAWSGlideslopeWarningAbove1000FtDuration(KeyPointValueNode):
+    '''
+    '''
+
+    name = 'TAWS Glideslope Warning Above 1000 Ft Duration'
+
+    def derive(self, taws_glideslope=M('TAWS Glideslope'),
+            alt_aal = P('Altitude AAL For Flight Phases')):
+        '''
+        '''
+        
+        self.create_kpvs_where_state(
+            'Warning',
+            taws_glideslope.array,
+            taws_glideslope.hz,
+            phase=alt_aal.slices_from_to(10000, 1000),
+        )
+
+
+class TAWSGlideslopeWarning1000To500FtDuration(KeyPointValueNode):
+    '''
+    '''
+
+    name = 'TAWS Glideslope Warning 1000 To 500 Ft Duration'
+
+    def derive(self, taws_glideslope=M('TAWS Glideslope'),
+            alt_aal = P('Altitude AAL For Flight Phases')):
+        '''
+        '''
+        self.create_kpvs_where_state(
+            'Warning',
+            taws_glideslope.array,
+            taws_glideslope.hz,
+            phase=alt_aal.slices_from_to(1000, 500),
+        )
+
+class TAWSGlideslopeWarning500To150FtDuration(KeyPointValueNode):
+    '''
+    '''
+
+    name = 'TAWS Glideslope Warning 500 To 150 Ft Duration'
+
+    def derive(self, taws_glideslope=M('TAWS Glideslope'),
+            alt_aal = P('Altitude AAL For Flight Phases')):
+        '''
+        '''
+        self.create_kpvs_where_state(
+            'Warning',
+            taws_glideslope.array,
+            taws_glideslope.hz,
+            phase=alt_aal.slices_from_to(500, 150),
+        )
+
 
 
 class TAWSTooLowTerrainWarningDuration(KeyPointValueNode):
@@ -5641,17 +5832,17 @@ class ThrustAsymmetryWithReverseThrustDuration(KeyPointValueNode):
     Durations of thrust asymmetry over 10% with reverse thrust operating.
     Included for customers with existing events using this approach.
     '''
-    
-    #####################################
-    #### SET GREATER TO ALLOW TESING ####
-    #####################################
-
-    def derive(self, ta=P('Thrust Asymmetry'), rev_th=M('Thrust Reversers')):
-        revs = np.ma.clump_unmasked(np.ma.masked_where(rev_th == 'Deployed', ta.array))
+    def derive(self, ta=P('Thrust Asymmetry'), rev_th=M('Thrust Reversers'), 
+               mobile=S('Mobile')):
+        #Note: Inclusion of the 'Mobile' phase ensures use of thrust reverse late
+        #on the landing run is included, but corrupt data at engine start etc.
+        #should be rejected.
+        revs = clump_multistate(rev_th.array, 'Stowed', 
+                                [s.slice for s in mobile], condition=False)
         for rev in revs:
             big_asym = shift_slices(
                 np.ma.clump_unmasked(
-                    np.ma.masked_greater(ta.array[app.slice], 10.0)),
+                    np.ma.masked_less(ta.array[rev], 10.0)),
                 rev.start)
             self.create_kpvs_from_slice_durations(big_asym)
 
@@ -5673,16 +5864,11 @@ class ThrustAsymmetryOnApproachDuration(KeyPointValueNode):
     Durations of thrust asymmetry over 10%. Included for customers with
     existing events using this approach.
     '''
-
-    #####################################
-    #### SET GREATER TO ALLOW TESING ####
-    #####################################
-
     def derive(self,ta=P('Thrust Asymmetry'), apps=S('Approach')):
         for app in apps:
             big_asym = shift_slices(
                 np.ma.clump_unmasked(
-                    np.ma.masked_greater(ta.array[app.slice], 10.0)),
+                    np.ma.masked_less(ta.array[app.slice], 10.0)),
                 app.slice.start)
             self.create_kpvs_from_slice_durations(big_asym)
             

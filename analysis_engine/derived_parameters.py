@@ -21,6 +21,7 @@ from analysis_engine.library import (air_track,
                                      clip,
                                      coreg,
                                      cycle_finder,
+                                     datetime_of_index,
                                      dp2tas,
                                      dp_over_p2mach,
                                      filter_vor_ils_frequencies,
@@ -35,6 +36,7 @@ from analysis_engine.library import (air_track,
                                      integrate,
                                      ils_localizer_align,
                                      interpolate_and_extend,
+                                     is_day,
                                      is_index_within_slice,
                                      is_slice_within_slice,
                                      last_valid_sample,
@@ -1273,6 +1275,40 @@ class ClimbForFlightPhases(DerivedParameterNode):
             for up in ups:
                 self.array[air.slice][up] = np.ma.cumsum(deltas[up])    
 
+
+class DayOrNight(MultistateDerivedParameterNode):
+    """
+    This reports 'Day' or 'Night' to reflect the level of light available.
+    """
+    
+    values_mapping = {0: 'Day', 1: 'Night'}
+
+    align = False
+
+    def derive(self, start_datetime=A('Start Datetime'), 
+               lat=P('Latitude Smoothed'), lon=P('Longitude Smothed')):
+
+        frequency = 1/64.0 
+        # Reduces computational workload, and the function is not accurate to less than a minute.
+        
+        ratio = lat.frequency/frequency
+        superframes=int(len(lat.array)/ratio)
+        don = []
+
+        for index in range(superframes):
+            datetime = datetime_of_index(start_datetime.value,
+                                         index,
+                                         frequency)
+            day = is_day(datetime, lat.array[index*ratio], lon.array[index*ratio])
+            if day:
+                don.append(0)
+            else:
+                don.append(1)
+                
+        self.array = np.ma.array(don)
+        self.frequency = frequency
+        self.offset = 0.0
+    
             
 class DescendForFlightPhases(DerivedParameterNode):
     """
@@ -4025,7 +4061,7 @@ class ThrustReversers(MultistateDerivedParameterNode):
             frame=A('Frame')):
         frame_name = frame.value if frame else None
         
-        if frame_name in ['737-4', 
+        if frame_name in ['737-4', '737-1',
                           '737-5', '737-5_NON-EIS', 
                           '737-6', '737-6_NON-EIS', 
                           '737-i', '737-300_PTI']:
