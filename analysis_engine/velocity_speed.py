@@ -90,7 +90,7 @@ class VelocitySpeed(object):
                            setting)
             logger.error(msg)
             raise KeyError(msg)
-
+            
         if weight < lookup['weight'][0] or \
            weight > lookup['weight'][-1] or \
            weight is np.ma.masked:

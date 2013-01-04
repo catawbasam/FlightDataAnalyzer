@@ -1652,7 +1652,7 @@ class KeyPointValueNode(FormattedNameNode):
         :param array: The input parameter, with data and sample rate
             information.
         :type array: A recorded or derived multistate (discrete) parameter
-        :param phase: An optional flight phase (section) argument.
+        :param phase: An optional flight phase (section) or list of slices argument.
         :param min_duration: An optional minimum duration for the KPV to become
             valid.
         :type min_duration: Float (seconds)
@@ -1704,8 +1704,15 @@ class KeyPointValueNode(FormattedNameNode):
             find_events(state, array[:], 0)
         else:
             for each_period in phase:
-                to_scan = array[each_period.slice]
-                find_events(state, to_scan, each_period.slice.start or 0)
+                try:
+                    # phase as Section nodes
+                    to_scan = array[each_period.slice]
+                    find_events(state, to_scan, each_period.slice.start or 0)
+                except:
+                    # phase as list of slices
+                    to_scan=array[each_period]
+                    find_events(state, to_scan, each_period.start or 0)
+                    
         return
 
 
