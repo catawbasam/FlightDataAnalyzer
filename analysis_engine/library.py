@@ -879,6 +879,69 @@ def clip(array, period, hz=1.0, remove='peaks'):
     return a
     """
 
+def clump_multistate(array, state, _slices, condition=True):
+    '''
+    This tests a multistate array and returns a classic POLARIS list of slices.
+    
+    :param array: data to scan
+    :type array: multistate numpy masked array
+    :param state: state to be tested
+    :type state: string
+    :param _slices: slice or list of slices over which to scan the array.
+    :type _slices: slice list
+    :param condition: selection of true or false (i.e. inverse) test to apply.
+    :type condition: boolean
+    
+    :returns: list of slices.
+    '''
+    def add_clump(clumps, _slice, start, stop):
+        #Note that the resulting clumps are expanded by half an index so that
+        #where significant the errors in timing are minimized. A clamp to avoid
+        #-0.5 values is included, but as we don't know the length of the calling
+        #array here, a limit on the maximum case is impractical.
+        if _slice.start == 0 and start == 0:
+            begin = 0
+        else:
+            begin = start-0.5
+        new_slice = slice(begin, stop+0.5)
+        clumps.append(shift_slice(new_slice,_slice.start))
+        return
+    
+    if not state in array.state:
+        return None
+
+    try:
+        iter_this = iter(_slices)
+    except TypeError:
+        iter_this = [_slices]
+        
+    clumps = []
+
+    for _slice in iter_this:
+        
+        if condition==True:
+            array_tuple = np.ma.nonzero(array[_slice]==state)
+        else:
+            array_tuple = np.ma.nonzero(np.ma.logical_not(array[_slice]==state))
+        
+        start = None
+        stop = None
+        
+        for x in array_tuple[0]:
+            if start==None:
+                start = x
+                stop = x + 1
+            elif x==stop:
+                stop+=1
+            else:
+                add_clump(clumps, _slice, start, stop)
+                start=x
+                stop=x+1
+        if stop:
+            add_clump(clumps, _slice, start, stop)
+                            
+    return clumps
+
 
 def filter_vor_ils_frequencies(array, navaid):
     '''
@@ -2172,16 +2235,16 @@ def index_of_datetime(start_datetime, index_datetime, frequency, offset=0):
     '''
     :param start_datetime: Start datetime of data file.
     :type start_datetime: datetime
-    :param index_datetime: Datetime to calculate the index of.
+    :param index_datetime: Datetime of which to calculate the index.
     :type index_datetime: datetime
     :param frequency: Frequency of index.
     :type frequency: float or int
-    :param offset: Optional offset of the parameter.
+    :param offset: Optional offset of the parameter in seconds.
     :type offset: float
     :returns: The index of index_datetime relative to start_datetime and frequency.
     '''
     difference = index_datetime - start_datetime
-    return (difference.total_seconds() * frequency) - (offset * frequency)
+    return (difference.total_seconds() - offset) * frequency
 
 
 def is_index_within_slice(index, _slice):
@@ -2285,6 +2348,24 @@ def slices_and(first_list, second_list):
                     slice(max(first_slice.start, second_slice.start),
                           min(first_slice.stop, second_slice.stop)))
     return result_list
+
+def slices_and_not(first, second):
+    '''
+    It is surprisingly common to need one condition but not a second.
+    Airborne but not Approach And Landing, for example. This little routine
+    makes this simple.
+
+    :param first: First Section - values to be included
+    :type first: Section
+    :param second: Second Section - values to be excluded
+    :type second: Section
+    
+    :returns: List of slices in the first but outside the second lists.
+    '''
+    return slices_and([s.slice for s in first], 
+                      slices_not([s.slice for s in second],
+                                 begin_at=min([s.slice.start for s in first]),
+                                 end_at=max([s.slice.stop for s in first])))
 
 
 def slices_not(slice_list, begin_at=None, end_at=None):
@@ -3256,11 +3337,11 @@ def peak_curvature(array, _slice=slice(None), curve_sense='Concave',
             if np.ma.ptp(data) == 0.0:
                 return 1 + valid_slice.start
             if curve_sense == 'Concave':
-                return np.ma.argmax(curve) + 1 + valid_slice.start
+                return np.ma.argmax(curve) + 1 + valid_slice.start + _slice.start
             elif curve_sense == 'Convex':
-                return np.ma.argmin(curve) + 1 + valid_slice.start
+                return np.ma.argmin(curve) + 1 + valid_slice.start + _slice.start
             elif curve_sense == 'Bipolar':
-                return np.ma.argmin(np.ma.abs(curve)) + 1 + valid_slice.start
+                return np.ma.argmin(np.ma.abs(curve)) + 1 + valid_slice.start + _slice.start
             else:
                 logger.warn("Short data and unrecognised keyword %s in peak_curvature" %curve_sense)
 
@@ -3981,7 +4062,8 @@ def index_at_value(array, threshold, _slice=slice(None), endpoint='exact'):
     :param endpoint: type of end condition being sought.
     :type endpoint: string 'exact' requires array to pass through the threshold,
     while 'closing' seeks the last point where the array is closing on the 
-    threshold.
+    threshold and 'nearest' seeks the point nearest to the threshold.
+
     :returns: interpolated time when the array values crossed the threshold. (One value only).
     :returns type: Float or None
     '''
@@ -4034,6 +4116,9 @@ def index_at_value(array, threshold, _slice=slice(None), endpoint='exact'):
                 if i == end-1:
                     return end-1
             return i
+        elif endpoint=='nearest':
+            closing_array = abs(array-threshold)
+            return begin + step * np.ma.argmin(closing_array[_slice])
         else:
             return None
 

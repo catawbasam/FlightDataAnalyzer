@@ -87,11 +87,26 @@ def get_param_kwarg_names(method):
 # Abstract Node Classes
 # =====================
 class Node(object):
+    '''
+    Note about aligning options
+    ---------------------------
+
+    if align = True then:
+    * Magic happens: the derive method dependencies are aligned to the 
+      class frequency/offset. If either are not declared, the missing attributes
+      are taken from the first available dependency.
+    
+    if align = False then: 
+    * The Node will inherit the first dependency's frequency/offset but
+      self.frequency and self.offset can be overidden within the derive method.
+    '''
     __metaclass__ = ABCMeta
 
-    name = '' # Optional, default taken from ClassName
-    align_to_first_dependency = True
-    data_type = None # Q: What should the default be? Q: Should this dictate the numpy dtype saved to the HDF file or should it be inferred from the array?
+    name = ''  # Optional, default taken from ClassName
+    align = True
+    align_frequency = None  # Force frequency of Node by overriding
+    align_offset = None  # Force offset of Node by overriding
+    data_type = None  # Q: What should the default be? Q: Should this dictate the numpy dtype saved to the HDF file or should it be inferred from the array?
         
     def __init__(self, name='', frequency=1, offset=0, **kwargs):
         """
@@ -205,18 +220,37 @@ def can_operate(cls, available):
         :returns: self after having aligned dependencies and called derive.
         :rtype: self
         """
-        if self.align_to_first_dependency:
-            try:
-                i, first_param = next(((n, a) for n, a in enumerate(args) if \
-                                       a is not None and a.frequency))
-            except StopIteration:
-                pass
+        dependencies_to_align = [d for d in args if d is not None and d.frequency]
+        if dependencies_to_align and self.align:
+            
+            if self.align_frequency and self.align_offset is not None:
+                # align to the class declared frequency and offset
+                self.frequency = self.align_frequency
+                self.offset = self.align_offset
+            elif self.align_frequency:
+                # align to class frequency, but set offset to first dependency
+                self.frequency = self.align_frequency
+                self.offset = dependencies_to_align[0].offset
+            elif self.align_offset is not None:
+                # align to class offset, but set frequency to first dependency
+                self.frequency = dependencies_to_align[0].frequency
+                self.offset = self.align_offset
             else:
-                for n, param in enumerate(args):
-                    # if param is set and it's after the first dependency
-                    if param and n > i:
-                         # override argument in list in-place
-                        args[n] = param.get_aligned(first_param)
+                # This is the class' default behaviour:
+                # align both frequency and offset to the first parameter
+                alignment_param = dependencies_to_align.pop(0)
+                self.frequency = alignment_param.frequency
+                self.offset = alignment_param.offset
+            
+            # align the dependencies
+            for index, arg in enumerate(args):
+                if arg in dependencies_to_align:
+                    # override argument in list in-place
+                    args[index] = arg.get_aligned(self)
+        elif dependencies_to_align:
+            self.frequency = dependencies_to_align[0].frequency
+            self.offset = dependencies_to_align[0].offset
+
         res = self.derive(*args)
         if res is NotImplemented:
             raise NotImplementedError("Class '%s' derive method is not implemented." % \
@@ -1612,21 +1646,13 @@ class KeyPointValueNode(FormattedNameNode):
     def create_kpvs_where_state(self, state, array, hz, phase=None,
                                 min_duration=0.0, exclude_leading_edge=False):
         '''
-        For discrete and multi-state parameters, this detects an event and
-        records the duration of each event.
+        For discrete and multi-state parameters, this detects a specified
+        state and records the duration of each event.
         
-        Note: The min_duration should not be used as short duration events
-        are filtered by the time threshold in the Analysis Specification, and
-        leaving a zero default allows KPVs to be accumulated below the event
-        threshold limit and these are useful for changing thresholds in the
-        future. The facility is only intended for systems with continuous
-        nuisance levels of operation which would swamp the database if not
-        filtered before creating the KPV.
-
         :param array: The input parameter, with data and sample rate
             information.
         :type array: A recorded or derived multistate (discrete) parameter
-        :param phase: An optional flight phase (section) argument.
+        :param phase: An optional flight phase (section) or list of slices argument.
         :param min_duration: An optional minimum duration for the KPV to become
             valid.
         :type min_duration: Float (seconds)
@@ -1638,6 +1664,14 @@ class KeyPointValueNode(FormattedNameNode):
 
         Where phase is supplied, only edges arising within this phase will be
         triggered.
+
+        Note: The min_duration should not be used as short duration events
+        are filtered by the time threshold in the Analysis Specification, and
+        leaving a zero default allows KPVs to be accumulated below the event
+        threshold limit and these are useful for changing thresholds in the
+        future. The facility is only intended for systems with continuous
+        nuisance levels of operation which would swamp the database if not
+        filtered before creating the KPV.
 
         ..todo: instead of working on the strings in numpy, we need to find the
             numeric value by reversing the mapping.
@@ -1670,8 +1704,15 @@ class KeyPointValueNode(FormattedNameNode):
             find_events(state, array[:], 0)
         else:
             for each_period in phase:
-                to_scan = array[each_period.slice]
-                find_events(state, to_scan, each_period.slice.start or 0)
+                try:
+                    # phase as Section nodes
+                    to_scan = array[each_period.slice]
+                    find_events(state, to_scan, each_period.slice.start or 0)
+                except:
+                    # phase as list of slices
+                    to_scan=array[each_period]
+                    find_events(state, to_scan, each_period.start or 0)
+                    
         return
 
 
@@ -1728,13 +1769,15 @@ class NodeManager(object):
             len(self.hdf_keys) + len(self.requested) + len(self.derived_nodes) + 
             len(self.aircraft_info) + len(self.achieved_flight_record))
     
-    def __init__(self, start_datetime, hdf_keys, requested, derived_nodes,
-                 aircraft_info, achieved_flight_record):
+    def __init__(self, start_datetime, hdf_duration, hdf_keys, requested,
+                 derived_nodes, aircraft_info, achieved_flight_record):
         """
         Storage of parameter keys and access to derived nodes.
         
         :param start_datetime: datetime of start of data file
         :type start_datetime: datetime
+        :param hdf_duration: duration of the data within the HDF file in seconds
+        :type hdf_duration: int
         :param hdf_keys: List of parameter names in data file defined by the LFL.
         :type hdf_keys: [str]
         :type requested: [str]
@@ -1747,6 +1790,7 @@ class NodeManager(object):
         non_empty = lambda x: {k: v for k, v in x.items() if v is not None}
 
         self.start_datetime = start_datetime
+        self.hdf_duration = hdf_duration
         self.hdf_keys = hdf_keys
         self.requested = requested
         self.derived_nodes = derived_nodes
@@ -1759,7 +1803,7 @@ class NodeManager(object):
         :returns: Ordered list of all Node names stored within the manager.
         :rtype: list of str
         """
-        return sorted(list(set(['Start Datetime']
+        return sorted(list(set(['Start Datetime', 'HDF Duration']
                                + self.hdf_keys
                                + self.derived_nodes.keys()
                                + self.aircraft_info.keys()
@@ -1778,6 +1822,8 @@ class NodeManager(object):
         """
         if name == 'Start Datetime':
             return Attribute(name, value=self.start_datetime)
+        elif name == 'HDF Duration':
+            return Attribute(name, value=self.hdf_duration)
         elif name in self.aircraft_info:
             return Attribute(name, value=self.aircraft_info[name])
         elif name in self.achieved_flight_record:
@@ -1800,8 +1846,7 @@ class NodeManager(object):
         if name in self.hdf_keys \
              or self.aircraft_info.get(name) is not None \
              or self.achieved_flight_record.get(name) is not None \
-             or name == 'root'\
-             or name == 'Start Datetime':
+             or name in ('root', 'Start Datetime', 'HDF Duration'):
             return True
         elif name in self.derived_nodes:
             # NOTE: Raises "Unbound method" here due to can_operate being

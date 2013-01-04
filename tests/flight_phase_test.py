@@ -6,6 +6,7 @@ from utilities.filesystem_tools import copy_file
 
 from analysis_engine.flight_phase import (Airborne,
                                           Approach,
+                                          ApproachAndLanding,
                                           BouncedLanding,
                                           ClimbCruiseDescent,
                                           Climbing,
@@ -142,10 +143,27 @@ class TestAirborne(unittest.TestCase):
         self.assertEqual(air, expected)
 
 
-
 class TestApproach(unittest.TestCase):
+    def test_approach_basic(self):
+        aal=buildsection('Approach And Landing', 5, 15)
+        land=buildsection('Landing', 10, 15)
+        app = Approach()
+        app.derive(aal, land)
+        expected = buildsection('Approach', 5, 10)
+        self.assertEqual(app, expected)
+        
+    def test_approach_complex(self):
+        aal=buildsections('Approach And Landing', [25, 35], [5,15])
+        land=buildsection('Landing', 12, 27)
+        app = Approach()
+        app.derive(aal, land)
+        expected = buildsection('Approach', 27, 35)
+        self.assertEqual(app[0], expected[0])
+        
+        
+class TestApproachAndLanding(unittest.TestCase):
     def test_can_operate(self):
-        self.assertEqual(Approach.get_operational_combinations(),
+        self.assertEqual(ApproachAndLanding.get_operational_combinations(),
                          [('Altitude AAL For Flight Phases', 'Landing',
                            'Go Around And Climbout')])
 
@@ -154,30 +172,30 @@ class TestApproach(unittest.TestCase):
         land=buildsection('Landing',11,20)
         # Go-around above 3000ft will be ignored.
         ga=buildsection('Go Around And Climbout',8,13)
-        app = Approach()
+        app = ApproachAndLanding()
         app.derive(Parameter('Altitude AAL For Flight Phases',alt),
                    land, ga)
-        expected = buildsection('Approach', 4.0, 20)
+        expected = buildsection('Approach And Landing', 4.0, 20)
         self.assertEqual(app, expected)
 
     def test_approach_landing_and_go_around_overlap(self):
         alt = np.ma.array([3500,2500,2000,2500,3500,3500])
         land=buildsection('Landing',5,6)
         ga=buildsection('Go Around And Climbout',2.5,3.5)
-        app = Approach()
+        app = ApproachAndLanding()
         app.derive(Parameter('Altitude AAL For Flight Phases',alt),
                    land, ga)
-        expected = buildsection('Approach', 0, 6)
+        expected = buildsection('Approach And Landing', 0, 6)
         self.assertEqual(app, expected)
 
     def test_approach_separate_landing_phase_go_around(self):
         alt = np.ma.array([3500,2500,2000,2500,3500,3500])
         land=buildsection('Landing',5,6)
         ga=buildsection('Go Around And Climbout',1.5,2.0)
-        app = Approach()
+        app = ApproachAndLanding()
         app.derive(Parameter('Altitude AAL For Flight Phases',alt),
                    land, ga)
-        expected = buildsections('Approach', [0, 2], [3, 6])
+        expected = buildsections('Approach And Landing', [0, 2], [3, 6])
         self.assertEqual(app, expected)
 
 class TestBouncedLanding(unittest.TestCase):

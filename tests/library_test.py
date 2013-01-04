@@ -928,6 +928,54 @@ class TestClip(unittest.TestCase):
         expected = np.array([9,9,9,9,9,9,9,9,9,9,9,9,9,9,9,9])
         np.testing.assert_array_almost_equal(result, expected)
 
+class TestClumpMultistate(unittest.TestCase):
+    # Reminder: clump_multistate(array, state, _slices, condition=True)
+    def test_basic(self):
+        # Includes test of passing single slice.
+        values_mapping = {1: 'one', 2: 'two', 3: 'three'}
+        array = np.ma.MaskedArray(data=[1, 2, 3, 2, 2, 1, 1], 
+                                  mask=[0, 0, 0, 0, 0, 0, 1])
+        p = M('Test Node', array, values_mapping=values_mapping)
+        result = clump_multistate(p.array, 'two', slice(0,7))
+        expected = [slice(0.5, 2.5), slice(2.5, 5.5)]
+        self.assertEqual(result, expected)
+        
+    def test_complex(self):
+        values_mapping = {1: 'one', 2: 'two', 3: 'three'}
+        array = np.ma.MaskedArray(data=[1, 2, 3, 2, 2, 1, 1], 
+                                  mask=[0, 0, 0, 0, 0, 0, 1])
+        p = M('Test Node', array, values_mapping=values_mapping)
+        result = clump_multistate(p.array, 'three', [slice(0,7)], condition=False)
+        expected = [slice(0, 2.5), slice(2.5, 6.5)]
+        self.assertEqual(result, expected)
+        
+    def test_null(self):
+        values_mapping = {1: 'one', 2: 'two', 3: 'three'}
+        array = np.ma.MaskedArray(data=[1, 2, 3, 2, 2, 1, 1], 
+                                  mask=[1, 0, 1, 0, 0, 0, 1])
+        p = M('Test Node', array, values_mapping=values_mapping)
+        result = clump_multistate(p.array, 'monty', [slice(0,7.5)], condition=True)
+        expected = None
+        self.assertEqual(result, expected)
+        
+    def test_multiple_slices(self):
+        values_mapping = {1: 'one', 2: 'two', 3: 'three'}
+        array = np.ma.MaskedArray(data=[1, 2, 3, 2, 2, 1, 1], 
+                                  mask=[0, 0, 0, 0, 0, 0, 0])
+        p = M('Test Node', array, values_mapping=values_mapping)
+        result = clump_multistate(p.array, 'two', [slice(0,2), slice(4,6)])
+        expected = [slice(0.5,2.5), slice(3.5,5.5)]
+        self.assertEqual(result, expected)
+
+    def test_null_slice(self):
+        values_mapping = {1: 'one', 2: 'two', 3: 'three'}
+        array = np.ma.MaskedArray(data=[1, 2, 3, 2, 2, 1, 1], 
+                                  mask=[0, 0, 0, 0, 0, 0, 0])
+        p = M('Test Node', array, values_mapping=values_mapping)
+        result = clump_multistate(p.array, 'two', [])
+        expected = []
+        self.assertEqual(result, expected)
+
 
 class TestCreatePhaseInside(unittest.TestCase):
     def test_phase_inside_basic(self):
@@ -1645,7 +1693,17 @@ class TestIndexAtValue(unittest.TestCase):
         array[23]=np.ma.masked
         array[26]=np.ma.masked
         self.assertEqual(index_at_value(array, 24, slice(20,30)), 24.5)
+        
+    def test_index_at_value_nearest(self):
+        array = np.ma.array([0,1,2,1,2,3,2,1])
+        self.assertEquals (index_at_value(array, 3.1, slice(1, 8), endpoint='nearest'), 5.0)
+        # For comparison...
+        self.assertEquals (index_at_value(array, 3.1, slice(1, 8), endpoint='exact'), None)
+        self.assertEquals (index_at_value(array, 3.1, slice(1, 8), endpoint='closing'), 2.0)
 
+    def test_index_at_value_nearest_backwards(self):
+        array = np.ma.array([0,1,2,3,2,1,2,1])
+        self.assertEquals (index_at_value(array, 3.1, slice(7, 0, -1), endpoint='nearest'), 3.0)
 
 class TestIndexClosestValue(unittest.TestCase):
     def test_index_closest_value(self):

@@ -21,6 +21,7 @@ from analysis_engine.library import (air_track,
                                      clip,
                                      coreg,
                                      cycle_finder,
+                                     datetime_of_index,
                                      dp2tas,
                                      dp_over_p2mach,
                                      filter_vor_ils_frequencies,
@@ -35,6 +36,7 @@ from analysis_engine.library import (air_track,
                                      integrate,
                                      ils_localizer_align,
                                      interpolate_and_extend,
+                                     is_day,
                                      is_index_within_slice,
                                      is_slice_within_slice,
                                      last_valid_sample,
@@ -87,10 +89,14 @@ class AccelerationLateralOffsetRemoved(DerivedParameterNode):
     """
     This process attempts to remove datum errors in the lateral accelerometer.
     """
+    @classmethod
+    def can_operate(cls, available):
+        return 'Acceleration Lateral' in available
+    
     units = 'g'
     
     def derive(self, acc=P('Acceleration Lateral'), 
-               offset = KPV('Acceleration Lateral Offset')):
+               offset=KPV('Acceleration Lateral Offset')):
         if offset:
             self.array = acc.array - offset[0].value
         else:
@@ -101,10 +107,14 @@ class AccelerationNormalOffsetRemoved(DerivedParameterNode):
     """
     This process attempts to remove datum errors in the normal accelerometer.
     """
+    @classmethod
+    def can_operate(cls, available):
+        return 'Acceleration Normal' in available
+    
     units = 'g'
     
     def derive(self, acc=P('Acceleration Normal'), 
-               offset = KPV('Acceleration Normal Offset')):
+               offset=KPV('Acceleration Normal Offset')):
         if offset:
             self.array = acc.array - offset[0].value + 1.0 # 1.0 to reset datum.
         else:
@@ -127,7 +137,7 @@ class AccelerationVertical(DerivedParameterNode):
         # FIXME: FloatingPointError: underflow encountered in multiply
         pitch_rad = pitch.array*deg2rad
         roll_rad = roll.array*deg2rad
-        resolved_in_roll = acc_norm.array*np.ma.cos(roll_rad)\
+        resolved_in_roll = acc_norm.array * np.ma.cos(roll_rad)\
             - acc_lat.array * np.ma.sin(roll_rad)
         self.array = resolved_in_roll * np.ma.cos(pitch_rad) \
                      + acc_long.array * np.ma.sin(pitch_rad)
@@ -147,7 +157,7 @@ class AccelerationForwards(DerivedParameterNode):
     def derive(self, acc_norm=P('Acceleration Normal Offset Removed'), 
                acc_long=P('Acceleration Longitudinal'), 
                pitch=P('Pitch')):
-        pitch_rad = pitch.array*deg2rad
+        pitch_rad = pitch.array * deg2rad
         self.array = acc_long.array * np.ma.cos(pitch_rad)\
                      - acc_norm.array * np.ma.sin(pitch_rad)
 
@@ -199,8 +209,8 @@ class AccelerationSideways(DerivedParameterNode):
                acc_lat=P('Acceleration Lateral'),
                acc_long=P('Acceleration Longitudinal'), 
                pitch=P('Pitch'), roll=P('Roll')):
-        pitch_rad = pitch.array*deg2rad
-        roll_rad = roll.array*deg2rad
+        pitch_rad = pitch.array * deg2rad
+        roll_rad = roll.array * deg2rad
         # Simple Numpy algorithm working on masked arrays
         resolved_in_pitch = (acc_long.array * np.ma.sin(pitch_rad)
                              + acc_norm.array * np.ma.cos(pitch_rad))
@@ -262,6 +272,7 @@ class AirspeedMinusV2(DerivedParameterNode):
             #logger.info("Marked param '%s' as invalid as ptp %.2f "\
                         #"did not exceed minimum change %.2f",
                         #ptp, min_change)
+
 
 # TODO: Write some unit tests!
 class AirspeedMinusV2For3Sec(DerivedParameterNode):
@@ -655,9 +666,9 @@ class AltitudeAAL(DerivedParameterNode):
         # Altitude Radio was taken as the prime reference to ensure the
         # minimum ground clearance passing peaks is accurately reflected.
         # However, when the Altitude Radio signal is sampled at a lower rate
-        # than the Altitude STD Smoothed, this results in a lower sample rate for a
-        # primary analysis parameter, and this is why Altitude STD Smoothed is now the
-        # primary reference.
+        # than the Altitude STD Smoothed, this results in a lower sample rate
+        # for a primary analysis parameter, and this is why Altitude STD
+        # Smoothed is now the primary reference.
         
         # alt_aal will be zero on the airfield, so initialise to zero.
         alt_aal = np_ma_zeros_like(alt_std.array)
@@ -862,7 +873,7 @@ class AltitudeRadio(DerivedParameterNode):
     """
 
     units = 'ft'
-    align_to_first_dependency = False
+    align = False
 
     @classmethod
     def can_operate(cls, available):
@@ -1177,26 +1188,6 @@ class AltitudeSTD(DerivedParameterNode):
             '''
 
 
-'''
-class Autopilot(DerivedParameterNode):
-    name = 'AP Engaged'
-    """
-    Placeholder for combining multi-channel AP modes into a single consistent status.
-    
-    Not required for 737-5 frame as AP Engaged is recorded directly.
-    """
-       
-
-class Autothrottle(DerivedParameterNode):
-    name = 'AT Engaged'
-    """
-    Placeholder for combining multi-channel AP modes into a single consistent status.
-
-    Not required for 737-5 frame as AT Engaged is recorded directly.
-    """
-'''
- 
-        
 class AltitudeTail(DerivedParameterNode):
     """
     This function allows for the distance between the radio altimeter antenna
@@ -1213,7 +1204,7 @@ class AltitudeTail(DerivedParameterNode):
     def derive(self, alt_rad=P('Altitude Radio'), pitch=P('Pitch'),
                ground_to_tail=A('Ground To Lowest Point Of Tail'),
                dist_gear_to_tail=A('Main Gear To Lowest Point Of Tail')):
-        pitch_rad = pitch.array*deg2rad
+        pitch_rad = pitch.array * deg2rad
         # Now apply the offset
         gear2tail = dist_gear_to_tail.value * METRES_TO_FEET
         ground2tail = ground_to_tail.value * METRES_TO_FEET
@@ -1221,7 +1212,51 @@ class AltitudeTail(DerivedParameterNode):
         # settles on its oleos
         min_rad = np.ma.min(alt_rad.array)
         self.array = (alt_rad.array + ground2tail - 
-                      np.ma.sin(pitch_rad)*gear2tail - min_rad)
+                      np.ma.sin(pitch_rad) * gear2tail - min_rad)
+
+class AutopilotEngaged(MultistateDerivedParameterNode):
+    '''
+    This function assumes that either autopilot is capable of controlling the aircraft.
+    
+    This function will be extended to be multi-state parameter with states
+    Off/Single/Dual as a first step towards monitoring autoland function.
+    '''
+    
+    align=False
+    
+    values_mapping = {0: '-', 1: 'Engaged'}
+
+    @classmethod
+    def can_operate(cls, available):
+        return any(d in available for d in cls.get_dependency_names())
+
+    def derive(self, ap1=M('Autopilot (1) Engaged'), 
+               ap2=M('Autopilot (2) Engaged'),
+               ap3=M('Autopilot (3) Engaged')):
+
+
+        if ap3 == None:
+            # Only got a duplex autopilot.
+            self.array = np.ma.max(ap1.array.raw, ap2.array.raw)
+            self.offset = offset_select('mean', [ap1, ap2])
+        else:
+            self.array = np.ma.max(ap1.array.raw, ap2.array.raw, ap3.array.raw)
+            self.offset = offset_select('mean', [ap1, ap2, ap3])
+     
+        self.frequency = ap1.frequency
+
+
+'''
+class Autothrottle(DerivedParameterNode):
+    name = 'AT Engaged'
+    """
+    Placeholder for combining multi-channel AP modes into a single consistent status.
+
+    Not required for 737-5 frame as AT Engaged is recorded directly.
+    """
+'''
+ 
+        
 
 
 class ClimbForFlightPhases(DerivedParameterNode):
@@ -1241,6 +1276,40 @@ class ClimbForFlightPhases(DerivedParameterNode):
             for up in ups:
                 self.array[air.slice][up] = np.ma.cumsum(deltas[up])    
 
+
+class DayOrNight(MultistateDerivedParameterNode):
+    """
+    This reports 'Day' or 'Night' to reflect the level of light available.
+    """
+    
+    values_mapping = {0: 'Day', 1: 'Night'}
+
+    align = False
+
+    def derive(self, start_datetime=A('Start Datetime'), 
+               lat=P('Latitude Smoothed'), lon=P('Longitude Smothed')):
+
+        frequency = 1/64.0 
+        # Reduces computational workload, and the function is not accurate to less than a minute.
+        
+        ratio = lat.frequency/frequency
+        superframes=int(len(lat.array)/ratio)
+        don = []
+
+        for index in range(superframes):
+            datetime = datetime_of_index(start_datetime.value,
+                                         index,
+                                         frequency)
+            day = is_day(datetime, lat.array[index*ratio], lon.array[index*ratio])
+            if day:
+                don.append(0)
+            else:
+                don.append(1)
+                
+        self.array = np.ma.array(don)
+        self.frequency = frequency
+        self.offset = 0.0
+    
             
 class DescendForFlightPhases(DerivedParameterNode):
     """
@@ -1275,7 +1344,7 @@ class ControlColumn(DerivedParameterNode):
     The position of the control column blended from the position of the captain
     and first officer's control columns.
     '''
-    align_to_first_dependency = False
+    align = False
     units = 'deg'
 
     def derive(self,
@@ -1353,7 +1422,7 @@ class ControlWheel(DerivedParameterNode):
     and first officer's control wheels.
     '''
 
-    align_to_first_dependency = False
+    align = False
     units = 'deg'
     
     def derive(self,
@@ -1445,7 +1514,7 @@ class PackValvesOpen(MultistateDerivedParameterNode):
 
     name = 'Pack Valves Open'
 
-    align_to_first_dependency = False
+    align = False
 
     values_mapping = {
         0: 'All closed',
@@ -1469,7 +1538,7 @@ class PackValvesOpen(MultistateDerivedParameterNode):
         '''
         # Sum the open engines, allowing 1 for low flow and 1+1 for high flow
         # each side.
-        flow = p1.array.raw + +p2.array.raw
+        flow = p1.array.raw + p2.array.raw
         if p1h and p2h:
             flow = p1.array.raw * (1 + p1h.array.raw) \
                  + p2.array.raw * (1 + p2h.array.raw)
@@ -1488,7 +1557,7 @@ class Eng_EPRAvg(DerivedParameterNode):
 
     name = 'Eng (*) EPR Avg'
 
-    align_to_first_dependency = False
+    align = False
 
     @classmethod
     def can_operate(cls, available):
@@ -1516,7 +1585,7 @@ class Eng_EPRMax(DerivedParameterNode):
 
     name = 'Eng (*) EPR Max'
 
-    align_to_first_dependency = False
+    align = False
 
     @classmethod
     def can_operate(cls, available):
@@ -1544,7 +1613,7 @@ class Eng_EPRMin(DerivedParameterNode):
 
     name = 'Eng (*) EPR Min'
 
-    align_to_first_dependency = False
+    align = False
 
     @classmethod
     def can_operate(cls, available):
@@ -1575,8 +1644,8 @@ class Eng_FuelFlow(DerivedParameterNode):
     '''
 
     name = 'Eng (*) Fuel Flow'
-
-    align_to_first_dependency = False
+    units = 'lbs/h'
+    align = False
 
     @classmethod
     def can_operate(cls, available):
@@ -1609,7 +1678,7 @@ class Eng_GasTempAvg(DerivedParameterNode):
     name = 'Eng (*) Gas Temp Avg'
     units = 'C'
 
-    align_to_first_dependency = False
+    align = False
 
     @classmethod
     def can_operate(cls, available):
@@ -1638,7 +1707,7 @@ class Eng_GasTempMax(DerivedParameterNode):
     name = 'Eng (*) Gas Temp Max'
     units = 'C'
 
-    align_to_first_dependency = False
+    align = False
 
     @classmethod
     def can_operate(cls, available):
@@ -1667,7 +1736,7 @@ class Eng_GasTempMin(DerivedParameterNode):
     name = 'Eng (*) Gas Temp Min'
     units = 'C'
 
-    align_to_first_dependency = False
+    align = False
 
     @classmethod
     def can_operate(cls, available):
@@ -1699,7 +1768,7 @@ class Eng_N1Avg(DerivedParameterNode):
     name = 'Eng (*) N1 Avg'
     units = '%'
 
-    align_to_first_dependency = False
+    align = False
 
     @classmethod
     def can_operate(cls, available):
@@ -1728,8 +1797,8 @@ class Eng_N1Max(DerivedParameterNode):
     '''
 
     name = 'Eng (*) N1 Max'
-    
-    align_to_first_dependency = False
+    units = '%'
+    align = False
 
     @classmethod
     def can_operate(cls, available):
@@ -1759,8 +1828,7 @@ class Eng_N1Min(DerivedParameterNode):
 
     name = 'Eng (*) N1 Min'
     units = '%'
-
-    align_to_first_dependency = False
+    align = False
 
     @classmethod
     def can_operate(cls, available):
@@ -1792,7 +1860,7 @@ class Eng_N2Avg(DerivedParameterNode):
     name = 'Eng (*) N2 Avg'
     units = '%'
 
-    align_to_first_dependency = False
+    align = False
 
     @classmethod
     def can_operate(cls, available):
@@ -1820,7 +1888,7 @@ class Eng_N2Max(DerivedParameterNode):
     name = 'Eng (*) N2 Max'
     units = '%'
 
-    align_to_first_dependency = False
+    align = False
 
     @classmethod
     def can_operate(cls, available):
@@ -1848,7 +1916,7 @@ class Eng_N2Min(DerivedParameterNode):
     name = 'Eng (*) N2 Min'
     units = '%'
 
-    align_to_first_dependency = False
+    align = False
 
     @classmethod
     def can_operate(cls, available):
@@ -1880,7 +1948,7 @@ class Eng_N3Avg(DerivedParameterNode):
     name = 'Eng (*) N3 Avg'
     units = '%'
 
-    align_to_first_dependency = False
+    align = False
 
     @classmethod
     def can_operate(cls, available):
@@ -1908,7 +1976,7 @@ class Eng_N3Max(DerivedParameterNode):
     name = 'Eng (*) N3 Max'
     units = '%'
 
-    align_to_first_dependency = False
+    align = False
 
     @classmethod
     def can_operate(cls, available):
@@ -1936,7 +2004,7 @@ class Eng_N3Min(DerivedParameterNode):
     name = 'Eng (*) N3 Min'
     units = '%'
 
-    align_to_first_dependency = False
+    align = False
 
     @classmethod
     def can_operate(cls, available):
@@ -1968,8 +2036,7 @@ class Eng_OilPressAvg(DerivedParameterNode):
 
     name = 'Eng (*) Oil Press Avg'
     units = 'psi'
-
-    align_to_first_dependency = False
+    align = False
 
     @classmethod
     def can_operate(cls, available):
@@ -1996,8 +2063,8 @@ class Eng_OilPressMax(DerivedParameterNode):
     '''
 
     name = 'Eng (*) Oil Press Max'
-
-    align_to_first_dependency = False
+    units = 'psi'
+    align = False
 
     @classmethod
     def can_operate(cls, available):
@@ -2026,7 +2093,7 @@ class Eng_OilPressMin(DerivedParameterNode):
     name = 'Eng (*) Oil Press Min'
     units = 'psi'
 
-    align_to_first_dependency = False
+    align = False
 
     @classmethod
     def can_operate(cls, available):
@@ -2057,7 +2124,7 @@ class Eng_OilQtyAvg(DerivedParameterNode):
 
     name = 'Eng (*) Oil Qty Avg'
 
-    align_to_first_dependency = False
+    align = False
 
     @classmethod
     def can_operate(cls, available):
@@ -2085,7 +2152,7 @@ class Eng_OilQtyMax(DerivedParameterNode):
 
     name = 'Eng (*) Oil Qty Max'
 
-    align_to_first_dependency = False
+    align = False
 
     @classmethod
     def can_operate(cls, available):
@@ -2113,7 +2180,7 @@ class Eng_OilQtyMin(DerivedParameterNode):
 
     name = 'Eng (*) Oil Qty Min'
 
-    align_to_first_dependency = False
+    align = False
 
     @classmethod
     def can_operate(cls, available):
@@ -2145,7 +2212,7 @@ class Eng_OilTempAvg(DerivedParameterNode):
     name = 'Eng (*) Oil Temp Avg'
     units = 'C'
 
-    align_to_first_dependency = False
+    align = False
 
     @classmethod
     def can_operate(cls, available):
@@ -2177,8 +2244,9 @@ class Eng_OilTempMax(DerivedParameterNode):
     '''
 
     name = 'Eng (*) Oil Temp Max'
+    units = 'C'
 
-    align_to_first_dependency = False
+    align = False
 
     @classmethod
     def can_operate(cls, available):
@@ -2212,7 +2280,7 @@ class Eng_OilTempMin(DerivedParameterNode):
     name = 'Eng (*) Oil Temp Min'
     units = 'C'
 
-    align_to_first_dependency = False
+    align = False
 
     @classmethod
     def can_operate(cls, available):
@@ -2253,7 +2321,7 @@ class Eng_TorqueAvg(DerivedParameterNode):
     name = 'Eng (*) Torque Avg'
     units = '%'
 
-    align_to_first_dependency = False
+    align = False
 
     @classmethod
     def can_operate(cls, available):
@@ -2282,7 +2350,7 @@ class Eng_TorqueMax(DerivedParameterNode):
     name = 'Eng (*) Torque Max'
     units = '%'
   
-    align_to_first_dependency = False
+    align = False
 
     @classmethod
     def can_operate(cls, available):
@@ -2309,8 +2377,9 @@ class Eng_TorqueMin(DerivedParameterNode):
     '''
 
     name = 'Eng (*) Torque Min'
+    units = '%'
 
-    align_to_first_dependency = False
+    align = False
 
     @classmethod
     def can_operate(cls, available):
@@ -2344,7 +2413,7 @@ class Eng_VibN1Max(DerivedParameterNode):
 
     name = 'Eng (*) Vib N1 Max'
 
-    align_to_first_dependency = False
+    align = False
 
     @classmethod
     def can_operate(cls, available):
@@ -2382,7 +2451,7 @@ class Eng_VibN2Max(DerivedParameterNode):
 
     name = 'Eng (*) Vib N2 Max'
 
-    align_to_first_dependency = False
+    align = False
 
     @classmethod
     def can_operate(cls, available):
@@ -2420,7 +2489,7 @@ class Eng_VibN3Max(DerivedParameterNode):
 
     name = 'Eng (*) Vib N3 Max'
 
-    align_to_first_dependency = False
+    align = False
 
     @classmethod
     def can_operate(cls, available):
@@ -2450,7 +2519,7 @@ class FuelQty(DerivedParameterNode):
     Sum of fuel in left, right and middle tanks where available.
     '''
 
-    align_to_first_dependency = False
+    align = False
 
     @classmethod
     def can_operate(cls, available):
@@ -2497,7 +2566,7 @@ class GearDown(MultistateDerivedParameterNode):
     gear is up or down.
     '''
 
-    align_to_first_dependency = False
+    align = False
     values_mapping = {
         0: 'Up',
         1: 'Down',
@@ -2524,7 +2593,7 @@ class GearOnGround(MultistateDerivedParameterNode):
     Combination of left and right main gear signals.
     '''
 
-    align_to_first_dependency = False
+    align = False
     values_mapping = {
         0: 'Air',
         1: 'Ground',
@@ -2610,7 +2679,8 @@ class GrossWeightSmoothed(DerivedParameterNode):
     data. We avoid using the recorded fuel weight in this calculation,
     however it is used in the Zero Fuel Weight calculation.
     '''
-    align_to_first_dependency = False
+    units = 'lbs'
+    align = False
     
     def derive(self, ff = P('Eng (*) Fuel Flow'),
                gw = P('Gross Weight'),
@@ -2635,10 +2705,18 @@ class GrossWeightSmoothed(DerivedParameterNode):
                 gw_all.append(gross_wt)
                 to_burn_all.append(fuel_wt)
             
-                # Skip values which are within Climbing or Descending phases.
-                if any([is_index_within_slice(gw_index, c.slice) for c in climbs]) or \
-                   any([is_index_within_slice(gw_index, d.slice) for d in descends]):
+                # Ignore taxi phases where the data may be meaningless, and
+                # this inherently removes extrapolated data at the end of the
+                # flight.
+                if not any([is_index_within_slice(gw_index, 
+                                                  slice_multiply(f.slice,gw.frequency)) for f in fast]):
                     continue
+
+                # Skip values which are within Climbing or Descending phases.
+                if any([is_index_within_slice(gw_index, slice_multiply(c.slice,gw.frequency)) for c in climbs]) or \
+                   any([is_index_within_slice(gw_index, slice_multiply(d.slice,gw.frequency)) for d in descends]):
+                    continue
+
                 to_burn_valid.append(fuel_wt)
                 gw_valid.append(gross_wt)
         
@@ -2677,7 +2755,7 @@ class Groundspeed(DerivedParameterNode):
     :type parameter object.
     """
     units = 'kts'
-    align_to_first_dependency = False
+    align = False
     
     @classmethod
     def can_operate(cls, available):
@@ -2713,7 +2791,6 @@ class FlapLever(DerivedParameterNode):
     """
     Steps raw Flap angle from lever into detents.
     """
-
     units = 'deg'
 
     def derive(self, flap=P('Flap Lever'), series=A('Series'), family=A('Family')):
@@ -2732,7 +2809,7 @@ class FlapSurface(DerivedParameterNode):
     """
     Gather the recorded flap parameters and convert into a single analogue.
     """
-    align_to_first_dependency = False
+    align = False
     units = 'deg'
 
     @classmethod
@@ -3015,7 +3092,7 @@ class ILSFrequency(DerivedParameterNode):
     
     name = "ILS Frequency"
     units='MHz'
-    align_to_first_dependency = False
+    align = False
     
     @classmethod
     def can_operate(cls, available):
@@ -3060,7 +3137,7 @@ class ILSLocalizer(DerivedParameterNode):
     
     name = "ILS Localizer"
     units = 'dots'
-    align_to_first_dependency = False
+    align = False
 
     def derive(self, loc_1=P('ILS (1) Localizer'),loc_2=P('ILS (2) Localizer')):
         self.array, self.frequency, self.offset = blend_two_parameters(loc_1, loc_2)
@@ -3070,7 +3147,7 @@ class ILSGlideslope(DerivedParameterNode):
 
     name = "ILS Glideslope"
     units = 'dots'
-    align_to_first_dependency = False
+    align = False
 
     def derive(self, gs_1=P('ILS (1) Glideslope'),gs_2=P('ILS (2) Glideslope')):
         self.array, self.frequency, self.offset = blend_two_parameters(gs_1, gs_2)
@@ -3455,7 +3532,11 @@ class LongitudeSmoothed(DerivedParameterNode, CoordinatesSmoothed):
     """
     See Latitude Smoothed for notes.
     """
-    # List the minimum acceptable parameters here
+    
+    units = 'deg'
+    ##align_frequency = 1.0
+    ##align_offset = 0.0
+    
     @classmethod
     def can_operate(cls, available):
         return 'Latitude Prepared' in available and \
@@ -3464,8 +3545,6 @@ class LongitudeSmoothed(DerivedParameterNode, CoordinatesSmoothed):
                'Heading Continuous' in available and \
                'Airspeed True' in available and \
                'FDR Approaches' in available
-    
-    units = 'deg'
     
     def derive(self, lat = P('Latitude Prepared'),
                lon = P('Longitude Prepared'),
@@ -3853,7 +3932,7 @@ class Pitch(DerivedParameterNode):
     Combination of pitch signals from two sources where required.
     """
     units = 'deg'
-    align_to_first_dependency = False
+    align = False
     def derive(self, p1=P('Pitch (1)'), p2=P('Pitch (2)')):
         self.array, self.frequency, self.offset = \
             blend_two_parameters(p1, p2)
@@ -3882,7 +3961,7 @@ class Roll(DerivedParameterNode):
     Combination of roll signals from two sources where required.
     """
     units = 'deg'
-    align_to_first_dependency = False
+    align = False
     def derive(self, r1=P('Roll (1)'), r2=P('Roll (2)')):
         self.array, self.frequency, self.offset = \
             blend_two_parameters(r1, r2)
@@ -3983,7 +4062,7 @@ class ThrustReversers(MultistateDerivedParameterNode):
             frame=A('Frame')):
         frame_name = frame.value if frame else None
         
-        if frame_name in ['737-4', 
+        if frame_name in ['737-4', '737-1',
                           '737-5', '737-5_NON-EIS', 
                           '737-6', '737-6_NON-EIS', 
                           '737-i', '737-300_PTI']:
@@ -4087,7 +4166,7 @@ class TAT(DerivedParameterNode):
     """
     name = "TAT"
     units = 'C'
-    align_to_first_dependency = False
+    align = False
     
     def derive(self, 
                source_1 = P('TAT (1)'),
@@ -4249,7 +4328,7 @@ class Speedbrake(DerivedParameterNode):
     '''
 
     units = 'deg'
-    align_to_first_dependency = False
+    align = False
 
     @classmethod
     def can_operate(cls, available):
@@ -4387,7 +4466,7 @@ class StickShaker(MultistateDerivedParameterNode):
     automatic alignment of the signals.
     '''
 
-    align_to_first_dependency = False
+    align = False
     values_mapping = {
         0: 'No_Shake',
         1: 'Shake',
@@ -4442,16 +4521,17 @@ class ApproachRange(DerivedParameterNode):
     measurements in metres from the reference point where the aircraft is on
     an approach.
     """
+    
+    name = "Approach Range"
+    unit = 'm'
+
     @classmethod
     def can_operate(cls, available):
         a = set(['Heading True Continuous','Airspeed True','Altitude AAL',
                  'FDR Approaches'])
         x = set(available)
         return not (a - x)
-     
-    name = "Approach Range"
-    unit = 'm'
-
+    
     def derive(self, gspd=P('Groundspeed'),
                drift=P('Drift'),
                glide=P('ILS Glideslope'),

@@ -106,8 +106,7 @@ def derive_parameters(hdf, node_mgr, process_order):
         first_dep = next((d for d in deps if d is not None))
 
         # initialise node
-        node = node_class(frequency=first_dep.frequency,
-                          offset=first_dep.offset)
+        node = node_class()
         logger.info("Processing parameter %s", param_name)
         # Derive the resulting value
 
@@ -308,9 +307,10 @@ def process_flight(hdf_path, aircraft_info, start_datetime=datetime.now(),
             logger.info("No PRE_FLIGHT_ANALYSIS actions to perform")        
         
         # Track nodes. Assume that all params in HDF are from LFL(!)
-        node_mgr = NodeManager(start_datetime, hdf.valid_param_names(),
-                               required_params, derived_nodes, aircraft_info,
-                               achieved_flight_record)
+        node_mgr = NodeManager(
+            start_datetime, hdf.duration, hdf.valid_param_names(),
+            required_params, derived_nodes, aircraft_info,
+            achieved_flight_record)
         # calculate dependency tree
         process_order, gr_st = dependency_order(node_mgr, draw=draw)
         if settings.CACHE_PARAMETER_MIN_USAGE:

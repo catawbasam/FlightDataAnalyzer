@@ -56,7 +56,7 @@ CURRENT_YEAR = str(datetime.now().year)
 
 # Minimum duration of slow airspeed in seconds to split flights inbetween.
 # TODO: Find sensible value.
-MINIMUM_SPLIT_DURATION = 120
+MINIMUM_SPLIT_DURATION = 100 #120
 
 # When the average normalised value of selected parameters drops below this
 # value, a flight split can be made.
