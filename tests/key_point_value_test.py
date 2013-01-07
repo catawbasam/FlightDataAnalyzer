@@ -2271,9 +2271,7 @@ class TestAltitudeWithFlapsMax(unittest.TestCase):
 
 class TestDecelerateToStopOnRunwayDuration(unittest.TestCase):
     def test_can_operate(self):
-        self.assertEqual(
-            DecelerateToStopOnRunwayDuration.get_operational_combinations(),
-            [('Flap', 'Altitude STD Smoothed', 'Airborne',)])         
+        self.assertTrue(False, msg='Test not implemented.')       
         
     def test_derive(self):
         self.assertTrue(False, msg='Test not implemented.')
