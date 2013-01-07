@@ -870,7 +870,10 @@ class TestTouchAndGo(unittest.TestCase):
         self.assertEqual(expected, TouchAndGo.get_operational_combinations())
 
     def test_derive(self):
-        alt_aal = P(name='Altitude AAL', array=np.ma.arange(20))
+        alt_aal = P(name='Altitude AAL', array=np.ma.array([
+            5, 5, 4, 4, 3, 3, 2, 2, 1, 1,
+            0, 1, 2, 3, 4, 5, 6, 7, 8, 9,
+        ]))
         go_around = [KeyTimeInstance(index=10, name='Go Around', datetime=None,
                                      latitude=None, longitude=None)]
         t_a_g = TouchAndGo()
