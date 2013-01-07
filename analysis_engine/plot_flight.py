@@ -76,21 +76,21 @@ def track_to_kml(hdf_path, kti_list, kpv_list, flight_list, plot_altitude=False)
         #return
     kml = simplekml.Kml()
     if plot_altitude:
-        alt = derived_param_from_hdf(hdf, plot_altitude)
+        alt = derived_param_from_hdf(hdf[plot_altitude])
         alt.array = repair_mask(alt.array, frequency=alt.frequency, repair_duration=None)
     else:
         alt = None
               
-    smooth_lat = derived_param_from_hdf(hdf, 'Latitude Smoothed')
-    smooth_lon = derived_param_from_hdf(hdf, 'Longitude Smoothed')
+    smooth_lat = derived_param_from_hdf(hdf['Latitude Smoothed'])
+    smooth_lon = derived_param_from_hdf(hdf['Longitude Smoothed'])
     add_track(kml, 'Smoothed', smooth_lat, smooth_lon, 'ff7fff7f') #, hdf[plot_altitude])
 
-    lat = derived_param_from_hdf(hdf, 'Latitude Prepared')
-    lon = derived_param_from_hdf(hdf, 'Longitude Prepared')
+    lat = derived_param_from_hdf(hdf['Latitude Prepared'])
+    lon = derived_param_from_hdf(hdf['Longitude Prepared'])
     add_track(kml, 'Prepared', lat, lon, 'ff0000ff')
     
-    lat_r = derived_param_from_hdf(hdf, 'Latitude')
-    lon_r = derived_param_from_hdf(hdf, 'Longitude')
+    lat_r = derived_param_from_hdf(hdf['Latitude'])
+    lon_r = derived_param_from_hdf(hdf['Longitude'])
     add_track(kml, 'Recorded Track', lat_r, lon_r, 'ff0000ff')
 
     for kti in kti_list:

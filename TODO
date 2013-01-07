@@ -1,6 +1,9 @@
 To Do
 =====
 
+* Q: Rename KeyPointValueNode to be KeyPointValueList?
+* Q: Rename DerivedParameterNode to be DerivedParameter?
+
 * Review HDFAccess cache - have implemented deepcopy to ensure array isn't manipulated by other processes - need to profile with and without deepcopy and alternative use of np.copy()!
 * Optimise library.index_at_value and derived_parameters.ClimbForFlightPhases
 * Calculate timebase in split segments checks that dates are within timerange of -10yrs up to now
