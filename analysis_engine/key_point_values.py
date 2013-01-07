@@ -1328,7 +1328,7 @@ def thrust_reversers_working(land, pwr, tr):
     return clump_multistate(tr.array, 'Deployed', high_power)
 
 
-class AirspeedThrustReversersDeployedMin(KeyPointValueNode):
+class AirspeedThrustReverseDeployedMin(KeyPointValueNode):
     '''
     '''
 
@@ -1343,7 +1343,22 @@ class AirspeedThrustReversersDeployedMin(KeyPointValueNode):
             self.create_kpvs_within_slices(speed.array, high_rev, min_value)
 
 
-class AirspeedThrustReversersSelected(KeyPointValueNode):
+class GroundspeedThrustReverseDeployedMin(KeyPointValueNode):
+    '''
+    '''
+
+    name = 'Groundspeed With Thrust Reversers Deployed (Over 65% N1) Min'
+
+    def derive(self, speed=P('Groundspeed'), tr=P('Thrust Reversers'),
+               pwr=P('Eng (*) N1 Max'), lands=S('Landing')):
+        '''
+        '''
+        for land in lands:
+            high_rev = thrust_reversers_working(land, pwr, tr)
+            self.create_kpvs_within_slices(speed.array, high_rev, min_value)
+
+
+class AirspeedThrustReverseSelected(KeyPointValueNode):
     '''
     This gives the indicated airspeed where the thrust reversers were selected.
     '''
@@ -1354,7 +1369,7 @@ class AirspeedThrustReversersSelected(KeyPointValueNode):
         self.create_kpv_from_slices(speed.array, to_scan, max_value)
 
 
-class ThrustAsymmetryWithReverseThrust(KeyPointValueNode):
+class ThrustAsymmetryWithThrustReverse(KeyPointValueNode):
     '''
     FDS developed this KPV to support the UK CAA Significant Seven programme.
     "Excursions - Landing (Lateral) Asymmetric reverse thrust."
@@ -1367,7 +1382,7 @@ class ThrustAsymmetryWithReverseThrust(KeyPointValueNode):
         self.create_kpv_from_slices(ta.array, to_scan, max_value)
 
 
-class ThrustWithReverseThrustInTransit(KeyPointValueNode):
+class ThrustWithThrustReverseInTransit(KeyPointValueNode):
     '''
     FDS developed this KPV to support the UK CAA Significant Seven programme.
     "Excursions - Landing (Lateral) Asymmetric selection or achieved."
@@ -1379,7 +1394,7 @@ class ThrustWithReverseThrustInTransit(KeyPointValueNode):
         self.create_kpv_from_slices(pwr.array, to_scan, max_value)
 
 
-class TouchdownToThrustReversersDeployedDuration(KeyPointValueNode):
+class TouchdownToThrustReverseDeployedDuration(KeyPointValueNode):
     '''
     FDS developed this KPV to support the UK CAA Significant Seven programme.
     "Excursions - Landing (Lateral) Reverse thrust delay - time delay. 
@@ -1418,21 +1433,6 @@ class TouchdownToSpoilersDeployedDuration(KeyPointValueNode):
                     if not is_index_within_slice(tdwn.index, land.slice):
                         continue
                     self.create_kpv(deploy, (deploy-tdwn.index)/brake.hz)
-
-
-class GroundspeedThrustReversersDeployedMin(KeyPointValueNode):
-    '''
-    '''
-
-    name = 'Groundspeed With Thrust Reversers Deployed (Over 65% N1) Min'
-
-    def derive(self, speed=P('Groundspeed'), tr=P('Thrust Reversers'),
-               pwr=P('Eng (*) N1 Max'), lands=S('Landing')):
-        '''
-        '''
-        for land in lands:
-            high_rev = thrust_reversers_working(land, pwr, tr)
-            self.create_kpvs_within_slices(speed.array, high_rev, min_value)
 
 
 ################################################################################
@@ -2423,15 +2423,21 @@ class ILSLocalizerDeviationAtTouchdown(KeyPointValueNode):
     beam centreline error margins for different approach categories. ILS
     Localizer Deviation At Touchdown Measurements at <2 deg pitch after main
     gear TD."
+    
+    The ILS Established period may not last until touchdown, so it is
+    artificially extended by a minute to ensure coverage of the touchdown
+    instant.
     '''
     name = 'ILS Localizer Deviation At Touchdown'
     def derive(self, ils_loc=P('ILS Localizer'), 
                ils_ests=S('ILS Localizer Established'),
-               lands=S('Landing Roll')):
+               tdwns=KTI('Touchdown')):
         for ils_est in ils_ests:
-            for land in lands:
-                index=land.start_edge
-                if is_index_within_slice(index, ils_est.slice):
+            for tdwn in tdwns:
+                index=tdwn.index
+                if is_index_within_slice(index, 
+                                         slice(ils_est.slice.start, 
+                                               ils_est.slice.stop+ils_loc.frequency*60.0)):
                     deviation=value_at_index(ils_loc.array, index)
                     self.create_kpv(index, deviation)
                 
@@ -2800,31 +2806,32 @@ class LongitudeAtLiftoff(KeyPointValueNode):
 
 
 #########################################
-## Latitude/Longitude @ Lowest Point
+# Latitude/Longitude @ Lowest Point on approach. Used to identify airport
+# and runway, so that this works for both landings and aborted approaches /
+# go-srounds.
+
+class LatitudeAtLowestPointOnApproach(KeyPointValueNode):
+    '''
+    Note: Cannot use smoothed position as this causes circular dependancy.
+    '''
+
+    def derive(self, lat=P('Latitude Prepared'),
+            low_points=KTI('Lowest Point On Approach')):
+        '''
+        '''
+        self.create_kpvs_at_ktis(lat.array, low_points)
 
 
-#class LatitudeAtLowestPointOnApproach(KeyPointValueNode):
-    #'''
-    #Note: Cannot use smoothed position as this causes circular dependancy.
-    #'''
+class LongitudeAtLowestPointOnApproach(KeyPointValueNode):
+    '''
+    Note: Cannot use smoothed position as this causes circular dependancy.
+    '''
 
-    #def derive(self, lat=P('Latitude Prepared'),
-            #low_points=KTI('Lowest Point On Approach')):
-        #'''
-        #'''
-        #self.create_kpvs_at_ktis(lat.array, low_points)
-
-
-#class LongitudeAtLowestPointOnApproach(KeyPointValueNode):
-    #'''
-    #Note: Cannot use smoothed position as this causes circular dependancy.
-    #'''
-
-    #def derive(self, lon=P('Longitude Prepared'),
-            #low_points=KTI('Lowest Point On Approach')):
-        #'''
-        #'''
-        #self.create_kpvs_at_ktis(lon.array, low_points)
+    def derive(self, lon=P('Longitude Prepared'),
+            low_points=KTI('Lowest Point On Approach')):
+        '''
+        '''
+        self.create_kpvs_at_ktis(lon.array, low_points)
 
 
 ################################################################################
@@ -4157,7 +4164,8 @@ class PitchMaxAfterFlapRetraction(KeyPointValueNode):
         scope=[]
         for air in airs:
             clean = np.ma.clump_unmasked(np.ma.masked_greater(flap.array[air.slice],0.0))
-            scope.append(slice(air.slice.start+clean[0].start, air.slice.stop))
+            if clean:
+                scope.append(slice(air.slice.start+clean[0].start, air.slice.stop))
         self.create_kpvs_within_slices(pitch.array, scope, max_value)
         
 
@@ -4185,13 +4193,12 @@ class PitchAtTouchdown(KeyPointValueNode):
 class PitchAt35FtInClimb(KeyPointValueNode):
     '''
     '''
-
     def derive(self, pitch=P('Pitch'),
-               alt_aal=P('Altitude AAL For Flight Phases'), climbs=S('Climb')):
+               alt_aal=P('Altitude AAL')):
         '''
         '''
-        for climb in climbs:
-            index = index_at_value(alt_aal.array, 35.0, climb.slice)
+        for climb in alt_aal.slices_from_to(1, 100):
+            index = index_at_value(alt_aal.array, 35.0, climb)
             if index:
                 value = value_at_index(pitch.array, index)
                 self.create_kpv(index, value)
@@ -4200,24 +4207,13 @@ class PitchAt35FtInClimb(KeyPointValueNode):
 class PitchTakeoffTo35FtMax(KeyPointValueNode):
     '''
     '''
-
-    ##### TODO: Decide on this version or the one below...
-    ####def derive(self, pitch=P('Pitch'), takeoffs=S('Takeoff')):
-    ####    '''
-    ####    '''
-    ####    self.create_kpvs_within_slices(
-    ####        pitch.array,
-    ####        takeoffs,
-    ####        max_value,
-    ####    )
-
     def derive(self, pitch=P('Pitch'),
-               alt_aal=P('Altitude AAL For Flight Phases')):
+               alt_aal=P('Altitude AAL')):
         '''
         '''
         self.create_kpvs_within_slices(
             pitch.array,
-            alt_aal.slices_from_to(1, 35),  # TODO: Implement .slices_from_takeoff_to(35)
+            alt_aal.slices_from_to(0, 35),
             max_value,
         )
 
@@ -4955,10 +4951,12 @@ class RudderReversalAbove50Ft(KeyPointValueNode):
     def derive(self, rudder=P('Rudder'),
                alt_aal=P('Altitude AAL For Flight Phases')):
         '''
+        The threshold used to be 6.5 deg, derived from a manufacturer's
+        document, but this did not provide meaningful results in routine
+        operations, so the threshold was reduced to 2 deg over 2 seconds.
         '''
-        ####above_50s = np.ma.clump_unmasked(np.ma.masked_less(alt_aal.array, 50.0))
         for above_50 in alt_aal.slices_above(50.0):
-            self.create_kpv(*cycle_counter(rudder.array[above_50], 6.25, 2.0,
+            self.create_kpv(*cycle_counter(rudder.array[above_50], 2.0, 2.0,
                                            rudder.hz, above_50.start))
 
 
@@ -5959,8 +5957,11 @@ class WindSpeedInDescent(KeyPointValueNode):
     NAME_FORMAT = 'Wind Speed At %(altitude)d Ft AAL In Descent'
     NAME_VALUES = {'altitude': [2000, 1500, 1000, 500, 100, 50]}
 
-    def derive(self, wspd=P('Wind Speed'),
-               alt_aal=P('Altitude AAL For Flight Phases')):
+    def derive(self, alt_aal=P('Altitude AAL For Flight Phases'),
+               wspd=P('Wind Speed')):
+        # Aligned to alt_aal for cosmetic reasons; alignment to wind speed
+        # leads to slightly misaligned KPVs for wind speed and wind
+        # direction, which looks wrong although is arithmetically "correct".
         for this_descent_slice in alt_aal.slices_from_to(2100, 0):
             for alt in self.NAME_VALUES['altitude']:
                 index = index_at_value(alt_aal.array, alt, this_descent_slice)
@@ -5974,8 +5975,8 @@ class WindDirectionInDescent(KeyPointValueNode):
     NAME_FORMAT = 'Wind Direction At %(altitude)d Ft AAL In Descent'
     NAME_VALUES = {'altitude': [2000, 1500, 1000, 500, 100, 50]}
 
-    def derive(self, wdir=P('Wind Direction Continuous'),
-               alt_aal=P('Altitude AAL For Flight Phases')):
+    def derive(self, alt_aal=P('Altitude AAL For Flight Phases'),
+               wdir=P('Wind Direction Continuous')):
         for this_descent_slice in alt_aal.slices_from_to(2100, 0):
             for alt in self.NAME_VALUES['altitude']:
                 index = index_at_value(alt_aal.array, alt, this_descent_slice)

@@ -1801,7 +1801,14 @@ def ground_track_precise(lat, lon, speed, hdg, frequency, mode):
     # unable to proceed if we have no straight ends
     if len(straight_ends) <= 2:
         logger.warning('Ground_track_precise needs at least two curved sections to operate.')
-        return None, None, None
+        
+        if mode == 'takeoff':
+            lat_return[track_edges[0]:] = lat[track_edges[0]:]
+            lon_return[track_edges[0]:] = lon[track_edges[0]:]
+        else:
+            lat_return[:track_edges[1]] = lat[:track_edges[1]]
+            lon_return[:track_edges[1]] = lon[:track_edges[1]]
+        return lat_return, lon_return, None
 
     # Initialize the weights for no change.
     weight_length = len(straight_ends)
@@ -3956,7 +3963,7 @@ def smooth_track_cost_function(lat_s, lon_s, lat, lon):
     from_straight = np.sum(np.convolve(lat_s,slider,'valid')**2) + \
         np.sum(np.convolve(lon_s,slider,'valid')**2)
     
-    cost = from_data + 1000*from_straight
+    cost = from_data + 100*from_straight
     return cost
 
 
