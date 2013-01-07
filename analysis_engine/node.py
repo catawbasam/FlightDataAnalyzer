@@ -1315,6 +1315,8 @@ class KeyTimeInstanceNode(FormattedNameNode):
             # and look it up in array.raw instead
             if _slice is None:
                 _slice = slice(0, len(array))
+            if len(array[_slice]) == 0:
+                return
             state_periods = np.ma.clump_unmasked(
                 np.ma.masked_not_equal(array[_slice].raw,
                                        array.get_state_value(state)))
