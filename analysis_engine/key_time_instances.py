@@ -128,7 +128,7 @@ class AutopilotDisengagedSelection(KeyTimeInstanceNode):
 class AutothrottleEngagedSelection(KeyTimeInstanceNode):
     name = 'AT Engaged Selection'
 
-    def derive(self, autothrottle=P('AT Engaged'), phase=S('Airborne')):
+    def derive(self, autothrottle=M('AT Engaged'), phase=S('Airborne')):
         self.create_ktis_on_state_change(
             'Engaged',
             autothrottle.array,
@@ -545,12 +545,6 @@ class Touchdown(KeyTimeInstanceNode):
             t0 = air.slice.stop
             for land in (lands or []):
                 if t0 and is_index_within_slice(t0, land.slice):
-                    """
-                    # Let's scan from 30ft to 10 seconds after the approximate touchdown moment.
-                    startpoint = index_at_value(alt.array, 30.0, slice(t0, t0-200,-1))
-                    endpoint = min(t0+10.0*roc.hz, len(roc.array))
-                    """
-
                     # If we have a wheel sensor, use this. It is often a derived
                     # parameter created by ORing the left and right main gear
                     # signals.
