@@ -3450,7 +3450,7 @@ class CoordinatesSmoothed(object):
                                                                    freq)
                         except ValueError:
                             self.exception("'%s'. Using non smoothed coordinates for Taxi In",
-                                         self.__class__.__name__)
+                                           self.__class__.__name__)
                             lat_in = lat.array[join_idx:end]
                             lon_in = lon.array[join_idx:end]
                     else:

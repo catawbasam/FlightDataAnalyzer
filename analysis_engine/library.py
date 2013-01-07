@@ -3,15 +3,11 @@ from scipy import optimize
 
 import logging
 
-from math import ceil, floor, sqrt, sin, cos, atan2, radians
-from math import acos,asin,tan  
-from math import degrees as deg, radians as rad  
-from datetime import date,datetime,time  
-
 from collections import OrderedDict, namedtuple
 from datetime import datetime, timedelta
 from hashlib import sha256
 from itertools import izip
+from math import asin, atan2, ceil, cos, degrees, floor, radians, sin, sqrt
 
 from hdfaccess.parameter import MappedArray
 
@@ -1710,7 +1706,6 @@ def gtp_compute_error(weights, *args):
     # error over the track_slice range to ignore the static ends of the
     # data, which often contain spurious data.
     errors = np.arange(len(straights), dtype=float)
-    width = 10
     for n, straight in enumerate(straights):
         x_track_errors = ((lon[straight]-lon_est[straight])*np.cos(np.radians(hdg[straight])) -
                           (lat[straight]-lat_est[straight])*np.sin(np.radians(hdg[straight])))
@@ -1718,7 +1713,6 @@ def gtp_compute_error(weights, *args):
             * 1.0E09 # Just to make the numbers easy to read !
         
     error = np.nansum(errors) # Treats nan as zero, in case masked values present.    
-    ##print error
     
     # The optimization process expects a single error term in response, but
     # it is convenient to use this function to return the latitude and
@@ -1787,7 +1781,6 @@ def ground_track_precise(lat, lon, speed, hdg, frequency, mode):
     else:
         raise 'unknown mode in ground_track_precise'
         
-    track_slice_length = track_slice.stop - track_slice.start
     rot = np.ma.abs(rate_of_change_array(hdg[track_slice], frequency, width=8.0))
     straights = np.ma.clump_unmasked(np.ma.masked_greater(rot, 2.0)) # 2deg/sec
     straight_ends = []
@@ -1795,8 +1788,8 @@ def ground_track_precise(lat, lon, speed, hdg, frequency, mode):
         straight_ends.append(straight.start)
         straight_ends.append(straight.stop)
     # We aren't interested in the first and last
-    _=straight_ends.pop(0)
-    _=straight_ends.pop()
+    del straight_ends[0]
+    del straight_ends[-1]
 
     # unable to proceed if we have no straight ends
     if len(straight_ends) <= 2:
@@ -4459,22 +4452,22 @@ def is_day(when, latitude, longitude, twilight='civil'):
     # Eccent Earth Orbit
     Eccent   = 0.016708617-Jcent*(0.000042037+0.0000001236*Jcent) # 24.4 (significantly changed from web version) 
     # Sun Eq of Ctr
-    Seqcent  = sin(rad(Manom))*(1.914600-Jcent*(0.004817+0.000014*Jcent))+sin(rad(2*Manom))*(0.019993-0.000101*Jcent)+sin(rad(3*Manom))*0.000290 # p152 
+    Seqcent  = sin(radians(Manom))*(1.914600-Jcent*(0.004817+0.000014*Jcent))+sin(radians(2*Manom))*(0.019993-0.000101*Jcent)+sin(radians(3*Manom))*0.000290 # p152 
     # Sun True Long (deg)
     Struelong= Mlong+Seqcent # Theta on p152  
     # Mean Obliq Ecliptic (deg)
     Mobliq   = 23+(26+((21.448-Jcent*(46.815+Jcent*(0.00059-Jcent*0.001813))))/60)/60  # 21.2
     # Obliq Corr (deg)
-    obliq    = Mobliq + 0.00256*cos(rad(125.04-1934.136*Jcent))  # 24.8
+    obliq    = Mobliq + 0.00256*cos(radians(125.04-1934.136*Jcent))  # 24.8
     # Sun App Long (deg)
-    Sapplong = Struelong-0.00569-0.00478*sin(rad(125.04-1934.136*Jcent)) # Omega, Lambda p 152.  
+    Sapplong = Struelong-0.00569-0.00478*sin(radians(125.04-1934.136*Jcent)) # Omega, Lambda p 152.  
     # Sun Declin (deg)
-    declination = deg(asin(sin(rad(obliq))*sin(rad(Sapplong)))) # 24.7
+    declination = degrees(asin(sin(radians(obliq))*sin(radians(Sapplong)))) # 24.7
     # Sun Rt Ascen (deg)
-    rightasc = deg(atan2(cos(rad(Mobliq))*sin(rad(Sapplong)),cos(rad(Sapplong))))
+    rightasc = degrees(atan2(cos(radians(Mobliq))*sin(radians(Sapplong)),cos(radians(Sapplong))))
     
-    elevation = deg(asin(sin(rad(latitude))*sin(rad(declination)) + 
-                    cos(rad(latitude))*cos(rad(declination))*cos(rad(Gstime+longitude-rightasc))))
+    elevation = degrees(asin(sin(radians(latitude))*sin(radians(declination)) + 
+                    cos(radians(latitude))*cos(radians(declination))*cos(radians(Gstime+longitude-rightasc))))
 
     # Solar diamteter gives an adjustment of 0.833 deg, as the rim of the sun
     # appears before the centre of the disk.

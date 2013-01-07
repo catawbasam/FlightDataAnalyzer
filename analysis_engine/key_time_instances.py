@@ -5,13 +5,11 @@ from analysis_engine.library import (coreg,
                                      hysteresis, 
                                      index_at_value,
                                      is_index_within_slice,
-                                     minimum_unmasked,
-                                     slices_above,
-                                     slices_not,
-                                     slices_and,
-                                     max_abs_value, 
                                      max_value, 
+                                     minimum_unmasked,
                                      peak_curvature,
+                                     slices_and,
+                                     slices_not,
                                      touchdown_inertial)
 
 from analysis_engine.node import (M, P, S, KTI, KeyTimeInstanceNode)

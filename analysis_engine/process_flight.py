@@ -104,7 +104,6 @@ def derive_parameters(hdf, node_mgr, process_order):
             raise RuntimeError("No dependencies available - Nodes cannot "
                                "operate without ANY dependencies available! "
                                "Node: %s" % node_class.__name__)
-        first_dep = next((d for d in deps if d is not None))
 
         # initialise node
         node = node_class()
