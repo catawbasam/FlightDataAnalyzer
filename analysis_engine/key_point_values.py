@@ -181,8 +181,8 @@ class AccelerationLateralTaxiingStraightMax(KeyPointValueNode):
     identified by masking the turning phases and then testing the resulting
     data.
     '''
-    def derive(self, acc_lat=P('Acceleration Lateral Offset Removed'), taxis=S('Taxiing'), 
-               turns=S('Turning On Ground')):
+    def derive(self, acc_lat=P('Acceleration Lateral Offset Removed'),
+               taxis=S('Taxiing'), turns=S('Turning On Ground')):
         accel = np.ma.copy(acc_lat.array) # Prepare to change mask here.
         for turn in turns:
             accel[turn.slice]=np.ma.masked

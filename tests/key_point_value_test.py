@@ -10,10 +10,7 @@ from utilities.geometry import midpoint
 from analysis_engine.derived_parameters import Flap
 from analysis_engine.library import align
 from analysis_engine.node import (
-    A, KPV, KTI, P, S,
-    KeyPointValue, 
-    KeyTimeInstance,
-    Section,
+    A, KTI, P, KeyPointValue, KeyTimeInstance, Section,
 )
 
 from analysis_engine.key_point_values import (
@@ -86,7 +83,7 @@ from analysis_engine.key_point_values import (
     AirspeedRelativeFor5Sec500To20FtMin,
     AirspeedRelativeWithFlapDescentMin,
     AirspeedTODTo10000Max,
-    AirspeedThrustReversersDeployedMin,
+    AirspeedThrustReverseDeployedMin,
     AirspeedTrueAtTouchdown,
     AirspeedVacatingRunway,
     AirspeedWithFlapClimbMax,
@@ -113,7 +110,9 @@ from analysis_engine.key_point_values import (
     AltitudeGoAroundFlapRetracted,
     AltitudeMax,
     AltitudeMinsToTouchdown,
+    AltitudeWithFlapsMax,
     ControlColumnStiffness,
+    DecelerationFromTouchdownToStopOnRunway,
     EngEPR500FtToTouchdownMin,
     EngN1500To20FtMin,
     EngN1TakeoffMax,
@@ -2060,7 +2059,7 @@ class TestAirspeedTODTo10000Max(unittest.TestCase):
 class TestAirspeedThrustReversersDeployedMin(unittest.TestCase):
     def test_can_operate(self):
         self.assertEqual(
-            AirspeedThrustReversersDeployedMin.get_operational_combinations(),
+            AirspeedThrustReverseDeployedMin.get_operational_combinations(),
             [('Airspeed True', 'Thrust Reversers', 'Eng (*) N1 Avg',
               'Landing',)])
         
@@ -2263,15 +2262,18 @@ class TestAltitudeMinsToTouchdown(unittest.TestCase):
 
 class TestAltitudeWithFlapsMax(unittest.TestCase):
     def test_can_operate(self):
-        self.assertTrue(False, msg='Test not implemented.')
+        self.assertEqual(
+            AltitudeWithFlapsMax.get_operational_combinations(),
+            [('Flap', 'Altitude STD Smoothed', 'Airborne',)])  
         
     def test_derive(self):
         self.assertTrue(False, msg='Test not implemented.')
 
-
 class TestDecelerateToStopOnRunwayDuration(unittest.TestCase):
     def test_can_operate(self):
-        self.assertTrue(False, msg='Test not implemented.')
+        self.assertEqual(
+            DecelerateToStopOnRunwayDuration.get_operational_combinations(),
+            [('Flap', 'Altitude STD Smoothed', 'Airborne',)])         
         
     def test_derive(self):
         self.assertTrue(False, msg='Test not implemented.')
@@ -2285,9 +2287,14 @@ class TestDecelerationLongitudinalPeakLanding(unittest.TestCase):
         self.assertTrue(False, msg='Test not implemented.')
 
 
-class TestDecelerationToStopOnRunway(unittest.TestCase):
+class TestDecelerationFromTouchdownToStopOnRunway(unittest.TestCase):
     def test_can_operate(self):
-        self.assertTrue(False, msg='Test not implemented.')
+        self.assertEqual(
+            DecelerationFromTouchdownToStopOnRunway.get_operational_combinations(),
+            [('Groundspeed', 'Touchdown', 'Landing', 'Latitude At Touchdown', 
+              'Longitude At Touchdown', 'FDR Landing Runway',
+              'ILS Glideslope Established', 'ILS Localizer Established',
+              'Precise Positioning')])
         
     def test_derive(self):
         self.assertTrue(False, msg='Test not implemented.')
@@ -3715,3 +3722,4 @@ class TestTwoDegPitchTo35Ft(unittest.TestCase):
         
     def test_derive(self):
         self.assertTrue(False, msg='Test not implemented.')
+
