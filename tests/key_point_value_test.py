@@ -59,8 +59,10 @@ from analysis_engine.key_point_values import (
     AirspeedGustsDuringFinalApproach,
     AirspeedLevelFlightMax,
     AirspeedMax,
+    AirspeedMax3Sec,
     AirspeedMinusV235To1000FtMax,
     AirspeedMinusV235To1000FtMin,
+    AirspeedMinusV2At35Ft,
     AirspeedMinusV2AtLiftoff,
     AirspeedRTOMax,
     AirspeedRelative1000To500FtMax,
@@ -99,7 +101,9 @@ from analysis_engine.key_point_values import (
     AltitudeAtLastFlapChangeBeforeLanding,
     AltitudeAtLiftoff,
     AltitudeAtMachMax,
-    AltitudeAtSuspectedLevelBust,
+    AltitudeOvershootAtSuspectedLevelBust,
+    AltitudeAtGearDownSelection,
+    AltitudeAtGearUpSelection,
     AltitudeAtTouchdown,
     AltitudeAutopilotDisengaged,
     AltitudeAutopilotEngaged,
@@ -108,6 +112,7 @@ from analysis_engine.key_point_values import (
     AltitudeFlapExtensionMax,
     AltitudeGoAroundFlapRetracted,
     AltitudeMax,
+    AltitudeMinsToTouchdown,
     ControlColumnStiffness,
     EngEPR500FtToTouchdownMin,
     EngN1500To20FtMin,
@@ -289,7 +294,7 @@ class TestAccelerationLateralTaxiingMax(unittest.TestCase,
                                          CreateKPVsWithinSlicesTest):
     def setUp(self):
         self.node_class = AccelerationLateralTaxiingMax
-        self.operational_combinations = [('Acceleration Lateral', 'Grounded')]
+        self.operational_combinations = [('Acceleration Lateral Offset Removed', 'Grounded')]
         self.function = max_value
         """
 
@@ -524,25 +529,25 @@ class TestAirspeedGustsDuringFinalApproach(unittest.TestCase):
 class TestAltitudeAtTouchdown(unittest.TestCase, CreateKPVsAtKTIsTest):
     def setUp(self):
         self.node_class = AltitudeAtTouchdown
-        self.operational_combinations = [('Altitude STD', 'Touchdown')]
+        self.operational_combinations = [('Altitude STD Smoothed', 'Touchdown')]
 
 
 class TestAltitudeAtMachMax(unittest.TestCase, CreateKPVsAtKPVsTest):
     def setUp(self):
         self.node_class = AltitudeAtMachMax
-        self.operational_combinations = [('Altitude STD', 'Mach Max')]
+        self.operational_combinations = [('Altitude STD Smoothed', 'Mach Max')]
 
 
 class TestAltitudeMax(unittest.TestCase, CreateKPVsWithinSlicesTest):
     def setUp(self):
         self.node_class = AltitudeMax
-        self.operational_combinations = [('Altitude STD', 'Airborne')]
+        self.operational_combinations = [('Altitude STD Smoothed', 'Airborne')]
         self.function = max_value
 
-class TestAltitudeAtSuspectedLevelBust(unittest.TestCase):
+class TestAltitudeOvershootAtSuspectedLevelBust(unittest.TestCase):
     def test_handling_no_data(self):
         alt=P('Altitude STD',np.ma.array([0,1000,1000,1000,1000]))
-        kpv=AltitudeAtSuspectedLevelBust()
+        kpv=AltitudeOvershootAtSuspectedLevelBust()
         kpv.derive(alt)
         expected=[]
         self.assertEqual(kpv,expected)
@@ -550,7 +555,7 @@ class TestAltitudeAtSuspectedLevelBust(unittest.TestCase):
     def test_up_down_and_up(self):
         testwave = np.ma.array(1.0+np.sin(np.arange(0,12.6,0.1)))*1000
         alt=P('Altitude STD',testwave)
-        kpv=AltitudeAtSuspectedLevelBust()
+        kpv=AltitudeOvershootAtSuspectedLevelBust()
         kpv.derive(alt)
         expected=[KeyPointValue(index=16, value=999.5736030415051, 
                                 name='Altitude At Suspected Level Bust', 
@@ -569,7 +574,7 @@ class TestAltitudeAtSuspectedLevelBust(unittest.TestCase):
     def test_too_slow(self):
         testwave = np.ma.array(1.0+np.sin(np.arange(0,12.6,0.1)))*1000
         alt=P('Altitude STD',testwave,0.02)
-        kpv=AltitudeAtSuspectedLevelBust()
+        kpv=AltitudeOvershootAtSuspectedLevelBust()
         kpv.derive(alt)
         expected=[]
         self.assertEqual(kpv,expected)
@@ -577,7 +582,7 @@ class TestAltitudeAtSuspectedLevelBust(unittest.TestCase):
     def test_straight_up_and_down(self):
         testwave = np.ma.array(range(0,10000,50)+range(10000,0,-50))
         alt=P('Altitude STD',testwave,1)
-        kpv=AltitudeAtSuspectedLevelBust()
+        kpv=AltitudeOvershootAtSuspectedLevelBust()
         kpv.derive(alt)
         expected=[]
         self.assertEqual(kpv,expected)
@@ -585,7 +590,7 @@ class TestAltitudeAtSuspectedLevelBust(unittest.TestCase):
     def test_up_and_down_with_overshoot(self):
         testwave = np.ma.array(range(0,10000,50)+range(10000,9000,-50)+[9000]*200+range(9000,0,-50))
         alt=P('Altitude STD',testwave,1)
-        kpv=AltitudeAtSuspectedLevelBust()
+        kpv=AltitudeOvershootAtSuspectedLevelBust()
         kpv.derive(alt)
         expected=[KeyPointValue(index=200, value=1000, 
                                 name='Altitude At Suspected Level Bust', 
@@ -599,7 +604,7 @@ class TestAltitudeAtSuspectedLevelBust(unittest.TestCase):
                                range(9000,20000,50)+
                                range(20000,0,-50))
         alt=P('Altitude STD',testwave,1)
-        kpv=AltitudeAtSuspectedLevelBust()
+        kpv=AltitudeOvershootAtSuspectedLevelBust()
         kpv.derive(alt)
         expected=[KeyPointValue(index=420, value=-1000, 
                                 name='Altitude At Suspected Level Bust', 
@@ -867,15 +872,15 @@ class TestEng_N1MaxDurationUnder60PercentAfterTouchdown(unittest.TestCase):
     def test_can_operate(self):
         opts = Eng_N1MaxDurationUnder60PercentAfterTouchdown.get_operational_combinations()
         self.assertEqual(
-            ('Eng (1) N1', 'Touchdown', 'Eng (*) Stop'), opts[0]) 
+            ('Eng (*) Stop', 'Eng (1) N1', 'Touchdown'), opts[0]) 
         self.assertEqual(
-            ('Eng (2) N1', 'Touchdown', 'Eng (*) Stop'), opts[1]) 
+            ('Eng (*) Stop', 'Eng (2) N1', 'Touchdown'), opts[1]) 
         self.assertEqual(
-            ('Eng (3) N1', 'Touchdown', 'Eng (*) Stop'), opts[2])
+            ('Eng (*) Stop', 'Eng (3) N1', 'Touchdown'), opts[2])
         self.assertEqual(
-            ('Eng (4) N1', 'Touchdown', 'Eng (*) Stop'), opts[3])
+            ('Eng (*) Stop', 'Eng (4) N1', 'Touchdown'), opts[3])
         self.assertTrue(
-            ('Eng (1) N1', 'Eng (2) N1', 'Touchdown', 'Eng (*) Stop') in opts) 
+            ('Eng (*) Stop', 'Eng (1) N1', 'Eng (2) N1', 'Touchdown') in opts) 
         self.assertTrue(all(['Touchdown' in avail for avail in opts]))
         self.assertTrue(all(['Eng (*) Stop' in avail for avail in opts]))
         
@@ -1438,7 +1443,7 @@ class TestAccelerationLateralAtTouchdown(unittest.TestCase):
     def test_can_operate(self):
         self.assertEqual(
             AccelerationLateralAtTouchdown.get_operational_combinations(),
-            [('Acceleration Lateral', 'Touchdown',)])
+            [('Acceleration Lateral Offset Removed', 'Touchdown',)])
         
     @patch('analysis_engine.key_point_values.bump')
     def test_derive(self, bump):
@@ -1462,8 +1467,8 @@ class TestAccelerationLateralAtTouchdown(unittest.TestCase):
 class TestAccelerationLateralMax(unittest.TestCase):
     def test_can_operate(self):
         self.assertEqual(AccelerationLateralMax.get_operational_combinations(),
-                         [('Acceleration Lateral',),
-                          ('Acceleration Lateral', 'Groundspeed',),])        
+                         [('Acceleration Lateral Offset Removed',),
+                          ('Acceleration Lateral Offset Removed', 'Groundspeed',),])        
         
     def test_derive(self):
         self.assertTrue(False, msg='Test not implemented.')
@@ -1473,7 +1478,7 @@ class TestAccelerationLateralTaxiingStraightMax(unittest.TestCase):
     def test_can_operate(self):
         self.assertEqual(
             AccelerationLateralTaxiingStraightMax.get_operational_combinations(),
-            [('Acceleration Lateral', 'Taxiing', 'Turning On Ground',)])
+            [('Acceleration Lateral Offset Removed', 'Taxiing', 'Turning On Ground',)])
         
     def test_derive(self):
         self.assertTrue(False, msg='Test not implemented.')
@@ -1483,7 +1488,7 @@ class TestAccelerationLateralTaxiingTurnsMax(unittest.TestCase,
                                              CreateKPVsWithinSlicesTest):
     def setUp(self):
         self.node_class = AccelerationLateralTaxiingTurnsMax
-        self.operational_combinations = [('Acceleration Lateral',
+        self.operational_combinations = [('Acceleration Lateral Offset Removed',
                                           'Turning On Ground',)]
         self.function = max_abs_value
 
@@ -1614,8 +1619,8 @@ class TestAirspeed10000ToLandMax(unittest.TestCase):
     def test_can_operate(self):
         self.assertEqual(
             Airspeed10000ToLandMax.get_operational_combinations(),
-            [('Airspeed', 'Altitude STD', 'Altitude QNH', 'FDR Landing Airport',
-              'Descent')])
+            [('Airspeed', 'Altitude STD Smoothed', 'Altitude QNH',
+              'FDR Landing Airport', 'Descent')])
         
     def test_derive(self):
         self.assertTrue(False, msg='Test not implemented.')
@@ -1771,7 +1776,7 @@ class TestAirspeedBetween90SecToTouchdownAndTouchdownMax(unittest.TestCase):
     def test_can_operate(self):
         self.assertEqual(
             AirspeedBetween90SecToTouchdownAndTouchdownMax.get_operational_combinations(),
-            [('Secs To Touchdown', 'Airspeed',)])
+            [('Airspeed', 'Secs To Touchdown',)])
         
     def test_derive(self):
         self.assertTrue(False, msg='Test not implemented.')
@@ -1805,7 +1810,9 @@ class TestAirspeedLevelFlightMax(unittest.TestCase):
 
 class TestAirspeedMax3Sec(unittest.TestCase):
     def test_can_operate(self):
-        self.assertTrue(False, msg='Test not implemented.')
+        self.assertEqual(
+            AirspeedMax3Sec.get_operational_combinations(),
+            [('Airspeed', 'Airborne',)])
         
     def test_derive(self):
         self.assertTrue(False, msg='Test not implemented.')
@@ -1833,7 +1840,9 @@ class TestAirspeedMinusV235To1000FtMin(unittest.TestCase,
 
 class TestAirspeedMinusV2At35Ft(unittest.TestCase):
     def test_can_operate(self):
-        self.assertTrue(False, msg='Test not implemented.')
+        self.assertEqual(
+            AirspeedMinusV2At35Ft.get_operational_combinations(),
+            [('Airspeed Minus V2', 'Takeoff',)])
         
     def test_derive(self):
         self.assertTrue(False, msg='Test not implemented.')
@@ -2041,7 +2050,7 @@ class TestAirspeedTODTo10000Max(unittest.TestCase):
     def test_can_operate(self):
         self.assertEqual(
             AirspeedTODTo10000Max.get_operational_combinations(),
-            [('Airspeed', 'Altitude STD', 'Altitude QNH', 'FDR Landing Airport',
+            [('Airspeed', 'Altitude STD Smoothed', 'Altitude QNH', 'FDR Landing Airport',
               'Descent')])
         
     def test_derive(self):
@@ -2108,7 +2117,7 @@ class TestAirspeedWithFlapDescentMin(unittest.TestCase):
     def test_can_operate(self):
         self.assertEqual(
             AirspeedWithFlapDescentMin.get_operational_combinations(),
-            [('Flap', 'Airspeed', 'Descent',)])
+            [('Flap', 'Airspeed', 'Descent To Flare',)])
         
     def test_derive(self):
         self.assertTrue(False, msg='Test not implemented.')
@@ -2146,7 +2155,9 @@ class TestAltitudeAtFirstFlapChangeAfterLiftoff(unittest.TestCase):
 
 class TestAltitudeAtGearDownSelection(unittest.TestCase):
     def test_can_operate(self):
-        self.assertTrue(False, msg='Test not implemented.')
+        self.assertEqual(
+            AltitudeAtGearDownSelection.get_operational_combinations(),
+            [('Altitude AAL', 'Gear Down Selection',)])
         
     def test_derive(self):
         self.assertTrue(False, msg='Test not implemented.')
@@ -2154,7 +2165,9 @@ class TestAltitudeAtGearDownSelection(unittest.TestCase):
 
 class TestAltitudeAtGearUpSelection(unittest.TestCase):
     def test_can_operate(self):
-        self.assertTrue(False, msg='Test not implemented.')
+        self.assertEqual(
+            AltitudeAtGearUpSelection.get_operational_combinations(),
+            [('Altitude AAL', 'Gear Up Selection',)])
         
     def test_derive(self):
         self.assertTrue(False, msg='Test not implemented.')
@@ -2185,7 +2198,7 @@ class TestAltitudeAtLiftoff(unittest.TestCase,
                             CreateKPVsAtKTIsTest):
     def setUp(self):
         self.node_class = AltitudeAtLiftoff
-        self.operational_combinations = [('Altitude STD', 'Liftoff',)]
+        self.operational_combinations = [('Altitude STD Smoothed', 'Liftoff',)]
 
 
 class TestAltitudeAutopilotDisengaged(unittest.TestCase,
@@ -2240,7 +2253,9 @@ class TestAltitudeGoAroundFlapRetracted(unittest.TestCase,
 
 class TestAltitudeMinsToTouchdown(unittest.TestCase):
     def test_can_operate(self):
-        self.assertTrue(False, msg='Test not implemented.')
+        self.assertEqual(
+            AltitudeMinsToTouchdown.get_operational_combinations(),
+            [('Altitude AAL', 'Mins To Touchdown',)])        
         
     def test_derive(self):
         self.assertTrue(False, msg='Test not implemented.')
