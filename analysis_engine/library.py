@@ -3775,17 +3775,32 @@ def slices_from_to(array, from_, to):
     :returns: Slices of the array where values are between from_ and to and either ascending or descending depending on comparing from_ and to.
     :rtype: list of slice
     '''
+    
+    if from_ == to:
+        raise ValueError('From and to values should not be equal.')    
+    
+    def condition(s):
+        start_v = rep_array[s.start]
+        mid_v = rep_array[(s.start+s.stop)/2]
+        end_v = array[s.stop - 1]
+        
+        if len(array[s]) == 1:
+            if s.start:
+                start_v = array[s.start - 1]
+            if s.stop and s.stop < len(array):
+                end_v = array[s.stop]
+                
+        if from_ > to:
+            return start_v >= mid_v >= end_v
+        else:
+            return start_v <= mid_v <= end_v
+            
     if len(array) == 0:
         return array, []
     rep_array, slices = slices_between(array, from_, to)
     # Midpoint conditions added to lambda to prevent data that just dips into
     # a band triggering.
-    if from_ > to:
-        condition = lambda s: rep_array[s.start] >= rep_array[(s.start+s.stop)/2] >= rep_array[s.stop-1]
-    elif from_ < to:
-        condition = lambda s: rep_array[s.start] <= rep_array[(s.start+s.stop)/2] <= rep_array[s.stop-1]
-    else:
-        raise ValueError('From and to values should not be equal.')
+    
     filtered_slices = filter(condition, slices)
     return rep_array, filtered_slices
 

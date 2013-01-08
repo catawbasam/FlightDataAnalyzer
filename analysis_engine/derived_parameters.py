@@ -488,10 +488,8 @@ class AirspeedTrue(DerivedParameterNode):
     def can_operate(cls, available):
         return 'Airspeed' in available and 'Altitude STD' in available
     
-    def derive(self, cas_p = P('Airspeed'),
-               alt_std_p = P('Altitude STD'),
-               tat_p = P('TAT'), 
-               toffs=S('Takeoff'), lands=S('Landing'), 
+    def derive(self, cas_p = P('Airspeed'), alt_std_p = P('Altitude STD'),
+               tat_p = P('TAT'), toffs=S('Takeoff'), lands=S('Landing'), 
                gspd=P('Groundspeed'), acc_fwd=P('Acceleration Forwards')):
         
         cas = cas_p.array

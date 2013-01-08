@@ -1544,12 +1544,11 @@ class TestGroundTrackPrecise(unittest.TestCase):
             self.gspd = np.ma.array(gspd_data)
 
     def test_ppgt_basic(self):
-        la, lo, wt = ground_track_precise(self.lat, self.lon, 
-                                                    self.gspd, self.hdg, 
-                                                    1.0, 'landing')
+        la, lo, wt = ground_track_precise(self.lat, self.lon, self.gspd,
+                                          self.hdg, 1.0, 'landing')
         
-        self.assertLess(wt,1000)
-        self.assertGreater(wt,900)
+        self.assertLess(wt, 1000)
+        self.assertGreater(wt, 900)
 
 
 class TestHashArray(unittest.TestCase):
@@ -1659,11 +1658,6 @@ class TestIndexAtValue(unittest.TestCase):
     # Indexing from the end of the array results in an array length
     # mismatch. There is a failing test to cover this case which may work
     # with array[:end:-1] construct, but using slices appears insoluble.
-    def test_index_at_value_backwards_from_the_very_end(self):
-        array = np.ma.arange(8)
-        # this test should pass - see fiddled code
-        # self.assertEquals (index_at_value(array, 8, slice(8, 3, -1)), 8)
-        self.assertEqual(True, False)
     def test_index_at_value_backwards_from_end_minus_one(self):
         array = np.ma.arange(8)
         self.assertEquals (index_at_value(array, 7, slice(8, 3, -1)), 7)

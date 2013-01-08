@@ -70,7 +70,7 @@ class TestDependencyGraph(unittest.TestCase):
     
     def test_graph_nodes_using_sample_tree(self): 
         required_nodes = ['P7', 'P8']
-        mgr2 = NodeManager(datetime.now(), self.lfl_params, required_nodes, 
+        mgr2 = NodeManager(datetime.now(), 10, self.lfl_params, required_nodes, 
                            self.derived_nodes, {}, {})
         gr = graph_nodes(mgr2)
         self.assertEqual(len(gr), 11)
@@ -91,24 +91,24 @@ class TestDependencyGraph(unittest.TestCase):
                 pass
         one = One('overridden')
         four = Four('used')
-        mgr1 = NodeManager(datetime.now(), [1, 2], [2, 4], {1:one, 4:four},{}, {})
+        mgr1 = NodeManager(datetime.now(), 10, [1, 2], [2, 4], {1:one, 4:four},{}, {})
         gr = graph_nodes(mgr1)
         self.assertEqual(len(gr), 5)
         # LFL
         self.assertEqual(gr.edges(1), []) # as it's in LFL, it shouldn't have any edges
-        self.assertEqual(gr.node[1], {'color': 'forestgreen'})
+        self.assertEqual(gr.node[1], {'color': '#72f4eb'})
         # Derived
         self.assertEqual(gr.edges(4), [(4,'DepFour')])
-        self.assertEqual(gr.node[4], {'color': 'yellow'})
+        self.assertEqual(gr.node[4], {'color': '#72cdf4'})
         # Root
         from analysis_engine.dependency_graph import draw_graph
         draw_graph(gr, 'test_graph_nodes_with_duplicate_key_in_lfl_and_derived')
         self.assertEqual(gr.successors('root'), [2,4]) # only the two requested are linked
-        self.assertEqual(gr.node['root'], {'color': 'red'})
+        self.assertEqual(gr.node['root'], {'color': '#fff'})
         
     def test_dependency(self):
         required_nodes = ['P7', 'P8']
-        mgr = NodeManager(datetime.now(), self.lfl_params, required_nodes, 
+        mgr = NodeManager(datetime.now(), 10, self.lfl_params, required_nodes, 
                           self.derived_nodes, {}, {})
         gr = graph_nodes(mgr)
         gr_all, gr_st, order = process_order(gr, mgr)
@@ -153,7 +153,7 @@ Node: Start Datetime 	Pre: [] 	Succ: [] 	Neighbors: [] 	Edges: []
                           'P4', 'P5', 'P6', # middle level node
                           'Raw3', # bottom level node
                           ]
-        mgr = NodeManager(datetime.now(), self.lfl_params + ['Floating'], required_nodes, 
+        mgr = NodeManager(datetime.now(), 10, self.lfl_params + ['Floating'], required_nodes, 
                           self.derived_nodes, {}, {})
         gr = graph_nodes(mgr)
         gr_all, gr_st, order = process_order(gr, mgr)
@@ -191,7 +191,7 @@ Node: Start Datetime 	Pre: [] 	Succ: [] 	Neighbors: [] 	Edges: []
         except ImportError:
             # for IDE test runners
             derived = get_derived_nodes(['sample_derived_parameters'])
-        nodes = NodeManager(datetime.now(), lfl_params, required_nodes, derived, {}, {})
+        nodes = NodeManager(datetime.now(), 10, lfl_params, required_nodes, derived, {}, {})
         order, _ = dependency_order(nodes, draw=False)
         pos = order.index
         self.assertTrue(len(order))
@@ -215,7 +215,7 @@ Node: Start Datetime 	Pre: [] 	Succ: [] 	Neighbors: [] 	Edges: []
         except ImportError:
             # for IDE test runners
             derived = get_derived_nodes(['sample_derived_parameters'])
-        mgr = NodeManager(datetime.now(), lfl_params, required_nodes, derived, 
+        mgr = NodeManager(datetime.now(), 10, lfl_params, required_nodes, derived, 
                           {}, {})
         self.assertRaises(nx.NetworkXError, dependency_order, mgr, draw=False)
         
