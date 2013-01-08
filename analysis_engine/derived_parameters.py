@@ -884,7 +884,7 @@ class AltitudeRadio(DerivedParameterNode):
                source_L = P('Altitude Radio EFIS (L)'),
                source_R = P('Altitude Radio EFIS (R)')):
         
-        frame_name = frame.value if frame else None
+        frame_name = frame.value if frame else ''
         frame_qualifier = frame_qual.value if frame_qual else None
 
         # 737-1 & 737-i has Altitude Radio recorded.
@@ -949,7 +949,7 @@ class AltitudeSTDSmoothed(DerivedParameterNode):
     
     def derive(self, alt = P('Altitude STD'), frame = A('Frame')):
         
-        frame_name = frame.value if frame else None
+        frame_name = frame.value if frame else ''
         
         if frame_name in ['737-6']:
             # The altitude signal is measured in steps of 32 ft so needs
@@ -1043,7 +1043,9 @@ class AltitudeQNH(DerivedParameterNode):
         # in the correct half:
         peak = alt_peak.get_first()  # NOTE: Fix for multiple approaches...
         fall = alt_aal.array[peak.index - 1] > alt_aal.array[peak.index + 1]
-        peak = peak.index + int(fall)
+        peak = peak.index 
+        if fall:
+            peak += int(fall)
 
         # Add the elevation at takeoff to the climb portion of the array:
         alt_qnh[:peak] += t_elev
@@ -1304,7 +1306,7 @@ class Daylight(MultistateDerivedParameterNode):
                     # Replace values with Night
                     self.array[step] = 0
                 else:
-                    pass  # leave array as 1
+                    continue  # leave array as 1
             else:
                 # either is masked or recording 0.0 which is invalid too
                 self.array[step] = np.ma.masked
@@ -1494,7 +1496,7 @@ class BrakePressure(DerivedParameterNode):
 
     def derive(self, brake_L=P('Brake (L) Press'), brake_R=P('Brake (R) Press'),
                frame=A('Frame')):
-        frame_name = frame.value if frame else None
+        frame_name = frame.value if frame else ''
 
         if frame_name.startswith('737-'):
             self.array, self.frequency, self.offset = blend_two_parameters(brake_L, brake_R)
@@ -2767,7 +2769,7 @@ class Groundspeed(DerivedParameterNode):
                source_B = P('Groundspeed (2)'),
                frame = A('Frame')):
         
-        frame_name = frame.value if frame else None
+        frame_name = frame.value if frame else ''
         
         if frame_name in ['757-DHL']:
             # The coding in this frame is unique as it only uses two bits for
@@ -2821,7 +2823,7 @@ class FlapSurface(DerivedParameterNode):
                frame=A('Frame'),
                apps=S('Approach'),               
                alt_aal=P('Altitude AAL')):
-        frame_name = frame.value if frame else None
+        frame_name = frame.value if frame else ''
 
         if frame_name.startswith('737-') or frame_name in ['757-DHL']:
             self.array, self.frequency, self.offset = blend_two_parameters(flap_A,
@@ -3030,7 +3032,7 @@ class HeadingContinuous(DerivedParameterNode):
     """
     For all internal computing purposes we use this parameter which does not
     jump as it passes through North. To recover the compass display, modulus
-    ("%360" in Python) returns the value to display to the user.
+    (val % 360 in Python) returns the value to display to the user.
     """
     units = 'deg'
     def derive(self, head_mag=P('Heading')):
@@ -3099,10 +3101,10 @@ class ILSFrequency(DerivedParameterNode):
                 'ILS-VOR (2) Frequency' in available)    
 
     def derive(self, f1=P('ILS (1) Frequency'),f2=P('ILS (2) Frequency'),
-               f1v=P('ILS-VOR (1) Frequency'), f2v=P('ILS-VOR (2) Frequency'),
-               frame = A('Frame')):
+               f1v=P('ILS-VOR (1) Frequency'), f2v=P('ILS-VOR (2) Frequency')):
+               ##frame = A('Frame')):
 
-        frame_name = frame.value if frame else None
+        ##frame_name = frame.value if frame else ''
         
         # On some frames only one ILS frequency recording works
         if False:
@@ -3762,7 +3764,7 @@ class VerticalSpeed(DerivedParameterNode):
             return True
 
     def derive(self, alt_std=P('Altitude STD Smoothed'), frame=A('Frame')):
-        frame_name = frame.value if frame else None
+        frame_name = frame.value if frame else ''
         
         if frame_name in ['Hercules', '146']:
             timebase = 8.0
@@ -3916,11 +3918,17 @@ class RateOfTurn(DerivedParameterNode):
     """
     Simple rate of change of heading. 
     """
-    
+
     units = 'deg/sec'
     
     def derive(self, head=P('Heading Continuous')):
-        self.array = rate_of_change(head, 2)
+        # add a little hysteresis to the rate of change to smooth out minor 
+        # changes
+        #self.array = rate_of_change(head, 2)
+        roc = rate_of_change(head, 2)
+        self.array = hysteresis(roc, 0.4)
+        # trouble is that we're loosing the nice 0 values, so force include!
+        self.array[roc == 0] = 0
 
 
 class Pitch(DerivedParameterNode):
@@ -4056,7 +4064,7 @@ class ThrustReversers(MultistateDerivedParameterNode):
             e2_depd=P('Eng (2) Thrust Reverser Deployed'),
             
             frame=A('Frame')):
-        frame_name = frame.value if frame else None
+        frame_name = frame.value if frame else ''
         
         if frame_name in ['737-4', '737-1',
                           '737-5', '737-5_NON-EIS', 
@@ -4367,7 +4375,7 @@ class Speedbrake(DerivedParameterNode):
             frame=A('Frame')):
         '''
         '''
-        frame_name = frame.value if frame else None
+        frame_name = frame.value if frame else ''
 
         if frame_name in ['737-3A', '737-3B', '737-3C']:
             self.array, self.offset = self.spoiler_737(spoiler_4, spoiler_9)
@@ -4380,7 +4388,6 @@ class Speedbrake(DerivedParameterNode):
             raise DataFrameError(self.name, frame_name)
 
 
-# TODO: Write some unit tests!
 class SpeedbrakeSelected(MultistateDerivedParameterNode):
     '''
     Determines the selected state of the speedbrake.
@@ -4406,8 +4413,57 @@ class SpeedbrakeSelected(MultistateDerivedParameterNode):
         return 'Speedbrake Deployed' in x \
             or ('Frame' in x and 'Speedbrake Handle' in x)\
             or ('Frame' in x and 'Speedbrake' in x)
-            
+    
+    def b737_speedbrake(self, spdbrk, handle):
+        '''
+        Speedbrake Handle Positions for 737-x:
 
+            ========    ============
+            Angle       Notes
+            ========    ============
+             0.0        Full Forward
+             4.0        Armed
+            24.0
+            29.0
+            38.0        In Flight
+            40.0        Straight Up
+            48.0        Full Up
+            ========    ============
+            
+        Speedbrake Positions > 1 = Deployed
+        '''
+        if spdbrk and handle:
+            # Speedbrake and Speedbrake Handle available
+            '''
+            Speedbrake status taken from surface position. This allows
+            for aircraft where the handle is inoperative, overwriting
+            whatever the handle position is when the brakes themselves
+            have deployed.
+            
+            It's not possible to identify when the speedbrakes are just
+            armed in this case, so we take any significant motion as
+            deployed.
+            
+            If there is no handle position recorded, the default 'Stowed' 
+            value is retained.
+            '''
+            armed = np.ma.where((2.0 < handle.array) & (handle.array < 35.0),
+                                'Armed/Cmd Dn', 'Stowed')
+            array = np.ma.where((handle.array >= 35.0) | (spdbrk.array > 1.0),
+                                'Deployed/Cmd Up', armed)
+        elif spdbrk and not handle:
+            # Speedbrake only
+            array = np.ma.where(spdbrk.array > 1.0,
+                                'Deployed/Cmd Up', 'Stowed')
+        elif handle and not spdbrk:
+            # Speedbrake Handle only
+            armed = np.ma.where((2.0 < handle.array) & (handle.array < 35.0),
+                                'Armed/Cmd Dn', 'Stowed')
+            array = np.ma.where(handle.array >= 35.0,
+                                'Deployed/Cmd Up', armed)
+        else:
+            raise ValueError("Can't work without either Speedbrake or Handle")
+        return array
 
     def derive(self,
             deployed=M('Speedbrake Deployed'),
@@ -4415,11 +4471,9 @@ class SpeedbrakeSelected(MultistateDerivedParameterNode):
             handle=P('Speedbrake Handle'),
             spdbrk=P('Speedbrake'),
             frame=A('Frame')):
-        '''
-        '''
-        frame_name = frame.value if frame else None
-                
+        frame_name = frame.value if frame else ''
         if deployed:
+            # Speedbrake Deployed available, use this
             # set initial state to 'Stowed'
             array = np.ma.zeros(len(deployed.array))
             if armed:
@@ -4429,56 +4483,11 @@ class SpeedbrakeSelected(MultistateDerivedParameterNode):
             array[deployed.array == 'Deployed'] = 2
             self.array = array # (only call __set_attr__ once)
             
-        elif frame_name and frame_name.startswith('737-'):
-
-            if spdbrk:
-                # set initial state to 'Stowed' in case handle is not true.
-                array = np.ma.zeros(len(spdbrk.array))
-
-            if handle:
-                # set initial state to 'Stowed'
-                array = np.ma.zeros(len(handle.array))
-                '''
-                Speedbrake Handle Positions:
-
-                    ========    ============
-                    Angle       Notes
-                    ========    ============
-                     0.0        Full Forward
-                     4.0        Armed
-                    24.0
-                    29.0
-                    38.0        In Flight
-                    40.0        Straight Up
-                    48.0        Full Up
-                    ========    ============
-                '''
-                self.array = np.ma.where(
-                    (2.0 < handle.array) & (handle.array < 35.0),
-                    'Armed/Cmd Dn', 'Stowed')
-                self.array = np.ma.where(
-                    handle.array >= 35.0,
-                    'Deployed/Cmd Up', self.array)
-
-            if spdbrk:
-                '''
-                Speedbrake status taken from surface position. This allows
-                for aircraft where the handle is inoperative, overwriting
-                whatever the handle position is when the brakes themselves
-                have deployed.
-                
-                It's not possible to identify when the speedbrakes are just
-                armed in this case, so we take any significant motion as
-                deployed.
-                
-                If there is no handle position recorded, the default 'Stowed' value is retained.
-                '''
-                self.array = np.ma.where(spdbrk.array < 1.0, 
-                                         'Deployed/Cmd Up', array)
-
-
-        else: # (NB: This won't be reached due to can_operate)
-            # TODO: Implement using a different parameter?
+        elif frame_name.startswith('737-'):
+            self.array = self.b737_speedbrake(spdbrk, handle)
+            
+        else:
+            # Not implemented for this frame
             raise DataFrameError(self.name, frame_name)
 
 
@@ -4517,7 +4526,7 @@ class StickShaker(MultistateDerivedParameterNode):
             shake_act=M('Shaker Activation')):
         '''
         '''
-        frame_name = frame.value if frame else None
+        frame_name = frame.value if frame else ''
 
         if frame_name in ['CRJ-700-900'] and shake_act:
             self.array, self.frequency, self.offset = \
@@ -4722,21 +4731,21 @@ class WindDirection(DerivedParameterNode):
     '''
     @classmethod
     def can_operate(cls, available):
-        return ('Wind Direction True' in available) or\
-               (
-                   ('Wind Direction (1)' in available) and\
-                   ('Wind Direction (2)' in available)
-               )
+        return 'Wind Direction True' in available or \
+               ('Wind Direction (1)' in available and\
+                'Wind Direction (2)' in available)
     
     units = 'deg'
 
-    def derive(self, wind_1=P('Wind Direction (1)'), wind_2=P('Wind Direction (2)'),
-               wind_true=P('Wind Direction True')):
+    def derive(self, wind_true=P('Wind Direction True'),
+               wind_1=P('Wind Direction (1)'), 
+               wind_2=P('Wind Direction (2)')):
         if wind_true:
-            self.array=wind_true.array
+            self.array = wind_true.array
         else:
             self.array, self.frequency, self.offset = \
                 blend_two_parameters(wind_1, wind_2)
+        
         
 class WheelSpeedInboard(DerivedParameterNode):
     '''
@@ -4746,6 +4755,7 @@ class WheelSpeedInboard(DerivedParameterNode):
         self.array, self.frequency, self.offset = \
             blend_two_parameters(ws_1, ws_2)
         
+        
 class WheelSpeedOutboard(DerivedParameterNode):
     '''
     Required for Embraer 135-145 Data Frame
@@ -4753,6 +4763,7 @@ class WheelSpeedOutboard(DerivedParameterNode):
     def derive(self, ws_1=P('Wheel Speed Outboard (1)'), ws_2=P('Wheel Speed Outboard (2)')):
         self.array, self.frequency, self.offset = \
             blend_two_parameters(ws_1, ws_2)
+        
         
 class WheelSpeed(DerivedParameterNode):
     '''

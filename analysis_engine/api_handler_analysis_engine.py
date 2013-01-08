@@ -16,7 +16,6 @@ from operator import itemgetter
 
 from analysis_engine.api_handler import (APIHandlerHTTP, NotFoundError)
 from analysis_engine.library import bearing_and_distance
-from analysis_engine.settings import BASE_URL
 
 
 ##############################################################################
@@ -136,6 +135,7 @@ class AnalysisEngineAPIHandlerHTTP(AnalysisEngineAPI, APIHandlerHTTP):
         :returns: Airport info dictionary.
         :rtype: dict
         '''
+        from analysis_engine.settings import BASE_URL
         url = '%(base_url)s/api/airport/%(code)s/' % {
             'base_url': BASE_URL.rstrip('/'),
             'code': code,
@@ -157,6 +157,7 @@ class AnalysisEngineAPIHandlerHTTP(AnalysisEngineAPI, APIHandlerHTTP):
         :returns: Airport info dictionary.
         :rtype: dict
         '''
+        from analysis_engine.settings import BASE_URL
         url = '%(base_url)s/api/airport/nearest.json?ll=%(ll)s' % {
             'base_url': BASE_URL.rstrip('/'),
             'll': '%f,%f' % (latitude, longitude),
@@ -190,6 +191,7 @@ class AnalysisEngineAPIHandlerHTTP(AnalysisEngineAPI, APIHandlerHTTP):
                 ('09*').  'items' is a list of matching runways.
         :rtype: dict
         '''
+        from analysis_engine.settings import BASE_URL
         url = '%(base_url)s/api/airport/%(airport)s/runway/nearest.json' % {
             'airport': airport,
             'base_url': BASE_URL.rstrip('/'),

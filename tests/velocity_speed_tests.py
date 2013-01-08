@@ -38,8 +38,16 @@ class TestVelocitySpeed(unittest.TestCase):
         self.assertEquals(self.velocity_speed.v2(94000, 20), None)
         self.assertRaises(KeyError, self.velocity_speed.v2, 165000, 14)
 
-    def test_airspeed_reference(self):
+    def test_v2_minimum(self):
+        self.velocity_speed.interpolate = True
+        self.velocity_speed.minimum_speed = 125
+        self.assertEquals(self.velocity_speed.v2(100500, 15), 125)
         self.velocity_speed.interpolate = False
+        self.assertEquals(self.velocity_speed.v2(100500, 15), 128)
+        self.assertRaises(KeyError, self.velocity_speed.v2, 165000, 14)
+
+    def test_airspeed_reference(self):
+        self.velocity_speed.minimum_speed = False
         self.assertEquals(self.velocity_speed.airspeed_reference(119000, 15), 122)
         self.assertEquals(self.velocity_speed.airspeed_reference(120000, 15), 122)
         self.assertEquals(self.velocity_speed.airspeed_reference(121000, 15), 129)
@@ -51,6 +59,14 @@ class TestVelocitySpeed(unittest.TestCase):
         self.assertEquals(self.velocity_speed.airspeed_reference(120000, 15), 122)
         self.assertEquals(self.velocity_speed.airspeed_reference(145000, 20), 132.5)
         self.assertEquals(self.velocity_speed.airspeed_reference(94000, 20), None)
+        self.assertRaises(KeyError, self.velocity_speed.airspeed_reference, 165000, 14)
+
+    def test_airspeed_reference_minimum(self):
+        self.velocity_speed.interpolate = True
+        self.velocity_speed.minimum_speed = 115
+        self.assertEquals(self.velocity_speed.airspeed_reference(100500, 15), 115)
+        self.velocity_speed.interpolate = False
+        self.assertEquals(self.velocity_speed.airspeed_reference(100500, 15), 116)
         self.assertRaises(KeyError, self.velocity_speed.airspeed_reference, 165000, 14)
 
 

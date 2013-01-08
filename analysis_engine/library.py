@@ -183,8 +183,9 @@ def align(slave, master, interpolate=True):
         # force disable interpolate!
         slave_array = slave_array.raw
         interpolate = False
+        _dtype = int
     elif isinstance(slave_array, np.ma.MaskedArray):
-        pass  # expected
+        _dtype = float
     else:
         raise ValueError('Cannot align slave array of unknown type: '
             'Slave: %s, Master: %s.', slave.name, master.name)
@@ -226,10 +227,6 @@ def align(slave, master, interpolate=True):
     if len_aligned != (len(slave_array) * r):
         raise ValueError("Array length problem in align. Probable cause is flight cutting not at superframe boundary")
     
-    if interpolate:
-        _dtype = float
-    else:
-        _dtype = int
     slave_aligned = np.ma.zeros(len(slave_array) * r, dtype=_dtype)
     
     # Where offsets are equal, the slave_array recorded values remain
@@ -2918,7 +2915,8 @@ def blend_two_parameters(param_one, param_two):
     if a+b == 0:
         logger.warning("Neither '%s' or '%s' has valid data available.", 
                        param_one.name, param_two.name)
-        return None, None, None
+        # Return empty space of the right shape...
+        return np_ma_masked_zeros_like(param_one.array), param_one.frequency, param_one.offset
 
     if a < b*0.8:
         logger.warning("Little valid data available for %s, using only %s data.", param_one.name, param_two.name)
@@ -3447,7 +3445,7 @@ def rate_of_change(diff_param, width):
 
 def repair_mask(array, frequency=1, repair_duration=REPAIR_DURATION,
                 raise_duration_exceedance=False, copy=False, extrapolate=False, 
-                zero_if_masked=False):
+                zero_if_masked=False, repair_above=None):
     '''
     This repairs short sections of data ready for use by flight phase algorithms
     It is not intended to be used for key point computations, where invalid data
@@ -3458,6 +3456,7 @@ def repair_mask(array, frequency=1, repair_duration=REPAIR_DURATION,
     :param repair_duration: If None, any length of masked data will be repaired.
     :param raise_duration_exceedance: If False, no warning is raised if there are masked sections longer than repair_duration. They will remain unrepaired.
     :param extrapolate: If True, data is extrapolated at the start and end of the array.
+    :param repair_above: If value provided only masked ranges where first and last unmasked values are this value will be repaired.
     :raises ValueError: If the entire array is masked.
     '''
     if not np.ma.count(array):
@@ -3498,11 +3497,13 @@ def repair_mask(array, frequency=1, repair_duration=REPAIR_DURATION,
             else:
                 continue # Can't interpolate if we don't know the last sample
         else:
-            array.data[section] = np.interp(np.arange(length) + 1,
-                                            [0, length + 1],
-                                            [array.data[section.start - 1],
-                                             array.data[section.stop]])
-            array.mask[section] = False
+            start_value = array.data[section.start - 1]
+            end_value = array.data[section.stop]
+            if repair_above is None or (start_value > repair_above and end_value > repair_above):
+                array.data[section] = np.interp(np.arange(length) + 1,
+                                                [0, length + 1],
+                                                [start_value, end_value])
+                array.mask[section] = False
             
     return array
 

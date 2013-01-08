@@ -256,7 +256,6 @@ def process_flight(hdf_path, aircraft_info, start_datetime=datetime.now(),
         'Model': # e.g. 737-808-ER
         'Series': # e.g. 737-800
         'Family': # e.g. 737
-        'Flap Selections': # e.g. [0,18,24,30,33]
         'Frame': # e.g. 737-3C
         'Main Gear To Altitude Radio': # Distance in metres
         'Wing Span': # Distance in metres
@@ -316,7 +315,8 @@ def process_flight(hdf_path, aircraft_info, start_datetime=datetime.now(),
         if settings.CACHE_PARAMETER_MIN_USAGE:
             # find params used more than
             for node in gr_st.nodes():
-                if node in node_mgr.derived_nodes:  # this includes KPV/KTIs but they'll be ignored by HDF
+                if node in node_mgr.derived_nodes:  
+                    # this includes KPV/KTIs but they'll be ignored by HDF
                     qty = len(gr_st.predecessors(node))
                     if qty > settings.CACHE_PARAMETER_MIN_USAGE:
                         hdf.cache_param_list.append(node)
@@ -357,27 +357,56 @@ def process_flight(hdf_path, aircraft_info, start_datetime=datetime.now(),
 
 
 if __name__ == '__main__':
-    import argparse
+    import argparse, os
     from utilities.filesystem_tools import copy_file
+    from analysis_engine.plot_flight import csv_flight_details, track_to_kml
     logger = logging.getLogger()
     logger.setLevel(logging.INFO)
     logger.addHandler(logging.StreamHandler(stream=sys.stdout))
     parser = argparse.ArgumentParser(description="Process a flight.")
     parser.add_argument('file', type=str,
-                        help='Path of file to process.')
-    parser.add_argument('-tail', dest='tail_number', type=str, default='G-ABCD',
-                        help='Aircraft Tail Number for processing.')
-    parser.add_argument('-frame', dest='frame', type=str, default=None,
-                        help='Data frame name.')
-    parser.add_argument('-p', dest='plot', action='store_true',
-                        default=False, help='Plot flight onto a graph.')
-    args = parser.parse_args()
+            help='Path of file to process.')
+    parser.add_argument('-tail', dest='tail_number', type=str, 
+                        default='G-FDSL', # as per flightdatacommunity file
+            help='Aircraft Tail Number for processing.')
+    parser.add_argument('-frame', dest='frame', type=str, 
+                        default='737-5', # as per flightdatacommunity file
+            help='Data frame name.')
+    parser.add_argument('-p', dest='plot', action='store_true', default=False, 
+            help='Plot flight onto a graph.')
+    parser.add_argument('-csv', dest='write_csv', type=str, default='True', 
+            help='Write CSV of processing results. Set "False" to disable.')
+    parser.add_argument('-kml', dest='write_kml', type=str, default='True', 
+            help='Write KML of flight track. Set "False" to disable.')
     
+    args = parser.parse_args()
+    aircraft_info = {
+        'Tail Number': args.tail_number,
+        'Model': '737-301',
+        'Series': '737-300',
+        'Family': '737',
+        'Manufacturer': 'Boeing',
+        'Precise Positioning': True,
+        'Frame': args.frame,
+        'Frame Qualifier': 'Altitude_Radio_EFIS',
+    }
+    
+    # Derive parameters to new HDF
     hdf_copy = copy_file(args.file, postfix='_process')
-    process_flight(hdf_copy, {'Tail Number': args.tail_number,
-                              'Precise Positioning': True,
-                              'Frame': args.frame,
-                              'Frame Qualifier': 'Altitude_Radio_EFIS',
-                              },
-                   draw=args.plot)
-    logger.info("Wrote results to new hdf: %s", hdf_copy)
+    res = process_flight(hdf_copy, aircraft_info, draw=args.plot)
+    logger.info("Derived parameters stored in hdf: %s", hdf_copy)
+    # Write CSV file
+    if args.write_csv.lower() == 'true':
+        csv_dest = os.path.splitext(hdf_copy)[0] + '.csv'
+        csv_flight_details(hdf_copy, res['kti'], res['kpv'], res['phases'], 
+                           dest_path=csv_dest)
+        logger.info("KPV, KTI and Phases writen to csv: %s", csv_dest)
+    # Write KML file
+    if args.write_kml.lower() == 'true':
+        kml_dest = os.path.splitext(hdf_copy)[0] + '.kml'
+        track_to_kml(hdf_copy, res['kti'], res['kpv'], res['flight'], 
+                     plot_altitude='Altitude QNH', dest_path=kml_dest)
+        logger.info("Flight Track with attributes writen to kml: %s", kml_dest)
+        
+    # - END -
+    
