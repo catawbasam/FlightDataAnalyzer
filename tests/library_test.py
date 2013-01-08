@@ -2739,6 +2739,20 @@ class TestRepairMask(unittest.TestCase):
         expected = np.ma.array([6,6,6,7,7,7,7],mask=[0,0,0,0,0,0,0])
         ma_test.assert_array_equal(res, expected)
 
+    def test_repair_mask_basic(self):
+        array = np.ma.arange(10)
+        array[5] = np.ma.masked
+        array[7:9] = np.ma.masked
+        res = repair_mask(array, repair_above=5)
+        np.testing.assert_array_equal(res.data,range(10))
+        # test only array[5] is still masked as is the first 
+        self.assertFalse(np.ma.is_masked(res[4]))
+        self.assertTrue(np.ma.is_masked(res[5]))
+        self.assertFalse(np.ma.is_masked(res[6]))
+        self.assertFalse(np.ma.is_masked(res[7]))
+        self.assertFalse(np.ma.is_masked(res[8]))
+        self.assertFalse(np.ma.is_masked(res[9]))
+
 
 class TestRoundToNearest(unittest.TestCase):
     def test_round_to_nearest(self):

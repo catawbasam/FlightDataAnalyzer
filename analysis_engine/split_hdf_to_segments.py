@@ -156,7 +156,7 @@ def split_segments(hdf):
     '''
     airspeed = hdf['Airspeed']
     try:
-        airspeed_array = repair_mask(airspeed.array, repair_duration=None)
+        airspeed_array = repair_mask(airspeed.array, repair_duration=None, repair_above=settings.AIRSPEED_THRESHOLD)
     except ValueError:
         # Airspeed array is masked, most likely under min threshold so it did 
         # not go fast.
@@ -233,11 +233,18 @@ def split_segments(hdf):
             unmasked_edges = np.ma.flatnotmasked_edges(dfc_diff[dfc_slice])
             if unmasked_edges is not None:
                 # Split on the first DFC jump.
-                dfc_index = unmasked_edges[0]
-                split_index = round((dfc_index / dfc.frequency) + \
+                dfc_jump = unmasked_edges[0]
+                dfc_index = round((dfc_jump / dfc.frequency) + \
                                     slice_start_secs + dfc_half_period)
-                logger.info("'Frame Counter' jumped within slow_slice '%s' "
-                             "at index '%d'.", slow_slice, split_index)
+                # account for rounding of dfc index exceeding slow slice
+                if dfc_index > slice_stop_secs:
+                    split_index = slice_stop_secs
+                elif dfc_index < slice_start_secs:
+                    split_index = slice_start_secs
+                else:
+                    split_index = dfc_index
+                    logger.info("'Frame Counter' jumped within slow_slice '%s' "
+                                "at index '%d'.", slow_slice, split_index)
                 segments.append(_segment_type_and_slice(airspeed_array,
                                                         airspeed.frequency,
                                                         start, split_index))
