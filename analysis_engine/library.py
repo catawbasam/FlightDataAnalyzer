@@ -2915,7 +2915,8 @@ def blend_two_parameters(param_one, param_two):
     if a+b == 0:
         logger.warning("Neither '%s' or '%s' has valid data available.", 
                        param_one.name, param_two.name)
-        return None, None, None
+        # Return empty space of the right shape...
+        return np_ma_masked_zeros_like(param_one.array), param_one.frequency, param_one.offset
 
     if a < b*0.8:
         logger.warning("Little valid data available for %s, using only %s data.", param_one.name, param_two.name)
@@ -3444,7 +3445,7 @@ def rate_of_change(diff_param, width):
 
 def repair_mask(array, frequency=1, repair_duration=REPAIR_DURATION,
                 raise_duration_exceedance=False, copy=False, extrapolate=False, 
-                zero_if_masked=False):
+                zero_if_masked=False, repair_above=None):
     '''
     This repairs short sections of data ready for use by flight phase algorithms
     It is not intended to be used for key point computations, where invalid data
@@ -3455,6 +3456,7 @@ def repair_mask(array, frequency=1, repair_duration=REPAIR_DURATION,
     :param repair_duration: If None, any length of masked data will be repaired.
     :param raise_duration_exceedance: If False, no warning is raised if there are masked sections longer than repair_duration. They will remain unrepaired.
     :param extrapolate: If True, data is extrapolated at the start and end of the array.
+    :param repair_above: If value provided only masked ranges where first and last unmasked values are this value will be repaired.
     :raises ValueError: If the entire array is masked.
     '''
     if not np.ma.count(array):
@@ -3495,11 +3497,13 @@ def repair_mask(array, frequency=1, repair_duration=REPAIR_DURATION,
             else:
                 continue # Can't interpolate if we don't know the last sample
         else:
-            array.data[section] = np.interp(np.arange(length) + 1,
-                                            [0, length + 1],
-                                            [array.data[section.start - 1],
-                                             array.data[section.stop]])
-            array.mask[section] = False
+            start_value = array.data[section.start - 1]
+            end_value = array.data[section.stop]
+            if repair_above is None or (start_value > repair_above and end_value > repair_above):
+                array.data[section] = np.interp(np.arange(length) + 1,
+                                                [0, length + 1],
+                                                [start_value, end_value])
+                array.mask[section] = False
             
     return array
 

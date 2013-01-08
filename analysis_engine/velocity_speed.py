@@ -26,6 +26,7 @@ class VelocitySpeed(object):
     weight_unit = 'kg'
     interpolate = False
     source = ''
+    minimum_speed = None
 
     v2_table = {'weight': ()}
     airspeed_reference_table = {'weight': ()}
@@ -107,7 +108,12 @@ class VelocitySpeed(object):
             # bisect lookup
             value_index = bisect_left(lookup['weight'], weight)
             value = lookup[setting][value_index]
-        return value
+
+        if self.minimum_speed is None or value >= self.minimum_speed:
+            return value
+        else:
+            # lookup value is less than minimum speed so return minimum speed
+            return self.minimum_speed
 
 
 class B737_300(VelocitySpeed):
@@ -144,13 +150,19 @@ class B737_400(VelocitySpeed):
 
 class B737_500(VelocitySpeed):
     interpolate = True
-    source = 'B737-5_925017_07'
     weight_unit = 'kg'
+    minimum_speed = 109
+    v2_table = {
+            'weight': ( 30,  35,  40,  45,  50,  55,  60,  65),
+                   5: (112, 119, 126, 133, 139, 146, 152, 157),
+                  15: (107, 113, 120, 126, 132, 138, 143, 146),
+    }
+
     airspeed_reference_table = {
-             'weight':  ( 32,  36,  40,  44,  48,  52,  56,  60,  64),
-                    15: (111, 118, 125, 132, 138, 143, 149, 154, 159),
-                    30: (105, 111, 117, 123, 129, 135, 140, 144, 149),
-                    40: (101, 108, 114, 120, 125, 130, 135, 140, 145),
+             'weight':  ( 36,  40,  44,  48,  52,  56,  60),
+                   15:  (118, 125, 132, 137, 143, 149, 153),
+                   30:  (111, 117, 125, 130, 134, 140, 144),
+                   40:  (108, 114, 121, 126, 130, 135, 140),
     }
 
 

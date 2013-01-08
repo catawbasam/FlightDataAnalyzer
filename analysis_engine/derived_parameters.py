@@ -1045,7 +1045,9 @@ class AltitudeQNH(DerivedParameterNode):
         # in the correct half:
         peak = alt_peak.get_first()  # NOTE: Fix for multiple approaches...
         fall = alt_aal.array[peak.index - 1] > alt_aal.array[peak.index + 1]
-        peak = peak.index + int(fall)
+        peak = peak.index 
+        if fall:
+            peak += int(fall)
 
         # Add the elevation at takeoff to the climb portion of the array:
         alt_qnh[:peak] += t_elev

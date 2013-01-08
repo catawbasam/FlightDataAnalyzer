@@ -288,20 +288,14 @@ class TestAltitudeWhenDescending(unittest.TestCase):
     def test_derive(self):
         descending = buildsections('Descending', [0, 10], [11, 20])
         alt_aal = P('Altitude AAL',
-                    np.ma.masked_array(range(100, 0, -10) + \
-                                       range(100, 0, -10),
-                                       mask=[False] * 6 + [True] * 3 + \
-                                            [False] * 11))
+                    np.ma.masked_array(range(100, 0, -10),
+                                       mask=[False] * 6 + [True] * 3 + [False]))
         altitude_when_descending = AltitudeWhenDescending()
         altitude_when_descending.derive(descending, alt_aal)
         self.assertEqual(list(altitude_when_descending),
-          [KeyTimeInstance(index=2.5, name='75 Ft Descending'), 
+          [KeyTimeInstance(index=2.5, name='75 Ft Descending'),
            KeyTimeInstance(index=5.0, name='50 Ft Descending'),
-           KeyTimeInstance(index=12.5, name='75 Ft Descending'), 
-           KeyTimeInstance(index=15.0, name='50 Ft Descending'),
-           KeyTimeInstance(index=16.5, name='35 Ft Descending'),
-           KeyTimeInstance(index=18.0, name='20 Ft Descending'),
-           KeyTimeInstance(index=19.0, name='10 Ft Descending')])
+        ])
 
 
 class TestInitialClimbStart(unittest.TestCase):
@@ -447,18 +441,20 @@ class TestTakeoffAccelerationStart(unittest.TestCase):
     def test_takeoff_acceleration_start(self):
         # This test uses the same airspeed data as the library routine test,
         # so should give the same answer!
-        airspeed_data = np.ma.array([37.9,37.9,37.9,37.9,37.9,38.2,38.2,38.2,
-                                     38.2,38.8,38.2,38.8,39.1,39.7,40.6,41.5,
-                                     42.7,43.6,44.5,46,47.5,49.6,52,53.2,54.7,
-                                     57.4,60.7,61.9,64.3,66.1,69.4,70.6,74.2,
-                                     74.8])
+        airspeed_data = np.ma.array(data=[37.9,37.9,37.9,37.9,37.9,37.9,37.9,
+                                          37.9,38.2,38.2,38.2,38.2,38.8,38.2,
+                                          38.8,39.1,39.7,40.6,41.5,42.7,43.6,
+                                          44.5,46,47.5,49.6,52,53.2,54.7,57.4,
+                                          60.7,61.9,64.3,66.1,69.4,70.6,74.2,
+                                          74.8],
+                                    mask=[1]*22+[0]*15
+                                    )
         takeoff = buildsection('Takeoff',3,len(airspeed_data))
         aspd = P('Airspeed', airspeed_data)
         instance = TakeoffAccelerationStart()
         instance.derive(aspd, takeoff,None)
-        expected = [KeyTimeInstance(index=15.083333333333361,
-                                    name='Takeoff Acceleration Start')]
-        self.assertEqual(instance, expected)
+        self.assertLess(instance[0].index, 1.0)
+        self.assertGreater(instance[0].index, 0.5)
 
     
 class TestTakeoffTurnOntoRunway(unittest.TestCase):
@@ -473,7 +469,7 @@ class TestTakeoffTurnOntoRunway(unittest.TestCase):
         takeoff = buildsection('Takeoff',1.7,5.5)
         fast = buildsection('Fast',3.7,7)
         instance.derive(head, takeoff, fast)
-        expected = [KeyTimeInstance(index=1, name='Takeoff Turn Onto Runway')]
+        expected = [KeyTimeInstance(index=1.7, name='Takeoff Turn Onto Runway')]
         self.assertEqual(instance, expected)
 
     def test_takeoff_turn_onto_runway_curved(self):
@@ -575,15 +571,15 @@ class TestTouchdown(unittest.TestCase):
                            #'Landing')])
 
     def test_touchdown_basic(self):
-        vert_spd = Parameter('Vertical Speed', np.ma.arange(10)*40 - 380)
+        vert_spd = Parameter('Vertical Speed', np.ma.arange(10)*40 - 380.0)
         altitude = Parameter('Altitude AAL',
-                             np.ma.array(data=[28, 21, 15, 10, 6, 3, 1, 0, 0,  0],
+                             np.ma.array(data=[28.0, 21, 15, 10, 6, 3, 1, 0, 0,  0],
                                          mask = False))
         airs = buildsection('Airborne', 1, 8)
         lands = buildsection('Landing', 2, 9)
         tdwn=Touchdown()
-        tdwn.derive(vert_spd, altitude, airs, lands)
-        expected = [KeyTimeInstance(index=37/6.0, name='Touchdown')]
+        tdwn.derive(None, vert_spd, altitude, airs, lands)
+        expected = [KeyTimeInstance(index=6.7490996398559435, name='Touchdown')]
         self.assertEqual(tdwn, expected)
 
     def test_touchdown_doesnt_land(self):
@@ -594,7 +590,7 @@ class TestTouchdown(unittest.TestCase):
         airs = buildsection('Airborne', 10, None)
         lands = buildsection('Landing', 2, 9)
         tdwn=Touchdown()
-        tdwn.derive(vert_spd, altitude, airs, lands)
+        tdwn.derive(None, vert_spd, altitude, airs, lands)
         expected = []
         self.assertEqual(tdwn, expected)
 
@@ -714,7 +710,18 @@ class TestFlapStateChanges(unittest.TestCase):
             FlapStateChanges.get_operational_combinations())
 
     def test_derive(self):
-        self.assertTrue(False, msg='Test not implemented.')
+        f = P('Flap', [0, 0, 5, 5, 10, 10, 15, 10, 10, 5, 5, 0, 0])
+        fsc = FlapStateChanges()
+        expected = [
+            KeyTimeInstance(index=1.5, name='Flap 5 Set'),
+            KeyTimeInstance(index=3.5, name='Flap 10 Set'),
+            KeyTimeInstance(index=5.5, name='Flap 15 Set'),
+            KeyTimeInstance(index=6.5, name='Flap 10 Set'),
+            KeyTimeInstance(index=8.5, name='Flap 5 Set'),
+            KeyTimeInstance(index=10.5, name='Flap 0 Set'),
+        ]
+        fsc.derive(f)
+        self.assertEqual(fsc, expected)
 
 
 class TestGearDownSelection(unittest.TestCase):
@@ -771,7 +778,16 @@ class TestGoAroundFlapRetracted(unittest.TestCase):
             GoAroundFlapRetracted.get_operational_combinations())
 
     def test_derive(self):
-        self.assertTrue(False, msg='Test not implemented.')
+        f = P('Flap', [0, 0, 5, 5, 10, 10, 15, 10, 10, 5, 5, 0, 0])
+        goaround = buildsection('Go Around', 2, 12)
+        fsc = GoAroundFlapRetracted()
+        expected = [
+            KeyTimeInstance(index=6.5, name='Go Around Flap Retracted'),
+            KeyTimeInstance(index=8.5, name='Go Around Flap Retracted'),
+            KeyTimeInstance(index=10.5, name='Go Around Flap Retracted'),
+        ]
+        fsc.derive(f, goaround)
+        self.assertEqual(fsc, expected)
 
 
 #### class TestGoAroundGearRetracted(unittest.TestCase):

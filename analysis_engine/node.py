@@ -1284,8 +1284,9 @@ class KeyTimeInstanceNode(FormattedNameNode):
             for edge_index in edge_list:
                 if name:
                     # Annotate the transition with the post-change state.
-                    self.create_kti(edge_index, replace_values=replace_values,
-                                    **{name:array[edge_index+1]})
+                    self.create_kti(
+                        edge_index, replace_values=replace_values,
+                        **{name: array[int(math.floor(edge_index)) + 1]})
                 else:
                     self.create_kti(edge_index, replace_values=replace_values)
             return
