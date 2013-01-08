@@ -299,7 +299,12 @@ class mocked_hdf(object):
                     data = np.ma.array(range(0,60))
             else:
                 if key == 'Year':
-                    data = np.ma.array([2020] * 60)
+                    if self.path == 'future timestamps':
+                        data = np.ma.array([2020] * 60)
+                    elif self.path == 'old timestamps':
+                        data = np.ma.array([1999] * 60)
+                    else:
+                        data = np.ma.array([2012] * 60)
                 elif key == 'Month':
                     data = np.ma.array([12] * 60)
                 elif key == 'Day':
@@ -310,19 +315,46 @@ class mocked_hdf(object):
     
     
 class TestSegmentInfo(unittest.TestCase):
-    
+    @mock.patch('analysis_engine.split_hdf_to_segments.sha_hash_file')
+    @mock.patch('analysis_engine.split_hdf_to_segments.hdf_file',
+                new_callable=mocked_hdf)
+    def test_timestamps_in_past_use_fallback(self, hdf_file_patch, sha_hash_file_patch):
+        # example where it goes fast
+        seg = append_segment_info('old timestamps', 'START_AND_STOP', 
+                                  slice(10,1000), 4,
+                                  fallback_dt=datetime(2012,12,12,0,0,0))  
+        self.assertEqual(seg.start_dt, datetime(2012,12,12,0,0,0))
+        self.assertEqual(seg.go_fast_dt, datetime(2012,12,12,0,6,52))
+        self.assertEqual(seg.stop_dt, datetime(2012,12,12,11,29,56))
+
+
+    @mock.patch('analysis_engine.split_hdf_to_segments.sha_hash_file')
+    @mock.patch('analysis_engine.split_hdf_to_segments.hdf_file',
+                new_callable=mocked_hdf)
+    def test_timestamps_in_future_use_fallback(self, hdf_file_patch, sha_hash_file_patch):
+        # example where it goes fast
+        seg = append_segment_info('future timestamps', 'START_AND_STOP', 
+                                  slice(10,1000), 4,
+                                  fallback_dt=datetime(2012,12,12,0,0,0))
+        self.assertEqual(seg.start_dt, datetime(2012,12,12,0,0,0))
+        self.assertEqual(seg.go_fast_dt, datetime(2012,12,12,0,6,52))
+        self.assertEqual(seg.stop_dt, datetime(2012,12,12,11,29,56))
+        
+        
     @mock.patch('analysis_engine.split_hdf_to_segments.sha_hash_file')
     @mock.patch('analysis_engine.split_hdf_to_segments.hdf_file',
                 new_callable=mocked_hdf)
     def test_append_segment_info(self, hdf_file_patch, sha_hash_file_patch):
         # example where it goes fast
-        seg = append_segment_info('fast', 'START_AND_STOP', slice(10,1000), 4) # TODO: Increase slice to be realitic for duration of data
+        # TODO: Increase slice to be realitic for duration of data
+        seg = append_segment_info('fast', 'START_AND_STOP', slice(10,1000), 4)
         self.assertEqual(seg.path, 'fast')
         self.assertEqual(seg.part, 4)
         self.assertEqual(seg.type, 'START_AND_STOP')   
-        self.assertEqual(seg.start_dt, datetime(2020,12,25,0,0,0))
-        self.assertEqual(seg.go_fast_dt, datetime(2020,12,25,0,6,52))
-        self.assertEqual(seg.stop_dt, datetime(2020,12,25,11,29,56))
+        self.assertEqual(seg.start_dt, datetime(2012,12,25,0,0,0))
+        self.assertEqual(seg.go_fast_dt, datetime(2012,12,25,0,6,52))
+        self.assertEqual(seg.stop_dt, datetime(2012,12,25,11,29,56))
+    
     
     @mock.patch('analysis_engine.split_hdf_to_segments.sha_hash_file')
     @mock.patch('analysis_engine.split_hdf_to_segments.hdf_file',
@@ -334,11 +366,12 @@ class TestSegmentInfo(unittest.TestCase):
         seg = append_segment_info('slow', 'GROUND_ONLY', slice(10,110), 1)
         self.assertEqual(seg.path, 'slow')
         self.assertEqual(seg.go_fast_dt, None) # didn't go fast
-        self.assertEqual(seg.start_dt, datetime(2020,12,25,0,0,0)) # still has a start
+        self.assertEqual(seg.start_dt, datetime(2012,12,25,0,0,0)) # still has a start
         self.assertEqual(seg.part, 1)
         self.assertEqual(seg.type, 'GROUND_ONLY')
         self.assertEqual(seg.hash, 'ABCDEFG') # taken from the "file"
-        self.assertEqual(seg.stop_dt, datetime(2020,12,25,0,0,50)) # +50 seconds of airspeed
+        self.assertEqual(seg.stop_dt, datetime(2012,12,25,0,0,50)) # +50 seconds of airspeed
+    
     
     @mock.patch('analysis_engine.split_hdf_to_segments.sha_hash_file')
     @mock.patch('analysis_engine.split_hdf_to_segments.hdf_file',
@@ -348,8 +381,6 @@ class TestSegmentInfo(unittest.TestCase):
         seg = append_segment_info('invalid timestamps', '', slice(10,110), 2)
         self.assertEqual(seg.start_dt, datetime(1970,1,1,1,0)) # start of time!
         self.assertEqual(seg.go_fast_dt, datetime(1970, 1, 1, 1, 6, 52)) # went fast
-
-    #TODO: Test using fallback_dt
     
     def test_calculate_start_datetime(self):
         """
@@ -392,13 +423,14 @@ class TestSegmentInfo(unittest.TestCase):
         self.assertEqual(res, datetime(2012,12,12,12,12,12))
         
     def test_empty_year_no_seconds(self):
+        # NB: 12's are the fallback_dt, 11's are the recorded time parameters
         dt = datetime(2012,12,12,12,12,10)
         # Test only without second and empty year
         hdf = {
                'Month': P('Month',np.ma.array([11, 11, 11,11])),
                'Day':   P('Day',np.ma.array([])),
                'Hour':  P('Hour',np.ma.array([11,11,11,11], mask=[True, False, False, False])),
-               'Minute':P('Minute',np.ma.array([11]), frequency=0.25),
+               'Minute':P('Minute',np.ma.array([11,11]), frequency=0.5),
                }
         res = _calculate_start_datetime(hdf, dt)
         # 9th second as the first sample (10th second) was masked

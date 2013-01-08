@@ -52,7 +52,7 @@ class VelocitySpeed(object):
 
     def airspeed_reference(self, weight, setting):
         '''
-        lookup v2 value using interpolation if set
+        lookup vref value using interpolation if set
         converts value to kg if weight_unit in lb
         returns None if weight is outside of table range or no entries in table
         for Flap/Conf setting
@@ -90,7 +90,7 @@ class VelocitySpeed(object):
                            setting)
             logger.error(msg)
             raise KeyError(msg)
-
+            
         if weight < lookup['weight'][0] or \
            weight > lookup['weight'][-1] or \
            weight is np.ma.masked:

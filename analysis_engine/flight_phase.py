@@ -332,6 +332,11 @@ class Cruise(FlightPhaseNode):
                 end = tod.index
             else:
                 end = ccd.slice.stop
+                
+            # Some flights just don't cruise. This can cause headaches later
+            # on, so we always cruise for at least one second !
+            if end <= begin:
+                end = begin + 1
 
             self.create_phase(slice(begin,end))
 
@@ -392,7 +397,6 @@ class DescentToFlare(FlightPhaseNode):
 class DescentLowClimb(FlightPhaseNode):
     def derive(self, alt_aal=P('Altitude AAL For Flight Phases'),
                airs=S('Airborne')):
-        my_list=[]
         for air in airs:
             dlc = np.ma.masked_greater(alt_aal.array[air.slice], 
                                        INITIAL_APPROACH_THRESHOLD)

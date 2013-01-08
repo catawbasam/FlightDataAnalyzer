@@ -32,11 +32,7 @@ NODE_MODULES = ['analysis_engine.derived_parameters',
                 'analysis_engine.flight_attribute']
 
 # API Handler
-API_HANDLER = 'analysis_engine.api_handler_analysis_engine.AnalysisEngineAPIHandlerHTTP'
-##API_HANDLER = 'analysis_engine.api_handler_analysis_engine.AnalysisEngineAPIHandlerDummy'
-
-# Base URL for the API for determining nearest airport/runway, etc:
-BASE_URL = 'https://polaris-test.flightdataservices.com'
+API_HANDLER = 'analysis_engine.api_handler_analysis_engine.AnalysisEngineAPIHandlerLocal'
 
 # Location of the CA certificates to be used by the HTTP API handler:
 # Note: This is the system-wide default location on Ubuntu.
@@ -44,6 +40,10 @@ CA_CERTIFICATE_FILE = '/etc/ssl/certs/ca-certificates.crt'
 
 # Cache parameters which are used more than n times in HDF
 CACHE_PARAMETER_MIN_USAGE = 0
+
+# Calculate the current year as 'YYYY' here once to avoid repitition
+from datetime import datetime
+CURRENT_YEAR = str(datetime.now().year)
 
 
 ##############################################################################
@@ -352,8 +352,9 @@ try:
     from analyser_custom_settings import *  # NOQA
     # add any new modules to the list of modules
     from copy import copy
-    [NODE_MODULES.extend(v) for k, v in copy(locals()).iteritems() \
-                            if k.endswith('_MODULES') and k!= 'NODE_MODULES']
+    for k, v in copy(locals()).iteritems():
+        if k.endswith('_MODULES') and k != 'NODE_MODULES':
+            NODE_MODULES.extend(v)
     NODE_MODULES = list(set(NODE_MODULES))
 except ImportError as err:
     # logger.info preferred, but stack trace is important when trying to

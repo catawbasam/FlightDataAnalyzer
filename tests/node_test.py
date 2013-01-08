@@ -1285,12 +1285,13 @@ class TestDerivedParameterNode(unittest.TestCase):
             values_mapping = {1: 'one', 2: 'two', 3: 'three'}
             
         master_param = Parameter(array=np.ma.array([5,6,7]), 
-                                 frequency=1, offset=0.4, data_type=None)
+                                 frequency=1, offset=0.4)
             
-        slave_flap = Flap(array=np.ma.array([1,2,3]),frequency=1, offset=0)
+        slave_flap = Flap(array=np.ma.array([1,2,3]),
+                          frequency=1, offset=0)
         res = slave_flap.get_aligned(master_param)
         # note it has not interpolated to 1.4, 2.4, 3.4 forward
-        self.assertEqual(list(res.array.raw), [1,2,3]) 
+        self.assertEqual(list(res.array.raw), [1, 2, np.ma.masked]) 
         
     def test_parameter_at(self):
         # using a plain range as the parameter array, the results are equal to 
@@ -1462,7 +1463,7 @@ class TestMultistateDerivedParameterNode(unittest.TestCase):
         #multi_p.array =
         
         # save array to hdf and close
-        with hdf_file(self.hdf_path) as hdf1:
+        with hdf_file(self.hdf_path, create=True) as hdf1:
             hdf1['multi'] = multi_p
         
         # check hdf has mapping and integer values stored
@@ -1470,7 +1471,7 @@ class TestMultistateDerivedParameterNode(unittest.TestCase):
             saved = hdf['multi']
             self.assertEqual(list(np.ma.filled(saved.array, 999)), 
                              [  3, 999, 999,   3,   4,   0,   1,   2, 999, 999])
-            self.assertEqual(saved.array.data.dtype, np.int)        
+            self.assertEqual(saved.array.data.dtype, np.int)
 
 
 if __name__ == '__main__':

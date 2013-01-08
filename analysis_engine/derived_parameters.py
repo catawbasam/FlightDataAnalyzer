@@ -21,10 +21,10 @@ from analysis_engine.library import (air_track,
                                      clip,
                                      coreg,
                                      cycle_finder,
+                                     datetime_of_index,
                                      dp2tas,
                                      dp_over_p2mach,
                                      filter_vor_ils_frequencies,
-                                     find_app_rwy,
                                      first_valid_sample,
                                      first_order_lag,
                                      first_order_washout,
@@ -34,9 +34,9 @@ from analysis_engine.library import (air_track,
                                      index_at_value,
                                      integrate,
                                      ils_localizer_align,
-                                     interpolate_and_extend,
+                                     interpolate,
+                                     is_day,
                                      is_index_within_slice,
-                                     is_slice_within_slice,
                                      last_valid_sample,
                                      latitudes_and_longitudes,
                                      localizer_scale,
@@ -326,7 +326,7 @@ class AirspeedReference(DerivedParameterNode):
         
         x = set(available)
         base_for_lookup = ['Airspeed', 'Gross Weight Smoothed', 'Series',
-                           'Family', 'Approach']
+                           'Family', 'Approach And Landing']
         airbus = set(base_for_lookup + ['Configuration']).issubset(x)
         boeing = set(base_for_lookup + ['Flap']).issubset(x)
         return existing_values or airbus or boeing
@@ -340,7 +340,7 @@ class AirspeedReference(DerivedParameterNode):
                vref=P('Vref'),
                afr_vapp=A('AFR Vapp'),
                afr_vref=A('AFR Vref'),
-               apps=S('Approach'),
+               apps=S('Approach And Landing'),
                series=A('Series'),
                family=A('Family')):
         # docstring no longer accurate?
@@ -1045,7 +1045,9 @@ class AltitudeQNH(DerivedParameterNode):
         # in the correct half:
         peak = alt_peak.get_first()  # NOTE: Fix for multiple approaches...
         fall = alt_aal.array[peak.index - 1] > alt_aal.array[peak.index + 1]
-        peak = peak.index + int(fall)
+        peak = peak.index 
+        if fall:
+            peak += int(fall)
 
         # Add the elevation at takeoff to the climb portion of the array:
         alt_qnh[:peak] += t_elev
@@ -1274,6 +1276,43 @@ class ClimbForFlightPhases(DerivedParameterNode):
             for up in ups:
                 self.array[air.slice][up] = np.ma.cumsum(deltas[up])    
 
+
+class Daylight(MultistateDerivedParameterNode):
+    '''
+    Makes use of 64 second superframe boundaries.
+    
+    '''
+    align = True
+    align_frequency = 1/64.0
+    align_offset = 0.0
+    
+    values_mapping = {
+        0 : 'Night',
+        1 : 'Day'
+        }
+
+    def derive(self, 
+               latitude=P('Latitude Smoothed'),
+               longitude=P('Longitude Smoothed'),
+               start_datetime=A('Start Datetime'),
+               duration=A('HDF Duration')):
+        # Set default to 'Day'
+        array_len = duration.value * self.frequency
+        self.array = np.ma.ones(array_len)
+        for step in xrange(0, int(array_len)):
+            curr_dt = datetime_of_index(start_datetime.value, step, 1)
+            lat = latitude.array[step]
+            lon = longitude.array[step]
+            if lat and lon:
+                if not is_day(curr_dt, lat, lon):
+                    # Replace values with Night
+                    self.array[step] = 0
+                else:
+                    pass  # leave array as 1
+            else:
+                # either is masked or recording 0.0 which is invalid too
+                self.array[step] = np.ma.masked
+                
             
 class DescendForFlightPhases(DerivedParameterNode):
     """
@@ -2510,7 +2549,7 @@ class FuelQty(DerivedParameterNode):
                 # a parameter has been marked invalid, though we will not
                 # be aware of the problem within a derive method.
                 self.warning('Skipping %s while calculating %s: %s. Summed '
-                             'fuel quantity will be lower than expected.',
+                             'fuel quantity may be lower than expected.',
                              param, self, err)
             else:
                 params.append(param)
@@ -2818,9 +2857,7 @@ class Flap(DerivedParameterNode):
 
     @classmethod
     def can_operate(cls, available):
-        return ('Flap Surface' in available) and \
-               ('Series' in available or \
-                'Family' in available)
+        return all_of(('Flap Surface', 'Series', 'Family'), available)
     
     def derive(self, flap=P('Flap Surface'),
                series=A('Series'), family=A('Family')):
@@ -3115,7 +3152,7 @@ class ILSGlideslope(DerivedParameterNode):
 
     def derive(self, gs_1=P('ILS (1) Glideslope'),gs_2=P('ILS (2) Glideslope')):
         self.array, self.frequency, self.offset = blend_two_parameters(gs_1, gs_2)
-        # Would like to do this, except the frequemcies don't match
+        # Would like to do this, except the frequencies don't match
         # self.array.mask = np.ma.logical_or(self.array.mask, freq.array.mask)
        
 
@@ -3127,7 +3164,6 @@ class AimingPointRange(DerivedParameterNode):
     the nominal threshold position where there is no ILS installation.
     """
 
-    name = "ILS Glideslope Range"
     unit = 'nm'
 
     def derive(self, app_rng=P('Approach Range'),
@@ -3244,7 +3280,7 @@ class CoordinatesSmoothed(object):
                                                           speed[begin:toff_slice.start],
                                                           hdg.array[begin:toff_slice.start],
                                                           freq)
-            except ValueError as err:
+            except ValueError:
                 self.exception("'%s'. Using non smoothed coordinates for Taxi Out",
                              self.__class__.__name__)
                 lat_out = lat.array[begin:toff_slice.start]
@@ -3414,9 +3450,9 @@ class CoordinatesSmoothed(object):
                                                                    speed[join_idx:end],
                                                                    hdg.array[join_idx:end],
                                                                    freq)
-                        except ValueError as ex:
+                        except ValueError:
                             self.exception("'%s'. Using non smoothed coordinates for Taxi In",
-                                         self.__class__.__name__)
+                                           self.__class__.__name__)
                             lat_in = lat.array[join_idx:end]
                             lon_in = lon.array[join_idx:end]
                     else:
@@ -3576,7 +3612,7 @@ class MagneticVariation(DerivedParameterNode):
             return x - floor(x/180.0 + 0.5)*180.0        
         
         # Make a masked copy of the heading array, then insert deviations at
-        # just the points we know. "interpolate_and_extend" is designed to
+        # just the points we know. "interpolate" is designed to
         # replace the masked values with linearly interpolated values between
         # two known points, and extrapolate to the ends of the array. It also
         # substitutes a zero array in case neither is available.
@@ -3597,7 +3633,7 @@ class MagneticVariation(DerivedParameterNode):
             except:
                 dev[landing_heading.index] = 0.0
         
-        self.array = interpolate_and_extend(dev)
+        self.array = interpolate(dev)
 
 class VerticalSpeedInertial(DerivedParameterNode):
     '''
@@ -4026,7 +4062,7 @@ class ThrustReversers(MultistateDerivedParameterNode):
             frame=A('Frame')):
         frame_name = frame.value if frame else None
         
-        if frame_name in ['737-4', 
+        if frame_name in ['737-4', '737-1',
                           '737-5', '737-5_NON-EIS', 
                           '737-6', '737-6_NON-EIS', 
                           '737-i', '737-300_PTI']:
@@ -4092,10 +4128,20 @@ class Headwind(DerivedParameterNode):
 
     units = 'kts'
     
-    def derive(self, windspeed=P('Wind Speed'), toffs=S('Takeoff'),
+    @classmethod
+    def can_operate(cls, available):
+        if all_of(('Wind Speed',
+                   'Wind Direction Continuous', 
+                   'Heading True Continuous'), available):
+            return True
+    
+    def derive(self, windspeed=P('Wind Speed'), 
                wind_dir=P('Wind Direction Continuous'), 
-               head=P('Heading True Continuous'), alt_aal=P('Altitude AAL'), 
-               gspd=P('Groundspeed'), aspd=P('Airspeed True')):
+               head=P('Heading True Continuous'), 
+               toffs=S('Takeoff'),               
+               alt_aal=P('Altitude AAL'), 
+               gspd=P('Groundspeed'), 
+               aspd=P('Airspeed True')):
         
         rad_scale = radians(1.0)
         headwind = windspeed.array * np.ma.cos((wind_dir.array-head.array)*rad_scale)
@@ -4104,7 +4150,7 @@ class Headwind(DerivedParameterNode):
         # first hundred feet after takeoff. Note this is done in a
         # deliberately crude manner so that the different computations may be
         # identified easily by the analyst.
-        if gspd and aspd:
+        if gspd and aspd and alt_aal and toffs:
             # We merge takeoff slices with altitude slices to extend the takeoff phase to 100ft.
             for climb in slices_or(alt_aal.slices_from_to(0, 100),
                                    [s.slice for s in toffs]):
@@ -4150,12 +4196,12 @@ class V2(DerivedParameterNode):
     
     @classmethod
     def can_operate(cls, available):
-        x = set(available)
-        afr = 'AFR V2' in x
+        available = set(available)
+        afr = 'AFR V2' in available
         base_for_lookup = ['Airspeed', 'Gross Weight At Liftoff', 'Series',
                            'Family']
-        airbus = set(base_for_lookup + ['Configuration']).issubset(x)
-        boeing = set(base_for_lookup + ['Flap']).issubset(x)
+        airbus = set(base_for_lookup + ['Configuration']).issubset(available)
+        boeing = set(base_for_lookup + ['Flap']).issubset(available)
         return afr or airbus or boeing
 
     def derive(self, 
@@ -4166,7 +4212,7 @@ class V2(DerivedParameterNode):
                weight_liftoff=KPV('Gross Weight At Liftoff'),
                series=A('Series'),
                family=A('Family')):
-
+        
         # Initialize the result space.
         self.array = np_ma_masked_zeros_like(spd.array)
         self.array.mask = True
@@ -4191,6 +4237,7 @@ class V2(DerivedParameterNode):
         else:
             # no lift off leave zero masked array
             pass
+
 
 class WindAcrossLandingRunway(DerivedParameterNode):
     """
@@ -4361,18 +4408,21 @@ class SpeedbrakeSelected(MultistateDerivedParameterNode):
         '''
         x = available
         return 'Speedbrake Deployed' in x \
-            or ('Frame' in x and 'Speedbrake Handle' in x)
+            or ('Frame' in x and 'Speedbrake Handle' in x)\
+            or ('Frame' in x and 'Speedbrake' in x)
+            
 
 
     def derive(self,
             deployed=M('Speedbrake Deployed'),
             armed=M('Speedbrake Armed'),
             handle=P('Speedbrake Handle'),
+            spdbrk=P('Speedbrake'),
             frame=A('Frame')):
         '''
         '''
         frame_name = frame.value if frame else None
-        
+                
         if deployed:
             # set initial state to 'Stowed'
             array = np.ma.zeros(len(deployed.array))
@@ -4383,9 +4433,15 @@ class SpeedbrakeSelected(MultistateDerivedParameterNode):
             array[deployed.array == 'Deployed'] = 2
             self.array = array # (only call __set_attr__ once)
             
-        elif handle and frame_name:
+        elif frame_name and frame_name.startswith('737-'):
 
-            if frame_name.startswith('737-'):
+            if spdbrk:
+                # set initial state to 'Stowed' in case handle is not true.
+                array = np.ma.zeros(len(spdbrk.array))
+
+            if handle:
+                # set initial state to 'Stowed'
+                array = np.ma.zeros(len(handle.array))
                 '''
                 Speedbrake Handle Positions:
 
@@ -4408,9 +4464,21 @@ class SpeedbrakeSelected(MultistateDerivedParameterNode):
                     handle.array >= 35.0,
                     'Deployed/Cmd Up', self.array)
 
-            else:
-                # TODO: Implement for other frames using 'Speedbrake Handle'!
-                raise DataFrameError(self.name, frame_name)
+            if spdbrk:
+                '''
+                Speedbrake status taken from surface position. This allows
+                for aircraft where the handle is inoperative, overwriting
+                whatever the handle position is when the brakes themselves
+                have deployed.
+                
+                It's not possible to identify when the speedbrakes are just
+                armed in this case, so we take any significant motion as
+                deployed.
+                
+                If there is no handle position recorded, the default 'Stowed' value is retained.
+                '''
+                self.array = np.ma.where(spdbrk.array < 1.0, 
+                                         'Deployed/Cmd Up', array)
 
 
         else: # (NB: This won't be reached due to can_operate)
@@ -4486,7 +4554,6 @@ class ApproachRange(DerivedParameterNode):
     an approach.
     """
     
-    name = "Approach Range"
     unit = 'm'
 
     @classmethod
@@ -4650,14 +4717,30 @@ class WindSpeed(DerivedParameterNode):
         
 class WindDirection(DerivedParameterNode):
     '''
-    Required for Embraer 135-145 Data Frame
+    Many aircraft have wind direction stored in true (not magnetic)
+    coordinates. Rather than making a distinction, we merge true and magnetic
+    wind into a single (albeit slightly ambiguous) parameter.
+    
+    The Embraer 135-145 data frame includes two sources, hence the
+    alternative form.
     '''
+    @classmethod
+    def can_operate(cls, available):
+        return ('Wind Direction True' in available) or\
+               (
+                   ('Wind Direction (1)' in available) and\
+                   ('Wind Direction (2)' in available)
+               )
     
     units = 'deg'
 
-    def derive(self, wind_1=P('Wind Direction (1)'), wind_2=P('Wind Direction (2)')):
-        self.array, self.frequency, self.offset = \
-            blend_two_parameters(wind_1, wind_2)
+    def derive(self, wind_1=P('Wind Direction (1)'), wind_2=P('Wind Direction (2)'),
+               wind_true=P('Wind Direction True')):
+        if wind_true:
+            self.array=wind_true.array
+        else:
+            self.array, self.frequency, self.offset = \
+                blend_two_parameters(wind_1, wind_2)
         
 class WheelSpeedInboard(DerivedParameterNode):
     '''

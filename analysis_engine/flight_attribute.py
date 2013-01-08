@@ -102,13 +102,13 @@ class Approaches(FlightAttributeNode):
         '''
         return all(n in available for n in [
             'Altitude AAL',
-            'Approach',
+            'Approach And Landing',
             'Fast',
             'Start Datetime',
         ])
 
     def derive(self,
-            approach_sections=S('Approach'),
+            approach_sections=S('Approach And Landing'),
             alt_aal=P('Altitude AAL'),
             fast=S('Fast'),
             start_datetime=A('Start Datetime'),
@@ -523,7 +523,7 @@ class LandingRunway(FlightAttributeNode):
             land_lat=KPV('Latitude At Landing'),
             land_lon=KPV('Longitude At Landing'),
             precision=A('Precise Positioning'),
-            approaches=S('Approach'),
+            approaches=S('Approach And Landing'),
             ilsfreq_on_app=KPV('ILS Frequency On Approach')):
         '''
         '''

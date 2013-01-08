@@ -1,10 +1,10 @@
 import logging
+import numpy as np
 import sys
 
 from datetime import datetime, timedelta
 from inspect import isclass
 
-import numpy as np
 from analysis_engine import hooks, settings, __version__
 from analysis_engine.dependency_graph import dependency_order, graph_adjacencies
 from analysis_engine.library import np_ma_masked_zeros_like
@@ -30,8 +30,8 @@ def geo_locate(hdf, items):
                        "'Longitude Smoothed' were not found within the hdf.")
         return items
     
-    lat_pos = derived_param_from_hdf(hdf, 'Latitude Smoothed')
-    long_pos = derived_param_from_hdf(hdf, 'Longitude Smoothed')
+    lat_pos = derived_param_from_hdf(hdf['Latitude Smoothed'])
+    long_pos = derived_param_from_hdf(hdf['Longitude Smoothed'])
     
     for item in items:
         item.latitude = lat_pos.at(item.index)
@@ -92,10 +92,11 @@ def derive_parameters(hdf, node_mgr, process_order):
                 deps.append(params[dep_name])
             elif node_mgr.get_attribute(dep_name) is not None:
                 deps.append(node_mgr.get_attribute(dep_name))
-            elif dep_name in node_mgr.hdf_keys:  # LFL/Derived parameter
+            elif dep_name in node_mgr.hdf_keys:  
+                # LFL/Derived parameter
                 # all parameters (LFL or other) need get_aligned which is
                 # available on DerivedParameterNode
-                dp = derived_param_from_hdf(hdf, dep_name)
+                dp = derived_param_from_hdf(hdf[dep_name])
                 deps.append(dp)
             else:  # dependency not available
                 deps.append(None)
@@ -103,7 +104,6 @@ def derive_parameters(hdf, node_mgr, process_order):
             raise RuntimeError("No dependencies available - Nodes cannot "
                                "operate without ANY dependencies available! "
                                "Node: %s" % node_class.__name__)
-        first_dep = next((d for d in deps if d is not None))
 
         # initialise node
         node = node_class()
