@@ -2010,24 +2010,14 @@ class TestRateOfTurn(unittest.TestCase):
         answer = np.ma.array([0,0,0.5,0,-0.5,0,0])
         ma_test.assert_masked_array_approx_equal(rot.array, answer)
         
-class TestRateOfTurn(unittest.TestCase):
-    def test_can_operate(self):
-        expected = [('Heading Continuous',)]
-        opts = RateOfTurn.get_operational_combinations()
-        self.assertEqual(opts, expected)
-       
-    def test_rate_of_turn(self):
+    def test_sample_long_gentle_turn(self):
+        # Sample taken from a long circling hold pattern
+        head_cont = P(array=np.ma.array(
+            np.load('test_data/heading_continuous_in_hold.npy')), frequency=2)
         rot = RateOfTurn()
-        rot.derive(P('Heading Continuous', np.ma.array(range(10))))
-        answer = np.ma.array(data=[1]*10, dtype=np.float)
-        np.testing.assert_array_equal(rot.array, answer) # Tests data only; NOT mask
-       
-    def test_rate_of_turn_phase_stability(self):
-        rot = RateOfTurn()
-        rot.derive(P('Heading Continuous', np.ma.array([0,0,0,1,0,0,0],
-                                                          dtype=float)))
-        answer = np.ma.array([0,0,0.5,0,-0.5,0,0])
-        ma_test.assert_masked_array_approx_equal(rot.array, answer)
+        rot.get_derived((head_cont,))
+        np.testing.assert_allclose(rot.array[50:1150],
+                                   np.ones(1100)*2, rtol=0.05)
         
         
 class TestMach(unittest.TestCase):

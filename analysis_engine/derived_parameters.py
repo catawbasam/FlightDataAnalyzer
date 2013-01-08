@@ -3032,7 +3032,7 @@ class HeadingContinuous(DerivedParameterNode):
     """
     For all internal computing purposes we use this parameter which does not
     jump as it passes through North. To recover the compass display, modulus
-    ("%360" in Python) returns the value to display to the user.
+    (val % 360 in Python) returns the value to display to the user.
     """
     units = 'deg'
     def derive(self, head_mag=P('Heading')):
@@ -3918,11 +3918,17 @@ class RateOfTurn(DerivedParameterNode):
     """
     Simple rate of change of heading. 
     """
-    
+
     units = 'deg/sec'
     
     def derive(self, head=P('Heading Continuous')):
-        self.array = rate_of_change(head, 2)
+        # add a little hysteresis to the rate of change to smooth out minor 
+        # changes
+        #self.array = rate_of_change(head, 2)
+        roc = rate_of_change(head, 2)
+        self.array = hysteresis(roc, 0.4)
+        # trouble is that we're loosing the nice 0 values, so force include!
+        self.array[roc == 0] = 0
 
 
 class Pitch(DerivedParameterNode):
