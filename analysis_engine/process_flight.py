@@ -1,10 +1,10 @@
 import logging
+import numpy as np
 import sys
 
 from datetime import datetime, timedelta
 from inspect import isclass
 
-import numpy as np
 from analysis_engine import hooks, settings, __version__
 from analysis_engine.dependency_graph import dependency_order, graph_adjacencies
 from analysis_engine.library import np_ma_masked_zeros_like
