@@ -770,6 +770,16 @@ class TestFinalApproach(unittest.TestCase):
 
 
 class TestGearRetracting(unittest.TestCase):
+    '''
+    The Gear Extending and Gear Retracting flight phases were written when
+    these were integer arrays, but now they are multistate arrays the flight
+    phases themselves need to be rewritten before tests are created.
+    
+    As a result of this change, the KPVs AirspeedAsGearRetractingMax,
+    AirspeedAsGearExtendingMax, MachAsGearRetractingMax &
+    MachAsGearExtendingMax are currently inoperative.
+    '''
+    
     def test_can_operate(self):
         opts = GearRetracting.get_operational_combinations()
         self.assertTrue(all(['Gear Down' for o in opts]))
@@ -1141,6 +1151,15 @@ class TestDescentToFlare(unittest.TestCase):
 
 
 class TestGearExtending(unittest.TestCase):
+    '''
+    The Gear Extending and Gear Retracting flight phases were written when
+    these were integer arrays, but now they are multistate arrays the flight
+    phases themselves need to be rewritten before tests are created.
+    
+    As a result of this change, the KPVs AirspeedAsGearRetractingMax,
+    AirspeedAsGearExtendingMax, MachAsGearRetractingMax &
+    MachAsGearExtendingMax are currently inoperative.
+    '''
     def test_can_operate(self):
         self.assertTrue(False, msg='Test not implemented.')
         
