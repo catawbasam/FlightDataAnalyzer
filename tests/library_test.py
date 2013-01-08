@@ -141,6 +141,8 @@ class TestAlign(unittest.TestCase):
                    array=np.ma.array([0,1,2,3,4], dtype=float))
         
         result = align(second, first)
+        # check dtype is int
+        self.assertEqual(result.dtype, int)
         np.testing.assert_array_equal(result.data, [1, 2, 3, 4, 0])
         np.testing.assert_array_equal(result.mask, [0, 0, 0, 0, 1])
         
@@ -149,16 +151,19 @@ class TestAlign(unittest.TestCase):
         first = P(frequency=2, offset=0.2, 
                   array=np.ma.array([11,12,13,14,15], dtype=float))
         second = P(frequency=1, offset=0.0,
-                   array=np.ma.array([1, 2, 3, 4, 5], dtype=float))
+                   array=np.ma.array([1, 2, 3.5, 4, 5], dtype=float))
         
         result = align(second, first, interpolate=False)
+        # Check dtype returned is a float
+        self.assertEqual(result.dtype, float)
+        
         # Slave at 2Hz 0.2 offset explained:
         # 0.2 offset: 1 taken from 0.0 second already recorded
         # 0.7 offset: 2 taken from 1.0 second (1.0 is closer than 0.0 second)
         # 1.2 offset: 2 taken from 1.0 second (1.0 is closer than 2.0 second)
-        # 1.7 offset: 3 taken from 2.0 second (2.0 is closest to 1.7 second)
+        # 1.7 offset: 3.5 taken from 2.0 second (2.0 is closest to 1.7 second)
         # ...
-        np.testing.assert_array_equal(result.data, [1, 2, 2, 3, 3, 4, 4, 5, 0, 0])
+        np.testing.assert_array_equal(result.data, [1, 2, 2, 3.5, 3.5, 4, 4, 5, 0, 0])
         np.testing.assert_array_equal(result.mask, [0, 0, 0, 0, 0, 0, 0, 0, 1, 1])
     
     def test_align_same_hz_delayed(self):

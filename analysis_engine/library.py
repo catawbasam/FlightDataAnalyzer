@@ -183,8 +183,9 @@ def align(slave, master, interpolate=True):
         # force disable interpolate!
         slave_array = slave_array.raw
         interpolate = False
+        _dtype = int
     elif isinstance(slave_array, np.ma.MaskedArray):
-        pass  # expected
+        _dtype = float
     else:
         raise ValueError('Cannot align slave array of unknown type: '
             'Slave: %s, Master: %s.', slave.name, master.name)
@@ -226,10 +227,6 @@ def align(slave, master, interpolate=True):
     if len_aligned != (len(slave_array) * r):
         raise ValueError("Array length problem in align. Probable cause is flight cutting not at superframe boundary")
     
-    if interpolate:
-        _dtype = float
-    else:
-        _dtype = int
     slave_aligned = np.ma.zeros(len(slave_array) * r, dtype=_dtype)
     
     # Where offsets are equal, the slave_array recorded values remain
