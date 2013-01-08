@@ -14,6 +14,7 @@ from utilities.filesystem_tools import copy_file
 
 from analysis_engine.flight_phase import Fast, Mobile
 from analysis_engine.node import Attribute, A, KPV, KeyTimeInstance, KTI, Parameter, P, Section, S
+from analysis_engine.library import np_ma_masked_zeros_like
 from analysis_engine.process_flight import process_flight
 from analysis_engine.settings import METRES_TO_FEET
 
@@ -403,7 +404,11 @@ class TestAirspeedReference(unittest.TestCase):
         expected=np.array([120]*128)
         np.testing.assert_array_equal(param.array, expected)
 
-    def test_airspeed_reference__boeing_lookup(self):
+    @patch('analysis_engine.derived_parameters.get_vspeed_map')
+    def test_airspeed_reference__boeing_lookup(self, vspeed_map):
+        vspeed_table = Mock
+        vspeed_table.airspeed_reference = Mock(side_effect = [135, 130])
+        vspeed_map.return_value = vspeed_table
         test_hdf = copy_file('test_data/airspeed_reference.hdf5')
         with hdf_file(test_hdf) as hdf:
             approaches = (Section(name='Approach', slice=slice(3346, 3540), start_edge=3345.5, stop_edge=3539.5),
@@ -423,8 +428,10 @@ class TestAirspeedReference(unittest.TestCase):
             ]
             param = AirspeedReference()
             param.get_derived(args)
-            expected = np.ma.load('test_data/boeing_reference_speed.ma')
-            np.testing.assert_array_equal(param.array, expected.array)
+            expected = np_ma_masked_zeros_like(hdf['Airspeed'].array)
+            expected[slice(3346, 3540)] = 135
+            expected[slice(5502, 5795)] = 130
+            np.testing.assert_array_equal(param.array, expected)
         if os.path.isfile(test_hdf):
             os.remove(test_hdf)
 
@@ -2091,7 +2098,7 @@ class TestV2(unittest.TestCase):
             ]
             param = V2()
             param.get_derived(args)
-            expected = np.array([144.868884]*5888)
+            expected = np.ma.array([151.70729599999999]*5888)
             np.testing.assert_array_equal(param.array, expected)
         if os.path.isfile(test_hdf):
             os.remove(test_hdf)
