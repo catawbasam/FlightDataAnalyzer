@@ -75,10 +75,10 @@ class Airborne(FlightPhaseNode):
             # midflight.
             for air in airs:
                 begin = air.start
-                if begin == 0: # Was in the air at start of data
+                if begin + start_point == 0: # Was in the air at start of data
                     begin = None
                 end = air.stop
-                if end >= stop_point: # Was in the air at end of data
+                if end + start_point >= len(alt_aal.array): # Was in the air at end of data
                     end = None
                 if begin is None or end is None:
                     self.create_phase(shift_slice(slice(begin, end),
@@ -524,8 +524,10 @@ class GearRetracting(FlightPhaseNode):
                 # some, but not all are available. Q: allow for any combination
                 # rather than raising exception
                 raise DataFrameError(self.name, frame_name)
-            gear_warn = np.ma.logical_or(gear_warn_l.array, gear_warn_r.array)
-            gear_warn = np.ma.logical_or(gear_warn, gear_warn_n.array)
+            gear_warn = ((gear_warn_l.array == 'Warning') |
+                         (gear_warn_r.array == 'Warning') |
+                         (gear_warn_n.array == 'Warning'))
+            ##gear_warn = gear_warn == 'Warning' | gear_warn_n == 'Warning'
             slices = _ezclump(gear_warn)
             if gear_warn[0] == 0:
                 gear_moving = slices[1::2]
@@ -534,8 +536,7 @@ class GearRetracting(FlightPhaseNode):
             for air in airs:
                 gear_moves = slices_and([air.slice], gear_moving)
                 for gear_move in gear_moves:
-                    if gear_down.array[gear_move.start - 1] == \
-                       gear_down.array.state['Down']:
+                    if gear_down.array[gear_move.start - 1] == 'Down':
                         self.create_phase(gear_move)
         else:
             # Aircraft without red warning captions for travelling
@@ -1087,7 +1088,8 @@ class TurningOnGround(FlightPhaseNode):
     """ % RATE_OF_TURN_FOR_TAXI_TURNS
     def derive(self, rate_of_turn=P('Rate Of Turn'), ground=S('Grounded')):
         turning = np.ma.masked_inside(repair_mask(rate_of_turn.array),
-                                      -RATE_OF_TURN_FOR_TAXI_TURNS,RATE_OF_TURN_FOR_TAXI_TURNS)
+                                      -RATE_OF_TURN_FOR_TAXI_TURNS,
+                                      RATE_OF_TURN_FOR_TAXI_TURNS)
         turn_slices = np.ma.clump_unmasked(turning)
         for turn_slice in turn_slices:
             if any([is_slice_within_slice(turn_slice, gnd.slice)

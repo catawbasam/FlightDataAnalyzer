@@ -221,12 +221,11 @@ class TestSplitSegments(unittest.TestCase):
         hdf = hdf_file(os.path.join(test_data_path, "4_3377853_146-301.hdf5"))
         segment_tuples = split_segments(hdf)
         self.assertEqual(segment_tuples,
-                         [('START_AND_STOP', slice(0, 3168.0, None)),
-                          ('START_AND_STOP', slice(3168.0, 6014.0, None)),
-                          ('START_AND_STOP', slice(6014.0, 9504.0, None)),
-                          ('START_AND_STOP', slice(9504.0, 12373.0, None)),
-                          ('START_AND_STOP', slice(12373.0, 15410.0, None)),
-                          ('START_AND_STOP', slice(15410.0, 18752.0, None))])    
+                         [('START_AND_STOP', slice(0, 24801.0, None)),
+                          ('START_AND_STOP', slice(24801.0, 30000.0, None)),
+                          ('START_AND_STOP', slice(30000.0, 49999.0, None)),
+                          ('START_AND_STOP', slice(49999.0, 69999.0, None)),
+                          ('START_AND_STOP', slice(69999.0, 73552.0, None))])    
     
 class mocked_hdf(object):
     def __init__(self, path=None):
