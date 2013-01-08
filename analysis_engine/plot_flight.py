@@ -100,7 +100,8 @@ def draw_centreline(kml, rwy):
     return
 
 
-def track_to_kml(hdf_path, kti_list, kpv_list, flight_attrs, plot_altitude=False):
+def track_to_kml(hdf_path, kti_list, kpv_list, flight_attrs,
+                 plot_altitude=False, dest_path=None):
     '''
     Plot results of process_flight onto a KML track.
     
@@ -174,7 +175,9 @@ def track_to_kml(hdf_path, kti_list, kpv_list, flight_attrs, plot_altitude=False
                 except:
                     pass
 
-    kml.save(hdf_path+".kml")
+    if not dest_path:
+        dest_path = hdf_path + ".kml"
+    kml.save(dest_path)
     return
 
 
