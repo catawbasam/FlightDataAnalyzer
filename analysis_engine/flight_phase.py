@@ -332,6 +332,11 @@ class Cruise(FlightPhaseNode):
                 end = tod.index
             else:
                 end = ccd.slice.stop
+                
+            # Some flights just don't cruise. This can cause headaches later
+            # on, so we always cruise for at least one second !
+            if end <= begin:
+                end = begin + 1
 
             self.create_phase(slice(begin,end))
 

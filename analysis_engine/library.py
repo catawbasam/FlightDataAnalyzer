@@ -2925,7 +2925,8 @@ def blend_two_parameters(param_one, param_two):
     if a+b == 0:
         logger.warning("Neither '%s' or '%s' has valid data available.", 
                        param_one.name, param_two.name)
-        return None, None, None
+        # Return empty space of the right shape...
+        return np_ma_masked_zeros_like(param_one.array), param_one.frequency, param_one.offset
 
     if a < b*0.8:
         logger.warning("Little valid data available for %s, using only %s data.", param_one.name, param_two.name)
