@@ -5,13 +5,11 @@ from analysis_engine.library import (coreg,
                                      hysteresis, 
                                      index_at_value,
                                      is_index_within_slice,
-                                     minimum_unmasked,
-                                     slices_above,
-                                     slices_not,
-                                     slices_and,
-                                     max_abs_value, 
                                      max_value, 
+                                     minimum_unmasked,
                                      peak_curvature,
+                                     slices_and,
+                                     slices_not,
                                      touchdown_inertial)
 
 from analysis_engine.node import (M, P, S, KTI, KeyTimeInstanceNode)
@@ -156,17 +154,17 @@ class Transmit(KeyTimeInstanceNode):
         return any(d in available for d in cls.get_dependency_names())
 
     def derive(self,
-            hf=P('Key HF'),
-            hf1=P('Key HF (1)'),
-            hf2=P('Key HF (2)'),
-            hf3=P('Key HF (3)'),
-            sc=P('Key Satcom'),
-            sc1=P('Key Satcom (1)'),
-            sc2=P('Key Satcom (2)'),
-            vhf=P('Key VHF'),
-            vhf1=P('Key VHF (1)'),
-            vhf2=P('Key VHF (2)'),
-            vhf3=P('Key VHF (3)')):
+            hf=M('Key HF'),
+            hf1=M('Key HF (1)'),
+            hf2=M('Key HF (2)'),
+            hf3=M('Key HF (3)'),
+            sc=M('Key Satcom'),
+            sc1=M('Key Satcom (1)'),
+            sc2=M('Key Satcom (2)'),
+            vhf=M('Key VHF'),
+            vhf1=M('Key VHF (1)'),
+            vhf2=M('Key VHF (2)'),
+            vhf3=M('Key VHF (3)')):
         for p in [hf, hf1, hf2, hf3, sc, sc1, sc2, vhf, vhf1, vhf2, vhf3]:
             if p:
                 self.create_ktis_on_state_change(

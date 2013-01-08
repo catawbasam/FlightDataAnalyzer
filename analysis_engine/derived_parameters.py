@@ -25,7 +25,6 @@ from analysis_engine.library import (air_track,
                                      dp2tas,
                                      dp_over_p2mach,
                                      filter_vor_ils_frequencies,
-                                     find_app_rwy,
                                      first_valid_sample,
                                      first_order_lag,
                                      first_order_washout,
@@ -38,7 +37,6 @@ from analysis_engine.library import (air_track,
                                      interpolate,
                                      is_day,
                                      is_index_within_slice,
-                                     is_slice_within_slice,
                                      last_valid_sample,
                                      latitudes_and_longitudes,
                                      localizer_scale,
@@ -3154,7 +3152,7 @@ class ILSGlideslope(DerivedParameterNode):
 
     def derive(self, gs_1=P('ILS (1) Glideslope'),gs_2=P('ILS (2) Glideslope')):
         self.array, self.frequency, self.offset = blend_two_parameters(gs_1, gs_2)
-        # Would like to do this, except the frequemcies don't match
+        # Would like to do this, except the frequencies don't match
         # self.array.mask = np.ma.logical_or(self.array.mask, freq.array.mask)
        
 
@@ -3282,7 +3280,7 @@ class CoordinatesSmoothed(object):
                                                           speed[begin:toff_slice.start],
                                                           hdg.array[begin:toff_slice.start],
                                                           freq)
-            except ValueError as err:
+            except ValueError:
                 self.exception("'%s'. Using non smoothed coordinates for Taxi Out",
                              self.__class__.__name__)
                 lat_out = lat.array[begin:toff_slice.start]
@@ -3452,9 +3450,9 @@ class CoordinatesSmoothed(object):
                                                                    speed[join_idx:end],
                                                                    hdg.array[join_idx:end],
                                                                    freq)
-                        except ValueError as ex:
+                        except ValueError:
                             self.exception("'%s'. Using non smoothed coordinates for Taxi In",
-                                         self.__class__.__name__)
+                                           self.__class__.__name__)
                             lat_in = lat.array[join_idx:end]
                             lon_in = lon.array[join_idx:end]
                     else:
@@ -4198,16 +4196,13 @@ class V2(DerivedParameterNode):
     
     @classmethod
     def can_operate(cls, available):
-        x = set(available)
-        afr = 'AFR V2' in x
+        available = set(available)
+        afr = 'AFR V2' in available
         base_for_lookup = ['Airspeed', 'Gross Weight At Liftoff', 'Series',
                            'Family']
-        airbus = set(base_for_lookup + ['Configuration']).issubset(x)
-        boeing = set(base_for_lookup + ['Flap']).issubset(x)
+        airbus = set(base_for_lookup + ['Configuration']).issubset(available)
+        boeing = set(base_for_lookup + ['Flap']).issubset(available)
         return afr or airbus or boeing
-        
-        # This is running for a 737NG where V2 is a recorded parameter. Temporary False return added to stop this.
-        #return False
 
     def derive(self, 
                spd=P('Airspeed'),
@@ -4217,7 +4212,7 @@ class V2(DerivedParameterNode):
                weight_liftoff=KPV('Gross Weight At Liftoff'),
                series=A('Series'),
                family=A('Family')):
-
+        
         # Initialize the result space.
         self.array = np_ma_masked_zeros_like(spd.array)
         self.array.mask = True
@@ -4242,6 +4237,7 @@ class V2(DerivedParameterNode):
         else:
             # no lift off leave zero masked array
             pass
+
 
 class WindAcrossLandingRunway(DerivedParameterNode):
     """

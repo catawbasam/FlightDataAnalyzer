@@ -1,10 +1,10 @@
 import logging
+import numpy as np
 import sys
 
 from datetime import datetime, timedelta
 from inspect import isclass
 
-import numpy as np
 from analysis_engine import hooks, settings, __version__
 from analysis_engine.dependency_graph import dependency_order, graph_adjacencies
 from analysis_engine.library import np_ma_masked_zeros_like
@@ -104,7 +104,6 @@ def derive_parameters(hdf, node_mgr, process_order):
             raise RuntimeError("No dependencies available - Nodes cannot "
                                "operate without ANY dependencies available! "
                                "Node: %s" % node_class.__name__)
-        first_dep = next((d for d in deps if d is not None))
 
         # initialise node
         node = node_class()

@@ -1280,8 +1280,9 @@ class KeyTimeInstanceNode(FormattedNameNode):
             for edge_index in edge_list:
                 if name:
                     # Annotate the transition with the post-change state.
-                    self.create_kti(edge_index, replace_values=replace_values,
-                                    **{name:array[edge_index+1]})
+                    self.create_kti(
+                        edge_index, replace_values=replace_values,
+                        **{name: array[int(math.floor(edge_index)) + 1]})
                 else:
                     self.create_kti(edge_index, replace_values=replace_values)
             return
@@ -1315,6 +1316,8 @@ class KeyTimeInstanceNode(FormattedNameNode):
             # and look it up in array.raw instead
             if _slice is None:
                 _slice = slice(0, len(array))
+            if len(array[_slice]) == 0:
+                return
             state_periods = np.ma.clump_unmasked(
                 np.ma.masked_not_equal(array[_slice].raw,
                                        array.get_state_value(state)))

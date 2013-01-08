@@ -397,7 +397,6 @@ class DescentToFlare(FlightPhaseNode):
 class DescentLowClimb(FlightPhaseNode):
     def derive(self, alt_aal=P('Altitude AAL For Flight Phases'),
                airs=S('Airborne')):
-        my_list=[]
         for air in airs:
             dlc = np.ma.masked_greater(alt_aal.array[air.slice], 
                                        INITIAL_APPROACH_THRESHOLD)
