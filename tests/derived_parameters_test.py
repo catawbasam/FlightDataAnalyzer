@@ -13,7 +13,8 @@ from utilities import masked_array_testutils as ma_test
 from utilities.filesystem_tools import copy_file
 
 from analysis_engine.flight_phase import Fast, Mobile
-from analysis_engine.node import Attribute, A, KPV, KeyTimeInstance, KTI, Parameter, P, Section, S
+from analysis_engine.node import (Attribute, A, KPV, KeyTimeInstance, KTI, M,
+                                  Parameter, P, Section, S)
 from analysis_engine.process_flight import process_flight
 from analysis_engine.settings import METRES_TO_FEET
 
@@ -79,6 +80,7 @@ from analysis_engine.derived_parameters import (
     LongitudeSmoothed,
     Mach,
     Pitch,
+    SpeedbrakeSelected,
     VerticalSpeed,
     VerticalSpeedForFlightPhases,
     RateOfTurn,
@@ -2759,14 +2761,43 @@ class TestSpeedbrake(unittest.TestCase):
 
 
 class TestSpeedbrakeSelected(unittest.TestCase):
-    @unittest.skip('Test Not Implemented')
     def test_can_operate(self):
-        self.assertTrue(False, msg='Test not implemented.')
+        opts = SpeedbrakeSelected.get_operational_combinations()
+        self.assertTrue(('Speedbrake Deployed',) in opts)
+        self.assertTrue(('Speedbrake', 'Frame') in opts)
+        self.assertTrue(('Speedbrake Handle', 'Frame') in opts)
+        self.assertTrue(('Speedbrake Handle', 'Speedbrake', 'Frame') in opts)        
         
-    @unittest.skip('Test Not Implemented')
     def test_derive(self):
-        self.assertTrue(False, msg='Test not implemented.')
-
+        # test with deployed
+        spd_sel = SpeedbrakeSelected()
+        spd_sel.derive(
+            deployed=M(array=np.ma.array(
+                [0, 0, 0, 1, 1, 0]), values_mapping={1:'Deployed'}),
+            armed=M(array=np.ma.array(
+                [0, 0, 1, 1, 0, 0]), values_mapping={1:'Armed'})
+        )
+        self.assertEqual(list(spd_sel.array),
+            ['Stowed', 'Stowed', 'Armed/Cmd Dn', 'Deployed/Cmd Up', 'Deployed/Cmd Up', 'Stowed'])
+        
+    def test_b737_speedbrake(self):
+        self.maxDiff = None
+        spd_sel = SpeedbrakeSelected()
+        spdbrk = P(array=np.ma.array([0]*10 + [1.3]*20 + [0.2]*10))
+        handle = P(array=np.ma.arange(40))
+        # Follow the spdbrk only
+        res = spd_sel.b737_speedbrake(spdbrk, None)
+        self.assertEqual(list(res),
+                        ['Stowed']*10 + ['Deployed/Cmd Up']*20 + ['Stowed']*10)
+        # Follow the handle only
+        res = spd_sel.b737_speedbrake(None, handle)
+        self.assertEqual(list(res),
+                        ['Stowed']*3 + ['Armed/Cmd Dn']*32 + ['Deployed/Cmd Up']*5)
+        # Follow the combination
+        res = spd_sel.b737_speedbrake(spdbrk, handle)
+        self.assertEqual(list(res),
+                        ['Stowed']*3 + ['Armed/Cmd Dn']*7 + ['Deployed/Cmd Up']*20 + ['Armed/Cmd Dn']*5 + ['Deployed/Cmd Up']*5)
+        
 
 class TestStickShaker(unittest.TestCase):
     @unittest.skip('Test Not Implemented')

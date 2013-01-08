@@ -4382,7 +4382,6 @@ class Speedbrake(DerivedParameterNode):
             raise DataFrameError(self.name, frame_name)
 
 
-# TODO: Write some unit tests!
 class SpeedbrakeSelected(MultistateDerivedParameterNode):
     '''
     Determines the selected state of the speedbrake.
@@ -4408,6 +4407,57 @@ class SpeedbrakeSelected(MultistateDerivedParameterNode):
         return 'Speedbrake Deployed' in x \
             or ('Frame' in x and 'Speedbrake Handle' in x)\
             or ('Frame' in x and 'Speedbrake' in x)
+    
+    def b737_speedbrake(self, spdbrk, handle):
+        '''
+        Speedbrake Handle Positions for 737-x:
+
+            ========    ============
+            Angle       Notes
+            ========    ============
+             0.0        Full Forward
+             4.0        Armed
+            24.0
+            29.0
+            38.0        In Flight
+            40.0        Straight Up
+            48.0        Full Up
+            ========    ============
+            
+        Speedbrake Positions > 1 = Deployed
+        '''
+        if spdbrk and handle:
+            # Speedbrake and Speedbrake Handle available
+            '''
+            Speedbrake status taken from surface position. This allows
+            for aircraft where the handle is inoperative, overwriting
+            whatever the handle position is when the brakes themselves
+            have deployed.
+            
+            It's not possible to identify when the speedbrakes are just
+            armed in this case, so we take any significant motion as
+            deployed.
+            
+            If there is no handle position recorded, the default 'Stowed' 
+            value is retained.
+            '''
+            armed = np.ma.where((2.0 < handle.array) & (handle.array < 35.0),
+                                'Armed/Cmd Dn', 'Stowed')
+            array = np.ma.where((handle.array >= 35.0) | (spdbrk.array > 1.0),
+                                'Deployed/Cmd Up', armed)
+        elif spdbrk and not handle:
+            # Speedbrake only
+            array = np.ma.where(spdbrk.array > 1.0,
+                                'Deployed/Cmd Up', 'Stowed')
+        elif handle and not spdbrk:
+            # Speedbrake Handle only
+            armed = np.ma.where((2.0 < handle.array) & (handle.array < 35.0),
+                                'Armed/Cmd Dn', 'Stowed')
+            array = np.ma.where(handle.array >= 35.0,
+                                'Deployed/Cmd Up', armed)
+        else:
+            raise ValueError("Can't work without either Speedbrake or Handle")
+        return array
 
     def derive(self,
             deployed=M('Speedbrake Deployed'),
@@ -4417,6 +4467,7 @@ class SpeedbrakeSelected(MultistateDerivedParameterNode):
             frame=A('Frame')):
         frame_name = frame.value if frame else ''
         if deployed:
+            # Speedbrake Deployed available, use this
             # set initial state to 'Stowed'
             array = np.ma.zeros(len(deployed.array))
             if armed:
@@ -4426,56 +4477,11 @@ class SpeedbrakeSelected(MultistateDerivedParameterNode):
             array[deployed.array == 'Deployed'] = 2
             self.array = array # (only call __set_attr__ once)
             
-        elif frame_name and frame_name.startswith('737-'):
-
-            if spdbrk:
-                # set initial state to 'Stowed' in case handle is not true.
-                array = np.ma.zeros(len(spdbrk.array))
-
-            if handle:
-                # set initial state to 'Stowed'
-                array = np.ma.zeros(len(handle.array))
-                '''
-                Speedbrake Handle Positions:
-
-                    ========    ============
-                    Angle       Notes
-                    ========    ============
-                     0.0        Full Forward
-                     4.0        Armed
-                    24.0
-                    29.0
-                    38.0        In Flight
-                    40.0        Straight Up
-                    48.0        Full Up
-                    ========    ============
-                '''
-                self.array = np.ma.where(
-                    (2.0 < handle.array) & (handle.array < 35.0),
-                    'Armed/Cmd Dn', 'Stowed')
-                self.array = np.ma.where(
-                    handle.array >= 35.0,
-                    'Deployed/Cmd Up', self.array)
-
-            if spdbrk:
-                '''
-                Speedbrake status taken from surface position. This allows
-                for aircraft where the handle is inoperative, overwriting
-                whatever the handle position is when the brakes themselves
-                have deployed.
-                
-                It's not possible to identify when the speedbrakes are just
-                armed in this case, so we take any significant motion as
-                deployed.
-                
-                If there is no handle position recorded, the default 'Stowed' value is retained.
-                '''
-                self.array = np.ma.where(spdbrk.array < 1.0, 
-                                         'Deployed/Cmd Up', array)
-
-
-        else: # (NB: This won't be reached due to can_operate)
-            # TODO: Implement using a different parameter?
+        elif frame_name.startswith('737-'):
+            self.array = self.b737_speedbrake(spdbrk, handle)
+            
+        else:
+            # Not implemented for this frame
             raise DataFrameError(self.name, frame_name)
 
 
@@ -4719,21 +4725,21 @@ class WindDirection(DerivedParameterNode):
     '''
     @classmethod
     def can_operate(cls, available):
-        return ('Wind Direction True' in available) or\
-               (
-                   ('Wind Direction (1)' in available) and\
-                   ('Wind Direction (2)' in available)
-               )
+        return 'Wind Direction True' in available or \
+               ('Wind Direction (1)' in available and\
+                'Wind Direction (2)' in available)
     
     units = 'deg'
 
-    def derive(self, wind_1=P('Wind Direction (1)'), wind_2=P('Wind Direction (2)'),
-               wind_true=P('Wind Direction True')):
+    def derive(self, wind_true=P('Wind Direction True'),
+               wind_1=P('Wind Direction (1)'), 
+               wind_2=P('Wind Direction (2)')):
         if wind_true:
-            self.array=wind_true.array
+            self.array = wind_true.array
         else:
             self.array, self.frequency, self.offset = \
                 blend_two_parameters(wind_1, wind_2)
+        
         
 class WheelSpeedInboard(DerivedParameterNode):
     '''
@@ -4743,6 +4749,7 @@ class WheelSpeedInboard(DerivedParameterNode):
         self.array, self.frequency, self.offset = \
             blend_two_parameters(ws_1, ws_2)
         
+        
 class WheelSpeedOutboard(DerivedParameterNode):
     '''
     Required for Embraer 135-145 Data Frame
@@ -4750,6 +4757,7 @@ class WheelSpeedOutboard(DerivedParameterNode):
     def derive(self, ws_1=P('Wheel Speed Outboard (1)'), ws_2=P('Wheel Speed Outboard (2)')):
         self.array, self.frequency, self.offset = \
             blend_two_parameters(ws_1, ws_2)
+        
         
 class WheelSpeed(DerivedParameterNode):
     '''
