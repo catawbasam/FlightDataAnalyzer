@@ -888,7 +888,7 @@ class AltitudeRadio(DerivedParameterNode):
                source_L = P('Altitude Radio EFIS (L)'),
                source_R = P('Altitude Radio EFIS (R)')):
         
-        frame_name = frame.value if frame else None
+        frame_name = frame.value if frame else ''
         frame_qualifier = frame_qual.value if frame_qual else None
 
         # 737-1 & 737-i has Altitude Radio recorded.
@@ -953,7 +953,7 @@ class AltitudeSTDSmoothed(DerivedParameterNode):
     
     def derive(self, alt = P('Altitude STD'), frame = A('Frame')):
         
-        frame_name = frame.value if frame else None
+        frame_name = frame.value if frame else ''
         
         if frame_name in ['737-6']:
             # The altitude signal is measured in steps of 32 ft so needs
@@ -1308,7 +1308,7 @@ class Daylight(MultistateDerivedParameterNode):
                     # Replace values with Night
                     self.array[step] = 0
                 else:
-                    pass  # leave array as 1
+                    continue  # leave array as 1
             else:
                 # either is masked or recording 0.0 which is invalid too
                 self.array[step] = np.ma.masked
@@ -1498,7 +1498,7 @@ class BrakePressure(DerivedParameterNode):
 
     def derive(self, brake_L=P('Brake (L) Press'), brake_R=P('Brake (R) Press'),
                frame=A('Frame')):
-        frame_name = frame.value if frame else None
+        frame_name = frame.value if frame else ''
 
         if frame_name.startswith('737-'):
             self.array, self.frequency, self.offset = blend_two_parameters(brake_L, brake_R)
@@ -2771,7 +2771,7 @@ class Groundspeed(DerivedParameterNode):
                source_B = P('Groundspeed (2)'),
                frame = A('Frame')):
         
-        frame_name = frame.value if frame else None
+        frame_name = frame.value if frame else ''
         
         if frame_name in ['757-DHL']:
             # The coding in this frame is unique as it only uses two bits for
@@ -2825,7 +2825,7 @@ class FlapSurface(DerivedParameterNode):
                frame=A('Frame'),
                apps=S('Approach'),               
                alt_aal=P('Altitude AAL')):
-        frame_name = frame.value if frame else None
+        frame_name = frame.value if frame else ''
 
         if frame_name.startswith('737-') or frame_name in ['757-DHL']:
             self.array, self.frequency, self.offset = blend_two_parameters(flap_A,
@@ -3103,10 +3103,10 @@ class ILSFrequency(DerivedParameterNode):
                 'ILS-VOR (2) Frequency' in available)    
 
     def derive(self, f1=P('ILS (1) Frequency'),f2=P('ILS (2) Frequency'),
-               f1v=P('ILS-VOR (1) Frequency'), f2v=P('ILS-VOR (2) Frequency'),
-               frame = A('Frame')):
+               f1v=P('ILS-VOR (1) Frequency'), f2v=P('ILS-VOR (2) Frequency')):
+               ##frame = A('Frame')):
 
-        frame_name = frame.value if frame else None
+        ##frame_name = frame.value if frame else ''
         
         # On some frames only one ILS frequency recording works
         if False:
@@ -3766,7 +3766,7 @@ class VerticalSpeed(DerivedParameterNode):
             return True
 
     def derive(self, alt_std=P('Altitude STD Smoothed'), frame=A('Frame')):
-        frame_name = frame.value if frame else None
+        frame_name = frame.value if frame else ''
         
         if frame_name in ['Hercules', '146']:
             timebase = 8.0
@@ -4060,7 +4060,7 @@ class ThrustReversers(MultistateDerivedParameterNode):
             e2_depd=P('Eng (2) Thrust Reverser Deployed'),
             
             frame=A('Frame')):
-        frame_name = frame.value if frame else None
+        frame_name = frame.value if frame else ''
         
         if frame_name in ['737-4', '737-1',
                           '737-5', '737-5_NON-EIS', 
@@ -4370,7 +4370,7 @@ class Speedbrake(DerivedParameterNode):
             frame=A('Frame')):
         '''
         '''
-        frame_name = frame.value if frame else None
+        frame_name = frame.value if frame else ''
 
         if frame_name in ['737-3A', '737-3B', '737-3C']:
             self.array, self.offset = self.spoiler_737(spoiler_4, spoiler_9)
@@ -4417,7 +4417,7 @@ class SpeedbrakeSelected(MultistateDerivedParameterNode):
             frame=A('Frame')):
         '''
         '''
-        frame_name = frame.value if frame else None
+        frame_name = frame.value if frame else ''
         
         if deployed:
             # set initial state to 'Stowed'
@@ -4499,7 +4499,7 @@ class StickShaker(MultistateDerivedParameterNode):
             shake_act=M('Shaker Activation')):
         '''
         '''
-        frame_name = frame.value if frame else None
+        frame_name = frame.value if frame else ''
 
         if frame_name in ['CRJ-700-900'] and shake_act:
             self.array, self.frequency, self.offset = \

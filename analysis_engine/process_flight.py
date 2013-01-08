@@ -364,7 +364,7 @@ if __name__ == '__main__':
                         help='Path of file to process.')
     parser.add_argument('-tail', dest='tail_number', type=str, default='G-ABCD',
                         help='Aircraft Tail Number for processing.')
-    parser.add_argument('-frame', dest='frame', type=str, default=None,
+    parser.add_argument('-frame', dest='frame', type=str, default='737-3C',
                         help='Data frame name.')
     parser.add_argument('-p', dest='plot', action='store_true',
                         default=False, help='Plot flight onto a graph.')
