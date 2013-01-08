@@ -284,7 +284,7 @@ class TestAltitudeWhenDescending(unittest.TestCase):
     def test_can_operate(self):
         self.assertEqual(AltitudeWhenDescending.get_operational_combinations(),
                          [('Descending', 'Altitude AAL')])
-    
+
     def test_derive(self):
         descending = buildsections('Descending', [0, 10], [11, 20])
         alt_aal = P('Altitude AAL',
@@ -613,11 +613,8 @@ class TestAutopilotDisengagedSelection(unittest.TestCase):
         ads = AutopilotDisengagedSelection()
         air = buildsection('Airborne', 2, 5)
         ads.derive(ap, air)
-        self.assertEqual(
-            ads[0],
-            KeyTimeInstance(
-                index=3.5, name='AP Disengaged Selection', datetime=None,
-                latitude=None, longitude=None))
+        expected = [KeyTimeInstance(index=3.5, name='AP Disengaged Selection')]
+        self.assertEqual(ads, expected)
 
 
 class TestAutopilotEngagedSelection(unittest.TestCase):
@@ -634,11 +631,8 @@ class TestAutopilotEngagedSelection(unittest.TestCase):
         ads = AutopilotEngagedSelection()
         air = buildsection('Airborne', 2, 5)
         ads.derive(ap, air)
-        self.assertEqual(
-            ads[0],
-            KeyTimeInstance(
-                index=2.5, name='AP Engaged Selection', datetime=None,
-                latitude=None, longitude=None))
+        expected = [KeyTimeInstance(index=2.5, name='AP Engaged Selection')]
+        self.assertEqual(ads, expected)
 
 
 class TestAutothrottleDisengagedSelection(unittest.TestCase):
@@ -649,7 +643,14 @@ class TestAutothrottleDisengagedSelection(unittest.TestCase):
             expected)
 
     def test_derive(self):
-        self.assertTrue(False, msg='Test not implemented.')
+        ap = M('AT Engaged',
+               ['Off', 'Off', 'Off', 'Engaged', 'Off', 'Off', 'Off'],
+               values_mapping={0: 'Off', 1: 'Engaged'})
+        ads = AutothrottleDisengagedSelection()
+        air = buildsection('Airborne', 2, 5)
+        ads.derive(ap, air)
+        expected = [KeyTimeInstance(index=3.5, name='AT Disengaged Selection')]
+        self.assertEqual(ads, expected)
 
 
 class TestAutothrottleEngagedSelection(unittest.TestCase):
@@ -660,7 +661,14 @@ class TestAutothrottleEngagedSelection(unittest.TestCase):
             expected)
 
     def test_derive(self):
-        self.assertTrue(False, msg='Test not implemented.')
+        ap = M('AT Engaged',
+               ['Off', 'Off', 'Off', 'Engaged', 'Off', 'Off', 'Off'],
+               values_mapping={0: 'Off', 1: 'Engaged'})
+        ads = AutothrottleEngagedSelection()
+        air = buildsection('Airborne', 2, 5)
+        ads.derive(ap, air)
+        expected = [KeyTimeInstance(index=2.5, name='AT Engaged Selection')]
+        self.assertEqual(ads, expected)
 
 
 ##### Is this KTI working at all?
@@ -675,23 +683,27 @@ class TestAutothrottleEngagedSelection(unittest.TestCase):
 class TestEnterHold(unittest.TestCase):
     def test_can_operate(self):
         expected = [('Holding',)]
-        self.assertEqual(
-            expected,
-            EnterHold.get_operational_combinations())
+        self.assertEqual(expected, EnterHold.get_operational_combinations())
 
     def test_derive(self):
-        self.assertTrue(False, msg='Test not implemented.')
+        hold = buildsection('Holding', 2, 5)
+        expected = [KeyTimeInstance(index=2, name='Enter Hold')]
+        eh = EnterHold()
+        eh.derive(hold)
+        self.assertEqual(eh, expected)
 
 
 class TestExitHold(unittest.TestCase):
     def test_can_operate(self):
         expected = [('Holding',)]
-        self.assertEqual(
-            expected,
-            ExitHold.get_operational_combinations())
+        self.assertEqual(expected, ExitHold.get_operational_combinations())
 
     def test_derive(self):
-        self.assertTrue(False, msg='Test not implemented.')
+        hold = buildsection('Holding', 2, 5)
+        expected = [KeyTimeInstance(index=2, name='Enter Hold')]
+        eh = EnterHold()
+        eh.derive(hold)
+        self.assertEqual(eh, expected)
 
 
 class TestFlapStateChanges(unittest.TestCase):
@@ -713,7 +725,13 @@ class TestGearDownSelection(unittest.TestCase):
             GearDownSelection.get_operational_combinations())
 
     def test_derive(self):
-        self.assertTrue(False, msg='Test not implemented.')
+        gup = M('Gear Down Selected',
+                ['Down', 'Down', 'Down', 'Up', 'Up', 'Down', 'Down'],
+                values_mapping={0: 'Down', 1: 'Up'})
+        airs = buildsection('Airborne', 0, 7)
+        gear_up = GearUpSelection()
+        gear_up.derive(gup, airs)
+        self.assertTrue(gear_up[0].index, 4.5)
 
 
 class TestGearUpSelection(unittest.TestCase):
@@ -724,7 +742,7 @@ class TestGearUpSelection(unittest.TestCase):
             GearUpSelection.get_operational_combinations())
 
     def test_normal_operation(self):
-        gup = M('Gear Up Selected', ['Down','Down','Down','Up','Up','Down','Down'], 
+        gup = M('Gear Up Selected', ['Down','Down','Down','Up','Up','Down','Down'],
                 values_mapping={0: 'Down', 1: 'Up'})
         airs = buildsection('Airborne', 0, 7)
         gas = buildsection('Go Around', 6, 7)
@@ -733,7 +751,7 @@ class TestGearUpSelection(unittest.TestCase):
         self.assertTrue(gear_up[0].index, 2.5)
 
     def test_during_ga(self):
-        gup = M('Gear Up Selected', ['Down','Down','Down','Up','Up','Down','Down'], 
+        gup = M('Gear Up Selected', ['Down','Down','Down','Up','Up','Down','Down'],
                 values_mapping={0: 'Down', 1: 'Up'})
         airs = buildsection('Airborne', 0, 7)
         gas = buildsection('Go Around', 2, 4)
@@ -772,7 +790,12 @@ class TestLocalizerEstablishedEnd(unittest.TestCase):
             LocalizerEstablishedEnd.get_operational_combinations())
 
     def test_derive(self):
-        self.assertTrue(False, msg='Test not implemented.')
+        ils = buildsection('ILS Localizer Established', 10, 20)
+        expected = [
+            KeyTimeInstance(index=20, name='Localizer Established End')]
+        les = LocalizerEstablishedEnd()
+        les.derive(ils)
+        self.assertEqual(les, expected)
 
 
 class TestLocalizerEstablishedStart(unittest.TestCase):
@@ -783,7 +806,12 @@ class TestLocalizerEstablishedStart(unittest.TestCase):
             LocalizerEstablishedStart.get_operational_combinations())
 
     def test_derive(self):
-        self.assertTrue(False, msg='Test not implemented.')
+        ils = buildsection('ILS Localizer Established', 10, 20)
+        expected = [
+            KeyTimeInstance(index=10, name='Localizer Established Start')]
+        les = LocalizerEstablishedStart()
+        les.derive(ils)
+        self.assertEqual(les, expected)
 
 
 class TestLowestPointOnApproach(unittest.TestCase):
@@ -794,7 +822,19 @@ class TestLowestPointOnApproach(unittest.TestCase):
             LowestPointOnApproach.get_operational_combinations())
 
     def test_derive(self):
-        self.assertTrue(False, msg='Test not implemented.')
+        alt_aal = P(name='Altitude AAL', array=np.ma.array([
+            5, 5, 4, 4, 3, 3, 2, 2, 1, 1,
+            1, 1, 2, 3, 4, 5, 6, 7, 8, 9,
+        ]))
+        alt_rad = P(name='Altitude Radio', array=np.ma.array([
+            5, 5, 4, 4, 3, 3, 2, 1, 1, 1,
+            1, 1, 2, 3, 4, 5, 6, 7, 8, 9,
+        ]))
+        appr = buildsection('Approach', 2, 15)
+        lpa = LowestPointOnApproach()
+        lpa.derive(alt_aal, alt_rad, appr)
+        expected = [KeyTimeInstance(index=7, name='Lowest Point On Approach')]
+        self.assertEqual(lpa, expected)
 
 
 class TestMinsToTouchdown(unittest.TestCase):
@@ -805,33 +845,19 @@ class TestMinsToTouchdown(unittest.TestCase):
             MinsToTouchdown.get_operational_combinations())
 
     def test_derive(self):
-        td = [KeyTimeInstance(index=500, name='Touchdown', datetime=None,
-                              latitude=None, longitude=None)]
+        td = [KeyTimeInstance(index=500, name='Touchdown')]
         sttd = MinsToTouchdown()
         sttd.derive(td)
         self.assertEqual(
-            sttd[0],
-            KeyTimeInstance(index=200, name='5 Mins To Touchdown',
-                            datetime=None, latitude=None, longitude=None))
-        self.assertEqual(
-            sttd[1],
-            KeyTimeInstance(index=260, name='4 Mins To Touchdown',
-                            datetime=None, latitude=None, longitude=None))
-
-        self.assertEqual(
-            sttd[2],
-            KeyTimeInstance(index=320, name='3 Mins To Touchdown',
-                            datetime=None, latitude=None, longitude=None))
-
-        self.assertEqual(
-            sttd[3],
-            KeyTimeInstance(index=380, name='2 Mins To Touchdown',
-                            datetime=None, latitude=None, longitude=None))
-
-        self.assertEqual(
-            sttd[4],
-            KeyTimeInstance(index=440, name='1 Mins To Touchdown',
-                            datetime=None, latitude=None, longitude=None))
+            sttd,
+            [
+                KeyTimeInstance(index=200, name='5 Mins To Touchdown'),
+                KeyTimeInstance(index=260, name='4 Mins To Touchdown'),
+                KeyTimeInstance(index=320, name='3 Mins To Touchdown'),
+                KeyTimeInstance(index=380, name='2 Mins To Touchdown'),
+                KeyTimeInstance(index=440, name='1 Mins To Touchdown'),
+            ]
+        )
 
 
 class TestSecsToTouchdown(unittest.TestCase):
@@ -842,18 +868,16 @@ class TestSecsToTouchdown(unittest.TestCase):
             SecsToTouchdown.get_operational_combinations())
 
     def test_derive(self):
-        td = [KeyTimeInstance(index=100, name='Touchdown', datetime=None,
-                              latitude=None, longitude=None)]
+        td = [KeyTimeInstance(index=100, name='Touchdown')]
         sttd = SecsToTouchdown()
         sttd.derive(td)
         self.assertEqual(
-            sttd[0],
-            KeyTimeInstance(index=10, name='90 Secs To Touchdown',
-                            datetime=None, latitude=None, longitude=None))
-        self.assertEqual(
-            sttd[1],
-            KeyTimeInstance(index=70, name='30 Secs To Touchdown',
-                            datetime=None, latitude=None, longitude=None))
+            sttd,
+            [
+                KeyTimeInstance(index=10, name='90 Secs To Touchdown'),
+                KeyTimeInstance(index=70, name='30 Secs To Touchdown'),
+            ]
+        )
 
 
 ####class TestTAWSTooLowTerrainWarning(unittest.TestCase):
@@ -874,14 +898,11 @@ class TestTouchAndGo(unittest.TestCase):
             5, 5, 4, 4, 3, 3, 2, 2, 1, 1,
             0, 1, 2, 3, 4, 5, 6, 7, 8, 9,
         ]))
-        go_around = [KeyTimeInstance(index=10, name='Go Around', datetime=None,
-                                     latitude=None, longitude=None)]
+        go_around = [KeyTimeInstance(index=10, name='Go Around')]
         t_a_g = TouchAndGo()
         t_a_g.derive(alt_aal, go_around)
-        self.assertEqual(
-            t_a_g[0],
-            KeyTimeInstance(index=10, name='Touch And Go', datetime=None,
-                            latitude=None, longitude=None))
+        expected = [KeyTimeInstance(index=10, name='Touch And Go')]
+        self.assertEqual(t_a_g, expected)
 
 
 class TestTransmit(unittest.TestCase):
@@ -909,7 +930,5 @@ class TestTransmit(unittest.TestCase):
                values_mapping={0: 'Off', 1: 'Keyed'})
         tr = Transmit()
         tr.derive(hf)
-        self.assertEqual(
-            tr[0],
-            KeyTimeInstance(index=2.5, name='Transmit', datetime=None,
-                            latitude=None, longitude=None))
+        expected = [KeyTimeInstance(index=2.5, name='Transmit')]
+        self.assertEqual(tr, expected)
