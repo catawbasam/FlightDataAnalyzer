@@ -441,18 +441,20 @@ class TestTakeoffAccelerationStart(unittest.TestCase):
     def test_takeoff_acceleration_start(self):
         # This test uses the same airspeed data as the library routine test,
         # so should give the same answer!
-        airspeed_data = np.ma.array([37.9,37.9,37.9,37.9,37.9,38.2,38.2,38.2,
-                                     38.2,38.8,38.2,38.8,39.1,39.7,40.6,41.5,
-                                     42.7,43.6,44.5,46,47.5,49.6,52,53.2,54.7,
-                                     57.4,60.7,61.9,64.3,66.1,69.4,70.6,74.2,
-                                     74.8])
+        airspeed_data = np.ma.array(data=[37.9,37.9,37.9,37.9,37.9,37.9,37.9,
+                                          37.9,38.2,38.2,38.2,38.2,38.8,38.2,
+                                          38.8,39.1,39.7,40.6,41.5,42.7,43.6,
+                                          44.5,46,47.5,49.6,52,53.2,54.7,57.4,
+                                          60.7,61.9,64.3,66.1,69.4,70.6,74.2,
+                                          74.8],
+                                    mask=[1]*22+[0]*15
+                                    )
         takeoff = buildsection('Takeoff',3,len(airspeed_data))
         aspd = P('Airspeed', airspeed_data)
         instance = TakeoffAccelerationStart()
         instance.derive(aspd, takeoff,None)
-        expected = [KeyTimeInstance(index=15.083333333333361,
-                                    name='Takeoff Acceleration Start')]
-        self.assertEqual(instance, expected)
+        self.assertLess(instance[0].index, 1.0)
+        self.assertGreater(instance[0].index, 0.5)
 
     
 class TestTakeoffTurnOntoRunway(unittest.TestCase):
@@ -569,15 +571,15 @@ class TestTouchdown(unittest.TestCase):
                            #'Landing')])
 
     def test_touchdown_basic(self):
-        vert_spd = Parameter('Vertical Speed', np.ma.arange(10)*40 - 380)
+        vert_spd = Parameter('Vertical Speed', np.ma.arange(10)*40 - 380.0)
         altitude = Parameter('Altitude AAL',
-                             np.ma.array(data=[28, 21, 15, 10, 6, 3, 1, 0, 0,  0],
+                             np.ma.array(data=[28.0, 21, 15, 10, 6, 3, 1, 0, 0,  0],
                                          mask = False))
         airs = buildsection('Airborne', 1, 8)
         lands = buildsection('Landing', 2, 9)
         tdwn=Touchdown()
         tdwn.derive(None, vert_spd, altitude, airs, lands)
-        expected = [KeyTimeInstance(index=37/6.0, name='Touchdown')]
+        expected = [KeyTimeInstance(index=6.7490996398559435, name='Touchdown')]
         self.assertEqual(tdwn, expected)
 
     def test_touchdown_doesnt_land(self):
