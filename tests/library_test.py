@@ -141,6 +141,8 @@ class TestAlign(unittest.TestCase):
                    array=np.ma.array([0,1,2,3,4], dtype=float))
         
         result = align(second, first)
+        # check dtype is int
+        self.assertEqual(result.dtype, int)
         np.testing.assert_array_equal(result.data, [1, 2, 3, 4, 0])
         np.testing.assert_array_equal(result.mask, [0, 0, 0, 0, 1])
         
@@ -149,16 +151,19 @@ class TestAlign(unittest.TestCase):
         first = P(frequency=2, offset=0.2, 
                   array=np.ma.array([11,12,13,14,15], dtype=float))
         second = P(frequency=1, offset=0.0,
-                   array=np.ma.array([1, 2, 3, 4, 5], dtype=float))
+                   array=np.ma.array([1, 2, 3.5, 4, 5], dtype=float))
         
         result = align(second, first, interpolate=False)
+        # Check dtype returned is a float
+        self.assertEqual(result.dtype, float)
+        
         # Slave at 2Hz 0.2 offset explained:
         # 0.2 offset: 1 taken from 0.0 second already recorded
         # 0.7 offset: 2 taken from 1.0 second (1.0 is closer than 0.0 second)
         # 1.2 offset: 2 taken from 1.0 second (1.0 is closer than 2.0 second)
-        # 1.7 offset: 3 taken from 2.0 second (2.0 is closest to 1.7 second)
+        # 1.7 offset: 3.5 taken from 2.0 second (2.0 is closest to 1.7 second)
         # ...
-        np.testing.assert_array_equal(result.data, [1, 2, 2, 3, 3, 4, 4, 5, 0, 0])
+        np.testing.assert_array_equal(result.data, [1, 2, 2, 3.5, 3.5, 4, 4, 5, 0, 0])
         np.testing.assert_array_equal(result.mask, [0, 0, 0, 0, 0, 0, 0, 0, 1, 1])
     
     def test_align_same_hz_delayed(self):
@@ -1539,12 +1544,11 @@ class TestGroundTrackPrecise(unittest.TestCase):
             self.gspd = np.ma.array(gspd_data)
 
     def test_ppgt_basic(self):
-        la, lo, wt = ground_track_precise(self.lat, self.lon, 
-                                                    self.gspd, self.hdg, 
-                                                    1.0, 'landing')
+        la, lo, wt = ground_track_precise(self.lat, self.lon, self.gspd,
+                                          self.hdg, 1.0, 'landing')
         
-        self.assertLess(wt,1000)
-        self.assertGreater(wt,900)
+        self.assertLess(wt, 1000)
+        self.assertGreater(wt, 900)
 
 
 class TestHashArray(unittest.TestCase):
@@ -1654,11 +1658,6 @@ class TestIndexAtValue(unittest.TestCase):
     # Indexing from the end of the array results in an array length
     # mismatch. There is a failing test to cover this case which may work
     # with array[:end:-1] construct, but using slices appears insoluble.
-    def test_index_at_value_backwards_from_the_very_end(self):
-        array = np.ma.arange(8)
-        # this test should pass - see fiddled code
-        # self.assertEquals (index_at_value(array, 8, slice(8, 3, -1)), 8)
-        self.assertEqual(True, False)
     def test_index_at_value_backwards_from_end_minus_one(self):
         array = np.ma.arange(8)
         self.assertEquals (index_at_value(array, 7, slice(8, 3, -1)), 7)
@@ -2776,6 +2775,20 @@ class TestRepairMask(unittest.TestCase):
         expected.mask = True
         ma_test.assert_array_equal(res.data, expected.data)
         ma_test.assert_array_equal(res.mask, expected.mask)
+
+    def test_repair_mask_basic(self):
+        array = np.ma.arange(10)
+        array[5] = np.ma.masked
+        array[7:9] = np.ma.masked
+        res = repair_mask(array, repair_above=5)
+        np.testing.assert_array_equal(res.data,range(10))
+        # test only array[5] is still masked as is the first 
+        self.assertFalse(np.ma.is_masked(res[4]))
+        self.assertTrue(np.ma.is_masked(res[5]))
+        self.assertFalse(np.ma.is_masked(res[6]))
+        self.assertFalse(np.ma.is_masked(res[7]))
+        self.assertFalse(np.ma.is_masked(res[8]))
+        self.assertFalse(np.ma.is_masked(res[9]))
 
 
 class TestRoundToNearest(unittest.TestCase):

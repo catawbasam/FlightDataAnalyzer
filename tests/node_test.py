@@ -1429,6 +1429,18 @@ class TestMultistateDerivedParameterNode(unittest.TestCase):
         self.assertEqual(p.array[0], 'drei')
         self.assertEqual(p.array.raw[0], 3)
         
+        # create with float array which are actually integers
+        array = np.ma.array([1., 2.5,  # note: 2.5 will be rounded to 2.0
+                             3., 0.], dtype=float)
+        import analysis_engine.node as n
+        temp = n.multistate_string_to_integer
+        n.multistate_string_to_integer = mock.Mock()
+        m = M(values_mapping=values_mapping)
+        m.array = array
+        self.assertEqual(m.array.data.dtype, int)
+        self.assertFalse(n.multistate_string_to_integer.called)
+        n.multistate_string_to_integer = temp
+        
     def test_settattr_string_array(self):
         mapping = {0:'zero', 1:'one', 2:'two', 3:'three'}
         multi_p = MultistateDerivedParameterNode('multi', values_mapping=mapping)

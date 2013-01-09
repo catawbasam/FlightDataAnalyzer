@@ -13,7 +13,9 @@ from utilities import masked_array_testutils as ma_test
 from utilities.filesystem_tools import copy_file
 
 from analysis_engine.flight_phase import Fast, Mobile
-from analysis_engine.node import Attribute, A, KPV, KeyTimeInstance, KTI, Parameter, P, Section, S
+from analysis_engine.node import (Attribute, A, KPV, KeyTimeInstance, KTI, M,
+                                  Parameter, P, Section, S)
+from analysis_engine.library import np_ma_masked_zeros_like
 from analysis_engine.process_flight import process_flight
 from analysis_engine.settings import METRES_TO_FEET
 
@@ -79,6 +81,7 @@ from analysis_engine.derived_parameters import (
     LongitudeSmoothed,
     Mach,
     Pitch,
+    SpeedbrakeSelected,
     VerticalSpeed,
     VerticalSpeedForFlightPhases,
     RateOfTurn,
@@ -403,7 +406,11 @@ class TestAirspeedReference(unittest.TestCase):
         expected=np.array([120]*128)
         np.testing.assert_array_equal(param.array, expected)
 
-    def test_airspeed_reference__boeing_lookup(self):
+    @patch('analysis_engine.derived_parameters.get_vspeed_map')
+    def test_airspeed_reference__boeing_lookup(self, vspeed_map):
+        vspeed_table = Mock
+        vspeed_table.airspeed_reference = Mock(side_effect = [135, 130])
+        vspeed_map.return_value = vspeed_table
         test_hdf = copy_file('test_data/airspeed_reference.hdf5')
         with hdf_file(test_hdf) as hdf:
             approaches = (Section(name='Approach', slice=slice(3346, 3540), start_edge=3345.5, stop_edge=3539.5),
@@ -423,8 +430,10 @@ class TestAirspeedReference(unittest.TestCase):
             ]
             param = AirspeedReference()
             param.get_derived(args)
-            expected = np.ma.load('test_data/boeing_reference_speed.ma')
-            np.testing.assert_array_equal(param.array, expected.array)
+            expected = np_ma_masked_zeros_like(hdf['Airspeed'].array)
+            expected[slice(3346, 3540)] = 135
+            expected[slice(5502, 5795)] = 130
+            np.testing.assert_array_equal(param.array, expected)
         if os.path.isfile(test_hdf):
             os.remove(test_hdf)
 
@@ -2005,27 +2014,17 @@ class TestRateOfTurn(unittest.TestCase):
         rot = RateOfTurn()
         rot.derive(P('Heading Continuous', np.ma.array([0,0,0,1,0,0,0],
                                                           dtype=float)))
-        answer = np.ma.array([0,0,0.5,0,-0.5,0,0])
+        answer = np.ma.array([0,0,0.3,0,-0.3,0,0])
         ma_test.assert_masked_array_approx_equal(rot.array, answer)
         
-class TestRateOfTurn(unittest.TestCase):
-    def test_can_operate(self):
-        expected = [('Heading Continuous',)]
-        opts = RateOfTurn.get_operational_combinations()
-        self.assertEqual(opts, expected)
-       
-    def test_rate_of_turn(self):
+    def test_sample_long_gentle_turn(self):
+        # Sample taken from a long circling hold pattern
+        head_cont = P(array=np.ma.array(
+            np.load('test_data/heading_continuous_in_hold.npy')), frequency=2)
         rot = RateOfTurn()
-        rot.derive(P('Heading Continuous', np.ma.array(range(10))))
-        answer = np.ma.array(data=[1]*10, dtype=np.float)
-        np.testing.assert_array_equal(rot.array, answer) # Tests data only; NOT mask
-       
-    def test_rate_of_turn_phase_stability(self):
-        rot = RateOfTurn()
-        rot.derive(P('Heading Continuous', np.ma.array([0,0,0,1,0,0,0],
-                                                          dtype=float)))
-        answer = np.ma.array([0,0,0.5,0,-0.5,0,0])
-        ma_test.assert_masked_array_approx_equal(rot.array, answer)
+        rot.get_derived((head_cont,))
+        np.testing.assert_allclose(rot.array[50:1150],
+                                   np.ones(1100)*2, rtol=0.05)
         
         
 class TestMach(unittest.TestCase):
@@ -2091,7 +2090,7 @@ class TestV2(unittest.TestCase):
             ]
             param = V2()
             param.get_derived(args)
-            expected = np.array([144.868884]*5888)
+            expected = np.ma.array([151.70729599999999]*5888)
             np.testing.assert_array_equal(param.array, expected)
         if os.path.isfile(test_hdf):
             os.remove(test_hdf)
@@ -2759,14 +2758,43 @@ class TestSpeedbrake(unittest.TestCase):
 
 
 class TestSpeedbrakeSelected(unittest.TestCase):
-    @unittest.skip('Test Not Implemented')
     def test_can_operate(self):
-        self.assertTrue(False, msg='Test not implemented.')
+        opts = SpeedbrakeSelected.get_operational_combinations()
+        self.assertTrue(('Speedbrake Deployed',) in opts)
+        self.assertTrue(('Speedbrake', 'Frame') in opts)
+        self.assertTrue(('Speedbrake Handle', 'Frame') in opts)
+        self.assertTrue(('Speedbrake Handle', 'Speedbrake', 'Frame') in opts)        
         
-    @unittest.skip('Test Not Implemented')
     def test_derive(self):
-        self.assertTrue(False, msg='Test not implemented.')
-
+        # test with deployed
+        spd_sel = SpeedbrakeSelected()
+        spd_sel.derive(
+            deployed=M(array=np.ma.array(
+                [0, 0, 0, 1, 1, 0]), values_mapping={1:'Deployed'}),
+            armed=M(array=np.ma.array(
+                [0, 0, 1, 1, 0, 0]), values_mapping={1:'Armed'})
+        )
+        self.assertEqual(list(spd_sel.array),
+            ['Stowed', 'Stowed', 'Armed/Cmd Dn', 'Deployed/Cmd Up', 'Deployed/Cmd Up', 'Stowed'])
+        
+    def test_b737_speedbrake(self):
+        self.maxDiff = None
+        spd_sel = SpeedbrakeSelected()
+        spdbrk = P(array=np.ma.array([0]*10 + [1.3]*20 + [0.2]*10))
+        handle = P(array=np.ma.arange(40))
+        # Follow the spdbrk only
+        res = spd_sel.b737_speedbrake(spdbrk, None)
+        self.assertEqual(list(res),
+                        ['Stowed']*10 + ['Deployed/Cmd Up']*20 + ['Stowed']*10)
+        # Follow the handle only
+        res = spd_sel.b737_speedbrake(None, handle)
+        self.assertEqual(list(res),
+                        ['Stowed']*3 + ['Armed/Cmd Dn']*32 + ['Deployed/Cmd Up']*5)
+        # Follow the combination
+        res = spd_sel.b737_speedbrake(spdbrk, handle)
+        self.assertEqual(list(res),
+                        ['Stowed']*3 + ['Armed/Cmd Dn']*7 + ['Deployed/Cmd Up']*20 + ['Armed/Cmd Dn']*5 + ['Deployed/Cmd Up']*5)
+        
 
 class TestStickShaker(unittest.TestCase):
     @unittest.skip('Test Not Implemented')

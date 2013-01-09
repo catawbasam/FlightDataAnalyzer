@@ -1,4 +1,5 @@
 import argparse
+from copy import copy
 import csv
 import logging
 import matplotlib.pyplot as plt
@@ -15,14 +16,47 @@ from utilities.print_table import indent
 
 logger = logging.getLogger(name=__name__)
 
+class TypedWriter(object):
+    """
+    A CSV writer which will write rows to CSV file "f",
+    which uses "fieldformats" to format fields.
+    
+    ref: http://stackoverflow.com/questions/2982642/specifying-formatting-for-csv-writer-in-python
+    """
 
+    def __init__(self, f, fieldnames, fieldformats, **kwds):
+        self.writer = csv.DictWriter(f, fieldnames, **kwds)
+        self.writer.writeheader()
+        self.formats = fieldformats
+
+    def _format(self, row):
+        return dict((k, self.formats.get(k, '%s') % v if v or v == 0.0 else v) 
+                    for k, v in row.iteritems())
+    
+    def writerow(self, row):
+        self.writer.writerow(self._format(row))
+
+    def writerows(self, rows):
+        for row in rows:
+            self.writerow(row)
+            
+    def rowlist(self, rows):
+        "Return a list of formatted rows as ordered by fieldnames"
+        res = []
+        for row in rows:
+            res.append(self.writer._dict_to_list(self._format(row)))
+        return res
+            
+            
 def add_track(kml, track_name, lat, lon, colour, alt_param=None):
     track_config = {'name': track_name}
     if alt_param:
-        if alt_param.name in ['Altitude AAL', 'Altitude STD']:
+        if alt_param.name in ['Altitude QNH', 'Altitude AAL', 'Altitude STD']:
             track_config['altitudemode'] = simplekml.constants.AltitudeMode.absolute
-        elif alt_param.name in ['Altitude Radio', 'Altitude Radio']:
+        elif alt_param.name in ['Altitude Radio']:
             track_config['altitudemode'] = simplekml.constants.AltitudeMode.relativetoground
+        else:
+            raise NotImplementedError("Altitude parameter '%s' not handled" % alt_param.name)
         track_config['extrude'] = 1
         
     track_coords = []
@@ -69,28 +103,40 @@ def draw_centreline(kml, rwy):
     return
 
 
-def track_to_kml(hdf_path, kti_list, kpv_list, flight_list, plot_altitude=False):
-    hdf = hdf_file(hdf_path)
+def track_to_kml(hdf_path, kti_list, kpv_list, flight_attrs,
+                 plot_altitude=False, dest_path=None):
+    '''
+    Plot results of process_flight onto a KML track.
+    
+    :param flight_attrs: List of Flight Attributes
+    :type flight_attrs: list
+    :param plot_altitude: Name of Altitude parameter to use in KML
+    :type plot_altitude: String
+    '''
     #if 'Latitude Smoothed' not in hdf or 'Longitude Smoothed' not in hdf:
         ## unable to plot without these parameters
         #return
     kml = simplekml.Kml()
-    if plot_altitude:
-        alt = derived_param_from_hdf(hdf[plot_altitude])
-        alt.array = repair_mask(alt.array, frequency=alt.frequency, repair_duration=None)
-    else:
-        alt = None
-              
-    smooth_lat = derived_param_from_hdf(hdf['Latitude Smoothed'])
-    smooth_lon = derived_param_from_hdf(hdf['Longitude Smoothed'])
-    add_track(kml, 'Smoothed', smooth_lat, smooth_lon, 'ff7fff7f') #, hdf[plot_altitude])
-
-    lat = derived_param_from_hdf(hdf['Latitude Prepared'])
-    lon = derived_param_from_hdf(hdf['Longitude Prepared'])
-    add_track(kml, 'Prepared', lat, lon, 'ff0000ff')
+    with hdf_file(hdf_path) as hdf:
+        if plot_altitude:
+            alt = derived_param_from_hdf(hdf[plot_altitude])
+            alt.array = repair_mask(alt.array, frequency=alt.frequency, repair_duration=None)
+        else:
+            alt = None
+                  
+        smooth_lat = derived_param_from_hdf(hdf['Latitude Smoothed'])
+        smooth_lon = derived_param_from_hdf(hdf['Longitude Smoothed'])
+        add_track(kml, 'Smoothed', smooth_lat, smooth_lon, 'ff7fff7f', 
+                  alt_param=alt)
+        add_track(kml, 'Smoothed On Ground', smooth_lat, smooth_lon, 'ff7fff7f')        
     
-    lat_r = derived_param_from_hdf(hdf['Latitude'])
-    lon_r = derived_param_from_hdf(hdf['Longitude'])
+        lat = derived_param_from_hdf(hdf['Latitude Prepared'])
+        lon = derived_param_from_hdf(hdf['Longitude Prepared'])
+        add_track(kml, 'Prepared', lat, lon, 'ff0000ff')
+        
+        lat_r = derived_param_from_hdf(hdf['Latitude'])
+        lon_r = derived_param_from_hdf(hdf['Longitude'])
+        
     add_track(kml, 'Recorded Track', lat_r, lon_r, 'ff0000ff')
 
     for kti in kti_list:
@@ -126,7 +172,7 @@ def track_to_kml(hdf_path, kti_list, kpv_list, flight_list, plot_altitude=False)
             pnt = kml.newpoint(**kpv_point_values)
             pnt.style = style
             
-    for attribute in flight_list:
+    for attribute in flight_attrs:
         if attribute.name in ['FDR Approaches']:
             for app in attribute.value:
                 try:
@@ -134,8 +180,9 @@ def track_to_kml(hdf_path, kti_list, kpv_list, flight_list, plot_altitude=False)
                 except:
                     pass
 
-    kml.save(hdf_path+".kml")
-    hdf.close()
+    if not dest_path:
+        dest_path = hdf_path + ".kml"
+    kml.save(dest_path)
     return
 
 
@@ -297,52 +344,79 @@ def csv_flight_details(hdf_path, kti_list, kpv_list, phase_list, dest_path=None)
     """
     Currently writes to csv and prints to a table.
     
-    :param dest_path: If None, writes to hdf_path.csv
+    Phase types have a 'duration' column
+    
+    :param dest_path: Outputs CSV to dest_path (removing if exists). If None,
+      collates results by appending to a single file: 'combined_test_output.csv'
     """
     rows = []
-    params = ['Airspeed', 'Altitude AAL', 'Pitch', 'Roll']
+    params = ['Airspeed', 'Altitude AAL']
     attrs = ['value', 'datetime', 'latitude', 'longitude'] 
-    header = ['Path', 'Type', 'Phase Start', 'Index', 'Phase End', 'Name'] + attrs + params
+    header = ['type', 'index', 'duration', 'name'] + attrs + params
+    if not dest_path:
+        header.append('Path')
+    formats = {'index': '%.3f',
+               'value': '%.3f',
+               'duration': '%.3f',
+               'latitude': '%.4f',
+               'longitude': '%.4f',
+               'Airspeed': '%d kts',
+               'Altitude AAL': '%d ft',
+               }
+    for value in kti_list:
+        vals = value.todict()  # recordtype
+        vals['path'] = hdf_path
+        vals['type'] = 'Key Time Instance'
+        rows.append( vals )
 
+    for value in kpv_list:
+        vals = value.todict()  # recordtype
+        vals['path'] = hdf_path
+        vals['type'] = 'Key Point Value'
+        rows.append( vals )
+
+    for value in phase_list:
+        vals = value._asdict()  # namedtuple
+        vals['name'] = value.name + ' [START]'
+        vals['path'] = hdf_path
+        vals['type'] = 'Phase'
+        vals['index'] = value.start_edge
+        vals['duration'] = value.stop_edge - value.start_edge  # (secs)
+        rows.append(vals)
+        # create another at the stop of the phase
+        end = copy(vals)
+        end['name'] = value.name + ' [END]'
+        end['index'] = value.stop_edge
+        rows.append(end)
+    
+    # Append values of useful parameters at this time
     with hdf_file(hdf_path) as hdf:
-        for value in kti_list:
-            vals = [hdf_path, 'Key Time Instance', None, value.index, None, value.name, None,
-                    value.datetime, value.latitude, value.longitude]
-            rows.append( vals )
-
-        for value in kpv_list:
-            vals = [hdf_path, 'Key Point Value', None, value.index, None, value.name, value.value,
-                    value.datetime]+[None]*2
-            rows.append( vals )
-
-        for value in phase_list:
-            vals = [hdf_path, 'Phase', value.name, value.start_edge]+[None]*6
-            rows.append( vals )
-            vals = [hdf_path, 'Phase', None, value.stop_edge, value.name]+[None]*5
-            rows.append( vals )
-
         for param in params:
             # Create DerivedParameterNode to utilise the .at() method
             p = hdf[param]
             dp = Parameter(name=p.name, array=p.array, 
-                                frequency=p.frequency, offset=p.offset)
+                           frequency=p.frequency, offset=p.offset)
             for row in rows:
-                row.append(dp.at(row[3]))
+                row[param] = dp.at(row['index'])
 
     # sort rows
-    rows = sorted(rows, key=lambda x: x[header.index('Index')])
+    rows = sorted(rows, key=lambda x: x['index'])
+    
     # print to CSV
     if not dest_path:
-        # dest_path = os.path.splitext(hdf_path)[0] + '_values_at_indexes.csv'
         dest_path = 'combined_test_output.csv'
+    elif os.path.isfile(dest_path):
+        logger.info("Deleting existing copy of: %s", dest_path)
+        os.remove(dest_path)
+        
     with open(dest_path, 'ab') as dest:
-        writer = csv.writer(dest)
-        writer.writerow(header)
+        writer = TypedWriter(dest, fieldnames=header, fieldformats=formats,
+                             extrasaction='ignore')
         writer.writerows(rows)
-    
-    # print to Debug I/O
-    logger.info(indent([header] + rows, hasHeader=True, wrapfunc=lambda x:str(x)))
-
+        # print to Debug I/O
+        logger.info(indent([header] + writer.rowlist(rows), hasHeader=True, 
+                           wrapfunc=lambda x:str(x)))
+    return rows
 
 
 

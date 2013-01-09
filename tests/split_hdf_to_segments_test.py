@@ -5,6 +5,7 @@ import unittest
 
 from datetime import datetime
 
+from analysis_engine import hooks, settings
 from analysis_engine.split_hdf_to_segments import (
     _calculate_start_datetime, append_segment_info, split_segments)
 from analysis_engine.node import P,  Parameter
@@ -221,13 +222,44 @@ class TestSplitSegments(unittest.TestCase):
         hdf = hdf_file(os.path.join(test_data_path, "4_3377853_146-301.hdf5"))
         segment_tuples = split_segments(hdf)
         self.assertEqual(segment_tuples,
-                         [('START_AND_STOP', slice(0, 3168.0, None)),
-                          ('START_AND_STOP', slice(3168.0, 6014.0, None)),
-                          ('START_AND_STOP', slice(6014.0, 9504.0, None)),
-                          ('START_AND_STOP', slice(9504.0, 12373.0, None)),
-                          ('START_AND_STOP', slice(12373.0, 15410.0, None)),
-                          ('START_AND_STOP', slice(15410.0, 18752.0, None))])    
-    
+                         [('START_AND_STOP', slice(0, 24801.0, None)),
+                          ('START_AND_STOP', slice(24801.0, 30000.0, None)),
+                          ('START_AND_STOP', slice(30000.0, 49999.0, None)),
+                          ('START_AND_STOP', slice(49999.0, 69999.0, None)),
+                          ('START_AND_STOP', slice(69999.0, 73552.0, None))])
+
+
+    def test_split_segments_multiple_types(self):
+        '''
+        Test data has multiple segments of differing segment types.
+        Test data has already been validated
+        '''
+        hdf_path = os.path.join(test_data_path, "split_segments_multiple_types.hdf5")
+        temp_path = copy_file(hdf_path)
+        hdf = hdf_file(temp_path)
+        self.maxDiff = None
+        segment_tuples = split_segments(hdf)
+        self.assertEqual(len(segment_tuples), 16, msg="Unexpected number of segments detected")
+        segment_types = tuple(x[0] for x in segment_tuples)
+        self.assertEqual(segment_types,
+                         ('STOP_ONLY',
+                          'START_ONLY',
+                          'START_AND_STOP',
+                          'START_AND_STOP',
+                          'START_AND_STOP',
+                          'START_AND_STOP',
+                          'STOP_ONLY',
+                          'START_AND_STOP',
+                          'STOP_ONLY',
+                          'START_ONLY',
+                          'START_ONLY',
+                          'START_AND_STOP',
+                          'START_ONLY',
+                          'START_AND_STOP',
+                          'START_AND_STOP',
+                          'START_ONLY'))
+
+
 class mocked_hdf(object):
     def __init__(self, path=None):
         pass

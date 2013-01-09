@@ -621,9 +621,13 @@ class MultistateDerivedParameterNode(DerivedParameterNode):
                 # NB: Removed allowance for float!
                 int_array = value
             else:
-                #TODO: Perform more checks to ensure content of value is string
-                # can be of type string or object (mixed)
-                int_array = multistate_string_to_integer(value, self.values_mapping)
+                try:
+                    # WARNING: Possible loss of precision if misused
+                    # expects integers stored as floats, e.g. np.ma.array([1., 2.], dtype=float)
+                    int_array = value.astype(int)
+                except ValueError:
+                    # could not convert, therefore likely to be strings inside
+                    int_array = multistate_string_to_integer(value, self.values_mapping)
             value = MappedArray(int_array, values_mapping=self.values_mapping)
         elif isinstance(value, Iterable):
             # assume a list of mapped values

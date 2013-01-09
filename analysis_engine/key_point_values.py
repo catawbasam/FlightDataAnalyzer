@@ -291,17 +291,14 @@ class AccelerationNormalLiftoffTo35FtMax(KeyPointValueNode):
 
 
 class AccelerationNormalMax(KeyPointValueNode):
-    @classmethod
-    def can_operate(cls, available):
+    
+    def derive(self, acc_norm=P('Acceleration Normal Offset Removed'),
+               moves=S('Mobile')):
         '''
         This KPV has no inherent flight phase associated with it, but we can
         reasonably say that we are not interested in anything while the
         aircraft is stationary.
-        '''
-        return 'Acceleration Normal Offset Removed' in available
-    
-    def derive(self, acc_norm=P('Acceleration Normal Offset Removed'),
-               moves=S('Mobile')):
+        '''        
         self.create_kpv_from_slices(acc_norm.array, moves, max_value)
 
 
@@ -3242,10 +3239,10 @@ class Eng_N1MaxDurationUnder60PercentAfterTouchdown(KeyPointValueNode):
                 touchdown_to_stop_duration = (touchdown_to_stop_slice.stop - \
                                         touchdown_to_stop_slice.start) / self.hz
                 self.create_kpv(touchdown_to_stop_slice.start,
-                                touchdown_to_stop_duration, eng_num=eng_num)
+                                touchdown_to_stop_duration, number=eng_num)
             else:
                 # Create KPV of 0 seconds:
-                self.create_kpv(eng_stop[0].index, 0.0, eng_num=eng_num)
+                self.create_kpv(eng_stop[0].index, 0.0, number=eng_num)
 
 
 class EngN1500To20FtMax(KeyPointValueNode):
