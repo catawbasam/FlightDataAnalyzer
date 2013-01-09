@@ -3189,12 +3189,12 @@ class TestLongitudeAtLiftoff(unittest.TestCase, CreateKPVsAtKTIsTest):
 
 
 class TestLongitudeAtLowestPointOnApproach(unittest.TestCase):
+    @unittest.skip('Test Not Implemented')
     def test_can_operate(self):
-        @unittest.skip('Test Not Implemented')
         self.assertTrue(False, msg='Test not implemented.')
 
+    @unittest.skip('Test Not Implemented')
     def test_derive(self):
-        @unittest.skip('Test Not Implemented')
         self.assertTrue(False, msg='Test not implemented.')
 
 
