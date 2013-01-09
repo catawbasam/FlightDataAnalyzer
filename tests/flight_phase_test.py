@@ -43,6 +43,9 @@ from analysis_engine.process_flight import process_flight
 from analysis_engine.settings import AIRSPEED_THRESHOLD
 
 
+test_data_path = os.path.join(os.path.dirname(os.path.abspath(__file__)),
+                              'test_data')
+
 '''
 Three little routines to make building Sections for testing easier.
 '''
@@ -239,7 +242,7 @@ class TestILSGlideslopeEstablished(unittest.TestCase):
     
     
     def test_derive(self):
-        hdf_copy = copy_file(os.path.join('test_data', 'coreg.hdf5'),
+        hdf_copy = copy_file(os.path.join(test_data_path, 'coreg.hdf5'),
                              postfix='_test_copy')
         result = process_flight(hdf_copy, {
             'Engine': {'classification': 'JET',
