@@ -730,7 +730,7 @@ class AltitudeAAL(DerivedParameterNode):
                     n += 1
                     continue
                 
-                if not (n + 2 < n_vals):
+                if n + 2 >= n_vals:
                     # Falling section. Slice it backwards to use the same code
                     # as for takeoffs.
                     dips.append({
