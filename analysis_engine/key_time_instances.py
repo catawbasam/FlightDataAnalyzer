@@ -204,6 +204,8 @@ class Eng_Stop(KeyTimeInstanceNode):
                eng_4_n2=P('Eng (4) N2')):
         for number, eng_n2 in enumerate([eng_1_n2, eng_2_n2, eng_3_n2,
                                          eng_4_n2,], start=1):
+            if not eng_n2:
+                continue
             power = np.ma.where(eng_n2.array > 30.0, 1, 0)
             self.create_ktis_at_edges(power, direction='falling_edges',
                                       replace_values={'number': number})
