@@ -3229,11 +3229,16 @@ class Eng_N1MaxDurationUnder60PercentAfterTouchdown(KeyPointValueNode):
                 self.debug('Engine %d did not stop on this flight, cannot '
                            'measure KPV', eng_num)
                 continue
+            last_tdwn_idx = tdwn.get_last().index
+            last_eng_stop_idx = eng_stop[-1].index
+            if last_tdwn_idx > last_eng_stop_idx:
+                self.debug('Engine %d was stopped before last touchdown', eng_num)
+                continue
             eng_array = repair_mask(eng.array)
             eng_below_60 = np.ma.masked_greater(eng_array, 60)
             # Measure duration between final touchdown and engine stop:
             touchdown_to_stop_slice = max_continuous_unmasked(
-                eng_below_60, slice(tdwn.get_last().index, eng_stop[0].index))
+                eng_below_60, slice(last_tdwn_idx, last_eng_stop_idx))
             if touchdown_to_stop_slice:
                 # TODO: Future storage of slice: self.slice = touchdown_to_stop_slice
                 touchdown_to_stop_duration = (touchdown_to_stop_slice.stop - \
@@ -3242,7 +3247,7 @@ class Eng_N1MaxDurationUnder60PercentAfterTouchdown(KeyPointValueNode):
                                 touchdown_to_stop_duration, number=eng_num)
             else:
                 # Create KPV of 0 seconds:
-                self.create_kpv(eng_stop[0].index, 0.0, number=eng_num)
+                self.create_kpv(last_eng_stop_idx, 0.0, number=eng_num)
 
 
 class EngN1500To20FtMax(KeyPointValueNode):
