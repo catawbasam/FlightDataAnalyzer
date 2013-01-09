@@ -17,16 +17,16 @@ from analysis_engine.key_time_instances import (
     AutothrottleEngagedSelection,
     BottomOfDescent,
     ClimbStart,
+    Eng_Stop,
     EnterHold,
     ExitHold,
+    FlapStateChanges,
     GearDownSelection,
     GearUpSelection,
     GoAround,
     GoAroundFlapRetracted,
-    FlapStateChanges,
     InitialClimbStart,
     LandingDecelerationEnd,
-    ##LandingPeakDeceleration,
     LandingStart,
     LandingTurnOffRunway,
     Liftoff,
@@ -567,9 +567,6 @@ class TestTouchdown(unittest.TestCase):
                          'Airborne',
                          'Landing',) in opts)
 
-                         #[('Vertical Speed', 'Altitude AAL', 'Airborne',
-                           #'Landing')])
-
     def test_touchdown_basic(self):
         vert_spd = Parameter('Vertical Speed', np.ma.arange(10)*40 - 380.0)
         altitude = Parameter('Altitude AAL',
@@ -667,13 +664,20 @@ class TestAutothrottleEngagedSelection(unittest.TestCase):
         self.assertEqual(ads, expected)
 
 
-##### Is this KTI working at all?
-####class TestEng_Stop(unittest.TestCase):
-####    def test_can_operate(self):
-####        self.assertTrue(False, msg='Test not implemented.')
-####
-####    def test_derive(self):
-####        self.assertTrue(False, msg='Test not implemented.')
+class TestEng_Stop(unittest.TestCase):
+    
+    def test_can_operate(self):
+        combinations = Eng_Stop.get_operational_combinations()
+        self.assertTrue(('Eng (1) N2',) in combinations)
+        self.assertTrue(('Eng (2) N2',) in combinations)
+        self.assertTrue(('Eng (3) N2',) in combinations)
+        self.assertTrue(('Eng (4) N2',) in combinations)
+        self.assertTrue(('Eng (1) N2', 'Eng (2) N2',
+                         'Eng (3) N2', 'Eng (4) N2') in combinations)
+    
+    @unittest.skip('Test Not implemented.')
+    def test_derive(self):
+        self.assertTrue(False, msg='Test not implemented.')
 
 
 class TestEnterHold(unittest.TestCase):
@@ -790,14 +794,6 @@ class TestGoAroundFlapRetracted(unittest.TestCase):
         self.assertEqual(fsc, expected)
 
 
-#### class TestGoAroundGearRetracted(unittest.TestCase):
-####     def test_can_operate(self):
-####         self.assertTrue(False, msg='Test not implemented.')
-####
-####     def test_derive(self):
-####         self.assertTrue(False, msg='Test not implemented.')
-
-
 class TestLocalizerEstablishedEnd(unittest.TestCase):
     def test_can_operate(self):
         expected = [('ILS Localizer Established',)]
@@ -894,14 +890,6 @@ class TestSecsToTouchdown(unittest.TestCase):
                 KeyTimeInstance(index=70, name='30 Secs To Touchdown'),
             ]
         )
-
-
-####class TestTAWSTooLowTerrainWarning(unittest.TestCase):
-####     def test_can_operate(self):
-####         self.assertTrue(False, msg='Test not implemented.')
-####
-####    def test_derive(self):
-####        self.assertTrue(False, msg='Test not implemented.')
 
 
 class TestTouchAndGo(unittest.TestCase):

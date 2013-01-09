@@ -191,8 +191,7 @@ class Eng_Stop(KeyTimeInstanceNode):
     
     @classmethod
     def can_operate(cls, available):
-        return 'Eng (*) N2 Min' in available and \
-               any(x in available for x in ('Eng (1) N2',
+        return any(x in available for x in ('Eng (1) N2',
                                             'Eng (2) N2',
                                             'Eng (3) N2',
                                             'Eng (4) N2',))
