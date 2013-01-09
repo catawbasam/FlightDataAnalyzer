@@ -357,7 +357,7 @@ def csv_flight_details(hdf_path, kti_list, kpv_list, phase_list, dest_path=None)
         header.append('Path')
     formats = {'index': '%.3f',
                'value': '%.3f',
-               'duration': '%.3f',
+               'duration': '%.2f',
                'latitude': '%.4f',
                'longitude': '%.4f',
                'Airspeed': '%d kts',
