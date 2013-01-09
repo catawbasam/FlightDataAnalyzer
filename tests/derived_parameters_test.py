@@ -2012,9 +2012,9 @@ class TestRateOfTurn(unittest.TestCase):
        
     def test_rate_of_turn_phase_stability(self):
         rot = RateOfTurn()
-        rot.derive(P('Heading Continuous', np.ma.array([0,0,0,1,0,0,0],
+        rot.derive(P('Heading Continuous', np.ma.array([0,0,2,4,2,0,0],
                                                           dtype=float)))
-        answer = np.ma.array([0,0,0.3,0,-0.3,0,0])
+        answer = np.ma.array([0,1.95,0.5,0,-0.5,-1.95,0])
         ma_test.assert_masked_array_approx_equal(rot.array, answer)
         
     def test_sample_long_gentle_turn(self):
@@ -2024,7 +2024,7 @@ class TestRateOfTurn(unittest.TestCase):
         rot = RateOfTurn()
         rot.get_derived((head_cont,))
         np.testing.assert_allclose(rot.array[50:1150],
-                                   np.ones(1100)*2, rtol=0.05)
+                                   np.ones(1100, dtype=float)*2.1, rtol=0.1)
         
         
 class TestMach(unittest.TestCase):
