@@ -162,7 +162,8 @@ class TestApproaches(unittest.TestCase, NodeTest):
         # FIXME: Finish implementing these tests to check that using the API
         #        works correctly and any fall back values are used as
         #        appropriate.
-
+    
+    @unittest.skip('Test Not Implemented')
     def test_derive_afr_fallback(self):
         self.assertTrue(False, msg='Test not implemented.')
 
@@ -1410,9 +1411,11 @@ class TestFlightType(unittest.TestCase):
 
 
 class TestAnalysisDatetime(unittest.TestCase):
+    @unittest.skip('Test Not Implemented')
     def test_can_operate(self):
         self.assertTrue(False, msg='Test not implemented.')
-        
+    
+    @unittest.skip('Test Not Implemented')    
     def test_derive(self):
         self.assertTrue(False, msg='Test not implemented.')
 

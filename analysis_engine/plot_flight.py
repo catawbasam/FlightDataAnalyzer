@@ -26,10 +26,11 @@ class TypedWriter(object):
 
     def __init__(self, f, fieldnames, fieldformats, **kwds):
         self.writer = csv.DictWriter(f, fieldnames, **kwds)
+        self.writer.writeheader()
         self.formats = fieldformats
 
     def _format(self, row):
-        return dict((k, self.formats.get(k, '%s') % v if v else v) 
+        return dict((k, self.formats.get(k, '%s') % v if v or v == 0.0 else v) 
                     for k, v in row.iteritems())
     
     def writerow(self, row):
@@ -50,10 +51,12 @@ class TypedWriter(object):
 def add_track(kml, track_name, lat, lon, colour, alt_param=None):
     track_config = {'name': track_name}
     if alt_param:
-        if alt_param.name in ['Altitude AAL', 'Altitude STD']:
+        if alt_param.name in ['Altitude QNH', 'Altitude AAL', 'Altitude STD']:
             track_config['altitudemode'] = simplekml.constants.AltitudeMode.absolute
-        elif alt_param.name in ['Altitude Radio', 'Altitude Radio']:
+        elif alt_param.name in ['Altitude Radio']:
             track_config['altitudemode'] = simplekml.constants.AltitudeMode.relativetoground
+        else:
+            raise NotImplementedError("Altitude parameter '%s' not handled" % alt_param.name)
         track_config['extrude'] = 1
         
     track_coords = []
@@ -123,7 +126,9 @@ def track_to_kml(hdf_path, kti_list, kpv_list, flight_attrs,
                   
         smooth_lat = derived_param_from_hdf(hdf['Latitude Smoothed'])
         smooth_lon = derived_param_from_hdf(hdf['Longitude Smoothed'])
-        add_track(kml, 'Smoothed', smooth_lat, smooth_lon, 'ff7fff7f') #, hdf[plot_altitude])
+        add_track(kml, 'Smoothed', smooth_lat, smooth_lon, 'ff7fff7f', 
+                  alt_param=alt)
+        add_track(kml, 'Smoothed On Ground', smooth_lat, smooth_lon, 'ff7fff7f')        
     
         lat = derived_param_from_hdf(hdf['Latitude Prepared'])
         lon = derived_param_from_hdf(hdf['Longitude Prepared'])
@@ -339,19 +344,20 @@ def csv_flight_details(hdf_path, kti_list, kpv_list, phase_list, dest_path=None)
     """
     Currently writes to csv and prints to a table.
     
+    Phase types have a 'duration' column
+    
     :param dest_path: Outputs CSV to dest_path (removing if exists). If None,
       collates results by appending to a single file: 'combined_test_output.csv'
     """
     rows = []
     params = ['Airspeed', 'Altitude AAL']
     attrs = ['value', 'datetime', 'latitude', 'longitude'] 
-    header = ['type', 'phase start', 'index', 'phase end', 'name'] + attrs + params
+    header = ['type', 'index', 'duration', 'name'] + attrs + params
     if not dest_path:
         header.append('Path')
     formats = {'index': '%.3f',
-               'phase start': '%.3f',
-               'phase end': '%.3f',
                'value': '%.3f',
+               'duration': '%.3f',
                'latitude': '%.4f',
                'longitude': '%.4f',
                'Airspeed': '%d kts',
@@ -375,9 +381,7 @@ def csv_flight_details(hdf_path, kti_list, kpv_list, phase_list, dest_path=None)
         vals['path'] = hdf_path
         vals['type'] = 'Phase'
         vals['index'] = value.start_edge
-        vals['phase start'] = value.start_edge
-        vals['phase end'] = value.stop_edge
-        vals['value'] = value.stop_edge - value.start_edge  # duration (secs)
+        vals['duration'] = value.stop_edge - value.start_edge  # (secs)
         rows.append(vals)
         # create another at the stop of the phase
         end = copy(vals)
