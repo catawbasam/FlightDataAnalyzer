@@ -270,7 +270,7 @@ class mocked_hdf(object):
             self.airspeed = np.ma.array(range(10,20)*5)
         else:
             self.airspeed = np.ma.array(
-                np.load('test_data/airspeed_sample.npy'))
+                np.load(os.path.join(test_data_path, 'airspeed_sample.npy')))
         self.duration = len(self.airspeed)
         return self
     

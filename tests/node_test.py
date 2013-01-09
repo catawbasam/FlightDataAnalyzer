@@ -24,8 +24,8 @@ from analysis_engine.node import (
 from hdfaccess.file import hdf_file
 from hdfaccess.parameter import MappedArray
 
-TEST_DATA_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)),
-                             'test_data')
+test_data_path = os.path.join(os.path.dirname(os.path.abspath(__file__)),
+                              'test_data')
 
 class TestAbstractNode(unittest.TestCase):
     
@@ -1382,7 +1382,7 @@ class TestDerivedParameterNode(unittest.TestCase):
 
 class TestMultistateDerivedParameterNode(unittest.TestCase):
     def setUp(self):
-        self.hdf_path = os.path.join(TEST_DATA_DIR, 'test_node.hdf')
+        self.hdf_path = os.path.join(test_data_path, 'test_node.hdf')
     
     def tearDown(self):
         if os.path.isfile(self.hdf_path):

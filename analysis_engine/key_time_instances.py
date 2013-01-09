@@ -418,7 +418,7 @@ class TakeoffAccelerationStart(KeyTimeInstanceNode):
                 '''
                 #pc = peak_curvature(speed.array[takeoff.slice])
                 p,m,c = coreg(speed.array[takeoff.slice])
-                start_accel = takeoff.slice.start -c/m
+                start_accel = max(takeoff.slice.start-c/m, 0.0)
 
             if start_accel is not None:
                 self.create_kti(start_accel)
