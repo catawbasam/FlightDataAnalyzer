@@ -605,7 +605,7 @@ class TestAltitudeAAL(unittest.TestCase):
     def test_alt_aal_no_ralt(self):
         data = np.ma.array([-3, 0, 30, 80, 150, 280, 120, 70, 20, -5])
         alt_std = P(array=data + 300)
-        slow_and_fast_data = np.ma.array([70] + [85] * 7 + [75, 70])
+        slow_and_fast_data = np.ma.array([70] + [85] * 8 + [70])
         phase_fast = Fast()
         phase_fast.derive(Parameter('Airspeed', slow_and_fast_data))
         alt_aal = AltitudeAAL()
@@ -2859,87 +2859,7 @@ class TestTurbulence(unittest.TestCase):
         turb.derive(P('Acceleration Vertical', accel, frequency=8))
         expected = np.array([0]*20+[0.156173762]*41+[0]*20)
         np.testing.assert_array_almost_equal(expected, turb.array.data)
-        
-class TestAimingPointRange(unittest.TestCase):
-    def setUp(self):
-        test_data_path = os.path.join(os.path.dirname(os.path.abspath(__file__)),
-                                      'test_data')        
-        self.app_info=[]
-        self.app_info.append(
-            {'runway': {'end': {'latitude': 43.65164, 
-                                'elevation': -3, 
-                                'longitude': 7.204074}, 
-                        'start': {'latitude': 43.668008, 
-                                  'elevation': 16, 
-                                  'longitude': 7.226582}, 
-                        'magnetic_heading': 223.5, 
-                        'strip': {'width': 147, 
-                                  'length': 8995, 
-                                  'id': 2226, 
-                                  'surface': 'ASP'}, 
-                        'identifier': '22*', 
-                        'id': 4452}, 
-             'airport': {'distance': 0.5243389615338375, 
-                         'magnetic_variation': 'E000374 0106', 
-                         'code': {'icao': 'LFMN', 
-                                  'iata': 'NCE'}, 
-                         'elevation': 3, 
-                         'name': 'Nice Cote D Azur', 
-                         'longitude': 7.21587, 
-                         'location': {'city': u"Nice/C\xf4Te D'Azur", 
-                                      'country': 'France'}, 
-                                      'latitude': 43.6584, 
-                                      'id': 3021},
-             'slice_start': 10.0, 
-             'type': 'LANDING', 
-             'slice_stop': 120.0,            
-            })
-        gspd_data=[]
-        drift_data=[]
-        hdg_data=[]
-        tas_data=[]
-        alt_data=[]
-        vis_range_test_data_path = os.path.join(test_data_path,
-                                                'visual_range_test_data.csv')
-        with open(vis_range_test_data_path, 'rb') as csvfile:
-            self.reader = csv.DictReader(csvfile)
-            for row in self.reader:
-                gspd_data.append(float(row['Groundspeed']))
-                drift_data.append(float(row['Drift']))
-                hdg_data.append(float(row['Heading_True_Continuous']))
-                tas_data.append(float(row['Airspeed_True']))
-                alt_data.append(float(row['Altitude_AAL']))
-            self.gspd_np = np.ma.array(gspd_data)
-            self.drift_np = np.ma.array(drift_data)
-            self.hdg_np = np.ma.array(hdg_data)
-            self.tas_np = np.ma.array(tas_data)
-            self.alt_np = np.ma.array(alt_data)
-        return
 
-    def test_can_operate(self):
-        expected = [('ILS Glideslope',
-                     'Groundspeed',
-                     'Drift',
-                     'Heading True Continuous',
-                     'Airspeed True',
-                     'Altitude AAL',
-                     'ILS Localizer Established',
-                     'ILS Glideslope Established',
-                     'Precise Positioning',
-                     'FDR Approaches')]
-        opts = AimingPointRange.get_operational_combinations()
-        self.assertEqual(opts, expected)
-
-    def test_visual_range_basic(self):
-        vr = AimingPointRange()
-        vr.derive(P('Groundspeed', self.gspd_np),
-                  P('Drift', self.drift_np),
-                  P('Heading True Continuous', self.hdg_np),
-                  P('Airspeed True', self.tas_np),
-                  P('Altitude AAL', self.alt_np),
-                  A('FDR Approaches', self.app_info))
-        self.assertEqual(int(vr.array[-2]),1011)
-                         
 
 class TestVOR1Frequency(unittest.TestCase):
     @unittest.skip('Test Not Implemented')
