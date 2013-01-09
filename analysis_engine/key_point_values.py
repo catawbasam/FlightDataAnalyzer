@@ -59,7 +59,6 @@ from analysis_engine.library import (ambiguous_runway,
 ################################################################################
 # Superclasses
 
-
 class FlapOrConfigurationMaxOrMin(object):
     '''
     Abstract superclass.
@@ -126,7 +125,8 @@ class AccelerationLateralAtTouchdown(KeyPointValueNode):
     '''
     Programmed at Goodyear office as a demonstration.
     '''
-    def derive(self, acc=P('Acceleration Lateral Offset Removed'), tdwns=KTI('Touchdown')):
+    def derive(self, acc=P('Acceleration Lateral Offset Removed'),
+               tdwns=KTI('Touchdown')):
         for tdwn in tdwns:
             self.create_kpv(*bump(acc, tdwn))
         
@@ -154,10 +154,11 @@ class AccelerationLateralMax(KeyPointValueNode):
         '''
         return 'Acceleration Lateral Offset Removed' in available
     
-    def derive(self, acc_lat=P('Acceleration Lateral Offset Removed'), gspd=P('Groundspeed')):
+    def derive(self, acc_lat=P('Acceleration Lateral Offset Removed'),
+               gspd=P('Groundspeed')):
         if gspd:
-            self.create_kpvs_within_slices(acc_lat.array,
-                                       gspd.slices_above(5), max_abs_value)
+            self.create_kpvs_within_slices(
+                acc_lat.array, gspd.slices_above(5), max_abs_value)
         else:
             index, value = max_value(acc_lat.array)
             self.create_kpv(index, value)
@@ -173,7 +174,6 @@ class AccelerationLateralTakeoffMax(KeyPointValueNode):
         self.create_kpvs_within_slices(acc_lat.array, to_rolls, max_abs_value)
 
 
-
 class AccelerationLateralTaxiingStraightMax(KeyPointValueNode):
     '''
     Lateral acceleration while not turning is rarely an issue, so we compute
@@ -185,7 +185,7 @@ class AccelerationLateralTaxiingStraightMax(KeyPointValueNode):
                taxis=S('Taxiing'), turns=S('Turning On Ground')):
         accel = np.ma.copy(acc_lat.array) # Prepare to change mask here.
         for turn in turns:
-            accel[turn.slice]=np.ma.masked
+            accel[turn.slice] = np.ma.masked
         self.create_kpv_from_slices(accel, taxis, max_abs_value)
     
 
@@ -217,8 +217,8 @@ class AccelerationLongitudinalPeakLanding(KeyPointValueNode):
     This is an indication of severe braking and/or use of reverse thrust or
     reverse pitch.
     '''
-    def derive(self, landing=S('Landing'),
-               accel=P('Acceleration Longitudinal')):
+    def derive(self, accel=P('Acceleration Longitudinal'),
+               landing=S('Landing')):
         self.create_kpv_from_slices(accel.array, landing, max_value)
 
         

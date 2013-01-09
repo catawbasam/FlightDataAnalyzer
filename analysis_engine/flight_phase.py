@@ -987,8 +987,8 @@ class TakeoffRoll(FlightPhaseNode):
 class TakeoffRotation(FlightPhaseNode):
     '''
     '''
-    def derive(self, lifts = S('Liftoff')):
-        if lifts == []:
+    def derive(self, lifts=S('Liftoff')):
+        if not lifts:
             return
         lift_index = lifts.get_first().index
         start = lift_index - 4
