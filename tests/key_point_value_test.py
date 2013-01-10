@@ -177,6 +177,7 @@ from analysis_engine.key_point_values import (
     Roll20FtToLandingMax,
     RollCyclesInFinalApproach,
     RollCyclesNotInFinalApproach,
+    RudderExcursionDuringTakeoff,
     RudderReversalAbove50Ft,
     SpeedbrakesDeployedInGoAroundDuration,
     SpeedbrakesDeployed1000To20FtDuration,
@@ -3743,7 +3744,7 @@ class TestGroundspeedVacatingRunway(unittest.TestCase):
 # Pitch
 
 
-class PitchMaxAfterFlapRetraction(unittest.TestCase):
+class TestPitchMaxAfterFlapRetraction(unittest.TestCase):
     @unittest.skip('Test Not Implemented')
     def test_can_operate(self):
         self.assertTrue(False, msg='Test not implemented.')
@@ -4031,7 +4032,7 @@ class TestRateOfClimb35To1000FtMin(unittest.TestCase):
         self.assertTrue(False, msg='Test not implemented.')
 
 
-class RateOfClimbBelow10000FtMax(unittest.TestCase):
+class TestRateOfClimbBelow10000FtMax(unittest.TestCase):
     @unittest.skip('Test Not Implemented')
     def test_can_operate(self):
         self.assertTrue(False, msg='Test not implemented.')
@@ -4332,7 +4333,7 @@ class TestRollCyclesNotInFinalApproach(unittest.TestCase):
 # Rudder
 
 
-class RudderExcursionDuringTakeoff(unittest.TestCase,
+class TestRudderExcursionDuringTakeoff(unittest.TestCase,
                                    CreateKPVsWithinSlicesTest):
     def setUp(self):
         self.node_class = RudderExcursionDuringTakeoff
@@ -4386,7 +4387,7 @@ class TestSpeedbrakesDeployedWithFlapDuration(unittest.TestCase):
     def test_can_operate(self):
         self.assertEqual(
             SpeedbrakesDeployedWithConfDuration.get_operational_combinations(),
-            [('Speedbrake Selected', 'Flap', 'Airborne',)])
+            [('Speedbrake Selected', 'Configuration',)])
     
     @unittest.skip('Test Not Implemented')    
     def test_derive(self):
