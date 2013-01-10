@@ -1,5 +1,7 @@
 import numpy as np
 
+from operator import itemgetter
+
 from utilities.geometry import midpoint
 
 from analysis_engine.settings import (ACCEL_LAT_OFFSET_LIMIT,
@@ -18,6 +20,7 @@ from analysis_engine.settings import (ACCEL_LAT_OFFSET_LIMIT,
 from analysis_engine.node import KeyPointValueNode, KPV, KTI, P, S, A, M
 
 from analysis_engine.library import (ambiguous_runway,
+                                     any_of,
                                      bearings_and_distances,
                                      bump,
                                      clip, 
@@ -2974,7 +2977,8 @@ class EngGasTempTakeoffMax(KeyPointValueNode):
     '''
     '''
 
-    def derive(self, eng_egt_max=P('Eng (*) Gas Temp Max'), 
+    def derive(self,
+               eng_egt_max=P('Eng (*) Gas Temp Max'),
                ratings=S('Takeoff 5 Min Rating')):
         '''
         '''
@@ -2985,7 +2989,8 @@ class EngGasTempGoAroundMax(KeyPointValueNode):
     '''
     '''
 
-    def derive(self, eng_egt_max=P('Eng (*) Gas Temp Max'), 
+    def derive(self,
+               eng_egt_max=P('Eng (*) Gas Temp Max'),
                ratings=S('Go Around 5 Min Rating')):
         '''
         '''
@@ -2994,128 +2999,125 @@ class EngGasTempGoAroundMax(KeyPointValueNode):
 
 class EngGasTempMaximumContinuousPowerMax(KeyPointValueNode):
     '''
+    We assume maximum continuous power applies whenever takeoff or go-around
+    power settings are not in force. So, by collecting all the high power
+    periods and inverting these from the start of the first airborne section to
+    the end of the last, we have the required periods of flight.
     '''
 
-    name = 'Eng Gas Temp Maximum Continuous Power Max'
-
-    def derive(self, eng_egt_max=P('Eng (*) Gas Temp Max'),
+    def derive(self,
+               eng_egt_max=P('Eng (*) Gas Temp Max'),
                to_ratings=S('Takeoff 5 Min Rating'),
                ga_ratings=S('Go Around 5 Min Rating'),
-               air=S('Airborne')):
+               airs=S('Airborne')):
         '''
-        We assume maximum continuous power applies whenever takeoff or
-        go-around power settings are not in force. So, by collecting all the
-        high power periods and inverting these from the start of the first
-        airborne section to the end of the last, we have the required periods
-        of flight.
         '''
-        if air==[]:
+        if not airs:
             return
         high_power_ratings = to_ratings.get_slices() + ga_ratings.get_slices()
-        max_cont_rating = slices_not(high_power_ratings, 
-                                     begin_at=min([z.slice.start for z in air]), 
-                                     end_at=max([z.slice.stop for z in air]))
+        max_cont_rating = slices_not(
+            high_power_ratings,
+            begin_at=min(air.slice.start for air in airs),
+            end_at=max(air.slice.stop for air in airs),
+        )
         self.create_kpvs_within_slices(eng_egt_max.array, max_cont_rating,
                                        max_value)
+
+
+class EngGasTempStartMax(KeyPointValueNode):
+    '''
+    One key point value for maximum engine gas temperature at engine start for
+    all engines. The value is taken from the engine with the largest value.
+    '''
+
+    @classmethod
+    def can_operate(self, available):
+        '''
+        '''
+        return all((
+            any_of(('Eng (%d) Gas Temp' % n for n in range(1, 5)), available),
+            any_of(('Eng (%d) N2' % n for n in range(1, 5)), available),
+            'Takeoff Turn Onto Runway' in available,
+        ))
+
+    def peak_start_egt(self, egt, n2, idx):
+        '''
+        '''
+        # We can't have started less than 20 seconds before takeoff:
+        if idx < 20:
+            return None, None
+        # Ideally we'd use a shorter timebase, e.g. 2 seconds, but N2 is only
+        # sampled at 1/4Hz on some aircraft:
+        n2_rate = rate_of_change(n2, 4)
+        # The engine only accelerates through 30% when starting. Let's find the
+        # last time it did this before taking off:
+        passing_30 = index_at_value(n2.array, 30.0, slice(idx, 0, -1))
+        if not passing_30:
+            return None, None
+        # After which it will peak and the rate will fall below zero at the
+        # overswing, which must happen within 30 seconds:
+        started_up = index_at_value(n2_rate, 0.0,
+                                    slice(passing_30, passing_30 + 30))
+        # Track back to where the temperature started to increase:
+        ignition = peak_curvature(egt.array, slice(passing_30, 0, -1))
+        return ignition, started_up
+
+    def derive(self,
+               eng_1_egt=P('Eng (1) Gas Temp'),
+               eng_2_egt=P('Eng (2) Gas Temp'),
+               eng_3_egt=P('Eng (3) Gas Temp'),
+               eng_4_egt=P('Eng (4) Gas Temp'),
+               eng_1_n2=P('Eng (1) N2'),
+               eng_2_n2=P('Eng (2) N2'),
+               eng_3_n2=P('Eng (3) N2'),
+               eng_4_n2=P('Eng (4) N2'),
+               toff_turn_rwy=KTI('Takeoff Turn Onto Runway')):
+        '''
+        '''
+        # We never see engine start if data started after aircraft is airborne:
+        if not toff_turn_rwy:
+            return
+        # Extract the index for the first turn onto the runway:
+        fto_idx = toff_turn_rwy.get_first().index
+        # Determine the value of interest for each engine:
+        data = []
+        for n in range(1, 5):
+            # Determine which engine parameters we are looking at:
+            egt = locals().get('eng_%d_egt' % n)
+            n2 = locals().get('eng_%d_n2' % n)
+            # Skip this engine if missing any of the parameters:
+            if not egt or not n2:
+                continue
+            # Determine the peak start engine gas temperature:
+            ignition, started_up = self.peak_start_egt(egt, n2, fto_idx)
+            if started_up:
+                data.append(max_value(egt.array, slice(ignition, started_up)))
+        # Create the KPV:
+        data = filter(lambda t: None not in t, data)
+        if data:
+            self.create_kpv(*max(data, key=itemgetter(1)))
 
 
 class EngGasTempInFlightMin(KeyPointValueNode):
     '''
     FDS developed this KPV to support the UK CAA Significant Seven programme.
     "Loss of Control. In flight engine shut down."
-    
-    To detect a possible engine shutdown in flight, we look for the minium
-    gas temperature recorded during the flight. The event will then be
-    computed later, testing against a suitable minimum value for a running
-    engine.
+
+    To detect a possible engine shutdown in flight, we look for the minimum
+    gas temperature recorded during the flight. The event will then be computed
+    later, testing against a suitable minimum value for a running engine.
     '''
-    def derive(self, eng_temp_min=P('Eng (*) Gas Temp Min'),
+
+    def derive(self,
+               eng_temp_min=P('Eng (*) Gas Temp Min'),
                airs=S('Airborne')):
+        '''
+        '''
         for air in airs:
-            index = np.ma.argmin(eng_temp_min.array[air.slice]) + air.slice.start
+            index = np.ma.argmin(eng_temp_min.array[air.slice])
+            index += air.slice.start
             value = eng_temp_min.array[index]
             self.create_kpv(index, value)
-        
-    
-
-########################################
-# Engine Start Conditions
-
-
-def peak_start_egt(egt, n2, idx):
-    '''
-    '''
-    # Prepare to look for starting conditions.
-    if idx < 20:
-        # We can't have started less than 20 seconds before takeoff, so throw
-        # this away.
-        return None, None
-    # Ideally we'd use a shorter timebase, say 2 seconds, but N2 only sampled
-    # at 1/4Hz on some aircraft.
-    n2_rate = rate_of_change(n2, 4)
-    # The engine only accelerates through 30% when starting. Let's find the
-    # last time it did this before taking off.
-    passing_30 = index_at_value(n2.array, 30.0, slice(idx, 0, -1))
-    # After which it will peak and the rate will fall below zero at the
-    # overswing, which must happen within 30 seconds.
-    if passing_30:
-        started_up = index_at_value(n2_rate, 0.0,
-                                    slice(passing_30, passing_30 + 30))
-        # Track back to where the temperature started to increase.
-        ignition = peak_curvature(egt.array, slice(passing_30, 0, -1))
-        return started_up, ignition
-    else:
-        return None, None
-
-
-# FIXME: Merge 'Eng (2) Gas Temp Start Max' into this KPV. Support 4 engines!
-#        Hint: See 'Eng (?) N1 Max Duration Under 60 Percent After Touchdown'.
-class Eng1GasTempStartMax(KeyPointValueNode):
-    '''
-    '''
-
-    name = 'Eng (1) Gas Temp Start Max'
-
-    def derive(self, egt=P('Eng (1) Gas Temp'), n2=P('Eng (1) N2'),
-               toffs=KTI('Takeoff Turn Onto Runway')):
-        '''
-        '''
-        # If the data started after the aircraft is airborne, we'll never see
-        # the engine start, so skip:
-        if len(toffs) < 1:
-            return
-        # Extract the index for the first turn onto the runway:
-        fto_idx = [t.index for t in toffs][0]
-        started_up, ignition = peak_start_egt(egt, n2, fto_idx)
-        if started_up:
-            self.create_kpvs_within_slices(egt.array,
-                                           [slice(ignition, started_up)],
-                                           max_value)
-
-
-# FIXME: Merge into KPV 'Eng (1) Gas Temp Start Max'. Support 4 engines!
-#        Hint: See 'Eng (?) N1 Max Duration Under 60 Percent After Touchdown'.
-class Eng2GasTempStartMax(KeyPointValueNode):
-    '''
-    '''
-
-    name = 'Eng (2) Gas Temp Start Max'
-
-    def derive(self, egt=P('Eng (2) Gas Temp'), n2=P('Eng (2) N2'),
-               toffs=KTI('Takeoff Turn Onto Runway')):
-        '''
-        '''
-        # If the data started after the aircraft is airborne, we'll never see
-        # the engine start, so skip:
-        if len(toffs) < 1:
-            return
-        # Extract the index for the first turn onto the runway:
-        fto_idx = [t.index for t in toffs][0]
-        started_up, ignition = peak_start_egt(egt, n2, fto_idx)
-        if started_up:
-            self.create_kpvs_within_slices(egt.array,
-                                           [slice(ignition, started_up)],
-                                           max_value)
 
 
 ################################################################################
@@ -5612,6 +5614,19 @@ class TCASRAWarningDuration(KeyPointValueNode):
         for air in airs:
             ras_local = np.ma.clump_unmasked(np.ma.masked_outside(tcas.array, 4, 5))[air.slice]
             self.create_kpvs_from_slice_durations(ras_local)
+
+
+##### TODO: Implement!
+####class TCASTAWarningDuration(KeyPointValueNode):
+####    '''
+####    '''
+####
+####    name = 'TCAS TA Warning Duration'
+####
+####    def derive(self, tcas=M('TCAS Combined Control'), airs=S('Airborne')):
+####        '''
+####        '''
+####        pass
 
 
 class TCASRAReactionDelay(KeyPointValueNode):
