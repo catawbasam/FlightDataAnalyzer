@@ -168,6 +168,10 @@ from analysis_engine.key_point_values import (
     RateOfDescent1000To500FtMax,
     RateOfDescent500To20FtMax,
     RateOfDescent500FtToTouchdownMax,
+    RateOfDescentAtTouchdown,
+    RateOfDescentBelow10000FtMax,
+    RateOfDescentMax,
+    RateOfDescentTopOfDescentTo10000FtMax,
     RollTakeoffTo20FtMax,
     Roll20To400FtMax,
     Roll400To1000FtMax,
@@ -4047,9 +4051,10 @@ class TestRateOfClimbBelow10000FtMax(unittest.TestCase):
 
 
 class TestRateOfDescentMax(unittest.TestCase):
-    @unittest.skip('Test Not Implemented')
     def test_can_operate(self):
-        self.assertTrue(False, msg='Test not implemented.')
+        self.assertEqual(
+            RateOfDescentMax.get_operational_combinations(),
+            [('Vertical Speed', 'Descending')])
     
     @unittest.skip('Test Not Implemented')    
     def test_derive(self):
@@ -4057,31 +4062,26 @@ class TestRateOfDescentMax(unittest.TestCase):
 
 
 class TestRateOfDescentTopOfDescentTo10000FtMax(unittest.TestCase):
-    @unittest.skip('Test Not Implemented')
     def test_can_operate(self):
-        self.assertTrue(False, msg='Test not implemented.')
+        self.assertEqual(
+            RateOfDescentTopOfDescentTo10000FtMax.get_operational_combinations(),
+            [('Altitude AAL For Flight Phases', 'Vertical Speed', 'Descent')])
     
     @unittest.skip('Test Not Implemented')    
     def test_derive(self):
         self.assertTrue(False, msg='Test not implemented.')
 
 
-class TestRateOfDescentBelow10000FtMax(unittest.TestCase):
-    @unittest.skip('Test Not Implemented')
-    def test_can_operate(self):
-        self.assertTrue(False, msg='Test not implemented.')
+class TestRateOfDescentBelow10000FtMax(unittest.TestCase,
+                                        CreateKPVsWithinSlicesTest):
+    def setUp(self):
+        self.node_class = RateOfDescentBelow10000FtMax
+        self.operational_combinations = [('Vertical Speed',
+                                          'Altitude AAL For Flight Phases',)]
+        self.function = min_value
+        self.second_param_method_calls = [('slices_from_to', (10000, 0), {})]
     
     @unittest.skip('Test Not Implemented')    
-    def test_derive(self):
-        self.assertTrue(False, msg='Test not implemented.')
-
-
-class TestRateOfDescent10000To5000FtMax(unittest.TestCase):
-    @unittest.skip('Test Not Implemented')
-    def test_can_operate(self):
-        self.assertTrue(False, msg='Test not implemented.')
-    
-    @unittest.skip('Test Not Implemented')
     def test_derive(self):
         self.assertTrue(False, msg='Test not implemented.')
 
@@ -4173,6 +4173,7 @@ class TestRateOfDescent500To20FtMax(unittest.TestCase,
 # FIXME: Uses slices_to_kti(), not slices_from_to()!
 class TestRateOfDescent500FtToTouchdownMax(unittest.TestCase,
                                            CreateKPVsWithinSlicesTest):
+    # TODO: CreateKPVsWithinSlices with 3-Args
     def setUp(self):
         # XXX: This test does not explicitly test how the Touchdown dependency
         #      is used.
@@ -4189,6 +4190,7 @@ class TestRateOfDescent500FtToTouchdownMax(unittest.TestCase,
 
 
 class TestRateOfDescent20ToTouchdownMax(unittest.TestCase):
+    # TODO: CreateKPVsWithinSlices with 3-Args
     @unittest.skip('Test Not Implemented')
     def test_can_operate(self):
         self.assertTrue(False, msg='Test not implemented.')
@@ -4199,9 +4201,10 @@ class TestRateOfDescent20ToTouchdownMax(unittest.TestCase):
 
 
 class TestRateOfDescentAtTouchdown(unittest.TestCase):
-    @unittest.skip('Test Not Implemented')
     def test_can_operate(self):
-        self.assertTrue(False, msg='Test not implemented.')
+        self.assertEqual(
+            RateOfDescentAtTouchdown.get_operational_combinations(),
+            [('Vertical Speed Inertial', 'Landing', 'Altitude AAL')])
         
     @unittest.skip('Test Not Implemented')    
     def test_derive(self):
