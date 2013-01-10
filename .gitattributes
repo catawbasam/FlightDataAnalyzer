@@ -1,0 +1,14 @@
+*       eol=lf
+*.doc   binary
+*.gif   binary
+*.FLD   binary
+*.hdf5  binary
+*.ico   binary
+*.jar   binary
+*.jpg   binary
+*.JPG   binary
+*.odt   binary
+*.pdf   binary
+*.png   binary
+*.tbz   binary
+*.xcf   binary

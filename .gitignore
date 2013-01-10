@@ -1,0 +1,56 @@
+# dot directories
+.*/
+
+# Transient files
+*.log
+*.tmp
+
+# Operating System cruft
+Desktop.ini
+Thumbs.db
+__MACOSX
+.DS_Store
+
+# Sphinx transient files (old style)
+.build
+.static
+
+# Eclipse, WingIDE and Text Editors
+*.sw[nop]
+*~
+.project
+.pydevproject
+*.wp[ur]
+
+# Python builds and binaries
+dist
+build
+*.egg
+*.egg-info
+*.py[cdo]
+*.so
+
+# Jenkins
+.coverage
+coverage.xml
+nosetests.xml
+cpd.xml
+pep8.log
+pylint.log
+
+# Analysis Engine ignores
+test_data/temp/*
+*_copy.hdf5
+graph*.png
+analysis_engine/custom_settings.py
+analysis_engine/custom_hooks.py
+analyser_custom_settings.py
+analyser_custom_hooks.py
+spacetree/_assets/ajax/*.json
+
+# Profiling results
+*.lprof
+*.pstats
+
+# Keep empty directories
+!.git*
