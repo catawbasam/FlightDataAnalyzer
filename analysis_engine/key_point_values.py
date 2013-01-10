@@ -5608,6 +5608,19 @@ class TCASRAWarningDuration(KeyPointValueNode):
             self.create_kpvs_from_slice_durations(ras_local)
 
 
+##### TODO: Implement!
+####class TCASTAWarningDuration(KeyPointValueNode):
+####    '''
+####    '''
+####
+####    name = 'TCAS TA Warning Duration'
+####
+####    def derive(self, tcas=M('TCAS Combined Control'), airs=S('Airborne')):
+####        '''
+####        '''
+####        pass
+
+
 class TCASRAReactionDelay(KeyPointValueNode):
     '''
     '''
