@@ -168,7 +168,16 @@ from analysis_engine.key_point_values import (
     RateOfDescent1000To500FtMax,
     RateOfDescent500To20FtMax,
     RateOfDescent500FtToTouchdownMax,
+    RollTakeoffTo20FtMax,
+    Roll20To400FtMax,
+    Roll400To1000FtMax,
     RollAbove1000FtMax,
+    Roll1000To300FtMax,
+    Roll300To20FtMax,
+    Roll20FtToLandingMax,
+    RollCyclesInFinalApproach,
+    RollCyclesNotInFinalApproach,
+    RudderReversalAbove50Ft,
     SpeedbrakesDeployedInGoAroundDuration,
     SpeedbrakesDeployed1000To20FtDuration,
     SpeedbrakesDeployedWithPowerOnDuration,
@@ -4202,30 +4211,40 @@ class TestRateOfDescentAtTouchdown(unittest.TestCase):
 # Roll
 
 
-class TestRollTakeoffTo20FtMax(unittest.TestCase):
-    @unittest.skip('Test Not Implemented')
-    def test_can_operate(self):
-        self.assertTrue(False, msg='Test not implemented.')
+class TestRollTakeoffTo20FtMax(unittest.TestCase, CreateKPVsWithinSlicesTest):
+    def setUp(self):
+        self.node_class = RollTakeoffTo20FtMax
+        self.operational_combinations = [
+            ('Roll', 'Altitude AAL For Flight Phases',)]
+        self.function = max_abs_value
+        self.second_param_method_calls = [('slices_from_to', (1, 20), {})]
     
     @unittest.skip('Test Not Implemented')    
     def test_derive(self):
         self.assertTrue(False, msg='Test not implemented.')
 
 
-class TestRoll20To400FtMax(unittest.TestCase):
-    @unittest.skip('Test Not Implemented')
-    def test_can_operate(self):
-        self.assertTrue(False, msg='Test not implemented.')
+class TestRoll20To400FtMax(unittest.TestCase, CreateKPVsWithinSlicesTest):
+    def setUp(self):
+        self.node_class = Roll20To400FtMax
+        self.operational_combinations = [
+            ('Roll', 'Altitude AAL For Flight Phases',)]
+        self.function = max_abs_value
+        self.second_param_method_calls = [('slices_from_to', (20, 400), {})]
     
     @unittest.skip('Test Not Implemented')    
     def test_derive(self):
         self.assertTrue(False, msg='Test not implemented.')
 
 
-class TestRoll400To1000FtMax(unittest.TestCase):
-    @unittest.skip('Test Not Implemented')
-    def test_can_operate(self):
-        self.assertTrue(False, msg='Test not implemented.')
+class TestRoll400To1000FtMax(unittest.TestCase,
+                             CreateKPVsWithinSlicesTest):
+    def setUp(self):
+        self.node_class = Roll400To1000FtMax
+        self.operational_combinations = [
+            ('Roll', 'Altitude AAL For Flight Phases',)]
+        self.function = max_abs_value
+        self.second_param_method_calls = [('slices_from_to', (400, 1000), {})]
     
     @unittest.skip('Test Not Implemented')
     def test_derive(self):
@@ -4245,30 +4264,42 @@ class TestRollAbove1000FtMax(unittest.TestCase, CreateKPVsWithinSlicesTest):
         self.assertTrue(False, msg='Test Not Implemented')
 
 
-class TestRoll1000To300FtMax(unittest.TestCase):
-    @unittest.skip('Test Not Implemented')
-    def test_can_operate(self):
-        self.assertTrue(False, msg='Test not implemented.')
+class TestRoll1000To300FtMax(unittest.TestCase,
+                             CreateKPVsWithinSlicesTest):
+    def setUp(self):
+        self.node_class = Roll1000To300FtMax
+        self.operational_combinations = [
+            ('Roll', 'Altitude AAL For Flight Phases',)]
+        self.function = max_abs_value
+        self.second_param_method_calls = [('slices_from_to', (1000, 300), {})]
         
     @unittest.skip('Test Not Implemented')    
     def test_derive(self):
         self.assertTrue(False, msg='Test not implemented.')
 
 
-class TestRoll300To20FtMax(unittest.TestCase):
-    @unittest.skip('Test Not Implemented')
-    def test_can_operate(self):
-        self.assertTrue(False, msg='Test not implemented.')
+class TestRoll300To20FtMax(unittest.TestCase,
+                           CreateKPVsWithinSlicesTest):
+    def setUp(self):
+        self.node_class = Roll300To20FtMax
+        self.operational_combinations = [
+            ('Roll', 'Altitude AAL For Flight Phases',)]
+        self.function = max_abs_value
+        self.second_param_method_calls = [('slices_from_to', (300, 20), {})]
         
     @unittest.skip('Test Not Implemented')    
     def test_derive(self):
         self.assertTrue(False, msg='Test not implemented.')
 
 
-class TestRoll20FtToLandingMax(unittest.TestCase):
-    @unittest.skip('Test Not Implemented')
-    def test_can_operate(self):
-        self.assertTrue(False, msg='Test not implemented.')
+class TestRoll20FtToLandingMax(unittest.TestCase,
+                               CreateKPVsWithinSlicesTest):
+    def setUp(self):
+        self.node_class = Roll20FtToLandingMax
+        self.operational_combinations = [
+            ('Roll', 'Altitude AAL For Flight Phases',)]
+        self.function = max_abs_value
+        self.second_param_method_calls = [('slices_from_to', (20, 1), {})]
     
     @unittest.skip('Test Not Implemented')    
     def test_derive(self):
@@ -4276,9 +4307,10 @@ class TestRoll20FtToLandingMax(unittest.TestCase):
 
 
 class TestRollCyclesInFinalApproach(unittest.TestCase):
-    @unittest.skip('Test Not Implemented')
     def test_can_operate(self):
-        self.assertTrue(False, msg='Test not implemented.')
+        self.assertEqual(
+            RollCyclesInFinalApproach.get_operational_combinations(),
+            [('Roll', 'Final Approach')])
     
     @unittest.skip('Test Not Implemented')    
     def test_derive(self):
@@ -4286,9 +4318,10 @@ class TestRollCyclesInFinalApproach(unittest.TestCase):
 
 
 class TestRollCyclesNotInFinalApproach(unittest.TestCase):
-    @unittest.skip('Test Not Implemented')
     def test_can_operate(self):
-        self.assertTrue(False, msg='Test not implemented.')
+        self.assertEqual(
+            RollCyclesNotInFinalApproach.get_operational_combinations(),
+            [('Roll', 'Airborne', 'Final Approach', 'Landing')])
     
     @unittest.skip('Test Not Implemented')    
     def test_derive(self):
@@ -4299,10 +4332,12 @@ class TestRollCyclesNotInFinalApproach(unittest.TestCase):
 # Rudder
 
 
-class RudderExcursionDuringTakeoff(unittest.TestCase):
-    @unittest.skip('Test Not Implemented')
-    def test_can_operate(self):
-        self.assertTrue(False, msg='Test not implemented.')
+class RudderExcursionDuringTakeoff(unittest.TestCase,
+                                   CreateKPVsWithinSlicesTest):
+    def setUp(self):
+        self.node_class = RudderExcursionDuringTakeoff
+        self.operational_combinations = [('Rudder', 'Takeoff Roll',)]
+        self.function = max_value
     
     @unittest.skip('Test Not Implemented')    
     def test_derive(self):
@@ -4310,9 +4345,10 @@ class RudderExcursionDuringTakeoff(unittest.TestCase):
 
 
 class TestRudderReversalAbove50Ft(unittest.TestCase):
-    @unittest.skip('Test Not Implemented')
     def test_can_operate(self):
-        self.assertTrue(False, msg='Test not implemented.')
+        self.assertEqual(
+            RudderReversalAbove50Ft.get_operational_combinations(),
+            [('Rudder', 'Altitude AAL For Flight Phases',)])
     
     @unittest.skip('Test Not Implemented')    
     def test_derive(self):
