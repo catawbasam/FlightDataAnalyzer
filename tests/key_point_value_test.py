@@ -2322,26 +2322,6 @@ class TestDistancePastGlideslopeAntennaToTouchdown(unittest.TestCase):
         self.assertTrue(False, msg='Test not implemented.')
 
 
-class TestEng1GasTempStartMax(unittest.TestCase):
-    @unittest.skip('Test Not Implemented')
-    def test_can_operate(self):
-        self.assertTrue(False, msg='Test not implemented.')
-    
-    @unittest.skip('Test Not Implemented')    
-    def test_derive(self):
-        self.assertTrue(False, msg='Test not implemented.')
-
-
-class TestEng2GasTempStartMax(unittest.TestCase):
-    @unittest.skip('Test Not Implemented')
-    def test_can_operate(self):
-        self.assertTrue(False, msg='Test not implemented.')
-    
-    @unittest.skip('Test Not Implemented')
-    def test_derive(self):
-        self.assertTrue(False, msg='Test not implemented.')
-
-
 class TestEngBleedValvesAtLiftoff(unittest.TestCase):
     @unittest.skip('Test Not Implemented')
     def test_can_operate(self):
@@ -2383,6 +2363,16 @@ class TestEngGasTempGoAroundMax(unittest.TestCase):
 
 
 class TestEngGasTempMaximumContinuousPowerMax(unittest.TestCase):
+    @unittest.skip('Test Not Implemented')
+    def test_can_operate(self):
+        self.assertTrue(False, msg='Test not implemented.')
+    
+    @unittest.skip('Test Not Implemented')    
+    def test_derive(self):
+        self.assertTrue(False, msg='Test not implemented.')
+
+
+class TestEngGasTempStartMax(unittest.TestCase):
     @unittest.skip('Test Not Implemented')
     def test_can_operate(self):
         self.assertTrue(False, msg='Test not implemented.')
