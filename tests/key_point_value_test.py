@@ -177,6 +177,7 @@ from analysis_engine.key_point_values import (
     TCASRAReactionDelay,
     TCASRAInitialReaction,
     TCASRAToAPDisengageDuration,
+    TerrainClearanceAbove3000FtMin,
     ThrottleCyclesInFinalApproach,
     ThrustAsymmetryInFlight,
     ThrustAsymmetryInGoAround,
@@ -4462,10 +4463,14 @@ class TestTailClearanceOnApproach(unittest.TestCase):
                                                value=0.037668517049960347)])
 
 
-class TerrainClearanceAbove3000FtMin(unittest.TestCase):
-    @unittest.skip('Test Not Implemented')
-    def test_can_operate(self):
-        self.assertTrue(False, msg='Test not implemented.')
+class TestTerrainClearanceAbove3000FtMin(unittest.TestCase,
+                                         CreateKPVsWithinSlicesTest):
+    def setUp(self):
+        self.node_class = TerrainClearanceAbove3000FtMin
+        self.operational_combinations = [('Altitude Radio',
+                                          'Altitude AAL For Flight Phases',)]
+        self.function = max_value
+        self.second_param_method_calls = [('slices_above', (3000.0,), {})]
     
     @unittest.skip('Test Not Implemented')    
     def test_derive(self):
@@ -4482,6 +4487,7 @@ class TestTailwindLiftoffTo100FtMax(unittest.TestCase,
         self.node_class = TailwindLiftoffTo100FtMax
         self.operational_combinations = [('Tailwind',
                                           'Altitude AAL For Flight Phases',)]
+        self.second_param_method_calls = [('slices_from_to', (0, 100,), {})]
         self.function = max_value
         
     @unittest.skip('Test Not Implemented')    
@@ -4496,6 +4502,7 @@ class TestTailwind100FtToTouchdownMax(unittest.TestCase,
         self.operational_combinations = [('Tailwind',
                                           'Altitude AAL For Flight Phases',)]
         self.function = max_value
+        self.second_param_method_calls = [('slices_from_to', (100, 0,), {})]
         
     @unittest.skip('Test Not Implemented')    
     def test_derive(self):

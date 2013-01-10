@@ -5222,8 +5222,8 @@ class TerrainClearanceAbove3000FtMin(KeyPointValueNode):
     3000ft. Note: For most flights, Altitude Radio will be over 2,500ft at
     this time, so masked, hence no kpv will be created.
     '''
-    def derive(self, alt_aal=P('Altitude AAL For Flight Phases'),
-               alt_rad=P('Altitude Radio')):
+    def derive(self, alt_rad=P('Altitude Radio'),
+               alt_aal=P('Altitude AAL For Flight Phases'),):
         self.create_kpvs_within_slices(alt_rad.array,
                                        alt_aal.slices_above(3000.0),
                                        min_value)
