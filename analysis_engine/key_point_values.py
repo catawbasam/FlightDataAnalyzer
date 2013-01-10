@@ -4202,6 +4202,7 @@ class PitchAt35FtInClimb(KeyPointValueNode):
                alt_aal=P('Altitude AAL')):
         '''
         '''
+        # Q: Should we create a KPV method for this?
         for climb in alt_aal.slices_from_to(1, 100):
             index = index_at_value(alt_aal.array, 35.0, climb)
             if index:
