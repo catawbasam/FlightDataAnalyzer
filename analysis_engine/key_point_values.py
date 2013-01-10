@@ -4108,7 +4108,7 @@ class GroundspeedTaxiingStraightMax(KeyPointValueNode):
             turns=S('Turning On Ground')):
         gspd = np.ma.copy(gspeed.array)  # Prepare to change mask.
         for turn in turns:
-            gspd[turn.slice]=np.ma.masked
+            gspd[turn.slice] = np.ma.masked
         self.create_kpv_from_slices(gspd, taxis, max_value)
 
 
@@ -4129,9 +4129,8 @@ class GroundspeedRTOMax(KeyPointValueNode):
     name = 'Groundspeed RTO Max'
     def derive(self, gndspd=P('Groundspeed'),
                rejected_takeoffs=S('Rejected Takeoff')):
-        for rejected_takeoff in rejected_takeoffs:
-            self.create_kpvs_within_slices(gndspd.array, 
-                                           rejected_takeoff.slice, max_value)
+        self.create_kpvs_within_slices(gndspd.array, rejected_takeoffs,
+                                       max_value)
 
 
 class GroundspeedAtTouchdown(KeyPointValueNode):
