@@ -161,6 +161,9 @@ from analysis_engine.key_point_values import (
     PitchAtLiftoff,
     PitchAtTouchdown,
     PitchInGoAroundMax,
+    RateOfClimbMax,
+    RateOfClimb35To1000FtMin,
+    RateOfClimbBelow10000FtMax,
     RateOfDescent10000To5000FtMax,
     RateOfDescent5000To3000FtMax,
     RateOfDescent3000To2000FtMax,
@@ -4017,29 +4020,38 @@ class TestTwoDegPitchTo35FtDuration(unittest.TestCase):
 
 
 class TestRateOfClimbMax(unittest.TestCase):
-    @unittest.skip('Test Not Implemented')
     def test_can_operate(self):
-        self.assertTrue(False, msg='Test not implemented.')
+        self.assertEqual(
+            RateOfClimbMax.get_operational_combinations(),
+            [('Vertical Speed', 'Climbing')])
     
     @unittest.skip('Test Not Implemented')    
     def test_derive(self):
         self.assertTrue(False, msg='Test not implemented.')
 
 
-class TestRateOfClimb35To1000FtMin(unittest.TestCase):
-    @unittest.skip('Test Not Implemented')
-    def test_can_operate(self):
-        self.assertTrue(False, msg='Test not implemented.')
+class TestRateOfClimb35To1000FtMin(unittest.TestCase,
+                                     CreateKPVsWithinSlicesTest):
+    def setUp(self):
+        self.node_class = RateOfClimb35To1000FtMin
+        self.operational_combinations = [('Vertical Speed',
+                                          'Altitude AAL For Flight Phases',)]
+        self.function = min_value
+        self.second_param_method_calls = [('slices_from_to', (35, 1000), {})]
     
     @unittest.skip('Test Not Implemented')    
     def test_derive(self):
         self.assertTrue(False, msg='Test not implemented.')
 
 
-class TestRateOfClimbBelow10000FtMax(unittest.TestCase):
-    @unittest.skip('Test Not Implemented')
-    def test_can_operate(self):
-        self.assertTrue(False, msg='Test not implemented.')
+class TestRateOfClimbBelow10000FtMax(unittest.TestCase,
+                                     CreateKPVsWithinSlicesTest):
+    def setUp(self):
+        self.node_class = RateOfClimbBelow10000FtMax
+        self.operational_combinations = [('Vertical Speed',
+                                          'Altitude AAL For Flight Phases',)]
+        self.function = min_value
+        self.second_param_method_calls = [('slices_from_to', (0, 10000), {})]
     
     @unittest.skip('Test Not Implemented')    
     def test_derive(self):
@@ -4067,13 +4079,13 @@ class TestRateOfDescentTopOfDescentTo10000FtMax(unittest.TestCase):
             RateOfDescentTopOfDescentTo10000FtMax.get_operational_combinations(),
             [('Altitude AAL For Flight Phases', 'Vertical Speed', 'Descent')])
     
-    @unittest.skip('Test Not Implemented')    
+    @unittest.skip('Test Not Implemented')
     def test_derive(self):
         self.assertTrue(False, msg='Test not implemented.')
 
 
 class TestRateOfDescentBelow10000FtMax(unittest.TestCase,
-                                        CreateKPVsWithinSlicesTest):
+                                       CreateKPVsWithinSlicesTest):
     def setUp(self):
         self.node_class = RateOfDescentBelow10000FtMax
         self.operational_combinations = [('Vertical Speed',
