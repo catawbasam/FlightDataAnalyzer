@@ -215,7 +215,7 @@ class AnalysisEngineAPIHandlerHTTP(AnalysisEngineAPI, APIHandlerHTTP):
 
 class AnalysisEngineAPIHandlerLocal(AnalysisEngineAPI):
     
-    airports = [ # TODO: Sort
+    airports = [
         {'code': {
             'iata': 'KRS',
             'icao': 'ENCN',

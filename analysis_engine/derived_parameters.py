@@ -730,7 +730,7 @@ class AltitudeAAL(DerivedParameterNode):
                     n += 1
                     continue
                 
-                if not (n + 2 < n_vals):
+                if n + 2 >= n_vals:
                     # Falling section. Slice it backwards to use the same code
                     # as for takeoffs.
                     dips.append({
@@ -3924,11 +3924,10 @@ class RateOfTurn(DerivedParameterNode):
     def derive(self, head=P('Heading Continuous')):
         # add a little hysteresis to the rate of change to smooth out minor 
         # changes
-        #self.array = rate_of_change(head, 2)
-        roc = rate_of_change(head, 2)
-        self.array = hysteresis(roc, 0.4)
+        roc = rate_of_change(head, 4)
+        self.array = hysteresis(roc, 0.1)
         # trouble is that we're loosing the nice 0 values, so force include!
-        self.array[roc == 0] = 0
+        self.array[(self.array <= 0.05) & (self.array >= -0.05)] = 0
 
 
 class Pitch(DerivedParameterNode):

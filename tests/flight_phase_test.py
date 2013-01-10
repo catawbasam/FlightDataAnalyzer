@@ -25,16 +25,20 @@ from analysis_engine.flight_phase import (Airborne,
                                           ILSGlideslopeEstablished,
                                           ILSLocalizerEstablished,
                                           Landing,
+                                          LevelFlight,
                                           Mobile,
                                           Takeoff,
+                                          Takeoff5MinRating,
+                                          TakeoffRoll,
+                                          TakeoffRotation,
                                           Taxiing,
                                           TaxiIn,
                                           TaxiOut,
                                           TurningInAir,
-                                          TurningOnGround
+                                          TurningOnGround,
+                                          TwoDegPitchTo35Ft,
                                           )
-from analysis_engine.key_time_instances import (TopOfClimb, 
-                                                TopOfDescent)
+from analysis_engine.key_time_instances import TopOfClimb, TopOfDescent
 from analysis_engine.library import integrate
 from analysis_engine.node import (A, KTI, KeyTimeInstance, M, Parameter, P,
                                   Section, SectionNode)
@@ -42,6 +46,9 @@ from analysis_engine.process_flight import process_flight
 
 from analysis_engine.settings import AIRSPEED_THRESHOLD
 
+
+test_data_path = os.path.join(os.path.dirname(os.path.abspath(__file__)),
+                              'test_data')
 
 '''
 Three little routines to make building Sections for testing easier.
@@ -239,7 +246,7 @@ class TestILSGlideslopeEstablished(unittest.TestCase):
     
     @unittest.skip('Test Not Implemented')
     def test_derive(self):
-        hdf_copy = copy_file(os.path.join('test_data', 'coreg.hdf5'),
+        hdf_copy = copy_file(os.path.join(test_data_path, 'coreg.hdf5'),
                              postfix='_test_copy')
         result = process_flight(hdf_copy, {
             'Engine': {'classification': 'JET',
@@ -500,8 +507,8 @@ class TestCruise(unittest.TestCase):
         self.assertEqual(opts, expected)
 
     def test_cruise_phase_basic(self):
-        testwave = np.cos(np.arange(0,12.6,0.1))*(-3000)+12500
-        alt_data = np.ma.array(testwave)
+        alt_data = np.ma.array(
+            np.cos(np.arange(0, 12.6, 0.1)) * -3000 + 12500)
 
         #===========================================================
         # This block of code replicates normal opeartion and ensures
@@ -526,7 +533,7 @@ class TestCruise(unittest.TestCase):
         # for the climb and descent to be a second apart, whereas the peak
         # at 94 genuinely has no interval with a level cruise.
         expected = buildsections('Cruise',[31, 32],[94, 94])
-        self.assertEqual(test_phase, expected)
+        self.assertEqual(list(test_phase), list(expected))
 
     def test_cruise_truncated_start(self):
         alt_data = np.ma.array([15000]*5+range(15000,2000,-4000))
@@ -1198,9 +1205,9 @@ class TestGoAround5MinRating(unittest.TestCase):
 
 
 class TestLevelFlight(unittest.TestCase):
-    @unittest.skip('Test Not Implemented')
     def test_can_operate(self):
-        self.assertTrue(False, msg='Test not implemented.')
+        self.assertEqual(LevelFlight.get_operational_combinations(),
+                         [('Airborne', 'Vertical Speed For Flight Phases',)])        
     
     @unittest.skip('Test Not Implemented')    
     def test_derive(self):
@@ -1208,9 +1215,9 @@ class TestLevelFlight(unittest.TestCase):
 
 
 class TestTakeoff5MinRating(unittest.TestCase):
-    @unittest.skip('Test Not Implemented')
     def test_can_operate(self):
-        self.assertTrue(False, msg='Test not implemented.')
+        self.assertEqual(Takeoff5MinRating.get_operational_combinations(),
+                         [('Takeoff',)])
         
     @unittest.skip('Test Not Implemented')    
     def test_derive(self):
@@ -1218,9 +1225,9 @@ class TestTakeoff5MinRating(unittest.TestCase):
 
 
 class TestTakeoffRoll(unittest.TestCase):
-    @unittest.skip('Test Not Implemented')
     def test_can_operate(self):
-        self.assertTrue(False, msg='Test not implemented.')
+        self.assertEqual(TakeoffRoll.get_operational_combinations(),
+                         [('Takeoff', 'Takeoff Acceleration Start', 'Pitch',)])
     
     @unittest.skip('Test Not Implemented')
     def test_derive(self):
@@ -1228,9 +1235,9 @@ class TestTakeoffRoll(unittest.TestCase):
 
 
 class TestTakeoffRotation(unittest.TestCase):
-    @unittest.skip('Test Not Implemented')
     def test_can_operate(self):
-        self.assertTrue(False, msg='Test not implemented.')
+        self.assertEqual(TakeoffRotation.get_operational_combinations(),
+                         [('Liftoff',)])
     
     @unittest.skip('Test Not Implemented')
     def test_derive(self):
@@ -1238,9 +1245,9 @@ class TestTakeoffRotation(unittest.TestCase):
 
 
 class TestTwoDegPitchTo35Ft(unittest.TestCase):
-    @unittest.skip('Test Not Implemented')
     def test_can_operate(self):
-        self.assertTrue(False, msg='Test not implemented.')
+        self.assertEqual(TwoDegPitchTo35Ft.get_operational_combinations(),
+                         [('Pitch', 'Takeoff',)])
     
     @unittest.skip('Test Not Implemented')    
     def test_derive(self):

@@ -62,7 +62,6 @@ from analysis_engine.library import (ambiguous_runway,
 ################################################################################
 # Superclasses
 
-
 class FlapOrConfigurationMaxOrMin(object):
     '''
     Abstract superclass.
@@ -129,7 +128,8 @@ class AccelerationLateralAtTouchdown(KeyPointValueNode):
     '''
     Programmed at Goodyear office as a demonstration.
     '''
-    def derive(self, acc=P('Acceleration Lateral Offset Removed'), tdwns=KTI('Touchdown')):
+    def derive(self, acc=P('Acceleration Lateral Offset Removed'),
+               tdwns=KTI('Touchdown')):
         for tdwn in tdwns:
             self.create_kpv(*bump(acc, tdwn))
         
@@ -157,13 +157,38 @@ class AccelerationLateralMax(KeyPointValueNode):
         '''
         return 'Acceleration Lateral Offset Removed' in available
     
-    def derive(self, acc_lat=P('Acceleration Lateral Offset Removed'), gspd=P('Groundspeed')):
+    def derive(self, acc_lat=P('Acceleration Lateral Offset Removed'),
+               gspd=P('Groundspeed')):
         if gspd:
-            self.create_kpvs_within_slices(acc_lat.array,
-                                       gspd.slices_above(5), max_abs_value)
+            self.create_kpvs_within_slices(
+                acc_lat.array, gspd.slices_above(5), max_abs_value)
         else:
             index, value = max_value(acc_lat.array)
             self.create_kpv(index, value)
+    
+
+class AccelerationLateralOffset(KeyPointValueNode):
+    """
+    This KPV computes the lateral accelerometer datum offset, as for
+    AccelerationNormalOffset. The more complex slicing statement ensures we
+    only accumulate error estimates when taxiing in a straight line.
+    """
+    def derive(self, acc=P('Acceleration Lateral'), 
+               taxis=S('Taxiing'), turns=S('Turning On Ground')):
+        total_sum = 0.0
+        total_count = 0
+        straights = slices_and([s.slice for s in list(taxis)],
+                               slices_not([s.slice for s in list(turns)]))
+        for straight in straights:
+            unmasked_data = np.ma.compressed(acc.array[straight])
+            count = len(unmasked_data)
+            if count:
+                total_count += count
+                total_sum += np.sum(unmasked_data)
+        if total_count>20:
+            delta = total_sum/float(total_count)
+            if abs(delta) < ACCEL_LAT_OFFSET_LIMIT:
+                self.create_kpv(0, delta)
     
     
 class AccelerationLateralTakeoffMax(KeyPointValueNode):
@@ -174,7 +199,6 @@ class AccelerationLateralTakeoffMax(KeyPointValueNode):
     def derive(self, acc_lat=P('Acceleration Lateral Offset Removed'), 
                to_rolls=S('Takeoff Roll')):
         self.create_kpvs_within_slices(acc_lat.array, to_rolls, max_abs_value)
-
 
 
 class AccelerationLateralTaxiingStraightMax(KeyPointValueNode):
@@ -188,7 +212,7 @@ class AccelerationLateralTaxiingStraightMax(KeyPointValueNode):
                taxis=S('Taxiing'), turns=S('Turning On Ground')):
         accel = np.ma.copy(acc_lat.array) # Prepare to change mask here.
         for turn in turns:
-            accel[turn.slice]=np.ma.masked
+            accel[turn.slice] = np.ma.masked
         self.create_kpv_from_slices(accel, taxis, max_abs_value)
     
 
@@ -220,8 +244,8 @@ class AccelerationLongitudinalPeakLanding(KeyPointValueNode):
     This is an indication of severe braking and/or use of reverse thrust or
     reverse pitch.
     '''
-    def derive(self, landing=S('Landing'),
-               accel=P('Acceleration Longitudinal')):
+    def derive(self, accel=P('Acceleration Longitudinal'),
+               landing=S('Landing')):
         self.create_kpv_from_slices(accel.array, landing, max_value)
 
         
@@ -324,30 +348,6 @@ class AccelerationNormalOffset(KeyPointValueNode):
             delta = total_sum/float(total_count) - 1.0
             if abs(delta) < ACCEL_NORM_OFFSET_LIMIT:
                 self.create_kpv(0, delta + 1.0)
-                
-                
-class AccelerationLateralOffset(KeyPointValueNode):
-    """
-    This KPV computes the lateral accelerometer datum offset, as for
-    AccelerationNormalOffset. The more complex slicing statement ensures we
-    only accumulate error estimates when taxiing in a straight line.
-    """
-    def derive(self, acc=P('Acceleration Lateral'), 
-               taxis=S('Taxiing'), turns=S('Turning On Ground')):
-        total_sum = 0.0
-        total_count = 0
-        straights = slices_and([s.slice for s in list(taxis)],
-                               slices_not([s.slice for s in list(turns)]))
-        for straight in straights:
-            unmasked_data = np.ma.compressed(acc.array[straight])
-            count = len(unmasked_data)
-            if count:
-                total_count += count
-                total_sum += np.sum(unmasked_data)
-        if total_count>20:
-            delta = total_sum/float(total_count)
-            if abs(delta) < ACCEL_LAT_OFFSET_LIMIT:
-                self.create_kpv(0, delta)
 
 
 ################################################################################
@@ -764,7 +764,7 @@ class AirspeedRelativeAtTouchdown(KeyPointValueNode):
     '''
 
     def derive(self, spd_rel=P('Airspeed Relative'),
-            touchdowns=KTI('Touchdown')):
+               touchdowns=KTI('Touchdown')):
         '''
         '''
         self.create_kpvs_at_ktis(spd_rel.array, touchdowns)
@@ -775,7 +775,7 @@ class AirspeedRelative1000To500FtMax(KeyPointValueNode):
     '''
 
     def derive(self, spd_rel=P('Airspeed Relative'),
-            alt_aal=P('Altitude AAL For Flight Phases')):
+               alt_aal=P('Altitude AAL For Flight Phases')):
         '''
         '''
         self.create_kpvs_within_slices(
@@ -790,7 +790,7 @@ class AirspeedRelative1000To500FtMin(KeyPointValueNode):
     '''
 
     def derive(self, spd_rel=P('Airspeed Relative'),
-            alt_aal=P('Altitude AAL For Flight Phases')):
+               alt_aal=P('Altitude AAL For Flight Phases')):
         '''
         '''
         self.create_kpvs_within_slices(
@@ -805,7 +805,7 @@ class AirspeedRelative500To20FtMax(KeyPointValueNode):
     '''
 
     def derive(self, spd_rel=P('Airspeed Relative'),
-            alt_aal=P('Altitude AAL For Flight Phases')):
+               alt_aal=P('Altitude AAL For Flight Phases')):
         '''
         '''
         self.create_kpvs_within_slices(
@@ -820,7 +820,7 @@ class AirspeedRelative500To20FtMin(KeyPointValueNode):
     '''
 
     def derive(self, spd_rel=P('Airspeed Relative'),
-            alt_aal=P('Altitude AAL For Flight Phases')):
+               alt_aal=P('Altitude AAL For Flight Phases')):
         '''
         '''
         self.create_kpvs_within_slices(
@@ -835,7 +835,7 @@ class AirspeedRelative20FtToTouchdownMax(KeyPointValueNode):
     '''
 
     def derive(self, spd_rel=P('Airspeed Relative'),
-            alt_aal=P('Altitude AAL For Flight Phases')):
+               alt_aal=P('Altitude AAL For Flight Phases')):
         '''
         '''
         self.create_kpvs_within_slices(
@@ -865,7 +865,7 @@ class AirspeedRelativeFor3Sec1000To500FtMax(KeyPointValueNode):
     '''
 
     def derive(self, spd_rel=P('Airspeed Relative For 3 Sec'),
-            alt_aal=P('Altitude AAL For Flight Phases')):
+               alt_aal=P('Altitude AAL For Flight Phases')):
         '''
         '''
         self.create_kpvs_within_slices(
@@ -880,7 +880,7 @@ class AirspeedRelativeFor3Sec1000To500FtMin(KeyPointValueNode):
     '''
 
     def derive(self, spd_rel=P('Airspeed Relative For 3 Sec'),
-            alt_aal=P('Altitude AAL For Flight Phases')):
+               alt_aal=P('Altitude AAL For Flight Phases')):
         '''
         '''
         self.create_kpvs_within_slices(
@@ -890,42 +890,12 @@ class AirspeedRelativeFor3Sec1000To500FtMin(KeyPointValueNode):
         )
 
 
-class AirspeedRelativeFor3Sec500To20FtMax(KeyPointValueNode):
-    '''
-    '''
-
-    def derive(self, spd_rel=P('Airspeed Relative For 3 Sec'),
-            alt_aal=P('Altitude AAL For Flight Phases')):
-        '''
-        '''
-        self.create_kpvs_within_slices(
-            spd_rel.array,
-            alt_aal.slices_from_to(500, 20),
-            max_value,
-        )
-
-
-class AirspeedRelativeFor3Sec500To20FtMin(KeyPointValueNode):
-    '''
-    '''
-
-    def derive(self, spd_rel=P('Airspeed Relative For 3 Sec'),
-            alt_aal=P('Altitude AAL For Flight Phases')):
-        '''
-        '''
-        self.create_kpvs_within_slices(
-            spd_rel.array,
-            alt_aal.slices_from_to(500, 20),
-            min_value,
-        )
-
-
 class AirspeedRelativeFor3Sec20FtToTouchdownMax(KeyPointValueNode):
     '''
     '''
 
     def derive(self, spd_rel=P('Airspeed Relative For 3 Sec'),
-            alt_aal=P('Altitude AAL For Flight Phases')):
+               alt_aal=P('Altitude AAL For Flight Phases')):
         '''
         '''
         self.create_kpvs_within_slices(
@@ -940,7 +910,7 @@ class AirspeedRelativeFor3Sec20FtToTouchdownMin(KeyPointValueNode):
     '''
 
     def derive(self, spd_rel=P('Airspeed Relative For 3 Sec'),
-            alt_aal=P('Altitude AAL For Flight Phases')):
+               alt_aal=P('Altitude AAL For Flight Phases')):
         '''
         '''
         self.create_kpvs_within_slices(
@@ -950,12 +920,42 @@ class AirspeedRelativeFor3Sec20FtToTouchdownMin(KeyPointValueNode):
         )
 
 
+class AirspeedRelativeFor3Sec500To20FtMax(KeyPointValueNode):
+    '''
+    '''
+
+    def derive(self, spd_rel=P('Airspeed Relative For 3 Sec'),
+               alt_aal=P('Altitude AAL For Flight Phases')):
+        '''
+        '''
+        self.create_kpvs_within_slices(
+            spd_rel.array,
+            alt_aal.slices_from_to(500, 20),
+            max_value,
+        )
+
+
+class AirspeedRelativeFor3Sec500To20FtMin(KeyPointValueNode):
+    '''
+    '''
+
+    def derive(self, spd_rel=P('Airspeed Relative For 3 Sec'),
+               alt_aal=P('Altitude AAL For Flight Phases')):
+        '''
+        '''
+        self.create_kpvs_within_slices(
+            spd_rel.array,
+            alt_aal.slices_from_to(500, 20),
+            min_value,
+        )
+
+
 class AirspeedRelativeFor5Sec1000To500FtMax(KeyPointValueNode):
     '''
     '''
 
     def derive(self, spd_rel=P('Airspeed Relative For 5 Sec'),
-            alt_aal=P('Altitude AAL For Flight Phases')):
+               alt_aal=P('Altitude AAL For Flight Phases')):
         '''
         '''
         self.create_kpvs_within_slices(
@@ -970,7 +970,7 @@ class AirspeedRelativeFor5Sec1000To500FtMin(KeyPointValueNode):
     '''
 
     def derive(self, spd_rel=P('Airspeed Relative For 5 Sec'),
-            alt_aal=P('Altitude AAL For Flight Phases')):
+               alt_aal=P('Altitude AAL For Flight Phases')):
         '''
         '''
         self.create_kpvs_within_slices(
@@ -1627,6 +1627,7 @@ class AirspeedAtGearDownSelection(KeyPointValueNode):
 ##################################
 # Braking
 
+
 class BrakePressureInTakeoffRollMax(KeyPointValueNode):
     '''
     FDS developed this KPV to support the UK CAA Significant Seven programme.
@@ -1644,7 +1645,8 @@ class DelayedBrakingAfterTouchdown(KeyPointValueNode):
     This parameter was requested by one customer, who asked us to adopt the
     Airbus AFPS implementation.
     '''
-    def derive(self, lands=S('Landing'), gs=P('Groundspeed'), tdwns=KTI('Touchdown')):
+    def derive(self, lands=S('Landing'), gs=P('Groundspeed'),
+               tdwns=KTI('Touchdown')):
         for land in lands:
             for tdwn in tdwns:
                 if is_index_within_slice(tdwn.index, land.slice):
@@ -1656,6 +1658,7 @@ class DelayedBrakingAfterTouchdown(KeyPointValueNode):
 
     
 ################################################################################
+
 
 class GenericDescent(KeyPointValueNode):
     '''
@@ -3231,11 +3234,16 @@ class Eng_N1MaxDurationUnder60PercentAfterTouchdown(KeyPointValueNode):
                 self.debug('Engine %d did not stop on this flight, cannot '
                            'measure KPV', eng_num)
                 continue
+            last_tdwn_idx = tdwn.get_last().index
+            last_eng_stop_idx = eng_stop[-1].index
+            if last_tdwn_idx > last_eng_stop_idx:
+                self.debug('Engine %d was stopped before last touchdown', eng_num)
+                continue
             eng_array = repair_mask(eng.array)
             eng_below_60 = np.ma.masked_greater(eng_array, 60)
             # Measure duration between final touchdown and engine stop:
             touchdown_to_stop_slice = max_continuous_unmasked(
-                eng_below_60, slice(tdwn.get_last().index, eng_stop[0].index))
+                eng_below_60, slice(last_tdwn_idx, last_eng_stop_idx))
             if touchdown_to_stop_slice:
                 # TODO: Future storage of slice: self.slice = touchdown_to_stop_slice
                 touchdown_to_stop_duration = (touchdown_to_stop_slice.stop - \
@@ -3244,7 +3252,7 @@ class Eng_N1MaxDurationUnder60PercentAfterTouchdown(KeyPointValueNode):
                                 touchdown_to_stop_duration, number=eng_num)
             else:
                 # Create KPV of 0 seconds:
-                self.create_kpv(eng_stop[0].index, 0.0, number=eng_num)
+                self.create_kpv(last_eng_stop_idx, 0.0, number=eng_num)
 
 
 class EngN1500To20FtMax(KeyPointValueNode):
@@ -6118,7 +6126,7 @@ class SpeedbrakesDeployedInGoAroundDuration(KeyPointValueNode):
     "Loss of Control Mis-handled G/A - ...Speedbrake retraction."
     '''
     def derive(self, speedbrake=M('Speedbrake Selected'),
-            gas=S('Go Around And Climbout')):
+               gas=S('Go Around And Climbout')):
         '''
         '''
         deployed = speedbrake.array.state['Deployed/Cmd Up']
@@ -6131,6 +6139,7 @@ class SpeedbrakesDeployedInGoAroundDuration(KeyPointValueNode):
                 when = np.ma.clump_unmasked(event)
                 index = when[-1].stop
                 self.create_kpv(index, value)
+
 
 class ThrustAsymmetryInGoAround(KeyPointValueNode):
     '''

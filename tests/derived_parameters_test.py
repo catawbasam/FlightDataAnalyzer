@@ -92,6 +92,9 @@ from analysis_engine.derived_parameters import (
 
 debug = sys.gettrace() is not None
 
+test_data_path = os.path.join(os.path.dirname(os.path.abspath(__file__)),
+                              'test_data')
+
 
 class NodeTest(object):
     def test_can_operate(self):
@@ -411,7 +414,7 @@ class TestAirspeedReference(unittest.TestCase):
         vspeed_table = Mock
         vspeed_table.airspeed_reference = Mock(side_effect = [135, 130])
         vspeed_map.return_value = vspeed_table
-        test_hdf = copy_file('test_data/airspeed_reference.hdf5')
+        test_hdf = copy_file(os.path.join(test_data_path, 'airspeed_reference.hdf5'))
         with hdf_file(test_hdf) as hdf:
             approaches = (Section(name='Approach', slice=slice(3346, 3540), start_edge=3345.5, stop_edge=3539.5),
                           Section(name='Approach', slice=slice(5502, 5795), start_edge=5501.5, stop_edge=5794.5))
@@ -602,7 +605,7 @@ class TestAltitudeAAL(unittest.TestCase):
     def test_alt_aal_no_ralt(self):
         data = np.ma.array([-3, 0, 30, 80, 150, 280, 120, 70, 20, -5])
         alt_std = P(array=data + 300)
-        slow_and_fast_data = np.ma.array([70] + [85] * 7 + [75, 70])
+        slow_and_fast_data = np.ma.array([70] + [85] * 8 + [70])
         phase_fast = Fast()
         phase_fast.derive(Parameter('Airspeed', slow_and_fast_data))
         alt_aal = AltitudeAAL()
@@ -640,7 +643,7 @@ class TestAltitudeAAL(unittest.TestCase):
         signal being recorded, 'Altitude AAL' did not fill the second half of
         its array. Since the array is initialised as zeroes
         '''
-        hdf_copy = copy_file(os.path.join('test_data',
+        hdf_copy = copy_file(os.path.join(test_data_path,
                                           'alt_aal_faulty_alt_rad.hdf5'),
                              postfix='_test_copy')
         result = process_flight(hdf_copy, {
@@ -2012,19 +2015,19 @@ class TestRateOfTurn(unittest.TestCase):
        
     def test_rate_of_turn_phase_stability(self):
         rot = RateOfTurn()
-        rot.derive(P('Heading Continuous', np.ma.array([0,0,0,1,0,0,0],
+        rot.derive(P('Heading Continuous', np.ma.array([0,0,2,4,2,0,0],
                                                           dtype=float)))
-        answer = np.ma.array([0,0,0.3,0,-0.3,0,0])
+        answer = np.ma.array([0,1.95,0.5,0,-0.5,-1.95,0])
         ma_test.assert_masked_array_approx_equal(rot.array, answer)
         
     def test_sample_long_gentle_turn(self):
         # Sample taken from a long circling hold pattern
         head_cont = P(array=np.ma.array(
-            np.load('test_data/heading_continuous_in_hold.npy')), frequency=2)
+            np.load(os.path.join(test_data_path, 'heading_continuous_in_hold.npy'))), frequency=2)
         rot = RateOfTurn()
         rot.get_derived((head_cont,))
         np.testing.assert_allclose(rot.array[50:1150],
-                                   np.ones(1100)*2, rtol=0.05)
+                                   np.ones(1100, dtype=float)*2.1, rtol=0.1)
         
         
 class TestMach(unittest.TestCase):
@@ -2077,7 +2080,7 @@ class TestV2(unittest.TestCase):
     def test_v2__boeing_lookup(self):
         gw = KPV('Gross Weight At Liftoff')
         gw.create_kpv(451, 54192.06)
-        test_hdf = copy_file('test_data/airspeed_reference.hdf5')
+        test_hdf = copy_file(os.path.join(test_data_path, 'airspeed_reference.hdf5'))
         with hdf_file(test_hdf) as hdf:
             args = [
                 P(**hdf['Airspeed'].__dict__),
@@ -2856,87 +2859,7 @@ class TestTurbulence(unittest.TestCase):
         turb.derive(P('Acceleration Vertical', accel, frequency=8))
         expected = np.array([0]*20+[0.156173762]*41+[0]*20)
         np.testing.assert_array_almost_equal(expected, turb.array.data)
-        
-class TestAimingPointRange(unittest.TestCase):
-    def setUp(self):
-        test_data_path = os.path.join(os.path.dirname(os.path.abspath(__file__)),
-                                      'test_data')        
-        self.app_info=[]
-        self.app_info.append(
-            {'runway': {'end': {'latitude': 43.65164, 
-                                'elevation': -3, 
-                                'longitude': 7.204074}, 
-                        'start': {'latitude': 43.668008, 
-                                  'elevation': 16, 
-                                  'longitude': 7.226582}, 
-                        'magnetic_heading': 223.5, 
-                        'strip': {'width': 147, 
-                                  'length': 8995, 
-                                  'id': 2226, 
-                                  'surface': 'ASP'}, 
-                        'identifier': '22*', 
-                        'id': 4452}, 
-             'airport': {'distance': 0.5243389615338375, 
-                         'magnetic_variation': 'E000374 0106', 
-                         'code': {'icao': 'LFMN', 
-                                  'iata': 'NCE'}, 
-                         'elevation': 3, 
-                         'name': 'Nice Cote D Azur', 
-                         'longitude': 7.21587, 
-                         'location': {'city': u"Nice/C\xf4Te D'Azur", 
-                                      'country': 'France'}, 
-                                      'latitude': 43.6584, 
-                                      'id': 3021},
-             'slice_start': 10.0, 
-             'type': 'LANDING', 
-             'slice_stop': 120.0,            
-            })
-        gspd_data=[]
-        drift_data=[]
-        hdg_data=[]
-        tas_data=[]
-        alt_data=[]
-        vis_range_test_data_path = os.path.join(test_data_path,
-                                                'visual_range_test_data.csv')
-        with open(vis_range_test_data_path, 'rb') as csvfile:
-            self.reader = csv.DictReader(csvfile)
-            for row in self.reader:
-                gspd_data.append(float(row['Groundspeed']))
-                drift_data.append(float(row['Drift']))
-                hdg_data.append(float(row['Heading_True_Continuous']))
-                tas_data.append(float(row['Airspeed_True']))
-                alt_data.append(float(row['Altitude_AAL']))
-            self.gspd_np = np.ma.array(gspd_data)
-            self.drift_np = np.ma.array(drift_data)
-            self.hdg_np = np.ma.array(hdg_data)
-            self.tas_np = np.ma.array(tas_data)
-            self.alt_np = np.ma.array(alt_data)
-        return
 
-    def test_can_operate(self):
-        expected = [('ILS Glideslope',
-                     'Groundspeed',
-                     'Drift',
-                     'Heading True Continuous',
-                     'Airspeed True',
-                     'Altitude AAL',
-                     'ILS Localizer Established',
-                     'ILS Glideslope Established',
-                     'Precise Positioning',
-                     'FDR Approaches')]
-        opts = AimingPointRange.get_operational_combinations()
-        self.assertEqual(opts, expected)
-
-    def test_visual_range_basic(self):
-        vr = AimingPointRange()
-        vr.derive(P('Groundspeed', self.gspd_np),
-                  P('Drift', self.drift_np),
-                  P('Heading True Continuous', self.hdg_np),
-                  P('Airspeed True', self.tas_np),
-                  P('Altitude AAL', self.alt_np),
-                  A('FDR Approaches', self.app_info))
-        self.assertEqual(int(vr.array[-2]),1011)
-                         
 
 class TestVOR1Frequency(unittest.TestCase):
     @unittest.skip('Test Not Implemented')
@@ -3069,7 +2992,7 @@ class TestCoordinatesSmoothed(unittest.TestCase):
         return
 
     def test__adjust_track_precise(self):
-        hdf_test_file = os.path.join('test_data',
+        hdf_test_file = os.path.join(test_data_path,
                                      'flight_with_go_around_and_landing.hdf5')
         with hdf_file(hdf_test_file) as hdf:
             lon = hdf['Longitude']
@@ -3097,7 +3020,7 @@ class TestCoordinatesSmoothed(unittest.TestCase):
                                  slice(12930, 13424, None)])
         
     def test__adjust_track_imprecise(self):
-        hdf_test_file = os.path.join('test_data',
+        hdf_test_file = os.path.join(test_data_path,
                                      'flight_with_go_around_and_landing.hdf5')
         with hdf_file(hdf_test_file) as hdf:
             lon = hdf['Longitude']
@@ -3130,7 +3053,7 @@ class TestCoordinatesSmoothed(unittest.TestCase):
         #plt.show()
 
     def test__adjust_track_visual(self):
-        hdf_test_file = os.path.join('test_data',
+        hdf_test_file = os.path.join(test_data_path,
                                      'flight_with_go_around_and_landing.hdf5')
         with hdf_file(hdf_test_file) as hdf:
             lon = hdf['Longitude']
@@ -3250,7 +3173,7 @@ class TestApproachRange(unittest.TestCase):
         return
 
     def test_range_basic(self):
-        hdf_test_file = os.path.join('test_data',
+        hdf_test_file = os.path.join(test_data_path,
                                      'flight_with_go_around_and_landing.hdf5')
         with hdf_file(hdf_test_file) as hdf:
             hdg = hdf['Heading True Continuous']
@@ -3267,7 +3190,7 @@ class TestApproachRange(unittest.TestCase):
                                  slice(12928, 13423, None)])
         
     def test_range_full_param_set(self):
-        hdf_test_file = os.path.join('test_data',
+        hdf_test_file = os.path.join(test_data_path,
                                      'flight_with_go_around_and_landing.hdf5')
         with hdf_file(hdf_test_file) as hdf:
             hdg = hdf['Heading True Continuous']
