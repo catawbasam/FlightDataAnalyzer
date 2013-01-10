@@ -171,6 +171,8 @@ from analysis_engine.key_point_values import (
     RollAbove1000FtMax,
     SpeedbrakesDeployedInGoAroundDuration,
     TailClearanceOnApproach,
+    TailClearanceOnLandingMin,
+    TailClearanceOnTakeoffMin,
     TailwindLiftoffTo100FtMax,
     Tailwind100FtToTouchdownMax,
     TCASRAWarningDuration,
@@ -4415,20 +4417,24 @@ class TestStickShakerActivatedDuration(unittest.TestCase):
 # Tail Clearance
 
 
-class TestTailClearanceOnTakeoffMin(unittest.TestCase):
-    @unittest.skip('Test Not Implemented')
-    def test_can_operate(self):
-        self.assertTrue(False, msg='Test not implemented.')
+class TestTailClearanceOnTakeoffMin(unittest.TestCase,
+                                    CreateKPVsWithinSlicesTest):
+    def setUp(self):
+        self.node_class = TailClearanceOnTakeoffMin
+        self.operational_combinations = [('Altitude Tail', 'Takeoff',)]
+        self.function = max_value
     
     @unittest.skip('Test Not Implemented')    
     def test_derive(self):
         self.assertTrue(False, msg='Test not implemented.')
 
 
-class TestTailClearanceOnLandingMin(unittest.TestCase):
-    @unittest.skip('Test Not Implemented')
-    def test_can_operate(self):
-        self.assertTrue(False, msg='Test not implemented.')
+class TestTailClearanceOnLandingMin(unittest.TestCase,
+                                    CreateKPVsWithinSlicesTest):
+    def setUp(self):
+        self.node_class = TailClearanceOnLandingMin
+        self.operational_combinations = [('Altitude Tail', 'Landing',)]
+        self.function = max_value
     
     @unittest.skip('Test Not Implemented')    
     def test_derive(self):
