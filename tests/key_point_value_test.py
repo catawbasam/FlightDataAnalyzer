@@ -97,6 +97,7 @@ from analysis_engine.key_point_values import (
     AirspeedWithFlapMin,
     AirspeedWithGearDownMax,
     AltitudeAtFirstFlapChangeAfterLiftoff,
+    AltitudeAtGoAroundGearUpSelection,
     AltitudeAtGoAroundMin,
     AltitudeAtLastFlapChangeBeforeLanding,
     AltitudeAtLiftoff,
@@ -114,9 +115,12 @@ from analysis_engine.key_point_values import (
     AltitudeMax,
     AltitudeMinsToTouchdown,
     AltitudeWithFlapsMax,
+    AOAInGoAroundMax,
     AOAWithFlapMax,
+    BrakePressureInTakeoffRollMax,
     ControlColumnStiffness,
     DecelerationFromTouchdownToStopOnRunway,
+    DelayedBrakingAfterTouchdown,
     EngEPR500FtToTouchdownMin,
     EngGasTempTakeoffMax,
     EngN1500To20FtMin,
@@ -130,6 +134,7 @@ from analysis_engine.key_point_values import (
     FlapAtTouchdown,
     FuelQtyAtLiftoff,
     FuelQtyAtTouchdown,
+    GroundspeedOnGroundMax,
     GrossWeightAtLiftoff,
     GrossWeightAtTouchdown,
     HeadingAtLanding,
@@ -155,6 +160,7 @@ from analysis_engine.key_point_values import (
     Pitch35To400FtMin,
     PitchAtLiftoff,
     PitchAtTouchdown,
+    PitchInGoAroundMax,
     RateOfDescent10000To5000FtMax,
     RateOfDescent5000To3000FtMax,
     RateOfDescent3000To2000FtMax,
@@ -163,7 +169,31 @@ from analysis_engine.key_point_values import (
     RateOfDescent500To20FtMax,
     RateOfDescent500FtToTouchdownMax,
     RollAbove1000FtMax,
+    SpeedbrakesDeployedInGoAroundDuration,
     TailClearanceOnApproach,
+    TailwindLiftoffTo100FtMax,
+    Tailwind100FtToTouchdownMax,
+    TCASRAWarningDuration,
+    TCASRAReactionDelay,
+    TCASRAInitialReaction,
+    TCASRAToAPDisengageDuration,
+    ThrottleCyclesInFinalApproach,
+    ThrustAsymmetryInFlight,
+    ThrustAsymmetryInGoAround,
+    ThrustAsymmetryOnApproachDuration,
+    ThrustAsymmetryOnApproachMax,
+    ThrustAsymmetryOnTakeoff,
+    ThrustAsymmetryWithReverseThrustMax,
+    ThrustAsymmetryWithReverseThrustDuration,
+    TouchdownTo60KtsDuration,
+    TouchdownToElevatorDownDuration,
+    TurbulenceInApproachMax,
+    TurbulenceInCruiseMax,
+    TurbulenceInFlightMax,
+    VerticalSpeedInGoAroundMax,
+    WindAcrossLandingRunwayAt50Ft,
+    WindDirectionInDescent,
+    WindSpeedInDescent,
     ZeroFuelWeight,
 )
 from analysis_engine.key_time_instances import Eng_Stop
@@ -481,6 +511,18 @@ class TestAccelerationNormalAirborneFlapsUpMin(unittest.TestCase):
     def test_can_operate(self):
         self.assertEqual(
             AccelerationNormalAirborneFlapsUpMin.get_operational_combinations(),
+            [('Acceleration Normal Offset Removed', 'Flap', 
+              'Airborne',)])
+    
+    @unittest.skip('Test Not Implemented')
+    def test_derive(self):
+        self.assertTrue(False, msg='Test not implemented.')
+
+
+class TestAccelerationNormalAirborneFlapsDownMax(unittest.TestCase):
+    def test_can_operate(self):
+        self.assertEqual(
+            AccelerationNormalAirborneFlapsDownMax.get_operational_combinations(),
             [('Acceleration Normal Offset Removed', 'Flap', 
               'Airborne',)])
     
@@ -1278,6 +1320,11 @@ class TestAirspeedLevelFlightMax(unittest.TestCase):
 
 
 class TestAirspeedBelowAltitudeMax(unittest.TestCase):
+    def test_can_operate(self):
+        self.assertEqual(
+            AirspeedBelowAltitudeMax.get_operational_combinations(),
+            [('Airspeed', 'Altitude AAL For Flight Phases'),])
+    
     def test_derive(self):
         airspeed = P(array=np.ma.arange(20))
         alt_aal = P(array=np.ma.arange(0, 10000, 500))
@@ -1647,11 +1694,12 @@ class TestAirspeedAtGearDownSelection(unittest.TestCase,
 # Braking
 
 
-class TestBrakePressureInTakeoffRollMax(unittest.TestCase):
-    def test_can_operate(self):
-        self.assertEqual(
-            BrakePressureInTakeoffRollMax.get_operational_combinations(),
-            [('Flap', 'Airspeed', 'Climb',)])
+class TestBrakePressureInTakeoffRollMax(unittest.TestCase,
+                                        CreateKPVsWithinSlicesTest):
+    def setUp(self):
+        self.node_class = BrakePressureInTakeoffRollMax
+        self.operational_combinations = [('Brake Pressure', 'Takeoff Roll',)]
+        self.function = max_value
     
     @unittest.skip('Test Not Implemented')
     def test_derive(self):
@@ -1661,7 +1709,7 @@ class TestBrakePressureInTakeoffRollMax(unittest.TestCase):
 class TestDelayedBrakingAfterTouchdown(unittest.TestCase):
     def test_can_operate(self):
         self.assertEqual(
-            BrakePressureInTakeoffRollMax.get_operational_combinations(),
+            DelayedBrakingAfterTouchdown.get_operational_combinations(),
             [('Landing', 'Groundspeed', 'Touchdown',)])
     
     @unittest.skip('Test Not Implemented')
@@ -1755,72 +1803,6 @@ class TestAltitudeMax(unittest.TestCase, CreateKPVsWithinSlicesTest):
     @unittest.skip('Test Not Implemented')
     def test_derive(self):
         self.assertTrue(False, msg='Test Not Implemented')
-    
-
-class TestAltitudeOvershootAtSuspectedLevelBust(unittest.TestCase):
-    @unittest.skip('Test Not Implemented')
-    def test_can_operate(self):
-        self.assertTrue(False, msg='Test Not Implemented')      
-    
-    def test_derive_handling_no_data(self):
-        alt=P('Altitude STD',np.ma.array([0,1000,1000,1000,1000]))
-        kpv=AltitudeOvershootAtSuspectedLevelBust()
-        kpv.derive(alt)
-        expected=[]
-        self.assertEqual(kpv,expected)
-        
-    def test_derive_up_down_and_up(self):
-        testwave = np.ma.array(1.0+np.sin(np.arange(0,12.6,0.1)))*1000
-        alt=P('Altitude STD',testwave)
-        kpv=AltitudeOvershootAtSuspectedLevelBust()
-        kpv.derive(alt)
-        expected=[KeyPointValue(index=16, value=999.5736030415051, 
-                                name='Altitude Overshoot At Suspected Level Bust'),
-                  KeyPointValue(index=47, value=-1998.4666029387058, 
-                                name='Altitude Overshoot At Suspected Level Bust'), 
-                  KeyPointValue(index=79, value=1994.3775951461494, 
-                                name='Altitude Overshoot At Suspected Level Bust'), 
-                  KeyPointValue(index=110, value=-834.386031102394,  #-933.6683091995028, XXX: Ask Dave if the minimum value is correct.
-                                name='Altitude Overshoot At Suspected Level Bust')]
-        self.assertEqual(kpv,expected)
-        
-    def test_derive_too_slow(self):
-        testwave = np.ma.array(1.0+np.sin(np.arange(0,12.6,0.1)))*1000
-        alt=P('Altitude STD',testwave,0.02)
-        kpv=AltitudeOvershootAtSuspectedLevelBust()
-        kpv.derive(alt)
-        expected=[]
-        self.assertEqual(kpv,expected)
-
-    def test_derive_straight_up_and_down(self):
-        testwave = np.ma.array(range(0,10000,50)+range(10000,0,-50))
-        alt=P('Altitude STD',testwave,1)
-        kpv=AltitudeOvershootAtSuspectedLevelBust()
-        kpv.derive(alt)
-        expected=[]
-        self.assertEqual(kpv,expected)
-        
-    def test_derive_up_and_down_with_overshoot(self):
-        testwave = np.ma.array(range(0,10000,50)+range(10000,9000,-50)+[9000]*200+range(9000,0,-50))
-        alt=P('Altitude STD',testwave,1)
-        kpv=AltitudeOvershootAtSuspectedLevelBust()
-        kpv.derive(alt)
-        expected=[KeyPointValue(index=200, value=1000, 
-                                name='Altitude Overshoot At Suspected Level Bust')] 
-        self.assertEqual(kpv,expected)
-
-    def test_derive_up_and_down_with_undershoot(self):
-        testwave = np.ma.array(range(0,10000,50)+
-                               [10000]*200+
-                               range(10000,9000,-50)+
-                               range(9000,20000,50)+
-                               range(20000,0,-50))
-        alt=P('Altitude STD',testwave,1)
-        kpv=AltitudeOvershootAtSuspectedLevelBust()
-        kpv.derive(alt)
-        expected=[KeyPointValue(index=420, value=-1000, 
-                                name='Altitude Overshoot At Suspected Level Bust')]
-        self.assertEqual(kpv,expected)
 
 
 class TestControlColumnStiffness(unittest.TestCase):
@@ -1880,7 +1862,8 @@ class TestEngN1500To20FtMin(unittest.TestCase, CreateKPVsWithinSlicesTest):
 class TestEngGasTempTakeoffMax(unittest.TestCase, CreateKPVsWithinSlicesTest):
     def setUp(self):
         self.node_class = EngGasTempTakeoffMax
-        self.operational_combinations = [('Eng (*) N1 Max', 'Takeoff')]
+        self.operational_combinations = [('Eng (*) Gas Temp Max',
+                                          'Takeoff 5 Min Rating')]
         self.function = max_value
     
     @unittest.skip('Test Not Implemented')
@@ -1977,46 +1960,6 @@ class TestEng_N1MaxDurationUnder60PercentAfterTouchdown(unittest.TestCase):
         ##self.assertTrue('Eng (2)' in max_dur[1].name)
         self.assertEqual(len(max_dur), 1)
 
-
-class TestFlapAtLiftoff(unittest.TestCase, CreateKPVsAtKTIsTest):
-    def setUp(self):
-        self.node_class = FlapAtLiftoff
-        self.operational_combinations = [('Flap', 'Liftoff')]
-
-    @unittest.skip('Test Not Implemented')
-    def test_derive(self):
-        self.assertTrue(False, msg='Test Not Implemented') 
-
-
-class TestFlapAtTouchdown(unittest.TestCase, CreateKPVsAtKTIsTest):
-    def setUp(self):
-        self.node_class = FlapAtTouchdown
-        self.operational_combinations = [('Flap', 'Touchdown')]
-        
-    @unittest.skip('Test Not Implemented')
-    def test_derive(self):
-        self.assertTrue(False, msg='Test Not Implemented') 
-
-
-class TestFuelQtyAtLiftoff(unittest.TestCase, CreateKPVsAtKTIsTest):
-    def setUp(self):
-        self.node_class = FuelQtyAtLiftoff
-        self.operational_combinations = [('Fuel Qty', 'Liftoff')]
-
-    @unittest.skip('Test Not Implemented')
-    def test_derive(self):
-        self.assertTrue(False, msg='Test Not Implemented') 
-        
-
-class TestFuelQtyAtTouchdown(unittest.TestCase, CreateKPVsAtKTIsTest):
-    def setUp(self):
-        self.node_class = FuelQtyAtTouchdown
-        self.operational_combinations = [('Fuel Qty', 'Touchdown')]
-
-    @unittest.skip('Test Not Implemented')
-    def test_derive(self):
-        self.assertTrue(False, msg='Test Not Implemented') 
-
         
 class TestILSGlideslopeDeviation1500To1000FtMax(unittest.TestCase):
         
@@ -2076,37 +2019,6 @@ class TestILSGlideslopeDeviation1000To250FtMax(unittest.TestCase):
         kpv.derive(ils_gs, alt_ph, gs_estab)
         # 'KeyPointValue', 'index' 'value' 'name'
         self.assertAlmostEqual(kpv[0].value, 0.79992326)
-
-
-class TestGroundSpeedOnGroundMax(unittest.TestCase, CreateKPVsWithinSlicesTest):
-    def setUp(self):
-        self.node_class = GroundSpeedOnGroundMax
-        self.operational_combinations = [('Groundspeed', 'Grounded')]
-        self.function = max_value
-    
-    @unittest.skip('Test Not Implemented')
-    def test_derive(self):
-        self.assertTrue(False, msg='Test Not Implemented')     
-
-
-class TestGrossWeightAtLiftoff(unittest.TestCase, CreateKPVsAtKTIsTest):
-    def setUp(self):
-        self.node_class = GrossWeightAtLiftoff
-        self.operational_combinations = [('Gross Weight Smoothed', 'Liftoff')]
-
-    @unittest.skip('Test Not Implemented')
-    def test_derive(self):
-        self.assertTrue(False, msg='Test Not Implemented') 
-
-
-class TestGrossWeightAtTouchdown(unittest.TestCase, CreateKPVsAtKTIsTest):
-    def setUp(self):
-        self.node_class = GrossWeightAtTouchdown
-        self.operational_combinations = [('Gross Weight Smoothed', 'Touchdown')]
-
-    @unittest.skip('Test Not Implemented')
-    def test_derive(self):
-        self.assertTrue(False, msg='Test Not Implemented') 
 
 
 class TestHeadingAtTakeoff(unittest.TestCase):
@@ -2224,188 +2136,7 @@ class TestMachMax(unittest.TestCase, CreateKPVsWithinSlicesTest):
 
     @unittest.skip('Test Not Implemented')
     def test_derive(self):
-        self.assertTrue(False, msg='Test Not Implemented')     
-
-
-class TestPitch35To400FtMax(unittest.TestCase, CreateKPVsWithinSlicesTest):
-    def setUp(self):
-        self.node_class = Pitch35To400FtMax
-        self.operational_combinations = [('Pitch',
-                                          'Altitude AAL For Flight Phases')]
-        self.function = max_value
-        self.second_param_method_calls = [('slices_from_to', (35, 400,), {})]
-        
-    def test_derive_basic(self):
-        pch = [0,2,4,7,9,8,6,3,-1]
-        alt = [100,101,102,103,700,105,104,103,102]
-        alt_ph = P('Altitude AAL For Flight Phases', np.ma.array(alt))
-        pitch = P('Pitch', np.ma.array(pch))
-        kpv = Pitch35To400FtMax()
-        kpv.derive(pitch, alt_ph)
-        self.assertEqual(len(kpv), 1)
-        self.assertEqual(kpv[0].index, 3)
-        self.assertEqual(kpv[0].value, 7)
-
-
-class TestPitch35To400FtMin(unittest.TestCase, CreateKPVsWithinSlicesTest):
-    def setUp(self):
-        self.node_class = Pitch35To400FtMin
-        self.operational_combinations = [('Pitch',
-                                          'Altitude AAL For Flight Phases')]
-        self.function = min_value
-        self.second_param_method_calls = [('slices_from_to', (35, 400,), {})]
-    
-    @unittest.skip('Test Not Implemented')
-    def test_derive(self):
-        self.assertTrue(False, msg='Test Not Implemented') 
-
-
-class TestPitchAtLiftoff(unittest.TestCase, CreateKPVsAtKTIsTest):
-    def setUp(self):
-        self.node_class = PitchAtLiftoff
-        self.operational_combinations = [('Pitch', 'Liftoff')]
-    
-    @unittest.skip('Test Not Implemented')
-    def test_derive(self):
-        self.assertTrue(False, msg='Test Not Implemented')     
-
-
-class TestPitchAtTouchdown(unittest.TestCase, CreateKPVsAtKTIsTest):
-    def setUp(self):
-        self.node_class = PitchAtTouchdown
-        self.operational_combinations = [('Pitch', 'Touchdown')]
-
-    @unittest.skip('Test Not Implemented')
-    def test_derive(self):
-        self.assertTrue(False, msg='Test Not Implemented') 
-
-
-class TestRateOfDescent10000To5000FtMax(unittest.TestCase,
-                                        CreateKPVsWithinSlicesTest):
-    def setUp(self):
-        self.node_class = RateOfDescent10000To5000FtMax
-        self.operational_combinations = [('Vertical Speed',
-                                          'Altitude AAL For Flight Phases',)]
-        self.function = min_value
-        self.second_param_method_calls = [('slices_from_to', (10000, 5000), {})]
-
-    @unittest.skip('Test Not Implemented')
-    def test_derive(self):
-        self.assertTrue(False, msg='Test Not Implemented') 
-
-
-class TestRateOfDescent5000To3000FtMax(unittest.TestCase,
-                                       CreateKPVsWithinSlicesTest):
-    def setUp(self):
-        self.node_class = RateOfDescent5000To3000FtMax
-        self.operational_combinations = [('Vertical Speed',
-                                          'Altitude AAL For Flight Phases',)]
-        self.function = min_value
-        self.second_param_method_calls = [('slices_from_to', (5000, 3000), {})]
-
-    @unittest.skip('Test Not Implemented')
-    def test_derive(self):
-        self.assertTrue(False, msg='Test Not Implemented') 
-
-
-class TestRateOfDescent3000To2000FtMax(unittest.TestCase,
-                                       CreateKPVsWithinSlicesTest):
-    def setUp(self):
-        self.node_class = RateOfDescent3000To2000FtMax
-        self.operational_combinations = [('Vertical Speed',
-                                          'Altitude AAL For Flight Phases',)]
-        self.function = min_value
-        self.second_param_method_calls = [('slices_from_to', (3000, 2000), {})]
-
-    @unittest.skip('Test Not Implemented')
-    def test_derive(self):
-        self.assertTrue(False, msg='Test Not Implemented') 
-
-
-class TestRateOfDescent2000To1000FtMax(unittest.TestCase,
-                                       CreateKPVsWithinSlicesTest):
-    def setUp(self):
-        self.node_class = RateOfDescent2000To1000FtMax
-        self.operational_combinations = [('Vertical Speed',
-                                          'Altitude AAL For Flight Phases',)]
-        self.function = min_value
-        self.second_param_method_calls = [('slices_from_to', (2000, 1000), {})]
-
-    @unittest.skip('Test Not Implemented')
-    def test_derive(self):
-        self.assertTrue(False, msg='Test Not Implemented') 
-
-
-class TestRateOfDescent1000To500FtMax(unittest.TestCase,
-                                      CreateKPVsWithinSlicesTest):
-    def setUp(self):
-        self.node_class = RateOfDescent1000To500FtMax
-        self.operational_combinations = [('Vertical Speed',
-                                          'Altitude AAL For Flight Phases',)]
-        self.function = min_value
-        self.second_param_method_calls = [('slices_from_to', (1000, 500), {})]
-
-    @unittest.skip('Test Not Implemented')
-    def test_derive(self):
-        self.assertTrue(False, msg='Test Not Implemented') 
-        
-
-class TestRateOfDescent500To20FtMax(unittest.TestCase,
-                                    CreateKPVsWithinSlicesTest):
-    def setUp(self):
-        self.node_class = RateOfDescent500To20FtMax
-        self.operational_combinations = [('Vertical Speed',
-                                          'Altitude AAL For Flight Phases',)]
-        self.function = min_value
-        self.second_param_method_calls = [('slices_from_to', (500, 20), {})]
-
-    @unittest.skip('Test Not Implemented')
-    def test_derive(self):
-        self.assertTrue(False, msg='Test Not Implemented') 
-        
-
-# FIXME: Uses slices_to_kti(), not slices_from_to()!
-class TestRateOfDescent500FtToTouchdownMax(unittest.TestCase,
-                                           CreateKPVsWithinSlicesTest):
-    def setUp(self):
-        # XXX: This test does not explicitly test how the Touchdown dependency
-        #      is used.
-        self.node_class = RateOfDescent500FtToTouchdownMax
-        self.operational_combinations = [('Vertical Speed',
-                                          'Altitude AAL For Flight Phases',
-                                          'Touchdown',)]
-        self.function = min_value
-        self.second_param_method_calls = [('slices_to_kti', (500, []), {})]
-
-    @unittest.skip('Test Not Implemented')
-    def test_derive(self):
-        self.assertTrue(False, msg='Test Not Implemented') 
-
-
-class TestRollAbove1000FtMax(unittest.TestCase, CreateKPVsWithinSlicesTest):
-    def setUp(self):
-        self.node_class = RollAbove1000FtMax
-        self.operational_combinations = [('Roll',
-                                          'Altitude AAL For Flight Phases')]
-        self.function = max_abs_value
-        self.second_param_method_calls = [('slices_above', (1000,), {})]
-
-    @unittest.skip('Test Not Implemented')
-    def test_derive(self):
-        self.assertTrue(False, msg='Test Not Implemented') 
-
-
-class TestZeroFuelWeight(unittest.TestCase):
-    @unittest.skip('Test Not Implemented')
-    def test_can_operate(self):
-        self.assertTrue(False, msg='Test Not Implemented')     
-    
-    def test_derive(self):
-        fuel = P('Fuel Qty', np.ma.array([1,2,3,4]))
-        weight = P('Gross Weight', np.ma.array([11,12,13,14]))
-        zfw = ZeroFuelWeight()
-        zfw.derive(fuel, weight)
-        self.assertEqual(zfw[0].value, 10.0)
+        self.assertTrue(False, msg='Test Not Implemented')
 
 
 class TestAltitudeAtFirstFlapChangeAfterLiftoff(unittest.TestCase):
@@ -2532,17 +2263,6 @@ class TestAltitudeGoAroundFlapRetracted(unittest.TestCase,
     @unittest.skip('Test Not Implemented')
     def test_derive(self):
         self.assertTrue(False, msg='Test Not Implemented') 
-
-
-class TestAltitudeMinsToTouchdown(unittest.TestCase):
-    def test_can_operate(self):
-        self.assertEqual(
-            AltitudeMinsToTouchdown.get_operational_combinations(),
-            [('Altitude AAL', 'Mins To Touchdown',)])        
-    
-    @unittest.skip('Test Not Implemented')
-    def test_derive(self):
-        self.assertTrue(False, msg='Test not implemented.')
 
 
 class TestAltitudeWithFlapsMax(unittest.TestCase):
@@ -2979,47 +2699,7 @@ class TestEventMarkerPressed(unittest.TestCase):
         self.assertTrue(False, msg='Test not implemented.')
 
 
-class TestFlapAtGearDownSelection(unittest.TestCase):
-    @unittest.skip('Test Not Implemented')
-    def test_can_operate(self):
-        self.assertTrue(False, msg='Test not implemented.')
-    
-    @unittest.skip('Test Not Implemented')    
-    def test_derive(self):
-        self.assertTrue(False, msg='Test not implemented.')
-
-
-class TestFlapWithGearUpMax(unittest.TestCase):
-    @unittest.skip('Test Not Implemented')
-    def test_can_operate(self):
-        self.assertTrue(False, msg='Test not implemented.')
-    
-    @unittest.skip('Test Not Implemented')    
-    def test_derive(self):
-        self.assertTrue(False, msg='Test not implemented.')
-
-
 class TestFlapWithSpeedbrakesDeployedMax(unittest.TestCase):
-    @unittest.skip('Test Not Implemented')
-    def test_can_operate(self):
-        self.assertTrue(False, msg='Test not implemented.')
-    
-    @unittest.skip('Test Not Implemented')    
-    def test_derive(self):
-        self.assertTrue(False, msg='Test not implemented.')
-
-
-class TestFlareDistance20FtToTouchdown(unittest.TestCase):
-    @unittest.skip('Test Not Implemented')
-    def test_can_operate(self):
-        self.assertTrue(False, msg='Test not implemented.')
-    
-    @unittest.skip('Test Not Implemented')    
-    def test_derive(self):
-        self.assertTrue(False, msg='Test not implemented.')
-
-
-class TestFlareDuration20FtToTouchdown(unittest.TestCase):
     @unittest.skip('Test Not Implemented')
     def test_can_operate(self):
         self.assertTrue(False, msg='Test not implemented.')
@@ -3039,16 +2719,6 @@ class TestGenericDescent(unittest.TestCase):
         self.assertTrue(False, msg='Test not implemented.')
 
 
-class TestGroundspeedAtTouchdown(unittest.TestCase):
-    @unittest.skip('Test Not Implemented')
-    def test_can_operate(self):
-        self.assertTrue(False, msg='Test not implemented.')
-    
-    @unittest.skip('Test Not Implemented')    
-    def test_derive(self):
-        self.assertTrue(False, msg='Test not implemented.')
-
-
 class TestGroundspeedOnGroundMax(unittest.TestCase):
     @unittest.skip('Test Not Implemented')
     def test_can_operate(self):
@@ -3059,47 +2729,7 @@ class TestGroundspeedOnGroundMax(unittest.TestCase):
         self.assertTrue(False, msg='Test not implemented.')
 
 
-class TestGroundspeedRTOMax(unittest.TestCase):
-    @unittest.skip('Test Not Implemented')
-    def test_can_operate(self):
-        self.assertTrue(False, msg='Test not implemented.')
-    
-    @unittest.skip('Test Not Implemented')    
-    def test_derive(self):
-        self.assertTrue(False, msg='Test not implemented.')
-
-
-class TestGroundspeedTaxiingStraightMax(unittest.TestCase):
-    @unittest.skip('Test Not Implemented')
-    def test_can_operate(self):
-        self.assertTrue(False, msg='Test not implemented.')
-    
-    @unittest.skip('Test Not Implemented')    
-    def test_derive(self):
-        self.assertTrue(False, msg='Test not implemented.')
-
-
-class TestGroundspeedTaxiingTurnsMax(unittest.TestCase):
-    @unittest.skip('Test Not Implemented')
-    def test_can_operate(self):
-        self.assertTrue(False, msg='Test not implemented.')
-    
-    @unittest.skip('Test Not Implemented')    
-    def test_derive(self):
-        self.assertTrue(False, msg='Test not implemented.')
-
-
 class TestGroundspeedThrustReversersDeployedMin(unittest.TestCase):
-    @unittest.skip('Test Not Implemented')
-    def test_can_operate(self):
-        self.assertTrue(False, msg='Test not implemented.')
-    
-    @unittest.skip('Test Not Implemented')    
-    def test_derive(self):
-        self.assertTrue(False, msg='Test not implemented.')
-
-
-class TestGroundspeedVacatingRunway(unittest.TestCase):
     @unittest.skip('Test Not Implemented')
     def test_can_operate(self):
         self.assertTrue(False, msg='Test not implemented.')
@@ -3200,16 +2830,6 @@ class TestHeightLostTakeoffTo35Ft(unittest.TestCase):
 
 
 class TestHeightOfBouncedLanding(unittest.TestCase):
-    @unittest.skip('Test Not Implemented')
-    def test_can_operate(self):
-        self.assertTrue(False, msg='Test not implemented.')
-    
-    @unittest.skip('Test Not Implemented')    
-    def test_derive(self):
-        self.assertTrue(False, msg='Test not implemented.')
-
-
-class TestHoldingDuration(unittest.TestCase):
     @unittest.skip('Test Not Implemented')
     def test_can_operate(self):
         self.assertTrue(False, msg='Test not implemented.')
@@ -3590,367 +3210,7 @@ class TestPackValvesOpenAtLiftoff(unittest.TestCase):
         self.assertTrue(False, msg='Test not implemented.')
 
 
-class TestPitch1000To500FtMax(unittest.TestCase):
-    @unittest.skip('Test Not Implemented')
-    def test_can_operate(self):
-        self.assertTrue(False, msg='Test not implemented.')
-        
-    @unittest.skip('Test Not Implemented')    
-    def test_derive(self):
-        self.assertTrue(False, msg='Test not implemented.')
-
-
-class TestPitch1000To500FtMin(unittest.TestCase):
-    @unittest.skip('Test Not Implemented')
-    def test_can_operate(self):
-        self.assertTrue(False, msg='Test not implemented.')
-    
-    @unittest.skip('Test Not Implemented')    
-    def test_derive(self):
-        self.assertTrue(False, msg='Test not implemented.')
-
-
-class TestPitch20FtToLandingMin(unittest.TestCase):
-    @unittest.skip('Test Not Implemented')
-    def test_can_operate(self):
-        self.assertTrue(False, msg='Test not implemented.')
-    
-    @unittest.skip('Test Not Implemented')    
-    def test_derive(self):
-        self.assertTrue(False, msg='Test not implemented.')
-
-
-class TestPitch400To1000FtMax(unittest.TestCase):
-    @unittest.skip('Test Not Implemented')
-    def test_can_operate(self):
-        self.assertTrue(False, msg='Test not implemented.')
-    
-    @unittest.skip('Test Not Implemented')    
-    def test_derive(self):
-        self.assertTrue(False, msg='Test not implemented.')
-
-
-class TestPitch400To1000FtMin(unittest.TestCase):
-    @unittest.skip('Test Not Implemented')
-    def test_can_operate(self):
-        self.assertTrue(False, msg='Test not implemented.')
-    
-    @unittest.skip('Test Not Implemented')    
-    def test_derive(self):
-        self.assertTrue(False, msg='Test not implemented.')
-
-
-class TestPitch500To20FtMin(unittest.TestCase):
-    @unittest.skip('Test Not Implemented')
-    def test_can_operate(self):
-        self.assertTrue(False, msg='Test not implemented.')
-    
-    @unittest.skip('Test Not Implemented')    
-    def test_derive(self):
-        self.assertTrue(False, msg='Test not implemented.')
-
-
-class TestPitch500To50FtMax(unittest.TestCase):
-    @unittest.skip('Test Not Implemented')
-    def test_can_operate(self):
-        self.assertTrue(False, msg='Test not implemented.')
-    
-    @unittest.skip('Test Not Implemented')    
-    def test_derive(self):
-        self.assertTrue(False, msg='Test not implemented.')
-
-
-class TestPitch50FtToLandingMax(unittest.TestCase):
-    @unittest.skip('Test Not Implemented')
-    def test_can_operate(self):
-        self.assertTrue(False, msg='Test not implemented.')
-    
-    @unittest.skip('Test Not Implemented')    
-    def test_derive(self):
-        self.assertTrue(False, msg='Test not implemented.')
-
-
-class TestPitch7FtToLandingMin(unittest.TestCase):
-    @unittest.skip('Test Not Implemented')
-    def test_can_operate(self):
-        self.assertTrue(False, msg='Test not implemented.')
-    
-    @unittest.skip('Test Not Implemented')    
-    def test_derive(self):
-        self.assertTrue(False, msg='Test not implemented.')
-
-
-class TestPitchAt35FtInClimb(unittest.TestCase):
-    @unittest.skip('Test Not Implemented')
-    def test_can_operate(self):
-        self.assertTrue(False, msg='Test not implemented.')
-    
-    @unittest.skip('Test Not Implemented')    
-    def test_derive(self):
-        self.assertTrue(False, msg='Test not implemented.')
-
-
-class TestPitchCyclesInFinalApproach(unittest.TestCase):
-    @unittest.skip('Test Not Implemented')
-    def test_can_operate(self):
-        self.assertTrue(False, msg='Test not implemented.')
-    
-    @unittest.skip('Test Not Implemented')    
-    def test_derive(self):
-        self.assertTrue(False, msg='Test not implemented.')
-
-
-class TestPitchRate20FtToTouchdownMax(unittest.TestCase):
-    @unittest.skip('Test Not Implemented')
-    def test_can_operate(self):
-        self.assertTrue(False, msg='Test not implemented.')
-    
-    @unittest.skip('Test Not Implemented')    
-    def test_derive(self):
-        self.assertTrue(False, msg='Test not implemented.')
-
-
-class TestPitchRate20FtToTouchdownMin(unittest.TestCase):
-    @unittest.skip('Test Not Implemented')
-    def test_can_operate(self):
-        self.assertTrue(False, msg='Test not implemented.')
-        
-    @unittest.skip('Test Not Implemented')    
-    def test_derive(self):
-        self.assertTrue(False, msg='Test not implemented.')
-
-
-class TestPitchRate2DegPitchTo35FtAverage(unittest.TestCase):
-    @unittest.skip('Test Not Implemented')
-    def test_can_operate(self):
-        self.assertTrue(False, msg='Test not implemented.')
-    
-    @unittest.skip('Test Not Implemented')    
-    def test_derive(self):
-        self.assertTrue(False, msg='Test not implemented.')
-
-
-class TestPitchRate2DegPitchTo35FtMax(unittest.TestCase):
-    @unittest.skip('Test Not Implemented')
-    def test_can_operate(self):
-        self.assertTrue(False, msg='Test not implemented.')
-    
-    @unittest.skip('Test Not Implemented')    
-    def test_derive(self):
-        self.assertTrue(False, msg='Test not implemented.')
-
-
-class TestPitchRate2DegPitchTo35FtMin(unittest.TestCase):
-    @unittest.skip('Test Not Implemented')
-    def test_can_operate(self):
-        self.assertTrue(False, msg='Test not implemented.')
-    
-    @unittest.skip('Test Not Implemented')    
-    def test_derive(self):
-        self.assertTrue(False, msg='Test not implemented.')
-
-
-class TestPitchRate35To1000FtMax(unittest.TestCase):
-    @unittest.skip('Test Not Implemented')
-    def test_can_operate(self):
-        self.assertTrue(False, msg='Test not implemented.')
-    
-    @unittest.skip('Test Not Implemented')    
-    def test_derive(self):
-        self.assertTrue(False, msg='Test not implemented.')
-
-
-class TestPitchTakeoffTo35FtMax(unittest.TestCase):
-    @unittest.skip('Test Not Implemented')
-    def test_can_operate(self):
-        self.assertTrue(False, msg='Test not implemented.')
-    
-    @unittest.skip('Test Not Implemented')    
-    def test_derive(self):
-        self.assertTrue(False, msg='Test not implemented.')
-
-
-class TestRateOfClimb35To1000FtMin(unittest.TestCase):
-    @unittest.skip('Test Not Implemented')
-    def test_can_operate(self):
-        self.assertTrue(False, msg='Test not implemented.')
-    
-    @unittest.skip('Test Not Implemented')    
-    def test_derive(self):
-        self.assertTrue(False, msg='Test not implemented.')
-
-
-class TestRateOfClimbMax(unittest.TestCase):
-    @unittest.skip('Test Not Implemented')
-    def test_can_operate(self):
-        self.assertTrue(False, msg='Test not implemented.')
-    
-    @unittest.skip('Test Not Implemented')    
-    def test_derive(self):
-        self.assertTrue(False, msg='Test not implemented.')
-
-
-class TestRateOfDescent20ToTouchdownMax(unittest.TestCase):
-    @unittest.skip('Test Not Implemented')
-    def test_can_operate(self):
-        self.assertTrue(False, msg='Test not implemented.')
-    
-    @unittest.skip('Test Not Implemented')    
-    def test_derive(self):
-        self.assertTrue(False, msg='Test not implemented.')
-
-
-class TestRateOfDescentAtTouchdown(unittest.TestCase):
-    @unittest.skip('Test Not Implemented')
-    def test_can_operate(self):
-        self.assertTrue(False, msg='Test not implemented.')
-        
-    @unittest.skip('Test Not Implemented')    
-    def test_derive(self):
-        self.assertTrue(False, msg='Test not implemented.')
-
-
-class TestRateOfDescentMax(unittest.TestCase):
-    @unittest.skip('Test Not Implemented')
-    def test_can_operate(self):
-        self.assertTrue(False, msg='Test not implemented.')
-    
-    @unittest.skip('Test Not Implemented')    
-    def test_derive(self):
-        self.assertTrue(False, msg='Test not implemented.')
-
-
-class TestRateOfDescentTopOfDescentTo10000FtMax(unittest.TestCase):
-    @unittest.skip('Test Not Implemented')
-    def test_can_operate(self):
-        self.assertTrue(False, msg='Test not implemented.')
-    
-    @unittest.skip('Test Not Implemented')    
-    def test_derive(self):
-        self.assertTrue(False, msg='Test not implemented.')
-
-
-class TestRoll1000To300FtMax(unittest.TestCase):
-    @unittest.skip('Test Not Implemented')
-    def test_can_operate(self):
-        self.assertTrue(False, msg='Test not implemented.')
-        
-    @unittest.skip('Test Not Implemented')    
-    def test_derive(self):
-        self.assertTrue(False, msg='Test not implemented.')
-
-
-class TestRoll20FtToLandingMax(unittest.TestCase):
-    @unittest.skip('Test Not Implemented')
-    def test_can_operate(self):
-        self.assertTrue(False, msg='Test not implemented.')
-    
-    @unittest.skip('Test Not Implemented')    
-    def test_derive(self):
-        self.assertTrue(False, msg='Test not implemented.')
-
-
-class TestRoll20To400FtMax(unittest.TestCase):
-    @unittest.skip('Test Not Implemented')
-    def test_can_operate(self):
-        self.assertTrue(False, msg='Test not implemented.')
-    
-    @unittest.skip('Test Not Implemented')    
-    def test_derive(self):
-        self.assertTrue(False, msg='Test not implemented.')
-
-
-class TestRoll300To20FtMax(unittest.TestCase):
-    @unittest.skip('Test Not Implemented')
-    def test_can_operate(self):
-        self.assertTrue(False, msg='Test not implemented.')
-        
-    @unittest.skip('Test Not Implemented')    
-    def test_derive(self):
-        self.assertTrue(False, msg='Test not implemented.')
-
-
-class TestRoll400To1000FtMax(unittest.TestCase):
-    @unittest.skip('Test Not Implemented')
-    def test_can_operate(self):
-        self.assertTrue(False, msg='Test not implemented.')
-    
-    @unittest.skip('Test Not Implemented')
-    def test_derive(self):
-        self.assertTrue(False, msg='Test not implemented.')
-
-
-class TestRollCyclesInFinalApproach(unittest.TestCase):
-    @unittest.skip('Test Not Implemented')
-    def test_can_operate(self):
-        self.assertTrue(False, msg='Test not implemented.')
-    
-    @unittest.skip('Test Not Implemented')    
-    def test_derive(self):
-        self.assertTrue(False, msg='Test not implemented.')
-
-
-class TestRollTakeoffTo20FtMax(unittest.TestCase):
-    @unittest.skip('Test Not Implemented')
-    def test_can_operate(self):
-        self.assertTrue(False, msg='Test not implemented.')
-    
-    @unittest.skip('Test Not Implemented')    
-    def test_derive(self):
-        self.assertTrue(False, msg='Test not implemented.')
-
-
-class TestRudderReversalAbove50Ft(unittest.TestCase):
-    @unittest.skip('Test Not Implemented')
-    def test_can_operate(self):
-        self.assertTrue(False, msg='Test not implemented.')
-    
-    @unittest.skip('Test Not Implemented')    
-    def test_derive(self):
-        self.assertTrue(False, msg='Test not implemented.')
-
-
-class TestSpeedbrakesDeployed1000To20FtDuration(unittest.TestCase):
-    @unittest.skip('Test Not Implemented')
-    def test_can_operate(self):
-        self.assertTrue(False, msg='Test not implemented.')
-    
-    @unittest.skip('Test Not Implemented')    
-    def test_derive(self):
-        self.assertTrue(False, msg='Test not implemented.')
-
-
 class TestSpeedbrakesDeployedInGoAroundDuration(unittest.TestCase):
-    @unittest.skip('Test Not Implemented')
-    def test_can_operate(self):
-        self.assertTrue(False, msg='Test not implemented.')
-        
-    @unittest.skip('Test Not Implemented')    
-    def test_derive(self):
-        self.assertTrue(False, msg='Test not implemented.')
-
-
-class TestSpeedbrakesDeployedWithConfDuration(unittest.TestCase):
-    @unittest.skip('Test Not Implemented')
-    def test_can_operate(self):
-        self.assertTrue(False, msg='Test not implemented.')
-    
-    @unittest.skip('Test Not Implemented')    
-    def test_derive(self):
-        self.assertTrue(False, msg='Test not implemented.')
-
-
-class TestSpeedbrakesDeployedWithFlapDuration(unittest.TestCase):
-    @unittest.skip('Test Not Implemented')
-    def test_can_operate(self):
-        self.assertTrue(False, msg='Test not implemented.')
-    
-    @unittest.skip('Test Not Implemented')    
-    def test_derive(self):
-        self.assertTrue(False, msg='Test not implemented.')
-
-
-class TestSpeedbrakesDeployedWithPowerOnDuration(unittest.TestCase):
     @unittest.skip('Test Not Implemented')
     def test_can_operate(self):
         self.assertTrue(False, msg='Test not implemented.')
@@ -3975,16 +3235,6 @@ class TestStickPusherActivatedDuration(unittest.TestCase):
     def test_can_operate(self):
         self.assertTrue(False, msg='Test not implemented.')
     
-    @unittest.skip('Test Not Implemented')    
-    def test_derive(self):
-        self.assertTrue(False, msg='Test not implemented.')
-
-
-class TestStickShakerActivatedDuration(unittest.TestCase):
-    @unittest.skip('Test Not Implemented')
-    def test_can_operate(self):
-        self.assertTrue(False, msg='Test not implemented.')
-        
     @unittest.skip('Test Not Implemented')    
     def test_derive(self):
         self.assertTrue(False, msg='Test not implemented.')
@@ -4160,16 +3410,6 @@ class TestTailClearanceOnTakeoffMin(unittest.TestCase):
         self.assertTrue(False, msg='Test not implemented.')
 
 
-class TestThrottleCyclesInFinalApproach(unittest.TestCase):
-    @unittest.skip('Test Not Implemented')
-    def test_can_operate(self):
-        self.assertTrue(False, msg='Test not implemented.')
-    
-    @unittest.skip('Test Not Implemented')    
-    def test_derive(self):
-        self.assertTrue(False, msg='Test not implemented.')
-
-
 class TestTouchdownTo60KtsDuration(unittest.TestCase):
     @unittest.skip('Test Not Implemented')
     def test_can_operate(self):
@@ -4181,46 +3421,6 @@ class TestTouchdownTo60KtsDuration(unittest.TestCase):
 
 
 class TestTouchdownToElevatorDownDuration(unittest.TestCase):
-    @unittest.skip('Test Not Implemented')
-    def test_can_operate(self):
-        self.assertTrue(False, msg='Test not implemented.')
-        
-    @unittest.skip('Test Not Implemented')    
-    def test_derive(self):
-        self.assertTrue(False, msg='Test not implemented.')
-
-
-class TestTwoDegPitchTo35FtDuration(unittest.TestCase):
-    @unittest.skip('Test Not Implemented')
-    def test_can_operate(self):
-        self.assertTrue(False, msg='Test not implemented.')
-    
-    @unittest.skip('Test Not Implemented')    
-    def test_derive(self):
-        self.assertTrue(False, msg='Test not implemented.')
-
-
-class TestWindAcrossLandingRunwayAt50Ft(unittest.TestCase):
-    @unittest.skip('Test Not Implemented')
-    def test_can_operate(self):
-        self.assertTrue(False, msg='Test not implemented.')
-        
-    @unittest.skip('Test Not Implemented')    
-    def test_derive(self):
-        self.assertTrue(False, msg='Test not implemented.')
-
-
-class TestWindDirectionInDescent(unittest.TestCase):
-    @unittest.skip('Test Not Implemented')
-    def test_can_operate(self):
-        self.assertTrue(False, msg='Test not implemented.')
-        
-    @unittest.skip('Test Not Implemented')    
-    def test_derive(self):
-        self.assertTrue(False, msg='Test not implemented.')
-
-
-class TestWindSpeedInDescent(unittest.TestCase):
     @unittest.skip('Test Not Implemented')
     def test_can_operate(self):
         self.assertTrue(False, msg='Test not implemented.')
@@ -4310,6 +3510,916 @@ class TestTwoDegPitchTo35Ft(unittest.TestCase):
         self.assertTrue(False, msg='Test not implemented.')
 
 
+
+
+
+
+
+class TestAltitudeMinsToTouchdown(unittest.TestCase):
+    def test_can_operate(self):
+        self.assertEqual(
+            AltitudeMinsToTouchdown.get_operational_combinations(),
+            [('Altitude AAL', 'Mins To Touchdown',)])        
+    
+    @unittest.skip('Test Not Implemented')
+    def test_derive(self):
+        self.assertTrue(False, msg='Test not implemented.')
+
+
+class TestFlapAtGearDownSelection(unittest.TestCase):
+    @unittest.skip('Test Not Implemented')
+    def test_can_operate(self):
+        self.assertTrue(False, msg='Test not implemented.')
+    
+    @unittest.skip('Test Not Implemented')    
+    def test_derive(self):
+        self.assertTrue(False, msg='Test not implemented.')
+
+
+class TestFlapWithGearUpMax(unittest.TestCase):
+    @unittest.skip('Test Not Implemented')
+    def test_can_operate(self):
+        self.assertTrue(False, msg='Test not implemented.')
+    
+    @unittest.skip('Test Not Implemented')    
+    def test_derive(self):
+        self.assertTrue(False, msg='Test not implemented.')
+
+
+class TestFlapAtLiftoff(unittest.TestCase, CreateKPVsAtKTIsTest):
+    def setUp(self):
+        self.node_class = FlapAtLiftoff
+        self.operational_combinations = [('Flap', 'Liftoff')]
+
+    @unittest.skip('Test Not Implemented')
+    def test_derive(self):
+        self.assertTrue(False, msg='Test Not Implemented') 
+
+
+class TestFlapAtTouchdown(unittest.TestCase, CreateKPVsAtKTIsTest):
+    def setUp(self):
+        self.node_class = FlapAtTouchdown
+        self.operational_combinations = [('Flap', 'Touchdown')]
+        
+    @unittest.skip('Test Not Implemented')
+    def test_derive(self):
+        self.assertTrue(False, msg='Test Not Implemented') 
+
+
+class TestFlareDuration20FtToTouchdown(unittest.TestCase):
+    @unittest.skip('Test Not Implemented')
+    def test_can_operate(self):
+        self.assertTrue(False, msg='Test not implemented.')
+    
+    @unittest.skip('Test Not Implemented')    
+    def test_derive(self):
+        self.assertTrue(False, msg='Test not implemented.')
+        
+
+class TestFlareDistance20FtToTouchdown(unittest.TestCase):
+    @unittest.skip('Test Not Implemented')
+    def test_can_operate(self):
+        self.assertTrue(False, msg='Test not implemented.')
+    
+    @unittest.skip('Test Not Implemented')    
+    def test_derive(self):
+        self.assertTrue(False, msg='Test not implemented.')
+
+
+class TestAltitudeOvershootAtSuspectedLevelBust(unittest.TestCase):
+    @unittest.skip('Test Not Implemented')
+    def test_can_operate(self):
+        self.assertTrue(False, msg='Test Not Implemented')      
+    
+    def test_derive_handling_no_data(self):
+        alt=P('Altitude STD',np.ma.array([0,1000,1000,1000,1000]))
+        kpv=AltitudeOvershootAtSuspectedLevelBust()
+        kpv.derive(alt)
+        expected=[]
+        self.assertEqual(kpv,expected)
+        
+    def test_derive_up_down_and_up(self):
+        testwave = np.ma.array(1.0+np.sin(np.arange(0,12.6,0.1)))*1000
+        alt=P('Altitude STD',testwave)
+        kpv=AltitudeOvershootAtSuspectedLevelBust()
+        kpv.derive(alt)
+        expected=[KeyPointValue(index=16, value=999.5736030415051, 
+                                name='Altitude Overshoot At Suspected Level Bust'),
+                  KeyPointValue(index=47, value=-1998.4666029387058, 
+                                name='Altitude Overshoot At Suspected Level Bust'), 
+                  KeyPointValue(index=79, value=1994.3775951461494, 
+                                name='Altitude Overshoot At Suspected Level Bust'), 
+                  KeyPointValue(index=110, value=-834.386031102394,  #-933.6683091995028, XXX: Ask Dave if the minimum value is correct.
+                                name='Altitude Overshoot At Suspected Level Bust')]
+        self.assertEqual(kpv,expected)
+        
+    def test_derive_too_slow(self):
+        testwave = np.ma.array(1.0+np.sin(np.arange(0,12.6,0.1)))*1000
+        alt=P('Altitude STD',testwave,0.02)
+        kpv=AltitudeOvershootAtSuspectedLevelBust()
+        kpv.derive(alt)
+        expected=[]
+        self.assertEqual(kpv,expected)
+
+    def test_derive_straight_up_and_down(self):
+        testwave = np.ma.array(range(0,10000,50)+range(10000,0,-50))
+        alt=P('Altitude STD',testwave,1)
+        kpv=AltitudeOvershootAtSuspectedLevelBust()
+        kpv.derive(alt)
+        expected=[]
+        self.assertEqual(kpv,expected)
+        
+    def test_derive_up_and_down_with_overshoot(self):
+        testwave = np.ma.array(range(0,10000,50)+range(10000,9000,-50)+[9000]*200+range(9000,0,-50))
+        alt=P('Altitude STD',testwave,1)
+        kpv=AltitudeOvershootAtSuspectedLevelBust()
+        kpv.derive(alt)
+        expected=[KeyPointValue(index=200, value=1000, 
+                                name='Altitude Overshoot At Suspected Level Bust')] 
+        self.assertEqual(kpv,expected)
+
+    def test_derive_up_and_down_with_undershoot(self):
+        testwave = np.ma.array(range(0,10000,50)+
+                               [10000]*200+
+                               range(10000,9000,-50)+
+                               range(9000,20000,50)+
+                               range(20000,0,-50))
+        alt=P('Altitude STD',testwave,1)
+        kpv=AltitudeOvershootAtSuspectedLevelBust()
+        kpv.derive(alt)
+        expected=[KeyPointValue(index=420, value=-1000, 
+                                name='Altitude Overshoot At Suspected Level Bust')]
+        self.assertEqual(kpv,expected)
+
+
+class TestFuelQtyAtLiftoff(unittest.TestCase, CreateKPVsAtKTIsTest):
+    def setUp(self):
+        self.node_class = FuelQtyAtLiftoff
+        self.operational_combinations = [('Fuel Qty', 'Liftoff')]
+
+    @unittest.skip('Test Not Implemented')
+    def test_derive(self):
+        self.assertTrue(False, msg='Test Not Implemented') 
+        
+
+class TestFuelQtyAtTouchdown(unittest.TestCase, CreateKPVsAtKTIsTest):
+    def setUp(self):
+        self.node_class = FuelQtyAtTouchdown
+        self.operational_combinations = [('Fuel Qty', 'Touchdown')]
+
+    @unittest.skip('Test Not Implemented')
+    def test_derive(self):
+        self.assertTrue(False, msg='Test Not Implemented') 
+
+
+class TestGrossWeightAtLiftoff(unittest.TestCase, CreateKPVsAtKTIsTest):
+    def setUp(self):
+        self.node_class = GrossWeightAtLiftoff
+        self.operational_combinations = [('Gross Weight Smoothed', 'Liftoff')]
+
+    @unittest.skip('Test Not Implemented')
+    def test_derive(self):
+        self.assertTrue(False, msg='Test Not Implemented') 
+
+
+class TestGrossWeightAtTouchdown(unittest.TestCase, CreateKPVsAtKTIsTest):
+    def setUp(self):
+        self.node_class = GrossWeightAtTouchdown
+        self.operational_combinations = [('Gross Weight Smoothed', 'Touchdown')]
+
+    @unittest.skip('Test Not Implemented')
+    def test_derive(self):
+        self.assertTrue(False, msg='Test Not Implemented') 
+
+
+class TestGroundspeedTaxiingStraightMax(unittest.TestCase):
+    @unittest.skip('Test Not Implemented')
+    def test_can_operate(self):
+        self.assertTrue(False, msg='Test not implemented.')
+    
+    @unittest.skip('Test Not Implemented')    
+    def test_derive(self):
+        self.assertTrue(False, msg='Test not implemented.')
+
+
+class TestGroundspeedTaxiingTurnsMax(unittest.TestCase):
+    @unittest.skip('Test Not Implemented')
+    def test_can_operate(self):
+        self.assertTrue(False, msg='Test not implemented.')
+    
+    @unittest.skip('Test Not Implemented')    
+    def test_derive(self):
+        self.assertTrue(False, msg='Test not implemented.')
+
+
+class TestGroundspeedRTOMax(unittest.TestCase):
+    @unittest.skip('Test Not Implemented')
+    def test_can_operate(self):
+        self.assertTrue(False, msg='Test not implemented.')
+    
+    @unittest.skip('Test Not Implemented')    
+    def test_derive(self):
+        self.assertTrue(False, msg='Test not implemented.')
+
+
+class TestGroundspeedAtTouchdown(unittest.TestCase):
+    @unittest.skip('Test Not Implemented')
+    def test_can_operate(self):
+        self.assertTrue(False, msg='Test not implemented.')
+    
+    @unittest.skip('Test Not Implemented')    
+    def test_derive(self):
+        self.assertTrue(False, msg='Test not implemented.')
+
+
+class TestGroundspeedOnGroundMax(unittest.TestCase, CreateKPVFromSlicesTest):
+    def setUp(self):
+        self.node_class = GroundspeedOnGroundMax
+        self.operational_combinations = [('Groundspeed', 'Grounded')]
+        self.function = max_value
+    
+    @unittest.skip('Test Not Implemented')
+    def test_derive(self):
+        self.assertTrue(False, msg='Test Not Implemented')   
+
+
+class TestGroundspeedVacatingRunway(unittest.TestCase):
+    @unittest.skip('Test Not Implemented')
+    def test_can_operate(self):
+        self.assertTrue(False, msg='Test not implemented.')
+    
+    @unittest.skip('Test Not Implemented')    
+    def test_derive(self):
+        self.assertTrue(False, msg='Test not implemented.')
+
+
+################################################################################
+# Pitch
+
+
+class PitchMaxAfterFlapRetraction(unittest.TestCase):
+    @unittest.skip('Test Not Implemented')
+    def test_can_operate(self):
+        self.assertTrue(False, msg='Test not implemented.')
+    
+    @unittest.skip('Test Not Implemented')    
+    def test_derive(self):
+        self.assertTrue(False, msg='Test not implemented.')
+
+
+class TestPitchAtLiftoff(unittest.TestCase, CreateKPVsAtKTIsTest):
+    def setUp(self):
+        self.node_class = PitchAtLiftoff
+        self.operational_combinations = [('Pitch', 'Liftoff')]
+    
+    @unittest.skip('Test Not Implemented')
+    def test_derive(self):
+        self.assertTrue(False, msg='Test Not Implemented')     
+
+
+class TestPitchAtTouchdown(unittest.TestCase, CreateKPVsAtKTIsTest):
+    def setUp(self):
+        self.node_class = PitchAtTouchdown
+        self.operational_combinations = [('Pitch', 'Touchdown')]
+
+    @unittest.skip('Test Not Implemented')
+    def test_derive(self):
+        self.assertTrue(False, msg='Test Not Implemented')
+
+
+class TestPitchAt35FtInClimb(unittest.TestCase):
+    @unittest.skip('Test Not Implemented')
+    def test_can_operate(self):
+        self.assertTrue(False, msg='Test not implemented.')
+    
+    @unittest.skip('Test Not Implemented')    
+    def test_derive(self):
+        self.assertTrue(False, msg='Test not implemented.')
+
+
+class TestPitchTakeoffTo35FtMax(unittest.TestCase):
+    @unittest.skip('Test Not Implemented')
+    def test_can_operate(self):
+        self.assertTrue(False, msg='Test not implemented.')
+    
+    @unittest.skip('Test Not Implemented')    
+    def test_derive(self):
+        self.assertTrue(False, msg='Test not implemented.')
+
+
+class TestPitch35To400FtMax(unittest.TestCase, CreateKPVsWithinSlicesTest):
+    def setUp(self):
+        self.node_class = Pitch35To400FtMax
+        self.operational_combinations = [('Pitch',
+                                          'Altitude AAL For Flight Phases')]
+        self.function = max_value
+        self.second_param_method_calls = [('slices_from_to', (35, 400,), {})]
+        
+    def test_derive_basic(self):
+        pch = [0,2,4,7,9,8,6,3,-1]
+        alt = [100,101,102,103,700,105,104,103,102]
+        alt_ph = P('Altitude AAL For Flight Phases', np.ma.array(alt))
+        pitch = P('Pitch', np.ma.array(pch))
+        kpv = Pitch35To400FtMax()
+        kpv.derive(pitch, alt_ph)
+        self.assertEqual(len(kpv), 1)
+        self.assertEqual(kpv[0].index, 3)
+        self.assertEqual(kpv[0].value, 7)
+
+
+class TestPitch35To400FtMin(unittest.TestCase, CreateKPVsWithinSlicesTest):
+    def setUp(self):
+        self.node_class = Pitch35To400FtMin
+        self.operational_combinations = [('Pitch',
+                                          'Altitude AAL For Flight Phases')]
+        self.function = min_value
+        self.second_param_method_calls = [('slices_from_to', (35, 400,), {})]
+    
+    @unittest.skip('Test Not Implemented')
+    def test_derive(self):
+        self.assertTrue(False, msg='Test Not Implemented') 
+        
+
+class TestPitch400To1000FtMax(unittest.TestCase):
+    @unittest.skip('Test Not Implemented')
+    def test_can_operate(self):
+        self.assertTrue(False, msg='Test not implemented.')
+    
+    @unittest.skip('Test Not Implemented')    
+    def test_derive(self):
+        self.assertTrue(False, msg='Test not implemented.')
+
+
+class TestPitch400To1000FtMin(unittest.TestCase):
+    @unittest.skip('Test Not Implemented')
+    def test_can_operate(self):
+        self.assertTrue(False, msg='Test not implemented.')
+    
+    @unittest.skip('Test Not Implemented')    
+    def test_derive(self):
+        self.assertTrue(False, msg='Test not implemented.')
+
+
+class TestPitch1000To500FtMax(unittest.TestCase):
+    @unittest.skip('Test Not Implemented')
+    def test_can_operate(self):
+        self.assertTrue(False, msg='Test not implemented.')
+        
+    @unittest.skip('Test Not Implemented')    
+    def test_derive(self):
+        self.assertTrue(False, msg='Test not implemented.')
+
+
+class TestPitch1000To500FtMin(unittest.TestCase):
+    @unittest.skip('Test Not Implemented')
+    def test_can_operate(self):
+        self.assertTrue(False, msg='Test not implemented.')
+    
+    @unittest.skip('Test Not Implemented')    
+    def test_derive(self):
+        self.assertTrue(False, msg='Test not implemented.')
+        
+
+class TestPitch500To50FtMax(unittest.TestCase):
+    @unittest.skip('Test Not Implemented')
+    def test_can_operate(self):
+        self.assertTrue(False, msg='Test not implemented.')
+    
+    @unittest.skip('Test Not Implemented')    
+    def test_derive(self):
+        self.assertTrue(False, msg='Test not implemented.')
+
+
+class TestPitch500To20FtMin(unittest.TestCase):
+    @unittest.skip('Test Not Implemented')
+    def test_can_operate(self):
+        self.assertTrue(False, msg='Test not implemented.')
+    
+    @unittest.skip('Test Not Implemented')    
+    def test_derive(self):
+        self.assertTrue(False, msg='Test not implemented.')
+
+
+class TestPitch50FtToLandingMax(unittest.TestCase):
+    @unittest.skip('Test Not Implemented')
+    def test_can_operate(self):
+        self.assertTrue(False, msg='Test not implemented.')
+    
+    @unittest.skip('Test Not Implemented')    
+    def test_derive(self):
+        self.assertTrue(False, msg='Test not implemented.')
+
+
+class TestPitch20FtToLandingMin(unittest.TestCase):
+    @unittest.skip('Test Not Implemented')
+    def test_can_operate(self):
+        self.assertTrue(False, msg='Test not implemented.')
+    
+    @unittest.skip('Test Not Implemented')    
+    def test_derive(self):
+        self.assertTrue(False, msg='Test not implemented.')
+
+
+class TestPitch7FtToLandingMin(unittest.TestCase):
+    @unittest.skip('Test Not Implemented')
+    def test_can_operate(self):
+        self.assertTrue(False, msg='Test not implemented.')
+        class TestPitchCyclesInFinalApproach(unittest.TestCase):
+            @unittest.skip('Test Not Implemented')
+            def test_can_operate(self):
+                self.assertTrue(False, msg='Test not implemented.')
+            
+            @unittest.skip('Test Not Implemented')    
+            def test_derive(self):
+                self.assertTrue(False, msg='Test not implemented.')    
+    @unittest.skip('Test Not Implemented')    
+    def test_derive(self):
+        self.assertTrue(False, msg='Test not implemented.')
+
+
+class TestPitchCyclesInFinalApproach(unittest.TestCase):
+    @unittest.skip('Test Not Implemented')
+    def test_can_operate(self):
+        self.assertTrue(False, msg='Test not implemented.')
+    
+    @unittest.skip('Test Not Implemented')    
+    def test_derive(self):
+        self.assertTrue(False, msg='Test not implemented.')
+
+
+################################################################################
+# Pitch Rate
+
+
+class TestPitchRate35To1000FtMax(unittest.TestCase):
+    @unittest.skip('Test Not Implemented')
+    def test_can_operate(self):
+        self.assertTrue(False, msg='Test not implemented.')
+    
+    @unittest.skip('Test Not Implemented')    
+    def test_derive(self):
+        self.assertTrue(False, msg='Test not implemented.')
+
+
+class TestPitchRate20FtToTouchdownMax(unittest.TestCase):
+    @unittest.skip('Test Not Implemented')
+    def test_can_operate(self):
+        self.assertTrue(False, msg='Test not implemented.')
+    
+    @unittest.skip('Test Not Implemented')    
+    def test_derive(self):
+        self.assertTrue(False, msg='Test not implemented.')
+
+
+class TestPitchRate20FtToTouchdownMin(unittest.TestCase):
+    @unittest.skip('Test Not Implemented')
+    def test_can_operate(self):
+        self.assertTrue(False, msg='Test not implemented.')
+        
+    @unittest.skip('Test Not Implemented')    
+    def test_derive(self):
+        self.assertTrue(False, msg='Test not implemented.')
+
+
+class TestPitchRate2DegPitchTo35FtMax(unittest.TestCase):
+    @unittest.skip('Test Not Implemented')
+    def test_can_operate(self):
+        self.assertTrue(False, msg='Test not implemented.')
+    
+    @unittest.skip('Test Not Implemented')    
+    def test_derive(self):
+        self.assertTrue(False, msg='Test not implemented.')
+
+
+class TestPitchRate2DegPitchTo35FtMin(unittest.TestCase):
+    @unittest.skip('Test Not Implemented')
+    def test_can_operate(self):
+        self.assertTrue(False, msg='Test not implemented.')
+    
+    @unittest.skip('Test Not Implemented')    
+    def test_derive(self):
+        self.assertTrue(False, msg='Test not implemented.')
+
+
+class TestPitchRate2DegPitchTo35FtAverage(unittest.TestCase):
+    @unittest.skip('Test Not Implemented')
+    def test_can_operate(self):
+        self.assertTrue(False, msg='Test not implemented.')
+    
+    @unittest.skip('Test Not Implemented')    
+    def test_derive(self):
+        self.assertTrue(False, msg='Test not implemented.')
+
+
+class TestTwoDegPitchTo35FtDuration(unittest.TestCase):
+    @unittest.skip('Test Not Implemented')
+    def test_can_operate(self):
+        self.assertTrue(False, msg='Test not implemented.')
+    
+    @unittest.skip('Test Not Implemented')    
+    def test_derive(self):
+        self.assertTrue(False, msg='Test not implemented.')
+
+
+################################################################################
+# Rate of Climb
+
+
+class TestRateOfClimbMax(unittest.TestCase):
+    @unittest.skip('Test Not Implemented')
+    def test_can_operate(self):
+        self.assertTrue(False, msg='Test not implemented.')
+    
+    @unittest.skip('Test Not Implemented')    
+    def test_derive(self):
+        self.assertTrue(False, msg='Test not implemented.')
+
+
+class TestRateOfClimb35To1000FtMin(unittest.TestCase):
+    @unittest.skip('Test Not Implemented')
+    def test_can_operate(self):
+        self.assertTrue(False, msg='Test not implemented.')
+    
+    @unittest.skip('Test Not Implemented')    
+    def test_derive(self):
+        self.assertTrue(False, msg='Test not implemented.')
+
+
+class RateOfClimbBelow10000FtMax(unittest.TestCase):
+    @unittest.skip('Test Not Implemented')
+    def test_can_operate(self):
+        self.assertTrue(False, msg='Test not implemented.')
+    
+    @unittest.skip('Test Not Implemented')    
+    def test_derive(self):
+        self.assertTrue(False, msg='Test not implemented.')
+
+
+################################################################################
+# Rate of Descent
+
+
+class TestRateOfDescentMax(unittest.TestCase):
+    @unittest.skip('Test Not Implemented')
+    def test_can_operate(self):
+        self.assertTrue(False, msg='Test not implemented.')
+    
+    @unittest.skip('Test Not Implemented')    
+    def test_derive(self):
+        self.assertTrue(False, msg='Test not implemented.')
+
+
+class TestRateOfDescentTopOfDescentTo10000FtMax(unittest.TestCase):
+    @unittest.skip('Test Not Implemented')
+    def test_can_operate(self):
+        self.assertTrue(False, msg='Test not implemented.')
+    
+    @unittest.skip('Test Not Implemented')    
+    def test_derive(self):
+        self.assertTrue(False, msg='Test not implemented.')
+
+
+class TestRateOfDescentBelow10000FtMax(unittest.TestCase):
+    @unittest.skip('Test Not Implemented')
+    def test_can_operate(self):
+        self.assertTrue(False, msg='Test not implemented.')
+    
+    @unittest.skip('Test Not Implemented')    
+    def test_derive(self):
+        self.assertTrue(False, msg='Test not implemented.')
+
+
+class TestRateOfDescent10000To5000FtMax(unittest.TestCase):
+    @unittest.skip('Test Not Implemented')
+    def test_can_operate(self):
+        self.assertTrue(False, msg='Test not implemented.')
+    
+    @unittest.skip('Test Not Implemented')
+    def test_derive(self):
+        self.assertTrue(False, msg='Test not implemented.')
+
+
+class TestRateOfDescent10000To5000FtMax(unittest.TestCase,
+                                        CreateKPVsWithinSlicesTest):
+    def setUp(self):
+        self.node_class = RateOfDescent10000To5000FtMax
+        self.operational_combinations = [('Vertical Speed',
+                                          'Altitude AAL For Flight Phases',)]
+        self.function = min_value
+        self.second_param_method_calls = [('slices_from_to', (10000, 5000), {})]
+
+    @unittest.skip('Test Not Implemented')
+    def test_derive(self):
+        self.assertTrue(False, msg='Test Not Implemented') 
+
+
+class TestRateOfDescent5000To3000FtMax(unittest.TestCase,
+                                       CreateKPVsWithinSlicesTest):
+    def setUp(self):
+        self.node_class = RateOfDescent5000To3000FtMax
+        self.operational_combinations = [('Vertical Speed',
+                                          'Altitude AAL For Flight Phases',)]
+        self.function = min_value
+        self.second_param_method_calls = [('slices_from_to', (5000, 3000), {})]
+
+    @unittest.skip('Test Not Implemented')
+    def test_derive(self):
+        self.assertTrue(False, msg='Test Not Implemented') 
+
+
+class TestRateOfDescent3000To2000FtMax(unittest.TestCase,
+                                       CreateKPVsWithinSlicesTest):
+    def setUp(self):
+        self.node_class = RateOfDescent3000To2000FtMax
+        self.operational_combinations = [('Vertical Speed',
+                                          'Altitude AAL For Flight Phases',)]
+        self.function = min_value
+        self.second_param_method_calls = [('slices_from_to', (3000, 2000), {})]
+
+    @unittest.skip('Test Not Implemented')
+    def test_derive(self):
+        self.assertTrue(False, msg='Test Not Implemented') 
+
+
+class TestRateOfDescent2000To1000FtMax(unittest.TestCase,
+                                       CreateKPVsWithinSlicesTest):
+    def setUp(self):
+        self.node_class = RateOfDescent2000To1000FtMax
+        self.operational_combinations = [('Vertical Speed',
+                                          'Altitude AAL For Flight Phases',)]
+        self.function = min_value
+        self.second_param_method_calls = [('slices_from_to', (2000, 1000), {})]
+
+    @unittest.skip('Test Not Implemented')
+    def test_derive(self):
+        self.assertTrue(False, msg='Test Not Implemented') 
+
+
+class TestRateOfDescent1000To500FtMax(unittest.TestCase,
+                                      CreateKPVsWithinSlicesTest):
+    def setUp(self):
+        self.node_class = RateOfDescent1000To500FtMax
+        self.operational_combinations = [('Vertical Speed',
+                                          'Altitude AAL For Flight Phases',)]
+        self.function = min_value
+        self.second_param_method_calls = [('slices_from_to', (1000, 500), {})]
+
+    @unittest.skip('Test Not Implemented')
+    def test_derive(self):
+        self.assertTrue(False, msg='Test Not Implemented') 
+        
+
+class TestRateOfDescent500To20FtMax(unittest.TestCase,
+                                    CreateKPVsWithinSlicesTest):
+    def setUp(self):
+        self.node_class = RateOfDescent500To20FtMax
+        self.operational_combinations = [('Vertical Speed',
+                                          'Altitude AAL For Flight Phases',)]
+        self.function = min_value
+        self.second_param_method_calls = [('slices_from_to', (500, 20), {})]
+
+    @unittest.skip('Test Not Implemented')
+    def test_derive(self):
+        self.assertTrue(False, msg='Test Not Implemented') 
+        
+
+# FIXME: Uses slices_to_kti(), not slices_from_to()!
+class TestRateOfDescent500FtToTouchdownMax(unittest.TestCase,
+                                           CreateKPVsWithinSlicesTest):
+    def setUp(self):
+        # XXX: This test does not explicitly test how the Touchdown dependency
+        #      is used.
+        self.node_class = RateOfDescent500FtToTouchdownMax
+        self.operational_combinations = [('Vertical Speed',
+                                          'Altitude AAL For Flight Phases',
+                                          'Touchdown',)]
+        self.function = min_value
+        self.second_param_method_calls = [('slices_to_kti', (500, []), {})]
+
+    @unittest.skip('Test Not Implemented')
+    def test_derive(self):
+        self.assertTrue(False, msg='Test Not Implemented')
+
+
+class TestRateOfDescent20ToTouchdownMax(unittest.TestCase):
+    @unittest.skip('Test Not Implemented')
+    def test_can_operate(self):
+        self.assertTrue(False, msg='Test not implemented.')
+    
+    @unittest.skip('Test Not Implemented')    
+    def test_derive(self):
+        self.assertTrue(False, msg='Test not implemented.')
+
+
+class TestRateOfDescentAtTouchdown(unittest.TestCase):
+    @unittest.skip('Test Not Implemented')
+    def test_can_operate(self):
+        self.assertTrue(False, msg='Test not implemented.')
+        
+    @unittest.skip('Test Not Implemented')    
+    def test_derive(self):
+        self.assertTrue(False, msg='Test not implemented.')
+
+
+################################################################################
+# Roll
+
+
+class TestRollTakeoffTo20FtMax(unittest.TestCase):
+    @unittest.skip('Test Not Implemented')
+    def test_can_operate(self):
+        self.assertTrue(False, msg='Test not implemented.')
+    
+    @unittest.skip('Test Not Implemented')    
+    def test_derive(self):
+        self.assertTrue(False, msg='Test not implemented.')
+
+
+class TestRoll20To400FtMax(unittest.TestCase):
+    @unittest.skip('Test Not Implemented')
+    def test_can_operate(self):
+        self.assertTrue(False, msg='Test not implemented.')
+    
+    @unittest.skip('Test Not Implemented')    
+    def test_derive(self):
+        self.assertTrue(False, msg='Test not implemented.')
+
+
+class TestRoll400To1000FtMax(unittest.TestCase):
+    @unittest.skip('Test Not Implemented')
+    def test_can_operate(self):
+        self.assertTrue(False, msg='Test not implemented.')
+    
+    @unittest.skip('Test Not Implemented')
+    def test_derive(self):
+        self.assertTrue(False, msg='Test not implemented.')
+
+
+class TestRollAbove1000FtMax(unittest.TestCase, CreateKPVsWithinSlicesTest):
+    def setUp(self):
+        self.node_class = RollAbove1000FtMax
+        self.operational_combinations = [('Roll',
+                                          'Altitude AAL For Flight Phases')]
+        self.function = max_abs_value
+        self.second_param_method_calls = [('slices_above', (1000,), {})]
+
+    @unittest.skip('Test Not Implemented')
+    def test_derive(self):
+        self.assertTrue(False, msg='Test Not Implemented')
+
+
+class TestRoll1000To300FtMax(unittest.TestCase):
+    @unittest.skip('Test Not Implemented')
+    def test_can_operate(self):
+        self.assertTrue(False, msg='Test not implemented.')
+        
+    @unittest.skip('Test Not Implemented')    
+    def test_derive(self):
+        self.assertTrue(False, msg='Test not implemented.')
+
+
+class TestRoll300To20FtMax(unittest.TestCase):
+    @unittest.skip('Test Not Implemented')
+    def test_can_operate(self):
+        self.assertTrue(False, msg='Test not implemented.')
+        
+    @unittest.skip('Test Not Implemented')    
+    def test_derive(self):
+        self.assertTrue(False, msg='Test not implemented.')
+
+
+class TestRoll20FtToLandingMax(unittest.TestCase):
+    @unittest.skip('Test Not Implemented')
+    def test_can_operate(self):
+        self.assertTrue(False, msg='Test not implemented.')
+    
+    @unittest.skip('Test Not Implemented')    
+    def test_derive(self):
+        self.assertTrue(False, msg='Test not implemented.')
+
+
+class TestRollCyclesInFinalApproach(unittest.TestCase):
+    @unittest.skip('Test Not Implemented')
+    def test_can_operate(self):
+        self.assertTrue(False, msg='Test not implemented.')
+    
+    @unittest.skip('Test Not Implemented')    
+    def test_derive(self):
+        self.assertTrue(False, msg='Test not implemented.')
+
+
+class TestRollCyclesNotInFinalApproach(unittest.TestCase):
+    @unittest.skip('Test Not Implemented')
+    def test_can_operate(self):
+        self.assertTrue(False, msg='Test not implemented.')
+    
+    @unittest.skip('Test Not Implemented')    
+    def test_derive(self):
+        self.assertTrue(False, msg='Test not implemented.')
+
+
+################################################################################
+# Rudder
+
+
+class RudderExcursionDuringTakeoff(unittest.TestCase):
+    @unittest.skip('Test Not Implemented')
+    def test_can_operate(self):
+        self.assertTrue(False, msg='Test not implemented.')
+    
+    @unittest.skip('Test Not Implemented')    
+    def test_derive(self):
+        self.assertTrue(False, msg='Test not implemented.')
+
+
+class TestRudderReversalAbove50Ft(unittest.TestCase):
+    @unittest.skip('Test Not Implemented')
+    def test_can_operate(self):
+        self.assertTrue(False, msg='Test not implemented.')
+    
+    @unittest.skip('Test Not Implemented')    
+    def test_derive(self):
+        self.assertTrue(False, msg='Test not implemented.')
+
+
+################################################################################
+# Speedbrake
+
+
+class TestSpeedbrakesDeployed1000To20FtDuration(unittest.TestCase):
+    @unittest.skip('Test Not Implemented')
+    def test_can_operate(self):
+        self.assertTrue(False, msg='Test not implemented.')
+    
+    @unittest.skip('Test Not Implemented')    
+    def test_derive(self):
+        self.assertTrue(False, msg='Test not implemented.')
+
+
+class TestSpeedbrakesDeployedWithPowerOnDuration(unittest.TestCase):
+    @unittest.skip('Test Not Implemented')
+    def test_can_operate(self):
+        self.assertTrue(False, msg='Test not implemented.')
+        
+    @unittest.skip('Test Not Implemented')    
+    def test_derive(self):
+        self.assertTrue(False, msg='Test not implemented.')
+
+
+class TestSpeedbrakesDeployedWithFlapDuration(unittest.TestCase):
+    @unittest.skip('Test Not Implemented')
+    def test_can_operate(self):
+        self.assertTrue(False, msg='Test not implemented.')
+    
+    @unittest.skip('Test Not Implemented')    
+    def test_derive(self):
+        self.assertTrue(False, msg='Test not implemented.')
+
+
+class TestSpeedbrakesDeployedWithConfDuration(unittest.TestCase):
+    @unittest.skip('Test Not Implemented')
+    def test_can_operate(self):
+        self.assertTrue(False, msg='Test not implemented.')
+    
+    @unittest.skip('Test Not Implemented')    
+    def test_derive(self):
+        self.assertTrue(False, msg='Test not implemented.')
+
+
+class TestSpeedbrakesDeployedWithPowerOnInHeightBandsDuration(unittest.TestCase):
+    @unittest.skip('Test Not Implemented')
+    def test_can_operate(self):
+        self.assertTrue(False, msg='Test not implemented.')
+    
+    @unittest.skip('Test Not Implemented')    
+    def test_derive(self):
+        self.assertTrue(False, msg='Test not implemented.')
+
+
+################################################################################
+# Warnings: Stick Pusher/Shaker
+
+
+class TestStickPusherActivatedDuration(unittest.TestCase):
+    @unittest.skip('Test Not Implemented')
+    def test_can_operate(self):
+        self.assertTrue(False, msg='Test not implemented.')
+    
+    @unittest.skip('Test Not Implemented')    
+    def test_derive(self):
+        self.assertTrue(False, msg='Test not implemented.')
+
+
+class TestStickShakerActivatedDuration(unittest.TestCase):
+    @unittest.skip('Test Not Implemented')
+    def test_can_operate(self):
+        self.assertTrue(False, msg='Test not implemented.')
+        
+    @unittest.skip('Test Not Implemented')    
+    def test_derive(self):
+        self.assertTrue(False, msg='Test not implemented.')
+
+
 ################################################################################
 # Tail Clearance
 
@@ -4376,10 +4486,26 @@ class TerrainClearanceAbove3000FtMin(unittest.TestCase):
 # Tailwind
 
 
-class TestTailwind100FtToTouchdownMax(unittest.TestCase):
-    @unittest.skip('Test Not Implemented')
-    def test_can_operate(self):
+class TestTailwindLiftoffTo100FtMax(unittest.TestCase,
+                                    CreateKPVsWithinSlicesTest):
+    def setUp(self):
+        self.node_class = TailwindLiftoffTo100FtMax
+        self.operational_combinations = [('Tailwind',
+                                          'Altitude AAL For Flight Phases',)]
+        self.function = max_value
+        
+    @unittest.skip('Test Not Implemented')    
+    def test_derive(self):
         self.assertTrue(False, msg='Test not implemented.')
+
+
+class TestTailwind100FtToTouchdownMax(unittest.TestCase,
+                                      CreateKPVsWithinSlicesTest):
+    def setUp(self):
+        self.node_class = Tailwind100FtToTouchdownMax
+        self.operational_combinations = [('Tailwind',
+                                          'Altitude AAL For Flight Phases',)]
+        self.function = max_value
         
     @unittest.skip('Test Not Implemented')    
     def test_derive(self):
@@ -4391,6 +4517,7 @@ class TestTailwind100FtToTouchdownMax(unittest.TestCase):
 
 
 class TestTakeoffConfigWarningDuration(unittest.TestCase):
+    # TODO: CreateKPVsWhereState Test Superclass
     @unittest.skip('Test Not Implemented')
     def test_can_operate(self):
         self.assertTrue(False, msg='Test not implemented.')
@@ -4401,6 +4528,7 @@ class TestTakeoffConfigWarningDuration(unittest.TestCase):
 
 
 class TestMasterWarningInTakeoffDuration(unittest.TestCase):
+    # TODO: CreateKPVsWhereState Test Superclass
     @unittest.skip('Test Not Implemented')
     def test_can_operate(self):
         self.assertTrue(False, msg='Test not implemented.')
@@ -4411,6 +4539,7 @@ class TestMasterWarningInTakeoffDuration(unittest.TestCase):
 
 
 class TestMasterCautionInTakeoffDuration(unittest.TestCase):
+    # TODO: CreateKPVsWhereState Test Superclass
     @unittest.skip('Test Not Implemented')
     def test_can_operate(self):
         self.assertTrue(False, msg='Test not implemented.')
@@ -4425,6 +4554,7 @@ class TestMasterCautionInTakeoffDuration(unittest.TestCase):
 
 
 class TestTAWSGeneralDuration(unittest.TestCase):
+    # TODO: CreateKPVsWhereState Test Superclass
     @unittest.skip('Test Not Implemented')
     def test_can_operate(self):
         self.assertTrue(False, msg='Test not implemented.')
@@ -4435,6 +4565,7 @@ class TestTAWSGeneralDuration(unittest.TestCase):
 
 
 class TestTAWSAlertDuration(unittest.TestCase):
+    # TODO: CreateKPVsWhereState Test Superclass
     @unittest.skip('Test Not Implemented')
     def test_can_operate(self):
         self.assertTrue(False, msg='Test not implemented.')
@@ -4445,6 +4576,7 @@ class TestTAWSAlertDuration(unittest.TestCase):
 
 
 class TestTAWSSinkRateWarningDuration(unittest.TestCase):
+    # TODO: CreateKPVsWhereState Test Superclass
     @unittest.skip('Test Not Implemented')
     def test_can_operate(self):
         self.assertTrue(False, msg='Test not implemented.')
@@ -4455,6 +4587,7 @@ class TestTAWSSinkRateWarningDuration(unittest.TestCase):
 
 
 class TestTAWSTooLowFlapWarningDuration(unittest.TestCase):
+    # TODO: CreateKPVsWhereState Test Superclass
     @unittest.skip('Test Not Implemented')
     def test_can_operate(self):
         self.assertTrue(False, msg='Test not implemented.')
@@ -4465,6 +4598,7 @@ class TestTAWSTooLowFlapWarningDuration(unittest.TestCase):
 
 
 class TestTAWSTerrainWarningDuration(unittest.TestCase):
+    # TODO: CreateKPVsWhereState Test Superclass
     @unittest.skip('Test Not Implemented')
     def test_can_operate(self):
         self.assertTrue(False, msg='Test not implemented.')
@@ -4475,6 +4609,7 @@ class TestTAWSTerrainWarningDuration(unittest.TestCase):
 
 
 class TestTAWSTerrainPullUpWarningDuration(unittest.TestCase):
+    # TODO: CreateKPVsWhereState Test Superclass
     @unittest.skip('Test Not Implemented')
     def test_can_operate(self):
         self.assertTrue(False, msg='Test not implemented.')
@@ -4485,6 +4620,7 @@ class TestTAWSTerrainPullUpWarningDuration(unittest.TestCase):
 
 
 class TestTAWSGlideslopeWarningAbove1000FtDuration(unittest.TestCase):
+    # TODO: CreateKPVsWhereState Test Superclass
     @unittest.skip('Test Not Implemented')
     def test_can_operate(self):
         self.assertTrue(False, msg='Test not implemented.')
@@ -4495,6 +4631,7 @@ class TestTAWSGlideslopeWarningAbove1000FtDuration(unittest.TestCase):
 
 
 class TestTAWSGlideslopeWarning1000To500FtDuration(unittest.TestCase):
+    # TODO: CreateKPVsWhereState Test Superclass
     @unittest.skip('Test Not Implemented')
     def test_can_operate(self):
         self.assertTrue(False, msg='Test not implemented.')
@@ -4505,6 +4642,7 @@ class TestTAWSGlideslopeWarning1000To500FtDuration(unittest.TestCase):
 
 
 class TestTAWSGlideslopeWarning500To150FtDuration(unittest.TestCase):
+    # TODO: CreateKPVsWhereState Test Superclass
     @unittest.skip('Test Not Implemented')
     def test_can_operate(self):
         self.assertTrue(False, msg='Test not implemented.')
@@ -4515,6 +4653,7 @@ class TestTAWSGlideslopeWarning500To150FtDuration(unittest.TestCase):
 
 
 class TestTAWSTooLowTerrainWarningDuration(unittest.TestCase):
+    # TODO: CreateKPVsWhereState Test Superclass
     @unittest.skip('Test Not Implemented')
     def test_can_operate(self):
         self.assertTrue(False, msg='Test not implemented.')
@@ -4525,6 +4664,7 @@ class TestTAWSTooLowTerrainWarningDuration(unittest.TestCase):
 
 
 class TestTAWSTooLowGearWarningDuration(unittest.TestCase):
+    # TODO: CreateKPVsWhereState Test Superclass
     @unittest.skip('Test Not Implemented')
     def test_can_operate(self):
         self.assertTrue(False, msg='Test not implemented.')
@@ -4535,6 +4675,7 @@ class TestTAWSTooLowGearWarningDuration(unittest.TestCase):
 
 
 class TestTAWSPullUpWarningDuration(unittest.TestCase):
+    # TODO: CreateKPVsWhereState Test Superclass
     @unittest.skip('Test Not Implemented')
     def test_can_operate(self):
         self.assertTrue(False, msg='Test not implemented.')
@@ -4545,6 +4686,7 @@ class TestTAWSPullUpWarningDuration(unittest.TestCase):
 
 
 class TestTAWSDontSinkWarningDuration(unittest.TestCase):
+    # TODO: CreateKPVsWhereState Test Superclass
     @unittest.skip('Test Not Implemented')
     def test_can_operate(self):
         self.assertTrue(False, msg='Test not implemented.')
@@ -4555,6 +4697,7 @@ class TestTAWSDontSinkWarningDuration(unittest.TestCase):
 
 
 class TestTAWSWindshearWarningBelow1500FtDuration(unittest.TestCase):
+    # TODO: CreateKPVsWhereState Test Superclass
     @unittest.skip('Test Not Implemented')
     def test_can_operate(self):
         self.assertTrue(False, msg='Test not implemented.')
@@ -4569,9 +4712,11 @@ class TestTAWSWindshearWarningBelow1500FtDuration(unittest.TestCase):
 
 
 class TestTCASRAWarningDuration(unittest.TestCase):
-    @unittest.skip('Test Not Implemented')
     def test_can_operate(self):
-        self.assertTrue(False, msg='Test not implemented.')
+        self.assertEqual(
+            TCASRAWarningDuration.get_operational_combinations(),
+            [('TCAS Combined Control', 'Airborne'),])
+        
     
     @unittest.skip('Test Not Implemented')    
     def test_derive(self):
@@ -4579,9 +4724,11 @@ class TestTCASRAWarningDuration(unittest.TestCase):
 
 
 class TestTCASRAReactionDelay(unittest.TestCase):
-    @unittest.skip('Test Not Implemented')
     def test_can_operate(self):
-        self.assertTrue(False, msg='Test not implemented.')
+        self.assertEqual(
+            TCASRAReactionDelay.get_operational_combinations(),
+            [('Acceleration Normal Offset Removed', 'TCAS Combined Control',
+              'Airborne'),])
     
     @unittest.skip('Test Not Implemented')    
     def test_derive(self):
@@ -4589,9 +4736,11 @@ class TestTCASRAReactionDelay(unittest.TestCase):
 
 
 class TestTCASRAInitialReaction(unittest.TestCase):
-    @unittest.skip('Test Not Implemented')
     def test_can_operate(self):
-        self.assertTrue(False, msg='Test not implemented.')
+        self.assertEqual(
+            TCASRAInitialReaction.get_operational_combinations(),
+            [('Acceleration Normal Offset Removed', 'TCAS Combined Control',
+              'Airborne'),])
     
     @unittest.skip('Test Not Implemented')    
     def test_derive(self):
@@ -4599,9 +4748,24 @@ class TestTCASRAInitialReaction(unittest.TestCase):
 
 
 class TestTCASRAToAPDisengageDuration(unittest.TestCase):
-    @unittest.skip('Test Not Implemented')
     def test_can_operate(self):
+        self.assertEqual(
+            TCASRAToAPDisengageDuration.get_operational_combinations(),
+            [('AP Disengaged Selection', 'TCAS Combined Control', 'Airborne'),])
+    
+    @unittest.skip('Test Not Implemented')    
+    def test_derive(self):
         self.assertTrue(False, msg='Test not implemented.')
+
+
+################################################################################
+
+
+class TestThrottleCyclesInFinalApproach(unittest.TestCase):
+    def test_can_operate(self):
+        self.assertEqual(
+            ThrottleCyclesInFinalApproach.get_operational_combinations(),
+            [('Throttle Levers', 'Final Approach'),])
     
     @unittest.skip('Test Not Implemented')    
     def test_derive(self):
@@ -4612,20 +4776,26 @@ class TestTCASRAToAPDisengageDuration(unittest.TestCase):
 # Thrust Asymmetry in different conditions
 
 
-class TestThrustAsymmetryOnTakeoff(unittest.TestCase):
-    @unittest.skip('Test Not Implemented')
-    def test_can_operate(self):
-        self.assertTrue(False, msg='Test not implemented.')
+class TestThrustAsymmetryOnTakeoff(unittest.TestCase,
+                                   CreateKPVsWithinSlicesTest):
+    def setUp(self):
+        self.node_class = ThrustAsymmetryOnTakeoff
+        self.operational_combinations = [('Thrust Asymmetry',
+                                          'Takeoff Roll',)]
+        self.function = max_value
     
     @unittest.skip('Test Not Implemented')    
     def test_derive(self):
         self.assertTrue(False, msg='Test not implemented.')
 
 
-class TestThrustAsymmetryInFlight(unittest.TestCase):
-    @unittest.skip('Test Not Implemented')
-    def test_can_operate(self):
-        self.assertTrue(False, msg='Test not implemented.')
+class TestThrustAsymmetryInFlight(unittest.TestCase,
+                                  CreateKPVsWithinSlicesTest):
+    def setUp(self):
+        self.node_class = ThrustAsymmetryInFlight
+        self.operational_combinations = [('Thrust Asymmetry',
+                                          'Airborne',)]
+        self.function = max_value
     
     @unittest.skip('Test Not Implemented')    
     def test_derive(self):
@@ -4633,9 +4803,10 @@ class TestThrustAsymmetryInFlight(unittest.TestCase):
 
 
 class TestThrustAsymmetryWithReverseThrustMax(unittest.TestCase):
-    @unittest.skip('Test Not Implemented')
     def test_can_operate(self):
-        self.assertTrue(False, msg='Test not implemented.')
+        self.assertEqual(
+            ThrustAsymmetryWithReverseThrustMax.get_operational_combinations(),
+            [('Thrust Asymmetry', 'Thrust Reversers'),])
     
     @unittest.skip('Test Not Implemented')    
     def test_derive(self):
@@ -4643,9 +4814,10 @@ class TestThrustAsymmetryWithReverseThrustMax(unittest.TestCase):
 
 
 class TestThrustAsymmetryWithReverseThrustDuration(unittest.TestCase):
-    @unittest.skip('Test Not Implemented')
     def test_can_operate(self):
-        self.assertTrue(False, msg='Test not implemented.')
+        self.assertEqual(
+            ThrustAsymmetryWithReverseThrustDuration.get_operational_combinations(),
+            [('Thrust Asymmetry', 'Thrust Reversers', 'Mobile'),])
     
     @unittest.skip('Test Not Implemented')    
     def test_derive(self):
@@ -4653,19 +4825,21 @@ class TestThrustAsymmetryWithReverseThrustDuration(unittest.TestCase):
 
 
 class TestThrustAsymmetryOnApproachMax(unittest.TestCase):
-    @unittest.skip('Test Not Implemented')
     def test_can_operate(self):
-        self.assertTrue(False, msg='Test not implemented.')
+        self.assertEqual(
+            ThrustAsymmetryOnApproachMax.get_operational_combinations(),
+            [('Thrust Asymmetry', 'Approach')])
     
-    @unittest.skip('Test Not Implemented')    
+    @unittest.skip('Test Not Implemented')
     def test_derive(self):
         self.assertTrue(False, msg='Test not implemented.')
 
 
 class TestThrustAsymmetryOnApproachDuration(unittest.TestCase):
-    @unittest.skip('Test Not Implemented')
     def test_can_operate(self):
-        self.assertTrue(False, msg='Test not implemented.')
+        self.assertEqual(
+            ThrustAsymmetryOnApproachDuration.get_operational_combinations(),
+            [('Thrust Asymmetry', 'Approach')])
     
     @unittest.skip('Test Not Implemented')    
     def test_derive(self):
@@ -4673,9 +4847,10 @@ class TestThrustAsymmetryOnApproachDuration(unittest.TestCase):
 
 
 class TestTouchdownToElevatorDownDuration(unittest.TestCase):
-    @unittest.skip('Test Not Implemented')
     def test_can_operate(self):
-        self.assertTrue(False, msg='Test not implemented.')
+        self.assertEqual(
+            TouchdownToElevatorDownDuration.get_operational_combinations(),
+            [('Airspeed', 'Elevator', 'Touchdown')])
     
     @unittest.skip('Test Not Implemented')    
     def test_derive(self):
@@ -4683,9 +4858,11 @@ class TestTouchdownToElevatorDownDuration(unittest.TestCase):
 
 
 class TestTouchdownTo60KtsDuration(unittest.TestCase):
-    @unittest.skip('Test Not Implemented')
     def test_can_operate(self):
-        self.assertTrue(False, msg='Test not implemented.')
+        self.assertEqual(
+            TouchdownTo60KtsDuration.get_operational_combinations(),
+            [('Airspeed', 'Touchdown',),
+             ('Airspeed', 'Groundspeed', 'Touchdown'),])
     
     @unittest.skip('Test Not Implemented')    
     def test_derive(self):
@@ -4697,9 +4874,10 @@ class TestTouchdownTo60KtsDuration(unittest.TestCase):
 
 
 class TestTurbulenceInApproachMax(unittest.TestCase):
-    @unittest.skip('Test Not Implemented')
     def test_can_operate(self):
-        self.assertTrue(False, msg='Test not implemented.')
+        self.assertEqual(
+            TurbulenceInApproachMax.get_operational_combinations(),
+            [('Turbulence RMS g', 'Approach'),])
     
     @unittest.skip('Test Not Implemented')    
     def test_derive(self):
@@ -4707,9 +4885,10 @@ class TestTurbulenceInApproachMax(unittest.TestCase):
 
 
 class TestTurbulenceInCruiseMax(unittest.TestCase):
-    @unittest.skip('Test Not Implemented')
     def test_can_operate(self):
-        self.assertTrue(False, msg='Test not implemented.')
+        self.assertEqual(
+            TurbulenceInCruiseMax.get_operational_combinations(),
+            [('Turbulence RMS g', 'Cruise'),])
     
     @unittest.skip('Test Not Implemented')    
     def test_derive(self):
@@ -4717,9 +4896,10 @@ class TestTurbulenceInCruiseMax(unittest.TestCase):
 
 
 class TestTurbulenceInFlightMax(unittest.TestCase):
-    @unittest.skip('Test Not Implemented')
     def test_can_operate(self):
-        self.assertTrue(False, msg='Test not implemented.')
+        self.assertEqual(
+            TurbulenceInFlightMax.get_operational_combinations(),
+            [('Turbulence RMS g', 'Airborne'),])
     
     @unittest.skip('Test Not Implemented')    
     def test_derive(self):
@@ -4727,6 +4907,64 @@ class TestTurbulenceInFlightMax(unittest.TestCase):
 
 
 ################################################################################
+
+
+class TestWindSpeedInDescent(unittest.TestCase):
+    def test_can_operate(self):
+        self.assertEqual(
+            WindSpeedInDescent.get_operational_combinations(),
+            [('Altitude AAL For Flight Phases', 'Wind Speed'),])
+        
+    @unittest.skip('Test Not Implemented')    
+    def test_derive(self):
+        self.assertTrue(False, msg='Test not implemented.')
+
+
+class TestWindDirectionInDescent(unittest.TestCase):
+    def test_can_operate(self):
+        self.assertEqual(
+            WindDirectionInDescent.get_operational_combinations(),
+            [('Altitude AAL For Flight Phases', 'Wind Direction Continuous'),])
+        
+    @unittest.skip('Test Not Implemented')    
+    def test_derive(self):
+        self.assertTrue(False, msg='Test not implemented.')
+
+
+class TestWindAcrossLandingRunwayAt50Ft(unittest.TestCase):
+    def test_can_operate(self):
+        self.assertEqual(
+            WindAcrossLandingRunwayAt50Ft.get_operational_combinations(),
+            [('Wind Across Landing Runway', 'Landing'),])
+        
+    @unittest.skip('Test Not Implemented')    
+    def test_derive(self):
+        self.assertTrue(False, msg='Test not implemented.')
+
+
+class TestZeroFuelWeight(unittest.TestCase):
+    @unittest.skip('Test Not Implemented')
+    def test_can_operate(self):
+        self.assertEqual(ZeroFuelWeight.get_operational_combinations(),
+                         [('Fuel Qty', 'Gross Weight')])    
+    
+    def test_derive(self):
+        fuel = P('Fuel Qty', np.ma.array([1,2,3,4]))
+        weight = P('Gross Weight', np.ma.array([11,12,13,14]))
+        zfw = ZeroFuelWeight()
+        zfw.derive(fuel, weight)
+        self.assertEqual(zfw[0].value, 10.0)
+
+
+class TestHoldingDuration(unittest.TestCase):
+    # TODO: CreateKPVsFromSliceDurations test superclass.
+    @unittest.skip('Test Not Implemented')
+    def test_can_operate(self):
+        self.assertTrue(False, msg='Test not implemented.')
+    
+    @unittest.skip('Test Not Implemented')    
+    def test_derive(self):
+        self.assertTrue(False, msg='Test not implemented.')
 
 
 ################################################################################
@@ -4737,6 +4975,7 @@ class TestTurbulenceInFlightMax(unittest.TestCase):
 
 
 class TestTOGASelectedInGoAroundDuration(unittest.TestCase):
+    # TODO: CreateKPVsWhereState test superclass.
     @unittest.skip('Test Not Implemented')
     def test_can_operate(self):
         self.assertTrue(False, msg='Test not implemented.')
@@ -4746,22 +4985,22 @@ class TestTOGASelectedInGoAroundDuration(unittest.TestCase):
         self.assertTrue(False, msg='Test not implemented.')
 
 
-class TestAltitudeAtGoAroundMin(unittest.TestCase):
-    def test_can_operate(self):
-        self.assertEqual(
-            AltitudeAtGoAroundMin.get_operational_combinations(),
-            [('Altitude AAL', 'Go Around',),
-             ('Altitude AAL', 'Go Around', 'Altitude Radio',),])
+class TestAltitudeAtGoAroundMin(unittest.TestCase, CreateKPVsAtKTIsTest):
+    def setUp(self):
+        self.node_class = AltitudeAtGoAroundMin
+        self.operational_combinations = [('Altitude AAL', 'Go Around',)]
     
     @unittest.skip('Test Not Implemented')
     def test_derive(self):
         self.assertTrue(False, msg='Test not implemented.')
 
 
-class TestAltitudeGoAroundFlapRetracted(unittest.TestCase):
-    @unittest.skip('Test Not Implemented')
-    def test_can_operate(self):
-        self.assertTrue(False, msg='Test not implemented.')
+class TestAltitudeGoAroundFlapRetracted(unittest.TestCase,
+                                        CreateKPVsAtKTIsTest):
+    def setUp(self):
+        self.node_class = AltitudeGoAroundFlapRetracted
+        self.operational_combinations = [('Altitude AAL',
+                                          'Go Around Flap Retracted',)]
     
     @unittest.skip('Test Not Implemented')    
     def test_derive(self):
@@ -4769,59 +5008,73 @@ class TestAltitudeGoAroundFlapRetracted(unittest.TestCase):
 
 
 class TestAltitudeAtGoAroundGearUpSelection(unittest.TestCase):
-    @unittest.skip('Test Not Implemented')
     def test_can_operate(self):
-        self.assertTrue(False, msg='Test not implemented.')
+        self.assertEqual(
+            AltitudeAtGoAroundGearUpSelection.get_operational_combinations(),
+            [('Altitude AAL', 'Go Around And Climbout',
+              'Go Around Gear Selected Up'),])
     
-    @unittest.skip('Test Not Implemented')    
+    @unittest.skip('Test Not Implemented')
     def test_derive(self):
         self.assertTrue(False, msg='Test not implemented.')
 
 
 class TestSpeedbrakesDeployedInGoAroundDuration(unittest.TestCase):
-    @unittest.skip('Test Not Implemented')
     def test_can_operate(self):
-        self.assertTrue(False, msg='Test not implemented.')
+        self.assertEqual(
+            SpeedbrakesDeployedInGoAroundDuration.get_operational_combinations(),
+            [('Speedbrake Selected', 'Go Around And Climbout')],
+        )
     
     @unittest.skip('Test Not Implemented')    
     def test_derive(self):
         self.assertTrue(False, msg='Test not implemented.')
 
 
-class TestThrustAsymmetryInGoAround(unittest.TestCase):
-    @unittest.skip('Test Not Implemented')
-    def test_can_operate(self):
-        self.assertTrue(False, msg='Test not implemented.')
+class TestThrustAsymmetryInGoAround(unittest.TestCase,
+                                    CreateKPVsWithinSlicesTest):
+    def setUp(self):
+        self.node_class = ThrustAsymmetryInGoAround
+        self.operational_combinations = [('Thrust Asymmetry',
+                                          'Go Around And Climbout',)]
+        self.function = max_value
     
     @unittest.skip('Test Not Implemented')    
     def test_derive(self):
         self.assertTrue(False, msg='Test not implemented.')
 
 
-class TestPitchInGoAroundMax(unittest.TestCase):
-    @unittest.skip('Test Not Implemented')
-    def test_can_operate(self):
-        self.assertTrue(False, msg='Test not implemented.')
+class TestPitchInGoAroundMax(unittest.TestCase,
+                             CreateKPVsWithinSlicesTest):
+    def setUp(self):
+        self.node_class = PitchInGoAroundMax
+        self.operational_combinations = [('Pitch',
+                                          'Go Around And Climbout',)]
+        self.function = max_value
     
     @unittest.skip('Test Not Implemented')    
     def test_derive(self):
         self.assertTrue(False, msg='Test not implemented.')
 
    
-class TestVerticalSpeedInGoAroundMax(unittest.TestCase):
-    @unittest.skip('Test Not Implemented')
-    def test_can_operate(self):
-        self.assertTrue(False, msg='Test not implemented.')
+class TestVerticalSpeedInGoAroundMax(unittest.TestCase,
+                                     CreateKPVsWithinSlicesTest):
+    def setUp(self):
+        self.node_class = VerticalSpeedInGoAroundMax
+        self.operational_combinations = [('Vertical Speed',
+                                          'Go Around And Climbout',)]
+        self.function = max_value
     
     @unittest.skip('Test Not Implemented')    
     def test_derive(self):
         self.assertTrue(False, msg='Test not implemented.')
 
 
-class TestAOAInGoAroundMax(unittest.TestCase):
-    @unittest.skip('Test Not Implemented')
-    def test_can_operate(self):
-        self.assertTrue(False, msg='Test not implemented.')
+class TestAOAInGoAroundMax(unittest.TestCase, CreateKPVsWithinSlicesTest):
+    def setUp(self):
+        self.node_class = AOAInGoAroundMax
+        self.operational_combinations = [('AOA', 'Go Around And Climbout',)]
+        self.function = max_value
     
     @unittest.skip('Test Not Implemented')    
     def test_derive(self):

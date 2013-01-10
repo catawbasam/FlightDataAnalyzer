@@ -5133,7 +5133,7 @@ class StickPusherActivatedDuration(KeyPointValueNode):
             'Push',
             stick_pusher.array,
             stick_pusher.hz,
-            airs
+            airs,
         )
 
         ##### TODO: Remove this old code?
@@ -5784,7 +5784,7 @@ class ThrottleCyclesInFinalApproach(KeyPointValueNode):
     10 deg peak to peak and with a maximum cycle period of 14 seconds during
     the final approach phase.
     '''
-    def derive(self, lever=P('Throttle Levers'), fapps = S('Final Approach')):
+    def derive(self, lever=P('Throttle Levers'), fapps=S('Final Approach')):
         for fapp in fapps:
             self.create_kpv(*cycle_counter(lever.array[fapp.slice], 10.0, 10.0, 
                                            lever.hz, fapp.slice.start))
@@ -5822,7 +5822,8 @@ class ThrustAsymmetryWithReverseThrustMax(KeyPointValueNode):
     any value.
     '''
     def derive(self, ta=P('Thrust Asymmetry'), rev_th=M('Thrust Reversers')):
-        revs = np.ma.clump_unmasked(np.ma.masked_where(rev_th == 'Deployed', ta.array))
+        revs = np.ma.clump_unmasked(np.ma.masked_where(rev_th == 'Deployed',
+                                                       ta.array))
         for rev in revs:
             idx = np.ma.argmax(ta.array[rev]) + rev.start
             self.create_kpv(idx, ta.array[idx])
@@ -5854,7 +5855,7 @@ class ThrustAsymmetryOnApproachMax(KeyPointValueNode):
     every flight, and preferred to the ThrustAsymmetryOnApproachDuration
     which will normally not record any value.
     '''
-    def derive(self,ta=P('Thrust Asymmetry'), apps=S('Approach')):
+    def derive(self, ta=P('Thrust Asymmetry'), apps=S('Approach')):
         for app in apps:
             idx = np.ma.argmax(ta.array[app.slice]) + app.slice.start
             self.create_kpv(idx, ta.array[idx])
@@ -5865,7 +5866,7 @@ class ThrustAsymmetryOnApproachDuration(KeyPointValueNode):
     Durations of thrust asymmetry over 10%. Included for customers with
     existing events using this approach.
     '''
-    def derive(self,ta=P('Thrust Asymmetry'), apps=S('Approach')):
+    def derive(self, ta=P('Thrust Asymmetry'), apps=S('Approach')):
         for app in apps:
             big_asym = shift_slices(
                 np.ma.clump_unmasked(
@@ -6016,8 +6017,8 @@ class ZeroFuelWeight(KeyPointValueNode):
     with a best fit to the available weight data.
     """
     def derive(self, fuel=P('Fuel Qty'), gw=P('Gross Weight')):
-        zfw=np.ma.median(gw.array-fuel.array)
-        self.create_kpv(0,zfw)
+        zfw = np.ma.median(gw.array - fuel.array)
+        self.create_kpv(0, zfw)
 
 
 class HoldingDuration(KeyPointValueNode):
@@ -6051,7 +6052,8 @@ class TOGASelectedInGoAroundDuration(KeyPointValueNode):
     "Loss of Control - TOGA power selection in flight (Go-arounds need to be
     kept as a separate case)."
     '''
-    def derive(self, toga=M('Takeoff And Go Around'), gas=S('Go Around And Climbout')):
+    def derive(self, toga=M('Takeoff And Go Around'),
+               gas=S('Go Around And Climbout')):
         self.create_kpvs_where_state('TOGA', toga.array, toga.hz, phase=gas)
                
                            
@@ -6063,21 +6065,16 @@ class AltitudeAtGoAroundMin(KeyPointValueNode):
     Note: This may be less than the radio altimeter reading at this point if
     there is higher ground in the area of the go-around minimum point.
     '''
-    @classmethod
-    def can_operate(cls, available):
-        return 'Go Around' in available and 'Altitude AAL' in available
     
-    def derive(self, alt_aal=P('Altitude AAL'), gas=KTI('Go Around'),
-               alt_rad=P('Altitude Radio')):
-        for ga in gas:
-            self.create_kpv(ga.index, alt_aal.array[ga.index])
+    def derive(self, alt_aal=P('Altitude AAL'), gas=KTI('Go Around')):
+        self.create_kpvs_at_ktis(alt_aal.array, gas)
             
  
 class AltitudeGoAroundFlapRetracted(KeyPointValueNode):
     # gafr pinpoints the flap retraction instance within the 500ft go-around window.
     def derive(self, alt_aal=P('Altitude AAL'), 
                gafr=KTI('Go Around Flap Retracted')):
-        self.create_kpvs_at_ktis(alt_aal.array,gafr)
+        self.create_kpvs_at_ktis(alt_aal.array, gafr)
 
 
 class AltitudeAtGoAroundGearUpSelection(KeyPointValueNode):
@@ -6120,7 +6117,8 @@ class SpeedbrakesDeployedInGoAroundDuration(KeyPointValueNode):
                                            deployed)
             value = np.ma.count(event) / speedbrake.frequency
             if value:
-                # Probably open at the start of the go-around, so when were they closed?
+                # Probably open at the start of the go-around, so when were
+                # they closed?
                 when = np.ma.clump_unmasked(event)
                 index = when[-1].stop
                 self.create_kpv(index, value)
