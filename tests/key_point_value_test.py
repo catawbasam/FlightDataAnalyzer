@@ -170,6 +170,10 @@ from analysis_engine.key_point_values import (
     RateOfDescent500FtToTouchdownMax,
     RollAbove1000FtMax,
     SpeedbrakesDeployedInGoAroundDuration,
+    SpeedbrakesDeployed1000To20FtDuration,
+    SpeedbrakesDeployedWithPowerOnDuration,
+    SpeedbrakesDeployedWithConfDuration,
+    SpeedbrakesDeployedWithPowerOnInHeightBandsDuration,
     TailClearanceOnApproach,
     TailClearanceOnLandingMin,
     TailClearanceOnTakeoffMin,
@@ -3383,26 +3387,6 @@ class TestTCASRAWarningDuration(unittest.TestCase):
         self.assertTrue(False, msg='Test not implemented.')
 
 
-class TestTailClearanceOnLandingMin(unittest.TestCase):
-    @unittest.skip('Test Not Implemented')
-    def test_can_operate(self):
-        self.assertTrue(False, msg='Test not implemented.')
-    
-    @unittest.skip('Test Not Implemented')
-    def test_derive(self):
-        self.assertTrue(False, msg='Test not implemented.')
-
-
-class TestTailClearanceOnTakeoffMin(unittest.TestCase):
-    @unittest.skip('Test Not Implemented')
-    def test_can_operate(self):
-        self.assertTrue(False, msg='Test not implemented.')
-    
-    @unittest.skip('Test Not Implemented')    
-    def test_derive(self):
-        self.assertTrue(False, msg='Test not implemented.')
-
-
 class TestTouchdownTo60KtsDuration(unittest.TestCase):
     @unittest.skip('Test Not Implemented')
     def test_can_operate(self):
@@ -4340,9 +4324,10 @@ class TestRudderReversalAbove50Ft(unittest.TestCase):
 
 
 class TestSpeedbrakesDeployed1000To20FtDuration(unittest.TestCase):
-    @unittest.skip('Test Not Implemented')
     def test_can_operate(self):
-        self.assertTrue(False, msg='Test not implemented.')
+        self.assertEqual(
+            SpeedbrakesDeployed1000To20FtDuration.get_operational_combinations(),
+            [('Speedbrake Selected', 'Altitude AAL For Flight Phases',)])
     
     @unittest.skip('Test Not Implemented')    
     def test_derive(self):
@@ -4350,9 +4335,11 @@ class TestSpeedbrakesDeployed1000To20FtDuration(unittest.TestCase):
 
 
 class TestSpeedbrakesDeployedWithPowerOnDuration(unittest.TestCase):
-    @unittest.skip('Test Not Implemented')
     def test_can_operate(self):
-        self.assertTrue(False, msg='Test not implemented.')
+        self.assertEqual(
+            SpeedbrakesDeployedWithPowerOnDuration.get_operational_combinations(),
+            [('Speedbrake Selected', 'Eng (*) N1 Avg', 'Airborne',
+              'Manufacturer')])    
         
     @unittest.skip('Test Not Implemented')    
     def test_derive(self):
@@ -4360,9 +4347,10 @@ class TestSpeedbrakesDeployedWithPowerOnDuration(unittest.TestCase):
 
 
 class TestSpeedbrakesDeployedWithFlapDuration(unittest.TestCase):
-    @unittest.skip('Test Not Implemented')
     def test_can_operate(self):
-        self.assertTrue(False, msg='Test not implemented.')
+        self.assertEqual(
+            SpeedbrakesDeployedWithConfDuration.get_operational_combinations(),
+            [('Speedbrake Selected', 'Flap', 'Airborne',)])
     
     @unittest.skip('Test Not Implemented')    
     def test_derive(self):
@@ -4370,9 +4358,10 @@ class TestSpeedbrakesDeployedWithFlapDuration(unittest.TestCase):
 
 
 class TestSpeedbrakesDeployedWithConfDuration(unittest.TestCase):
-    @unittest.skip('Test Not Implemented')
     def test_can_operate(self):
-        self.assertTrue(False, msg='Test not implemented.')
+        self.assertEqual(
+            SpeedbrakesDeployedWithConfDuration.get_operational_combinations(),
+            [('Speedbrake Selected', 'Configuration',)])
     
     @unittest.skip('Test Not Implemented')    
     def test_derive(self):
@@ -4380,9 +4369,11 @@ class TestSpeedbrakesDeployedWithConfDuration(unittest.TestCase):
 
 
 class TestSpeedbrakesDeployedWithPowerOnInHeightBandsDuration(unittest.TestCase):
-    @unittest.skip('Test Not Implemented')
     def test_can_operate(self):
-        self.assertTrue(False, msg='Test not implemented.')
+        self.assertEqual(
+            SpeedbrakesDeployedWithPowerOnInHeightBandsDuration.get_operational_combinations(),
+            [('Speedbrake Selected', 'Eng (*) N1 Avg',
+              'Altitude AAL For Flight Phases', 'Airborne')])
     
     @unittest.skip('Test Not Implemented')    
     def test_derive(self):
@@ -4394,6 +4385,7 @@ class TestSpeedbrakesDeployedWithPowerOnInHeightBandsDuration(unittest.TestCase)
 
 
 class TestStickPusherActivatedDuration(unittest.TestCase):
+    # TODO: CreateKPVsWhereState Test Superclass
     @unittest.skip('Test Not Implemented')
     def test_can_operate(self):
         self.assertTrue(False, msg='Test not implemented.')
@@ -4404,6 +4396,7 @@ class TestStickPusherActivatedDuration(unittest.TestCase):
 
 
 class TestStickShakerActivatedDuration(unittest.TestCase):
+    # TODO: CreateKPVsWhereState Test Superclass
     @unittest.skip('Test Not Implemented')
     def test_can_operate(self):
         self.assertTrue(False, msg='Test not implemented.')

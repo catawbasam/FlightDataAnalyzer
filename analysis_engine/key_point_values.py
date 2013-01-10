@@ -5159,7 +5159,7 @@ class StickShakerActivatedDuration(KeyPointValueNode):
             'Shake',
             stick_shaker.array,
             stick_shaker.hz,
-            airs
+            airs,
         )
 
 
