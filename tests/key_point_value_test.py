@@ -161,6 +161,12 @@ from analysis_engine.key_point_values import (
     PitchAtLiftoff,
     PitchAtTouchdown,
     PitchInGoAroundMax,
+    PitchRate35To1000FtMax,
+    PitchRate20FtToTouchdownMax,
+    PitchRate20FtToTouchdownMin,
+    PitchRate2DegPitchTo35FtMax,
+    PitchRate2DegPitchTo35FtMin,
+    PitchRate2DegPitchTo35FtAverage,
     RateOfClimbMax,
     RateOfClimb35To1000FtMin,
     RateOfClimbBelow10000FtMax,
@@ -214,6 +220,7 @@ from analysis_engine.key_point_values import (
     TurbulenceInApproachMax,
     TurbulenceInCruiseMax,
     TurbulenceInFlightMax,
+    TwoDegPitchTo35FtDuration,
     VerticalSpeedInGoAroundMax,
     WindAcrossLandingRunwayAt50Ft,
     WindDirectionInDescent,
@@ -3945,60 +3952,79 @@ class TestPitchCyclesInFinalApproach(unittest.TestCase):
 # Pitch Rate
 
 
-class TestPitchRate35To1000FtMax(unittest.TestCase):
-    @unittest.skip('Test Not Implemented')
-    def test_can_operate(self):
-        self.assertTrue(False, msg='Test not implemented.')
+class TestPitchRate35To1000FtMax(unittest.TestCase,
+                                 CreateKPVsWithinSlicesTest):
+    def setUp(self):
+        self.node_class = PitchRate35To1000FtMax
+        self.operational_combinations = [('Pitch Rate',
+                                          'Altitude AAL For Flight Phases',)]
+        self.function = max_value
+        self.second_param_method_calls = [('slices_from_to', (35, 1000), {})]
     
     @unittest.skip('Test Not Implemented')    
     def test_derive(self):
         self.assertTrue(False, msg='Test not implemented.')
 
 
-class TestPitchRate20FtToTouchdownMax(unittest.TestCase):
-    @unittest.skip('Test Not Implemented')
-    def test_can_operate(self):
-        self.assertTrue(False, msg='Test not implemented.')
+class TestPitchRate20FtToTouchdownMax(unittest.TestCase,
+                                      CreateKPVsWithinSlicesTest):
+    def setUp(self):
+        self.node_class = PitchRate20FtToTouchdownMax
+        self.operational_combinations = [('Pitch Rate',
+                                          'Altitude AAL For Flight Phases',)]
+        self.function = max_value
+        self.second_param_method_calls = [('slices_from_to', (20, 0), {})]
     
     @unittest.skip('Test Not Implemented')    
     def test_derive(self):
         self.assertTrue(False, msg='Test not implemented.')
 
 
-class TestPitchRate20FtToTouchdownMin(unittest.TestCase):
-    @unittest.skip('Test Not Implemented')
-    def test_can_operate(self):
-        self.assertTrue(False, msg='Test not implemented.')
+class TestPitchRate20FtToTouchdownMin(unittest.TestCase,
+                                      CreateKPVsWithinSlicesTest):
+    def setUp(self):
+        self.node_class = PitchRate20FtToTouchdownMin
+        self.operational_combinations = [('Pitch Rate',
+                                          'Altitude AAL For Flight Phases',)]
+        self.function = min_value
+        self.second_param_method_calls = [('slices_from_to', (20, 0), {})]
         
     @unittest.skip('Test Not Implemented')    
     def test_derive(self):
         self.assertTrue(False, msg='Test not implemented.')
 
 
-class TestPitchRate2DegPitchTo35FtMax(unittest.TestCase):
-    @unittest.skip('Test Not Implemented')
-    def test_can_operate(self):
-        self.assertTrue(False, msg='Test not implemented.')
+class TestPitchRate2DegPitchTo35FtMax(unittest.TestCase,
+                                      CreateKPVsWithinSlicesTest):
+    def setUp(self):
+        self.node_class = PitchRate2DegPitchTo35FtMax
+        self.operational_combinations = [('Pitch Rate',
+                                          '2 Deg Pitch To 35 Ft',)]
+        self.function = max_value
     
     @unittest.skip('Test Not Implemented')    
     def test_derive(self):
         self.assertTrue(False, msg='Test not implemented.')
 
 
-class TestPitchRate2DegPitchTo35FtMin(unittest.TestCase):
-    @unittest.skip('Test Not Implemented')
-    def test_can_operate(self):
-        self.assertTrue(False, msg='Test not implemented.')
+class TestPitchRate2DegPitchTo35FtMin(unittest.TestCase,
+                                      CreateKPVsWithinSlicesTest):
+    def setUp(self):
+        self.node_class = PitchRate2DegPitchTo35FtMin
+        self.operational_combinations = [('Pitch Rate',
+                                          '2 Deg Pitch To 35 Ft',)]
+        self.function = min_value
     
-    @unittest.skip('Test Not Implemented')    
+    @unittest.skip('Test Not Implemented')
     def test_derive(self):
         self.assertTrue(False, msg='Test not implemented.')
 
 
 class TestPitchRate2DegPitchTo35FtAverage(unittest.TestCase):
-    @unittest.skip('Test Not Implemented')
     def test_can_operate(self):
-        self.assertTrue(False, msg='Test not implemented.')
+        self.assertEqual(
+            PitchRate2DegPitchTo35FtAverage.get_operational_combinations(),
+            [('Pitch', '2 Deg Pitch To 35 Ft')])
     
     @unittest.skip('Test Not Implemented')    
     def test_derive(self):
@@ -4006,9 +4032,10 @@ class TestPitchRate2DegPitchTo35FtAverage(unittest.TestCase):
 
 
 class TestTwoDegPitchTo35FtDuration(unittest.TestCase):
-    @unittest.skip('Test Not Implemented')
     def test_can_operate(self):
-        self.assertTrue(False, msg='Test not implemented.')
+        self.assertEqual(
+            TwoDegPitchTo35FtDuration.get_operational_combinations(),
+            [('Pitch', '2 Deg Pitch To 35 Ft')])
     
     @unittest.skip('Test Not Implemented')    
     def test_derive(self):

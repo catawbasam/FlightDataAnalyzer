@@ -4572,7 +4572,6 @@ class RateOfClimbBelow10000FtMax(KeyPointValueNode):
         )
 
 
-
 ################################################################################
 # Rate of Descent
 
