@@ -2749,9 +2749,13 @@ def merge_two_parameters(param_one, param_two):
     parameters. Use blend_two_parameters for analogue parameters.
     
     This process merges two parameter objects. They must be recorded at the
-    same frequency. without smoothing, and then computes the offset and
-    frequency appropriately. Note: There is no check for the parameters being
-    equi-spaced.
+    same frequency. They are interleaved without smoothing, and then the
+    offset and frequency are computed as though the finished item was
+    equispaced.
+    
+    If the two parameters are recorded less than half the sample interval
+    apart, a value error is raised as the synthesized parameter cannot
+    realistically be described by an equispaced result.
     
     :param param_one: Parameter object
     :type param_one: Parameter
@@ -2761,16 +2765,20 @@ def merge_two_parameters(param_one, param_two):
     :returns array, frequency, offset
     '''
     assert param_one.frequency  == param_two.frequency
+    assert len(param_one.array) == len(param_two.array)
     
-    if param_one.offset <= param_two.offset:
+    delta = (param_one.offset - param_two.offset) * param_one.frequency
+    off = (param_one.offset+param_two.offset-(1/(2.0*param_one.frequency)))/2.0
+    if -0.75 < delta < -0.25:
         # merged array should be monotonic (always increasing in time)
         array = merge_sources(param_one.array, param_two.array)
-        offset = param_one.offset
-    else:
+        return array, param_one.frequency * 2, off
+    elif 0.25 < delta < 0.75:
         array = merge_sources(param_two.array, param_one.array)
-        offset = param_two.offset
-    return array, param_one.frequency * 2, offset
-
+        return array, param_two.frequency * 2, off
+    else:
+        raise ValueError("merge_two_parameters called with offsets too similar. %s : %.4f and %s : %.4f" \
+                         % (param_one.name, param_one.offset, param_two.name, param_two.offset))
 
 def merge_sources(*arrays):
     '''
