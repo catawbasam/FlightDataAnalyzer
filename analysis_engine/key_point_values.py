@@ -1640,21 +1640,31 @@ class BrakePressureInTakeoffRollMax(KeyPointValueNode):
         self.create_kpvs_within_slices(bp.array, rolls, max_value)
         
 
+# XXX: Can minus_60 fall outside end of landing slice? Fix if needed.
 class DelayedBrakingAfterTouchdown(KeyPointValueNode):
     '''
     This parameter was requested by one customer, who asked us to adopt the
     Airbus AFPS implementation.
     '''
-    def derive(self, lands=S('Landing'), gs=P('Groundspeed'),
+    def derive(self,
+               lands=S('Landing'),
+               gs=P('Groundspeed'),
                tdwns=KTI('Touchdown')):
+        '''
+        '''
         for land in lands:
             for tdwn in tdwns:
-                if is_index_within_slice(tdwn.index, land.slice):
-                    gs_td = value_at_index(gs.array, tdwn.index)
-                    minus_10 = index_at_value(gs.array, gs_td-10.0, land.slice)
-                    minus_60 = index_at_value(gs.array, gs_td-60.0, land.slice)
-                    dt = (minus_60 - minus_10) / gs.frequency
-                    self.create_kpv((minus_10+minus_60)/2.0, dt)
+                if not is_index_within_slice(tdwn.index, land.slice):
+                    continue
+                gs_td = value_at_index(gs.array, tdwn.index)
+                if gs_td is None:
+                    continue
+                minus_10 = index_at_value(gs.array, gs_td - 10.0, land.slice)
+                minus_60 = index_at_value(gs.array, gs_td - 60.0, land.slice)
+                if minus_10 is None or minus_60 is None:
+                    continue
+                dt = (minus_60 - minus_10) / gs.frequency
+                self.create_kpv((minus_10 + minus_60) / 2.0, dt)
 
     
 ################################################################################

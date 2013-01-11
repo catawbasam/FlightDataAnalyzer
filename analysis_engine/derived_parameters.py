@@ -3267,7 +3267,7 @@ class CoordinatesSmoothed(object):
             freq = tas.frequency
 
         try:
-            toff_slice = slice_multiply(toff[0].slice, freq)
+            toff_slice = toff[0].slice
         except:
             toff_slice = None
 

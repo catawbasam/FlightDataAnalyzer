@@ -634,7 +634,7 @@ class ILSLocalizerEstablished(FlightPhaseNode):
     """
     """
     def derive(self, ils_loc=P('ILS Localizer'), 
-               alt_aal=P('Altitude AAL For Flight Phases'), apps=S('Approach')):
+               alt_aal=P('Altitude AAL For Flight Phases'), apps=S('Approach And Landing')):
         for app in apps:
             ils_app = scan_ils('localizer', ils_loc.array, alt_aal.array,
                                app.slice)
