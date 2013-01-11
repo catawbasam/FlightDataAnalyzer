@@ -220,7 +220,7 @@ def align(slave, master, interpolate=True):
            
     # Compute the sample rate ratio:
     r = wm / float(ws)
-    
+
     # Here we create a masked array to hold the returned values that will have 
     # the same sample rate and timing offset as the master
     len_aligned = int(len(slave_array) * r)
@@ -3895,7 +3895,16 @@ def touchdown_inertial(land, roc, alt):
     #...and calculate each with a weighted correction factor.
     for i in range(1, len(sm_ht)):
         sm_ht[i] = (1.0-tau)*sm_ht[i-1] + tau*my_alt[i-1] + my_roc[i]/60.0/roc.hz
-        
+    
+    '''
+    # Plot for ease of inspection during development.
+    from analysis_engine.plot_flight import plot_parameter
+    plot_parameter(alt.array[startpoint:endpoint], show=False)
+    plot_parameter(roc.array[startpoint:endpoint]/100.0, show=False)
+    plot_parameter(on_gnd.array[startpoint:endpoint], show=False)
+    plot_parameter(sm_ht)
+    '''
+    
     # Find where the smoothed height touches zero and hence the rod at this
     # point. Note that this may differ slightly from the touchdown measured
     # using wheel switches.
