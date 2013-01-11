@@ -3792,7 +3792,8 @@ class Relief(DerivedParameterNode):
     """
     Also known as Terrain, this is zero at the airfields. There is a small
     cliff in mid-flight where the Altitude AAL changes from one reference to
-    another.
+    another, however this normally arises where Altitude Radio is out of its
+    operational range, so will be masked from view.
     """
     
     units = 'ft'
