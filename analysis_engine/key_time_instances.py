@@ -561,15 +561,7 @@ class Touchdown(KeyTimeInstanceNode):
                                 self.create_kti(index)
                         else:
                             self.create_kti(index_at_value(alt.array, 0.0, land.slice))
-                        '''
-                        # Plot for ease of inspection during development.
-                        from analysis_engine.plot_flight import plot_parameter
-                        plot_parameter(alt.array[startpoint:endpoint], show=False)
-                        plot_parameter(roc.array[startpoint:endpoint]/100.0, show=False)
-                        #plot_parameter(on_gnd.array[startpoint:endpoint], show=False)
-                        plot_parameter(sm_ht)
-                        '''
-
+                        
 
 class LandingTurnOffRunway(KeyTimeInstanceNode):
     # See Takeoff Turn Onto Runway for description.
