@@ -2430,8 +2430,8 @@ class Eng_VibN1Max(DerivedParameterNode):
                eng4=P('Eng (4) Vib N1'),
                fan1=P('Eng (1) Vib N1 Fan'),
                fan2=P('Eng (2) Vib N1 Fan'),
-               lpt1=P('Eng (1) Vib N1 Low Press Turbine'),
-               lpt2=P('Eng (2) Vib N1 Low Press Turbine')):
+               lpt1=P('Eng (1) Vib N1 Turbine'),
+               lpt2=P('Eng (2) Vib N1 Turbine')):
         '''
         '''
         engines = vstack_params(eng1, eng2, eng3, eng4, fan1, fan2, lpt1, lpt2)
@@ -2466,10 +2466,10 @@ class Eng_VibN2Max(DerivedParameterNode):
                eng2=P('Eng (2) Vib N2'),
                eng3=P('Eng (3) Vib N2'),
                eng4=P('Eng (4) Vib N2'),
-               hpc1=P('Eng (1) Vib N2 High Press Compressor'),
-               hpc2=P('Eng (2) Vib N2 High Press Compressor'),
-               hpt1=P('Eng (1) Vib N2 High Press Turbine'),
-               hpt2=P('Eng (2) Vib N2 High Press Turbine')):
+               hpc1=P('Eng (1) Vib N2 Compressor'),
+               hpc2=P('Eng (2) Vib N2 Compressor'),
+               hpt1=P('Eng (1) Vib N2 Turbine'),
+               hpt2=P('Eng (2) Vib N2 Turbine')):
         '''
         '''
         engines = vstack_params(eng1, eng2, eng3, eng4, hpc1, hpc2, hpt1, hpt2)
