@@ -2200,7 +2200,21 @@ class DistanceOnLandingFrom60KtToRunwayEnd(KeyPointValueNode):
                                                 lat.array[idx_60],
                                                 lon.array[idx_60])
             self.create_kpv(idx_60, distance) # Metres
-        
+
+
+class HeadingAtTakeoff(KeyPointValueNode):
+    """
+    We take the median heading, as this avoids problems with drift just
+    after liftoff and turning onto the runway. The value is "assigned" to a
+    time midway through the landing phase.
+    """
+    def derive(self, head=P('Heading Continuous'),
+               toffs=S('Takeoff')):
+        for toff in toffs:
+            toff_head = np.ma.median(head.array[toff.slice])
+            toff_index = (toff.slice.start + toff.slice.stop)/2.0
+            self.create_kpv(toff_index, toff_head%360.0)
+
 
 class HeadingAtLanding(KeyPointValueNode):
     """
@@ -2226,20 +2240,6 @@ class HeadingAtLowestPointOnApproach(KeyPointValueNode):
     def derive(self, head=P('Heading Continuous'), 
                low_points=KTI('Lowest Point On Approach')):
         self.create_kpvs_at_ktis(head.array%360.0, low_points)
-    
-    
-class HeadingAtTakeoff(KeyPointValueNode):
-    """
-    We take the median heading, as this avoids problems with drift just
-    after liftoff and turning onto the runway. The value is "assigned" to a
-    time midway through the landing phase.
-    """
-    def derive(self, head=P('Heading Continuous'),
-               toffs=S('Takeoff')):
-        for toff in toffs:
-            toff_head = np.ma.median(head.array[toff.slice])
-            toff_index = (toff.slice.start + toff.slice.stop)/2.0
-            self.create_kpv(toff_index, toff_head%360.0)
 
 
 ################################################################################

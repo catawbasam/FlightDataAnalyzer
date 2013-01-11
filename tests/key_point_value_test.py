@@ -2068,48 +2068,6 @@ class TestILSGlideslopeDeviation1000To250FtMax(unittest.TestCase):
         self.assertAlmostEqual(kpv[0].value, 0.79992326)
 
 
-class TestHeadingAtTakeoff(unittest.TestCase):
-    def test_can_operate(self):
-        expected = [('Heading Continuous', 'Takeoff')]
-        opts = HeadingAtTakeoff.get_operational_combinations()
-        self.assertEqual(opts, expected) 
-        
-    def test_derive_basic(self):
-        head = P('Heading Continuous',np.ma.array([0,2,4,7,9,8,6,3]))
-        toff = buildsection('Takeoff', 2,6)
-        kpv = HeadingAtTakeoff()
-        kpv.derive(head, toff)
-        expected = [KeyPointValue(index=4, value=7.5,
-                                  name='Heading At Takeoff')]
-        self.assertEqual(kpv, expected)
-        
-    def test_derive_modulus(self):
-        head = P('Heading Continuous',np.ma.array([0,2,4,7,9,8,6,3])*-1.0)
-        toff = buildsection('Takeoff', 2,6)
-        kpv = HeadingAtTakeoff()
-        kpv.derive(head, toff)
-        expected = [KeyPointValue(index=4, value=360-7.5,
-                                  name='Heading At Takeoff')]
-        self.assertEqual(kpv, expected)
-
-class TestHeadingAtLanding(unittest.TestCase):
-    def test_can_operate(self):
-        expected = [('Heading Continuous', 'Landing')]
-        opts = HeadingAtLanding.get_operational_combinations()
-        self.assertEqual(opts, expected) 
-        
-    def test_derive_basic(self):
-        head = P('Heading Continuous',np.ma.array([0,1,2,3,4,5,6,7,8,9,10,-1,-1,
-                                                   7,-1,-1,-1,-1,-1,-1,-1,-10]))
-        landing = buildsection('Landing',5,15)
-        head.array[13] = np.ma.masked
-        kpv = HeadingAtLanding()
-        kpv.derive(head, landing)
-        expected = [KeyPointValue(index=10, value=6.0,
-                                  name='Heading At Landing')]
-        self.assertEqual(kpv, expected)
-
-
 class TestILSFrequencyOnApproach(unittest.TestCase):
     def test_can_operate(self):
         expected = [('ILS Frequency', 'ILS Localizer Established',)]
@@ -2736,16 +2694,6 @@ class TestEventMarkerPressed(unittest.TestCase):
         self.assertTrue(False, msg='Test not implemented.')
 
 
-class TestFlapWithSpeedbrakesDeployedMax(unittest.TestCase):
-    @unittest.skip('Test Not Implemented')
-    def test_can_operate(self):
-        self.assertTrue(False, msg='Test not implemented.')
-    
-    @unittest.skip('Test Not Implemented')    
-    def test_derive(self):
-        self.assertTrue(False, msg='Test not implemented.')
-
-
 class TestGenericDescent(unittest.TestCase):
     @unittest.skip('Test Not Implemented')
     def test_can_operate(self):
@@ -2767,66 +2715,6 @@ class TestGroundspeedOnGroundMax(unittest.TestCase):
 
 
 class TestGroundspeedThrustReversersDeployedMin(unittest.TestCase):
-    @unittest.skip('Test Not Implemented')
-    def test_can_operate(self):
-        self.assertTrue(False, msg='Test not implemented.')
-    
-    @unittest.skip('Test Not Implemented')    
-    def test_derive(self):
-        self.assertTrue(False, msg='Test not implemented.')
-
-
-class TestHeadingAtLowestPointOnApproach(unittest.TestCase):
-    @unittest.skip('Test Not Implemented')
-    def test_can_operate(self):
-        self.assertTrue(False, msg='Test not implemented.')
-    
-    @unittest.skip('Test Not Implemented')    
-    def test_derive(self):
-        self.assertTrue(False, msg='Test not implemented.')
-
-
-class TestHeadingExcursion500To20Ft(unittest.TestCase):
-    @unittest.skip('Test Not Implemented')
-    def test_can_operate(self):
-        self.assertTrue(False, msg='Test not implemented.')
-    
-    @unittest.skip('Test Not Implemented')    
-    def test_derive(self):
-        self.assertTrue(False, msg='Test not implemented.')
-
-
-class TestHeadingExcursionOnLandingAbove100Kts(unittest.TestCase):
-    @unittest.skip('Test Not Implemented')
-    def test_can_operate(self):
-        self.assertTrue(False, msg='Test not implemented.')
-    
-    @unittest.skip('Test Not Implemented')    
-    def test_derive(self):
-        self.assertTrue(False, msg='Test not implemented.')
-
-
-class TestHeadingExcursionOnTakeoffAbove100Kts(unittest.TestCase):
-    @unittest.skip('Test Not Implemented')
-    def test_can_operate(self):
-        self.assertTrue(False, msg='Test not implemented.')
-    
-    @unittest.skip('Test Not Implemented')    
-    def test_derive(self):
-        self.assertTrue(False, msg='Test not implemented.')
-
-
-class TestHeadingExcursionTouchdownPlus4SecTo60Kts(unittest.TestCase):
-    @unittest.skip('Test Not Implemented')
-    def test_can_operate(self):
-        self.assertTrue(False, msg='Test not implemented.')
-    
-    @unittest.skip('Test Not Implemented')    
-    def test_derive(self):
-        self.assertTrue(False, msg='Test not implemented.')
-
-
-class TestHeadingVacatingRunway(unittest.TestCase):
     @unittest.skip('Test Not Implemented')
     def test_can_operate(self):
         self.assertTrue(False, msg='Test not implemented.')
@@ -3532,6 +3420,97 @@ class TestTwoDegPitchTo35Ft(unittest.TestCase):
 
 
 
+
+
+class TestHeadingAtTakeoff(unittest.TestCase):
+    def test_can_operate(self):
+        expected = [('Heading Continuous', 'Takeoff')]
+        opts = HeadingAtTakeoff.get_operational_combinations()
+        self.assertEqual(opts, expected) 
+        
+    def test_derive_basic(self):
+        head = P('Heading Continuous',np.ma.array([0,2,4,7,9,8,6,3]))
+        toff = buildsection('Takeoff', 2,6)
+        kpv = HeadingAtTakeoff()
+        kpv.derive(head, toff)
+        expected = [KeyPointValue(index=4, value=7.5,
+                                  name='Heading At Takeoff')]
+        self.assertEqual(kpv, expected)
+        
+    def test_derive_modulus(self):
+        head = P('Heading Continuous',np.ma.array([0,2,4,7,9,8,6,3])*-1.0)
+        toff = buildsection('Takeoff', 2,6)
+        kpv = HeadingAtTakeoff()
+        kpv.derive(head, toff)
+        expected = [KeyPointValue(index=4, value=360-7.5,
+                                  name='Heading At Takeoff')]
+        self.assertEqual(kpv, expected)
+
+
+class TestHeadingAtLanding(unittest.TestCase):
+    def test_can_operate(self):
+        expected = [('Heading Continuous', 'Landing')]
+        opts = HeadingAtLanding.get_operational_combinations()
+        self.assertEqual(opts, expected) 
+        
+    def test_derive_basic(self):
+        head = P('Heading Continuous',np.ma.array([0,1,2,3,4,5,6,7,8,9,10,-1,-1,
+                                                   7,-1,-1,-1,-1,-1,-1,-1,-10]))
+        landing = buildsection('Landing',5,15)
+        head.array[13] = np.ma.masked
+        kpv = HeadingAtLanding()
+        kpv.derive(head, landing)
+        expected = [KeyPointValue(index=10, value=6.0,
+                                  name='Heading At Landing')]
+        self.assertEqual(kpv, expected)
+
+
+class TestHeadingAtLowestPointOnApproach(unittest.TestCase,
+                                         CreateKPVsAtKTIsTest):
+    def setUp(self):
+        self.node_class = HeadingAtLowestPointOnApproach
+        self.operational_combinations = [('Heading Continuous',
+                                          'Lowest Point On Approach')]
+    
+    @unittest.skip('Test Not Implemented')    
+    def test_derive(self):
+        self.assertTrue(False, msg='Test not implemented.')
+
+
+class TestHeadingExcursionOnLandingAbove100Kts(unittest.TestCase):
+    def test_can_operate(self):
+        self.assertEqual(
+            HeadingExcursionOnLandingAbove100Kts.get_operational_combinations(),
+            [('Heading Continuous', 'Airspeed',
+              'Altitude AAL For Flight Phases', 'Landing')])
+    
+    @unittest.skip('Test Not Implemented')    
+    def test_derive(self):
+        self.assertTrue(False, msg='Test not implemented.')
+
+
+class TestHeadingExcursionTouchdownPlus4SecTo60Kts(unittest.TestCase):
+    def test_can_operate(self):
+        self.assertEqual(
+            HeadingExcursionTouchdownPlus4SecTo60Kts.get_operational_combinations(),
+            [('Heading Continuous', 'Touchdown', 'Airspeed')])
+    
+    @unittest.skip('Test Not Implemented')    
+    def test_derive(self):
+        self.assertTrue(False, msg='Test not implemented.')
+
+
+class TestHeadingVacatingRunway(unittest.TestCase):
+    def test_can_operate(self):
+        self.assertEqual(
+            HeadingVacatingRunway.get_operational_combinations(),
+            [('Heading True Continuous', 'Landing Roll', 'FDR Landing Runway')])
+    
+    @unittest.skip('Test Not Implemented')    
+    def test_derive(self):
+        self.assertTrue(False, msg='Test not implemented.')
+
+
 class TestAltitudeMinsToTouchdown(unittest.TestCase):
     def test_can_operate(self):
         self.assertEqual(
@@ -3543,10 +3522,10 @@ class TestAltitudeMinsToTouchdown(unittest.TestCase):
         self.assertTrue(False, msg='Test not implemented.')
 
 
-class TestFlapAtGearDownSelection(unittest.TestCase):
-    @unittest.skip('Test Not Implemented')
-    def test_can_operate(self):
-        self.assertTrue(False, msg='Test not implemented.')
+class TestFlapAtGearDownSelection(unittest.TestCase, CreateKPVsAtKTIsTest):
+    def setUp(self):
+        self.node_class = FlapAtGearDownSelection
+        self.operational_combinations = [('Flap', 'Gear Down Selection')]
     
     @unittest.skip('Test Not Implemented')    
     def test_derive(self):
@@ -3554,23 +3533,14 @@ class TestFlapAtGearDownSelection(unittest.TestCase):
 
 
 class TestFlapWithGearUpMax(unittest.TestCase):
-    @unittest.skip('Test Not Implemented')
     def test_can_operate(self):
-        self.assertTrue(False, msg='Test not implemented.')
+        self.assertEqual(
+            FlapWithGearUpMax.get_operational_combinations(),        
+            [('Flap', 'Gear Down',)])
     
     @unittest.skip('Test Not Implemented')    
     def test_derive(self):
         self.assertTrue(False, msg='Test not implemented.')
-
-
-class TestFlapAtLiftoff(unittest.TestCase, CreateKPVsAtKTIsTest):
-    def setUp(self):
-        self.node_class = FlapAtLiftoff
-        self.operational_combinations = [('Flap', 'Liftoff')]
-
-    @unittest.skip('Test Not Implemented')
-    def test_derive(self):
-        self.assertTrue(False, msg='Test Not Implemented') 
 
 
 class TestFlapAtTouchdown(unittest.TestCase, CreateKPVsAtKTIsTest):
@@ -3583,10 +3553,32 @@ class TestFlapAtTouchdown(unittest.TestCase, CreateKPVsAtKTIsTest):
         self.assertTrue(False, msg='Test Not Implemented') 
 
 
-class TestFlareDuration20FtToTouchdown(unittest.TestCase):
+class TestFlapAtLiftoff(unittest.TestCase, CreateKPVsAtKTIsTest):
+    def setUp(self):
+        self.node_class = FlapAtLiftoff
+        self.operational_combinations = [('Flap', 'Liftoff')]
+
     @unittest.skip('Test Not Implemented')
+    def test_derive(self):
+        self.assertTrue(False, msg='Test Not Implemented')
+
+
+class TestFlapWithSpeedbrakesDeployedMax(unittest.TestCase):
     def test_can_operate(self):
+        self.assertEqual(
+            FlapWithSpeedbrakesDeployedMax.get_operational_combinations(),        
+            [('Flap', 'Speedbrake Selected', 'Airborne', 'Landing')])
+    
+    @unittest.skip('Test Not Implemented')    
+    def test_derive(self):
         self.assertTrue(False, msg='Test not implemented.')
+
+
+class TestFlareDuration20FtToTouchdown(unittest.TestCase):
+    def test_can_operate(self):
+        self.assertEqual(
+            FlareDuration20FtToTouchdown.get_operational_combinations(),        
+            [('Altitude AAL For Flight Phases', 'Touchdown', 'Landing')])
     
     @unittest.skip('Test Not Implemented')    
     def test_derive(self):
@@ -3594,9 +3586,11 @@ class TestFlareDuration20FtToTouchdown(unittest.TestCase):
         
 
 class TestFlareDistance20FtToTouchdown(unittest.TestCase):
-    @unittest.skip('Test Not Implemented')
     def test_can_operate(self):
-        self.assertTrue(False, msg='Test not implemented.')
+        self.assertEqual(
+            FlareDistance20FtToTouchdown.get_operational_combinations(),        
+            [('Altitude AAL For Flight Phases', 'Touchdown', 'Landing',
+              'Groundspeed')])
     
     @unittest.skip('Test Not Implemented')    
     def test_derive(self):
@@ -3604,9 +3598,10 @@ class TestFlareDistance20FtToTouchdown(unittest.TestCase):
 
 
 class TestAltitudeOvershootAtSuspectedLevelBust(unittest.TestCase):
-    @unittest.skip('Test Not Implemented')
     def test_can_operate(self):
-        self.assertTrue(False, msg='Test Not Implemented')      
+        self.assertEqual(
+            AltitudeOvershootAtSuspectedLevelBust.get_operational_combinations(),
+            [('Altitude STD Smoothed',)])
     
     def test_derive_handling_no_data(self):
         alt=P('Altitude STD',np.ma.array([0,1000,1000,1000,1000]))
