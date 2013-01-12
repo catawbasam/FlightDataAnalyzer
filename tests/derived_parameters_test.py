@@ -67,6 +67,7 @@ from analysis_engine.derived_parameters import (
     Eng_N3Min,
     Flap,
     FuelQty,
+    GearOnGround,
     GrossWeightSmoothed,
     #GroundspeedAlongTrack,
     HeadingContinuous,
@@ -2575,9 +2576,64 @@ class TestGearOnGround(unittest.TestCase):
     def test_can_operate(self):
         self.assertTrue(False, msg='Test not implemented.')
         
-    @unittest.skip('Test Not Implemented')
-    def test_derive(self):
-        self.assertTrue(False, msg='Test not implemented.')
+    def test_gear_on_ground_basic(self):
+        p_left = M(array=np.ma.array(data=[0,0,1,1]),
+                   values_mapping={0:'Air',1:'Ground'},
+                   name='Gear (L) On Ground', 
+                   frequency=1, 
+                   offset=0.1)
+        p_right = M(array=np.ma.array(data=[0,1,1,1]),
+                    values_mapping={0:'Air',1:'Ground'},
+                    name='Gear (R) On Ground', 
+                    frequency=1, 
+                    offset=0.6)
+        wow=GearOnGround()
+        wow.derive(p_left, p_right)
+        np.testing.assert_array_equal(wow.array, [0,0,0,1,1,1,1,1])
+        self.assertEqual(wow.frequency, 2.0)
+        self.assertAlmostEqual(wow.offset, 0.1)
+
+    def test_gear_on_ground_common_word(self):
+        p_left = M(array=np.ma.array(data=[0,0,1,1]),
+                   values_mapping={0:'Air',1:'Ground'},
+                   name='Gear (L) On Ground', 
+                   frequency=1, 
+                   offset=0.1)
+        p_right = M(array=np.ma.array(data=[0,1,1,1]),
+                    values_mapping={0:'Air',1:'Ground'},
+                    name='Gear (R) On Ground', 
+                    frequency=1, 
+                    offset=0.1)
+        wow=GearOnGround()
+        wow.derive(p_left, p_right)
+        np.testing.assert_array_equal(wow.array, [0,1,1,1])
+        self.assertEqual(wow.frequency, 1.0)
+        self.assertAlmostEqual(wow.offset, 0.1)
+
+    def test_gear_on_ground_left_only(self):
+        p_left = M(array=np.ma.array(data=[0,0,1,1]),
+                   values_mapping={0:'Air',1:'Ground'},
+                   name='Gear (L) On Ground', 
+                   frequency=1, 
+                   offset=0.1)
+        wow=GearOnGround()
+        wow.derive(p_left, None)
+        np.testing.assert_array_equal(wow.array, [0,0,1,1])
+        self.assertEqual(wow.frequency, 1.0)
+        self.assertAlmostEqual(wow.offset, 0.1)
+
+    def test_gear_on_ground_right_only(self):
+        p_right = M(array=np.ma.array(data=[0,0,0,1]),
+                    values_mapping={0:'Air',1:'Ground'},
+                    name='Gear (R) On Ground', 
+                    frequency=1, 
+                    offset=0.7)
+        wow=GearOnGround()
+        wow.derive(None, p_right)
+        np.testing.assert_array_equal(wow.array, [0,0,0,1])
+        self.assertEqual(wow.frequency, 1.0)
+        self.assertAlmostEqual(wow.offset, 0.7)
+
 
 
 class TestGearUpSelected(unittest.TestCase):

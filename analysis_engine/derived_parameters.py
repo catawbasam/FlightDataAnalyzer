@@ -2618,7 +2618,18 @@ class GearOnGround(MultistateDerivedParameterNode):
         ##if frame_name.startswith('737-'):
         
         if gl and gr:
-            self.array, self.frequency, self.offset = merge_two_parameters(gl, gr)
+            if gl.offset == gr.offset:
+                # A common case is for the left and right gear to be mapped
+                # onto different bits of the same word. In this case we
+                # accept that either wheel on the ground equates to gear on
+                # ground.
+                self.array = np.ma.logical_or(gl.array, gr.array)
+                self.frequency = gl.frequency
+                self.offset = gl.offset
+            else:
+                # If the paramters are not co-located, then
+                # merge_two_parameters creates the best combination possible.
+                self.array, self.frequency, self.offset = merge_two_parameters(gl, gr)
         elif gl:
             self.array, self.frequency, self.offset = gl.array, gl.frequency, gl.offset
         else: # gr
