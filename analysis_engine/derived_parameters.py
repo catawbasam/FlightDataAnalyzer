@@ -2642,17 +2642,41 @@ class GearDownSelected(MultistateDerivedParameterNode):
     Derivation of gear selection for aircraft without this separately recorded.
     Where 'Gear Down Selected' is recorded, this derived parameter will be
     skipped automatically.
+    
+    Red warnings are included as the selection may first be indicated by one
+    of the red warning lights coming on, rather than the gear status
+    changing.
     '''
+
+    @classmethod
+    def can_operate(cls, available):
+        return 'Gear Down' in available
 
     values_mapping = {
         0: 'Up',
         1: 'Down',
     }
 
-    def derive(self, gear=M('Gear Down')):
-        '''
-        '''
-        self.array = gear.array.raw
+    def derive(self, gear_down=M('Gear Down'),
+               gear_warn_l=P('Gear (L) Red Warning'),
+               gear_warn_n=P('Gear (N) Red Warning'),
+               gear_warn_r=P('Gear (R) Red Warning')):
+
+        dn = gear_down.array.raw
+        
+        if gear_warn_l and gear_warn_n and gear_warn_r:
+            # Join all available gear parameters and use whichever are available.
+            v = vstack_params(dn, 
+                              gear_warn_l.array.raw, 
+                              gear_warn_n.array.raw, 
+                              gear_warn_r.array.raw)
+            wheels_dn = v.sum(axis=0) > 0
+            self.array = np.ma.where(wheels_dn, self.state['Down'], self.state['Up'])
+        else:
+            self.array = dn
+        self.frequency = gear_down.frequency
+        self.offset = gear_down.offset
+        
 
 
 class GearUpSelected(MultistateDerivedParameterNode):
@@ -2660,17 +2684,41 @@ class GearUpSelected(MultistateDerivedParameterNode):
     Derivation of gear selection for aircraft without this separately recorded.
     Where 'Gear Up Selected' is recorded, this derived parameter will be
     skipped automatically.
+    
+    Red warnings are included as the selection may first be indicated by one
+    of the red warning lights coming on, rather than the gear status
+    changing.
     '''
+    
+    @classmethod
+    def can_operate(cls, available):
+        return 'Gear Down' in available
 
     values_mapping = {
         0: 'Down',
         1: 'Up',
     }
 
-    def derive(self, gear=M('Gear Down')):
-        '''
-        '''
-        self.array = 1 - gear.array.raw
+    def derive(self, gear_down=M('Gear Down'),
+               gear_warn_l=P('Gear (L) Red Warning'),
+               gear_warn_n=P('Gear (N) Red Warning'),
+               gear_warn_r=P('Gear (R) Red Warning')):
+
+        up = 1 - gear_down.array.raw
+        
+        if gear_warn_l and gear_warn_n and gear_warn_r:
+            # Join all available gear parameters and use whichever are available.
+            v = vstack_params(up, 
+                              gear_warn_l.array.raw, 
+                              gear_warn_n.array.raw, 
+                              gear_warn_r.array.raw)
+            wheels_up = v.sum(axis=0) > 0
+            self.array = np.ma.where(wheels_up, self.state['Up'], self.state['Down'])
+        else:
+            self.array = up
+        self.frequency = gear_down.frequency
+        self.offset = gear_down.offset
+        
 
 
 ################################################################################
@@ -3466,6 +3514,10 @@ class CoordinatesSmoothed(object):
                             lon_in = lon.array[join_idx:end]
                     else:
                         if join_idx and (len(lat_adj) > join_idx):
+                            scan_back = slice(join_idx, this_app_slice.start, -1)
+                            lat_join = first_valid_sample(lat_adj[scan_back])
+                            lon_join = first_valid_sample(lon_adj[scan_back])
+                            join_idx -= max(lat_join.index, lon_join.index) # step back to make sure the join location is not masked.
                             lat_in, lon_in = self.taxi_in_track(lat_adj[join_idx:end], 
                                                                 lon_adj[join_idx:end], 
                                                                 speed[join_idx:end], 
@@ -3846,7 +3898,7 @@ class CoordinatesStraighten(object):
             # Reject any data with invariant positions, i.e. sitting on stand.
             if np.ma.ptp(coord1_s[track])>0.0 and np.ma.ptp(coord2_s[track])>0.0:
                 coord1_s_track, coord2_s_track, cost = \
-                    smooth_track(coord1_s[track], coord2_s[track])
+                    smooth_track(coord1_s[track], coord2_s[track], coord1.frequency)
                 array[track] = coord1_s_track
         return array
         
