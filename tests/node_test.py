@@ -1077,6 +1077,16 @@ class TestKeyPointValueNode(unittest.TestCase):
         self.assertEqual(KeyPointValueNode._get_slices(input_slices),
                          input_slices)
 
+    def test__get_slice_edges(self):
+        section_node = SectionNode(items=[Section('A', slice(10, 20), 9.9, 20.2),
+                                          Section('B', slice(30, 40), 30.1, 39.85)])
+        slices = KeyPointValueNode._get_slices(section_node)
+        self.assertEqual(slices, section_node.get_slices())
+        input_slices = [slice(9.9, 20.2), slice(30.1, 39.85)]
+        self.assertEqual(KeyPointValueNode._get_slices(input_slices),
+                         input_slices)
+
+
 
 class TestKeyTimeInstanceNode(unittest.TestCase):
     def setUp(self):
