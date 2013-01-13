@@ -1483,6 +1483,9 @@ def runway_length(runway):
     :return
     :param start_end: distance from start of runway to end
     :type start_loc: float, units = metres.
+    
+    :error conditions
+    :runway without adequate information fails with ValueError
     '''
     
     try:
@@ -1493,7 +1496,7 @@ def runway_length(runway):
         
         return _dist(start_lat, start_lon, end_lat, end_lon)
     except:
-        return None
+        raise ValueError("runway_length unable to compute length of runway id='%s'" %runway['id'])
 
 
 def runway_heading(runway):
@@ -1509,6 +1512,9 @@ def runway_heading(runway):
     :return
     :param rwy_hdg: true heading of runway centreline.
     :type rwy_hdg: float, units = degrees, facing from start to end.
+    
+    :error conditions
+    :runway without adequate information fails with ValueError
     '''
     try:
         end_lat = runway['end']['latitude']
@@ -1519,8 +1525,8 @@ def runway_heading(runway):
                                            runway['start'])
         return float(brg.data)
     except:
-        return None
-
+        raise ValueError("runway_heading unable to resolve heading for runway id='%s'" %runway['id'])
+    
 
 def runway_snap_dict(runway, lat, lon):
     """
@@ -3980,7 +3986,7 @@ def track_linking(pos, local_pos):
     return local_pos
 
 
-def smooth_track_cost_function(lat_s, lon_s, lat, lon):
+def smooth_track_cost_function(lat_s, lon_s, lat, lon, hz):
     # Summing the errors from the recorded data is easy.
     from_data = np.sum((lat_s - lat)**2)+np.sum((lon_s - lon)**2)
     
@@ -3988,16 +3994,26 @@ def smooth_track_cost_function(lat_s, lon_s, lat, lon):
     slider=np.array([-1,2,-1])
     from_straight = np.sum(np.convolve(lat_s,slider,'valid')**2) + \
         np.sum(np.convolve(lon_s,slider,'valid')**2)
+
+    if hz == 1.0:
+        weight = 1000
+    elif hz == 0.5:
+        weight = 300
+    elif hz == 0.25:
+        weight = 100
+    else:
+        raise ValueError('Lat/Lon sample rate not recognised in smooth_track_cost_function.')
     
-    cost = from_data + 100*from_straight
+    cost = from_data + weight*from_straight
     return cost
 
 
-def smooth_track(lat, lon):
+def smooth_track(lat, lon, hz):
     """
     Input:
     lat = Recorded latitude array
     lon = Recorded longitude array
+    hz = sample rate
     
     Returns:
     lat_last = Optimised latitude array
@@ -4018,7 +4034,7 @@ def smooth_track(lat, lon):
     slider[2] = 1-r
 
     cost_0 = float('inf')
-    cost = smooth_track_cost_function(lat_s, lon_s, lat, lon)
+    cost = smooth_track_cost_function(lat_s, lon_s, lat, lon, hz)
     
     while cost < cost_0:  # Iterate to an optimal solution.
         lat_last = np.ma.copy(lat_s)
@@ -4029,7 +4045,7 @@ def smooth_track(lat, lon):
         lon_s.data[2:-2] = np.convolve(lon_last,slider,'valid')
 
         cost_0 = cost
-        cost = smooth_track_cost_function(lat_s, lon_s, lat, lon)
+        cost = smooth_track_cost_function(lat_s, lon_s, lat, lon, hz)
 
     if cost>0.1:
         logger.warn("Smooth Track Cost Function closed with cost %f.3",cost)
