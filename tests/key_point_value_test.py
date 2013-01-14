@@ -2258,18 +2258,6 @@ class TestAltitudeFlapExtensionMax(unittest.TestCase):
         self.assertTrue(False, msg='Test not implemented.')
 
 
-class TestAltitudeGoAroundFlapRetracted(unittest.TestCase,
-                                        CreateKPVsAtKTIsTest):
-    def setUp(self):
-        self.node_class = AltitudeGoAroundFlapRetracted
-        self.operational_combinations = [('Altitude AAL',
-                                          'Go Around Flap Retracted',)]
-
-    @unittest.skip('Test Not Implemented')
-    def test_derive(self):
-        self.assertTrue(False, msg='Test Not Implemented') 
-
-
 class TestAltitudeWithFlapsMax(unittest.TestCase):
     def test_can_operate(self):
         self.assertEqual(
@@ -5110,17 +5098,58 @@ class TestAltitudeAtGoAroundMin(unittest.TestCase, CreateKPVsAtKTIsTest):
         self.assertTrue(False, msg='Test not implemented.')
 
 
-class TestAltitudeGoAroundFlapRetracted(unittest.TestCase,
-                                        CreateKPVsAtKTIsTest):
-    def setUp(self):
-        self.node_class = AltitudeGoAroundFlapRetracted
-        self.operational_combinations = [('Altitude AAL',
-                                          'Go Around Flap Retracted',)]
-    
-    @unittest.skip('Test Not Implemented')    
-    def test_derive(self):
-        self.assertTrue(False, msg='Test not implemented.')
+class TestAltitudeGoAroundFlapRetracted(unittest.TestCase):
+    def test_can_operate(self):
+        self.assertEqual(        
+            AltitudeGoAroundFlapRetracted.get_operational_combinations(),
+            [('Altitude AAL', 'Go Around Flap Retracted',
+              'Go Around And Climbout')])
 
+    def test_derive_multiple_ktis(self):
+        '''
+        Create a single KPV within the Go Around And Climbout section.
+        '''
+        # Go Around at 1000 feet.
+        alt_aal = P('Altitude AAL',
+                    array=np.ma.concatenate([np.ma.array([0] * 10), 
+                                             np.ma.arange(40) * 1000,
+                                             np.ma.array([40000] * 10),
+                                             np.ma.arange(40, 0, -1) * 1000,
+                                             np.ma.arange(1, 3) * 1000,
+                                             np.ma.array([3000] * 10),
+                                             np.ma.arange(3, -1, -1) * 1000,
+                                             np.ma.array([0] * 10)]))
+        kti_name = 'Go Around Flap Retracted'
+        flap_retracteds = KTI(kti_name, items=[KeyTimeInstance(100, kti_name),
+                                               KeyTimeInstance(104, kti_name),])
+        go_arounds = buildsection('Go Around And Climbout', 97, 112)
+        node = AltitudeGoAroundFlapRetracted()
+        node.derive(alt_aal, flap_retracteds, go_arounds)
+        self.assertEqual(list(node),
+                         [KeyPointValue(100, 1000,
+                                        'Altitude Go Around Flap Retracted')])
+    
+    def test_derive_no_ktis(self):
+        '''
+        Create no KPVs without a Go Around Flap Retracted KTI.
+        '''
+        # Go Around at 1000 feet.
+        alt_aal = P('Altitude AAL',
+                    array=np.ma.concatenate([np.ma.array([0] * 10), 
+                                             np.ma.arange(40) * 1000,
+                                             np.ma.array([40000] * 10),
+                                             np.ma.arange(40, 0, -1) * 1000,
+                                             np.ma.arange(1, 3) * 1000,
+                                             np.ma.array([3000] * 10),
+                                             np.ma.arange(3, -1, -1) * 1000,
+                                             np.ma.array([0] * 10)]))
+        kti_name = 'Go Around Flap Retracted'
+        flap_retracteds = KTI(kti_name, items=[])
+        go_arounds = buildsection('Go Around And Climbout', 97, 112)
+        node = AltitudeGoAroundFlapRetracted()
+        node.derive(alt_aal, flap_retracteds, go_arounds)
+        self.assertEqual(list(node), [])
+        
 
 class TestAltitudeAtGoAroundGearUpSelection(unittest.TestCase):
     def test_can_operate(self):

@@ -3587,7 +3587,6 @@ def shift_slice(this_slice, offset):
         return slice(start, stop, this_slice.step)
     else:
         return None
-        
 
 
 def shift_slices(slicelist, offset):
