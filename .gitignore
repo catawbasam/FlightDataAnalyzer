@@ -1,36 +1,50 @@
-# dot directories
+# Hidden directories:
 .*/
 
-# Transient files
-*.log
-*.tmp
-
-# Operating System cruft
+# Operating system cruft:
 Desktop.ini
 Thumbs.db
 __MACOSX
+._*
+.AppleDouble
 .DS_Store
+.LSOverride
 
-# Sphinx transient files (old style)
-.build
-.static
-
-# Eclipse, WingIDE and Text Editors
-*.sw[nop]
+# Editors (Eclipse, WingIDE, Vim):
+.sw?
+.*.sw?
 *~
+*.bak
 .project
 .pydevproject
-*.wp[ur]
+.wp[ru]
 
-# Python builds and binaries
-dist
-build
-*.egg
-*.egg-info
+# Translation files:
+*.mo
+
+# Java binary files:
+*.class
+
+# Java package files:
+*.ear
+*.jar
+*.war
+
+# Python binary files:
 *.py[cdo]
 *.so
 
-# Jenkins
+# Python package files:
+*.egg
+*.egg-info
+build
+dist
+eggs
+sdist
+develop-eggs
+.installed.cfg
+
+# Jenkins build files:
 .coverage
 coverage.xml
 nosetests.xml
@@ -38,19 +52,26 @@ cpd.xml
 pep8.log
 pylint.log
 
-# Analysis Engine ignores
-test_data/temp/*
-*_copy.hdf5
-graph*.png
-analysis_engine/custom_settings.py
-analysis_engine/custom_hooks.py
-analyser_custom_settings.py
-analyser_custom_hooks.py
-spacetree/_assets/ajax/*.json
+# Sphinx build files:
+.build
+.static
 
-# Profiling results
+# Transient files:
+*.log
+*.tmp
+
+# Project specific ignores:
 *.lprof
 *.pstats
+*_copy.hdf5
+*_custom_hooks.py
+*_custom_settings.py
+*/custom_hooks.py
+*/custom_settings.py
+graph*.png
+graph*.ps
+spacetree/_assets/ajax/*.json
+tests/test_data/temp/*
 
-# Keep empty directories
-!.git*
+# Keep empty directories:
+!*/.git*
