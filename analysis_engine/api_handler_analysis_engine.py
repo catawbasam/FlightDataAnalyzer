@@ -14,7 +14,9 @@ from abc import ABCMeta, abstractmethod
 from copy import copy
 from operator import itemgetter
 
-from analysis_engine.api_handler import (APIHandlerHTTP, NotFoundError)
+from analysis_engine.api_handler import (APIHandlerHTTP,
+                                         IncompleteEntryError,
+                                         NotFoundError)
 from analysis_engine.library import bearing_and_distance
 
 
@@ -206,8 +208,10 @@ class AnalysisEngineAPIHandlerHTTP(AnalysisEngineAPI, APIHandlerHTTP):
         if hint in ['takeoff', 'landing', 'approach']:
             params['hint'] = hint
         url += '?' + urllib.urlencode(params)
-
-        return self._attempt_request(url)['runway']
+        runway = self._attempt_request(url)['runway']
+        if not runway.get('end'):
+            raise IncompleteEntryError("Runway ident '%s' at '%s' has no end" % (runway['ident'], airport))
+        return runway
 
 
 # Local API Handler
@@ -337,7 +341,7 @@ class AnalysisEngineAPIHandlerLocal(AnalysisEngineAPI):
                         airport['code'].get('icao')):
                 break
         else:
-            raise NotFoundError("Airport with code '%s' could not be found." % 
+            raise NotFoundError("Local API Handler: Airport with code '%s' could not be found." % 
                                 code)
         return airport
         
@@ -381,7 +385,7 @@ class AnalysisEngineAPIHandlerLocal(AnalysisEngineAPI):
         :rtype: dict
         '''
         if not latitude or not longitude:
-            raise NotFoundError('Runway not found')
+            raise NotFoundError('Local API Handler: Runway not found')
         runways = []
         for runway in self.runways:
             runway = copy(runway)

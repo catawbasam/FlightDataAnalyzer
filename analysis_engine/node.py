@@ -962,7 +962,8 @@ class SectionNode(Node, list):
         :returns: A list of slices from sections.
         :rtype: [slice]
         '''
-        return [section.slice for section in self]
+        ##return [section.slice for section in self]
+        return [slice(section.start_edge,section.stop_edge) for section in self]
     
 
 class FlightPhaseNode(SectionNode):
@@ -1384,7 +1385,8 @@ class KeyPointValueNode(FormattedNameNode):
         :returns: A list of slices.
         :rtype: [slices]
         '''
-        return [s.slice if isinstance(s, Section) else s for s in slices]
+        ##return [s.slice if isinstance(s, Section) else s for s in slices]
+        return [slice(s.start_edge, s.stop_edge) if isinstance(s, Section) else s for s in slices]
 
     def create_kpv(self, index, value, replace_values={}, **kwargs):
         '''

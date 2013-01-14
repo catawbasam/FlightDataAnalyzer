@@ -67,6 +67,9 @@ from analysis_engine.derived_parameters import (
     Eng_N3Min,
     Flap,
     FuelQty,
+    GearDownSelected,
+    GearOnGround,
+    GearUpSelected,
     GrossWeightSmoothed,
     #GroundspeedAlongTrack,
     HeadingContinuous,
@@ -2565,9 +2568,35 @@ class TestGearDownSelected(unittest.TestCase):
     def test_can_operate(self):
         self.assertTrue(False, msg='Test not implemented.')
         
-    @unittest.skip('Test Not Implemented')
-    def test_derive(self):
-        self.assertTrue(False, msg='Test not implemented.')
+    def test_gear_down_selected_basic(self):
+        gdn = M(array=np.ma.array(data=[0,0,0,1,1,1]),
+                   values_mapping={1:'Down',0:'Up'},
+                   name='Gear Down', 
+                   frequency=1, 
+                   offset=0.1)
+        dn_sel=GearDownSelected()
+        dn_sel.derive(gdn, None, None, None)
+        np.testing.assert_array_equal(dn_sel.array, [0,0,0,1,1,1])
+        self.assertEqual(dn_sel.frequency, 1.0)
+        self.assertAlmostEqual(dn_sel.offset, 0.1)
+
+    def test_gear_down_selected_with_warnings(self):
+        gdn = M(array=np.ma.array(data=[0,0,0,1,1,1]),
+                   values_mapping={1:'Down',0:'Up'},
+                   name='Gear Down', 
+                   frequency=1, 
+                   offset=0.1)
+        red = M(array=np.ma.array(data=[0,1,1,1,0,0]),
+                values_mapping={0:'-',1:'Warning'},
+                name='Gear (*) Red Warning', 
+                frequency=1, 
+                offset=0.6)
+        dn_sel=GearDownSelected()
+        dn_sel.derive(gdn, red, red, red)
+        np.testing.assert_array_equal(dn_sel.array.raw, [0,1,1,1,1,1])
+        self.assertEqual(dn_sel.frequency, 1.0)
+        self.assertAlmostEqual(dn_sel.offset, 0.1)
+
 
 
 class TestGearOnGround(unittest.TestCase):
@@ -2575,9 +2604,64 @@ class TestGearOnGround(unittest.TestCase):
     def test_can_operate(self):
         self.assertTrue(False, msg='Test not implemented.')
         
-    @unittest.skip('Test Not Implemented')
-    def test_derive(self):
-        self.assertTrue(False, msg='Test not implemented.')
+    def test_gear_on_ground_basic(self):
+        p_left = M(array=np.ma.array(data=[0,0,1,1]),
+                   values_mapping={0:'Air',1:'Ground'},
+                   name='Gear (L) On Ground', 
+                   frequency=1, 
+                   offset=0.1)
+        p_right = M(array=np.ma.array(data=[0,1,1,1]),
+                    values_mapping={0:'Air',1:'Ground'},
+                    name='Gear (R) On Ground', 
+                    frequency=1, 
+                    offset=0.6)
+        wow=GearOnGround()
+        wow.derive(p_left, p_right)
+        np.testing.assert_array_equal(wow.array, [0,0,0,1,1,1,1,1])
+        self.assertEqual(wow.frequency, 2.0)
+        self.assertAlmostEqual(wow.offset, 0.1)
+
+    def test_gear_on_ground_common_word(self):
+        p_left = M(array=np.ma.array(data=[0,0,1,1]),
+                   values_mapping={0:'Air',1:'Ground'},
+                   name='Gear (L) On Ground', 
+                   frequency=1, 
+                   offset=0.1)
+        p_right = M(array=np.ma.array(data=[0,1,1,1]),
+                    values_mapping={0:'Air',1:'Ground'},
+                    name='Gear (R) On Ground', 
+                    frequency=1, 
+                    offset=0.1)
+        wow=GearOnGround()
+        wow.derive(p_left, p_right)
+        np.testing.assert_array_equal(wow.array, [0,1,1,1])
+        self.assertEqual(wow.frequency, 1.0)
+        self.assertAlmostEqual(wow.offset, 0.1)
+
+    def test_gear_on_ground_left_only(self):
+        p_left = M(array=np.ma.array(data=[0,0,1,1]),
+                   values_mapping={0:'Air',1:'Ground'},
+                   name='Gear (L) On Ground', 
+                   frequency=1, 
+                   offset=0.1)
+        wow=GearOnGround()
+        wow.derive(p_left, None)
+        np.testing.assert_array_equal(wow.array, [0,0,1,1])
+        self.assertEqual(wow.frequency, 1.0)
+        self.assertAlmostEqual(wow.offset, 0.1)
+
+    def test_gear_on_ground_right_only(self):
+        p_right = M(array=np.ma.array(data=[0,0,0,1]),
+                    values_mapping={0:'Air',1:'Ground'},
+                    name='Gear (R) On Ground', 
+                    frequency=1, 
+                    offset=0.7)
+        wow=GearOnGround()
+        wow.derive(None, p_right)
+        np.testing.assert_array_equal(wow.array, [0,0,0,1])
+        self.assertEqual(wow.frequency, 1.0)
+        self.assertAlmostEqual(wow.offset, 0.7)
+
 
 
 class TestGearUpSelected(unittest.TestCase):
@@ -2585,9 +2669,35 @@ class TestGearUpSelected(unittest.TestCase):
     def test_can_operate(self):
         self.assertTrue(False, msg='Test not implemented.')
         
-    @unittest.skip('Test Not Implemented')
-    def test_derive(self):
-        self.assertTrue(False, msg='Test not implemented.')
+    def test_gear_up_selected_basic(self):
+        gdn = M(array=np.ma.array(data=[1,1,1,0,0,0]),
+                   values_mapping={1:'Down',0:'Up'},
+                   name='Gear Down', 
+                   frequency=1, 
+                   offset=0.1)
+        up_sel=GearUpSelected()
+        up_sel.derive(gdn, None, None, None)
+        np.testing.assert_array_equal(up_sel.array, [0,0,0,1,1,1])
+        self.assertEqual(up_sel.frequency, 1.0)
+        self.assertAlmostEqual(up_sel.offset, 0.1)
+
+    def test_gear_up_selected_with_warnings(self):
+        gdn = M(array=np.ma.array(data=[1,1,1,0,0,0]),
+                   values_mapping={1:'Down',0:'Up'},
+                   name='Gear Down', 
+                   frequency=1, 
+                   offset=0.1)
+        red = M(array=np.ma.array(data=[0,1,1,1,0,0]),
+                values_mapping={0:'-',1:'Warning'},
+                name='Gear (*) Red Warning', 
+                frequency=1, 
+                offset=0.6)
+        up_sel=GearUpSelected()
+        up_sel.derive(gdn, red, red, red)
+        np.testing.assert_array_equal(up_sel.array, [0,1,1,1,1,1])
+        self.assertEqual(up_sel.frequency, 1.0)
+        self.assertAlmostEqual(up_sel.offset, 0.1)
+
 
 
 class TestHeadingContinuous(unittest.TestCase):

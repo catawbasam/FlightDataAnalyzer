@@ -60,6 +60,13 @@ class InvalidAPIInputError(APIError):
     pass
 
 
+class IncompleteEntryError(APIError):
+    '''
+    An exception to be raised when and entry does not contain all required data.
+    '''
+    pass
+
+
 class NotFoundError(APIError):
     '''
     An exception to be raised when something could not be found via the API.

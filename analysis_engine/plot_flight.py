@@ -155,6 +155,16 @@ def track_to_kml(hdf_path, kti_list, kpv_list, flight_attrs,
             kml.newpoint(**kti_point_values)
         
     for kpv in kpv_list:
+
+        # Trap kpvs with invalid latitude or longitude data (normally happens
+        # at the start of the data where accelerometer offsets are declared,
+        # and this avoids casting kpvs into the Atlantic.
+        kpv_lat = smooth_lat.at(kpv.index)
+        kpv_lon = smooth_lon.at(kpv.index)
+        if kpv_lat == None or kpv_lon == None or \
+           (kpv_lat == 0.0 and kpv_lon == 0.0):
+            continue
+
         if kpv.name not in ['z']:
             style = simplekml.Style()
             style.iconstyle.color = simplekml.Color.red
@@ -162,11 +172,11 @@ def track_to_kml(hdf_path, kti_list, kpv_list, flight_attrs,
             altitude = alt.at(kpv.index) if plot_altitude else None
             if altitude:
                 kpv_point_values['coords'] = (
-                    (smooth_lon.at(kpv.index), smooth_lat.at(kpv.index), altitude,),)
+                    (kpv_lon, kpv_lat, altitude,),)
                 kpv_point_values['altitudemode'] = simplekml.constants.AltitudeMode.relativetoground 
             else:
                 kpv_point_values['coords'] = (
-                    (smooth_lon.at(kpv.index), smooth_lat.at(kpv.index),),)
+                    (kpv_lon, kpv_lat,),)
                 kpv_point_values['altitudemode'] = simplekml.constants.AltitudeMode.clamptoground 
             
             pnt = kml.newpoint(**kpv_point_values)
@@ -352,7 +362,7 @@ def csv_flight_details(hdf_path, kti_list, kpv_list, phase_list, dest_path=None)
     rows = []
     params = ['Airspeed', 'Altitude AAL']
     attrs = ['value', 'datetime', 'latitude', 'longitude'] 
-    header = ['type', 'index', 'duration', 'name'] + attrs + params
+    header = ['path', 'type', 'index', 'duration', 'name'] + attrs + params
     if not dest_path:
         header.append('Path')
     formats = {'index': '%.3f',
