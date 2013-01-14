@@ -6095,10 +6095,20 @@ class AltitudeAtGoAroundMin(KeyPointValueNode):
             
  
 class AltitudeGoAroundFlapRetracted(KeyPointValueNode):
-    # gafr pinpoints the flap retraction instance within the 500ft go-around window.
-    def derive(self, alt_aal=P('Altitude AAL'), 
-               gafr=KTI('Go Around Flap Retracted')):
-        self.create_kpvs_at_ktis(alt_aal.array, gafr)
+    '''
+    Go Around Flap Retracted pinpoints the flap retraction instance within the
+    500ft go-around window. Create a single KPV for the first flap retraction
+    within a Go Around And Climbout phase.
+    '''
+    def derive(self, alt_aal=P('Altitude AAL'),
+               flap_retracteds=KTI('Go Around Flap Retracted'),
+               go_arounds=S('Go Around And Climbout')):
+        for go_around in go_arounds:
+            flap_retracted = flap_retracteds.get_first(
+                within_slice=go_around.slice)
+            if flap_retracted:
+                self.create_kpv(flap_retracted.index,
+                                alt_aal.array[flap_retracted.index])
 
 
 class AltitudeAtGoAroundGearUpSelection(KeyPointValueNode):
