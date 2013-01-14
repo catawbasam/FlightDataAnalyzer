@@ -220,7 +220,7 @@ def align(slave, master, interpolate=True):
            
     # Compute the sample rate ratio:
     r = wm / float(ws)
-    
+
     # Here we create a masked array to hold the returned values that will have 
     # the same sample rate and timing offset as the master
     len_aligned = int(len(slave_array) * r)
@@ -1483,6 +1483,9 @@ def runway_length(runway):
     :return
     :param start_end: distance from start of runway to end
     :type start_loc: float, units = metres.
+    
+    :error conditions
+    :runway without adequate information fails with ValueError
     '''
     
     try:
@@ -1493,7 +1496,7 @@ def runway_length(runway):
         
         return _dist(start_lat, start_lon, end_lat, end_lon)
     except:
-        return None
+        raise ValueError("runway_length unable to compute length of runway id='%s'" %runway['id'])
 
 
 def runway_heading(runway):
@@ -1509,6 +1512,9 @@ def runway_heading(runway):
     :return
     :param rwy_hdg: true heading of runway centreline.
     :type rwy_hdg: float, units = degrees, facing from start to end.
+    
+    :error conditions
+    :runway without adequate information fails with ValueError
     '''
     try:
         end_lat = runway['end']['latitude']
@@ -1519,8 +1525,8 @@ def runway_heading(runway):
                                            runway['start'])
         return float(brg.data)
     except:
-        return None
-
+        raise ValueError("runway_heading unable to resolve heading for runway id='%s'" %runway['id'])
+    
 
 def runway_snap_dict(runway, lat, lon):
     """
@@ -2749,9 +2755,13 @@ def merge_two_parameters(param_one, param_two):
     parameters. Use blend_two_parameters for analogue parameters.
     
     This process merges two parameter objects. They must be recorded at the
-    same frequency. without smoothing, and then computes the offset and
-    frequency appropriately. Note: There is no check for the parameters being
-    equi-spaced.
+    same frequency. They are interleaved without smoothing, and then the
+    offset and frequency are computed as though the finished item was
+    equispaced.
+    
+    If the two parameters are recorded less than half the sample interval
+    apart, a value error is raised as the synthesized parameter cannot
+    realistically be described by an equispaced result.
     
     :param param_one: Parameter object
     :type param_one: Parameter
@@ -2761,16 +2771,20 @@ def merge_two_parameters(param_one, param_two):
     :returns array, frequency, offset
     '''
     assert param_one.frequency  == param_two.frequency
+    assert len(param_one.array) == len(param_two.array)
     
-    if param_one.offset <= param_two.offset:
+    delta = (param_one.offset - param_two.offset) * param_one.frequency
+    off = (param_one.offset+param_two.offset-(1/(2.0*param_one.frequency)))/2.0
+    if -0.75 < delta < -0.25:
         # merged array should be monotonic (always increasing in time)
         array = merge_sources(param_one.array, param_two.array)
-        offset = param_one.offset
-    else:
+        return array, param_one.frequency * 2, off
+    elif 0.25 < delta < 0.75:
         array = merge_sources(param_two.array, param_one.array)
-        offset = param_two.offset
-    return array, param_one.frequency * 2, offset
-
+        return array, param_two.frequency * 2, off
+    else:
+        raise ValueError("merge_two_parameters called with offsets too similar. %s : %.4f and %s : %.4f" \
+                         % (param_one.name, param_one.offset, param_two.name, param_two.offset))
 
 def merge_sources(*arrays):
     '''
@@ -3895,7 +3909,16 @@ def touchdown_inertial(land, roc, alt):
     #...and calculate each with a weighted correction factor.
     for i in range(1, len(sm_ht)):
         sm_ht[i] = (1.0-tau)*sm_ht[i-1] + tau*my_alt[i-1] + my_roc[i]/60.0/roc.hz
-        
+    
+    '''
+    # Plot for ease of inspection during development.
+    from analysis_engine.plot_flight import plot_parameter
+    plot_parameter(alt.array[startpoint:endpoint], show=False)
+    plot_parameter(roc.array[startpoint:endpoint]/100.0, show=False)
+    plot_parameter(on_gnd.array[startpoint:endpoint], show=False)
+    plot_parameter(sm_ht)
+    '''
+    
     # Find where the smoothed height touches zero and hence the rod at this
     # point. Note that this may differ slightly from the touchdown measured
     # using wheel switches.
@@ -3963,7 +3986,7 @@ def track_linking(pos, local_pos):
     return local_pos
 
 
-def smooth_track_cost_function(lat_s, lon_s, lat, lon):
+def smooth_track_cost_function(lat_s, lon_s, lat, lon, hz):
     # Summing the errors from the recorded data is easy.
     from_data = np.sum((lat_s - lat)**2)+np.sum((lon_s - lon)**2)
     
@@ -3971,16 +3994,26 @@ def smooth_track_cost_function(lat_s, lon_s, lat, lon):
     slider=np.array([-1,2,-1])
     from_straight = np.sum(np.convolve(lat_s,slider,'valid')**2) + \
         np.sum(np.convolve(lon_s,slider,'valid')**2)
+
+    if hz == 1.0:
+        weight = 1000
+    elif hz == 0.5:
+        weight = 300
+    elif hz == 0.25:
+        weight = 100
+    else:
+        raise ValueError('Lat/Lon sample rate not recognised in smooth_track_cost_function.')
     
-    cost = from_data + 100*from_straight
+    cost = from_data + weight*from_straight
     return cost
 
 
-def smooth_track(lat, lon):
+def smooth_track(lat, lon, hz):
     """
     Input:
     lat = Recorded latitude array
     lon = Recorded longitude array
+    hz = sample rate
     
     Returns:
     lat_last = Optimised latitude array
@@ -4001,7 +4034,7 @@ def smooth_track(lat, lon):
     slider[2] = 1-r
 
     cost_0 = float('inf')
-    cost = smooth_track_cost_function(lat_s, lon_s, lat, lon)
+    cost = smooth_track_cost_function(lat_s, lon_s, lat, lon, hz)
     
     while cost < cost_0:  # Iterate to an optimal solution.
         lat_last = np.ma.copy(lat_s)
@@ -4012,7 +4045,7 @@ def smooth_track(lat, lon):
         lon_s.data[2:-2] = np.convolve(lon_last,slider,'valid')
 
         cost_0 = cost
-        cost = smooth_track_cost_function(lat_s, lon_s, lat, lon)
+        cost = smooth_track_cost_function(lat_s, lon_s, lat, lon, hz)
 
     if cost>0.1:
         logger.warn("Smooth Track Cost Function closed with cost %f.3",cost)

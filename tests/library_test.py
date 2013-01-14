@@ -2149,19 +2149,19 @@ class TestMergeSources(unittest.TestCase):
 class TestMergeTwoParameters(unittest.TestCase):
     def test_merge_two_parameters_offset_ordered_forward(self):
         p1 = P(array=[0]*4, frequency=1, offset=0.0)
-        p2 = P(array=[1,2,3,4], frequency=1, offset=0.2)
+        p2 = P(array=[1,2,3,4], frequency=1, offset=0.4)
         arr, freq, off = merge_two_parameters(p1, p2)
         self.assertEqual(arr[1], 1.0) # Differs from blend function here.
         self.assertEqual(freq, 2)
-        self.assertEqual(off, 0.0)
+        self.assertAlmostEqual(off, -0.05)
 
     def test_merge_two_parameters_offset_ordered_backward(self):
-        p1 = P(array=[5,10,7,8], frequency=2, offset=0.5)
+        p1 = P(array=[5,10,7,8], frequency=2, offset=0.3)
         p2 = P(array=[1,2,3,4], frequency=2, offset=0.1)
         arr, freq, off = merge_two_parameters(p1, p2)
         self.assertEqual(arr[3], 10.0)
         self.assertEqual(freq, 4)
-        self.assertEqual(off, 0.1)
+        self.assertAlmostEqual(off, 0.075)
 
     def test_merge_two_parameters_assertion_error(self):
         p1 = P(array=[0]*4, frequency=1, offset=0.0)
@@ -2170,8 +2170,13 @@ class TestMergeTwoParameters(unittest.TestCase):
 
     def test_merge_two_parameters_array_mismatch_error(self):
         p1 = P(array=[0]*4, frequency=1, offset=0.0)
-        p2 = P(array=[1]*3, frequency=2, offset=0.2)
+        p2 = P(array=[1]*3, frequency=1, offset=0.2)
         self.assertRaises(AssertionError, merge_two_parameters, p1, p2)
+
+    def test_merge_two_parameters_arrays_biassed_error(self):
+        p1 = P(array=[0]*4, name='One', frequency=1, offset=0.9)
+        p2 = P(array=[1]*4, name='Two', frequency=1, offset=0.9)
+        self.assertRaises(ValueError, merge_two_parameters, p1, p2)
 
 
 class TestMinValue(unittest.TestCase):
@@ -3488,14 +3493,21 @@ class TestSmoothTrack(unittest.TestCase):
     def test_smooth_track_latitude(self):
         lat = np.ma.array([0,0,0,1,1,1], dtype=float)
         lon = np.ma.zeros(6, dtype=float)
-        lat_s, lon_s, cost = smooth_track(lat, lon)
+        lat_s, lon_s, cost = smooth_track(lat, lon, 0.25)
         self.assertLess (cost,26)
         
     def test_smooth_track_longitude(self):
         lon = np.ma.array([0,0,0,1,1,1], dtype=float)
         lat = np.ma.zeros(6, dtype=float)
-        lat_s, lon_s, cost = smooth_track(lat, lon)
+        lat_s, lon_s, cost = smooth_track(lat, lon, 0.25)
         self.assertLess (cost,26)
+        
+    def test_smooth_track_sample_rate_change(self):
+        lon = np.ma.array([0,0,0,1,1,1], dtype=float)
+        lat = np.ma.zeros(6, dtype=float)
+        lat_s, lon_s, cost = smooth_track(lat, lon, 1.0)
+        self.assertLess (cost,251)
+        self.assertGreater (cost,250)
         
     def test_smooth_track_speed(self):
         from time import clock
@@ -3503,7 +3515,7 @@ class TestSmoothTrack(unittest.TestCase):
         lon = lon%27
         lat = np.ma.zeros(10000, dtype=float)
         start = clock()
-        lat_s, lon_s, cost = smooth_track(lat, lon)
+        lat_s, lon_s, cost = smooth_track(lat, lon, 0.25)
         end = clock()      
         print end-start      
         self.assertLess (end-start,1.0)

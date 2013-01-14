@@ -5084,7 +5084,7 @@ class SpeedbrakesDeployedWithPowerOnInHeightBandsDuration(KeyPointValueNode):
     Specific to certain operators.
     '''
 
-    NAME_FORMAT = 'Speedbrake Deployed With N1>%(eng_n1)d Between %(upper)d And %(lower)d Ft Duration'
+    NAME_FORMAT = 'Speedbrake Deployed With N1 Over %(eng_n1)d Between %(upper)d And %(lower)d Ft Duration'
     NAME_VALUES = {
         'eng_n1': [50, 60],
         'upper': [35000, 20000, 6000],
