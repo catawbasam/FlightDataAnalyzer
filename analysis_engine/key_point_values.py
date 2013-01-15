@@ -1436,24 +1436,31 @@ class TouchdownToSpoilersDeployedDuration(KeyPointValueNode):
 ################################################################################
 # Takeoff and Use of TOGA
 
+
 class GroundspeedAtTOGA(KeyPointValueNode):
     '''
     FDS developed this KPV to support the UK CAA Significant Seven programme.
     "Excursions - Take-Off (Longitudinal), Selection of TOGA late in take-off
     roll."
-    
+
     This KPV measures the groundspeed at the point of TOGA selection,
     irrespective of whether this is late (or early!).
-    
+
     [Note: Takeoff phase is used as this includes turning onto the runway
     whereas Takeoff Roll only starts after the aircraft is accelerating.]
     '''
-    
-    def derive(self, gspd=P('Groundspeed'), toga=M('Takeoff And Go Around'),
+
+    name = 'Groundspeed At TOGA'
+
+    def derive(self,
+               gspd=P('Groundspeed'),
+               toga=M('Takeoff And Go Around'),
                takeoff=S('Takeoff')):
+
         indexes = find_edges_on_state_change('TOGA', toga.array, phase=takeoff)
         for index in indexes:
-            speed = value_at_index(gspd.array, index) # interpolates as required
+            # interpolates as required:
+            speed = value_at_index(gspd.array, index)
             self.create_kpv(index, speed)
 
 
@@ -1463,24 +1470,32 @@ class TOGASelectedInFlightNotGoAroundDuration(KeyPointValueNode):
     "Loss of Control - Unexpected TOGA power selection in flight (except for
     a go-around)"
     '''
-    def derive(self, toga=M('Takeoff And Go Around'), gas=S('Go Around And Climbout'),
+
+    name = 'TOGA Selected In Flight Not Go Around Duration'
+
+    def derive(self,
+               toga=M('Takeoff And Go Around'),
+               gas=S('Go Around And Climbout'),
                airs=S('Airborne')):
 
-        to_scan=slices_and([s.slice for s in airs],
-                           slices_not([s.slice for s in gas], 
-                                       begin_at=airs[0].slice.start, 
-                                       end_at=airs[-1].slice.stop))
+        to_scan = slices_and(
+            [s.slice for s in airs],
+            slices_not(
+                [s.slice for s in gas],
+                begin_at=airs[0].slice.start,
+                end_at=airs[-1].slice.stop,
+            ),
+        )
 
         # The elegant create_kpvs_where_state function requires the phase
         # information as a section object, hence a couple of lines of glue.
         # TODO: Make create_kpvs_where_state accept list of slices.
-        not_ga=S()
+        not_ga = S()
         not_ga.create_sections(to_scan, 'Airborne Not Go Around')
-        
-        self.create_kpvs_where_state('TOGA', toga.array, toga.hz, 
+
+        self.create_kpvs_where_state('TOGA', toga.array, toga.hz,
                                      phase=not_ga, exclude_leading_edge=True)
-               
-                           
+
 
 class LiftoffToClimbPitchDuration(KeyPointValueNode):
     '''
@@ -3891,22 +3906,24 @@ class HeadingDeviationOnTakeoffAbove80Kts(KeyPointValueNode):
 
 
 class HeadingDeviationAtTOGA(KeyPointValueNode):
-    
-    name = 'Heading Deviation From CL On Takeoff At TOGA'
-    
-    """
+    '''
     FDS developed this KPV to support the UK CAA Significant Seven programme.
     "Excursions - Take off (Lateral). TOGA pressed before a/c aligned."
-    """
-    def derive(self, head=P('Heading True Continuous'), toga=M('Takeoff And Go Around'),
-               takeoff=S('Takeoff'), rwy=A('FDR Takeoff Runway')):
+    '''
+
+    name = 'Heading Deviation From CL On Takeoff At TOGA'
+
+    def derive(self,
+               head=P('Heading True Continuous'),
+               toga=M('Takeoff And Go Around'),
+               takeoff=S('Takeoff'),
+               rwy=A('FDR Takeoff Runway')):
 
         if ambiguous_runway(rwy):
             return
-
         indexes = find_edges_on_state_change('TOGA', toga.array, phase=takeoff)
         for index in indexes:
-            brg=value_at_index(head.array, index)
+            brg = value_at_index(head.array, index)
             dev = runway_deviation(brg, rwy.value)
             self.create_kpv(index, dev)
 
@@ -6126,17 +6143,23 @@ class HoldingDuration(KeyPointValueNode):
 #See also: EngGasTempGoAroundMax, EngN1GoAroundMax, EngN2GoAroundMax,
 #EngN3GoAroundMax, EngTorqueGoAroundMax
 
+
 class TOGASelectedInGoAroundDuration(KeyPointValueNode):
     '''
     FDS developed this KPV to support the UK CAA Significant Seven programme.
     "Loss of Control - TOGA power selection in flight (Go-arounds need to be
     kept as a separate case)."
     '''
-    def derive(self, toga=M('Takeoff And Go Around'),
+
+    name = 'TOGA Selected In Go Around Duration'
+
+    def derive(self,
+               toga=M('Takeoff And Go Around'),
                gas=S('Go Around And Climbout')):
+
         self.create_kpvs_where_state('TOGA', toga.array, toga.hz, phase=gas)
-               
-                           
+
+
 class AltitudeAtGoAroundMin(KeyPointValueNode):
     '''
     The altitude above the local airfield level at the minimum altitude point
