@@ -510,6 +510,7 @@ class LandingRunway(FlightAttributeNode):
         minimum = all((
             'FDR Landing Airport' in available,
             'Heading At Landing' in available,
+            'ILS Frequency On Approach' in available
         ))
 
         fallback = 'AFR Landing Runway' in available
