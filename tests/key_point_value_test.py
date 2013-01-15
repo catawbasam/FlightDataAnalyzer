@@ -146,9 +146,12 @@ from analysis_engine.key_point_values import (
     HeadingAtTakeoff,
     ILSFrequencyOnApproach,
     ILSGlideslopeDeviation1500To1000FtMax,
-    ILSGlideslopeDeviation1000To250FtMax,
+    ILSGlideslopeDeviation1000To500FtMax,
+    ILSGlideslopeDeviation500To200FtMax,
     ILSLocalizerDeviation1500To1000FtMax,
-    ILSLocalizerDeviation1000To250FtMax,    
+    ILSLocalizerDeviation1000To500FtMax,    
+    ILSLocalizerDeviation500To200FtMax,    
+    ILSLocalizerDeviationAtTouchdown,
     LatitudeAtLanding,
     LatitudeAtLiftoff,
     LatitudeAtTakeoff,
@@ -376,7 +379,61 @@ class TestRollAbove1500FtMax(unittest.TestCase, CreateKPVsWithinSlicesTest):
             node.create_kpv_from_slices.assert_called_once_with(\
                 mock1.array, mock2, self.function)
 
-            
+
+class ILSTest(NodeTest):
+    '''
+    '''
+
+    def prepare__frequency__basic(self):
+        # Let's give this a really hard time with alternate samples invalid and
+        # the final signal only tuned just at the end of the data.
+        ils_frequency = P(
+            name='ILS Frequency',
+            array=np.ma.array([108.5] * 6 + [114.05] * 4),
+        )
+        ils_frequency.array[0:10:2] = np.ma.masked
+        ils_ests = buildsection('ILS Localizer Established', 2, 9)
+        return ils_frequency, ils_ests
+
+    def prepare__glideslope__basic(self):
+        ils_glideslope = P(
+            name='ILS Glideslope',
+            array=np.ma.array(1.0 - np.cos(np.arange(0, 6.3, 0.1))),
+        )
+        alt_aal = P(
+            name='Altitude AAL For Flight Phases',
+            # Altitude from 1875 to 325 ft in 63 steps.
+            array=np.ma.array((75 - np.arange(63)) * 25),
+        )
+        ils_ests = buildsection('ILS Glideslope Established', 2, 63)
+        return ils_glideslope, alt_aal, ils_ests
+
+    def prepare__glideslope__four_peaks(self):
+        ils_glideslope = P(
+            name='ILS Glideslope',
+            array=np.ma.array(-0.2 - np.sin(np.arange(0, 12.6, 0.1))),
+        )
+        alt_aal = P(
+            name='Altitude AAL For Flight Phases',
+            # Altitude from 1875 to 325 ft in 63 steps.
+            array=np.ma.array((75 - np.arange(63)) * 25),
+        )
+        ils_ests = buildsection('ILS Glideslope Established', 2, 56)
+        return ils_glideslope, alt_aal, ils_ests
+
+    def prepare__localizer__basic(self):
+        ils_localizer = P(
+            name='ILS Localizer',
+            array=np.ma.array(np.arange(0, 12.6, 0.1)),
+        )
+        alt_aal = P(
+            name='Altitude AAL For Flight Phases',
+            array=np.ma.array(np.cos(np.arange(0, 12.6, 0.1)) * -1000 + 1000),
+        )
+        ils_ests = buildsection('ILS Localizer Established', 30, 115)
+        return ils_localizer, alt_aal, ils_ests
+
+
 ################################################################################
 # Test Classes
 
@@ -2007,130 +2064,174 @@ class TestEng_N1MaxDurationUnder60PercentAfterTouchdown(unittest.TestCase):
         ##self.assertTrue('Eng (2)' in max_dur[1].name)
         self.assertEqual(len(max_dur), 1)
 
-        
-class TestILSGlideslopeDeviation1500To1000FtMax(unittest.TestCase):
-        
+
+class TestILSFrequencyOnApproach(unittest.TestCase, ILSTest):
+
+    def setUp(self):
+        self.node_class = ILSFrequencyOnApproach
+        self.operational_combinations = [(
+            'ILS Frequency',
+            'ILS Localizer Established',
+        )]
+
     def test_derive_basic(self):
-        testline = np.ma.array((75 - np.arange(63))*25) # 1875 to 325 ft in 63 steps.
-        alt_ph = P('Altitude AAL For Flight Phases', testline)
-        
-        testwave = np.ma.array(1.0 - np.cos(np.arange(0,6.3,0.1)))
-        ils_gs = P('ILS Glideslope', testwave)
-        
-        gs_estab = buildsection('ILS Glideslope Established', 2,63)
-        
+        kpv = ILSFrequencyOnApproach()
+        kpv.derive(*self.prepare__frequency__basic())
+        self.assertEqual(len(kpv), 1)
+        self.assertEqual(kpv[0].index, 2)
+        self.assertEqual(kpv[0].value, 108.5)
+
+
+class TestILSGlideslopeDeviation1500To1000FtMax(unittest.TestCase, ILSTest):
+
+    def setUp(self):
+        self.node_class = ILSGlideslopeDeviation1500To1000FtMax
+        self.operational_combinations = [(
+            'ILS Glideslope',
+            'Altitude AAL For Flight Phases',
+            'ILS Glideslope Established',
+        )]
+
+    def test_derive_basic(self):
         kpv = ILSGlideslopeDeviation1500To1000FtMax()
-        kpv.derive(ils_gs, alt_ph, gs_estab)
-        # 'KeyPointValue', 'index' 'value' 'name'
+        kpv.derive(*self.prepare__glideslope__basic())
         self.assertEqual(len(kpv), 1)
         self.assertEqual(kpv[0].index, 31)
         self.assertAlmostEqual(kpv[0].value, 1.99913515027)
 
     def test_derive_four_peaks(self):
-        testline = np.ma.array((75 - np.arange(63))*25) # 1875 to 325 ft in 63 steps.
-        alt_ph = P('Altitude AAL For Flight Phases', testline)
-        testwave = np.ma.array(-0.2-np.sin(np.arange(0,12.6,0.1)))
-        ils_gs = P('ILS Glideslope', testwave)
-        gs_estab = buildsection('ILS Glideslope Established', 2,56)
         kpv = ILSGlideslopeDeviation1500To1000FtMax()
-        kpv.derive(ils_gs, alt_ph, gs_estab)
-        # 'KeyPointValue', 'index' 'value' 'name'
+        kpv.derive(*self.prepare__glideslope__four_peaks())
+        self.assertEqual(len(kpv), 1)
+        self.assertEqual(kpv[0].index, 16)
         self.assertAlmostEqual(kpv[0].value, -1.1995736)
 
 
-class TestILSGlideslopeDeviation1000To250FtMax(unittest.TestCase):
-        
+class TestILSGlideslopeDeviation1000To500FtMax(unittest.TestCase, ILSTest):
+
+    def setUp(self):
+        self.node_class = ILSGlideslopeDeviation1000To500FtMax
+        self.operational_combinations = [(
+            'ILS Glideslope',
+            'Altitude AAL For Flight Phases',
+            'ILS Glideslope Established',
+        )]
+
     def test_derive_basic(self):
-        testline = np.ma.array((75 - np.arange(63))*25) # 1875 to 325 ft in 63 steps.
-        alt_ph = P('Altitude AAL For Flight Phases', testline)
-        
-        testwave = np.ma.array(1.0 - np.cos(np.arange(0,6.3,0.1)))
-        ils_gs = P('ILS Glideslope', testwave)
-        
-        gs_estab = buildsection('ILS Glideslope Established', 2,63)
-        
-        kpv = ILSGlideslopeDeviation1000To250FtMax()
-        kpv.derive(ils_gs, alt_ph, gs_estab)
-        # 'KeyPointValue', 'index' 'value' 'name'
+        kpv = ILSGlideslopeDeviation1000To500FtMax()
+        kpv.derive(*self.prepare__glideslope__basic())
         self.assertEqual(len(kpv), 1)
         self.assertEqual(kpv[0].index, 36)
         self.assertAlmostEqual(kpv[0].value, 1.89675842)
 
     def test_derive_four_peaks(self):
-        testline = np.ma.array((75 - np.arange(63))*25) # 1875 to 325 ft in 63 steps.
-        alt_ph = P('Altitude AAL For Flight Phases', testline)
-        testwave = np.ma.array(-0.2-np.sin(np.arange(0,12.6,0.1)))
-        ils_gs = P('ILS Glideslope', testwave)
-        gs_estab = buildsection('ILS Glideslope Established', 2,56)
-        kpv = ILSGlideslopeDeviation1000To250FtMax()
-        kpv.derive(ils_gs, alt_ph, gs_estab)
-        # 'KeyPointValue', 'index' 'value' 'name'
+        kpv = ILSGlideslopeDeviation1000To500FtMax()
+        kpv.derive(*self.prepare__glideslope__four_peaks())
+        self.assertEqual(len(kpv), 1)
+        self.assertEqual(kpv[0].index, 47)
         self.assertAlmostEqual(kpv[0].value, 0.79992326)
 
 
-class TestILSFrequencyOnApproach(unittest.TestCase):
-    def test_can_operate(self):
-        expected = [('ILS Frequency', 'ILS Localizer Established',)]
-        opts = ILSFrequencyOnApproach.get_operational_combinations()
-        self.assertEqual(opts, expected) 
-        
+class TestILSGlideslopeDeviation500To200FtMax(unittest.TestCase, ILSTest):
+
+    def setUp(self):
+        self.node_class = ILSGlideslopeDeviation500To200FtMax
+        self.operational_combinations = [(
+            'ILS Glideslope',
+            'Altitude AAL For Flight Phases',
+            'ILS Glideslope Established',
+        )]
+
     def test_derive_basic(self):
-        # Let's give this a really hard time with alternate samples invalid and
-        # the final signal only tuned just at the end of the data.
-        frq = P('ILS Frequency',np.ma.array([108.5]*6+[114.05]*4))
-        frq.array[0:10:2] = np.ma.masked
-        ils = buildsection('ILS Localizer Established', 2, 9)
-        kpv = ILSFrequencyOnApproach()
-        kpv.derive(frq, ils)
-        expected = [KeyPointValue(index=2, value=108.5, 
-                                  name='ILS Frequency On Approach')]
-        self.assertEqual(kpv, expected)
+        kpv = ILSGlideslopeDeviation500To200FtMax()
+        kpv.derive(*self.prepare__glideslope__basic())
+        self.assertEqual(len(kpv), 1)
+        self.assertEqual(kpv[0].index, 56)
+        self.assertAlmostEqual(kpv[0].value, 0.22443412)
+
+    # FIXME: Need to amend the test data as it produces no key point value for
+    #        the 500-200ft altitude range. Originally this was not a problem
+    #        before we split the 1000-250ft range in two.
+    @unittest.expectedFailure
+    def test_derive_four_peaks(self):
+        kpv = ILSGlideslopeDeviation500To200FtMax()
+        kpv.derive(*self.prepare__glideslope__four_peaks())
+        self.assertEqual(len(kpv), 1)
+        self.assertEqual(kpv[0].index, 0)          # FIXME
+        self.assertAlmostEqual(kpv[0].value, 0.0)  # FIXME
 
 
-class TestILSLocalizerDeviation1500To1000FtMax(unittest.TestCase):
-    def test_can_operate(self):
-        expected = [('ILS Localizer','Altitude AAL For Flight Phases',
-                     'ILS Localizer Established')]
-        opts = ILSLocalizerDeviation1500To1000FtMax.get_operational_combinations()
-        self.assertEqual(opts, expected) 
-        
+class TestILSLocalizerDeviation1500To1000FtMax(unittest.TestCase, ILSTest):
+
+    def setUp(self):
+        self.node_class = ILSLocalizerDeviation1500To1000FtMax
+        self.operational_combinations = [(
+            'ILS Localizer',
+            'Altitude AAL For Flight Phases',
+            'ILS Localizer Established',
+        )]
+
     def test_derive_basic(self):
-        testline = np.arange(0,12.6,0.1)
-        testwave = (np.cos(testline)*(-1000))+1000
-        alt_ph = P('Altitude AAL For Flight Phases',
-                           np.ma.array(testwave))
-        ils_loc = P('ILS Localizer', np.ma.array(testline))
-        loc_est = buildsection('ILS Localizer Established', 30,115)
         kpv = ILSLocalizerDeviation1500To1000FtMax()
-        kpv.derive(ils_loc, alt_ph, loc_est)
-        # 'KeyPointValue', 'index value name'
+        kpv.derive(*self.prepare__localizer__basic())
         self.assertEqual(len(kpv), 2)
         self.assertEqual(kpv[0].index, 47)
         self.assertEqual(kpv[1].index, 109)
-        
-        
-class TestILSLocalizerDeviation1000To250FtMax(unittest.TestCase):
-    def test_can_operate(self):
-        expected = [('ILS Localizer','Altitude AAL For Flight Phases',
-                     'ILS Localizer Established')]
-        opts = ILSLocalizerDeviation1000To250FtMax.get_operational_combinations()
-        self.assertEqual(opts, expected) 
-        
-    def test_ils_loc_1000_250_basic(self):
-        testline = np.arange(0,12.6,0.1)
-        testwave = (np.cos(testline)*(-1000))+1000
-        alt_ph = P('Altitude AAL For Flight Phases',
-                           np.ma.array(testwave))
-        ils_loc = P('ILS Localizer', np.ma.array(testline))
-        loc_est = buildsection('ILS Localizer Established', 30,115)
-        kpv = ILSLocalizerDeviation1000To250FtMax()
-        kpv.derive(ils_loc, alt_ph, loc_est)
-        # 'KeyPointValue', 'index value name'
+        self.assertAlmostEqual(kpv[0].value, 4.7)
+        self.assertAlmostEqual(kpv[1].value, 10.9)
+
+
+class TestILSLocalizerDeviation1000To500FtMax(unittest.TestCase, ILSTest):
+
+    def setUp(self):
+        self.node_class = ILSLocalizerDeviation1000To500FtMax
+        self.operational_combinations = [(
+            'ILS Localizer',
+            'Altitude AAL For Flight Phases',
+            'ILS Localizer Established',
+        )]
+
+    def test_derive_basic(self):
+        kpv = ILSLocalizerDeviation1000To500FtMax()
+        kpv.derive(*self.prepare__localizer__basic())
         self.assertEqual(len(kpv), 2)
-        self.assertEqual(kpv[0].index, 55)
-        self.assertEqual(kpv[0].value, 5.5)
+        self.assertEqual(kpv[0].index, 52)
         self.assertEqual(kpv[1].index, 114)
-        self.assertEqual(kpv[1].value, 11.4)
+        self.assertAlmostEqual(kpv[0].value, 5.2)
+        self.assertAlmostEqual(kpv[1].value, 11.4)
+
+
+class TestILSLocalizerDeviation500To200FtMax(unittest.TestCase, ILSTest):
+
+    def setUp(self):
+        self.node_class = ILSLocalizerDeviation500To200FtMax
+        self.operational_combinations = [(
+            'ILS Localizer',
+            'Altitude AAL For Flight Phases',
+            'ILS Localizer Established',
+        )]
+
+    def test_derive_basic(self):
+        kpv = ILSLocalizerDeviation500To200FtMax()
+        kpv.derive(*self.prepare__localizer__basic())
+        self.assertEqual(len(kpv), 1)
+        self.assertEqual(kpv[0].index, 56)
+        self.assertAlmostEqual(kpv[0].value, 5.6)
+
+
+class TestILSLocalizerDeviationAtTouchdown(unittest.TestCase, ILSTest):
+
+    def setUp(self):
+        self.node_class = ILSLocalizerDeviationAtTouchdown
+        self.operational_combinations = [(
+            'ILS Localizer',
+            'ILS Localizer Established',
+            'Touchdown',
+        )]
+
+    @unittest.skip('Test Not Implemented')
+    def test_derive_basic(self):
+        self.assertTrue(False, msg='Test Not Implemented')
 
 
 class TestMachMax(unittest.TestCase, CreateKPVsWithinSlicesTest):
