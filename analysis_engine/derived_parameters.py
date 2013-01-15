@@ -1529,14 +1529,15 @@ class PackValvesOpen(MultistateDerivedParameterNode):
     def can_operate(cls, available):
         '''
         '''
-        # Works with any combination of parameters available:
-        return any(d in available for d in cls.get_dependency_names())
+        # Works with both 'ECS Pack (1) On' and 'ECS Pack (2) On' ECS Pack High Flows are optional
+        return all_of(['ECS Pack (1) On', 'ECS Pack (2) On' ], available)
 
     def derive(self,
             p1=P('ECS Pack (1) On'), p1h=P('ECS Pack (1) High Flow'),
             p2=P('ECS Pack (2) On'), p2h=P('ECS Pack (2) High Flow')):
         '''
         '''
+        # TODO: account properly for states/frame speciffic fixes
         # Sum the open engines, allowing 1 for low flow and 1+1 for high flow
         # each side.
         flow = p1.array.raw + p2.array.raw
