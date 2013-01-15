@@ -2332,97 +2332,159 @@ class ILSFrequencyOnApproach(KeyPointValueNode):
 
 
 class ILSGlideslopeDeviation1500To1000FtMax(KeyPointValueNode):
+    '''
+    Determine maximum deviation from the glideslope between 1500 and 1000 ft.
+
+    Find where the maximum (absolute) deviation occured and store the actual
+    value. We can do abs on the statistics to normalise this, but retaining the
+    sign will make it possible to look for direction of errors at specific
+    airports.
+    '''
+
     name = 'ILS Glideslope Deviation 1500 To 1000 Ft Max'
-    def derive(self, ils_glideslope=P('ILS Glideslope'),
-               alt_aal = P('Altitude AAL For Flight Phases'),
-               gs_ests=S('ILS Glideslope Established')):
-        # Find where the maximum (absolute) deviation occured and
-        # store the actual value. We can do abs on the statistics to
-        # normalise this, but retaining the sign will make it
-        # possible to look for direction of errors at specific
-        # airports.
+
+    def derive(self,
+               ils_glideslope=P('ILS Glideslope'),
+               alt_aal=P('Altitude AAL For Flight Phases'),
+               ils_ests=S('ILS Glideslope Established')):
+
         alt_bands = alt_aal.slices_from_to(1500, 1000)
-        ils_bands = slices_and(alt_bands, gs_ests.get_slices())
-        self.create_kpvs_within_slices(ils_glideslope.array, ils_bands,
-                                       max_abs_value)  
-
-
-class ILSGlideslopeDeviation1000To250FtMax(KeyPointValueNode):
-    name = 'ILS Glideslope Deviation 1000 To 250 Ft Max'
-    def derive(self, ils_glideslope=P('ILS Glideslope'),
-               alt_aal = P('Altitude AAL For Flight Phases'),
-               gs_ests=S('ILS Glideslope Established')):
-        # For commented version, see ILSGlideslopeDeviation1500To1000FtMax
-        alt_bands = alt_aal.slices_from_to(1000, 250)
-        ils_bands = slices_and(alt_bands, gs_ests.get_slices())
-        self.create_kpvs_within_slices(ils_glideslope.array, ils_bands,
-                                       max_abs_value)  
+        ils_bands = slices_and(alt_bands, ils_ests.get_slices())
+        self.create_kpvs_within_slices(
+            ils_glideslope.array,
+            ils_bands,
+            max_abs_value,
+        )
 
 
 class ILSGlideslopeDeviation1000To500FtMax(KeyPointValueNode):
-    name = 'ILS Glideslope Deviation 1000 To 500 Ft Max'
-    def derive(self, ils_glideslope=P('ILS Glideslope'),
-               alt_aal = P('Altitude AAL For Flight Phases'),
-               gs_ests=S('ILS Glideslope Established')):
-        # For commented version, see ILSGlideslopeDeviation1500To1000FtMax
-        alt_bands = alt_aal.slices_from_to(1000, 500)
-        ils_bands = slices_and(alt_bands, gs_ests.get_slices())
-        self.create_kpvs_within_slices(ils_glideslope.array, ils_bands,
-                                       max_abs_value)  
+    '''
+    Determine maximum deviation from the glideslope between 1000 and 500 ft.
 
-class ILSGlideslopeDeviation500To150FtMax(KeyPointValueNode):
-    name = 'ILS Glideslope Deviation 500 To 150 Ft Max'
-    def derive(self, ils_glideslope=P('ILS Glideslope'),
-               alt_aal = P('Altitude AAL For Flight Phases'),
-               gs_ests=S('ILS Glideslope Established')):
-        # For commented version, see ILSGlideslopeDeviation1500To1000FtMax
-        alt_bands = alt_aal.slices_from_to(500, 150)
-        ils_bands = slices_and(alt_bands, gs_ests.get_slices())
-        self.create_kpvs_within_slices(ils_glideslope.array, ils_bands,
-                                       max_abs_value)  
+    Find where the maximum (absolute) deviation occured and store the actual
+    value. We can do abs on the statistics to normalise this, but retaining the
+    sign will make it possible to look for direction of errors at specific
+    airports.
+    '''
+
+    name = 'ILS Glideslope Deviation 1000 To 500 Ft Max'
+
+    def derive(self,
+               ils_glideslope=P('ILS Glideslope'),
+               alt_aal=P('Altitude AAL For Flight Phases'),
+               ils_ests=S('ILS Glideslope Established')):
+
+        alt_bands = alt_aal.slices_from_to(1000, 500)
+        ils_bands = slices_and(alt_bands, ils_ests.get_slices())
+        self.create_kpvs_within_slices(
+            ils_glideslope.array,
+            ils_bands,
+            max_abs_value,
+        )
+
+
+class ILSGlideslopeDeviation500To200FtMax(KeyPointValueNode):
+    '''
+    Determine maximum deviation from the glideslope between 500 and 200 ft.
+
+    Find where the maximum (absolute) deviation occured and store the actual
+    value. We can do abs on the statistics to normalise this, but retaining the
+    sign will make it possible to look for direction of errors at specific
+    airports.
+    '''
+
+    name = 'ILS Glideslope Deviation 500 To 200 Ft Max'
+
+    def derive(self,
+               ils_glideslope=P('ILS Glideslope'),
+               alt_aal=P('Altitude AAL For Flight Phases'),
+               ils_ests=S('ILS Glideslope Established')):
+
+        alt_bands = alt_aal.slices_from_to(500, 200)
+        ils_bands = slices_and(alt_bands, ils_ests.get_slices())
+        self.create_kpvs_within_slices(
+            ils_glideslope.array,
+            ils_bands,
+            max_abs_value,
+        )
 
 
 class ILSLocalizerDeviation1500To1000FtMax(KeyPointValueNode):
+    '''
+    Determine maximum deviation from the localizer between 1500 and 1000 ft.
+
+    Find where the maximum (absolute) deviation occured and store the actual
+    value. We can do abs on the statistics to normalise this, but retaining the
+    sign will make it possible to look for direction of errors at specific
+    airports.
+    '''
+
     name = 'ILS Localizer Deviation 1500 To 1000 Ft Max'
-    def derive(self, ils_loc=P('ILS Localizer'),
-               alt_aal = P('Altitude AAL For Flight Phases'),
+
+    def derive(self,
+               ils_localizer=P('ILS Localizer'),
+               alt_aal=P('Altitude AAL For Flight Phases'),
                ils_ests=S('ILS Localizer Established')):
-        # For commented version, see ILSGlideslopeDeviation1500To1000FtMax
+
         alt_bands = alt_aal.slices_from_to(1500, 1000)
         ils_bands = slices_and(alt_bands, ils_ests.get_slices())
-        self.create_kpvs_within_slices(ils_loc.array, ils_bands, max_abs_value)  
-
-
-class ILSLocalizerDeviation1000To250FtMax(KeyPointValueNode):
-    name = 'ILS Localizer Deviation 1000 To 250 Ft Max'
-    def derive(self, ils_loc=P('ILS Localizer'),
-               alt_aal = P('Altitude AAL For Flight Phases'),
-               ils_ests=S('ILS Localizer Established')):
-        # For commented version, see ILSGlideslopeDeviation1500To1000FtMax
-        alt_bands = alt_aal.slices_from_to(1000, 250)
-        ils_bands = slices_and(alt_bands, ils_ests.get_slices())
-        self.create_kpvs_within_slices(ils_loc.array,ils_bands,max_abs_value)  
+        self.create_kpvs_within_slices(
+            ils_localizer.array,
+            ils_bands,
+            max_abs_value,
+        )
 
 
 class ILSLocalizerDeviation1000To500FtMax(KeyPointValueNode):
+    '''
+    Determine maximum deviation from the localizer between 1000 and 500 ft.
+
+    Find where the maximum (absolute) deviation occured and store the actual
+    value. We can do abs on the statistics to normalise this, but retaining the
+    sign will make it possible to look for direction of errors at specific
+    airports.
+    '''
+
     name = 'ILS Localizer Deviation 1000 To 500 Ft Max'
-    def derive(self, ils_loc=P('ILS Localizer'),
-               alt_aal = P('Altitude AAL For Flight Phases'),
+
+    def derive(self,
+               ils_localizer=P('ILS Localizer'),
+               alt_aal=P('Altitude AAL For Flight Phases'),
                ils_ests=S('ILS Localizer Established')):
-        # For commented version, see ILSGlideslopeDeviation1500To1000FtMax
+
         alt_bands = alt_aal.slices_from_to(1000, 500)
         ils_bands = slices_and(alt_bands, ils_ests.get_slices())
-        self.create_kpvs_within_slices(ils_loc.array,ils_bands,max_abs_value)  
+        self.create_kpvs_within_slices(
+            ils_localizer.array,
+            ils_bands,
+            max_abs_value,
+        )
 
-class ILSLocalizerDeviation500To150FtMax(KeyPointValueNode):
-    name = 'ILS Localizer Deviation 500 To 150 Ft Max'
-    def derive(self, ils_loc=P('ILS Localizer'),
-               alt_aal = P('Altitude AAL For Flight Phases'),
+
+class ILSLocalizerDeviation500To200FtMax(KeyPointValueNode):
+    '''
+    Determine maximum deviation from the localizer between 500 and 200 ft.
+
+    Find where the maximum (absolute) deviation occured and store the actual
+    value. We can do abs on the statistics to normalise this, but retaining the
+    sign will make it possible to look for direction of errors at specific
+    airports.
+    '''
+
+    name = 'ILS Localizer Deviation 500 To 200 Ft Max'
+
+    def derive(self,
+               ils_localizer=P('ILS Localizer'),
+               alt_aal=P('Altitude AAL For Flight Phases'),
                ils_ests=S('ILS Localizer Established')):
-        # For commented version, see ILSGlideslopeDeviation1500To1000FtMax
-        alt_bands = alt_aal.slices_from_to(500, 150)
+
+        alt_bands = alt_aal.slices_from_to(500, 200)
         ils_bands = slices_and(alt_bands, ils_ests.get_slices())
-        self.create_kpvs_within_slices(ils_loc.array,ils_bands,max_abs_value)  
+        self.create_kpvs_within_slices(
+            ils_localizer.array,
+            ils_bands,
+            max_abs_value,
+        )
 
 
 class ILSLocalizerDeviationAtTouchdown(KeyPointValueNode):
