@@ -5407,9 +5407,10 @@ class TAWSGeneralDuration(KeyPointValueNode):
 
     name = 'TAWS General Duration'
 
-    def derive(self, taws_general=M('TAWS General'), airborne=S('Airborne')):
-        '''
-        '''
+    def derive(self,
+               taws_general=M('TAWS General'),
+               airborne=S('Airborne')):
+
         self.create_kpvs_where_state(
             'Warning',
             taws_general.array,
@@ -5424,9 +5425,10 @@ class TAWSAlertDuration(KeyPointValueNode):
 
     name = 'TAWS Alert Duration'
 
-    def derive(self, taws_alert=M('TAWS Alert'), airborne=S('Airborne')):
-        '''
-        '''
+    def derive(self,
+               taws_alert=M('TAWS Alert'),
+               airborne=S('Airborne')):
+
         self.create_kpvs_where_state(
             'Alert',
             taws_alert.array,
@@ -5441,10 +5443,10 @@ class TAWSSinkRateWarningDuration(KeyPointValueNode):
 
     name = 'TAWS Sink Rate Warning Duration'
 
-    def derive(self, taws_sink_rate=M('TAWS Sink Rate'),
-            airborne=S('Airborne')):
-        '''
-        '''
+    def derive(self,
+               taws_sink_rate=M('TAWS Sink Rate'),
+               airborne=S('Airborne')):
+
         self.create_kpvs_where_state(
             'Warning',
             taws_sink_rate.array,
@@ -5459,10 +5461,10 @@ class TAWSTooLowFlapWarningDuration(KeyPointValueNode):
 
     name = 'TAWS Too Low Flap Warning Duration'
 
-    def derive(self, taws_too_low_flap=M('TAWS Too Low Flap'),
-            airborne=S('Airborne')):
-        '''
-        '''
+    def derive(self,
+               taws_too_low_flap=M('TAWS Too Low Flap'),
+               airborne=S('Airborne')):
+
         self.create_kpvs_where_state(
             'Warning',
             taws_too_low_flap.array,
@@ -5477,9 +5479,10 @@ class TAWSTerrainWarningDuration(KeyPointValueNode):
 
     name = 'TAWS Terrain Warning Duration'
 
-    def derive(self, taws_terrain=M('TAWS Terrain'), airborne=S('Airborne')):
-        '''
-        '''
+    def derive(self,
+               taws_terrain=M('TAWS Terrain'),
+               airborne=S('Airborne')):
+
         self.create_kpvs_where_state(
             'Warning',
             taws_terrain.array,
@@ -5494,10 +5497,10 @@ class TAWSTerrainPullUpWarningDuration(KeyPointValueNode):
 
     name = 'TAWS Terrain Pull Up Warning Duration'
 
-    def derive(self, taws_terrain_pull_up=M('TAWS Terrain Ahead Pull Up'),
-            airborne=S('Airborne')):
-        '''
-        '''
+    def derive(self,
+               taws_terrain_pull_up=M('TAWS Terrain Ahead Pull Up'),
+               airborne=S('Airborne')):
+
         self.create_kpvs_where_state(
             'Warning',
             taws_terrain_pull_up.array,
@@ -5566,10 +5569,10 @@ class TAWSTooLowTerrainWarningDuration(KeyPointValueNode):
 
     name = 'TAWS Too Low Terrain Warning Duration'
 
-    def derive(self, taws_too_low_terrain=M('TAWS Too Low Terrain'),
-            airborne=S('Airborne')):
-        '''
-        '''
+    def derive(self,
+               taws_too_low_terrain=M('TAWS Too Low Terrain'),
+               airborne=S('Airborne')):
+
         self.create_kpvs_where_state(
             'Warning',
             taws_too_low_terrain.array,
@@ -5584,10 +5587,10 @@ class TAWSTooLowGearWarningDuration(KeyPointValueNode):
 
     name = 'TAWS Too Low Gear Warning Duration'
 
-    def derive(self, taws_too_low_gear=M('TAWS Too Low Gear'),
-            airborne=S('Airborne')):
-        '''
-        '''
+    def derive(self,
+               taws_too_low_gear=M('TAWS Too Low Gear'),
+               airborne=S('Airborne')):
+
         self.create_kpvs_where_state(
             'Warning',
             taws_too_low_gear.array,
@@ -5602,9 +5605,10 @@ class TAWSPullUpWarningDuration(KeyPointValueNode):
 
     name = 'TAWS Pull Up Warning Duration'
 
-    def derive(self, taws_pull_up=M('TAWS Pull Up'), airborne=S('Airborne')):
-        '''
-        '''
+    def derive(self,
+               taws_pull_up=M('TAWS Pull Up'),
+               airborne=S('Airborne')):
+
         self.create_kpvs_where_state(
             'Warning',
             taws_pull_up.array,
@@ -5619,10 +5623,10 @@ class TAWSDontSinkWarningDuration(KeyPointValueNode):
 
     name = 'TAWS Dont Sink Warning Duration'
 
-    def derive(self, taws_dont_sink=M('TAWS Dont Sink'),
-            airborne=S('Airborne')):
-        '''
-        '''
+    def derive(self,
+               taws_dont_sink=M('TAWS Dont Sink'),
+               airborne=S('Airborne')):
+
         self.create_kpvs_where_state(
             'Warning',
             taws_dont_sink.array,
@@ -5637,10 +5641,10 @@ class TAWSWindshearWarningBelow1500FtDuration(KeyPointValueNode):
 
     name = 'TAWS Windshear Warning Below 1500 Ft Duration'
 
-    def derive(self, taws_windshear=M('TAWS Windshear Warning'),
-            alt_aal=P('Altitude AAL For Flight Phases')):
-        '''
-        '''
+    def derive(self,
+               taws_windshear=M('TAWS Windshear Warning'),
+               alt_aal=P('Altitude AAL For Flight Phases')):
+
         for descent in alt_aal.slices_from_to(1500, 0):
             self.create_kpvs_where_state(
                 'Warning',
