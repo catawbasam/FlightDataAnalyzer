@@ -4394,33 +4394,37 @@ class TestTerrainClearanceAbove3000FtMin(unittest.TestCase,
 # Tailwind
 
 
-class TestTailwindLiftoffTo100FtMax(unittest.TestCase,
-                                    CreateKPVsWithinSlicesTest):
+# FIXME: Make CreateKPVsWithinSlicesTest more generic and then use it again...
+class TestTailwindLiftoffTo100FtMax(unittest.TestCase, NodeTest):
+
     def setUp(self):
         self.node_class = TailwindLiftoffTo100FtMax
-        self.operational_combinations = [('Tailwind',
-                                          'Altitude AAL For Flight Phases',)]
-        self.second_param_method_calls = [('slices_from_to', (0, 100,), {})]
-        self.function = max_value
-        
-    @unittest.skip('Test Not Implemented')    
+        self.operational_combinations = [
+            ('Tailwind', 'Altitude AAL For Flight Phases'),
+        ]
+        #self.second_param_method_calls = [('slices_from_to', (0, 100,), {})]
+        #self.function = max_value
+
+    @unittest.skip('Test Not Implemented')
     def test_derive(self):
         self.assertTrue(False, msg='Test not implemented.')
 
 
-class TestTailwind100FtToTouchdownMax(unittest.TestCase,
-                                      CreateKPVsWithinSlicesTest):
+# FIXME: Make CreateKPVsWithinSlicesTest more generic and then use it again...
+class TestTailwind100FtToTouchdownMax(unittest.TestCase, NodeTest):
+
     def setUp(self):
         self.node_class = Tailwind100FtToTouchdownMax
-        self.operational_combinations = [('Tailwind',
-                                          'Altitude AAL For Flight Phases',)]
-        self.function = max_value
-        self.second_param_method_calls = [('slices_from_to', (100, 0,), {})]
-        
-    @unittest.skip('Test Not Implemented')    
+        self.operational_combinations = [
+            ('Tailwind', 'Altitude AAL For Flight Phases'),
+        ]
+        #self.function = max_value
+        #self.second_param_method_calls = [('slices_from_to', (100, 0,), {})]
+
+    @unittest.skip('Test Not Implemented')
     def test_derive(self):
         self.assertTrue(False, msg='Test not implemented.')
-        
+
 
 ################################################################################
 # Warnings: Takeoff Configuration Warning
