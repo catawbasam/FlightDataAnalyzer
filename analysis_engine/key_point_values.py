@@ -2306,28 +2306,33 @@ class HeightLost1000To2000Ft(KeyPointValueNode):
 
 
 ################################################################################
+# ILS
 
 
 class ILSFrequencyOnApproach(KeyPointValueNode):
-    """
+    '''
+    Determine the ILS frequency on approach.
+
     The period when the aircraft was continuously established on the ILS and
     descending to the minimum point on the approach is already defined as a
     flight phase. This KPV just picks up the frequency tuned at that point.
-    """
-    name='ILS Frequency On Approach' #  Set here to ensure "ILS" in uppercase.
-    def derive(self, ils_frq=P('ILS Frequency'),
+    '''
+
+    name = 'ILS Frequency On Approach'
+
+    def derive(self,
+               ils_frq=P('ILS Frequency'),
                loc_ests=S('ILS Localizer Established')):
-        
+
         for loc_est in loc_ests:
-            # For the final period of operation of the ILS during this
-            # approach, the ILS frequency was:
-            freq=np.ma.median(ils_frq.array[loc_est.slice])
-            # Note median picks the value most commonly recorded, so allows
-            # for some masked values and perhaps one or two rogue values. If,
-            # however, all the ILS frequency data is masked, no KPV is
-            # created.
+            # Find the ILS frequency for the final period of operation of the
+            # ILS during this approach. Note that median picks the value most
+            # commonly recorded, so allows for some masked values and perhaps
+            # one or two rogue values. If, however, all the ILS frequency data
+            # is masked, no KPV is created.
+            freq = np.ma.median(ils_frq.array[loc_est.slice])
             if freq:
-                # Identify the KPV as relating to the start of this ILS approach
+                # Set the KPV index to the start of this ILS approach:
                 self.create_kpv(loc_est.slice.start, freq)
 
 
@@ -2496,24 +2501,31 @@ class ILSLocalizerDeviationAtTouchdown(KeyPointValueNode):
     beam centreline error margins for different approach categories. ILS
     Localizer Deviation At Touchdown Measurements at <2 deg pitch after main
     gear TD."
-    
+
     The ILS Established period may not last until touchdown, so it is
     artificially extended by a minute to ensure coverage of the touchdown
     instant.
     '''
+
     name = 'ILS Localizer Deviation At Touchdown'
-    def derive(self, ils_loc=P('ILS Localizer'), 
+
+    def derive(self,
+               ils_localizer=P('ILS Localizer'),
                ils_ests=S('ILS Localizer Established'),
                tdwns=KTI('Touchdown')):
+
         for ils_est in ils_ests:
             for tdwn in tdwns:
-                index=tdwn.index
-                if is_index_within_slice(index, 
-                                         slice(ils_est.slice.start, 
-                                               ils_est.slice.stop+ils_loc.frequency*60.0)):
-                    deviation=value_at_index(ils_loc.array, index)
-                    self.create_kpv(index, deviation)
-                
+                ext_end = ils_est.slice.stop + ils_localizer.frequency * 60.0
+                ils_est_ext = slice(ils_est.slice.start, ext_end)
+                if not is_index_within_slice(tdwn.index, ils_est_ext):
+                    continue
+                deviation = value_at_index(ils_localizer.array, tdwn.index)
+                self.create_kpv(tdwn.index, deviation)
+
+
+################################################################################
+
 
 class IsolationValveOpenAtLiftoff(KeyPointValueNode):
     def derive(self, isol=P('Isolation Valve Open'), lifts=KTI('Liftoff')):
