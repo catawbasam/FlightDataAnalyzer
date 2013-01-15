@@ -272,12 +272,12 @@ class NodeTest(object):
 
 class CreateKPVsAtKPVsTest(NodeTest):
     '''
-    Example of subclass inheriting tests:
+    Example of subclass inheriting tests::
     
-class TestAltitudeAtLiftoff(unittest.TestCase, CreateKPVsAtKPVsTest):
-    def setUp(self):
-        self.node_class = AltitudeAtLiftoff
-        self.operational_combinations = [('Altitude STD', 'Liftoff')]
+        class TestAltitudeAtLiftoff(unittest.TestCase, CreateKPVsAtKPVsTest):
+            def setUp(self):
+                self.node_class = AltitudeAtLiftoff
+                self.operational_combinations = [('Altitude STD', 'Liftoff')]
     '''
     def test_derive(self):
         mock1, mock2 = Mock(), Mock()
@@ -290,12 +290,12 @@ class TestAltitudeAtLiftoff(unittest.TestCase, CreateKPVsAtKPVsTest):
 
 class CreateKPVsAtKTIsTest(NodeTest):
     '''
-    Example of subclass inheriting tests:
+    Example of subclass inheriting tests::
     
-class TestAltitudeAtLiftoff(unittest.TestCase, CreateKPVsAtKTIsTest):
-    def setUp(self):
-        self.node_class = AltitudeAtLiftoff
-        self.operational_combinations = [('Altitude STD', 'Liftoff')]
+        class TestAltitudeAtLiftoff(unittest.TestCase, CreateKPVsAtKTIsTest):
+            def setUp(self):
+                self.node_class = AltitudeAtLiftoff
+                self.operational_combinations = [('Altitude STD', 'Liftoff')]
     '''
     def test_derive_mocked(self):
         mock1, mock2 = Mock(), Mock()
@@ -308,19 +308,19 @@ class TestAltitudeAtLiftoff(unittest.TestCase, CreateKPVsAtKTIsTest):
 
 class CreateKPVsWithinSlicesTest(NodeTest):
     '''
-    Example of subclass inheriting tests:
-    
-class TestRollAbove1500FtMax(unittest.TestCase, CreateKPVsWithinSlicesTest):
-    def setUp(self):
-        self.node_class = RollAbove1500FtMax
-        self.operational_combinations = [('Roll', 'Altitude AAL For Flight Phases')]
-        # Function passed to create_kpvs_within_slices
-        self.function = max_abs_value
-        # second_param_method_calls are method calls made on the second
-        # parameter argument, for example calling slices_above on a Parameter.
-        # It is optional.
-        self.second_param_method_calls = [('slices_above', (1500,), {})]
-    
+    Example of subclass inheriting tests::
+
+        class TestRollAbove1500FtMax(unittest.TestCase, CreateKPVsWithinSlicesTest):
+            def setUp(self):
+                self.node_class = RollAbove1500FtMax
+                self.operational_combinations = [('Roll', 'Altitude AAL For Flight Phases')]
+                # Function passed to create_kpvs_within_slices
+                self.function = max_abs_value
+                # second_param_method_calls are method calls made on the second
+                # parameter argument, for example calling slices_above on a Parameter.
+                # It is optional.
+                self.second_param_method_calls = [('slices_above', (1500,), {})]
+
     TODO: Implement in a neater way?
     '''
     def test_derive_mocked(self):
@@ -345,19 +345,19 @@ class TestRollAbove1500FtMax(unittest.TestCase, CreateKPVsWithinSlicesTest):
 
 class CreateKPVFromSlicesTest(NodeTest):
     '''
-    Example of subclass inheriting tests:
-    
-class TestRollAbove1500FtMax(unittest.TestCase, CreateKPVsWithinSlicesTest):
-    def setUp(self):
-        self.node_class = RollAbove1500FtMax
-        self.operational_combinations = [('Roll', 'Altitude AAL For Flight Phases')]
-        # Function passed to create_kpvs_within_slices
-        self.function = max_abs_value
-        # second_param_method_calls are method calls made on the second
-        # parameter argument, for example calling slices_above on a Parameter.
-        # It is optional.
-        self.second_param_method_calls = [('slices_above', (1500,), {})]
-    
+    Example of subclass inheriting tests::
+
+        class TestRollAbove1500FtMax(unittest.TestCase, CreateKPVsWithinSlicesTest):
+            def setUp(self):
+                self.node_class = RollAbove1500FtMax
+                self.operational_combinations = [('Roll', 'Altitude AAL For Flight Phases')]
+                # Function passed to create_kpvs_within_slices
+                self.function = max_abs_value
+                # second_param_method_calls are method calls made on the second
+                # parameter argument, for example calling slices_above on a Parameter.
+                # It is optional.
+                self.second_param_method_calls = [('slices_above', (1500,), {})]
+
     TODO: Implement in a neater way?
     '''
     def test_derive_mocked(self):
