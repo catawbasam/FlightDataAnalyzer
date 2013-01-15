@@ -210,7 +210,7 @@ class AnalysisEngineAPIHandlerHTTP(AnalysisEngineAPI, APIHandlerHTTP):
         url += '?' + urllib.urlencode(params)
         runway = self._attempt_request(url)['runway']
         if not runway.get('end'):
-            raise IncompleteEntryError("Runway ident '%s' at '%s' has no end" % (runway['ident'], airport))
+            raise IncompleteEntryError("Runway ident '%s' at '%s' has no end" % (runway.get('identifier', 'unknown'), airport))
         return runway
 
 

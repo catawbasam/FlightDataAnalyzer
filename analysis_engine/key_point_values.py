@@ -1436,24 +1436,31 @@ class TouchdownToSpoilersDeployedDuration(KeyPointValueNode):
 ################################################################################
 # Takeoff and Use of TOGA
 
+
 class GroundspeedAtTOGA(KeyPointValueNode):
     '''
     FDS developed this KPV to support the UK CAA Significant Seven programme.
     "Excursions - Take-Off (Longitudinal), Selection of TOGA late in take-off
     roll."
-    
+
     This KPV measures the groundspeed at the point of TOGA selection,
     irrespective of whether this is late (or early!).
-    
+
     [Note: Takeoff phase is used as this includes turning onto the runway
     whereas Takeoff Roll only starts after the aircraft is accelerating.]
     '''
-    
-    def derive(self, gspd=P('Groundspeed'), toga=M('Takeoff And Go Around'),
+
+    name = 'Groundspeed At TOGA'
+
+    def derive(self,
+               gspd=P('Groundspeed'),
+               toga=M('Takeoff And Go Around'),
                takeoff=S('Takeoff')):
+
         indexes = find_edges_on_state_change('TOGA', toga.array, phase=takeoff)
         for index in indexes:
-            speed = value_at_index(gspd.array, index) # interpolates as required
+            # interpolates as required:
+            speed = value_at_index(gspd.array, index)
             self.create_kpv(index, speed)
 
 
@@ -1463,24 +1470,32 @@ class TOGASelectedInFlightNotGoAroundDuration(KeyPointValueNode):
     "Loss of Control - Unexpected TOGA power selection in flight (except for
     a go-around)"
     '''
-    def derive(self, toga=M('Takeoff And Go Around'), gas=S('Go Around And Climbout'),
+
+    name = 'TOGA Selected In Flight Not Go Around Duration'
+
+    def derive(self,
+               toga=M('Takeoff And Go Around'),
+               gas=S('Go Around And Climbout'),
                airs=S('Airborne')):
 
-        to_scan=slices_and([s.slice for s in airs],
-                           slices_not([s.slice for s in gas], 
-                                       begin_at=airs[0].slice.start, 
-                                       end_at=airs[-1].slice.stop))
+        to_scan = slices_and(
+            [s.slice for s in airs],
+            slices_not(
+                [s.slice for s in gas],
+                begin_at=airs[0].slice.start,
+                end_at=airs[-1].slice.stop,
+            ),
+        )
 
         # The elegant create_kpvs_where_state function requires the phase
         # information as a section object, hence a couple of lines of glue.
         # TODO: Make create_kpvs_where_state accept list of slices.
-        not_ga=S()
+        not_ga = S()
         not_ga.create_sections(to_scan, 'Airborne Not Go Around')
-        
-        self.create_kpvs_where_state('TOGA', toga.array, toga.hz, 
+
+        self.create_kpvs_where_state('TOGA', toga.array, toga.hz,
                                      phase=not_ga, exclude_leading_edge=True)
-               
-                           
+
 
 class LiftoffToClimbPitchDuration(KeyPointValueNode):
     '''
@@ -2306,123 +2321,190 @@ class HeightLost1000To2000Ft(KeyPointValueNode):
 
 
 ################################################################################
+# ILS
 
 
 class ILSFrequencyOnApproach(KeyPointValueNode):
-    """
+    '''
+    Determine the ILS frequency on approach.
+
     The period when the aircraft was continuously established on the ILS and
     descending to the minimum point on the approach is already defined as a
     flight phase. This KPV just picks up the frequency tuned at that point.
-    """
-    name='ILS Frequency On Approach' #  Set here to ensure "ILS" in uppercase.
-    def derive(self, ils_frq=P('ILS Frequency'),
+    '''
+
+    name = 'ILS Frequency On Approach'
+
+    def derive(self,
+               ils_frq=P('ILS Frequency'),
                loc_ests=S('ILS Localizer Established')):
-        
+
         for loc_est in loc_ests:
-            # For the final period of operation of the ILS during this
-            # approach, the ILS frequency was:
-            freq=np.ma.median(ils_frq.array[loc_est.slice])
-            # Note median picks the value most commonly recorded, so allows
-            # for some masked values and perhaps one or two rogue values. If,
-            # however, all the ILS frequency data is masked, no KPV is
-            # created.
+            # Find the ILS frequency for the final period of operation of the
+            # ILS during this approach. Note that median picks the value most
+            # commonly recorded, so allows for some masked values and perhaps
+            # one or two rogue values. If, however, all the ILS frequency data
+            # is masked, no KPV is created.
+            freq = np.ma.median(ils_frq.array[loc_est.slice])
             if freq:
-                # Identify the KPV as relating to the start of this ILS approach
+                # Set the KPV index to the start of this ILS approach:
                 self.create_kpv(loc_est.slice.start, freq)
 
 
 class ILSGlideslopeDeviation1500To1000FtMax(KeyPointValueNode):
+    '''
+    Determine maximum deviation from the glideslope between 1500 and 1000 ft.
+
+    Find where the maximum (absolute) deviation occured and store the actual
+    value. We can do abs on the statistics to normalise this, but retaining the
+    sign will make it possible to look for direction of errors at specific
+    airports.
+    '''
+
     name = 'ILS Glideslope Deviation 1500 To 1000 Ft Max'
-    def derive(self, ils_glideslope=P('ILS Glideslope'),
-               alt_aal = P('Altitude AAL For Flight Phases'),
-               gs_ests=S('ILS Glideslope Established')):
-        # Find where the maximum (absolute) deviation occured and
-        # store the actual value. We can do abs on the statistics to
-        # normalise this, but retaining the sign will make it
-        # possible to look for direction of errors at specific
-        # airports.
+
+    def derive(self,
+               ils_glideslope=P('ILS Glideslope'),
+               alt_aal=P('Altitude AAL For Flight Phases'),
+               ils_ests=S('ILS Glideslope Established')):
+
         alt_bands = alt_aal.slices_from_to(1500, 1000)
-        ils_bands = slices_and(alt_bands, gs_ests.get_slices())
-        self.create_kpvs_within_slices(ils_glideslope.array, ils_bands,
-                                       max_abs_value)  
-
-
-class ILSGlideslopeDeviation1000To250FtMax(KeyPointValueNode):
-    name = 'ILS Glideslope Deviation 1000 To 250 Ft Max'
-    def derive(self, ils_glideslope=P('ILS Glideslope'),
-               alt_aal = P('Altitude AAL For Flight Phases'),
-               gs_ests=S('ILS Glideslope Established')):
-        # For commented version, see ILSGlideslopeDeviation1500To1000FtMax
-        alt_bands = alt_aal.slices_from_to(1000, 250)
-        ils_bands = slices_and(alt_bands, gs_ests.get_slices())
-        self.create_kpvs_within_slices(ils_glideslope.array, ils_bands,
-                                       max_abs_value)  
+        ils_bands = slices_and(alt_bands, ils_ests.get_slices())
+        self.create_kpvs_within_slices(
+            ils_glideslope.array,
+            ils_bands,
+            max_abs_value,
+        )
 
 
 class ILSGlideslopeDeviation1000To500FtMax(KeyPointValueNode):
-    name = 'ILS Glideslope Deviation 1000 To 500 Ft Max'
-    def derive(self, ils_glideslope=P('ILS Glideslope'),
-               alt_aal = P('Altitude AAL For Flight Phases'),
-               gs_ests=S('ILS Glideslope Established')):
-        # For commented version, see ILSGlideslopeDeviation1500To1000FtMax
-        alt_bands = alt_aal.slices_from_to(1000, 500)
-        ils_bands = slices_and(alt_bands, gs_ests.get_slices())
-        self.create_kpvs_within_slices(ils_glideslope.array, ils_bands,
-                                       max_abs_value)  
+    '''
+    Determine maximum deviation from the glideslope between 1000 and 500 ft.
 
-class ILSGlideslopeDeviation500To150FtMax(KeyPointValueNode):
-    name = 'ILS Glideslope Deviation 500 To 150 Ft Max'
-    def derive(self, ils_glideslope=P('ILS Glideslope'),
-               alt_aal = P('Altitude AAL For Flight Phases'),
-               gs_ests=S('ILS Glideslope Established')):
-        # For commented version, see ILSGlideslopeDeviation1500To1000FtMax
-        alt_bands = alt_aal.slices_from_to(500, 150)
-        ils_bands = slices_and(alt_bands, gs_ests.get_slices())
-        self.create_kpvs_within_slices(ils_glideslope.array, ils_bands,
-                                       max_abs_value)  
+    Find where the maximum (absolute) deviation occured and store the actual
+    value. We can do abs on the statistics to normalise this, but retaining the
+    sign will make it possible to look for direction of errors at specific
+    airports.
+    '''
+
+    name = 'ILS Glideslope Deviation 1000 To 500 Ft Max'
+
+    def derive(self,
+               ils_glideslope=P('ILS Glideslope'),
+               alt_aal=P('Altitude AAL For Flight Phases'),
+               ils_ests=S('ILS Glideslope Established')):
+
+        alt_bands = alt_aal.slices_from_to(1000, 500)
+        ils_bands = slices_and(alt_bands, ils_ests.get_slices())
+        self.create_kpvs_within_slices(
+            ils_glideslope.array,
+            ils_bands,
+            max_abs_value,
+        )
+
+
+class ILSGlideslopeDeviation500To200FtMax(KeyPointValueNode):
+    '''
+    Determine maximum deviation from the glideslope between 500 and 200 ft.
+
+    Find where the maximum (absolute) deviation occured and store the actual
+    value. We can do abs on the statistics to normalise this, but retaining the
+    sign will make it possible to look for direction of errors at specific
+    airports.
+    '''
+
+    name = 'ILS Glideslope Deviation 500 To 200 Ft Max'
+
+    def derive(self,
+               ils_glideslope=P('ILS Glideslope'),
+               alt_aal=P('Altitude AAL For Flight Phases'),
+               ils_ests=S('ILS Glideslope Established')):
+
+        alt_bands = alt_aal.slices_from_to(500, 200)
+        ils_bands = slices_and(alt_bands, ils_ests.get_slices())
+        self.create_kpvs_within_slices(
+            ils_glideslope.array,
+            ils_bands,
+            max_abs_value,
+        )
 
 
 class ILSLocalizerDeviation1500To1000FtMax(KeyPointValueNode):
+    '''
+    Determine maximum deviation from the localizer between 1500 and 1000 ft.
+
+    Find where the maximum (absolute) deviation occured and store the actual
+    value. We can do abs on the statistics to normalise this, but retaining the
+    sign will make it possible to look for direction of errors at specific
+    airports.
+    '''
+
     name = 'ILS Localizer Deviation 1500 To 1000 Ft Max'
-    def derive(self, ils_loc=P('ILS Localizer'),
-               alt_aal = P('Altitude AAL For Flight Phases'),
+
+    def derive(self,
+               ils_localizer=P('ILS Localizer'),
+               alt_aal=P('Altitude AAL For Flight Phases'),
                ils_ests=S('ILS Localizer Established')):
-        # For commented version, see ILSGlideslopeDeviation1500To1000FtMax
+
         alt_bands = alt_aal.slices_from_to(1500, 1000)
         ils_bands = slices_and(alt_bands, ils_ests.get_slices())
-        self.create_kpvs_within_slices(ils_loc.array, ils_bands, max_abs_value)  
-
-
-class ILSLocalizerDeviation1000To250FtMax(KeyPointValueNode):
-    name = 'ILS Localizer Deviation 1000 To 250 Ft Max'
-    def derive(self, ils_loc=P('ILS Localizer'),
-               alt_aal = P('Altitude AAL For Flight Phases'),
-               ils_ests=S('ILS Localizer Established')):
-        # For commented version, see ILSGlideslopeDeviation1500To1000FtMax
-        alt_bands = alt_aal.slices_from_to(1000, 250)
-        ils_bands = slices_and(alt_bands, ils_ests.get_slices())
-        self.create_kpvs_within_slices(ils_loc.array,ils_bands,max_abs_value)  
+        self.create_kpvs_within_slices(
+            ils_localizer.array,
+            ils_bands,
+            max_abs_value,
+        )
 
 
 class ILSLocalizerDeviation1000To500FtMax(KeyPointValueNode):
+    '''
+    Determine maximum deviation from the localizer between 1000 and 500 ft.
+
+    Find where the maximum (absolute) deviation occured and store the actual
+    value. We can do abs on the statistics to normalise this, but retaining the
+    sign will make it possible to look for direction of errors at specific
+    airports.
+    '''
+
     name = 'ILS Localizer Deviation 1000 To 500 Ft Max'
-    def derive(self, ils_loc=P('ILS Localizer'),
-               alt_aal = P('Altitude AAL For Flight Phases'),
+
+    def derive(self,
+               ils_localizer=P('ILS Localizer'),
+               alt_aal=P('Altitude AAL For Flight Phases'),
                ils_ests=S('ILS Localizer Established')):
-        # For commented version, see ILSGlideslopeDeviation1500To1000FtMax
+
         alt_bands = alt_aal.slices_from_to(1000, 500)
         ils_bands = slices_and(alt_bands, ils_ests.get_slices())
-        self.create_kpvs_within_slices(ils_loc.array,ils_bands,max_abs_value)  
+        self.create_kpvs_within_slices(
+            ils_localizer.array,
+            ils_bands,
+            max_abs_value,
+        )
 
-class ILSLocalizerDeviation500To150FtMax(KeyPointValueNode):
-    name = 'ILS Localizer Deviation 500 To 150 Ft Max'
-    def derive(self, ils_loc=P('ILS Localizer'),
-               alt_aal = P('Altitude AAL For Flight Phases'),
+
+class ILSLocalizerDeviation500To200FtMax(KeyPointValueNode):
+    '''
+    Determine maximum deviation from the localizer between 500 and 200 ft.
+
+    Find where the maximum (absolute) deviation occured and store the actual
+    value. We can do abs on the statistics to normalise this, but retaining the
+    sign will make it possible to look for direction of errors at specific
+    airports.
+    '''
+
+    name = 'ILS Localizer Deviation 500 To 200 Ft Max'
+
+    def derive(self,
+               ils_localizer=P('ILS Localizer'),
+               alt_aal=P('Altitude AAL For Flight Phases'),
                ils_ests=S('ILS Localizer Established')):
-        # For commented version, see ILSGlideslopeDeviation1500To1000FtMax
-        alt_bands = alt_aal.slices_from_to(500, 150)
+
+        alt_bands = alt_aal.slices_from_to(500, 200)
         ils_bands = slices_and(alt_bands, ils_ests.get_slices())
-        self.create_kpvs_within_slices(ils_loc.array,ils_bands,max_abs_value)  
+        self.create_kpvs_within_slices(
+            ils_localizer.array,
+            ils_bands,
+            max_abs_value,
+        )
 
 
 class ILSLocalizerDeviationAtTouchdown(KeyPointValueNode):
@@ -2434,24 +2516,31 @@ class ILSLocalizerDeviationAtTouchdown(KeyPointValueNode):
     beam centreline error margins for different approach categories. ILS
     Localizer Deviation At Touchdown Measurements at <2 deg pitch after main
     gear TD."
-    
+
     The ILS Established period may not last until touchdown, so it is
     artificially extended by a minute to ensure coverage of the touchdown
     instant.
     '''
+
     name = 'ILS Localizer Deviation At Touchdown'
-    def derive(self, ils_loc=P('ILS Localizer'), 
+
+    def derive(self,
+               ils_localizer=P('ILS Localizer'),
                ils_ests=S('ILS Localizer Established'),
                tdwns=KTI('Touchdown')):
+
         for ils_est in ils_ests:
             for tdwn in tdwns:
-                index=tdwn.index
-                if is_index_within_slice(index, 
-                                         slice(ils_est.slice.start, 
-                                               ils_est.slice.stop+ils_loc.frequency*60.0)):
-                    deviation=value_at_index(ils_loc.array, index)
-                    self.create_kpv(index, deviation)
-                
+                ext_end = ils_est.slice.stop + ils_localizer.frequency * 60.0
+                ils_est_ext = slice(ils_est.slice.start, ext_end)
+                if not is_index_within_slice(tdwn.index, ils_est_ext):
+                    continue
+                deviation = value_at_index(ils_localizer.array, tdwn.index)
+                self.create_kpv(tdwn.index, deviation)
+
+
+################################################################################
+
 
 class IsolationValveOpenAtLiftoff(KeyPointValueNode):
     def derive(self, isol=P('Isolation Valve Open'), lifts=KTI('Liftoff')):
@@ -3817,22 +3906,24 @@ class HeadingDeviationOnTakeoffAbove80Kts(KeyPointValueNode):
 
 
 class HeadingDeviationAtTOGA(KeyPointValueNode):
-    
-    name = 'Heading Deviation From CL On Takeoff At TOGA'
-    
-    """
+    '''
     FDS developed this KPV to support the UK CAA Significant Seven programme.
     "Excursions - Take off (Lateral). TOGA pressed before a/c aligned."
-    """
-    def derive(self, head=P('Heading True Continuous'), toga=M('Takeoff And Go Around'),
-               takeoff=S('Takeoff'), rwy=A('FDR Takeoff Runway')):
+    '''
+
+    name = 'Heading Deviation From CL On Takeoff At TOGA'
+
+    def derive(self,
+               head=P('Heading True Continuous'),
+               toga=M('Takeoff And Go Around'),
+               takeoff=S('Takeoff'),
+               rwy=A('FDR Takeoff Runway')):
 
         if ambiguous_runway(rwy):
             return
-
         indexes = find_edges_on_state_change('TOGA', toga.array, phase=takeoff)
         for index in indexes:
-            brg=value_at_index(head.array, index)
+            brg = value_at_index(head.array, index)
             dev = runway_deviation(brg, rwy.value)
             self.create_kpv(index, dev)
 
@@ -5333,9 +5424,10 @@ class TAWSGeneralDuration(KeyPointValueNode):
 
     name = 'TAWS General Duration'
 
-    def derive(self, taws_general=M('TAWS General'), airborne=S('Airborne')):
-        '''
-        '''
+    def derive(self,
+               taws_general=M('TAWS General'),
+               airborne=S('Airborne')):
+
         self.create_kpvs_where_state(
             'Warning',
             taws_general.array,
@@ -5350,9 +5442,10 @@ class TAWSAlertDuration(KeyPointValueNode):
 
     name = 'TAWS Alert Duration'
 
-    def derive(self, taws_alert=M('TAWS Alert'), airborne=S('Airborne')):
-        '''
-        '''
+    def derive(self,
+               taws_alert=M('TAWS Alert'),
+               airborne=S('Airborne')):
+
         self.create_kpvs_where_state(
             'Alert',
             taws_alert.array,
@@ -5367,10 +5460,10 @@ class TAWSSinkRateWarningDuration(KeyPointValueNode):
 
     name = 'TAWS Sink Rate Warning Duration'
 
-    def derive(self, taws_sink_rate=M('TAWS Sink Rate'),
-            airborne=S('Airborne')):
-        '''
-        '''
+    def derive(self,
+               taws_sink_rate=M('TAWS Sink Rate'),
+               airborne=S('Airborne')):
+
         self.create_kpvs_where_state(
             'Warning',
             taws_sink_rate.array,
@@ -5385,10 +5478,10 @@ class TAWSTooLowFlapWarningDuration(KeyPointValueNode):
 
     name = 'TAWS Too Low Flap Warning Duration'
 
-    def derive(self, taws_too_low_flap=M('TAWS Too Low Flap'),
-            airborne=S('Airborne')):
-        '''
-        '''
+    def derive(self,
+               taws_too_low_flap=M('TAWS Too Low Flap'),
+               airborne=S('Airborne')):
+
         self.create_kpvs_where_state(
             'Warning',
             taws_too_low_flap.array,
@@ -5403,9 +5496,10 @@ class TAWSTerrainWarningDuration(KeyPointValueNode):
 
     name = 'TAWS Terrain Warning Duration'
 
-    def derive(self, taws_terrain=M('TAWS Terrain'), airborne=S('Airborne')):
-        '''
-        '''
+    def derive(self,
+               taws_terrain=M('TAWS Terrain'),
+               airborne=S('Airborne')):
+
         self.create_kpvs_where_state(
             'Warning',
             taws_terrain.array,
@@ -5420,10 +5514,10 @@ class TAWSTerrainPullUpWarningDuration(KeyPointValueNode):
 
     name = 'TAWS Terrain Pull Up Warning Duration'
 
-    def derive(self, taws_terrain_pull_up=M('TAWS Terrain Ahead Pull Up'),
-            airborne=S('Airborne')):
-        '''
-        '''
+    def derive(self,
+               taws_terrain_pull_up=M('TAWS Terrain Ahead Pull Up'),
+               airborne=S('Airborne')):
+
         self.create_kpvs_where_state(
             'Warning',
             taws_terrain_pull_up.array,
@@ -5431,44 +5525,22 @@ class TAWSTerrainPullUpWarningDuration(KeyPointValueNode):
             phase=airborne,
         )
 
-"""
 
-Basic TAWS glideslope KPV, superceded by three stages in the descent.
-
-class TAWSGlideslopeWarningDuration(KeyPointValueNode):
+class TAWSGlideslopeWarning1500To1000FtDuration(KeyPointValueNode):
     '''
     '''
 
-    name = 'TAWS Glideslope Warning Duration'
+    name = 'TAWS Glideslope Warning 1500 To 1000 Ft Duration'
 
-    def derive(self, taws_glideslope=M('TAWS Glideslope'),
-            airborne=S('Airborne')):
-        '''
-        '''
+    def derive(self,
+               taws_glideslope=M('TAWS Glideslope'),
+               alt_aal=P('Altitude AAL For Flight Phases')):
+
         self.create_kpvs_where_state(
             'Warning',
             taws_glideslope.array,
             taws_glideslope.hz,
-            phase=airborne,
-        )
-"""
-
-class TAWSGlideslopeWarningAbove1000FtDuration(KeyPointValueNode):
-    '''
-    '''
-
-    name = 'TAWS Glideslope Warning Above 1000 Ft Duration'
-
-    def derive(self, taws_glideslope=M('TAWS Glideslope'),
-            alt_aal = P('Altitude AAL For Flight Phases')):
-        '''
-        '''
-        
-        self.create_kpvs_where_state(
-            'Warning',
-            taws_glideslope.array,
-            taws_glideslope.hz,
-            phase=alt_aal.slices_from_to(10000, 1000),
+            phase=alt_aal.slices_from_to(1500, 1000),
         )
 
 
@@ -5478,10 +5550,10 @@ class TAWSGlideslopeWarning1000To500FtDuration(KeyPointValueNode):
 
     name = 'TAWS Glideslope Warning 1000 To 500 Ft Duration'
 
-    def derive(self, taws_glideslope=M('TAWS Glideslope'),
-            alt_aal = P('Altitude AAL For Flight Phases')):
-        '''
-        '''
+    def derive(self,
+               taws_glideslope=M('TAWS Glideslope'),
+               alt_aal=P('Altitude AAL For Flight Phases')):
+
         self.create_kpvs_where_state(
             'Warning',
             taws_glideslope.array,
@@ -5489,23 +5561,23 @@ class TAWSGlideslopeWarning1000To500FtDuration(KeyPointValueNode):
             phase=alt_aal.slices_from_to(1000, 500),
         )
 
-class TAWSGlideslopeWarning500To150FtDuration(KeyPointValueNode):
+
+class TAWSGlideslopeWarning500To200FtDuration(KeyPointValueNode):
     '''
     '''
 
-    name = 'TAWS Glideslope Warning 500 To 150 Ft Duration'
+    name = 'TAWS Glideslope Warning 500 To 200 Ft Duration'
 
-    def derive(self, taws_glideslope=M('TAWS Glideslope'),
-            alt_aal = P('Altitude AAL For Flight Phases')):
-        '''
-        '''
+    def derive(self,
+               taws_glideslope=M('TAWS Glideslope'),
+               alt_aal=P('Altitude AAL For Flight Phases')):
+
         self.create_kpvs_where_state(
             'Warning',
             taws_glideslope.array,
             taws_glideslope.hz,
-            phase=alt_aal.slices_from_to(500, 150),
+            phase=alt_aal.slices_from_to(500, 200),
         )
-
 
 
 class TAWSTooLowTerrainWarningDuration(KeyPointValueNode):
@@ -5514,10 +5586,10 @@ class TAWSTooLowTerrainWarningDuration(KeyPointValueNode):
 
     name = 'TAWS Too Low Terrain Warning Duration'
 
-    def derive(self, taws_too_low_terrain=M('TAWS Too Low Terrain'),
-            airborne=S('Airborne')):
-        '''
-        '''
+    def derive(self,
+               taws_too_low_terrain=M('TAWS Too Low Terrain'),
+               airborne=S('Airborne')):
+
         self.create_kpvs_where_state(
             'Warning',
             taws_too_low_terrain.array,
@@ -5532,10 +5604,10 @@ class TAWSTooLowGearWarningDuration(KeyPointValueNode):
 
     name = 'TAWS Too Low Gear Warning Duration'
 
-    def derive(self, taws_too_low_gear=M('TAWS Too Low Gear'),
-            airborne=S('Airborne')):
-        '''
-        '''
+    def derive(self,
+               taws_too_low_gear=M('TAWS Too Low Gear'),
+               airborne=S('Airborne')):
+
         self.create_kpvs_where_state(
             'Warning',
             taws_too_low_gear.array,
@@ -5550,9 +5622,10 @@ class TAWSPullUpWarningDuration(KeyPointValueNode):
 
     name = 'TAWS Pull Up Warning Duration'
 
-    def derive(self, taws_pull_up=M('TAWS Pull Up'), airborne=S('Airborne')):
-        '''
-        '''
+    def derive(self,
+               taws_pull_up=M('TAWS Pull Up'),
+               airborne=S('Airborne')):
+
         self.create_kpvs_where_state(
             'Warning',
             taws_pull_up.array,
@@ -5567,10 +5640,10 @@ class TAWSDontSinkWarningDuration(KeyPointValueNode):
 
     name = 'TAWS Dont Sink Warning Duration'
 
-    def derive(self, taws_dont_sink=M('TAWS Dont Sink'),
-            airborne=S('Airborne')):
-        '''
-        '''
+    def derive(self,
+               taws_dont_sink=M('TAWS Dont Sink'),
+               airborne=S('Airborne')):
+
         self.create_kpvs_where_state(
             'Warning',
             taws_dont_sink.array,
@@ -5585,10 +5658,10 @@ class TAWSWindshearWarningBelow1500FtDuration(KeyPointValueNode):
 
     name = 'TAWS Windshear Warning Below 1500 Ft Duration'
 
-    def derive(self, taws_windshear=M('TAWS Windshear Warning'),
-            alt_aal=P('Altitude AAL For Flight Phases')):
-        '''
-        '''
+    def derive(self,
+               taws_windshear=M('TAWS Windshear Warning'),
+               alt_aal=P('Altitude AAL For Flight Phases')):
+
         for descent in alt_aal.slices_from_to(1500, 0):
             self.create_kpvs_where_state(
                 'Warning',
@@ -6070,17 +6143,23 @@ class HoldingDuration(KeyPointValueNode):
 #See also: EngGasTempGoAroundMax, EngN1GoAroundMax, EngN2GoAroundMax,
 #EngN3GoAroundMax, EngTorqueGoAroundMax
 
+
 class TOGASelectedInGoAroundDuration(KeyPointValueNode):
     '''
     FDS developed this KPV to support the UK CAA Significant Seven programme.
     "Loss of Control - TOGA power selection in flight (Go-arounds need to be
     kept as a separate case)."
     '''
-    def derive(self, toga=M('Takeoff And Go Around'),
+
+    name = 'TOGA Selected In Go Around Duration'
+
+    def derive(self,
+               toga=M('Takeoff And Go Around'),
                gas=S('Go Around And Climbout')):
+
         self.create_kpvs_where_state('TOGA', toga.array, toga.hz, phase=gas)
-               
-                           
+
+
 class AltitudeAtGoAroundMin(KeyPointValueNode):
     '''
     The altitude above the local airfield level at the minimum altitude point
@@ -6112,28 +6191,32 @@ class AltitudeGoAroundFlapRetracted(KeyPointValueNode):
 
 
 class AltitudeAtGoAroundGearUpSelection(KeyPointValueNode):
-    
-    name = 'Altitude Above Go Around Minimum At Gear Up Selection'
-    
-    # gagr pinpoints the gear retraction instance within the 500ft go-around window.
+    '''
+    Finds the relative altitude at which gear up was selected from the point of
+    minimum altitude in the go-around. If gear up was selected before that,
+    just set the value to zero.
+    '''
 
-    def derive(self, alt_aal=P('Altitude AAL'), 
+    def derive(self,
+               alt_aal=P('Altitude AAL'),
                gas=S('Go Around And Climbout'),
-               gear_ups = KTI('Go Around Gear Selected Up')):
+               gear_ups=KTI('Go Around Gear Selected Up')):
+
         for ga in gas:
-            # Find the index and height at this go-around minimum.
-            pit_index = np.ma.argmin(alt_aal.array[ga.slice])
-            pit = alt_aal.array[ga.slice.start + pit_index]
+            # Find the index and height at this go-around minimum:
+            pit_index, pit_value = min_value(alt_aal.array, ga.slice)
             for gear_up in gear_ups:
-                # Check this gear selected up matches the go-around in question
-                if is_index_within_slice(gear_up.index, ga.slice):
-                    # Did we raise the gear after the minimum height?
-                    if gear_up.index > pit_index:
-                        gear_up_ht = alt_aal.array[gear_up.index] - pit
-                    else:
-                        # Show zero if selected up before minimum height
-                        gear_up_ht = 0.0
-                    self.create_kpv(gear_up.index,gear_up_ht)
+                # Ensure gear up selected matches for this go-around:
+                if not is_index_within_slice(gear_up.index, ga.slice):
+                    continue
+                if gear_up.index > pit_index:
+                    # Use height between go around minimum and gear up:
+                    gear_up_ht = alt_aal.array[gear_up.index] - pit_value
+                else:
+                    # Use zero if gear up selected before minimum height:
+                    gear_up_ht = 0.0
+                self.create_kpv(gear_up.index, gear_up_ht)
+
 
 # TODO: Write some unit tests!
 class SpeedbrakesDeployedInGoAroundDuration(KeyPointValueNode):

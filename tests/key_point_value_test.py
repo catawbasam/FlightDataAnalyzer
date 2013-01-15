@@ -146,9 +146,12 @@ from analysis_engine.key_point_values import (
     HeadingAtTakeoff,
     ILSFrequencyOnApproach,
     ILSGlideslopeDeviation1500To1000FtMax,
-    ILSGlideslopeDeviation1000To250FtMax,
+    ILSGlideslopeDeviation1000To500FtMax,
+    ILSGlideslopeDeviation500To200FtMax,
     ILSLocalizerDeviation1500To1000FtMax,
-    ILSLocalizerDeviation1000To250FtMax,    
+    ILSLocalizerDeviation1000To500FtMax,
+    ILSLocalizerDeviation500To200FtMax,
+    ILSLocalizerDeviationAtTouchdown,
     LatitudeAtLanding,
     LatitudeAtLiftoff,
     LatitudeAtTakeoff,
@@ -269,12 +272,12 @@ class NodeTest(object):
 
 class CreateKPVsAtKPVsTest(NodeTest):
     '''
-    Example of subclass inheriting tests:
+    Example of subclass inheriting tests::
     
-class TestAltitudeAtLiftoff(unittest.TestCase, CreateKPVsAtKPVsTest):
-    def setUp(self):
-        self.node_class = AltitudeAtLiftoff
-        self.operational_combinations = [('Altitude STD', 'Liftoff')]
+        class TestAltitudeAtLiftoff(unittest.TestCase, CreateKPVsAtKPVsTest):
+            def setUp(self):
+                self.node_class = AltitudeAtLiftoff
+                self.operational_combinations = [('Altitude STD', 'Liftoff')]
     '''
     def test_derive(self):
         mock1, mock2 = Mock(), Mock()
@@ -287,12 +290,12 @@ class TestAltitudeAtLiftoff(unittest.TestCase, CreateKPVsAtKPVsTest):
 
 class CreateKPVsAtKTIsTest(NodeTest):
     '''
-    Example of subclass inheriting tests:
+    Example of subclass inheriting tests::
     
-class TestAltitudeAtLiftoff(unittest.TestCase, CreateKPVsAtKTIsTest):
-    def setUp(self):
-        self.node_class = AltitudeAtLiftoff
-        self.operational_combinations = [('Altitude STD', 'Liftoff')]
+        class TestAltitudeAtLiftoff(unittest.TestCase, CreateKPVsAtKTIsTest):
+            def setUp(self):
+                self.node_class = AltitudeAtLiftoff
+                self.operational_combinations = [('Altitude STD', 'Liftoff')]
     '''
     def test_derive_mocked(self):
         mock1, mock2 = Mock(), Mock()
@@ -305,19 +308,19 @@ class TestAltitudeAtLiftoff(unittest.TestCase, CreateKPVsAtKTIsTest):
 
 class CreateKPVsWithinSlicesTest(NodeTest):
     '''
-    Example of subclass inheriting tests:
-    
-class TestRollAbove1500FtMax(unittest.TestCase, CreateKPVsWithinSlicesTest):
-    def setUp(self):
-        self.node_class = RollAbove1500FtMax
-        self.operational_combinations = [('Roll', 'Altitude AAL For Flight Phases')]
-        # Function passed to create_kpvs_within_slices
-        self.function = max_abs_value
-        # second_param_method_calls are method calls made on the second
-        # parameter argument, for example calling slices_above on a Parameter.
-        # It is optional.
-        self.second_param_method_calls = [('slices_above', (1500,), {})]
-    
+    Example of subclass inheriting tests::
+
+        class TestRollAbove1500FtMax(unittest.TestCase, CreateKPVsWithinSlicesTest):
+            def setUp(self):
+                self.node_class = RollAbove1500FtMax
+                self.operational_combinations = [('Roll', 'Altitude AAL For Flight Phases')]
+                # Function passed to create_kpvs_within_slices
+                self.function = max_abs_value
+                # second_param_method_calls are method calls made on the second
+                # parameter argument, for example calling slices_above on a Parameter.
+                # It is optional.
+                self.second_param_method_calls = [('slices_above', (1500,), {})]
+
     TODO: Implement in a neater way?
     '''
     def test_derive_mocked(self):
@@ -342,19 +345,19 @@ class TestRollAbove1500FtMax(unittest.TestCase, CreateKPVsWithinSlicesTest):
 
 class CreateKPVFromSlicesTest(NodeTest):
     '''
-    Example of subclass inheriting tests:
-    
-class TestRollAbove1500FtMax(unittest.TestCase, CreateKPVsWithinSlicesTest):
-    def setUp(self):
-        self.node_class = RollAbove1500FtMax
-        self.operational_combinations = [('Roll', 'Altitude AAL For Flight Phases')]
-        # Function passed to create_kpvs_within_slices
-        self.function = max_abs_value
-        # second_param_method_calls are method calls made on the second
-        # parameter argument, for example calling slices_above on a Parameter.
-        # It is optional.
-        self.second_param_method_calls = [('slices_above', (1500,), {})]
-    
+    Example of subclass inheriting tests::
+
+        class TestRollAbove1500FtMax(unittest.TestCase, CreateKPVsWithinSlicesTest):
+            def setUp(self):
+                self.node_class = RollAbove1500FtMax
+                self.operational_combinations = [('Roll', 'Altitude AAL For Flight Phases')]
+                # Function passed to create_kpvs_within_slices
+                self.function = max_abs_value
+                # second_param_method_calls are method calls made on the second
+                # parameter argument, for example calling slices_above on a Parameter.
+                # It is optional.
+                self.second_param_method_calls = [('slices_above', (1500,), {})]
+
     TODO: Implement in a neater way?
     '''
     def test_derive_mocked(self):
@@ -376,7 +379,61 @@ class TestRollAbove1500FtMax(unittest.TestCase, CreateKPVsWithinSlicesTest):
             node.create_kpv_from_slices.assert_called_once_with(\
                 mock1.array, mock2, self.function)
 
-            
+
+class ILSTest(NodeTest):
+    '''
+    '''
+
+    def prepare__frequency__basic(self):
+        # Let's give this a really hard time with alternate samples invalid and
+        # the final signal only tuned just at the end of the data.
+        ils_frequency = P(
+            name='ILS Frequency',
+            array=np.ma.array([108.5] * 6 + [114.05] * 4),
+        )
+        ils_frequency.array[0:10:2] = np.ma.masked
+        ils_ests = buildsection('ILS Localizer Established', 2, 9)
+        return ils_frequency, ils_ests
+
+    def prepare__glideslope__basic(self):
+        ils_glideslope = P(
+            name='ILS Glideslope',
+            array=np.ma.array(1.0 - np.cos(np.arange(0, 6.3, 0.1))),
+        )
+        alt_aal = P(
+            name='Altitude AAL For Flight Phases',
+            # Altitude from 1875 to 325 ft in 63 steps.
+            array=np.ma.array((75 - np.arange(63)) * 25),
+        )
+        ils_ests = buildsection('ILS Glideslope Established', 2, 63)
+        return ils_glideslope, alt_aal, ils_ests
+
+    def prepare__glideslope__four_peaks(self):
+        ils_glideslope = P(
+            name='ILS Glideslope',
+            array=np.ma.array(-0.2 - np.sin(np.arange(0, 12.6, 0.1))),
+        )
+        alt_aal = P(
+            name='Altitude AAL For Flight Phases',
+            # Altitude from 1875 to 325 ft in 63 steps.
+            array=np.ma.array((75 - np.arange(63)) * 25),
+        )
+        ils_ests = buildsection('ILS Glideslope Established', 2, 56)
+        return ils_glideslope, alt_aal, ils_ests
+
+    def prepare__localizer__basic(self):
+        ils_localizer = P(
+            name='ILS Localizer',
+            array=np.ma.array(np.arange(0, 12.6, 0.1)),
+        )
+        alt_aal = P(
+            name='Altitude AAL For Flight Phases',
+            array=np.ma.array(np.cos(np.arange(0, 12.6, 0.1)) * -1000 + 1000),
+        )
+        ils_ests = buildsection('ILS Localizer Established', 30, 115)
+        return ils_localizer, alt_aal, ils_ests
+
+
 ################################################################################
 # Test Classes
 
@@ -1777,50 +1834,6 @@ class TestGenericDescent(unittest.TestCase):
         self.assertTrue(False, msg='Test not implemented.')
 
 
-class TestAirspeedWithFlapClimbMax(unittest.TestCase):
-    def test_can_operate(self):
-        self.assertEqual(
-            AirspeedWithFlapClimbMax.get_operational_combinations(),
-            [('Flap', 'Airspeed', 'Climb',)])
-    
-    @unittest.skip('Test Not Implemented')
-    def test_derive(self):
-        self.assertTrue(False, msg='Test not implemented.')
-
-
-class TestAirspeedWithFlapClimbMin(unittest.TestCase):
-    def test_can_operate(self):
-        self.assertEqual(
-            AirspeedWithFlapClimbMin.get_operational_combinations(),
-            [('Flap', 'Airspeed', 'Climb',)])
-    
-    @unittest.skip('Test Not Implemented')
-    def test_derive(self):
-        self.assertTrue(False, msg='Test not implemented.')
-
-
-class TestAirspeedWithFlapDescentMax(unittest.TestCase):
-    def test_can_operate(self):
-        self.assertEqual(
-            AirspeedWithFlapDescentMax.get_operational_combinations(),
-            [('Flap', 'Airspeed', 'Descent',)])
-    
-    @unittest.skip('Test Not Implemented')
-    def test_derive(self):
-        self.assertTrue(False, msg='Test not implemented.')
-
-
-class TestAirspeedWithFlapDescentMin(unittest.TestCase):
-    def test_can_operate(self):
-        self.assertEqual(
-            AirspeedWithFlapDescentMin.get_operational_combinations(),
-            [('Flap', 'Airspeed', 'Descent To Flare',)])
-    
-    @unittest.skip('Test Not Implemented')
-    def test_derive(self):
-        self.assertTrue(False, msg='Test not implemented.')
-
-
 class TestAltitudeAtTouchdown(unittest.TestCase, CreateKPVsAtKTIsTest):
     def setUp(self):
         self.node_class = AltitudeAtTouchdown
@@ -2007,130 +2020,174 @@ class TestEng_N1MaxDurationUnder60PercentAfterTouchdown(unittest.TestCase):
         ##self.assertTrue('Eng (2)' in max_dur[1].name)
         self.assertEqual(len(max_dur), 1)
 
-        
-class TestILSGlideslopeDeviation1500To1000FtMax(unittest.TestCase):
-        
+
+class TestILSFrequencyOnApproach(unittest.TestCase, ILSTest):
+
+    def setUp(self):
+        self.node_class = ILSFrequencyOnApproach
+        self.operational_combinations = [(
+            'ILS Frequency',
+            'ILS Localizer Established',
+        )]
+
     def test_derive_basic(self):
-        testline = np.ma.array((75 - np.arange(63))*25) # 1875 to 325 ft in 63 steps.
-        alt_ph = P('Altitude AAL For Flight Phases', testline)
-        
-        testwave = np.ma.array(1.0 - np.cos(np.arange(0,6.3,0.1)))
-        ils_gs = P('ILS Glideslope', testwave)
-        
-        gs_estab = buildsection('ILS Glideslope Established', 2,63)
-        
+        kpv = ILSFrequencyOnApproach()
+        kpv.derive(*self.prepare__frequency__basic())
+        self.assertEqual(len(kpv), 1)
+        self.assertEqual(kpv[0].index, 2)
+        self.assertEqual(kpv[0].value, 108.5)
+
+
+class TestILSGlideslopeDeviation1500To1000FtMax(unittest.TestCase, ILSTest):
+
+    def setUp(self):
+        self.node_class = ILSGlideslopeDeviation1500To1000FtMax
+        self.operational_combinations = [(
+            'ILS Glideslope',
+            'Altitude AAL For Flight Phases',
+            'ILS Glideslope Established',
+        )]
+
+    def test_derive_basic(self):
         kpv = ILSGlideslopeDeviation1500To1000FtMax()
-        kpv.derive(ils_gs, alt_ph, gs_estab)
-        # 'KeyPointValue', 'index' 'value' 'name'
+        kpv.derive(*self.prepare__glideslope__basic())
         self.assertEqual(len(kpv), 1)
         self.assertEqual(kpv[0].index, 31)
         self.assertAlmostEqual(kpv[0].value, 1.99913515027)
 
     def test_derive_four_peaks(self):
-        testline = np.ma.array((75 - np.arange(63))*25) # 1875 to 325 ft in 63 steps.
-        alt_ph = P('Altitude AAL For Flight Phases', testline)
-        testwave = np.ma.array(-0.2-np.sin(np.arange(0,12.6,0.1)))
-        ils_gs = P('ILS Glideslope', testwave)
-        gs_estab = buildsection('ILS Glideslope Established', 2,56)
         kpv = ILSGlideslopeDeviation1500To1000FtMax()
-        kpv.derive(ils_gs, alt_ph, gs_estab)
-        # 'KeyPointValue', 'index' 'value' 'name'
+        kpv.derive(*self.prepare__glideslope__four_peaks())
+        self.assertEqual(len(kpv), 1)
+        self.assertEqual(kpv[0].index, 16)
         self.assertAlmostEqual(kpv[0].value, -1.1995736)
 
 
-class TestILSGlideslopeDeviation1000To250FtMax(unittest.TestCase):
-        
+class TestILSGlideslopeDeviation1000To500FtMax(unittest.TestCase, ILSTest):
+
+    def setUp(self):
+        self.node_class = ILSGlideslopeDeviation1000To500FtMax
+        self.operational_combinations = [(
+            'ILS Glideslope',
+            'Altitude AAL For Flight Phases',
+            'ILS Glideslope Established',
+        )]
+
     def test_derive_basic(self):
-        testline = np.ma.array((75 - np.arange(63))*25) # 1875 to 325 ft in 63 steps.
-        alt_ph = P('Altitude AAL For Flight Phases', testline)
-        
-        testwave = np.ma.array(1.0 - np.cos(np.arange(0,6.3,0.1)))
-        ils_gs = P('ILS Glideslope', testwave)
-        
-        gs_estab = buildsection('ILS Glideslope Established', 2,63)
-        
-        kpv = ILSGlideslopeDeviation1000To250FtMax()
-        kpv.derive(ils_gs, alt_ph, gs_estab)
-        # 'KeyPointValue', 'index' 'value' 'name'
+        kpv = ILSGlideslopeDeviation1000To500FtMax()
+        kpv.derive(*self.prepare__glideslope__basic())
         self.assertEqual(len(kpv), 1)
         self.assertEqual(kpv[0].index, 36)
         self.assertAlmostEqual(kpv[0].value, 1.89675842)
 
     def test_derive_four_peaks(self):
-        testline = np.ma.array((75 - np.arange(63))*25) # 1875 to 325 ft in 63 steps.
-        alt_ph = P('Altitude AAL For Flight Phases', testline)
-        testwave = np.ma.array(-0.2-np.sin(np.arange(0,12.6,0.1)))
-        ils_gs = P('ILS Glideslope', testwave)
-        gs_estab = buildsection('ILS Glideslope Established', 2,56)
-        kpv = ILSGlideslopeDeviation1000To250FtMax()
-        kpv.derive(ils_gs, alt_ph, gs_estab)
-        # 'KeyPointValue', 'index' 'value' 'name'
+        kpv = ILSGlideslopeDeviation1000To500FtMax()
+        kpv.derive(*self.prepare__glideslope__four_peaks())
+        self.assertEqual(len(kpv), 1)
+        self.assertEqual(kpv[0].index, 47)
         self.assertAlmostEqual(kpv[0].value, 0.79992326)
 
 
-class TestILSFrequencyOnApproach(unittest.TestCase):
-    def test_can_operate(self):
-        expected = [('ILS Frequency', 'ILS Localizer Established',)]
-        opts = ILSFrequencyOnApproach.get_operational_combinations()
-        self.assertEqual(opts, expected) 
-        
+class TestILSGlideslopeDeviation500To200FtMax(unittest.TestCase, ILSTest):
+
+    def setUp(self):
+        self.node_class = ILSGlideslopeDeviation500To200FtMax
+        self.operational_combinations = [(
+            'ILS Glideslope',
+            'Altitude AAL For Flight Phases',
+            'ILS Glideslope Established',
+        )]
+
     def test_derive_basic(self):
-        # Let's give this a really hard time with alternate samples invalid and
-        # the final signal only tuned just at the end of the data.
-        frq = P('ILS Frequency',np.ma.array([108.5]*6+[114.05]*4))
-        frq.array[0:10:2] = np.ma.masked
-        ils = buildsection('ILS Localizer Established', 2, 9)
-        kpv = ILSFrequencyOnApproach()
-        kpv.derive(frq, ils)
-        expected = [KeyPointValue(index=2, value=108.5, 
-                                  name='ILS Frequency On Approach')]
-        self.assertEqual(kpv, expected)
+        kpv = ILSGlideslopeDeviation500To200FtMax()
+        kpv.derive(*self.prepare__glideslope__basic())
+        self.assertEqual(len(kpv), 1)
+        self.assertEqual(kpv[0].index, 56)
+        self.assertAlmostEqual(kpv[0].value, 0.22443412)
+
+    # FIXME: Need to amend the test data as it produces no key point value for
+    #        the 500-200ft altitude range. Originally this was not a problem
+    #        before we split the 1000-250ft range in two.
+    @unittest.expectedFailure
+    def test_derive_four_peaks(self):
+        kpv = ILSGlideslopeDeviation500To200FtMax()
+        kpv.derive(*self.prepare__glideslope__four_peaks())
+        self.assertEqual(len(kpv), 1)
+        self.assertEqual(kpv[0].index, 0)          # FIXME
+        self.assertAlmostEqual(kpv[0].value, 0.0)  # FIXME
 
 
-class TestILSLocalizerDeviation1500To1000FtMax(unittest.TestCase):
-    def test_can_operate(self):
-        expected = [('ILS Localizer','Altitude AAL For Flight Phases',
-                     'ILS Localizer Established')]
-        opts = ILSLocalizerDeviation1500To1000FtMax.get_operational_combinations()
-        self.assertEqual(opts, expected) 
-        
+class TestILSLocalizerDeviation1500To1000FtMax(unittest.TestCase, ILSTest):
+
+    def setUp(self):
+        self.node_class = ILSLocalizerDeviation1500To1000FtMax
+        self.operational_combinations = [(
+            'ILS Localizer',
+            'Altitude AAL For Flight Phases',
+            'ILS Localizer Established',
+        )]
+
     def test_derive_basic(self):
-        testline = np.arange(0,12.6,0.1)
-        testwave = (np.cos(testline)*(-1000))+1000
-        alt_ph = P('Altitude AAL For Flight Phases',
-                           np.ma.array(testwave))
-        ils_loc = P('ILS Localizer', np.ma.array(testline))
-        loc_est = buildsection('ILS Localizer Established', 30,115)
         kpv = ILSLocalizerDeviation1500To1000FtMax()
-        kpv.derive(ils_loc, alt_ph, loc_est)
-        # 'KeyPointValue', 'index value name'
+        kpv.derive(*self.prepare__localizer__basic())
         self.assertEqual(len(kpv), 2)
         self.assertEqual(kpv[0].index, 47)
         self.assertEqual(kpv[1].index, 109)
-        
-        
-class TestILSLocalizerDeviation1000To250FtMax(unittest.TestCase):
-    def test_can_operate(self):
-        expected = [('ILS Localizer','Altitude AAL For Flight Phases',
-                     'ILS Localizer Established')]
-        opts = ILSLocalizerDeviation1000To250FtMax.get_operational_combinations()
-        self.assertEqual(opts, expected) 
-        
-    def test_ils_loc_1000_250_basic(self):
-        testline = np.arange(0,12.6,0.1)
-        testwave = (np.cos(testline)*(-1000))+1000
-        alt_ph = P('Altitude AAL For Flight Phases',
-                           np.ma.array(testwave))
-        ils_loc = P('ILS Localizer', np.ma.array(testline))
-        loc_est = buildsection('ILS Localizer Established', 30,115)
-        kpv = ILSLocalizerDeviation1000To250FtMax()
-        kpv.derive(ils_loc, alt_ph, loc_est)
-        # 'KeyPointValue', 'index value name'
+        self.assertAlmostEqual(kpv[0].value, 4.7)
+        self.assertAlmostEqual(kpv[1].value, 10.9)
+
+
+class TestILSLocalizerDeviation1000To500FtMax(unittest.TestCase, ILSTest):
+
+    def setUp(self):
+        self.node_class = ILSLocalizerDeviation1000To500FtMax
+        self.operational_combinations = [(
+            'ILS Localizer',
+            'Altitude AAL For Flight Phases',
+            'ILS Localizer Established',
+        )]
+
+    def test_derive_basic(self):
+        kpv = ILSLocalizerDeviation1000To500FtMax()
+        kpv.derive(*self.prepare__localizer__basic())
         self.assertEqual(len(kpv), 2)
-        self.assertEqual(kpv[0].index, 55)
-        self.assertEqual(kpv[0].value, 5.5)
+        self.assertEqual(kpv[0].index, 52)
         self.assertEqual(kpv[1].index, 114)
-        self.assertEqual(kpv[1].value, 11.4)
+        self.assertAlmostEqual(kpv[0].value, 5.2)
+        self.assertAlmostEqual(kpv[1].value, 11.4)
+
+
+class TestILSLocalizerDeviation500To200FtMax(unittest.TestCase, ILSTest):
+
+    def setUp(self):
+        self.node_class = ILSLocalizerDeviation500To200FtMax
+        self.operational_combinations = [(
+            'ILS Localizer',
+            'Altitude AAL For Flight Phases',
+            'ILS Localizer Established',
+        )]
+
+    def test_derive_basic(self):
+        kpv = ILSLocalizerDeviation500To200FtMax()
+        kpv.derive(*self.prepare__localizer__basic())
+        self.assertEqual(len(kpv), 1)
+        self.assertEqual(kpv[0].index, 56)
+        self.assertAlmostEqual(kpv[0].value, 5.6)
+
+
+class TestILSLocalizerDeviationAtTouchdown(unittest.TestCase, ILSTest):
+
+    def setUp(self):
+        self.node_class = ILSLocalizerDeviationAtTouchdown
+        self.operational_combinations = [(
+            'ILS Localizer',
+            'ILS Localizer Established',
+            'Touchdown',
+        )]
+
+    @unittest.skip('Test Not Implemented')
+    def test_derive_basic(self):
+        self.assertTrue(False, msg='Test Not Implemented')
 
 
 class TestMachMax(unittest.TestCase, CreateKPVsWithinSlicesTest):
@@ -2682,26 +2739,6 @@ class TestEventMarkerPressed(unittest.TestCase):
         self.assertTrue(False, msg='Test not implemented.')
 
 
-class TestGenericDescent(unittest.TestCase):
-    @unittest.skip('Test Not Implemented')
-    def test_can_operate(self):
-        self.assertTrue(False, msg='Test not implemented.')
-        
-    @unittest.skip('Test Not Implemented')    
-    def test_derive(self):
-        self.assertTrue(False, msg='Test not implemented.')
-
-
-class TestGroundspeedOnGroundMax(unittest.TestCase):
-    @unittest.skip('Test Not Implemented')
-    def test_can_operate(self):
-        self.assertTrue(False, msg='Test not implemented.')
-    
-    @unittest.skip('Test Not Implemented')    
-    def test_derive(self):
-        self.assertTrue(False, msg='Test not implemented.')
-
-
 class TestGroundspeedThrustReversersDeployedMin(unittest.TestCase):
     @unittest.skip('Test Not Implemented')
     def test_can_operate(self):
@@ -3053,37 +3090,7 @@ class TestLongitudeAtLowestPointOnApproach(unittest.TestCase):
         self.assertTrue(False, msg='Test not implemented.')
 
 
-class TestMachAsGearExtendingMax(unittest.TestCase):
-    @unittest.skip('Test Not Implemented')
-    def test_can_operate(self):
-        self.assertTrue(False, msg='Test not implemented.')
-    
-    @unittest.skip('Test Not Implemented')    
-    def test_derive(self):
-        self.assertTrue(False, msg='Test not implemented.')
-
-
-class TestMachAsGearRetractingMax(unittest.TestCase):
-    @unittest.skip('Test Not Implemented')
-    def test_can_operate(self):
-        self.assertTrue(False, msg='Test not implemented.')
-    
-    @unittest.skip('Test Not Implemented')    
-    def test_derive(self):
-        self.assertTrue(False, msg='Test not implemented.')
-
-
 class TestMachMax3Sec(unittest.TestCase):
-    @unittest.skip('Test Not Implemented')
-    def test_can_operate(self):
-        self.assertTrue(False, msg='Test not implemented.')
-    
-    @unittest.skip('Test Not Implemented')    
-    def test_derive(self):
-        self.assertTrue(False, msg='Test not implemented.')
-
-
-class TestMachWithGearDownMax(unittest.TestCase):
     @unittest.skip('Test Not Implemented')
     def test_can_operate(self):
         self.assertTrue(False, msg='Test not implemented.')
@@ -3118,206 +3125,6 @@ class TestPackValvesOpenAtLiftoff(unittest.TestCase):
     def test_can_operate(self):
         self.assertTrue(False, msg='Test not implemented.')
     
-    @unittest.skip('Test Not Implemented')    
-    def test_derive(self):
-        self.assertTrue(False, msg='Test not implemented.')
-
-
-class TestSpeedbrakesDeployedInGoAroundDuration(unittest.TestCase):
-    @unittest.skip('Test Not Implemented')
-    def test_can_operate(self):
-        self.assertTrue(False, msg='Test not implemented.')
-        
-    @unittest.skip('Test Not Implemented')    
-    def test_derive(self):
-        self.assertTrue(False, msg='Test not implemented.')
-
-
-class TestSpeedbrakesDeployedWithPowerOnInHeightBandsDuration(unittest.TestCase):
-    @unittest.skip('Test Not Implemented')
-    def test_can_operate(self):
-        self.assertTrue(False, msg='Test not implemented.')
-    
-    @unittest.skip('Test Not Implemented')    
-    def test_derive(self):
-        self.assertTrue(False, msg='Test not implemented.')
-
-
-class TestStickPusherActivatedDuration(unittest.TestCase):
-    @unittest.skip('Test Not Implemented')
-    def test_can_operate(self):
-        self.assertTrue(False, msg='Test not implemented.')
-    
-    @unittest.skip('Test Not Implemented')    
-    def test_derive(self):
-        self.assertTrue(False, msg='Test not implemented.')
-
-
-class TestTAWSAlertDuration(unittest.TestCase):
-    @unittest.skip('Test Not Implemented')
-    def test_can_operate(self):
-        self.assertTrue(False, msg='Test not implemented.')
-    
-    @unittest.skip('Test Not Implemented')    
-    def test_derive(self):
-        self.assertTrue(False, msg='Test not implemented.')
-
-
-class TestTAWSDontSinkWarningDuration(unittest.TestCase):
-    @unittest.skip('Test Not Implemented')
-    def test_can_operate(self):
-        self.assertTrue(False, msg='Test not implemented.')
-    
-    @unittest.skip('Test Not Implemented')    
-    def test_derive(self):
-        self.assertTrue(False, msg='Test not implemented.')
-
-
-class TestTAWSGlideslopeWarningDuration(unittest.TestCase):
-    @unittest.skip('Test Not Implemented')
-    def test_can_operate(self):
-        self.assertTrue(False, msg='Test not implemented.')
-    
-    @unittest.skip('Test Not Implemented')    
-    def test_derive(self):
-        self.assertTrue(False, msg='Test not implemented.')
-
-
-class TestTAWSPullUpWarningDuration(unittest.TestCase):
-    @unittest.skip('Test Not Implemented')
-    def test_can_operate(self):
-        self.assertTrue(False, msg='Test not implemented.')
-    
-    @unittest.skip('Test Not Implemented')    
-    def test_derive(self):
-        self.assertTrue(False, msg='Test not implemented.')
-
-
-class TestTAWSSinkRateWarningDuration(unittest.TestCase):
-    @unittest.skip('Test Not Implemented')
-    def test_can_operate(self):
-        self.assertTrue(False, msg='Test not implemented.')
-    
-    @unittest.skip('Test Not Implemented')    
-    def test_derive(self):
-        self.assertTrue(False, msg='Test not implemented.')
-
-
-class TestTAWSTerrainPullUpWarningDuration(unittest.TestCase):
-    @unittest.skip('Test Not Implemented')
-    def test_can_operate(self):
-        self.assertTrue(False, msg='Test not implemented.')
-        
-    @unittest.skip('Test Not Implemented')    
-    def test_derive(self):
-        self.assertTrue(False, msg='Test not implemented.')
-
-
-class TestTAWSTerrainWarningDuration(unittest.TestCase):
-    @unittest.skip('Test Not Implemented')
-    def test_can_operate(self):
-        self.assertTrue(False, msg='Test not implemented.')
-    
-    @unittest.skip('Test Not Implemented')    
-    def test_derive(self):
-        self.assertTrue(False, msg='Test not implemented.')
-
-
-class TestTAWSTooLowFlapWarningDuration(unittest.TestCase):
-    @unittest.skip('Test Not Implemented')
-    def test_can_operate(self):
-        self.assertTrue(False, msg='Test not implemented.')
-    
-    @unittest.skip('Test Not Implemented')    
-    def test_derive(self):
-        self.assertTrue(False, msg='Test not implemented.')
-
-
-class TestTAWSTooLowGearWarningDuration(unittest.TestCase):
-    @unittest.skip('Test Not Implemented')
-    def test_can_operate(self):
-        self.assertTrue(False, msg='Test not implemented.')
-        
-    @unittest.skip('Test Not Implemented')    
-    def test_derive(self):
-        self.assertTrue(False, msg='Test not implemented.')
-
-
-class TestTAWSTooLowTerrainWarningDuration(unittest.TestCase):
-    @unittest.skip('Test Not Implemented')
-    def test_can_operate(self):
-        self.assertTrue(False, msg='Test not implemented.')
-    
-    @unittest.skip('Test Not Implemented')    
-    def test_derive(self):
-        self.assertTrue(False, msg='Test not implemented.')
-
-
-class TestTAWSWindshearWarningBelow1500FtDuration(unittest.TestCase):
-    @unittest.skip('Test Not Implemented')
-    def test_can_operate(self):
-        self.assertTrue(False, msg='Test not implemented.')
-    
-    @unittest.skip('Test Not Implemented')    
-    def test_derive(self):
-        self.assertTrue(False, msg='Test not implemented.')
-
-
-class TestTCASRAInitialReaction(unittest.TestCase):
-    @unittest.skip('Test Not Implemented')
-    def test_can_operate(self):
-        self.assertTrue(False, msg='Test not implemented.')
-    
-    @unittest.skip('Test Not Implemented')    
-    def test_derive(self):
-        self.assertTrue(False, msg='Test not implemented.')
-
-
-class TestTCASRAReactionDelay(unittest.TestCase):
-    @unittest.skip('Test Not Implemented')
-    def test_can_operate(self):
-        self.assertTrue(False, msg='Test not implemented.')
-    
-    @unittest.skip('Test Not Implemented')
-    def test_derive(self):
-        self.assertTrue(False, msg='Test not implemented.')
-
-
-class TestTCASRAToAPDisengageDuration(unittest.TestCase):
-    @unittest.skip('Test Not Implemented')
-    def test_can_operate(self):
-        self.assertTrue(False, msg='Test not implemented.')
-    
-    @unittest.skip('Test Not Implemented')    
-    def test_derive(self):
-        self.assertTrue(False, msg='Test not implemented.')
-
-
-class TestTCASRAWarningDuration(unittest.TestCase):
-    @unittest.skip('Test Not Implemented')
-    def test_can_operate(self):
-        self.assertTrue(False, msg='Test not implemented.')
-        
-    @unittest.skip('Test Not Implemented')    
-    def test_derive(self):
-        self.assertTrue(False, msg='Test not implemented.')
-
-
-class TestTouchdownTo60KtsDuration(unittest.TestCase):
-    @unittest.skip('Test Not Implemented')
-    def test_can_operate(self):
-        self.assertTrue(False, msg='Test not implemented.')
-        
-    @unittest.skip('Test Not Implemented')    
-    def test_derive(self):
-        self.assertTrue(False, msg='Test not implemented.')
-
-
-class TestTouchdownToElevatorDownDuration(unittest.TestCase):
-    @unittest.skip('Test Not Implemented')
-    def test_can_operate(self):
-        self.assertTrue(False, msg='Test not implemented.')
-        
     @unittest.skip('Test Not Implemented')    
     def test_derive(self):
         self.assertTrue(False, msg='Test not implemented.')
@@ -4722,7 +4529,7 @@ class TestTAWSTerrainPullUpWarningDuration(unittest.TestCase):
         self.assertTrue(False, msg='Test not implemented.')
 
 
-class TestTAWSGlideslopeWarningAbove1000FtDuration(unittest.TestCase):
+class TestTAWSGlideslopeWarning1500To1000FtDuration(unittest.TestCase):
     # TODO: CreateKPVsWhereState Test Superclass
     @unittest.skip('Test Not Implemented')
     def test_can_operate(self):
@@ -4744,7 +4551,7 @@ class TestTAWSGlideslopeWarning1000To500FtDuration(unittest.TestCase):
         self.assertTrue(False, msg='Test not implemented.')
 
 
-class TestTAWSGlideslopeWarning500To150FtDuration(unittest.TestCase):
+class TestTAWSGlideslopeWarning500To200FtDuration(unittest.TestCase):
     # TODO: CreateKPVsWhereState Test Superclass
     @unittest.skip('Test Not Implemented')
     def test_can_operate(self):
