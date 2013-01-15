@@ -424,7 +424,7 @@ class TestAirspeedReference(unittest.TestCase):
             args = [
                 P(**hdf['Airspeed'].__dict__),
                 P(**hdf['Gross Weight Smoothed'].__dict__),
-                P(**hdf['Flap'].__dict__),
+                P(**hdf['Flap Lever Detents'].__dict__),
                 None,
                 None,
                 None,
@@ -2087,7 +2087,7 @@ class TestV2(unittest.TestCase):
         with hdf_file(test_hdf) as hdf:
             args = [
                 P(**hdf['Airspeed'].__dict__),
-                P(**hdf['Flap'].__dict__),
+                P(**hdf['Flap Lever Detents'].__dict__),
                 None,
                 None,
                 gw,
@@ -2533,7 +2533,7 @@ class TestEng_VibN3Max(unittest.TestCase):
         self.assertTrue(False, msg='Test not implemented.')
 
 
-class TestFlapLever(unittest.TestCase):
+class TestFlapLeverDetens(unittest.TestCase):
     @unittest.skip('Test Not Implemented')
     def test_can_operate(self):
         self.assertTrue(False, msg='Test not implemented.')
