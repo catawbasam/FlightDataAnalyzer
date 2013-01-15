@@ -1,6 +1,6 @@
 numpy
 scipy
-h5py==2.0.0
+h5py
 httplib2>=0.7.0
 networkx
 pygraphviz
