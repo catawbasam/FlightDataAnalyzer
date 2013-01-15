@@ -170,7 +170,7 @@ def graph_nodes(node_mgr):
     # add root - the top level application dependency structure based on required nodes
     # filter only nodes which are at the top of the tree (no predecessors)
     # TODO: Ask Chris about this causing problems with the trimmer.
-    gr_all.add_node('root', color='#fff')
+    gr_all.add_node('root', color='#ffffff')
     root_edges = [('root', node_name) for node_name in node_mgr.requested \
                   if not gr_all.predecessors(node_name)]
     gr_all.add_edges_from(root_edges) ##, color='red')

@@ -104,7 +104,7 @@ class TestDependencyGraph(unittest.TestCase):
         from analysis_engine.dependency_graph import draw_graph
         draw_graph(gr, 'test_graph_nodes_with_duplicate_key_in_lfl_and_derived')
         self.assertEqual(gr.successors('root'), [2,4]) # only the two requested are linked
-        self.assertEqual(gr.node['root'], {'color': '#fff'})
+        self.assertEqual(gr.node['root'], {'color': '#ffffff'})
         
     def test_dependency(self):
         required_nodes = ['P7', 'P8']

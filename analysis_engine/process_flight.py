@@ -382,9 +382,9 @@ if __name__ == '__main__':
     args = parser.parse_args()
     aircraft_info = {
         'Tail Number': args.tail_number,
-        'Model': '737-301',
-        'Series': '737-300',
-        'Family': '737',
+        'Model': 'B737-301',
+        'Series': 'B737-300',
+        'Family': 'B737',
         'Manufacturer': 'Boeing',
         'Precise Positioning': True,
         'Frame': args.frame,
