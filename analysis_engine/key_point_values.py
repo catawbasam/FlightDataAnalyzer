@@ -6191,28 +6191,32 @@ class AltitudeGoAroundFlapRetracted(KeyPointValueNode):
 
 
 class AltitudeAtGoAroundGearUpSelection(KeyPointValueNode):
-    
-    name = 'Altitude Above Go Around Minimum At Gear Up Selection'
-    
-    # gagr pinpoints the gear retraction instance within the 500ft go-around window.
+    '''
+    Finds the relative altitude at which gear up was selected from the point of
+    minimum altitude in the go-around. If gear up was selected before that,
+    just set the value to zero.
+    '''
 
-    def derive(self, alt_aal=P('Altitude AAL'), 
+    def derive(self,
+               alt_aal=P('Altitude AAL'),
                gas=S('Go Around And Climbout'),
-               gear_ups = KTI('Go Around Gear Selected Up')):
+               gear_ups=KTI('Go Around Gear Selected Up')):
+
         for ga in gas:
-            # Find the index and height at this go-around minimum.
-            pit_index = np.ma.argmin(alt_aal.array[ga.slice])
-            pit = alt_aal.array[ga.slice.start + pit_index]
+            # Find the index and height at this go-around minimum:
+            pit_index, pit_value = min_value(alt_aal.array, ga.slice)
             for gear_up in gear_ups:
-                # Check this gear selected up matches the go-around in question
-                if is_index_within_slice(gear_up.index, ga.slice):
-                    # Did we raise the gear after the minimum height?
-                    if gear_up.index > pit_index:
-                        gear_up_ht = alt_aal.array[gear_up.index] - pit
-                    else:
-                        # Show zero if selected up before minimum height
-                        gear_up_ht = 0.0
-                    self.create_kpv(gear_up.index,gear_up_ht)
+                # Ensure gear up selected matches for this go-around:
+                if not is_index_within_slice(gear_up.index, ga.slice):
+                    continue
+                if gear_up.index > pit_index:
+                    # Use height between go around minimum and gear up:
+                    gear_up_ht = alt_aal.array[gear_up.index] - pit_value
+                else:
+                    # Use zero if gear up selected before minimum height:
+                    gear_up_ht = 0.0
+                self.create_kpv(gear_up.index, gear_up_ht)
+
 
 # TODO: Write some unit tests!
 class SpeedbrakesDeployedInGoAroundDuration(KeyPointValueNode):
