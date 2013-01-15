@@ -5505,44 +5505,22 @@ class TAWSTerrainPullUpWarningDuration(KeyPointValueNode):
             phase=airborne,
         )
 
-"""
 
-Basic TAWS glideslope KPV, superceded by three stages in the descent.
-
-class TAWSGlideslopeWarningDuration(KeyPointValueNode):
+class TAWSGlideslopeWarning1500To1000FtDuration(KeyPointValueNode):
     '''
     '''
 
-    name = 'TAWS Glideslope Warning Duration'
+    name = 'TAWS Glideslope Warning 1500 To 1000 Ft Duration'
 
-    def derive(self, taws_glideslope=M('TAWS Glideslope'),
-            airborne=S('Airborne')):
-        '''
-        '''
+    def derive(self,
+               taws_glideslope=M('TAWS Glideslope'),
+               alt_aal=P('Altitude AAL For Flight Phases')):
+
         self.create_kpvs_where_state(
             'Warning',
             taws_glideslope.array,
             taws_glideslope.hz,
-            phase=airborne,
-        )
-"""
-
-class TAWSGlideslopeWarningAbove1000FtDuration(KeyPointValueNode):
-    '''
-    '''
-
-    name = 'TAWS Glideslope Warning Above 1000 Ft Duration'
-
-    def derive(self, taws_glideslope=M('TAWS Glideslope'),
-            alt_aal = P('Altitude AAL For Flight Phases')):
-        '''
-        '''
-        
-        self.create_kpvs_where_state(
-            'Warning',
-            taws_glideslope.array,
-            taws_glideslope.hz,
-            phase=alt_aal.slices_from_to(10000, 1000),
+            phase=alt_aal.slices_from_to(1500, 1000),
         )
 
 
@@ -5552,10 +5530,10 @@ class TAWSGlideslopeWarning1000To500FtDuration(KeyPointValueNode):
 
     name = 'TAWS Glideslope Warning 1000 To 500 Ft Duration'
 
-    def derive(self, taws_glideslope=M('TAWS Glideslope'),
-            alt_aal = P('Altitude AAL For Flight Phases')):
-        '''
-        '''
+    def derive(self,
+               taws_glideslope=M('TAWS Glideslope'),
+               alt_aal=P('Altitude AAL For Flight Phases')):
+
         self.create_kpvs_where_state(
             'Warning',
             taws_glideslope.array,
@@ -5563,23 +5541,23 @@ class TAWSGlideslopeWarning1000To500FtDuration(KeyPointValueNode):
             phase=alt_aal.slices_from_to(1000, 500),
         )
 
-class TAWSGlideslopeWarning500To150FtDuration(KeyPointValueNode):
+
+class TAWSGlideslopeWarning500To200FtDuration(KeyPointValueNode):
     '''
     '''
 
-    name = 'TAWS Glideslope Warning 500 To 150 Ft Duration'
+    name = 'TAWS Glideslope Warning 500 To 200 Ft Duration'
 
-    def derive(self, taws_glideslope=M('TAWS Glideslope'),
-            alt_aal = P('Altitude AAL For Flight Phases')):
-        '''
-        '''
+    def derive(self,
+               taws_glideslope=M('TAWS Glideslope'),
+               alt_aal=P('Altitude AAL For Flight Phases')):
+
         self.create_kpvs_where_state(
             'Warning',
             taws_glideslope.array,
             taws_glideslope.hz,
-            phase=alt_aal.slices_from_to(500, 150),
+            phase=alt_aal.slices_from_to(500, 200),
         )
-
 
 
 class TAWSTooLowTerrainWarningDuration(KeyPointValueNode):

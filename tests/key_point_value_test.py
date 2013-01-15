@@ -3274,16 +3274,6 @@ class TestTAWSDontSinkWarningDuration(unittest.TestCase):
         self.assertTrue(False, msg='Test not implemented.')
 
 
-class TestTAWSGlideslopeWarningDuration(unittest.TestCase):
-    @unittest.skip('Test Not Implemented')
-    def test_can_operate(self):
-        self.assertTrue(False, msg='Test not implemented.')
-    
-    @unittest.skip('Test Not Implemented')    
-    def test_derive(self):
-        self.assertTrue(False, msg='Test not implemented.')
-
-
 class TestTAWSPullUpWarningDuration(unittest.TestCase):
     @unittest.skip('Test Not Implemented')
     def test_can_operate(self):
@@ -4823,7 +4813,7 @@ class TestTAWSTerrainPullUpWarningDuration(unittest.TestCase):
         self.assertTrue(False, msg='Test not implemented.')
 
 
-class TestTAWSGlideslopeWarningAbove1000FtDuration(unittest.TestCase):
+class TestTAWSGlideslopeWarning1500To1000FtDuration(unittest.TestCase):
     # TODO: CreateKPVsWhereState Test Superclass
     @unittest.skip('Test Not Implemented')
     def test_can_operate(self):
@@ -4845,7 +4835,7 @@ class TestTAWSGlideslopeWarning1000To500FtDuration(unittest.TestCase):
         self.assertTrue(False, msg='Test not implemented.')
 
 
-class TestTAWSGlideslopeWarning500To150FtDuration(unittest.TestCase):
+class TestTAWSGlideslopeWarning500To200FtDuration(unittest.TestCase):
     # TODO: CreateKPVsWhereState Test Superclass
     @unittest.skip('Test Not Implemented')
     def test_can_operate(self):
