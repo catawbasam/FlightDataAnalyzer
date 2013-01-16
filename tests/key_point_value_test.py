@@ -3308,7 +3308,7 @@ class TestHeadingVacatingRunway(unittest.TestCase):
     def test_can_operate(self):
         self.assertEqual(
             HeadingVacatingRunway.get_operational_combinations(),
-            [('Heading True Continuous', 'Landing Roll', 'FDR Landing Runway')])
+            [('Heading Continuous', 'Landing Turn Off Runway')])
     
     @unittest.skip('Test Not Implemented')    
     def test_derive(self):
