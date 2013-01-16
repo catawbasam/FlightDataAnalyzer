@@ -3239,8 +3239,11 @@ def truck_and_trailer(data, ttp, overall, trailer, curve_sense, _slice):
     # adjusted to allow us to use positive only tests hereafter.
     if curve_sense == 'Bipolar':
         angle = np.ma.abs(angle)
-    if curve_sense == 'Convex':
+    elif curve_sense == 'Convex':
         angle = -angle
+    else:  # curve_sense == 'Concave'
+        # angle remains as is
+        pass
     
     # Find peak - using values over 50% of the highest allows us to operate
     # without knowing the data characteristics.
@@ -3318,10 +3321,11 @@ def peak_curvature(array, _slice=slice(None), curve_sense='Concave',
     we should provide analysis with only airspeed, altitude and heading data
     available.
     """
-    #gap = TRUCK_OR_TRAILER_INTERVAL
-    if gap%2-1:
-        gap-=1  #  Ensure gap is odd
-    #ttp = TRUCK_OR_TRAILER_PERIOD
+    curve_sense = curve_sense.title()
+    if curve_sense not in ('Concave', 'Convex', 'Bipolar'):
+        raise ValueError('Curve Sense %s not supported' % curve_sense)
+    if gap%2 - 1:
+        gap -= 1  #  Ensure gap is odd
     trailer = ttp+gap
     overall = 2*ttp + gap
     
@@ -3329,50 +3333,52 @@ def peak_curvature(array, _slice=slice(None), curve_sense='Concave',
     valid_slices = np.ma.clump_unmasked(input_data)
     for valid_slice in valid_slices:
         # check the contiguous valid data is long enough.
-        if valid_slice.stop - valid_slice.start > overall:
+        if (valid_slice.stop - valid_slice.start) <= 3:
+            # No valid segment data is not long enough to process
+            continue
+        elif np.ma.ptp(input_data[valid_slice]) == 0:
+            # No variation to scan in current valid slice.
+            continue
+        elif valid_slice.stop - valid_slice.start > overall:
+            # Use truck and trailer as we have plenty of data
             data = array[_slice][valid_slice]
             # The normal path is to go and process this data.
-            
-            # Standard version (see option below)...
-            corner = truck_and_trailer(data, ttp, overall, trailer, curve_sense, _slice)
+            corner = truck_and_trailer(data, ttp, overall, trailer, curve_sense, _slice)  #Q: What is _slice going to do if we've already subsliced it?
             if corner:
+                # Found curve
                 return corner + valid_slice.start
-            else:
-                return None
-        
-            '''
-            # Version developed to cater for one edge case where data stopped 
-            on runway. May not be appropriate to adopt more widely but left 
-            here to avoid reinventing the wheel in case it's a better solution.
-            
-            return valid_slice.start + truck_and_trailer(data, ttp, overall, 
-                                                         trailer, curve_sense, 
-                                                         _slice)
-                                                         '''
-        
-        # Here we deal with problem cases.
-        if len(valid_slices) == 0 or \
-           (valid_slice.stop - valid_slice.start) < 4 or\
-           np.ma.ptp(input_data[valid_slice]) == 0:
-            # No valid data segments were long enough to process, or had any
-            # variation to scan.
-            return None
+            # Look in next slice
+            continue
         else:
             # Simple methods for small data sets.
-            data = input_data[valid_slices[0]]
+            data = input_data[valid_slice]
             curve = data[2:] - 2.0*data[1:-1] + data[:-2]
-            # Trap for invariant data
-            if np.ma.ptp(data) == 0.0:
-                return 1 + valid_slice.start
             if curve_sense == 'Concave':
-                return np.ma.argmax(curve) + 1 + valid_slice.start + _slice.start
+                curve_index, val = max_value(curve)
+                if val <= 0:
+                    # No curve or Curved wrong way
+                    continue
             elif curve_sense == 'Convex':
-                return np.ma.argmin(curve) + 1 + valid_slice.start + _slice.start
-            elif curve_sense == 'Bipolar':
-                return np.ma.argmin(np.ma.abs(curve)) + 1 + valid_slice.start + _slice.start
+                curve_index, val = min_value(curve)
+                if val >= 0:
+                    # No curve or Curved wrong way
+                    continue
+            else:  #curve_sense == 'Bipolar':
+                curve_index, val = max_abs_value(curve)
+                if val == 0:
+                    # No curve
+                    continue
+            # Add 1 to move into middle of 3 element curve and add slice positions back on
+            index = curve_index + 1 + valid_slice.start + (_slice.start or 0)
+            if _slice.step is not None and _slice.step < 0:
+                # stepping backwards through data, change index
+                return len(array) - index
             else:
-                logger.warn("Short data and unrecognised keyword %s in peak_curvature" %curve_sense)
-
+                return index
+        #endif
+    else:  #endfor
+        # did not find curve in valid data
+        return None
 
 def peak_index(a):
     '''

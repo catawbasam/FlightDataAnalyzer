@@ -2615,6 +2615,30 @@ class TestPeakCurvature(unittest.TestCase):
         pc=peak_curvature(array, curve_sense='Bipolar')
         self.assertLess(pc, 85)
         self.assertGreater(pc, 75)
+        
+    def test_none_slice_provided(self):
+        # Designed to capture TypeError:
+        # TypeError: unsupported operand type(s) for +: 'int' and 'NoneType'
+        array = np.ma.array(range(10), mask=[0,0,0,0,0,0,0,1,1,1])
+        # also checks lower case curve_sense is turned Title case
+        res = peak_curvature(array, _slice=slice(None), curve_sense='bipolar')
+        # Range(10) has no curvature shape to it
+        self.assertEqual(res, None)
+        
+    def test_invalid_curve_sense(self):
+        self.assertRaises(ValueError, peak_curvature, [], curve_sense='INVALID')
+        
+    def test_multiple_valid_slices(self):
+        #                 ignore |  Concave  | ignore  |  Convex
+        array = np.ma.array([2,4,6,7,8,19,36,6,4,2,1,-2,-7,-12,-19,-28],
+                       mask=[0,0,1,0,0, 0, 0,1,0,0,0, 1, 0,  0,  0,  0])
+        res = peak_curvature(array, curve_sense='Concave')
+        self.assertEqual(res, 4)
+        res = peak_curvature(array, curve_sense='Concave', _slice=slice(None, None, -1))
+        self.assertEqual(res, 5)
+        res = peak_curvature(array, curve_sense='Convex')
+        self.assertEqual(res, 13)
+        
 
 class TestPeakIndex(unittest.TestCase):
     def test_peak_index_no_data(self):
