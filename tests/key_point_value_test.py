@@ -1748,7 +1748,7 @@ class TestMachAsGearRetractingMax(unittest.TestCase,
                                   CreateKPVsWithinSlicesTest):
     def setUp(self):
         self.node_class = MachAsGearRetractingMax
-        self.operational_combinations = [('Airspeed', 'Gear Retracting',)]
+        self.operational_combinations = [('Mach', 'Gear Retracting',)]
         self.function = max_value
 
     @unittest.skip('Test Not Implemented')
@@ -1760,7 +1760,7 @@ class TestMachAsGearExtendingMax(unittest.TestCase,
                                      CreateKPVsWithinSlicesTest):
     def setUp(self):
         self.node_class = MachAsGearExtendingMax
-        self.operational_combinations = [('Airspeed', 'Gear Extending',)]
+        self.operational_combinations = [('Mach', 'Gear Extending',)]
         self.function = max_value
 
     @unittest.skip('Test Not Implemented')
