@@ -3524,7 +3524,7 @@ class TestGroundspeedTaxiingTurnsMax(unittest.TestCase):
 class TestGroundspeedRTOMax(unittest.TestCase, CreateKPVsWithinSlicesTest):
     def setUp(self):
         self.node_class = GroundspeedRTOMax
-        self.operational_combinations = [('Roundspeed', 'Rejected Takeoff')]
+        self.operational_combinations = [('Groundspeed', 'Rejected Takeoff')]
         self.function = max_value
     
     @unittest.skip('Test Not Implemented')    
