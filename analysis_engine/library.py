@@ -2568,7 +2568,7 @@ def localizer_scale(runway):
         try:
             length = runway_length(runway)
         except:
-            pass
+            length = None
         
         if length == None:
             length = 8000 / METRES_TO_FEET # Typical length
