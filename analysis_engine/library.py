@@ -3350,6 +3350,8 @@ def peak_curvature(array, _slice=slice(None), curve_sense='Concave',
             # Look in next slice
             continue
         else:
+            if _slice.step not in (None, 1, -1):
+                raise ValueError("Index returned cannot handle big steps!")
             # Simple methods for small data sets.
             data = input_data[valid_slice]
             curve = data[2:] - 2.0*data[1:-1] + data[:-2]
