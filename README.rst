@@ -40,3 +40,6 @@ Documentation is available from the `Python Package Index`_:
 .. _GitHub: https://github.com/
 .. _Python Package Index: http://pypi.python.org/
 
+.. image:: https://cruel-carlota.pagodabox.com/9932acf5231d508d118026b0e621d296
+    :alt: githalytics.com
+    :target: http://githalytics.com/FlightDataServices/FlightDataAnalyzer
