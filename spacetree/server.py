@@ -398,7 +398,10 @@ class SpacetreeRequestHandler(BaseHTTPRequestHandler):
 
 
 if __name__ == '__main__':
-
+    print ' FlightDataParameterTree (c) Copyright 2013 Flight Data Services, Ltd.'
+    print '  - Powered by POLARIS'
+    print '  - http://www.flightdatacommunity.com'
+    print ''
     opt = parse_arguments()
 
     url = 'http://%s:%d/' % (DEFAULT_HOST, opt.port)
