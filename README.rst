@@ -18,7 +18,7 @@ it is dependant on the `Utilities` module which contains proprietary code we
 can't release. We are in the process of liberating the `Utilities` module and
 will release `FlightDataUtilities` in Q1 2013 as a fully Open Source
 replacement. At which time we will the publish "run from source" documentation
-which will be available via the `FlightDataCommunity_` website.
+which will be available via the `Flight Data Community_` website.
 
 Installation
 ------------
