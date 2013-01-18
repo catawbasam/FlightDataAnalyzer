@@ -16,6 +16,10 @@ from utilities.print_table import indent
 
 logger = logging.getLogger(name=__name__)
 
+# KPV / KTI names not to display as markers
+SKIP_KPVS = []
+SKIP_KTIS = ['Transmit']
+
 class TypedWriter(object):
     """
     A CSV writer which will write rows to CSV file "f",
@@ -48,15 +52,13 @@ class TypedWriter(object):
         return res
             
             
-def add_track(kml, track_name, lat, lon, colour, alt_param=None):
+def add_track(kml, track_name, lat, lon, colour, alt_param=None, alt_mode=None):
+    '''
+    alt_mode such as simplekml.constants.AltitudeMode.clamptoground
+    '''
     track_config = {'name': track_name}
     if alt_param:
-        if alt_param.name in ['Altitude QNH', 'Altitude AAL', 'Altitude STD']:
-            track_config['altitudemode'] = simplekml.constants.AltitudeMode.absolute
-        elif alt_param.name in ['Altitude Radio']:
-            track_config['altitudemode'] = simplekml.constants.AltitudeMode.relativetoground
-        else:
-            raise NotImplementedError("Altitude parameter '%s' not handled" % alt_param.name)
+        track_config['altitudemode'] = alt_mode
         track_config['extrude'] = 1
         
     track_coords = []
@@ -64,14 +66,13 @@ def add_track(kml, track_name, lat, lon, colour, alt_param=None):
     scope_lat = np.ma.flatnotmasked_edges(lat.array)
     begin = max(scope_lon[0], scope_lat[0])+1
     end = min(scope_lon[1], scope_lat[1])-1
-    for i in range(begin, end):
+    for i in xrange(begin, end):
         if lat.array.mask[i] or lon.array.mask[i] or (alt_param and alt_param.array.mask[i]):
-            pass  # Masked data not worth plotting
+            continue  # Masked data not worth plotting
+        if alt_param:
+            track_coords.append((lon.array[i], lat.array[i], alt_param.array[i]))
         else:
-            if alt_param:
-                track_coords.append((lon.array[i],lat.array[i], alt_param.array[i]))
-            else:
-                track_coords.append((lon.array[i],lat.array[i]))
+            track_coords.append((lon.array[i], lat.array[i]))
                 
     track_config['coords'] = track_coords
     line = kml.newlinestring(**track_config)
@@ -123,36 +124,40 @@ def track_to_kml(hdf_path, kti_list, kpv_list, flight_attrs,
             alt.array = repair_mask(alt.array, frequency=alt.frequency, repair_duration=None) / METRES_TO_FEET
         else:
             alt = None
-                  
+            
+        if plot_altitude in ['Altitude QNH', 'Altitude AAL', 'Altitude STD']:
+            altitude_mode = simplekml.constants.AltitudeMode.absolute
+        elif plot_altitude in ['Altitude Radio']:
+            altitude_mode = simplekml.constants.AltitudeMode.relativetoground
+        else:
+            altitude_mode = simplekml.constants.AltitudeMode.clamptoground
+
         smooth_lat = derived_param_from_hdf(hdf['Latitude Smoothed'])
         smooth_lon = derived_param_from_hdf(hdf['Longitude Smoothed'])
         add_track(kml, 'Smoothed', smooth_lat, smooth_lon, 'ff7fff7f', 
-                  alt_param=alt)
+                  alt_param=alt, alt_mode=altitude_mode)
         add_track(kml, 'Smoothed On Ground', smooth_lat, smooth_lon, 'ff7fff7f')        
     
         lat = derived_param_from_hdf(hdf['Latitude Prepared'])
         lon = derived_param_from_hdf(hdf['Longitude Prepared'])
-        add_track(kml, 'Prepared', lat, lon, 'ff0000ff')
+        add_track(kml, 'Prepared', lat, lon, 'A11EB3')
         
         lat_r = derived_param_from_hdf(hdf['Latitude'])
         lon_r = derived_param_from_hdf(hdf['Longitude'])
-        
-    add_track(kml, 'Recorded Track', lat_r, lon_r, 'ff0000ff')
+        add_track(kml, 'Recorded Track', lat_r, lon_r, 'ff0000ff')
 
     for kti in kti_list:
         kti_point_values = {'name': kti.name}
-        if kti.name not in ['Transmit']:
-            #and not kti.name.endswith('Descending')\
-            #and not kti.name.endswith('Climbing')\
-            altitude = alt.at(kti.index) if plot_altitude else None
-            if altitude:
-                kti_point_values['coords'] = ((kti.longitude, kti.latitude, altitude),)
-                kti_point_values['altitudemode'] = simplekml.constants.AltitudeMode.relativetoground 
-            else:
-                kti_point_values['coords'] = ((kti.longitude, kti.latitude,),)
-                kti_point_values['altitudemode'] = simplekml.constants.AltitudeMode.clamptoground 
+        if kti.name in SKIP_KTIS:
+            continue
         
-            kml.newpoint(**kti_point_values)
+        altitude = alt.at(kti.index) if plot_altitude else None
+        kti_point_values['altitudemode'] = altitude_mode
+        if altitude:
+            kti_point_values['coords'] = ((kti.longitude, kti.latitude, altitude),)
+        else:
+            kti_point_values['coords'] = ((kti.longitude, kti.latitude,),)
+        kml.newpoint(**kti_point_values)
         
     for kpv in kpv_list:
 
@@ -165,22 +170,21 @@ def track_to_kml(hdf_path, kti_list, kpv_list, flight_attrs,
            (kpv_lat == 0.0 and kpv_lon == 0.0):
             continue
 
-        if kpv.name not in ['z']:
-            style = simplekml.Style()
-            style.iconstyle.color = simplekml.Color.red
-            kpv_point_values = {'name': '%s (%s)' % (kpv.name, kpv.value)}
-            altitude = alt.at(kpv.index) if plot_altitude else None
-            if altitude:
-                kpv_point_values['coords'] = (
-                    (kpv_lon, kpv_lat, altitude,),)
-                kpv_point_values['altitudemode'] = simplekml.constants.AltitudeMode.relativetoground 
-            else:
-                kpv_point_values['coords'] = (
-                    (kpv_lon, kpv_lat,),)
-                kpv_point_values['altitudemode'] = simplekml.constants.AltitudeMode.clamptoground 
-            
-            pnt = kml.newpoint(**kpv_point_values)
-            pnt.style = style
+        if kpv.name in SKIP_KPVS:
+            continue
+        
+        style = simplekml.Style()
+        style.iconstyle.color = simplekml.Color.red
+        kpv_point_values = {'name': '%s (%s)' % (kpv.name, kpv.value)}
+        altitude = alt.at(kpv.index) if plot_altitude else None
+        kpv_point_values['altitudemode'] = altitude_mode
+        if altitude:
+            kpv_point_values['coords'] = ((kpv_lon, kpv_lat, altitude,),)
+        else:
+            kpv_point_values['coords'] = ((kpv_lon, kpv_lat,),)
+        
+        pnt = kml.newpoint(**kpv_point_values)
+        pnt.style = style
             
     for attribute in flight_attrs:
         if attribute.name in ['FDR Approaches']:
