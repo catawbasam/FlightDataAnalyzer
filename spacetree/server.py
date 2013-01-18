@@ -398,7 +398,7 @@ class SpacetreeRequestHandler(BaseHTTPRequestHandler):
 
 
 if __name__ == '__main__':
-    print ' FlightDataParameterTree (c) Copyright 2013 Flight Data Services, Ltd.'
+    print 'FlightDataParameterTree (c) Copyright 2013 Flight Data Services, Ltd.'
     print '  - Powered by POLARIS'
     print '  - http://www.flightdatacommunity.com'
     print ''
