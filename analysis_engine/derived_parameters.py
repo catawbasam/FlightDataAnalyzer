@@ -951,7 +951,7 @@ class AltitudeSTDSmoothed(DerivedParameterNode):
         
         frame_name = frame.value if frame else ''
         
-        if frame_name in ['737-6']:
+        if frame_name in ['737-i', '737-6']:
             # The altitude signal is measured in steps of 32 ft so needs
             # smoothing. A 5-point Gaussian distribution was selected as a
             # balance between smoothing effectiveness and excessive
