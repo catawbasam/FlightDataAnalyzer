@@ -1,5 +1,4 @@
 import argparse
-from copy import copy
 import csv
 import logging
 import matplotlib.pyplot as plt
@@ -7,10 +6,18 @@ import numpy as np
 import os
 import simplekml
 
+from copy import copy
+
+from analysis_engine.library import (
+    bearing_and_distance, 
+    latitudes_and_longitudes, 
+    repair_mask, 
+    value_at_index,
+)
 from analysis_engine.node import derived_param_from_hdf, Parameter
+from analysis_engine.settings import METRES_TO_FEET
+
 from hdfaccess.file import hdf_file
-from library import bearing_and_distance, latitudes_and_longitudes, repair_mask
-from settings import METRES_TO_FEET
 from utilities.print_table import indent
 
 
@@ -67,12 +74,17 @@ def add_track(kml, track_name, lat, lon, colour, alt_param=None, alt_mode=None):
     begin = max(scope_lon[0], scope_lat[0])+1
     end = min(scope_lon[1], scope_lat[1])-1
     for i in xrange(begin, end):
-        if lat.array.mask[i] or lon.array.mask[i] or (alt_param and alt_param.array.mask[i]):
-            continue  # Masked data not worth plotting
+        _lon = value_at_index(lon.array, i)
+        _lat = value_at_index(lat.array, i)
         if alt_param:
-            track_coords.append((lon.array[i], lat.array[i], alt_param.array[i]))
+            _alt = value_at_index(alt_param.array, i)
+            coords = (_lon, _lat, _alt)
         else:
-            track_coords.append((lon.array[i], lat.array[i]))
+            coords = (_lon, _lat)
+            
+        if not all(coords):
+            continue
+        track_coords.append(coords)
                 
     track_config['coords'] = track_coords
     line = kml.newlinestring(**track_config)
@@ -131,7 +143,9 @@ def track_to_kml(hdf_path, kti_list, kpv_list, flight_attrs,
             altitude_mode = simplekml.constants.AltitudeMode.relativetoground
         else:
             altitude_mode = simplekml.constants.AltitudeMode.clamptoground
-
+        
+        # TODO: align everything to 0 offset
+        
         smooth_lat = derived_param_from_hdf(hdf['Latitude Smoothed'])
         smooth_lon = derived_param_from_hdf(hdf['Longitude Smoothed'])
         add_track(kml, 'Smoothed', smooth_lat, smooth_lon, 'ff7fff7f', 
