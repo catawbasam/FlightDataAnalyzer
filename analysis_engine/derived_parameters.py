@@ -3357,14 +3357,14 @@ class CoordinatesSmoothed(object):
                                               start_locn_default['latitude'],  
                                               start_locn_default['longitude'])
         
-            if distance < 200:
+            if distance < 50:
                 # We may have a reasonable start location, so let's use that
                 start_locn = start_locn_recorded
                 initial_displacement = 0.0
             else:
-                # The recorded start point is way off, default to 100m down the track.
+                # The recorded start point is way off, default to 50m down the track.
                 start_locn = start_locn_default
-                initial_displacement = 100.0
+                initial_displacement = 50.0
     
             # Compute takeoff track from start of runway using integrated
             # groundspeed, down runway centreline to end of takeoff (35ft

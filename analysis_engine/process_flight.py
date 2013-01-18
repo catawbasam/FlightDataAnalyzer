@@ -382,7 +382,7 @@ if __name__ == '__main__':
         'Series': 'B737-300',
         'Family': 'B737',
         'Manufacturer': 'Boeing',
-        'Precise Positioning': True,
+        'Precise Positioning': False,
         'Frame': args.frame,
         'Frame Qualifier': 'Altitude_Radio_EFIS',
     }

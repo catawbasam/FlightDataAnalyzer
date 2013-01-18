@@ -295,8 +295,8 @@ class AnalysisEngineAPIHandlerLocal(AnalysisEngineAPI):
          'glideslope': {
              'angle': 3.0,
              'elevation': 669,
-             'latitude': 60.187694,
-             'longitude': 11.072715,
+             'latitude':  60.186858,
+             'longitude':  11.072234,
              'threshold_distance': 943
              },
          'id': 8151,
@@ -385,6 +385,10 @@ class AnalysisEngineAPIHandlerLocal(AnalysisEngineAPI):
         :rtype: dict
         '''
         if not latitude or not longitude:
+            # Not precise
+            if hint == 'landing':
+                return self.runways[1]
+        
             raise NotFoundError('Local API Handler: Runway not found')
         runways = []
         for runway in self.runways:
