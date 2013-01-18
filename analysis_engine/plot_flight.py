@@ -120,7 +120,7 @@ def track_to_kml(hdf_path, kti_list, kpv_list, flight_attrs,
     with hdf_file(hdf_path) as hdf:
         if plot_altitude:
             alt = derived_param_from_hdf(hdf[plot_altitude])
-            alt.array = repair_mask(alt.array, frequency=alt.frequency, repair_duration=None)
+            alt.array = repair_mask(alt.array, frequency=alt.frequency, repair_duration=None) / METRES_TO_FEET
         else:
             alt = None
                   

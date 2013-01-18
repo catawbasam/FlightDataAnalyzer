@@ -4,9 +4,13 @@ from mock import Mock, patch
 
 from analysis_engine.utils import (
     derived_trimmer,
+    list_derived_parameters,
     list_everything,
+    list_flight_attributes,
+    list_flight_phases,
     list_kpvs,
     list_ktis,
+    list_lfl_parameter_dependencies,
     list_parameters,
     )
 
@@ -64,6 +68,12 @@ class TestGetNames(unittest.TestCase):
         self.assertNotIn('AOA With Flap 16 Max', params)  # KPV
         self.assertNotIn('Landing Turn Off Runway', params)  # KTI
         self.assertNotIn('FDR Takeoff Runway', params)  # Attribute
+        
+        
+    def test_list_derived_parameters(self):
+        params = list_derived_parameters()
+        self.assertIn('Altitude AAL', params)  # Derived Node
+        self.assertNotIn('Airspeed', params)  # LFL
 
     def test_list_kpvs(self):
         kpvs = list_kpvs()
@@ -83,6 +93,11 @@ class TestGetNames(unittest.TestCase):
         self.assertNotIn('AOA With Flap 16 Max', ktis)
         self.assertNotIn('FDR Takeoff Runway', ktis)
         
+    def test_list_lfl_parameters(self):
+        params = list_lfl_parameter_dependencies()
+        self.assertIn('Airspeed', params)  # LFL
+        self.assertNotIn('Altitude AAL', params)  # Derived Node
+        
     def test_list_everything(self):
         params = list_everything()
         self.assertIn('Airspeed', params)  # LFL
@@ -98,8 +113,8 @@ class TestGetNames(unittest.TestCase):
         self.assertIn('Approaches', atts)
 
     def test_list_flight_phases(self):
-        phases = list_phases()
-        self.assertIn('Altitude AAL For Flight Phases', phases)
+        phases = list_flight_phases()
+        self.assertIn('Bounced Landing', phases)
         
 
                         

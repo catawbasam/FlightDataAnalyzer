@@ -111,6 +111,24 @@ def list_parameters():
     return sorted(parameters)
 
 
+def list_derived_parameters():
+    '''
+    Return an ordered list of the Derived Parameters which have been coded.
+    '''
+    return _get_names(['analysis_engine.derived_parameters'])
+
+
+def list_lfl_parameter_dependencies():
+    '''
+    Return a list of the Parameters without Derived ones, therefore should be
+    mostly LFL parameters!
+    
+    Note: a few Attributes will be in here too!
+    '''
+    parameters = set(list_parameters()) - set(list_derived_parameters())
+    return sorted(parameters)
+
+
 def list_everything():
     '''
     Return an ordered list of all parameters both derived and required.
