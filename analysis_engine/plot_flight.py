@@ -69,11 +69,11 @@ def add_track(kml, track_name, lat, lon, colour, alt_param=None, alt_mode=None):
         track_config['extrude'] = 1
         
     track_coords = []
-    scope_lon = np.ma.flatnotmasked_edges(lon.array)
-    scope_lat = np.ma.flatnotmasked_edges(lat.array)
-    begin = max(scope_lon[0], scope_lat[0])+1
-    end = min(scope_lon[1], scope_lat[1])-1
-    for i in xrange(begin, end):
+    ##scope_lon = np.ma.flatnotmasked_edges(lon.array)
+    ##scope_lat = np.ma.flatnotmasked_edges(lat.array)
+    ##begin = max(scope_lon[0], scope_lat[0])+1
+    ##end = min(scope_lon[1], scope_lat[1])-1
+    for i in xrange(0, len(lon.array)):
         _lon = value_at_index(lon.array, i)
         _lat = value_at_index(lat.array, i)
         if alt_param:
@@ -126,13 +126,11 @@ def track_to_kml(hdf_path, kti_list, kpv_list, flight_attrs,
     :param plot_altitude: Name of Altitude parameter to use in KML
     :type plot_altitude: String
     '''
-    #if 'Latitude Smoothed' not in hdf or 'Longitude Smoothed' not in hdf:
-        ## unable to plot without these parameters
-        #return
+    one_hz = Parameter()
     kml = simplekml.Kml()
     with hdf_file(hdf_path) as hdf:
         if plot_altitude:
-            alt = derived_param_from_hdf(hdf[plot_altitude])
+            alt = derived_param_from_hdf(hdf[plot_altitude]).get_aligned(one_hz)
             alt.array = repair_mask(alt.array, frequency=alt.frequency, repair_duration=None) / METRES_TO_FEET
         else:
             alt = None
@@ -146,18 +144,20 @@ def track_to_kml(hdf_path, kti_list, kpv_list, flight_attrs,
         
         # TODO: align everything to 0 offset
         
-        smooth_lat = derived_param_from_hdf(hdf['Latitude Smoothed'])
-        smooth_lon = derived_param_from_hdf(hdf['Longitude Smoothed'])
+        
+        smooth_lat = derived_param_from_hdf(hdf['Latitude Smoothed']).get_aligned(one_hz)
+        smooth_lon = derived_param_from_hdf(hdf['Longitude Smoothed']).get_aligned(one_hz)
         add_track(kml, 'Smoothed', smooth_lat, smooth_lon, 'ff7fff7f', 
                   alt_param=alt, alt_mode=altitude_mode)
         add_track(kml, 'Smoothed On Ground', smooth_lat, smooth_lon, 'ff7fff7f')        
     
-        lat = derived_param_from_hdf(hdf['Latitude Prepared'])
-        lon = derived_param_from_hdf(hdf['Longitude Prepared'])
+        lat = derived_param_from_hdf(hdf['Latitude Prepared']).get_aligned(one_hz)
+        lon = derived_param_from_hdf(hdf['Longitude Prepared']).get_aligned(one_hz)
         add_track(kml, 'Prepared', lat, lon, 'A11EB3')
         
-        lat_r = derived_param_from_hdf(hdf['Latitude'])
-        lon_r = derived_param_from_hdf(hdf['Longitude'])
+        # Should this be a aligned to parameter at the same raw data frequency?
+        lat_r = derived_param_from_hdf(hdf['Latitude']).get_aligned(one_hz)
+        lon_r = derived_param_from_hdf(hdf['Longitude']).get_aligned(one_hz)
         add_track(kml, 'Recorded Track', lat_r, lon_r, 'ff0000ff')
 
     for kti in kti_list:
@@ -170,7 +170,7 @@ def track_to_kml(hdf_path, kti_list, kpv_list, flight_attrs,
         if altitude:
             kti_point_values['coords'] = ((kti.longitude, kti.latitude, altitude),)
         else:
-            kti_point_values['coords'] = ((kti.longitude, kti.latitude,),)
+            kti_point_values['coords'] = ((kti.longitude, kti.latitude),)
         kml.newpoint(**kti_point_values)
         
     for kpv in kpv_list:
@@ -189,13 +189,13 @@ def track_to_kml(hdf_path, kti_list, kpv_list, flight_attrs,
         
         style = simplekml.Style()
         style.iconstyle.color = simplekml.Color.red
-        kpv_point_values = {'name': '%s (%s)' % (kpv.name, kpv.value)}
+        kpv_point_values = {'name': '%s (%.3f)' % (kpv.name, kpv.value)}
         altitude = alt.at(kpv.index) if plot_altitude else None
         kpv_point_values['altitudemode'] = altitude_mode
         if altitude:
-            kpv_point_values['coords'] = ((kpv_lon, kpv_lat, altitude,),)
+            kpv_point_values['coords'] = ((kpv_lon, kpv_lat, altitude),)
         else:
-            kpv_point_values['coords'] = ((kpv_lon, kpv_lat,),)
+            kpv_point_values['coords'] = ((kpv_lon, kpv_lat),)
         
         pnt = kml.newpoint(**kpv_point_values)
         pnt.style = style
