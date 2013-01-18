@@ -2,7 +2,13 @@ import unittest
 
 from mock import Mock, patch
 
-from analysis_engine.utils import derived_trimmer
+from analysis_engine.utils import (
+    derived_trimmer,
+    list_everything,
+    list_kpvs,
+    list_ktis,
+    list_parameters,
+    )
 
 class TestTrimmer(unittest.TestCase):
     '''
@@ -46,6 +52,54 @@ class TestTrimmer(unittest.TestCase):
         
         
         
+class TestGetNames(unittest.TestCase):
+    def test_list_parameters(self):
+        params = list_parameters()
+        self.assertIn('Airspeed', params)  # LFL
+        self.assertIn('Altitude AAL', params)  # Derived Node
+        # ensure dependencies of other modules (not in derived) are included
+        self.assertIn('TAWS General', params)
+        self.assertIn('Key Satcom (1)', params)
+        # ensure KPV and KTIs are excluded
+        self.assertNotIn('AOA With Flap 16 Max', params)  # KPV
+        self.assertNotIn('Landing Turn Off Runway', params)  # KTI
+        self.assertNotIn('FDR Takeoff Runway', params)  # Attribute
+
+    def test_list_kpvs(self):
+        kpvs = list_kpvs()
+        self.assertIn('Airspeed Max', kpvs)
+        # check the formatted name is there
+        self.assertIn('AOA With Flap 16 Max', kpvs)
+        # and that the actual node name is not
+        self.assertNotIn('AOA With Flap Max', kpvs)
+        # check dependencies are not included
+        self.assertNotIn('Airspeed', kpvs)
+        self.assertNotIn('Landing Turn Off Runway', kpvs)
         
+    def test_list_ktis(self):
+        ktis = list_ktis()
+        self.assertIn('Landing Turn Off Runway', ktis)
+        self.assertNotIn('Airspeed', ktis)
+        self.assertNotIn('AOA With Flap 16 Max', ktis)
+        self.assertNotIn('FDR Takeoff Runway', ktis)
         
+    def test_list_everything(self):
+        params = list_everything()
+        self.assertIn('Airspeed', params)  # LFL
+        self.assertIn('Altitude AAL', params)  # Derived Node
+        self.assertIn('TAWS General', params)
+        self.assertIn('Key Satcom (1)', params)
+        self.assertIn('AOA With Flap 16 Max', params)  # KPV
+        self.assertIn('Landing Turn Off Runway', params)  # KTI
+        self.assertIn('FDR Takeoff Runway', params)  # Attribute
+
+    def list_flight_attributes(self):
+        atts = list_attributes()
+        self.assertIn('Approaches', atts)
+
+    def test_list_flight_phases(self):
+        phases = list_phases()
+        self.assertIn('Altitude AAL For Flight Phases', phases)
         
+
+                        

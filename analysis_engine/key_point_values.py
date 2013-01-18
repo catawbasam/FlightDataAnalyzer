@@ -3858,7 +3858,10 @@ class EventMarkerPressed(KeyPointValueNode):
 
 class HeightOfBouncedLanding(KeyPointValueNode):
     '''
-    This measures the peak height of the bounced landing
+    This measures the peak height of the bounced landing.
+    
+    Bounced landing phase is established by looking for the maximum height
+    after touching the ground while still going fast.
     '''
     def derive(self, alt = P('Altitude AAL'),
                bounced_landing=S('Bounced Landing')):

@@ -71,3 +71,76 @@ if __name__ == '__main__':
     else:
         parser.error("'%s' is not a known command." % args.command)
 
+def _get_names(module_locations, fetch_names=True, fetch_dependencies=False):
+    '''
+    Get the names of Nodes and dependencies.
+    
+    :param module_locations: list of locations to fetch modules from
+    :type module_locations: list of strings
+    :param fetch_names: Return name of parameters etc. created by class
+    :type fetch_names: Bool
+    :param fetch_dependencies: Return names of the arguments in derive methods
+    :type fetch_dependencies: Bool
+    '''
+    nodes = get_derived_nodes(module_locations)
+    names = []
+    for node in nodes.values():
+        if fetch_names:
+            if hasattr(node, 'names'):
+                # FormattedNameNode (KPV/KTI) can have many names
+                names.extend(node.names())
+            else:
+                names.append(node.get_name())
+        if fetch_dependencies:
+            names.extend(node.get_dependency_names())
+    return sorted(names)
+    
+    
+def list_parameters():
+    '''
+    Return an ordered list of 
+    '''
+    # exclude all KPV and KTIs and Phases?
+    exclude = _get_names(['analysis_engine.key_point_values',
+                         'analysis_engine.key_time_instances',
+                         'analysis_engine.flight_attribute',
+                         'analysis_engine.flight_phase'],
+                        fetch_names=True, fetch_dependencies=False)
+    # remove names of kpvs etc from parameters
+    parameters = set(list_everything()) - set(exclude)
+    return sorted(parameters)
+
+
+def list_everything():
+    '''
+    Return an ordered list of all parameters both derived and required.
+    '''
+    return _get_names(NODE_MODULES, True, True)
+
+
+def list_kpvs():
+    '''
+    Return an ordered list of the Key Point Values which have been coded.
+    '''
+    return _get_names(['analysis_engine.key_point_values'])
+
+
+def list_ktis():
+    '''
+    Return an ordered list of the Key Time Instances which have been coded.
+    '''
+    return _get_names(['analysis_engine.key_time_instances'])
+
+
+def list_flight_attributes():
+    '''
+    Return an ordered list of the Flight Attributes which have been coded.
+    '''
+    return _get_names(['analysis_engine.flight_attribute'])
+
+
+def list_flight_phases():
+    '''
+    Return an ordered list of the Flight Phases which have been coded.
+    '''
+    return _get_names(['analysis_engine.flight_phase'])
