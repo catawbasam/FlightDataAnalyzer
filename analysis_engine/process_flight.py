@@ -359,7 +359,7 @@ def process_flight(hdf_path, aircraft_info, start_datetime=datetime.now(),
 if __name__ == '__main__':
     print ' FlightDataAnalyzer (c) Copyright 2013 Flight Data Services, Ltd.'
     print '  - Powered by POLARIS'
-    print '  - http://www.flightdatacommunity.org'
+    print '  - http://www.flightdatacommunity.com'
     print ''
     import argparse, os
     from utilities.filesystem_tools import copy_file
