@@ -1,9 +1,10 @@
+import copy
 import inspect
 import logging
-import numpy as np
-import re
-import copy
 import math
+import numpy as np
+import cPickle
+import re
 
 from abc import ABCMeta
 from collections import namedtuple, Iterable
@@ -47,6 +48,25 @@ def get_verbose_name(class_name):
                   class_name).lower().strip()
 
 
+def load(path):
+    '''
+    Load a Node module from a file path.
+    
+    Convention is to use the .nod file extension.
+    '''
+    # pickle self, excluding array
+    with open(path, 'rb') as fh:
+        return cPickle.load(fh)
+    
+    
+def dump(node, dest):
+    '''
+    Save a node to a destination path
+    '''
+    return node.save(dest)
+save = dump
+    
+
 def powerset(iterable):
     """
     Ref: http://docs.python.org/library/itertools.html#recipes
@@ -82,6 +102,7 @@ def get_param_kwarg_names(method):
         raise NotImplementedError("Cannot define **kwargs")
     # alternative: return dict(zip(defaults, args[-len(defaults):]))
     return defaults
+
 
 #------------------------------------------------------------------------------
 # Abstract Node Classes
@@ -310,6 +331,20 @@ def can_operate(cls, available):
         :rtype: None
         """
         raise NotImplementedError("Abstract Method")
+    
+    
+    def dump(self, dest, protocol=-1, compress=True):
+        """
+        """
+        # pickle self, excluding array
+        import gzip
+        if compress:
+            _open = gzip.open
+        else:
+            _open = open        
+        with open(dest, 'wb') as fh:
+            return cPickle.dump(self, fh, protocol)
+    save = dump
     
     # Logging
     ############################################################################
