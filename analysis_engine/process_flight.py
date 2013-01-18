@@ -242,7 +242,7 @@ def get_derived_nodes(module_names):
 
 
 def process_flight(hdf_path, aircraft_info, start_datetime=datetime.now(),
-                   achieved_flight_record={}, required_params=[], draw=False):
+                   achieved_flight_record={}, required_params=[]):
     '''
     For development, the definitive API is located here:
         "PolarisTaskManagement.test.tasks_mask.process_flight"
@@ -311,7 +311,7 @@ def process_flight(hdf_path, aircraft_info, start_datetime=datetime.now(),
             required_params, derived_nodes, aircraft_info,
             achieved_flight_record)
         # calculate dependency tree
-        process_order, gr_st = dependency_order(node_mgr, draw=draw)
+        process_order, gr_st = dependency_order(node_mgr, draw=False)
         if settings.CACHE_PARAMETER_MIN_USAGE:
             # find params used more than
             for node in gr_st.nodes():
@@ -344,12 +344,6 @@ def process_flight(hdf_path, aircraft_info, start_datetime=datetime.now(),
         hdf.set_attr('aircraft_info', aircraft_info)
         hdf.set_attr('achieved_flight_record', achieved_flight_record)
         
-        
-    ##if draw:
-        ### only import if required
-        ##from analysis_engine.plot_flight import plot_flight
-        ##plot_flight(hdf_path, kti_list, kpv_list, section_list)
-        
     return {'flight' : flight_attrs, 
             'kti' : kti_list, 
             'kpv' : kpv_list,
@@ -376,8 +370,6 @@ if __name__ == '__main__':
     parser.add_argument('-frame', dest='frame', type=str, 
                         default='737-5', # as per flightdatacommunity file
             help='Data frame name.')
-    parser.add_argument('-p', dest='plot', action='store_true', default=False, 
-            help='Plot flight onto a graph.')
     parser.add_argument('-csv', dest='write_csv', type=str, default='True', 
             help='Write CSV of processing results. Set "False" to disable.')
     parser.add_argument('-kml', dest='write_kml', type=str, default='True', 
@@ -397,7 +389,7 @@ if __name__ == '__main__':
     
     # Derive parameters to new HDF
     hdf_copy = copy_file(args.file, postfix='_process')
-    res = process_flight(hdf_copy, aircraft_info, draw=args.plot)
+    res = process_flight(hdf_copy, aircraft_info)
     logger.info("Derived parameters stored in hdf: %s", hdf_copy)
     # Write CSV file
     if args.write_csv.lower() == 'true':
