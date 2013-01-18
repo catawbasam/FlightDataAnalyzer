@@ -1794,45 +1794,42 @@ def ground_track_precise(lat, lon, speed, hdg, frequency, mode):
     del straight_ends[0]
     del straight_ends[-1]
 
-    # unable to proceed if we have no straight ends
-    if len(straight_ends) <= 2:
-        logger.warning('Ground_track_precise needs at least two curved sections to operate.')
-        
-        if mode == 'takeoff':
-            lat_return[track_edges[0]:] = lat[track_edges[0]:]
-            lon_return[track_edges[0]:] = lon[track_edges[0]:]
-        else:
-            lat_return[:track_edges[1]] = lat[:track_edges[1]]
-            lon_return[:track_edges[1]] = lon[:track_edges[1]]
-        return lat_return, lon_return, None
-
     # Initialize the weights for no change.
     weight_length = len(straight_ends)
     weights = np.ma.ones(weight_length)
-    speed_bound = (0.5,1.5) # Restict the variation in speeds to 50%.
-    boundaries = [speed_bound]*weight_length
     
-    # Then iterate until optimised solution has been found. We use a dull
-    # algorithm for reliability, rather than the more exciting forms which
-    # can go astray and give less predictable results.
-    weights_opt = optimize.fmin_l_bfgs_b(gtp_compute_error, weights, 
-                                         fprime=None, 
-                                         args = (straights,
-                                                 straight_ends, 
-                                                 lat[track_slice], 
-                                                 lon[track_slice], 
-                                                 speed[track_slice], 
-                                                 hdg[track_slice], 
-                                                 frequency, 
-                                                 mode, 'iterate'),
-                                         approx_grad=True, epsilon=1.0E-4, 
-                                         bounds=boundaries, maxfun=10)
-    """
-    fmin_l_bfgs_b license: This software is freely available, but we expect that all publications describing work using this software, or all commercial products using it, quote at least one of the references given below. This software is released under the BSD License.
-    R. H. Byrd, P. Lu and J. Nocedal. A Limited Memory Algorithm for Bound Constrained Optimization, (1995), SIAM Journal on Scientific and Statistical Computing, 16, 5, pp. 1190-1208.
-    C. Zhu, R. H. Byrd and J. Nocedal. L-BFGS-B: Algorithm 778: L-BFGS-B, FORTRAN routines for large scale bound constrained optimization (1997), ACM Transactions on Mathematical Software, 23, 4, pp. 550 - 560.
-    J.L. Morales and J. Nocedal. L-BFGS-B: Remark on Algorithm 778: L-BFGS-B, FORTRAN routines for large scale bound constrained optimization (2011), ACM Transactions on Mathematical Software, 38, 1.
-    """
+    # unable to optimize track if we have too few curves
+    if len(straight_ends) <= 2:
+        logger.warning('Ground_track_precise needs at least two curved sections to operate.')
+        # Substitute a unity weight vector.
+        weights_opt = [np.array([1.0]*len(speed))]
+        
+    else:
+        # Adjust the speed during each leg to reduce cross track errors.
+        speed_bound = (0.5,1.5) # Restict the variation in speeds to 50%.
+        boundaries = [speed_bound]*weight_length
+        
+        # Then iterate until optimised solution has been found. We use a dull
+        # algorithm for reliability, rather than the more exciting forms which
+        # can go astray and give less predictable results.
+        weights_opt = optimize.fmin_l_bfgs_b(gtp_compute_error, weights, 
+                                             fprime=None, 
+                                             args = (straights,
+                                                     straight_ends, 
+                                                     lat[track_slice], 
+                                                     lon[track_slice], 
+                                                     speed[track_slice], 
+                                                     hdg[track_slice], 
+                                                     frequency, 
+                                                     mode, 'iterate'),
+                                             approx_grad=True, epsilon=1.0E-4, 
+                                             bounds=boundaries, maxfun=10)
+        """
+        fmin_l_bfgs_b license: This software is freely available, but we expect that all publications describing work using this software, or all commercial products using it, quote at least one of the references given below. This software is released under the BSD License.
+        R. H. Byrd, P. Lu and J. Nocedal. A Limited Memory Algorithm for Bound Constrained Optimization, (1995), SIAM Journal on Scientific and Statistical Computing, 16, 5, pp. 1190-1208.
+        C. Zhu, R. H. Byrd and J. Nocedal. L-BFGS-B: Algorithm 778: L-BFGS-B, FORTRAN routines for large scale bound constrained optimization (1997), ACM Transactions on Mathematical Software, 23, 4, pp. 550 - 560.
+        J.L. Morales and J. Nocedal. L-BFGS-B: Remark on Algorithm 778: L-BFGS-B, FORTRAN routines for large scale bound constrained optimization (2011), ACM Transactions on Mathematical Software, 38, 1.
+        """
     
     args = (straights, straight_ends, lat[track_slice], lon[track_slice],
             speed[track_slice], hdg[track_slice], frequency, mode, 'final_answer')
