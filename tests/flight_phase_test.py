@@ -41,7 +41,7 @@ from analysis_engine.flight_phase import (Airborne,
 from analysis_engine.key_time_instances import TopOfClimb, TopOfDescent
 from analysis_engine.library import integrate
 from analysis_engine.node import (A, KTI, KeyTimeInstance, M, Parameter, P,
-                                  Section, SectionNode)
+                                  Section, SectionNode, load)
 from analysis_engine.process_flight import process_flight
 
 from analysis_engine.settings import AIRSPEED_THRESHOLD
@@ -235,6 +235,16 @@ class TestBouncedLanding(unittest.TestCase):
         bl.derive(Parameter('Altitude AAL', alt), airborne, fast)
         expected = buildsection('Bounced Landing', 9, 12)
         self.assertEqual(bl, expected)
+        
+    def test_bounce_not_detected_with_multiple_touch_and_go(self):
+        # test data is a training flight with many touch and go
+        bl = BouncedLanding()
+        aal = load(os.path.join(test_data_path, 'alt_aal_training.nod'))
+        airs = load(os.path.join(test_data_path, 'airborne_training.nod'))
+        fast = load(os.path.join(test_data_path, 'fast_training.nod'))
+        bl.derive(aal, airs, fast)
+        # should not create any bounced landings (used to create 20 at 8000ft)
+        self.assertEqual(len(bl), 0)
         
 
 class TestILSGlideslopeEstablished(unittest.TestCase):

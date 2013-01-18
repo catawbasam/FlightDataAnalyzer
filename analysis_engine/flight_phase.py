@@ -32,6 +32,7 @@ from analysis_engine.settings import (
     AIRBORNE_THRESHOLD_TIME,
     AIRSPEED_THRESHOLD,
     BOUNCED_LANDING_THRESHOLD,
+    BOUNCED_MAXIMUM_DURATION,
     DESCENT_LOW_CLIMB_THRESHOLD,
     GROUNDSPEED_FOR_MOBILE,
     HEADING_RATE_FOR_MOBILE,
@@ -221,6 +222,12 @@ class ApproachAndLanding(FlightPhaseNode):
 
 
 class BouncedLanding(FlightPhaseNode):
+    '''
+    TODO: Review increasing the frequency for more accurate indexing into the
+    altitude arrays.
+    
+    Q: Should Airborne be first so we align to its offset?
+    '''
     def derive(self, alt_aal=P('Altitude AAL'), airs=S('Airborne'),
                fast=S('Fast')):
         for speedy in fast:
@@ -228,11 +235,16 @@ class BouncedLanding(FlightPhaseNode):
                 if slices_overlap(speedy.slice, air.slice):
                     start = air.slice.stop
                     stop = speedy.slice.stop
-                    if start == stop:
+                    if (stop - start) / self.frequency > BOUNCED_MAXIMUM_DURATION:
+                        # duration too long to be a bounced landing!
+                        # possible cause: Touch and go.
+                        continue
+                    elif start == stop:
                         stop += 1
                     scan = alt_aal.array[start:stop]
                     ht = max(scan)
                     if ht > BOUNCED_LANDING_THRESHOLD:
+                        #TODO: Input maximum BOUNCE_HEIGHT check?
                         up = np.ma.clump_unmasked(np.ma.masked_less_equal(scan,
                                                                           0.0))
                         self.create_phase(shift_slice(slice(up[0].start,

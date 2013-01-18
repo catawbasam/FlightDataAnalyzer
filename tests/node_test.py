@@ -17,6 +17,7 @@ from analysis_engine.node import (
     Node, NodeManager, 
     Parameter, P,
     MultistateDerivedParameterNode, M,
+    load,
     powerset,
     SectionNode, Section,
 )
@@ -28,7 +29,6 @@ test_data_path = os.path.join(os.path.dirname(os.path.abspath(__file__)),
                               'test_data')
 
 class TestAbstractNode(unittest.TestCase):
-    
     def test_node(self):
         pass
 
@@ -237,6 +237,18 @@ class TestNode(unittest.TestCase):
         self.assertEqual(param2.get_aligned.call_args[0][0].offset, 0)
         self.assertEqual(derived_parameter.frequency, 4)
         self.assertEqual(derived_parameter.offset, 0)
+        
+    def test_dump_aka_save_and_load(self):
+        node = Node('node', 2, 1.2)
+        dest = os.path.join(test_data_path, 'node.nod')
+        node.save(dest)
+        self.assertTrue(os.path.isfile(dest))
+        # load
+        res = load(dest)
+        self.assertIsInstance(res, Node)
+        self.assertEqual(res.frequency, 2)
+        self.assertEqual(res.offset, 1.2)
+        os.remove(dest)
 
 
 class TestFlightAttributeNode(unittest.TestCase):
@@ -1388,6 +1400,29 @@ class TestDerivedParameterNode(unittest.TestCase):
         result = alt_aal.slices_to_kti(75, tdwns)
         expected = []
         self.assertEqual(result, expected)
+        
+    def test_save_and_load_node(self):
+        node = P('Altitude AAL', np.ma.array([0,1,2,3], mask=[0,1,1,0]), 
+              frequency=2, offset=0.123, data_type='Signed')
+        dest = os.path.join(test_data_path, 'altitude.node')
+        node.save(dest)
+        self.assertTrue(os.path.isfile(dest))
+        # load
+        res = load(dest)
+        self.assertIsInstance(res, DerivedParameterNode)
+        self.assertEqual(res.frequency, 2)
+        self.assertEqual(res.offset, 0.123)
+        self.assertEqual(list(res.array.data), [0,1,2,3])
+        self.assertEqual(list(res.array.mask), [0,1,1,0])
+        os.remove(dest)
+        # check large file size
+        node.array = np.ma.arange(5000)
+        node.dump(dest)
+        from utilities.filesystem_tools import pretty_size
+        print pretty_size(os.path.getsize(dest))
+        self.assertLess(os.path.getsize(dest), 100000)
+        os.remove(dest)
+        
 
 
 class TestMultistateDerivedParameterNode(unittest.TestCase):
