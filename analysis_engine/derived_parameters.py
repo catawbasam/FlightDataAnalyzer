@@ -334,7 +334,7 @@ class AirspeedReference(DerivedParameterNode):
     def derive(self,
                spd=P('Airspeed'),
                gw=P('Gross Weight Smoothed'),
-               flap=P('Flap Lever Detents'),
+               flap=P('Flap Lever Detent'),
                conf=P('Configuration'),
                vapp=P('Vapp'),
                vref=P('Vref'),
@@ -2848,7 +2848,7 @@ class Groundspeed(DerivedParameterNode):
             raise DataFrameError(self.name, frame_name)
 
 
-class FlapLeverDetents(DerivedParameterNode):
+class FlapLeverDetent(DerivedParameterNode):
     """
     Steps raw Flap angle from lever into detents.
     """
@@ -4274,7 +4274,7 @@ class V2(DerivedParameterNode):
 
     def derive(self, 
                spd=P('Airspeed'),
-               flap=P('Flap Lever Detents'),
+               flap=P('Flap Lever Detent'),
                conf=P('Configuration'),
                afr_v2=A('AFR V2'),
                weight_liftoff=KPV('Gross Weight At Liftoff'),
