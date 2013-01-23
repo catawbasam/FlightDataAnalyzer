@@ -4837,3 +4837,113 @@ class WheelSpeed(DerivedParameterNode):
         self.array, self.frequency, self.offset = \
             blend_two_parameters(ws_in, ws_out)
         
+
+
+
+class Stable(MultistateDerivedParameterNode):
+    '''
+    During the Approach, the following steps are assessed for stability:
+    
+    1. Gear is down
+    2. Landing Flap is set
+    3. Heading aligned to Runway within 10 degrees
+    4. Approach Airspeed minus Reference speed within 10 knots
+    5. Glideslope deviation within 1 dot
+    6. Localizer deviation within 1 dot
+    7. Engine Power greater than 75% and not Cycling within last 5 seconds
+    
+    if all the above steps are met, the result is the declaration of:
+    8. "Stable"
+    '''
+    
+    values_mapping = {
+        0: 'Unstable',
+        1: 'Stable',
+    }
+    
+    align_frequency = 1  # force to 1Hz
+    
+    ##@classmethod
+    ##def can_operate(cls, available):
+        ##return True
+    
+    def derive(self, 
+               gear=M('Gear Down'),
+               flap=M('Flap'),
+               aspd=P('Airspeed Relative'),
+               vert_spd=P('Vertical Speed'),
+               glide=P('ILS Glideslope'),
+               loc=P('ILS Localizer'),
+               apps=S('Approach'),
+               alt=P('Altitude AAL'),
+               ):
+        # find point first stabalised
+        # % stable after first_stable to landing
+        
+        #Last Unstable due to
+        # simple yes/no indicators to identify the cause of the last unstable point
+        # options are FLAP, GEAR GS HI/LO, LOC, SPD HI/LO and VSI HI/LO
+        
+        #Ht AAL due to
+        # the altitude above airfield level corresponding to each cause
+        # options are FLAP, GEAR GS HI/LO, LOC, SPD HI/LO and VSI HI/LO
+
+        # An alternative to this discrete would be to create a multistate
+        # with each point being the reason it's unstable
+
+        # create an empty fuly masked array
+        self.array = np_ma_masked_zeros_like(gear.array)
+        self.array.mask = True
+        
+        for approach in apps:
+            # prepare data for this appproach:
+            gear_down = gear.array[approach.slice]
+            flap_lever = flap.array[approach.slice]
+            airspeed = aspd.array[approach.slice]
+            vertical_speed = vert_spd.array[approach.slice]
+            glideslope = glide.array[approach.slice]
+            localiser = loc.array[approach.slice]
+            altitude = alt.array[approach.slice]
+
+            # gear down
+            landing_gear_set = (gear_down == 'Down')
+            
+            # landing flap set
+            landing_flap_set = (flap_lever == flap_lever[-1])
+            
+            # airspeed ok
+            # create an average airspeed for repairing minimum below altitude cutoff
+            STABLE_AIRSPEED_MIN = 0
+            STABLE_AIRSPEED_MAX = 30
+            ALTITUDE_CUTOFF = 50  #ft
+            avg_stable_airspeed = (STABLE_AIRSPEED_MIN + STABLE_AIRSPEED_MAX)/2
+            airspeed[(altitude < ALTITUDE_CUTOFF) & (airspeed > STABLE_AIRSPEED_MIN)] = avg_stable_airspeed
+            stable_airspeed = (airspeed > STABLE_AIRSPEED_MIN) & (airspeed < STABLE_AIRSPEED_MAX)
+            # sink rate
+            ## has altitude cutoff too and 3 second gliding window
+            STABLE_VERTICAL_SPEED_MIN = -4000
+            STABLE_VERTICAL_SPEED_MAX = 3000
+            stable_vert = (vertical_speed > STABLE_VERTICAL_SPEED_MIN) & (vertical_speed < STABLE_VERTICAL_SPEED_MAX) 
+                                                             
+            # glideslope
+            ## has altitude cutoff too and 3 second gliding window
+            STABLE_GLIDESLOPE = 1.5  # dots
+            stable_gs = (glideslope > -STABLE_GLIDESLOPE) & (glideslope < STABLE_GLIDESLOPE)
+            # localiser
+            ## has altitude cutoff too and 3 second gliding window
+            STABLE_LOCALISER = 1.5  # dots
+            stable_loc = (localiser > -STABLE_LOCALISER) & (localiser < STABLE_LOCALISER)
+            
+            # build up the unstable reason
+            stable = landing_gear_set & landing_flap_set & stable_airspeed & stable_vert & stable_gs & stable_loc
+            self.array[approach.slice] = stable
+            
+            
+            #Q: Look from landing back for first stabalised?
+            
+            # engine power
+        
+        
+        # height last unstable
+        
+        
