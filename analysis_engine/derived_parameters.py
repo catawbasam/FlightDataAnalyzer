@@ -4848,25 +4848,27 @@ class HeadingTrack(DerivedParameterNode):
     '''
     Currently works only for 737-NG which record IRU Track Angle True
     '''
+    units = 'deg'
+    
     def derive(self, heading=P('Heading Continuous'), drift=P('Drift')):
         self.array = heading.array - drift.array
         
         
-#class HeadingDeviationFromRunway(DerivedParameterNode):
+class HeadingDeviationFromRunway(DerivedParameterNode):
     
-    #def derive(takeoff=S('Takeoff'),
-               #rwy=A('FDR Takeoff Runway')):
-        #brg = value_at_index(head.array, index)
-        #dev = runway_deviation(brg, rwy.value)
+    def derive(heading_track=P('Heading Track'),
+               takeoff=S('Takeoff'),
+               rwy=A('FDR Takeoff Runway'),
+               apps=S('Approaches')):
 
-        #for approach in apps:
-            #try:
-                #rwy_hdg = approach['runway']['magnetic_heading']
-            #except KeyError:
-                ## no runway identified in approach
-                #continue
+        for approach in apps:
+            try:
+                rwy_hdg = approach['runway']['magnetic_heading']
+            except KeyError:
+                # no runway identified in approach
+                continue
             
-            #self.array[approach.slice] = runway_deviation(heading_track[approach.slice], rwy_hdg)
+            self.array[approach.slice] = runway_deviation(heading_track[approach.slice], rwy_hdg)
 
 
         
