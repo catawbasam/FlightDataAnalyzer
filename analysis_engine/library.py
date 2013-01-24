@@ -1399,19 +1399,32 @@ def runway_distance_from_end(runway, *args, **kwds):
     else:
         return None
 
-def runway_deviation(array, runway):
+def runway_deviation(array, runway={}, heading=0.0):
     '''
-    Computes an array of heading deviations from the selected runway centreline.
+    Computes an array of heading deviations from the selected runway
+    centreline calculated from latitude/longitude coordinates. For use with
+    True Heading.
+    
+    If you use runway_heading, it allows one to use magnetic heading
+    comparisons.
+    
+    NOTE: Uses heading supplied in preference to coordinates.
     
     :param array: array of TRUE heading values
     :type array: Numpy masked array (usually already sliced to relate to the landing in question).
     :param runway: runway details.
     :type runway: dict (runway.value if this is taken from an attribute).
+    :param heading: heading to use, in preference to runway.
+    :type heading: Int/Float
     
     :returns dev: array of heading deviations
     :type dev: Numpy masked array.
     '''
-    dev = (array - runway_heading(runway))%360
+    if heading:
+        rwy_hdg = heading
+    else:
+        rwy_hdg = runway_heading(runway)
+    dev = (array - rwy_hdg) % 360
     return np.ma.where(dev>180.0, dev-360.0, dev)
 
 def runway_distances(runway):

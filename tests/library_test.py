@@ -2983,6 +2983,12 @@ class TestRunwayDeviation(unittest.TestCase):
         expected=np.ma.array([0.0, 10.0, -10.0, 0.0, 0.0])
         result = runway_deviation(head, runway)
         np.testing.assert_array_almost_equal(result, expected, decimal=2)
+        
+    def test_runway_deviation_preset_heading(self):
+        # pass
+        head = np.ma.array([118, 120, 122, 123, 124])
+        res = runway_deviation(head, heading=120)
+        self.assertEqual(list(res), [-2, 0, 2, 3, 4])
 
     
 class TestRunwayHeading(unittest.TestCase):
