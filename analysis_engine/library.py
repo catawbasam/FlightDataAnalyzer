@@ -501,8 +501,8 @@ def coreg(y, indep_var=None, force_zero=False):
     
     :param y: dependent variable
     :type y: numpy float array - NB: MUST be float
-    :param x: independent variable
-    :type x: numpy float array. Where not supplied, a linear scale is created.
+    :param indep_var: independent variable
+    :type indep_var: numpy float array. Where not supplied, a linear scale is created.
     :param force_zero: switch to force the regression offset to zero
     :type force_zero: logic, default=False
     
