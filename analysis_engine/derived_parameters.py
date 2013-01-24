@@ -67,7 +67,6 @@ from analysis_engine.library import (air_track,
                                      step_values,
                                      straighten_headings,
                                      track_linking,
-                                     value_at_index,
                                      vstack_params)
 from analysis_engine.velocity_speed import get_vspeed_map
 
@@ -2761,8 +2760,7 @@ class GrossWeightSmoothed(DerivedParameterNode):
             self.warning(
                 "'%s' had no valid samples within '%s' section, but outside "
                 "of '%s' and '%s'. Reverting to '%s'.", self.name, fast.name,
-                climbs.name, descends.name, gw.name,
-            )
+                climbs.name, descends.name, gw.name)
             self.array = gw.array
         
         flow = repair_mask(ff.array)
