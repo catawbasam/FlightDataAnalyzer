@@ -3389,6 +3389,13 @@ class TestStableApproach(unittest.TestCase):
         self.assertEqual(list(stable.array.mask),
                [1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1])
         
+        # Test without the use of Glideslope (not on it at 1000ft) therefore
+        # instability for index 7-10 is now due to low Engine Power
+        glide2 = P(array=np.ma.array([3.5]*20))
+        stable.derive(apps, gear, flap, head, aspd, vert_spd, glide2, loc, eng, alt)
+        self.assertEqual(list(stable.array.data),
+        #index: 0, 1, 2, 3, 4, 5, 6, 7, 8, 9,10,11,12,13,14,15,16,17,18,19,20
+               [0, 1, 1, 4, 9, 2, 7, 8, 8, 8, 8, 3, 3, 8, 9, 9, 9, 7, 9, 9, 0])
 
 if __name__ == '__main__':
     suite = unittest.TestSuite()
