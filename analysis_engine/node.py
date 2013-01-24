@@ -1,4 +1,5 @@
 import copy
+import gzip
 import inspect
 import logging
 import math
@@ -11,11 +12,20 @@ from collections import namedtuple, Iterable
 from itertools import product
 from operator import attrgetter
 
-from analysis_engine.library import (align, find_edges, is_index_within_slice,
-                                     is_slice_within_slice, slices_above,
-                                     slices_below, slices_between,
-                                     slices_from_to, slices_overlap,
-                                     value_at_index, value_at_time)
+from analysis_engine.library import (
+    align,
+    find_edges,
+    is_index_within_slice,
+    is_slice_within_slice,
+    slice_multiply,
+    slices_above,
+    slices_below,
+    slices_between,
+    slices_from_to,
+    slices_overlap,
+    value_at_index,
+    value_at_time,
+)
 from analysis_engine.recordtype import recordtype
 
 # FIXME: a better place for this class
@@ -54,6 +64,11 @@ def load(path):
     
     Convention is to use the .nod file extension.
     '''
+    with gzip.open(path) as file_obj:
+        try:
+            return cPickle.load(file_obj)
+        except IOError:
+            pass
     # pickle self, excluding array
     with open(path, 'rb') as fh:
         return cPickle.load(fh)
@@ -337,12 +352,11 @@ def can_operate(cls, available):
         """
         """
         # pickle self, excluding array
-        import gzip
         if compress:
             _open = gzip.open
         else:
             _open = open        
-        with open(dest, 'wb') as fh:
+        with _open(dest, 'wb') as fh:
             return cPickle.dump(self, fh, protocol)
     save = dump
     
@@ -794,7 +808,8 @@ class SectionNode(Node, list):
     slice_attrgetters = {'start': attrgetter('slice.start'),
                          'stop': attrgetter('slice.stop')}
     
-    def _get_condition(self, name=None, within_slice=None, within_use='slice'):
+    def _get_condition(self, name=None, containing_index=None,
+                       within_slice=None, within_use='slice', param=None):
         '''
         Returns a condition function which checks if the element is within
         a slice or has a specified name if they are provided.
@@ -803,13 +818,24 @@ class SectionNode(Node, list):
         :type within_slice: slice
         :param name: Only return elements with this name.
         :type name: str
+        :param containing_index: Get sections which contain index.
+        :type containing_index: int or float
         :param within_use: Which part of the slice to use when testing if it is within_slice. Either entire 'slice', or the slice's 'start' or 'stop'.
         :type within_use: str
+        :param param: Param which index and within_slice are sourced from. Used when parameters are not aligned.
+        :type param: Node
         :returns: Either a condition function or None.
         :rtype: func or None
         '''
         # Function for testing if Section is within a slice depending on
         # within_use.
+        if param is not None:
+            if within_slice:
+                # FIXME: This does not account for different offsets.
+                within_slice = slice_multiply(within_slice, param.hz)
+            if containing_index is not None:
+                containing_index = \
+                    containing_index * (self.hz / param.hz) + (self.hz * param.offset)
         if within_slice:
             within_funcs = \
                 {'slice': lambda s, within: is_slice_within_slice(s.slice,
@@ -820,105 +846,76 @@ class SectionNode(Node, list):
                                                                  within),
                  'any': lambda s, within: slices_overlap(s.slice, within)}
             within_func = within_funcs[within_use]
-        
-        if within_slice and name:
-            return lambda e: within_func(e, within_slice) and \
-                   e.name == name
-        elif within_slice:
-            return lambda e: within_func(e, within_slice)
-        elif name:
-            return lambda e: e.name == name
         else:
-            return None
-    
-    def get(self, name=None, within_slice=None, within_use='slice'):
+            within_func = lambda s, within: True
+        
+        name_func = lambda e: (e.name == name) if name else True
+        
+        index_func = \
+            lambda e: (is_index_within_slice(containing_index, e.slice)
+                       if containing_index is not None else True)
+        
+        return lambda e: (within_func(e, within_slice) and name_func(e) and
+                          index_func(e))
+        
+    def get(self, **kwargs):
         '''
         Gets elements either within_slice or with name. Duplicated from
         FormattedNameNode. TODO: Share implementation with NameFormattedNode,
         slight differences between types make it difficult.
         
-        :param within_slice: Only return elements within this slice.
-        :type within_slice: slice
-        :param name: Only return elements with this name.
-        :type name: str
-        :param within_use: Which part of the slice to use when testing if it is within_slice. Either entire 'slice', or the slice's 'start' or 'stop'.
-        :type within_use: str
+        :param kwargs: Passed into _get_condition (see docstring).
         :returns: An object of the same type as self containing matching elements.
-        :rtype: self.__class__
+        :rtype: Section
         '''
-        condition = self._get_condition(within_slice=within_slice, name=name,
-                                        within_use=within_use)
-        matching = filter(condition, self) if condition else self
+        condition = self._get_condition(**kwargs)
+        matching = [s for s in self if condition(s)]
         return self.__class__(name=self.name, frequency=self.frequency,
                               offset=self.offset, items=matching)
     
-    def get_first(self, first_by='start', name=None, within_slice=None,
-                  within_use='slice'):
+    def get_first(self, first_by='start', **kwargs):
         '''
         :param first_by: Get the first by either 'start' or 'stop' of slice.
         :type first_by: str
-        :param within_slice: Only return elements within this slice.
-        :type within_slice: slice
-        :param name: Only return elements with this name.
-        :type name: str
-        :param within_use: Which part of the slice to use when testing if it is within_slice. Either entire 'slice', or the slice's 'start' or 'stop'.
-        :type within_use: str        
+        :param kwargs: Passed into _get_condition (see docstring).     
         :returns: First Section matching conditions.
         :rtype: Section
         '''
-        matching = self.get(within_slice=within_slice, name=name,
-                            within_use=within_use)
+        matching = self.get(**kwargs)
         if matching:
             return min(matching, key=self.slice_attrgetters[first_by])
         else:
             return None
     
-    def get_last(self, last_by='start', name=None, within_slice=None,
-                 within_use='slice'):
+    def get_last(self, last_by='start', **kwargs):
         '''
         :param last_by: Get the last by either 'start' or 'stop' of slice.
-        :type last_by: str        
-        :param within_slice: Only return elements within this slice.
-        :type within_slice: slice
-        :param name: Only return elements with this name.
-        :type name: str
-        :param within_use: Which part of the slice to use when testing if it is within_slice. Either entire 'slice', or the slice's 'start' or 'stop'.
-        :type within_use: str         
+        :type last_by: str
+        :param kwargs: Passed into _get_condition (see docstring).
         :returns: Last Section matching conditions.
         :rtype: Section
         '''
-        matching = self.get(within_slice=within_slice, name=name,
-                            within_use=within_use)
+        matching = self.get(**kwargs)
         if matching:
             return max(matching, key=self.slice_attrgetters[last_by])
         else:
             return None
     
-    def get_ordered_by_index(self, order_by='start', name=None,
-                             within_slice=None, within_use='slice'):
+    def get_ordered_by_index(self, order_by='start', **kwargs):
         '''
         :param order_by: Index of slice to use when ordering, either 'start' or 'stop'.
         :type order_by: str
-        :param index: Order by either 'start' or 'stop' slice index.
-        :type index: str
-        :param within_slice: Only return elements within this slice.
-        :type within_slice: slice
-        :param name: Only return elements with this name.
-        :type name: str
-        :param within_use: Which part of the slice to use when testing if it is within_slice. Either entire 'slice', or the slice's 'start' or 'stop'.
-        :type within_use: str         
+        :param kwargs: Passed into _get_condition (see docstring).
         :returns: An object of the same type as self containing elements ordered by index.
-        :rtype: self.__class__
+        :rtype: Section
         '''
-        matching = self.get(within_slice=within_slice, name=name,
-                            within_use=within_use)
+        matching = self.get(**kwargs)
         ordered_by_start = sorted(matching,
                                   key=self.slice_attrgetters[order_by])
         return self.__class__(name=self.name, frequency=self.frequency,
                               offset=self.offset, items=ordered_by_start)
     
-    def get_next(self, index, frequency=None, use='start', name=None,
-                 within_slice=None, within_use='slice'):
+    def get_next(self, index, frequency=None, use='start', **kwargs):
         '''
         Gets the section with the next index optionally filter within_slice or
         by name.
@@ -929,26 +926,19 @@ class SectionNode(Node, list):
         :type frequency: int or float
         :param use: Use either 'start' or 'stop' of slice.
         :type use: str        
-        :param within_slice: Only return elements within this slice.
-        :type within_slice: slice
-        :param name: Only return elements with this name.
-        :type name: str 
-        :param within_use: Which part of the slice to use when testing if it is within_slice. Either entire 'slice', or the slice's 'start' or 'stop'.
-        :type within_use: str         
+        :param kwargs: Passed into _get_condition (see docstring).
         :returns: Section with the next index matching criteria.
         :rtype: Section or None      
         '''
         if frequency:
             index = index * (self.frequency / float(frequency))
-        ordered = self.get_ordered_by_index(within_slice=within_slice,
-                                            name=name, within_use=within_use)
+        ordered = self.get_ordered_by_index(**kwargs)
         for elem in ordered:
             if getattr(elem.slice, use) > index:
                 return elem
         return None
     
-    def get_previous(self, index, frequency=None, use='stop', within_slice=None,
-                     name=None, within_use='slice'):
+    def get_previous(self, index, frequency=None, use='stop', **kwargs):
         '''
         Gets the element with the previous index optionally filter within_slice
         or by name.
@@ -959,17 +949,13 @@ class SectionNode(Node, list):
         :type frequency: int or float
         :param use: Use either 'start' or 'stop' of slice.
         :type use: str
-        :param within_slice: Only return elements within this slice.
-        :type within_slice: slice
-        :param name: Only return elements with this name.
-        :type name: str 
+        :param kwargs: Passed into _get_condition (see docstring).
         :returns: Element with the previous index matching criteria.
-        :rtype: item within self or None     
+        :rtype: item within self or None
         '''
         if frequency:
             index = index * (self.frequency / float(frequency))
-        ordered = self.get_ordered_by_index(within_slice=within_slice,
-                                            name=name, within_use=within_use)
+        ordered = self.get_ordered_by_index(**kwargs)
         for elem in reversed(ordered):
             if getattr(elem.slice, use) < index:
                 return elem
@@ -1000,8 +986,9 @@ class SectionNode(Node, list):
         :rtype: [slice]
         '''
         ##return [section.slice for section in self]
-        return [slice(section.start_edge,section.stop_edge) for section in self]
-    
+        return [slice(section.start_edge, section.stop_edge)
+                for section in self]
+
 
 class FlightPhaseNode(SectionNode):
     '''
@@ -1128,7 +1115,7 @@ class FormattedNameNode(Node, list):
         else:
             return None
     
-    def get(self, within_slice=None, name=None):
+    def get(self, **kwargs):
         '''
         Gets elements either within_slice or with name.
         
@@ -1136,72 +1123,60 @@ class FormattedNameNode(Node, list):
         .get(name_values={'altitude': 20}) rather than
         .get(name='20 Ft Descending').
         
-        :param within_slice: Only return elements within this slice.
-        :type within_slice: slice
-        :param name: Only return elements with this name.
-        :type name: str
+        :param kwargs: Passed into _get_condition (see docstring).
         :returns: An object of the same type as self containing elements ordered by index.
         :rtype: self.__class__
         '''
-        condition = self._get_condition(within_slice=within_slice, name=name)
+        condition = self._get_condition(**kwargs)
         matching = filter(condition, self) if condition else self
         return self.__class__(name=self.name, frequency=self.frequency,
                               offset=self.offset, items=matching)
     
-    def get_ordered_by_index(self, within_slice=None, name=None):
+    def get_ordered_by_index(self, **kwargs):
         '''
         Gets elements ordered by index (ascending) optionally filter 
         within_slice or by name.
         
-        :param within_slice: Only return elements within this slice.
-        :type within_slice: slice
-        :param name: Only return elements with this name.
-        :type name: str
+        :param kwargs: Passed into _get_condition (see docstring).
         :returns: An object of the same type as self containing elements ordered by index.
         :rtype: self.__class__
         '''
-        matching = self.get(within_slice=within_slice, name=name)
+        matching = self.get(**kwargs)
         ordered_by_index = sorted(matching, key=attrgetter('index'))
         return self.__class__(name=self.name, frequency=self.frequency,
                               offset=self.offset, items=ordered_by_index)
     
-    def get_first(self, within_slice=None, name=None):
+    def get_first(self, **kwargs):
         '''
         Gets the element with the lowest index optionally filter within_slice or
         by name.
         
-        :param within_slice: Only return elements within this slice.
-        :type within_slice: slice
-        :param name: Only return elements with this name.
-        :type name: str
+        :param kwargs: Passed into _get_condition (see docstring).
         :returns: First element matching conditions.
         :rtype: item within self or None
         '''
-        matching = self.get(within_slice=within_slice, name=name)
+        matching = self.get(**kwargs)
         if matching:
             return min(matching, key=attrgetter('index')) if matching else None
         else:
             return None
     
-    def get_last(self, within_slice=None, name=None):
+    def get_last(self, **kwargs):
         '''
         Gets the element with the lowest index optionally filter within_slice or
         by name.
         
-        :param within_slice: Only return elements within this slice.
-        :type within_slice: slice
-        :param name: Only return elements with this name.
-        :type name: str
+        :param kwargs: Passed into _get_condition (see docstring).
         :returns: Element with the lowest index matching criteria.
         :rtype: item within self or None
         '''
-        matching = self.get(within_slice=within_slice, name=name)
+        matching = self.get(**kwargs)
         if matching:
             return max(matching, key=attrgetter('index')) if matching else None
         else:
             return None
     
-    def get_next(self, index, frequency=None, within_slice=None, name=None):
+    def get_next(self, index, frequency=None, **kwargs):
         '''
         Gets the element with the next index optionally filter within_slice or
         by name.
@@ -1210,23 +1185,19 @@ class FormattedNameNode(Node, list):
         :type index: int or float
         :param frequency: Frequency of index.
         :type frequency: int or float
-        :param within_slice: Only return elements within this slice.
-        :type within_slice: slice
-        :param name: Only return elements with this name.
-        :type name: str 
+        :param kwargs: Passed into _get_condition (see docstring).
         :returns: Element with the next index matching criteria.
         :rtype: item within self or None      
         '''
         if frequency:
             index = index * (self.frequency / float(frequency))
-        ordered = self.get_ordered_by_index(within_slice=within_slice,
-                                            name=name)
+        ordered = self.get_ordered_by_index(**kwargs)
         for elem in ordered:
             if elem.index > index:
                 return elem
         return None
     
-    def get_previous(self, index, frequency=None, within_slice=None, name=None):
+    def get_previous(self, index, frequency=None, **kwargs):
         '''
         Gets the element with the previous index optionally filter within_slice
         or by name.
@@ -1235,17 +1206,13 @@ class FormattedNameNode(Node, list):
         :type index: int or float
         :param frequency: Frequency of index.
         :type frequency: int or float                
-        :param within_slice: Only return elements within this slice.
-        :type within_slice: slice
-        :param name: Only return elements with this name.
-        :type name: str 
+        :param kwargs: Passed into _get_condition (see docstring).
         :returns: Element with the previous index matching criteria.
         :rtype: item within self or None     
         '''
         if frequency:
             index = index * (self.frequency / float(frequency))      
-        ordered = self.get_ordered_by_index(within_slice=within_slice,
-                                            name=name)
+        ordered = self.get_ordered_by_index(**kwargs)
         for elem in reversed(ordered):
             if elem.index < index:
                 return elem
@@ -1259,7 +1226,6 @@ class KeyTimeInstanceNode(FormattedNameNode):
     
     from analysis_engine.node import KTI, KeyTimeInstance
     k = KTI(items=[KeyTimeInstance(12, 'Airspeed At 20ft'), KeyTimeInstance(15, 'Airspeed At 10ft')])
-
     '''
     def __init__(self, *args, **kwargs):
         # place holder
@@ -1500,52 +1466,43 @@ class KeyPointValueNode(FormattedNameNode):
             aligned_node.append(aligned_kpv)
         return aligned_node
     
-    def get_max(self, within_slice=None, name=None):
+    def get_max(self, **kwargs):
         '''
         Gets the KeyPointValue with the maximum value optionally filter
         within_slice or by name.
         
-        :param within_slice: Only return elements within this slice.
-        :type within_slice: slice
-        :param name: Only return elements with this name.
-        :type name: str
+        :param kwargs: Passed into _get_condition (see docstring).
         :rtype: KeyPointValue
         '''
-        matching = self.get(within_slice=within_slice, name=name)
+        matching = self.get(**kwargs)
         if matching:
             return max(matching, key=attrgetter('value')) if matching else None
         else:
             return None
     
-    def get_min(self, within_slice=None, name=None):
+    def get_min(self, **kwargs):
         '''
         Gets the KeyPointValue with the minimum value optionally filter
         within_slice or by name.
         
-        :param within_slice: Only return elements within this slice.
-        :type within_slice: slice
-        :param name: Only return elements with this name.
-        :type name: str
+        :param kwargs: Passed into _get_condition (see docstring).
         :rtype: KeyPointValue
         '''
-        matching = self.get(within_slice=within_slice, name=name)
+        matching = self.get(**kwargs)
         if matching:
             return min(matching, key=attrgetter('value')) if matching else None
         else:
             return None
     
-    def get_ordered_by_value(self, within_slice=None, name=None):
+    def get_ordered_by_value(self, **kwargs):
         '''
         Gets the element with the maximum value optionally filter within_slice
         or by name.
         
-        :param within_slice: Only return elements within this slice.
-        :type within_slice: slice
-        :param name: Only return elements with this name.
-        :type name: str
+        :param kwargs: Passed into _get_condition (see docstring).
         :rtype: KeyPointValueNode
         '''
-        matching = self.get(within_slice=within_slice, name=name)
+        matching = self.get(**kwargs)
         ordered_by_value = sorted(matching, key=attrgetter('value'))
         return KeyPointValueNode(name=self.name, frequency=self.frequency,
                                  offset=self.offset, items=ordered_by_value)

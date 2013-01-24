@@ -501,8 +501,8 @@ def coreg(y, indep_var=None, force_zero=False):
     
     :param y: dependent variable
     :type y: numpy float array - NB: MUST be float
-    :param x: independent variable
-    :type x: numpy float array. Where not supplied, a linear scale is created.
+    :param indep_var: independent variable
+    :type indep_var: numpy float array. Where not supplied, a linear scale is created.
     :param force_zero: switch to force the regression offset to zero
     :type force_zero: logic, default=False
     
@@ -2271,6 +2271,7 @@ def index_of_datetime(start_datetime, index_datetime, frequency, offset=0):
     :param offset: Optional offset of the parameter in seconds.
     :type offset: float
     :returns: The index of index_datetime relative to start_datetime and frequency.
+    :rtype: int or float
     '''
     difference = index_datetime - start_datetime
     return (difference.total_seconds() - offset) * frequency
@@ -2292,18 +2293,15 @@ def is_index_within_slice(index, _slice):
     return _slice.start <= index < _slice.stop
 
 
-def is_index_within_sections(index, section):
+def find_slices_containing_index(index, slices):
     '''
     :type index: int or float
-    :type section: section node containing any number of slices
+    :type slices: a list of slices to search through
     
-    :returns: whether index is within any of the slices.
-    :rtype: bool
+    :returns: the first slice which contains index or None
+    :rtype: [slice]
     '''
-    for item in list(section):
-        if is_index_within_slice(index, item.slice):
-            return True
-    return False
+    return [s for s in slices if is_index_within_slice(index, s)]
 
 
 def is_slice_within_slice(inner_slice, outer_slice):

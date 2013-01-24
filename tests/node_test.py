@@ -238,9 +238,10 @@ class TestNode(unittest.TestCase):
         self.assertEqual(derived_parameter.frequency, 4)
         self.assertEqual(derived_parameter.offset, 0)
         
-    def test_dump_aka_save_and_load(self):
+    def test_save_and_load(self):
         node = Node('node', 2, 1.2)
         dest = os.path.join(test_data_path, 'node.nod')
+        # save with compression
         node.save(dest)
         self.assertTrue(os.path.isfile(dest))
         # load
@@ -249,6 +250,15 @@ class TestNode(unittest.TestCase):
         self.assertEqual(res.frequency, 2)
         self.assertEqual(res.offset, 1.2)
         os.remove(dest)
+        # save without compression
+        node.save(dest, compress=False)
+        self.assertTrue(os.path.isfile(dest))
+        # load
+        res = load(dest)
+        self.assertIsInstance(res, Node)
+        self.assertEqual(res.frequency, 2)
+        self.assertEqual(res.offset, 1.2)
+        os.remove(dest)        
 
 
 class TestFlightAttributeNode(unittest.TestCase):
@@ -403,25 +413,35 @@ class TestSectionNode(unittest.TestCase):
         self.assertEqual(section_node, items)
     
     def test_get(self):
-        items = [Section('a', slice(4,10),4,10),
-                 Section('b', slice(14,23),14,23),
-                 Section('b', slice(19,21),19,21),
-                 Section('c', slice(30,34),30,34),]
-        section_node = self.section_node_class(frequency=1, offset=0.5,
-                                               items=items)
-        sections = section_node.get()
+        items = [Section('a', slice(4,10), 4, 10),
+                 Section('b', slice(14,23), 14, 23),
+                 Section('b', slice(19,21), 19, 21),
+                 Section('c', slice(30,34), 30, 34),]
+        section_node_1 = self.section_node_class(frequency=1, offset=0.5,
+                                                 items=items)
+        sections = section_node_1.get()
         self.assertEqual(items, sections)
-        sections = section_node.get(name='b')
+        sections = section_node_1.get(name='b')
         self.assertEqual(items[1:3], sections)
-        sections = section_node.get(name='c')
+        sections = section_node_1.get(name='c')
         self.assertEqual(items[-1:], sections)
-        sections = section_node.get(within_slice=slice(12, 25))
+        sections = section_node_1.get(within_slice=slice(12, 25))
         self.assertEqual(items[1:3], sections)
-        sections = section_node.get(within_slice=slice(15, 40), name='b')
+        sections = section_node_1.get(within_slice=slice(15, 40), name='b')
         self.assertEqual(items[2:3], sections)
-        sections = section_node.get(within_slice=slice(15, 40), name='b',
-                                    within_use='stop')
-        self.assertEqual(items[1:3], sections)        
+        sections = section_node_1.get(within_slice=slice(15, 40), name='b',
+                                      within_use='stop')
+        self.assertEqual(items[1:3], sections)
+        sections = section_node_1.get(containing_index=7)
+        self.assertEqual([items[0]], sections)
+        # Align to param. 
+        section_node_2 = self.section_node_class(frequency=0.5, offset=0.5)
+        sections = section_node_1.get(containing_index=8, param=section_node_2)
+        self.assertEqual([items[1]], sections)
+        sections = section_node_1.get(containing_index=10, param=section_node_2)
+        self.assertEqual(items[1:3], sections)                
+        sections = section_node_1.get(containing_index=20)
+        self.assertEqual(items[1:3], sections)
     
     def test_get_first(self):
         # First test empty node.
@@ -564,6 +584,7 @@ class TestSectionNode(unittest.TestCase):
         self.assertEqual(node.get_surrounding(12), [sect_1, sect_2])
         self.assertEqual(node.get_surrounding(-3), [])
         self.assertEqual(node.get_surrounding(25), [sect_2])
+    
 
 
 class TestFormattedNameNode(unittest.TestCase):
@@ -643,7 +664,7 @@ class TestFormattedNameNode(unittest.TestCase):
         desc_50ft = alt_desc.get(name='50 Ft Descending')
         self.assertEqual(desc_50ft[0], alt_desc[0])
         # Raises ValueError when name is not valid.
-        self.assertRaises(ValueError, alt_desc.get, None, '200 Ft Descending')
+        self.assertRaises(ValueError, alt_desc.get, name='200 Ft Descending')
         
     def test_get_first(self):
         # Test empty Node first.
@@ -658,7 +679,7 @@ class TestFormattedNameNode(unittest.TestCase):
         kti1 = kti_node.get_first()
         self.assertEqual(kti1.index, 2)
         # within a slice
-        kti2 = kti_node.get_first(slice(15,100))
+        kti2 = kti_node.get_first(within_slice=slice(15,100))
         self.assertEqual(kti2.index, 50)
         # with a particular name
         kti3 = kti_node.get_first(name='Slowest')
@@ -666,12 +687,12 @@ class TestFormattedNameNode(unittest.TestCase):
         kti4 = kti_node.get_first(name='Fast')
         self.assertEqual(kti4.index, 50)
         # named within a slice
-        kti5 = kti_node.get_first(slice(10,400), 'Slowest')
+        kti5 = kti_node.get_first(within_slice=slice(10,400), name='Slowest')
         self.assertEqual(kti5.index, 12)
         # does not exist
         kti6 = kti_node.get_first(name='Warp 10')
         self.assertEqual(kti6, None)
-        kti7 = kti_node.get_first(slice(500,600))
+        kti7 = kti_node.get_first(within_slice=slice(500,600))
         self.assertEqual(kti7, None)
     
     def test_get_last(self):
@@ -686,7 +707,7 @@ class TestFormattedNameNode(unittest.TestCase):
         kti1 = kti_node.get_last()
         self.assertEqual(kti1.index, 342)
         # within a slice
-        kti2 = kti_node.get_last(slice(15,100))
+        kti2 = kti_node.get_last(within_slice=slice(15,100))
         self.assertEqual(kti2.index, 50)
         # with a particular name
         kti3 = kti_node.get_last(name='Slowest')
@@ -694,12 +715,12 @@ class TestFormattedNameNode(unittest.TestCase):
         kti4 = kti_node.get_last(name='Fast')
         self.assertEqual(kti4.index, 50)
         # named within a slice
-        kti5 = kti_node.get_last(slice(10,400), 'Slowest')
+        kti5 = kti_node.get_last(within_slice=slice(10,400), name='Slowest')
         self.assertEqual(kti5.index, 342)
         # does not exist
         kti6 = kti_node.get_last(name='Warp 10')
         self.assertEqual(kti6, None)
-        kti7 = kti_node.get_last(slice(500,600))
+        kti7 = kti_node.get_last(within_slice=slice(500,600))
         self.assertEqual(kti7, None)
     
     def test_get_named(self):
@@ -746,7 +767,8 @@ class TestFormattedNameNode(unittest.TestCase):
                           KeyTimeInstance(50, 'Fast'),
                           KeyTimeInstance(342, 'Slowest')])
         # within a slice
-        kti_node_returned2 = kti_node.get_ordered_by_index(slice(15,100))
+        kti_node_returned2 = kti_node.get_ordered_by_index(
+            within_slice=slice(15,100))
         self.assertEqual(kti_node_returned2, [KeyTimeInstance(50, 'Fast')])
         # with a particular name
         kti_node_returned3 = kti_node.get_ordered_by_index(name='Slowest')
@@ -757,15 +779,16 @@ class TestFormattedNameNode(unittest.TestCase):
         kti_node_returned4 = kti_node.get_ordered_by_index(name='Fast')
         self.assertEqual(kti_node_returned4, [KeyTimeInstance(50, 'Fast')])
         # named within a slice
-        kti_node_returned5 = kti_node.get_ordered_by_index(slice(10,400),
-                                                           'Slowest')
+        kti_node_returned5 = kti_node.get_ordered_by_index(
+            within_slice=slice(10,400), name='Slowest')
         self.assertEqual(kti_node_returned5,
                          [KeyTimeInstance(12, 'Slowest'),
                           KeyTimeInstance(342, 'Slowest')])
         # does not exist
         kti_node_returned6 = kti_node.get_ordered_by_index(name='Warp 10')
         self.assertEqual(kti_node_returned6, [])
-        kti_node_returned7 = kti_node.get_ordered_by_index(slice(500,600))
+        kti_node_returned7 = kti_node.get_ordered_by_index(
+            within_slice=slice(500,600))
         self.assertEqual(kti_node_returned7, [])
     
     def test_get_next(self):
@@ -995,7 +1018,7 @@ class TestKeyPointValueNode(unittest.TestCase):
         kpv1 = kpv_node.get_min()
         self.assertEqual(kpv1.value, 14)
         # within a slice
-        kpv2 = kpv_node.get_min(slice(15,100))
+        kpv2 = kpv_node.get_min(within_slice=slice(15,100))
         self.assertEqual(kpv2.value, 369)
         # with a particular name
         kpv3 = kpv_node.get_min(name='Slowest')
@@ -1003,12 +1026,12 @@ class TestKeyPointValueNode(unittest.TestCase):
         kpv4 = kpv_node.get_min(name='Fast')
         self.assertEqual(kpv4.value, 369)
         # named within a slice
-        kpv5 = kpv_node.get_min(slice(10,400), 'Slowest')
+        kpv5 = kpv_node.get_min(within_slice=slice(10,400), name='Slowest')
         self.assertEqual(kpv5.value, 30)
         # does not exist
         kpv6 = kpv_node.get_min(name='Warp 10')
         self.assertEqual(kpv6, None)
-        kpv7 = kpv_node.get_min(slice(500,600))
+        kpv7 = kpv_node.get_min(within_slice=slice(500,600))
         self.assertEqual(kpv7, None)
     
     def test_get_max(self):
@@ -1024,7 +1047,7 @@ class TestKeyPointValueNode(unittest.TestCase):
         kpv1 = kpv_node.get_max()
         self.assertEqual(kpv1.value, 369)
         # within a slice
-        kpv2 = kpv_node.get_max(slice(15,100))
+        kpv2 = kpv_node.get_max(within_slice=slice(15,100))
         self.assertEqual(kpv2.value, 369)
         # with a particular name
         kpv3 = kpv_node.get_max(name='Slowest')
@@ -1032,12 +1055,12 @@ class TestKeyPointValueNode(unittest.TestCase):
         kpv4 = kpv_node.get_max(name='Fast')
         self.assertEqual(kpv4.value, 369)
         # named within a slice
-        kpv5 = kpv_node.get_max(slice(10,400), 'Slowest')
+        kpv5 = kpv_node.get_max(within_slice=slice(10,400), name='Slowest')
         self.assertEqual(kpv5.value, 60)
         # does not exist
         kpv6 = kpv_node.get_max(name='Warp 10')
         self.assertEqual(kpv6, None)
-        kpv7 = kpv_node.get_max(slice(500,600))
+        kpv7 = kpv_node.get_max(within_slice=slice(500,600))
         self.assertEqual(kpv7, None)
     
     def test_get_ordered_by_value(self):
@@ -1058,7 +1081,8 @@ class TestKeyPointValueNode(unittest.TestCase):
                           KeyPointValue(342, 60, 'Slowest'), 
                           KeyPointValue(50, 369, 'Fast')])
         # within a slice
-        kpv_node_returned2 = kpv_node.get_ordered_by_value(slice(15,100))
+        kpv_node_returned2 = kpv_node.get_ordered_by_value(
+            within_slice=slice(15,100))
         self.assertEqual(kpv_node_returned2, [KeyPointValue(50, 369, 'Fast')])
         # with a particular name
         kpv_node_returned3 = kpv_node.get_ordered_by_value(name='Slowest')
@@ -1069,15 +1093,16 @@ class TestKeyPointValueNode(unittest.TestCase):
         kpv_node_returned4 = kpv_node.get_ordered_by_value(name='Fast')
         self.assertEqual(kpv_node_returned4, [KeyPointValue(50, 369, 'Fast')])
         # named within a slice
-        kpv_node_returned5 = kpv_node.get_ordered_by_value(slice(10,400),
-                                                           'Slowest')
+        kpv_node_returned5 = kpv_node.get_ordered_by_value(
+            within_slice=slice(10,400), name='Slowest')
         self.assertEqual(kpv_node_returned5,
                          [KeyPointValue(12, 30, 'Slowest'), 
                           KeyPointValue(342, 60, 'Slowest')])
         # does not exist
         kpv_node_returned6 = kpv_node.get_ordered_by_value(name='Warp 10')
         self.assertEqual(kpv_node_returned6, [])
-        kpv_node_returned7 = kpv_node.get_ordered_by_value(slice(500,600))
+        kpv_node_returned7 = kpv_node.get_ordered_by_value(
+            within_slice=slice(500,600))
         self.assertEqual(kpv_node_returned7, [])
     
     def test__get_slices(self):
@@ -1420,8 +1445,13 @@ class TestDerivedParameterNode(unittest.TestCase):
         node.dump(dest)
         from utilities.filesystem_tools import pretty_size
         print pretty_size(os.path.getsize(dest))
-        self.assertLess(os.path.getsize(dest), 100000)
+        self.assertLess(os.path.getsize(dest), 10000)
         os.remove(dest)
+        
+        node.dump(dest, compress=False)
+        print pretty_size(os.path.getsize(dest))
+        self.assertGreater(os.path.getsize(dest), 20000)
+        os.remove(dest)        
         
 
 
