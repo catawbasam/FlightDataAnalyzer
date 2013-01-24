@@ -1,5 +1,4 @@
 import numpy as np
-import csv
 
 import os
 import sys
@@ -85,6 +84,7 @@ from analysis_engine.derived_parameters import (
     Mach,
     Pitch,
     SpeedbrakeSelected,
+    StableApproach,
     VerticalSpeed,
     VerticalSpeedForFlightPhases,
     RateOfTurn,
@@ -3317,6 +3317,60 @@ class TestApproachRange(unittest.TestCase):
         self.assertEqual(len(chunks),2)
         self.assertEqual(chunks,[slice(3198, 3422, None), 
                                  slice(12928, 13423, None)])
+        
+        
+class TestStableApproach(unittest.TestCase):
+    def test_stable_approach(self):
+        stable = StableApproach()
+        
+        # Arrays will be 20 seconds long, index 4, 13,14,15 are stable
+        #0. first and last values are not in approach slice
+        apps = S()
+        apps.create_section(slice(1,20))
+        #1. gear up for index 0-2
+        g = [ 0,  0,  0,  1,  1,  1,  1,  1,  1,  1,  1,  1,  1,  1,  1,  1,  1,  1,  1,  1,  1]
+        gear = M(array=np.ma.array(g), values_mapping={1:'Down'})
+        #2. landing flap invalid index 0, 5
+        f = [ 5, 15, 15, 15, 15,  0, 15, 15, 15, 15, 15, 15, 15, 15, 15, 15, 15, 15, 15, 15, 15]
+        flap = P(array=np.ma.array(f))
+        #3. Heading stays within limits except for index 11-12, although we weren't on the heading sample 15 (masked out)
+        h = [20, 20,  2,  3,  4,  8,  0,  0,  0,  0,  2, 20, 20,  8,  2,  0,  1,  1,  1,  1,  1]
+        hm= [ 1,  1,  1,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  1,  0,  0,  0,  0,  0]
+        head = P(array=np.ma.array(h, mask=hm))
+        #4. airspeed relative within limits for periods except 0-3
+        a = [30, 30, 30, 26,  9,  8,  3, -1,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0]
+        aspd = P(array=np.ma.array(a))
+        #5. glideslope deviation is out for index 9-11, last 4 values ignored due to alt cutoff
+        g = [ 6,  6,  6,  6,  0, .5, .5,-.5,  0,1.1,1.4,1.3,  0,  0,  0,  0,  0, -2, -2, -2, -2]
+        gm= [ 1,  1,  1,  1,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0]
+        glide = P(array=np.ma.array(g, mask=gm))
+        #6. localizer deviation is out for index 7-10, last 4 values ignored due to alt cutoff
+        l = [ 0,  0,  0,  0,  0,  0,  0,  2,  2,  2, -3,  0,  0,  0,  0,  0,  0, -2, -2, -2, -2]
+        loc = P(array=np.ma.array(l))
+        #7. Vertical Speed too big/small at index 6 and at 17 (59ft)
+        v = [-500] * 20
+        v[6] = -2000
+        v[17] = -2000
+        vert_spd = P(array=np.ma.array(v))        
+        
+        #TODO: engine cycling at index 12?
+        
+        #8. Engine power too low at index 5-12
+        e = [80, 80, 80, 80, 80, 30, 20, 30, 20, 30, 20, 30, 50, 50, 80, 80, 80, 50, 50, 50, 50]
+        eng = P(array=np.ma.array(e))
+        
+        # Altitude for cutoff heights, last 4 values are velow 100ft last 2 below 50ft
+        al= range(2000,199,-200) + range(199,18, -20)
+        # == [2000, 1800, 1600, 1400, 1200, 1000, 800, 600, 400, 200, 199, 179, 159, 139, 119, 99, 79, 59, 39, 19]
+        alt = P(array=np.ma.array(al))
+        # DERIVE
+        stable.derive(apps, gear, flap, head, aspd, vert_spd, glide, loc, eng, alt)
+        
+        self.assertEqual(list(stable.array.data),
+        #index: 0, 1, 2, 3, 4, 5, 6, 7, 8, 9,10,11,12,13,14,15,16,17,18,19,20
+               [0, 1, 1, 4, 9, 2, 7, 6, 6, 5, 5, 3, 3, 8, 9, 9, 9, 7, 9, 9, 0])
+        self.assertEqual(list(stable.array.mask),
+               [1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1])
         
 
 if __name__ == '__main__':
