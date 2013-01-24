@@ -2747,8 +2747,7 @@ class GrossWeightSmoothed(DerivedParameterNode):
                gw=P('Gross Weight'),
                climbs=S('Climbing'),
                descends=S('Descending'),
-               fast=S('Fast'),
-               ):
+               fast=S('Fast')):
         
         gw.array = mask_inside_slices(gw.array, climbs.get_slices())
         gw.array = mask_inside_slices(gw.array, descends.get_slices())
@@ -2762,6 +2761,7 @@ class GrossWeightSmoothed(DerivedParameterNode):
                 "of '%s' and '%s'. Reverting to '%s'.", self.name, fast.name,
                 climbs.name, descends.name, gw.name)
             self.array = gw.array
+            return
         
         flow = repair_mask(ff.array)
         fuel_to_burn = np.ma.array(integrate(flow / 3600.0, ff.frequency,
