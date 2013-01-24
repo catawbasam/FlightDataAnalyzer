@@ -41,6 +41,8 @@ from analysis_engine.library import (air_track,
                                      latitudes_and_longitudes,
                                      localizer_scale,
                                      machtat2sat,
+                                     mask_inside_slices,
+                                     mask_outside_slices,
                                      merge_two_parameters,
                                      moving_average,
                                      np_ma_ones_like,
@@ -2741,69 +2743,35 @@ class GrossWeightSmoothed(DerivedParameterNode):
     however it is used in the Zero Fuel Weight calculation.
     '''
     units = 'lbs'
-    align = False
     
-    def derive(self, ff = P('Eng (*) Fuel Flow'),
-               gw = P('Gross Weight'),
-               climbs = S('Climbing'),
-               descends = S('Descending'),
-               fast = S('Fast')
+    def derive(self, ff=P('Eng (*) Fuel Flow'),
+               gw=P('Gross Weight'),
+               climbs=S('Climbing'),
+               descends=S('Descending'),
+               fast=S('Fast'),
                ):
+        
+        gw.array = mask_inside_slices(gw.array, climbs.get_slices())
+        gw.array = mask_inside_slices(gw.array, descends.get_slices())
+        gw.array = mask_outside_slices(gw.array, fast.get_slices())
+        
+        try:
+            gw_valid_index = gw.array.nonzero()[0][-1]
+        except IndexError:
+            self.warning(
+                "'%s' had no valid samples within '%s' section, but outside "
+                "of '%s' and '%s'. Reverting to '%s'.", self.name, fast.name,
+                climbs.name, descends.name, gw.name,
+            )
+            self.array = gw.array
+        
         flow = repair_mask(ff.array)
-        fuel_to_burn = np.ma.array(integrate (flow/3600.0, ff.frequency,
-                                              direction='reverse'))
-
-        to_burn_valid = []
-        to_burn_all = []
-        gw_valid = []
-        gw_all = []
-        for gw_index in gw.array.nonzero()[0]:
-            # Keep all the values
-            gross_wt = gw.array.data[gw_index]
-            ff_time = ((gw_index/gw.frequency)+gw.offset-ff.offset)*ff.frequency
-            fuel_wt = value_at_index(fuel_to_burn, ff_time)
-            if fuel_wt:
-                gw_all.append(gross_wt)
-                to_burn_all.append(fuel_wt)
-            
-                # Ignore taxi phases where the data may be meaningless, and
-                # this inherently removes extrapolated data at the end of the
-                # flight.
-                if not fast.get(containing_index=gw_index, param=gw):
-                    continue
-
-                # Skip values which are within Climbing or Descending phases.
-                if any([is_index_within_slice(gw_index, slice_multiply(c.slice,gw.frequency)) for c in climbs]) or \
-                   any([is_index_within_slice(gw_index, slice_multiply(d.slice,gw.frequency)) for d in descends]):
-                    continue
-
-                to_burn_valid.append(fuel_wt)
-                gw_valid.append(gross_wt)
+        fuel_to_burn = np.ma.array(integrate(flow / 3600.0, ff.frequency,
+                                             direction='reverse'))        
         
-        use_valid = len(gw_valid) > 5
-        use_all = len(gw_all) > 2
-        offset = None
+        offset = gw.array[gw_valid_index] - fuel_to_burn[gw_valid_index]
         
-        if use_valid or use_all:
-            if use_valid:
-                corr, slope, offset = coreg(np.ma.array(gw_valid),
-                                            indep_var=np.ma.array(to_burn_valid))
-            elif use_all:
-                corr, slope, offset = coreg(np.ma.array(gw_all),
-                                            indep_var=np.ma.array(to_burn_all))
-            if corr < 0.5:
-                offset = gw_all[0] - to_burn_all[0]
-        elif len(gw_all) == 1:
-            offset = gw_all[0] - to_burn_all[0]
-            
-        if offset is None:
-            self.warning("Cannot smooth Gross Weight. Using the original data")
-            self.frequency = ff.frequency
-            self.offset = ff.offset
-            self.array = align(gw, ff)
-        else:
-            self.array = fuel_to_burn + offset
-
+        self.array = fuel_to_burn + offset
 
 
 class Groundspeed(DerivedParameterNode):
