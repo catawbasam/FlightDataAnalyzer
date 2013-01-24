@@ -831,9 +831,9 @@ class SectionNode(Node, list):
             if within_slice:
                 # FIXME: This does not account for different offsets.
                 within_slice = slice_multiply(within_slice, param.hz)
-            if containing_index:
+            if containing_index is not None:
                 containing_index = \
-                    (containing_index + param.offset) * (self.hz / param.hz)
+                    containing_index * (self.hz / param.hz) + (self.hz * param.offset)
         if within_slice:
             within_funcs = \
                 {'slice': lambda s, within: is_slice_within_slice(s.slice,
@@ -851,7 +851,7 @@ class SectionNode(Node, list):
         
         index_func = \
             lambda e: (is_index_within_slice(containing_index, e.slice)
-                       if containing_index else True)
+                       if containing_index is not None else True)
         
         return lambda e: (within_func(e, within_slice) and name_func(e) and
                           index_func(e))
