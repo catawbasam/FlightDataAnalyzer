@@ -744,6 +744,7 @@ class SectionNode(Node, list):
                           begin or section_slice.start, 
                           end or section_slice.stop)
         self.append(section)
+        return self
         
     def create_sections(self, section_slices, name=''):
         '''
@@ -752,6 +753,7 @@ class SectionNode(Node, list):
         '''
         for sect in section_slices:
             self.create_section(sect, name=name)
+        return self
         
     #TODO: Accessor for 1Hz slice, 8Hz slice etc.
     def get_aligned(self, param):
