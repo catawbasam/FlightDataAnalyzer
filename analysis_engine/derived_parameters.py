@@ -2749,12 +2749,15 @@ class GrossWeightSmoothed(DerivedParameterNode):
                descends=S('Descending'),
                fast=S('Fast')):
         
-        gw.array = mask_inside_slices(gw.array, climbs.get_slices())
-        gw.array = mask_inside_slices(gw.array, descends.get_slices())
-        gw.array = mask_outside_slices(gw.array, fast.get_slices())
+        gw_masked = gw.array.copy()
+        gw_masked = mask_inside_slices(gw.array, climbs.get_slices())
+        gw_masked = mask_inside_slices(gw.array, descends.get_slices())
+        gw_masked = mask_outside_slices(gw.array, fast.get_slices())
+        
+        gw_nonzero = gw.array.nonzero()[0]
         
         try:
-            gw_valid_index = gw.array.nonzero()[0][-1]
+            gw_valid_index = gw_masked.nonzero()[0][-1]
         except IndexError:
             self.warning(
                 "'%s' had no valid samples within '%s' section, but outside "
@@ -2767,9 +2770,18 @@ class GrossWeightSmoothed(DerivedParameterNode):
         fuel_to_burn = np.ma.array(integrate(flow / 3600.0, ff.frequency,
                                              direction='reverse'))        
         
-        offset = gw.array[gw_valid_index] - fuel_to_burn[gw_valid_index]
+        offset = gw_masked[gw_valid_index] - fuel_to_burn[gw_valid_index]
         
         self.array = fuel_to_burn + offset
+        
+        # Test that the resulting array is sensible compared with Gross Weight.
+        test_index = len(gw_nonzero) / 2
+        test_difference = \
+            abs(gw.array[test_index] - self.array[test_index]) > 1000
+        if test_difference > 1000: # Q: Is 1000 too large?
+            raise ValueError(
+                "'%s' difference from '%s' at half-way point is greater than "
+                "'%s': '%s'." % self.name, gw.name, 1000, test_difference)
 
 
 class Groundspeed(DerivedParameterNode):

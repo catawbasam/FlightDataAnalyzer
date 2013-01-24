@@ -12,7 +12,7 @@ from utilities import masked_array_testutils as ma_test
 from utilities.filesystem_tools import copy_file
 
 from analysis_engine.flight_phase import Fast, Mobile
-from analysis_engine.library import np_ma_masked_zeros_like
+from analysis_engine.library import align, np_ma_masked_zeros_like
 from analysis_engine.node import (Attribute, A, KPV, KeyTimeInstance, KTI, load,
                                   M, Parameter, P, Section, S)
 from analysis_engine.process_flight import process_flight
@@ -1690,6 +1690,17 @@ class TestGrossWeightSmoothed(unittest.TestCase):
         self.assertTrue(abs(gws.array[1500] - gw_orig[1500]) < 180)
         # Descending diverges.
         self.assertTrue(abs(gws.array[5800] - gw_orig[5800]) < 120)
+    
+    def test_gw_masked(self): 
+        weight = P('Gross Weight',np.ma.array([292,228,164,100],dtype=float),offset=0.0,frequency=1/64.0)
+        fuel_flow = P('Eng (*) Fuel Flow',np.ma.array([3600]*256,dtype=float),offset=0.0,frequency=1.0)
+        weight_aligned = align(weight, fuel_flow)
+        climb = buildsection('Climbing', 10, 20)
+        descend = buildsection('Descending', 40, 50)
+        fast = buildsection('Fast', None, None)
+        gws = GrossWeightSmoothed()
+        result = gws.get_derived([fuel_flow, weight, climb, descend, fast])  
+        ma_test.assert_equal(result.array, weight_aligned)
     
     def test_gw_formula(self):
         weight = P('Gross Weight',np.ma.array([292,228,164,100],dtype=float),offset=0.0,frequency=1/64.0)
