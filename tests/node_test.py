@@ -238,9 +238,10 @@ class TestNode(unittest.TestCase):
         self.assertEqual(derived_parameter.frequency, 4)
         self.assertEqual(derived_parameter.offset, 0)
         
-    def test_dump_aka_save_and_load(self):
+    def test_save_and_load(self):
         node = Node('node', 2, 1.2)
         dest = os.path.join(test_data_path, 'node.nod')
+        # save with compression
         node.save(dest)
         self.assertTrue(os.path.isfile(dest))
         # load
@@ -249,6 +250,15 @@ class TestNode(unittest.TestCase):
         self.assertEqual(res.frequency, 2)
         self.assertEqual(res.offset, 1.2)
         os.remove(dest)
+        # save without compression
+        node.save(dest, compress=False)
+        self.assertTrue(os.path.isfile(dest))
+        # load
+        res = load(dest)
+        self.assertIsInstance(res, Node)
+        self.assertEqual(res.frequency, 2)
+        self.assertEqual(res.offset, 1.2)
+        os.remove(dest)        
 
 
 class TestFlightAttributeNode(unittest.TestCase):
@@ -1434,8 +1444,13 @@ class TestDerivedParameterNode(unittest.TestCase):
         node.dump(dest)
         from utilities.filesystem_tools import pretty_size
         print pretty_size(os.path.getsize(dest))
-        self.assertLess(os.path.getsize(dest), 100000)
+        self.assertLess(os.path.getsize(dest), 10000)
         os.remove(dest)
+        
+        node.dump(dest, compress=False)
+        print pretty_size(os.path.getsize(dest))
+        self.assertGreater(os.path.getsize(dest), 20000)
+        os.remove(dest)        
         
 
 

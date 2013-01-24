@@ -1,4 +1,5 @@
 import copy
+import gzip
 import inspect
 import logging
 import math
@@ -63,6 +64,11 @@ def load(path):
     
     Convention is to use the .nod file extension.
     '''
+    with gzip.open(path) as file_obj:
+        try:
+            return cPickle.load(file_obj)
+        except IOError:
+            pass
     # pickle self, excluding array
     with open(path, 'rb') as fh:
         return cPickle.load(fh)
@@ -346,12 +352,11 @@ def can_operate(cls, available):
         """
         """
         # pickle self, excluding array
-        import gzip
         if compress:
             _open = gzip.open
         else:
             _open = open        
-        with open(dest, 'wb') as fh:
+        with _open(dest, 'wb') as fh:
             return cPickle.dump(self, fh, protocol)
     save = dump
     
