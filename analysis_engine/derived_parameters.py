@@ -4839,14 +4839,40 @@ class WheelSpeed(DerivedParameterNode):
         
 
 
+class HeadingTrack(DerivedParameterNode):
+    '''
+    Currently works only for 737-NG which record IRU Track Angle True
+    '''
+    def derive(self, heading=P('Heading Continuous'), drift=P('Drift')):
+        self.array = heading.array - drift.array
+        
+        
+#class HeadingDeviationFromRunway(DerivedParameterNode):
+    
+    #def derive(takeoff=S('Takeoff'),
+               #rwy=A('FDR Takeoff Runway')):
+        #brg = value_at_index(head.array, index)
+        #dev = runway_deviation(brg, rwy.value)
 
-class Stable(MultistateDerivedParameterNode):
+        #for approach in apps:
+            #try:
+                #rwy_hdg = approach['runway']['magnetic_heading']
+            #except KeyError:
+                ## no runway identified in approach
+                #continue
+            
+            #self.array[approach.slice] = runway_deviation(heading_track[approach.slice], rwy_hdg)
+
+
+        
+    
+class StableApproach(MultistateDerivedParameterNode):
     '''
     During the Approach, the following steps are assessed for stability:
     
     1. Gear is down
     2. Landing Flap is set
-    3. Heading aligned to Runway within 10 degrees
+    3. Heading aligned to Runway within 10 degrees 
     4. Approach Airspeed minus Reference speed within 10 knots
     5. Glideslope deviation within 1 dot
     6. Localizer deviation within 1 dot
@@ -4854,27 +4880,45 @@ class Stable(MultistateDerivedParameterNode):
     
     if all the above steps are met, the result is the declaration of:
     8. "Stable"
+    
+    TODO:
+    =====
+    
+    * Q: Fill masked values of parameters with False (unstable: stop here) or True (stable, carry on)
+    * Declare that if there is no GS est < 1000ft non-precision (500ft)
+    * CREATE Track Heading parameter (using recorded if available, else worked out from drift from Heading Mag). New Param Runway Deviation is Track Heading - RUNWAY HEADING for both takeoff phase and Approach and Landing phase of flight.
+    * CREATE KPVs for height first stable and height last unstable    
     '''
     
     values_mapping = {
-        0: 'Unstable',
-        1: 'Stable',
+        0: '-',  # All values should be masked anyway, this helps align values
+        1: 'Gear Not Down',
+        2: 'Not Landing Flap',
+        3: 'Not Aligned to Runway',   # Rename with heading?
+        4: 'Airspeed Not Stable',  # Q: Split into two Airspeed High/Low?
+        5: 'Glideslope Not Stable',
+        6: 'Localizer Not Stable',
+        7: 'Vertical Speed Not Stable',
+        8: 'Engine Power Not Stable',
+        9: 'Stable',
     }
     
     align_frequency = 1  # force to 1Hz
     
-    ##@classmethod
-    ##def can_operate(cls, available):
-        ##return True
+    @classmethod
+    def can_operate(cls, available):
+        return True
     
     def derive(self, 
+               apps=S('Approach'),
                gear=M('Gear Down'),
                flap=M('Flap'),
+               head=P('Heading Track'),
                aspd=P('Airspeed Relative'),
                vert_spd=P('Vertical Speed'),
                glide=P('ILS Glideslope'),
                loc=P('ILS Localizer'),
-               apps=S('Approach'),
+               eng=P('Eng (*) N1 Min'),
                alt=P('Altitude AAL'),
                ):
         # find point first stabalised
@@ -4890,60 +4934,99 @@ class Stable(MultistateDerivedParameterNode):
 
         # An alternative to this discrete would be to create a multistate
         # with each point being the reason it's unstable
+        
+        
+        
 
         # create an empty fuly masked array
         self.array = np_ma_masked_zeros_like(gear.array)
         self.array.mask = True
         
         for approach in apps:
+    
+            # do we have a heading??
+            
+            #TODO: Ensure loc/glide are established too
+            ##loc_est = slices_and([approach['ILS localizer established']], approach.slice)
+            ##glide_est = slices_and([approach['ILS Glideslope established']], approach.slice)
+            glide_est = loc_est = approach.slice
+            
+            
+            
             # prepare data for this appproach:
-            gear_down = gear.array[approach.slice]
-            flap_lever = flap.array[approach.slice]
-            airspeed = aspd.array[approach.slice]
-            vertical_speed = vert_spd.array[approach.slice]
-            glideslope = glide.array[approach.slice]
-            localiser = loc.array[approach.slice]
-            altitude = alt.array[approach.slice]
+            gear_down = repair_mask(gear.array[approach.slice])
+            flap_lever = repair_mask(flap.array[approach.slice])
+            heading = repair_mask(head.array[approach.slice])
+            airspeed = repair_mask(aspd.array[approach.slice])
+            glideslope = repair_mask(glide.array[glide_est])
+            localizer = repair_mask(loc.array[loc_est])
+            vertical_speed = repair_mask(vert_spd.array[approach.slice])
+            engine = repair_mask(eng.array[approach.slice])
+            altitude = repair_mask(alt.array[approach.slice])
+            
+            
+            # Assume unstable due to Gear Down at first
+            self.array[approach.slice] = 1
 
-            # gear down
+            #== 1. Gear Down ==
             landing_gear_set = (gear_down == 'Down')
+            stable = landing_gear_set.filled(False) # replace masked with false
+            self.array[approach.slice][stable] = 2 # not due to landing gear - pass the blame on!
             
-            # landing flap set
+            #== 2. Landing Flap ==
             landing_flap_set = (flap_lever == flap_lever[-1])
+            stable &= landing_flap_set.filled(False)
+            self.array[approach.slice][stable] = 3
             
-            # airspeed ok
-            # create an average airspeed for repairing minimum below altitude cutoff
-            STABLE_AIRSPEED_MIN = 0
-            STABLE_AIRSPEED_MAX = 30
-            ALTITUDE_CUTOFF = 50  #ft
-            avg_stable_airspeed = (STABLE_AIRSPEED_MIN + STABLE_AIRSPEED_MAX)/2
-            airspeed[(altitude < ALTITUDE_CUTOFF) & (airspeed > STABLE_AIRSPEED_MIN)] = avg_stable_airspeed
-            stable_airspeed = (airspeed > STABLE_AIRSPEED_MIN) & (airspeed < STABLE_AIRSPEED_MAX)
-            # sink rate
-            ## has altitude cutoff too and 3 second gliding window
-            STABLE_VERTICAL_SPEED_MIN = -4000
-            STABLE_VERTICAL_SPEED_MAX = 3000
-            stable_vert = (vertical_speed > STABLE_VERTICAL_SPEED_MIN) & (vertical_speed < STABLE_VERTICAL_SPEED_MAX) 
+            #== 3. Heading ==
+            STABLE_HEADING = 10  # degrees
+            stable_heading = abs(heading) < STABLE_HEADING
+            stable &= stable_heading.filled(False)  #Q: Should masked values assumed on track ???
+            self.array[approach.slice][stable] = 4
+            
+            #== 4. Airspeed Relative ==
+            STABLE_AIRSPEED_ABOVE_REF = 20
+            stable_airspeed = (airspeed < STABLE_AIRSPEED_ABOVE_REF) | (altitude < 100)
+            stable &= stable_airspeed.filled(False)  # if no V Ref speed, values are masked so consider unstable
+            self.array[approach.slice][stable] = 5
                                                              
-            # glideslope
+            #== 5. Glideslope Deviation ==
             ## has altitude cutoff too and 3 second gliding window
-            STABLE_GLIDESLOPE = 1.5  # dots
-            stable_gs = (glideslope > -STABLE_GLIDESLOPE) & (glideslope < STABLE_GLIDESLOPE)
-            # localiser
+            STABLE_GLIDESLOPE = 1.0  # dots
+            stable_gs = (abs(glideslope) < STABLE_GLIDESLOPE) | (altitude < 100)
+            ##stable_gs = (glideslope > -STABLE_GLIDESLOPE) & (glideslope < STABLE_GLIDESLOPE)
+            stable &= stable_gs.filled(False)  # masked values are usually because they are way outside of range and short spikes will have been repaired
+            self.array[approach.slice][stable] = 6
+            
+            #== 6. Localizer Deviation ==
             ## has altitude cutoff too and 3 second gliding window
-            STABLE_LOCALISER = 1.5  # dots
-            stable_loc = (localiser > -STABLE_LOCALISER) & (localiser < STABLE_LOCALISER)
+            STABLE_LOCALIZER = 1.0  # dots
+            stable_loc = (abs(localizer) < STABLE_LOCALIZER) | (altitude < 100)
+            ##stable_loc = (localizer > -STABLE_LOCALIZER) & (localizer < STABLE_LOCALIZER)
+            stable &= stable_loc.filled(False)  # masked values are usually because they are way outside of range and short spikes will have been repaired
+            stable[altitude < 100] = 1  # Assume stable below cutoff
+            self.array[approach.slice][stable] = 7
             
-            # build up the unstable reason
-            stable = landing_gear_set & landing_flap_set & stable_airspeed & stable_vert & stable_gs & stable_loc
-            self.array[approach.slice] = stable
+            #== 7. Vertical Speed ==
+            ## has altitude cutoff too and 3 second gliding window
+            STABLE_VERTICAL_SPEED_MIN = -1000
+            STABLE_VERTICAL_SPEED_MAX = -200
+            stable_vert = (vertical_speed > STABLE_VERTICAL_SPEED_MIN) & (vertical_speed < STABLE_VERTICAL_SPEED_MAX) 
+            stable_vert |= altitude < 50
+            stable &= stable_vert.filled(False)  #Q: make True?
+            self.array[approach.slice][stable] = 8
             
+            #== 8. Engine Power (N1) ==
+            STABLE_N1_MIN = 75  # %
+            stable_engine = (engine > STABLE_N1_MIN)
+            stable_engine |= (altitude > 1000) | (altitude < 50)  # Only use in altitude band 1000-50 feet
+            stable &= stable_engine.filled(True)  #Q: make True?
+            self.array[approach.slice][stable] = 9  # Woop, you're stable!
             
-            #Q: Look from landing back for first stabalised?
-            
-            # engine power
+        #endfor
+        
+        pass
         
         
-        # height last unstable
         
         
