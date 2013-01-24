@@ -2168,7 +2168,24 @@ class TestWindAcrossLandingRunway(unittest.TestCase):
         expected = np.ma.array([50.55619778])
         self.assertAlmostEqual(walr.array.data, expected.data)
         
+    def test_error_cases(self):
+        ws = P('Wind Speed', np.ma.array([84.0]))
+        wd = P('Wind Direction Continuous', np.ma.array([-21]))
+        land_rwy = A('FDR Landing Runway')
+        land_rwy.value = {}
+        walr = WindAcrossLandingRunway()
 
+        walr.derive(ws,wd,land_rwy)
+        self.assertEqual(len(walr.array.data), len(ws.array.data))
+        self.assertEqual(walr.array.data[0],0.0)
+        self.assertEqual(walr.array.mask[0],1)
+        
+        walr.derive(ws,wd,None)
+        self.assertEqual(len(walr.array.data), len(ws.array.data))
+        self.assertEqual(walr.array.data[0],0.0)
+        self.assertEqual(walr.array.mask[0],1)
+        
+                
 class TestAOA(unittest.TestCase):
     @unittest.skip('Test Not Implemented')
     def test_can_operate(self):

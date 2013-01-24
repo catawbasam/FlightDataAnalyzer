@@ -2908,7 +2908,7 @@ class LongitudeAtLiftoff(KeyPointValueNode):
 #########################################
 # Latitude/Longitude @ Lowest Point on approach. Used to identify airport
 # and runway, so that this works for both landings and aborted approaches /
-# go-srounds.
+# go-arounds.
 
 class LatitudeAtLowestPointOnApproach(KeyPointValueNode):
     '''

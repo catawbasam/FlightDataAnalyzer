@@ -4316,7 +4316,12 @@ class WindAcrossLandingRunway(DerivedParameterNode):
     
     def derive(self, windspeed=P('Wind Speed'), wind_dir=P('Wind Direction Continuous'), 
                land_rwy = A('FDR Landing Runway')):
-        land_heading = runway_heading(land_rwy.value)
+        
+        if land_rwy and land_rwy.value:
+            land_heading = runway_heading(land_rwy.value)
+        else:
+            land_heading = None
+            
         if land_heading:
             self.array = windspeed.array * np.ma.sin((land_heading - wind_dir.array)*deg2rad)
         else:
