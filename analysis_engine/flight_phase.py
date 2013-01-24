@@ -193,6 +193,10 @@ class ApproachAndLanding(FlightPhaseNode):
     We can then process all approaches to runways in the same way, which
     makes life easier later on.
     """
+
+    # Force offset so phases are nicely aligned to 0
+    align_offset = 0
+    
     def derive(self, alt_aal=P('Altitude AAL For Flight Phases'),
                lands=S('Landing'), go_arounds=S('Go Around And Climbout')):
         # Prepare to extract the slices
