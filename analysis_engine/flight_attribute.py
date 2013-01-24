@@ -95,6 +95,10 @@ class Approaches(FlightAttributeNode):
     '''
 
     name = 'FDR Approaches'
+    # force 1Hz 0sec offset for slice attributes
+    align = True
+    align_frequency = 1
+    align_offset = 0
 
     @classmethod
     def can_operate(self, available):
