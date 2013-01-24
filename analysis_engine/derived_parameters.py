@@ -2741,7 +2741,7 @@ class GrossWeightSmoothed(DerivedParameterNode):
     data. We avoid using the recorded fuel weight in this calculation,
     however it is used in the Zero Fuel Weight calculation.
     '''
-    units = 'lbs'
+    units = 'kgs'
     
     def derive(self, ff=P('Eng (*) Fuel Flow'),
                gw=P('Gross Weight'),
