@@ -2769,8 +2769,7 @@ class GrossWeightSmoothed(DerivedParameterNode):
                 # Ignore taxi phases where the data may be meaningless, and
                 # this inherently removes extrapolated data at the end of the
                 # flight.
-                if not any([is_index_within_slice(gw_index, 
-                                                  slice_multiply(f.slice,gw.frequency)) for f in fast]):
+                if not fast.get(containing_index=gw_index, param=gw):
                     continue
 
                 # Skip values which are within Climbing or Descending phases.

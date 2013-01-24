@@ -34,7 +34,6 @@ from analysis_engine.library import (ambiguous_runway,
                                      index_at_value,
                                      integrate,
                                      is_index_within_slice,
-                                     is_index_within_sections,
                                      mask_inside_slices,
                                      mask_outside_slices,
                                      max_abs_value,
@@ -2031,7 +2030,7 @@ class DistancePastGlideslopeAntennaToTouchdown(KeyPointValueNode):
             return
         land_idx = last_tdwn.index
         # Check we did do an ILS approach (i.e. the ILS frequency was correct etc).
-        if is_index_within_sections(land_idx, ils_ldgs):
+        if ils_ldgs.get(containing_index=land_idx):
             # OK, now do the geometry...
             gs = runway_distance_from_end(rwy.value, point='glideslope')
             td = runway_distance_from_end(rwy.value, lat_tdn.get_last().value,
