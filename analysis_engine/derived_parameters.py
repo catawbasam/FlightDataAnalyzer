@@ -3280,7 +3280,7 @@ class CoordinatesSmoothed(object):
         return lat_in, lon_in
     
     def _adjust_track(self, lon, lat, ils_loc, app_range, hdg, gspd, tas, 
-            toff, toff_rwy, approaches, mobile, precise):
+            toff, toff_rwy, tdwns, approaches, mobile, precise):
         
         # Set up a working space.
         lat_adj = np_ma_masked_zeros_like(hdg.array)
@@ -3449,18 +3449,32 @@ class CoordinatesSmoothed(object):
                     lat_adj[this_app_slice] = lat.array[this_app_slice]
                     lon_adj[this_app_slice] = lon.array[this_app_slice]
                 else:
-                    # Adjust distance units
-                    distances = app_range.array[this_app_slice]
-        
-                    bearings = np_ma_ones_like(distances) * (runway_heading(runway)+180)%360.0
-                    
-                    # Reference point for visual approaches is the runway end.
-                    ref_point = runway['end']
-                    
-                    # We convert the range data
-                    lat_adj[this_app_slice], lon_adj[this_app_slice] = \
-                        latitudes_and_longitudes(bearings, distances,
-                                                 ref_point)
+                    '''
+                    We need to fix the bottom end of the descent without an
+                    ILS to fix. The best we can do is put the touchdown point
+                    in the right place. (An earlier version put the track
+                    onto the runway centreline which looked convincing, but
+                    went disasterously wrong for curving visual approaches
+                    into airfields like Nice).
+                    '''
+                    for tdwn in tdwns:
+                        if not is_index_within_slice(tdwn.index, this_app_slice):
+                            continue
+                        
+                        # Adjust distance units
+                        distance = np.ma.array([value_at_index(app_range.array, tdwn.index)])
+                        bearing = np.ma.array([(runway_heading(runway)+180)%360.0])
+                        # Reference point for visual approaches is the runway end.
+                        ref_point = runway['end']
+                        
+                        # Work out the touchdown point
+                        lat_tdwn, lon_tdwn = latitudes_and_longitudes \
+                            (bearing, distance, ref_point)
+                        
+                        lat_err = value_at_index(lat.array, tdwn.index) - lat_tdwn
+                        lon_err = value_at_index(lon.array, tdwn.index) - lon_tdwn
+                        lat_adj[this_app_slice] = lat.array[this_app_slice] - lat_err
+                        lon_adj[this_app_slice] = lon.array[this_app_slice] - lon_err
                         
             # The computation of a ground track is not ILS dependent and does
             # not depend upon knowing the runway details.
@@ -3554,6 +3568,7 @@ class LatitudeSmoothed(DerivedParameterNode, CoordinatesSmoothed):
                precise =A('Precise Positioning'),
                toff = S('Takeoff'),
                toff_rwy = A('FDR Takeoff Runway'),
+               tdwns = S('Touchdown'),
                approaches = A('FDR Approaches'),
                mobile=S('Mobile'),
                ):
@@ -3564,7 +3579,7 @@ class LatitudeSmoothed(DerivedParameterNode, CoordinatesSmoothed):
 
         lat_adj, lon_adj = self._adjust_track(lon, lat, ils_loc, app_range, hdg,
                                             gspd, tas, toff, toff_rwy,
-                                            approaches, mobile, precision)
+                                            tdwns, approaches, mobile, precision)
         self.array = track_linking(lat.array, lat_adj)
         
 
@@ -3597,6 +3612,7 @@ class LongitudeSmoothed(DerivedParameterNode, CoordinatesSmoothed):
                precise =A('Precise Positioning'),
                toff = S('Takeoff'),
                toff_rwy = A('FDR Takeoff Runway'),
+               tdwns = S('Touchdown'),
                approaches = A('FDR Approaches'),
                mobile=S('Mobile'),
                ):
@@ -3606,7 +3622,7 @@ class LongitudeSmoothed(DerivedParameterNode, CoordinatesSmoothed):
             hdg = head_mag
         lat_adj, lon_adj = self._adjust_track(lon, lat, ils_loc, app_range, hdg,
                                             gspd, tas, toff, toff_rwy,
-                                            approaches, mobile, precision)
+                                            tdwns, approaches, mobile, precision)
         self.array = track_linking(lon.array, lon_adj)
 
 class Mach(DerivedParameterNode):
@@ -4704,6 +4720,9 @@ class ApproachRange(DerivedParameterNode):
                     self.warning('Low convergence in computing visual '
                                  'approach path offset.')
             
+            ### This plot code allows the actual flightpath and regression line 
+            ### to be viewed in case of concern about the performance of the 
+            ### algorithm.
             ##import matplotlib.pyplot as plt
             ##x1=app_range[reg_slice]
             ##y1=alt_aal.array[reg_slice]
