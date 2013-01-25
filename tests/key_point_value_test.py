@@ -10,7 +10,7 @@ from utilities.geometry import midpoint
 from analysis_engine.derived_parameters import Flap
 from analysis_engine.library import align
 from analysis_engine.node import (
-    A, KTI, P, KeyPointValue, KeyTimeInstance, Section,
+    A, KTI, P, KeyPointValue, KeyTimeInstance, Section, S
 )
 
 from analysis_engine.key_point_values import (
@@ -797,15 +797,18 @@ class TestAirspeedGustsDuringFinalApproach(unittest.TestCase):
     @unittest.skip('Test Not Implemented')
     def test_can_operate(self):
         self.assertTrue(False, msg='Test Not Implemented')
-    
+
     # This function interpolates twice, hence the more complex test case.
     def test_derive_basic(self):
-        spd = P('Airspeed', np.ma.array([180,140,100]), frequency=0.5,
-                offset=0.0)
-        alt = P('Altitude Radio', np.ma.array([45,35,25,15,5,0]), frequency=1.0,
-                offset=0.0)
+        aspd = P('Airspeed', np.ma.array([180,140,100]), frequency=0.5,
+                 offset=0.0)
+        gspd = P('Groundspeed', np.ma.array([180,140,100]), frequency=0.5,
+                 offset=0.0)
+        alt = P('Altitude Radio', np.ma.array([45,35,25,15,5,0]),
+                frequency=1.0, offset=0.0)
+        airs = S(items=[Section('Airborne', slice(0, 3), 0, 3)])
         kpv=AirspeedGustsDuringFinalApproach()
-        kpv.get_derived([spd,alt])
+        kpv.get_derived([aspd, gspd, alt, airs])
         self.assertEqual(kpv[0].value, 40)
         self.assertEqual(kpv[0].index, 1.25)
 
