@@ -1428,9 +1428,6 @@ class TestAirspeedBelowAltitudeMax(unittest.TestCase, NodeTest):
              KeyPointValue(index=15, value=15.0, 
                            name='Airspeed Below 8000 Ft Max',
                            slice=slice(None, None, None), datetime=None), 
-             KeyPointValue(index=13, value=13.0, 
-                           name='Airspeed Below 7000 Ft Max',
-                           slice=slice(None, None, None), datetime=None), 
              KeyPointValue(index=9, value=9.0, 
                            name='Airspeed Below 5000 Ft Max',
                            slice=slice(None, None, None), datetime=None), 
@@ -3222,6 +3219,16 @@ class TestHeadingAtLanding(unittest.TestCase, NodeTest):
 
 class TestHeadingAtLowestPointOnApproach(unittest.TestCase,
                                          CreateKPVsAtKTIsTest):
+    def test_derive_mocked(self):
+        mock1, mock2 = Mock(), Mock()
+        # derive() uses par1 % 360.0, so the par1 needs to be compatible with %
+        # operator
+        mock1.array = 0
+        node = self.node_class()
+        node.create_kpvs_at_ktis = Mock()
+        node.derive(mock1, mock2)
+        node.create_kpvs_at_ktis.assert_called_once_with(mock1.array, mock2)
+
     def setUp(self):
         self.node_class = HeadingAtLowestPointOnApproach
         self.operational_combinations = [('Heading Continuous',
@@ -4258,7 +4265,7 @@ class TestTailClearanceOnTakeoffMin(unittest.TestCase,
     def setUp(self):
         self.node_class = TailClearanceOnTakeoffMin
         self.operational_combinations = [('Altitude Tail', 'Takeoff',)]
-        self.function = max_value
+        self.function = min_value
     
     @unittest.skip('Test Not Implemented')    
     def test_derive(self):
@@ -4270,7 +4277,7 @@ class TestTailClearanceOnLandingMin(unittest.TestCase,
     def setUp(self):
         self.node_class = TailClearanceOnLandingMin
         self.operational_combinations = [('Altitude Tail', 'Landing',)]
-        self.function = max_value
+        self.function = min_value
     
     @unittest.skip('Test Not Implemented')    
     def test_derive(self):
@@ -4311,7 +4318,7 @@ class TestTerrainClearanceAbove3000FtMin(unittest.TestCase,
         self.node_class = TerrainClearanceAbove3000FtMin
         self.operational_combinations = [('Altitude Radio',
                                           'Altitude AAL For Flight Phases',)]
-        self.function = max_value
+        self.function = min_value
         self.second_param_method_calls = [('slices_above', (3000.0,), {})]
     
     @unittest.skip('Test Not Implemented')    

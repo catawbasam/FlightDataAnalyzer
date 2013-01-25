@@ -124,9 +124,9 @@ class APIHandlerHTTPTest(unittest.TestCase):
     def test_get_nearest_runway(self):
         handler = AnalysisEngineAPIHandlerHTTP(attempts=3)
         handler._request = Mock()
-        handler._request.return_value = {'status': 200, 'runway': {'x': 1}}
+        handler._request.return_value = {'status': 200, 'runway': {'end': 1}}
         self.assertEqual(handler.get_nearest_runway('ICAO', 120),
-                         {'x': 1})
+                         {'end': 1})
         # TODO: Test GET parameters.
 
 
