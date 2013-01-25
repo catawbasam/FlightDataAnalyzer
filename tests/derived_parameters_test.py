@@ -1826,7 +1826,7 @@ class TestGroundspeedAlongTrack(unittest.TestCase):
         self.assertLess(gat.array[199],52.0)
         
         
-class TestHeadContinuous(unittest.TestCase):
+class TestHeadingContinuous(unittest.TestCase):
     def test_can_operate(self):
         expected = [('Heading',)]
         opts = HeadingContinuous.get_operational_combinations()
@@ -2776,17 +2776,6 @@ class TestGearUpSelected(unittest.TestCase):
         np.testing.assert_array_equal(up_sel.array, [0,1,1,1,1,1])
         self.assertEqual(up_sel.frequency, 1.0)
         self.assertAlmostEqual(up_sel.offset, 0.1)
-
-
-
-class TestHeadingContinuous(unittest.TestCase):
-    @unittest.skip('Test Not Implemented')
-    def test_can_operate(self):
-        self.assertTrue(False, msg='Test not implemented.')
-        
-    @unittest.skip('Test Not Implemented')
-    def test_derive(self):
-        self.assertTrue(False, msg='Test not implemented.')
 
 
 class TestHeadingTrueContinuous(unittest.TestCase):
