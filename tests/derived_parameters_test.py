@@ -72,8 +72,11 @@ from analysis_engine.derived_parameters import (
     GrossWeightSmoothed,
     #GroundspeedAlongTrack,
     HeadingContinuous,
+    HeadingDeviationFromRunway,
     HeadingIncreasing,
+    HeadingTrack,
     HeadingTrue,
+    HeadingTrueTrack,
     Headwind,
     ILSFrequency,
     #ILSLocalizerRange,
@@ -1845,6 +1848,27 @@ class TestHeadingContinuous(unittest.TestCase):
         np.testing.assert_array_equal(head.array.data, answer.data)
 
 
+class TestHeadingDeviationFromRunway(unittest.TestCase):
+    def test_can_operate(self):
+        self.assertEqual(HeadingDeviationFromRunway.get_operational_combinations(),
+                    [('Heading True Track', 'FDR Approaches'),
+                     ('Heading True Track', 'Takeoff', 'FDR Takeoff Runway'),
+                     ('Heading True Track', 'Takeoff', 'FDR Takeoff Runway', 'FDR Approaches')])
+
+    def test_deviation(self):
+        apps = load(os.path.join(test_data_path, 'HeadingDeviationFromRunway_apps.nod'))
+        heading_track = load(os.path.join(test_data_path, 'HeadingDeviationFromRunway_heading_track.nod'))
+        to_runway = load(os.path.join(test_data_path, 'HeadingDeviationFromRunway_runway.nod'))
+        takeoff = load(os.path.join(test_data_path, 'HeadingDeviationFromRunway_takeoff.nod'))
+
+        heading_deviation = HeadingDeviationFromRunway()
+        heading_deviation.get_derived((heading_track, takeoff, to_runway, apps))
+        # check average stays close to 0
+        self.assertAlmostEqual(np.ma.average(heading_deviation.array[8775:8975]), 1.5, places = 1)
+        self.assertAlmostEqual(np.ma.min(heading_deviation.array[8775:8975]), -10.5, places = 1)
+        self.assertAlmostEqual(np.ma.max(heading_deviation.array[8775:8975]), 12.3, places = 1)
+
+
 class TestHeadingIncreasing(unittest.TestCase):
     def test_can_operate(self):
         expected = [('Heading Continuous',)]
@@ -1917,6 +1941,26 @@ class TestLatitudeAndLongitudePrepared(unittest.TestCase):
         # normal and arises because the data sample is short.
         self.assertGreater(smoother.array[3],0.011)
         self.assertLess(smoother.array[3],0.012)
+
+
+class TestHeadingTrack(unittest.TestCase):
+    def test_can_operate(self):
+        self.assertEqual(HeadingTrack.get_operational_combinations(),
+            [('Heading Continuous', 'Drift')])
+
+    @unittest.skip('Test Not Implemented')
+    def test_basic(self):
+        self.assertTrue(False, msg='Test not implemented.')
+
+
+class TestHeadingTrueTrack(unittest.TestCase):
+    def test_can_operate(self):
+        self.assertEqual(HeadingTrueTrack.get_operational_combinations(),
+            [('Heading True Continuous', 'Drift')])
+
+    @unittest.skip('Test Not Implemented')
+    def test_basic(self):
+        self.assertTrue(False, msg='Test not implemented.')
 
 
 class TestHeadingTrue(unittest.TestCase):

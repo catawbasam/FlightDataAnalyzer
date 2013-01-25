@@ -1405,7 +1405,7 @@ def runway_deviation(array, runway={}, heading=0.0):
     centreline calculated from latitude/longitude coordinates. For use with
     True Heading.
     
-    If you use runway_heading, it allows one to use magnetic heading
+    If you use heading, it allows one to use magnetic heading
     comparisons.
     
     NOTE: Uses heading supplied in preference to coordinates.

@@ -54,6 +54,7 @@ from analysis_engine.library import (air_track,
                                      repair_mask,
                                      rms_noise,
                                      round_to_nearest,
+                                     runway_deviation,
                                      runway_distances,
                                      runway_heading,
                                      runway_length,
@@ -4828,37 +4829,57 @@ class HeadingTrack(DerivedParameterNode):
     Range 0 to 360
     '''
     units = 'deg'
-    
+
     def derive(self, heading=P('Heading Continuous'), drift=P('Drift')):
         self.array = (heading.array - drift.array) % 360
-        
-        
+
+
+class HeadingTrueTrack(DerivedParameterNode):
+    '''
+    True Heading of the Aircraft Track by removing Drift from the Heading.
+    
+    Range 0 to 360
+    '''
+    units = 'deg'
+
+    def derive(self, heading=P('Heading True Continuous'), drift=P('Drift')):
+        self.array = (heading.array - drift.array) % 360
+
+
 class HeadingDeviationFromRunway(DerivedParameterNode):
-    
-    
+
+    # forse offset for approach slice start consistency
+    align_frequency = 1
+    align_offset = 0
+
     @classmethod
     def can_operate(cls, available):
-        return True
-    
-    
-    def derive(self, heading_track=P('Heading Track'),
-               #takeoff=S('Takeoff'),
-               #rwy=A('FDR Takeoff Runway'),
-               apps=S('FDR Approaches')):
+        return (('Heading True Track', 'FDR Approaches') == available) or \
+                all_of(('Heading True Track', 'Takeoff', 'FDR Takeoff Runway'), available)
+
+    def derive(self, heading_track=P('Heading True Track'),
+               takeoff=S('Takeoff'),
+               to_rwy=A('FDR Takeoff Runway'),
+               apps=A('FDR Approaches')):
+
         self.array = np_ma_masked_zeros_like(heading_track.array)
+
         for approach in apps.value:
+            _slice = slice(approach['slice_start'], approach['slice_stop'])
             try:
-                rwy_hdg = approach['runway']['magnetic_heading']
-            except KeyError:
+                self.array[_slice] = runway_deviation(heading_track.array[_slice], approach['runway'])
+            except (KeyError, ValueError):
                 # no runway identified in approach
                 continue
-            _slice = slice(approach['slice_start'], approach['slice_stop'])
-            from analysis_engine.library import runway_deviation
-            self.array[_slice] = runway_deviation(heading_track[_slice], heading=rwy_hdg)
+
+        if to_rwy:
+            try:
+                self.array[takeoff[0].slice] = runway_deviation(heading_track[takeoff[0].slice], to_rwy.value)
+            except (KeyError, ValueError):
+                # no runway identified during Takeoff
+                pass
 
 
-        
-    
 class StableApproach(MultistateDerivedParameterNode):
     '''
     During the Approach, the following steps are assessed for stability:
@@ -4898,11 +4919,11 @@ class StableApproach(MultistateDerivedParameterNode):
     }
     
     align_frequency = 1  # force to 1Hz
-    
+
     ##@classmethod
     ##def can_operate(cls, available):
         ##return True
-    
+
     def derive(self, 
                apps=S('Approach'),
                gear=M('Gear Down'),
