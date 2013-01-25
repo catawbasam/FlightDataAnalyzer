@@ -220,12 +220,19 @@ class ApproachAndLanding(FlightPhaseNode):
                                             slice(land.slice.start, 0, -1))
             app_slices.append(slice(app_start,land.slice.stop,None))
 
+        last_ga = 0
         for ga in go_arounds:
-            # Stretch the start point back to 3000ft (rather than 500ft)
+            # The go-around KTI is based on only a 500ft 'pit' but to include
+            # the approach phase we stretch the start point back towards
+            # 3000ft. To avoid merging multiple go-arounds, the endpoint is
+            # carried across from one to the next, which is a safe thing to
+            # do because the KTI algorithm works on the cycle finder results
+            # which are inherently ordered.
             gapp_start = index_closest_value(alt_aal.array,
                                              INITIAL_APPROACH_THRESHOLD,
-                                             slice(ga.slice.start, 0, -1))
+                                             slice(ga.slice.start, last_ga, -1))
             ga_slices.append(slice(gapp_start, ga.slice.stop,None))
+            last_ga = ga.slice.stop
 
         all_apps = slices_or(app_slices, ga_slices)
 
@@ -593,9 +600,11 @@ def scan_ils(beam, ils_dots, height, scan_slice):
     if beam not in ['localizer', 'glideslope']:
         raise ValueError('Unrecognised beam type in scan_ils')
 
-    # Let's check to see if we have anything to work with...
-    if np.ma.count(ils_dots[scan_slice]) < 5:
+    # Let's check to see if we have something sensible to work with...
+    if np.ma.count(ils_dots[scan_slice]) < 5 or \
+       np.ma.count(ils_dots)/float(len(ils_dots)) < 0.8:
         return None
+    
     # Find where we first see the ILS indication. We will start from 200ft to
     # avoid getting spurious glideslope readings (hence this code is the same
     # for glide and localizer).

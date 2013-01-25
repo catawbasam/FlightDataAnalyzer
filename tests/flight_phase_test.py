@@ -339,6 +339,24 @@ class TestILSLocalizerEstablished(unittest.TestCase):
         expected = buildsection('ILS Localizer Established', 1, 9)
         self.assertEqual(establish, expected)
 
+    def test_ils_localizer_skips_too_many_masked_values(self):
+        app = buildsection('Approach',1, 9)
+        alt_aal = P('Alttiude AAL For Flight Phases', np.ma.arange(1000, 0,-100))
+        ils = P('ILS Localizer',np.ma.array(data=[0.0]*20,
+                                            mask=[0,1]*10))
+        establish = ILSLocalizerEstablished()
+        establish.derive(ils, alt_aal, app)
+        self.assertEqual(establish, [])
+
+    def test_ils_localizer_skips_too_few_values(self):
+        app = buildsection('Approach',1, 9)
+        alt_aal = P('Alttiude AAL For Flight Phases', np.ma.arange(1000, 0,-100))
+        ils = P('ILS Localizer',np.ma.array(data=[0.0]*5,
+                                            mask=[0]*5))
+        establish = ILSLocalizerEstablished()
+        establish.derive(ils, alt_aal, app)
+        self.assertEqual(establish, [])
+
 """
 class TestInitialApproach(unittest.TestCase):
     def test_can_operate(self):
