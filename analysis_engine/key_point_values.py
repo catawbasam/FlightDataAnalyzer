@@ -2264,12 +2264,12 @@ class DistanceOnLandingFrom60KtToRunwayEnd(KeyPointValueNode):
 
 class HeadingAtTakeoff(KeyPointValueNode):
     """
-    We take the median heading, as this avoids problems with drift just
-    after liftoff and turning onto the runway. The value is "assigned" to a
-    time midway through the landing phase.
+    We take the median heading during the takeoff roll only as this avoids
+    problems when turning onto the runway or with drift just after liftoff.
+    The value is "assigned" to a time midway through the takeoff roll.
     """
     def derive(self, head=P('Heading Continuous'),
-               toffs=S('Takeoff')):
+               toffs=S('Takeoff Roll')):
         for toff in toffs:
             toff_head = np.ma.median(head.array[toff.slice])
             toff_index = (toff.slice.start + toff.slice.stop)/2.0
@@ -2278,14 +2278,15 @@ class HeadingAtTakeoff(KeyPointValueNode):
 
 class HeadingAtLanding(KeyPointValueNode):
     """
-    We take the median heading, as this avoids problems with drift just
-    before touchdown and turning off the runway. The value is "assigned" to a
-    time midway through the landing phase.
+    We take the median heading during the landing roll as this avoids
+    problems with drift just before touchdown and heading changes when
+    turning off the runway. The value is "assigned" to a time midway through
+    the landing phase.
     """
     def derive(self, head=P('Heading Continuous'),
-               lands=S('Landing')):
+               lands=S('Landing Roll')):
         for land in lands:
-            # Check the landing slice is robust.
+            # Check the slice is robust.
             if land.slice.start and land.slice.stop:
                 land_head = np.ma.median(head.array[land.slice])
                 land_index = (land.slice.start + land.slice.stop) / 2.0

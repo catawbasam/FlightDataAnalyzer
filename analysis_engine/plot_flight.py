@@ -26,6 +26,7 @@ logger = logging.getLogger(name=__name__)
 # KPV / KTI names not to display as markers
 SKIP_KPVS = []
 SKIP_KTIS = ['Transmit']
+KEEP_KTIS = ['Touchdown']
 
 class TypedWriter(object):
     """
@@ -162,7 +163,7 @@ def track_to_kml(hdf_path, kti_list, kpv_list, flight_attrs,
 
     for kti in kti_list:
         kti_point_values = {'name': kti.name}
-        if kti.name in SKIP_KTIS:
+        if kti.name not in KEEP_KTIS:
             continue
         
         altitude = alt.at(kti.index) if plot_altitude else None
@@ -173,6 +174,7 @@ def track_to_kml(hdf_path, kti_list, kpv_list, flight_attrs,
             kti_point_values['coords'] = ((kti.longitude, kti.latitude),)
         kml.newpoint(**kti_point_values)
         
+    """
     for kpv in kpv_list:
 
         # Trap kpvs with invalid latitude or longitude data (normally happens
@@ -199,7 +201,8 @@ def track_to_kml(hdf_path, kti_list, kpv_list, flight_attrs,
         
         pnt = kml.newpoint(**kpv_point_values)
         pnt.style = style
-            
+    """
+    
     for attribute in flight_attrs:
         if attribute.name in ['FDR Approaches']:
             for app in attribute.value:
