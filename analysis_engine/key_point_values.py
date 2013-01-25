@@ -2011,7 +2011,43 @@ class DecelerationToAbortTakeoffAtRotation(KeyPointValueNode):
             lift_speed = value_at_index(speed, rot_idx) * KTS_TO_MPS
             mu = (lift_speed**2.0) / (2.0 * GRAVITY_METRIC * rot_end)
             self.create_kpv(rot_idx, mu)
+
+"""
+This KPV was sketched out following Emirates' presentation, but requires a
+value for V1 which is not currently set up as a derived (or recorded)
+parameter.
+
+class DecelerationToAbortTakeoffBeforeV1(KeyPointValueNode):
+    '''
+    FDS developed this KPV following the 2nd EOFDM conference.
+    '''
+    
+    units = 'g'
+    
+    def derive(self, lat=P('Latitude Smoothed'),
+               lon=P('Longitude Smoothed'),
+               gspd=P('Groundspeed'),
+               aspd=P('Airspeed True'),
+               v1=A('V1'),
+               rwy=A('FDR Takeoff Runway'),
+               toff_rolls=S('Takeoff Roll')):
+          
+        if ambiguous_runway(rwy):
+            return
+        if gspd:
+            speed=gspd.array
+        else:
+            speed=aspd.array
+        for roll in toff_rolls:
+            v1_idx = v1.value
+            rot_end = runway_distance_from_end(rwy.value, 
+                                               lat.array[v1_idx ], 
+                                               lon.array[v1_idx ])
             
+            v1_mps = value_at_index(speed, v1.value) * KTS_TO_MPS
+            mu = (v1_mps**2.0) / (2.0 * GRAVITY_METRIC * rot_end)
+            self.create_kpv(vi_idx, mu)
+"""
             
 ################################################################################
 # Runway Distances at Landing
