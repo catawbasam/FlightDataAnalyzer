@@ -578,7 +578,8 @@ class TestCruise(unittest.TestCase):
         test_phase = Cruise()
         test_phase.derive(ccd, toc, tod)
         #===========================================================
-        expected = buildsection('Cruise', 6, None)
+        expected = Cruise()
+        expected.create_section(slice(6, 7), 'Cruise')
         self.assertEqual(test_phase, expected)
         self.assertEqual(len(toc), 1)
         self.assertEqual(len(tod), 0)
