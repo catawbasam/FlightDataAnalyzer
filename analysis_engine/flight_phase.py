@@ -103,18 +103,29 @@ class GoAroundAndClimbout(FlightPhaseNode):
     Altitude AAL) which can be tailored to accommodate small reversals in
     altitude.
     '''
-    def derive(self, descend=P('Descend For Flight Phases'),
-               climb = P('Climb For Flight Phases'),
+    
+    def derive(self, alt_aal=P('Altitude AAL'),
                gas=KTI('Go Around')):
+        
         # Prepare a home for multiple go-arounds. (Not a good day, eh?)
         ga_slice = []
+        
+        # Find the ups and downs in the height trace.
+        alt_idxs, alt_vals = cycle_finder(alt_aal.array, min_step=500.0)        
+
         for ga in gas:
-            back_up = descend.array - descend.array[ga.index - 1]
-            ga_start = index_closest_value(back_up, 500,
-                                           slice(ga.index,None, -1))
-            ga_stop = index_closest_value(climb.array, 2000,
-                                          slice(ga.index, None))
-            ga_slice.append(slice(ga_start, ga_stop))
+            ga_idx = ga.index
+            for n_alt, alt_idx in enumerate(alt_idxs):
+                if abs(ga_idx-alt_idx) < 5:
+                    # We have matched the cycle to the (possibly radio height
+                    # based) go-around KTI.
+                    ga_start = index_closest_value(alt_aal.array, 
+                                                   alt_aal.array[ga_idx]+500,
+                                                   slice(ga_idx,alt_idxs[n_alt-1], -1))
+                    ga_stop = index_closest_value(alt_aal.array,
+                                                  alt_aal.array[ga_idx]+2000,
+                                                  slice(ga_idx, alt_idxs[n_alt+1]))
+                    ga_slice.append(slice(ga_start, ga_stop))
         self.create_phases(ga_slice)
 
 
