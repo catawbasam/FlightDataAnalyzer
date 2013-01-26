@@ -68,6 +68,7 @@ from analysis_engine.library import (air_track,
                                      step_values,
                                      straighten_headings,
                                      track_linking,
+                                     value_at_index,
                                      vstack_params)
 from analysis_engine.velocity_speed import get_vspeed_map
 
@@ -4893,7 +4894,7 @@ class HeadingDeviationFromRunway(DerivedParameterNode):
 
         if to_rwy:
             try:
-                self.array[takeoff[0].slice] = runway_deviation(heading_track[takeoff[0].slice], to_rwy.value)
+                self.array[takeoff[0].slice] = runway_deviation(heading_track.array[takeoff[0].slice], to_rwy.value)
             except (KeyError, ValueError):
                 # no runway identified during Takeoff
                 pass
@@ -4978,19 +4979,19 @@ class StableApproach(MultistateDerivedParameterNode):
         
         for approach in apps:
             # prepare data for this appproach:
-            gear_down = repair_mask(gear.array[approach.slice])
-            flap_lever = repair_mask(flap.array[approach.slice])
-            heading = repair_mask(head.array[approach.slice])
-            airspeed = repair_mask(aspd.array[approach.slice])
-            glideslope = repair_mask(glide.array[approach.slice])
-            localizer = repair_mask(loc.array[approach.slice])
-            vertical_speed = repair_mask(vert_spd.array[approach.slice])
-            engine = repair_mask(eng.array[approach.slice])
-            altitude = repair_mask(alt.array[approach.slice])
+            gear_down = repair_mask(gear.array[approach.slice], zero_if_masked=True)
+            flap_lever = repair_mask(flap.array[approach.slice], zero_if_masked=True)
+            heading = repair_mask(head.array[approach.slice], zero_if_masked=True)
+            airspeed = repair_mask(aspd.array[approach.slice], zero_if_masked=True)
+            glideslope = repair_mask(glide.array[approach.slice], zero_if_masked=True)
+            localizer = repair_mask(loc.array[approach.slice], zero_if_masked=True)
+            vertical_speed = repair_mask(vert_spd.array[approach.slice], zero_if_masked=True)
+            engine = repair_mask(eng.array[approach.slice], zero_if_masked=True)
+            altitude = repair_mask(alt.array[approach.slice], zero_if_masked=True)
             
             # Determine whether Glideslope was used at 1000ft, if not ignore ILS
             _1000 = index_at_value(altitude, 1000)
-            glide_est_at_1000ft = abs(glideslope[_1000]) < 1.0  # dots
+            glide_est_at_1000ft = _1000!=None and abs(glideslope[_1000]) < 1.0  # dots
 
             #== 1. Gear Down ==
             # Assume unstable due to Gear Down at first

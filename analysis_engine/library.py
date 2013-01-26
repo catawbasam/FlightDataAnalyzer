@@ -1538,7 +1538,10 @@ def runway_heading(runway):
                                            runway['start'])
         return float(brg.data)
     except:
-        raise ValueError("runway_heading unable to resolve heading for runway id='%s'" %runway['id'])
+        if runway:
+            raise ValueError("runway_heading unable to resolve heading for runway id='%s'" %runway['id'])
+        else:
+            raise ValueError("runway_heading unable to resolve heading; no runway")
     
 
 def runway_snap_dict(runway, lat, lon):
