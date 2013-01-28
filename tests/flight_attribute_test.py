@@ -37,6 +37,10 @@ from analysis_engine.flight_attribute import (
     Version,
 )
 
+from analysis_engine import settings as analysis_engine_settings
+analysis_engine_settings.API_HANDLER = 'analysis_engine.' \
+        'api_handler_analysis_engine.AnalysisEngineAPIHandlerLocal'
+
 
 class NodeTest(object):
     def test_can_operate(self):
@@ -58,9 +62,9 @@ class TestApproaches(unittest.TestCase, NodeTest):
         self.operational_combination_length = 8192
         self.check_operational_combination_length_only = True
 
-    @patch('analysis_engine.api_handler_analysis_engine.AnalysisEngineAPIHandlerHTTP.get_nearest_runway')
-    @patch('analysis_engine.api_handler_analysis_engine.AnalysisEngineAPIHandlerHTTP.get_nearest_airport')
-    @patch('analysis_engine.api_handler_analysis_engine.AnalysisEngineAPIHandlerHTTP')
+    @patch('analysis_engine.api_handler_analysis_engine.AnalysisEngineAPIHandlerLocal.get_nearest_runway')
+    @patch('analysis_engine.api_handler_analysis_engine.AnalysisEngineAPIHandlerLocal.get_nearest_airport')
+    @patch('analysis_engine.api_handler_analysis_engine.AnalysisEngineAPIHandlerLocal')
     def test_derive(self, api, get_nearest_airport, get_nearest_runway):
 
         api = api()
@@ -413,7 +417,7 @@ class TestLandingAirport(unittest.TestCase, NodeTest):
             ('Latitude At Landing', 'Longitude At Landing', 'AFR Landing Airport'),
         ]
 
-    @patch('analysis_engine.api_handler_analysis_engine.AnalysisEngineAPIHandlerHTTP.get_nearest_airport')
+    @patch('analysis_engine.api_handler_analysis_engine.AnalysisEngineAPIHandlerLocal.get_nearest_airport')
     def test_derive_airport_not_found(self, get_nearest_airport):
         '''
         Attribute is not set when airport is not found.
@@ -443,7 +447,7 @@ class TestLandingAirport(unittest.TestCase, NodeTest):
         get_nearest_airport.assert_called_once_with(0.9, 8.4)
         get_nearest_airport.reset_mock()
 
-    @patch('analysis_engine.api_handler_analysis_engine.AnalysisEngineAPIHandlerHTTP.get_nearest_airport')
+    @patch('analysis_engine.api_handler_analysis_engine.AnalysisEngineAPIHandlerLocal.get_nearest_airport')
     def test_derive_airport_found(self, get_nearest_airport):
         '''
         Attribute is set when airport is found.
@@ -468,7 +472,7 @@ class TestLandingAirport(unittest.TestCase, NodeTest):
         get_nearest_airport.assert_called_once_with(0.9, 8.4)
         get_nearest_airport.reset_mock()
 
-    @patch('analysis_engine.api_handler_analysis_engine.AnalysisEngineAPIHandlerHTTP.get_nearest_airport')
+    @patch('analysis_engine.api_handler_analysis_engine.AnalysisEngineAPIHandlerLocal.get_nearest_airport')
     def test_derive_afr_fallback(self, get_nearest_airport):
         info = {'id': '50'}
         get_nearest_airport.return_value = info
@@ -624,170 +628,10 @@ class TestLandingPilot(unittest.TestCase):
 class TestLandingRunway(unittest.TestCase, NodeTest):
     def setUp(self):
         self.node_class = LandingRunway
-        self.operational_combinations = [
-            ('AFR Landing Runway',),
-            ('FDR Landing Airport', 'AFR Landing Runway'),
-            ('FDR Landing Airport', 'Heading At Landing'),
-            ('AFR Landing Runway', 'Heading At Landing'),
-            ('AFR Landing Runway', 'Latitude At Landing'),
-            ('AFR Landing Runway', 'Longitude At Landing'),
-            ('AFR Landing Runway', 'Precise Positioning'),
-            ('AFR Landing Runway', 'Approach And Landing'),
-            ('AFR Landing Runway', 'ILS Frequency On Approach'),
-            ('FDR Landing Airport', 'AFR Landing Runway', 'Heading At Landing'),
-            ('FDR Landing Airport', 'AFR Landing Runway', 'Latitude At Landing'),
-            ('FDR Landing Airport', 'AFR Landing Runway', 'Longitude At Landing'),
-            ('FDR Landing Airport', 'AFR Landing Runway', 'Precise Positioning'),
-            ('FDR Landing Airport', 'AFR Landing Runway', 'Approach And Landing'),
-            ('FDR Landing Airport', 'AFR Landing Runway', 'ILS Frequency On Approach'),
-            ('FDR Landing Airport', 'Heading At Landing', 'Latitude At Landing'),
-            ('FDR Landing Airport', 'Heading At Landing', 'Longitude At Landing'),
-            ('FDR Landing Airport', 'Heading At Landing', 'Precise Positioning'),
-            ('FDR Landing Airport', 'Heading At Landing', 'Approach And Landing'),
-            ('FDR Landing Airport', 'Heading At Landing', 'ILS Frequency On Approach'),
-            ('AFR Landing Runway', 'Heading At Landing', 'Latitude At Landing'),
-            ('AFR Landing Runway', 'Heading At Landing', 'Longitude At Landing'),
-            ('AFR Landing Runway', 'Heading At Landing', 'Precise Positioning'),
-            ('AFR Landing Runway', 'Heading At Landing', 'Approach And Landing'),
-            ('AFR Landing Runway', 'Heading At Landing', 'ILS Frequency On Approach'),
-            ('AFR Landing Runway', 'Latitude At Landing', 'Longitude At Landing'),
-            ('AFR Landing Runway', 'Latitude At Landing', 'Precise Positioning'),
-            ('AFR Landing Runway', 'Latitude At Landing', 'Approach And Landing'),
-            ('AFR Landing Runway', 'Latitude At Landing', 'ILS Frequency On Approach'),
-            ('AFR Landing Runway', 'Longitude At Landing', 'Precise Positioning'),
-            ('AFR Landing Runway', 'Longitude At Landing', 'Approach And Landing'),
-            ('AFR Landing Runway', 'Longitude At Landing', 'ILS Frequency On Approach'),
-            ('AFR Landing Runway', 'Precise Positioning', 'Approach And Landing'),
-            ('AFR Landing Runway', 'Precise Positioning', 'ILS Frequency On Approach'),
-            ('AFR Landing Runway', 'Approach And Landing', 'ILS Frequency On Approach'),
-            ('FDR Landing Airport', 'AFR Landing Runway', 'Heading At Landing', 'Latitude At Landing'),
-            ('FDR Landing Airport', 'AFR Landing Runway', 'Heading At Landing', 'Longitude At Landing'),
-            ('FDR Landing Airport', 'AFR Landing Runway', 'Heading At Landing', 'Precise Positioning'),
-            ('FDR Landing Airport', 'AFR Landing Runway', 'Heading At Landing', 'Approach And Landing'),
-            ('FDR Landing Airport', 'AFR Landing Runway', 'Heading At Landing', 'ILS Frequency On Approach'),
-            ('FDR Landing Airport', 'AFR Landing Runway', 'Latitude At Landing', 'Longitude At Landing'),
-            ('FDR Landing Airport', 'AFR Landing Runway', 'Latitude At Landing', 'Precise Positioning'),
-            ('FDR Landing Airport', 'AFR Landing Runway', 'Latitude At Landing', 'Approach And Landing'),
-            ('FDR Landing Airport', 'AFR Landing Runway', 'Latitude At Landing', 'ILS Frequency On Approach'),
-            ('FDR Landing Airport', 'AFR Landing Runway', 'Longitude At Landing', 'Precise Positioning'),
-            ('FDR Landing Airport', 'AFR Landing Runway', 'Longitude At Landing', 'Approach And Landing'),
-            ('FDR Landing Airport', 'AFR Landing Runway', 'Longitude At Landing', 'ILS Frequency On Approach'),
-            ('FDR Landing Airport', 'AFR Landing Runway', 'Precise Positioning', 'Approach And Landing'),
-            ('FDR Landing Airport', 'AFR Landing Runway', 'Precise Positioning', 'ILS Frequency On Approach'),
-            ('FDR Landing Airport', 'AFR Landing Runway', 'Approach And Landing', 'ILS Frequency On Approach'),
-            ('FDR Landing Airport', 'Heading At Landing', 'Latitude At Landing', 'Longitude At Landing'),
-            ('FDR Landing Airport', 'Heading At Landing', 'Latitude At Landing', 'Precise Positioning'),
-            ('FDR Landing Airport', 'Heading At Landing', 'Latitude At Landing', 'Approach And Landing'),
-            ('FDR Landing Airport', 'Heading At Landing', 'Latitude At Landing', 'ILS Frequency On Approach'),
-            ('FDR Landing Airport', 'Heading At Landing', 'Longitude At Landing', 'Precise Positioning'),
-            ('FDR Landing Airport', 'Heading At Landing', 'Longitude At Landing', 'Approach And Landing'),
-            ('FDR Landing Airport', 'Heading At Landing', 'Longitude At Landing', 'ILS Frequency On Approach'),
-            ('FDR Landing Airport', 'Heading At Landing', 'Precise Positioning', 'Approach And Landing'),
-            ('FDR Landing Airport', 'Heading At Landing', 'Precise Positioning', 'ILS Frequency On Approach'),
-            ('FDR Landing Airport', 'Heading At Landing', 'Approach And Landing', 'ILS Frequency On Approach'),
-            ('AFR Landing Runway', 'Heading At Landing', 'Latitude At Landing', 'Longitude At Landing'),
-            ('AFR Landing Runway', 'Heading At Landing', 'Latitude At Landing', 'Precise Positioning'),
-            ('AFR Landing Runway', 'Heading At Landing', 'Latitude At Landing', 'Approach And Landing'),
-            ('AFR Landing Runway', 'Heading At Landing', 'Latitude At Landing', 'ILS Frequency On Approach'),
-            ('AFR Landing Runway', 'Heading At Landing', 'Longitude At Landing', 'Precise Positioning'),
-            ('AFR Landing Runway', 'Heading At Landing', 'Longitude At Landing', 'Approach And Landing'),
-            ('AFR Landing Runway', 'Heading At Landing', 'Longitude At Landing', 'ILS Frequency On Approach'),
-            ('AFR Landing Runway', 'Heading At Landing', 'Precise Positioning', 'Approach And Landing'),
-            ('AFR Landing Runway', 'Heading At Landing', 'Precise Positioning', 'ILS Frequency On Approach'),
-            ('AFR Landing Runway', 'Heading At Landing', 'Approach And Landing', 'ILS Frequency On Approach'),
-            ('AFR Landing Runway', 'Latitude At Landing', 'Longitude At Landing', 'Precise Positioning'),
-            ('AFR Landing Runway', 'Latitude At Landing', 'Longitude At Landing', 'Approach And Landing'),
-            ('AFR Landing Runway', 'Latitude At Landing', 'Longitude At Landing', 'ILS Frequency On Approach'),
-            ('AFR Landing Runway', 'Latitude At Landing', 'Precise Positioning', 'Approach And Landing'),
-            ('AFR Landing Runway', 'Latitude At Landing', 'Precise Positioning', 'ILS Frequency On Approach'),
-            ('AFR Landing Runway', 'Latitude At Landing', 'Approach And Landing', 'ILS Frequency On Approach'),
-            ('AFR Landing Runway', 'Longitude At Landing', 'Precise Positioning', 'Approach And Landing'),
-            ('AFR Landing Runway', 'Longitude At Landing', 'Precise Positioning', 'ILS Frequency On Approach'),
-            ('AFR Landing Runway', 'Longitude At Landing', 'Approach And Landing', 'ILS Frequency On Approach'),
-            ('AFR Landing Runway', 'Precise Positioning', 'Approach And Landing', 'ILS Frequency On Approach'),
-            ('FDR Landing Airport', 'AFR Landing Runway', 'Heading At Landing', 'Latitude At Landing', 'Longitude At Landing'),
-            ('FDR Landing Airport', 'AFR Landing Runway', 'Heading At Landing', 'Latitude At Landing', 'Precise Positioning'),
-            ('FDR Landing Airport', 'AFR Landing Runway', 'Heading At Landing', 'Latitude At Landing', 'Approach And Landing'),
-            ('FDR Landing Airport', 'AFR Landing Runway', 'Heading At Landing', 'Latitude At Landing', 'ILS Frequency On Approach'),
-            ('FDR Landing Airport', 'AFR Landing Runway', 'Heading At Landing', 'Longitude At Landing', 'Precise Positioning'),
-            ('FDR Landing Airport', 'AFR Landing Runway', 'Heading At Landing', 'Longitude At Landing', 'Approach And Landing'),
-            ('FDR Landing Airport', 'AFR Landing Runway', 'Heading At Landing', 'Longitude At Landing', 'ILS Frequency On Approach'),
-            ('FDR Landing Airport', 'AFR Landing Runway', 'Heading At Landing', 'Precise Positioning', 'Approach And Landing'),
-            ('FDR Landing Airport', 'AFR Landing Runway', 'Heading At Landing', 'Precise Positioning', 'ILS Frequency On Approach'),
-            ('FDR Landing Airport', 'AFR Landing Runway', 'Heading At Landing', 'Approach And Landing', 'ILS Frequency On Approach'),
-            ('FDR Landing Airport', 'AFR Landing Runway', 'Latitude At Landing', 'Longitude At Landing', 'Precise Positioning'),
-            ('FDR Landing Airport', 'AFR Landing Runway', 'Latitude At Landing', 'Longitude At Landing', 'Approach And Landing'),
-            ('FDR Landing Airport', 'AFR Landing Runway', 'Latitude At Landing', 'Longitude At Landing', 'ILS Frequency On Approach'),
-            ('FDR Landing Airport', 'AFR Landing Runway', 'Latitude At Landing', 'Precise Positioning', 'Approach And Landing'),
-            ('FDR Landing Airport', 'AFR Landing Runway', 'Latitude At Landing', 'Precise Positioning', 'ILS Frequency On Approach'),
-            ('FDR Landing Airport', 'AFR Landing Runway', 'Latitude At Landing', 'Approach And Landing', 'ILS Frequency On Approach'),
-            ('FDR Landing Airport', 'AFR Landing Runway', 'Longitude At Landing', 'Precise Positioning', 'Approach And Landing'),
-            ('FDR Landing Airport', 'AFR Landing Runway', 'Longitude At Landing', 'Precise Positioning', 'ILS Frequency On Approach'),
-            ('FDR Landing Airport', 'AFR Landing Runway', 'Longitude At Landing', 'Approach And Landing', 'ILS Frequency On Approach'),
-            ('FDR Landing Airport', 'AFR Landing Runway', 'Precise Positioning', 'Approach And Landing', 'ILS Frequency On Approach'),
-            ('FDR Landing Airport', 'Heading At Landing', 'Latitude At Landing', 'Longitude At Landing', 'Precise Positioning'),
-            ('FDR Landing Airport', 'Heading At Landing', 'Latitude At Landing', 'Longitude At Landing', 'Approach And Landing'),
-            ('FDR Landing Airport', 'Heading At Landing', 'Latitude At Landing', 'Longitude At Landing', 'ILS Frequency On Approach'),
-            ('FDR Landing Airport', 'Heading At Landing', 'Latitude At Landing', 'Precise Positioning', 'Approach And Landing'),
-            ('FDR Landing Airport', 'Heading At Landing', 'Latitude At Landing', 'Precise Positioning', 'ILS Frequency On Approach'),
-            ('FDR Landing Airport', 'Heading At Landing', 'Latitude At Landing', 'Approach And Landing', 'ILS Frequency On Approach'),
-            ('FDR Landing Airport', 'Heading At Landing', 'Longitude At Landing', 'Precise Positioning', 'Approach And Landing'),
-            ('FDR Landing Airport', 'Heading At Landing', 'Longitude At Landing', 'Precise Positioning', 'ILS Frequency On Approach'),
-            ('FDR Landing Airport', 'Heading At Landing', 'Longitude At Landing', 'Approach And Landing', 'ILS Frequency On Approach'),
-            ('FDR Landing Airport', 'Heading At Landing', 'Precise Positioning', 'Approach And Landing', 'ILS Frequency On Approach'),
-            ('AFR Landing Runway', 'Heading At Landing', 'Latitude At Landing', 'Longitude At Landing', 'Precise Positioning'),
-            ('AFR Landing Runway', 'Heading At Landing', 'Latitude At Landing', 'Longitude At Landing', 'Approach And Landing'),
-            ('AFR Landing Runway', 'Heading At Landing', 'Latitude At Landing', 'Longitude At Landing', 'ILS Frequency On Approach'),
-            ('AFR Landing Runway', 'Heading At Landing', 'Latitude At Landing', 'Precise Positioning', 'Approach And Landing'),
-            ('AFR Landing Runway', 'Heading At Landing', 'Latitude At Landing', 'Precise Positioning', 'ILS Frequency On Approach'),
-            ('AFR Landing Runway', 'Heading At Landing', 'Latitude At Landing', 'Approach And Landing', 'ILS Frequency On Approach'),
-            ('AFR Landing Runway', 'Heading At Landing', 'Longitude At Landing', 'Precise Positioning', 'Approach And Landing'),
-            ('AFR Landing Runway', 'Heading At Landing', 'Longitude At Landing', 'Precise Positioning', 'ILS Frequency On Approach'),
-            ('AFR Landing Runway', 'Heading At Landing', 'Longitude At Landing', 'Approach And Landing', 'ILS Frequency On Approach'),
-            ('AFR Landing Runway', 'Heading At Landing', 'Precise Positioning', 'Approach And Landing', 'ILS Frequency On Approach'),
-            ('AFR Landing Runway', 'Latitude At Landing', 'Longitude At Landing', 'Precise Positioning', 'Approach And Landing'),
-            ('AFR Landing Runway', 'Latitude At Landing', 'Longitude At Landing', 'Precise Positioning', 'ILS Frequency On Approach'),
-            ('AFR Landing Runway', 'Latitude At Landing', 'Longitude At Landing', 'Approach And Landing', 'ILS Frequency On Approach'),
-            ('AFR Landing Runway', 'Latitude At Landing', 'Precise Positioning', 'Approach And Landing', 'ILS Frequency On Approach'),
-            ('AFR Landing Runway', 'Longitude At Landing', 'Precise Positioning', 'Approach And Landing', 'ILS Frequency On Approach'),
-            ('FDR Landing Airport', 'AFR Landing Runway', 'Heading At Landing', 'Latitude At Landing', 'Longitude At Landing', 'Precise Positioning'),
-            ('FDR Landing Airport', 'AFR Landing Runway', 'Heading At Landing', 'Latitude At Landing', 'Longitude At Landing', 'Approach And Landing'),
-            ('FDR Landing Airport', 'AFR Landing Runway', 'Heading At Landing', 'Latitude At Landing', 'Longitude At Landing', 'ILS Frequency On Approach'),
-            ('FDR Landing Airport', 'AFR Landing Runway', 'Heading At Landing', 'Latitude At Landing', 'Precise Positioning', 'Approach And Landing'),
-            ('FDR Landing Airport', 'AFR Landing Runway', 'Heading At Landing', 'Latitude At Landing', 'Precise Positioning', 'ILS Frequency On Approach'),
-            ('FDR Landing Airport', 'AFR Landing Runway', 'Heading At Landing', 'Latitude At Landing', 'Approach And Landing', 'ILS Frequency On Approach'),
-            ('FDR Landing Airport', 'AFR Landing Runway', 'Heading At Landing', 'Longitude At Landing', 'Precise Positioning', 'Approach And Landing'),
-            ('FDR Landing Airport', 'AFR Landing Runway', 'Heading At Landing', 'Longitude At Landing', 'Precise Positioning', 'ILS Frequency On Approach'),
-            ('FDR Landing Airport', 'AFR Landing Runway', 'Heading At Landing', 'Longitude At Landing', 'Approach And Landing', 'ILS Frequency On Approach'),
-            ('FDR Landing Airport', 'AFR Landing Runway', 'Heading At Landing', 'Precise Positioning', 'Approach And Landing', 'ILS Frequency On Approach'),
-            ('FDR Landing Airport', 'AFR Landing Runway', 'Latitude At Landing', 'Longitude At Landing', 'Precise Positioning', 'Approach And Landing'),
-            ('FDR Landing Airport', 'AFR Landing Runway', 'Latitude At Landing', 'Longitude At Landing', 'Precise Positioning', 'ILS Frequency On Approach'),
-            ('FDR Landing Airport', 'AFR Landing Runway', 'Latitude At Landing', 'Longitude At Landing', 'Approach And Landing', 'ILS Frequency On Approach'),
-            ('FDR Landing Airport', 'AFR Landing Runway', 'Latitude At Landing', 'Precise Positioning', 'Approach And Landing', 'ILS Frequency On Approach'),
-            ('FDR Landing Airport', 'AFR Landing Runway', 'Longitude At Landing', 'Precise Positioning', 'Approach And Landing', 'ILS Frequency On Approach'),
-            ('FDR Landing Airport', 'Heading At Landing', 'Latitude At Landing', 'Longitude At Landing', 'Precise Positioning', 'Approach And Landing'),
-            ('FDR Landing Airport', 'Heading At Landing', 'Latitude At Landing', 'Longitude At Landing', 'Precise Positioning', 'ILS Frequency On Approach'),
-            ('FDR Landing Airport', 'Heading At Landing', 'Latitude At Landing', 'Longitude At Landing', 'Approach And Landing', 'ILS Frequency On Approach'),
-            ('FDR Landing Airport', 'Heading At Landing', 'Latitude At Landing', 'Precise Positioning', 'Approach And Landing', 'ILS Frequency On Approach'),
-            ('FDR Landing Airport', 'Heading At Landing', 'Longitude At Landing', 'Precise Positioning', 'Approach And Landing', 'ILS Frequency On Approach'),
-            ('AFR Landing Runway', 'Heading At Landing', 'Latitude At Landing', 'Longitude At Landing', 'Precise Positioning', 'Approach And Landing'),
-            ('AFR Landing Runway', 'Heading At Landing', 'Latitude At Landing', 'Longitude At Landing', 'Precise Positioning', 'ILS Frequency On Approach'),
-            ('AFR Landing Runway', 'Heading At Landing', 'Latitude At Landing', 'Longitude At Landing', 'Approach And Landing', 'ILS Frequency On Approach'),
-            ('AFR Landing Runway', 'Heading At Landing', 'Latitude At Landing', 'Precise Positioning', 'Approach And Landing', 'ILS Frequency On Approach'),
-            ('AFR Landing Runway', 'Heading At Landing', 'Longitude At Landing', 'Precise Positioning', 'Approach And Landing', 'ILS Frequency On Approach'),
-            ('AFR Landing Runway', 'Latitude At Landing', 'Longitude At Landing', 'Precise Positioning', 'Approach And Landing', 'ILS Frequency On Approach'),
-            ('FDR Landing Airport', 'AFR Landing Runway', 'Heading At Landing', 'Latitude At Landing', 'Longitude At Landing', 'Precise Positioning', 'Approach And Landing'),
-            ('FDR Landing Airport', 'AFR Landing Runway', 'Heading At Landing', 'Latitude At Landing', 'Longitude At Landing', 'Precise Positioning', 'ILS Frequency On Approach'),
-            ('FDR Landing Airport', 'AFR Landing Runway', 'Heading At Landing', 'Latitude At Landing', 'Longitude At Landing', 'Approach And Landing', 'ILS Frequency On Approach'),
-            ('FDR Landing Airport', 'AFR Landing Runway', 'Heading At Landing', 'Latitude At Landing', 'Precise Positioning', 'Approach And Landing', 'ILS Frequency On Approach'),
-            ('FDR Landing Airport', 'AFR Landing Runway', 'Heading At Landing', 'Longitude At Landing', 'Precise Positioning', 'Approach And Landing', 'ILS Frequency On Approach'),
-            ('FDR Landing Airport', 'AFR Landing Runway', 'Latitude At Landing', 'Longitude At Landing', 'Precise Positioning', 'Approach And Landing', 'ILS Frequency On Approach'),
-            ('FDR Landing Airport', 'Heading At Landing', 'Latitude At Landing', 'Longitude At Landing', 'Precise Positioning', 'Approach And Landing', 'ILS Frequency On Approach'),
-            ('AFR Landing Runway', 'Heading At Landing', 'Latitude At Landing', 'Longitude At Landing', 'Precise Positioning', 'Approach And Landing', 'ILS Frequency On Approach'),
-            ('FDR Landing Airport', 'AFR Landing Runway', 'Heading At Landing', 'Latitude At Landing', 'Longitude At Landing', 'Precise Positioning', 'Approach And Landing', 'ILS Frequency On Approach'),
-        ]
+        self.operational_combination_length = 144
+        self.check_operational_combination_length_only = True
 
-    @patch('analysis_engine.api_handler_analysis_engine.AnalysisEngineAPIHandlerHTTP.get_nearest_runway')
+    @patch('analysis_engine.api_handler_analysis_engine.AnalysisEngineAPIHandlerLocal.get_nearest_runway')
     def test_derive(self, get_nearest_runway):
         info = {
             'end': {'latitude': 58.211678, 'longitude': 8.095269},
@@ -849,7 +693,7 @@ class TestLandingRunway(unittest.TestCase, NodeTest):
         get_nearest_runway.assert_called_once_with(25, 20.0, ilsfreq=330150, hint='landing')
         get_nearest_runway.reset_mock()
 
-    @patch('analysis_engine.api_handler_analysis_engine.AnalysisEngineAPIHandlerHTTP.get_nearest_runway')
+    @patch('analysis_engine.api_handler_analysis_engine.AnalysisEngineAPIHandlerLocal.get_nearest_runway')
     def test_derive_afr_fallback(self, get_nearest_runway):
         info = {'ident': '09L'}
         def runway_side_effect(apt, hdg, *args, **kwargs):
@@ -966,7 +810,7 @@ class TestTakeoffAirport(unittest.TestCase, NodeTest):
             ('Latitude At Takeoff', 'Longitude At Takeoff', 'AFR Takeoff Airport'),
         ]
 
-    @patch('analysis_engine.api_handler_analysis_engine.AnalysisEngineAPIHandlerHTTP.get_nearest_airport')
+    @patch('analysis_engine.api_handler_analysis_engine.AnalysisEngineAPIHandlerLocal.get_nearest_airport')
     def test_derive_airport_not_found(self, get_nearest_airport):
         '''
         Attribute is not set when airport is not found.
@@ -996,7 +840,7 @@ class TestTakeoffAirport(unittest.TestCase, NodeTest):
         get_nearest_airport.assert_called_once_with(4.0, 3.0)
         get_nearest_airport.reset_mock()
 
-    @patch('analysis_engine.api_handler_analysis_engine.AnalysisEngineAPIHandlerHTTP.get_nearest_airport')
+    @patch('analysis_engine.api_handler_analysis_engine.AnalysisEngineAPIHandlerLocal.get_nearest_airport')
     def test_derive_airport_found(self, get_nearest_airport):
         '''
         Attribute is set when airport is found.
@@ -1021,7 +865,7 @@ class TestTakeoffAirport(unittest.TestCase, NodeTest):
         get_nearest_airport.assert_called_once_with(4.0, 3.0)
         get_nearest_airport.reset_mock()
 
-    @patch('analysis_engine.api_handler_analysis_engine.AnalysisEngineAPIHandlerHTTP.get_nearest_airport')
+    @patch('analysis_engine.api_handler_analysis_engine.AnalysisEngineAPIHandlerLocal.get_nearest_airport')
     def test_derive_afr_fallback(self, get_nearest_airport):
         info = {'id': '50'}
         get_nearest_airport.return_value = info
@@ -1217,7 +1061,7 @@ class TestTakeoffRunway(unittest.TestCase, NodeTest):
             ('FDR Takeoff Airport', 'AFR Takeoff Runway', 'Heading At Takeoff', 'Latitude At Takeoff', 'Longitude At Takeoff', 'Precise Positioning'),
         ]
 
-    @patch('analysis_engine.api_handler_analysis_engine.AnalysisEngineAPIHandlerHTTP.get_nearest_runway')
+    @patch('analysis_engine.api_handler_analysis_engine.AnalysisEngineAPIHandlerLocal.get_nearest_runway')
     def test_derive(self, get_nearest_runway):
         info = {'ident': '27L', 'length': 20}
         get_nearest_runway.return_value = info
@@ -1261,7 +1105,7 @@ class TestTakeoffRunway(unittest.TestCase, NodeTest):
         get_nearest_runway.assert_called_once_with(25, 20.0, latitude=4.0, longitude=3.0,  hint='takeoff')
         get_nearest_runway.reset_mock()
 
-    @patch('analysis_engine.api_handler_analysis_engine.AnalysisEngineAPIHandlerHTTP.get_nearest_runway')
+    @patch('analysis_engine.api_handler_analysis_engine.AnalysisEngineAPIHandlerLocal.get_nearest_runway')
     def test_derive_afr_fallback(self, get_nearest_runway):
         info = {'ident': '09L'}
         def runway_side_effect(apt, hdg, *args, **kwargs):
@@ -1301,14 +1145,12 @@ class TestTakeoffRunway(unittest.TestCase, NodeTest):
         # Check wrong heading triggers AFR:
         rwy.derive(fdr_apt, afr_rwy, hdg_a)
         rwy.set_flight_attr.assert_called_once_with(afr_rwy.value)
-        rwy.set_flight_attr.reset_mock()
         get_nearest_runway.assert_called_once_with(fdr_apt.value['id'], hdg_a.get_first().value, hint='takeoff')
+        rwy.set_flight_attr.reset_mock()
         get_nearest_runway.reset_mock()
         rwy.derive(fdr_apt, afr_rwy, hdg_b)
         rwy.set_flight_attr.assert_called_once_with(info)
-        rwy.set_flight_attr.reset_mock()
         get_nearest_runway.assert_called_once_with(fdr_apt.value['id'], hdg_b.get_first().value, hint='takeoff')
-        get_nearest_runway.reset_mock()
 
 
 class TestFlightType(unittest.TestCase):
