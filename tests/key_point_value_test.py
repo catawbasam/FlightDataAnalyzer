@@ -800,17 +800,20 @@ class TestAirspeedGustsDuringFinalApproach(unittest.TestCase):
 
     # This function interpolates twice, hence the more complex test case.
     def test_derive_basic(self):
-        aspd = P('Airspeed', np.ma.array([180,140,100]), frequency=0.5,
-                 offset=0.0)
-        gspd = P('Groundspeed', np.ma.array([180,140,100]), frequency=0.5,
-                 offset=0.0)
-        alt = P('Altitude Radio', np.ma.array([45,35,25,15,5,0]),
+        aspd = P('Airspeed',
+                 np.ma.array([180, 180, 180, 180, 170, 150, 140, 120, 100]),
+                 frequency=1.0, offset=0.0)
+        gspd = P('Groundspeed',
+                 np.ma.array([180, 180, 180, 180, 170, 100, 100, 100, 100]),
+                 frequency=1.0, offset=0.0)
+        alt = P('Altitude Radio',
+                np.ma.array([45, 45, 45, 45, 35, 25, 15, 5, 0]),
                 frequency=1.0, offset=0.0)
-        airs = S(items=[Section('Airborne', slice(0, 3), 0, 3)])
-        kpv=AirspeedGustsDuringFinalApproach()
+        airs = S(items=[Section('Airborne', slice(3, 9), 3, 9)])
+        kpv = AirspeedGustsDuringFinalApproach()
         kpv.get_derived([aspd, gspd, alt, airs])
-        self.assertEqual(kpv[0].value, 40)
-        self.assertEqual(kpv[0].index, 1.25)
+        self.assertEqual(kpv[0].value, 25)
+        self.assertEqual(kpv[0].index, 4.75)
 
 
 ########################################
@@ -3182,7 +3185,7 @@ class TestTwoDegPitchTo35Ft(unittest.TestCase):
 class TestHeadingAtTakeoff(unittest.TestCase, NodeTest):
     def setUp(self):
         self.node_class = HeadingAtTakeoff
-        self.operational_combinations = [('Heading Continuous', 'Takeoff')]
+        self.operational_combinations = [('Heading Continuous', 'Takeoff Roll')]
 
     def test_derive_basic(self):
         head = P('Heading Continuous',np.ma.array([0,2,4,7,9,8,6,3]))
@@ -3206,7 +3209,7 @@ class TestHeadingAtTakeoff(unittest.TestCase, NodeTest):
 class TestHeadingAtLanding(unittest.TestCase, NodeTest):
     def setUp(self):
         self.node_class = HeadingAtLanding
-        self.operational_combinations = [('Heading Continuous', 'Landing')]
+        self.operational_combinations = [('Heading Continuous', 'Landing Roll')]
 
     def test_derive_basic(self):
         head = P('Heading Continuous',np.ma.array([0,1,2,3,4,5,6,7,8,9,10,-1,-1,
@@ -4292,7 +4295,8 @@ class TestTailClearanceOnApproach(unittest.TestCase):
         self.assertEqual(TailClearanceOnApproach.get_operational_combinations(),
                          [('Altitude AAL', 'Altitude Tail',
                            'Distance To Landing')])
-    
+
+    @unittest.skip('Test Out Of Date')
     def test_derive(self):
         # XXX: The BDUTerrain test files are missing from the repository?
         test_data_dir = os.path.join(test_data_path, 'BDUTerrain')
@@ -4307,7 +4311,7 @@ class TestTailClearanceOnApproach(unittest.TestCase):
         alt_radio = P(array=alt_radio_array, frequency=0.5)
         dtl = P(array=dtl_array, frequency=0.25)
         alt_radio.array = align(alt_radio, alt_aal)
-        dtl.array = align(dtl, alt_aal)        
+        dtl.array = align(dtl, alt_aal)
         # Q: Should tests for the BDUTerrain node be in a separate TestCase?
         param = BDUTerrain()
         param.derive(alt_aal, alt_radio, dtl)
