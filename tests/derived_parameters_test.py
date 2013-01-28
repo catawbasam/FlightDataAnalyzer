@@ -1917,7 +1917,7 @@ class TestLatitudeAndLongitudePrepared(unittest.TestCase):
         # An output warning of smooth cost function closing with cost > 1 is
         # normal and arises because the data sample is short.
         expected = [0.0, 0.0, 0.00088, 0.00088, 0.00088, 0.0, 0.0]
-        self.assertAlmostEqual(smoother.array, expected, decimals=5)
+        np.testing.assert_almost_equal(smoother.array, expected, decimal=5)
 
     def test_latitude_smoothing_masks_static_data(self):
         lat = P('Latitude',np.ma.array([0,0,1,2,1,0,0],dtype=float))
@@ -1940,7 +1940,7 @@ class TestLatitudeAndLongitudePrepared(unittest.TestCase):
         # An output warning of smooth cost function closing with cost > 1 is
         # normal and arises because the data sample is short.
         expected = [0.0, 0.0, -0.00176, -0.00176, -0.00176, 0.0, 0.0]
-        self.assertAlmostEqual(smoother.array, expected, decimals=5)
+        np.testing.assert_almost_equal(smoother.array, expected, decimal=5)
 
 
 class TestHeadingTrack(unittest.TestCase):
