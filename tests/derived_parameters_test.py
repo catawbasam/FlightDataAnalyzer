@@ -3214,7 +3214,7 @@ class TestCoordinatesSmoothed(unittest.TestCase):
         return
 
     # Skipped by DJ's advice: too many changes withoud updating the test
-    @unittest.skip('Test Outdated')
+    @unittest.skip('Test Out Of Date')
     def test__adjust_track_precise(self):
         hdf_test_file = os.path.join(test_data_path,
                                      'flight_with_go_around_and_landing.hdf5')
@@ -3244,7 +3244,7 @@ class TestCoordinatesSmoothed(unittest.TestCase):
                                  slice(12930, 13424, None)])
         
     # Skipped by DJ's advice: too many changes withoud updating the test
-    @unittest.skip('Test Outdated')
+    @unittest.skip('Test Out Of Date')
     def test__adjust_track_imprecise(self):
         hdf_test_file = os.path.join(test_data_path,
                                      'flight_with_go_around_and_landing.hdf5')
@@ -3278,6 +3278,8 @@ class TestCoordinatesSmoothed(unittest.TestCase):
         #plt.plot(lon.array, lat.array)
         #plt.show()
 
+    # Skipped by DJ's advice: too many changes withoud updating the test
+    @unittest.skip('Test Out Of Date')
     def test__adjust_track_visual(self):
         hdf_test_file = os.path.join(test_data_path,
                                      'flight_with_go_around_and_landing.hdf5')
