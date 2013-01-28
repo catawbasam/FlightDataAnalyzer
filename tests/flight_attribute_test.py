@@ -37,9 +37,11 @@ from analysis_engine.flight_attribute import (
     Version,
 )
 
-from analysis_engine import settings as analysis_engine_settings
-analysis_engine_settings.API_HANDLER = 'analysis_engine.' \
-        'api_handler_analysis_engine.AnalysisEngineAPIHandlerLocal'
+
+def setUpModule():
+    from analysis_engine import settings as analysis_engine_settings
+    analysis_engine_settings.API_HANDLER = 'analysis_engine.' \
+            'api_handler_analysis_engine.AnalysisEngineAPIHandlerLocal'
 
 
 class NodeTest(object):
