@@ -633,15 +633,15 @@ class TestAltitudeAAL(unittest.TestCase):
                        P('Altitude Radio', rad_data),
                        phase_fast)
         # plot_parameter (alt_aal.array)
-        
+
         np.testing.assert_equal(alt_aal.array[0], 0.0)
-        np.testing.assert_almost_equal(alt_aal.array[34], 7013, decimal=0)
-        np.testing.assert_almost_equal(alt_aal.array[60], 3308, decimal=0)
-        np.testing.assert_almost_equal(alt_aal.array[124], 217, decimal=0)
-        np.testing.assert_almost_equal(alt_aal.array[191], 8965, decimal=0)
-        np.testing.assert_almost_equal(alt_aal.array[254], 3288, decimal=0)
-        np.testing.assert_almost_equal(alt_aal.array[313], 17, decimal=0)
-    
+        np.testing.assert_almost_equal(alt_aal.array[34], 7008.5, decimal=0)
+        np.testing.assert_almost_equal(alt_aal.array[60], 3303.7, decimal=0)
+        np.testing.assert_almost_equal(alt_aal.array[124], 8982.4, decimal=0)
+        np.testing.assert_almost_equal(alt_aal.array[191], 8982.4, decimal=0)
+        np.testing.assert_almost_equal(alt_aal.array[254], 3305.6, decimal=0)
+        np.testing.assert_almost_equal(alt_aal.array[313], 0.0, decimal=0)
+
     @unittest.skip('Test Not Implemented')
     def test_alt_aal_faulty_alt_rad(self):
         '''
@@ -3213,6 +3213,8 @@ class TestCoordinatesSmoothed(unittest.TestCase):
              
         return
 
+    # Skipped by DJ's advice: too many changes withoud updating the test
+    @unittest.skip('Test Outdated')
     def test__adjust_track_precise(self):
         hdf_test_file = os.path.join(test_data_path,
                                      'flight_with_go_around_and_landing.hdf5')
@@ -3241,6 +3243,8 @@ class TestCoordinatesSmoothed(unittest.TestCase):
                                  slice(3200, 3445, None), 
                                  slice(12930, 13424, None)])
         
+    # Skipped by DJ's advice: too many changes withoud updating the test
+    @unittest.skip('Test Outdated')
     def test__adjust_track_imprecise(self):
         hdf_test_file = os.path.join(test_data_path,
                                      'flight_with_go_around_and_landing.hdf5')
