@@ -1346,7 +1346,7 @@ class GroundspeedThrustReverseDeployedMin(KeyPointValueNode):
 
     name = 'Groundspeed With Thrust Reversers Deployed (Over 65% N1) Min'
 
-    def derive(self, speed=P('Groundspeed'), tr=P('Thrust Reversers'),
+    def derive(self, speed=P('Groundspeed'), tr=M('Thrust Reversers'),
                pwr=P('Eng (*) N1 Max'), lands=S('Landing')):
         '''
         '''
