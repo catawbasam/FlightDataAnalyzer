@@ -4084,7 +4084,9 @@ class ThrustAsymmetry(DerivedParameterNode):
     For propellor aircraft the product of prop speed and torgue should be
     used to provide a similar single asymmetry value.
     '''
-    
+
+    units = '%'
+
     def derive(self, max_n1=P('Eng (*) N1 Max'), min_n1=P('Eng (*) N1 Min')):
         self.array = max_n1.array - min_n1.array
 
