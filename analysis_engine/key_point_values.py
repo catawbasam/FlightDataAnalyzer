@@ -1701,7 +1701,7 @@ class GenericDescent(KeyPointValueNode):
     def can_operate(cls, available):
         '''
         '''
-        return 'Descent' in available and 'Altitude AAL' in available
+        return 'Descent' in available and 'Altitude AAL For Flight Phases' in available
 
     def derive(self, alt_aal=P('Altitude AAL For Flight Phases'),
                slope=P('Slope To Landing'), flap=P('Flap'),
