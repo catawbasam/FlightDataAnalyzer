@@ -795,6 +795,31 @@ def datetime_of_index(start_datetime, index, frequency=1):
     offset = timedelta(seconds=index_in_seconds)
     return start_datetime + offset
 
+def delay(array, period, hz=1.0):
+    '''
+    This function introduces a time delay. Used in validation testing where
+    correlation is improved by allowing for the delayed response of one
+    parameter when compared to another.
+    
+    :param array: Masked array of floats
+    :type array: Numpy masked array
+    :param period: Time delay(sec)
+    :type period: int/float
+    :param hz: Frequency of the data_array
+    :type hz: float
+
+    :returns: array with data shifted back in time, and initial values masked.
+    '''
+    n = int(period * hz)
+    result = np_ma_masked_zeros_like(array)
+    if len(result[n:])==len(array[:-n]):
+        result[n:] = array[:-n]
+        return result
+    else:
+        if n==0:
+            return array
+        else:
+            return result
 
 # Previously known as Duration
 def clip(array, period, hz=1.0, remove='peaks'):
