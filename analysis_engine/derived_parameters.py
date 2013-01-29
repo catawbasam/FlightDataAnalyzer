@@ -3545,19 +3545,26 @@ class LatitudeSmoothed(DerivedParameterNode, CoordinatesSmoothed):
     spacing, even if the recorded latitude and longitude have only 0.25Hz
     sample rate.
     """
-        
+
     # List the minimum acceptable parameters here
     @classmethod
     def can_operate(cls, available):
-        return 'Latitude Prepared' in available and \
-               'Longitude Prepared' in available and \
-               'Approach Range' in available and \
-               'Heading Continuous' in available and \
-               'Airspeed True' in available and \
-               'FDR Approaches' in available
-    
+        return all_of((
+            'Latitude Prepared',
+            'Longitude Prepared',
+            'Heading Continuous',
+            'Approach Range',
+            'Heading True Continuous',
+            'Airspeed True',
+            'Precise Positioning',
+            'Takeoff',
+            'FDR Takeoff Runway',
+            'Touchdown',
+            'FDR Approaches',
+            'Mobile'), available)
+
     units = 'deg'
-    
+
     def derive(self, lat = P('Latitude Prepared'),
                lon = P('Longitude Prepared'),
                head_mag=P('Heading Continuous'),
@@ -3592,16 +3599,23 @@ class LongitudeSmoothed(DerivedParameterNode, CoordinatesSmoothed):
     units = 'deg'
     ##align_frequency = 1.0
     ##align_offset = 0.0
-    
+
     @classmethod
     def can_operate(cls, available):
-        return 'Latitude Prepared' in available and \
-               'Longitude Prepared' in available and \
-               'Approach Range' in available and \
-               'Heading Continuous' in available and \
-               'Airspeed True' in available and \
-               'FDR Approaches' in available
-    
+        return all_of((
+            'Latitude Prepared',
+            'Longitude Prepared',
+            'Heading Continuous',
+            'Approach Range',
+            'Heading True Continuous',
+            'Airspeed True',
+            'Precise Positioning',
+            'Takeoff',
+            'FDR Takeoff Runway',
+            'Touchdown',
+            'FDR Approaches',
+            'Mobile'), available)
+
     def derive(self, lat = P('Latitude Prepared'),
                lon = P('Longitude Prepared'),
                head_mag=P('Heading Continuous'),

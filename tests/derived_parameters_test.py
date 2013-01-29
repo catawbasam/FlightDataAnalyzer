@@ -2865,8 +2865,8 @@ class TestLatitudePrepared(unittest.TestCase):
 class TestLatitudeSmoothed(unittest.TestCase):
     def test_can_operate(self):
         combinations = LatitudeSmoothed.get_operational_combinations()
-        self.assertTrue(all('Latitude Prepared') in c for c in combinations)
-    
+        self.assertTrue(all('Latitude Prepared' in c for c in combinations))
+
     @unittest.skip('Test Not Implemented')
     def test_derive(self):
         self.assertTrue(False, msg='Test not implemented.')
@@ -2885,7 +2885,7 @@ class TestLongitudePrepared(unittest.TestCase):
 class TestLongitudeSmoothed(unittest.TestCase):
     def test_can_operate(self):
         combinations = LongitudeSmoothed.get_operational_combinations()
-        self.assertTrue(all('Longitude Prepared') in c for c in combinations)
+        self.assertTrue(all('Longitude Prepared' in c for c in combinations))
         
     @unittest.skip('Test Not Implemented')
     def test_derive(self):
