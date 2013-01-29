@@ -20,6 +20,7 @@ from analysis_engine.settings import (ACCEL_LAT_OFFSET_LIMIT,
 from analysis_engine.node import KeyPointValueNode, KPV, KTI, P, S, A, M
 
 from analysis_engine.library import (ambiguous_runway,
+                                     all_of,
                                      any_of,
                                      bearings_and_distances,
                                      bump,
@@ -1690,60 +1691,72 @@ class GenericDescent(KeyPointValueNode):
 
     NAME_FORMAT = '%(parameter)s At %(altitude)d Ft AAL In Descent'
     NAME_VALUES = {
-        'parameter': ['Airspeed', 'Airspeed Relative', 'Vertical Speed',
-            'Slope To Landing', 'Flap', 'Gear Down', 'Speedbrake',
-            'ILS Glideslope', 'ILS Localizer', 'Power', 'Pitch', 'Roll',
-            'Heading'],
+        'parameter': [
+            'Airspeed',
+            'Airspeed Relative',
+            'Vertical Speed',
+            'Slope To Landing',
+            'Flap',
+            ####'Gear Down',
+            ####'Speedbrake Selected',
+            'ILS Glideslope',
+            'ILS Localizer',
+            'Eng (*) N1 Avg',
+            'Pitch',
+            'Roll',
+            'Heading Continuous',
+        ],
     }
     NAME_VALUES.update(NAME_VALUES_DESCENT)
 
     @classmethod
     def can_operate(cls, available):
-        '''
-        '''
-        return 'Descent' in available and 'Altitude AAL For Flight Phases' in available
+        return all_of(('Altitude AAL For Flight Phases', 'Descent'), available)
 
-    def derive(self, alt_aal=P('Altitude AAL For Flight Phases'),
-               slope=P('Slope To Landing'), flap=P('Flap'),
-               glide=P('ILS Glideslope'),  airspeed=P('Airspeed'),
-               vert_spd=P('Vertical Speed'), gear=M('Gear Down'),
-               loc=P('ILS Localizer'),  power=P('Eng (*) N1 Avg'),
-               pitch=P('Pitch'),  brake=M('Speedbrake Selected'),
-               roll=P('Roll'),  head=P('Heading Continuous'), descent=S('Descent')):
-        '''
-        '''
-        for this_descent in descent.get_slices():
-            for alt in self.NAME_VALUES['altitude']:
-                index = index_at_value(alt_aal.array, alt, _slice=this_descent)
-                if index:
-                    self.create_kpv(index, value_at_index(slope.array, index),
-                        parameter='Slope To Landing', altitude=alt)
-                    self.create_kpv(index, value_at_index(flap.array, index),
-                        parameter='Flap', altitude=alt)
-                    self.create_kpv(index, value_at_index(glide.array, index),
-                        parameter='ILS Glideslope', altitude=alt)
-                    self.create_kpv(index, value_at_index(airspeed.array,
-                                                          index),
-                        parameter='Airspeed', altitude=alt)
-                    self.create_kpv(index, value_at_index(vert_spd.array,
-                                                          index),
-                        parameter='Rate Of Descent', altitude=alt)
-                    self.create_kpv(index, value_at_index(gear.array.raw,
-                                                          index),
-                        parameter='Gear Down', altitude=alt)
-                    self.create_kpv(index, value_at_index(loc.array, index),
-                        parameter='ILS Localizer', altitude=alt)
-                    self.create_kpv(index, value_at_index(power.array, index),
-                        parameter='Power', altitude=alt)
-                    self.create_kpv(index, value_at_index(pitch.array, index),
-                        parameter='Pitch', altitude=alt)
-                    self.create_kpv(index, value_at_index(brake.array.raw,
-                                                          index),
-                        parameter='Speedbrake', altitude=alt)
-                    self.create_kpv(index, value_at_index(roll.array, index),
-                        parameter='Roll', altitude=alt)
-                    self.create_kpv(index, value_at_index(head.array, index),
-                        parameter='Heading', altitude=alt)
+    def create_kpv__special(self, parameter, index, altitude):
+        if not parameter:
+            return
+        value = value_at_index(parameter.array, index)
+        ####if isinstance(parameter, M):
+        ####    value = parameter.state.get(value, value)
+        self.create_kpv(index, value,
+            parameter=parameter.name, altitude=altitude)        
+
+    def derive(self,
+               alt_aal=P('Altitude AAL For Flight Phases'),
+               air_spd=P('Airspeed'),
+               air_spd_rel=P('Airspeed Relative'),
+               vert_spd=P('Vertical Speed'),
+               slope_ldg=P('Slope To Landing'),
+               flap=P('Flap'),
+               ####gear_down=M('Gear Down'),
+               ####spd_brk_sel=M('Speedbrake Selected'),
+               glideslope=P('ILS Glideslope'),
+               localizer=P('ILS Localizer'),
+               power=P('Eng (*) N1 Avg'),
+               pitch=P('Pitch'),
+               roll=P('Roll'),
+               heading=P('Heading Continuous'),
+               descents=S('Descent')):
+
+        for descent in descents.get_slices():
+            for altitude in self.NAME_VALUES['altitude']:
+                index = index_at_value(alt_aal.array, altitude, _slice=descent)
+                if index is None:
+                    continue
+                self.create_kpv__special(air_spd, index, altitude)
+                self.create_kpv__special(air_spd_rel, index, altitude)
+                self.create_kpv__special(vert_spd, index, altitude)
+                self.create_kpv__special(slope_ldg, index, altitude)
+                self.create_kpv__special(flap, index, altitude)
+                ####self.create_kpv__special(gear_down, index, altitude)
+                ####self.create_kpv__special(spd_brk_sel, index, altitude)
+                self.create_kpv__special(glideslope, index, altitude)
+                self.create_kpv__special(localizer, index, altitude)
+                self.create_kpv__special(power, index, altitude)
+                self.create_kpv__special(pitch, index, altitude)
+                self.create_kpv__special(roll, index, altitude)
+                self.create_kpv__special(heading, index, altitude)
 
 
 class AltitudeAtTouchdown(KeyPointValueNode):
