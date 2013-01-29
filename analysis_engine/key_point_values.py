@@ -3905,9 +3905,6 @@ class HeightOfBouncedLanding(KeyPointValueNode):
         
 
 class HeadingDeviationOnTakeoffAbove80Kts(KeyPointValueNode):
-    
-    name = 'Heading Deviation From CL On Takeoff Above 80 Kts'
-    
     """
     FDS developed this KPV to support the UK CAA Significant Seven programme.
     "Excursions - Take off (Lateral). Heading changes on runway before rotation
@@ -3919,6 +3916,9 @@ class HeadingDeviationOnTakeoffAbove80Kts(KeyPointValueNode):
     which time the weight is clearly coming off the mainwheels (we avoid
     using weight on nosewheel as this is often not recorded).
     """
+    
+    name = 'Heading Deviation From CL On Takeoff Above 80 Kts'
+    
     def derive(self, head=P('Heading True Continuous'), airspeed=P('Airspeed'),
                pitch=P('Pitch'), toffs=S('Takeoff'), rwy=A('FDR Takeoff Runway')):
         
@@ -3976,14 +3976,14 @@ class HeadingExcursion500To20Ft(KeyPointValueNode):
             
             
 class HeadingDeviationOnLandingAt50Ft(KeyPointValueNode):
-    
-    name = 'Heading Deviation From CL On Landing at 50 Ft'
-    
     """
     FDS developed this KPV to support the UK CAA Significant Seven programme.
     "Excursions - Take off (Lateral). Crosswind. Could look at the difference
     between a/c heading and R/W heading at 50ft."
     """
+    
+    name = 'Heading Deviation From CL On Landing at 50 Ft'
+    
     def derive(self, head=P('Heading True Continuous'), landings=S('Landing'), 
                rwy=A('FDR Landing Runway')):
 
