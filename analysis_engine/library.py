@@ -1022,7 +1022,7 @@ def find_edges(array, _slice, direction='rising_edges'):
     directly.
     
     :param array: array of values to scan for edges
-    :type array: Numpy masked array (what else?!)
+    :type array: Numpy masked array
     :param _slice: slice to be examined
     :type _slice: slice
     :param direction: Optional edge direction for sensing. Default 'rising_edges'
@@ -1056,8 +1056,7 @@ def find_edges(array, _slice, direction='rising_edges'):
     return list(edge_list)
 
 
-def find_edges_on_state_change(state, array, change='entering', 
-                                phase=None):
+def find_edges_on_state_change(state, array, change='entering', phase=None):
     '''
     Version of find_edges tailored to suit multi-state parameters.
     
@@ -1068,21 +1067,21 @@ def find_edges_on_state_change(state, array, change='entering',
     
     :param change: condition for detecting edge. Default 'entering', 'leaving' and 'entering_and_leaving' alternatives
     :type change: text
-    :param phase: flight phase within which edges will be detected.
+    :param phase: flight phase or list of slices within which edges will be detected.
     :type phase: list of slices, default=None
     
     :returns: list of indexes
     
     :error condition: raises ValueError if either change or state not recognised
     '''
-    def state_changes(state, array, edge_list, change, _slice=slice(0, -1)):
+    def state_changes(state, array, change, _slice=slice(0, -1)):
 
         length = len(array[_slice])
         # The offset allows for phase slices and puts the 
         offset = _slice.start - 0.5
         state_periods = np.ma.clump_unmasked(
             np.ma.masked_not_equal(array[_slice], array.state[state]))
-        
+        edge_list = []
         for period in state_periods:
             if change == 'entering':
                 if period.start > 0:
@@ -1102,18 +1101,23 @@ def find_edges_on_state_change(state, array, change='entering',
         
         return edge_list
 
-    # High level function scans phase blocks or complete array and
-    # presents appropriate arguments for analysis. We test for phase.name
-    # as phase returns False.
-    if not state in {v:k for k, v in array.values_mapping.items()}:
-        raise ValueError("State '%s' not recognised in find_edges_on_state_change" %state)
+    ### High level function scans phase blocks or complete array and
+    ### presents appropriate arguments for analysis. We test for phase.name
+    ### as phase returns False.
+    ##if not state in {v:k for k, v in array.values_mapping.items()}:
+        ##raise ValueError("State '%s' not recognised in find_edges_on_state_change" %state)
+    
+    if phase is None:
+        return state_changes(state, array, change)
     
     edge_list = []
-    if phase is None:
-        state_changes(state, array, edge_list, change)
-    else:
-        for each_period in phase:
-            state_changes(state, array, edge_list, change, each_period.slice)
+    for period in phase:
+        if hasattr(period, 'slice'):
+            _slice = period.slice
+        else:
+            _slice = period
+        edges = state_changes(state, array, change, _slice)
+        edge_list.extend(edges)
     return edge_list
 
 

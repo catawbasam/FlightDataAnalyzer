@@ -1259,7 +1259,7 @@ class TestFindEdgesOnStateChange(unittest.TestCase):
 
     def test_misunderstood_state(self):
         multi = self.Switch(array=np.ma.array([0,1]))
-        self.assertRaises(ValueError, find_edges_on_state_change, 'ha!', multi.array)
+        self.assertRaises(KeyError, find_edges_on_state_change, 'ha!', multi.array)
 
 class TestFirstOrderLag(unittest.TestCase):
 
