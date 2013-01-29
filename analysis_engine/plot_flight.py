@@ -163,7 +163,7 @@ def track_to_kml(hdf_path, kti_list, kpv_list, flight_attrs,
 
     for kti in kti_list:
         kti_point_values = {'name': kti.name}
-        if kti.name not in KEEP_KTIS:
+        if kti.name in SKIP_KTIS:
             continue
         
         altitude = alt.at(kti.index) if plot_altitude else None

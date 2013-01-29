@@ -12,7 +12,7 @@ from utilities import masked_array_testutils as ma_test
 from utilities.filesystem_tools import copy_file
 
 from analysis_engine.flight_phase import Fast, Mobile
-from analysis_engine.library import align, np_ma_masked_zeros_like
+from analysis_engine.library import align, ccf_737, np_ma_masked_zeros_like
 from analysis_engine.node import (Attribute, A, KPV, KeyTimeInstance, KTI, load,
                                   M, Parameter, P, Section, S)
 from analysis_engine.process_flight import process_flight
@@ -1125,14 +1125,14 @@ class TestControlColumnForce(unittest.TestCase):
 
     def setUp(self):
         ccff = np.ma.arange(1, 4)
-        self.ccff = P('Control Column Force (Capt)', ccff)
+        self.ccff = P('Control Column Force (Local)', ccff)
         ccfl = np.ma.arange(1, 4)
         ccfl[-1:] = np.ma.masked
-        self.ccfl = P('Control Column Force (FO)', ccfl)
+        self.ccfl = P('Control Column Force (Foreign)', ccfl)
 
     def test_can_operate(self):
-        expected = [('Control Column Force (Capt)',
-                     'Control Column Force (FO)')]
+        expected = [('Control Column Force (Local)',
+                     'Control Column Force (Foreign)')]
         opts = ControlColumnForce.get_operational_combinations()
         self.assertEqual(opts, expected)
 
@@ -1140,8 +1140,8 @@ class TestControlColumnForce(unittest.TestCase):
         ccf = ControlColumnForce()
         ccf.derive(self.ccff, self.ccfl)
         result = ccf.array
-        answer = np.ma.array(data=[2, 4, 6], mask=[False, False, True])
-        np.testing.assert_array_almost_equal(result, answer)
+        answer = np.ma.array(data=[1, 2, 3], mask=[False, False, True])
+        np.testing.assert_array_almost_equal(result, ccf_737(answer))
 
 
 class TestControlColumnForceCapt(unittest.TestCase):
@@ -1167,7 +1167,7 @@ class TestControlColumnForceCapt(unittest.TestCase):
         result = ccfc.array
         answer = self.ccfl.array
         answer[4:8] = self.ccff.array[4:8]
-        np.testing.assert_array_almost_equal(result, answer)
+        np.testing.assert_array_almost_equal(result, ccf_737(answer))
 
 
 class TestControlColumnForceFO(unittest.TestCase):
@@ -1193,7 +1193,7 @@ class TestControlColumnForceFO(unittest.TestCase):
         result = ccff.array
         answer = self.ccff.array
         answer[4:8] = self.ccfl.array[4:8]
-        np.testing.assert_array_almost_equal(result, answer)
+        np.testing.assert_array_almost_equal(result, ccf_737(answer))
 
 
 class TestControlWheel(unittest.TestCase):

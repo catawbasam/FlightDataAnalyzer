@@ -1022,13 +1022,15 @@ class TakeoffRoll(FlightPhaseNode):
 
 class TakeoffRotation(FlightPhaseNode):
     '''
+    This is used by correlation tests to check control movements during the
+    rotation and lift phases.
     '''
     def derive(self, lifts=S('Liftoff')):
         if not lifts:
             return
         lift_index = lifts.get_first().index
-        start = lift_index - 4
-        end = lift_index + 4
+        start = lift_index - 10
+        end = lift_index + 15
         self.create_phase(slice(start, end))
         
     

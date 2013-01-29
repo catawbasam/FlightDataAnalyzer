@@ -18,6 +18,7 @@ from analysis_engine.library import (air_track,
                                      blend_two_parameters,
                                      cas2dp,
                                      cas_alt2mach,
+                                     ccf_737,
                                      clip,
                                      coreg,
                                      cycle_finder,
@@ -1362,7 +1363,9 @@ class ControlColumnForceCapt(DerivedParameterNode):
     '''
     The force applied by the captain to the control column.  This is dependent
     on who has master control of the aircraft and this derived parameter
-    selects the appropriate slices of data from the foreign and local forces.
+    selects the appropriate slices of data from the foreign and local sensor forces.
+    
+    Beware; the sensor forces are NOT the same as the control column forces.
     '''
     name = 'Control Column Force (Capt)'
     units = 'deg'
@@ -1375,9 +1378,9 @@ class ControlColumnForceCapt(DerivedParameterNode):
         # FCC (R) == 1 and this form is used as the numpy array comparison
         # tilts at using the MappedArray object.
         
-        self.array = np.ma.where(fcc_master.array.data != 1,
-                                 force_local.array,
-                                 force_foreign.array)
+        self.array = ccf_737(np.ma.where(fcc_master.array.data != 1,
+                                         force_local.array,
+                                         force_foreign.array))
 
 
 class ControlColumnForceFO(DerivedParameterNode):
@@ -1399,9 +1402,9 @@ class ControlColumnForceFO(DerivedParameterNode):
         # FCC (R) == 1 and this form is used as the numpy array comparison
         # tilts at using the MappedArray object.
 
-        self.array = np.ma.where(fcc_master.array.data == 1,
-                                 force_local.array,
-                                 force_foreign.array)
+        self.array = ccf_737(np.ma.where(fcc_master.array.data == 1,
+                                         force_local.array,
+                                         force_foreign.array))
 
 
 class ControlColumnForce(DerivedParameterNode):
@@ -1412,9 +1415,9 @@ class ControlColumnForce(DerivedParameterNode):
     units = 'lbf'
 
     def derive(self,
-               force_capt=P('Control Column Force (Capt)'),
-               force_fo=P('Control Column Force (FO)')):
-        self.array = force_capt.array + force_fo.array
+               force_local=P('Control Column Force (Local)'),
+               force_foreign=P('Control Column Force (Foreign)')):
+        self.array = ccf_737((force_local.array + force_foreign.array)/2.0)
         # TODO: Check this summation is correct in amplitude and phase.
         # Compare with Boeing charts for the 737NG.
 
@@ -4737,18 +4740,18 @@ class ApproachRange(DerivedParameterNode):
                     self.warning('Low convergence in computing visual '
                                  'approach path offset.')
             
-            ### This plot code allows the actual flightpath and regression line 
-            ### to be viewed in case of concern about the performance of the 
-            ### algorithm.
-            ##import matplotlib.pyplot as plt
-            ##x1=app_range[reg_slice]
-            ##y1=alt_aal.array[reg_slice]
-            ##x2=app_range[reg_slice]
-            ##y2=alt_aal.array[reg_slice] * (1-0.13*glide.array[reg_slice])            
-            ##xnew = np.linspace(np.min(x1),np.max(x1),num=2)
-            ##ynew = (xnew - offset)/slope 
-            ##plt.plot(x1,y1,'-',x2,y2,'-',xnew,ynew,'-')
-            ##plt.show()
+            ## This plot code allows the actual flightpath and regression line 
+            ## to be viewed in case of concern about the performance of the 
+            ## algorithm.
+            #import matplotlib.pyplot as plt
+            #x1=app_range[reg_slice.start:this_app_slice.stop]
+            #y1=alt_aal.array[reg_slice.start:this_app_slice.stop]
+            #x2=app_range[reg_slice]
+            #y2=alt_aal.array[reg_slice] * (1-0.13*glide.array[reg_slice])            
+            #xnew = np.linspace(np.min(x2),np.max(x2),num=2)
+            #ynew = (xnew - offset)/slope 
+            #plt.plot(x1,y1,'-',x2,y2,'-',xnew,ynew,'-')
+            #plt.show()
     
             # Touchdown point nominally 1000ft from start of runway but
             # use glideslope antenna position if we know it.

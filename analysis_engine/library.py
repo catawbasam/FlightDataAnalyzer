@@ -821,6 +821,13 @@ def delay(array, period, hz=1.0):
         else:
             return result
 
+def ccf_737(array):
+    '''
+    Boeing 737 NG control column force equation. See D226A101-2 Rev G Note 14C.
+    '''
+    x = array/0.1015625
+    return ((1.5E-09*x+2.5E-06)*x+0.0405)*x
+
 # Previously known as Duration
 def clip(array, period, hz=1.0, remove='peaks'):
     '''
@@ -1103,7 +1110,9 @@ def find_edges_on_state_change(state, array, change='entering',
     def state_changes(state, array, edge_list, change, _slice=slice(0, -1)):
 
         length = len(array[_slice])
-        # The offset allows for phase slices and puts the 
+        # The offset allows for phase slices and puts the transition midway
+        # between the two conditions as this is the most probable time that
+        # the change took place.
         offset = _slice.start - 0.5
         state_periods = np.ma.clump_unmasked(
             np.ma.masked_not_equal(array[_slice], array.state[state]))
