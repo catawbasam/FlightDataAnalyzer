@@ -5040,7 +5040,7 @@ class StableApproach(MultistateDerivedParameterNode):
             
             #== 8. Engine Power (N1) ==
             self.array[approach.slice][stable] = 8
-            STABLE_N1_MIN = 75  # %
+            STABLE_N1_MIN = 60  # %
             stable_engine = (engine > STABLE_N1_MIN)
             stable_engine |= (altitude > 1000) | (altitude < 50)  # Only use in altitude band 1000-50 feet
             stable &= stable_engine.filled(True)  #Q: make True?
