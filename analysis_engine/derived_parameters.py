@@ -4893,7 +4893,7 @@ class HeadingDeviationFromRunway(DerivedParameterNode):
 
         if to_rwy:
             try:
-                self.array[takeoff[0].slice] = runway_deviation(heading_track[takeoff[0].slice], to_rwy.value)
+                self.array[takeoff[0].slice] = runway_deviation(heading_track.array[takeoff[0].slice], to_rwy.value)
             except (KeyError, ValueError):
                 # no runway identified during Takeoff
                 pass
