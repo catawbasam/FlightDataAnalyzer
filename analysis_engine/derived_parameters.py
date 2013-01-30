@@ -5014,8 +5014,7 @@ class StableApproach(MultistateDerivedParameterNode):
             self.array[approach.slice][stable] = 4
             STABLE_AIRSPEED_ABOVE_REF = 20
             stable_airspeed = (airspeed < STABLE_AIRSPEED_ABOVE_REF) | (altitude < 100)
-            stable &= stable_airspeed.filled(False)  # if no V Ref speed, values are masked so consider unstable
-            
+            stable &= stable_airspeed.filled(True)  # if no V Ref speed, values are masked so consider stable as one is not flying to the vref speed??
             
             if glide_est_at_1000ft:
                 #== 5. Glideslope Deviation ==
