@@ -290,22 +290,6 @@ class AirspeedMinusV2For3Sec(DerivedParameterNode):
         self.array = clip(spd_v2.array, 3.0, spd_v2.frequency)
         
 
-# TODO: Write some unit tests!
-class AirspeedMinusV2For5Sec(DerivedParameterNode):
-    '''
-    Airspeed on takeoff relative to V2 over a 5 second window.
-
-    See the derived parameter 'Airspeed Minus V2'.
-    '''
-
-    units = 'kts'
-
-    def derive(self, spd_v2=P('Airspeed Minus V2')):
-        '''
-        '''
-        self.array = clip(spd_v2.array, 5.0, spd_v2.frequency)
-        
-
 ################################################################################
 # Airspeed Relative (Airspeed relative to Vapp, Vref or a fixed value.)
 
