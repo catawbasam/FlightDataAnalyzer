@@ -3599,6 +3599,19 @@ def rms_noise(array, ignore_pc=None):
     return sqrt(np.ma.mean(np.ma.power(to_rms,2))) # RMS in one line !
 
 
+def runs_of_ones_array(bits, min_len):
+    # make sure all runs of ones are well-bounded
+    bounded = np.hstack(([0], bits, [0]))
+    # get 1 at run starts and -1 at run ends
+    difs = np.diff(bounded)
+    run_starts, = np.where(difs > 0)
+    run_ends, = np.where(difs < 0)
+    run_dur = run_ends - run_starts
+    those_above = run_dur>=min_len
+    # return duration and starting locations
+    return run_starts[those_above], run_ends[those_above], run_dur[those_above]
+
+
 def shift_slice(this_slice, offset):
     """
     This function shifts a slice by an offset. The need for this arises when
@@ -4300,7 +4313,7 @@ def value_at_index(array, index):
     :returns: interpolated value from the array
     '''
     
-    if index < 0.0:
+    if index < 0.0:  # True if index is None
         return array[0]
     elif index > len(array)-1:
         return array[-1]

@@ -3111,6 +3111,15 @@ class TestSectionContainsKti(unittest.TestCase):
         self.assertFalse(section_contains_kti(section, kti))
 """             
         
+class TestRunsOfOnes(unittest.TestCase):
+    def test_runs_of_ones(self):
+        st, end, dur = runs_of_ones_array([0,0,1,0,1,1,1,1,1,0,0,1,1,1], 2)
+        
+        self.assertEqual(list(st), [4, 11]) # starts at 4
+        self.assertEqual(list(end), [9, 14]) # ends at 8+1 = 9 for slicing
+        self.assertEqual(list(dur), [5, 3]) # dur of 5        
+        
+        
 class TestShiftSlice(unittest.TestCase):
     def test_shift_slice(self):
         a = slice(1, 3, None)

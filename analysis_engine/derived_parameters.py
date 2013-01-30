@@ -403,8 +403,6 @@ class AirspeedReference(DerivedParameterNode):
                 pass
 
 
-# TODO: Write some unit tests!
-# TODO: Ensure that this derived parameter supports Vapp and fixed values.
 class AirspeedRelative(DerivedParameterNode):
     '''
     See AirspeedReference for details.
@@ -418,7 +416,6 @@ class AirspeedRelative(DerivedParameterNode):
         self.array = airspeed.array - vref.array
 
 
-# TODO: Write some unit tests!
 class AirspeedRelativeFor3Sec(DerivedParameterNode):
     '''
     Airspeed on approach relative to Vapp/Vref over a 3 second window.
