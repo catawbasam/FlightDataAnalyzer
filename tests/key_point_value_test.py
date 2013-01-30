@@ -78,12 +78,6 @@ from analysis_engine.key_point_values import (
     AirspeedRelativeFor3Sec20FtToTouchdownMin,
     AirspeedRelativeFor3Sec500To20FtMax,
     AirspeedRelativeFor3Sec500To20FtMin,    
-    AirspeedRelativeFor5Sec1000To500FtMax,
-    AirspeedRelativeFor5Sec1000To500FtMin,
-    AirspeedRelativeFor5Sec20FtToTouchdownMax,
-    AirspeedRelativeFor5Sec20FtToTouchdownMin,
-    AirspeedRelativeFor5Sec500To20FtMax,
-    AirspeedRelativeFor5Sec500To20FtMin,
     AirspeedRelativeWithFlapDescentMin,
     AirspeedTODTo10000Max,
     AirspeedThrustReverseDeployedMin,
@@ -1261,90 +1255,6 @@ class TestAirspeedRelativeFor3Sec500To20FtMin(unittest.TestCase,
         self.function = min_value
         self.second_param_method_calls = [('slices_from_to', (500, 20), {})]
     
-    @unittest.skip('Test Not Implemented')
-    def test_derive(self):
-        self.assertTrue(False, msg='Test Not Implemented') 
-
-
-class TestAirspeedRelativeFor5Sec1000To500FtMax(unittest.TestCase,
-                                                CreateKPVsWithinSlicesTest):
-    def setUp(self):
-        self.node_class = AirspeedRelativeFor5Sec1000To500FtMax
-        self.operational_combinations = [('Airspeed Relative For 5 Sec',
-                                          'Altitude AAL For Flight Phases',)]
-        self.function = max_value
-        self.second_param_method_calls = [('slices_from_to', (1000, 500), {})]
-
-    @unittest.skip('Test Not Implemented')
-    def test_derive(self):
-        self.assertTrue(False, msg='Test Not Implemented') 
-
-
-class TestAirspeedRelativeFor5Sec1000To500FtMin(unittest.TestCase,
-                                                CreateKPVsWithinSlicesTest):
-    def setUp(self):
-        self.node_class = AirspeedRelativeFor5Sec1000To500FtMin
-        self.operational_combinations = [('Airspeed Relative For 5 Sec',
-                                          'Altitude AAL For Flight Phases',)]
-        self.function = min_value
-        self.second_param_method_calls = [('slices_from_to', (1000, 500), {})]
-
-    @unittest.skip('Test Not Implemented')
-    def test_derive(self):
-        self.assertTrue(False, msg='Test Not Implemented') 
-
-
-class TestAirspeedRelativeFor5Sec500To20FtMax(unittest.TestCase,
-                                              CreateKPVsWithinSlicesTest):
-    def setUp(self):
-        self.node_class = AirspeedRelativeFor5Sec500To20FtMax
-        self.operational_combinations = [('Airspeed Relative For 5 Sec',
-                                          'Altitude AAL For Flight Phases',)]
-        self.function = max_value
-        self.second_param_method_calls = [('slices_from_to', (500, 20), {})]
-        
-    @unittest.skip('Test Not Implemented')
-    def test_derive(self):
-        self.assertTrue(False, msg='Test Not Implemented') 
-
-
-class TestAirspeedRelativeFor5Sec500To20FtMin(unittest.TestCase,
-                                              CreateKPVsWithinSlicesTest):
-    def setUp(self):
-        self.node_class = AirspeedRelativeFor5Sec500To20FtMin
-        self.operational_combinations = [('Airspeed Relative For 5 Sec',
-                                          'Altitude AAL For Flight Phases',)]
-        self.function = min_value
-        self.second_param_method_calls = [('slices_from_to', (500, 20), {})]
-
-    @unittest.skip('Test Not Implemented')
-    def test_derive(self):
-        self.assertTrue(False, msg='Test Not Implemented') 
-
-
-class TestAirspeedRelativeFor5Sec20FtToTouchdownMax(unittest.TestCase,
-                                                    CreateKPVsWithinSlicesTest):
-    def setUp(self):
-        self.node_class = AirspeedRelativeFor5Sec20FtToTouchdownMax
-        self.operational_combinations = [('Airspeed Relative For 5 Sec',
-                                          'Altitude AAL For Flight Phases',)]
-        self.function = max_value
-        self.second_param_method_calls = [('slices_from_to', (20, 0), {})]
-
-    @unittest.skip('Test Not Implemented')
-    def test_derive(self):
-        self.assertTrue(False, msg='Test Not Implemented') 
-
-
-class TestAirspeedRelativeFor5Sec20FtToTouchdownMin(unittest.TestCase,
-                                                    CreateKPVsWithinSlicesTest):
-    def setUp(self):
-        self.node_class = AirspeedRelativeFor5Sec20FtToTouchdownMin
-        self.operational_combinations = [('Airspeed Relative For 5 Sec',
-                                          'Altitude AAL For Flight Phases',)]
-        self.function = min_value
-        self.second_param_method_calls = [('slices_from_to', (20, 0), {})]
-        
     @unittest.skip('Test Not Implemented')
     def test_derive(self):
         self.assertTrue(False, msg='Test Not Implemented') 
