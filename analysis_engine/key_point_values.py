@@ -372,21 +372,6 @@ class AirspeedMax(KeyPointValueNode):
         )
 
 
-# FIXME: Rename class to 'AirspeedFor3SecMax' to keep with naming convention!
-class AirspeedMax3Sec(KeyPointValueNode):
-    '''
-    '''
-
-    def derive(self, airspeed=P('Airspeed'), airborne=S('Airborne')):
-        '''
-        '''
-        self.create_kpvs_within_slices(
-            clip(airspeed.array, 3.0, airspeed.hz),
-            airborne,
-            max_value,
-        )
-
-
 class AirspeedCruiseMax(KeyPointValueNode):
     '''
     '''
@@ -2905,18 +2890,6 @@ class MachMax(KeyPointValueNode):
         '''
         '''
         self.create_kpvs_within_slices(mach.array, airs, max_value)
-
-
-# FIXME: Rename class to 'MachFor3SecMax' to keep with naming convention!
-class MachMax3Sec(KeyPointValueNode):
-    '''
-    '''
-
-    def derive(self, mach=P('Mach'), airs=S('Airborne')):
-        '''
-        '''
-        self.create_kpvs_within_slices(clip(mach.array, 3.0, mach.hz),
-                                       airs, max_value)
 
 
 ################################################################################

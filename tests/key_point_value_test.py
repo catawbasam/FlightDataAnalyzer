@@ -59,7 +59,6 @@ from analysis_engine.key_point_values import (
     AirspeedGustsDuringFinalApproach,
     AirspeedLevelFlightMax,
     AirspeedMax,
-    AirspeedMax3Sec,
     AirspeedMinusV235To1000FtMax,
     AirspeedMinusV235To1000FtMin,
     AirspeedMinusV2At35Ft,
@@ -753,16 +752,6 @@ class TestAirspeedMax(unittest.TestCase, CreateKPVsWithinSlicesTest):
         self.assertEqual(kpv[1].index, 94)
         self.assertGreater(kpv[1].value, 199.9)
         self.assertLess(kpv[1].value, 200)
-
-
-class TestAirspeedMax3Sec(unittest.TestCase, NodeTest):
-    def setUp(self):
-        self.node_class = AirspeedMax3Sec
-        self.operational_combinations = [('Airspeed', 'Airborne')]
-
-    @unittest.skip('Test Not Implemented')
-    def test_derive(self):
-        self.assertTrue(False, msg='Test not implemented.')
 
 
 class TestAirspeedCruiseMax(unittest.TestCase, CreateKPVFromSlicesTest):
@@ -2968,16 +2957,6 @@ class TestLongitudeAtLowestPointOnApproach(unittest.TestCase):
         self.assertTrue(False, msg='Test not implemented.')
 
     @unittest.skip('Test Not Implemented')
-    def test_derive(self):
-        self.assertTrue(False, msg='Test not implemented.')
-
-
-class TestMachMax3Sec(unittest.TestCase):
-    @unittest.skip('Test Not Implemented')
-    def test_can_operate(self):
-        self.assertTrue(False, msg='Test not implemented.')
-    
-    @unittest.skip('Test Not Implemented')    
     def test_derive(self):
         self.assertTrue(False, msg='Test not implemented.')
 
