@@ -4,7 +4,7 @@
 from datetime import datetime
 import numpy as np
 
-from analysis_engine import __version__
+from analysis_engine import __version__, settings
 from analysis_engine.api_handler import get_api_handler, NotFoundError
 from analysis_engine.library import (datetime_of_index, 
                                      is_index_within_slice,
@@ -12,7 +12,6 @@ from analysis_engine.library import (datetime_of_index,
                                      max_value, 
                                      slices_overlap)
 from analysis_engine.node import A, KTI, KPV, FlightAttributeNode, P, S
-from analysis_engine.settings import CONTROLS_IN_USE_TOLERANCE, API_HANDLER
 
 
 class InvalidFlightType(Exception):
@@ -137,7 +136,7 @@ class Approaches(FlightAttributeNode):
         frequency = float(approach_sections.frequency)
 
         default_kwargs = dict(
-            api=get_api_handler(API_HANDLER),
+            api=get_api_handler(settings.API_HANDLER),
             precise=precise,
             appr_ilsfreq=appr_ilsfreq,
         )
@@ -334,8 +333,8 @@ class DeterminePilot(object):
         '''
         Check if either pitch or roll changed during slice_.
         '''
-        return pitch[slice_].ptp() > CONTROLS_IN_USE_TOLERANCE or \
-               roll[slice_].ptp() > CONTROLS_IN_USE_TOLERANCE
+        return pitch[slice_].ptp() > settings.CONTROLS_IN_USE_TOLERANCE or \
+               roll[slice_].ptp() > settings.CONTROLS_IN_USE_TOLERANCE
     
     def _controls_in_use(self, pitch_captain, roll_captain, pitch_fo, roll_fo,
                          section):
@@ -466,7 +465,7 @@ class LandingAirport(FlightAttributeNode):
             lat = land_lat.get_last()
             lon = land_lon.get_last()
             if lat and lon:
-                api = get_api_handler(API_HANDLER)
+                api = get_api_handler(settings.API_HANDLER)
                 try:
                     airport = api.get_nearest_airport(lat.value, lon.value)
                 except NotFoundError:
@@ -586,7 +585,7 @@ class LandingRunway(FlightAttributeNode):
             else:
                 kwargs.update(hint='landing')
 
-            api = get_api_handler(API_HANDLER)
+            api = get_api_handler(settings.API_HANDLER)
             try:
                 runway = api.get_nearest_runway(airport, heading, **kwargs)
             except NotFoundError:
@@ -678,7 +677,7 @@ class TakeoffAirport(FlightAttributeNode):
             lat = toff_lat.get_first()
             lon = toff_lon.get_first()
             if lat and lon:
-                api = get_api_handler(API_HANDLER)
+                api = get_api_handler(settings.API_HANDLER)
                 try:
                     airport = api.get_nearest_airport(lat.value, lon.value)
                 except NotFoundError:
@@ -871,7 +870,7 @@ class TakeoffRunway(FlightAttributeNode):
             if not precise:
                 kwargs.update(hint='takeoff')
 
-            api = get_api_handler(API_HANDLER)
+            api = get_api_handler(settings.API_HANDLER)
             try:
                 runway = api.get_nearest_runway(airport, heading, **kwargs)
             except NotFoundError:
