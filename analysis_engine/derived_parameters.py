@@ -4906,34 +4906,35 @@ class StableApproach(MultistateDerivedParameterNode):
     1. Gear is down
     2. Landing Flap is set
     3. Heading aligned to Runway within 10 degrees 
-    4. Approach Airspeed minus Reference speed within 10 knots
+    4. Approach Airspeed minus Reference speed within 20 knots
     5. Glideslope deviation within 1 dot
     6. Localizer deviation within 1 dot
-    7. Engine Power greater than 75% and not Cycling within last 5 seconds
+    7. Vertical speed between -1000 and -200 fpm
+    8. Engine Power greater than 60% # TODO: and not Cycling within last 5 seconds
     
     if all the above steps are met, the result is the declaration of:
-    8. "Stable"
+    9. "Stable"
     
-    TODO:
-    =====
+    TODO/REVIEW:
+    ============
     * Check for 300ft limit if turning onto runway late and ignore stability criteria before this? Alternatively only assess criteria when heading is within 50.
     * Q: Fill masked values of parameters with False (unstable: stop here) or True (stable, carry on)
     * Declare that if there is no GS est < 1000ft non-precision (500ft)
-    * CREATE Track Heading parameter (using recorded if available, else worked out from drift from Heading Mag). New Param Runway Deviation is Track Heading - RUNWAY HEADING for both takeoff phase and Approach and Landing phase of flight.
     * CREATE KPVs for height first stable and height last unstable
     * 3 second gliding windows for GS / LOC etc.
+    * Engine cycling check
     '''
     
     values_mapping = {
         0: '-',  # All values should be masked anyway, this helps align values
         1: 'Gear Not Down',
         2: 'Not Landing Flap',
-        3: 'Not Aligned to Runway',   # Rename with heading?
-        4: 'Airspeed Not Stable',  # Q: Split into two Airspeed High/Low?
-        5: 'Glideslope Not Stable',
-        6: 'Localizer Not Stable',
-        7: 'Vertical Speed Not Stable',
-        8: 'Engine Power Not Stable',
+        3: 'Hdg Not Aligned',   # Rename with heading?
+        4: 'Aspd Not Stable',  # Q: Split into two Airspeed High/Low?
+        5: 'GS Not Stable',
+        6: 'Loc Not Stable',
+        7: 'IVV Not Stable',
+        8: 'Eng N1 Not Stable',
         9: 'Stable',
     }
     
@@ -4949,9 +4950,9 @@ class StableApproach(MultistateDerivedParameterNode):
                flap=M('Flap'),
                head=P('Heading Deviation From Runway'),
                aspd=P('Airspeed Relative'),
-               vert_spd=P('Vertical Speed'),
-               glide=P('ILS Glideslope'),
-               loc=P('ILS Localizer'),
+               vspd=P('Vertical Speed'),
+               gdev=P('ILS Glideslope'),
+               ldev=P('ILS Localizer'),
                eng=P('Eng (*) N1 Min'),
                alt=P('Altitude AAL'),
                ):
@@ -4964,13 +4965,7 @@ class StableApproach(MultistateDerivedParameterNode):
         
         #Ht AAL due to
         # the altitude above airfield level corresponding to each cause
-        # options are FLAP, GEAR GS HI/LO, LOC, SPD HI/LO and VSI HI/LO
-
-        # An alternative to this discrete would be to create a multistate
-        # with each point being the reason it's unstable
-        
-        
-        
+        # options are FLAP, GEAR GS HI/LO, LOC, SPD HI/LO and VSI HI/LO        
 
         # create an empty fuly masked array
         self.array = np_ma_masked_zeros_like(gear.array)
@@ -4982,15 +4977,19 @@ class StableApproach(MultistateDerivedParameterNode):
             flap_lever = repair_mask(flap.array[approach.slice])
             heading = repair_mask(head.array[approach.slice])
             airspeed = repair_mask(aspd.array[approach.slice])
-            glideslope = repair_mask(glide.array[approach.slice])
-            localizer = repair_mask(loc.array[approach.slice])
-            vertical_speed = repair_mask(vert_spd.array[approach.slice])
-            engine = repair_mask(eng.array[approach.slice])
+            glideslope = repair_mask(gdev.array[approach.slice])
+            localizer = repair_mask(ldev.array[approach.slice])
+            vertical_speed = repair_mask(vspd.array[approach.slice])
+            engine = repair_mask(eng.array[approach.slice])  # add hysteresis here?
             altitude = repair_mask(alt.array[approach.slice])
             
             # Determine whether Glideslope was used at 1000ft, if not ignore ILS
             _1000 = index_at_value(altitude, 1000)
-            glide_est_at_1000ft = abs(glideslope[_1000]) < 1.0  # dots
+            if _1000:
+                glide_est_at_1000ft = abs(glideslope[_1000]) < 1.0  # dots
+            else:
+                # didn't reach 1000 feet
+                glide_est_at_1000ft = False
 
             #== 1. Gear Down ==
             # Assume unstable due to Gear Down at first
