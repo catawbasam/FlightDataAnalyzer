@@ -2392,16 +2392,6 @@ class TestAirspeedRelativeFor3Sec(unittest.TestCase):
         self.assertTrue(False, msg='Test not implemented.')
 
 
-class TestAirspeedRelativeFor5Sec(unittest.TestCase):
-    @unittest.skip('Test Not Implemented')
-    def test_can_operate(self):
-        self.assertTrue(False, msg='Test not implemented.')
-        
-    @unittest.skip('Test Not Implemented')
-    def test_derive(self):
-        self.assertTrue(False, msg='Test not implemented.')
-
-
 class TestAltitudeSTD(unittest.TestCase):
     @unittest.skip('Test Not Implemented')
     def test_can_operate(self):
