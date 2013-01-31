@@ -4766,7 +4766,7 @@ class RateOfDescent1000To500FtMax(KeyPointValueNode):
         )
 
 
-class RateOfDescent500To20FtMax(KeyPointValueNode):
+class RateOfDescent500To50FtMax(KeyPointValueNode):
     '''
     '''
 
@@ -4776,12 +4776,12 @@ class RateOfDescent500To20FtMax(KeyPointValueNode):
         '''
         self.create_kpvs_within_slices(
             vert_spd.array,
-            alt_aal.slices_from_to(500, 20),
+            alt_aal.slices_from_to(500, 50),
             min_value,
         )
 
 
-class RateOfDescent500FtToTouchdownMax(KeyPointValueNode):
+class RateOfDescent50FtToTouchdownMax(KeyPointValueNode):
     '''
     '''
 
@@ -4792,24 +4792,7 @@ class RateOfDescent500FtToTouchdownMax(KeyPointValueNode):
         '''
         self.create_kpvs_within_slices(
             vert_spd.array,
-            alt_aal.slices_to_kti(500, tdwns),
-            min_value,
-        )
-
-
-class RateOfDescent20ToTouchdownMax(KeyPointValueNode):
-    '''
-    We use the inertial vertical speed to avoid ground effects this low to the
-    runway.
-    '''
-
-    def derive(self, alt_aal=P('Altitude AAL For Flight Phases'),
-               vert_spd=P('Vertical Speed Inertial'), tdwns=KTI('Touchdown')):
-        '''
-        '''
-        self.create_kpvs_within_slices(
-            vert_spd.array,
-            alt_aal.slices_to_kti(20, tdwns),
+            alt_aal.slices_to_kti(50, tdwns),
             min_value,
         )
 
