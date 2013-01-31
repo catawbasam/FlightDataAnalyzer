@@ -740,6 +740,40 @@ class AirspeedMinusV235To1000FtMin(KeyPointValueNode):
         )
 
 
+class AirspeedMinusV2For3Sec35To1000FtMax(KeyPointValueNode):
+    '''
+    '''
+
+    name = 'Airspeed Minus V2 For 3 Sec 35 To 1000 Ft Max'
+
+    def derive(self, spd_v2=P('Airspeed Minus V2 For 3 Sec'),
+            alt_aal=P('Altitude AAL For Flight Phases')):
+        '''
+        '''
+        self.create_kpvs_within_slices(
+            spd_v2.array,
+            alt_aal.slices_from_to(35, 1000),
+            max_value,
+        )
+
+
+class AirspeedMinusV2For3Sec35To1000FtMin(KeyPointValueNode):
+    '''
+    '''
+
+    name = 'Airspeed Minus V2 For 3 Sec 35 To 1000 Ft Min'
+
+    def derive(self, spd_v2=P('Airspeed Minus V2 For 3 Sec'),
+            alt_aal=P('Altitude AAL For Flight Phases')):
+        '''
+        '''
+        self.create_kpvs_within_slices(
+            spd_v2.array,
+            alt_aal.slices_from_to(35, 1000),
+            min_value,
+        )
+
+
 ########################################
 # Airspeed: Relative
 

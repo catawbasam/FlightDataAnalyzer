@@ -61,6 +61,8 @@ from analysis_engine.key_point_values import (
     AirspeedMax,
     AirspeedMinusV235To1000FtMax,
     AirspeedMinusV235To1000FtMin,
+    AirspeedMinusV2For3Sec35To1000FtMax,
+    AirspeedMinusV2For3Sec35To1000FtMin,
     AirspeedMinusV2At35Ft,
     AirspeedMinusV2AtLiftoff,
     AirspeedRTOMax,
@@ -1066,6 +1068,34 @@ class TestAirspeedMinusV235To1000FtMin(unittest.TestCase,
     @unittest.skip('Test Not Implemented')
     def test_derive(self):
         self.assertTrue(False, msg='Test Not Implemented') 
+
+
+class TestAirspeedMinusV2For3Sec35To1000FtMax(unittest.TestCase,
+                                       CreateKPVsWithinSlicesTest):
+    def setUp(self):
+        self.node_class = AirspeedMinusV2For3Sec35To1000FtMax
+        self.operational_combinations = [('Airspeed Minus V2 For 3 Sec',
+                                          'Altitude AAL For Flight Phases',)]
+        self.function = max_value
+        self.second_param_method_calls = [('slices_from_to', (35, 1000), {})]
+
+    @unittest.skip('Test Not Implemented')
+    def test_derive(self):
+        self.assertTrue(False, msg='Test Not Implemented')
+
+
+class TestAirspeedMinusV2For3Sec35To1000FtMin(unittest.TestCase,
+                                       CreateKPVsWithinSlicesTest):
+    def setUp(self):
+        self.node_class = AirspeedMinusV2For3Sec35To1000FtMin
+        self.operational_combinations = [('Airspeed Minus V2 For 3 Sec',
+                                          'Altitude AAL For Flight Phases',)]
+        self.function = min_value
+        self.second_param_method_calls = [('slices_from_to', (35, 1000), {})]
+
+    @unittest.skip('Test Not Implemented')
+    def test_derive(self):
+        self.assertTrue(False, msg='Test Not Implemented')
 
 
 ########################################
