@@ -3091,16 +3091,6 @@ class TestTakeoffRotation(unittest.TestCase):
         self.assertTrue(False, msg='Test not implemented.')
 
 
-class TestTwoDegPitchTo35Ft(unittest.TestCase):
-    @unittest.skip('Test Not Implemented')
-    def test_can_operate(self):
-        self.assertTrue(False, msg='Test not implemented.')
-    
-    @unittest.skip('Test Not Implemented')    
-    def test_derive(self):
-        self.assertTrue(False, msg='Test not implemented.')
-
-
 class TestHeadingAtTakeoff(unittest.TestCase, NodeTest):
     def setUp(self):
         self.node_class = HeadingAtTakeoff
