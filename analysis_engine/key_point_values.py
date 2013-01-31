@@ -124,10 +124,11 @@ class FlapOrConfigurationMaxOrMin(object):
 ################################################################################
 # Acceleration
 
+
 class AccelerationLateralAtTouchdown(KeyPointValueNode):
     '''
-    Programmed at Goodyear office as a demonstration.
     '''
+
     def derive(self, acc=P('Acceleration Lateral Offset Removed'),
                tdwns=KTI('Touchdown')):
         for tdwn in tdwns:
