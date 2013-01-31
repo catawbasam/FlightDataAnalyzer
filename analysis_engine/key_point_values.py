@@ -2982,7 +2982,6 @@ class EngBleedValvesAtLiftoff(KeyPointValueNode):
 # Engine EPR
 
 
-# TODO: Write some unit tests!
 class EngEPRToFL100Max(KeyPointValueNode):
     '''
     '''
@@ -3000,7 +2999,6 @@ class EngEPRToFL100Max(KeyPointValueNode):
         )
 
 
-# TODO: Write some unit tests!
 class EngEPRAboveFL100Max(KeyPointValueNode):
     '''
     '''
@@ -3548,7 +3546,6 @@ class ThrustReductionOnLanding(KeyPointValueNode):
 
 
 
-# TODO: Write some unit tests!
 class EngOilPressMax(KeyPointValueNode):
     '''
     '''
@@ -3559,7 +3556,6 @@ class EngOilPressMax(KeyPointValueNode):
         self.create_kpv(*max_value(oil_press.array))
 
 
-# TODO: Write some unit tests!
 class EngOilPressMin(KeyPointValueNode):
     '''
     '''
@@ -3675,7 +3671,6 @@ class EngTorqueMaximumContinuousPowerMax(KeyPointValueNode):
         self.create_kpv_outside_slices(eng_trq_max.array, ratings, max_value)
 
 
-# TODO: Write some unit tests!
 class EngTorqueToFL100Max(KeyPointValueNode):
     '''
     '''
@@ -3693,7 +3688,6 @@ class EngTorqueToFL100Max(KeyPointValueNode):
         )
 
 
-# TODO: Write some unit tests!
 class EngTorqueAboveFL100Max(KeyPointValueNode):
     '''
     '''
@@ -4035,7 +4029,6 @@ class FlapAtLiftoff(KeyPointValueNode):
         self.create_kpvs_at_ktis(flap.array, liftoffs)
   
 
-# TODO: Write some unit tests!
 class FlapWithSpeedbrakesDeployedMax(KeyPointValueNode):
     '''
     '''
@@ -4523,7 +4516,6 @@ class PitchRate20FtToTouchdownMin(KeyPointValueNode):
         )
 
 
-# TODO: Write some unit tests!
 class PitchRate2DegPitchTo35FtMax(KeyPointValueNode):
     '''
     '''
@@ -4534,7 +4526,6 @@ class PitchRate2DegPitchTo35FtMax(KeyPointValueNode):
         self.create_kpvs_within_slices(pitch_rate.array, lifts, max_value)
 
 
-# TODO: Write some unit tests!
 class PitchRate2DegPitchTo35FtMin(KeyPointValueNode):
     '''
     '''
@@ -4545,7 +4536,6 @@ class PitchRate2DegPitchTo35FtMin(KeyPointValueNode):
         self.create_kpvs_within_slices(pitch_rate.array, lifts, min_value)
 
 
-# TODO: Write some unit tests!
 # TODO: Remove this KPV?  Not a dependency, not used in event definitions.
 class PitchRate2DegPitchTo35FtAverage(KeyPointValueNode):
     '''
@@ -4561,7 +4551,6 @@ class PitchRate2DegPitchTo35FtAverage(KeyPointValueNode):
             self.create_kpv(mid_index, pitch_rate_avg)
 
 
-# TODO: Write some unit tests!
 # TODO: Remove this KPV?  Not a dependency, not used in event definitions.
 # NOTE: Python class name restriction: '2 Deg Pitch To 35 Ft Duration'
 class TwoDegPitchTo35FtDuration(KeyPointValueNode):
@@ -4598,7 +4587,6 @@ def vert_spd_phase_max_or_min(obj, vert_spd, phases, function):
 # Rate of Climb
 
 
-# TODO: Write some unit tests!
 class RateOfClimbMax(KeyPointValueNode):
     '''
     '''
@@ -4650,7 +4638,6 @@ class RateOfClimbBelow10000FtMax(KeyPointValueNode):
 # FIXME: Should rate of descent KPVs should occur for 3+ seconds?
 
 
-# TODO: Write some unit tests!
 class RateOfDescentMax(KeyPointValueNode):
     '''
     '''
@@ -5022,7 +5009,6 @@ class RudderReversalAbove50Ft(KeyPointValueNode):
 # Speedbrake
 
 
-# TODO: Write some unit tests!
 class SpeedbrakesDeployed1000To20FtDuration(KeyPointValueNode):
     '''
     '''
@@ -5041,7 +5027,6 @@ class SpeedbrakesDeployed1000To20FtDuration(KeyPointValueNode):
                 self.create_kpv(index, value)
 
 
-# TODO: Write some unit tests!
 class SpeedbrakesDeployedWithPowerOnDuration(KeyPointValueNode):
     '''
     Each time the aircraft is flown with high power and the speedbrakes open,
@@ -5075,7 +5060,6 @@ class SpeedbrakesDeployedWithPowerOnDuration(KeyPointValueNode):
                 self.create_kpv(index, value)
 
 
-# TODO: Write some unit tests!
 class SpeedbrakesDeployedWithFlapDuration(KeyPointValueNode):
     '''
     '''
@@ -5099,7 +5083,6 @@ class SpeedbrakesDeployedWithFlapDuration(KeyPointValueNode):
                     self.create_kpv(index, value)
 
 
-# TODO: Write some unit tests!
 class SpeedbrakesDeployedWithConfDuration(KeyPointValueNode):
     '''
     Conf used here, but not tried or tested. Presuming conf 2 / conf 3 should
@@ -5122,7 +5105,6 @@ class SpeedbrakesDeployedWithConfDuration(KeyPointValueNode):
                 self.create_kpv(index, value)
 
 
-# TODO: Write some unit tests!
 class SpeedbrakesDeployedWithPowerOnInHeightBandsDuration(KeyPointValueNode):
     '''
     Specific to certain operators.
@@ -6171,7 +6153,6 @@ class AltitudeAtGoAroundGearUpSelection(KeyPointValueNode):
                 self.create_kpv(gear_up.index, gear_up_ht)
 
 
-# TODO: Write some unit tests!
 class SpeedbrakesDeployedInGoAroundDuration(KeyPointValueNode):
     '''
     FDS developed this KPV to support the UK CAA Significant Seven programme.
