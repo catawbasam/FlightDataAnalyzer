@@ -100,6 +100,22 @@ debug = sys.gettrace() is not None
 test_data_path = os.path.join(os.path.dirname(os.path.abspath(__file__)),
                               'test_data')
 
+def assert_array_within_tolerance(actual, desired, tolerance=1, similarity=100):
+    '''
+    Check that the actual array within tolerance of the desired array is
+    at least similarity percent.
+    
+    :param tolerance: relative difference between the two array values
+    :param similarity: percentage that must pass the tolerance test
+    '''
+    within_tolerance = abs(actual -  desired) <= tolerance
+    percent_similar = sum(within_tolerance) / float(len(within_tolerance)) * 100
+    if percent_similar <= similarity:
+        raise AssertionError(
+            'actual array tolerance only is %.2f%% similar to desired array.'
+            'tolerance %.2f minimum similarity required %.2f%%' % (
+                percent_similar, tolerance, similarity))
+
 
 class NodeTest(object):
     def test_can_operate(self):
@@ -1847,9 +1863,9 @@ class TestHeadingContinuous(unittest.TestCase):
         np.testing.assert_array_equal(head.array.data, answer.data)
 
 
-class TestHeadingDeviationFromRunway(unittest.TestCase):
+class TestTrackDeviationFromRunway(unittest.TestCase):
     def test_can_operate(self):
-        self.assertEqual(HeadingDeviationFromRunway.get_operational_combinations(),
+        self.assertEqual(TrackDeviationFromRunway.get_operational_combinations(),
                     [('Heading True Track', 'FDR Approaches'),
                      ('Heading True Track', 'Takeoff', 'FDR Takeoff Runway'),
                      ('Heading True Track', 'Takeoff', 'FDR Takeoff Runway', 'FDR Approaches')])
@@ -1860,12 +1876,12 @@ class TestHeadingDeviationFromRunway(unittest.TestCase):
         to_runway = load(os.path.join(test_data_path, 'HeadingDeviationFromRunway_runway.nod'))
         takeoff = load(os.path.join(test_data_path, 'HeadingDeviationFromRunway_takeoff.nod'))
 
-        heading_deviation = HeadingDeviationFromRunway()
-        heading_deviation.get_derived((heading_track, takeoff, to_runway, apps))
+        deviation = TrackDeviationFromRunway()
+        deviation.get_derived((heading_track, takeoff, to_runway, apps))
         # check average stays close to 0
-        self.assertAlmostEqual(np.ma.average(heading_deviation.array[8775:8975]), 1.5, places = 1)
-        self.assertAlmostEqual(np.ma.min(heading_deviation.array[8775:8975]), -10.5, places = 1)
-        self.assertAlmostEqual(np.ma.max(heading_deviation.array[8775:8975]), 12.3, places = 1)
+        self.assertAlmostEqual(np.ma.average(deviation.array[8775:8975]), 1.5, places = 1)
+        self.assertAlmostEqual(np.ma.min(deviation.array[8775:8975]), -10.5, places = 1)
+        self.assertAlmostEqual(np.ma.max(deviation.array[8775:8975]), 12.3, places = 1)
 
 
 class TestHeadingIncreasing(unittest.TestCase):
