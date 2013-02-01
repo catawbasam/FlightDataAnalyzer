@@ -72,11 +72,9 @@ from analysis_engine.derived_parameters import (
     GrossWeightSmoothed,
     #GroundspeedAlongTrack,
     HeadingContinuous,
-    HeadingDeviationFromRunway,
     HeadingIncreasing,
-    HeadingTrack,
-    HeadingTrue,
     HeadingTrueTrack,
+    HeadingTrue,
     Headwind,
     ILSFrequency,
     #ILSLocalizerRange,
@@ -91,6 +89,7 @@ from analysis_engine.derived_parameters import (
     VerticalSpeed,
     VerticalSpeedForFlightPhases,
     RateOfTurn,
+    TrackDeviationFromRunway,
     TurbulenceRMSG,
     V2,
     WindAcrossLandingRunway,
@@ -1943,25 +1942,23 @@ class TestLatitudeAndLongitudePrepared(unittest.TestCase):
         self.assertLess(smoother.array[3],0.012)
 
 
-class TestHeadingTrack(unittest.TestCase):
-    def test_can_operate(self):
-        self.assertEqual(HeadingTrack.get_operational_combinations(),
-            [('Heading Continuous', 'Drift')])
-
-    @unittest.skip('Test Not Implemented')
-    def test_basic(self):
-        self.assertTrue(False, msg='Test not implemented.')
-
 
 class TestHeadingTrueTrack(unittest.TestCase):
     def test_can_operate(self):
-        self.assertEqual(HeadingTrueTrack.get_operational_combinations(),
+        self.assertEqual(
+            HeadingTrueTrack.get_operational_combinations(),
             [('Heading True Continuous', 'Drift')])
 
-    @unittest.skip('Test Not Implemented')
-    def test_basic(self):
-        self.assertTrue(False, msg='Test not implemented.')
-
+    def test_heading_track(self):
+        hdg = load(os.path.join(test_data_path, 'HeadingTrack_Heading_True.nod'))
+        dft = load(os.path.join(test_data_path, 'HeadingTrack_Drift.nod'))
+        head_track = HeadingTrueTrack()
+        head_track.derive(heading=hdg, drift=dft)
+        
+        # compare IRU Track Angle True (recorded) against the derived
+        track_rec = load(os.path.join(test_data_path, 'HeadingTrack_IRU_Track_Angle_Recorded.nod'))
+        assert_array_within_tolerance(head_track.array, track_rec.array, 10, 98)
+        
 
 class TestHeadingTrue(unittest.TestCase):
     def test_can_operate(self):

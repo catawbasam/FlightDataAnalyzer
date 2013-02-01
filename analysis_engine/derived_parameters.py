@@ -4925,15 +4925,11 @@ class StableApproach(MultistateDerivedParameterNode):
     
     align_frequency = 1  # force to 1Hz
 
-    ##@classmethod
-    ##def can_operate(cls, available):
-        ##return True
-
     def derive(self, 
                apps=S('Approach'),
                gear=M('Gear Down'),
                flap=M('Flap'),
-               head=P('Heading Deviation From Runway'),
+               head=P('Track Deviation From Runway'),
                aspd=P('Airspeed Relative'),
                vspd=P('Vertical Speed'),
                gdev=P('ILS Glideslope'),
@@ -5019,18 +5015,18 @@ class StableApproach(MultistateDerivedParameterNode):
             STABLE_VERTICAL_SPEED_MAX = -200
             stable_vert = (vertical_speed > STABLE_VERTICAL_SPEED_MIN) & (vertical_speed < STABLE_VERTICAL_SPEED_MAX) 
             stable_vert |= altitude < 50
-            stable &= stable_vert.filled(False)  #Q: make True?
+            stable &= stable_vert.filled(True)  #Q: True best?
             
             #== 8. Engine Power (N1) ==
             self.array[approach.slice][stable] = 8
-            STABLE_N1_MIN = 60  # %
+            STABLE_N1_MIN = 55  # %
             stable_engine = (engine > STABLE_N1_MIN)
             stable_engine |= (altitude > 1000) | (altitude < 50)  # Only use in altitude band 1000-50 feet
-            stable &= stable_engine.filled(True)  #Q: make True?
+            stable &= stable_engine.filled(True)  #Q: True best?
             
             #== 9. Stable ==
             # Congratulations; whatever remains in this approach is stable!
-            self.array[approach.slice][stable] = 9  # Woop, you're stable!
+            self.array[approach.slice][stable] = 9
             
         #endfor
         
