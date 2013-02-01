@@ -198,8 +198,8 @@ from analysis_engine.key_point_values import (
     RateOfDescent3000To2000FtMax,
     RateOfDescent2000To1000FtMax,
     RateOfDescent1000To500FtMax,
-    RateOfDescent500To20FtMax,
-    RateOfDescent500FtToTouchdownMax,
+    RateOfDescent500To50FtMax,
+    RateOfDescent50FtToTouchdownMax,
     RateOfDescentAtTouchdown,
     RateOfDescentBelow10000FtMax,
     RateOfDescentMax,
@@ -3091,16 +3091,6 @@ class TestTakeoffRotation(unittest.TestCase):
         self.assertTrue(False, msg='Test not implemented.')
 
 
-class TestTwoDegPitchTo35Ft(unittest.TestCase):
-    @unittest.skip('Test Not Implemented')
-    def test_can_operate(self):
-        self.assertTrue(False, msg='Test not implemented.')
-    
-    @unittest.skip('Test Not Implemented')    
-    def test_derive(self):
-        self.assertTrue(False, msg='Test not implemented.')
-
-
 class TestHeadingAtTakeoff(unittest.TestCase, NodeTest):
     def setUp(self):
         self.node_class = HeadingAtTakeoff
@@ -3902,48 +3892,35 @@ class TestRateOfDescent1000To500FtMax(unittest.TestCase,
         self.assertTrue(False, msg='Test Not Implemented') 
         
 
-class TestRateOfDescent500To20FtMax(unittest.TestCase,
+class TestRateOfDescent500To50FtMax(unittest.TestCase,
                                     CreateKPVsWithinSlicesTest):
     def setUp(self):
-        self.node_class = RateOfDescent500To20FtMax
+        self.node_class = RateOfDescent500To50FtMax
         self.operational_combinations = [('Vertical Speed',
                                           'Altitude AAL For Flight Phases',)]
         self.function = min_value
-        self.second_param_method_calls = [('slices_from_to', (500, 20), {})]
+        self.second_param_method_calls = [('slices_from_to', (500, 50), {})]
 
     @unittest.skip('Test Not Implemented')
     def test_derive(self):
         self.assertTrue(False, msg='Test Not Implemented') 
         
 
-# FIXME: Uses slices_to_kti(), not slices_from_to()!
-class TestRateOfDescent500FtToTouchdownMax(unittest.TestCase,
+class TestRateOfDescent50FtToTouchdownMax(unittest.TestCase,
                                            CreateKPVsWithinSlicesTest):
-    # TODO: CreateKPVsWithinSlices with 3-Args
     def setUp(self):
         # XXX: This test does not explicitly test how the Touchdown dependency
         #      is used.
-        self.node_class = RateOfDescent500FtToTouchdownMax
+        self.node_class = RateOfDescent50FtToTouchdownMax
         self.operational_combinations = [('Vertical Speed',
                                           'Altitude AAL For Flight Phases',
                                           'Touchdown',)]
         self.function = min_value
-        self.second_param_method_calls = [('slices_to_kti', (500, []), {})]
+        self.second_param_method_calls = [('slices_to_kti', (50, []), {})]
 
     @unittest.skip('Test Not Implemented')
     def test_derive(self):
         self.assertTrue(False, msg='Test Not Implemented')
-
-
-class TestRateOfDescent20ToTouchdownMax(unittest.TestCase):
-    # TODO: CreateKPVsWithinSlices with 3-Args
-    @unittest.skip('Test Not Implemented')
-    def test_can_operate(self):
-        self.assertTrue(False, msg='Test not implemented.')
-    
-    @unittest.skip('Test Not Implemented')    
-    def test_derive(self):
-        self.assertTrue(False, msg='Test not implemented.')
 
 
 class TestRateOfDescentAtTouchdown(unittest.TestCase, NodeTest):
